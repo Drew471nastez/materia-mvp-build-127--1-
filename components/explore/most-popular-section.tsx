@@ -79,15 +79,18 @@ export function MostPopularSection({ products }: MostPopularSectionProps) {
       </div>
 
       {/*
-        FOUR ROWS AT EVERY WIDTH, which is a different NUMBER at every width.
+        ONE CARD PER ROW ON A PHONE, which is what the list above it does.
 
-        The grid is two across on a phone and three on a desktop, so four rows
-        is eight and then twelve. Rendering twelve and hiding the last four
-        below `lg` is what keeps it four rows rather than four rows on one
-        screen and six on another — and the hidden ones cost nothing, because
+        This was two across on a phone, so the same product was a full-width
+        card in the listing and a half-width one here, forty pixels apart. The
+        owner asked for one, and one is right: the cards are identical, so
+        they should be the same size on the same screen.
+
+        Twelve render and the last four are hidden below `lg`, which is what
+        keeps it four rows on a desktop. The hidden ones cost nothing, because
         a card that is `display: none` never fetches its picture.
       */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
         {popularProducts.slice(0, 12).map((product, index) => (
           <div key={product.id} className={index >= 8 ? "hidden lg:block" : undefined}>
             <ProductCard

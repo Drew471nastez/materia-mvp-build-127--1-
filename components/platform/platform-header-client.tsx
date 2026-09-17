@@ -277,17 +277,21 @@ function MobileTopSheet({
   const handleHandleTouchMove = (e: React.TouchEvent) => {
     if (!isDragging) return
     const currentY = e.touches[0].clientY
-    const diff = startY.current - currentY // positive = dragging up (towards close)
+    /* Positive = dragging DOWN, which is the way out of a sheet that came up
+       from the bottom. Dragging the other way does nothing rather than
+       stretching it off the top of the screen. */
+    const diff = currentY - startY.current
     if (diff > 0) {
       e.preventDefault()
-      setDragY(-diff * 0.8) // negative = sheet moves up
+      setDragY(diff * 0.8)
     }
   }
 
   const handleHandleTouchEnd = () => {
     if (!isDragging) return
     setIsDragging(false)
-    if (dragY < -80) {
+    /* Down, not up: the sheet comes from the bottom now. */
+    if (dragY > 80) {
       handleClose()
     } else {
       setDragY(0)
@@ -297,34 +301,58 @@ function MobileTopSheet({
   if (!isVisible || !isMounted) return null
 
   return createPortal(
-    <div data-mobile-top-sheet="true" className="fixed inset-0 z-[100] md:hidden">
+    /*
+      ═══════════════════════════════════════════════════════════════════════
+       IT COMES UP FROM THE BOTTOM, AND IT SITS ON TOP OF THE KEYBOARD
+      ═══════════════════════════════════════════════════════════════════════
+      It dropped from the top, which puts the field a thumb cannot reach at
+      the far end of the screen and then hides it behind the keyboard the
+      moment it is tapped. Every search sheet on a phone comes from the
+      bottom, where the thumb already is.
+
+      THE OVERLAY IS THE VISUAL VIEWPORT, not the layout viewport. `--vv-h`
+      and `--vv-top` are maintained by components/viewport-vars from
+      window.visualViewport, which is the part of the page the keyboard is not
+      covering. Sizing the overlay to that is what keeps the sheet and its
+      field above the keyboard instead of under it, with no user-agent
+      sniffing and nothing to guess.
+
+      AND NO `backdrop-filter`. The scrim used `backdrop-blur-[2px]`, and a
+      full-screen blurring layer over a twelve-thousand pixel page is one of
+      the reliable ways to make a phone browser paint the wrong tiles: the
+      reported footer showing through the product listing appeared on tapping
+      this field and nowhere else. A plain translucent black does the same job
+      and asks nothing of the compositor.
+    */
+    <div
+      data-mobile-bottom-sheet="true"
+      className="fixed inset-x-0 z-[100] md:hidden"
+      style={{ top: "var(--vv-top, 0px)", height: "var(--vv-h, 100dvh)" }}
+    >
       {/* Backdrop */}
       <div
-        className={`absolute inset-0 bg-black/50 backdrop-blur-[2px] transition-opacity ease-out ${
+        className={`absolute inset-0 bg-black/50 transition-opacity ease-out ${
           isAnimating ? "opacity-100" : "opacity-0"
         }`}
         style={{ transitionDuration: '400ms' }}
         onClick={handleClose}
       />
-      {/* Top Sheet */}
+      {/* Bottom Sheet */}
       <div
         ref={sheetRef}
-        className="absolute top-0 left-0 right-0 bg-white rounded-b-[24px] shadow-2xl"
+        className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl flex flex-col"
         style={{
-          // Use 'none' instead of translateY(0px) when fully open — CSS transforms
-          // create a new containing block on iOS which can offset touch coordinates,
-          // causing taps to register on the wrong list item.
-          transform: isAnimating ? (dragY !== 0 ? `translateY(${dragY}px)` : 'none') : "translateY(-100%)",
+          // 'none' rather than translateY(0px) when fully open: a transform
+          // makes a new containing block on iOS and can offset touch
+          // coordinates, so taps land on the wrong row.
+          transform: isAnimating ? (dragY !== 0 ? `translateY(${dragY}px)` : 'none') : "translateY(100%)",
           transition: isDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
-          maxHeight: '75vh',
+          maxHeight: '85%',
         }}
       >
-        <div className="mobile-top-sheet-scroll overflow-y-auto overscroll-contain" style={{ maxHeight: 'calc(75vh - 40px)' }}>
-          {children}
-        </div>
-        {/* Handle bar at bottom — the ONLY drag target */}
+        {/* Handle bar at the TOP now, which is the edge it is dragged from. */}
         <div
-          className="pb-3 pt-2 touch-none"
+          className="pt-3 pb-1 touch-none shrink-0"
           onTouchStart={handleHandleTouchStart}
           onTouchMove={handleHandleTouchMove}
           onTouchEnd={handleHandleTouchEnd}
@@ -332,9 +360,13 @@ function MobileTopSheet({
           <button
             onClick={handleClose}
             className="w-full flex justify-center py-2 cursor-pointer"
+            aria-label="Close search"
           >
             <div className="w-10 h-1.5 bg-gray-300 rounded-full" />
           </button>
+        </div>
+        <div className="mobile-top-sheet-scroll flex-1 overflow-y-auto overscroll-contain pb-[max(env(safe-area-inset-bottom,0px),12px)]">
+          {children}
         </div>
       </div>
     </div>,
@@ -1057,6 +1089,29 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
    */
   const isExploreSurface = pathname === "/explore" || pathname.startsWith("/explore") || pathname === "/wishlist"
   const searchInHeader = useSearchHandoff(isExploreSurface)
+  /**
+   * HOW TALL THE STICKY BAR IS, so the phone's search strip can sit under it
+   * and stick too.
+   *
+   * The strip is a SIBLING of #platform-header-root, not a child, and it has
+   * to stay one: on native that element is `position: fixed` with an explicit
+   * height, so a child that appears and disappears would be clipped by it or
+   * would change a height three other rules depend on. Measured on the phone
+   * and confirmed: the header's search worked on a desktop, where the field
+   * is inside the bar, and did nothing on a phone, where the strip scrolled
+   * away with the page.
+   */
+  const headerRootRef = useRef<HTMLDivElement | null>(null)
+  const [headerH, setHeaderH] = useState(0)
+  useEffect(() => {
+    const el = headerRootRef.current
+    if (!el) return
+    const measure = () => setHeaderH(Math.round(el.getBoundingClientRect().height))
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
   /* Both spellings of a product: `/p/<slug>` still resolves and redirects,
      and `/<handle>/<slug>` is what everything hands out now. */
   const isDiscoverProductContext = isProductPage(pathname) && isDiscoverMode(pathname, searchParams)
@@ -1194,7 +1249,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
 
   return (
     <>
-      <div id="platform-header-root" className={cn(
+      <div ref={headerRootRef} id="platform-header-root" className={cn(
         /*
           A LITTLE DEPTH, SO THE BAR SITS OVER THE PAGE RATHER THAN ABUTTING
           IT. `platform-header-depth` is the shared --bar-depth-dark, the same
@@ -1635,9 +1690,22 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
               <button
                 type="button"
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                /* The same slack as the homepage's, and this one starts even
-                   smaller at 36px. See the note on that button. */
-                className="relative flex h-9 w-9 touch-manipulation items-center justify-center text-white transition cursor-pointer before:absolute before:-inset-2.5 before:content-['']"
+                /*
+                  THE SLACK WAS THERE AND THE LOGO WAS EATING HALF OF IT.
+
+                  This is 36px of icon with a pseudo-element extending the
+                  touch target ten pixels all round — and the logo link sits
+                  immediately to its right with `gap-0`, later in the DOM, so
+                  on the right-hand side the logo won the hit test and a near
+                  miss navigated to Explore instead of opening the menu.
+
+                  `z-10` puts the button's target above its neighbour, and the
+                  slack is asymmetric now: generous to the left, where the
+                  screen edge is and a thumb undershoots, and up and down;
+                  barely any to the right, where the logo is a legitimate
+                  target of its own.
+                */
+                className="relative z-10 flex h-9 w-9 touch-manipulation items-center justify-center text-white transition cursor-pointer before:absolute before:-left-4 before:-top-3 before:-bottom-3 before:-right-1.5 before:content-['']"
                 aria-label={mobileMenuOpen ? "Close categories" : "Open categories"}
               >
                 <AnimatedHamburger isOpen={mobileMenuOpen} />
@@ -2413,36 +2481,42 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
       </div>
 
       {/*
-        The concave lead-in from the black header into the white strip below
-        it. Both are the phone's search strip now, so both come and go with
-        it: an empty white band under the header on Explore is a bar with
-        nothing in it.
+        ═══════════════════════════════════════════════════════════════════════
+         THE PHONE'S SEARCH STRIP: FIXED, SQUARE, AND OUT OF THE WAY
+        ═══════════════════════════════════════════════════════════════════════
+        Three faults in one element, all reported together.
+
+        IT WAS `sticky`, SO IT WAS IN FLOW. Appearing added about seventy
+        pixels to the document and pushed everything below it down; scrolling
+        back up took them away again. Near the threshold that is a page that
+        jumps under the finger, which is "the page glitches when I scroll".
+        `fixed` takes it out of flow entirely: it overlays the top of the
+        content the way a bar that appears on scroll is supposed to, and the
+        page underneath never moves.
+
+        IT HAD ROUNDED TOP CORNERS. A concave lead-in belongs between a black
+        header and a white PAGE, where it softens the join. This is a bar that
+        arrives over content, and the owner asked for the corners gone.
+
+        AND IT SAT TOO LOW, because that lead-in was twenty pixels of black
+        above it. Without it the field starts directly under the header.
       */}
       {searchInHeader && (pathname !== "/" && !pathname.startsWith("/features") && !pathname.startsWith("/blog") && !pathname.startsWith("/pricing") && !isFaqRoute && !isSellerOrProductPage) && (
-        <div className="relative z-[35] bg-black h-[20px] md:hidden">
-          <div className="absolute inset-0 bg-white rounded-t-[20px]" />
-        </div>
-      )}
-
-      {/* The phone's search strip. It carried the category pills too, until
-          those went; see the note where isExploreSurface is declared. */}
-      {searchInHeader && (pathname !== "/" && !pathname.startsWith("/features") && !pathname.startsWith("/blog") && !pathname.startsWith("/pricing") && !isFaqRoute && !isSellerOrProductPage) && (
-        <div className="relative z-[35] w-full bg-white border-b border-neutral-200 md:hidden">
+        <div
+          className="fixed inset-x-0 z-[35] md:hidden bg-white border-b border-neutral-200 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-150"
+          style={{ top: headerH }}
+        >
           <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">
-            {/* Mobile Search Bar Trigger */}
-            {true && (
-              <div className="md:hidden pt-1.5 pb-1.5">
-                <button
-                  type="button"
-                  onClick={() => setSearchModalOpen(true)}
-                  className={`w-full h-10 flex items-center gap-2 px-4 bg-neutral-100 border border-neutral-200 text-neutral-500 text-sm cursor-pointer overflow-hidden ${isDiscoverProductContext ? "rounded-[8px]" : "rounded-full"}`}
-                >
-                  <Search className="h-4 w-4 text-neutral-400 shrink-0" />
-                  <span className="truncate">{t("search_placeholder")}</span>
-                </button>
-              </div>
-            )}
-
+            <div className="py-2">
+              <button
+                type="button"
+                onClick={() => setSearchModalOpen(true)}
+                className="w-full h-10 flex items-center gap-2 px-4 bg-neutral-100 border border-neutral-200 text-neutral-500 text-sm cursor-pointer overflow-hidden rounded-[10px]"
+              >
+                <Search className="h-4 w-4 text-neutral-400 shrink-0" />
+                <span className="truncate">{t("search_placeholder")}</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

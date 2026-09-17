@@ -56,6 +56,19 @@ export default function Link({ href, children, ...rest }) {
 
 export const useLinkStatus = () => ({ pending: false })
 `,
+  /**
+   * Enough of next/headers that a module importing lib/supabase/server loads.
+   * A suite that reached for a real cookie would get an empty jar and fail
+   * loudly, which is correct: there is no request here to read one from.
+   */
+  "next/headers": `export const cookies = async () => ({
+  getAll: () => [],
+  get: () => undefined,
+  set() {},
+})
+export const headers = async () => new Map()
+export const draftMode = async () => ({ isEnabled: false })
+`,
   "next/navigation": `export const usePathname = () => globalThis.__PUSH_TEST_PATHNAME__ ?? "/"
 export const useRouter = () => ({ push() {}, replace() {}, prefetch() {}, back() {} })
 export const useSearchParams = () => new URLSearchParams()

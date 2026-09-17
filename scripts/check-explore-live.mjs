@@ -54,13 +54,26 @@ function reachabilityFlags() {
 const READ = `(() => {
   const header = document.getElementById("platform-header-root")
   const hero = document.querySelector("[data-explore-search-anchor]")
-  /* Any text input inside the header, whatever it is called. */
-  const headerFields = header ? [...header.querySelectorAll("input")].filter((i) => {
-    const r = i.getBoundingClientRect()
-    return r.width > 40 && r.height > 20
-  }) : []
-  /* The phone's trigger is a button, not an input. */
-  const headerTriggers = header ? [...header.querySelectorAll("button")].filter((b) => /search/i.test(b.textContent || "")) : []
+  /*
+    A SEARCH PINNED AT THE TOP OF THE SCREEN, which is the claim — not "a
+    search inside a particular element". The first version of this counted
+    only controls inside #platform-header-root and reported the phone as
+    broken when the strip was merely a sibling of it. That was the wrong
+    question twice over: it missed a working control, and it would have
+    missed the real fault, which is a strip that shows up and then scrolls
+    away.
+
+    So: any search control whose box is in the top 160px of the viewport, and
+    the hero's own field does not count.
+  */
+  const near = (el) => {
+    const r = el.getBoundingClientRect()
+    if (r.width < 40 || r.height < 20) return false
+    if (hero && hero.contains(el)) return false
+    return r.top >= -4 && r.top < 160
+  }
+  const headerFields = [...document.querySelectorAll("input")].filter((i) => /search/i.test(i.placeholder || "") && near(i))
+  const headerTriggers = [...document.querySelectorAll("button")].filter((b) => /search/i.test(b.textContent || "") && near(b))
   const heroRect = hero ? hero.getBoundingClientRect() : null
   return {
     headerHeight: header ? Math.round(header.getBoundingClientRect().height) : null,
@@ -139,6 +152,152 @@ async function main(width) {
   await sleep(1200)
   r.backAtTop = await ev(READ)
 
+  /*
+    ═══════════════════════════════════════════════════════════════════════
+     THE PAGE MAY NOT MOVE UNDER THE FINGER WHILE IT IS BEING SCROLLED
+    ═══════════════════════════════════════════════════════════════════════
+    The search strip appears once the hero's field has gone. While it was
+    `sticky` it was IN FLOW, so appearing added its height to the document and
+    pushed everything below it down, and scrolling back up took it away again.
+    Near the threshold that is a page that jumps under the finger.
+
+    So: crawl across the threshold a few pixels at a time and watch two
+    things — the document's height, and where a landmark well below the fold
+    sits relative to the scroll position. Either one moving means the strip is
+    still shifting the page.
+  */
+  r.shift = await ev(`(async () => {
+    const mark = document.querySelector("[data-gallery-index], main section, main div")
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+    const readings = []
+    for (let y = 300; y <= 900; y += 40) {
+      window.scrollTo(0, y)
+      await sleep(120)
+      readings.push({
+        y,
+        docHeight: Math.round(document.documentElement.scrollHeight),
+        /* The landmark's position in DOCUMENT space. Scrolling must not
+           change it; only a reflow can. */
+        markTop: mark ? Math.round(mark.getBoundingClientRect().top + window.scrollY) : null,
+      })
+    }
+    return {
+      heights: [...new Set(readings.map((x) => x.docHeight))],
+      markTops: [...new Set(readings.map((x) => x.markTop))],
+    }
+  })()`)
+  await ev("window.scrollTo(0, 0); true")
+  await sleep(600)
+
+  /*
+    THE FOOTER MUST BE BELOW THE PAGE, not behind it.
+
+    Reported as "the footer is intergalactic with the product listing": the
+    footer's links and the product titles appeared interleaved on a phone.
+    `main` carries `overflow-x: clip`, which leaves VERTICAL overflow visible,
+    so anything inside it that grows past its box paints straight over the
+    footer underneath. So this asks the page directly: does any element inside
+    main have a rectangle that intersects the footer's.
+  */
+  await ev("window.scrollTo(0, document.documentElement.scrollHeight); true")
+  await sleep(1500)
+  r.footer = await ev(`(() => {
+    const footer = document.querySelector("footer")
+    if (!footer) return { found: false }
+    const f = footer.getBoundingClientRect()
+    const main = document.querySelector("main")
+    if (!main) return { found: true, noMain: true }
+    const offenders = []
+    for (const el of main.querySelectorAll("*")) {
+      const r = el.getBoundingClientRect()
+      if (r.width < 8 || r.height < 8) continue
+      const cs = getComputedStyle(el)
+      /* Something that cannot be seen cannot be overlapping anything. */
+      if (cs.visibility === "hidden" || cs.display === "none" || parseFloat(cs.opacity) === 0) continue
+      /* Nor can something parked off the left edge of the world. */
+      if (r.right < 0 || r.left > window.innerWidth) continue
+      /* Overlapping the footer's band, not merely touching its top edge. */
+      if (r.bottom > f.top + 2 && r.top < f.bottom - 2) {
+        const tag = el.tagName.toLowerCase()
+        const cls = typeof el.className === "string" ? el.className.split(" ").slice(0, 2).join(".") : ""
+        offenders.push(tag + (cls ? "." + cls : "") + " " + Math.round(r.height) + "px")
+      }
+    }
+    return {
+      found: true,
+      footerTop: Math.round(f.top),
+      mainBottom: Math.round(main.getBoundingClientRect().bottom),
+      /* Deepest first is noise; the outermost few name the culprit. */
+      offenders: offenders.slice(0, 6),
+      offenderCount: offenders.length,
+    }
+  })()`)
+  await ev("window.scrollTo(0, 0); true")
+  await sleep(600)
+
+  /*
+    ═══════════════════════════════════════════════════════════════════════
+     AND WITH THE SEARCH OPEN, which is when the footer was reported
+    ═══════════════════════════════════════════════════════════════════════
+    "When I click on the input to search something there, it bugs with the
+    footer." The screenshot shows the footer's links and the product cards
+    interleaved. Every reading with the sheet CLOSED says main ends exactly
+    where the footer begins, so if it is a layout fault at all it is one the
+    sheet causes — a scroll lock, a height collapse, a fixed overlay.
+
+    So the trigger is pressed and the same question asked again.
+  */
+  await ev("window.scrollTo(0, 900); true")
+  await sleep(1200)
+  r.searchOpen = await ev(`(() => {
+    /* A phone opens a sheet from a button; a desktop focuses the field in
+       the bar. Both are "the visitor tapped the search". */
+    const near = (el) => {
+      const r = el.getBoundingClientRect()
+      return r.top >= -4 && r.top < 200 && r.width > 40
+    }
+    const button = [...document.querySelectorAll("button")].find((b) => /search/i.test(b.textContent || "") && near(b))
+    if (button) { button.click(); return { pressed: true, how: "button" } }
+    const field = [...document.querySelectorAll("input")].find((i) => /search/i.test(i.placeholder || "") && near(i))
+    if (field) { field.focus(); field.click(); return { pressed: true, how: "field" } }
+    return { pressed: false }
+  })()`)
+  await sleep(1400)
+  r.withSearchOpen = await ev(`(() => {
+    const footer = document.querySelector("footer")
+    const main = document.querySelector("main")
+    if (!footer || !main) return { found: false }
+    const f = footer.getBoundingClientRect()
+    const offenders = []
+    for (const el of main.querySelectorAll("*")) {
+      const rr = el.getBoundingClientRect()
+      if (rr.width < 8 || rr.height < 8) continue
+      const cs = getComputedStyle(el)
+      if (cs.visibility === "hidden" || cs.display === "none" || parseFloat(cs.opacity) === 0) continue
+      if (rr.right < 0 || rr.left > window.innerWidth) continue
+      if (rr.bottom > f.top + 2 && rr.top < f.bottom - 2) {
+        const cls = typeof el.className === "string" ? el.className.split(" ").slice(0, 2).join(".") : ""
+        offenders.push(el.tagName.toLowerCase() + (cls ? "." + cls : ""))
+      }
+    }
+    return {
+      found: true,
+      docHeight: Math.round(document.documentElement.scrollHeight),
+      bodyOverflow: getComputedStyle(document.body).overflow,
+      scrollLocked: document.body.hasAttribute("data-scroll-locked"),
+      footerTop: Math.round(f.top),
+      mainBottom: Math.round(main.getBoundingClientRect().bottom),
+      offenderCount: offenders.length,
+      offenders: offenders.slice(0, 6),
+    }
+  })()`)
+  /* Shut it again so the rest of the run is not measuring a page with a
+     sheet over it. */
+  await ev(`document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); true`)
+  await sleep(800)
+  await ev("window.scrollTo(0, 0); true")
+  await sleep(600)
+
   /* Paging: press page 2 from the bottom of the list and see where it lands. */
   r.paging = await ev(`(() => {
     const two = [...document.querySelectorAll("button")].find((b) => (b.textContent || "").trim() === "2" && b.className.includes("rounded-full"))
@@ -171,6 +330,14 @@ for (const r of [desk, phone]) {
   console.log(`    at rest      hero search: ${r.atRest.heroSearchPresent}   searches in header: ${r.atRest.headerSearches}`)
   console.log(`    scrolled 900 hero top: ${r.scrolled.heroTop}   searches in header: ${r.scrolled.headerSearches}`)
   console.log(`    back at top  searches in header: ${r.backAtTop.headerSearches}`)
+  console.log(`    scrolling across the threshold: ${r.shift.heights.length} document height(s) ${r.shift.heights.join("/")}, ${r.shift.markTops.length} position(s) for the landmark`)
+  if (r.footer?.found) console.log(`    footer top ${r.footer.footerTop}, main bottom ${r.footer.mainBottom}, elements overlapping the footer: ${r.footer.offenderCount}${r.footer.offenders?.length ? ` (${r.footer.offenders.join(", ")})` : ""}`)
+  if (r.searchOpen?.pressed && r.withSearchOpen?.found) {
+    const w = r.withSearchOpen
+    console.log(`    search open (${r.searchOpen.how}): document ${w.docHeight}px, body overflow ${w.bodyOverflow}, scroll-locked ${w.scrollLocked}, footer top ${w.footerTop}, main bottom ${w.mainBottom}, overlapping ${w.offenderCount}${w.offenders.length ? ` (${w.offenders.join(", ")})` : ""}`)
+  } else {
+    console.log(`    search open: the trigger was not found, so this was not tested`)
+  }
   if (r.paging.found) console.log(`    pressed page 2 at y=${r.paging.before} and landed at y=${r.afterPaging}`)
   else console.log(`    no page 2 control found`)
   console.log("")
@@ -180,6 +347,18 @@ for (const r of [desk, phone]) {
   if (r.atRest.headerSearches !== 0) problems.push(`${label}: the header carries ${r.atRest.headerSearches} search control(s) while the page's own field is on screen. That is the same control twice.`)
   if (r.scrolled.headerSearches < 1) problems.push(`${label}: scrolled past the hero field, the header still has no search. The handoff did not happen.`)
   if (r.backAtTop.headerSearches !== 0) problems.push(`${label}: back at the top, the header kept its search. It should hand it back.`)
+  if (r.shift && r.shift.heights.length > 1) {
+    problems.push(`${label}: the document was ${r.shift.heights.join(" and ")}px tall at different scroll positions. Something is entering and leaving the flow as the page scrolls, which is the page jumping under the finger.`)
+  }
+  if (r.shift && r.shift.markTops.length > 1) {
+    problems.push(`${label}: a landmark below the fold sat at ${r.shift.markTops.join(", ")} in document space while only the scroll changed. The page is reflowing as it scrolls.`)
+  }
+  if (r.searchOpen?.pressed && r.withSearchOpen?.found && r.withSearchOpen.offenderCount > 0) {
+    problems.push(`${label}: with the search open, ${r.withSearchOpen.offenderCount} element(s) inside main overlap the footer (${r.withSearchOpen.offenders.join(", ")}). That is the reported footer bug.`)
+  }
+  if (r.footer?.found && r.footer.offenderCount > 0) {
+    problems.push(`${label}: ${r.footer.offenderCount} element(s) inside main overlap the footer — ${r.footer.offenders.join(", ")}. main has overflow-x: clip, which leaves vertical overflow visible, so anything taller than its box paints over the footer.`)
+  }
   if (r.paging.found && r.afterPaging >= r.paging.before) {
     problems.push(`${label}: pressing page 2 from y=${r.paging.before} left the visitor at y=${r.afterPaging}. Paging should return to the top of the list.`)
   }

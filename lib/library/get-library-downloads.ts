@@ -28,28 +28,56 @@ function formatDate(dateString: string) {
   })
 }
 
-export async function getLibraryDownloads(userId: string): Promise<DownloadRow[]> {
-  const supabase = await createClient()
-  const admin = createAdminClient()
+/**
+ * The two clients this read needs. Passed in only by tests/library-depth, so
+ * the number of round trips this makes can be measured instead of asserted
+ * from reading the source. Nothing in the app passes it.
+ */
+export interface LibraryClients {
+  supabase: any
+  admin: any
+}
 
-  const { data: entitlements } = await supabase
-    .from("entitlements")
-    .select(`
-      id,
-      product_id,
-      created_at,
-      product:products(*),
-      creator:creators(*, profile:profiles!creators_user_id_fkey(*))
-    `)
-    .eq("buyer_id", userId)
-    .order("created_at", { ascending: false })
+export async function getLibraryDownloads(
+  userId: string,
+  clients?: LibraryClients,
+): Promise<DownloadRow[]> {
+  const supabase = clients ? clients.supabase : await createClient()
+  const admin = clients ? clients.admin : createAdminClient()
 
-  const { data: orders } = await admin
-    .from("orders")
-    .select(`id, product_id, created_at, product:products(*)`)
-    .eq("buyer_id", userId)
-    .eq("status", "completed")
-    .order("created_at", { ascending: false })
+  /*
+    ═══════════════════════════════════════════════════════════════════════
+     THE TWO SOURCES ARE ASKED FOR AT THE SAME TIME
+    ═══════════════════════════════════════════════════════════════════════
+    Entitlements and orders are two independent lists of what this person
+    owns, and they were awaited one after the other, so the page paid for both
+    round trips end to end before it could do anything with either. Nothing in
+    the second depends on the first.
+
+    This is the first of three places in this file where that was true. The
+    library is a `force-dynamic` route with no cache in front of it, so every
+    visit pays every one of them, which is what "it takes so much and never
+    loads" is made of.
+  */
+  const [{ data: entitlements }, { data: orders }] = await Promise.all([
+    supabase
+      .from("entitlements")
+      .select(`
+        id,
+        product_id,
+        created_at,
+        product:products(*),
+        creator:creators(*, profile:profiles!creators_user_id_fkey(*))
+      `)
+      .eq("buyer_id", userId)
+      .order("created_at", { ascending: false }),
+    admin
+      .from("orders")
+      .select(`id, product_id, created_at, product:products(*)`)
+      .eq("buyer_id", userId)
+      .eq("status", "completed")
+      .order("created_at", { ascending: false }),
+  ])
 
   const map = new Map<string, any>()
 
@@ -83,7 +111,18 @@ export async function getLibraryDownloads(userId: string): Promise<DownloadRow[]
   const uniqueCreatorIds = [...new Set(missingCreatorIds)]
   const creatorProfileMap = new Map<string, string>()
 
-  if (uniqueCreatorIds.length > 0) {
+  /*
+    AND THE FILES DO NOT WAIT FOR THE CREATOR NAMES.
+
+    Both of these need the product ids that the step above produced, and
+    neither needs anything the other returns — but the creator lookup, its
+    profile lookup and the asset lookup were three more awaits in a row. The
+    name chain still has to be serial, because the profiles are found by the
+    user ids the creators carry; it just runs beside the files instead of in
+    front of them.
+  */
+  const namesForMissingCreators = async () => {
+    if (uniqueCreatorIds.length === 0) return
     const { data: creators } = await admin
       .from("creators")
       .select("id, user_id, slug")
@@ -101,11 +140,14 @@ export async function getLibraryDownloads(userId: string): Promise<DownloadRow[]
     })
   }
 
-  const { data: assets } = await admin
-    .from("digital_assets")
-    .select("id, product_id, file_name, created_at")
-    .in("product_id", productIds)
-    .order("created_at", { ascending: true })
+  const [, { data: assets }] = await Promise.all([
+    namesForMissingCreators(),
+    admin
+      .from("digital_assets")
+      .select("id, product_id, file_name, created_at")
+      .in("product_id", productIds)
+      .order("created_at", { ascending: true }),
+  ])
 
   const filesByProduct = new Map<string, Array<{ id: string; fileName: string }>>()
   ;(assets || []).forEach((asset: any) => {

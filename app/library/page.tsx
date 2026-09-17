@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { DownloadsGrid } from "@/components/library/downloads-grid"
 import { getLibraryDownloads } from "@/lib/library/get-library-downloads"
 import { LibrarySplashInit } from "@/components/library/splash-init"
+import { currentUserForRequest, profileForRequest } from "@/lib/auth/request-scope"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -18,9 +19,11 @@ export default async function LibraryPage({ searchParams }: LibraryPageProps) {
   const { purchase, highlight } = await searchParams
   const supabase = await createClient()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  /**
+   * The layout wrapping this page already asked who is signed in. This is the
+   * same answer, not a second request. See lib/auth/request-scope.ts.
+   */
+  const { user } = await currentUserForRequest()
 
   if (!user) {
     return (
@@ -37,18 +40,27 @@ export default async function LibraryPage({ searchParams }: LibraryPageProps) {
     )
   }
 
-  const downloads = await getLibraryDownloads(user.id)
+  /*
+    ═══════════════════════════════════════════════════════════════════════
+     THREE INDEPENDENT READS, ASKED FOR AT ONCE
+    ═══════════════════════════════════════════════════════════════════════
+    The downloads, the profile and the wishlist count each need only the user
+    id, and each was awaited after the last, so the page waited for the sum of
+    three round trips when it only ever had to wait for the longest. On a
+    `force-dynamic` route with no cache in front of it, every visit pays that.
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("display_name, avatar_url, username")
-    .eq("id", user.id)
-    .maybeSingle()
-
-  const { count: wishlistCount } = await supabase
-    .from("wishlist_items")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", user.id)
+    lib/library/get-library-downloads had the same shape inside it and has
+    been flattened too, so the slowest of these is now two queries deep rather
+    than five in a line. The profile read is the one the layout already made.
+  */
+  const [downloads, profile, { count: wishlistCount }] = await Promise.all([
+    getLibraryDownloads(user.id),
+    profileForRequest(user.id),
+    supabase
+      .from("wishlist_items")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id),
+  ])
 
   const displayName = profile?.display_name || user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split("@")[0] || "User"
   const avatarUrl = profile?.avatar_url || user.user_metadata?.avatar_url || user.user_metadata?.picture || null

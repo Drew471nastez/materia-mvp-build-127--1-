@@ -164,7 +164,9 @@ function main() {
     stay in the same notation so it is visible that they move together.
   */
   const hero = read("components/explore/explore-hero.tsx")
-  check("the hero's top spacing is 48 / 88", /className="pt-\[48px\] pb-6 sm:pt-\[88px\] sm:pb-10"/.test(hero))
+  /* The bottom padding was trimmed separately on main while this trimmed the
+     top; both are deliberate, so the merge kept both rather than picking one. */
+  check("the hero's top spacing is 48 / 88", /className="pt-\[48px\] pb-3 sm:pt-\[88px\] sm:pb-4"/.test(hero))
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }

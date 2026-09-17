@@ -202,9 +202,33 @@ async function main() {
     )
   }
 
+  /**
+   * A layout may call readCurrentUser directly, or through the per-request
+   * cache in lib/auth/request-scope.ts, which exists so a layout and the page
+   * inside it do not both put the question on the wire. It decides nothing of
+   * its own, and this checks that: it has to reach readCurrentUser, and it
+   * must not carry any redirect or classification logic.
+   */
+  const requestScope = strip(readFileSync(join(root, "lib/auth/request-scope.ts"), "utf8"))
+  check(
+    "the per-request cache asks the real reader and decides nothing itself",
+    requestScope.includes("readCurrentUser") &&
+      requestScope.includes("cache(") &&
+      !/redirect\(/.test(requestScope) &&
+      !/state === "/.test(requestScope),
+  )
+
   for (const layout of ["app/app/layout.tsx", "app/library/layout.tsx"]) {
     const code = strip(readFileSync(join(root, layout), "utf8"))
-    check(`${layout} classifies instead of guessing`, code.includes("readCurrentUser"))
+    check(
+      `${layout} classifies instead of guessing`,
+      code.includes("readCurrentUser") || code.includes("currentUserForRequest"),
+    )
+    check(
+      `${layout} never reads the user straight off the auth client`,
+      !/auth\.getUser\(\)/.test(code),
+      "getUser() throws the error away, and the error is the whole distinction",
+    )
     check(
       `${layout} does not send an undetermined request to /login`,
       /current\.state === "indeterminate"/.test(code),
