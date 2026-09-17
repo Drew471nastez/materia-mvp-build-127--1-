@@ -235,6 +235,69 @@ async function main(width) {
   await ev("window.scrollTo(0, 0); true")
   await sleep(600)
 
+  /*
+    ═══════════════════════════════════════════════════════════════════════
+     AND WITH THE SEARCH OPEN, which is when the footer was reported
+    ═══════════════════════════════════════════════════════════════════════
+    "When I click on the input to search something there, it bugs with the
+    footer." The screenshot shows the footer's links and the product cards
+    interleaved. Every reading with the sheet CLOSED says main ends exactly
+    where the footer begins, so if it is a layout fault at all it is one the
+    sheet causes — a scroll lock, a height collapse, a fixed overlay.
+
+    So the trigger is pressed and the same question asked again.
+  */
+  await ev("window.scrollTo(0, 900); true")
+  await sleep(1200)
+  r.searchOpen = await ev(`(() => {
+    /* A phone opens a sheet from a button; a desktop focuses the field in
+       the bar. Both are "the visitor tapped the search". */
+    const near = (el) => {
+      const r = el.getBoundingClientRect()
+      return r.top >= -4 && r.top < 200 && r.width > 40
+    }
+    const button = [...document.querySelectorAll("button")].find((b) => /search/i.test(b.textContent || "") && near(b))
+    if (button) { button.click(); return { pressed: true, how: "button" } }
+    const field = [...document.querySelectorAll("input")].find((i) => /search/i.test(i.placeholder || "") && near(i))
+    if (field) { field.focus(); field.click(); return { pressed: true, how: "field" } }
+    return { pressed: false }
+  })()`)
+  await sleep(1400)
+  r.withSearchOpen = await ev(`(() => {
+    const footer = document.querySelector("footer")
+    const main = document.querySelector("main")
+    if (!footer || !main) return { found: false }
+    const f = footer.getBoundingClientRect()
+    const offenders = []
+    for (const el of main.querySelectorAll("*")) {
+      const rr = el.getBoundingClientRect()
+      if (rr.width < 8 || rr.height < 8) continue
+      const cs = getComputedStyle(el)
+      if (cs.visibility === "hidden" || cs.display === "none" || parseFloat(cs.opacity) === 0) continue
+      if (rr.right < 0 || rr.left > window.innerWidth) continue
+      if (rr.bottom > f.top + 2 && rr.top < f.bottom - 2) {
+        const cls = typeof el.className === "string" ? el.className.split(" ").slice(0, 2).join(".") : ""
+        offenders.push(el.tagName.toLowerCase() + (cls ? "." + cls : ""))
+      }
+    }
+    return {
+      found: true,
+      docHeight: Math.round(document.documentElement.scrollHeight),
+      bodyOverflow: getComputedStyle(document.body).overflow,
+      scrollLocked: document.body.hasAttribute("data-scroll-locked"),
+      footerTop: Math.round(f.top),
+      mainBottom: Math.round(main.getBoundingClientRect().bottom),
+      offenderCount: offenders.length,
+      offenders: offenders.slice(0, 6),
+    }
+  })()`)
+  /* Shut it again so the rest of the run is not measuring a page with a
+     sheet over it. */
+  await ev(`document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); true`)
+  await sleep(800)
+  await ev("window.scrollTo(0, 0); true")
+  await sleep(600)
+
   /* Paging: press page 2 from the bottom of the list and see where it lands. */
   r.paging = await ev(`(() => {
     const two = [...document.querySelectorAll("button")].find((b) => (b.textContent || "").trim() === "2" && b.className.includes("rounded-full"))
@@ -269,6 +332,12 @@ for (const r of [desk, phone]) {
   console.log(`    back at top  searches in header: ${r.backAtTop.headerSearches}`)
   console.log(`    scrolling across the threshold: ${r.shift.heights.length} document height(s) ${r.shift.heights.join("/")}, ${r.shift.markTops.length} position(s) for the landmark`)
   if (r.footer?.found) console.log(`    footer top ${r.footer.footerTop}, main bottom ${r.footer.mainBottom}, elements overlapping the footer: ${r.footer.offenderCount}${r.footer.offenders?.length ? ` (${r.footer.offenders.join(", ")})` : ""}`)
+  if (r.searchOpen?.pressed && r.withSearchOpen?.found) {
+    const w = r.withSearchOpen
+    console.log(`    search open (${r.searchOpen.how}): document ${w.docHeight}px, body overflow ${w.bodyOverflow}, scroll-locked ${w.scrollLocked}, footer top ${w.footerTop}, main bottom ${w.mainBottom}, overlapping ${w.offenderCount}${w.offenders.length ? ` (${w.offenders.join(", ")})` : ""}`)
+  } else {
+    console.log(`    search open: the trigger was not found, so this was not tested`)
+  }
   if (r.paging.found) console.log(`    pressed page 2 at y=${r.paging.before} and landed at y=${r.afterPaging}`)
   else console.log(`    no page 2 control found`)
   console.log("")
@@ -283,6 +352,9 @@ for (const r of [desk, phone]) {
   }
   if (r.shift && r.shift.markTops.length > 1) {
     problems.push(`${label}: a landmark below the fold sat at ${r.shift.markTops.join(", ")} in document space while only the scroll changed. The page is reflowing as it scrolls.`)
+  }
+  if (r.searchOpen?.pressed && r.withSearchOpen?.found && r.withSearchOpen.offenderCount > 0) {
+    problems.push(`${label}: with the search open, ${r.withSearchOpen.offenderCount} element(s) inside main overlap the footer (${r.withSearchOpen.offenders.join(", ")}). That is the reported footer bug.`)
   }
   if (r.footer?.found && r.footer.offenderCount > 0) {
     problems.push(`${label}: ${r.footer.offenderCount} element(s) inside main overlap the footer — ${r.footer.offenders.join(", ")}. main has overflow-x: clip, which leaves vertical overflow visible, so anything taller than its box paints over the footer.`)
