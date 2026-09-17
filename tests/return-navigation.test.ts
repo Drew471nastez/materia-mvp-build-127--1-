@@ -117,6 +117,40 @@ function main() {
   )
 
   /* ---------------------------------------------------------------------
+     AND NOTHING THROWS THE DOCUMENT AWAY TO REACH A ROUTE WE OWN
+     --------------------------------------------------------------------- */
+  console.log("\n  buying does not reload the page")
+
+  /*
+    The counter that lets a back arrow know there is something behind it is a
+    module variable, so a hard navigation resets it to zero. Buying was
+    `window.location.href = checkoutUrl` — a full document load to a route in
+    this same app — and coming back from the checkout afterwards, the product
+    page could no longer prove it had anywhere to return to and pushed the
+    creator page instead of going back to the marketplace.
+
+    Measured on production, the referrer says which navigations were hard:
+
+        explore -> product    referrer ""             client
+        product -> checkout   referrer <the product>  DOCUMENT LOAD
+        back to product       referrer ""             counter gone
+  */
+  const buy = read("components/store-builder/sticky-add-to-cart.tsx")
+  const hardCheckout = (buy.match(/^\s*window\.location\.href = checkoutUrl/gm) ?? []).length
+  check("neither buy handler reloads the page", hardCheckout === 0, `${hardCheckout} left`)
+  check("both navigate on the client", (buy.match(/router\.push\(checkoutUrl\)/g) ?? []).length === 2)
+  /*
+    ONE HARD NAVIGATION IS KEPT ON PURPOSE. The downloads link crosses to the
+    canonical host from a creator subdomain, and a client navigation cannot
+    change origin.
+  */
+  check(
+    "the cross-origin one is still a document load",
+    /window\.location\.assign\(new URL\("\/library\/my-downloads", canonical\)/.test(buy),
+    "a client navigation cannot move between hosts",
+  )
+
+  /* ---------------------------------------------------------------------
      AND THE ONES THAT ARE CORRECTLY LINKS
      --------------------------------------------------------------------- */
   console.log("\n  a destination is still a destination")
