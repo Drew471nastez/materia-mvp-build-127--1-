@@ -1199,13 +1199,22 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
       <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">
         <div
           /*
-            THREE PERCENT OFF, AND IT IS TAKEN OFF THE ROW RATHER THAN THE
-            PADDING. The desktop header is 3px of padding-top (globals.css),
-            this row, and 3px of padding-bottom: 83px in total. 97% of that is
-            80.5, so the row goes 77 -> 74.5 and the two 3px rails stay where
-            they are — they are what keeps the logo clear of the window edge,
-            and trimming them instead would have moved the contents rather
-            than made the bar shorter.
+            THREE PERCENT OFF, MEASURED ON THE DEPLOYED PAGE RATHER THAN
+            ARITHMETIC.
+
+            The first version of this note added the two 3px rails to the row
+            and called the header 83px. That is wrong: Tailwind sets
+            box-sizing: border-box, so `h-[77px]` INCLUDES its own padding.
+            Measured on production the row is the height named here and the
+            root is one pixel more:
+
+                before   row 77px     header 78px
+                after    row 74.5px   header 75.5px
+
+            which is 3.2% off both. The padding is left alone on purpose —
+            it holds the contents clear of the window edge, and taking the
+            height out of it would have moved them rather than shortened
+            the bar.
           */
           className="platform-header-row flex md:h-[74.5px] items-center justify-between gap-4 pb-3 md:pb-[3px]"
         >

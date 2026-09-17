@@ -112,24 +112,31 @@ function main() {
   console.log("\n  the header lost three percent")
 
   /*
-    3px padding-top (globals.css) + the row + 3px padding-bottom. It was
-    3 + 77 + 3 = 83; 97% of that is 80.5, so the row is 74.5 and the two
-    rails are untouched — they hold the logo off the window edge, and taking
-    it out of them would move the contents rather than shorten the bar.
+    THE ROW IS THE HEADER, near enough. An earlier version of this check added
+    the two 3px rails to the row and called the header 83px — wrong, because
+    Tailwind sets box-sizing: border-box and `h-[77px]` already includes its
+    own padding. Measured on the deployed page:
+
+        before   row 77px     header 78px
+        after    row 74.5px   header 75.5px
+
+    So the comparison is row against row, which is the number the class
+    actually sets.
   */
+  const WAS = 77
   const row = header.match(/platform-header-row flex md:h-\[([\d.]+)px\]/)?.[1]
   check("the row names its height", !!row, `matched: ${row}`)
   if (row) {
-    const total = 3 + Number(row) + 3
-    check(`the row is 74.5px (total ${total}px)`, Number(row) === 74.5)
-    check("which is 97% of the 83px it was", Math.abs(total / 83 - 0.97) < 0.005, `${(100 * total / 83).toFixed(1)}%`)
+    const cut = 1 - Number(row) / WAS
+    check(`the row is 74.5px, down from ${WAS}`, Number(row) === 74.5)
+    check("which is about three percent off", cut > 0.025 && cut < 0.04, `${(100 * cut).toFixed(1)}%`)
   }
   check("the padding rails are untouched", /md:pb-\[3px\]/.test(header) && /padding-top: 3px/.test(read("app/globals.css")))
   /* The SSR placeholder holds the header's space before hydration; if it
      disagrees the page shifts by the difference on every load. */
   check(
-    "the SSR placeholder's note matches the new number",
-    /74\.5px row \+ 3px bottom = 80\.5px/.test(read("components/marketing/conditional-header.tsx")),
+    "the SSR placeholder's note matches the measured number",
+    /74\.5px row \(border-box, padding included\) \+ 1px = 75\.5px measured/.test(read("components/marketing/conditional-header.tsx")),
   )
 
   console.log(`\n${passed} passed, ${failed} failed`)
