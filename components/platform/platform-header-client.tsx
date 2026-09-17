@@ -1136,7 +1136,9 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
             the contents clear of the window edge, and taking the height out
             of it would have moved them rather than shortened the bar.
           */
-          className="platform-header-row flex md:h-[69.35px] items-center justify-between gap-4 pb-3 md:pb-[3px]"
+          /* pb-[10.3px]: the phone half of the 5% cut, the other half being the
+             padding-top in .platform-header-row. The md rails are untouched. */
+          className="platform-header-row flex md:h-[69.35px] items-center justify-between gap-4 pb-[10.3px] md:pb-[3px]"
         >
           {/* Desktop Homepage Layout - same style for /, /features, /pricing, /blog */}
           {isMarketingNavRoute ? (

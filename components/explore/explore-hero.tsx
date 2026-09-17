@@ -167,13 +167,17 @@ export function ExploreHero({
     together.
   */
   /*
-    AND pb-[10px] RATHER THAN pb-3 ON A PHONE. With the section below opening
-    on mt-2, the gap between this field and the category pills was 20px and
-    the owner asked for ten per cent off it, on mobile only: 12 + 8 becomes
-    10 + 8. The sm: side is untouched.
+    AND THE TWO PHONE NUMBERS HAVE BOTH COME DOWN AGAIN.
+
+    pt: 48 -> 42, the air between the header and "Discover".
+
+    pb: with the section below opening on mt-2, the gap between this field and
+    the category pills was 20px, then 18, and is 14 now: 6 + 8. The sm: side
+    is untouched throughout, because every one of these was asked for on the
+    phone.
   */
   return (
-    <section className="pt-[48px] pb-[10px] sm:pt-[88px] sm:pb-4">
+    <section className="pt-[42px] pb-[6px] sm:pt-[88px] sm:pb-4">
       {/* The sentence, whole, for anything that reads rather than looks. */}
       <h1 className="sr-only">Discover {NOUNS.slice(0, -1).join(", ")} and {NOUNS[NOUNS.length - 1]} from creators</h1>
 
