@@ -164,6 +164,19 @@ async function main() {
       bodyBg: getComputedStyle(document.body).backgroundColor,
       placeholder: !!document.querySelector("#platform-header-root[aria-hidden]"),
       /*
+        THE LOADING LINE, WHICH IS ONLY EVER CORRECT BY ITS ABSENCE.
+
+        It must not exist on a back navigation, which measures 78ms — under
+        its 220ms threshold — and it must not exist once a page has landed.
+        Being on screen over a settled page is what got the previous one
+        deleted, so it is watched rather than trusted.
+      */
+      loadingBar: !!document.querySelector(".route-loading-bar"),
+      loadingBarWidth: (() => {
+        const el = document.querySelector(".route-loading-bar")
+        return el ? Math.round(el.getBoundingClientRect().width) : 0
+      })(),
+      /*
         WHATEVER IS SEE-THROUGH, WHEREVER IT IS.
 
         Reading <main>'s opacity was not enough: it stayed at 1 through a back
@@ -279,7 +292,7 @@ async function main() {
     const out = []
     let last = ""
     for (const s of samples) {
-      const key = `${s.path}|${s.hdr}|${s.h}|${s.bg}|${s.hop}|${s.mainOpacity}|${s.placeholder}|${JSON.stringify(s.faded)}|${JSON.stringify(s.anims)}`
+      const key = `${s.path}|${s.hdr}|${s.h}|${s.bg}|${s.hop}|${s.mainOpacity}|${s.placeholder}|${s.loadingBar}|${JSON.stringify(s.faded)}|${JSON.stringify(s.anims)}`
       if (key !== last) { out.push(s); last = key }
     }
     return out

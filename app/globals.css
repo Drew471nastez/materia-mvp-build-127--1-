@@ -3546,3 +3546,50 @@ html:has(.wb-editor) body {
 html:has(.wb-editor) body {
   padding: 0;
 }
+
+/* ===========================================================================
+    THE LOADING LINE
+   ===========================================================================
+   Two pixels across the very top, travelling left to right, and it only
+   exists at all once a navigation has been in flight for 220ms — see
+   components/navigation/route-loading-bar.tsx for why each of those is the
+   way it is.
+
+   THE WIDTH NEVER REACHES 100%. It decelerates towards 90 and stops, because
+   the line does not know when the page will arrive and a bar that fills to
+   the end and then waits is a bar that is lying. What ends it is the
+   navigation landing, which unmounts the element outright — there is no
+   completion animation to get stranded in, and being photographed stuck at
+   full width across a settled page is what got the previous one deleted.
+
+   `pointer-events: none` is load-bearing rather than tidy: this sits above
+   the header, and the complaint about the last one was that it blocked.
+
+   White, because every route this covers has a dark bar across the top, and
+   a white hairline crossing it reads as a browser's own loading line. */
+.route-loading-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 2px;
+  z-index: 2147483001;
+  pointer-events: none;
+  border-radius: 0 2px 2px 0;
+  background: rgba(255, 255, 255, 0.85);
+  width: 0;
+  animation: route-loading-bar 10s cubic-bezier(0.12, 0.72, 0.18, 1) forwards;
+}
+
+@keyframes route-loading-bar {
+  0% { width: 2%; }
+  100% { width: 90%; }
+}
+
+/* A line that crawls is still motion. Reduced motion gets a static hairline
+   at a width that says "working" without animating to say it. */
+@media (prefers-reduced-motion: reduce) {
+  .route-loading-bar {
+    animation: none;
+    width: 40%;
+  }
+}
