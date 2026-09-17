@@ -144,6 +144,7 @@ import { LanguageModal } from "@/components/platform/language-modal"
 import { toOriginalImageUrl } from "@/lib/storage/image-url"
 import { isNativeApp, nativeLogOut, openExternal } from "@/lib/native-bridge"
 import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
+import { STORELIB_LOGO } from "@/lib/brand/logo"
 
 const EXPLORE_FULL_URL = `https://${process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"}/explore`
 const HELP_FULL_URL = `https://${process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"}/help`
@@ -1019,7 +1020,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
             className="flex items-center gap-2 hover:opacity-80 transition-opacity"
           >
             <img
-              src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(512%20x%20512%20px).svg"
+              src={STORELIB_LOGO}
               alt="Storelib"
               className="h-[30px] w-[30px] rounded-[4px]"
             />
@@ -1249,7 +1250,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
 
             <Link href="/app" className="flex items-center gap-2.5 hover:opacity-90 transition-opacity shrink-0">
               <img
-                src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(512%20x%20512%20px).svg"
+                src={STORELIB_LOGO}
                 alt="Storelib"
                 className="h-[27px] w-[27px] rounded-[4px]"
               />

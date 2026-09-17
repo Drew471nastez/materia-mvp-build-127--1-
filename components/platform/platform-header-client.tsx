@@ -24,9 +24,9 @@ import { useLocale } from "@/components/locale-provider"
 import { LanguageModal } from "@/components/platform/language-modal"
 import { readAuthSnapshot, writeAuthSnapshot, clearAuthSnapshot } from "@/lib/auth/auth-snapshot"
 import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
+import { STORELIB_LOGO } from "@/lib/brand/logo"
 
-const LOGO_URL =
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(512%20x%20512%20px).svg"
+const LOGO_URL = STORELIB_LOGO
 
 // Desktop category bar with icons
 const DEFAULT_CATEGORIES = [

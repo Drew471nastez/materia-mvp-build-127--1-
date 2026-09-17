@@ -3,8 +3,9 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { isNativeApp } from "@/lib/platform-utils"
+import { STORELIB_LOGO } from "@/lib/brand/logo"
 
-const LOGO_SRC = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(512%20x%20512%20px).svg"
+const LOGO_SRC = STORELIB_LOGO
 
 const logoInner = (
   <>

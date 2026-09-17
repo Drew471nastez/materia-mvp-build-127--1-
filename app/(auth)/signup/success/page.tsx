@@ -8,6 +8,7 @@ import { CreatorOnboardingModal } from "@/components/app/creator-onboarding-moda
 import { createClient } from "@/lib/supabase/client"
 import { AuthResolvingScreen } from "@/components/auth/auth-resolving-screen"
 import Image from "next/image"
+import { STORELIB_LOGO } from "@/lib/brand/logo"
 
 // Store/Creator icon - matches UserIcon style
 const StoreIcon = () => (
@@ -268,7 +269,7 @@ function SuccessContent() {
                 {/* Logo container */}
                 <div className="relative w-14 h-14 rounded-xl overflow-hidden shadow-lg bg-white flex items-center justify-center">
                   <img
-                    src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(512%20x%20512%20px).svg"
+                    src={STORELIB_LOGO}
                     alt="Storelib"
                     className="w-full h-full"
                   />

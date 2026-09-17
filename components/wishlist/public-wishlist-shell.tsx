@@ -5,8 +5,9 @@ import { useRouter } from "next/navigation"
 import { ArrowLeft } from "lucide-react"
 import { WishlistContent } from "@/components/wishlist/wishlist-content"
 import { MarketingFooter } from "@/components/marketing/footer"
+import { STORELIB_LOGO } from "@/lib/brand/logo"
 
-const LOGO_URL = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(512%20x%20512%20px).svg"
+const LOGO_URL = STORELIB_LOGO
 
 export function PublicWishlistShell() {
   const router = useRouter()

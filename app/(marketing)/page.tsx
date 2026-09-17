@@ -2,6 +2,7 @@ import dynamic from "next/dynamic"
 import { Hero } from "@/components/marketing/hero"
 import { BentoGrid } from "@/components/marketing/bento-grid"
 import { StatsBar } from "@/components/marketing/stats-bar"
+import { STORELIB_LOGO } from "@/lib/brand/logo"
 
 // Below-the-fold sections — dynamically imported to reduce initial JS bundle.
 // Hero + BentoGrid + StatsBar load eagerly (above the fold).
@@ -27,7 +28,7 @@ export default function StorelibLanding() {
             "@type": "Organization",
             "name": "Storelib",
             "url": "https://storelib.com",
-            "logo": "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(512%20x%20512%20px).svg",
+            "logo": STORELIB_LOGO,
             "sameAs": [],
             "description": "The all-in-one ecommerce platform to sell digital products, build your online store & grow your audience."
           }),

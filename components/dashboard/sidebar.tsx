@@ -10,10 +10,11 @@ import { createClient, isNativePlatform } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 import { useState, useEffect, useCallback } from "react"
 import { isNativeApp, nativeLogOut, openExternal } from "@/lib/native-bridge"
+import { STORELIB_LOGO } from "@/lib/brand/logo"
 
 const EXPLORE_FULL_URL = `https://${process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"}/explore`
 
-const LOGO_URL = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(512%20x%20512%20px).svg"
+const LOGO_URL = STORELIB_LOGO
 
 export function DashboardSidebar() {
   const pathname = usePathname()

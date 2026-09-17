@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react"
 import { AnimateOnScroll } from "./bento-grid"
 import { optimizedImageUrl } from "@/lib/images/optimized-url"
+import { STORELIB_LOGO } from "@/lib/brand/logo"
 
 const COMPARE_IMAGE =
   "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Visits%20(12).webp"
@@ -256,7 +257,7 @@ export function ToolStackSection() {
                 <span className="w-8 flex items-center justify-center shrink-0">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(512%20x%20512%20px).svg"
+                    src={STORELIB_LOGO}
                     alt="Storelib"
                     width={31}
                     height={31}

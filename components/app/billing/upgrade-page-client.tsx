@@ -4,9 +4,9 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { X, ArrowLeft, Check, Loader2, ArrowRight } from "lucide-react"
 import { isNativeApp } from "@/lib/native-bridge"
+import { STORELIB_LOGO } from "@/lib/brand/logo"
 
-const STORELIB_LOGO_URL =
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(512%20x%20512%20px).svg"
+const STORELIB_LOGO_URL = STORELIB_LOGO
 
 interface UpgradePageClientProps {
   plans: any[]

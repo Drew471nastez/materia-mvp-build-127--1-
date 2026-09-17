@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect } from "react"
+import { STORELIB_LOGO } from "@/lib/brand/logo"
 
 interface DynamicFaviconProps {
   avatarUrl?: string | null
@@ -8,7 +9,7 @@ interface DynamicFaviconProps {
 }
 
 // Platform favicon URL from Supabase storage
-const PLATFORM_FAVICON_URL = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(512%20x%20512%20px).svg"
+const PLATFORM_FAVICON_URL = STORELIB_LOGO
 
 /**
  * DynamicFavicon - Dynamically sets the page favicon
