@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { FeaturedBannerCarousel } from "./featured-banner-carousel"
 import { ProductCard } from "./product-card"
+import { useEntranceOnChange } from "@/lib/ui/use-entrance-on-change"
 import { ProductCardSkeleton } from "./product-card-skeleton"
 import { Layers, Sparkles, Zap, Share2, Bot, SlidersHorizontal, X, Check, Search, ChevronLeft, ChevronRight, Briefcase, Megaphone, ChevronDown, ArrowRight, Music, Camera, Video, ShoppingBag, GraduationCap, Palette, Code, Lightbulb, FileText } from "lucide-react"
 import { Input } from "@/components/ui/input"
@@ -1149,6 +1150,40 @@ export function ExplorePageClient({
     return recommendedProducts.slice(startIndex, startIndex + PRODUCTS_PER_PAGE)
   }, [recommendedProducts, currentPage])
 
+  /*
+    ═══════════════════════════════════════════════════════════════════════════
+     THE GRIDS FADE IN WHEN THEY CHANGE, NOT WHEN YOU ARRIVE AT THEM
+    ═══════════════════════════════════════════════════════════════════════════
+    Each of these three grids carried `animate-in fade-in-0` unconditionally.
+    That is right for what it was written for — pick a category, change the
+    sort, go to page two, and the new set fades up instead of snapping — and it
+    is wrong on arrival, because a mount is a mount and coming BACK from a
+    product page is one.
+
+    The main grid is 3364px tall. Filmed on production going back to /explore:
+
+         54ms   mean 194.4   65.6% white   the listing, as it was
+         73ms   mean 227.2   90.3% white   the grid at opacity 0
+        142ms   mean 212.0   66.8% white   coming back
+        327ms   mean 194.7   61.8% white   settled
+
+    A quarter of a second of near-white page on every return, and the same
+    88.9/89.0% white shows up in the screen recording that reported it.
+
+    The token each one passes is what already decides whether its CONTENTS
+    changed: the filters for the first, the browsed category for the second,
+    the query for the third. First render compares it against itself and
+    nothing animates; anything different afterwards is a change the visitor
+    made while looking at it.
+  */
+  const productsGridToken = `products-${mainCategory}-${selectedSubcategoryId}-${recommendationFilter}-${priceFilter}-${sortBy}-${currentPage}`
+  const productsGridEntrance = useEntranceOnChange(
+    productsGridToken,
+    "animate-in fade-in-0 slide-in-from-bottom-2 duration-300",
+  )
+  const browseGridEntrance = useEntranceOnChange(browseCategory, "animate-in fade-in-0 duration-200")
+  const searchGridEntrance = useEntranceOnChange(urlSearchQuery || "", "animate-in fade-in-0 duration-200")
+
   const totalPages = Math.ceil(recommendedProducts.length / PRODUCTS_PER_PAGE)
 
   // Get products for the Browse by Category section - 2 rows x 3 = 6 products
@@ -1658,8 +1693,15 @@ export function ExplorePageClient({
           ) : paginatedProducts.length > 0 ? (
             <>
               <div
-                key={`products-${mainCategory}-${selectedSubcategoryId}-${recommendationFilter}-${priceFilter}-${sortBy}-${currentPage}`}
-                className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 animate-in fade-in-0 slide-in-from-bottom-2 duration-300"
+                key={productsGridToken}
+                /*
+                  The entrance plays when the visitor CHANGES something and not
+                  when they arrive. Coming back from a product page is an
+                  arrival, and this grid is 3364px tall: filmed on production it
+                  took the whole page to 90.3% white and spent 250ms fading
+                  back. See lib/ui/use-entrance-on-change.ts.
+                */
+                className={`grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 ${productsGridEntrance}`}
               >
                 {paginatedProducts.map((product, index) => (
                   <ProductCard
@@ -1823,7 +1865,7 @@ export function ExplorePageClient({
 
         {/* Products Grid - 2 rows x 3 products on desktop */}
         {browseSectionProducts.length > 0 ? (
-          <div className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 animate-in fade-in-0 duration-200">
+          <div className={`grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 ${browseGridEntrance}`}>
             {browseSectionProducts.map((product, index) => (
               <ProductCard
                 key={product.id}
@@ -1861,7 +1903,7 @@ export function ExplorePageClient({
             Results for "{urlSearchQuery}"
           </h2>
           {recommendedProducts.length > 0 ? (
-            <div className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 animate-in fade-in-0 duration-200">
+            <div className={`grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 ${searchGridEntrance}`}>
               {recommendedProducts.slice(0, 15).map((product, index) => (
                 <ProductCard
                   key={product.id}
