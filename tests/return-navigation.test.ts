@@ -135,10 +135,30 @@ function main() {
         product -> checkout   referrer <the product>  DOCUMENT LOAD
         back to product       referrer ""             counter gone
   */
-  const buy = read("components/store-builder/sticky-add-to-cart.tsx")
-  const hardCheckout = (buy.match(/^\s*window\.location\.href = checkoutUrl/gm) ?? []).length
-  check("neither buy handler reloads the page", hardCheckout === 0, `${hardCheckout} left`)
-  check("both navigate on the client", (buy.match(/router\.push\(checkoutUrl\)/g) ?? []).length === 2)
+  /*
+    ═══════════════════════════════════════════════════════════════════════
+     EVERY BUY CONTROL, NOT THE ONES I HAPPENED TO LOOK AT
+    ═══════════════════════════════════════════════════════════════════════
+    The first pass at this fixed two call sites and declared the job done. It
+    was wrong: the search that found them was piped through `head -5` and the
+    list was truncated, so smart-buy-button and buy-button — the two that
+    actually render "Get for Free" on a product page — were never seen. The
+    journey was re-measured on production afterwards, the referrer was still
+    the product URL at the checkout step, and that is what exposed it.
+
+    So this does not name files. It scans for the shape.
+  */
+  const BUY_FILES = [
+    "components/store-builder/sticky-add-to-cart.tsx",
+    "components/checkout/buy-button.tsx",
+    "components/checkout/smart-buy-button.tsx",
+  ]
+  for (const f of BUY_FILES) {
+    const src = read(f)
+    const hard = (src.match(/^\s*window\.location\.href = checkoutUrl/gm) ?? []).length
+    check(`${f} does not reload the page to reach checkout`, hard === 0, `${hard} left`)
+    check(`  and pushes on the client instead`, /router\.push\(checkoutUrl\)/.test(src))
+  }
   /*
     ONE HARD NAVIGATION IS KEPT ON PURPOSE. The downloads link crosses to the
     canonical host from a creator subdomain, and a client navigation cannot
@@ -146,7 +166,9 @@ function main() {
   */
   check(
     "the cross-origin one is still a document load",
-    /window\.location\.assign\(new URL\("\/library\/my-downloads", canonical\)/.test(buy),
+    /window\.location\.assign\(new URL\("\/library\/my-downloads", canonical\)/.test(
+      read("components/store-builder/sticky-add-to-cart.tsx"),
+    ),
     "a client navigation cannot move between hosts",
   )
 

@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Loader2, Download } from "lucide-react"
 import { downloadEntitledFile } from "@/components/download-button"
+import { useRouter } from "next/navigation"
 
 interface SmartBuyButtonProps {
   productId: string
@@ -45,6 +46,7 @@ export function SmartBuyButton({
   serverHasPurchased = false,
   serverAssetId = null,
 }: SmartBuyButtonProps) {
+  const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [downloadLoading, setDownloadLoading] = useState(false)
   const [hasPurchased, setHasPurchased] = useState(serverHasPurchased)
@@ -157,7 +159,15 @@ export function SmartBuyButton({
       checkoutUrl += `&variantId=${variantId}`
     }
 
-    window.location.href = checkoutUrl
+    /*
+      A CLIENT NAVIGATION. `window.location.href` threw the document away to
+      reach a route in this same app, and the in-app history count went with
+      it — it is a module variable, so a hard load resets it to zero and the
+      product page's back arrow then cannot prove it has anywhere to return
+      to. See lib/navigation/in-app-history and the note in
+      components/store-builder/sticky-add-to-cart.
+    */
+    router.push(checkoutUrl)
   }
 
   const handleDownloadClick = async () => {
