@@ -38,14 +38,83 @@
 /** Client navigations this document has made, less those a back undid. */
 let depth = 0
 
-/** A client navigation committed. */
-export function noteClientNavigation() {
+/**
+ * ===========================================================================
+ *  AND WHICH PAGE IS BEHIND THIS ONE
+ * ===========================================================================
+ * `depth` answers "is there one of ours back there". It does not answer "is
+ * it THAT one", and a control that says "Back to product" is making the
+ * second claim.
+ *
+ * Getting that wrong is what produced the bug this was written for. The
+ * checkout's "Back to product" was a plain `<a href>`, so it PUSHED the
+ * product page instead of returning to it, and history went
+ *
+ *     explore -> product -> checkout -> product
+ *
+ * Measured on production by reading history.length at each step: 2, 3, 4, 5.
+ * A real back leaves the length alone; the fourth entry is the push. The
+ * product page's own arrow then did its job perfectly and popped to the
+ * checkout, which is what was reported as the arrow being broken.
+ *
+ * So the paths are kept as well as counted. The browser will not let anyone
+ * read its history entries, but this document knows every navigation it made
+ * because the tracker tells it.
+ */
+const trail: string[] = []
+/** Long enough for any real journey, short enough to never be a leak. */
+const TRAIL_LIMIT = 50
+
+/** A client navigation committed. `from` is the path it left, when known. */
+export function noteClientNavigation(from?: string) {
   depth += 1
+  if (from) {
+    trail.push(from)
+    if (trail.length > TRAIL_LIMIT) trail.shift()
+  }
 }
 
 /** The browser went back (or forward) through one of them. */
 export function notePopNavigation() {
   depth = Math.max(0, depth - 1)
+  trail.pop()
+}
+
+/** The path this document was on before the current one, if it knows. */
+export function previousPath(): string | null {
+  return trail.length ? trail[trail.length - 1] : null
+}
+
+/**
+ * True when `history.back()` would land on exactly `href`.
+ *
+ * This is the question a "Back to <somewhere named>" control has to ask, and
+ * the reason it is a different function from canReturnInApp: returning to a
+ * page of ours and returning to THE page named on the button are not the same
+ * claim, and only the second one justifies pressing back.
+ *
+ * On a hard load the trail is empty — this document has made no navigations —
+ * and the referrer is then the only evidence there is. It is reliable in
+ * exactly that case, because a hard load is the one case where the browser
+ * actually sets it.
+ */
+export function canReturnTo(href: string): boolean {
+  if (typeof window === "undefined") return false
+  if (!canReturnInApp()) return false
+  let target: string
+  try {
+    target = new URL(href, window.location.href).pathname
+  } catch {
+    return false
+  }
+  const prev = previousPath()
+  if (prev !== null) return prev === target
+  try {
+    const ref = new URL(document.referrer)
+    return ref.origin === window.location.origin && ref.pathname === target
+  } catch {
+    return false
+  }
 }
 
 /** For tests and probes: what the count is now. */

@@ -3,6 +3,7 @@ import { Suspense } from "react"
 import Link from "next/link"
 import { ArrowLeft, Heart } from "lucide-react"
 import { WishlistContent } from "@/components/wishlist/wishlist-content"
+import { ReturnLink } from "@/components/navigation/return-link"
 
 export const metadata: Metadata = {
   title: "Wishlist | Library",
@@ -39,13 +40,13 @@ export default function LibraryWishlistPage() {
             <div className="h-12 w-12 sm:h-14 sm:w-14 rounded-xl border-4 border-white bg-neutral-100 flex items-center justify-center shadow-sm shrink-0">
               <Heart className="h-5 w-5 sm:h-6 sm:w-6 text-neutral-600" />
             </div>
-            <Link
+            <ReturnLink
               href="/library"
               className="flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900 transition-colors shadow-sm mt-8 sm:mt-0"
             >
               <ArrowLeft className="h-3.5 w-3.5" />
               Library
-            </Link>
+            </ReturnLink>
           </div>
           <h1 className="text-xl sm:text-2xl font-bold text-neutral-900">Wishlist</h1>
           <p className="text-sm text-neutral-500 mt-0.5">Products you&apos;ve saved for later</p>

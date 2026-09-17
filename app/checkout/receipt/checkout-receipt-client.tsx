@@ -26,6 +26,7 @@ import {
   UserPlus,
 } from "lucide-react"
 import { getProductUrl } from "@/lib/url-helpers"
+import { ReturnLink } from "@/components/navigation/return-link"
 
 interface CheckoutReceiptClientProps {
   order: {
@@ -633,10 +634,10 @@ export default function CheckoutReceiptClient({
       {/* Header */}
       <header className="border-b border-gray-200 bg-white pt-[env(safe-area-inset-top)]">
         <div className="mx-auto flex h-14 max-w-[1400px] items-center justify-between px-6 sm:px-10 lg:px-16">
-          <a href={backToProductUrl} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 min-h-[44px] transition-colors">
+          <ReturnLink href={backToProductUrl} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 min-h-[44px] transition-colors">
             <ArrowLeft className="h-4 w-4 shrink-0" />
             <span className="truncate">Back to product</span>
-          </a>
+          </ReturnLink>
           <Link href="/explore" className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
             Continue Shopping
           </Link>

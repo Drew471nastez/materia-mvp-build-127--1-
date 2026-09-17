@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { createClient, isNativePlatform } from "@/lib/supabase/client"
 import { nativeLogOut } from "@/lib/native-bridge"
+import { ReturnLink } from "@/components/navigation/return-link"
 
 /**
  * Compresses an image using canvas to fit within 2MB.
@@ -352,13 +353,13 @@ export function BuyerSettings({ userId, email, displayName: initialName, avatarU
             <div className="h-12 w-12 sm:h-14 sm:w-14 rounded-xl border-4 border-white bg-neutral-100 flex items-center justify-center shadow-sm shrink-0">
               <User className="h-5 w-5 sm:h-6 sm:w-6 text-neutral-600" />
             </div>
-            <Link
+            <ReturnLink
               href="/library"
               className="flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900 transition-colors shadow-sm mt-8 sm:mt-0"
             >
               <ArrowLeft className="h-3.5 w-3.5" />
               Library
-            </Link>
+            </ReturnLink>
           </div>
           <h1 className="text-xl sm:text-2xl font-bold text-neutral-900">Settings</h1>
           <p className="text-sm text-neutral-500 mt-0.5">Manage your account preferences</p>

@@ -7,6 +7,7 @@ import { getStoreUrl } from "@/lib/url-helpers"
 import { SmartLink } from "@/components/smart-link"
 import { ArrowLeft, CheckCircle, Calendar, Package } from "lucide-react"
 import { DownloadButton } from "@/components/download-button"
+import { ReturnLink } from "@/components/navigation/return-link"
 
 interface ProductAccessPageProps {
   params: Promise<{ id: string }>
@@ -144,13 +145,13 @@ export default async function ProductAccessPage({ params }: ProductAccessPagePro
             <div className="h-12 w-12 sm:h-14 sm:w-14 rounded-xl border-4 border-white bg-neutral-100 flex items-center justify-center shadow-sm shrink-0">
               <Package className="h-5 w-5 sm:h-6 sm:w-6 text-neutral-600" />
             </div>
-            <Link
+            <ReturnLink
               href="/library"
               className="flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900 transition-colors shadow-sm mt-8 sm:mt-0"
             >
               <ArrowLeft className="h-3.5 w-3.5" />
               Library
-            </Link>
+            </ReturnLink>
           </div>
 
           {/* Page title = product name */}
