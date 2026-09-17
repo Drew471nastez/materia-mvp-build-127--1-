@@ -60,10 +60,10 @@ const VALID_CATEGORIES = [
 export default async function ExplorePage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; category?: string }>
+  searchParams: Promise<{ q?: string; category?: string; c?: string }>
 }) {
   // Safely get search params
-  let params: { q?: string; category?: string } = {}
+  let params: { q?: string; category?: string; c?: string } = {}
   try {
     params = await searchParams
   } catch {
@@ -71,7 +71,17 @@ export default async function ExplorePage({
   }
 
   const searchQuery = (params?.q || "").toLowerCase()
-  const rawCategory = (params?.category || "all").toLowerCase()
+  /*
+    `c` IS THE ONE THE PAGE WRITES NOW, and `category` is still read.
+
+    Switching a category used to leave ?category=design behind; the owner
+    asked for a shorter, shareable shape carrying the sort and the language
+    as well. Renaming a query parameter without reading the old one breaks
+    every link already pointing here: the header's own category menu, the
+    structured data on every product page, and anything anybody has shared.
+    So the new name wins when both are present and the old one keeps working.
+  */
+  const rawCategory = (params?.c || params?.category || "all").toLowerCase()
   const category = VALID_CATEGORIES.includes(rawCategory) ? rawCategory : "all"
 
   // Initialize data

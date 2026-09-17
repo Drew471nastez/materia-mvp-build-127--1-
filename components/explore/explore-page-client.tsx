@@ -10,6 +10,8 @@ import { useEntranceOnChange } from "@/lib/ui/use-entrance-on-change"
 import { ProductCardSkeleton } from "./product-card-skeleton"
 import { Layers, Sparkles, Zap, Share2, Bot, SlidersHorizontal, X, Check, Search, ChevronLeft, ChevronRight, Briefcase, Megaphone, ChevronDown, ArrowRight, Music, Camera, Video, ShoppingBag, GraduationCap, Palette, Code, Lightbulb, FileText } from "lucide-react"
 import { Input } from "@/components/ui/input"
+import { useLanguage } from "@/lib/i18n/context"
+import { LANGUAGES } from "@/lib/i18n"
 
 // Safe body scroll lock/unlock helpers that prevent scroll bugs
 let scrollLockCount = 0
@@ -317,12 +319,22 @@ function normalizeCategoryToId(dbCategory: string): string {
 /**
  * THE PILLS, WHICH ARE A SUBSET AND SAY SO.
  *
- * Seven of the fifteen categories, chosen because they are the ones with
+ * Nine of the fifteen categories, chosen because they are the ones with
  * products in them, plus "More..." for the rest — which opens the picker that
  * already existed rather than being a second list to keep in step. Derived
  * from CATEGORIES so a label or an icon is edited in one place.
  */
-const PILL_IDS = ["all", "design", "business", "marketing", "ai", "education", "development"] as const
+const PILL_IDS = [
+  "all",
+  "design",
+  "development",
+  "business",
+  "marketing",
+  "ai",
+  "education",
+  "productivity",
+  "video",
+] as const
 /**
  * REAL EMOJI, NOT LINE ICONS. The owner asked for the platform's own emoji,
  * which is what every marketplace with a category row uses: they carry colour
@@ -340,6 +352,8 @@ const PILL_EMOJI: Record<string, string> = {
   ai: "\u{2728}",
   education: "\u{1F393}",
   development: "\u{1F4BB}",
+  productivity: "\u{26A1}",
+  video: "\u{1F3AC}",
 }
 const CATEGORY_PILLS = PILL_IDS
   .map((id) => CATEGORIES.find((c) => c.id === id))
@@ -930,6 +944,7 @@ export function ExplorePageClient({
   // Filter states
   const [priceFilter, setPriceFilter] = useState<string>("all")
   const [sortBy, setSortBy] = useState<string>("newest")
+  const { language, setLanguage } = useLanguage()
   const [selectedSubcategories, setSelectedSubcategories] = useState<string[]>([])
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
@@ -1185,6 +1200,32 @@ export function ExplorePageClient({
    * and the filters stay in view, so the list changes under controls that do
    * not move.
    */
+  /**
+   * ===========================================================================
+   *  THE URL SAYS WHAT YOU ARE LOOKING AT
+   * ===========================================================================
+   * Switching a category used to leave `?category=design` behind and nothing
+   * else, so a link somebody sent you opened on a different sort in whatever
+   * language their browser happened to pick. The owner asked for the shape
+   * `?c=…&lang=…&srt=…`, and all three are read back on arrival, which is the
+   * only thing that makes them worth writing.
+   *
+   * `srt` carries the sort ids this page actually has — newest, popular,
+   * price-low, price-high — rather than a word invented for the URL. `lang`
+   * carries the code from lib/i18n, which is what setLanguage takes, so the
+   * link opens in the language it was shared from.
+   */
+  const exploreHref = useCallback(
+    (categoryId: string, sort: string = sortBy) => {
+      const params = new URLSearchParams()
+      if (categoryId && categoryId !== "all") params.set("c", categoryId)
+      params.set("lang", language)
+      params.set("srt", sort)
+      return `/explore?${params.toString()}`
+    },
+    [language, sortBy],
+  )
+
   const goToPage = useCallback((page: number) => {
     const next = Math.max(1, Math.min(totalPages, page))
     if (next === currentPage) return
@@ -1402,6 +1443,16 @@ export function ExplorePageClient({
     const normalizedCategory = initialCategory.toLowerCase() || "all"
     if (normalizedCategory !== mainCategory) setMainCategory(normalizedCategory)
 
+    /* Written by exploreHref above; both are ignored when absent. */
+    const srtParam = searchParams.get("srt")
+    if (srtParam && SORT_OPTIONS.some((o) => o.id === srtParam) && srtParam !== sortBy) {
+      setSortBy(srtParam)
+    }
+    const langParam = searchParams.get("lang")
+    if (langParam && LANGUAGES.some((l) => l.code === langParam) && langParam !== language) {
+      setLanguage(langParam as typeof language)
+    }
+
     // Check for subcategory in URL
     const subParam = searchParams.get("sub")
     if (subParam && subParam !== selectedSubcategoryId) {
@@ -1456,8 +1507,27 @@ export function ExplorePageClient({
                 reads as broken rather than as more-to-the-right. The mask
                 fades the last few pixels instead.
               */}
+              {/*
+                CENTRED, NOT PACKED AGAINST THE LEFT EDGE.
+
+                The scroller and the row are two elements now, because they
+                want opposite things. `justify-content: center` inside a
+                scroll container makes the first item unreachable once the
+                content overflows — a known flexbox behaviour, and on a phone
+                the first pill is "All". So the outer box scrolls and the
+                inner row is `w-max mx-auto`: auto margins centre it while it
+                fits and do nothing once it does not, which is scrolling from
+                the left with nothing cut off.
+
+                Wide enough to hold them all, it wraps and centres each line
+                instead of scrolling at all.
+              */}
               <div
-                className="flex-1 min-w-0 flex items-center gap-2 overflow-x-auto scrollbar-hide -mx-1 px-1 py-0.5 [mask-image:linear-gradient(to_right,transparent_0,black_8px,black_calc(100%-20px),transparent_100%)]"
+                className="flex-1 min-w-0 overflow-x-auto sm:overflow-visible scrollbar-hide -mx-1 px-1 py-0.5 [mask-image:linear-gradient(to_right,transparent_0,black_8px,black_calc(100%-20px),transparent_100%)] sm:[mask-image:none]"
+              >
+              <div
+                data-category-pills-row
+                className="flex w-max mx-auto items-center gap-2 sm:w-full sm:flex-wrap sm:justify-center sm:gap-y-2"
               >
                 {CATEGORY_PILLS.map((cat) => {
                   const isSelected = mainCategory === cat.id
@@ -1468,7 +1538,14 @@ export function ExplorePageClient({
                         setMainCategory(cat.id)
                         setSelectedSubcategoryId(null)
                         setSelectedSubcategoryLabel(null)
-                        router.push(cat.id === "all" ? "/explore" : `/explore?category=${cat.id}`, { scroll: false })
+                        setCurrentPage(1)
+                        router.push(exploreHref(cat.id), { scroll: false })
+                        /* Switching a category changes what the list is, so
+                           the list starts again from its top rather than
+                           leaving somebody in the middle of a page of
+                           products they have not seen. Same movement the
+                           pager uses. */
+                        smoothScrollToRecommendedSection(categorySectionRef)
                       }}
                       className={`inline-flex items-center gap-1.5 shrink-0 px-3.5 py-2 rounded-full text-sm font-medium cursor-pointer select-none whitespace-nowrap border transition-colors duration-150 ${
                         isSelected
@@ -1488,6 +1565,7 @@ export function ExplorePageClient({
                 >
                   More...
                 </button>
+              </div>
               </div>
 
               <div className="flex items-center gap-2 shrink-0 relative">

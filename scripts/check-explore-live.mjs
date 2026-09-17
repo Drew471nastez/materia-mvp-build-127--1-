@@ -228,8 +228,30 @@ async function main(width) {
        backslash is eaten before the browser sees it, and /p{...}/u is a
        SyntaxError that threw this entire reading away without a word. */
     const withEmoji = pills.filter((b) => /\\p{Extended_Pictographic}/u.test(b.textContent || "")).length
+    /*
+      CENTRED IS A MEASUREMENT, not a class name. The row sits in a track
+      that scrolls on a phone and wraps on a desktop, so the question is how
+      much empty space it leaves at each end of that track.
+    */
+    let pillBox = null
+    const row = document.querySelector("[data-category-pills-row]")
+    if (row && row.parentElement) {
+      const r = row.getBoundingClientRect()
+      const track = row.parentElement.getBoundingClientRect()
+      const left = Math.round(r.left - track.left)
+      const right = Math.round(track.right - r.right)
+      pillBox = {
+        left,
+        right,
+        count: row.children.length,
+        /* Either centred within a few pixels, or wider than its track and
+           therefore scrolling, which has no centre to be off. */
+        centred: Math.abs(left - right) <= 8 || r.width >= track.width - 2,
+      }
+    }
     return {
       popularColumns,
+      pills: pillBox,
       pillsWithEmoji: withEmoji,
       /* Two headings that both announce categories is the duplicate board. */
       categoryHeadings: headings
@@ -237,6 +259,31 @@ async function main(width) {
         .map((h) => (h.textContent || "").trim().slice(0, 48)),
     }
   })()`)
+
+  /*
+    AND NO VIOLET HALO WHEN THE FIELD IS TAPPED. Reported as "when input
+    focus on the search input make sure no purple glow thing", so this reads
+    the computed shadow off the focused element rather than the class list.
+  */
+  r.focusGlow = await ev(`(() => {
+    const anchor = document.querySelector("[data-explore-search-anchor]")
+    const field = anchor && anchor.querySelector("input")
+    if (!field) return null
+    field.focus()
+    const cs = getComputedStyle(field)
+    const shadow = cs.boxShadow || "none"
+    const border = cs.borderColor || ""
+    const ink = shadow + " " + border
+    /* Violet in this palette is a red channel well under its blue one with
+       both above zero: rgb(139,92,246), rgb(91,33,182), rgb(196,181,253). */
+    const violet = [...ink.matchAll(/rgba?\\((\\d+),\\s*(\\d+),\\s*(\\d+)/g)].some((m) => {
+      const [red, green, blue] = [Number(m[1]), Number(m[2]), Number(m[3])]
+      return blue > 120 && blue - red > 25 && blue - green > 60
+    })
+    field.blur()
+    return { shadow: shadow.slice(0, 120), border, violet }
+  })()`)
+  await sleep(300)
 
   await ev("window.scrollTo(0, document.documentElement.scrollHeight); true")
   await sleep(1500)
@@ -335,27 +382,40 @@ async function main(width) {
         the viewport the keyboard is not covering, so that is what is read
         rather than any class name.
       */
-      sheet: (() => {
-        /*
-          THE PANEL, NOT THE LAYER IT SITS IN. Two components in the header
-          carry data-mobile-bottom-sheet, and the search sheet's own is a
-          full-height layer sized to the visual viewport — measuring that
-          reads 0px from the top and 0px from the bottom no matter which end
-          the sheet came from, which is a check that cannot fail.
-        */
-        const el = document.querySelector("[data-search-sheet-panel]")
-        if (!el) return null
-        const b = el.getBoundingClientRect()
-        const viewportBottom = window.visualViewport
-          ? window.visualViewport.offsetTop + window.visualViewport.height
-          : window.innerHeight
-        return {
-          top: Math.round(b.top),
-          bottom: Math.round(b.bottom),
-          gapBelow: Math.round(viewportBottom - b.bottom),
-          gapAbove: Math.round(b.top),
-          blurred: getComputedStyle(el.parentElement || el).backdropFilter !== "none",
+      /*
+        NOTHING MAY COVER THE PAGE. The mobile search used to throw a sheet
+        over everything; the owner asked for it gone, so the check is no
+        longer "which end did the sheet come from" but "is there a sheet at
+        all". Anything fixed or absolutely placed that covers more than half
+        the screen while the search is open counts.
+      */
+      covering: (() => {
+        const vw = window.innerWidth
+        const vh = window.innerHeight
+        const found = []
+        for (const el of document.body.querySelectorAll("*")) {
+          const cs = getComputedStyle(el)
+          if (cs.position !== "fixed" && cs.position !== "absolute") continue
+          if (cs.visibility === "hidden" || cs.display === "none" || parseFloat(cs.opacity) === 0) continue
+          const b = el.getBoundingClientRect()
+          if (b.width * b.height < vw * vh * 0.5) continue
+          /* The header's own fixed bar is not a sheet. */
+          if (el.id === "platform-header-root" || el.closest("#platform-header-root")) continue
+          const cls = typeof el.className === "string" ? el.className.split(" ").slice(0, 3).join(".") : ""
+          found.push(el.tagName.toLowerCase() + (cls ? "." + cls : "") + " " + Math.round(b.width) + "x" + Math.round(b.height))
         }
+        return found.slice(0, 5)
+      })(),
+      /* And the control itself has to be the field, not a button that opens one. */
+      searchControlTag: (() => {
+        const near = (el) => {
+          const b = el.getBoundingClientRect()
+          return b.top >= -4 && b.top < 200 && b.width > 40
+        }
+        const field = [...document.querySelectorAll("input")].find((i) => /search/i.test(i.placeholder || "") && near(i))
+        if (field) return "input"
+        const button = [...document.querySelectorAll("button")].find((b) => /search/i.test(b.textContent || "") && near(b))
+        return button ? "button" : "none"
       })(),
     }
   })()`)
@@ -410,10 +470,15 @@ for (const r of [desk, phone]) {
     console.log(`    Most popular is ${r.layout.popularColumns} card(s) per row; ${r.layout.pillsWithEmoji} pill(s) carry an emoji`)
     console.log(`    headings that announce categories: ${r.layout.categoryHeadings.length ? r.layout.categoryHeadings.map((h) => JSON.stringify(h)).join(", ") : "none"}`)
   }
-  if (r.withSearchOpen?.sheet) {
-    const sh = r.withSearchOpen.sheet
-    console.log(`    the open sheet sits ${sh.gapAbove}px from the top and ${sh.gapBelow}px from the bottom of the visible viewport, backdrop-filter ${sh.blurred ? "on" : "off"}`)
+  if (r.withSearchOpen?.found) {
+    const w = r.withSearchOpen
+    console.log(`    with the search open the control is a <${w.searchControlTag}> and ${w.covering.length} element(s) cover half the screen or more${w.covering.length ? ` (${w.covering.join(", ")})` : ""}`)
   }
+  if (r.layout?.pills) {
+    const pb = r.layout.pills
+    console.log(`    the pill row leaves ${pb.left}px on the left and ${pb.right}px on the right of its track (${pb.centred ? "centred" : "NOT centred"})`)
+  }
+  if (r.focusGlow) console.log(`    the focused search field's shadow: ${r.focusGlow.shadow}`)
   if (r.paging.found) console.log(`    pressed page 2 at y=${r.paging.before} and landed at y=${r.afterPaging}`)
   else console.log(`    no page 2 control found`)
   console.log("")
@@ -444,8 +509,17 @@ for (const r of [desk, phone]) {
   if (!r.layout) {
     problems.push(`${label}: the page-shape reading came back empty, so Most popular, the pills and the category headings were not tested at all.`)
   }
-  if (label === "phone" && !r.withSearchOpen?.sheet) {
-    problems.push(`${label}: the open search sheet was not found, so which end it comes from was not tested.`)
+  if (label === "phone" && r.withSearchOpen?.searchControlTag !== "input") {
+    problems.push(`${label}: tapping search reaches a <${r.withSearchOpen?.searchControlTag}>, not a field you can type in.`)
+  }
+  if (r.withSearchOpen?.covering?.length) {
+    problems.push(`${label}: with the search open, ${r.withSearchOpen.covering.length} element(s) cover half the screen or more (${r.withSearchOpen.covering.join(", ")}). The sheet was meant to be gone.`)
+  }
+  if (r.layout?.pills && !r.layout.pills.centred) {
+    problems.push(`${label}: the pill row leaves ${r.layout.pills.left}px on the left and ${r.layout.pills.right}px on the right of its track, so it is packed against one edge rather than centred.`)
+  }
+  if (r.focusGlow && r.focusGlow.violet) {
+    problems.push(`${label}: focusing the search field paints a violet glow (${r.focusGlow.shadow}).`)
   }
   if (r.layout && r.layout.categoryHeadings.length > 1) {
     problems.push(`${label}: ${r.layout.categoryHeadings.length} headings announce categories (${r.layout.categoryHeadings.join(" / ")}). There should be one board, not two.`)
@@ -455,11 +529,6 @@ for (const r of [desk, phone]) {
   }
   if (r.layout && r.layout.pillsWithEmoji < 3) {
     problems.push(`${label}: only ${r.layout.pillsWithEmoji} category pill(s) carry an emoji.`)
-  }
-  if (label === "phone" && r.withSearchOpen?.sheet) {
-    const sh = r.withSearchOpen.sheet
-    if (sh.gapBelow > 8) problems.push(`${label}: the open search sheet ends ${sh.gapBelow}px above the bottom of the visible viewport, so it is not anchored to the bottom.`)
-    if (sh.gapAbove <= sh.gapBelow) problems.push(`${label}: the open search sheet is closer to the top (${sh.gapAbove}px) than the bottom (${sh.gapBelow}px). It is still coming from the top.`)
   }
   if (r.paging.found && r.afterPaging >= r.paging.before) {
     problems.push(`${label}: pressing page 2 from y=${r.paging.before} left the visitor at y=${r.afterPaging}. Paging should return to the top of the list.`)
