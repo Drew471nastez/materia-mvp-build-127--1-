@@ -269,7 +269,14 @@ async function main(width) {
     const anchor = document.querySelector("[data-explore-search-anchor]")
     const field = anchor && anchor.querySelector("input")
     if (!field) return null
+    /* Read at rest first, so "focused" has something to be different from.
+       A focus rule that changes nothing is dead CSS, and a check that only
+       looks at the focused state cannot tell the two apart. */
+    const restingCs = getComputedStyle(field)
+    const resting = restingCs.boxShadow || "none"
+    const restingBorder = restingCs.borderColor || ""
     field.focus()
+    const focused = document.activeElement === field
     const cs = getComputedStyle(field)
     const shadow = cs.boxShadow || "none"
     const border = cs.borderColor || ""
@@ -281,7 +288,39 @@ async function main(width) {
       return blue > 120 && blue - red > 25 && blue - green > 60
     })
     field.blur()
-    return { shadow: shadow.slice(0, 120), border, violet }
+    /*
+      TAILWIND v4 COMPOSES box-shadow OUT OF FIVE SLOTS -- inset shadow, inset
+      ring, ring offset, ring, shadow -- and every unused one computes to
+      "rgba(0, 0, 0, 0) 0px 0px 0px 0px". Printing the first 120 characters
+      therefore printed four transparent placeholders and cut off the only
+      layer carrying any ink, so the evidence was useless even though the
+      check itself reads the whole string. String operations rather than a
+      regex: this runs inside a template literal and the escaping is not
+      worth the cleverness.
+    */
+    const EMPTY = "rgba(0, 0, 0, 0) 0px 0px 0px 0px"
+    let cleaned = shadow.split(EMPTY).join("")
+    while (cleaned.includes(",,")) cleaned = cleaned.split(",,").join(",")
+    cleaned = cleaned.split(", ,").join(", ").trim()
+    while (cleaned.startsWith(",")) cleaned = cleaned.slice(1).trim()
+    while (cleaned.endsWith(",")) cleaned = cleaned.slice(0, -1).trim()
+    const tidy = (v) => {
+      let c = v.split(EMPTY).join("")
+      while (c.includes(",,")) c = c.split(",,").join(",")
+      c = c.split(", ,").join(", ").trim()
+      while (c.startsWith(",")) c = c.slice(1).trim()
+      while (c.endsWith(",")) c = c.slice(0, -1).trim()
+      return c || "none"
+    }
+    return {
+      shadow: (cleaned || "none").slice(0, 200),
+      resting: tidy(resting).slice(0, 200),
+      changedOnFocus: tidy(resting) !== (cleaned || "none"),
+      border,
+      restingBorder,
+      violet,
+      focused,
+    }
   })()`)
   await sleep(300)
 
@@ -406,7 +445,19 @@ async function main(width) {
         }
         return found.slice(0, 5)
       })(),
-      /* And the control itself has to be the field, not a button that opens one. */
+      /*
+        And the control itself has to be the field, not a button that opens
+        one.
+
+        ON A DESKTOP THIS READS "none", AND THAT IS THIS SCRIPT, NOT THE PAGE.
+        Pressing the search a moment ago called focus() on it, and focusing an
+        input scrolls it into view — which undoes the scroll to 900 that put
+        the header's own field on screen in the first place. By the time this
+        runs the page is back near the top, the header has handed its search
+        back, and the only search input left is the hero's, below the 200px
+        band this looks in. The phone path presses the sticky strip's field,
+        which is already at the top, so it is unaffected.
+      */
       searchControlTag: (() => {
         const near = (el) => {
           const b = el.getBoundingClientRect()
@@ -415,7 +466,12 @@ async function main(width) {
         const field = [...document.querySelectorAll("input")].find((i) => /search/i.test(i.placeholder || "") && near(i))
         if (field) return "input"
         const button = [...document.querySelectorAll("button")].find((b) => /search/i.test(b.textContent || "") && near(b))
-        return button ? "button" : "none"
+        if (button) return "button"
+        /* "none" on its own is not a finding, it is a question. Say what WAS
+           on the page so the next run does not start from nothing. */
+        const all = [...document.querySelectorAll("input")].filter((i) => /search/i.test(i.placeholder || ""))
+        const tops = all.map((i) => Math.round(i.getBoundingClientRect().top)).join("/")
+        return "none (" + all.length + " search input(s), at y=" + (tops || "-") + ")"
       })(),
     }
   })()`)
@@ -478,7 +534,10 @@ for (const r of [desk, phone]) {
     const pb = r.layout.pills
     console.log(`    the pill row leaves ${pb.left}px on the left and ${pb.right}px on the right of its track (${pb.centred ? "centred" : "NOT centred"})`)
   }
-  if (r.focusGlow) console.log(`    the focused search field's shadow: ${r.focusGlow.shadow}`)
+  if (r.focusGlow) {
+    console.log(`    the search field at rest:  ${r.focusGlow.resting} / border ${r.focusGlow.restingBorder}`)
+    console.log(`    and while focused (${r.focusGlow.focused ? "focus taken" : "FOCUS NOT TAKEN"}, ${r.focusGlow.changedOnFocus ? "shadow changed" : "shadow UNCHANGED"}): ${r.focusGlow.shadow} / border ${r.focusGlow.border}`)
+  }
   if (r.paging.found) console.log(`    pressed page 2 at y=${r.paging.before} and landed at y=${r.afterPaging}`)
   else console.log(`    no page 2 control found`)
   console.log("")
@@ -520,6 +579,17 @@ for (const r of [desk, phone]) {
   }
   if (r.focusGlow && r.focusGlow.violet) {
     problems.push(`${label}: focusing the search field paints a violet glow (${r.focusGlow.shadow}).`)
+  }
+  if (r.focusGlow && !r.focusGlow.focused) {
+    problems.push(`${label}: the field never took focus, so what was read back is the resting state and the glow was not tested.`)
+  }
+  /*
+    SOMETHING has to say the field is focused, or a keyboard has no idea where
+    it is. It does not have to be the shadow — here it is the border — but if
+    neither moves there is no affordance at all.
+  */
+  if (r.focusGlow && r.focusGlow.focused && !r.focusGlow.changedOnFocus && r.focusGlow.border === r.focusGlow.restingBorder) {
+    problems.push(`${label}: focus changes neither the shadow nor the border, so there is nothing to show which field is focused.`)
   }
   if (r.layout && r.layout.categoryHeadings.length > 1) {
     problems.push(`${label}: ${r.layout.categoryHeadings.length} headings announce categories (${r.layout.categoryHeadings.join(" / ")}). There should be one board, not two.`)
