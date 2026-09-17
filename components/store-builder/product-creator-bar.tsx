@@ -599,7 +599,15 @@ function usePressFeedback(): [boolean, { onPointerDown: () => void }] {
  * is untouched: acknowledgement belongs at the moment of contact, and this is
  * about the wait afterwards.
  */
-const SPINNER_DELAY_MS = 110
+/*
+  300, NOT 110. Going back through history lands in 78ms on production, but a
+  slower phone can take longer than 110, and then the arrow cross-fades into a
+  spinner for the last few frames before the page leaves — a twitch in the
+  header on the way out, on the one navigation that needs no explaining. The
+  spinner is for the cold path, a push that measures around two seconds, and
+  300ms still puts it up well inside that.
+*/
+const SPINNER_DELAY_MS = 300
 /** How long a back is given before the arrow comes back. */
 const BACK_GIVE_UP_MS = 4000
 
@@ -635,39 +643,59 @@ function BackControl({ onBack, label, pending }: { onBack: () => void; label: st
       aria-label={label}
       title={label}
       aria-busy={showSpinner || undefined}
-      className={cn(
-        "relative -ml-1 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full",
-        "select-none outline-none",
-        pressed ? "bar-control-pressed" : "bar-control",
-      )}
+      /*
+        ═══════════════════════════════════════════════════════════════════
+         THE TARGET IS BIGGER THAN THE DISC, AND THAT IS THE FIX FOR
+         "I PRESS BACK AND NOTHING HAPPENS"
+        ═══════════════════════════════════════════════════════════════════
+        The button used to BE the 36px disc. That is under the 44pt Apple
+        minimum, and the tap hook only accepts a release within 10px of the
+        element's box, so a thumb that landed a little wide, or drifted a
+        little while pressing, was a press that did nothing.
+
+        So the button is now a 56 x 52 box and the disc is a child centred in
+        it. The disc still looks and moves exactly as before; what changed is
+        how much of the bar around it counts as it. The negative margins hand
+        the extra size back to the row so nothing else moves, and the left one
+        runs the target to the edge of the screen, which is where a thumb
+        reaching for "back" actually lands.
+      */
+      className="relative -my-2 -ml-4 -mr-2 inline-flex h-[52px] w-[56px] shrink-0 items-center justify-center select-none outline-none"
       style={{ color: "inherit", WebkitTapHighlightColor: "transparent" }}
     >
-      {/*
-        The disc is its own element rather than a background on the button, so
-        it can arrive from the centre while the button sinks. A background
-        colour can only appear; this comes up under the finger.
-      */}
-      <span aria-hidden className={cn("bar-control-disc", pressed && "is-on")} />
-      {/*
-        One box, two icons on the same centre. Laying them out in flow would
-        move the arrow by a pixel as the spinner mounted, which is exactly the
-        twitch this is supposed to remove.
-      */}
-      <span className="relative block h-[19px] w-[19px]">
-        <ArrowLeft
-          className={cn(
-            "absolute inset-0 h-[19px] w-[19px] transition-opacity duration-200 ease-sheet",
-            showSpinner ? "opacity-0" : "opacity-100",
-          )}
-          strokeWidth={2}
-        />
-        <span
-          aria-hidden
-          className={cn(
-            "bar-control-spinner absolute inset-0 transition-opacity duration-200 ease-sheet",
-            showSpinner ? "opacity-100" : "opacity-0",
-          )}
-        />
+      <span
+        className={cn(
+          "relative inline-flex h-9 w-9 items-center justify-center rounded-full",
+          pressed ? "bar-control-pressed" : "bar-control",
+        )}
+      >
+        {/*
+          The disc is its own element rather than a background on the button, so
+          it can arrive from the centre while the button sinks. A background
+          colour can only appear; this comes up under the finger.
+        */}
+        <span aria-hidden className={cn("bar-control-disc", pressed && "is-on")} />
+        {/*
+          One box, two icons on the same centre. Laying them out in flow would
+          move the arrow by a pixel as the spinner mounted, which is exactly the
+          twitch this is supposed to remove.
+        */}
+        <span className="relative block h-[19px] w-[19px]">
+          <ArrowLeft
+            className={cn(
+              "absolute inset-0 h-[19px] w-[19px] transition-opacity duration-200 ease-sheet",
+              showSpinner ? "opacity-0" : "opacity-100",
+            )}
+            strokeWidth={2}
+          />
+          <span
+            aria-hidden
+            className={cn(
+              "bar-control-spinner absolute inset-0 transition-opacity duration-200 ease-sheet",
+              showSpinner ? "opacity-100" : "opacity-0",
+            )}
+          />
+        </span>
       </span>
     </button>
   )
@@ -1292,9 +1320,19 @@ export function LiveProductCreatorBar({
           className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg py-0.5"
           aria-label={`Go to ${creatorName}'s page`}
         >
-          <Avatar className="h-8 w-8 shrink-0">
+          {/*
+            bg-white/10, NOT the shared bg-muted. The avatar's default ground is
+            a light grey so a circle is never a hole on a white page. This bar
+            is #1a1a1a, and on it that ground is a BRIGHT disc that paints for
+            the frames before the photo decodes and then vanishes under it —
+            a light flash in the header on every arrival, exactly where the
+            creator's picture sits. A tenth of white on near-black is the same
+            insurance without the flash, and the fallback matches it so the
+            initials, if they ever show, sit on the same ground.
+          */}
+          <Avatar className="h-8 w-8 shrink-0 bg-white/10">
             {avatarUrl ? <AvatarImage src={optimizedImageUrl(avatarUrl, 48)} alt={creatorName} /> : null}
-            <AvatarFallback className="text-[10px]">{initials}</AvatarFallback>
+            <AvatarFallback className="bg-white/10 text-[10px]">{initials}</AvatarFallback>
           </Avatar>
           {/* min-w-0 is what lets `truncate` work inside a flex row: without
               it the name takes its content's width and runs past the edge of

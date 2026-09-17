@@ -1880,7 +1880,7 @@ function main() {
      * visitor who scrolled past the title scrolled past it on purpose. What
      * is nowhere else is whose shop this is.
      */
-    check("the creator is on it", /<Avatar className="h-8 w-8 shrink-0">/.test(phoneBar) && /\{creatorName\}/.test(phoneBar))
+    check("the creator is on it", /<Avatar className="h-8 w-8 shrink-0 bg-white\/10">/.test(phoneBar) && /\{creatorName\}/.test(phoneBar))
     check("and not the product's thumbnail", !/object-cover/.test(phoneBar))
     check("the name is what yields", /truncate text-sm font-semibold leading-tight/.test(phoneBar))
 
