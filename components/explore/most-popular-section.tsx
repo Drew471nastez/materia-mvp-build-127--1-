@@ -1,6 +1,8 @@
 "use client"
 
-import { useMemo, useState, useEffect, useCallback, useRef } from "react"
+import { useMemo } from "react"
+import Link from "next/link"
+import { ChevronRight } from "lucide-react"
 import { ProductCard } from "./product-card"
 
 interface MostPopularSectionProps {
@@ -34,125 +36,18 @@ export function MostPopularSection({ products }: MostPopularSectionProps) {
         return { ...p, _score: baseScore * recencyMultiplier }
       })
       .sort((a, b) => b._score - a._score)
-      .slice(0, 9)
+      .slice(0, 12)
 
     return scored
   }, [products])
 
   // Mobile: show max 6 products for cleaner navigation
-  const mobileProducts = popularProducts.slice(0, 6)
-
-  // Mobile carousel state
-  const [currentMobileIndex, setCurrentMobileIndex] = useState(0)
-  const [isPaused, setIsPaused] = useState(false)
-  const mobileScrollRef = useRef<HTMLDivElement>(null)
-  const autoplayIntervalRef = useRef<NodeJS.Timeout | null>(null)
-  const pauseTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-
-  const totalMobileProducts = mobileProducts.length
-
-  // Scroll to specific product on mobile
-  const scrollToProduct = useCallback((index: number) => {
-    if (mobileScrollRef.current) {
-      const container = mobileScrollRef.current
-      const targetSlide = container.querySelector<HTMLElement>(`[data-popular-slide="${index}"]`)
-
-      if (targetSlide) {
-        const targetLeft = targetSlide.offsetLeft - (container.clientWidth - targetSlide.offsetWidth) / 2
-        const maxScrollLeft = container.scrollWidth - container.clientWidth
-        const clampedLeft = Math.max(0, Math.min(targetLeft, maxScrollLeft))
-
-        container.scrollTo({
-          left: clampedLeft,
-          behavior: "smooth",
-        })
-      }
-    }
-
-    setCurrentMobileIndex(index)
-  }, [])
-
-  // Go to next product (mobile)
-  const goToNextMobile = useCallback(() => {
-    const nextIndex = (currentMobileIndex + 1) % totalMobileProducts
-    scrollToProduct(nextIndex)
-  }, [currentMobileIndex, totalMobileProducts, scrollToProduct])
-
-  // Mobile autoplay (5s interval, pauses on touch)
-  useEffect(() => {
-    if (totalMobileProducts <= 1 || isPaused) return
-
-    autoplayIntervalRef.current = setInterval(() => {
-      goToNextMobile()
-    }, 5000)
-
-    return () => {
-      if (autoplayIntervalRef.current) clearInterval(autoplayIntervalRef.current)
-    }
-  }, [isPaused, totalMobileProducts, goToNextMobile])
-
-  // Handle scroll events to update current index
-  const handleScroll = useCallback(() => {
-    if (!mobileScrollRef.current) return
-
-    const container = mobileScrollRef.current
-    const slides = Array.from(container.querySelectorAll<HTMLElement>("[data-popular-slide]"))
-    if (slides.length === 0) return
-
-    const maxScrollLeft = container.scrollWidth - container.clientWidth
-    const edgeThreshold = 8
-
-    // Clamp edge cases so last/first dot stays accurate when browser cannot fully center slides at bounds
-    if (container.scrollLeft <= edgeThreshold) {
-      if (currentMobileIndex !== 0) setCurrentMobileIndex(0)
-      return
-    }
-
-    if (container.scrollLeft >= maxScrollLeft - edgeThreshold) {
-      const lastIndex = slides.length - 1
-      if (currentMobileIndex !== lastIndex) setCurrentMobileIndex(lastIndex)
-      return
-    }
-
-    const containerCenter = container.scrollLeft + container.clientWidth / 2
-
-    let closestIndex = 0
-    let closestDistance = Number.POSITIVE_INFINITY
-
-    slides.forEach((slide, index) => {
-      const slideCenter = slide.offsetLeft + slide.offsetWidth / 2
-      const distance = Math.abs(slideCenter - containerCenter)
-
-      if (distance < closestDistance) {
-        closestDistance = distance
-        closestIndex = index
-      }
-    })
-
-    if (closestIndex !== currentMobileIndex) {
-      setCurrentMobileIndex(closestIndex)
-    }
-  }, [currentMobileIndex])
-
-  // Pause autoplay on touch, resume after delay so it doesn't fight manual swiping
-  const handleTouchStart = useCallback(() => {
-    setIsPaused(true)
-    if (pauseTimeoutRef.current) clearTimeout(pauseTimeoutRef.current)
-  }, [])
-
-  const handleTouchEnd = useCallback(() => {
-    if (pauseTimeoutRef.current) clearTimeout(pauseTimeoutRef.current)
-    pauseTimeoutRef.current = setTimeout(() => {
-      setIsPaused(false)
-    }, 6000) // 6s pause after touch so autoplay doesn't snap carousel back
-  }, [])
-
-  // Cleanup
-  useEffect(() => {
-    return () => {
-      if (pauseTimeoutRef.current) clearTimeout(pauseTimeoutRef.current)
-    }
-  }, [])
+  /*
+    THE CAROUSEL'S MACHINERY WENT WITH THE CAROUSEL: an autoplay interval, a
+    pause timer, a scroll listener that worked out which slide was centred,
+    touch handlers to stop the autoplay fighting a finger, and the index the
+    dots read. None of it has a reader now that the phone gets a grid.
+  */
 
   if (popularProducts.length === 0) {
     return null
@@ -172,68 +67,48 @@ export function MostPopularSection({ products }: MostPopularSectionProps) {
           </span>
         </div>
 
+        {/* Twelve is what this section shows; the rest of them are a sort
+            away on the list above, which is where "view all" goes. */}
+        <Link
+          href="/explore?sort=popular"
+          className="inline-flex items-center gap-1 text-sm font-semibold text-neutral-600 hover:text-neutral-900 transition-colors whitespace-nowrap"
+        >
+          View all
+          <ChevronRight className="h-4 w-4" />
+        </Link>
       </div>
 
-      {/* Desktop: Static 3x2 grid - no carousel, no dots */}
-      <div className="hidden md:grid grid-cols-3 gap-5">
-        {popularProducts.slice(0, 6).map((product, index) => (
-          <ProductCard
-            key={product.id}
-            product={product}
-            srcParam="?src=platform"
-            priority={index < 6}
-          />
+      {/*
+        FOUR ROWS AT EVERY WIDTH, which is a different NUMBER at every width.
+
+        The grid is two across on a phone and three on a desktop, so four rows
+        is eight and then twelve. Rendering twelve and hiding the last four
+        below `lg` is what keeps it four rows rather than four rows on one
+        screen and six on another — and the hidden ones cost nothing, because
+        a card that is `display: none` never fetches its picture.
+      */}
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+        {popularProducts.slice(0, 12).map((product, index) => (
+          <div key={product.id} className={index >= 8 ? "hidden lg:block" : undefined}>
+            <ProductCard
+              product={product}
+              srcParam="?src=platform"
+              priority={index < 3}
+              clientNav
+            />
+          </div>
         ))}
       </div>
 
-      {/* Mobile: Horizontal scroll carousel */}
-      <div
-        className="md:hidden"
-        onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEnd}
-      >
-        <div
-          ref={mobileScrollRef}
-          onScroll={handleScroll}
-          className="overflow-x-auto scrollbar-hide -mx-4 px-4 snap-x snap-proximity"
-          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-        >
-          <div className="flex gap-4">
-            <div className="flex-shrink-0 w-[7.5%]" aria-hidden="true" />
-            {mobileProducts.map((product, index) => (
-              <div key={product.id} data-popular-slide={index} className="flex-shrink-0 w-[85%] snap-center">
-                <ProductCard
-                  product={product}
-                  srcParam="?src=platform"
-                  priority={index < 3}
-                />
-              </div>
-            ))}
-            <div className="flex-shrink-0 w-[7.5%]" aria-hidden="true" />
-          </div>
-        </div>
+      {/*
+        THE PHONE'S CAROUSEL IS GONE. It showed six products one at a time,
+        85% of the screen wide, behind a swipe and a row of dots — so a phone
+        saw six of the twelve and only one of them at once, on a section whose
+        whole point is that it is a shortlist you can scan.
 
-        {/* Mobile navigation dots — pill style */}
-        {totalMobileProducts > 1 && (
-          <div className="flex items-center justify-center gap-1.5 mt-4">
-            {mobileProducts.map((_, index) => {
-              const isActive = index === currentMobileIndex
-              return (
-                <button
-                  key={index}
-                  onClick={() => scrollToProduct(index)}
-                  className={`rounded-full cursor-pointer transition-all duration-300 ${
-                    isActive
-                      ? "w-6 h-2 bg-neutral-900"
-                      : "w-2 h-2 bg-neutral-300 hover:bg-neutral-400"
-                  }`}
-                  aria-label={`Go to product ${index + 1}`}
-                />
-              )
-            })}
-          </div>
-        )}
-      </div>
+        The grid above is two across on a phone, which shows eight of them in
+        four rows with no gesture to discover and nothing to swipe past.
+      */}
     </section>
   )
 }

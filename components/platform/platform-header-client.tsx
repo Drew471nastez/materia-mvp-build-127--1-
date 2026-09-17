@@ -19,34 +19,17 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
-import { Heart, Library, Search, LayoutDashboard, Settings, LogOut, LogIn, Menu, X, Loader2, ChevronRight, ChevronLeft, ChevronDown, Sparkles, Code, Megaphone, Briefcase, Music, Camera, Video, LayoutGrid, Gift, MoreHorizontal, Bot, Share2, Flame, Zap, ShoppingBag, Lightbulb, ArrowRight, User as UserIcon, Compass, Globe } from "lucide-react"
+import { Heart, Library, Search, LayoutDashboard, Settings, LogOut, LogIn, Menu, X, Loader2, ChevronRight, ChevronLeft, ChevronDown, Sparkles, Code, Megaphone, Briefcase, Music, Camera, Video, Bot, Share2, Flame, Zap, ShoppingBag, Lightbulb, ArrowRight, User as UserIcon, Compass, Globe } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
 import { LanguageModal } from "@/components/platform/language-modal"
 import { readAuthSnapshot, writeAuthSnapshot, clearAuthSnapshot } from "@/lib/auth/auth-snapshot"
 import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
 import { STORELIB_LOGO } from "@/lib/brand/logo"
+import { useSearchHandoff } from "@/lib/explore/use-search-handoff"
 
 const LOGO_URL = STORELIB_LOGO
 
-// Desktop category bar with icons
-const DEFAULT_CATEGORIES = [
-  { id: "all", label: "All", icon: LayoutGrid, badge: null },
-  { id: "audio-music", label: "Audio & Music", icon: Music, badge: null },
-  { id: "business", label: "Business & Money", icon: Briefcase, badge: null },
-  { id: "other", label: "Other", icon: MoreHorizontal, badge: null },
-  { id: "freebies", label: "Freebies", icon: Gift, badge: null },
-  { id: "ai", label: "AI", icon: Bot, badge: "HOT" },
-]
 
-// Mobile category pills - 6 categories as pill buttons with icons
-const MOBILE_CATEGORIES = [
-  { id: "all", label: "All", icon: LayoutGrid, badge: null },
-  { id: "audio-music", label: "Audio & Music", icon: Music, badge: null },
-  { id: "business", label: "Business & Money", icon: Briefcase, badge: null },
-  { id: "other", label: "Other", icon: MoreHorizontal, badge: null },
-  { id: "freebies", label: "Freebies", icon: Gift, badge: null },
-  { id: "ai", label: "AI", icon: Bot, badge: "HOT" },
-]
 
 // Categories with subcategories for the dropdown
 const CATEGORIES_WITH_SUBS = [
@@ -1055,7 +1038,25 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
     navigateToExploreCategory(url)
   }
 
-  const showCategories = pathname === "/explore" || pathname.startsWith("/explore") || pathname === "/wishlist"
+  /**
+   * ═════════════════════════════════════════════════════════════════════════
+   *  THE CATEGORY STRIP IS GONE, AND THE SEARCH WAITS ITS TURN
+   * ═════════════════════════════════════════════════════════════════════════
+   * A white band under the black header carried All / Audio & Music /
+   * Business & Money / Other / Freebies / AI, on every Explore page. It went
+   * on the owner's instruction: Explore already has category pills of its
+   * own, under its own heading, where somebody browsing is looking. Two rows
+   * of the same six categories, one of them in a different place and a
+   * different shape, is a second navigation for the same thing.
+   *
+   * The band held the phone's search trigger too, so that moves into the
+   * black row with the desktop one, and both now follow the page. See
+   * lib/explore/use-search-handoff: while Explore's own big field is on
+   * screen the header has none, and it grows one the moment that field
+   * scrolls away.
+   */
+  const isExploreSurface = pathname === "/explore" || pathname.startsWith("/explore") || pathname === "/wishlist"
+  const searchInHeader = useSearchHandoff(isExploreSurface)
   /* Both spellings of a product: `/p/<slug>` still resolves and redirects,
      and `/<handle>/<slug>` is what everything hands out now. */
   const isDiscoverProductContext = isProductPage(pathname) && isDiscoverMode(pathname, searchParams)
@@ -1197,7 +1198,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
     <header className={cn("w-full bg-black", !(isNativePlatform() && isSellerOrProductPage) && "border-b border-white/10")}>
       <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">
         <div
-          className="platform-header-row flex md:h-[81px] items-center justify-between gap-4 pb-3 md:pb-[3px]"
+          className="platform-header-row flex md:h-[77px] items-center justify-between gap-4 pb-3 md:pb-[3px]"
         >
           {/* Desktop Homepage Layout - same style for /, /features, /pricing, /blog */}
           {isMarketingNavRoute ? (
@@ -1209,12 +1210,12 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
                   <Image
                     src={LOGO_URL || "/placeholder.svg"}
                     alt="Storelib"
-                    width={138}
-                    height={46}
-                    className="h-[46px] w-auto rounded-[7px]"
+                    width={131}
+                    height={44}
+                    className="h-[44px] w-auto rounded-[7px]"
                     priority
                   />
-                  <span className="text-[22px] font-bold text-white tracking-tight">Storelib</span>
+                  <span className="text-[21px] font-bold text-white tracking-tight">Storelib</span>
                 </Link>
 
                 {/* Center - Nav Links (show for all users) */}
@@ -1253,7 +1254,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
                         <TooltipTrigger asChild>
                           <Link
                             href="/explore" onClick={(e) => onCanonicalNav(e, "/explore")}
-                            className="flex h-11 w-11 items-center justify-center rounded-full text-white/80 hover:text-white hover:bg-white/10 transition cursor-pointer"
+                            className="flex h-[42px] w-[42px] items-center justify-center rounded-full text-white/80 hover:text-white hover:bg-white/10 transition cursor-pointer"
                             aria-label="Discover"
                           >
                             <Compass className="h-[22px] w-[22px]" />
@@ -1264,7 +1265,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
                         </TooltipContent>
                       </Tooltip>
                       {/* Primary CTA */}
-                      <Button asChild className="h-11 rounded-lg px-6 text-[15px] bg-violet-600 text-white hover:bg-violet-700 cursor-pointer">
+                      <Button asChild className="h-[42px] rounded-lg px-6 text-[15px] bg-violet-600 text-white hover:bg-violet-700 cursor-pointer">
                         <Link href={getCanonicalOrRelativePath(hasCompletedSellerOnboarding ? "/app" : "/library")} onClick={(e) => onCanonicalNav(e, hasCompletedSellerOnboarding ? "/app" : "/library")}>
                           {hasCompletedSellerOnboarding ? "Dashboard" : "Library"}
                         </Link>
@@ -1274,12 +1275,12 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
                     <>
                       {/* Log In */}
                       <Link href={getCanonicalOrRelativePath("/login")} onClick={(e) => onCanonicalNav(e, "/login")}>
-                        <Button variant="ghost" className="h-11 px-5 rounded-lg text-[15px] font-medium text-white border border-white/70 hover:bg-white/10 hover:text-white cursor-pointer">
+                        <Button variant="ghost" className="h-[42px] px-5 rounded-lg text-[15px] font-medium text-white border border-white/70 hover:bg-white/10 hover:text-white cursor-pointer">
                           Log In
                         </Button>
                       </Link>
                       {/* Start Selling */}
-                      <Button asChild className="h-11 rounded-lg px-6 text-[15px] bg-violet-600 text-white hover:bg-violet-700 cursor-pointer">
+                      <Button asChild className="h-[42px] rounded-lg px-6 text-[15px] bg-violet-600 text-white hover:bg-violet-700 cursor-pointer">
                         <Link href="/signup" onClick={(e) => onCanonicalNav(e, "/signup")}>
                           Start Selling
                         </Link>
@@ -1297,12 +1298,12 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
                     <Image
                       src={LOGO_URL || "/placeholder.svg"}
                       alt="Storelib"
-                      width={126}
-                      height={42}
+                      width={120}
+                      height={40}
                       className="h-[42px] w-auto rounded-[7px]"
                       priority
                     />
-                    <span className="text-[20px] font-bold text-white tracking-tight">Storelib</span>
+                    <span className="text-[19px] font-bold text-white tracking-tight">Storelib</span>
                   </Link>
                 </div>
 
@@ -1328,12 +1329,12 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
                   <Image
                     src={LOGO_URL || "/placeholder.svg"}
                     alt="Storelib"
-                    width={138}
-                    height={46}
-                    className="h-[46px] w-auto rounded-[7px]"
+                    width={131}
+                    height={44}
+                    className="h-[44px] w-auto rounded-[7px]"
                     priority
                   />
-                  <span className="text-[22px] font-bold text-white tracking-tight">Storelib</span>
+                  <span className="text-[21px] font-bold text-white tracking-tight">Storelib</span>
                 </Link>
 
                 {/* Categories Dropdown Button with Tooltip */}
@@ -1454,7 +1455,16 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
           </div>
 
           {/* Desktop Search - Centered with Modal (10% larger) */}
-          <div className="hidden md:flex flex-1 max-w-xl mx-4 relative">
+          {/*
+            NOT RENDERED RATHER THAN HIDDEN. On Explore, while the page's own
+            field is on screen, there is no search here at all and the row
+            rebalances around the logo and the actions — which is the shape
+            Skool's discovery header has, and the reason it reads as calm. An
+            invisible one holding its width would leave a gap in the middle of
+            the bar instead. See lib/explore/use-search-handoff.
+          */}
+          {searchInHeader && (
+          <div className="hidden md:flex flex-1 max-w-xl mx-4 relative motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-150">
             <div className="relative w-full">
               <Search className="absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-white/40 pointer-events-none z-10" />
               <Input
@@ -1463,7 +1473,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
                 onChange={(e) => handleSearchChange(e.target.value)}
                 onFocus={() => setSearchModalOpen(true)}
                 placeholder={t("search_placeholder")}
-                className={`h-11 w-full pl-11 pr-4 bg-white/10 border-white/15 text-white text-[15px] placeholder:text-white/50 focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-0 focus-visible:border-violet-500 ${isDiscoverProductContext ? "rounded-[8px]" : "rounded-full"}`}
+                className={`h-[42px] w-full pl-11 pr-4 bg-white/10 border-white/15 text-white text-[15px] placeholder:text-white/50 focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-0 focus-visible:border-violet-500 ${isDiscoverProductContext ? "rounded-[8px]" : "rounded-full"}`}
               />
               {query && (
                 <button
@@ -1533,8 +1543,8 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
                             <Image
                               src={product.thumbnail_url}
                               alt={product.title}
-                              width={48}
-                              height={48}
+                              width={46}
+                              height={44}
                               className="w-12 h-12 rounded-lg object-cover border border-gray-200"
                             />
                           ) : (
@@ -1586,6 +1596,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
               </>
             )}
           </div>
+          )}
 
           {/* Mobile Header for Non-Homepage pages */}
           <div className="md:hidden flex items-center justify-between flex-1 -ml-6">
@@ -1607,8 +1618,8 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
                 <Image
                   src={LOGO_URL || "/placeholder.svg"}
                   alt="Storelib"
-                  width={114}
-                  height={38}
+                  width={108}
+                  height={36}
                   className="h-[38px] w-auto rounded-[7px]"
                   priority
                 />
@@ -1618,21 +1629,21 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
 
             {/* Right - Mobile Icons */}
             <div className="flex items-center gap-1">
-              {/* Library - only show when logged in; h-11 w-11 = 44px tap target */}
+              {/* Library - only show when logged in; h-[42px] w-[42px] = 44px tap target */}
               {user && (
                 <Link
                   href={getCanonicalOrRelativePath("/library")} onClick={(e) => { e.preventDefault(); setMobileProfileOpen(false); onCanonicalNav(e, "/library") }}
-                  className="flex h-11 w-11 items-center justify-center rounded-full text-white/80 hover:bg-white/10 transition cursor-pointer"
+                  className="flex h-[42px] w-[42px] items-center justify-center rounded-full text-white/80 hover:bg-white/10 transition cursor-pointer"
                   aria-label="Library"
                 >
                   <Library className="h-5 w-5" />
                 </Link>
               )}
 
-              {/* Wishlist — h-11 w-11 = 44px tap target */}
+              {/* Wishlist — h-[42px] w-[42px] = 44px tap target */}
               <Link
                 href={getCanonicalOrRelativePath(wishlistHref)} onClick={(e) => onCanonicalNav(e, wishlistHref)}
-                className="relative flex h-11 w-11 items-center justify-center rounded-full text-white/80 hover:bg-white/10 transition cursor-pointer"
+                className="relative flex h-[42px] w-[42px] items-center justify-center rounded-full text-white/80 hover:bg-white/10 transition cursor-pointer"
                 aria-label="Wishlist"
               >
                 {/* The badge is anchored to the ICON, not to the link.
@@ -1652,12 +1663,12 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
                 </span>
               </Link>
 
-              {/* Mobile Avatar or Sign In button — use h-11 w-11 wrapper for 44px tap target */}
+              {/* Mobile Avatar or Sign In button — use h-[42px] w-[42px] wrapper for 44px tap target */}
               {user ? (
                 <button
                   type="button"
                   onClick={() => setMobileProfileOpen(true)}
-                  className="flex h-11 w-11 items-center justify-center rounded-full cursor-pointer"
+                  className="flex h-[42px] w-[42px] items-center justify-center rounded-full cursor-pointer"
                   aria-label="Open profile menu"
                 >
                   <Avatar className="h-8 w-8 border border-gray-200">
@@ -1687,7 +1698,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
                   <TooltipTrigger asChild>
                     <Link
                       href={getCanonicalOrRelativePath(wishlistHref)} onClick={(e) => onCanonicalNav(e, wishlistHref)}
-                      className="relative flex h-11 w-11 items-center justify-center rounded-full text-white/80 hover:text-white hover:bg-white/10 transition cursor-pointer"
+                      className="relative flex h-[42px] w-[42px] items-center justify-center rounded-full text-white/80 hover:text-white hover:bg-white/10 transition cursor-pointer"
                       aria-label={t("wishlist")}
                     >
                       <span className="relative inline-flex">
@@ -1710,7 +1721,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
                   <TooltipTrigger asChild>
                     <Link
                       href={getCanonicalOrRelativePath("/library")} onClick={(e) => onCanonicalNav(e, "/library")}
-                      className="hidden sm:flex h-11 w-11 items-center justify-center rounded-full text-white/80 hover:text-white hover:bg-white/10 transition cursor-pointer"
+                      className="hidden sm:flex h-[42px] w-[42px] items-center justify-center rounded-full text-white/80 hover:text-white hover:bg-white/10 transition cursor-pointer"
                       aria-label={t("library")}
                     >
                       <Library className="h-[22px] w-[22px]" />
@@ -1722,7 +1733,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
                 </Tooltip>
 
                 {/* Library or Dashboard */}
-                <Button asChild className="h-11 rounded-full px-6 text-[15px] bg-violet-600 text-white hover:bg-violet-700">
+                <Button asChild className="h-[42px] rounded-full px-6 text-[15px] bg-violet-600 text-white hover:bg-violet-700">
                   <Link href={getCanonicalOrRelativePath(user && hasCompletedSellerOnboarding ? "/app" : startSellingHref)} onClick={(e) => onCanonicalNav(e, user && hasCompletedSellerOnboarding ? "/app" : startSellingHref)}>
                     {user && hasCompletedSellerOnboarding ? t("dashboard") : user ? "Library" : t("start_selling")}
                   </Link>
@@ -1739,7 +1750,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
                           className="rounded-full cursor-pointer outline-none ring-offset-black transition-all duration-150 ease-out hover:ring-2 hover:ring-violet-400 hover:ring-offset-2 hover:scale-105 active:scale-95 focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2"
                           aria-label="Open profile menu"
                         >
-                          <Avatar className="h-11 w-11 border border-gray-200 transition-opacity duration-150">
+                          <Avatar className="h-[42px] w-[42px] border border-gray-200 transition-opacity duration-150">
                             <AvatarImage src={avatarUrl} alt={displayName} />
                             <AvatarFallback className="bg-gray-100 text-gray-400"><UserIcon className="h-5 w-5" /></AvatarFallback>
                           </Avatar>
@@ -1864,7 +1875,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
                 value={query}
                 onChange={(e) => handleSearchChange(e.target.value)}
                 placeholder={t("search_placeholder")}
-                className={`h-11 w-full pl-10 pr-10 bg-gray-100 border-gray-200 text-gray-900 placeholder:text-gray-500 text-sm ${isDiscoverProductContext ? "rounded-[8px]" : "rounded-full"}`}
+                className={`h-[42px] w-full pl-10 pr-10 bg-gray-100 border-gray-200 text-gray-900 placeholder:text-gray-500 text-sm ${isDiscoverProductContext ? "rounded-[8px]" : "rounded-full"}`}
                 autoFocus
               />
               {query && (
@@ -1930,8 +1941,8 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
                         <Image
                           src={product.thumbnail_url}
                           alt={product.title}
-                          width={48}
-                          height={48}
+                          width={46}
+                          height={44}
                           className="w-12 h-12 rounded-lg object-cover border border-gray-200"
                         />
                       ) : (
@@ -2004,14 +2015,14 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
             <div className="mb-6">
               {/* Sign in button */}
               <Link href="/login" onClick={(e) => { onCanonicalNav(e, "/login"); setMobileMenuOpen(false) }} className="block mb-2">
-                <Button className="w-full h-11 rounded-lg text-sm font-medium bg-violet-600 text-white hover:bg-violet-700 gap-2">
+                <Button className="w-full h-[42px] rounded-lg text-sm font-medium bg-violet-600 text-white hover:bg-violet-700 gap-2">
                   <LogIn className="h-4 w-4" />
                   Sign in
                 </Button>
               </Link>
               {/* Discover button - black with icon */}
               <Link href="/explore" onClick={(e) => { onCanonicalNav(e, "/explore"); setMobileMenuOpen(false) }} className="block">
-                <Button className="w-full h-11 rounded-lg text-sm font-medium bg-gray-900 text-white hover:bg-gray-800 gap-2">
+                <Button className="w-full h-[42px] rounded-lg text-sm font-medium bg-gray-900 text-white hover:bg-gray-800 gap-2">
                   <Compass className="h-4 w-4" />
                   Discover
                 </Button>
@@ -2024,7 +2035,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
             <div className="mb-4 pb-4 border-b border-gray-200">
               {/* Profile Info */}
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl mb-3">
-                <Avatar className="h-11 w-11 border border-gray-200">
+                <Avatar className="h-[42px] w-[42px] border border-gray-200">
                   <AvatarImage src={avatarUrl} alt={displayName} />
                   <AvatarFallback className="bg-gray-100 text-gray-400"><UserIcon className="h-5 w-5" /></AvatarFallback>
                 </Avatar>
@@ -2036,14 +2047,14 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
               {/* Dashboard / Become Seller button - below profile */}
               {hasCompletedSellerOnboarding ? (
                 <Link href={getCanonicalOrRelativePath(dashboardHref)} onClick={(e) => { onCanonicalNav(e, dashboardHref); setMobileMenuOpen(false) }} className="block mb-2">
-                  <Button className="w-full h-11 rounded-lg text-sm font-medium bg-violet-600 text-white hover:bg-violet-700 gap-2">
+                  <Button className="w-full h-[42px] rounded-lg text-sm font-medium bg-violet-600 text-white hover:bg-violet-700 gap-2">
                     <LayoutDashboard className="h-4 w-4" />
                     Dashboard
                   </Button>
                 </Link>
               ) : (
                 <Link href={getCanonicalOrRelativePath("/onboarding")} onClick={(e) => { onCanonicalNav(e, "/onboarding"); setMobileMenuOpen(false) }} className="block mb-2">
-                  <Button className="w-full h-11 rounded-lg text-sm font-medium bg-violet-600 text-white hover:bg-violet-700 gap-2">
+                  <Button className="w-full h-[42px] rounded-lg text-sm font-medium bg-violet-600 text-white hover:bg-violet-700 gap-2">
                     <Sparkles className="h-4 w-4" />
                     Become a Seller
                   </Button>
@@ -2051,7 +2062,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
               )}
               {/* Discover button - black with icon */}
               <Link href="/explore" onClick={(e) => { onCanonicalNav(e, "/explore"); setMobileMenuOpen(false) }} className="block">
-                <Button className="w-full h-11 rounded-lg text-sm font-medium bg-gray-900 text-white hover:bg-gray-800 gap-2">
+                <Button className="w-full h-[42px] rounded-lg text-sm font-medium bg-gray-900 text-white hover:bg-gray-800 gap-2">
                   <Compass className="h-4 w-4" />
                   Discover
                 </Button>
@@ -2116,7 +2127,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
                   setMobileMenuOpen(false)
                   setSearchModalOpen(true)
                 }}
-                className="w-full h-11 flex items-center gap-2 px-3 bg-gray-100 border border-gray-200 text-gray-600 rounded-xl text-sm cursor-pointer overflow-hidden"
+                className="w-full h-[42px] flex items-center gap-2 px-3 bg-gray-100 border border-gray-200 text-gray-600 rounded-xl text-sm cursor-pointer overflow-hidden"
               >
                 <Search className="h-4 w-4 text-gray-400 shrink-0" />
                 <span className="truncate">{t("search_placeholder")}</span>
@@ -2371,20 +2382,26 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
     </header>
       </div>
 
-      {/* Concave transition from black header to white category bar */}
-      {(showCategories || (pathname !== "/" && !pathname.startsWith("/features") && !pathname.startsWith("/blog") && !pathname.startsWith("/pricing") && !isFaqRoute && !isSellerOrProductPage)) && (
-        <div className="relative z-[35] bg-black h-[20px]">
+      {/*
+        The concave lead-in from the black header into the white strip below
+        it. Both are the phone's search strip now, so both come and go with
+        it: an empty white band under the header on Explore is a bar with
+        nothing in it.
+      */}
+      {searchInHeader && (pathname !== "/" && !pathname.startsWith("/features") && !pathname.startsWith("/blog") && !pathname.startsWith("/pricing") && !isFaqRoute && !isSellerOrProductPage) && (
+        <div className="relative z-[35] bg-black h-[20px] md:hidden">
           <div className="absolute inset-0 bg-white rounded-t-[20px]" />
         </div>
       )}
 
-      {/* White UI section for search bar and category pills (below the black header) */}
-      {(showCategories || (pathname !== "/" && !pathname.startsWith("/features") && !pathname.startsWith("/blog") && !pathname.startsWith("/pricing") && !isFaqRoute && !isSellerOrProductPage)) && (
-        <div className={`relative z-[35] w-full bg-white border-b border-neutral-200${!showCategories ? " md:hidden" : ""}`}>
+      {/* The phone's search strip. It carried the category pills too, until
+          those went; see the note where isExploreSurface is declared. */}
+      {searchInHeader && (pathname !== "/" && !pathname.startsWith("/features") && !pathname.startsWith("/blog") && !pathname.startsWith("/pricing") && !isFaqRoute && !isSellerOrProductPage) && (
+        <div className="relative z-[35] w-full bg-white border-b border-neutral-200 md:hidden">
           <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">
             {/* Mobile Search Bar Trigger */}
-            {pathname !== "/" && !pathname.startsWith("/features") && !pathname.startsWith("/blog") && !pathname.startsWith("/pricing") && !isFaqRoute && (
-              <div className="md:hidden pt-0 pb-1.5">
+            {true && (
+              <div className="md:hidden pt-1.5 pb-1.5">
                 <button
                   type="button"
                   onClick={() => setSearchModalOpen(true)}
@@ -2396,80 +2413,14 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
               </div>
             )}
 
-            {/* Mobile Category Pills - White/Light UI */}
-            {showCategories && (
-              <div className="md:hidden px-0 pt-1 pb-2 overflow-x-auto scrollbar-hide">
-                <div className="flex items-center gap-2 whitespace-nowrap">
-                  {MOBILE_CATEGORIES.map((cat) => {
-                    const Icon = cat.icon
-                    const isActive = activeCategoryId === cat.id
-                    return (
-                      <button
-                        key={cat.id}
-                        type="button"
-                        onClick={() => onCategoryClick(cat.id)}
-                        className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium transition-colors cursor-pointer border ${
-                          isActive
-                            ? "bg-neutral-900 text-white border-neutral-900"
-                            : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200 hover:text-neutral-900 border-neutral-200"
-                        }`}
-                      >
-                        <Icon className="w-3.5 h-3.5" />
-                        {cat.label}
-                        {cat.badge && (
-                          <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold leading-none ${isActive ? "bg-white text-neutral-900" : "bg-gradient-to-r from-violet-500 to-violet-600 text-white"} shadow-sm`}>
-                            {cat.badge}
-                          </span>
-                        )}
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* Desktop Categories - White/Light UI */}
-            {showCategories && (
-              <nav className="hidden md:block">
-                <div className="overflow-x-auto scrollbar-hide">
-                  <div className="flex items-center justify-start gap-7 whitespace-nowrap text-[15px] pt-1 pb-6">
-                    {DEFAULT_CATEGORIES.map((cat) => {
-                      const Icon = cat.icon
-                      const isAll = cat.id === "all"
-                      const isActive = activeCategoryId === cat.id
-                      return (
-                        <button
-                          key={cat.id}
-                          type="button"
-                          onClick={() => onCategoryClick(cat.id)}
-                          className={`inline-flex items-center gap-1.5 transition-colors cursor-pointer font-medium ${
-                            isActive
-                              ? "text-neutral-900"
-                              : "text-neutral-500 hover:text-neutral-900"
-                          }`}
-                        >
-                          {isAll && <Icon className="w-[18px] h-[18px]" />}
-                          {cat.label}
-                          {cat.badge && (
-                            <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-gradient-to-r from-violet-500 to-violet-600 text-white leading-none shadow-sm">
-                              {cat.badge}
-                            </span>
-                          )}
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-              </nav>
-            )}
           </div>
         </div>
       )}
 
-      {/* Concave bottom edge — black background with rounded white overlay creates concave corners */}
-      {/* Skip on FAQ page since its hero is also black, on explore pages which have the white category bar,
-          and on any non-marketing page that already renders the white section above (to avoid double black bars) */}
-      {!showCategories && !isFaqRoute && (pathname === "/" || pathname.startsWith("/features") || pathname.startsWith("/blog") || pathname.startsWith("/pricing")) && (
+      {/* Concave bottom edge — black background with rounded white overlay creates concave corners.
+          Skipped on the FAQ page, whose hero is black too, and on any page that already
+          renders the white strip above, to avoid two black bars. */}
+      {!isFaqRoute && (pathname === "/" || pathname.startsWith("/features") || pathname.startsWith("/blog") || pathname.startsWith("/pricing")) && (
         <div className="relative z-30 bg-black h-[20px] -mb-px">
           <div className="absolute inset-0 bg-white rounded-t-[20px]" />
         </div>
@@ -2483,9 +2434,9 @@ function HeaderActionsSkeleton({ isMarketingRoute = false }: { isMarketingRoute?
     return (
       <div className="flex items-center gap-3">
         {/* Log In button skeleton */}
-        <Skeleton className="h-11 w-[72px] rounded-lg bg-white/10" />
+        <Skeleton className="h-[42px] w-[72px] rounded-lg bg-white/10" />
         {/* Start Selling button skeleton */}
-        <Skeleton className="h-11 w-[110px] rounded-lg bg-white/10" />
+        <Skeleton className="h-[42px] w-[110px] rounded-lg bg-white/10" />
       </div>
     )
   }
@@ -2493,13 +2444,13 @@ function HeaderActionsSkeleton({ isMarketingRoute = false }: { isMarketingRoute?
   return (
     <div className="flex items-center gap-2.5">
       {/* Wishlist circle */}
-      <Skeleton className="h-11 w-11 rounded-full bg-white/10" />
+      <Skeleton className="h-[42px] w-[42px] rounded-full bg-white/10" />
       {/* Library circle */}
-      <Skeleton className="h-11 w-11 rounded-full bg-white/10 hidden sm:block" />
+      <Skeleton className="h-[42px] w-[42px] rounded-full bg-white/10 hidden sm:block" />
       {/* CTA button */}
-      <Skeleton className="h-11 w-28 rounded-full bg-white/10" />
+      <Skeleton className="h-[42px] w-28 rounded-full bg-white/10" />
       {/* Avatar circle */}
-      <Skeleton className="h-11 w-11 rounded-full bg-white/10" />
+      <Skeleton className="h-[42px] w-[42px] rounded-full bg-white/10" />
     </div>
   )
 }

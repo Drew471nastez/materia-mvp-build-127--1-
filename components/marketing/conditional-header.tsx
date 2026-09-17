@@ -13,14 +13,14 @@ import { isDiscoverMode } from "@/lib/isDiscoverMode"
 function HeaderPlaceholder() {
   // Height must match the real PlatformHeaderClient header so the layout
   // doesn't shift when React hydrates and swaps the fallback.
-  // mobile:  .platform-header-row padding = max(env(safe-area-inset-top,0px), 14px)
-  //          + ~52px content+bottom = max(66px, safe-area + 52px)
-  // desktop: 3px top + 81px height = 84px — close enough for a brief flash
+  // mobile:  .platform-header-row padding = max(env(safe-area-inset-top,0px), 13px)
+  //          + ~50px content+bottom = max(63px, safe-area + 50px)
+  // desktop: 3px top + 77px height = 80px — close enough for a brief flash
   return (
     <div
       id="platform-header-root"
       className="sticky top-0 z-40 w-full bg-black"
-      style={{ minHeight: 'max(66px, calc(env(safe-area-inset-top, 0px) + 52px))' }}
+      style={{ minHeight: 'max(63px, calc(env(safe-area-inset-top, 0px) + 50px))' }}
       aria-hidden
     />
   )

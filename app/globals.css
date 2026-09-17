@@ -2629,7 +2629,7 @@ html.capacitor {
    Mobile:  max(0px, 14px) = 14px  (same as old pt-[14px] class)
    Desktop: 3px media-query override (matches old md:pt-[3px]) */
 .platform-header-row {
-  padding-top: max(env(safe-area-inset-top, 0px), 14px);
+  padding-top: max(env(safe-area-inset-top, 0px), 13px);
 }
 @media (min-width: 768px) {
   .platform-header-row {
@@ -2655,7 +2655,7 @@ html.capacitor #platform-header-root {
   left: 0;
   right: 0;
   z-index: 50;
-  height: calc(68px + env(safe-area-inset-top, 0px));
+  height: calc(65px + env(safe-area-inset-top, 0px));
   /* Force GPU compositing layer — prevents WKWebView from visually jumping
      the header during the native UIScrollView rubber-band bounce animation.
      Without this, WKWebView re-composites position:fixed elements on the CPU
@@ -2668,13 +2668,13 @@ html.capacitor #platform-header-root {
 }
 html.capacitor #platform-header-root > header {
   margin-top: env(safe-area-inset-top, 0px);
-  height: 68px;
+  height: 65px;
 }
 /* Zero out CSS padding on native — height is explicit above. */
 html.capacitor .platform-header-row {
   padding-top: 0 !important;
   padding-bottom: 0 !important;
-  height: 68px;
+  height: 65px;
 }
 /* Push ALL marketing layout content (category bar, search, main) below the
    fixed header on native. Applied to the outermost flex wrapper so the
@@ -2682,7 +2682,7 @@ html.capacitor .platform-header-row {
    :has() ensures the padding only applies when the header is in the DOM.
    On web the header is sticky (in flow) so no wrapper padding is needed. */
 html.capacitor:has(#platform-header-root) .marketing-flex-wrapper {
-  padding-top: calc(68px + env(safe-area-inset-top, 0px));
+  padding-top: calc(65px + env(safe-area-inset-top, 0px));
 }
 
 /* Prevent the white body flash during page transitions in Capacitor.
