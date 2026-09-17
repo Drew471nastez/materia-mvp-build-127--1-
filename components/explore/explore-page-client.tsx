@@ -488,61 +488,149 @@ function MobileFilterSheet({
   const lastY = useRef(0)
   const lastT = useRef(0)
   const velocity = useRef(0)
+  const startedInList = useRef(false)
 
   const paint = (y: number) => {
     const el = sheetRef.current
     if (el) el.style.transform = y === 0 ? "none" : `translate3d(0, ${y}px, 0)`
   }
 
-  const handleTouchStart = (e: React.TouchEvent) => {
+  /*
+    ═══════════════════════════════════════════════════════════════════════
+     NATIVE LISTENERS, BECAUSE REACT'S touchmove IS PASSIVE
+    ═══════════════════════════════════════════════════════════════════════
+    These were React props, and the e.preventDefault() in the move handler
+    has never done anything. React 17 moved event delegation to the root
+    container and registers touchstart, touchmove and wheel as PASSIVE
+    listeners, where preventDefault is a no-op the browser ignores (Chrome
+    logs "Unable to preventDefault inside passive event listener invocation"
+    and Safari silently does nothing).
+
+    That is both reported bugs at once. Dragging the sheet asked the page not
+    to scroll, the page scrolled anyway; and a downward drag near the top of
+    the document is what Safari's pull-to-refresh is, so it offered to reload
+    the page instead of moving the sheet.
+
+    components/ui/bottom-sheet already drags from a native listener for this
+    reason. So does this now: attached to the sheet itself, non-passive, and
+    torn down with it.
+  */
+  useEffect(() => {
     const el = sheetRef.current
-    if (!el) return
-    const touch = e.touches[0]
-    /* Only from the grip, or from a content area already scrolled to its top:
-       otherwise a drag on the list is a scroll, not a dismissal. */
-    const fromHandle = (e.target as HTMLElement).closest("[data-sheet-grip]") !== null
-    const scroller = (e.target as HTMLElement).closest("[data-sheet-scroll]") as HTMLElement | null
-    if (!fromHandle && scroller && scroller.scrollTop > 0) return
-    startY.current = touch.clientY
-    lastY.current = touch.clientY
-    lastT.current = e.timeStamp
-    velocity.current = 0
-    dragging.current = true
-    el.style.transition = "none"
-  }
+    if (!isVisible || !el) return
 
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!dragging.current) return
-    const y = e.touches[0].clientY
-    const dt = e.timeStamp - lastT.current
-    if (dt > 0) velocity.current = (y - lastY.current) / dt
-    lastY.current = y
-    lastT.current = e.timeStamp
-
-    const diff = y - startY.current
-    /* Up has nowhere to go, so it gives a little and stops. */
-    const offset = diff >= 0 ? diff : Math.max(diff / 6, -24)
-    if (diff > 0) e.preventDefault()
-    dragY.current = offset
-    paint(offset)
-  }
-
-  const handleTouchEnd = () => {
-    if (!dragging.current) return
-    dragging.current = false
-    const el = sheetRef.current
-    if (el) el.style.transition = `transform ${SHEET_MS}ms ${SHEET_EASE}`
-    /* Thrown away, or dragged more than a third of the way down. */
-    const thrown = velocity.current > 0.5
-    const far = dragY.current > 96
-    if (thrown || far) {
-      dragY.current = 0
-      handleClose()
-      return
+    const onStart = (e: TouchEvent) => {
+      const touch = e.touches[0]
+      const target = e.target as HTMLElement
+      /* Only from the grip, or from a list already scrolled to its top:
+         otherwise a drag on the list is a scroll of the list. */
+      const fromGrip = target.closest("[data-sheet-grip]") !== null
+      const scroller = target.closest("[data-sheet-scroll]") as HTMLElement | null
+      if (!fromGrip && scroller && scroller.scrollTop > 0) return
+      startedInList.current = !fromGrip && scroller !== null
+      startY.current = touch.clientY
+      lastY.current = touch.clientY
+      lastT.current = e.timeStamp
+      velocity.current = 0
+      dragging.current = true
+      el.style.transition = "none"
     }
-    dragY.current = 0
-    paint(0)
-  }
+
+    const onMove = (e: TouchEvent) => {
+      if (!dragging.current) return
+      const y = e.touches[0].clientY
+      const dt = e.timeStamp - lastT.current
+      if (dt > 0) velocity.current = (y - lastY.current) / dt
+      lastY.current = y
+      lastT.current = e.timeStamp
+
+      const diff = y - startY.current
+      /*
+        A DRAG THAT BEGAN IN THE LIST AND TURNS UPWARD IS A SCROLL. The list
+        was at its top, which is why the drag was allowed to start, but the
+        moment it heads up the visitor is reaching for the rest of the
+        filters. Hand the gesture back rather than rubber-banding a sheet
+        that cannot go up anyway.
+      */
+      if (diff < 0 && startedInList.current) {
+        dragging.current = false
+        el.style.transition = `transform ${SHEET_MS}ms ${SHEET_EASE}`
+        dragY.current = 0
+        paint(0)
+        return
+      }
+      /* Up from the grip has nowhere to go, so it gives a little and stops. */
+      const offset = diff >= 0 ? diff : Math.max(diff / 6, -24)
+      /* Non-passive, so this is the thing that actually stops the page
+         moving and stops Safari reading the gesture as a reload. */
+      if (e.cancelable) e.preventDefault()
+      dragY.current = offset
+      paint(offset)
+    }
+
+    const onEnd = () => {
+      if (!dragging.current) return
+      dragging.current = false
+      el.style.transition = `transform ${SHEET_MS}ms ${SHEET_EASE}`
+      const thrown = velocity.current > 0.5
+      const far = dragY.current > 96
+      dragY.current = 0
+      if (thrown || far) {
+        handleClose()
+        return
+      }
+      paint(0)
+    }
+
+    el.addEventListener("touchstart", onStart, { passive: true })
+    el.addEventListener("touchmove", onMove, { passive: false })
+    el.addEventListener("touchend", onEnd)
+    el.addEventListener("touchcancel", onEnd)
+    return () => {
+      el.removeEventListener("touchstart", onStart)
+      el.removeEventListener("touchmove", onMove)
+      el.removeEventListener("touchend", onEnd)
+      el.removeEventListener("touchcancel", onEnd)
+    }
+  })
+
+  /*
+    AND NOTHING BEHIND IT MOVES AT ALL.
+
+    `overflow: hidden` on body is what the other sheets use and it is not
+    enough on iOS, which keeps scrolling the document through it. Taking the
+    document out of flow at its current offset is the version that holds: the
+    page cannot scroll because there is nothing to scroll, so it cannot chain
+    and cannot be pulled far enough to trigger a refresh either.
+
+    The offset is put back on the way out, or closing the sheet jumps the
+    visitor to the top of a very long page.
+  */
+  useEffect(() => {
+    if (!isVisible) return
+    const body = document.body
+    const y = window.scrollY
+    const prev = {
+      position: body.style.position,
+      top: body.style.top,
+      left: body.style.left,
+      right: body.style.right,
+      width: body.style.width,
+    }
+    body.style.position = "fixed"
+    body.style.top = `-${y}px`
+    body.style.left = "0"
+    body.style.right = "0"
+    body.style.width = "100%"
+    return () => {
+      body.style.position = prev.position
+      body.style.top = prev.top
+      body.style.left = prev.left
+      body.style.right = prev.right
+      body.style.width = prev.width
+      window.scrollTo(0, y)
+    }
+  }, [isVisible])
 
   const toggleSubcategory = (subId: string) => {
     if (selectedSubcategories.includes(subId)) {
@@ -555,17 +643,18 @@ function MobileFilterSheet({
   if (!isVisible) return null
 
   return (
-    <div
-      className="fixed inset-0 z-[100] md:hidden"
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-    >
+    /*
+      NO touch-action HERE. The used value is the intersection down the tree,
+      so `none` on this root would override the scroller's `pan-y` and the
+      filter list would not scroll at all. It goes on the scrim and on the
+      sheet's chrome instead, which are the parts that have nothing to scroll.
+    */
+    <div className="fixed inset-0 z-[100] md:hidden">
       {/* No backdrop-filter. A full-screen blurring layer over a very tall
           page is the one iOS reliably mispaints; plain black does the job. */}
       <div
         className={`absolute inset-0 bg-black/40 transition-opacity ease-out ${isAnimating ? "opacity-100" : "opacity-0"}`}
-        style={{ transitionDuration: `${SHEET_MS}ms` }}
+        style={{ transitionDuration: `${SHEET_MS}ms`, touchAction: "none" }}
         onClick={handleClose}
       />
       <div
@@ -586,7 +675,7 @@ function MobileFilterSheet({
       >
         {/* The grip is the drag target, and it is not a button: tapping it did
             nothing a visitor wanted and swallowed the start of the gesture. */}
-        <div data-sheet-grip className="pt-2.5 pb-1.5 shrink-0 touch-none flex justify-center">
+        <div data-sheet-grip className="pt-2.5 pb-1.5 shrink-0 touch-none flex justify-center" style={{ touchAction: "none" }}>
           <div className="h-1 w-9 rounded-full bg-neutral-300" />
         </div>
 
@@ -1017,6 +1106,22 @@ export function ExplorePageClient({
   const [recommendationFilter, setRecommendationFilter] = useState<"curated" | "trending" | "hot-new">("curated")
   const categoryChangeTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const categorySectionRef = useRef<HTMLElement>(null)
+  /*
+    ═══════════════════════════════════════════════════════════════════════
+     THE LAST CATEGORY THE VISITOR ACTUALLY CHOSE
+    ═══════════════════════════════════════════════════════════════════════
+    Tapping a pill sets the state at once and writes the URL a moment later,
+    and the URL write is a server round trip. When it lands, the effect below
+    reads the category out of it and applies it — which is right when somebody
+    arrives on a link, and wrong when they have tapped two more pills since.
+    The reply to "design" would arrive after they had moved to "ai" and put
+    them back on design.
+
+    That is "it bugs when I switch too fast". So the choice is remembered, and
+    an incoming URL that does not match it is a reply to a question that has
+    been superseded.
+  */
+  const chosenCategoryRef = useRef<string | null>(null)
   const categoryAutoScrollTimeoutRef = useRef<number | null>(null)
   const pendingCategoryAutoScrollRef = useRef(false)
   const browseSectionRef = useRef<HTMLElement>(null)
@@ -1405,6 +1510,7 @@ export function ExplorePageClient({
     setSelectedSubcategoryLabel(subcategoryLabel || null)
     setSelectedSubcategories([])
     setCurrentPage(1)
+    chosenCategoryRef.current = categoryId
     pendingCategoryAutoScrollRef.current = shouldAutoScrollToRecommended
 
     /*
@@ -1549,7 +1655,13 @@ export function ExplorePageClient({
 
   useEffect(() => {
     const normalizedCategory = initialCategory.toLowerCase() || "all"
-    if (normalizedCategory !== mainCategory) setMainCategory(normalizedCategory)
+    /* A reply that has been overtaken. Ignore the category it carries; the
+       rest of the effect still runs, because sub, srt and lang are not part
+       of what was superseded. */
+    const superseded =
+      chosenCategoryRef.current !== null && chosenCategoryRef.current !== normalizedCategory
+    if (chosenCategoryRef.current === normalizedCategory) chosenCategoryRef.current = null
+    if (!superseded && normalizedCategory !== mainCategory) setMainCategory(normalizedCategory)
 
     /* Written by exploreHref above; both are ignored when absent. */
     const srtParam = searchParams.get("srt")
@@ -1647,6 +1759,7 @@ export function ExplorePageClient({
                         setSelectedSubcategoryId(null)
                         setSelectedSubcategoryLabel(null)
                         setCurrentPage(1)
+                        chosenCategoryRef.current = cat.id
                         /* Debounced and replacing, for the reason in
                            handleCategorySelect: a tap is not a page. */
                         if (categoryChangeTimeoutRef.current) clearTimeout(categoryChangeTimeoutRef.current)

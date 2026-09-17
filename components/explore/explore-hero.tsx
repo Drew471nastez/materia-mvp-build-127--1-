@@ -234,6 +234,30 @@ export function ExploreHero({
               pixels of themselves at the top and bottom edges — three words
               on screen at once, which is most of what "junky" was.
             */}
+            {/*
+              ═══════════════════════════════════════════════════════════════
+               ONE WORD UNTIL THE MEASUREMENT EXISTS, OR THE PAGE JUMPS
+              ═══════════════════════════════════════════════════════════════
+              The window's height comes from `box`, which is set in a layout
+              effect, so on the very first render there was no height on it
+              and no height on the words inside it. `overflow-hidden` clips
+              nothing when the box is auto: all six nouns rendered stacked,
+              and the heading was several hundred pixels taller than it ends
+              up being.
+
+              Filmed on the deployed page with scripts/check-header-on-load,
+              at 390px with the CPU throttled 4x, the same in three runs out
+              of three: the search field sat at 438px, and about a second
+              later it settled at 260px. Everything below the heading moved
+              up 178px, roughly a second in, on every single load. That is
+              the flash on refresh, and it is this.
+
+              So the stack is only a stack once there is a height to give it.
+              Before that it is the current word and nothing else, which is
+              exactly one line tall with no help from JavaScript. The
+              measuring span above is untouched: it is `position: fixed` and
+              was never in the flow.
+            */}
             <span className="block overflow-hidden" style={{ height: box ? box.height : undefined }}>
               <span
                 className="flex flex-col motion-safe:transition-transform motion-safe:ease-[cubic-bezier(0.22,1,0.36,1)]"
@@ -242,15 +266,19 @@ export function ExploreHero({
                   transitionDuration: `${ROLL_MS}ms`,
                 }}
               >
-                {NOUNS.map((w) => (
-                  <span
-                    key={w}
-                    className="block whitespace-nowrap text-[#5b21b6]"
-                    style={{ height: box ? box.height : undefined }}
-                  >
-                    {w}
-                  </span>
-                ))}
+                {box ? (
+                  NOUNS.map((w) => (
+                    <span
+                      key={w}
+                      className="block whitespace-nowrap text-[#5b21b6]"
+                      style={{ height: box.height }}
+                    >
+                      {w}
+                    </span>
+                  ))
+                ) : (
+                  <span className="block whitespace-nowrap text-[#5b21b6]">{NOUNS[index]}</span>
+                )}
               </span>
             </span>
           </span>
