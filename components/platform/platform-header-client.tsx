@@ -26,6 +26,7 @@ import { readAuthSnapshot, writeAuthSnapshot, clearAuthSnapshot } from "@/lib/au
 import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
 import { STORELIB_LOGO } from "@/lib/brand/logo"
 import { useSearchHandoff } from "@/lib/explore/use-search-handoff"
+import { useEntranceOnAppear } from "@/lib/ui/use-entrance-on-change"
 
 const LOGO_URL = STORELIB_LOGO
 
@@ -969,6 +970,12 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
    */
   const isExploreSurface = pathname === "/explore" || pathname.startsWith("/explore") || pathname === "/wishlist"
   const searchInHeader = useSearchHandoff(isExploreSurface)
+  /* The field fades in when it ARRIVES while the page is up, and is simply
+     there when the page arrives with it. See useEntranceOnAppear. */
+  const searchEntrance = useEntranceOnAppear(
+    searchInHeader,
+    "motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-150",
+  )
   /**
    * HOW TALL THE STICKY BAR IS, so the phone's search strip can sit under it
    * and stick too.
@@ -1457,7 +1464,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
             the bar instead. See lib/explore/use-search-handoff.
           */}
           {searchInHeader && (
-          <div className="hidden md:flex flex-1 max-w-xl mx-4 relative motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-150">
+          <div className={`hidden md:flex flex-1 max-w-xl mx-4 relative ${searchEntrance}`}>
             <div className="relative w-full">
               <Search className="absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-white/40 pointer-events-none z-10" />
               <Input
@@ -2293,7 +2300,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
       */}
       {searchInHeader && (pathname !== "/" && !pathname.startsWith("/features") && !pathname.startsWith("/blog") && !pathname.startsWith("/pricing") && !isFaqRoute && !isSellerOrProductPage) && (
         <div
-          className="fixed inset-x-0 z-[35] md:hidden bg-white border-b border-neutral-200 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-150"
+          className={`fixed inset-x-0 z-[35] md:hidden bg-white border-b border-neutral-200 ${searchEntrance}`}
           style={{ top: headerH }}
         >
           {/*
