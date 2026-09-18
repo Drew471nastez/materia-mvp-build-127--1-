@@ -72,8 +72,17 @@ function main() {
   check("the category pill row is where the test expects it", pillBlock.length > 0)
   check(
     "a selected category pill is grey with dark text, not a black fill",
-    /bg-neutral-200 text-neutral-900 border-neutral-200/.test(pillBlock) &&
+    /bg-\[#dcdee2\] text-neutral-900/.test(pillBlock) &&
       !/bg-neutral-900 text-white border-neutral-900/.test(pillBlock),
+  )
+  check(
+    "and it is pressed in rather than flat",
+    /shadow-\[inset_0_1px_2px_rgba\(15,23,42,0\.13\)/.test(pillBlock),
+    "scripts/check-category-pill.mjs measures the rendered depth",
+  )
+  check(
+    "box-shadow is in the pill transition, so the depth does not snap",
+    /transition-\[background-color,border-color,color,box-shadow\]/.test(pillBlock),
   )
 
   console.log(`\n${passed} passed, ${failed} failed`)

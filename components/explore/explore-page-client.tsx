@@ -741,9 +741,9 @@ function MobileFilterSheet({
                        which is two different ways to say "chosen" on one
                        screen. The tick went with it — a filled pill has
                        already said it. */
-                    className={`inline-flex items-center px-3.5 py-2 rounded-full border text-sm font-medium transition-colors duration-150 cursor-pointer ${
+                    className={`inline-flex items-center px-3.5 py-2 rounded-full border text-sm font-medium transition-[background-color,border-color,color,box-shadow] duration-150 cursor-pointer ${
                       selectedSubcategories.includes(sub.id)
-                        ? "bg-neutral-200 text-neutral-900 border-neutral-200"
+                        ? "bg-[#dcdee2] text-neutral-900 border-[#cfd2d7] shadow-[inset_0_1px_2px_rgba(15,23,42,0.13),inset_0_-1px_0_rgba(255,255,255,0.5)]"
                         : "bg-white text-neutral-500 border-neutral-200 hover:border-neutral-300 hover:text-neutral-800"
                     }`}
                   >
@@ -761,9 +761,9 @@ function MobileFilterSheet({
                 <button
                   key={filter.id}
                   onClick={() => setPriceFilter(filter.id)}
-                  className={`inline-flex items-center px-3.5 py-2 rounded-full border text-sm font-medium transition-colors duration-150 cursor-pointer ${
+                  className={`inline-flex items-center px-3.5 py-2 rounded-full border text-sm font-medium transition-[background-color,border-color,color,box-shadow] duration-150 cursor-pointer ${
                     priceFilter === filter.id
-                      ? "bg-neutral-200 text-neutral-900 border-neutral-200"
+                      ? "bg-[#dcdee2] text-neutral-900 border-[#cfd2d7] shadow-[inset_0_1px_2px_rgba(15,23,42,0.13),inset_0_-1px_0_rgba(255,255,255,0.5)]"
                       : "bg-white text-neutral-500 border-neutral-200 hover:border-neutral-300 hover:text-neutral-800"
                   }`}
                 >
@@ -1906,9 +1906,9 @@ export function ExplorePageClient({
                            pager uses. */
                         smoothScrollToRecommendedSection(categorySectionRef)
                       }}
-                      className={`inline-flex items-center gap-1.5 shrink-0 px-3.5 py-2 rounded-full text-sm font-medium cursor-pointer select-none whitespace-nowrap border transition-colors duration-150 ${
+                      className={`inline-flex items-center gap-1.5 shrink-0 px-3.5 py-2 rounded-full text-sm font-medium cursor-pointer select-none whitespace-nowrap border transition-[background-color,border-color,color,box-shadow] duration-150 ${
                         isSelected
-                          ? "bg-neutral-200 text-neutral-900 border-neutral-200"
+                          ? "bg-[#dcdee2] text-neutral-900 border-[#cfd2d7] shadow-[inset_0_1px_2px_rgba(15,23,42,0.13),inset_0_-1px_0_rgba(255,255,255,0.5)]"
                           : "bg-white text-neutral-500 border-neutral-200 hover:border-neutral-300 hover:text-neutral-800"
                       }`}
                     >
