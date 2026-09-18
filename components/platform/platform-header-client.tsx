@@ -660,9 +660,28 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
     searchTimeoutRef.current = setTimeout(async () => {
       try {
         const supabase = createClient()
-        const { data, error } = await supabase
-          .from("products")
-          .select(`
+
+        /*
+          ═══════════════════════════════════════════════════════════════════
+           ONE LETTER IS A SEARCH, AND A TITLE IS NOT THE ONLY THING TO MATCH
+          ═══════════════════════════════════════════════════════════════════
+          This asked `title ilike %v%` and nothing else, so "m" found only
+          products with an m in their name and nothing by a creator called
+          Marcus, and nothing whose description says what it is.
+
+          A search term goes into a PostgREST filter STRING, where a comma
+          separates one filter from the next and a parenthesis opens a group.
+          Typing a comma therefore did not search for a comma, it produced a
+          malformed filter and no results at all. So the term is stripped of
+          the characters that mean something to the grammar before it is used.
+        */
+        const term = value.trim().replace(/[,()*%\\]/g, " ").replace(/\s+/g, " ").trim()
+        if (!term) {
+          setSearchResults([])
+          return
+        }
+
+        const SELECT = `
             id,
             title,
             slug,
@@ -674,10 +693,35 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
               slug,
               username
             )
-          `)
-          .ilike("title", `%${value}%`)
-          .eq("status", "published")
-          .limit(8)
+          `
+
+        /* Two questions at once: products that say it, and products by
+           somebody called it. */
+        const [byText, byCreator] = await Promise.all([
+          supabase
+            .from("products")
+            .select(SELECT)
+            .or(`title.ilike.%${term}%,description.ilike.%${term}%`)
+            .eq("status", "published")
+            .limit(8),
+          supabase
+            .from("products")
+            .select(SELECT)
+            .or(`display_name.ilike.%${term}%,username.ilike.%${term}%,slug.ilike.%${term}%`, {
+              referencedTable: "creators",
+            })
+            .eq("status", "published")
+            .limit(8),
+        ])
+
+        const error = byText.error
+        /* Titles first, then the creator matches that are not already in. */
+        const seen = new Set<string>()
+        const data = [...(byText.data || []), ...(byCreator.data || [])].filter((p: any) => {
+          if (!p?.creators || seen.has(p.id)) return false
+          seen.add(p.id)
+          return true
+        }).slice(0, 8)
 
         if (!error && data) {
           const results = data.map((p: any) => ({
@@ -1413,7 +1457,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
                 onChange={(e) => handleSearchChange(e.target.value)}
                 onFocus={() => setSearchModalOpen(true)}
                 placeholder={t("search_placeholder")}
-                className={`h-[42px] w-full pl-11 pr-4 bg-white/10 border-white/15 text-white text-[15px] placeholder:text-white/50 focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-0 focus-visible:border-violet-500 ${isDiscoverProductContext ? "rounded-[8px]" : "rounded-full"}`}
+                className={`h-[42px] w-full pl-11 pr-4 bg-white/10 border-white/15 text-white text-[15px] placeholder:text-white/50 focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-white/45 focus:border-white/45 ${isDiscoverProductContext ? "rounded-[8px]" : "rounded-full"}`}
               />
               {query && (
                 <button
