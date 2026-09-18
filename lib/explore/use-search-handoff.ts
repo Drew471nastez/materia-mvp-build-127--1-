@@ -46,11 +46,37 @@ export const SEARCH_ANCHOR_ATTR = "data-explore-search-anchor"
  * same thing from an entry, because two answers to one question is how the
  * field ends up in both places or neither.
  */
+/**
+ * Where the page's search field sits in the DOCUMENT, remembered.
+ *
+ * Reading the element is the honest answer and it is not always available:
+ * arriving back on Explore under load, the effect below runs before the hero
+ * is in the tree, `document.querySelector` finds nothing, and "no anchor" was
+ * read as "the page has the field" — so the strip went away and came back a
+ * hundred and thirty milliseconds later. Measured on the deployed page, back
+ * from a product at y=900 with the CPU throttled: the strip was absent until
+ * 134ms and then faded up.
+ *
+ * The offset does not change between two visits to the same page, so the last
+ * one that WAS read answers the question in the meantime: the field is above
+ * the window when the window has been scrolled past it.
+ */
+let anchorBottomInDoc: number | null = null
+
+function noteAnchor(bottomInViewport: number) {
+  anchorBottomInDoc = bottomInViewport + window.scrollY
+}
+
 function anchorIsAbove(): boolean {
   const el = document.querySelector(`[${SEARCH_ANCHOR_ATTR}]`)
-  if (!el) return false
-  /* 8px of slack, the same the observer's rootMargin gives it. */
-  return el.getBoundingClientRect().bottom <= 8
+  if (el) {
+    /* 8px of slack, the same the observer's rootMargin gives it. */
+    const bottom = el.getBoundingClientRect().bottom
+    noteAnchor(bottom)
+    return bottom <= 8
+  }
+  if (anchorBottomInDoc === null) return false
+  return window.scrollY >= anchorBottomInDoc - 8
 }
 
 export function useSearchHandoff(enabled: boolean): boolean {
@@ -120,6 +146,7 @@ export function useSearchHandoff(enabled: boolean): boolean {
             one sat two hundred pixels underneath it.
           */
           const gone = !entry.isIntersecting && entry.boundingClientRect.top < 0
+          noteAnchor(entry.boundingClientRect.bottom)
           setInHeader(gone)
         },
         /* A little slack at the top, so the handoff happens as the field

@@ -45,11 +45,11 @@ function main() {
   )
   check(
     "the synchronous rule uses the same 8px slack as the observer's rootMargin",
-    /getBoundingClientRect\(\)\.bottom <= 8/.test(handoff) && /rootMargin: "-8px/.test(handoff),
+    /return bottom <= 8/.test(handoff) && /rootMargin: "-8px/.test(handoff),
   )
   check(
-    "no anchor still means the page has the field",
-    /if \(!el\) return false/.test(handoff),
+    "with no anchor and nothing remembered, the page still has the field",
+    /if \(anchorBottomInDoc === null\) return false/.test(handoff),
   )
 
   /* ---- the fade ---- */
@@ -60,48 +60,48 @@ function main() {
   check("the phone's search strip is where the test expects it", strip.length > 0)
   check("the desktop search field is where the test expects it", desktop.length > 0)
   check(
-    "neither search field animates unconditionally on mount",
+    "neither search field animates at all",
     !/animate-in/.test(strip) && !/animate-in/.test(desktop),
-    "a mount is a mount: arriving on the page replays the entrance",
+    "every version of this entrance eventually played on an arrival; a bar that appears as you scroll should just appear",
   )
   check(
-    "both take their entrance from the appear-only hook",
-    /\$\{searchEntrance\}/.test(strip) && /\$\{searchEntrance\}/.test(desktop),
+    "and nothing else in the header carries an entrance for them",
+    !/searchEntrance/.test(header) && !/useEntranceOnAppear/.test(header),
   )
   check(
-    "and that hook is fed the handoff state",
-    /useEntranceOnAppear\(\s*\n?\s*searchInHeader,/.test(header),
+    "the appear-only hook went with its last caller",
+    !/useEntranceOnAppear/.test(hook),
+    "a hook with no callers is a second answer to a question nothing asks",
   )
 
-  /* ---- the hook itself ---- */
+  /* ---- the strip must be right on the frame it arrives, not a frame later ---- */
   check(
-    "useEntranceOnAppear does not animate on the first render",
-    /const wasActive = useRef\(active\)/.test(hook),
-    "seeding the ref from the current value is what makes an arrival silent",
+    "the hero's field offset is remembered, so an arrival before it renders still knows",
+    /let anchorBottomInDoc: number \| null = null/.test(handoff) &&
+      /return window\.scrollY >= anchorBottomInDoc - 8/.test(handoff),
+    "querySelector found nothing at 134ms under load and the strip went away and came back",
   )
   check(
-    "it keeps the class while active, so a re-render cannot cut the animation short",
-    /entering\.current = true/.test(hook) && /return active && entering\.current \? classes : ""/.test(hook),
-  )
-  check(
-    "and it resets when the element goes away, so the next appearance plays",
-    /if \(!active\) entering\.current = false/.test(hook),
+    "and the observer keeps that memory current",
+    /noteAnchor\(entry\.boundingClientRect\.bottom\)/.test(handoff),
   )
 
   /* ---- and the header itself, which went with it ---- */
   check(
     "the header root is pinned while a pop is in flight",
-    /isSellerOrProductPage && !popInFlight \? "relative" : "sticky top-0"/.test(header),
+    /html\.pop-in-flight #platform-header-root \{\s*position: sticky;/.test(read("app/globals.css")),
     "a relative header on a page the browser has already scrolled is 900px above the window",
   )
   check(
-    "the pin is armed by popstate",
-    /window\.addEventListener\("popstate", onPop\)/.test(header),
+    "the pin is armed by popstate, synchronously",
+    /window\.addEventListener\("popstate", onPop\)/.test(header) &&
+      /classList\.add\("pop-in-flight"\)/.test(header),
+    "React state would arrive a frame after the browser's scroll, and a frame is the bug",
   )
   check(
     "and released both by the new route and by a timer",
-    /useEffect\(\(\) => \{ setPopInFlight\(false\) \}, \[pathname\]\)/.test(header) &&
-      /setTimeout\(\(\) => setPopInFlight\(false\), 700\)/.test(header),
+    /useEffect\(\(\) => \{\s*document\.documentElement\.classList\.remove\("pop-in-flight"\)\s*\}, \[pathname\]\)/.test(header) &&
+      /setTimeout\(clear, 700\)/.test(header),
     "a pop that changes nothing would otherwise pin it for good",
   )
 

@@ -26,7 +26,6 @@ import { readAuthSnapshot, writeAuthSnapshot, clearAuthSnapshot } from "@/lib/au
 import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
 import { STORELIB_LOGO } from "@/lib/brand/logo"
 import { useSearchHandoff } from "@/lib/explore/use-search-handoff"
-import { useEntranceOnAppear } from "@/lib/ui/use-entrance-on-change"
 
 const LOGO_URL = STORELIB_LOGO
 
@@ -970,12 +969,6 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
    */
   const isExploreSurface = pathname === "/explore" || pathname.startsWith("/explore") || pathname === "/wishlist"
   const searchInHeader = useSearchHandoff(isExploreSurface)
-  /* The field fades in when it ARRIVES while the page is up, and is simply
-     there when the page arrives with it. See useEntranceOnAppear. */
-  const searchEntrance = useEntranceOnAppear(
-    searchInHeader,
-    "motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-150",
-  )
   /**
    * HOW TALL THE STICKY BAR IS, so the phone's search strip can sit under it
    * and stick too.
@@ -1051,19 +1044,35 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
    * commit, because a pop that changes nothing would otherwise pin it for
    * good.
    */
-  const [popInFlight, setPopInFlight] = useState(false)
+  /*
+    A CLASS ON <html>, NOT A PIECE OF STATE, because the browser scrolls the
+    page you are leaving DURING the pop and React re-renders after it. State
+    arrives a frame late, and a frame is what this bug is made of. The
+    listener writes the class synchronously and app/globals.css pins the bar
+    off it; the effect below takes it off once the new route is up, and the
+    timer takes it off when a pop changes nothing.
+  */
   useEffect(() => {
-    const onPop = () => setPopInFlight(true)
+    let timer = 0
+    const clear = () => {
+      window.clearTimeout(timer)
+      document.documentElement.classList.remove("pop-in-flight")
+    }
+    const onPop = () => {
+      document.documentElement.classList.add("pop-in-flight")
+      window.clearTimeout(timer)
+      timer = window.setTimeout(clear, 700)
+    }
     window.addEventListener("popstate", onPop)
-    return () => window.removeEventListener("popstate", onPop)
+    return () => {
+      window.removeEventListener("popstate", onPop)
+      clear()
+    }
   }, [])
   /* The new route is up: the surface is whatever the new pathname says. */
-  useEffect(() => { setPopInFlight(false) }, [pathname])
   useEffect(() => {
-    if (!popInFlight) return
-    const t = window.setTimeout(() => setPopInFlight(false), 700)
-    return () => window.clearTimeout(t)
-  }, [popInFlight])
+    document.documentElement.classList.remove("pop-in-flight")
+  }, [pathname])
   const isBlogRoute = pathname === "/blog" || pathname.startsWith('/blog/')
   const isFaqRoute = pathname === "/faq"
   const isMarketingNavRoute = pathname === "/" || pathname === "/features" || pathname === "/pricing" || isBlogRoute || isFaqRoute
@@ -1216,7 +1225,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
           lighter than the bar and reads as a halo at the seam.
         */
         "platform-header-depth z-40 w-full bg-black backdrop-blur supports-[backdrop-filter]:bg-black",
-        isSellerOrProductPage && !popInFlight ? "relative" : "sticky top-0",
+        isSellerOrProductPage ? "relative" : "sticky top-0",
       )}>
     <header className={cn("w-full bg-black", !(isNativePlatform() && isSellerOrProductPage) && "border-b border-white/10")}>
       <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">
@@ -1509,7 +1518,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
             the bar instead. See lib/explore/use-search-handoff.
           */}
           {searchInHeader && (
-          <div className={`hidden md:flex flex-1 max-w-xl mx-4 relative ${searchEntrance}`}>
+          <div className="hidden md:flex flex-1 max-w-xl mx-4 relative">
             <div className="relative w-full">
               <Search className="absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-white/40 pointer-events-none z-10" />
               <Input
@@ -2345,7 +2354,14 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
       */}
       {searchInHeader && (pathname !== "/" && !pathname.startsWith("/features") && !pathname.startsWith("/blog") && !pathname.startsWith("/pricing") && !isFaqRoute && !isSellerOrProductPage) && (
         <div
-          className={`fixed inset-x-0 z-[35] md:hidden bg-white border-b border-neutral-200 ${searchEntrance}`}
+          /*
+            NO ENTRANCE ON THIS BAR. It faded in on mount, which replayed on
+            every arrival; then it faded in only when it appeared while the
+            page was up, which still fired whenever the handoff resolved a
+            frame late. A bar that appears as you scroll past the page's own
+            field should just appear, the way every sticky header does.
+          */
+          className="fixed inset-x-0 z-[35] md:hidden bg-white border-b border-neutral-200"
           style={{ top: headerH }}
         >
           {/*
