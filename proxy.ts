@@ -539,7 +539,7 @@ function retireDomainScopedCookies(response: NextResponse, request: NextRequest)
  * this file exists.
  */
 const FRAME_RESERVED_FIRST_SEGMENT = new Set([
-  "access", "account-deletion", "admin", "api", "app", "auth", "blog", "c",
+  "access", "account", "account-deletion", "admin", "api", "app", "auth", "blog", "c",
   "checkout", "creator-page", "dashboard", "downloads", "editions", "explore",
   "faq", "features", "help", "l", "legal", "library", "login", "native-start",
   "onboarding", "p", "pricing", "privacy", "products", "purchase", "receipt",

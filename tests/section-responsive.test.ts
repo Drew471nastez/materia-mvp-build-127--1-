@@ -2153,15 +2153,22 @@ check(
    * the way it does a nav link, because these leave the site entirely.
    */
   /**
-   * Five: search, account and wishlist in the icon row, and the two wishlist
-   * slots in the phone drawer. Search is root-relative rather than a link out
-   * of the site, but it is still a real anchor, so in the editor it would
-   * navigate the builder away from the canvas exactly the same way.
+   * Four: search and wishlist in the icon row, and the two wishlist slots in
+   * the phone drawer. Search is root-relative rather than a link out of the
+   * site, but it is still a real anchor, so in the editor it would navigate
+   * the builder away from the canvas exactly the same way.
    *
-   * Two close the drawer instead: Log In, and the phone's Search row.
+   * One closes the drawer instead: the phone's Search row.
+   *
+   * The account controls are not in either count. They take the return
+   * target from the address bar at the moment of the click, which cannot be
+   * an `href` written at render, so they go through `goToPlatform` — which
+   * is handed the editor flag and does nothing at all inside the canvas.
    */
-  (headerRenderer.match(/onClick=\{onEditorNavigate \? \(e\) => e\.preventDefault\(\) : undefined\}/g) ?? []).length === 5 &&
-    (headerRenderer.match(/onClick=\{onEditorNavigate \? \(e\) => e\.preventDefault\(\) : \(\) => onClose\(\)\}/g) ?? []).length === 2,
+  (headerRenderer.match(/onClick=\{onEditorNavigate \? \(e\) => e\.preventDefault\(\) : undefined\}/g) ?? []).length === 4 &&
+    (headerRenderer.match(/onClick=\{onEditorNavigate \? \(e\) => e\.preventDefault\(\) : \(\) => onClose\(\)\}/g) ?? []).length === 1 &&
+    /if \(inEditor\) return/.test(headerRenderer) &&
+    (headerRenderer.match(/goToPlatform\("[^"]+", !!onEditorNavigate\)/g) ?? []).length === 3,
 )
 
 check(

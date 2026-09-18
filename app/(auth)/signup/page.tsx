@@ -7,9 +7,10 @@ import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
+import { safeReturnTarget } from "@/lib/auth/return-to"
 import { useState, useEffect, Suspense, useRef } from "react"
 import { Eye, EyeOff, Loader2 } from "lucide-react"
-import { getCanonicalSiteUrl } from "@/lib/url-helpers"
+import { getCanonicalSiteUrl, getMainDomain } from "@/lib/url-helpers"
 import Image from "next/image"
 import { AuthLogo } from "@/components/auth/auth-logo"
 import { AuthResolvingScreen } from "@/components/auth/auth-resolving-screen"
@@ -62,6 +63,11 @@ function SignUpFormContent() {
   useNativeScrollLock()
   const router = useRouter()
   const searchParams = useSearchParams()
+  /* Only a target the platform will actually honour is passed on. The same
+     check runs again on the login page; this one keeps a rejected target
+     out of the link rather than putting it there to be dropped later. */
+  const signupReturn = safeReturnTarget(searchParams.get("next"), { mainDomain: getMainDomain() })
+  const loginHref = signupReturn ? `/login?next=${encodeURIComponent(signupReturn)}` : "/login"
   const claim = searchParams.get("claim")
   const receiptToken = searchParams.get("receiptToken")
   const prefilledEmail = searchParams.get("email")
@@ -664,7 +670,13 @@ function SignUpFormContent() {
 
           <p className="mt-6 text-center text-[14px] text-neutral-500">
             {t("auth.have_account")}{" "}
-            <Link href="/login" className="font-medium text-purple-600 hover:text-purple-700">
+            {/*
+              CARRY THE RETURN TARGET ACROSS. Somebody who came here from a
+              creator's shop, found they already had an account and went to
+              log in would otherwise land on their dashboard and have to find
+              their way back to the shop themselves.
+            */}
+            <Link href={loginHref} className="font-medium text-purple-600 hover:text-purple-700">
               {t("auth.log_in")}
             </Link>
           </p>

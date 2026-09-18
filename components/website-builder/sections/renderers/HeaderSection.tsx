@@ -12,7 +12,7 @@
 
 import {
   ChevronDown, ChevronLeft, ChevronRight,
-  Heart, Menu, Minus, Plus, Search, ShoppingBag, Trash2, User, X,
+  Heart, Menu, Minus, Plus, Search, ShoppingBag, Trash2, User, UserPlus, X,
 } from "lucide-react"
 import { useCallback, useState, useEffect, useRef, useLayoutEffect, type CSSProperties } from "react"
 import { createPortal } from "react-dom"
@@ -121,6 +121,39 @@ function HeaderMobileNavDrawer({
  * throw away, and a badge that appears and then changes is worse than one
  * that appears once.
  */
+
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ *  ACCOUNT, FROM A SITE THAT CANNOT SEE THE SESSION
+ * ═══════════════════════════════════════════════════════════════════════════
+ * A built site runs on its own host and the session cookie is host-only to
+ * the platform on purpose, so that a site somebody generated with a prompt
+ * can never read a Storelib token. That means the site cannot know whether
+ * this visitor is signed in, and must not be able to find out.
+ *
+ * So it does not ask. It sends them to /account/continue, which runs where
+ * the cookie is and forwards them: to their library if they have an account,
+ * to sign in if they do not, carrying where to come back to.
+ *
+ * WHERE BACK IS is read at the moment of the click rather than rendered into
+ * the page, because the same markup is served on a subdomain, on a custom
+ * domain and under /w/<name>, and only the browser knows which of those the
+ * visitor is actually on. The platform checks it before following it.
+ */
+function platformUrl(path: string): string {
+  return `https://${getMainDomain()}${path}`
+}
+
+function goToPlatform(path: string, inEditor: boolean) {
+  return (e: React.MouseEvent) => {
+    e.preventDefault()
+    if (inEditor) return
+    const url = new URL(path, `https://${getMainDomain()}`)
+    url.searchParams.set("next", window.location.href)
+    window.location.assign(url.toString())
+  }
+}
+
 function CartButton() {
   const { count, ready, setOpen } = useSiteCart()
   return (
@@ -586,13 +619,13 @@ function MobileDrawerInner({
                * lives on the platform, so the link does too.
                */
               <a
-                href={`https://${getMainDomain()}/login`}
-                onClick={onEditorNavigate ? (e) => e.preventDefault() : () => onClose()}
+                href={platformUrl("/account/continue")}
+                onClick={(e) => { onClose(); goToPlatform("/account/continue", !!onEditorNavigate)(e) }}
                 className="flex items-center gap-2 text-[15px] font-semibold hover:opacity-70 transition-opacity"
                 style={{ color: scheme.nav_link }}
               >
                 <User className="h-5 w-5" strokeWidth={1.8} />
-                <span>Log In</span>
+                <span>Account</span>
               </a>
             ) : (
               // Wishlist-only case: wishlist goes on the LEFT.
@@ -623,6 +656,28 @@ function MobileDrawerInner({
               <span aria-hidden />
             )}
           </div>
+        )}
+
+        {/*
+          AND A WAY TO MAKE ONE. "Account" is the right word for somebody who
+          already has one and says nothing to somebody who does not, and a
+          shop whose only account control is a log in is a shop that assumes
+          everyone arriving has shopped here before.
+
+          It goes to the platform, like the rest of the account controls,
+          because that is where the account is and where the session can
+          safely live. The visitor comes back to this shop afterwards.
+        */}
+        {showAccount && (
+          <a
+            href={platformUrl("/signup")}
+            onClick={(e) => { onClose(); goToPlatform("/signup", !!onEditorNavigate)(e) }}
+            className="border-t border-black/10 px-5 py-4 flex items-center gap-3 shrink-0 text-[15px] font-medium"
+            style={{ background: scheme.bg, color: scheme.nav_link }}
+          >
+            <UserPlus className="h-[20px] w-[20px]" strokeWidth={1.8} />
+            <span>Create account</span>
+          </a>
         )}
 
         {/*
@@ -1213,9 +1268,9 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
       )}
       {showAccount && !forMobile && (
         <a
-          href={`https://${getMainDomain()}/library`}
+          href={platformUrl("/account/continue")}
           aria-label="Account"
-          onClick={onEditorNavigate ? (e) => e.preventDefault() : undefined}
+          onClick={goToPlatform("/account/continue", !!onEditorNavigate)}
           className="h-9 w-9 flex items-center justify-center rounded-full hover:bg-black/5 transition-colors"
         >
           <User className="h-[18px] w-[18px]" strokeWidth={1.8} />

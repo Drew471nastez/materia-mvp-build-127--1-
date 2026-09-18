@@ -358,6 +358,43 @@ function main() {
       app/(site)/w/[username]/search ever goes away, this fails, and the icon
       has to go with it rather than quietly becoming a dead button again.
     */
+    /*
+      ═══════════════════════════════════════════════════════════════════════
+       ACCOUNT, AND A WAY TO MAKE ONE
+      ═══════════════════════════════════════════════════════════════════════
+      A built site cannot see the session: the cookie is host-only to the
+      platform so that a site somebody generated with a prompt can never read
+      a Storelib token. So the site must not try to find out, and these
+      controls must not be a link that guesses. They go to a platform route
+      that knows, and it forwards the visitor.
+
+      The rule this file exists for applies: the control is allowed only
+      while the thing behind it is there.
+    */
+    check(
+      "account goes to the route that can answer, not to a guess",
+      /platformUrl\("\/account\/continue"\)/.test(code) && existsSync("app/account/continue/route.ts"),
+    )
+    check(
+      "a visitor with no account can make one from the site",
+      /platformUrl\("\/signup"\)/.test(code) && /Create account/.test(header),
+    )
+    check(
+      "and where to come back to is read at the click, not rendered in",
+      /url\.searchParams\.set\("next", window\.location\.href\)/.test(code),
+      "the same markup is served on a subdomain, a custom domain and /w/<name>",
+    )
+    check(
+      "the platform checks a return target before following it",
+      /safeReturnTarget/.test(read("app/(auth)/login/page.tsx")) &&
+        /safeReturnTarget/.test(read("app/account/continue/route.ts")),
+      "an unchecked one turns sign-in into an open redirect",
+    )
+    check(
+      "and nothing follows a raw redirect parameter any more",
+      !/const redirectUrl = searchParams\.get\("redirect"\)/.test(read("app/(auth)/login/page.tsx")),
+    )
+
     check(
       "search is in the header",
       /aria-label="Search"/.test(code) && /show_search_icon/.test(headerSchema),
@@ -373,12 +410,14 @@ function main() {
         /searchSections/.test(read("app/(site)/w/[username]/search/page.tsx")),
     )
     check(
-      "account and wishlist are links to the platform pages that exist",
-      /href=\{`https:\/\/\$\{getMainDomain\(\)\}\/library`\}/.test(code) &&
-        /href=\{`https:\/\/\$\{getMainDomain\(\)\}\/wishlist`\}/.test(code),
+      "wishlist is a link to the platform page that exists",
+      /href=\{`https:\/\/\$\{getMainDomain\(\)\}\/wishlist`\}/.test(code),
     )
     check("no icon in the header is a button that only prevents its own default", !/onClick=\{e => e\.preventDefault\(\)\}/.test(code))
-    check("and Log In goes to the platform, where the session is", /href=\{`https:\/\/\$\{getMainDomain\(\)\}\/login`\}/.test(code))
+    check(
+      "and every account control goes to the platform, where the session is",
+      /platformUrl\("\/account\/continue"\)/.test(code) && /platformUrl\("\/signup"\)/.test(code),
+    )
     check("with no invented count beside any of them", !/leading-none flex items-center justify-center">\s*0\s*</.test(code))
 
     /**

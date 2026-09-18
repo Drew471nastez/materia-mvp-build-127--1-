@@ -23,6 +23,7 @@
 /** Every first path segment with a route of its own, from `app/`. */
 export const RESERVED_ROOT_SEGMENTS: readonly string[] = [
   "access",
+  "account",
   "account-deletion",
   "admin",
   "api",

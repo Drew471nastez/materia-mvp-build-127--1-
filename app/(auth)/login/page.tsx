@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
+import { isAbsoluteTarget, safeReturnTarget } from "@/lib/auth/return-to"
+import { getMainDomain } from "@/lib/url-helpers"
 import { useState, useEffect, Suspense, useRef } from "react"
 import { Eye, EyeOff, Loader2 } from "lucide-react"
 import Image from "next/image"
@@ -113,6 +115,14 @@ function LoginFormContent() {
 
   const navigateWithFallback = (url: string) => {
     setIsRedirecting(true)
+    /* An address on another host is not something the app router can push:
+       it would sit here for a second and a half and then be rescued by the
+       fallback below. A shop on its own domain is exactly that case, so it
+       leaves straight away. */
+    if (isAbsoluteTarget(url)) {
+      window.location.assign(url)
+      return
+    }
     router.push(url)
     if (typeof window !== "undefined") {
       if (redirectTimeoutRef.current) {
@@ -124,8 +134,25 @@ function LoginFormContent() {
     }
   }
 
-  // Get redirect URL from search params (for returning to receipt page after login)
-  const redirectUrl = searchParams.get("redirect")
+  /*
+    WHERE TO GO AFTERWARDS, AND WHY IT IS CHECKED NOW.
+
+    `redirect` is the old name, used to come back to a receipt. `next` is
+    what a creator's built site sends when a visitor there presses Account:
+    the site is on its own host and the session lives here, so they have to
+    leave to sign in, and this is how they get back.
+
+    Both were, and `redirect` had been, followed as given. A target that is
+    followed without being checked turns this page into a laundering service
+    for somebody else's link: the address bar says storelib.com, the visitor
+    types their password, and they are handed to a page that looks like this
+    one. Both go through the same check now, and anything that is not ours
+    is dropped rather than followed. See lib/auth/return-to.ts.
+  */
+  const redirectUrl = safeReturnTarget(
+    searchParams.get("next") ?? searchParams.get("redirect"),
+    { mainDomain: getMainDomain() },
+  )
 
   /**
    * A FAILED SIGN IN, ARRIVING BACK HERE.
@@ -287,6 +314,19 @@ function LoginFormContent() {
         3500,
       )
       const creatorRow = (creatorRes as any)?.data as { id: string; onboarding_completed: boolean } | null | undefined
+
+      /* Somebody who was already signed in when they got here, having been
+         sent from a shop. Their answer is the shop, not their dashboard. */
+      const sentBack = safeReturnTarget(
+        searchParams.get("next") ?? searchParams.get("redirect"),
+        { mainDomain: getMainDomain() },
+      )
+      if (sentBack) {
+        window.clearTimeout(forceNavTimer)
+        if (isAbsoluteTarget(sentBack)) window.location.assign(sentBack)
+        else router.replace(sentBack)
+        return
+      }
 
       let nextPath = "/signup/success"
       if (creatorRow?.onboarding_completed) {
