@@ -44,8 +44,7 @@ function main() {
 
   check(
     "it is positioned from the scroller's own offset",
-    /setPin\(\{\s*top,\s*height:\s*scroller\.clientHeight\s*\}\)/.test(src) &&
-      /const top = scroller\.scrollTop/.test(src),
+    /setPin\(\{ top: scroller\.scrollTop, height: scroller\.clientHeight \}\)/.test(src),
   )
   check(
     "and that offset reaches the drawer and the backdrop",
@@ -61,6 +60,29 @@ function main() {
     /const positionClass = previewRoot \? "absolute" : "fixed"/.test(src),
   )
 
+  console.log("\n  and it follows the canvas when the canvas changes size")
+
+  /*
+    Tapping the hamburger in the editor also selects the header, so the
+    inspector sheet opens on the same tap and the canvas subtracts its peek
+    as padding. The canvas is shorter and the WINDOW never resized, so a
+    `resize` listener hears nothing and the drawer is left at half height
+    for as long as it is open. Measured in check-nav-drawer.mjs: without the
+    observer, a 380px canvas carries a 640px drawer.
+  */
+  check(
+    "the scroller is watched for its own size, not just the window",
+    /new ResizeObserver\(measure\)/.test(src) && /ro\?\.observe\(scroller\)/.test(src),
+  )
+  check(
+    "the offset is re-read with the height, because a growing canvas clamps it",
+    /const measure = \(\) => setPin\(\{ top: scroller\.scrollTop, height: scroller\.clientHeight \}\)/.test(src),
+  )
+  check(
+    "and the observer is disconnected on close",
+    /ro\?\.disconnect\(\)/.test(src),
+  )
+
   console.log("\n  and the page behind it is frozen")
 
   check(
@@ -69,7 +91,7 @@ function main() {
   )
   check(
     "and it gets its scroll position back, because overflow hidden can clamp it",
-    /scroller\.scrollTop = top/.test(src),
+    /scroller\.scrollTop = startTop/.test(src),
   )
   check(
     "the live site is pinned with position fixed, which iOS honours",

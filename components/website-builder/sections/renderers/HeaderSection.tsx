@@ -108,26 +108,43 @@ function HeaderMobileNavDrawer({
     const scroller = scopedToPreview ? document.getElementById("wb-preview-root") : null
 
     if (scroller) {
-      const top = scroller.scrollTop
-      setPin({ top, height: scroller.clientHeight })
+      const startTop = scroller.scrollTop
+      const measure = () => setPin({ top: scroller.scrollTop, height: scroller.clientHeight })
+      measure()
 
       const prevOverflow = scroller.style.overflow
       const prevTouch = scroller.style.touchAction
       scroller.style.overflow = "hidden"
       scroller.style.touchAction = "none"
 
-      // The canvas can be resized under an open drawer (rotation, or the
-      // desktop/phone toggle). Height is the only thing that can change
-      // while the scroller is frozen, so re-read just that.
-      const onResize = () => setPin({ top, height: scroller.clientHeight })
-      window.addEventListener("resize", onResize)
+      /*
+        THE CANVAS CHANGES SIZE WHILE THE DRAWER IS OPEN, AND THAT IS NOT A
+        WINDOW RESIZE.
+
+        Tapping the hamburger inside the editor also selects the header, so
+        the inspector sheet opens on top of the same tap. That sheet
+        publishes `--wb-sheet-peek` and the canvas subtracts it as padding,
+        which changes the canvas's height without the window changing at
+        all — so a `resize` listener never hears it, and a drawer measured
+        once is left at the wrong height for the rest of the time it is
+        open. That is the half-height panel in the report.
+
+        A ResizeObserver on the scroller hears every one of them: the sheet
+        opening and settling, a rotation, the phone/desktop toggle. The
+        offset is re-read with the height because growing the canvas can
+        make the browser clamp `scrollTop`.
+      */
+      const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(measure) : null
+      ro?.observe(scroller)
+      window.addEventListener("resize", measure)
 
       undo.push(() => {
-        window.removeEventListener("resize", onResize)
+        ro?.disconnect()
+        window.removeEventListener("resize", measure)
         scroller.style.overflow = prevOverflow
         scroller.style.touchAction = prevTouch
         // `overflow: hidden` can clamp the offset; put it back verbatim.
-        scroller.scrollTop = top
+        scroller.scrollTop = startTop
       })
     } else {
       setPin(null)
