@@ -75,6 +75,8 @@ export function ConditionalFooter() {
       pathname.startsWith("/features") ||
       pathname.startsWith("/creators") ||
       pathname.startsWith("/wishlist") ||
+      /* Same reason as the header: the library is a platform page now. */
+      pathname.startsWith("/library") ||
       pathname.startsWith("/dashboard") ||
       pathname.startsWith("/app") ||
       pathname.startsWith("/marketplace") ||

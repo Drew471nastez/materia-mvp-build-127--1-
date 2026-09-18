@@ -235,10 +235,15 @@ check(
       missing.push("header: more than one writer for the badge")
     if (!/initialWishlistCount=\{initialWishlistCount\}/.test(conditional))
       missing.push("conditional-header: prop not threaded through")
-    if (!/cookies\(\)/.test(layout) || !/storelib_wishlist_count/.test(layout))
-      missing.push("marketing layout: not reading the cookie server-side")
-    if (!/Number\.isInteger\(n\) && n >= 0/.test(layout))
-      missing.push("marketing layout: client-written cookie not clamped")
+    /* The read moved to lib/platform/header-props when /library started
+       drawing this header too: two layouts, one copy of the function. */
+    const headerProps = code("lib/platform/header-props.ts")
+    if (!/cookies\(\)/.test(headerProps) || !/storelib_wishlist_count/.test(headerProps))
+      missing.push("header-props: not reading the cookie server-side")
+    if (!/Number\.isInteger\(n\) && n >= 0/.test(headerProps))
+      missing.push("header-props: client-written cookie not clamped")
+    if (!/readWishlistCount\(\)/.test(layout))
+      missing.push("marketing layout: no longer asks for the count")
     if (missing.length) console.log("        " + missing.join("\n        "))
     return missing.length === 0
   })(),
@@ -445,7 +450,10 @@ check(
     const layout = code("app/(marketing)/layout.tsx")
     const header = code("components/marketing/conditional-header.tsx")
     return (
-      /extractUsernameFromHost\(host\) === null && !isCustomDomain\(host\)/.test(layout) &&
+      /* The host test lives in lib/platform/header-props now; the layout
+         still has to ask for it and thread it through. */
+      /extractUsernameFromHost\(host\) === null && !isCustomDomain\(host\)/.test(code("lib/platform/header-props.ts")) &&
+      /isPlatformDomain\(\)/.test(layout) &&
       /onPlatformDomain=\{onPlatformDomain\}/.test(layout) &&
       /pathname === "\/" && onPlatformDomain/.test(header)
     )

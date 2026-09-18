@@ -472,26 +472,11 @@ html.capacitor body {
     overflow: hidden;
   }
 
-  /* Library layout on mobile: lock document-level scroll so the fixed mobile
-     header cannot be scrolled by swiping on it (same behaviour as /app).
-     Only on mobile (<768px) — desktop library uses natural document flow.
-     Both the CSS :has() rule and the JS .library-layout class are used so
-     neither mechanism is a single point of failure. */
-  @media (max-width: 767px) {
-    html:has([data-page="library"]),
-    html.library-layout {
-      overflow: hidden;
-      scrollbar-width: none;
-    }
-    html:has([data-page="library"])::-webkit-scrollbar,
-    html.library-layout::-webkit-scrollbar {
-      display: none;
-    }
-    html:has([data-page="library"]) body,
-    html.library-layout body {
-      overflow: hidden;
-    }
-  }
+  /* The library used to lock document scroll on a phone, because its layout
+     had a scroll container of its own and a fixed header that a swipe could
+     otherwise drag. It has neither now — it is the platform header and the
+     document's own scroll, like every other page — and leaving the lock here
+     would simply stop /library scrolling at all. */
 
 }
 

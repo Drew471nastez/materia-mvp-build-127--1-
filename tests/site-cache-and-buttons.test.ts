@@ -170,7 +170,14 @@ function main() {
      * anything.
      */
     check("nothing on the site's layout asks who is looking", !/next\/headers/.test(read("app/(site)/layout.tsx")))
-    check("the marketing layout still does, for the pages that need it", /from "next\/headers"/.test(read("app/(marketing)/layout.tsx")))
+    /* The marketing layout reads request data through lib/platform/header-props
+       now, which /library shares. It is still dynamic; it just no longer
+       imports next/headers by hand. */
+    check(
+      "the marketing layout still reads request data, for the pages that need it",
+      /readWishlistCount\(\)/.test(read("app/(marketing)/layout.tsx")) &&
+        /next\/headers/.test(read("lib/platform/header-props.ts")),
+    )
 
     /**
      * And a cache nobody purges is a creator staring at their old site. The
