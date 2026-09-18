@@ -3707,3 +3707,23 @@ html:has(.wb-editor) body {
 @media (prefers-contrast: more) {
   .explore-ground::before { display: none; }
 }
+
+/*
+ * ===========================================================================
+ *  THE BAR DOES NOT LEAVE THE TOP OF THE WINDOW DURING A BACK NAVIGATION
+ * ===========================================================================
+ * On a product page #platform-header-root is `relative`: it scrolls away and
+ * the page's own creator bar takes the top. Going back, the browser puts the
+ * window at the destination's scroll offset before the destination has
+ * rendered — Safari on popstate, Chromium at the commit — and a relative bar
+ * on a page scrolled 900px is 900px above the window. Filmed on a phone that
+ * is three frames with no bar at all and page content running up under the
+ * browser's own chrome.
+ *
+ * The class is written synchronously in the popstate listener, because React
+ * state would arrive a frame after the scroll, and a frame is the whole bug.
+ */
+html.pop-in-flight #platform-header-root {
+  position: sticky;
+  top: 0;
+}

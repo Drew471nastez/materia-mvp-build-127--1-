@@ -358,7 +358,7 @@ function main() {
   */
   check(
     "it is sticky rather than fixed",
-    /isSellerOrProductPage && !popInFlight \? "relative" : "sticky top-0"/.test(header),
+    /isSellerOrProductPage \? "relative" : "sticky top-0"/.test(header),
   )
   check(
     "and nothing translates it out of view",

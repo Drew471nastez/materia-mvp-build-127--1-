@@ -306,11 +306,11 @@ async function main() {
     cannot be filmed here without asking for it. EARLY=1 asks for it: the same
     scroll, one tick before the pop.
   */
-  const back = await watch("back", () => evaluate(
-    process.env.EARLY === "1"
-      ? `window.scrollTo(0, ${LEAVE_AT}); history.back(); "ok"`
-      : `history.back(); "ok"`,
-  ), 3000)
+  if (process.env.EARLY === "1") {
+    await evaluate(`window.scrollTo(0, ${LEAVE_AT}); "ok"`)
+    await sleep(250)
+  }
+  const back = await watch("back", () => evaluate(`history.back(); "ok"`), 3000)
   const landedBack = await evaluate(`Math.round(window.scrollY)`)
 
   /* Only the moments where the answer CHANGED — a run of identical samples is
@@ -332,7 +332,7 @@ async function main() {
     scroll: { leftAt, landedBack, restoredExactly: leftAt === landedBack },
     mainFrameDocumentRequests: docRequests.slice(beforeDocs).filter((d) => d.isMain).length,
     forward: { dir: forward.dir, frames: forward.frames, changes: changes(forward.samples) },
-    back: { dir: back.dir, frames: back.frames, changes: changes(back.samples) },
+    back: { dir: back.dir, frames: back.frames, changes: changes(back.samples), head: back.samples.slice(0, 20) },
   }, null, 2))
   reap()
   process.exit(0)
