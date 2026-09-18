@@ -40,6 +40,19 @@ export const SEARCH_ANCHOR_ATTR = "data-explore-search-anchor"
  * @param enabled false on pages that have no page-level search, where the
  *   header's own field is the only one and must always be there.
  */
+/**
+ * The observer's rule, asked synchronously: is the page's own search field
+ * entirely above the viewport? Kept beside `watch` below, which computes the
+ * same thing from an entry, because two answers to one question is how the
+ * field ends up in both places or neither.
+ */
+function anchorIsAbove(): boolean {
+  const el = document.querySelector(`[${SEARCH_ANCHOR_ATTR}]`)
+  if (!el) return false
+  /* 8px of slack, the same the observer's rootMargin gives it. */
+  return el.getBoundingClientRect().bottom <= 8
+}
+
 export function useSearchHandoff(enabled: boolean): boolean {
   /**
    * STARTS AS THE ANSWER FOR THIS SURFACE, not as a default to be corrected.
@@ -74,11 +87,21 @@ export function useSearchHandoff(enabled: boolean): boolean {
      * A field appearing and vanishing on every return, which is what "the
      * flash in the header" was.
      *
-     * An Explore surface always has a hero with a field in it, so arriving on
-     * one means the page has the search. Said here rather than only in
-     * useState, because arriving is not always a mount.
+     * BUT "the page has it" IS ONLY TRUE AT THE TOP OF THE PAGE. Coming back
+     * lands on the scroll position you left from, and if that was past the
+     * hero the header's strip belongs on screen. Forcing false here took it
+     * away for about fifty milliseconds and then faded it back in over two
+     * hundred more, which is the white bar blinking under the header on the
+     * way back from a product.
+     *
+     * So this measures rather than assumes. The anchor is already in the
+     * document on arrival — filmed at 18ms after history.back(), with the
+     * hero 663px above the viewport — so one rect answers it on the frame
+     * that matters. Only when there is no anchor to read does it fall back to
+     * "the page has it", which is the right answer for an Explore surface
+     * whose hero has not rendered yet.
      */
-    setInHeader(false)
+    setInHeader(anchorIsAbove())
 
     let io: IntersectionObserver | null = null
     let watched: Element | null = null
