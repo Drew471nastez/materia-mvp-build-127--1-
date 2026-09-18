@@ -1392,6 +1392,23 @@ export function UnifiedSectionRenderer({
    */
   const isProductRail = section.type === "featured-products"
 
+  /*
+    AND THE REVIEWS OWN THEIR COLUMN TOO, which is the half of this I missed.
+    UnifiedReviewsSection carries PRODUCT_SECTION_CONTAINER now, so it has the
+    page's column already — and this wrapper was still adding spacing.paddingLeft
+    on top of it. 12px from here plus px-3 from the container is 24px, against
+    More from the seller's 12, which is exactly the step the owner kept
+    pointing at: the reviews card sitting a card's border further in than the
+    product card above it.
+
+    Changing the container without changing this fixed nothing visible, which
+    is why it came back a second time.
+  */
+  const isReviews = section.type === "reviews"
+
+  /** Horizontal padding belongs to whichever of these draws its own column. */
+  const ownsItsColumn = isMoreFromSeller || isProductRail || isReviews
+
   // Defensive access to spacing and colors with fallbacks
   const spacing = section.settings.spacing || { paddingTop: 0, paddingBottom: 0, paddingLeft: 0, paddingRight: 0 }
   const colors = section.settings.colors || { backgroundColor: "transparent", textColor: "inherit" }
@@ -1399,8 +1416,8 @@ export function UnifiedSectionRenderer({
   const style = {
     paddingTop: isMoreFromSeller ? undefined : spacing.paddingTop,
     paddingBottom: isMoreFromSeller ? undefined : spacing.paddingBottom,
-    paddingLeft: isMoreFromSeller || isProductRail ? undefined : spacing.paddingLeft,
-    paddingRight: isMoreFromSeller || isProductRail ? undefined : spacing.paddingRight,
+    paddingLeft: ownsItsColumn ? undefined : spacing.paddingLeft,
+    paddingRight: ownsItsColumn ? undefined : spacing.paddingRight,
     backgroundColor: colors.backgroundColor || "transparent",
     color: colors.textColor || "inherit",
   }

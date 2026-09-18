@@ -1600,6 +1600,24 @@ function main() {
       "and so do the reviews",
       renderer.slice(renderer.indexOf("function UnifiedReviewsSection")).includes("PRODUCT_SECTION_CONTAINER"),
     )
+    /*
+      AND THE WRAPPER MUST NOT ADD PADDING ON TOP OF THEIR OWN COLUMN.
+
+      Giving the reviews the shared container was half the fix and changed
+      nothing on screen: the section wrapper was still applying
+      spacing.paddingLeft to it, so the card sat one step further in than
+      More from the seller, which is exempt. Measured on the deployed page at
+      390px, More from started at 12px and the reviews at 16px.
+
+      scripts/check-product-columns reads those edges off a real product page.
+    */
+    check(
+      "and the wrapper adds no horizontal padding to a section that owns its column",
+      /const ownsItsColumn = isMoreFromSeller \|\| isProductRail \|\| isReviews/.test(renderer) &&
+        /paddingLeft: ownsItsColumn \? undefined : spacing\.paddingLeft/.test(renderer) &&
+        /paddingRight: ownsItsColumn \? undefined : spacing\.paddingRight/.test(renderer),
+      "horizontal spacing is the page's column, not a per-section setting",
+    )
     check(
       "which is the product page's own column",
       /className="mx-auto w-full max-w-\[1200px\] px-3 sm:px-4 lg:px-6/.test(code("app/(marketing)/p/[slug]/page.tsx")),

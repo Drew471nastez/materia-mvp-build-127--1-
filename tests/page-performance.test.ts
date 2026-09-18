@@ -2635,10 +2635,21 @@ check(
 
     if (!/const isProductRail = section\.type === "featured-products"/.test(renderer))
       missing.push("the renderer no longer recognises the product rail")
-    if (!/paddingLeft: isMoreFromSeller \|\| isProductRail \? undefined :/.test(renderer))
-      missing.push("the featured rail takes horizontal padding from its spacing setting again — Home will sit further in than Products")
-    if (!/paddingRight: isMoreFromSeller \|\| isProductRail \? undefined :/.test(renderer))
-      missing.push("the featured rail's right padding is back")
+    /*
+      The exemption is a named list now — `ownsItsColumn` — because the
+      reviews joined it: they carry the page's column themselves and the
+      wrapper was adding padding on top, which put the reviews card one step
+      further in than More from the seller on a phone. So this checks that the
+      rail is still IN that list and that the style still reads it, rather
+      than pinning the exact expression, which is what made this fail when the
+      list grew.
+    */
+    if (!/const ownsItsColumn = [^\n]*isProductRail/.test(renderer))
+      missing.push("the featured rail is no longer exempt from the wrapper's horizontal padding — Home will sit further in than Products")
+    if (!/paddingLeft: ownsItsColumn \? undefined :/.test(renderer))
+      missing.push("the wrapper applies horizontal padding again")
+    if (!/paddingRight: ownsItsColumn \? undefined :/.test(renderer))
+      missing.push("the wrapper's right padding is back")
 
     const shipped = defaults.match(/defaultFeaturedProductsSettings[\s\S]{0,900}?paddingLeft: (\d+)/)?.[1]
     if (shipped === undefined) missing.push("could not read the featured section's default horizontal padding")
