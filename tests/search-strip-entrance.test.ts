@@ -88,6 +88,23 @@ function main() {
     /if \(!active\) entering\.current = false/.test(hook),
   )
 
+  /* ---- and the header itself, which went with it ---- */
+  check(
+    "the header root is pinned while a pop is in flight",
+    /isSellerOrProductPage && !popInFlight \? "relative" : "sticky top-0"/.test(header),
+    "a relative header on a page the browser has already scrolled is 900px above the window",
+  )
+  check(
+    "the pin is armed by popstate",
+    /window\.addEventListener\("popstate", onPop\)/.test(header),
+  )
+  check(
+    "and released both by the new route and by a timer",
+    /useEffect\(\(\) => \{ setPopInFlight\(false\) \}, \[pathname\]\)/.test(header) &&
+      /setTimeout\(\(\) => setPopInFlight\(false\), 700\)/.test(header),
+    "a pop that changes nothing would otherwise pin it for good",
+  )
+
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }
 }
