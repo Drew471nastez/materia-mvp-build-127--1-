@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { isOwnProduct } from "@/lib/reviews/own-product"
+import { checkReviewEligibility } from "@/lib/reviews/eligibility"
 
 // Check if user can review a product and if they already have
 export async function GET(request: NextRequest) {
@@ -28,14 +28,23 @@ export async function GET(request: NextRequest) {
     })
   }
 
-  /* Your own listing. See lib/reviews/own-product. */
-  if (await isOwnProduct(admin, productId, user.id)) {
+  /*
+    The same question the write endpoint asks, from the same place, so the
+    form is never offered for something that would then be refused.
+  */
+  const eligibility = await checkReviewEligibility(admin, {
+    productId,
+    userId: user.id,
+    email: user.email,
+  })
+  if (!eligibility.ok) {
     return NextResponse.json({
       canReview: false,
       hasReviewed: false,
       isLoggedIn: true,
       hasPurchased: false,
-      isOwnProduct: true,
+      isOwnProduct: eligibility.code === "own_product",
+      blockedReason: eligibility.code,
     })
   }
 

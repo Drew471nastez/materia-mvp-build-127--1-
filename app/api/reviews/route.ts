@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { revalidateTag } from "next/cache"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { isOwnProduct } from "@/lib/reviews/own-product"
+import { checkReviewEligibility } from "@/lib/reviews/eligibility"
 import { resolveSellerEmail, sendReviewNotificationEmail } from "@/lib/email"
 import { productTag } from "@/lib/commerce/product-page-cache"
 
@@ -91,10 +91,19 @@ export async function POST(request: NextRequest) {
 
   /*
     BEFORE the purchase check, because a creator CAN hold an entitlement to
-    their own product and would otherwise pass it. See lib/reviews/own-product.
+    their own product and would otherwise pass it. See lib/reviews/eligibility
+    for what counts as connected to the seller and what this cannot see.
   */
-  if (await isOwnProduct(admin, productId, user.id)) {
-    return NextResponse.json({ error: "You cannot review your own product" }, { status: 403 })
+  const eligibility = await checkReviewEligibility(admin, {
+    productId,
+    userId: user.id,
+    email: user.email,
+  })
+  if (!eligibility.ok) {
+    /* The code, never the address or the account it was matched against:
+       telling somebody WHICH signal caught them is a map for the next go. */
+    console.warn("[reviews] refused", { productId, code: eligibility.code })
+    return NextResponse.json({ error: eligibility.message }, { status: 403 })
   }
 
   // Check if user has purchased this product
