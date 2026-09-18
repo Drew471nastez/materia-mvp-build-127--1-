@@ -1019,6 +1019,51 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
      and `/<handle>/<slug>` is what everything hands out now. */
   const isDiscoverProductContext = isProductPage(pathname) && isDiscoverMode(pathname, searchParams)
   const isSellerOrProductPage = isSellerPage(pathname) || pathname.startsWith("/s/")
+
+  /**
+   * ═══════════════════════════════════════════════════════════════════════
+   *  A BACK NAVIGATION MUST NOT LEAVE THE TOP OF THE WINDOW EMPTY
+   * ═══════════════════════════════════════════════════════════════════════
+   * On a product page this bar is `relative`: it scrolls away and the page's
+   * own creator bar takes the top. That is right while somebody is reading a
+   * product, and wrong for the moment in between two pages.
+   *
+   * Going back from a product to the marketplace, the window is put at the
+   * destination's scroll offset BEFORE the destination has rendered. Safari
+   * does it on popstate; Chromium waits for the commit, which is why no probe
+   * here had ever seen it. Filmed on a phone, three frames at 60fps with no
+   * header at all and page content running up under the browser's own chrome:
+   *
+   *     4389ms   product page, bar at the top
+   *     4406ms   no bar, content at the top of the window
+   *     4423ms   no bar
+   *     4439ms   no bar
+   *     4456ms   the bar is back
+   *
+   * Asked for explicitly in Chromium — the same scroll one tick before the
+   * pop — it is the same picture, and it names the cause: the root sits at
+   * `top: -900px`, which is a `relative` element on a page scrolled 900px.
+   *
+   * So for as long as a pop is in flight the bar is pinned, whatever surface
+   * it thinks it is on. Arriving on a product page it unpins at the commit,
+   * and a product page is at the top of itself when you arrive, where pinned
+   * and unpinned are the same picture. Bounded by a timer as well as by the
+   * commit, because a pop that changes nothing would otherwise pin it for
+   * good.
+   */
+  const [popInFlight, setPopInFlight] = useState(false)
+  useEffect(() => {
+    const onPop = () => setPopInFlight(true)
+    window.addEventListener("popstate", onPop)
+    return () => window.removeEventListener("popstate", onPop)
+  }, [])
+  /* The new route is up: the surface is whatever the new pathname says. */
+  useEffect(() => { setPopInFlight(false) }, [pathname])
+  useEffect(() => {
+    if (!popInFlight) return
+    const t = window.setTimeout(() => setPopInFlight(false), 700)
+    return () => window.clearTimeout(t)
+  }, [popInFlight])
   const isBlogRoute = pathname === "/blog" || pathname.startsWith('/blog/')
   const isFaqRoute = pathname === "/faq"
   const isMarketingNavRoute = pathname === "/" || pathname === "/features" || pathname === "/pricing" || isBlogRoute || isFaqRoute
@@ -1171,7 +1216,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
           lighter than the bar and reads as a halo at the seam.
         */
         "platform-header-depth z-40 w-full bg-black backdrop-blur supports-[backdrop-filter]:bg-black",
-        isSellerOrProductPage ? "relative" : "sticky top-0",
+        isSellerOrProductPage && !popInFlight ? "relative" : "sticky top-0",
       )}>
     <header className={cn("w-full bg-black", !(isNativePlatform() && isSellerOrProductPage) && "border-b border-white/10")}>
       <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">

@@ -348,7 +348,18 @@ function main() {
     The handoff is a separate question and still checked below. Whether the
     bar CARRIES a search field is not the same as whether it is on screen.
   */
-  check("it is sticky rather than fixed", /isSellerOrProductPage \? "relative" : "sticky top-0"/.test(header))
+  /*
+    The expression grew a second term: while a back navigation is in flight the
+    bar is pinned whatever surface it thinks it is on, because the browser puts
+    the window at the destination's scroll offset before the destination has
+    rendered and a `relative` bar is then 900px above it. See
+    tests/search-strip-entrance for the frames. On every marketing surface the
+    answer here is unchanged: sticky, and nothing moves it.
+  */
+  check(
+    "it is sticky rather than fixed",
+    /isSellerOrProductPage && !popInFlight \? "relative" : "sticky top-0"/.test(header),
+  )
   check(
     "and nothing translates it out of view",
     !/-translate-y-full/.test(header) && !/headerTuckedAway/.test(header),

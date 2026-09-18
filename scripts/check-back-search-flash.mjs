@@ -115,6 +115,8 @@ async function main() {
   if (!mainFrameId) { reap(); fail("Could not identify the page's main frame, so a page load could not be told from an embed.") }
   await send("Emulation.setDeviceMetricsOverride", { width: 430, height: 900, deviceScaleFactor: 2, mobile: true })
   await send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 5 })
+  const THROTTLE = Number(process.env.CPU ?? 1)
+  if (THROTTLE > 1) await send("Emulation.setCPUThrottlingRate", { rate: THROTTLE })
 
   const report = { start: START }
   const frames = []
@@ -214,26 +216,64 @@ async function main() {
     }
   }
 
-  /* One sampler, used for both directions, so the two are comparable. */
+  /*
+    ONE SAMPLE PER FRAME, TAKEN INSIDE THE PAGE.
+
+    A CDP Runtime.evaluate per tick is a round trip, and the thing being
+    looked for is two frames long. The recorder runs in requestAnimationFrame
+    and the result is read out afterwards, so nothing is missed.
+  */
+  const RECORDER = `(() => {
+    window.__film = []
+    const t0 = performance.now()
+    const step = () => {
+      const hdr = document.querySelector("#platform-header-root, header")
+      const hr = hdr ? hdr.getBoundingClientRect() : null
+      const strip = [...document.querySelectorAll("div")].find((d) => {
+        const cs = getComputedStyle(d)
+        return cs.position === "fixed" && d.querySelector("input") && d.getBoundingClientRect().width > 200
+      })
+      const sr = strip ? strip.getBoundingClientRect() : null
+      window.__film.push({
+        at: Math.round(performance.now() - t0),
+        path: location.pathname,
+        y: Math.round(window.scrollY),
+        hdr: !!hdr,
+        hdrH: hr ? Math.round(hr.height) : 0,
+        hdrTop: hr ? Math.round(hr.top) : null,
+        hdrPos: hdr ? getComputedStyle(hdr).position : "",
+        strip: !!strip,
+        stripOp: strip ? Number(getComputedStyle(strip).opacity).toFixed(2) : "",
+        stripTop: sr ? Math.round(sr.top) : null,
+        /* What the first content under the header is, which is how a missing
+           header shows up as content sliding to the top of the window. */
+        firstCardTop: (() => {
+          const m = document.querySelector("main")
+          if (!m) return null
+          const el = m.querySelector("a[href], img")
+          return el ? Math.round(el.getBoundingClientRect().top) : null
+        })(),
+      })
+      if (performance.now() - t0 < 3000) requestAnimationFrame(step)
+    }
+    requestAnimationFrame(step)
+    return "recording"
+  })()`
+
   const watch = async (label, act, ms) => {
-    const samples = []
     frames.length = 0
     t0 = performance.now()
     filming = true
     await send("Page.startScreencast", { format: "jpeg", quality: 80, everyNthFrame: 1 })
-    const id = setInterval(async () => {
-      const at = Math.round(performance.now() - t0)
-      const s = await evaluate(PROBE)
-      if (s) samples.push({ at, ...s })
-    }, 16)
+    await evaluate(RECORDER)
     await act()
     await sleep(ms)
-    clearInterval(id)
     filming = false
     await send("Page.stopScreencast")
+    const samples = (await evaluate(`JSON.stringify(window.__film || [])`)) ?? "[]"
     const dir = mkdtempSync(join(tmpdir(), `storelib-${label}-`))
     for (const f of frames) writeFileSync(join(dir, `${label}-${String(f.t).padStart(5, "0")}ms.jpg`), Buffer.from(f.data, "base64"))
-    return { dir, samples, frames: frames.length }
+    return { dir, samples: JSON.parse(samples), frames: frames.length }
   }
 
   const forward = await watch("fwd", () => tap(target.x, target.y), 3000)
@@ -254,7 +294,23 @@ async function main() {
   await sleep(4000)
 
   const beforeDocs = docRequests.length
-  const back = await watch("back", () => evaluate(`history.back(); "ok"`), 3000)
+  /* With MANUAL restoration the browser does not scroll the outgoing page;
+     whoever else restores it has to be the router. Set by env so the same
+     probe answers both questions. */
+  if (process.env.MANUAL === "1") await evaluate(`history.scrollRestoration = "manual"; history.scrollRestoration`)
+  /*
+    SAFARI SCROLLS THE PAGE YOU ARE LEAVING, AND CHROMIUM DOES NOT.
+    On the recording the window is already at the destination's offset while
+    the outgoing page is still on screen, which is what takes a `relative`
+    header off the top. Chromium restores at commit instead, so the failure
+    cannot be filmed here without asking for it. EARLY=1 asks for it: the same
+    scroll, one tick before the pop.
+  */
+  const back = await watch("back", () => evaluate(
+    process.env.EARLY === "1"
+      ? `window.scrollTo(0, ${LEAVE_AT}); history.back(); "ok"`
+      : `history.back(); "ok"`,
+  ), 3000)
   const landedBack = await evaluate(`Math.round(window.scrollY)`)
 
   /* Only the moments where the answer CHANGED — a run of identical samples is
@@ -263,7 +319,7 @@ async function main() {
     const out = []
     let last = ""
     for (const s of samples) {
-      const key = `${s.path}|${s.hdrH}|${s.hdrTop}|${s.hdrOpacity}|${s.strip}|${s.stripTop}|${s.stripH}|${s.stripOpacity}|${s.anchor}|${JSON.stringify(s.anims)}`
+      const key = `${s.path}|${s.hdr}|${s.hdrH}|${s.hdrTop}|${s.hdrPos}|${s.strip}|${s.stripOp}|${s.stripTop}`
       if (key !== last) { out.push(s); last = key }
     }
     return out
