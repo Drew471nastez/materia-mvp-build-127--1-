@@ -108,3 +108,23 @@ export function productMatchesQuery(product: any, query: string): boolean {
   const fields = [product?.title, product?.description, product?.category, product?.categoryName]
   return fields.some((value) => typeof value === "string" && value.toLowerCase().includes(q))
 }
+
+
+/**
+ * ===========================================================================
+ *  THE SITE'S CHROME, WITH NOTHING BETWEEN IT
+ * ===========================================================================
+ * The cart is not a section. It is a list of what a particular visitor has
+ * picked, which no template can render and no creator arranges. So the page
+ * takes the creator's header and footer and puts the cart between them, the
+ * same way the shop and the search page take them and put a grid there.
+ *
+ * Header and footer rather than a bare page on purpose: a shopper reviewing
+ * their basket needs the way back to the shop, the menu, the brand and the
+ * policies, and those are exactly what this creator already designed.
+ */
+export function chromeSections(homeSections: SectionInstance[]): SectionInstance[] {
+  const header = homeSections.find((s) => s.type === "header")
+  const footer = homeSections.find((s) => s.type === "footer")
+  return [...(header ? [header] : []), ...(footer ? [footer] : [])]
+}

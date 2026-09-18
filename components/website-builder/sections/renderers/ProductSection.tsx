@@ -11,6 +11,7 @@
 import { Facebook, FileText, Heart, Instagram, Package, Share2, Twitter } from "lucide-react"
 import { useState } from "react"
 import { cn } from "@/lib/utils"
+import { useSiteCart } from "../../site-cart"
 import {
   type SectionProps,
   resolveScheme,
@@ -32,6 +33,7 @@ export function ProductSection({ section, theme, isEditing, isSelected, onClick 
   const [showAllFiles, setShowAllFiles] = useState(false)
 
   // Product data is injected via section.settings._product_data by the editor
+  const { add } = useSiteCart()
   const productData = (s._product_data as Record<string, unknown> | undefined) ?? null
 
   const productId = str(productData?.id as unknown, "")
@@ -273,21 +275,42 @@ export function ProductSection({ section, theme, isEditing, isSelected, onClick 
 
           {/* CTA Buttons */}
           <div className="space-y-3 mb-6">
-            <button
-              type="button"
-              disabled={isEditing || !productId}
-              onClick={e => {
-                e.stopPropagation()
-                if (isEditing || !productId) return
-                const slug = str((productData?.slug as unknown) ?? "", "")
-                const from = slug ? `&from=${encodeURIComponent(`/products/${slug}`)}` : ""
-                window.location.href = `/checkout?productId=${encodeURIComponent(productId)}${from}`
-              }}
-              className="w-full py-3.5 text-base font-semibold border-2 rounded-lg transition-colors cursor-pointer disabled:cursor-not-allowed"
-              style={{ borderColor: primaryColor, color: primaryColor, ...buttonRadiusStyle(theme) }}
-            >
-              Add to Cart
-            </button>
+            {/*
+              ADD TO CART USED TO BE BUY NOW WITH A DIFFERENT WORD ON IT.
+              Both buttons ran the same line and sent the visitor straight to
+              a single-product checkout, because there was no cart to add to.
+              There is one now, so this one adds and the one below still
+              goes straight through.
+
+              A free product has nothing to collect: adding it to a basket to
+              pay nothing for it is a step in the way of a download, so on a
+              free product this button is not drawn at all.
+            */}
+            {priceCents > 0 && (
+              <button
+                type="button"
+                disabled={isEditing || !productId}
+                onClick={e => {
+                  e.stopPropagation()
+                  if (isEditing || !productId) return
+                  add({
+                    productId,
+                    variantId: null,
+                    title,
+                    variantName: null,
+                    priceCents,
+                    thumbnailUrl: thumbnailUrl || null,
+                    slug: str((productData?.slug as unknown) ?? "", ""),
+                    digital: str((productData?.type as unknown) ?? "", "") === "digital",
+                    quantity: 1,
+                  })
+                }}
+                className="w-full py-3.5 text-base font-semibold border-2 rounded-lg transition-colors cursor-pointer disabled:cursor-not-allowed"
+                style={{ borderColor: primaryColor, color: primaryColor, ...buttonRadiusStyle(theme) }}
+              >
+                Add to cart
+              </button>
+            )}
             <button
               type="button"
               disabled={isEditing || !productId}

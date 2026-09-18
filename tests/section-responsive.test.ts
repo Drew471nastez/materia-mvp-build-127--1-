@@ -2165,11 +2165,9 @@ check(
 )
 
 check(
-  "there is no cart icon, because there is no cart",
-  !/aria-label="Open cart"/.test(headerRenderer) &&
-    !/HeaderCartDrawer/.test(headerRenderer) &&
-    // The code, not the paragraph explaining what it replaced.
-    !/\/cart/.test(headerRenderer.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/(^|[^:])\/\/.*$/gm, "$1")),
+  "the cart drawer takes its frame from the same module the menu does",
+  /HeaderCartDrawer/.test(headerRenderer) &&
+    (headerRenderer.match(/useDrawerFrame\(open/g) ?? []).length === 2,
 )
 
 check(

@@ -317,10 +317,34 @@ function main() {
      * FOUR ICONS, AND THREE OF THEM DID NOTHING. Search, Account and
      * Wishlist were buttons whose entire behaviour was `preventDefault()`;
      * the cart opened a drawer that could only say it was empty, or went to
-     * /cart, which is not a route in this product.
+     * /cart, which was not a route in this product.
+     *
+     * THE CART IS BACK, and the rule it was removed under is the one it has
+     * to keep: a control in the header exists only while the thing behind
+     * it does. So the bag is allowed because a cart page, a drawer with the
+     * shop's own contents in it and a checkout that can take the money all
+     * exist. If any of those goes, this fails and the bag goes with it.
      */
-    check("the cart is gone, and so is the drawer behind it", !/aria-label="Open cart"/.test(code) && !/HeaderCartDrawer/.test(code) && !/\/cart/.test(code))
-    check("and its settings went with it", !/show_cart/.test(headerSchema) && !/cart_type|cart_show_count|cart_show_subtotal/.test(themeSettings))
+    check(
+      "the cart icon is in the header",
+      /aria-label=\{ready && count > 0 \? `Cart, /.test(code) && /HeaderCartDrawer/.test(code) && /show_cart_icon/.test(headerSchema),
+    )
+    check(
+      "and every part it promises exists",
+      existsSync("app/(site)/w/[username]/cart/page.tsx") &&
+        existsSync("app/api/checkout/cart/route.ts") &&
+        existsSync("app/api/checkout/cart/complete/route.ts") &&
+        existsSync("lib/website-builder/cart.ts"),
+      "a bag that cannot be filled or paid for is the dead button this was removed for",
+    )
+    check(
+      "the drawer's Check out goes to the cart page",
+      /href="\/cart"/.test(code),
+    )
+    check(
+      "and the old settings that configured the fake one did not come back",
+      !/cart_type|cart_show_count|cart_show_subtotal/.test(themeSettings),
+    )
     /*
       ═══════════════════════════════════════════════════════════════════════
        SEARCH IS BACK, AND THIS TIME THERE IS SOMETHING BEHIND IT

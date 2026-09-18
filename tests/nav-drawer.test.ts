@@ -36,8 +36,12 @@ function check(label: string, ok: boolean, detail?: string) {
   else { failed++; failures.push(label + (detail ? ` — ${detail}` : "")); console.log(`  FAIL  ${label}${detail ? ` — ${detail}` : ""}`) }
 }
 
-const FILE = "components/website-builder/sections/renderers/HeaderSection.tsx"
-const src = readFileSync(join(process.cwd(), FILE), "utf8")
+/* The frame — pin, lock, portal target — is shared by the nav drawer and
+   the cart drawer, so it is read from the one module both of them use. */
+const FRAME = "components/website-builder/drawer-frame.ts"
+const HEADER = "components/website-builder/sections/renderers/HeaderSection.tsx"
+const src = readFileSync(join(process.cwd(), FRAME), "utf8")
+const header = readFileSync(join(process.cwd(), HEADER), "utf8")
 
 function main() {
   console.log("\n  the drawer opens over what is on screen")
@@ -47,17 +51,21 @@ function main() {
     /setPin\(\{ top: scroller\.scrollTop, height: scroller\.clientHeight \}\)/.test(src),
   )
   check(
-    "and that offset reaches the drawer and the backdrop",
-    (src.match(/\.\.\.frameStyle,/g) ?? []).length === 2,
-    `${(src.match(/\.\.\.frameStyle,/g) ?? []).length} of 2 elements`,
+    "and that offset reaches every drawer's panel and backdrop",
+    (header.match(/\.\.\.frameStyle,/g) ?? []).length >= 2,
+    `${(header.match(/\.\.\.frameStyle,/g) ?? []).length} element(s)`,
   )
   check(
     "no element stretches from the top of the container to its bottom any more",
-    !/positionClass,\s*\n?\s*"[^"]*top-0 bottom-0/.test(src) && !/top-0 bottom-0 z-\[9/.test(src),
+    !/top-0 bottom-0 z-\[9/.test(header),
+  )
+  check(
+    "and both of the site's drawers take the frame from the one module",
+    /useDrawerFrame\(open, !!scopedToPreview, onClose\)/.test(header),
   )
   check(
     "absolute positioning is used only when the portal really went into the scroller",
-    /const positionClass = previewRoot \? "absolute" : "fixed"/.test(src),
+    /positionClass: previewRoot \? "absolute" : "fixed"/.test(src),
   )
 
   console.log("\n  and it follows the canvas when the canvas changes size")

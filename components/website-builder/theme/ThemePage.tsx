@@ -28,6 +28,7 @@
  */
 
 import { StorefrontProvider, type Storefront } from "./storefront-context"
+import { SiteCartProvider } from "../site-cart"
 import { Fragment, useEffect, useState, type CSSProperties, type ReactNode } from "react"
 
 import { THEME_ROOT_ATTRIBUTE, themeStylesheet, themeVars } from "@/lib/website-builder/theme-css"
@@ -397,6 +398,15 @@ export function ThemePage({
 
   return (
     <StorefrontProvider value={storefront ?? {}}>
+    {/*
+      THE CART WRAPS THE WHOLE PAGE, not the header, because both ends of it
+      are on the page: the bag and its drawer are in the header, and the Add
+      to cart buttons are in the sections below. Keyed by the creator rather
+      than by the site's name so renaming a shop does not empty a visitor's
+      basket, and absent in the editor's canvas, where the cart is memory
+      only and nothing is written to the browser.
+    */}
+    <SiteCartProvider shopId={storefront?.inEditor ? undefined : storefront?.creatorId}>
     <div
       {...{ [THEME_ROOT_ATTRIBUTE]: "" }}
       className={className}
@@ -461,6 +471,7 @@ export function ThemePage({
 
       <CookieBanner theme={theme} />
     </div>
+    </SiteCartProvider>
     </StorefrontProvider>
   )
 }

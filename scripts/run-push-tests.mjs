@@ -28,6 +28,8 @@ const SUITES = [
   "tests/own-reviews.test.ts",
   "tests/review-columns.test.ts",
   "tests/nav-drawer.test.ts",
+  "tests/site-cart.test.ts",
+  "tests/cart-checkout.test.ts",
   "tests/no-image-transforms.test.ts",
   "tests/page-performance.test.ts",
   "tests/sql-aggregate.test.ts",

@@ -440,6 +440,12 @@
       "default": true
     },
     {
+      "id": "show_cart_icon",
+      "label": "Show cart",
+      "type": "toggle",
+      "default": true
+    },
+    {
       "id": "hdr_button",
       "label": "Call to action button",
       "type": "header"

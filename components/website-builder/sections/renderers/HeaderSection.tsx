@@ -12,12 +12,15 @@
 
 import {
   ChevronDown, ChevronLeft, ChevronRight,
-  Heart, Menu, Search, User, X,
+  Heart, Menu, Minus, Plus, Search, ShoppingBag, Trash2, User, X,
 } from "lucide-react"
-import { useState, useEffect, useRef, useLayoutEffect, type CSSProperties } from "react"
+import { useCallback, useState, useEffect, useRef, useLayoutEffect, type CSSProperties } from "react"
 import { createPortal } from "react-dom"
 import { ThemeSocials } from "../../theme/ThemeSocials"
 import { cn } from "@/lib/utils"
+import { useDrawerFrame } from "../../drawer-frame"
+import { useSiteCart } from "../../site-cart"
+import { lineKey } from "@/lib/website-builder/cart"
 import { getMainDomain } from "@/lib/url-helpers"
 import type { ColorSchemeKey, ColorSchemeValues } from "@/lib/website-builder/types"
 import {
@@ -62,137 +65,14 @@ function HeaderMobileNavDrawer({
   showSearch?: boolean
   showWishlist?: boolean
 }) {
-  const [mounted, setMounted] = useState(false)
-  useEffect(() => { setMounted(true) }, [])
-
-  // Keep the drawer permanently in the DOM once it has mounted — it starts
-  // off-screen at translateX(-101%) and only the `open` prop flips the
-  // transform. That means the very first click from the hamburger plays
-  // the transition cleanly (no RAF gymnastics, no mount/unmount jank).
   /*
-    ───────────────────────────────────────────────────────────────────────
-     WHERE THE DRAWER IS, AND WHAT STOPS MOVING WHILE IT IS OPEN
-    ───────────────────────────────────────────────────────────────────────
-    Two bugs, one cause each.
-
-    IT OPENED AT THE TOP OF THE PAGE. Inside the editor the drawer is
-    portalled into `#wb-preview-root`, which is `position: relative` and
-    `overflow-y: auto` — it is the scroller. An absolutely positioned child
-    of a scroller is laid out against its CONTENT box and scrolls with it,
-    so `top: 0` is the top of the whole page, not the top of what you are
-    looking at. Scroll down, open the menu, and it is drawn a screen or two
-    above you. So the drawer is pinned: `top` is the scroller's current
-    `scrollTop` and its height is the scroller's `clientHeight`, measured
-    at the moment it opens, which is exactly the rectangle on screen.
-
-    THE PAGE KEPT SCROLLING UNDERNEATH. On the live site the lock was
-    `overflow: hidden` on the body, which iOS ignores for touch scrolling —
-    the same thing the explore filters sheet hit. It is the position-fixed
-    lock now, with the scroll offset carried on `top` and put back on
-    close. And when scoped there was no lock at all; the scroller itself
-    takes one, which works because `#wb-preview-root` is a real overflow
-    container rather than the body.
-
-    Pinning and locking are the same act: with the scroller frozen the
-    measurement cannot go stale, so there is no scroll listener to run.
+    The pin, the scroll lock and the portal target are the same problem for
+    the cart drawer, so they live in one place. See components/website-builder
+    /drawer-frame.ts for the three bugs they answer.
   */
-  const [pin, setPin] = useState<{ top: number; height: number } | null>(null)
+  const { mounted, target, positionClass, frameStyle } = useDrawerFrame(open, !!scopedToPreview, onClose)
+  if (!mounted || !target) return null
 
-  useEffect(() => {
-    if (!open) return
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose() }
-    window.addEventListener("keydown", onKey)
-
-    const undo: Array<() => void> = [() => window.removeEventListener("keydown", onKey)]
-
-    const scroller = scopedToPreview ? document.getElementById("wb-preview-root") : null
-
-    if (scroller) {
-      const startTop = scroller.scrollTop
-      const measure = () => setPin({ top: scroller.scrollTop, height: scroller.clientHeight })
-      measure()
-
-      const prevOverflow = scroller.style.overflow
-      const prevTouch = scroller.style.touchAction
-      scroller.style.overflow = "hidden"
-      scroller.style.touchAction = "none"
-
-      /*
-        THE CANVAS CHANGES SIZE WHILE THE DRAWER IS OPEN, AND THAT IS NOT A
-        WINDOW RESIZE.
-
-        Tapping the hamburger inside the editor also selects the header, so
-        the inspector sheet opens on top of the same tap. That sheet
-        publishes `--wb-sheet-peek` and the canvas subtracts it as padding,
-        which changes the canvas's height without the window changing at
-        all — so a `resize` listener never hears it, and a drawer measured
-        once is left at the wrong height for the rest of the time it is
-        open. That is the half-height panel in the report.
-
-        A ResizeObserver on the scroller hears every one of them: the sheet
-        opening and settling, a rotation, the phone/desktop toggle. The
-        offset is re-read with the height because growing the canvas can
-        make the browser clamp `scrollTop`.
-      */
-      const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(measure) : null
-      ro?.observe(scroller)
-      window.addEventListener("resize", measure)
-
-      undo.push(() => {
-        ro?.disconnect()
-        window.removeEventListener("resize", measure)
-        scroller.style.overflow = prevOverflow
-        scroller.style.touchAction = prevTouch
-        // `overflow: hidden` can clamp the offset; put it back verbatim.
-        scroller.scrollTop = startTop
-      })
-    } else {
-      setPin(null)
-      const scrollY = window.scrollY
-      const body = document.body.style
-      const prev = {
-        position: body.position,
-        top: body.top,
-        left: body.left,
-        right: body.right,
-        width: body.width,
-        overflow: body.overflow,
-      }
-      body.position = "fixed"
-      body.top = `-${scrollY}px`
-      body.left = "0"
-      body.right = "0"
-      body.width = "100%"
-      body.overflow = "hidden"
-
-      undo.push(() => {
-        body.position = prev.position
-        body.top = prev.top
-        body.left = prev.left
-        body.right = prev.right
-        body.width = prev.width
-        body.overflow = prev.overflow
-        window.scrollTo(0, scrollY)
-      })
-    }
-
-    return () => { undo.forEach((fn) => fn()) }
-  }, [open, onClose, scopedToPreview])
-
-  if (!mounted) return null
-  const previewRoot = scopedToPreview ? document.getElementById("wb-preview-root") : null
-  const target: HTMLElement | null = previewRoot ?? document.body
-  if (!target) return null
-
-  // Only the portal into the scroller needs to be absolute. Scoped but with
-  // no scroller to find means the drawer landed on the body, where absolute
-  // would anchor it to the document instead of the viewport.
-  const positionClass = previewRoot ? "absolute" : "fixed"
-  // Held through the close animation so the drawer slides out from where it
-  // was rather than jumping to the top on the way.
-  const frameStyle: CSSProperties = pin
-    ? { top: pin.top, height: pin.height }
-    : { top: 0, bottom: 0 }
   // Filter out empty/placeholder items so the drawer only shows real links
   const visibleItems = items.filter(it => it.label && it.label.trim().length > 0)
 
@@ -222,6 +102,240 @@ function HeaderMobileNavDrawer({
       showSearch={showSearch !== false}
       showWishlist={!!showWishlist}
     />
+  )
+
+  return createPortal(drawer, target)
+}
+
+
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ *  THE BAG
+ * ═══════════════════════════════════════════════════════════════════════════
+ * It takes its colour from the header it sits in — `currentColor`, set by the
+ * icon row — so it belongs to whichever scheme the creator chose rather than
+ * carrying a colour of its own.
+ *
+ * The count waits for `ready`. Local storage does not exist on the server, so
+ * a number rendered before the cart has been read is a number React will
+ * throw away, and a badge that appears and then changes is worse than one
+ * that appears once.
+ */
+function CartButton() {
+  const { count, ready, setOpen } = useSiteCart()
+  return (
+    <button
+      type="button"
+      onClick={() => setOpen(true)}
+      aria-label={ready && count > 0 ? `Cart, ${count} item${count === 1 ? "" : "s"}` : "Cart"}
+      className="relative h-9 w-9 flex items-center justify-center rounded-full hover:bg-black/5 transition-colors"
+    >
+      <ShoppingBag className="h-[18px] w-[18px]" strokeWidth={1.8} />
+      {ready && count > 0 && (
+        <span
+          aria-hidden
+          className="absolute -top-0.5 -right-0.5 min-w-[17px] h-[17px] px-1 rounded-full text-[10px] font-semibold leading-[17px] text-center"
+          style={{ background: "currentColor" }}
+        >
+          {/* The number is punched out of the dot rather than drawn on it, so
+              it reads on a light header and a dark one without a second
+              colour to keep in step. */}
+          <span className="mix-blend-difference text-white">{count > 99 ? "99+" : count}</span>
+        </span>
+      )}
+    </button>
+  )
+}
+
+function money(cents: number): string {
+  return `$${(cents / 100).toFixed(2)}`
+}
+
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ *  THE CART DRAWER
+ * ═══════════════════════════════════════════════════════════════════════════
+ * From the right, where a cart comes from, while the menu comes from the
+ * left. It shares the pin, the scroll lock and the portal target with the
+ * menu through useDrawerFrame, so the three bugs solved there are solved
+ * once. See components/website-builder/drawer-frame.ts.
+ *
+ * A digital line has no stepper. An entitlement is one row per buyer per
+ * product, so a second copy of a download is not a thing this product can
+ * express, and a stepper that refuses to go past one is a control that lies.
+ */
+function HeaderCartDrawer({
+  scheme,
+  scopedToPreview,
+  onEditorNavigate,
+}: {
+  scheme: ColorSchemeValues
+  scopedToPreview: boolean
+  onEditorNavigate?: (href: string) => void
+}) {
+  const { lines, open, setOpen, setQty, remove, subtotalCents, count } = useSiteCart()
+  const onClose = useCallback(() => setOpen(false), [setOpen])
+  const { mounted, target, positionClass, frameStyle } = useDrawerFrame(open, scopedToPreview, onClose)
+  if (!mounted || !target) return null
+
+  const panelTransition = open
+    ? "transform 360ms cubic-bezier(0.32, 0.72, 0, 1)"
+    : "transform 260ms cubic-bezier(0.4, 0, 1, 1)"
+  const backdropTransition = open
+    ? "opacity 300ms cubic-bezier(0.32, 0.72, 0, 1)"
+    : "opacity 220ms cubic-bezier(0.4, 0, 0.6, 1)"
+
+  const stop = (e: React.MouseEvent) => { if (onEditorNavigate) { e.preventDefault(); e.stopPropagation() } }
+
+  const drawer = (
+    <>
+      <div
+        aria-hidden
+        onClick={onClose}
+        className={cn(positionClass, "left-0 right-0 z-[90] bg-black/50")}
+        style={{
+          ...frameStyle,
+          opacity: open ? 1 : 0,
+          pointerEvents: open ? "auto" : "none",
+          transition: backdropTransition,
+          willChange: "opacity",
+        }}
+      />
+      <aside
+        role="dialog"
+        aria-label="Cart"
+        aria-hidden={!open}
+        className={cn(
+          positionClass,
+          "right-0 z-[95] flex flex-col",
+          open && "shadow-2xl",
+          scopedToPreview ? "w-[88%] max-w-[360px]" : "w-[90vw] max-w-[400px]",
+        )}
+        style={{
+          ...frameStyle,
+          background: scheme.bg,
+          color: scheme.heading,
+          transform: open ? "translateX(0)" : "translateX(101%)",
+          transition: panelTransition,
+          willChange: "transform",
+          pointerEvents: open ? "auto" : "none",
+        }}
+      >
+        <div
+          className="flex items-center px-3 h-[60px] shrink-0 gap-1"
+          style={{ background: "#0f0f10", color: "#ffffff" }}
+        >
+          <span className="flex-1 text-[18px] font-semibold truncate px-1">
+            {count > 0 ? `Cart (${count})` : "Cart"}
+          </span>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close cart"
+            className="h-9 w-9 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors text-white"
+          >
+            <X className="h-5 w-5" strokeWidth={2} />
+          </button>
+        </div>
+
+        {lines.length === 0 ? (
+          <div className="flex-1 flex flex-col items-center justify-center gap-3 px-6 text-center">
+            <ShoppingBag className="h-7 w-7 opacity-25" strokeWidth={1.5} />
+            <p className="text-[15px] opacity-60">Nothing in your cart yet.</p>
+            <a
+              href="/products"
+              onClick={stop}
+              className="text-[14px] font-medium underline underline-offset-4"
+            >
+              Browse the shop
+            </a>
+          </div>
+        ) : (
+          <div className="flex-1 overflow-y-auto overscroll-contain px-3 py-3" style={{ WebkitOverflowScrolling: "touch" }}>
+            <ul className="flex flex-col">
+              {lines.map((l) => {
+                const k = lineKey(l)
+                return (
+                  <li key={k} className="flex gap-3 py-3 border-b last:border-b-0" style={{ borderColor: scheme.inset_border }}>
+                    <a
+                      href={`/products/${l.slug}`}
+                      onClick={stop}
+                      className="shrink-0 h-[64px] w-[64px] overflow-hidden rounded-lg"
+                      style={{ background: scheme.inset_border }}
+                    >
+                      {l.thumbnailUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={l.thumbnailUrl} alt="" className="h-full w-full object-cover" loading="lazy" />
+                      ) : null}
+                    </a>
+                    <div className="min-w-0 flex-1">
+                      <a href={`/products/${l.slug}`} onClick={stop} className="block text-[14px] font-medium leading-snug line-clamp-2">
+                        {l.title}
+                      </a>
+                      {l.variantName && <p className="mt-0.5 text-[12px] opacity-60">{l.variantName}</p>}
+                      <div className="mt-2 flex items-center gap-3">
+                        {l.digital ? (
+                          <button
+                            type="button"
+                            onClick={() => remove(k)}
+                            aria-label={`Remove ${l.title}`}
+                            className="h-7 w-7 flex items-center justify-center rounded-full hover:bg-black/5 transition-colors opacity-60"
+                          >
+                            <Trash2 className="h-[15px] w-[15px]" strokeWidth={1.8} />
+                          </button>
+                        ) : (
+                          <div className="flex items-center rounded-full" style={{ border: `1px solid ${scheme.inset_border}` }}>
+                            <button
+                              type="button"
+                              onClick={() => setQty(k, l.quantity - 1)}
+                              aria-label={l.quantity === 1 ? `Remove ${l.title}` : `One fewer ${l.title}`}
+                              className="h-7 w-7 flex items-center justify-center rounded-full hover:bg-black/5 transition-colors"
+                            >
+                              {l.quantity === 1
+                                ? <Trash2 className="h-[13px] w-[13px]" strokeWidth={1.8} />
+                                : <Minus className="h-[13px] w-[13px]" strokeWidth={2} />}
+                            </button>
+                            <span className="w-6 text-center text-[13px] tabular-nums">{l.quantity}</span>
+                            <button
+                              type="button"
+                              onClick={() => setQty(k, l.quantity + 1)}
+                              aria-label={`One more ${l.title}`}
+                              className="h-7 w-7 flex items-center justify-center rounded-full hover:bg-black/5 transition-colors"
+                            >
+                              <Plus className="h-[13px] w-[13px]" strokeWidth={2} />
+                            </button>
+                          </div>
+                        )}
+                        <span className="ml-auto text-[14px] font-semibold tabular-nums">
+                          {money(l.priceCents * l.quantity)}
+                        </span>
+                      </div>
+                    </div>
+                  </li>
+                )
+              })}
+            </ul>
+          </div>
+        )}
+
+        {lines.length > 0 && (
+          <div className="shrink-0 px-4 pt-3 pb-4 border-t" style={{ borderColor: scheme.inset_border }}>
+            <div className="flex items-baseline justify-between">
+              <span className="text-[14px] opacity-70">Subtotal</span>
+              <span className="text-[18px] font-semibold tabular-nums">{money(subtotalCents)}</span>
+            </div>
+            <a
+              href="/cart"
+              onClick={stop}
+              className="mt-3 flex h-11 items-center justify-center rounded-full text-[15px] font-semibold"
+              style={{ background: scheme.primary_btn_bg, color: scheme.primary_btn_text }}
+            >
+              Check out
+            </a>
+          </div>
+        )}
+      </aside>
+    </>
   )
 
   return createPortal(drawer, target)
@@ -574,6 +688,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
     toggle rather than a fixture because a one-product site does not need it.
   */
   const showSearch = s.show_search_icon !== false
+  const showCart = s.show_cart_icon !== false
   // Hover style for desktop menu links — mirrors the select in Header Settings.
   // Values: "inherit" | "none" | "underline" | "underline_reverse" | "fade_siblings"
   const menuHoverStyle = str(s.menu_link_hover_style, "inherit")
@@ -1117,6 +1232,14 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
         </a>
       )}
       {/*
+        THE BAG IS ON A PHONE TOO, unlike account and wishlist. Those two are
+        links off to the platform and read fine as words in the menu; a cart
+        is where a shopper's decisions are being collected, and hiding the
+        count behind a hamburger is how a basket gets abandoned. It is the
+        one icon that carries state, so it is the one that stays visible.
+      */}
+      {showCart && <CartButton />}
+      {/*
         The store's social links, when the theme says they belong up here.
         "Show icons in header" was a toggle with no wire behind it.
       */}
@@ -1614,6 +1737,14 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
    */
   const revealEnabled = headerStickyOnScrollUp
 
+  const cartDrawer = showCart ? (
+    <HeaderCartDrawer
+      scheme={scheme}
+      scopedToPreview={renderingInsideEditor}
+      onEditorNavigate={renderingInsideEditor ? onEditorNavigate : undefined}
+    />
+  ) : null
+
   const mobileDrawer = (
     <HeaderMobileNavDrawer
       open={mobileNavOpen}
@@ -1725,6 +1856,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
       >
         {headerInner}
         {mobileDrawer}
+        {cartDrawer}
       </SectionWrapper>
     )
   }
@@ -1749,6 +1881,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
     >
       {headerInner}
       {mobileDrawer}
+      {cartDrawer}
     </SectionWrapper>
   )
 }
