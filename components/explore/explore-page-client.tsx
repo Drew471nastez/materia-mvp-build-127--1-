@@ -737,13 +737,13 @@ function MobileFilterSheet({
                     onClick={() => toggleSubcategory(sub.id)}
                     /* The row of pills on the page behind this one, exactly:
                        white, a hairline, grey label, and the selected one
-                       filled. It was violet here and near-black out there,
+                       filled grey. It was violet here and near-black out there,
                        which is two different ways to say "chosen" on one
                        screen. The tick went with it — a filled pill has
                        already said it. */
                     className={`inline-flex items-center px-3.5 py-2 rounded-full border text-sm font-medium transition-colors duration-150 cursor-pointer ${
                       selectedSubcategories.includes(sub.id)
-                        ? "bg-neutral-900 text-white border-neutral-900"
+                        ? "bg-neutral-200 text-neutral-900 border-neutral-200"
                         : "bg-white text-neutral-500 border-neutral-200 hover:border-neutral-300 hover:text-neutral-800"
                     }`}
                   >
@@ -763,7 +763,7 @@ function MobileFilterSheet({
                   onClick={() => setPriceFilter(filter.id)}
                   className={`inline-flex items-center px-3.5 py-2 rounded-full border text-sm font-medium transition-colors duration-150 cursor-pointer ${
                     priceFilter === filter.id
-                      ? "bg-neutral-900 text-white border-neutral-900"
+                      ? "bg-neutral-200 text-neutral-900 border-neutral-200"
                       : "bg-white text-neutral-500 border-neutral-200 hover:border-neutral-300 hover:text-neutral-800"
                   }`}
                 >
@@ -1908,7 +1908,7 @@ export function ExplorePageClient({
                       }}
                       className={`inline-flex items-center gap-1.5 shrink-0 px-3.5 py-2 rounded-full text-sm font-medium cursor-pointer select-none whitespace-nowrap border transition-colors duration-150 ${
                         isSelected
-                          ? "bg-neutral-900 text-white border-neutral-900"
+                          ? "bg-neutral-200 text-neutral-900 border-neutral-200"
                           : "bg-white text-neutral-500 border-neutral-200 hover:border-neutral-300 hover:text-neutral-800"
                       }`}
                     >

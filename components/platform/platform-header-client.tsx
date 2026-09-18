@@ -1121,6 +1121,15 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
         router.push(targetPath)
         return
       }
+      /*
+        A CLICK THIS SWALLOWED IS A LINK THAT DOES NOTHING.
+        On the apex domain in a browser neither branch above runs, and the
+        <Link> default is what navigates. If a caller already cancelled that
+        default (closing a sheet, say) the tap goes nowhere and the page never
+        loads. That is what happened to My Library. Carry the navigation
+        ourselves rather than dropping it.
+      */
+      if (e.defaultPrevented) router.push(targetPath)
     },
     [navigateToCanonical, shouldForceCanonicalNav, router],
   )
@@ -1629,7 +1638,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
               {/* Library - only show when logged in; h-[42px] w-[42px] = 44px tap target */}
               {user && (
                 <Link
-                  href={getCanonicalOrRelativePath("/library")} onClick={(e) => { e.preventDefault(); setMobileProfileOpen(false); onCanonicalNav(e, "/library") }}
+                  href={getCanonicalOrRelativePath("/library")} onClick={(e) => { onCanonicalNav(e, "/library"); setMobileProfileOpen(false) }}
                   className="flex h-[42px] w-[42px] items-center justify-center rounded-full text-white/80 hover:bg-white/10 transition cursor-pointer"
                   aria-label="Library"
                 >
@@ -2119,7 +2128,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
               <div className="mt-4 pt-4 border-t border-gray-200">
                 <Link
                   href={getCanonicalOrRelativePath("/library")}
-                  onClick={(e) => { e.preventDefault(); setMobileMenuOpen(false); onCanonicalNav(e, "/library") }}
+                  onClick={(e) => { onCanonicalNav(e, "/library"); setMobileMenuOpen(false) }}
                   className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
                 >
                   <div className="flex items-center gap-3">

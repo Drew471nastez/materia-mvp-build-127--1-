@@ -73,6 +73,7 @@ const SUITES = [
   "tests/avatar-grounds.test.ts",
   "tests/brand-logo.test.ts",
   "tests/quick-access-urls.test.ts",
+  "tests/header-link-navigates.test.ts",
   "tests/return-navigation.test.ts",
   "tests/keyboard-viewport.test.ts",
   "tests/keyboard-scroll-loop.test.ts",
