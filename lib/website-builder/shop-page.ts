@@ -59,3 +59,52 @@ export function shopSections(
 
   return [...(header ? [header] : []), grid, ...(footer ? [footer] : [])]
 }
+
+/**
+ * ===========================================================================
+ *  THE SAME PAGE, WITH A QUESTION AT THE TOP OF IT
+ * ===========================================================================
+ * A search result is the shop page with a smaller list on it, so it is built
+ * from the same pieces rather than from a second layout that would drift away
+ * from the first one. What differs is the heading, which says what was asked
+ * and what came back, and that is the whole of the difference.
+ */
+export function searchSections(
+  homeSections: SectionInstance[],
+  theme: ThemeSettingsValues,
+  query: string,
+  resultCount: number,
+): SectionInstance[] {
+  const sections = shopSections(homeSections, theme)
+  const trimmed = query.trim()
+
+  return sections.map((section) => {
+    if (section.id !== GRID_ID) return section
+    return {
+      ...section,
+      settings: {
+        ...section.settings,
+        /* Their words back to them, and the count, so a page with nothing on
+           it still says why. Not "No results found for your query". */
+        heading: trimmed ? `${resultCount} for "${trimmed}"` : "Search",
+        subheading: trimmed
+          ? resultCount === 0
+            ? "Nothing here matched. Try a shorter word."
+            : ""
+          : "Type what you are looking for.",
+      },
+    }
+  })
+}
+
+/**
+ * Does this product answer the query? Title, description and category, the
+ * same three the platform's own search reads, so a word that finds something
+ * on Explore finds it here too.
+ */
+export function productMatchesQuery(product: any, query: string): boolean {
+  const q = query.trim().toLowerCase()
+  if (!q) return true
+  const fields = [product?.title, product?.description, product?.category, product?.categoryName]
+  return fields.some((value) => typeof value === "string" && value.toLowerCase().includes(q))
+}

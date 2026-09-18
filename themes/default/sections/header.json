@@ -422,6 +422,12 @@
       "type": "header"
     },
     {
+      "id": "show_search_icon",
+      "label": "Show search icon",
+      "type": "toggle",
+      "default": true
+    },
+    {
       "id": "show_account_icon",
       "label": "Show account icon",
       "type": "toggle",

@@ -2153,12 +2153,15 @@ check(
    * the way it does a nav link, because these leave the site entirely.
    */
   /**
-   * Four: account and wishlist in the icon row, and the two wishlist slots in
-   * the phone drawer. Log In is the fifth link out of the site and closes the
-   * drawer instead of returning undefined.
+   * Five: search, account and wishlist in the icon row, and the two wishlist
+   * slots in the phone drawer. Search is root-relative rather than a link out
+   * of the site, but it is still a real anchor, so in the editor it would
+   * navigate the builder away from the canvas exactly the same way.
+   *
+   * Two close the drawer instead: Log In, and the phone's Search row.
    */
-  (headerRenderer.match(/onClick=\{onEditorNavigate \? \(e\) => e\.preventDefault\(\) : undefined\}/g) ?? []).length === 4 &&
-    /onClick=\{onEditorNavigate \? \(e\) => e\.preventDefault\(\) : \(\) => onClose\(\)\}/.test(headerRenderer),
+  (headerRenderer.match(/onClick=\{onEditorNavigate \? \(e\) => e\.preventDefault\(\) : undefined\}/g) ?? []).length === 5 &&
+    (headerRenderer.match(/onClick=\{onEditorNavigate \? \(e\) => e\.preventDefault\(\) : \(\) => onClose\(\)\}/g) ?? []).length === 2,
 )
 
 check(

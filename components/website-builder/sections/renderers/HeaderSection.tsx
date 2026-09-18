@@ -12,7 +12,7 @@
 
 import {
   ChevronDown, ChevronLeft, ChevronRight,
-  Heart, Menu, User, X,
+  Heart, Menu, Search, User, X,
 } from "lucide-react"
 import { useState, useEffect, useRef, useLayoutEffect, type CSSProperties } from "react"
 import { createPortal } from "react-dom"
@@ -50,6 +50,7 @@ function HeaderMobileNavDrawer({
   onEditorNavigate,
   showAccount,
   showWishlist,
+  showSearch,
 }: {
   open: boolean
   onClose: () => void
@@ -58,6 +59,7 @@ function HeaderMobileNavDrawer({
   scopedToPreview?: boolean
   onEditorNavigate?: (href: string) => void
   showAccount?: boolean
+  showSearch?: boolean
   showWishlist?: boolean
 }) {
   const [mounted, setMounted] = useState(false)
@@ -115,6 +117,7 @@ function HeaderMobileNavDrawer({
       drawerTransition={drawerTransition}
       backdropTransition={backdropTransition}
       showAccount={!!showAccount}
+      showSearch={showSearch !== false}
       showWishlist={!!showWishlist}
     />
   )
@@ -137,6 +140,7 @@ function MobileDrawerInner({
   backdropTransition,
   showAccount,
   showWishlist,
+  showSearch,
 }: {
   open: boolean
   onClose: () => void
@@ -149,6 +153,7 @@ function MobileDrawerInner({
   backdropTransition: string
   showAccount: boolean
   showWishlist: boolean
+  showSearch: boolean
 }) {
   // Active submenu id — null means we're on the ROOT menu. When an item
   // with children is tapped this flips to that item's id and the drawer
@@ -400,6 +405,23 @@ function MobileDrawerInner({
           </div>
         )}
 
+        {/*
+          AND SEARCH ON A PHONE, which is where somebody is least willing to
+          scroll a catalogue. It is a row rather than a third icon squeezed
+          into the pair above, and it closes the drawer on the way out.
+        */}
+        {showSearch && (
+          <a
+            href="/search"
+            onClick={onEditorNavigate ? (e) => e.preventDefault() : () => onClose()}
+            className="border-t border-black/10 px-5 py-4 flex items-center gap-3 shrink-0 text-[15px] font-medium"
+            style={{ background: scheme.bg, color: scheme.nav_link }}
+          >
+            <Search className="h-[20px] w-[20px]" strokeWidth={1.8} />
+            <span>Search</span>
+          </a>
+        )}
+
       </aside>
     </>
   )
@@ -440,6 +462,12 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
   const layout = str(s.header_layout, "logo_left_nav_right")
   const showAccount = s.show_account_icon !== false
   const showWishlist = s.show_wishlist_icon !== false
+  /*
+    ON BY DEFAULT. Every shop is expected to have one, and a header without a
+    way to look for something is the first thing a visitor misses. It is a
+    toggle rather than a fixture because a one-product site does not need it.
+  */
+  const showSearch = s.show_search_icon !== false
   // Hover style for desktop menu links — mirrors the select in Header Settings.
   // Values: "inherit" | "none" | "underline" | "underline_reverse" | "fade_siblings"
   const menuHoverStyle = str(s.menu_link_hover_style, "inherit")
@@ -944,6 +972,24 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
         the library sends them to sign in, which is the right answer to
         "Account" too.
       */}
+      {/*
+        SEARCH GOES TO THE SITE, not to the platform. Account and wishlist are
+        absolute links to storelib.com because the session that knows who the
+        buyer is lives there; a search is about THIS shop's catalogue, so it
+        is a root-relative link the proxy resolves to whichever address the
+        site is being served on — the subdomain, the custom domain or
+        /w/<name> — without any of them being named here.
+      */}
+      {showSearch && !forMobile && (
+        <a
+          href="/search"
+          aria-label="Search"
+          onClick={onEditorNavigate ? (e) => e.preventDefault() : undefined}
+          className="h-9 w-9 flex items-center justify-center rounded-full hover:bg-black/5 transition-colors"
+        >
+          <Search className="h-[18px] w-[18px]" strokeWidth={1.8} />
+        </a>
+      )}
       {showAccount && !forMobile && (
         <a
           href={`https://${getMainDomain()}/library`}
@@ -1478,6 +1524,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
       onEditorNavigate={renderingInsideEditor ? onEditorNavigate : undefined}
       showAccount={showAccount}
       showWishlist={showWishlist}
+      showSearch={showSearch}
       items={rootNavBlocks.map(b => {
         const kids = childrenByParent[b.id] ?? []
         return {

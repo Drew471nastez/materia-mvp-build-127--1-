@@ -321,7 +321,33 @@ function main() {
      */
     check("the cart is gone, and so is the drawer behind it", !/aria-label="Open cart"/.test(code) && !/HeaderCartDrawer/.test(code) && !/\/cart/.test(code))
     check("and its settings went with it", !/show_cart/.test(headerSchema) && !/cart_type|cart_show_count|cart_show_subtotal/.test(themeSettings))
-    check("search is gone, because there is nothing to search", !/aria-label="Search"/.test(code) && !/show_search/.test(headerSchema))
+    /*
+      ═══════════════════════════════════════════════════════════════════════
+       SEARCH IS BACK, AND THIS TIME THERE IS SOMETHING BEHIND IT
+      ═══════════════════════════════════════════════════════════════════════
+      It was removed for the right reason: the icon's entire behaviour was
+      preventDefault(), so it was a control that looked like a promise and
+      kept none of it. The rule was never "no search", it was "nothing in a
+      header that does not work".
+
+      So the icon may exist only while the page it points at does. If
+      app/(site)/w/[username]/search ever goes away, this fails, and the icon
+      has to go with it rather than quietly becoming a dead button again.
+    */
+    check(
+      "search is in the header",
+      /aria-label="Search"/.test(code) && /show_search_icon/.test(headerSchema),
+    )
+    check(
+      "and it points at a page that exists",
+      /href="\/search"/.test(code) && existsSync("app/(site)/w/[username]/search/page.tsx"),
+      "an icon whose page does not exist is the dead button this was removed for",
+    )
+    check(
+      "which searches the shop rather than pretending to",
+      /productMatchesQuery/.test(read("app/(site)/w/[username]/search/page.tsx")) &&
+        /searchSections/.test(read("app/(site)/w/[username]/search/page.tsx")),
+    )
     check(
       "account and wishlist are links to the platform pages that exist",
       /href=\{`https:\/\/\$\{getMainDomain\(\)\}\/library`\}/.test(code) &&

@@ -1,0 +1,72 @@
+import { notFound, redirect } from "next/navigation"
+import type { Metadata } from "next"
+import { ThemePage } from "@/components/website-builder/theme/ThemePage"
+import { StorelibSourcesProvider } from "@/components/website-builder/sections/storelib-sources"
+import { renderWithSources } from "@/lib/website-builder/storefront-render"
+import { publishedShopByName } from "@/lib/website-builder/published-site"
+import { getMainDomain } from "@/lib/url-helpers"
+import { productMatchesQuery, searchSections } from "@/lib/website-builder/shop-page"
+import { siteMetadata } from "../render-site"
+
+/**
+ * ===========================================================================
+ *  SEARCH, ON THE CREATOR'S OWN SITE
+ * ===========================================================================
+ * Every built site's header has a search control and it had nowhere to go:
+ * there was no search on a site at all, so a visitor who wanted a particular
+ * thing had to scroll the shop.
+ *
+ * This is the shop page with a filtered list, built from the same pieces by
+ * lib/website-builder/shop-page rather than from a second layout, so the
+ * creator's header, footer, colours and card style are the ones they chose
+ * and there is nothing separate to keep in step.
+ *
+ * NOT INDEXED. A search result is not a page of the site; it is a view of it
+ * for one visitor. Letting crawlers in creates a page per query string, which
+ * is how a small shop ends up with ten thousand thin pages in an index.
+ */
+export const dynamic = "force-dynamic"
+
+interface PageProps {
+  params: Promise<{ username: string }>
+  searchParams: Promise<{ q?: string }>
+}
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { username } = await params
+  const base = await siteMetadata(username, undefined, "products")
+  return { ...base, robots: { index: false, follow: true } }
+}
+
+export default async function SiteSearchPage({ params, searchParams }: PageProps) {
+  const { username } = await params
+  const { q } = await searchParams.catch(() => ({ q: "" }) as { q?: string })
+  const query = (q ?? "").slice(0, 120)
+
+  const found = await publishedShopByName(username)
+  if (found.kind === "renamed") redirect(`https://${found.to}.${getMainDomain()}`)
+  if (found.kind === "missing") notFound()
+  if (found.kind === "unpublished") redirect(`https://${getMainDomain()}/${username.toLowerCase()}`)
+
+  const { site, products } = found
+  /* Filtered here rather than in the database: the shop's catalogue is
+     already fetched and cached by publishedShopByName, and a search that
+     goes back to Postgres would be a second round trip for a list that is
+     already in hand. A shop is not big enough for that to be the wrong
+     trade; if one ever is, this is the line to change. */
+  const matches = query ? (products ?? []).filter((p: any) => productMatchesQuery(p, query)) : (products ?? [])
+
+  const sections = searchSections(site.pages.home ?? site.sections, site.themeSettings, query, matches.length)
+  const prerendered = renderWithSources(site.sources, sections, site.themeSettings, "page.products", matches)
+
+  return (
+    <StorelibSourcesProvider prerendered={prerendered} page={{ template: "page.products" }}>
+      <ThemePage
+        theme={site.themeSettings}
+        sections={sections}
+        storefront={{ creatorId: site.creatorId, installId: site.installId }}
+        emptyDetail={query ? `Nothing matched "${query}".` : "Type what you are looking for."}
+      />
+    </StorelibSourcesProvider>
+  )
+}
