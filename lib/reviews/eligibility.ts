@@ -96,13 +96,6 @@ async function readSeller(admin: Admin, productId: string): Promise<SellerIdenti
   }
 }
 
-/** Kept as its own question because it is the one with a clear answer. */
-export async function isOwnProduct(admin: Admin, productId: string, userId: string): Promise<boolean> {
-  if (!productId || !userId) return false
-  const seller = await readSeller(admin, productId)
-  return Boolean(seller?.userId) && seller!.userId === userId
-}
-
 const same = (a: string | null | undefined, b: string | null | undefined) =>
   Boolean(a) && Boolean(b) && String(a).trim().toLowerCase() === String(b).trim().toLowerCase()
 

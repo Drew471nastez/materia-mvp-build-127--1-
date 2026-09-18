@@ -15,7 +15,7 @@
  */
 
 import { readFileSync } from "node:fs"
-import { checkReviewEligibility, isOwnProduct } from "../lib/reviews/eligibility"
+import { checkReviewEligibility } from "../lib/reviews/eligibility"
 
 let passed = 0
 let failed = 0
@@ -72,21 +72,27 @@ const OTHER_SELLER = { creator: { user_id: "seller", stripe_account_id: "acct_1"
 async function main() {
   console.log("\nThe owner of the listing\n")
 
-  check("your own product is yours", await isOwnProduct(admin({ seller: { creator: { user_id: "u1" } } }), "p1", "u1"))
-  /* PostgREST returns a one-to-one embed as an object in some versions and a
-     single-element array in others. Reading one shape makes the seller look
-     like nobody, and every check then passes — it fails OPEN. */
-  check(
-    "and is still yours when the embed arrives as an array",
-    await isOwnProduct(admin({ seller: { creator: [{ user_id: "u1" }] } }), "p1", "u1"),
-  )
-  check("somebody else's is not", !(await isOwnProduct(admin({ seller: { creator: { user_id: "u2" } } }), "p1", "u1")))
-
   const own = await checkReviewEligibility(admin({ seller: { creator: { user_id: "u1" } } }), {
     productId: "p1",
     userId: "u1",
   })
-  check("and the full check refuses it by name", !own.ok && own.code === "own_product", JSON.stringify(own))
+  check("your own product is refused, by name", !own.ok && own.code === "own_product", JSON.stringify(own))
+
+  /* PostgREST returns a one-to-one embed as an object in some versions and a
+     single-element array in others. Reading one shape makes the seller look
+     like nobody, and every check below it then passes — it fails OPEN. */
+  const asArray = await checkReviewEligibility(admin({ seller: { creator: [{ user_id: "u1" }] } }), {
+    productId: "p1",
+    userId: "u1",
+  })
+  check("and still refused when the embed arrives as an array", !asArray.ok && asArray.code === "own_product")
+
+  const notMine = await checkReviewEligibility(admin({ seller: { creator: { user_id: "u2" } } }), {
+    productId: "p1",
+    userId: "u1",
+    email: "u1@example.com",
+  })
+  check("somebody else's product is not refused", notMine.ok, JSON.stringify(notMine))
 
   console.log("\nA second account, linked by what is expensive to duplicate\n")
 
