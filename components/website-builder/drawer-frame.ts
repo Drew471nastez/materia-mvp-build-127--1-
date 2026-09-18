@@ -35,7 +35,76 @@
  * than a virtual-time one: frames do not run under a virtual clock, so a
  * ResizeObserver never fires there and the third bug is invisible.
  */
-import { useEffect, useState, type CSSProperties } from "react"
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react"
+
+/**
+ * ===========================================================================
+ *  DISMISSING BY TAPPING AWAY, WITHOUT THE TAP DOING ANYTHING ELSE
+ * ===========================================================================
+ * The backdrop closed on `click`, which is two problems on a built site.
+ *
+ * IT ARRIVES LAST. A click is synthesised at the end of a press and a
+ * release, and anything in between that cancels it takes the dismissal with
+ * it. A pointer going down on the backdrop is already the whole gesture:
+ * there is nothing else a press there can mean.
+ *
+ * AND IT DOES NOT STAY ON THE BACKDROP. A portal renders outside the
+ * header's markup but stays inside its REACT tree, so the event still
+ * bubbles to the section wrapper, which in the editor selects the section
+ * and opens its settings. Tapping away to dismiss a menu opened the header
+ * panel instead, which is the "clicking away does nothing" in the report:
+ * something happened, but not the thing that was meant.
+ *
+ * So the dismissal is bound to the element natively, runs on pointerdown,
+ * and stops there.
+ */
+export function useBackdropDismiss(open: boolean, onClose: () => void) {
+  const closeRef = useRef(onClose)
+  closeRef.current = onClose
+
+  return useCallback((node: HTMLDivElement | null) => {
+    if (!node) return
+
+    /*
+      AND THE CLICK THAT ARRIVES AFTER IT.
+
+      Closing on the press is the point, but the release still produces a
+      click, and by then the backdrop has stopped taking pointer events — so
+      that click lands on whatever was underneath. In the editor that selects
+      a section and opens its panel; on a published site it can follow a link
+      the menu was covering. Measured by scripts/check-nav-drawer.mjs, which
+      counts what gets past the backdrop: one event did.
+
+      So the press takes the next click with it, once, and gives up waiting
+      after a moment in case no click ever comes.
+    */
+    const swallowNextClick = () => {
+      const eat = (e: Event) => {
+        e.stopPropagation()
+        e.preventDefault()
+        window.removeEventListener("click", eat, true)
+      }
+      window.addEventListener("click", eat, true)
+      window.setTimeout(() => window.removeEventListener("click", eat, true), 700)
+    }
+
+    const dismiss = (e: Event) => {
+      e.stopPropagation()
+      e.preventDefault()
+      if (e.type === "pointerdown") swallowNextClick()
+      closeRef.current()
+    }
+
+    /* Native, not React's synthetic listener: React's runs from the root
+       container, so a handler above this one in the React tree can see the
+       event first. This one cannot be reached before the backdrop has it. */
+    node.addEventListener("pointerdown", dismiss)
+    /* A browser with no pointer events, and a keyboard or assistive click
+       that never produces one. It is not reached after a pointerdown,
+       because that press has already taken this click. */
+    node.addEventListener("click", dismiss)
+  }, [])
+}
 
 export interface DrawerFrame {
   /** False until the client has mounted, when there is no portal target yet. */

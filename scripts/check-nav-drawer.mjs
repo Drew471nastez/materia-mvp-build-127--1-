@@ -137,12 +137,91 @@ const SCRIPT = `(async () => {
     await wait(300)
     r.grown = { drawer: rect(d), canvas: rect(scroller) }
 
-    const close = inPreview('button[aria-label="Close menu"]')
-    if (close) close.click()
-    await wait(600)
-    const cs2 = getComputedStyle(scroller)
-    r.scopedAfter = { overflowY: cs2.overflowY, touchAction: cs2.touchAction, scrollTop: scroller.scrollTop }
+    /* ---- the three controls reported as dead, inside the editor ----
+       The canvas intercepts clicks: it cancels a link's default, and
+       navigates only when the link is inside the header or footer subtree.
+       A portalled drawer is not inside either, which is the thing under
+       test, so the stub carries the same rule the editor does. */
+    r.editorNav = []
+    const canvasIntercept = (e) => {
+      const el = e.target
+      const anchor = el && el.closest ? el.closest("a[href]") : null
+      const inNav = !!(anchor && anchor.closest && anchor.closest("[data-chrome]"))
+      const href = anchor ? (anchor.getAttribute("href") || "").trim() : ""
+      const internal = href.startsWith("/") && !href.startsWith("//")
+      if (anchor) e.preventDefault()
+      if (inNav && internal) { e.stopPropagation(); r.editorNav.push(href) }
+    }
+    scroller.addEventListener("click", canvasIntercept, true)
+
+    const navLink = inPreview('[role="dialog"][aria-label="Menu"] a[href="/shop"]')
+    r.foundNavLink = !!navLink
+    if (navLink) { navLink.click(); await wait(80) }
+    r.navWentSomewhere = r.editorNav.length > 0
+
+    const searchRow = inPreview('[role="dialog"][aria-label="Menu"] a[href="/search"]')
+    r.foundSearchRow = !!searchRow
+    if (searchRow) { searchRow.click(); await wait(80) }
+    r.searchWentSomewhere = r.editorNav.includes("/search")
+
+    scroller.removeEventListener("click", canvasIntercept, true)
+
+    /* Leave it open, and hand node the point to tap. The canvas also
+       cancels the default of every mousedown while the inspector is on, so
+       that is installed too: a tap is a real sequence and a handler that
+       runs anywhere in it can stop the one after it. */
+    const reopen = document.querySelector('#scoped button[aria-label="Open menu"]')
+    if (reopen) { reopen.click(); await wait(500) }
+    document.addEventListener("mousedown", (e) => e.preventDefault(), true)
+
+    /* In the editor a tap that gets past the backdrop reaches the section
+       wrapper, which selects the section and opens its settings panel.
+       Dismissing a menu is not that, so the tap has to stop at the backdrop.
+       Counted on the canvas, which is the portal's DOM parent and therefore
+       the first thing the event reaches on its way up; a listener on the
+       header's own node would never see a portalled event at all and would
+       report zero whatever the code did. */
+    window.__gotPast = 0
+    scroller.addEventListener("click", () => { window.__gotPast++ })
+    scroller.addEventListener("pointerdown", () => { window.__gotPast++ })
+
+    const backdrop = Array.from(scroller.querySelectorAll("div[aria-hidden]")).find((el) => {
+      const cs = getComputedStyle(el)
+      return cs.zIndex === "90" && cs.pointerEvents === "auto"
+    })
+    r.foundBackdrop = !!backdrop
+    if (backdrop) {
+      const b = backdrop.getBoundingClientRect()
+      const panel = inPreview('[role="dialog"][aria-label="Menu"]').getBoundingClientRect()
+      /* Beside the panel, not over it: that is where "click away" is. */
+      r.tapAt = { x: Math.round(panel.right + (b.right - panel.right) / 2), y: Math.round(b.top + b.height / 2) }
+    }
   }
+
+  return JSON.stringify(r)
+})()`
+
+/* Everything after the real tap: did it close, and does the canvas come
+   back. Run as its own evaluate because the tap happens in between. */
+const AFTER_TAP = `(async () => {
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms))
+  const rect = (el) => { const r = el.getBoundingClientRect(); return { top: Math.round(r.top), left: Math.round(r.left), w: Math.round(r.width), h: Math.round(r.height) } }
+  const settle = (el) => { el.style.transition = "none"; void el.offsetHeight }
+  const r = {}
+  const scroller = document.getElementById("wb-preview-root")
+  const inPreview = (sel) => document.querySelector("#wb-preview-root " + sel)
+
+  await wait(600)
+  const d = inPreview('[role="dialog"][aria-label="Menu"]')
+  r.backdropClosedIt = d ? d.getAttribute("aria-hidden") === "true" : true
+
+  r.gotPast = window.__gotPast ?? 0
+
+  const close = inPreview('button[aria-label="Close menu"]')
+  if (close) close.click()
+  await wait(600)
+  const cs2 = getComputedStyle(scroller)
+  r.scopedAfter = { overflowY: cs2.overflowY, touchAction: cs2.touchAction, scrollTop: scroller.scrollTop }
 
   /* ---- live: a published site ---- */
   window.scrollTo(0, ${SCROLL_TO})
@@ -212,14 +291,40 @@ await call("Emulation.setDeviceMetricsOverride", { width: VIEW_W, height: VIEW_H
 await call("Page.navigate", { url: `file://${file}` })
 await sleep(1200)
 const evaluated = await call("Runtime.evaluate", { expression: SCRIPT, awaitPromise: true, returnByValue: true })
+if (evaluated.exceptionDetails) {
+  ws.close(); proc.kill("SIGKILL")
+  fail(`The probe threw: ${evaluated.exceptionDetails.exception?.description || evaluated.exceptionDetails.text}`)
+}
+if (typeof evaluated.result?.value !== "string") {
+  ws.close(); proc.kill("SIGKILL")
+  fail("Nothing reported. The probe did not run.")
+}
+const first = JSON.parse(evaluated.result.value)
+
+/*
+  A REAL TAP, not `element.click()`.
+
+  "Clicking away does nothing" is a thing that only happens to real input: a
+  synthetic click() skips the press and release entirely, so it cannot see a
+  handler earlier in the sequence cancelling what comes after it. These are
+  dispatched through the browser's own input pipeline.
+*/
+if (first.tapAt) {
+  const at = { x: first.tapAt.x, y: first.tapAt.y, button: "left", clickCount: 1 }
+  await call("Input.dispatchMouseEvent", { type: "mouseMoved", ...at, clickCount: 0 })
+  await call("Input.dispatchMouseEvent", { type: "mousePressed", ...at })
+  await call("Input.dispatchMouseEvent", { type: "mouseReleased", ...at })
+}
+
+const evaluated2 = await call("Runtime.evaluate", { expression: AFTER_TAP, awaitPromise: true, returnByValue: true })
 ws.close()
 proc.kill("SIGKILL")
 
-if (evaluated.exceptionDetails) {
-  fail(`The probe threw: ${evaluated.exceptionDetails.exception?.description || evaluated.exceptionDetails.text}`)
+if (evaluated2.exceptionDetails) {
+  fail(`The probe threw after the tap: ${evaluated2.exceptionDetails.exception?.description || evaluated2.exceptionDetails.text}`)
 }
-if (typeof evaluated.result?.value !== "string") fail("Nothing reported. The probe did not run.")
-const r = JSON.parse(evaluated.result.value)
+if (typeof evaluated2.result?.value !== "string") fail("Nothing reported after the tap.")
+const r = { ...first, ...JSON.parse(evaluated2.result.value) }
 if (process.env.DEBUG) console.log(JSON.stringify(r, null, 2))
 
 let broken = 0
@@ -255,6 +360,15 @@ expect(r.scopedScrollTopWhileOpen === SCROLL_TO, "it did not jump on lock", `scr
 expect(r.scopedAfter?.overflowY === "auto" && r.scopedAfter?.scrollTop === SCROLL_TO,
   "and it scrolls again, from where it was, once closed",
   `overflow-y ${r.scopedAfter?.overflowY}, scrollTop ${r.scopedAfter?.scrollTop}`)
+
+console.log("\nAnd the controls inside it\n")
+expect(r.foundNavLink === true, "the menu has the site's nav links in it")
+expect(r.navWentSomewhere === true, "a nav link goes somewhere", r.navWentSomewhere ? "yes" : "the click was cancelled and nothing navigated")
+expect(r.foundSearchRow === true, "the menu has a search row")
+expect(r.searchWentSomewhere === true, "and search goes somewhere", r.searchWentSomewhere ? "yes" : "the click was cancelled and nothing navigated")
+expect(r.foundBackdrop === true, "there is a backdrop to tap")
+expect(r.backdropClosedIt === true, "and a real tap on it closes the menu", r.backdropClosedIt ? "yes" : "it stayed open")
+expect(r.gotPast === 0, "and the tap stops there instead of reaching the canvas behind it", `${r.gotPast} event(s) got past`)
 
 console.log(`\nA published site, scrolled to ${SCROLL_TO}px\n`)
 expect(r.foundLiveButton && r.foundLiveDrawer, "the drawer mounted on the page")

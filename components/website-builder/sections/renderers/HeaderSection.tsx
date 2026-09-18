@@ -18,7 +18,7 @@ import { useCallback, useState, useEffect, useRef, useLayoutEffect, type CSSProp
 import { createPortal } from "react-dom"
 import { ThemeSocials } from "../../theme/ThemeSocials"
 import { cn } from "@/lib/utils"
-import { useDrawerFrame } from "../../drawer-frame"
+import { useBackdropDismiss, useDrawerFrame } from "../../drawer-frame"
 import { useSiteCart } from "../../site-cart"
 import { lineKey } from "@/lib/website-builder/cart"
 import { getMainDomain } from "@/lib/url-helpers"
@@ -209,6 +209,7 @@ function HeaderCartDrawer({
   const { lines, open, setOpen, setQty, remove, subtotalCents, count } = useSiteCart()
   const onClose = useCallback(() => setOpen(false), [setOpen])
   const { mounted, target, positionClass, frameStyle } = useDrawerFrame(open, scopedToPreview, onClose)
+  const dismissBackdrop = useBackdropDismiss(open, onClose)
   if (!mounted || !target) return null
 
   const panelTransition = open
@@ -224,7 +225,7 @@ function HeaderCartDrawer({
     <>
       <div
         aria-hidden
-        onClick={onClose}
+        ref={dismissBackdrop}
         className={cn(positionClass, "left-0 right-0 z-[90] bg-black/50")}
         style={{
           ...frameStyle,
@@ -410,6 +411,7 @@ function MobileDrawerInner({
   // with children is tapped this flips to that item's id and the drawer
   // slides to a sub-page showing just that item's children (iOS-style).
   // The back button on the sub-page returns us to the root by clearing it.
+  const dismissBackdrop = useBackdropDismiss(open, onClose)
   const [activeSubmenuId, setActiveSubmenuId] = useState<string | null>(null)
   // Reset to root whenever the drawer closes so reopening always starts
   // fresh on the main menu.
@@ -442,7 +444,7 @@ function MobileDrawerInner({
           overlay fully cover the sticky header when opened. */}
       <div
         aria-hidden
-        onClick={onClose}
+        ref={dismissBackdrop}
         className={cn(positionClass, "left-0 right-0 z-[90] bg-black/50")}
         style={{
           ...frameStyle,
@@ -456,6 +458,28 @@ function MobileDrawerInner({
         role="dialog"
         aria-label="Menu"
         aria-hidden={!open}
+        /*
+          ═══════════════════════════════════════════════════════════════════
+           THIS IS THE HEADER'S NAVIGATION, WHEREVER IT IS DRAWN
+          ═══════════════════════════════════════════════════════════════════
+          The editor's canvas cancels a link's default and then follows it
+          only when the link is inside the header or the footer, which it
+          decides by looking for `data-chrome` above the anchor. That rule is
+          right: a link in a hero is content being edited and a tap on it
+          nearly always meant the section behind it, while a nav you cannot
+          follow is a nav you cannot check.
+
+          But this drawer is PORTALLED. It is the header's menu and it is
+          rendered as a child of the canvas rather than of the header, so
+          nothing above its links carried the attribute and every one of them
+          was cancelled and went nowhere. Reported as "the navigation links
+          in the mobile nav do nothing", and the search row with them.
+
+          Carrying it here says what is already true. Measured by
+          scripts/check-nav-drawer.mjs, which replicates the canvas rule and
+          clicks the links.
+        */
+        data-chrome=""
         className={cn(
           positionClass,
           "left-0 z-[95] flex flex-col",
@@ -1256,7 +1280,20 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
         site is being served on — the subdomain, the custom domain or
         /w/<name> — without any of them being named here.
       */}
-      {showSearch && !forMobile && (
+      {/*
+        SEARCH IS ON A PHONE TOO, on the right beside the bag.
+
+        It was desktop only, on the reasoning that the phone drawer carries a
+        Search row with room for the word beside the icon. It does, and that
+        is one tap too many for the thing somebody on a phone reaches for
+        first: a shop's catalogue is longer than a thumb wants to scroll, and
+        finding search meant opening a menu to look for it.
+
+        The two controls that carry a shopper's intent, what they are looking
+        for and what they have chosen, sit together on the right. Account and
+        wishlist stay in the drawer, where they read as words.
+      */}
+      {showSearch && (
         <a
           href="/search"
           aria-label="Search"

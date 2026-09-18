@@ -91,6 +91,33 @@ function main() {
     /ro\?\.disconnect\(\)/.test(src),
   )
 
+  console.log("\n  and the controls inside it do what they say")
+
+  /*
+    The editor cancels a link's default and follows it only when the anchor
+    sits under `data-chrome`, which is the header or the footer. The drawer
+    IS the header's menu and is portalled out of it, so without the attribute
+    every link in it was cancelled and went nowhere. Measured in
+    check-nav-drawer.mjs, which replicates that rule and clicks the links.
+  */
+  check(
+    "the menu carries the attribute that says it is the header's navigation",
+    /aria-label="Menu"[\s\S]{0,1600}?data-chrome=""/.test(header),
+  )
+  check(
+    "tapping away is bound natively, so nothing above it in the React tree sees it first",
+    /node\.addEventListener\("pointerdown", dismiss\)/.test(src) && /ref=\{dismissBackdrop\}/.test(header),
+  )
+  check(
+    "and the press takes the click after it, which would otherwise land underneath",
+    /swallowNextClick/.test(src) && /window\.addEventListener\("click", eat, true\)/.test(src),
+  )
+  check(
+    "both drawers dismiss the same way",
+    (header.match(/ref=\{dismissBackdrop\}/g) ?? []).length === 2,
+    `${(header.match(/ref=\{dismissBackdrop\}/g) ?? []).length} of 2`,
+  )
+
   console.log("\n  and the page behind it is frozen")
 
   check(
