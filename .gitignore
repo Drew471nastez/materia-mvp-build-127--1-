@@ -58,4 +58,7 @@ tsconfig.*.generated.json
 
 # Written by scripts/check-drawer-scrollbars.mjs while it bundles the probe.
 .scroll-probe/
+
+# Written by scripts/check-nav-drawer.mjs while it bundles the probe.
+.drawer-probe/
 .card-probe/

@@ -69,29 +69,113 @@ function HeaderMobileNavDrawer({
   // off-screen at translateX(-101%) and only the `open` prop flips the
   // transform. That means the very first click from the hamburger plays
   // the transition cleanly (no RAF gymnastics, no mount/unmount jank).
+  /*
+    ───────────────────────────────────────────────────────────────────────
+     WHERE THE DRAWER IS, AND WHAT STOPS MOVING WHILE IT IS OPEN
+    ───────────────────────────────────────────────────────────────────────
+    Two bugs, one cause each.
+
+    IT OPENED AT THE TOP OF THE PAGE. Inside the editor the drawer is
+    portalled into `#wb-preview-root`, which is `position: relative` and
+    `overflow-y: auto` — it is the scroller. An absolutely positioned child
+    of a scroller is laid out against its CONTENT box and scrolls with it,
+    so `top: 0` is the top of the whole page, not the top of what you are
+    looking at. Scroll down, open the menu, and it is drawn a screen or two
+    above you. So the drawer is pinned: `top` is the scroller's current
+    `scrollTop` and its height is the scroller's `clientHeight`, measured
+    at the moment it opens, which is exactly the rectangle on screen.
+
+    THE PAGE KEPT SCROLLING UNDERNEATH. On the live site the lock was
+    `overflow: hidden` on the body, which iOS ignores for touch scrolling —
+    the same thing the explore filters sheet hit. It is the position-fixed
+    lock now, with the scroll offset carried on `top` and put back on
+    close. And when scoped there was no lock at all; the scroller itself
+    takes one, which works because `#wb-preview-root` is a real overflow
+    container rather than the body.
+
+    Pinning and locking are the same act: with the scroller frozen the
+    measurement cannot go stale, so there is no scroll listener to run.
+  */
+  const [pin, setPin] = useState<{ top: number; height: number } | null>(null)
+
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose() }
     window.addEventListener("keydown", onKey)
-    // Only lock body scroll when not scoped — otherwise the editor page locks
-    let prev: string | null = null
-    if (!scopedToPreview) {
-      prev = document.body.style.overflow
-      document.body.style.overflow = "hidden"
+
+    const undo: Array<() => void> = [() => window.removeEventListener("keydown", onKey)]
+
+    const scroller = scopedToPreview ? document.getElementById("wb-preview-root") : null
+
+    if (scroller) {
+      const top = scroller.scrollTop
+      setPin({ top, height: scroller.clientHeight })
+
+      const prevOverflow = scroller.style.overflow
+      const prevTouch = scroller.style.touchAction
+      scroller.style.overflow = "hidden"
+      scroller.style.touchAction = "none"
+
+      // The canvas can be resized under an open drawer (rotation, or the
+      // desktop/phone toggle). Height is the only thing that can change
+      // while the scroller is frozen, so re-read just that.
+      const onResize = () => setPin({ top, height: scroller.clientHeight })
+      window.addEventListener("resize", onResize)
+
+      undo.push(() => {
+        window.removeEventListener("resize", onResize)
+        scroller.style.overflow = prevOverflow
+        scroller.style.touchAction = prevTouch
+        // `overflow: hidden` can clamp the offset; put it back verbatim.
+        scroller.scrollTop = top
+      })
+    } else {
+      setPin(null)
+      const scrollY = window.scrollY
+      const body = document.body.style
+      const prev = {
+        position: body.position,
+        top: body.top,
+        left: body.left,
+        right: body.right,
+        width: body.width,
+        overflow: body.overflow,
+      }
+      body.position = "fixed"
+      body.top = `-${scrollY}px`
+      body.left = "0"
+      body.right = "0"
+      body.width = "100%"
+      body.overflow = "hidden"
+
+      undo.push(() => {
+        body.position = prev.position
+        body.top = prev.top
+        body.left = prev.left
+        body.right = prev.right
+        body.width = prev.width
+        body.overflow = prev.overflow
+        window.scrollTo(0, scrollY)
+      })
     }
-    return () => {
-      window.removeEventListener("keydown", onKey)
-      if (!scopedToPreview && prev !== null) document.body.style.overflow = prev
-    }
+
+    return () => { undo.forEach((fn) => fn()) }
   }, [open, onClose, scopedToPreview])
 
   if (!mounted) return null
-  const target: HTMLElement | null = scopedToPreview
-    ? (document.getElementById("wb-preview-root") ?? document.body)
-    : document.body
+  const previewRoot = scopedToPreview ? document.getElementById("wb-preview-root") : null
+  const target: HTMLElement | null = previewRoot ?? document.body
   if (!target) return null
 
-  const positionClass = scopedToPreview ? "absolute" : "fixed"
+  // Only the portal into the scroller needs to be absolute. Scoped but with
+  // no scroller to find means the drawer landed on the body, where absolute
+  // would anchor it to the document instead of the viewport.
+  const positionClass = previewRoot ? "absolute" : "fixed"
+  // Held through the close animation so the drawer slides out from where it
+  // was rather than jumping to the top on the way.
+  const frameStyle: CSSProperties = pin
+    ? { top: pin.top, height: pin.height }
+    : { top: 0, bottom: 0 }
   // Filter out empty/placeholder items so the drawer only shows real links
   const visibleItems = items.filter(it => it.label && it.label.trim().length > 0)
 
@@ -112,6 +196,7 @@ function HeaderMobileNavDrawer({
       visibleItems={visibleItems}
       scheme={scheme}
       positionClass={positionClass}
+      frameStyle={frameStyle}
       onEditorNavigate={onEditorNavigate}
       scopedToPreview={!!scopedToPreview}
       drawerTransition={drawerTransition}
@@ -134,6 +219,7 @@ function MobileDrawerInner({
   visibleItems,
   scheme,
   positionClass,
+  frameStyle,
   onEditorNavigate,
   scopedToPreview,
   drawerTransition,
@@ -147,6 +233,7 @@ function MobileDrawerInner({
   visibleItems: MobileNavItem[]
   scheme: ColorSchemeValues
   positionClass: string
+  frameStyle: CSSProperties
   onEditorNavigate?: (href: string) => void
   scopedToPreview: boolean
   drawerTransition: string
@@ -192,8 +279,9 @@ function MobileDrawerInner({
       <div
         aria-hidden
         onClick={onClose}
-        className={cn(positionClass, "left-0 right-0 top-0 bottom-0 z-[90] bg-black/50")}
+        className={cn(positionClass, "left-0 right-0 z-[90] bg-black/50")}
         style={{
+          ...frameStyle,
           opacity: open ? 1 : 0,
           pointerEvents: open ? "auto" : "none",
           transition: backdropTransition,
@@ -206,11 +294,12 @@ function MobileDrawerInner({
         aria-hidden={!open}
         className={cn(
           positionClass,
-          "left-0 top-0 bottom-0 z-[95] flex flex-col",
+          "left-0 z-[95] flex flex-col",
           open && "shadow-2xl",
           scopedToPreview ? "w-[82%] max-w-[320px]" : "w-[85vw] max-w-[360px]",
         )}
         style={{
+          ...frameStyle,
           background: scheme.bg,
           color: scheme.heading,
           transform: open ? "translateX(0)" : "translateX(-101%)",
