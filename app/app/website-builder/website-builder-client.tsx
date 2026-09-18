@@ -371,7 +371,10 @@ export function WebsiteBuilderClient({
       const url = URL.createObjectURL(blob)
       const a = document.createElement("a")
       a.href = url
-      a.download = `${i.name.replace(/[^a-z0-9-_]+/gi, "-").toLowerCase()}.storelib-theme`
+      /* `a.download` WINS over the server's Content-Disposition for a blob
+         URL, so the name has to end in .zip here too or the header's does
+         nothing. See the note in the export route. */
+      a.download = `${i.name.replace(/[^a-z0-9-_]+/gi, "-").toLowerCase()}.storelib-theme.zip`
       document.body.appendChild(a)
       a.click()
       a.remove()
@@ -389,7 +392,7 @@ export function WebsiteBuilderClient({
     }
     const fd = new FormData()
     fd.append("file", file)
-    await run("import", () => fetch("/api/website-builder/themes/import", { method: "POST", body: fd }), `Imported ${file.name.replace(/\.(storelib-theme|zip)$/i, "")}`, "Could not import that file")
+    await run("import", () => fetch("/api/website-builder/themes/import", { method: "POST", body: fd }), `Imported ${file.name.replace(/(\.storelib-theme)?\.zip$/i, "").replace(/\.storelib-theme$/i, "")}`, "Could not import that file")
     if (fileInput.current) fileInput.current.value = ""
   }
 

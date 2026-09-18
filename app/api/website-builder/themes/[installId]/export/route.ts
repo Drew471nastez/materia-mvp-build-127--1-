@@ -248,7 +248,21 @@ export async function GET(_req: Request, { params }: Params) {
   }, { generated_at: new Date().toISOString() })
 
   const blob = Buffer.from(pkg)
-  const filename = `${safeFilename(install.name)}.storelib-theme`
+  /*
+    ═══════════════════════════════════════════════════════════════════════
+     IT ENDS IN .zip, BECAUSE IT IS ONE
+    ═══════════════════════════════════════════════════════════════════════
+    The body has always been a zip — the folder in docs/theme/01 with a
+    manifest beside it — and it was called `<name>.storelib-theme`. An
+    extension no operating system recognises means a double click does
+    nothing, Safari helpfully appends `.zip` to it anyway, and somebody who
+    wants to look inside their own theme has to rename the file first.
+
+    `.storelib-theme.zip` says both things: every unzip tool on every system
+    opens it, and the name still says which kind of zip it is. The importer
+    already accepted `.zip`.
+  */
+  const filename = `${safeFilename(install.name)}.storelib-theme.zip`
   return new NextResponse(blob as unknown as BodyInit, {
     headers: {
       "Content-Type": "application/zip",

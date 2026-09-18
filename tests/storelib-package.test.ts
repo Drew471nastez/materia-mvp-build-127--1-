@@ -212,7 +212,18 @@ async function main() {
     check("a section that matches this build's own file stores no row", /DEFAULT_THEME_SOURCES\[path\] !== content/.test(importRoute))
     check("the builder's earlier zips still import", /parseThemePackageManifest\(manifestRaw\)/.test(importRoute) && /const imagesFolder = zip\.folder\("images"\)/.test(importRoute))
 
-    check("the file a person downloads is a .storelib-theme", /\.storelib-theme`/.test(client) && /accept=".storelib-theme/.test(client))
+    /*
+      IT ENDS IN .zip NOW, BECAUSE IT IS ONE. The body was always a zip and
+      the name was `.storelib-theme`, which no operating system opens on a
+      double click. Both the server header and `a.download` have to say it:
+      for a blob URL the anchor's attribute wins, so a header on its own
+      changes nothing.
+    */
+    check(
+      "the file a person downloads ends in .zip, from both places that name it",
+      /\.storelib-theme\.zip`/.test(client) && /\.storelib-theme\.zip`/.test(exportRoute),
+    )
+    check("and the picker still offers the package and plain zips", /accept=".storelib-theme,\.zip/.test(client))
   }
 
   // ═══════════════════════════════════════════════════════════════════════
