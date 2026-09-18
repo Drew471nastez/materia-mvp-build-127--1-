@@ -336,7 +336,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
       data: { user: viewer },
     },
     { count: followerCount },
-    { data: creatorReviews },
+    { data: creatorReviews, error: creatorReviewsError },
     viewerBoughtFromCreator,
   ] = await Promise.all([
     supabase
@@ -384,9 +384,25 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
      * with thousands should not send thousands down the wire to render two
      * columns of cards.
      */
+    /*
+      ═══════════════════════════════════════════════════════════════════════
+       `content`, NOT `comment`, AND THE WHOLE QUERY FAILED ON IT
+      ═══════════════════════════════════════════════════════════════════════
+      There is no `comment` column on reviews. PostgREST does not skip a
+      column it does not recognise, it refuses the request:
+
+          HTTP 400
+          42703 column reviews.comment does not exist
+          hint: Perhaps you meant to reference the column "reviews.content".
+
+      So this returned no rows, and a creator page with reviews on it said
+      "No reviews yet". The product page was right the whole time because it
+      asks for `content`, which is why one screen showed a review and the
+      other said there were none.
+    */
     supabase
       .from("reviews")
-      .select("id, rating, comment, created_at, product:products(title, slug), buyer:profiles!buyer_id(display_name, avatar_url)")
+      .select("id, rating, content, created_at, product:products(title, slug), buyer:profiles!buyer_id(display_name, avatar_url)")
       .eq("creator_id", creator.id)
       .order("created_at", { ascending: false })
       .limit(30),
@@ -428,10 +444,26 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
   const creatorReviewCount = reviewTotals.count
   const creatorRating = creatorReviewCount > 0 ? reviewTotals.weighted / creatorReviewCount : 0
 
+  /*
+    A DROPPED ERROR IS WHY NOBODY NOTICED FOR SO LONG. `{ data }` on its own
+    turns a refused query into an empty list, and an empty list of reviews is
+    a completely ordinary thing for a page to have. It is not an exception
+    here — the page still renders, with whatever the panel shows for none —
+    but it says so, so the next mistyped column is a line in the log rather
+    than a screen that quietly disagrees with the product page.
+  */
+  if (creatorReviewsError) {
+    console.error("[creator-page] reviews query failed", {
+      creatorId: creator.id,
+      message: creatorReviewsError.message,
+    })
+  }
+
   const reviewsForPanel: StorefrontReview[] = (creatorReviews || []).map((review: any) => ({
     id: review.id,
     rating: review.rating,
-    comment: review.comment,
+    /* The column is `content`; `comment` is what the display type calls it. */
+    comment: review.content,
     created_at: review.created_at,
     productTitle: review.product?.title ?? null,
     productSlug: review.product?.slug ?? null,
