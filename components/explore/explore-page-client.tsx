@@ -1866,7 +1866,7 @@ export function ExplorePageClient({
                       }}
                       className={`inline-flex items-center gap-1.5 shrink-0 px-3.5 py-2 rounded-full text-sm font-medium cursor-pointer select-none whitespace-nowrap border transition-colors duration-150 ${
                         isSelected
-                          ? "bg-neutral-900 text-white border-neutral-900"
+                          ? "bg-neutral-200 text-neutral-900 border-neutral-200"
                           : "bg-white text-neutral-500 border-neutral-200 hover:border-neutral-300 hover:text-neutral-800"
                       }`}
                     >
