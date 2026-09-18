@@ -72,12 +72,12 @@ function main() {
   check("the category pill row is where the test expects it", pillBlock.length > 0)
   check(
     "a selected category pill is grey with dark text, not a black fill",
-    /bg-\[#dcdee2\] text-neutral-900/.test(pillBlock) &&
+    /bg-\[#e2e4e8\] text-neutral-900/.test(pillBlock) &&
       !/bg-neutral-900 text-white border-neutral-900/.test(pillBlock),
   )
   check(
     "and it is pressed in rather than flat",
-    /shadow-\[inset_0_1px_2px_rgba\(15,23,42,0\.13\)/.test(pillBlock),
+    /shadow-\[inset_0_1px_1\.5px_rgba\(15,23,42,0\.07\)/.test(pillBlock),
     "scripts/check-category-pill.mjs measures the rendered depth",
   )
   check(
