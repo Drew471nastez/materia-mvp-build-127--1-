@@ -720,7 +720,7 @@ function DesktopSubcategoryModal({
                     onClick={() => { onSelectSubcategory(sub.id); handleClose() }}
                     className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium transition-all duration-150 cursor-pointer ${
                       isSelected
-                        ? "bg-violet-100 text-violet-700 ring-2 ring-violet-500"
+                        ? "bg-neutral-100 text-neutral-700 border border-neutral-200 ring-2 ring-violet-500"
                         : "bg-neutral-50 text-neutral-700 hover:bg-neutral-100"
                     }`}
                   >
@@ -1224,26 +1224,26 @@ export function CategoryPageClient({
           {selectedSubcategories.map(subId => {
             const sub = availableSubcategories.find(s => s.id === subId)
             return sub ? (
-              <span key={subId} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-violet-100 text-violet-700">
+              <span key={subId} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-neutral-100 text-neutral-700 border border-neutral-200">
                 {sub.label}
-                <button onClick={() => handleSubcategorySelect(subId)} className="hover:bg-violet-200 rounded-full p-0.5 cursor-pointer">
+                <button onClick={() => handleSubcategorySelect(subId)} className="hover:bg-neutral-200 rounded-full p-0.5 cursor-pointer">
                   <X className="w-3 h-3" />
                 </button>
               </span>
             ) : null
           })}
           {priceFilter !== "all" && (
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-violet-100 text-violet-700">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-neutral-100 text-neutral-700 border border-neutral-200">
               {PRICE_FILTERS.find(f => f.id === priceFilter)?.label}
-              <button onClick={() => setPriceFilter("all")} className="hover:bg-violet-200 rounded-full p-0.5 cursor-pointer">
+              <button onClick={() => setPriceFilter("all")} className="hover:bg-neutral-200 rounded-full p-0.5 cursor-pointer">
                 <X className="w-3 h-3" />
               </button>
             </span>
           )}
           {sortBy !== "newest" && (
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-violet-100 text-violet-700">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-neutral-100 text-neutral-700 border border-neutral-200">
               {SORT_OPTIONS.find(o => o.id === sortBy)?.label}
-              <button onClick={() => setSortBy("newest")} className="hover:bg-violet-200 rounded-full p-0.5 cursor-pointer">
+              <button onClick={() => setSortBy("newest")} className="hover:bg-neutral-200 rounded-full p-0.5 cursor-pointer">
                 <X className="w-3 h-3" />
               </button>
             </span>

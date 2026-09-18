@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { isOwnProduct } from "@/lib/reviews/own-product"
 
 // Check if user can review a product and if they already have
 export async function GET(request: NextRequest) {
@@ -24,6 +25,17 @@ export async function GET(request: NextRequest) {
       hasReviewed: false,
       isLoggedIn: false,
       hasPurchased: false,
+    })
+  }
+
+  /* Your own listing. See lib/reviews/own-product. */
+  if (await isOwnProduct(admin, productId, user.id)) {
+    return NextResponse.json({
+      canReview: false,
+      hasReviewed: false,
+      isLoggedIn: true,
+      hasPurchased: false,
+      isOwnProduct: true,
     })
   }
 

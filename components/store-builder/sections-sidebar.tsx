@@ -3806,22 +3806,12 @@ function MoreFromSellerSettingsForm({
         </Select>
       </div>
 
-      <div className="space-y-2">
-        <Label className="text-sm font-normal">Mobile Products Per Row</Label>
-        <Select
-          value={String(settings.mobileProductsPerRow ?? 1)}
-          onValueChange={(value) => onChange({ mobileProductsPerRow: Number(value) as 1 | 2 })}
-        >
-          <SelectTrigger className="h-9">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="1">1 Product per Row</SelectItem>
-            <SelectItem value="2">2 Products per Row</SelectItem>
-          </SelectContent>
-        </Select>
-        <p className="text-xs text-muted-foreground">Applies only on mobile screens.</p>
-      </div>
+      {/*
+        "Mobile Products Per Row" was here. A phone shows one now, whichever
+        way the setting is saved, so a control offering two would be a
+        promise the page does not keep. The stored value is left alone rather
+        than migrated: it is simply no longer read.
+      */}
 
       <div className="space-y-2">
         <Label className="text-sm font-normal">Max Products</Label>

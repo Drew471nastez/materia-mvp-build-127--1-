@@ -1581,14 +1581,33 @@ function main() {
     check("More from the seller renders the shared card", section.includes("<StorefrontProductCard"))
     check("and draws none of its own", !/aspect-video bg-muted relative overflow-hidden/.test(section))
     check("with the colours the theme gives it", section.includes("cardAccents(cardBgColor, cardTextColor)"))
-    /** It sat in a 1150px column while the page's own content is 1200. */
+    /*
+      IT SAT IN A 1150px COLUMN while the page's own content is 1200, and the
+      reviews were in a third one at 1180 on a different padding scale. There
+      is one constant now, so this checks that all three use it rather than
+      that all three repeat the same string — which is what let them drift in
+      the first place.
+    */
+    const container = renderer.match(/const PRODUCT_SECTION_CONTAINER = "([^"]+)"/)
+    check("there is one container for a product page's sections", Boolean(container), "no PRODUCT_SECTION_CONTAINER")
     check(
-      "in the same column as every other section on the page",
-      section.includes('"mx-auto w-full max-w-[1200px] px-3 sm:px-4 lg:px-6"'),
+      "and it is the 1200px column",
+      container?.[1] === "mx-auto w-full max-w-[1200px] px-3 sm:px-4 lg:px-6",
+      container?.[1],
+    )
+    check("More from the seller uses it", section.includes("PRODUCT_SECTION_CONTAINER"))
+    check(
+      "and so do the reviews",
+      renderer.slice(renderer.indexOf("function UnifiedReviewsSection")).includes("PRODUCT_SECTION_CONTAINER"),
     )
     check(
       "which is the product page's own column",
       /className="mx-auto w-full max-w-\[1200px\] px-3 sm:px-4 lg:px-6/.test(code("app/(marketing)/p/[slug]/page.tsx")),
+    )
+    check(
+      "and the page does not change width halfway down",
+      !/max-w-\[1100px\] px-3 sm:px-4 lg:px-6/.test(code("app/(marketing)/p/[slug]/page.tsx")),
+      "the lower block was 1100 while the upper one was 1200",
     )
   }
 
@@ -2011,7 +2030,26 @@ function main() {
      * underneath it.
      */
     check("the buy bar's reserve is not in the middle of the page", !/pb-24 lg:pb-12/.test(product))
-    check("it is at the end, where the bar is", (product.match(/h-20 lg:h-0/g) ?? []).length === 2)
+    /*
+      AND IT IS NOT AT THE END EITHER, BECAUSE THE BAR IS NOT THERE.
+
+      The reserve moved to the bottom of the page, which was right about where
+      the bar sits and wrong about whether it is showing. The bar hides itself
+      before the footer:
+
+          const nearFooter = currentBottom > footerTop - 100
+          const shouldShow = pastDescriptionStart && !nearFooter
+
+      so 80px of empty page colour sat under the footer with nothing over it.
+      Reported with a screenshot of exactly that.
+    */
+    check("and there is no reserve at the end either", !/h-20 lg:h-0/.test(product))
+    check(
+      "because the bar takes itself away before the footer",
+      /const nearFooter = currentBottom > footerTop - 100/.test(code("components/store-builder/sticky-add-to-cart.tsx")) &&
+        /shouldShow = pastDescriptionStart && !nearFooter/.test(code("components/store-builder/sticky-add-to-cart.tsx")),
+      "if the bar stops hiding near the footer, the reserve has to come back",
+    )
 
     /**
      * The sticky subscribe bar is `fixed` plus a spacer standing in for its

@@ -288,6 +288,16 @@ export function SectionContainer({
 }
 
 // ====== REVIEWS SECTION - UNIFIED ======
+/**
+ * ONE CONTAINER FOR EVERY SECTION ON A PRODUCT PAGE.
+ *
+ * The product content, More from the seller and the reviews are rendered by
+ * three different pieces of code, and all three had their own idea of how
+ * wide the page is: 1200, 1200 and 1180, on two different padding scales.
+ * The owner's word for the result was that nothing flowed together.
+ */
+const PRODUCT_SECTION_CONTAINER = "mx-auto w-full max-w-[1200px] px-3 sm:px-4 lg:px-6"
+
 function UnifiedReviewsSection({
   settings,
   isMobile,
@@ -322,13 +332,17 @@ function UnifiedReviewsSection({
 
   return (
     <div
-      className={cn(
-        "mx-auto w-full",
-        // Mobile: fixed 7px horizontal spacing
-        isMobile && "px-[7px]",
-        // Desktop: max width with standard padding
-        !isMobile && "max-w-[1180px] px-4 sm:px-6",
-      )}
+      /*
+        ═══════════════════════════════════════════════════════════════════
+         THE SAME BOX AS EVERY OTHER SECTION ON THE PAGE
+        ═══════════════════════════════════════════════════════════════════
+        This was max-w-[1180px] with px-4 sm:px-6 while the product content
+        above it and More from the seller below it are max-w-[1200px] with
+        px-3 sm:px-4 lg:px-6. Twenty pixels of width and a different padding
+        scale, which is why the reviews card did not line up with anything
+        else and the page looked like it stepped in and out as you scrolled.
+      */
+      className={cn(PRODUCT_SECTION_CONTAINER, isMobile && "max-w-none px-[10px]")}
       style={{
         paddingTop: spacing?.paddingTop,
         paddingBottom: spacing?.paddingBottom,
@@ -4616,11 +4630,18 @@ function UnifiedMoreFromSellerSection({
   }
 
   const columns = Math.min(Number(settings.columns ?? 3), 3)
-  const mobileProductsPerRow = settings.mobileProductsPerRow ?? 1
+  /*
+    ONE PER ROW ON A PHONE, WHICHEVER WAY THE SETTING IS SAVED.
 
-  // Build grid classes based on mobileProductsPerRow setting
+    The default was already 1, but a page whose config carries 2 rendered two
+    cards across on a phone, which at that width is two cramped cards where
+    the rest of the product page shows one of everything. The owner asked for
+    one, everywhere, so the stored value no longer decides this. The control
+    that sets it is gone from the sections sidebar with it, rather than left
+    there setting nothing.
+  */
   const getGridClasses = () => {
-    const mobileGridClass = mobileProductsPerRow === 2 ? "grid-cols-2" : "grid-cols-1"
+    const mobileGridClass = "grid-cols-1"
 
     // If isMobile is true (store builder mobile preview), just return mobile class
     if (isMobile) {
@@ -4639,7 +4660,7 @@ function UnifiedMoreFromSellerSection({
     if (isPreviewMode) {
       return (
         <div
-          className={cn("mx-auto w-full", isMobile ? "px-[10px]" : "max-w-[1400px] px-3 sm:px-4 lg:px-6")}
+          className={cn(PRODUCT_SECTION_CONTAINER, isMobile && "max-w-none px-[10px]")}
           style={{
             paddingTop: spacing?.paddingTop,
             paddingBottom: spacing?.paddingBottom,
@@ -4676,7 +4697,7 @@ function UnifiedMoreFromSellerSection({
      */
     <div
       className={cn(
-        "mx-auto w-full max-w-[1200px] px-3 sm:px-4 lg:px-6",
+        PRODUCT_SECTION_CONTAINER,
         // The store builder's phone preview is narrow while its viewport is
         // not, so CSS cannot see it and it is told.
         isPreviewMode && isMobile && "px-[18px]",

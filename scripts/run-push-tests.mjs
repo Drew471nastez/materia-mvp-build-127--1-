@@ -25,6 +25,7 @@ const SUITES = [
   "tests/library-depth.test.ts",
   "tests/provider-scope.test.ts",
   "tests/for-you.test.ts",
+  "tests/own-reviews.test.ts",
   "tests/no-image-transforms.test.ts",
   "tests/page-performance.test.ts",
   "tests/sql-aggregate.test.ts",

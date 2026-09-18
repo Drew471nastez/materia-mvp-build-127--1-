@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { revalidateTag } from "next/cache"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { isOwnProduct } from "@/lib/reviews/own-product"
 import { resolveSellerEmail, sendReviewNotificationEmail } from "@/lib/email"
 import { productTag } from "@/lib/commerce/product-page-cache"
 
@@ -86,6 +87,14 @@ export async function POST(request: NextRequest) {
 
   if (content.trim().length < 10) {
     return NextResponse.json({ error: "Review must be at least 10 characters" }, { status: 400 })
+  }
+
+  /*
+    BEFORE the purchase check, because a creator CAN hold an entitlement to
+    their own product and would otherwise pass it. See lib/reviews/own-product.
+  */
+  if (await isOwnProduct(admin, productId, user.id)) {
+    return NextResponse.json({ error: "You cannot review your own product" }, { status: 403 })
   }
 
   // Check if user has purchased this product

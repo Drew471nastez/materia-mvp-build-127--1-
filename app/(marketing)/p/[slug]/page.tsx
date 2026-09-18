@@ -1720,8 +1720,25 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
         {/* The room the fixed buy bar needs, at the bottom of the page where
           the bar is. `sticky-buy-reserve` is zero on a desktop, where the bar
           is part of the flow rather than over it. */}
+      {/*
+        ═══════════════════════════════════════════════════════════════════
+         NO RESERVE AT THE END, BECAUSE THE BAR IS NOT THERE
+        ═══════════════════════════════════════════════════════════════════
+        There was an 80px spacer here holding room for the fixed buy bar.
+        The bar hides itself before the footer:
+
+            const nearFooter = currentBottom > footerTop - 100
+            const shouldShow = pastDescriptionStart && !nearFooter
+
+        so by the time anybody reaches the bottom of the page the bar has
+        gone, and the spacer was 80px of empty page colour under the footer
+        with nothing over it. Reported with a screenshot of exactly that.
+
+        The bar still cannot cover anything: it disappears a hundred pixels
+        before the footer arrives, which is the reserve, done by the thing
+        that knows whether it is on screen.
+      */}
       <SellerFooter />
-      <div aria-hidden className="h-20 lg:h-0" />
       </div>
     )
   }
@@ -1898,7 +1915,9 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
         The reserve moved to the end of the page, where the thing it is
         reserving for actually sits. Ordinary section spacing here now.
       */}
-      <div className="mx-auto w-full max-w-[1100px] px-3 sm:px-4 lg:px-6 py-6 sm:py-12">
+      {/* 1200, like the block above it and like every section below it. It
+          was 1100 here, so the page changed width halfway down. */}
+      <div className="mx-auto w-full max-w-[1200px] px-3 sm:px-4 lg:px-6 py-6 sm:py-12">
         {AlertsBlock}
         {MainProductContent}
       </div>
@@ -1948,8 +1967,25 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
       {/* The room the fixed buy bar needs, at the bottom of the page where
           the bar is. `sticky-buy-reserve` is zero on a desktop, where the bar
           is part of the flow rather than over it. */}
+      {/*
+        ═══════════════════════════════════════════════════════════════════
+         NO RESERVE AT THE END, BECAUSE THE BAR IS NOT THERE
+        ═══════════════════════════════════════════════════════════════════
+        There was an 80px spacer here holding room for the fixed buy bar.
+        The bar hides itself before the footer:
+
+            const nearFooter = currentBottom > footerTop - 100
+            const shouldShow = pastDescriptionStart && !nearFooter
+
+        so by the time anybody reaches the bottom of the page the bar has
+        gone, and the spacer was 80px of empty page colour under the footer
+        with nothing over it. Reported with a screenshot of exactly that.
+
+        The bar still cannot cover anything: it disappears a hundred pixels
+        before the footer arrives, which is the reserve, done by the thing
+        that knows whether it is on screen.
+      */}
       <SellerFooter />
-      <div aria-hidden className="h-20 lg:h-0" />
 
     </div>
   )

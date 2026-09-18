@@ -977,7 +977,7 @@ function CategorySelectorModal({
                         onClick={() => handleSelectCategory(cat.id)}
                         className={`flex items-center gap-2 w-full px-4 py-2.5 rounded-lg text-sm text-left transition-all duration-150 cursor-pointer ${
                           selectedCategory === cat.id && !selectedSubcategory
-                            ? "bg-violet-100 text-violet-700 font-medium"
+                            ? "bg-neutral-100 text-neutral-700 border border-neutral-200 font-medium"
                             : "text-neutral-600 hover:bg-neutral-50"
                         }`}
                       >
@@ -990,7 +990,7 @@ function CategorySelectorModal({
                           onClick={() => handleSelectSubcategory(cat.id, sub.id, sub.label)}
                           className={`flex items-center gap-2 w-full px-4 py-2.5 rounded-lg text-sm text-left transition-all duration-150 cursor-pointer ${
                             selectedSubcategory === sub.id
-                              ? "bg-violet-100 text-violet-700 font-medium"
+                              ? "bg-neutral-100 text-neutral-700 border border-neutral-200 font-medium"
                               : "text-neutral-600 hover:bg-neutral-50"
                           }`}
                         >
@@ -1066,7 +1066,7 @@ function CategorySelectorModal({
                       onClick={() => handleSelectCategory(cat.id)}
                       className={`flex items-center gap-2 w-full px-4 py-3 rounded-lg text-sm text-left transition-all duration-150 cursor-pointer touch-manipulation ${
                         selectedCategory === cat.id && !selectedSubcategory
-                          ? "bg-violet-100 text-violet-700 font-medium"
+                          ? "bg-neutral-100 text-neutral-700 border border-neutral-200 font-medium"
                           : "text-neutral-600 hover:bg-neutral-50"
                       }`}
                     >
@@ -1079,7 +1079,7 @@ function CategorySelectorModal({
                         onClick={() => handleSelectSubcategory(cat.id, sub.id, sub.label)}
                         className={`flex items-center gap-2 w-full px-4 py-3 rounded-lg text-sm text-left transition-all duration-150 cursor-pointer touch-manipulation animate-in fade-in slide-in-from-right-2 ${
                           selectedSubcategory === sub.id
-                            ? "bg-violet-100 text-violet-700 font-medium"
+                            ? "bg-neutral-100 text-neutral-700 border border-neutral-200 font-medium"
                             : "text-neutral-600 hover:bg-neutral-50"
                         }`}
                         style={{ animationDelay: `${index * 30}ms`, animationFillMode: 'both' }}
@@ -1987,13 +1987,14 @@ export function ExplorePageClient({
                                       setSelectedSubcategories([...selectedSubcategories, sub.id])
                                     }
                                   }}
-                                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-150 cursor-pointer ${
+                                  /* The same pill as the sheet on a phone and
+                                     the row on the page. One selected look. */
+                                  className={`inline-flex items-center px-3 py-1.5 rounded-full border text-sm font-medium transition-colors duration-150 cursor-pointer ${
                                     selectedSubcategories.includes(sub.id)
-                                      ? "bg-violet-600 text-white"
-                                      : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+                                      ? "bg-neutral-900 text-white border-neutral-900"
+                                      : "bg-white text-neutral-500 border-neutral-200 hover:border-neutral-300 hover:text-neutral-800"
                                   }`}
                                 >
-                                  {selectedSubcategories.includes(sub.id) && <Check className="w-3 h-3" />}
                                   {sub.label}
                                 </button>
                               ))}
@@ -2033,7 +2034,7 @@ export function ExplorePageClient({
                                 }`}
                               >
                                 <span>{option.label}</span>
-                                {sortBy === option.id && <Check className="w-4 h-4 text-violet-600" />}
+                                {sortBy === option.id && <Check className="w-4 h-4 text-[#1a1a2e]" />}
                               </button>
                             ))}
                           </div>
@@ -2104,26 +2105,26 @@ export function ExplorePageClient({
                 {selectedSubcategories.map(subId => {
                   const sub = availableSubcategories.find(s => s.id === subId)
                   return sub ? (
-                    <span key={subId} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-violet-100 text-violet-700">
+                    <span key={subId} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-neutral-100 text-neutral-700 border border-neutral-200">
                       {sub.label}
-                      <button onClick={() => setSelectedSubcategories(selectedSubcategories.filter(s => s !== subId))} className="hover:bg-violet-200 rounded-full p-0.5 cursor-pointer">
+                      <button onClick={() => setSelectedSubcategories(selectedSubcategories.filter(s => s !== subId))} className="hover:bg-neutral-200 rounded-full p-0.5 cursor-pointer">
                         <X className="w-3 h-3" />
                       </button>
                     </span>
                   ) : null
                 })}
                 {priceFilter !== "all" && (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-violet-100 text-violet-700">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-neutral-100 text-neutral-700 border border-neutral-200">
                     {PRICE_FILTERS.find(f => f.id === priceFilter)?.label}
-                    <button onClick={() => setPriceFilter("all")} className="hover:bg-violet-200 rounded-full p-0.5 cursor-pointer">
+                    <button onClick={() => setPriceFilter("all")} className="hover:bg-neutral-200 rounded-full p-0.5 cursor-pointer">
                       <X className="w-3 h-3" />
                     </button>
                   </span>
                 )}
                 {sortBy !== "newest" && (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-violet-100 text-violet-700">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-neutral-100 text-neutral-700 border border-neutral-200">
                     {SORT_OPTIONS.find(o => o.id === sortBy)?.label}
-                    <button onClick={() => setSortBy("newest")} className="hover:bg-violet-200 rounded-full p-0.5 cursor-pointer">
+                    <button onClick={() => setSortBy("newest")} className="hover:bg-neutral-200 rounded-full p-0.5 cursor-pointer">
                       <X className="w-3 h-3" />
                     </button>
                   </span>
@@ -2258,7 +2259,7 @@ export function ExplorePageClient({
                     setSelectedSubcategoryId(null)
                     setSelectedSubcategoryLabel(null)
                   }}
-                  className="mt-3 text-sm text-violet-600 hover:text-violet-700 font-medium cursor-pointer"
+                  className="mt-3 text-sm text-neutral-600 hover:text-neutral-900 font-medium underline underline-offset-2 cursor-pointer"
                 >
                   Clear filters
                 </button>
