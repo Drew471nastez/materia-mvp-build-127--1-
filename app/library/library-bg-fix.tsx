@@ -15,10 +15,12 @@ import { useEffect } from "react"
  *     so that device rotation — which fires `resize` — cannot cause a black
  *     flash even if iOS briefly reverts the inline style during the rotation
  *     animation.
- *  2. Add a `library-layout` CSS class to <html> so the CSS scroll-lock rules
- *     in globals.css (html.library-layout) apply via JS in addition to the
- *     CSS :has([data-page="library"]) rule — belt-and-suspenders so neither
- *     mechanism alone is a single point of failure.
+ *
+ *  2. Add a `library-layout` class to <html>. It was written to trigger a
+ *     document scroll lock, and that lock is gone: the library scrolls with
+ *     the document now, like every other page. The class is still needed,
+ *     because `html.capacitor.library-layout` in globals.css also paints the
+ *     status-bar zone and the rotation-guard overlay behind a light page.
  */
 export function LibraryBgFix() {
   useEffect(() => {
@@ -29,6 +31,16 @@ export function LibraryBgFix() {
       html.style.backgroundColor = "#fafafa"
     }
 
+    /*
+      THE CLASS STAYS, and not for the scroll lock it was written for. That
+      lock is gone — the library scrolls with the document now — but
+      `html.capacitor.library-layout` also paints the status-bar zone and the
+      rotation-guard overlay in the native app, and those rules are the whole
+      reason the notch area is not black behind a light page. Removing the
+      class took the lock's last consumer away and three native rules with it.
+    */
+    html.classList.add("library-layout")
+
     applyBg()
     // Re-apply after every resize (covers device rotation on iOS/Android where
     // the WKWebView rotation animation may briefly revert the inline style).
@@ -38,10 +50,6 @@ export function LibraryBgFix() {
     // RotationGuard covers the visual gap, but this ensures the html background
     // is correct the moment the guard overlay hides.
     window.addEventListener("orientationchange", applyBg, { passive: true })
-
-    // Belt-and-suspenders class: mirrors the CSS :has([data-page="library"])
-    // overflow-lock so the lock is active even before :has() is evaluated.
-    html.classList.add("library-layout")
 
     return () => {
       html.style.backgroundColor = prevBg

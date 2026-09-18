@@ -1,8 +1,12 @@
 import type React from "react"
 import { redirect } from "next/navigation"
+import { Suspense } from "react"
 import { headers } from "next/headers"
 import { currentUserForRequest, profileForRequest } from "@/lib/auth/request-scope"
-import { DashboardSidebar } from "@/components/dashboard/sidebar"
+import { isPlatformDomain, readWishlistCount } from "@/lib/platform/header-props"
+import { ConditionalHeader } from "@/components/marketing/conditional-header"
+import { ConditionalFooter } from "@/components/marketing/conditional-footer"
+import { LibraryTabs } from "@/components/library/library-tabs"
 import { PurchaseSyncProvider } from "@/components/checkout/purchase-sync-provider"
 import { NativeAuthGate } from "@/components/native-auth-gate"
 import LibraryLoading from "./loading"
@@ -30,10 +34,14 @@ export default async function LibraryLayout({
    * second can take up to three seconds. They were awaited one after the
    * other; now the header read happens while the auth request is in flight.
    */
-  const [isNative, current] = await Promise.all([
+  /* The header's two server-side props, asked for alongside everything else
+     rather than in front of it. */
+  const [isNative, current, initialWishlistCount, onPlatformDomain] = await Promise.all([
     isCapacitorWebView(),
     /** A blip is not a sign-out. See lib/auth/current-user.ts. */
     currentUserForRequest(),
+    readWishlistCount(),
+    isPlatformDomain(),
   ])
   const user = current.user
 
@@ -72,51 +80,52 @@ export default async function LibraryLayout({
   }
 
   return (
+    /*
+      ═══════════════════════════════════════════════════════════════════════
+       THE SAME SHELL AS THE REST OF THE PLATFORM
+      ═══════════════════════════════════════════════════════════════════════
+      This was a 256px sidebar with the page beside it, and on a phone that
+      sidebar was ALSO the header: a fixed 3.5rem bar with its own logo, and
+      the content pushed down to clear it. So /library had no platform header,
+      no footer, its own scroll container and its own navigation, while every
+      other page on the site had the opposite of all four.
+
+      It is the marketing shell now, which is what Explore and the product
+      pages use: header, a main column, footer. The sidebar's links were
+      almost all in the header already — Discover, Dashboard, Settings, Log
+      out, the wishlist — and the four that were not are a row of pills above
+      the content. See components/library/library-tabs.
+
+      The h-svh scroll container went with it. It existed to give
+      overscroll-behavior something to apply to on iOS; the page scrolls with
+      the document now, like every other page, and components/platform/
+      capacitor-bounce-guard is what handles the bounce.
+    */
     <NativeAuthGate>
-    <div className="bg-[#fafafa] min-h-svh" data-page="library">
+    <div className="flex min-h-svh flex-col bg-[#fafafa]" data-page="library">
       <LibraryBgFix />
       <PurchaseSyncProvider />
-      <DashboardSidebar />
+      <ConditionalHeader initialWishlistCount={initialWishlistCount} onPlatformDomain={onPlatformDomain} />
 
-      {/* Main content column — sits next to sidebar on desktop */}
-      <div className="flex flex-col md:ml-64 md:min-h-svh bg-[#fafafa]">
-        {/* Mobile: fixed-height scroll container so overscroll-behavior is honoured
-            and iOS rubber-band bounce is fully suppressed.
-            Desktop: natural document flow (sidebar owns the full-height layout). */}
-        <main
-          className={[
-            // Mobile: full-viewport-height scroll container so that overscroll-behavior
-            // is honoured on the container itself and iOS rubber-band is suppressed.
-            // The content is pushed below the fixed header via padding-top.
-            "h-svh overflow-y-auto bg-[#fafafa]",
-            // Desktop: revert to natural document flow
-            "md:h-auto md:overflow-y-visible md:min-h-svh",
-            // Mobile top padding accounts for the fixed header (3.5rem) + 1px border-b + status bar
-            "pt-[calc(3.5rem+1px+env(safe-area-inset-top,_0px))]",
-            "md:pt-[env(safe-area-inset-top,_0px)]",
-          ].join(" ")}
+      <main className="flex-1">
+        <div
+          className="mx-auto w-full max-w-[1200px] px-4 py-6 sm:px-6 lg:px-8"
           style={{
-            // Prevent iOS rubber-band overscroll bounce on the scroll container.
-            // CSS overscroll-behavior works on iOS 16+; CapacitorBounceGuard
-            // in the root layout handles older versions via touchmove preventDefault.
-            // NOTE: WebkitOverflowScrolling is intentionally omitted — that legacy
-            // property conflicts with overscroll-behavior:none and can re-enable
-            // rubber-band bounce on some iOS versions.
-            overscrollBehavior: "none",
-            touchAction: "pan-y",
-            // In landscape mode, account for left/right safe areas (notch on left,
-            // home indicator on right). On mobile the sidebar is not present, so
-            // both insets must be respected. On desktop (md+) the sidebar covers
-            // the left safe area and the ml-64 class handles the offset, so only
-            // the right inset needs to be added via padding.
-            paddingLeft: "env(safe-area-inset-left, 0px)",
-            paddingRight: "env(safe-area-inset-right, 0px)",
+            paddingLeft: "max(1rem, env(safe-area-inset-left, 0px))",
+            paddingRight: "max(1rem, env(safe-area-inset-right, 0px))",
           }}
         >
-          <div className="px-4 pt-2 sm:px-6 md:px-8 pb-[max(2rem,env(safe-area-inset-bottom))] library-scroll-content">
-            {children}
-          </div>
-        </main>
+          <LibraryTabs />
+          {children}
+        </div>
+      </main>
+
+      {/* Its own stacking context, as on the marketing layout: the footer
+          arrives after hydration, into a document already painted. */}
+      <div className="relative isolate">
+        <Suspense fallback={null}>
+          <ConditionalFooter />
+        </Suspense>
       </div>
     </div>
     </NativeAuthGate>

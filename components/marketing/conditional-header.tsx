@@ -46,6 +46,10 @@ function isKnownPlatformPath(p: string): boolean {
     p.startsWith("/features") ||
     p.startsWith("/creators") ||
     p.startsWith("/wishlist") ||
+    /* /library draws this header now: it used to have a sidebar of its own
+       that doubled as its header on a phone. Without this it is not a known
+       platform path, so the header would not render there at all. */
+    p.startsWith("/library") ||
     p.startsWith("/dashboard") ||
     p.startsWith("/app") ||
     p.startsWith("/marketplace") ||
