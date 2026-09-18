@@ -233,6 +233,21 @@ async function main(width) {
       that scrolls on a phone and wraps on a desktop, so the question is how
       much empty space it leaves at each end of that track.
     */
+    /*
+      THE GAP ITSELF, measured rather than added up from two class names in
+      two different files. It is the distance from the bottom of the search
+      field's box to the top of the first pill, which is the thing somebody
+      looks at when they say it is too tight or too loose.
+    */
+    let searchToPills = null
+    const anchorBox = document.querySelector("[data-explore-search-anchor]")
+    const firstPill = document.querySelector("[data-category-pills-row] > *")
+    if (anchorBox && firstPill) {
+      searchToPills = Math.round(
+        firstPill.getBoundingClientRect().top - anchorBox.getBoundingClientRect().bottom,
+      )
+    }
+
     let pillBox = null
     const row = document.querySelector("[data-category-pills-row]")
     if (row && row.parentElement) {
@@ -256,6 +271,7 @@ async function main(width) {
     }
     return {
       popularColumns,
+      searchToPills,
       pills: pillBox,
       pillsWithEmoji: withEmoji,
       /* Two headings that both announce categories is the duplicate board. */
@@ -552,6 +568,9 @@ for (const r of [desk, phone]) {
   if (r.withSearchOpen?.found) {
     const w = r.withSearchOpen
     console.log(`    with the search open the control is a <${w.searchControlTag}> and ${w.covering.length} element(s) cover half the screen or more${w.covering.length ? ` (${w.covering.join(", ")})` : ""}`)
+  }
+  if (r.layout?.searchToPills !== null && r.layout?.searchToPills !== undefined) {
+    console.log(`    the gap from the search field to the pills: ${r.layout.searchToPills}px`)
   }
   if (r.layout?.pills) {
     const pb = r.layout.pills

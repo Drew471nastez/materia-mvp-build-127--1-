@@ -711,37 +711,42 @@ function MobileFilterSheet({
           <div className="h-1 w-9 rounded-full bg-neutral-300" />
         </div>
 
-        <div className="flex items-center justify-between px-4 py-2 border-b border-neutral-100 shrink-0">
-          <h3 className="text-lg font-semibold text-neutral-900">Filters</h3>
-          {activeFilterCount > 0 && (
-            <button onClick={resetFilters} className="text-sm text-violet-600 font-medium cursor-pointer">
-              Reset all
-            </button>
-          )}
+        {/*
+          ONE RESET, NOT TWO. There was a "Reset all" here and a "Reset" in
+          the row at the bottom, doing the same thing two thumb-lengths apart.
+          The one next to Apply is the one that is where a decision gets made.
+        */}
+        <div className="px-5 pb-3 pt-1 shrink-0">
+          <h3 className="text-[17px] font-semibold tracking-[-0.01em] text-[#1a1a2e]">Filters</h3>
         </div>
 
         {/* data-sheet-scroll: a drag that starts in here is a scroll unless the
             list is already at its top. See handleTouchStart. */}
         <div
           data-sheet-scroll
-          className="overflow-y-auto overscroll-contain px-4 pt-3 pb-4 space-y-5 flex-1 min-h-0"
+          className="overflow-y-auto overscroll-contain px-5 pt-1 pb-5 space-y-6 flex-1 min-h-0"
           style={{ touchAction: "pan-y" }}
         >
           {availableSubcategories.length > 0 && (
             <div>
-              <h4 className="text-sm font-semibold text-neutral-900 mb-3">Subcategories</h4>
+              <h4 className="mb-2.5 text-[12px] font-medium uppercase tracking-[0.06em] text-neutral-400">Subcategories</h4>
               <div className="flex flex-wrap gap-2">
                 {availableSubcategories.map((sub) => (
                   <button
                     key={sub.id}
                     onClick={() => toggleSubcategory(sub.id)}
-                    className={`inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full text-sm font-medium transition-all duration-150 cursor-pointer ${
+                    /* The row of pills on the page behind this one, exactly:
+                       white, a hairline, grey label, and the selected one
+                       filled. It was violet here and near-black out there,
+                       which is two different ways to say "chosen" on one
+                       screen. The tick went with it — a filled pill has
+                       already said it. */
+                    className={`inline-flex items-center px-3.5 py-2 rounded-full border text-sm font-medium transition-colors duration-150 cursor-pointer ${
                       selectedSubcategories.includes(sub.id)
-                        ? "bg-violet-600 text-white"
-                        : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+                        ? "bg-neutral-900 text-white border-neutral-900"
+                        : "bg-white text-neutral-500 border-neutral-200 hover:border-neutral-300 hover:text-neutral-800"
                     }`}
                   >
-                    {selectedSubcategories.includes(sub.id) && <Check className="w-3.5 h-3.5" />}
                     {sub.label}
                   </button>
                 ))}
@@ -750,19 +755,18 @@ function MobileFilterSheet({
           )}
 
           <div>
-            <h4 className="text-sm font-semibold text-neutral-900 mb-3">Price Range</h4>
+            <h4 className="mb-2.5 text-[12px] font-medium uppercase tracking-[0.06em] text-neutral-400">Price Range</h4>
             <div className="flex flex-wrap gap-2">
               {PRICE_FILTERS.map((filter) => (
                 <button
                   key={filter.id}
                   onClick={() => setPriceFilter(filter.id)}
-                  className={`inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full text-sm font-medium transition-all duration-150 cursor-pointer ${
+                  className={`inline-flex items-center px-3.5 py-2 rounded-full border text-sm font-medium transition-colors duration-150 cursor-pointer ${
                     priceFilter === filter.id
-                      ? "bg-neutral-900 text-white"
-                      : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+                      ? "bg-neutral-900 text-white border-neutral-900"
+                      : "bg-white text-neutral-500 border-neutral-200 hover:border-neutral-300 hover:text-neutral-800"
                   }`}
                 >
-                  {priceFilter === filter.id && <Check className="w-3.5 h-3.5" />}
                   {filter.label}
                 </button>
               ))}
@@ -770,36 +774,47 @@ function MobileFilterSheet({
           </div>
 
           <div>
-            <h4 className="text-sm font-semibold text-neutral-900 mb-3">Sort By</h4>
+            <h4 className="mb-2.5 text-[12px] font-medium uppercase tracking-[0.06em] text-neutral-400">Sort By</h4>
             <div className="space-y-1">
               {SORT_OPTIONS.map((option) => (
                 <button
                   key={option.id}
                   onClick={() => setSortBy(option.id)}
-                  className={`flex items-center justify-between w-full px-4 py-3.5 rounded-xl text-sm font-medium transition-all duration-150 cursor-pointer ${
-                    sortBy === option.id ? "bg-neutral-100 text-neutral-900" : "text-neutral-600 hover:bg-neutral-50"
+                  /* A list of one-of, so it reads as one: a row, its label,
+                     and a mark on the one that is on. Neutral, because
+                     nothing else on this screen is violet. */
+                  className={`flex items-center justify-between w-full px-3 py-3 rounded-[10px] text-[15px] transition-colors duration-150 cursor-pointer ${
+                    sortBy === option.id
+                      ? "bg-neutral-100 text-[#1a1a2e] font-medium"
+                      : "text-neutral-600 hover:bg-neutral-50"
                   }`}
                 >
                   <span>{option.label}</span>
-                  {sortBy === option.id && <Check className="w-5 h-5 text-violet-600" />}
+                  {sortBy === option.id && <Check className="w-[18px] h-[18px] text-[#1a1a2e]" />}
                 </button>
               ))}
             </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-3 px-4 pt-4 border-t border-neutral-100 bg-white shrink-0" style={{ paddingBottom: 'max(2rem, env(safe-area-inset-bottom))' }}>
+        {/* Apply keeps the near-black the rest of the product uses for the
+            one action a screen is for. Reset is a way out, so it is quiet. */}
+        <div
+          className="flex items-center gap-2.5 px-5 pt-3 border-t border-neutral-100 bg-white shrink-0"
+          style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom))' }}
+        >
           <button
             onClick={resetFilters}
-            className="flex-1 px-4 py-3 rounded-xl text-sm font-medium text-neutral-600 bg-neutral-100 hover:bg-neutral-200 transition-colors cursor-pointer"
+            disabled={activeFilterCount === 0}
+            className="px-4 h-11 rounded-[10px] text-sm font-medium text-neutral-500 transition-colors cursor-pointer hover:text-neutral-800 disabled:opacity-40 disabled:cursor-default"
           >
             Reset
           </button>
           <button
             onClick={handleClose}
-            className="flex-1 px-4 py-3 rounded-xl text-sm font-semibold bg-neutral-900 text-white hover:bg-neutral-800 transition-colors cursor-pointer"
+            className="flex-1 h-11 rounded-[10px] text-[15px] font-semibold bg-[#1a1a2e] text-white transition-colors cursor-pointer hover:bg-black"
           >
-            Apply Filters
+            Show results
           </button>
         </div>
       </div>
@@ -1239,6 +1254,7 @@ export function ExplorePageClient({
   // Get Recommended section products (based on main category and subcategory)
   const recommendedProducts = useMemo(() => {
     let products = [...initialProducts]
+    const searching = localSearchQuery.trim().length > 0
 
     /*
       ═══════════════════════════════════════════════════════════════════════
@@ -1253,7 +1269,10 @@ export function ExplorePageClient({
       What it does remove is what they already own. Being sold a thing you
       have already bought is the one recommendation that is definitely wrong.
     */
-    if (mainCategory === FOR_YOU_ID) {
+    /* Declared before the branches below so they can stand down. */
+    if (searching) {
+      /* nothing: a search is not scoped to a category */
+    } else if (mainCategory === FOR_YOU_ID) {
       const owned = new Set(interests.ownedProductIds)
       products = products
         .filter((p) => !owned.has(p.id))
@@ -1304,12 +1323,35 @@ export function ExplorePageClient({
     }
 
     // Filter by local search
-    if (localSearchQuery.trim()) {
-      const query = localSearchQuery.toLowerCase()
-      products = products.filter(p =>
-        p.title?.toLowerCase().includes(query) ||
-        p.description?.toLowerCase().includes(query)
-      )
+    /*
+      ═══════════════════════════════════════════════════════════════════════
+       A SEARCH LOOKS AT EVERYTHING, AND IN EVERY FIELD
+      ═══════════════════════════════════════════════════════════════════════
+      Two things were wrong with this. It matched the title and the
+      description and nothing else, so a creator's name found nothing; and it
+      ran AFTER the category narrowing above, so searching while a pill was
+      selected searched inside that pill. With For you selected by default for
+      a signed-in visitor, that is a search box that quietly answers a
+      different question from the one it was asked.
+
+      A search is now the whole catalogue, in every field a visitor could
+      reasonably mean. The category block above is skipped while there is a
+      query, and comes back the moment the field is cleared.
+    */
+    if (searching) {
+      const query = localSearchQuery.trim().toLowerCase()
+      products = products.filter((p) => {
+        const creator = p.creator || {}
+        return (
+          p.title?.toLowerCase().includes(query) ||
+          p.description?.toLowerCase().includes(query) ||
+          p.category?.toLowerCase().includes(query) ||
+          p.categoryName?.toLowerCase().includes(query) ||
+          creator.display_name?.toLowerCase().includes(query) ||
+          creator.username?.toLowerCase().includes(query) ||
+          creator.slug?.toLowerCase().includes(query)
+        )
+      })
     }
 
     // Save the category-filtered set before recommendation sorting (for backfill)
@@ -1900,15 +1942,19 @@ export function ExplorePageClient({
                     one layer above the row rather than in it.
                   */
                   className={`inline-flex items-center justify-center gap-2 h-[38px] px-3.5 sm:px-4 rounded-[10px] text-sm font-medium border transition-all duration-150 cursor-pointer select-none ${
+                    /* GREY, NOT BLACK, per the owner. Near-black is what the
+                       selected CATEGORY pill wears, and two black controls in
+                       one row read as two selections rather than as a filter
+                       button that happens to be carrying something. */
                     filtersOpen || activeFilterCount > 0
-                      ? "bg-neutral-900 text-white border-neutral-900 shadow-[0_1px_2px_rgba(15,23,42,0.18)]"
+                      ? "bg-neutral-200 text-[#1a1a2e] border-neutral-300 shadow-[inset_0_1px_1px_rgba(15,23,42,0.05)]"
                       : "bg-white text-neutral-500 border-neutral-200 hover:border-neutral-300 hover:text-neutral-800 shadow-[0_1px_2px_rgba(15,23,42,0.06),0_1px_1px_rgba(15,23,42,0.04)]"
                   }`}
                 >
                   <SlidersHorizontal className="w-4 h-4" />
                   <span className="hidden sm:inline">Filters</span>
                   {activeFilterCount > 0 && (
-                    <span className="flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-white text-neutral-900 text-[11px] font-bold">
+                    <span className="flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-[#1a1a2e] text-white text-[11px] font-semibold tabular-nums">
                       {activeFilterCount}
                     </span>
                   )}

@@ -167,6 +167,22 @@ export function ExploreHero({
     together.
   */
   /*
+    THE DESKTOP GAP GOES THE OTHER WAY, by five per cent, AND THE NUMBER CAME
+    OFF THE PAGE RATHER THAN OUT OF THIS FILE.
+
+    Adding up the classes said the gap was 16 + 8 = 24px: this padding plus
+    the mt-2 on the section below. Measured on the deployed page it is 50px
+    on a desktop and 40px on a phone — there is a py-0.5 on the pill track and
+    the section header's own spacing in there as well, none of which is
+    visible from here. Five per cent of 24 would have been 1.2px, and five per
+    cent of the real gap is 2.5, so this is 16 + 2.5 = 18.5.
+
+    scripts/check-explore-live measures the distance from the field's box to
+    the first pill now, so the next one of these is read off the page too.
+
+    Only the sm: side moves: the phone numbers below were asked for
+    separately and stay where they are.
+
     AND THE TWO PHONE NUMBERS HAVE BOTH COME DOWN AGAIN.
 
     pt: 48 -> 42, the air between the header and "Discover".
@@ -177,7 +193,7 @@ export function ExploreHero({
     phone.
   */
   return (
-    <section className="pt-[42px] pb-[6px] sm:pt-[88px] sm:pb-4">
+    <section className="pt-[42px] pb-[6px] sm:pt-[88px] sm:pb-[18.5px]">
       {/* The sentence, whole, for anything that reads rather than looks. */}
       <h1 className="sr-only">Discover {NOUNS.slice(0, -1).join(", ")} and {NOUNS[NOUNS.length - 1]} from creators</h1>
 
