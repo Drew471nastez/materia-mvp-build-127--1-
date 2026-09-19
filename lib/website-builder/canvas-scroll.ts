@@ -261,3 +261,29 @@ export function pinScroll(
 
 /** Long enough to cover a tap's own settling, short enough to never be felt. */
 export const PIN_AFTER_SELECT_MS = 500
+
+/**
+ * ===========================================================================
+ *  AND THE SAME HOLD WHILE A PAGE IS OPENING
+ * ===========================================================================
+ * Following a link in the footer had the canvas move a little and then change
+ * page. The move is not the page change: opening one starts by putting the
+ * sidebar back to the page list, which on a phone is a sheet of a different
+ * height, which is a different height for the canvas — and a canvas that
+ * changes height while somebody is at the bottom of it is a canvas the
+ * browser has to clamp. That is the nudge. The page itself arrives a moment
+ * later, from the network, and resets the scroll to the top.
+ *
+ * It is the same disturbance the pin above already exists for, on the path
+ * that never had one. So the same hold: the canvas does not move while the
+ * page is being fetched, and the only movement anybody sees is the one
+ * deliberate jump to the top when the new page is on screen.
+ *
+ * LONGER, because this one waits for the network rather than for a tap to
+ * settle, and it is RELEASED EARLY rather than run to its end: the effect
+ * that puts the new page at the top clears the flag first, so the pin stops
+ * on the same frame the page arrives. This number is only the ceiling for a
+ * fetch that never comes back, and at that point a lapsed pin is what the
+ * canvas had before any of this.
+ */
+export const PIN_WHILE_OPENING_MS = 2000

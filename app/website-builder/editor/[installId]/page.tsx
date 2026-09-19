@@ -78,9 +78,9 @@ import { controlFor, resolveControlType } from "@/lib/storelib-theme/controls/re
 import { fillResponsive } from "@/lib/storelib-theme/resolve"
 import { toCard, type ProductCard } from "@/lib/website-builder/shop-products"
 import { sectionDisplayName } from "@/lib/website-builder/section-name"
-import { PIN_AFTER_SELECT_MS, pinScroll, resetClippedAncestors, reviveScroller, scrollWithin } from "@/lib/website-builder/canvas-scroll"
+import { PIN_AFTER_SELECT_MS, PIN_WHILE_OPENING_MS, pinScroll, resetClippedAncestors, reviveScroller, scrollWithin } from "@/lib/website-builder/canvas-scroll"
 import { LEAVING_SEEN_MS, navigateWithCeiling } from "@/lib/website-builder/navigate-ceiling"
-import { isTypingTarget, leavesThePage, type ClickTargetLike } from "@/lib/website-builder/canvas-intercept"
+import { isCanvasNavigationLink, isTypingTarget, leavesThePage, type ClickTargetLike } from "@/lib/website-builder/canvas-intercept"
 
 import { watchKeyboard } from "@/lib/website-builder/keyboard-watch"
 import { clearStaleDocumentLocks, watchForStuckLayer } from "@/lib/website-builder/stuck-layer"
@@ -4667,6 +4667,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * corrected after a paint is a scroll somebody saw.
    */
   useLayoutEffect(() => {
+    /* The page is here, so the hold that kept the canvas still while it was
+       being fetched ends now, before the one move it was protecting. */
+    openingPage.current = false
     document.getElementById("wb-preview-root")?.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior })
   }, [currentPage, selectedProductPage])
 
@@ -4816,6 +4819,50 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const inspectorRef = useRef(inspectorEnabled)
   inspectorRef.current = inspectorEnabled
 
+  /**
+   * A finger on the canvas releases either of the two pins below: the one
+   * taken when a section is selected, and the one taken while a page is
+   * opening. A hold that fights a deliberate scroll is worse than whatever
+   * it was absorbing. Declared here because both of them read it.
+   */
+  const touchingCanvas = useRef(false)
+
+  /**
+   * ═══════════════════════════════════════════════════════════════════════
+   *  THE CANVAS STANDS STILL WHILE A PAGE IS ON ITS WAY
+   * ═══════════════════════════════════════════════════════════════════════
+   * A page is fetched, so there are a few hundred milliseconds between the
+   * link being followed and the new page being on screen. Nothing is
+   * supposed to move in them, and the report says something does: the scroll
+   * jumps a little, and then the page changes.
+   *
+   * Selecting a section already holds the canvas for exactly this reason —
+   * the page moving under somebody who asked for something that is not a
+   * scroll. Following a link is the same ask and had no hold, so it gets the
+   * same one, for longer, because this one waits for the network rather than
+   * for a tap to settle.
+   *
+   * RELEASED WHEN THE PAGE ARRIVES, not when the timer ends: the effect that
+   * puts the new page at the top clears this first, so the hold stops on the
+   * same frame and the jump to the top is the one movement anybody sees. A
+   * finger on the canvas releases it too, because a hold that fights a
+   * deliberate scroll is worse than the nudge it was there to absorb.
+   */
+  const openingPage = useRef(false)
+  const holdCanvasWhileOpening = useCallback(() => {
+    const el = document.getElementById("wb-preview-root")
+    if (!el) return
+    openingPage.current = true
+    touchingCanvas.current = false
+    pinScroll(
+      el,
+      PIN_WHILE_OPENING_MS,
+      (cb) => window.requestAnimationFrame(cb),
+      () => Date.now(),
+      () => touchingCanvas.current || !openingPage.current,
+    )
+  }, [])
+
   const handleEditorNavigate = useCallback((href: string, fromNav = false) => {
     /* WHERE it goes is decided by a pure function, so it can be asked the
        question without an editor around it: lib/website-builder/editor-navigation.
@@ -4852,11 +4899,15 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         const match = productsRef.current.find(
           (p) => p.slug === decision.slug || p.id === decision.slug,
         )
-        if (match) selectProductRef.current(match.id, match.title)
+        if (match) {
+          holdCanvasWhileOpening()
+          selectProductRef.current(match.id, match.title)
+        }
         return
       }
 
       case "page":
+        holdCanvasWhileOpening()
         pageChangeRef.current(decision.key as PageKey)
         return
 
@@ -5473,11 +5524,6 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * than from the page. Selecting from a list is the case where scrolling is
    * the whole answer.
    */
-  /**
-   * A finger on the canvas releases the pin below; see it for what the pin is.
-   */
-  const touchingCanvas = useRef(false)
-
   const selectSectionFromCanvas = useCallback(
     (sectionId: string, blockId?: string | null) => {
       const el = document.getElementById("wb-preview-root")
@@ -7898,7 +7944,33 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               which is every button and link the canvas draws, still loses
               it and still only selects.
             */
-            onMouseDownCapture={inspectorEnabled ? (e) => { if (!isTypingTarget(e.target as unknown as ClickTargetLike | null)) e.preventDefault() } : undefined}
+            /**
+             * ═════════════════════════════════════════════════════════════
+             *  A PRESS TAKES NO FOCUS, AND NOW ALSO ON A LINK BEING FOLLOWED
+             * ═════════════════════════════════════════════════════════════
+             * With the inspector on, nothing in the canvas takes a press:
+             * a focused control is scrolled into view by the browser before
+             * any code here runs, and on a short page the only place it can
+             * scroll to is the top.
+             *
+             * With the inspector OFF the canvas is a preview, controls work
+             * and this did nothing at all — which is the mode somebody is in
+             * when they follow a link. A press on a footer link focused it,
+             * the browser scrolled the canvas just far enough to bring a link
+             * at the bottom of the page fully into view, and then the page
+             * changed: the nudge in "it glitches up a little and then opens
+             * the page".
+             *
+             * So the one exception now applies in both modes, and only where
+             * focus cannot matter: a link the canvas is about to follow
+             * itself. See isCanvasNavigationLink.
+             */
+            onMouseDownCapture={(e) => {
+              const target = e.target as unknown as ClickTargetLike | null
+              /* A field refused focus is a field the caret never reaches. */
+              if (isTypingTarget(target)) return
+              if (inspectorEnabled || isCanvasNavigationLink(target)) e.preventDefault()
+            }}
             /**
              * And this pair is not about the inspector at all: the canvas
              * never takes the BROWSER anywhere, in either mode. A link goes

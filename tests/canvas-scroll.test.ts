@@ -14,7 +14,7 @@
  * scroller's wrapper on a phone — is held by reading the editor.
  */
 import { readFileSync } from "node:fs"
-import { leavesThePage, type ClickTargetLike } from "@/lib/website-builder/canvas-intercept"
+import { isCanvasNavigationLink, leavesThePage, type ClickTargetLike } from "@/lib/website-builder/canvas-intercept"
 import { join } from "node:path"
 import { PIN_AFTER_SELECT_MS, STUCK_DISTANCE_PX, nudgeOffEnds, pinScroll, reviveScroller, watchForStuckScroll } from "@/lib/website-builder/canvas-scroll"
 import { NAVIGATE_CEILING_MS, navigateWithCeiling } from "@/lib/website-builder/navigate-ceiling"
@@ -356,7 +356,58 @@ function main() {
 
   check("nothing is nothing", !leavesThePage(null))
 
+  /*
+    ── A PRESS ON A LINK THE CANVAS WILL FOLLOW TAKES NO FOCUS ────────────
+    Following a menu link in the footer moved the canvas a little and then
+    changed the page. The press focuses the link, and a browser scrolls a
+    focused element fully into view; a footer link is at the bottom of the
+    page by definition, so "fully into view" is a few dozen pixels of
+    scrolling. Measured in scripts/check-footer-jump.mjs, which holds the
+    canvas against a nudge of exactly that size.
+
+    The guard for this existed and was gated on the INSPECTOR being on,
+    which is not the mode somebody follows a link in. It is its own rule
+    now, it applies in both modes, and it is this narrow: only a link the
+    canvas is about to follow itself, where focus cannot matter.
+  */
+  const chrome = el("footer", ["[data-chrome]"])
+  const footerLink = el("a", ["a[href]"], { href: "/refund-policy" }, chrome)
+  check("a press on a footer link is one the canvas follows",
+    isCanvasNavigationLink(el("span", [], {}, footerLink)))
+
+  const body = el("section", [])
+  const heroLink = el("a", ["a[href]"], { href: "/refund-policy" }, body)
+  check("the same link inside the page's own content is not",
+    !isCanvasNavigationLink(heroLink))
+
+  const away = el("a", ["a[href]"], { href: "https://example.com" }, chrome)
+  check("an external link in the footer is not, because it is never followed here",
+    !isCanvasNavigationLink(away))
+
+  const protocolRelative = el("a", ["a[href]"], { href: "//example.com" }, chrome)
+  check("and neither is a protocol relative one", !isCanvasNavigationLink(protocolRelative))
+
+  const noHref = el("div", [], {}, chrome)
+  check("something in the footer that is not a link at all is not",
+    !isCanvasNavigationLink(noHref))
+  check("and nothing is nothing here too", !isCanvasNavigationLink(null))
+
   const editor = readFileSync(join(process.cwd(), "app/website-builder/editor/[installId]/page.tsx"), "utf8")
+  check(
+    "the canvas applies that rule on the press, in both modes",
+    /if \(isTypingTarget\(target\)\) return/.test(editor)
+      && /if \(inspectorEnabled \|\| isCanvasNavigationLink\(target\)\) e\.preventDefault\(\)/.test(editor),
+  )
+  check(
+    "and holds the canvas still from the link until the page is on screen",
+    /holdCanvasWhileOpening\(\)\s*\n\s*pageChangeRef\.current/.test(editor)
+      && /PIN_WHILE_OPENING_MS/.test(editor)
+      && /openingPage\.current = false\s*\n\s*document\.getElementById\("wb-preview-root"\)\?\.scrollTo/.test(editor),
+  )
+  check(
+    "released by a finger as well, so it never fights a deliberate scroll",
+    /\(\) => touchingCanvas\.current \|\| !openingPage\.current/.test(editor),
+  )
   check(
     "and the canvas blocks both, in either mode, without blocking any handler",
     /onClickCapture=\{\(e\) => \{[\s\S]{0,4200}?if \(leavesThePage\(/.test(editor) &&

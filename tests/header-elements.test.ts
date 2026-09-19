@@ -212,7 +212,8 @@ function main() {
   check("the canvas knows what a typing control is",
     /export function isTypingTarget/.test(intercept) && /contenteditable/.test(intercept))
   check("and stops cancelling the press on one",
-    /if \(!isTypingTarget\(e\.target as unknown as ClickTargetLike \| null\)\) e\.preventDefault\(\)/.test(editor))
+    /if \(isTypingTarget\(target\)\) return/.test(editor)
+      && /if \(inspectorEnabled \|\| isCanvasNavigationLink\(target\)\) e\.preventDefault\(\)/.test(editor))
 
   console.log("\n  the line under the header darkens, so it is never a white line")
 

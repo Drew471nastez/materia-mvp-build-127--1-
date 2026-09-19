@@ -67,3 +67,41 @@ export function isTypingTarget(target: ClickTargetLike | null): boolean {
   if (!target?.closest) return false
   return target.closest("input, textarea, select, [contenteditable]:not([contenteditable=false])") !== null
 }
+
+/**
+ * ===========================================================================
+ *  A LINK THE CANVAS IS GOING TO FOLLOW ITSELF
+ * ===========================================================================
+ * The header's and the footer's links are the site's navigation, and the
+ * canvas follows them: it cancels the click and changes the page being
+ * edited. What it never touched was the PRESS before the click, and a press
+ * on a link does one thing of its own before any of that — it focuses it.
+ *
+ * A browser scrolls a focused element into view, and a scroller is scrolled
+ * by exactly enough to bring it fully in. A footer link is at the bottom of
+ * the page by definition, which is where "exactly enough" is a few dozen
+ * pixels. The page then changes and the scroll resets to the top, so what
+ * somebody sees is a nudge and then a page change: reported as "it glitches,
+ * the scroll moves up a little, and then it opens the page".
+ *
+ * The guard for this already existed and did not cover it: the canvas
+ * cancels every press while the INSPECTOR is on, and following a link is
+ * what somebody does with the inspector off. So the rule is named here
+ * instead, it applies in both modes, and it is as narrow as it can be: a
+ * press only loses its focus when the canvas is about to leave the page
+ * anyway, which is the one case where focusing something is pointless.
+ *
+ * Pure and shaped like the rest of this file, so tests/canvas-scroll.test.ts
+ * can hand it a fake tree.
+ */
+export function isCanvasNavigationLink(target: ClickTargetLike | null): boolean {
+  const anchor = target?.closest?.("a[href]")
+  if (!anchor) return false
+  /* Header and footer only, which is the same subtree the click handler
+     navigates for. A link in a hero is content being edited. */
+  if (!anchor.closest("[data-chrome]")) return false
+  const href = (anchor.getAttribute("href") ?? "").trim()
+  // An address inside this site. An external link is not followed here at
+  // all, so there is nothing for a press to be in the way of.
+  return href.startsWith("/") && !href.startsWith("//")
+}

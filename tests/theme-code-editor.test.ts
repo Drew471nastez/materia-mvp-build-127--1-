@@ -356,7 +356,10 @@ section("It is reachable, and it works on a file longer than the window")
        header's own search input doing nothing inside the builder. The rule
        this check exists for — a press does not focus, so the browser does
        not scroll the canvas to the top — is unchanged for everything else. */
-    /onMouseDownCapture=\{inspectorEnabled \? \(e\) => \{ if \(!isTypingTarget\(/.test(editor) &&
+    /onMouseDownCapture=\{\(e\) => \{[\s\S]{0,300}?if \(isTypingTarget\(target\)\) return/.test(editor) &&
+      /* And the one exception, which is a link that is about to be followed
+         anyway. See isCanvasNavigationLink. */
+      /if \(inspectorEnabled \|\| isCanvasNavigationLink\(target\)\) e\.preventDefault\(\)/.test(editor) &&
       // and the page-leaving pair, which is not about the inspector at all:
       // see "The canvas never takes the browser anywhere" in canvas-scroll.
       /onClickCapture=\{\(e\) => \{[\s\S]{0,4200}?if \(leavesThePage\(/.test(editor) &&

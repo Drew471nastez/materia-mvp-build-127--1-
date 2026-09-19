@@ -63,3 +63,4 @@ tsconfig.*.generated.json
 .drawer-probe/
 .seam-probe/
 .card-probe/
+.footer-probe/
