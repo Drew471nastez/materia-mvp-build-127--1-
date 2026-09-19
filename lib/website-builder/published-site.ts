@@ -38,6 +38,7 @@
  * such site" for an hour because somebody guessed their address early.
  */
 import { sanitizeSections } from "@/lib/website-builder/sanitize-sections"
+import { pageWithLiveLinks } from "@/lib/website-builder/live-links"
 import { applyUniversalChrome } from "@/lib/website-builder/universal-chrome"
 import { unstable_cache, revalidateTag, revalidatePath } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -234,6 +235,24 @@ async function buildSite(creatorId: string, displayName: string): Promise<BuiltL
    */
   const dressed = applyUniversalChrome(pages)
   for (const key of Object.keys(dressed)) pages[key] = dressed[key]
+
+  /**
+   * AND EVERY LINK IN THAT CHROME POINTS AT AN ADDRESS THIS SITE ANSWERS.
+   *
+   * lib/website-builder/live-links has done this since it was written, but
+   * only where the editor runs it: on load, writing the repair back to the
+   * database. A site published before that existed keeps the broken links
+   * until its creator happens to open the builder and publish again, and
+   * measured on a live site that is exactly what had happened — /shop, /about
+   * and /contact all answering 404 in the nav of a published site.
+   *
+   * So it runs here too, on the way out, against the page keys this site
+   * actually has. The function is pure and idempotent, which is what makes
+   * that safe: a site whose stored links are already right is unchanged, and
+   * a creator's own /blog stays a link because their page is in this set.
+   */
+  const pageKeys = new Set(Object.keys(pages))
+  for (const key of Object.keys(pages)) pages[key] = pageWithLiveLinks(pages[key], pageKeys)
 
   const sections = pages.home ?? []
   const sources = await sectionSources(admin as never, row.id)

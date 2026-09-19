@@ -19,6 +19,7 @@ import { createPortal } from "react-dom"
 import { ThemeSocials } from "../../theme/ThemeSocials"
 import { cn } from "@/lib/utils"
 import { useBackdropDismiss, useDrawerFrame } from "../../drawer-frame"
+import { SHOP_PATH } from "@/lib/website-builder/live-links"
 import { useSiteCart } from "../../site-cart"
 import { lineKey } from "@/lib/website-builder/cart"
 import { headerIconOn } from "@/lib/website-builder/header-icons"
@@ -1308,12 +1309,37 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
     )
   }
 
-  // Default nav links fallback (Home / Shop / About / Contact)
+  /**
+   * ═══════════════════════════════════════════════════════════════════════
+   *  THE FALLBACK NAV ONLY NAMES ADDRESSES EVERY SITE ANSWERS
+   * ═══════════════════════════════════════════════════════════════════════
+   * This is what a header with no stored blocks renders, which is every site
+   * whose header has never been edited. It shipped Home, Shop, About and
+   * Contact, and measured on a real published site three of those four were
+   * HTTP 404 — serving Storelib's own not-found page inside somebody's
+   * website:
+   *
+   *     /          200   the site
+   *     /products  200   the shop
+   *     /shop      404
+   *     /about     404
+   *     /contact   404
+   *
+   * Reported as "the menu links do not work at all". They worked: the drawer
+   * closed and the address changed, and what arrived was a Storelib 404 with
+   * no header, no menu and no logo on it, which is a visitor stranded inside
+   * a creator's site.
+   *
+   * `/shop` was never an address — lib/website-builder/live-links has said so
+   * since it was written, and SHOP_PATH is the same constant this uses.
+   * About and Contact are pages a creator MAKES; until they do, a link to
+   * one is a promise the site cannot keep. A stored nav that names them is
+   * left alone and repaired separately, in live-links, where the site's real
+   * page list is in hand.
+   */
   const DEFAULT_NAV_BLOCKS: { id: string; type: string; settings: Record<string, unknown> }[] = [
-    { id: "nav-home",    type: "nav_link", settings: { label: "Home",    url: "/",        link_type: "custom" } },
-    { id: "nav-shop",    type: "nav_link", settings: { label: "Shop",    url: "/shop",    link_type: "custom" } },
-    { id: "nav-about",   type: "nav_link", settings: { label: "About",   url: "/about",   link_type: "custom" } },
-    { id: "nav-contact", type: "nav_link", settings: { label: "Contact", url: "/contact", link_type: "custom" } },
+    { id: "nav-home", type: "nav_link", settings: { label: "Home", url: "/", link_type: "custom" } },
+    { id: "nav-shop", type: "nav_link", settings: { label: "Shop", url: SHOP_PATH, link_type: "custom" } },
   ]
   const navBlocks = (section.blocks && section.blocks.length > 0) ? section.blocks : DEFAULT_NAV_BLOCKS
 
