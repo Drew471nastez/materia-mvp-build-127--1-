@@ -108,11 +108,19 @@ export function renderWithSources(
   theme: ThemeSettingsValues,
   template: string,
   products?: ProductCard[],
+  /**
+   * What this particular page knows that its sections cannot work out for
+   * themselves. The search page's query is the first of these: it belongs to
+   * the request rather than to the section, so it is not a setting somebody
+   * could be asked to keep in step, and it is not something the section can
+   * read on its own.
+   */
+  pageExtras?: Record<string, unknown>,
 ): Record<string, RenderedSection> {
   const prerendered: Record<string, RenderedSection> = {}
   for (const section of sections) {
     if (!isStorelibSection(section.type, sources)) continue
-    const out = renderStorelibSection(section, theme, { template }, sources, products)
+    const out = renderStorelibSection(section, theme, { ...pageExtras, template }, sources, products)
     if (out.ok) prerendered[section.id] = { html: out.html, css: out.css }
   }
   return prerendered

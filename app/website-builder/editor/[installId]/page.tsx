@@ -65,6 +65,7 @@ import { ColorsPanel, SectionDesignPanel, TypographyPanel } from "@/components/w
 import { remapScheme, themeColorSchemes } from "@/lib/storelib-theme/color-schemes"
 import { PAGE_META } from "@/lib/website-builder/types"
 import { BUILT_IN_PAGE_KEYS, pageKeyFromSegment, pageTitleFromKey } from "@/lib/website-builder/site-pages"
+import { headerIconOn } from "@/lib/website-builder/header-icons"
 import { chromeOf, withUniversalChrome } from "@/lib/website-builder/universal-chrome"
 import { AutoTextarea } from "@/components/website-builder/auto-textarea"
 import { RichTextField } from "@/components/website-builder/rich-text-field"
@@ -2850,6 +2851,9 @@ function HeaderSectionSettings({
         const borderStyleValue = typeof s.border_style === "string" ? s.border_style : "solid"
         const borderVisibilityValue = typeof s.border_visibility === "string" ? s.border_visibility : "all"
         const depthShadowEnabled = s.header_depth_shadow !== false
+        /* The placeholder and the behaviour describe the search icon, so
+           they are not offered while it is off. */
+        const showSearchIcon = headerIconOn(s.show_search_icon, s.show_search)
         return (
           <div className="space-y-6">
             {/* ── 1. Header layout (desktop) ── */}
@@ -3072,27 +3076,79 @@ function HeaderSectionSettings({
             {/* ── 7. Header elements ── */}
             <div className="space-y-3">
               <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">Header elements</p>
+              {/*
+                ═══════════════════════════════════════════════════════════
+                 THESE WROTE KEYS THE HEADER DOES NOT READ
+                ═══════════════════════════════════════════════════════════
+                Search wrote `show_search` and the cart wrote `show_cart`;
+                the header reads `show_search_icon` and `show_cart_icon`,
+                which is what the section's schema declares. So turning
+                either off changed a setting nothing looks at, and the icon
+                stayed in the header. Two of the four toggles in this group
+                did nothing at all.
+
+                And all four SHOWED the wrong state. `value={s.show_x}` is
+                undefined on a header that has never been touched, which a
+                toggle draws as off, while the icon it describes was on:
+                every one of them started by contradicting the header beside
+                it. The default is on, so that is what they read now.
+
+                `headerIconOn` keeps the old key as the fallback, so a
+                creator who turned search off under the name that used to be
+                written finds it still off rather than back.
+              */}
+              {/* The two below belong to the icon, so they go when it does. */}
               <WbToggle
                 label="Show search icon"
-                value={s.show_search}
-                onChange={v => onUpdateSetting("show_search", v)}
+                value={headerIconOn(s.show_search_icon, s.show_search)}
+                onChange={v => onUpdateSetting("show_search_icon", v)}
+                info="On a phone it sits in the header beside the cart, and as a row in the menu."
               />
+              {showSearchIcon && (
+                <>
+                  <div className="space-y-1.5">
+                    <p className="text-sm font-medium text-foreground">When search is clicked</p>
+                    <div className="relative">
+                      <select
+                        className="w-full h-10 pl-3 pr-8 text-sm border border-border rounded-lg bg-background appearance-none focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 transition-colors"
+                        value={typeof s.search_behaviour === "string" ? s.search_behaviour : "header"}
+                        onChange={e => onUpdateSetting("search_behaviour", e.target.value)}
+                      >
+                        <option value="header">Open it in the header</option>
+                        <option value="page">Go to the search page</option>
+                      </select>
+                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <p className="text-sm font-medium text-foreground">Search placeholder</p>
+                    <input
+                      type="text"
+                      className="w-full h-10 px-3 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 transition-colors"
+                      placeholder="Search"
+                      value={typeof s.search_placeholder === "string" ? s.search_placeholder : ""}
+                      onChange={e => onUpdateSetting("search_placeholder", e.target.value)}
+                    />
+                  </div>
+                </>
+              )}
               <WbToggle
                 label="Show account icon"
-                value={s.show_account_icon}
+                value={headerIconOn(s.show_account_icon)}
                 onChange={v => onUpdateSetting("show_account_icon", v)}
-                info="Desktop header icon and the sidebar Log In button on mobile."
+                info="Desktop header icon, and Account and Create account in the menu on mobile."
               />
               <WbToggle
                 label="Show wishlist icon"
-                value={s.show_wishlist_icon}
+                value={headerIconOn(s.show_wishlist_icon)}
                 onChange={v => onUpdateSetting("show_wishlist_icon", v)}
                 info="Desktop header only. Also appears in the mobile sidebar footer."
               />
               <WbToggle
                 label="Show cart icon"
-                value={s.show_cart}
-                onChange={v => onUpdateSetting("show_cart", v)}
+                value={headerIconOn(s.show_cart_icon, s.show_cart)}
+                onChange={v => onUpdateSetting("show_cart_icon", v)}
+                info="The bag and its drawer, on a phone as well as a desktop."
               />
             </div>
 

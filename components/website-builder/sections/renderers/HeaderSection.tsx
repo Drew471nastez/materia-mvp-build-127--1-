@@ -22,6 +22,7 @@ import { useBackdropDismiss, useDrawerFrame } from "../../drawer-frame"
 import { SHOP_PATH } from "@/lib/website-builder/live-links"
 import { useSiteCart } from "../../site-cart"
 import { lineKey } from "@/lib/website-builder/cart"
+import { headerIconOn } from "@/lib/website-builder/header-icons"
 import { getMainDomain } from "@/lib/url-helpers"
 import type { ColorSchemeKey, ColorSchemeValues } from "@/lib/website-builder/types"
 import {
@@ -45,6 +46,18 @@ type MobileNavItem = {
   children?: MobileNavItem[]
 }
 
+/** The close transition below. The links wait for it before navigating. */
+const CLOSE_MS = 260
+
+/** The header's call to action, as the drawer needs it. */
+interface DrawerCta {
+  text: string
+  url: string
+  background: string
+  color: string
+  radius: CSSProperties
+}
+
 function HeaderMobileNavDrawer({
   open,
   onClose,
@@ -55,6 +68,8 @@ function HeaderMobileNavDrawer({
   showAccount,
   showWishlist,
   showSearch,
+  cta,
+  onOpenSearch,
 }: {
   open: boolean
   onClose: () => void
@@ -65,6 +80,9 @@ function HeaderMobileNavDrawer({
   showAccount?: boolean
   showSearch?: boolean
   showWishlist?: boolean
+  cta?: DrawerCta | null
+  /** Set when the header opens search in itself rather than on a page. */
+  onOpenSearch?: (() => void) | null
 }) {
   /*
     The pin, the scroll lock and the portal target are the same problem for
@@ -102,6 +120,8 @@ function HeaderMobileNavDrawer({
       showAccount={!!showAccount}
       showSearch={showSearch !== false}
       showWishlist={!!showWishlist}
+      cta={cta ?? null}
+      onOpenSearch={onOpenSearch ?? null}
     />
   )
 
@@ -153,6 +173,141 @@ function goToPlatform(path: string, inEditor: boolean) {
     url.searchParams.set("next", window.location.href)
     window.location.assign(url.toString())
   }
+}
+
+
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ *  SEARCH, OPENED WHERE IT WAS CLICKED
+ * ═══════════════════════════════════════════════════════════════════════════
+ * The icon sent people to a page. That is one of two right answers and it
+ * was the only one on offer, so a shop whose catalogue is small enough to
+ * search from where you are stood had to send a visitor away and bring them
+ * back. This is the other: a field that opens over the header row, which is
+ * what the themes people are used to do.
+ *
+ * OVER THE ROW, NOT IN PLACE OF IT. Swapping the row's contents reflows the
+ * header — the logo leaves, the icons leave, and anything under a sticky
+ * header jumps by whatever the difference came to. This is laid over the
+ * row and fades in, so nothing below it moves at all.
+ *
+ * IT IS A REAL FORM. `action="/search"` with a `q`, so it works from a
+ * keyboard, works before any JavaScript has run, and needs no handler to
+ * take somebody to the results. Inside the editor the canvas cancels the
+ * submit, and this asks the builder to open the search page instead, so the
+ * control does the same thing in both places.
+ */
+function HeaderSearchPanel({
+  open,
+  onClose,
+  scheme,
+  background,
+  radius,
+  placeholder,
+  widthClass,
+  paddingClass,
+  innerStyle,
+  widthStyle,
+  onEditorNavigate,
+}: {
+  open: boolean
+  onClose: () => void
+  scheme: ColorSchemeValues
+  background: string
+  radius: CSSProperties
+  placeholder: string
+  widthClass: string
+  paddingClass: string
+  innerStyle: CSSProperties
+  widthStyle: CSSProperties
+  onEditorNavigate?: (href: string) => void
+}) {
+  const inputRef = useRef<HTMLInputElement | null>(null)
+
+  useEffect(() => {
+    if (!open) return
+    /* After the frame the panel becomes interactive on, or the focus lands
+       on an element that is still `pointer-events: none` and iOS declines
+       to raise the keyboard for it. */
+    const id = window.setTimeout(() => inputRef.current?.focus(), 60)
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose() }
+    window.addEventListener("keydown", onKey)
+    return () => {
+      window.clearTimeout(id)
+      window.removeEventListener("keydown", onKey)
+    }
+  }, [open, onClose])
+
+  return (
+    <div
+      aria-hidden={!open}
+      className="absolute inset-0 z-[70] flex items-center"
+      style={{
+        background,
+        opacity: open ? 1 : 0,
+        transform: open ? "translateY(0)" : "translateY(-6px)",
+        pointerEvents: open ? "auto" : "none",
+        transition: open
+          ? "opacity 220ms cubic-bezier(0.32, 0.72, 0, 1), transform 260ms cubic-bezier(0.32, 0.72, 0, 1)"
+          : "opacity 160ms ease-in, transform 160ms ease-in",
+        willChange: "opacity, transform",
+      }}
+    >
+      <div className={cn(widthClass, paddingClass, "w-full")} style={{ ...innerStyle, ...widthStyle }}>
+        <div className="flex items-center gap-2">
+          <form
+            action="/search"
+            method="get"
+            role="search"
+            className="relative flex-1 min-w-0"
+            onSubmit={(e) => {
+              if (!onEditorNavigate) return
+              e.preventDefault()
+              e.stopPropagation()
+              onEditorNavigate("/search")
+              onClose()
+            }}
+          >
+            <input
+              ref={inputRef}
+              type="search"
+              name="q"
+              placeholder={placeholder}
+              aria-label={placeholder}
+              autoComplete="off"
+              className="w-full bg-transparent outline-none"
+              style={{
+                /* 16px or iOS zooms the page when the field takes focus, and
+                   a header that scales up under a keyboard never recovers. */
+                fontSize: 16,
+                padding: "11px 40px 11px 14px",
+                color: scheme.heading,
+                border: `1px solid ${scheme.inset_border}`,
+                ...radius,
+              }}
+            />
+            <button
+              type="submit"
+              aria-label="Search"
+              className="absolute right-1 top-1/2 -translate-y-1/2 h-9 w-9 flex items-center justify-center rounded-full transition-colors hover:bg-black/5"
+              style={{ color: scheme.heading }}
+            >
+              <Search className="h-[18px] w-[18px]" strokeWidth={1.8} />
+            </button>
+          </form>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close search"
+            className="h-9 w-9 shrink-0 flex items-center justify-center rounded-full transition-colors hover:bg-black/5"
+            style={{ color: scheme.heading }}
+          >
+            <X className="h-5 w-5" strokeWidth={1.8} />
+          </button>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 function CartButton() {
@@ -393,6 +548,8 @@ function MobileDrawerInner({
   showAccount,
   showWishlist,
   showSearch,
+  cta,
+  onOpenSearch,
 }: {
   open: boolean
   onClose: () => void
@@ -407,6 +564,8 @@ function MobileDrawerInner({
   showAccount: boolean
   showWishlist: boolean
   showSearch: boolean
+  cta: DrawerCta | null
+  onOpenSearch: (() => void) | null
 }) {
   // Active submenu id — null means we're on the ROOT menu. When an item
   // with children is tapped this flips to that item's id and the drawer
@@ -430,13 +589,46 @@ function MobileDrawerInner({
     : null
   const inSubmenu = !!activeSubmenuItem
 
+  /*
+    ═══════════════════════════════════════════════════════════════════════
+     THE MENU CLOSES, AND THEN THE PAGE CHANGES
+    ═══════════════════════════════════════════════════════════════════════
+    On a published site a link here used to close the drawer and navigate in
+    the same tick. The navigation wins: the browser starts unloading, the
+    close transition never gets a frame, and the menu sits frozen on screen
+    for however long the next page takes. It reads as a tap that jammed.
+
+    So the drawer slides out first and the page is asked for once it has
+    gone. One close animation is what the visitor is waiting through either
+    way, and now it is the thing they can see.
+
+    A MODIFIED CLICK IS NOT THIS. Command, control, shift and the middle
+    button mean "open it somewhere else", and a link that cancels its own
+    default takes that away. Those are left to the browser, and the drawer
+    just closes.
+
+    IN THE EDITOR nothing is unloaded, so there is nothing to wait for: the
+    canvas has already swapped the page being edited by the time this runs.
+    The drawer closes and that is all this has to do.
+  */
   const handleLinkClick = (href: string) => (e: React.MouseEvent) => {
     if (onEditorNavigate) {
       e.preventDefault()
       e.stopPropagation()
       onEditorNavigate(href)
+      onClose()
+      return
     }
+
+    const opensElsewhere = e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0
+    if (opensElsewhere) {
+      onClose()
+      return
+    }
+
+    e.preventDefault()
     onClose()
+    window.setTimeout(() => { window.location.assign(href) }, CLOSE_MS)
   }
 
   return (
@@ -630,6 +822,33 @@ function MobileDrawerInner({
               • Both account + wishlist → Log In LEFT, Wishlist RIGHT
             We render a single row with `justify-between` and conditionally
             place each element on the correct side. */}
+        {/*
+          ═══════════════════════════════════════════════════════════════════
+           THE CALL TO ACTION IS ON A PHONE TOO, AND THIS IS WHERE IT FITS
+          ═══════════════════════════════════════════════════════════════════
+          It was desktop only. The header row on a phone is a hamburger, a
+          logo, search and the bag, and there is no width left in it for a
+          labelled button — "Book a cut" in that row is either an ellipsis or
+          a logo squeezed out of the middle.
+
+          So it is the first thing in the menu, full width, in the theme's
+          own button colours: the one action the creator has decided matters
+          most, at the size a thumb wants, which is where every shop's app
+          puts it. The desktop header is unchanged.
+        */}
+        {cta && (
+          <div className="border-t border-black/10 px-5 py-4 shrink-0" style={{ background: scheme.bg }}>
+            <a
+              href={cta.url}
+              onClick={handleLinkClick(cta.url)}
+              className="flex h-12 w-full items-center justify-center px-4 text-[15px] font-semibold"
+              style={{ background: cta.background, color: cta.color, ...cta.radius }}
+            >
+              <span className="truncate">{cta.text}</span>
+            </a>
+          </div>
+        )}
+
         {(showAccount || showWishlist) && (
           <div
             className="border-t border-black/10 px-5 py-3 flex items-center justify-between shrink-0"
@@ -713,7 +932,23 @@ function MobileDrawerInner({
         {showSearch && (
           <a
             href="/search"
-            onClick={onEditorNavigate ? (e) => e.preventDefault() : () => onClose()}
+            /*
+              WHEN THE HEADER OPENS SEARCH IN ITSELF, SO DOES THIS ROW.
+              A menu that leaves for a page while the icon beside it opens a
+              field is one control behaving two ways. The drawer slides out
+              first and the field opens behind it, so the two are never on
+              screen together.
+            */
+            onClick={
+              onOpenSearch
+                ? (e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    onClose()
+                    window.setTimeout(onOpenSearch, CLOSE_MS)
+                  }
+                : handleLinkClick("/search")
+            }
             className="border-t border-black/10 px-5 py-4 flex items-center gap-3 shrink-0 text-[15px] font-medium"
             style={{ background: scheme.bg, color: scheme.nav_link }}
           >
@@ -760,15 +995,27 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
   const borderColor = scheme.inset_border
 
   const layout = str(s.header_layout, "logo_left_nav_right")
-  const showAccount = s.show_account_icon !== false
-  const showWishlist = s.show_wishlist_icon !== false
+  /* One rule, shared with the Header elements panel, so a toggle and the
+     icon it describes cannot disagree again. See lib/website-builder
+     /header-icons.ts for the two that did. */
+  const showAccount = headerIconOn(s.show_account_icon)
+  const showWishlist = headerIconOn(s.show_wishlist_icon)
   /*
     ON BY DEFAULT. Every shop is expected to have one, and a header without a
     way to look for something is the first thing a visitor misses. It is a
     toggle rather than a fixture because a one-product site does not need it.
   */
-  const showSearch = s.show_search_icon !== false
-  const showCart = s.show_cart_icon !== false
+  const showSearch = headerIconOn(s.show_search_icon, s.show_search)
+  /*
+    Two right answers, and the creator picks. A field that opens over the
+    header suits a shop you can search from where you are stood; a page
+    suits one with enough in it that the results need room. Open in the
+    header is the default because it is what the themes people have used
+    before do, and because it costs a visitor nothing to change their mind.
+  */
+  const searchOpensInHeader = str(s.search_behaviour, "header") !== "page"
+  const [searchOpen, setSearchOpen] = useState(false)
+  const showCart = headerIconOn(s.show_cart_icon, s.show_cart)
   // Hover style for desktop menu links — mirrors the select in Header Settings.
   // Values: "inherit" | "none" | "underline" | "underline_reverse" | "fade_siblings"
   const menuHoverStyle = str(s.menu_link_hover_style, "inherit")
@@ -1320,14 +1567,26 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
         wishlist stay in the drawer, where they read as words.
       */}
       {showSearch && (
-        <a
-          href="/search"
-          aria-label="Search"
-          onClick={onEditorNavigate ? (e) => e.preventDefault() : undefined}
-          className="h-9 w-9 flex items-center justify-center rounded-full hover:bg-black/5 transition-colors"
-        >
-          <Search className="h-[18px] w-[18px]" strokeWidth={1.8} />
-        </a>
+        searchOpensInHeader ? (
+          <button
+            type="button"
+            aria-label="Search"
+            aria-expanded={searchOpen}
+            onClick={(e) => { e.stopPropagation(); setSearchOpen((v) => !v) }}
+            className="h-9 w-9 flex items-center justify-center rounded-full hover:bg-black/5 transition-colors"
+          >
+            <Search className="h-[18px] w-[18px]" strokeWidth={1.8} />
+          </button>
+        ) : (
+          <a
+            href="/search"
+            aria-label="Search"
+            onClick={onEditorNavigate ? (e) => e.preventDefault() : undefined}
+            className="h-9 w-9 flex items-center justify-center rounded-full hover:bg-black/5 transition-colors"
+          >
+            <Search className="h-[18px] w-[18px]" strokeWidth={1.8} />
+          </a>
+        )
       )}
       {showAccount && !forMobile && (
         <a
@@ -1818,6 +2077,21 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
       <div className={cn(widthClass, outerPaddingClass)} style={{ ...innerStyle, ...widthStyle }}>
         {content}
       </div>
+      {showSearch && searchOpensInHeader && (
+        <HeaderSearchPanel
+          open={searchOpen}
+          onClose={() => setSearchOpen(false)}
+          scheme={scheme}
+          background={bg === "transparent" ? scheme.bg : bg}
+          radius={buttonRadiusStyle(theme)}
+          placeholder={str(s.search_placeholder, "Search")}
+          widthClass={widthClass}
+          paddingClass={outerPaddingClass}
+          innerStyle={innerStyle}
+          widthStyle={widthStyle}
+          onEditorNavigate={onEditorNavigate}
+        />
+      )}
     </div>
   )
 
@@ -1880,6 +2154,21 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
       showAccount={showAccount}
       showWishlist={showWishlist}
       showSearch={showSearch}
+      /* The same toggle, text, link and colours the desktop button uses.
+         Resolved here rather than inside the drawer so there is one answer
+         to "is there a call to action and what does it look like". */
+      onOpenSearch={showSearch && searchOpensInHeader ? () => setSearchOpen(true) : null}
+      cta={
+        s.show_cta_button !== false && str(s.cta_text, "Shop Now").trim()
+          ? {
+              text: str(s.cta_text, "Shop Now"),
+              url: str(s.cta_url, "/"),
+              background: str(s.cta_color) || theme.primary_color || "#6366f1",
+              color: str(s.cta_text_color) || scheme.primary_btn_text,
+              radius: buttonRadiusStyle(theme),
+            }
+          : null
+      }
       items={rootNavBlocks.map(b => {
         const kids = childrenByParent[b.id] ?? []
         return {

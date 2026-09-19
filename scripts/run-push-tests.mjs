@@ -28,6 +28,7 @@ const SUITES = [
   "tests/own-reviews.test.ts",
   "tests/review-columns.test.ts",
   "tests/nav-drawer.test.ts",
+  "tests/header-elements.test.ts",
   "tests/site-cart.test.ts",
   "tests/cart-checkout.test.ts",
   "tests/return-to.test.ts",

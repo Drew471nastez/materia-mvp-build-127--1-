@@ -243,6 +243,39 @@ const AFTER_TAP = `(async () => {
     await wait(600)
     r.liveAfter = { position: getComputedStyle(document.body).position, scrollY: Math.round(window.scrollY) }
   }
+  /* ---- search, opened in the header ---- */
+  const liveHeader = document.getElementById("live")
+  const searchBtn = liveHeader.querySelector('button[aria-label="Search"]')
+  r.searchIsAButton = !!searchBtn
+  if (searchBtn) {
+    const row = liveHeader.querySelector("header, section, div")
+    searchBtn.click()
+    await wait(500)
+    const panel = liveHeader.querySelector('form[action="/search"]')
+    r.foundSearchPanel = !!panel
+    if (panel) {
+      const shell = panel.closest("div[aria-hidden]")
+      const cs = getComputedStyle(shell)
+      r.searchPanel = {
+        opacity: Number(cs.opacity).toFixed(2),
+        pointerEvents: cs.pointerEvents,
+        hasTransition: /opacity/.test(cs.transitionProperty),
+        rect: rect(shell),
+        rowRect: rect(shell.parentElement),
+      }
+      const field = panel.querySelector('input[name="q"]')
+      r.searchField = {
+        exists: !!field,
+        focused: document.activeElement === field,
+        fontSize: field ? Number(getComputedStyle(field).fontSize.replace("px", "")) : 0,
+        method: panel.getAttribute("method"),
+      }
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }))
+      await wait(400)
+      r.escapeClosedSearch = Number(getComputedStyle(shell).opacity) < 0.05
+    }
+  }
+
   return JSON.stringify(r)
 })()`
 
@@ -381,6 +414,25 @@ expect(r.liveLock?.position === "fixed", "the page is pinned, not merely overflo
 expect(r.liveLock?.top === `-${SCROLL_TO}px`, "pinned at the offset it was read at", `body top ${r.liveLock?.top}`)
 expect(r.liveAfter?.position !== "fixed" && r.liveAfter?.scrollY === SCROLL_TO,
   "and the scroll position comes back on close", `scrollY ${r.liveAfter?.scrollY}`)
+
+console.log("\nSearch, opened in the header\n")
+expect(r.searchIsAButton === true, "the icon is a button, not a link to a page", r.searchIsAButton ? "yes" : "still an anchor")
+expect(r.foundSearchPanel === true, "clicking it puts a real form in the header")
+if (r.searchPanel) {
+  expect(r.searchPanel.opacity === "1.00" && r.searchPanel.pointerEvents === "auto",
+    "the panel is open and takes input", `opacity ${r.searchPanel.opacity}, pointer-events ${r.searchPanel.pointerEvents}`)
+  expect(r.searchPanel.hasTransition === true, "and it faded rather than appeared")
+  expect(Math.abs(r.searchPanel.rect.top - r.searchPanel.rowRect.top) <= 1 &&
+    Math.abs(r.searchPanel.rect.h - r.searchPanel.rowRect.h) <= 1,
+    "it covers the header row exactly, so nothing below it moves",
+    `panel ${r.searchPanel.rect.h}px at ${r.searchPanel.rect.top}px, row ${r.searchPanel.rowRect.h}px at ${r.searchPanel.rowRect.top}px`)
+}
+if (r.searchField) {
+  expect(r.searchField.exists && r.searchField.method === "get", "it submits to the search page by itself", `method ${r.searchField.method}`)
+  expect(r.searchField.focused === true, "the field has the caret already", r.searchField.focused ? "yes" : "focus was left behind")
+  expect(r.searchField.fontSize >= 16, "at a size iOS will not zoom the page for", `${r.searchField.fontSize}px`)
+}
+expect(r.escapeClosedSearch === true, "and escape closes it", r.escapeClosedSearch ? "yes" : "it stayed open")
 
 console.log("")
 if (broken) fail(`${broken} check${broken === 1 ? "" : "s"} failed.`)

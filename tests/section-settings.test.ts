@@ -206,7 +206,12 @@ const STRUCTURAL: Record<string, string[]> = {
  * verifies that rather than taking it on trust.
  */
 const LEGACY_FALLBACK: Record<string, string[]> = {
-  header: ["max_width", "header_fixed", "sticky", "transparent_on_hero", "show_border"],
+  /* `show_search` and `show_cart` are what the Header elements panel used
+     to write while the header read `show_search_icon` and `show_cart_icon`,
+     so those two toggles changed nothing. The panel writes the real names
+     now and these stay readable only as fallbacks, so a creator who turned
+     an icon off under the old name does not find it back. */
+  header: ["max_width", "header_fixed", "sticky", "transparent_on_hero", "show_border", "show_search", "show_cart"],
 }
 
 /** Things every renderer has that are not section settings. */
@@ -323,9 +328,20 @@ section("And nothing a renderer needs is missing from the panel")
     const src = sources.get(type) ?? ""
     for (const id of ids) {
       if (!new RegExp(`\\b${id}\\b`).test(src)) continue
-      // Second argument of a coercion helper — `…, str(s.max_width, …)` or
-      // `…, bool(s.sticky, true))` — which is what a fallback looks like.
-      if (!new RegExp(`,\\s*(?:str|bool|num)\\(s\\.${id}\\b`).test(src)) notFallbacks.push(`${type}.${id}`)
+      /*
+        Second argument of a coercion helper — `…, str(s.max_width, …)` or
+        `…, bool(s.sticky, true))` — which is what a fallback looks like.
+
+        `headerIconOn(s.show_search_icon, s.show_search)` is the same shape
+        with its own helper: the current name is read first and the old one
+        only answers when it has never been written. Named here rather than
+        loosened to "any second argument", which would let a legacy id sit
+        anywhere in any call and still pass.
+      */
+      const fallback = new RegExp(
+        `,\\s*(?:str|bool|num)\\(s\\.${id}\\b|headerIconOn\\(s\\.\\w+,\\s*s\\.${id}\\b`,
+      )
+      if (!fallback.test(src)) notFallbacks.push(`${type}.${id}`)
     }
   }
   check(

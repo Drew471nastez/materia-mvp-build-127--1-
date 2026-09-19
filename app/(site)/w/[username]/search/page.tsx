@@ -56,11 +56,15 @@ export default async function SiteSearchPage({ params, searchParams }: PageProps
      trade; if one ever is, this is the line to change. */
   const matches = query ? (products ?? []).filter((p: any) => productMatchesQuery(p, query)) : (products ?? [])
 
-  const sections = searchSections(site.pages.home ?? site.sections, site.themeSettings, query, matches.length)
-  const prerendered = renderWithSources(site.sources, sections, site.themeSettings, "page.products", matches)
+  const sections = searchSections(site.pages.home ?? site.sections)
+  /* The query travels on the page rather than in the section's settings: it
+     belongs to this request, not to anything the creator arranged. */
+  const prerendered = renderWithSources(site.sources, sections, site.themeSettings, "page.search", matches, {
+    query,
+  })
 
   return (
-    <StorelibSourcesProvider prerendered={prerendered} page={{ template: "page.products" }}>
+    <StorelibSourcesProvider prerendered={prerendered} page={{ template: "page.search", query }}>
       <ThemePage
         theme={site.themeSettings}
         sections={sections}
