@@ -252,24 +252,29 @@
       ]
     },
     {
-      "id": "vertical_padding_vw",
+      "id": "vertical_padding",
       "label": "Vertical padding",
       "type": "range",
       "min": 0,
-      "max": 5,
-      "step": 0.1,
-      "unit": "vw",
-      "default": 1.2
+      "max": 64,
+      "step": 1,
+      "unit": "px",
+      "responsive": true,
+      "default": {
+        "desktop": 16,
+        "tablet": 14,
+        "mobile": 12
+      }
     },
     {
-      "id": "link_spacing_vw",
+      "id": "link_spacing",
       "label": "Space between menu links",
       "type": "range",
-      "min": 0.2,
-      "max": 5,
-      "step": 0.1,
-      "unit": "vw",
-      "default": 1.4
+      "min": 4,
+      "max": 64,
+      "step": 1,
+      "unit": "px",
+      "default": 18
     },
     {
       "id": "hdr_sticky",

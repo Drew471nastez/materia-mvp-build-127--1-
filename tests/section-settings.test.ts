@@ -211,7 +211,13 @@ const LEGACY_FALLBACK: Record<string, string[]> = {
      so those two toggles changed nothing. The panel writes the real names
      now and these stay readable only as fallbacks, so a creator who turned
      an icon off under the old name does not find it back. */
-  header: ["max_width", "header_fixed", "sticky", "transparent_on_hero", "show_border", "show_search", "show_cart"],
+  header: [
+    "max_width", "header_fixed", "sticky", "transparent_on_hero", "show_border", "show_search", "show_cart",
+    /* The padding and the link gap were `vw`. They are pixels now, one per
+       device, and a viewport value somebody set is translated into what it
+       came to on a common screen rather than dropped. */
+    "vertical_padding_vw", "link_spacing_vw",
+  ],
 }
 
 /** Things every renderer has that are not section settings. */
@@ -339,7 +345,7 @@ section("And nothing a renderer needs is missing from the panel")
         anywhere in any call and still pass.
       */
       const fallback = new RegExp(
-        `,\\s*(?:str|bool|num)\\(s\\.${id}\\b|headerIconOn\\(s\\.\\w+,\\s*s\\.${id}\\b`,
+        `,\\s*(?:str|bool|num)\\(s\\.${id}\\b|(?:headerIconOn|headerPad|headerGap)\\(s\\.\\w+,\\s*s\\.${id}\\b`,
       )
       if (!fallback.test(src)) notFallbacks.push(`${type}.${id}`)
     }

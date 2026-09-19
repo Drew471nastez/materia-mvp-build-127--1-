@@ -38,6 +38,21 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react"
 
 /**
+ * One pace for every drawer on a built site. Open settles a touch slower
+ * than close, which is how a physical thing behaves: it arrives, it leaves.
+ * A link inside a drawer waits CLOSE_MS before asking for its page, so the
+ * close is seen rather than cut off by the navigation.
+ */
+export const DRAWER_OPEN_MS = 360
+export const DRAWER_CLOSE_MS = 260
+export const DRAWER_OPEN_EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
+export const DRAWER_CLOSE_EASE = "cubic-bezier(0.4, 0, 1, 1)"
+export const drawerSlide = (open: boolean) =>
+  open ? `transform ${DRAWER_OPEN_MS}ms ${DRAWER_OPEN_EASE}` : `transform ${DRAWER_CLOSE_MS}ms ${DRAWER_CLOSE_EASE}`
+export const drawerFade = (open: boolean) =>
+  open ? `opacity 300ms ${DRAWER_OPEN_EASE}` : `opacity 220ms cubic-bezier(0.4, 0, 0.6, 1)`
+
+/**
  * ===========================================================================
  *  DISMISSING BY TAPPING AWAY, WITHOUT THE TAP DOING ANYTHING ELSE
  * ===========================================================================
@@ -158,6 +173,23 @@ export function useDrawerFrame(open: boolean, scopedToPreview: boolean, onClose:
       setPin(null)
       const scrollY = window.scrollY
       const body = document.body.style
+      const root = document.documentElement.style
+      /*
+        AND THE PAGE'S OWN SCROLLBAR GOES WITH IT.
+
+        Pinning the body freezes the page, but the document is still the
+        thing that scrolls, and on a screen with classic scrollbars its bar
+        stayed drawn down the right edge beside the open drawer: a control
+        for scrolling a page that could not be scrolled. It is the bar in
+        the cart screenshot.
+
+        The document's overflow is hidden while the drawer is open. That
+        takes the bar's column away, which would shift everything left by
+        its width, so the body is padded by exactly that width for as long
+        as the bar is gone. Overlay scrollbars have no width and get no
+        padding, so nothing moves there either.
+      */
+      const barWidth = window.innerWidth - document.documentElement.clientWidth
       const prev = {
         position: body.position,
         top: body.top,
@@ -165,6 +197,8 @@ export function useDrawerFrame(open: boolean, scopedToPreview: boolean, onClose:
         right: body.right,
         width: body.width,
         overflow: body.overflow,
+        paddingRight: body.paddingRight,
+        rootOverflow: root.overflow,
       }
       body.position = "fixed"
       body.top = `-${scrollY}px`
@@ -172,6 +206,8 @@ export function useDrawerFrame(open: boolean, scopedToPreview: boolean, onClose:
       body.right = "0"
       body.width = "100%"
       body.overflow = "hidden"
+      if (barWidth > 0) body.paddingRight = `${barWidth}px`
+      root.overflow = "hidden"
 
       undo.push(() => {
         body.position = prev.position
@@ -180,6 +216,8 @@ export function useDrawerFrame(open: boolean, scopedToPreview: boolean, onClose:
         body.right = prev.right
         body.width = prev.width
         body.overflow = prev.overflow
+        body.paddingRight = prev.paddingRight
+        root.overflow = prev.rootOverflow
         window.scrollTo(0, scrollY)
       })
     }

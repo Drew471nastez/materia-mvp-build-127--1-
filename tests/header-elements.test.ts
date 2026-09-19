@@ -16,7 +16,7 @@
  * both sides actually call it, because "both spell the key correctly" is not
  * an arrangement that holds.
  */
-import { readFileSync } from "node:fs"
+import { existsSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 import { HEADER_ICON_KEYS, headerIconOn } from "../lib/website-builder/header-icons"
 
@@ -91,6 +91,59 @@ function main() {
     /onOpenSearch/.test(header) && /window\.setTimeout\(onOpenSearch, CLOSE_MS\)/.test(header))
   check("the placeholder is the creator's",
     /"id": "search_placeholder"/.test(schema) && /str\(s\.search_placeholder, "Search"\)/.test(header))
+
+  console.log("\n  what matches, while they are still typing")
+
+  check("the field asks the site's own endpoint, which exists",
+    /\/api\/website-builder\/search\?creator=/.test(header) && existsSync("app/api/website-builder/search/route.ts"))
+  check("and the endpoint answers the same question the search page does",
+    /productMatchesQuery/.test(read("app/api/website-builder/search/route.ts")))
+  check("a request is debounced and the previous one is abandoned",
+    /window\.setTimeout\(async \(\) =>/.test(header) && /ctrl\.abort\(\)/.test(header))
+  check("View all goes to the search page with the words",
+    /`\/search\?q=\$\{encodeURIComponent\(q\.trim\(\)\)\}`/.test(header))
+  check("the field is not as wide as a full-width header",
+    /max-w-\[720px\] items-center gap-2/.test(header))
+  check("in the editor there is nobody to ask on behalf of, so it says nothing",
+    /if \(!creatorId \|\| !term\)/.test(header))
+
+  console.log("\n  padding is pixels, one number per device")
+
+  const spacing = read("lib/website-builder/header-spacing.ts")
+  /* The drawers are still `w-[85vw]`, which is right: a drawer's width IS a
+     share of the screen. What must be gone is a SETTING expressed in a
+     viewport unit and a template string that writes one into a style. */
+  check("no setting is a viewport unit any more",
+    !/`\$\{\w+\}vw`/.test(header) && !/"unit": "v[wh]"/.test(schema) && !/\bpaddingVw\b|\blinkSpacingVw\b/.test(header))
+  check("the desktop shell and the phone shell each carry their own",
+    /className="hidden md:flex w-full" style=\{\{ paddingTop: padDesktop/.test(header) &&
+      /className="flex md:hidden w-full" style=\{\{ paddingTop: padMobile/.test(header))
+  check("and the editor draws the one for the device it is showing",
+    /forceMobile \? padMobile : padDesktop/.test(header))
+  check("a vw somebody set is translated, not dropped",
+    /headerPad\(s\.vertical_padding, s\.vertical_padding_vw/.test(header) && /PHONE_WIDTH = 390/.test(spacing))
+  check("the panel offers desktop and phone separately, in px",
+    /label="Vertical padding, desktop"/.test(editor) && /label="Vertical padding, phone"/.test(editor) &&
+      (editor.match(/unit="px"/g) ?? []).length >= 3)
+
+  console.log("\n  the link picker on a phone")
+
+  check("the list is in the flow rather than floated",
+    /const \[inline, setInline\] = useState\(false\)/.test(editor) && /\{inlineList\}/.test(editor))
+  check("and the popover is not measured at all there",
+    /if \(!open \|\| inline\) \{ setPos\(null\); return \}/.test(editor))
+
+  console.log("\n  the page behind a drawer")
+
+  const frame = read("components/website-builder/drawer-frame.ts")
+  check("the document's scrollbar goes while a drawer is open",
+    /root\.overflow = "hidden"/.test(frame))
+  check("and its width is given back as padding, so nothing shifts",
+    /body\.paddingRight = `\$\{barWidth\}px`/.test(frame))
+  check("both drawers move at the one pace",
+    (header.match(/drawerSlide\(open\)/g) ?? []).length === 2 && (header.match(/drawerFade\(open\)/g) ?? []).length === 2)
+  check("and the lists inside them have the slim bar",
+    (header.match(/site-slim-scroll/g) ?? []).length >= 3)
 
   console.log("\n  the call to action reaches a phone")
 

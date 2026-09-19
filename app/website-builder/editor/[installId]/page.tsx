@@ -66,6 +66,7 @@ import { remapScheme, themeColorSchemes } from "@/lib/storelib-theme/color-schem
 import { PAGE_META } from "@/lib/website-builder/types"
 import { BUILT_IN_PAGE_KEYS, pageKeyFromSegment, pageTitleFromKey } from "@/lib/website-builder/site-pages"
 import { headerIconOn } from "@/lib/website-builder/header-icons"
+import { headerGap, headerPad } from "@/lib/website-builder/header-spacing"
 import { chromeOf, withUniversalChrome } from "@/lib/website-builder/universal-chrome"
 import { AutoTextarea } from "@/components/website-builder/auto-textarea"
 import { RichTextField } from "@/components/website-builder/rich-text-field"
@@ -2177,9 +2178,32 @@ function NavLinkPicker({
   const wrapRef = useRef<HTMLDivElement>(null)
   const [pos, setPos] = useState<{ top: number; left: number; width: number; maxHeight: number } | null>(null)
 
+  /*
+    ═══════════════════════════════════════════════════════════════════════
+     ON A PHONE THE LIST IS IN THE FLOW, NOT FLOATED
+    ═══════════════════════════════════════════════════════════════════════
+    The list was a `position: fixed` popover placed from the trigger's
+    rectangle. Inside the editor's bottom sheet on a phone, with the
+    keyboard up, that rectangle is measured against a layout viewport iOS
+    has scrolled to keep the field in view, and a fixed element is placed
+    against the same scrolled viewport — so the popover landed at the top
+    of the screen, over the status bar, nowhere near the field. It is the
+    misaligned list in the report.
+
+    A list rendered in the flow, directly under the field, cannot be
+    anywhere but under the field: it scrolls with the sheet, the keyboard
+    pushes it the same way it pushes everything else, and there is nothing
+    to measure. The popover stays for a desktop, where it is right.
+  */
+  const [inline, setInline] = useState(false)
+  useEffect(() => {
+    if (!open) return
+    setInline(window.matchMedia("(max-width: 768px)").matches)
+  }, [open])
+
   // Measure trigger position for the portaled dropdown
   useEffect(() => {
-    if (!open) { setPos(null); return }
+    if (!open || inline) { setPos(null); return }
     const update = () => {
       const el = wrapRef.current
       if (!el) return
@@ -2204,7 +2228,7 @@ function NavLinkPicker({
       window.removeEventListener("scroll", onScroll, true)
       window.removeEventListener("resize", update)
     }
-  }, [open])
+  }, [open, inline])
 
   // Close on click outside (both trigger and portaled popup)
   useEffect(() => {
@@ -2237,12 +2261,7 @@ function NavLinkPicker({
   const filteredProducts = products.filter(p => p.title.toLowerCase().includes(q))
   const hasResults = filteredPages.length > 0 || filteredProducts.length > 0
 
-  const popup = open && pos && typeof document !== "undefined" ? createPortal(
-    <div
-      id="nav-link-picker-popup"
-      className="fixed z-[300] bg-white border border-border rounded-lg shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-100"
-      style={{ top: pos.top, left: pos.left, width: pos.width, maxHeight: pos.maxHeight }}
-    >
+  const listBody = (
       <div className="overflow-y-auto overscroll-contain wb-slim-scroll">
         {!hasResults && search && (
           <div className="px-3 py-6 text-sm text-muted-foreground text-center">No results found</div>
@@ -2286,8 +2305,26 @@ function NavLinkPicker({
           </div>
         )}
       </div>
+  )
+
+  const popup = open && !inline && pos && typeof document !== "undefined" ? createPortal(
+    <div
+      id="nav-link-picker-popup"
+      className="fixed z-[300] bg-white border border-border rounded-lg shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-100"
+      style={{ top: pos.top, left: pos.left, width: pos.width, maxHeight: pos.maxHeight }}
+    >
+      {listBody}
     </div>,
     document.body,
+  ) : null
+
+  const inlineList = open && inline ? (
+    <div
+      id="nav-link-picker-popup"
+      className="mt-1.5 max-h-[240px] overflow-hidden rounded-lg border border-border bg-white flex flex-col"
+    >
+      {listBody}
+    </div>
   ) : null
 
   return (
@@ -2314,6 +2351,7 @@ function NavLinkPicker({
         />
       </div>
       {popup}
+      {inlineList}
     </div>
   )
 }
@@ -2957,25 +2995,51 @@ function HeaderSectionSettings({
                   Controls the maximum width of the header on desktop (large) screens.
                 </p>
               </div>
+              {/*
+                PIXELS, ONE NUMBER PER DEVICE. These were `vw`, which is a
+                different amount on every screen and, inside the editor, is
+                measured against the browser rather than the canvas — so the
+                slider was never what the phone preview showed, and the phone
+                preview was never what the phone showed. See
+                lib/website-builder/header-spacing.ts.
+              */}
               <WbSlider
-                label="Vertical padding"
-                value={s.vertical_padding_vw}
-                onChange={v => onUpdateSetting("vertical_padding_vw", v)}
+                label="Vertical padding, desktop"
+                value={headerPad(s.vertical_padding, s.vertical_padding_vw, "desktop")}
+                onChange={v => onUpdateSetting("vertical_padding", {
+                  desktop: v,
+                  tablet: headerPad(s.vertical_padding, s.vertical_padding_vw, "tablet"),
+                  mobile: headerPad(s.vertical_padding, s.vertical_padding_vw, "mobile"),
+                })}
                 min={0}
-                max={5}
-                step={0.1}
-                unit="vw"
-                defaultValue={1.2}
+                max={64}
+                step={1}
+                unit="px"
+                defaultValue={16}
+              />
+              <WbSlider
+                label="Vertical padding, phone"
+                value={headerPad(s.vertical_padding, s.vertical_padding_vw, "mobile")}
+                onChange={v => onUpdateSetting("vertical_padding", {
+                  desktop: headerPad(s.vertical_padding, s.vertical_padding_vw, "desktop"),
+                  tablet: headerPad(s.vertical_padding, s.vertical_padding_vw, "tablet"),
+                  mobile: v,
+                })}
+                min={0}
+                max={64}
+                step={1}
+                unit="px"
+                defaultValue={12}
               />
               <WbSlider
                 label="Space between menu links"
-                value={s.link_spacing_vw}
-                onChange={v => onUpdateSetting("link_spacing_vw", v)}
-                min={0.2}
-                max={5}
-                step={0.1}
-                unit="vw"
-                defaultValue={1.4}
+                value={headerGap(s.link_spacing, s.link_spacing_vw)}
+                onChange={v => onUpdateSetting("link_spacing", v)}
+                min={4}
+                max={64}
+                step={1}
+                unit="px"
+                defaultValue={18}
               />
             </div>
 

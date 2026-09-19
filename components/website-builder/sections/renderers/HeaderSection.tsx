@@ -18,11 +18,13 @@ import { useCallback, useState, useEffect, useRef, useLayoutEffect, type CSSProp
 import { createPortal } from "react-dom"
 import { ThemeSocials } from "../../theme/ThemeSocials"
 import { cn } from "@/lib/utils"
-import { DRAWER_BACKDROP_Z, DRAWER_PANEL_Z, useBackdropDismiss, useDrawerFrame } from "../../drawer-frame"
+import { DRAWER_BACKDROP_Z, DRAWER_CLOSE_MS, DRAWER_PANEL_Z, drawerFade, drawerSlide, useBackdropDismiss, useDrawerFrame } from "../../drawer-frame"
 import { SHOP_PATH } from "@/lib/website-builder/live-links"
 import { useSiteCart } from "../../site-cart"
+import { useStorefront } from "../../theme/storefront-context"
 import { lineKey } from "@/lib/website-builder/cart"
 import { headerIconOn } from "@/lib/website-builder/header-icons"
+import { headerGap, headerPad } from "@/lib/website-builder/header-spacing"
 import { getMainDomain } from "@/lib/url-helpers"
 import type { ColorSchemeKey, ColorSchemeValues } from "@/lib/website-builder/types"
 import {
@@ -46,8 +48,8 @@ type MobileNavItem = {
   children?: MobileNavItem[]
 }
 
-/** The close transition below. The links wait for it before navigating. */
-const CLOSE_MS = 260
+/** The drawers' close, shared with the cart. Links wait for it before navigating. */
+const CLOSE_MS = DRAWER_CLOSE_MS
 
 /** The header's call to action, as the drawer needs it. */
 interface DrawerCta {
@@ -98,12 +100,8 @@ function HeaderMobileNavDrawer({
   // Use different easing/duration for open vs close — open is a smooth
   // deceleration (iOS-style spring), close is a quicker ease-in so it
   // feels snappy and intentional rather than slow.
-  const drawerTransition = open
-    ? "transform 360ms cubic-bezier(0.32, 0.72, 0, 1)"
-    : "transform 260ms cubic-bezier(0.4, 0, 1, 1)"
-  const backdropTransition = open
-    ? "opacity 300ms cubic-bezier(0.32, 0.72, 0, 1)"
-    : "opacity 220ms cubic-bezier(0.4, 0, 0.6, 1)"
+  const drawerTransition = drawerSlide(open)
+  const backdropTransition = drawerFade(open)
 
   const drawer = (
     <MobileDrawerInner
@@ -197,6 +195,14 @@ function goToPlatform(path: string, inEditor: boolean) {
  * submit, and this asks the builder to open the search page instead, so the
  * control does the same thing in both places.
  */
+interface SearchHit {
+  id: string
+  title: string
+  price: string
+  image: string
+  url: string
+}
+
 function HeaderSearchPanel({
   open,
   onClose,
@@ -223,6 +229,7 @@ function HeaderSearchPanel({
   onEditorNavigate?: (href: string) => void
 }) {
   const inputRef = useRef<HTMLInputElement | null>(null)
+  const { creatorId } = useStorefront()
 
   useEffect(() => {
     if (!open) return
@@ -237,6 +244,53 @@ function HeaderSearchPanel({
       window.removeEventListener("keydown", onKey)
     }
   }, [open, onClose])
+
+  /*
+    ═══════════════════════════════════════════════════════════════════════
+     WHAT MATCHES, WHILE THEY ARE STILL TYPING
+    ═══════════════════════════════════════════════════════════════════════
+    The field asks the site's own search endpoint as the query changes and
+    shows the first few hits under itself, with a way to see all of them.
+    Debounced, because a request per keystroke is a request per keystroke;
+    aborted on the next change, because an answer to "te" arriving after the
+    answer to "tech" would replace the right list with the wrong one.
+
+    Inside the editor there is no creator to ask on behalf of, so the field
+    says nothing rather than something made up.
+  */
+  const [q, setQ] = useState("")
+  const [hits, setHits] = useState<SearchHit[]>([])
+  const [total, setTotal] = useState(0)
+  const [asked, setAsked] = useState("")
+
+  useEffect(() => {
+    if (!open) { setQ(""); setHits([]); setTotal(0); setAsked(""); return }
+  }, [open])
+
+  useEffect(() => {
+    const term = q.trim()
+    if (!creatorId || !term) { setHits([]); setTotal(0); setAsked(""); return }
+    const ctrl = new AbortController()
+    const id = window.setTimeout(async () => {
+      try {
+        const res = await fetch(
+          `/api/website-builder/search?creator=${encodeURIComponent(creatorId)}&q=${encodeURIComponent(term)}`,
+          { signal: ctrl.signal },
+        )
+        if (!res.ok) return
+        const data = (await res.json()) as { items?: SearchHit[]; total?: number }
+        setHits(Array.isArray(data.items) ? data.items : [])
+        setTotal(typeof data.total === "number" ? data.total : 0)
+        setAsked(term)
+      } catch {
+        /* Aborted, or offline. The list stays as it was. */
+      }
+    }, 180)
+    return () => { window.clearTimeout(id); ctrl.abort() }
+  }, [q, creatorId])
+
+  const showHits = open && asked !== "" && asked === q.trim()
+  const viewAll = `/search?q=${encodeURIComponent(q.trim())}`
 
   return (
     <div
@@ -254,7 +308,14 @@ function HeaderSearchPanel({
       }}
     >
       <div className={cn(widthClass, paddingClass, "w-full")} style={{ ...innerStyle, ...widthStyle }}>
-        <div className="flex items-center gap-2">
+        {/*
+          NOT AS WIDE AS THE HEADER. A header set to full width is a header
+          whose logo and menu reach the edges; a field that reaches the
+          edges of a large screen is a field a person has to look across.
+          It stops at a reading width and sits in the middle, whatever the
+          header does, which is what the field in the reference does.
+        */}
+        <div className="relative mx-auto flex w-full max-w-[720px] items-center gap-2">
           <form
             action="/search"
             method="get"
@@ -272,6 +333,8 @@ function HeaderSearchPanel({
               ref={inputRef}
               type="search"
               name="q"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
               placeholder={placeholder}
               aria-label={placeholder}
               autoComplete="off"
@@ -282,6 +345,7 @@ function HeaderSearchPanel({
                 fontSize: 16,
                 padding: "11px 40px 11px 14px",
                 color: scheme.heading,
+                caretColor: scheme.heading,
                 border: `1px solid ${scheme.inset_border}`,
                 ...radius,
               }}
@@ -304,6 +368,67 @@ function HeaderSearchPanel({
           >
             <X className="h-5 w-5" strokeWidth={1.8} />
           </button>
+
+          {/*
+            The hits, under the field. Drawn even when empty so it can fade
+            rather than appear, and told to take no input until it is there.
+          */}
+          <div
+            aria-hidden={!showHits}
+            className="absolute left-0 right-11 top-full z-[80] mt-2 overflow-hidden"
+            style={{
+              background: scheme.bg,
+              color: scheme.heading,
+              border: `1px solid ${scheme.inset_border}`,
+              boxShadow: "0 18px 40px -18px rgba(15, 23, 42, 0.35)",
+              opacity: showHits ? 1 : 0,
+              transform: showHits ? "translateY(0)" : "translateY(-4px)",
+              pointerEvents: showHits ? "auto" : "none",
+              transition: showHits
+                ? "opacity 200ms cubic-bezier(0.32, 0.72, 0, 1), transform 240ms cubic-bezier(0.32, 0.72, 0, 1)"
+                : "opacity 140ms ease-in, transform 140ms ease-in",
+              ...radius,
+            }}
+          >
+            {hits.length === 0 ? (
+              <p className="px-4 py-4 text-[14px] opacity-60">No results for &ldquo;{asked}&rdquo;</p>
+            ) : (
+              <>
+                <ul className="site-slim-scroll max-h-[min(56vh,420px)] overflow-y-auto overscroll-contain py-1">
+                  {hits.map((h) => (
+                    <li key={h.id}>
+                      <a
+                        href={h.url}
+                        onClick={onEditorNavigate ? (e) => { e.preventDefault(); e.stopPropagation(); onEditorNavigate(h.url); onClose() } : undefined}
+                        className="flex items-center gap-3 px-3 py-2 transition-colors hover:bg-black/5"
+                      >
+                        <span
+                          className="h-11 w-11 shrink-0 overflow-hidden"
+                          style={{ background: scheme.inset_border, borderRadius: 8 }}
+                        >
+                          {h.image ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={h.image} alt="" className="h-full w-full object-cover" loading="lazy" />
+                          ) : null}
+                        </span>
+                        <span className="min-w-0 flex-1 truncate text-[14px] font-medium">{h.title}</span>
+                        {h.price && <span className="shrink-0 text-[13px] opacity-70 tabular-nums">{h.price}</span>}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+                <a
+                  href={viewAll}
+                  onClick={onEditorNavigate ? (e) => { e.preventDefault(); e.stopPropagation(); onEditorNavigate("/search"); onClose() } : undefined}
+                  className="flex items-center justify-between px-4 py-3 text-[13px] font-semibold transition-colors hover:bg-black/5"
+                  style={{ borderTop: `1px solid ${scheme.inset_border}` }}
+                >
+                  <span>View all {total} result{total === 1 ? "" : "s"}</span>
+                  <ChevronRight className="h-4 w-4 opacity-60" strokeWidth={2} />
+                </a>
+              </>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -368,12 +493,8 @@ function HeaderCartDrawer({
   const dismissBackdrop = useBackdropDismiss(open, onClose)
   if (!mounted || !target) return null
 
-  const panelTransition = open
-    ? "transform 360ms cubic-bezier(0.32, 0.72, 0, 1)"
-    : "transform 260ms cubic-bezier(0.4, 0, 1, 1)"
-  const backdropTransition = open
-    ? "opacity 300ms cubic-bezier(0.32, 0.72, 0, 1)"
-    : "opacity 220ms cubic-bezier(0.4, 0, 0.6, 1)"
+  const panelTransition = drawerSlide(open)
+  const backdropTransition = drawerFade(open)
 
   const stop = (e: React.MouseEvent) => { if (onEditorNavigate) { e.preventDefault(); e.stopPropagation() } }
 
@@ -442,7 +563,7 @@ function HeaderCartDrawer({
             </a>
           </div>
         ) : (
-          <div className="flex-1 overflow-y-auto overscroll-contain px-3 py-3" style={{ WebkitOverflowScrolling: "touch" }}>
+          <div className="site-slim-scroll flex-1 overflow-y-auto overscroll-contain px-3 py-3" style={{ WebkitOverflowScrolling: "touch" }}>
             <ul className="flex flex-col">
               {lines.map((l) => {
                 const k = lineKey(l)
@@ -748,7 +869,7 @@ function MobileDrawerInner({
           >
             {/* ── Pane 1: ROOT menu ── */}
             <div
-              className="w-1/2 h-full overflow-y-auto"
+              className="site-slim-scroll w-1/2 h-full overflow-y-auto"
               aria-hidden={inSubmenu}
               style={{ overscrollBehavior: "contain" }}
             >
@@ -789,7 +910,7 @@ function MobileDrawerInner({
                 this pane mounted even when inactive so the slide-out
                 animation has something to slide toward. */}
             <div
-              className="w-1/2 h-full overflow-y-auto"
+              className="site-slim-scroll w-1/2 h-full overflow-y-auto"
               aria-hidden={!inSubmenu}
               style={{ overscrollBehavior: "contain" }}
             >
@@ -1212,12 +1333,30 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
   // default "logo left, nav right" layout.
   const navAlignment = str(s.nav_alignment, "right")
 
-  const paddingVw = Number.isFinite(Number(s.vertical_padding_vw))
-    ? Number(s.vertical_padding_vw)
-    : 1.2
-  const linkSpacingVw = Number.isFinite(Number(s.link_spacing_vw))
-    ? Number(s.link_spacing_vw)
-    : 1.4
+  /*
+    ═══════════════════════════════════════════════════════════════════════
+     PADDING IN PIXELS, ONE NUMBER PER DEVICE
+    ═══════════════════════════════════════════════════════════════════════
+    These were `vw`. A viewport unit is one number that means something
+    different on every screen: 1.2vw was 15px on a laptop and 5px on a
+    phone, and in the editor it was measured against the BROWSER's width, so
+    a phone preview drawn inside a desktop browser got a laptop's padding
+    and then looked nothing like the phone it was previewing. That is the
+    report about the slider not being accurate on mobile, in the editor,
+    and on the live site all at once.
+
+    A pixel is the same everywhere. The creator sets one number for desktop
+    and one for phones, the desktop shell and the phone shell each carry
+    their own, and the editor shows whichever device it is drawing.
+
+    THE OLD VALUE IS STILL HONOURED, translated: a `vw` somebody set is
+    turned into the pixels it came to at 1280px wide for the desktop and at
+    390px for a phone, so a header keeps the padding it had on a common
+    screen rather than snapping to the default.
+  */
+  const padDesktop = headerPad(s.vertical_padding, s.vertical_padding_vw, "desktop")
+  const padMobile = headerPad(s.vertical_padding, s.vertical_padding_vw, "mobile")
+  const linkSpacingPx = headerGap(s.link_spacing, s.link_spacing_vw)
 
   const forceMobile = deviceMode === "mobile"
   const hasDeviceMode = !!deviceMode
@@ -1746,7 +1885,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
         menuHoverStyle === "fade_siblings" &&
           "[&_a]:transition-opacity [&_a]:duration-[220ms] [&:has(a:hover)_a]:opacity-40 [&:has(a:hover)_a:hover]:opacity-100",
       )}
-      style={{ gap: `${linkSpacingVw}vw` }}
+      style={{ gap: `${linkSpacingPx}px` }}
     >
       {renderNavLinks()}
     </nav>
@@ -1890,7 +2029,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
       content = (
         <div className="w-full flex items-center justify-between gap-6">
           {logoNode}
-          <div className="flex items-center" style={{ gap: `${linkSpacingVw}vw` }}>
+          <div className="flex items-center" style={{ gap: `${linkSpacingPx}px` }}>
             {navNode}
             {renderIcons()}
           </div>
@@ -1904,17 +2043,23 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
   // `flex md:hidden`, so every visitor gets a proper responsive header.
   if (isLiveResponsive) {
     const desktopContent = content
+    /* Each shell carries its own padding, so the phone's number is the
+       phone's and the desktop's is the desktop's, with no media query to
+       keep in step with the breakpoint that hides one of them. */
     content = (
       <>
-        <div className="hidden md:flex w-full">{desktopContent}</div>
-        <div className="flex md:hidden w-full">{buildMobileShell()}</div>
+        <div className="hidden md:flex w-full" style={{ paddingTop: padDesktop, paddingBottom: padDesktop }}>{desktopContent}</div>
+        <div className="flex md:hidden w-full" style={{ paddingTop: padMobile, paddingBottom: padMobile }}>{buildMobileShell()}</div>
       </>
     )
   }
 
+  /* In the editor the canvas is one device at a time, so the padding is that
+     device's, on the row. Published, the shells above carry it instead. */
+  const padHere = isLiveResponsive ? 0 : forceMobile ? padMobile : padDesktop
   const innerStyle: CSSProperties = {
-    paddingTop: `${paddingVw}vw`,
-    paddingBottom: `${paddingVw}vw`,
+    paddingTop: padHere,
+    paddingBottom: padHere,
     borderColor,
     color: textColor,
   }

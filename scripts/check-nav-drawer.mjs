@@ -154,7 +154,14 @@ const SCRIPT = `(async () => {
     }
     scroller.addEventListener("click", canvasIntercept, true)
 
-    const navLink = inPreview('[role="dialog"][aria-label="Menu"] a[href="/shop"]')
+    /* The first link in the menu's own nav, whatever the fallback nav names
+       this week: it was Home/Shop/About/Contact, and since the shop moved to
+       SHOP_PATH it is Home and Shop at /products. Selecting by structure
+       rather than by address keeps this a test of "a nav link navigates"
+       and not of which addresses the theme ships. The search row and the
+       call to action are outside <nav>, so neither is picked up here. */
+    const navLink = Array.from(document.querySelectorAll('#wb-preview-root [role="dialog"][aria-label="Menu"] nav a[href^="/"]'))
+      .find((a) => a.getAttribute("href") !== "/")
     r.foundNavLink = !!navLink
     if (navLink) { navLink.click(); await wait(80) }
     r.navWentSomewhere = r.editorNav.length > 0
@@ -187,7 +194,11 @@ const SCRIPT = `(async () => {
 
     const backdrop = Array.from(scroller.querySelectorAll("div[aria-hidden]")).find((el) => {
       const cs = getComputedStyle(el)
-      return cs.zIndex === "90" && cs.pointerEvents === "auto"
+      /* The backdrop's z-index is DRAWER_BACKDROP_Z in drawer-frame.ts,
+         raised over the cookie banner's 9999 so the menu's bottom rows can
+         be tapped. Read from the computed style, so this stays a
+         measurement of what is on screen rather than a copy of the source. */
+      return Number(cs.zIndex) >= 10000 && cs.pointerEvents === "auto" && !el.matches('[role="dialog"]')
     })
     r.foundBackdrop = !!backdrop
     if (backdrop) {
@@ -223,14 +234,39 @@ const AFTER_TAP = `(async () => {
   const cs2 = getComputedStyle(scroller)
   r.scopedAfter = { overflowY: cs2.overflowY, touchAction: cs2.touchAction, scrollTop: scroller.scrollTop }
 
+  return JSON.stringify(r)
+})()`
+
+/*
+  THE PUBLISHED SITE IS MEASURED ON A DESKTOP.
+
+  The editor canvas above runs under phone emulation, where Chromium draws
+  overlay scrollbars of no width — so "the document's scrollbar is gone
+  while the drawer is open" cannot be told from "there never was one". A
+  published site is opened in its own target at desktop metrics, where a
+  classic scrollbar has a width, and the scrollbar checks mean something.
+  The header search field's width cap is a desktop matter too.
+*/
+const LIVE = `(async () => {
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms))
+  const rect = (el) => { const r = el.getBoundingClientRect(); return { top: Math.round(r.top), left: Math.round(r.left), w: Math.round(r.width), h: Math.round(r.height) } }
+  const settle = (el) => { el.style.transition = "none"; void el.offsetHeight }
+  const r = {}
+  const scroller = document.getElementById("wb-preview-root")
+  await wait(400)
+
   /* ---- live: a published site ---- */
   window.scrollTo(0, ${SCROLL_TO})
   await wait(60)
   const openLive = document.querySelector('#live button[aria-label="Open menu"]')
   r.foundLiveButton = !!openLive
+  const barWidth = () => window.innerWidth - document.documentElement.clientWidth
+  r.barBefore = barWidth()
   if (openLive) {
     openLive.click()
     await wait(600)
+    r.barWhileOpen = barWidth()
+    r.bodyPad = document.body.style.paddingRight
     const all = Array.from(document.querySelectorAll('[role="dialog"][aria-label="Menu"]'))
     const d = all.find((el) => !scroller.contains(el))
     r.foundLiveDrawer = !!d
@@ -242,6 +278,7 @@ const AFTER_TAP = `(async () => {
     if (close) close.click()
     await wait(600)
     r.liveAfter = { position: getComputedStyle(document.body).position, scrollY: Math.round(window.scrollY) }
+    r.barAfter = barWidth()
   }
   /* ---- search, opened in the header ---- */
   const liveHeader = document.getElementById("live")
@@ -263,6 +300,8 @@ const AFTER_TAP = `(async () => {
         rect: rect(shell),
         rowRect: rect(shell.parentElement),
       }
+      const row = panel.parentElement
+      r.searchRow = { w: rect(row).w, viewport: window.innerWidth }
       const field = panel.querySelector('input[name="q"]')
       r.searchField = {
         exists: !!field,
@@ -288,7 +327,10 @@ function reachabilityFlags() {
 
 const proc = spawn(CHROMIUM, [
   "--headless=new", "--remote-debugging-port=0", "--no-sandbox", "--disable-gpu",
-  "--hide-scrollbars", "--force-device-scale-factor=1", ...reachabilityFlags(), "about:blank",
+  /* NOT --hide-scrollbars: one check below is about whether the document's
+     scrollbar is drawn beside an open drawer, which only means something on
+     a browser that draws one. */
+  "--force-device-scale-factor=1", ...reachabilityFlags(), "about:blank",
 ], { stdio: ["ignore", "ignore", "pipe"] })
 let endpoint = ""
 proc.stderr.on("data", (b) => { const m = String(b).match(/ws:\/\/[^\s]+/); if (m && !endpoint) endpoint = m[0] })
@@ -350,14 +392,29 @@ if (first.tapAt) {
 }
 
 const evaluated2 = await call("Runtime.evaluate", { expression: AFTER_TAP, awaitPromise: true, returnByValue: true })
+if (evaluated2.exceptionDetails) {
+  ws.close(); proc.kill("SIGKILL")
+  fail(`The probe threw after the tap: ${evaluated2.exceptionDetails.exception?.description || evaluated2.exceptionDetails.text}`)
+}
+if (typeof evaluated2.result?.value !== "string") { ws.close(); proc.kill("SIGKILL"); fail("Nothing reported after the tap.") }
+
+/* The published site, at desktop metrics. See LIVE. */
+const { targetId: t2 } = await send("Target.createTarget", { url: "about:blank" })
+const { sessionId: s2 } = await send("Target.attachToTarget", { targetId: t2, flatten: true })
+const call2 = (method, params) => send(method, params, s2)
+await call2("Page.enable", {})
+await call2("Emulation.setDeviceMetricsOverride", { width: 980, height: 640, deviceScaleFactor: 1, mobile: false })
+await call2("Page.navigate", { url: `file://${file}` })
+await sleep(1200)
+const evaluated3 = await call2("Runtime.evaluate", { expression: LIVE, awaitPromise: true, returnByValue: true })
 ws.close()
 proc.kill("SIGKILL")
 
-if (evaluated2.exceptionDetails) {
-  fail(`The probe threw after the tap: ${evaluated2.exceptionDetails.exception?.description || evaluated2.exceptionDetails.text}`)
+if (evaluated3.exceptionDetails) {
+  fail(`The probe threw on the published site: ${evaluated3.exceptionDetails.exception?.description || evaluated3.exceptionDetails.text}`)
 }
-if (typeof evaluated2.result?.value !== "string") fail("Nothing reported after the tap.")
-const r = { ...first, ...JSON.parse(evaluated2.result.value) }
+if (typeof evaluated3.result?.value !== "string") fail("Nothing reported from the published site.")
+const r = { ...first, ...JSON.parse(evaluated2.result.value), ...JSON.parse(evaluated3.result.value) }
 if (process.env.DEBUG) console.log(JSON.stringify(r, null, 2))
 
 let broken = 0
@@ -403,7 +460,7 @@ expect(r.foundBackdrop === true, "there is a backdrop to tap")
 expect(r.backdropClosedIt === true, "and a real tap on it closes the menu", r.backdropClosedIt ? "yes" : "it stayed open")
 expect(r.gotPast === 0, "and the tap stops there instead of reaching the canvas behind it", `${r.gotPast} event(s) got past`)
 
-console.log(`\nA published site, scrolled to ${SCROLL_TO}px\n`)
+console.log(`\nA published site, on a desktop, scrolled to ${SCROLL_TO}px\n`)
 expect(r.foundLiveButton && r.foundLiveDrawer, "the drawer mounted on the page")
 if (r.liveDrawer) {
   expect(r.liveDrawer.top === 0, "the drawer starts at the top of the viewport", `top ${r.liveDrawer.top}px`)
@@ -414,6 +471,10 @@ expect(r.liveLock?.position === "fixed", "the page is pinned, not merely overflo
 expect(r.liveLock?.top === `-${SCROLL_TO}px`, "pinned at the offset it was read at", `body top ${r.liveLock?.top}`)
 expect(r.liveAfter?.position !== "fixed" && r.liveAfter?.scrollY === SCROLL_TO,
   "and the scroll position comes back on close", `scrollY ${r.liveAfter?.scrollY}`)
+expect(r.barBefore > 0, "this browser draws a scrollbar, so the next check means something", `${r.barBefore}px wide`)
+expect(r.barWhileOpen === 0, "the document's scrollbar is gone while the drawer is open", `${r.barWhileOpen}px`)
+expect(r.bodyPad === `${r.barBefore}px`, "and its width was given back as padding, so nothing shifted", `padding-right ${r.bodyPad}`)
+expect(r.barAfter === r.barBefore, "and it is back once the drawer has gone", `${r.barAfter}px`)
 
 console.log("\nSearch, opened in the header\n")
 expect(r.searchIsAButton === true, "the icon is a button, not a link to a page", r.searchIsAButton ? "yes" : "still an anchor")
@@ -432,6 +493,7 @@ if (r.searchField) {
   expect(r.searchField.focused === true, "the field has the caret already", r.searchField.focused ? "yes" : "focus was left behind")
   expect(r.searchField.fontSize >= 16, "at a size iOS will not zoom the page for", `${r.searchField.fontSize}px`)
 }
+expect(r.searchRow && r.searchRow.w <= 720, "and it stops at a reading width whatever the header does", `${r.searchRow?.w}px in a ${r.searchRow?.viewport}px viewport`)
 expect(r.escapeClosedSearch === true, "and escape closes it", r.escapeClosedSearch ? "yes" : "it stayed open")
 
 console.log("")
