@@ -147,6 +147,50 @@ async function main() {
     !/z-\[90\] bg-black\/50/.test(header) && !/z-\[95\] flex flex-col/.test(header),
   )
 
+  console.log("\nAnd in the editor the menu says it is the navigation")
+
+  /**
+   * The editor refuses an ordinary link while the inspector is on, because a
+   * tap on a hero's button is almost always aimed at the hero, and follows a
+   * NAVIGATION one. Which it was depended on the section's role, decided
+   * outside: the navigating version went only to a section whose type is
+   * exactly "header" or "footer". A header that calls itself anything else —
+   * a theme's own, a custom one — got the refusing version, and every link
+   * in its drawer did nothing at all.
+   *
+   * The drawer knows what it is. It says so at the call.
+   */
+  const shared = read("components/website-builder/sections/_shared.tsx")
+  check(
+    "the prop carries the flag the editor already understands",
+    /onEditorNavigate\?: \(href: string, fromNav\?: boolean\) => void/.test(shared),
+  )
+  check(
+    "the drawer's links pass it",
+    /onEditorNavigate\(href, true\)/.test(header),
+    "without it the editor refuses the link whenever the inspector is on",
+  )
+  check(
+    "so does the logo",
+    /onEditorNavigate\("\/", true\)/.test(header),
+  )
+  check(
+    "and both search rows",
+    (header.match(/onEditorNavigate\("\/search", true\)/g) ?? []).length === 2,
+  )
+  /* Every CALL, found the way a person would: a line that invokes it with an
+     argument. A type, a prop being passed on, and a bare truthiness test all
+     fail that shape and are not calls. */
+  const unflagged = header
+    .split("\n")
+    .filter((line) => /onEditorNavigate\(\s*[^)\s]/.test(line))
+    .filter((line) => !line.includes(", true)"))
+  check(
+    "nothing in the header still navigates without saying what it is",
+    unflagged.length === 0,
+    unflagged.map((l) => l.trim().slice(0, 60)).join(" | "),
+  )
+
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }
 }

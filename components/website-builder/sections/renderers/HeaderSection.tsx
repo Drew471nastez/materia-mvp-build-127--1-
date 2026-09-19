@@ -78,7 +78,7 @@ function HeaderMobileNavDrawer({
   items: MobileNavItem[]
   scheme: ColorSchemeValues
   scopedToPreview?: boolean
-  onEditorNavigate?: (href: string) => void
+  onEditorNavigate?: (href: string, fromNav?: boolean) => void
   showAccount?: boolean
   showSearch?: boolean
   showWishlist?: boolean
@@ -226,7 +226,7 @@ function HeaderSearchPanel({
   paddingClass: string
   innerStyle: CSSProperties
   widthStyle: CSSProperties
-  onEditorNavigate?: (href: string) => void
+  onEditorNavigate?: (href: string, fromNav?: boolean) => void
 }) {
   const inputRef = useRef<HTMLInputElement | null>(null)
   /* Published, the site knows its creator. In the editor it knows the
@@ -337,7 +337,7 @@ function HeaderSearchPanel({
               if (!onEditorNavigate) return
               e.preventDefault()
               e.stopPropagation()
-              onEditorNavigate("/search")
+              onEditorNavigate("/search", true)
               onClose()
             }}
           >
@@ -421,7 +421,7 @@ function HeaderSearchPanel({
                     <li key={h.id}>
                       <a
                         href={h.url}
-                        onClick={onEditorNavigate ? (e) => { e.preventDefault(); e.stopPropagation(); onEditorNavigate(h.url); onClose() } : undefined}
+                        onClick={onEditorNavigate ? (e) => { e.preventDefault(); e.stopPropagation(); onEditorNavigate(h.url, true); onClose() } : undefined}
                         className="flex items-center gap-3 px-3 py-2 transition-colors hover:bg-black/5"
                       >
                         <span
@@ -441,7 +441,7 @@ function HeaderSearchPanel({
                 </ul>
                 <a
                   href={viewAll}
-                  onClick={onEditorNavigate ? (e) => { e.preventDefault(); e.stopPropagation(); onEditorNavigate("/search"); onClose() } : undefined}
+                  onClick={onEditorNavigate ? (e) => { e.preventDefault(); e.stopPropagation(); onEditorNavigate("/search", true); onClose() } : undefined}
                   className="flex items-center justify-between px-4 py-3 text-[13px] font-semibold transition-colors hover:bg-black/5"
                   style={{ borderTop: `1px solid ${scheme.inset_border}` }}
                 >
@@ -507,7 +507,7 @@ function HeaderCartDrawer({
 }: {
   scheme: ColorSchemeValues
   scopedToPreview: boolean
-  onEditorNavigate?: (href: string) => void
+  onEditorNavigate?: (href: string, fromNav?: boolean) => void
 }) {
   const { lines, open, setOpen, setQty, remove, subtotalCents, count } = useSiteCart()
   const onClose = useCallback(() => setOpen(false), [setOpen])
@@ -701,7 +701,7 @@ function MobileDrawerInner({
   scheme: ColorSchemeValues
   positionClass: string
   frameStyle: CSSProperties
-  onEditorNavigate?: (href: string) => void
+  onEditorNavigate?: (href: string, fromNav?: boolean) => void
   scopedToPreview: boolean
   drawerTransition: string
   backdropTransition: string
@@ -756,10 +756,13 @@ function MobileDrawerInner({
     The drawer closes and that is all this has to do.
   */
   const handleLinkClick = (href: string) => (e: React.MouseEvent) => {
+    /* The second argument says this link IS the site's navigation rather than
+       content being edited, so the editor follows it with the inspector on.
+       See SectionProps.onEditorNavigate for what used to decide that. */
     if (onEditorNavigate) {
       e.preventDefault()
       e.stopPropagation()
-      onEditorNavigate(href)
+      onEditorNavigate(href, true)
       onClose()
       return
     }
@@ -1587,7 +1590,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
             if (onEditorNavigate) {
               e.preventDefault()
               e.stopPropagation()
-              onEditorNavigate(href)
+              onEditorNavigate(href, true)
             }
           }}
         >
@@ -1663,7 +1666,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
                     if (onEditorNavigate) {
                       e.preventDefault()
                       e.stopPropagation()
-                      onEditorNavigate(childHref)
+                      onEditorNavigate(childHref, true)
                     }
                   }}
                 >
@@ -1827,7 +1830,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
             if (onEditorNavigate) {
               e.preventDefault()
               e.stopPropagation()
-              onEditorNavigate(str(s.cta_url, "#"))
+              onEditorNavigate(str(s.cta_url, "#"), true)
             }
           }}
         >
@@ -1939,7 +1942,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
           if (!onEditorNavigate) return
           e.preventDefault()
           e.stopPropagation()
-          onEditorNavigate("/")
+          onEditorNavigate("/", true)
         }}
       >
         {renderLogo()}
