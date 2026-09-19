@@ -79,7 +79,7 @@ import { toCard, type ProductCard } from "@/lib/website-builder/shop-products"
 import { sectionDisplayName } from "@/lib/website-builder/section-name"
 import { PIN_AFTER_SELECT_MS, pinScroll, resetClippedAncestors, reviveScroller, scrollWithin } from "@/lib/website-builder/canvas-scroll"
 import { LEAVING_SEEN_MS, navigateWithCeiling } from "@/lib/website-builder/navigate-ceiling"
-import { leavesThePage, type ClickTargetLike } from "@/lib/website-builder/canvas-intercept"
+import { isTypingTarget, leavesThePage, type ClickTargetLike } from "@/lib/website-builder/canvas-intercept"
 
 import { watchKeyboard } from "@/lib/website-builder/keyboard-watch"
 import { clearStaleDocumentLocks, watchForStuckLayer } from "@/lib/website-builder/stuck-layer"
@@ -7893,7 +7893,20 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
              * With the inspector OFF the canvas is a preview again and both
              * are gone, which is the mode for walking the site.
              */
-            onMouseDownCapture={inspectorEnabled ? (e) => e.preventDefault() : undefined}
+            /*
+              EXCEPT ON SOMETHING YOU TYPE IN. Cancelling the press stops a
+              control taking focus, which is the point: a focused button is
+              scrolled into view by the browser and on a short page that is
+              a jump to the top. A FIELD is the opposite case — refusing it
+              focus means the caret never lands and nothing can be typed,
+              which is the header's search field doing nothing with the
+              inspector on.
+
+              So a real editing control keeps its press. Everything else,
+              which is every button and link the canvas draws, still loses
+              it and still only selects.
+            */
+            onMouseDownCapture={inspectorEnabled ? (e) => { if (!isTypingTarget(e.target as unknown as ClickTargetLike | null)) e.preventDefault() } : undefined}
             /**
              * And this pair is not about the inspector at all: the canvas
              * never takes the BROWSER anywhere, in either mode. A link goes

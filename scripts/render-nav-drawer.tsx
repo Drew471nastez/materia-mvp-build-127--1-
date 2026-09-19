@@ -8,6 +8,7 @@ import { createRoot } from "react-dom/client"
 import { createElement } from "react"
 
 import { HeaderSection } from "@/components/website-builder/sections/renderers/HeaderSection"
+import { SiteCartProvider } from "@/components/website-builder/site-cart"
 import { THEME_SETTINGS_GROUPS } from "@/lib/website-builder/theme-settings-schema"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 
@@ -41,20 +42,20 @@ const section = (id: string): SectionInstance =>
 */
 const scoped = document.getElementById("scoped")!
 createRoot(scoped).render(
-  createElement(HeaderSection, {
+  createElement(SiteCartProvider, { shopId: undefined }, createElement(HeaderSection, {
     section: section("scoped"),
     theme,
     deviceMode: "mobile",
     insideEditor: true,
     onEditorNavigate: () => {},
-  }),
+  })),
 )
 
 const live = document.getElementById("live")!
 createRoot(live).render(
-  createElement(HeaderSection, {
+  createElement(SiteCartProvider, { shopId: "probe-shop" }, createElement(HeaderSection, {
     section: section("live"),
     theme,
     deviceMode: "mobile",
-  }),
+  })),
 )

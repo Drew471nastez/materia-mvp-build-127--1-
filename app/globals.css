@@ -679,6 +679,22 @@ html.capacitor body {
     background-color: rgba(100, 116, 139, 0.55);
   }
 
+  /* While a built site's drawer is open the page behind it does not scroll,
+     so it shows no scrollbar either — on whichever of the document and the
+     body would have drawn one. The width it occupied is handed back as
+     padding by drawer-frame.ts, so nothing moves when it goes. */
+  html[data-drawer-open],
+  html[data-drawer-open] body {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  html[data-drawer-open]::-webkit-scrollbar,
+  html[data-drawer-open] body::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+    background: transparent;
+  }
+
   /* The header's search field. Safari and Chrome draw a clear control
      inside a type=search field in the platform's accent colour, and on a
      dark header that is a blue cross beside the magnifier. Nothing native

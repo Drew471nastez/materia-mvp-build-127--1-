@@ -229,6 +229,7 @@ function HeaderSearchPanel({
   onEditorNavigate?: (href: string, fromNav?: boolean) => void
 }) {
   const inputRef = useRef<HTMLInputElement | null>(null)
+  const panelRef = useRef<HTMLDivElement | null>(null)
   /* Published, the site knows its creator. In the editor it knows the
      install, and the endpoint resolves the creator from that, so the field
      answers inside the canvas too. */
@@ -243,9 +244,28 @@ function HeaderSearchPanel({
     const id = window.setTimeout(() => inputRef.current?.focus(), 60)
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose() }
     window.addEventListener("keydown", onKey)
+
+    /*
+      AND PRESSING ANYWHERE ELSE CLOSES IT. Escape and the X were the only
+      ways out, which is one way more than most people look for: a panel
+      laid over the page reads as something you dismiss by pressing past it.
+      On the press rather than the click, so it goes as soon as the gesture
+      starts, and only for a press that began OUTSIDE the panel — a drag
+      that starts on the field and ends on the page is still a selection.
+    */
+    const onDown = (e: PointerEvent) => {
+      const el = e.target as Node | null
+      if (el && panelRef.current?.contains(el)) return
+      onClose()
+    }
+    /* Not capture: a press on the bag or the search icon should reach its
+       own handler, which toggles, rather than be eaten here and reopened. */
+    document.addEventListener("pointerdown", onDown)
+
     return () => {
       window.clearTimeout(id)
       window.removeEventListener("keydown", onKey)
+      document.removeEventListener("pointerdown", onDown)
     }
   }, [open, onClose])
 
@@ -295,20 +315,28 @@ function HeaderSearchPanel({
 
   return (
     <div
+      ref={panelRef}
       aria-hidden={!open}
       /*
-        ROOM ABOVE AND BELOW, WHATEVER THE HEADER'S PADDING IS.
+        EXACTLY THE HEADER ROW, AND THE FIELD FITS INSIDE IT.
 
-        The field sat in a row exactly as tall as the header, so a header
-        with little vertical padding had a field touching its top and bottom
-        edges. The row keeps 8px clear on each side, the field takes what is
-        left and never less than 36px, and if the header row is shorter than
-        that needs, the panel is the taller of the two — it is laid over the
-        row, so being taller moves nothing.
+        Two versions of this were wrong in opposite directions. First the
+        field filled the row, so a header with little padding had a field
+        touching its edges. Then the panel was given a minimum height and
+        the field a height of 100%, and the two inflated each other: the
+        field stretched to the panel, the panel grew to the field, and it
+        settled 24px TALLER than the header — measured at 84px against a
+        60px row. A panel taller than the header hangs below it, and that
+        overhang is a band of header colour across the top of whatever
+        section follows.
+
+        So the panel is the row, never more, and the field takes 44px or
+        whatever the row leaves after 8px of clearance, whichever is less.
+        A roomy header gets a 44px field; a very tight one gets a smaller
+        field rather than a header that grows.
       */
-      className="absolute inset-x-0 top-0 z-[70] flex min-h-[56px] items-center py-2"
+      className="absolute inset-0 z-[70] flex items-center overflow-hidden py-2"
       style={{
-        minHeight: "max(56px, 100%)",
         background,
         opacity: open ? 1 : 0,
         transform: open ? "translateY(0)" : "translateY(-6px)",
@@ -327,12 +355,14 @@ function HeaderSearchPanel({
           It stops at a reading width and sits in the middle, whatever the
           header does, which is what the field in the reference does.
         */}
-        <div className="relative mx-auto flex h-full w-full max-w-[720px] items-center gap-2">
+        {/* `items-stretch`, so the field's height comes from the row rather
+            than from a percentage. See the note on the input. */}
+        <div className="relative mx-auto flex h-full w-full max-w-[720px] items-stretch gap-2">
           <form
             action="/search"
             method="get"
             role="search"
-            className="relative flex-1 min-w-0 h-full"
+            className="relative flex flex-1 min-w-0"
             onSubmit={(e) => {
               if (!onEditorNavigate) return
               e.preventDefault()
@@ -350,14 +380,34 @@ function HeaderSearchPanel({
               placeholder={placeholder}
               aria-label={placeholder}
               autoComplete="off"
-              className="hdr-search-field w-full bg-transparent outline-none"
+              className="hdr-search-field w-full self-stretch bg-transparent outline-none"
               style={{
                 /* 16px or iOS zooms the page when the field takes focus, and
                    a header that scales up under a keyboard never recovers. */
                 fontSize: 16,
                 padding: "0 40px 0 14px",
-                height: "max(36px, 100%)",
-                minHeight: 36,
+                /*
+                  STRETCHED, NOT SIZED BY A PERCENTAGE.
+
+                  Two attempts at this were measured at 28px in a 60px
+                  header before the cause was clear. `min(44px, 100%)` is
+                  dropped outright when the percentage cannot resolve, and
+                  plain `height: 100%` does not resolve either, because the
+                  form it would measure is itself sized by a percentage on
+                  a flex item — which browsers treat as indefinite. Both
+                  fell through to the floor.
+
+                  `align-self: stretch` needs no resolution at all: the
+                  field takes the row's height because it is a flex item in
+                  a stretched row. The cap keeps a roomy header from growing
+                  a comically tall field, and a tighter header shrinks it
+                  rather than overflowing.
+                */
+                /* The row is sized by its tallest child, and that was the
+                   36px close button. The field asks for its own height, so
+                   it is the one that decides. */
+                maxHeight: 44,
+                minHeight: 40,
                 color: scheme.heading,
                 caretColor: scheme.heading,
                 /* The browser's own clear control and focus ring take the
@@ -385,7 +435,7 @@ function HeaderSearchPanel({
             type="button"
             onClick={onClose}
             aria-label="Close search"
-            className="h-9 w-9 shrink-0 flex items-center justify-center rounded-full transition-colors hover:bg-black/5"
+            className="h-9 w-9 shrink-0 self-center flex items-center justify-center rounded-full transition-colors hover:bg-black/5"
             style={{ color: scheme.heading }}
           >
             <X className="h-5 w-5" strokeWidth={1.8} />
@@ -2228,10 +2278,19 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
         // layout offset when toggled on/off. "subtle" uses 50% alpha of
         // the scheme's inset_border; "solid" uses the scheme colour as-is.
         boxShadow: [
+          /*
+            A SEPARATOR, NOT A STRIPE. This was drawn in `scheme.inset_border`,
+            which is the scheme's divider colour for lines inside content —
+            light, because content is usually light. On a black header that
+            is a bright white line across the page, which is what it was
+            reported as: a line nobody asked for and nobody could explain.
+
+            Drawn from the header's OWN text colour at low alpha instead, so
+            it is a hairline on a dark header and on a light one, and the
+            Subtle option is half of that again. The control is unchanged.
+          */
           shouldShowBorder
-            ? `inset 0 -1px 0 ${borderStyleRaw === "subtle"
-                ? hexToRgba(borderColor, 0.5)
-                : borderColor}`
+            ? `inset 0 -1px 0 color-mix(in srgb, ${textColor} ${borderStyleRaw === "subtle" ? 7 : 14}%, transparent)`
             : null,
           // Smooth subtle depth shadow (Figma-like). Two layers:
           //   - 1px hairline with 4% alpha: creates the sense of a hard

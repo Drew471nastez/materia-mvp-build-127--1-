@@ -212,6 +212,22 @@ export function useDrawerFrame(open: boolean, scopedToPreview: boolean, onClose:
       body.overflow = "hidden"
       if (barWidth > 0) body.paddingRight = `${barWidth}px`
       root.overflow = "hidden"
+      /*
+        AND THE PAGE SAYS A DRAWER IS OPEN.
+
+        `overflow: hidden` on the document is the correct lock and it is
+        measurably enough in a page of our own making: the probe reports the
+        bar at 15px, 0px while open, 15px after. It was still reported as
+        drawn on a real site, where the page is a creator's own markup and
+        any wrapper in it may be the thing carrying the scroll.
+
+        Rather than keep guessing which element that is, the requirement is
+        stated where it cannot be missed: while this attribute is set, no
+        scrollbar is drawn on the document or the body, whichever of them
+        would have drawn it. The padding above still holds the layout still,
+        so taking the bar away moves nothing.
+      */
+      document.documentElement.setAttribute("data-drawer-open", "")
       const prevScrollingOverflow = scrollingEl.style.overflow
       if (scrollingEl !== document.documentElement && scrollingEl !== document.body) scrollingEl.style.overflow = "hidden"
 
@@ -224,6 +240,7 @@ export function useDrawerFrame(open: boolean, scopedToPreview: boolean, onClose:
         body.overflow = prev.overflow
         body.paddingRight = prev.paddingRight
         root.overflow = prev.rootOverflow
+        document.documentElement.removeAttribute("data-drawer-open")
         if (scrollingEl !== document.documentElement && scrollingEl !== document.body) scrollingEl.style.overflow = prevScrollingOverflow
         window.scrollTo(0, scrollY)
       })

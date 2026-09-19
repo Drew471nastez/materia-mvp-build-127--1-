@@ -324,7 +324,12 @@ section("It is reachable, and it works on a file longer than the window")
     // A focused control is scrolled into view by the browser before any code
     // here runs, which on a short page is a jump to the top; and a link that
     // no renderer intercepted navigated the whole builder away, measured.
-    /onMouseDownCapture=\{inspectorEnabled \? \(e\) => e\.preventDefault\(\) : undefined\}/.test(editor) &&
+    /* Every control still loses its press EXCEPT something you type in: a
+       field refused focus is a field the caret never reaches, which is the
+       header's own search input doing nothing inside the builder. The rule
+       this check exists for — a press does not focus, so the browser does
+       not scroll the canvas to the top — is unchanged for everything else. */
+    /onMouseDownCapture=\{inspectorEnabled \? \(e\) => \{ if \(!isTypingTarget\(/.test(editor) &&
       // and the page-leaving pair, which is not about the inspector at all:
       // see "The canvas never takes the browser anywhere" in canvas-scroll.
       /onClickCapture=\{\(e\) => \{[\s\S]{0,3000}?if \(leavesThePage\(/.test(editor) &&

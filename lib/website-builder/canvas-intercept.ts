@@ -44,3 +44,26 @@ export function leavesThePage(target: ClickTargetLike | null): boolean {
   if (tag === "button" && type !== "" && type !== "submit") return false
   return control.closest("form") !== null
 }
+
+/**
+ * ===========================================================================
+ *  SOMETHING YOU TYPE IN
+ * ===========================================================================
+ * The canvas cancels a press while the inspector is on, so a control cannot
+ * take focus: a focused button is scrolled into view by the browser, and on
+ * a short page the only place it can scroll to is the top, which is the jump
+ * reported as "click a section and it goes back to the top".
+ *
+ * A FIELD IS THE OPPOSITE CASE. Refusing it focus means the caret never
+ * lands and nothing can be typed, which is the header's own search field
+ * doing nothing inside the builder. So a real editing control keeps its
+ * press and everything else still loses it.
+ *
+ * `closest` rather than a tag test on the target itself, because a press
+ * often lands on something inside the control: the text node of an option,
+ * or an element inside a contenteditable.
+ */
+export function isTypingTarget(target: ClickTargetLike | null): boolean {
+  if (!target?.closest) return false
+  return target.closest("input, textarea, select, [contenteditable]:not([contenteditable=false])") !== null
+}

@@ -280,6 +280,33 @@ const LIVE = `(async () => {
     r.liveAfter = { position: getComputedStyle(document.body).position, scrollY: Math.round(window.scrollY) }
     r.barAfter = barWidth()
   }
+  /* ---- the cart drawer, which is the one in the report ----
+     The menu above and the cart share a frame, but only the menu was ever
+     opened here: the probe mounted the header with no cart, so the bag
+     opened nothing and the cart's own scroll lock went unmeasured. */
+  const cartBtn = document.getElementById("live").querySelector('button[aria-label^="Cart"]')
+  r.foundCartButton = !!cartBtn
+  if (cartBtn) {
+    r.barBeforeCart = barWidth()
+    cartBtn.click()
+    await wait(600)
+    const cartPanel = Array.from(document.querySelectorAll('[role="dialog"][aria-label="Cart"]'))
+      .find((el) => !scroller.contains(el))
+    r.foundCartPanel = !!cartPanel
+    if (cartPanel) {
+      settle(cartPanel)
+      r.cartRect = rect(cartPanel)
+      r.cartRight = Math.round(window.innerWidth - rect(cartPanel).left - rect(cartPanel).w)
+    }
+    r.barWhileCartOpen = barWidth()
+    r.bodyPadCart = document.body.style.paddingRight
+    r.rootOverflowCart = document.documentElement.style.overflow
+    const closeCart = cartPanel ? cartPanel.querySelector('button[aria-label="Close cart"]') : null
+    if (closeCart) closeCart.click()
+    await wait(600)
+    r.barAfterCart = barWidth()
+  }
+
   /* ---- search, opened in the header ---- */
   const liveHeader = document.getElementById("live")
   const searchBtn = liveHeader.querySelector('button[aria-label="Search"]')
@@ -307,12 +334,27 @@ const LIVE = `(async () => {
       const shellRect = shell.getBoundingClientRect()
       r.searchField = {
         exists: !!field,
+        height: fieldRect ? Math.round(fieldRect.height) : 0,
         gapAbove: fieldRect ? Math.round(fieldRect.top - shellRect.top) : -1,
         gapBelow: fieldRect ? Math.round(shellRect.bottom - fieldRect.bottom) : -1,
         focused: document.activeElement === field,
         fontSize: field ? Number(getComputedStyle(field).fontSize.replace("px", "")) : 0,
         method: panel.getAttribute("method"),
       }
+      /* Pressing past it closes it. A real press, on the page behind the
+         panel, because this listens for a pointer going down rather than a
+         click and a synthetic click would not produce one. */
+      const away = document.elementFromPoint(Math.round(window.innerWidth / 2), Math.round(window.innerHeight - 40))
+      r.pressedAwayOn = away ? away.tagName.toLowerCase() : "(nothing)"
+      if (away) {
+        away.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, cancelable: true }))
+        await wait(400)
+      }
+      r.awayClosedSearch = Number(getComputedStyle(shell).opacity) < 0.05
+
+      /* Reopen, then check escape still works. */
+      searchBtn.click()
+      await wait(500)
       window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }))
       await wait(400)
       r.escapeClosedSearch = Number(getComputedStyle(shell).opacity) < 0.05
@@ -480,6 +522,16 @@ expect(r.barWhileOpen === 0, "the document's scrollbar is gone while the drawer 
 expect(r.bodyPad === `${r.barBefore}px`, "and its width was given back as padding, so nothing shifted", `padding-right ${r.bodyPad}`)
 expect(r.barAfter === r.barBefore, "and it is back once the drawer has gone", `${r.barAfter}px`)
 
+console.log("\nThe cart drawer, on a desktop\n")
+expect(r.foundCartButton === true, "the bag is there to press")
+expect(r.foundCartPanel === true, "and it opens a cart")
+expect(r.barBeforeCart > 0, "the page had a scrollbar to begin with", `${r.barBeforeCart}px`)
+expect(r.barWhileCartOpen === 0, "which is gone while the cart is open", `${r.barWhileCartOpen}px`)
+expect(r.rootOverflowCart === "hidden", "because the document itself is locked", `overflow ${r.rootOverflowCart || "(none)"}`)
+expect(r.bodyPadCart === `${r.barBeforeCart}px`, "and its width was handed back, so nothing shifted", `padding-right ${r.bodyPadCart || "(none)"}`)
+expect(r.cartRight === 0, "the cart is flush with the right edge, with no strip beside it", `${r.cartRight}px of gap`)
+expect(r.barAfterCart === r.barBeforeCart, "and the scrollbar is back once it closes", `${r.barAfterCart}px`)
+
 console.log("\nSearch, opened in the header\n")
 expect(r.searchIsAButton === true, "the icon is a button, not a link to a page", r.searchIsAButton ? "yes" : "still an anchor")
 expect(r.foundSearchPanel === true, "clicking it puts a real form in the header")
@@ -488,18 +540,19 @@ if (r.searchPanel) {
     "the panel is open and takes input", `opacity ${r.searchPanel.opacity}, pointer-events ${r.searchPanel.pointerEvents}`)
   expect(r.searchPanel.hasTransition === true, "and it faded rather than appeared")
   expect(Math.abs(r.searchPanel.rect.top - r.searchPanel.rowRect.top) <= 1 &&
-    r.searchPanel.rect.h >= r.searchPanel.rowRect.h - 1,
-    "it starts where the header row starts and covers it, so nothing below it moves",
+    Math.abs(r.searchPanel.rect.h - r.searchPanel.rowRect.h) <= 1,
+    "it is exactly the header row, so it cannot hang below it",
     `panel ${r.searchPanel.rect.h}px at ${r.searchPanel.rect.top}px, row ${r.searchPanel.rowRect.h}px at ${r.searchPanel.rowRect.top}px`)
-  expect(r.searchPanel.rect.h >= 56, "and it is never so short the field touches its edges", `${r.searchPanel.rect.h}px`)
 }
 if (r.searchField) {
   expect(r.searchField.exists && r.searchField.method === "get", "it submits to the search page by itself", `method ${r.searchField.method}`)
   expect(r.searchField.focused === true, "the field has the caret already", r.searchField.focused ? "yes" : "focus was left behind")
   expect(r.searchField.fontSize >= 16, "at a size iOS will not zoom the page for", `${r.searchField.fontSize}px`)
+  expect(r.searchField.height >= 40, "and tall enough to read as a field rather than a slot", `${r.searchField.height}px`)
   expect(r.searchField.gapAbove >= 8 && r.searchField.gapBelow >= 8, "with room above and below it inside the header", `${r.searchField.gapAbove}px above, ${r.searchField.gapBelow}px below`)
 }
 expect(r.searchRow && r.searchRow.w <= 720, "and it stops at a reading width whatever the header does", `${r.searchRow?.w}px in a ${r.searchRow?.viewport}px viewport`)
+expect(r.awayClosedSearch === true, "pressing past it closes it", r.awayClosedSearch ? `yes, pressed on <${r.pressedAwayOn}>` : "it stayed open")
 expect(r.escapeClosedSearch === true, "and escape closes it", r.escapeClosedSearch ? "yes" : "it stayed open")
 
 console.log("")

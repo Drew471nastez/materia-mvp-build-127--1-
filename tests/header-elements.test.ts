@@ -103,7 +103,7 @@ function main() {
   check("View all goes to the search page with the words",
     /`\/search\?q=\$\{encodeURIComponent\(q\.trim\(\)\)\}`/.test(header))
   check("the field is not as wide as a full-width header",
-    /max-w-\[720px\] items-center gap-2/.test(header))
+    /max-w-\[720px\] items-stretch gap-2/.test(header))
   check("published it asks by creator, in the editor by install, and with neither it says nothing",
     /creatorId \? `creator=/.test(header) && /installId \? `install=/.test(header) && /if \(!askAs \|\| !term\)/.test(header) &&
       /searchParams\.get\("install"\)/.test(read("app/api/website-builder/search/route.ts")))
@@ -170,7 +170,8 @@ function main() {
   const css = read("app/globals.css")
   check("the browser's clear control is gone", /\.hdr-search-field::-webkit-search-cancel-button/.test(css) && /hdr-search-field/.test(header))
   check("and the accent colour is the scheme's", /accentColor: scheme\.heading/.test(header))
-  check("the row keeps room above and below the field", /className="absolute inset-x-0 top-0 z-\[70\] flex min-h-\[56px\] items-center py-2"/.test(header))
+  check("the panel is exactly the header row, so it cannot hang below it",
+    /className="absolute inset-0 z-\[70\] flex items-center overflow-hidden py-2"/.test(header))
 
   console.log("\n  a card's picture fills its box")
 
@@ -186,6 +187,36 @@ function main() {
   const panels = read("components/website-builder/editor/design-panels.tsx")
   check("the text field is gone", !/placeholder="linear-gradient\(135deg, #000 0%, #333 100%\)"/.test(panels))
   check("and the editor is in its place", /<GradientEditor value=\{current\.gradient\}/.test(panels) && existsSync("components/website-builder/editor/gradient-editor.tsx"))
+
+  console.log("\n  the field, and the way out of it")
+
+  check("pressing past the panel closes it, on the press",
+    /document\.addEventListener\("pointerdown", onDown\)/.test(header) && /panelRef\.current\?\.contains\(el\)/.test(header))
+  check("and the listener is taken off again",
+    /document\.removeEventListener\("pointerdown", onDown\)/.test(header))
+  check("the field is a little taller, and sized by stretching rather than a percentage",
+    /self-stretch/.test(header) && /maxHeight: 44,/.test(header) && !/height: "min\(44px/.test(header))
+
+  console.log("\n  a field in the canvas can be typed in")
+
+  const intercept = read("lib/website-builder/canvas-intercept.ts")
+  check("the canvas knows what a typing control is",
+    /export function isTypingTarget/.test(intercept) && /contenteditable/.test(intercept))
+  check("and stops cancelling the press on one",
+    /if \(!isTypingTarget\(e\.target as unknown as ClickTargetLike \| null\)\) e\.preventDefault\(\)/.test(editor))
+
+  console.log("\n  the line under the header is a hairline, not a stripe")
+
+  check("it is drawn from the header's own text colour, not the divider colour",
+    /inset 0 -1px 0 color-mix\(in srgb, \$\{textColor\}/.test(header))
+  check("and Subtle is half of it again", /borderStyleRaw === "subtle" \? 7 : 14/.test(header))
+
+  console.log("\n  no scrollbar behind an open drawer")
+
+  check("the page is told a drawer is open",
+    /setAttribute\("data-drawer-open", ""\)/.test(frame) && /removeAttribute\("data-drawer-open"\)/.test(frame))
+  check("and while it is, neither the document nor the body draws one",
+    /html\[data-drawer-open\],\s*\n\s*html\[data-drawer-open\] body \{/.test(read("app/globals.css")))
 
   console.log("\n  the call to action reaches a phone")
 
