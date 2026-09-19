@@ -26,6 +26,7 @@ import { pageTitleFromKey, BUILT_IN_PAGE_KEYS } from "@/lib/website-builder/site
 import { SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
 import type { SectionInstance } from "@/lib/website-builder/types"
 import { withLiveLinks } from "@/lib/website-builder/live-links"
+import { resolveEditorHref } from "@/lib/website-builder/editor-navigation"
 import { applyUniversalChrome, chromeOf, withUniversalChrome } from "@/lib/website-builder/universal-chrome"
 import { readdirSync, readFileSync } from "node:fs"
 import { join } from "node:path"
@@ -277,7 +278,15 @@ async function main() {
      */
     check(
       "a footer link to a policy resolves to that page in the editor",
-      /const customMatch = customPages\.find\(p => p\.key === pageKeyGuess\)/.test(editor),
+      /* The routing is a function now, so this asks it about a real policy
+         address instead of matching the line that used to do the lookup. */
+      (() => {
+        const d = resolveEditorHref("/privacy", {
+          currentPage: "home", inspectorEnabled: false, fromNav: true,
+          shopPath: "/products", customPageKeys: ["privacy", "terms", "refunds"],
+        })
+        return d.kind === "page" && d.key === "privacy"
+      })(),
     )
 
     check("the pages group is shut until it is asked for", /const \[yoursOpen, setYoursOpen\] = useState\(false\)/.test(switcher))
@@ -353,7 +362,10 @@ async function main() {
     )
     check(
       "while a link inside the page's own content still only selects",
-      /if \(inspectorEnabled && !fromNav\) return/.test(editor),
+      resolveEditorHref("/privacy-policy", {
+        currentPage: "home", inspectorEnabled: true, fromNav: false,
+        shopPath: "/products", customPageKeys: ["privacy-policy"],
+      }).kind === "ignore",
     )
     check(
       "and opening a page leaves you at the top of it",
@@ -597,7 +609,16 @@ async function main() {
     )
 
     /** A link to a page that is not there says so. */
-    check("an unknown address is stated rather than swallowed", /setMissingPath\(path\)/.test(editor))
+    check(
+      "an unknown address is stated rather than swallowed",
+      (() => {
+        const d = resolveEditorHref("/wholesale", {
+          currentPage: "home", inspectorEnabled: false, fromNav: true,
+          shopPath: "/products", customPageKeys: [],
+        })
+        return d.kind === "missing" && d.path === "/wholesale"
+      })() && /setMissingPath\(decision\.path\)/.test(editor),
+    )
     check("and it offers to make the page", /Create this page/.test(editor) && /onCreateMissingPage/.test(editor))
     check("arriving somewhere clears it", /setMissingPath\(null\)/.test(editor))
     check(

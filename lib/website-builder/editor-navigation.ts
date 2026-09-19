@@ -1,0 +1,125 @@
+/**
+ * ===========================================================================
+ *  WHERE A LINK IN THE CANVAS GOES
+ * ===========================================================================
+ * The editor's canvas follows the site's own navigation: the logo, the menu,
+ * the footer's links, the mobile drawer. Deciding WHERE one goes was ninety
+ * lines inside a nine thousand line component, reading state straight out of
+ * the render it happened to be built in.
+ *
+ * That is how the logo stopped working. The decision reads which page is open
+ * — going home while already home is not a page change — and the callback
+ * holding it listed `products`, `customPages` and `inspectorEnabled` as its
+ * dependencies but not the page. So it kept the page from the render that
+ * built it, which is the editor's first render, which is the home page. From
+ * then on every link to "/" was answered "you are already there", on every
+ * page, for the rest of the session. The logo did nothing, Home in the menu
+ * did nothing, Home in the mobile drawer did nothing, and every other address
+ * worked, because no other address reads the page.
+ *
+ * So the decision is a function of its arguments and nothing else, and it is
+ * a value rather than an action: the caller does the navigating. A stale read
+ * cannot hide in here any more, and tests/editor-navigation.test.ts asks it
+ * for "/" from every page there is.
+ */
+
+export type EditorNavDecision =
+  /** Nothing to do, and the reason, which is worth having in a test. */
+  | { kind: "ignore"; why: "empty" | "external" | "inspector" | "placeholder" }
+  /** An anchor on the page being edited: scroll to it. */
+  | { kind: "anchor"; id: string }
+  /** Home, while home is already open: the top of it. */
+  | { kind: "top" }
+  /** A page of this site, by its key. */
+  | { kind: "page"; key: string }
+  /** A product page, by the slug or id in the address. */
+  | { kind: "product"; slug: string }
+  /** No page answers this address, and the builder offers to make one. */
+  | { kind: "missing"; path: string }
+
+export interface EditorNavContext {
+  /** The page open in the canvas right now, read at the moment of the click. */
+  currentPage: string
+  /** With the inspector on a tap selects, unless the link IS the navigation. */
+  inspectorEnabled: boolean
+  fromNav: boolean
+  /** Where this site's shop lives, which has moved once already. */
+  shopPath: string
+  /** The keys of the pages the creator has made. */
+  customPageKeys: readonly string[]
+}
+
+/** The built-in pages an address can name directly. */
+const DIRECT: Record<string, string> = {
+  "/about": "about",
+  "/contact": "contact",
+  "/search": "search",
+}
+
+export function resolveEditorHref(href: string, ctx: EditorNavContext): EditorNavDecision {
+  const trimmed = (href ?? "").trim()
+  if (!trimmed || trimmed === "#") return { kind: "ignore", why: "empty" }
+
+  /*
+    WITH THE INSPECTOR ON, A TAP SELECTS. A thumb on a phone lands on a link
+    as often as on the space around it, and every one of those taps was
+    changing the page under somebody who meant to select a section. Unless
+    the link IS the site's navigation, which is what `fromNav` says: a header
+    or footer link is navigation even while the inspector is on, because a
+    nav you cannot follow is a nav you cannot check.
+  */
+  if (ctx.inspectorEnabled && !ctx.fromNav) return { kind: "ignore", why: "inspector" }
+
+  // An anchor on this page scrolls the canvas to it, and nothing else.
+  if (trimmed.startsWith("#")) return { kind: "anchor", id: trimmed.slice(1) }
+
+  // Leaving the editor is not what that tap meant.
+  if (/^https?:\/\//i.test(trimmed)) return { kind: "ignore", why: "external" }
+  if (/^\/\//.test(trimmed)) return { kind: "ignore", why: "external" }
+  if (trimmed.startsWith("mailto:") || trimmed.startsWith("tel:")) return { kind: "ignore", why: "external" }
+
+  /* A link nobody has filled in yet. It is not a missing page, so it must not
+     offer to create one. */
+  if (trimmed === "#!" || trimmed.toLowerCase() === "javascript:void(0)") {
+    return { kind: "ignore", why: "placeholder" }
+  }
+
+  const withPrefix = trimmed.startsWith("/") ? trimmed : `/${trimmed}`
+  /* The query and the hash name a place ON a page, not another page. /search
+     keeps its query because the search page reads it; everything else is
+     matched without one. */
+  const path = withPrefix.split("#")[0]
+  const bare = path.split("?")[0]
+  const noSlash = bare.length > 1 ? bare.replace(/\/+$/, "") : bare
+
+  if (noSlash === "/" || noSlash === "") {
+    /*
+      HOME WHILE HOME IS OPEN IS THE TOP OF HOME. Reloading the page that is
+      already showing would only throw the scroll away, but doing NOTHING is
+      the thing that reads as a broken logo. A browser on a same page
+      navigation goes to the top, so this does.
+    */
+    return ctx.currentPage === "home" ? { kind: "top" } : { kind: "page", key: "home" }
+  }
+
+  // Product page deep link.
+  if (noSlash.startsWith("/products/") || noSlash.startsWith(`${ctx.shopPath}/`)) {
+    const under = noSlash.startsWith("/products/") ? "/products/" : `${ctx.shopPath}/`
+    const slug = noSlash.slice(under.length).split("/")[0]
+    return slug ? { kind: "product", slug } : { kind: "ignore", why: "empty" }
+  }
+
+  if (noSlash === ctx.shopPath) return { kind: "page", key: "products" }
+  if (DIRECT[noSlash]) return { kind: "page", key: DIRECT[noSlash] }
+
+  const key = noSlash.replace(/^\//, "")
+  if (ctx.customPageKeys.includes(key)) return { kind: "page", key }
+
+  /*
+    A LINK TO A PAGE THAT IS NOT THERE SAYS SO. This used to do nothing at
+    all, which from the creator's side is identical to a broken link: they
+    click something in their own header, the screen does not change, and they
+    cannot tell whether the problem is the link, the page or the editor.
+  */
+  return { kind: "missing", path: noSlash }
+}

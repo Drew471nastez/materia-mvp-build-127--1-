@@ -65,6 +65,7 @@ import { ColorsPanel, SectionDesignPanel, TypographyPanel } from "@/components/w
 import { remapScheme, themeColorSchemes } from "@/lib/storelib-theme/color-schemes"
 import { PAGE_META } from "@/lib/website-builder/types"
 import { BUILT_IN_PAGE_KEYS, pageKeyFromSegment, pageTitleFromKey } from "@/lib/website-builder/site-pages"
+import { resolveEditorHref } from "@/lib/website-builder/editor-navigation"
 import { headerIconOn } from "@/lib/website-builder/header-icons"
 import { headerGap, headerPad } from "@/lib/website-builder/header-spacing"
 import { SHOP_PATH } from "@/lib/website-builder/live-links"
@@ -4778,104 +4779,95 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   // perform a full browser navigation (that would blow the user out of the
   // editor). Instead, map the href to the appropriate editor page/action.
   // External URLs and `#` anchors are simply ignored in edit mode.
+  /**
+   * ═══════════════════════════════════════════════════════════════════════
+   *  READ AT THE MOMENT OF THE CLICK, NOT AT THE RENDER THAT BUILT THIS
+   * ═══════════════════════════════════════════════════════════════════════
+   * `handleEditorNavigate` has to stay stable: it is handed to every section
+   * and SectionRenderer is memoized on it, so a new identity per render
+   * re-renders the whole canvas on every keystroke. It was kept stable by
+   * leaving things out of its dependency list, and the things left out went
+   * stale.
+   *
+   * THAT IS WHAT BROKE THE LOGO. The decision reads which page is open, the
+   * dependency list did not mention it, so the callback kept the page from
+   * the editor's first render, which is home. Every link to "/" was then
+   * answered "you are already there", from every page, for the rest of the
+   * session: the logo did nothing, Home in the menu did nothing, Home in the
+   * mobile drawer did nothing, while /about and /products worked, because no
+   * other address reads the page.
+   *
+   * The two page handlers were left out for the same reason and were stale in
+   * the same way — `handlePageChange` saves the page being left before it
+   * leaves it, and a stale one saves whatever was open when the editor
+   * started. The same refs the undo stack uses, assigned in render, so the
+   * callback stays stable and still reads what is true now.
+   */
+  const currentPageRef = useRef(currentPage)
+  currentPageRef.current = currentPage
+  const pageChangeRef = useRef(handlePageChange)
+  pageChangeRef.current = handlePageChange
+  const selectProductRef = useRef(handleSelectProductPage)
+  selectProductRef.current = handleSelectProductPage
+  const productsRef = useRef(products)
+  productsRef.current = products
+  const customPagesRef = useRef(customPages)
+  customPagesRef.current = customPages
+  const inspectorRef = useRef(inspectorEnabled)
+  inspectorRef.current = inspectorEnabled
+
   const handleEditorNavigate = useCallback((href: string, fromNav = false) => {
-    if (!href) return
-    /**
-     * WITH THE INSPECTOR ON, A TAP SELECTS. It does not navigate. A thumb on a
-     * phone lands on a link or a button as often as on the space around it,
-     * and every one of those taps was changing the page under the person:
-     * the header's logo, a "Home" in the nav, a button to "/", all reloaded
-     * the canvas at the top. That was "select a section and it takes me back
-     * to the top". Following links is what the preview is for, with the
-     * inspector off.
-     */
-    if (inspectorEnabled && !fromNav) return
-    const trimmed = href.trim()
-    if (!trimmed || trimmed === "#") return
-    // An anchor on this page scrolls the canvas to it, and nothing else.
-    if (trimmed.startsWith("#")) {
-      const scroller = document.getElementById("wb-preview-root")
-      const target = scroller?.querySelector<HTMLElement>(`#${window.CSS.escape(trimmed.slice(1))}`)
-      if (scroller && target) scrollWithin(scroller, target)
-      return
-    }
-    // External → ignore (we don't want to leave the editor)
-    if (/^https?:\/\//i.test(trimmed)) return
-    if (trimmed.startsWith("mailto:") || trimmed.startsWith("tel:")) return
+    /* WHERE it goes is decided by a pure function, so it can be asked the
+       question without an editor around it: lib/website-builder/editor-navigation.
+       Everything below is the doing. */
+    const decision = resolveEditorHref(href, {
+      currentPage: currentPageRef.current,
+      inspectorEnabled: inspectorRef.current,
+      fromNav,
+      shopPath: SHOP_PATH,
+      customPageKeys: customPagesRef.current.map((p) => p.key),
+    })
 
-    // Normalise path-only hrefs
-    const path = trimmed.startsWith("/") ? trimmed : `/${trimmed}`
-    // The page already showing is not reloaded, which would put it back at the top.
-    if ((path === "/" || path === "") && currentPage === "home") return
+    switch (decision.kind) {
+      case "ignore":
+        return
 
-    // Product page deep-link
-    if (path.startsWith("/products/")) {
-      const slug = path.slice("/products/".length).split("?")[0].split("/")[0]
-      if (!slug) return
-      const match = products.find(p => p.slug === slug || p.id === slug)
-      if (match) handleSelectProductPage(match.id, match.title)
-      return
-    }
+      case "anchor": {
+        const scroller = document.getElementById("wb-preview-root")
+        const target = scroller?.querySelector<HTMLElement>(`#${window.CSS.escape(decision.id)}`)
+        if (scroller && target) scrollWithin(scroller, target)
+        return
+      }
 
-    // Home + common platform routes
-    if (path === "/" || path === "") {
-      handlePageChange("home")
-      return
-    }
-    if (path === "/about" || path === "/about/") {
-      handlePageChange("about" as PageKey)
-      return
-    }
-    if (path === "/contact" || path === "/contact/") {
-      handlePageChange("contact" as PageKey)
-      return
-    }
-    /*
-      THE SHOP AND THE SEARCH PAGE ARE PAGES. Every site answers /products and
-      /search, and every link to them in the canvas — Shop in the menu, the
-      search icon, "View all" under the field — used to land on "that page
-      does not exist" because the editor had never heard of either. They are
-      generated on read now (see the sections route) and open like any other.
-    */
-    if (path === SHOP_PATH || path === `${SHOP_PATH}/`) {
-      handlePageChange("products")
-      return
-    }
-    if (path === "/search" || path === "/search/" || path.startsWith("/search?")) {
-      handlePageChange("search")
-      return
-    }
+      /* Home, while home is open. Nothing to load, so this is the one thing
+         a browser does on a same page navigation: go to the top. Doing
+         nothing at all is what read as a logo that does not work. */
+      case "top": {
+        const scroller = document.getElementById("wb-preview-root")
+        scroller?.scrollTo({ top: 0, behavior: "smooth" })
+        return
+      }
 
-    // Custom page match — user-created pages stored in `customPages`.
-    const pageKeyGuess = path.replace(/^\//, "").replace(/\/$/, "") as PageKey
-    const customMatch = customPages.find(p => p.key === pageKeyGuess)
-    if (customMatch) {
-      handlePageChange(customMatch.key)
-      return
+      case "product": {
+        const match = productsRef.current.find(
+          (p) => p.slug === decision.slug || p.id === decision.slug,
+        )
+        if (match) selectProductRef.current(match.id, match.title)
+        return
+      }
+
+      case "page":
+        pageChangeRef.current(decision.key as PageKey)
+        return
+
+      case "missing":
+        setMissingPath(decision.path)
+        return
     }
-    /**
-     * ═════════════════════════════════════════════════════════════════════
-     *  A LINK TO A PAGE THAT IS NOT THERE SAYS SO
-     * ═════════════════════════════════════════════════════════════════════
-     * This silently did nothing, and "/shop" quietly became the home page.
-     * Both are the same failure from the creator's side: they click a link
-     * in their own header and the screen does not change, so the link looks
-     * broken and they have no idea whether the problem is the link, the
-     * page, or the editor.
-     *
-     * A browser answers this question with a 404. The builder can answer it
-     * better, because here the page CAN be made: it says which address was
-     * asked for and offers to create it.
-     */
-    setMissingPath(path)
-    return
-    /**
-     * `inspectorEnabled` is read, so it belongs here. The two page handlers
-     * are NOT: they are plain functions rebuilt every render, and listing
-     * them would rebuild this callback every render too, which is the
-     * closure churn SectionRenderer's memo exists to avoid.
-     */
-  }, [products, customPages, inspectorEnabled])
+    /* Every branch returns, and the switch is exhaustive over the decision's
+       kinds, so a kind added later is a type error here rather than a link
+       that silently does nothing. */
+  }, [])
 
   // ── Memoized section buckets ─────────────────────────────────
   /**

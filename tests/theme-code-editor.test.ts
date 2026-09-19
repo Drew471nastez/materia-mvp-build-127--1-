@@ -23,6 +23,7 @@
 import { compileSection } from "@/lib/storelib-theme/storelib/compile"
 import { MAX_REPAIR_ATTEMPTS } from "@/lib/storelib-ai"
 import { DRAWER_EASING, DRAWER_MS, drawerRelease } from "@/lib/website-builder/drawer-drag"
+import { resolveEditorHref } from "@/lib/website-builder/editor-navigation"
 import {
   buildThemeFileTree,
   flattenTree,
@@ -228,15 +229,41 @@ section("It is reachable, and it works on a file longer than the window")
   check(
     "with the inspector on, a tap on a theme link selects and never navigates, and the page already showing is not reloaded",
     /**
-     * The guard has ONE exception, named in the regex so that widening it
-     * again is a failing test: a link in the site's NAV — the header or the
-     * footer, which is what `data-chrome` marks — navigates, because their
-     * links are their content. A link inside the page's own content still
-     * only selects.
+     * The guard has ONE exception: a link in the site's NAV — the header or
+     * the footer, which is what `data-chrome` marks — navigates, because
+     * their links are their content. A link inside the page's own content
+     * still only selects.
+     *
+     * Asked of the routing rather than of the editor's source. The middle
+     * line of this check used to be a regex for
+     *
+     *     if ((path === "/" || path === "") && currentPage === "home") return
+     *
+     * which pinned the exact line that was broken: `currentPage` was read
+     * out of a useCallback that did not list it as a dependency, so it was
+     * the page open at the editor's FIRST render, forever, and the logo
+     * never worked. A regex cannot see a missing dependency. Executing the
+     * decision can.
      */
-    /const handleEditorNavigate = useCallback\(\(href: string, fromNav = false\) => \{\s*\n\s*if \(!href\) return[\s\S]{0,1200}?if \(inspectorEnabled && !fromNav\) return/.test(editor) &&
-      /if \(\(path === "\/" \|\| path === ""\) && currentPage === "home"\) return/.test(editor) &&
-      /if \(trimmed\.startsWith\("#"\)\) \{[\s\S]*?scrollWithin\(scroller, target\)/.test(editor),
+    (() => {
+      const ctx = {
+        currentPage: "home", inspectorEnabled: true, fromNav: false,
+        shopPath: "/products", customPageKeys: [] as string[],
+      }
+      const content = resolveEditorHref("/about", ctx)
+      const nav = resolveEditorHref("/about", { ...ctx, fromNav: true })
+      const homeFromHome = resolveEditorHref("/", { ...ctx, fromNav: true })
+      const homeFromElsewhere = resolveEditorHref("/", { ...ctx, fromNav: true, currentPage: "products" })
+      const anchor = resolveEditorHref("#reviews", { ...ctx, fromNav: true })
+      return content.kind === "ignore"
+        && nav.kind === "page" && nav.key === "about"
+        /* Not reloaded, and not nothing either: the top of the page. */
+        && homeFromHome.kind === "top"
+        && homeFromElsewhere.kind === "page" && homeFromElsewhere.key === "home"
+        && anchor.kind === "anchor" && anchor.id === "reviews"
+    })() &&
+      /* And the canvas still does the scrolling for an anchor. */
+      /case "anchor": \{[\s\S]{0,400}?scrollWithin\(scroller, target\)/.test(editor),
   )
   check(
     "on a phone the code editor is its own page: the builder saves the draft, then navigates to the code route with a way back",

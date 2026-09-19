@@ -17,6 +17,7 @@
  * an arrangement that holds.
  */
 import { existsSync, readFileSync } from "node:fs"
+import { resolveEditorHref } from "../lib/website-builder/editor-navigation"
 import { join } from "node:path"
 import { HEADER_ICON_KEYS, headerIconOn } from "../lib/website-builder/header-icons"
 
@@ -156,8 +157,16 @@ function main() {
     /BUILT_IN_PAGE_KEYS[^\n]*"products", "search"/.test(sitePages))
   check("the sections route generates them from the same builders the live site uses",
     /GENERATED_PAGE_KEYS\.has\(pageKey\)/.test(sectionsRoute) && /shopSections\(homeSections, theme\)/.test(sectionsRoute) && /searchSections\(homeSections\)/.test(sectionsRoute))
+  /* Asked of the routing itself rather than of the editor's source: it is a
+     function now, so "does /products open the shop" has an answer that does
+     not depend on how the call happens to be written. */
   check("the canvas navigates to both",
-    /handlePageChange\("products"\)/.test(editor) && /handlePageChange\("search"\)/.test(editor))
+    (() => {
+      const ctx = { currentPage: "home", inspectorEnabled: false, fromNav: true, shopPath: "/products", customPageKeys: [] }
+      const shop = resolveEditorHref("/products", ctx)
+      const search = resolveEditorHref("/search", ctx)
+      return shop.kind === "page" && shop.key === "products" && search.kind === "page" && search.key === "search"
+    })())
   check("and both are in the page lists",
     /\{ name: "Shop", key: "products" as PageKey \}/.test(editor) && /\{ name: "Search", key: "search" as PageKey \}/.test(editor))
   check("the live shop and search prefer what the creator saved",
