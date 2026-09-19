@@ -18,7 +18,7 @@ import { useCallback, useState, useEffect, useRef, useLayoutEffect, type CSSProp
 import { createPortal } from "react-dom"
 import { ThemeSocials } from "../../theme/ThemeSocials"
 import { cn } from "@/lib/utils"
-import { useBackdropDismiss, useDrawerFrame } from "../../drawer-frame"
+import { DRAWER_BACKDROP_Z, DRAWER_PANEL_Z, useBackdropDismiss, useDrawerFrame } from "../../drawer-frame"
 import { SHOP_PATH } from "@/lib/website-builder/live-links"
 import { useSiteCart } from "../../site-cart"
 import { lineKey } from "@/lib/website-builder/cart"
@@ -382,7 +382,7 @@ function HeaderCartDrawer({
       <div
         aria-hidden
         ref={dismissBackdrop}
-        className={cn(positionClass, "left-0 right-0 z-[90] bg-black/50")}
+        className={cn(positionClass, "left-0 right-0 bg-black/50", DRAWER_BACKDROP_Z)}
         style={{
           ...frameStyle,
           opacity: open ? 1 : 0,
@@ -397,7 +397,8 @@ function HeaderCartDrawer({
         aria-hidden={!open}
         className={cn(
           positionClass,
-          "right-0 z-[95] flex flex-col",
+          "right-0 flex flex-col",
+          DRAWER_PANEL_Z,
           open && "shadow-2xl",
           scopedToPreview ? "w-[88%] max-w-[360px]" : "w-[90vw] max-w-[400px]",
         )}
@@ -638,7 +639,7 @@ function MobileDrawerInner({
       <div
         aria-hidden
         ref={dismissBackdrop}
-        className={cn(positionClass, "left-0 right-0 z-[90] bg-black/50")}
+        className={cn(positionClass, "left-0 right-0 bg-black/50", DRAWER_BACKDROP_Z)}
         style={{
           ...frameStyle,
           opacity: open ? 1 : 0,
@@ -675,7 +676,8 @@ function MobileDrawerInner({
         data-chrome=""
         className={cn(
           positionClass,
-          "left-0 z-[95] flex flex-col",
+          "left-0 flex flex-col",
+          DRAWER_PANEL_Z,
           open && "shadow-2xl",
           scopedToPreview ? "w-[82%] max-w-[320px]" : "w-[85vw] max-w-[360px]",
         )}
@@ -1476,7 +1478,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
               // (which sit at `isolate` / z:auto). We use z-[70] so the panel
               // paints over hero/image/product sections that render with
               // their own internal z-10 overlays. The header's own sticky
-              // wrapper sits at z-[60] (below the drawer at z-[90]/[95]),
+              // wrapper sits at z-[60] (below the drawer, see drawer-frame),
               // and because the dropdown lives inside that stacking context
               // its effective paint order vs. outside siblings = z-[60] —
               // still comfortably above all non-sticky section content.
