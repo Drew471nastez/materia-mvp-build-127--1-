@@ -16,6 +16,7 @@
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 
 /** The id is fixed, not generated: the same page must render the same twice. */
+const SEARCH_ID = "storelib-search"
 const GRID_ID = "shop-all-products"
 
 export function shopSections(
@@ -62,39 +63,52 @@ export function shopSections(
 
 /**
  * ===========================================================================
- *  THE SAME PAGE, WITH A QUESTION AT THE TOP OF IT
+ *  A SEARCH PAGE IS A SECTION, LIKE EVERY OTHER PAGE
  * ===========================================================================
- * A search result is the shop page with a smaller list on it, so it is built
- * from the same pieces rather than from a second layout that would drift away
- * from the first one. What differs is the heading, which says what was asked
- * and what came back, and that is the whole of the difference.
+ * This used to be the shop page with its heading rewritten: a product grid
+ * pretending to be a search result. It read correctly and it could not be
+ * edited, because a creator opening the page in the builder found a Product
+ * Grid whose heading changed by itself, and there was nowhere to set the
+ * field's placeholder, its button, or what the page says when nothing
+ * matched.
+ *
+ * It is a `search` section now, with its own schema, so the builder shows it
+ * in the sidebar like any other and the editor and the published page are
+ * the same thing. The field is part of it, above the results, because a
+ * visitor who searched and got the wrong thing changes one word rather than
+ * going back to the header to start again.
+ *
+ * WITH NO QUERY IT IS THE WHOLE SHOP, which is what a search page shows
+ * before anybody has searched, and what the builder shows a creator who is
+ * designing it.
  */
-export function searchSections(
-  homeSections: SectionInstance[],
-  theme: ThemeSettingsValues,
-  query: string,
-  resultCount: number,
-): SectionInstance[] {
-  const sections = shopSections(homeSections, theme)
-  const trimmed = query.trim()
+export function searchSections(homeSections: SectionInstance[]): SectionInstance[] {
+  const header = homeSections.find((s) => s.type === "header")
+  const footer = homeSections.find((s) => s.type === "footer")
 
-  return sections.map((section) => {
-    if (section.id !== GRID_ID) return section
-    return {
-      ...section,
-      settings: {
-        ...section.settings,
-        /* Their words back to them, and the count, so a page with nothing on
-           it still says why. Not "No results found for your query". */
-        heading: trimmed ? `${resultCount} for "${trimmed}"` : "Search",
-        subheading: trimmed
-          ? resultCount === 0
-            ? "Nothing here matched. Try a shorter word."
-            : ""
-          : "Type what you are looking for.",
-      },
-    }
-  })
+  const search: SectionInstance = {
+    id: SEARCH_ID,
+    type: "search",
+    name: "Search results",
+    settings: {
+      heading: "Search",
+      intro: "Everything in the shop.",
+      placeholder: "Search products",
+      button_text: "Search",
+      empty_text: "Nothing matched. Try a shorter word.",
+      show_price: true,
+      columns: { desktop: 3, tablet: 2, mobile: 1 },
+      shape: "1 / 1",
+      max_width: "wide",
+      color_scheme: "white",
+      padding_top: 56,
+      padding_bottom: 72,
+    },
+    blocks: [],
+    hidden: false,
+  }
+
+  return [...(header ? [header] : []), search, ...(footer ? [footer] : [])]
 }
 
 /**

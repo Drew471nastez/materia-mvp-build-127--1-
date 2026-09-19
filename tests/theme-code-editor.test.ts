@@ -488,7 +488,7 @@ section("Save compiles, errors carry lines, the canvas finds out")
   check(
     "the published page draws the saved sections too, not the bundled ones",
     /\.from\("store_theme_custom_files"\)/.test(prerender)
-      && /renderStorelibSection\(section, theme, \{ template \}, sources, products\)/.test(prerender)
+      && /renderStorelibSection\(section, theme, \{ \.\.\.pageExtras, template \}, sources, products\)/.test(prerender)
       && /prerenderStorelibSections\(/.test(creator),
   )
   check("a new section file starts as one that compiles", /const starterFor = \(path: string\)/.test(codePage) && /"<template>",/.test(codePage) && /"<schema>",/.test(codePage))

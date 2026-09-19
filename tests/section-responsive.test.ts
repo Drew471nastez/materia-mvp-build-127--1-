@@ -2166,7 +2166,12 @@ check(
    * is handed the editor flag and does nothing at all inside the canvas.
    */
   (headerRenderer.match(/onClick=\{onEditorNavigate \? \(e\) => e\.preventDefault\(\) : undefined\}/g) ?? []).length === 4 &&
-    (headerRenderer.match(/onClick=\{onEditorNavigate \? \(e\) => e\.preventDefault\(\) : \(\) => onClose\(\)\}/g) ?? []).length === 1 &&
+    /* Four go through `handleLinkClick`: a nav link on the menu's root pane
+       and one on its submenu pane, the phone's Search row, and the call to
+       action. It cancels the default in the editor and, on a published site,
+       closes the drawer before asking for the page, so the close animation
+       gets a frame instead of being cut off by the navigation. */
+    (headerRenderer.match(/onClick=\{handleLinkClick\(/g) ?? []).length === 4 &&
     /if \(inEditor\) return/.test(headerRenderer) &&
     (headerRenderer.match(/goToPlatform\("[^"]+", !!onEditorNavigate\)/g) ?? []).length === 3,
 )

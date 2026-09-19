@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils"
 import { useBackdropDismiss, useDrawerFrame } from "../../drawer-frame"
 import { useSiteCart } from "../../site-cart"
 import { lineKey } from "@/lib/website-builder/cart"
+import { headerIconOn } from "@/lib/website-builder/header-icons"
 import { getMainDomain } from "@/lib/url-helpers"
 import type { ColorSchemeKey, ColorSchemeValues } from "@/lib/website-builder/types"
 import {
@@ -44,6 +45,18 @@ type MobileNavItem = {
   children?: MobileNavItem[]
 }
 
+/** The close transition below. The links wait for it before navigating. */
+const CLOSE_MS = 260
+
+/** The header's call to action, as the drawer needs it. */
+interface DrawerCta {
+  text: string
+  url: string
+  background: string
+  color: string
+  radius: CSSProperties
+}
+
 function HeaderMobileNavDrawer({
   open,
   onClose,
@@ -54,6 +67,7 @@ function HeaderMobileNavDrawer({
   showAccount,
   showWishlist,
   showSearch,
+  cta,
 }: {
   open: boolean
   onClose: () => void
@@ -64,6 +78,7 @@ function HeaderMobileNavDrawer({
   showAccount?: boolean
   showSearch?: boolean
   showWishlist?: boolean
+  cta?: DrawerCta | null
 }) {
   /*
     The pin, the scroll lock and the portal target are the same problem for
@@ -101,6 +116,7 @@ function HeaderMobileNavDrawer({
       showAccount={!!showAccount}
       showSearch={showSearch !== false}
       showWishlist={!!showWishlist}
+      cta={cta ?? null}
     />
   )
 
@@ -392,6 +408,7 @@ function MobileDrawerInner({
   showAccount,
   showWishlist,
   showSearch,
+  cta,
 }: {
   open: boolean
   onClose: () => void
@@ -406,6 +423,7 @@ function MobileDrawerInner({
   showAccount: boolean
   showWishlist: boolean
   showSearch: boolean
+  cta: DrawerCta | null
 }) {
   // Active submenu id — null means we're on the ROOT menu. When an item
   // with children is tapped this flips to that item's id and the drawer
@@ -429,13 +447,46 @@ function MobileDrawerInner({
     : null
   const inSubmenu = !!activeSubmenuItem
 
+  /*
+    ═══════════════════════════════════════════════════════════════════════
+     THE MENU CLOSES, AND THEN THE PAGE CHANGES
+    ═══════════════════════════════════════════════════════════════════════
+    On a published site a link here used to close the drawer and navigate in
+    the same tick. The navigation wins: the browser starts unloading, the
+    close transition never gets a frame, and the menu sits frozen on screen
+    for however long the next page takes. It reads as a tap that jammed.
+
+    So the drawer slides out first and the page is asked for once it has
+    gone. One close animation is what the visitor is waiting through either
+    way, and now it is the thing they can see.
+
+    A MODIFIED CLICK IS NOT THIS. Command, control, shift and the middle
+    button mean "open it somewhere else", and a link that cancels its own
+    default takes that away. Those are left to the browser, and the drawer
+    just closes.
+
+    IN THE EDITOR nothing is unloaded, so there is nothing to wait for: the
+    canvas has already swapped the page being edited by the time this runs.
+    The drawer closes and that is all this has to do.
+  */
   const handleLinkClick = (href: string) => (e: React.MouseEvent) => {
     if (onEditorNavigate) {
       e.preventDefault()
       e.stopPropagation()
       onEditorNavigate(href)
+      onClose()
+      return
     }
+
+    const opensElsewhere = e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0
+    if (opensElsewhere) {
+      onClose()
+      return
+    }
+
+    e.preventDefault()
     onClose()
+    window.setTimeout(() => { window.location.assign(href) }, CLOSE_MS)
   }
 
   return (
@@ -629,6 +680,33 @@ function MobileDrawerInner({
               • Both account + wishlist → Log In LEFT, Wishlist RIGHT
             We render a single row with `justify-between` and conditionally
             place each element on the correct side. */}
+        {/*
+          ═══════════════════════════════════════════════════════════════════
+           THE CALL TO ACTION IS ON A PHONE TOO, AND THIS IS WHERE IT FITS
+          ═══════════════════════════════════════════════════════════════════
+          It was desktop only. The header row on a phone is a hamburger, a
+          logo, search and the bag, and there is no width left in it for a
+          labelled button — "Book a cut" in that row is either an ellipsis or
+          a logo squeezed out of the middle.
+
+          So it is the first thing in the menu, full width, in the theme's
+          own button colours: the one action the creator has decided matters
+          most, at the size a thumb wants, which is where every shop's app
+          puts it. The desktop header is unchanged.
+        */}
+        {cta && (
+          <div className="border-t border-black/10 px-5 py-4 shrink-0" style={{ background: scheme.bg }}>
+            <a
+              href={cta.url}
+              onClick={handleLinkClick(cta.url)}
+              className="flex h-12 w-full items-center justify-center px-4 text-[15px] font-semibold"
+              style={{ background: cta.background, color: cta.color, ...cta.radius }}
+            >
+              <span className="truncate">{cta.text}</span>
+            </a>
+          </div>
+        )}
+
         {(showAccount || showWishlist) && (
           <div
             className="border-t border-black/10 px-5 py-3 flex items-center justify-between shrink-0"
@@ -712,7 +790,7 @@ function MobileDrawerInner({
         {showSearch && (
           <a
             href="/search"
-            onClick={onEditorNavigate ? (e) => e.preventDefault() : () => onClose()}
+            onClick={handleLinkClick("/search")}
             className="border-t border-black/10 px-5 py-4 flex items-center gap-3 shrink-0 text-[15px] font-medium"
             style={{ background: scheme.bg, color: scheme.nav_link }}
           >
@@ -759,15 +837,18 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
   const borderColor = scheme.inset_border
 
   const layout = str(s.header_layout, "logo_left_nav_right")
-  const showAccount = s.show_account_icon !== false
-  const showWishlist = s.show_wishlist_icon !== false
+  /* One rule, shared with the Header elements panel, so a toggle and the
+     icon it describes cannot disagree again. See lib/website-builder
+     /header-icons.ts for the two that did. */
+  const showAccount = headerIconOn(s.show_account_icon)
+  const showWishlist = headerIconOn(s.show_wishlist_icon)
   /*
     ON BY DEFAULT. Every shop is expected to have one, and a header without a
     way to look for something is the first thing a visitor misses. It is a
     toggle rather than a fixture because a one-product site does not need it.
   */
-  const showSearch = s.show_search_icon !== false
-  const showCart = s.show_cart_icon !== false
+  const showSearch = headerIconOn(s.show_search_icon, s.show_search)
+  const showCart = headerIconOn(s.show_cart_icon, s.show_cart)
   // Hover style for desktop menu links — mirrors the select in Header Settings.
   // Values: "inherit" | "none" | "underline" | "underline_reverse" | "fade_siblings"
   const menuHoverStyle = str(s.menu_link_hover_style, "inherit")
@@ -1854,6 +1935,20 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
       showAccount={showAccount}
       showWishlist={showWishlist}
       showSearch={showSearch}
+      /* The same toggle, text, link and colours the desktop button uses.
+         Resolved here rather than inside the drawer so there is one answer
+         to "is there a call to action and what does it look like". */
+      cta={
+        s.show_cta_button !== false && str(s.cta_text, "Shop Now").trim()
+          ? {
+              text: str(s.cta_text, "Shop Now"),
+              url: str(s.cta_url, "/"),
+              background: str(s.cta_color) || theme.primary_color || "#6366f1",
+              color: str(s.cta_text_color) || scheme.primary_btn_text,
+              radius: buttonRadiusStyle(theme),
+            }
+          : null
+      }
       items={rootNavBlocks.map(b => {
         const kids = childrenByParent[b.id] ?? []
         return {
