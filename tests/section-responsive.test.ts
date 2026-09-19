@@ -2141,8 +2141,16 @@ check(
    */
   // Four doors: the nav link, its submenu, the CTA, and the phone menu.
   // The fifth was the cart, which is gone: there was never a cart behind it.
+  //
+  // WHAT IS BEING COUNTED IS THE INTERCEPTION, not what follows it. Three of
+  // the four call `onEditorNavigate` on the spot; the phone menu closes first
+  // and changes the page after the slide, the same order the published branch
+  // uses, because changing the page under an open menu is a tap that looks
+  // like it did nothing. All four still cancel the anchor, which is the thing
+  // that used to take people out of the builder.
   !/if \(isEditing\) \{\s*e\.preventDefault\(\)/.test(headerRenderer) &&
-    (headerRenderer.match(/if \(onEditorNavigate\) \{\s*e\.preventDefault\(\)\s*e\.stopPropagation\(\)\s*onEditorNavigate\(/g) ?? []).length === 4,
+    (headerRenderer.match(/if \(onEditorNavigate\) \{\s*e\.preventDefault\(\)\s*e\.stopPropagation\(\)/g) ?? []).length === 4 &&
+    /onClose\(\)\s*\n\s*window\.setTimeout\(\(\) => onEditorNavigate\(href, true\), CLOSE_MS\)/.test(headerRenderer),
 )
 
 check(

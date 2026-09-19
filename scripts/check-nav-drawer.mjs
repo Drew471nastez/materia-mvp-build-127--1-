@@ -149,8 +149,12 @@ const SCRIPT = `(async () => {
       const inNav = !!(anchor && anchor.closest && anchor.closest("[data-chrome]"))
       const href = anchor ? (anchor.getAttribute("href") || "").trim() : ""
       const internal = href.startsWith("/") && !href.startsWith("//")
+      /* The canvas leaves a link inside the open menu to the menu, which
+         closes itself and then changes the page. Swallowing it here would
+         reproduce the bug rather than test for it. */
+      const inDialog = !!(anchor && anchor.closest && anchor.closest('[role="dialog"]'))
       if (anchor) e.preventDefault()
-      if (inNav && internal) { e.stopPropagation(); r.editorNav.push(href) }
+      if (inNav && internal && !inDialog) { e.stopPropagation(); r.editorNav.push(href) }
     }
     scroller.addEventListener("click", canvasIntercept, true)
 
@@ -163,13 +167,53 @@ const SCRIPT = `(async () => {
     const navLink = Array.from(document.querySelectorAll('#wb-preview-root [role="dialog"][aria-label="Menu"] nav a[href^="/"]'))
       .find((a) => a.getAttribute("href") !== "/")
     r.foundNavLink = !!navLink
-    if (navLink) { navLink.click(); await wait(80) }
-    r.navWentSomewhere = r.editorNav.length > 0
+    /* Long enough for the menu to slide out and then navigate: it closes
+       first now, in the editor as on a site. */
+    if (navLink) { navLink.click(); await wait(700) }
+    r.navWentSomewhere = r.editorNav.length > 0 || (window.__editorNav || []).length > 0
+
+    /* The tap above closed the menu, which is the point of it. Open it again
+       before asking about the next row, or the row is behind a panel with
+       pointer-events none, and the answer is about nothing. */
+    const reopenForSearch = document.querySelector('#scoped button[aria-label="Open menu"]')
+    if (reopenForSearch) { reopenForSearch.click(); await wait(600) }
+    const panelNow = inPreview('[role="dialog"][aria-label="Menu"]')
+    r.reopened = !!panelNow && getComputedStyle(panelNow).pointerEvents !== "none"
 
     const searchRow = inPreview('[role="dialog"][aria-label="Menu"] a[href="/search"]')
     r.foundSearchRow = !!searchRow
-    if (searchRow) { searchRow.click(); await wait(80) }
-    r.searchWentSomewhere = r.editorNav.includes("/search")
+    if (searchRow) { searchRow.click(); await wait(700) }
+    /*
+      SEARCH HAS TWO RIGHT ANSWERS AND THE CREATOR PICKS.
+      A header set to open search in itself does not leave for a page, and
+      the drawer's row follows that setting — so "the address did not change"
+      is not a failure there. Either the editor was asked for /search, or a
+      field is on screen. Anything else is the row doing nothing.
+    */
+    const searchField = Array.from(document.querySelectorAll("input")).find((i) => {
+      const box = i.getBoundingClientRect()
+      const label = ((i.getAttribute("aria-label") || "") + " " + (i.getAttribute("placeholder") || "")).toLowerCase()
+      return box.width > 60 && box.height > 16 && label.includes("search")
+    })
+    r.searchOpenedAField = !!searchField
+    r.searchWentSomewhere =
+      r.editorNav.includes("/search") ||
+      (window.__editorNav || []).some(([h]) => h === "/search") ||
+      r.searchOpenedAField
+    /* Read AFTER both taps: what the EDITOR was asked to do, which the
+       capture-phase intercept above cannot see. See the spy in
+       render-nav-drawer. */
+    r.editorAsked = (window.__editorNav || []).slice()
+
+    /*
+      PUT THE CANVAS BACK WHERE THE NEXT CHECKS EXPECT IT.
+      Opening the header's search field focuses it, and focusing an input
+      scrolls it into view — which takes the canvas to the top. The checks
+      below are about the drawer's scroll LOCK, not about what search does,
+      so the offset is restored rather than left for them to trip over.
+    */
+    scroller.scrollTop = ${SCROLL_TO}
+    await wait(60)
 
     scroller.removeEventListener("click", canvasIntercept, true)
 
@@ -500,8 +544,39 @@ expect(r.scopedAfter?.overflowY === "auto" && r.scopedAfter?.scrollTop === SCROL
 console.log("\nAnd the controls inside it\n")
 expect(r.foundNavLink === true, "the menu has the site's nav links in it")
 expect(r.navWentSomewhere === true, "a nav link goes somewhere", r.navWentSomewhere ? "yes" : "the click was cancelled and nothing navigated")
+expect(r.reopened === true, "the menu opens again after a link closed it", r.reopened ? "yes" : "it stayed closed, so the next tap is about nothing")
 expect(r.foundSearchRow === true, "the menu has a search row")
-expect(r.searchWentSomewhere === true, "and search goes somewhere", r.searchWentSomewhere ? "yes" : "the click was cancelled and nothing navigated")
+expect(
+  r.searchWentSomewhere === true,
+  "and search either opens a field or asks for the page",
+  r.searchWentSomewhere ? (r.searchOpenedAField ? "a field opened" : "asked for /search") : "the row did nothing",
+)
+
+/*
+  ═══════════════════════════════════════════════════════════════════════════
+   AND THE EDITOR WAS ACTUALLY ASKED, WHICH THE CHECKS ABOVE CANNOT SEE
+  ═══════════════════════════════════════════════════════════════════════════
+  The intercept those two read runs in the CAPTURE phase, so it records a
+  link's href before React's handler has run. It says "the nav went somewhere"
+  whatever the editor handler does, and whether it is called at all — the
+  whole editor path was invisible to it, and that is the path the editor
+  actually takes: the drawer cancels the default, calls `onEditorNavigate`
+  and stops the event, so the intercept never sees the click again.
+
+  The spy in render-nav-drawer records what was asked for. The second value
+  is the one that matters: `true` means the drawer said "this link is the
+  site's navigation", which is what makes the editor follow it while the
+  inspector is on. Without it the editor refuses and the menu does nothing.
+*/
+const asked = r.editorAsked ?? []
+/* At least the nav link. Search may legitimately open a field instead, so it
+   is counted by its own check above rather than demanded here. */
+expect(asked.length >= 1, "the editor itself was asked to navigate", `${asked.length} call(s): ${JSON.stringify(asked)}`)
+expect(
+  asked.every(([, fromNav]) => fromNav === true),
+  "and every ask says it is the site's navigation, not content being edited",
+  JSON.stringify(asked),
+)
 expect(r.foundBackdrop === true, "there is a backdrop to tap")
 expect(r.backdropClosedIt === true, "and a real tap on it closes the menu", r.backdropClosedIt ? "yes" : "it stayed open")
 expect(r.gotPast === 0, "and the tap stops there instead of reaching the canvas behind it", `${r.gotPast} event(s) got past`)

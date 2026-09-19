@@ -7959,7 +7959,30 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
               if (leavesThePage(e.target as unknown as ClickTargetLike | null)) e.preventDefault()
 
-              if (inNav && internal) {
+              /**
+               * ═════════════════════════════════════════════════════════════
+               *  EXCEPT WHEN THE LINK IS IN THE MENU, WHICH OWNS ITS OWN EXIT
+               * ═════════════════════════════════════════════════════════════
+               * `stopPropagation` in the CAPTURE phase ends the dispatch: the
+               * anchor's own handler never runs. For a link in a header bar
+               * that is fine, there is nothing else to do. For a link in the
+               * open mobile menu it is the bug.
+               *
+               * That menu is a dialog over the whole screen, and its handler
+               * is what closes it. Swallowed, the page underneath changed and
+               * the menu stayed up covering it — so a tap read as doing
+               * nothing at all, which is exactly how it was reported. The
+               * navigation had happened; nobody could see it.
+               *
+               * So a link inside a dialog is left to the dialog. It slides
+               * out first and changes the page after, which is what a menu on
+               * any site does. Measured by scripts/check-nav-drawer.mjs,
+               * whose editor handler is a spy: it recorded no calls at all
+               * while this branch took them.
+               */
+              const inDialog = !!anchor?.closest?.('[role="dialog"]')
+
+              if (inNav && internal && !inDialog) {
                 e.stopPropagation()
                 handleEditorNavigate(href, true)
               }
