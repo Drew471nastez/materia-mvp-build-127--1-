@@ -55,6 +55,13 @@ import {
 import { SmartLink } from "@/components/smart-link"
 import { cn } from "@/lib/utils"
 import { publishedUrl } from "@/lib/sites/public-host"
+import {
+  clearLocalDraft,
+  readLocalDraft,
+  unsavedIn,
+  writeLocalDraft,
+  type LocalDraft,
+} from "@/lib/sites/local-draft"
 import type { ProjectFiles, Site } from "@/lib/sites/types"
 import { ChatPane } from "./chat-pane"
 import { CodePane } from "./code-pane"
@@ -66,6 +73,25 @@ import { useBundler } from "./use-bundler"
 
 type SaveState = "clean" | "dirty" | "saving" | "error"
 type Pane = "chat" | "preview" | "code"
+
+
+/**
+ * "a moment ago", "12 minutes ago". Enough to tell somebody whether the work
+ * being offered back is the thing they were just doing or something from
+ * yesterday; no library, and no false precision.
+ */
+function relativeTime(iso: string): string {
+  const then = Date.parse(iso)
+  if (!Number.isFinite(then)) return "earlier"
+  const seconds = Math.max(0, Math.round((Date.now() - then) / 1000))
+  if (seconds < 45) return "a moment ago"
+  const minutes = Math.round(seconds / 60)
+  if (minutes < 60) return minutes === 1 ? "a minute ago" : `${minutes} minutes ago`
+  const hours = Math.round(minutes / 60)
+  if (hours < 24) return hours === 1 ? "an hour ago" : `${hours} hours ago`
+  const days = Math.round(hours / 24)
+  return days === 1 ? "yesterday" : `${days} days ago`
+}
 
 const AUTOSAVE_MS = 1200
 
@@ -95,6 +121,13 @@ export function EditorShell({
   )
   const [saveState, setSaveState] = React.useState<SaveState>("clean")
   const [saveError, setSaveError] = React.useState<string | null>(null)
+  /**
+   * Work this device kept that the server never heard about, found on open.
+   * Null when there is none, which is the ordinary case.
+   */
+  const [recovered, setRecovered] = React.useState<LocalDraft | null>(null)
+  /** The device refused to keep a draft. Said out loud rather than assumed. */
+  const [noLocalNet, setNoLocalNet] = React.useState(false)
 
   /**
    * What is live, and whether it still matches what is on screen.
@@ -193,8 +226,23 @@ export function EditorShell({
       dirtyPaths.current.add(path)
       setSaveState("dirty")
       markStale()
+      /**
+       * WRITTEN BEFORE THE SERVER HEARS ABOUT IT, which is the point. The
+       * autosave is 1.2s away and may fail; this is what is left when the tab
+       * does not live that long. Only the unsaved paths, never the project.
+       */
+      const draft: ProjectFiles = {}
+      for (const dirty of dirtyPaths.current) {
+        draft[dirty] = dirty === path ? content : (files[dirty] ?? "")
+      }
+      const kept = writeLocalDraft(site.id, {
+        revision: revision.current,
+        savedAt: new Date().toISOString(),
+        files: draft,
+      })
+      setNoLocalNet(!kept)
     },
-    [markStale],
+    [files, markStale, site.id],
   )
 
   const save = React.useCallback(async () => {
@@ -238,6 +286,24 @@ export function EditorShell({
       }
       const saved = await response.json().catch(() => ({}))
       if (typeof saved.revision === "number") revision.current = saved.revision
+      /**
+       * The device's copy goes when, and only when, the server has the work.
+       * Anything still dirty is re-kept under the new revision rather than
+       * dropped, because a save landing is not the same as everything having
+       * been sent: an edit made while the request was in flight is still only
+       * here.
+       */
+      if (dirtyPaths.current.size === 0) {
+        clearLocalDraft(site.id)
+      } else {
+        const remaining: ProjectFiles = {}
+        for (const path of dirtyPaths.current) remaining[path] = files[path] ?? ""
+        writeLocalDraft(site.id, {
+          revision: revision.current,
+          savedAt: new Date().toISOString(),
+          files: remaining,
+        })
+      }
       setSaveState(dirtyPaths.current.size > 0 ? "dirty" : "clean")
     } catch {
       for (const path of paths) dirtyPaths.current.add(path)
@@ -256,6 +322,11 @@ export function EditorShell({
    * Closing the tab with unsaved work is the one moment a browser will let us
    * interrupt, and autosave being 1.2s away is not a reason to skip it: the
    * save that has not fired yet is exactly the one at risk.
+   *
+   * A WARNING IS NOT A SAVE, though, and this is the only thing that used to
+   * happen. `beforeunload` does not fire at all when iOS kills a backgrounded
+   * page, so on a phone the dialog somebody is relying on is often never
+   * shown and the work goes with the tab.
    */
   React.useEffect(() => {
     function onBeforeUnload(event: BeforeUnloadEvent) {
@@ -266,6 +337,110 @@ export function EditorShell({
     window.addEventListener("beforeunload", onBeforeUnload)
     return () => window.removeEventListener("beforeunload", onBeforeUnload)
   }, [])
+
+  /** A hidden-tab flush went out and we do not know whether it landed. */
+  const flushedWhileHidden = React.useRef(false)
+
+  /**
+   * ═══════════════════════════════════════════════════════════════════════
+   *  GOING AWAY IS WHEN TO SAVE, NOT WHEN TO ASK
+   * ═══════════════════════════════════════════════════════════════════════
+   * `visibilitychange` to hidden is the last event a browser reliably gives a
+   * page it is about to background or discard, and `keepalive` is what lets a
+   * request outlive the document. Together they are the save that the 1.2s
+   * timer was never going to reach.
+   *
+   * NOT CLEARED FROM THE DIRTY SET. Nothing here can know the request landed,
+   * and a path removed from the queue on a guess is a change that quietly
+   * ceases to exist. Re-sending the same content is free; losing it is not.
+   *
+   * WHICH LEAVES THE REVISION. If the flush DID land, the server moved on and
+   * this editor's revision is one behind, so the next ordinary autosave would
+   * come back 409 and tell somebody their own tab conflicted with itself. So
+   * coming back into view after a flush re-reads the project — the same call
+   * an agent run uses, which keeps locally dirty paths and adopts the new
+   * revision.
+   *
+   * `keepalive` bodies are capped at 64KB by the fetch spec. Over that, the
+   * request would be rejected outright, so it is not sent: the device's own
+   * copy is the net for a save that large, and the banner on the way back in
+   * is how it is offered.
+   */
+  React.useEffect(() => {
+    const flush = () => {
+      const paths = [...dirtyPaths.current]
+      if (paths.length === 0) return
+      const payload: ProjectFiles = {}
+      for (const path of paths) payload[path] = files[path] ?? ""
+      const body = JSON.stringify({ files: payload, revision: revision.current })
+      if (body.length > 64_000) return
+      try {
+        void fetch(`/api/sites/${site.id}/files`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body,
+          keepalive: true,
+        }).catch(() => {})
+        flushedWhileHidden.current = true
+      } catch {
+        /* A browser that refuses the request still has the device's copy. */
+      }
+    }
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") {
+        flush()
+        return
+      }
+      if (flushedWhileHidden.current) {
+        flushedWhileHidden.current = false
+        void adoptAgentChanges()
+      }
+    }
+    document.addEventListener("visibilitychange", onVisibility)
+    window.addEventListener("pagehide", flush)
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility)
+      window.removeEventListener("pagehide", flush)
+    }
+  }, [adoptAgentChanges, files, site.id])
+
+  /**
+   * ═══════════════════════════════════════════════════════════════════════
+   *  WHAT THE LAST SESSION DID NOT MANAGE TO SEND
+   * ═══════════════════════════════════════════════════════════════════════
+   * Read once, on open, against the files the server just handed us. A draft
+   * whose contents already match the server is not an offer, it is a prompt
+   * about nothing — that happens whenever a save landed and the tab closed
+   * before it could be cleared — so it is dropped quietly.
+   */
+  React.useEffect(() => {
+    const draft = readLocalDraft(site.id)
+    if (!draft) return
+    const missing = unsavedIn(draft, initialFiles)
+    if (Object.keys(missing).length === 0) {
+      clearLocalDraft(site.id)
+      return
+    }
+    setRecovered({ ...draft, files: missing })
+    // Runs for the site this editor opened on, once.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [site.id])
+
+  /** Put the recovered work back into the editor, which queues it to save. */
+  const restoreRecovered = React.useCallback(() => {
+    const draft = recovered
+    if (!draft) return
+    setFiles((previous) => ({ ...previous, ...draft.files }))
+    for (const path of Object.keys(draft.files)) dirtyPaths.current.add(path)
+    setSaveState("dirty")
+    markStale()
+    setRecovered(null)
+  }, [markStale, recovered])
+
+  const discardRecovered = React.useCallback(() => {
+    clearLocalDraft(site.id)
+    setRecovered(null)
+  }, [site.id])
 
   /**
    * The preview's own controls, owned here so the top bar can drive them —
@@ -465,6 +640,54 @@ export function EditorShell({
       </header>
 
       {/* ─────────────────────────── the work ─────────────────────────── */}
+      {/*
+        * WORK THIS DEVICE KEPT, OFFERED BACK.
+        *
+        * Above the conflict banner on purpose: if both are up, the reload the
+        * conflict asks for would take the recovered files with it, so the
+        * thing that can be lost is the one nearer the top.
+        */}
+      {recovered && (
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-sky-500/30 bg-sky-500/10 px-3 py-2">
+          <p className="text-xs text-sky-100">
+            {Object.keys(recovered.files).length === 1
+              ? "1 file changed here and never reached the server."
+              : `${Object.keys(recovered.files).length} files changed here and never reached the server.`}{" "}
+            <span className="text-sky-200/70">Kept on this device {relativeTime(recovered.savedAt)}.</span>
+          </p>
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              onClick={discardRecovered}
+              className="rounded-[7px] px-2.5 py-1 text-xs text-sky-200/70 hover:text-sky-100"
+            >
+              Discard
+            </button>
+            <button
+              type="button"
+              onClick={restoreRecovered}
+              className="rounded-[7px] border border-sky-500/40 px-2.5 py-1 text-xs text-sky-50"
+            >
+              Put it back
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/*
+        * The device cannot keep anything — a private window, or storage that
+        * is full. Said once, quietly, because the editor still works and the
+        * only thing missing is the net under it.
+        */}
+      {noLocalNet && !recovered && (
+        <div className="shrink-0 border-b border-white/10 bg-white/[0.03] px-3 py-1.5">
+          <p className="text-[11px] text-muted-foreground">
+            This browser will not keep a local copy of unsaved edits. Your work still saves to
+            Storelib as you type.
+          </p>
+        </div>
+      )}
+
       {conflict && (
         <div className="flex shrink-0 items-center justify-between gap-3 border-b border-amber-500/30 bg-amber-500/10 px-3 py-2">
           <p className="text-xs text-amber-200">
