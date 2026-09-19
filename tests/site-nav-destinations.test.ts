@@ -120,6 +120,33 @@ async function main() {
     (withAbout.blocks ?? []).some((b) => String((b.settings as Record<string, unknown>).url) === "/about"),
   )
 
+  console.log("\nAnd nothing covers the bottom of the menu")
+
+  /**
+   * Measured on a live published site: the Search row's own topmost element
+   * at its centre was the cookie banner's top bar, and a tap on it left the
+   * address at "/". The rows were not dead; the tap never reached them.
+   */
+  const frame = read("components/website-builder/drawer-frame.ts")
+  const banner = read("components/cookie-consent-banner.tsx")
+  const bannerZ = Number(banner.match(/fixed bottom-0 left-0 right-0 z-\[(\d+)\]/)?.[1] ?? 0)
+  check("the cookie banner still names a z-index this test can read", bannerZ > 0, String(bannerZ))
+  const backdropZ = Number(frame.match(/DRAWER_BACKDROP_Z = "z-\[(\d+)\]"/)?.[1] ?? 0)
+  const panelZ = Number(frame.match(/DRAWER_PANEL_Z = "z-\[(\d+)\]"/)?.[1] ?? 0)
+  check("the drawer sits above it", backdropZ > bannerZ && panelZ > backdropZ, `banner ${bannerZ}, backdrop ${backdropZ}, panel ${panelZ}`)
+  /* Twice each in the markup, plus once in the import line. */
+  const body = header.split("\n").filter((line) => !line.startsWith("import ")).join("\n")
+  check(
+    "and both drawers read the same two constants",
+    (body.match(/DRAWER_BACKDROP_Z/g) ?? []).length === 2 &&
+      (body.match(/DRAWER_PANEL_Z/g) ?? []).length === 2,
+    "the nav drawer and the cart drawer are one surface at two edges",
+  )
+  check(
+    "no drawer still carries the old hard-coded z",
+    !/z-\[90\] bg-black\/50/.test(header) && !/z-\[95\] flex flex-col/.test(header),
+  )
+
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }
 }

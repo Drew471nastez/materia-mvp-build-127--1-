@@ -187,10 +187,15 @@ async function main() {
   /* ── tap the first real link ────────────────────────────────────── */
   const before = await evaluate(`location.pathname`)
   /* A link to the page you are already on proves nothing, and neither does
-     one that is not on screen. */
-  const target = (drawer.links ?? []).find(
-    (l) => l.href && l.href.startsWith("/") && l.href !== before && l.h > 10 && l.topmost === "the link",
-  )
+     one that is not on screen. LINK= names one by its text, for the rows
+     whose own topmost element is not the link — the thing worth proving
+     there is whether a finger reaches them at all. */
+  const wanted = process.env.LINK
+  const target = wanted
+    ? (drawer.links ?? []).find((l) => l.text.toLowerCase().includes(wanted.toLowerCase()) && l.h > 10)
+    : (drawer.links ?? []).find(
+        (l) => l.href && l.href.startsWith("/") && l.href !== before && l.h > 10 && l.topmost === "the link",
+      )
   report.tapped = target ?? null
   if (target) {
     await tap(target.x, target.y)

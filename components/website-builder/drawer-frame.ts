@@ -198,3 +198,33 @@ export function useDrawerFrame(open: boolean, scopedToPreview: boolean, onClose:
     frameStyle: pin ? { top: pin.top, height: pin.height } : { top: 0, bottom: 0 },
   }
 }
+
+/**
+ * ===========================================================================
+ *  A COOKIE NOTICE MUST NOT COVER AN OPEN MENU
+ * ===========================================================================
+ * The drawers were z-90 and z-95, which beats everything a built site draws.
+ * It does not beat the cookie banner, which is `fixed bottom-0 z-[9999]` —
+ * and that banner sits across the bottom of the screen, exactly where the
+ * menu keeps Search, Account, Wishlist and Create account.
+ *
+ * Measured on a live published site at phone size: the Search row reported
+ * its own topmost element at its centre as
+ *
+ *     div.flex flex-col gap-3 p-5 sm:flex-row sm:i…
+ *
+ * which is the banner's top bar, and a tap on Search left the address at "/".
+ * The rows were not dead; the tap never reached them.
+ *
+ * The banner's own file already records this bug happening once before, to
+ * the Sites editor's Chat / Preview / Code bar, and answers it by hiding
+ * itself there. A public site cannot hide it, so the menu goes above it
+ * instead — which is the right order anyway: a cookie notice is the lowest
+ * thing on a page, and an open dialog is the highest.
+ *
+ * Named here rather than written twice, because the nav drawer and the cart
+ * drawer are the same surface at different edges and drifting apart is how
+ * one of them gets fixed.
+ */
+export const DRAWER_BACKDROP_Z = "z-[10000]"
+export const DRAWER_PANEL_Z = "z-[10001]"
