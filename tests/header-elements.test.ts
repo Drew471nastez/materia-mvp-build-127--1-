@@ -70,6 +70,28 @@ function main() {
   check("and none of them reads a bare setting again",
     !/value=\{s\.show_(search|cart|account_icon|wishlist_icon)\}/.test(editor))
 
+  console.log("\n  search opens where it was clicked, or on a page, and the creator picks")
+
+  const schema = read("themes/default/sections/header.json")
+
+  check("the choice is a control, not a guess",
+    /"id": "search_behaviour"/.test(schema) && /"default": "header"/.test(schema))
+  check("both answers are offered",
+    /"value": "header"/.test(schema) && /"value": "page"/.test(schema))
+  check("and the panel draws it",
+    /onUpdateSetting\("search_behaviour"/.test(editor) && /Open it in the header/.test(editor))
+
+  check("opening in the header is what a header that says nothing does",
+    /str\(s\.search_behaviour, "header"\) !== "page"/.test(header))
+  check("the icon becomes a button when it opens a field, and stays a link when it does not",
+    /searchOpensInHeader \? \(/.test(header) && /href="\/search"/.test(header))
+  check("the field is a form that works without any of this running",
+    /action="\/search"/.test(header) && /method="get"/.test(header) && /name="q"/.test(header))
+  check("and the menu's Search row opens the same field rather than leaving",
+    /onOpenSearch/.test(header) && /window\.setTimeout\(onOpenSearch, CLOSE_MS\)/.test(header))
+  check("the placeholder is the creator's",
+    /"id": "search_placeholder"/.test(schema) && /str\(s\.search_placeholder, "Search"\)/.test(header))
+
   console.log("\n  the call to action reaches a phone")
 
   check("the drawer is given one", /cta=\{/.test(header) && /interface DrawerCta/.test(header))

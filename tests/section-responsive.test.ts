@@ -2167,11 +2167,17 @@ check(
    */
   (headerRenderer.match(/onClick=\{onEditorNavigate \? \(e\) => e\.preventDefault\(\) : undefined\}/g) ?? []).length === 4 &&
     /* Four go through `handleLinkClick`: a nav link on the menu's root pane
-       and one on its submenu pane, the phone's Search row, and the call to
-       action. It cancels the default in the editor and, on a published site,
-       closes the drawer before asking for the page, so the close animation
-       gets a frame instead of being cut off by the navigation. */
-    (headerRenderer.match(/onClick=\{handleLinkClick\(/g) ?? []).length === 4 &&
+       and one on its submenu pane, the call to action, and the phone's
+       Search row when the header is set to send people to a search page.
+       It cancels the default in the editor and, on a published site, closes
+       the drawer before asking for the page, so the close animation gets a
+       frame instead of being cut off by the navigation.
+
+       The Search row is matched on its own because it is a conditional: with
+       the header set to open search in itself, that row opens the field
+       instead of leaving, and `onClick={handleLinkClick(` never appears. */
+    (headerRenderer.match(/onClick=\{handleLinkClick\(/g) ?? []).length === 3 &&
+    /: handleLinkClick\("\/search"\)/.test(headerRenderer) &&
     /if \(inEditor\) return/.test(headerRenderer) &&
     (headerRenderer.match(/goToPlatform\("[^"]+", !!onEditorNavigate\)/g) ?? []).length === 3,
 )

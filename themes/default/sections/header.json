@@ -428,6 +428,22 @@
       "default": true
     },
     {
+      "id": "search_behaviour",
+      "label": "When search is clicked",
+      "type": "select",
+      "default": "header",
+      "options": [
+        { "label": "Open it in the header", "value": "header" },
+        { "label": "Go to the search page", "value": "page" }
+      ]
+    },
+    {
+      "id": "search_placeholder",
+      "label": "Search placeholder",
+      "type": "text",
+      "default": "Search"
+    },
+    {
       "id": "show_account_icon",
       "label": "Show account icon",
       "type": "toggle",

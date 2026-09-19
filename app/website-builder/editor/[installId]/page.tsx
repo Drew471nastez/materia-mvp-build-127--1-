@@ -2851,6 +2851,9 @@ function HeaderSectionSettings({
         const borderStyleValue = typeof s.border_style === "string" ? s.border_style : "solid"
         const borderVisibilityValue = typeof s.border_visibility === "string" ? s.border_visibility : "all"
         const depthShadowEnabled = s.header_depth_shadow !== false
+        /* The placeholder and the behaviour describe the search icon, so
+           they are not offered while it is off. */
+        const showSearchIcon = headerIconOn(s.show_search_icon, s.show_search)
         return (
           <div className="space-y-6">
             {/* ── 1. Header layout (desktop) ── */}
@@ -3094,12 +3097,41 @@ function HeaderSectionSettings({
                 creator who turned search off under the name that used to be
                 written finds it still off rather than back.
               */}
+              {/* The two below belong to the icon, so they go when it does. */}
               <WbToggle
                 label="Show search icon"
                 value={headerIconOn(s.show_search_icon, s.show_search)}
                 onChange={v => onUpdateSetting("show_search_icon", v)}
                 info="On a phone it sits in the header beside the cart, and as a row in the menu."
               />
+              {showSearchIcon && (
+                <>
+                  <div className="space-y-1.5">
+                    <p className="text-sm font-medium text-foreground">When search is clicked</p>
+                    <div className="relative">
+                      <select
+                        className="w-full h-10 pl-3 pr-8 text-sm border border-border rounded-lg bg-background appearance-none focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 transition-colors"
+                        value={typeof s.search_behaviour === "string" ? s.search_behaviour : "header"}
+                        onChange={e => onUpdateSetting("search_behaviour", e.target.value)}
+                      >
+                        <option value="header">Open it in the header</option>
+                        <option value="page">Go to the search page</option>
+                      </select>
+                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <p className="text-sm font-medium text-foreground">Search placeholder</p>
+                    <input
+                      type="text"
+                      className="w-full h-10 px-3 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 transition-colors"
+                      placeholder="Search"
+                      value={typeof s.search_placeholder === "string" ? s.search_placeholder : ""}
+                      onChange={e => onUpdateSetting("search_placeholder", e.target.value)}
+                    />
+                  </div>
+                </>
+              )}
               <WbToggle
                 label="Show account icon"
                 value={headerIconOn(s.show_account_icon)}
