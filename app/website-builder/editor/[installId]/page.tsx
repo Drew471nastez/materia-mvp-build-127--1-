@@ -67,6 +67,7 @@ import { PAGE_META } from "@/lib/website-builder/types"
 import { BUILT_IN_PAGE_KEYS, pageKeyFromSegment, pageTitleFromKey } from "@/lib/website-builder/site-pages"
 import { headerIconOn } from "@/lib/website-builder/header-icons"
 import { headerGap, headerPad } from "@/lib/website-builder/header-spacing"
+import { SHOP_PATH } from "@/lib/website-builder/live-links"
 import { chromeOf, withUniversalChrome } from "@/lib/website-builder/universal-chrome"
 import { AutoTextarea } from "@/components/website-builder/auto-textarea"
 import { RichTextField } from "@/components/website-builder/rich-text-field"
@@ -243,7 +244,7 @@ const LOGO_SYNC_THEME_TO_HEADER: Record<string, string> = {
 // user is currently previewing. We also accept the legacy `?page=X[&product=Y]`
 // query string so existing deep-links keep working.
 type ParsedPreview = {
-  page: "home" | "product" | "about" | "contact"
+  page: "home" | "product" | "about" | "contact" | "products" | "search"
   productSlug?: string
   productTitle?: string
 }
@@ -267,6 +268,8 @@ function parsePreviewFromSearch(search: string): ParsedPreview {
   if (pathOnly === "/") return { page: "home" }
   if (pathOnly === "/about") return { page: "about" }
   if (pathOnly === "/contact") return { page: "contact" }
+  if (pathOnly === SHOP_PATH) return { page: "products" }
+  if (pathOnly === "/search") return { page: "search" }
   if (pathOnly.startsWith("/products/")) {
     const slug = pathOnly.slice("/products/".length).split("/")[0]
     return { page: "product", productSlug: slug || undefined }
@@ -277,6 +280,8 @@ function parsePreviewFromSearch(search: string): ParsedPreview {
 function previewPathForState(page: string, productSlug?: string): string {
   if (page === "about") return "/about"
   if (page === "contact") return "/contact"
+  if (page === "products") return SHOP_PATH
+  if (page === "search") return "/search"
   if (page === "product" && productSlug) return `/products/${productSlug}`
   return "/"
 }
@@ -4825,6 +4830,21 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       handlePageChange("contact" as PageKey)
       return
     }
+    /*
+      THE SHOP AND THE SEARCH PAGE ARE PAGES. Every site answers /products and
+      /search, and every link to them in the canvas — Shop in the menu, the
+      search icon, "View all" under the field — used to land on "that page
+      does not exist" because the editor had never heard of either. They are
+      generated on read now (see the sections route) and open like any other.
+    */
+    if (path === SHOP_PATH || path === `${SHOP_PATH}/`) {
+      handlePageChange("products")
+      return
+    }
+    if (path === "/search" || path === "/search/" || path.startsWith("/search?")) {
+      handlePageChange("search")
+      return
+    }
 
     // Custom page match — user-created pages stored in `customPages`.
     const pageKeyGuess = path.replace(/^\//, "").replace(/\/$/, "") as PageKey
@@ -5583,6 +5603,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       { name: "Home Page", key: "home" as PageKey },
       { name: "About Page", key: "about" as PageKey },
       { name: "Contact Page", key: "contact" as PageKey },
+      { name: "Shop", key: "products" as PageKey },
+      { name: "Search", key: "search" as PageKey },
     ]
     const allCustomPages = [
       ...builtInPages,
@@ -6107,6 +6129,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               { name: "Home", key: "home" },
               { name: "About", key: "about" },
               { name: "Contact", key: "contact" },
+              { name: "Shop", key: "products" },
+              { name: "Search", key: "search" },
               ...customPages.map(p => ({ name: p.name, key: p.key as string })),
             ]}
             theme={settingsDraft}
@@ -8086,6 +8110,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                   setAddPageOpen(true)
                 }}
                 shopCards={shopCards}
+                installId={installId}
               />
               </div>
             )}
@@ -8660,6 +8685,7 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
   missingPath,
   onCreateMissingPage,
   shopCards,
+  installId,
 }: {
   theme: ThemeSettingsValues
   sections: SectionInstance[]
@@ -8686,6 +8712,8 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
    * the canvas and the site cannot disagree about a price.
    */
   shopCards: ProductCard[]
+  /** Which theme install the canvas is drawing, so a section can ask on its behalf. */
+  installId: string
 }) {
   /**
    * The same navigate, already marked as coming from the site's navigation.
@@ -8699,7 +8727,7 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
       theme={theme}
       sections={sections}
       // Designing a page is not subscribing to it. See storefront-context.
-      storefront={{ inEditor: true }}
+      storefront={{ inEditor: true, installId }}
       /**
        * The strip you hover to add a section right there. Only with the
        * inspector on: with it off the canvas is a plain preview, and nothing

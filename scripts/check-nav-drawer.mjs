@@ -303,8 +303,12 @@ const LIVE = `(async () => {
       const row = panel.parentElement
       r.searchRow = { w: rect(row).w, viewport: window.innerWidth }
       const field = panel.querySelector('input[name="q"]')
+      const fieldRect = field ? field.getBoundingClientRect() : null
+      const shellRect = shell.getBoundingClientRect()
       r.searchField = {
         exists: !!field,
+        gapAbove: fieldRect ? Math.round(fieldRect.top - shellRect.top) : -1,
+        gapBelow: fieldRect ? Math.round(shellRect.bottom - fieldRect.bottom) : -1,
         focused: document.activeElement === field,
         fontSize: field ? Number(getComputedStyle(field).fontSize.replace("px", "")) : 0,
         method: panel.getAttribute("method"),
@@ -484,14 +488,16 @@ if (r.searchPanel) {
     "the panel is open and takes input", `opacity ${r.searchPanel.opacity}, pointer-events ${r.searchPanel.pointerEvents}`)
   expect(r.searchPanel.hasTransition === true, "and it faded rather than appeared")
   expect(Math.abs(r.searchPanel.rect.top - r.searchPanel.rowRect.top) <= 1 &&
-    Math.abs(r.searchPanel.rect.h - r.searchPanel.rowRect.h) <= 1,
-    "it covers the header row exactly, so nothing below it moves",
+    r.searchPanel.rect.h >= r.searchPanel.rowRect.h - 1,
+    "it starts where the header row starts and covers it, so nothing below it moves",
     `panel ${r.searchPanel.rect.h}px at ${r.searchPanel.rect.top}px, row ${r.searchPanel.rowRect.h}px at ${r.searchPanel.rowRect.top}px`)
+  expect(r.searchPanel.rect.h >= 56, "and it is never so short the field touches its edges", `${r.searchPanel.rect.h}px`)
 }
 if (r.searchField) {
   expect(r.searchField.exists && r.searchField.method === "get", "it submits to the search page by itself", `method ${r.searchField.method}`)
   expect(r.searchField.focused === true, "the field has the caret already", r.searchField.focused ? "yes" : "focus was left behind")
   expect(r.searchField.fontSize >= 16, "at a size iOS will not zoom the page for", `${r.searchField.fontSize}px`)
+  expect(r.searchField.gapAbove >= 8 && r.searchField.gapBelow >= 8, "with room above and below it inside the header", `${r.searchField.gapAbove}px above, ${r.searchField.gapBelow}px below`)
 }
 expect(r.searchRow && r.searchRow.w <= 720, "and it stops at a reading width whatever the header does", `${r.searchRow?.w}px in a ${r.searchRow?.viewport}px viewport`)
 expect(r.escapeClosedSearch === true, "and escape closes it", r.escapeClosedSearch ? "yes" : "it stayed open")

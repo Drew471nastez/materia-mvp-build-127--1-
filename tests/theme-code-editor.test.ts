@@ -530,7 +530,10 @@ section("The page a section is on is the page it is on")
    * `allowed_templates`, which is written against that name, would have been
    * answering about the wrong page.
    */
-  check("the provider carries the template, not just the sources", /export function useStorelibPage/.test(provider) && /page: \{ template: string \}/.test(provider))
+  /* The page object also carries what a request knows and a section cannot,
+     such as the search page's query, so its type is open beyond `template`.
+     What is pinned is that the template is still on it. */
+  check("the provider carries the template, not just the sources", /export function useStorelibPage/.test(provider) && /page: \{ template: string[;}]/.test(provider))
   /**
    * A PUBLISHED SITE SHIPS NO COMPILER. The section component reads what was
    * rendered; only the editor's live provider imports the engine. Measured

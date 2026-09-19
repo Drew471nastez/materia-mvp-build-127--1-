@@ -690,7 +690,10 @@ section("A form that says it worked, did")
   check(
     "and the builder's canvas still sends nothing",
     /if \(isEditing \|\| inEditor \|\| !creatorId\)/.test(newsletter) &&
-      /storefront=\{\{ inEditor: true \}\}/.test(read("app/website-builder/editor/[installId]/page.tsx")),
+      /* The canvas now names its install so the header's search field can
+         ask on its behalf. It still says `inEditor` and still hands over no
+         creator, which are the two things this guard reads. */
+      /storefront=\{\{ inEditor: true, installId \}\}/.test(read("app/website-builder/editor/[installId]/page.tsx")),
   )
 
   check(

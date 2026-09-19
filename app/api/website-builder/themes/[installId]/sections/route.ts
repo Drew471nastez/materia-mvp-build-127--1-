@@ -1,4 +1,7 @@
 import { sanitizeSections } from "@/lib/website-builder/sanitize-sections"
+import { GENERATED_PAGE_KEYS } from "@/lib/website-builder/site-pages"
+import { searchSections, shopSections } from "@/lib/website-builder/shop-page"
+import type { ThemeSettingsValues } from "@/lib/website-builder/types"
 import { NextResponse } from "next/server"
 import { revalidatePublishedSite } from "@/lib/website-builder/published-site"
 import { LIMITS } from "@/lib/storelib-theme/types"
@@ -72,6 +75,41 @@ export async function GET(req: Request, { params }: Params) {
 
   // Return draft_sections if present, else sections
   const sections = (data?.draft_sections ?? data?.sections) as SectionInstance[] | null
+
+  /*
+    ═══════════════════════════════════════════════════════════════════════
+     THE SHOP AND THE SEARCH PAGE EXIST BEFORE ANYBODY HAS ARRANGED THEM
+    ═══════════════════════════════════════════════════════════════════════
+    A published site answers /products and /search from the day it is
+    published, built from the home page's header and footer and one section
+    each. The editor asked for those keys and got an empty list, so every
+    link to them in the canvas — Shop in the menu, the search icon, View all
+    — landed on "that page does not exist" for a page the live site serves.
+
+    The same builders produce them here, from the same stored home page and
+    the same settings the live site reads, so what the creator opens is what
+    a visitor sees. Marked `generated` so the editor knows nothing is stored
+    yet; the first save stores it and it is a page like any other from then.
+  */
+  if ((!sections || sections.length === 0) && GENERATED_PAGE_KEYS.has(pageKey)) {
+    const [{ data: home }, { data: settingsRow }] = await Promise.all([
+      supabase
+        .from("store_theme_pages")
+        .select("sections, draft_sections")
+        .eq("install_id", installId)
+        .eq("page_key", "home")
+        .maybeSingle(),
+      supabase
+        .from("store_theme_settings")
+        .select("settings, draft_settings")
+        .eq("install_id", installId)
+        .maybeSingle(),
+    ])
+    const homeSections = ((home?.draft_sections ?? home?.sections) as SectionInstance[] | null) ?? []
+    const theme = ((settingsRow?.draft_settings ?? settingsRow?.settings) as ThemeSettingsValues | null) ?? ({} as ThemeSettingsValues)
+    const generated = pageKey === "products" ? shopSections(homeSections, theme) : searchSections(homeSections)
+    return NextResponse.json({ page: null, sections: generated, has_draft: false, generated: true })
+  }
 
   return NextResponse.json({
     page: data,

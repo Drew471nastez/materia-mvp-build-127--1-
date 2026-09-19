@@ -229,7 +229,11 @@ function HeaderSearchPanel({
   onEditorNavigate?: (href: string) => void
 }) {
   const inputRef = useRef<HTMLInputElement | null>(null)
-  const { creatorId } = useStorefront()
+  /* Published, the site knows its creator. In the editor it knows the
+     install, and the endpoint resolves the creator from that, so the field
+     answers inside the canvas too. */
+  const { creatorId, installId } = useStorefront()
+  const askAs = creatorId ? `creator=${encodeURIComponent(creatorId)}` : installId ? `install=${encodeURIComponent(installId)}` : ""
 
   useEffect(() => {
     if (!open) return
@@ -269,14 +273,11 @@ function HeaderSearchPanel({
 
   useEffect(() => {
     const term = q.trim()
-    if (!creatorId || !term) { setHits([]); setTotal(0); setAsked(""); return }
+    if (!askAs || !term) { setHits([]); setTotal(0); setAsked(""); return }
     const ctrl = new AbortController()
     const id = window.setTimeout(async () => {
       try {
-        const res = await fetch(
-          `/api/website-builder/search?creator=${encodeURIComponent(creatorId)}&q=${encodeURIComponent(term)}`,
-          { signal: ctrl.signal },
-        )
+        const res = await fetch(`/api/website-builder/search?${askAs}&q=${encodeURIComponent(term)}`, { signal: ctrl.signal })
         if (!res.ok) return
         const data = (await res.json()) as { items?: SearchHit[]; total?: number }
         setHits(Array.isArray(data.items) ? data.items : [])
@@ -287,7 +288,7 @@ function HeaderSearchPanel({
       }
     }, 180)
     return () => { window.clearTimeout(id); ctrl.abort() }
-  }, [q, creatorId])
+  }, [q, askAs])
 
   const showHits = open && asked !== "" && asked === q.trim()
   const viewAll = `/search?q=${encodeURIComponent(q.trim())}`
@@ -295,8 +296,19 @@ function HeaderSearchPanel({
   return (
     <div
       aria-hidden={!open}
-      className="absolute inset-0 z-[70] flex items-center"
+      /*
+        ROOM ABOVE AND BELOW, WHATEVER THE HEADER'S PADDING IS.
+
+        The field sat in a row exactly as tall as the header, so a header
+        with little vertical padding had a field touching its top and bottom
+        edges. The row keeps 8px clear on each side, the field takes what is
+        left and never less than 36px, and if the header row is shorter than
+        that needs, the panel is the taller of the two — it is laid over the
+        row, so being taller moves nothing.
+      */
+      className="absolute inset-x-0 top-0 z-[70] flex min-h-[56px] items-center py-2"
       style={{
+        minHeight: "max(56px, 100%)",
         background,
         opacity: open ? 1 : 0,
         transform: open ? "translateY(0)" : "translateY(-6px)",
@@ -315,12 +327,12 @@ function HeaderSearchPanel({
           It stops at a reading width and sits in the middle, whatever the
           header does, which is what the field in the reference does.
         */}
-        <div className="relative mx-auto flex w-full max-w-[720px] items-center gap-2">
+        <div className="relative mx-auto flex h-full w-full max-w-[720px] items-center gap-2">
           <form
             action="/search"
             method="get"
             role="search"
-            className="relative flex-1 min-w-0"
+            className="relative flex-1 min-w-0 h-full"
             onSubmit={(e) => {
               if (!onEditorNavigate) return
               e.preventDefault()
@@ -338,14 +350,24 @@ function HeaderSearchPanel({
               placeholder={placeholder}
               aria-label={placeholder}
               autoComplete="off"
-              className="w-full bg-transparent outline-none"
+              className="hdr-search-field w-full bg-transparent outline-none"
               style={{
                 /* 16px or iOS zooms the page when the field takes focus, and
                    a header that scales up under a keyboard never recovers. */
                 fontSize: 16,
-                padding: "11px 40px 11px 14px",
+                padding: "0 40px 0 14px",
+                height: "max(36px, 100%)",
+                minHeight: 36,
                 color: scheme.heading,
                 caretColor: scheme.heading,
+                /* The browser's own clear control and focus ring take the
+                   platform accent, which on a dark header is the blue in
+                   the report. Nothing native is drawn in this field. */
+                accentColor: scheme.heading,
+                outline: "none",
+                boxShadow: "none",
+                WebkitAppearance: "none",
+                appearance: "none",
                 border: `1px solid ${scheme.inset_border}`,
                 ...radius,
               }}

@@ -54,7 +54,11 @@ export default async function SiteShopPage({ params }: PageProps) {
   if (found.kind === "unpublished") redirect(`https://${getMainDomain()}/${username.toLowerCase()}`)
 
   const { site, products } = found
-  const sections = shopSections(site.pages.home ?? site.sections, site.themeSettings)
+  /* The page the creator arranged, when they have; the generated shop
+     until then. The editor generates from the same builder, so the two
+     never disagree about what an untouched shop page looks like. */
+  const stored = site.pages.products
+  const sections = stored && stored.length > 0 ? stored : shopSections(site.pages.home ?? site.sections, site.themeSettings)
   const prerendered = renderWithSources(site.sources, sections, site.themeSettings, "page.products", products)
 
   return (

@@ -95,7 +95,7 @@ function main() {
   console.log("\n  what matches, while they are still typing")
 
   check("the field asks the site's own endpoint, which exists",
-    /\/api\/website-builder\/search\?creator=/.test(header) && existsSync("app/api/website-builder/search/route.ts"))
+    /\/api\/website-builder\/search\?\$\{askAs\}/.test(header) && existsSync("app/api/website-builder/search/route.ts"))
   check("and the endpoint answers the same question the search page does",
     /productMatchesQuery/.test(read("app/api/website-builder/search/route.ts")))
   check("a request is debounced and the previous one is abandoned",
@@ -104,8 +104,9 @@ function main() {
     /`\/search\?q=\$\{encodeURIComponent\(q\.trim\(\)\)\}`/.test(header))
   check("the field is not as wide as a full-width header",
     /max-w-\[720px\] items-center gap-2/.test(header))
-  check("in the editor there is nobody to ask on behalf of, so it says nothing",
-    /if \(!creatorId \|\| !term\)/.test(header))
+  check("published it asks by creator, in the editor by install, and with neither it says nothing",
+    /creatorId \? `creator=/.test(header) && /installId \? `install=/.test(header) && /if \(!askAs \|\| !term\)/.test(header) &&
+      /searchParams\.get\("install"\)/.test(read("app/api/website-builder/search/route.ts")))
 
   console.log("\n  padding is pixels, one number per device")
 
@@ -144,6 +145,47 @@ function main() {
     (header.match(/drawerSlide\(open\)/g) ?? []).length === 2 && (header.match(/drawerFade\(open\)/g) ?? []).length === 2)
   check("and the lists inside them have the slim bar",
     (header.match(/site-slim-scroll/g) ?? []).length >= 3)
+
+  console.log("\n  the shop and the search page are pages the editor can open")
+
+  const sectionsRoute = read("app/api/website-builder/themes/[installId]/sections/route.ts")
+  const sitePages = read("lib/website-builder/site-pages.ts")
+  check("the two generated keys are named once",
+    /GENERATED_PAGE_KEYS: ReadonlySet<string> = new Set\(\["products", "search"\]\)/.test(sitePages))
+  check("and are built in, so they are not listed as pages somebody made",
+    /BUILT_IN_PAGE_KEYS[^\n]*"products", "search"/.test(sitePages))
+  check("the sections route generates them from the same builders the live site uses",
+    /GENERATED_PAGE_KEYS\.has\(pageKey\)/.test(sectionsRoute) && /shopSections\(homeSections, theme\)/.test(sectionsRoute) && /searchSections\(homeSections\)/.test(sectionsRoute))
+  check("the canvas navigates to both",
+    /handlePageChange\("products"\)/.test(editor) && /handlePageChange\("search"\)/.test(editor))
+  check("and both are in the page lists",
+    /\{ name: "Shop", key: "products" as PageKey \}/.test(editor) && /\{ name: "Search", key: "search" as PageKey \}/.test(editor))
+  check("the live shop and search prefer what the creator saved",
+    /site\.pages\.products/.test(read("app/(site)/w/[username]/products/page.tsx")) && /site\.pages\.search/.test(read("app/(site)/w/[username]/search/page.tsx")))
+  check("the canvas tells the field which site it is, so it can ask",
+    /storefront=\{\{ inEditor: true, installId \}\}/.test(editor) && /install=\$\{encodeURIComponent\(installId\)\}/.test(header))
+
+  console.log("\n  the field draws nothing native")
+
+  const css = read("app/globals.css")
+  check("the browser's clear control is gone", /\.hdr-search-field::-webkit-search-cancel-button/.test(css) && /hdr-search-field/.test(header))
+  check("and the accent colour is the scheme's", /accentColor: scheme\.heading/.test(header))
+  check("the row keeps room above and below the field", /className="absolute inset-x-0 top-0 z-\[70\] flex min-h-\[56px\] items-center py-2"/.test(header))
+
+  console.log("\n  a card's picture fills its box")
+
+  for (const f of ["product_grid", "product_featured", "product_spotlight", "search"]) {
+    check(`${f} draws the image at the box's height`,
+      /\.card__media img \{ display: block; width: 100%; height: 100%; object-fit: cover; \}/.test(read(`themes/default/sections/${f}.storelib`)))
+  }
+  check("the search page's own padding is 60 and 60",
+    /"id": "padding_top",\s*"label": "Padding top",\s*"default": 60/.test(read("themes/default/sections/search.storelib")))
+
+  console.log("\n  the gradient is made by looking at it")
+
+  const panels = read("components/website-builder/editor/design-panels.tsx")
+  check("the text field is gone", !/placeholder="linear-gradient\(135deg, #000 0%, #333 100%\)"/.test(panels))
+  check("and the editor is in its place", /<GradientEditor value=\{current\.gradient\}/.test(panels) && existsSync("components/website-builder/editor/gradient-editor.tsx"))
 
   console.log("\n  the call to action reaches a phone")
 

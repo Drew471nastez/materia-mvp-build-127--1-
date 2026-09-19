@@ -47,7 +47,7 @@ interface StorelibContextValue {
    * written against it, so a hardcoded "index" is not a default — it is a
    * wrong answer everywhere but the home page.
    */
-  page: { template: string }
+  page: { template: string; [key: string]: unknown }
 }
 
 const EMPTY: StorelibContextValue = { prerendered: {}, page: { template: "index" } }
@@ -63,7 +63,7 @@ export function StorelibSourcesProvider({
   children,
 }: {
   prerendered: Record<string, RenderedSection>
-  page?: { template: string }
+  page?: { template: string; [key: string]: unknown }
   children: ReactNode
 }) {
   const value = useMemo(
@@ -80,7 +80,7 @@ export function StorelibRenderProvider({
   children,
 }: {
   render: SectionRenderFn
-  page?: { template: string }
+  page?: { template: string; [key: string]: unknown }
   children: ReactNode
 }) {
   const value = useMemo(

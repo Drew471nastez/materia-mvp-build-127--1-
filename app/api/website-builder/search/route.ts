@@ -33,8 +33,27 @@ const MAX_RESULTS = 6
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export async function GET(req: NextRequest) {
-  const creatorId = (req.nextUrl.searchParams.get("creator") ?? "").trim()
+  let creatorId = (req.nextUrl.searchParams.get("creator") ?? "").trim()
+  const installId = (req.nextUrl.searchParams.get("install") ?? "").trim()
   const q = (req.nextUrl.searchParams.get("q") ?? "").slice(0, MAX_QUERY).trim()
+
+  const admin = createAdminClient()
+
+  /*
+    THE EDITOR ASKS BY INSTALL. A published site knows its creator; the
+    builder's canvas knows which theme install it is drawing, and that is
+    enough: the install names its creator. Resolved here so the canvas never
+    has to be told a creator id, and so the answer inside the editor is the
+    same shop the published site searches.
+  */
+  if (!UUID.test(creatorId) && UUID.test(installId)) {
+    const { data: install } = await admin
+      .from("store_theme_installs")
+      .select("creator_id")
+      .eq("id", installId)
+      .maybeSingle()
+    creatorId = typeof install?.creator_id === "string" ? install.creator_id : ""
+  }
 
   if (!UUID.test(creatorId)) {
     return NextResponse.json({ error: "Bad request" }, { status: 400 })
@@ -43,7 +62,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ items: [], total: 0 }, { headers: { "Cache-Control": "public, max-age=30" } })
   }
 
-  const admin = createAdminClient()
   const { data, error } = await admin
     .from("products")
     .select("id, title, slug, price_cents, compare_at_cents, thumbnail_url, status, description, category")

@@ -189,6 +189,10 @@ export function useDrawerFrame(open: boolean, scopedToPreview: boolean, onClose:
         as the bar is gone. Overlay scrollbars have no width and get no
         padding, so nothing moves there either.
       */
+      /* Measured on the element that is scrolling this page. It is the
+         document on every site this renders today, but a wrapper that owns
+         the scroll would otherwise keep its bar while the document's went. */
+      const scrollingEl = (document.scrollingElement ?? document.documentElement) as HTMLElement
       const barWidth = window.innerWidth - document.documentElement.clientWidth
       const prev = {
         position: body.position,
@@ -208,6 +212,8 @@ export function useDrawerFrame(open: boolean, scopedToPreview: boolean, onClose:
       body.overflow = "hidden"
       if (barWidth > 0) body.paddingRight = `${barWidth}px`
       root.overflow = "hidden"
+      const prevScrollingOverflow = scrollingEl.style.overflow
+      if (scrollingEl !== document.documentElement && scrollingEl !== document.body) scrollingEl.style.overflow = "hidden"
 
       undo.push(() => {
         body.position = prev.position
@@ -218,6 +224,7 @@ export function useDrawerFrame(open: boolean, scopedToPreview: boolean, onClose:
         body.overflow = prev.overflow
         body.paddingRight = prev.paddingRight
         root.overflow = prev.rootOverflow
+        if (scrollingEl !== document.documentElement && scrollingEl !== document.body) scrollingEl.style.overflow = prevScrollingOverflow
         window.scrollTo(0, scrollY)
       })
     }

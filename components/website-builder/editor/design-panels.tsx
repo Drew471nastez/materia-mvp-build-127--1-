@@ -57,6 +57,7 @@ import { designSupport } from "@/lib/website-builder/design-support"
 import { effectiveOverride, resetOverrides, setOverride } from "@/lib/website-builder/section-overrides"
 import type { SchemaField, SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 import { ColorChip } from "./color-chip"
+import { GRADIENT_PRESETS, GradientEditor } from "./gradient-editor"
 
 type Theme = ThemeSettingsValues
 const asRecord = (t: Theme) => t as unknown as Record<string, unknown>
@@ -501,12 +502,6 @@ export function SectionDesignPanel({
 
 // ── Theme settings: Colors ───────────────────────────────────
 
-const GRADIENT_PRESETS: { label: string; value: string }[] = [
-  { label: "Dusk", value: "linear-gradient(135deg, #0f172a 0%, #4c1d95 100%)" },
-  { label: "Sunrise", value: "linear-gradient(135deg, #fde68a 0%, #f472b6 100%)" },
-  { label: "Ocean", value: "linear-gradient(160deg, #0ea5e9 0%, #1e3a8a 100%)" },
-  { label: "Mist", value: "linear-gradient(180deg, #ffffff 0%, #f1f5f9 100%)" },
-]
 
 export function ColorsPanel({
   theme,
@@ -685,27 +680,10 @@ export function ColorsPanel({
             </label>
           </div>
           {current.gradient && (
-            <div className="space-y-2">
-              <div className="grid grid-cols-4 gap-1.5">
-                {GRADIENT_PRESETS.map((g) => (
-                  <button
-                    key={g.label}
-                    type="button"
-                    title={g.label}
-                    onClick={() => save({ ...current, gradient: g.value })}
-                    className={cn("h-8 rounded-md border-2", current.gradient === g.value ? "border-blue-500" : "border-transparent hover:border-neutral-300")}
-                    style={{ background: g.value }}
-                  />
-                ))}
-              </div>
-              <input
-                type="text"
-                className={cn(INPUT, "font-mono text-[12px]")}
-                value={current.gradient}
-                onChange={(e) => save({ ...current, gradient: e.target.value })}
-                placeholder="linear-gradient(135deg, #000 0%, #333 100%)"
-              />
-            </div>
+            /* A gradient you make by looking at it: direction, stops and
+               colours, with the scheme's own picker. It still saves the CSS
+               string, so nothing downstream changed. */
+            <GradientEditor value={current.gradient} onChange={(css) => save({ ...current, gradient: css })} existing={existing} />
           )}
         </div>
 

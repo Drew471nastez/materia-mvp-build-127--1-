@@ -289,13 +289,21 @@ export interface ThemePage {
   updated_at: string
 }
 
-export type PageKey = "home" | "product" | "about" | "contact"
+/**
+ * "products" and "search" are pages the site has whether or not anybody has
+ * arranged them: the shop and the search results, built from the home page's
+ * header and footer and a section each until the creator opens one in the
+ * builder, after which what they saved is what is served.
+ */
+export type PageKey = "home" | "product" | "about" | "contact" | "products" | "search"
 
 export const PAGE_META: Record<PageKey, { label: string; icon: string }> = {
   home: { label: "Home page", icon: "home" },
   product: { label: "Product page", icon: "shopping-bag" },
   about: { label: "About page", icon: "info" },
   contact: { label: "Contact page", icon: "mail" },
+  products: { label: "Shop", icon: "grid" },
+  search: { label: "Search", icon: "search" },
 }
 
 // ── Custom files ─────────────────────────────────────────────

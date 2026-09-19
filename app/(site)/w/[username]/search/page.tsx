@@ -56,7 +56,11 @@ export default async function SiteSearchPage({ params, searchParams }: PageProps
      trade; if one ever is, this is the line to change. */
   const matches = query ? (products ?? []).filter((p: any) => productMatchesQuery(p, query)) : (products ?? [])
 
-  const sections = searchSections(site.pages.home ?? site.sections)
+  /* The page the creator arranged, when they have; the generated one until
+     then. Either way the query rides on the page object, so a saved search
+     page still says what was asked and what was found. */
+  const stored = site.pages.search
+  const sections = stored && stored.length > 0 ? stored : searchSections(site.pages.home ?? site.sections)
   /* The query travels on the page rather than in the section's settings: it
      belongs to this request, not to anything the creator arranged. */
   const prerendered = renderWithSources(site.sources, sections, site.themeSettings, "page.search", matches, {

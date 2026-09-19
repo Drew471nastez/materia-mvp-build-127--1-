@@ -151,7 +151,10 @@ function main() {
   {
     check("the pages come back from the install on load", /const restored = \(inst\.pages \?\? \[\]\)/.test(editor) && /setCustomPages\(restored\)/.test(editor))
     check("the theme's own four are not listed as somebody's", /!BUILT_IN_PAGE_KEYS\.has\(key\)/.test(editor))
-    check("and the four are the four", BUILT_IN_PAGE_KEYS.size === 4 && ["home", "product", "about", "contact"].every((k) => BUILT_IN_PAGE_KEYS.has(k)))
+    /* Six now: the shop and the search page are pages every site has, built
+       on read until a creator arranges them, and reserved so nobody can also
+       make a page by either name. */
+    check("and the six are the six", BUILT_IN_PAGE_KEYS.size === 6 && ["home", "product", "about", "contact", "products", "search"].every((k) => BUILT_IN_PAGE_KEYS.has(k)))
 
     check("delete calls the server", /handleDeletePage/.test(editor) && /method: "DELETE"/.test(editor))
     check("it leaves the page it is deleting first", /if \(currentPage === key\) await handlePageChange\("home"\)/.test(editor))

@@ -93,10 +93,20 @@ export function pageTitleFromKey(key: string): string {
    */
   const policy = POLICY_PAGES.find((p) => p.key === key)
   if (policy) return policy.title
+  /* "products" is the shop; nobody calls it Products in a menu. */
+  if (key === "products") return "Shop"
 
   const words = key.replace(/-/g, " ").trim()
   return words.charAt(0).toUpperCase() + words.slice(1)
 }
 
+/**
+ * The pages the site has without anybody making them. The shop and the search
+ * results are generated from the home page's chrome plus one section each,
+ * and become stored pages the moment a creator edits them; they stay
+ * reserved above so nobody can also make a page BY that name.
+ */
+export const GENERATED_PAGE_KEYS: ReadonlySet<string> = new Set(["products", "search"])
+
 /** The pages the theme ships with. Everything else is one a person made. */
-export const BUILT_IN_PAGE_KEYS: ReadonlySet<string> = new Set(["home", "product", "about", "contact"])
+export const BUILT_IN_PAGE_KEYS: ReadonlySet<string> = new Set(["home", "product", "about", "contact", "products", "search"])
