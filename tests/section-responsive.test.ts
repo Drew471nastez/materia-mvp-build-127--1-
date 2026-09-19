@@ -2142,15 +2142,17 @@ check(
   // Four doors: the nav link, its submenu, the CTA, and the phone menu.
   // The fifth was the cart, which is gone: there was never a cart behind it.
   //
-  // WHAT IS BEING COUNTED IS THE INTERCEPTION, not what follows it. Three of
-  // the four call `onEditorNavigate` on the spot; the phone menu closes first
-  // and changes the page after the slide, the same order the published branch
-  // uses, because changing the page under an open menu is a tap that looks
-  // like it did nothing. All four still cancel the anchor, which is the thing
-  // that used to take people out of the builder.
+  // WHAT IS BEING COUNTED IS THE INTERCEPTION, not what follows it. All four
+  // still cancel the anchor, which is the thing that used to take people out
+  // of the builder. Three of them call `onEditorNavigate` on the spot. The
+  // fourth is the phone menu, which cancels unconditionally and then closes
+  // before it changes the page, the same order the published branch uses,
+  // because changing the page under an open menu is a tap that looks like it
+  // did nothing. The menu's own half is pinned in nav-drawer.test.ts.
   !/if \(isEditing\) \{\s*e\.preventDefault\(\)/.test(headerRenderer) &&
-    (headerRenderer.match(/if \(onEditorNavigate\) \{\s*e\.preventDefault\(\)\s*e\.stopPropagation\(\)/g) ?? []).length === 4 &&
-    /onClose\(\)\s*\n\s*window\.setTimeout\(\(\) => onEditorNavigate\(href, true\), CLOSE_MS\)/.test(headerRenderer),
+    (headerRenderer.match(/if \(onEditorNavigate\) \{\s*e\.preventDefault\(\)\s*e\.stopPropagation\(\)\s*onEditorNavigate\(/g) ?? []).length === 3 &&
+    /const go = onEditorNavigate\s*\n\s*\? \(\) => \{ onEditorNavigate\(href, true\) \}/.test(headerRenderer) &&
+    /window\.setTimeout\(go, CLOSE_MS\)/.test(headerRenderer),
 )
 
 check(

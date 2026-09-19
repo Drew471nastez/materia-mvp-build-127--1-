@@ -205,11 +205,25 @@ function main() {
   check("and stops cancelling the press on one",
     /if \(!isTypingTarget\(e\.target as unknown as ClickTargetLike \| null\)\) e\.preventDefault\(\)/.test(editor))
 
-  console.log("\n  the line under the header is a hairline, not a stripe")
+  console.log("\n  the line under the header darkens, so it is never a white line")
 
-  check("it is drawn from the header's own text colour, not the divider colour",
-    /inset 0 -1px 0 color-mix\(in srgb, \$\{textColor\}/.test(header))
-  check("and Subtle is half of it again", /borderStyleRaw === "subtle" \? 7 : 14/.test(header))
+  /*
+    Twice reported as "what is that white line under the header". First it was
+    the scheme's divider colour, which is light; then the header's own text
+    colour, which on a dark header is white. A separator is a shadow, and a
+    shadow is darker than what it falls on, so this one only ever darkens.
+    Pure black rather than the slate tint used elsewhere, because a tenth of
+    #0f172a laid over #000000 comes out LIGHTER than black, which
+    scripts/check-header-seam.mjs photographed and measured at two levels.
+  */
+  check("it darkens rather than lightening, and in pure black",
+    /inset 0 -1px 0 rgba\(0, 0, 0, \$\{borderStyleRaw === "subtle" \? 0\.05 : 0\.1\}\)/.test(header))
+  check("no light colour is mixed into it any more",
+    !/inset 0 -1px 0 color-mix/.test(header) && !/inset 0 -1px 0 \$\{borderColor\}/.test(header))
+  check("and the depth shadow under it is black for the same reason",
+    /0 1px 0 rgba\(0, 0, 0, 0\.04\), 0 4px 12px -6px rgba\(0, 0, 0, 0\.08\)/.test(header))
+  check("measured in pixels rather than argued about",
+    existsSync("scripts/check-header-seam.mjs") && existsSync("scripts/render-header-seam.tsx"))
 
   console.log("\n  no scrollbar behind an open drawer")
 

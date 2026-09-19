@@ -95,6 +95,7 @@ writeFileSync(file,
   that quietly did not run.
 */
 const SCRIPT = `(async () => {
+  const SCROLL_TO = ${SCROLL_TO}
   const wait = (ms) => new Promise((r) => setTimeout(r, ms))
   const rect = (el) => { const r = el.getBoundingClientRect(); return { top: Math.round(r.top), left: Math.round(r.left), w: Math.round(r.width), h: Math.round(r.height) } }
   /* The slide is a transform on a transition. The claim here is about WHERE
@@ -147,14 +148,17 @@ const SCRIPT = `(async () => {
       const el = e.target
       const anchor = el && el.closest ? el.closest("a[href]") : null
       const inNav = !!(anchor && anchor.closest && anchor.closest("[data-chrome]"))
+      /* The same exemption the canvas makes: the canvas leaves a link inside
+         the open menu to the menu, which closes itself and then changes the
+         page, and the header's search panel says the same thing about its
+         results with data-self-nav. Swallowing either here would reproduce
+         the bug rather than test for it: this runs in the capture phase, so
+         stopping the event means the overlay's own handler never runs. */
+      const ownsItsExit = !!(anchor && anchor.closest && anchor.closest('[role="dialog"], [data-self-nav]'))
       const href = anchor ? (anchor.getAttribute("href") || "").trim() : ""
       const internal = href.startsWith("/") && !href.startsWith("//")
-      /* The canvas leaves a link inside the open menu to the menu, which
-         closes itself and then changes the page. Swallowing it here would
-         reproduce the bug rather than test for it. */
-      const inDialog = !!(anchor && anchor.closest && anchor.closest('[role="dialog"]'))
       if (anchor) e.preventDefault()
-      if (inNav && internal && !inDialog) { e.stopPropagation(); r.editorNav.push(href) }
+      if (inNav && internal && !ownsItsExit) { e.stopPropagation(); r.editorNav.push(href) }
     }
     scroller.addEventListener("click", canvasIntercept, true)
 
@@ -167,55 +171,76 @@ const SCRIPT = `(async () => {
     const navLink = Array.from(document.querySelectorAll('#wb-preview-root [role="dialog"][aria-label="Menu"] nav a[href^="/"]'))
       .find((a) => a.getAttribute("href") !== "/")
     r.foundNavLink = !!navLink
-    /* Long enough for the menu to slide out and then navigate: it closes
-       first now, in the editor as on a site. */
-    if (navLink) { navLink.click(); await wait(700) }
-    r.navWentSomewhere = r.editorNav.length > 0 || (window.__editorNav || []).length > 0
 
-    /* The tap above closed the menu, which is the point of it. Open it again
-       before asking about the next row, or the row is behind a panel with
-       pointer-events none, and the answer is about nothing. */
+    /*
+      ── TAPPING HOME CLOSES THE MENU, THEN GOES HOME ─────────────────────
+      Both halves, and the order of them, because the order is the report:
+      the canvas used to change the page on the spot and leave the drawer
+      standing open over the page it had just opened.
+
+      window.__nav is what the mount records when the header calls
+      onEditorNavigate, so this reads what the editor would actually have
+      been told rather than what a stub decided to intercept.
+    */
+    const panelNode = inPreview('[role="dialog"][aria-label="Menu"]')
+    const openRight = Math.round(panelNode.getBoundingClientRect().right)
+    window.__nav = []
+    if (navLink) {
+      r.navHref = navLink.getAttribute("href")
+      navLink.click()
+      /* Well inside the close, and well before it ends. */
+      await wait(90)
+      r.navMidCloseRight = Math.round(panelNode.getBoundingClientRect().right)
+      r.navMidCloseCount = window.__nav.length
+      /* Past the close, plus room for the frame the timer lands on. */
+      await wait(400)
+      r.navClosedRight = Math.round(panelNode.getBoundingClientRect().right)
+    }
+    r.navOpenRight = openRight
+    r.navTold = window.__nav.map((n) => n.href)
+    r.navToldAsNav = window.__nav.every((n) => n.fromNav === true)
+    r.navWentSomewhere = r.navTold.length > 0
+    r.navWentWhereItSaid = r.navTold[0] === r.navHref
+
+    /* Reopened, because the link it was just given closed it. */
     const reopenForSearch = document.querySelector('#scoped button[aria-label="Open menu"]')
     if (reopenForSearch) { reopenForSearch.click(); await wait(600) }
+    /* Or the row below is behind a panel with pointer-events none, and the
+       answer about it is an answer about nothing. */
     const panelNow = inPreview('[role="dialog"][aria-label="Menu"]')
     r.reopened = !!panelNow && getComputedStyle(panelNow).pointerEvents !== "none"
-
     const searchRow = inPreview('[role="dialog"][aria-label="Menu"] a[href="/search"]')
     r.foundSearchRow = !!searchRow
-    if (searchRow) { searchRow.click(); await wait(700) }
+    window.__nav = []
+    if (searchRow) { searchRow.click(); await wait(600) }
     /*
-      SEARCH HAS TWO RIGHT ANSWERS AND THE CREATOR PICKS.
-      A header set to open search in itself does not leave for a page, and
-      the drawer's row follows that setting — so "the address did not change"
-      is not a failure there. Either the editor was asked for /search, or a
-      field is on screen. Anything else is the row doing nothing.
+      THE ROW DOES WHAT THE ICON BESIDE IT DOES. A header set to open search
+      in itself, which is the default, opens the field here too rather than
+      leaving for the search page: the drawer slides out and the field is
+      behind it. So "it worked" is the field being open, or a navigation to
+      /search when the header is set to go there. Either one, never neither,
+      which is what the row used to do.
     */
-    const searchField = Array.from(document.querySelectorAll("input")).find((i) => {
-      const box = i.getBoundingClientRect()
-      const label = ((i.getAttribute("aria-label") || "") + " " + (i.getAttribute("placeholder") || "")).toLowerCase()
-      return box.width > 60 && box.height > 16 && label.includes("search")
-    })
-    r.searchOpenedAField = !!searchField
-    r.searchWentSomewhere =
-      r.editorNav.includes("/search") ||
-      (window.__editorNav || []).some(([h]) => h === "/search") ||
-      r.searchOpenedAField
-    /* Read AFTER both taps: what the EDITOR was asked to do, which the
-       capture-phase intercept above cannot see. See the spy in
-       render-nav-drawer. */
-    r.editorAsked = (window.__editorNav || []).slice()
-
-    /*
-      PUT THE CANVAS BACK WHERE THE NEXT CHECKS EXPECT IT.
-      Opening the header's search field focuses it, and focusing an input
-      scrolls it into view — which takes the canvas to the top. The checks
-      below are about the drawer's scroll LOCK, not about what search does,
-      so the offset is restored rather than left for them to trip over.
-    */
-    scroller.scrollTop = ${SCROLL_TO}
-    await wait(60)
+    const fieldNow = inPreview('form[action="/search"]')
+    r.searchOpenedTheField = !!fieldNow && getComputedStyle(fieldNow).pointerEvents !== "none"
+    r.searchWentSomewhere = r.searchOpenedTheField || window.__nav.some((n) => n.href === "/search")
+    r.searchClosedTheDrawer = Math.round(inPreview('[role="dialog"][aria-label="Menu"]').getBoundingClientRect().right) <= 0
 
     scroller.removeEventListener("click", canvasIntercept, true)
+
+    /*
+      Put the canvas back where the rest of this phase expects it. The field
+      takes the caret when it opens, and a browser scrolls a focused control
+      into view, so the act of checking that row moved the scroller. That is
+      correct behaviour and not what the checks below are about: they are
+      about the drawer's own lock giving back the position it took.
+    */
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }))
+    await wait(300)
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur()
+    scroller.scrollTop = SCROLL_TO
+    await wait(60)
+    r.scrollPutBack = scroller.scrollTop
 
     /* Leave it open, and hand node the point to tap. The canvas also
        cancels the default of every mousedown while the inspector is on, so
@@ -544,39 +569,20 @@ expect(r.scopedAfter?.overflowY === "auto" && r.scopedAfter?.scrollTop === SCROL
 console.log("\nAnd the controls inside it\n")
 expect(r.foundNavLink === true, "the menu has the site's nav links in it")
 expect(r.navWentSomewhere === true, "a nav link goes somewhere", r.navWentSomewhere ? "yes" : "the click was cancelled and nothing navigated")
-expect(r.reopened === true, "the menu opens again after a link closed it", r.reopened ? "yes" : "it stayed closed, so the next tap is about nothing")
+expect(r.navWentWhereItSaid === true, "and it goes where the link said", `${r.navHref} → ${JSON.stringify(r.navTold)}`)
+expect(r.navToldAsNav === true, "told as the site's navigation, so the inspector does not swallow it")
+expect(r.navMidCloseRight < r.navOpenRight, "the menu is already sliding out a moment after the tap",
+  `right ${r.navMidCloseRight}px, was ${r.navOpenRight}px`)
+expect(r.navMidCloseCount === 0, "and the page has not changed under it yet",
+  r.navMidCloseCount === 0 ? "nothing navigated during the close" : `${r.navMidCloseCount} navigation(s) fired mid-close`)
+expect(r.navClosedRight <= 0, "the menu is gone by the time it lands", `right ${r.navClosedRight}px`)
+expect(r.reopened === true, "the menu opens again after a link closed it",
+  r.reopened ? "yes" : "it stayed closed, so the next tap is about nothing")
 expect(r.foundSearchRow === true, "the menu has a search row")
-expect(
-  r.searchWentSomewhere === true,
-  "and search either opens a field or asks for the page",
-  r.searchWentSomewhere ? (r.searchOpenedAField ? "a field opened" : "asked for /search") : "the row did nothing",
-)
-
-/*
-  ═══════════════════════════════════════════════════════════════════════════
-   AND THE EDITOR WAS ACTUALLY ASKED, WHICH THE CHECKS ABOVE CANNOT SEE
-  ═══════════════════════════════════════════════════════════════════════════
-  The intercept those two read runs in the CAPTURE phase, so it records a
-  link's href before React's handler has run. It says "the nav went somewhere"
-  whatever the editor handler does, and whether it is called at all — the
-  whole editor path was invisible to it, and that is the path the editor
-  actually takes: the drawer cancels the default, calls `onEditorNavigate`
-  and stops the event, so the intercept never sees the click again.
-
-  The spy in render-nav-drawer records what was asked for. The second value
-  is the one that matters: `true` means the drawer said "this link is the
-  site's navigation", which is what makes the editor follow it while the
-  inspector is on. Without it the editor refuses and the menu does nothing.
-*/
-const asked = r.editorAsked ?? []
-/* At least the nav link. Search may legitimately open a field instead, so it
-   is counted by its own check above rather than demanded here. */
-expect(asked.length >= 1, "the editor itself was asked to navigate", `${asked.length} call(s): ${JSON.stringify(asked)}`)
-expect(
-  asked.every(([, fromNav]) => fromNav === true),
-  "and every ask says it is the site's navigation, not content being edited",
-  JSON.stringify(asked),
-)
+expect(r.searchWentSomewhere === true, "and pressing it does something",
+  r.searchOpenedTheField ? "it opened the field in the header" : r.searchWentSomewhere ? "it went to the search page" : "the click was cancelled and nothing happened")
+expect(r.searchClosedTheDrawer === true, "and the menu goes away as it does", r.searchClosedTheDrawer ? "yes" : "the menu stayed open over it")
+expect(r.scrollPutBack === SCROLL_TO, "the canvas was put back before the scroll checks below", `scrollTop ${r.scrollPutBack}`)
 expect(r.foundBackdrop === true, "there is a backdrop to tap")
 expect(r.backdropClosedIt === true, "and a real tap on it closes the menu", r.backdropClosedIt ? "yes" : "it stayed open")
 expect(r.gotPast === 0, "and the tap stops there instead of reaching the canvas behind it", `${r.gotPast} event(s) got past`)

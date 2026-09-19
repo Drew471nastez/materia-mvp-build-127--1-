@@ -318,6 +318,13 @@ function HeaderSearchPanel({
       ref={panelRef}
       aria-hidden={!open}
       /*
+        This panel sits inside the header, so the canvas counted its result
+        links as the site's navigation and followed them in the capture
+        phase, before the handler on each one could put the panel away. The
+        links below do both. See the editor's onClickCapture.
+      */
+      data-self-nav=""
+      /*
         EXACTLY THE HEADER ROW, AND THE FIELD FITS INSIDE IT.
 
         Two versions of this were wrong in opposite directions. First the
@@ -805,31 +812,45 @@ function MobileDrawerInner({
     canvas has already swapped the page being edited by the time this runs.
     The drawer closes and that is all this has to do.
   */
+  /**
+   * ═══════════════════════════════════════════════════════════════════════
+   *  THE MENU CLOSES, THEN THE PAGE CHANGES
+   * ═══════════════════════════════════════════════════════════════════════
+   * Tapping Home means both things: go home, and put the menu away. Doing
+   * them in that order is what makes it read as one movement instead of a
+   * page that changed behind a panel somebody still has to dismiss.
+   *
+   * The wait is the drawer's own closing time, shared with the animation so
+   * the two cannot drift apart. It is a quarter of a second, which is under
+   * the panel while it is still sliding rather than a delay anybody waits
+   * through.
+   *
+   * SAME ON BOTH SIDES. The live site assigns a location and the editor
+   * changes the canvas page, but the timing and the order are the one thing
+   * they must share: the drawer was closing on the live site and vanishing
+   * in the editor, and the report was about the editor.
+   */
   const handleLinkClick = (href: string) => (e: React.MouseEvent) => {
-    /* The second argument says this link IS the site's navigation rather than
-       content being edited, so the editor follows it with the inspector on.
-       See SectionProps.onEditorNavigate for what used to decide that. */
-    if (onEditorNavigate) {
-      e.preventDefault()
-      e.stopPropagation()
-      /* Out of the way first, then the page changes behind it — the same
-         order the published branch below uses, and the same one every site's
-         menu uses. Changing the page under an open menu is a tap that looks
-         like it did nothing. */
-      onClose()
-      window.setTimeout(() => onEditorNavigate(href, true), CLOSE_MS)
-      return
-    }
-
-    const opensElsewhere = e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0
-    if (opensElsewhere) {
+    /* A modifier click opens somewhere else and this page stays where it is,
+       so there is nothing to navigate and nothing to wait for. Only on a
+       real site: in the canvas the browser is not going anywhere. */
+    if (!onEditorNavigate && (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0)) {
       onClose()
       return
     }
 
     e.preventDefault()
+    e.stopPropagation()
     onClose()
-    window.setTimeout(() => { window.location.assign(href) }, CLOSE_MS)
+
+    /* The second argument says this link IS the site's navigation rather
+       than content being edited, so the editor follows it with the
+       inspector on. See SectionProps.onEditorNavigate for what used to
+       decide that. */
+    const go = onEditorNavigate
+      ? () => { onEditorNavigate(href, true) }
+      : () => { window.location.assign(href) }
+    window.setTimeout(go, CLOSE_MS)
   }
 
   return (
@@ -874,6 +895,14 @@ function MobileDrawerInner({
           clicks the links.
         */
         data-chrome=""
+        /*
+          And it follows them itself. The canvas takes a link inside
+          `data-chrome` in the capture phase and stops the event there, so
+          the handler below never ran and the drawer stayed open over the
+          page it had just opened. This says the drawer will do it, after it
+          has closed. See the note in the editor's onClickCapture.
+        */
+        data-self-nav=""
         className={cn(
           positionClass,
           "left-0 flex flex-col",
@@ -2283,26 +2312,48 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
         // the scheme's inset_border; "solid" uses the scheme colour as-is.
         boxShadow: [
           /*
-            A SEPARATOR, NOT A STRIPE. This was drawn in `scheme.inset_border`,
-            which is the scheme's divider colour for lines inside content —
-            light, because content is usually light. On a black header that
-            is a bright white line across the page, which is what it was
-            reported as: a line nobody asked for and nobody could explain.
+            A SEPARATOR ALWAYS DARKENS. NEVER A LIGHT LINE.
 
-            Drawn from the header's OWN text colour at low alpha instead, so
-            it is a hairline on a dark header and on a light one, and the
-            Subtle option is half of that again. The control is unchanged.
+            This was drawn in `scheme.inset_border`, the scheme's divider
+            colour for lines inside content, which is light because content
+            usually is. On a dark header that is a bright line across the
+            page. Drawing it from the header's own text colour instead only
+            moved the problem: on a dark header the text is white, so the
+            line was white, and it came back as "what is that white line
+            under the header" twice.
+
+            A separator between two surfaces is a shadow where one meets the
+            other. A shadow is darker than what it falls on, in every room
+            and on every screen, so this is a fixed dark hairline: a normal
+            divider under a light header, and nothing at all under a black
+            one, which is the correct amount of line to draw between black
+            and what is below it. Subtle is half of it.
+
+            PURE BLACK, NOT SLATE. Written first as rgba(15, 23, 42, …),
+            the tint everything else here shades with, and the probe
+            photographed it on a black header and found the line lighter than
+            the header by two levels: 15, 23, 42 is not black, so a tenth of
+            it laid over #000000 lightens it. The whole point is that this can
+            never lighten anything, and only pure black cannot.
+
+            Measured by scripts/check-header-seam.mjs, which photographs the
+            header over the section under it and reads the pixels: no row
+            anywhere near the edge may come out lighter than the surface it
+            is drawn on.
           */
           shouldShowBorder
-            ? `inset 0 -1px 0 color-mix(in srgb, ${textColor} ${borderStyleRaw === "subtle" ? 7 : 14}%, transparent)`
+            ? `inset 0 -1px 0 rgba(0, 0, 0, ${borderStyleRaw === "subtle" ? 0.05 : 0.1})`
             : null,
           // Smooth subtle depth shadow (Figma-like). Two layers:
           //   - 1px hairline with 4% alpha: creates the sense of a hard
           //     edge separating the header from the content
           //   - 6px soft blur with 5% alpha: the "hover off the page"
           //     feel the user asked for in the screenshot
+          /* Black for the same reason as the line above: a slate-tinted
+             shadow under a black header is a pale haze on the section below
+             it rather than a shadow. The probe measured that one too. */
           headerDepthShadow
-            ? "0 1px 0 rgba(15, 23, 42, 0.04), 0 4px 12px -6px rgba(15, 23, 42, 0.08)"
+            ? "0 1px 0 rgba(0, 0, 0, 0.04), 0 4px 12px -6px rgba(0, 0, 0, 0.08)"
             : null,
         ]
           .filter(Boolean)

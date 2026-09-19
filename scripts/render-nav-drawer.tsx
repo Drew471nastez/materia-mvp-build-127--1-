@@ -55,14 +55,15 @@ createRoot(scoped).render(
       reports "the nav went somewhere" whatever the editor handler does, or
       whether it is called at all. The whole editor path was invisible to it.
 
-      This records what the drawer actually asks for, including the second
-      argument: `true` means "this link is the site's navigation", which is
-      what makes the editor follow it while the inspector is on. Without it
-      the editor refuses, and every link in the menu does nothing.
+      This records what the drawer actually asks for: the address, the second
+      argument (`true` means "this link is the site's navigation", which is
+      what makes the editor follow it while the inspector is on), and the
+      moment, because the drawer closes before it says anything and the order
+      of those two is the thing being measured.
     */
     onEditorNavigate: (href: string, fromNav?: boolean) => {
-      ;(window as unknown as { __editorNav: Array<[string, boolean]> }).__editorNav ??= []
-      ;(window as unknown as { __editorNav: Array<[string, boolean]> }).__editorNav.push([href, fromNav === true])
+      const w = window as unknown as { __nav?: { href: string; fromNav: boolean; at: number }[] }
+      ;(w.__nav ??= []).push({ href, fromNav: !!fromNav, at: Math.round(performance.now()) })
     },
   })),
 )

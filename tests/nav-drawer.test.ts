@@ -40,8 +40,11 @@ function check(label: string, ok: boolean, detail?: string) {
    the cart drawer, so it is read from the one module both of them use. */
 const FRAME = "components/website-builder/drawer-frame.ts"
 const HEADER = "components/website-builder/sections/renderers/HeaderSection.tsx"
+/* The canvas is where the other half of the navigation rule lives. */
+const EDITOR = "app/website-builder/editor/[installId]/page.tsx"
 const src = readFileSync(join(process.cwd(), FRAME), "utf8")
 const header = readFileSync(join(process.cwd(), HEADER), "utf8")
+const editor = readFileSync(join(process.cwd(), EDITOR), "utf8")
 
 function main() {
   console.log("\n  the drawer opens over what is on screen")
@@ -103,6 +106,45 @@ function main() {
   check(
     "the menu carries the attribute that says it is the header's navigation",
     /aria-label="Menu"[\s\S]{0,1600}?data-chrome=""/.test(header),
+  )
+
+  /*
+    AND IT FOLLOWS ITS OWN LINKS, AFTER IT HAS CLOSED.
+
+    The canvas takes a link under `data-chrome` in the CAPTURE phase and
+    stops the event there, so the drawer's own handler never ran: the page
+    changed and the menu was left standing open over the page it had just
+    opened. Reported as "if i click on home it should take me to home and
+    close the mobile nav drawer".
+
+    Two halves. The canvas leaves a `data-self-nav` overlay alone, and the
+    drawer closes first and navigates on the drawer's own closing time, the
+    same on the live site and in the editor. The ORDER is measured for real
+    in check-nav-drawer.mjs: a moment after the tap the panel has moved and
+    nothing has navigated, and by the end it has done both.
+  */
+  check(
+    "the menu says it will follow its own links",
+    /aria-label="Menu"[\s\S]{0,2200}?data-self-nav=""/.test(header),
+  )
+  check(
+    "and the canvas leaves those links to it",
+    /closest\?\.\('\[role="dialog"\], \[data-self-nav\]'\)/.test(editor)
+      && /inNav && internal && !ownsItsExit/.test(editor),
+  )
+  check(
+    "a link closes the menu before it goes anywhere, in the editor as well as live",
+    /onClose\(\)\s*\n\s*\/\*[\s\S]{0,400}?const go = onEditorNavigate/.test(header)
+      && /window\.setTimeout\(go, CLOSE_MS\)/.test(header),
+  )
+  check(
+    "and it waits exactly as long as the drawer takes to close",
+    /const CLOSE_MS = DRAWER_CLOSE_MS/.test(header),
+  )
+  check(
+    "the search panel follows its own results too, so it is not left open over them",
+    /data-self-nav=""/.test(header) && (header.match(/data-self-nav=""/g) ?? []).length === 2,
+    `${(header.match(/data-self-nav=""/g) ?? []).length} of 2 overlays marked`,
   )
   check(
     "tapping away is bound natively, so nothing above it in the React tree sees it first",

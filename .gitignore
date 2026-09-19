@@ -61,4 +61,5 @@ tsconfig.*.generated.json
 
 # Written by scripts/check-nav-drawer.mjs while it bundles the probe.
 .drawer-probe/
+.seam-probe/
 .card-probe/

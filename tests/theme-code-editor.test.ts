@@ -332,7 +332,7 @@ section("It is reachable, and it works on a file longer than the window")
     /onMouseDownCapture=\{inspectorEnabled \? \(e\) => \{ if \(!isTypingTarget\(/.test(editor) &&
       // and the page-leaving pair, which is not about the inspector at all:
       // see "The canvas never takes the browser anywhere" in canvas-scroll.
-      /onClickCapture=\{\(e\) => \{[\s\S]{0,3000}?if \(leavesThePage\(/.test(editor) &&
+      /onClickCapture=\{\(e\) => \{[\s\S]{0,4200}?if \(leavesThePage\(/.test(editor) &&
       /onSubmitCapture=\{\(e\) => e\.preventDefault\(\)\}/.test(editor),
   )
   check(

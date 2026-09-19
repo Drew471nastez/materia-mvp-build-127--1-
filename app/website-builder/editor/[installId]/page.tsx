@@ -7954,14 +7954,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               const el = e.target as HTMLElement | null
               const anchor = el?.closest?.("a[href]") as HTMLAnchorElement | null
               const inNav = !!anchor?.closest?.("[data-chrome]")
-              const href = anchor?.getAttribute("href")?.trim() ?? ""
-              const internal = href.startsWith("/") && !/^\/\//.test(href)
-
-              if (leavesThePage(e.target as unknown as ClickTargetLike | null)) e.preventDefault()
-
               /**
                * ═════════════════════════════════════════════════════════════
-               *  EXCEPT WHEN THE LINK IS IN THE MENU, WHICH OWNS ITS OWN EXIT
+               *  EXCEPT WHEN THE LINK IS IN AN OVERLAY, WHICH OWNS ITS EXIT
                * ═════════════════════════════════════════════════════════════
                * `stopPropagation` in the CAPTURE phase ends the dispatch: the
                * anchor's own handler never runs. For a link in a header bar
@@ -7979,10 +7974,21 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                * any site does. Measured by scripts/check-nav-drawer.mjs,
                * whose editor handler is a spy: it recorded no calls at all
                * while this branch took them.
+               *
+               * `data-self-nav` is the same rule for an overlay that is not
+               * a dialog. The header's search panel is one: it replaces the
+               * header row rather than covering the screen, so it is not
+               * modal and must not claim to be, and its result links had the
+               * same problem. Clicking one changed the page and left the
+               * panel sitting open over the product it had just opened.
                */
-              const inDialog = !!anchor?.closest?.('[role="dialog"]')
+              const ownsItsExit = !!anchor?.closest?.('[role="dialog"], [data-self-nav]')
+              const href = anchor?.getAttribute("href")?.trim() ?? ""
+              const internal = href.startsWith("/") && !/^\/\//.test(href)
 
-              if (inNav && internal && !inDialog) {
+              if (leavesThePage(e.target as unknown as ClickTargetLike | null)) e.preventDefault()
+
+              if (inNav && internal && !ownsItsExit) {
                 e.stopPropagation()
                 handleEditorNavigate(href, true)
               }
