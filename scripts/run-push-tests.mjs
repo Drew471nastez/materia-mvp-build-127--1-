@@ -81,6 +81,7 @@ const SUITES = [
   "tests/quick-access-urls.test.ts",
   "tests/header-link-navigates.test.ts",
   "tests/search-strip-entrance.test.ts",
+  "tests/site-autosave-safety.test.ts",
   "tests/return-navigation.test.ts",
   "tests/keyboard-viewport.test.ts",
   "tests/keyboard-scroll-loop.test.ts",

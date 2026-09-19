@@ -565,6 +565,33 @@ export async function restoreVersion(siteId: string, versionId: string): Promise
   }
 
   /**
+   * ═══════════════════════════════════════════════════════════════════════
+   *  A RESTORE IS AN EDIT, AND EVERY EDIT HERE IS UNDOABLE EXCEPT THIS ONE
+   * ═══════════════════════════════════════════════════════════════════════
+   * Below, this deletes the files the snapshot does not have and overwrites
+   * the ones it does. Until now it did that on top of the current project
+   * without keeping a copy of it, so restoring the wrong version — easy,
+   * since the list shows a prompt and a time and not a diff — threw away
+   * everything since the last agent run with nothing to go back to.
+   *
+   * So the state being replaced becomes a version of its own first, and it
+   * appears in the same History list. A failure to take it is fatal to the
+   * restore, unlike the snapshot before an agent run: there, a missing
+   * snapshot costs undo on a change the person asked for and watched happen;
+   * here it would cost them the project.
+   */
+  const current = await readProject(siteId)
+  if (Object.keys(current).length > 0) {
+    const kept = await snapshot(siteId, current, "Before restoring an earlier version")
+    if (!kept) {
+      return {
+        ok: false,
+        error: "Could not keep a copy of the current version, so nothing was changed. Try again.",
+      }
+    }
+  }
+
+  /**
    * A restore that only WRITES is not a restore.
    *
    * The snapshot is what the project looked like before the run. If the agent
