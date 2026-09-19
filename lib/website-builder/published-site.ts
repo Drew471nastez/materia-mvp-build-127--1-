@@ -236,24 +236,6 @@ async function buildSite(creatorId: string, displayName: string): Promise<BuiltL
   const dressed = applyUniversalChrome(pages)
   for (const key of Object.keys(dressed)) pages[key] = dressed[key]
 
-  /**
-   * AND EVERY LINK IN THAT CHROME POINTS AT AN ADDRESS THIS SITE ANSWERS.
-   *
-   * lib/website-builder/live-links has done this since it was written, but
-   * only where the editor runs it: on load, writing the repair back to the
-   * database. A site published before that existed keeps the broken links
-   * until its creator happens to open the builder and publish again, and
-   * measured on a live site that is exactly what had happened — /shop, /about
-   * and /contact all answering 404 in the nav of a published site.
-   *
-   * So it runs here too, on the way out, against the page keys this site
-   * actually has. The function is pure and idempotent, which is what makes
-   * that safe: a site whose stored links are already right is unchanged, and
-   * a creator's own /blog stays a link because their page is in this set.
-   */
-  const pageKeys = new Set(Object.keys(pages))
-  for (const key of Object.keys(pages)) pages[key] = pageWithLiveLinks(pages[key], pageKeys)
-
   const sections = pages.home ?? []
   const sources = await sectionSources(admin as never, row.id)
 
@@ -291,8 +273,33 @@ export async function publishedSiteByName(name: string, pageKey = "home"): Promi
   if (found.kind !== "site") return found
   const { site, products } = found
 
-  const sections = site.pages[pageKey] ?? (pageKey === "home" ? site.sections : undefined)
-  if (!sections) return { kind: "missing" }
+  const stored = site.pages[pageKey] ?? (pageKey === "home" ? site.sections : undefined)
+  if (!stored) return { kind: "missing" }
+
+  /**
+   * ═══════════════════════════════════════════════════════════════════════
+   *  EVERY LINK IN THE CHROME POINTS AT AN ADDRESS THIS SITE ANSWERS
+   * ═══════════════════════════════════════════════════════════════════════
+   * lib/website-builder/live-links has done this since it was written, but
+   * only where the EDITOR runs it: on load, writing the repair back to the
+   * database. A site published before that existed keeps its broken links
+   * until its creator happens to open the builder again, and measured on a
+   * live site that is exactly what had happened — /shop, /about and /contact
+   * all answering 404 from the nav of a published site.
+   *
+   * OUTSIDE THE CACHE, DELIBERATELY. The first version of this ran inside
+   * `siteByName`, which is wrapped in `unstable_cache` with a one-hour TTL
+   * and an entry that survives a deployment. The fix shipped and the live
+   * site did not change: it was being served a cached copy made before the
+   * fix existed. Here it runs on whatever the cache returns, so it is right
+   * on the first request after a deploy rather than an hour later.
+   *
+   * It is cheap enough to do per request: a pure pass over the sections that
+   * are about to be drawn anyway, idempotent, and a no-op for a site whose
+   * links are already right. A creator's own /blog stays a link because
+   * their page key is in this set.
+   */
+  const sections = pageWithLiveLinks(stored, new Set(Object.keys(site.pages)))
 
   // "index" for the front page, `page.<key>` for the rest: the name a
   // section reads as `page.template` and writes `allowed_templates` against.

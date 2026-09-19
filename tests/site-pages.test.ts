@@ -102,10 +102,13 @@ function main() {
     check("what came out of the database is still cleaned on the way in", /sanitizeSections\(published\)/.test(build))
 
     check("the lookup takes the page being asked for", /export async function publishedSiteByName\(name: string, pageKey = "home"\)/.test(cache))
+    /* `stored` rather than `sections` since the chrome repair runs between the
+       two: what the site stored, then what is actually drawn. The question
+       here is unchanged — a key the site has not published is missing. */
     check(
       "a page the site has not published is missing, not the home page under another name",
-      /const sections = site\.pages\[pageKey\] \?\? \(pageKey === "home" \? site\.sections : undefined\)/.test(cache) &&
-        /if \(!sections\) return \{ kind: "missing" \}/.test(cache),
+      /const stored = site\.pages\[pageKey\] \?\? \(pageKey === "home" \? site\.sections : undefined\)/.test(cache) &&
+        /if \(!stored\) return \{ kind: "missing" \}/.test(cache),
     )
     check("and the template follows the page", /const template = templateForPage\(pageKey\)/.test(cache))
 
