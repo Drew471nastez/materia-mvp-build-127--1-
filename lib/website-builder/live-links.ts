@@ -55,6 +55,19 @@ const STOCK_DEAD = new Map<string, string>([
   ["/faq", "faq"],
   ["/shipping", "shipping"],
   ["/returns", "returns"],
+  /**
+   * And the two the header shipped in its own nav, which this list had
+   * missed because it was written from the footer's links. Measured on a
+   * published site: /about and /contact were both 404, next to a /shop that
+   * was already known about.
+   *
+   * The same rule protects a creator who made the page: `pageKeys` holds
+   * every page the site stores, so an About page that exists keeps its link.
+   * And the same rule protects one who renamed the label: "Get in touch" is
+   * a link somebody chose, and it is theirs to fix.
+   */
+  ["/about", "about"],
+  ["/contact", "contact"],
 ])
 
 const norm = (value: unknown): string => {
