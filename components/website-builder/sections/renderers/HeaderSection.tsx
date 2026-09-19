@@ -812,8 +812,12 @@ function MobileDrawerInner({
     if (onEditorNavigate) {
       e.preventDefault()
       e.stopPropagation()
-      onEditorNavigate(href, true)
+      /* Out of the way first, then the page changes behind it — the same
+         order the published branch below uses, and the same one every site's
+         menu uses. Changing the page under an open menu is a tap that looks
+         like it did nothing. */
       onClose()
+      window.setTimeout(() => onEditorNavigate(href, true), CLOSE_MS)
       return
     }
 

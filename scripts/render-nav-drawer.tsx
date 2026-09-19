@@ -47,7 +47,23 @@ createRoot(scoped).render(
     theme,
     deviceMode: "mobile",
     insideEditor: true,
-    onEditorNavigate: () => {},
+    /*
+      A SPY, NOT A NO-OP.
+
+      The canvas intercept the probe installs runs in the CAPTURE phase, so it
+      records a link's href before React's own handler has run — which means it
+      reports "the nav went somewhere" whatever the editor handler does, or
+      whether it is called at all. The whole editor path was invisible to it.
+
+      This records what the drawer actually asks for, including the second
+      argument: `true` means "this link is the site's navigation", which is
+      what makes the editor follow it while the inspector is on. Without it
+      the editor refuses, and every link in the menu does nothing.
+    */
+    onEditorNavigate: (href: string, fromNav?: boolean) => {
+      ;(window as unknown as { __editorNav: Array<[string, boolean]> }).__editorNav ??= []
+      ;(window as unknown as { __editorNav: Array<[string, boolean]> }).__editorNav.push([href, fromNav === true])
+    },
   })),
 )
 
