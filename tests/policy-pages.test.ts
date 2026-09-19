@@ -657,7 +657,9 @@ async function main() {
       "and the logo is a real link home, intercepted inside the editor",
       (() => {
         const header = readFileSync(join(root, "components/website-builder/sections/renderers/HeaderSection.tsx"), "utf8")
-        return /href="\/"[\s\S]{0,320}onEditorNavigate\("\/"\)/.test(header)
+        /* `, true` says it is navigation, which is what lets the editor
+           follow it while the inspector is on. */
+        return /href="\/"[\s\S]{0,360}onEditorNavigate\("\/", true\)/.test(header)
       })(),
     )
 

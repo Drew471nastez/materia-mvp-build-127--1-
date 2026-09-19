@@ -119,6 +119,40 @@ async function main() {
 
   const report = { site: SITE }
 
+  /*
+    ── IS ANYTHING OUT OF LINE ───────────────────────────────────────
+    "Misaligned" is two measurable things: something wider than the window,
+    and things that ought to share a left edge and do not. Both are reported
+    rather than judged, because a page can be ugly in ways a number cannot
+    see and this is only meant to catch the ones it can.
+  */
+  report.alignment = await evaluate(`(() => {
+    const W = document.documentElement.clientWidth
+    const overflow = []
+    document.querySelectorAll("main *, [data-section-type] *").forEach((el) => {
+      const r = el.getBoundingClientRect()
+      if (r.width === 0 || r.height === 0) return
+      if (r.left < -1 || r.right > W + 1) {
+        overflow.push({
+          tag: el.tagName.toLowerCase(),
+          cls: String(el.className || "").slice(0, 50),
+          left: Math.round(r.left), right: Math.round(r.right),
+        })
+      }
+    })
+    const edges = {}
+    document.querySelectorAll("[data-section-type]").forEach((sec) => {
+      const kids = [...sec.querySelectorAll("h1,h2,h3,p,input,button,a")]
+        .filter((k) => { const r = k.getBoundingClientRect(); return r.width > 40 && r.height > 8 })
+        .slice(0, 12)
+      edges[sec.getAttribute("data-section-type")] = kids.map((k) => {
+        const r = k.getBoundingClientRect()
+        return { t: k.tagName.toLowerCase(), l: Math.round(r.left), r: Math.round(r.right), text: (k.textContent || "").trim().slice(0, 16) }
+      })
+    })
+    return { width: W, scrollWidth: document.documentElement.scrollWidth, overflow: overflow.slice(0, 8), edges }
+  })()`)
+
   /* ── the hamburger ──────────────────────────────────────────────── */
   const burger = await evaluate(`(() => {
     const candidates = [...document.querySelectorAll("button, [role='button']")]
@@ -206,6 +240,23 @@ async function main() {
     after: await evaluate(`location.pathname`),
     wanted: target ? target.href : null,
   }
+  /*
+    A ROW THAT DOES NOT NAVIGATE HAS NOT NECESSARILY FAILED.
+    The header can be set to open search in itself rather than send somebody
+    to a page, and the drawer's Search row follows that setting. Staying put
+    is the right answer there, so the probe looks for the field instead of
+    calling it dead.
+  */
+  report.searchPanel = await evaluate(`(() => {
+    const field = [...document.querySelectorAll("input")].find((i) => {
+      const r = i.getBoundingClientRect()
+      const label = ((i.getAttribute("aria-label") || "") + " " + (i.getAttribute("placeholder") || "")).toLowerCase()
+      return r.width > 80 && r.height > 20 && r.top >= 0 && r.top < innerHeight && label.includes("search")
+    })
+    if (!field) return { open: false }
+    const r = field.getBoundingClientRect()
+    return { open: true, focused: document.activeElement === field, top: Math.round(r.top), w: Math.round(r.width) }
+  })()`)
   report.drawerAfter = await evaluate(`(() => {
     const panel = document.querySelector("aside[role='dialog'][aria-label='Menu']")
     return panel ? { transform: getComputedStyle(panel).transform, hidden: panel.getAttribute("aria-hidden") } : "gone"

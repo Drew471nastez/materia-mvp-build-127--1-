@@ -57,7 +57,23 @@ export interface SectionProps {
   /** Editor-only: intercept nav link / CTA clicks inside sections so clicking
    *  a link in the header navigates WITHIN the editor canvas to the matching
    *  page instead of doing a full browser navigation. */
-  onEditorNavigate?: (href: string) => void
+  /**
+   * Follow a link inside the canvas, in the editor.
+   *
+   * `fromNav` says the link IS the site's navigation — a menu row, the logo,
+   * the search row — rather than content being edited. The editor refuses an
+   * ordinary link while the inspector is on, because a tap on a hero's button
+   * is almost always aimed at the hero; it follows a navigation one, because
+   * a nav you cannot follow is a nav you cannot check.
+   *
+   * It used to be decided outside, by the section's ROLE: the editor handed
+   * the navigating version only to a section whose type is exactly "header"
+   * or "footer". A header that calls itself anything else — a theme's own,
+   * a custom one — got the refusing version, and every link in its drawer
+   * did nothing at all with the inspector on. The drawer knows what it is,
+   * so it says so here instead.
+   */
+  onEditorNavigate?: (href: string, fromNav?: boolean) => void
   /** Editor-only: border-radius (in px) for the selection ring's TOP corners,
    *  so the selection outline curves into the canvas's rounded top corners
    *  instead of being clipped as a rectangular ring. Set on the first
