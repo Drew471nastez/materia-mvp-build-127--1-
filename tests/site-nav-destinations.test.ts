@@ -72,17 +72,26 @@ async function main() {
   console.log("\nAnd the repair reaches a site that was published before it existed")
 
   check(
-    "a published site's pages go through it on the way out",
-    /pageWithLiveLinks\(pages\[key\], pageKeys\)/.test(published),
+    "a published site's sections go through it on the way out",
+    /const sections = pageWithLiveLinks\(stored, new Set\(Object\.keys\(site\.pages\)\)\)/.test(published),
     "it used to run only where the editor loaded the theme and wrote the repair back",
   )
+  /**
+   * AND OUTSIDE THE CACHE. The first version ran inside `siteByName`, which
+   * `unstable_cache` holds for an hour across deployments: the fix shipped,
+   * the live site kept serving /shop and /about, and it was a cached copy
+   * made before the fix existed. Measured after the deploy was READY.
+   */
+  const cached = published.indexOf("unstable_cache(\n    () => siteByName")
+  const repair = published.indexOf("pageWithLiveLinks(stored")
   check(
-    "against the keys the site actually has",
-    /const pageKeys = new Set\(Object\.keys\(pages\)\)/.test(published),
+    "the repair is not inside the hour-long cached lookup",
+    repair > 0 && (cached < 0 || repair > cached),
+    "a cached entry survives a deploy, so a repair inside it ships and does nothing",
   )
   check(
-    "after the chrome is unified, so one repair covers every page's copy",
-    published.indexOf("applyUniversalChrome") < published.indexOf("pageWithLiveLinks(pages[key]"),
+    "and it runs before the sections are drawn",
+    repair < published.indexOf("renderWithSources(site.sources, sections"),
   )
 
   /* The repair is only safe to run on every read because it cannot drift. */
