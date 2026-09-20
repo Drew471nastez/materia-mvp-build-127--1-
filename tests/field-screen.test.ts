@@ -43,38 +43,41 @@ function main() {
     "two different breakpoints would leave a width where the sheet is on and the screen is not",
   )
   check(
-    "it is a portal to the body, not a child of the sheet",
-    /createPortal\(/.test(popover) && /document\.body,/.test(popover),
-    "a child of the sheet is content the sheet measures, which is the whole bug",
+    "it is the editor's own sheet, not one that looks like it",
+    /<MobileEditorSheet open=\{open\} onOpenChange=\{onOpenChange\} layer="raised"/.test(popover),
+    "a hand-drawn panel has no slide, no grabber and a header of its own invention",
+  )
+  check(
+    "on the layer that sheet keeps for one opened from another",
+    /layer="raised"/.test(popover) && /zIndex: layer === "raised" \? 80 : 50/.test(read("components/website-builder/mobile-editor-sheet.tsx")),
   )
   check(
     "and the in-flow panel does not also open there",
     /\{open && !phone && \(/.test(popover),
   )
-  check(
-    "it clears the editor sheet's own layers",
-    /z-\[100\]/.test(popover) && /zIndex: layer === "raised" \? 80 : 50/.test(read("components/website-builder/mobile-editor-sheet.tsx")),
-    "the sheet draws its surface at 80 when raised",
-  )
 
   console.log("\nAnd it reads as a screen, with a way back")
 
-  check("there is a back control", /aria-label="Back"/.test(popover))
-  check("and a title over it", /\{title \?\? "Choose"\}/.test(popover))
+  /* The editor's own panel header: an arrow, a name, a hairline under it.
+     The same row that sits at the top of Header Settings. */
+  check("there is a back control", /aria-label="Back"/.test(popover) && /<ArrowLeft className="h-4 w-4" \/>/.test(popover))
+  check("and a title beside it, not centred over it", /<span className="text-sm font-semibold">\{title \?\? "Choose"\}<\/span>/.test(popover))
   check(
     "both pickers name their own screen",
     /title="Link"/.test(read("components/website-builder/link-picker.tsx")) &&
       /title="Icon"/.test(read("components/website-builder/icon-picker.tsx")),
   )
   check(
-    "pressing the backdrop closes it",
-    /aria-label="Close"[\s\S]{0,120}onOpenChange\(false\)/.test(popover),
+    "the header matches the one the editor's panels use",
+    /flex shrink-0 items-center gap-2 border-b border-border px-4 py-3/.test(popover) &&
+      /px-4 py-3 border-b border-border flex items-center gap-2 shrink-0/.test(read("app/website-builder/editor/[installId]/page.tsx")),
+    "two spellings of the same row is how two panels stop looking like one product",
   )
   check(
-    "a press inside it is not mistaken for a press outside",
-    /closest\?\.\("\[data-field-screen\]"\)/.test(popover),
-    "the portal is not inside the popover's root, so the outside-press rule would close it on every tap",
+    "the rows take the sheet's scale rather than the sidebar's",
+    /\.wb-field-screen \[data-sheet-scroll\] button/.test(css) && /font-size: 15px/.test(css),
   )
+
   check(
     "the list fills the screen instead of keeping its sidebar cap",
     /\.wb-field-screen > \[data-sheet-scroll\]/.test(css) && /max-height: none/.test(css),

@@ -1,10 +1,10 @@
 "use client"
 
 import * as React from "react"
-import { createPortal } from "react-dom"
-import { ChevronLeft } from "lucide-react"
+import { ArrowLeft } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { MobileEditorSheet } from "@/components/website-builder/mobile-editor-sheet"
 
 /**
  * ===========================================================================
@@ -41,8 +41,17 @@ import { cn } from "@/lib/utils"
  * over the one it came from, with a back arrow and the field's name at the
  * top. That is what every builder that has met this does, and it is what the
  * owner asked for: a sub-page in the sheet rather than a modal inside it.
- * Being a portal, it is outside the first sheet's flow entirely, so nothing
- * it does can change what that sheet measures.
+ * Being its own sheet, it is outside the first one's flow entirely, so
+ * nothing it does can change what that sheet measures.
+ *
+ * IT IS THE EDITOR'S SHEET, not one that looks like it. The first version
+ * drew its own panel: a div that appeared, with no slide, no grabber to drag
+ * and a header of its own invention. Next to the sections sheet it read as a
+ * different piece of software. MobileEditorSheet is that sheet — the same
+ * 360ms cubic-bezier(0.32, 0.72, 0, 1) travel, the same backdrop fade, the
+ * same corner and shadow, the same drag to dismiss, the same reserve under
+ * the keyboard — and `layer="raised"` is the slot it already keeps for a
+ * sheet opened from a sheet.
  */
 
 /** The editor swaps to its phone layout here; see the editor page. */
@@ -106,52 +115,28 @@ export function FieldPopover({
   }, [open, onOpenChange])
 
   /**
-   * A SHEET OVER THE SHEET. z-100 clears the editor's own, which draws its
-   * backdrop at 70 and its surface at 80 when raised, so this cannot open
-   * underneath the thing it was opened from.
+   * THE SAME SHEET THE SECTIONS PANEL USES, on the layer it keeps for one
+   * opened from another. Its header is the editor's own: an arrow, a name,
+   * a hairline under it — the row you see at the top of Header Settings.
    */
-  const screen =
-    open && phone && typeof document !== "undefined"
-      ? createPortal(
-          <div data-field-screen className="fixed inset-0 z-[100] flex flex-col justify-end">
-            <button
-              type="button"
-              aria-label="Close"
-              onClick={() => onOpenChange(false)}
-              className="absolute inset-0 bg-black/40"
-            />
-            <div
-              className="relative flex max-h-[86svh] min-h-[46svh] flex-col overflow-hidden rounded-t-2xl border-t border-border bg-background"
-              style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
-            >
-              {/* The grabber, because everything else that arrives from the
-                  bottom of this editor has one and a screen that does not
-                  reads as a different kind of thing. */}
-              <div className="flex justify-center pt-2.5">
-                <span aria-hidden className="h-1 w-9 rounded-full bg-border" />
-              </div>
-              <div className="flex items-center gap-1 px-2 pb-2 pt-1.5">
-                <button
-                  type="button"
-                  onClick={() => onOpenChange(false)}
-                  aria-label="Back"
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-foreground transition-colors hover:bg-muted"
-                >
-                  <ChevronLeft className="h-5 w-5" strokeWidth={2} />
-                </button>
-                <span className="flex-1 truncate text-center text-[15px] font-semibold">{title ?? "Choose"}</span>
-                {/* The same width as the back button, so the title is centred
-                    on the screen rather than on what is left of it. */}
-                <span aria-hidden className="h-9 w-9 shrink-0" />
-              </div>
-              <div className="wb-field-screen flex min-h-0 flex-1 flex-col overflow-hidden border-t border-border">
-                {children}
-              </div>
-            </div>
-          </div>,
-          document.body,
-        )
-      : null
+  const screen = phone ? (
+    <MobileEditorSheet open={open} onOpenChange={onOpenChange} layer="raised" detents={[0.92]}>
+      <div data-field-screen className="flex min-h-0 flex-1 flex-col">
+        <div className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-3">
+          <button
+            type="button"
+            onClick={() => onOpenChange(false)}
+            aria-label="Back"
+            className="text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </button>
+          <span className="text-sm font-semibold">{title ?? "Choose"}</span>
+        </div>
+        <div className="wb-field-screen flex min-h-0 flex-1 flex-col overflow-hidden">{children}</div>
+      </div>
+    </MobileEditorSheet>
+  ) : null
 
   return (
     <div ref={root} className="relative">
