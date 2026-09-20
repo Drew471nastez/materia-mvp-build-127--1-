@@ -82,6 +82,32 @@ function main() {
     /\{open && !asScreen && \(/.test(popover),
   )
 
+  /**
+   * ═══════════════════════════════════════════════════════════════════════
+   *  AND THE SHEET IS STILL A SHEET
+   * ═══════════════════════════════════════════════════════════════════════
+   * `cn` is tailwind-merge. A `relative` added to the surface so the pushed
+   * screen would have something to be absolute against is the same CSS
+   * property as the `fixed` that makes this a sheet at all, and the later
+   * one wins — so the surface laid out in the flow of the body with its own
+   * translateY carrying it off the screen. The sections panel, the tabs, the
+   * settings, all of it stopped appearing.
+   *
+   * `fixed` is already a containing block for an absolute child, so nothing
+   * needed adding. This is here because that was not obvious enough to stop
+   * me doing it.
+   */
+  const surfaceClasses = sheet.slice(sheet.indexOf("data-mobile-bottom-sheet="), sheet.indexOf("data-mobile-bottom-sheet=") + 1400)
+  check(
+    "the sheet's surface is still fixed",
+    /"fixed left-0 right-0 bottom-0/.test(surfaceClasses),
+  )
+  check(
+    "and nothing else sets a position on it",
+    !/"relative",/.test(surfaceClasses) && !/"absolute",/.test(surfaceClasses) && !/"sticky",/.test(surfaceClasses),
+    "tailwind-merge keeps the last of two position utilities, and the sheet stops being a sheet",
+  )
+
   console.log("\nAnd it reads as a screen, with a way back")
 
   /* The editor's own panel header: an arrow, a name, a hairline under it.

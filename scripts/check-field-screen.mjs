@@ -97,6 +97,18 @@ setTimeout(function () {
     const back = screen ? screen.querySelector("button[aria-label='Back']") : null
     const result = {
       before, after,
+      /*
+        THE SHEET IS PINNED TO THE BOTTOM OF THE WINDOW.
+        Asserted because it stopped being: a position utility added for the
+        pushed screen merged over the one that makes this a sheet at all, and
+        it laid out in the flow of the body with its own translateY carrying
+        it off screen. Nothing appeared, and every other number here still
+        looked reasonable.
+      */
+      surfacePosition: surface ? getComputedStyle(surface).position : null,
+      surfaceBottomGap: surface
+        ? Math.round(window.innerHeight - surface.getBoundingClientRect().bottom)
+        : null,
       screenExists: !!screen,
       /* Inside the sheet it came from, which is the whole point of this pass. */
       screenInsideSheet: !!screen && !!surface && surface.contains(screen),
@@ -109,9 +121,20 @@ setTimeout(function () {
       customBox: custom ? { ...boxOf(custom), topmost: topmostAt(custom) } : null,
       listH: screen ? boxOf(screen.querySelector("[data-sheet-scroll]")).h : null,
       inlinePanelStillThere: !!document.querySelector(".wb-field-panel"),
-      grabberStillReachable: (function () {
+      grabber: (function () {
         const grab = surface ? surface.querySelector("[class*='cursor-grab']") : null
-        return grab ? topmostAt(grab) === "itself" : false
+        if (!grab) return { found: false }
+        const gb = grab.getBoundingClientRect()
+        const hit = document.elementFromPoint(gb.left + gb.width / 2, gb.top + gb.height / 2)
+        const cs = getComputedStyle(grab)
+        const surfCs = surface ? getComputedStyle(surface) : null
+        return {
+          found: true, ...boxOf(grab), topmost: topmostAt(grab),
+          point: { x: Math.round(gb.left + gb.width / 2), y: Math.round(gb.top + gb.height / 2) },
+          hit: hit ? hit.tagName.toLowerCase() + "." + String(hit.className || "").slice(0, 30) : "null",
+          pointerEvents: cs.pointerEvents, visibility: cs.visibility, opacity: cs.opacity,
+          surface: surfCs ? { visibility: surfCs.visibility, opacity: surfCs.opacity, pointerEvents: surfCs.pointerEvents } : null,
+        }
       })(),
     }
     const pre = document.createElement("pre"); pre.id = "result"; pre.textContent = JSON.stringify(result)
@@ -134,6 +157,10 @@ if (!m) {
 const r = JSON.parse(m[1].replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&"))
 
 const problems = []
+if (r.surfacePosition !== "fixed") problems.push(`the sheet is not fixed to the window: position ${r.surfacePosition}`)
+if (r.surfaceBottomGap !== null && r.surfaceBottomGap > 0) {
+  problems.push(`the sheet is not pinned to the bottom: ${r.surfaceBottomGap}px of window below it`)
+}
 if (!r.screenExists) problems.push("the picker did not open as a screen")
 if (!r.screenInsideSheet) problems.push("the screen is not inside the sheet it was opened from")
 if (r.after.sheets !== r.before.sheets) {
@@ -166,7 +193,10 @@ else {
 }
 if (!r.back) problems.push("no way back from the screen")
 else if (r.back.topmost !== "itself") problems.push(`the back control is covered by ${r.back.topmost}`)
-if (!r.grabberStillReachable) problems.push("the grabber is covered, so the sheet cannot be dragged away with a screen open")
+if (!r.grabber.found) problems.push("no grabber on the sheet")
+else if (r.grabber.topmost !== "itself") {
+  problems.push(`the grabber is covered by ${r.grabber.topmost}, so the sheet cannot be dragged away with a screen open`)
+}
 for (const [name, box] of [["search box", r.searchBox], ["first row", r.firstRow], ["address box", r.customBox]]) {
   if (!box) { problems.push(`no ${name} on the screen`); continue }
   if (box.topmost !== "itself") problems.push(`the ${name} is covered by ${box.topmost}`)
@@ -175,10 +205,12 @@ for (const [name, box] of [["search box", r.searchBox], ["first row", r.firstRow
 if (r.listH !== null && r.listH <= 240) problems.push(`the list is still capped at a sidebar height (${r.listH}px)`)
 
 console.log(`sheets           ${r.before.sheets} before, ${r.after.sheets} after`)
+console.log(`sheet position   ${r.surfacePosition}, ${r.surfaceBottomGap}px of window below it`)
 console.log(`sheet surface    ${r.before.surface.h}px at ${r.before.surface.top} before, ${r.after.surface.h}px at ${r.after.surface.top} after`)
 console.log(`panel content    ${Math.round(r.before.content)}px before, ${Math.round(r.after.content)}px after`)
 console.log(`screen           ${r.screenBox ? r.screenBox.h : "?"}px, inside the sheet: ${r.screenInsideSheet}`)
 console.log(`motion           ${r.motion ? `${r.motion.property} ${r.motion.duration} ${r.motion.easing}` : "none"}`)
+console.log(`grabber          top ${r.grabber.top}, ${r.grabber.h}px tall, topmost ${r.grabber.topmost}`)
 console.log(`back             top ${r.back ? r.back.top : "?"}, topmost ${r.back ? r.back.topmost : "?"}`)
 console.log(`list             ${r.listH}px`)
 console.log(`search box       top ${r.searchBox ? r.searchBox.top : "?"}, topmost ${r.searchBox ? r.searchBox.topmost : "?"}`)
