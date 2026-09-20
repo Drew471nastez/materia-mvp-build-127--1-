@@ -2,27 +2,36 @@
 
 /**
  * ===========================================================================
- *  A GRADIENT YOU CAN SEE WHILE YOU MAKE IT
+ *  A GRADIENT YOU MAKE BY TOUCHING IT
  * ===========================================================================
- * The gradient control was four presets and a text field holding
- * `linear-gradient(135deg, #0f172a 0%, #4c1d95 100%)`. That is a control for
- * somebody who already knows the syntax, and it shows nothing while they
- * type: a wrong comma is a gradient that silently becomes no gradient.
+ * This was a preview, two range sliders and a grid of preset rectangles: a
+ * number to aim at for the angle, a number to aim at for each stop, and a
+ * row of tabs to start from. Every one of those is a control you operate by
+ * looking somewhere other than the thing you are changing, and on a phone a
+ * range input inside a bottom sheet is a thumb-width target that fights the
+ * sheet for the same gesture.
  *
- * This is the control the reference builders have: a preview that is the
- * gradient itself, a direction you turn, and stops you add, move and colour
- * with the same picker every other colour in the panel uses. What it saves
- * is still the CSS string, so nothing downstream changes and a gradient
- * typed by hand before this existed opens here intact.
+ * What is here instead is the gradient, at the size of a thumb, with its
+ * colours sitting on it where they are. Drag one and it moves. Tap one and
+ * the colour picker every other colour in the panel uses opens on it. The
+ * direction is a dial you point rather than a track you aim at, and it
+ * clicks onto the four square angles so "straight down" is not a thing you
+ * have to land on exactly.
  *
- * The parser reads the shape this control writes and the shape the presets
- * and older hand-typed values had. A string it cannot read is kept as it is
- * and shown as such, never replaced with a guess.
+ * What it saves is still the CSS string, so nothing downstream changes and a
+ * gradient typed by hand before this existed opens here intact. The parser
+ * reads the shape this control writes and the shape the presets and older
+ * hand-typed values had. A string it cannot read is kept as it is and shown
+ * as such, never replaced with a guess.
  */
-import { useMemo, useState } from "react"
-import { Plus, X } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { useCallback, useEffect, useRef, useState } from "react"
+/* Imported by name. This file does not import React itself, and the editor
+   has been taken down once by a `React.` spelling that TypeScript accepted
+   (see tests/react-binding.test.ts). */
+import type { PointerEvent as ReactPointerEvent } from "react"
+import { Minus, Plus } from "lucide-react"
 import { ColorChip } from "./color-chip"
+import { useFrameCommit } from "./use-frame-commit"
 
 export interface GradientStop {
   color: string
@@ -112,6 +121,37 @@ export function serializeGradient(g: Gradient): string {
   return `linear-gradient(${Math.round(g.angle)}deg, ${stops.map((s) => `${s.color} ${Math.round(s.at)}%`).join(", ")})`
 }
 
+/**
+ * Where the dial clicks. A gradient that runs straight down or straight
+ * across is the common case and the one you cannot land on by hand, so it
+ * takes the last few degrees itself.
+ */
+const SNAP_EVERY = 45
+const SNAP_WITHIN = 6
+
+/** How near the track a press has to be, as a share of it, to take a stop. */
+const GRAB_WITHIN = 12
+
+/**
+ * The handle's size, used by BOTH the drawing and the arithmetic.
+ *
+ * A stop at 0% drawn at `left: 0` with the usual centring is half outside
+ * the track, and the track has to clip to keep its rounded corners — so the
+ * first and last colours were two half-moons stuck to the edges. The travel
+ * is inset by half a handle at each end instead, which is the same thing
+ * every real slider does. Computed once here because the press that grabs a
+ * handle has to land on the same scale the handle is drawn on; two readings
+ * of one number is where this sort of thing goes wrong.
+ */
+const HANDLE = 22
+const HALF = HANDLE / 2
+
+function snapAngle(deg: number): number {
+  const d = ((deg % 360) + 360) % 360
+  const nearest = Math.round(d / SNAP_EVERY) * SNAP_EVERY
+  return Math.abs(d - nearest) <= SNAP_WITHIN ? nearest % 360 : Math.round(d)
+}
+
 export function GradientEditor({
   value,
   onChange,
@@ -122,139 +162,242 @@ export function GradientEditor({
   /** Colours already in the scheme, offered by the chip. */
   existing?: string[]
 }) {
-  const parsed = useMemo(() => parseGradient(value), [value])
   const [unreadable] = useState(() => !!value && !parseGradient(value))
-  const g = parsed ?? DEFAULT
 
-  const commit = (next: Gradient) => onChange(serializeGradient(next))
-  const setStop = (i: number, patch: Partial<GradientStop>) =>
-    commit({ ...g, stops: g.stops.map((s, idx) => (idx === i ? { ...s, ...patch } : s)) })
+  /**
+   * THE GRADIENT BEING EDITED IS HELD HERE, NOT READ BACK FROM THE PROP.
+   *
+   * `onChange` rewrites a theme setting and repaints the canvas, so it is
+   * coalesced to one call a frame (use-frame-commit.ts). That means the prop
+   * is always a frame or so behind the finger, and a control that drew
+   * itself from it would stutter. It draws from this; the prop is what it
+   * loads from, and what it listens to when somebody else changes it.
+   */
+  const [g, setG] = useState<Gradient>(() => parseGradient(value) ?? DEFAULT)
+  const [selected, setSelected] = useState(0)
+  const sent = useRef<string | null>(null)
+  const { emit, flush } = useFrameCommit(onChange)
 
-  const addStop = () => {
-    if (g.stops.length >= MAX_STOPS) return
-    /* Between the two widest-apart neighbours, in the colour of the one
-       before it, so a new stop changes nothing until it is moved. */
-    const sorted = [...g.stops].sort((a, b) => a.at - b.at)
-    let bestGap = -1
-    let at = 50
-    let color = sorted[0].color
-    for (let i = 0; i < sorted.length - 1; i++) {
-      const gap = sorted[i + 1].at - sorted[i].at
-      if (gap > bestGap) { bestGap = gap; at = Math.round((sorted[i].at + sorted[i + 1].at) / 2); color = sorted[i].color }
-    }
-    commit({ ...g, stops: [...g.stops, { color, at }] })
+  useEffect(() => {
+    /* Our own value coming back is not a change. */
+    if (sent.current !== null && value === sent.current) return
+    sent.current = null
+    const parsed = parseGradient(value)
+    if (parsed) setG(parsed)
+  }, [value])
+
+  const commit = useCallback((next: Gradient) => {
+    setG(next)
+    const css = serializeGradient(next)
+    sent.current = css
+    emit(css)
+  }, [emit])
+
+  const stops = g.stops
+  const index = Math.min(selected, stops.length - 1)
+  const stop = stops[index]
+
+  // ── The gradient itself, and the colours sitting on it ──────────────────
+  const trackRef = useRef<HTMLDivElement>(null)
+  const grabbed = useRef<number | null>(null)
+
+  const atFrom = (clientX: number): number => {
+    const el = trackRef.current
+    if (!el) return 0
+    const r = el.getBoundingClientRect()
+    const usable = r.width - HANDLE
+    if (usable <= 0) return 0
+    return Math.max(0, Math.min(100, ((clientX - r.left - HALF) / usable) * 100))
   }
 
-  const removeStop = (i: number) => {
-    if (g.stops.length <= MIN_STOPS) return
-    commit({ ...g, stops: g.stops.filter((_, idx) => idx !== i) })
+  const moveStop = (i: number, at: number) =>
+    commit({ ...g, stops: g.stops.map((s, idx) => (idx === i ? { ...s, at } : s)) })
+
+  const onTrackDown = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const at = atFrom(e.clientX)
+    let near = 0
+    let best = Infinity
+    stops.forEach((s, i) => {
+      const d = Math.abs(s.at - at)
+      if (d < best) { best = d; near = i }
+    })
+    /**
+     * A press away from every colour does nothing. The alternative — the
+     * nearest one jumps to your finger — is a gradient you can change by
+     * touching the picture of it, which is not what touching a picture
+     * means.
+     */
+    if (best > GRAB_WITHIN) return
+    setSelected(near)
+    grabbed.current = near
+    e.currentTarget.setPointerCapture(e.pointerId)
+  }
+
+  const onTrackMove = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (grabbed.current === null) return
+    moveStop(grabbed.current, Math.round(atFrom(e.clientX)))
+  }
+
+  const endTrack = () => {
+    if (grabbed.current === null) return
+    grabbed.current = null
+    flush()
+  }
+
+  // ── Direction ───────────────────────────────────────────────────────────
+  const dialRef = useRef<HTMLDivElement>(null)
+  const turning = useRef(false)
+
+  const pointAt = (clientX: number, clientY: number) => {
+    const el = dialRef.current
+    if (!el) return
+    const r = el.getBoundingClientRect()
+    const dx = clientX - (r.left + r.width / 2)
+    const dy = clientY - (r.top + r.height / 2)
+    if (dx === 0 && dy === 0) return
+    /* CSS counts a gradient's angle clockwise from straight up, which is
+       what `atan2(x, -y)` gives directly. */
+    commit({ ...g, angle: snapAngle((Math.atan2(dx, -dy) * 180) / Math.PI) })
   }
 
   const css = serializeGradient(g)
 
   return (
     <div className="space-y-3">
-      {/* The gradient itself, as the preview. The stops are drawn along its
-          bottom edge where they are, so moving one is moving the thing you
-          are looking at. */}
-      <div className="relative h-16 w-full overflow-hidden rounded-lg border border-border" style={{ background: css }}>
-        {g.stops.map((s, i) => (
+      {/* The gradient, at the size of a thumb, with its colours where they
+          are. Dragging one is dragging the thing you are looking at. */}
+      <div
+        ref={trackRef}
+        data-sheet-no-drag
+        onPointerDown={onTrackDown}
+        onPointerMove={onTrackMove}
+        onPointerUp={endTrack}
+        onPointerCancel={endTrack}
+        className="relative h-[84px] w-full touch-none select-none overflow-hidden rounded-xl border border-black/10"
+        style={{ background: css }}
+      >
+        {stops.map((s, i) => (
           <span
             key={i}
             aria-hidden
-            className="absolute bottom-1 h-3 w-3 -translate-x-1/2 rounded-full border-2 border-white shadow-[0_0_0_1px_rgba(0,0,0,0.35)]"
-            style={{ left: `${s.at}%`, background: s.color }}
+            className="absolute top-1/2 rounded-full border-[3px] border-white"
+            style={{
+              height: HANDLE,
+              width: HANDLE,
+              left: `calc(${HALF}px + (100% - ${HANDLE}px) * ${s.at / 100})`,
+              transform: "translate(-50%, -50%)",
+              background: s.color,
+              boxShadow: i === index
+                ? "0 0 0 2px rgba(17,24,39,0.9), 0 1px 4px rgba(0,0,0,0.3)"
+                : "0 1px 4px rgba(0,0,0,0.3)",
+            }}
           />
         ))}
       </div>
 
       {unreadable && (
-        <p className="text-[12px] text-muted-foreground leading-snug">
+        <p className="text-[12px] leading-snug text-muted-foreground">
           This gradient was written by hand in a form this control cannot read. It is kept as it is; changing anything below replaces it.
         </p>
       )}
 
-      {/* Direction. A dial the eye can read, with the number beside it. */}
-      <div className="flex items-center gap-3">
-        <span className="text-[12px] text-muted-foreground w-16 shrink-0">Direction</span>
-        <input
-          type="range"
-          min={0}
-          max={360}
-          step={1}
-          value={Math.round(g.angle)}
-          onChange={(e) => commit({ ...g, angle: Number(e.target.value) })}
-          className="flex-1 accent-[#1a1a2e]"
-          aria-label="Gradient direction"
+      {/* The colour under the handle you last touched, and how many there
+          are. One row, because that is all there is to say about a stop. */}
+      <div className="flex items-center gap-2">
+        <ColorChip
+          value={stop.color}
+          onChange={(c) => commit({ ...g, stops: g.stops.map((s, idx) => (idx === index ? { ...s, color: c || "#000000" } : s)) })}
+          existing={existing}
         />
-        <span className="relative h-6 w-6 shrink-0 rounded-full border border-border" aria-hidden>
+        <span className="text-[13px] tabular-nums text-muted-foreground">{Math.round(stop.at)}%</span>
+        <span className="flex-1" />
+        <button
+          type="button"
+          onClick={() => {
+            if (stops.length <= MIN_STOPS) return
+            setSelected(Math.max(0, index - 1))
+            commit({ ...g, stops: g.stops.filter((_, idx) => idx !== index) })
+          }}
+          disabled={stops.length <= MIN_STOPS}
+          aria-label="Remove this colour"
+          className="flex h-9 w-9 items-center justify-center rounded-full border border-border text-foreground/70 transition-colors hover:bg-muted disabled:opacity-30 disabled:hover:bg-transparent"
+        >
+          <Minus className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            if (stops.length >= MAX_STOPS) return
+            const added = withAddedStop(g)
+            setSelected(added.stops.length - 1)
+            commit(added)
+          }}
+          disabled={stops.length >= MAX_STOPS}
+          aria-label="Add a colour"
+          className="flex h-9 w-9 items-center justify-center rounded-full border border-border text-foreground/70 transition-colors hover:bg-muted disabled:opacity-30 disabled:hover:bg-transparent"
+        >
+          <Plus className="h-4 w-4" />
+        </button>
+      </div>
+
+      {/* Which way it runs. A dial you point, not a track you aim at. */}
+      <div className="flex items-center gap-3">
+        <span className="w-16 shrink-0 text-[13px] text-muted-foreground">Direction</span>
+        <div
+          ref={dialRef}
+          data-sheet-no-drag
+          role="slider"
+          tabIndex={0}
+          aria-label="Gradient direction"
+          aria-valuemin={0}
+          aria-valuemax={359}
+          aria-valuenow={Math.round(g.angle)}
+          aria-valuetext={`${Math.round(g.angle)} degrees`}
+          onPointerDown={(e) => {
+            turning.current = true
+            e.currentTarget.setPointerCapture(e.pointerId)
+            pointAt(e.clientX, e.clientY)
+          }}
+          onPointerMove={(e) => { if (turning.current) pointAt(e.clientX, e.clientY) }}
+          onPointerUp={() => { turning.current = false; flush() }}
+          onPointerCancel={() => { turning.current = false; flush() }}
+          onKeyDown={(e) => {
+            const step = e.key === "ArrowLeft" || e.key === "ArrowDown" ? -SNAP_EVERY : e.key === "ArrowRight" || e.key === "ArrowUp" ? SNAP_EVERY : 0
+            if (!step) return
+            e.preventDefault()
+            commit({ ...g, angle: (((g.angle + step) % 360) + 360) % 360 })
+          }}
+          className="relative h-11 w-11 shrink-0 cursor-pointer touch-none select-none rounded-full border border-border bg-muted/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-black/15"
+        >
+          {/* The needle points where the gradient goes. */}
           <span
-            className="absolute left-1/2 top-1/2 h-[9px] w-[2px] origin-bottom -translate-x-1/2 -translate-y-full rounded-full bg-[#1a1a2e]"
+            className="absolute left-1/2 top-1/2 h-[18px] w-[3px] origin-bottom rounded-full bg-[#1a1a2e]"
             style={{ transform: `translate(-50%, -100%) rotate(${g.angle}deg)`, transformOrigin: "50% 100%" }}
           />
-        </span>
-        <span className="w-10 text-right text-[12px] tabular-nums text-muted-foreground">{Math.round(g.angle)}°</span>
-      </div>
-
-      {/* The stops: a colour and where it sits. */}
-      <div className="space-y-2">
-        {g.stops.map((s, i) => (
-          <div key={i} className="flex items-center gap-2">
-            <ColorChip value={s.color} onChange={(c) => setStop(i, { color: c || "#000000" })} existing={existing} />
-            <input
-              type="range"
-              min={0}
-              max={100}
-              step={1}
-              value={Math.round(s.at)}
-              onChange={(e) => setStop(i, { at: Number(e.target.value) })}
-              className="flex-1 accent-[#1a1a2e]"
-              aria-label={`Stop ${i + 1} position`}
-            />
-            <span className="w-9 text-right text-[12px] tabular-nums text-muted-foreground">{Math.round(s.at)}%</span>
-            <button
-              type="button"
-              onClick={() => removeStop(i)}
-              disabled={g.stops.length <= MIN_STOPS}
-              aria-label={`Remove stop ${i + 1}`}
-              className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-30 disabled:hover:bg-transparent"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          </div>
-        ))}
-        {g.stops.length < MAX_STOPS && (
-          <button
-            type="button"
-            onClick={addStop}
-            className="flex items-center gap-1.5 text-[12px] font-medium text-foreground/70 transition-colors hover:text-foreground"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            Add a colour
-          </button>
-        )}
-      </div>
-
-      {/* Starting points. Choosing one is a starting point, not a lock: the
-          controls above then edit it. */}
-      <div>
-        <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Start from</p>
-        <div className="grid grid-cols-4 gap-1.5">
-          {GRADIENT_PRESETS.map((p) => (
-            <button
-              key={p.label}
-              type="button"
-              title={p.label}
-              onClick={() => onChange(p.value)}
-              className={cn(
-                "h-8 rounded-md border-2 transition-colors",
-                value === p.value ? "border-[#1a1a2e]" : "border-transparent hover:border-neutral-300",
-              )}
-              style={{ background: p.value }}
-            />
-          ))}
+          <span className="absolute left-1/2 top-1/2 h-[5px] w-[5px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#1a1a2e]" />
         </div>
+        <span className="w-10 text-right text-[13px] tabular-nums text-muted-foreground">{Math.round(g.angle)}°</span>
       </div>
     </div>
   )
+}
+
+/**
+ * A new stop goes in the widest gap, in the colour of the stop before it, so
+ * adding one changes nothing until it is moved.
+ */
+function withAddedStop(g: Gradient): Gradient {
+  const sorted = [...g.stops].sort((a, b) => a.at - b.at)
+  let bestGap = -1
+  let at = 50
+  let color = sorted[0].color
+  for (let i = 0; i < sorted.length - 1; i++) {
+    const gap = sorted[i + 1].at - sorted[i].at
+    if (gap > bestGap) {
+      bestGap = gap
+      at = Math.round((sorted[i].at + sorted[i + 1].at) / 2)
+      color = sorted[i].color
+    }
+  }
+  return { ...g, stops: [...g.stops, { color, at }] }
 }

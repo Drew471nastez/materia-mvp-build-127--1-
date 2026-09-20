@@ -300,6 +300,49 @@ function isColor(v: unknown): v is string {
   return typeof v === "string" && v.trim() !== ""
 }
 
+/**
+ * ===========================================================================
+ *  A STRING THAT IS NOT A GRADIENT IS NOT A GRADIENT
+ * ===========================================================================
+ * Every colour in a scheme goes through `isColor`, and one that does not
+ * look like a colour is dropped so the base's value stands. The gradient had
+ * no such gate: any string at all became `scheme.gradient`, and the scheme's
+ * background is `gradient || background`.
+ *
+ * A browser handed a background it cannot parse does not fall back to the
+ * colour — it drops the declaration entirely and paints nothing. So a
+ * gradient that was half-typed, truncated by an import, or written by hand
+ * with one comma wrong turns the swatch, the scheme picker's trigger and
+ * every row of its list into a plain white box, with the scheme's own
+ * heading colour still on the text. On a dark scheme that is white on white:
+ * the empty white box the scheme selector "randomly" became.
+ *
+ * The shape, not a full CSS parse: one of the three gradient functions, with
+ * balanced brackets, nothing outside them, and no `url(` — which would make
+ * a scheme a way to fetch something from wherever the page is rendered.
+ */
+const GRADIENT_FN = /^(?:repeating-)?(?:linear|radial|conic)-gradient\(/i
+
+export function isGradient(v: unknown): v is string {
+  if (typeof v !== "string") return false
+  const t = v.trim()
+  if (t.length < 16 || t.length > 2000) return false
+  if (!GRADIENT_FN.test(t) || !t.endsWith(")")) return false
+  if (/url\s*\(|expression\s*\(|[;{}<>]/i.test(t)) return false
+  let depth = 0
+  for (let i = 0; i < t.length; i++) {
+    if (t[i] === "(") depth++
+    else if (t[i] === ")") {
+      depth--
+      if (depth < 0) return false
+      // Closed before the end means there is something after it, which a
+      // gradient this control wrote never has.
+      if (depth === 0 && i !== t.length - 1) return false
+    }
+  }
+  return depth === 0
+}
+
 /** Trimmed, and a hex colour lowercased, so equal colours compare equal. */
 function color(v: string): string {
   const t = v.trim()
@@ -315,7 +358,10 @@ export function normalizeScheme(raw: unknown, base: ColorScheme): ColorScheme {
   const out: ColorScheme = { ...base }
   if (!isPlain(raw)) return out
   if (typeof raw.name === "string" && raw.name.trim()) out.name = raw.name.trim()
-  if (typeof raw.gradient === "string") out.gradient = raw.gradient.trim()
+  /* An empty string is a scheme saying it has no gradient, and clears the
+     base's. Anything else has to be one. */
+  if (typeof raw.gradient === "string" && raw.gradient.trim() === "") out.gradient = ""
+  else if (isGradient(raw.gradient)) out.gradient = raw.gradient.trim()
   const filled = new Set<SchemeColorKey>()
   for (const key of SCHEME_COLOR_KEYS) {
     const v = raw[key]

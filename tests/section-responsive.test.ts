@@ -2455,7 +2455,15 @@ check(
    * mid-gesture React writes exactly what the imperative path already wrote.
    */
   /const dragging = drag\.current\.active/.test(sheetSrc) &&
-    /const renderY = dragging \? drag\.current\.currentY : open \? openY : closedY/.test(sheetSrc) &&
+    /**
+     * `settledY`, not `openY`. The rest of this assertion is about the
+     * `dragging ?` half and is unchanged; the other half now names where the
+     * sheet was last LEFT rather than where it opens, because a sheet that
+     * has been dragged is not at its opening stop and a render that put it
+     * back there is what made it "become half at random". See
+     * tests/sheet-rest.test.ts for that half.
+     */
+    /const renderY = dragging \? drag\.current\.currentY : open \? settledY : closedY/.test(sheetSrc) &&
     /*
       The invariant is the `dragging ? "none"` half: while a finger is on the
       sheet there is no transition at all, so the imperative per-frame write

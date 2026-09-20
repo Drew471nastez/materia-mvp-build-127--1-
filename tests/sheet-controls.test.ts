@@ -40,9 +40,25 @@ function main() {
 
   /* The whole block, so "scoped to the sheet" can be checked rather than assumed. */
   const start = css.indexOf("THE EDITOR'S SHEET IS READ AND PRESSED WITH A THUMB")
-  /* To the end of the file: this block is the last thing in it, and a fixed
-     slice quietly cut the final rule off. */
-  const block = start < 0 ? "" : css.slice(start)
+  /**
+   * To the end of the `@media` this lives in, found by counting brackets.
+   *
+   * It used to be "to the end of the file", which was true exactly as long as
+   * nothing else was ever appended to globals.css. The first thing appended
+   * after it — the panel move in the sheet — was then read as part of this
+   * block and judged against rules written for a different thing.
+   */
+  const block = start < 0 ? "" : (() => {
+    const rest = css.slice(start)
+    const open = rest.indexOf("{")
+    if (open < 0) return rest
+    let depth = 0
+    for (let i = open; i < rest.length; i++) {
+      if (rest[i] === "{") depth++
+      else if (rest[i] === "}") { depth--; if (depth === 0) return rest.slice(0, i + 1) }
+    }
+    return rest
+  })()
 
   console.log("\nSized for a thumb, and only in the sheet")
 

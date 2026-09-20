@@ -332,7 +332,25 @@ function SliderNumberControl({
 
   return (
     <div className={cn("flex items-center gap-2.5", className)}>
-      <div className="flex-1 relative py-2 -my-2 touch-none select-none">
+      {/**
+        * ═══════════════════════════════════════════════════════════════════
+        *  A SLIDER'S FINGER IS THE SLIDER'S
+        * ═══════════════════════════════════════════════════════════════════
+        * The sheet arbitrates every touch that lands on it between "scroll
+        * the form" and "move the sheet", and a sideways drag is only handed
+        * back when it is clearly sideways: 1.2 times more horizontal than
+        * vertical. A thumb dragging a slider is not that precise. Ten pixels
+        * right and nine down is not horizontal enough, the sheet takes the
+        * gesture, and it follows the finger down and snaps to half — which
+        * is "when I drag the sliders left and right it glitches the sheet
+        * and makes it half for no reason".
+        *
+        * No threshold fixes it, because the two gestures are the same
+        * gesture. What tells them apart is what the finger landed on, and
+        * this attribute is the sheet's own way of being told: it does not
+        * arm at all for a touch that starts in here.
+        */}
+      <div data-sheet-no-drag className="flex-1 relative py-2 -my-2 touch-none select-none">
         <Slider
           value={[value]}
           onValueChange={([v]) => {
@@ -5801,6 +5819,36 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       : `${sidebarMode}:${selectedPanel.type}`
 
   /**
+   * ═════════════════════════════════════════════════════════════════════════
+   *  WHICH WAY THE PANEL JUST MOVED, FOR THE PHONE ONLY
+   * ═════════════════════════════════════════════════════════════════════════
+   * On the desktop a panel swap is a cut, deliberately: the sidebar is always
+   * there, clicking sections is the most common thing anybody does, and a
+   * slide on every click is a twitch (see the note above).
+   *
+   * In the sheet it is navigation. There is one surface, it shows the list or
+   * it shows one section's settings, and going in and coming back are moves
+   * with a direction. Without one the settings are simply there, and so is
+   * the list again, and the sheet reads as if it re-rendered rather than as
+   * if you went somewhere. Asked for as the back feeling "a little bit more
+   * smooth" and opening a section "a little smooth, not so direct".
+   *
+   * A depth, not a history: the list is 0 and a section's settings are 1, so
+   * the direction is subtraction. The ref is only ever written when the key
+   * changes, so a re-render for any other reason keeps the class it already
+   * had and cannot cut an animation short halfway.
+   */
+  const panelDepth = (key: string) => (key.startsWith("section:") ? 1 : 0)
+  const panelMove = useRef<{ key: string; dir: number }>({ key: sidebarPanelKey, dir: 0 })
+  if (panelMove.current.key !== sidebarPanelKey) {
+    panelMove.current = {
+      key: sidebarPanelKey,
+      dir: panelDepth(sidebarPanelKey) - panelDepth(panelMove.current.key),
+    }
+  }
+  const panelDir = panelMove.current.dir
+
+  /**
    * NO ANIMATION ON A PANEL SWAP.
    *
    * Selecting a section slid its settings in from the side, and at 180ms
@@ -7720,7 +7768,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               <LinkTargetsProvider targets={linkTargets}>
                   <div
                     key={sidebarPanelKey}
-                    className="h-full"
+                    className="h-full wb-sheet-panel"
+                    data-dir={panelDir > 0 ? "in" : panelDir < 0 ? "back" : "none"}
                   >
                     {renderSidebarContent()}
                   </div>

@@ -132,6 +132,7 @@ const SUITES = [
   "tests/native-feel.test.ts",
   "tests/theme-media.test.ts",
   "tests/settings-flow.test.ts",
+  "tests/sheet-rest.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))

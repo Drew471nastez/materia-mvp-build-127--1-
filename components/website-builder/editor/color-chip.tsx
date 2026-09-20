@@ -7,6 +7,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useFrameCommit } from "./use-frame-commit"
 
 // ── HSV ↔ HEX helpers ────────────────────────────────────────
 function hexToRgb(hex: string): { r: number; g: number; b: number } {
@@ -94,8 +95,34 @@ export function ColorPickerPanel({
   const [hsv, setHsv] = useState(() => rgbToHsv(initial.r, initial.g, initial.b))
   const [hexInput, setHexInput] = useState(isTransparent ? "" : value.toUpperCase())
 
+  /**
+   * The handle moves at the finger's rate, the document at the screen's:
+   * `onChange` rewrites a theme setting and repaints the canvas, and it was
+   * being called once per `pointermove`. See use-frame-commit.ts.
+   */
+  const { emit: send, flush } = useFrameCommit(onChange)
+
+  /** The last colour WE sent, so its echo does not reset the picker. */
+  const sent = useRef<string | null>(null)
+  const emit = useCallback((hex: string) => {
+    sent.current = hex
+    send(hex)
+  }, [send])
+
   useEffect(() => {
     if (isTransparent) return
+    /**
+     * OUR OWN VALUE COMING BACK IS NOT A NEW VALUE.
+     *
+     * Hue and saturation do not survive the round trip through a hex: every
+     * colour with v=0 is #000000, and reading that back gives h=0, s=0. So
+     * dragging to the bottom of the box threw the hue away and snapped the
+     * handle into the corner, and the picker fought whoever was using it.
+     * The colour is the same colour; the state that produced it is finer
+     * than the string, and it is kept.
+     */
+    if (sent.current && value.toLowerCase() === sent.current.toLowerCase()) return
+    sent.current = null
     const rgb = hexToRgb(value)
     setHsv(rgbToHsv(rgb.r, rgb.g, rgb.b))
     setHexInput(value.toUpperCase())
@@ -105,8 +132,8 @@ export function ColorPickerPanel({
     setHsv(next)
     const hex = hsvToHex(next.h, next.s, next.v)
     setHexInput(hex.toUpperCase())
-    onChange(hex)
-  }, [onChange])
+    emit(hex)
+  }, [emit])
 
   const handleSvPoint = useCallback((clientX: number, clientY: number) => {
     const el = svRef.current
@@ -142,6 +169,7 @@ export function ColorPickerPanel({
       {/* Saturation/value box */}
       <div
         ref={svRef}
+        data-sheet-no-drag
         className="relative h-[120px] w-full rounded-md overflow-hidden cursor-crosshair touch-none select-none"
         style={{
           background: `
@@ -152,6 +180,11 @@ export function ColorPickerPanel({
         }}
         onPointerDown={(e) => { e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); handleSvPoint(e.clientX, e.clientY) }}
         onPointerMove={(e) => { if (e.buttons === 1) handleSvPoint(e.clientX, e.clientY) }}
+        /* The last position of a drag is the one that matters, and it must
+           not be left sitting in a frame that never runs because the picker
+           closed on the same gesture. */
+        onPointerUp={flush}
+        onPointerCancel={flush}
       >
         <div
           className="absolute h-3.5 w-3.5 rounded-full border-2 border-white pointer-events-none"
@@ -167,12 +200,15 @@ export function ColorPickerPanel({
       {/* Hue slider */}
       <div
         ref={hueRef}
+        data-sheet-no-drag
         className="relative mt-2.5 h-2.5 w-full rounded-full cursor-pointer touch-none select-none"
         style={{
           background: "linear-gradient(to right, #ff0000 0%, #ffff00 17%, #00ff00 33%, #00ffff 50%, #0000ff 67%, #ff00ff 83%, #ff0000 100%)",
         }}
         onPointerDown={(e) => { e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); handleHuePoint(e.clientX) }}
         onPointerMove={(e) => { if (e.buttons === 1) handleHuePoint(e.clientX) }}
+        onPointerUp={flush}
+        onPointerCancel={flush}
       >
         <div
           className="absolute top-1/2 h-4 w-4 rounded-full border-2 border-white pointer-events-none"

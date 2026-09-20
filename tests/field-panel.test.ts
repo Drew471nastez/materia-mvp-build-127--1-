@@ -86,7 +86,8 @@ function main() {
   )
   check(
     "a sheet that closes owes nobody a height",
-    /if \(!open\) setExpanders\(\[\]\)/.test(sheet),
+    /if \(!open\) \{\s*\n\s*setExpanders\(\[\]\)/.test(sheet),
+    "it forgets where it was dragged to on the same line now, which is the same rule",
   )
   check(
     "and the panel scrolls itself into view",
