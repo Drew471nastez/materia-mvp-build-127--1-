@@ -127,6 +127,25 @@ const KEYBOARD_MS = 250
 const SNAP_EASING = "cubic-bezier(0.32, 0.72, 0, 1)"
 
 /**
+ * ═══════════════════════════════════════════════════════════════════════════
+ *  THE SCRIM DOES NOT MOVE, SO IT DOES NOT USE A MOVEMENT'S CURVE
+ * ═══════════════════════════════════════════════════════════════════════════
+ * The backdrop faded on SNAP_EASING, which is the curve of a thrown object:
+ * more than half the distance in the first fifth of the time, then a long
+ * settle. On something that travels, that is weight. On an opacity, it is
+ * the darkening arriving in one step and then a slow crawl behind it —
+ * "direct and laggy", which is exactly what it was.
+ *
+ * A fade wants its time spread evenly, so this is the ordinary ease-in-out
+ * shape, and a little shorter than the sheet so the dimming is finished
+ * before the sheet has stopped rather than trailing it.
+ */
+const FADE_EASING = "cubic-bezier(0.4, 0, 0.2, 1)"
+const FADE_MS = 300
+/** Never longer than the movement it belongs to. */
+const fadeMs = (ms: number) => Math.min(ms, FADE_MS)
+
+/**
  * ===========================================================================
  *  SOMETHING INSIDE THE SHEET NEEDS THE WHOLE SHEET
  * ===========================================================================
@@ -252,6 +271,24 @@ export function MobileEditorSheet({
    * runs in the render phase, so anything with a side effect in it is a
    * state update during render and React abandons the tree.
    */
+  /**
+   * ═══════════════════════════════════════════════════════════════════════
+   *  WHERE THE SHEET WAS LEFT, WHICH A RE-RENDER HAS TO AGREE WITH
+   * ═══════════════════════════════════════════════════════════════════════
+   * A drag ends by writing the transform straight to the node and storing
+   * the offset in a ref — fast, and invisible to React. So `renderY` fell
+   * back to `openY`, the middle stop, and the NEXT render put it back there:
+   * drag the sheet up, type in a field, touch a slider, and it drops to half
+   * with nothing to blame. Reported three times over as the sheet becoming
+   * half at random, glitching while a slider is dragged, and jumping when
+   * something takes focus. All three are one line: the position was never
+   * part of the state that draws it.
+   *
+   * The INDEX rather than the pixel offset, because the offsets are
+   * recomputed whenever the window is (a keyboard, a rotation) and a stale
+   * pixel is a sheet in the wrong place.
+   */
+  const [restIndex, setRestIndex] = React.useState<number | null>(null)
   const [expanders, setExpanders] = React.useState<string[]>([])
   const expandApi = React.useMemo<SheetExpandHost>(
     () => ({
@@ -262,7 +299,10 @@ export function MobileEditorSheet({
   )
   /* A sheet that closes owes nobody a height. */
   React.useEffect(() => {
-    if (!open) setExpanders([])
+    if (!open) {
+      setExpanders([])
+      setRestIndex(null)
+    }
   }, [open])
 
   /**
@@ -608,6 +648,22 @@ export function MobileEditorSheet({
 
   const closedY = offsets[offsets.length - 1]
   const openY = openFull || expanders.length > 0 ? offsets[0] : (offsets[Math.max(0, offsets.length - 2)] ?? 0)
+  /**
+   * WHERE THE SHEET BELONGS RIGHT NOW, for the render and for the effect
+   * that moves it, which have to be the same answer or the sheet fights
+   * itself.
+   *
+   * A control asking for the full height outranks where the sheet was left:
+   * it is asking BECAUSE what it opened does not fit. Otherwise the last
+   * settled stop wins, and `openY` is only the answer before anything has
+   * been dragged.
+   */
+  const settledY =
+    expanders.length > 0
+      ? openY
+      : restIndex !== null && restIndex < offsets.length
+        ? offsets[restIndex]
+        : openY
 
   const openRef = React.useRef(open)
   openRef.current = open
@@ -763,7 +819,7 @@ export function MobileEditorSheet({
     const sheet = sheetRef.current
     const overlay = overlayRef.current
     const value = on ? `transform ${ms}ms ${SNAP_EASING}` : "none"
-    const overlayValue = on ? `opacity ${ms}ms ${SNAP_EASING}` : "none"
+    const overlayValue = on ? `opacity ${fadeMs(ms)}ms ${FADE_EASING}` : "none"
     if (sheet) sheet.style.transition = value
     if (overlay) overlay.style.transition = overlayValue
   }
@@ -846,17 +902,32 @@ export function MobileEditorSheet({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mounted])
 
-  // Sync whenever `open` changes from outside — a tab, a menu, the overlay.
+  /**
+   * Sync whenever `open` changes from outside — a tab, a menu, the overlay.
+   *
+   * `settledY`, not `openY`. The two differ the moment the sheet has been
+   * dragged, and this effect re-runs on far more than an open: the offsets
+   * are rebuilt whenever the window is, which on a phone means EVERY TIME A
+   * KEYBOARD APPEARS. Reading `openY` there is what moved a sheet somebody
+   * had pulled to full back down to half the instant they tapped a field —
+   * "when I select something in an input the sheet becomes mid, randomly,
+   * with no reason". It had a reason.
+   *
+   * The early return is for the frame after a drag lands: `endDrag` has
+   * already animated the sheet to exactly this offset on its own duration,
+   * and re-applying it here would overwrite that with the default one.
+   */
   React.useEffect(() => {
     if (drag.current.active) return
+    const target = open ? settledY : closedY
+    if (drag.current.currentY === target) return
     setTransition(true)
-    const target = open ? openY : closedY
     drag.current.currentY = target
     settleVisibility(open)
     applyTransformNow(target)
     settleOverlay(open)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, openY, closedY])
+  }, [open, settledY, closedY])
 
   const startDrag = (clientY: number, clientX = 0, target: EventTarget | null = null, immediate = false) => {
     const now = performance.now()
@@ -981,6 +1052,8 @@ export function MobileEditorSheet({
     applyTransformNow(targetY)
 
     const nowOpen = index < list.length - 1
+    /* Where it came to rest, so the next render draws it there. */
+    setRestIndex(nowOpen ? index : null)
     settleVisibility(nowOpen, ms)
     settleOverlay(nowOpen)
     if (nowOpen !== openRef.current) onOpenChangeRef.current(nowOpen)
@@ -1150,7 +1223,7 @@ export function MobileEditorSheet({
    */
   const dragging = drag.current.active
   const closedOffset = offsets[offsets.length - 1] ?? 0
-  const renderY = dragging ? drag.current.currentY : open ? openY : closedY
+  const renderY = dragging ? drag.current.currentY : open ? settledY : closedY
   const renderOpacity = dragging
     ? closedOffset > 0
       ? Math.max(0, Math.min(1, 1 - renderY / closedOffset))
@@ -1181,7 +1254,7 @@ export function MobileEditorSheet({
   const motion = dragging
     ? "none"
     : `transform ${SNAP_DURATION_MS}ms ${SNAP_EASING}, height ${KEYBOARD_MS}ms ${SNAP_EASING}, padding-bottom ${KEYBOARD_MS}ms ${SNAP_EASING}`
-  const fade = dragging ? "none" : `opacity ${SNAP_DURATION_MS}ms ${SNAP_EASING}`
+  const fade = dragging ? "none" : `opacity ${FADE_MS}ms ${FADE_EASING}`
 
   return createPortal(
     <>
