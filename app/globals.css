@@ -3785,3 +3785,25 @@ html.pop-in-flight #platform-header-root {
   position: sticky;
   top: 0;
 }
+
+/*
+ * ===========================================================================
+ *  A FIELD PICKER THAT IS A SCREEN FILLS THE SCREEN
+ * ===========================================================================
+ * The link and icon pickers are built for a sidebar, where their list is a
+ * capped 240px so the settings under it stay in view. On a phone the same
+ * panel is a sheet of its own (see components/website-builder/field-popover),
+ * and a 240px list floating in an 86svh sheet is a small box with a large
+ * empty space under it.
+ *
+ * The cap goes and the list takes what is left, so the search row stays at
+ * the top, the custom-address row stays at the bottom, and the only thing
+ * that scrolls is the part with the choices in it. Written against the
+ * picker's own scroll marker rather than a class, so a new picker gets it by
+ * marking its list the way the others do.
+ */
+.wb-field-screen > [data-sheet-scroll] {
+  max-height: none;
+  flex: 1 1 auto;
+  min-height: 0;
+}
