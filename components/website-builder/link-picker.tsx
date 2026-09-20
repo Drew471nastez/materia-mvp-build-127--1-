@@ -69,7 +69,6 @@ export function LinkPicker({
 
   return (
     <FieldPopover
-      title="Link"
       open={open}
       onOpenChange={(next) => {
         setOpen(next)
