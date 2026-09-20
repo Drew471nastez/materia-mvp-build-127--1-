@@ -341,8 +341,19 @@ function HeaderSearchPanel({
         whatever the row leaves after 8px of clearance, whichever is less.
         A roomy header gets a 44px field; a very tight one gets a smaller
         field rather than a header that grows.
+
+        AND THE CLIP THAT DOES THAT IS ON THE ROW, NOT ON THIS BOX. It was
+        here, and it hid the whole suggestions list: the list hangs BELOW
+        the header on purpose, `overflow: hidden` on the header-sized box
+        around it cut everything below that edge, and what was left on
+        screen was the top hairline of a card and nothing else. Reported
+        from a phone, and it was doing it everywhere.
+
+        So this box only positions and paints. The row below clips itself,
+        which is all the clip was ever for, and the list is a sibling of the
+        row rather than a child of it.
       */
-      className="absolute inset-0 z-[70] flex items-center overflow-hidden py-2"
+      className="absolute inset-0 z-[70]"
       style={{
         background,
         opacity: open ? 1 : 0,
@@ -354,7 +365,12 @@ function HeaderSearchPanel({
         willChange: "opacity, transform",
       }}
     >
-      <div className={cn(widthClass, paddingClass, "w-full")} style={{ ...innerStyle, ...widthStyle }}>
+      {/* The header's own row: full height, vertically centred, and the one
+          box that clips, which is all the clipping this needs. */}
+      <div
+        className={cn(widthClass, paddingClass, "flex h-full w-full items-center overflow-hidden py-2")}
+        style={{ ...innerStyle, ...widthStyle }}
+      >
         {/*
           NOT AS WIDE AS THE HEADER. A header set to full width is a header
           whose logo and menu reach the edges; a field that reaches the
@@ -448,66 +464,87 @@ function HeaderSearchPanel({
             <X className="h-5 w-5" strokeWidth={1.8} />
           </button>
 
-          {/*
-            The hits, under the field. Drawn even when empty so it can fade
-            rather than appear, and told to take no input until it is there.
-          */}
-          <div
-            aria-hidden={!showHits}
-            className="absolute left-0 right-11 top-full z-[80] mt-2 overflow-hidden"
-            style={{
-              background: scheme.bg,
-              color: scheme.heading,
-              border: `1px solid ${scheme.inset_border}`,
-              boxShadow: "0 18px 40px -18px rgba(15, 23, 42, 0.35)",
-              opacity: showHits ? 1 : 0,
-              transform: showHits ? "translateY(0)" : "translateY(-4px)",
-              pointerEvents: showHits ? "auto" : "none",
-              transition: showHits
-                ? "opacity 200ms cubic-bezier(0.32, 0.72, 0, 1), transform 240ms cubic-bezier(0.32, 0.72, 0, 1)"
-                : "opacity 140ms ease-in, transform 140ms ease-in",
-              ...radius,
-            }}
-          >
-            {hits.length === 0 ? (
-              <p className="px-4 py-4 text-[14px] opacity-60">No results for &ldquo;{asked}&rdquo;</p>
-            ) : (
-              <>
-                <ul className="site-slim-scroll max-h-[min(56vh,420px)] overflow-y-auto overscroll-contain py-1">
-                  {hits.map((h) => (
-                    <li key={h.id}>
-                      <a
-                        href={h.url}
-                        onClick={onEditorNavigate ? (e) => { e.preventDefault(); e.stopPropagation(); onEditorNavigate(h.url, true); onClose() } : undefined}
-                        className="flex items-center gap-3 px-3 py-2 transition-colors hover:bg-black/5"
-                      >
-                        <span
-                          className="h-11 w-11 shrink-0 overflow-hidden"
-                          style={{ background: scheme.inset_border, borderRadius: 8 }}
+        </div>
+      </div>
+
+      {/*
+        ═══════════════════════════════════════════════════════════════════
+         THE SUGGESTIONS HANG BELOW THE HEADER, SO THEY LIVE BELOW IT
+        ═══════════════════════════════════════════════════════════════════
+        This was a child of the row, and the row is exactly the height of
+        the header and clips itself so the field can never make the header
+        taller. A list positioned at the row's bottom edge is therefore
+        entirely outside the clip: every pixel of it was cut, and all that
+        reached the screen was the top hairline of a card under the field.
+        Reported from a phone, and it was doing it on every screen.
+
+        A sibling of the row instead, hung off the panel, which is the
+        header's own box and clips nothing. The two wrappers put it back
+        under the field: the header's width and padding, then the field's
+        reading width, then the width of the close button so the list stops
+        where the field stops rather than under the X.
+
+        Drawn even when empty so it can fade rather than appear, and told to
+        take no input until it is there.
+      */}
+      <div className={cn(widthClass, paddingClass, "absolute left-0 right-0 top-full w-full")} style={widthStyle}>
+        <div className="relative mx-auto w-full max-w-[720px] pr-11">
+            <div
+              aria-hidden={!showHits}
+              className="relative z-[80] mt-2 overflow-hidden"
+              style={{
+                background: scheme.bg,
+                color: scheme.heading,
+                border: `1px solid ${scheme.inset_border}`,
+                boxShadow: "0 18px 40px -18px rgba(15, 23, 42, 0.35)",
+                opacity: showHits ? 1 : 0,
+                transform: showHits ? "translateY(0)" : "translateY(-4px)",
+                pointerEvents: showHits ? "auto" : "none",
+                transition: showHits
+                  ? "opacity 200ms cubic-bezier(0.32, 0.72, 0, 1), transform 240ms cubic-bezier(0.32, 0.72, 0, 1)"
+                  : "opacity 140ms ease-in, transform 140ms ease-in",
+                ...radius,
+              }}
+            >
+              {hits.length === 0 ? (
+                <p className="px-4 py-4 text-[14px] opacity-60">No results for &ldquo;{asked}&rdquo;</p>
+              ) : (
+                <>
+                  <ul className="site-slim-scroll max-h-[min(56vh,420px)] overflow-y-auto overscroll-contain py-1">
+                    {hits.map((h) => (
+                      <li key={h.id}>
+                        <a
+                          href={h.url}
+                          onClick={onEditorNavigate ? (e) => { e.preventDefault(); e.stopPropagation(); onEditorNavigate(h.url, true); onClose() } : undefined}
+                          className="flex items-center gap-3 px-3 py-2 transition-colors hover:bg-black/5"
                         >
-                          {h.image ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={h.image} alt="" className="h-full w-full object-cover" loading="lazy" />
-                          ) : null}
-                        </span>
-                        <span className="min-w-0 flex-1 truncate text-[14px] font-medium">{h.title}</span>
-                        {h.price && <span className="shrink-0 text-[13px] opacity-70 tabular-nums">{h.price}</span>}
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-                <a
-                  href={viewAll}
-                  onClick={onEditorNavigate ? (e) => { e.preventDefault(); e.stopPropagation(); onEditorNavigate("/search", true); onClose() } : undefined}
-                  className="flex items-center justify-between px-4 py-3 text-[13px] font-semibold transition-colors hover:bg-black/5"
-                  style={{ borderTop: `1px solid ${scheme.inset_border}` }}
-                >
-                  <span>View all {total} result{total === 1 ? "" : "s"}</span>
-                  <ChevronRight className="h-4 w-4 opacity-60" strokeWidth={2} />
-                </a>
-              </>
-            )}
-          </div>
+                          <span
+                            className="h-11 w-11 shrink-0 overflow-hidden"
+                            style={{ background: scheme.inset_border, borderRadius: 8 }}
+                          >
+                            {h.image ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={h.image} alt="" className="h-full w-full object-cover" loading="lazy" />
+                            ) : null}
+                          </span>
+                          <span className="min-w-0 flex-1 truncate text-[14px] font-medium">{h.title}</span>
+                          {h.price && <span className="shrink-0 text-[13px] opacity-70 tabular-nums">{h.price}</span>}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                  <a
+                    href={viewAll}
+                    onClick={onEditorNavigate ? (e) => { e.preventDefault(); e.stopPropagation(); onEditorNavigate("/search", true); onClose() } : undefined}
+                    className="flex items-center justify-between px-4 py-3 text-[13px] font-semibold transition-colors hover:bg-black/5"
+                    style={{ borderTop: `1px solid ${scheme.inset_border}` }}
+                  >
+                    <span>View all {total} result{total === 1 ? "" : "s"}</span>
+                    <ChevronRight className="h-4 w-4 opacity-60" strokeWidth={2} />
+                  </a>
+                </>
+              )}
+            </div>
         </div>
       </div>
     </div>

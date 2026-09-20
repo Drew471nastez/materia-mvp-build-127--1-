@@ -9,6 +9,7 @@ import { createElement } from "react"
 
 import { HeaderSection } from "@/components/website-builder/sections/renderers/HeaderSection"
 import { SiteCartProvider } from "@/components/website-builder/site-cart"
+import { StorefrontProvider } from "@/components/website-builder/theme/storefront-context"
 import { THEME_SETTINGS_GROUPS } from "@/lib/website-builder/theme-settings-schema"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 
@@ -69,10 +70,18 @@ createRoot(scoped).render(
 )
 
 const live = document.getElementById("live")!
+/*
+  The published mount is told which site it is, because the header's field
+  will not ask anything without that: no creator and no install means no
+  address to ask, so no suggestions, so nothing to measure. The probe answers
+  the request itself.
+*/
 createRoot(live).render(
-  createElement(SiteCartProvider, { shopId: "probe-shop" }, createElement(HeaderSection, {
+  createElement(StorefrontProvider, {
+    value: { installId: "00000000-0000-4000-8000-000000000000" },
+  }, createElement(SiteCartProvider, { shopId: "probe-shop" }, createElement(HeaderSection, {
     section: section("live"),
     theme,
     deviceMode: "mobile",
-  })),
+  }))),
 )

@@ -427,6 +427,82 @@ const LIVE = `(async () => {
       window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }))
       await wait(400)
       r.escapeClosedSearch = Number(getComputedStyle(shell).opacity) < 0.05
+
+      /*
+        ── THE SUGGESTIONS, WHICH HANG BELOW THE HEADER ──────────────────
+        They were a child of the header's own row, and that row clips itself
+        so the field can never make the header taller. A list placed at the
+        row's bottom edge is entirely outside that clip, so every pixel of
+        it was cut and all that reached the screen was the top hairline of a
+        card. Reported from a phone; it was doing it on every screen.
+
+        The request is answered here rather than left to the network: the
+        claim is about where the list lands and whether anything is covering
+        or cutting it, not about what the shop contains.
+      */
+      const realFetch = window.fetch
+      window.fetch = async () => new Response(JSON.stringify({
+        items: [
+          { id: "1", title: "Tech planner", price: "$29", image: "", url: "/products/tech-planner" },
+          { id: "2", title: "Technical notes", price: "$19", image: "", url: "/products/technical-notes" },
+          { id: "3", title: "Technique pack", price: "$9", image: "", url: "/products/technique-pack" },
+        ],
+        total: 12,
+      }), { headers: { "Content-Type": "application/json" } })
+
+      searchBtn.click()
+      await wait(500)
+      const typeIn = liveHeader.querySelector('input[name="q"]')
+      r.foundFieldToTypeIn = !!typeIn
+      if (typeIn) {
+        /* A controlled input takes a value through its own setter, or React
+           never hears about it. */
+        const setValue = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set
+        setValue.call(typeIn, "tech")
+        typeIn.dispatchEvent(new Event("input", { bubbles: true }))
+        await wait(700)
+
+        const viewAll = liveHeader.querySelector('a[href^="/search?q="]')
+        const card = viewAll ? viewAll.closest("div[aria-hidden]") : null
+        r.foundHits = !!card
+        if (card) {
+          const cs2 = getComputedStyle(card)
+          const box = card.getBoundingClientRect()
+          const headerBox = shell.getBoundingClientRect()
+          r.hits = {
+            opacity: Number(cs2.opacity).toFixed(2),
+            pointerEvents: cs2.pointerEvents,
+            h: Math.round(box.height),
+            top: Math.round(box.top),
+            headerBottom: Math.round(headerBox.bottom),
+            rows: card.querySelectorAll("li").length,
+          }
+          /*
+            THE CHECK THAT CATCHES A CLIP. A box can have a height, a place
+            and full opacity and still have had every pixel of it cut by an
+            ancestor: the rectangle is what layout thinks, not what is on
+            screen. So the page is asked what is actually AT three points
+            down the middle of the card. A clipped card answers with
+            whatever is behind it.
+          */
+          const cx = Math.round(box.left + box.width / 2)
+          let onScreen = 0
+          const probes = [0.2, 0.5, 0.8].map((f) => Math.round(box.top + box.height * f))
+          for (const cy of probes) {
+            const at = document.elementFromPoint(cx, cy)
+            if (at && card.contains(at)) onScreen++
+          }
+          r.hits.visiblePoints = onScreen
+          r.hits.probedAt = probes
+          /* And it is under the field rather than across the whole header. */
+          const fieldBox = typeIn.getBoundingClientRect()
+          r.hits.alignedLeft = Math.abs(Math.round(box.left - fieldBox.left)) <= 2
+          r.hits.noWiderThanField = Math.round(box.width) <= Math.round(fieldBox.width) + 2
+        }
+      }
+      window.fetch = realFetch
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }))
+      await wait(300)
     }
   }
 
@@ -635,6 +711,24 @@ if (r.searchField) {
 expect(r.searchRow && r.searchRow.w <= 720, "and it stops at a reading width whatever the header does", `${r.searchRow?.w}px in a ${r.searchRow?.viewport}px viewport`)
 expect(r.awayClosedSearch === true, "pressing past it closes it", r.awayClosedSearch ? `yes, pressed on <${r.pressedAwayOn}>` : "it stayed open")
 expect(r.escapeClosedSearch === true, "and escape closes it", r.escapeClosedSearch ? "yes" : "it stayed open")
+
+console.log("\nAnd what it suggests while you are still typing\n")
+expect(r.foundFieldToTypeIn === true, "there is a field to type into")
+expect(r.foundHits === true, "typing produces a list of suggestions", r.foundHits ? "yes" : "nothing was drawn at all")
+if (r.hits) {
+  console.log(`  the card: ${r.hits.h}px tall at y=${r.hits.top}, header ends at ${r.hits.headerBottom}, ${r.hits.rows} rows`)
+  expect(Number(r.hits.opacity) > 0.9 && r.hits.pointerEvents === "auto",
+    "it is on and takes input", `opacity ${r.hits.opacity}, pointer-events ${r.hits.pointerEvents}`)
+  expect(r.hits.h > 60, "it has a real height rather than a hairline", `${r.hits.h}px`)
+  expect(r.hits.top >= r.hits.headerBottom - 1, "it sits below the header rather than inside it",
+    `card at ${r.hits.top}, header ends at ${r.hits.headerBottom}`)
+  /* The one that was failing: a card with a height, a place and full
+     opacity, every pixel of which had been cut by the row's own clip. */
+  expect(r.hits.visiblePoints === 3, "and all of it is actually on screen, not clipped by the header",
+    `${r.hits.visiblePoints} of 3 points down the middle reached the card`)
+  expect(r.hits.alignedLeft === true, "it starts where the field starts")
+  expect(r.hits.noWiderThanField === true, "and is no wider than the field, so it never runs under the X")
+}
 
 console.log("")
 if (broken) fail(`${broken} check${broken === 1 ? "" : "s"} failed.`)

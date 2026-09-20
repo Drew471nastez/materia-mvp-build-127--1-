@@ -179,8 +179,12 @@ function main() {
   const css = read("app/globals.css")
   check("the browser's clear control is gone", /\.hdr-search-field::-webkit-search-cancel-button/.test(css) && /hdr-search-field/.test(header))
   check("and the accent colour is the scheme's", /accentColor: scheme\.heading/.test(header))
+  /* Still exactly the header row. The clip that enforces it moved onto the
+     row itself, because on the box around it it was also cutting the
+     suggestions that hang below the header. See below. */
   check("the panel is exactly the header row, so it cannot hang below it",
-    /className="absolute inset-0 z-\[70\] flex items-center overflow-hidden py-2"/.test(header))
+    /className="absolute inset-0 z-\[70\]"/.test(header)
+      && /"flex h-full w-full items-center overflow-hidden py-2"/.test(header))
 
   console.log("\n  a card's picture fills its box")
 
@@ -214,6 +218,29 @@ function main() {
   check("and stops cancelling the press on one",
     /if \(isTypingTarget\(target\)\) return/.test(editor)
       && /if \(inspectorEnabled \|\| isCanvasNavigationLink\(target\)\) e\.preventDefault\(\)/.test(editor))
+
+  console.log("\n  the suggestions are not inside the box that clips the header")
+
+  /*
+    The panel is the header's own box and the row inside it clips, so the
+    field can never make the header taller. The suggestions hang BELOW that
+    row, so as a child of it every pixel was cut and all that reached the
+    screen was the top hairline of a card under the field.
+
+    Caught by scripts/check-nav-drawer.mjs, which asks the page what is at
+    three points down the middle of the card rather than trusting its
+    rectangle: with the clip back the card still measures 235px at the same
+    place and none of those points reach it.
+  */
+  check("the panel itself clips nothing",
+    /data-self-nav=""[\s\S]{0,2200}?className="absolute inset-0 z-\[70\]"/.test(header))
+  check("the row it contains is what clips",
+    /cn\(widthClass, paddingClass, "flex h-full w-full items-center overflow-hidden py-2"\)/.test(header))
+  check("and the suggestions are hung off the panel, under the field",
+    /cn\(widthClass, paddingClass, "absolute left-0 right-0 top-full w-full"\)/.test(header)
+      && /className="relative mx-auto w-full max-w-\[720px\] pr-11"/.test(header))
+  check("nothing positions them inside the row any more",
+    !/absolute left-0 right-11 top-full/.test(header))
 
   console.log("\n  the line under the header darkens, so it is never a white line")
 
