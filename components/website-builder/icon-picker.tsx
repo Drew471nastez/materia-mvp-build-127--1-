@@ -46,6 +46,7 @@ export function IconPicker({
 
   return (
     <FieldPopover
+      title="Icon"
       open={open}
       onOpenChange={(next) => {
         setOpen(next)
