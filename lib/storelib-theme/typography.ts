@@ -330,6 +330,40 @@ function sectionVarBlock(role: "heading" | "body", from: string): string {
  * today; that is an implementation detail of one component, and the rule
  * that depends on it should not be able to fail silently again if it moves.
  */
+/**
+ * ===========================================================================
+ *  WHAT A BUTTON IS, AND IT IS NOT "EVERY LINK ON THE PAGE"
+ * ===========================================================================
+ * Five rules across this file and lib/website-builder/theme-css.ts styled
+ * buttons, and every one of them was written `[data-section] a[href]`. So
+ * every link in every section was a button: the nav, the footer's links, a
+ * product card whose title is a link, and the site's own wordmark, which is
+ * an anchor to the home page.
+ *
+ * With the shipped defaults that is nearly invisible, which is why it lasted:
+ * the Button style is the body face at weight 600 with no letter-spacing and
+ * no transform, so a link styled as one looks like a link. It stops being
+ * invisible the moment a creator uses the controls. Set Buttons to uppercase
+ * and the whole nav goes uppercase. Set them to the accent face and the
+ * wordmark changes face. Choose the Outline button style and every link on
+ * the site gets a 1px border drawn round it.
+ *
+ * A BUTTON IS SOMETHING THAT SAYS IT IS ONE. A real <button>; anything with
+ * the button role; `.s__btn`, which is what every section written in the
+ * theme language marks its buttons with; and `data-button`, for a section
+ * that draws one as an anchor. A link is left alone, which is what a link is.
+ *
+ * Measured by scripts/check-link-vs-button.mjs, which renders every section
+ * the theme ships against a deliberately loud button style and reads back
+ * which elements took it.
+ */
+const BUTTON_PARTS = ["button", '[role="button"]', ".s__btn", "[data-button]"]
+
+/** `${root} :where([data-section] button),…` for each of the four. */
+export function buttonSelector(root: string, wrap: (sel: string) => string = (s) => s): string {
+  return BUTTON_PARTS.map((part) => `${root} ${wrap(`[data-section] ${part}`)}`).join(",")
+}
+
 export function typographyStylesheet(root: string, typo: ThemeTypography): string {
   const rules: string[] = []
   const sect = `${root} [data-section]`
@@ -374,7 +408,9 @@ export function typographyStylesheet(root: string, typo: ThemeTypography): strin
    * until somebody picks one.
    */
   rules.push(`${carrying("data-body-style")}{font-family:var(--section-body-font);font-size:var(--section-body-size);line-height:var(--section-body-line-height);font-weight:var(--section-body-weight);letter-spacing:var(--section-body-tracking);${PROPS.map((p) => `--section-text-${p}:var(--section-body-${p})`).join(";")};}`)
-  rules.push(`${root} :where([data-section] button),${root} :where([data-section] a[href]){font-family:var(--type-button-font);letter-spacing:var(--type-button-tracking);text-transform:var(--type-button-transform);}`)
+  /* Buttons, not every link. See buttonSelector above for why that is not
+     the same thing and for what it cost. */
+  rules.push(`${buttonSelector(root, (sel) => `:where(${sel})`)}{font-family:var(--type-button-font);letter-spacing:var(--type-button-tracking);text-transform:var(--type-button-transform);}`)
 
   // Narrower widths. The query is against the section's container, which is
   // the width the section actually has, in the editor's phone preview too.

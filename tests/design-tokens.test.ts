@@ -20,7 +20,7 @@
  * Run with:  npm run test:push
  */
 
-import { readdirSync, readFileSync } from "node:fs"
+import { existsSync, readdirSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 
 import {
@@ -228,6 +228,40 @@ section("Typography compiles to tokens at three widths")
     .filter((sel) => !sel.split(",").every((part) => part.trim().startsWith(`[${THEME_ROOT_ATTRIBUTE}]`)))
   check("every typography rule is under the page root", unscoped.length === 0, unscoped.join(" | "))
   check("the header's and footer's headings are left alone", /\[data-section\]:not\(\[data-chrome\]\) h1\)/.test(css))
+
+  /*
+    ── A LINK IS NOT A BUTTON ──────────────────────────────────────────────
+    Five rules styled buttons — the radius, the weight, the shadow, the hover
+    motion and the typography — and every one of them was written
+    `[data-section] a[href]`. So the nav, the footer's links, a product card
+    whose title is a link and the site's own wordmark were all buttons. With
+    the shipped defaults that is invisible, which is why it lasted; set
+    Buttons to uppercase and the nav goes uppercase, and choose the Outline
+    style and every link on the site gets a border drawn round it.
+
+    Measured in scripts/check-link-vs-button.mjs against a loud button style.
+    Its break test, with the old selector put back:
+
+      link-in-a-nav   uppercase, 2px, radius 22px, 1px solid
+      wordmark        uppercase, 2px, radius 22px, 1px solid
+  */
+  const typo = readFileSync(join(process.cwd(), "lib/storelib-theme/typography.ts"), "utf8")
+  const themeCss = readFileSync(join(process.cwd(), "lib/website-builder/theme-css.ts"), "utf8")
+  check("there is one definition of what a button is",
+    /const BUTTON_PARTS = \["button", '\[role="button"\]', "\.s__btn", "\[data-button\]"\]/.test(typo)
+      && /export function buttonSelector\(/.test(typo))
+  check("the typography rule uses it",
+    /\$\{buttonSelector\(root, \(sel\) => `:where\(\$\{sel\}\)`\)\}\{font-family:var\(--type-button-font\)/.test(typo))
+  check("and so do the radius, the hover and the outline",
+    /const buttons = buttonSelector\(root\)/.test(themeCss)
+      && /const buttonsHover = buttonSelector\(root, \(sel\) => `\$\{sel\}:hover`\)/.test(themeCss)
+      && /const unpainted = buttonSelector\(root, \(sel\) => `\$\{sel\}:not\(\[style\*="background"\]\)`\)/.test(themeCss))
+  check("no button rule reaches every link any more",
+    !/\[data-section\] a\[href\],\$\{root\} \[data-section\] button/.test(themeCss)
+      && !/\[data-section\] a\[href\]:not\(\[style\*="background"\]\)/.test(themeCss)
+      && !/\[data-section\] a\[href\]:hover/.test(themeCss))
+  check("measured against a loud button style rather than the defaults",
+    existsSync("scripts/check-link-vs-button.mjs") && existsSync("scripts/render-link-vs-button.tsx"))
   check("h3 and h4 keep the size a section gave them", !/h3\)\{[^}]*font-size/.test(css) && /h3\)\{[^}]*font-weight/.test(css))
 
   const t = sectionTypography({ heading_style: "h3", body_style: "body_large" })

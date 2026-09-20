@@ -46,8 +46,6 @@ const MEASURE = `
     var m = /^rgba?\\(([^)]+)\\)/.exec(c); if (!m) return null
     var p = m[1].split(/[\\s,\\/]+/).filter(Boolean).map(Number)
     return { r: p[0], g: p[1], b: p[2], a: p.length > 3 ? p[3] : 1 }
-
-export const useLinkStatus = () => ({ pending: false })
   }
   function lum(c) { function ch(v){v/=255;return v<=0.03928?v/12.92:Math.pow((v+0.055)/1.055,2.4)} return 0.2126*ch(c.r)+0.7152*ch(c.g)+0.0722*ch(c.b) }
   function over(fg,bg){ if(fg.a>=1) return fg; return {r:fg.r*fg.a+bg.r*(1-fg.a),g:fg.g*fg.a+bg.g*(1-fg.a),b:fg.b*fg.a+bg.b*(1-fg.a),a:1} }

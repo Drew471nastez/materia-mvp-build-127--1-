@@ -24,7 +24,7 @@
  * suite drives it directly.
  */
 
-import { themeTypography, typographyStylesheet, typographyVars } from "@/lib/storelib-theme/typography"
+import { buttonSelector, themeTypography, typographyStylesheet, typographyVars } from "@/lib/storelib-theme/typography"
 import type { ThemeSettingsValues } from "./types"
 
 /** A setting that arrived as `"1280"`, or as nothing at all. */
@@ -238,14 +238,29 @@ export function themeStylesheet(theme: ThemeSettingsValues): string {
     "box-shadow:var(--theme-button-shadow)",
   ]
   if (transition !== "none") buttonRules.push("transition:all 180ms cubic-bezier(0.22,1,0.36,1)")
-  rules.push(`${root} [data-section] a[href],${root} [data-section] button{${buttonRules.join(";")};}`)
+  /**
+   * BUTTONS, NOT EVERY LINK.
+   *
+   * All four of the rules below were written `[data-section] a[href]`, so a
+   * radius, a font weight, a shadow, a hover transform and — with the
+   * Outline style — a one pixel border were applied to every link in every
+   * section. The nav, the footer, a product card whose title is a link, and
+   * the site's own wordmark, which is an anchor to the home page.
+   *
+   * The Outline case is the one to picture: choosing it drew a box around
+   * every link on the site. See buttonSelector in storelib-theme/typography
+   * for what counts as a button and why.
+   */
+  const buttons = buttonSelector(root)
+  const buttonsHover = buttonSelector(root, (sel) => `${sel}:hover`)
+  rules.push(`${buttons}{${buttonRules.join(";")};}`)
 
   if (transition === "lift") {
-    rules.push(`${root} [data-section] a[href]:hover,${root} [data-section] button:hover{transform:translateY(-2px);}`)
+    rules.push(`${buttonsHover}{transform:translateY(-2px);}`)
   } else if (transition === "scale") {
-    rules.push(`${root} [data-section] a[href]:hover,${root} [data-section] button:hover{transform:scale(1.03);}`)
+    rules.push(`${buttonsHover}{transform:scale(1.03);}`)
   } else if (transition === "fade") {
-    rules.push(`${root} [data-section] a[href]:hover,${root} [data-section] button:hover{opacity:0.9;}`)
+    rules.push(`${buttonsHover}{opacity:0.9;}`)
   }
 
   /**
@@ -254,11 +269,12 @@ export function themeStylesheet(theme: ThemeSettingsValues): string {
    * intention and keeps it — which is why this matches on the absence of an
    * inline background rather than blanket-overriding.
    */
-  if (buttonStyle === "ghost") {
-    rules.push(`${root} [data-section] a[href]:not([style*="background"]){background:transparent;}`)
-  } else if (buttonStyle === "outline") {
+  if (buttonStyle === "ghost" || buttonStyle === "outline") {
+    const unpainted = buttonSelector(root, (sel) => `${sel}:not([style*="background"])`)
     rules.push(
-      `${root} [data-section] a[href]:not([style*="background"]){background:transparent;border:1px solid currentColor;}`,
+      buttonStyle === "ghost"
+        ? `${unpainted}{background:transparent;}`
+        : `${unpainted}{background:transparent;border:1px solid currentColor;}`,
     )
   }
 

@@ -66,3 +66,4 @@ tsconfig.*.generated.json
 .footer-probe/
 .sheetfps-probe/
 .logofont-probe/
+.lvb-probe/
