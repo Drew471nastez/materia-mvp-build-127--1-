@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useLayoutEffect, useCallback, useMemo, useRef, use, memo, type CSSProperties } from "react"
+import { useEffect, useState, useLayoutEffect, useCallback, useDeferredValue, useMemo, useRef, use, memo, type CSSProperties } from "react"
 import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
 import {
@@ -36,6 +36,7 @@ import {
 } from "@/components/ui/dialog"
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { MobileEditorSheet } from "@/components/website-builder/mobile-editor-sheet"
+import { SliderNumberControl } from "@/components/website-builder/editor/slider-number-control"
 import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
 import { hapticTap } from "@/lib/native-bridge"
 import { BuilderLoader, useDelayedFlag, useLinger } from "@/components/website-builder/builder-loader"
@@ -56,7 +57,6 @@ import { PublishPanel } from "@/components/website-builder/publish-panel"
 import { PreviewModeSwitch, CodePane, type PreviewMode } from "@/components/website-builder/preview-mode-switch"
 import { ProjectSettings } from "@/components/website-builder/project-settings"
 import { createClient } from "@/lib/supabase/client"
-import { Slider } from "@/components/ui/slider"
 import { GradientEditor } from "@/components/website-builder/editor/gradient-editor"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import type {
@@ -286,115 +286,6 @@ function previewPathForState(page: string, productSlug?: string): string {
   if (page === "search") return "/search"
   if (page === "product" && productSlug) return `/products/${productSlug}`
   return "/"
-}
-
-// ── Shared black slider control with inline number input ────
-// Smooth drag on desktop + mobile (28px thumb, large hit area,
-// touch-none). Number input syncs live with drag via value prop.
-function SliderNumberControl({
-  value,
-  onChange,
-  min = 0,
-  max = 100,
-  step = 1,
-  unit,
-  className,
-}: {
-  value: number
-  onChange: (v: number) => void
-  min?: number
-  max?: number
-  step?: number
-  unit?: string
-  className?: string
-}) {
-  const [inputStr, setInputStr] = useState<string>(String(value))
-  const focusedRef = useRef(false)
-  /** The last value a tick was fired for, so a drag ticks per step. */
-  const lastHaptic = useRef(value)
-
-  // Keep input text in sync when drag updates value (but not while typing)
-  useEffect(() => {
-    if (!focusedRef.current) setInputStr(String(value))
-  }, [value])
-
-  const commit = (raw: string) => {
-    const n = Number(raw)
-    if (Number.isFinite(n)) {
-      const clamped = Math.min(max, Math.max(min, n))
-      const snapped = step > 0 ? Math.round(clamped / step) * step : clamped
-      onChange(snapped)
-      setInputStr(String(snapped))
-    } else {
-      setInputStr(String(value))
-    }
-  }
-
-  return (
-    <div className={cn("flex items-center gap-2.5", className)}>
-      {/**
-        * ═══════════════════════════════════════════════════════════════════
-        *  A SLIDER'S FINGER IS THE SLIDER'S
-        * ═══════════════════════════════════════════════════════════════════
-        * The sheet arbitrates every touch that lands on it between "scroll
-        * the form" and "move the sheet", and a sideways drag is only handed
-        * back when it is clearly sideways: 1.2 times more horizontal than
-        * vertical. A thumb dragging a slider is not that precise. Ten pixels
-        * right and nine down is not horizontal enough, the sheet takes the
-        * gesture, and it follows the finger down and snaps to half — which
-        * is "when I drag the sliders left and right it glitches the sheet
-        * and makes it half for no reason".
-        *
-        * No threshold fixes it, because the two gestures are the same
-        * gesture. What tells them apart is what the finger landed on, and
-        * this attribute is the sheet's own way of being told: it does not
-        * arm at all for a touch that starts in here.
-        */}
-      <div data-sheet-no-drag className="flex-1 relative py-2 -my-2 touch-none select-none">
-        <Slider
-          value={[value]}
-          onValueChange={([v]) => {
-            /*
-              ONE TICK PER STEP CROSSED, not one per frame. A drag fires this
-              continuously, and a haptic on every event is a buzz rather than
-              a texture — the analytics chart learned the same thing and
-              counts crossings for the same reason.
-            */
-            if (v !== lastHaptic.current) {
-              lastHaptic.current = v
-              hapticTap("light")
-            }
-            onChange(v)
-          }}
-          min={min}
-          max={max}
-          step={step}
-          className="wb-black-slider"
-        />
-      </div>
-      <div className="relative shrink-0">
-        <input
-          type="text"
-          inputMode="numeric"
-          className="h-8 w-[58px] px-2 text-xs text-center border border-neutral-200 rounded-md bg-white text-foreground tabular-nums focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-neutral-400 transition-colors"
-          value={inputStr + (focusedRef.current ? "" : unit ?? "")}
-          onFocus={e => {
-            focusedRef.current = true
-            setInputStr(String(value))
-            // Select on focus so user can type immediately
-            requestAnimationFrame(() => e.target.select())
-          }}
-          onChange={e => setInputStr(e.target.value.replace(unit ?? "", "").replace(/[^0-9.\-]/g, ""))}
-          onBlur={e => { focusedRef.current = false; commit(e.target.value.replace(unit ?? "", "")) }}
-          onKeyDown={e => {
-            if (e.key === "Enter") (e.target as HTMLInputElement).blur()
-            if (e.key === "ArrowUp") { e.preventDefault(); onChange(Math.min(max, value + step)) }
-            if (e.key === "ArrowDown") { e.preventDefault(); onChange(Math.max(min, value - step)) }
-          }}
-        />
-      </div>
-    </div>
-  )
 }
 
 /** Reads the site's pages and products out of context and picks among them. */
@@ -5562,6 +5453,38 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const activeThemeSettings: ThemeSettingsValues = settingsDraft
 
   /**
+   * ===========================================================================
+   *  THE CONTROL ANSWERS THE FINGER; THE CANVAS CATCHES UP
+   * ===========================================================================
+   * Every control in the editor ends in the same place: a setting changes and
+   * the canvas re-renders every section of the page to show it. That is the
+   * right thing to happen and it is not cheap — it is a page — and while it
+   * happens nothing else can run, because it is all one render.
+   *
+   * So on a phone, dragging a slider in the sheet meant a page re-render
+   * between one touch and the next, and the thumb fell behind the finger.
+   * Reported as the sheet lagging, which it was, just not because of anything
+   * the sheet does.
+   *
+   * These two are the canvas's copy of the state, and they are deferred.
+   * React renders the urgent update first — the control, the number beside
+   * it, the sheet — and paints it; the canvas is re-rendered afterwards, at
+   * low priority, and if another touch arrives in the meantime that work is
+   * thrown away and started again from the newer value. EditorCanvasPage is
+   * memoised, so an unchanged deferred value costs nothing at all.
+   *
+   * What it buys is that the canvas can be up to a frame or two behind
+   * during a drag. That is the trade, and it is the right way round: a
+   * preview catching up is invisible, a control that stutters is the whole
+   * feel of the product.
+   *
+   * Not `selectedSectionId`, and not `inspectorEnabled`. Selecting a section
+   * has to light up the canvas at once, because the tap WAS on the canvas.
+   */
+  const canvasThemeSettings = useDeferredValue(activeThemeSettings)
+  const canvasSections = useDeferredValue(sections)
+
+  /**
    * The canvas's two callbacks, made once.
    *
    * They exist as their own useCallbacks because EditorCanvasPage below is
@@ -8301,10 +8224,10 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                * device mode on it.
                */}
               <EditorCanvasPage
-                theme={activeThemeSettings}
+                theme={canvasThemeSettings}
                 sources={storelibSources}
                 pageTemplate={currentPage === "home" ? "index" : currentPage}
-                sections={sections}
+                sections={canvasSections}
                 inspectorEnabled={inspectorEnabled}
                 selectedSectionId={selectedSectionId}
                 device={device}

@@ -29,7 +29,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
    has been taken down once by a `React.` spelling that TypeScript accepted
    (see tests/react-binding.test.ts). */
 import type { PointerEvent as ReactPointerEvent } from "react"
-import { Minus, Plus } from "lucide-react"
+import { Minus, Plus, RotateCw } from "lucide-react"
 import { ColorChip } from "./color-chip"
 import { useFrameCommit } from "./use-frame-commit"
 
@@ -122,12 +122,23 @@ export function serializeGradient(g: Gradient): string {
 }
 
 /**
- * Where the dial clicks. A gradient that runs straight down or straight
- * across is the common case and the one you cannot land on by hand, so it
- * takes the last few degrees itself.
+ * ===========================================================================
+ *  THE DIRECTION IS A NUMBER YOU TAP, NOT A DIAL YOU AIM AT
+ * ===========================================================================
+ * It was a dial: touch anywhere in a circle and the gradient points there.
+ * Precise, and nobody wanted it. A gradient's direction has eight answers
+ * that matter and 352 that do not, so this is one button that steps through
+ * the eight and says which one it is on. One tap, no aiming, no second
+ * gesture competing with the sheet, and it reads at a glance.
  */
-const SNAP_EVERY = 45
-const SNAP_WITHIN = 6
+const TURN_BY = 45
+
+/**
+ * Said in words, in the order the angles run: 0deg is up, and CSS counts
+ * clockwise. "Down" rather than "180 degrees", because nobody pictures a
+ * number and everybody pictures a direction.
+ */
+const DIRECTION_NAME = ["Up", "Up right", "Right", "Down right", "Down", "Down left", "Left", "Up left"]
 
 /** How near the track a press has to be, as a share of it, to take a stop. */
 const GRAB_WITHIN = 12
@@ -145,12 +156,6 @@ const GRAB_WITHIN = 12
  */
 const HANDLE = 22
 const HALF = HANDLE / 2
-
-function snapAngle(deg: number): number {
-  const d = ((deg % 360) + 360) % 360
-  const nearest = Math.round(d / SNAP_EVERY) * SNAP_EVERY
-  return Math.abs(d - nearest) <= SNAP_WITHIN ? nearest % 360 : Math.round(d)
-}
 
 export function GradientEditor({
   value,
@@ -244,28 +249,28 @@ export function GradientEditor({
     flush()
   }
 
-  // ── Direction ───────────────────────────────────────────────────────────
-  const dialRef = useRef<HTMLDivElement>(null)
-  const turning = useRef(false)
-
-  const pointAt = (clientX: number, clientY: number) => {
-    const el = dialRef.current
-    if (!el) return
-    const r = el.getBoundingClientRect()
-    const dx = clientX - (r.left + r.width / 2)
-    const dy = clientY - (r.top + r.height / 2)
-    if (dx === 0 && dy === 0) return
-    /* CSS counts a gradient's angle clockwise from straight up, which is
-       what `atan2(x, -y)` gives directly. */
-    commit({ ...g, angle: snapAngle((Math.atan2(dx, -dy) * 180) / Math.PI) })
+  const turn = () => {
+    commit({ ...g, angle: (Math.round(g.angle / TURN_BY) * TURN_BY + TURN_BY) % 360 })
+    flush()
   }
 
-  const css = serializeGradient(g)
+  /**
+   * THE BAR SHOWS THE COLOURS, NOT THE ANGLE.
+   *
+   * It used to be drawn at the gradient's real angle, which sounds more
+   * honest and is less useful: at 135deg the colour a handle sits on is not
+   * the colour under it, so dragging a handle to the middle does not put
+   * that colour in the middle of what you can see. The bar is the sequence,
+   * left to right, which is the thing the handles are for. What the gradient
+   * actually looks like is on the canvas behind the sheet, live, which is a
+   * better preview than any swatch.
+   */
+  const bar = serializeGradient({ ...g, angle: 90 })
 
   return (
     <div className="space-y-3">
-      {/* The gradient, at the size of a thumb, with its colours where they
-          are. Dragging one is dragging the thing you are looking at. */}
+      {/* The colours, in order, at the size of a thumb, with a handle on
+          each. Dragging one is dragging the thing you are looking at. */}
       <div
         ref={trackRef}
         data-sheet-no-drag
@@ -273,8 +278,8 @@ export function GradientEditor({
         onPointerMove={onTrackMove}
         onPointerUp={endTrack}
         onPointerCancel={endTrack}
-        className="relative h-[84px] w-full touch-none select-none overflow-hidden rounded-xl border border-black/10"
-        style={{ background: css }}
+        className="relative h-[72px] w-full touch-none select-none overflow-hidden rounded-xl border border-black/10"
+        style={{ background: bar }}
       >
         {stops.map((s, i) => (
           <span
@@ -340,44 +345,18 @@ export function GradientEditor({
         </button>
       </div>
 
-      {/* Which way it runs. A dial you point, not a track you aim at. */}
-      <div className="flex items-center gap-3">
-        <span className="w-16 shrink-0 text-[13px] text-muted-foreground">Direction</span>
-        <div
-          ref={dialRef}
-          data-sheet-no-drag
-          role="slider"
-          tabIndex={0}
-          aria-label="Gradient direction"
-          aria-valuemin={0}
-          aria-valuemax={359}
-          aria-valuenow={Math.round(g.angle)}
-          aria-valuetext={`${Math.round(g.angle)} degrees`}
-          onPointerDown={(e) => {
-            turning.current = true
-            e.currentTarget.setPointerCapture(e.pointerId)
-            pointAt(e.clientX, e.clientY)
-          }}
-          onPointerMove={(e) => { if (turning.current) pointAt(e.clientX, e.clientY) }}
-          onPointerUp={() => { turning.current = false; flush() }}
-          onPointerCancel={() => { turning.current = false; flush() }}
-          onKeyDown={(e) => {
-            const step = e.key === "ArrowLeft" || e.key === "ArrowDown" ? -SNAP_EVERY : e.key === "ArrowRight" || e.key === "ArrowUp" ? SNAP_EVERY : 0
-            if (!step) return
-            e.preventDefault()
-            commit({ ...g, angle: (((g.angle + step) % 360) + 360) % 360 })
-          }}
-          className="relative h-11 w-11 shrink-0 cursor-pointer touch-none select-none rounded-full border border-border bg-muted/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-black/15"
-        >
-          {/* The needle points where the gradient goes. */}
-          <span
-            className="absolute left-1/2 top-1/2 h-[18px] w-[3px] origin-bottom rounded-full bg-[#1a1a2e]"
-            style={{ transform: `translate(-50%, -100%) rotate(${g.angle}deg)`, transformOrigin: "50% 100%" }}
-          />
-          <span className="absolute left-1/2 top-1/2 h-[5px] w-[5px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#1a1a2e]" />
-        </div>
-        <span className="w-10 text-right text-[13px] tabular-nums text-muted-foreground">{Math.round(g.angle)}°</span>
-      </div>
+      {/* Which way it runs. One button, eight answers, and it says which. */}
+      <button
+        type="button"
+        onClick={turn}
+        className="flex h-9 w-full items-center justify-between rounded-lg border border-border px-3 text-[13px] transition-colors hover:bg-muted"
+      >
+        <span className="text-muted-foreground">Direction</span>
+        <span className="flex items-center gap-2 font-medium text-foreground">
+          {DIRECTION_NAME[Math.round(g.angle / TURN_BY) % 8]}
+          <RotateCw className="h-3.5 w-3.5 text-muted-foreground" />
+        </span>
+      </button>
     </div>
   )
 }
