@@ -3806,4 +3806,56 @@ html.pop-in-flight #platform-header-root {
   max-height: none;
   flex: 1 1 auto;
   min-height: 0;
+  padding: 0;
+}
+
+/*
+ * AND IT READS LIKE THE PANEL IT OPENED FROM.
+ *
+ * The picker's rows are sized for a sidebar: 13px type, 6px of vertical
+ * padding, rounded hover blocks with a 6px gutter each side. At arm's length
+ * on a phone, in a sheet whose own rows are 15px type on a 16px gutter with a
+ * hairline between them, they read as a list from a different product — which
+ * is what "it looks bad, make it the same as the sections sheet" is about.
+ *
+ * Only inside the phone screen. The sidebar keeps its own scale, where it is
+ * correct and where these numbers would be far too loose.
+ */
+.wb-field-screen [data-sheet-scroll] > div {
+  margin-bottom: 0;
+}
+.wb-field-screen [data-sheet-scroll] p {
+  padding: 14px 16px 6px;
+  font-size: 11px;
+}
+.wb-field-screen [data-sheet-scroll] button {
+  border-radius: 0;
+  padding: 13px 16px;
+  gap: 10px;
+  border-bottom: 1px solid var(--border);
+}
+.wb-field-screen [data-sheet-scroll] button > span {
+  font-size: 15px;
+}
+.wb-field-screen [data-sheet-scroll] button svg {
+  width: 1.05rem;
+  height: 1.05rem;
+}
+
+/* The search row and the address row are the screen's own edges, so they take
+   the sheet's gutter rather than the sidebar's. */
+.wb-field-screen > div:first-child {
+  padding: 12px 16px;
+  gap: 10px;
+}
+.wb-field-screen > div:first-child input {
+  height: 26px;
+  font-size: 16px; /* iOS zooms the page for anything under 16 */
+}
+.wb-field-screen > div:last-child {
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+}
+.wb-field-screen > div:last-child input {
+  height: 44px;
+  font-size: 16px;
 }
