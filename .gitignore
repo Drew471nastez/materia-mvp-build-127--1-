@@ -64,3 +64,4 @@ tsconfig.*.generated.json
 .seam-probe/
 .card-probe/
 .footer-probe/
+.sheetfps-probe/

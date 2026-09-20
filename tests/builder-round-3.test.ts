@@ -193,6 +193,25 @@ async function main() {
     check("every row is handed a resolved name", (editor.match(/displayName=\{sectionDisplayName\(/g) ?? []).length === 4)
     check("and the row itself no longer reads the stale copy", !/\{section\.name\}/.test(editor) && /\{displayName\}/.test(editor))
     check("including what a screen reader is told", !/\$\{section\.name\}/.test(editor))
+
+    /*
+      AND THE PANEL NAMES IT ONCE. Its header drew the display name and then
+      the schema's name under it, and `sectionDisplayName` PREFERS the
+      schema's name, so the two agreed by construction for every section
+      whose file is present, which is every section: "Feature grid" over
+      "Feature grid", on every panel.
+
+      The second line survives for the one case where it says something the
+      first does not, which is a section whose schema is gone: the name falls
+      back to the stored copy and the type underneath is the only thing left
+      that says what it was.
+    */
+    check("the panel's second line is drawn only when it differs from the first",
+      /\(schema\?\.name \?\? section\.type\) !== sectionDisplayName\(section, librarySchemas\) && \(/.test(editor))
+    check("so a section with a schema is named once",
+      !/<p className="text-\[11px\] text-muted-foreground">\{schema\?\.name \?\? section\.type\}<\/p>/.test(editor))
+    check("and the bar is one line tall, with a floor rather than a tall pad",
+      /className="px-4 py-2 border-b border-border flex items-center gap-2 shrink-0 min-h-\[44px\]"/.test(editor))
   }
 
   // ═══════════════════════════════════════════════════════════════════════

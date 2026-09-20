@@ -6228,16 +6228,41 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
       return (
         <div className="flex flex-col h-full">
-          <div className="px-4 py-3 border-b border-border flex items-center gap-2 shrink-0">
+          {/**
+            * ═══════════════════════════════════════════════════════════════
+            *  THE SECTION IS NAMED ONCE
+            * ═══════════════════════════════════════════════════════════════
+            * This drew "Feature grid" and then "Feature grid" again, in two
+            * sizes, and it did it for every section on the list. Not a
+            * coincidence: `sectionDisplayName` PREFERS the schema's name,
+            * and the line under it was the schema's name, so the two agreed
+            * by construction every time a section's own file was present,
+            * which is every time.
+            *
+            * The one case where they differ is a section whose schema is
+            * gone: a type retired, or a file deleted from under a page that
+            * still uses it. There the name falls back to the stored copy and
+            * the type underneath is the only thing that says what it was. So
+            * the second line is kept for exactly that, and shown only when it
+            * says something the first does not.
+            *
+            * The bar is then one line tall on a phone, where it is a sheet
+            * over the canvas and every row of chrome is a row of settings
+            * nobody can see.
+            */}
+          <div className="px-4 py-2 border-b border-border flex items-center gap-2 shrink-0 min-h-[44px]">
             <button
-              className="text-muted-foreground hover:text-foreground transition-colors"
+              className="text-muted-foreground hover:text-foreground transition-colors shrink-0"
               onClick={() => setSelectedPanel({ type: "pages" })}
+              aria-label="Back"
             >
               <ArrowLeft className="h-4 w-4" />
             </button>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold truncate">{sectionDisplayName(section, librarySchemas)}</p>
-              <p className="text-[11px] text-muted-foreground">{schema?.name ?? section.type}</p>
+              {(schema?.name ?? section.type) !== sectionDisplayName(section, librarySchemas) && (
+                <p className="text-[11px] text-muted-foreground truncate">{schema?.name ?? section.type}</p>
+              )}
             </div>
           </div>
 
