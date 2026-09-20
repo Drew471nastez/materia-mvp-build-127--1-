@@ -126,6 +126,34 @@ const KEYBOARD_MS = 250
 const SNAP_EASING = "cubic-bezier(0.32, 0.72, 0, 1)"
 
 /**
+ * ===========================================================================
+ *  SOMETHING INSIDE THE SHEET NEEDS THE WHOLE SHEET
+ * ===========================================================================
+ * The sheet opens at its middle stop, which is right for a list of settings
+ * you scroll through. A picker opening inside one is not that: it is a list
+ * of choices, it appears below the field that opened it, and at the middle
+ * stop that is under the bottom of the window. Measured at 390x844 with the
+ * link field scrolled to the centre of the panel: the sheet ran 379..1075 in
+ * a 757px window and every row of the list sat past 834.
+ *
+ * So a control can ask for the full height while it is open, and give it
+ * back when it closes. Ids rather than a flag, because two fields can be
+ * mid-transition at once and the last one to close should not undo the
+ * first one's request.
+ */
+interface SheetExpandHost {
+  expand: (id: string) => void
+  release: (id: string) => void
+}
+
+const SheetExpandContext = React.createContext<SheetExpandHost | null>(null)
+
+/** Null outside a sheet, where there is no detent to ask about. */
+export function useSheetExpand(): SheetExpandHost | null {
+  return React.useContext(SheetExpandContext)
+}
+
+/**
  * How far up the screen each stop sits, as a fraction of what is visible.
  * The largest is the sheet's actual height; the others are it, pushed down.
  */
@@ -217,6 +245,24 @@ export function MobileEditorSheet({
    * `bottom: 0` is what the browser already gets right. What was actually
    * cutting the sheet off was the stop it opened to, below.
    */
+
+  /**
+   * Who is asking for the full height. Functional updates only: an updater
+   * runs in the render phase, so anything with a side effect in it is a
+   * state update during render and React abandons the tree.
+   */
+  const [expanders, setExpanders] = React.useState<string[]>([])
+  const expandApi = React.useMemo<SheetExpandHost>(
+    () => ({
+      expand: (id) => setExpanders((list) => (list.includes(id) ? list : [...list, id])),
+      release: (id) => setExpanders((list) => (list.includes(id) ? list.filter((x) => x !== id) : list)),
+    }),
+    [],
+  )
+  /* A sheet that closes owes nobody a height. */
+  React.useEffect(() => {
+    if (!open) setExpanders([])
+  }, [open])
 
   const stops = React.useMemo(() => [...detents].sort((a, b) => a - b), [detents])
   const tallest = stops[stops.length - 1] ?? 0.92
@@ -540,7 +586,7 @@ export function MobileEditorSheet({
   }, [peek])
 
   const closedY = offsets[offsets.length - 1]
-  const openY = openFull ? offsets[0] : (offsets[Math.max(0, offsets.length - 2)] ?? 0)
+  const openY = openFull || expanders.length > 0 ? offsets[0] : (offsets[Math.max(0, offsets.length - 2)] ?? 0)
 
   const openRef = React.useRef(open)
   openRef.current = open
@@ -1216,13 +1262,15 @@ export function MobileEditorSheet({
             the measurement the content's own height and not the space the
             sheet happened to give it. min-h-0 lets it shrink under the cap,
             and the scrollable region inside takes the rest. */}
-        {fit ? (
-          <div ref={contentRef} className="flex min-h-0 flex-col">
-            {children}
-          </div>
-        ) : (
-          children
-        )}
+        <SheetExpandContext.Provider value={expandApi}>
+          {fit ? (
+            <div ref={contentRef} className="flex min-h-0 flex-col">
+              {children}
+            </div>
+          ) : (
+            children
+          )}
+        </SheetExpandContext.Provider>
       </div>
     </>,
     document.body,
