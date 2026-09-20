@@ -6,7 +6,7 @@ import { ChevronDown, Search } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { ICON_GROUPS, searchIcons } from "@/lib/website-builder/icon-library"
 import { ICON_MAP } from "@/components/website-builder/sections/icon-map"
-import { FieldPopover, FIELD_TRIGGER } from "@/components/website-builder/field-popover"
+import { FieldPopover, FIELD_TRIGGER, usePhoneLayout } from "@/components/website-builder/field-popover"
 
 /**
  * ===========================================================================
@@ -32,6 +32,7 @@ export function IconPicker({
   allowNone?: boolean
 }) {
   const [open, setOpen] = React.useState(false)
+  const phone = usePhoneLayout()
   const [query, setQuery] = React.useState("")
 
   const Current = ICON_MAP[value]
@@ -64,7 +65,9 @@ export function IconPicker({
       <div className="flex items-center gap-2 border-b border-border px-2.5 py-2">
         <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
         <input
-          autoFocus
+          /* Not at a thumb: the keyboard would cover the list this panel
+             just opened. Tapping the box still brings it up. */
+          autoFocus={!phone}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search icons"

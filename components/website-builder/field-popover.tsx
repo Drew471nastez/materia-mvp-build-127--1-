@@ -3,6 +3,7 @@
 import * as React from "react"
 
 import { cn } from "@/lib/utils"
+import { useSheetExpand } from "@/components/website-builder/mobile-editor-sheet"
 
 /**
  * ===========================================================================
@@ -23,7 +24,42 @@ import { cn } from "@/lib/utils"
  * Closing is Escape, a click outside, or picking something. Not a hover:
  * these are chosen deliberately, and a panel that vanishes when the pointer
  * strays is a panel you have to chase.
+ *
+ * ---------------------------------------------------------------------------
+ *  ON A PHONE, NOTHING TAKES THE KEYBOARD AND THE PANEL IS SCROLLED TO
+ * ---------------------------------------------------------------------------
+ * Both pickers autofocus their search box, which is right at a keyboard and
+ * wrong at a thumb. In the editor's bottom sheet the keyboard comes up over
+ * the panel that has just opened underneath the field, so the list of pages
+ * and products a person came for is entirely behind it and the only thing on
+ * screen is the field they already had. "I cannot select anything."
+ *
+ * So the search box takes focus only where focusing is free, and the panel
+ * scrolls itself into view in the sheet's own scroller, because a panel that
+ * opens below the fold has opened somewhere nobody is looking. Typing still
+ * works: tapping the box brings the keyboard up, and the sheet already
+ * shrinks itself around one.
  */
+
+/** The editor swaps to its phone layout here; see the editor page. */
+const PHONE_MAX_WIDTH = 639
+
+/**
+ * True on a phone-sized screen. Exported because the pickers own their own
+ * search inputs, and whether a field grabs the keyboard is the same question
+ * for all of them.
+ */
+export function usePhoneLayout(): boolean {
+  const [phone, setPhone] = React.useState(false)
+  React.useEffect(() => {
+    const query = window.matchMedia(`(max-width: ${PHONE_MAX_WIDTH}px)`)
+    const read = () => setPhone(query.matches)
+    read()
+    query.addEventListener("change", read)
+    return () => query.removeEventListener("change", read)
+  }, [])
+  return phone
+}
 export function FieldPopover({
   open,
   onOpenChange,
@@ -39,6 +75,37 @@ export function FieldPopover({
   className?: string
 }) {
   const root = React.useRef<HTMLDivElement>(null)
+  const panel = React.useRef<HTMLDivElement>(null)
+
+  /**
+   * INTO VIEW, IN WHATEVER IS SCROLLING IT.
+   *
+   * `block: "nearest"` moves the least that works, so a panel already on
+   * screen does not jump, and one that opened under the fold comes up to it.
+   * After a frame, because the panel has to be laid out before its height is
+   * a number anything can scroll to.
+   */
+  /**
+   * The sheet this field is in, if it is in one, asked for its full height
+   * while the panel is open. At the middle stop the list opens below the
+   * bottom of the window and there is nothing to tap.
+   */
+  const sheet = useSheetExpand()
+  const expandId = React.useId()
+  React.useEffect(() => {
+    if (!sheet) return
+    if (open) sheet.expand(expandId)
+    else sheet.release(expandId)
+    return () => sheet.release(expandId)
+  }, [expandId, open, sheet])
+
+  React.useEffect(() => {
+    if (!open) return
+    const id = requestAnimationFrame(() => {
+      panel.current?.scrollIntoView({ block: "nearest", behavior: "smooth" })
+    })
+    return () => cancelAnimationFrame(id)
+  }, [open])
 
   React.useEffect(() => {
     if (!open) return
@@ -66,6 +133,7 @@ export function FieldPopover({
       {trigger}
       {open && (
         <div
+          ref={panel}
           className={cn(
             "wb-field-panel mt-1.5 overflow-hidden rounded-xl border border-border bg-background shadow-[0_12px_32px_-16px_rgba(15,23,42,0.35)]",
             className,

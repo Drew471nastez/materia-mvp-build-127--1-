@@ -4,7 +4,7 @@ import * as React from "react"
 import { Check, ChevronDown, ExternalLink, FileText, Link2, Package, Search } from "lucide-react"
 
 import { cn } from "@/lib/utils"
-import { FieldPopover, FIELD_TRIGGER } from "@/components/website-builder/field-popover"
+import { FieldPopover, FIELD_TRIGGER, usePhoneLayout } from "@/components/website-builder/field-popover"
 
 /**
  * ===========================================================================
@@ -41,6 +41,7 @@ export function LinkPicker({
   placeholder?: string
 }) {
   const [open, setOpen] = React.useState(false)
+  const phone = usePhoneLayout()
   const [query, setQuery] = React.useState("")
   /** The custom box starts holding whatever is there, so it can be edited. */
   const [custom, setCustom] = React.useState(value)
@@ -89,7 +90,9 @@ export function LinkPicker({
       <div className="flex items-center gap-2 border-b border-border px-2.5 py-2">
         <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
         <input
-          autoFocus
+          /* Not at a thumb: the keyboard would cover the list this panel
+             just opened. Tapping the box still brings it up. */
+          autoFocus={!phone}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search pages and products"
