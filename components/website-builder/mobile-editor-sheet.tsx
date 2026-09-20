@@ -1258,9 +1258,16 @@ export function MobileEditorSheet({
          */
         data-mobile-bottom-sheet=""
         className={cn(
+          /**
+           * A pushed screen is `absolute` against this surface, and `fixed`
+           * is already a containing block for one — so DO NOT add `relative`
+           * here. `cn` is tailwind-merge: `relative` after `fixed` is the
+           * same property twice and the later one wins, which quietly turns
+           * this into a block laid out in the flow of <body> with a
+           * translateY pushing it off the screen. The sheet, and everything
+           * in it, simply stops appearing.
+           */
           "fixed left-0 right-0 bottom-0 flex flex-col overflow-hidden rounded-t-[20px] bg-background shadow-[0_-12px_40px_-12px_rgba(17,24,39,0.22)]",
-          // A pushed screen is absolute against this surface.
-          "relative",
           className,
         )}
         style={{
