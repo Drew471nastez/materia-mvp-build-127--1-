@@ -32,6 +32,7 @@ import * as React from "react"
 import { createPortal } from "react-dom"
 import { sheetBottomReserve } from "@/lib/website-builder/sheet-reserve"
 import { cn } from "@/lib/utils"
+import { hapticTap } from "@/lib/native-bridge"
 import {
   DRAG_THRESHOLD_PX,
   dragIntent,
@@ -262,6 +263,26 @@ export function MobileEditorSheet({
   /* A sheet that closes owes nobody a height. */
   React.useEffect(() => {
     if (!open) setExpanders([])
+  }, [open])
+
+  /**
+   * A TAP WHEN IT ARRIVES.
+   *
+   * Every sheet on a phone that is worth the name answers a press with
+   * something felt, and this one is the editor's main surface — it opens on
+   * a tap and slides 360ms, which is long enough that a silent arrival reads
+   * as a delay. `hapticTap` is the one place that knows how to reach the
+   * Taptic Engine inside Capacitor and falls back to navigator.vibrate on
+   * the web; see lib/native-bridge.
+   *
+   * On the way in only. A sheet closing is the result of something else a
+   * person already felt — a choice, a press on the backdrop — and a second
+   * tap for it is noise.
+   */
+  const wasOpen = React.useRef(open)
+  React.useEffect(() => {
+    if (open && !wasOpen.current) hapticTap("light")
+    wasOpen.current = open
   }, [open])
 
   const stops = React.useMemo(() => [...detents].sort((a, b) => a - b), [detents])

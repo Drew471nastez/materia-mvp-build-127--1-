@@ -57,6 +57,7 @@ import { PreviewModeSwitch, CodePane, type PreviewMode } from "@/components/webs
 import { ProjectSettings } from "@/components/website-builder/project-settings"
 import { createClient } from "@/lib/supabase/client"
 import { Slider } from "@/components/ui/slider"
+import { GradientEditor } from "@/components/website-builder/editor/gradient-editor"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import type {
   ThemeInstall, SectionInstance, ThemeSettingsValues,
@@ -309,6 +310,8 @@ function SliderNumberControl({
 }) {
   const [inputStr, setInputStr] = useState<string>(String(value))
   const focusedRef = useRef(false)
+  /** The last value a tick was fired for, so a drag ticks per step. */
+  const lastHaptic = useRef(value)
 
   // Keep input text in sync when drag updates value (but not while typing)
   useEffect(() => {
@@ -332,7 +335,19 @@ function SliderNumberControl({
       <div className="flex-1 relative py-2 -my-2 touch-none select-none">
         <Slider
           value={[value]}
-          onValueChange={([v]) => onChange(v)}
+          onValueChange={([v]) => {
+            /*
+              ONE TICK PER STEP CROSSED, not one per frame. A drag fires this
+              continuously, and a haptic on every event is a buzz rather than
+              a texture — the analytics chart learned the same thing and
+              counts crossings for the same reason.
+            */
+            if (v !== lastHaptic.current) {
+              lastHaptic.current = v
+              hapticTap("light")
+            }
+            onChange(v)
+          }}
           min={min}
           max={max}
           step={step}
@@ -501,6 +516,32 @@ function FieldEditor({
    */
   if (kind === "url") {
     return <LinkFieldEditor value={typeof raw === "string" ? raw : ""} onChange={onChange} placeholder={field.placeholder} />
+  }
+
+  /**
+   * ═══════════════════════════════════════════════════════════════════════
+   *  A GRADIENT IS NOT A STRING TO TYPE
+   * ═══════════════════════════════════════════════════════════════════════
+   * There is no `gradient` kind in the schema, so every gradient setting a
+   * theme declares arrives here as text — and what a creator gets is
+   *
+   *     linear-gradient(135deg, #667eea 0%, #764ba…
+   *
+   * clipped by the width of the field, which is a thing you can only edit if
+   * you already know the syntax. The editor for it has existed since the
+   * colour schemes were built; it was only ever wired to the scheme panel.
+   *
+   * Matched on the field's own name rather than on its value, so an empty
+   * gradient setting gets the editor too — otherwise the one case where it
+   * is needed most, nothing set yet, is the one case that gets the box.
+   */
+  if (kind === "text" && /gradient/i.test(String(field.id ?? "") + " " + String(field.label ?? ""))) {
+    return (
+      <GradientEditor
+        value={typeof raw === "string" ? raw : ""}
+        onChange={(css) => onChange(css)}
+      />
+    )
   }
 
   if (kind === "text") {
@@ -1792,7 +1833,10 @@ function WbImagePicker({
       {label && <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">{label}</p>}
       <div
         className={cn(
-          "relative w-full rounded-lg border-2 border-dashed transition-colors cursor-pointer flex flex-col items-center justify-center gap-1.5 py-5",
+          /* `wb-dropzone` is what app/globals.css shrinks on a phone: in a
+             bottom sheet an aspect-video box is a third of the screen given
+             to an empty rectangle. */
+          "wb-dropzone relative w-full rounded-lg border-2 border-dashed transition-colors cursor-pointer flex flex-col items-center justify-center gap-1.5 py-5",
           emptyAspectClass,
           dragOver ? "border-foreground/40 bg-muted" : "border-border bg-[#fafafa] hover:border-foreground/25 hover:bg-muted/60",
         )}
