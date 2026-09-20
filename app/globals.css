@@ -3785,3 +3785,94 @@ html.pop-in-flight #platform-header-root {
   position: sticky;
   top: 0;
 }
+
+/*
+ * ===========================================================================
+ *  THE EDITOR'S SHEET IS READ AND PRESSED WITH A THUMB
+ * ===========================================================================
+ * Every control in it was drawn for the desktop sidebar, where it sits under
+ * a pointer at arm's length on a big screen: 9px-tall labels in capitals,
+ * 36px fields, 12px text, a 58px number box beside a 4px slider track. On a
+ * phone that is a panel you squint at and miss.
+ *
+ * Scoped to the sheet and to phone widths, so the sidebar keeps the scale
+ * that is right for it and nothing here can reach the canvas or the site
+ * being built. 16px on anything typable, because iOS zooms the whole page
+ * for a focused field under that and does not zoom back.
+ */
+@media (max-width: 639px) {
+  [data-mobile-bottom-sheet] input[type="text"],
+  [data-mobile-bottom-sheet] input[type="number"],
+  [data-mobile-bottom-sheet] input[type="search"],
+  [data-mobile-bottom-sheet] input[type="url"],
+  [data-mobile-bottom-sheet] input:not([type]),
+  [data-mobile-bottom-sheet] select,
+  [data-mobile-bottom-sheet] textarea {
+    min-height: 44px;
+    font-size: 16px;
+  }
+
+  /* The number beside a slider: a target, not a caption. */
+  [data-mobile-bottom-sheet] input[inputmode="numeric"] {
+    min-height: 40px;
+    width: 72px;
+    font-size: 15px;
+  }
+
+  /* A field's own name, and the note under it. */
+  [data-mobile-bottom-sheet] label,
+  [data-mobile-bottom-sheet] .wb-field-label {
+    font-size: 14px;
+  }
+
+  /*
+   * THE SLIDER TAKES A THUMB'S WIDTH OF SCREEN, NOT A CURSOR'S.
+   *
+   * The track stays 4px because that is what it should look like; what grows
+   * is the area that answers a finger and the thing under it. A 21px thumb
+   * is a 21px target, and a thumb is nearer 44.
+   */
+  [data-mobile-bottom-sheet] [data-slot="slider"] {
+    /* The row, not the line: `min-height` because padding alone is measured
+       from a 6px track and lands at 30. */
+    min-height: 44px;
+    padding-block: 12px;
+  }
+  [data-mobile-bottom-sheet] [data-slot="slider-track"] {
+    height: 6px;
+  }
+  [data-mobile-bottom-sheet] [data-slot="slider-thumb"] {
+    width: 28px;
+    height: 28px;
+  }
+
+  /*
+   * AND THE EMPTY IMAGE BOX STOPS BEING A THIRD OF THE SCREEN.
+   *
+   * `aspect-video` on a 390px sheet is about 200px of dashed nothing, and
+   * the sheet only shows about 500. It is a row on a phone: the icon, the
+   * words, and the height of a button. The hint under it goes — "drag and
+   * drop" is not advice for a touchscreen.
+   */
+  [data-mobile-bottom-sheet] .wb-dropzone {
+    aspect-ratio: auto;
+    /*
+      `min-height` and `flex: none`, not `height`. The panel is a flex
+      column, so a flex child with a height and `min-height: 0` shrinks to
+      its content — the first version of this measured 36px, which is smaller
+      than the box it replaced was wrong.
+    */
+    min-height: 56px;
+    flex: none;
+    flex-direction: row;
+    gap: 10px;
+    padding: 0 14px;
+    justify-content: flex-start;
+  }
+  [data-mobile-bottom-sheet] .wb-dropzone > p:first-of-type {
+    font-size: 15px;
+  }
+  [data-mobile-bottom-sheet] .wb-dropzone > p + p {
+    display: none;
+  }
+}

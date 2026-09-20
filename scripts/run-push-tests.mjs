@@ -86,6 +86,7 @@ const SUITES = [
   "tests/site-autosave-safety.test.ts",
   "tests/site-nav-destinations.test.ts",
   "tests/field-panel.test.ts",
+  "tests/sheet-controls.test.ts",
   "tests/return-navigation.test.ts",
   "tests/keyboard-viewport.test.ts",
   "tests/keyboard-scroll-loop.test.ts",
