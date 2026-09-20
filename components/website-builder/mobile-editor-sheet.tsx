@@ -29,7 +29,6 @@
  */
 
 import * as React from "react"
-import { ArrowLeft } from "lucide-react"
 import { createPortal } from "react-dom"
 import { sheetBottomReserve } from "@/lib/website-builder/sheet-reserve"
 import { cn } from "@/lib/utils"
@@ -126,53 +125,6 @@ const SNAP_DURATION_MS = 360
 const KEYBOARD_MS = 250
 const SNAP_EASING = "cubic-bezier(0.32, 0.72, 0, 1)"
 
-/** A drill-down slides across in about the time a nav drawer does. */
-const SCREEN_MS = 320
-
-/**
- * ===========================================================================
- *  A SUB-PAGE OF THIS SHEET, NOT A SECOND SHEET OVER IT
- * ===========================================================================
- * A field with a picker in it — a link, an icon — cannot open that picker in
- * flow: this sheet measures its own content to choose a detent, so a panel
- * that expands inside it re-snaps the sheet around itself. Opening a sheet of
- * its own instead fixes the measurement and creates a worse thing: two sheets
- * stacked, one overlapping the other, and a back button that leaves the first
- * one sitting behind.
- *
- * So the picker pushes a SCREEN into this sheet. It slides across from the
- * right over the panel that is already here, exactly the way the sections
- * list slides to a section's settings, and Back slides it away. One sheet,
- * one surface, one stack — which is what the editor already looks like
- * everywhere else.
- *
- * The screen's CONTENT is portalled in by whoever opened it, rather than
- * handed over as a node: a picker's list changes as you type in its search
- * box, and a node captured at push time would be the list as it was when the
- * field was tapped.
- */
-interface SheetScreen {
-  id: string
-  title: string
-  /** Back, and the escape hatch out of a drag-dismiss, belong to the opener. */
-  onBack: () => void
-}
-
-interface SheetScreenHost {
-  open: (screen: SheetScreen) => void
-  close: (id: string) => void
-  /** Where to portal the content, once the screen is mounted. */
-  container: HTMLElement | null
-  activeId: string | null
-}
-
-const SheetScreenContext = React.createContext<SheetScreenHost | null>(null)
-
-/** Null outside a sheet, which is how a field knows to open in flow instead. */
-export function useSheetScreen(): SheetScreenHost | null {
-  return React.useContext(SheetScreenContext)
-}
-
 /**
  * How far up the screen each stop sits, as a fraction of what is visible.
  * The largest is the sheet's actual height; the others are it, pushed down.
@@ -265,47 +217,6 @@ export function MobileEditorSheet({
    * `bottom: 0` is what the browser already gets right. What was actually
    * cutting the sheet off was the stop it opened to, below.
    */
-
-  /**
-   * The pushed screen, and whether it is on its way in or out. `shown` is a
-   * separate flag so the slide has a frame to start from: mounted at 100%,
-   * moved to 0 on the next frame, and back to 100% before it unmounts.
-   */
-  const [screen, setScreen] = React.useState<SheetScreen | null>(null)
-  const [screenShown, setScreenShown] = React.useState(false)
-  const [screenHost, setScreenHost] = React.useState<HTMLDivElement | null>(null)
-  const leaveTimer = React.useRef(0)
-
-  const openScreen = React.useCallback((next: SheetScreen) => {
-    window.clearTimeout(leaveTimer.current)
-    setScreen(next)
-    requestAnimationFrame(() => setScreenShown(true))
-  }, [])
-
-  const closeScreen = React.useCallback((id: string) => {
-    setScreen((current) => {
-      if (!current || current.id !== id) return current
-      setScreenShown(false)
-      window.clearTimeout(leaveTimer.current)
-      leaveTimer.current = window.setTimeout(() => setScreen(null), SCREEN_MS)
-      return current
-    })
-  }, [])
-
-  React.useEffect(() => () => window.clearTimeout(leaveTimer.current), [])
-
-  /* A sheet that closes takes its screen with it, or reopening the sheet
-     shows a picker nobody asked for. */
-  React.useEffect(() => {
-    if (open) return
-    setScreenShown(false)
-    setScreen(null)
-  }, [open])
-
-  const screenApi = React.useMemo<SheetScreenHost>(
-    () => ({ open: openScreen, close: closeScreen, container: screenHost, activeId: screen?.id ?? null }),
-    [openScreen, closeScreen, screenHost, screen?.id],
-  )
 
   const stops = React.useMemo(() => [...detents].sort((a, b) => a - b), [detents])
   const tallest = stops[stops.length - 1] ?? 0.92
@@ -629,17 +540,7 @@ export function MobileEditorSheet({
   }, [peek])
 
   const closedY = offsets[offsets.length - 1]
-  /**
-   * A PUSHED SCREEN TAKES THE SHEET TO ITS FULL HEIGHT.
-   *
-   * The sheet opens at its middle stop, which is right for a list of settings
-   * you scroll. A sub-page is not that: it is a search box, a list and an
-   * address field, and at the middle stop its lower half is below the window
-   * — measured in the probe at 958px in an 844px window. It rises on the same
-   * transform transition everything else here moves on, and drops back to
-   * where it was when the screen goes.
-   */
-  const openY = openFull || screen !== null ? offsets[0] : (offsets[Math.max(0, offsets.length - 2)] ?? 0)
+  const openY = openFull ? offsets[0] : (offsets[Math.max(0, offsets.length - 2)] ?? 0)
 
   const openRef = React.useRef(open)
   openRef.current = open
@@ -1258,15 +1159,6 @@ export function MobileEditorSheet({
          */
         data-mobile-bottom-sheet=""
         className={cn(
-          /**
-           * A pushed screen is `absolute` against this surface, and `fixed`
-           * is already a containing block for one — so DO NOT add `relative`
-           * here. `cn` is tailwind-merge: `relative` after `fixed` is the
-           * same property twice and the later one wins, which quietly turns
-           * this into a block laid out in the flow of <body> with a
-           * translateY pushing it off the screen. The sheet, and everything
-           * in it, simply stops appearing.
-           */
           "fixed left-0 right-0 bottom-0 flex flex-col overflow-hidden rounded-t-[20px] bg-background shadow-[0_-12px_40px_-12px_rgba(17,24,39,0.22)]",
           className,
         )}
@@ -1300,16 +1192,6 @@ export function MobileEditorSheet({
            */
           paddingBottom: sheetBottomReserve(chromeGap, keyboardInset),
           /**
-           * The same number, readable by a child.
-           *
-           * A pushed screen is absolutely positioned, and an absolute box is
-           * laid out against the PADDING box — so `bottom: 0` put its last
-           * row inside the reserve, under the keyboard or the browser's own
-           * bar. Measured in the probe: the address field at 958px in an
-           * 844px window. It sits on this instead.
-           */
-          ["--wb-sheet-reserve" as string]: sheetBottomReserve(chromeGap, keyboardInset),
-          /**
            * `pan-y`, not `none`. `none` would hand every touch to us and kill
            * native scrolling inside the sheet — smooth, momentum-carrying,
            * compositor-driven scrolling that no JS reimplementation matches.
@@ -1334,54 +1216,13 @@ export function MobileEditorSheet({
             the measurement the content's own height and not the space the
             sheet happened to give it. min-h-0 lets it shrink under the cap,
             and the scrollable region inside takes the rest. */}
-        <SheetScreenContext.Provider value={screenApi}>
-          {fit ? (
-            <div ref={contentRef} className="flex min-h-0 flex-col">
-              {children}
-            </div>
-          ) : (
-            children
-          )}
-
-          {/*
-            THE SUB-PAGE, OVER THIS SHEET'S OWN CONTENT.
-
-            `absolute`, so it is outside the flow `contentRef` measures: the
-            sheet does not re-snap around a screen arriving, which is the
-            whole reason a picker could not open in flow to begin with. It
-            covers from under the grabber down, so the handle keeps working
-            and the sheet can still be dragged away with a screen open.
-          */}
-          {screen && (
-            <div
-              data-sheet-screen=""
-              className="absolute inset-x-0 top-[18px] flex flex-col bg-background"
-              style={{
-                bottom: "var(--wb-sheet-reserve, 0px)",
-                transform: screenShown ? "translateX(0)" : "translateX(100%)",
-                transition: `transform ${SCREEN_MS}ms ${SNAP_EASING}`,
-                willChange: "transform",
-              }}
-            >
-              {/* The editor's own panel header: an arrow, a name, a hairline. */}
-              <div className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-3">
-                <button
-                  type="button"
-                  onClick={screen.onBack}
-                  aria-label="Back"
-                  className="text-muted-foreground transition-colors hover:text-foreground"
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                </button>
-                <span className="text-sm font-semibold">{screen.title}</span>
-              </div>
-              <div
-                ref={setScreenHost}
-                className="wb-field-screen flex min-h-0 flex-1 flex-col overflow-hidden"
-              />
-            </div>
-          )}
-        </SheetScreenContext.Provider>
+        {fit ? (
+          <div ref={contentRef} className="flex min-h-0 flex-col">
+            {children}
+          </div>
+        ) : (
+          children
+        )}
       </div>
     </>,
     document.body,
