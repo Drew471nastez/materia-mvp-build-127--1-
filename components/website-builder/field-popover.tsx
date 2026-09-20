@@ -1,10 +1,10 @@
 "use client"
 
 import * as React from "react"
-import { ArrowLeft } from "lucide-react"
+import { createPortal } from "react-dom"
 
 import { cn } from "@/lib/utils"
-import { MobileEditorSheet } from "@/components/website-builder/mobile-editor-sheet"
+import { useSheetScreen } from "@/components/website-builder/mobile-editor-sheet"
 
 /**
  * ===========================================================================
@@ -44,14 +44,19 @@ import { MobileEditorSheet } from "@/components/website-builder/mobile-editor-sh
  * Being its own sheet, it is outside the first one's flow entirely, so
  * nothing it does can change what that sheet measures.
  *
- * IT IS THE EDITOR'S SHEET, not one that looks like it. The first version
- * drew its own panel: a div that appeared, with no slide, no grabber to drag
- * and a header of its own invention. Next to the sections sheet it read as a
- * different piece of software. MobileEditorSheet is that sheet — the same
- * 360ms cubic-bezier(0.32, 0.72, 0, 1) travel, the same backdrop fade, the
- * same corner and shadow, the same drag to dismiss, the same reserve under
- * the keyboard — and `layer="raised"` is the slot it already keeps for a
- * sheet opened from a sheet.
+ * IT IS A SUB-PAGE OF THAT SHEET, NOT A SECOND SHEET OVER IT.
+ *
+ * Two earlier attempts, each fixing the last one's fault and adding its own.
+ * A panel drawn here appeared with no slide, no grabber and a header of its
+ * own invention. A second MobileEditorSheet on the raised layer brought the
+ * motion and the chrome, and stacked two sheets: the sections panel sat
+ * behind the picker, overlapping it, and Back left it there.
+ *
+ * The sheet hosts a screen stack now. The picker pushes a title and a back
+ * handler, and portals its own content into the slot the sheet gives it — so
+ * the list stays live as somebody types in its search box. One sheet, one
+ * surface, sliding across the way the sections list slides to a section's
+ * settings.
  */
 
 /** The editor swaps to its phone layout here; see the editor page. */
@@ -115,33 +120,57 @@ export function FieldPopover({
   }, [open, onOpenChange])
 
   /**
-   * THE SAME SHEET THE SECTIONS PANEL USES, on the layer it keeps for one
-   * opened from another. Its header is the editor's own: an arrow, a name,
-   * a hairline under it — the row you see at the top of Header Settings.
+   * The sheet this field is inside, if it is inside one. Null in the desktop
+   * sidebar, which is how the in-flow panel stays the right answer there.
    */
-  const screen = phone ? (
-    <MobileEditorSheet open={open} onOpenChange={onOpenChange} layer="raised" detents={[0.92]}>
-      <div data-field-screen className="flex min-h-0 flex-1 flex-col">
-        <div className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-3">
-          <button
-            type="button"
-            onClick={() => onOpenChange(false)}
-            aria-label="Back"
-            className="text-muted-foreground transition-colors hover:text-foreground"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </button>
-          <span className="text-sm font-semibold">{title ?? "Choose"}</span>
-        </div>
-        <div className="wb-field-screen flex min-h-0 flex-1 flex-col overflow-hidden">{children}</div>
-      </div>
-    </MobileEditorSheet>
-  ) : null
+  const host = useSheetScreen()
+  const id = React.useId()
+  const asScreen = phone && host !== null
+
+  /*
+    Pushed and popped as the field opens and closes, so the sheet's stack and
+    this control can never disagree about whether a picker is up. The back
+    arrow the sheet draws calls straight back into `onOpenChange`, which is
+    the same path as picking something or pressing Escape.
+  */
+  const onOpenChangeRef = React.useRef(onOpenChange)
+  onOpenChangeRef.current = onOpenChange
+  React.useEffect(() => {
+    if (!asScreen || !host) return
+    if (open) host.open({ id, title: title ?? "Choose", onBack: () => onOpenChangeRef.current(false) })
+    else host.close(id)
+  }, [asScreen, host, id, open, title])
+
+  /*
+    And closed if the sheet takes the screen away by itself — dragged off, or
+    the sheet closed under it.
+
+    ONLY ONCE THE SCREEN HAS BEEN SEEN. The push above happens in an effect,
+    so on the render right after `open` turns true the sheet has not processed
+    it yet and `activeId` is still null. Without the latch that reads as "the
+    sheet dropped my screen" and closes the picker on the frame it opened —
+    which it did, silently: no panel, no screen, nothing at all.
+  */
+  const wasMounted = React.useRef(false)
+  React.useEffect(() => {
+    if (!asScreen || !open) {
+      wasMounted.current = false
+      return
+    }
+    if (host?.activeId === id) {
+      wasMounted.current = true
+      return
+    }
+    if (wasMounted.current) onOpenChangeRef.current(false)
+  }, [asScreen, host?.activeId, id, open])
+
+  const screen =
+    asScreen && open && host?.container ? createPortal(children, host.container) : null
 
   return (
     <div ref={root} className="relative">
       {trigger}
-      {open && !phone && (
+      {open && !asScreen && (
         <div
           className={cn(
             "wb-field-panel mt-1.5 overflow-hidden rounded-xl border border-border bg-background shadow-[0_12px_32px_-16px_rgba(15,23,42,0.35)]",

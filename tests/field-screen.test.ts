@@ -32,6 +32,7 @@ const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
 
 function main() {
   const popover = read("components/website-builder/field-popover.tsx")
+  const sheet = read("components/website-builder/mobile-editor-sheet.tsx")
   const css = read("app/globals.css")
 
   console.log("\nOn a phone the panel is a screen")
@@ -43,25 +44,51 @@ function main() {
     "two different breakpoints would leave a width where the sheet is on and the screen is not",
   )
   check(
-    "it is the editor's own sheet, not one that looks like it",
-    /<MobileEditorSheet open=\{open\} onOpenChange=\{onOpenChange\} layer="raised"/.test(popover),
-    "a hand-drawn panel has no slide, no grabber and a header of its own invention",
+    "it is a sub-page of the sheet it is inside, not a second sheet",
+    /const host = useSheetScreen\(\)/.test(popover) && !/MobileEditorSheet open=/.test(popover),
+    "two sheets stack, and the back arrow leaves the first one sitting behind",
   )
   check(
-    "on the layer that sheet keeps for one opened from another",
-    /layer="raised"/.test(popover) && /zIndex: layer === "raised" \? 80 : 50/.test(read("components/website-builder/mobile-editor-sheet.tsx")),
+    "the sheet hosts the stack",
+    /const SheetScreenContext = React\.createContext/.test(sheet) && /export function useSheetScreen/.test(sheet),
+  )
+  check(
+    "the content is portalled in, so a list stays live as you type in its search box",
+    /createPortal\(children, host\.container\)/.test(popover),
+    "a node captured at push time is the list as it was when the field was tapped",
+  )
+  check(
+    "the screen is out of the flow the sheet measures",
+    /data-sheet-screen=""\s*\n\s*className="absolute/.test(sheet),
+    "in flow it would re-snap the sheet around itself, which is the bug this replaces",
+  )
+  check(
+    "it sits above the sheet's own bottom reserve",
+    /bottom: "var\(--wb-sheet-reserve, 0px\)"/.test(sheet) && /"--wb-sheet-reserve" as string/.test(sheet),
+    "an absolute box lays out against the padding box, so bottom 0 is under the keyboard",
+  )
+  check(
+    "and the sheet rises to its full height while a screen is up",
+    /openFull \|\| screen !== null \? offsets\[0\]/.test(sheet),
+    "at the middle stop the lower half of a picker is off the window",
+  )
+  check(
+    "the drop guard waits until the screen has been seen",
+    /if \(wasMounted\.current\) onOpenChangeRef\.current\(false\)/.test(popover),
+    "the push lands in an effect, so activeId is still null on the frame the field opens",
   )
   check(
     "and the in-flow panel does not also open there",
-    /\{open && !phone && \(/.test(popover),
+    /\{open && !asScreen && \(/.test(popover),
   )
 
   console.log("\nAnd it reads as a screen, with a way back")
 
   /* The editor's own panel header: an arrow, a name, a hairline under it.
-     The same row that sits at the top of Header Settings. */
-  check("there is a back control", /aria-label="Back"/.test(popover) && /<ArrowLeft className="h-4 w-4" \/>/.test(popover))
-  check("and a title beside it, not centred over it", /<span className="text-sm font-semibold">\{title \?\? "Choose"\}<\/span>/.test(popover))
+     The same row that sits at the top of Header Settings, and it is the
+     SHEET that draws it now, because the screen belongs to the sheet. */
+  check("there is a back control", /aria-label="Back"/.test(sheet) && /<ArrowLeft className="h-4 w-4" \/>/.test(sheet))
+  check("and a title beside it, not centred over it", /<span className="text-sm font-semibold">\{screen\.title\}<\/span>/.test(sheet))
   check(
     "both pickers name their own screen",
     /title="Link"/.test(read("components/website-builder/link-picker.tsx")) &&
@@ -69,10 +96,15 @@ function main() {
   )
   check(
     "the header matches the one the editor's panels use",
-    /flex shrink-0 items-center gap-2 border-b border-border px-4 py-3/.test(popover) &&
+    /flex shrink-0 items-center gap-2 border-b border-border px-4 py-3/.test(sheet) &&
       /px-4 py-3 border-b border-border flex items-center gap-2 shrink-0/.test(read("app/website-builder/editor/[installId]/page.tsx")),
     "two spellings of the same row is how two panels stop looking like one product",
   )
+  check(
+    "it slides across on the sheet's own curve",
+    /transform \$\{SCREEN_MS\}ms \$\{SNAP_EASING\}/.test(sheet) && /const SCREEN_MS = 320/.test(sheet),
+  )
+
   check(
     "the rows take the sheet's scale rather than the sidebar's",
     /\.wb-field-screen \[data-sheet-scroll\] button/.test(css) && /font-size: 15px/.test(css),
