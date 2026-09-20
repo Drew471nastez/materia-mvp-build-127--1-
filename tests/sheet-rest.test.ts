@@ -102,7 +102,10 @@ function main() {
 
   check(
     "the slider row opts out of the sheet's drag",
-    /<div data-sheet-no-drag className="flex-1 relative py-2 -my-2 touch-none select-none">/.test(editor),
+    /<div data-sheet-no-drag className="flex-1 relative py-2 -my-2 touch-none select-none">/.test(
+      read("components/website-builder/editor/slider-number-control.tsx"),
+    ),
+    "the slider moved into its own module so a frame probe can drive the real one",
   )
   check(
     "and the sheet honours that opt-out at touchdown",
@@ -169,8 +172,17 @@ function main() {
   check("no grid of preset rectangles", !/Start from/.test(gradient) && !/grid-cols-4/.test(gradient))
   check("the stops sit on the gradient and are dragged", /onPointerDown=\{onTrackDown\}/.test(gradient) && /grabbed\.current/.test(gradient))
   check("a press away from every colour does nothing", /if \(best > GRAB_WITHIN\) return/.test(gradient))
-  check("the direction is a dial that clicks onto the square angles", /function snapAngle/.test(gradient) && /const SNAP_EVERY = 45/.test(gradient))
-  check("and it is reachable from a keyboard", /role="slider"/.test(gradient) && /onKeyDown/.test(gradient))
+  check(
+    "the direction is one button with eight answers, not a dial",
+    /const TURN_BY = 45/.test(gradient) && /DIRECTION_NAME/.test(gradient) && !/role="slider"/.test(gradient),
+    "a dial is precise about the one thing nobody needs to be precise about",
+  )
+  check("and it says which one it is on, in words", /DIRECTION_NAME\[Math\.round\(g\.angle \/ TURN_BY\) % 8\]/.test(gradient))
+  check(
+    "the bar shows the colour sequence, so a handle sits on the colour it carries",
+    /serializeGradient\(\{ \.\.\.g, angle: 90 \}\)/.test(gradient),
+    "at 135deg the colour under a handle was not the colour it was setting",
+  )
   check("the presets are still exported for the toggle that starts one", /export const GRADIENT_PRESETS/.test(gradient))
 
   console.log("\nA string that is not a gradient is not a gradient")

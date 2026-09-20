@@ -2260,7 +2260,14 @@ check(
    * handed a fresh arrow function every render is not memoised at all.
    */
   /const EditorCanvasPage = memo\(function EditorCanvasPage\(/.test(editor) &&
-    /<EditorCanvasPage\s*\n\s*theme=\{activeThemeSettings\}/.test(editor) &&
+    /**
+     * `canvasThemeSettings`, which is `useDeferredValue(activeThemeSettings)`.
+     * Memoising it stopped an unrelated state change re-rendering the page;
+     * deferring it stops a RELATED one doing it inside the touch that caused
+     * it. Same rule, one step further. See tests/control-frames.test.ts.
+     */
+    /<EditorCanvasPage\s*\n\s*theme=\{canvasThemeSettings\}/.test(editor) &&
+    /const canvasThemeSettings = useDeferredValue\(activeThemeSettings\)/.test(editor) &&
     /const selectSectionFromCanvas = useCallback\(/.test(editor) &&
     /const openAddSection = useCallback\(\(\) => setAddSectionOpen\(true\), \[\]\)/.test(editor) &&
     // Still one stable callback from the parent, now carrying which block

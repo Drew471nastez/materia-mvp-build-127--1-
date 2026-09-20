@@ -88,6 +88,11 @@ function main() {
     "the probe reads its computed display; this is only the rule that sets it",
   )
   check("the dropzone carries the class the rules need", /"wb-dropzone relative w-full rounded-lg border-2 border-dashed/.test(editor))
+  check(
+    "and the slider the rules size is the one the editor uses",
+    /import \{ SliderNumberControl \} from "@\/components\/website-builder\/editor\/slider-number-control"/.test(editor),
+    "it lives in its own module so the frame probe drives the same code the product does",
+  )
 
   console.log("\nAnd it answers a finger")
 
@@ -101,8 +106,9 @@ function main() {
     "a sheet closing is the result of something already felt",
   )
   check(
-    "a slider ticks once per step crossed, not once per frame",
-    /if \(v !== lastHaptic\.current\) \{[\s\S]{0,120}hapticTap\("light"\)/.test(editor),
+    "and a slider does not tap at all",
+    !/hapticTap/.test(read("components/website-builder/editor/slider-number-control.tsx")),
+    "a tick per step crossed sounded right and is not: a drag crosses a lot of steps, the taps run into each other, and you are already watching the number",
   )
   check(
     "through the one function that reaches the Taptic Engine",
