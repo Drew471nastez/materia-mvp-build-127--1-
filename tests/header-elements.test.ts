@@ -219,6 +219,30 @@ function main() {
     /if \(isTypingTarget\(target\)\) return/.test(editor)
       && /if \(inspectorEnabled \|\| isCanvasNavigationLink\(target\)\) e\.preventDefault\(\)/.test(editor))
 
+  console.log("\n  the wordmark is a font somebody chose")
+
+  /*
+    The logo sits inside an <a href="/">, and the theme's typography
+    stylesheet gives every anchor in a section the BUTTON role's face, so the
+    site's own name was drawn in whatever the buttons use. `logo_font`, the
+    only thing that could have overridden it, is declared by no schema and
+    offered by no panel, so it was never set and the value was always the
+    word "inherit".
+
+    Measured in scripts/check-logo-font.mjs, which renders one theme through
+    ThemePage as a published page and as the canvas and reads the font off
+    the logo in both: on a theme set to Playfair Display for headings, the
+    wordmark came out in DM Sans.
+  */
+  check("the wordmark names the heading face rather than inheriting one",
+    /const logoFontStack = \[/.test(header) && /"var\(--theme-font-heading\)",/.test(header))
+  check("with a fallback that is the site's own type, not the browser's serif",
+    /"ui-sans-serif",\s*\n\s*"system-ui",\s*\n\s*"sans-serif",/.test(header))
+  check("and nothing inherits the anchor's font any more",
+    !/fontFamily: str\(s\.logo_font, "inherit"\)/.test(header))
+  check("measured on both surfaces rather than argued about",
+    existsSync("scripts/check-logo-font.mjs") && existsSync("scripts/render-logo-font.tsx"))
+
   console.log("\n  the suggestions are not inside the box that clips the header")
 
   /*

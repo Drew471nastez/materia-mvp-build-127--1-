@@ -1514,6 +1514,41 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
    * uploaded their logo under Branding, which is where you would look for it,
    * got the store name in text and no explanation.
    */
+  /**
+   * ═══════════════════════════════════════════════════════════════════════
+   *  THE WORDMARK IS THE HEADING FACE, BECAUSE IT IS THE SITE'S NAME
+   * ═══════════════════════════════════════════════════════════════════════
+   * This was the logo_font setting with the word inherit behind it, and both
+   * halves of that were wrong.
+   *
+   * `logo_font` is a setting no schema declares and no panel offers, so it
+   * is never set and this was always the word `inherit`. And what the logo
+   * inherits is not the page's font: it sits inside an <a href="/">, and the
+   * theme's typography stylesheet gives every anchor in a section the BUTTON
+   * role's face —
+   *
+   *     :where([data-section] a[href]){font-family:var(--type-button-font);…}
+   *
+   * so the site's name has been drawn in whatever face the BUTTONS use,
+   * which nobody chose for it and which changes the wordmark the moment
+   * somebody restyles a button. Measured in scripts/check-logo-font.mjs: on
+   * a theme set to Playfair Display for headings, the wordmark came out in
+   * DM Sans on both surfaces.
+   *
+   * The heading face instead, named rather than inherited, so it is the same
+   * on the canvas and on the published page and does not move when something
+   * else does. `logo_font` stays ahead of it as an override for the day a
+   * control exists, and falls through to the heading face rather than to the
+   * browser's default, which is a serif nobody asked for.
+   */
+  const logoFontStack = [
+    str(s.logo_font).trim() || null,
+    "var(--theme-font-heading)",
+    "ui-sans-serif",
+    "system-ui",
+    "sans-serif",
+  ].filter(Boolean).join(", ")
+
   const branding = theme as Record<string, unknown>
   const headerLogo = str(s.logo_url) || str(branding.logo_url)
   const logoMaxWidth = Number(branding.logo_width) || undefined
@@ -1546,7 +1581,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
           className="text-[17px] font-bold whitespace-nowrap"
           style={{
             color: textColor,
-            fontFamily: str(s.logo_font, "inherit"),
+            fontFamily: logoFontStack,
             transform: forceMobile ? mobileLogoTransform : desktopLogoTransform,
           }}
         >

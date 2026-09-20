@@ -65,3 +65,4 @@ tsconfig.*.generated.json
 .card-probe/
 .footer-probe/
 .sheetfps-probe/
+.logofont-probe/
