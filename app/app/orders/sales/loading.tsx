@@ -4,7 +4,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 // `skeleton-deferred` delays the reveal by 200ms so fast loads never flash it.
 export default function SalesLoading() {
   return (
-    <div className="h-full overflow-y-auto bg-[#f8f9fa] skeleton-deferred">
+    <div className="h-full overflow-y-auto sales-scroll-container bg-[#f8f9fa] skeleton-deferred">
       <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-[1200px] mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between gap-3">

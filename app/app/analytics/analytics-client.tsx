@@ -2207,7 +2207,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
   }
 
   return (
-    <div className="h-full overflow-y-auto bg-[#fafafa] select-none overscroll-none app-page-enter" style={{ WebkitUserSelect: "none", WebkitTouchCallout: "none", overscrollBehavior: "none" } as React.CSSProperties}>
+    <div className="h-full overflow-y-auto page-scroll bg-[#fafafa] select-none overscroll-none app-page-enter" style={{ WebkitUserSelect: "none", WebkitTouchCallout: "none", overscrollBehavior: "none" } as React.CSSProperties}>
       {/* Announcement Bar — fixed above black header on mobile */}
       <AnnouncementBarMobile>
         <div className="max-w-[1200px] mx-auto flex items-center justify-center gap-2 md:gap-3 text-center">

@@ -12,7 +12,7 @@
  * sidebar.tsx passes them the right things, whether the old drawer is really
  * gone, or whether the back button still knows what to close.
  */
-import { readFileSync } from "node:fs"
+import { readdirSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 
 let passed = 0
@@ -162,18 +162,43 @@ function main() {
     "padding the outer box only shrinks the inner one and holds the page away from the bar")
   check("and put on the one that does",
     /\.app-content-scroll > \.page-scroll,\s*\n\s*html\.app-layout \.app-content-scroll > \.dashboard-scroll-container,\s*\n\s*html\.app-layout \.app-content-scroll > \.sales-scroll-container \{\s*\n\s*padding-bottom: calc\(104px \+ env\(safe-area-inset-bottom, 0px\)\);/.test(css))
-  check("which covers the pages that really do nest one",
+  /*
+    AND EVERY PAGE THAT NESTS ONE IS FOUND, not listed. The list used to be
+    five files kept by hand, and analytics was the sixth: `h-full
+    overflow-y-auto` with no class on it, so the rule above padded the outer
+    box, the inner `h-full` shrank to match, and the page stopped 104px above
+    the bar with nothing under it to show through the glass. Reported as the
+    bar having "a solid background on analytics, not like on home or
+    products", which is exactly what it was. Three skeletons had it too.
+
+    So this walks the tree instead. Anything that scrolls a whole page has to
+    name itself, and a new page cannot be added without this noticing.
+  */
+  check("which covers every page that really does nest one, found rather than listed",
     (() => {
-      const roots = [
-        ["app/app/products/products-client.tsx", "page-scroll"],
-        ["app/app/orders/sales/sales-client.tsx", "sales-scroll-container"],
-        ["app/app/emails/page.tsx", "page-scroll"],
-        ["app/app/website-builder/website-builder-client.tsx", "page-scroll"],
-        ["components/app/dashboard-client.tsx", "dashboard-scroll-container"],
-      ]
-      return roots.every(([f, cls]) => new RegExp("h-full overflow-y-auto[^\"]*\\b" + cls + "\\b").test(read(f)))
+      const named = /\b(page-scroll|dashboard-scroll-container|sales-scroll-container)\b/
+      /* It is centred, not scrolled: it has no last row to hold off the bar. */
+      const exempt = new Set(["app/app/not-found.tsx"])
+      const missing: string[] = []
+      const walk = (dir: string) => {
+        for (const entry of readdirSync(dir, { withFileTypes: true })) {
+          const path = `${dir}/${entry.name}`
+          if (entry.isDirectory()) { walk(path); continue }
+          if (!entry.name.endsWith(".tsx")) continue
+          for (const line of read(path).split("\n")) {
+            if (!/className="h-full overflow-y-auto/.test(line)) continue
+            if (!named.test(line) && !exempt.has(path)) missing.push(path)
+          }
+        }
+      }
+      walk("app/app")
+      for (const f of ["components/app/dashboard-client.tsx", "components/app/settings-form.tsx"]) {
+        if (!named.test(read(f))) missing.push(f)
+      }
+      if (missing.length) console.log(`        unnamed page scrollers: ${[...new Set(missing)].join(", ")}`)
+      return missing.length === 0
     })(),
-    "a page that nests a scroller under a class this rule does not name gets the dashboard's old fault")
+    "a page that scrolls under a class this rule does not name gets the dashboard's old fault: content stops above the bar and the glass has nothing to frost")
   check("with the real dashboard driven under the real bar to prove it",
     (() => {
       const probe = read("scripts/check-dashboard-nav.mjs")
@@ -209,6 +234,41 @@ function main() {
     })())
   check("with the push and the recovery measured in the dashboard probe",
     /put back within a frame/.test(read("scripts/check-dashboard-nav.mjs")))
+
+  /*
+    ── WHERE THE PILL DOES NOT GO ──────────────────────────────────────────
+    OnePage is an editor that owns the screen and has its own controls along
+    the bottom of it, so a second bar floating over them is one too many.
+    The route decides, not the page, because a page that has to remember to
+    say so is a page that will forget.
+  */
+  check("the pill knows the routes it does not belong on",
+    /const NO_PILL = \["\/app\/onepage"\]/.test(nav)
+      && /export const pillBelongsOn = \(pathname: string\): boolean =>/.test(nav)
+      && /pathname === base \|\| pathname\.startsWith\(`\$\{base\}\/`\)/.test(nav),
+    "a prefix, so anything under the route is covered too")
+  /*
+    AND THE GATE IS AT THE MOUNT, not inside the component. Inside, it would
+    be a return after every hook the pill owns, and tests/hook-order reads a
+    file at a time: the rule it enforces does not care that the hook below
+    the return belongs to a different component further down. Not rendering
+    a component is the ordinary way to say this in any case.
+  */
+  check("and the shell mounts it only where it belongs",
+    (() => {
+      const shell = read("components/app/sidebar.tsx")
+      return /\{pillBelongsOn\(pathname\) \? \(\s*\n\s*<MobileNavPill/.test(shell)
+        && /import \{[^}]*\bpillBelongsOn\b[^}]*\} from "@\/components\/app\/sidebar-mobile-nav"/.test(shell)
+    })(),
+    "a pill mounted without the gate is a pill on every route")
+  check("with no early return left inside the component itself",
+    !/return null/.test(strip(nav).slice(strip(nav).indexOf("export function MobileNavPill"))),
+    "a hook below a return is the crash tests/hook-order.test.ts exists for")
+  check("and the probe's harness mounts it behind the same gate, so what it measures is what ships",
+    /\{pillBelongsOn\(usePathname\(\)\) \? \(/.test(read("scripts/render-app-mobile-nav.tsx")))
+  check("with the disappearance driven in the probe rather than read",
+    /the pill is not rendered at all on OnePage/.test(read("scripts/check-app-mobile-nav.mjs"))
+      && /and it is back on the next page that is a page/.test(read("scripts/check-app-mobile-nav.mjs")))
 
   check("and it is not rendered at all on a desktop",
     (nav.match(/md:hidden/g) ?? []).length >= 2,
@@ -317,15 +377,28 @@ function main() {
       && /backdropFilter: `blur\(\$\{haloBlur\(i\)\}px\)`/.test(nav),
     "the same blur on every layer puts an edge on the outermost one")
   check("wider than the screen, low, and centred on the screen rather than on the bar group",
-    /const HALO_REACH = \{ top: 30, bottom: 22, side: 56 \}/.test(nav)
+    /const HALO_REACH = \{ top: 30, below: 44, side: 56 \}/.test(nav)
       && /width: `calc\(100% \+ \$\{HALO_REACH\.side \* 2\}px\)`/.test(nav)
-      && /height: BAR_H \+ HALO_REACH\.top \+ HALO_REACH\.bottom/.test(nav)
       && /className="pointer-events-none absolute left-1\/2"/.test(nav),
     "hung on the group, the halo left the settings circle standing on bare page while the menu was open")
+  /*
+    ITS BOTTOM EDGE IS UNDER THE DISPLAY. It used to be PILL_LIFT - 22px,
+    which on a phone with a home indicator is 18px ABOVE the bottom of the
+    screen: a bare strip under the pill, where a thumb rests. Anchored below
+    the display, the screen's edge cuts across the ellipse where it is still
+    near its full width, and the part that tapers is the part nobody sees.
+  */
+  check("and its lower edge is under the display, not above the home indicator",
+    /bottom: -HALO_REACH\.below,/.test(nav)
+      && /height: `calc\(\$\{BAR_H \+ HALO_REACH\.top \+ HALO_REACH\.below\}px \+ \$\{PILL_LIFT\}\)`/.test(nav),
+    "tied to the pill's own lift, the halo stopped short of the bottom of the screen")
+  check("with the strip under the pill measured in the probe",
+    /it covers the strip under the pill, where a home indicator sits/.test(read("scripts/check-app-mobile-nav.mjs"))
+      && /past the bottom of the screen, so there is no bare strip/.test(read("scripts/check-app-mobile-nav.mjs")))
   check("with the pill's lift above the screen's bottom read once, by the pill and by the halo",
     /const PILL_LIFT = "6px \+ env\(safe-area-inset-bottom, 0px\)"/.test(nav)
       && /paddingBottom: `calc\(\$\{PILL_LIFT\}\)`/.test(nav)
-      && /bottom: `calc\(\$\{PILL_LIFT\} - \$\{HALO_REACH\.bottom\}px\)`/.test(nav),
+      && /height: `calc\([^`]*\$\{PILL_LIFT\}\)`/.test(nav),
     "the same number computed twice is where the editor's black bands came from")
   check("and its tint is one radial gradient in the page's own colour",
     /const HALO_TINT = "rgba\(248,249,250,0\.3\)"/.test(nav)
