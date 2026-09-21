@@ -74,6 +74,7 @@ function Shell({ children }: { children: ReactNode }) {
         home: NAV_ICONS.dashboard,
         orders: NAV_ICONS.orders,
         products: NAV_ICONS.products,
+        analytics: NAV_ICONS.analytics,
         settings: NAV_ICONS_EXTRA.settings,
       },
     }),

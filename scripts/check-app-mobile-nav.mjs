@@ -248,7 +248,7 @@ const READ_PILL = `(() => {
   const band = document.querySelector('[data-app-nav-pill] > [aria-hidden="true"]')
   const b = pill.getBoundingClientRect()
   const ps = getComputedStyle(pill)
-  const controls = [...pill.querySelectorAll("a[aria-label]"), document.querySelector("[data-app-nav-pill] button[aria-label]")]
+  const controls = [...pill.querySelectorAll("a[aria-label]"), document.querySelector('[data-app-nav-pill] button[aria-label="Menu"], [data-app-nav-pill] button[aria-label="Close menu"]')]
   const targets = controls.map((c) => {
     const r = c.getBoundingClientRect()
     return { label: c.getAttribute("aria-label"), w: Math.round(r.width), h: Math.round(r.height) }
@@ -268,13 +268,13 @@ const READ_PILL = `(() => {
             /* The bar and the menu button are two objects; together they are
                what sits in the middle of the screen. */
             centred: (() => {
-              const btn = document.querySelector("[data-app-nav-pill] button[aria-label]").getBoundingClientRect()
+              const btn = document.querySelector('[data-app-nav-pill] button[aria-label="Menu"]').getBoundingClientRect()
               const left = Math.min(b.left, btn.left)
               const right = Math.max(b.right, btn.right)
               return Math.abs((left + right) / 2 - window.innerWidth / 2) <= 1
             })(),
             gapToButton: (() => {
-              const btn = document.querySelector("[data-app-nav-pill] button[aria-label]").getBoundingClientRect()
+              const btn = document.querySelector('[data-app-nav-pill] button[aria-label="Menu"]').getBoundingClientRect()
               return Math.round(btn.left - b.right)
             })(),
             radius: ps.borderRadius, bg: ps.backgroundColor, shadow: ps.boxShadow.slice(0, 120) },
@@ -323,6 +323,12 @@ const READ_PILL = `(() => {
       return Math.round(p.top - last.bottom)
     })(),
     headerHasHamburger: !!document.querySelector("header [aria-label='Open menu'], header [aria-label='Close menu']"),
+    settingsWhenShut: (() => {
+      const b = document.querySelector('[data-app-nav-pill] button[aria-label="Settings"]')
+      if (!b) return null
+      const st = getComputedStyle(b)
+      return { opacity: Number(st.opacity), hittable: st.pointerEvents !== "none", tab: b.tabIndex }
+    })(),
   }
 })()`
 const shut = await ev(READ_PILL)
@@ -377,19 +383,29 @@ await ev(`(() => {
   return true
 })()`)
 await sleep(300)
+/*
+  The halo is centred on the bar and reaches 56px above it, so it is read on
+  the bar's own vertical: well above the halo, just inside its top edge, and
+  in the 8px gap between the bar and the menu button, where the halo is at
+  its strongest and nothing else is drawn.
+*/
 const fadeBox = await ev(`(() => {
   const f = document.querySelector("[data-app-nav-fade]").getBoundingClientRect()
   const b = document.querySelector('nav[aria-label="Main"]').getBoundingClientRect()
-  return { top: Math.round(f.top), bottom: Math.round(f.bottom), barMid: Math.round(b.top + b.height / 2) }
+  const m = document.querySelector('[data-app-nav-pill] button[aria-label="Menu"]').getBoundingClientRect()
+  return { top: Math.round(f.top), x: Math.round(b.left + b.width / 2), gapX: Math.round((b.right + m.left) / 2), barMid: Math.round(b.top + b.height / 2) }
 })()`)
-const contrastAt = async (y) => {
-  const { data } = await send("Page.captureScreenshot", { format: "png", clip: { x: 4, y: y - 8, width: 8, height: 16, scale: 1 }, captureBeyondViewport: false })
+const contrastAt = async (x, y) => {
+  const { data } = await send("Page.captureScreenshot", { format: "png", clip: { x: x - 3, y: y - 8, width: 6, height: 16, scale: 1 }, captureBeyondViewport: false })
   return contrastOf(decodePng(Buffer.from(data, "base64")))
 }
 const blur = {
-  above: await contrastAt(fadeBox.top - 60),
-  top: await contrastAt(fadeBox.top + 10),
-  bottom: await contrastAt(fadeBox.barMid),
+  above: await contrastAt(fadeBox.x, fadeBox.top - 50),
+  top: await contrastAt(fadeBox.x, fadeBox.top + 6),
+  bottom: await contrastAt(fadeBox.gapX, fadeBox.barMid),
+  /* And the left margin, which the halo must NOT reach: "around the pill,
+     not across all the screen". */
+  margin: await contrastAt(6, fadeBox.barMid),
 }
 await ev(`document.getElementById("__stripes").remove(); true`)
 await sleep(200)
@@ -534,7 +550,7 @@ await ev("window.__went = null; true")
 /* ── open it, the way the pill does ──────────────────────────────────────── */
 const menuBtn = await ev(`(() => {
   /* Its own button beside the bar now, not a slot inside it. */
-  const b = document.querySelector('[data-app-nav-pill] button[aria-label]')
+  const b = document.querySelector('[data-app-nav-pill] button[aria-label="Menu"]')
   const r = b.getBoundingClientRect()
   return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) }
 })()`)
@@ -563,13 +579,14 @@ const READ_MENU = `(() => {
     pageLocked: getComputedStyle(document.querySelector(".app-content-scroll")).overflowY,
     rows,
     minRowHeight: Math.min(...rows.map((x) => x.h)),
-    settingsInTheBar: (() => {
+    settingsOpen: (() => {
       const b = document.querySelector('[data-app-nav-pill] button[aria-label="Settings"]')
       if (!b) return null
       const r = b.getBoundingClientRect()
-      const x = document.querySelector('[data-app-nav-pill] button[aria-label="Close menu"]').getBoundingClientRect()
-      return { visible: Number(getComputedStyle(b).opacity) > 0.9, rightOfTheX: r.left >= x.right - 1,
-               round: Math.round(r.width) === Math.round(r.height), gap: Math.round(r.left - x.right) }
+      const bar = document.querySelector('nav[aria-label="Main"]').getBoundingClientRect()
+      return { visible: Number(getComputedStyle(b).opacity) > 0.9, leftOfTheBar: r.right <= bar.left + 1,
+               round: Math.round(r.width) === Math.round(r.height), gap: Math.round(bar.left - r.right),
+               hittable: getComputedStyle(b).pointerEvents !== "none" }
     })(),
     /* Everything on screen, and where the middle of it is. */
     groupCentred: (() => {
@@ -680,6 +697,9 @@ console.log(`  the menu    ${open.covers}px tall from y=${open.top}, ${open.bg},
 console.log(`  a group     ${group.shutHeight}px to ${group.openHeight}px over ${group.steps} distinct heights, worst frame ${group.worstFrame}ms of ${group.frames}\n`)
 
 must(!shut.headerHasHamburger, "the hamburger is out of the header", "the header still carries a hamburger")
+must(!!shut.settingsWhenShut && shut.settingsWhenShut.opacity === 0 && !shut.settingsWhenShut.hittable && shut.settingsWhenShut.tab === -1,
+  "with the menu shut, settings is neither visible, pressable nor a tab stop",
+  `settings while shut: ${JSON.stringify(shut.settingsWhenShut)}`)
 must(shut.pill.centred, "the bar and the menu button, together, are centred",
   `they are off centre (bar at x=${shut.pill.x}, width ${shut.pill.w})`)
 must(shut.pill.gapToButton >= 4 && shut.pill.gapToButton <= 16,
@@ -690,9 +710,9 @@ must(shut.pill.bottomGap >= 4 && shut.pill.bottomGap <= 40, "and sits just above
   `the pill is ${shut.pill.bottomGap}px from the bottom`)
 must(shut.pill.radius.startsWith("999") || Number.parseFloat(shut.pill.radius) >= shut.pill.h / 2,
   "it is a pill, not a rounded rectangle", `its radius is ${shut.pill.radius} on a ${shut.pill.h}px box`)
-must(shut.targets.length === 5, "the bar carries Home, Orders, Products, Settings, and the menu beside them",
+must(shut.targets.length === 5, "the bar carries Home, Orders, Products, Analytics, and the menu beside them",
   `it carries ${shut.targets.map((t) => t.label).join(", ")}`)
-must(shut.targets.map((t) => t.label).join(",") === "Home,Orders,Products,Settings,Menu",
+must(shut.targets.map((t) => t.label).join(",") === "Home,Orders,Products,Analytics,Menu",
   "in that order", `the order is ${shut.targets.map((t) => t.label).join(", ")}`)
 must(shut.targets.every((t) => t.h >= 40 && t.w >= 40), "every target in it is at least 40px",
   `targets: ${shut.targets.map((t) => `${t.label} ${t.w}x${t.h}`).join(", ")}`)
@@ -710,7 +730,7 @@ must(shut.hits.every((h) => h.reaches), "and a press in the middle of each one r
 must(shut.maskedBlurs === 0,
   "nothing behind the bar masks a backdrop-filter, which WKWebView paints as a flat fill",
   `${shut.maskedBlurs} element(s) carry both. On an iPhone that is a pale plate across the bottom of the screen.`)
-must(!!shut.fade && shut.fade.steps >= 4, "the page dissolves into a stacked progressive blur toward the bottom edge",
+must(!!shut.fade && shut.fade.steps >= 6, "a halo of concentric blurs sits around the bar",
   `the fade has ${shut.fade?.steps ?? 0} blur steps`)
 must(shut.fade?.masked === 0, "with no mask on any layer of it, which is the thing WKWebView cannot draw",
   `${shut.fade?.masked} layer(s) of the fade carry a mask`)
@@ -746,14 +766,16 @@ console.log("")
 console.log("  a column down the left margin, scrolled to the end of the page:")
 for (const c of column) console.log(`    y=${String(c.y).padStart(3)}  rgb(${c.rgb.join(",")})${distance(c.rgb, pageColour) > 2 ? "   <- not the page colour" : ""}`)
 console.log("")
-console.log(`  the blur    stripes read ${blur.above} of contrast above the fade, ${blur.top} at its top, ${blur.bottom} at the bar\n`)
+console.log(`  the halo    stripes read ${blur.above} of contrast above it, ${blur.top} at its edge, ${blur.bottom} beside the bar, ${blur.margin} in the left margin\n`)
 must(blur.above >= 120, "the stripe pattern is sharp where nothing is over it, so the test can see",
   `only ${blur.above} of contrast above the fade: the stripes are not being drawn sharply enough to measure against`)
-must(blur.bottom <= blur.above * 0.3, "at the bar the page is blurred, not just tinted",
-  `the stripes still read ${blur.bottom} of contrast at the bar against ${blur.above} above the fade`)
+must(blur.margin >= blur.above * 0.9, "the halo is around the bar and does not reach the screen's edge",
+  `the stripes read ${blur.margin} in the left margin against ${blur.above} above the halo: the fade is a band across the screen again`)
+must(blur.bottom <= blur.above * 0.45, "beside the bar the page is softened, gently",
+  `the stripes still read ${blur.bottom} of contrast beside the bar against ${blur.above} above the halo`)
 must(blur.top > blur.bottom + 10, "and the blur is progressive: lighter at the top of the fade than at the bottom",
   `the top of the fade reads ${blur.top} and the bottom ${blur.bottom}, which is a flat blur with an edge rather than a fade`)
-must(blur.top >= blur.above * 0.35, "with the top edge of the fade barely touched, so there is no line where it begins",
+must(blur.top >= blur.above * 0.7, "with the halo's edge barely touched, so there is no line where it begins",
   `the top of the fade already reads ${blur.top} against ${blur.above} above it: the blur starts with a step`)
 
 must(plateSteps.length === 0,
@@ -796,17 +818,20 @@ must(!/height|width|top|left|margin|padding/.test(open.transition) && /transform
   "it moves on transform and opacity only", `it transitions ${open.transition}, which relayouts every frame`)
 must(open.pageLocked === "hidden", "the page behind it does not scroll while it is open",
   `.app-content-scroll is overflow-y: ${open.pageLocked}`)
-must(open.barItems.filter((l) => l === "Settings").length === 1,
-  "settings is in the bar and stays there, open or shut",
-  "settings used to appear beside the X only while the menu was open, which is the one time you are not looking for it")
-must(open.groupCentred, "and the bar is still centred with the menu open",
-  "opening the menu pushed the bar off centre")
+must(!!open.settingsOpen?.visible && !!open.settingsOpen?.hittable, "a settings circle appears when the menu opens",
+  "there is no settings control while the menu is open")
+must(!!open.settingsOpen?.leftOfTheBar, "to the LEFT of the bar, mirroring the X on the right",
+  "the settings circle is not to the left of the bar")
+must(!!open.settingsOpen?.round && open.settingsOpen.gap >= 4 && open.settingsOpen.gap <= 16, "as a circle of its own, the same distance from the bar as the X",
+  `it is ${open.settingsOpen?.gap}px from the bar and ${open.settingsOpen?.round ? "round" : "not round"}`)
+must(open.groupCentred, "and settings, the bar and the X together are still centred",
+  "opening the menu pushed the group off centre")
 must(!open.hasQuickSale, "and there is no Quick Sale", "a Quick Sale control is in the menu")
 must(open.minRowHeight >= 40, "every row in it is at least 40px tall", `the shortest row is ${open.minRowHeight}px`)
 must(open.closeIsInThePill, "the menu button has become the close button", "there is no close control in the pill")
 must(open.pillOverMenu, "and the pill is on top of the page it opened", "the menu page is drawn over its own pill")
-must(open.barItems.join(",") === "Home,Orders,Products,Settings,Close menu",
-  "and nothing is added or taken away when it opens",
+must(open.barItems.join(",") === "Home,Orders,Products,Analytics,Settings,Close menu",
+  "and the four places in the bar are untouched by it",
   `the bar shows ${open.barItems.join(", ")}`)
 
 console.log("")
@@ -828,7 +853,7 @@ must(drag.distinct >= 3, "through the slots on the way, not straight to the end"
   `it only ever showed ${drag.distinct} positions`)
 must(drag.monotonic, "and it never goes backwards while the finger goes forwards",
   `the trail was ${drag.trail.join(", ")}`)
-must(drag.went === "/app/settings", "lifting picks the slot the finger is over",
+must(drag.went === "/app/analytics", "lifting picks the slot the finger is over",
   `it navigated to ${drag.went} instead of the fourth slot`)
 must(drag.haptics.length >= 4, "and it ticks on the way, once per slot crossed and once on the lift",
   `${drag.haptics.length} haptic ticks for a slide across four slots`)

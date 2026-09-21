@@ -77,8 +77,23 @@ function main() {
     "a full reload in Capacitor loses the session, which lives in Preferences")
   check("the page behind the menu is locked while it is open",
     /useLockAppScroll\(mobileMenuOpen\)/.test(shell))
-  check("the bar is given the four glyphs it draws, all from the rail's own family",
-    /icons=\{\{[\s\S]{0,400}?home: NAV_ICONS\.dashboard[\s\S]{0,400}?orders: NAV_ICONS\.orders[\s\S]{0,400}?products: NAV_ICONS\.products[\s\S]{0,400}?settings: NAV_ICONS_EXTRA\.settings/.test(shell))
+  check("the bar is given the five glyphs it draws, all from the rail's own family",
+    /icons=\{\{[\s\S]{0,400}?home: NAV_ICONS\.dashboard[\s\S]{0,400}?orders: NAV_ICONS\.orders[\s\S]{0,400}?products: NAV_ICONS\.products[\s\S]{0,400}?analytics: NAV_ICONS\.analytics[\s\S]{0,400}?settings: NAV_ICONS_EXTRA\.settings/.test(shell))
+  /*
+    ── A TAB BAR IS ONLY A TAB BAR IF THE TABS ARE STILL THERE ─────────────
+    Since Next 15 the client router keeps a dynamic page's payload for zero
+    seconds, so every press on the bar refetched the page and showed its
+    loading.tsx skeleton, even one you were on a moment ago. "If I already
+    loaded the page, why does every switch load it as a new thing." The
+    config keeps a visited page for five minutes, and the bar warms its four
+    routes on mount so the first press does not start from cold.
+  */
+  check("the router keeps a visited page rather than refetching it on every press",
+    /staleTimes: \{\s*\n\s*dynamic: 300,\s*\n\s*static: 300,/.test(read("next.config.mjs")),
+    "with staleTimes.dynamic at 0, every tab press shows the skeleton again")
+  check("and the shell warms the bar's routes",
+    /onPrefetch=\{\(href\) => \{[\s\S]{0,120}?router\.prefetch\(href\)/.test(shell)
+      && /for \(const item of items\) onPrefetch\(item\.href\)/.test(nav))
   check("and it draws no glyph from a second icon library",
     !/from "lucide-react"/.test(nav),
     "one glyph from a different library at 22px beside three Solar ones reads as heavier than all of them")
@@ -241,16 +256,28 @@ function main() {
     compound where they overlap. Measured by the probe with stripes behind
     them: 255 of contrast above the fade, 181 at its top, 28 at the bar.
   */
-  check("the fade is a stack of plain rectangles, each carrying only a blur",
-    /const FADE_STEPS = \[1, 2, 3, 4, 5, 6\]/.test(nav)
-      && /data-app-nav-fade-step=""/.test(nav)
-      && /backdropFilter: `blur\(\$\{blur\}px\)`/.test(nav))
-  check("and its tint is a separate plain gradient in the page's own colour",
-    /const FADE_TINT = "rgba\(248,249,250,0\.62\)"/.test(nav)
-      && /background: `linear-gradient\(to top, \$\{FADE_TINT\} 0%/.test(nav),
-    "a white tint would be a paler plate over a near-white page; the page's colour is invisible over plain page and frosts over content")
-  check("with the blur measured through stripes, progressively, in the probe",
-    /at the bar the page is blurred, not just tinted/.test(read("scripts/check-app-mobile-nav.mjs"))
+  /*
+    The fade was six full-width strips with blurs of 1 to 6, and each strip's
+    top edge was a step in radius the eye could find. It is a HALO now:
+    concentric stadiums around the bar group, every one carrying the same
+    1.4px blur, compounding toward the bar. No edge changes the radius by more
+    than that, and the halo reaches nowhere near the screen's edge. Measured
+    through stripes: 255 above it, 243 at its edge, 11 beside the bar, 255 in
+    the left margin.
+  */
+  check("the fade is a halo of concentric rounded layers, each carrying one small blur",
+    /const HALO_LAYERS = 8/.test(nav) && /const HALO_BLUR = 1\.4/.test(nav)
+      && /inset: i \* HALO_STEP,/.test(nav)
+      && /backdropFilter: `blur\(\$\{HALO_BLUR\}px\)`/.test(nav))
+  check("around the bar group rather than across the screen",
+    /top: -HALO_REACH\.top,/.test(nav) && /left: -HALO_REACH\.side,/.test(nav)
+      && !/className="absolute inset-x-0 bottom-0"/.test(strip(nav)),
+    "a full-width band is what was asked to go")
+  check("and its tint is one radial gradient in the page's own colour",
+    /const HALO_TINT = "rgba\(248,249,250,0\.45\)"/.test(nav)
+      && /radial-gradient\(ellipse at 50% 60%, \$\{HALO_TINT\} 0%/.test(nav))
+  check("with the halo measured through stripes in the probe, including that it stops short of the edge",
+    /the halo is around the bar and does not reach the screen's edge/.test(read("scripts/check-app-mobile-nav.mjs"))
       && /the blur is progressive/.test(read("scripts/check-app-mobile-nav.mjs")))
   check("nothing in the bar is painted in the accent colour",
     !new RegExp(String.raw`ACCENT`).test(strip(nav).slice(strip(nav).indexOf("function MobileNavPill"))),
@@ -305,17 +332,28 @@ function main() {
       && /const SETTLE = `transform 420ms cubic-bezier\(0\.32, 1\.24, 0\.44, 1\)`/.test(nav)
       && /slide\.dragging \? TRACK : SETTLE/.test(nav))
   check("and it lifts a little under the finger, which is the newer system bars' tell",
-    /const LIFT = 1\.08/.test(nav) && /slide\.dragging \? LIFT : 1/.test(nav))
+    /const LIFT = 1\.06/.test(nav) && /slide\.dragging \? LIFT : 1/.test(nav))
+  /*
+    THE GLYPHS HOLD STILL WHILE THE CIRCLE MOVES. Cross-fading four glyphs on
+    every slot the circle crossed is what read as "icons glitch, scale
+    randomly, jumpy". The fill follows what has been committed; the lens
+    follows the finger.
+  */
+  check("the glyphs follow the committed slot, not the finger",
+    /const shown = slide\.dragging \? \(pending \?\? current\) : marked/.test(nav)
+      && /const on = i === shown/.test(nav))
 
   console.log("\n  and the menu changes nothing about the bar")
 
-  check("settings is the fourth slot, not something that appears beside the X",
-    /\{ key: "settings", label: "Settings", href: "\/app\/settings"/.test(nav)
-      && !/left: "100%"/.test(strip(nav)),
-    "it used to appear only while the menu was open, which is the one time you are not looking for it")
-  check("so nothing is added or removed when the menu opens",
-    !/translateX\(\$\{menuOpen/.test(strip(nav)),
-    "a group that changes width has to slide to stay centred, and that was only ever there to carry a button that has gone")
+  check("analytics is the fourth slot",
+    /\{ key: "analytics", label: "Analytics", href: "\/app\/analytics"/.test(nav)
+      && !/\{ key: "settings"/.test(strip(nav)))
+  check("and settings is a circle to the LEFT of the bar while the menu is open, mirroring the X",
+    /aria-label="Settings"/.test(nav) && /right: "100%",\s*\n\s*marginRight: GAP,/.test(nav)
+      && /tabIndex=\{menuOpen \? 0 : -1\}/.test(nav))
+  check("out of the flow, with the group sliding half its width to stay centred",
+    /transform: `translateX\(\$\{menuOpen \? \(BAR_H \+ GAP\) \/ 2 : 0\}px\)`/.test(nav),
+    "animating a width would relayout the row on every frame of the open")
 
   check("the hamburger's lines have a little more air between them",
     /top-\[3\.2px\]/.test(nav) && /top-\[13\.2px\]/.test(nav) && /h-\[1\.6px\]/.test(nav),

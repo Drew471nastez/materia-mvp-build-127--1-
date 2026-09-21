@@ -526,21 +526,38 @@ const DOT = BAR_H - PAD * 2
 const GAP = 8
 
 /**
- * The fade's six blurs, top of the fade first. They compound where the
- * rectangles overlap, roughly as the root of the sum of their squares, so the
- * bottom of the fade lands near 12px of blur and the top near 2, and no step
- * between neighbours is more than a couple of pixels.
+ * ===========================================================================
+ *  THE HALO: A FADE AROUND THE BAR, NOT A BAND ACROSS THE SCREEN
+ * ===========================================================================
+ * "The fade needs to be around the pill, not across all the screen at the
+ * bottom, and extremely subtle and clean. And not cut with strips."
+ *
+ * Both complaints have the same answer. The old fade was six full-width
+ * rectangles with blurs of 1 to 6 pixels stacked toward the bottom edge, and
+ * each rectangle's top edge was a step in blur radius that the eye could
+ * find: the strips. Now the layers are CONCENTRIC stadiums around the bar
+ * group, each inset a few pixels from the one before, and every one carries
+ * the SAME small blur. Where they overlap the blur compounds toward the bar,
+ * so it is softest at the halo's edge and strongest right around the bar, and
+ * no single edge changes the radius by more than 1.4px, which is under what
+ * a screen can show as a line. Eight of them compound to about 4px at the
+ * centre: "almost unobservable" is the brief.
+ *
+ * Still no mask anywhere, for the same reason as before: WKWebView draws a
+ * masked backdrop-filter as a flat plate. A rounded rectangle with only a
+ * blur on it is drawn the same way everywhere.
+ *
+ * The tint is one radial gradient in the page's colour, no filter, centred
+ * on the bar and gone by the halo's edge.
  */
-const FADE_STEPS = [1, 2, 3, 4, 5, 6]
-/**
- * The page under the bar on a phone is #f8f9fa, and the tint is that colour.
- * Lighter than the first cut: "subtle, smooth, clean, not so much". The bar
- * carries its own frost now, so the fade only has to soften the page around
- * it, not carry the whole effect.
- */
-const FADE_TINT = "rgba(248,249,250,0.62)"
-const FADE_TINT_MID = "rgba(248,249,250,0.34)"
-const FADE_TINT_NONE = "rgba(248,249,250,0)"
+const HALO_LAYERS = 8
+const HALO_STEP = 5
+const HALO_BLUR = 1.4
+/** How far the halo reaches beyond the bar group: above, to the sides, below. */
+const HALO_REACH = { top: 56, side: 44, bottom: 40 }
+/** The page under the bar on a phone is #f8f9fa, and the tint is that colour. */
+const HALO_TINT = "rgba(248,249,250,0.45)"
+const HALO_TINT_NONE = "rgba(248,249,250,0)"
 
 /**
  * ===========================================================================
@@ -563,7 +580,7 @@ const SETTLE = `transform 420ms cubic-bezier(0.32, 1.24, 0.44, 1)`
  * system bars: the thing you are holding is the thing that is bigger. It
  * settles back to size on the same spring it settles into place with.
  */
-const LIFT = 1.08
+const LIFT = 1.06
 
 /**
  * Three bars that become a cross.
@@ -699,35 +716,48 @@ export function MobileNavPill({
   onToggleMenu,
   onCloseMenu,
   onNavigate,
+  onPrefetch,
   icons,
 }: {
   menuOpen: boolean
   onToggleMenu: () => void
   onCloseMenu: () => void
   onNavigate: (href: string) => void
-  icons: { home: NavIconPair; orders: NavIconPair; products: NavIconPair; settings: NavIconPair }
+  /** Warms a route so the first press on it does not stream from cold. */
+  onPrefetch?: (href: string) => void
+  icons: { home: NavIconPair; orders: NavIconPair; products: NavIconPair; analytics: NavIconPair; settings: NavIconPair }
 }) {
   const pathname = usePathname()
 
   /*
-    HOME, ORDERS, PRODUCTS, SETTINGS — four pages of this person's own shop,
-    in that order, and they stay put when the menu opens.
+    HOME, ORDERS, PRODUCTS, ANALYTICS — four pages of this person's own shop,
+    in that order, and they stay put when the menu opens. Settings had the
+    fourth slot for a while; it is a circle that appears to the LEFT of the
+    bar while the menu is open now, mirroring the X on the right, and the
+    slot went to the page somebody actually visits between the other three.
 
-    Explore used to be the fourth of these and it was the odd one out: the
-    public site, somebody else's shops, a door out of this shell entirely. It
-    is up in the header beside the bell now, and settings has the slot, which
-    is where a settings button belongs — always there, rather than appearing
-    beside the X for as long as a menu happens to be open.
-
-    The menu is not a place either, so it is its own button beside the four
-    rather than a fifth slot in a row of places.
+    The menu is not a place, so it is its own button beside the four rather
+    than a fifth slot in a row of places.
   */
   const items: BarItem[] = [
     { key: "home", label: "Home", href: "/app", icon: icons.home },
     { key: "orders", label: "Orders", href: "/app/orders", icon: icons.orders },
     { key: "products", label: "Products", href: "/app/products", icon: icons.products },
-    { key: "settings", label: "Settings", href: "/app/settings", icon: icons.settings },
+    { key: "analytics", label: "Analytics", href: "/app/analytics", icon: icons.analytics },
   ]
+
+  /*
+    WARMED ONCE. A page pressed for the first time streams from the server
+    and shows its skeleton; a page the router has already fetched does not.
+    Prefetching the four on mount means the first press on any of them finds
+    at least the route's shell waiting, and next.config's staleTimes is what
+    keeps a page you have been on from being fetched again on the way back.
+  */
+  useEffect(() => {
+    if (!onPrefetch) return
+    for (const item of items) onPrefetch(item.href)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const current = items.findIndex((i) => isRouteActive(pathname, i.href))
 
@@ -769,6 +799,15 @@ export function MobileNavPill({
   /* Under the finger while one is down, then on the slot that was picked,
      then on the page you are actually on. */
   const marked = slide.at ?? pending ?? current
+  /*
+    THE GLYPHS DO NOT CHANGE UNDER A MOVING FINGER. The circle follows the
+    finger; the fill and the ink colour follow only what has been COMMITTED.
+    Cross-fading four glyphs on every slot the circle crossed is what read as
+    "icons glitch, scale randomly, jumpy": each crossing flipped a line glyph
+    to a filled one and back within a frame or two. The system bars this is
+    modelled on do the same thing — the lens moves, the icons wait.
+  */
+  const shown = slide.dragging ? (pending ?? current) : marked
 
   /**
    * Where it FADES OUT, which is not where slot zero is.
@@ -792,57 +831,6 @@ export function MobileNavPill({
       }}
     >
       {/*
-        ── THE FADE, BUILT OUT OF PLAIN RECTANGLES ──────────────────────────
-        The page dissolves into frosted glass over the last hundred pixels of
-        the screen, and the bar floats in that. It is what an iOS tab bar does
-        and it is what was asked for: "a very smooth tint, till the bottom,
-        fading into glassmorphism, blurring smoothly as you scroll".
-
-        THE FIRST VERSION WAS ONE ELEMENT, WITH `backdrop-filter` AND
-        `mask-image` ON IT, and on an iPhone that is a pale plate with a hard
-        top edge: WKWebView drops the mask and paints the filtered region as
-        a flat fill. Chromium composites the pair correctly, which is why no
-        probe here could ever see it, and why it was reported four times.
-
-        So there is no mask anywhere in this. A progressive blur is stacked
-        instead: six rectangles, all anchored to the bottom edge, each a
-        little shorter than the one before and each carrying a small blur of
-        its own. Where they overlap the blurs compound, so the top of the
-        fade is barely touched and the bottom is well blurred, with no single
-        step big enough to see. A rectangle with a backdrop-filter and nothing
-        else is the one thing every engine draws the same way.
-
-        The tint is a separate plain gradient, no filter on it, in the PAGE'S
-        colour rather than white: over a plain page it is invisible, which is
-        what keeps this from being a plate, and over content it frosts.
-      */}
-      <div
-        aria-hidden="true"
-        data-app-nav-fade=""
-        className="pointer-events-none absolute inset-x-0 bottom-0"
-        style={{ height: "calc(128px + env(safe-area-inset-bottom, 0px))" }}
-      >
-        {FADE_STEPS.map((blur, i) => (
-          <div
-            key={blur}
-            data-app-nav-fade-step=""
-            className="absolute inset-x-0 bottom-0"
-            style={{
-              height: `${100 - i * (100 / FADE_STEPS.length)}%`,
-              backdropFilter: `blur(${blur}px)`,
-              WebkitBackdropFilter: `blur(${blur}px)`,
-            }}
-          />
-        ))}
-        <div
-          className="absolute inset-0"
-          style={{
-            background: `linear-gradient(to top, ${FADE_TINT} 0%, ${FADE_TINT_MID} 42%, ${FADE_TINT_NONE} 100%)`,
-          }}
-        />
-      </div>
-
-      {/*
         ── THE GROUP ─────────────────────────────────────────────────────────
         The bar and the menu button, and that is all of it. A settings button
         used to appear beside the X while the menu was open, which meant the
@@ -851,7 +839,51 @@ export function MobileNavPill({
         fourth slot in the bar now, so nothing here is ever added or removed
         and nothing has to move to make room.
       */}
-      <div className="relative flex items-center" style={{ gap: GAP }}>
+      <div
+        className="relative flex items-center"
+        style={{
+          gap: GAP,
+          /* The halo sits at z -1 inside this, so this has to be its own
+             stacking context or z -1 would put it under the page. */
+          isolation: "isolate",
+          /* Settings appears to the LEFT, out of flow; the group slides half
+             its width to the right to stay centred, one transform, no layout. */
+          transform: `translateX(${menuOpen ? (BAR_H + GAP) / 2 : 0}px)`,
+          transition: `transform 380ms ${EASE}`,
+          willChange: "transform",
+        }}
+      >
+        {/* ── THE HALO ── see the note on HALO_LAYERS above. */}
+        <div
+          aria-hidden="true"
+          data-app-nav-fade=""
+          className="pointer-events-none absolute"
+          style={{
+            zIndex: -1,
+            top: -HALO_REACH.top,
+            bottom: -HALO_REACH.bottom,
+            left: -HALO_REACH.side,
+            right: -HALO_REACH.side,
+          }}
+        >
+          {Array.from({ length: HALO_LAYERS }, (_, i) => (
+            <div
+              key={i}
+              data-app-nav-fade-step=""
+              className="absolute rounded-full"
+              style={{
+                inset: i * HALO_STEP,
+                backdropFilter: `blur(${HALO_BLUR}px)`,
+                WebkitBackdropFilter: `blur(${HALO_BLUR}px)`,
+              }}
+            />
+          ))}
+          <div
+            className="absolute inset-0 rounded-full"
+            style={{ background: `radial-gradient(ellipse at 50% 60%, ${HALO_TINT} 0%, ${HALO_TINT_NONE} 72%)` }}
+          />
+        </div>
+
         <nav
           ref={slide.barRef}
           aria-label="Main"
@@ -894,7 +926,7 @@ export function MobileNavPill({
           />
 
           {items.map((item, i) => {
-            const on = i === marked
+            const on = i === shown
             return (
               <Link
                 key={item.key}
@@ -937,6 +969,43 @@ export function MobileNavPill({
           the finger that opened the menu does not have to go anywhere to
           close it again.
         */}
+        {/*
+          ── SETTINGS, ONLY WHILE THE MENU IS OPEN, ON THE LEFT ───────────
+          A circle to mirror the X on the right, out of the flow so nothing
+          is laid out again when it comes and goes. Closed, it takes no
+          presses and no tab stop.
+        */}
+        <button
+          type="button"
+          aria-label="Settings"
+          aria-hidden={!menuOpen}
+          tabIndex={menuOpen ? 0 : -1}
+          onClick={() => {
+            hapticTap("medium")
+            setPending(null)
+            onNavigate("/app/settings")
+            onCloseMenu()
+          }}
+          className={cn(
+            "absolute flex items-center justify-center rounded-full",
+            menuOpen ? "pointer-events-auto" : "pointer-events-none",
+          )}
+          style={{
+            ...GLASS,
+            right: "100%",
+            marginRight: GAP,
+            width: BAR_H,
+            height: BAR_H,
+            color: "#616b7a",
+            opacity: menuOpen ? 1 : 0,
+            transform: `scale(${menuOpen ? 1 : 0.6})`,
+            transition: `transform 380ms ${EASE}, opacity 220ms ease-out`,
+            willChange: "transform",
+          }}
+        >
+          <NavIcon icon={icons.settings} active={false} color="currentColor" size={22} />
+        </button>
+
         <button
           type="button"
           aria-label={menuOpen ? "Close menu" : "Menu"}
