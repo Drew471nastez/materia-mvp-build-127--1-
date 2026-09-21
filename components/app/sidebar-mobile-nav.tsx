@@ -586,10 +586,14 @@ const GAP = 8
  * to the left of it, and a halo hung on the group left that circle standing
  * on bare page.
  *
- * MORE THAN VISIBLE. 1.6px at the innermost layer was as close to nothing as
+ * AND THEN BACK DOWN. 1.6px at the innermost layer was as close to nothing as
  * a blur gets, which was the brief at the time ("almost unobservable"); "not
- * that potent, but more than visible" is 2.4, compounding to about 4px where
- * the layers overlap. The tint comes up with it.
+ * that potent, but more than visible" took it to 2.4, compounding to about
+ * 4px where the layers overlap. Asked down again with a picture of the bar
+ * and an arrow at the smear under it, and measured at 2.4 the stripes behind
+ * it read 255 of contrast above the halo and 15 beside the bar — 94% of it
+ * gone at the strongest point, which is the smear. 1.2 halves the radius.
+ * The tint moves with it.
  *
  * AND IT GOES PAST THE BOTTOM OF THE SCREEN. Its lower edge used to be tied
  * to the pill's own lift off the bottom, which on a phone with a home
@@ -603,7 +607,7 @@ const GAP = 8
 const HALO_LAYERS = 12
 const HALO_STEP = 3
 /** The strongest layer's blur; the outermost carries this over HALO_LAYERS². */
-const HALO_BLUR = 2.4
+const HALO_BLUR = 1.2
 const haloBlur = (i: number) => Math.round(HALO_BLUR * ((i + 1) / HALO_LAYERS) ** 2 * 1000) / 1000
 /** How far the halo reaches: above the bar, past the bottom of the screen,
     and past each side of it. The display crops the last two. */
