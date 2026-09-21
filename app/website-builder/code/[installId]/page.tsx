@@ -1,5 +1,6 @@
 "use client"
 
+import { keyboardInsetOrFloor } from "@/lib/ui/keyboard-safe-sheet"
 import * as React from "react"
 import { useEffect, useLayoutEffect, useState, useCallback, useMemo, useRef, use } from "react"
 import { FullScreenLock } from "@/components/website-builder/full-screen-lock"
@@ -487,9 +488,9 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
     if (!vv) return
     const measure = () => {
       const covered = window.innerHeight - vv.height - vv.offsetTop
-      // Rounded away from a sub-pixel: a 0.5px "keyboard" is a rounding
-      // artefact on every resize, and moving the bar by it is a twitch.
-      setKeyboardInset(covered > 1 ? Math.round(covered) : 0)
+      /* Rounded away from a sub-pixel, and falling back to the published
+         floor on a platform that reports no keyboard at all. */
+      setKeyboardInset(keyboardInsetOrFloor(covered))
     }
     measure()
     vv.addEventListener("resize", measure)

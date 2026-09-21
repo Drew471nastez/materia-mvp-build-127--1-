@@ -1,5 +1,6 @@
 "use client"
 
+import { keyboardInsetOrFloor } from "@/lib/ui/keyboard-safe-sheet"
 import { useState, useCallback, useRef, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
@@ -117,15 +118,21 @@ export function BuyerSettings({ userId, email, displayName: initialName, avatarU
   useEffect(() => {
     if (typeof window === "undefined" || !window.visualViewport) return
     const vv = window.visualViewport
-    let prevHeight = vv.height
+    const measureKeyboard = () =>
+      keyboardInsetOrFloor(Math.max(0, window.innerHeight - vv!.offsetTop - vv!.height))
+    let prevKeyboard = measureKeyboard()
 
     function onResize() {
-      // Ignore orientation changes — width change means rotation, not keyboard
-      const heightChanged = Math.abs(vv!.height - prevHeight) > 50
-      prevHeight = vv!.height
-      if (!heightChanged) return
-
-      const kbHeight = Math.max(0, window.innerHeight - vv!.offsetTop - vv!.height)
+      /*
+        The guard used to be on visualViewport's own height, which changes on
+        a rotation as well as a keyboard and does not change at all on a
+        platform that reports no keyboard. Guarding on the keyboard itself
+        covers both: a rotation moves innerHeight and the viewport together,
+        so the keyboard reads the same and this still returns.
+      */
+      const kbHeight = measureKeyboard()
+      if (Math.abs(kbHeight - prevKeyboard) < 50) return
+      prevKeyboard = kbHeight
 
       // Two rAFs: first for KeyboardGuard's CSS (height: var(--vvh)) to apply,
       // second to read the updated clientHeight and act on correct geometry.

@@ -56,6 +56,7 @@ import {
   KEYBOARD_ESTIMATE_DELAY_MS,
   KEYBOARD_FLOOR_FRACTION,
   bottomAboveKeyboard,
+  keyboardInsetOrFloor,
   estimatedKeyboardInset,
   keyboardInset,
   needsKeyboardEstimate,
@@ -221,6 +222,84 @@ function main() {
     probe.includes(`const FLOOR_FRACTION = ${KEYBOARD_FLOOR_FRACTION}`)
       && /with nothing reported the field was NOT behind the keyboard/.test(probe)
       && /const REAL_KEYBOARD_FRACTION = 0\.445/.test(probe),
+  )
+
+  console.log("\nAnd every surface that works the keyboard out reaches the same number")
+
+  /*
+    ONE NUMBER, SIX PLACES. The expression
+    `innerHeight - visualViewport.offsetTop - visualViewport.height` was
+    written out by hand in six components. Every one of them is correct, and
+    on the reported phone every one is zero, because that is the platform
+    saying nothing. A floor given to one of them fixes one sheet.
+
+    So they all ask the same way: keep your own measurement when the platform
+    gave one, take the published floor when it did not. On a platform that
+    reports, every one of them behaves exactly as before.
+  */
+  check("a surface keeps its own measurement when there is one", keyboardInsetOrFloor(336) === 336)
+  check(
+    "and a sub-pixel is not a keyboard",
+    keyboardInsetOrFloor(0.5) === 0,
+    "half a pixel of 'keyboard' turns up on every resize, and moving a bar by it is a twitch",
+  )
+
+  const rawKeyboardMaths = /innerHeight\s*-\s*[\w!.?]+\.(?:height|offsetTop)\s*-\s*[\w!.?]+\.(?:height|offsetTop)/
+  const scanned: string[] = []
+  const unshared: string[] = []
+  const scan = (dir: string) => {
+    for (const entry of readdirSync(join(process.cwd(), dir), { withFileTypes: true })) {
+      const rel = `${dir}/${entry.name}`
+      if (entry.isDirectory()) { scan(rel); continue }
+      if (!entry.name.endsWith(".tsx") && !entry.name.endsWith(".ts")) continue
+      const src = read(rel)
+      if (!rawKeyboardMaths.test(src)) continue
+      scanned.push(rel)
+      if (!src.includes("keyboardInsetOrFloor")) unshared.push(rel)
+    }
+  }
+  scan("components")
+  scan("app")
+  check("every file that works out a keyboard height was found", scanned.length >= 6, `${scanned.length} found`)
+  check(
+    "and every one of them falls back to the published floor",
+    unshared.length === 0,
+    `${unshared.join(", ")} works the keyboard out alone, so it is zero on a web view that reports nothing`,
+  )
+  for (const file of [
+    ["components/platform/keyboard-guard.tsx", "the keyboard-open class and --vvh, which every /app page is sized by"],
+    ["components/app/app-layout-wrapper.tsx", "--keyboard-inset-height"],
+    ["app/library/settings/buyer-settings.tsx", "the buyer's settings"],
+    ["app/app/products/new/page.tsx", "the product form's own sheet"],
+    ["components/website-builder/mobile-editor-sheet.tsx", "the website builder's sheet"],
+  ] as const) {
+    check(`${file[0].split("/").slice(-1)[0]}: ${file[1]}`, read(file[0]).includes("keyboardInsetOrFloor"))
+  }
+  /* The guard's own height variable has to follow the same number, or the
+     class says a keyboard is up and the height says the screen is empty. */
+  check(
+    "and the guard's --vvh is the room left by that number, not the viewport's own height",
+    (() => {
+      const src = read("components/platform/keyboard-guard.tsx")
+      return /root\.style\.setProperty\("--vvh", `\$\{Math\.round\(visibleHeight\)\}px`\)/.test(src)
+        && /const visibleHeight = Math\.max\(0, window\.innerHeight - kbHeight\)/.test(src)
+    })(),
+  )
+
+  console.log("\nAnd they are told when the floor appears, having been written before it")
+
+  check(
+    "ViewportVars announces a change",
+    /window\.dispatchEvent\(new CustomEvent\(KEYBOARD_CHANGE_EVENT/.test(vars),
+  )
+  check(
+    "and wakes the listeners that predate it, in the language they were written in",
+    /vv\?\.dispatchEvent\(new Event\("resize"\)\)/.test(vars),
+    "the floor is published on a timer, and all six listen for a viewport event",
+  )
+  check(
+    "only when something actually changed, so the synthetic resize cannot loop",
+    /if \(changed\) \{/.test(vars) && (vars.match(/changed = true/g) ?? []).length === 2,
   )
 
   console.log("\nThe editor's panel ends at the keyboard too")

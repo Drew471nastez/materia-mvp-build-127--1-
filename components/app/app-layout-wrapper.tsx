@@ -6,6 +6,7 @@ import { NavigationLoadingBar } from "./navigation-loading-bar"
 import { LanguageProvider } from "@/lib/i18n"
 import { PurchaseSyncProvider } from "@/components/checkout/purchase-sync-provider"
 import { DocumentScrollGuard } from "@/components/app/document-scroll-guard"
+import { keyboardInsetOrFloor } from "@/lib/ui/keyboard-safe-sheet"
 
 export function AppLayoutWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
@@ -142,7 +143,7 @@ export function AppLayoutWrapper({ children }: { children: React.ReactNode }) {
 
       // Keyboard appearance / disappearance (width unchanged).
       // Keyboard height = total window height minus visible-viewport height minus any scroll offset
-      const kbHeight = Math.max(0, window.innerHeight - vv.offsetTop - vv.height)
+      const kbHeight = keyboardInsetOrFloor(Math.max(0, window.innerHeight - vv.offsetTop - vv.height))
       root.style.setProperty("--keyboard-inset-height", `${kbHeight}px`)
 
       // iOS WKWebView scrolls the visual viewport up when the keyboard opens so

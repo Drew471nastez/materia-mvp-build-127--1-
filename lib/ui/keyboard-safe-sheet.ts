@@ -173,6 +173,47 @@ export function needsKeyboardEstimate(state: {
 }
 
 /**
+ * ===========================================================================
+ *  ONE NUMBER, AND THE SIX PLACES THAT WERE WORKING IT OUT SEPARATELY
+ * ===========================================================================
+ * `innerHeight - visualViewport.offsetTop - visualViewport.height` was written
+ * out by hand in six components: this app's shell, the keyboard guard, the
+ * buyer's settings, the product form's sheet, the code screen's bar, and the
+ * website builder's sheet. Each of them is correct, and on the phone that was
+ * reported every one of them is zero, because that is the platform saying
+ * nothing. Giving the floor to one of them would have fixed one sheet.
+ *
+ * So the floor is published once, by ViewportVars, and every one of those
+ * places asks for it the same way: keep your own measurement when the
+ * platform gave you one, and take the published number when it did not. The
+ * behaviour on a platform that reports is unchanged, to the pixel.
+ *
+ * ViewportVars also dispatches a `resize` on visualViewport when the floor
+ * appears or goes, because all six were already listening for one, and a
+ * number nobody is told about is no better than no number.
+ */
+export const KEYBOARD_CHANGE_EVENT = "storelib:keyboard"
+
+/** What ViewportVars last published, in pixels. Zero when there is no keyboard. */
+export function readPublishedKeyboardInset(): number {
+  if (typeof document === "undefined") return 0
+  /* An inline style on <html>, so this is a read and not a style recalculation. */
+  const n = Number.parseFloat(document.documentElement.style.getPropertyValue("--kb-inset"))
+  return Number.isFinite(n) && n > 0 ? n : 0
+}
+
+/**
+ * The keyboard height a surface should act on.
+ *
+ * @param measured What this surface worked out from visualViewport itself.
+ *   Sub-pixel values are a rounding artefact on every resize, and moving a bar
+ *   by half a pixel is a twitch, so anything under 1px counts as no keyboard.
+ */
+export function keyboardInsetOrFloor(measured: number): number {
+  return measured > 1 ? Math.round(measured) : readPublishedKeyboardInset()
+}
+
+/**
  * The number `--kb-inset` carries, as a function so it can be tested rather
  * than trusted.
  *

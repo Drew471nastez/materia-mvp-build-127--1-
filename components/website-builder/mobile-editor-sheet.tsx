@@ -28,6 +28,7 @@
  * on a browser that has no on-screen keyboard anyway.
  */
 
+import { keyboardInsetOrFloor } from "@/lib/ui/keyboard-safe-sheet"
 import * as React from "react"
 import { createPortal } from "react-dom"
 import { sheetBottomReserve } from "@/lib/website-builder/sheet-reserve"
@@ -467,7 +468,7 @@ export function MobileEditorSheet({
       const kb = keyboardWindow()
       const kvv = kb.visualViewport
       const covered = kvv ? kb.innerHeight - kvv.height - kvv.offsetTop : 0
-      const keyboard = covered > 1 ? Math.round(covered) : 0
+      const keyboard = keyboardInsetOrFloor(covered)
       setKeyboardInset(keyboard)
       /**
        * =====================================================================
