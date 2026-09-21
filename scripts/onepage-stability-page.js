@@ -105,6 +105,122 @@
         slideSnap = track.children.length ? getComputedStyle(track.children[0]).scrollSnapAlign : null
       }
 
+      /*
+        ═══════════════════════════════════════════════════════════════════
+         THE ARROW HAS TO MOVE THE PICTURE, NOT JUST THE DOT
+        ═══════════════════════════════════════════════════════════════════
+        Reported exactly that way: "it just updates the navigation dots, but
+        the images don't move at all, even if I click the arrows". The build
+        that did it positioned the row with a transform computed from a
+        measured width while the dots came from separate React state, so when
+        the measurement was 0 the dots advanced over a gallery that never
+        moved. Nothing here could have caught it, because nothing here looked
+        at where a picture was.
+      */
+      /* The carousel's own root. Named apart from the page root above, which
+         this shadowed on the first attempt and quietly turned the image count
+         into a count of the carousel's images. */
+      /*
+        SMOOTH SCROLLING DOES NOT ADVANCE UNDER A VIRTUAL CLOCK.
+
+        Same trap as CSS transitions in headless Chromium: the page is driven
+        by --virtual-time-budget, and an animated scroll never gets there, so
+        the arrow appeared to move nothing. What is under test here is WHERE
+        the arrow scrolls to, not how prettily it gets there, so the animation
+        is turned off for the measurement and left alone in the product.
+      */
+      var realScrollTo = Element.prototype.scrollTo
+      Element.prototype.scrollTo = function (opts) {
+        if (opts && typeof opts === "object") return realScrollTo.call(this, { ...opts, behavior: "auto" })
+        return realScrollTo.apply(this, arguments)
+      }
+
+      var carouselRoot = track ? (track.closest(".group") || track.parentElement) : null
+      var arrow = carouselRoot ? carouselRoot.querySelector('button[aria-label="Next image"]') : null
+      var pictureBefore = track ? Math.round(track.children[0].getBoundingClientRect().left) : null
+      if (arrow) arrow.click()
+
+      setTimeout(function () {
+        var pictureAfter = track ? Math.round(track.children[0].getBoundingClientRect().left) : null
+
+        /*
+          AND THE DOT FILLS BY DEGREES.
+
+          Parked exactly halfway between two slides, neither dot is the
+          winner: both should be about half grown. Two values — one long pill
+          and four short ones — is the snap that was reported as "too direct".
+        */
+        /*
+          MANDATORY SNAP WILL NOT LET IT REST BETWEEN TWO SLIDES.
+
+          Setting scrollLeft to the midpoint and reading it back gave the
+          snap point instead: asked 198, got 395. That is correct — x
+          mandatory decides where a scroll comes to REST, and this is asking
+          about a position it only ever passes through, which is where the
+          dot fill has to be half way across. So the snapping is lifted for
+          the measurement and put straight back.
+        */
+        var dotWidths = null
+        var halfway = null
+        if (track && carouselRoot && track.children.length > 1) {
+          var step = track.children[1].offsetLeft - track.children[0].offsetLeft
+          var snapWas = track.style.scrollSnapType
+          track.style.scrollSnapType = "none"
+          track.scrollLeft = step * 0.5
+          track.dispatchEvent(new Event("scroll"))
+          halfway = { step: Math.round(step), asked: Math.round(step * 0.5), got: Math.round(track.scrollLeft), snapWas: snapWas }
+        }
+
+        setTimeout(function () {
+          if (carouselRoot) {
+            var dots = carouselRoot.querySelectorAll('button[aria-label^="Go to slide"]')
+            dotWidths = []
+            for (var d = 0; d < dots.length; d++) {
+              dotWidths.push(Math.round(dots[d].getBoundingClientRect().width * 10) / 10)
+            }
+            halfway.current = []
+            for (var d2 = 0; d2 < dots.length; d2++) halfway.current.push(dots[d2].getAttribute("aria-current"))
+            halfway.inlineWidth = dots[0].style.width || "(none)"
+            halfway.scrollNow = Math.round(track.scrollLeft)
+            /* Put the snapping back only once the reading is taken: restoring
+               it first let the scroller snap away from the position being
+               measured before anything was read. */
+            track.style.scrollSnapType = halfway.snapWas
+          }
+
+          /*
+            ═══════════════════════════════════════════════════════════════
+             PRESSING AWAY CLOSES THE SUBSCRIBE PANEL
+            ═══════════════════════════════════════════════════════════════
+            There was only the small x, so anywhere else you pressed left it
+            sitting open over the page.
+
+            Read through pointer-events rather than opacity: the panel fades
+            over 300ms and a virtual clock does not advance a transition, so
+            opacity still says 1 long after the decision to close has been
+            made. pointer-events is switched by the class outright, which is
+            the decision itself.
+
+            And a step between each reading, because React commits a click's
+            state change after the handler returns — reading straight after
+            .click() reads the panel as it was before the press, which is how
+            the first version of this reported that the bell did not open it.
+          */
+          var bellSvg = document.querySelector("#root button svg")
+          var bellButton = bellSvg ? bellSvg.closest("button") : null
+          var panel = bellButton ? bellButton.parentElement.querySelector(":scope > div") : null
+          var readPanel = function () { return panel ? getComputedStyle(panel).pointerEvents : null }
+          var subscribe = panel ? { beforeOpening: readPanel(), fade: getComputedStyle(panel).transitionDuration,
+                                    panelClass: String(panel.className).slice(0, 60) } : null
+          if (bellButton) bellButton.click()
+
+          setTimeout(function () {
+            if (subscribe) subscribe.whenOpen = readPanel()
+            document.body.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, cancelable: true }))
+
+            setTimeout(function () {
+              if (subscribe) subscribe.afterPressingAway = readPanel()
+
       report({
         imgCount: root.querySelectorAll("img").length,
         imgList: (function () {
@@ -141,10 +257,19 @@
         slideSnapAlign: slideSnap,
         canScroll: track ? track.scrollWidth > track.clientWidth + 8 : false,
         overflowX: track ? getComputedStyle(track).overflowX : null,
+        pictureMovedByArrow: pictureBefore !== null && pictureAfter !== null ? pictureAfter - pictureBefore : null,
+        arrowFound: !!arrow,
+        dotWidthsAtHalfway: dotWidths,
+        subscribe: subscribe,
+        halfway: halfway,
         itemPixels: itemPixels,
         containerBox: containerBox,
         error: window.__err || null,
-      })
+              })
+            }, 120)
+          }, 120)
+        }, 400)
+      }, 900)
     }, 400)
   }, 1200)
 })()

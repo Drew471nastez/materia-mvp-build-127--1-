@@ -23,7 +23,7 @@ import type {
 import { normalizeSocialUrl } from "@/lib/onepage/types"
 import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { useState, useRef, useEffect, useCallback, createContext, useContext } from "react"
+import { useState, useRef, useEffect, useLayoutEffect, useCallback, createContext, useContext } from "react"
 import { Bell, X, Check, Send, Link2, ChevronLeft, ChevronRight, ExternalLink, Loader2, Download, ShoppingBag, Calendar } from "lucide-react"
 import { getLinksUrl, getLinksShareUrl } from "@/lib/url-helpers"
 import { isNativeApp } from "@/lib/platform-utils"
@@ -408,8 +408,42 @@ function NotificationBell({
   // Show when visible OR when panel is open (so it doesn't vanish mid-interaction)
   const shouldShow = (isVisible || isOpen) && !hideForModal
 
+  /*
+    ═══════════════════════════════════════════════════════════════════════
+     PRESSING AWAY CLOSES IT
+    ═══════════════════════════════════════════════════════════════════════
+    There was only the small x. Anywhere else you pressed, the panel stayed
+    open over the page, which is not how anything else on the page behaves.
+
+    On pointerdown rather than click, so it goes the moment you commit to
+    looking somewhere else rather than on release. The panel keeps its own
+    300ms ease-out on opacity, width and scale, so this only decides WHEN it
+    closes; it still shrinks back into the bell rather than disappearing.
+
+    The bell itself is inside `rootRef`, so its own toggle still works and is
+    not fighting a close on the same press. Escape closes it too, because a
+    panel that takes a keyboard focus should give it back.
+  */
+  const rootRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!isOpen) return
+    const away = (e: PointerEvent) => {
+      const el = e.target as Node | null
+      if (el && rootRef.current && !rootRef.current.contains(el)) setIsOpen(false)
+    }
+    const escape = (e: KeyboardEvent) => { if (e.key === "Escape") setIsOpen(false) }
+    document.addEventListener("pointerdown", away, true)
+    document.addEventListener("keydown", escape)
+    return () => {
+      document.removeEventListener("pointerdown", away, true)
+      document.removeEventListener("keydown", escape)
+    }
+  }, [isOpen])
+
   return (
     <div
+      ref={rootRef}
       className="fixed top-4 right-4 sm:top-6 sm:right-6 z-[20] transition-all duration-500 ease-out"
       style={{
         opacity: shouldShow ? 1 : 0,
@@ -3227,6 +3261,27 @@ function GroupBlockRenderer({
  *    The measurement stays, because the translate still needs a real number,
  *    but at index 0 that number is 0 and nothing moves while it arrives.
  */
+/*
+  ═══════════════════════════════════════════════════════════════════════════
+   THE DOTS FOLLOW THE ROW, THEY DO NOT WAIT FOR IT TO ARRIVE
+  ═══════════════════════════════════════════════════════════════════════════
+  Reported as the dot filling "too direct, not smooth": the active pill used
+  to be `idx === currentIndex`, so it snapped from one dot to the next the
+  instant the nearest slide changed — at the halfway point of a scroll, in one
+  step, however slowly the finger was moving.
+
+  A dot's width and opacity are now a function of where the row actually is:
+  at 40% between two slides the pill is 40% grown into the second one and 60%
+  still in the first. Scrolling by hand, by arrow or by autoplay all produce
+  the same continuous movement, because all three move the same scrollLeft.
+
+  Written straight to the nodes rather than through state, because this runs
+  on every animation frame of a scroll and re-rendering React that often to
+  change two numbers on five small elements is the cost the drag used to pay.
+*/
+const DOT_MIN = 8
+const DOT_MAX = 24
+
 /**
  * ===========================================================================
  *  THE SLIDER IS A SCROLLER, AND THE BROWSER DOES THE SCROLLING
@@ -3317,8 +3372,49 @@ function PublicImageCarousel({
     Read once per frame rather than per scroll event, because a touch scroll
     on a phone fires far more of those than there are frames to draw.
   */
+  const dotsRef = useRef<HTMLDivElement>(null)
+
+  /*
+    How far one slide is from the next. Held rather than asked for on every
+    scroll event, because reading offsetLeft straight after writing a style
+    forces the browser to lay the page out again, and a touch scroll fires
+    these by the hundred.
+  */
+  const stepRef = useRef(0)
+  const measureStep = useCallback(() => {
+    const el = scrollerRef.current
+    if (!el || el.children.length < 2) return
+    stepRef.current = (el.children[1] as HTMLElement).offsetLeft - (el.children[0] as HTMLElement).offsetLeft
+  }, [])
+
+  /* Where the row is, as a fraction of a slide, and the dots drawn from it. */
+  const paintDots = useCallback(() => {
+    const el = scrollerRef.current
+    const dots = dotsRef.current
+    if (!el || !dots) return
+    const step = stepRef.current
+    const progress = step > 0 ? Math.max(0, Math.min(el.scrollLeft / step, maxIndex)) : 0
+    for (let i = 0; i < dots.children.length; i++) {
+      const dot = dots.children[i] as HTMLElement
+      const nearness = Math.max(0, 1 - Math.abs(progress - i))
+      dot.style.width = `${DOT_MIN + (DOT_MAX - DOT_MIN) * nearness}px`
+      dot.style.opacity = String(0.4 + 0.6 * nearness)
+    }
+  }, [maxIndex])
+
   const rafRef = useRef<number | null>(null)
   const handleScroll = useCallback(() => {
+    /*
+      THE DOTS ARE PAINTED HERE, NOT INSIDE THE FRAME CALLBACK.
+
+      They were, and in a headless measurement of this component the frame
+      callback never ran: the row moved and the dots did not. Four width and
+      opacity writes do not need a frame of their own, and the thing the eye
+      is following should not be the thing waiting in a queue. The frame is
+      still used for the React state below, which only changes when the
+      nearest slide changes and can afford to be late.
+    */
+    paintDots()
     if (rafRef.current !== null) return
     rafRef.current = requestAnimationFrame(() => {
       rafRef.current = null
@@ -3335,7 +3431,37 @@ function PublicImageCarousel({
          the positions you can actually stop at. */
       setCurrentIndex(Math.min(nearest, maxIndex))
     })
-  }, [maxIndex])
+  }, [maxIndex, paintDots])
+
+  /*
+    A NATIVE SCROLL LISTENER, NOT REACT'S onScroll.
+
+    scroll does not bubble, so React delegates it specially, and in a headless
+    measurement of this very component the handler never ran at all: the row
+    moved, and the dots and the current index stayed where they were. That is
+    the "dots don't update" bug in miniature, and there is nothing to gain by
+    routing this one event through React. Passive, because nothing here ever
+    wants to cancel a scroll.
+  */
+  useEffect(() => {
+    const el = scrollerRef.current
+    if (!el) return
+    el.addEventListener("scroll", handleScroll, { passive: true })
+    return () => el.removeEventListener("scroll", handleScroll)
+  }, [handleScroll])
+
+  /* Before the first paint, so no dot is ever drawn at the wrong size. */
+  useLayoutEffect(() => {
+    measureStep()
+    paintDots()
+  }, [measureStep, paintDots, images.length])
+
+  /* A narrower window is a shorter slide. */
+  useEffect(() => {
+    const onResize = () => { measureStep(); paintDots() }
+    window.addEventListener("resize", onResize)
+    return () => window.removeEventListener("resize", onResize)
+  }, [measureStep, paintDots])
 
   useEffect(() => () => { if (rafRef.current !== null) cancelAnimationFrame(rafRef.current) }, [])
 
@@ -3389,7 +3515,6 @@ function PublicImageCarousel({
       {/* The row itself: a scroller, snapping, with its scrollbar hidden. */}
       <div
         ref={scrollerRef}
-        onScroll={handleScroll}
         onTouchStart={hold}
         className="w-full scrollbar-hide"
         style={{
@@ -3453,20 +3578,22 @@ function PublicImageCarousel({
 
       {/* Navigation Dots */}
       {images.length > 1 && (
-        <div className="flex justify-center gap-2 mt-3.5 pb-0.5">
+        <div ref={dotsRef} className="flex justify-center gap-2 mt-3.5 pb-0.5">
           {Array.from({ length: dotCount }, (_, idx) => (
             <button
               key={idx}
               type="button"
               onClick={(e) => { e.preventDefault(); e.stopPropagation(); hold(); goToSlide(idx) }}
-              className={cn(
-                "h-2 rounded-full transition-all duration-200",
-                idx === currentIndex
-                  ? "w-6 bg-current"
-                  : "w-2 bg-current opacity-40 hover:opacity-60"
-              )}
+              /*
+                No w-6/w-2 and no opacity-40 here on purpose: paintDots owns
+                both, written inline so they beat these classes, and a class
+                that flipped on currentIndex is exactly the snap that was
+                reported. What is left is the size before the first paint.
+              */
+              className="h-2 w-2 rounded-full bg-current opacity-40"
               style={{ color: theme.text_color }}
               aria-label={`Go to slide ${idx + 1}`}
+              aria-current={idx === currentIndex}
             />
           ))}
         </div>

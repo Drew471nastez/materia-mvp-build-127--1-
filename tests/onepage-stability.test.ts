@@ -171,6 +171,50 @@ function main() {
     )
   }
 
+  console.log("\nThe dots follow the row instead of waiting for it")
+
+  for (const [name, src] of both) {
+    check(
+      `${name}: a dot's size is a function of where the row is`,
+      /const nearness = Math\.max\(0, 1 - Math\.abs\(progress - i\)\)/.test(src),
+      "idx === currentIndex snaps at the halfway point in one step, however slowly the finger is moving",
+    )
+    check(
+      `${name}: and no class flips on the current index`,
+      !/idx === currentIndex\s*\n\s*\? "w-6 bg-current"/.test(src) && !/\? "w-4 bg-current"/.test(src),
+    )
+    check(
+      `${name}: they are painted without waiting for a frame`,
+      /THE DOTS ARE PAINTED HERE, NOT INSIDE THE FRAME CALLBACK/.test(src),
+      "measured headless, the frame callback never ran: the row moved and the dots did not",
+    )
+    check(
+      `${name}: the step is held, not re-read on every scroll event`,
+      /const stepRef = useRef\(0\)/.test(src),
+      "reading offsetLeft straight after writing a style forces a fresh layout, and a touch scroll fires these by the hundred",
+    )
+    check(
+      `${name}: the scroll listener is native`,
+      /el\.addEventListener\("scroll", handleScroll, \{ passive: true \}\)/.test(src),
+      "scroll does not bubble, React delegates it specially, and it did not fire",
+    )
+  }
+
+  console.log("\nPressing away closes the subscribe panel")
+
+  check("it listens while it is open", /if \(!isOpen\) return\s*\n\s*const away = \(e: PointerEvent\)/.test(live))
+  check(
+    "on pointerdown, and outside its own root",
+    /document\.addEventListener\("pointerdown", away, true\)/.test(live)
+      && /!rootRef\.current\.contains\(el\)\) setIsOpen\(false\)/.test(live),
+    "the bell is inside that root, so its own toggle is not fighting a close on the same press",
+  )
+  check("Escape closes it too", /if \(e\.key === "Escape"\) setIsOpen\(false\)/.test(live))
+  check(
+    "and it still eases out rather than vanishing",
+    /"absolute top-0 right-0 overflow-hidden transition-all duration-300 ease-out rounded-2xl"/.test(live),
+  )
+
   console.log("\nA slide is the right width on its first frame")
 
   check(
@@ -244,6 +288,24 @@ function main() {
     "it keeps one coordinate system",
     /ONE COORDINATE SYSTEM, OR THE DRAG LANDS SOMEWHERE ELSE/.test(drag),
     "dispatchTouchEvent takes device pixels and elementFromPoint answers in CSS pixels",
+  )
+  check(
+    "the in-page probe checks the picture moves, not just the dot",
+    /THE ARROW HAS TO MOVE THE PICTURE, NOT JUST THE DOT/.test(read("scripts/onepage-stability-page.js"))
+      && /the dots move and the gallery does not/.test(probe),
+    "the build that was reported advanced the dots over a gallery that never moved",
+  )
+  check(
+    "it turns off animated scrolling before measuring where the arrow goes",
+    /SMOOTH SCROLLING DOES NOT ADVANCE UNDER A VIRTUAL CLOCK/.test(read("scripts/onepage-stability-page.js")),
+  )
+  check(
+    "it lifts the snapping to read a position the row only passes through",
+    /MANDATORY SNAP WILL NOT LET IT REST BETWEEN TWO SLIDES/.test(read("scripts/onepage-stability-page.js")),
+  )
+  check(
+    "and it lets React commit between pressing and reading",
+    /reading straight after\n            \.click\(\) reads the panel as it was before the press/.test(read("scripts/onepage-stability-page.js")),
   )
   check(
     "and the in-page probe says plainly what it cannot measure",

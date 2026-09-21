@@ -95,6 +95,9 @@ console.log(`  widths at insertion     ${JSON.stringify(r.bornWidths)}`)
 console.log(`  widths rewritten later  ${JSON.stringify(r.widthValuesSeen)}`)
 console.log(`  img churn on a scroll   ${r.churnOnScroll.removed} removed, ${r.churnOnScroll.added} added`)
 console.log(`  the slider is           overflow-x ${r.overflowX}, snap ${r.snapType}, slides snap ${r.slideSnapAlign}, scrollable ${r.canScroll}`)
+console.log(`  the arrow moved it      ${r.arrowFound ? r.pictureMovedByArrow + "px" : "(no arrow found)"}`)
+console.log(`  dots parked half way    ${JSON.stringify(r.dotWidthsAtHalfway)}`)
+console.log(`  subscribe panel         ${r.subscribe ? `closed ${r.subscribe.beforeOpening} -> open ${r.subscribe.whenOpen} -> pressed away ${r.subscribe.afterPressingAway}, fade ${r.subscribe.fade}` : "(no bell on this page)"}`)
 if (process.env.DEBUG) console.log("  avatar copies:", JSON.stringify(r.avatarList, null, 1))
 if (process.env.DEBUG) { console.log("  imgs:", JSON.stringify(r.imgList, null, 1)); console.log("  scroll:", JSON.stringify(r.scrolled)) }
 if (r.error) console.log(`  page error              ${r.error}`)
@@ -137,6 +140,24 @@ if (r.trackFound) {
     problems.push(`a slide's scroll-snap-align is ${r.slideSnapAlign}, so there is nothing for the scroller to stop on`)
   if (!r.canScroll)
     problems.push("the slider holds no more than it can show, so there is nothing to slide")
+
+  /*
+    THE ARROW HAS TO MOVE THE PICTURE. Reported exactly that way: the dots
+    advanced and the gallery sat still.
+  */
+  if (!r.arrowFound) problems.push("the carousel has no next arrow")
+  else if (!r.pictureMovedByArrow)
+    problems.push(`pressing the next arrow moved the first picture ${r.pictureMovedByArrow}px — the dots move and the gallery does not`)
+
+  /*
+    AND THE DOT FILLS BY DEGREES. Parked exactly halfway between two slides,
+    neither dot has won: both should be about half grown. A long pill and a
+    row of short ones is the snap that was reported as "too direct".
+  */
+  const w = r.dotWidthsAtHalfway || []
+  const grown = w.filter((n) => n > 10 && n < 22)
+  if (w.length && grown.length < 2)
+    problems.push(`halfway between two slides the dots are ${JSON.stringify(w)} — the fill jumps from one dot to the next instead of crossing over`)
 }
 
 /* The slides have to come out at the width the arithmetic asks for, or the
@@ -150,6 +171,19 @@ if (r.trackFound && r.itemPixels.length) {
 }
 
 /* And the swipe has to move the track. */
+
+/*
+  AND PRESSING AWAY CLOSES THE SUBSCRIBE PANEL, over its own 300ms fade.
+*/
+if (!r.subscribe) problems.push("the subscribe bell was not on the page, so nothing about it was measured")
+else {
+  if (r.subscribe.whenOpen !== "auto")
+    problems.push(`pressing the bell left the panel at pointer-events ${r.subscribe.whenOpen} — it did not open`)
+  if (r.subscribe.afterPressingAway !== "none")
+    problems.push(`pressing away left the panel at pointer-events ${r.subscribe.afterPressingAway} — it stays open over the page`)
+  if (!/^0\.3s|^300ms/.test(r.subscribe.fade || ""))
+    problems.push(`the panel closes over ${r.subscribe.fade} rather than easing out`)
+}
 
 if (problems.length) fail(problems.map((p) => `  - ${p}`).join("\n"))
 console.log("The published page holds still, and the slider is a scroller the browser drives.\n")
