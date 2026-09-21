@@ -56,8 +56,9 @@ const onepage = {
     },
   ] as any,
   social_links: {},
-  settings: { show_branding: true, subscribe_enabled: false },
-  seller_id: null,
+  /* The bell is on, because the subscribe panel is measured too. */
+  settings: { show_branding: true, subscribe_enabled: true },
+  seller_id: "seller_probe",
 }
 
 createRoot(document.getElementById("root")!).render(<PublicOnePage onepage={onepage} />)
