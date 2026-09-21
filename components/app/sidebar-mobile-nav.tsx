@@ -416,7 +416,7 @@ export function MobileMenuPage({
       */}
       <nav
         className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pt-3"
-        style={{ paddingBottom: "calc(104px + env(safe-area-inset-bottom, 0px))" }}
+        style={{ paddingBottom: "calc(110px + env(safe-area-inset-bottom, 0px))" }}
       >
         <div className="space-y-0.5">
           {items.map((item) => (
@@ -479,53 +479,75 @@ export function MobileMenuPage({
  * ===========================================================================
  *  GLASS, AND NOT A PANEL PAINTED TO LOOK LIKE IT
  * ===========================================================================
- * The first version of this was a white pill at 82% over a blurred band: a
- * solid object sitting on frosted glass rather than being made of it. Read
- * back as "not clean at all, it needs to not have solid in the background,
- * it needs a very smooth layer of glassmorphism", which is exactly right.
+ * The first version was a white pill at 82% over a blurred band: a solid
+ * object sitting on frosted glass rather than being made of it. The blur
+ * moved onto the objects, the tint came down to 42%, and it was still read
+ * back as "it should not have a solid background, look at the image".
  *
- * So the blur is on the OBJECTS now. Each one carries its own
- * `backdrop-filter` and a tint thin enough to see the page through, and the
- * band behind them is a fade rather than a second sheet of glass — its job
- * is only to stop text colliding with the bar as it scrolls under, and it
- * does that by dissolving, with no fill of its own to be solid with.
+ * It was right. 42% white is not far off opaque when what is behind it is
+ * already near white, and the bar sits over #f8f9fa most of the time. The
+ * tint is 28% now, which is thin enough that the page's own colour comes
+ * through it — over the dashboard's artwork the bar takes the artwork's hue,
+ * which is the whole point of glass and the thing a fixed white panel can
+ * never do.
  *
- * DEPTH IS ONE SHADOW AND IT IS ALMOST NOT THERE. "Extremely little, very
- * subtle depth, just a little bit." Two soft drops of 4% and 6%, and a half
- * pixel of inner light along the top edge, which is what separates glass
- * from a flat shape without casting anything.
+ * What holds the shape at that opacity is not the fill, it is the edge: a
+ * half pixel of white along the top where light would catch, and a half
+ * pixel ring all the way round.
+ *
+ * DEPTH IS ONE SHADOW, AND IT IS SMALL. Asked for "a little bit more", so it
+ * is 5% at one pixel and 10% at eight, which is a lift rather than a cast.
  */
 const GLASS: React.CSSProperties = {
-  backgroundColor: "rgba(255,255,255,0.42)",
-  backdropFilter: "blur(26px) saturate(180%)",
-  WebkitBackdropFilter: "blur(26px) saturate(180%)",
+  backgroundColor: "rgba(255,255,255,0.28)",
+  backdropFilter: "blur(28px) saturate(190%)",
+  WebkitBackdropFilter: "blur(28px) saturate(190%)",
   boxShadow:
-    "0 1px 2px rgba(16,18,27,0.04), 0 6px 16px rgba(16,18,27,0.06)," +
-    " inset 0 0 0 0.5px rgba(255,255,255,0.55), inset 0 0.5px 0 rgba(255,255,255,0.8)",
+    "0 1px 2px rgba(16,18,27,0.05), 0 8px 22px rgba(16,18,27,0.10)," +
+    " inset 0 0 0 0.5px rgba(255,255,255,0.65), inset 0 0.5px 0 rgba(255,255,255,0.9)",
 }
 
-/** Slim: the old bar was 56 tall with 52px slots, and read as a slab. */
-const BAR_H = 48
-const SLOT = 46
+/** A little bigger than it was, which was 48 with 46px slots. */
+const BAR_H = 54
+const SLOT = 50
 const PAD = 4
 /** The selector is a CIRCLE, so it is as wide as it is tall. */
 const DOT = BAR_H - PAD * 2
+/** Between the bar and the buttons beside it. */
+const GAP = 8
+
+/**
+ * ===========================================================================
+ *  HOW THE CIRCLE MOVES
+ * ===========================================================================
+ * Two different jobs, and one curve cannot do both.
+ *
+ * UNDER A FINGER it has to be where the finger is, now. Any overshoot reads
+ * as the control being loose, and any duration reads as lag.
+ *
+ * LET GO OF IT and it should arrive rather than stop. A little over, a
+ * little back: that is the whole of what "more iOS style bouncing and
+ * satisfying" is asking for, and it is one cubic-bezier with its third
+ * control point past 1.
+ */
+const TRACK = `transform 150ms cubic-bezier(0.2, 0, 0, 1)`
+const SETTLE = `transform 440ms cubic-bezier(0.34, 1.32, 0.42, 1)`
 
 /**
  * Three bars that become a cross.
  *
- * Thinner than the header's was — 1.6px on 16, which is the weight Solar
- * draws its 1.5 strokes at once they are rasterised — so it sits in the same
- * family as the four glyphs beside it instead of shouting over them.
+ * The bars used to sit 4px apart, which at 1.6px of stroke leaves 2.4px of
+ * air and reads as a stack rather than as three lines. Five apart now, for
+ * the "extremely little bit more space" that was asked for and no more.
  */
 function MenuGlyph({ open }: { open: boolean }) {
-  const bar = "absolute h-[1.6px] w-[16px] rounded-full bg-current"
+  const bar = "absolute h-[1.6px] w-[17px] rounded-full bg-current"
   const ease = "transition-all duration-[300ms] ease-[cubic-bezier(0.32,0.72,0,1)]"
   return (
-    <span className="relative flex h-[16px] w-[16px] items-center justify-center">
-      <span className={cn(bar, ease, open ? "top-[7.2px] rotate-45" : "top-[3.2px] rotate-0")} />
-      <span className={cn(bar, ease, "top-[7.2px]", open ? "scale-x-0 opacity-0" : "scale-x-100 opacity-100")} />
-      <span className={cn(bar, ease, open ? "top-[7.2px] -rotate-45" : "top-[11.2px] rotate-0")} />
+    <span className="relative flex h-[18px] w-[18px] items-center justify-center">
+      <span className={cn(bar, ease, open ? "top-[8.2px] rotate-45" : "top-[3.2px] rotate-0")} />
+      <span className={cn(bar, ease, "top-[8.2px]", open ? "scale-x-0 opacity-0" : "scale-x-100 opacity-100")} />
+      <span className={cn(bar, ease, open ? "top-[8.2px] -rotate-45" : "top-[13.2px] rotate-0")} />
     </span>
   )
 }
@@ -558,7 +580,7 @@ type BarItem = {
  * length of the gesture, so the circle can be drawn anywhere on the way.
  *
  * `touch-action: none` on the bar only. The page under it still scrolls;
- * this is 48px of the screen that has to be able to refuse a horizontal
+ * this is 54px of the screen that has to be able to refuse a horizontal
  * gesture, because a horizontal gesture is what the bar is for.
  */
 function useSlide(count: number, onPick: (index: number) => void) {
@@ -601,6 +623,12 @@ function useSlide(count: number, onPick: (index: number) => void) {
     }
   }
 
+  const end = () => {
+    setDragging(false)
+    setAt(null)
+    lastRef.current = null
+  }
+
   return {
     barRef,
     dragging,
@@ -608,7 +636,7 @@ function useSlide(count: number, onPick: (index: number) => void) {
     handlers: {
       onPointerDown: (e: React.PointerEvent) => {
         /* Keeps the moves coming even when the finger leaves the bar, which
-           it will: 48px is not much to stay inside of. */
+           it will: 54px is not much to stay inside of. */
         ;(e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId)
         setDragging(true)
         lastRef.current = null
@@ -620,27 +648,18 @@ function useSlide(count: number, onPick: (index: number) => void) {
       },
       onPointerUp: (e: React.PointerEvent) => {
         if (!dragging) return
-        setDragging(false)
         const picked = slotAt(e.clientX)
-        setAt(null)
-        lastRef.current = null
-        if (escaped(e.clientY)) return
+        const away = escaped(e.clientY)
+        end()
+        if (away) return
         hapticTap("medium")
         onPick(picked)
       },
-      onPointerCancel: () => {
-        setDragging(false)
-        setAt(null)
-        lastRef.current = null
-      },
+      onPointerCancel: end,
       /* Capture can be taken away by the system — a call arriving, a gesture
          the shell claims. Without this the bar would believe a finger is
          still on it and keep drawing the circle under one that has gone. */
-      onLostPointerCapture: () => {
-        setDragging(false)
-        setAt(null)
-        lastRef.current = null
-      },
+      onLostPointerCapture: end,
     },
   }
 }
@@ -665,43 +684,79 @@ export function MobileNavPill({
   const pathname = usePathname()
 
   /*
-    HOME, ORDERS, PRODUCTS, EXPLORE — in that order, and the menu is its own
-    button beside them rather than a fifth slot. It is the only one of the
-    six that does not go anywhere, so it does not belong in a row of places.
+    HOME, ORDERS, PRODUCTS, EXPLORE — in that order, and they stay put when
+    the menu opens. The menu is not a place, so it is its own button beside
+    them rather than a fifth slot in a row of places; settings is a second
+    one, which appears only while the menu is open.
   */
-  const items: BarItem[] = menuOpen
-    ? [{ key: "settings", label: "Settings", href: "/app/settings", icon: icons.settings }]
-    : [
-        { key: "home", label: "Home", href: "/app", icon: icons.home },
-        { key: "orders", label: "Orders", href: "/app/orders", icon: icons.orders },
-        { key: "products", label: "Products", href: "/app/products", icon: icons.products },
-        { key: "explore", label: "Explore", href: exploreHref, icon: icons.explore, external: true },
-      ]
+  const items: BarItem[] = [
+    { key: "home", label: "Home", href: "/app", icon: icons.home },
+    { key: "orders", label: "Orders", href: "/app/orders", icon: icons.orders },
+    { key: "products", label: "Products", href: "/app/products", icon: icons.products },
+    { key: "explore", label: "Explore", href: exploreHref, icon: icons.explore, external: true },
+  ]
 
-  const current = menuOpen ? -1 : items.findIndex((i) => !i.external && isRouteActive(pathname, i.href))
+  const current = items.findIndex((i) => !i.external && isRouteActive(pathname, i.href))
+
+  /**
+   * ═══════════════════════════════════════════════════════════════════════
+   *  THE CIRCLE DOES NOT SNAP BACK WHILE THE PAGE IS STILL ARRIVING
+   * ═══════════════════════════════════════════════════════════════════════
+   * This is the glitch. Press Products: the circle follows the finger to
+   * Products. Lift: the gesture is over, the drag's own answer is thrown
+   * away, and `current` is still HOME, because the route has not changed
+   * yet — so the circle springs all the way back to the first slot, waits
+   * for the navigation, and then travels to Products a second time.
+   *
+   * Reported as "randomly glitchy when I click on icons", and random is
+   * exactly right: how far it goes back and how long it stays there depend
+   * on how quickly the route resolves, which is different every time.
+   *
+   * So a pick is remembered until the route catches up with it. The timer is
+   * the safety net for a pick that never arrives — a failed navigation, or
+   * the one item here that does not change the route at all.
+   */
+  const [pending, setPending] = useState<number | null>(null)
+  useEffect(() => {
+    if (pending == null) return
+    if (current === pending) { setPending(null); return }
+    const t = window.setTimeout(() => setPending(null), 1500)
+    return () => window.clearTimeout(t)
+  }, [pending, current])
 
   const pick = (index: number) => {
     const item = items[index]
     if (!item) return
-    if (item.external) onExplore()
-    else onNavigate(item.href)
+    if (item.external) {
+      onExplore()
+    } else {
+      setPending(index)
+      onNavigate(item.href)
+    }
     onCloseMenu()
   }
 
-  /*
-    With one item in it the bar IS the item, so it is round rather than a
-    46px slot in a 48px box, which reads as a pill that has been squashed.
-  */
-  const slot = items.length === 1 ? DOT : SLOT
   const slide = useSlide(items.length, pick)
-  /* Where the circle is: under the finger while one is down, otherwise on
-     the page you are on, and nowhere at all when you are on none of them. */
-  const marked = slide.at ?? current
+  /* Under the finger while one is down, then on the slot that was picked,
+     then on the page you are actually on. */
+  const marked = slide.at ?? pending ?? current
+
+  /**
+   * Where it FADES OUT, which is not where slot zero is.
+   *
+   * On a page with no slot of its own — Analytics, say — the circle has
+   * nothing to sit on and goes. Reading its position as 0 at that moment
+   * would send it flying back to Home as it shrank, which is a second thing
+   * moving for no reason. It shrinks where it stands.
+   */
+  const restRef = useRef(0)
+  if (marked >= 0) restRef.current = marked
+  const x = PAD + (marked >= 0 ? marked : restRef.current) * SLOT + (SLOT - DOT) / 2
 
   return (
     <div
       data-app-nav-pill=""
-      className="pointer-events-none fixed inset-x-0 bottom-0 z-[55] flex items-end justify-center gap-2 md:hidden"
+      className="pointer-events-none fixed inset-x-0 bottom-0 z-[55] flex items-end justify-center md:hidden"
       style={{
         paddingBottom: "calc(10px + env(safe-area-inset-bottom, 0px))",
         transition: `transform 260ms ${EASE}, opacity 180ms ease-out`,
@@ -718,7 +773,7 @@ export function MobileNavPill({
         aria-hidden="true"
         className="absolute inset-x-0 bottom-0"
         style={{
-          height: "calc(104px + env(safe-area-inset-bottom, 0px))",
+          height: "calc(112px + env(safe-area-inset-bottom, 0px))",
           backdropFilter: "blur(10px)",
           WebkitBackdropFilter: "blur(10px)",
           maskImage: "linear-gradient(to top, #000 0%, rgba(0,0,0,0.55) 48%, transparent 100%)",
@@ -726,105 +781,159 @@ export function MobileNavPill({
         }}
       />
 
-      <nav
-        ref={slide.barRef}
-        aria-label="Main"
-        {...slide.handlers}
-        className="pointer-events-auto relative select-none rounded-full"
+      {/*
+        ── THE GROUP ─────────────────────────────────────────────────────────
+        Bar, menu button, and a settings button that is only there while the
+        menu is open. The settings button is taken OUT of the flow and the
+        group is slid half its width to the left instead, so the three of
+        them stay centred without anything being laid out again: opening the
+        menu is one transform and one fade, and nothing under it reflows.
+      */}
+      <div
+        className="relative flex items-center"
         style={{
-          ...GLASS,
-          height: BAR_H,
-          width: items.length * slot + PAD * 2,
-          padding: PAD,
-          touchAction: "none",
-          transition: `width 300ms ${EASE}`,
+          gap: GAP,
+          transform: `translateX(${menuOpen ? -(BAR_H + GAP) / 2 : 0}px)`,
+          transition: `transform 380ms ${EASE}`,
+          willChange: "transform",
         }}
       >
-        {/*
-          ── THE SELECTOR ─────────────────────────────────────────────────
-          A circle, drawn at the bar's coordinates rather than inside a slot,
-          which is what lets it be between two of them while a finger is
-          moving. It was an oval before, because it was an inset on a
-          rectangular slot and slots are not square.
-
-          No accent colour on it. It is a lens over the glass — a touch more
-          white and a hairline — so the bar has one material rather than a
-          bar and a badge.
-        */}
-        <span
-          aria-hidden="true"
-          className="absolute rounded-full"
+        <nav
+          ref={slide.barRef}
+          aria-label="Main"
+          {...slide.handlers}
+          className="pointer-events-auto relative select-none rounded-full"
           style={{
-            width: DOT,
-            height: DOT,
-            top: PAD,
-            left: 0,
-            transform: `translateX(${PAD + (marked < 0 ? 0 : marked) * slot + (slot - DOT) / 2}px) scale(${marked < 0 ? 0.6 : 1})`,
-            opacity: marked < 0 ? 0 : 1,
-            backgroundColor: slide.dragging ? "rgba(255,255,255,0.78)" : "rgba(255,255,255,0.62)",
-            boxShadow: "inset 0 0 0 0.5px rgba(255,255,255,0.7), 0 1px 2px rgba(16,18,27,0.06)",
-            transition: `transform 260ms ${EASE}, opacity 200ms ease-out, background-color 160ms ease-out`,
+            ...GLASS,
+            height: BAR_H,
+            width: items.length * SLOT + PAD * 2,
+            padding: PAD,
+            touchAction: "none",
+          }}
+        >
+          {/*
+            ── THE SELECTOR ─────────────────────────────────────────────────
+            A circle, drawn at the bar's coordinates rather than inside a
+            slot, which is what lets it be between two of them while a finger
+            is moving. It was an oval before, because it was an inset on a
+            rectangular slot and slots are not square.
+
+            No accent colour on it. It is a lens over the glass — more white
+            than the bar, which at 28% is thin enough for that to read — so
+            the bar has one material rather than a bar and a badge.
+          */}
+          <span
+            aria-hidden="true"
+            className="absolute rounded-full"
+            style={{
+              width: DOT,
+              height: DOT,
+              top: PAD,
+              left: 0,
+              transform: `translateX(${x}px) scale(${marked < 0 ? 0.55 : 1})`,
+              opacity: marked < 0 ? 0 : 1,
+              backgroundColor: slide.dragging ? "rgba(255,255,255,0.92)" : "rgba(255,255,255,0.82)",
+              boxShadow: "inset 0 0 0 0.5px rgba(255,255,255,0.75), 0 1px 3px rgba(16,18,27,0.08)",
+              transition: `${slide.dragging ? TRACK : SETTLE}, opacity 220ms ease-out, background-color 160ms ease-out`,
+              willChange: "transform",
+            }}
+          />
+
+          {items.map((item, i) => {
+            const on = i === marked
+            return (
+              <Link
+                key={item.key}
+                href={item.href}
+                aria-label={item.label}
+                aria-current={on ? "page" : undefined}
+                /*
+                  A real link, so it carries a URL for the browser and for
+                  anything reading the page — but the POINTER gesture above
+                  is what decides, and letting the anchor navigate as well
+                  would run the same trip twice from one press.
+
+                  `detail === 0` is a click that no pointer made: Enter or
+                  Space on a focused link, which never produced a pointerdown
+                  and so would otherwise do nothing at all.
+                */
+                onClick={(e) => {
+                  e.preventDefault()
+                  if (e.detail === 0) pick(i)
+                }}
+                draggable={false}
+                className="absolute flex items-center justify-center"
+                style={{
+                  left: PAD + i * SLOT,
+                  top: PAD,
+                  width: SLOT,
+                  height: DOT,
+                  color: on ? ACTIVE_TEXT : "#616b7a",
+                  transition: "color 200ms ease-out",
+                }}
+              >
+                <NavIcon icon={item.icon} active={on} color="currentColor" size={22} />
+              </Link>
+            )
+          })}
+        </nav>
+
+        {/*
+          The menu is its own button, and it is the same button open or shut:
+          the finger that opened the menu does not have to go anywhere to
+          close it again.
+        */}
+        <button
+          type="button"
+          aria-label={menuOpen ? "Close menu" : "Menu"}
+          aria-expanded={menuOpen}
+          onClick={() => {
+            hapticTap("medium")
+            onToggleMenu()
+          }}
+          className="pointer-events-auto relative flex shrink-0 items-center justify-center rounded-full"
+          style={{ ...GLASS, width: BAR_H, height: BAR_H, color: menuOpen ? ACTIVE_TEXT : "#616b7a" }}
+        >
+          <MenuGlyph open={menuOpen} />
+        </button>
+
+        {/*
+          ── SETTINGS, ONLY WHILE THE MENU IS OPEN ────────────────────────
+          To the right of the X, in its own circle, out of the flow. Closed,
+          it is not reachable and not announced; there is one settings
+          control in the whole shell and it is here.
+        */}
+        <button
+          type="button"
+          aria-label="Settings"
+          aria-hidden={!menuOpen}
+          tabIndex={menuOpen ? 0 : -1}
+          onClick={() => {
+            hapticTap("medium")
+            setPending(null)
+            onNavigate("/app/settings")
+            onCloseMenu()
+          }}
+          className={cn(
+            "absolute flex items-center justify-center rounded-full",
+            menuOpen ? "pointer-events-auto" : "pointer-events-none",
+          )}
+          style={{
+            ...GLASS,
+            left: "100%",
+            marginLeft: GAP,
+            width: BAR_H,
+            height: BAR_H,
+            color: "#616b7a",
+            opacity: menuOpen ? 1 : 0,
+            transform: `scale(${menuOpen ? 1 : 0.6})`,
+            transition: `transform 380ms ${EASE}, opacity 220ms ease-out`,
             willChange: "transform",
           }}
-        />
-
-        {items.map((item, i) => {
-          const on = i === marked
-          return (
-            <Link
-              key={item.key}
-              href={item.href}
-              aria-label={item.label}
-              aria-current={on && !menuOpen ? "page" : undefined}
-              /*
-                A real link, so it carries a URL for the browser and for
-                anything reading the page — but the POINTER gesture above is
-                what decides, and letting the anchor navigate as well would
-                run the same trip twice from one press.
-
-                `detail === 0` is a click that no pointer made: Enter or
-                Space on a focused link, which never produced a pointerdown
-                and so would otherwise do nothing at all.
-              */
-              onClick={(e) => {
-                e.preventDefault()
-                if (e.detail === 0) pick(i)
-              }}
-              draggable={false}
-              className="absolute flex items-center justify-center"
-              style={{
-                left: PAD + i * slot,
-                top: PAD,
-                width: slot,
-                height: DOT,
-                color: on ? ACTIVE_TEXT : "#616b7a",
-                transition: "color 180ms ease-out",
-              }}
-            >
-              <NavIcon icon={item.icon} active={on} color="currentColor" size={21} />
-            </Link>
-          )
-        })}
-      </nav>
-
-      {/*
-        The menu is its own button, and it is the same button open or shut:
-        the finger that opened the menu does not have to go anywhere to close
-        it again.
-      */}
-      <button
-        type="button"
-        aria-label={menuOpen ? "Close menu" : "Menu"}
-        aria-expanded={menuOpen}
-        onClick={() => {
-          hapticTap("medium")
-          onToggleMenu()
-        }}
-        className="pointer-events-auto relative flex shrink-0 items-center justify-center rounded-full"
-        style={{ ...GLASS, width: BAR_H, height: BAR_H, color: menuOpen ? ACTIVE_TEXT : "#616b7a" }}
-      >
-        <MenuGlyph open={menuOpen} />
-      </button>
+        >
+          <NavIcon icon={icons.settings} active={false} color="currentColor" size={22} />
+        </button>
+      </div>
     </div>
   )
 }

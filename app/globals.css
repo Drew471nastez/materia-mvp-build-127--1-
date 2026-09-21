@@ -2509,7 +2509,7 @@ html.capacitor .app-content-scroll {
  * takes no space in the flow, and without this the last row of every list
  * would sit permanently underneath it.
  *
- * 92px is the pill (56) plus the gap below it (10) plus a comfortable margin
+ * 98px is the bar (54) plus the gap below it (10) plus a comfortable margin
  * above it, and the safe-area inset on top of that for the home indicator.
  * It REPLACES the capacitor rule above at this width rather than adding to
  * it, which is why the inset is written out again here.
@@ -2518,7 +2518,7 @@ html.capacitor .app-content-scroll {
  * ────────────────────────────────────────────────────────────────────────── */
 @media (max-width: 767px) {
   html.app-layout .app-content-scroll {
-    padding-bottom: calc(92px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(98px + env(safe-area-inset-bottom, 0px));
   }
 
   /* ── One bottom strip, one owner ─────────────────────────────────────────
