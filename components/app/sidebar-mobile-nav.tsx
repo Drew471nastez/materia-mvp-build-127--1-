@@ -605,7 +605,8 @@ const GAP = 8
  *     0.35 / 0.18                 220           248              203
  *     0.2 / 0.18                  220           248              203
  *
- * 0.35 is the end of it. At 0.2 every reading is identical — the radius has
+ * 0.45 is where it sits after being asked back up a little. 0.35 was the
+ * floor: at 0.2 every reading is identical — the radius has
  * stopped resolving to a whole device pixel on the innermost layers and the
  * blur does not thin any further, so this is the floor rather than a
  * preference. What is left over the artwork at the bottom is the tint, and
@@ -628,7 +629,7 @@ const GAP = 8
 const HALO_LAYERS = 12
 const HALO_STEP = 3
 /** The strongest layer's blur; the outermost carries this over HALO_LAYERS². */
-const HALO_BLUR = 0.35
+const HALO_BLUR = 0.45
 const haloBlur = (i: number) => Math.round(HALO_BLUR * ((i + 1) / HALO_LAYERS) ** 2 * 1000) / 1000
 /** How far the halo reaches: above the bar, past the bottom of the screen,
     and past each side of it. The display crops the last two. */
@@ -646,15 +647,25 @@ const HALO_REACH = { top: 30, below: 44, side: 56 }
  */
 const HALO_TINT = "rgba(248,249,250,0.18)"
 const HALO_TINT_NONE = "rgba(248,249,250,0)"
-/** How far the bottom of the pill sits above the bottom of the screen. Read
-    once, by the pill and by the halo, so the two cannot disagree.
-
-    6px above the safe area read as floating; the reference sits closer to the
-    home indicator than that. 2px was tried and the probe refused it — it
-    holds the pill to at least 4px off the bottom edge, which is the room a
-    thumb needs to press the outer buttons without catching the edge. 4px is
-    that floor, and two pixels lower than it was. */
-const PILL_LIFT = "4px + env(safe-area-inset-bottom, 0px)"
+/**
+ * How far the bottom of the pill sits above the bottom of the screen. Read
+ * once, by the pill and by the halo, so the two cannot disagree.
+ *
+ * MAX, NOT PLUS, AND THAT IS THE WHOLE DIFFERENCE. It was `4px + env(...)`,
+ * which on a phone is 4px ON TOP of a 34px home indicator inset: 38px of air
+ * under the pill, and the reference sits nearer the bottom than that. Asked
+ * down three times, and 2px was refused by the probe, which holds the pill to
+ * at least 4px off the bottom EDGE — the room a thumb needs to press the
+ * outer buttons without catching the side of the display.
+ *
+ * Both are right, and they are about different things. The 4px is a floor
+ * against the edge of the glass; the inset is a floor against the home
+ * indicator. Taking the larger of the two satisfies whichever one applies:
+ * 34px on a phone, which is four pixels lower than it was, and 4px in a
+ * browser with no inset at all, which is where the probe measures and where
+ * nothing changes.
+ */
+const PILL_LIFT = "max(4px, env(safe-area-inset-bottom, 0px))"
 
 /**
  * WHERE THE PILL DOES NOT GO.
