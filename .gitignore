@@ -70,5 +70,7 @@ tsconfig.*.generated.json
 .ctlfps-probe/
 .hdrsearch-probe/
 .width-probe/
+# Written by scripts/check-onepage-stability.mjs while it bundles the probe.
+.onepage-probe/
 .dash-probe/
 .nav-probe/
