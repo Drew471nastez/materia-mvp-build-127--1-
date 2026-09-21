@@ -153,11 +153,39 @@ function main() {
   check("and the claim is settled by photographing it over two colours",
     /change what is behind the bar and the bar changes/.test(read("scripts/check-app-mobile-nav.mjs"))
       && /function decodePng\(buf\)/.test(read("scripts/check-app-mobile-nav.mjs")))
-  check("with the fade held to leaving no lighter plate over plain page",
-    /the fade leaves no lighter plate across the bottom/.test(read("scripts/check-app-mobile-nav.mjs")))
-  check("the fade behind them has no fill, only a mask",
-    /maskImage: "linear-gradient\(to top/.test(nav)
-      && !/background: "linear-gradient\(to top, rgba\(248/.test(strip(nav)))
+  check("with a column of pixels read down the screen to catch a plate",
+    /a column down the left margin/.test(read("scripts/check-app-mobile-nav.mjs"))
+      && /the screen is one colour from the content down to the bottom edge/.test(read("scripts/check-app-mobile-nav.mjs")),
+    "a single square cannot find a region with an edge across the screen; a column can")
+  check("and the pair held apart in the probe too",
+    /nothing behind the bar masks a backdrop-filter/.test(read("scripts/check-app-mobile-nav.mjs")))
+  /*
+    ── THE ONE THAT CHROMIUM COULD NOT SHOW ────────────────────────────────
+    A full width strip used to sit behind the bar carrying `backdrop-filter`
+    AND `mask-image`, to blur the page under it and dissolve upward instead
+    of ending on an edge.
+
+    WKWebView does not composite those two on one element: it drops the mask
+    and paints the filtered region as a flat light fill. On an iPhone that
+    strip was a pale rectangle across the foot of the screen with a hard top
+    edge — reported three times as "the background is still solid", and never
+    once reproducible in the probe, which photographed a flat rgb(248,249,250)
+    all the way down because Chromium honours the mask.
+
+    Since the browser here cannot show the fault, the guard is structural:
+    nothing in this file may carry the pair, and there is no full width layer
+    behind the bar at all. A sweep of the repository found this was the only
+    place the two had ever been put together.
+  */
+  check("no element carries a mask over a backdrop-filter",
+    (() => {
+      const styles = strip(nav).match(/style=\{\{(?:[^{}]|\{[^{}]*\})*\}\}/g) ?? []
+      return !styles.some((t) => /backdropFilter/.test(t) && /askImage/.test(t))
+    })(),
+    "WKWebView drops the mask and paints the filtered region as a flat fill, which is a plate across the bottom of the screen")
+  check("and there is no full-width layer behind the bar to be one",
+    !/className="absolute inset-x-0 bottom-0"/.test(strip(nav)),
+    "the bar is glass and carries its own blur; the page passing behind it is the effect, not something to hide")
   check("nothing in the bar is painted in the accent colour",
     !new RegExp(String.raw`ACCENT`).test(strip(nav).slice(strip(nav).indexOf("function MobileNavPill"))),
     "the violet fill behind the active icon was the first thing called out")

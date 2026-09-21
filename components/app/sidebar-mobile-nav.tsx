@@ -760,23 +760,26 @@ export function MobileNavPill({
       }}
     >
       {/*
-        ── THE FADE ──────────────────────────────────────────────────────────
-        Not a second sheet of glass. It has no fill and it blurs only enough
-        to keep a line of text from colliding with the bar as it scrolls
-        under, masked so it dissolves upward instead of ending on an edge —
-        an edge is the thing that reads as a panel bolted to the screen.
+        ── THERE IS NO FADE BEHIND THE BAR ANY MORE ─────────────────────────
+        A full width strip used to sit here carrying `backdrop-filter` AND
+        `mask-image`, to blur the page under the bar and dissolve upward
+        instead of ending on an edge.
+
+        WKWebView does not composite those two on one element. The mask is
+        dropped and the filtered region paints as a flat light fill, so what
+        that strip drew on an iPhone was a pale rectangle across the foot of
+        the screen with a hard top edge — the "solid background" that kept
+        being reported and that Chromium never showed. Photographed here as a
+        flat rgb(248,249,250) all the way down, because Chromium honours the
+        mask; the fault is not in the declaration, it is in one engine's
+        handling of the pair.
+
+        It is not replaced with a scrim. The bar is glass and it carries its
+        own blur, so the page passing behind it is the effect rather than
+        something to be hidden — which is what the floating bar it is modelled
+        on does. tests/app-mobile-nav.test.ts holds the pair apart from here
+        on: nothing under this component may carry both.
       */}
-      <div
-        aria-hidden="true"
-        className="absolute inset-x-0 bottom-0"
-        style={{
-          height: "calc(112px + env(safe-area-inset-bottom, 0px))",
-          backdropFilter: "blur(10px)",
-          WebkitBackdropFilter: "blur(10px)",
-          maskImage: "linear-gradient(to top, #000 0%, rgba(0,0,0,0.55) 48%, transparent 100%)",
-          WebkitMaskImage: "linear-gradient(to top, #000 0%, rgba(0,0,0,0.55) 48%, transparent 100%)",
-        }}
-      />
 
       {/*
         ── THE GROUP ─────────────────────────────────────────────────────────

@@ -237,8 +237,6 @@ const READ_PILL = `(() => {
   const pill = document.querySelector('nav[aria-label="Main"]')
   const band = document.querySelector('[data-app-nav-pill] > [aria-hidden="true"]')
   const b = pill.getBoundingClientRect()
-  const bandBox = band.getBoundingClientRect()
-  const bs = getComputedStyle(band)
   const ps = getComputedStyle(pill)
   const controls = [...pill.querySelectorAll("a[aria-label]"), document.querySelector("[data-app-nav-pill] button[aria-label]")]
   const targets = controls.map((c) => {
@@ -278,9 +276,18 @@ const READ_PILL = `(() => {
                moves: st.transitionProperty }
     })(),
     glass: { backdrop: ps.backdropFilter || ps.webkitBackdropFilter },
-    band: { h: Math.round(bandBox.height),
-            backdrop: bs.backdropFilter || bs.webkitBackdropFilter,
-            mask: (bs.maskImage || bs.webkitMaskImage || "none").slice(0, 90) },
+    /* Nothing under the bar may carry a backdrop-filter AND a mask: WKWebView
+       drops the mask and paints the filtered region as a flat fill. */
+    maskedBlurs: [...document.querySelectorAll("[data-app-nav-pill], [data-app-nav-pill] *")].filter((n) => {
+      const st = getComputedStyle(n)
+      const blur = st.backdropFilter || st.webkitBackdropFilter || "none"
+      const mask = st.maskImage || st.webkitMaskImage || "none"
+      return blur !== "none" && mask !== "none"
+    }).length,
+    fullWidthPlates: [...document.querySelectorAll("[data-app-nav-pill] > *")].filter((n) => {
+      const r = n.getBoundingClientRect()
+      return r.width > window.innerWidth - 8
+    }).length,
     targets, hits,
     scrollPadBottom: scroller ? getComputedStyle(scroller).paddingBottom : null,
     /* Is the last card clear of the pill when the list is scrolled to its end? */
@@ -299,6 +306,34 @@ const shut = await ev(READ_PILL)
 await ev('document.querySelector(".app-content-scroll").scrollTop = 0')
 await sleep(120)
 await shoot("closed.png")
+
+const shotOf = async (clip) => {
+  const { data } = await send("Page.captureScreenshot", { format: "png", clip: { ...clip, scale: 1 }, captureBeyondViewport: false })
+  return averageColour(decodePng(Buffer.from(data, "base64")))
+}
+
+/*
+ * ── A COLUMN OF PIXELS, TOP TO BOTTOM ────────────────────────────────────
+ *
+ * The two-colour test above says the bar is transparent, and it was still
+ * reported as solid. A single square cannot find a PLATE: a region that is
+ * a different colour from the page with an edge across the screen. So this
+ * reads a strip down the left margin, clear of the bar and of every card,
+ * and prints what colour the screen is at each height.
+ *
+ * If the numbers are the same all the way down there is no plate, whatever
+ * anything looks like. If they step at one y, that y is the edge.
+ */
+await ev(`document.querySelector(".app-content-scroll").scrollTop = 1e6; true`)
+await sleep(400)
+const column = []
+for (let y = 300; y < VIEW_H - 6; y += 12) {
+  column.push({ y, rgb: await shotOf({ x: 4, y, width: 6, height: 6 }) })
+}
+await ev(`document.querySelector(".app-content-scroll").scrollTop = 0; true`)
+await sleep(300)
+const pageColour = column[0].rgb
+const plateSteps = column.filter((c) => distance(c.rgb, pageColour) > 2)
 
 /* ── is it glass, or is it a white panel? ────────────────────────────────── */
 /*
@@ -320,23 +355,19 @@ const swatchBox = await ev(`(() => {
   return { x: x - 5, y: y - 5, width: 10, height: 10 }
 })()`)
 await sleep(260)
-const shotOf = async (clip) => {
-  const { data } = await send("Page.captureScreenshot", { format: "png", clip: { ...clip, scale: 1 }, captureBeyondViewport: false })
-  return averageColour(decodePng(Buffer.from(data, "base64")))
-}
 const onRed = await shotOf(swatchBox)
 await ev(`document.getElementById("__swatch").style.background = "#1565c0"; true`)
 await sleep(260)
 const onBlue = await shotOf(swatchBox)
-/* And the band beside it, which is the full-width fade the bar floats on. */
-const bandBox = await ev(`(() => {
+/* And beside the bar, where the page has nothing over it at all. */
+const asideBox = await ev(`(() => {
   const bar = document.querySelector('nav[aria-label="Main"]').getBoundingClientRect()
   return { x: 6, y: Math.round(bar.top + bar.height / 2) - 5, width: 10, height: 10 }
 })()`)
-const bandOnBlue = await shotOf(bandBox)
+const asideOnBlue = await shotOf(asideBox)
 await ev(`document.getElementById("__swatch").style.background = "#c62828"; true`)
 await sleep(260)
-const bandOnRed = await shotOf(bandBox)
+const asideOnRed = await shotOf(asideBox)
 await ev(`document.getElementById("__swatch").remove(); true`)
 await sleep(260)
 /*
@@ -360,7 +391,7 @@ const plainBox = await ev(`(() => {
 const insideFade = await shotOf(plainBox.inside)
 const aboveFade = await shotOf(plainBox.above)
 const seeThrough = {
-  onRed, onBlue, moved: distance(onRed, onBlue), band: distance(bandOnRed, bandOnBlue),
+  onRed, onBlue, moved: distance(onRed, onBlue), aside: distance(asideOnRed, asideOnBlue),
   insideFade, aboveFade, plate: distance(insideFade, aboveFade),
 }
 
@@ -583,8 +614,7 @@ const must = (ok, line, why) => { say(ok, line); if (!ok) problems.push(why) }
 console.log(`\n  The phone's navigation at ${VIEW_W}x${VIEW_H}\n`)
 console.log(`  the pill    ${shut.pill.w}x${shut.pill.h} at x=${shut.pill.x}, ${shut.pill.bottomGap}px above the bottom, radius ${shut.pill.radius}`)
 console.log(`              ${shut.pill.bg}`)
-console.log(`  the band    ${shut.band.h}px tall, ${shut.band.backdrop}`)
-console.log(`              masked: ${shut.band.mask}`)
+console.log(`  behind it   ${shut.fullWidthPlates} full-width layers, ${shut.maskedBlurs} elements carrying a mask over a backdrop-filter`)
 console.log(`  targets     ${shut.targets.map((t) => `${t.label} ${t.w}x${t.h}`).join(", ")}`)
 console.log(`  clearance   list padded ${shut.scrollPadBottom} at the bottom; scrolled to the end the last card stops ${shut.lastCardClear}px above the pill`)
 console.log(`  the menu    ${open.covers}px tall from y=${open.top}, ${open.bg}, moves ${open.transition}`)
@@ -609,11 +639,20 @@ must(shut.targets.every((t) => t.h >= 40 && t.w >= 40), "every target in it is a
 must(shut.hits.every((h) => h.reaches), "and a press in the middle of each one reaches it",
   `these do not: ${shut.hits.filter((h) => !h.reaches).map((h) => h.label).join(", ")}`)
 
-must(/blur\(/.test(shut.band.backdrop), "the band behind it really blurs what is under it",
-  `backdrop-filter is "${shut.band.backdrop}"`)
-must(shut.band.mask !== "none" && /gradient/.test(shut.band.mask),
-  "and it is masked, so the blur fades out instead of ending on a line",
-  "the blur has a hard top edge, which reads as a panel bolted to the screen")
+/*
+  WKWebView does not composite a mask over a backdrop-filter on one element:
+  it drops the mask and paints the filtered region as a flat light fill. A
+  full width strip doing that is a pale rectangle across the foot of the
+  screen with a hard top edge, which is what "the background is still solid"
+  was describing and what Chromium never rendered. So the pair is held apart,
+  structurally, since this browser cannot reproduce the fault.
+*/
+must(shut.maskedBlurs === 0,
+  "nothing behind the bar masks a backdrop-filter, which WKWebView paints as a flat fill",
+  `${shut.maskedBlurs} element(s) carry both. On an iPhone that is a pale plate across the bottom of the screen.`)
+must(shut.fullWidthPlates === 0,
+  "and there is no full-width layer behind it at all: the bar floats, and the page goes past it",
+  `${shut.fullWidthPlates} layer(s) span the whole screen behind the bar`)
 const pillAlpha = Number((shut.pill.bg.match(/rgba?\([^)]*?,\s*([\d.]+)\s*\)/) ?? [])[1] ?? 1)
 must(/^rgba?\(255, 255, 255/.test(shut.pill.bg) && pillAlpha <= 0.55,
   "the bar is a thin tint rather than a solid sheet",
@@ -633,8 +672,15 @@ must(shut.lastCardClear > 0, "so the last card is still clear of it at the end o
   `the last card ends ${shut.lastCardClear}px past the top of the pill`)
 
 console.log("")
+console.log("  a column down the left margin, scrolled to the end of the page:")
+for (const c of column) console.log(`    y=${String(c.y).padStart(3)}  rgb(${c.rgb.join(",")})${distance(c.rgb, pageColour) > 2 ? "   <- not the page colour" : ""}`)
+console.log("")
+must(plateSteps.length === 0,
+  "the screen is one colour from the content down to the bottom edge",
+  `${plateSteps.length} of ${column.length} samples differ from the page colour rgb(${pageColour.join(",")}), the first at y=${plateSteps[0]?.y} reading rgb(${plateSteps[0]?.rgb.join(",")}). That is a plate with an edge across the screen.`)
+
 console.log(`  see-through the same square inside the bar read rgb(${seeThrough.onRed}) over red and rgb(${seeThrough.onBlue}) over blue`)
-console.log(`              ${seeThrough.moved} apart inside the bar, ${seeThrough.band} apart in the fade beside it`)
+console.log(`              ${seeThrough.moved} apart inside the bar, ${seeThrough.aside} apart in the bare margin beside it`)
 console.log(`              on plain page: rgb(${seeThrough.aboveFade}) above the fade, rgb(${seeThrough.insideFade}) inside it\n`)
 /*
   100 is not a round number pulled out of the air: a white panel moves 0, the
@@ -645,12 +691,12 @@ console.log(`              on plain page: rgb(${seeThrough.aboveFade}) above the
 must(seeThrough.moved >= 100,
   "change what is behind the bar and the bar changes: the page really is coming through it",
   `the same pixel moved only ${seeThrough.moved} when the colour behind it went from red to blue. A white panel would move 0`)
-must(seeThrough.band >= 30,
-  "and through the fade beside it too",
-  `the fade moved ${seeThrough.band}, so it is painting over the page rather than blurring it`)
+must(seeThrough.aside >= 200,
+  "and beside the bar the page is simply the page, with nothing over it",
+  `the margin beside the bar moved only ${seeThrough.aside} between red and blue, so something is painting over it`)
 must(seeThrough.plate <= 3,
-  "and over plain page the fade leaves no lighter plate across the bottom",
-  `plain page reads rgb(${seeThrough.aboveFade}) above the fade and rgb(${seeThrough.insideFade}) inside it, ${seeThrough.plate} apart: that difference is a paler rectangle with a top edge, which is what reads as a panel`)
+  "and beside the bar the page reads the same as it does well above it",
+  `plain page reads rgb(${seeThrough.aboveFade}) higher up and rgb(${seeThrough.insideFade}) level with the bar, ${seeThrough.plate} apart: that difference is a paler rectangle with a top edge`)
 
 console.log("")
 must(open.open === "open", "the menu opens from the pill", "pressing the menu button did not open it")
