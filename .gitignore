@@ -71,3 +71,4 @@ tsconfig.*.generated.json
 .hdrsearch-probe/
 .width-probe/
 .dash-probe/
+.nav-probe/

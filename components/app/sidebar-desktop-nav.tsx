@@ -278,7 +278,7 @@ export const NAV_ICONS = {
  * Kept beside NAV_ICONS rather than inlined so every icon in the rail is
  * declared in one place and none of them can drift out of the family.
  */
-const NAV_ICONS_EXTRA = {
+export const NAV_ICONS_EXTRA = {
   settings: { line: SettingsLinear, fill: SettingsBold },
   /*
     SCISSORS, NOT A CHAIN LINK — and not by preference.

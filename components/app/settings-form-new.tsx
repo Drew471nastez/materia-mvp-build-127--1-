@@ -3689,9 +3689,19 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
       </div>
 
       {/* Sticky Save Bar - Smooth fade animation */}
+      {(() => {
+        const barUp = hasUnsavedChanges && !showEmailChangeModal && !showLanguageModal && !showTimezoneModal && !showCountryModal && !showDeleteModal && !showAvatarUploadModal && !showAvatarCropModal
+        return (
       <div
+        /*
+          On a phone the navigation is a pill floating over the foot of the
+          screen, and this bar wants the same strip. Saying so here is enough:
+          app/globals.css moves the pill out of the way while this is up, and
+          neither surface has to hold any state about the other.
+        */
+        data-app-bottom-bar={barUp ? "visible" : "hidden"}
         className={`fixed bottom-0 left-0 right-0 md:left-[240px] z-40 bg-white/95 backdrop-blur-sm border-t border-[#e5e7eb]/60 pb-[env(safe-area-inset-bottom)] transition-all duration-300 ease-out ${
-          hasUnsavedChanges && !showEmailChangeModal && !showLanguageModal && !showTimezoneModal && !showCountryModal && !showDeleteModal && !showAvatarUploadModal && !showAvatarCropModal
+          barUp
             ? "translate-y-0 opacity-100"
             : "translate-y-full opacity-0 pointer-events-none"
         }`}
@@ -3750,6 +3760,8 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
           </div>
         </div>
       </div>
+        )
+      })()}
 
       {/* Avatar Upload Modal */}
       <ImageUploadModal

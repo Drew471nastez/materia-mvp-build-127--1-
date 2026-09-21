@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import { isNativeApp } from "@/lib/native-bridge"
+import { CLOSE_EVENT } from "@/components/app/sidebar-mobile-nav"
 
 /**
  * NativeBackHandler
@@ -55,6 +56,22 @@ export function NativeBackHandler() {
 
         listenerHandle = await App.addListener("backButton", ({ canGoBack }) => {
           const now = Date.now()
+
+          /*
+            THE THING ON TOP GOES FIRST.
+
+            With the phone's menu open over the page, "tap again to exit the
+            app" is the wrong answer to a back press by some distance. The
+            menu answers to one attribute and one event — see
+            components/app/sidebar-mobile-nav — so this closes it without
+            either file importing the other.
+          */
+          const menu = document.querySelector('[data-mobile-menu="open"]')
+          if (menu) {
+            menu.dispatchEvent(new CustomEvent(CLOSE_EVENT))
+            return
+          }
+
           const isRoot = isRootRoute(window.location.pathname)
 
           if (!isRoot && canGoBack) {
