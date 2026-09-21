@@ -25,7 +25,7 @@ import { normalizeSocialUrl } from "@/lib/onepage/types"
 import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Globe, Bell, X, Send, Check, Link2, ExternalLink, Calendar } from "lucide-react"
-import { useState, useRef, useEffect, useCallback, createContext, useContext } from "react"
+import { useState, useRef, useEffect, useLayoutEffect, useCallback, createContext, useContext } from "react"
 import { getLinksUrl, getLinksShareUrl } from "@/lib/url-helpers"
 import { isNativeApp } from "@/lib/platform-utils"
 
@@ -1461,13 +1461,6 @@ export function PhonePreview({ className }: PhonePreviewProps) {
           0% { background-position: 0% 50%; }
           50% { background-position: 100% 50%; }
           100% { background-position: 0% 50%; }
-        }
-        @keyframes mediaDeblur {
-          0% { filter: blur(3px); }
-          100% { filter: blur(0px); }
-        }
-        .media-deblur {
-          animation: mediaDeblur 0.5s ease-out 0.1s both;
         }
         @keyframes laserGlowRotate {
           from { transform: rotate(0deg); }
@@ -3018,19 +3011,6 @@ function GroupBlockPreview({
     container.scrollTo({ left: targetScroll, behavior: 'smooth' })
   }
 
-  // Touch handlers for swipe
-  const handleTouchStart = (e: React.TouchEvent) => {
-    if (!scrollContainerRef.current) return
-    setStartX(e.touches[0].pageX)
-    setScrollStart(scrollContainerRef.current.scrollLeft)
-  }
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!scrollContainerRef.current) return
-    const diff = e.touches[0].pageX - startX
-    scrollContainerRef.current.scrollLeft = scrollStart - diff
-  }
-
   // Mouse drag handlers
   const handleMouseDown = (e: React.MouseEvent) => {
     if (!scrollContainerRef.current) return
@@ -3084,8 +3064,6 @@ function GroupBlockPreview({
             overflowY: 'visible',
           }}
           onScroll={handleScroll}
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
@@ -3171,6 +3149,39 @@ function GroupBlockPreview({
 }
 
 // Image Carousel Component with transform-based positioning for smooth, reliable swiping
+/**
+ * ===========================================================================
+ *  THE SLIDER, ON A PHONE — THE EDITOR'S COPY OF IT
+ * ===========================================================================
+ * The same component as PublicImageCarousel in public-onepage.tsx, drawn at
+ * preview scale. The three fixes below were written for the published page
+ * and belong here for the same reason the file exists: what the creator drags
+ * in the editor has to be what a visitor gets.
+ *
+ * Three separate things were making it blink and fight the finger, and all
+ * three are measured in scripts/check-onepage-stability.mjs.
+ *
+ * 1. The swipe could not stop the page scrolling. React attaches touchmove
+ *    passively at the root, so the preventDefault() this used to call inside
+ *    an onTouchMove was discarded with a console warning: the page scrolled
+ *    vertically at the same time as the track moved sideways. The listeners
+ *    are native and { passive: false } now, which is the only way to get a
+ *    cancellable touchmove in React.
+ *
+ * 2. Every dragged frame was a React render. setDragOffset re-rendered the
+ *    whole track and every slide in it, sixty times a second, to change one
+ *    number in one transform. The drag writes that transform straight to the
+ *    node instead; React owns where the track RESTS, the finger owns where it
+ *    is right now, and the two never disagree because both read restOffset().
+ *
+ * 3. A slide's width waited for JavaScript. It was measured with a
+ *    ResizeObserver and until that arrived every slide was laid out at 100%,
+ *    so the first painted frame showed one full-width picture that then
+ *    snapped to the 1.2-up view. The width is the same arithmetic expressed
+ *    in calc(), so it is correct on the first frame with nothing measured.
+ *    The measurement stays, because the translate still needs a real number,
+ *    but at index 0 that number is 0 and nothing moves while it arrives.
+ */
 function ImageCarousel({
   images,
   renderImage,
@@ -3188,17 +3199,18 @@ function ImageCarousel({
 }) {
   const [currentIndex, setCurrentIndex] = useState(0)
   const containerRef = useRef<HTMLDivElement>(null)
+  const trackRef = useRef<HTMLDivElement>(null)
   const [containerWidth, setContainerWidth] = useState(0)
-  const [isDragging, setIsDragging] = useState(false)
-  const [dragOffset, setDragOffset] = useState(0)
   const [isHovered, setIsHovered] = useState(false)
-  const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null)
-  const directionLockRef = useRef<'h' | 'v' | null>(null)
   const autoplayPausedRef = useRef(false)
+  const draggingRef = useRef(false)
 
   const view = parseFloat(carouselView) || 1
   const gap = view > 1 ? 6 : 4 // Always have a small gap between images
   const maxIndex = Math.max(0, images.length - Math.ceil(view))
+
+  /* The width of one slide, said once, in CSS. */
+  const slideWidth = `calc((100% - ${gap * (Math.ceil(view) - 1)}px) / ${view})`
 
   // Measure container width
   useEffect(() => {
@@ -3219,6 +3231,42 @@ function ImageCarousel({
   // Track if autoplay triggered last transition for smoother animation
   const [isAutoplayTransition, setIsAutoplayTransition] = useState(false)
 
+  const SWIPE_EASE = 'transform 0.5s cubic-bezier(0.32, 0.72, 0, 1)'
+  const AUTOPLAY_EASE = 'transform 0.8s cubic-bezier(0.4, 0, 0.15, 1)'
+
+  /* Where the track sits when nobody is touching it. The last slide is
+     right-aligned so it is never half off the edge. */
+  const restOffset = useCallback((index: number) => {
+    if (containerWidth <= 0) return 0
+    if (index >= maxIndex && maxIndex > 0) {
+      const totalContentWidth = images.length * itemWidth + (images.length - 1) * gap
+      return -(totalContentWidth - containerWidth)
+    }
+    return -(index * stepSize)
+  }, [containerWidth, itemWidth, stepSize, gap, maxIndex, images.length])
+
+  const writeTransform = useCallback((x: number, transition: string) => {
+    const el = trackRef.current
+    if (!el) return
+    el.style.transition = transition
+    el.style.transform = `translate3d(${x}px, 0, 0)`
+  }, [])
+
+  /*
+    React owns the resting position, and only the resting position. The
+    transform is deliberately absent from the JSX below: React never writes
+    that property, so it never overwrites what a finger just wrote.
+  */
+  const lastIndexRef = useRef(currentIndex)
+  useLayoutEffect(() => {
+    if (draggingRef.current) return
+    const animated = lastIndexRef.current !== currentIndex
+    lastIndexRef.current = currentIndex
+    /* A resize is not a slide change, so it must not be animated: the track
+       would glide sideways every time a phone's address bar collapsed. */
+    writeTransform(restOffset(currentIndex), animated ? (isAutoplayTransition ? AUTOPLAY_EASE : SWIPE_EASE) : 'none')
+  }, [currentIndex, containerWidth, isAutoplayTransition, restOffset, writeTransform])
+
   // Auto-advance slides with slower, smoother transitions
   useEffect(() => {
     if (!autoplay || isHovered || images.length <= 1) return
@@ -3226,84 +3274,113 @@ function ImageCarousel({
       if (!autoplayPausedRef.current) {
         setIsAutoplayTransition(true)
         setCurrentIndex(prev => prev >= maxIndex ? 0 : prev + 1)
-        // Reset autoplay flag after transition completes
         setTimeout(() => setIsAutoplayTransition(false), 900)
       }
     }, 5000)
     return () => clearInterval(interval)
   }, [autoplay, isHovered, images.length, maxIndex])
 
-  // Touch handlers - full control, no native scroll fighting
-  const rafRef = useRef<number | null>(null)
-  const lastDragOffsetRef = useRef(0)
+  /*
+    What the touch handlers need to read at the moment of the touch, rather
+    than what was true when the listeners were attached. Kept in a ref so the
+    listeners are attached once: re-attaching them on every index change is
+    how a swipe ends up bound to a stale slide.
+  */
+  const latest = useRef({ currentIndex, maxIndex, stepSize, restOffset })
+  latest.current = { currentIndex, maxIndex, stepSize, restOffset }
 
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    touchStartRef.current = {
-      x: e.touches[0].clientX,
-      y: e.touches[0].clientY,
-      time: Date.now(),
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+
+    let start: { x: number; y: number; time: number } | null = null
+    let lock: 'h' | 'v' | null = null
+    let raf: number | null = null
+
+    const onStart = (e: TouchEvent) => {
+      if (e.touches.length !== 1) return
+      start = { x: e.touches[0].clientX, y: e.touches[0].clientY, time: Date.now() }
+      lock = null
+      autoplayPausedRef.current = true
     }
-    directionLockRef.current = null
-    autoplayPausedRef.current = true
-    lastDragOffsetRef.current = 0
-  }, [])
 
-  const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (!touchStartRef.current) return
-    const dx = e.touches[0].clientX - touchStartRef.current.x
-    const dy = e.touches[0].clientY - touchStartRef.current.y
+    const onMove = (e: TouchEvent) => {
+      if (!start) return
+      const dx = e.touches[0].clientX - start.x
+      const dy = e.touches[0].clientY - start.y
 
-    // Lock direction on first significant movement
-    if (!directionLockRef.current) {
-      if (Math.abs(dx) > 6 || Math.abs(dy) > 6) {
-        directionLockRef.current = Math.abs(dx) >= Math.abs(dy) ? 'h' : 'v'
+      // Lock direction on first significant movement
+      if (!lock) {
+        if (Math.abs(dx) <= 6 && Math.abs(dy) <= 6) return
+        lock = Math.abs(dx) >= Math.abs(dy) ? 'h' : 'v'
       }
-      return
-    }
+      if (lock !== 'h') return
 
-    if (directionLockRef.current === 'h') {
+      /* The page must hold still while the track moves. This line is the
+         reason the listener is registered with { passive: false }. */
       e.preventDefault()
-      if (!isDragging) setIsDragging(true)
+      draggingRef.current = true
+
+      const l = latest.current
       // Rubber band effect at edges
       let offset = dx
-      if ((currentIndex <= 0 && dx > 0) || (currentIndex >= maxIndex && dx < 0)) {
+      if ((l.currentIndex <= 0 && dx > 0) || (l.currentIndex >= l.maxIndex && dx < 0)) {
         offset = dx * 0.25
       }
-      // Use rAF for 60fps smooth drag updates
-      lastDragOffsetRef.current = offset
-      if (rafRef.current) cancelAnimationFrame(rafRef.current)
-      rafRef.current = requestAnimationFrame(() => {
-        setDragOffset(lastDragOffsetRef.current)
+      if (raf) cancelAnimationFrame(raf)
+      raf = requestAnimationFrame(() => {
+        raf = null
+        writeTransform(l.restOffset(l.currentIndex) + offset, 'none')
       })
     }
-  }, [currentIndex, maxIndex, isDragging])
 
-  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
-    if (rafRef.current) cancelAnimationFrame(rafRef.current)
-    if (!touchStartRef.current) return
+    const onEnd = (e: TouchEvent) => {
+      if (raf) { cancelAnimationFrame(raf); raf = null }
+      const began = start
+      const direction = lock
+      start = null
+      lock = null
+      const wasDragging = draggingRef.current
+      draggingRef.current = false
+      if (!began) return
 
-    if (directionLockRef.current === 'h') {
-      const dx = e.changedTouches[0].clientX - touchStartRef.current.x
-      const dt = Date.now() - touchStartRef.current.time
-      const velocity = Math.abs(dx) / dt
-      const threshold = stepSize > 0 ? stepSize * 0.15 : 40
+      const l = latest.current
+      let next = l.currentIndex
 
-      // Only advance ONE slide per swipe - lower threshold for snappier feel
-      if (velocity > 0.25 || Math.abs(dx) > threshold) {
-        if (dx < 0 && currentIndex < maxIndex) {
-          setCurrentIndex(prev => prev + 1)
-        } else if (dx > 0 && currentIndex > 0) {
-          setCurrentIndex(prev => prev - 1)
+      if (direction === 'h' && e.changedTouches.length) {
+        const dx = e.changedTouches[0].clientX - began.x
+        const dt = Math.max(1, Date.now() - began.time)
+        const velocity = Math.abs(dx) / dt
+        const threshold = l.stepSize > 0 ? l.stepSize * 0.15 : 40
+
+        // Only advance ONE slide per swipe - lower threshold for snappier feel
+        if (velocity > 0.25 || Math.abs(dx) > threshold) {
+          if (dx < 0 && l.currentIndex < l.maxIndex) next = l.currentIndex + 1
+          else if (dx > 0 && l.currentIndex > 0) next = l.currentIndex - 1
         }
       }
+
+      /* Put it back where it belongs from here, not from the render: a swipe
+         that did not change the slide produces no render at all, and the
+         track would stay wherever the finger left it. */
+      if (wasDragging || next !== l.currentIndex) writeTransform(l.restOffset(next), SWIPE_EASE)
+      if (next !== l.currentIndex) setCurrentIndex(next)
+
+      setTimeout(() => { autoplayPausedRef.current = false }, 500)
     }
 
-    setIsDragging(false)
-    setDragOffset(0)
-    touchStartRef.current = null
-    directionLockRef.current = null
-    setTimeout(() => { autoplayPausedRef.current = false }, 500)
-  }, [currentIndex, maxIndex, stepSize])
+    el.addEventListener('touchstart', onStart, { passive: true })
+    el.addEventListener('touchmove', onMove, { passive: false })
+    el.addEventListener('touchend', onEnd)
+    el.addEventListener('touchcancel', onEnd)
+    return () => {
+      if (raf) cancelAnimationFrame(raf)
+      el.removeEventListener('touchstart', onStart)
+      el.removeEventListener('touchmove', onMove)
+      el.removeEventListener('touchend', onEnd)
+      el.removeEventListener('touchcancel', onEnd)
+    }
+  }, [writeTransform])
 
   const goToSlide = useCallback((index: number) => {
     setCurrentIndex(Math.max(0, Math.min(index, maxIndex)))
@@ -3321,16 +3398,6 @@ function ImageCarousel({
 
   if (images.length === 0) return null
 
-  // For the last dot position, snap so the last image is fully visible (right-aligned)
-  let translateX = 0
-  if (containerWidth > 0) {
-    if (currentIndex >= maxIndex && maxIndex > 0) {
-      const totalContentWidth = images.length * itemWidth + (images.length - 1) * gap
-      translateX = -(totalContentWidth - containerWidth) + dragOffset
-    } else {
-      translateX = -(currentIndex * stepSize) + dragOffset
-    }
-  }
   const dotCount = maxIndex + 1
 
   return (
@@ -3342,22 +3409,14 @@ function ImageCarousel({
       {/* Carousel Container - overflow hidden, no native scroll */}
       <div
         ref={containerRef}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
         className="w-full overflow-hidden"
         style={{ touchAction: 'pan-y pinch-zoom' }}
       >
         <div
+          ref={trackRef}
           style={{
             display: 'flex',
             gap: `${gap}px`,
-            transform: `translate3d(${translateX}px, 0, 0)`,
-            transition: isDragging
-              ? 'none'
-              : isAutoplayTransition
-                ? 'transform 0.8s cubic-bezier(0.4, 0, 0.15, 1)' // Slow, silky smooth for autoplay
-                : 'transform 0.5s cubic-bezier(0.32, 0.72, 0, 1)', // Smooth spring for manual swipe
             willChange: 'transform',
           }}
         >
@@ -3365,7 +3424,7 @@ function ImageCarousel({
             <div
               key={img.id || idx}
               style={{
-                width: itemWidth > 0 ? `${itemWidth}px` : '100%',
+                width: slideWidth,
                 flexShrink: 0,
               }}
             >
@@ -3374,7 +3433,6 @@ function ImageCarousel({
           ))}
         </div>
       </div>
-
       {/* Navigation Arrows - visible on hover */}
       {images.length > 1 && (
         <>
@@ -3632,18 +3690,18 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
                   videoUrl={profile.avatar_video_url!}
                   imageUrl={profile.avatar_url}
                   alt={profile.title || "Avatar"}
-                  videoClassName="media-deblur"
-                  videoStyle={{ objectPosition: `50% ${(theme as any).hero_position_y ?? 50}%` }}
+                                    videoStyle={{ objectPosition: `50% ${(theme as any).hero_position_y ?? 50}%` }}
                   imageStyle={{ objectPosition: `50% ${(theme as any).hero_position_y ?? 50}%` }}
                 />
               ) : (
                 <img
-                  ref={(el) => { if (el && el.complete) { el.style.filter = 'none'; el.style.animation = 'none'; } }}
                   src={profile.avatar_url! || "/placeholder.svg"}
                   alt=""
-                  className="w-full h-full object-cover media-deblur"
+                  className="w-full h-full object-cover"
                   style={{ imageRendering: "auto", objectPosition: `50% ${(theme as any).hero_position_y ?? 50}%` }}
-                  onLoad={(e) => { e.currentTarget.style.filter = 'none'; e.currentTarget.style.animation = 'none'; }}
+                  loading="eager"
+                  fetchPriority="high"
+                  decoding="async"
                 />
               )}
               {/* Smooth gradient fade overlay using CSS mask for gradient backgrounds */}
@@ -3807,8 +3865,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
                       videoUrl={profile.avatar_video_url!}
                       imageUrl={profile.avatar_url}
                       alt={profile.title || "Avatar"}
-                      videoClassName="media-deblur"
-                      videoStyle={
+                                            videoStyle={
                         profile.avatar_video_crop
                           ? {
                               transformOrigin: '0 0',
@@ -3828,7 +3885,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
                   >
                     <AvatarImage
                       src={profile.avatar_url || undefined}
-                      className="object-cover media-deblur"
+                      className="object-cover"
                       style={{
                         imageRendering: "auto",
                         transform: `translateY(${(theme as any).avatar_offset_y || 0}px)`,
