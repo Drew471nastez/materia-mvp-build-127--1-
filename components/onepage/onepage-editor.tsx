@@ -1,6 +1,7 @@
 "use client"
 
 import { useOnePage, OnePageProvider } from "@/lib/onepage/context"
+import { sheetAboveKeyboard } from "@/lib/ui/keyboard-safe-sheet"
 import { PhonePreview, MobilePreviewContent } from "./phone-preview"
 import { DesignTab } from "./tabs/design-tab"
 import { LinksTab } from "./tabs/links-tab"
@@ -138,12 +139,13 @@ function UnsavedChangesDialog({
         className={cn(
           "p-0 gap-0 overflow-hidden",
           isMobileSheet
-            ? "w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 !top-auto !left-0 !right-0 !bottom-0 !translate-x-0 !translate-y-0"
+            ? "w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 !top-auto !left-0 !right-0 !translate-x-0 !translate-y-0"
             : "w-[calc(100%-32px)] max-w-sm md:max-w-[340px] rounded-2xl mx-auto"
         )}
         style={isMobileSheet ? {
           position: 'fixed',
-          top: 'auto', left: 0, right: 0, bottom: 0,
+          top: 'auto', left: 0, right: 0,
+          ...sheetAboveKeyboard(0.85),
           transform: isPresented ? `translate3d(0, ${dragY}px, 0)` : 'translate3d(0, 100%, 0)',
           transition: isDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
         } : undefined}
@@ -277,12 +279,13 @@ function ProUpgradeDialog({
         className={cn(
           "p-0 gap-0 overflow-hidden",
           isMobileSheet
-            ? "w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 !top-auto !left-0 !right-0 !bottom-0 !translate-x-0 !translate-y-0"
+            ? "w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 !top-auto !left-0 !right-0 !translate-x-0 !translate-y-0"
             : "w-[calc(100%-32px)] max-w-sm md:max-w-[450px] rounded-2xl mx-auto"
         )}
         style={isMobileSheet ? {
           position: 'fixed',
-          top: 'auto', left: 0, right: 0, bottom: 0,
+          top: 'auto', left: 0, right: 0,
+          ...sheetAboveKeyboard(0.85),
           transform: isPresented ? `translate3d(0, ${dragY}px, 0)` : 'translate3d(0, 100%, 0)',
           transition: isDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
         } : undefined}

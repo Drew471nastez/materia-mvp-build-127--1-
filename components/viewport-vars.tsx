@@ -2,11 +2,14 @@
 
 import { useEffect } from "react"
 
+import { keyboardInset } from "@/lib/ui/keyboard-safe-sheet"
+
 /**
  * Publishes the VISIBLE viewport — the one the keyboard leaves you — on <html>.
  *
- *   --vv-h    height of what is actually on screen
- *   --vv-top  how far the layout viewport has been scrolled out from under it
+ *   --vv-h       height of what is actually on screen
+ *   --vv-top     how far the layout viewport has been scrolled out from under it
+ *   --kb-inset   how much is hidden BELOW it, which is the keyboard
  *   data-keyboard="open" when something is eating a serious share of the screen
  *
  * This lived inside the conversation, which was the bug rather than the design.
@@ -31,6 +34,7 @@ export function ViewportVars() {
     const vv = window.visualViewport
     let lastH = -1
     let lastTop = -1
+    let lastInset = -1
     let lastKb: boolean | null = null
     let settleTimer = 0
 
@@ -80,6 +84,32 @@ export function ViewportVars() {
         lastTop = top
         root.style.setProperty("--vv-top", `${top}px`)
       }
+      /*
+        ═══════════════════════════════════════════════════════════════════
+         WHAT IS HIDDEN BELOW THE VISIBLE AREA, WHICH IS THE KEYBOARD
+        ═══════════════════════════════════════════════════════════════════
+        A `position: fixed` element is laid out against the LAYOUT viewport,
+        and on iOS the keyboard does not shrink that — only the visual one.
+        So `bottom: 0` is the bottom of the screen the keyboard is sitting on
+        top of, and a bottom sheet with a text field in it puts that field
+        underneath the keys. That is the bug: you cannot see what you type.
+
+        This is the one number that fixes it, in the same coordinates a fixed
+        element is positioned in: the gap between the bottom of the layout
+        viewport and the bottom of what you can actually see. A sheet sets
+        `bottom: var(--kb-inset)` and sits on the keyboard instead of under
+        it.
+
+        It is self-correcting where the platform already does the work. In a
+        WKWebView configured to resize the web view for the keyboard,
+        innerHeight shrinks too and this comes out at 0 — which is right,
+        because there is nothing left to compensate for.
+      */
+      const inset = keyboardInset(window.innerHeight, top, h)
+      if (inset !== lastInset) {
+        lastInset = inset
+        root.style.setProperty("--kb-inset", `${inset}px`)
+      }
       // Loose on purpose: a browser toolbar collapsing is sixty-odd pixels, a
       // keyboard is never less than about a quarter of the screen. Nothing in
       // between should be mistaken for one.
@@ -107,6 +137,7 @@ export function ViewportVars() {
       root.classList.remove("vv-settling")
       root.style.removeProperty("--vv-h")
       root.style.removeProperty("--vv-top")
+      root.style.removeProperty("--kb-inset")
       delete root.dataset.keyboard
     }
   }, [])
