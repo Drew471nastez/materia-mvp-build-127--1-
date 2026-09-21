@@ -1,6 +1,7 @@
 "use client"
 
 import { hapticTap } from "@/lib/native-bridge"
+import { sheetAboveKeyboard } from "@/lib/ui/keyboard-safe-sheet"
 
 import { useOnePage } from "@/lib/onepage/context"
 import {
@@ -2438,7 +2439,7 @@ export function LinksTab() {
           className={cn(
             "h-auto p-0 gap-0 overflow-hidden mx-auto flex flex-col border-[#ececf1]",
             isMobileModalViewport
-              ? "w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 max-h-[75vh] !top-auto !left-0 !right-0 !bottom-0 !translate-x-0 !translate-y-0"
+              ? "w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 max-h-[75vh] !top-auto !left-0 !right-0 !translate-x-0 !translate-y-0"
               : "w-[calc(100%-24px)] max-w-[520px] max-h-[85vh] sm:max-h-[min(680px,85vh)] rounded-2xl"
           )}
           style={isMobileModalViewport ? {
@@ -2446,12 +2447,11 @@ export function LinksTab() {
             top: 'auto',
             left: 0,
             right: 0,
-            bottom: 0,
+            ...sheetAboveKeyboard(0.75),
             transform: isAddSheetPresented ? `translate3d(0, ${addSheetDragY}px, 0)` : "translate3d(0, 100%, 0)",
             willChange: 'transform',
             backfaceVisibility: 'hidden' as const,
             transition: isAddSheetDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
-            maxHeight: '75vh'
           } : undefined}
         >
           {isMobileModalViewport && (
@@ -2751,7 +2751,7 @@ export function LinksTab() {
           className={cn(
             "p-0 gap-0 overflow-hidden mx-auto flex flex-col border-[#ececf1]",
             isMobileModalViewport
-              ? "w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 max-h-[75vh] !top-auto !left-0 !right-0 !bottom-0 !translate-x-0 !translate-y-0"
+              ? "w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 max-h-[75vh] !top-auto !left-0 !right-0 !translate-x-0 !translate-y-0"
               : "w-[calc(100%-32px)] max-w-md rounded-2xl max-h-[85vh]"
           )}
           style={isMobileModalViewport ? {
@@ -2759,12 +2759,11 @@ export function LinksTab() {
             top: 'auto',
             left: 0,
             right: 0,
-            bottom: 0,
+            ...sheetAboveKeyboard(0.75),
             transform: isSocialSheetPresented ? `translate3d(0, ${socialSheetDragY}px, 0)` : "translate3d(0, 100%, 0)",
             transition: isSocialSheetDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
             willChange: 'transform',
             backfaceVisibility: 'hidden',
-            maxHeight: '75vh'
           } : undefined}
         >
           {isMobileModalViewport && (
@@ -3232,7 +3231,7 @@ export function LinksTab() {
           className={cn(
             "p-0 gap-0 overflow-hidden mx-auto transition-all duration-200 flex flex-col border-[#ececf1]",
             isMobileModalViewport
-              ? "w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 max-h-[75vh] !top-auto !left-0 !right-0 !bottom-0 !translate-x-0 !translate-y-0"
+              ? "w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 max-h-[75vh] !top-auto !left-0 !right-0 !translate-x-0 !translate-y-0"
               : showIconLibraryInModal
                 ? "rounded-2xl w-[calc(100%-32px)] sm:max-w-[572px] max-w-[650px]"
                 : "rounded-2xl w-[calc(100%-32px)] sm:max-w-[416px] max-w-[455px]"
@@ -3242,12 +3241,11 @@ export function LinksTab() {
             top: 'auto',
             left: 0,
             right: 0,
-            bottom: 0,
+            ...sheetAboveKeyboard(0.75),
             transform: isThumbnailSheetPresented ? `translate3d(0, ${thumbnailSheetDragY}px, 0)` : 'translate3d(0, 100%, 0)',
             willChange: 'transform',
             backfaceVisibility: 'hidden' as const,
             transition: isThumbnailSheetDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
-            maxHeight: '75vh'
           } : undefined}
         >
           {/* Main Options View */}
@@ -5397,7 +5395,7 @@ function BlockItem({
               className={cn(
                 "p-0 gap-0 overflow-hidden mx-auto border-[#ececf1]",
                 isMobileStatsViewport
-                  ? "w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 max-h-[75vh] !top-auto !left-0 !right-0 !bottom-0 !translate-x-0 !translate-y-0"
+                  ? "w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 max-h-[75vh] !top-auto !left-0 !right-0 !translate-x-0 !translate-y-0"
                   : "w-[calc(100%-32px)] max-w-[360px] rounded-2xl"
               )}
               style={isMobileStatsViewport ? {
@@ -5405,12 +5403,11 @@ function BlockItem({
                 top: 'auto',
                 left: 0,
                 right: 0,
-                bottom: 0,
+                ...sheetAboveKeyboard(0.75),
                 transform: isAnimationSheetPresented ? `translate3d(0, ${animationSheetDragY}px, 0)` : 'translate3d(0, 100%, 0)',
                 willChange: 'transform',
                 backfaceVisibility: 'hidden' as const,
                 transition: isAnimationSheetDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
-                maxHeight: '75vh'
               } : undefined}
             >
               {isMobileStatsViewport && (
@@ -5528,7 +5525,7 @@ function BlockItem({
                 className={cn(
                   "p-0 gap-0 overflow-hidden mx-auto border-[#ececf1]",
                   isMobileStatsViewport
-                    ? "w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 max-h-[75vh] !top-auto !left-0 !right-0 !bottom-0 !translate-x-0 !translate-y-0"
+                    ? "w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 max-h-[75vh] !top-auto !left-0 !right-0 !translate-x-0 !translate-y-0"
                     : "w-[calc(100%-32px)] max-w-[420px] rounded-2xl"
                 )}
                 style={isMobileStatsViewport ? {
@@ -5536,12 +5533,11 @@ function BlockItem({
                   top: 'auto',
                   left: 0,
                   right: 0,
-                  bottom: 0,
+                  ...sheetAboveKeyboard(0.75),
                   transform: isStatsSheetPresented ? `translate3d(0, ${statsSheetDragY}px, 0)` : 'translate3d(0, 100%, 0)',
                   willChange: 'transform',
                   backfaceVisibility: 'hidden' as const,
                   transition: isStatsSheetDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
-                  maxHeight: '75vh'
                 } : undefined}
               >
                 {isMobileStatsViewport && (

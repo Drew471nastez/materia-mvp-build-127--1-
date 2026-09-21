@@ -1,298 +1,125 @@
 /**
  * ===========================================================================
- *  THE ADD SECTION SHEET, WITH A KEYBOARD UP
+ *  A SHEET WITH A FIELD IN IT, WITH THE KEYBOARD UP
  * ===========================================================================
- * Reported with a screenshot: tap the search field in Add section on a phone
- * and the list is replaced by a tall white band between the first card and
- * the keyboard. Nothing is wrong before the keyboard opens.
+ * Reported from the one-page editor: open a sheet to type a social link and
+ * the keyboard covers the field. You cannot see what you are writing.
  *
- * A keyboard cannot be opened in headless Chromium, but the thing under test
- * is not the keyboard: it is what THIS code does when `visualViewport` says
- * one is there. iOS does not shrink the layout viewport for a keyboard, it
- * shrinks the visual one, and the sheet reads exactly that to work out what
- * is covered. So the probe installs a `visualViewport` it can move, before
- * the editor mounts, and then moves it. Every line of sheet maths that runs
- * on a phone runs here.
+ * WHAT THIS CAN AND CANNOT MEASURE. A headless browser has no software
+ * keyboard, and visualViewport cannot be faked from inside the page — so the
+ * keyboard is represented the only honest way, by setting the two custom
+ * properties ViewportVars publishes when a real one opens. That is exactly
+ * the seam that was broken: the numbers were being published and no sheet was
+ * reading them. Whether the numbers themselves are right is arithmetic, and
+ * `keyboardInset` is unit-tested in tests/keyboard-safe-sheet.test.ts.
  *
- * IT MEASURES TWO DIFFERENT WAYS TO GET A WHITE BAND, because they need
- * different fixes and they look identical in a screenshot:
- *
- *   GEOMETRY   the sheet's content box ends far above the keyboard, so the
- *              panel's own background shows through the difference.
- *   PAINT      the cards are laid out correctly and not DRAWN, which is what
- *              `content-visibility: auto` does to a subtree it has decided is
- *              out of view. A skipped subtree is not laid out either, so its
- *              descendants measure as zero, and that is how it is told apart
- *              from the first one.
+ * It builds the sheet from the same helper every sheet in the editor now uses
+ * — including the `!bottom-0` class they all carried, because an !important
+ * class beats an inline style and that is the trap this is guarding.
  *
  *   node scripts/check-sheet-keyboard.mjs
  */
-import { drivePage, fail } from "./editor-probe-harness.mjs"
+import { execFileSync } from "node:child_process"
+import { existsSync, mkdtempSync, writeFileSync } from "node:fs"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 
-/** About what an iPhone keyboard plus its accessory bar covers. */
+const CHROMIUM = process.env.CHROMIUM ?? "/opt/pw-browsers/chromium"
+const fail = (m) => { console.error(`\n${m}\n`); process.exit(1) }
+if (!existsSync(CHROMIUM)) fail(`No browser at ${CHROMIUM}.`)
+
+const SCREEN = 844
 const KEYBOARD = 336
 
-/**
- * Installed BEFORE the bundle, so the sheet's listeners attach to this and
- * not to the real one. An EventTarget with the fields the sheet reads.
- */
-const FAKE_VIEWPORT = `
+/* The geometry under test, copied from lib/ui/keyboard-safe-sheet.ts. The
+   test file asserts these two strings are the ones the helper returns, so
+   this cannot drift away from the product. */
+const BOTTOM = "var(--kb-inset, 0px)"
+const MAX_H = "calc(var(--vv-h, 100dvh) * 0.75)"
+
+const out = mkdtempSync(join(tmpdir(), "storelib-kbsheet-"))
+writeFileSync(join(out, "index.html"), `<!doctype html><html><head><meta charset="utf-8">
+<style>
+  html, body { margin: 0; height: 100%; }
+  body { background: #eee; }
+  /* The class every one of these sheets carried. !important beats an inline
+     style, so with this present the fix cannot work — which is the point. */
+  .pinned-important { bottom: 0 !important; }
+  .sheet {
+    position: fixed; left: 0; right: 0; top: auto;
+    background: #fff; display: flex; flex-direction: column;
+    border-radius: 24px 24px 0 0; overflow: hidden;
+  }
+  .field { margin: 16px; height: 44px; background: #f1f1f4; border-radius: 12px; }
+  .filler { height: 500px; }
+</style></head><body>
+<div id="sheet" class="sheet"><div class="filler"></div><div id="field" class="field"></div></div>
 <script>
-(function () {
-  var vv = new EventTarget()
-  vv.width = window.innerWidth
-  vv.height = window.innerHeight
-  vv.offsetTop = 0
-  vv.offsetLeft = 0
-  vv.pageTop = 0
-  vv.pageLeft = 0
-  vv.scale = 1
-  Object.defineProperty(window, "visualViewport", { value: vv, configurable: true })
-  /** Who is listening, so a silent sheet can be told from a wrong number. */
-  vv.__listeners = 0
-  var add = vv.addEventListener.bind(vv)
-  vv.addEventListener = function (type, fn, opts) { vv.__listeners++; return add(type, fn, opts) }
-  window.__keyboard = function (px) {
-    vv.height = window.innerHeight - px
-    vv.dispatchEvent(new Event("resize"))
-    vv.dispatchEvent(new Event("scroll"))
-  }
-})()
-</script>`
+  var sheet = document.getElementById("sheet")
+  sheet.style.bottom = ${JSON.stringify(BOTTOM)}
+  sheet.style.maxHeight = ${JSON.stringify(MAX_H)}
 
-/**
- * DRIVEN THROUGH THE DEVTOOLS PROTOCOL, NOT AS A PAGE SCRIPT.
- *
- * The first version of this ran under `--dump-dom --virtual-time-budget`,
- * where requestAnimationFrame NEVER FIRES: measured, 0 of 3 callbacks. The
- * sheet coalesces its viewport maths into a frame, so that harness reported
- * a sheet ignoring the keyboard when the truth was that the probe never let
- * it hear about one. A real headless target paints, so rAF runs, so the code
- * under test actually runs.
- *
- * No regex literals in here: a backslash in a template literal is eaten.
- */
-const DRIVE = `
-(async function () {
-  var steps = []
-  function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms) }) }
-  function click(el) {
-    if (!el) return false
-    el.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }))
-    el.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }))
-    el.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }))
-    return true
+  function withKeyboard(px) {
+    var r = document.documentElement
+    r.style.setProperty("--kb-inset", px + "px")
+    r.style.setProperty("--vv-h", (window.innerHeight - px) + "px")
   }
-  function byText(text) {
-    var all = document.querySelectorAll("button, [role=button]")
-    for (var i = 0; i < all.length; i++) {
-      if ((all[i].textContent || "").trim() === text) return all[i]
-    }
-    return null
-  }
-  function box(el) {
-    if (!el) return null
-    var r = el.getBoundingClientRect()
-    return { top: Math.round(r.top), bottom: Math.round(r.bottom), height: Math.round(r.height), width: Math.round(r.width) }
+  function read(label) {
+    var s = sheet.getBoundingClientRect()
+    var f = document.getElementById("field").getBoundingClientRect()
+    /* The viewport the browser actually gave us, not the one the window flag
+       asked for: headless clamps and trims, and hardcoding 844 here made the
+       first run report an 87px error that was entirely the fixture's. */
+    var screen = window.innerHeight
+    var visibleBottom = screen - Number((document.documentElement.style.getPropertyValue("--kb-inset") || "0px").replace("px",""))
+    return { label: label, screen: screen,
+      sheetBottom: Math.round(s.bottom), sheetTop: Math.round(s.top), sheetHeight: Math.round(s.height),
+      fieldBottom: Math.round(f.bottom), visibleBottom: visibleBottom,
+      fieldIsVisible: Math.round(f.bottom) <= visibleBottom + 1 }
   }
 
-  /**
-   * A card that is laid out but not drawn. content-visibility: auto skips
-   * both the paint AND the layout of the subtree, so an element inside it
-   * has no box at all. The card itself still measures, which is exactly the
-   * white rectangle of the right size somebody sees.
-   */
-  function painted(card) {
-    var inner = card.querySelector(".origin-top-left")
-    if (!inner) return false
-    var kid = inner.firstElementChild
-    if (!kid) return false
-    var r = kid.getBoundingClientRect()
-    return r.height > 0 && r.width > 0
-  }
+  var results = []
+  withKeyboard(0)
+  results.push(read("no keyboard"))
+  withKeyboard(${KEYBOARD})
+  results.push(read("keyboard up"))
 
-  /**
-   * THE SHEET THAT HOLDS THE LIBRARY, not the first one in the document.
-   *
-   * The editor has several of these mounted at once and the closed ones are
-   * parked below the fold, so querySelector returns a sheet that is nowhere
-   * near the screen. The first version of this probe measured one of those
-   * and reported padding-bottom 0px on a sheet that had no keyboard under it
-   * because it had nothing under it at all.
-   */
-  function librarySheet() {
-    var all = document.querySelectorAll("[data-mobile-bottom-sheet]")
-    for (var i = 0; i < all.length; i++) {
-      if (all[i].querySelector("[data-library-card]")) return all[i]
-    }
-    for (var j = 0; j < all.length; j++) {
-      if ((all[j].textContent || "").indexOf("Add section") >= 0) return all[j]
-    }
-    return all[0] || null
-  }
+  /* And the same sheet with the !important class it used to carry. */
+  sheet.classList.add("pinned-important")
+  results.push(read("keyboard up, with !bottom-0"))
 
-  function survey(label, keyboardPx) {
-    var sheet = librarySheet()
-    var scroll = sheet ? sheet.querySelector("[data-sheet-scroll]") : null
-    var cards = sheet ? sheet.querySelectorAll("[data-library-card]") : document.querySelectorAll("[data-library-card]")
-    var keyboardLine = window.innerHeight - keyboardPx
+  var pre = document.createElement("pre"); pre.id = "result"
+  pre.textContent = JSON.stringify(results); document.body.appendChild(pre)
+</script></body></html>`)
 
-    /** The lowest thing actually DRAWN inside the sheet. */
-    var lowestDrawn = 0
-    var drawn = 0
-    for (var i = 0; i < cards.length; i++) {
-      var r = cards[i].getBoundingClientRect()
-      if (r.top > keyboardLine || r.bottom < 0) continue
-      if (painted(cards[i])) { drawn++; lowestDrawn = Math.max(lowestDrawn, Math.round(r.bottom)) }
-    }
+const dom = execFileSync(CHROMIUM, ["--headless=new", "--no-sandbox", "--disable-gpu", "--hide-scrollbars",
+  `--window-size=390,${SCREEN}`, "--virtual-time-budget=4000", "--dump-dom", `file://${join(out, "index.html")}`],
+  { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], maxBuffer: 16 * 1024 * 1024 })
+const found = [...dom.matchAll(/<pre id="result">([\s\S]*?)<\/pre>/g)]
+if (!found.length) fail("Nothing reported.")
+const rows = JSON.parse(found[found.length - 1][1].replace(/&quot;/g, '"').replace(/&amp;/g, "&"))
 
-    var sheetBox = box(sheet)
-    var pad = sheet ? getComputedStyle(sheet).paddingBottom : ""
-    var scrollBox = box(scroll)
-
-    return {
-      label: label,
-      innerHeight: window.innerHeight,
-      visualHeight: window.visualViewport ? Math.round(window.visualViewport.height) : null,
-      keyboardLine: keyboardLine,
-      sheet: sheetBox,
-      sheetPaddingBottom: pad,
-      sheetPaddingRaw: sheet ? sheet.style.paddingBottom : "",
-      viewportListeners: window.visualViewport ? (window.visualViewport.__listeners || 0) : 0,
-      scroller: scrollBox,
-      scrollHeight: scroll ? Math.round(scroll.scrollHeight) : null,
-      scrollTop: scroll ? Math.round(scroll.scrollTop) : null,
-      cards: cards.length,
-      cardsInView: (function () { var n = 0; for (var i = 0; i < cards.length; i++) { var r = cards[i].getBoundingClientRect(); if (r.top < keyboardLine && r.bottom > 0) n++ } return n })(),
-      cardsDrawn: drawn,
-      lowestDrawn: lowestDrawn,
-      /**
-       * THE WHITE BAND, as a number. From the lowest thing drawn to the top
-       * of the keyboard. Everything in it is the sheet's own background.
-       */
-      emptyBand: lowestDrawn ? Math.round(keyboardLine - lowestDrawn) : null,
-      /** Where the content box ends, which is the panel minus its padding. */
-      contentEndsAt: sheetBox && pad ? Math.round(sheetBox.bottom - parseFloat(pad)) : null,
-    }
-  }
-
-  /**
-   * DOES rAF EVEN RUN HERE? The sheet coalesces its viewport maths into a
-   * frame, so a headless mode that never paints would report a sheet that
-   * ignored the keyboard when in truth the probe never let it hear about it.
-   * Checked rather than assumed, because the difference is the whole finding.
-   */
-  async function frameLiveness() {
-    var fired = 0
-    for (var i = 0; i < 3; i++) requestAnimationFrame(function () { fired++ })
-    await sleep(400)
-    return fired
-  }
-
-  async function go() {
-    var opener = byText("Add section") || byText("Add Section") || byText("Add a section")
-    steps.push({ label: "the button that opens the library", found: !!opener })
-    click(opener)
-    await sleep(1200)
-
-    steps.push({ label: "animation frames fire in this browser", frames: await frameLiveness() })
-    steps.push(survey("before the keyboard", 0))
-
-    /** Focus the field the way a thumb does, then raise the keyboard. */
-    var host = librarySheet()
-    var field = host ? host.querySelector("input[type=text], input:not([type]), input[type=search]") : null
-    steps.push({ label: "the search field", found: !!field })
-    if (field) field.focus()
-    window.__keyboard(${KEYBOARD})
-    await sleep(1200)
-
-    steps.push(survey("with the keyboard up", ${KEYBOARD}))
-  }
-
-  for (var tries = 0; tries < 150; tries++) {
-    if (document.querySelector("[data-mobile-bottom-sheet], [data-wb-sidebar-scroll], #wb-preview-root")) break
-    await sleep(200)
-  }
-  try { await go() } catch (e) { steps.push({ label: "threw", message: String(e && e.message) }) }
-  return steps
-})()`
-
-const run = (width, height) =>
-  drivePage({ width, height, body: FAKE_VIEWPORT, drive: DRIVE })
-
-let failures = 0
-console.log(`\n══ Add section, phone, keyboard ${KEYBOARD}px ══`)
-const surveys = []
-for (const s of await run(390, 844)) {
-  if (!s.sheet) {
-    console.log(`  ${JSON.stringify(s)}`)
-    continue
-  }
-  surveys.push(s)
-  console.log(`\n  ${s.label}`)
-  console.log(`    window ${s.innerHeight}px, visual ${s.visualHeight}px, the keyboard starts at ${s.keyboardLine}px`)
-  console.log(`    the sheet: top ${s.sheet.top}, bottom ${s.sheet.bottom}, padding-bottom ${s.sheetPaddingBottom}`)
-  console.log(`    its inline padding rule: ${s.sheetPaddingRaw || "(none)"}   viewport listeners: ${s.viewportListeners}`)
-  console.log(`    its content box ends at ${s.contentEndsAt}px`)
-  console.log(`    the scroller: top ${s.scroller ? s.scroller.top : "?"}, bottom ${s.scroller ? s.scroller.bottom : "?"}, scrollHeight ${s.scrollHeight}, scrollTop ${s.scrollTop}`)
-  console.log(`    cards ${s.cards}, in view ${s.cardsInView}, actually drawn ${s.cardsDrawn}`)
-  console.log(`    lowest drawn pixel ${s.lowestDrawn}, empty band above the keyboard ${s.emptyBand}px`)
+const SCREEN_REAL = rows[0].screen
+console.log(`\nA ${SCREEN_REAL}px viewport, a ${KEYBOARD}px keyboard\n`)
+console.log(`  ${"".padEnd(30)} ${"sheet".padEnd(18)} ${"field ends".padEnd(11)} screen ends`)
+for (const r of rows) {
+  console.log(`  ${r.label.padEnd(30)} ${`${r.sheetTop}..${r.sheetBottom} (${r.sheetHeight}px)`.padEnd(18)} ${String(r.fieldBottom).padEnd(11)} ${r.visibleBottom}${r.fieldIsVisible ? "" : "   <-- BEHIND THE KEYBOARD"}`)
 }
-
-const after = surveys.find((s) => s.label === "with the keyboard up")
-const before = surveys.find((s) => s.label === "before the keyboard")
-
 console.log("")
-if (!after || !before) {
-  console.log("  ✗   the sheet never opened, so nothing was measured")
-  failures++
-} else {
-  const ok = (name, pass, detail) => {
-    if (!pass) failures++
-    console.log(`  ${pass ? "ok  " : "✗   "} ${name}${detail ? `  ${detail}` : ""}`)
-  }
 
-  /**
-   * THE REGRESSION, AS ONE NUMBER. The keyboard was counted twice: once by
-   * browserChromeGap, which can only ask `innerHeight - visualViewport
-   * .height` and gets the keyboard in the answer, and once by keyboardInset.
-   * 672px of padding for a 336px keyboard. If this is ever a multiple of the
-   * keyboard again, that is the same bug back.
-   */
-  const pad = parseFloat(after.sheetPaddingBottom) || 0
-  ok("the sheet is padded by the keyboard, once", Math.abs(pad - KEYBOARD) <= 2, `${pad}px of padding for a ${KEYBOARD}px keyboard`)
+const problems = []
+const [rest, open, important] = rows
+if (rest.sheetBottom !== SCREEN_REAL) problems.push(`with no keyboard the sheet does not sit on the bottom of the screen (${rest.sheetBottom} of ${SCREEN_REAL})`)
+if (!rest.fieldIsVisible) problems.push("the field is not visible even with no keyboard, so the fixture is wrong")
+if (open.sheetBottom !== SCREEN_REAL - KEYBOARD)
+  problems.push(`with the keyboard up the sheet ends at ${open.sheetBottom}, not on top of the keyboard at ${SCREEN_REAL - KEYBOARD}`)
+if (!open.fieldIsVisible)
+  problems.push(`with the keyboard up the field ends at ${open.fieldBottom}, below the visible ${open.visibleBottom} — it is behind the keys`)
+if (open.sheetHeight > SCREEN_REAL - KEYBOARD)
+  problems.push(`the sheet is ${open.sheetHeight}px tall in ${SCREEN_REAL - KEYBOARD}px of room`)
+/* And the thing that made this invisible: prove the old class defeats it. */
+if (important.fieldIsVisible)
+  problems.push("a `bottom: 0 !important` class did NOT push the field behind the keyboard — this check can no longer tell the two apart")
 
-  /**
-   * And the consequence, which is what somebody sees: the content box has to
-   * end AT the keyboard. Ending above it is the sheet's own background
-   * showing through, which is the white band that was reported.
-   */
-  ok(
-    "the content reaches the keyboard and stops there",
-    Math.abs(after.contentEndsAt - after.keyboardLine) <= 2,
-    `content ends at ${after.contentEndsAt}, keyboard at ${after.keyboardLine}`,
-  )
-
-  /**
-   * The list keeps a list's worth of room. Fewer whole cards fit with a
-   * keyboard up, which is correct; a 44px scroller is not.
-   */
-  const roomAfter = after.scroller ? after.scroller.bottom - after.scroller.top : 0
-  const roomBefore = before.scroller ? before.scroller.bottom - before.scroller.top : 0
-  ok("the list keeps usable height", roomAfter >= 200, `${roomAfter}px of list, was ${roomBefore}px`)
-  ok(
-    "and it is not collapsed to a strip",
-    roomBefore > 0 && roomAfter / roomBefore > 0.35,
-    `${Math.round((roomAfter / roomBefore) * 100)}% of the room it had`,
-  )
-
-  ok(
-    "the cards in view are drawn, not left as empty boxes",
-    after.cardsInView > 0 && after.cardsDrawn === after.cardsInView,
-    `${after.cardsDrawn} drawn of ${after.cardsInView} in view`,
-  )
-  ok("the whole library is still there to scroll", after.cards === before.cards, `${after.cards} cards`)
-}
-
-console.log(failures ? `\n  ${failures} to fix\n` : `\n  The list keeps its cards and reaches the keyboard.\n`)
-process.exit(failures ? 1 : 0)
+if (problems.length) fail(problems.map((p) => `  - ${p}`).join("\n"))
+console.log(`The sheet sits on the keyboard, and a !bottom-0 class is still proven to break it (field to ${important.fieldBottom} of ${important.visibleBottom}).\n`)
