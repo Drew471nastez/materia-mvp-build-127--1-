@@ -61,12 +61,23 @@ export const useParams = () => ({})
 writeFileSync(join(shots, "link.jsx"), `import React from "react"
 export default function Link({ href, children, ...rest }) { return React.createElement("a", { href, ...rest }, children) }
 `)
+/* The bar ticks once per slot crossed and once on commit; recorded rather
+   than swallowed, because "it should be haptic when I click on some icon" is
+   a claim about calls that are made. */
+writeFileSync(join(shots, "native-bridge.js"), `export function hapticTap(strength) { (globalThis.__haptics = globalThis.__haptics || []).push(strength || "light") }
+export function isNativeApp() { return false }
+export function openExternal() {}
+export async function triggerHaptic() {}
+export function nativePlatform() { return "web" }
+export async function nativeLogOut() {}
+`)
 
 execFileSync("npx", [
   "esbuild", join(root, "scripts/render-app-mobile-nav.tsx"),
   "--bundle", "--format=iife", `--outfile=${join(out, "probe.js")}`,
   `--alias:next/link=${join(shots, "link.jsx")}`,
   `--alias:next/navigation=${join(shots, "navigation.js")}`,
+  `--alias:@/lib/native-bridge=${join(shots, "native-bridge.js")}`,
   `--alias:@=${root}`,
   "--loader:.jsx=jsx", "--loader:.css=empty", "--loader:.svg=dataurl",
   "--jsx=automatic", '--define:process.env.NODE_ENV="production"', "--log-level=error",
@@ -139,31 +150,60 @@ await sleep(1600)
 
 const ran = await ev("!!window.__ran")
 if (!ran) { const t = await ev("window.__threw || (window.__err||[])[0] || null"); reap(); fail(`the harness never rendered: ${t}`) }
+/* `render()` can return without throwing while the tree inside it did, so
+   what matters is whether the bar is actually on the page. */
+const painted = await ev(`!!document.querySelector('nav[aria-label="Main"]')`)
+if (!painted) {
+  const why = await ev("JSON.stringify({ threw: window.__threw || null, errors: (window.__err||[]).slice(0,3), html: document.getElementById('app').innerHTML.slice(0,200) })")
+  reap(); fail(`the bar never rendered: ${why}`)
+}
 
 /* ── what is on screen with the menu shut ────────────────────────────────── */
 const READ_PILL = `(() => {
   const pill = document.querySelector('nav[aria-label="Main"]')
-  const band = pill?.parentElement?.querySelector('[aria-hidden="true"]')
+  const band = document.querySelector('[data-app-nav-pill] > [aria-hidden="true"]')
   const b = pill.getBoundingClientRect()
   const bandBox = band.getBoundingClientRect()
   const bs = getComputedStyle(band)
   const ps = getComputedStyle(pill)
-  const targets = [...pill.children].map((c) => {
+  const controls = [...pill.querySelectorAll("a[aria-label]"), document.querySelector("[data-app-nav-pill] button[aria-label]")]
+  const targets = controls.map((c) => {
     const r = c.getBoundingClientRect()
     return { label: c.getAttribute("aria-label"), w: Math.round(r.width), h: Math.round(r.height) }
   })
-  /* What a finger at the middle of each target would actually hit. */
-  const hits = [...pill.children].map((c) => {
+  /* What a finger at the middle of each target would actually hit. The bar
+     answers presses itself, so a link inside it is expected to be covered by
+     the bar rather than by anything else. */
+  const hits = controls.map((c) => {
     const r = c.getBoundingClientRect()
     const el = document.elementFromPoint(Math.round(r.left + r.width / 2), Math.round(r.top + r.height / 2))
-    return { label: c.getAttribute("aria-label"), reaches: !!(el && c.contains(el)) }
+    return { label: c.getAttribute("aria-label"), reaches: !!(el && (c.contains(el) || c.parentElement?.contains(el))) }
   })
   const scroller = document.querySelector(".app-content-scroll")
   return {
     pill: { x: Math.round(b.left), w: Math.round(b.width), h: Math.round(b.height),
             bottomGap: Math.round(window.innerHeight - b.bottom),
-            centred: Math.abs((b.left + b.right) / 2 - window.innerWidth / 2) <= 1,
+            /* The bar and the menu button are two objects; together they are
+               what sits in the middle of the screen. */
+            centred: (() => {
+              const btn = document.querySelector("[data-app-nav-pill] button[aria-label]").getBoundingClientRect()
+              const left = Math.min(b.left, btn.left)
+              const right = Math.max(b.right, btn.right)
+              return Math.abs((left + right) / 2 - window.innerWidth / 2) <= 1
+            })(),
+            gapToButton: (() => {
+              const btn = document.querySelector("[data-app-nav-pill] button[aria-label]").getBoundingClientRect()
+              return Math.round(btn.left - b.right)
+            })(),
             radius: ps.borderRadius, bg: ps.backgroundColor, shadow: ps.boxShadow.slice(0, 120) },
+    selector: (() => {
+      const dot = pill.querySelector('span[aria-hidden="true"]')
+      const d = dot.getBoundingClientRect()
+      const st = getComputedStyle(dot)
+      return { w: Math.round(d.width), h: Math.round(d.height), radius: st.borderRadius, bg: st.backgroundColor,
+               moves: st.transitionProperty }
+    })(),
+    glass: { backdrop: ps.backdropFilter || ps.webkitBackdropFilter },
     band: { h: Math.round(bandBox.height),
             backdrop: bs.backdropFilter || bs.webkitBackdropFilter,
             mask: (bs.maskImage || bs.webkitMaskImage || "none").slice(0, 90) },
@@ -186,10 +226,51 @@ await ev('document.querySelector(".app-content-scroll").scrollTop = 0')
 await sleep(120)
 await shoot("closed.png")
 
+/* ── a finger slid along it ──────────────────────────────────────────────── */
+/*
+ * "The new iOS feeling, like I can drag left and right", and "it should be
+ * haptic when I click on some icon to navigate to it".
+ *
+ * Both are things that happen DURING a gesture, so both are driven: press on
+ * the first slot, slide to the fourth, watch where the circle is at each step,
+ * and read off what was navigated to and how many times it ticked.
+ */
+const slots = await ev(`(() => {
+  const bar = document.querySelector('nav[aria-label="Main"]')
+  return [...bar.querySelectorAll("a[aria-label]")].map((a) => {
+    const r = a.getBoundingClientRect()
+    return { label: a.getAttribute("aria-label"), x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) }
+  })
+})()`)
+await ev("globalThis.__haptics = []; window.__went = null; window.__dotAt = []; true")
+const dot = `(() => { const d = document.querySelector('nav[aria-label="Main"] span[aria-hidden="true"]').getBoundingClientRect(); return Math.round((d.left + d.right) / 2) })()`
+await send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: slots[0].x, y: slots[0].y, radiusX: 12, radiusY: 12, force: 1 }] })
+await sleep(80)
+const dragTrail = [await ev(dot)]
+for (let i = 1; i <= 12; i++) {
+  const x = Math.round(slots[0].x + ((slots[3].x - slots[0].x) * i) / 12)
+  await send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x, y: slots[0].y, radiusX: 12, radiusY: 12, force: 1 }] })
+  await sleep(24)
+  dragTrail.push(await ev(dot))
+}
+await send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] })
+await sleep(300)
+const drag = {
+  trail: dragTrail,
+  travelled: dragTrail[dragTrail.length - 1] - dragTrail[0],
+  distinct: new Set(dragTrail).size,
+  monotonic: dragTrail.every((v, i) => i === 0 || v >= dragTrail[i - 1] - 1),
+  went: await ev("window.__went"),
+  haptics: await ev("(globalThis.__haptics || []).slice()"),
+  target: slots[3],
+}
+/* Put it back on Home so the screenshot below is the resting state. */
+await ev("window.__went = null; true")
+
 /* ── open it, the way the pill does ──────────────────────────────────────── */
 const menuBtn = await ev(`(() => {
-  const pill = document.querySelector('nav[aria-label="Main"]')
-  const b = [...pill.children].find((c) => /menu/i.test(c.getAttribute("aria-label") || ""))
+  /* Its own button beside the bar now, not a slot inside it. */
+  const b = document.querySelector('[data-app-nav-pill] button[aria-label]')
   const r = b.getBoundingClientRect()
   return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) }
 })()`)
@@ -205,7 +286,7 @@ const READ_MENU = `(() => {
     const b = n.getBoundingClientRect()
     return { text: (n.textContent || "").trim().slice(0, 22), h: Math.round(b.height) }
   }).filter((x) => x.h > 0)
-  const glyph = document.querySelector('nav[aria-label="Main"] [aria-label="Close menu"]')
+  const glyph = document.querySelector('[data-app-nav-pill] button[aria-label="Close menu"]')
   return {
     open: page.getAttribute("data-mobile-menu"),
     bg: s.backgroundColor,
@@ -218,7 +299,8 @@ const READ_MENU = `(() => {
     pageLocked: getComputedStyle(document.querySelector(".app-content-scroll")).overflowY,
     rows,
     minRowHeight: Math.min(...rows.map((x) => x.h)),
-    hasSettings: rows.some((x) => /settings/i.test(x.text)),
+    settingsInTheBar: !!document.querySelector('[data-app-nav-pill] [aria-label="Settings"]'),
+    rowsAreStillThere: rows.length >= 6,
     hasQuickSale: rows.some((x) => /quick sale/i.test(x.text)),
     closeIsInThePill: !!glyph,
     /* The pill has to be ON TOP of the page it opened. */
@@ -227,7 +309,7 @@ const READ_MENU = `(() => {
       const el = document.elementFromPoint(Math.round((p.left + p.right) / 2), Math.round((p.top + p.bottom) / 2))
       return !!(el && document.querySelector('nav[aria-label="Main"]').contains(el))
     })(),
-    exploreStillThere: !!document.querySelector('nav[aria-label="Main"] [aria-label="Explore"]'),
+    barItems: [...document.querySelectorAll('[data-app-nav-pill] a[aria-label], [data-app-nav-pill] button[aria-label]')].map((n) => n.getAttribute("aria-label")),
   }
 })()`
 const open = await ev(READ_MENU)
@@ -319,13 +401,21 @@ console.log(`  the menu    ${open.covers}px tall from y=${open.top}, ${open.bg},
 console.log(`  a group     ${group.shutHeight}px to ${group.openHeight}px over ${group.steps} distinct heights, worst frame ${group.worstFrame}ms of ${group.frames}\n`)
 
 must(!shut.headerHasHamburger, "the hamburger is out of the header", "the header still carries a hamburger")
-must(shut.pill.centred, "the pill is centred", `the pill is off centre (x=${shut.pill.x}, width ${shut.pill.w})`)
+must(shut.pill.centred, "the bar and the menu button, together, are centred",
+  `they are off centre (bar at x=${shut.pill.x}, width ${shut.pill.w})`)
+must(shut.pill.gapToButton >= 4 && shut.pill.gapToButton <= 16,
+  "and the menu is a separate object beside the bar, not a fifth slot in it",
+  `there are ${shut.pill.gapToButton}px between them`)
 must(shut.pill.bottomGap >= 8 && shut.pill.bottomGap <= 40, "and sits just above the bottom edge, where a thumb is",
   `the pill is ${shut.pill.bottomGap}px from the bottom`)
 must(shut.pill.radius.startsWith("999") || Number.parseFloat(shut.pill.radius) >= shut.pill.h / 2,
   "it is a pill, not a rounded rectangle", `its radius is ${shut.pill.radius} on a ${shut.pill.h}px box`)
-must(shut.targets.length === 3 && shut.targets.every((t) => t.h >= 44 && t.w >= 44),
-  "every target in it is at least 44px", `targets: ${shut.targets.map((t) => `${t.label} ${t.w}x${t.h}`).join(", ")}`)
+must(shut.targets.length === 5, "the bar carries Home, Orders, Products, Explore, and the menu beside them",
+  `it carries ${shut.targets.map((t) => t.label).join(", ")}`)
+must(shut.targets.map((t) => t.label).join(",") === "Home,Orders,Products,Explore,Menu",
+  "in that order", `the order is ${shut.targets.map((t) => t.label).join(", ")}`)
+must(shut.targets.every((t) => t.h >= 40 && t.w >= 40), "every target in it is at least 40px",
+  `targets: ${shut.targets.map((t) => `${t.label} ${t.w}x${t.h}`).join(", ")}`)
 must(shut.hits.every((h) => h.reaches), "and a press in the middle of each one reaches it",
   `these do not: ${shut.hits.filter((h) => !h.reaches).map((h) => h.label).join(", ")}`)
 
@@ -335,9 +425,17 @@ must(shut.band.mask !== "none" && /gradient/.test(shut.band.mask),
   "and it is masked, so the blur fades out instead of ending on a line",
   "the blur has a hard top edge, which reads as a panel bolted to the screen")
 const pillAlpha = Number((shut.pill.bg.match(/rgba?\([^)]*?,\s*([\d.]+)\s*\)/) ?? [])[1] ?? 1)
-must(/^rgba?\(255, 255, 255/.test(shut.pill.bg) && pillAlpha > 0.5 && pillAlpha < 1,
-  "the pill itself is translucent white over that blur",
-  `the pill is ${shut.pill.bg}: it has to let the blur through without disappearing into it`)
+must(/^rgba?\(255, 255, 255/.test(shut.pill.bg) && pillAlpha <= 0.55,
+  "the bar is a thin tint rather than a solid sheet",
+  `the bar is ${shut.pill.bg}: at that opacity it is a white panel with a blur behind it, not glass`)
+must(/blur\(/.test(shut.glass.backdrop), "and it carries its own blur, so the page is visible THROUGH it",
+  `the bar's backdrop-filter is "${shut.glass.backdrop}"`)
+must(shut.selector.w === shut.selector.h, "the selector is a circle, not an oval",
+  `it is ${shut.selector.w}x${shut.selector.h}`)
+must(!/139, 92, 246|rgb\(139/.test(shut.selector.bg), "and it is not painted in the accent colour",
+  `the selector is ${shut.selector.bg}`)
+must(/transform/.test(shut.selector.moves), "it slides between slots rather than jumping",
+  `it transitions ${shut.selector.moves}`)
 
 must(Number.parseFloat(shut.scrollPadBottom) >= 88, "the page leaves room for the pill under its content",
   `.app-content-scroll pads only ${shut.scrollPadBottom} at the bottom, so the last row sits under the pill`)
@@ -353,13 +451,14 @@ must(!/height|width|top|left|margin|padding/.test(open.transition) && /transform
   "it moves on transform and opacity only", `it transitions ${open.transition}, which relayouts every frame`)
 must(open.pageLocked === "hidden", "the page behind it does not scroll while it is open",
   `.app-content-scroll is overflow-y: ${open.pageLocked}`)
-must(open.hasSettings, "settings is a row in it", "there is no settings row in the menu")
+must(open.settingsInTheBar, "settings is the one thing beside the close button",
+  "there is no settings control while the menu is open")
 must(!open.hasQuickSale, "and there is no Quick Sale", "a Quick Sale control is in the menu")
 must(open.minRowHeight >= 40, "every row in it is at least 40px tall", `the shortest row is ${open.minRowHeight}px`)
 must(open.closeIsInThePill, "the menu button has become the close button", "there is no close control in the pill")
 must(open.pillOverMenu, "and the pill is on top of the page it opened", "the menu page is drawn over its own pill")
-must(open.exploreStillThere, "explore stays reachable with the menu open",
-  "explore is not reachable while the menu is open")
+must(open.barItems.join(",") === "Settings,Close menu", "and nothing else is in the bar while it is open",
+  `the bar shows ${open.barItems.join(", ")}`)
 
 console.log("")
 must(group.openHeight > 0 && group.shutHeight === 0, "a group opens and closes",
@@ -370,6 +469,22 @@ must(group.sameNode, "and the element carrying the animation survives it",
   "the submenu node was replaced mid-transition, which is a remount, not an animation")
 must(/grid-template-rows/.test(group.transition), "on a grid track, with nothing to measure or release",
   `it transitions ${group.transition}`)
+
+console.log("")
+console.log(`  a slide     the circle went ${drag.trail[0]}px to ${drag.trail[drag.trail.length - 1]}px over ${drag.distinct} distinct positions`)
+console.log(`              ${drag.haptics.length} haptic ticks, landed on ${drag.went}\n`)
+must(drag.travelled > 100, "a finger sliding along the bar drags the circle with it",
+  `the circle moved ${drag.travelled}px across a slide from the first slot to the fourth`)
+must(drag.distinct >= 3, "through the slots on the way, not straight to the end",
+  `it only ever showed ${drag.distinct} positions`)
+must(drag.monotonic, "and it never goes backwards while the finger goes forwards",
+  `the trail was ${drag.trail.join(", ")}`)
+must(drag.went === "/explore", "lifting picks the slot the finger is over",
+  `it navigated to ${drag.went} instead of the fourth slot`)
+must(drag.haptics.length >= 4, "and it ticks on the way, once per slot crossed and once on the lift",
+  `${drag.haptics.length} haptic ticks for a slide across four slots`)
+must(drag.haptics.length <= 10, "rather than once per frame",
+  `${drag.haptics.length} ticks for a slide across four slots is per frame, not per slot`)
 
 console.log("")
 must(share.during > share.before + 40, "a page that raises its own bottom bar gets the strip, and the pill drops away",

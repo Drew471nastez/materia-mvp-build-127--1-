@@ -410,11 +410,12 @@ export function hapticTap(strength: "light" | "medium" = "light"): void {
    * the Android app, where `navigator.vibrate` works perfectly well, as much
    * as inside the iOS one, where nothing does.
    *
-   * Falling through costs one rejected promise and makes Android work today.
-   * iOS needs `pod 'CapacitorHaptics'` in ios/App/Podfile and a new build;
-   * there is no web vibration API on iOS to fall back to, in Safari or in
-   * WKWebView, so until that pod is added an iPhone stays silent whatever
-   * this function does.
+   * Falling through costs one rejected promise and makes Android work either
+   * way. The pod IS in ios/App/Podfile now, so an iPhone running a build made
+   * since then goes through the Taptic Engine; one running an older binary
+   * falls through to a web vibration API that does not exist on iOS, in
+   * Safari or in WKWebView, and stays silent. Nothing here can tell the two
+   * apart, and nothing here needs to.
    */
   void triggerHaptic(strength).then((ok) => {
     if (!ok) web()

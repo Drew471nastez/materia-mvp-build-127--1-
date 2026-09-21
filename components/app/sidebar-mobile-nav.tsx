@@ -34,9 +34,9 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
-import { Compass } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { hapticTap } from "@/lib/native-bridge"
 import {
   isRouteActive,
   type NavIconPair,
@@ -122,19 +122,19 @@ function Collapsible({ open, children }: { open: boolean; children: React.ReactN
  * because both are painted in a fixed box nothing an icon does can move the
  * label beside it.
  */
-function NavIcon({ icon, active, color }: { icon: NavIconPair; active: boolean; color: string }) {
+function NavIcon({ icon, active, color, size = 22 }: { icon: NavIconPair; active: boolean; color: string; size?: number }) {
   const Line = icon.line
   const Fill = icon.fill
   return (
-    <span className="relative block h-[22px] w-[22px] shrink-0" style={{ color }}>
+    <span className="relative block shrink-0" style={{ color, width: size, height: size }}>
       <Line
-        size={22}
+        size={size}
         strokeWidth={1.5}
-        style={{ position: "absolute", inset: 0, opacity: active ? 0 : 1, transition: "opacity 160ms ease-out" }}
+        style={{ position: "absolute", inset: 0, opacity: active ? 0 : 1, transition: "opacity 180ms ease-out" }}
       />
       <Fill
-        size={22}
-        style={{ position: "absolute", inset: 0, opacity: active ? 1 : 0, transition: "opacity 160ms ease-out" }}
+        size={size}
+        style={{ position: "absolute", inset: 0, opacity: active ? 1 : 0, transition: "opacity 180ms ease-out" }}
       />
     </span>
   )
@@ -333,8 +333,6 @@ export function MobileMenuPage({
   onNavigate,
   onForceNavigate,
   onClose,
-  settingsIcon,
-  settingsLabel,
   upgradeTitle,
   upgradeSubtitle,
   storeUnpublishedNote,
@@ -347,8 +345,6 @@ export function MobileMenuPage({
   onNavigate?: (href: string) => void
   onForceNavigate?: (href: string) => void
   onClose: () => void
-  settingsIcon: NavIconPair
-  settingsLabel: string
   upgradeTitle: string
   upgradeSubtitle: string
   storeUnpublishedNote?: string
@@ -437,25 +433,14 @@ export function MobileMenuPage({
         </div>
 
         {/*
-          SETTINGS IS A ROW, not a 28px icon in a footer strip.
+          SETTINGS IS NOT A ROW HERE.
 
-          It was one of two grey circles at the bottom of the drawer, the size
-          of a favicon, beside a compass that meant Explore. Neither was
-          labelled and neither was reliably hittable. Settings is a
-          destination like the eight above it, so it looks like them.
+          It was one of two unlabelled grey circles in the drawer's footer,
+          the size of a favicon; it was briefly a row in this list; it is a
+          button in the bar at the foot of the screen now, which appears the
+          moment this menu opens. One place, and it is the place a thumb is
+          already resting.
         */}
-        <div className="mt-5 space-y-0.5">
-          <p className="mb-1.5 px-3.5 text-[11px] font-semibold uppercase tracking-wider" style={{ color: LABEL_TEXT }}>
-            Account
-          </p>
-          <MobileNavItem
-            item={{ href: "/app/settings", label: settingsLabel, icon: settingsIcon }}
-            expanded={false}
-            onToggle={onToggle}
-            onNavigate={onNavigate}
-            onClose={onClose}
-          />
-        </div>
 
         {storeUnpublishedNote && (
           <p className="mt-4 rounded-[14px] border border-amber-100/80 bg-amber-50/80 px-3.5 py-2.5 text-[13px] text-amber-700">
@@ -488,153 +473,358 @@ export function MobileMenuPage({
   )
 }
 
-// ── The pill ────────────────────────────────────────────────────────────────
+// ── The bar ─────────────────────────────────────────────────────────────────
+
+/**
+ * ===========================================================================
+ *  GLASS, AND NOT A PANEL PAINTED TO LOOK LIKE IT
+ * ===========================================================================
+ * The first version of this was a white pill at 82% over a blurred band: a
+ * solid object sitting on frosted glass rather than being made of it. Read
+ * back as "not clean at all, it needs to not have solid in the background,
+ * it needs a very smooth layer of glassmorphism", which is exactly right.
+ *
+ * So the blur is on the OBJECTS now. Each one carries its own
+ * `backdrop-filter` and a tint thin enough to see the page through, and the
+ * band behind them is a fade rather than a second sheet of glass — its job
+ * is only to stop text colliding with the bar as it scrolls under, and it
+ * does that by dissolving, with no fill of its own to be solid with.
+ *
+ * DEPTH IS ONE SHADOW AND IT IS ALMOST NOT THERE. "Extremely little, very
+ * subtle depth, just a little bit." Two soft drops of 4% and 6%, and a half
+ * pixel of inner light along the top edge, which is what separates glass
+ * from a flat shape without casting anything.
+ */
+const GLASS: React.CSSProperties = {
+  backgroundColor: "rgba(255,255,255,0.42)",
+  backdropFilter: "blur(26px) saturate(180%)",
+  WebkitBackdropFilter: "blur(26px) saturate(180%)",
+  boxShadow:
+    "0 1px 2px rgba(16,18,27,0.04), 0 6px 16px rgba(16,18,27,0.06)," +
+    " inset 0 0 0 0.5px rgba(255,255,255,0.55), inset 0 0.5px 0 rgba(255,255,255,0.8)",
+}
+
+/** Slim: the old bar was 56 tall with 52px slots, and read as a slab. */
+const BAR_H = 48
+const SLOT = 46
+const PAD = 4
+/** The selector is a CIRCLE, so it is as wide as it is tall. */
+const DOT = BAR_H - PAD * 2
 
 /**
  * Three bars that become a cross.
  *
- * Lifted from the header's hamburger so the gesture people already know
- * survives the move to the bottom, and because "close with the X" and "open
- * with the menu" want to be the same control in the same place — the finger
- * that opened the menu does not have to go anywhere to close it.
+ * Thinner than the header's was — 1.6px on 16, which is the weight Solar
+ * draws its 1.5 strokes at once they are rasterised — so it sits in the same
+ * family as the four glyphs beside it instead of shouting over them.
  */
 function MenuGlyph({ open }: { open: boolean }) {
-  const bar = "absolute h-[2px] w-[18px] rounded-full bg-current"
-  const ease = `transition-all duration-[280ms] ease-[cubic-bezier(0.32,0.72,0,1)]`
+  const bar = "absolute h-[1.6px] w-[16px] rounded-full bg-current"
+  const ease = "transition-all duration-[300ms] ease-[cubic-bezier(0.32,0.72,0,1)]"
   return (
-    <span className="relative flex h-[18px] w-[18px] items-center justify-center">
-      <span className={cn(bar, ease, open ? "top-[8px] rotate-45" : "top-[3px] rotate-0")} />
-      <span className={cn(bar, ease, "top-[8px]", open ? "scale-x-0 opacity-0" : "scale-x-100 opacity-100")} />
-      <span className={cn(bar, ease, open ? "top-[8px] -rotate-45" : "top-[13px] rotate-0")} />
+    <span className="relative flex h-[16px] w-[16px] items-center justify-center">
+      <span className={cn(bar, ease, open ? "top-[7.2px] rotate-45" : "top-[3.2px] rotate-0")} />
+      <span className={cn(bar, ease, "top-[7.2px]", open ? "scale-x-0 opacity-0" : "scale-x-100 opacity-100")} />
+      <span className={cn(bar, ease, open ? "top-[7.2px] -rotate-45" : "top-[11.2px] rotate-0")} />
     </span>
   )
 }
 
-function PillButton({
-  label,
-  active,
-  onClick,
-  href,
-  children,
-}: {
+type BarItem = {
+  key: string
   label: string
-  active: boolean
-  onClick?: (e: React.MouseEvent) => void
-  href?: string
-  children: React.ReactNode
-}) {
-  const { pressed, handlers } = usePressed()
-  const inner = (
-    <>
-      <span
-        aria-hidden="true"
-        className="absolute inset-[3px] rounded-full"
-        style={{
-          backgroundColor: active ? "rgba(139,92,246,0.12)" : pressed ? "rgba(16,18,27,0.06)" : "transparent",
-          transition: "background-color 180ms ease-out",
-        }}
-      />
-      <span className="relative" style={{ color: active ? ACCENT : "#5b6472" }}>
-        {children}
-      </span>
-    </>
-  )
-  const className = "relative flex h-[46px] w-[52px] items-center justify-center rounded-full"
-  if (href) {
-    return (
-      <Link href={href} aria-label={label} onClick={onClick} {...handlers} className={className}>
-        {inner}
-      </Link>
-    )
+  href: string
+  icon: NavIconPair
+  /** Leaves the app shell, so it may need to be opened outside it. */
+  external?: boolean
+}
+
+/**
+ * ===========================================================================
+ *  A FINGER CAN SLIDE ALONG THIS, NOT ONLY LAND ON IT
+ * ===========================================================================
+ * "The new iOS feeling, like I can drag left and right."
+ *
+ * The selector is one circle that lives at the bar's coordinates rather than
+ * inside any slot, so it can be anywhere between two of them. Put a finger
+ * down and it comes to meet you; slide, and it follows to whichever slot the
+ * finger is over, ticking once per slot crossed; lift, and that slot is the
+ * one you navigated to.
+ *
+ * WHY IT IS A POINTER LISTENER AND NOT FIVE onClick HANDLERS. A press is a
+ * drag of zero length — there is no second code path for a tap, which is how
+ * the two can never disagree about which slot was chosen. And it means the
+ * answer to "which one am I on" is a number this component owns for the
+ * length of the gesture, so the circle can be drawn anywhere on the way.
+ *
+ * `touch-action: none` on the bar only. The page under it still scrolls;
+ * this is 48px of the screen that has to be able to refuse a horizontal
+ * gesture, because a horizontal gesture is what the bar is for.
+ */
+function useSlide(count: number, onPick: (index: number) => void) {
+  const [dragging, setDragging] = useState(false)
+  const [at, setAt] = useState<number | null>(null)
+  const barRef = useRef<HTMLDivElement>(null)
+  const lastRef = useRef<number | null>(null)
+
+  const slotAt = (clientX: number): number => {
+    const box = barRef.current?.getBoundingClientRect()
+    if (!box) return 0
+    const inner = box.width - PAD * 2
+    const x = clientX - box.left - PAD
+    return Math.max(0, Math.min(count - 1, Math.floor((x / inner) * count)))
   }
-  return (
-    <button type="button" aria-label={label} onClick={onClick} {...handlers} className={className}>
-      {inner}
-    </button>
-  )
+
+  /**
+   * A gesture that has left the bar vertically was never for the bar.
+   *
+   * The whole strip answers a press, which is what a tab bar does — but a
+   * finger that lands on it and then travels 80px up the screen was trying
+   * to scroll, or to reach the card above, and navigating on the lift would
+   * be a page change nobody asked for. Sideways has no such limit: sideways
+   * is the gesture.
+   */
+  const ESCAPED = 72
+  const escaped = (clientY: number): boolean => {
+    const box = barRef.current?.getBoundingClientRect()
+    if (!box) return false
+    return clientY < box.top - ESCAPED || clientY > box.bottom + ESCAPED
+  }
+
+  const move = (clientX: number) => {
+    const next = slotAt(clientX)
+    setAt(next)
+    if (lastRef.current !== next) {
+      lastRef.current = next
+      /* One tick per slot crossed, not one per frame. */
+      hapticTap("light")
+    }
+  }
+
+  return {
+    barRef,
+    dragging,
+    at,
+    handlers: {
+      onPointerDown: (e: React.PointerEvent) => {
+        /* Keeps the moves coming even when the finger leaves the bar, which
+           it will: 48px is not much to stay inside of. */
+        ;(e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId)
+        setDragging(true)
+        lastRef.current = null
+        move(e.clientX)
+      },
+      onPointerMove: (e: React.PointerEvent) => {
+        if (!dragging) return
+        move(e.clientX)
+      },
+      onPointerUp: (e: React.PointerEvent) => {
+        if (!dragging) return
+        setDragging(false)
+        const picked = slotAt(e.clientX)
+        setAt(null)
+        lastRef.current = null
+        if (escaped(e.clientY)) return
+        hapticTap("medium")
+        onPick(picked)
+      },
+      onPointerCancel: () => {
+        setDragging(false)
+        setAt(null)
+        lastRef.current = null
+      },
+      /* Capture can be taken away by the system — a call arriving, a gesture
+         the shell claims. Without this the bar would believe a finger is
+         still on it and keep drawing the circle under one that has gone. */
+      onLostPointerCapture: () => {
+        setDragging(false)
+        setAt(null)
+        lastRef.current = null
+      },
+    },
+  }
 }
 
 export function MobileNavPill({
   menuOpen,
   onToggleMenu,
   onCloseMenu,
+  onNavigate,
   onExplore,
   exploreHref,
-  homeIcon,
+  icons,
 }: {
   menuOpen: boolean
   onToggleMenu: () => void
   onCloseMenu: () => void
-  onExplore: (e: React.MouseEvent) => void
+  onNavigate: (href: string) => void
+  onExplore: () => void
   exploreHref: string
-  homeIcon: NavIconPair
+  icons: { home: NavIconPair; orders: NavIconPair; products: NavIconPair; explore: NavIconPair; settings: NavIconPair }
 }) {
   const pathname = usePathname()
-  const homeActive = !menuOpen && pathname === "/app"
+
+  /*
+    HOME, ORDERS, PRODUCTS, EXPLORE — in that order, and the menu is its own
+    button beside them rather than a fifth slot. It is the only one of the
+    six that does not go anywhere, so it does not belong in a row of places.
+  */
+  const items: BarItem[] = menuOpen
+    ? [{ key: "settings", label: "Settings", href: "/app/settings", icon: icons.settings }]
+    : [
+        { key: "home", label: "Home", href: "/app", icon: icons.home },
+        { key: "orders", label: "Orders", href: "/app/orders", icon: icons.orders },
+        { key: "products", label: "Products", href: "/app/products", icon: icons.products },
+        { key: "explore", label: "Explore", href: exploreHref, icon: icons.explore, external: true },
+      ]
+
+  const current = menuOpen ? -1 : items.findIndex((i) => !i.external && isRouteActive(pathname, i.href))
+
+  const pick = (index: number) => {
+    const item = items[index]
+    if (!item) return
+    if (item.external) onExplore()
+    else onNavigate(item.href)
+    onCloseMenu()
+  }
+
+  /*
+    With one item in it the bar IS the item, so it is round rather than a
+    46px slot in a 48px box, which reads as a pill that has been squashed.
+  */
+  const slot = items.length === 1 ? DOT : SLOT
+  const slide = useSlide(items.length, pick)
+  /* Where the circle is: under the finger while one is down, otherwise on
+     the page you are on, and nowhere at all when you are on none of them. */
+  const marked = slide.at ?? current
 
   return (
     <div
-      /*
-        A PAGE WITH ITS OWN BOTTOM BAR GETS THE BOTTOM.
-
-        Settings raises a save bar across the foot of the screen when there
-        is something to save, and two things cannot both own that strip. The
-        pill steps aside for the duration — see the rule in app/globals.css,
-        which is a plain CSS relationship between these two attributes rather
-        than a piece of state either surface has to keep about the other.
-      */
       data-app-nav-pill=""
-      className="pointer-events-none fixed inset-x-0 bottom-0 z-[55] flex justify-center md:hidden"
+      className="pointer-events-none fixed inset-x-0 bottom-0 z-[55] flex items-end justify-center gap-2 md:hidden"
       style={{
         paddingBottom: "calc(10px + env(safe-area-inset-bottom, 0px))",
         transition: `transform 260ms ${EASE}, opacity 180ms ease-out`,
       }}
     >
       {/*
-        ── THE BAND ──────────────────────────────────────────────────────────
-        One blurred layer, masked so it fades out upward instead of ending on
-        a line. A hard-edged blur is the thing that reads as a panel stuck to
-        the bottom of the screen; a mask makes the page dissolve into it, and
-        that dissolve is the whole effect.
-
-        The blur is HERE and not on the pill, deliberately. A backdrop-filter
-        inside a backdrop-filter samples the first one's output — two blurs
-        over the same pixels, twice the GPU work, and a muddier result than
-        either. The pill is translucent white sitting on this, which is what
-        makes it read as glass without blurring anything twice.
+        ── THE FADE ──────────────────────────────────────────────────────────
+        Not a second sheet of glass. It has no fill and it blurs only enough
+        to keep a line of text from colliding with the bar as it scrolls
+        under, masked so it dissolves upward instead of ending on an edge —
+        an edge is the thing that reads as a panel bolted to the screen.
       */}
       <div
         aria-hidden="true"
         className="absolute inset-x-0 bottom-0"
         style={{
-          height: "calc(112px + env(safe-area-inset-bottom, 0px))",
-          backdropFilter: "blur(18px) saturate(150%)",
-          WebkitBackdropFilter: "blur(18px) saturate(150%)",
-          background: "linear-gradient(to top, rgba(248,249,250,0.86), rgba(248,249,250,0))",
-          maskImage: "linear-gradient(to top, #000 0%, #000 42%, rgba(0,0,0,0.35) 74%, transparent 100%)",
-          WebkitMaskImage: "linear-gradient(to top, #000 0%, #000 42%, rgba(0,0,0,0.35) 74%, transparent 100%)",
+          height: "calc(104px + env(safe-area-inset-bottom, 0px))",
+          backdropFilter: "blur(10px)",
+          WebkitBackdropFilter: "blur(10px)",
+          maskImage: "linear-gradient(to top, #000 0%, rgba(0,0,0,0.55) 48%, transparent 100%)",
+          WebkitMaskImage: "linear-gradient(to top, #000 0%, rgba(0,0,0,0.55) 48%, transparent 100%)",
         }}
       />
 
       <nav
+        ref={slide.barRef}
         aria-label="Main"
-        className="pointer-events-auto relative flex items-center gap-1 rounded-full p-[5px]"
+        {...slide.handlers}
+        className="pointer-events-auto relative select-none rounded-full"
         style={{
-          backgroundColor: "rgba(255,255,255,0.82)",
-          boxShadow:
-            "0 10px 30px rgba(16,18,27,0.14), 0 2px 6px rgba(16,18,27,0.06), inset 0 0 0 1px rgba(16,18,27,0.06), inset 0 1px 0 rgba(255,255,255,0.9)",
+          ...GLASS,
+          height: BAR_H,
+          width: items.length * slot + PAD * 2,
+          padding: PAD,
+          touchAction: "none",
+          transition: `width 300ms ${EASE}`,
         }}
       >
-        <PillButton label="Home" href="/app" active={homeActive} onClick={onCloseMenu}>
-          <NavIcon icon={homeIcon} active={homeActive} color="currentColor" />
-        </PillButton>
-        <PillButton label="Explore" href={exploreHref} active={false} onClick={onExplore}>
-          <Compass className="h-[22px] w-[22px]" strokeWidth={1.5} />
-        </PillButton>
-        <PillButton label={menuOpen ? "Close menu" : "Menu"} active={menuOpen} onClick={onToggleMenu}>
-          <MenuGlyph open={menuOpen} />
-        </PillButton>
+        {/*
+          ── THE SELECTOR ─────────────────────────────────────────────────
+          A circle, drawn at the bar's coordinates rather than inside a slot,
+          which is what lets it be between two of them while a finger is
+          moving. It was an oval before, because it was an inset on a
+          rectangular slot and slots are not square.
+
+          No accent colour on it. It is a lens over the glass — a touch more
+          white and a hairline — so the bar has one material rather than a
+          bar and a badge.
+        */}
+        <span
+          aria-hidden="true"
+          className="absolute rounded-full"
+          style={{
+            width: DOT,
+            height: DOT,
+            top: PAD,
+            left: 0,
+            transform: `translateX(${PAD + (marked < 0 ? 0 : marked) * slot + (slot - DOT) / 2}px) scale(${marked < 0 ? 0.6 : 1})`,
+            opacity: marked < 0 ? 0 : 1,
+            backgroundColor: slide.dragging ? "rgba(255,255,255,0.78)" : "rgba(255,255,255,0.62)",
+            boxShadow: "inset 0 0 0 0.5px rgba(255,255,255,0.7), 0 1px 2px rgba(16,18,27,0.06)",
+            transition: `transform 260ms ${EASE}, opacity 200ms ease-out, background-color 160ms ease-out`,
+            willChange: "transform",
+          }}
+        />
+
+        {items.map((item, i) => {
+          const on = i === marked
+          return (
+            <Link
+              key={item.key}
+              href={item.href}
+              aria-label={item.label}
+              aria-current={on && !menuOpen ? "page" : undefined}
+              /*
+                A real link, so it carries a URL for the browser and for
+                anything reading the page — but the POINTER gesture above is
+                what decides, and letting the anchor navigate as well would
+                run the same trip twice from one press.
+
+                `detail === 0` is a click that no pointer made: Enter or
+                Space on a focused link, which never produced a pointerdown
+                and so would otherwise do nothing at all.
+              */
+              onClick={(e) => {
+                e.preventDefault()
+                if (e.detail === 0) pick(i)
+              }}
+              draggable={false}
+              className="absolute flex items-center justify-center"
+              style={{
+                left: PAD + i * slot,
+                top: PAD,
+                width: slot,
+                height: DOT,
+                color: on ? ACTIVE_TEXT : "#616b7a",
+                transition: "color 180ms ease-out",
+              }}
+            >
+              <NavIcon icon={item.icon} active={on} color="currentColor" size={21} />
+            </Link>
+          )
+        })}
       </nav>
+
+      {/*
+        The menu is its own button, and it is the same button open or shut:
+        the finger that opened the menu does not have to go anywhere to close
+        it again.
+      */}
+      <button
+        type="button"
+        aria-label={menuOpen ? "Close menu" : "Menu"}
+        aria-expanded={menuOpen}
+        onClick={() => {
+          hapticTap("medium")
+          onToggleMenu()
+        }}
+        className="pointer-events-auto relative flex shrink-0 items-center justify-center rounded-full"
+        style={{ ...GLASS, width: BAR_H, height: BAR_H, color: menuOpen ? ACTIVE_TEXT : "#616b7a" }}
+      >
+        <MenuGlyph open={menuOpen} />
+      </button>
     </div>
   )
 }
