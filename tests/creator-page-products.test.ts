@@ -17,7 +17,7 @@
  */
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
-import { decodeHtmlEntities } from "@/lib/html-entities"
+import { decodeHtmlEntities, plainSummary } from "@/lib/html-entities"
 
 let passed = 0
 let failed = 0
@@ -64,6 +64,51 @@ function main() {
   check("and the rich branch is untouched, because that one is real HTML",
     !/dangerouslySetInnerHTML=\{\{ __html: decodeHtmlEntities/.test(renderer))
 
+  console.log("\n  a shared product previews as a sentence, not as markup")
+
+  /*
+    The description from the report, as the rich editor really stores it. It
+    was handed to the meta description untouched, so WhatsApp previewed the
+    opening div and nothing else.
+  */
+  const slate = '<div class="w-full my-[1px]"><div data-slate-node="element" class="py-[3px]">'
+    + '<span data-slate-node="text"><span class="font-[600]" data-slate-leaf="true"'
+    + ' style="white-space: break-spaces; word-break: break-word;">The Problem:</span></span>'
+    + '<span data-slate-node="text"><span class="" data-slate-leaf="true"'
+    + ' style="white-space: break-spaces;"> You are&nbsp;running ads</span></span></div></div>'
+  check("the one from the report reads as a sentence",
+    plainSummary(slate) === "The Problem: You are running ads",
+    JSON.stringify(plainSummary(slate)))
+  check("no angle bracket survives it", !/[<>]/.test(plainSummary(slate)))
+
+  /*
+    Removing the tags without leaving a gap runs the last word of a paragraph
+    into the first word of the next, and a preview is mostly first sentences.
+  */
+  check("a paragraph break becomes a space, not nothing",
+    plainSummary("<p>one</p><p>two</p>") === "one two")
+  check("a line break too", plainSummary("first<br>second") === "first second")
+  check("a script's contents are not its text",
+    plainSummary("<script>alert(1)</script>after") === "after")
+  check("plain text is left as it is", plainSummary("plain text, no markup") === "plain text, no markup")
+  check("nothing is nothing", plainSummary(null) === "" && plainSummary("") === "")
+
+  check("a long one is cut at a word and marked",
+    (() => {
+      const out = plainSummary("word ".repeat(80), 60)
+      return out.length <= 61 && out.endsWith("\u2026") && !/\s\u2026$/.test(out)
+    })(),
+    JSON.stringify(plainSummary("word ".repeat(80), 60)))
+
+  const productPage = read("app/(marketing)/p/[slug]/page.tsx")
+  check("the product page summarises before it shares",
+    /const pageDescription = plainSummary\(product\.description\)/.test(productPage))
+  check("and so does the structured data a search result is drawn from",
+    /description: plainSummary\(product\.description, 5000\)/.test(productPage))
+  check("nothing hands the raw description to a reader of plain text any more",
+    !/description: product\.description \|\| undefined/.test(productPage)
+      && !/const pageDescription = product\.description \|\|/.test(productPage))
+
   console.log("\n  a published product is on the creator's page without a second step")
 
   const page = read("app/(marketing)/u/[username]/page.tsx")
@@ -76,8 +121,20 @@ function main() {
     /\.eq\("status", "published"\)/.test(page))
   check("the unconfigured page draws them",
     /\{productsData\.length > 0 && \([\s\S]{0,400}?<AllProductsGrid/.test(page))
-  check("with the same grid the Products tab uses, not a second one",
-    (page.match(/<AllProductsGrid/g) ?? []).length === 2)
+  /*
+    AND THE OTHER WAY TO THE SAME EMPTY PAGE. Only the Featured section draws
+    a catalogue, so a page ARRANGED without one showed no products either —
+    a different branch from the unconfigured page above, with the same
+    result, which is why this was reported a second time after the first was
+    fixed.
+  */
+  check("a configured page with no Featured section draws them too",
+    /const showsProducts = regularSections\.some\(\(s\) => s\.type === "featured-products"\)/.test(page)
+      && /\{!showsProducts && productsData\.length > 0 && \(/.test(page))
+  check("and a page that HAS one is left alone, so nothing is shown twice",
+    /!showsProducts &&/.test(page))
+  check("with the same grid the Products tab uses, not a third one",
+    (page.match(/<AllProductsGrid/g) ?? []).length === 3)
   check("and the footer still comes after them",
     /<AllProductsGrid[\s\S]{0,400}?\)\}\s*\n\s*<SellerFooter \/>/.test(page))
 

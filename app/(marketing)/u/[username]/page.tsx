@@ -1073,6 +1073,29 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
            * somewhere obvious for it to live. It is only offered when the
            * creator actually has an About section.
            */
+          /**
+           * ═══════════════════════════════════════════════════════════════
+           *  A PAGE WITH PRODUCTS ON IT SHOWS THE PRODUCTS
+           * ═══════════════════════════════════════════════════════════════
+           * Only the Featured section draws a catalogue, so a page arranged
+           * without one — saved before that section existed, or a creator
+           * who removed it while laying the page out — rendered whatever
+           * sections it had and no products at all. A creator who had
+           * published one got a header, a tab strip and a horizon.
+           *
+           * Reported twice, the second time after the same hole had been
+           * closed for a page with NO configuration at all, which is how it
+           * became clear there were two ways to arrive at the same empty
+           * page rather than one.
+           *
+           * So the rule is the page's, not the branch's: if the creator has
+           * published products and nothing on the page is going to show
+           * them, the catalogue goes at the end. A page that does have a
+           * Featured section is untouched, because that section is the
+           * creator's own answer to this and a second grid under it would be
+           * the same products twice.
+           */
+          const showsProducts = regularSections.some((s) => s.type === "featured-products")
           const home = (
             <>
               {regularSections.map((section) => (
@@ -1090,6 +1113,16 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
                 />
               ))}
 
+              {!showsProducts && productsData.length > 0 && (
+                <AllProductsGrid
+                  products={applyManualOrder(productsData, headerSettings.productsOrder)}
+                  hasManualOrder={(headerSettings.productsOrder?.length ?? 0) > 0}
+                  creatorName={profile.display_name}
+                  creatorUsername={profile.username}
+                  creatorAvatarUrl={profile.avatar_url}
+                  isOwner={viewerIsOwner}
+                />
+              )}
             </>
           )
 
