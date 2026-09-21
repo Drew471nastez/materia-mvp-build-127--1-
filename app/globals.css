@@ -591,11 +591,11 @@ html.capacitor body {
     position: absolute;
     inset: 0;
     pointer-events: none;
-    backdrop-filter: blur(var(--scrim-blur, 2.5px));
-    -webkit-backdrop-filter: blur(var(--scrim-blur, 2.5px));
-    /* Clear through the top quarter, then in over the rest. */
-    mask-image: linear-gradient(to bottom, transparent 0%, transparent 25%, rgba(0, 0, 0, 0.45) 62%, #000 100%);
-    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, transparent 25%, rgba(0, 0, 0, 0.45) 62%, #000 100%);
+    backdrop-filter: blur(var(--scrim-blur, 1.6px));
+    -webkit-backdrop-filter: blur(var(--scrim-blur, 1.6px));
+    /* Clear through the top third, then in over the rest. */
+    mask-image: linear-gradient(to bottom, transparent 0%, transparent 35%, rgba(0, 0, 0, 0.4) 70%, #000 100%);
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, transparent 35%, rgba(0, 0, 0, 0.4) 70%, #000 100%);
   }
 
   /* Hide scrollbar completely for thumbnail galleries */

@@ -15,11 +15,20 @@
  * bands. A big number is sharp, a small one is blurred:
  *
  *     old, flat blur(2px)     2.8   2.8   2.8   2.8   2.8   2.8
- *     new, graduated         76.5  74.6  61.0  45.6  28.3  10.9
+ *     first pass, 2.5px      76.5  74.6  61.0  45.6  28.3  10.9
+ *     softened, 1.6px        76.5  76.5  72.2  61.4  48.6  30.8
  *
- * So the top of the page is back to nearly the clarity of no scrim at all,
- * the bottom is still properly blurred behind the sheet, and even that
- * bottom band is about four times clearer than the flat blur was.
+ * The first pass was still too strong; the second is where it landed. The
+ * top of the page is back to the clarity of no scrim at all, and the bottom
+ * — right behind the sheet — keeps a real blur while staying an order of
+ * magnitude clearer than the flat one it replaced.
+ *
+ * THE NUMBERS BELOW ARE NOT PINNED, on purpose. This got tuned twice in one
+ * sitting and will get tuned again; a test that has to be edited for every
+ * adjustment is a test people start editing without reading. What is checked
+ * is the shape — one radius used by both properties, a mask that runs top to
+ * bottom with a genuinely clear zone at the top — and a ceiling on the radius,
+ * so it can be tuned freely but cannot quietly go back to being heavy.
  *
  * ONE LAYER, NOT A STACK. `backdrop-filter` cannot take a gradient, and the
  * usual answer is four or five stacked layers each with its own mask and
@@ -60,19 +69,31 @@ function main() {
   const rule = css.match(/\.scrim-graduated::after\s*\{[\s\S]*?\n  \}/)
   check("there is a .scrim-graduated::after rule", !!rule)
   const body = rule?.[0] ?? ""
-  check("it blurs the backdrop", /backdrop-filter: blur\(var\(--scrim-blur, 2\.5px\)\)/.test(body))
+  const radii = [...body.matchAll(/blur\(var\(--scrim-blur, ([\d.]+)px\)\)/g)].map((m) => Number(m[1]))
+  check("it blurs the backdrop through one variable", radii.length === 2, `${radii.length} declarations`)
+  check(
+    "and both properties carry the same radius",
+    radii.length === 2 && radii[0] === radii[1],
+    "the radius should not be retyped per property",
+    )
   check("with the webkit prefix iOS still wants", /-webkit-backdrop-filter: blur\(/.test(body))
   check(
-    "and it is masked from the top down",
-    /mask-image: linear-gradient\(to bottom, transparent 0%, transparent 25%/.test(body)
-      && /-webkit-mask-image: linear-gradient\(to bottom/.test(body),
+    "the radius stays in scrim territory",
+    radii[0] > 0 && radii[0] <= 3,
+    `${radii[0]}px — a scrim heavier than 3px is the thing that was complained about twice`,
+  )
+
+  const stops = body.match(/\n\s*mask-image: linear-gradient\(to bottom, transparent 0%, transparent ([\d.]+)%/)
+  check(
+    "it is masked from the top down",
+    !!stops && /-webkit-mask-image: linear-gradient\(to bottom/.test(body),
     "to bottom is what makes it clear at the top and deep at the sheet",
   )
   check(
-    "the strength lives in one variable",
-    (body.match(/var\(--scrim-blur, 2\.5px\)/g) ?? []).length === 2,
-    "the radius should not be retyped per property",
-  )
+    "with a top that is genuinely untouched",
+    !!stops && Number(stops[1]) >= 20,
+    stops ? `clear through ${stops[1]}%` : undefined,
+    )
   check(
     "it cannot take the pointer from the scrim it sits on",
     /pointer-events: none/.test(body),
