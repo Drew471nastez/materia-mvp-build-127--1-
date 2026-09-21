@@ -590,21 +590,52 @@ const GAP = 8
  * a blur gets, which was the brief at the time ("almost unobservable"); "not
  * that potent, but more than visible" is 2.4, compounding to about 4px where
  * the layers overlap. The tint comes up with it.
+ *
+ * AND IT GOES PAST THE BOTTOM OF THE SCREEN. Its lower edge used to be tied
+ * to the pill's own lift off the bottom, which on a phone with a home
+ * indicator put it 18px ABOVE the bottom of the display: a strip under the
+ * pill, exactly where a thumb rests, with nothing over it. "The blur should
+ * be spread at the bottom more, under the pill, fully." So the ellipse is
+ * anchored below the display instead, deep enough that the bottom edge of
+ * the screen cuts across it where it is still near its full width, and the
+ * part of it nobody can see is the part that would have tapered.
  */
 const HALO_LAYERS = 12
 const HALO_STEP = 3
 /** The strongest layer's blur; the outermost carries this over HALO_LAYERS². */
 const HALO_BLUR = 2.4
 const haloBlur = (i: number) => Math.round(HALO_BLUR * ((i + 1) / HALO_LAYERS) ** 2 * 1000) / 1000
-/** How far the halo reaches beyond the bar: above it, below it, and past each
-    side of the screen, which is the part the display crops. */
-const HALO_REACH = { top: 30, bottom: 22, side: 56 }
+/** How far the halo reaches: above the bar, past the bottom of the screen,
+    and past each side of it. The display crops the last two. */
+const HALO_REACH = { top: 30, below: 44, side: 56 }
 /** The page under the bar on a phone is #f8f9fa, and the tint is that colour. */
 const HALO_TINT = "rgba(248,249,250,0.3)"
 const HALO_TINT_NONE = "rgba(248,249,250,0)"
 /** How far the bottom of the pill sits above the bottom of the screen. Read
     once, by the pill and by the halo, so the two cannot disagree. */
 const PILL_LIFT = "6px + env(safe-area-inset-bottom, 0px)"
+
+/**
+ * WHERE THE PILL DOES NOT GO.
+ *
+ * OnePage is an editor, not a page of the shop: it owns the whole screen,
+ * it has its own controls along the bottom, and a second bar floating over
+ * them is one bar too many. Asked for directly, and it is a property of the
+ * route rather than of anything on the page, so it is decided here rather
+ * than by a page remembering to say so.
+ *
+ * A prefix, so /app/onepage and anything under it are covered alike.
+ *
+ * It is applied where the pill is MOUNTED rather than inside it. Inside, it
+ * would have to be `if (...) return null` after every hook the component
+ * owns, and a hook below a return is the crash this repository has a test
+ * for; tests/hook-order.test.ts reads a file at a time, so the rule holds
+ * whether or not the return is in the same component as the hook. Not
+ * rendering a component at all is the ordinary way to say this anyway.
+ */
+const NO_PILL = ["/app/onepage"]
+export const pillBelongsOn = (pathname: string): boolean =>
+  !NO_PILL.some((base) => pathname === base || pathname.startsWith(`${base}/`))
 
 /**
  * ===========================================================================
@@ -969,8 +1000,10 @@ export function MobileNavPill({
         className="pointer-events-none absolute left-1/2"
         style={{
           width: `calc(100% + ${HALO_REACH.side * 2}px)`,
-          height: BAR_H + HALO_REACH.top + HALO_REACH.bottom,
-          bottom: `calc(${PILL_LIFT} - ${HALO_REACH.bottom}px)`,
+          /* From HALO_REACH.below under the screen to HALO_REACH.top above
+             the bar, which is the pill's lift plus its height plus that. */
+          height: `calc(${BAR_H + HALO_REACH.top + HALO_REACH.below}px + ${PILL_LIFT})`,
+          bottom: -HALO_REACH.below,
           transform: "translateX(-50%)",
         }}
       >

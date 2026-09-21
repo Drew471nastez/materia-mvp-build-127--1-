@@ -7,8 +7,9 @@
  */
 import React from "react"
 import { createRoot } from "react-dom/client"
+import { usePathname } from "next/navigation"
 
-import { MobileMenuPage, MobileNavPill, useLockAppScroll } from "@/components/app/sidebar-mobile-nav"
+import { MobileMenuPage, MobileNavPill, pillBelongsOn, useLockAppScroll } from "@/components/app/sidebar-mobile-nav"
 import { NAV_ICONS, NAV_ICONS_EXTRA, type NavItemData } from "@/components/app/sidebar-desktop-nav"
 
 const ITEMS: NavItemData[] = [
@@ -93,6 +94,9 @@ function Shell() {
         upgradeTitle="Upgrade to Pro"
         upgradeSubtitle="More products, no Storelib badge"
       />
+      {/* The shell mounts it behind the same gate; tests/app-mobile-nav
+          checks that it still does. */}
+      {pillBelongsOn(usePathname()) ? (
       <MobileNavPill
         menuOpen={open}
         onToggleMenu={() => setOpen((v) => !v)}
@@ -106,12 +110,21 @@ function Shell() {
           settings: NAV_ICONS_EXTRA.settings,
         }}
       />
+      ) : null}
     </>
   )
 }
 
 try {
-  createRoot(document.getElementById("app")!).render(<Shell />)
+  const root = createRoot(document.getElementById("app")!)
+  root.render(<Shell />)
+  /* The pill does not appear on every route. The stubbed usePathname reads
+     __path at render time, so re-rendering under a new key is enough to put
+     the whole thing on a different page. */
+  ;(window as unknown as Record<string, unknown>).__setPath = (path: string) => {
+    ;(globalThis as unknown as Record<string, unknown>).__path = path
+    root.render(<Shell key={path} />)
+  }
   ;(window as unknown as Record<string, unknown>).__ran = true
 } catch (e) {
   ;(window as unknown as Record<string, unknown>).__threw = String(e)

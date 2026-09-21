@@ -137,7 +137,7 @@ mkdirSync(shots, { recursive: true })
 /* The stubs live INSIDE the repo: esbuild resolves "react" from the nearest
    node_modules, and a file in /tmp has none above it. */
 const out = mkdtempSync(join(tmpdir(), "storelib-navpill-"))
-writeFileSync(join(shots, "navigation.js"), `export const usePathname = () => "/app"
+writeFileSync(join(shots, "navigation.js"), `export const usePathname = () => globalThis.__path || "/app"
 export const useRouter = () => ({ push() {}, prefetch() {}, replace() {}, refresh() {}, back() {} })
 export const useSearchParams = () => new URLSearchParams()
 export const useParams = () => ({})
@@ -318,7 +318,8 @@ const READ_PILL = `(() => {
         .map((n) => /blur\\(([\\d.]+)px\\)/.exec(getComputedStyle(n).backdropFilter || getComputedStyle(n).webkitBackdropFilter || ""))
         .filter(Boolean).map((m) => Number.parseFloat(m[1]))
       const r = fade.getBoundingClientRect()
-      return { h: Math.round(r.height), w: Math.round(r.width), layers: layers.length, masked, opaque, steps, straight, radii }
+      return { h: Math.round(r.height), w: Math.round(r.width), belowScreen: Math.round(r.bottom - window.innerHeight),
+               layers: layers.length, masked, opaque, steps, straight, radii }
     })(),
     targets, hits,
     scrollPadBottom: scroller ? getComputedStyle(scroller).paddingBottom : null,
@@ -402,12 +403,19 @@ const fadeBox = await ev(`(() => {
   const f = document.querySelector("[data-app-nav-fade]").getBoundingClientRect()
   const b = document.querySelector('nav[aria-label="Main"]').getBoundingClientRect()
   const m = document.querySelector('[data-app-nav-pill] button[aria-label="Menu"]').getBoundingClientRect()
-  return { top: Math.round(f.top), x: Math.round(b.left + b.width / 2), gapX: Math.round((b.right + m.left) / 2), barMid: Math.round(b.top + b.height / 2) }
+  return { top: Math.round(f.top), x: Math.round(b.left + b.width / 2), gapX: Math.round((b.right + m.left) / 2),
+           barMid: Math.round(b.top + b.height / 2),
+           underTop: Math.round(b.bottom), underH: Math.max(4, Math.round(window.innerHeight - b.bottom)) }
 })()`)
-const contrastAt = async (x, y) => {
-  const { data } = await send("Page.captureScreenshot", { format: "png", clip: { x: x - 3, y: y - 8, width: 6, height: 16, scale: 1 }, captureBeyondViewport: false })
+/* Every one of these has to sit INSIDE the viewport. A clip that runs off
+   the bottom comes back padded, and padding against a white page reads as
+   maximum contrast: a sample three pixels from the bottom edge reported the
+   strip under the pill as untouched when it is not. */
+const contrastBox = async (x, y, width, height) => {
+  const { data } = await send("Page.captureScreenshot", { format: "png", clip: { x, y, width, height, scale: 1 }, captureBeyondViewport: false })
   return contrastOf(decodePng(Buffer.from(data, "base64")))
 }
+const contrastAt = (x, y) => contrastBox(x - 3, y - 8, 6, 16)
 const blur = {
   above: await contrastAt(fadeBox.x, fadeBox.top - 50),
   top: await contrastAt(fadeBox.x, fadeBox.top + 6),
@@ -416,6 +424,12 @@ const blur = {
      full width in the left and right". Softened there, and less than at the
      bar, because that is where the ellipse is thinning out. */
   margin: await contrastAt(6, fadeBox.barMid),
+  /* And the strip between the bottom of the pill and the bottom of the
+     screen, which is where the home indicator sits and where the halo used
+     to stop short. In a browser that strip is only the pill's 6px lift; on a
+     phone the safe-area inset makes it about 40, and it is the same ellipse
+     covering both. */
+  under: await contrastBox(fadeBox.x - 8, fadeBox.underTop, 16, fadeBox.underH),
 }
 await ev(`document.getElementById("__stripes").remove(); true`)
 await sleep(200)
@@ -688,6 +702,27 @@ const SHARE = `(async () => {
 })()`
 const share = await ev(SHARE)
 
+/* ── and it is not on every route ────────────────────────────────────────── */
+/*
+ * OnePage is an editor with its own controls along the foot of the screen,
+ * so the pill has no business floating over them: "it should not show at all
+ * in the OnePage". Driven rather than read, because "does not render" is a
+ * claim about what is in the document.
+ */
+const routes = await ev(`(async () => {
+  const seen = (path) => new Promise((done) => {
+    window.__setPath(path)
+    requestAnimationFrame(() => requestAnimationFrame(() => done({
+      pill: !!document.querySelector("[data-app-nav-pill]"),
+      halo: !!document.querySelector("[data-app-nav-fade]"),
+    })))
+  })
+  const onepage = await seen("/app/onepage")
+  const deeper = await seen("/app/onepage/anything")
+  const back = await seen("/app")
+  return { onepage, deeper, back }
+})()`)
+
 await send("Target.closeTarget", { targetId }, null)
 ws.close()
 reap()
@@ -759,8 +794,14 @@ must(!!shut.fade && Math.hypot(...(shut.fade.radii ?? [])) <= 5,
 must(!!shut.fade && shut.fade.w > VIEW_W && shut.fade.w <= VIEW_W * 1.4,
   "and it is drawn wider than the screen, so the softening reaches both sides",
   `the halo is ${shut.fade?.w}px wide on a ${VIEW_W}px screen`)
-must(!!shut.fade && shut.fade.h <= 130, "and is not much taller than the bar",
+must(!!shut.fade && shut.fade.h <= 160, "and is not much taller than the bar",
   `the halo is ${shut.fade?.h}px tall for a ${shut.pill.h}px bar`)
+/* Its lower edge used to be tied to the pill's lift off the bottom, which on
+   a phone with a home indicator left a bare strip under the pill, right
+   where a thumb rests. It is anchored below the display now. */
+must(!!shut.fade && shut.fade.belowScreen >= 24,
+  "and it carries on past the bottom of the screen, so there is no bare strip under the pill",
+  `the halo ends ${shut.fade?.belowScreen}px past the bottom of the screen`)
 /* And the overhang costs the page nothing: a fixed box's overflow is not the
    document's, but that is worth reading rather than believing. */
 must(shut.docWidth <= VIEW_W,
@@ -805,7 +846,7 @@ console.log("")
 console.log("  a column down the left margin, scrolled to the end of the page:")
 for (const c of column) console.log(`    y=${String(c.y).padStart(3)}  rgb(${c.rgb.join(",")})${distance(c.rgb, pageColour) > 2 ? "   <- not the page colour" : ""}`)
 console.log("")
-console.log(`  the halo    stripes read ${blur.above} of contrast above it, ${blur.top} at its edge, ${blur.bottom} beside the bar, ${blur.margin} in the left margin\n`)
+console.log(`  the halo    stripes read ${blur.above} of contrast above it, ${blur.top} at its edge, ${blur.bottom} beside the bar, ${blur.margin} in the left margin, ${blur.under} under the pill\n`)
 must(blur.above >= 120, "the stripe pattern is sharp where nothing is over it, so the test can see",
   `only ${blur.above} of contrast above the fade: the stripes are not being drawn sharply enough to measure against`)
 must(blur.margin <= blur.above * 0.9, "the halo reaches the screen's left and right edges rather than stopping in an arc short of them",
@@ -816,6 +857,8 @@ must(blur.margin <= blur.above * 0.9, "the halo reaches the screen's left and ri
    readings above the halo prove; what this one guards is that the edge is
    never blurred HARDER than the middle, which would mean the shape had
    inverted. */
+must(blur.under <= blur.above * 0.45, "and it covers the strip under the pill, where a home indicator sits",
+  `the stripes still read ${blur.under} of contrast under the pill against ${blur.above} above the halo: the blur stops short of the bottom`)
 must(blur.margin >= blur.bottom, "as strongly there as at the bar itself, and never more",
   `the screen's edge reads ${blur.margin} and the bar ${blur.bottom}: the halo is strongest at the screen's edge, which is not the shape it is meant to be`)
 must(blur.bottom <= blur.above * 0.45, "beside the bar the page is softened, gently",
@@ -906,6 +949,15 @@ must(drag.haptics.length >= 4, "and it ticks on the way, once per slot crossed a
   `${drag.haptics.length} haptic ticks for a slide across four slots`)
 must(drag.haptics.length <= 10, "rather than once per frame",
   `${drag.haptics.length} ticks for a slide across four slots is per frame, not per slot`)
+
+console.log("")
+must(routes.onepage.pill === false && routes.onepage.halo === false,
+  "the pill is not rendered at all on OnePage, which has its own controls along the bottom",
+  "the pill is still in the document on /app/onepage")
+must(routes.deeper.pill === false, "nor anywhere under it",
+  "the pill came back on a route below /app/onepage")
+must(routes.back.pill === true, "and it is back on the next page that is a page",
+  "the pill did not come back after leaving /app/onepage")
 
 console.log(`  a tap       lifted on the third slot, went back ${settled.wentBack}px, resting ${settled.rest}px from it`)
 must(settled.went === "/app/products", "a tap picks the slot it landed on", `it went to ${settled.went}`)

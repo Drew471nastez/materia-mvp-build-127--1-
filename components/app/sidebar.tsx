@@ -38,7 +38,7 @@ import { useState, useEffect, useRef, useCallback } from "react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { DesktopSidebarContent, NAV_ICONS, NAV_ICONS_EXTRA } from "@/components/app/sidebar-desktop-nav"
 import type { NavIconPair } from "@/components/app/sidebar-desktop-nav"
-import { MobileMenuPage, MobileNavPill, useLockAppScroll } from "@/components/app/sidebar-mobile-nav"
+import { MobileMenuPage, MobileNavPill, pillBelongsOn, useLockAppScroll } from "@/components/app/sidebar-mobile-nav"
 /* The header draws it directly; the bar below does not carry it any more. */
 import { CompassIcon as ExploreIcon } from "@solar-icons/react/linear/compass"
 
@@ -1171,6 +1171,9 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
           ) : null
         }
       />
+      {/* OnePage is an editor with its own controls along the foot of the
+          screen; see NO_PILL in sidebar-mobile-nav. */}
+      {pillBelongsOn(pathname) ? (
       <MobileNavPill
         menuOpen={mobileMenuOpen}
         onToggleMenu={() => {
@@ -1194,6 +1197,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
           settings: NAV_ICONS_EXTRA.settings,
         }}
       />
+      ) : null}
 
       {/* top and height mirror the desktop header: 58 px content row +
           env(safe-area-inset-top) padding. In a browser env() = 0 so
