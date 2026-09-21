@@ -2664,10 +2664,17 @@ check(
     else if (shipped === "0")
       missing.push("the default horizontal padding is 0, so this guard proves nothing — set it back or delete the guard")
 
-    // Both columns come from the same place.
-    if (!/mx-auto w-full max-w-\[1100px\]/.test(grid))
+    /*
+      Both columns come from the same place, and that place is 1180 now, not
+      1100: About and the reviews had always overridden the container to 1180,
+      so the page had two left edges and the tab strip started 32px further in
+      than "About <creator>". One number for all of them.
+      See tests/creator-page-default.test.ts and scripts/check-page-width.mjs,
+      which measures where the words begin rather than trusting these names.
+    */
+    if (!/mx-auto w-full max-w-\[1180px\]/.test(grid))
       missing.push("the products grid no longer uses the page column")
-    if (!/"mx-auto w-full max-w-\[1100px\]", !noPadding && "px-3 sm:px-4 lg:px-6"/.test(renderer))
+    if (!/"mx-auto w-full max-w-\[1180px\]", !noPadding && "px-3 sm:px-4 lg:px-6"/.test(renderer))
       missing.push("SectionContainer's column changed — the two tabs will no longer agree")
 
     if (missing.length) console.log("        " + missing.join("\n        "))

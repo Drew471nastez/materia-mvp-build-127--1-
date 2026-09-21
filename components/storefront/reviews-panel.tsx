@@ -59,7 +59,7 @@ export function ReviewsPanel({
 }) {
   if (total === 0 || reviews.length === 0) {
     return (
-      <div className="mx-auto w-full max-w-[1100px] px-3 py-16 sm:px-4 lg:px-6">
+      <div className="mx-auto w-full max-w-[1180px] px-3 py-16 sm:px-4 lg:px-6">
         <div className="rounded-lg border border-dashed border-border p-10 text-center">
           <p className="font-medium text-foreground">No reviews yet</p>
           <p className="mx-auto mt-2 max-w-sm text-sm text-muted-foreground">
@@ -71,7 +71,7 @@ export function ReviewsPanel({
   }
 
   return (
-    <div className="mx-auto w-full max-w-[1100px] px-3 py-8 sm:px-4 sm:py-10 lg:px-6">
+    <div className="mx-auto w-full max-w-[1180px] px-3 py-8 sm:px-4 sm:py-10 lg:px-6">
       <h2 className="mb-4 text-xl font-semibold text-foreground sm:text-2xl">Reviews</h2>
       <div className="mb-6 flex items-baseline gap-3">
         <span className="text-2xl font-semibold tracking-tight">{average.toFixed(1)}</span>

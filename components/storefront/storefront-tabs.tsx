@@ -63,7 +63,7 @@ export function EmptyTabPanel({
 }) {
   const Icon = EMPTY_ICONS[icon] ?? Users
   return (
-    <div className="mx-auto w-full max-w-[1100px] px-3 sm:px-4 lg:px-6">
+    <div className="mx-auto w-full max-w-[1180px] px-3 sm:px-4 lg:px-6">
       {/*
         AN ICON AND ONE LINE.
 
@@ -189,7 +189,7 @@ export function StorefrontTabs({
         position rather than as a highlight. The underline slides in width and
         colour rather than snapping.
       */}
-      <div className="mx-auto w-full max-w-[1100px] px-3 pt-1 sm:px-4 lg:px-6">
+      <div className="mx-auto w-full max-w-[1180px] px-3 pt-1 sm:px-4 lg:px-6">
         {/*
           FULL WIDTH ON A PHONE, left-aligned from `sm` up.
 

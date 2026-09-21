@@ -89,7 +89,7 @@ export function AllProductsGrid({
 
   if (products.length === 0) {
     return (
-      <div className="mx-auto w-full max-w-[1100px] px-3 py-12 sm:px-4 lg:px-6">
+      <div className="mx-auto w-full max-w-[1180px] px-3 py-12 sm:px-4 lg:px-6">
         <div className="rounded-lg border border-dashed border-border p-8 text-center">
           <Package className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
           <p className="text-muted-foreground">No products yet.</p>
@@ -99,7 +99,7 @@ export function AllProductsGrid({
   }
 
   return (
-    <div className="mx-auto w-full max-w-[1100px] px-3 py-8 sm:px-4 sm:py-10 lg:px-6">
+    <div className="mx-auto w-full max-w-[1180px] px-3 py-8 sm:px-4 sm:py-10 lg:px-6">
       {/*
         THE SAME HEADER COMPONENT THE FEATURED RAIL USES — category selector on
         the left, sort on the right, one fixed row height. The two tabs used to
