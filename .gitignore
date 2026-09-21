@@ -69,4 +69,5 @@ tsconfig.*.generated.json
 .lvb-probe/
 .ctlfps-probe/
 .hdrsearch-probe/
+.width-probe/
 .dash-probe/

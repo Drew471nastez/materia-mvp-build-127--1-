@@ -267,6 +267,26 @@ function ShareModal({
   )
 }
 
+/**
+ * ===========================================================================
+ *  ONE COLUMN FOR EVERY SECTION ON A CREATOR PAGE
+ * ===========================================================================
+ * This was 1100 while About and the reviews overrode it to 1180, so a page
+ * had two left edges: the tab strip and the products started 32px further in
+ * than "About <creator>" below them, and the eye finds both. Reported with a
+ * picture and two lines drawn down it.
+ *
+ * The same complaint was made about the product page once, and the note a few
+ * lines below this one records it: three pieces of code, three ideas of how
+ * wide the page is, and "nothing flowed together".
+ *
+ * 1180 rather than 1100 because About is the one that was named as the ruler,
+ * and because it is the wider of the two — a column that grows loses nothing,
+ * where one that shrinks takes a product out of the rows it was fitting. The
+ * tab strip, the products grid and the reviews are set to the same number in
+ * their own files; scripts/check-page-width.mjs measures all of them on one
+ * document and fails if any one starts on a different line.
+ */
 export function SectionContainer({
   children,
   className,
@@ -281,7 +301,7 @@ export function SectionContainer({
   style?: React.CSSProperties
 }) {
   return (
-    <div className={cn("mx-auto w-full max-w-[1100px]", !noPadding && "px-3 sm:px-4 lg:px-6", className)} style={style}>
+    <div className={cn("mx-auto w-full max-w-[1180px]", !noPadding && "px-3 sm:px-4 lg:px-6", className)} style={style}>
       {children}
     </div>
   )
@@ -648,7 +668,7 @@ function UnifiedAboutSection({
   const showPaymentMethods = settings.showPaymentMethods ?? true
 
   return (
-    <SectionContainer isMobile={isMobile} className="!max-w-[1180px]">
+    <SectionContainer isMobile={isMobile}>
       {/*
         THE SPACING SETTING IS APPLIED ONCE, BY THE WRAPPER.
         
@@ -663,10 +683,14 @@ function UnifiedAboutSection({
         style, and reviving it by deleting only the style would have swapped
         one wrong number for another.
       */}
-      <div
-        className={cn("w-full px-2 md:px-2", isMobile && "!px-2")}
-        style={{ backgroundColor }}
-      >
+      {/*
+        NO PADDING OF ITS OWN. This carried `px-2` on every width, eight
+        pixels that no other section has, so About's heading and its divider
+        sat eight pixels further in than the products above them — the last
+        of the three reasons this page had more than one left edge. The
+        column's padding is the container's job and it already does it.
+      */}
+      <div className="w-full" style={{ backgroundColor }}>
         {/* Top divider */}
         <div
           className="w-full h-px mb-8"
@@ -1239,7 +1263,7 @@ export function ProductAboutSection({
   const paymentMethods = ["paypal", "visa", "mastercard", "amex", "applepay", "googlepay"]
 
   return (
-    <SectionContainer isMobile={isMobile} className="!max-w-[1180px]">
+    <SectionContainer isMobile={isMobile}>
       <div
         className={cn(
           "w-full py-6 px-2 md:py-12 md:px-2",

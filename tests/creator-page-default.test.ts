@@ -34,6 +34,22 @@
  * a tab onto the thing already on screen is worth nothing. True of the tab,
  * and not true of the page: a visitor does not see a tab that was not worth
  * drawing, they see a shop missing a tab every other shop has.
+ *
+ * THEN THE SAME PAGE TURNED OUT TO HAVE TWO LEFT EDGES. Reported next, with
+ * a line drawn down the picture from the Home tab to "About <creator>": the
+ * tab strip and the products were a 1100px column, About and the reviews were
+ * 1180, and About added eight pixels of padding of its own on top. Three
+ * numbers, three ideas of where the page starts.
+ *
+ * Measured by scripts/check-page-width.mjs, which puts the real tab strip,
+ * the real grid and the real About block on one document and reads where
+ * each one's words begin:
+ *
+ *     at 1440px   tab strip 154, products 154, About 154, payment 154
+ *     at  900px   tab strip  16, products  16, About  16, payment  16
+ *
+ * With the column back at 1100 the products start 40px in from the tabs;
+ * with About's own padding back it starts 8px in from everything else.
  */
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
@@ -95,6 +111,40 @@ function main() {
   check(
     "and still ends with the seller's footer",
     /<SellerFooter \/>/.test(fallback),
+  )
+
+  console.log("\nOne column, so the page has one left edge")
+
+  const container = read("components/store-builder/unified-section-renderer.tsx")
+  check(
+    "every section is the same width",
+    /cn\("mx-auto w-full max-w-\[1180px\]", !noPadding && "px-3 sm:px-4 lg:px-6", className\)/.test(container),
+  )
+  check(
+    "and nothing overrides it any more",
+    !/!max-w-\[1180px\]/.test(container),
+    "About and the reviews were the two that did, which is what made 1100 the odd number out",
+  )
+  check(
+    "About adds no padding of its own",
+    !/w-full px-2 md:px-2/.test(container),
+    "eight pixels no other section has is eight pixels of a second left edge",
+  )
+  for (const file of [
+    "components/storefront/storefront-tabs.tsx",
+    "components/storefront/all-products-grid.tsx",
+    "components/storefront/reviews-panel.tsx",
+  ]) {
+    const src = read(file)
+    check(
+      `${file.split("/").pop()} is on the same column`,
+      /max-w-\[1180px\]/.test(src) && !/max-w-\[1100px\]/.test(src),
+    )
+  }
+  check(
+    "and the probe reads where the words begin, not where the boxes do",
+    /tabStrip: edges\(byText\("button, a", \/\^Home\$\/\)\)/.test(read("scripts/check-page-width.mjs")),
+    "comparing a border box against a text run calls a padding difference an alignment",
   )
 
   console.log("\nAnd the probe renders the real section, not a copy of it")
