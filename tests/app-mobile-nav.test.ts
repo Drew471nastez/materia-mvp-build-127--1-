@@ -371,8 +371,8 @@ function main() {
     /const HALO_LAYERS = 12/.test(nav)
       && /data-app-nav-fade-step=""[\s\S]{0,200}borderRadius: "50%"/.test(nav)
       && /inset: i \* HALO_STEP,/.test(nav))
-  check("whose blur ramps from nothing at the outermost to 0.6px at the innermost",
-    /const HALO_BLUR = 0\.6/.test(nav)
+  check("whose blur ramps from nothing at the outermost to 0.35px at the innermost",
+    /const HALO_BLUR = 0\.35/.test(nav)
       && /const haloBlur = \(i: number\) => Math\.round\(HALO_BLUR \* \(\(i \+ 1\) \/ HALO_LAYERS\) \*\* 2/.test(nav)
       && /backdropFilter: `blur\(\$\{haloBlur\(i\)\}px\)`/.test(nav),
     "the same blur on every layer puts an edge on the outermost one")
