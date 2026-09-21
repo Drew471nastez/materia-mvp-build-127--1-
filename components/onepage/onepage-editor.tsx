@@ -130,8 +130,8 @@ function UnsavedChangesDialog({
         disableDefaultAnimations={isMobileSheet}
         disableOverlayDefaultAnimations={isMobileSheet}
         overlayClassName={isMobileSheet ? cn(
-          "bg-black/40 transition-all duration-400",
-          isPresented ? "opacity-100 backdrop-blur-[2px]" : "opacity-0 backdrop-blur-0"
+          "bg-black/40 scrim-graduated transition-opacity duration-400",
+          isPresented ? "opacity-100" : "opacity-0"
         ) : undefined}
         onTouchStart={isMobileSheet ? handleTouchStart : undefined}
         onTouchMove={isMobileSheet ? handleTouchMove : undefined}
@@ -270,8 +270,8 @@ function ProUpgradeDialog({
         disableDefaultAnimations={isMobileSheet}
         disableOverlayDefaultAnimations={isMobileSheet}
         overlayClassName={isMobileSheet ? cn(
-          "bg-black/40 transition-all duration-400",
-          isPresented ? "opacity-100 backdrop-blur-[2px]" : "opacity-0 backdrop-blur-0"
+          "bg-black/40 scrim-graduated transition-opacity duration-400",
+          isPresented ? "opacity-100" : "opacity-0"
         ) : undefined}
         onTouchStart={isMobileSheet ? handleTouchStart : undefined}
         onTouchMove={isMobileSheet ? handleTouchMove : undefined}

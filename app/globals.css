@@ -563,6 +563,41 @@ html.capacitor body {
     background: rgb(209, 213, 219);
   }
 
+  /*
+   * ===========================================================================
+   *  A SCRIM THAT CLEARS TOWARDS THE TOP
+   * ===========================================================================
+   * The sheets' scrim was a flat `backdrop-blur-[2px]`: the same blur over the
+   * whole screen, including the part furthest from the sheet, which is the
+   * part you are most likely to still be reading. Asked for softer overall,
+   * and deepening towards the bottom where the sheet actually is.
+   *
+   * ONE LAYER, NOT A STACK. `backdrop-filter` cannot take a gradient, and the
+   * usual answer is four or five stacked layers each with its own mask and
+   * radius. It does not need to be: a mask on a single blurred layer fades
+   * between the blurred backdrop and the untouched one underneath, and a
+   * partial blend of the two reads as a partial blur. One element, one
+   * filter, and the phone composites it once.
+   *
+   * The dim stays on the parent and stays even. Only the blur is graduated —
+   * a scrim that also brightened towards the top would stop reading as a
+   * scrim at all.
+   *
+   * --scrim-blur is the radius at the very bottom, and the only place the
+   * strength is written down.
+   */
+  .scrim-graduated::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    backdrop-filter: blur(var(--scrim-blur, 2.5px));
+    -webkit-backdrop-filter: blur(var(--scrim-blur, 2.5px));
+    /* Clear through the top quarter, then in over the rest. */
+    mask-image: linear-gradient(to bottom, transparent 0%, transparent 25%, rgba(0, 0, 0, 0.45) 62%, #000 100%);
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, transparent 25%, rgba(0, 0, 0, 0.45) 62%, #000 100%);
+  }
+
   /* Hide scrollbar completely for thumbnail galleries */
   .scrollbar-hide {
     scrollbar-width: none; /* Firefox */
