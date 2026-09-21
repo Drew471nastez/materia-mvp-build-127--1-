@@ -122,6 +122,38 @@ function main() {
     /@media \(max-width: 767px\) \{\s*\n\s*html\.app-layout \.app-content-scroll \{\s*\n\s*padding-bottom: calc\(98px \+ env\(safe-area-inset-bottom, 0px\)\);/.test(css))
   check("the pill clears the home indicator",
     /paddingBottom: "calc\(10px \+ env\(safe-area-inset-bottom, 0px\)\)"/.test(nav))
+  /*
+    ── THE PAGE HAS TO BE ABLE TO GET PAST IT ──────────────────────────────
+    Every other /app page scrolls in .app-content-scroll. The dashboard puts
+    its own `h-full overflow-y-auto` container inside that one and scrolls in
+    THAT, so the rule above never reached the thing that moves — and worse,
+    padding the outer box shrank the inner one's `h-full`, so the dashboard's
+    content ended 98px above the bottom of the screen and the bar floated in
+    an empty strip.
+
+    A glass bar over nothing is the colour of nothing. That is the whole of
+    "there is still a solid background there", said four times about a bar
+    that measured as transparent every time, and no tint or blur on the bar
+    could ever have answered it.
+
+    scripts/check-dashboard-nav mounts the real DashboardClient inside the
+    real shell and photographs it: 10 elements of the page pass behind the
+    bar mid-scroll, and the pixel through the bar reads rgb(157,158,158)
+    against rgb(248,249,250) for the bare page beside it.
+  */
+  check("the clearance is taken off the container that does not scroll",
+    /html\.app-layout \.app-content-scroll:has\(\.dashboard-scroll-container\) \{\s*\n\s*padding-bottom: 0;/.test(css),
+    "padding the outer box only shrinks the inner one and holds the page away from the bar")
+  check("and put on the one that does",
+    /html\.app-layout \.dashboard-scroll-container \{\s*\n\s*padding-bottom: calc\(98px \+ env\(safe-area-inset-bottom, 0px\)\);/.test(css))
+  check("with the real dashboard driven under the real bar to prove it",
+    (() => {
+      const probe = read("scripts/check-dashboard-nav.mjs")
+      return /mid-scroll the page really does pass behind the bar/.test(probe)
+        && /the bar is not the colour of the bare page/.test(probe)
+    })(),
+    "a page of plain cards is the one page that cannot show this, which is why it took four goes")
+
   check("and it is not rendered at all on a desktop",
     (nav.match(/md:hidden/g) ?? []).length >= 2,
     "the pill or the menu would show beside the desktop rail")

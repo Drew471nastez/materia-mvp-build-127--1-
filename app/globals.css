@@ -2521,6 +2521,35 @@ html.capacitor .app-content-scroll {
     padding-bottom: calc(98px + env(safe-area-inset-bottom, 0px));
   }
 
+  /* ── THE DASHBOARD SCROLLS IN A CONTAINER OF ITS OWN ─────────────────────
+   *
+   * Every other /app page scrolls in .app-content-scroll. The dashboard puts
+   * `.dashboard-scroll-container` inside it — `h-full overflow-y-auto` — and
+   * scrolls in THAT, so the rule above never reached the thing that moves.
+   *
+   * What it did instead was worse than nothing. Padding the outer box shrinks
+   * the inner one's `h-full`, so the dashboard's content ended 98px above the
+   * bottom of the screen and the bar floated in an empty strip with nothing
+   * behind it. A glass bar over nothing is the colour of nothing: a white
+   * pill on a white page, reported four times as "there is still a solid
+   * background there", and no amount of tint or blur on the bar could have
+   * answered it. Measured by scripts/check-dashboard-nav.
+   *
+   * So the padding goes on whichever one actually scrolls. The page then runs
+   * all the way to the bottom edge and passes BEHIND the bar, which is the
+   * whole point of making it out of glass, and the inner padding is what lets
+   * the last card clear it at the end.
+   *
+   * Where :has() is not supported the dashboard gets both paddings and a
+   * little dead space at the foot of it, which is where it started.
+   * ─────────────────────────────────────────────────────────────────────── */
+  html.app-layout .app-content-scroll:has(.dashboard-scroll-container) {
+    padding-bottom: 0;
+  }
+  html.app-layout .dashboard-scroll-container {
+    padding-bottom: calc(98px + env(safe-area-inset-bottom, 0px));
+  }
+
   /* ── One bottom strip, one owner ─────────────────────────────────────────
    *
    * Settings raises a save bar across the foot of the screen when there is

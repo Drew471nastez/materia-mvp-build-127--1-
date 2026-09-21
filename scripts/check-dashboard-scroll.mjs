@@ -100,7 +100,26 @@ const ARM = `(async () => {
   if (!window.__ran || window.__threw) {
     return JSON.stringify({ ran: false, threw: window.__threw || null, errors: (window.__err || []).slice(0, 3) })
   }
-  const doc = document.scrollingElement || document.documentElement
+  /*
+    WHICHEVER ELEMENT ACTUALLY MOVES.
+
+    This read \`document.scrollingElement\` and worked, until the dashboard's
+    own \`h-full overflow-y-auto\` container started overflowing in this
+    harness too. The document then stopped scrolling, the probe measured
+    zero, and it reported the page as unscrollable while the page scrolled
+    perfectly well in front of it.
+
+    A probe that names its subject by assumption fails the moment the page is
+    laid out differently, so this asks the page: the element that has
+    somewhere to scroll is the one to watch, and the document is the
+    fallback.
+  */
+  const scrollerOf = () => {
+    const inner = document.querySelector(".dashboard-scroll-container")
+    if (inner && inner.scrollHeight > inner.clientHeight + 1) return inner
+    return document.scrollingElement || document.documentElement
+  }
+  const doc = scrollerOf()
   window.__samples = []
   window.__watch = true
   let last = performance.now()
@@ -111,13 +130,26 @@ const ARM = `(async () => {
     requestAnimationFrame(tick)
   }
   requestAnimationFrame((t) => { last = t; tick(t) })
+  /*
+    A COUNT OF THE MOVES THAT ARRIVED, which is what said the last gesture
+    driver was delivering nothing at all rather than the page refusing to
+    scroll. Cheap, and it is the first thing worth knowing when a scroll
+    probe reports zero.
+  */
+  window.__cancelled = 0
+  window.__moves = 0
+  document.addEventListener("touchmove", (e) => { window.__moves++; if (e.defaultPrevented) window.__cancelled++ }, { passive: true })
   return JSON.stringify({ ran: true, height: doc.scrollHeight })
 })()`
 
 const READ = `(async () => {
   await new Promise((r) => setTimeout(r, 200))
   window.__watch = false
-  const doc = document.scrollingElement || document.documentElement
+  const doc = (() => {
+    const inner = document.querySelector(".dashboard-scroll-container")
+    if (inner && inner.scrollHeight > inner.clientHeight + 1) return inner
+    return document.scrollingElement || document.documentElement
+  })()
   /* The first frame's gap is the time since arming, not a scroll. */
   const s = window.__samples.slice(1)
   /* Charged to the screenful it happened in, so the answer is a place. */
@@ -134,6 +166,7 @@ const READ = `(async () => {
     frames: s.length,
     steps: [...buckets.entries()].sort((a, b) => a[0] - b[0]).map(([y, v]) => ({ y, worst: v.worst, frames: v.frames })),
     errors: (window.__err || []).slice(0, 3),
+    moves: window.__moves, cancelled: window.__cancelled,
   })
 })()`
 
@@ -192,19 +225,49 @@ if (!a.ran) {
 }
 
 /*
-  A REAL SCROLL, not an assignment. synthesizeScrollGesture drives the same
-  path a finger does, so the compositor rasterises as it goes; setting
-  scrollTop and waiting measures a page that has already settled, which is
-  after the moment being complained about.
+  A REAL SCROLL, not an assignment: the touches are dispatched one at a time
+  so the compositor rasterises as it goes, which is the moment being
+  complained about. Setting scrollTop and waiting measures a page that has
+  already settled.
+
+  THIS USED TO BE `Input.synthesizeScrollGesture`, ONE CALL. It reported
+  success and delivered nothing — zero touchmove events reached the document
+  and the page did not move a pixel — so the probe failed the page for being
+  unscrollable while the page scrolled perfectly well in front of it. Whatever
+  that command needs in order to work here, it does not have it; every other
+  probe in this directory drives touches directly, and those all work.
 */
-await call("Input.synthesizeScrollGesture", {
-  x: Math.round(VIEW_W / 2),
-  y: Math.round(VIEW_H / 2),
-  xDistance: 0,
-  yDistance: -(a.height + VIEW_H),
-  speed: 900,
-  gestureSourceType: "touch",
+const STEPS = 60
+const startY = VIEW_H - 120
+const reach = Math.min(a.height - VIEW_H, VIEW_H - 200)
+await call("Input.dispatchTouchEvent", {
+  type: "touchStart",
+  touchPoints: [{ x: Math.round(VIEW_W / 2), y: startY, radiusX: 12, radiusY: 12, force: 1 }],
 })
+/*
+  MANY SHORT GESTURES, NOT ONE LONG ONE. A finger can only travel the height
+  of the screen before it has to be lifted, so a page three screens tall is
+  three flicks — and each one is a fresh chance for a frame to go long, which
+  is what this is looking for.
+*/
+let travelled = 0
+while (travelled < a.height - VIEW_H) {
+  for (let i = 1; i <= STEPS; i++) {
+    await call("Input.dispatchTouchEvent", {
+      type: "touchMove",
+      touchPoints: [{ x: Math.round(VIEW_W / 2), y: Math.round(startY - (reach * i) / STEPS), radiusX: 12, radiusY: 12, force: 1 }],
+    })
+  }
+  await call("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] })
+  travelled += reach
+  if (travelled >= a.height - VIEW_H) break
+  await sleep(60)
+  await call("Input.dispatchTouchEvent", {
+    type: "touchStart",
+    touchPoints: [{ x: Math.round(VIEW_W / 2), y: startY, radiusX: 12, radiusY: 12, force: 1 }],
+  })
+}
+await sleep(300)
 
 const read = await call("Runtime.evaluate", { expression: READ, awaitPromise: true, returnByValue: true, timeout: 60000 })
 if (read.exceptionDetails) fail(`Reading threw: ${JSON.stringify(read.exceptionDetails.text || read.exceptionDetails)}`)
@@ -220,7 +283,7 @@ const expect = (ok, what, got) => {
 }
 
 console.log(`\nScrolling the dashboard at ${VIEW_W}x${VIEW_H}, CPU throttled 4x, ${r.height}px of page`)
-console.log(`  a real touch gesture, ${r.frames} frames, reached ${r.reached}px\n`)
+console.log(`  a real touch gesture, ${r.frames} frames, ${r.moves} moves delivered, reached ${r.reached}px\n`)
 const worstStep = r.steps.reduce((a, s) => (s.worst > a.worst ? s : a), r.steps[0])
 const median = [...r.steps].sort((a, b) => a.worst - b.worst)[Math.floor(r.steps.length / 2)].worst
 for (const s of r.steps) {

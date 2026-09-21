@@ -243,8 +243,33 @@ for (const [name, src] of CHARTS) {
   )
   check(
     `${name}: an active scrub still cancels every move`,
-    /if \(tooltipActiveRef\.current\) \{\n\s*e\.preventDefault\(\)/.test(src),
+    /if \(tooltipActiveRef\.current\) \{[\s\S]{0,2400}?\n\s*e\.preventDefault\(\)\n\s*e\.stopPropagation\(\)/.test(src),
     "without this the browser can start panning mid scrub",
+  )
+  /*
+    AND A HOLD THAT TURNS INTO A SCROLL LETS GO. The hold fires 100ms after a
+    finger lands whether or not that finger is going anywhere, so a thumb
+    that starts down the screen slowly opened the tooltip before it had
+    travelled far enough to be called a scroll — and every move after that
+    was cancelled, so the page did not move at all. Driven by
+    scripts/check-dashboard-scroll, which reported 0 of 893 pixels covered.
+  */
+  check(
+    `${name}: unless the hold has turned into a scroll`,
+    /if \(!scrubbedRef\.current && outY > SLOP_Y\) \{[\s\S]{0,260}?tooltipActiveRef\.current = false/.test(src)
+      && /const SLOP_Y = 12/.test(src),
+    "a slow downward drag that lands on the chart would open the tooltip and freeze the page",
+  )
+  /*
+    AND IT ASKS WHAT THE FINGER DID, NOT WHAT THE HOLD INTENDED. The hold
+    timer sets the direction lock to "horizontal" the moment it fires, before
+    the finger has moved at all, so a guard reading that lock never ran.
+  */
+  check(
+    `${name}: and it reads movement rather than the hold's own optimistic lock`,
+    /if \(outX > SLOP_X\) scrubbedRef\.current = true/.test(src)
+      && /scrubbedRef\.current = false/.test(src),
+    "the direction lock says horizontal after any hold, whether or not anything was scrubbed",
   )
 }
 

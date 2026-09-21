@@ -280,12 +280,30 @@ const DRIVE = `
     var pull = [{ x: xForIndex(7), y: y }]
     for (var k = 1; k <= 6; k++) pull.push({ x: xForIndex(7), y: y + k * 9, want: null })
 
+    /*
+     * A SLOW SCROLL THAT STARTS ON THE CHART, which is a different gesture
+     * from the one above and the one the chart used to swallow.
+     *
+     * The hold fires 100ms after a finger lands whether or not that finger
+     * is going anywhere. A thumb that begins moving down SLOWLY has not
+     * travelled twelve pixels by then, so the tooltip opened under it — and
+     * from that moment every move was cancelled and the page could not move.
+     *
+     * It has to engage and then LET GO: the tooltip may appear, but once the
+     * drag is decisively vertical the chart must stop cancelling, or there is
+     * no scrolling out of this band for a thumb that starts gently.
+     */
+    var slowPull = [{ x: xForIndex(7), y: y }, { x: xForIndex(7), y: y + 2 }, { wait: 200 }]
+    for (var q = 1; q <= 8; q++) slowPull.push({ x: xForIndex(7) + (q % 2), y: y + 2 + q * 9, want: null })
+
     run("oneShot", oneShot, function (a) {
       results.oneShot = a
       run("holdThenDrag", holdDrag, function (b) {
         results.holdThenDrag = b
         run("pullDown", pull, function (c) {
           results.pullDown = c
+          run("slowPull", slowPull, function (d) {
+          results.slowPull = d
           results.frames = window.__frames || 0
           results.geometry = {
             card: Math.round(rect.width),
@@ -295,6 +313,7 @@ const DRIVE = `
             gapPerPoint: Math.round(span / (POINTS - 1)),
           }
           report(results)
+          })
         })
       })
     })
@@ -357,7 +376,7 @@ const show = (a) => {
   console.log(`  page scrolled: ${a.startScroll} -> ${a.afterEnd.scrollY} (${a.afterEnd.scrollY - a.startScroll >= 0 ? "+" : ""}${a.afterEnd.scrollY - a.startScroll}px)`)
   console.log(`  after the finger lifts: ${a.afterEnd.active ? "STILL SHOWING" : "gone"}`)
 }
-;["oneShot", "holdThenDrag", "pullDown"].forEach((k) => show(r[k]))
+;["oneShot", "holdThenDrag", "pullDown", "slowPull"].forEach((k) => show(r[k]))
 
 for (const key of ["oneShot", "holdThenDrag"]) {
   const a = r[key]
@@ -394,7 +413,7 @@ for (const key of ["oneShot", "holdThenDrag"]) {
  * momentum and no rubber band, inside 200px of a page that scrolls normally
  * everywhere else.
  */
-for (const key of ["oneShot", "holdThenDrag", "pullDown"]) {
+for (const key of ["oneShot", "holdThenDrag", "pullDown", "slowPull"]) {
   const seen = [...new Set(r[key].log.map((s) => s.touchAction))]
   if (seen.length > 1) problems.push(`[${metric}] ${key}: touch-action changed mid gesture (${seen.join(" then ")}). The browser latched the first one and ignored the rest.`)
   if (seen.some((t) => t !== "pan-y")) problems.push(`[${metric}] ${key}: touch-action is "${seen.join(", ")}". It has to be pan-y: "none" leaves the browser unable to scroll this band, and anything wider lets it take a scrub away.`)
@@ -420,6 +439,21 @@ for (const key of ["oneShot", "holdThenDrag", "pullDown"]) {
 
 const pull = r.pullDown
 if (pull.log.some((s) => s.active)) problems.push(`[${metric}] pullDown: a straight downward drag opened the tooltip. A thumb over the chart cannot scroll the page.`)
+
+/*
+  AND THE HOLD LETS GO WHEN THE HOLD TURNS OUT TO BE A SCROLL. The tooltip is
+  allowed to appear — the finger was still for 200ms, which is a hold by any
+  measure — but once the drag is decisively vertical the chart has to stop
+  cancelling, or a thumb that starts gently can never scroll out of this band.
+*/
+{
+  const slow = r.slowPull
+  const held = slow.log.filter((s) => s.defaultPrevented)
+  const last = slow.log.slice(-4)
+  if (held.length > 2) problems.push(`[${metric}] slowPull: ${held.length} of ${slow.log.length} moves of a slow downward drag were cancelled. The hold opened under a finger that was on its way down the screen and never let go of it, so the page cannot scroll.`)
+  if (last.some((s) => s.defaultPrevented)) problems.push(`[${metric}] slowPull: the chart was still cancelling moves at the end of a straight downward drag. It has to hand the gesture back once the drag is plainly a scroll.`)
+  if (slow.afterEnd.active) problems.push(`[${metric}] slowPull: the tooltip was still up after the finger lifted.`)
+}
 
 
 }
