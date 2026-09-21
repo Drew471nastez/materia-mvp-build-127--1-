@@ -98,13 +98,10 @@ function Shell() {
         onToggleMenu={() => setOpen((v) => !v)}
         onCloseMenu={() => setOpen(false)}
         onNavigate={(href) => { (window as unknown as Record<string, unknown>).__went = href }}
-        onExplore={() => { (window as unknown as Record<string, unknown>).__went = "/explore" }}
-        exploreHref="/explore"
         icons={{
           home: NAV_ICONS.dashboard,
           orders: NAV_ICONS.orders,
           products: NAV_ICONS.products,
-          explore: NAV_ICONS_EXTRA.explore,
           settings: NAV_ICONS_EXTRA.settings,
         }}
       />

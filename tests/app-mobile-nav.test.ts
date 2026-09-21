@@ -77,15 +77,29 @@ function main() {
     "a full reload in Capacitor loses the session, which lives in Preferences")
   check("the page behind the menu is locked while it is open",
     /useLockAppScroll\(mobileMenuOpen\)/.test(shell))
-  check("explore opens outside the shell in the native app",
-    /onExplore=\{\(\) => \{[\s\S]{0,400}?isNativeApp\(\)\) openExternal\(EXPLORE_FULL_URL\)/.test(shell),
+  check("the bar is given the four glyphs it draws, all from the rail's own family",
+    /icons=\{\{[\s\S]{0,400}?home: NAV_ICONS\.dashboard[\s\S]{0,400}?orders: NAV_ICONS\.orders[\s\S]{0,400}?products: NAV_ICONS\.products[\s\S]{0,400}?settings: NAV_ICONS_EXTRA\.settings/.test(shell))
+  check("and it draws no glyph from a second icon library",
+    !/from "lucide-react"/.test(nav),
+    "one glyph from a different library at 22px beside three Solar ones reads as heavier than all of them")
+
+  /*
+    ── EXPLORE IS NOT ONE OF THIS PERSON'S PLACES ─────────────────────────
+    It spent a while as the fourth slot beside Home, Orders and Products,
+    which are three pages of their own shop. It is the public site, and it
+    leaves this shell entirely — in the native app it has to open OUTSIDE the
+    WebView, or somebody ends up stranded in it with no way back.
+  */
+  check("explore is in the header, to the left of the bell",
+    shell.indexOf('aria-label="Explore"') > 0
+      && shell.indexOf('aria-label="Explore"') < shell.indexOf('aria-label="Notifications"'))
+  check("and it is drawn with the same compass the rail knows",
+    /import \{ CompassIcon as ExploreIcon \} from "@solar-icons\/react\/linear\/compass"/.test(shell))
+  check("it opens outside the shell in the native app",
+    /aria-label="Explore"[\s\S]{0,300}?isNativeApp\(\)\) openExternal\(EXPLORE_FULL_URL\)/.test(shell),
     "in Capacitor a navigation to the public site would strand somebody inside the app's own WebView")
-  check("the bar is given the five glyphs it draws, all from the rail's own family",
-    /icons=\{\{[\s\S]{0,400}?home: NAV_ICONS\.dashboard[\s\S]{0,400}?orders: NAV_ICONS\.orders[\s\S]{0,400}?products: NAV_ICONS\.products[\s\S]{0,400}?explore: NAV_ICONS_EXTRA\.explore[\s\S]{0,400}?settings: NAV_ICONS_EXTRA\.settings/.test(shell))
-  check("and the compass comes from Solar too, not from a second icon library",
-    /from "@solar-icons\/react\/linear\/compass"/.test(read("components/app/sidebar-desktop-nav.tsx"))
-      && !/from "lucide-react"/.test(nav),
-    "one glyph from a different library at 21px beside four Solar ones reads as heavier than all of them")
+  check("and the bar does not carry it any more",
+    !/onExplore/.test(strip(nav)) && !/onExplore/.test(strip(shell)))
 
   console.log("\n  the back button closes what is on top")
 
@@ -130,6 +144,17 @@ function main() {
       return a > 0 && a <= 0.55
     })(),
     "above about half, a white tint stops being glass and becomes a panel")
+  /*
+    And the only test of that claim that means anything is the photograph:
+    the probe puts red behind the bar, photographs a square between two
+    glyphs, changes it to blue and photographs again. A panel moves 0; this
+    moves 150, where the version reported as "still solid" moved 133.
+  */
+  check("and the claim is settled by photographing it over two colours",
+    /change what is behind the bar and the bar changes/.test(read("scripts/check-app-mobile-nav.mjs"))
+      && /function decodePng\(buf\)/.test(read("scripts/check-app-mobile-nav.mjs")))
+  check("with the fade held to leaving no lighter plate over plain page",
+    /the fade leaves no lighter plate across the bottom/.test(read("scripts/check-app-mobile-nav.mjs")))
   check("the fade behind them has no fill, only a mask",
     /maskImage: "linear-gradient\(to top/.test(nav)
       && !/background: "linear-gradient\(to top, rgba\(248/.test(strip(nav)))
@@ -186,18 +211,15 @@ function main() {
       && /const SETTLE = `transform 440ms cubic-bezier\(0\.34, 1\.32, 0\.42, 1\)`/.test(nav)
       && /slide\.dragging \? TRACK : SETTLE/.test(nav))
 
-  console.log("\n  and the menu keeps the navigation, with settings beside the X")
+  console.log("\n  and the menu changes nothing about the bar")
 
-  check("the bar's four slots are the same open or shut",
-    !/menuOpen\s*\n?\s*\?\s*\[\{ key: "settings"/.test(strip(nav)),
-    "the navigation used to be replaced by a single Settings slot while the menu was open")
-  check("settings is its own circle, to the right of the close button",
-    /aria-label="Settings"/.test(nav) && /left: "100%",\s*\n\s*marginLeft: GAP,/.test(nav))
-  check("it is out of the flow, and the group slides instead of being laid out again",
-    /transform: `translateX\(\$\{menuOpen \? -\(BAR_H \+ GAP\) \/ 2 : 0\}px\)`/.test(nav),
-    "animating a width would relayout the row on every frame of the open")
-  check("and it takes no presses and no tab stop while it is hidden",
-    /tabIndex=\{menuOpen \? 0 : -1\}/.test(nav) && /menuOpen \? "pointer-events-auto" : "pointer-events-none"/.test(nav))
+  check("settings is the fourth slot, not something that appears beside the X",
+    /\{ key: "settings", label: "Settings", href: "\/app\/settings"/.test(nav)
+      && !/left: "100%"/.test(strip(nav)),
+    "it used to appear only while the menu was open, which is the one time you are not looking for it")
+  check("so nothing is added or removed when the menu opens",
+    !/translateX\(\$\{menuOpen/.test(strip(nav)),
+    "a group that changes width has to slide to stay centred, and that was only ever there to carry a button that has gone")
 
   check("the hamburger's lines have a little more air between them",
     /top-\[3\.2px\]/.test(nav) && /top-\[13\.2px\]/.test(nav) && /h-\[1\.6px\]/.test(nav),
