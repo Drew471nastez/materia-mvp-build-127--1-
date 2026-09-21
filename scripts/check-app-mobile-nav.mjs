@@ -278,6 +278,7 @@ const READ_PILL = `(() => {
               return Math.round(btn.left - b.right)
             })(),
             radius: ps.borderRadius, bg: ps.backgroundColor, shadow: ps.boxShadow.slice(0, 120) },
+    docWidth: Math.max(document.documentElement.scrollWidth, document.body.scrollWidth),
     selector: (() => {
       const dot = pill.querySelector('span[aria-hidden="true"]')
       const d = dot.getBoundingClientRect()
@@ -411,8 +412,9 @@ const blur = {
   above: await contrastAt(fadeBox.x, fadeBox.top - 50),
   top: await contrastAt(fadeBox.x, fadeBox.top + 6),
   bottom: await contrastAt(fadeBox.gapX, fadeBox.barMid),
-  /* And the screen's left edge, where the halo now reaches but must not be
-     seen to: its outermost layers carry almost nothing. */
+  /* And the screen's left edge, which the halo now has to REACH: "spread
+     full width in the left and right". Softened there, and less than at the
+     bar, because that is where the ellipse is thinning out. */
   margin: await contrastAt(6, fadeBox.barMid),
 }
 await ev(`document.getElementById("__stripes").remove(); true`)
@@ -748,13 +750,22 @@ must(shut.fade?.straight === 0, "every layer of it is an ellipse, so nothing in 
 must(!!shut.fade && shut.fade.radii[0] <= 0.05 && shut.fade.radii.every((v, i) => i === 0 || v > shut.fade.radii[i - 1]),
   "and the blur ramps up from nothing at the outermost layer, so there is no radius at which it begins",
   `the layers carry ${shut.fade?.radii.join(", ")}px, outermost first`)
-must(!!shut.fade && Math.hypot(...(shut.fade.radii ?? [])) <= 3.2,
-  "compounding to under 3px where they all overlap: a softening, not a blur",
+must(!!shut.fade && Math.hypot(...(shut.fade.radii ?? [])) <= 5,
+  "compounding to about 4px where they all overlap: more than visible, and still a softening",
   `the layers compound to about ${Math.hypot(...(shut.fade?.radii ?? [])).toFixed(1)}px around the bar`)
-must(!!shut.fade && shut.fade.w >= VIEW_W * 0.9 && shut.fade.w <= VIEW_W - 12, "and it spans the screen's width, just short of its sides",
+/* WIDER than the screen, on purpose. An ellipse exactly the screen's width
+   has no height at its two tips, so the last stretch at each side would be
+   bare, in an arc. Drawn wider, the display crops it. */
+must(!!shut.fade && shut.fade.w > VIEW_W && shut.fade.w <= VIEW_W * 1.4,
+  "and it is drawn wider than the screen, so the softening reaches both sides",
   `the halo is ${shut.fade?.w}px wide on a ${VIEW_W}px screen`)
-must(!!shut.fade && shut.fade.h <= 100, "and is not much taller than the bar",
+must(!!shut.fade && shut.fade.h <= 130, "and is not much taller than the bar",
   `the halo is ${shut.fade?.h}px tall for a ${shut.pill.h}px bar`)
+/* And the overhang costs the page nothing: a fixed box's overflow is not the
+   document's, but that is worth reading rather than believing. */
+must(shut.docWidth <= VIEW_W,
+  "with nothing of it hanging off the page: the document is still the width of the screen",
+  `the document is ${shut.docWidth}px wide on a ${VIEW_W}px screen, so the halo has given the page a sideways scroll`)
 must(shut.fade?.masked === 0, "with no mask on any layer of it, which is the thing WKWebView cannot draw",
   `${shut.fade?.masked} layer(s) of the fade carry a mask`)
 must(shut.fade?.opaque === 0, "and no opaque fill on any layer, so nothing in it can be a plate",
@@ -797,8 +808,16 @@ console.log("")
 console.log(`  the halo    stripes read ${blur.above} of contrast above it, ${blur.top} at its edge, ${blur.bottom} beside the bar, ${blur.margin} in the left margin\n`)
 must(blur.above >= 120, "the stripe pattern is sharp where nothing is over it, so the test can see",
   `only ${blur.above} of contrast above the fade: the stripes are not being drawn sharply enough to measure against`)
-must(blur.margin >= blur.above * 0.9, "the halo spans the screen but leaves the page at its edge as it was",
-  `the stripes read ${blur.margin} at the screen's left edge against ${blur.above} above the halo: the halo has an edge there`)
+must(blur.margin <= blur.above * 0.9, "the halo reaches the screen's left and right edges rather than stopping in an arc short of them",
+  `the stripes read ${blur.margin} at the screen's left edge against ${blur.above} above the halo: the page is untouched there, so the halo stops short`)
+/* At the bar's own height the ellipse is at its widest, so every layer still
+   covers the screen's edge and the reading there matches the reading at the
+   bar. The fade is vertical and at the four corners, which is what the two
+   readings above the halo prove; what this one guards is that the edge is
+   never blurred HARDER than the middle, which would mean the shape had
+   inverted. */
+must(blur.margin >= blur.bottom, "as strongly there as at the bar itself, and never more",
+  `the screen's edge reads ${blur.margin} and the bar ${blur.bottom}: the halo is strongest at the screen's edge, which is not the shape it is meant to be`)
 must(blur.bottom <= blur.above * 0.45, "beside the bar the page is softened, gently",
   `the stripes still read ${blur.bottom} of contrast beside the bar against ${blur.above} above the halo`)
 must(blur.top > blur.bottom + 10, "and the blur is progressive: lighter at the top of the fade than at the bottom",

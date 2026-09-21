@@ -495,8 +495,11 @@ export function MobileMenuPage({
  * half pixel of white along the top where light would catch, and a half
  * pixel ring all the way round.
  *
- * DEPTH IS ONE SHADOW, AND IT IS SMALL. Asked for "a little bit more", so it
- * is 5% at one pixel and 10% at eight, which is a lift rather than a cast.
+ * DEPTH IS THREE DROPS, AND IT IS STILL SOFT. "A little bit more" made it a
+ * contact shadow at 5% and a lift at 10%; "add some more depth" makes it
+ * three: the contact line right under the edge, a near drop that gives the
+ * glass its thickness, and a far one that puts the whole pill above the
+ * page. Three soft drops read as distance; one hard one reads as a sticker.
  */
 const GLASS: React.CSSProperties = {
   /*
@@ -515,7 +518,7 @@ const GLASS: React.CSSProperties = {
   backdropFilter: "blur(24px) saturate(120%)",
   WebkitBackdropFilter: "blur(24px) saturate(120%)",
   boxShadow:
-    "0 1px 2px rgba(16,18,27,0.05), 0 8px 22px rgba(16,18,27,0.10)," +
+    "0 1px 2px rgba(16,18,27,0.06), 0 4px 10px rgba(16,18,27,0.07), 0 14px 30px rgba(16,18,27,0.14)," +
     " inset 0 0 0 0.5px rgba(255,255,255,0.65), inset 0 0.5px 0 rgba(255,255,255,0.9)",
 }
 
@@ -570,22 +573,34 @@ const GAP = 8
  * from where the halo begins. Where they all overlap, around the bar, they
  * compound to under 3px: "not that powerful, just a little bit".
  *
- * WIDE AND LOW. "The spread should cover the left and right, and the height
- * more small." One ellipse, centred on the screen rather than on the bar
- * group, nearly the width of the screen and not much taller than the bar.
- * Centred on the screen because the group is not always where the bar is:
- * with the menu open a settings circle sits to the left of it, and a halo
- * hung on the group left that circle standing on bare page.
+ * WIDER THAN THE SCREEN. "The spread should cover the left and right, full
+ * width." An ellipse the exact width of the screen cannot: its two tips have
+ * no height at all, so the last 40px at each side would be left bare, in an
+ * arc. So the ellipse is drawn WIDER than the screen and the screen crops
+ * it, which is how a system bar's does it — at the screen's left edge it is
+ * still about two thirds of its full height, and what is cut off is cut off
+ * by the edge of the display rather than by an edge of its own.
+ *
+ * It is centred on the screen rather than on the bar group, because the group
+ * is not always where the bar is: with the menu open a settings circle sits
+ * to the left of it, and a halo hung on the group left that circle standing
+ * on bare page.
+ *
+ * MORE THAN VISIBLE. 1.6px at the innermost layer was as close to nothing as
+ * a blur gets, which was the brief at the time ("almost unobservable"); "not
+ * that potent, but more than visible" is 2.4, compounding to about 4px where
+ * the layers overlap. The tint comes up with it.
  */
 const HALO_LAYERS = 12
 const HALO_STEP = 3
 /** The strongest layer's blur; the outermost carries this over HALO_LAYERS². */
-const HALO_BLUR = 1.6
+const HALO_BLUR = 2.4
 const haloBlur = (i: number) => Math.round(HALO_BLUR * ((i + 1) / HALO_LAYERS) ** 2 * 1000) / 1000
-/** How far the halo reaches beyond the bar: above it, below it, and in from the screen's sides. */
-const HALO_REACH = { top: 22, bottom: 18, margin: 8 }
+/** How far the halo reaches beyond the bar: above it, below it, and past each
+    side of the screen, which is the part the display crops. */
+const HALO_REACH = { top: 30, bottom: 22, side: 56 }
 /** The page under the bar on a phone is #f8f9fa, and the tint is that colour. */
-const HALO_TINT = "rgba(248,249,250,0.22)"
+const HALO_TINT = "rgba(248,249,250,0.3)"
 const HALO_TINT_NONE = "rgba(248,249,250,0)"
 /** How far the bottom of the pill sits above the bottom of the screen. Read
     once, by the pill and by the halo, so the two cannot disagree. */
@@ -953,7 +968,7 @@ export function MobileNavPill({
         data-app-nav-fade=""
         className="pointer-events-none absolute left-1/2"
         style={{
-          width: `calc(100% - ${HALO_REACH.margin * 2}px)`,
+          width: `calc(100% + ${HALO_REACH.side * 2}px)`,
           height: BAR_H + HALO_REACH.top + HALO_REACH.bottom,
           bottom: `calc(${PILL_LIFT} - ${HALO_REACH.bottom}px)`,
           transform: "translateX(-50%)",
@@ -1037,7 +1052,7 @@ export function MobileNavPill({
               scale: String(marked < 0 ? 0.55 : slide.dragging ? LIFT : 1),
               opacity: marked < 0 ? 0 : 1,
               backgroundColor: slide.dragging ? "rgba(255,255,255,0.92)" : "rgba(255,255,255,0.82)",
-              boxShadow: "inset 0 0 0 0.5px rgba(255,255,255,0.75), 0 1px 3px rgba(16,18,27,0.08)",
+              boxShadow: "inset 0 0 0 0.5px rgba(255,255,255,0.75), 0 1px 2px rgba(16,18,27,0.07), 0 3px 8px rgba(16,18,27,0.10)",
               /* No transition on the position under a finger: the loop is the motion. */
               transition: `${slide.dragging ? "translate 0s" : SETTLE}, ${LIFT_EASE}, opacity 220ms ease-out, background-color 160ms ease-out`,
               willChange: "translate, scale",

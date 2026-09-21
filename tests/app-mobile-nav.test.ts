@@ -311,14 +311,14 @@ function main() {
     /const HALO_LAYERS = 12/.test(nav)
       && /data-app-nav-fade-step=""[\s\S]{0,200}borderRadius: "50%"/.test(nav)
       && /inset: i \* HALO_STEP,/.test(nav))
-  check("whose blur ramps from nothing at the outermost to 1.6px at the innermost",
-    /const HALO_BLUR = 1\.6/.test(nav)
+  check("whose blur ramps from nothing at the outermost to 2.4px at the innermost",
+    /const HALO_BLUR = 2\.4/.test(nav)
       && /const haloBlur = \(i: number\) => Math\.round\(HALO_BLUR \* \(\(i \+ 1\) \/ HALO_LAYERS\) \*\* 2/.test(nav)
       && /backdropFilter: `blur\(\$\{haloBlur\(i\)\}px\)`/.test(nav),
     "the same blur on every layer puts an edge on the outermost one")
-  check("wide, low, and centred on the screen rather than on the bar group",
-    /const HALO_REACH = \{ top: 22, bottom: 18, margin: 8 \}/.test(nav)
-      && /width: `calc\(100% - \$\{HALO_REACH\.margin \* 2\}px\)`/.test(nav)
+  check("wider than the screen, low, and centred on the screen rather than on the bar group",
+    /const HALO_REACH = \{ top: 30, bottom: 22, side: 56 \}/.test(nav)
+      && /width: `calc\(100% \+ \$\{HALO_REACH\.side \* 2\}px\)`/.test(nav)
       && /height: BAR_H \+ HALO_REACH\.top \+ HALO_REACH\.bottom/.test(nav)
       && /className="pointer-events-none absolute left-1\/2"/.test(nav),
     "hung on the group, the halo left the settings circle standing on bare page while the menu was open")
@@ -327,21 +327,30 @@ function main() {
       && /paddingBottom: `calc\(\$\{PILL_LIFT\}\)`/.test(nav)
       && /bottom: `calc\(\$\{PILL_LIFT\} - \$\{HALO_REACH\.bottom\}px\)`/.test(nav),
     "the same number computed twice is where the editor's black bands came from")
-  check("and its tint is one radial gradient in the page's own colour, quieter than before",
-    /const HALO_TINT = "rgba\(248,249,250,0\.22\)"/.test(nav)
+  check("and its tint is one radial gradient in the page's own colour",
+    /const HALO_TINT = "rgba\(248,249,250,0\.3\)"/.test(nav)
       && /radial-gradient\(ellipse at center, \$\{HALO_TINT\} 0%/.test(nav),
     "at 45% the tint read as a plate under the bar; 'more subtle, almost unobservable'")
   check("with every layer of it measured as an ellipse in the probe, and the ramp read off the layers",
     /nothing in it ends on a straight line/.test(read("scripts/check-app-mobile-nav.mjs"))
       && /no radius at which it begins/.test(read("scripts/check-app-mobile-nav.mjs")))
   check("with the halo measured through stripes in the probe, including that the screen's edge is untouched",
-    /leaves the page at its edge as it was/.test(read("scripts/check-app-mobile-nav.mjs"))
+    /rather than stopping in an arc short of them/.test(read("scripts/check-app-mobile-nav.mjs"))
       && /the blur is progressive/.test(read("scripts/check-app-mobile-nav.mjs")))
+  check("and the overhang is measured as costing the page no sideways scroll",
+    /the document is still the width of the screen/.test(read("scripts/check-app-mobile-nav.mjs")),
+    "an element wider than the viewport is how a page gets a horizontal scrollbar")
   check("nothing in the bar is painted in the accent colour",
     !new RegExp(String.raw`ACCENT`).test(strip(nav).slice(strip(nav).indexOf("function MobileNavPill"))),
     "the violet fill behind the active icon was the first thing called out")
-  check("the depth is two soft drops and a half pixel of inner light, not a cast shadow",
-    /0 1px 2px rgba\(16,18,27,0\.05\), 0 8px 22px rgba\(16,18,27,0\.10\)/.test(nav))
+  /* "Add some more depth." Three drops: the contact line under the edge, a
+     near one for the glass's thickness, a far one that lifts the whole pill
+     off the page. Soft, so it reads as distance rather than as a sticker. */
+  check("the depth is three soft drops and a half pixel of inner light, not a cast shadow",
+    /0 1px 2px rgba\(16,18,27,0\.06\), 0 4px 10px rgba\(16,18,27,0\.07\), 0 14px 30px rgba\(16,18,27,0\.14\)/.test(nav)
+      && /inset 0 0 0 0\.5px rgba\(255,255,255,0\.65\)/.test(nav))
+  check("and the circle under a finger is lifted off the bar the same way, one step down",
+    /0 1px 2px rgba\(16,18,27,0\.07\), 0 3px 8px rgba\(16,18,27,0\.10\)/.test(nav))
 
   check("a finger can slide along the bar, and the slot follows it",
     /function useSlide\(/.test(nav) && /onPointerMove: \(e: React\.PointerEvent\) => \{/.test(nav))
