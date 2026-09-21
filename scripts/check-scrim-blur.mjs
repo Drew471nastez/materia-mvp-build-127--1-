@@ -35,6 +35,23 @@ if (!rule) fail("No .scrim-graduated::after rule found in app/globals.css.")
 
 const W = 520
 const H = 900
+/*
+  ═══════════════════════════════════════════════════════════════════════════
+   A PHONE IS 3x, AND AT 1x THIS PROBE COULD NOT SEE THE DIFFERENCE
+  ═══════════════════════════════════════════════════════════════════════════
+  A blur radius is written in CSS pixels and applied in DEVICE pixels, and
+  Chromium quantises the result. Measured at scale 1 across a sweep of radii,
+  0px and 0.5px came out identical — 0.5 did nothing at all — and so did 0.8
+  and 1.1. At scale 3 every one of them separates:
+
+      radius        0    0.5    0.8    1.1    1.6    2.5
+      contrast   76.5  61.71   47.8  36.96  18.23   1.01
+
+  So a run at 1x reported that a requested reduction had changed nothing,
+  when on the device it asks about it changes a great deal. This renders at
+  the scale the screenshot in the report came from.
+*/
+const DPR = Number(process.env.DPR ?? 3)
 const out = mkdtempSync(join(tmpdir(), "storelib-scrim-"))
 
 function page(variant) {
@@ -61,7 +78,7 @@ for (const variant of ["old", "new"]) {
   writeFileSync(html, page(variant))
   const png = join(out, `${variant}.png`)
   execFileSync(CHROMIUM, ["--headless=new", "--no-sandbox", "--disable-gpu", "--hide-scrollbars",
-    `--window-size=${W},${H}`, "--force-device-scale-factor=1", "--virtual-time-budget=3000",
+    `--window-size=${W},${H}`, `--force-device-scale-factor=${DPR}`, "--virtual-time-budget=3000",
     `--screenshot=${png}`, `file://${html}`], { stdio: ["ignore", "ignore", "ignore"] })
   if (!existsSync(png)) fail(`No screenshot for ${variant}.`)
   shots[variant] = png
@@ -112,7 +129,7 @@ print(json.dumps(out))
 const raw = JSON.parse(execFileSync("python3", ["-c", py], { encoding: "utf8" }))
 const contrast = { old: raw.old.bands, new: raw.new.bands }
 
-console.log(`\nStripe contrast through the scrim, top band to bottom band`)
+console.log(`\nStripe contrast through the scrim, top band to bottom band, at ${DPR}x`)
 console.log(`(the scrim covers 0..${raw.new.scrimBottom} of a ${raw.new.image}px capture)`)
 console.log(`(a big number is sharp, a small one is blurred)\n`)
 console.log(`  ${"old, flat blur(2px)".padEnd(24)} ${contrast.old.map((n) => String(n).padStart(6)).join("")}`)

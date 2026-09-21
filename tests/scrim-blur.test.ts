@@ -14,22 +14,30 @@
  * through the scrim and reads the standard deviation of luminance in six
  * bands. A big number is sharp, a small one is blurred:
  *
- *     old, flat blur(2px)     2.8   2.8   2.8   2.8   2.8   2.8
- *     first pass, 2.5px      76.5  74.6  61.0  45.6  28.3  10.9
- *     softened, 1.6px        76.5  76.5  72.2  61.4  48.6  30.8
- *     softened again, 1.1px  76.5  76.5  73.2  65.2  55.6  42.6
+ *     old, flat blur(2px)      9.0   8.4   8.3   8.3   8.4   9.3
+ *     first pass, 2.5px       76.5  74.0  58.1  40.9  23.2   6.6
+ *     softened, 1.6px         76.5  76.5  71.8  59.4  47.0  30.4
+ *     softened again, 1.1px   76.5  76.5  73.2  65.2  55.8  43.5
+ *     and again, 0.8px        76.5  76.5  73.9  67.8  60.7  52.0
  *
- * Asked down twice more after the first pass. The
- * top of the page is back to the clarity of no scrim at all, and the bottom
- * — right behind the sheet — keeps a real blur while staying an order of
- * magnitude clearer than the flat one it replaced.
+ * Asked down three times after the first pass. The top of the page is the
+ * clarity of no scrim at all, and the bottom — behind the sheet — keeps a
+ * real blur while staying far clearer than the flat one it replaced.
  *
- * THE NUMBERS BELOW ARE NOT PINNED, on purpose. This got tuned twice in one
- * sitting and will get tuned again; a test that has to be edited for every
- * adjustment is a test people start editing without reading. What is checked
- * is the shape — one radius used by both properties, a mask that runs top to
- * bottom with a genuinely clear zone at the top — and a ceiling on the radius,
- * so it can be tuned freely but cannot quietly go back to being heavy.
+ * ── THE NUMBERS ABOVE ARE AT 3x, AND THAT MATTERS ─────────────────────────
+ * A blur radius is written in CSS pixels and applied in DEVICE pixels, and
+ * Chromium quantises the result. This probe first ran at scale 1, where a
+ * sweep of radii showed 0px and 0.5px producing identical output — 0.5 did
+ * nothing whatever — and 0.8px and 1.1px likewise identical. On that basis a
+ * requested reduction was reported as having changed nothing, and 1.1px was
+ * described as "close to the floor of doing anything at all". Both were
+ * wrong. At scale 3, which is what the phone in the report is, every radius
+ * separates cleanly:
+ *
+ *     radius        0    0.5    0.8    1.1    1.6    2.5
+ *     contrast   76.5  61.71   47.8  36.96  18.23   1.01
+ *
+ * There is a real floor, but it is nearer 0.4px than 1.1px.
  *
  * ONE LAYER, NOT A STACK. `backdrop-filter` cannot take a gradient, and the
  * usual answer is four or five stacked layers each with its own mask and
