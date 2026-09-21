@@ -68,3 +68,4 @@ tsconfig.*.generated.json
 .logofont-probe/
 .lvb-probe/
 .ctlfps-probe/
+.hdrsearch-probe/
