@@ -142,7 +142,33 @@ async function main() {
   await send("Emulation.setDeviceMetricsOverride", { width: 520, height: 900, deviceScaleFactor: 2, mobile: true })
   await send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 5 })
   await send("Page.navigate", { url: URL_UNDER_TEST })
-  await sleep(12000)
+
+  /*
+    WAIT FOR THE SLIDER, NOT FOR A NUMBER OF SECONDS.
+
+    The first run of this against the deployed page reported "this page has
+    no image carousel" and passed. The page has one; twelve seconds was not
+    always enough for it to be laid out, and a probe that passes by failing
+    to find the thing it is checking is worse than no probe. So: poll until
+    the track exists, and say plainly if it never does.
+  */
+  const FIND_TRACK = `(() => {
+    const visible = (el) => el && el.offsetParent && el.getBoundingClientRect().width > 0
+    for (const d of document.querySelectorAll("div")) {
+      if ((d.style.transform || "").startsWith("translate3d") && visible(d)) return true
+      const cs = visible(d) ? getComputedStyle(d) : null
+      if (cs && (cs.overflowX === "auto" || cs.overflowX === "scroll") && d.scrollWidth > d.clientWidth + 8) return true
+    }
+    return false
+  })()`
+  let found = false
+  for (let i = 0; i < 30 && !found; i++) {
+    await sleep(1000)
+    found = await ev(FIND_TRACK)
+  }
+  if (!found) console.log("\n  NOTE: no slider of either kind appeared on this page within 30s.\n")
+  /* Let autoplay and the images settle before anything is read. */
+  await sleep(3000)
 
   const atRest = await ev(READ)
   await ev(ARM)
@@ -154,6 +180,45 @@ async function main() {
   await sleep(1500)
   const churn = await ev("window.__churn")
   const afterScroll = await ev(READ)
+
+  /*
+    ═══════════════════════════════════════════════════════════════════════
+     THE OTHER SLIDER: A REAL SCROLLER, WHICH NOTHING MAY SCROLL BY HAND
+    ═══════════════════════════════════════════════════════════════════════
+    A group laid out as a carousel is an overflow-x scroller with scroll-snap.
+    The phone scrolls it natively, with momentum, off the main thread. What
+    used to sit on it as well was a React touchmove writing scrollLeft on
+    every move, so a finger moved the row twice, against a snap trying to
+    settle it somewhere else.
+
+    A synthetic TouchEvent cannot drive a native scroll — that comes from real
+    input — and that is exactly what makes this measurable: after a synthetic
+    swipe, scrollLeft must be EXACTLY where it was. Any movement at all is
+    JavaScript still scrolling the row by hand.
+  */
+  const nativeSwipe = await ev(`(() => {
+    const visible = (el) => el && el.offsetParent && el.getBoundingClientRect().width > 0
+    let box = null
+    for (const d of document.querySelectorAll("div")) {
+      if (!visible(d)) continue
+      const cs = getComputedStyle(d)
+      if ((cs.overflowX === "auto" || cs.overflowX === "scroll") && d.scrollWidth > d.clientWidth + 8) { box = d; break }
+    }
+    if (!box) return { reason: "this page has no scrolling row" }
+    const r = box.getBoundingClientRect()
+    const y = Math.round(r.top + r.height / 2)
+    const before = Math.round(box.scrollLeft)
+    const t = (x) => new Touch({ identifier: 2, target: box, clientX: x, clientY: y })
+    const fire = (type, x) => box.dispatchEvent(new TouchEvent(type, {
+      bubbles: true, cancelable: true,
+      touches: type === "touchend" ? [] : [t(x)], changedTouches: [t(x)],
+    }))
+    fire("touchstart", 400)
+    fire("touchmove", 340)
+    fire("touchmove", 240)
+    fire("touchend", 240)
+    return { before, after: Math.round(box.scrollLeft), snap: getComputedStyle(box).scrollSnapType }
+  })()`)
 
   /* And a swipe across the track, if there is one. */
   const swipe = await ev(`(async () => {
@@ -183,7 +248,7 @@ async function main() {
 
   ws.close()
   reap()
-  return { atRest, churn, afterScroll, swipe }
+  return { atRest, churn, afterScroll, swipe, nativeSwipe }
 }
 
 const r = await main()
@@ -195,6 +260,8 @@ console.log(`  images                  ${r.atRest.images}`)
 console.log(`  drawn through a filter  ${r.atRest.blurred.length ? JSON.stringify(r.atRest.blurred) : "none"}`)
 console.log(`  img churn on a scroll   ${r.churn.removed} removed, ${r.churn.added} added`)
 console.log(`  carousel                ${r.atRest.hasTrack ? JSON.stringify(r.atRest.slideWidths) : "this page has none"}`)
+if (r.nativeSwipe.reason) console.log(`  scrolling row           ${r.nativeSwipe.reason}`)
+else console.log(`  scrolling row           scrollLeft ${r.nativeSwipe.before} -> ${r.nativeSwipe.after} under a synthetic swipe, snap ${r.nativeSwipe.snap}`)
 if (r.swipe && r.swipe.reason) console.log(`  swipe                   ${r.swipe.reason}`)
 else console.log(`  swipe                   ${r.swipe.cancelled ? "cancellable" : "NOT cancellable"}, ${r.swipe.before} -> ${r.swipe.after}`)
 console.log("")
@@ -211,6 +278,9 @@ if (r.atRest.hasTrack) {
   if (r.swipe && r.swipe.before === r.swipe.after)
     problems.push(`a swipe left the track at ${r.swipe.after}, which is where it started`)
 }
+
+if (!r.nativeSwipe.reason && r.nativeSwipe.before !== r.nativeSwipe.after)
+  problems.push(`a synthetic swipe moved the scrolling row from ${r.nativeSwipe.before} to ${r.nativeSwipe.after} — something is still scrolling it by hand, on top of the phone's own scroll`)
 
 if (problems.length) fail(problems.map((p) => `  - ${p}`).join("\n"))
 console.log("The live page holds still.\n")
