@@ -215,9 +215,24 @@ function main() {
       return !styles.some((t) => /backdropFilter/.test(t) && /askImage/.test(t))
     })(),
     "WKWebView drops the mask and paints the filtered region as a flat fill, which is a plate across the bottom of the screen")
-  check("and there is no full-width layer behind the bar to be one",
-    !/className="absolute inset-x-0 bottom-0"/.test(strip(nav)),
-    "the bar is glass and carries its own blur; the page passing behind it is the effect, not something to hide")
+  /*
+    The fade came back, built out of the one thing every engine draws the
+    same way: plain rectangles. Six of them, anchored to the bottom, each a
+    little shorter than the last and each with a small blur, so the blurs
+    compound where they overlap. Measured by the probe with stripes behind
+    them: 255 of contrast above the fade, 181 at its top, 28 at the bar.
+  */
+  check("the fade is a stack of plain rectangles, each carrying only a blur",
+    /const FADE_STEPS = \[2, 3, 4, 5, 6, 8\]/.test(nav)
+      && /data-app-nav-fade-step=""/.test(nav)
+      && /backdropFilter: `blur\(\$\{blur\}px\)`/.test(nav))
+  check("and its tint is a separate plain gradient in the page's own colour",
+    /const FADE_TINT = "rgba\(248,249,250,0\.88\)"/.test(nav)
+      && /background: `linear-gradient\(to top, \$\{FADE_TINT\} 0%/.test(nav),
+    "a white tint would be a paler plate over a near-white page; the page's colour is invisible over plain page and frosts over content")
+  check("with the blur measured through stripes, progressively, in the probe",
+    /at the bar the page is blurred, not just tinted/.test(read("scripts/check-app-mobile-nav.mjs"))
+      && /the blur is progressive/.test(read("scripts/check-app-mobile-nav.mjs")))
   check("nothing in the bar is painted in the accent colour",
     !new RegExp(String.raw`ACCENT`).test(strip(nav).slice(strip(nav).indexOf("function MobileNavPill"))),
     "the violet fill behind the active icon was the first thing called out")

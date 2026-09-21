@@ -517,6 +517,18 @@ const DOT = BAR_H - PAD * 2
 const GAP = 8
 
 /**
+ * The fade's six blurs, top of the fade first. They compound where the
+ * rectangles overlap, roughly as the root of the sum of their squares, so the
+ * bottom of the fade lands near 12px of blur and the top near 2, and no step
+ * between neighbours is more than a couple of pixels.
+ */
+const FADE_STEPS = [2, 3, 4, 5, 6, 8]
+/** The page under the bar on a phone is #f8f9fa, and the tint is that colour. */
+const FADE_TINT = "rgba(248,249,250,0.88)"
+const FADE_TINT_MID = "rgba(248,249,250,0.52)"
+const FADE_TINT_NONE = "rgba(248,249,250,0)"
+
+/**
  * ===========================================================================
  *  HOW THE CIRCLE MOVES
  * ===========================================================================
@@ -760,26 +772,55 @@ export function MobileNavPill({
       }}
     >
       {/*
-        ── THERE IS NO FADE BEHIND THE BAR ANY MORE ─────────────────────────
-        A full width strip used to sit here carrying `backdrop-filter` AND
-        `mask-image`, to blur the page under the bar and dissolve upward
-        instead of ending on an edge.
+        ── THE FADE, BUILT OUT OF PLAIN RECTANGLES ──────────────────────────
+        The page dissolves into frosted glass over the last hundred pixels of
+        the screen, and the bar floats in that. It is what an iOS tab bar does
+        and it is what was asked for: "a very smooth tint, till the bottom,
+        fading into glassmorphism, blurring smoothly as you scroll".
 
-        WKWebView does not composite those two on one element. The mask is
-        dropped and the filtered region paints as a flat light fill, so what
-        that strip drew on an iPhone was a pale rectangle across the foot of
-        the screen with a hard top edge — the "solid background" that kept
-        being reported and that Chromium never showed. Photographed here as a
-        flat rgb(248,249,250) all the way down, because Chromium honours the
-        mask; the fault is not in the declaration, it is in one engine's
-        handling of the pair.
+        THE FIRST VERSION WAS ONE ELEMENT, WITH `backdrop-filter` AND
+        `mask-image` ON IT, and on an iPhone that is a pale plate with a hard
+        top edge: WKWebView drops the mask and paints the filtered region as
+        a flat fill. Chromium composites the pair correctly, which is why no
+        probe here could ever see it, and why it was reported four times.
 
-        It is not replaced with a scrim. The bar is glass and it carries its
-        own blur, so the page passing behind it is the effect rather than
-        something to be hidden — which is what the floating bar it is modelled
-        on does. tests/app-mobile-nav.test.ts holds the pair apart from here
-        on: nothing under this component may carry both.
+        So there is no mask anywhere in this. A progressive blur is stacked
+        instead: six rectangles, all anchored to the bottom edge, each a
+        little shorter than the one before and each carrying a small blur of
+        its own. Where they overlap the blurs compound, so the top of the
+        fade is barely touched and the bottom is well blurred, with no single
+        step big enough to see. A rectangle with a backdrop-filter and nothing
+        else is the one thing every engine draws the same way.
+
+        The tint is a separate plain gradient, no filter on it, in the PAGE'S
+        colour rather than white: over a plain page it is invisible, which is
+        what keeps this from being a plate, and over content it frosts.
       */}
+      <div
+        aria-hidden="true"
+        data-app-nav-fade=""
+        className="pointer-events-none absolute inset-x-0 bottom-0"
+        style={{ height: "calc(136px + env(safe-area-inset-bottom, 0px))" }}
+      >
+        {FADE_STEPS.map((blur, i) => (
+          <div
+            key={blur}
+            data-app-nav-fade-step=""
+            className="absolute inset-x-0 bottom-0"
+            style={{
+              height: `${100 - i * (100 / FADE_STEPS.length)}%`,
+              backdropFilter: `blur(${blur}px)`,
+              WebkitBackdropFilter: `blur(${blur}px)`,
+            }}
+          />
+        ))}
+        <div
+          className="absolute inset-0"
+          style={{
+            background: `linear-gradient(to top, ${FADE_TINT} 0%, ${FADE_TINT_MID} 42%, ${FADE_TINT_NONE} 100%)`,
+          }}
+        />
+      </div>
 
       {/*
         ── THE GROUP ─────────────────────────────────────────────────────────
