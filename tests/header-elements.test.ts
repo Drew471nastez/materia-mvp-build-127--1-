@@ -211,8 +211,13 @@ function main() {
 
   console.log("\n  the field, and the way out of it")
 
-  check("pressing past the panel closes it, on the press",
-    /document\.addEventListener\("pointerdown", onDown\)/.test(header) && /panelRef\.current\?\.contains\(el\)/.test(header))
+  /* What counts as "past the panel" changed: the panel is the whole header,
+     and the empty band around the field is the most natural place to press
+     to dismiss it. See tests/header-search.test.ts. */
+  check("pressing past the search closes it, on the press",
+    /document\.addEventListener\("pointerdown", onDown\)/.test(header)
+      && /barRef\.current\?\.contains\(el\)/.test(header)
+      && /listRef\.current\?\.contains\(el\)/.test(header))
   check("and the listener is taken off again",
     /document\.removeEventListener\("pointerdown", onDown\)/.test(header))
   /*

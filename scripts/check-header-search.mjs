@@ -65,6 +65,7 @@ writeFileSync(join(out, "index.html"), `<!doctype html><html class="light"><head
 <style>${css}</style><style>body { margin: 0; background: #f1f5f9 }</style>
 </head><body>
 ${PADS.map((p) => `<div id="h${p}" data-mount data-pad="${p}" style="margin-bottom:60px"></div>`).join("\n")}
+<div id="elsewhere" style="height:300px">The page under the headers.</div>
 <script src="probe.js"></script>
 <script>
 ${page}
@@ -134,6 +135,43 @@ for (const view of WIDTHS) {
     }
     if (h.field.w < 120) {
       problems.push(`${where}: the field is only ${h.field.w}px wide`)
+    }
+  }
+
+  const state = (list, i) => (list || [])[i] || null
+  const say = (label, list) =>
+    console.log(`  ${label}: ${(list || []).map((a) => (a ? `${a.pad}px → ${a.opacity}` : "missing")).join(", ")}`)
+
+  say("pressing the field", r.afterPressingTheField)
+  say("pressing the empty header", r.afterPressingTheHeader)
+  say("pressing the page below", r.afterPressingAway)
+
+  for (let i = 0; i < r.headers.length; i++) {
+    const pad = r.headers[i].pad
+    const where = `${view.what} (${r.viewport}px), header with ${pad}px of padding`
+    const onField = state(r.afterPressingTheField, i)
+    const onHeader = state(r.afterPressingTheHeader, i)
+    const onPage = state(r.afterPressingAway, i)
+
+    if (!onField || !onHeader || !onPage) {
+      problems.push(`${where}: a panel vanished from the page instead of closing`)
+      continue
+    }
+    if (onField.opacity < 0.95) {
+      problems.push(`${where}: pressing the field itself closed the search (opacity ${onField.opacity})`)
+    }
+    if (onHeader.opacity > 0.05) {
+      problems.push(`${where}: pressing the empty header beside the field left the search open at opacity ${onHeader.opacity} — that band is the most obvious place to press to dismiss it`)
+    }
+    if (onPage.opacity > 0.05) {
+      problems.push(`${where}: pressing the page below left the search open at opacity ${onPage.opacity}`)
+    }
+    if (onPage.pointerEvents !== "none") {
+      problems.push(`${where}: the closed panel still takes the pointer (${onPage.pointerEvents})`)
+    }
+    const ms = Math.max(...[...String(onPage.transition).matchAll(/([\d.]+)ms/g)].map((m) => Number(m[1])), 0)
+    if (!(ms >= 180)) {
+      problems.push(`${where}: it closes in ${ms}ms, which reads as a cut rather than as a close`)
     }
   }
 }

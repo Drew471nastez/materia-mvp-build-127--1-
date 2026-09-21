@@ -101,6 +101,37 @@ function main() {
   )
   check("and the close button is centred in the same row", /shrink-0 self-center/.test(panel))
 
+  console.log("\nAnd it goes away when you press past it")
+
+  check(
+    "what is ours is the search, not the header it is drawn on",
+    /if \(barRef\.current\?\.contains\(el\)\) return/.test(panel)
+      && /if \(listRef\.current\?\.contains\(el\)\) return/.test(panel)
+      && !/if \(el && panelRef\.current\?\.contains\(el\)\) return/.test(panel),
+    "the panel is `absolute inset-0`, so asking about the panel meant the whole header counted as the search and pressing the empty band beside the field did nothing",
+  )
+  check(
+    "the two boxes that are ours carry the refs",
+    /<div ref=\{barRef\} className="relative mx-auto flex h-full w-full max-w-\[720px\]/.test(panel)
+      && /<div ref=\{listRef\}/.test(panel),
+  )
+  check(
+    "it is still the press, not the click",
+    /document\.addEventListener\("pointerdown", onDown\)/.test(panel)
+      && /document\.removeEventListener\("pointerdown", onDown\)/.test(panel),
+    "a drag that starts on the field and ends on the page is a selection, not a dismissal",
+  )
+  check(
+    "the way out is nearly as long as the way in, and not an ease-in",
+    /: "opacity 200ms cubic-bezier\(0\.4, 0, 0\.2, 1\), transform 200ms cubic-bezier\(0\.4, 0, 0\.2, 1\)"/.test(panel),
+    "160ms of ease-in accelerates into the disappearance, which reads as a cut",
+  )
+  check(
+    "and a closed panel does not keep the caret",
+    /if \(active && panelRef\.current\?\.contains\(active\)\) active\.blur\(\)/.test(panel),
+    "focus was left in a field at opacity zero that takes no input",
+  )
+
   console.log("\nAnd the probe measures the case a visitor sees")
 
   const probe = read("scripts/render-header-search.tsx")
@@ -110,9 +141,18 @@ function main() {
     "with one it takes the editor's path, which was never the broken one",
   )
   check("at three header heights", /const section = \(id: string, pad: number\)/.test(probe))
+  const checker = read("scripts/check-header-search.mjs")
+  check("and the checker reads all three middles", /the magnifier sits at/.test(checker))
   check(
-    "and the checker reads all three middles",
-    /the magnifier sits at/.test(read("scripts/check-header-search.mjs")),
+    "and tries the three presses a person makes",
+    /pressing the field itself closed the search/.test(checker)
+      && /pressing the empty header beside the field/.test(checker)
+      && /pressing the page below left the search open/.test(checker),
+  )
+  check(
+    "with the fades turned off first, because a virtual clock does not run them",
+    /transition: none !important/.test(read("scripts/header-search-page.js")),
+    "an open panel mid-fade reads as opacity 0, and the first version of this called that closed",
   )
 
   console.log(`\n${passed} passed, ${failed} failed`)

@@ -230,6 +230,13 @@ function HeaderSearchPanel({
 }) {
   const inputRef = useRef<HTMLInputElement | null>(null)
   const panelRef = useRef<HTMLDivElement | null>(null)
+  /**
+   * The SEARCH ITSELF: the field, its magnifier and the close button. Not
+   * the panel, which is the whole header — see the note on the dismiss.
+   */
+  const barRef = useRef<HTMLDivElement | null>(null)
+  /** And the suggestions, which hang below the header and are also ours. */
+  const listRef = useRef<HTMLDivElement | null>(null)
   /* Published, the site knows its creator. In the editor it knows the
      install, and the endpoint resolves the creator from that, so the field
      answers inside the canvas too. */
@@ -246,16 +253,35 @@ function HeaderSearchPanel({
     window.addEventListener("keydown", onKey)
 
     /*
-      AND PRESSING ANYWHERE ELSE CLOSES IT. Escape and the X were the only
-      ways out, which is one way more than most people look for: a panel
-      laid over the page reads as something you dismiss by pressing past it.
+      ═══════════════════════════════════════════════════════════════════
+       AND PRESSING ANYWHERE ELSE CLOSES IT — INCLUDING THE HEADER ITSELF
+      ═══════════════════════════════════════════════════════════════════
+      Escape and the X were the only ways out, which is one way fewer than
+      most people look for: a panel laid over the page reads as something
+      you dismiss by pressing past it.
+
+      This asked whether the press landed inside the PANEL, and the panel is
+      `absolute inset-0` — it is the whole header. On a header with generous
+      padding that is a large dark band with a field floating in the middle
+      of it, and the empty part of that band is the most natural place in
+      the world to press to make the field go away. Every one of those
+      presses landed "inside the panel" and did nothing at all, which is
+      "I click away and it does not close".
+
+      So what counts as ours is the SEARCH, not the header it is drawn on:
+      the field with its magnifier and the close button, and the suggestions
+      hanging below. A press anywhere else is a press away, and the empty
+      header around the field is anywhere else.
+
       On the press rather than the click, so it goes as soon as the gesture
-      starts, and only for a press that began OUTSIDE the panel — a drag
-      that starts on the field and ends on the page is still a selection.
+      starts, and only for a press that BEGAN outside — a drag that starts
+      on the field and ends on the page is still a selection.
     */
     const onDown = (e: PointerEvent) => {
       const el = e.target as Node | null
-      if (el && panelRef.current?.contains(el)) return
+      if (!el) return
+      if (barRef.current?.contains(el)) return
+      if (listRef.current?.contains(el)) return
       onClose()
     }
     /* Not capture: a press on the bag or the search icon should reach its
@@ -310,6 +336,20 @@ function HeaderSearchPanel({
     return () => { window.clearTimeout(id); ctrl.abort() }
   }, [q, askAs])
 
+  /**
+   * A CLOSED PANEL DOES NOT KEEP THE CARET.
+   *
+   * The field is where focus goes when the search opens, and nothing moved
+   * it when the search closed: the caret stayed in a field at opacity zero
+   * that takes no input, so typing went nowhere and the next Tab carried on
+   * from inside something invisible.
+   */
+  useEffect(() => {
+    if (open) return
+    const active = document.activeElement as HTMLElement | null
+    if (active && panelRef.current?.contains(active)) active.blur()
+  }, [open])
+
   const showHits = open && asked !== "" && asked === q.trim()
   const viewAll = `/search?q=${encodeURIComponent(q.trim())}`
 
@@ -359,9 +399,17 @@ function HeaderSearchPanel({
         opacity: open ? 1 : 0,
         transform: open ? "translateY(0)" : "translateY(-6px)",
         pointerEvents: open ? "auto" : "none",
+        /*
+          The way out is nearly as long as the way in, and on a curve that
+          spends its time evenly. It was 160ms of `ease-in`, which
+          ACCELERATES into the disappearance: the panel hangs for a moment
+          and then is snatched, which reads as a cut rather than as a close.
+          A dismissal somebody asked for should look like it was carried
+          out, not like the page gave up.
+        */
         transition: open
           ? "opacity 220ms cubic-bezier(0.32, 0.72, 0, 1), transform 260ms cubic-bezier(0.32, 0.72, 0, 1)"
-          : "opacity 160ms ease-in, transform 160ms ease-in",
+          : "opacity 200ms cubic-bezier(0.4, 0, 0.2, 1), transform 200ms cubic-bezier(0.4, 0, 0.2, 1)",
         willChange: "opacity, transform",
       }}
     >
@@ -422,7 +470,7 @@ function HeaderSearchPanel({
           the form is capped, and it cannot overflow because the cap is a
           `min()` against the room there is.
         */}
-        <div className="relative mx-auto flex h-full w-full max-w-[720px] items-center gap-2">
+        <div ref={barRef} className="relative mx-auto flex h-full w-full max-w-[720px] items-center gap-2">
           <form
             action="/search"
             method="get"
@@ -522,7 +570,7 @@ function HeaderSearchPanel({
         Drawn even when empty so it can fade rather than appear, and told to
         take no input until it is there.
       */}
-      <div className={cn(widthClass, paddingClass, "absolute left-0 right-0 top-full w-full")} style={widthStyle}>
+      <div ref={listRef} className={cn(widthClass, paddingClass, "absolute left-0 right-0 top-full w-full")} style={widthStyle}>
         <div className="relative mx-auto w-full max-w-[720px] pr-11">
             <div
               aria-hidden={!showHits}
