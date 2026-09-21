@@ -592,8 +592,20 @@ const GAP = 8
  * 4px where the layers overlap. Asked down again with a picture of the bar
  * and an arrow at the smear under it, and measured at 2.4 the stripes behind
  * it read 255 of contrast above the halo and 15 beside the bar — 94% of it
- * gone at the strongest point, which is the smear. 1.2 halves the radius.
- * The tint moves with it.
+ * gone at the strongest point, which is the smear. Asked down three more
+ * times from there, and measured each time as the contrast that survives
+ * behind it, out of 255 with nothing over it:
+ *
+ *     blur / tint      beside the bar   left margin   under the pill
+ *     2.4 / 0.30                   15            22               25
+ *     1.2 / 0.30                   33            49               57
+ *     0.9 / 0.18                   63            86              108
+ *     0.6 / 0.18                  125           161              154
+ *
+ * The tint came down with it: it is the page's own colour, so it is
+ * invisible over the page and only shows over something that is not the
+ * page — a picture, a coloured card — where it washes the artwork. That is
+ * the whitish overlay near the bottom, and it is meant to stay subtle.
  *
  * AND IT GOES PAST THE BOTTOM OF THE SCREEN. Its lower edge used to be tied
  * to the pill's own lift off the bottom, which on a phone with a home
@@ -607,13 +619,23 @@ const GAP = 8
 const HALO_LAYERS = 12
 const HALO_STEP = 3
 /** The strongest layer's blur; the outermost carries this over HALO_LAYERS². */
-const HALO_BLUR = 1.2
+const HALO_BLUR = 0.6
 const haloBlur = (i: number) => Math.round(HALO_BLUR * ((i + 1) / HALO_LAYERS) ** 2 * 1000) / 1000
 /** How far the halo reaches: above the bar, past the bottom of the screen,
     and past each side of it. The display crops the last two. */
 const HALO_REACH = { top: 30, below: 44, side: 56 }
-/** The page under the bar on a phone is #f8f9fa, and the tint is that colour. */
-const HALO_TINT = "rgba(248,249,250,0.3)"
+/**
+ * The page under the bar on a phone is #f8f9fa, and the tint is that colour.
+ *
+ * Which is why it is invisible over the page itself and only shows over
+ * something that is not the page — a picture, a coloured card — where it
+ * reads as a whitish cast washing over the artwork. "Get rid of the whitish
+ * fade it has a little bit" is about that, and it is this alpha: 45% read as
+ * a plate under the bar, 30% still washed the card under it, 18% leaves the
+ * artwork its own colour while the halo still has something to soften the
+ * boundary with.
+ */
+const HALO_TINT = "rgba(248,249,250,0.18)"
 const HALO_TINT_NONE = "rgba(248,249,250,0)"
 /** How far the bottom of the pill sits above the bottom of the screen. Read
     once, by the pill and by the halo, so the two cannot disagree. */

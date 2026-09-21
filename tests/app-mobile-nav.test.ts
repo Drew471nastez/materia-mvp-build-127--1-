@@ -371,8 +371,8 @@ function main() {
     /const HALO_LAYERS = 12/.test(nav)
       && /data-app-nav-fade-step=""[\s\S]{0,200}borderRadius: "50%"/.test(nav)
       && /inset: i \* HALO_STEP,/.test(nav))
-  check("whose blur ramps from nothing at the outermost to 1.2px at the innermost",
-    /const HALO_BLUR = 1\.2/.test(nav)
+  check("whose blur ramps from nothing at the outermost to 0.6px at the innermost",
+    /const HALO_BLUR = 0\.6/.test(nav)
       && /const haloBlur = \(i: number\) => Math\.round\(HALO_BLUR \* \(\(i \+ 1\) \/ HALO_LAYERS\) \*\* 2/.test(nav)
       && /backdropFilter: `blur\(\$\{haloBlur\(i\)\}px\)`/.test(nav),
     "the same blur on every layer puts an edge on the outermost one")
@@ -401,9 +401,9 @@ function main() {
       && /height: `calc\([^`]*\$\{PILL_LIFT\}\)`/.test(nav),
     "the same number computed twice is where the editor's black bands came from")
   check("and its tint is one radial gradient in the page's own colour",
-    /const HALO_TINT = "rgba\(248,249,250,0\.3\)"/.test(nav)
+    /const HALO_TINT = "rgba\(248,249,250,0\.18\)"/.test(nav)
       && /radial-gradient\(ellipse at center, \$\{HALO_TINT\} 0%/.test(nav),
-    "at 45% the tint read as a plate under the bar; 'more subtle, almost unobservable'")
+    "45% read as a plate under the bar, 30% still washed the coloured card beneath it")
   check("with every layer of it measured as an ellipse in the probe, and the ramp read off the layers",
     /nothing in it ends on a straight line/.test(read("scripts/check-app-mobile-nav.mjs"))
       && /no radius at which it begins/.test(read("scripts/check-app-mobile-nav.mjs")))
