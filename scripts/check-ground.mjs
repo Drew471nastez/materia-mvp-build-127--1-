@@ -5,7 +5,7 @@
  * "It should be there but very subtle, almost unrecognizable." That is a
  * claim about how much of the surface is darker than the page colour, which
  * is a number, so this renders the rule from app/globals.css over the page's
- * own #f5f5f5 and counts.
+ * own ground colour and counts.
  *
  * It reports, for the dot ground and for the damask it replaced:
  *
@@ -49,6 +49,22 @@ const background = body
   .join("\n")
 if (!background.includes("background-image")) fail("The rule declares no background-image.")
 
+/**
+ * THE GROUND COLOUR IS READ FROM THE PAGE, NOT TYPED HERE.
+ *
+ * It was `0xf5` written into the comparison below, once, as a single number
+ * for all three channels. When the page was lightened to #f8f9fa — three
+ * channels that are not equal — every pixel differed from that literal and
+ * the probe reported 100% coverage on a surface with almost nothing on it.
+ *
+ * One reading, from the class the page actually carries, used both to paint
+ * the surface and to measure against it. The two cannot disagree again.
+ */
+const GROUND = readFileSync("app/(marketing)/explore/page.tsx", "utf8")
+  .match(/explore-ground[^"]*bg-\[(#[0-9a-fA-F]{6})\]/)?.[1]
+if (!GROUND) fail("Could not find the explore page's own background colour.")
+const RGB = [1, 3, 5].map((i) => parseInt(GROUND.slice(i, i + 2), 16))
+
 /** What it replaced, kept here so the number has something to stand next to. */
 const DAMASK =
   'background-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22180%22%20height%3D%22180%22%20viewBox%3D%220%200%20180%20180%22%3E%20%3Cg%20fill%3D%22none%22%20stroke%3D%22%230f172a%22%20stroke-width%3D%221.1%22%3E%20%3Cpath%20d%3D%22M90%200%20C90%2026%20116%2032%20116%2058%20C116%2080%20100%2090%2090%2090%20C80%2090%2064%2080%2064%2058%20C64%2032%2090%2026%2090%200Z%22%2F%3E%20%3Cpath%20d%3D%22M0%2090%20C26%2090%2032%2064%2058%2064%20C80%2064%2090%2080%2090%2090%20C90%20100%2080%20116%2058%20116%20C32%20116%2026%2090%200%2090Z%22%2F%3E%20%3Ccircle%20cx%3D%2290%22%20cy%3D%2290%22%20r%3D%225.5%22%2F%3E%20%3C%2Fg%3E%20%3C%2Fsvg%3E");\n' +
@@ -56,7 +72,7 @@ const DAMASK =
 
 function page(decls) {
   return `<!doctype html><meta charset="utf-8"><style>
-    html,body{margin:0;padding:0;background:#f5f5f5}
+    html,body{margin:0;padding:0;background:${GROUND}}
     #s{position:absolute;inset:0;${decls}}
   </style><div id="s"></div>`
 }
@@ -89,7 +105,7 @@ async function connect() {
   return { proc, endpoint }
 }
 
-/** Render `decls` and count how much darker than #f5f5f5 the result is. */
+/** Render `decls` and count how much darker than the ground the result is. */
 async function measure(decls, ws, send) {
   const { targetId } = await send("Target.createTarget", { url: "about:blank" })
   const { sessionId } = await send("Target.attachToTarget", { targetId, flatten: true })
@@ -119,10 +135,11 @@ async function measure(decls, ws, send) {
     const g = c.getContext("2d")
     g.drawImage(img, 0, 0)
     const d = g.getImageData(0, 0, c.width, c.height).data
-    const base = 0xf5
+    /* Per channel, because a ground is not always three equal numbers. */
+    const base = [${RGB[0]}, ${RGB[1]}, ${RGB[2]}]
     let differing = 0, sum = 0, worst = 0
     for (let i = 0; i < d.length; i += 4) {
-      const delta = Math.abs(d[i] - base) + Math.abs(d[i + 1] - base) + Math.abs(d[i + 2] - base)
+      const delta = Math.abs(d[i] - base[0]) + Math.abs(d[i + 1] - base[1]) + Math.abs(d[i + 2] - base[2])
       if (delta > 0) differing++
       sum += delta / 3
       if (delta / 3 > worst) worst = delta / 3
@@ -162,7 +179,7 @@ ws.close()
 proc.kill("SIGKILL")
 
 const pct = (n) => `${(n * 100).toFixed(2)}%`
-console.log("\n  the ground, rendered at 360x360 over #f5f5f5\n")
+console.log(`\n  the ground, rendered at 360x360 over ${GROUND}\n`)
 console.log(`                 coverage   mean delta   darkest pixel`)
 console.log(`    dots         ${pct(now.coverage).padStart(8)}   ${now.meanDelta.toFixed(3).padStart(10)}   ${now.worst.toFixed(1).padStart(13)}`)
 console.log(`    damask       ${pct(before.coverage).padStart(8)}   ${before.meanDelta.toFixed(3).padStart(10)}   ${before.worst.toFixed(1).padStart(13)}`)

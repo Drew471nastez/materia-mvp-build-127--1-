@@ -106,14 +106,24 @@ function main() {
   check(
     "what is ours is the search, not the header it is drawn on",
     /if \(barRef\.current\?\.contains\(el\)\) return/.test(panel)
-      && /if \(listRef\.current\?\.contains\(el\)\) return/.test(panel)
       && !/if \(el && panelRef\.current\?\.contains\(el\)\) return/.test(panel),
     "the panel is `absolute inset-0`, so asking about the panel meant the whole header counted as the search and pressing the empty band beside the field did nothing",
   )
   check(
     "the two boxes that are ours carry the refs",
     /<div ref=\{barRef\} className="relative mx-auto flex h-full w-full max-w-\[720px\]/.test(panel)
-      && /<div ref=\{listRef\}/.test(panel),
+      && /ref=\{listRef\}/.test(panel),
+  )
+  check(
+    "and the suggestions only count when there are suggestions",
+    /if \(hitsShownRef\.current && listRef\.current\?\.contains\(el\)\) return/.test(panel)
+      && /hitsShownRef\.current = showHits/.test(panel),
+    "the list is drawn even when empty, and its wrapper is a full-width band hanging under the header: the strip of page right below it counted as the suggestions",
+  )
+  check(
+    "and the empty band does not take a press at all",
+    /pointerEvents: showHits \? "auto" : "none" \}\}/.test(panel),
+    "an invisible band that swallows presses is worse than no band: there is nothing to explain why pressing there does nothing",
   )
   check(
     "it is still the press, not the click",
@@ -147,7 +157,12 @@ function main() {
     "and tries the three presses a person makes",
     /pressing the field itself closed the search/.test(checker)
       && /pressing the empty header beside the field/.test(checker)
-      && /pressing the page below left the search open/.test(checker),
+      && /pressing the strip of page just under the header/.test(checker),
+  )
+  check(
+    "and finds what is under the header by hit testing, not by picking an element",
+    /document\.elementFromPoint\(/.test(read("scripts/header-search-page.js")),
+    "dispatching at a chosen element skips the question that matters: what is actually at that point",
   )
   check(
     "with the fades turned off first, because a virtual clock does not run them",

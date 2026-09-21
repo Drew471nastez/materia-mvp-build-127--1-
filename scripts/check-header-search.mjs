@@ -144,7 +144,8 @@ for (const view of WIDTHS) {
 
   say("pressing the field", r.afterPressingTheField)
   say("pressing the empty header", r.afterPressingTheHeader)
-  say("pressing the page below", r.afterPressingAway)
+  say("pressing just under the header", r.afterPressingAway)
+  console.log(`  what is under the header: ${(r.underTheHeader || []).join(", ")}`)
 
   for (let i = 0; i < r.headers.length; i++) {
     const pad = r.headers[i].pad
@@ -164,7 +165,7 @@ for (const view of WIDTHS) {
       problems.push(`${where}: pressing the empty header beside the field left the search open at opacity ${onHeader.opacity} — that band is the most obvious place to press to dismiss it`)
     }
     if (onPage.opacity > 0.05) {
-      problems.push(`${where}: pressing the page below left the search open at opacity ${onPage.opacity}`)
+      problems.push(`${where}: pressing the strip of page just under the header left the search open at opacity ${onPage.opacity} — that is the first place anybody presses after the header itself`)
     }
     if (onPage.pointerEvents !== "none") {
       problems.push(`${where}: the closed panel still takes the pointer (${onPage.pointerEvents})`)

@@ -2,7 +2,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 
 export default function CategoryLoading() {
   return (
-    <main className="min-h-screen bg-[#f5f5f5] skeleton-deferred">
+    <main className="min-h-screen bg-[#f8f9fa] skeleton-deferred">
       <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 pt-4 pb-6 sm:pt-5 sm:pb-8">
         {/* Category header skeleton */}
         <div className="mb-6">

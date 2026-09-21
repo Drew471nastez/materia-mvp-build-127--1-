@@ -281,7 +281,21 @@ function HeaderSearchPanel({
       const el = e.target as Node | null
       if (!el) return
       if (barRef.current?.contains(el)) return
-      if (listRef.current?.contains(el)) return
+      /*
+        AND THE SUGGESTIONS ONLY COUNT WHEN THERE ARE SUGGESTIONS.
+
+        The list is drawn even when empty, so it can fade in rather than
+        appear, and its wrapper is a full-width band hanging directly under
+        the header. That band was always in the DOM and always took the
+        pointer, so a press on the strip of page immediately below the
+        header — the first place anybody looks after the header itself —
+        landed "inside the suggestions" and dismissed nothing.
+
+        A ref rather than the state itself: this listener is attached when
+        the search opens and would otherwise be closing over whatever was
+        showing at that moment, which is nothing.
+      */
+      if (hitsShownRef.current && listRef.current?.contains(el)) return
       onClose()
     }
     /* Not capture: a press on the bag or the search icon should reach its
@@ -351,6 +365,9 @@ function HeaderSearchPanel({
   }, [open])
 
   const showHits = open && asked !== "" && asked === q.trim()
+  /** What the dismiss listener reads, since it outlives any one render. */
+  const hitsShownRef = useRef(false)
+  hitsShownRef.current = showHits
   const viewAll = `/search?q=${encodeURIComponent(q.trim())}`
 
   return (
@@ -570,7 +587,15 @@ function HeaderSearchPanel({
         Drawn even when empty so it can fade rather than appear, and told to
         take no input until it is there.
       */}
-      <div ref={listRef} className={cn(widthClass, paddingClass, "absolute left-0 right-0 top-full w-full")} style={widthStyle}>
+      {/* `pointer-events: none` until there is something in it. An empty
+          band across the top of the page that swallows presses is worse
+          than no band at all: it is invisible, so there is nothing to
+          explain why pressing there does nothing. */}
+      <div
+        ref={listRef}
+        className={cn(widthClass, paddingClass, "absolute left-0 right-0 top-full w-full")}
+        style={{ ...widthStyle, pointerEvents: showHits ? "auto" : "none" }}
+      >
         <div className="relative mx-auto w-full max-w-[720px] pr-11">
             <div
               aria-hidden={!showHits}
