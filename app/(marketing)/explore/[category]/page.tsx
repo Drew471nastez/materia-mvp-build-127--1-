@@ -1,25 +1,16 @@
 import { Metadata } from "next"
 import { notFound } from "next/navigation"
+import { CATEGORY_PAGES } from "@/lib/explore/category-pages"
 import { createClient } from "@/lib/supabase/server"
 import { CategoryPageClient } from "@/components/explore/category-page-client"
 
-// Valid categories
-const VALID_CATEGORIES = [
-  "design",
-  "development",
-  "marketing",
-  "business",
-  "ai",
-  "social-media",
-  "productivity",
-  "photography",
-  "video",
-  "audio-music",
-  "education",
-  "ecommerce",
-  "freebies",
-  "other",
-]
+/*
+  The list moved to lib/explore/category-pages so that whatever DRAWS a link
+  to one of these can ask whether the page exists. It could not before, and
+  the explore page's "Show All" button spent a while pointing at
+  /explore/for-you — a pill that is a feed, not a category — which is a 404.
+*/
+const VALID_CATEGORIES: readonly string[] = CATEGORY_PAGES
 
 // Category labels for display
 const CATEGORY_LABELS: Record<string, string> = {

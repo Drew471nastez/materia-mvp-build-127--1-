@@ -12,6 +12,7 @@ import { Layers, Sparkles, Zap, Share2, Bot, SlidersHorizontal, X, Check, Search
 import { Input } from "@/components/ui/input"
 import { useLocale } from "@/components/locale-provider"
 import { EMPTY_INTERESTS, FOR_YOU_ID, buildPillRow, interestScore, type Interests } from "@/lib/explore/interests"
+import { hasCategoryPage, showAllLabel as showAllProductsLabel } from "@/lib/explore/category-pages"
 
 // Safe body scroll lock/unlock helpers that prevent scroll bugs
 let scrollLockCount = 0
@@ -1592,6 +1593,13 @@ export function ExplorePageClient({
     return CATEGORIES.find(c => c.id === mainCategory)?.label || "Products"
   }, [mainCategory, selectedSubcategoryLabel, urlSearchQuery])
 
+  /* The wording is in lib/explore/category-pages, where it can be driven
+     with the awkward inputs rather than read back as a regex. */
+  const showAllLabel = useMemo(
+    () => showAllProductsLabel(selectedSubcategoryLabel || sectionTitle),
+    [selectedSubcategoryLabel, sectionTitle],
+  )
+
   const scrollRecommendedSectionWithRetry = useCallback((attempt = 0) => {
     if (urlSearchQuery) return
 
@@ -2218,8 +2226,29 @@ export function ExplorePageClient({
                 Showing {(currentPage - 1) * PRODUCTS_PER_PAGE + 1}-{Math.min(currentPage * PRODUCTS_PER_PAGE, recommendedProducts.length)} of {recommendedProducts.length} products
               </p>
 
-              {/* Show All Button */}
-              {(mainCategory !== "all" || selectedSubcategoryId) && (
+              {/*
+                ═══════════════════════════════════════════════════════════
+                 A LINK TO A PAGE THAT EXISTS, SAYING A THING ONCE
+                ═══════════════════════════════════════════════════════════
+                This was shown for every pill except "All", and it pointed at
+                `/explore/<the pill>`. One of the pills is "For you", which is
+                a feed and not a category: it has no page, the route calls
+                `notFound()` for it, and pressing this button landed on a 404
+                with the products still on the screen behind it. Reported with
+                the picture of that 404.
+
+                `hasCategoryPage` is the route's own list, shared now rather
+                than copied, so a link can only be built to somewhere that
+                answers. A pill with no page of its own simply has no button —
+                there is nothing more to show than what is already here.
+
+                AND THE LABEL SAID IT TWICE. `sectionTitle` falls back to the
+                word "Products" for anything it cannot name, so the button
+                read "Show All Products Products". It takes the category's
+                name when there is one and says "Show All Products" when
+                there is not.
+              */}
+              {hasCategoryPage(mainCategory) && (
                 <div className="flex justify-center mt-8">
                   <Link
                     href={selectedSubcategoryId
@@ -2228,7 +2257,7 @@ export function ExplorePageClient({
                     }
                     className="inline-flex items-center gap-2 px-6 py-3 rounded-full text-sm font-semibold bg-neutral-900 text-white hover:bg-neutral-800 transition-colors cursor-pointer"
                   >
-                    <span>Show All {selectedSubcategoryLabel || sectionTitle} Products</span>
+                    <span>{showAllLabel}</span>
                     <ArrowRight className="w-4 h-4" />
                   </Link>
                 </div>
