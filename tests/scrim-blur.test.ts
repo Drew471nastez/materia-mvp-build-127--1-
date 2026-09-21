@@ -19,8 +19,9 @@
  *     softened, 1.6px         76.5  76.5  71.8  59.4  47.0  30.4
  *     softened again, 1.1px   76.5  76.5  73.2  65.2  55.8  43.5
  *     and again, 0.8px        76.5  76.5  73.9  67.8  60.7  52.0
+ *     down 40%, 0.48px        76.5  76.5  75.0  71.5  67.8  63.4
  *
- * Asked down three times after the first pass. The top of the page is the
+ * Asked down four times after the first pass. The top of the page is the
  * clarity of no scrim at all, and the bottom — behind the sheet — keeps a
  * real blur while staying far clearer than the flat one it replaced.
  *
