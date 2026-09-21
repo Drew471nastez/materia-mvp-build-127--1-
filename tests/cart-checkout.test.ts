@@ -108,18 +108,47 @@ function main() {
     apportionFee(50, [1, 1, 1, 9999]).every((f) => f >= 0),
     JSON.stringify(apportionFee(50, [1, 1, 1, 9999])))
 
+  /*
+    THE CASE THE RANDOM BASKETS FOUND, PINNED SO IT CANNOT COME BACK.
+    Rounding each line to nearest and handing the remainder to the last one
+    can assign MORE than the fee before the last line is reached, and the
+    clamp that stopped the last share going negative turned the excess into
+    a cent the platform never took:
+
+        fee 5 over [6448,12322,12230,7209,1263] came to 6
+
+    It is largest remainder now, which is exact by construction.
+  */
+  check("a basket that used to come out a cent over",
+    apportionFee(5, [6448, 12322, 12230, 7209, 1263]).reduce((n, c) => n + c, 0) === 5,
+    JSON.stringify(apportionFee(5, [6448, 12322, 12230, 7209, 1263])))
+  check("and another one",
+    apportionFee(11, [3538, 1701, 19349, 3119, 9444, 92]).reduce((n, c) => n + c, 0) === 11,
+    JSON.stringify(apportionFee(11, [3538, 1701, 19349, 3119, 9444, 92])))
+  check("a fee smaller than the number of lines still adds up, and nothing is negative",
+    (() => {
+      const parts = apportionFee(2, [100, 100, 100, 100, 100])
+      return parts.reduce((n, c) => n + c, 0) === 2 && parts.every((p) => p >= 0) && parts.length === 5
+    })(),
+    JSON.stringify(apportionFee(2, [100, 100, 100, 100, 100])))
+  check("the same basket always splits the same way",
+    JSON.stringify(apportionFee(7, [500, 500, 300])) === JSON.stringify(apportionFee(7, [500, 500, 300])))
+
   /* A hundred random baskets, because the rounding is where this goes wrong
      and three hand-picked cases do not find it. */
   let worst = ""
   let exact = 0
-  for (let i = 0; i < 100; i++) {
+  /* Ten thousand, not a hundred: the fault this found happened about once in
+     a few thousand baskets, so at a hundred it passed most runs and failed
+     now and then, which reads as flakiness rather than as a bug. */
+  for (let i = 0; i < 10000; i++) {
     const lines = Array.from({ length: 1 + Math.floor(Math.random() * 8) }, () => 1 + Math.floor(Math.random() * 20000))
     const fee = Math.floor(Math.random() * 3000)
     const total = apportionFee(fee, lines).reduce((n, c) => n + c, 0)
     if (total === fee) exact++
     else worst = `fee ${fee} over ${lines.join(",")} came to ${total}`
   }
-  check("and it adds up on a hundred random baskets", exact === 100, worst || `${exact} of 100`)
+  check("and it adds up on ten thousand random baskets", exact === 10000, worst || `${exact} of 10000`)
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }

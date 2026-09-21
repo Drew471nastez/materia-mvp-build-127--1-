@@ -122,9 +122,30 @@ export function packedTotalCents(items: PackedItem[]): number {
  * seller's earnings are read from those rows — so recording the whole fee
  * against each line would say the platform took it three times over.
  *
- * Each line gets its share of the basket, and the LAST line carries whatever
- * rounding is left, so the parts add up to exactly what was taken rather
- * than to a cent more or less.
+ * Each line gets its share of the basket, and the parts add up to exactly
+ * what was taken rather than to a cent more or less.
+ *
+ * IT USED TO ROUND EACH LINE AND GIVE THE REMAINDER TO THE LAST ONE, with a
+ * `Math.max(0, …)` so the last share could not go negative. That clamp is
+ * where it broke. Rounding every line to nearest can assign MORE than the
+ * fee before the last line is reached — five lines each rounding up is five
+ * halves of a cent — and then the remainder is negative, the clamp turns it
+ * into zero, and the shares add up to a cent more than the platform actually
+ * took. Found by the hundred random baskets in tests/cart-checkout, which
+ * caught it about once every few thousand:
+ *
+ *     fee 5 over [6448,12322,12230,7209,1263] came to 6
+ *
+ * A cent, on a fee split across sellers, but the sum of what the sellers are
+ * recorded as having been charged has to equal the one number Stripe took.
+ *
+ * LARGEST REMAINDER, which is the standard way to hand out whole units of a
+ * thing that does not divide. Every line takes the floor of its exact share,
+ * which can never overshoot because the exact shares add to the fee; that
+ * leaves fewer whole cents than there are lines, and they go one each to the
+ * lines that were cut by the most. The result is exact by construction
+ * rather than by a correction at the end, and no line can be negative
+ * because nothing is ever taken back.
  */
 export function apportionFee(feeTotalCents: number, lineTotals: number[]): number[] {
   if (lineTotals.length === 0) return []
@@ -132,15 +153,22 @@ export function apportionFee(feeTotalCents: number, lineTotals: number[]): numbe
   if (feeTotalCents <= 0 || basket <= 0) return lineTotals.map(() => 0)
 
   const out: number[] = []
+  const remainders: { at: number; frac: number; line: number }[] = []
   let assigned = 0
   for (let i = 0; i < lineTotals.length; i++) {
-    if (i === lineTotals.length - 1) {
-      out.push(Math.max(0, feeTotalCents - assigned))
-      break
-    }
-    const share = Math.round((feeTotalCents * lineTotals[i]) / basket)
-    assigned += share
-    out.push(share)
+    const exact = (feeTotalCents * lineTotals[i]) / basket
+    const whole = Math.floor(exact)
+    out.push(whole)
+    assigned += whole
+    remainders.push({ at: i, frac: exact - whole, line: lineTotals[i] })
+  }
+
+  /* Ties go to the bigger line, and then to the earlier one, so the same
+     basket always splits the same way. */
+  remainders.sort((a, b) => b.frac - a.frac || b.line - a.line || a.at - b.at)
+  let left = feeTotalCents - assigned
+  for (let i = 0; i < remainders.length && left > 0; i++, left--) {
+    out[remainders[i].at] += 1
   }
   return out
 }

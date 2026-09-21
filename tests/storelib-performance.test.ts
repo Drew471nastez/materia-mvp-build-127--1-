@@ -158,12 +158,35 @@ async function main() {
     const target = page[7]
     const edited = { ...target, settings: { ...target.settings, heading: "Changed" } }
     const c = counting.compile(sources[edited.type], { file: `sections/${edited.type}.storelib` })
-    const one = ms(() => {
-      if (c.ok === false) return
-      renderSection({ compiled: c.value, id: edited.id, instance: toInstanceData(edited), theme: {}, page: { template: "index" } })
-    })
+    /**
+     * ═══════════════════════════════════════════════════════════════════
+     *  THE MEDIAN OF NINE, NOT ONE SHOT
+     * ═══════════════════════════════════════════════════════════════════
+     * This timed a single render of about two milliseconds and compared it
+     * to a single render of thirty. Two milliseconds is short enough that a
+     * garbage collection, another process on the machine or a cold branch
+     * predictor doubles it, so the check failed on perhaps half of the runs
+     * on a busy machine — at 2.02, 2.54 and 2.34ms against a bar of 1.9 —
+     * and passed on the quiet ones.
+     *
+     * A test that fails half the time is worse than no test: it is read as
+     * noise, and the run it is really trying to tell you about is read as
+     * noise too. The claim is not about any one render, so the measurement
+     * should not be either. Nine, and the middle one, which is the number a
+     * single outlier cannot move.
+     */
+    const runs: number[] = []
+    for (let i = 0; i < 9; i++) {
+      runs.push(ms(() => {
+        if (c.ok === false) return
+        renderSection({ compiled: c.value, id: edited.id, instance: toInstanceData(edited), theme: {}, page: { template: "index" } })
+      }))
+    }
+    runs.sort((a, b) => a - b)
+    const one = runs[Math.floor(runs.length / 2)]
     check("nothing recompiles, because no file changed", counting.size === distinctTypes, `${counting.size} entries after ${before} lookups`)
-    check(`and one section redraws in ${one.toFixed(2)}ms`, one < draw / 10, `${one.toFixed(2)}ms against ${draw.toFixed(0)}ms for all thirty`)
+    check(`and one section redraws in ${one.toFixed(2)}ms`, one < draw / 10,
+      `${one.toFixed(2)}ms median of ${runs.length}, ${runs[0].toFixed(2)} to ${runs[runs.length - 1].toFixed(2)}, against ${draw.toFixed(0)}ms for all thirty`)
   }
 
   // ── One FILE changes ─────────────────────────────────────────────────────
