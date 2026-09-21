@@ -198,43 +198,53 @@ for (const [name, src] of CHARTS) {
 }
 
 // ===========================================================================
-section("The chart owns the touch, and scrolls the page itself")
+section("The chart keeps the horizontal axis and gives back the vertical one")
 // ===========================================================================
 /**
  * TOUCH-ACTION IS READ ONCE, AT TOUCHSTART.
  *
- * It used to be `tooltipActive ? "none" : "pan-y pinch-zoom"`, and that
- * ternary could not do what it looked like it did: the compositor latches the
- * value when the finger lands and keeps it for the whole gesture, so the
- * "none" branch only ever reached the NEXT touch. Every hold therefore began
- * having already promised the browser it could take the gesture away as a
- * vertical scroll — and it did, the moment the finger started to slide. Lift,
- * tap again, and it worked, because the second touch landed on "none".
+ * It began as `tooltipActive ? "none" : "pan-y pinch-zoom"`, and that ternary
+ * could not do what it looked like it did: the compositor latches the value
+ * when the finger lands and keeps it for the whole gesture, so the "none"
+ * branch only ever reached the NEXT touch. That was "hold, untap, tap,
+ * slide". A value computed from state the gesture itself sets is always this
+ * bug, so the rule is that it is a constant.
  *
- * That was "hold, untap, tap, slide". A value computed from state the gesture
- * itself sets is always this bug, so the rule is that it is a constant.
+ * It was then made a constant "none", which fixed the hold and cost the
+ * scroll: the browser will not move a page from a band that has refused
+ * every gesture, so the chart moved it by hand, one scrollTop write per
+ * touchmove and a requestAnimationFrame loop for the flick. That is a main
+ * thread scroll with no momentum the system recognises and no rubber band,
+ * inside 200px of a page that scrolls normally everywhere else, and it is
+ * what "at some touch scroll it becomes very rigid and hard" describes.
  *
- * The price of owning the gesture is that the browser will not scroll the
- * page from this 200px band any more, so the vertical branch has to. Both
- * halves are checked, because either one alone is a regression: constant
- * "none" without the scrolling freezes the page under a thumb, and the
- * scrolling without "none" leaves the hold stealable.
+ * The constant is "pan-y" now. The browser scrolls the page and the chart
+ * keeps the axis a scrub is actually made of. What holds the hold together
+ * is that cancelling a touchmove BEFORE a pan has begun takes the whole
+ * gesture, and a hold has by definition not moved — so the checks below are
+ * that the value is a constant pan-y, that nothing scrolls the page by hand
+ * any more, and that a move is still cancelled the moment the scrub is ours.
  */
 for (const [name, src] of CHARTS) {
   const line = src.match(/touchAction: [^\n]*/)?.[0] ?? "(no touchAction on the chart)"
   check(
-    `${name}: touch-action is a constant none`,
-    /touchAction: "none"/.test(src) && !/touchAction: \w+ \?/.test(src),
+    `${name}: touch-action is a constant pan-y`,
+    /touchAction: "pan-y"/.test(src) && !/touchAction: \w+ \?/.test(src),
     `found: ${line}`,
   )
   check(
-    `${name}: a vertical drag scrolls the page by hand`,
-    /scrollByPx\(scrollerRef\.current, step\)/.test(src) && /findScroller\(containerRef\.current\)/.test(src),
+    `${name}: nothing scrolls the page by hand`,
+    !/scrollByPx|findScroller|chart-scroll/.test(src.replace(/\/\*[\s\S]*?\*\//g, "")),
+    "a hand rolled scroll is back; the browser cannot scroll a band that also scrolls itself",
   )
   check(
-    `${name}: a flick keeps going, and a new touch stops it`,
-    /stopFlingRef\.current = fling\(scrollerRef\.current, scrollVelocityRef\.current\)/.test(src) &&
-      /stopFlingRef\.current\(\)\n\s*stopFlingRef\.current = noFling/.test(src),
+    `${name}: no flick loop outliving the finger`,
+    !/\bfling\(/.test(src.replace(/\/\*[\s\S]*?\*\//g, "")),
+  )
+  check(
+    `${name}: an active scrub still cancels every move`,
+    /if \(tooltipActiveRef\.current\) \{\n\s*e\.preventDefault\(\)/.test(src),
+    "without this the browser can start panning mid scrub",
   )
 }
 
@@ -246,12 +256,16 @@ section("A hold the platform cannot take away")
  * scripts/check-chart-scrub.mjs after it was fixed to press the node a finger
  * actually presses rather than the container.
  *
- * REACT REGISTERS touchstart PASSIVELY. So `preventDefault` inside an
- * `onTouchStart` prop does nothing, and the platform's own long-press
- * recogniser — selection, the callout, drag — takes the press and sends a
- * touchcancel. The gesture is over before the finger has moved, which is a
- * hold you have to lift out of and start again. The listener has to be
- * native and non-passive, like the touchmove one beside it.
+ * REACT REGISTERS touchstart PASSIVELY, so a `preventDefault` inside an
+ * `onTouchStart` prop does nothing at all. The listener has to be native and
+ * non-passive, and it still does — not to cancel the touchstart, which is
+ * the one thing that would refuse the browser's scroll for the whole
+ * gesture, but because the touchmove listener registered beside it has to be
+ * able to cancel a move once the scrub is ours.
+ *
+ * The platform's own long-press recogniser is refused by
+ * `-webkit-touch-callout: none` and `user-select: none` on the container,
+ * which is the tool for that job and does not take the scroll with it.
  *
  * A TOUCH BELONGS TO THE NODE IT STARTED ON, for the whole gesture, and it
  * keeps going there after that node leaves the document — where it reaches
@@ -263,8 +277,16 @@ for (const [name, src] of CHARTS) {
   check(
     `${name}: touchstart is native and non-passive`,
     /el\.addEventListener\("touchstart", touchStartHandler, \{ passive: false \}\)/.test(src) &&
-      /const touchStartHandler = useCallback\(\(e: TouchEvent\) => \{\n\s*e\.preventDefault\(\)/.test(src) &&
       !/onTouchStart=\{handleTouchStart\}/.test(src.slice(src.indexOf("ref={containerRef}"), src.indexOf("ref={containerRef}") + 2000)),
+  )
+  check(
+    `${name}: and the touchstart itself is not cancelled`,
+    !/const touchStartHandler = useCallback\(\(e: TouchEvent\) => \{\n\s*e\.preventDefault\(\)/.test(src),
+    "cancelling touchstart refuses the browser's scroll for the whole gesture, whatever touch-action says",
+  )
+  check(
+    `${name}: the long press is refused in CSS instead`,
+    /WebkitTouchCallout: "none"/.test(src) && /WebkitUserSelect: "none"/.test(src),
   )
   check(
     `${name}: the touches land on one node that never changes`,

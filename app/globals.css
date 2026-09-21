@@ -2502,6 +2502,50 @@ html.capacitor .app-content-scroll {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
+/* ── Room for the nav pill ───────────────────────────────────────────────────
+ *
+ * On a phone the /app navigation is a pill floating over the bottom of the
+ * page (components/app/sidebar-mobile-nav). It is `position: fixed`, so it
+ * takes no space in the flow, and without this the last row of every list
+ * would sit permanently underneath it.
+ *
+ * 92px is the pill (56) plus the gap below it (10) plus a comfortable margin
+ * above it, and the safe-area inset on top of that for the home indicator.
+ * It REPLACES the capacitor rule above at this width rather than adding to
+ * it, which is why the inset is written out again here.
+ *
+ * Above 768px the pill is not rendered and this does not apply.
+ * ────────────────────────────────────────────────────────────────────────── */
+@media (max-width: 767px) {
+  html.app-layout .app-content-scroll {
+    padding-bottom: calc(92px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* ── One bottom strip, one owner ─────────────────────────────────────────
+   *
+   * Settings raises a save bar across the foot of the screen when there is
+   * something to save, and the pill is already there. Rather than either
+   * surface holding state about the other, each one says what it is — the
+   * bar carries [data-app-bottom-bar], the pill carries [data-app-nav-pill] —
+   * and this is the whole of the relationship between them.
+   *
+   * The pill drops out of the way rather than disappearing, and it is only
+   * out of reach for as long as there is something to save: the bar's own
+   * Cancel and Save both remove it.
+   *
+   * `:has()` is Safari 15.4 and Chrome 105. On an engine older than that the
+   * selector never matches, the pill stays where it is, and the two overlap
+   * for the few seconds a save bar is up. That is the right way round: the
+   * failure is cosmetic, on an OS nobody is running, and the alternative is
+   * duplicating this as state in two components.
+   * ────────────────────────────────────────────────────────────────────── */
+  html:has([data-app-bottom-bar="visible"]) [data-app-nav-pill] {
+    transform: translateY(calc(100% + 16px));
+    opacity: 0;
+    pointer-events: none;
+  }
+}
+
 /* ── Prevent text selection & copy in /app dashboard and analytics ────────
  * On Capacitor (iOS/Android) disable selection entirely so users don't
  * accidentally trigger the copy/paste callout when scrolling or interacting

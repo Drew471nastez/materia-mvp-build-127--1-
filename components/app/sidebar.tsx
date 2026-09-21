@@ -12,7 +12,6 @@ import {
   BarChart3,
   Mail,
   CreditCard,
-  Menu,
   Link2,
   HelpCircle,
   Zap,
@@ -21,7 +20,6 @@ import {
   Compass,
   Library,
   Bell,
-  Home,
   Wallet,
   X,
   Sparkles,
@@ -36,108 +34,12 @@ import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { createClient, isNativePlatform } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 import { useState, useEffect, useRef, useCallback } from "react"
-import { createPortal } from "react-dom"
 // Sheet removed — mobile sidebar now uses pure CSS transitions for reliable close animation
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { DesktopSidebarContent, NAV_ICONS } from "@/components/app/sidebar-desktop-nav"
+import { DesktopSidebarContent, NAV_ICONS, NAV_ICONS_EXTRA } from "@/components/app/sidebar-desktop-nav"
 import type { NavIconPair } from "@/components/app/sidebar-desktop-nav"
+import { MobileMenuPage, MobileNavPill, useLockAppScroll } from "@/components/app/sidebar-mobile-nav"
 
-// Imperative height/opacity animation that handles rapid toggles safely.
-//
-// Why imperative instead of React style-driven transitions:
-//   - `transition: height` is the only primitive that smoothly retargets when
-//     interrupted (keyframes restart; `style={{height}}` in JSX can miss the
-//     start frame if React commits the new value before the browser records
-//     the old one).
-//   - By writing styles directly in a layout effect and forcing a reflow
-//     between the "start" and "end" assignments, we guarantee the browser
-//     records both values and runs the transition every time — including on
-//     rapid open/close/open clicks.
-//   - After an open transition we set `height: auto` so content can reflow
-//     naturally (e.g. i18n label length changes) without being pinned.
-//   - The very first layout pass applies steady state with no transition, so
-//     a collapsed group doesn't play a fake close animation on mount.
-function Collapsible({ open, children }: { open: boolean; children: React.ReactNode }) {
-  const outerRef = useRef<HTMLDivElement>(null)
-  const innerRef = useRef<HTMLDivElement>(null)
-  const didInitRef = useRef(false)
-  const rafRef = useRef<number | null>(null)
-
-  useEffect(() => {
-    const outer = outerRef.current
-    const inner = innerRef.current
-    if (!outer || !inner) return
-
-    const DURATION = 360
-    const EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
-    const TRANSITION = `height ${DURATION}ms ${EASE}, opacity ${DURATION}ms ${EASE}`
-
-    // Initial paint — snap to steady state, no animation.
-    if (!didInitRef.current) {
-      didInitRef.current = true
-      outer.style.transition = "none"
-      outer.style.overflow = "hidden"
-      outer.style.willChange = "height, opacity"
-      outer.style.height = open ? "auto" : "0px"
-      outer.style.opacity = open ? "1" : "0"
-      return
-    }
-
-    // Cancel any queued post-transition cleanup from a prior run.
-    if (rafRef.current != null) {
-      cancelAnimationFrame(rafRef.current)
-      rafRef.current = null
-    }
-
-    // Capture current (possibly mid-transition) height as the animation start.
-    const startHeight = outer.getBoundingClientRect().height
-    const endHeight = open ? inner.scrollHeight : 0
-
-    // Pause the current transition and pin the start frame to an explicit px
-    // so the next assignment has something to transition FROM. Force a reflow
-    // between the two writes so the browser records the old value.
-    outer.style.transition = "none"
-    outer.style.height = `${startHeight}px`
-    outer.style.opacity = outer.style.opacity || (open ? "0" : "1")
-    // Force reflow
-    void outer.offsetHeight
-
-    // Apply the transition and the new target.
-    outer.style.transition = TRANSITION
-    outer.style.height = `${endHeight}px`
-    outer.style.opacity = open ? "1" : "0"
-
-    // When the height transition finishes AND we ended in the open state,
-    // release the pinned height so content can grow/shrink naturally.
-    const handleEnd = (e: TransitionEvent) => {
-      if (e.target !== outer || e.propertyName !== "height") return
-      outer.removeEventListener("transitionend", handleEnd)
-      if (open) {
-        outer.style.transition = "none"
-        outer.style.height = "auto"
-        // One RAF to let the style settle, then restore transition for next toggle.
-        rafRef.current = requestAnimationFrame(() => {
-          outer.style.transition = TRANSITION
-          rafRef.current = null
-        })
-      }
-    }
-    outer.addEventListener("transitionend", handleEnd)
-    return () => {
-      outer.removeEventListener("transitionend", handleEnd)
-      if (rafRef.current != null) {
-        cancelAnimationFrame(rafRef.current)
-        rafRef.current = null
-      }
-    }
-  }, [open, children])
-
-  return (
-    <div ref={outerRef} aria-hidden={!open}>
-      <div ref={innerRef}>{children}</div>
-    </div>
-  )
-}
 import { NotificationsModal, NotificationBadge } from "./notifications-modal"
 import { useLanguage } from "@/lib/i18n"
 import { LanguageModal } from "@/components/platform/language-modal"
@@ -219,6 +121,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
    */
   const [languageOpen, setLanguageOpen] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  useLockAppScroll(mobileMenuOpen)
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false)
   const [mobileProfileDropdownOpen, setMobileProfileDropdownOpen] = useState(false)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
@@ -401,255 +304,17 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
   const userDisplayName = displayName || username || creatorSlug || "User"
   const userInitials = userDisplayName.slice(0, 2).toUpperCase()
 
-  // Sub-item for expandable groups (e.g. Coupons under Products).
-  // No icon, indented, violet accent when active — matches the nested-nav
-  // pattern (parent → child sub-rows) seen in Linktree/Shopify admin.
-  const SubNavItem = ({ child, onClick }: { child: NavItemChild; onClick?: () => void }) => {
-    const realActive = pathname === child.href || pathname.startsWith(child.href)
-    const isActive = realActive || pendingHref === child.href
-    const isPending = !realActive && pendingHref === child.href
+  /*
+    SubNavItem, NavItem and the imperative Collapsible used to be here.
 
-    const handleClick = () => {
-      if (!realActive) {
-        setPendingHref(child.href)
-        startNavigationLoading()
-      }
-      onClick?.()
-    }
-
-    const handlePrefetch = () => {
-      if (!realActive) {
-        try { router.prefetch(child.href) } catch {}
-      }
-    }
-
-    return (
-      <Link
-        href={child.href}
-        onClick={handleClick}
-        onMouseEnter={handlePrefetch}
-        onFocus={handlePrefetch}
-        className={cn(
-          "flex items-center rounded-[8px] px-3 py-1.5 text-[13.5px] font-medium cursor-pointer transition-[background-color,color,opacity] duration-[220ms] ease-[cubic-bezier(0.32,0.72,0,1)] active:opacity-80",
-          isActive
-            ? "bg-neutral-200 text-neutral-900"
-            : "text-neutral-500 hover:bg-neutral-100/70 hover:text-neutral-900",
-          isPending && "opacity-90",
-        )}
-      >
-        <span>{child.label}</span>
-      </Link>
-    )
-  }
-
-  // Light NavItem for desktop sidebar
-  const NavItem = ({ item, onClick }: { item: NavItemData; onClick?: () => void }) => {
-    const realActive = pathname === item.href || (item.href !== "/app" && pathname.startsWith(item.href))
-    // Optimistic active state: treat the link as active the moment the user
-    // clicks it, so the highlight appears instantly — before the server
-    // response, before the page re-renders. Cleared when pathname catches up.
-    const isActive = realActive || pendingHref === item.href
-    /*
-      THE PAIR RESOLVES HERE, from the row's own active state.
-
-      `item.icon` is a { line, fill } pair now, not a component. Picking the
-      variant at this point means the mobile drawer fills the row you are on
-      exactly as the desktop rail does — the two surfaces render the same list
-      and should not disagree about what the current page looks like.
-    */
-    const Icon = isActive ? item.icon.fill : item.icon.line
-    const isPending = !realActive && pendingHref === item.href
-
-    const hasChildren = !!item.children && item.children.length > 0
-    const expanded = hasChildren && expandedGroups.has(item.href)
-
-    const baseClassName = cn(
-      "flex items-center gap-3 rounded-[8px] px-3 py-1.5 text-[14px] font-medium text-left cursor-pointer transition-[background-color,color,opacity] duration-[220ms] ease-[cubic-bezier(0.32,0.72,0,1)] active:opacity-80",
-      isActive
-        ? "bg-neutral-200 text-neutral-900"
-        : "text-neutral-600 hover:bg-neutral-100/70 hover:text-neutral-900 active:bg-neutral-200/80",
-      isPending && "opacity-90",
-    )
-
-    const handleClick = () => {
-      if (!realActive) {
-        setPendingHref(item.href)
-        startNavigationLoading()
-      }
-      onClick?.()
-    }
-
-    // Prefetch on hover/focus — warms the route cache so the click feels
-    // instant. Next.js <Link> already prefetches on viewport in prod, but
-    // hover prefetch closes the remaining gap for long lists.
-    const handlePrefetch = () => {
-      if (!item.forceNavigation && !realActive) {
-        try { router.prefetch(item.href) } catch {}
-      }
-    }
-
-    // Use button for force navigation to ensure reliable click handling
-    if (item.forceNavigation) {
-      return (
-        <button
-          onClick={() => {
-            handleClick()
-            // In Capacitor, router.push preserves auth session (no full reload)
-            // On web, force full reload for reliable cross-layout navigation
-            if (isNativePlatform()) {
-              router.push(item.href)
-            } else {
-              window.location.href = item.href
-            }
-          }}
-          className={cn(baseClassName, "w-full")}
-        >
-          <Icon className="h-[18px] w-[18px] shrink-0" />
-          <span>{item.label}</span>
-        </button>
-      )
-    }
-
-    if (hasChildren) {
-      // grid-template-rows 0fr → 1fr animates true auto-height smoothly at 60fps,
-      // no content measurement needed and no late clipping when children change.
-      return (
-        <div>
-          <div className="flex items-center gap-1">
-            <Link
-              href={item.href}
-              onClick={handleClick}
-              onMouseEnter={handlePrefetch}
-              onFocus={handlePrefetch}
-              className={cn(baseClassName, "flex-1 min-w-0")}
-            >
-              <Icon className="h-[18px] w-[18px] shrink-0" />
-              <span className="truncate">{item.label}</span>
-            </Link>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.preventDefault()
-                e.stopPropagation()
-                toggleGroup(item.href)
-              }}
-              aria-label={expanded ? `Collapse ${item.label}` : `Expand ${item.label}`}
-              aria-expanded={expanded}
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[8px] text-neutral-400 hover:bg-neutral-100/70 hover:text-neutral-700 transition-[background-color,color] duration-[220ms] ease-[cubic-bezier(0.32,0.72,0,1)] cursor-pointer"
-            >
-              <ChevronDown
-                className={cn(
-                  "h-4 w-4 will-change-transform",
-                  expanded ? "rotate-180" : "rotate-0"
-                )}
-                strokeWidth={1.8}
-                style={{
-                  transformOrigin: "center",
-                  transition: expanded
-                    ? "transform 440ms cubic-bezier(0.16, 1, 0.3, 1)"
-                    : "transform 320ms cubic-bezier(0.4, 0, 0.2, 1)",
-                }}
-              />
-            </button>
-          </div>
-          <Collapsible open={expanded}>
-            <div className="pt-1 pl-3 ml-[21px] border-l border-neutral-200 space-y-[2px]">
-              {item.children!.map((child) => (
-                <SubNavItem key={child.href} child={child} onClick={onClick} />
-              ))}
-            </div>
-          </Collapsible>
-        </div>
-      )
-    }
-
-    return (
-      <Link
-        href={item.href}
-        onClick={handleClick}
-        onMouseEnter={handlePrefetch}
-        onFocus={handlePrefetch}
-        className={cn(baseClassName, "w-full")}
-      >
-        <Icon className="h-[18px] w-[18px] shrink-0" />
-        <span>{item.label}</span>
-      </Link>
-    )
-  }
-
-  // Dark NavItem for mobile sidebar (matches dark header)
-  const MobileNavItem = ({ item, onClick }: { item: (typeof mainNavItems)[0]; onClick?: () => void }) => {
-    const realActive = pathname === item.href || (item.href !== "/app" && pathname.startsWith(item.href))
-    const isActive = realActive || pendingHref === item.href
-    /*
-      THE PAIR RESOLVES HERE, from the row's own active state.
-
-      `item.icon` is a { line, fill } pair now, not a component. Picking the
-      variant at this point means the mobile drawer fills the row you are on
-      exactly as the desktop rail does — the two surfaces render the same list
-      and should not disagree about what the current page looks like.
-    */
-    const Icon = isActive ? item.icon.fill : item.icon.line
-    const isPending = !realActive && pendingHref === item.href
-
-    const baseClassName = cn(
-      "flex items-center gap-3 rounded-[8px] px-3 py-1.5 text-[14px] font-medium w-full text-left cursor-pointer transition-[background-color,color,opacity] duration-[220ms] ease-[cubic-bezier(0.32,0.72,0,1)] active:opacity-80",
-      isActive
-        ? "bg-white/15 text-white"
-        : "text-white/70 hover:bg-white/10 hover:text-white active:bg-white/15",
-      isPending && "opacity-90",
-    )
-
-    const handleClick = () => {
-      if (!realActive) {
-        setPendingHref(item.href)
-        startNavigationLoading()
-      }
-      onClick?.()
-    }
-
-    const handlePrefetch = () => {
-      if (!item.forceNavigation && !realActive) {
-        try { router.prefetch(item.href) } catch {}
-      }
-    }
-
-    // Use button for force navigation to ensure reliable click handling
-    if (item.forceNavigation) {
-      return (
-        <button
-          onClick={() => {
-            handleClick()
-            // In Capacitor, router.push preserves auth session (no full reload)
-            // On web, force full reload for reliable cross-layout navigation
-            if (isNativePlatform()) {
-              router.push(item.href)
-            } else {
-              window.location.href = item.href
-            }
-          }}
-          className={baseClassName}
-        >
-          <Icon className="h-[18px] w-[18px] shrink-0" />
-          <span>{item.label}</span>
-        </button>
-      )
-    }
-
-    return (
-      <Link
-        href={item.href}
-        onClick={handleClick}
-        onMouseEnter={handlePrefetch}
-        onFocus={handlePrefetch}
-        className={baseClassName}
-      >
-        <Icon className="h-[18px] w-[18px] shrink-0" />
-        <span>{item.label}</span>
-      </Link>
-    )
-  }
-
+    They were the DRAWER's rows — the desktop rail has rendered from
+    sidebar-desktop-nav.tsx for a while, and the phone's menu now renders from
+    sidebar-mobile-nav.tsx, so nothing was left calling them. The Collapsible
+    that went with them measured `scrollHeight`, pinned a pixel height, forced
+    a reflow and released the height again on transitionend, four layout
+    flushes per toggle; both surfaces animate a `grid-template-rows` track
+    instead, which needs no measurement and nothing to release.
+  */
   const ProfileDropdown = ({ onItemClick }: { onItemClick?: () => void }) => (
     <div ref={dropdownRef} className="relative">
       <button
@@ -877,178 +542,21 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
 
   const setupProgressPercent = setupProgress ? Math.round((setupProgress.completed / setupProgress.total) * 100) : 0
 
-  // ── Portal tooltip for "Coming soon" items ─────────────────────────────────
-  // Renders outside any overflow-clipping ancestor via createPortal so the
-  // tooltip is never cut off by the sidebar scroll container.
-  const SoonItem = ({ onClose }: { onClose?: () => void }) => {
-    const [show, setShow] = useState(false)
-    const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 })
-    const rowRef = useRef<HTMLSpanElement>(null)
-
-    const handleEnter = () => {
-      if (rowRef.current) {
-        const rect = rowRef.current.getBoundingClientRect()
-        setTooltipPos({ x: rect.right + 10, y: rect.top + rect.height / 2 })
-      }
-      setShow(true)
-    }
-
-    return (
-      <span
-        ref={rowRef}
-        className="flex items-center gap-3 rounded-[8px] px-3 py-1.5 text-[14px] font-medium text-neutral-400 cursor-default select-none"
-        onMouseEnter={handleEnter}
-        onMouseLeave={() => setShow(false)}
-      >
-        <Link2 className="h-[18px] w-[18px] shrink-0" strokeWidth={1.5} />
-        <span>Link shortener</span>
-        {show && typeof document !== "undefined" && createPortal(
-          <div
-            style={{
-              position: "fixed",
-              left: tooltipPos.x,
-              top: tooltipPos.y,
-              transform: "translateY(-50%)",
-              zIndex: 99999,
-              pointerEvents: "none",
-            }}
-            className="px-2.5 py-1.5 bg-neutral-900 text-white text-xs font-medium rounded-lg whitespace-nowrap shadow-lg"
-          >
-            Coming soon
-            <div className="absolute right-full top-1/2 -translate-y-1/2 w-0 h-0 border-t-[5px] border-b-[5px] border-r-[5px] border-t-transparent border-b-transparent border-r-neutral-900" />
-          </div>,
-          document.body
-        )}
-      </span>
-    )
-  }
-
   /*
-    The desktop sidebar's content used to be declared here, inside the
-    component — see the note at the top of sidebar-desktop-nav.tsx for why
-    that was the cause of the flashing rather than a matter of tidiness.
-    The mobile drawer below is deliberately untouched: it is a different
-    surface with a dark theme, and this change was scoped to the desktop rail.
+    SoonItem is gone with the drawer. It was a greyed-out row announcing a
+    tool that does not exist yet, and it said so through a tooltip that
+    appeared on `onMouseEnter` — an event a phone never sends. On the one
+    surface it was rendered on it was an unexplained grey line.
   */
 
-  // Mobile sidebar content with white UI theme (positioned below dark header)
-  const MobileSidebarContent = ({ onItemClick }: { onItemClick?: () => void }) => (
-    <div className="flex h-full flex-col bg-white">
-      <nav className="sidebar-nav flex-1 overflow-y-auto px-3 py-3">
-        <div className="space-y-0.5">
-          {mainNavItems.map((item) => (
-            <NavItem key={item.href} item={item} onClick={onItemClick} />
-          ))}
-        </div>
-
-        {/* Tools category */}
-        <div className="mt-5">
-          <p className="px-3 mb-1.5 text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">Tools</p>
-          <div className="space-y-0.5">
-            <SoonItem />
-          </div>
-        </div>
-
-        {storeUrl && !storePublished && (
-          <div className="mt-4 rounded-[10px] bg-amber-50/80 border border-amber-100/80 px-3 py-2.5">
-            <p className="text-[12px] text-amber-700">Store is unpublished. Go to Settings to publish.</p>
-          </div>
-        )}
-
-        {/* Setup Progress Section for Mobile sidebar - always shown when incomplete */}
-        {setupProgress && setupProgress.completed < setupProgress.total && !pathname.startsWith("/app/emails") && (
-          <button
-            onClick={() => {
-              onItemClick?.()
-              if (pathname === "/app") {
-                const setupSection = document.getElementById("store-setup-section")
-                setupSection?.scrollIntoView({ behavior: "smooth", block: "start" })
-              } else {
-                router.push("/app")
-                setTimeout(() => {
-                  const setupSection = document.getElementById("store-setup-section")
-                  setupSection?.scrollIntoView({ behavior: "smooth", block: "start" })
-                }, 100)
-              }
-            }}
-            className="mt-4 w-full rounded-xl bg-gradient-to-r from-violet-50 to-purple-50 border border-violet-100/60 p-3 text-left transition-all hover:from-violet-100/80 hover:to-purple-100/80"
-          >
-            <div className="flex items-center gap-3">
-              <div className="relative shrink-0 w-10 h-10">
-                <SetupProgressCircle progress={setupProgressPercent} size={40} />
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-[10px] font-bold text-violet-600">{setupProgressPercent}%</span>
-                </div>
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-[13px] font-semibold text-neutral-900">Store Setup</p>
-                <p className="text-[11px] text-neutral-500">{setupProgress.completed} of {setupProgress.total} steps complete</p>
-              </div>
-              <ChevronRight className="h-4 w-4 text-neutral-400 shrink-0" />
-            </div>
-          </button>
-        )}
-      </nav>
-
-      <div className="px-3 pb-3">
-        <Link
-          href="/app/settings/billing/upgrade"
-          onClick={onItemClick}
-          className="group flex items-center justify-between rounded-xl bg-gradient-to-r from-violet-50/80 to-purple-50/80 border border-violet-100/60 px-3.5 py-3 transition-[background-color,border-color] duration-[240ms] ease-[cubic-bezier(0.32,0.72,0,1)] hover:from-violet-100/80 hover:to-purple-100/80 hover:border-violet-200/70"
-        >
-          <div>
-            <p className="text-[13px] font-semibold text-neutral-900">{t("nav.upgradeToPro")}</p>
-            <p className="text-[11px] text-neutral-600">{t("nav.unlockBenefits")}</p>
-          </div>
-          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gray-100 group-hover:bg-gray-200 transition-colors duration-[220ms] ease-[cubic-bezier(0.32,0.72,0,1)]">
-            <Zap className="h-3.5 w-3.5 text-violet-500 fill-violet-500" strokeWidth={2} />
-          </div>
-        </Link>
-      </div>
-
-      {/* pt keeps existing 15px spacing; pb adds safe-area bottom so the branding
-          bar clears the iOS home indicator / Android gesture nav in Capacitor.
-          env() = 0px in browsers — no visual change there. */}
-      <div className="border-t border-neutral-200/50 px-4 pt-[15px] pb-[calc(15px+env(safe-area-inset-bottom,_0px))]">
-        <div className="flex items-center justify-between">
-          <Link
-            href="/explore"
-            onClick={(e) => {
-              if (isNativeApp()) { e.preventDefault(); openExternal(EXPLORE_FULL_URL) }
-              onItemClick?.()
-            }}
-            className="flex items-center gap-2 hover:opacity-80 transition-opacity"
-          >
-            <img
-              src={STORELIB_LOGO}
-              alt="Storelib"
-              className="h-[30px] w-[30px] rounded-[4px]"
-            />
-            <span className="text-[17px] font-semibold text-neutral-900">Storelib</span>
-          </Link>
-          <div className="flex items-center gap-1.5">
-            <Link
-              href="/explore"
-              onClick={(e) => {
-                if (isNativeApp()) { e.preventDefault(); openExternal(EXPLORE_FULL_URL) }
-                onItemClick?.()
-              }}
-              className="flex h-7 w-7 items-center justify-center rounded-full text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600 transition-colors cursor-pointer"
-            >
-              <Compass className="h-[19px] w-[19px]" strokeWidth={1.5} />
-            </Link>
-            <Link
-              href="/app/settings"
-              onClick={onItemClick}
-              className="flex h-7 w-7 items-center justify-center rounded-full text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600 transition-colors cursor-pointer"
-            >
-              <Settings className="h-[19px] w-[19px]" strokeWidth={1.5} />
-            </Link>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
+  /*
+    Both navs used to be declared here, inside the component, and both were
+    rebuilt from scratch on every render of this shell — see the note at the
+    top of sidebar-desktop-nav.tsx for why that was the flashing rather than
+    a matter of tidiness. The desktop rail moved out first; the phone's menu
+    followed it into sidebar-mobile-nav.tsx, which is what lets a group
+    animate open instead of being unmounted halfway through.
+  */
 
   return (
     <>
@@ -1407,50 +915,20 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         style={{ height: 'calc(68px + env(safe-area-inset-top, 0px))', touchAction: 'none', overscrollBehavior: 'none', willChange: 'transform', WebkitTransform: 'translateZ(0)', transform: 'translateZ(0)', WebkitBackfaceVisibility: 'hidden', backfaceVisibility: 'hidden' }}>
         <div className="flex h-[68px] items-center justify-between px-4 py-[10px]"
           style={{ marginTop: 'env(safe-area-inset-top, 0px)' }}>
-          {/* Left side: Hamburger */}
-          <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-9 w-9 shrink-0 rounded-xl text-white/90 hover:text-white hover:bg-white/10 transition-all duration-200 ease-out active:scale-95"
-              onClick={() => {
-                if (mobileProfileDropdownOpen) {
-                  setMobileProfileDropdownOpen(false)
-                }
-                setMobileMenuOpen(!mobileMenuOpen)
-              }}
-              aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
-            >
-              <div className="relative w-5 h-5 flex items-center justify-center">
-                <span
-                  className={cn(
-                    "absolute h-[2px] w-5 bg-current rounded-full transition-all duration-300 ease-out",
-                    mobileMenuOpen ? "rotate-45 top-[9px]" : "rotate-0 top-[4px]"
-                  )}
-                />
-                <span
-                  className={cn(
-                    "absolute h-[2px] w-5 bg-current rounded-full top-[9px] transition-all duration-300 ease-out",
-                    mobileMenuOpen ? "opacity-0 scale-x-0" : "opacity-100 scale-x-100"
-                  )}
-                />
-                <span
-                  className={cn(
-                    "absolute h-[2px] w-5 bg-current rounded-full transition-all duration-300 ease-out",
-                    mobileMenuOpen ? "-rotate-45 top-[9px]" : "rotate-0 top-[14px]"
-                  )}
-                />
-              </div>
-            </Button>
-          </div>
+          {/*
+            THE HAMBURGER IS NOT HERE ANY MORE.
 
-          {/* Profile - positioned left near hamburger */}
-          <div ref={mobileDropdownRef} className="relative flex-1 ml-1 z-[60]">
+            It sat in the top left corner, which on a 390px phone held at the
+            bottom is the one place a thumb cannot go, and it opened a 260px
+            drawer over a 390px screen. The menu is a pill at the bottom now —
+            see components/app/sidebar-mobile-nav — so this row carries only
+            what it is for: who you are, and what is waiting for you.
+          */}
+          {/* Who you are, and the store you are in */}
+          <div ref={mobileDropdownRef} className="relative flex-1 z-[60]">
             <button
               onClick={() => {
-                if (mobileMenuOpen) {
-                  setMobileMenuOpen(false)
-                }
+                if (mobileMenuOpen) setMobileMenuOpen(false)
                 setMobileProfileDropdownOpen(!mobileProfileDropdownOpen)
               }}
               className={cn(
@@ -1524,16 +1002,8 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
               <Bell className="h-5 w-5" />
               <NotificationBadge count={notificationCount} />
             </Button>
-            <Link href="/app">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-9 w-9 shrink-0 rounded-xl text-white/90 hover:text-white hover:bg-white/10"
-                aria-label="Home"
-              >
-                <Home className="h-5 w-5" />
-              </Button>
-            </Link>
+            {/* Home moved to the pill at the bottom. Two ways to the same
+                page, one of them out of reach, is one too many. */}
           </div>
         </div>
       </header>
@@ -1617,39 +1087,83 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         onePagePublished={onePagePublished}
       />
 
-      {/* Custom Mobile Sidebar — pure CSS transitions for smooth open AND close */}
-      <div
-        className={cn(
-          "fixed inset-0 z-50 md:hidden bg-black/50",
-          mobileMenuOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
-        )}
-        style={{
-          top: 'calc(68px + env(safe-area-inset-top))',
-          transitionProperty: 'opacity',
-          transitionDuration: '300ms',
-          transitionTimingFunction: 'cubic-bezier(0.32, 0.72, 0, 1)',
+      {/*
+        ── THE MENU, AND THE PILL THAT OPENS IT ─────────────────────────────
+        What was here was a 260px drawer with a dimmed strip of page beside
+        it, opened from the far corner of the screen. Both halves live in
+        components/app/sidebar-mobile-nav now, at module scope, which is what
+        lets a group animate open without being unmounted mid-transition.
+      */}
+      <MobileMenuPage
+        open={mobileMenuOpen}
+        items={mainNavItems}
+        expandedGroups={expandedGroups}
+        onToggle={toggleGroup}
+        onNavigate={(href) => {
+          setPendingHref(href)
+          startNavigationLoading()
         }}
-        onClick={() => setMobileMenuOpen(false)}
-        aria-hidden="true"
+        onForceNavigate={(href) => {
+          setPendingHref(href)
+          startNavigationLoading()
+          /* Leaves the /app router tree. In Capacitor a full reload would
+             lose the session, which lives in Preferences, not in a cookie. */
+          if (isNativePlatform()) router.push(href)
+          else window.location.href = href
+        }}
+        onClose={() => setMobileMenuOpen(false)}
+        settingsIcon={NAV_ICONS_EXTRA.settings}
+        settingsLabel={t("nav.settings")}
+        upgradeTitle={t("nav.upgradeToPro")}
+        upgradeSubtitle={t("nav.unlockBenefits")}
+        storeUnpublishedNote={
+          storeUrl && !storePublished ? "Store is unpublished. Go to Settings to publish." : undefined
+        }
+        setupSlot={
+          setupProgress && setupProgress.completed < setupProgress.total && !pathname.startsWith("/app/emails") ? (
+            <button
+              onClick={() => {
+                setMobileMenuOpen(false)
+                if (pathname === "/app") {
+                  document.getElementById("store-setup-section")?.scrollIntoView({ behavior: "smooth", block: "start" })
+                } else {
+                  router.push("/app")
+                  setTimeout(() => {
+                    document.getElementById("store-setup-section")?.scrollIntoView({ behavior: "smooth", block: "start" })
+                  }, 100)
+                }
+              }}
+              className="mt-4 flex w-full items-center gap-3 rounded-[16px] border border-violet-100/70 bg-white px-4 py-3.5 text-left"
+            >
+              <div className="relative h-10 w-10 shrink-0">
+                <SetupProgressCircle progress={setupProgressPercent} size={40} />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="text-[10px] font-bold text-violet-600">{setupProgressPercent}%</span>
+                </div>
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[14px] font-semibold text-[#1a1a2e]">Store setup</p>
+                <p className="text-[12px] text-[#6b7280]">{setupProgress.completed} of {setupProgress.total} steps done</p>
+              </div>
+              <ChevronRight className="h-4 w-4 shrink-0 text-neutral-300" />
+            </button>
+          ) : null
+        }
       />
-      <div
-        className="fixed z-50 md:hidden w-[260px] max-w-[85vw] bg-white shadow-xl border-r border-neutral-200/50"
-        style={{
-          top: 'calc(68px + env(safe-area-inset-top))',
-          bottom: 0,
-          left: 0,
-          transform: mobileMenuOpen ? 'translateX(0)' : 'translateX(-100%)',
-          transitionProperty: 'transform',
-          transitionDuration: '300ms',
-          transitionTimingFunction: 'cubic-bezier(0.32, 0.72, 0, 1)',
-          willChange: 'transform',
+      <MobileNavPill
+        menuOpen={mobileMenuOpen}
+        onToggleMenu={() => {
+          if (mobileProfileDropdownOpen) setMobileProfileDropdownOpen(false)
+          setMobileMenuOpen((v) => !v)
         }}
-        role="dialog"
-        aria-modal="true"
-        aria-label="Navigation Menu"
-      >
-        <MobileSidebarContent onItemClick={() => setMobileMenuOpen(false)} />
-      </div>
+        onCloseMenu={() => setMobileMenuOpen(false)}
+        onExplore={(e) => {
+          if (isNativeApp()) { e.preventDefault(); openExternal(EXPLORE_FULL_URL) }
+          setMobileMenuOpen(false)
+        }}
+        exploreHref="/explore"
+        homeIcon={NAV_ICONS.dashboard}
+      />
 
       {/* top and height mirror the desktop header: 58 px content row +
           env(safe-area-inset-top) padding. In a browser env() = 0 so

@@ -57,6 +57,46 @@ function main() {
   check("driven for real, with the page growing under the finger",
     /vetoedAfterPageGrew/.test(read("scripts/check-native-scroll-cost.mjs")))
 
+  /*
+    ── AND ON MOST PHONES IT IS NOT THERE AT ALL ──────────────────────────
+    Making the handler cheap could not fix the other half of the cost. A
+    non-passive touchmove listener on the document is a promise that the main
+    thread might veto the scroll, so the compositor waits for it on every
+    frame of every gesture however little the handler then does. The only way
+    to give that back is not to register it — and app/globals.css already
+    declares overscroll-behavior: none on html.capacitor, on body and on
+    .app-content-scroll, and touch-action: none in landscape.
+
+    So the listener is for the engines that cannot read those declarations.
+    The question goes to the engine, not to a user agent string.
+  */
+  console.log("\n  the listener is only registered where CSS cannot do the job")
+
+  check("the engine is asked whether it knows the property",
+    /CSS\.supports\("overscroll-behavior-y", "none"\)/.test(guard))
+  check("and it is asked before anything is registered",
+    guard.indexOf("if (cssRefusesTheBounce()) return") > 0
+      && guard.indexOf("if (cssRefusesTheBounce()) return") < guard.indexOf('addEventListener("touchstart"'))
+  check("no user agent is read to decide it",
+    !/userAgent/.test(guard))
+  check("an engine with no CSS.supports at all counts as one that needs it",
+    /catch \{[\s\S]{0,140}?return false/.test(guard))
+
+  const cost = read("scripts/check-native-scroll-cost.mjs")
+  check("and both engines are measured, not just the one this browser is",
+    /legacy=1/.test(cost) && /const legacy = await main\(true, true\)/.test(cost))
+  check("the modern path is held to zero listeners",
+    /if \(native\.nonPassiveMoveListeners > 0\)/.test(cost))
+  check("and the legacy path is held to exactly one, still vetoing both ends",
+    /if \(legacy\.nonPassiveMoveListeners !== 1\)/.test(cost)
+      && /if \(!legacy\.behaviour\.vetoedAtTop\)/.test(cost)
+      && /if \(!legacy\.behaviour\.vetoedAtBottom\)/.test(cost))
+
+  const css = read("app/globals.css")
+  check("the declarations it is standing down in favour of are really there",
+    /html\.capacitor,\s*\nhtml\.capacitor body \{\s*\n\s*overscroll-behavior: none;/.test(css)
+      && /html\.capacitor \.app-content-scroll \{\s*\n\s*overscroll-behavior: none;/.test(css))
+
   console.log("\n  and the dashboard's banner is sized for the box it goes in")
 
   const dash = read("components/app/dashboard-client.tsx")

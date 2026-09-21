@@ -69,6 +69,21 @@ execFileSync("npx", ["--no-install", "esbuild", join(root, "scripts/render-bounc
 const INSTRUMENT = `
 var NATIVE = !/[?&]native=0/.test(location.search)
 if (NATIVE) document.documentElement.classList.add("capacitor")
+/*
+  AN ENGINE THAT HAS NEVER HEARD OF overscroll-behavior.
+
+  The guard asks CSS.supports whether the property exists, and registers its
+  listener only when the answer is no — which in this Chromium is never. So
+  ?legacy=1 answers no for that one property and leaves every other answer
+  alone, which is the iOS 15 path, and the only way to measure it here.
+*/
+if (/[?&]legacy=1/.test(location.search)) {
+  var supports = CSS.supports.bind(CSS)
+  CSS.supports = function (a, b) {
+    if (String(a).indexOf("overscroll-behavior") === 0) return false
+    return supports.apply(null, arguments)
+  }
+}
 window.__m = { styleCalls: 0, handlerMs: 0, moves: 0, nonPassiveMoveListeners: 0, listeners: [] }
 
 var gcs = window.getComputedStyle.bind(window)
@@ -93,7 +108,7 @@ EventTarget.prototype.addEventListener = function (type, fn, opts) {
 }
 `
 
-async function main(nativeOn) {
+async function main(nativeOn, legacyEngine = false) {
   const profile = mkdtempSync(join(tmpdir(), "storelib-native-scroll-profile-"))
   const chrome = spawn(CHROMIUM, [
     "--headless=new", "--disable-gpu", "--no-sandbox", "--disable-dev-shm-usage",
@@ -142,7 +157,8 @@ async function main(nativeOn) {
   await send("Runtime.enable")
   await send("Emulation.setDeviceMetricsOverride", { width: 390, height: 844, deviceScaleFactor: 2, mobile: true })
   await send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 5 })
-  await send("Page.navigate", { url: `file://${join(out, "index.html")}${nativeOn ? "" : "?native=0"}` })
+  const query = [nativeOn ? null : "native=0", legacyEngine ? "legacy=1" : null].filter(Boolean).join("&")
+  await send("Page.navigate", { url: `file://${join(out, "index.html")}${query ? `?${query}` : ""}` })
   await sleep(2500)
 
   /*
@@ -264,6 +280,7 @@ writeFileSync(join(out, "index.html"), `<!doctype html><html><head><meta charset
 <script>${INSTRUMENT}</script></head><body><div id="app"></div><script src="probe.js"></script></body></html>`)
 
 const native = await main(true)
+const legacy = await main(true, true)
 const browser = await main(false)
 
 const line = (label, m) => {
@@ -278,12 +295,20 @@ const line = (label, m) => {
 }
 
 console.log("\n  The same page, the same build, one class different.\n")
-line("in the app  (html.capacitor)", native)
+line("in the app, on an engine that honours overscroll-behavior", native)
+line("in the app, on one that does not (iOS 15 and older)", legacy)
 line("in a browser (no class)", browser)
 
 const problems = []
+
+/*
+  ── ON A MODERN ENGINE THE LISTENER IS NOT THERE ───────────────────────────
+  Which is the whole point: the stylesheet refuses the same bounces, and a
+  non-passive touchmove listener on the document makes the compositor wait for
+  the main thread on every frame whatever the handler then decides.
+*/
 if (native.nonPassiveMoveListeners > 0) {
-  problems.push(`The app registers ${native.nonPassiveMoveListeners} non-passive touchmove listener${native.nonPassiveMoveListeners > 1 ? "s" : ""} on the document and the browser registers ${browser.nonPassiveMoveListeners}. A non-passive listener means the compositor may not scroll until the main thread has run it, on every frame of every gesture.`)
+  problems.push(`The app registers ${native.nonPassiveMoveListeners} non-passive touchmove listener${native.nonPassiveMoveListeners > 1 ? "s" : ""} on the document on an engine that honours overscroll-behavior, and the browser registers ${browser.nonPassiveMoveListeners}. A non-passive listener means the compositor may not scroll until the main thread has run it, on every frame of every gesture.`)
 }
 if (native.styleCalls > browser.styleCalls + 20) {
   problems.push(`One 40-move scroll forced ${native.styleCalls} style recalculations in the app against ${browser.styleCalls} in the browser. getComputedStyle in a touchmove handler is a forced recalc per call.`)
@@ -293,13 +318,21 @@ if (native.handlerMs > 8) {
 }
 
 /*
-  CHEAP IS NOT ENOUGH ON ITS OWN. The guard has one job and the refactor moved
-  every decision it makes to touchstart; these say it still makes them.
+  ── AND THE LEGACY PATH STILL DOES ITS JOB ─────────────────────────────────
+  The guard is not deleted, it is not registered where it is redundant. On the
+  engines that still need it every decision it ever made has to survive, so
+  the three boundaries and the growing page are driven against THAT column.
+  Measuring them against the modern one would only prove that CSS is doing it,
+  which synthetic touches cannot show.
 */
-if (!native.behaviour.vetoedAtTop) problems.push("At the top of the page a downward drag was NOT vetoed. That is the rubber-band the guard exists to stop.")
-if (!native.behaviour.vetoedAtBottom) problems.push("At the bottom of the page an upward drag was NOT vetoed. That is the rubber-band the guard exists to stop.")
-if (native.behaviour.vetoedMidPage) problems.push("An ordinary mid-page scroll was vetoed. The guard is blocking scrolling rather than bouncing.")
-if (native.behaviour.vetoedAfterPageGrew) problems.push("A scroll was vetoed because the page grew after the finger landed. The guard is holding a height that is no longer true, so the scroll stops answering part way down.")
+if (legacy.nonPassiveMoveListeners !== 1) problems.push(`On an engine without overscroll-behavior the guard registered ${legacy.nonPassiveMoveListeners} non-passive touchmove listeners, and it has to register exactly one. Those WebViews have nothing else stopping the bounce.`)
+if (!legacy.behaviour.vetoedAtTop) problems.push("On the legacy path, a downward drag at the top of the page was NOT vetoed. That is the rubber-band the guard exists to stop.")
+if (!legacy.behaviour.vetoedAtBottom) problems.push("On the legacy path, an upward drag at the bottom was NOT vetoed. That is the rubber-band the guard exists to stop.")
+if (legacy.behaviour.vetoedMidPage) problems.push("On the legacy path, an ordinary mid-page scroll was vetoed. The guard is blocking scrolling rather than bouncing.")
+if (legacy.behaviour.vetoedAfterPageGrew) problems.push("On the legacy path, a scroll was vetoed because the page grew after the finger landed. The guard is holding a height that is no longer true, so the scroll stops answering part way down.")
+if (native.behaviour.vetoedAtTop || native.behaviour.vetoedAtBottom || native.behaviour.vetoedMidPage || native.behaviour.vetoedAfterPageGrew) {
+  problems.push("Something vetoed a move on the modern path, where no listener should be registered at all.")
+}
 
 if (problems.length) {
   console.error(`${problems.length} finding${problems.length > 1 ? "s" : ""}:\n`)
@@ -307,4 +340,4 @@ if (problems.length) {
   console.error("")
   process.exit(1)
 }
-console.log("  The shell costs no more per scroll frame than the browser does.\n")
+console.log("  The shell costs no more per scroll frame than the browser does, and the\n  engines that still need the guard still have it.\n")

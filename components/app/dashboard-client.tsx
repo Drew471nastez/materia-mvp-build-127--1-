@@ -64,7 +64,6 @@ import { getLinksShareUrl, getLinksUrl, getStoreShareUrl, getStoreUrl, getWebsit
 import { isNativeApp } from "@/lib/platform-utils"
 import { openExternal, hapticTap } from "@/lib/native-bridge"
 import { CHART_ANIM_MS } from "@/lib/chart-motion"
-import { findScroller, fling, noFling, scrollByPx } from "@/lib/chart-scroll"
 import { useToast } from "@/hooks/use-toast"
 import { GlidingActiveDot, GlidingCursor } from "@/components/app/chart-glide"
 import { STORELIB_LOGO } from "@/lib/brand/logo"
@@ -185,15 +184,6 @@ function ChartWithLongPressTooltip({
   const lastHapticIndexRef = useRef<number | null>(null)
   /** Where the finger is now, which for a drifting thumb is not where it landed. */
   const lastTouchXRef = useRef(0)
-  /**
-   * SCROLLING THE PAGE OURSELVES, because this element told the browser not
-   * to. See the container's touch-action below for why it has to.
-   */
-  const lastTouchYRef = useRef(0)
-  const scrollerRef = useRef<HTMLElement | null>(null)
-  const scrollVelocityRef = useRef(0)
-  const lastMoveAtRef = useRef(0)
-  const stopFlingRef = useRef<() => void>(noFling)
   // Animation state — true means "play the animation now"
   const [shouldAnimate, setShouldAnimate] = useState(true)
 
@@ -202,9 +192,6 @@ function ChartWithLongPressTooltip({
     return () => {
       if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current)
       if (rafRef.current) cancelAnimationFrame(rafRef.current)
-      /* A fling outlives the component otherwise, scrolling a page it no
-         longer has any business scrolling. */
-      stopFlingRef.current()
     }
   }, [])
 
@@ -241,34 +228,25 @@ function ChartWithLongPressTooltip({
 
   /**
    * =========================================================================
-   *  THE CHART HAS TO BE ABLE TO REFUSE THE PLATFORM'S OWN LONG PRESS
+   *  THE PRESS IS OURS TO WATCH, NOT OURS TO CANCEL
    * =========================================================================
-   * This was an `onTouchStart` prop, and React registers touchstart, touchmove
-   * and wheel PASSIVELY on its root — so `preventDefault` inside one is a
-   * no-op. Measured, not assumed: check-chart-scrub reported the touchstart
-   * coming back with defaultPrevented false.
+   * This opened with e.preventDefault(), to refuse the platform's own long
+   * press recogniser for selection and the callout.
    *
-   * On a phone that is the difference between a hold and no hold. The system
-   * runs its own long-press recogniser for selection, the callout and drag,
-   * and the only way to tell it this press is ours is to cancel the
-   * touchstart. A passive listener cannot, so the system takes the press,
-   * sends a touchcancel, and the gesture is over before the finger has moved
-   * — which is a hold you have to lift out of and start again.
+   * Cancelling a touchstart also refuses the browser's scrolling for the
+   * whole gesture, which is the reason this chart had to scroll the page by
+   * hand. The callout is a CSS matter: -webkit-touch-callout: none and
+   * user-select: none on the container, both already there, are what stop
+   * it, and they stop it without taking the scroll as well.
    *
-   * Native and non-passive, registered beside the touchmove listener that is
-   * already here for exactly the same reason.
+   * The listener stays native and non-passive, because touchMoveHandler
+   * still has to be able to cancel a move once the scrub is ours, and React
+   * registers touch listeners passively on its root.
    */
   const touchStartHandler = useCallback((e: TouchEvent) => {
-    e.preventDefault()
     const touch = e.touches[0]
     touchStartPosRef.current = { x: touch.clientX, y: touch.clientY }
     lastTouchXRef.current = touch.clientX
-    lastTouchYRef.current = touch.clientY
-    /* A new touch stops the last flick, or the two fight over the scroller. */
-    stopFlingRef.current()
-    stopFlingRef.current = noFling
-    scrollVelocityRef.current = 0
-    lastMoveAtRef.current = performance.now()
     directionLockRef.current = null
     longPressTimerRef.current = setTimeout(() => {
       /**
@@ -400,29 +378,19 @@ function ChartWithLongPressTooltip({
         setActiveIndex(idx)
       } else if (dy > dx * 1.4) {
         /*
-         * Decisively vertical: a scroll. The browser will not perform it —
-         * this element is touch-action:none on purpose — so we do, from here
-         * to the lift and on into a short fling.
+         * Decisively vertical: a scroll, and the browser is already doing
+         * it. touch-action is pan-y and no move in this gesture has been
+         * cancelled, so the page is moving on the compositor. All that is
+         * left here is to record the lock, so the hold timer does not fire
+         * into a gesture that has become a scroll.
          */
         directionLockRef.current = "vertical"
         if (longPressTimerRef.current) { clearTimeout(longPressTimerRef.current); longPressTimerRef.current = null }
-        scrollerRef.current = findScroller(containerRef.current)
-        lastTouchYRef.current = touch.clientY
-        lastMoveAtRef.current = performance.now()
       }
       /* Ambiguous: decide nothing, and let the hold timer have its chance. */
     } else if (directionLockRef.current === "horizontal") {
       e.preventDefault()
       e.stopPropagation()
-    } else if (directionLockRef.current === "vertical") {
-      /* A finger moving up the screen sends the page down. */
-      const step = lastTouchYRef.current - touch.clientY
-      lastTouchYRef.current = touch.clientY
-      const now = performance.now()
-      const elapsed = now - lastMoveAtRef.current
-      if (elapsed > 0) scrollVelocityRef.current = step / elapsed
-      lastMoveAtRef.current = now
-      scrollByPx(scrollerRef.current, step)
     }
   }, [getIndexFromTouch])
 
@@ -446,10 +414,6 @@ function ChartWithLongPressTooltip({
     if (rafRef.current) {
       cancelAnimationFrame(rafRef.current)
       rafRef.current = null
-    }
-    /* A flick carries on after the finger leaves. See lib/chart-scroll. */
-    if (directionLockRef.current === "vertical") {
-      stopFlingRef.current = fling(scrollerRef.current, scrollVelocityRef.current)
     }
     touchStartPosRef.current = null
     directionLockRef.current = null
@@ -576,27 +540,46 @@ function ChartWithLongPressTooltip({
       style={{
         /**
          * =====================================================================
-         *  THE CHART OWNS THE TOUCH FROM THE MOMENT IT LANDS
+         *  THE VERTICAL AXIS BELONGS TO THE BROWSER
          * =====================================================================
-         * This was `tooltipActive ? "none" : "pan-y pinch-zoom"`, and that
-         * ternary could never do what it looked like it did.
+         * This was "none", and everything under it followed from that: the
+         * touchstart was cancelled, the vertical branch of touchMoveHandler
+         * moved the page by writing scrollTop, and a flick was carried on by
+         * a requestAnimationFrame loop in a lib/chart-scroll that no longer
+         * needs to exist.
          *
-         * The compositor reads touch-action ONCE, at touchstart, and keeps
-         * that answer for the whole gesture. So the "none" branch never
-         * applied to the gesture that set tooltipActive — only to the NEXT
-         * touch. Every hold therefore began with the chart having promised
-         * the browser it could take this gesture away as a vertical scroll,
-         * and the browser took it: the tooltip opened, the finger slid, the
-         * page scrolled instead, and the scrub was gone. Lift, tap again,
-         * and now it worked, because the second touch landed on "none".
+         * It worked and it never felt like the rest of the page. A scroll
+         * written in JavaScript runs on the main thread, begins only after
+         * twelve pixels of slop, has no momentum the system recognises and
+         * no rubber band at the ends. So a thumb travelling down the page met
+         * a 200px band where the scrolling suddenly stiffened, reported as
+         * "at some touch scroll it becomes very rigid and hard".
          *
-         * That is the whole of "hold, untap, tap, slide". It is fixed by
-         * owning the gesture from the start, which is what a scrubbable
-         * chart has to do — and the price is that a thumb dragged down this
-         * band no longer scrolls the page by itself, so the vertical branch
-         * of touchMoveHandler scrolls it by hand instead.
+         * "pan-y" gives that axis back. The browser scrolls this card the
+         * same way it scrolls the cards above and below it, on the
+         * compositor, and the chart keeps the horizontal axis, which is the
+         * one a scrub actually uses.
+         *
+         * AND THE HOLD STILL WORKS, although touch-action is latched at
+         * touchstart and cannot be changed mid gesture. A pan does not begin
+         * when a finger lands; it begins once the browser has seen enough
+         * movement in a direction it owns. Cancelling a touchmove before
+         * that point takes the whole gesture, for good:
+         *
+         *   hold        the finger is still, no pan has begun, and the first
+         *               move after the tooltip opens cancels it, so it is
+         *               ours including whatever it does next
+         *   sideways    dx clears 8px while dy is still nothing, cancelled,
+         *               so it is ours
+         *   downwards   dy clears the browser's own slop first and nothing
+         *               cancels it, so it is the browser's and it scrolls
+         *
+         * The touchstart is not cancelled any more, because cancelling it is
+         * the one thing that would refuse all three at once. It was there to
+         * refuse the platform's long press; the two lines below are what
+         * actually refuse that, and they do it without taking the scroll.
          */
-        touchAction: "none",
+        touchAction: "pan-y",
         userSelect: "none",
         WebkitUserSelect: "none",
         WebkitTouchCallout: "none",
