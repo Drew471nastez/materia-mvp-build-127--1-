@@ -1329,6 +1329,41 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
         followerCount={followerCount ?? 0}
       />
 
+      {/**
+        * ═══════════════════════════════════════════════════════════════════
+        *  PUBLISHING A PRODUCT PUBLISHES THE PAGE IT IS ON
+        * ═══════════════════════════════════════════════════════════════════
+        * This branch is a creator who has never opened the page builder, and
+        * it drew the header and then the footer. Nothing in between. A
+        * creator who signed up, made a product and pressed Publish got an
+        * avatar, a name, a tab strip and a horizon — their product existed,
+        * was published, had its own page, and was nowhere on theirs.
+        *
+        * Reported with a screenshot of exactly that, and it is the right
+        * complaint: publishing a product is the act of putting it on sale,
+        * and nobody publishes one in order to then go and design a page
+        * before anybody can see it. There is no second step to explain
+        * because there should not be one.
+        *
+        * The same grid the Products tab uses, so a page that was never
+        * arranged looks like one that was, and the day the creator does open
+        * the builder they are changing something they have already seen
+        * rather than filling in a blank.
+        *
+        * `products` here is already the published ones, newest first: the
+        * query above asks for status published and nothing else reaches this
+        * branch.
+        */}
+      {productsData.length > 0 && (
+        <AllProductsGrid
+          products={productsData}
+          creatorName={profile.display_name}
+          creatorUsername={profile.username}
+          creatorAvatarUrl={profile.avatar_url}
+          isOwner={viewerIsOwner}
+        />
+      )}
+
       <SellerFooter />
     </div>
     </>

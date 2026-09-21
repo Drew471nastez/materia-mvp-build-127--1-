@@ -29,6 +29,7 @@ const SUITES = [
   "tests/review-columns.test.ts",
   "tests/nav-drawer.test.ts",
   "tests/editor-navigation.test.ts",
+  "tests/creator-page-products.test.ts",
   "tests/header-elements.test.ts",
   "tests/site-cart.test.ts",
   "tests/cart-checkout.test.ts",

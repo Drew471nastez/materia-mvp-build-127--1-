@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useRef, useState, useCallback, useEffect, useMemo } from "react"
+import { decodeHtmlEntities } from "@/lib/html-entities"
 import ReactDOM from "react-dom"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -2666,12 +2667,20 @@ export const RichDescriptionContent = React.memo(function RichDescriptionContent
   const isPlainText = !isHtmlContent(html)
 
   if (isPlainText) {
+    /*
+      TEXT OUT OF A HTML FIELD IS STILL ENCODED. A description whose tags
+      have been stripped — pasted as plain text, or saved through something
+      that removed the markup — keeps its entities, so a live page read
+      "purchase calligraphy &nbsp; affordable" with the entity spelled out
+      mid sentence. It goes into a React text node, so anything decoded here
+      is escaped again on the way to the page and cannot become markup.
+    */
     return (
       <p
         className={cn("whitespace-pre-wrap leading-relaxed break-words", className)}
         style={{ color: textColor }}
       >
-        {html}
+        {decodeHtmlEntities(html)}
       </p>
     )
   }
