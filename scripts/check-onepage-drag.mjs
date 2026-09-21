@@ -30,6 +30,13 @@ import { join } from "node:path"
 
 const CHROMIUM = process.env.CHROMIUM ?? "/opt/pw-browsers/chromium"
 const URL_UNDER_TEST = process.env.URL ?? "https://storelib.com/satori-studio/links"
+/*
+  The page mounts a phone layout and a desktop layout at once and hides one
+  with CSS, so they are two different carousels and both have to be checked.
+  WIDTH picks which one is the visible copy.
+*/
+const WIDTHS = process.env.WIDTH ? [Number(process.env.WIDTH)] : [390, 1440]
+const HEIGHT = Number(process.env.HEIGHT ?? 900)
 const fail = (m) => { console.error(`\n${m}\n`); process.exit(1) }
 if (!existsSync(CHROMIUM)) fail(`No browser at ${CHROMIUM}.`)
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
@@ -51,48 +58,76 @@ function reachabilityFlags() {
   return flags
 }
 
-/* Finds the visible track and remembers it, so every later read is the same
-   element even after the page has re-rendered. */
+/*
+  Finds the slider and remembers it, so every later read is the same element
+  even after the page has re-rendered.
+
+  It is a scroller now, so that is what identifies it: something visible that
+  scrolls sideways and holds more than it can show. It used to be found by an
+  inline translate3d, which stopped existing when the hand-rolled drag was
+  replaced by a native scroll-snap row.
+*/
 const LOCATE = `(() => {
   const visible = (el) => el && el.offsetParent && el.getBoundingClientRect().width > 0
   let track = null
   for (const d of document.querySelectorAll("div")) {
-    if ((d.style.transform || "").startsWith("translate3d") && visible(d)) { track = d; break }
-  }
-  if (!track) {
-    /* A track that has never been written to has no inline transform yet, so
-       fall back to the shape: a flex row wider than the box that clips it. */
-    for (const d of document.querySelectorAll("div")) {
-      if (!visible(d)) continue
-      const cs = getComputedStyle(d)
-      if (cs.display === "flex" && d.scrollWidth > d.parentElement?.clientWidth + 8) { track = d; break }
-    }
+    if (!visible(d)) continue
+    const cs = getComputedStyle(d)
+    if ((cs.overflowX === "auto" || cs.overflowX === "scroll") && d.scrollWidth > d.clientWidth + 8) { track = d; break }
   }
   if (!track) return null
   window.__track = track
-  const box = track.parentElement.getBoundingClientRect()
+  const box = track.getBoundingClientRect()
   return { x: Math.round(box.left + box.width / 2), y: Math.round(box.top + box.height / 2),
            left: Math.round(box.left), width: Math.round(box.width), height: Math.round(box.height),
-           touchAction: getComputedStyle(track.parentElement).touchAction,
-           transform: track.style.transform || getComputedStyle(track).transform }
+           touchAction: getComputedStyle(track).touchAction,
+           snap: getComputedStyle(track).scrollSnapType,
+           transform: "scrollLeft " + Math.round(track.scrollLeft) }
 })()`
 
+/* Where the row sits. The scroller's own number, which is what a finger and
+   the dots and autoplay all move. */
 const X_OF = `(() => {
   const t = window.__track
-  if (!t) return null
-  const m = /translate3d\\(\\s*(-?[\\d.]+)px/.exec(t.style.transform || "")
-  if (m) return Number(m[1])
-  const c = getComputedStyle(t).transform
-  const n = c && c.startsWith("matrix") ? Number(c.split(",")[4]) : null
-  return Number.isFinite(n) ? n : null
+  return t ? Math.round(t.scrollLeft) : null
 })()`
 
-async function main() {
+/*
+  ═══════════════════════════════════════════════════════════════════════════
+   WHERE THE PICTURE IS, WHICH IS THE ONLY THING ANYBODY LOOKS AT
+  ═══════════════════════════════════════════════════════════════════════════
+  Reported after the rebuild: "the dots update but the images don't move at
+  all". scrollLeft changing is not the same as a picture moving, and reading
+  scrollLeft is how a probe reports success while the gallery sits still. So
+  this reads the on-screen position of the first slide, which is the thing
+  that has to change, and the dot the component thinks is current.
+*/
+const PIX_OF = `(() => {
+  const t = window.__track
+  if (!t || !t.children.length) return null
+  const first = t.children[0].getBoundingClientRect()
+  /*
+    THIS CAROUSEL'S OWN DOTS AND ARROWS.
+
+    The page mounts its phone layout and its desktop layout at once and lets
+    CSS hide one, so a document-wide querySelector finds the hidden copy's
+    controls first. An earlier version of this pressed those and reported that
+    the arrow moved nothing — it had pressed a button nobody can see.
+  */
+  const root = t.closest(".group") || t.parentElement
+  const dots = [...root.querySelectorAll('button[aria-label^="Go to slide"]')]
+  const active = dots.findIndex((d) => d.className.indexOf("w-6") !== -1)
+  return { slideLeft: Math.round(first.left), scrollLeft: Math.round(t.scrollLeft),
+           scrollWidth: Math.round(t.scrollWidth), clientWidth: Math.round(t.clientWidth),
+           activeDot: active }
+})()`
+
+async function main(WIDTH, TOUCH) {
   const profile = mkdtempSync(join(tmpdir(), "storelib-drag-"))
   const chrome = spawn(CHROMIUM, [
     "--headless=new", "--disable-gpu", "--no-sandbox", "--disable-dev-shm-usage",
     `--user-data-dir=${profile}`, "--remote-debugging-port=0", "--remote-allow-origins=*",
-    "--window-size=390,844", ...reachabilityFlags(), "about:blank",
+    `--window-size=${WIDTH},${HEIGHT}`, ...reachabilityFlags(), "about:blank",
   ], { stdio: ["ignore", "ignore", "pipe"] })
   const reap = () => { try { chrome.kill("SIGKILL") } catch {} }
   for (const sig of ["exit", "SIGINT", "SIGTERM"]) process.on(sig, reap)
@@ -133,7 +168,7 @@ async function main() {
   sessionId = (await send("Target.attachToTarget", { targetId, flatten: true }, null)).sessionId
   await send("Page.enable")
   await send("Runtime.enable")
-  await send("Emulation.setDeviceMetricsOverride", { width: 390, height: 844, deviceScaleFactor: 1, mobile: true, screenWidth: 390, screenHeight: 844, positionX: 0, positionY: 0 })
+  await send("Emulation.setDeviceMetricsOverride", { width: WIDTH, height: HEIGHT, deviceScaleFactor: 1, mobile: TOUCH, screenWidth: WIDTH, screenHeight: HEIGHT, positionX: 0, positionY: 0 })
   /*
     ONE COORDINATE SYSTEM, OR THE DRAG LANDS SOMEWHERE ELSE.
 
@@ -145,7 +180,7 @@ async function main() {
     device, so a touch aimed at x=265 arrived at x=1060. Scale 1 keeps the two
     the same, which is all this check needs.
   */
-  await send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 5 })
+  await send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 5 })  /* a desktop page can still be a touchscreen */
   await send("Page.navigate", { url: URL_UNDER_TEST })
 
   let box = null
@@ -172,10 +207,10 @@ async function main() {
   const fresh = await ev(`(() => {
     const t = window.__track
     if (!t) return null
-    const b = t.parentElement.getBoundingClientRect()
+    const b = t.getBoundingClientRect()
     return { x: Math.round(b.left + b.width / 2), y: Math.round(b.top + b.height / 2),
              left: Math.round(b.left), width: Math.round(b.width), height: Math.round(b.height),
-             touchAction: getComputedStyle(t.parentElement).touchAction }
+             touchAction: getComputedStyle(t).touchAction }
   })()`)
   if (fresh) box = { ...box, ...fresh }
 
@@ -193,7 +228,7 @@ async function main() {
     the page's scroll and cannot be taken back.
   */
   await ev(`(() => {
-    const box = window.__track.parentElement
+    const box = window.__track
     window.__tap = { docStart: 0, docMove: 0, boxStart: 0, boxMove: 0, cancelable: [], targets: [] }
     document.addEventListener("touchstart", (e) => { window.__tap.docStart++; window.__tap.targets.push((e.target.tagName || "?") + "." + String(e.target.className || "").slice(0, 30)) }, true)
     document.addEventListener("touchmove", (e) => { window.__tap.docMove++; if (window.__tap.cancelable.length < 4) window.__tap.cancelable.push(e.cancelable) }, true)
@@ -211,7 +246,7 @@ async function main() {
     banner, not the slider.
   */
   await ev(`(() => {
-    const b = window.__track.parentElement.getBoundingClientRect()
+    const b = window.__track.getBoundingClientRect()
     window.scrollBy(0, Math.round(b.top + b.height / 2 - window.innerHeight / 2))
     return true
   })()`)
@@ -225,7 +260,7 @@ async function main() {
     question the same way a finger does — including anything drawn on top.
   */
   const aim = await ev(`(() => {
-    const box = window.__track.parentElement
+    const box = window.__track
     const b = box.getBoundingClientRect()
     const x = Math.round(b.left + b.width * 0.7)
     const describe = (el) => el ? el.tagName + "." + String(el.className || "").slice(0, 44) : "nothing"
@@ -252,6 +287,7 @@ async function main() {
   })()`)
 
   const before = await ev(X_OF)
+  const pixBefore = await ev(PIX_OF)
   const scrollBefore = await ev("Math.round(window.scrollY)")
   /*
     THE POINT THE HIT TEST APPROVED, NOT ONE NEAR IT.
@@ -268,7 +304,7 @@ async function main() {
      moment of the touch rather than a few hundred milliseconds before it. */
   const atTouchTime = await ev(`(() => {
     const el = document.elementFromPoint(${startX}, ${y})
-    const box = window.__track.parentElement
+    const box = window.__track
     const b = box.getBoundingClientRect()
     return { hit: el ? el.tagName + "." + String(el.className || "").slice(0, 34) : "nothing",
              inside: !!(el && box.contains(el)), scrollY: Math.round(window.scrollY),
@@ -282,9 +318,24 @@ async function main() {
     await sleep(40)
     follow.push(await ev(X_OF))
   }
+  const pixDuring = await ev(PIX_OF)
   await send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] })
   await sleep(1200)
   const settled = await ev(X_OF)
+  const pixAfter = await ev(PIX_OF)
+
+  /*
+    AND THE ARROW, WHICH THE REPORT SAYS MOVES NOTHING EITHER.
+  */
+  const arrowBefore = await ev(PIX_OF)
+  const arrowPressed = await ev(`(() => {
+    const root = window.__track.closest(".group") || window.__track.parentElement
+    const b = root.querySelector('button[aria-label="Next image"]')
+    if (b) b.click()
+    return !!b
+  })()`)
+  await sleep(1400)
+  const arrowAfter = await ev(PIX_OF)
 
   /* And what the page did underneath: a slider that hands the gesture to the
      page scrolls the page instead of moving. */
@@ -331,53 +382,69 @@ async function main() {
 
   ws.close()
   reap()
-  return { box, autoplay, before, follow, settled, scrolledBy, tap, aim, autoplayAfterTouch, dgBefore, diagonal, diagonalSettled, atTouchTime, startX, y }
+  return { box, autoplay, before, follow, settled, scrolledBy, tap, aim, autoplayAfterTouch, dgBefore, diagonal, diagonalSettled, atTouchTime, startX, y, pixBefore, pixDuring, pixAfter, arrowBefore, arrowAfter, arrowPressed }
 }
 
-const r = await main()
-const problems = []
-if (r.aim.blocked)
-  problems.push(`the middle of the slider hit-tests to ${r.aim.centreHit}, not the slider — something is drawn over it and takes the touch`)
-if (r.aim.y === null)
-  problems.push("no part of the slider was reachable by a finger at all")
 const uniq = (a) => [...new Set(a.filter((n) => n !== null).map((n) => Math.round(n)))]
+const problems = []
 
-console.log(`\n${URL_UNDER_TEST}  (390x844, real touch input)\n`)
-console.log(`  slider box              ${r.box.width}x${r.box.height} at x=${r.box.left}, touch-action ${r.box.touchAction}`)
-console.log(`  autoplay over 13s       ${JSON.stringify(uniq(r.autoplay))}`)
-console.log(`  slider spans y          ${r.aim.sliderBox.top}..${r.aim.sliderBox.bottom} of a ${r.aim.viewportWidth}x${r.aim.viewport} viewport (dpr ${r.aim.dpr})`)
-console.log(`  its centre hit-tests to ${r.aim.centreHit}${r.aim.blocked ? "  <-- NOT THE SLIDER" : ""}`)
-if (r.aim.covererBox) console.log(`  that thing covers y     ${r.aim.covererBox.top}..${r.aim.covererBox.bottom}, x ${r.aim.covererBox.left}..${r.aim.covererBox.right}`)
-console.log(`  dragged at              (${r.startX}, ${r.y}); at that instant the point was ${r.atTouchTime.hit}, inside the slider: ${r.atTouchTime.inside}`)
-console.log(`  slider box then         x ${r.atTouchTime.boxLeft}..${r.atTouchTime.boxRight}, y ${r.atTouchTime.boxTop}..${r.atTouchTime.boxBottom}, scrollY ${r.atTouchTime.scrollY}`)
-console.log(`  track before the drag   ${r.before}`)
-console.log(`  follows the finger      ${JSON.stringify(r.follow.map((n) => (n === null ? null : Math.round(n))))}`)
-console.log(`  settled at              ${r.settled}`)
-console.log(`  page scrolled by        ${r.scrolledBy}px`)
-console.log(`  touches reaching it     document ${r.tap.docStart} start / ${r.tap.docMove} move, the slider's box ${r.tap.boxStart} start / ${r.tap.boxMove} move`)
-console.log(`  touchmove cancelable    ${JSON.stringify(r.tap.cancelable)}`)
-console.log(`  what the finger landed on  ${JSON.stringify(r.tap.targets)}`)
-console.log(`  autoplay after a touch  ${JSON.stringify(uniq(r.autoplayAfterTouch))}`)
-console.log(`  a slightly diagonal drag ${JSON.stringify(r.diagonal.map((n) => (n === null ? null : Math.round(n))))}`)
-console.log(`  which settled at        ${r.diagonalSettled}`)
+/*
+  BOTH COPIES, EVERY RUN.
+
+  The page mounts its phone layout and its desktop layout at the same time and
+  lets CSS hide one, so they are two separate carousels with two separate sets
+  of state. Checking one and reporting on "the slider" is how a broken copy
+  goes unnoticed — and the desktop copy is the one in the screenshot that came
+  with the second report.
+*/
+for (const WIDTH of WIDTHS) {
+  const r = await main(WIDTH, WIDTH < 768)
+  const say = (label, value) => console.log(`  ${label.padEnd(23)} ${value}`)
+  const note = (m) => problems.push(`at ${WIDTH}px: ${m}`)
+
+  console.log(`\n${URL_UNDER_TEST}  (${WIDTH}x${HEIGHT}, real touch input)\n`)
+  say("slider box", `${r.box.width}x${r.box.height} at x=${r.box.left}, touch-action ${r.box.touchAction}, snap ${r.box.snap}`)
+  say("slider spans y", `${r.aim.sliderBox.top}..${r.aim.sliderBox.bottom} of a ${r.aim.viewportWidth}x${r.aim.viewport} viewport`)
+  say("its centre hit-tests to", `${r.aim.centreHit}${r.aim.blocked ? "  <-- NOT THE SLIDER" : ""}`)
+  if (r.aim.covererBox) say("that thing covers y", `${r.aim.covererBox.top}..${r.aim.covererBox.bottom}, x ${r.aim.covererBox.left}..${r.aim.covererBox.right}`)
+  say("autoplay over 13s", JSON.stringify(uniq(r.autoplay)))
+  say("autoplay after a touch", JSON.stringify(uniq(r.autoplayAfterTouch)))
+  say("follows the finger", `scrollLeft ${JSON.stringify(r.follow.map((n) => (n === null ? null : Math.round(n))))}`)
+  say("THE PICTURE WAS AT", `x=${r.pixBefore.slideLeft}, during the drag x=${r.pixDuring.slideLeft}, after x=${r.pixAfter.slideLeft}`)
+  say("pressing the arrow", `${r.arrowPressed ? "" : "(no arrow found) "}picture x=${r.arrowBefore.slideLeft} -> ${r.arrowAfter.slideLeft}, dot ${r.arrowBefore.activeDot} -> ${r.arrowAfter.activeDot}`)
+  say("a diagonal start", JSON.stringify(r.diagonal.map((n) => (n === null ? null : Math.round(n)))))
+  say("the scroller holds", `${r.pixBefore.scrollWidth}px of content in ${r.pixBefore.clientWidth}px`)
+  say("page scrolled by", `${r.scrolledBy}px`)
+  say("touches reaching it", `the slider's box ${r.tap.boxStart} start / ${r.tap.boxMove} move`)
+
+  if (r.aim.blocked)
+    note(`the middle of the slider hit-tests to ${r.aim.centreHit}, not the slider — something is drawn over it and takes the touch`)
+  if (r.aim.y === null) note("no part of the slider was reachable by a finger at all")
+
+  /*
+    THE PICTURE HAS TO MOVE. Everything else here is a proxy for it, and the
+    second report was made of exactly that gap: the dots advanced, scrollLeft
+    advanced, and the gallery sat still.
+  */
+  if (r.pixBefore.slideLeft === r.pixDuring.slideLeft)
+    note(`the first picture stayed at x=${r.pixBefore.slideLeft} for the whole drag while scrollLeft went ${r.pixBefore.scrollLeft} -> ${r.pixDuring.scrollLeft} — the dots move and the gallery does not`)
+  if (!r.arrowPressed) note("this carousel has no next arrow to press")
+  else if (r.arrowBefore.slideLeft === r.arrowAfter.slideLeft)
+    note(`pressing the next arrow left the picture at x=${r.arrowAfter.slideLeft} (dot went ${r.arrowBefore.activeDot} -> ${r.arrowAfter.activeDot})`)
+  if (r.pixBefore.scrollWidth <= r.pixBefore.clientWidth + 8)
+    note(`the scroller holds ${r.pixBefore.scrollWidth}px in ${r.pixBefore.clientWidth}px, so there is nothing to scroll to`)
+
+  const steps = uniq(r.follow)
+  if (steps.length <= 1) note(`the row sat at ${JSON.stringify(steps)} for the whole drag — it does not follow the finger at all`)
+  else if (steps.length < 5) note(`the row took only ${steps.length} distinct positions across 12 moves — it jumps rather than follows`)
+  if (r.scrolledBy > 8) note(`the page scrolled ${r.scrolledBy}px during a horizontal drag — the gesture went to the page, not the slider`)
+  if (uniq(r.autoplay).length < 2) note("the row never moved on its own in 13 seconds — autoplay is not running")
+  if (uniq(r.autoplayAfterTouch).length < 2)
+    note(`autoplay never resumed after the page was touched — it sat at ${JSON.stringify(uniq(r.autoplayAfterTouch))} for 13 seconds`)
+  if (uniq(r.diagonal).length <= 1)
+    note(`a drag that began 8px left and 10px down moved the row not at all (${JSON.stringify(uniq(r.diagonal))})`)
+}
+
 console.log("")
-
-const steps = uniq(r.follow)
-if (steps.length <= 1)
-  problems.push(`the track sat at ${JSON.stringify(steps)} for the whole drag — it does not follow the finger at all`)
-else if (steps.length < 5)
-  problems.push(`the track took only ${steps.length} distinct positions across 12 moves — it jumps rather than follows`)
-if (r.settled !== null && r.before !== null && Math.round(r.settled) === Math.round(r.before))
-  problems.push(`the drag ended where it began (${r.settled}) — the slide did not change`)
-if (r.scrolledBy > 8)
-  problems.push(`the page scrolled ${r.scrolledBy}px during a horizontal drag — the gesture went to the page, not the slider`)
-if (uniq(r.autoplay).length < 2)
-  problems.push(`the track never moved on its own in 13 seconds — autoplay is not running`)
-if (uniq(r.autoplayAfterTouch).length < 2)
-  problems.push(`autoplay never resumed after the page was touched — it sat at ${JSON.stringify(uniq(r.autoplayAfterTouch))} for 13 seconds`)
-const dgSteps = uniq(r.diagonal)
-if (dgSteps.length <= 1)
-  problems.push(`a drag that began 8px left and 10px down moved the track not at all (${JSON.stringify(dgSteps)}) — the direction lock threw the gesture away on its first wobble`)
-
 if (problems.length) fail(problems.map((p) => `  - ${p}`).join("\n"))
-console.log("The slider follows a finger, and autoplay runs.\n")
+console.log("Both sliders follow a finger, their arrows move the pictures, and autoplay runs.\n")
