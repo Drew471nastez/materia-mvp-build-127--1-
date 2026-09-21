@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation"
 import { NavigationLoadingBar } from "./navigation-loading-bar"
 import { LanguageProvider } from "@/lib/i18n"
 import { PurchaseSyncProvider } from "@/components/checkout/purchase-sync-provider"
+import { DocumentScrollGuard } from "@/components/app/document-scroll-guard"
 
 export function AppLayoutWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
@@ -169,6 +170,8 @@ export function AppLayoutWrapper({ children }: { children: React.ReactNode }) {
         <NavigationLoadingBar />
       </Suspense>
       <PurchaseSyncProvider />
+      {/* The document is never scrolled on /app; see the file. */}
+      <DocumentScrollGuard />
       {children}
     </LanguageProvider>
   )

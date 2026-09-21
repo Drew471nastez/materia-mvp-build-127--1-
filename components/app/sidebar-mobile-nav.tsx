@@ -504,13 +504,15 @@ const GLASS: React.CSSProperties = {
     complaint, and over the dashboard's artwork that left the bar the colour
     of the artwork, with its glyphs sitting on saturated red. Asked for
     directly: "the buttons themselves don't need to be full glassmorphism
-    transparent, the bar itself doesn't need to be transparent". 70% white
-    over a blur is the material a system tab bar is made of: it reads white
-    over anything and still takes a breath of whatever is under it.
+    transparent, the bar itself doesn't need to be transparent". And then, at
+    70%, over the dark artwork it read as warm grey: "I know it's see-through
+    but I don't want it greyish in any circumstances". 90% white over a blur,
+    with the saturation boost pulled back: it reads WHITE over anything, and
+    what is under it is a breath, not a colour.
   */
-  backgroundColor: "rgba(255,255,255,0.7)",
-  backdropFilter: "blur(24px) saturate(160%)",
-  WebkitBackdropFilter: "blur(24px) saturate(160%)",
+  backgroundColor: "rgba(255,255,255,0.9)",
+  backdropFilter: "blur(24px) saturate(120%)",
+  WebkitBackdropFilter: "blur(24px) saturate(120%)",
   boxShadow:
     "0 1px 2px rgba(16,18,27,0.05), 0 8px 22px rgba(16,18,27,0.10)," +
     " inset 0 0 0 0.5px rgba(255,255,255,0.65), inset 0 0.5px 0 rgba(255,255,255,0.9)",
@@ -550,13 +552,24 @@ const GAP = 8
  * The tint is one radial gradient in the page's colour, no filter, centred
  * on the bar and gone by the halo's edge.
  */
-const HALO_LAYERS = 8
-const HALO_STEP = 5
-const HALO_BLUR = 1.4
+/**
+ * ELLIPSES, NOT STADIUMS. A stadium is a rectangle with round ends, and its
+ * top and bottom are STRAIGHT: "it should not end with a straight line, it
+ * should morph into outside of it". An ellipse has no straight edge anywhere,
+ * so the halo's boundary is a curve all the way round, and ten layers three
+ * pixels apart carrying 1.2px each turn that boundary into a gradient rather
+ * than an edge. The tint is the same ellipse, so there is one shape, not a
+ * blob inside a different shape — which is what "empty spots" was.
+ *
+ * Smaller too: "not so spread, not so big". The reach is about half.
+ */
+const HALO_LAYERS = 10
+const HALO_STEP = 3
+const HALO_BLUR = 1.2
 /** How far the halo reaches beyond the bar group: above, to the sides, below. */
-const HALO_REACH = { top: 56, side: 44, bottom: 40 }
+const HALO_REACH = { top: 34, side: 26, bottom: 26 }
 /** The page under the bar on a phone is #f8f9fa, and the tint is that colour. */
-const HALO_TINT = "rgba(248,249,250,0.45)"
+const HALO_TINT = "rgba(248,249,250,0.28)"
 const HALO_TINT_NONE = "rgba(248,249,250,0)"
 
 /**
@@ -573,7 +586,7 @@ const HALO_TINT_NONE = "rgba(248,249,250,0)"
  * satisfying" is asking for, and it is one cubic-bezier with its third
  * control point past 1.
  */
-const TRACK = `transform 110ms cubic-bezier(0.2, 0, 0, 1)`
+const TRACK = `transform 90ms cubic-bezier(0.2, 0, 0, 1)`
 const SETTLE = `transform 420ms cubic-bezier(0.32, 1.24, 0.44, 1)`
 /**
  * Under a finger the circle LIFTS a little, which is the tell of the newer
@@ -870,17 +883,21 @@ export function MobileNavPill({
             <div
               key={i}
               data-app-nav-fade-step=""
-              className="absolute rounded-full"
+              className="absolute"
               style={{
                 inset: i * HALO_STEP,
+                borderRadius: "50%",
                 backdropFilter: `blur(${HALO_BLUR}px)`,
                 WebkitBackdropFilter: `blur(${HALO_BLUR}px)`,
               }}
             />
           ))}
           <div
-            className="absolute inset-0 rounded-full"
-            style={{ background: `radial-gradient(ellipse at 50% 60%, ${HALO_TINT} 0%, ${HALO_TINT_NONE} 72%)` }}
+            className="absolute inset-0"
+            style={{
+              borderRadius: "50%",
+              background: `radial-gradient(ellipse at center, ${HALO_TINT} 0%, ${HALO_TINT_NONE} 68%)`,
+            }}
           />
         </div>
 

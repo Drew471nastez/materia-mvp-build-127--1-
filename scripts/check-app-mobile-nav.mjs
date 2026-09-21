@@ -309,7 +309,11 @@ const READ_PILL = `(() => {
         return parts.length < 4 || parts[3] >= 0.999
       }).length
       const steps = layers.filter((n) => /blur\\(/.test(getComputedStyle(n).backdropFilter || getComputedStyle(n).webkitBackdropFilter || "")).length
-      return { h: Math.round(fade.getBoundingClientRect().height), layers: layers.length, masked, opaque, steps }
+      /* A stadium has a straight top and bottom; an ellipse has no straight
+         edge anywhere. Every layer of the halo has to be the second. */
+      const straight = layers.filter((n) => getComputedStyle(n).borderRadius !== "50%").length
+      const r = fade.getBoundingClientRect()
+      return { h: Math.round(r.height), w: Math.round(r.width), layers: layers.length, masked, opaque, steps, straight }
     })(),
     targets, hits,
     scrollPadBottom: scroller ? getComputedStyle(scroller).paddingBottom : null,
@@ -690,7 +694,7 @@ const must = (ok, line, why) => { say(ok, line); if (!ok) problems.push(why) }
 console.log(`\n  The phone's navigation at ${VIEW_W}x${VIEW_H}\n`)
 console.log(`  the pill    ${shut.pill.w}x${shut.pill.h} at x=${shut.pill.x}, ${shut.pill.bottomGap}px above the bottom, radius ${shut.pill.radius}`)
 console.log(`              ${shut.pill.bg}`)
-console.log(`  the fade    ${shut.fade?.h}px tall, ${shut.fade?.steps} blur steps and a tint, ${shut.fade?.masked} masks, ${shut.fade?.opaque} opaque fills, ${shut.maskedBlurs} masked backdrop-filters`)
+console.log(`  the halo    ${shut.fade?.w}x${shut.fade?.h}, ${shut.fade?.steps} elliptical blur layers and a tint, ${shut.fade?.straight} straight edges, ${shut.fade?.masked} masks, ${shut.fade?.opaque} opaque fills`)
 console.log(`  targets     ${shut.targets.map((t) => `${t.label} ${t.w}x${t.h}`).join(", ")}`)
 console.log(`  clearance   list padded ${shut.scrollPadBottom} at the bottom; scrolled to the end the last card stops ${shut.lastCardClear}px above the pill`)
 console.log(`  the menu    ${open.covers}px tall from y=${open.top}, ${open.bg}, moves ${open.transition}`)
@@ -730,8 +734,12 @@ must(shut.hits.every((h) => h.reaches), "and a press in the middle of each one r
 must(shut.maskedBlurs === 0,
   "nothing behind the bar masks a backdrop-filter, which WKWebView paints as a flat fill",
   `${shut.maskedBlurs} element(s) carry both. On an iPhone that is a pale plate across the bottom of the screen.`)
-must(!!shut.fade && shut.fade.steps >= 6, "a halo of concentric blurs sits around the bar",
+must(!!shut.fade && shut.fade.steps >= 10, "a halo of concentric blurs sits around the bar",
   `the fade has ${shut.fade?.steps ?? 0} blur steps`)
+must(shut.fade?.straight === 0, "every layer of it is an ellipse, so nothing in it ends on a straight line",
+  `${shut.fade?.straight} layer(s) of the halo have a straight edge`)
+must(!!shut.fade && shut.fade.w <= VIEW_W - 24, "and it stops well short of the screen's sides",
+  `the halo is ${shut.fade?.w}px wide on a ${VIEW_W}px screen`)
 must(shut.fade?.masked === 0, "with no mask on any layer of it, which is the thing WKWebView cannot draw",
   `${shut.fade?.masked} layer(s) of the fade carry a mask`)
 must(shut.fade?.opaque === 0, "and no opaque fill on any layer, so nothing in it can be a plate",
@@ -745,8 +753,10 @@ const pillAlpha = Number((shut.pill.bg.match(/rgba?\([^)]*?,\s*([\d.]+)\s*\)/) ?
   system tab bar is made of. The band is 60 to 80: under it the glyphs sit on
   whatever is behind, at 100 it is a panel.
 */
-must(/^rgba?\(255, 255, 255/.test(shut.pill.bg) && pillAlpha >= 0.6 && pillAlpha <= 0.8,
-  "the bar is frosted white: readable over anything, and not a panel",
+/* 90% now: at 70% the bar read warm grey over the dark artwork. "I know it's
+   see-through but I don't want it greyish in any circumstances." */
+must(/^rgba?\(255, 255, 255/.test(shut.pill.bg) && pillAlpha >= 0.85 && pillAlpha <= 0.95,
+  "the bar is white over anything, a breath of what is under it and never grey",
   `the bar is ${shut.pill.bg}`)
 must(/blur\(/.test(shut.glass.backdrop), "and it carries its own blur, so the page is visible THROUGH it",
   `the bar's backdrop-filter is "${shut.glass.backdrop}"`)
@@ -797,9 +807,9 @@ console.log(`              on plain page: rgb(${seeThrough.aboveFade}) above the
   panel moves 0 whatever is behind it. Anything past 30 is letting the page
   through; the tint is the rest of the distance, and the tint is the point.
 */
-/* 70% frost over pure red measures 31. The floor is 20 so that reading is a
-   pass with room, and a panel, which moves 0, is still a long way under it. */
-must(seeThrough.moved >= 20,
+/* 90% white over pure red still moves a little between red and blue, and a
+   panel moves exactly 0. The floor is 10: white that is not a panel. */
+must(seeThrough.moved >= 10,
   "change what is behind the bar and the bar changes: it frosts the page, it does not hide it",
   `the same pixel moved only ${seeThrough.moved} when the colour behind it went from red to blue. A white panel would move 0`)
 must(seeThrough.aside >= 40,

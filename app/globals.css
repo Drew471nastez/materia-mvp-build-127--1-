@@ -2630,6 +2630,19 @@ html.capacitor .app-content-scroll {
   overscroll-behavior: none;
 }
 
+/* The pages that scroll in a container of their OWN (see the clearance rule
+   further down) are the ones a finger actually overscrolls, and this has to
+   sit on the element that is scrolled: it does not inherit. The JS bounce
+   guard used to catch every scrollable ancestor on its way up and now stands
+   down where CSS can do the job, so the CSS has to do the job on all of them.
+   Without this an overscroll at the top of the dashboard chained into the
+   document on iOS and left the whole page under the header. */
+html.app-layout .app-content-scroll > .page-scroll,
+html.app-layout .app-content-scroll > .dashboard-scroll-container,
+html.app-layout .app-content-scroll > .sales-scroll-container {
+  overscroll-behavior: none;
+}
+
 /* ── Keyboard-aware scroll container height ──────────────────────────────────
  *
  * When the software keyboard opens on iOS/Android (Capacitor or mobile browser),

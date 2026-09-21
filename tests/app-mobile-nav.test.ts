@@ -181,6 +181,34 @@ function main() {
     })(),
     "a page of plain cards is the one page that cannot show this, which is why it took four goes")
 
+  console.log("\n  the document itself never scrolls")
+
+  /*
+    THE ANNOUNCEMENT BAR UNDER THE HEADER. The header is fixed and the page
+    scrolls inside .app-content-scroll, so the document has nothing to
+    scroll. Then a focused input, a scrollIntoView, or the overscroll chain
+    on a phone scrolls it anyway, and everything fixed stays where it was
+    while everything in flow moves up under it: the purple bar half under
+    the header, on every /app page, on a desktop as well as a phone.
+    html { overflow: hidden } does not stop any of those. Two answers, one
+    on each side: the nested scrollers refuse to chain in CSS, and a guard
+    puts the document back the frame it moves.
+  */
+  check("the nested page scrollers refuse to hand their overscroll to the document",
+    /html\.app-layout \.app-content-scroll > \.page-scroll,\s*\n\s*html\.app-layout \.app-content-scroll > \.dashboard-scroll-container,\s*\n\s*html\.app-layout \.app-content-scroll > \.sales-scroll-container \{\s*\n\s*overscroll-behavior: none;/.test(css),
+    "overscroll-behavior does not inherit, so it has to sit on the element that scrolls")
+  check("and the shell mounts a guard that puts the document back",
+    /import \{ DocumentScrollGuard \} from "@\/components\/app\/document-scroll-guard"/.test(read("components/app/app-layout-wrapper.tsx"))
+      && /<DocumentScrollGuard \/>/.test(read("components/app/app-layout-wrapper.tsx")))
+  check("which listens rather than polls, and settles once per frame",
+    (() => {
+      const g = read("components/app/document-scroll-guard.tsx")
+      return /addEventListener\("scroll", onScroll, \{ passive: true \}\)/.test(g)
+        && /requestAnimationFrame\(settle\)/.test(g) && !/setInterval/.test(strip(g))
+    })())
+  check("with the push and the recovery measured in the dashboard probe",
+    /put back within a frame/.test(read("scripts/check-dashboard-nav.mjs")))
+
   check("and it is not rendered at all on a desktop",
     (nav.match(/md:hidden/g) ?? []).length >= 2,
     "the pill or the menu would show beside the desktop rail")
@@ -198,18 +226,20 @@ function main() {
     /const GLASS: React\.CSSProperties = \{/.test(nav)
       && /backdropFilter: "blur\(\d+px\) saturate\(\d+%\)"/.test(nav))
   /*
-    FROSTED, NOT CLEAR. The tint went down to 18% while "solid" was the
+    WHITE, NOT GREY. The tint went down to 18% while "solid" was the
     complaint, and over artwork that left the glyphs sitting on saturated
-    red. "The bar itself doesn't need to be transparent" put it back to the
-    material a system tab bar is made of: 70% white over a blur, readable
-    over anything, still taking a breath of what is under it.
+    red. "The bar itself doesn't need to be transparent" put it to 70%, and
+    over the dark cover of the dashboard 70% white reads as warm grey. "I
+    don't want it greyish in any circumstances." 90% is white over anything
+    and still, measurably, not a panel: the probe reads 16 of movement
+    between red and blue through it, where a panel reads 0.
   */
-  check("its tint is frosted white, not clear and not a panel",
+  check("its tint is white over anything, and not a panel",
     (() => {
       const a = Number((nav.match(/backgroundColor: "rgba\(255,255,255,([\d.]+)\)"/) ?? [])[1] ?? 1)
-      return a >= 0.6 && a <= 0.8
+      return a >= 0.85 && a <= 0.95
     })(),
-    "under 60% the glyphs sit on whatever is behind the bar; at 100% it is a panel")
+    "under 85% the bar goes grey over a dark page; at 100% it is a panel")
   /*
     And the only test of that claim that means anything is the photograph:
     the probe puts red behind the bar, photographs a square between two
@@ -259,23 +289,33 @@ function main() {
   /*
     The fade was six full-width strips with blurs of 1 to 6, and each strip's
     top edge was a step in radius the eye could find. It is a HALO now:
-    concentric stadiums around the bar group, every one carrying the same
-    1.4px blur, compounding toward the bar. No edge changes the radius by more
+    concentric ellipses around the bar group, every one carrying the same
+    1.2px blur, compounding toward the bar. No edge changes the radius by more
     than that, and the halo reaches nowhere near the screen's edge. Measured
-    through stripes: 255 above it, 243 at its edge, 11 beside the bar, 255 in
+    through stripes: 255 above it, 255 at its edge, 12 beside the bar, 255 in
     the left margin.
+
+    ELLIPSES, NOT STADIUMS. The first halo's layers were stadiums, and a
+    stadium has a straight top: a line 200px long where every layer's blur
+    began together. "The ending should not be that direct, it should morph."
+    An ellipse has no straight edge anywhere, so ten of them, each 3px in
+    from the last, end ten different places along a curve.
   */
-  check("the fade is a halo of concentric rounded layers, each carrying one small blur",
-    /const HALO_LAYERS = 8/.test(nav) && /const HALO_BLUR = 1\.4/.test(nav)
+  check("the fade is a halo of concentric elliptical layers, each carrying one small blur",
+    /const HALO_LAYERS = 10/.test(nav) && /const HALO_BLUR = 1\.2/.test(nav)
+      && /data-app-nav-fade-step=""[\s\S]{0,200}borderRadius: "50%"/.test(nav)
       && /inset: i \* HALO_STEP,/.test(nav)
       && /backdropFilter: `blur\(\$\{HALO_BLUR\}px\)`/.test(nav))
   check("around the bar group rather than across the screen",
     /top: -HALO_REACH\.top,/.test(nav) && /left: -HALO_REACH\.side,/.test(nav)
       && !/className="absolute inset-x-0 bottom-0"/.test(strip(nav)),
     "a full-width band is what was asked to go")
-  check("and its tint is one radial gradient in the page's own colour",
-    /const HALO_TINT = "rgba\(248,249,250,0\.45\)"/.test(nav)
-      && /radial-gradient\(ellipse at 50% 60%, \$\{HALO_TINT\} 0%/.test(nav))
+  check("and its tint is one radial gradient in the page's own colour, quieter than before",
+    /const HALO_TINT = "rgba\(248,249,250,0\.28\)"/.test(nav)
+      && /radial-gradient\(ellipse at center, \$\{HALO_TINT\} 0%/.test(nav),
+    "at 45% the tint read as a plate under the bar; 'more subtle, almost unobservable'")
+  check("with every layer of it measured as an ellipse in the probe",
+    /nothing in it ends on a straight line/.test(read("scripts/check-app-mobile-nav.mjs")))
   check("with the halo measured through stripes in the probe, including that it stops short of the edge",
     /the halo is around the bar and does not reach the screen's edge/.test(read("scripts/check-app-mobile-nav.mjs"))
       && /the blur is progressive/.test(read("scripts/check-app-mobile-nav.mjs")))
@@ -328,7 +368,7 @@ function main() {
     now; let go of it and it should arrive rather than stop.
   */
   check("it tracks a finger with no overshoot and settles with a little",
-    /const TRACK = `transform 110ms cubic-bezier\(0\.2, 0, 0, 1\)`/.test(nav)
+    /const TRACK = `transform 90ms cubic-bezier\(0\.2, 0, 0, 1\)`/.test(nav)
       && /const SETTLE = `transform 420ms cubic-bezier\(0\.32, 1\.24, 0\.44, 1\)`/.test(nav)
       && /slide\.dragging \? TRACK : SETTLE/.test(nav))
   check("and it lifts a little under the finger, which is the newer system bars' tell",
