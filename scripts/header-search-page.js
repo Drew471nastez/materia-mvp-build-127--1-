@@ -189,7 +189,27 @@
         setTimeout(function () {
           report.afterPressingTheHeader.push(panelState(host))
           reopen(function () {
-            press(document.getElementById("elsewhere"))
+            /*
+              JUST UNDER THE HEADER, FOUND BY HIT TESTING.
+
+              This used to dispatch the press straight at a div further down
+              the page, which skips the question that matters: what is
+              actually AT that point. The suggestions are drawn even when
+              empty, and their wrapper is a full-width band hanging directly
+              under the header — so the strip of page immediately below it
+              was covered by something invisible, and every press there was
+              treated as a press on the suggestions. Asking the document
+              what is at the point is the only way to see that.
+            */
+            var panel = panelIn(host)
+            var r = panel.getBoundingClientRect()
+            var at = document.elementFromPoint(
+              Math.round(r.left + r.width / 2),
+              Math.round(r.bottom + 12),
+            )
+            report.underTheHeader = report.underTheHeader || []
+            report.underTheHeader.push(at ? at.tagName + "." + String(at.className || "").slice(0, 30) : "nothing")
+            press(at)
             setTimeout(function () {
               report.afterPressingAway.push(panelState(host))
               presses(i + 1)

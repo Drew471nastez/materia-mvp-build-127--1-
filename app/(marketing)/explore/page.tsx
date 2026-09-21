@@ -189,8 +189,19 @@ export default async function ExplorePage({
   // Search filtering is now done server-side via ILIKE in the Supabase query
   const filteredProducts = productsWithCreators
 
+  /*
+    THE GROUND IS #f8f9fa, WHICH IS THE ONE THIS PRODUCT ALREADY USES.
+
+    It was #f5f5f5, and read as heavy behind a page of product pictures:
+    "too darkened, just lighten it a little". Four levels of luminance is a
+    little — the lift is felt rather than seen — and it is not a new grey.
+    Every surface under /app is already this colour, so explore agrees with
+    the rest of the product instead of being a third value nobody could
+    name. The dot ground over the top is measured against it by
+    scripts/check-ground.mjs, which reads the colour from this line.
+  */
   return (
-    <main className="explore-ground min-h-screen bg-[#f5f5f5]" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+    <main className="explore-ground min-h-screen bg-[#f8f9fa]" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
       {/* JSON-LD structured data */}
       <script
         type="application/ld+json"
