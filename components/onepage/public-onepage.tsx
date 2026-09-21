@@ -23,7 +23,7 @@ import type {
 import { normalizeSocialUrl } from "@/lib/onepage/types"
 import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { useState, useRef, useEffect, useLayoutEffect, useCallback, createContext, useContext } from "react"
+import { useState, useRef, useEffect, useCallback, createContext, useContext } from "react"
 import { Bell, X, Check, Send, Link2, ChevronLeft, ChevronRight, ExternalLink, Loader2, Download, ShoppingBag, Calendar } from "lucide-react"
 import { getLinksUrl, getLinksShareUrl } from "@/lib/url-helpers"
 import { isNativeApp } from "@/lib/platform-utils"
@@ -3227,6 +3227,45 @@ function GroupBlockRenderer({
  *    The measurement stays, because the translate still needs a real number,
  *    but at index 0 that number is 0 and nothing moves while it arrives.
  */
+/**
+ * ===========================================================================
+ *  THE SLIDER IS A SCROLLER, AND THE BROWSER DOES THE SCROLLING
+ * ===========================================================================
+ * Reported twice, the second time after a round of fixes that measured well
+ * and still did not work: "sliding smoothly with my finger left and right to
+ * move the image gallery doesn't work at all".
+ *
+ * IT WAS MEASURED WRONG. The check that passed dispatched TouchEvent objects
+ * at the element, which proves the handler runs and nothing else. A finger
+ * goes through the browser's input pipeline first — touch-action, the
+ * compositor deciding whether this gesture belongs to the page's own scroll,
+ * and whether the touchmove is still cancellable by the time JavaScript sees
+ * it. Driving real touch input through that pipeline instead
+ * (scripts/check-onepage-drag.mjs) showed every touchmove arriving with
+ * cancelable false, so the preventDefault() the old code depended on was a
+ * no-op and the page was free to move under the finger.
+ *
+ * SO THE HAND-ROLLED DRAG IS GONE. It rested on two guesses that have to be
+ * right every time:
+ *
+ *   - a direction lock decided from the first touchmove that cleared 6px. A
+ *     real swipe starts with a few pixels of wobble, and one sample that is
+ *     slightly more vertical than horizontal threw the whole gesture away,
+ *     however flat the finger travelled afterwards.
+ *   - preventDefault() on a touchmove, to stop the page scrolling. Measured
+ *     on the deployed page, it never had the chance.
+ *
+ * A native scroller has neither problem, because none of it is a guess: the
+ * browser moves the row, on the compositor, with momentum and snapping, and
+ * it follows a finger by construction. It is also what the group carousel in
+ * this same file has always been, and nobody has ever reported that one not
+ * moving.
+ *
+ * What is left in JavaScript is only what a scroller cannot do by itself:
+ * which dot is filled, what the arrows do, and autoplay. All three read and
+ * write scrollLeft, so they agree with the finger instead of competing with
+ * it.
+ */
 function PublicImageCarousel({
   images,
   renderImage,
@@ -3242,204 +3281,90 @@ function PublicImageCarousel({
   isDesktop?: boolean
   carouselView?: string
 }) {
+  const scrollerRef = useRef<HTMLDivElement>(null)
   const [currentIndex, setCurrentIndex] = useState(0)
-  const containerRef = useRef<HTMLDivElement>(null)
-  const trackRef = useRef<HTMLDivElement>(null)
-  const [containerWidth, setContainerWidth] = useState(0)
   const [isHovered, setIsHovered] = useState(false)
-  const autoplayPausedRef = useRef(false)
-  const draggingRef = useRef(false)
+  /* Autoplay stands back for a few seconds after a finger has been on it. */
+  const heldUntilRef = useRef(0)
 
   const view = parseFloat(carouselView) || 1
   const gap = view > 1 ? 8 : 6 // Always have a small gap between images
   const maxIndex = Math.max(0, images.length - Math.ceil(view))
 
-  /* The width of one slide, said once, in CSS. */
+  /*
+    The width of one slide, said once, in CSS.
+
+    It used to be measured with a ResizeObserver, which meant every slide was
+    laid out at 100% on the first painted frame and rewritten to a pixel
+    width about 135ms later: one full-width picture that snapped to the
+    1.2-up view on every load.
+  */
   const slideWidth = `calc((100% - ${gap * (Math.ceil(view) - 1)}px) / ${view})`
 
-  // Measure container width
-  useEffect(() => {
-    const el = containerRef.current
+  /* Where a slide begins, asked of the slide rather than recomputed from a
+     measured width and a gap. The browser already knows. */
+  const goToSlide = useCallback((index: number) => {
+    const el = scrollerRef.current
     if (!el) return
-    const update = () => setContainerWidth(el.offsetWidth)
-    update()
-    const ro = new ResizeObserver(update)
-    ro.observe(el)
-    return () => ro.disconnect()
-  }, [])
-
-  const itemWidth = containerWidth > 0
-    ? (containerWidth - gap * (Math.ceil(view) - 1)) / view
-    : 0
-  const stepSize = itemWidth + gap
-
-  // Track if autoplay triggered last transition for smoother animation
-  const [isAutoplayTransition, setIsAutoplayTransition] = useState(false)
-
-  const SWIPE_EASE = 'transform 0.5s cubic-bezier(0.32, 0.72, 0, 1)'
-  const AUTOPLAY_EASE = 'transform 0.8s cubic-bezier(0.4, 0, 0.15, 1)'
-
-  /* Where the track sits when nobody is touching it. The last slide is
-     right-aligned so it is never half off the edge. */
-  const restOffset = useCallback((index: number) => {
-    if (containerWidth <= 0) return 0
-    if (index >= maxIndex && maxIndex > 0) {
-      const totalContentWidth = images.length * itemWidth + (images.length - 1) * gap
-      return -(totalContentWidth - containerWidth)
-    }
-    return -(index * stepSize)
-  }, [containerWidth, itemWidth, stepSize, gap, maxIndex, images.length])
-
-  const writeTransform = useCallback((x: number, transition: string) => {
-    const el = trackRef.current
-    if (!el) return
-    el.style.transition = transition
-    el.style.transform = `translate3d(${x}px, 0, 0)`
-  }, [])
+    const target = el.children[Math.max(0, Math.min(index, images.length - 1))] as HTMLElement | undefined
+    if (!target) return
+    el.scrollTo({ left: target.offsetLeft, behavior: "smooth" })
+  }, [images.length])
 
   /*
-    React owns the resting position, and only the resting position. The
-    transform is deliberately absent from the JSX below: React never writes
-    that property, so it never overwrites what a finger just wrote.
-  */
-  const lastIndexRef = useRef(currentIndex)
-  useLayoutEffect(() => {
-    if (draggingRef.current) return
-    const animated = lastIndexRef.current !== currentIndex
-    lastIndexRef.current = currentIndex
-    /* A resize is not a slide change, so it must not be animated: the track
-       would glide sideways every time a phone's address bar collapsed. */
-    writeTransform(restOffset(currentIndex), animated ? (isAutoplayTransition ? AUTOPLAY_EASE : SWIPE_EASE) : 'none')
-  }, [currentIndex, containerWidth, isAutoplayTransition, restOffset, writeTransform])
+    WHICH SLIDE IS SHOWING IS A QUESTION FOR THE SCROLLER.
 
-  // Auto-advance slides with slower, smoother transitions
+    Read once per frame rather than per scroll event, because a touch scroll
+    on a phone fires far more of those than there are frames to draw.
+  */
+  const rafRef = useRef<number | null>(null)
+  const handleScroll = useCallback(() => {
+    if (rafRef.current !== null) return
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = null
+      const el = scrollerRef.current
+      if (!el) return
+      let nearest = 0
+      let shortest = Infinity
+      for (let i = 0; i < el.children.length; i++) {
+        const distance = Math.abs((el.children[i] as HTMLElement).offsetLeft - el.scrollLeft)
+        if (distance < shortest) { shortest = distance; nearest = i }
+      }
+      /* The last slide is right-aligned by the scroller clamping itself, so
+         several indexes share that final position. The dots only ever count
+         the positions you can actually stop at. */
+      setCurrentIndex(Math.min(nearest, maxIndex))
+    })
+  }, [maxIndex])
+
+  useEffect(() => () => { if (rafRef.current !== null) cancelAnimationFrame(rafRef.current) }, [])
+
+  // Auto-advance slides
   useEffect(() => {
     if (!autoplay || isHovered || images.length <= 1) return
     const interval = setInterval(() => {
-      if (!autoplayPausedRef.current) {
-        setIsAutoplayTransition(true)
-        setCurrentIndex(prev => prev >= maxIndex ? 0 : prev + 1)
-        setTimeout(() => setIsAutoplayTransition(false), 900)
-      }
+      if (Date.now() < heldUntilRef.current) return
+      const el = scrollerRef.current
+      if (!el) return
+      const atEnd = el.scrollLeft >= el.scrollWidth - el.clientWidth - 2
+      goToSlide(atEnd ? 0 : currentIndex + 1)
     }, 5000)
     return () => clearInterval(interval)
-  }, [autoplay, isHovered, images.length, maxIndex])
+  }, [autoplay, isHovered, images.length, currentIndex, goToSlide])
 
-  /*
-    What the touch handlers need to read at the moment of the touch, rather
-    than what was true when the listeners were attached. Kept in a ref so the
-    listeners are attached once: re-attaching them on every index change is
-    how a swipe ends up bound to a stale slide.
-  */
-  const latest = useRef({ currentIndex, maxIndex, stepSize, restOffset })
-  latest.current = { currentIndex, maxIndex, stepSize, restOffset }
-
-  useEffect(() => {
-    const el = containerRef.current
-    if (!el) return
-
-    let start: { x: number; y: number; time: number } | null = null
-    let lock: 'h' | 'v' | null = null
-    let raf: number | null = null
-
-    const onStart = (e: TouchEvent) => {
-      if (e.touches.length !== 1) return
-      start = { x: e.touches[0].clientX, y: e.touches[0].clientY, time: Date.now() }
-      lock = null
-      autoplayPausedRef.current = true
-    }
-
-    const onMove = (e: TouchEvent) => {
-      if (!start) return
-      const dx = e.touches[0].clientX - start.x
-      const dy = e.touches[0].clientY - start.y
-
-      // Lock direction on first significant movement
-      if (!lock) {
-        if (Math.abs(dx) <= 6 && Math.abs(dy) <= 6) return
-        lock = Math.abs(dx) >= Math.abs(dy) ? 'h' : 'v'
-      }
-      if (lock !== 'h') return
-
-      /* The page must hold still while the track moves. This line is the
-         reason the listener is registered with { passive: false }. */
-      e.preventDefault()
-      draggingRef.current = true
-
-      const l = latest.current
-      // Rubber band effect at edges
-      let offset = dx
-      if ((l.currentIndex <= 0 && dx > 0) || (l.currentIndex >= l.maxIndex && dx < 0)) {
-        offset = dx * 0.25
-      }
-      if (raf) cancelAnimationFrame(raf)
-      raf = requestAnimationFrame(() => {
-        raf = null
-        writeTransform(l.restOffset(l.currentIndex) + offset, 'none')
-      })
-    }
-
-    const onEnd = (e: TouchEvent) => {
-      if (raf) { cancelAnimationFrame(raf); raf = null }
-      const began = start
-      const direction = lock
-      start = null
-      lock = null
-      const wasDragging = draggingRef.current
-      draggingRef.current = false
-      if (!began) return
-
-      const l = latest.current
-      let next = l.currentIndex
-
-      if (direction === 'h' && e.changedTouches.length) {
-        const dx = e.changedTouches[0].clientX - began.x
-        const dt = Math.max(1, Date.now() - began.time)
-        const velocity = Math.abs(dx) / dt
-        const threshold = l.stepSize > 0 ? l.stepSize * 0.15 : 40
-
-        // Only advance ONE slide per swipe - lower threshold for snappier feel
-        if (velocity > 0.25 || Math.abs(dx) > threshold) {
-          if (dx < 0 && l.currentIndex < l.maxIndex) next = l.currentIndex + 1
-          else if (dx > 0 && l.currentIndex > 0) next = l.currentIndex - 1
-        }
-      }
-
-      /* Put it back where it belongs from here, not from the render: a swipe
-         that did not change the slide produces no render at all, and the
-         track would stay wherever the finger left it. */
-      if (wasDragging || next !== l.currentIndex) writeTransform(l.restOffset(next), SWIPE_EASE)
-      if (next !== l.currentIndex) setCurrentIndex(next)
-
-      setTimeout(() => { autoplayPausedRef.current = false }, 500)
-    }
-
-    el.addEventListener('touchstart', onStart, { passive: true })
-    el.addEventListener('touchmove', onMove, { passive: false })
-    el.addEventListener('touchend', onEnd)
-    el.addEventListener('touchcancel', onEnd)
-    return () => {
-      if (raf) cancelAnimationFrame(raf)
-      el.removeEventListener('touchstart', onStart)
-      el.removeEventListener('touchmove', onMove)
-      el.removeEventListener('touchend', onEnd)
-      el.removeEventListener('touchcancel', onEnd)
-    }
-  }, [writeTransform])
-
-  const goToSlide = useCallback((index: number) => {
-    setCurrentIndex(Math.max(0, Math.min(index, maxIndex)))
-  }, [maxIndex])
+  const hold = useCallback(() => { heldUntilRef.current = Date.now() + 3000 }, [])
 
   const goToPrev = useCallback((e: React.MouseEvent) => {
     e.preventDefault(); e.stopPropagation()
+    hold()
     goToSlide(currentIndex === 0 ? maxIndex : currentIndex - 1)
-  }, [currentIndex, maxIndex, goToSlide])
+  }, [currentIndex, maxIndex, goToSlide, hold])
 
   const goToNext = useCallback((e: React.MouseEvent) => {
     e.preventDefault(); e.stopPropagation()
+    hold()
     goToSlide(currentIndex >= maxIndex ? 0 : currentIndex + 1)
-  }, [currentIndex, maxIndex, goToSlide])
+  }, [currentIndex, maxIndex, goToSlide, hold])
 
   if (images.length === 0) return null
 
@@ -3448,35 +3373,51 @@ function PublicImageCarousel({
   return (
     <div
       className="relative w-full group"
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      /*
+        HOVER IS A MOUSE, AND A PHONE HAS NO MOUSE.
+
+        These were onMouseEnter/onMouseLeave. A tap on a phone fires the
+        compatibility mouse events, so the first touch anywhere on the slider
+        set isHovered — and mouseleave often never arrives, so it stayed set,
+        and the autoplay effect above returned early for the rest of the
+        visit. That is "autoplay doesn't even work on mobile": it does, until
+        you touch the page once.
+      */
+      onPointerEnter={(e) => { if (e.pointerType === "mouse") setIsHovered(true) }}
+      onPointerLeave={(e) => { if (e.pointerType === "mouse") setIsHovered(false) }}
     >
-      {/* Carousel Container - overflow hidden, no native scroll */}
+      {/* The row itself: a scroller, snapping, with its scrollbar hidden. */}
       <div
-        ref={containerRef}
-        className="w-full overflow-hidden"
-        style={{ touchAction: 'pan-y pinch-zoom' }}
+        ref={scrollerRef}
+        onScroll={handleScroll}
+        onTouchStart={hold}
+        className="w-full scrollbar-hide"
+        style={{
+          display: 'flex',
+          gap: `${gap}px`,
+          overflowX: 'auto',
+          overflowY: 'hidden',
+          scrollSnapType: 'x mandatory',
+          WebkitOverflowScrolling: 'touch',
+          scrollbarWidth: 'none',
+          msOverflowStyle: 'none',
+          /* A swipe past the last slide belongs to the slider, not to the
+             page behind it and not to the browser's back gesture. */
+          overscrollBehaviorX: 'contain',
+        }}
       >
-        <div
-          ref={trackRef}
-          style={{
-            display: 'flex',
-            gap: `${gap}px`,
-            willChange: 'transform',
-          }}
-        >
-          {images.map((img, idx) => (
-            <div
-              key={img.id || idx}
-              style={{
-                width: slideWidth,
-                flexShrink: 0,
-              }}
-            >
-              {renderImage(img, idx)}
-            </div>
-          ))}
-        </div>
+        {images.map((img, idx) => (
+          <div
+            key={img.id || idx}
+            style={{
+              width: slideWidth,
+              flexShrink: 0,
+              scrollSnapAlign: 'start',
+            }}
+          >
+            {renderImage(img, idx)}
+          </div>
+        ))}
       </div>
       {/* Navigation Arrows - visible on hover (especially for desktop) */}
       {images.length > 1 && (
@@ -3517,7 +3458,7 @@ function PublicImageCarousel({
             <button
               key={idx}
               type="button"
-              onClick={(e) => { e.preventDefault(); e.stopPropagation(); goToSlide(idx) }}
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); hold(); goToSlide(idx) }}
               className={cn(
                 "h-2 rounded-full transition-all duration-200",
                 idx === currentIndex

@@ -56,7 +56,7 @@ execFileSync("npx", ["--no-install", "esbuild", join(root, "scripts/render-onepa
   `--alias:@=${root}`, "--loader:.jsx=jsx", "--loader:.css=empty", "--loader:.svg=dataurl", "--loader:.png=dataurl"],
   { stdio: ["ignore", "ignore", "inherit"] })
 
-writeFileSync(join(out, "index.html"), `<!doctype html><html class="light"><head><meta charset="utf-8">
+writeFileSync(join(out, "index.html"), `<!doctype html><html class="light"><head><meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <style>${css}</style><style>body{margin:0}</style>
 </head><body><div id="root"></div><div style="height:2400px"></div>
 <script>window.addEventListener("error", function (e) { window.__err = String(e.message) })</script>
@@ -64,6 +64,21 @@ writeFileSync(join(out, "index.html"), `<!doctype html><html class="light"><head
 <script>${readFileSync(join(out, "probe.js"), "utf8")}</script>
 <script>${readFileSync(join(root, "scripts/onepage-stability-page.js"), "utf8")}</script>
 </body></html>`)
+
+/*
+  The same document, handed to another probe rather than measured here.
+
+  scripts/check-onepage-drag.mjs drives real touch input through the browser's
+  input pipeline, which is the only way to find out what a finger gets. It
+  needs a page to drive, and building this one twice would be two places to
+  keep in step.
+*/
+if (process.env.EMIT_HTML) {
+  const { copyFileSync } = await import("node:fs")
+  copyFileSync(join(out, "index.html"), process.env.EMIT_HTML)
+  console.log(process.env.EMIT_HTML)
+  process.exit(0)
+}
 
 const dom = execFileSync(CHROMIUM, ["--headless=new", "--no-sandbox", "--disable-gpu", "--hide-scrollbars",
   "--window-size=520,900", "--virtual-time-budget=12000", "--dump-dom", `file://${join(out, "index.html")}`],
@@ -73,13 +88,13 @@ if (!found.length) fail(`Nothing reported. ${process.env.DEBUG ? dom.slice(0, 40
 const r = JSON.parse(found[found.length - 1][1].replace(/&quot;/g, '"').replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">"))
 
 console.log("")
-console.log(`  images on the page      ${r.imgCount} (${r.avatarCopies} copies of the avatar, ${r.trackCount} carousel tracks)`)
+console.log(`  images on the page      ${r.imgCount} (${r.avatarCopies} copies of the avatar)`)
 console.log(`  avatar copies           ${r.avatarList.map((a) => `${a.filter}/${a.anim}`).join("  ")}`)
 console.log(`  carousel slide widths   ${r.trackFound ? JSON.stringify(r.itemWidths) : "(no track found)"}`)
 console.log(`  widths at insertion     ${JSON.stringify(r.bornWidths)}`)
 console.log(`  widths rewritten later  ${JSON.stringify(r.widthValuesSeen)}`)
 console.log(`  img churn on a scroll   ${r.churnOnScroll.removed} removed, ${r.churnOnScroll.added} added`)
-console.log(`  horizontal swipe        ${r.swipeCancelled === true ? "cancellable" : r.swipeCancelled === false ? "NOT cancellable" : r.swipeCancelled}`)
+console.log(`  the slider is           overflow-x ${r.overflowX}, snap ${r.snapType}, slides snap ${r.slideSnapAlign}, scrollable ${r.canScroll}`)
 if (process.env.DEBUG) console.log("  avatar copies:", JSON.stringify(r.avatarList, null, 1))
 if (process.env.DEBUG) { console.log("  imgs:", JSON.stringify(r.imgList, null, 1)); console.log("  scroll:", JSON.stringify(r.scrolled)) }
 if (r.error) console.log(`  page error              ${r.error}`)
@@ -106,8 +121,23 @@ if (r.trackFound && r.itemWidths.some((w) => w === "100%" || w === ""))
   problems.push(`a carousel slide is still laid out at 100% once the page has settled: ${JSON.stringify(r.itemWidths)}`)
 if (r.bornWidths.includes("100%"))
   problems.push(`something was born at width 100% and given a real width afterwards: ${JSON.stringify(r.bornWidths)}`)
-if (r.swipeCancelled === false)
-  problems.push("a horizontal swipe on the carousel is not cancellable, so the page scrolls underneath the drag")
+/*
+  THE SLIDER HAS TO BE A REAL SCROLLER.
+
+  Which is the whole point of the rebuild: the browser moves the row, on the
+  compositor, with momentum and snapping, so it follows a finger without any
+  of the guessing the hand-rolled drag depended on.
+*/
+if (r.trackFound) {
+  if (r.overflowX !== "auto" && r.overflowX !== "scroll")
+    problems.push(`the slider's overflow-x is ${r.overflowX}, so the browser will not scroll it`)
+  if (!/x mandatory|x proximity/.test(r.snapType || ""))
+    problems.push(`the slider does not snap: scroll-snap-type is ${r.snapType}`)
+  if (r.slideSnapAlign !== "start")
+    problems.push(`a slide's scroll-snap-align is ${r.slideSnapAlign}, so there is nothing for the scroller to stop on`)
+  if (!r.canScroll)
+    problems.push("the slider holds no more than it can show, so there is nothing to slide")
+}
 
 /* The slides have to come out at the width the arithmetic asks for, or the
    calc() that replaced the measurement is just a different wrong number. */
@@ -120,13 +150,6 @@ if (r.trackFound && r.itemPixels.length) {
 }
 
 /* And the swipe has to move the track. */
-const xOf = (m) => { const hit = /translate3d\(\s*(-?[\d.]+)px/.exec(m || ""); return hit ? Number(hit[1]) : null }
-const before = xOf(r.trackBefore)
-const after = xOf(r.trackAfter)
-if (process.env.DEBUG) console.log("  transforms:", JSON.stringify([r.trackBefore, r.trackAfter]))
-console.log(`  track moved by          ${before === null || after === null ? "(not read)" : Math.round(after - before) + "px"}`)
-if (before !== null && after !== null && after >= before - 1)
-  problems.push(`a 100px swipe left moved the track from ${before} to ${after}, which is not a slide change`)
 
 if (problems.length) fail(problems.map((p) => `  - ${p}`).join("\n"))
-console.log("The published page holds still: no image churn, no blur, slides sized once.\n")
+console.log("The published page holds still, and the slider is a scroller the browser drives.\n")

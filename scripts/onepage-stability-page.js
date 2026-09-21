@@ -11,6 +11,22 @@
     return r.width > 0 && r.height > 0
   }
   var root = document.getElementById("root")
+
+  /*
+    THE SLIDER IS A SCROLLER NOW, so this is what identifies it: a visible
+    element that scrolls sideways and holds more than it can show. It used to
+    be found by its inline translate3d, which stopped existing when the
+    hand-rolled drag was removed.
+  */
+  function findScroller() {
+    var all = document.getElementById("root").querySelectorAll("div")
+    for (var i = 0; i < all.length; i++) {
+      if (!visible(all[i])) continue
+      var cs = getComputedStyle(all[i])
+      if ((cs.overflowX === "auto" || cs.overflowX === "scroll") && all[i].scrollWidth > all[i].clientWidth + 8) return all[i]
+    }
+    return null
+  }
   /*
     The counters are set up in scripts/onepage-stability-observe.js, which is
     loaded BEFORE the bundle. It has to be: React finishes its first mount in
@@ -30,11 +46,7 @@
   setTimeout(function () {
     /* First paint has settled. Snapshot, then disturb. */
     /* The avatar is the first image the page draws that is not a slide. */
-    var track0 = null
-    var d0 = root.querySelectorAll("div")
-    for (var a = 0; a < d0.length; a++) {
-      if ((d0[a].style.transform || "").indexOf("translate3d") === 0 && visible(d0[a])) { track0 = d0[a]; break }
-    }
+    var track0 = findScroller()
     var allImgs = root.querySelectorAll("img")
     var avatar = null
     for (var b = 0; b < allImgs.length; b++) {
@@ -47,12 +59,9 @@
     }
     var avatarCs = avatar ? getComputedStyle(avatar) : null
 
-    /* The carousel track: the flex row that carries a translate3d. */
-    var track = null
+    /* The carousel: a scroller with more in it than fits. */
+    var track = findScroller()
     var divs = root.querySelectorAll("div")
-    for (var i = 0; i < divs.length; i++) {
-      if ((divs[i].style.transform || "").indexOf("translate3d") === 0 && visible(divs[i])) { track = divs[i]; break }
-    }
     var itemWidths = []
     var itemPixels = []
     if (track) {
@@ -61,7 +70,7 @@
         itemPixels.push(Math.round(track.children[k].getBoundingClientRect().width * 100) / 100)
       }
     }
-    var containerBox = track ? Math.round(track.parentElement.getBoundingClientRect().width * 100) / 100 : 0
+    var containerBox = track ? Math.round(track.getBoundingClientRect().width * 100) / 100 : 0
 
     var beforeAdded = probe.imgAdded
     var beforeRemoved = probe.imgRemoved
@@ -74,39 +83,26 @@
       var churnAdded = probe.imgAdded - beforeAdded
       var churnRemoved = probe.imgRemoved - beforeRemoved
 
-      /* And a swipe: is the horizontal touchmove cancellable at all? */
-      var container = track ? track.parentElement : null
-      var cancelled = null
-      var movedTo = null
       /*
-         The element's own transform, not the computed one. Headless Chromium
-         reports computed transform as "none" here while the inline value is
-         plainly set, and the inline value is the one the compositor uses.
-      */
-      var startedAt = track ? track.style.transform : null
-      if (container) {
-        var t = function (x, y) {
-          return new Touch({ identifier: 1, target: container, clientX: x, clientY: y })
-        }
-        try {
-          container.dispatchEvent(new TouchEvent("touchstart", { bubbles: true, cancelable: true, touches: [t(300, 300)], changedTouches: [t(300, 300)] }))
-          container.dispatchEvent(new TouchEvent("touchmove", { bubbles: true, cancelable: true, touches: [t(270, 300)], changedTouches: [t(270, 300)] }))
-          var ev = new TouchEvent("touchmove", { bubbles: true, cancelable: true, touches: [t(200, 300)], changedTouches: [t(200, 300)] })
-          container.dispatchEvent(ev)
-          cancelled = ev.defaultPrevented
-          container.dispatchEvent(new TouchEvent("touchend", { bubbles: true, cancelable: true, touches: [], changedTouches: [t(200, 300)] }))
-          /*
-            CANCELLABLE IS NOT THE SAME AS WORKING.
+        WHAT IS READ HERE IS THE SHAPE OF THE SLIDER, NOT ITS BEHAVIOUR.
 
-            A handler that calls preventDefault and then moves nothing would
-            pass the check above, so the track's own transform is read too: a
-            swipe of 100px to the left, well past the threshold, has to leave
-            it one step further along than it started.
-          */
-          movedTo = track ? track.style.transform : null
-        } catch (e) {
-          cancelled = "touch events unavailable: " + e.message
-        }
+        An assertion that a synthetic swipe leaves scrollLeft alone was tried
+        and removed: break-tested against a listener that did scrollLeft += 20
+        on every touchmove, it still reported no movement, so it could not
+        catch the thing it claimed to. A dispatched TouchEvent does not drive
+        a native scroller, and nothing dispatched can.
+
+        Behaviour under a finger is measured where a finger can be simulated
+        properly — scripts/check-onepage-drag.mjs, through the browser's own
+        input pipeline, against the deployed page. What belongs here is what
+        the markup promises: that the row is a scroller at all, that it snaps,
+        and that its slides are snap targets.
+      */
+      var snap = null
+      var slideSnap = null
+      if (track) {
+        snap = getComputedStyle(track).scrollSnapType
+        slideSnap = track.children.length ? getComputedStyle(track.children[0]).scrollSnapAlign : null
       }
 
       report({
@@ -127,7 +123,6 @@
           decoding: avatar.getAttribute("decoding"),
         } : null,
         trackFound: !!track,
-        trackCount: (function () { var n = 0; for (var y = 0; y < divs.length; y++) { if ((divs[y].style.transform || "").indexOf("translate3d") === 0) n++ } return n })(),
         avatarCopies: avatarCopies,
         avatarList: (function () {
           var l = [], q = root.querySelectorAll("img")
@@ -142,9 +137,10 @@
         widthValuesSeen: probe.widthValues,
         bornWidths: probe.bornWidths,
         churnOnScroll: { added: churnAdded, removed: churnRemoved },
-        swipeCancelled: cancelled,
-        trackBefore: startedAt,
-        trackAfter: movedTo,
+        snapType: snap,
+        slideSnapAlign: slideSnap,
+        canScroll: track ? track.scrollWidth > track.clientWidth + 8 : false,
+        overflowX: track ? getComputedStyle(track).overflowX : null,
         itemPixels: itemPixels,
         containerBox: containerBox,
         error: window.__err || null,
