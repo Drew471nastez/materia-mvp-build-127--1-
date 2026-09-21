@@ -93,6 +93,21 @@ export function KeyboardGuard() {
         const scrollContainer = findScrollableAncestor(active)
 
         if (!scrollContainer) {
+          /*
+            NOT UNDER /app. There the document is never the scroller: html
+            is overflow: hidden and DocumentScrollGuard puts it back to 0
+            the frame anything moves it. scrollIntoView ignores overflow:
+            hidden, so this fallback would start a smooth scroll of the
+            document that the guard undoes every frame for 300ms — a
+            visible shudder of everything fixed, twice per tap (once from
+            the keyboard-open transition and once from the focus timer).
+            And it is reached exactly when a sheet's content FITS, because
+            a scroller that does not overflow is not counted as one above:
+            the social-link sheet, once it sits on the keyboard, is this
+            case. A field in a box with no scroller is visible or it is
+            not by where the box is, which is what --kb-inset decides.
+          */
+          if (document.documentElement.classList.contains("app-layout")) return
           // Fallback: use native scrollIntoView for document-level scroll
           active.scrollIntoView({ block: "center", behavior: "smooth" })
           return

@@ -1,7 +1,7 @@
 "use client"
 
 import { useOnePage, OnePageProvider } from "@/lib/onepage/context"
-import { sheetAboveKeyboard } from "@/lib/ui/keyboard-safe-sheet"
+import { bottomAboveKeyboard, sheetAboveKeyboard } from "@/lib/ui/keyboard-safe-sheet"
 import { PhonePreview, MobilePreviewContent } from "./phone-preview"
 import { DesignTab } from "./tabs/design-tab"
 import { LinksTab } from "./tabs/links-tab"
@@ -755,8 +755,10 @@ function EditorLayout() {
 
   return (
     <div
-      className="flex flex-col bg-gray-50/50 fixed left-0 right-0 bottom-0 top-[calc(68px+env(safe-area-inset-top))] md:left-[240px] md:top-[58px] md:bottom-0"
-      style={{ zIndex: 30 }}
+      className="flex flex-col bg-gray-50/50 fixed left-0 right-0 top-[calc(68px+env(safe-area-inset-top))] md:left-[240px] md:top-[58px]"
+      /* The bottom edge is the keyboard's top when one is up, and the
+         screen's bottom when none is: see bottomAboveKeyboard. */
+      style={{ zIndex: 30, ...bottomAboveKeyboard() }}
     >
       <SaveNotification
         key={saveToastSequence}

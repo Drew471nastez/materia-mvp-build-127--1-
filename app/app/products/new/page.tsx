@@ -1,5 +1,6 @@
 "use client"
 
+import { sheetAboveKeyboard } from "@/lib/ui/keyboard-safe-sheet"
 import React, { useState, useEffect, useCallback, useRef, useLayoutEffect, memo } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
@@ -4993,8 +4994,9 @@ export default function NewProductPage() {
                       if (isMobileViewport) e.preventDefault()
                     }}
                     overlayClassName={isMobileViewport ? `bg-black/40 transition-opacity duration-400 ${dismissingSheet === "category" ? "opacity-0" : "opacity-100"}` : undefined}
-                    className={`fixed !top-auto !left-0 !right-0 !bottom-0 !translate-x-0 !translate-y-0 sm:!left-[50%] sm:!top-[50%] sm:!bottom-auto sm:!translate-x-[-50%] sm:!translate-y-[-50%] w-full !max-w-none sm:!max-w-2xl lg:!max-w-3xl sm:w-[calc(100%-2rem)] rounded-t-2xl sm:rounded-2xl bg-white shadow-2xl border-t sm:border p-0 h-[85vh] sm:h-auto max-h-[85vh] sm:max-h-[85vh] overflow-hidden flex flex-col ${dismissingSheet === "category" && !swipeCloseRef.current ? "animate-bottom-sheet-out" : (!dismissingSheet ? "animate-bottom-sheet-in" : "")} sm:animate-none`}
-                    style={isMobileViewport ? { willChange: 'transform', backfaceVisibility: 'hidden' } : undefined}
+                    className={`fixed !top-auto !left-0 !right-0 !translate-x-0 !translate-y-0 sm:!left-[50%] sm:!top-[50%] sm:!bottom-auto sm:!translate-x-[-50%] sm:!translate-y-[-50%] w-full !max-w-none sm:!max-w-2xl lg:!max-w-3xl sm:w-[calc(100%-2rem)] rounded-t-2xl sm:rounded-2xl bg-white shadow-2xl border-t sm:border p-0 h-[85vh] sm:h-auto max-h-[85vh] sm:max-h-[85vh] overflow-hidden flex flex-col ${dismissingSheet === "category" && !swipeCloseRef.current ? "animate-bottom-sheet-out" : (!dismissingSheet ? "animate-bottom-sheet-in" : "")} sm:animate-none`}
+                    /* The search field in here is typed into; the sheet has to sit on the keyboard. */
+                    style={isMobileViewport ? { willChange: 'transform', backfaceVisibility: 'hidden', ...sheetAboveKeyboard(0.85) } : undefined}
                     onTouchStart={(e) => handleSheetTouchStart(e, e.currentTarget as HTMLDivElement)}
                     onTouchMove={handleSheetTouchMove}
                     onTouchEnd={() => handleSheetTouchEnd("category", () => setShowCategoryModal(false))}
@@ -5769,9 +5771,9 @@ export default function NewProductPage() {
           }}
           overlayClassName={isMobileViewport ? `bg-black/40 transition-opacity duration-400 ${dismissingSheet === "unsaved" ? "opacity-0" : "opacity-100"}` : undefined}
           className={isMobileViewport
-            ? `fixed !top-auto !left-0 !right-0 !bottom-0 !translate-x-0 !translate-y-0 w-full !max-w-none rounded-t-2xl rounded-b-none border-x-0 border-b-0 p-0 max-h-[70vh] overflow-hidden flex flex-col ${dismissingSheet === "unsaved" && !swipeCloseRef.current ? "animate-bottom-sheet-out" : (!dismissingSheet ? "animate-bottom-sheet-in" : "")}`
+            ? `fixed !top-auto !left-0 !right-0 !translate-x-0 !translate-y-0 w-full !max-w-none rounded-t-2xl rounded-b-none border-x-0 border-b-0 p-0 max-h-[70vh] overflow-hidden flex flex-col ${dismissingSheet === "unsaved" && !swipeCloseRef.current ? "animate-bottom-sheet-out" : (!dismissingSheet ? "animate-bottom-sheet-in" : "")}`
             : "sm:max-w-md mx-4"}
-          style={isMobileViewport ? { willChange: 'transform', backfaceVisibility: 'hidden' } : undefined}
+          style={isMobileViewport ? { willChange: 'transform', backfaceVisibility: 'hidden', ...sheetAboveKeyboard(0.7) } : undefined}
           onTouchStart={(e) => isMobileViewport && handleSheetTouchStart(e, e.currentTarget as HTMLDivElement)}
           onTouchMove={(e) => isMobileViewport && handleSheetTouchMove(e)}
           onTouchEnd={() => isMobileViewport && handleSheetTouchEnd("unsaved", () => setShowExitDialog(false))}
