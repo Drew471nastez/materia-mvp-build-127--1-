@@ -135,6 +135,17 @@ function main() {
 
   check("the panel plays a move, and it has a direction", /\.wb-sheet-panel\[data-dir="in"\]/.test(css) && /\.wb-sheet-panel\[data-dir="back"\]/.test(css))
   check("they are different moves", /@keyframes wb-panel-in/.test(css) && /@keyframes wb-panel-back/.test(css))
+  /*
+    AND FAR ENOUGH TO READ AS ONE. It was ten pixels, which across a panel
+    the width of a phone is a nudge: what you saw was the old panel vanishing
+    and the new one already in place, reported twice as the move back being
+    "too direct". The numbers are pinned because the point of them is that
+    they are not two or three.
+  */
+  check("far enough that the eye follows it",
+    /translate3d\(26px, 0, 0\)/.test(css) && /translate3d\(-26px, 0, 0\)/.test(css))
+  check("and long enough, without being a slide across the sheet",
+    (css.match(/wb-panel-(in|back) 280ms/g) ?? []).length === 2)
   check("nothing moves when reduced motion is asked for", /prefers-reduced-motion: reduce\)\s*\{\s*\n\s*\.wb-sheet-panel\[data-dir="in"\]/.test(css))
   check(
     "the direction is a depth, taken when the panel changes",
