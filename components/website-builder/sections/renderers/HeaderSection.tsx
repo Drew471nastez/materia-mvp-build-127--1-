@@ -365,11 +365,39 @@ function HeaderSearchPanel({
         willChange: "opacity, transform",
       }}
     >
-      {/* The header's own row: full height, vertically centred, and the one
-          box that clips, which is all the clipping this needs. */}
+      {/*
+        The header's own row: full height, vertically centred, and the one
+        box that clips, which is all the clipping this needs.
+
+        ═══════════════════════════════════════════════════════════════════
+         AND NOT THE HEADER'S VERTICAL PADDING, WHICH IS WHY THIS SHIPPED
+        ═══════════════════════════════════════════════════════════════════
+        `innerStyle` carries the header's own top and bottom padding, and it
+        was spread here as an inline style — which beats the `py-2` class it
+        was sitting beside, silently.
+
+        That padding is a different number in the two places this renders.
+        In the editor the header is drawn for one device and the padding is
+        on the row, so this row got it too, the field was laid out inside
+        the padding, and everything lined up. PUBLISHED there is no device
+        mode: both shells are rendered and each carries its own padding, so
+        this row's padding is zero and the field was laid out against the
+        header's whole height instead.
+
+        So the editor showed it correct and the site showed it broken, which
+        is how a field stuck to the top of a 104px header with its own
+        magnifier floating 36px below it reached a published site and was
+        reported with a screenshot.
+
+        The panel is a layer over the header. What it needs is the header's
+        WIDTH and its horizontal padding, so the field lines up with the
+        logo above it, and its own height to centre one field in. The
+        vertical padding is the header content's, not this row's, and taking
+        it made the two paths one.
+      */}
       <div
-        className={cn(widthClass, paddingClass, "flex h-full w-full items-center overflow-hidden py-2")}
-        style={{ ...innerStyle, ...widthStyle }}
+        className={cn(widthClass, paddingClass, "flex h-full w-full items-center overflow-hidden")}
+        style={{ ...innerStyle, paddingTop: 0, paddingBottom: 0, ...widthStyle }}
       >
         {/*
           NOT AS WIDE AS THE HEADER. A header set to full width is a header
@@ -378,14 +406,38 @@ function HeaderSearchPanel({
           It stops at a reading width and sits in the middle, whatever the
           header does, which is what the field in the reference does.
         */}
-        {/* `items-stretch`, so the field's height comes from the row rather
-            than from a percentage. See the note on the input. */}
-        <div className="relative mx-auto flex h-full w-full max-w-[720px] items-stretch gap-2">
+        {/*
+          `items-center`. It was `items-stretch`, and that is the second
+          half of the same bug: the form stretched to the row, the field
+          stretched to the form and was then trimmed to 44px — and a
+          stretched box whose height is capped keeps its TOP edge, so the
+          field sat at the top of the header while the magnifier, which is
+          positioned at 50% of the form that really did stretch, and the
+          close button, centred in the row, both stayed on the middle line.
+          Three things, three different answers to "where is the middle".
+
+          Centred, there is one answer: the form is the field's height and
+          is centred, the magnifier is at 50% of the form, and the close
+          button is centred in the same row. The header cannot grow because
+          the form is capped, and it cannot overflow because the cap is a
+          `min()` against the room there is.
+        */}
+        <div className="relative mx-auto flex h-full w-full max-w-[720px] items-center gap-2">
           <form
             action="/search"
             method="get"
             role="search"
             className="relative flex flex-1 min-w-0"
+            /*
+              44px, or whatever the row leaves after 8px of clearance, and
+              the smaller of the two. The percentage resolves here because
+              the box above it has `h-full` of a row whose height comes from
+              the panel's `inset-0` — a definite height all the way up. It
+              did not resolve on the input, which was a percentage inside a
+              form that was itself sized by a percentage on a flex item, and
+              that is why two earlier attempts fell through to the floor.
+            */
+            style={{ height: "min(44px, calc(100% - 8px))" }}
             onSubmit={(e) => {
               if (!onEditorNavigate) return
               e.preventDefault()
@@ -403,34 +455,17 @@ function HeaderSearchPanel({
               placeholder={placeholder}
               aria-label={placeholder}
               autoComplete="off"
-              className="hdr-search-field w-full self-stretch bg-transparent outline-none"
+              className="hdr-search-field h-full w-full bg-transparent outline-none"
               style={{
                 /* 16px or iOS zooms the page when the field takes focus, and
                    a header that scales up under a keyboard never recovers. */
                 fontSize: 16,
                 padding: "0 40px 0 14px",
                 /*
-                  STRETCHED, NOT SIZED BY A PERCENTAGE.
-
-                  Two attempts at this were measured at 28px in a 60px
-                  header before the cause was clear. `min(44px, 100%)` is
-                  dropped outright when the percentage cannot resolve, and
-                  plain `height: 100%` does not resolve either, because the
-                  form it would measure is itself sized by a percentage on
-                  a flex item — which browsers treat as indefinite. Both
-                  fell through to the floor.
-
-                  `align-self: stretch` needs no resolution at all: the
-                  field takes the row's height because it is a flex item in
-                  a stretched row. The cap keeps a roomy header from growing
-                  a comically tall field, and a tighter header shrinks it
-                  rather than overflowing.
+                  The field is the form, and the form has a height. Nothing
+                  here resolves a percentage against something indefinite,
+                  which is what the last three versions of this were doing.
                 */
-                /* The row is sized by its tallest child, and that was the
-                   36px close button. The field asks for its own height, so
-                   it is the one that decides. */
-                maxHeight: 44,
-                minHeight: 40,
                 color: scheme.heading,
                 caretColor: scheme.heading,
                 /* The browser's own clear control and focus ring take the

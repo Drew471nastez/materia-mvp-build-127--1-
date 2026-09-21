@@ -103,8 +103,12 @@ function main() {
     /window\.setTimeout\(async \(\) =>/.test(header) && /ctrl\.abort\(\)/.test(header))
   check("View all goes to the search page with the words",
     /`\/search\?q=\$\{encodeURIComponent\(q\.trim\(\)\)\}`/.test(header))
+  /* `items-center` now, not `items-stretch`: stretching the field and then
+     capping it is what left it at the top of a tall header with its own
+     magnifier below it. See tests/header-search.test.ts. The cap on the
+     width, which is what this check is about, is unchanged. */
   check("the field is not as wide as a full-width header",
-    /max-w-\[720px\] items-stretch gap-2/.test(header))
+    /max-w-\[720px\] items-center gap-2/.test(header))
   check("published it asks by creator, in the editor by install, and with neither it says nothing",
     /creatorId \? `creator=/.test(header) && /installId \? `install=/.test(header) && /if \(!askAs \|\| !term\)/.test(header) &&
       /searchParams\.get\("install"\)/.test(read("app/api/website-builder/search/route.ts")))
@@ -182,9 +186,13 @@ function main() {
   /* Still exactly the header row. The clip that enforces it moved onto the
      row itself, because on the box around it it was also cutting the
      suggestions that hang below the header. See below. */
+  /* The `py-2` is gone: the header's own vertical padding was landing on
+     this row as an inline style and beating it, and the two were a
+     different number published from in the editor. The field is centred and
+     capped instead, which needs no padding here at all. */
   check("the panel is exactly the header row, so it cannot hang below it",
     /className="absolute inset-0 z-\[70\]"/.test(header)
-      && /"flex h-full w-full items-center overflow-hidden py-2"/.test(header))
+      && /"flex h-full w-full items-center overflow-hidden"/.test(header))
 
   console.log("\n  a card's picture fills its box")
 
@@ -207,8 +215,26 @@ function main() {
     /document\.addEventListener\("pointerdown", onDown\)/.test(header) && /panelRef\.current\?\.contains\(el\)/.test(header))
   check("and the listener is taken off again",
     /document\.removeEventListener\("pointerdown", onDown\)/.test(header))
-  check("the field is a little taller, and sized by stretching rather than a percentage",
-    /self-stretch/.test(header) && /maxHeight: 44,/.test(header) && !/height: "min\(44px/.test(header))
+  /*
+    THIS CHECK USED TO PIN THE BUG.
+
+    It required `self-stretch` and `maxHeight: 44` and forbade
+    `height: min(44px...)`, because an earlier `min(44px, 100%)` had fallen
+    through to a floor: the percentage could not resolve inside a form that
+    was itself sized by a percentage on a flex item.
+
+    The percentage was never the problem — the indefinite parent was. The
+    form has a definite height now, so the field can simply fill it, and the
+    stretch-then-cap that this pinned is exactly what put the field at the
+    top of a 104px header with its magnifier floating below it on a
+    published site. What the check is really for is that the field has ONE
+    definite height, so that is what it says now.
+  */
+  check("the field's height is the form's, capped, and resolves against something definite",
+    /style=\{\{ height: "min\(44px, calc\(100% - 8px\)\)" \}\}/.test(header)
+      && /className="hdr-search-field h-full w-full/.test(header)
+      && !/self-stretch/.test(header.replace(/\/\*[\s\S]*?\*\//g, ""))
+      && !/maxHeight: 44,/.test(header))
 
   console.log("\n  a field in the canvas can be typed in")
 
@@ -259,7 +285,7 @@ function main() {
   check("the panel itself clips nothing",
     /data-self-nav=""[\s\S]{0,2200}?className="absolute inset-0 z-\[70\]"/.test(header))
   check("the row it contains is what clips",
-    /cn\(widthClass, paddingClass, "flex h-full w-full items-center overflow-hidden py-2"\)/.test(header))
+    /cn\(widthClass, paddingClass, "flex h-full w-full items-center overflow-hidden"\)/.test(header))
   check("and the suggestions are hung off the panel, under the field",
     /cn\(widthClass, paddingClass, "absolute left-0 right-0 top-full w-full"\)/.test(header)
       && /className="relative mx-auto w-full max-w-\[720px\] pr-11"/.test(header))
