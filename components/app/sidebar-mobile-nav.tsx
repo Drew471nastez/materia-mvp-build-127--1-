@@ -647,8 +647,14 @@ const HALO_REACH = { top: 30, below: 44, side: 56 }
 const HALO_TINT = "rgba(248,249,250,0.18)"
 const HALO_TINT_NONE = "rgba(248,249,250,0)"
 /** How far the bottom of the pill sits above the bottom of the screen. Read
-    once, by the pill and by the halo, so the two cannot disagree. */
-const PILL_LIFT = "6px + env(safe-area-inset-bottom, 0px)"
+    once, by the pill and by the halo, so the two cannot disagree.
+
+    6px above the safe area read as floating; the reference sits closer to the
+    home indicator than that. 2px was tried and the probe refused it — it
+    holds the pill to at least 4px off the bottom edge, which is the room a
+    thumb needs to press the outer buttons without catching the edge. 4px is
+    that floor, and two pixels lower than it was. */
+const PILL_LIFT = "4px + env(safe-area-inset-bottom, 0px)"
 
 /**
  * WHERE THE PILL DOES NOT GO.
@@ -1055,11 +1061,24 @@ export function MobileNavPill({
             }}
           />
         ))}
+        {/*
+          ── THE WHITE FADE ──────────────────────────────────────────────────
+          A band, not an oval. It was a radial gradient inset in the same
+          ellipse as the blur layers, which meant the page's colour came up
+          in the MIDDLE and fell away towards the sides — over a picture that
+          reads as a soft patch sitting behind the bar rather than the bottom
+          of the screen quietly turning into page.
+
+          Asked for it to be smooth, with a reference: content dissolving
+          evenly across the full width as it goes down. That is one vertical
+          ramp — nothing through the top third, the page's colour by the
+          bottom edge — and it needs no border radius, because a gradient
+          that reaches zero has no edge to round.
+        */}
         <div
           className="absolute inset-0"
           style={{
-            borderRadius: "50%",
-            background: `radial-gradient(ellipse at center, ${HALO_TINT} 0%, ${HALO_TINT_NONE} 68%)`,
+            background: `linear-gradient(to bottom, ${HALO_TINT_NONE} 0%, ${HALO_TINT_NONE} 30%, ${HALO_TINT} 100%)`,
           }}
         />
       </div>

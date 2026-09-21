@@ -310,9 +310,21 @@ const READ_PILL = `(() => {
         return parts.length < 4 || parts[3] >= 0.999
       }).length
       const steps = layers.filter((n) => /blur\\(/.test(getComputedStyle(n).backdropFilter || getComputedStyle(n).webkitBackdropFilter || "")).length
-      /* A stadium has a straight top and bottom; an ellipse has no straight
-         edge anywhere. Every layer of the halo has to be the second. */
-      const straight = layers.filter((n) => getComputedStyle(n).borderRadius !== "50%").length
+      /*
+        A stadium has a straight top and bottom; an ellipse has no straight
+        edge anywhere. Every BLUR layer of the halo has to be the second —
+        those are the rings, and a straight one would draw a line across the
+        screen where its blur stops.
+
+        The tint is not one of them and is not counted. It used to be an
+        ellipse too, which is why this could once look at everything inside
+        the halo; it is a full-width vertical ramp now, and it has no edge to
+        round because it reaches zero opacity at the top and runs off the
+        screen at the sides and the bottom. Counting it here reported a
+        straight edge that nobody can see.
+      */
+      const straight = [...fade.querySelectorAll("[data-app-nav-fade-step]")]
+        .filter((n) => getComputedStyle(n).borderRadius !== "50%").length
       /* The blur each layer carries, outermost first. */
       const radii = layers
         .map((n) => /blur\\(([\\d.]+)px\\)/.exec(getComputedStyle(n).backdropFilter || getComputedStyle(n).webkitBackdropFilter || ""))
@@ -849,20 +861,44 @@ console.log("")
 console.log(`  the halo    stripes read ${blur.above} of contrast above it, ${blur.top} at its edge, ${blur.bottom} beside the bar, ${blur.margin} in the left margin, ${blur.under} under the pill\n`)
 must(blur.above >= 120, "the stripe pattern is sharp where nothing is over it, so the test can see",
   `only ${blur.above} of contrast above the fade: the stripes are not being drawn sharply enough to measure against`)
-must(blur.margin <= blur.above * 0.9, "the halo reaches the screen's left and right edges rather than stopping in an arc short of them",
-  `the stripes read ${blur.margin} at the screen's left edge against ${blur.above} above the halo: the page is untouched there, so the halo stops short`)
+/*
+  ═══════════════════════════════════════════════════════════════════════════
+   REACH IS GEOMETRY. STRENGTH IS A SEPARATE QUESTION, ASKED SEPARATELY.
+  ═══════════════════════════════════════════════════════════════════════════
+  This asked whether the stripes at the screen's left edge were blurred to at
+  most 90% of their sharp contrast, and the two below asked for 45% beside the
+  bar and under the pill. Written when the brief was "not that potent, but
+  more than visible", they were a fair proxy: a halo that stopped short of the
+  edge left the page there untouched, and the reading caught it.
+
+  The brief has since gone the other way five times over — 2.4 to 1.2 to 0.9
+  to 0.6 to 0.35, each asked for and each measured — and at 0.35 the proxy
+  breaks. The halo still reaches the edge, and the stripes there still read
+  close to sharp, because the outer layers now carry almost no blur. The
+  reading no longer distinguishes "stops short" from "is gentle", so as a
+  test of reach it has stopped working.
+
+  Reach is therefore measured as reach: the halo's own box against the screen.
+  Strength keeps one floor, so it cannot quietly become nothing at all, and
+  that floor is deliberately loose because how strong it should be is a
+  decision that has been revisited five times and will be again.
+*/
+must(shut.fade.w >= VIEW_W, "the halo spans the screen's full width rather than stopping in an arc short of the edges",
+  `the halo is ${shut.fade.w}px wide on a ${VIEW_W}px screen`)
 /* At the bar's own height the ellipse is at its widest, so every layer still
    covers the screen's edge and the reading there matches the reading at the
    bar. The fade is vertical and at the four corners, which is what the two
    readings above the halo prove; what this one guards is that the edge is
    never blurred HARDER than the middle, which would mean the shape had
    inverted. */
-must(blur.under <= blur.above * 0.45, "and it covers the strip under the pill, where a home indicator sits",
-  `the stripes still read ${blur.under} of contrast under the pill against ${blur.above} above the halo: the blur stops short of the bottom`)
+must(blur.under < blur.above, "and it covers the strip under the pill, where a home indicator sits",
+  `the stripes read ${blur.under} under the pill and ${blur.above} above the halo: nothing at all is over that strip`)
 must(blur.margin >= blur.bottom, "as strongly there as at the bar itself, and never more",
   `the screen's edge reads ${blur.margin} and the bar ${blur.bottom}: the halo is strongest at the screen's edge, which is not the shape it is meant to be`)
-must(blur.bottom <= blur.above * 0.45, "beside the bar the page is softened, gently",
-  `the stripes still read ${blur.bottom} of contrast beside the bar against ${blur.above} above the halo`)
+/* The one strength floor. Not a target — a guard against the halo becoming a
+   no-op that nobody notices until a screenshot arrives. */
+must(blur.bottom <= blur.above * 0.95, "beside the bar the page is softened, however gently",
+  `the stripes read ${blur.bottom} beside the bar against ${blur.above} above the halo: the halo is doing nothing`)
 must(blur.top > blur.bottom + 10, "and the blur is progressive: lighter at the top of the fade than at the bottom",
   `the top of the fade reads ${blur.top} and the bottom ${blur.bottom}, which is a flat blur with an edge rather than a fade`)
 must(blur.top >= blur.above * 0.7, "with the halo's edge barely touched, so there is no line where it begins",
