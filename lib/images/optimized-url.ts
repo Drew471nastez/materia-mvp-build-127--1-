@@ -78,6 +78,36 @@ export const PORTRAIT_QUALITY = 88
  *   of the source file. The ×2 for retina is applied here so callers do not
  *   have to remember it.
  */
+/**
+ * A srcSet whose descriptors are the widths of the FILES.
+ *
+ * That is the only thing a `w` descriptor may be, and it is easy to get
+ * wrong because the number you have in hand is usually the DISPLAY width.
+ * The laptop carousel on the home page had:
+ *
+ *     `${getOptimized(url, 240)} 360w, ${getOptimized(url, 380)} 600w`
+ *
+ * where `getOptimized(url, 380)` produces a file 828px wide. So the browser
+ * was choosing between two candidates by numbers neither of them was, and on
+ * a 2x screen it settled on an 828px file for a slot painting 1600 device
+ * pixels — half the resolution the screen could show, from a 2718px original.
+ *
+ * Give it honest descriptors and an honest `sizes` and it picks correctly at
+ * every width and pixel ratio without anyone having to work it out.
+ *
+ * @param widths File widths to offer. Members of NEXT_IMAGE_WIDTHS only;
+ *   anything else is a 400 from the optimizer rather than a picture, so
+ *   strays are dropped instead of shipped.
+ */
+export function optimizedSrcSet(src: string, widths: number[], quality: number = PORTRAIT_QUALITY): string {
+  if (!src || !isOptimizableImage(src)) return ""
+  return widths
+    .filter((w) => NEXT_IMAGE_WIDTHS.includes(w))
+    .sort((a, b) => a - b)
+    .map((w) => `/_next/image?url=${encodeURIComponent(src)}&w=${w}&q=${quality} ${w}w`)
+    .join(", ")
+}
+
 export function optimizedImageUrl(src: string, displayWidth: number, quality: number = PORTRAIT_QUALITY): string {
   if (!src) return src
   // Already inline, already a local preview, or already optimised.
