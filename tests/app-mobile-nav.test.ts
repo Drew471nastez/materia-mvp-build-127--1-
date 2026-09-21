@@ -136,7 +136,7 @@ function main() {
   check("the phone's scroll container is padded for it",
     /@media \(max-width: 767px\) \{\s*\n\s*html\.app-layout \.app-content-scroll \{\s*\n\s*padding-bottom: calc\(104px \+ env\(safe-area-inset-bottom, 0px\)\);/.test(css))
   check("the pill clears the home indicator",
-    /const PILL_LIFT = "4px \+ env\(safe-area-inset-bottom, 0px\)"/.test(nav)
+    /const PILL_LIFT = "max\(4px, env\(safe-area-inset-bottom, 0px\)\)"/.test(nav)
       && /paddingBottom: `calc\(\$\{PILL_LIFT\}\)`/.test(nav))
   /*
     ── THE PAGE HAS TO BE ABLE TO GET PAST IT ──────────────────────────────
@@ -371,8 +371,8 @@ function main() {
     /const HALO_LAYERS = 12/.test(nav)
       && /data-app-nav-fade-step=""[\s\S]{0,200}borderRadius: "50%"/.test(nav)
       && /inset: i \* HALO_STEP,/.test(nav))
-  check("whose blur ramps from nothing at the outermost to 0.35px at the innermost",
-    /const HALO_BLUR = 0\.35/.test(nav)
+  check("whose blur ramps from nothing at the outermost to 0.45px at the innermost",
+    /const HALO_BLUR = 0\.45/.test(nav)
       && /const haloBlur = \(i: number\) => Math\.round\(HALO_BLUR \* \(\(i \+ 1\) \/ HALO_LAYERS\) \*\* 2/.test(nav)
       && /backdropFilter: `blur\(\$\{haloBlur\(i\)\}px\)`/.test(nav),
     "the same blur on every layer puts an edge on the outermost one")
@@ -396,7 +396,7 @@ function main() {
     /it covers the strip under the pill, where a home indicator sits/.test(read("scripts/check-app-mobile-nav.mjs"))
       && /past the bottom of the screen, so there is no bare strip/.test(read("scripts/check-app-mobile-nav.mjs")))
   check("with the pill's lift above the screen's bottom read once, by the pill and by the halo",
-    /const PILL_LIFT = "4px \+ env\(safe-area-inset-bottom, 0px\)"/.test(nav)
+    /const PILL_LIFT = "max\(4px, env\(safe-area-inset-bottom, 0px\)\)"/.test(nav)
       && /paddingBottom: `calc\(\$\{PILL_LIFT\}\)`/.test(nav)
       && /height: `calc\([^`]*\$\{PILL_LIFT\}\)`/.test(nav),
     "the same number computed twice is where the editor's black bands came from")
