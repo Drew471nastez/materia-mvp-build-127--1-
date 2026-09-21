@@ -98,6 +98,16 @@ export function AllProductsGrid({
     )
   }
 
+  /*
+    THE BOTTOM PADDING HERE IS NOT THE GAP TO WHAT FOLLOWS.
+
+    Raising it was the obvious way to give the About block below more air,
+    and it does nothing: StorefrontTabs zeroes the bottom padding of its
+    panel's last child on purpose, so that the gap belongs to the section
+    that follows rather than to whichever panel happens to be open. Measured
+    before and after at 48px either way. See the note on that rule, and the
+    one on the About block, which is where the air was added instead.
+  */
   return (
     <div className="mx-auto w-full max-w-[1180px] px-3 py-8 sm:px-4 sm:py-10 lg:px-6">
       {/*

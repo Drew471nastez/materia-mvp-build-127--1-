@@ -690,7 +690,22 @@ function UnifiedAboutSection({
         of the three reasons this page had more than one left edge. The
         column's padding is the container's job and it already does it.
       */}
-      <div className="w-full" style={{ backgroundColor }}>
+      {/*
+        A LITTLE AIR ABOVE THE RULE, ON TOP OF THE SECTION'S OWN SPACING.
+
+        The gap between the last product and this block's rule measured 48px
+        and read as tight: the work and what is said about it ran into each
+        other. That 48 is the section's `spacing.paddingTop`, which is the
+        creator's to set and is 48 on every page that has ever been saved —
+        so raising the default alone would have moved the pages nobody has
+        arranged and left every arranged one exactly as it was.
+
+        This is the block's own, and it adds to theirs rather than replacing
+        it: their control still moves the block by exactly what it says. Two
+        numbers and one of them fixed, which is the trade for a change that
+        reaches a page somebody arranged a year ago.
+      */}
+      <div className="w-full pt-2 sm:pt-4" style={{ backgroundColor }}>
         {/* Top divider */}
         <div
           className="w-full h-px mb-8"

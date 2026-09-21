@@ -50,6 +50,15 @@
  *
  * With the column back at 1100 the products start 40px in from the tabs;
  * with About's own padding back it starts 8px in from everything else.
+ *
+ * AND THE GAP DOWN TO IT WAS TIGHT, which is the same probe's other number:
+ * 48px between the last product card and the rule the About block opens
+ * with, now 64. It is not the grid's bottom padding — StorefrontTabs zeroes
+ * that on purpose, so the gap belongs to the section that follows rather
+ * than to whichever panel is open — and it is not the default spacing
+ * either, because every page that has ever been saved carries its own 48.
+ * It is the About block's own air, which adds to the creator's number
+ * instead of replacing it.
  */
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
@@ -145,6 +154,28 @@ function main() {
     "and the probe reads where the words begin, not where the boxes do",
     /tabStrip: edges\(byText\("button, a", \/\^Home\$\/\)\)/.test(read("scripts/check-page-width.mjs")),
     "comparing a border box against a text run calls a padding difference an alignment",
+  )
+
+  console.log("\nAir between the work and what is said about it")
+
+  check(
+    "the About block reserves its own",
+    /<div className="w-full pt-2 sm:pt-4" style=\{\{ backgroundColor \}\}>/.test(container),
+  )
+  check(
+    "and the grid does not pretend to",
+    /THE BOTTOM PADDING HERE IS NOT THE GAP TO WHAT FOLLOWS/.test(read("components/storefront/all-products-grid.tsx")),
+    "raising it is the obvious move and it does nothing; the note says so where the next person will look",
+  )
+  check(
+    "the panel still zeroes its last child, which is why",
+    /\[&>\*:last-child:not\(\[data-panel-spacing\]\)\]:!pb-0/.test(read("components/storefront/storefront-tabs.tsx")),
+  )
+  check(
+    "and the probe guards the gap from both sides",
+    /is back to reading as tight/.test(read("scripts/check-page-width.mjs"))
+      && /which is a hole/.test(read("scripts/check-page-width.mjs")),
+    "the last time two owners stacked padding here it came to 129px of nothing",
   )
 
   console.log("\nAnd the probe renders the real section, not a copy of it")
