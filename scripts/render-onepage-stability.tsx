@@ -47,6 +47,7 @@ const onepage = {
       data: {
         image_url: px(2),
         display_style: "carousel",
+        carousel_autoplay: true,
         carousel_view: "1.2",
         aspect_ratio: "square",
         border_radius: "md",

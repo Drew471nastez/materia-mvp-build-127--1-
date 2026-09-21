@@ -1,58 +1,61 @@
 /**
  * ===========================================================================
- *  THE PUBLISHED /links PAGE HOLDS STILL
+ *  THE PUBLISHED /links PAGE HOLDS STILL, AND ITS SLIDER FOLLOWS A FINGER
  * ===========================================================================
- * Reported from a phone on storelib.com/satori-studio/links: the slider
- * blinks and flashes while you swipe it, the creator's avatar "refreshes
- * randomly", and there is a blur over the avatar nobody asked for.
+ * Reported from a phone on storelib.com/<creator>/links: the slider blinks
+ * and flashes while you swipe it, the creator's avatar refreshes at random,
+ * and there is a blur over the avatar nobody asked for. Then, after a first
+ * round of fixes that measured well: "sliding smoothly with my finger left
+ * and right to move the image gallery doesn't work at all", and autoplay does
+ * not work on a phone either.
  *
- * Three complaints, and measuring them together on one document — which is
- * what scripts/check-onepage-stability.mjs does — showed that most of it was
- * ONE bug.
+ * ── THE BLINKING WAS ONE BUG ───────────────────────────────────────────────
+ * `PageContent` was a component declared inside PublicOnePage's render, so it
+ * was a new function identity every render, and React throws away a tree
+ * whose element type changed. `buttonsVisible` flips on almost every scroll.
+ * Measured with scripts/check-onepage-stability.mjs:
  *
- * `PageContent` was a component declared inside PublicOnePage's render. That
- * makes it a new function on every render, and React compares element types
- * by identity: a different type means throw the old tree away and build a new
- * one. There is a state change on almost every scroll, because `buttonsVisible`
- * flips as you move, and on a phone you are always scrolling. Measured:
+ *     img churn on a scroll   12 removed, 12 added   ->   0 removed, 0 added
  *
- *     img churn on a scroll   12 removed, 12 added
+ * A rebuilt <img> repaints from nothing, the avatar drops back to the grey
+ * disc Radix shows while it re-resolves, and the carousel forgets itself.
  *
- * Twelve pictures destroyed and rebuilt because the page was scrolled. A
- * rebuilt <img> repaints from nothing; the avatar drops back to the grey disc
- * Radix shows while it re-resolves; the deblur keyframe replays from blur(3px);
- * the carousel forgets its measured width. That is the blinking, the avatar
- * refreshing on its own, and the flash while swiping, all at once. Called as a
- * plain function it reconciles by position and nothing remounts:
+ * ── THE BLUR WAS ITS OWN ANSWER ────────────────────────────────────────────
+ * `.media-deblur` ran blur(3px) to blur(0) with fill `both`, so the first
+ * frame was always blurred and every mount replayed it. Both avatars in the
+ * document sat at blur(3px) and blur(0px) a second after load. The hero image
+ * had already grown an onLoad wiping `filter` and `animation` back off, which
+ * says the effect was not wanted even where it was written.
  *
- *     img churn on a scroll   0 removed, 0 added
+ * ── AND THE SLIDER WAS MEASURED WRONG ──────────────────────────────────────
+ * The check that passed dispatched TouchEvent objects at the element. That
+ * proves the handler runs and nothing else. A finger goes through the
+ * browser's input pipeline first: touch-action, the compositor deciding
+ * whether the gesture belongs to the page's own scroll, and whether the
+ * touchmove is still cancellable by the time JavaScript sees it.
  *
- * THE BLUR WAS ITS OWN ANSWER. `.media-deblur` ran blur(3px) down to blur(0)
- * over half a second with fill `both`, so the first frame was always blurred
- * and every mount replayed it. Read off the page, the two avatars that are in
- * the document at once were sitting at blur(3px) and blur(0px) more than a
- * second after load. The hero image had already grown an onLoad that wiped
- * `filter` and `animation` straight back off, which says the effect was not
- * wanted even where it was written. It is gone.
+ * Driving real touch input through that pipeline instead — CDP's
+ * Input.dispatchTouchEvent, in scripts/check-onepage-drag.mjs — showed every
+ * touchmove arriving with `cancelable: false`, so the preventDefault() the
+ * drag depended on was a no-op and the page was free to move under the
+ * finger. The same run found the slider's whole visible strip covered by the
+ * cookie banner, which is fixed at z-9999 across the full width:
  *
- * AND THE SWIPE COULD NOT STOP THE PAGE SCROLLING. React attaches touchmove
- * passively at the root, so the preventDefault() the carousel called inside
- * its onTouchMove was discarded with a console warning and the page scrolled
- * vertically underneath the drag:
+ *     slider spans y 697..990 of an 844px viewport
+ *     its centre hit-tests to DIV.fixed bottom-0 left-0 right-0 z-[9999]
+ *     no part of the slider was reachable by a finger at all
  *
- *     horizontal swipe        NOT cancellable   ->   cancellable
- *     track moved by          (nothing)         ->   -395px, one whole step
+ * So the hand-rolled drag is gone. It rested on two guesses that have to come
+ * out right every time: a direction lock decided from the first touchmove
+ * past 6px, which a slightly vertical first wobble threw away, and a
+ * preventDefault that never had the chance. A native scroll-snap row has
+ * neither, because none of it is a guess — and it is what the group carousel
+ * in the same file has always been, which nobody has reported as stuck.
  *
- * The listeners are native and { passive: false } now, the drag writes the
- * transform straight to the node instead of re-rendering every slide sixty
- * times a second, and the slide width is a calc() rather than something a
- * ResizeObserver reports later:
- *
- *     widths at insertion     ["100%", ... , "386.667px"]   ->   calc(83.3333% - 6.66667px)
- *     widths rewritten later  [{ t: 135, w: "386.667px" }]  ->   none
- *
- * 100% on the first frame means one full-width picture that then snaps to the
- * 1.2-up view, 135ms in, on every load.
+ * Autoplay had a separate bug with the same symptom. The wrapper used
+ * onMouseEnter/onMouseLeave, and a tap on a phone fires the compatibility
+ * mouse events: the first touch set `isHovered`, `mouseleave` often never
+ * arrived, and the autoplay effect returned early for the rest of the visit.
  */
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
@@ -69,6 +72,7 @@ const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
 function main() {
   const live = read("components/onepage/public-onepage.tsx")
   const preview = read("components/onepage/phone-preview.tsx")
+  const both = [["the published page", live], ["the editor preview", preview]] as const
 
   console.log("\nThe page is not rebuilt every time it is scrolled")
 
@@ -92,7 +96,7 @@ function main() {
 
   console.log("\nNo blur over the avatar")
 
-  for (const [name, src] of [["the published page", live], ["the editor preview", preview]] as const) {
+  for (const [name, src] of both) {
     check(`${name} has no deblur keyframes`, !/@keyframes mediaDeblur/.test(src))
     check(`${name} applies no deblur class`, !/media-deblur"/.test(src))
   }
@@ -105,52 +109,67 @@ function main() {
     /loading="eager"\s*\n\s*fetchPriority="high"/.test(live) && /fetchPriority="high"/.test(preview),
   )
 
-  console.log("\nThe swipe owns the gesture")
+  console.log("\nThe slider is a scroller, and the browser does the scrolling")
 
-  check(
-    "touchmove is a native listener",
-    /el\.addEventListener\('touchmove', onMove, \{ passive: false \}\)/.test(live),
-    "React's own touchmove is passive, so preventDefault inside onTouchMove does nothing",
-  )
-  check(
-    "and no React touch prop is left on either slider",
-    !/onTouchMove=\{handleTouchMove\}/.test(live) && !/onTouchMove=\{handleTouchMove\}/.test(preview),
-    "the group carousel had one too, writing scrollLeft by hand on a container the phone was already scrolling",
-  )
-  check(
-    "the group carousel is left to the native scroller",
-    /THERE ARE NO TOUCH HANDLERS HERE ON PURPOSE/.test(live)
-      && !/const handleTouchMove = \(e: React\.TouchEvent\)/.test(live)
-      && !/const handleTouchMove = \(e: React\.TouchEvent\)/.test(preview),
-    "overflow-x auto with scroll-snap already does this, with momentum, off the main thread",
-  )
-  check(
-    "the handlers are attached once, not rebound on every slide change",
-    /\}, \[writeTransform\]\)/.test(live) && /const latest = useRef\(\{ currentIndex, maxIndex, stepSize, restOffset \}\)/.test(live),
-  )
-  check("touchcancel ends the drag too", /touchcancel', onEnd/.test(live))
+  for (const [name, src] of both) {
+    check(
+      `${name}: the row is a native scroller that snaps`,
+      /overflowX: 'auto'/.test(src) && /scrollSnapType: 'x mandatory'/.test(src),
+    )
+    check(`${name}: its slides are snap targets`, /scrollSnapAlign: 'start'/.test(src))
+    check(
+      `${name}: nothing moves it by hand`,
+      !/const writeTransform = useCallback/.test(src) && !/translate3d\(\$\{translateX\}px/.test(src),
+      "the browser moves it, on the compositor, with momentum and snapping",
+    )
+    check(
+      `${name}: no direction lock is left to guess wrong`,
+      !/directionLockRef/.test(src) && !/lock = Math\.abs\(dx\) >= Math\.abs\(dy\)/.test(src),
+      "a first sample slightly more vertical than horizontal threw the whole swipe away",
+    )
+    check(
+      `${name}: no preventDefault the browser can ignore`,
+      !/el\.addEventListener\('touchmove', onMove, \{ passive: false \}\)/.test(src),
+      "measured on the deployed page, every touchmove arrived with cancelable false",
+    )
+    check(
+      `${name}: a swipe past the end belongs to the slider`,
+      /overscrollBehaviorX: 'contain'/.test(src),
+    )
+    check(
+      `${name}: which slide is showing is read from the scroller`,
+      /Math\.abs\(\(el\.children\[i\] as HTMLElement\)\.offsetLeft - el\.scrollLeft\)/.test(src),
+    )
+    check(
+      `${name}: and the arrows and dots scroll it`,
+      /el\.scrollTo\(\{ left: target\.offsetLeft, behavior: "smooth" \}\)/.test(src),
+    )
+    check(
+      `${name}: the index is read once a frame, not once an event`,
+      /if \(rafRef\.current !== null\) return/.test(src),
+      "a touch scroll fires far more scroll events than there are frames to draw",
+    )
+  }
 
-  console.log("\nA drag is not sixty React renders")
+  console.log("\nAutoplay survives being touched")
 
-  check("the transform is written to the node", /const writeTransform = useCallback\(/.test(live))
-  check(
-    "there is no per-frame state any more",
-    !/const \[dragOffset, setDragOffset\] = useState/.test(live) && !/const \[dragOffset, setDragOffset\] = useState/.test(preview),
-  )
-  check(
-    "and React still owns where it rests",
-    /useLayoutEffect\(\(\) => \{\s*\n\s*if \(draggingRef\.current\) return/.test(live),
-  )
-  check(
-    "a swipe that changes nothing still puts the track back",
-    /if \(wasDragging \|\| next !== l\.currentIndex\) writeTransform\(l\.restOffset\(next\), SWIPE_EASE\)/.test(live),
-    "no index change means no render, and only this call restores it",
-  )
-  check(
-    "a resize does not animate",
-    /animated \? \(isAutoplayTransition \? AUTOPLAY_EASE : SWIPE_EASE\) : 'none'/.test(live),
-    "the track would glide sideways every time a phone's address bar collapsed",
-  )
+  for (const [name, src] of both) {
+    check(
+      `${name}: hover comes from a mouse only`,
+      /if \(e\.pointerType === "mouse"\) setIsHovered\(true\)/.test(src)
+        && !/onMouseEnter=\{\(\) => setIsHovered\(true\)\}/.test(src),
+      "a tap fires the compatibility mouse events, mouseleave often never arrives, and autoplay stopped for the rest of the visit",
+    )
+    check(
+      `${name}: a finger only holds it off for a few seconds`,
+      /heldUntilRef\.current = Date\.now\(\) \+ 3000/.test(src)
+        && /if \(Date\.now\(\) < heldUntilRef\.current\) return/.test(src),
+    )
+    check(
+      `${name}: and a tap on a dot or an arrow holds it off too`,
+      /hold\(\); goToSlide\(idx\)/.test(src) && /hold\(\)\n    goToSlide\(currentIndex === 0/.test(src),
+    )
+  }
 
   console.log("\nA slide is the right width on its first frame")
 
@@ -160,22 +179,11 @@ function main() {
   )
   check("and nothing falls back to 100%", !/itemWidth > 0 \? `\$\{itemWidth\}px` : '100%'/.test(live))
   check(
-    "the measurement stays, because the translate needs a real number",
-    /const ro = new ResizeObserver\(update\)/.test(live) && /const restOffset = useCallback\(/.test(live),
+    "nothing measures a width in JavaScript any more",
+    !/const ro = new ResizeObserver\(update\)/.test(live) && !/const restOffset = useCallback\(/.test(live),
+    "the scroller needs no measurement: offsetLeft is the browser's own answer",
   )
-
-  console.log("\nAnd the editor's preview is the same slider")
-
-  check(
-    "its touchmove is native too",
-    /el\.addEventListener\('touchmove', onMove, \{ passive: false \}\)/.test(preview),
-    "what a creator drags in the editor has to be what a visitor gets",
-  )
-  check(
-    "its slides are sized in CSS too",
-    /const slideWidth = `calc\(/.test(preview) && !/itemWidth > 0 \? `\$\{itemWidth\}px` : '100%'/.test(preview),
-  )
-  check("and it kept its own smaller gap", /const gap = view > 1 \? 6 : 4/.test(preview))
+  check("the editor preview kept its own smaller gap", /const gap = view > 1 \? 6 : 4/.test(preview))
 
   console.log("\nSlides within reach of one swipe are fetched before the swipe")
 
@@ -189,15 +197,28 @@ function main() {
     "isInsideCarousel means something else here: that this block sits inside a group carousel",
   )
 
-  console.log("\nAnd the probe measures the real page")
+  console.log("\nThe group carousel is left to the native scroller too")
+
+  check(
+    "no React touch prop is left on either slider",
+    !/onTouchMove=\{handleTouchMove\}/.test(live) && !/onTouchMove=\{handleTouchMove\}/.test(preview),
+  )
+  check(
+    "and the note says why",
+    /THERE ARE NO TOUCH HANDLERS HERE ON PURPOSE/.test(live)
+      && !/const handleTouchMove = \(e: React\.TouchEvent\)/.test(live)
+      && !/const handleTouchMove = \(e: React\.TouchEvent\)/.test(preview),
+    "writing scrollLeft by hand on a container the phone is already scrolling moves the row twice",
+  )
+
+  console.log("\nAnd the probes measure the real page, at the right layer")
 
   const probe = read("scripts/check-onepage-stability.mjs")
-  const render = read("scripts/render-onepage-stability.tsx")
-  const observe = read("scripts/onepage-stability-observe.js")
-  check("it mounts the real component", /import \{ PublicOnePage \} from "@\/components\/onepage\/public-onepage"/.test(render))
+  const drag = read("scripts/check-onepage-drag.mjs")
+  check("the in-page probe mounts the real component", /import \{ PublicOnePage \} from "@\/components\/onepage\/public-onepage"/.test(read("scripts/render-onepage-stability.tsx")))
   check(
     "it starts watching before React mounts",
-    /onepage-stability-observe\.js/.test(probe) && /window\.__probe = \{/.test(observe),
+    /onepage-stability-observe\.js/.test(probe) && /window\.__probe = \{/.test(read("scripts/onepage-stability-observe.js")),
     "an observer started afterwards reports that no slide was ever born at any width",
   )
   check(
@@ -206,12 +227,28 @@ function main() {
     "the phone layout, the desktop layout and the share sheet are all in the document at once",
   )
   check(
-    "it checks the swipe moved something, not just that it was cancellable",
-    /which is not a slide change/.test(probe),
+    "a real finger is measured through the browser's input pipeline",
+    /Input\.dispatchTouchEvent/.test(drag),
+    "a dispatched TouchEvent proves the handler runs and nothing else",
   )
   check(
-    "and it checks the slides came out the width the arithmetic asked for",
-    /px was asked for/.test(probe),
+    "the drag probe aims at the point the hit test approved",
+    /THE POINT THE HIT TEST APPROVED, NOT ONE NEAR IT/.test(drag),
+  )
+  check(
+    "it scrolls the slider into view first, as a visitor does",
+    /SCROLL IT INTO VIEW FIRST, BECAUSE THAT IS WHAT A VISITOR DOES/.test(drag),
+    "left where it loads it sat under the cookie banner, and the drag measured the banner",
+  )
+  check(
+    "it keeps one coordinate system",
+    /ONE COORDINATE SYSTEM, OR THE DRAG LANDS SOMEWHERE ELSE/.test(drag),
+    "dispatchTouchEvent takes device pixels and elementFromPoint answers in CSS pixels",
+  )
+  check(
+    "and the in-page probe says plainly what it cannot measure",
+    /WHAT IS READ HERE IS THE SHAPE OF THE SLIDER, NOT ITS BEHAVIOUR/.test(read("scripts/onepage-stability-page.js")),
+    "an assertion that a synthetic swipe leaves scrollLeft alone could not catch a listener doing scrollLeft += 20",
   )
 
   console.log(`\n${passed} passed, ${failed} failed`)
