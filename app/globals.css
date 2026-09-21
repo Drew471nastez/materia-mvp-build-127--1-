@@ -3887,27 +3887,35 @@ html.pop-in-flight #platform-header-root {
  * there, and then the list is simply there again, which reads as a re-render
  * rather than as having gone somewhere.
  *
- * Ten pixels and 220ms, from the side you came from. Small enough that
- * nothing appears to fly, long enough that the eye follows it. The opacity
- * starts at 0.55 rather than 0, because a panel fading up from nothing
- * flashes the sheet's white background through it.
+ * Twenty-six pixels and 280ms, from the side you came from. It was ten and
+ * 220, chosen so that nothing would appear to fly, and that was too little:
+ * reported twice, the second time after it had shipped, as the move back
+ * still being "too direct". Ten pixels across a panel the width of a phone
+ * is a nudge the eye does not read as travel, so what you saw was the old
+ * panel vanishing and a new one already in place.
+ *
+ * This is a taste call rather than a measured one, and it is the owner's.
+ * It is still well short of a slide across the whole sheet: far enough to be
+ * a direction, short enough that nothing flies. The opacity starts at 0.4
+ * rather than 0, because a panel fading up from nothing flashes the sheet's
+ * white background through it.
  *
  * `translate3d` keeps it on the compositor: the panel it is moving is a full
  * form of inputs, and animating its position any other way is a layout per
  * frame while somebody is waiting to use it.
  */
 .wb-sheet-panel[data-dir="in"] {
-  animation: wb-panel-in 220ms cubic-bezier(0.32, 0.72, 0, 1) both;
+  animation: wb-panel-in 280ms cubic-bezier(0.32, 0.72, 0, 1) both;
 }
 .wb-sheet-panel[data-dir="back"] {
-  animation: wb-panel-back 220ms cubic-bezier(0.32, 0.72, 0, 1) both;
+  animation: wb-panel-back 280ms cubic-bezier(0.32, 0.72, 0, 1) both;
 }
 @keyframes wb-panel-in {
-  from { opacity: 0.55; transform: translate3d(10px, 0, 0); }
+  from { opacity: 0.4; transform: translate3d(26px, 0, 0); }
   to   { opacity: 1; transform: translate3d(0, 0, 0); }
 }
 @keyframes wb-panel-back {
-  from { opacity: 0.55; transform: translate3d(-10px, 0, 0); }
+  from { opacity: 0.4; transform: translate3d(-26px, 0, 0); }
   to   { opacity: 1; transform: translate3d(0, 0, 0); }
 }
 @media (prefers-reduced-motion: reduce) {
