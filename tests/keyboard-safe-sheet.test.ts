@@ -52,7 +52,7 @@
 import { readFileSync, readdirSync, statSync } from "node:fs"
 import { join } from "node:path"
 
-import { keyboardInset, sheetAboveKeyboard } from "@/lib/ui/keyboard-safe-sheet"
+import { bottomAboveKeyboard, keyboardInset, sheetAboveKeyboard } from "@/lib/ui/keyboard-safe-sheet"
 
 let passed = 0
 let failed = 0
@@ -117,9 +117,62 @@ function main() {
     "otherwise the first frame of a sheet is positioned against a variable that does not exist yet",
   )
 
-  console.log("\nNo sheet in the one-page editor pins itself to the bottom of the wrong viewport")
+  console.log("\nThe editor's panel ends at the keyboard too")
 
-  const files = walk("components/onepage")
+  /*
+    The sheets were the report; the PANEL is the same fault one layer down.
+    It is fixed from the header to the bottom of the screen, and the fields
+    typed straight into it — a title, a bio, a link's label — sit in a
+    scroller that fills it. Left at bottom: 0, that scroller kept its full
+    height under the keyboard, and KeyboardGuard, centring a focused field
+    in its scroller, centred it in a box whose lower half was behind the
+    keys. The height clamp in globals.css does not reach it: it names
+    .app-content-scroll, and a fixed box is not laid out inside that.
+  */
+  const editor = read("components/onepage/onepage-editor.tsx")
+  check("the helper has a form for a box pinned at both ends", bottomAboveKeyboard().bottom === "var(--kb-inset, 0px)")
+  check("and the panel uses it", /style=\{\{ zIndex: 30, \.\.\.bottomAboveKeyboard\(\) \}\}/.test(editor))
+  check(
+    "with no bottom-0 class left to argue with it",
+    !/className="flex flex-col bg-gray-50\/50 fixed[^"]*\bbottom-0\b/.test(editor)
+      && !/className="flex flex-col bg-gray-50\/50 fixed[^"]*md:bottom-0\b/.test(editor),
+    "a class would lose to the inline style, but a class that says the wrong thing is a class somebody will trust",
+  )
+  check(
+    "and the probe drives the panel too, with a row proving a pinned one still fails",
+    probe.includes(`const PANEL_BOTTOM = "${bottomAboveKeyboard().bottom}"`)
+      && /a panel pinned to the bottom of the screen did NOT put the centred field behind the keyboard/.test(probe),
+  )
+
+  console.log("\nKeyboardGuard does not scroll a document that is pinned")
+
+  /*
+    Under /app the document is never the scroller: html is overflow: hidden
+    and DocumentScrollGuard puts it back to 0 the frame anything moves it.
+    KeyboardGuard's fallback for a field with no scrollable ancestor was a
+    smooth scrollIntoView of the document, which ignores overflow: hidden —
+    so it started a scroll the guard undid every frame for 300ms, twice per
+    tap. And the fallback is reached exactly when a sheet's content FITS,
+    which is the social-link sheet once it sits on the keyboard.
+  */
+  const guard = read("components/platform/keyboard-guard.tsx")
+  check(
+    "the document-level fallback is skipped under the app shell",
+    /if \(!scrollContainer\) \{[\s\S]{0,1200}?classList\.contains\("app-layout"\)\) return[\s\S]{0,200}?scrollIntoView/.test(guard),
+    "scrollIntoView on a pinned document is a shudder, not a scroll",
+  )
+  check("and the scroller walk above it is untouched", /const scrollContainer = findScrollableAncestor\(active\)/.test(guard))
+
+  console.log("\nNo sheet in the editors pins itself to the bottom of the wrong viewport")
+
+  /* The one-page editor was the report; the product form has the same
+     sheets, and the other editors are walked so one cannot be added there. */
+  const files = [
+    ...walk("components/onepage"),
+    ...walk("components/website-builder"),
+    ...walk("components/store-builder"),
+    ...walk("app/app/products/new"),
+  ]
   for (const file of files) {
     const src = read(file)
 
@@ -147,6 +200,9 @@ function main() {
     ["components/onepage/tabs/links-tab.tsx", 5],
     ["components/onepage/tabs/products-tab.tsx", 1],
     ["components/onepage/onepage-editor.tsx", 2],
+    /* The category picker is typed into; the exit dialog is not, but it is
+       the same sheet and the scan above is strict about !bottom-0. */
+    ["app/app/products/new/page.tsx", 2],
   ] as const) {
     const src = read(file)
     const used = (src.match(/\.\.\.sheetAboveKeyboard\(/g) ?? []).length

@@ -67,6 +67,22 @@ export function sheetAboveKeyboardInset(gapPx: number): {
 }
 
 /**
+ * For a box that is pinned at BOTH ends — the one-page editor's panel, fixed
+ * from the header down to the bottom of the screen — which needs its bottom
+ * edge lifted onto the keyboard and nothing said about its height, because
+ * its height is whatever is left between the two.
+ *
+ * Why it matters for a panel and not only a sheet: the fields typed directly
+ * in the panel (a title, a bio, a link's label) sit in a scroller that fills
+ * the box. Left at `bottom: 0` the scroller keeps its full height under the
+ * keyboard, and KeyboardGuard, which centres a focused field in its
+ * scroller, centres it in a box whose lower half is behind the keys.
+ */
+export function bottomAboveKeyboard(): { bottom: string } {
+  return { bottom: "var(--kb-inset, 0px)" }
+}
+
+/**
  * The number `--kb-inset` carries, as a function so it can be tested rather
  * than trusted.
  *
