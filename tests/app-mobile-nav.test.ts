@@ -136,7 +136,7 @@ function main() {
   check("the phone's scroll container is padded for it",
     /@media \(max-width: 767px\) \{\s*\n\s*html\.app-layout \.app-content-scroll \{\s*\n\s*padding-bottom: calc\(104px \+ env\(safe-area-inset-bottom, 0px\)\);/.test(css))
   check("the pill clears the home indicator",
-    /const PILL_LIFT = "6px \+ env\(safe-area-inset-bottom, 0px\)"/.test(nav)
+    /const PILL_LIFT = "4px \+ env\(safe-area-inset-bottom, 0px\)"/.test(nav)
       && /paddingBottom: `calc\(\$\{PILL_LIFT\}\)`/.test(nav))
   /*
     ── THE PAGE HAS TO BE ABLE TO GET PAST IT ──────────────────────────────
@@ -396,20 +396,32 @@ function main() {
     /it covers the strip under the pill, where a home indicator sits/.test(read("scripts/check-app-mobile-nav.mjs"))
       && /past the bottom of the screen, so there is no bare strip/.test(read("scripts/check-app-mobile-nav.mjs")))
   check("with the pill's lift above the screen's bottom read once, by the pill and by the halo",
-    /const PILL_LIFT = "6px \+ env\(safe-area-inset-bottom, 0px\)"/.test(nav)
+    /const PILL_LIFT = "4px \+ env\(safe-area-inset-bottom, 0px\)"/.test(nav)
       && /paddingBottom: `calc\(\$\{PILL_LIFT\}\)`/.test(nav)
       && /height: `calc\([^`]*\$\{PILL_LIFT\}\)`/.test(nav),
     "the same number computed twice is where the editor's black bands came from")
-  check("and its tint is one radial gradient in the page's own colour",
+  check("and its tint is one vertical ramp in the page's own colour",
     /const HALO_TINT = "rgba\(248,249,250,0\.18\)"/.test(nav)
-      && /radial-gradient\(ellipse at center, \$\{HALO_TINT\} 0%/.test(nav),
-    "45% read as a plate under the bar, 30% still washed the coloured card beneath it")
+      && /linear-gradient\(to bottom, \$\{HALO_TINT_NONE\} 0%, \$\{HALO_TINT_NONE\} 30%, \$\{HALO_TINT\} 100%\)/.test(nav),
+    "a radial one came up in the middle and fell away at the sides, which over a picture reads as a patch rather than the bottom of the screen")
   check("with every layer of it measured as an ellipse in the probe, and the ramp read off the layers",
     /nothing in it ends on a straight line/.test(read("scripts/check-app-mobile-nav.mjs"))
       && /no radius at which it begins/.test(read("scripts/check-app-mobile-nav.mjs")))
-  check("with the halo measured through stripes in the probe, including that the screen's edge is untouched",
-    /rather than stopping in an arc short of them/.test(read("scripts/check-app-mobile-nav.mjs"))
+  check("with the halo measured through stripes in the probe, and its reach measured as geometry",
+    /rather than stopping in an arc short of the edges/.test(read("scripts/check-app-mobile-nav.mjs"))
       && /the blur is progressive/.test(read("scripts/check-app-mobile-nav.mjs")))
+  /*
+    The reach used to be inferred from how blurred the stripes were at the
+    screen's edge, which worked while the blur was strong. Asked down five
+    times — 2.4 to 1.2 to 0.9 to 0.6 to 0.35 — that reading stopped being able
+    to tell "the halo stops short" from "the halo is gentle", so reach is the
+    halo's own box against the screen now and strength keeps one loose floor
+    of its own.
+  */
+  check("reach is the halo's width, not how hard it blurs",
+    /REACH IS GEOMETRY\. STRENGTH IS A SEPARATE QUESTION/.test(read("scripts/check-app-mobile-nav.mjs"))
+      && /must\(shut\.fade\.w >= VIEW_W/.test(read("scripts/check-app-mobile-nav.mjs")),
+    "a strength threshold doing duty as a coverage test fails the moment the strength is tuned")
   check("and the overhang is measured as costing the page no sideways scroll",
     /the document is still the width of the screen/.test(read("scripts/check-app-mobile-nav.mjs")),
     "an element wider than the viewport is how a page gets a horizontal scrollbar")
