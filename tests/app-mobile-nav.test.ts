@@ -119,9 +119,9 @@ function main() {
   console.log("\n  and nothing is left underneath the pill")
 
   check("the phone's scroll container is padded for it",
-    /@media \(max-width: 767px\) \{\s*\n\s*html\.app-layout \.app-content-scroll \{\s*\n\s*padding-bottom: calc\(98px \+ env\(safe-area-inset-bottom, 0px\)\);/.test(css))
+    /@media \(max-width: 767px\) \{\s*\n\s*html\.app-layout \.app-content-scroll \{\s*\n\s*padding-bottom: calc\(104px \+ env\(safe-area-inset-bottom, 0px\)\);/.test(css))
   check("the pill clears the home indicator",
-    /paddingBottom: "calc\(10px \+ env\(safe-area-inset-bottom, 0px\)\)"/.test(nav))
+    /paddingBottom: "calc\(6px \+ env\(safe-area-inset-bottom, 0px\)\)"/.test(nav))
   /*
     ── THE PAGE HAS TO BE ABLE TO GET PAST IT ──────────────────────────────
     Every other /app page scrolls in .app-content-scroll. The dashboard puts
@@ -141,11 +141,23 @@ function main() {
     bar mid-scroll, and the pixel through the bar reads rgb(157,158,158)
     against rgb(248,249,250) for the bare page beside it.
   */
-  check("the clearance is taken off the container that does not scroll",
-    /html\.app-layout \.app-content-scroll:has\(\.dashboard-scroll-container\) \{\s*\n\s*padding-bottom: 0;/.test(css),
+  check("the clearance is taken off the container that does not scroll, on every page that nests one",
+    /\.app-content-scroll:has\(> \.page-scroll, > \.dashboard-scroll-container, > \.sales-scroll-container\) \{\s*\n\s*padding-bottom: 0;/.test(css),
     "padding the outer box only shrinks the inner one and holds the page away from the bar")
   check("and put on the one that does",
-    /html\.app-layout \.dashboard-scroll-container \{\s*\n\s*padding-bottom: calc\(98px \+ env\(safe-area-inset-bottom, 0px\)\);/.test(css))
+    /\.app-content-scroll > \.page-scroll,\s*\n\s*html\.app-layout \.app-content-scroll > \.dashboard-scroll-container,\s*\n\s*html\.app-layout \.app-content-scroll > \.sales-scroll-container \{\s*\n\s*padding-bottom: calc\(104px \+ env\(safe-area-inset-bottom, 0px\)\);/.test(css))
+  check("which covers the pages that really do nest one",
+    (() => {
+      const roots = [
+        ["app/app/products/products-client.tsx", "page-scroll"],
+        ["app/app/orders/sales/sales-client.tsx", "sales-scroll-container"],
+        ["app/app/emails/page.tsx", "page-scroll"],
+        ["app/app/website-builder/website-builder-client.tsx", "page-scroll"],
+        ["components/app/dashboard-client.tsx", "dashboard-scroll-container"],
+      ]
+      return roots.every(([f, cls]) => new RegExp("h-full overflow-y-auto[^\"]*\\b" + cls + "\\b").test(read(f)))
+    })(),
+    "a page that nests a scroller under a class this rule does not name gets the dashboard's old fault")
   check("with the real dashboard driven under the real bar to prove it",
     (() => {
       const probe = read("scripts/check-dashboard-nav.mjs")
@@ -170,12 +182,19 @@ function main() {
   check("the bar and the menu button are made of one glass",
     /const GLASS: React\.CSSProperties = \{/.test(nav)
       && /backdropFilter: "blur\(\d+px\) saturate\(\d+%\)"/.test(nav))
-  check("its tint is thin enough to see the page through",
+  /*
+    FROSTED, NOT CLEAR. The tint went down to 18% while "solid" was the
+    complaint, and over artwork that left the glyphs sitting on saturated
+    red. "The bar itself doesn't need to be transparent" put it back to the
+    material a system tab bar is made of: 70% white over a blur, readable
+    over anything, still taking a breath of what is under it.
+  */
+  check("its tint is frosted white, not clear and not a panel",
     (() => {
       const a = Number((nav.match(/backgroundColor: "rgba\(255,255,255,([\d.]+)\)"/) ?? [])[1] ?? 1)
-      return a > 0 && a <= 0.55
+      return a >= 0.6 && a <= 0.8
     })(),
-    "above about half, a white tint stops being glass and becomes a panel")
+    "under 60% the glyphs sit on whatever is behind the bar; at 100% it is a panel")
   /*
     And the only test of that claim that means anything is the photograph:
     the probe puts red behind the bar, photographs a square between two
@@ -223,11 +242,11 @@ function main() {
     them: 255 of contrast above the fade, 181 at its top, 28 at the bar.
   */
   check("the fade is a stack of plain rectangles, each carrying only a blur",
-    /const FADE_STEPS = \[2, 3, 4, 5, 6, 8\]/.test(nav)
+    /const FADE_STEPS = \[1, 2, 3, 4, 5, 6\]/.test(nav)
       && /data-app-nav-fade-step=""/.test(nav)
       && /backdropFilter: `blur\(\$\{blur\}px\)`/.test(nav))
   check("and its tint is a separate plain gradient in the page's own colour",
-    /const FADE_TINT = "rgba\(248,249,250,0\.88\)"/.test(nav)
+    /const FADE_TINT = "rgba\(248,249,250,0\.62\)"/.test(nav)
       && /background: `linear-gradient\(to top, \$\{FADE_TINT\} 0%/.test(nav),
     "a white tint would be a paler plate over a near-white page; the page's colour is invisible over plain page and frosts over content")
   check("with the blur measured through stripes, progressively, in the probe",
@@ -282,9 +301,11 @@ function main() {
     now; let go of it and it should arrive rather than stop.
   */
   check("it tracks a finger with no overshoot and settles with a little",
-    /const TRACK = `transform 150ms cubic-bezier\(0\.2, 0, 0, 1\)`/.test(nav)
-      && /const SETTLE = `transform 440ms cubic-bezier\(0\.34, 1\.32, 0\.42, 1\)`/.test(nav)
+    /const TRACK = `transform 110ms cubic-bezier\(0\.2, 0, 0, 1\)`/.test(nav)
+      && /const SETTLE = `transform 420ms cubic-bezier\(0\.32, 1\.24, 0\.44, 1\)`/.test(nav)
       && /slide\.dragging \? TRACK : SETTLE/.test(nav))
+  check("and it lifts a little under the finger, which is the newer system bars' tell",
+    /const LIFT = 1\.08/.test(nav) && /slide\.dragging \? LIFT : 1/.test(nav))
 
   console.log("\n  and the menu changes nothing about the bar")
 

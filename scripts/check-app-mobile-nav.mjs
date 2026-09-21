@@ -685,7 +685,8 @@ must(shut.pill.centred, "the bar and the menu button, together, are centred",
 must(shut.pill.gapToButton >= 4 && shut.pill.gapToButton <= 16,
   "and the menu is a separate object beside the bar, not a fifth slot in it",
   `there are ${shut.pill.gapToButton}px between them`)
-must(shut.pill.bottomGap >= 8 && shut.pill.bottomGap <= 40, "and sits just above the bottom edge, where a thumb is",
+/* 6px now, "a little bit more down"; below 4 it is on the home indicator. */
+must(shut.pill.bottomGap >= 4 && shut.pill.bottomGap <= 40, "and sits just above the bottom edge, where a thumb is",
   `the pill is ${shut.pill.bottomGap}px from the bottom`)
 must(shut.pill.radius.startsWith("999") || Number.parseFloat(shut.pill.radius) >= shut.pill.h / 2,
   "it is a pill, not a rounded rectangle", `its radius is ${shut.pill.radius} on a ${shut.pill.h}px box`)
@@ -716,9 +717,17 @@ must(shut.fade?.masked === 0, "with no mask on any layer of it, which is the thi
 must(shut.fade?.opaque === 0, "and no opaque fill on any layer, so nothing in it can be a plate",
   `${shut.fade?.opaque} layer(s) of the fade have an opaque background`)
 const pillAlpha = Number((shut.pill.bg.match(/rgba?\([^)]*?,\s*([\d.]+)\s*\)/) ?? [])[1] ?? 1)
-must(/^rgba?\(255, 255, 255/.test(shut.pill.bg) && pillAlpha <= 0.55,
-  "the bar is a thin tint rather than a solid sheet",
-  `the bar is ${shut.pill.bg}: at that opacity it is a white panel with a blur behind it, not glass`)
+/*
+  FROSTED, NOT CLEAR, AND NOT A PANEL. This held the tint under 55% while
+  "solid" was the complaint, and at 18% the glyphs ended up sitting on the
+  dashboard's saturated artwork. "The bar itself doesn't need to be
+  transparent" is the correction: 70% white over a blur is the material a
+  system tab bar is made of. The band is 60 to 80: under it the glyphs sit on
+  whatever is behind, at 100 it is a panel.
+*/
+must(/^rgba?\(255, 255, 255/.test(shut.pill.bg) && pillAlpha >= 0.6 && pillAlpha <= 0.8,
+  "the bar is frosted white: readable over anything, and not a panel",
+  `the bar is ${shut.pill.bg}`)
 must(/blur\(/.test(shut.glass.backdrop), "and it carries its own blur, so the page is visible THROUGH it",
   `the bar's backdrop-filter is "${shut.glass.backdrop}"`)
 must(shut.selector.w === shut.selector.h, "the selector is a circle, not an oval",
@@ -766,7 +775,9 @@ console.log(`              on plain page: rgb(${seeThrough.aboveFade}) above the
   panel moves 0 whatever is behind it. Anything past 30 is letting the page
   through; the tint is the rest of the distance, and the tint is the point.
 */
-must(seeThrough.moved >= 30,
+/* 70% frost over pure red measures 31. The floor is 20 so that reading is a
+   pass with room, and a panel, which moves 0, is still a long way under it. */
+must(seeThrough.moved >= 20,
   "change what is behind the bar and the bar changes: it frosts the page, it does not hide it",
   `the same pixel moved only ${seeThrough.moved} when the colour behind it went from red to blue. A white panel would move 0`)
 must(seeThrough.aside >= 40,
