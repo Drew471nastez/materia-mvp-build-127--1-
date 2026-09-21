@@ -2897,11 +2897,21 @@ export function DashboardClient({
         {/* Dashboard Banner — content changes based on subscription plan */}
         <div className="mb-8">
           <div className="relative overflow-hidden rounded-2xl">
+            {/*
+              `sizes`, because without it next/image builds its srcset from
+              the `width` prop and a phone downloads the 1200px candidate —
+              2400 on a 3x screen — for a box about 358px wide. That is a
+              megapixel and a half decoded on the main thread for a banner
+              a third of that. The number is what the box really is: the
+              content column, which is the viewport under `sm` and 640px of
+              it above.
+            */}
             <Image
               src="https://images.unsplash.com/photo-1541367777708-7905fe3296c0?w=1200&h=300&fit=crop"
               alt=""
               width={1200}
               height={300}
+              sizes="(max-width: 640px) 100vw, 640px"
               priority
               className="absolute inset-0 w-full h-full object-cover"
             />

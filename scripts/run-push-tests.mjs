@@ -30,6 +30,7 @@ const SUITES = [
   "tests/nav-drawer.test.ts",
   "tests/editor-navigation.test.ts",
   "tests/creator-page-products.test.ts",
+  "tests/native-scroll-guard.test.ts",
   "tests/header-elements.test.ts",
   "tests/site-cart.test.ts",
   "tests/cart-checkout.test.ts",
