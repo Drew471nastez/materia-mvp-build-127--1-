@@ -136,6 +136,7 @@ const SUITES = [
   "tests/sheet-rest.test.ts",
   "tests/control-frames.test.ts",
   "tests/header-search.test.ts",
+  "tests/creator-page-default.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))

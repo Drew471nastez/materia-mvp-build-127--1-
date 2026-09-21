@@ -14,7 +14,7 @@ import { TrackView } from "@/components/analytics/track-view"
 import { getPublishedConfig } from "@/lib/store-builder/get-published-config"
 import { SectionRenderer, ShopHeaderRenderer, type ProductData } from "@/components/store-builder/section-renderer"
 import type { AboutSettings, ShopHeaderSettings, GlobalStoreSettings, Section } from "@/lib/store-builder/types"
-import { defaultShopHeaderSettings, themePresets } from "@/lib/store-builder/defaults"
+import { defaultAboutSettings, defaultShopHeaderSettings, themePresets } from "@/lib/store-builder/defaults"
 import { SubscribeBar } from "@/components/store-builder/subscribe-bar"
 import { LiveSubscribeBar } from "@/components/store-builder/live-subscribe-bar"
 import { DynamicFavicon } from "@/components/store-builder/dynamic-favicon"
@@ -24,6 +24,56 @@ import { EditAboutButton } from "@/components/storefront/edit-about-button"
 import { OwnerMenu } from "@/components/storefront/owner-menu"
 import { EmbeddedNavigation } from "@/components/storefront/embedded-navigation"
 import { StorefrontTabs, EmptyTabPanel, type StorefrontTab } from "@/components/storefront/storefront-tabs"
+
+/**
+ * ===========================================================================
+ *  EVERY CREATOR PAGE IS THE SAME PAGE
+ * ===========================================================================
+ * A creator who uploads a product and never opens the store builder got a
+ * different page from one who did: no Products tab, no About block, no
+ * dividers, no payment methods. Reported with two screenshots side by side,
+ * and the objection is the right one — those are not a customisation anybody
+ * chose, they are the page, and their absence reads as a broken account
+ * rather than as an unstyled one.
+ *
+ * There were two reasons for it, and both were rules that made sense in
+ * isolation.
+ *
+ * The About block only existed if the creator's saved config had an `about`
+ * section, which only happens once they have been into the builder. But
+ * About with nothing typed in it is not empty: it is the seller's name, how
+ * long they have been here, what they have sold, and which cards they take.
+ * Every one of those is true of a creator who has never opened the builder,
+ * and they are exactly what a stranger deciding whether to buy looks for.
+ *
+ * And the Products tab appeared only above one product, on the reasoning
+ * that a tab onto the thing already on screen is a tab worth nothing. True
+ * of the tab; not true of the page, which is what a visitor sees. A shop
+ * with one product is still a shop, and it should not be missing a tab that
+ * every other shop has.
+ *
+ * So both are defaults now, not rewards for having visited a builder.
+ */
+const DEFAULT_ABOUT_SECTION_ID = "about-default"
+
+/**
+ * The creator's own About section, or the one every page ends with. Added
+ * BEFORE the theme colours are applied, so the block a creator has never
+ * touched is coloured by exactly the same pass as one they have.
+ */
+function withDefaultAbout(sections: Section[]): Section[] {
+  if (sections.some((section) => section.type === "about")) return sections
+  const last = sections.reduce((n, section) => Math.max(n, section.order ?? 0), 0)
+  return [
+    ...sections,
+    {
+      id: DEFAULT_ABOUT_SECTION_ID,
+      type: "about",
+      order: last + 1,
+      settings: { ...defaultAboutSettings },
+    } as Section,
+  ]
+}
 import { AllProductsGrid } from "@/components/storefront/all-products-grid"
 import { ReviewsPanel, type StorefrontReview } from "@/components/storefront/reviews-panel"
 import { BackLabelSetter } from "@/components/product/discover-back-breadcrumb"
@@ -900,7 +950,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
      *
      * A section a creator actually coloured keeps that colour.
      */
-    const themedSections = applySectionThemeColors(publishedConfig.sections).map((section) => ({
+    const themedSections = applySectionThemeColors(withDefaultAbout(publishedConfig.sections)).map((section) => ({
       ...section,
       settings: {
         ...section.settings,
@@ -1133,12 +1183,17 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
            * fetch, no spinner, no second render of the sections — and Home is
            * still in the first HTML the visitor and the crawler receive.
            *
-           * The Products tab only earns its place once there is more than one
-           * product to show; below that it is a tab onto the thing already on
-           * screen. StorefrontTabs renders a lone panel bare, with no strip.
+           * The Products tab is there whenever there is a product, including
+           * when there is exactly one. It used to want two, on the reasoning
+           * that a tab onto the thing already on screen is worth nothing —
+           * true of the tab, and not true of the page. A visitor does not see
+           * a tab that was not worth drawing; they see a shop missing a tab
+           * that every other shop has, and cannot tell that from an account
+           * that is half set up. StorefrontTabs renders a lone panel bare,
+           * with no strip, so a creator with no products still gets no strip.
            */
           const tabs: StorefrontTab[] = [{ id: "home", label: "Home", panel: home }]
-          if (productsData.length > 1) {
+          if (productsData.length > 0) {
             tabs.push({
               id: "products",
               label: "Products",
@@ -1254,6 +1309,8 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
   // header this branch no longer has — UnifiedShopHeader derives all three from
   // the props it is given.
   const productCount = products?.length ?? 0
+  /* The same sum the configured branch makes for its About block. */
+  const fallbackTotalSales = products?.reduce((acc, p) => acc + (p.sales_count || 0), 0) || 0
 
   // Use default subscribe bar settings for stores without published config
   const defaultSubscribeSettings = buildSubscribeBarSettings()
@@ -1354,15 +1411,91 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
         * query above asks for status published and nothing else reaches this
         * branch.
         */}
-      {productsData.length > 0 && (
-        <AllProductsGrid
-          products={productsData}
-          creatorName={profile.display_name}
-          creatorUsername={profile.username}
-          creatorAvatarUrl={profile.avatar_url}
-          isOwner={viewerIsOwner}
-        />
-      )}
+      {/**
+        * ═══════════════════════════════════════════════════════════════════
+        *  AND THE SAME TABS AND THE SAME ENDING AS EVERY OTHER PAGE
+        * ═══════════════════════════════════════════════════════════════════
+        * This branch drew the header, a bare grid and the footer. Against a
+        * creator who had been into the builder it was missing the tab strip,
+        * the Products tab with its filter, the divider, the About block with
+        * the seller's name and stats, and the payment methods. None of that
+        * is a customisation anybody chose — it is the page — so a creator who
+        * simply uploaded a product looked like a broken account rather than
+        * an unstyled one. Reported with the two side by side.
+        *
+        * The same components the configured branch uses, in the same order,
+        * so there is one answer to what a creator page looks like.
+        */}
+      {(() => {
+        const tabs: StorefrontTab[] = [
+          {
+            id: "home",
+            label: "Home",
+            panel: productsData.length > 0 ? (
+              <AllProductsGrid
+                products={productsData}
+                creatorName={profile.display_name}
+                creatorUsername={profile.username}
+                creatorAvatarUrl={profile.avatar_url}
+                isOwner={viewerIsOwner}
+              />
+            ) : null,
+          },
+        ]
+        if (productsData.length > 0) {
+          tabs.push({
+            id: "products",
+            label: "Products",
+            panel: (
+              <AllProductsGrid
+                products={productsData}
+                creatorName={profile.display_name}
+                creatorUsername={profile.username}
+                creatorAvatarUrl={profile.avatar_url}
+                isOwner={viewerIsOwner}
+              />
+            ),
+          })
+        }
+        tabs.push({
+          id: "communities",
+          label: "Communities",
+          panel: (
+            <EmptyTabPanel
+              icon="communities"
+              title="No communities yet"
+              detail="This creator hasn't opened any yet."
+            />
+          ),
+        })
+        return <StorefrontTabs tabs={tabs} />
+      })()}
+
+      {/* The About block every page ends with: who the seller is, how long
+          they have been here, what they have sold, and which cards they
+          take. All four are true of somebody who has never opened the
+          builder. */}
+      <SectionRenderer
+        section={{
+          id: DEFAULT_ABOUT_SECTION_ID,
+          type: "about",
+          order: 0,
+          settings: { ...defaultAboutSettings },
+        } as Section}
+        products={productsData}
+        creatorName={profile.display_name || undefined}
+        creatorUsername={profile.username}
+        creatorAvatarUrl={profile.avatar_url}
+        viewerIsOwner={viewerIsOwner}
+        sellerMemberSince={profile.created_at}
+        sellerTotalSales={fallbackTotalSales}
+        sellerProductsCount={productsData.length}
+        aboutOwnerActions={
+          viewerIsOwner ? (
+            <EditAboutButton headline="" story="" media={[]} contactEmail="" />
+          ) : null
+        }
+      />
 
       <SellerFooter />
     </div>
