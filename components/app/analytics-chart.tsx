@@ -112,6 +112,8 @@ function AnalyticsChartWithTooltipInner({
   const [tooltipActive, setTooltipActive] = useState(false)
   const touchStartPosRef = useRef<{ x: number; y: number } | null>(null)
   const directionLockRef = useRef<"horizontal" | "vertical" | null>(null)
+  /** Whether this gesture has actually gone sideways, rather than intending to. */
+  const scrubbedRef = useRef(false)
   const [activeIndex, setActiveIndex] = useState<number | null>(null)
   const rafRef = useRef<number | null>(null)
   /** One tick per point crossed, not one per frame. */
@@ -229,6 +231,22 @@ function AnalyticsChartWithTooltipInner({
     return Math.round(ratio * (chartDisplayData.length - 1))
   }, [chartDisplayData.length])
 
+/**
+ * Horizontal engages sooner than vertical gives up.
+ *
+ * One threshold for both meant a deliberate sideways drag had to travel as
+ * far as a scroll before anything happened, which is the "hard to get into
+ * it". Eight pixels is past a resting thumb's tremor and well short of a
+ * gesture; vertical keeps twelve, because cancelling a hold by mistake costs
+ * more than starting a scroll a few pixels late.
+ *
+ * At module scope because two branches of touchMoveHandler read them now:
+ * the one that decides what a gesture IS, and the one that decides a hold
+ * has turned into a scroll after all.
+ */
+const SLOP_X = 8
+const SLOP_Y = 12
+
   /**
    * =========================================================================
    *  THE PRESS IS OURS TO WATCH, NOT OURS TO CANCEL
@@ -249,6 +267,7 @@ function AnalyticsChartWithTooltipInner({
   const touchStartHandler = useCallback((e: TouchEvent) => {
     const touch = e.touches[0]
     touchStartPosRef.current = { x: touch.clientX, y: touch.clientY }
+    scrubbedRef.current = false
     lastTouchXRef.current = touch.clientX
     directionLockRef.current = null
     longPressTimerRef.current = setTimeout(() => {
@@ -275,6 +294,44 @@ function AnalyticsChartWithTooltipInner({
     const touch = e.touches[0]
 
     if (tooltipActiveRef.current) {
+      /**
+       * =====================================================================
+       *  A HOLD THAT TURNS INTO A SCROLL IS A SCROLL
+       * =====================================================================
+       * The hold fires 100ms after a finger lands, whether or not that finger
+       * is going anywhere. A thumb that starts down the screen SLOWLY — under
+       * twelve pixels in that first tenth of a second — had the tooltip open
+       * under it before it had travelled far enough to be called a scroll,
+       * and from that moment every move was cancelled here and the page did
+       * not move at all.
+       *
+       * It is the other side of the change that gave this band its scrolling
+       * back: nothing cancels a touchstart any more, so the browser WOULD
+       * pan, and this was the one thing still stopping it.
+       *
+       * So the tooltip lets go when the finger has travelled past the
+       * vertical slop and has NEVER gone meaningfully sideways. Nothing is
+       * cancelled on the way out, so the browser has not been refused and can
+       * still take the gesture.
+       *
+       * IT CANNOT ASK THE DIRECTION LOCK, which was the first attempt. The
+       * hold timer sets the lock to "horizontal" the moment it fires, before
+       * a finger has moved at all, so after any hold the lock says horizontal
+       * whether or not anything was scrubbed — and a guard reading it never
+       * ran. `scrubbedRef` is the honest version of that question: it is set
+       * by movement, not by intent.
+       */
+      const outX = Math.abs(touch.clientX - touchStartPosRef.current.x)
+      const outY = Math.abs(touch.clientY - touchStartPosRef.current.y)
+      if (outX > SLOP_X) scrubbedRef.current = true
+      if (!scrubbedRef.current && outY > SLOP_Y) {
+        directionLockRef.current = "vertical"
+        tooltipActiveRef.current = false
+        lastHapticIndexRef.current = null
+        setTooltipActive(false)
+        setActiveIndex(null)
+        return
+      }
       e.preventDefault()
       e.stopPropagation()
       const clientX = touch.clientX
@@ -313,9 +370,6 @@ function AnalyticsChartWithTooltipInner({
      * of a gesture; vertical keeps twelve, because cancelling a hold by
      * mistake costs more than starting a scroll a few pixels late.
      */
-    const SLOP_X = 8
-    const SLOP_Y = 12
-
     if (directionLockRef.current === null && (dx > SLOP_X || dy > SLOP_Y)) {
       if (dx > dy) {
         directionLockRef.current = "horizontal"
