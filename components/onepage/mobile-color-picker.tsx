@@ -273,7 +273,7 @@ export function MobileColorPicker({ value, onChange, label = "Choose color", cla
         <div className="fixed inset-0 z-[150] md:hidden" style={{ willChange: 'auto' }}>
           {/* Backdrop */}
           <div
-            className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
+            className="absolute inset-0 bg-black/40 scrim-graduated"
             style={{
               opacity: isAnimating ? 1 : 0,
               transition: isDragging ? 'none' : 'opacity 380ms cubic-bezier(0.32, 0.72, 0, 1)',

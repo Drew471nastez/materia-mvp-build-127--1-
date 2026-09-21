@@ -2398,7 +2398,7 @@ export function LinksTab() {
           onOpenAutoFocus={(e) => e.preventDefault()}
           showCloseButton
           disableDefaultAnimations={isMobileModalViewport}
-          overlayClassName={isMobileModalViewport ? cn("bg-black/40 transition-[backdrop-filter,opacity] duration-400", isAddSheetPresented ? "opacity-100 backdrop-blur-[2px]" : "opacity-0 backdrop-blur-0") : undefined}
+          overlayClassName={isMobileModalViewport ? cn("bg-black/40 scrim-graduated transition-opacity duration-400", isAddSheetPresented ? "opacity-100" : "opacity-0") : undefined}
           onTouchStart={(e) => {
             if (!isMobileModalViewport) return
             const touchY = e.touches[0]?.clientY ?? 0
@@ -2710,7 +2710,7 @@ export function LinksTab() {
           onOpenAutoFocus={(e) => e.preventDefault()}
           showCloseButton
           disableDefaultAnimations={isMobileModalViewport}
-          overlayClassName={isMobileModalViewport ? cn("bg-black/40 transition-[backdrop-filter,opacity] duration-400", isSocialSheetPresented ? "opacity-100 backdrop-blur-[2px]" : "opacity-0 backdrop-blur-0") : undefined}
+          overlayClassName={isMobileModalViewport ? cn("bg-black/40 scrim-graduated transition-opacity duration-400", isSocialSheetPresented ? "opacity-100" : "opacity-0") : undefined}
           onTouchStart={(e) => {
             if (!isMobileModalViewport) return
             const touchY = e.touches[0]?.clientY ?? 0
@@ -3190,7 +3190,7 @@ export function LinksTab() {
       }}>
         <DialogContent
           disableDefaultAnimations={isMobileModalViewport}
-          overlayClassName={isMobileModalViewport ? cn("bg-black/40 transition-[backdrop-filter,opacity] duration-400", isThumbnailSheetPresented ? "opacity-100 backdrop-blur-[2px]" : "opacity-0 backdrop-blur-0") : undefined}
+          overlayClassName={isMobileModalViewport ? cn("bg-black/40 scrim-graduated transition-opacity duration-400", isThumbnailSheetPresented ? "opacity-100" : "opacity-0") : undefined}
           onTouchStart={(e) => {
             if (!isMobileModalViewport) return
             const touchY = e.touches[0]?.clientY ?? 0
@@ -5354,7 +5354,7 @@ function BlockItem({
             <DialogContent
               showCloseButton
               disableDefaultAnimations={isMobileStatsViewport}
-              overlayClassName={isMobileStatsViewport ? cn("bg-black/40 transition-[backdrop-filter,opacity] duration-400", isAnimationSheetPresented ? "opacity-100 backdrop-blur-[2px]" : "opacity-0 backdrop-blur-0") : undefined}
+              overlayClassName={isMobileStatsViewport ? cn("bg-black/40 scrim-graduated transition-opacity duration-400", isAnimationSheetPresented ? "opacity-100" : "opacity-0") : undefined}
               onTouchStart={(e) => {
                 if (!isMobileStatsViewport) return
                 const touchY = e.touches[0]?.clientY ?? 0
@@ -5484,7 +5484,7 @@ function BlockItem({
               <DialogContent
                 showCloseButton
                 disableDefaultAnimations={isMobileStatsViewport}
-                overlayClassName={isMobileStatsViewport ? cn("bg-black/40 transition-[backdrop-filter,opacity] duration-400", isStatsSheetPresented ? "opacity-100 backdrop-blur-[2px]" : "opacity-0 backdrop-blur-0") : undefined}
+                overlayClassName={isMobileStatsViewport ? cn("bg-black/40 scrim-graduated transition-opacity duration-400", isStatsSheetPresented ? "opacity-100" : "opacity-0") : undefined}
                 onTouchStart={(e) => {
                   if (!isMobileStatsViewport) return
                   const touchY = e.touches[0]?.clientY ?? 0

@@ -540,7 +540,7 @@ export function ProductsTab() {
           onOpenAutoFocus={(e) => e.preventDefault()}
           showCloseButton
           disableDefaultAnimations={isMobileViewport}
-          overlayClassName={isMobileViewport ? cn("bg-black/40 transition-[backdrop-filter,opacity] duration-400", isAddProductSheetPresented ? "opacity-100 backdrop-blur-[2px]" : "opacity-0 backdrop-blur-0") : undefined}
+          overlayClassName={isMobileViewport ? cn("bg-black/40 scrim-graduated transition-opacity duration-400", isAddProductSheetPresented ? "opacity-100" : "opacity-0") : undefined}
           onTouchStart={(e) => {
             if (!isMobileViewport) return
             const touchY = e.touches[0]?.clientY ?? 0
