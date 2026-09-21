@@ -55,9 +55,17 @@ const DPR = Number(process.env.DPR ?? 3)
 const out = mkdtempSync(join(tmpdir(), "storelib-scrim-"))
 
 function page(variant) {
-  const scrim = variant === "old"
-    ? `<div class="scrim" style="backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px)"></div>`
-    : `<div class="scrim scrim-graduated"></div>`
+  /*
+     "none" is the dim with no blur at all: the baseline every other reading
+     is judged against. Without it the only yardstick was a ratio between the
+     top and bottom bands, which says nothing about whether the blur is doing
+     anything — and at a quarter of a pixel that is the whole question.
+  */
+  const scrim = variant === "none"
+    ? `<div class="scrim"></div>`
+    : variant === "old"
+      ? `<div class="scrim" style="backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px)"></div>`
+      : `<div class="scrim scrim-graduated"></div>`
   return `<!doctype html><html><head><meta charset="utf-8"><style>
     html, body { margin: 0; height: 100%; }
     /*
@@ -73,7 +81,7 @@ function page(variant) {
 }
 
 const shots = {}
-for (const variant of ["old", "new"]) {
+for (const variant of ["none", "old", "new"]) {
   const html = join(out, `${variant}.html`)
   writeFileSync(html, page(variant))
   const png = join(out, `${variant}.png`)
@@ -127,35 +135,54 @@ for name, path in ${JSON.stringify(Object.entries(shots))}:
 print(json.dumps(out))
 `
 const raw = JSON.parse(execFileSync("python3", ["-c", py], { encoding: "utf8" }))
-const contrast = { old: raw.old.bands, new: raw.new.bands }
+const contrast = { none: raw.none.bands, old: raw.old.bands, new: raw.new.bands }
 
 console.log(`\nStripe contrast through the scrim, top band to bottom band, at ${DPR}x`)
 console.log(`(the scrim covers 0..${raw.new.scrimBottom} of a ${raw.new.image}px capture)`)
 console.log(`(a big number is sharp, a small one is blurred)\n`)
+console.log(`  ${"dim only, no blur".padEnd(24)} ${contrast.none.map((n) => String(n).padStart(6)).join("")}`)
 console.log(`  ${"old, flat blur(2px)".padEnd(24)} ${contrast.old.map((n) => String(n).padStart(6)).join("")}`)
 console.log(`  ${"new, graduated".padEnd(24)} ${contrast.new.map((n) => String(n).padStart(6)).join("")}`)
 console.log("")
 
 const problems = []
-const [oldTop] = contrast.old
-const nw = contrast.new
 const avg = (a) => a.reduce((s, n) => s + n, 0) / a.length
 
-/* 1. The top has to be clearer than it was. */
-if (nw[0] <= oldTop * 1.5)
-  problems.push(`the top band reads ${nw[0]} against the old ${oldTop} — it is not meaningfully clearer than the flat blur`)
+/*
+  HOW DEEP THE BLUR ACTUALLY IS, as a share of the contrast that survives
+  with no blur at all. A ratio between the top and bottom bands was the old
+  yardstick and it could not tell "gentle" from "absent": both look like two
+  numbers close together. This is measured against the baseline instead.
+*/
+const baseline = avg(contrast.none)
+const depth = (band) => Math.round((1 - band / baseline) * 1000) / 10
+const nw = contrast.new
+console.log(`  ${"blur depth, top to bottom".padEnd(24)} ${nw.map((n) => `${depth(n)}%`.padStart(6)).join("")}`)
+console.log("")
 
-/* 2. It has to deepen downwards, not sit flat. */
-if (nw[0] <= nw[nw.length - 1] * 1.2)
-  problems.push(`top ${nw[0]} and bottom ${nw[nw.length - 1]} are too close — the blur is not graduated`)
+/* 1. The top has to be left alone. */
+if (depth(nw[0]) > 3)
+  problems.push(`the top band is already ${depth(nw[0])}% blurred — the top of the page is meant to be untouched`)
+
+/* 2. It has to deepen downwards, and each step must not go backwards. */
 for (let i = 1; i < nw.length; i++) {
   if (nw[i] > nw[i - 1] + 1)
     problems.push(`band ${i + 1} (${nw[i]}) is sharper than band ${i} (${nw[i - 1]}) — the ramp goes the wrong way`)
 }
 
-/* 3. And it has to be softer OVERALL, which is the thing that was asked. */
+/*
+  3. And at its deepest it has to be doing something at all. Below about a
+  quarter of a CSS pixel the radius stops resolving to a whole device pixel
+  even at 3x and the blur does not soften, it disappears — so this is the
+  line between "gentle" and "you have turned it off without saying so".
+*/
+const deepest = depth(nw[nw.length - 1])
+if (deepest < 5)
+  problems.push(`at its deepest the blur removes ${deepest}% of the contrast — that is not a blur, it is the dim on its own`)
+
+/* 4. And it must still be softer overall than the flat blur it replaced. */
 if (avg(nw) <= avg(contrast.old))
   problems.push(`averaged down the page the new scrim is ${avg(nw).toFixed(1)} against the old ${avg(contrast.old).toFixed(1)} — it is not less blurred overall`)
 
 if (problems.length) fail(problems.map((p) => `  - ${p}`).join("\n"))
-console.log(`Clear at the top (${nw[0]} vs ${oldTop}), deepening to ${nw[nw.length - 1]} at the bottom, and softer on average (${avg(nw).toFixed(1)} vs ${avg(contrast.old).toFixed(1)}).\n`)
+console.log(`Untouched at the top, deepening to ${deepest}% of the contrast at the bottom, and softer down the page than the flat blur (${avg(nw).toFixed(1)} vs ${avg(contrast.old).toFixed(1)}).\n`)

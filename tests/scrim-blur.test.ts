@@ -20,8 +20,24 @@
  *     softened again, 1.1px   76.5  76.5  73.2  65.2  55.8  43.5
  *     and again, 0.8px        76.5  76.5  73.9  67.8  60.7  52.0
  *     down 40%, 0.48px        76.5  76.5  75.0  71.5  67.8  63.4
+ *     as low as it goes, 0.28  76.5  76.5  75.3  72.8  70.1  66.8
  *
- * Asked down four times after the first pass. The top of the page is the
+ * Asked down five times after the first pass, and 0.28px is the end of the
+ * road rather than a preference. Swept at 3x, the graduated scrim has only
+ * three distinct states left below half a pixel:
+ *
+ *     0.48px   63.4 at the bottom
+ *     0.36px   66.8  }  the same step
+ *     0.28px   66.8  }
+ *     0.20px   76.3  }  the same as no blur whatsoever (76.5)
+ *     0.12px   76.3  }
+ *
+ * Under about a quarter of a CSS pixel the radius stops resolving to a whole
+ * device pixel even at 3x and the effect does not soften, it VANISHES. If a
+ * softer scrim is wanted from here, the lever is the dim — bg-black/40 on
+ * the parent — and not this.
+ *
+ * Asked down five times after the first pass. The top of the page is the
  * clarity of no scrim at all, and the bottom — behind the sheet — keeps a
  * real blur while staying far clearer than the flat one it replaced.
  *
