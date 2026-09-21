@@ -116,10 +116,17 @@ const PIX_OF = `(() => {
   */
   const root = t.closest(".group") || t.parentElement
   const dots = [...root.querySelectorAll('button[aria-label^="Go to slide"]')]
-  const active = dots.findIndex((d) => d.className.indexOf("w-6") !== -1)
+  /*
+    The widest dot, not the one carrying a class. The pill's width is written
+    inline now, precisely so it can be a fraction rather than one of two
+    states, and an earlier version of this looked for "w-6" and reported -1
+    for every dot on a page that no longer has that class.
+  */
+  const widths = dots.map((d) => Math.round(d.getBoundingClientRect().width * 10) / 10)
+  const active = widths.length ? widths.indexOf(Math.max(...widths)) : -1
   return { slideLeft: Math.round(first.left), scrollLeft: Math.round(t.scrollLeft),
            scrollWidth: Math.round(t.scrollWidth), clientWidth: Math.round(t.clientWidth),
-           activeDot: active }
+           activeDot: active, dotWidths: widths }
 })()`
 
 async function main(WIDTH, TOUCH) {
@@ -313,10 +320,19 @@ async function main(WIDTH, TOUCH) {
   })()`)
   await send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: startX, y }] })
   const follow = []
+  /* What the dots did while the finger was moving, which is the thing that
+     was reported as jumping. */
+  const dotTrail = []
   for (let i = 1; i <= 12; i++) {
     await send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: startX - i * 22, y }] })
     await sleep(40)
     follow.push(await ev(X_OF))
+    dotTrail.push(await ev(`(() => {
+      const t = window.__track
+      const root = t.closest(".group") || t.parentElement
+      return [...root.querySelectorAll('button[aria-label^="Go to slide"]')]
+        .map((d) => Math.round(d.getBoundingClientRect().width * 10) / 10)
+    })()`))
   }
   const pixDuring = await ev(PIX_OF)
   await send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] })
@@ -382,7 +398,7 @@ async function main(WIDTH, TOUCH) {
 
   ws.close()
   reap()
-  return { box, autoplay, before, follow, settled, scrolledBy, tap, aim, autoplayAfterTouch, dgBefore, diagonal, diagonalSettled, atTouchTime, startX, y, pixBefore, pixDuring, pixAfter, arrowBefore, arrowAfter, arrowPressed }
+  return { box, autoplay, before, follow, dotTrail, settled, scrolledBy, tap, aim, autoplayAfterTouch, dgBefore, diagonal, diagonalSettled, atTouchTime, startX, y, pixBefore, pixDuring, pixAfter, arrowBefore, arrowAfter, arrowPressed }
 }
 
 const uniq = (a) => [...new Set(a.filter((n) => n !== null).map((n) => Math.round(n)))]
@@ -411,6 +427,14 @@ for (const WIDTH of WIDTHS) {
   say("autoplay after a touch", JSON.stringify(uniq(r.autoplayAfterTouch)))
   say("follows the finger", `scrollLeft ${JSON.stringify(r.follow.map((n) => (n === null ? null : Math.round(n))))}`)
   say("THE PICTURE WAS AT", `x=${r.pixBefore.slideLeft}, during the drag x=${r.pixDuring.slideLeft}, after x=${r.pixAfter.slideLeft}`)
+  {
+    const seen = new Set()
+    for (const row of r.dotTrail) for (const w of row) seen.add(w)
+    say("dot widths while dragging", `${seen.size} distinct values across the drag: ${JSON.stringify([...seen].sort((a, b) => a - b))}`)
+    /* Two values is a pill that is either on a dot or off it, which is the
+       snap that was reported. A fill that crosses over takes many. */
+    if (seen.size <= 3) note(`the dots took only ${seen.size} distinct widths across the whole drag (${JSON.stringify([...seen])}) — the fill jumps rather than crossing over`)
+  }
   say("pressing the arrow", `${r.arrowPressed ? "" : "(no arrow found) "}picture x=${r.arrowBefore.slideLeft} -> ${r.arrowAfter.slideLeft}, dot ${r.arrowBefore.activeDot} -> ${r.arrowAfter.activeDot}`)
   say("a diagonal start", JSON.stringify(r.diagonal.map((n) => (n === null ? null : Math.round(n)))))
   say("the scroller holds", `${r.pixBefore.scrollWidth}px of content in ${r.pixBefore.clientWidth}px`)
