@@ -90,6 +90,47 @@ setTimeout(function () {
     /* The About heading, which is the column the report used as the ruler. */
     aboutHeading: edges(byText("h2, h3", /^About /)),
     paymentHeading: edges(byText("h4", /^Accepted payment methods$/)),
+    /*
+      AND THE GAP BETWEEN THE WORK AND WHAT IS SAID ABOUT IT.
+
+      The last product card, then air, then the rule the About block opens
+      with. Reported as too tight, and it is a number: the grid's own bottom
+      padding plus whatever the About section reserves above itself.
+    */
+    gap: (function () {
+      /* The lowest thing the grid draws, whatever element it turns out to be:
+         asking for a product link assumes a card's markup, and the first
+         version of this did and found nothing. */
+      var heading = byText("h2, h1, h3", /^Products$/)
+      var column = heading ? heading.closest('div[class*="max-w-"]') : null
+      var lowest = null
+      if (column) {
+        var kids = column.querySelectorAll("*")
+        for (var i = 0; i < kids.length; i++) {
+          var r = kids[i].getBoundingClientRect()
+          if (r.height > 0 && (lowest === null || r.bottom > lowest)) lowest = r.bottom
+        }
+      }
+      /* The About block opens with a full-width hairline. */
+      var rules = document.querySelectorAll("div")
+      var firstRuleBelow = null
+      for (var j = 0; j < rules.length; j++) {
+        var rr = rules[j].getBoundingClientRect()
+        if (Math.round(rr.height) === 1 && rr.width > 300 && lowest !== null && rr.top > lowest) {
+          if (firstRuleBelow === null || rr.top < firstRuleBelow) firstRuleBelow = rr.top
+        }
+      }
+      if (lowest === null || firstRuleBelow === null) return null
+      var colBottom = column ? Math.round(column.getBoundingClientRect().bottom) : null
+      var cs2 = column ? getComputedStyle(column) : null
+      var colPad = cs2 ? cs2.paddingTop + " / " + cs2.paddingBottom + " / " + cs2.paddingLeft : null
+      return {
+        cardBottom: Math.round(lowest), ruleTop: Math.round(firstRuleBelow),
+        gap: Math.round(firstRuleBelow - lowest),
+        colBottom: colBottom, colPad: colPad,
+        colClass: column ? String(column.className).slice(0, 90) : null,
+      }
+    })(),
   }
   var pre = document.createElement("pre"); pre.id = "result"
   pre.textContent = JSON.stringify(result); document.body.append(pre)
@@ -117,6 +158,21 @@ for (const w of WIDTHS) {
   for (const [label, box] of rows) {
     if (!box) { problems.push(`${label} was not on the page at ${r.viewport}px`); continue }
     console.log(`  ${label.padEnd(22)} ${String(box.left).padStart(4)} .. ${String(box.right).padStart(4)}`)
+  }
+
+  if (!r.gap) {
+    problems.push(`at ${r.viewport}px the gap between the last product and the About rule could not be found`)
+  } else {
+    console.log(`  ${"the gap to the About rule".padEnd(22)} ${r.gap.gap}px`)
+    if (process.env.DEBUG) console.log(`    card bottom ${r.gap.cardBottom}, column bottom ${r.gap.colBottom}, column padding ${r.gap.colPad}`)
+    /*
+      It was 48 and read as tight. The floor is 56 so it cannot quietly go
+      back, and the ceiling is 96 because the last time somebody stacked two
+      owners' padding here it came to 129px of nothing — see the note in
+      storefront-tabs.
+    */
+    if (r.gap.gap < 56) problems.push(`at ${r.viewport}px the gap to the About rule is ${r.gap.gap}px, which is back to reading as tight`)
+    if (r.gap.gap > 96) problems.push(`at ${r.viewport}px the gap to the About rule is ${r.gap.gap}px, which is a hole`)
   }
 
   /* Every landmark starts on the same line. The right edge is not compared:
