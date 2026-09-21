@@ -109,6 +109,16 @@ function averageColour(png) {
   return [Math.round(r / n), Math.round(g / n), Math.round(b / n)]
 }
 const distance = (a, b) => Math.round(Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]))
+/** How far apart the lightest and darkest pixels are: a blur pulls them together. */
+function contrastOf(png) {
+  let lo = 255, hi = 0
+  for (let i = 0; i < png.data.length; i += png.channels) {
+    const l = 0.2126 * png.data[i] + 0.7152 * png.data[i + 1] + 0.0722 * png.data[i + 2]
+    if (l < lo) lo = l
+    if (l > hi) hi = l
+  }
+  return Math.round(hi - lo)
+}
 
 const CHROMIUM = process.env.CHROMIUM ?? "/opt/pw-browsers/chromium"
 const root = process.cwd()
@@ -284,10 +294,23 @@ const READ_PILL = `(() => {
       const mask = st.maskImage || st.webkitMaskImage || "none"
       return blur !== "none" && mask !== "none"
     }).length,
-    fullWidthPlates: [...document.querySelectorAll("[data-app-nav-pill] > *")].filter((n) => {
-      const r = n.getBoundingClientRect()
-      return r.width > window.innerWidth - 8
-    }).length,
+    /* The fade is full width by design. What it may not be is a plate: no
+       layer in it may carry a mask, and none may have an opaque fill. */
+    fade: (() => {
+      const fade = document.querySelector("[data-app-nav-fade]")
+      if (!fade) return null
+      const layers = [...fade.querySelectorAll("*")]
+      const masked = layers.filter((n) => { const st = getComputedStyle(n); return (st.maskImage || st.webkitMaskImage || "none") !== "none" }).length
+      const opaque = layers.filter((n) => {
+        const bg = getComputedStyle(n).backgroundColor
+        const m = bg.match(/rgba?\\(([^)]+)\\)/)
+        if (!m) return false
+        const parts = m[1].split(",").map((v) => Number.parseFloat(v))
+        return parts.length < 4 || parts[3] >= 0.999
+      }).length
+      const steps = layers.filter((n) => /blur\\(/.test(getComputedStyle(n).backdropFilter || getComputedStyle(n).webkitBackdropFilter || "")).length
+      return { h: Math.round(fade.getBoundingClientRect().height), layers: layers.length, masked, opaque, steps }
+    })(),
     targets, hits,
     scrollPadBottom: scroller ? getComputedStyle(scroller).paddingBottom : null,
     /* Is the last card clear of the pill when the list is scrolled to its end? */
@@ -334,6 +357,42 @@ await ev(`document.querySelector(".app-content-scroll").scrollTop = 0; true`)
 await sleep(300)
 const pageColour = column[0].rgb
 const plateSteps = column.filter((c) => distance(c.rgb, pageColour) > 2)
+
+/*
+ * ── DOES THE FADE BLUR, AND DOES IT BLUR MORE TOWARD THE BOTTOM ──────────
+ *
+ * Fine stripes go behind the whole foot of the screen: 2px black, 2px white.
+ * Photographed sharp they are full contrast; photographed through a blur the
+ * two pull toward one grey. The contrast of the stripes is therefore a
+ * measure of how much blur is over them, and it is read in three places:
+ * well above the fade, at the top of the fade, and at the bottom, beside the
+ * bar. A fade that blurs reads lower at the bottom than above; one that
+ * fades reads lower at the bottom than at the top.
+ */
+await ev(`(() => {
+  const el = document.createElement("div")
+  el.id = "__stripes"
+  el.style.cssText = "position:fixed;left:0;right:0;bottom:0;height:400px;z-index:1;background:repeating-linear-gradient(to bottom,#000 0 2px,#fff 2px 4px)"
+  document.body.appendChild(el)
+  return true
+})()`)
+await sleep(300)
+const fadeBox = await ev(`(() => {
+  const f = document.querySelector("[data-app-nav-fade]").getBoundingClientRect()
+  const b = document.querySelector('nav[aria-label="Main"]').getBoundingClientRect()
+  return { top: Math.round(f.top), bottom: Math.round(f.bottom), barMid: Math.round(b.top + b.height / 2) }
+})()`)
+const contrastAt = async (y) => {
+  const { data } = await send("Page.captureScreenshot", { format: "png", clip: { x: 4, y: y - 8, width: 8, height: 16, scale: 1 }, captureBeyondViewport: false })
+  return contrastOf(decodePng(Buffer.from(data, "base64")))
+}
+const blur = {
+  above: await contrastAt(fadeBox.top - 60),
+  top: await contrastAt(fadeBox.top + 10),
+  bottom: await contrastAt(fadeBox.barMid),
+}
+await ev(`document.getElementById("__stripes").remove(); true`)
+await sleep(200)
 
 /* ── is it glass, or is it a white panel? ────────────────────────────────── */
 /*
@@ -614,7 +673,7 @@ const must = (ok, line, why) => { say(ok, line); if (!ok) problems.push(why) }
 console.log(`\n  The phone's navigation at ${VIEW_W}x${VIEW_H}\n`)
 console.log(`  the pill    ${shut.pill.w}x${shut.pill.h} at x=${shut.pill.x}, ${shut.pill.bottomGap}px above the bottom, radius ${shut.pill.radius}`)
 console.log(`              ${shut.pill.bg}`)
-console.log(`  behind it   ${shut.fullWidthPlates} full-width layers, ${shut.maskedBlurs} elements carrying a mask over a backdrop-filter`)
+console.log(`  the fade    ${shut.fade?.h}px tall, ${shut.fade?.steps} blur steps and a tint, ${shut.fade?.masked} masks, ${shut.fade?.opaque} opaque fills, ${shut.maskedBlurs} masked backdrop-filters`)
 console.log(`  targets     ${shut.targets.map((t) => `${t.label} ${t.w}x${t.h}`).join(", ")}`)
 console.log(`  clearance   list padded ${shut.scrollPadBottom} at the bottom; scrolled to the end the last card stops ${shut.lastCardClear}px above the pill`)
 console.log(`  the menu    ${open.covers}px tall from y=${open.top}, ${open.bg}, moves ${open.transition}`)
@@ -626,7 +685,8 @@ must(shut.pill.centred, "the bar and the menu button, together, are centred",
 must(shut.pill.gapToButton >= 4 && shut.pill.gapToButton <= 16,
   "and the menu is a separate object beside the bar, not a fifth slot in it",
   `there are ${shut.pill.gapToButton}px between them`)
-must(shut.pill.bottomGap >= 8 && shut.pill.bottomGap <= 40, "and sits just above the bottom edge, where a thumb is",
+/* 6px now, "a little bit more down"; below 4 it is on the home indicator. */
+must(shut.pill.bottomGap >= 4 && shut.pill.bottomGap <= 40, "and sits just above the bottom edge, where a thumb is",
   `the pill is ${shut.pill.bottomGap}px from the bottom`)
 must(shut.pill.radius.startsWith("999") || Number.parseFloat(shut.pill.radius) >= shut.pill.h / 2,
   "it is a pill, not a rounded rectangle", `its radius is ${shut.pill.radius} on a ${shut.pill.h}px box`)
@@ -650,13 +710,24 @@ must(shut.hits.every((h) => h.reaches), "and a press in the middle of each one r
 must(shut.maskedBlurs === 0,
   "nothing behind the bar masks a backdrop-filter, which WKWebView paints as a flat fill",
   `${shut.maskedBlurs} element(s) carry both. On an iPhone that is a pale plate across the bottom of the screen.`)
-must(shut.fullWidthPlates === 0,
-  "and there is no full-width layer behind it at all: the bar floats, and the page goes past it",
-  `${shut.fullWidthPlates} layer(s) span the whole screen behind the bar`)
+must(!!shut.fade && shut.fade.steps >= 4, "the page dissolves into a stacked progressive blur toward the bottom edge",
+  `the fade has ${shut.fade?.steps ?? 0} blur steps`)
+must(shut.fade?.masked === 0, "with no mask on any layer of it, which is the thing WKWebView cannot draw",
+  `${shut.fade?.masked} layer(s) of the fade carry a mask`)
+must(shut.fade?.opaque === 0, "and no opaque fill on any layer, so nothing in it can be a plate",
+  `${shut.fade?.opaque} layer(s) of the fade have an opaque background`)
 const pillAlpha = Number((shut.pill.bg.match(/rgba?\([^)]*?,\s*([\d.]+)\s*\)/) ?? [])[1] ?? 1)
-must(/^rgba?\(255, 255, 255/.test(shut.pill.bg) && pillAlpha <= 0.55,
-  "the bar is a thin tint rather than a solid sheet",
-  `the bar is ${shut.pill.bg}: at that opacity it is a white panel with a blur behind it, not glass`)
+/*
+  FROSTED, NOT CLEAR, AND NOT A PANEL. This held the tint under 55% while
+  "solid" was the complaint, and at 18% the glyphs ended up sitting on the
+  dashboard's saturated artwork. "The bar itself doesn't need to be
+  transparent" is the correction: 70% white over a blur is the material a
+  system tab bar is made of. The band is 60 to 80: under it the glyphs sit on
+  whatever is behind, at 100 it is a panel.
+*/
+must(/^rgba?\(255, 255, 255/.test(shut.pill.bg) && pillAlpha >= 0.6 && pillAlpha <= 0.8,
+  "the bar is frosted white: readable over anything, and not a panel",
+  `the bar is ${shut.pill.bg}`)
 must(/blur\(/.test(shut.glass.backdrop), "and it carries its own blur, so the page is visible THROUGH it",
   `the bar's backdrop-filter is "${shut.glass.backdrop}"`)
 must(shut.selector.w === shut.selector.h, "the selector is a circle, not an oval",
@@ -675,6 +746,16 @@ console.log("")
 console.log("  a column down the left margin, scrolled to the end of the page:")
 for (const c of column) console.log(`    y=${String(c.y).padStart(3)}  rgb(${c.rgb.join(",")})${distance(c.rgb, pageColour) > 2 ? "   <- not the page colour" : ""}`)
 console.log("")
+console.log(`  the blur    stripes read ${blur.above} of contrast above the fade, ${blur.top} at its top, ${blur.bottom} at the bar\n`)
+must(blur.above >= 120, "the stripe pattern is sharp where nothing is over it, so the test can see",
+  `only ${blur.above} of contrast above the fade: the stripes are not being drawn sharply enough to measure against`)
+must(blur.bottom <= blur.above * 0.3, "at the bar the page is blurred, not just tinted",
+  `the stripes still read ${blur.bottom} of contrast at the bar against ${blur.above} above the fade`)
+must(blur.top > blur.bottom + 10, "and the blur is progressive: lighter at the top of the fade than at the bottom",
+  `the top of the fade reads ${blur.top} and the bottom ${blur.bottom}, which is a flat blur with an edge rather than a fade`)
+must(blur.top >= blur.above * 0.35, "with the top edge of the fade barely touched, so there is no line where it begins",
+  `the top of the fade already reads ${blur.top} against ${blur.above} above it: the blur starts with a step`)
+
 must(plateSteps.length === 0,
   "the screen is one colour from the content down to the bottom edge",
   `${plateSteps.length} of ${column.length} samples differ from the page colour rgb(${pageColour.join(",")}), the first at y=${plateSteps[0]?.y} reading rgb(${plateSteps[0]?.rgb.join(",")}). That is a plate with an edge across the screen.`)
@@ -683,17 +764,25 @@ console.log(`  see-through the same square inside the bar read rgb(${seeThrough.
 console.log(`              ${seeThrough.moved} apart inside the bar, ${seeThrough.aside} apart in the bare margin beside it`)
 console.log(`              on plain page: rgb(${seeThrough.aboveFade}) above the fade, rgb(${seeThrough.insideFade}) inside it\n`)
 /*
-  100 is not a round number pulled out of the air: a white panel moves 0, the
-  bar as it stands moves 150, and the version that was reported as "still
-  solid" moved 133. So the floor sits well below where it is now and well
-  above anything that would read as opaque.
+  THESE FLOORS WERE 100 AND 200 WHEN NOTHING SAT BETWEEN THE BAR AND THE
+  PAGE. Now the fade does, on purpose: at the height of the bar it lays about
+  three quarters of the page's own colour over whatever is behind, and blurs
+  it, because that frost is what was asked for. So a square that moved 150
+  between red and blue with a bare bar moves 53 with a frosted one, and the
+  bare margin beside it moves 86 rather than 241.
+
+  What the floors guard is the difference between frosted and OPAQUE. A white
+  panel moves 0 whatever is behind it. Anything past 30 is letting the page
+  through; the tint is the rest of the distance, and the tint is the point.
 */
-must(seeThrough.moved >= 100,
-  "change what is behind the bar and the bar changes: the page really is coming through it",
+/* 70% frost over pure red measures 31. The floor is 20 so that reading is a
+   pass with room, and a panel, which moves 0, is still a long way under it. */
+must(seeThrough.moved >= 20,
+  "change what is behind the bar and the bar changes: it frosts the page, it does not hide it",
   `the same pixel moved only ${seeThrough.moved} when the colour behind it went from red to blue. A white panel would move 0`)
-must(seeThrough.aside >= 200,
-  "and beside the bar the page is simply the page, with nothing over it",
-  `the margin beside the bar moved only ${seeThrough.aside} between red and blue, so something is painting over it`)
+must(seeThrough.aside >= 40,
+  "and the fade beside it frosts the page too, rather than painting over it",
+  `the margin beside the bar moved only ${seeThrough.aside} between red and blue, which is a fill and not a frost`)
 must(seeThrough.plate <= 3,
   "and beside the bar the page reads the same as it does well above it",
   `plain page reads rgb(${seeThrough.aboveFade}) higher up and rgb(${seeThrough.insideFade}) level with the bar, ${seeThrough.plate} apart: that difference is a paler rectangle with a top edge`)

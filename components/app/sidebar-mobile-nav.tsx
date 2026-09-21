@@ -416,7 +416,7 @@ export function MobileMenuPage({
       */}
       <nav
         className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pt-3"
-        style={{ paddingBottom: "calc(110px + env(safe-area-inset-bottom, 0px))" }}
+        style={{ paddingBottom: "calc(116px + env(safe-area-inset-bottom, 0px))" }}
       >
         <div className="space-y-0.5">
           {items.map((item) => (
@@ -499,22 +499,48 @@ export function MobileMenuPage({
  * is 5% at one pixel and 10% at eight, which is a lift rather than a cast.
  */
 const GLASS: React.CSSProperties = {
-  backgroundColor: "rgba(255,255,255,0.18)",
-  backdropFilter: "blur(30px) saturate(210%)",
-  WebkitBackdropFilter: "blur(30px) saturate(210%)",
+  /*
+    FROSTED, NOT CLEAR. This went as low as 18% while "solid" was the
+    complaint, and over the dashboard's artwork that left the bar the colour
+    of the artwork, with its glyphs sitting on saturated red. Asked for
+    directly: "the buttons themselves don't need to be full glassmorphism
+    transparent, the bar itself doesn't need to be transparent". 70% white
+    over a blur is the material a system tab bar is made of: it reads white
+    over anything and still takes a breath of whatever is under it.
+  */
+  backgroundColor: "rgba(255,255,255,0.7)",
+  backdropFilter: "blur(24px) saturate(160%)",
+  WebkitBackdropFilter: "blur(24px) saturate(160%)",
   boxShadow:
     "0 1px 2px rgba(16,18,27,0.05), 0 8px 22px rgba(16,18,27,0.10)," +
     " inset 0 0 0 0.5px rgba(255,255,255,0.65), inset 0 0.5px 0 rgba(255,255,255,0.9)",
 }
 
-/** A little bigger than it was, which was 48 with 46px slots. */
-const BAR_H = 54
-const SLOT = 50
+/** A little bigger again, as asked: 54 with 50px slots before this. */
+const BAR_H = 58
+const SLOT = 53
 const PAD = 4
 /** The selector is a CIRCLE, so it is as wide as it is tall. */
 const DOT = BAR_H - PAD * 2
 /** Between the bar and the buttons beside it. */
 const GAP = 8
+
+/**
+ * The fade's six blurs, top of the fade first. They compound where the
+ * rectangles overlap, roughly as the root of the sum of their squares, so the
+ * bottom of the fade lands near 12px of blur and the top near 2, and no step
+ * between neighbours is more than a couple of pixels.
+ */
+const FADE_STEPS = [1, 2, 3, 4, 5, 6]
+/**
+ * The page under the bar on a phone is #f8f9fa, and the tint is that colour.
+ * Lighter than the first cut: "subtle, smooth, clean, not so much". The bar
+ * carries its own frost now, so the fade only has to soften the page around
+ * it, not carry the whole effect.
+ */
+const FADE_TINT = "rgba(248,249,250,0.62)"
+const FADE_TINT_MID = "rgba(248,249,250,0.34)"
+const FADE_TINT_NONE = "rgba(248,249,250,0)"
 
 /**
  * ===========================================================================
@@ -530,8 +556,14 @@ const GAP = 8
  * satisfying" is asking for, and it is one cubic-bezier with its third
  * control point past 1.
  */
-const TRACK = `transform 150ms cubic-bezier(0.2, 0, 0, 1)`
-const SETTLE = `transform 440ms cubic-bezier(0.34, 1.32, 0.42, 1)`
+const TRACK = `transform 110ms cubic-bezier(0.2, 0, 0, 1)`
+const SETTLE = `transform 420ms cubic-bezier(0.32, 1.24, 0.44, 1)`
+/**
+ * Under a finger the circle LIFTS a little, which is the tell of the newer
+ * system bars: the thing you are holding is the thing that is bigger. It
+ * settles back to size on the same spring it settles into place with.
+ */
+const LIFT = 1.08
 
 /**
  * Three bars that become a cross.
@@ -755,31 +787,60 @@ export function MobileNavPill({
       data-app-nav-pill=""
       className="pointer-events-none fixed inset-x-0 bottom-0 z-[55] flex items-end justify-center md:hidden"
       style={{
-        paddingBottom: "calc(10px + env(safe-area-inset-bottom, 0px))",
+        paddingBottom: "calc(6px + env(safe-area-inset-bottom, 0px))",
         transition: `transform 260ms ${EASE}, opacity 180ms ease-out`,
       }}
     >
       {/*
-        ── THERE IS NO FADE BEHIND THE BAR ANY MORE ─────────────────────────
-        A full width strip used to sit here carrying `backdrop-filter` AND
-        `mask-image`, to blur the page under the bar and dissolve upward
-        instead of ending on an edge.
+        ── THE FADE, BUILT OUT OF PLAIN RECTANGLES ──────────────────────────
+        The page dissolves into frosted glass over the last hundred pixels of
+        the screen, and the bar floats in that. It is what an iOS tab bar does
+        and it is what was asked for: "a very smooth tint, till the bottom,
+        fading into glassmorphism, blurring smoothly as you scroll".
 
-        WKWebView does not composite those two on one element. The mask is
-        dropped and the filtered region paints as a flat light fill, so what
-        that strip drew on an iPhone was a pale rectangle across the foot of
-        the screen with a hard top edge — the "solid background" that kept
-        being reported and that Chromium never showed. Photographed here as a
-        flat rgb(248,249,250) all the way down, because Chromium honours the
-        mask; the fault is not in the declaration, it is in one engine's
-        handling of the pair.
+        THE FIRST VERSION WAS ONE ELEMENT, WITH `backdrop-filter` AND
+        `mask-image` ON IT, and on an iPhone that is a pale plate with a hard
+        top edge: WKWebView drops the mask and paints the filtered region as
+        a flat fill. Chromium composites the pair correctly, which is why no
+        probe here could ever see it, and why it was reported four times.
 
-        It is not replaced with a scrim. The bar is glass and it carries its
-        own blur, so the page passing behind it is the effect rather than
-        something to be hidden — which is what the floating bar it is modelled
-        on does. tests/app-mobile-nav.test.ts holds the pair apart from here
-        on: nothing under this component may carry both.
+        So there is no mask anywhere in this. A progressive blur is stacked
+        instead: six rectangles, all anchored to the bottom edge, each a
+        little shorter than the one before and each carrying a small blur of
+        its own. Where they overlap the blurs compound, so the top of the
+        fade is barely touched and the bottom is well blurred, with no single
+        step big enough to see. A rectangle with a backdrop-filter and nothing
+        else is the one thing every engine draws the same way.
+
+        The tint is a separate plain gradient, no filter on it, in the PAGE'S
+        colour rather than white: over a plain page it is invisible, which is
+        what keeps this from being a plate, and over content it frosts.
       */}
+      <div
+        aria-hidden="true"
+        data-app-nav-fade=""
+        className="pointer-events-none absolute inset-x-0 bottom-0"
+        style={{ height: "calc(128px + env(safe-area-inset-bottom, 0px))" }}
+      >
+        {FADE_STEPS.map((blur, i) => (
+          <div
+            key={blur}
+            data-app-nav-fade-step=""
+            className="absolute inset-x-0 bottom-0"
+            style={{
+              height: `${100 - i * (100 / FADE_STEPS.length)}%`,
+              backdropFilter: `blur(${blur}px)`,
+              WebkitBackdropFilter: `blur(${blur}px)`,
+            }}
+          />
+        ))}
+        <div
+          className="absolute inset-0"
+          style={{
+            background: `linear-gradient(to top, ${FADE_TINT} 0%, ${FADE_TINT_MID} 42%, ${FADE_TINT_NONE} 100%)`,
+          }}
+        />
+      </div>
 
       {/*
         ── THE GROUP ─────────────────────────────────────────────────────────
@@ -823,7 +884,7 @@ export function MobileNavPill({
               height: DOT,
               top: PAD,
               left: 0,
-              transform: `translateX(${x}px) scale(${marked < 0 ? 0.55 : 1})`,
+              transform: `translateX(${x}px) scale(${marked < 0 ? 0.55 : slide.dragging ? LIFT : 1})`,
               opacity: marked < 0 ? 0 : 1,
               backgroundColor: slide.dragging ? "rgba(255,255,255,0.92)" : "rgba(255,255,255,0.82)",
               boxShadow: "inset 0 0 0 0.5px rgba(255,255,255,0.75), 0 1px 3px rgba(16,18,27,0.08)",
