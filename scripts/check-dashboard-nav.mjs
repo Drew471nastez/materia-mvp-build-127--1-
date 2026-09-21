@@ -203,6 +203,33 @@ if (!ran) {
   reap(); fail(`the dashboard never rendered: ${why}`)
 }
 
+/*
+ * ── THE PAGE SITS UNDER THE HEADER, NOT UNDERNEATH IT ────────────────────
+ *
+ * "The announcement bar underlaps the header." The bar is an ordinary div at
+ * the top of the page's scroller and the header is fixed above it, so the only
+ * way they overlap is if the DOCUMENT has been scrolled, which on /app is
+ * meant to be impossible and is not: scrollIntoView, a focused input and an
+ * iOS overscroll can all do it. So this reads where the bar's top is at rest,
+ * then scrolls the document on purpose by 30px and watches whether it is put
+ * back.
+ */
+const atRest = await ev(`(() => {
+  const header = document.querySelector("header").getBoundingClientRect()
+  const bar = document.querySelector(".dashboard-scroll-container > *").getBoundingClientRect()
+  return { headerBottom: Math.round(header.bottom), barTop: Math.round(bar.top), docScroll: Math.round(window.scrollY),
+           chains: getComputedStyle(document.querySelector(".dashboard-scroll-container")).overscrollBehaviorY }
+})()`)
+const pushed = await ev(`(async () => {
+  const root = document.documentElement
+  root.scrollTop = 30
+  window.scrollTo(0, 30)
+  const moved = Math.round(window.scrollY)
+  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(r, 40))))
+  const bar = document.querySelector(".dashboard-scroll-container > *").getBoundingClientRect()
+  return { moved, after: Math.round(window.scrollY), barTop: Math.round(bar.top) }
+})()`)
+
 /* ── which element actually scrolls, and is it padded for the bar ────────── */
 const scrollers = await ev(`(() => {
   const pick = (sel) => {
@@ -288,7 +315,10 @@ const overlap = await ev(`(() => {
 const barInside = await ev(`(() => {
   const b = document.querySelector('nav[aria-label="Main"]').getBoundingClientRect()
   const a = document.querySelectorAll('nav[aria-label="Main"] a[aria-label]')
-  const one = a[0].getBoundingClientRect(), two = a[1].getBoundingClientRect()
+  /* Between the SECOND and third glyphs: between the first two, the
+     artwork's white Upgrade button is what sits behind the bar, and a white
+     bar over a white button reads the same as the bare page. */
+  const one = a[1].getBoundingClientRect(), two = a[2].getBoundingClientRect()
   return {
     inBar: { x: Math.round((one.right + two.left) / 2) - 5, y: Math.round(b.top + b.height / 2) - 5, width: 10, height: 10 },
     beside: { x: 3, y: Math.round(b.top + b.height / 2) - 5, width: 5, height: 5 },
@@ -333,6 +363,21 @@ console.log(`  lowest content ${geometry.lowestContent} (${geometry.lowestIs}), 
   white background — which is what "there is still a solid background there"
   describes, and no amount of tint or blur on the bar can answer it.
 */
+console.log(`  at rest        header bottom y=${atRest.headerBottom}, announcement bar top y=${atRest.barTop}, document scrolled ${atRest.docScroll}px`)
+console.log(`  pushed         document scrolled to ${pushed.moved}px on purpose, read ${pushed.after}px two frames later, bar top y=${pushed.barTop}\n`)
+must(atRest.docScroll === 0 && atRest.barTop >= atRest.headerBottom,
+  "at rest the announcement bar sits under the header's edge, not underneath the header",
+  `the bar's top is at y=${atRest.barTop} against a header ending at y=${atRest.headerBottom}, with the document scrolled ${atRest.docScroll}px`)
+must(pushed.moved === 0 || pushed.after === 0,
+  "and a document that gets scrolled anyway is put back within a frame",
+  `the document was scrolled to ${pushed.moved}px and was still at ${pushed.after}px two frames later: the page is under the header and nothing brings it back`)
+must(pushed.barTop >= atRest.headerBottom,
+  "so the bar is back where it belongs",
+  `after the push the bar's top is at y=${pushed.barTop}, under a header ending at y=${atRest.headerBottom}`)
+must(atRest.chains === "none",
+  "and the page's own scroller refuses to chain an overscroll into the document",
+  `.dashboard-scroll-container has overscroll-behavior-y: ${atRest.chains}; on iOS an overscroll at its top walks into the document`)
+
 const real = scrollers.find((s) => s.scrolls)
 must(!!real, "something on this page scrolls", "nothing on the dashboard scrolls, so the page is not long enough to test")
 must(real?.padBottom >= 88,
@@ -347,9 +392,14 @@ console.log(`                 through it rgb(${throughBar.join(",")}), beside it
 must(overlap.covered > 0,
   "mid-scroll the page really does pass behind the bar",
   "nothing is ever underneath it, so it can only look like a solid pill however it is styled")
-must(distance(throughBar, besideBar) >= 12,
-  "and what passes behind it shows through: the bar is not the colour of the bare page",
-  `through the bar reads rgb(${throughBar.join(",")}) and the bare page beside it rgb(${besideBar.join(",")}), only ${distance(throughBar, besideBar)} apart`)
+/* NOT A COLOUR CLAIM ANY MORE. The bar is 93% white now ("not greyish in
+   any circumstances", then "more whitish"), and 93% white over this
+   banner's mid grey reads within a point or two of the bare page: the
+   difference is real, but under what a PNG can show. Whether the bar is
+   glass or a panel is settled by check-app-mobile-nav, which puts pure red
+   and then pure blue behind it and reads the same square twice. The two
+   colours are printed above for the record, and what this probe holds is
+   the geometry: the page can get under the bar at all. */
 
 const pageColour = column[0].rgb
 const odd = column.filter((c) => distance(c.rgb, pageColour) > 3)

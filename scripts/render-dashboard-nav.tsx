@@ -17,6 +17,7 @@ import { Component, createElement, type ReactNode } from "react"
 import { DashboardClient } from "@/components/app/dashboard-client"
 import { LanguageProvider } from "@/lib/i18n/context"
 import { MobileNavPill } from "@/components/app/sidebar-mobile-nav"
+import { DocumentScrollGuard } from "@/components/app/document-scroll-guard"
 import { NAV_ICONS, NAV_ICONS_EXTRA } from "@/components/app/sidebar-desktop-nav"
 
 /* Enough orders that the lists below the chart are not empty, which is the
@@ -54,6 +55,7 @@ function Shell({ children }: { children: ReactNode }) {
   return createElement(
     "div",
     { className: "h-svh overflow-hidden bg-[#111111] app-no-scrollbar" },
+    createElement(DocumentScrollGuard),
     createElement(
       "header",
       { className: "fixed left-0 right-0 top-0 z-50 bg-[#111111]", style: { height: "68px" } },
@@ -74,6 +76,7 @@ function Shell({ children }: { children: ReactNode }) {
         home: NAV_ICONS.dashboard,
         orders: NAV_ICONS.orders,
         products: NAV_ICONS.products,
+        analytics: NAV_ICONS.analytics,
         settings: NAV_ICONS_EXTRA.settings,
       },
     }),

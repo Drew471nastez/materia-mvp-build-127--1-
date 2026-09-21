@@ -1183,10 +1183,14 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
           startNavigationLoading()
           router.push(href)
         }}
+        onPrefetch={(href) => {
+          try { router.prefetch(href) } catch {}
+        }}
         icons={{
           home: NAV_ICONS.dashboard,
           orders: NAV_ICONS.orders,
           products: NAV_ICONS.products,
+          analytics: NAV_ICONS.analytics,
           settings: NAV_ICONS_EXTRA.settings,
         }}
       />

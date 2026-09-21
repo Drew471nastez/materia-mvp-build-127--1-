@@ -77,8 +77,23 @@ function main() {
     "a full reload in Capacitor loses the session, which lives in Preferences")
   check("the page behind the menu is locked while it is open",
     /useLockAppScroll\(mobileMenuOpen\)/.test(shell))
-  check("the bar is given the four glyphs it draws, all from the rail's own family",
-    /icons=\{\{[\s\S]{0,400}?home: NAV_ICONS\.dashboard[\s\S]{0,400}?orders: NAV_ICONS\.orders[\s\S]{0,400}?products: NAV_ICONS\.products[\s\S]{0,400}?settings: NAV_ICONS_EXTRA\.settings/.test(shell))
+  check("the bar is given the five glyphs it draws, all from the rail's own family",
+    /icons=\{\{[\s\S]{0,400}?home: NAV_ICONS\.dashboard[\s\S]{0,400}?orders: NAV_ICONS\.orders[\s\S]{0,400}?products: NAV_ICONS\.products[\s\S]{0,400}?analytics: NAV_ICONS\.analytics[\s\S]{0,400}?settings: NAV_ICONS_EXTRA\.settings/.test(shell))
+  /*
+    ── A TAB BAR IS ONLY A TAB BAR IF THE TABS ARE STILL THERE ─────────────
+    Since Next 15 the client router keeps a dynamic page's payload for zero
+    seconds, so every press on the bar refetched the page and showed its
+    loading.tsx skeleton, even one you were on a moment ago. "If I already
+    loaded the page, why does every switch load it as a new thing." The
+    config keeps a visited page for five minutes, and the bar warms its four
+    routes on mount so the first press does not start from cold.
+  */
+  check("the router keeps a visited page rather than refetching it on every press",
+    /staleTimes: \{\s*\n\s*dynamic: 300,\s*\n\s*static: 300,/.test(read("next.config.mjs")),
+    "with staleTimes.dynamic at 0, every tab press shows the skeleton again")
+  check("and the shell warms the bar's routes",
+    /onPrefetch=\{\(href\) => \{[\s\S]{0,120}?router\.prefetch\(href\)/.test(shell)
+      && /for \(const item of items\) onPrefetch\(item\.href\)/.test(nav))
   check("and it draws no glyph from a second icon library",
     !/from "lucide-react"/.test(nav),
     "one glyph from a different library at 22px beside three Solar ones reads as heavier than all of them")
@@ -121,7 +136,8 @@ function main() {
   check("the phone's scroll container is padded for it",
     /@media \(max-width: 767px\) \{\s*\n\s*html\.app-layout \.app-content-scroll \{\s*\n\s*padding-bottom: calc\(104px \+ env\(safe-area-inset-bottom, 0px\)\);/.test(css))
   check("the pill clears the home indicator",
-    /paddingBottom: "calc\(6px \+ env\(safe-area-inset-bottom, 0px\)\)"/.test(nav))
+    /const PILL_LIFT = "6px \+ env\(safe-area-inset-bottom, 0px\)"/.test(nav)
+      && /paddingBottom: `calc\(\$\{PILL_LIFT\}\)`/.test(nav))
   /*
     ── THE PAGE HAS TO BE ABLE TO GET PAST IT ──────────────────────────────
     Every other /app page scrolls in .app-content-scroll. The dashboard puts
@@ -162,9 +178,37 @@ function main() {
     (() => {
       const probe = read("scripts/check-dashboard-nav.mjs")
       return /mid-scroll the page really does pass behind the bar/.test(probe)
-        && /the bar is not the colour of the bare page/.test(probe)
+        && /puts pure red\s+and then pure blue behind it/.test(probe)
     })(),
     "a page of plain cards is the one page that cannot show this, which is why it took four goes")
+
+  console.log("\n  the document itself never scrolls")
+
+  /*
+    THE ANNOUNCEMENT BAR UNDER THE HEADER. The header is fixed and the page
+    scrolls inside .app-content-scroll, so the document has nothing to
+    scroll. Then a focused input, a scrollIntoView, or the overscroll chain
+    on a phone scrolls it anyway, and everything fixed stays where it was
+    while everything in flow moves up under it: the purple bar half under
+    the header, on every /app page, on a desktop as well as a phone.
+    html { overflow: hidden } does not stop any of those. Two answers, one
+    on each side: the nested scrollers refuse to chain in CSS, and a guard
+    puts the document back the frame it moves.
+  */
+  check("the nested page scrollers refuse to hand their overscroll to the document",
+    /html\.app-layout \.app-content-scroll > \.page-scroll,\s*\n\s*html\.app-layout \.app-content-scroll > \.dashboard-scroll-container,\s*\n\s*html\.app-layout \.app-content-scroll > \.sales-scroll-container \{\s*\n\s*overscroll-behavior: none;/.test(css),
+    "overscroll-behavior does not inherit, so it has to sit on the element that scrolls")
+  check("and the shell mounts a guard that puts the document back",
+    /import \{ DocumentScrollGuard \} from "@\/components\/app\/document-scroll-guard"/.test(read("components/app/app-layout-wrapper.tsx"))
+      && /<DocumentScrollGuard \/>/.test(read("components/app/app-layout-wrapper.tsx")))
+  check("which listens rather than polls, and settles once per frame",
+    (() => {
+      const g = read("components/app/document-scroll-guard.tsx")
+      return /addEventListener\("scroll", onScroll, \{ passive: true \}\)/.test(g)
+        && /requestAnimationFrame\(settle\)/.test(g) && !/setInterval/.test(strip(g))
+    })())
+  check("with the push and the recovery measured in the dashboard probe",
+    /put back within a frame/.test(read("scripts/check-dashboard-nav.mjs")))
 
   check("and it is not rendered at all on a desktop",
     (nav.match(/md:hidden/g) ?? []).length >= 2,
@@ -183,18 +227,20 @@ function main() {
     /const GLASS: React\.CSSProperties = \{/.test(nav)
       && /backdropFilter: "blur\(\d+px\) saturate\(\d+%\)"/.test(nav))
   /*
-    FROSTED, NOT CLEAR. The tint went down to 18% while "solid" was the
+    WHITE, NOT GREY. The tint went down to 18% while "solid" was the
     complaint, and over artwork that left the glyphs sitting on saturated
-    red. "The bar itself doesn't need to be transparent" put it back to the
-    material a system tab bar is made of: 70% white over a blur, readable
-    over anything, still taking a breath of what is under it.
+    red. "The bar itself doesn't need to be transparent" put it to 70%, and
+    over the dark cover of the dashboard 70% white reads as warm grey. "I
+    don't want it greyish in any circumstances." 90% is white over anything
+    and still, measurably, not a panel: the probe reads 16 of movement
+    between red and blue through it, where a panel reads 0.
   */
-  check("its tint is frosted white, not clear and not a panel",
+  check("its tint is white over anything, and not a panel",
     (() => {
       const a = Number((nav.match(/backgroundColor: "rgba\(255,255,255,([\d.]+)\)"/) ?? [])[1] ?? 1)
-      return a >= 0.6 && a <= 0.8
+      return a >= 0.9 && a <= 0.96
     })(),
-    "under 60% the glyphs sit on whatever is behind the bar; at 100% it is a panel")
+    "under 90% the bar goes grey over a dark page; at 100% it is a panel")
   /*
     And the only test of that claim that means anything is the photograph:
     the probe puts red behind the bar, photographs a square between two
@@ -241,22 +287,70 @@ function main() {
     compound where they overlap. Measured by the probe with stripes behind
     them: 255 of contrast above the fade, 181 at its top, 28 at the bar.
   */
-  check("the fade is a stack of plain rectangles, each carrying only a blur",
-    /const FADE_STEPS = \[1, 2, 3, 4, 5, 6\]/.test(nav)
-      && /data-app-nav-fade-step=""/.test(nav)
-      && /backdropFilter: `blur\(\$\{blur\}px\)`/.test(nav))
-  check("and its tint is a separate plain gradient in the page's own colour",
-    /const FADE_TINT = "rgba\(248,249,250,0\.62\)"/.test(nav)
-      && /background: `linear-gradient\(to top, \$\{FADE_TINT\} 0%/.test(nav),
-    "a white tint would be a paler plate over a near-white page; the page's colour is invisible over plain page and frosts over content")
-  check("with the blur measured through stripes, progressively, in the probe",
-    /at the bar the page is blurred, not just tinted/.test(read("scripts/check-app-mobile-nav.mjs"))
+  /*
+    The fade was six full-width strips with blurs of 1 to 6, and each strip's
+    top edge was a step in radius the eye could find. It is a HALO now:
+    concentric ellipses around the bar group, every one carrying the same
+    1.2px blur, compounding toward the bar. No edge changes the radius by more
+    than that, and the halo reaches nowhere near the screen's edge. Measured
+    through stripes: 255 above it, 255 at its edge, 12 beside the bar, 255 in
+    the left margin.
+
+    ELLIPSES, NOT STADIUMS. The first halo's layers were stadiums, and a
+    stadium has a straight top: a line 200px long where every layer's blur
+    began together. "The ending should not be that direct, it should morph."
+    An ellipse has no straight edge anywhere, so twelve of them, each 3px in
+    from the last, end twelve different places along a curve.
+
+    AND THE BLUR RAMPS. Ten ellipses each carrying 1.2px still had an edge,
+    the outermost, where 1.2px began all at once on crisp text: the cut drawn
+    on the screenshot of the menu, down the halo's left side. The outermost
+    layer carries next to nothing now and each one inward carries more.
+  */
+  check("the fade is a halo of concentric elliptical layers",
+    /const HALO_LAYERS = 12/.test(nav)
+      && /data-app-nav-fade-step=""[\s\S]{0,200}borderRadius: "50%"/.test(nav)
+      && /inset: i \* HALO_STEP,/.test(nav))
+  check("whose blur ramps from nothing at the outermost to 2.4px at the innermost",
+    /const HALO_BLUR = 2\.4/.test(nav)
+      && /const haloBlur = \(i: number\) => Math\.round\(HALO_BLUR \* \(\(i \+ 1\) \/ HALO_LAYERS\) \*\* 2/.test(nav)
+      && /backdropFilter: `blur\(\$\{haloBlur\(i\)\}px\)`/.test(nav),
+    "the same blur on every layer puts an edge on the outermost one")
+  check("wider than the screen, low, and centred on the screen rather than on the bar group",
+    /const HALO_REACH = \{ top: 30, bottom: 22, side: 56 \}/.test(nav)
+      && /width: `calc\(100% \+ \$\{HALO_REACH\.side \* 2\}px\)`/.test(nav)
+      && /height: BAR_H \+ HALO_REACH\.top \+ HALO_REACH\.bottom/.test(nav)
+      && /className="pointer-events-none absolute left-1\/2"/.test(nav),
+    "hung on the group, the halo left the settings circle standing on bare page while the menu was open")
+  check("with the pill's lift above the screen's bottom read once, by the pill and by the halo",
+    /const PILL_LIFT = "6px \+ env\(safe-area-inset-bottom, 0px\)"/.test(nav)
+      && /paddingBottom: `calc\(\$\{PILL_LIFT\}\)`/.test(nav)
+      && /bottom: `calc\(\$\{PILL_LIFT\} - \$\{HALO_REACH\.bottom\}px\)`/.test(nav),
+    "the same number computed twice is where the editor's black bands came from")
+  check("and its tint is one radial gradient in the page's own colour",
+    /const HALO_TINT = "rgba\(248,249,250,0\.3\)"/.test(nav)
+      && /radial-gradient\(ellipse at center, \$\{HALO_TINT\} 0%/.test(nav),
+    "at 45% the tint read as a plate under the bar; 'more subtle, almost unobservable'")
+  check("with every layer of it measured as an ellipse in the probe, and the ramp read off the layers",
+    /nothing in it ends on a straight line/.test(read("scripts/check-app-mobile-nav.mjs"))
+      && /no radius at which it begins/.test(read("scripts/check-app-mobile-nav.mjs")))
+  check("with the halo measured through stripes in the probe, including that the screen's edge is untouched",
+    /rather than stopping in an arc short of them/.test(read("scripts/check-app-mobile-nav.mjs"))
       && /the blur is progressive/.test(read("scripts/check-app-mobile-nav.mjs")))
+  check("and the overhang is measured as costing the page no sideways scroll",
+    /the document is still the width of the screen/.test(read("scripts/check-app-mobile-nav.mjs")),
+    "an element wider than the viewport is how a page gets a horizontal scrollbar")
   check("nothing in the bar is painted in the accent colour",
     !new RegExp(String.raw`ACCENT`).test(strip(nav).slice(strip(nav).indexOf("function MobileNavPill"))),
     "the violet fill behind the active icon was the first thing called out")
-  check("the depth is two soft drops and a half pixel of inner light, not a cast shadow",
-    /0 1px 2px rgba\(16,18,27,0\.05\), 0 8px 22px rgba\(16,18,27,0\.10\)/.test(nav))
+  /* "Add some more depth." Three drops: the contact line under the edge, a
+     near one for the glass's thickness, a far one that lifts the whole pill
+     off the page. Soft, so it reads as distance rather than as a sticker. */
+  check("the depth is three soft drops and a half pixel of inner light, not a cast shadow",
+    /0 1px 2px rgba\(16,18,27,0\.06\), 0 4px 10px rgba\(16,18,27,0\.07\), 0 14px 30px rgba\(16,18,27,0\.14\)/.test(nav)
+      && /inset 0 0 0 0\.5px rgba\(255,255,255,0\.65\)/.test(nav))
+  check("and the circle under a finger is lifted off the bar the same way, one step down",
+    /0 1px 2px rgba\(16,18,27,0\.07\), 0 3px 8px rgba\(16,18,27,0\.10\)/.test(nav))
 
   check("a finger can slide along the bar, and the slot follows it",
     /function useSlide\(/.test(nav) && /onPointerMove: \(e: React\.PointerEvent\) => \{/.test(nav))
@@ -297,25 +391,56 @@ function main() {
     "reading its position as slot zero would send it flying home as it shrank")
 
   /*
-    Two jobs, two curves. Under a finger it has to be where the finger is,
-    now; let go of it and it should arrive rather than stop.
+    Two jobs, two mechanisms. Under a finger it is where the finger is, every
+    frame, with no transition to be a delay and no slot to be a step: the
+    90ms hop from slot to slot was "very snappy, very direct, landing on it,
+    not smooth at all". Let go of it and it springs to the slot.
   */
-  check("it tracks a finger with no overshoot and settles with a little",
-    /const TRACK = `transform 110ms cubic-bezier\(0\.2, 0, 0, 1\)`/.test(nav)
-      && /const SETTLE = `transform 420ms cubic-bezier\(0\.32, 1\.24, 0\.44, 1\)`/.test(nav)
-      && /slide\.dragging \? TRACK : SETTLE/.test(nav))
-  check("and it lifts a little under the finger, which is the newer system bars' tell",
-    /const LIFT = 1\.08/.test(nav) && /slide\.dragging \? LIFT : 1/.test(nav))
+  check("under a finger the circle follows the finger itself, not the finger's slot, with no transition",
+    /const FOLLOW = 0\.6/.test(nav)
+      && /targetRef\.current = leftFor\(clientX\)/.test(nav)
+      && /posRef\.current \+= gap \* FOLLOW/.test(nav)
+      && /frameRef\.current = requestAnimationFrame\(step\)/.test(nav)
+      && /slide\.dragging \? "translate 0s" : SETTLE/.test(nav),
+    "a transition under the finger is a delay; a slot under the finger is a step")
+  check("written straight to the element by the loop, and never by a style prop",
+    /dot\.style\.translate = `\$\{posRef\.current\}px 0`/.test(nav)
+      && /dot\.style\.translate = `\$\{x\}px 0`/.test(nav)
+      && !/translate: `/.test(strip(nav)) && !/transform: `translateX\(\$\{x\}px\)/.test(strip(nav)),
+    "a position prop would fight the loop, or on the lift be a string React already rendered and never written")
+  check("a render happens when the slot changes, not on every move",
+    /if \(lastRef\.current !== next\) \{\s*\n\s*lastRef\.current = next\s*\n[^\n]*\n[^\n]*\n\s*setAt\(next\)/.test(nav)
+      && !/^\s*setAt\(next\)\s*$/m.test(strip(nav).split("const move")[1].split("if (lastRef")[0]))
+  check("and a press during a spring picks the circle up from where it is drawn",
+    /posRef\.current = drawnAt\(\) \?\? leftFor\(e\.clientX\)/.test(nav)
+      && /getComputedStyle\(dot\)\.translate/.test(nav))
+  check("it settles with a little overshoot, on its own property, and lifts on another",
+    /const SETTLE = `translate 420ms cubic-bezier\(0\.32, 1\.24, 0\.44, 1\)`/.test(nav)
+      && /const LIFT = 1\.06/.test(nav) && /slide\.dragging \? LIFT : 1/.test(nav)
+      && /const LIFT_EASE = `scale 200ms/.test(nav))
+  check("the finger is known from a ref, not from state a render behind",
+    /if \(!activeRef\.current\) return/.test(nav) && !/if \(!dragging\) return/.test(strip(nav)))
+  /*
+    THE GLYPHS HOLD STILL WHILE THE CIRCLE MOVES. Cross-fading four glyphs on
+    every slot the circle crossed is what read as "icons glitch, scale
+    randomly, jumpy". The fill follows what has been committed; the lens
+    follows the finger.
+  */
+  check("the glyphs follow the committed slot, not the finger",
+    /const shown = slide\.dragging \? \(pending \?\? current\) : marked/.test(nav)
+      && /const on = i === shown/.test(nav))
 
   console.log("\n  and the menu changes nothing about the bar")
 
-  check("settings is the fourth slot, not something that appears beside the X",
-    /\{ key: "settings", label: "Settings", href: "\/app\/settings"/.test(nav)
-      && !/left: "100%"/.test(strip(nav)),
-    "it used to appear only while the menu was open, which is the one time you are not looking for it")
-  check("so nothing is added or removed when the menu opens",
-    !/translateX\(\$\{menuOpen/.test(strip(nav)),
-    "a group that changes width has to slide to stay centred, and that was only ever there to carry a button that has gone")
+  check("analytics is the fourth slot",
+    /\{ key: "analytics", label: "Analytics", href: "\/app\/analytics"/.test(nav)
+      && !/\{ key: "settings"/.test(strip(nav)))
+  check("and settings is a circle to the LEFT of the bar while the menu is open, mirroring the X",
+    /aria-label="Settings"/.test(nav) && /right: "100%",\s*\n\s*marginRight: GAP,/.test(nav)
+      && /tabIndex=\{menuOpen \? 0 : -1\}/.test(nav))
+  check("out of the flow, with the group sliding half its width to stay centred",
+    /transform: `translateX\(\$\{menuOpen \? \(BAR_H \+ GAP\) \/ 2 : 0\}px\)`/.test(nav),
+    "animating a width would relayout the row on every frame of the open")
 
   check("the hamburger's lines have a little more air between them",
     /top-\[3\.2px\]/.test(nav) && /top-\[13\.2px\]/.test(nav) && /h-\[1\.6px\]/.test(nav),

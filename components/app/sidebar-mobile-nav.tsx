@@ -33,7 +33,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useLayoutEffect, useRef, useState } from "react"
 
 import { cn } from "@/lib/utils"
 import { hapticTap } from "@/lib/native-bridge"
@@ -495,8 +495,11 @@ export function MobileMenuPage({
  * half pixel of white along the top where light would catch, and a half
  * pixel ring all the way round.
  *
- * DEPTH IS ONE SHADOW, AND IT IS SMALL. Asked for "a little bit more", so it
- * is 5% at one pixel and 10% at eight, which is a lift rather than a cast.
+ * DEPTH IS THREE DROPS, AND IT IS STILL SOFT. "A little bit more" made it a
+ * contact shadow at 5% and a lift at 10%; "add some more depth" makes it
+ * three: the contact line right under the edge, a near drop that gives the
+ * glass its thickness, and a far one that puts the whole pill above the
+ * page. Three soft drops read as distance; one hard one reads as a sticker.
  */
 const GLASS: React.CSSProperties = {
   /*
@@ -504,15 +507,18 @@ const GLASS: React.CSSProperties = {
     complaint, and over the dashboard's artwork that left the bar the colour
     of the artwork, with its glyphs sitting on saturated red. Asked for
     directly: "the buttons themselves don't need to be full glassmorphism
-    transparent, the bar itself doesn't need to be transparent". 70% white
-    over a blur is the material a system tab bar is made of: it reads white
-    over anything and still takes a breath of whatever is under it.
+    transparent, the bar itself doesn't need to be transparent". And then, at
+    70%, over the dark artwork it read as warm grey: "I know it's see-through
+    but I don't want it greyish in any circumstances". 93% white over a blur,
+    with the saturation boost pulled back: it reads WHITE over anything, and
+    what is under it is a breath, not a colour. "Not really that see-through,
+    more whitish" took it the last step from 90.
   */
-  backgroundColor: "rgba(255,255,255,0.7)",
-  backdropFilter: "blur(24px) saturate(160%)",
-  WebkitBackdropFilter: "blur(24px) saturate(160%)",
+  backgroundColor: "rgba(255,255,255,0.93)",
+  backdropFilter: "blur(24px) saturate(120%)",
+  WebkitBackdropFilter: "blur(24px) saturate(120%)",
   boxShadow:
-    "0 1px 2px rgba(16,18,27,0.05), 0 8px 22px rgba(16,18,27,0.10)," +
+    "0 1px 2px rgba(16,18,27,0.06), 0 4px 10px rgba(16,18,27,0.07), 0 14px 30px rgba(16,18,27,0.14)," +
     " inset 0 0 0 0.5px rgba(255,255,255,0.65), inset 0 0.5px 0 rgba(255,255,255,0.9)",
 }
 
@@ -526,44 +532,112 @@ const DOT = BAR_H - PAD * 2
 const GAP = 8
 
 /**
- * The fade's six blurs, top of the fade first. They compound where the
- * rectangles overlap, roughly as the root of the sum of their squares, so the
- * bottom of the fade lands near 12px of blur and the top near 2, and no step
- * between neighbours is more than a couple of pixels.
+ * ===========================================================================
+ *  THE HALO: A FADE AROUND THE BAR, NOT A BAND ACROSS THE SCREEN
+ * ===========================================================================
+ * "The fade needs to be around the pill, not across all the screen at the
+ * bottom, and extremely subtle and clean. And not cut with strips."
+ *
+ * Both complaints have the same answer. The old fade was six full-width
+ * rectangles with blurs of 1 to 6 pixels stacked toward the bottom edge, and
+ * each rectangle's top edge was a step in blur radius that the eye could
+ * find: the strips. Now the layers are CONCENTRIC stadiums around the bar
+ * group, each inset a few pixels from the one before, and every one carries
+ * the SAME small blur. Where they overlap the blur compounds toward the bar,
+ * so it is softest at the halo's edge and strongest right around the bar, and
+ * no single edge changes the radius by more than 1.4px, which is under what
+ * a screen can show as a line. Eight of them compound to about 4px at the
+ * centre: "almost unobservable" is the brief.
+ *
+ * Still no mask anywhere, for the same reason as before: WKWebView draws a
+ * masked backdrop-filter as a flat plate. A rounded rectangle with only a
+ * blur on it is drawn the same way everywhere.
+ *
+ * The tint is one radial gradient in the page's colour, no filter, centred
+ * on the bar and gone by the halo's edge.
  */
-const FADE_STEPS = [1, 2, 3, 4, 5, 6]
 /**
- * The page under the bar on a phone is #f8f9fa, and the tint is that colour.
- * Lighter than the first cut: "subtle, smooth, clean, not so much". The bar
- * carries its own frost now, so the fade only has to soften the page around
- * it, not carry the whole effect.
+ * ELLIPSES, NOT STADIUMS. A stadium is a rectangle with round ends, and its
+ * top and bottom are STRAIGHT: "it should not end with a straight line, it
+ * should morph into outside of it". An ellipse has no straight edge anywhere,
+ * so the halo's boundary is a curve all the way round. The tint is the same
+ * ellipse, so there is one shape, not a blob inside a different shape —
+ * which is what "empty spots" was.
+ *
+ * THE BLUR RAMPS. Ten ellipses each carrying the same 1.2px still had an
+ * edge: the OUTERMOST one, where 1.2px of blur began all at once on crisp
+ * text, and over the menu's cards that read as a cut along the halo's left
+ * side. So the layers no longer carry the same blur. The outermost carries
+ * almost none, and each one inward carries more, on a square curve, so
+ * that the first thing a screen can show as a change is a dozen pixels in
+ * from where the halo begins. Where they all overlap, around the bar, they
+ * compound to under 3px: "not that powerful, just a little bit".
+ *
+ * WIDER THAN THE SCREEN. "The spread should cover the left and right, full
+ * width." An ellipse the exact width of the screen cannot: its two tips have
+ * no height at all, so the last 40px at each side would be left bare, in an
+ * arc. So the ellipse is drawn WIDER than the screen and the screen crops
+ * it, which is how a system bar's does it — at the screen's left edge it is
+ * still about two thirds of its full height, and what is cut off is cut off
+ * by the edge of the display rather than by an edge of its own.
+ *
+ * It is centred on the screen rather than on the bar group, because the group
+ * is not always where the bar is: with the menu open a settings circle sits
+ * to the left of it, and a halo hung on the group left that circle standing
+ * on bare page.
+ *
+ * MORE THAN VISIBLE. 1.6px at the innermost layer was as close to nothing as
+ * a blur gets, which was the brief at the time ("almost unobservable"); "not
+ * that potent, but more than visible" is 2.4, compounding to about 4px where
+ * the layers overlap. The tint comes up with it.
  */
-const FADE_TINT = "rgba(248,249,250,0.62)"
-const FADE_TINT_MID = "rgba(248,249,250,0.34)"
-const FADE_TINT_NONE = "rgba(248,249,250,0)"
+const HALO_LAYERS = 12
+const HALO_STEP = 3
+/** The strongest layer's blur; the outermost carries this over HALO_LAYERS². */
+const HALO_BLUR = 2.4
+const haloBlur = (i: number) => Math.round(HALO_BLUR * ((i + 1) / HALO_LAYERS) ** 2 * 1000) / 1000
+/** How far the halo reaches beyond the bar: above it, below it, and past each
+    side of the screen, which is the part the display crops. */
+const HALO_REACH = { top: 30, bottom: 22, side: 56 }
+/** The page under the bar on a phone is #f8f9fa, and the tint is that colour. */
+const HALO_TINT = "rgba(248,249,250,0.3)"
+const HALO_TINT_NONE = "rgba(248,249,250,0)"
+/** How far the bottom of the pill sits above the bottom of the screen. Read
+    once, by the pill and by the halo, so the two cannot disagree. */
+const PILL_LIFT = "6px + env(safe-area-inset-bottom, 0px)"
 
 /**
  * ===========================================================================
  *  HOW THE CIRCLE MOVES
  * ===========================================================================
- * Two different jobs, and one curve cannot do both.
+ * Two different jobs, and one mechanism cannot do both.
  *
- * UNDER A FINGER it has to be where the finger is, now. Any overshoot reads
- * as the control being loose, and any duration reads as lag.
+ * UNDER A FINGER it is where the finger is. Not where the finger's SLOT is:
+ * the first version moved the circle slot to slot, each hop on a 90ms
+ * transition, and that is what "very snappy, very direct, landing on it,
+ * not smooth at all" describes. A transition is a delay by definition, and
+ * a slot is a step by definition. So while a finger is down there is no
+ * transition on the circle's position at all. The finger's x is written to
+ * it every frame by a loop that closes the remaining distance by FOLLOW,
+ * which is what lets it catch up from a slot away on the press without a
+ * transition to be cut short, and what leaves it a pixel or two behind a
+ * fast finger, like something with a little weight rather than a cursor.
  *
  * LET GO OF IT and it should arrive rather than stop. A little over, a
  * little back: that is the whole of what "more iOS style bouncing and
  * satisfying" is asking for, and it is one cubic-bezier with its third
- * control point past 1.
+ * control point past 1. Position and size are separate CSS properties
+ * (`translate`, `scale`) so the lift can keep its own easing under the
+ * finger while the position has none.
  */
-const TRACK = `transform 110ms cubic-bezier(0.2, 0, 0, 1)`
-const SETTLE = `transform 420ms cubic-bezier(0.32, 1.24, 0.44, 1)`
+const FOLLOW = 0.6
+const SETTLE = `translate 420ms cubic-bezier(0.32, 1.24, 0.44, 1)`
 /**
  * Under a finger the circle LIFTS a little, which is the tell of the newer
- * system bars: the thing you are holding is the thing that is bigger. It
- * settles back to size on the same spring it settles into place with.
+ * system bars: the thing you are holding is the thing that is bigger.
  */
-const LIFT = 1.08
+const LIFT = 1.06
+const LIFT_EASE = `scale 200ms cubic-bezier(0.32, 0.72, 0, 1)`
 
 /**
  * Three bars that become a cross.
@@ -617,7 +691,53 @@ function useSlide(count: number, onPick: (index: number) => void) {
   const [dragging, setDragging] = useState(false)
   const [at, setAt] = useState<number | null>(null)
   const barRef = useRef<HTMLDivElement>(null)
+  const dotRef = useRef<HTMLSpanElement>(null)
   const lastRef = useRef<number | null>(null)
+  /* React state answers a render later; a move handler that asks it whether
+     a finger is down can be told no about the finger that just landed. */
+  const activeRef = useRef(false)
+  /* The circle's left edge in the bar's own coordinates: where the finger
+     wants it, where it is, and the frame between them. */
+  const targetRef = useRef(0)
+  const posRef = useRef<number | null>(null)
+  const frameRef = useRef(0)
+
+  /** The circle's left edge that puts its centre under a finger, kept inside the bar. */
+  const leftFor = (clientX: number): number => {
+    const box = barRef.current?.getBoundingClientRect()
+    if (!box) return PAD
+    const centre = Math.max(PAD + DOT / 2, Math.min(box.width - PAD - DOT / 2, clientX - box.left))
+    return centre - DOT / 2
+  }
+
+  const paint = () => {
+    const dot = dotRef.current
+    if (dot && posRef.current != null) dot.style.translate = `${posRef.current}px 0`
+  }
+  const step = () => {
+    frameRef.current = 0
+    if (posRef.current == null) return
+    const gap = targetRef.current - posRef.current
+    if (Math.abs(gap) < 0.15) {
+      posRef.current = targetRef.current
+      paint()
+      return
+    }
+    posRef.current += gap * FOLLOW
+    paint()
+    frameRef.current = requestAnimationFrame(step)
+  }
+  const wake = () => {
+    if (!frameRef.current) frameRef.current = requestAnimationFrame(step)
+  }
+  /** Where the circle is drawn right now, mid-settle included, so a press
+      during a spring picks it up from where it is rather than where it was going. */
+  const drawnAt = (): number | null => {
+    const dot = dotRef.current
+    if (!dot) return null
+    const m = /^(-?[\d.]+)px/.exec(getComputedStyle(dot).translate || "")
+    return m ? Number.parseFloat(m[1]) : null
+  }
 
   const slotAt = (clientX: number): number => {
     const box = barRef.current?.getBoundingClientRect()
@@ -644,23 +764,34 @@ function useSlide(count: number, onPick: (index: number) => void) {
   }
 
   const move = (clientX: number) => {
+    targetRef.current = leftFor(clientX)
+    wake()
     const next = slotAt(clientX)
-    setAt(next)
     if (lastRef.current !== next) {
       lastRef.current = next
-      /* One tick per slot crossed, not one per frame. */
+      /* A render only when the slot changes, never per move; and one tick
+         per slot crossed, not one per frame. */
+      setAt(next)
       hapticTap("light")
     }
   }
 
   const end = () => {
+    if (!activeRef.current) return
+    activeRef.current = false
+    if (frameRef.current) cancelAnimationFrame(frameRef.current)
+    frameRef.current = 0
+    posRef.current = null
     setDragging(false)
     setAt(null)
     lastRef.current = null
   }
 
+  useEffect(() => () => { if (frameRef.current) cancelAnimationFrame(frameRef.current) }, [])
+
   return {
     barRef,
+    dotRef,
     dragging,
     at,
     handlers: {
@@ -668,16 +799,18 @@ function useSlide(count: number, onPick: (index: number) => void) {
         /* Keeps the moves coming even when the finger leaves the bar, which
            it will: 54px is not much to stay inside of. */
         ;(e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId)
+        activeRef.current = true
+        posRef.current = drawnAt() ?? leftFor(e.clientX)
         setDragging(true)
         lastRef.current = null
         move(e.clientX)
       },
       onPointerMove: (e: React.PointerEvent) => {
-        if (!dragging) return
+        if (!activeRef.current) return
         move(e.clientX)
       },
       onPointerUp: (e: React.PointerEvent) => {
-        if (!dragging) return
+        if (!activeRef.current) return
         const picked = slotAt(e.clientX)
         const away = escaped(e.clientY)
         end()
@@ -699,35 +832,48 @@ export function MobileNavPill({
   onToggleMenu,
   onCloseMenu,
   onNavigate,
+  onPrefetch,
   icons,
 }: {
   menuOpen: boolean
   onToggleMenu: () => void
   onCloseMenu: () => void
   onNavigate: (href: string) => void
-  icons: { home: NavIconPair; orders: NavIconPair; products: NavIconPair; settings: NavIconPair }
+  /** Warms a route so the first press on it does not stream from cold. */
+  onPrefetch?: (href: string) => void
+  icons: { home: NavIconPair; orders: NavIconPair; products: NavIconPair; analytics: NavIconPair; settings: NavIconPair }
 }) {
   const pathname = usePathname()
 
   /*
-    HOME, ORDERS, PRODUCTS, SETTINGS — four pages of this person's own shop,
-    in that order, and they stay put when the menu opens.
+    HOME, ORDERS, PRODUCTS, ANALYTICS — four pages of this person's own shop,
+    in that order, and they stay put when the menu opens. Settings had the
+    fourth slot for a while; it is a circle that appears to the LEFT of the
+    bar while the menu is open now, mirroring the X on the right, and the
+    slot went to the page somebody actually visits between the other three.
 
-    Explore used to be the fourth of these and it was the odd one out: the
-    public site, somebody else's shops, a door out of this shell entirely. It
-    is up in the header beside the bell now, and settings has the slot, which
-    is where a settings button belongs — always there, rather than appearing
-    beside the X for as long as a menu happens to be open.
-
-    The menu is not a place either, so it is its own button beside the four
-    rather than a fifth slot in a row of places.
+    The menu is not a place, so it is its own button beside the four rather
+    than a fifth slot in a row of places.
   */
   const items: BarItem[] = [
     { key: "home", label: "Home", href: "/app", icon: icons.home },
     { key: "orders", label: "Orders", href: "/app/orders", icon: icons.orders },
     { key: "products", label: "Products", href: "/app/products", icon: icons.products },
-    { key: "settings", label: "Settings", href: "/app/settings", icon: icons.settings },
+    { key: "analytics", label: "Analytics", href: "/app/analytics", icon: icons.analytics },
   ]
+
+  /*
+    WARMED ONCE. A page pressed for the first time streams from the server
+    and shows its skeleton; a page the router has already fetched does not.
+    Prefetching the four on mount means the first press on any of them finds
+    at least the route's shell waiting, and next.config's staleTimes is what
+    keeps a page you have been on from being fetched again on the way back.
+  */
+  useEffect(() => {
+    if (!onPrefetch) return
+    for (const item of items) onPrefetch(item.href)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const current = items.findIndex((i) => isRouteActive(pathname, i.href))
 
@@ -769,6 +915,15 @@ export function MobileNavPill({
   /* Under the finger while one is down, then on the slot that was picked,
      then on the page you are actually on. */
   const marked = slide.at ?? pending ?? current
+  /*
+    THE GLYPHS DO NOT CHANGE UNDER A MOVING FINGER. The circle follows the
+    finger; the fill and the ink colour follow only what has been COMMITTED.
+    Cross-fading four glyphs on every slot the circle crossed is what read as
+    "icons glitch, scale randomly, jumpy": each crossing flipped a line glyph
+    to a filled one and back within a frame or two. The system bars this is
+    modelled on do the same thing — the lens moves, the icons wait.
+  */
+  const shown = slide.dragging ? (pending ?? current) : marked
 
   /**
    * Where it FADES OUT, which is not where slot zero is.
@@ -781,67 +936,65 @@ export function MobileNavPill({
   const restRef = useRef(0)
   if (marked >= 0) restRef.current = marked
   const x = PAD + (marked >= 0 ? marked : restRef.current) * SLOT + (SLOT - DOT) / 2
+  /*
+    The circle's position is never a style prop. Under a finger the frame
+    loop in useSlide writes it straight to the element, and a prop rendered
+    on the way would either fight that or, on the lift, be the same string
+    React last rendered and so never be written at all, leaving the circle
+    the few pixels off where the loop left it. So at rest the position is
+    written here, after the render that set the SETTLE transition, from
+    wherever the loop left it to the slot it belongs on.
+  */
+  useLayoutEffect(() => {
+    if (slide.dragging) return
+    const dot = slide.dotRef.current
+    if (dot) dot.style.translate = `${x}px 0`
+  }, [x, slide.dragging, slide.dotRef])
 
   return (
     <div
       data-app-nav-pill=""
       className="pointer-events-none fixed inset-x-0 bottom-0 z-[55] flex items-end justify-center md:hidden"
       style={{
-        paddingBottom: "calc(6px + env(safe-area-inset-bottom, 0px))",
+        paddingBottom: `calc(${PILL_LIFT})`,
         transition: `transform 260ms ${EASE}, opacity 180ms ease-out`,
       }}
     >
-      {/*
-        ── THE FADE, BUILT OUT OF PLAIN RECTANGLES ──────────────────────────
-        The page dissolves into frosted glass over the last hundred pixels of
-        the screen, and the bar floats in that. It is what an iOS tab bar does
-        and it is what was asked for: "a very smooth tint, till the bottom,
-        fading into glassmorphism, blurring smoothly as you scroll".
-
-        THE FIRST VERSION WAS ONE ELEMENT, WITH `backdrop-filter` AND
-        `mask-image` ON IT, and on an iPhone that is a pale plate with a hard
-        top edge: WKWebView drops the mask and paints the filtered region as
-        a flat fill. Chromium composites the pair correctly, which is why no
-        probe here could ever see it, and why it was reported four times.
-
-        So there is no mask anywhere in this. A progressive blur is stacked
-        instead: six rectangles, all anchored to the bottom edge, each a
-        little shorter than the one before and each carrying a small blur of
-        its own. Where they overlap the blurs compound, so the top of the
-        fade is barely touched and the bottom is well blurred, with no single
-        step big enough to see. A rectangle with a backdrop-filter and nothing
-        else is the one thing every engine draws the same way.
-
-        The tint is a separate plain gradient, no filter on it, in the PAGE'S
-        colour rather than white: over a plain page it is invisible, which is
-        what keeps this from being a plate, and over content it frosts.
-      */}
+      {/* ── THE HALO ── see the note on HALO_LAYERS above. Before the group in
+          the tree, so it paints under it, and centred on the screen rather
+          than on the group, so it is under the settings circle too. */}
       <div
         aria-hidden="true"
         data-app-nav-fade=""
-        className="pointer-events-none absolute inset-x-0 bottom-0"
-        style={{ height: "calc(128px + env(safe-area-inset-bottom, 0px))" }}
+        className="pointer-events-none absolute left-1/2"
+        style={{
+          width: `calc(100% + ${HALO_REACH.side * 2}px)`,
+          height: BAR_H + HALO_REACH.top + HALO_REACH.bottom,
+          bottom: `calc(${PILL_LIFT} - ${HALO_REACH.bottom}px)`,
+          transform: "translateX(-50%)",
+        }}
       >
-        {FADE_STEPS.map((blur, i) => (
+        {Array.from({ length: HALO_LAYERS }, (_, i) => (
           <div
-            key={blur}
+            key={i}
             data-app-nav-fade-step=""
-            className="absolute inset-x-0 bottom-0"
+            className="absolute"
             style={{
-              height: `${100 - i * (100 / FADE_STEPS.length)}%`,
-              backdropFilter: `blur(${blur}px)`,
-              WebkitBackdropFilter: `blur(${blur}px)`,
+              inset: i * HALO_STEP,
+              borderRadius: "50%",
+              backdropFilter: `blur(${haloBlur(i)}px)`,
+              WebkitBackdropFilter: `blur(${haloBlur(i)}px)`,
             }}
           />
         ))}
         <div
           className="absolute inset-0"
           style={{
-            background: `linear-gradient(to top, ${FADE_TINT} 0%, ${FADE_TINT_MID} 42%, ${FADE_TINT_NONE} 100%)`,
+            borderRadius: "50%",
+            background: `radial-gradient(ellipse at center, ${HALO_TINT} 0%, ${HALO_TINT_NONE} 68%)`,
           }}
         />
       </div>
-
       {/*
         ── THE GROUP ─────────────────────────────────────────────────────────
         The bar and the menu button, and that is all of it. A settings button
@@ -851,7 +1004,17 @@ export function MobileNavPill({
         fourth slot in the bar now, so nothing here is ever added or removed
         and nothing has to move to make room.
       */}
-      <div className="relative flex items-center" style={{ gap: GAP }}>
+      <div
+        className="relative flex items-center"
+        style={{
+          gap: GAP,
+          /* Settings appears to the LEFT, out of flow; the group slides half
+             its width to the right to stay centred, one transform, no layout. */
+          transform: `translateX(${menuOpen ? (BAR_H + GAP) / 2 : 0}px)`,
+          transition: `transform 380ms ${EASE}`,
+          willChange: "transform",
+        }}
+      >
         <nav
           ref={slide.barRef}
           aria-label="Main"
@@ -877,6 +1040,7 @@ export function MobileNavPill({
             the bar has one material rather than a bar and a badge.
           */}
           <span
+            ref={slide.dotRef}
             aria-hidden="true"
             className="absolute rounded-full"
             style={{
@@ -884,17 +1048,19 @@ export function MobileNavPill({
               height: DOT,
               top: PAD,
               left: 0,
-              transform: `translateX(${x}px) scale(${marked < 0 ? 0.55 : slide.dragging ? LIFT : 1})`,
+              /* `translate` is written by the loop and the effect above, never here. */
+              scale: String(marked < 0 ? 0.55 : slide.dragging ? LIFT : 1),
               opacity: marked < 0 ? 0 : 1,
               backgroundColor: slide.dragging ? "rgba(255,255,255,0.92)" : "rgba(255,255,255,0.82)",
-              boxShadow: "inset 0 0 0 0.5px rgba(255,255,255,0.75), 0 1px 3px rgba(16,18,27,0.08)",
-              transition: `${slide.dragging ? TRACK : SETTLE}, opacity 220ms ease-out, background-color 160ms ease-out`,
-              willChange: "transform",
+              boxShadow: "inset 0 0 0 0.5px rgba(255,255,255,0.75), 0 1px 2px rgba(16,18,27,0.07), 0 3px 8px rgba(16,18,27,0.10)",
+              /* No transition on the position under a finger: the loop is the motion. */
+              transition: `${slide.dragging ? "translate 0s" : SETTLE}, ${LIFT_EASE}, opacity 220ms ease-out, background-color 160ms ease-out`,
+              willChange: "translate, scale",
             }}
           />
 
           {items.map((item, i) => {
-            const on = i === marked
+            const on = i === shown
             return (
               <Link
                 key={item.key}
@@ -937,6 +1103,43 @@ export function MobileNavPill({
           the finger that opened the menu does not have to go anywhere to
           close it again.
         */}
+        {/*
+          ── SETTINGS, ONLY WHILE THE MENU IS OPEN, ON THE LEFT ───────────
+          A circle to mirror the X on the right, out of the flow so nothing
+          is laid out again when it comes and goes. Closed, it takes no
+          presses and no tab stop.
+        */}
+        <button
+          type="button"
+          aria-label="Settings"
+          aria-hidden={!menuOpen}
+          tabIndex={menuOpen ? 0 : -1}
+          onClick={() => {
+            hapticTap("medium")
+            setPending(null)
+            onNavigate("/app/settings")
+            onCloseMenu()
+          }}
+          className={cn(
+            "absolute flex items-center justify-center rounded-full",
+            menuOpen ? "pointer-events-auto" : "pointer-events-none",
+          )}
+          style={{
+            ...GLASS,
+            right: "100%",
+            marginRight: GAP,
+            width: BAR_H,
+            height: BAR_H,
+            color: "#616b7a",
+            opacity: menuOpen ? 1 : 0,
+            transform: `scale(${menuOpen ? 1 : 0.6})`,
+            transition: `transform 380ms ${EASE}, opacity 220ms ease-out`,
+            willChange: "transform",
+          }}
+        >
+          <NavIcon icon={icons.settings} active={false} color="currentColor" size={22} />
+        </button>
+
         <button
           type="button"
           aria-label={menuOpen ? "Close menu" : "Menu"}

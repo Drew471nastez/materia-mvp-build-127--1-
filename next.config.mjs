@@ -52,6 +52,28 @@ const nextConfig = {
     serverActions: {
       bodySizeLimit: '10mb',
     },
+    /**
+     * ═══════════════════════════════════════════════════════════════════════
+     *  A TAB BAR IS ONLY A TAB BAR IF THE TABS ARE STILL THERE WHEN YOU COME BACK
+     * ═══════════════════════════════════════════════════════════════════════
+     * Since Next 15 the client router keeps a DYNAMIC page's payload for zero
+     * seconds. Every /app page is dynamic, so pressing Orders, then Home, then
+     * Orders again fetched Orders twice from scratch and showed its
+     * loading.tsx skeleton both times — on the phone, inside the app, where
+     * the bar at the bottom promises the opposite. "If I already loaded the
+     * page, why does every switch load it as a new thing and show the
+     * skeleton."
+     *
+     * Five minutes. A page you were on inside the last five minutes comes
+     * back as it was, instantly, with no skeleton; a page older than that is
+     * fetched again. Pull to refresh and router.refresh() still replace it on
+     * demand, and a mutation's revalidatePath still clears it. This is the
+     * client's cache only: the server renders on demand as before.
+     */
+    staleTimes: {
+      dynamic: 300,
+      static: 300,
+    },
   },
   // `esbuild` ships a per-platform native binary and is loaded at runtime by
   // the Sites agent's run_build tool; bundling it breaks the binary lookup.
