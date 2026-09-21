@@ -71,6 +71,13 @@ import { LetterIcon as EmailsBold } from "@solar-icons/react/bold/letter"
  */
 import { MonitorIcon as WebsiteBuilderLinear } from "@solar-icons/react/linear/monitor"
 import { MonitorIcon as WebsiteBuilderBold } from "@solar-icons/react/bold/monitor"
+/*
+  EXPLORE, in the bar at the foot of the phone. Lucide's compass was the
+  only glyph down there from a different library, and at 21px beside four
+  Solar ones it read as heavier and rounder than everything beside it.
+*/
+import { CompassIcon as ExploreLinear } from "@solar-icons/react/linear/compass"
+import { CompassIcon as ExploreBold } from "@solar-icons/react/bold/compass"
 import { SettingsIcon as SettingsLinear } from "@solar-icons/react/linear/settings"
 import { SettingsIcon as SettingsBold } from "@solar-icons/react/bold/settings"
 /**
@@ -280,6 +287,7 @@ export const NAV_ICONS = {
  */
 export const NAV_ICONS_EXTRA = {
   settings: { line: SettingsLinear, fill: SettingsBold },
+  explore: { line: ExploreLinear, fill: ExploreBold },
   /*
     SCISSORS, NOT A CHAIN LINK — and not by preference.
 

@@ -78,9 +78,14 @@ function main() {
   check("the page behind the menu is locked while it is open",
     /useLockAppScroll\(mobileMenuOpen\)/.test(shell))
   check("explore opens outside the shell in the native app",
-    /onExplore=\{\(e\) => \{[\s\S]{0,200}?isNativeApp\(\)[\s\S]{0,120}?openExternal\(EXPLORE_FULL_URL\)/.test(shell))
-  check("settings is passed as a row, with the rail's own icon",
-    /settingsIcon=\{NAV_ICONS_EXTRA\.settings\}/.test(shell))
+    /onExplore=\{\(\) => \{[\s\S]{0,400}?isNativeApp\(\)\) openExternal\(EXPLORE_FULL_URL\)/.test(shell),
+    "in Capacitor a navigation to the public site would strand somebody inside the app's own WebView")
+  check("the bar is given the five glyphs it draws, all from the rail's own family",
+    /icons=\{\{[\s\S]{0,400}?home: NAV_ICONS\.dashboard[\s\S]{0,400}?orders: NAV_ICONS\.orders[\s\S]{0,400}?products: NAV_ICONS\.products[\s\S]{0,400}?explore: NAV_ICONS_EXTRA\.explore[\s\S]{0,400}?settings: NAV_ICONS_EXTRA\.settings/.test(shell))
+  check("and the compass comes from Solar too, not from a second icon library",
+    /from "@solar-icons\/react\/linear\/compass"/.test(read("components/app/sidebar-desktop-nav.tsx"))
+      && !/from "lucide-react"/.test(nav),
+    "one glyph from a different library at 21px beside four Solar ones reads as heavier than all of them")
 
   console.log("\n  the back button closes what is on top")
 
@@ -106,6 +111,54 @@ function main() {
   check("and it is not rendered at all on a desktop",
     (nav.match(/md:hidden/g) ?? []).length >= 2,
     "the pill or the menu would show beside the desktop rail")
+
+  console.log("\n  it is glass, and it answers a finger")
+
+  /*
+    The first version was a white pill at 82% sitting ON a blurred band: an
+    opaque object on glass rather than an object made of it. "It needs to not
+    have solid in the background, it needs a very smooth layer of
+    glassmorphism." So the blur is on the objects, and the band behind them
+    has no fill of its own to be solid with.
+  */
+  check("the bar and the menu button are made of one glass",
+    /const GLASS: React\.CSSProperties = \{/.test(nav)
+      && /backdropFilter: "blur\(\d+px\) saturate\(\d+%\)"/.test(nav))
+  check("its tint is thin enough to see the page through",
+    (() => {
+      const a = Number((nav.match(/backgroundColor: "rgba\(255,255,255,([\d.]+)\)"/) ?? [])[1] ?? 1)
+      return a > 0 && a <= 0.55
+    })(),
+    "above about half, a white tint stops being glass and becomes a panel")
+  check("the fade behind them has no fill, only a mask",
+    /maskImage: "linear-gradient\(to top/.test(nav)
+      && !/background: "linear-gradient\(to top, rgba\(248/.test(strip(nav)))
+  check("nothing in the bar is painted in the accent colour",
+    !new RegExp(String.raw`ACCENT`).test(strip(nav).slice(strip(nav).indexOf("function MobileNavPill"))),
+    "the violet fill behind the active icon was the first thing called out")
+  check("the depth is two soft drops and a half pixel of inner light, not a cast shadow",
+    /0 1px 2px rgba\(16,18,27,0\.04\), 0 6px 16px rgba\(16,18,27,0\.06\)/.test(nav))
+
+  check("a finger can slide along the bar, and the slot follows it",
+    /function useSlide\(/.test(nav) && /onPointerMove: \(e: React\.PointerEvent\) => \{/.test(nav))
+  check("the selector is square in its box, which is what makes it a circle",
+    /width: DOT,\s*\n\s*height: DOT,/.test(nav) && /const DOT = BAR_H - PAD \* 2/.test(nav))
+  check("a tap is a drag of zero length, so the two can never disagree",
+    !/onClick=\{\(\) => pick\(/.test(nav) && /const picked = slotAt\(e\.clientX\)/.test(nav))
+  check("and it ticks once per slot crossed, not once per frame",
+    /if \(lastRef\.current !== next\) \{[\s\S]{0,200}?hapticTap\("light"\)/.test(nav))
+  check("with a second tick on the lift, when it commits",
+    /hapticTap\("medium"\)\s*\n\s*onPick\(picked\)/.test(nav))
+  check("a gesture that leaves the bar vertically is not a navigation",
+    /if \(escaped\(e\.clientY\)\) return/.test(nav),
+    "a finger that lands on the bar and travels up the screen was trying to scroll")
+  check("and losing pointer capture ends the drag rather than stranding it",
+    /onLostPointerCapture: \(\) => \{/.test(nav))
+  check("keyboard activation still works, although the pointer decides",
+    /if \(e\.detail === 0\) pick\(i\)/.test(nav))
+  check("all of it driven in the probe, not asserted from the source",
+    /a finger sliding along the bar drags the circle with it/.test(read("scripts/check-app-mobile-nav.mjs"))
+      && /haptic ticks/.test(read("scripts/check-app-mobile-nav.mjs")))
 
   console.log("\n  the motion is the compositor's")
 

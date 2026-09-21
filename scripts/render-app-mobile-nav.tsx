@@ -90,8 +90,6 @@ function Shell() {
           })
         }
         onClose={() => setOpen(false)}
-        settingsIcon={NAV_ICONS_EXTRA.settings}
-        settingsLabel="Settings"
         upgradeTitle="Upgrade to Pro"
         upgradeSubtitle="More products, no Storelib badge"
       />
@@ -99,9 +97,16 @@ function Shell() {
         menuOpen={open}
         onToggleMenu={() => setOpen((v) => !v)}
         onCloseMenu={() => setOpen(false)}
-        onExplore={() => {}}
+        onNavigate={(href) => { (window as unknown as Record<string, unknown>).__went = href }}
+        onExplore={() => { (window as unknown as Record<string, unknown>).__went = "/explore" }}
         exploreHref="/explore"
-        homeIcon={NAV_ICONS.dashboard}
+        icons={{
+          home: NAV_ICONS.dashboard,
+          orders: NAV_ICONS.orders,
+          products: NAV_ICONS.products,
+          explore: NAV_ICONS_EXTRA.explore,
+          settings: NAV_ICONS_EXTRA.settings,
+        }}
       />
     </>
   )

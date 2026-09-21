@@ -1112,8 +1112,6 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
           else window.location.href = href
         }}
         onClose={() => setMobileMenuOpen(false)}
-        settingsIcon={NAV_ICONS_EXTRA.settings}
-        settingsLabel={t("nav.settings")}
         upgradeTitle={t("nav.upgradeToPro")}
         upgradeSubtitle={t("nav.unlockBenefits")}
         storeUnpublishedNote={
@@ -1157,12 +1155,26 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
           setMobileMenuOpen((v) => !v)
         }}
         onCloseMenu={() => setMobileMenuOpen(false)}
-        onExplore={(e) => {
-          if (isNativeApp()) { e.preventDefault(); openExternal(EXPLORE_FULL_URL) }
-          setMobileMenuOpen(false)
+        onNavigate={(href) => {
+          setPendingHref(href)
+          startNavigationLoading()
+          router.push(href)
+        }}
+        onExplore={() => {
+          /* Explore is the public site, outside this shell. In the native
+             app it opens in the system browser rather than replacing the
+             app's own page, which would strand somebody inside it. */
+          if (isNativeApp()) openExternal(EXPLORE_FULL_URL)
+          else window.location.href = "/explore"
         }}
         exploreHref="/explore"
-        homeIcon={NAV_ICONS.dashboard}
+        icons={{
+          home: NAV_ICONS.dashboard,
+          orders: NAV_ICONS.orders,
+          products: NAV_ICONS.products,
+          explore: NAV_ICONS_EXTRA.explore,
+          settings: NAV_ICONS_EXTRA.settings,
+        }}
       />
 
       {/* top and height mirror the desktop header: 58 px content row +
