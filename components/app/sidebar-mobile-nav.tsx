@@ -499,9 +499,9 @@ export function MobileMenuPage({
  * is 5% at one pixel and 10% at eight, which is a lift rather than a cast.
  */
 const GLASS: React.CSSProperties = {
-  backgroundColor: "rgba(255,255,255,0.28)",
-  backdropFilter: "blur(28px) saturate(190%)",
-  WebkitBackdropFilter: "blur(28px) saturate(190%)",
+  backgroundColor: "rgba(255,255,255,0.18)",
+  backdropFilter: "blur(30px) saturate(210%)",
+  WebkitBackdropFilter: "blur(30px) saturate(210%)",
   boxShadow:
     "0 1px 2px rgba(16,18,27,0.05), 0 8px 22px rgba(16,18,27,0.10)," +
     " inset 0 0 0 0.5px rgba(255,255,255,0.65), inset 0 0.5px 0 rgba(255,255,255,0.9)",
@@ -557,8 +557,6 @@ type BarItem = {
   label: string
   href: string
   icon: NavIconPair
-  /** Leaves the app shell, so it may need to be opened outside it. */
-  external?: boolean
 }
 
 /**
@@ -669,34 +667,37 @@ export function MobileNavPill({
   onToggleMenu,
   onCloseMenu,
   onNavigate,
-  onExplore,
-  exploreHref,
   icons,
 }: {
   menuOpen: boolean
   onToggleMenu: () => void
   onCloseMenu: () => void
   onNavigate: (href: string) => void
-  onExplore: () => void
-  exploreHref: string
-  icons: { home: NavIconPair; orders: NavIconPair; products: NavIconPair; explore: NavIconPair; settings: NavIconPair }
+  icons: { home: NavIconPair; orders: NavIconPair; products: NavIconPair; settings: NavIconPair }
 }) {
   const pathname = usePathname()
 
   /*
-    HOME, ORDERS, PRODUCTS, EXPLORE — in that order, and they stay put when
-    the menu opens. The menu is not a place, so it is its own button beside
-    them rather than a fifth slot in a row of places; settings is a second
-    one, which appears only while the menu is open.
+    HOME, ORDERS, PRODUCTS, SETTINGS — four pages of this person's own shop,
+    in that order, and they stay put when the menu opens.
+
+    Explore used to be the fourth of these and it was the odd one out: the
+    public site, somebody else's shops, a door out of this shell entirely. It
+    is up in the header beside the bell now, and settings has the slot, which
+    is where a settings button belongs — always there, rather than appearing
+    beside the X for as long as a menu happens to be open.
+
+    The menu is not a place either, so it is its own button beside the four
+    rather than a fifth slot in a row of places.
   */
   const items: BarItem[] = [
     { key: "home", label: "Home", href: "/app", icon: icons.home },
     { key: "orders", label: "Orders", href: "/app/orders", icon: icons.orders },
     { key: "products", label: "Products", href: "/app/products", icon: icons.products },
-    { key: "explore", label: "Explore", href: exploreHref, icon: icons.explore, external: true },
+    { key: "settings", label: "Settings", href: "/app/settings", icon: icons.settings },
   ]
 
-  const current = items.findIndex((i) => !i.external && isRouteActive(pathname, i.href))
+  const current = items.findIndex((i) => isRouteActive(pathname, i.href))
 
   /**
    * ═══════════════════════════════════════════════════════════════════════
@@ -727,12 +728,8 @@ export function MobileNavPill({
   const pick = (index: number) => {
     const item = items[index]
     if (!item) return
-    if (item.external) {
-      onExplore()
-    } else {
-      setPending(index)
-      onNavigate(item.href)
-    }
+    setPending(index)
+    onNavigate(item.href)
     onCloseMenu()
   }
 
@@ -763,41 +760,37 @@ export function MobileNavPill({
       }}
     >
       {/*
-        ── THE FADE ──────────────────────────────────────────────────────────
-        Not a second sheet of glass. It has no fill and it blurs only enough
-        to keep a line of text from colliding with the bar as it scrolls
-        under, masked so it dissolves upward instead of ending on an edge —
-        an edge is the thing that reads as a panel bolted to the screen.
+        ── THERE IS NO FADE BEHIND THE BAR ANY MORE ─────────────────────────
+        A full width strip used to sit here carrying `backdrop-filter` AND
+        `mask-image`, to blur the page under the bar and dissolve upward
+        instead of ending on an edge.
+
+        WKWebView does not composite those two on one element. The mask is
+        dropped and the filtered region paints as a flat light fill, so what
+        that strip drew on an iPhone was a pale rectangle across the foot of
+        the screen with a hard top edge — the "solid background" that kept
+        being reported and that Chromium never showed. Photographed here as a
+        flat rgb(248,249,250) all the way down, because Chromium honours the
+        mask; the fault is not in the declaration, it is in one engine's
+        handling of the pair.
+
+        It is not replaced with a scrim. The bar is glass and it carries its
+        own blur, so the page passing behind it is the effect rather than
+        something to be hidden — which is what the floating bar it is modelled
+        on does. tests/app-mobile-nav.test.ts holds the pair apart from here
+        on: nothing under this component may carry both.
       */}
-      <div
-        aria-hidden="true"
-        className="absolute inset-x-0 bottom-0"
-        style={{
-          height: "calc(112px + env(safe-area-inset-bottom, 0px))",
-          backdropFilter: "blur(10px)",
-          WebkitBackdropFilter: "blur(10px)",
-          maskImage: "linear-gradient(to top, #000 0%, rgba(0,0,0,0.55) 48%, transparent 100%)",
-          WebkitMaskImage: "linear-gradient(to top, #000 0%, rgba(0,0,0,0.55) 48%, transparent 100%)",
-        }}
-      />
 
       {/*
         ── THE GROUP ─────────────────────────────────────────────────────────
-        Bar, menu button, and a settings button that is only there while the
-        menu is open. The settings button is taken OUT of the flow and the
-        group is slid half its width to the left instead, so the three of
-        them stay centred without anything being laid out again: opening the
-        menu is one transform and one fade, and nothing under it reflows.
+        The bar and the menu button, and that is all of it. A settings button
+        used to appear beside the X while the menu was open, which meant the
+        group changed width, the whole thing had to slide to stay centred,
+        and settings was only reachable from inside a menu. Settings is the
+        fourth slot in the bar now, so nothing here is ever added or removed
+        and nothing has to move to make room.
       */}
-      <div
-        className="relative flex items-center"
-        style={{
-          gap: GAP,
-          transform: `translateX(${menuOpen ? -(BAR_H + GAP) / 2 : 0}px)`,
-          transition: `transform 380ms ${EASE}`,
-          willChange: "transform",
-        }}
-      >
+      <div className="relative flex items-center" style={{ gap: GAP }}>
         <nav
           ref={slide.barRef}
           aria-label="Main"
@@ -897,42 +890,6 @@ export function MobileNavPill({
           <MenuGlyph open={menuOpen} />
         </button>
 
-        {/*
-          ── SETTINGS, ONLY WHILE THE MENU IS OPEN ────────────────────────
-          To the right of the X, in its own circle, out of the flow. Closed,
-          it is not reachable and not announced; there is one settings
-          control in the whole shell and it is here.
-        */}
-        <button
-          type="button"
-          aria-label="Settings"
-          aria-hidden={!menuOpen}
-          tabIndex={menuOpen ? 0 : -1}
-          onClick={() => {
-            hapticTap("medium")
-            setPending(null)
-            onNavigate("/app/settings")
-            onCloseMenu()
-          }}
-          className={cn(
-            "absolute flex items-center justify-center rounded-full",
-            menuOpen ? "pointer-events-auto" : "pointer-events-none",
-          )}
-          style={{
-            ...GLASS,
-            left: "100%",
-            marginLeft: GAP,
-            width: BAR_H,
-            height: BAR_H,
-            color: "#616b7a",
-            opacity: menuOpen ? 1 : 0,
-            transform: `scale(${menuOpen ? 1 : 0.6})`,
-            transition: `transform 380ms ${EASE}, opacity 220ms ease-out`,
-            willChange: "transform",
-          }}
-        >
-          <NavIcon icon={icons.settings} active={false} color="currentColor" size={22} />
-        </button>
       </div>
     </div>
   )

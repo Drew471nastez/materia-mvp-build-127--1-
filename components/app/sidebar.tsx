@@ -39,6 +39,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { DesktopSidebarContent, NAV_ICONS, NAV_ICONS_EXTRA } from "@/components/app/sidebar-desktop-nav"
 import type { NavIconPair } from "@/components/app/sidebar-desktop-nav"
 import { MobileMenuPage, MobileNavPill, useLockAppScroll } from "@/components/app/sidebar-mobile-nav"
+/* The header draws it directly; the bar below does not carry it any more. */
+import { CompassIcon as ExploreIcon } from "@solar-icons/react/linear/compass"
 
 import { NotificationsModal, NotificationBadge } from "./notifications-modal"
 import { useLanguage } from "@/lib/i18n"
@@ -990,8 +992,29 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
             */}
           </div>
 
-          {/* Right side: Notifications + Home */}
+          {/* Right side: Explore, then Notifications */}
           <div className="flex items-center gap-0.5">
+            {/*
+              EXPLORE IS NOT ONE OF THIS PERSON'S PLACES.
+
+              It sat in the bar at the foot of the screen beside Home, Orders
+              and Products, which are the three pages of their own shop. It is
+              the public site — somebody else's shops — and it leaves this
+              shell entirely. Up here beside the bell it reads as what it is:
+              a door out, rather than a fourth tab.
+            */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 shrink-0 rounded-xl text-white/90 hover:text-white hover:bg-white/10"
+              aria-label="Explore"
+              onClick={() => {
+                if (isNativeApp()) openExternal(EXPLORE_FULL_URL)
+                else window.location.href = "/explore"
+              }}
+            >
+              <ExploreIcon size={20} strokeWidth={1.6} />
+            </Button>
             <Button
               variant="ghost"
               size="icon"
@@ -1002,7 +1025,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
               <Bell className="h-5 w-5" />
               <NotificationBadge count={notificationCount} />
             </Button>
-            {/* Home moved to the pill at the bottom. Two ways to the same
+            {/* Home moved to the bar at the bottom. Two ways to the same
                 page, one of them out of reach, is one too many. */}
           </div>
         </div>
@@ -1160,19 +1183,10 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
           startNavigationLoading()
           router.push(href)
         }}
-        onExplore={() => {
-          /* Explore is the public site, outside this shell. In the native
-             app it opens in the system browser rather than replacing the
-             app's own page, which would strand somebody inside it. */
-          if (isNativeApp()) openExternal(EXPLORE_FULL_URL)
-          else window.location.href = "/explore"
-        }}
-        exploreHref="/explore"
         icons={{
           home: NAV_ICONS.dashboard,
           orders: NAV_ICONS.orders,
           products: NAV_ICONS.products,
-          explore: NAV_ICONS_EXTRA.explore,
           settings: NAV_ICONS_EXTRA.settings,
         }}
       />
