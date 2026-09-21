@@ -601,6 +601,15 @@ const GAP = 8
  *     1.2 / 0.30                   33            49               57
  *     0.9 / 0.18                   63            86              108
  *     0.6 / 0.18                  125           161              154
+ *     0.45 / 0.18                 191           234              191
+ *     0.35 / 0.18                 220           248              203
+ *     0.2 / 0.18                  220           248              203
+ *
+ * 0.35 is the end of it. At 0.2 every reading is identical — the radius has
+ * stopped resolving to a whole device pixel on the innermost layers and the
+ * blur does not thin any further, so this is the floor rather than a
+ * preference. What is left over the artwork at the bottom is the tint, and
+ * that has its own alpha above.
  *
  * The tint came down with it: it is the page's own colour, so it is
  * invisible over the page and only shows over something that is not the
@@ -619,7 +628,7 @@ const GAP = 8
 const HALO_LAYERS = 12
 const HALO_STEP = 3
 /** The strongest layer's blur; the outermost carries this over HALO_LAYERS². */
-const HALO_BLUR = 0.6
+const HALO_BLUR = 0.35
 const haloBlur = (i: number) => Math.round(HALO_BLUR * ((i + 1) / HALO_LAYERS) ** 2 * 1000) / 1000
 /** How far the halo reaches: above the bar, past the bottom of the screen,
     and past each side of it. The display crops the last two. */
