@@ -315,7 +315,10 @@ const overlap = await ev(`(() => {
 const barInside = await ev(`(() => {
   const b = document.querySelector('nav[aria-label="Main"]').getBoundingClientRect()
   const a = document.querySelectorAll('nav[aria-label="Main"] a[aria-label]')
-  const one = a[0].getBoundingClientRect(), two = a[1].getBoundingClientRect()
+  /* Between the SECOND and third glyphs: between the first two, the
+     artwork's white Upgrade button is what sits behind the bar, and a white
+     bar over a white button reads the same as the bare page. */
+  const one = a[1].getBoundingClientRect(), two = a[2].getBoundingClientRect()
   return {
     inBar: { x: Math.round((one.right + two.left) / 2) - 5, y: Math.round(b.top + b.height / 2) - 5, width: 10, height: 10 },
     beside: { x: 3, y: Math.round(b.top + b.height / 2) - 5, width: 5, height: 5 },
@@ -389,14 +392,14 @@ console.log(`                 through it rgb(${throughBar.join(",")}), beside it
 must(overlap.covered > 0,
   "mid-scroll the page really does pass behind the bar",
   "nothing is ever underneath it, so it can only look like a solid pill however it is styled")
-/* The bar is 90% white now ("not greyish in any circumstances"), so over
-   black it can only read 19 from the bare page and over this banner's grey,
-   which is what sits under the sample, about 5. Over the bare page it reads
-   exactly 0, the PNG being lossless, so 3 is a real signal and not noise.
-   The pure red and blue proof of the glass is in check-app-mobile-nav. */
-must(distance(throughBar, besideBar) >= 3,
-  "and what passes behind it shows through: the bar is not the colour of the bare page",
-  `through the bar reads rgb(${throughBar.join(",")}) and the bare page beside it rgb(${besideBar.join(",")}), only ${distance(throughBar, besideBar)} apart`)
+/* NOT A COLOUR CLAIM ANY MORE. The bar is 93% white now ("not greyish in
+   any circumstances", then "more whitish"), and 93% white over this
+   banner's mid grey reads within a point or two of the bare page: the
+   difference is real, but under what a PNG can show. Whether the bar is
+   glass or a panel is settled by check-app-mobile-nav, which puts pure red
+   and then pure blue behind it and reads the same square twice. The two
+   colours are printed above for the record, and what this probe holds is
+   the geometry: the page can get under the bar at all. */
 
 const pageColour = column[0].rgb
 const odd = column.filter((c) => distance(c.rgb, pageColour) > 3)

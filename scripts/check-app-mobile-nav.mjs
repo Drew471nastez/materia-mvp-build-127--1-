@@ -312,8 +312,12 @@ const READ_PILL = `(() => {
       /* A stadium has a straight top and bottom; an ellipse has no straight
          edge anywhere. Every layer of the halo has to be the second. */
       const straight = layers.filter((n) => getComputedStyle(n).borderRadius !== "50%").length
+      /* The blur each layer carries, outermost first. */
+      const radii = layers
+        .map((n) => /blur\\(([\\d.]+)px\\)/.exec(getComputedStyle(n).backdropFilter || getComputedStyle(n).webkitBackdropFilter || ""))
+        .filter(Boolean).map((m) => Number.parseFloat(m[1]))
       const r = fade.getBoundingClientRect()
-      return { h: Math.round(r.height), w: Math.round(r.width), layers: layers.length, masked, opaque, steps, straight }
+      return { h: Math.round(r.height), w: Math.round(r.width), layers: layers.length, masked, opaque, steps, straight, radii }
     })(),
     targets, hits,
     scrollPadBottom: scroller ? getComputedStyle(scroller).paddingBottom : null,
@@ -388,10 +392,10 @@ await ev(`(() => {
 })()`)
 await sleep(300)
 /*
-  The halo is centred on the bar and reaches 56px above it, so it is read on
-  the bar's own vertical: well above the halo, just inside its top edge, and
-  in the 8px gap between the bar and the menu button, where the halo is at
-  its strongest and nothing else is drawn.
+  The halo is centred on the screen and reaches 22px above the bar, so it is
+  read on the bar's own vertical: well above the halo, just inside its top
+  edge, and in the 8px gap between the bar and the menu button, where most of
+  its layers overlap and nothing else is drawn.
 */
 const fadeBox = await ev(`(() => {
   const f = document.querySelector("[data-app-nav-fade]").getBoundingClientRect()
@@ -407,8 +411,8 @@ const blur = {
   above: await contrastAt(fadeBox.x, fadeBox.top - 50),
   top: await contrastAt(fadeBox.x, fadeBox.top + 6),
   bottom: await contrastAt(fadeBox.gapX, fadeBox.barMid),
-  /* And the left margin, which the halo must NOT reach: "around the pill,
-     not across all the screen". */
+  /* And the screen's left edge, where the halo now reaches but must not be
+     seen to: its outermost layers carry almost nothing. */
   margin: await contrastAt(6, fadeBox.barMid),
 }
 await ev(`document.getElementById("__stripes").remove(); true`)
@@ -734,12 +738,23 @@ must(shut.hits.every((h) => h.reaches), "and a press in the middle of each one r
 must(shut.maskedBlurs === 0,
   "nothing behind the bar masks a backdrop-filter, which WKWebView paints as a flat fill",
   `${shut.maskedBlurs} element(s) carry both. On an iPhone that is a pale plate across the bottom of the screen.`)
-must(!!shut.fade && shut.fade.steps >= 10, "a halo of concentric blurs sits around the bar",
+must(!!shut.fade && shut.fade.steps >= 12, "a halo of concentric blurs sits around the bar",
   `the fade has ${shut.fade?.steps ?? 0} blur steps`)
 must(shut.fade?.straight === 0, "every layer of it is an ellipse, so nothing in it ends on a straight line",
   `${shut.fade?.straight} layer(s) of the halo have a straight edge`)
-must(!!shut.fade && shut.fade.w <= VIEW_W - 24, "and it stops well short of the screen's sides",
+/* The cut in the screenshot was the outermost layer: 1.2px of blur beginning
+   all at once on crisp text. Now the outermost carries next to nothing and
+   each layer inward carries more, so there is no radius at which it starts. */
+must(!!shut.fade && shut.fade.radii[0] <= 0.05 && shut.fade.radii.every((v, i) => i === 0 || v > shut.fade.radii[i - 1]),
+  "and the blur ramps up from nothing at the outermost layer, so there is no radius at which it begins",
+  `the layers carry ${shut.fade?.radii.join(", ")}px, outermost first`)
+must(!!shut.fade && Math.hypot(...(shut.fade.radii ?? [])) <= 3.2,
+  "compounding to under 3px where they all overlap: a softening, not a blur",
+  `the layers compound to about ${Math.hypot(...(shut.fade?.radii ?? [])).toFixed(1)}px around the bar`)
+must(!!shut.fade && shut.fade.w >= VIEW_W * 0.9 && shut.fade.w <= VIEW_W - 12, "and it spans the screen's width, just short of its sides",
   `the halo is ${shut.fade?.w}px wide on a ${VIEW_W}px screen`)
+must(!!shut.fade && shut.fade.h <= 100, "and is not much taller than the bar",
+  `the halo is ${shut.fade?.h}px tall for a ${shut.pill.h}px bar`)
 must(shut.fade?.masked === 0, "with no mask on any layer of it, which is the thing WKWebView cannot draw",
   `${shut.fade?.masked} layer(s) of the fade carry a mask`)
 must(shut.fade?.opaque === 0, "and no opaque fill on any layer, so nothing in it can be a plate",
@@ -753,9 +768,10 @@ const pillAlpha = Number((shut.pill.bg.match(/rgba?\([^)]*?,\s*([\d.]+)\s*\)/) ?
   system tab bar is made of. The band is 60 to 80: under it the glyphs sit on
   whatever is behind, at 100 it is a panel.
 */
-/* 90% now: at 70% the bar read warm grey over the dark artwork. "I know it's
-   see-through but I don't want it greyish in any circumstances." */
-must(/^rgba?\(255, 255, 255/.test(shut.pill.bg) && pillAlpha >= 0.85 && pillAlpha <= 0.95,
+/* 93% now: at 70% the bar read warm grey over the dark artwork ("I don't
+   want it greyish in any circumstances"), and 90% was "not really that
+   see-through, more whitish". */
+must(/^rgba?\(255, 255, 255/.test(shut.pill.bg) && pillAlpha >= 0.9 && pillAlpha <= 0.96,
   "the bar is white over anything, a breath of what is under it and never grey",
   `the bar is ${shut.pill.bg}`)
 must(/blur\(/.test(shut.glass.backdrop), "and it carries its own blur, so the page is visible THROUGH it",
@@ -764,7 +780,9 @@ must(shut.selector.w === shut.selector.h, "the selector is a circle, not an oval
   `it is ${shut.selector.w}x${shut.selector.h}`)
 must(!/139, 92, 246|rgb\(139/.test(shut.selector.bg), "and it is not painted in the accent colour",
   `the selector is ${shut.selector.bg}`)
-must(/transform/.test(shut.selector.moves), "it slides between slots rather than jumping",
+/* `translate`, the individual property, so the lift's `scale` can keep its
+   own easing while the position has none under a finger. */
+must(/translate/.test(shut.selector.moves) && /scale/.test(shut.selector.moves), "it slides between slots rather than jumping, on its own property",
   `it transitions ${shut.selector.moves}`)
 
 must(Number.parseFloat(shut.scrollPadBottom) >= 88, "the page leaves room for the pill under its content",
@@ -779,8 +797,8 @@ console.log("")
 console.log(`  the halo    stripes read ${blur.above} of contrast above it, ${blur.top} at its edge, ${blur.bottom} beside the bar, ${blur.margin} in the left margin\n`)
 must(blur.above >= 120, "the stripe pattern is sharp where nothing is over it, so the test can see",
   `only ${blur.above} of contrast above the fade: the stripes are not being drawn sharply enough to measure against`)
-must(blur.margin >= blur.above * 0.9, "the halo is around the bar and does not reach the screen's edge",
-  `the stripes read ${blur.margin} in the left margin against ${blur.above} above the halo: the fade is a band across the screen again`)
+must(blur.margin >= blur.above * 0.9, "the halo spans the screen but leaves the page at its edge as it was",
+  `the stripes read ${blur.margin} at the screen's left edge against ${blur.above} above the halo: the halo has an edge there`)
 must(blur.bottom <= blur.above * 0.45, "beside the bar the page is softened, gently",
   `the stripes still read ${blur.bottom} of contrast beside the bar against ${blur.above} above the halo`)
 must(blur.top > blur.bottom + 10, "and the blur is progressive: lighter at the top of the fade than at the bottom",
@@ -807,9 +825,9 @@ console.log(`              on plain page: rgb(${seeThrough.aboveFade}) above the
   panel moves 0 whatever is behind it. Anything past 30 is letting the page
   through; the tint is the rest of the distance, and the tint is the point.
 */
-/* 90% white over pure red still moves a little between red and blue, and a
-   panel moves exactly 0. The floor is 10: white that is not a panel. */
-must(seeThrough.moved >= 10,
+/* 93% white over pure red still moves a little between red and blue, and a
+   panel moves exactly 0. The floor is 8: white that is not a panel. */
+must(seeThrough.moved >= 8,
   "change what is behind the bar and the bar changes: it frosts the page, it does not hide it",
   `the same pixel moved only ${seeThrough.moved} when the colour behind it went from red to blue. A white panel would move 0`)
 must(seeThrough.aside >= 40,

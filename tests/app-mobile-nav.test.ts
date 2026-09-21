@@ -136,7 +136,8 @@ function main() {
   check("the phone's scroll container is padded for it",
     /@media \(max-width: 767px\) \{\s*\n\s*html\.app-layout \.app-content-scroll \{\s*\n\s*padding-bottom: calc\(104px \+ env\(safe-area-inset-bottom, 0px\)\);/.test(css))
   check("the pill clears the home indicator",
-    /paddingBottom: "calc\(6px \+ env\(safe-area-inset-bottom, 0px\)\)"/.test(nav))
+    /const PILL_LIFT = "6px \+ env\(safe-area-inset-bottom, 0px\)"/.test(nav)
+      && /paddingBottom: `calc\(\$\{PILL_LIFT\}\)`/.test(nav))
   /*
     ── THE PAGE HAS TO BE ABLE TO GET PAST IT ──────────────────────────────
     Every other /app page scrolls in .app-content-scroll. The dashboard puts
@@ -177,7 +178,7 @@ function main() {
     (() => {
       const probe = read("scripts/check-dashboard-nav.mjs")
       return /mid-scroll the page really does pass behind the bar/.test(probe)
-        && /the bar is not the colour of the bare page/.test(probe)
+        && /puts pure red\s+and then pure blue behind it/.test(probe)
     })(),
     "a page of plain cards is the one page that cannot show this, which is why it took four goes")
 
@@ -237,9 +238,9 @@ function main() {
   check("its tint is white over anything, and not a panel",
     (() => {
       const a = Number((nav.match(/backgroundColor: "rgba\(255,255,255,([\d.]+)\)"/) ?? [])[1] ?? 1)
-      return a >= 0.85 && a <= 0.95
+      return a >= 0.9 && a <= 0.96
     })(),
-    "under 85% the bar goes grey over a dark page; at 100% it is a panel")
+    "under 90% the bar goes grey over a dark page; at 100% it is a panel")
   /*
     And the only test of that claim that means anything is the photograph:
     the probe puts red behind the bar, photographs a square between two
@@ -298,26 +299,43 @@ function main() {
     ELLIPSES, NOT STADIUMS. The first halo's layers were stadiums, and a
     stadium has a straight top: a line 200px long where every layer's blur
     began together. "The ending should not be that direct, it should morph."
-    An ellipse has no straight edge anywhere, so ten of them, each 3px in
-    from the last, end ten different places along a curve.
+    An ellipse has no straight edge anywhere, so twelve of them, each 3px in
+    from the last, end twelve different places along a curve.
+
+    AND THE BLUR RAMPS. Ten ellipses each carrying 1.2px still had an edge,
+    the outermost, where 1.2px began all at once on crisp text: the cut drawn
+    on the screenshot of the menu, down the halo's left side. The outermost
+    layer carries next to nothing now and each one inward carries more.
   */
-  check("the fade is a halo of concentric elliptical layers, each carrying one small blur",
-    /const HALO_LAYERS = 10/.test(nav) && /const HALO_BLUR = 1\.2/.test(nav)
+  check("the fade is a halo of concentric elliptical layers",
+    /const HALO_LAYERS = 12/.test(nav)
       && /data-app-nav-fade-step=""[\s\S]{0,200}borderRadius: "50%"/.test(nav)
-      && /inset: i \* HALO_STEP,/.test(nav)
-      && /backdropFilter: `blur\(\$\{HALO_BLUR\}px\)`/.test(nav))
-  check("around the bar group rather than across the screen",
-    /top: -HALO_REACH\.top,/.test(nav) && /left: -HALO_REACH\.side,/.test(nav)
-      && !/className="absolute inset-x-0 bottom-0"/.test(strip(nav)),
-    "a full-width band is what was asked to go")
+      && /inset: i \* HALO_STEP,/.test(nav))
+  check("whose blur ramps from nothing at the outermost to 1.6px at the innermost",
+    /const HALO_BLUR = 1\.6/.test(nav)
+      && /const haloBlur = \(i: number\) => Math\.round\(HALO_BLUR \* \(\(i \+ 1\) \/ HALO_LAYERS\) \*\* 2/.test(nav)
+      && /backdropFilter: `blur\(\$\{haloBlur\(i\)\}px\)`/.test(nav),
+    "the same blur on every layer puts an edge on the outermost one")
+  check("wide, low, and centred on the screen rather than on the bar group",
+    /const HALO_REACH = \{ top: 22, bottom: 18, margin: 8 \}/.test(nav)
+      && /width: `calc\(100% - \$\{HALO_REACH\.margin \* 2\}px\)`/.test(nav)
+      && /height: BAR_H \+ HALO_REACH\.top \+ HALO_REACH\.bottom/.test(nav)
+      && /className="pointer-events-none absolute left-1\/2"/.test(nav),
+    "hung on the group, the halo left the settings circle standing on bare page while the menu was open")
+  check("with the pill's lift above the screen's bottom read once, by the pill and by the halo",
+    /const PILL_LIFT = "6px \+ env\(safe-area-inset-bottom, 0px\)"/.test(nav)
+      && /paddingBottom: `calc\(\$\{PILL_LIFT\}\)`/.test(nav)
+      && /bottom: `calc\(\$\{PILL_LIFT\} - \$\{HALO_REACH\.bottom\}px\)`/.test(nav),
+    "the same number computed twice is where the editor's black bands came from")
   check("and its tint is one radial gradient in the page's own colour, quieter than before",
-    /const HALO_TINT = "rgba\(248,249,250,0\.28\)"/.test(nav)
+    /const HALO_TINT = "rgba\(248,249,250,0\.22\)"/.test(nav)
       && /radial-gradient\(ellipse at center, \$\{HALO_TINT\} 0%/.test(nav),
     "at 45% the tint read as a plate under the bar; 'more subtle, almost unobservable'")
-  check("with every layer of it measured as an ellipse in the probe",
-    /nothing in it ends on a straight line/.test(read("scripts/check-app-mobile-nav.mjs")))
-  check("with the halo measured through stripes in the probe, including that it stops short of the edge",
-    /the halo is around the bar and does not reach the screen's edge/.test(read("scripts/check-app-mobile-nav.mjs"))
+  check("with every layer of it measured as an ellipse in the probe, and the ramp read off the layers",
+    /nothing in it ends on a straight line/.test(read("scripts/check-app-mobile-nav.mjs"))
+      && /no radius at which it begins/.test(read("scripts/check-app-mobile-nav.mjs")))
+  check("with the halo measured through stripes in the probe, including that the screen's edge is untouched",
+    /leaves the page at its edge as it was/.test(read("scripts/check-app-mobile-nav.mjs"))
       && /the blur is progressive/.test(read("scripts/check-app-mobile-nav.mjs")))
   check("nothing in the bar is painted in the accent colour",
     !new RegExp(String.raw`ACCENT`).test(strip(nav).slice(strip(nav).indexOf("function MobileNavPill"))),
@@ -364,15 +382,35 @@ function main() {
     "reading its position as slot zero would send it flying home as it shrank")
 
   /*
-    Two jobs, two curves. Under a finger it has to be where the finger is,
-    now; let go of it and it should arrive rather than stop.
+    Two jobs, two mechanisms. Under a finger it is where the finger is, every
+    frame, with no transition to be a delay and no slot to be a step: the
+    90ms hop from slot to slot was "very snappy, very direct, landing on it,
+    not smooth at all". Let go of it and it springs to the slot.
   */
-  check("it tracks a finger with no overshoot and settles with a little",
-    /const TRACK = `transform 90ms cubic-bezier\(0\.2, 0, 0, 1\)`/.test(nav)
-      && /const SETTLE = `transform 420ms cubic-bezier\(0\.32, 1\.24, 0\.44, 1\)`/.test(nav)
-      && /slide\.dragging \? TRACK : SETTLE/.test(nav))
-  check("and it lifts a little under the finger, which is the newer system bars' tell",
-    /const LIFT = 1\.06/.test(nav) && /slide\.dragging \? LIFT : 1/.test(nav))
+  check("under a finger the circle follows the finger itself, not the finger's slot, with no transition",
+    /const FOLLOW = 0\.6/.test(nav)
+      && /targetRef\.current = leftFor\(clientX\)/.test(nav)
+      && /posRef\.current \+= gap \* FOLLOW/.test(nav)
+      && /frameRef\.current = requestAnimationFrame\(step\)/.test(nav)
+      && /slide\.dragging \? "translate 0s" : SETTLE/.test(nav),
+    "a transition under the finger is a delay; a slot under the finger is a step")
+  check("written straight to the element by the loop, and never by a style prop",
+    /dot\.style\.translate = `\$\{posRef\.current\}px 0`/.test(nav)
+      && /dot\.style\.translate = `\$\{x\}px 0`/.test(nav)
+      && !/translate: `/.test(strip(nav)) && !/transform: `translateX\(\$\{x\}px\)/.test(strip(nav)),
+    "a position prop would fight the loop, or on the lift be a string React already rendered and never written")
+  check("a render happens when the slot changes, not on every move",
+    /if \(lastRef\.current !== next\) \{\s*\n\s*lastRef\.current = next\s*\n[^\n]*\n[^\n]*\n\s*setAt\(next\)/.test(nav)
+      && !/^\s*setAt\(next\)\s*$/m.test(strip(nav).split("const move")[1].split("if (lastRef")[0]))
+  check("and a press during a spring picks the circle up from where it is drawn",
+    /posRef\.current = drawnAt\(\) \?\? leftFor\(e\.clientX\)/.test(nav)
+      && /getComputedStyle\(dot\)\.translate/.test(nav))
+  check("it settles with a little overshoot, on its own property, and lifts on another",
+    /const SETTLE = `translate 420ms cubic-bezier\(0\.32, 1\.24, 0\.44, 1\)`/.test(nav)
+      && /const LIFT = 1\.06/.test(nav) && /slide\.dragging \? LIFT : 1/.test(nav)
+      && /const LIFT_EASE = `scale 200ms/.test(nav))
+  check("the finger is known from a ref, not from state a render behind",
+    /if \(!activeRef\.current\) return/.test(nav) && !/if \(!dragging\) return/.test(strip(nav)))
   /*
     THE GLYPHS HOLD STILL WHILE THE CIRCLE MOVES. Cross-fading four glyphs on
     every slot the circle crossed is what read as "icons glitch, scale

@@ -33,7 +33,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useLayoutEffect, useRef, useState } from "react"
 
 import { cn } from "@/lib/utils"
 import { hapticTap } from "@/lib/native-bridge"
@@ -506,11 +506,12 @@ const GLASS: React.CSSProperties = {
     directly: "the buttons themselves don't need to be full glassmorphism
     transparent, the bar itself doesn't need to be transparent". And then, at
     70%, over the dark artwork it read as warm grey: "I know it's see-through
-    but I don't want it greyish in any circumstances". 90% white over a blur,
+    but I don't want it greyish in any circumstances". 93% white over a blur,
     with the saturation boost pulled back: it reads WHITE over anything, and
-    what is under it is a breath, not a colour.
+    what is under it is a breath, not a colour. "Not really that see-through,
+    more whitish" took it the last step from 90.
   */
-  backgroundColor: "rgba(255,255,255,0.9)",
+  backgroundColor: "rgba(255,255,255,0.93)",
   backdropFilter: "blur(24px) saturate(120%)",
   WebkitBackdropFilter: "blur(24px) saturate(120%)",
   boxShadow:
@@ -556,44 +557,72 @@ const GAP = 8
  * ELLIPSES, NOT STADIUMS. A stadium is a rectangle with round ends, and its
  * top and bottom are STRAIGHT: "it should not end with a straight line, it
  * should morph into outside of it". An ellipse has no straight edge anywhere,
- * so the halo's boundary is a curve all the way round, and ten layers three
- * pixels apart carrying 1.2px each turn that boundary into a gradient rather
- * than an edge. The tint is the same ellipse, so there is one shape, not a
- * blob inside a different shape — which is what "empty spots" was.
+ * so the halo's boundary is a curve all the way round. The tint is the same
+ * ellipse, so there is one shape, not a blob inside a different shape —
+ * which is what "empty spots" was.
  *
- * Smaller too: "not so spread, not so big". The reach is about half.
+ * THE BLUR RAMPS. Ten ellipses each carrying the same 1.2px still had an
+ * edge: the OUTERMOST one, where 1.2px of blur began all at once on crisp
+ * text, and over the menu's cards that read as a cut along the halo's left
+ * side. So the layers no longer carry the same blur. The outermost carries
+ * almost none, and each one inward carries more, on a square curve, so
+ * that the first thing a screen can show as a change is a dozen pixels in
+ * from where the halo begins. Where they all overlap, around the bar, they
+ * compound to under 3px: "not that powerful, just a little bit".
+ *
+ * WIDE AND LOW. "The spread should cover the left and right, and the height
+ * more small." One ellipse, centred on the screen rather than on the bar
+ * group, nearly the width of the screen and not much taller than the bar.
+ * Centred on the screen because the group is not always where the bar is:
+ * with the menu open a settings circle sits to the left of it, and a halo
+ * hung on the group left that circle standing on bare page.
  */
-const HALO_LAYERS = 10
+const HALO_LAYERS = 12
 const HALO_STEP = 3
-const HALO_BLUR = 1.2
-/** How far the halo reaches beyond the bar group: above, to the sides, below. */
-const HALO_REACH = { top: 34, side: 26, bottom: 26 }
+/** The strongest layer's blur; the outermost carries this over HALO_LAYERS². */
+const HALO_BLUR = 1.6
+const haloBlur = (i: number) => Math.round(HALO_BLUR * ((i + 1) / HALO_LAYERS) ** 2 * 1000) / 1000
+/** How far the halo reaches beyond the bar: above it, below it, and in from the screen's sides. */
+const HALO_REACH = { top: 22, bottom: 18, margin: 8 }
 /** The page under the bar on a phone is #f8f9fa, and the tint is that colour. */
-const HALO_TINT = "rgba(248,249,250,0.28)"
+const HALO_TINT = "rgba(248,249,250,0.22)"
 const HALO_TINT_NONE = "rgba(248,249,250,0)"
+/** How far the bottom of the pill sits above the bottom of the screen. Read
+    once, by the pill and by the halo, so the two cannot disagree. */
+const PILL_LIFT = "6px + env(safe-area-inset-bottom, 0px)"
 
 /**
  * ===========================================================================
  *  HOW THE CIRCLE MOVES
  * ===========================================================================
- * Two different jobs, and one curve cannot do both.
+ * Two different jobs, and one mechanism cannot do both.
  *
- * UNDER A FINGER it has to be where the finger is, now. Any overshoot reads
- * as the control being loose, and any duration reads as lag.
+ * UNDER A FINGER it is where the finger is. Not where the finger's SLOT is:
+ * the first version moved the circle slot to slot, each hop on a 90ms
+ * transition, and that is what "very snappy, very direct, landing on it,
+ * not smooth at all" describes. A transition is a delay by definition, and
+ * a slot is a step by definition. So while a finger is down there is no
+ * transition on the circle's position at all. The finger's x is written to
+ * it every frame by a loop that closes the remaining distance by FOLLOW,
+ * which is what lets it catch up from a slot away on the press without a
+ * transition to be cut short, and what leaves it a pixel or two behind a
+ * fast finger, like something with a little weight rather than a cursor.
  *
  * LET GO OF IT and it should arrive rather than stop. A little over, a
  * little back: that is the whole of what "more iOS style bouncing and
  * satisfying" is asking for, and it is one cubic-bezier with its third
- * control point past 1.
+ * control point past 1. Position and size are separate CSS properties
+ * (`translate`, `scale`) so the lift can keep its own easing under the
+ * finger while the position has none.
  */
-const TRACK = `transform 90ms cubic-bezier(0.2, 0, 0, 1)`
-const SETTLE = `transform 420ms cubic-bezier(0.32, 1.24, 0.44, 1)`
+const FOLLOW = 0.6
+const SETTLE = `translate 420ms cubic-bezier(0.32, 1.24, 0.44, 1)`
 /**
  * Under a finger the circle LIFTS a little, which is the tell of the newer
- * system bars: the thing you are holding is the thing that is bigger. It
- * settles back to size on the same spring it settles into place with.
+ * system bars: the thing you are holding is the thing that is bigger.
  */
 const LIFT = 1.06
+const LIFT_EASE = `scale 200ms cubic-bezier(0.32, 0.72, 0, 1)`
 
 /**
  * Three bars that become a cross.
@@ -647,7 +676,53 @@ function useSlide(count: number, onPick: (index: number) => void) {
   const [dragging, setDragging] = useState(false)
   const [at, setAt] = useState<number | null>(null)
   const barRef = useRef<HTMLDivElement>(null)
+  const dotRef = useRef<HTMLSpanElement>(null)
   const lastRef = useRef<number | null>(null)
+  /* React state answers a render later; a move handler that asks it whether
+     a finger is down can be told no about the finger that just landed. */
+  const activeRef = useRef(false)
+  /* The circle's left edge in the bar's own coordinates: where the finger
+     wants it, where it is, and the frame between them. */
+  const targetRef = useRef(0)
+  const posRef = useRef<number | null>(null)
+  const frameRef = useRef(0)
+
+  /** The circle's left edge that puts its centre under a finger, kept inside the bar. */
+  const leftFor = (clientX: number): number => {
+    const box = barRef.current?.getBoundingClientRect()
+    if (!box) return PAD
+    const centre = Math.max(PAD + DOT / 2, Math.min(box.width - PAD - DOT / 2, clientX - box.left))
+    return centre - DOT / 2
+  }
+
+  const paint = () => {
+    const dot = dotRef.current
+    if (dot && posRef.current != null) dot.style.translate = `${posRef.current}px 0`
+  }
+  const step = () => {
+    frameRef.current = 0
+    if (posRef.current == null) return
+    const gap = targetRef.current - posRef.current
+    if (Math.abs(gap) < 0.15) {
+      posRef.current = targetRef.current
+      paint()
+      return
+    }
+    posRef.current += gap * FOLLOW
+    paint()
+    frameRef.current = requestAnimationFrame(step)
+  }
+  const wake = () => {
+    if (!frameRef.current) frameRef.current = requestAnimationFrame(step)
+  }
+  /** Where the circle is drawn right now, mid-settle included, so a press
+      during a spring picks it up from where it is rather than where it was going. */
+  const drawnAt = (): number | null => {
+    const dot = dotRef.current
+    if (!dot) return null
+    const m = /^(-?[\d.]+)px/.exec(getComputedStyle(dot).translate || "")
+    return m ? Number.parseFloat(m[1]) : null
+  }
 
   const slotAt = (clientX: number): number => {
     const box = barRef.current?.getBoundingClientRect()
@@ -674,23 +749,34 @@ function useSlide(count: number, onPick: (index: number) => void) {
   }
 
   const move = (clientX: number) => {
+    targetRef.current = leftFor(clientX)
+    wake()
     const next = slotAt(clientX)
-    setAt(next)
     if (lastRef.current !== next) {
       lastRef.current = next
-      /* One tick per slot crossed, not one per frame. */
+      /* A render only when the slot changes, never per move; and one tick
+         per slot crossed, not one per frame. */
+      setAt(next)
       hapticTap("light")
     }
   }
 
   const end = () => {
+    if (!activeRef.current) return
+    activeRef.current = false
+    if (frameRef.current) cancelAnimationFrame(frameRef.current)
+    frameRef.current = 0
+    posRef.current = null
     setDragging(false)
     setAt(null)
     lastRef.current = null
   }
 
+  useEffect(() => () => { if (frameRef.current) cancelAnimationFrame(frameRef.current) }, [])
+
   return {
     barRef,
+    dotRef,
     dragging,
     at,
     handlers: {
@@ -698,16 +784,18 @@ function useSlide(count: number, onPick: (index: number) => void) {
         /* Keeps the moves coming even when the finger leaves the bar, which
            it will: 54px is not much to stay inside of. */
         ;(e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId)
+        activeRef.current = true
+        posRef.current = drawnAt() ?? leftFor(e.clientX)
         setDragging(true)
         lastRef.current = null
         move(e.clientX)
       },
       onPointerMove: (e: React.PointerEvent) => {
-        if (!dragging) return
+        if (!activeRef.current) return
         move(e.clientX)
       },
       onPointerUp: (e: React.PointerEvent) => {
-        if (!dragging) return
+        if (!activeRef.current) return
         const picked = slotAt(e.clientX)
         const away = escaped(e.clientY)
         end()
@@ -833,16 +921,65 @@ export function MobileNavPill({
   const restRef = useRef(0)
   if (marked >= 0) restRef.current = marked
   const x = PAD + (marked >= 0 ? marked : restRef.current) * SLOT + (SLOT - DOT) / 2
+  /*
+    The circle's position is never a style prop. Under a finger the frame
+    loop in useSlide writes it straight to the element, and a prop rendered
+    on the way would either fight that or, on the lift, be the same string
+    React last rendered and so never be written at all, leaving the circle
+    the few pixels off where the loop left it. So at rest the position is
+    written here, after the render that set the SETTLE transition, from
+    wherever the loop left it to the slot it belongs on.
+  */
+  useLayoutEffect(() => {
+    if (slide.dragging) return
+    const dot = slide.dotRef.current
+    if (dot) dot.style.translate = `${x}px 0`
+  }, [x, slide.dragging, slide.dotRef])
 
   return (
     <div
       data-app-nav-pill=""
       className="pointer-events-none fixed inset-x-0 bottom-0 z-[55] flex items-end justify-center md:hidden"
       style={{
-        paddingBottom: "calc(6px + env(safe-area-inset-bottom, 0px))",
+        paddingBottom: `calc(${PILL_LIFT})`,
         transition: `transform 260ms ${EASE}, opacity 180ms ease-out`,
       }}
     >
+      {/* ── THE HALO ── see the note on HALO_LAYERS above. Before the group in
+          the tree, so it paints under it, and centred on the screen rather
+          than on the group, so it is under the settings circle too. */}
+      <div
+        aria-hidden="true"
+        data-app-nav-fade=""
+        className="pointer-events-none absolute left-1/2"
+        style={{
+          width: `calc(100% - ${HALO_REACH.margin * 2}px)`,
+          height: BAR_H + HALO_REACH.top + HALO_REACH.bottom,
+          bottom: `calc(${PILL_LIFT} - ${HALO_REACH.bottom}px)`,
+          transform: "translateX(-50%)",
+        }}
+      >
+        {Array.from({ length: HALO_LAYERS }, (_, i) => (
+          <div
+            key={i}
+            data-app-nav-fade-step=""
+            className="absolute"
+            style={{
+              inset: i * HALO_STEP,
+              borderRadius: "50%",
+              backdropFilter: `blur(${haloBlur(i)}px)`,
+              WebkitBackdropFilter: `blur(${haloBlur(i)}px)`,
+            }}
+          />
+        ))}
+        <div
+          className="absolute inset-0"
+          style={{
+            borderRadius: "50%",
+            background: `radial-gradient(ellipse at center, ${HALO_TINT} 0%, ${HALO_TINT_NONE} 68%)`,
+          }}
+        />
+      </div>
       {/*
         ── THE GROUP ─────────────────────────────────────────────────────────
         The bar and the menu button, and that is all of it. A settings button
@@ -856,9 +993,6 @@ export function MobileNavPill({
         className="relative flex items-center"
         style={{
           gap: GAP,
-          /* The halo sits at z -1 inside this, so this has to be its own
-             stacking context or z -1 would put it under the page. */
-          isolation: "isolate",
           /* Settings appears to the LEFT, out of flow; the group slides half
              its width to the right to stay centred, one transform, no layout. */
           transform: `translateX(${menuOpen ? (BAR_H + GAP) / 2 : 0}px)`,
@@ -866,41 +1000,6 @@ export function MobileNavPill({
           willChange: "transform",
         }}
       >
-        {/* ── THE HALO ── see the note on HALO_LAYERS above. */}
-        <div
-          aria-hidden="true"
-          data-app-nav-fade=""
-          className="pointer-events-none absolute"
-          style={{
-            zIndex: -1,
-            top: -HALO_REACH.top,
-            bottom: -HALO_REACH.bottom,
-            left: -HALO_REACH.side,
-            right: -HALO_REACH.side,
-          }}
-        >
-          {Array.from({ length: HALO_LAYERS }, (_, i) => (
-            <div
-              key={i}
-              data-app-nav-fade-step=""
-              className="absolute"
-              style={{
-                inset: i * HALO_STEP,
-                borderRadius: "50%",
-                backdropFilter: `blur(${HALO_BLUR}px)`,
-                WebkitBackdropFilter: `blur(${HALO_BLUR}px)`,
-              }}
-            />
-          ))}
-          <div
-            className="absolute inset-0"
-            style={{
-              borderRadius: "50%",
-              background: `radial-gradient(ellipse at center, ${HALO_TINT} 0%, ${HALO_TINT_NONE} 68%)`,
-            }}
-          />
-        </div>
-
         <nav
           ref={slide.barRef}
           aria-label="Main"
@@ -926,6 +1025,7 @@ export function MobileNavPill({
             the bar has one material rather than a bar and a badge.
           */}
           <span
+            ref={slide.dotRef}
             aria-hidden="true"
             className="absolute rounded-full"
             style={{
@@ -933,12 +1033,14 @@ export function MobileNavPill({
               height: DOT,
               top: PAD,
               left: 0,
-              transform: `translateX(${x}px) scale(${marked < 0 ? 0.55 : slide.dragging ? LIFT : 1})`,
+              /* `translate` is written by the loop and the effect above, never here. */
+              scale: String(marked < 0 ? 0.55 : slide.dragging ? LIFT : 1),
               opacity: marked < 0 ? 0 : 1,
               backgroundColor: slide.dragging ? "rgba(255,255,255,0.92)" : "rgba(255,255,255,0.82)",
               boxShadow: "inset 0 0 0 0.5px rgba(255,255,255,0.75), 0 1px 3px rgba(16,18,27,0.08)",
-              transition: `${slide.dragging ? TRACK : SETTLE}, opacity 220ms ease-out, background-color 160ms ease-out`,
-              willChange: "transform",
+              /* No transition on the position under a finger: the loop is the motion. */
+              transition: `${slide.dragging ? "translate 0s" : SETTLE}, ${LIFT_EASE}, opacity 220ms ease-out, background-color 160ms ease-out`,
+              willChange: "translate, scale",
             }}
           />
 
