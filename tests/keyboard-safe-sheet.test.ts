@@ -52,7 +52,15 @@
 import { readFileSync, readdirSync, statSync } from "node:fs"
 import { join } from "node:path"
 
-import { bottomAboveKeyboard, keyboardInset, sheetAboveKeyboard } from "@/lib/ui/keyboard-safe-sheet"
+import {
+  KEYBOARD_ESTIMATE_DELAY_MS,
+  KEYBOARD_FLOOR_FRACTION,
+  bottomAboveKeyboard,
+  estimatedKeyboardInset,
+  keyboardInset,
+  needsKeyboardEstimate,
+  sheetAboveKeyboard,
+} from "@/lib/ui/keyboard-safe-sheet"
 
 let passed = 0
 let failed = 0
@@ -109,12 +117,110 @@ function main() {
 
   const vars = read("components/viewport-vars.tsx")
   check("the effect sets it", /root\.style\.setProperty\("--kb-inset", `\$\{inset\}px`\)/.test(vars))
-  check("from the tested function", /const inset = keyboardInset\(window\.innerHeight, top, h\)/.test(vars))
+  check(
+    "from the tested function",
+    /const measured = keyboardInset\(window\.innerHeight, top, reported\)/.test(vars)
+      && /keyboardInset\(window\.innerHeight, Math\.round\(vv\?\.offsetTop \?\? 0\), Math\.round\(vv\?\.height \?\? window\.innerHeight\)\)/.test(vars),
+  )
   check("and clears it on unmount", /removeProperty\("--kb-inset"\)/.test(vars))
   check(
     "the pre-paint bootstrap sets it too",
     /--kb-inset/.test(read("app/layout.tsx")),
     "otherwise the first frame of a sheet is positioned against a variable that does not exist yet",
+  )
+
+  console.log("\nAnd a floor for the platform that reports no keyboard at all")
+
+  /*
+    THE SECOND REPORT. Everything above assumes visualViewport mentions the
+    keyboard. A WKWebView without the Capacitor keyboard plugin does not: the
+    keys are drawn over the web view by the system, innerHeight and
+    visualViewport both stay at the full height, and --kb-inset stays 0. The
+    build carrying the sheet fix was live for nineteen minutes before the
+    second screenshot, and the sheet was still behind the keys, because the
+    number it was reading was zero.
+
+    The plugin is a native dependency and an App Store release; this app's web
+    layer reaches a phone on the next deploy. So the fix stops needing the
+    measurement: a keyboard covers the bottom of the screen and never much
+    more than 45% of it. Measured off that screenshot, an iPhone 16 Pro:
+
+        keyboard with its accessory bar   389pt of 874   44.5%
+        the sheet's top edge              531pt          60.8%   behind it
+
+    and the standard portrait keyboards run 40.8% to 45.6%. Half the screen
+    clears all of them.
+  */
+  check("the floor is half the screen, which clears every keyboard measured", KEYBOARD_FLOOR_FRACTION === 0.5)
+  check("and it is a number of pixels for a given screen", estimatedKeyboardInset(874) === 437)
+  check(
+    "the deadline is past when a platform that reports has reported",
+    KEYBOARD_ESTIMATE_DELAY_MS >= 300 && KEYBOARD_ESTIMATE_DELAY_MS <= 800,
+    `${KEYBOARD_ESTIMATE_DELAY_MS}ms`,
+  )
+
+  const phone = { innerHeightAtFocus: 874, innerHeightNow: 874, coarsePointer: true, viewportWidth: 402 }
+  check("a phone told nothing needs it", needsKeyboardEstimate({ ...phone, measuredInset: 0 }))
+  /*
+    An inset of 0 means two opposite things, and this is what tells them
+    apart. A platform that resized the web view for the keyboard also reports
+    0, and is already correct — giving it the floor would throw the sheet half
+    a screen up for nothing.
+  */
+  check(
+    "a platform that resized the web view instead does not",
+    !needsKeyboardEstimate({ ...phone, measuredInset: 0, innerHeightNow: 538 }),
+    "innerHeight shrinking IS the keyboard being handled",
+  )
+  check(
+    "a collapsing browser toolbar is not a resize",
+    needsKeyboardEstimate({ ...phone, measuredInset: 0, innerHeightNow: 874 - 60 }),
+    "sixty pixels is a toolbar; a keyboard is a quarter of the screen",
+  )
+  check("a platform that did report does not", !needsKeyboardEstimate({ ...phone, measuredInset: 336 }))
+  check(
+    "a desktop browser does not, where a focused field means no keyboard",
+    !needsKeyboardEstimate({ ...phone, measuredInset: 0, coarsePointer: false }),
+  )
+  check(
+    "and nor does a tablet, at the width the sheets stop being sheets",
+    !needsKeyboardEstimate({ ...phone, measuredInset: 0, viewportWidth: 768 }),
+  )
+
+  console.log("\nViewportVars publishes the floor, and drops it the moment a real number arrives")
+
+  check(
+    "a real measurement ends the estimate",
+    /if \(measured > 0 && estimate\) estimate = 0/.test(vars),
+    "a floor that outlived a real reading would be worse than no floor",
+  )
+  check(
+    "and the pair it publishes stays consistent",
+    /const standingIn = measured === 0 && estimate > 0/.test(vars)
+      && /const h = standingIn \? Math\.max\(0, window\.innerHeight - estimate\) : reported/.test(vars)
+      && /const inset = standingIn \? estimate : measured/.test(vars),
+    "--vv-h is the room and --kb-inset is where it starts; one without the other overflows the sheet off the top",
+  )
+  check(
+    "it starts on a focused text field and ends when the field goes",
+    /document\.addEventListener\("focusin", onFocusIn/.test(vars)
+      && /document\.addEventListener\("focusout", onFocusOut/.test(vars)
+      && /estimate = estimatedKeyboardInset\(window\.innerHeight\)/.test(vars),
+  )
+  check(
+    "a button or a checkbox is not a text field",
+    /TEXT_INPUT\.test\(/.test(vars) && /el\.tagName !== "INPUT"\) return false/.test(vars),
+  )
+  check(
+    "moving between two fields does not drop it for a frame",
+    /requestAnimationFrame\(\(\) => \{\s*\n\s*if \(!estimate \|\| takesAKeyboard\(document\.activeElement\)\) return/.test(vars),
+  )
+  check("both listeners come off on unmount", /removeEventListener\("focusin", onFocusIn\)/.test(vars) && /removeEventListener\("focusout", onFocusOut\)/.test(vars))
+  check(
+    "and the probe drives it, with a row proving that reporting nothing still hides the field",
+    probe.includes(`const FLOOR_FRACTION = ${KEYBOARD_FLOOR_FRACTION}`)
+      && /with nothing reported the field was NOT behind the keyboard/.test(probe)
+      && /const REAL_KEYBOARD_FRACTION = 0\.445/.test(probe),
   )
 
   console.log("\nThe editor's panel ends at the keyboard too")

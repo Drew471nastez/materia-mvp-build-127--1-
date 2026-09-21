@@ -43,6 +43,12 @@ const MAX_H = "calc(var(--vv-h, 100dvh) * 0.75)"
    field behind the keys. The test file pins this string too. */
 const PANEL_BOTTOM = "var(--kb-inset, 0px)"
 const HEADER = 68
+/* The floor used when the platform reports no keyboard at all, and the real
+   keyboard it has to clear: 44.5% of the screen, measured off the reported
+   screenshot (an iPhone 16 Pro, 389pt of keyboard and accessory bar on 874).
+   The test file asserts this fraction is the one the helper exports. */
+const FLOOR_FRACTION = 0.5
+const REAL_KEYBOARD_FRACTION = 0.445
 
 const out = mkdtempSync(join(tmpdir(), "storelib-kbsheet-"))
 writeFileSync(join(out, "index.html"), `<!doctype html><html><head><meta charset="utf-8">
@@ -120,6 +126,30 @@ writeFileSync(join(out, "index.html"), `<!doctype html><html><head><meta charset
       fieldTop: Math.round(f.top), fieldBottom: Math.round(f.bottom), visibleBottom: visibleBottom,
       fieldIsVisible: Math.round(f.bottom) <= visibleBottom + 1 && Math.round(f.top) >= ${HEADER} }
   }
+  /* ── the platform reports nothing ──────────────────────────────────────
+     A WKWebView without the keyboard plugin draws the keys over the page and
+     never touches visualViewport, so --kb-inset stays 0 with the keyboard up.
+     Both rows are read against the REAL keyboard rather than the published
+     one, because the published one is the thing that is wrong. */
+  function readAgainst(label, realKeyboardPx) {
+    var s = sheet.getBoundingClientRect(), f = document.getElementById("field").getBoundingClientRect()
+    var screen = window.innerHeight
+    var visibleBottom = screen - realKeyboardPx
+    return { label: label, screen: screen,
+      sheetBottom: Math.round(s.bottom), sheetTop: Math.round(s.top), sheetHeight: Math.round(s.height),
+      fieldBottom: Math.round(f.bottom), visibleBottom: visibleBottom,
+      fieldIsVisible: Math.round(f.bottom) <= visibleBottom + 1 }
+  }
+  sheet.classList.remove("pinned-important")
+  var realKb = Math.round(window.innerHeight * ${REAL_KEYBOARD_FRACTION})
+  withKeyboard(0)
+  results.push(readAgainst("keyboard up, nothing reported", realKb))
+  var floor = Math.round(window.innerHeight * ${FLOOR_FRACTION})
+  withKeyboard(floor)
+  results.push(readAgainst("keyboard up, the floor stands in", realKb))
+  /* Back to a reported keyboard for the panel rows below. */
+  withKeyboard(${KEYBOARD})
+
   sheet.style.display = "none"
   panel.style.bottom = "0px"
   results.push(readPanel("panel at bottom: 0, field centred"))
@@ -153,7 +183,16 @@ for (const r of rows.filter((r) => r.panel)) {
 console.log("")
 
 const problems = []
-const [rest, open, important] = rows
+const [rest, open, important, blind, floored] = rows
+if (blind.fieldIsVisible)
+  problems.push("with nothing reported the field was NOT behind the keyboard — this check can no longer tell the floor apart from doing nothing")
+if (!floored.fieldIsVisible)
+  problems.push(`the floor put the field at ${floored.fieldBottom}, still below the real keyboard at ${floored.visibleBottom}`)
+else {
+  const gap = floored.visibleBottom - floored.sheetBottom
+  if (gap < 0) problems.push(`the floored sheet still overlaps the keys by ${-gap}px`)
+  if (gap > SCREEN * 0.12) problems.push(`the floor leaves ${gap}px of empty screen under the sheet, which is more gap than it is worth`)
+}
 const panelRows = rows.filter((r) => r.panel)
 const [panelPinned, panelLifted, panelRest] = panelRows
 if (panelRows.length !== 3) problems.push("the panel rows did not come back")
@@ -183,4 +222,5 @@ if (important.fieldIsVisible)
 
 if (problems.length) fail(problems.map((p) => `  - ${p}`).join("\n"))
 console.log(`The sheet sits on the keyboard, and a !bottom-0 class is still proven to break it (field to ${important.fieldBottom} of ${important.visibleBottom}).`)
+console.log(`With nothing reported the floor lifts the sheet clear of a real ${Math.round(SCREEN_REAL * REAL_KEYBOARD_FRACTION)}px keyboard, ${floored.visibleBottom - floored.sheetBottom}px above it, where reporting nothing leaves the field ${blind.fieldBottom - blind.visibleBottom}px under the keys.`)
 console.log(`The panel ends at the keyboard too, and a panel that does not is still proven to centre its field behind the keys (${panelPinned.fieldTop}..${panelPinned.fieldBottom} of ${panelPinned.visibleBottom}).\n`)

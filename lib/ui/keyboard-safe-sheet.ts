@@ -83,6 +83,96 @@ export function bottomAboveKeyboard(): { bottom: string } {
 }
 
 /**
+ * ===========================================================================
+ *  WHEN THE PLATFORM WILL NOT SAY WHERE THE KEYBOARD IS
+ * ===========================================================================
+ * Everything above assumes the browser reports the keyboard through
+ * `visualViewport`. Mobile Safari does. Android resizes the window, which
+ * comes to the same thing. A WKWebView without the Capacitor keyboard plugin
+ * does NEITHER: the keys are drawn over the web view by the system and the
+ * page is told nothing at all. `visualViewport.height` stays the full height,
+ * `innerHeight` stays the full height, and `--kb-inset` stays 0.
+ *
+ * That is what the second report was. The sheets were already reading
+ * `--kb-inset`, the build carrying that fix was live for nineteen minutes
+ * before the screenshot was taken, and the sheet was still behind the keys —
+ * because the number it was reading was zero.
+ *
+ * The plugin is not the answer here. It is a native dependency: a Podfile
+ * change and an App Store release, and this app's web layer ships to a phone
+ * the moment Vercel deploys. So the fix has to live in the web layer, and in
+ * the web layer there is genuinely no way to measure a keyboard the browser
+ * refuses to mention.
+ *
+ * WHAT CAN BE DONE is to stop needing the measurement. A keyboard covers the
+ * bottom of the screen and never more than about half of it, so a sheet lifted
+ * by half the screen is above any of them. Measured off the reported
+ * screenshot, an iPhone 16 Pro at 402x874pt:
+ *
+ *     keyboard with its accessory bar   389pt of 874   44.5%
+ *     the sheet's top edge              at 531pt       60.8%   behind it
+ *
+ * and against the heights of the standard portrait keyboards:
+ *
+ *     iPhone SE          667pt screen   260 + 44 accessory   45.6%
+ *     iPhone 15 / 16     874pt screen   345 + 44             44.5%
+ *     iPhone Pro Max     956pt screen   346 + 44             40.8%
+ *
+ * 50% clears every one of them, and clears a third-party keyboard, which is
+ * the tallest thing that can appear. The cost is a gap between the sheet and
+ * the keys of about 5% of the screen on the device measured above. That is
+ * the right way round: a gap is something you can see past, and a field under
+ * the keys is not.
+ *
+ * IT IS A FLOOR, NOT A REPLACEMENT. It is published only while a text field
+ * is focused, only after a deadline that a platform which does report has
+ * long since beaten, and the moment a real measurement arrives it is dropped
+ * and the real one is used. On every platform that answers, nothing about
+ * this is ever reached.
+ */
+export const KEYBOARD_FLOOR_FRACTION = 0.5
+
+/** How long to wait for the platform to report before assuming it will not. */
+export const KEYBOARD_ESTIMATE_DELAY_MS = 450
+
+/** The floor, in pixels, for a screen of this height. */
+export function estimatedKeyboardInset(innerHeight: number): number {
+  return Math.round(innerHeight * KEYBOARD_FLOOR_FRACTION)
+}
+
+/**
+ * Whether a focused field needs the floor.
+ *
+ * The hard part is that `--kb-inset` of 0 means two opposite things. It means
+ * "the platform hides the keyboard from us", which needs the floor, and it
+ * means "the platform resized the web view, so there is nothing left to
+ * compensate for", which must NOT get the floor or the sheet leaps half a
+ * screen for no reason. `innerHeight` tells them apart: a platform that
+ * resized shrank it, a platform that overlays did not.
+ *
+ * The rest keeps it off the surfaces where a focused field means no keyboard
+ * at all: a desktop browser, and a tablet or a phone with a hardware keyboard
+ * attached, which is the one case this gets wrong and costs a gap under a
+ * sheet rather than a hidden field.
+ */
+export function needsKeyboardEstimate(state: {
+  measuredInset: number
+  innerHeightAtFocus: number
+  innerHeightNow: number
+  coarsePointer: boolean
+  viewportWidth: number
+}): boolean {
+  if (state.measuredInset > 0) return false
+  if (!state.coarsePointer) return false
+  /* The width the sheets themselves switch to their phone layout at. */
+  if (state.viewportWidth >= 768) return false
+  /* A browser toolbar collapsing is sixty-odd pixels; a keyboard that
+     resized the web view is never less than a quarter of the screen. */
+  if (state.innerHeightNow < state.innerHeightAtFocus - 80) return false
+  return true
+}
+
+/**
  * The number `--kb-inset` carries, as a function so it can be tested rather
  * than trusted.
  *
