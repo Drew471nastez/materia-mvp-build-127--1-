@@ -119,8 +119,15 @@ function main() {
   */
   check("the page only ever asks for published products",
     /\.eq\("status", "published"\)/.test(page))
+  /*
+    The products moved INTO a tab strip on this branch, so that a creator who
+    has never opened the builder gets the same Home / Products / Communities
+    as everyone else. What this check is about is unchanged: they are drawn,
+    by the same grid, with the footer after them.
+    See tests/creator-page-default.test.ts.
+  */
   check("the unconfigured page draws them",
-    /\{productsData\.length > 0 && \([\s\S]{0,400}?<AllProductsGrid/.test(page))
+    /label: "Home",\s*\n\s*panel: productsData\.length > 0 \? \([\s\S]{0,200}?<AllProductsGrid/.test(page))
   /*
     AND THE OTHER WAY TO THE SAME EMPTY PAGE. Only the Featured section draws
     a catalogue, so a page ARRANGED without one showed no products either —
@@ -134,9 +141,11 @@ function main() {
   check("and a page that HAS one is left alone, so nothing is shown twice",
     /!showsProducts &&/.test(page))
   check("with the same grid the Products tab uses, not a third one",
-    (page.match(/<AllProductsGrid/g) ?? []).length === 3)
+    (page.match(/<AllProductsGrid/g) ?? []).length === 4,
+    "the configured Products tab, the Home fallback for a page with no Featured section, and the unconfigured branch's own Home and Products panels",
+  )
   check("and the footer still comes after them",
-    /<AllProductsGrid[\s\S]{0,400}?\)\}\s*\n\s*<SellerFooter \/>/.test(page))
+    /return <StorefrontTabs tabs=\{tabs\} \/>[\s\S]{0,2000}?<SellerFooter \/>/.test(page))
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }
