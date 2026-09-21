@@ -3,6 +3,7 @@
 import { useEffect } from "react"
 
 import {
+  KEYBOARD_CHANGE_EVENT,
   KEYBOARD_ESTIMATE_DELAY_MS,
   estimatedKeyboardInset,
   keyboardInset,
@@ -101,7 +102,9 @@ export function ViewportVars() {
       /* One pair, always consistent: --kb-inset is where the usable room
          starts from the bottom, --vv-h is how much of it there is. */
       const h = standingIn ? Math.max(0, window.innerHeight - estimate) : reported
+      let changed = false
       if (h !== lastH) {
+        changed = true
         if (lastH >= 0 && Math.abs(h - lastH) > 80) settle()
         lastH = h
         root.style.setProperty("--vv-h", `${h}px`)
@@ -133,12 +136,26 @@ export function ViewportVars() {
       */
       const inset = standingIn ? estimate : measured
       if (inset !== lastInset) {
+        changed = true
         lastInset = inset
         root.style.setProperty("--kb-inset", `${inset}px`)
       }
       // Loose on purpose: a browser toolbar collapsing is sixty-odd pixels, a
       // keyboard is never less than about a quarter of the screen. Nothing in
       // between should be mistaken for one.
+      /*
+        AND EVERYONE IS TOLD. The floor is published on a timer rather than on
+        a viewport event, so a surface listening only to visualViewport would
+        never hear about it. The synthetic resize wakes the six that were
+        written before any of this existed, without touching one of them:
+        their own measurement is still zero, and keyboardInsetOrFloor hands
+        them this number instead. The re-entrant call this makes computes the
+        same pair, changes nothing, and dispatches nothing.
+      */
+      if (changed) {
+        window.dispatchEvent(new CustomEvent(KEYBOARD_CHANGE_EVENT, { detail: { inset, visibleHeight: h } }))
+        try { vv?.dispatchEvent(new Event("resize")) } catch {}
+      }
       const kb = window.innerHeight - h > window.innerHeight * 0.2
       if (kb !== lastKb) {
         lastKb = kb

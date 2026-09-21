@@ -2,6 +2,8 @@
 
 import { useEffect } from "react"
 
+import { keyboardInsetOrFloor } from "@/lib/ui/keyboard-safe-sheet"
+
 /**
  * KeyboardGuard — globally tracks software keyboard open/close via the
  * VisualViewport API and adds/removes the `keyboard-open` class on <html>.
@@ -148,7 +150,11 @@ export function KeyboardGuard() {
         return
       }
 
-      const kbHeight = Math.max(0, window.innerHeight - vv.offsetTop - vv.height)
+      /* Its own reading when the platform gave one, the published floor when
+         it did not: see keyboardInsetOrFloor. Everything this class and
+         `--vvh` drive was dead in a web view that reports nothing. */
+      const kbHeight = keyboardInsetOrFloor(Math.max(0, window.innerHeight - vv.offsetTop - vv.height))
+      const visibleHeight = Math.max(0, window.innerHeight - kbHeight)
       /*
         ═══════════════════════════════════════════════════════════════════════
          OPENING IS AN EVENT. BEING OPEN IS NOT.
@@ -175,7 +181,7 @@ export function KeyboardGuard() {
         // as a CSS variable so scroll containers can be clamped to exactly that
         // height, preventing them from extending into the blank area below the
         // keyboard and eliminating the rubber-band / blank-space effect.
-        root.style.setProperty("--vvh", `${Math.round(vv.height)}px`)
+        root.style.setProperty("--vvh", `${Math.round(visibleHeight)}px`)
         // Clamp scroll positions immediately after the CSS variable is set so
         // no blank space is visible at the bottom while the keyboard is open.
         // Two frames: first for the browser to apply the new height via CSS,

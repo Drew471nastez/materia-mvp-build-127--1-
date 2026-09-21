@@ -1,6 +1,6 @@
 "use client"
 
-import { sheetAboveKeyboard } from "@/lib/ui/keyboard-safe-sheet"
+import { sheetAboveKeyboard, keyboardInsetOrFloor } from "@/lib/ui/keyboard-safe-sheet"
 import React, { useState, useEffect, useCallback, useRef, useLayoutEffect, memo } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
@@ -515,7 +515,7 @@ function MobileSheet({
 
     const repositionSheet = () => {
       if (!sheetRef.current) return
-      const keyboardHeight = window.innerHeight - vv.height - vv.offsetTop
+      const keyboardHeight = keyboardInsetOrFloor(window.innerHeight - vv.height - vv.offsetTop)
       if (keyboardHeight > 100) {
         // Keyboard is open — move sheet above it
         sheetRef.current.style.bottom = `${keyboardHeight}px`

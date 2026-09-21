@@ -166,8 +166,16 @@ check(
   /kb\.innerHeight - kvv\.height - kvv\.offsetTop/.test(sheet) && /const kb = keyboardWindow\(\)/.test(sheet),
 )
 check(
-  "a sub-pixel is not treated as a keyboard",
-  /covered > 1 \? Math\.round\(covered\) : 0/.test(sheet),
+  /*
+   * The rule moved into keyboardInsetOrFloor, which every surface in the app
+   * that works out a keyboard height now goes through: it keeps a real
+   * measurement, drops anything under a pixel, and falls back to the floor
+   * ViewportVars publishes when the platform reports no keyboard at all.
+   * tests/keyboard-safe-sheet.test.ts owns the rule itself.
+   */
+  "a sub-pixel is not treated as a keyboard, and neither is a platform that says nothing",
+  /keyboardInsetOrFloor\(covered\)/.test(sheet)
+    && /from "@\/lib\/ui\/keyboard-safe-sheet"/.test(sheet),
 )
 check(
   "and it is padded into the content, so the field being typed into is reachable",
@@ -185,7 +193,8 @@ check(
 )
 check(
   "the same measurement is used in the code editor, so the two agree",
-  /window\.innerHeight - vv\.height - vv\.offsetTop/.test(read("app/website-builder/code/[installId]/page.tsx")),
+  /window\.innerHeight - vv\.height - vv\.offsetTop/.test(read("app/website-builder/code/[installId]/page.tsx"))
+    && /keyboardInsetOrFloor\(covered\)/.test(read("app/website-builder/code/[installId]/page.tsx")),
 )
 /**
  * AND IT IS PADDED ONCE, NOT TWICE.
@@ -207,7 +216,7 @@ check(
 )
 check(
   "and the keyboard is read once into a name both uses share",
-  /const keyboard = covered > 1 \? Math\.round\(covered\) : 0/.test(sheet) && /setKeyboardInset\(keyboard\)/.test(sheet),
+  /const keyboard = keyboardInsetOrFloor\(covered\)/.test(sheet) && /setKeyboardInset\(keyboard\)/.test(sheet),
 )
 
 
