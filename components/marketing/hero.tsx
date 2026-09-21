@@ -569,7 +569,17 @@ export function Hero() {
                       both from the helper rather than trusting this comment.
                     */
                     srcSet={`${IMAGES_SM[imageIdx]} 384w, ${IMAGES_LG[imageIdx]} 640w`}
-                    sizes="(max-width: 640px) 160px, 280px"
+                    /*
+                      The widest card, not the average one. These were 160px
+                      and 280px, which is what the SIDE cards are; the centre
+                      one is drawn 242px on a phone and 303px on a desktop, so
+                      the browser was sizing it for a slot smaller than the one
+                      it went into and the front card came out at 0.79 source
+                      pixels per device pixel. Over-stating costs the side
+                      cards one step up in the same srcset; under-stating costs
+                      the card in the middle its sharpness.
+                    */
+                    sizes="(max-width: 640px) 245px, 305px"
                     src={src}
                     alt=""
                     className="w-full h-full object-cover pointer-events-none transition-opacity duration-700 ease-out"

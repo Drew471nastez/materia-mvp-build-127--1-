@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react"
 import { AnimateOnScroll } from "./bento-grid"
-import { optimizedImageUrl } from "@/lib/images/optimized-url"
+import { optimizedImageUrl, optimizedSrcSet } from "@/lib/images/optimized-url"
 
 const FLOATING_ICONS = [
   { label: "OnePage", pos: "md:top-[-4px] top-[-16px] left-[5%] md:left-[-2%]", delay: "0s", zClass: "z-[2]", imgSrc: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20design%20(38).webp" },
@@ -18,28 +18,23 @@ const MANAGE_IMAGES = [
   "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Macbook-Air-storelib.com%20(3).webp",
 ]
 
-/**
- * ===========================================================================
- *  THIS FUNCTION USED TO RETURN ITS ARGUMENT
- * ===========================================================================
- * The comment it carried was half right: Supabase's transformer really is off
- * on this project, and pointing at it fails the build. But the conclusion, to
- * hand back the original upload, meant this section shipped three dashboard
- * screenshots at full size into a 600px frame, and three more at full size
- * into 74px circles. One of those circles was fetching 304 KB.
- *
- * `/_next/image` is a different endpoint with no relationship to Supabase's:
- * Next resizes and re-encodes at the edge and caches for a year. It is what
- * every other image on the site already goes through.
- *
- * The quality argument is dropped on purpose. Callers were passing 13 to 20,
- * which is not a quality setting so much as a request for artefacts, and the
- * optimizer only accepts the values listed in next.config's `images.qualities`
- * anyway — anything else is a 400 and a broken picture.
- */
-function getOptimized(url: string, displayWidth: number, _quality?: number) {
-  return optimizedImageUrl(url, displayWidth, 75)
-}
+/*
+  WHY EVERY URL HERE GOES THROUGH `/_next/image`.
+
+  Supabase's own transformer is metered, this project has exhausted it, and
+  tests/no-image-transforms.test.ts fails the build over any use of it. The
+  conclusion once drawn from that — hand back the original upload — meant this
+  section shipped three 2718px dashboard screenshots at full size into a 800px
+  frame, and three more at full size into 74px circles; one of those circles
+  was fetching 304 KB.
+
+  `/_next/image` is a different endpoint with no relationship to Supabase's:
+  Next resizes and re-encodes at the edge and caches for a year. `q` must be a
+  value listed in next.config's `images.qualities` and `w` a member of its
+  size lists, or the answer is a 400 rather than a picture — which is why the
+  helpers in lib/images/optimized-url.ts exist rather than string building
+  here.
+*/
 
 function ManagedImageCarousel() {
   const [current, setCurrent] = useState(0)
@@ -84,16 +79,15 @@ function ManagedImageCarousel() {
     }, AUTOPLAY_MS)
   }, [startFillAnimation])
 
-  // Preload all images eagerly on mount and track loading state
-  useEffect(() => {
-    MANAGE_IMAGES.forEach((url, i) => {
-      const img = new window.Image()
-      img.decoding = "async"
-      img.onload = () => markLoaded(i)
-      img.onerror = () => markLoaded(i)
-      img.src = getOptimized(url, 420, 20)
-    })
-  }, [markLoaded])
+  /*
+    THE PRELOAD IS GONE, AND IT WAS COSTING DOUBLE.
+
+    It fetched `w=1080` while the <img> below rendered `w=828`: two different
+    files for each of three pictures, six downloads for three slides. Its only
+    job was to set `loadedSet`, which the <img>'s own onLoad already does —
+    those elements are in the document with loading="eager", so there is
+    nothing a detached Image() starts any sooner.
+  */
 
   // Start autoplay only when section is visible
   useEffect(() => {
@@ -139,8 +133,25 @@ function ManagedImageCarousel() {
           /* eslint-disable-next-line @next/next/no-img-element */
           <img
             key={i}
-            src={getOptimized(url, 380, 16)}
-            srcSet={`${getOptimized(url, 240, 13)} 360w, ${getOptimized(url, 380, 16)} 600w`}
+            /*
+              ═══════════════════════════════════════════════════════════════
+               ENOUGH PIXELS FOR THE SCREEN IT IS PAINTED ON
+              ═══════════════════════════════════════════════════════════════
+              Reported as bad quality, and it was arithmetic rather than
+              opinion. This sits in `max-w-[800px]`, so on a desktop it is
+              drawn 800 CSS px wide — 1600 device pixels on a 2x screen, 2400
+              on a 3x one. It was asking for 828, from an original that is
+              2718px wide. Just over half the resolution the screen can show,
+              which is exactly what soft looks like.
+
+              The old srcSet made it worse by lying about its candidates:
+              a candidate produced at 828px was described as "600w". A `w`
+              descriptor is the width of the FILE, and
+              a browser choosing between two of them by numbers neither one is
+              cannot land anywhere sensible.
+            */
+            src={optimizedImageUrl(url, 540, 75)}
+            srcSet={optimizedSrcSet(url, [640, 828, 1080, 1920, 2048], 75)}
             alt={`Storelib Dashboard view ${i + 1}`}
             width={600}
             height={338}
@@ -153,7 +164,9 @@ function ManagedImageCarousel() {
             loading="eager"
             decoding="async"
             fetchPriority={i === 0 ? "high" : "low"}
-            sizes="(max-width: 640px) 90vw, 600px"
+            /* The frame is `max-w-[800px]` inside `max-w-[1200px] px-6`, so it is
+               800 until the viewport is narrow enough for the padding to bite. */
+            sizes="(max-width: 848px) calc(100vw - 48px), 800px"
             draggable={false}
             onLoad={() => markLoaded(i)}
             onError={() => markLoaded(i)}

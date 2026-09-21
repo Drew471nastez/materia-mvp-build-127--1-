@@ -141,6 +141,7 @@ const SUITES = [
   "tests/creator-page-default.test.ts",
   "tests/explore-show-all.test.ts",
   "tests/onepage-stability.test.ts",
+  "tests/marketing-image-quality.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))
