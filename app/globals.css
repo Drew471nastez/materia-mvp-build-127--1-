@@ -591,8 +591,8 @@ html.capacitor body {
     position: absolute;
     inset: 0;
     pointer-events: none;
-    backdrop-filter: blur(var(--scrim-blur, 1.1px));
-    -webkit-backdrop-filter: blur(var(--scrim-blur, 1.1px));
+    backdrop-filter: blur(var(--scrim-blur, 0.8px));
+    -webkit-backdrop-filter: blur(var(--scrim-blur, 0.8px));
     /* Clear through the top third, then in over the rest. */
     mask-image: linear-gradient(to bottom, transparent 0%, transparent 35%, rgba(0, 0, 0, 0.4) 70%, #000 100%);
     -webkit-mask-image: linear-gradient(to bottom, transparent 0%, transparent 35%, rgba(0, 0, 0, 0.4) 70%, #000 100%);
