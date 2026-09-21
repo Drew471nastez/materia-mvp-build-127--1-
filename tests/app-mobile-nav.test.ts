@@ -105,7 +105,7 @@ function main() {
   console.log("\n  and nothing is left underneath the pill")
 
   check("the phone's scroll container is padded for it",
-    /@media \(max-width: 767px\) \{\s*\n\s*html\.app-layout \.app-content-scroll \{\s*\n\s*padding-bottom: calc\(92px \+ env\(safe-area-inset-bottom, 0px\)\);/.test(css))
+    /@media \(max-width: 767px\) \{\s*\n\s*html\.app-layout \.app-content-scroll \{\s*\n\s*padding-bottom: calc\(98px \+ env\(safe-area-inset-bottom, 0px\)\);/.test(css))
   check("the pill clears the home indicator",
     /paddingBottom: "calc\(10px \+ env\(safe-area-inset-bottom, 0px\)\)"/.test(nav))
   check("and it is not rendered at all on a desktop",
@@ -137,7 +137,7 @@ function main() {
     !new RegExp(String.raw`ACCENT`).test(strip(nav).slice(strip(nav).indexOf("function MobileNavPill"))),
     "the violet fill behind the active icon was the first thing called out")
   check("the depth is two soft drops and a half pixel of inner light, not a cast shadow",
-    /0 1px 2px rgba\(16,18,27,0\.04\), 0 6px 16px rgba\(16,18,27,0\.06\)/.test(nav))
+    /0 1px 2px rgba\(16,18,27,0\.05\), 0 8px 22px rgba\(16,18,27,0\.10\)/.test(nav))
 
   check("a finger can slide along the bar, and the slot follows it",
     /function useSlide\(/.test(nav) && /onPointerMove: \(e: React\.PointerEvent\) => \{/.test(nav))
@@ -150,10 +150,58 @@ function main() {
   check("with a second tick on the lift, when it commits",
     /hapticTap\("medium"\)\s*\n\s*onPick\(picked\)/.test(nav))
   check("a gesture that leaves the bar vertically is not a navigation",
-    /if \(escaped\(e\.clientY\)\) return/.test(nav),
+    /const away = escaped\(e\.clientY\)/.test(nav) && /if \(away\) return/.test(nav),
     "a finger that lands on the bar and travels up the screen was trying to scroll")
   check("and losing pointer capture ends the drag rather than stranding it",
-    /onLostPointerCapture: \(\) => \{/.test(nav))
+    /onLostPointerCapture: end,/.test(nav))
+
+  /*
+    ── THE GLITCH ──────────────────────────────────────────────────────────
+    Lift the finger and the drag's own answer is gone, so until the route
+    resolves the circle is drawn on the slot the CURRENT path names — the one
+    you just left. It springs back to it and then travels to the picked slot
+    a second time. How far and for how long depend on how fast the route
+    lands, which is why it reads as random.
+
+    Driven in the probe, which never changes its path at all: 5px of travel
+    with the pick remembered, 103px without.
+  */
+  check("a pick is remembered until the route catches up with it",
+    /const marked = slide\.at \?\? pending \?\? current/.test(nav)
+      && /setPending\(index\)/.test(nav),
+    "without this the circle springs back to the page you left and then comes again")
+  check("and it is let go of when the route arrives, or on a timer if it never does",
+    /if \(current === pending\) \{ setPending\(null\); return \}/.test(nav)
+      && /window\.setTimeout\(\(\) => setPending\(null\), 1500\)/.test(nav))
+  check("a circle with no slot to sit on fades where it stands",
+    /const restRef = useRef\(0\)/.test(nav) && /if \(marked >= 0\) restRef\.current = marked/.test(nav),
+    "reading its position as slot zero would send it flying home as it shrank")
+
+  /*
+    Two jobs, two curves. Under a finger it has to be where the finger is,
+    now; let go of it and it should arrive rather than stop.
+  */
+  check("it tracks a finger with no overshoot and settles with a little",
+    /const TRACK = `transform 150ms cubic-bezier\(0\.2, 0, 0, 1\)`/.test(nav)
+      && /const SETTLE = `transform 440ms cubic-bezier\(0\.34, 1\.32, 0\.42, 1\)`/.test(nav)
+      && /slide\.dragging \? TRACK : SETTLE/.test(nav))
+
+  console.log("\n  and the menu keeps the navigation, with settings beside the X")
+
+  check("the bar's four slots are the same open or shut",
+    !/menuOpen\s*\n?\s*\?\s*\[\{ key: "settings"/.test(strip(nav)),
+    "the navigation used to be replaced by a single Settings slot while the menu was open")
+  check("settings is its own circle, to the right of the close button",
+    /aria-label="Settings"/.test(nav) && /left: "100%",\s*\n\s*marginLeft: GAP,/.test(nav))
+  check("it is out of the flow, and the group slides instead of being laid out again",
+    /transform: `translateX\(\$\{menuOpen \? -\(BAR_H \+ GAP\) \/ 2 : 0\}px\)`/.test(nav),
+    "animating a width would relayout the row on every frame of the open")
+  check("and it takes no presses and no tab stop while it is hidden",
+    /tabIndex=\{menuOpen \? 0 : -1\}/.test(nav) && /menuOpen \? "pointer-events-auto" : "pointer-events-none"/.test(nav))
+
+  check("the hamburger's lines have a little more air between them",
+    /top-\[3\.2px\]/.test(nav) && /top-\[13\.2px\]/.test(nav) && /h-\[1\.6px\]/.test(nav),
+    "at 1.6px of stroke, 4px apart leaves 2.4px of air and reads as a stack rather than three lines")
   check("keyboard activation still works, although the pointer decides",
     /if \(e\.detail === 0\) pick\(i\)/.test(nav))
   check("all of it driven in the probe, not asserted from the source",

@@ -235,6 +235,10 @@ await shoot("closed.png")
  * the first slot, slide to the fourth, watch where the circle is at each step,
  * and read off what was navigated to and how many times it ticked.
  */
+const SLOT_W = await ev(`(() => {
+  const a = document.querySelectorAll('nav[aria-label="Main"] a[aria-label]')
+  return Math.round(a[1].getBoundingClientRect().left - a[0].getBoundingClientRect().left)
+})()`)
 const slots = await ev(`(() => {
   const bar = document.querySelector('nav[aria-label="Main"]')
   return [...bar.querySelectorAll("a[aria-label]")].map((a) => {
@@ -265,6 +269,38 @@ const drag = {
   target: slots[3],
 }
 /* Put it back on Home so the screenshot below is the resting state. */
+await ev("window.__went = null; true")
+
+/*
+ * ── AND IT DOES NOT SPRING BACK AFTERWARDS ────────────────────────────────
+ *
+ * The glitch. Lift the finger and the drag's own answer is thrown away, so
+ * until the route resolves the circle is drawn on whatever slot the CURRENT
+ * path says — which is the one you just left. It springs back to it, waits,
+ * and then travels to the slot you picked a second time. How far back and
+ * for how long depend on how quickly the route lands, which is why it reads
+ * as random.
+ *
+ * This harness's path never changes at all, so it is the worst case: with
+ * the pick forgotten the circle goes back to the first slot and stays there.
+ * Sampled every frame for half a second after the lift.
+ */
+await ev("window.__went = null; true")
+await send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: slots[2].x, y: slots[2].y, radiusX: 12, radiusY: 12, force: 1 }] })
+await sleep(60)
+await send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] })
+const after = []
+for (let i = 0; i < 16; i++) { await sleep(32); after.push(await ev(dot)) }
+const settled = {
+  samples: after,
+  target: slots[2].x,
+  /* How far BACK it went. With the pick forgotten this is a whole slot or
+     more; the few pixels left are the tail of the settle still arriving. */
+  wentBack: Math.round(slots[2].x - Math.min(...after)),
+  /* And where it ends up once the spring has finished. */
+  rest: Math.round(Math.max(...after.slice(6).map((v) => Math.abs(v - slots[2].x)))),
+  went: await ev("window.__went"),
+}
 await ev("window.__went = null; true")
 
 /* ── open it, the way the pill does ──────────────────────────────────────── */
@@ -299,7 +335,23 @@ const READ_MENU = `(() => {
     pageLocked: getComputedStyle(document.querySelector(".app-content-scroll")).overflowY,
     rows,
     minRowHeight: Math.min(...rows.map((x) => x.h)),
-    settingsInTheBar: !!document.querySelector('[data-app-nav-pill] [aria-label="Settings"]'),
+    settingsInTheBar: (() => {
+      const b = document.querySelector('[data-app-nav-pill] button[aria-label="Settings"]')
+      if (!b) return null
+      const r = b.getBoundingClientRect()
+      const x = document.querySelector('[data-app-nav-pill] button[aria-label="Close menu"]').getBoundingClientRect()
+      return { visible: Number(getComputedStyle(b).opacity) > 0.9, rightOfTheX: r.left >= x.right - 1,
+               round: Math.round(r.width) === Math.round(r.height), gap: Math.round(r.left - x.right) }
+    })(),
+    /* Everything on screen, and where the middle of it is. */
+    groupCentred: (() => {
+      const all = [...document.querySelectorAll('[data-app-nav-pill] nav, [data-app-nav-pill] button')]
+        .filter((n) => Number(getComputedStyle(n).opacity) > 0.9)
+        .map((n) => n.getBoundingClientRect())
+      const left = Math.min(...all.map((r) => r.left))
+      const right = Math.max(...all.map((r) => r.right))
+      return Math.abs((left + right) / 2 - window.innerWidth / 2) <= 2
+    })(),
     rowsAreStillThere: rows.length >= 6,
     hasQuickSale: rows.some((x) => /quick sale/i.test(x.text)),
     closeIsInThePill: !!glyph,
@@ -451,13 +503,20 @@ must(!/height|width|top|left|margin|padding/.test(open.transition) && /transform
   "it moves on transform and opacity only", `it transitions ${open.transition}, which relayouts every frame`)
 must(open.pageLocked === "hidden", "the page behind it does not scroll while it is open",
   `.app-content-scroll is overflow-y: ${open.pageLocked}`)
-must(open.settingsInTheBar, "settings is the one thing beside the close button",
+must(!!open.settingsInTheBar?.visible, "a settings button appears when the menu opens",
   "there is no settings control while the menu is open")
+must(!!open.settingsInTheBar?.rightOfTheX, "to the right of the X",
+  "the settings button is not to the right of the close button")
+must(!!open.settingsInTheBar?.round, "in a circle of its own",
+  `it is ${open.settingsInTheBar?.gap}px away and not round`)
+must(open.groupCentred, "and the three of them are still centred on the screen",
+  "opening the menu pushed the bar off centre")
 must(!open.hasQuickSale, "and there is no Quick Sale", "a Quick Sale control is in the menu")
 must(open.minRowHeight >= 40, "every row in it is at least 40px tall", `the shortest row is ${open.minRowHeight}px`)
 must(open.closeIsInThePill, "the menu button has become the close button", "there is no close control in the pill")
 must(open.pillOverMenu, "and the pill is on top of the page it opened", "the menu page is drawn over its own pill")
-must(open.barItems.join(",") === "Settings,Close menu", "and nothing else is in the bar while it is open",
+must(open.barItems.join(",") === "Home,Orders,Products,Explore,Close menu,Settings",
+  "and the navigation itself is untouched, so it is still reachable",
   `the bar shows ${open.barItems.join(", ")}`)
 
 console.log("")
@@ -485,6 +544,14 @@ must(drag.haptics.length >= 4, "and it ticks on the way, once per slot crossed a
   `${drag.haptics.length} haptic ticks for a slide across four slots`)
 must(drag.haptics.length <= 10, "rather than once per frame",
   `${drag.haptics.length} ticks for a slide across four slots is per frame, not per slot`)
+
+console.log(`  a tap       lifted on the third slot, went back ${settled.wentBack}px, resting ${settled.rest}px from it`)
+must(settled.went === "/app/products", "a tap picks the slot it landed on", `it went to ${settled.went}`)
+must(settled.wentBack < SLOT_W / 2,
+  "and the circle stays on it while the page loads, instead of springing back and coming again",
+  `it travelled ${settled.wentBack}px back toward the slot it left — over half a slot, which is the spring-back: ${settled.samples.join(", ")} against a target of ${settled.target}`)
+must(settled.rest <= 2, "and it is still on it half a second later",
+  `it is resting ${settled.rest}px away from the slot it was left on`)
 
 console.log("")
 must(share.during > share.before + 40, "a page that raises its own bottom bar gets the strip, and the pill drops away",
