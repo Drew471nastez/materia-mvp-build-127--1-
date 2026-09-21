@@ -17,8 +17,9 @@
  *     old, flat blur(2px)     2.8   2.8   2.8   2.8   2.8   2.8
  *     first pass, 2.5px      76.5  74.6  61.0  45.6  28.3  10.9
  *     softened, 1.6px        76.5  76.5  72.2  61.4  48.6  30.8
+ *     softened again, 1.1px  76.5  76.5  73.2  65.2  55.6  42.6
  *
- * The first pass was still too strong; the second is where it landed. The
+ * Asked down twice more after the first pass. The
  * top of the page is back to the clarity of no scrim at all, and the bottom
  * — right behind the sheet — keeps a real blur while staying an order of
  * magnitude clearer than the flat one it replaced.
