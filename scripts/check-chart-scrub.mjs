@@ -13,8 +13,9 @@
  *   PRESS AND DRAG IN ONE MOTION — no pause. The case reported as "hold left
  *     swipe in one shot"; it has to engage and then follow.
  *   PRESS, HOLD, THEN DRAG — the deliberate version.
- *   PRESS AND PULL DOWN — must NOT engage, or the page cannot be scrolled
- *     with a thumb that happens to be over the chart.
+ *   PRESS AND PULL DOWN — must NOT engage, and must not cancel a single
+ *     move, or the browser will not scroll the page from under a thumb that
+ *     happens to be over the chart.
  *
  * For the two that engage it also checks the scrub actually tracked: that the
  * reading changed with the finger, landed on the right day, and ticked once
@@ -349,7 +350,7 @@ const show = (a) => {
   console.log(`\n${a.name}:`)
   a.log.forEach((s) => console.log(`  x=${String(s.x).padStart(4)}  want ${s.want === null ? "nothing" : "day " + s.want}  got ${s.got === null ? "nothing" : "day " + s.got}  ${s.active ? "showing" : "idle"}${s.defaultPrevented ? " (scroll held)" : ""}`))
   console.log(`  haptics: ${a.haptics.length} (${a.haptics.join(", ") || "none"})`)
-  console.log(`  the finger landed on: ${a.landedOn}, touchstart ${a.startCancelled ? "cancelled (the chart refused the system gesture)" : "NOT cancelled (passive: the chart cannot refuse)"}`)
+  console.log(`  the finger landed on: ${a.landedOn}, touchstart ${a.startCancelled ? "cancelled (so the browser will not scroll this gesture)" : "left alone (so the browser may still scroll)"}`)
   const unreachable = a.log.filter((s) => !s.reaches)
   if (unreachable.length) console.log(`  the touched node stopped reaching the listener at ${unreachable.length} steps (was ${a.log[0].target})`)
   console.log(`  touch-action throughout: ${[...new Set(a.log.map((s) => s.touchAction))].join(" then ") || "(none seen)"}`)
@@ -374,7 +375,7 @@ for (const key of ["oneShot", "holdThenDrag"]) {
   if (clipped.length) problems.push(`[${metric}] ${a.name}: the tooltip hung outside the screen at ${clipped.length} positions.`)
   if (a.afterEnd.active) problems.push(`[${metric}] ${a.name}: the tooltip stayed up after the finger lifted.`)
   if (!/shield/i.test(a.landedOn) && a.landedOn !== "div") problems.push(`[${metric}] ${a.name}: the finger landed on ${a.landedOn}, a node recharts draws and can redraw. The touch has to land on the shield, which never changes.`)
-  if (!a.startCancelled) problems.push(`[${metric}] ${a.name}: touchstart was not cancellable, so the chart cannot refuse the platform's own long press. React registers touchstart passively; this one has to be a native non-passive listener.`)
+  if (a.startCancelled) problems.push(`[${metric}] ${a.name}: the touchstart was cancelled. That refuses the browser's scrolling for the whole gesture whatever touch-action says, which is what made this band feel rigid. The long press is refused by -webkit-touch-callout and user-select instead.`)
   const gone = a.log.filter((s) => !s.reaches)
   if (gone.length) problems.push(`[${metric}] ${a.name}: the node the touch landed on (${a.log[0].target}) stopped reaching the chart's listener at ${gone.length} of ${a.log.length} steps. A detached target still gets its events and they go nowhere.`)
   const held = a.log.filter((s) => s.active && !s.defaultPrevented)
@@ -384,23 +385,36 @@ for (const key of ["oneShot", "holdThenDrag"]) {
 /*
  * TOUCH-ACTION IS LATCHED AT TOUCHSTART. A value that changes when the
  * tooltip opens cannot affect the gesture that opened it — it only reaches
- * the NEXT touch, which is why the old chart needed a lift and a second tap.
- * Nothing here may vary across a gesture, and it may not permit a pan.
+ * the NEXT touch, which is why an earlier chart needed a lift and a second
+ * tap. So nothing here may vary across a gesture.
+ *
+ * And the constant has to be "pan-y". "none" is what made this band rigid:
+ * a page cannot be scrolled out of an element that has refused every
+ * gesture, so the chart scrolled it by hand, on the main thread, with no
+ * momentum and no rubber band, inside 200px of a page that scrolls normally
+ * everywhere else.
  */
 for (const key of ["oneShot", "holdThenDrag", "pullDown"]) {
   const seen = [...new Set(r[key].log.map((s) => s.touchAction))]
   if (seen.length > 1) problems.push(`[${metric}] ${key}: touch-action changed mid gesture (${seen.join(" then ")}). The browser latched the first one and ignored the rest.`)
-  if (seen.some((t) => t !== "none")) problems.push(`[${metric}] ${key}: touch-action is "${seen.join(", ")}". Anything that permits a pan lets the browser take the gesture away mid hold.`)
+  if (seen.some((t) => t !== "pan-y")) problems.push(`[${metric}] ${key}: touch-action is "${seen.join(", ")}". It has to be pan-y: "none" leaves the browser unable to scroll this band, and anything wider lets it take a scrub away.`)
 }
 
-/* Scrolling by hand, because touch-action:none means nothing else will. */
+/*
+ * THE PAGE IS THE BROWSER'S TO MOVE, AND THESE ARE SYNTHETIC TOUCHES.
+ *
+ * Chromium does not scroll for a TouchEvent built in script, so this cannot
+ * watch a downward drag actually move the page — and it must not pretend to.
+ * What it CAN check is the condition the browser scrolls under: that no move
+ * of a downward drag was cancelled, and that nothing moved the page by hand
+ * either. Both together are the whole of "the browser is free to scroll it".
+ */
 {
-  /* A finger pulled DOWN sends the page UP, so the number goes down. */
-  const moved = r.pullDown.afterEnd.scrollY - r.pullDown.startScroll
-  if (moved > -20) problems.push(`[${metric}] a downward drag on the chart moved the page ${moved}px, and it should have gone up by at least 20. With touch-action:none nothing else will scroll it, so a thumb on the chart would freeze the page.`)
-  for (const key of ["oneShot", "holdThenDrag"]) {
+  const heldDown = r.pullDown.log.filter((s) => s.defaultPrevented)
+  if (heldDown.length) problems.push(`[${metric}] pullDown: ${heldDown.length} of ${r.pullDown.log.length} moves of a straight downward drag were cancelled. A cancelled move is a scroll the browser will not perform.`)
+  for (const key of ["oneShot", "holdThenDrag", "pullDown"]) {
     const drift = Math.abs(r[key].afterEnd.scrollY - r[key].startScroll)
-    if (drift > 4) problems.push(`[${metric}] ${key}: the page moved ${drift}px during a scrub. A sideways gesture must not scroll.`)
+    if (drift > 4) problems.push(`[${metric}] ${key}: the page moved ${drift}px under synthetic touches, which the browser does not scroll for. Something is writing scrollTop by hand again.`)
   }
 }
 

@@ -39,20 +39,54 @@ import { useEffect } from "react"
  * that are already in hand plus ONE `scrollTop` read, which is the only value
  * that moves.
  *
- * WHAT IS DELIBERATELY NOT DONE HERE. The listener is still `{ passive: false }`
- * and still on `document`, which by itself tells the browser the main thread
- * may veto a scroll, so scrolling cannot take the compositor fast path the way
- * it does in Safari. The only way to recover that is to stop registering the
- * listener where CSS can do the job — iOS 16+ and Android both honour
- * `overscroll-behavior: none`, and app/globals.css already sets it on
- * `html.capacitor`. That is a real behaviour change on iOS 14 and 15, where the
- * bounce would come back, so it is the owner's call rather than a tidy-up.
+ * ===========================================================================
+ *  AND WHERE CSS CAN DO THE JOB, THERE IS NO LISTENER AT ALL
+ * ===========================================================================
+ * Making the handler cheap was not enough, because half the cost was never in
+ * the handler. A `{ passive: false }` touchmove listener on the document tells
+ * the browser that the main thread MIGHT veto this scroll — so the compositor
+ * has to wait for the main thread on every frame of every gesture, whatever
+ * the handler then decides. Scrolling stops being a compositor job. That is
+ * the part of "the app doesn't feel as smooth as Safari" that survived the
+ * refactor above, and it cannot be optimised away; the listener has to not be
+ * there.
+ *
+ * It does not need to be there. Everything this file prevents, CSS already
+ * declares:
+ *
+ *   the page and the body    `overscroll-behavior: none` on html.capacitor
+ *                            and html.capacitor body
+ *   the /app scroll container `overscroll-behavior: none` on
+ *                            .app-content-scroll
+ *   landscape                `touch-action: none` and `overflow: hidden` on
+ *                            html, body and both scroll containers, inside
+ *                            @media (orientation: landscape)
+ *
+ * WebKit shipped `overscroll-behavior` in Safari 16. Before that the
+ * declarations parse to nothing and this listener is the only thing between a
+ * finger and a rubber band, which is why it is not simply deleted. So it is
+ * registered on the engines that need it and not on the ones that do not, and
+ * the question is put to the engine itself rather than guessed from a user
+ * agent string.
  */
+function cssRefusesTheBounce(): boolean {
+  try {
+    return typeof CSS !== "undefined" && CSS.supports("overscroll-behavior-y", "none")
+  } catch {
+    /* No CSS.supports at all is an engine older than the property. */
+    return false
+  }
+}
+
 export function CapacitorBounceGuard() {
   useEffect(() => {
     if (typeof window === "undefined") return
     // Only activate inside the native Capacitor shell
     if (!document.documentElement.classList.contains("capacitor")) return
+    /* See the note above: on an engine that honours overscroll-behavior the
+       stylesheet has already refused every bounce this listener would, and
+       registering it would only cost the compositor its fast path. */
+    if (cssRefusesTheBounce()) return
 
     let lastTouchY = 0
     let lastTouchX = 0
