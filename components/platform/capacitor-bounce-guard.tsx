@@ -69,10 +69,50 @@ export function CapacitorBounceGuard() {
      */
     let mode: "ignore" | "landscape" | "element" | "document" | "free" = "document"
     let scroller: HTMLElement | null = null
-    /** Fixed for the length of a gesture: content and box do not resize mid-scroll. */
+    /**
+     * ═══════════════════════════════════════════════════════════════════
+     *  THE PAGE'S SIZE IS NOT FIXED FOR THE LENGTH OF A GESTURE
+     * ═══════════════════════════════════════════════════════════════════
+     * These were read once at touchstart and held, on the reasoning that
+     * neither the content nor the box changes size while a finger is on the
+     * screen. Both do. The dashboard
+     * loads its chart through a dynamic import with `ssr: false`, so a
+     * 200px skeleton is replaced by the real chart while somebody is
+     * already dragging, and every image that arrives moves the bottom
+     * again.
+     *
+     * A stale `scrollHeight` that is too SMALL is the bug people feel: the
+     * test below decides the finger has reached the bottom while there is
+     * still half a page under it, and from that moment every downward
+     * touchmove in the gesture is cancelled. The scroll simply stops
+     * answering, part way down, for no reason the person can see —
+     * reported as "at some point when I scroll down it lags really weirdly
+     * and I don't know why".
+     *
+     * They stay cached, because the reason for caching them was real: a
+     * layout read per touchmove is what this whole file exists to avoid.
+     * What changes is that the cache is only ever TRUSTED TO SAY NO. The
+     * moment it claims a boundary — which is the only moment a gesture is
+     * ever cancelled, and happens at most once or twice in one — it is
+     * checked against the page as it is now, and that is one read at the
+     * one moment it matters rather than one on every frame.
+     */
     let scrollHeight = 0
     let clientHeight = 0
     let canScrollDoc = false
+
+    /** Re-read the two numbers the boundary test is made of. */
+    function refreshExtent(): void {
+      if (!scroller) return
+      if (mode === "document") {
+        scrollHeight = Math.max(scroller.scrollHeight, document.documentElement.scrollHeight)
+        clientHeight = window.innerHeight
+        canScrollDoc = scrollHeight > clientHeight + 1
+        return
+      }
+      scrollHeight = scroller.scrollHeight
+      clientHeight = scroller.clientHeight
+    }
 
     /** The expensive part, and it runs once per gesture instead of once per frame. */
     function resolve(target: Element | null): void {
@@ -173,13 +213,26 @@ export function CapacitorBounceGuard() {
           : scroller.scrollTop
 
       if (mode === "document" && !canScrollDoc) {
-        // Page fits on screen — prevent rubber-band in both directions
-        if (deltaY !== 0) e.preventDefault()
-        return
+        /* The page did not fit when the finger landed. Make sure that is
+           still true before refusing to move: a page that has grown since
+           is a page somebody is entitled to scroll. */
+        refreshExtent()
+        if (!canScrollDoc) {
+          // Page fits on screen — prevent rubber-band in both directions
+          if (deltaY !== 0) e.preventDefault()
+          return
+        }
       }
 
       const atTop = scrollTop <= 0
-      const atBottom = scrollTop + clientHeight >= scrollHeight - 1
+      let atBottom = scrollTop + clientHeight >= scrollHeight - 1
+      /* The cache is allowed to say "not at the bottom" on its own. It is
+         not allowed to end a gesture on numbers that may be stale, so the
+         one answer that cancels anything is confirmed first. */
+      if (atBottom) {
+        refreshExtent()
+        atBottom = scrollTop + clientHeight >= scrollHeight - 1
+      }
       if ((deltaY > 0 && atTop) || (deltaY < 0 && atBottom)) e.preventDefault()
     }
 

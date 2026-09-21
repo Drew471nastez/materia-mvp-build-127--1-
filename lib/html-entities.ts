@@ -98,3 +98,51 @@ export function decodeHtmlEntities(input: string): string {
     return named === undefined ? whole : named
   })
 }
+
+/**
+ * ===========================================================================
+ *  THE SAME TEXT, WITH NO MARKUP IN IT, FOR SOMEWHERE THAT SHOWS NO MARKUP
+ * ===========================================================================
+ * A product shared to WhatsApp previewed as
+ *
+ *     <div class="w-full my-[1px]"><div data-slate-node="element" …
+ *
+ * because the description is rich text stored as HTML and it was handed to
+ * the page's meta description untouched. A meta description is plain text by
+ * definition: every reader of it — a chat app's preview, a search result, a
+ * card on a social network — prints exactly what it is given.
+ *
+ * BLOCKS BECOME SPACES, not nothing. Removing `</p><p>` without leaving a gap
+ * runs the last word of one paragraph into the first word of the next, and a
+ * preview is mostly made of the first sentence or two, so that shows up
+ * immediately. Anything that was a line in the source becomes a space here.
+ *
+ * WHAT IT IS NOT FOR: this is a summary, not a sanitiser. It is for putting
+ * text somewhere that will not render HTML. Nothing that builds HTML should
+ * use it — a tag stripper is the wrong tool for that and always has been.
+ */
+
+/** Tags after which words must not run together. */
+const BLOCKY = /<\/?(?:p|div|br|li|ul|ol|tr|td|th|h[1-6]|section|article|header|footer|blockquote|pre|figure|figcaption)\b[^>]*>/gi
+
+export function plainSummary(input: string | null | undefined, maxChars = 200): string {
+  if (!input) return ""
+  const text = decodeHtmlEntities(
+    input
+      /* A script or a style would otherwise contribute its CONTENTS as text. */
+      .replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1>/gi, " ")
+      .replace(BLOCKY, " ")
+      .replace(/<[^>]*>/g, ""),
+  )
+    /* Every kind of space, including the non-breaking one a decode just
+       produced, collapsed to one. */
+    .replace(/\s+/g, " ")
+    .trim()
+
+  if (text.length <= maxChars) return text
+  /* Cut at a word rather than mid-syllable, unless the first word is longer
+     than the whole budget. */
+  const cut = text.slice(0, maxChars)
+  const lastSpace = cut.lastIndexOf(" ")
+  return `${(lastSpace > maxChars * 0.5 ? cut.slice(0, lastSpace) : cut).trimEnd()}…`
+}

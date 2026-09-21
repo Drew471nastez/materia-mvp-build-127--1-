@@ -1,4 +1,5 @@
 import { notFound, redirect } from "next/navigation"
+import { plainSummary } from "@/lib/html-entities"
 import Link from "next/link"
 import { createClient } from "@/lib/supabase/server"
 import { startPhaseTimer } from "@/lib/perf/phase-timer"
@@ -149,7 +150,14 @@ export async function generateMetadata({ params }: ProductPageProps) {
   // Title: "Product Name | Seller Name" (template adds "| Storelib")
   const tabTitle = sellerName ? `${product.title} | ${sellerName}` : product.title
   const ogTitle = `${product.title} | ${sellerName || "Storelib"}`
-  const pageDescription = product.description || "Check out this product on Storelib"
+  /**
+   * PLAIN TEXT, BECAUSE A META DESCRIPTION IS PLAIN TEXT. The description is
+   * rich text stored as HTML, and this handed it over untouched: a product
+   * shared to WhatsApp previewed as `<div class="w-full my-[1px]"><div
+   * data-slate-node="element"…` and nothing else, because every reader of a
+   * meta description prints exactly what it is given.
+   */
+  const pageDescription = plainSummary(product.description) || "Check out this product on Storelib"
 
   /**
    * ONE ADDRESS WINS, AND IT IS THE ONE EVERY LINK USES.
@@ -1764,7 +1772,9 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
     "@context": "https://schema.org",
     "@type": "Product",
     name: product.title,
-    description: product.description || undefined,
+    /* Schema.org's description is plain text too, and this one is read by
+       the thing that draws a search result. */
+    description: plainSummary(product.description, 5000) || undefined,
     sku: product.id,
     image: product.gallery_urls?.length
       ? product.gallery_urls

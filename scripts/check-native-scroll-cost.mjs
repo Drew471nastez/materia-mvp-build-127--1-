@@ -193,6 +193,52 @@ async function main(nativeOn) {
   await ev("window.scrollTo(0, 0); true")
   await sleep(250)
 
+  /*
+    ── AND A PAGE THAT GROWS WHILE THE FINGER IS ON IT ────────────────────
+    The guard reads the page's height once, when the finger lands, and used
+    to hold that number for the whole gesture. The dashboard loads its chart through a dynamic import with
+    `ssr: false`, so a 200px skeleton becomes the real chart while somebody is
+    already dragging, and every image that arrives moves the bottom again.
+
+    A height that is too small makes the boundary test read TRUE half a page
+    early, and from that moment every downward move in the gesture is
+    cancelled: the scroll stops answering part way down for no visible
+    reason. Reported as "at some point when I scroll down it lags really
+    weirdly and I don't know why".
+
+    So: stand near the bottom of a SHORT page, start a drag, grow the page
+    under the finger, and keep dragging. That is now an ordinary mid-page
+    scroll and must be left alone.
+  */
+  await ev(`(() => {
+    const page = document.getElementById("page")
+    window.__tail = document.createElement("div")
+    window.__tail.style.height = "2000px"
+    /* Hidden until the gesture is under way, so the page really does change
+       size between touchstart and touchmove rather than before either. */
+    window.__tail.style.display = "none"
+    page.appendChild(window.__tail)
+    window.scrollTo(0, document.documentElement.scrollHeight)
+    return true
+  })()`)
+  await sleep(250)
+  await ev("window.__veto = []; true")
+  await send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y: 600, radiusX: 12, radiusY: 12, force: 1 }] })
+  /* The page grows AFTER the finger has landed, which is when the guard has
+     already taken its measurement. */
+  await ev('window.__tail.style.display = "block"; true')
+  await sleep(32)
+  for (let i = 1; i <= 6; i++) {
+    await send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x, y: 600 - (160 * i) / 6, radiusX: 12, radiusY: 12, force: 1 }] })
+    await sleep(16)
+  }
+  await send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] })
+  await sleep(200)
+  const grew = await ev("window.__veto")
+  behaviour.vetoedAfterPageGrew = grew.length > 0 && grew.every(Boolean)
+  await ev('window.__tail.remove(); window.scrollTo(0, 0); true')
+  await sleep(250)
+
   /* A scroll, the way a thumb does it: down, forty moves, up. */
   await ev("window.__m.styleCalls = 0; window.__m.handlerMs = 0; window.__m.moves = 0; true")
   await send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y: 700, radiusX: 12, radiusY: 12, force: 1 }] })
@@ -227,6 +273,7 @@ const line = (label, m) => {
   console.log(`    ${m.moves ? (m.handlerMs / m.moves).toFixed(2) : "0.00"}ms per move, ${m.styleCalls} forced style recalculations`)
   console.log(`    page scrolled ${m.scrolled}px`)
   console.log(`    bounce vetoed at the top: ${m.behaviour.vetoedAtTop}, at the bottom: ${m.behaviour.vetoedAtBottom}, mid-page: ${m.behaviour.vetoedMidPage}`)
+  console.log(`    and after the page grew under the finger: ${m.behaviour.vetoedAfterPageGrew}`)
   console.log("")
 }
 
@@ -252,6 +299,7 @@ if (native.handlerMs > 8) {
 if (!native.behaviour.vetoedAtTop) problems.push("At the top of the page a downward drag was NOT vetoed. That is the rubber-band the guard exists to stop.")
 if (!native.behaviour.vetoedAtBottom) problems.push("At the bottom of the page an upward drag was NOT vetoed. That is the rubber-band the guard exists to stop.")
 if (native.behaviour.vetoedMidPage) problems.push("An ordinary mid-page scroll was vetoed. The guard is blocking scrolling rather than bouncing.")
+if (native.behaviour.vetoedAfterPageGrew) problems.push("A scroll was vetoed because the page grew after the finger landed. The guard is holding a height that is no longer true, so the scroll stops answering part way down.")
 
 if (problems.length) {
   console.error(`${problems.length} finding${problems.length > 1 ? "s" : ""}:\n`)
