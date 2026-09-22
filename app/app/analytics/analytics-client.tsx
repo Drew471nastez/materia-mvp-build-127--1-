@@ -399,7 +399,7 @@ const timeframeOptions: TimeframeOption[] = [
 ]
 
 import { AnalyticsChartWithTooltip, CHART_COLORS } from "@/components/app/analytics-chart"
-import { MetricSlide } from "@/components/app/metric-slide"
+import { useTabReveal } from "@/components/app/use-tab-reveal"
 
 /** One formatter for the page. Constructing an Intl.NumberFormat is not free. */
 const USD_FORMAT = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" })
@@ -506,8 +506,8 @@ function trendLabelsFor(timeframe: string, start: Date, end: Date): string[] {
 const TREND_SKELETON_MAX = 90
 
 /**
- * The two metric strips in their drawn order. Tapping along one brings the
- * next chart in from the side that tab is on, so this order is the direction.
+ * The two metric strips in their drawn order, which is the direction the
+ * strip scrolls when a tab further along it is tapped.
  */
 const STORE_TAB_ORDER = ["views", "revenue", "orders", "conversion"] as const
 const ONEPAGE_TAB_ORDER = ["views", "clicks", "subscribers", "ctr"] as const
@@ -906,6 +906,14 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
   const [chartViewType, setChartViewType] = useState<"bars" | "line">("line")
   const [chartMetricFilter, setChartMetricFilter] = useState<ChartMetricFilter>("views")
   const [onePageChartFilter, setOnePageChartFilter] = useState<OnePageChartFilter>("views")
+  /*
+    One strip, two sets of tabs: the store's and the OnePage's are drawn into
+    the same scrolling row, so the reveal follows whichever set is on screen.
+  */
+  const metricStripRef = useTabReveal<HTMLDivElement>(
+    analyticsMode === "onepage" ? onePageChartFilter : chartMetricFilter,
+    analyticsMode === "onepage" ? ONEPAGE_TAB_ORDER : STORE_TAB_ORDER,
+  )
   const [trafficViewMode, setTrafficViewMode] = useState<"chart" | "list">("chart")
   const [deviceTabMode, setDeviceTabMode] = useState<"device" | "browser">("device")
 
@@ -2556,8 +2564,9 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
 
         {/* Unified KPI Tabs + Chart Card */}
         <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
-          {/* KPI Metric Tabs */}
-          <div className="relative flex overflow-x-auto scrollbar-hide md:grid md:grid-cols-4 divide-x divide-[#e5e7eb]/60" style={{
+          {/* KPI Metric Tabs. The strip scrolls itself to whichever tab is
+              chosen; see components/app/use-tab-reveal. */}
+          <div ref={metricStripRef} className="relative flex overflow-x-auto scrollbar-hide md:grid md:grid-cols-4 divide-x divide-[#e5e7eb]/60" style={{
             /*
               BOTH AXES. `pan-x` does not mean "prefer horizontal" — it means
               vertical panning is forbidden here, so a thumb that landed on
@@ -2575,6 +2584,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                   className={`text-left px-3 py-3 sm:px-4 sm:py-3.5 transition-all duration-200 cursor-pointer relative flex-shrink-0 min-w-[130px] md:min-w-0 ${
                     chartMetricFilter === "views" ? "md:bg-[#f9fafb]" : "hover:bg-[#fafafa]"
                   }`}
+                  data-tab="views"
                   onClick={() => setChartMetricFilter("views")}
                 >
                   {chartMetricFilter === "views" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
@@ -2590,6 +2600,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                   className={`text-left px-3 py-3 sm:px-4 sm:py-3.5 transition-all duration-200 cursor-pointer relative flex-shrink-0 min-w-[130px] md:min-w-0 ${
                     chartMetricFilter === "revenue" ? "md:bg-[#f9fafb]" : "hover:bg-[#fafafa]"
                   }`}
+                  data-tab="revenue"
                   onClick={() => setChartMetricFilter("revenue")}
                 >
                   {chartMetricFilter === "revenue" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
@@ -2605,6 +2616,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                   className={`text-left px-3 py-3 sm:px-4 sm:py-3.5 transition-all duration-200 cursor-pointer relative flex-shrink-0 min-w-[130px] md:min-w-0 ${
                     chartMetricFilter === "orders" ? "md:bg-[#f9fafb]" : "hover:bg-[#fafafa]"
                   }`}
+                  data-tab="orders"
                   onClick={() => setChartMetricFilter("orders")}
                 >
                   {chartMetricFilter === "orders" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
@@ -2620,6 +2632,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                   className={`text-left px-3 py-3 sm:px-4 sm:py-3.5 transition-all duration-200 cursor-pointer relative flex-shrink-0 min-w-[130px] md:min-w-0 ${
                     chartMetricFilter === "conversion" ? "md:bg-[#f9fafb]" : "hover:bg-[#fafafa]"
                   }`}
+                  data-tab="conversion"
                   onClick={() => setChartMetricFilter("conversion")}
                 >
                   {chartMetricFilter === "conversion" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
@@ -2637,6 +2650,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                   className={`text-left px-3 py-3 sm:px-4 sm:py-3.5 transition-all duration-200 cursor-pointer relative flex-shrink-0 min-w-[130px] md:min-w-0 ${
                     onePageChartFilter === "views" ? "md:bg-[#f9fafb]" : "hover:bg-[#fafafa]"
                   }`}
+                  data-tab="views"
                   onClick={() => setOnePageChartFilter("views")}
                 >
                   {onePageChartFilter === "views" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
@@ -2652,6 +2666,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                   className={`text-left px-3 py-3 sm:px-4 sm:py-3.5 transition-all duration-200 cursor-pointer relative flex-shrink-0 min-w-[130px] md:min-w-0 ${
                     onePageChartFilter === "clicks" ? "md:bg-[#f9fafb]" : "hover:bg-[#fafafa]"
                   }`}
+                  data-tab="clicks"
                   onClick={() => setOnePageChartFilter("clicks")}
                 >
                   {onePageChartFilter === "clicks" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
@@ -2667,6 +2682,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                   className={`text-left px-3 py-3 sm:px-4 sm:py-3.5 transition-all duration-200 cursor-pointer relative flex-shrink-0 min-w-[130px] md:min-w-0 ${
                     onePageChartFilter === "subscribers" ? "md:bg-[#f9fafb]" : "hover:bg-[#fafafa]"
                   }`}
+                  data-tab="subscribers"
                   onClick={() => setOnePageChartFilter("subscribers")}
                 >
                   {onePageChartFilter === "subscribers" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
@@ -2682,6 +2698,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                   className={`text-left px-3 py-3 sm:px-4 sm:py-3.5 transition-all duration-200 cursor-pointer relative flex-shrink-0 min-w-[130px] md:min-w-0 ${
                     onePageChartFilter === "ctr" ? "md:bg-[#f9fafb]" : "hover:bg-[#fafafa]"
                   }`}
+                  data-tab="ctr"
                   onClick={() => setOnePageChartFilter("ctr")}
                 >
                   {onePageChartFilter === "ctr" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
@@ -2715,10 +2732,6 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                           : "opacity-100 blur-0"
                   }`}
                 >
-                  <MetricSlide
-                    slot={analyticsMode === "onepage" ? onePageChartFilter : chartMetricFilter}
-                    order={analyticsMode === "onepage" ? ONEPAGE_TAB_ORDER : STORE_TAB_ORDER}
-                  >
                   <AnalyticsChartWithTooltip
                     chartDisplayData={chartDisplayData}
                     isLoading={chartIsLoading}
@@ -2729,7 +2742,6 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                     isTouchDevice={isTouchDevice}
                     formatPrice={formatPrice}
                   />
-                  </MetricSlide>
                 </div>
                 {!hasRealData && !chartIsLoading && (
                   <div className="absolute top-2 right-2 flex items-center gap-1.5 z-10">
