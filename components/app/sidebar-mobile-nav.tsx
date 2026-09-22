@@ -166,9 +166,17 @@ const FILL_MATCH = 1.06
  * times and measured by photographing each icon with its tab on and again
  * with its neighbour's on.
  *
- * Because the two boxes are the same size now, no blend of them is a
- * different size either: the cross-fade has nothing left to change but the
- * ink inside the outline, which is the whole point of it.
+ * AND THEY ARE NOT BLENDED. Matching the boxes fixes the two ENDS, and the
+ * icon was still moving in between them: fade two different drawings through
+ * each other and every frame of the fade is a shape that is neither, which on
+ * Products measured 40x40 at the start, 40x39 halfway and 39x38 at the end.
+ * Nothing about the layout moves during any of this — the button, the glyph
+ * box and both glyphs all measure zero, every frame — so the movement was
+ * only ever the ink.
+ *
+ * So there is no halfway. The glyph swaps in one frame, at a size that does
+ * not change, and a state with no duration cannot be seen moving. The colour
+ * still eases over 200ms on the link, because colour moves nothing.
  *
  * THREE WAYS OF DOING THIS, AND ONLY THE THIRD IS ANY GOOD. Written down
  * because the first two look obvious and both ruin the icons.
@@ -198,7 +206,8 @@ function NavIcon({ icon, active, color, size = 22 }: { icon: NavIconPair; active
       <Line
         size={size}
         strokeWidth={1.5}
-        style={{ position: "absolute", inset: 0, opacity: active ? 0 : 1, transition: "opacity 180ms ease-out" }}
+        /* No transition on either of these: see the note above. */
+        style={{ position: "absolute", inset: 0, opacity: active ? 0 : 1 }}
       />
       <Fill
         size={size}
@@ -206,7 +215,6 @@ function NavIcon({ icon, active, color, size = 22 }: { icon: NavIconPair; active
           position: "absolute",
           inset: 0,
           opacity: active ? 1 : 0,
-          transition: "opacity 180ms ease-out",
           /* A constant, never animated: the solid is simply drawn at the size
              of the outline it replaces. See the note above. */
           scale: String(FILL_MATCH),
