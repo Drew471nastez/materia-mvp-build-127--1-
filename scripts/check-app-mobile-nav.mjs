@@ -613,12 +613,17 @@ await ev(`window.__rec = () => {
   window.__trail = []
   window.__scale = []
   window.__alpha = []
+  window.__glass = []
   const tick = () => {
     const cs = getComputedStyle(d)
     const m = /^(-?[\\d.]+)px/.exec(cs.translate || "")
     if (m) window.__trail.push(Math.round(Number.parseFloat(m[1]) * 100) / 100)
     /* Its SIZE, which nothing here has ever looked at. The circle grows
        under a finger, and a press is a finger. */
+    /* The alpha of the glass painted in it, which is a different thing from
+       how opaque the element is — see the note by ARRIVING_FILL. */
+    const bg = /([\\d.]+)\\s*\\)$/.exec((cs.backgroundColor || "").replace(/\\s/g, ""))
+    window.__glass.push(bg ? Math.round(Number.parseFloat(bg[1]) * 1000) / 1000 : 1)
     const sc = cs.scale && cs.scale !== "none" ? Number.parseFloat(cs.scale) : 1
     window.__scale.push(Math.round((Number.isFinite(sc) ? sc : 1) * 1000) / 1000)
     /* And how visible it is, which is what says whether a change of position
@@ -718,6 +723,7 @@ await sleep(800)
 const tapFrames = await ev("window.__stop()")
 const tapScale = await ev("window.__scale.slice()")
 const tapAlpha = await ev("window.__alpha.slice()")
+const tapGlass = await ev("window.__glass.slice()")
 const tap = {
   frames: tapFrames,
   from: tapFrames[0],
@@ -748,6 +754,39 @@ const tap = {
     return Math.round(worst * 100) / 100
   })(),
   dimmestTo: Math.round(Math.min(...tapAlpha) * 100) / 100,
+  /*
+    THE GLASS ARRIVES, AND THE ELEMENT NEVER FADES. Two different numbers on
+    purpose. `dimmestTo` is the element's opacity, which must not move at all;
+    these are the alpha of the colour painted inside it, which is what takes
+    its time. A lens that simply appeared at full strength is what read as too
+    direct, and a lens that dipped out and came back is the flicker that read
+    as cheap. This is neither: one colour, one direction, one curve — the
+    ink's.
+  */
+  emptiedTo: Math.round(Math.min(...tapGlass) * 100) / 100,
+  filledTo: Math.round(tapGlass[tapGlass.length - 1] * 100) / 100,
+  /* How many distinct values it passes through on the way in. A colour that
+     ramps has many; one that is switched on has two. */
+  glassSteps: new Set(tapGlass.filter((v) => v > 0.02 && v < 0.8)).size,
+  /*
+    HOW FAR THE MOVE IS FROM THE MOMENT THERE IS NO COLOUR IN IT, in frames.
+
+    Asking what the glass read ON the frame the position changed was the
+    obvious thing and it is not measurable here: the window with no colour in
+    it is one frame wide, and a sampler running one reading per frame lands
+    either side of it as often as on it. So this asks the question the window
+    can actually answer — was the move at the empty moment — and the depth of
+    the empty is held separately by emptiedTo.
+  */
+  movedFromEmpty: (() => {
+    let moveAt = -1
+    for (let i = 1; i < tapFrames.length; i++) {
+      if (Math.abs(tapFrames[i] - tapFrames[i - 1]) > 0.5) { moveAt = i; break }
+    }
+    let emptyAt = 0
+    for (let i = 1; i < tapGlass.length; i++) if (tapGlass[i] < tapGlass[emptyAt]) emptyAt = i
+    return moveAt < 0 ? 99 : Math.abs(moveAt - emptyAt)
+  })(),
   /*
     HOW LONG AFTER THE TOUCH THE LENS IS ON THE ICON YOU PRESSED. "It is too
     delayed" was the dip taking 120ms to go down before the lens could be
@@ -1002,9 +1041,19 @@ const LENS = `(() => {
            fillFor: at < 0 ? null : durs[at % durs.length],
            w: Math.round(r.width * 100) / 100, h: Math.round(r.height * 100) / 100 }
 })()`
+/*
+  PRESSED ON THE SLOT IT IS ALREADY ON, and that matters. Pressing a
+  different one starts the lens arriving — its glass emptied and filling over
+  the ink's curve — and reading the brightening through that measures the
+  arrival instead, which is how this check came to report "nothing happening"
+  and "it eases in" on a bar doing both correctly. The brightening is what a
+  press does when there is nothing else to do, so it is measured there.
+*/
+await ev('globalThis.__goto("/app"); true')
+await sleep(500)
 const atRest = await ev(LENS)
 await ev("globalThis.__haptics = []; true")
-await send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: slots[1].x, y: slots[1].y, radiusX: 12, radiusY: 12, force: 1 }] })
+await send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: slots[0].x, y: slots[0].y, radiusX: 12, radiusY: 12, force: 1 }] })
 await sleep(20)
 const held = await ev(LENS)
 await send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] })
@@ -1502,6 +1551,7 @@ console.log(`              the circle went ${tap.from}px to ${tap.landed}px, ${t
 console.log(`              ${tap.turns} changes of direction, ${tap.waypoints} places seen in between, resting ${tap.restOff}px off where the bar puts it`)
 console.log(`              dipped to ${tap.dimmestTo} and back to ${tap.backTo}; ${tap.seenMoving} visible on the frame it changed place`)
 console.log(`              the lens was on the pressed icon ${tap.arrivedMs}ms after the touch`)
+console.log(`              its glass emptied to ${tap.emptiedTo}, filled back to ${tap.filledTo} over ${tap.glassSteps} steps, changing slot ${tap.movedFromEmpty} frame(s) from the emptiest it gets`)
 console.log(`              and it grew to ${tap.biggest}x on the way, ${tap.grewPx}px across, and shrank back`)
 console.log(`  a drag      released after four slots, ${drag.past}px past the slot, grew to ${dragScale.biggest}x while a finger held it\n`)
 must(tap.restOff <= 0.6, "a tap leaves the circle on the slot it picked",
@@ -1542,6 +1592,20 @@ must(tap.backTo >= 0.99, "and is still there at the end of one",
   `it finished at ${tap.backTo}`)
 must(tap.waypoints === 0, "and changes place in one step rather than sliding or dissolving",
   `it was seen in ${tap.waypoints} place(s) on the way: ${tap.frames.join(" ")}`)
+/*
+  AND ITS GLASS ARRIVES RATHER THAN APPEARING. The element's opacity is held
+  above, and never moves; this is the colour painted inside it, which ramps
+  in one direction on the ink's curve. A lens switched on at full strength
+  reads as too direct, and would show two steps here rather than a ramp.
+*/
+must(tap.movedFromEmpty <= 1, "and it changes slot at the moment there is no colour in it, so the change cannot be seen",
+  `the move was ${tap.movedFromEmpty} frames away from the emptiest the glass gets`)
+must(tap.emptiedTo <= 0.05, "emptying rather than dimming, which is the element's own opacity and never moves",
+  `the least colour in it was ${tap.emptiedTo}`)
+must(tap.glassSteps >= 4, "and filling back over a ramp rather than being switched on",
+  `its colour passed through only ${tap.glassSteps} value(s) on the way in`)
+must(tap.filledTo >= 0.8, "all the way to its glass",
+  `it finished at ${tap.filledTo}`)
 /*
   AND NOTHING IS WAITED ON. Smoothness belongs to the coming back, never to
   the going away: a dip with a duration is a dip you wait through, on the one

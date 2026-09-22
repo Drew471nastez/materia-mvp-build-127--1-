@@ -176,7 +176,8 @@ const FILL_MATCH = 1.06
  * nothing and changes no size; what is left to see is the colour arriving,
  * which is the part that takes its time.
  */
-const INK_EASE = "360ms cubic-bezier(0.22, 0.61, 0.36, 1)"
+const INK_MS = 360
+const INK_EASE = `${INK_MS}ms cubic-bezier(0.22, 0.61, 0.36, 1)`
 
 /**
  * ===========================================================================
@@ -838,6 +839,28 @@ const NO_TRAVEL = "translate 0s"
  */
 const PRESS_FILL = "rgba(255,255,255,0.97)"
 const REST_FILL = "rgba(255,255,255,0.82)"
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ *  THE LENS ARRIVES AS A COLOUR, THE WAY THE INK DOES
+ * ═══════════════════════════════════════════════════════════════════════════
+ * With the fades gone the lens was simply THERE, at full strength, on the
+ * frame the finger landed, and that is what reads as too direct. The only
+ * thing in the bar taking any time at all was the ink filling the icon.
+ *
+ * It is not dipped back out to fix that. A dip is a thing going away and
+ * coming back, on an element that was already where it belonged, and that
+ * flicker is the cheapness. This is the other kind of change entirely and it
+ * is the one the reference button makes: a colour going from one value to
+ * another, once, in one direction. The lens is drawn in no colour at all on
+ * the frame it changes slot, and its glass arrives over INK_EASE.
+ *
+ * ITS OPACITY NEVER MOVES. Not a detail — it is what keeps this from being
+ * the fade that was thrown out. The element is fully opaque the whole way
+ * through; what changes is the colour painted in it, which is the same thing
+ * the icon's ink does, on the same curve, starting on the same frame. One
+ * movement of colour across the whole bar.
+ */
+const ARRIVING_FILL = "rgba(255,255,255,0)"
 const PRESS_EDGE = "inset 0 0 0 0.5px rgba(255,255,255,0.95)"
 const REST_EDGE = "inset 0 0 0 0.5px rgba(255,255,255,0.75)"
 const DROP = "0 1px 2px rgba(16,18,27,0.07), 0 3px 8px rgba(16,18,27,0.10)"
@@ -1295,11 +1318,47 @@ export function MobileNavPill({
     Where the lens was last put down, so a change of slot can be told from a
     re-render that changes nothing — only the first of those is a hand-over.
   */
+  /*
+    Where the glass was last laid down, so a change of slot can be told from a
+    re-render that changes nothing — only the first of those is an arrival.
+  */
+  const laidAt = useRef(x)
+  const [arriving, setArriving] = useState(false)
+  /*
+    AND WHILE THE GLASS IS COMING IN, IT IS THE INK'S CURVE THAT RULES.
+
+    A press makes the lens brighten instantly, on purpose: easing that IN is
+    what made the old lift a different amount on every press, because a tap is
+    over in sixty milliseconds and interrupts it. But both of those are
+    background-color on the same element, so the press's instant was
+    swallowing the arrival as well and the glass was switched on rather than
+    filling. Measured as zero values between empty and full.
+
+    So an arrival says so for as long as it lasts, and wins.
+  */
+  const [filling, setFilling] = useState(false)
   useLayoutEffect(() => {
-    if (slide.following) return
+    if (slide.following) { laidAt.current = x; return }
     const dot = slide.dotRef.current
-    if (dot) dot.style.translate = `${x}px 0`
-  }, [x, slide.following, slide.dotRef])
+    if (!dot) return
+    const lay = () => { dot.style.translate = `${x}px 0`; laidAt.current = x }
+    /* A released drag brings its own arrival with it — it springs into the
+       slot on SETTLE — and a lens already where it belongs has not moved. */
+    if (laidAt.current === x || slide.bounce) { lay(); return }
+    /* One frame with no colour in it, and the next one somewhere else, where
+       the glass comes in. The move is invisible because there is nothing
+       painted to see move. */
+    if (!arriving) { setArriving(true); return }
+    lay()
+    setFilling(true)
+    const id = requestAnimationFrame(() => setArriving(false))
+    return () => cancelAnimationFrame(id)
+  }, [x, arriving, slide.following, slide.bounce, slide.dotRef])
+  useEffect(() => {
+    if (!filling) return
+    const t = window.setTimeout(() => setFilling(false), INK_MS)
+    return () => window.clearTimeout(t)
+  }, [filling, x])
 
   return (
     <div
@@ -1416,12 +1475,17 @@ export function MobileNavPill({
               /* `translate` is written by the loop and the effect above, never here. */
               scale: String(marked < 0 ? 0.55 : slide.following ? LIFT : 1),
               opacity: marked < 0 ? 0 : 1,
-              backgroundColor: slide.pressed ? PRESS_FILL : REST_FILL,
+              backgroundColor: arriving ? ARRIVING_FILL : slide.pressed ? PRESS_FILL : REST_FILL,
               boxShadow: `${slide.pressed ? PRESS_EDGE : REST_EDGE}, ${DROP}`,
               /* No transition on the position under a finger: the loop is the
                  motion. And the brightening goes on instantly, comes off
                  eased — see the note by PRESS_FILL. */
-              transition: `${slide.bounce && !slide.following ? SETTLE : NO_TRAVEL}, ${LIFT_EASE}, opacity 220ms ease-out, ${slide.pressed ? PRESS_ON : PRESS_OFF}`,
+              /* Emptied instantly on the frame it changes slot, filled back
+                 over the ink's own curve. Never the other way round. */
+              /* Emptied instantly on the frame it changes slot, then filled
+                 back over the ink's own curve — which outranks the press's
+                 instant for as long as the filling lasts. */
+              transition: `${slide.bounce && !slide.following ? SETTLE : NO_TRAVEL}, ${LIFT_EASE}, opacity 220ms ease-out, ${arriving || (slide.pressed && !filling) ? PRESS_ON : `background-color ${INK_EASE}, box-shadow ${INK_EASE}`}`,
               willChange: "translate, scale",
             }}
           />
