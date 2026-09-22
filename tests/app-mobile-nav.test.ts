@@ -486,7 +486,7 @@ function main() {
       && /targetRef\.current = movedRef\.current \? leftFor\(clientX\) : leftForSlot\(next\)/.test(nav)
       && /posRef\.current \+= gap \* FOLLOW/.test(nav)
       && /frameRef\.current = requestAnimationFrame\(step\)/.test(nav)
-      && /slide\.dragging \? "translate 0s" : SETTLE/.test(nav),
+      && /slide\.dragging \? "translate 0s" : slide\.bounce \? SETTLE : LAND/.test(nav),
     "a transition under the finger is a delay; a slot under the finger is a step")
   check("written straight to the element by the loop, and never by a style prop",
     /dot\.style\.translate = `\$\{posRef\.current\}px 0`/.test(nav)
@@ -508,7 +508,7 @@ function main() {
   check("and a press that has not moved yet aims at the slot, not at the fingertip",
     /const movedRef = useRef\(false\)/.test(nav)
       && /const DRAG_SLOP = 8/.test(nav)
-      && /if \(!movedRef\.current && Math\.abs\(clientX - downXRef\.current\) > DRAG_SLOP\) movedRef\.current = true/.test(nav),
+      && /if \(!movedRef\.current && Math\.abs\(clientX - downXRef\.current\) > DRAG_SLOP\) \{/.test(nav),
     "a press aimed at the fingertip springs off the slot and is dragged back on the lift: the bump")
   check("with the slot's edge computed the one way the component computes it at rest",
     /const leftForSlot = \(index: number\): number => PAD \+ index \* SLOT \+ \(SLOT - DOT\) \/ 2/.test(nav)
@@ -523,8 +523,35 @@ function main() {
       && /getComputedStyle\(dot\)\.translate/.test(nav))
   check("it settles with a little overshoot, on its own property, and lifts on another",
     /const SETTLE = `translate 420ms cubic-bezier\(0\.32, 1\.24, 0\.44, 1\)`/.test(nav)
-      && /const LIFT = 1\.06/.test(nav) && /slide\.dragging \? LIFT : 1/.test(nav)
+      && /const LIFT = 1\.06/.test(nav) && /slide\.following \? LIFT : 1/.test(nav)
       && /const LIFT_EASE = `scale 200ms/.test(nav))
+  /*
+    AND NEITHER OF THOSE BELONGS TO A PRESS. `dragging` meant "a finger is
+    down", so a tap grew the circle 6% and shrank it back with nothing being
+    held — 2.35px across, measured in the probe, and a different amount every
+    time because a 200ms lift was being cut short by a 60ms press. Every
+    check in this file read the circle's POSITION, which was clean, so this
+    went two rounds without being found.
+
+    So there are two pieces of state, and they answer different questions.
+    `dragging` is where the circle IS, from the moment a finger lands.
+    `following` is whether a finger is actually dragging it, and the lift,
+    the brighter fill and the waiting glyphs all belong to that.
+  */
+  check("and the lift belongs to a finger that is dragging, not to one that has landed",
+    /const \[following, setFollowing\] = useState\(false\)/.test(nav)
+      && /setFollowing\(true\)/.test(nav)
+      && /slide\.following \? "rgba\(255,255,255,0\.92\)" : "rgba\(255,255,255,0\.82\)"/.test(nav)
+      && !/slide\.dragging \? LIFT/.test(strip(nav)),
+    "a tap holds nothing, so growing the circle under one is movement for no reason")
+  check("and every gesture starts as a press, and is promoted only if a finger travels",
+    /setFollowing\(false\)\s*\n\s*setBounce\(false\)/.test(nav)
+      && /movedRef\.current = true\s*\n\s*setFollowing\(true\)/.test(nav),
+    "left over from the last gesture, the first tap after a drag would lift and bounce")
+  check("and a press lands where a released drag bounces",
+    /const LAND = `translate 260ms cubic-bezier\(0\.22, 0\.61, 0\.36, 1\)`/.test(nav)
+      && /slide\.bounce \? SETTLE : LAND/.test(nav),
+    "SETTLE's third control point is 1.24: past the slot and back, which a press never asked for")
   check("the finger is known from a ref, not from state a render behind",
     /if \(!activeRef\.current\) return/.test(nav) && !/if \(!dragging\) return/.test(strip(nav)))
   /*
@@ -534,7 +561,7 @@ function main() {
     follows the finger.
   */
   check("the glyphs follow the committed slot, not the finger",
-    /const shown = slide\.dragging \? \(pending \?\? current\) : marked/.test(nav)
+    /const shown = slide\.following \? \(pending \?\? current\) : marked/.test(nav)
       && /const on = i === shown/.test(nav))
 
   console.log("\n  and the menu changes nothing about the bar")

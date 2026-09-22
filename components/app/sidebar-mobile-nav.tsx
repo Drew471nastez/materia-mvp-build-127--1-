@@ -716,6 +716,22 @@ export const pillBelongsOn = (pathname: string): boolean =>
 const FOLLOW = 0.6
 const SETTLE = `translate 420ms cubic-bezier(0.32, 1.24, 0.44, 1)`
 /**
+ * AND A TAP DOES NOT BOUNCE.
+ *
+ * SETTLE's third control point is 1.24: past the slot and back again. That is
+ * the bounce a released DRAG was asked for, and it is wrong for a press.
+ *
+ * A press hands CSS whatever distance the frame loop had not covered yet, and
+ * a tap is over in about four frames, so on a quick one that remainder is most
+ * of a slot — thrown through an overshooting curve, which is the circle going
+ * past the icon you pressed and coming back. Reported as a bump, a little
+ * movement for no reason, and it looked random because how much is left when
+ * you lift depends on how fast you tapped.
+ *
+ * So the bounce belongs to the gesture that earned it. A press lands.
+ */
+const LAND = `translate 260ms cubic-bezier(0.22, 0.61, 0.36, 1)`
+/**
  * Under a finger the circle LIFTS a little, which is the tell of the newer
  * system bars: the thing you are holding is the thing that is bigger.
  */
@@ -773,6 +789,31 @@ type BarItem = {
 function useSlide(count: number, onPick: (index: number) => void) {
   const [dragging, setDragging] = useState(false)
   const [at, setAt] = useState<number | null>(null)
+  /* Whether the gesture that just ended was a drag, which is what decides
+     whether the circle bounces into the slot or lands on it. A route change
+     with no gesture behind it lands too. */
+  const [bounce, setBounce] = useState(false)
+  /**
+   * ═════════════════════════════════════════════════════════════════════════
+   *  A PRESS IS NOT A HOLD
+   * ═════════════════════════════════════════════════════════════════════════
+   * The circle grows under a finger, which is the tell that you are holding
+   * something you can drag. It read `dragging` to decide, and `dragging` meant
+   * "a finger is down" — so every tap grew it and shrank it back with nothing
+   * being held: measured at 1.047x, 2.35px across, on a 60ms press.
+   *
+   * And it was never the same twice. The lift takes 200ms and a tap is over in
+   * sixty, so how big it got depended on how long you happened to press, which
+   * is the "sometimes" and the "for no reason" in the report. Every check in
+   * scripts/check-app-mobile-nav.mjs read the circle's POSITION, which was
+   * clean, so none of them ever saw it.
+   *
+   * This is the gesture actually dragging: false on the way down, true only
+   * once a finger has travelled far enough to mean it. The lift, the brighter
+   * fill and the glyphs waiting all belong to it. Where the circle IS still
+   * belongs to the press, from the moment it lands.
+   */
+  const [following, setFollowing] = useState(false)
   const barRef = useRef<HTMLDivElement>(null)
   const dotRef = useRef<HTMLSpanElement>(null)
   const lastRef = useRef<number | null>(null)
@@ -877,7 +918,12 @@ function useSlide(count: number, onPick: (index: number) => void) {
   }
 
   const move = (clientX: number) => {
-    if (!movedRef.current && Math.abs(clientX - downXRef.current) > DRAG_SLOP) movedRef.current = true
+    if (!movedRef.current && Math.abs(clientX - downXRef.current) > DRAG_SLOP) {
+      movedRef.current = true
+      setFollowing(true)
+      /* And a drag, released, is the gesture the bounce was asked for. */
+      setBounce(true)
+    }
     const next = slotAt(clientX)
     /* Under the finger once this is a drag; on the slot while it is still
        only a press. */
@@ -899,6 +945,7 @@ function useSlide(count: number, onPick: (index: number) => void) {
     frameRef.current = 0
     posRef.current = null
     setDragging(false)
+    setFollowing(false)
     setAt(null)
     lastRef.current = null
     movedRef.current = false
@@ -910,6 +957,8 @@ function useSlide(count: number, onPick: (index: number) => void) {
     barRef,
     dotRef,
     dragging,
+    following,
+    bounce,
     at,
     handlers: {
       onPointerDown: (e: React.PointerEvent) => {
@@ -919,6 +968,10 @@ function useSlide(count: number, onPick: (index: number) => void) {
         activeRef.current = true
         posRef.current = drawnAt() ?? leftFor(e.clientX)
         setDragging(true)
+        /* Every gesture starts as a press: no lift, and it lands rather than
+           bouncing. Both are promoted if a finger goes anywhere. */
+        setFollowing(false)
+        setBounce(false)
         lastRef.current = null
         movedRef.current = false
         downXRef.current = e.clientX
@@ -1042,7 +1095,7 @@ export function MobileNavPill({
     to a filled one and back within a frame or two. The system bars this is
     modelled on do the same thing — the lens moves, the icons wait.
   */
-  const shown = slide.dragging ? (pending ?? current) : marked
+  const shown = slide.following ? (pending ?? current) : marked
 
   /**
    * Where it FADES OUT, which is not where slot zero is.
@@ -1183,12 +1236,12 @@ export function MobileNavPill({
               top: PAD,
               left: 0,
               /* `translate` is written by the loop and the effect above, never here. */
-              scale: String(marked < 0 ? 0.55 : slide.dragging ? LIFT : 1),
+              scale: String(marked < 0 ? 0.55 : slide.following ? LIFT : 1),
               opacity: marked < 0 ? 0 : 1,
-              backgroundColor: slide.dragging ? "rgba(255,255,255,0.92)" : "rgba(255,255,255,0.82)",
+              backgroundColor: slide.following ? "rgba(255,255,255,0.92)" : "rgba(255,255,255,0.82)",
               boxShadow: "inset 0 0 0 0.5px rgba(255,255,255,0.75), 0 1px 2px rgba(16,18,27,0.07), 0 3px 8px rgba(16,18,27,0.10)",
               /* No transition on the position under a finger: the loop is the motion. */
-              transition: `${slide.dragging ? "translate 0s" : SETTLE}, ${LIFT_EASE}, opacity 220ms ease-out, background-color 160ms ease-out`,
+              transition: `${slide.dragging ? "translate 0s" : slide.bounce ? SETTLE : LAND}, ${LIFT_EASE}, opacity 220ms ease-out, background-color 160ms ease-out`,
               willChange: "translate, scale",
             }}
           />
