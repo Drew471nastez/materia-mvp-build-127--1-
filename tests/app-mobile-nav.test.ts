@@ -586,13 +586,30 @@ function main() {
     both glyphs measure zero every frame of a press — so the movement was only
     ever the ink. A state with no duration cannot be seen moving.
   */
-  check("and the glyph swaps in one frame rather than blending through shapes that are neither",
-    /style=\{\{ position: "absolute", inset: 0, opacity: active \? 0 : 1 \}\}/.test(nav)
-      && !/opacity[^\n]*\n?[^\n]*transition: "opacity/.test(nav)
+  check("the glyph swaps outright rather than blending through shapes that are neither",
+    /style=\{\{ position: "absolute", inset: 0, opacity: drawn \? 0 : 1 \}\}/.test(nav)
+      && /opacity: drawn \? 1 : 0,/.test(nav)
       && !/transition: "opacity 180ms ease-out"/.test(nav),
     "every frame of a cross-fade between two drawings is a shape that is neither of them")
+  /*
+    AND IT SWAPS WHERE IT IS FAINT. Swapping outright is what keeps a shape
+    that is neither drawing off the screen, and on its own it is as hard as a
+    switch to look at. The box around the two glyphs dims through the change,
+    so what the eye follows is a dissolve and the difference between the two
+    drawings is only ever a quarter of a difference. Measured: the box dims to
+    0.26, and a glyph changes over at 0.32 visible.
+  */
+  check("and it changes over while the box around it is dimmed, so the swap is soft rather than hard",
+    /const GLYPH_FLOOR = 0\.25/.test(nav)
+      && /const \[drawn, setDrawn\] = useState\(active\)/.test(nav)
+      && /window\.setTimeout\(\(\) => \{ setDrawn\(active\); setDimmed\(false\) \}, GLYPH_OUT\)/.test(nav)
+      && /opacity: dimmed \? GLYPH_FLOOR : 1/.test(nav),
+    "a glyph that changes at full strength is a switch, and the two are not the same shape")
+  check("and it too leaves quicker than it arrives",
+    /const GLYPH_OUT = 110/.test(nav) && /const GLYPH_IN = 250/.test(nav)
+      && /transition: `opacity \$\{dimmed \? GLYPH_OUT : GLYPH_IN\}ms ease-out`/.test(nav))
   check("while the colour still eases, because colour moves nothing",
-    /transition: "color 200ms ease-out"/.test(nav))
+    /transition: "color 300ms ease-out"/.test(nav))
 
   /*
     AND THE LENS IS HANDED OVER, NOT THROWN. A press used to send it sliding
@@ -616,7 +633,7 @@ function main() {
       && /window\.setTimeout\(\(\) => \{ put\(\); setVeiled\(false\) \}, HANDOFF_OUT\)/.test(nav),
     "a lens that changes place at full opacity is a jump somebody can see")
   check("and it leaves quicker than it arrives",
-    /const HANDOFF_OUT = 90/.test(nav) && /const HANDOFF_IN = 190/.test(nav)
+    /const HANDOFF_OUT = 120/.test(nav) && /const HANDOFF_IN = 260/.test(nav)
       && /opacity \$\{veiled \? HANDOFF_OUT : HANDOFF_IN\}ms ease-out/.test(nav))
   check("while a released drag keeps its own arrival instead",
     /if \(putDownAt\.current === x \|\| slide\.bounce\) \{ put\(\); return \}/.test(nav),
@@ -642,7 +659,7 @@ function main() {
     "a control that does nothing at all when touched is what taking every moving thing out left behind")
   check("and it goes on instantly and comes off eased, never the other way round",
     /const PRESS_ON = "background-color 0s, box-shadow 0s"/.test(nav)
-      && /const PRESS_OFF = "background-color 260ms ease-out, box-shadow 260ms ease-out"/.test(nav)
+      && /const PRESS_OFF = "background-color 320ms ease-out, box-shadow 320ms ease-out"/.test(nav)
       && /slide\.pressed \? PRESS_ON : PRESS_OFF/.test(nav),
     "easing IN is what made the old lift a different amount on every press, because a tap interrupts it")
   check("and nothing geometric reads the press at all",
