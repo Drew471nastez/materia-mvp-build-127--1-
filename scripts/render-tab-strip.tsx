@@ -9,16 +9,16 @@
 import { createRoot } from "react-dom/client"
 import { useState } from "react"
 
-import { useTabReveal } from "../components/app/use-tab-reveal"
+import { useTabStrip } from "../components/app/use-tab-strip"
 
 const ORDER = ["views", "revenue", "orders", "conversion"] as const
 
 function Harness() {
   const [active, setActive] = useState<string>("views")
-  const strip = useTabReveal<HTMLDivElement>(active, ORDER)
+  const strip = useTabStrip<HTMLDivElement>(active, ORDER)
 
   return (
-    <div style={{ fontFamily: "system-ui" }}>
+    <div style={{ fontFamily: "system-ui", width: "100vw" }}>
       <div
         id="strip"
         ref={strip}

@@ -1,17 +1,18 @@
 /**
  * ===========================================================================
- *  THE TAB STRIP CARRIES ITSELF TO THE TAB YOU TAPPED
+ *  THE METRIC STRIP FOLLOWS THE TAB, AND KEEPS A SIDEWAYS SWIPE
  * ===========================================================================
  * The metric strip above each chart is four tabs in a row that scrolls
- * sideways on a phone. The fourth is off the edge, so tapping along the row
- * left the tab just chosen half out of sight and everything past it hidden.
+ * sideways on a phone. Two things were wrong with it: it did not follow the
+ * tab you chose, and a sideways swipe on it was often taken by the page.
  *
- * scripts/check-tab-reveal.mjs clicks the real buttons on a real strip and
- * reads where the row ends up in pixels. Two things it cannot check are here
- * instead: that the scroll it asks for is a SMOOTH one, which is a single
- * word the probe's own runs have to suppress in order to measure anything at
- * all; and that every tab in both strips is tagged and both strips are wired,
- * which a probe of the hook alone would never notice.
+ * scripts/check-tab-strip.mjs clicks the real buttons and drives real swipes
+ * at four angles, which is where both of those are settled. Three things it
+ * cannot check are here instead: that the scroll it asks for is a SMOOTH one,
+ * a single word the probe's own runs have to suppress to measure anything at
+ * all; that the swipe listener is registered in the one way that lets it say
+ * no to the page; and that every tab in both strips is tagged and both strips
+ * are wired, which a probe of the hook alone would never notice.
  */
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
@@ -36,10 +37,10 @@ function taggedIn(src: string): string[] {
 }
 
 function main() {
-  const hook = read("components/app/use-tab-reveal.ts")
+  const hook = read("components/app/use-tab-strip.ts")
   const home = read("components/app/dashboard-client.tsx")
   const analytics = read("app/app/analytics/analytics-client.tsx")
-  const probe = read("scripts/check-tab-reveal.mjs")
+  const probe = read("scripts/check-tab-strip.mjs")
 
   console.log("\nThe strip scrolls to the tab, and shows the edge of the next one")
 
@@ -78,9 +79,56 @@ function main() {
     /if \(strip\.scrollWidth <= strip\.clientWidth \+ 1\) return/.test(hook)
       && !/max-width: 767px/.test(hook),
     "a breakpoint would claim to know which screens hide a tab, and it does not")
-  check("the browser's own scrolling, not a hand-rolled one",
-    /strip\.scrollTo\(\{ left: target/.test(hook) && !/requestAnimationFrame/.test(strip(hook)),
-    "animating scrollLeft by hand is main-thread work that fights a finger dragging the row")
+  check("the reveal is the browser's own scrolling, not a hand-rolled one",
+    /strip\.scrollTo\(\{ left: target/.test(hook),
+    "nothing competes with this scroll, so animating it by hand buys nothing")
+
+  console.log("\nAnd a sideways swipe on the row belongs to the row")
+
+  /*
+    THE SECOND REPORT. With both axes permitted the browser arbitrates, and on
+    a row 72px tall inside a long page it calls anything but a dead flat swipe
+    vertical — then keeps the gesture whatever the thumb does next. So the
+    strip decides for itself, the way the chart one card below already does.
+  */
+  check("the gesture is decided once, early, and by the strip",
+    /const DECIDE_PX = 5/.test(hook)
+      && /owner = Math\.abs\(dx\) \* SIDEWAYS_BIAS > Math\.abs\(dy\) \? "strip" : "page"/.test(hook))
+  check("through a cone wider than 45 degrees, because sideways is what this row is for",
+    /const SIDEWAYS_BIAS = 1\.3/.test(hook))
+  /*
+    The half that keeps the previous fix here alive: a gesture handed to the
+    page must never be taken back, or a thumb curling sideways halfway down a
+    scroll snatches the row out from under it.
+  */
+  check("and a gesture given to the page is never taken back",
+    /if \(owner === "page"\) return/.test(hook))
+  /*
+    preventDefault on a passive listener is ignored, with a console warning
+    and no effect — the page would scroll anyway and the row would move too.
+  */
+  check("the swipe listener is not passive, which is the only way it can say no",
+    /strip\.addEventListener\("touchmove", onMove, \{ passive: false \}\)/.test(hook)
+      && /if \(e\.cancelable\) e\.preventDefault\(\)/.test(hook),
+    "a passive listener's preventDefault is ignored, so the page takes the swipe anyway")
+  check("and only the ones it claims are prevented",
+    /if \(owner === "page"\) return\s*\n[\s\S]{0,400}?e\.preventDefault\(\)/.test(hook),
+    "preventing before the decision cancels the page's scroll for the whole gesture")
+  check("a flick carries on afterwards, and stops at the end of the row",
+    /const GLIDE_DECAY = 0\.94/.test(hook)
+      && /if \(strip\.scrollLeft === before\) return/.test(hook),
+    "a hand-driven scroller that stops dead under the thumb is the tell that it is hand-driven")
+  check("nothing glides for somebody who asked for less motion",
+    /if \(window\.matchMedia\("\(prefers-reduced-motion: reduce\)"\)\.matches\) return\s*\n\s*\n\s*\/\*/.test(hook))
+  check("and the listeners come off with the strip",
+    (hook.match(/removeEventListener/g) ?? []).length === 4
+      && /cancelAnimationFrame\(glide\.current\)\s*\n\s*strip\.removeEventListener/.test(hook))
+  /*
+    Naming one axis in CSS takes the other away: `pan-x` alone is what stopped
+    the page scrolling from this row in the first place.
+  */
+  check("both axes stay permitted in CSS, because the strip is what decides",
+    /touchAction: 'pan-x pan-y'/.test(home) && /touchAction: 'pan-x pan-y'/.test(analytics))
 
   console.log("\nEvery tab in both strips is tagged, and both strips are wired")
 
@@ -96,7 +144,7 @@ function main() {
   check("and hands the hook the order it draws them in",
     /const KPI_TAB_ORDER = \["views", "revenue", "orders", "conversion"\] as const/.test(home)
       && JSON.stringify(homeOrder) === JSON.stringify(["views", "revenue", "orders", "conversion"])
-      && /const kpiStripRef = useTabReveal<HTMLDivElement>\(openKPIModal \?\? "views", KPI_TAB_ORDER\)/.test(home))
+      && /const kpiStripRef = useTabStrip<HTMLDivElement>\(openKPIModal \?\? "views", KPI_TAB_ORDER\)/.test(home))
   check("with the ref on the row that actually scrolls",
     /<div ref=\{kpiStripRef\} className="relative flex overflow-x-auto/.test(home))
 
@@ -119,7 +167,7 @@ function main() {
     follows whichever set is on screen rather than one of them.
   */
   check("one strip, following whichever set of tabs the mode is showing",
-    /const metricStripRef = useTabReveal<HTMLDivElement>\(\s*\n\s*analyticsMode === "onepage" \? onePageChartFilter : chartMetricFilter,\s*\n\s*analyticsMode === "onepage" \? ONEPAGE_TAB_ORDER : STORE_TAB_ORDER,/.test(analytics)
+    /const metricStripRef = useTabStrip<HTMLDivElement>\(\s*\n\s*analyticsMode === "onepage" \? onePageChartFilter : chartMetricFilter,\s*\n\s*analyticsMode === "onepage" \? ONEPAGE_TAB_ORDER : STORE_TAB_ORDER,/.test(analytics)
       && /<div ref=\{metricStripRef\} className="relative flex overflow-x-auto/.test(analytics))
 
   console.log("\nAnd the chart itself is left alone")
@@ -136,6 +184,12 @@ function main() {
 
   check("the probe clicks real buttons and reads the row's position",
     /\.click\(\)/.test(probe) && /scrollLeft: Math\.round/.test(probe))
+  check("and drives real swipes at four angles, asking whose each one is",
+    /new TouchEvent\(/.test(probe)
+      && /await swipe\(0, 120\)/.test(probe) && /await swipe\(30, 120\)/.test(probe)
+      && /await swipe\(70, 120\)/.test(probe) && /await swipe\(90, 120\)/.test(probe))
+  check("checking the steep ones are left unprevented, so the page can still scroll",
+    /neither is prevented, so the page really can scroll from here/.test(probe))
   check("checking the chosen tab is unclipped and the next one shows",
     /leaves it fully in view/.test(probe) && /of the tab after it showing/.test(probe))
   check("at a width where the row overflows, and one where it does not",

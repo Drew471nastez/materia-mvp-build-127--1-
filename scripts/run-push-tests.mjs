@@ -144,7 +144,7 @@ const SUITES = [
   "tests/marketing-image-quality.test.ts",
   "tests/keyboard-safe-sheet.test.ts",
   "tests/analytics-chart-skeleton.test.ts",
-  "tests/tab-reveal.test.ts",
+  "tests/tab-strip.test.ts",
   "tests/scrim-blur.test.ts",
 ]
 
