@@ -840,6 +840,32 @@ const DROP = "0 1px 2px rgba(16,18,27,0.07), 0 3px 8px rgba(16,18,27,0.10)"
 /** On instantly, off over this. Never the other way round. */
 const PRESS_OFF = "background-color 260ms ease-out, box-shadow 260ms ease-out"
 const PRESS_ON = "background-color 0s, box-shadow 0s"
+
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ *  THE LENS IS HANDED FROM ONE SLOT TO THE NEXT, NOT THROWN
+ * ═══════════════════════════════════════════════════════════════════════════
+ * A press used to send the lens sliding across the bar, and that slide was
+ * the reported glitch: it overshot the slot and came back, by an amount that
+ * depended on how fast you tapped. Taking it out left the lens teleporting,
+ * which is correct and reads as abrupt.
+ *
+ * So it is handed over instead of thrown. It dips almost out of sight, it is
+ * put down on the new slot while it is faint, and it comes back up. The eye
+ * follows a dissolve rather than a journey, and there is no journey to be
+ * caught halfway through, to overshoot, or to land a pixel out.
+ *
+ * THE PROPERTY THAT MATTERS, and the one the probe holds it to: the lens
+ * never changes position on a frame where it can be seen. Position moves
+ * only while opacity is down at the floor.
+ *
+ * Out is quicker than in, because a thing arriving should take longer than a
+ * thing leaving — and because the dip begins the instant a finger lands, so
+ * it is the part that has to keep up with the touch.
+ */
+const HANDOFF_FLOOR = 0.12
+const HANDOFF_OUT = 90
+const HANDOFF_IN = 190
 /**
  * Under a finger the circle LIFTS a little, which is the tell of the newer
  * system bars: the thing you are holding is the thing that is bigger.
@@ -1248,11 +1274,28 @@ export function MobileNavPill({
     written here, after the render that set the SETTLE transition, from
     wherever the loop left it to the slot it belongs on.
   */
+  /*
+    Where the lens was last put down, so a change of slot can be told from a
+    re-render that changes nothing — only the first of those is a hand-over.
+  */
+  const putDownAt = useRef(x)
+  const [veiled, setVeiled] = useState(false)
   useLayoutEffect(() => {
-    if (slide.following) return
+    if (slide.following) { putDownAt.current = x; return }
     const dot = slide.dotRef.current
-    if (dot) dot.style.translate = `${x}px 0`
-  }, [x, slide.following, slide.dotRef])
+    if (!dot) return
+    const put = () => { dot.style.translate = `${x}px 0`; putDownAt.current = x }
+    /*
+      A released drag has its own arrival — it springs into the slot on
+      SETTLE, which is the bounce that gesture asked for — and a lens that is
+      already where it belongs has nothing to hand over. Both are written
+      straight out.
+    */
+    if (putDownAt.current === x || slide.bounce) { put(); return }
+    setVeiled(true)
+    const t = window.setTimeout(() => { put(); setVeiled(false) }, HANDOFF_OUT)
+    return () => window.clearTimeout(t)
+  }, [x, slide.following, slide.bounce, slide.dotRef])
 
   return (
     <div
@@ -1368,13 +1411,13 @@ export function MobileNavPill({
               left: 0,
               /* `translate` is written by the loop and the effect above, never here. */
               scale: String(marked < 0 ? 0.55 : slide.following ? LIFT : 1),
-              opacity: marked < 0 ? 0 : 1,
+              opacity: marked < 0 ? 0 : veiled ? HANDOFF_FLOOR : 1,
               backgroundColor: slide.pressed ? PRESS_FILL : REST_FILL,
               boxShadow: `${slide.pressed ? PRESS_EDGE : REST_EDGE}, ${DROP}`,
               /* No transition on the position under a finger: the loop is the
                  motion. And the brightening goes on instantly, comes off
                  eased — see the note by PRESS_FILL. */
-              transition: `${slide.bounce && !slide.following ? SETTLE : NO_TRAVEL}, ${LIFT_EASE}, opacity 220ms ease-out, ${slide.pressed ? PRESS_ON : PRESS_OFF}`,
+              transition: `${slide.bounce && !slide.following ? SETTLE : NO_TRAVEL}, ${LIFT_EASE}, opacity ${veiled ? HANDOFF_OUT : HANDOFF_IN}ms ease-out, ${slide.pressed ? PRESS_ON : PRESS_OFF}`,
               willChange: "translate, scale",
             }}
           />
