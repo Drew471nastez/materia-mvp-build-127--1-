@@ -417,6 +417,44 @@ section("What the native shell adds to every scroll frame")
   )
 }
 
+
+/*
+ * ===========================================================================
+ *  A TICK QUIETER THAN THE QUIETEST KNOCK
+ * ===========================================================================
+ * "The haptics there are too loud, reduce them a little bit."
+ *
+ * The bar had two strengths, medium and light, and medium reads as loud on a
+ * control you press several times a minute. Stepping it down needed a level
+ * below light, and there was not one: the three impact styles are knocks and
+ * Light is the quietest knock iOS makes.
+ *
+ * Below them is a different generator entirely — the one behind a picker
+ * wheel and a segmented control. It is the softest thing the Taptic Engine
+ * produces, and a row of tabs IS a segmented control, so it is the right
+ * shape as well as the quiet one. Android has no equivalent, so there it is
+ * simply a shorter buzz, which is all navigator.vibrate can say.
+ */
+{
+  const bridge = read("lib/native-bridge.ts")
+  console.log("\n  Haptics have a level below the quietest knock")
+  check(
+    "soft is selection feedback, not a fourth impact style",
+    /if \(style === "soft"\) \{\s*\n\s*await Haptics\.selectionChanged\(\)/.test(bridge),
+    "there is no impact style below Light; the softer thing is a different generator",
+  )
+  check(
+    "and on a browser it is a shorter buzz than light",
+    /navigator\.vibrate\(strength === "soft" \? 6 : strength === "light" \? 10 : 15\)/.test(bridge),
+    "Android has no selection generator, so duration is the only thing left to lower",
+  )
+  check(
+    "and both entry points accept it",
+    /export async function triggerHaptic\(style: "soft" \| "light" \| "medium" \| "heavy"/.test(bridge)
+      && /export function hapticTap\(strength: "soft" \| "light" \| "medium"/.test(bridge),
+  )
+}
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log("Failing:", failures.join(", "))

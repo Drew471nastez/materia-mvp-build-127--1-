@@ -337,12 +337,25 @@ export async function nativeLogout(
  *
  * @param style - "light" | "medium" | "heavy" (default: "light")
  */
-export async function triggerHaptic(style: "light" | "medium" | "heavy" = "light"): Promise<boolean> {
+export async function triggerHaptic(style: "soft" | "light" | "medium" | "heavy" = "light"): Promise<boolean> {
   if (typeof window === "undefined") return false
   const cap = (window as any).Capacitor
   if (!cap?.isNativePlatform?.()) return false
   try {
     const { Haptics, ImpactStyle } = await import("@capacitor/haptics")
+    /**
+     * "soft" IS NOT AN IMPACT AT ALL.
+     *
+     * The three impact styles are knocks, and Light is the quietest knock
+     * there is. Below it iOS has a different generator entirely, the one
+     * behind a picker wheel and a segmented control: selection feedback. It
+     * is the softest thing the Taptic Engine makes, and it is what a row of
+     * tabs is, so it is the right shape as well as the quiet one.
+     */
+    if (style === "soft") {
+      await Haptics.selectionChanged()
+      return true
+    }
     const styleMap = { light: ImpactStyle.Light, medium: ImpactStyle.Medium, heavy: ImpactStyle.Heavy }
     await Haptics.impact({ style: styleMap[style] })
     return true
@@ -388,10 +401,12 @@ export async function triggerHaptic(style: "light" | "medium" | "heavy" = "light
  * do support it. tests/page-performance.test.ts fails the build if a raw
  * navigator.vibrate call appears anywhere outside this file.
  */
-export function hapticTap(strength: "light" | "medium" = "light"): void {
+export function hapticTap(strength: "soft" | "light" | "medium" = "light"): void {
   const web = () => {
     if (typeof navigator !== "undefined" && "vibrate" in navigator) {
-      navigator.vibrate(strength === "light" ? 10 : 15)
+      /* Android has no selection generator, so soft is simply a shorter buzz
+         than light — which is all `vibrate` can express. */
+      navigator.vibrate(strength === "soft" ? 6 : strength === "light" ? 10 : 15)
     }
   }
 
