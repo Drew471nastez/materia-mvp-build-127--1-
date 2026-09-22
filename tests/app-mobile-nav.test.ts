@@ -444,9 +444,14 @@ function main() {
   check("a tap is a drag of zero length, so the two can never disagree",
     !/onClick=\{\(\) => pick\(/.test(nav) && /const picked = slotAt\(e\.clientX\)/.test(nav))
   check("and it ticks once per slot crossed, not once per frame",
-    /if \(lastRef\.current !== next\) \{[\s\S]{0,200}?hapticTap\("light"\)/.test(nav))
-  check("with a second tick on the lift, when it commits",
-    /hapticTap\("medium"\)\s*\n\s*onPick\(picked\)/.test(nav))
+    /if \(lastRef\.current !== next\) \{[\s\S]{0,900}?hapticTap\(first \? "medium" : "light"\)/.test(nav))
+  /*
+    A DRAG lands, and landing is worth a tick of its own. A TAP already ticked
+    at the better moment, when the finger arrived — firing again sixty
+    milliseconds later is a stutter, not a second piece of information.
+  */
+  check("with a second tick when a DRAG lands, and none for a tap that already ticked",
+    /if \(dragged\) hapticTap\("medium"\)\s*\n\s*onPick\(picked\)/.test(nav))
   check("a gesture that leaves the bar vertically is not a navigation",
     /const away = escaped\(e\.clientY\)/.test(nav) && /if \(away\) return/.test(nav),
     "a finger that lands on the bar and travels up the screen was trying to scroll")
@@ -494,7 +499,7 @@ function main() {
       && !/translate: `/.test(strip(nav)) && !/transform: `translateX\(\$\{x\}px\)/.test(strip(nav)),
     "a position prop would fight the loop, or on the lift be a string React already rendered and never written")
   check("a render happens when the slot changes, not on every move",
-    /if \(lastRef\.current !== next\) \{\s*\n\s*lastRef\.current = next\s*\n[^\n]*\n[^\n]*\n\s*setAt\(next\)/.test(nav)
+    /if \(lastRef\.current !== next\) \{[\s\S]{0,900}?setAt\(next\)/.test(nav)
       && !/^\s*setAt\(next\)\s*$/m.test(strip(nav).split("const move")[1].split("if (lastRef")[0]))
   /*
     But a press is not a drag, and aiming a press at the fingertip is what the
@@ -590,6 +595,39 @@ function main() {
     /transition: "color 200ms ease-out"/.test(nav))
 
   /*
+    AND THE BAR ANSWERS A FINGER. Every moving thing was taken out of a press
+    one at a time, and the last of them left a control that does nothing when
+    you touch it. So the lens brightens under one: no size, no position,
+    nothing that can be a pixel out of place.
+
+    THE SHAPE OF IT IS THE POINT. The old lift eased IN over 200ms and a tap
+    lasts about sixty, so it was cut off at a different point every time,
+    which is why a press looked like a different amount of something on every
+    press and read as a glitch. Full on the frame the finger lands, eased only
+    on the way off, is the same press whether it is held for a frame or a
+    second. Measured: on in 0s, off over 0.26s, 0px wider while held.
+  */
+  check("the lens brightens under a finger, and that is the whole of the answer",
+    /const PRESS_FILL = "rgba\(255,255,255,0\.97\)"/.test(nav)
+      && /const REST_FILL = "rgba\(255,255,255,0\.82\)"/.test(nav)
+      && /backgroundColor: slide\.pressed \? PRESS_FILL : REST_FILL/.test(nav),
+    "a control that does nothing at all when touched is what taking every moving thing out left behind")
+  check("and it goes on instantly and comes off eased, never the other way round",
+    /const PRESS_ON = "background-color 0s, box-shadow 0s"/.test(nav)
+      && /const PRESS_OFF = "background-color 260ms ease-out, box-shadow 260ms ease-out"/.test(nav)
+      && /slide\.pressed \? PRESS_ON : PRESS_OFF/.test(nav),
+    "easing IN is what made the old lift a different amount on every press, because a tap interrupts it")
+  check("and nothing geometric reads the press at all",
+    !/scale: String\([^)]*slide\.pressed/.test(nav)
+      && !/slide\.pressed \? (LIFT|NO_TRAVEL|SETTLE)/.test(nav),
+    "size and position are the two things that were reported as bumping")
+  check("a tap is one tick, at the moment of contact",
+    /const first = lastRef\.current === null/.test(nav)
+      && /hapticTap\(first \? "medium" : "light"\)/.test(nav)
+      && /if \(dragged\) hapticTap\("medium"\)/.test(nav),
+    "light going down and medium coming up, sixty milliseconds apart, is a stutter rather than a tick")
+
+  /*
     AND A PRESS DOES NOT TRAVEL. "When I click on the icon, make sure that it
     doesn't bump, scale, or do any of the movements left and right." A finger
     sliding along the bar still carries the circle with it and still bounces
@@ -610,7 +648,7 @@ function main() {
   check("and the lift belongs to a finger that is dragging, not to one that has landed",
     /const \[following, setFollowing\] = useState\(false\)/.test(nav)
       && /setFollowing\(true\)/.test(nav)
-      && /slide\.following \? "rgba\(255,255,255,0\.92\)" : "rgba\(255,255,255,0\.82\)"/.test(nav)
+      && /scale: String\(marked < 0 \? 0\.55 : slide\.following \? LIFT : 1\)/.test(nav)
       && !/slide\.dragging \? LIFT/.test(strip(nav)),
     "a tap holds nothing, so growing the circle under one is movement for no reason")
   check("and every gesture starts as a press, and is promoted only if a finger travels",
