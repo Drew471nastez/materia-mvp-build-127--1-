@@ -308,7 +308,36 @@ html.capacitor body {
   .skeleton-fade {
     animation: skeleton-reveal 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
   }
+  /* ── The analytics chart before its first numbers arrive ─────────────────
+     The card used to be a white box until the fetch returned, because a
+     Recharts series of `[]` draws no grid, no axis and no line. It draws its
+     real frame now, with a grey line resting on the axis, and that line
+     breathes so the frame reads as waiting rather than as a finished chart
+     of nothing.
+
+     The stroke transition is on both states, not just the loading one: it is
+     what turns the moment the data lands from a colour swap into a fade,
+     while the line itself grows on Recharts' own animation.
+     ──────────────────────────────────────────────────────────────────── */
+  @keyframes chart-skeleton-breath {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.45; }
+  }
+  [data-chart-loading] .recharts-area-curve {
+    transition: stroke 420ms cubic-bezier(0.32, 0.72, 0, 1);
+  }
+  [data-chart-loading="true"] .recharts-area-curve,
+  [data-chart-loading="true"] .recharts-cartesian-grid line,
+  [data-chart-loading="true"] .recharts-cartesian-axis-tick text {
+    animation: chart-skeleton-breath 1.7s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
   @media (prefers-reduced-motion: reduce) {
+    [data-chart-loading="true"] .recharts-area-curve,
+    [data-chart-loading="true"] .recharts-cartesian-grid line,
+    [data-chart-loading="true"] .recharts-cartesian-axis-tick text {
+      animation: none;
+    }
     .skeleton-deferred,
     .skeleton-fade {
       animation: none;

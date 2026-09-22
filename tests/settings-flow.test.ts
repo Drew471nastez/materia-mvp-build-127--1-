@@ -564,7 +564,15 @@ section("THE AUDIT: every chart request, on both charts")
     ["no transition fights that follow", /transition: "none"/],
     ["one haptic per point crossed", /idx !== lastHapticIndexRef\.current/],
     ["the haptic resets when the finger lifts", /lastHapticIndexRef\.current = null/],
-    ["one redraw per metric switch, on the data", /\}, \[(displayChartData|chartDisplayData)\]\)/],
+    /*
+      The dependency list is the data, and nothing that merely ASKS for data:
+      a metric filter in here fired the effect once with the old numbers
+      still in the chart and again when the new ones arrived. The analytics
+      chart also carries its own animation flag in the list, because the flag
+      is now raised during the render that receives the series rather than by
+      this effect; see tests/analytics-chart-skeleton.test.ts.
+    */
+    ["one redraw per metric switch, on the data", /\}, \[(?:shouldAnimate, )?(displayChartData|chartDisplayData)\]\)/],
   ]
 
   for (const [label, re] of required) {
