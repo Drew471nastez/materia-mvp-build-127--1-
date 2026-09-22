@@ -196,21 +196,39 @@ const INK_EASE = `${INK_MS}ms cubic-bezier(0.22, 0.61, 0.36, 1)`
  * after that.
  *
  * So neither is faded and neither is blended: THEY ARE CLIPPED, against each
- * other, by one edge that sweeps up the box. Below the edge the solid is
- * drawn, above it the outline, and the two clips are exact complements — so
- * every pixel is one drawing or the other, never a mix of both and never
- * nothing. What the eye follows is the black filling the glyph from the
- * bottom, which is what "it fills with black" describes.
+ * other, by one edge that crosses the box. On one side of the edge the solid
+ * is drawn, on the other the outline, and the two clips are exact
+ * complements — so every pixel is one drawing or the other, never a mix of
+ * both and never nothing.
+ *
+ * THE EDGE COMES DOWN, not up. It rose from the bottom first, which reads as
+ * something filling like a glass, and the ink is not a liquid. Coming down
+ * is the ink arriving on the glyph rather than collecting in it.
+ *
+ * A straight edge is the only shape this technique can do, and the reason is
+ * worth writing down: `inset()` says how far to cut in from each side, so it
+ * can express a half of the box and its exact opposite, and nothing else.
+ * Growing from the middle outward would need the outline clipped to
+ * everything OUTSIDE a circle, which inset() cannot say at all — and the ways
+ * round that are the two that were already tried and rejected: drawing one
+ * glyph over the other, which closes the gaps the solid is drawn with, or
+ * masking with gradients, which brings the fades back. So the choice here is
+ * which way the edge travels, and it travels down.
  *
  * Nothing fades: both are fully opaque throughout. Nothing moves: FILL_MATCH
  * already puts the two in the same box, so the edge crosses one shape rather
  * than travelling between two. And it starts on the frame the finger lands,
  * on the ink's own curve, alongside the lens's glass and the icon's colour.
  */
-const FILLED_UP = "inset(0% 0 0 0)"
-const FILLED_NONE = "inset(100% 0 0 0)"
-const OUTLINE_ALL = "inset(0 0 0% 0)"
-const OUTLINE_NONE = "inset(0 0 100% 0)"
+/** The solid, all of it, and none of it: cut in from the BOTTOM, so what is
+    revealed grows downward from the top. */
+const FILLED_ALL = "inset(0 0 0% 0)"
+const FILLED_NONE = "inset(0 0 100% 0)"
+/** The outline, all of it and none of it: cut in from the TOP, so it retreats
+    downward exactly ahead of the solid. At every moment the two are halves of
+    the same box. */
+const OUTLINE_ALL = "inset(0% 0 0 0)"
+const OUTLINE_NONE = "inset(100% 0 0 0)"
 
 function NavIcon({ icon, active, color, size = 22 }: { icon: NavIconPair; active: boolean; color: string; size?: number }) {
   const Line = icon.line
@@ -218,7 +236,7 @@ function NavIcon({ icon, active, color, size = 22 }: { icon: NavIconPair; active
   const sweep = `clip-path ${INK_EASE}`
   return (
     <span className="relative block shrink-0" style={{ color, width: size, height: size }}>
-      {/* Above the edge, and gone once the edge is over the top. */}
+      {/* Below the edge, and gone once the edge is past the bottom. */}
       <Line
         size={size}
         strokeWidth={1.5}
@@ -229,7 +247,7 @@ function NavIcon({ icon, active, color, size = 22 }: { icon: NavIconPair; active
           transition: sweep,
         }}
       />
-      {/* Below it, and the whole box once the edge is over the top. The scale
+      {/* Above it, and the whole box once the edge is past the bottom. The scale
           is a constant, never animated: the solid is drawn at the size of the
           outline it replaces, which is what lets one edge serve both. */}
       <Fill
@@ -237,7 +255,7 @@ function NavIcon({ icon, active, color, size = 22 }: { icon: NavIconPair; active
         style={{
           position: "absolute",
           inset: 0,
-          clipPath: active ? FILLED_UP : FILLED_NONE,
+          clipPath: active ? FILLED_ALL : FILLED_NONE,
           transition: sweep,
           scale: String(FILL_MATCH),
         }}

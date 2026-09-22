@@ -946,10 +946,11 @@ await sleep(400)
  * solid below it and the outline above. Reading opacity would see two
  * glyphs at 1 and call it a blend of both.
  *
- * So it reads the clips. `cut` is how far up the box the solid has filled,
- * 0 to 1, taken from the inset the solid is clipped by; `gap` is how far
- * that is from the outline's complementary inset, which has to stay at zero
- * or there is a band showing both drawings, or neither.
+ * So it reads the clips. `cut` is how much of the box the solid has filled,
+ * 0 to 1, taken from the inset it is clipped by — from the BOTTOM, because
+ * the edge comes down. `gap` is how far that is from the outline's
+ * complementary inset, taken from the top, and it has to stay at zero or
+ * there is a band showing both drawings, or neither.
  */
 const OPACITIES = `(() => {
   const links = [...document.querySelectorAll('nav[aria-label="Main"] a[aria-label]')]
@@ -967,13 +968,13 @@ const OPACITIES = `(() => {
     /* How full the solid is, and how far the outline's edge is from it. */
     cut: links.map((l) => {
       const svgs = l.querySelectorAll("svg")
-      const filled = pct(svgs[1], "top")
+      const filled = pct(svgs[1], "bottom")
       return filled == null ? null : Math.round((1 - filled) * 100) / 100
     }),
     gap: links.map((l) => {
       const svgs = l.querySelectorAll("svg")
-      const filled = pct(svgs[1], "top")
-      const outline = pct(svgs[0], "bottom")
+      const filled = pct(svgs[1], "bottom")
+      const outline = pct(svgs[0], "top")
       return filled == null || outline == null ? null : Math.round(Math.abs(1 - filled - outline) * 100) / 100
     }),
   }
