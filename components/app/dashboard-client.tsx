@@ -1,5 +1,6 @@
 "use client"
 
+import { useTabReveal } from "@/components/app/use-tab-reveal"
 import { useState, useEffect, useMemo, useRef, useCallback, type ReactNode } from "react"
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh"
 import { PullToRefreshIndicator } from "./pull-to-refresh-indicator"
@@ -85,6 +86,9 @@ interface ChartDataPoint {
 }
 
 type KPIType = "views" | "orders" | "revenue" | "conversion" | null
+
+/** The strip's own order, which is what decides which way it scrolls. */
+const KPI_TAB_ORDER = ["views", "revenue", "orders", "conversion"] as const
 
 /**
  * ===========================================================================
@@ -1638,6 +1642,8 @@ export function DashboardClient({
   }, [isLoading])
   const [expandedStep, setExpandedStep] = useState<string | null>(null)
   const [openKPIModal, setOpenKPIModal] = useState<KPIType>("views")
+  /* Choosing a tab brings it, and the edge of the next one, into view. */
+  const kpiStripRef = useTabReveal<HTMLDivElement>(openKPIModal ?? "views", KPI_TAB_ORDER)
   const [chartExpanded, setChartExpanded] = useState(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("storelib_chart_expanded")
@@ -2780,8 +2786,10 @@ export function DashboardClient({
 
         {/* Stats Cards + Chart Section */}
         <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] mb-8 overflow-hidden">
-          {/* KPI Metric Tabs - horizontally scrollable on mobile */}
-          <div className="relative flex overflow-x-auto scrollbar-hide md:grid md:grid-cols-4 divide-x divide-[#e5e7eb]/60" style={{
+          {/* KPI Metric Tabs - horizontally scrollable on mobile.
+              The strip scrolls itself to whichever tab is chosen; see
+              components/app/use-tab-reveal. */}
+          <div ref={kpiStripRef} className="relative flex overflow-x-auto scrollbar-hide md:grid md:grid-cols-4 divide-x divide-[#e5e7eb]/60" style={{
               /*
                 BOTH AXES. This was `pan-x`, which does not mean "prefer
                 horizontal" — it means vertical panning is not allowed here at
@@ -2798,6 +2806,7 @@ export function DashboardClient({
               className={`text-left px-3 py-3 sm:px-4 sm:py-3.5 transition-all duration-200 cursor-pointer relative flex-shrink-0 min-w-[130px] md:min-w-0 ${
                 openKPIModal === "views" ? "md:bg-[#f9fafb]" : "hover:bg-[#fafafa]"
               }`}
+              data-tab="views"
               onClick={() => { setOpenKPIModal("views"); setChartExpanded(true) }}
             >
               {openKPIModal === "views" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
@@ -2814,6 +2823,7 @@ export function DashboardClient({
               className={`text-left px-3 py-3 sm:px-4 sm:py-3.5 transition-all duration-200 cursor-pointer relative flex-shrink-0 min-w-[130px] md:min-w-0 ${
                 openKPIModal === "revenue" ? "md:bg-[#f9fafb]" : "hover:bg-[#fafafa]"
               }`}
+              data-tab="revenue"
               onClick={() => { setOpenKPIModal("revenue"); setChartExpanded(true) }}
             >
               {openKPIModal === "revenue" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
@@ -2830,6 +2840,7 @@ export function DashboardClient({
               className={`text-left px-3 py-3 sm:px-4 sm:py-3.5 transition-all duration-200 cursor-pointer relative flex-shrink-0 min-w-[130px] md:min-w-0 ${
                 openKPIModal === "orders" ? "md:bg-[#f9fafb]" : "hover:bg-[#fafafa]"
               }`}
+              data-tab="orders"
               onClick={() => { setOpenKPIModal("orders"); setChartExpanded(true) }}
             >
               {openKPIModal === "orders" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
@@ -2846,6 +2857,7 @@ export function DashboardClient({
               className={`text-left px-3 py-3 sm:px-4 sm:py-3.5 transition-all duration-200 cursor-pointer relative flex-shrink-0 min-w-[130px] md:min-w-0 ${
                 openKPIModal === "conversion" ? "md:bg-[#f9fafb]" : "hover:bg-[#fafafa]"
               }`}
+              data-tab="conversion"
               onClick={() => { setOpenKPIModal("conversion"); setChartExpanded(true) }}
             >
               {openKPIModal === "conversion" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
