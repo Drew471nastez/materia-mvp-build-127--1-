@@ -846,6 +846,35 @@ await ev('window.__routeDelay = 0; window.__navCost = 0; globalThis.__goto("/app
 await sleep(400)
 
 /*
+ * ── AND THE GLYPH IS NEVER CAUGHT HALFWAY ────────────────────────────────
+ *
+ * "When I unclick the other icon it moves the icon a little bit."
+ *
+ * Nothing about the layout moves when a tab changes: the button, the glyph
+ * box and both glyphs all measure zero across a whole press, every frame. The
+ * movement was inside the drawing. The outline and the solid are two
+ * different drawings, so fading one through the other makes every frame of
+ * the fade a shape that is neither — on Products, 40x40 going in, 40x39
+ * halfway, 39x38 coming out.
+ *
+ * A state with no duration cannot be seen moving, so the glyph swaps in one
+ * frame. This watches both glyphs of all four icons through a real press and
+ * a real route change: every reading has to be all the way on or all the way
+ * off. A fraction anywhere is a frame of a shape that is neither.
+ */
+const OPACITIES = `(() => [...document.querySelectorAll('nav[aria-label="Main"] a[aria-label] svg')]
+  .map((sv) => +Number(getComputedStyle(sv).opacity).toFixed(2)))()`
+await ev('window.__routeDelay = 260; window.__went = null; true')
+const opTrail = [await ev(OPACITIES)]
+await send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: slots[2].x - 14, y: slots[2].y, radiusX: 12, radiusY: 12, force: 1 }] })
+await sleep(50)
+await send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] })
+for (let i = 0; i < 40; i++) { opTrail.push(await ev(OPACITIES)); await sleep(12) }
+const partly = opTrail.flat().filter((v) => v > 0.01 && v < 0.99)
+await ev('window.__routeDelay = 0; globalThis.__goto("/app"); true')
+await sleep(400)
+
+/*
  * ── AND NOW THE ICONS THEMSELVES, PHOTOGRAPHED ON AND OFF ────────────────
  *
  * Each of the four is shot twice: once with its own tab on, once with the
@@ -1395,6 +1424,11 @@ console.log(`              ${routeTap.turns} changes of direction, ${routeTap.pa
   filling in moves its weight towards the middle of the shape by design, and
   pinning that would be forbidding the fill.
 */
+console.log(`  the glyphs  ${opTrail.length} readings of ${opTrail[0].length} glyphs across a press and the route landing`)
+console.log(`              ${partly.length} of them caught part way between the two drawings\n`)
+must(partly.length === 0, "a glyph is either the outline or the solid, never a blend of the two",
+  `${partly.length} reading(s) were part way between the two drawings: ${[...new Set(partly)].slice(0, 8).join(", ")}`)
+
 for (const ic of icons) {
   must(!ic.missing, `${ic.label} is drawn at all`, "no ink found in its box")
   must(Math.abs(ic.grewW) <= 1 && Math.abs(ic.grewH) <= 1,

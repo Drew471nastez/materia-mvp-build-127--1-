@@ -570,9 +570,24 @@ function main() {
   check("and the scale is a constant, not something that animates",
     !/transition:[^\n]*scale/.test(nav) && !/scale 1[0-9]{2}ms/.test(strip(nav)),
     "a scale that animates is the bump this is meant to remove")
-  check("they cross-fade in a fixed box, so the fill arrives rather than appearing",
-    /opacity: active \? 0 : 1, transition: "opacity 180ms ease-out"/.test(nav)
-      && /opacity: active \? 1 : 0,\s*\n\s*transition: "opacity 180ms ease-out"/.test(nav))
+  /*
+    AND THEY ARE NOT BLENDED. Matching the boxes fixed the two ENDS and the
+    icon still moved in between them: fade two different drawings through each
+    other and every frame of the fade is a shape that is neither. Products
+    measured 40x40 going in, 40x39 halfway, 39x38 coming out, and putting the
+    fade back makes the probe catch 32 readings part way between the two.
+
+    Nothing about the layout moves during any of it — button, glyph box and
+    both glyphs measure zero every frame of a press — so the movement was only
+    ever the ink. A state with no duration cannot be seen moving.
+  */
+  check("and the glyph swaps in one frame rather than blending through shapes that are neither",
+    /style=\{\{ position: "absolute", inset: 0, opacity: active \? 0 : 1 \}\}/.test(nav)
+      && !/opacity[^\n]*\n?[^\n]*transition: "opacity/.test(nav)
+      && !/transition: "opacity 180ms ease-out"/.test(nav),
+    "every frame of a cross-fade between two drawings is a shape that is neither of them")
+  check("while the colour still eases, because colour moves nothing",
+    /transition: "color 200ms ease-out"/.test(nav))
 
   /*
     AND A PRESS DOES NOT TRAVEL. "When I click on the icon, make sure that it
