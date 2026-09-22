@@ -176,7 +176,7 @@ const FILL_MATCH = 1.06
  * nothing and changes no size; what is left to see is the colour arriving,
  * which is the part that takes its time.
  */
-const INK_EASE = "300ms cubic-bezier(0.22, 0.61, 0.36, 1)"
+const INK_EASE = "360ms cubic-bezier(0.22, 0.61, 0.36, 1)"
 
 /**
  * ===========================================================================
@@ -842,7 +842,9 @@ const PRESS_EDGE = "inset 0 0 0 0.5px rgba(255,255,255,0.95)"
 const REST_EDGE = "inset 0 0 0 0.5px rgba(255,255,255,0.75)"
 const DROP = "0 1px 2px rgba(16,18,27,0.07), 0 3px 8px rgba(16,18,27,0.10)"
 /** On instantly, off over this. Never the other way round. */
-const PRESS_OFF = "background-color 320ms ease-out, box-shadow 320ms ease-out"
+/* The same length and the same curve as the ink, so a press and the icon it
+   fills are one movement of colour rather than two of different lengths. */
+const PRESS_OFF = "background-color 360ms cubic-bezier(0.22, 0.61, 0.36, 1), box-shadow 360ms cubic-bezier(0.22, 0.61, 0.36, 1)"
 const PRESS_ON = "background-color 0s, box-shadow 0s"
 
 /**
@@ -1087,14 +1089,21 @@ function useSlide(count: number, onPick: (index: number) => void) {
       /* A render only when the slot changes, never per move. */
       setAt(next)
       /*
-        EVERY TICK IN THIS BAR IS SELECTION FEEDBACK NOW. They were medium
-        and light, then light and soft, and it was still too much: this is a
-        control you press several times a minute, and an impact is a knock.
-        Soft is not an impact at all — it is the generator behind a picker
-        wheel and a segmented control, which is what a row of tabs is. There
-        is nothing quieter, and nothing better shaped.
+        LIGHT IS THE FLOOR, AND THAT IS A PROPERTY OF THE PHONE.
+
+        These went medium, then light, then soft — and soft turned the bar
+        silent. Not broken: soft is selection feedback, the generator behind a
+        picker wheel, and it is so slight that on a real device it could not
+        be felt at all. The plugin has three impact styles, Heavy, Medium and
+        Light, and nothing between Light and selection, so Light is the
+        quietest thing here that a thumb can actually notice.
+
+        So the tick a press makes is Light, and the only place selection
+        feedback still earns its keep is counting slots off under a finger
+        that is dragging — there are several of those in a row, and slight is
+        exactly right when they come in a stream.
       */
-      hapticTap("soft")
+      hapticTap(first ? "light" : "soft")
     }
   }
 
@@ -1152,7 +1161,7 @@ function useSlide(count: number, onPick: (index: number) => void) {
         if (away) return
         /* A drag lands, and landing is worth a tick of its own. A tap already
            ticked, at the better moment: when the finger arrived. */
-        if (dragged) hapticTap("soft")
+        if (dragged) hapticTap("light")
         onPick(picked)
       },
       onPointerCancel: end,
@@ -1474,7 +1483,7 @@ export function MobileNavPill({
           aria-hidden={!menuOpen}
           tabIndex={menuOpen ? 0 : -1}
           onClick={() => {
-            hapticTap("soft")
+            hapticTap("light")
             setPending(null)
             onNavigate("/app/settings")
             onCloseMenu()
@@ -1504,7 +1513,7 @@ export function MobileNavPill({
           aria-label={menuOpen ? "Close menu" : "Menu"}
           aria-expanded={menuOpen}
           onClick={() => {
-            hapticTap("soft")
+            hapticTap("light")
             onToggleMenu()
           }}
           className="pointer-events-auto relative flex shrink-0 items-center justify-center rounded-full"

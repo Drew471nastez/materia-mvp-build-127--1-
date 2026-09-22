@@ -1627,9 +1627,22 @@ must(lens.easedOff, "and eases only on the way off, which nothing interrupts",
   two — so what is asserted is both, that a tap ticks exactly once and that
   the tick is no louder than "light".
 */
-must(lens.ticks.length === 1 && lens.ticks[0] === "soft", "and a tap is one tick, at the moment of contact, and the quietest there is",
+/*
+  ONE TICK, AND ONE THAT CAN BE FELT.
+
+  This asserted "soft" for a while, on the reasoning that selection feedback
+  is the quietest thing iOS makes and a row of tabs is a segmented control.
+  It is the quietest, and it turned out to be quieter than a thumb can
+  notice: the bar went silent on a real device. The plugin has three impact
+  styles and nothing between Light and selection, so Light is the floor for a
+  press. Selection feedback still earns its keep counting slots off under a
+  finger that is dragging, where several come in a row.
+*/
+must(lens.ticks.length === 1, "and a tap is one tick, at the moment of contact",
   `a tap fired ${lens.ticks.length} tick(s): ${lens.ticks.join(", ") || "none"}`)
-must(!lens.ticks.some((t) => t === "medium" || t === "light"), "with nothing in the bar knocking at all any more",
+must(lens.ticks[0] === "light", "and it is an impact, because selection feedback could not be felt at all",
+  `a tap fired ${lens.ticks.join(", ")}, and "soft" is selection feedback, which went unnoticed on a real phone`)
+must(!lens.ticks.includes("medium"), "while still being the quietest impact there is",
   `a tap fired ${lens.ticks.join(", ")}`)
 
 console.log(`  the glyphs  ${opTrail.length} readings of ${opTrail[0].svg.length} glyphs across a press and the route landing`)

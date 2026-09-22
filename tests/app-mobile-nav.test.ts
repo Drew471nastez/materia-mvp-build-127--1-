@@ -444,14 +444,14 @@ function main() {
   check("a tap is a drag of zero length, so the two can never disagree",
     !/onClick=\{\(\) => pick\(/.test(nav) && /const picked = slotAt\(e\.clientX\)/.test(nav))
   check("and it ticks once per slot crossed, not once per frame",
-    /if \(lastRef\.current !== next\) \{[\s\S]{0,1400}?hapticTap\("soft"\)/.test(nav))
+    /if \(lastRef\.current !== next\) \{[\s\S]{0,1600}?hapticTap\(first \? "light" : "soft"\)/.test(nav))
   /*
     A DRAG lands, and landing is worth a tick of its own. A TAP already ticked
     at the better moment, when the finger arrived — firing again sixty
     milliseconds later is a stutter, not a second piece of information.
   */
   check("with a second tick when a DRAG lands, and none for a tap that already ticked",
-    /if \(dragged\) hapticTap\("soft"\)\s*\n\s*onPick\(picked\)/.test(nav))
+    /if \(dragged\) hapticTap\("light"\)\s*\n\s*onPick\(picked\)/.test(nav))
   /*
     AND EVERY TICK IN THE BAR IS A STEP QUIETER than it was. Medium reads as
     loud on a control you press several times a minute, so the pair moved
@@ -459,9 +459,21 @@ function main() {
     feedback — the softest thing the Taptic Engine makes, and the one built
     for moving between options — where it was light.
   */
-  check("and nothing in the bar knocks at all any more",
-    !/hapticTap\("medium"\)/.test(strip(nav)) && !/hapticTap\("light"\)/.test(strip(nav)),
-    "the three impact styles are knocks; this bar is pressed several times a minute")
+  /*
+    LIGHT IS THE FLOOR, AND THAT IS A PROPERTY OF THE PHONE RATHER THAN A
+    CHOICE. These went medium, then light, then soft — and soft turned the bar
+    silent. Not broken: soft is selection feedback, and it is so slight that
+    on a real device it could not be felt at all. The plugin has Heavy, Medium
+    and Light and nothing between Light and selection.
+
+    So a press is Light, and selection feedback is kept for counting slots off
+    under a finger that is dragging, where several come in a row and slight is
+    exactly right.
+  */
+  check("a press ticks with the quietest IMPACT, not with selection feedback",
+    /hapticTap\(first \? "light" : "soft"\)/.test(nav)
+      && !/hapticTap\("medium"\)/.test(strip(nav)),
+    "selection feedback is quieter than a thumb can notice: it left the bar silent")
   check("a gesture that leaves the bar vertically is not a navigation",
     /const away = escaped\(e\.clientY\)/.test(nav) && /if \(away\) return/.test(nav),
     "a finger that lands on the bar and travels up the screen was trying to scroll")
@@ -617,7 +629,7 @@ function main() {
       && !/opacity: dimmed/.test(nav) && !/setDimmed/.test(nav),
     "dipping a thing out and bringing it back is the cheapness, and it lands on the press")
   check("and the smoothness is the colour instead, on its own curve",
-    /const INK_EASE = "300ms cubic-bezier\(0\.22, 0\.61, 0\.36, 1\)"/.test(nav)
+    /const INK_EASE = "360ms cubic-bezier\(0\.22, 0\.61, 0\.36, 1\)"/.test(nav)
       && /transition: `color \$\{INK_EASE\}`/.test(nav),
     "the icon filling with black is a colour arriving, which is the one thing that should take time")
 
@@ -679,7 +691,7 @@ function main() {
     "a control that does nothing at all when touched is what taking every moving thing out left behind")
   check("and it goes on instantly and comes off eased, never the other way round",
     /const PRESS_ON = "background-color 0s, box-shadow 0s"/.test(nav)
-      && /const PRESS_OFF = "background-color 320ms ease-out, box-shadow 320ms ease-out"/.test(nav)
+      && /const PRESS_OFF = "background-color 360ms cubic-bezier\(0\.22, 0\.61, 0\.36, 1\), box-shadow 360ms cubic-bezier\(0\.22, 0\.61, 0\.36, 1\)"/.test(nav)
       && /slide\.pressed \? PRESS_ON : PRESS_OFF/.test(nav),
     "easing IN is what made the old lift a different amount on every press, because a tap interrupts it")
   check("and nothing geometric reads the press at all",
@@ -687,8 +699,8 @@ function main() {
       && !/slide\.pressed \? (LIFT|NO_TRAVEL|SETTLE)/.test(nav),
     "size and position are the two things that were reported as bumping")
   check("a tap is one tick, at the moment of contact",
-    /hapticTap\("soft"\)/.test(nav)
-      && /if \(dragged\) hapticTap\("soft"\)/.test(nav),
+    /hapticTap\(first \? "light" : "soft"\)/.test(nav)
+      && /if \(dragged\) hapticTap\("light"\)/.test(nav),
     "light going down and medium coming up, sixty milliseconds apart, is a stutter rather than a tick")
 
   /*
