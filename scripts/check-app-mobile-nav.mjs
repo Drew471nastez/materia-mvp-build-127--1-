@@ -899,6 +899,58 @@ for (let on = 0; on < 4; on++) {
   for (const box of iconBoxes) row.push(await inkOf({ x: box.x - 2, y: box.y - 2, width: box.width + 4, height: box.height + 4 }))
   inkWhen.push(row)
 }
+/*
+ * ── DOES THE BAR ANSWER A FINGER AT ALL ──────────────────────────────────
+ *
+ * Every moving thing was taken out of a press one at a time, and the last of
+ * them left a control that does nothing when you touch it. So the lens
+ * brightens under a finger — no size, no position, nothing that can be a
+ * pixel out — and this is where that is checked.
+ *
+ * The important half is the SHAPE of it. The old lift eased in over 200ms and
+ * a tap lasts sixty, so it was cut off at a different point every time, which
+ * is why a press looked like a different amount of something on every press.
+ * Full on the frame the finger lands, eased only on the way off, is the same
+ * press whether it is held for a frame or a second — so what is asserted is
+ * that there is NO transition going on and there IS one coming off, not just
+ * that the colour differs.
+ */
+const LENS = `(() => {
+  const d = document.querySelector('nav[aria-label="Main"] span[aria-hidden="true"]')
+  const cs = getComputedStyle(d)
+  const r = d.getBoundingClientRect()
+  /* The shorthand drops a zero duration entirely, so it cannot answer "is
+     this instant" — the per-property lists can. */
+  const props = cs.transitionProperty.split(",").map((v) => v.trim())
+  const durs = cs.transitionDuration.split(",").map((v) => v.trim())
+  const at = props.indexOf("background-color")
+  return { fill: cs.backgroundColor, ease: cs.transition,
+           fillFor: at < 0 ? null : durs[at % durs.length],
+           w: Math.round(r.width * 100) / 100, h: Math.round(r.height * 100) / 100 }
+})()`
+const atRest = await ev(LENS)
+await ev("globalThis.__haptics = []; true")
+await send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: slots[1].x, y: slots[1].y, radiusX: 12, radiusY: 12, force: 1 }] })
+await sleep(20)
+const held = await ev(LENS)
+await send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] })
+const tapTicks = await ev("(globalThis.__haptics || []).slice()")
+await sleep(500)
+const letGo = await ev(LENS)
+await ev('globalThis.__goto("/app"); true')
+await sleep(400)
+const lit = (c) => { const m = /([\d.]+)\s*\)$/.exec(String(c).replace(/\s/g, "")); return m ? Number(m[1]) : 1 }
+const lens = {
+  rest: atRest.fill, held: held.fill, back: letGo.fill, heldEase: held.ease, backEase: letGo.ease,
+  brighter: Math.round((lit(held.fill) - lit(atRest.fill)) * 100) / 100,
+  heldFor: held.fillFor, backFor: letGo.fillFor,
+  /* Going on, background-color carries a zero duration; coming off, a real one. */
+  instantOn: held.fillFor === "0s",
+  easedOff: Number.parseFloat(letGo.fillFor || "0") >= 0.2,
+  grew: Math.round((held.w - atRest.w) * 100) / 100,
+  ticks: tapTicks,
+}
+
 await ev('globalThis.__goto("/app"); true')
 await sleep(400)
 /* For each icon: its ink with its own tab on, against its ink with the
@@ -1424,6 +1476,20 @@ console.log(`              ${routeTap.turns} changes of direction, ${routeTap.pa
   filling in moves its weight towards the middle of the shape by design, and
   pinning that would be forbidding the fill.
 */
+console.log(`  the lens    at rest ${lens.rest}, under a finger ${lens.held}: ${lens.brighter} more opaque`)
+console.log(`              on in ${lens.heldFor}, off over ${lens.backFor}, ${lens.grew}px wider while held`)
+console.log(`              ${lens.ticks.length} haptic tick(s) for a tap: ${lens.ticks.join(", ") || "none"}\n`)
+must(lens.brighter >= 0.1, "the bar answers a finger: the lens brightens under one",
+  `it read ${lens.held} held against ${lens.rest} at rest, which is nothing happening`)
+must(lens.grew === 0, "and answers with light rather than with movement",
+  `it also changed width by ${lens.grew}px while held`)
+must(lens.instantOn, "the answer is complete on the frame the finger lands, so a short press is a whole press",
+  `background-color eases in over ${lens.heldFor}, and a 60ms tap would cut that off somewhere different every time`)
+must(lens.easedOff, "and eases only on the way off, which nothing interrupts",
+  `the release runs in ${lens.backFor} rather than easing`)
+must(lens.ticks.length === 1 && lens.ticks[0] === "medium", "and a tap is one tick, at the moment of contact",
+  `a tap fired ${lens.ticks.length} tick(s): ${lens.ticks.join(", ") || "none"}`)
+
 console.log(`  the glyphs  ${opTrail.length} readings of ${opTrail[0].length} glyphs across a press and the route landing`)
 console.log(`              ${partly.length} of them caught part way between the two drawings\n`)
 must(partly.length === 0, "a glyph is either the outline or the solid, never a blend of the two",

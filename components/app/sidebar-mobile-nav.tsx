@@ -812,6 +812,34 @@ const SETTLE = `translate 420ms cubic-bezier(0.32, 1.24, 0.44, 1)`
  * the bar to watch and nothing to be caught halfway through.
  */
 const NO_TRAVEL = "translate 0s"
+
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ *  THE BAR ANSWERS A FINGER, AND IT ANSWERS IT THE SAME WAY EVERY TIME
+ * ═══════════════════════════════════════════════════════════════════════════
+ * Everything that moved on a press has been taken out of this bar one piece
+ * at a time, and taking the last of it out left a control that does not react
+ * to being touched at all.
+ *
+ * So it reacts, in the one way that cannot drift: the lens brightens under
+ * the finger. No size, no position, nothing that can be a pixel out.
+ *
+ * AND IT GOES ON INSTANTLY AND COMES OFF SLOWLY. This is the whole trick, and
+ * it is what the old lift got wrong. That was 200ms of easing IN, and a tap
+ * lasts about sixty — so it was cut off partway, at a different point every
+ * time, which is why a press looked like a different amount of something on
+ * every press and read as a glitch. A press that is full the instant a finger
+ * lands is the same press whether it is held for a frame or a second. The
+ * release is where the easing belongs, because nothing interrupts a release.
+ */
+const PRESS_FILL = "rgba(255,255,255,0.97)"
+const REST_FILL = "rgba(255,255,255,0.82)"
+const PRESS_EDGE = "inset 0 0 0 0.5px rgba(255,255,255,0.95)"
+const REST_EDGE = "inset 0 0 0 0.5px rgba(255,255,255,0.75)"
+const DROP = "0 1px 2px rgba(16,18,27,0.07), 0 3px 8px rgba(16,18,27,0.10)"
+/** On instantly, off over this. Never the other way round. */
+const PRESS_OFF = "background-color 260ms ease-out, box-shadow 260ms ease-out"
+const PRESS_ON = "background-color 0s, box-shadow 0s"
 /**
  * Under a finger the circle LIFTS a little, which is the tell of the newer
  * system bars: the thing you are holding is the thing that is bigger.
@@ -894,6 +922,9 @@ function useSlide(count: number, onPick: (index: number) => void) {
    * belongs to the press, from the moment it lands.
    */
   const [following, setFollowing] = useState(false)
+  /* A finger is on the bar. Nothing geometric reads this — it is what the
+     lens brightens for, and brightness cannot be a pixel out of place. */
+  const [pressed, setPressed] = useState(false)
   const barRef = useRef<HTMLDivElement>(null)
   const dotRef = useRef<HTMLSpanElement>(null)
   const lastRef = useRef<number | null>(null)
@@ -1016,11 +1047,20 @@ function useSlide(count: number, onPick: (index: number) => void) {
     /* A press writes nothing here. `at` below moves the slot, and the effect
        that draws the resting position puts the circle on it, in one frame. */
     if (lastRef.current !== next) {
+      /*
+        THE FIRST TICK OF A GESTURE IS THE DECISIVE ONE, and it is the moment
+        a finger lands. A tap used to fire twice — light going down, medium
+        coming up, sixty milliseconds apart — which is a stutter rather than a
+        tick. One tick, at the instant of contact, at the same moment the lens
+        brightens and the icon fills, so the touch and the answer are the same
+        event. The lighter ticks are the slots counted off under a finger that
+        is dragging, which is a different thing and still worth feeling.
+      */
+      const first = lastRef.current === null
       lastRef.current = next
-      /* A render only when the slot changes, never per move; and one tick
-         per slot crossed, not one per frame. */
+      /* A render only when the slot changes, never per move. */
       setAt(next)
-      hapticTap("light")
+      hapticTap(first ? "medium" : "light")
     }
   }
 
@@ -1031,6 +1071,7 @@ function useSlide(count: number, onPick: (index: number) => void) {
     frameRef.current = 0
     posRef.current = null
     setFollowing(false)
+    setPressed(false)
     setAt(null)
     lastRef.current = null
     movedRef.current = false
@@ -1042,6 +1083,7 @@ function useSlide(count: number, onPick: (index: number) => void) {
     barRef,
     dotRef,
     following,
+    pressed,
     bounce,
     at,
     handlers: {
@@ -1053,6 +1095,7 @@ function useSlide(count: number, onPick: (index: number) => void) {
         /* Left null: the loop paints nothing until a finger proves it is
            dragging, so a press never animates. */
         posRef.current = null
+        setPressed(true)
         /* Every gesture starts as a press: no lift, and it lands rather than
            bouncing. Both are promoted if a finger goes anywhere. */
         setFollowing(false)
@@ -1070,9 +1113,12 @@ function useSlide(count: number, onPick: (index: number) => void) {
         if (!activeRef.current) return
         const picked = slotAt(e.clientX)
         const away = escaped(e.clientY)
+        const dragged = movedRef.current
         end()
         if (away) return
-        hapticTap("medium")
+        /* A drag lands, and landing is worth a tick of its own. A tap already
+           ticked, at the better moment: when the finger arrived. */
+        if (dragged) hapticTap("medium")
         onPick(picked)
       },
       onPointerCancel: end,
@@ -1323,10 +1369,12 @@ export function MobileNavPill({
               /* `translate` is written by the loop and the effect above, never here. */
               scale: String(marked < 0 ? 0.55 : slide.following ? LIFT : 1),
               opacity: marked < 0 ? 0 : 1,
-              backgroundColor: slide.following ? "rgba(255,255,255,0.92)" : "rgba(255,255,255,0.82)",
-              boxShadow: "inset 0 0 0 0.5px rgba(255,255,255,0.75), 0 1px 2px rgba(16,18,27,0.07), 0 3px 8px rgba(16,18,27,0.10)",
-              /* No transition on the position under a finger: the loop is the motion. */
-              transition: `${slide.bounce && !slide.following ? SETTLE : NO_TRAVEL}, ${LIFT_EASE}, opacity 220ms ease-out, background-color 160ms ease-out`,
+              backgroundColor: slide.pressed ? PRESS_FILL : REST_FILL,
+              boxShadow: `${slide.pressed ? PRESS_EDGE : REST_EDGE}, ${DROP}`,
+              /* No transition on the position under a finger: the loop is the
+                 motion. And the brightening goes on instantly, comes off
+                 eased — see the note by PRESS_FILL. */
+              transition: `${slide.bounce && !slide.following ? SETTLE : NO_TRAVEL}, ${LIFT_EASE}, opacity 220ms ease-out, ${slide.pressed ? PRESS_ON : PRESS_OFF}`,
               willChange: "translate, scale",
             }}
           />
