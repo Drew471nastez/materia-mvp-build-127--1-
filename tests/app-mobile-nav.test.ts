@@ -444,14 +444,14 @@ function main() {
   check("a tap is a drag of zero length, so the two can never disagree",
     !/onClick=\{\(\) => pick\(/.test(nav) && /const picked = slotAt\(e\.clientX\)/.test(nav))
   check("and it ticks once per slot crossed, not once per frame",
-    /if \(lastRef\.current !== next\) \{[\s\S]{0,1400}?hapticTap\(first \? "light" : "soft"\)/.test(nav))
+    /if \(lastRef\.current !== next\) \{[\s\S]{0,1400}?hapticTap\("soft"\)/.test(nav))
   /*
     A DRAG lands, and landing is worth a tick of its own. A TAP already ticked
     at the better moment, when the finger arrived — firing again sixty
     milliseconds later is a stutter, not a second piece of information.
   */
   check("with a second tick when a DRAG lands, and none for a tap that already ticked",
-    /if \(dragged\) hapticTap\("light"\)\s*\n\s*onPick\(picked\)/.test(nav))
+    /if \(dragged\) hapticTap\("soft"\)\s*\n\s*onPick\(picked\)/.test(nav))
   /*
     AND EVERY TICK IN THE BAR IS A STEP QUIETER than it was. Medium reads as
     loud on a control you press several times a minute, so the pair moved
@@ -459,9 +459,9 @@ function main() {
     feedback — the softest thing the Taptic Engine makes, and the one built
     for moving between options — where it was light.
   */
-  check("and nothing in the bar knocks as hard as medium any more",
-    !/hapticTap\("medium"\)/.test(strip(nav)) && /hapticTap\(first \? "light" : "soft"\)/.test(nav),
-    "medium is a knock, and this bar is pressed several times a minute")
+  check("and nothing in the bar knocks at all any more",
+    !/hapticTap\("medium"\)/.test(strip(nav)) && !/hapticTap\("light"\)/.test(strip(nav)),
+    "the three impact styles are knocks; this bar is pressed several times a minute")
   check("a gesture that leaves the bar vertically is not a navigation",
     /const away = escaped\(e\.clientY\)/.test(nav) && /if \(away\) return/.test(nav),
     "a finger that lands on the bar and travels up the screen was trying to scroll")
@@ -597,29 +597,29 @@ function main() {
     ever the ink. A state with no duration cannot be seen moving.
   */
   check("the glyph swaps outright rather than blending through shapes that are neither",
-    /style=\{\{ position: "absolute", inset: 0, opacity: drawn \? 0 : 1 \}\}/.test(nav)
-      && /opacity: drawn \? 1 : 0,/.test(nav)
-      && !/transition: "opacity 180ms ease-out"/.test(nav),
+    /style=\{\{ position: "absolute", inset: 0, opacity: active \? 0 : 1 \}\}/.test(nav)
+      && /opacity: active \? 1 : 0,/.test(nav),
     "every frame of a cross-fade between two drawings is a shape that is neither of them")
   /*
-    AND IT SWAPS WHERE IT IS FAINT. Swapping outright is what keeps a shape
-    that is neither drawing off the screen, and on its own it is as hard as a
-    switch to look at. The box around the two glyphs dims through the change,
-    so what the eye follows is a dissolve and the difference between the two
-    drawings is only ever a quarter of a difference. Measured: the box dims to
-    0.26, and a glyph changes over at 0.32 visible.
+    AND NOTHING ABOUT IT FADES. This check used to say the opposite: it held
+    the glyph to changing over while the box around it was dimmed to a
+    quarter, which hid the swap between two drawings that are not the same
+    shape, and put a fade on every press. "Too much fade and cheapness in the
+    click" is what that is, and a dip is a wait however short it is made.
+
+    So the swap is in the open, on the frame the finger lands, and what takes
+    its time is the COLOUR — the icon going to its ink over INK_EASE, the same
+    way a button changes colour under a pointer. That is the icon filling with
+    black, and it is the only thing here with a duration on it.
   */
-  check("and it changes over while the box around it is dimmed, so the swap is soft rather than hard",
-    /const GLYPH_FLOOR = 0\.25/.test(nav)
-      && /const \[drawn, setDrawn\] = useState\(active\)/.test(nav)
-      && /window\.setTimeout\(\(\) => \{ setDrawn\(active\); setDimmed\(false\) \}, GLYPH_OUT\)/.test(nav)
-      && /opacity: dimmed \? GLYPH_FLOOR : 1/.test(nav),
-    "a glyph that changes at full strength is a switch, and the two are not the same shape")
-  check("and it too leaves far quicker than it arrives",
-    /const GLYPH_OUT = 50/.test(nav) && /const GLYPH_IN = 250/.test(nav)
-      && /transition: `opacity \$\{dimmed \? GLYPH_OUT : GLYPH_IN\}ms ease-out`/.test(nav))
-  check("while the colour still eases, because colour moves nothing",
-    /transition: "color 300ms ease-out"/.test(nav))
+  check("and it does not dim through the change: no fade, nothing half-visible",
+    !/GLYPH_FLOOR/.test(nav) && !/GLYPH_OUT/.test(nav)
+      && !/opacity: dimmed/.test(nav) && !/setDimmed/.test(nav),
+    "dipping a thing out and bringing it back is the cheapness, and it lands on the press")
+  check("and the smoothness is the colour instead, on its own curve",
+    /const INK_EASE = "300ms cubic-bezier\(0\.22, 0\.61, 0\.36, 1\)"/.test(nav)
+      && /transition: `color \$\{INK_EASE\}`/.test(nav),
+    "the icon filling with black is a colour arriving, which is the one thing that should take time")
 
   /*
     AND THE LENS IS HANDED OVER, NOT THROWN. A press used to send it sliding
@@ -636,30 +636,28 @@ function main() {
     Out is quicker than in, because the dip starts the instant a finger lands
     and so has to keep up with the touch, while the arrival does not.
   */
-  check("the lens dips before it changes slot, so the change is a dissolve rather than a jump",
-    /const HANDOFF_FLOOR = 0\.12/.test(nav)
-      && /opacity: marked < 0 \? 0 : veiled \? HANDOFF_FLOOR : 1/.test(nav)
-      && /setVeiled\(true\)/.test(nav)
-      && /window\.setTimeout\(\(\) => \{ put\(\); setVeiled\(false\) \}, HANDOFF_OUT\)/.test(nav),
-    "a lens that changes place at full opacity is a jump somebody can see")
   /*
-    THE DIP IS AS SHORT AS IT CAN BE WHILE STILL COVERING THE MOVE, and that
-    is the whole of why it is 50 and not 120. It was 120, and 120ms before
-    anything happens on the icon you just pressed is a delay you can feel: the
-    lens reached the pressed icon 134ms after the touch, and 100ms with it cut
-    to 50. Three frames still covers the move; one does not, and none leaves
-    it in the open.
+    THE LENS DOES NOT FADE EITHER, and this pair of checks is turned round
+    from what it said before for the same reason as the glyph above. It used
+    to hold the lens to dipping almost out of sight, moving while faint, and
+    coming back — which covered the change of place and put a fade on every
+    press.
 
-    The runtime numbers are too noisy to assert on — two runs of the same
-    build gave 100 and 117 — so the lengths are pinned here, where they are
-    exact, and the probe only bounds them loosely.
+    There is none now. On the frame the finger lands the lens is on the icon
+    under it, at full strength, and the change of place is in the open. That
+    costs nothing: it does not travel, so there is no path to follow, and it
+    does not fade, so there is no flicker to catch. Measured at 17ms from the
+    touch, never below full opacity.
   */
-  check("and it leaves far quicker than it arrives",
-    /const HANDOFF_OUT = 50/.test(nav) && /const HANDOFF_IN = 260/.test(nav)
-      && /opacity \$\{veiled \? HANDOFF_OUT : HANDOFF_IN\}ms ease-out/.test(nav))
-  check("while a released drag keeps its own arrival instead",
-    /if \(putDownAt\.current === x \|\| slide\.bounce\) \{ put\(\); return \}/.test(nav),
-    "a drag springs into the slot on SETTLE, which is the bounce that gesture asked for")
+  check("the lens does not fade or dip: it is simply on the icon you pressed",
+    !/HANDOFF_FLOOR/.test(nav) && !/HANDOFF_OUT/.test(nav) && !/setVeiled/.test(nav)
+      && /opacity: marked < 0 \? 0 : 1,/.test(nav),
+    "a dip is a wait however short it is, and it lands on the press")
+  check("and its position is written straight out, in one step",
+    /useLayoutEffect\(\(\) => \{\s*\n\s*if \(slide\.following\) return\s*\n\s*const dot = slide\.dotRef\.current\s*\n\s*if \(dot\) dot\.style\.translate = `\$\{x\}px 0`/.test(nav))
+  check("while a released drag still springs into the slot, which is what SETTLE is for",
+    /slide\.bounce && !slide\.following \? SETTLE : NO_TRAVEL/.test(nav),
+    "a drag is not what was called abrupt, and the bounce was asked for")
 
   /*
     AND THE BAR ANSWERS A FINGER. Every moving thing was taken out of a press
@@ -689,9 +687,8 @@ function main() {
       && !/slide\.pressed \? (LIFT|NO_TRAVEL|SETTLE)/.test(nav),
     "size and position are the two things that were reported as bumping")
   check("a tap is one tick, at the moment of contact",
-    /const first = lastRef\.current === null/.test(nav)
-      && /hapticTap\(first \? "light" : "soft"\)/.test(nav)
-      && /if \(dragged\) hapticTap\("light"\)/.test(nav),
+    /hapticTap\("soft"\)/.test(nav)
+      && /if \(dragged\) hapticTap\("soft"\)/.test(nav),
     "light going down and medium coming up, sixty milliseconds apart, is a stutter rather than a tick")
 
   /*
