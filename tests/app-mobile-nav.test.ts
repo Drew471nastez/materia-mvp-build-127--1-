@@ -483,7 +483,7 @@ function main() {
   */
   check("under a finger the circle follows the finger itself, not the finger's slot, with no transition",
     /const FOLLOW = 0\.6/.test(nav)
-      && /targetRef\.current = leftFor\(clientX\)/.test(nav)
+      && /targetRef\.current = movedRef\.current \? leftFor\(clientX\) : leftForSlot\(next\)/.test(nav)
       && /posRef\.current \+= gap \* FOLLOW/.test(nav)
       && /frameRef\.current = requestAnimationFrame\(step\)/.test(nav)
       && /slide\.dragging \? "translate 0s" : SETTLE/.test(nav),
@@ -496,6 +496,28 @@ function main() {
   check("a render happens when the slot changes, not on every move",
     /if \(lastRef\.current !== next\) \{\s*\n\s*lastRef\.current = next\s*\n[^\n]*\n[^\n]*\n\s*setAt\(next\)/.test(nav)
       && !/^\s*setAt\(next\)\s*$/m.test(strip(nav).split("const move")[1].split("if (lastRef")[0]))
+  /*
+    But a press is not a drag, and aiming a press at the fingertip is what the
+    bump was: press Orders 21px off its centre and the circle sprang 21px past
+    the slot towards the finger, then the lift pulled it back. Measured in the
+    probe, which presses off centre on purpose: 21px past before, 0px after.
+    Under the finger once the gesture has actually moved, on the slot until
+    then, and the slot's left edge is computed by the arithmetic the component
+    already uses at rest, so the press and the rest cannot disagree by a pixel.
+  */
+  check("and a press that has not moved yet aims at the slot, not at the fingertip",
+    /const movedRef = useRef\(false\)/.test(nav)
+      && /const DRAG_SLOP = 8/.test(nav)
+      && /if \(!movedRef\.current && Math\.abs\(clientX - downXRef\.current\) > DRAG_SLOP\) movedRef\.current = true/.test(nav),
+    "a press aimed at the fingertip springs off the slot and is dragged back on the lift: the bump")
+  check("with the slot's edge computed the one way the component computes it at rest",
+    /const leftForSlot = \(index: number\): number => PAD \+ index \* SLOT \+ \(SLOT - DOT\) \/ 2/.test(nav)
+      && /const leftFor = /.test(nav),
+    "a second piece of arithmetic for the same number is how the press and the rest drift apart")
+  check("and the press is a press again as soon as the finger lifts",
+    /movedRef\.current = false/.test(nav) && (nav.match(/movedRef\.current = false/g) || []).length >= 2,
+    "left set, the next tap would be treated as a continuing drag")
+
   check("and a press during a spring picks the circle up from where it is drawn",
     /posRef\.current = drawnAt\(\) \?\? leftFor\(e\.clientX\)/.test(nav)
       && /getComputedStyle\(dot\)\.translate/.test(nav))
