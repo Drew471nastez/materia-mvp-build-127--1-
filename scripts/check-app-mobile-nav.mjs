@@ -748,6 +748,22 @@ const tap = {
     return Math.round(worst * 100) / 100
   })(),
   dimmestTo: Math.round(Math.min(...tapAlpha) * 100) / 100,
+  /*
+    HOW LONG AFTER THE TOUCH THE LENS IS ON THE ICON YOU PRESSED. "It is too
+    delayed" was the dip taking 120ms to go down before the lens could be
+    moved at all.
+
+    MEASURING WHEN ANYTHING FIRST CHANGES WOULD NOT HAVE CAUGHT THAT, and that
+    was the first version of this: the dip's opacity starts easing on the frame
+    the finger lands however long the dip is, so it read ~17ms both before and
+    after. What was being waited on is the ARRIVAL, so that is what is timed.
+    Frames are ~16.7ms apart.
+  */
+  arrivedMs: (() => {
+    const x0 = tapFrames[0]
+    for (let i = 1; i < tapFrames.length; i++) if (Math.abs(tapFrames[i] - x0) > 0.5) return Math.round(i * 16.7)
+    return Math.round(tapFrames.length * 16.7)
+  })(),
   backTo: Math.round(tapAlpha[tapAlpha.length - 1] * 100) / 100,
   /*
     HOW MANY PLACES IT WAS SEEN IN ON THE WAY. A press puts the circle on the
@@ -918,6 +934,16 @@ const swapSeenAt = (() => {
   return Math.round(worst * 100) / 100
 })()
 const boxDippedTo = Math.round(Math.min(...opTrail.flatMap((f) => f.box)) * 100) / 100
+/* And when the glyph actually changed, from the same recording. Readings are
+   ~12ms apart here, and the trail starts on the frame of the touch. */
+const swapAtMs = (() => {
+  for (let f = 1; f < opTrail.length; f++) {
+    for (let i = 0; i < opTrail[f].svg.length; i++) {
+      if (opTrail[f].svg[i] !== opTrail[0].svg[i]) return Math.round(f * 12)
+    }
+  }
+  return Math.round(opTrail.length * 12)
+})()
 const boxBackTo = Math.round(Math.min(...opTrail[opTrail.length - 1].box) * 100) / 100
 await ev('window.__routeDelay = 0; globalThis.__goto("/app"); true')
 await sleep(400)
@@ -1475,6 +1501,7 @@ console.log(`  a tap       pressed ${OFF_CENTRE}px off the centre of ${slots[1].
 console.log(`              the circle went ${tap.from}px to ${tap.landed}px, ${tap.past}px past the slot, ${tap.backwards}px behind where it set off`)
 console.log(`              ${tap.turns} changes of direction, ${tap.waypoints} places seen in between, resting ${tap.restOff}px off where the bar puts it`)
 console.log(`              dipped to ${tap.dimmestTo} and back to ${tap.backTo}; ${tap.seenMoving} visible on the frame it changed place`)
+console.log(`              the lens was on the pressed icon ${tap.arrivedMs}ms after the touch`)
 console.log(`              and it grew to ${tap.biggest}x on the way, ${tap.grewPx}px across, and shrank back`)
 console.log(`  a drag      released after four slots, ${drag.past}px past the slot, grew to ${dragScale.biggest}x while a finger held it\n`)
 must(tap.restOff <= 0.6, "a tap leaves the circle on the slot it picked",
@@ -1506,6 +1533,25 @@ must(tap.dimmestTo <= 0.25 && tap.dimmestTo > 0, "dipping on the way rather than
   `it went down to ${tap.dimmestTo}`)
 must(tap.backTo >= 0.99, "and coming all the way back up",
   `it finished at ${tap.backTo}`)
+/*
+  AND NOTHING IS WAITED ON. Smoothness belongs to the coming back, never to
+  the going away: a dip with a duration is a dip you wait through, on the one
+  icon a finger is on.
+*/
+/*
+  A LOOSE BOUND, AND DELIBERATELY SO. Cutting the dip from 120ms to 50 moved
+  this from 134ms to 100 — but two runs of the same build gave 100 and 117, so
+  most of what is left is React's own render passes between the touch and the
+  timer, and the run-to-run spread is as wide as the change being made. A
+  threshold tight enough to separate the two would fail on noise, which is a
+  flaky test rather than a guard.
+
+  So the exact dip lengths are pinned in tests/app-mobile-nav.test.ts, where
+  they are deterministic, and this catches only a return to something much
+  worse. The number is printed either way, which is what it is actually for.
+*/
+must(tap.arrivedMs <= 250, "and it is on the icon you pressed without a wait you can sit through",
+  `the lens took ${tap.arrivedMs}ms to reach the icon under the finger`)
 must(tap.grewPx <= 0.5, "and it does not change size on the way, having nothing to hold",
   `a tap grew the circle to ${tap.biggest}x, ${tap.grewPx}px across, and shrank it back`)
 /*
@@ -1579,7 +1625,8 @@ must(!lens.ticks.includes("medium"), "with nothing in the bar knocking as hard a
 
 console.log(`  the glyphs  ${opTrail.length} readings of ${opTrail[0].svg.length} glyphs across a press and the route landing`)
 console.log(`              ${partly.length} of them caught part way between the two drawings`)
-console.log(`              the box around one dimmed to ${boxDippedTo} and back to ${boxBackTo}; a glyph changed at ${swapSeenAt} visible\n`)
+console.log(`              the box around one dimmed to ${boxDippedTo} and back to ${boxBackTo}; a glyph changed at ${swapSeenAt} visible`)
+console.log(`              and changed over ${swapAtMs}ms after the touch\n`)
 must(partly.length === 0, "a glyph is either the outline or the solid, never a blend of the two",
   `${partly.length} reading(s) were part way between the two drawings: ${[...new Set(partly)].slice(0, 8).join(", ")}`)
 must(swapSeenAt <= 0.4, "and it changes over where the box around it is faint, so the change is soft rather than a switch",
@@ -1594,6 +1641,10 @@ must(boxDippedTo <= 0.4 && boxDippedTo >= 0.15, "dimming through the change rath
   `the faintest it went was ${boxDippedTo}`)
 must(boxBackTo >= 0.99, "and coming all the way back",
   `it finished at ${boxBackTo}`)
+/* Same caveat as the lens's arrival above: 48ms before, 24 after, and the
+   bound is loose because the spread is not much smaller than the change. */
+must(swapAtMs <= 140, "and the icon fills without a wait you can sit through",
+  `the glyph did not change until ${swapAtMs}ms after the finger landed`)
 
 for (const ic of icons) {
   must(!ic.missing, `${ic.label} is drawn at all`, "no ink found in its box")

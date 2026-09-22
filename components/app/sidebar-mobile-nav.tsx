@@ -155,10 +155,18 @@ function Collapsible({ open, children }: { open: boolean; children: React.ReactN
 const FILL_MATCH = 1.06
 
 /**
- * How long the icon takes to dim, and to come back. Out is quicker than in,
- * the same way round as the lens: leaving should not be the part you wait on.
+ * How long the icon takes to go faint, and to come back.
+ *
+ * OUT IS SHORT ON PURPOSE AND IS NOT A STYLE CHOICE. It used to be 110ms, and
+ * 110ms before anything happens on the icon you just pressed is a delay you
+ * can feel. The dip is not there to take time — it is there so the swap
+ * between two drawings that are not the same shape is not something to look
+ * at — so it is as short as it can be while still covering the swap. Three
+ * frames does that; one does not, and zero leaves the swap in the open.
+ *
+ * In is where the smoothness lives, and nothing is waiting on it.
  */
-const GLYPH_OUT = 110
+const GLYPH_OUT = 50
 const GLYPH_IN = 250
 /** Faint, not gone. A glyph that blinks out is a hole in the bar. */
 const GLYPH_FLOOR = 0.25
@@ -868,12 +876,15 @@ const PRESS_ON = "background-color 0s, box-shadow 0s"
  * never changes position on a frame where it can be seen. Position moves
  * only while opacity is down at the floor.
  *
- * Out is quicker than in, because a thing arriving should take longer than a
- * thing leaving — and because the dip begins the instant a finger lands, so
- * it is the part that has to keep up with the touch.
+ * AND THE DIP IS AS SHORT AS IT CAN BE. It was 120ms, and 120ms of nothing
+ * happening on the icon you just pressed reads as lag. The dip is not there
+ * to take time — it is there so the move is not something you can see — so it
+ * is cut to three frames, which still covers the move while being too short
+ * to wait through. Coming back up is where the smoothness is, and nothing is
+ * waiting on that.
  */
 const HANDOFF_FLOOR = 0.12
-const HANDOFF_OUT = 120
+const HANDOFF_OUT = 50
 const HANDOFF_IN = 260
 /**
  * Under a finger the circle LIFTS a little, which is the tell of the newer
