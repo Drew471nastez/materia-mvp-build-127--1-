@@ -117,39 +117,65 @@ function Collapsible({ open, children }: { open: boolean; children: React.ReactN
 
 /**
  * ===========================================================================
- *  THE OUTLINE STAYS. THE FILL ARRIVES INSIDE IT.
+ *  THE SOLID IS DRAWN AT THE OUTLINE'S SIZE
  * ===========================================================================
- * This used to cross-fade the two glyphs — line out, fill in — and that is
- * the bump that kept being reported in the icons.
+ * A 22x22 box with both variants of the glyph stacked in it, cross-faded: the
+ * line one while the tab is off, the solid one while it is on.
  *
- * They are not the same drawing. A stroke sits astride its path and so
- * reaches half a stroke beyond it, while a solid stops at its edge; and for
- * three of these four the line and the bold are separate drawings from the
- * icon set, which never promised to agree. Photographed on and off in
- * scripts/check-app-mobile-nav.mjs, every one of them got SMALLER when its
- * tab turned on: 1 to 2px off the ink box, and Home's ink shifted 1.6px up
- * the way as well. Press an icon and it shrinks and hops. The layout boxes
- * never moved a pixel, which is why every check in this file passed while
- * the report kept coming back.
+ * They do not come out the same size. A stroke sits astride its path and so
+ * reaches half a stroke beyond it, where a solid stops at its edge, and three
+ * of these four are separate drawings from the icon set besides. Photographed
+ * on and off in scripts/check-app-mobile-nav.mjs, every one of them came out
+ * smaller when its tab turned on — about half a pixel on each edge — which is
+ * the icon changing size under the finger that pressed it.
  *
- * Fading one shape into a different shape is the whole problem, so it does
- * not do that any more. The outline is drawn all the time, and the solid
- * fades in BEHIND it. The silhouette is the outline's, on or off, so there
- * is nothing left that can change size — and turning a tab on now reads as
- * the glyph filling in, which is what it was always meant to read as.
+ * TWO OTHER WAYS OF FIXING THAT WERE TRIED AND ARE WRONG, and this is written
+ * down because both look reasonable and both wreck the icons.
+ *
+ *   Drawing the outline over the solid in both states pins the silhouette
+ *   exactly. It also fills in the gaps the solid is drawn WITH: the lines
+ *   inside the receipt closed up and it went out as a dark blob. Shipped, and
+ *   reported back within the hour.
+ *
+ *   Giving the solid its own 1.5px stroke pins the silhouette exactly too,
+ *   and closes the same gaps for the same reason — a stroke runs along every
+ *   contour a shape has, including the ones cut out of its middle.
+ *
+ * What does not touch the drawing is scaling it. The cutouts scale with
+ * everything else, so the glyph is the glyph, and both centres were already
+ * in the same place, so growing it about its centre is enough. Six per cent
+ * lands it on the outline's box: +0 x +0 on three of the four and half a
+ * pixel short on Products, against a stroke's soft edge that is worth half a
+ * pixel by itself.
  */
+/**
+ * How much bigger the solid glyph has to be drawn to occupy the same box as
+ * the outline it replaces. Measured, not chosen: see NavIcon below.
+ */
+const FILL_MATCH = 1.06
+
 function NavIcon({ icon, active, color, size = 22 }: { icon: NavIconPair; active: boolean; color: string; size?: number }) {
   const Line = icon.line
   const Fill = icon.fill
   return (
     <span className="relative block shrink-0" style={{ color, width: size, height: size }}>
-      {/* Behind, and smaller than the outline in every one of the four, so
-          it has nowhere to spill. */}
+      <Line
+        size={size}
+        strokeWidth={1.5}
+        style={{ position: "absolute", inset: 0, opacity: active ? 0 : 1, transition: "opacity 180ms ease-out" }}
+      />
       <Fill
         size={size}
-        style={{ position: "absolute", inset: 0, opacity: active ? 1 : 0, transition: "opacity 180ms ease-out" }}
+        style={{
+          position: "absolute",
+          inset: 0,
+          opacity: active ? 1 : 0,
+          transition: "opacity 180ms ease-out",
+          /* Not a flourish and not animated: a constant that makes the solid
+             the size of the outline it replaces. See the note above. */
+          scale: String(FILL_MATCH),
+        }}
       />
-      <Line size={size} strokeWidth={1.5} style={{ position: "absolute", inset: 0 }} />
     </span>
   )
 }

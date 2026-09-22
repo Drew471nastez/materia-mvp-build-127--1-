@@ -539,24 +539,31 @@ function main() {
     the brighter fill and the waiting glyphs all belong to that.
   */
   /*
-    AND THE ICONS THEMSELVES. They used to cross-fade a line glyph out and a
-    fill glyph in, which is fading one shape into a DIFFERENT shape: a stroke
-    reaches half a stroke past its path where a solid stops at it, and three
-    of the four are separate drawings from the icon set besides. Photographed
-    on and off in the probe, every one shrank when its tab turned on — 1 to
-    2px off the ink box, and Home's ink moved 1.6px up the way with it.
+    AND THE ICONS THEMSELVES. The line glyph and the solid one are not the
+    same size — a stroke reaches half a stroke past its path where a solid
+    stops at it, and three of the four are separate drawings from the icon
+    set besides — so the icon changed size under the finger that pressed it.
 
-    The outline is drawn in both states now and the solid fades in behind it,
-    so the silhouette is the outline's either way and there is nothing left
-    that can change size. Measured at +0 x +0 on all four.
+    Two ways of pinning the silhouette were tried and both wrecked the
+    drawing: putting the outline over the solid in both states, and giving
+    the solid its own stroke. A stroke runs along every contour a shape has,
+    including the ones cut out of its middle, so the lines inside the receipt
+    closed up and it went out as a dark blob. The first of those shipped.
+
+    Scaling does not touch the drawing — the cutouts scale with it — and the
+    two centres already agreed, so six per cent about the centre lands the
+    solid on the outline's box.
   */
-  check("an icon keeps its outline when it fills, so its shape cannot change",
-    /<Line size=\{size\} strokeWidth=\{1\.5\} style=\{\{ position: "absolute", inset: 0 \}\} \/>/.test(nav),
-    "fading a stroked glyph out and a solid one in is two different shapes trading places")
-  check("and the fill is the one that arrives, behind it",
-    /<Fill\s+size=\{size\}\s+style=\{\{ position: "absolute", inset: 0, opacity: active \? 1 : 0, transition: "opacity 180ms ease-out" \}\}/.test(nav)
-      && nav.indexOf("<Fill") < nav.indexOf("<Line size={size} strokeWidth={1.5}"),
-    "in front of the outline it would spill past it on any icon drawn larger")
+  check("the solid glyph is drawn at the size of the outline it replaces",
+    /const FILL_MATCH = 1\.06/.test(nav) && /scale: String\(FILL_MATCH\)/.test(nav),
+    "half a pixel on every edge, on the icon directly under the finger that pressed it")
+  check("and neither glyph is overdrawn with the other, which closes the gaps it is drawn with",
+    !/<Line size=\{size\} strokeWidth=\{1\.5\} style=\{\{ position: "absolute", inset: 0 \}\} \/>/.test(nav)
+      && !/<Fill[\s\S]{0,120}stroke="currentColor"/.test(nav),
+    "the receipt went out as a dark blob the one time this was got wrong")
+  check("they still cross-fade, so the fill arrives rather than appearing",
+    /opacity: active \? 0 : 1, transition: "opacity 180ms ease-out"/.test(nav)
+      && /opacity: active \? 1 : 0,\s*\n\s*transition: "opacity 180ms ease-out"/.test(nav))
 
   check("and the lift belongs to a finger that is dragging, not to one that has landed",
     /const \[following, setFollowing\] = useState\(false\)/.test(nav)
