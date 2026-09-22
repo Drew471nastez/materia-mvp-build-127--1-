@@ -6,7 +6,7 @@ import {
   KEYBOARD_CHANGE_EVENT,
   KEYBOARD_ESTIMATE_DELAY_MS,
   estimatedKeyboardInset,
-  keyboardInset,
+  keyboardInsetFrom,
   needsKeyboardEstimate,
 } from "@/lib/ui/keyboard-safe-sheet"
 
@@ -51,8 +51,21 @@ export function ViewportVars() {
       in for the measurement, and a real measurement always replaces it.
     */
     let estimate = 0
-    let heightAtFocus = -1
+    let layoutAtFocus = -1
     let estimateTimer = 0
+
+    /*
+      THE PROBE. A fixed element's height IS the box fixed elements are laid
+      out against, on every platform, which innerHeight is not: see
+      keyboardInsetFrom. Zero width, hidden, no pointer events, and read only
+      on the events already handled here.
+    */
+    const probe = document.createElement("div")
+    probe.setAttribute("aria-hidden", "true")
+    probe.setAttribute("data-viewport-probe", "")
+    probe.style.cssText = "position:fixed;top:0;bottom:0;left:0;width:0;pointer-events:none;visibility:hidden;contain:strict"
+    document.body.appendChild(probe)
+    const layoutHeight = () => Math.round(probe.getBoundingClientRect().height) || window.innerHeight
 
     /**
      * ===================================================================
@@ -88,20 +101,29 @@ export function ViewportVars() {
       settleTimer = window.setTimeout(() => root.classList.remove("vv-settling"), 340)
     }
 
-    /** What the platform says, which on some of them is nothing. */
-    const measure = () =>
-      keyboardInset(window.innerHeight, Math.round(vv?.offsetTop ?? 0), Math.round(vv?.height ?? window.innerHeight))
+    /** What the platform says, read against the fixed box, which on some of them is nothing. */
+    const measure = (layout = layoutHeight()) =>
+      keyboardInsetFrom({
+        layoutHeight: layout,
+        innerHeight: window.innerHeight,
+        vvTop: Math.round(vv?.offsetTop ?? 0),
+        vvHeight: Math.round(vv?.height ?? window.innerHeight),
+      })
 
     const apply = () => {
+      const layout = layoutHeight()
       const reported = Math.round(vv?.height ?? window.innerHeight)
       const top = Math.round(vv?.offsetTop ?? 0)
-      const measured = keyboardInset(window.innerHeight, top, reported)
+      const measured = measure(layout)
       /* A real measurement wins, and ends the estimate for good. */
       if (measured > 0 && estimate) estimate = 0
       const standingIn = measured === 0 && estimate > 0
+      const inset = standingIn ? estimate : measured
       /* One pair, always consistent: --kb-inset is where the usable room
-         starts from the bottom, --vv-h is how much of it there is. */
-      const h = standingIn ? Math.max(0, window.innerHeight - estimate) : reported
+         starts from the bottom of the fixed box, --vv-h is how much of that
+         box is left above it. The smaller of what was reported and what the
+         inset leaves, because either may be the one that knows. */
+      const h = inset > 0 ? Math.min(reported, Math.max(0, layout - inset)) : reported
       let changed = false
       if (h !== lastH) {
         changed = true
@@ -134,7 +156,6 @@ export function ViewportVars() {
         innerHeight shrinks too and this comes out at 0 — which is right,
         because there is nothing left to compensate for.
       */
-      const inset = standingIn ? estimate : measured
       if (inset !== lastInset) {
         changed = true
         lastInset = inset
@@ -156,7 +177,7 @@ export function ViewportVars() {
         window.dispatchEvent(new CustomEvent(KEYBOARD_CHANGE_EVENT, { detail: { inset, visibleHeight: h } }))
         try { vv?.dispatchEvent(new Event("resize")) } catch {}
       }
-      const kb = window.innerHeight - h > window.innerHeight * 0.2
+      const kb = layout - h > layout * 0.2
       if (kb !== lastKb) {
         lastKb = kb
         if (kb) root.dataset.keyboard = "open"
@@ -182,20 +203,20 @@ export function ViewportVars() {
 
     const onFocusIn = (e: FocusEvent) => {
       if (!takesAKeyboard(e.target as Element | null)) return
-      heightAtFocus = window.innerHeight
+      layoutAtFocus = layoutHeight()
       window.clearTimeout(estimateTimer)
       estimateTimer = window.setTimeout(() => {
         if (!takesAKeyboard(document.activeElement)) return
         if (
           !needsKeyboardEstimate({
             measuredInset: measure(),
-            innerHeightAtFocus: heightAtFocus,
-            innerHeightNow: window.innerHeight,
+            layoutHeightAtFocus: layoutAtFocus,
+            layoutHeightNow: layoutHeight(),
             coarsePointer: window.matchMedia?.("(hover: none) and (pointer: coarse)").matches ?? false,
             viewportWidth: window.innerWidth,
           })
         ) return
-        estimate = estimatedKeyboardInset(window.innerHeight)
+        estimate = estimatedKeyboardInset(layoutHeight())
         apply()
       }, KEYBOARD_ESTIMATE_DELAY_MS)
     }
@@ -229,6 +250,7 @@ export function ViewportVars() {
       document.removeEventListener("focusout", onFocusOut)
       window.clearTimeout(settleTimer)
       window.clearTimeout(estimateTimer)
+      probe.remove()
       root.classList.remove("vv-settling")
       root.style.removeProperty("--vv-h")
       root.style.removeProperty("--vv-top")

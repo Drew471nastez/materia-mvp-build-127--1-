@@ -59,6 +59,7 @@ import {
   keyboardInsetOrFloor,
   estimatedKeyboardInset,
   keyboardInset,
+  keyboardInsetFrom,
   needsKeyboardEstimate,
   sheetAboveKeyboard,
 } from "@/lib/ui/keyboard-safe-sheet"
@@ -119,9 +120,8 @@ function main() {
   const vars = read("components/viewport-vars.tsx")
   check("the effect sets it", /root\.style\.setProperty\("--kb-inset", `\$\{inset\}px`\)/.test(vars))
   check(
-    "from the tested function",
-    /const measured = keyboardInset\(window\.innerHeight, top, reported\)/.test(vars)
-      && /keyboardInset\(window\.innerHeight, Math\.round\(vv\?\.offsetTop \?\? 0\), Math\.round\(vv\?\.height \?\? window\.innerHeight\)\)/.test(vars),
+    "from the tested function, against the fixed box",
+    /const measured = measure\(layout\)/.test(vars) && /keyboardInsetFrom\(\{\s*\n\s*layoutHeight: layout,/.test(vars),
   )
   check("and clears it on unmount", /removeProperty\("--kb-inset"\)/.test(vars))
   check(
@@ -160,23 +160,80 @@ function main() {
     `${KEYBOARD_ESTIMATE_DELAY_MS}ms`,
   )
 
-  const phone = { innerHeightAtFocus: 874, innerHeightNow: 874, coarsePointer: true, viewportWidth: 402 }
+  console.log("\nThe box a fixed element is laid out against is read off a fixed element")
+
+  /*
+    THE THIRD SCREENSHOT. The floor was live and the sheet had still not
+    moved. Every formula took innerHeight to be the fixed box and subtracted
+    the visual viewport from it; on iOS innerHeight shrinks for the keyboard
+    WITH the visual viewport while the fixed box does not shrink at all. Full
+    minus full is zero, shrunk minus shrunk is zero, and a check on
+    innerHeight took the shrink for a web view that had resized itself and
+    withheld the floor from the one platform that needed it.
+
+    So the box is read off a probe pinned top: 0, bottom: 0, and the keyboard
+    is what of that box the visible area does not reach. Each row below is a
+    platform's behaviour, written down so the next one cannot be a surprise.
+  */
+  const fixedBox = 874
+  check(
+    "Safari and Android Chrome: the visual viewport shrinks, the box does not",
+    keyboardInsetFrom({ layoutHeight: fixedBox, innerHeight: 538, vvTop: 0, vvHeight: 538 }) === 336,
+  )
+  check(
+    "iOS reporting only through innerHeight, the visual viewport left at the full height",
+    keyboardInsetFrom({ layoutHeight: fixedBox, innerHeight: 538, vvTop: 0, vvHeight: 874 }) === 336,
+    "the case every formula read as zero",
+  )
+  check(
+    "a page scrolled under the keyboard still measures to the bottom of the box",
+    keyboardInsetFrom({ layoutHeight: fixedBox, innerHeight: 874, vvTop: 120, vvHeight: 418 }) === 336,
+  )
+  check(
+    "a web view that resized itself: the box shrank with everything else, nothing to compensate",
+    keyboardInsetFrom({ layoutHeight: 538, innerHeight: 538, vvTop: 0, vvHeight: 538 }) === 0,
+  )
+  check(
+    "a platform that reports nothing at all",
+    keyboardInsetFrom({ layoutHeight: fixedBox, innerHeight: 874, vvTop: 0, vvHeight: 874 }) === 0,
+    "which is what the floor is for",
+  )
+  check(
+    "a browser toolbar is outside the box and is not a keyboard",
+    keyboardInsetFrom({ layoutHeight: 800, innerHeight: 800, vvTop: 0, vvHeight: 800 }) === 0,
+  )
+  check("and a sub-pixel is not one either", keyboardInsetFrom({ layoutHeight: 874, innerHeight: 873.5, vvTop: 0, vvHeight: 874 }) === 0)
+  check(
+    "ViewportVars keeps the probe and reads the box off it",
+    /probe\.style\.cssText = "position:fixed;top:0;bottom:0;left:0;width:0;/.test(vars)
+      && /const layoutHeight = \(\) => Math\.round\(probe\.getBoundingClientRect\(\)\.height\) \|\| window\.innerHeight/.test(vars)
+      && /probe\.remove\(\)/.test(vars),
+  )
+
+  const phone = { layoutHeightAtFocus: 874, layoutHeightNow: 874, coarsePointer: true, viewportWidth: 402 }
   check("a phone told nothing needs it", needsKeyboardEstimate({ ...phone, measuredInset: 0 }))
   /*
     An inset of 0 means two opposite things, and this is what tells them
     apart. A platform that resized the web view for the keyboard also reports
     0, and is already correct — giving it the floor would throw the sheet half
-    a screen up for nothing.
+    a screen up for nothing. The FIXED BOX tells them apart, never innerHeight:
+    innerHeight shrinks on iOS for a keyboard the box never moved for.
   */
   check(
     "a platform that resized the web view instead does not",
-    !needsKeyboardEstimate({ ...phone, measuredInset: 0, innerHeightNow: 538 }),
-    "innerHeight shrinking IS the keyboard being handled",
+    !needsKeyboardEstimate({ ...phone, measuredInset: 0, layoutHeightNow: 538 }),
+    "the fixed box shrinking IS the keyboard being handled",
   )
   check(
     "a collapsing browser toolbar is not a resize",
-    needsKeyboardEstimate({ ...phone, measuredInset: 0, innerHeightNow: 874 - 60 }),
+    needsKeyboardEstimate({ ...phone, measuredInset: 0, layoutHeightNow: 874 - 60 }),
     "sixty pixels is a toolbar; a keyboard is a quarter of the screen",
+  )
+  check(
+    "and it is decided on the fixed box, not on innerHeight",
+    /layoutHeightAtFocus: layoutAtFocus,\s*\n\s*layoutHeightNow: layoutHeight\(\),/.test(vars)
+      && !/innerHeightAtFocus/.test(vars),
+    "innerHeight shrinking on iOS is the keyboard, not a resize, and reading it as one is the third screenshot",
   )
   check("a platform that did report does not", !needsKeyboardEstimate({ ...phone, measuredInset: 336 }))
   check(
@@ -198,15 +255,15 @@ function main() {
   check(
     "and the pair it publishes stays consistent",
     /const standingIn = measured === 0 && estimate > 0/.test(vars)
-      && /const h = standingIn \? Math\.max\(0, window\.innerHeight - estimate\) : reported/.test(vars)
-      && /const inset = standingIn \? estimate : measured/.test(vars),
+      && /const inset = standingIn \? estimate : measured/.test(vars)
+      && /const h = inset > 0 \? Math\.min\(reported, Math\.max\(0, layout - inset\)\) : reported/.test(vars),
     "--vv-h is the room and --kb-inset is where it starts; one without the other overflows the sheet off the top",
   )
   check(
     "it starts on a focused text field and ends when the field goes",
     /document\.addEventListener\("focusin", onFocusIn/.test(vars)
       && /document\.addEventListener\("focusout", onFocusOut/.test(vars)
-      && /estimate = estimatedKeyboardInset\(window\.innerHeight\)/.test(vars),
+      && /estimate = estimatedKeyboardInset\(layoutHeight\(\)\)/.test(vars),
   )
   check(
     "a button or a checkbox is not a text field",

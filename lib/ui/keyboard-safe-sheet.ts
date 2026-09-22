@@ -157,8 +157,15 @@ export function estimatedKeyboardInset(innerHeight: number): number {
  */
 export function needsKeyboardEstimate(state: {
   measuredInset: number
-  innerHeightAtFocus: number
-  innerHeightNow: number
+  /**
+   * The height fixed elements are laid out against, read off one — NOT
+   * innerHeight. See keyboardInsetFrom: on iOS innerHeight shrinks with the
+   * keyboard while fixed elements do not move, so a check on innerHeight saw
+   * the keyboard as a resize and refused the floor to the one platform that
+   * needed it. That is the third screenshot.
+   */
+  layoutHeightAtFocus: number
+  layoutHeightNow: number
   coarsePointer: boolean
   viewportWidth: number
 }): boolean {
@@ -166,9 +173,10 @@ export function needsKeyboardEstimate(state: {
   if (!state.coarsePointer) return false
   /* The width the sheets themselves switch to their phone layout at. */
   if (state.viewportWidth >= 768) return false
-  /* A browser toolbar collapsing is sixty-odd pixels; a keyboard that
-     resized the web view is never less than a quarter of the screen. */
-  if (state.innerHeightNow < state.innerHeightAtFocus - 80) return false
+  /* A platform that resized the web view moved the fixed elements with it,
+     and there is nothing left to compensate for. A browser toolbar is
+     sixty-odd pixels; a keyboard that resized the box is a quarter of it. */
+  if (state.layoutHeightNow < state.layoutHeightAtFocus - 80) return false
   return true
 }
 
@@ -214,8 +222,56 @@ export function keyboardInsetOrFloor(measured: number): number {
 }
 
 /**
- * The number `--kb-inset` carries, as a function so it can be tested rather
- * than trusted.
+ * ===========================================================================
+ *  WHAT A FIXED ELEMENT IS LAID OUT AGAINST IS NOT innerHeight
+ * ===========================================================================
+ * Three screenshots, three fixes that each read zero on the phone, and this
+ * is why. Every formula in this file and in the six components took
+ * `innerHeight` to be the height of the box a `position: fixed` element is
+ * laid out against, and subtracted the visual viewport from it. On iOS that
+ * box does not shrink for the keyboard — the sheet stays exactly where it
+ * was, which is the bug — but `innerHeight` DOES shrink for it, and so does
+ * `visualViewport.height`, together. Full minus full is zero before the
+ * keyboard, and shrunk minus shrunk is zero after it. Zero both times, and
+ * a discriminator that watched innerHeight took the shrink for a web view
+ * that had resized itself and withheld the floor from the one platform that
+ * needed it.
+ *
+ * So the height fixed elements get is READ OFF A FIXED ELEMENT: ViewportVars
+ * keeps a zero-width probe pinned top: 0, bottom: 0, and its height is that
+ * box by definition, on every platform, with no model of any of them. From
+ * there the keyboard is whatever of that box the visible area does not
+ * reach, in two readings and a fallback:
+ *
+ *   from the visual viewport   layout - (offsetTop + height)
+ *       Safari, Android Chrome, and a WKWebView that reports.
+ *   from innerHeight           layout - innerHeight
+ *       The iOS case above, where the visual viewport is reported at the
+ *       full height but innerHeight was shrunk to the visible one.
+ *   nothing                    0, and the floor takes over.
+ *
+ * A web view that resized itself shrinks the probe along with everything
+ * else, all three numbers agree, and the answer is 0: right, because the
+ * fixed elements moved with it.
+ */
+export function keyboardInsetFrom(m: {
+  layoutHeight: number
+  innerHeight: number
+  vvTop: number
+  vvHeight: number
+}): number {
+  const fromViewport = m.layoutHeight - (m.vvTop + m.vvHeight)
+  if (fromViewport > 1) return Math.round(fromViewport)
+  const fromInner = m.layoutHeight - m.innerHeight
+  if (fromInner > 1) return Math.round(fromInner)
+  return 0
+}
+
+/**
+ * The number `--kb-inset` used to carry, kept because the shell's own
+ * bootstrap and the older tests read it. It assumes innerHeight is the
+ * layout box, which the note above explains it is not on iOS; ViewportVars
+ * measures with keyboardInsetFrom now.
  *
  * `innerHeight` is the LAYOUT viewport, which a fixed element is positioned
  * against and which iOS does not shrink for the keyboard. The visual viewport
