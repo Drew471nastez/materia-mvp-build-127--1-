@@ -116,26 +116,40 @@ function Collapsible({ open, children }: { open: boolean; children: React.ReactN
 // ── The rows ────────────────────────────────────────────────────────────────
 
 /**
- * A 22×22 box with both variants of the glyph stacked in it, cross-faded.
+ * ===========================================================================
+ *  THE OUTLINE STAYS. THE FILL ARRIVES INSIDE IT.
+ * ===========================================================================
+ * This used to cross-fade the two glyphs — line out, fill in — and that is
+ * the bump that kept being reported in the icons.
  *
- * The same trick the rail uses: the fill ARRIVES rather than appears, and
- * because both are painted in a fixed box nothing an icon does can move the
- * label beside it.
+ * They are not the same drawing. A stroke sits astride its path and so
+ * reaches half a stroke beyond it, while a solid stops at its edge; and for
+ * three of these four the line and the bold are separate drawings from the
+ * icon set, which never promised to agree. Photographed on and off in
+ * scripts/check-app-mobile-nav.mjs, every one of them got SMALLER when its
+ * tab turned on: 1 to 2px off the ink box, and Home's ink shifted 1.6px up
+ * the way as well. Press an icon and it shrinks and hops. The layout boxes
+ * never moved a pixel, which is why every check in this file passed while
+ * the report kept coming back.
+ *
+ * Fading one shape into a different shape is the whole problem, so it does
+ * not do that any more. The outline is drawn all the time, and the solid
+ * fades in BEHIND it. The silhouette is the outline's, on or off, so there
+ * is nothing left that can change size — and turning a tab on now reads as
+ * the glyph filling in, which is what it was always meant to read as.
  */
 function NavIcon({ icon, active, color, size = 22 }: { icon: NavIconPair; active: boolean; color: string; size?: number }) {
   const Line = icon.line
   const Fill = icon.fill
   return (
     <span className="relative block shrink-0" style={{ color, width: size, height: size }}>
-      <Line
-        size={size}
-        strokeWidth={1.5}
-        style={{ position: "absolute", inset: 0, opacity: active ? 0 : 1, transition: "opacity 180ms ease-out" }}
-      />
+      {/* Behind, and smaller than the outline in every one of the four, so
+          it has nowhere to spill. */}
       <Fill
         size={size}
         style={{ position: "absolute", inset: 0, opacity: active ? 1 : 0, transition: "opacity 180ms ease-out" }}
       />
+      <Line size={size} strokeWidth={1.5} style={{ position: "absolute", inset: 0 }} />
     </span>
   )
 }
