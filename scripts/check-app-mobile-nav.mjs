@@ -137,7 +137,25 @@ mkdirSync(shots, { recursive: true })
 /* The stubs live INSIDE the repo: esbuild resolves "react" from the nearest
    node_modules, and a file in /tmp has none above it. */
 const out = mkdtempSync(join(tmpdir(), "storelib-navpill-"))
-writeFileSync(join(shots, "navigation.js"), `export const usePathname = () => globalThis.__path || "/app"
+/*
+ * usePathname USED TO BE A CONSTANT HERE, and that is why this probe called
+ * the bar clean while the report kept coming back. In the shell, pressing an
+ * icon calls router.push and the pathname CHANGES a moment later, which
+ * re-renders the pill with a new `current` and retires the remembered pick.
+ * None of that happened here: the harness recorded the href and left the
+ * pathname where it was, so the second half of every press went untested.
+ *
+ * So it subscribes, the way the real hook does, and the fixture moves it
+ * after a delay the probe sets — which is the only thing a router does that
+ * this component can see.
+ */
+writeFileSync(join(shots, "navigation.js"), `import { useSyncExternalStore } from "react"
+const subs = new Set()
+if (!globalThis.__path) globalThis.__path = "/app"
+globalThis.__goto = (p) => { globalThis.__path = p; for (const f of [...subs]) f() }
+const read = () => globalThis.__path || "/app"
+export const usePathname = () => useSyncExternalStore((f) => { subs.add(f); return () => subs.delete(f) }, read, read)
+export const __unusedPathname = () => globalThis.__path || "/app"
 export const useRouter = () => ({ push() {}, prefetch() {}, replace() {}, refresh() {}, back() {} })
 export const useSearchParams = () => new URLSearchParams()
 export const useParams = () => ({})
@@ -528,6 +546,57 @@ const slots = await ev(`(() => {
 })()`)
 await ev("globalThis.__haptics = []; window.__went = null; window.__dotAt = []; true")
 const dot = `(() => { const d = document.querySelector('nav[aria-label="Main"] span[aria-hidden="true"]').getBoundingClientRect(); return Math.round((d.left + d.right) / 2) })()`
+/*
+ * ── WATCHING IT EVERY FRAME, FROM INSIDE THE PAGE ────────────────────────
+ *
+ * Asking the browser where the circle is over CDP costs a round trip, so a
+ * trail sampled that way is a dozen coarse, unevenly spaced readings — and a
+ * press that lasts as long as ten of those round trips is not a tap. A real
+ * one is over in about four frames, which is the whole point: what CSS is
+ * handed on the lift is whatever distance the frame loop had not covered yet,
+ * and a slow press leaves it nothing to get wrong.
+ *
+ * So the recording happens in the page, on its own frames, and is read out
+ * once at the end. `translate` rather than a rect, because that is the
+ * property the loop and the transition both write, and computed style reports
+ * it mid-transition.
+ */
+await ev(`window.__rec = () => {
+  const d = document.querySelector('nav[aria-label="Main"] span[aria-hidden="true"]')
+  window.__trail = []
+  window.__scale = []
+  const tick = () => {
+    const cs = getComputedStyle(d)
+    const m = /^(-?[\\d.]+)px/.exec(cs.translate || "")
+    if (m) window.__trail.push(Math.round(Number.parseFloat(m[1]) * 100) / 100)
+    /* Its SIZE, which nothing here has ever looked at. The circle grows
+       under a finger, and a press is a finger. */
+    const sc = cs.scale && cs.scale !== "none" ? Number.parseFloat(cs.scale) : 1
+    window.__scale.push(Math.round((Number.isFinite(sc) ? sc : 1) * 1000) / 1000)
+    window.__recFrame = requestAnimationFrame(tick)
+  }
+  window.__recFrame = requestAnimationFrame(tick)
+}
+window.__stop = () => { cancelAnimationFrame(window.__recFrame); return window.__trail }
+true`)
+/*
+ * How far past its destination the circle went, measured in the direction it
+ * was travelling. THE OLD VERSION OF THIS ONLY LOOKED THE OTHER WAY — back
+ * towards the fingertip — so a bounce past the slot scored zero and the
+ * probe called the bar clean while it was still bumping.
+ */
+const pastTarget = (trail, from, to) => {
+  if (!trail.length) return 0
+  const furthest = to >= from ? Math.max(...trail) : Math.min(...trail)
+  return Math.round(Math.abs(Math.max(0, (to >= from ? furthest - to : to - furthest))) * 100) / 100
+}
+const turns = (trail) => trail.filter((v, i) => {
+  if (i < 2) return false
+  const a = v - trail[i - 1]
+  const b = trail[i - 1] - trail[i - 2]
+  return a * b < 0 && Math.abs(a) > 0.2 && Math.abs(b) > 0.2
+}).length
+await ev("window.__rec()")
 await send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: slots[0].x, y: slots[0].y, radiusX: 12, radiusY: 12, force: 1 }] })
 await sleep(80)
 const dragTrail = [await ev(dot)]
@@ -538,9 +607,20 @@ for (let i = 1; i <= 12; i++) {
   dragTrail.push(await ev(dot))
 }
 await send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] })
-await sleep(300)
+await sleep(700)
+const dragFrames = await ev("window.__stop()")
+const dragScaleFrames = await ev("window.__scale.slice()")
+const dragScale = {
+  grew: Math.round((Math.max(...dragScaleFrames) - Math.min(...dragScaleFrames)) * 1000) / 1000,
+  biggest: Math.max(...dragScaleFrames),
+}
 const drag = {
   trail: dragTrail,
+  frames: dragFrames,
+  /* A released drag is the gesture the bounce was asked for, so it has to
+     still be there: this is what stops "a tap does not bounce" from being
+     satisfied by taking the bounce out altogether. */
+  past: pastTarget(dragFrames, dragFrames[0], dragFrames[dragFrames.length - 1]),
   travelled: dragTrail[dragTrail.length - 1] - dragTrail[0],
   distinct: new Set(dragTrail).size,
   monotonic: dragTrail.every((v, i) => i === 0 || v >= dragTrail[i - 1] - 1),
@@ -573,23 +653,138 @@ const drag = {
 await ev("window.__went = null; true")
 const OFF_CENTRE = Math.round(SLOT_W / 2) - 6
 const tapAt = slots[1].x - OFF_CENTRE
+/*
+ * A TAP LASTS ABOUT FOUR FRAMES. Holding for a fifth of a second lets the
+ * frame loop arrive on its own and leaves CSS nothing to fumble, which is
+ * how the last version of this passed a bar that still bumped.
+ */
+const DOT_PX = await ev(`Math.round(document.querySelector('nav[aria-label="Main"] span[aria-hidden="true"]').getBoundingClientRect().height)`)
+await ev("window.__rec()")
 await send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: tapAt, y: slots[1].y, radiusX: 12, radiusY: 12, force: 1 }] })
-const tapTrail = []
-for (let i = 0; i < 10; i++) { tapTrail.push(await ev(dot)); await sleep(16) }
+await sleep(60)
 await send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] })
-await sleep(320)
-tapTrail.push(await ev(dot))
+await sleep(800)
+const tapFrames = await ev("window.__stop()")
+const tapScale = await ev("window.__scale.slice()")
 const tap = {
-  trail: tapTrail,
-  from: tapTrail[0],
-  landed: tapTrail[tapTrail.length - 1],
-  target: slots[1].x,
+  frames: tapFrames,
+  from: tapFrames[0],
+  landed: tapFrames[tapFrames.length - 1],
   finger: tapAt,
-  /* Every step goes the same way, or stands still. */
-  reversals: tapTrail.filter((v, i) => i > 1 && Math.sign(v - tapTrail[i - 1]) * Math.sign(tapTrail[i - 1] - tapTrail[i - 2]) < 0).length,
-  /* How far past the destination it went on its way to the fingertip. */
-  overshoot: Math.max(0, ...tapTrail.map((v) => (tapAt < slots[1].x ? slots[1].x - v : v - slots[1].x))),
+  /* Past the slot in the direction it was going: the bounce. */
+  past: pastTarget(tapFrames, tapFrames[0], tapFrames[tapFrames.length - 1]),
+  /* And back the other way, towards the fingertip: the old aim. */
+  backwards: (() => {
+    const from = tapFrames[0]
+    const to = tapFrames[tapFrames.length - 1]
+    return Math.round(Math.max(0, to >= from ? from - Math.min(...tapFrames) : Math.max(...tapFrames) - from) * 100) / 100
+  })(),
+  turns: turns(tapFrames),
+  /*
+    AND HOW BIG IT GOT. The circle carries `scale: dragging ? 1.06 : 1`, and
+    `dragging` is true from POINTER-DOWN — so a plain tap grows it six per
+    cent and shrinks it back, 400ms of movement with no finger travelling
+    anywhere. Every measurement in this file until now read `translate` and
+    called that clean.
+  */
+  grew: Math.round((Math.max(...tapScale) - Math.min(...tapScale)) * 1000) / 1000,
+  biggest: Math.max(...tapScale),
+  /* In pixels across, which is what an eye actually sees. */
+  grewPx: Math.round((Math.max(...tapScale) - Math.min(...tapScale)) * DOT_PX * 100) / 100,
 }
+/* Where the circle sits at rest on each slot, read rather than derived, so
+   "it landed on the slot" is measured against the bar's own arithmetic. */
+const restOn = await ev(`(() => {
+  const d = document.querySelector('nav[aria-label="Main"] span[aria-hidden="true"]')
+  const m = /^(-?[\\d.]+)px/.exec(getComputedStyle(d).translate || "")
+  return m ? Math.round(Number.parseFloat(m[1]) * 100) / 100 : null
+})()`)
+tap.restOff = Math.round(Math.abs(tap.landed - restOn) * 100) / 100
+
+/*
+ * ── AND NOW THE HALF THIS PROBE NEVER TESTED: THE ROUTE ARRIVING ─────────
+ *
+ * "It bumps, moves a little, for no reason." Pressing an icon is two events,
+ * not one. The press moves the circle, and then a moment later the page
+ * changes underneath it — `current` moves to the slot the pick had been
+ * standing in for, and the remembered pick is retired. Both are re-renders
+ * of the pill, and either could move the circle a second time.
+ *
+ * Until now the harness recorded the href and left the pathname alone, so
+ * every check here stopped at the lift. This one lets the route land 260ms
+ * later, the way a warm route does, and keeps watching for a second and a
+ * half: the question is whether anything moves AFTER the tap is over.
+ */
+await ev('window.__routeDelay = 260; window.__went = null; true')
+await ev("window.__rec()")
+await send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: slots[2].x - 17, y: slots[2].y, radiusX: 12, radiusY: 12, force: 1 }] })
+await sleep(60)
+await send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] })
+await sleep(1500)
+const routeFrames = await ev("window.__stop()")
+const FRAME_MS = 16.7
+/* When it last moved by more than a fifth of a pixel, in ms from the press. */
+let lastMove = 0
+for (let i = 1; i < routeFrames.length; i++) if (Math.abs(routeFrames[i] - routeFrames[i - 1]) > 0.2) lastMove = i
+const routeTap = {
+  frames: routeFrames,
+  from: routeFrames[0],
+  landed: routeFrames[routeFrames.length - 1],
+  past: pastTarget(routeFrames, routeFrames[0], routeFrames[routeFrames.length - 1]),
+  turns: turns(routeFrames),
+  quietAfter: Math.round(lastMove * FRAME_MS),
+  arrived: await ev("globalThis.__path"),
+}
+await ev('window.__routeDelay = 0; globalThis.__goto("/app"); true')
+await sleep(400)
+
+/*
+ * ── AND WITH THE ROUTE COSTING WHAT A ROUTE COSTS ────────────────────────
+ *
+ * The circle is moved by a requestAnimationFrame loop, and pressing an icon
+ * sets a whole new page rendering on that same thread. So the two compete,
+ * every single press, and whichever way it goes is decided by how heavy the
+ * page you pressed happens to be — which is what "sometimes" and "for no
+ * reason" in the report sound like from the inside.
+ *
+ * A step is how far the circle moved between two frames. A loop that gets
+ * its frames moves in a smooth decay, each step smaller than the last. A
+ * loop that is starved holds still and then lurches, so the tell is a step
+ * that comes AFTER the movement should have decayed to nothing.
+ */
+await ev('window.__routeDelay = 260; window.__navCost = 260; window.__went = null; true')
+await ev("window.__rec()")
+await send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: slots[3].x - 17, y: slots[3].y, radiusX: 12, radiusY: 12, force: 1 }] })
+await sleep(60)
+await send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] })
+await sleep(1800)
+const busyFrames = await ev("window.__stop()")
+const steps = busyFrames.slice(1).map((v, i) => Math.round(Math.abs(v - busyFrames[i]) * 100) / 100)
+/* The first frame it is within a pixel of where it ends up, and whether it
+   moved again after that. */
+const done = busyFrames[busyFrames.length - 1]
+let arrivedAt = busyFrames.findIndex((v) => Math.abs(v - done) <= 1)
+if (arrivedAt < 0) arrivedAt = busyFrames.length
+const busy = {
+  frames: busyFrames,
+  steps,
+  landed: done,
+  /* How many frames in a row it did not move at all while it was still on
+     its way: a loop being starved, held still. */
+  stalled: (() => {
+    let worst = 0, run = 0
+    for (let i = 0; i < arrivedAt && i < steps.length; i++) {
+      if (steps[i] < 0.05) { run += 1; worst = Math.max(worst, run) } else run = 0
+    }
+    return worst
+  })(),
+  /* The biggest jump it made after the first time it got near the slot. */
+  lateJump: Math.max(0, ...steps.slice(arrivedAt)),
+  turns: turns(busyFrames),
+}
+await ev('window.__routeDelay = 0; window.__navCost = 0; globalThis.__goto("/app"); true')
+await sleep(400)
+
 await ev("window.__went = null; true")
 
 /* Put it back on Home so the screenshot below is the resting state. */
@@ -1019,14 +1214,58 @@ console.log(`  a slide     the circle went ${drag.trail[0]}px to ${drag.trail[dr
 console.log(`              ${drag.haptics.length} haptic ticks, landed on ${drag.went}\n`)
 must(drag.travelled > 100, "a finger sliding along the bar drags the circle with it",
   `the circle moved ${drag.travelled}px across a slide from the first slot to the fourth`)
-console.log(`  a tap       pressed ${OFF_CENTRE}px off the centre of ${slots[1].label}; the circle went ${tap.from}px to ${tap.landed}px`)
-console.log(`              slot centre ${tap.target}px, ${tap.reversals} reversals on the way, ${tap.overshoot}px past it at most\n`)
-must(Math.abs(tap.landed - tap.target) <= 2, "a tap leaves the circle on the slot it picked",
-  `the circle finished at ${tap.landed} and the slot's centre is ${tap.target}`)
-must(tap.reversals === 0, "and gets there in one movement, without setting off for the fingertip first",
-  `the circle changed direction ${tap.reversals} time(s) during a tap: ${tap.trail.join(" ")}`)
-must(tap.overshoot <= 4, "never travelling past the slot towards the finger",
-  `the circle went ${tap.overshoot}px past the slot's centre towards a finger ${OFF_CENTRE}px off it`)
+console.log(`  a tap       pressed ${OFF_CENTRE}px off the centre of ${slots[1].label}, held 60ms, ${tap.frames.length} frames watched`)
+console.log(`              the circle went ${tap.from}px to ${tap.landed}px, ${tap.past}px past the slot, ${tap.backwards}px behind where it set off`)
+console.log(`              ${tap.turns} changes of direction, resting ${tap.restOff}px off where the bar puts it`)
+console.log(`              and it grew to ${tap.biggest}x on the way, ${tap.grewPx}px across, and shrank back`)
+console.log(`  a drag      released after four slots, ${drag.past}px past the slot, grew to ${dragScale.biggest}x while a finger held it\n`)
+must(tap.restOff <= 0.6, "a tap leaves the circle on the slot it picked",
+  `the circle finished ${tap.restOff}px from where the bar draws it at rest`)
+must(tap.backwards <= 1, "and sets off for the slot, not for the fingertip",
+  `it went ${tap.backwards}px the wrong way first, with the finger ${OFF_CENTRE}px off the slot's centre`)
+/*
+  AND IT DOES NOT CHANGE SIZE. This is the one that was missed for two rounds.
+  Every check in this file read the circle's POSITION, and its position was
+  clean, so the bar kept passing while the report kept coming back. On the
+  live bar a 60ms tap grew it to 1.047x and shrank it back: 2.35px across,
+  with nothing being held and nothing travelling anywhere.
+*/
+must(tap.grewPx <= 0.5, "and it does not change size on the way, having nothing to hold",
+  `a tap grew the circle to ${tap.biggest}x, ${tap.grewPx}px across, and shrank it back`)
+/*
+  The other half of the same claim. Without it, deleting the lift altogether
+  would pass everything above.
+*/
+must(dragScale.grew >= 0.03, "while a finger dragging it does lift it, which is what the lift is for",
+  `a drag across four slots changed the circle's size by only ${dragScale.grew}`)
+/*
+  The bump, measured the way it actually happens. A press hands CSS whatever
+  the frame loop has not covered, and SETTLE's curve is an overshoot, so on a
+  quick tap the circle sails past the icon you pressed and comes back.
+*/
+must(tap.past <= 1, "and lands on it rather than sailing past and coming back",
+  `it went ${tap.past}px past the slot in the direction it was travelling: ${tap.frames.join(" ")}`)
+must(tap.turns <= 1, "so a tap is one movement, not an out and back",
+  `the circle changed direction ${tap.turns} time(s): ${tap.frames.join(" ")}`)
+/*
+  And the other half of the same claim: the bounce is still there for the
+  gesture that asked for it. Without this, deleting SETTLE entirely would
+  pass every check above.
+*/
+console.log(`  and then    the route landed 260ms later on ${routeTap.arrived}; the circle went ${routeTap.from}px to ${routeTap.landed}px`)
+console.log(`              ${routeTap.turns} changes of direction, ${routeTap.past}px past the slot, last moved at ${routeTap.quietAfter}ms\n`)
+must(routeTap.arrived === "/app/products", "the page really does change under the bar, which is what a press is for",
+  `the pathname finished at ${routeTap.arrived}`)
+must(routeTap.quietAfter <= 500, "and the circle is done moving before the page arrives, not after it",
+  `it was still moving ${routeTap.quietAfter}ms in, with the route landing at 260ms: ${routeTap.frames.join(" ")}`)
+console.log(`  under load  a press while 260ms of page renders on the same thread: landed ${busy.landed}px`)
+console.log(`              stalled ${busy.stalled} frames on the way, ${busy.lateJump}px jump after arriving, ${busy.turns} changes of direction\n`)
+must(busy.stalled <= 2, "the circle keeps moving while the page it opened is rendering",
+  `it held still for ${busy.stalled} frames mid-flight: ${busy.frames.join(" ")}`)
+must(busy.lateJump <= 1, "and does not lurch once it is there",
+  `it jumped ${busy.lateJump}px after arriving: ${busy.frames.join(" ")}`)
+must(routeTap.turns <= 1, "so arriving does not move it a second time",
+  `the circle changed direction ${routeTap.turns} time(s) across the press and the route: ${routeTap.frames.join(" ")}`)
 must(drag.distinct >= 3, "through the slots on the way, not straight to the end",
   `it only ever showed ${drag.distinct} positions`)
 must(drag.monotonic, "and it never goes backwards while the finger goes forwards",

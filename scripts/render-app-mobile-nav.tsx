@@ -101,7 +101,35 @@ function Shell() {
         menuOpen={open}
         onToggleMenu={() => setOpen((v) => !v)}
         onCloseMenu={() => setOpen(false)}
-        onNavigate={(href) => { (window as unknown as Record<string, unknown>).__went = href }}
+        /*
+          What router.push does that this component can see: the pathname
+          moves, a moment later. The probe sets the delay; 0 means never, for
+          the checks that want a pick left hanging.
+        */
+        onNavigate={(href) => {
+          const w = window as unknown as Record<string, unknown>
+          w.__went = href
+          const delay = Number(w.__routeDelay ?? 0)
+          if (delay > 0) window.setTimeout(() => (w.__goto as (p: string) => void)(href), delay)
+          /*
+            What router.push actually costs. The shell renders a whole new
+            route when you press an icon, and that is main-thread work — the
+            same thread the circle's frame loop runs on. The probe sets how
+            many milliseconds of it to spend, in frame-sized pieces, starting
+            on the next frame the way React's own work does.
+          */
+          const cost = Number(w.__navCost ?? 0)
+          if (cost > 0) {
+            let spent = 0
+            const burn = () => {
+              const until = performance.now() + 24
+              while (performance.now() < until) { /* a route rendering */ }
+              spent += 24
+              if (spent < cost) requestAnimationFrame(burn)
+            }
+            requestAnimationFrame(burn)
+          }
+        }}
         icons={{
           home: NAV_ICONS.dashboard,
           orders: NAV_ICONS.orders,
