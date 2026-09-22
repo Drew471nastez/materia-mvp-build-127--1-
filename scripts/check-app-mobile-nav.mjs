@@ -882,15 +882,43 @@ await sleep(400)
  * a real route change: every reading has to be all the way on or all the way
  * off. A fraction anywhere is a frame of a shape that is neither.
  */
-const OPACITIES = `(() => [...document.querySelectorAll('nav[aria-label="Main"] a[aria-label] svg')]
-  .map((sv) => +Number(getComputedStyle(sv).opacity).toFixed(2)))()`
+const OPACITIES = `(() => {
+  const links = [...document.querySelectorAll('nav[aria-label="Main"] a[aria-label]')]
+  const a = (el) => +Number(getComputedStyle(el).opacity).toFixed(2)
+  return {
+    /* Each icon's two glyphs: which one is showing. */
+    svg: links.flatMap((l) => [...l.querySelectorAll("svg")].map(a)),
+    /* And the box around them, which is what dims through the change. */
+    box: links.map((l) => a(l.querySelector("span"))),
+  }
+})()`
 await ev('window.__routeDelay = 260; window.__went = null; true')
 const opTrail = [await ev(OPACITIES)]
 await send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: slots[2].x - 14, y: slots[2].y, radiusX: 12, radiusY: 12, force: 1 }] })
 await sleep(50)
 await send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] })
 for (let i = 0; i < 40; i++) { opTrail.push(await ev(OPACITIES)); await sleep(12) }
-const partly = opTrail.flat().filter((v) => v > 0.01 && v < 0.99)
+const partly = opTrail.flatMap((f) => f.svg).filter((v) => v > 0.01 && v < 0.99)
+/*
+  AND THE SWAP HAPPENS WHERE IT IS FAINT. The two drawings are not the same
+  shape, so the frame the glyph changes on is a frame the shape changes on.
+  Dimming the box around it through the change is what keeps that from being
+  something to look at, and this is where that is held to: on every frame a
+  glyph changes, how visible was the box it sits in.
+*/
+const swapSeenAt = (() => {
+  let worst = 0
+  for (let f = 1; f < opTrail.length; f++) {
+    for (let i = 0; i < opTrail[f].box.length; i++) {
+      const changed = opTrail[f].svg[i * 2] !== opTrail[f - 1].svg[i * 2]
+        || opTrail[f].svg[i * 2 + 1] !== opTrail[f - 1].svg[i * 2 + 1]
+      if (changed) worst = Math.max(worst, opTrail[f].box[i], opTrail[f - 1].box[i])
+    }
+  }
+  return Math.round(worst * 100) / 100
+})()
+const boxDippedTo = Math.round(Math.min(...opTrail.flatMap((f) => f.box)) * 100) / 100
+const boxBackTo = Math.round(Math.min(...opTrail[opTrail.length - 1].box) * 100) / 100
 await ev('window.__routeDelay = 0; globalThis.__goto("/app"); true')
 await sleep(400)
 
@@ -1019,16 +1047,34 @@ await ev("window.__went = null; true")
 await send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: slots[2].x, y: slots[2].y, radiusX: 12, radiusY: 12, force: 1 }] })
 await sleep(60)
 await send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] })
+/*
+  WHERE IT IS, AND WHETHER IT CAN BE SEEN THERE. The lens is handed between
+  slots by dipping out of sight, moving, and coming back, so for the length
+  of the dip it is legitimately still standing on the slot it is leaving.
+  Reading position alone cannot tell that apart from the spring-back this
+  check exists to catch, and it used to score the hand-over as a 53px return.
+  So each reading carries how visible it was, and the faint ones are not
+  somewhere the circle was ever seen.
+*/
 const after = []
-for (let i = 0; i < 16; i++) { await sleep(32); after.push(await ev(dot)) }
+for (let i = 0; i < 16; i++) {
+  await sleep(32)
+  after.push(await ev(`(() => {
+    const d = document.querySelector('nav[aria-label="Main"] span[aria-hidden="true"]')
+    const r = d.getBoundingClientRect()
+    return { x: Math.round((r.left + r.right) / 2), a: Math.round(Number.parseFloat(getComputedStyle(d).opacity || "1") * 100) / 100 }
+  })()`))
+}
+const seenAt = after.filter((f) => f.a > 0.3).map((f) => f.x)
 const settled = {
-  samples: after,
+  samples: after.map((f) => `${f.x}@${f.a}`),
   target: slots[2].x,
-  /* How far BACK it went. With the pick forgotten this is a whole slot or
-     more; the few pixels left are the tail of the settle still arriving. */
-  wentBack: Math.round(slots[2].x - Math.min(...after)),
+  /* How far BACK it went, counting only where it could be seen. With the pick
+     forgotten this is a whole slot or more; the few pixels left are the tail
+     of the settle still arriving. */
+  wentBack: seenAt.length ? Math.round(slots[2].x - Math.min(...seenAt)) : 0,
   /* And where it ends up once the spring has finished. */
-  rest: Math.round(Math.max(...after.slice(6).map((v) => Math.abs(v - slots[2].x)))),
+  rest: Math.round(Math.max(...after.slice(6).map((f) => Math.abs(f.x - slots[2].x)))),
   went: await ev("window.__went"),
 }
 await ev("window.__went = null; true")
@@ -1522,10 +1568,23 @@ must(lens.easedOff, "and eases only on the way off, which nothing interrupts",
 must(lens.ticks.length === 1 && lens.ticks[0] === "medium", "and a tap is one tick, at the moment of contact",
   `a tap fired ${lens.ticks.length} tick(s): ${lens.ticks.join(", ") || "none"}`)
 
-console.log(`  the glyphs  ${opTrail.length} readings of ${opTrail[0].length} glyphs across a press and the route landing`)
-console.log(`              ${partly.length} of them caught part way between the two drawings\n`)
+console.log(`  the glyphs  ${opTrail.length} readings of ${opTrail[0].svg.length} glyphs across a press and the route landing`)
+console.log(`              ${partly.length} of them caught part way between the two drawings`)
+console.log(`              the box around one dimmed to ${boxDippedTo} and back to ${boxBackTo}; a glyph changed at ${swapSeenAt} visible\n`)
 must(partly.length === 0, "a glyph is either the outline or the solid, never a blend of the two",
   `${partly.length} reading(s) were part way between the two drawings: ${[...new Set(partly)].slice(0, 8).join(", ")}`)
+must(swapSeenAt <= 0.4, "and it changes over where the box around it is faint, so the change is soft rather than a switch",
+  `a glyph changed while its box was ${swapSeenAt} visible`)
+/*
+  Not zero: a glyph that blinks right out is a hole in the bar rather than a
+  dissolve. The floor is pinned exactly in tests/app-mobile-nav.test.ts; here
+  it is a band, because sampling every 12ms never lands on the floor itself —
+  set the floor to 0 and this reads 0.09 on the way down rather than 0.
+*/
+must(boxDippedTo <= 0.4 && boxDippedTo >= 0.15, "dimming through the change rather than blinking out",
+  `the faintest it went was ${boxDippedTo}`)
+must(boxBackTo >= 0.99, "and coming all the way back",
+  `it finished at ${boxBackTo}`)
 
 for (const ic of icons) {
   must(!ic.missing, `${ic.label} is drawn at all`, "no ink found in its box")

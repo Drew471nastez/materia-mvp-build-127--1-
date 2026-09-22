@@ -155,68 +155,77 @@ function Collapsible({ open, children }: { open: boolean; children: React.ReactN
 const FILL_MATCH = 1.06
 
 /**
+ * How long the icon takes to dim, and to come back. Out is quicker than in,
+ * the same way round as the lens: leaving should not be the part you wait on.
+ */
+const GLYPH_OUT = 110
+const GLYPH_IN = 250
+/** Faint, not gone. A glyph that blinks out is a hole in the bar. */
+const GLYPH_FLOOR = 0.25
+
+/**
  * ===========================================================================
- *  A 22x22 BOX, BOTH GLYPHS IN IT, AND THEY ARE THE SAME SIZE
+ *  A 22x22 BOX, BOTH GLYPHS IN IT, AND THE SWAP HAPPENS WHERE IT IS FAINT
  * ===========================================================================
  * The line glyph and the solid one are not drawn the same size. A stroke sits
  * astride its path and reaches half a stroke past it, where a solid stops at
  * its edge, and three of these four are separate drawings from the icon set
- * besides. So filling an icon in made it SHRINK — about half a pixel on every
- * edge — and that is the little bump on the icon you press, reported four
- * times and measured by photographing each icon with its tab on and again
- * with its neighbour's on.
+ * besides. FILL_MATCH puts the two boxes on top of each other, which fixes
+ * the two ENDS of the change.
  *
- * AND THEY ARE NOT BLENDED. Matching the boxes fixes the two ENDS, and the
- * icon was still moving in between them: fade two different drawings through
- * each other and every frame of the fade is a shape that is neither, which on
- * Products measured 40x40 at the start, 40x39 halfway and 39x38 at the end.
- * Nothing about the layout moves during any of this — the button, the glyph
- * box and both glyphs all measure zero, every frame — so the movement was
- * only ever the ink.
+ * It does not fix what is in between, and that is why they cannot simply be
+ * cross-faded: two different drawings blended through each other make every
+ * frame of the blend a shape that is neither, which on Products measured
+ * 40x40 going in, 40x39 halfway and 39x38 coming out. So for a while the
+ * glyph swapped in a single frame instead — nothing to see moving, and hard
+ * as a switch to look at.
  *
- * So there is no halfway. The glyph swaps in one frame, at a size that does
- * not change, and a state with no duration cannot be seen moving. The colour
- * still eases over 200ms on the link, because colour moves nothing.
+ * It is dimmed through the change now, the same way the lens is handed from
+ * one slot to the next: down to a quarter, swapped there, and back up. Soft
+ * to look at, and the difference between the two drawings is only ever a
+ * quarter of a difference on screen.
  *
- * THREE WAYS OF DOING THIS, AND ONLY THE THIRD IS ANY GOOD. Written down
- * because the first two look obvious and both ruin the icons.
- *
- *   Drawing the outline over the solid in both states pins the silhouette,
- *   and fills in the gaps the solid is drawn WITH. The receipt went out as a
- *   dark blob. It shipped, and came back within the hour.
- *
- *   Giving the solid its own 1.5px stroke pins it exactly, and closes the
- *   same gaps for the same reason: a stroke runs along every contour a shape
- *   has, including the ones cut out of its middle.
- *
- *   Scaling does not touch the drawing at all. The cutouts scale with
- *   everything else, so the glyph is still the glyph, and both centres were
- *   already in the same place, so growing it about its centre is the whole
- *   correction. Six per cent lands it on the outline's box: +0 x +0 on three
- *   of the four and half a pixel short on Products.
- *
- * The outline is what does not change, so the solid is the one that moves to
- * meet it: three icons out of four are sitting there unfilled at any moment.
+ * THREE WAYS OF MAKING THE TWO AGREE WERE TRIED AND TWO ARE WRONG, recorded
+ * because both look obvious. Drawing the outline over the solid, and giving
+ * the solid its own stroke, close up the gaps the solid is drawn WITH — a
+ * stroke runs along every contour a shape has, including the ones cut out of
+ * its middle — and the receipt goes out as a dark blob. Scaling is the one
+ * that touches nothing but the size.
  */
 function NavIcon({ icon, active, color, size = 22 }: { icon: NavIconPair; active: boolean; color: string; size?: number }) {
   const Line = icon.line
   const Fill = icon.fill
+  /* Which glyph is on screen. It lags `active` by the length of the dip. */
+  const [drawn, setDrawn] = useState(active)
+  const [dimmed, setDimmed] = useState(false)
+  useEffect(() => {
+    if (drawn === active) return
+    setDimmed(true)
+    const t = window.setTimeout(() => { setDrawn(active); setDimmed(false) }, GLYPH_OUT)
+    return () => window.clearTimeout(t)
+  }, [active, drawn])
   return (
-    <span className="relative block shrink-0" style={{ color, width: size, height: size }}>
-      <Line
-        size={size}
-        strokeWidth={1.5}
-        /* No transition on either of these: see the note above. */
-        style={{ position: "absolute", inset: 0, opacity: active ? 0 : 1 }}
-      />
+    <span
+      className="relative block shrink-0"
+      style={{
+        color,
+        width: size,
+        height: size,
+        opacity: dimmed ? GLYPH_FLOOR : 1,
+        transition: `opacity ${dimmed ? GLYPH_OUT : GLYPH_IN}ms ease-out`,
+      }}
+    >
+      {/* Neither of these fades. One of them is showing, and which one changes
+          while the box around them is faint. */}
+      <Line size={size} strokeWidth={1.5} style={{ position: "absolute", inset: 0, opacity: drawn ? 0 : 1 }} />
       <Fill
         size={size}
         style={{
           position: "absolute",
           inset: 0,
-          opacity: active ? 1 : 0,
-          /* A constant, never animated: the solid is simply drawn at the size
-             of the outline it replaces. See the note above. */
+          opacity: drawn ? 1 : 0,
+          /* A constant, never animated: the solid is drawn at the size of the
+             outline it replaces. See the note above. */
           scale: String(FILL_MATCH),
         }}
       />
@@ -838,7 +847,7 @@ const PRESS_EDGE = "inset 0 0 0 0.5px rgba(255,255,255,0.95)"
 const REST_EDGE = "inset 0 0 0 0.5px rgba(255,255,255,0.75)"
 const DROP = "0 1px 2px rgba(16,18,27,0.07), 0 3px 8px rgba(16,18,27,0.10)"
 /** On instantly, off over this. Never the other way round. */
-const PRESS_OFF = "background-color 260ms ease-out, box-shadow 260ms ease-out"
+const PRESS_OFF = "background-color 320ms ease-out, box-shadow 320ms ease-out"
 const PRESS_ON = "background-color 0s, box-shadow 0s"
 
 /**
@@ -864,8 +873,8 @@ const PRESS_ON = "background-color 0s, box-shadow 0s"
  * it is the part that has to keep up with the touch.
  */
 const HANDOFF_FLOOR = 0.12
-const HANDOFF_OUT = 90
-const HANDOFF_IN = 190
+const HANDOFF_OUT = 120
+const HANDOFF_IN = 260
 /**
  * Under a finger the circle LIFTS a little, which is the tell of the newer
  * system bars: the thing you are holding is the thing that is bigger.
@@ -1452,7 +1461,7 @@ export function MobileNavPill({
                   width: SLOT,
                   height: DOT,
                   color: on ? ACTIVE_TEXT : "#616b7a",
-                  transition: "color 200ms ease-out",
+                  transition: "color 300ms ease-out",
                 }}
               >
                 <NavIcon icon={item.icon} active={on} color="currentColor" size={22} />
