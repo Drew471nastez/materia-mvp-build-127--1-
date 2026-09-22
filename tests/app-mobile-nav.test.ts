@@ -629,7 +629,7 @@ function main() {
       && !/opacity: dimmed/.test(nav) && !/setDimmed/.test(nav),
     "dipping a thing out and bringing it back is the cheapness, and it lands on the press")
   check("and the smoothness is the colour instead, on its own curve",
-    /const INK_EASE = "360ms cubic-bezier\(0\.22, 0\.61, 0\.36, 1\)"/.test(nav)
+    /const INK_EASE = `\$\{INK_MS\}ms cubic-bezier\(0\.22, 0\.61, 0\.36, 1\)`/.test(nav)
       && /transition: `color \$\{INK_EASE\}`/.test(nav),
     "the icon filling with black is a colour arriving, which is the one thing that should take time")
 
@@ -661,12 +661,40 @@ function main() {
     does not fade, so there is no flicker to catch. Measured at 17ms from the
     touch, never below full opacity.
   */
+  /*
+    AND ITS GLASS ARRIVES RATHER THAN APPEARING. With the fades gone the lens
+    was simply THERE, at full strength, on the frame the finger landed, and
+    that is what reads as too direct: the only thing in the bar taking any
+    time at all was the ink filling the icon.
+
+    It is not dipped back out to fix that. A dip is a thing going away and
+    coming back, on an element that was already where it belonged, and that
+    flicker is the cheapness. This is the other kind of change and the one the
+    reference button makes: a colour going from one value to another, once, in
+    one direction. The lens carries no colour on the frame it changes slot —
+    which is also what hides the change of place — and its glass comes in over
+    the ink's curve.
+
+    ITS OPACITY NEVER MOVES, which is what keeps this from being the fade that
+    was thrown out, and is asserted separately below. Measured: emptied to 0,
+    filled back to 0.82 over 17 steps, changing slot on the empty frame.
+  */
+  check("the lens's glass empties for the frame it changes slot, and fills back over the ink's curve",
+    /const ARRIVING_FILL = "rgba\(255,255,255,0\)"/.test(nav)
+      && /backgroundColor: arriving \? ARRIVING_FILL : slide\.pressed \? PRESS_FILL : REST_FILL/.test(nav)
+      && /setArriving\(true\)/.test(nav) && /setFilling\(true\)/.test(nav),
+    "a lens switched on at full strength is the directness; a lens dipped out and back is the flicker")
+  check("and an arrival outranks the press's instant for as long as it lasts",
+    /arriving \|\| \(slide\.pressed && !filling\) \? PRESS_ON : `background-color \$\{INK_EASE\}, box-shadow \$\{INK_EASE\}`/.test(nav)
+      && /const INK_MS = 360/.test(nav),
+    "both are background-color on one element, and the press's instant was switching the glass on rather than filling it")
   check("the lens does not fade or dip: it is simply on the icon you pressed",
     !/HANDOFF_FLOOR/.test(nav) && !/HANDOFF_OUT/.test(nav) && !/setVeiled/.test(nav)
       && /opacity: marked < 0 \? 0 : 1,/.test(nav),
     "a dip is a wait however short it is, and it lands on the press")
-  check("and its position is written straight out, in one step",
-    /useLayoutEffect\(\(\) => \{\s*\n\s*if \(slide\.following\) return\s*\n\s*const dot = slide\.dotRef\.current\s*\n\s*if \(dot\) dot\.style\.translate = `\$\{x\}px 0`/.test(nav))
+  check("and its position is written on the frame its glass is empty, in one step",
+    /const lay = \(\) => \{ dot\.style\.translate = `\$\{x\}px 0`; laidAt\.current = x \}/.test(nav)
+      && /if \(!arriving\) \{ setArriving\(true\); return \}\s*\n\s*lay\(\)/.test(nav))
   check("while a released drag still springs into the slot, which is what SETTLE is for",
     /slide\.bounce && !slide\.following \? SETTLE : NO_TRAVEL/.test(nav),
     "a drag is not what was called abrupt, and the bounce was asked for")
@@ -687,12 +715,11 @@ function main() {
   check("the lens brightens under a finger, and that is the whole of the answer",
     /const PRESS_FILL = "rgba\(255,255,255,0\.97\)"/.test(nav)
       && /const REST_FILL = "rgba\(255,255,255,0\.82\)"/.test(nav)
-      && /backgroundColor: slide\.pressed \? PRESS_FILL : REST_FILL/.test(nav),
+      && /backgroundColor: arriving \? ARRIVING_FILL : slide\.pressed \? PRESS_FILL : REST_FILL/.test(nav),
     "a control that does nothing at all when touched is what taking every moving thing out left behind")
   check("and it goes on instantly and comes off eased, never the other way round",
     /const PRESS_ON = "background-color 0s, box-shadow 0s"/.test(nav)
-      && /const PRESS_OFF = "background-color 360ms cubic-bezier\(0\.22, 0\.61, 0\.36, 1\), box-shadow 360ms cubic-bezier\(0\.22, 0\.61, 0\.36, 1\)"/.test(nav)
-      && /slide\.pressed \? PRESS_ON : PRESS_OFF/.test(nav),
+      && /arriving \|\| \(slide\.pressed && !filling\) \? PRESS_ON/.test(nav),
     "easing IN is what made the old lift a different amount on every press, because a tap interrupts it")
   check("and nothing geometric reads the press at all",
     !/scale: String\([^)]*slide\.pressed/.test(nav)
