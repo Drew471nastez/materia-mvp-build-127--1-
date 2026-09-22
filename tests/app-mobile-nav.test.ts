@@ -483,10 +483,10 @@ function main() {
   */
   check("under a finger the circle follows the finger itself, not the finger's slot, with no transition",
     /const FOLLOW = 0\.6/.test(nav)
-      && /targetRef\.current = movedRef\.current \? leftFor\(clientX\) : leftForSlot\(next\)/.test(nav)
+      && /targetRef\.current = leftFor\(clientX\)/.test(nav)
       && /posRef\.current \+= gap \* FOLLOW/.test(nav)
       && /frameRef\.current = requestAnimationFrame\(step\)/.test(nav)
-      && /slide\.dragging \? "translate 0s" : slide\.bounce \? SETTLE : LAND/.test(nav),
+      && /slide\.bounce && !slide\.following \? SETTLE : NO_TRAVEL/.test(nav),
     "a transition under the finger is a delay; a slot under the finger is a step")
   check("written straight to the element by the loop, and never by a style prop",
     /dot\.style\.translate = `\$\{posRef\.current\}px 0`/.test(nav)
@@ -518,8 +518,13 @@ function main() {
     /movedRef\.current = false/.test(nav) && (nav.match(/movedRef\.current = false/g) || []).length >= 2,
     "left set, the next tap would be treated as a continuing drag")
 
-  check("and a press during a spring picks the circle up from where it is drawn",
-    /posRef\.current = drawnAt\(\) \?\? leftFor\(e\.clientX\)/.test(nav)
+  /*
+    A DRAG that begins during a spring picks the circle up from where it is
+    drawn, rather than from where it was going. A PRESS has nothing to pick
+    up: it does not animate, so there is no halfway to catch it at.
+  */
+  check("and a drag beginning during a spring picks the circle up from where it is drawn",
+    /posRef\.current = drawnAt\(\) \?\? leftFor\(clientX\)/.test(nav)
       && /getComputedStyle\(dot\)\.translate/.test(nav))
   check("it settles with a little overshoot, on its own property, and lifts on another",
     /const SETTLE = `translate 420ms cubic-bezier\(0\.32, 1\.24, 0\.44, 1\)`/.test(nav)
@@ -539,31 +544,45 @@ function main() {
     the brighter fill and the waiting glyphs all belong to that.
   */
   /*
-    AND THE ICONS THEMSELVES. The line glyph and the solid one are not the
-    same size — a stroke reaches half a stroke past its path where a solid
-    stops at it, and three of the four are separate drawings from the icon
-    set besides — so the icon changed size under the finger that pressed it.
+    AND THE ICONS ARE THE PAIR THE ICON SET SHIPS, UNTOUCHED. The line glyph
+    and the solid one are not exactly the same size, and three ways of making
+    them agree were tried and all three were worse than the half pixel they
+    bought. Overdrawing the solid with the outline, and giving the solid its
+    own stroke, both closed up the gaps the solid is drawn with — a stroke
+    runs along every contour a shape has, including the ones cut out of its
+    middle — and the receipt went out as a dark blob. Scaling the solid 6%
+    left the drawing intact and still changed how pressing an icon felt.
 
-    Two ways of pinning the silhouette were tried and both wrecked the
-    drawing: putting the outline over the solid in both states, and giving
-    the solid its own stroke. A stroke runs along every contour a shape has,
-    including the ones cut out of its middle, so the lines inside the receipt
-    closed up and it went out as a dark blob. The first of those shipped.
-
-    Scaling does not touch the drawing — the cutouts scale with it — and the
-    two centres already agreed, so six per cent about the centre lands the
-    solid on the outline's box.
+    This is the guard against a fourth attempt.
   */
-  check("the solid glyph is drawn at the size of the outline it replaces",
-    /const FILL_MATCH = 1\.06/.test(nav) && /scale: String\(FILL_MATCH\)/.test(nav),
-    "half a pixel on every edge, on the icon directly under the finger that pressed it")
-  check("and neither glyph is overdrawn with the other, which closes the gaps it is drawn with",
+  check("neither glyph is overdrawn with the other, which closes the gaps it is drawn with",
     !/<Line size=\{size\} strokeWidth=\{1\.5\} style=\{\{ position: "absolute", inset: 0 \}\} \/>/.test(nav)
-      && !/<Fill[\s\S]{0,120}stroke="currentColor"/.test(nav),
+      && !/<Fill[\s\S]{0,160}stroke="currentColor"/.test(nav),
     "the receipt went out as a dark blob the one time this was got wrong")
-  check("they still cross-fade, so the fill arrives rather than appearing",
+  check("and neither is scaled to fit the other",
+    !/FILL_MATCH/.test(nav) && !/<Fill[\s\S]{0,200}scale:/.test(nav),
+    "it left the drawing intact and still changed how pressing an icon felt")
+  check("they cross-fade in a fixed box, so the fill arrives rather than appearing",
     /opacity: active \? 0 : 1, transition: "opacity 180ms ease-out"/.test(nav)
-      && /opacity: active \? 1 : 0,\s*\n\s*transition: "opacity 180ms ease-out"/.test(nav))
+      && /opacity: active \? 1 : 0, transition: "opacity 180ms ease-out"/.test(nav))
+
+  /*
+    AND A PRESS DOES NOT TRAVEL. "When I click on the icon, make sure that it
+    doesn't bump, scale, or do any of the movements left and right." A finger
+    sliding along the bar still carries the circle with it and still bounces
+    it into place on release — that gesture was asked for and is untouched.
+    A press is not that gesture: the circle is on the icon that was pressed,
+    on the frame it was pressed. Measured in the probe as the number of
+    places it was seen in between the two slots, which is zero.
+  */
+  check("a press puts the circle on the icon rather than sending it across the bar",
+    /const NO_TRAVEL = "translate 0s"/.test(nav)
+      && /slide\.bounce && !slide\.following \? SETTLE : NO_TRAVEL/.test(nav),
+    "a journey across the bar on every press is the movement that was reported")
+  check("and the frame loop is only ever started by a finger that is dragging",
+    /if \(movedRef\.current\) \{\s*\n[^\n]*\n\s*targetRef\.current = leftFor\(clientX\)\s*\n\s*wake\(\)/.test(nav)
+      && /posRef\.current = null/.test(nav),
+    "a loop that runs on a press is a journey with frames in it, whatever the transition says")
 
   check("and the lift belongs to a finger that is dragging, not to one that has landed",
     /const \[following, setFollowing\] = useState\(false\)/.test(nav)
@@ -573,11 +592,12 @@ function main() {
     "a tap holds nothing, so growing the circle under one is movement for no reason")
   check("and every gesture starts as a press, and is promoted only if a finger travels",
     /setFollowing\(false\)\s*\n\s*setBounce\(false\)/.test(nav)
-      && /movedRef\.current = true\s*\n\s*setFollowing\(true\)/.test(nav),
+      && /movedRef\.current = true[\s\S]{0,300}?setFollowing\(true\)/.test(nav),
     "left over from the last gesture, the first tap after a drag would lift and bounce")
-  check("and a press lands where a released drag bounces",
-    /const LAND = `translate 260ms cubic-bezier\(0\.22, 0\.61, 0\.36, 1\)`/.test(nav)
-      && /slide\.bounce \? SETTLE : LAND/.test(nav),
+  check("and only a released drag animates at all",
+    /const SETTLE = `translate 420ms/.test(nav)
+      && /slide\.bounce && !slide\.following \? SETTLE : NO_TRAVEL/.test(nav)
+      && !/LAND/.test(strip(nav)),
     "SETTLE's third control point is 1.24: past the slot and back, which a press never asked for")
   check("the finger is known from a ref, not from state a render behind",
     /if \(!activeRef\.current\) return/.test(nav) && !/if \(!dragging\) return/.test(strip(nav)))

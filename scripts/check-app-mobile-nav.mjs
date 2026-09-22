@@ -728,6 +728,19 @@ const tap = {
   })(),
   turns: turns(tapFrames),
   /*
+    HOW MANY PLACES IT WAS SEEN IN ON THE WAY. A press puts the circle on the
+    icon that was pressed, on the frame it was pressed: two values in the
+    whole recording, the slot it left and the slot it went to, and nothing in
+    between for the eye to follow across the bar. Let a press animate and this
+    reads 14, with the overshoot visible in the middle of them.
+  */
+  waypoints: (() => {
+    const from = tapFrames[0]
+    const to = tapFrames[tapFrames.length - 1]
+    const lo = Math.min(from, to), hi = Math.max(from, to)
+    return new Set(tapFrames.filter((v) => v > lo + 0.5 && v < hi - 0.5)).size
+  })(),
+  /*
     AND HOW BIG IT GOT. The circle carries `scale: dragging ? 1.06 : 1`, and
     `dragging` is true from POINTER-DOWN — so a plain tap grows it six per
     cent and shrinks it back, 400ms of movement with no finger travelling
@@ -1313,7 +1326,7 @@ must(drag.travelled > 100, "a finger sliding along the bar drags the circle with
   `the circle moved ${drag.travelled}px across a slide from the first slot to the fourth`)
 console.log(`  a tap       pressed ${OFF_CENTRE}px off the centre of ${slots[1].label}, held 60ms, ${tap.frames.length} frames watched`)
 console.log(`              the circle went ${tap.from}px to ${tap.landed}px, ${tap.past}px past the slot, ${tap.backwards}px behind where it set off`)
-console.log(`              ${tap.turns} changes of direction, resting ${tap.restOff}px off where the bar puts it`)
+console.log(`              ${tap.turns} changes of direction, ${tap.waypoints} places seen in between, resting ${tap.restOff}px off where the bar puts it`)
 console.log(`              and it grew to ${tap.biggest}x on the way, ${tap.grewPx}px across, and shrank back`)
 console.log(`  a drag      released after four slots, ${drag.past}px past the slot, grew to ${dragScale.biggest}x while a finger held it\n`)
 must(tap.restOff <= 0.6, "a tap leaves the circle on the slot it picked",
@@ -1327,6 +1340,13 @@ must(tap.backwards <= 1, "and sets off for the slot, not for the fingertip",
   live bar a 60ms tap grew it to 1.047x and shrank it back: 2.35px across,
   with nothing being held and nothing travelling anywhere.
 */
+/*
+  "When I click on the icon, make sure that it doesn't bump, scale, or do any
+  of the movements left and right." The circle is on the pressed icon in one
+  frame; it does not cross the bar to get there.
+*/
+must(tap.waypoints === 0, "a press puts the circle on the icon, rather than sending it across the bar",
+  `it was seen in ${tap.waypoints} place(s) between the two slots: ${tap.frames.join(" ")}`)
 must(tap.grewPx <= 0.5, "and it does not change size on the way, having nothing to hold",
   `a tap grew the circle to ${tap.biggest}x, ${tap.grewPx}px across, and shrank it back`)
 /*
@@ -1352,23 +1372,34 @@ must(tap.turns <= 1, "so a tap is one movement, not an out and back",
 console.log(`  and then    the route landed 260ms later on ${routeTap.arrived}; the circle went ${routeTap.from}px to ${routeTap.landed}px`)
 console.log(`              ${routeTap.turns} changes of direction, ${routeTap.past}px past the slot, last moved at ${routeTap.quietAfter}ms\n`)
 /*
-  THE ICONS THEMSELVES DO NOT MOVE OR CHANGE SIZE.
+  THE ICONS ARE THE PAIR THE ICON SET SHIPS, AND ARE LEFT ALONE.
 
-  Measured on the ink rather than on any box, because the boxes were never
-  the thing that moved: the glyph span sat still to the hundredth of a pixel
-  the whole time these were reported as bumping.
+  The line glyph and the solid one are not exactly the same size: a stroke
+  sits astride its path and reaches half a stroke past it where a solid stops
+  at its edge, and three of the four are separate drawings besides. Measured,
+  the solid is about 0.5px narrower and 1px shorter than the outline it
+  replaces — against a threshold sweep on this very measurement that moves the
+  reading by a pixel on its own, which is the size of a stroke's soft edge.
 
-  It is the SILHOUETTE that is asserted, not the centre of weight. An icon
-  turning on fills in, and filling in moves the weight towards the middle of
-  the shape by design. What must not happen is the shape itself growing,
-  shrinking or sliding, and with the outline drawn in both states it cannot.
+  THREE WAYS OF CLOSING THAT GAP WERE TRIED AND ALL THREE WERE WORSE.
+  Overdrawing the solid with the outline, and giving the solid its own stroke,
+  both closed up the gaps the solid is drawn WITH — a stroke runs along every
+  contour a shape has, including the ones cut out of its middle — and the
+  receipt went out as a dark blob. Scaling the solid 6% left the drawing
+  intact and still changed how pressing an icon felt. Every one was rejected
+  by the person using it, and the first two are visible in the screenshot this
+  file writes, which is where they should have been caught.
+
+  So what is checked is that the pair has not CHANGED — a glyph swapped for
+  one that sits somewhere else, or an overdraw reintroduced — not that the two
+  agree. The tolerance is the inherent difference plus the slop in reading it.
 */
 for (const ic of icons) {
   must(!ic.missing, `${ic.label} is drawn at all`, "no ink found in its box")
-  must(Math.abs(ic.grewW) <= 1 && Math.abs(ic.grewH) <= 1,
-    `${ic.label} is the same size on as off`,
-    `its ink box changed by ${ic.grewW} x ${ic.grewH} at 2x when the tab turned on`)
-  must(ic.edges <= 1, `and in the same place, to the half pixel`,
+  must(Math.abs(ic.grewW) <= 4 && Math.abs(ic.grewH) <= 4,
+    `${ic.label} is within a stroke's width of the same size on as off`,
+    `its ink box changed by ${ic.grewW} x ${ic.grewH} at 2x, past what the two drawings differ by`)
+  must(ic.edges <= 2, `and within a stroke's width of the same place`,
     `an edge of it moved ${ic.edges} at 2x when the tab turned on`)
 }
 must(routeTap.arrived === "/app/products", "the page really does change under the bar, which is what a press is for",

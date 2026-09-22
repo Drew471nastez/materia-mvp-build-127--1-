@@ -149,11 +149,23 @@ function Collapsible({ open, children }: { open: boolean; children: React.ReactN
  * pixel by itself.
  */
 /**
- * How much bigger the solid glyph has to be drawn to occupy the same box as
- * the outline it replaces. Measured, not chosen: see NavIcon below.
+ * A 22×22 box with both variants of the glyph stacked in it, cross-faded.
+ *
+ * The same trick the rail uses: the fill ARRIVES rather than appears, and
+ * because both are painted in a fixed box nothing an icon does can move the
+ * label beside it.
+ *
+ * NOTHING IS SCALED, OVERDRAWN OR CORRECTED HERE, and three attempts at that
+ * are recorded in git so they are not made a fourth time. The line glyph and
+ * the solid one are not exactly the same size — a stroke reaches half a
+ * stroke past its path where a solid stops at it — and every way of forcing
+ * them to agree made the icons worse than the half pixel it bought:
+ * overdrawing one with the other, and giving the solid its own stroke, both
+ * closed up the gaps the solid is drawn with and turned the receipt into a
+ * dark blob; scaling the solid 6% left the drawing intact but changed how
+ * pressing an icon feels, which is the thing being protected. Half a pixel
+ * is not worth any of them.
  */
-const FILL_MATCH = 1.06
-
 function NavIcon({ icon, active, color, size = 22 }: { icon: NavIconPair; active: boolean; color: string; size?: number }) {
   const Line = icon.line
   const Fill = icon.fill
@@ -166,15 +178,7 @@ function NavIcon({ icon, active, color, size = 22 }: { icon: NavIconPair; active
       />
       <Fill
         size={size}
-        style={{
-          position: "absolute",
-          inset: 0,
-          opacity: active ? 1 : 0,
-          transition: "opacity 180ms ease-out",
-          /* Not a flourish and not animated: a constant that makes the solid
-             the size of the outline it replaces. See the note above. */
-          scale: String(FILL_MATCH),
-        }}
+        style={{ position: "absolute", inset: 0, opacity: active ? 1 : 0, transition: "opacity 180ms ease-out" }}
       />
     </span>
   )
@@ -756,21 +760,18 @@ export const pillBelongsOn = (pathname: string): boolean =>
 const FOLLOW = 0.6
 const SETTLE = `translate 420ms cubic-bezier(0.32, 1.24, 0.44, 1)`
 /**
- * AND A TAP DOES NOT BOUNCE.
+ * AND A PRESS DOES NOT TRAVEL.
  *
- * SETTLE's third control point is 1.24: past the slot and back again. That is
- * the bounce a released DRAG was asked for, and it is wrong for a press.
+ * "When I click on the icon, make sure that it doesn't bump, scale, or do any
+ * of the movements left and right."
  *
- * A press hands CSS whatever distance the frame loop had not covered yet, and
- * a tap is over in about four frames, so on a quick one that remainder is most
- * of a slot — thrown through an overshooting curve, which is the circle going
- * past the icon you pressed and coming back. Reported as a bump, a little
- * movement for no reason, and it looked random because how much is left when
- * you lift depends on how fast you tapped.
- *
- * So the bounce belongs to the gesture that earned it. A press lands.
+ * A finger sliding along the bar carries the circle with it, and letting go
+ * of it bounces it into the slot; that is the gesture this was built for and
+ * it is untouched. A press is not that gesture. The circle is simply on the
+ * icon that was pressed, on the frame it was pressed, with no journey across
+ * the bar to watch and nothing to be caught halfway through.
  */
-const LAND = `translate 260ms cubic-bezier(0.22, 0.61, 0.36, 1)`
+const NO_TRAVEL = "translate 0s"
 /**
  * Under a finger the circle LIFTS a little, which is the tell of the newer
  * system bars: the thing you are holding is the thing that is bigger.
@@ -827,7 +828,6 @@ type BarItem = {
  * gesture, because a horizontal gesture is what the bar is for.
  */
 function useSlide(count: number, onPick: (index: number) => void) {
-  const [dragging, setDragging] = useState(false)
   const [at, setAt] = useState<number | null>(null)
   /* Whether the gesture that just ended was a drag, which is what decides
      whether the circle bounces into the slot or lands on it. A route change
@@ -960,15 +960,21 @@ function useSlide(count: number, onPick: (index: number) => void) {
   const move = (clientX: number) => {
     if (!movedRef.current && Math.abs(clientX - downXRef.current) > DRAG_SLOP) {
       movedRef.current = true
+      /* Pick the circle up from where it is drawn, so following it on starts
+         where the eye last saw it. */
+      posRef.current = drawnAt() ?? leftFor(clientX)
       setFollowing(true)
       /* And a drag, released, is the gesture the bounce was asked for. */
       setBounce(true)
     }
     const next = slotAt(clientX)
-    /* Under the finger once this is a drag; on the slot while it is still
-       only a press. */
-    targetRef.current = movedRef.current ? leftFor(clientX) : leftForSlot(next)
-    wake()
+    if (movedRef.current) {
+      /* Under the finger, every frame, with no transition to be a delay. */
+      targetRef.current = leftFor(clientX)
+      wake()
+    }
+    /* A press writes nothing here. `at` below moves the slot, and the effect
+       that draws the resting position puts the circle on it, in one frame. */
     if (lastRef.current !== next) {
       lastRef.current = next
       /* A render only when the slot changes, never per move; and one tick
@@ -984,7 +990,6 @@ function useSlide(count: number, onPick: (index: number) => void) {
     if (frameRef.current) cancelAnimationFrame(frameRef.current)
     frameRef.current = 0
     posRef.current = null
-    setDragging(false)
     setFollowing(false)
     setAt(null)
     lastRef.current = null
@@ -996,7 +1001,6 @@ function useSlide(count: number, onPick: (index: number) => void) {
   return {
     barRef,
     dotRef,
-    dragging,
     following,
     bounce,
     at,
@@ -1006,8 +1010,9 @@ function useSlide(count: number, onPick: (index: number) => void) {
            it will: 54px is not much to stay inside of. */
         ;(e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId)
         activeRef.current = true
-        posRef.current = drawnAt() ?? leftFor(e.clientX)
-        setDragging(true)
+        /* Left null: the loop paints nothing until a finger proves it is
+           dragging, so a press never animates. */
+        posRef.current = null
         /* Every gesture starts as a press: no lift, and it lands rather than
            bouncing. Both are promoted if a finger goes anywhere. */
         setFollowing(false)
@@ -1158,10 +1163,10 @@ export function MobileNavPill({
     wherever the loop left it to the slot it belongs on.
   */
   useLayoutEffect(() => {
-    if (slide.dragging) return
+    if (slide.following) return
     const dot = slide.dotRef.current
     if (dot) dot.style.translate = `${x}px 0`
-  }, [x, slide.dragging, slide.dotRef])
+  }, [x, slide.following, slide.dotRef])
 
   return (
     <div
@@ -1281,7 +1286,7 @@ export function MobileNavPill({
               backgroundColor: slide.following ? "rgba(255,255,255,0.92)" : "rgba(255,255,255,0.82)",
               boxShadow: "inset 0 0 0 0.5px rgba(255,255,255,0.75), 0 1px 2px rgba(16,18,27,0.07), 0 3px 8px rgba(16,18,27,0.10)",
               /* No transition on the position under a finger: the loop is the motion. */
-              transition: `${slide.dragging ? "translate 0s" : slide.bounce ? SETTLE : LAND}, ${LIFT_EASE}, opacity 220ms ease-out, background-color 160ms ease-out`,
+              transition: `${slide.bounce && !slide.following ? SETTLE : NO_TRAVEL}, ${LIFT_EASE}, opacity 220ms ease-out, background-color 160ms ease-out`,
               willChange: "translate, scale",
             }}
           />
