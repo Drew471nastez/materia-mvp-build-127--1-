@@ -612,6 +612,7 @@ await ev(`window.__rec = () => {
   const d = document.querySelector('nav[aria-label="Main"] span[aria-hidden="true"]')
   window.__trail = []
   window.__scale = []
+  window.__alpha = []
   const tick = () => {
     const cs = getComputedStyle(d)
     const m = /^(-?[\\d.]+)px/.exec(cs.translate || "")
@@ -620,6 +621,9 @@ await ev(`window.__rec = () => {
        under a finger, and a press is a finger. */
     const sc = cs.scale && cs.scale !== "none" ? Number.parseFloat(cs.scale) : 1
     window.__scale.push(Math.round((Number.isFinite(sc) ? sc : 1) * 1000) / 1000)
+    /* And how visible it is, which is what says whether a change of position
+       could have been seen happening. */
+    window.__alpha.push(Math.round(Number.parseFloat(cs.opacity || "1") * 1000) / 1000)
     window.__recFrame = requestAnimationFrame(tick)
   }
   window.__recFrame = requestAnimationFrame(tick)
@@ -713,6 +717,7 @@ await send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] })
 await sleep(800)
 const tapFrames = await ev("window.__stop()")
 const tapScale = await ev("window.__scale.slice()")
+const tapAlpha = await ev("window.__alpha.slice()")
 const tap = {
   frames: tapFrames,
   from: tapFrames[0],
@@ -727,6 +732,23 @@ const tap = {
     return Math.round(Math.max(0, to >= from ? from - Math.min(...tapFrames) : Math.max(...tapFrames) - from) * 100) / 100
   })(),
   turns: turns(tapFrames),
+  /*
+    THE LENS IS HANDED OVER, NOT THROWN, AND THIS IS THE PROPERTY THAT SAYS SO.
+    It dips almost out of sight, is put down on the new slot while it is
+    faint, and comes back up — so on every frame where its position changes,
+    it has to be down at the floor. A position change at full opacity is a
+    jump somebody can see, which is the abruptness being fixed; a slide would
+    be a whole run of them.
+  */
+  seenMoving: (() => {
+    let worst = 0
+    for (let i = 1; i < tapFrames.length; i++) {
+      if (Math.abs(tapFrames[i] - tapFrames[i - 1]) > 0.5) worst = Math.max(worst, tapAlpha[i] ?? 1, tapAlpha[i - 1] ?? 1)
+    }
+    return Math.round(worst * 100) / 100
+  })(),
+  dimmestTo: Math.round(Math.min(...tapAlpha) * 100) / 100,
+  backTo: Math.round(tapAlpha[tapAlpha.length - 1] * 100) / 100,
   /*
     HOW MANY PLACES IT WAS SEEN IN ON THE WAY. A press puts the circle on the
     icon that was pressed, on the frame it was pressed: two values in the
@@ -801,16 +823,21 @@ await sleep(400)
 /*
  * ── AND WITH THE ROUTE COSTING WHAT A ROUTE COSTS ────────────────────────
  *
- * The circle is moved by a requestAnimationFrame loop, and pressing an icon
- * sets a whole new page rendering on that same thread. So the two compete,
- * every single press, and whichever way it goes is decided by how heavy the
- * page you pressed happens to be — which is what "sometimes" and "for no
- * reason" in the report sound like from the inside.
+ * Pressing an icon sets a whole new page rendering on the same thread the bar
+ * animates on. So the two compete, every single press, and whichever way it
+ * goes is decided by how heavy the page you pressed happens to be — which is
+ * what "sometimes" and "for no reason" in the report sound like from inside.
  *
- * A step is how far the circle moved between two frames. A loop that gets
- * its frames moves in a smooth decay, each step smaller than the last. A
- * loop that is starved holds still and then lurches, so the tell is a step
- * that comes AFTER the movement should have decayed to nothing.
+ * THIS CHECK USED TO ASSERT THAT THE CIRCLE KEPT MOVING through that, because
+ * back then a press sent it sliding across the bar and a starved frame loop
+ * was the thing to catch. There is no slide now: the lens is handed over,
+ * holding still by design for the length of the dip. So the old assertion
+ * fired on correct behaviour, and asserting continuous motion would now be
+ * asserting the very thing that was removed.
+ *
+ * What is still worth knowing is what it was always really about: that a busy
+ * thread cannot stop the hand-over finishing. It has to arrive on the slot
+ * and it has to come back up to full, whatever else the phone is doing.
  */
 await ev('window.__routeDelay = 260; window.__navCost = 260; window.__went = null; true')
 await ev("window.__rec()")
@@ -829,15 +856,8 @@ const busy = {
   frames: busyFrames,
   steps,
   landed: done,
-  /* How many frames in a row it did not move at all while it was still on
-     its way: a loop being starved, held still. */
-  stalled: (() => {
-    let worst = 0, run = 0
-    for (let i = 0; i < arrivedAt && i < steps.length; i++) {
-      if (steps[i] < 0.05) { run += 1; worst = Math.max(worst, run) } else run = 0
-    }
-    return worst
-  })(),
+  /* When it got there, in ms from the press. Frames are ~16.7ms apart. */
+  arrivedMs: Math.round(arrivedAt * 16.7),
   /* The biggest jump it made after the first time it got near the slot. */
   lateJump: Math.max(0, ...steps.slice(arrivedAt)),
   turns: turns(busyFrames),
@@ -1408,6 +1428,7 @@ must(drag.travelled > 100, "a finger sliding along the bar drags the circle with
 console.log(`  a tap       pressed ${OFF_CENTRE}px off the centre of ${slots[1].label}, held 60ms, ${tap.frames.length} frames watched`)
 console.log(`              the circle went ${tap.from}px to ${tap.landed}px, ${tap.past}px past the slot, ${tap.backwards}px behind where it set off`)
 console.log(`              ${tap.turns} changes of direction, ${tap.waypoints} places seen in between, resting ${tap.restOff}px off where the bar puts it`)
+console.log(`              dipped to ${tap.dimmestTo} and back to ${tap.backTo}; ${tap.seenMoving} visible on the frame it changed place`)
 console.log(`              and it grew to ${tap.biggest}x on the way, ${tap.grewPx}px across, and shrank back`)
 console.log(`  a drag      released after four slots, ${drag.past}px past the slot, grew to ${dragScale.biggest}x while a finger held it\n`)
 must(tap.restOff <= 0.6, "a tap leaves the circle on the slot it picked",
@@ -1428,6 +1449,17 @@ must(tap.backwards <= 1, "and sets off for the slot, not for the fingertip",
 */
 must(tap.waypoints === 0, "a press puts the circle on the icon, rather than sending it across the bar",
   `it was seen in ${tap.waypoints} place(s) between the two slots: ${tap.frames.join(" ")}`)
+/*
+  And it is handed over rather than thrown: it dips almost out of sight, is
+  put down on the new slot while it is faint, and comes back up. So the frame
+  its position changes on is a frame nobody can see it on.
+*/
+must(tap.seenMoving <= 0.25, "and it is faint on the frame it changes place, so the change is a dissolve rather than a jump",
+  `it was ${tap.seenMoving} visible on the frame its position changed`)
+must(tap.dimmestTo <= 0.25 && tap.dimmestTo > 0, "dipping on the way rather than blinking out",
+  `it went down to ${tap.dimmestTo}`)
+must(tap.backTo >= 0.99, "and coming all the way back up",
+  `it finished at ${tap.backTo}`)
 must(tap.grewPx <= 0.5, "and it does not change size on the way, having nothing to hold",
   `a tap grew the circle to ${tap.biggest}x, ${tap.grewPx}px across, and shrank it back`)
 /*
@@ -1508,9 +1540,9 @@ must(routeTap.arrived === "/app/products", "the page really does change under th
 must(routeTap.quietAfter <= 500, "and the circle is done moving before the page arrives, not after it",
   `it was still moving ${routeTap.quietAfter}ms in, with the route landing at 260ms: ${routeTap.frames.join(" ")}`)
 console.log(`  under load  a press while 260ms of page renders on the same thread: landed ${busy.landed}px`)
-console.log(`              stalled ${busy.stalled} frames on the way, ${busy.lateJump}px jump after arriving, ${busy.turns} changes of direction\n`)
-must(busy.stalled <= 2, "the circle keeps moving while the page it opened is rendering",
-  `it held still for ${busy.stalled} frames mid-flight: ${busy.frames.join(" ")}`)
+console.log(`              arrived after ${busy.arrivedMs}ms, ${busy.lateJump}px jump after that, ${busy.turns} changes of direction\n`)
+must(busy.arrivedMs <= 700, "the hand-over finishes even while the page it opened is rendering",
+  `the lens took ${busy.arrivedMs}ms to reach the slot with 260ms of page rendering on the same thread`)
 must(busy.lateJump <= 1, "and does not lurch once it is there",
   `it jumped ${busy.lateJump}px after arriving: ${busy.frames.join(" ")}`)
 must(routeTap.turns <= 1, "so arriving does not move it a second time",
