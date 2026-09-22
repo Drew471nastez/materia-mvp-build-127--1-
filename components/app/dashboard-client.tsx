@@ -1,6 +1,6 @@
 "use client"
 
-import { useTabReveal } from "@/components/app/use-tab-reveal"
+import { useTabStrip } from "@/components/app/use-tab-strip"
 import { useState, useEffect, useMemo, useRef, useCallback, type ReactNode } from "react"
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh"
 import { PullToRefreshIndicator } from "./pull-to-refresh-indicator"
@@ -1642,8 +1642,8 @@ export function DashboardClient({
   }, [isLoading])
   const [expandedStep, setExpandedStep] = useState<string | null>(null)
   const [openKPIModal, setOpenKPIModal] = useState<KPIType>("views")
-  /* Choosing a tab brings it, and the edge of the next one, into view. */
-  const kpiStripRef = useTabReveal<HTMLDivElement>(openKPIModal ?? "views", KPI_TAB_ORDER)
+  /* Follows the chosen tab, and keeps a sideways swipe off the page. */
+  const kpiStripRef = useTabStrip<HTMLDivElement>(openKPIModal ?? "views", KPI_TAB_ORDER)
   const [chartExpanded, setChartExpanded] = useState(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("storelib_chart_expanded")
@@ -2787,8 +2787,8 @@ export function DashboardClient({
         {/* Stats Cards + Chart Section */}
         <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] mb-8 overflow-hidden">
           {/* KPI Metric Tabs - horizontally scrollable on mobile.
-              The strip scrolls itself to whichever tab is chosen; see
-              components/app/use-tab-reveal. */}
+              The strip follows the chosen tab and arbitrates its own
+              gestures; see components/app/use-tab-strip. */}
           <div ref={kpiStripRef} className="relative flex overflow-x-auto scrollbar-hide md:grid md:grid-cols-4 divide-x divide-[#e5e7eb]/60" style={{
               /*
                 BOTH AXES. This was `pan-x`, which does not mean "prefer
@@ -2798,6 +2798,10 @@ export function DashboardClient({
                 named, the browser decides from the gesture: sideways scrolls
                 the row, down scrolls the page.
               */
+              /* Both axes stay permitted: use-tab-strip decides which of the
+                 two this gesture is and hands back the ones that are the
+                 page's, so naming one axis here would only take the other
+                 away from it. */
               touchAction: 'pan-x pan-y',
               WebkitOverflowScrolling: 'touch',
             }}>

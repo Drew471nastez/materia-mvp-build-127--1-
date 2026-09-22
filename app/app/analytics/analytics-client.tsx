@@ -399,7 +399,7 @@ const timeframeOptions: TimeframeOption[] = [
 ]
 
 import { AnalyticsChartWithTooltip, CHART_COLORS } from "@/components/app/analytics-chart"
-import { useTabReveal } from "@/components/app/use-tab-reveal"
+import { useTabStrip } from "@/components/app/use-tab-strip"
 
 /** One formatter for the page. Constructing an Intl.NumberFormat is not free. */
 const USD_FORMAT = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" })
@@ -910,7 +910,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
     One strip, two sets of tabs: the store's and the OnePage's are drawn into
     the same scrolling row, so the reveal follows whichever set is on screen.
   */
-  const metricStripRef = useTabReveal<HTMLDivElement>(
+  const metricStripRef = useTabStrip<HTMLDivElement>(
     analyticsMode === "onepage" ? onePageChartFilter : chartMetricFilter,
     analyticsMode === "onepage" ? ONEPAGE_TAB_ORDER : STORE_TAB_ORDER,
   )
@@ -2564,8 +2564,8 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
 
         {/* Unified KPI Tabs + Chart Card */}
         <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
-          {/* KPI Metric Tabs. The strip scrolls itself to whichever tab is
-              chosen; see components/app/use-tab-reveal. */}
+          {/* KPI Metric Tabs. The strip follows the chosen tab and
+              arbitrates its own gestures; see components/app/use-tab-strip. */}
           <div ref={metricStripRef} className="relative flex overflow-x-auto scrollbar-hide md:grid md:grid-cols-4 divide-x divide-[#e5e7eb]/60" style={{
             /*
               BOTH AXES. `pan-x` does not mean "prefer horizontal" — it means
@@ -2574,6 +2574,10 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
               the same thing; these two were missed because only that one was
               in the screenshot.
             */
+            /* Both axes stay permitted: use-tab-strip decides which of the
+               two this gesture is and hands back the ones that are the
+               page's, so naming one axis here would only take the other
+               away from it. */
             touchAction: 'pan-x pan-y',
             WebkitOverflowScrolling: 'touch',
           }}>
