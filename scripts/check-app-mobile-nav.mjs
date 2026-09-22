@@ -376,6 +376,53 @@ await ev('document.querySelector(".app-content-scroll").scrollTop = 0')
 await sleep(120)
 await shoot("closed.png")
 
+/**
+ * ===========================================================================
+ *  WHERE AN ICON'S INK ACTUALLY IS
+ * ===========================================================================
+ * "Still a bump in the icons."
+ *
+ * Every measurement so far has been of a BOX — the link's rect, the glyph
+ * span's rect, the circle's translate — and boxes do not move here. But each
+ * icon is two glyphs stacked in one box and cross-faded: a line one while the
+ * tab is off, a filled one while it is on. Nothing makes those two put their
+ * ink in the same place. A stroke sits astride its path, so it reaches half a
+ * stroke further out than the fill of the same path does; and where the two
+ * are separate drawings they can differ by more than that.
+ *
+ * So this reads the photograph instead. Ink is any pixel dark enough not to
+ * be the bar, and what comes back is the box that ink occupies and where its
+ * weight sits. If an icon's ink box moves when the tab turns on, the icon
+ * moves when you press it, whatever its layout box says.
+ */
+function inkBox(png, threshold = 190) {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity
+  let sx = 0, sy = 0, w = 0
+  for (let y = 0; y < png.height; y++) {
+    for (let x = 0; x < png.width; x++) {
+      const i = (y * png.width + x) * png.channels
+      const l = 0.2126 * png.data[i] + 0.7152 * png.data[i + 1] + 0.0722 * png.data[i + 2]
+      if (l >= threshold) continue
+      const weight = threshold - l
+      if (x < x0) x0 = x
+      if (y < y0) y0 = y
+      if (x > x1) x1 = x
+      if (y > y1) y1 = y
+      sx += x * weight; sy += y * weight; w += weight
+    }
+  }
+  if (!w) return null
+  return {
+    left: x0, top: y0, right: x1, bottom: y1,
+    width: x1 - x0 + 1, height: y1 - y0 + 1,
+    cx: Math.round((sx / w) * 100) / 100, cy: Math.round((sy / w) * 100) / 100,
+  }
+}
+const inkOf = async (clip) => {
+  const { data } = await send("Page.captureScreenshot", { format: "png", clip: { ...clip, scale: 1 }, captureBeyondViewport: false })
+  return inkBox(decodePng(Buffer.from(data, "base64")))
+}
+
 const shotOf = async (clip) => {
   const { data } = await send("Page.captureScreenshot", { format: "png", clip: { ...clip, scale: 1 }, captureBeyondViewport: false })
   return averageColour(decodePng(Buffer.from(data, "base64")))
@@ -784,6 +831,56 @@ const busy = {
 }
 await ev('window.__routeDelay = 0; window.__navCost = 0; globalThis.__goto("/app"); true')
 await sleep(400)
+
+/*
+ * ── AND NOW THE ICONS THEMSELVES, PHOTOGRAPHED ON AND OFF ────────────────
+ *
+ * Each of the four is shot twice: once with its own tab on, once with the
+ * tab next to it on. Same box, same screen position, the only difference is
+ * which of the two stacked glyphs is showing. Whatever the ink does between
+ * those two photographs is what the eye sees when you press the icon.
+ */
+await ev('window.__routeDelay = 0; true')
+const iconBoxes = await ev(`(() => {
+  const bar = document.querySelector('nav[aria-label="Main"]')
+  return [...bar.querySelectorAll("a[aria-label]")].map((a) => {
+    const g = a.querySelector("span").getBoundingClientRect()
+    return { label: a.getAttribute("aria-label"), x: g.left, y: g.top, width: g.width, height: g.height }
+  })
+})()`)
+const ROUTES = ["/app", "/app/orders", "/app/products", "/app/analytics"]
+const inkWhen = []
+for (let on = 0; on < 4; on++) {
+  await ev(`globalThis.__goto(${JSON.stringify(ROUTES[on])}); true`)
+  await sleep(500)
+  const row = []
+  for (const box of iconBoxes) row.push(await inkOf({ x: box.x - 2, y: box.y - 2, width: box.width + 4, height: box.height + 4 }))
+  inkWhen.push(row)
+}
+await ev('globalThis.__goto("/app"); true')
+await sleep(400)
+/* For each icon: its ink with its own tab on, against its ink with the
+   neighbouring tab on. In screen pixels — the shots are taken at 2x, so a
+   whole device pixel is half of one of these. */
+const icons = iconBoxes.map((box, i) => {
+  const on = inkWhen[i][i]
+  const off = inkWhen[(i + 1) % 4][i]
+  if (!on || !off) return { label: box.label, missing: true }
+  return {
+    label: box.label,
+    movedX: Math.round(Math.abs(on.cx - off.cx) * 100) / 100,
+    movedY: Math.round(Math.abs(on.cy - off.cy) * 100) / 100,
+    grewW: on.width - off.width,
+    grewH: on.height - off.height,
+    edges: Math.max(Math.abs(on.left - off.left), Math.abs(on.right - off.right),
+                    Math.abs(on.top - off.top), Math.abs(on.bottom - off.bottom)),
+  }
+})
+console.log("\n  the icons, on against off (2x pixels, so one device pixel is two)")
+for (const ic of icons) {
+  console.log(`  ${ic.label.padEnd(10)} ink box ${ic.grewW >= 0 ? "+" : ""}${ic.grewW} x ${ic.grewH >= 0 ? "+" : ""}${ic.grewH}, worst edge ${ic.edges}, centre of weight moved ${ic.movedX}x ${ic.movedY}y`)
+}
+console.log("")
 
 await ev("window.__went = null; true")
 
@@ -1254,6 +1351,26 @@ must(tap.turns <= 1, "so a tap is one movement, not an out and back",
 */
 console.log(`  and then    the route landed 260ms later on ${routeTap.arrived}; the circle went ${routeTap.from}px to ${routeTap.landed}px`)
 console.log(`              ${routeTap.turns} changes of direction, ${routeTap.past}px past the slot, last moved at ${routeTap.quietAfter}ms\n`)
+/*
+  THE ICONS THEMSELVES DO NOT MOVE OR CHANGE SIZE.
+
+  Measured on the ink rather than on any box, because the boxes were never
+  the thing that moved: the glyph span sat still to the hundredth of a pixel
+  the whole time these were reported as bumping.
+
+  It is the SILHOUETTE that is asserted, not the centre of weight. An icon
+  turning on fills in, and filling in moves the weight towards the middle of
+  the shape by design. What must not happen is the shape itself growing,
+  shrinking or sliding, and with the outline drawn in both states it cannot.
+*/
+for (const ic of icons) {
+  must(!ic.missing, `${ic.label} is drawn at all`, "no ink found in its box")
+  must(Math.abs(ic.grewW) <= 1 && Math.abs(ic.grewH) <= 1,
+    `${ic.label} is the same size on as off`,
+    `its ink box changed by ${ic.grewW} x ${ic.grewH} at 2x when the tab turned on`)
+  must(ic.edges <= 1, `and in the same place, to the half pixel`,
+    `an edge of it moved ${ic.edges} at 2x when the tab turned on`)
+}
 must(routeTap.arrived === "/app/products", "the page really does change under the bar, which is what a press is for",
   `the pathname finished at ${routeTap.arrived}`)
 must(routeTap.quietAfter <= 500, "and the circle is done moving before the page arrives, not after it",
