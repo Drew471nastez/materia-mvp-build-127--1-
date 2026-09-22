@@ -443,6 +443,67 @@ function getDateKey(date: Date | string): string {
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: tz })
 }
 
+/**
+ * ===========================================================================
+ *  THE DATES THE CHART PLOTS, WORKED OUT IN ONE PLACE
+ * ===========================================================================
+ * The fetch seeds a bucket for every date in the range, so a day with nothing
+ * in it still has a point and the line is continuous. The chart needs that
+ * same list BEFORE the fetch returns, and did not have it: `trendData` starts
+ * as an empty array, Recharts given an empty array draws no grid, no axis and
+ * no line, and the card is a tall white box until the data lands. That is the
+ * blank chart in the screenshot.
+ *
+ * Both read this. The baseline drawn first and the series that replaces it
+ * then have exactly the same x categories, which is what lets the line grow
+ * out of the baseline instead of the whole plot appearing at once.
+ */
+function trendLabelsFor(timeframe: string, start: Date, end: Date): string[] {
+  const labels: string[] = []
+  const hourly = timeframe === "today" || timeframe === "yesterday" || timeframe === "last_48_hours"
+
+  if (hourly) {
+    const hoursToShow = timeframe === "last_48_hours" ? 48 : 24
+    const baseDate = timeframe === "yesterday"
+      ? new Date(new Date().setDate(new Date().getDate() - 1))
+      : new Date()
+    for (let i = 0; i < hoursToShow; i++) {
+      let hourDate: Date
+      if (timeframe === "last_48_hours") {
+        hourDate = new Date()
+        hourDate.setHours(hourDate.getHours() - (hoursToShow - 1 - i))
+      } else if (timeframe === "yesterday") {
+        hourDate = new Date(baseDate)
+        hourDate.setHours(i, 0, 0, 0)
+      } else {
+        /* Today only runs as far as the hour it is now. */
+        if (i > new Date().getHours()) continue
+        hourDate = new Date(baseDate)
+        hourDate.setHours(i, 0, 0, 0)
+      }
+      const hourKey = `${hourDate.getHours().toString().padStart(2, "0")}:00`
+      labels.push(timeframe === "last_48_hours" ? `${getDateKey(hourDate)} ${hourKey}` : hourKey)
+    }
+    return labels
+  }
+
+  const cursor = new Date(start)
+  const last = new Date(end)
+  while (cursor <= last) {
+    labels.push(getDateKey(cursor))
+    cursor.setDate(cursor.getDate() + 1)
+  }
+  return labels
+}
+
+/**
+ * How many points the PLACEHOLDER may draw. All time starts in 2020, which is
+ * thousands of days; the real series is whatever it is, but a placeholder
+ * nobody will look at for more than a moment has no business laying out two
+ * thousand ticks before the page has even painted.
+ */
+const TREND_SKELETON_MAX = 90
+
 // Mobile Bottom Sheet for Timeframe selection
 function AnalyticsTimeframeSheet({
   isOpen,
@@ -1452,36 +1513,14 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
       // Generate trend data for chart - use hourly for today/yesterday/48h, daily for others
       const isHourlyTimeframe = timeframe === "today" || timeframe === "yesterday" || timeframe === "last_48_hours"
       const trendDataByKey: Record<string, TrendData> = {}
+      /* Seeded from the same labels the chart's baseline was drawn from, so
+         the series that lands has exactly the x categories already on screen
+         and the line grows into place rather than replacing the plot. */
+      for (const label of trendLabelsFor(timeframe, start, end)) {
+        trendDataByKey[label] = { date: label, views: 0, sales: 0, revenue: 0, clicks: 0, subscribers: 0 }
+      }
 
       if (isHourlyTimeframe) {
-        // Generate hourly trend data
-        const hoursToShow = timeframe === "last_48_hours" ? 48 : 24
-        const baseDate = timeframe === "yesterday"
-          ? new Date(new Date().setDate(new Date().getDate() - 1))
-          : new Date()
-
-        // Initialize all hours with 0 values
-        for (let i = 0; i < hoursToShow; i++) {
-          let hourDate: Date
-          if (timeframe === "last_48_hours") {
-            hourDate = new Date()
-            hourDate.setHours(hourDate.getHours() - (hoursToShow - 1 - i))
-          } else if (timeframe === "yesterday") {
-            hourDate = new Date(baseDate)
-            hourDate.setHours(i, 0, 0, 0)
-          } else {
-            // today - only show hours up to current hour
-            if (i > new Date().getHours()) continue
-            hourDate = new Date(baseDate)
-            hourDate.setHours(i, 0, 0, 0)
-          }
-          const hourKey = `${hourDate.getHours().toString().padStart(2, '0')}:00`
-          const dateLabel = timeframe === "last_48_hours"
-            ? `${getDateKey(hourDate)} ${hourKey}`
-            : hourKey
-          trendDataByKey[dateLabel] = { date: dateLabel, views: 0, sales: 0, revenue: 0, clicks: 0, subscribers: 0 }
-        }
-
         // Populate with actual view data
         viewOnlyEvents.forEach((e: any) => {
           const date = new Date(e.created_at)
@@ -1545,18 +1584,6 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
           })
         }
       } else {
-        // Generate daily trend data for other timeframes
-        // First, initialize all dates in the timeframe with 0 values
-        const startDate = new Date(start)
-        const endDate = new Date(end)
-        const currentDate = new Date(startDate)
-
-        while (currentDate <= endDate) {
-          const dateKey = getDateKey(currentDate)
-          trendDataByKey[dateKey] = { date: dateKey, views: 0, sales: 0, revenue: 0, clicks: 0, subscribers: 0 }
-          currentDate.setDate(currentDate.getDate() + 1)
-        }
-
         // Populate with view data
         viewOnlyEvents.forEach((e: any) => {
           const dateKey = getDateKey(e.created_at)
@@ -2090,11 +2117,26 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
 
   // Compute chart data with conversion rate and CTR added — memoized to keep
   // a stable reference so the animation useEffect doesn't re-fire on every render.
-  const rawChartData = useMemo(() => trendData.map(d => ({
+  /**
+   * A flat series across the selected range, drawn until the first fetch
+   * lands. It is the chart's own grid, its own dates and a line resting on
+   * the axis, rather than a white box with nothing in it.
+   */
+  const skeletonTrend = useMemo<TrendData[]>(() => {
+    const { start, end } = getTimeframeDates()
+    return trendLabelsFor(timeframe, start, end)
+      .slice(-TREND_SKELETON_MAX)
+      .map((date) => ({ date, views: 0, sales: 0, revenue: 0, clicks: 0, subscribers: 0 }))
+  }, [timeframe, getTimeframeDates])
+
+  /** Nothing has arrived yet, so what is on screen is the placeholder. */
+  const chartIsLoading = trendData.length === 0
+
+  const rawChartData = useMemo(() => (chartIsLoading ? skeletonTrend : trendData).map(d => ({
     ...d,
     conversion: d.views > 0 ? Number(((d.sales / d.views) * 100).toFixed(2)) : 0,
     ctr: d.views > 0 && d.clicks ? Number(((d.clicks / d.views) * 100).toFixed(2)) : 0,
-  })), [trendData])
+  })), [chartIsLoading, skeletonTrend, trendData])
 
   // ── Sample data overlay ─────────────────────────────────────────────────
   const ANALYTICS_SAMPLE_ONEPAGE = {
@@ -2651,10 +2693,23 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
               <div className="relative">
                 <div
                   key={`${analyticsMode}-${chartMetricFilter}-${onePageChartFilter}`}
-                  className={`transition-[opacity,filter] duration-[700ms] ease-[cubic-bezier(0.32,0.72,0,1)] ${isRefreshing ? "opacity-30 blur-[2px]" : showSampleData && !hasRealData ? "opacity-50 blur-0" : "opacity-100 blur-0"}`}
+                  /* The placeholder is not blurred: the frame IS the loading
+                     state, and blurring it to 30% put us back at a white box.
+                     The blur belongs to a REFETCH, where real numbers are
+                     being replaced and going soft says so. */
+                  className={`transition-[opacity,filter] duration-[700ms] ease-[cubic-bezier(0.32,0.72,0,1)] ${
+                    chartIsLoading
+                      ? "opacity-100 blur-0"
+                      : isRefreshing
+                        ? "opacity-30 blur-[2px]"
+                        : showSampleData && !hasRealData
+                          ? "opacity-50 blur-0"
+                          : "opacity-100 blur-0"
+                  }`}
                 >
                   <AnalyticsChartWithTooltip
                     chartDisplayData={chartDisplayData}
+                    isLoading={chartIsLoading}
                     /* The mode the data is, not the mode the tabs are. See trendMode. */
                     analyticsMode={trendMode}
                     chartMetricFilter={chartMetricFilter}
@@ -2663,7 +2718,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                     formatPrice={formatPrice}
                   />
                 </div>
-                {!hasRealData && (
+                {!hasRealData && !chartIsLoading && (
                   <div className="absolute top-2 right-2 flex items-center gap-1.5 z-10">
                     <span className="text-[11px] text-[#c8ccd4]">
                       {showSampleData ? "Sample data" : "No activity yet"}

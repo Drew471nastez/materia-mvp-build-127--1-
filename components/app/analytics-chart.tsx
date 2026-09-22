@@ -97,6 +97,7 @@ function AnalyticsChartWithTooltipInner({
   onePageChartFilter,
   isTouchDevice,
   formatPrice,
+  isLoading = false,
 }: {
   chartDisplayData: AnalyticsChartData[]
   analyticsMode: "store" | "onepage"
@@ -104,6 +105,14 @@ function AnalyticsChartWithTooltipInner({
   onePageChartFilter: string
   isTouchDevice: boolean
   formatPrice: (cents: number) => string
+  /**
+   * The series is the placeholder, not the answer. The chart still draws its
+   * grid, its dates and a line resting on the axis — what it does not do is
+   * dress that line up as data: no colour, no fill, no points, and nothing
+   * to press. When the real series arrives this goes false, the stroke fades
+   * to the metric's colour and the line grows into shape.
+   */
+  isLoading?: boolean
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const tooltipRef = useRef<HTMLDivElement>(null)
@@ -144,28 +153,65 @@ function AnalyticsChartWithTooltipInner({
     }
   }, [])
 
+  /**
+   * ═══════════════════════════════════════════════════════════════════════
+   *  THE DRAW-IN IS DECIDED BY THE RENDER THAT RECEIVES THE DATA
+   * ═══════════════════════════════════════════════════════════════════════
+   * This was an effect, and an effect runs AFTER the render it belongs to.
+   * So the sequence was: new series arrives, the chart renders with
+   * `isAnimationActive` still holding whatever it held — false, once the
+   * mount's own window had expired — recharts draws the finished shape in
+   * one frame, and only then does the effect set the flag back to true, for
+   * an animation that has nothing left to play.
+   *
+   * On the analytics page that is every load. The chart mounts against its
+   * placeholder, the window closes 690ms later, and the fetch lands after
+   * that. Measured in scripts/check-chart-skeleton.mjs: the line passed
+   * through two shapes, the flat one and the final one, which is a swap.
+   *
+   * Setting state during a render of the same component is React's own
+   * escape hatch for exactly this: it re-runs the component before anything
+   * is committed, so recharts never sees the render with the flag down. The
+   * guard keeps it to the renders where the series actually changed.
+   *
+   * THE SERIES ONLY, same as dashboard-client. The metric filters were
+   * dependencies here too, so switching to Revenue fired once immediately —
+   * redrawing with the OLD numbers still in it — and again when the new ones
+   * arrived. Two draws, the first of the wrong thing. A metric changing is a
+   * request for data, not the arrival of any.
+   */
+  const seenSeriesRef = useRef(chartDisplayData)
+  if (seenSeriesRef.current !== chartDisplayData) {
+    seenSeriesRef.current = chartDisplayData
+    if (!shouldAnimate) setShouldAnimate(true)
+  }
+
   /*
     Play the draw-in once, then switch it off so hover updates are not
     re-animated. The timer has to outlast the longest series — 600ms begun at
-    90ms — or the chart freezes mid-draw.
+    90ms — or the chart freezes mid-draw, and it restarts whenever a new
+    series arrives while one is still playing.
   */
   useEffect(() => {
-    setShouldAnimate(true)
+    if (!shouldAnimate) return
     const timer = setTimeout(() => setShouldAnimate(false), CHART_ANIM_MS)
     return () => clearTimeout(timer)
-  /**
-   * THE DATA ONLY, same as dashboard-client.
-   *
-   * The metric filters were dependencies here too, so switching to Revenue
-   * fired this once immediately — redrawing the chart with the OLD numbers
-   * still in it — and again when the new ones arrived. Two draws, the first
-   * of the wrong thing. A metric changing is a request for data, not the
-   * arrival of any.
-   *
-   * Found by auditing the two charts against each other rather than by
-   * anything failing: the dashboard was fixed and this was not.
-   */
-  }, [chartDisplayData])
+  }, [shouldAnimate, chartDisplayData])
+
+  /*
+    ── WHAT A PLACEHOLDER LINE LOOKS LIKE ──────────────────────────────────
+    The shape of the card is right from the first frame, and nothing in it
+    claims to be a number. Grey, no fill under it, no dots on it. The stroke
+    transitions in CSS, so the change from this to the real colour is a fade
+    rather than a swap.
+  */
+  const SKELETON_STROKE = "#e5e7eb"
+  const lineStroke = (colour: string) => (isLoading ? SKELETON_STROKE : colour)
+  const lineFill = (gradient: string) => (isLoading ? "none" : gradient)
+  const lineDot = (colour: string) => (isLoading ? false : makeDot(colour))
+  const lineActiveDot = (colour: string) => (isLoading ? false : makeActiveDot(colour))
+  /* Nothing to draw in while it is flat; the draw-in belongs to the arrival. */
+  const lineAnimates = isLoading ? false : shouldAnimate
 
   /** One formatter, used to draw the ticks and to measure how wide they are. */
   const axisTick = useCallback((v: number) => {
@@ -603,6 +649,7 @@ const SLOP_Y = 12
   return (
     <div
       ref={containerRef}
+      data-chart-loading={isLoading ? "true" : "false"}
       onTouchEnd={handleTouchEnd}
       onTouchCancel={handleTouchEnd}
       style={{
@@ -648,6 +695,9 @@ const SLOP_Y = 12
          * actually refuse that, and they do it without taking the scroll.
          */
         touchAction: "pan-y",
+        /* A placeholder has nothing to scrub, and letting a finger press it
+           would raise a tooltip reading zero for a number nobody has. */
+        pointerEvents: isLoading ? "none" : undefined,
         userSelect: "none",
         WebkitUserSelect: "none",
         WebkitTouchCallout: "none",
@@ -769,32 +819,32 @@ const SLOP_Y = 12
           )}
           {/* Store areas */}
           {analyticsMode === "store" && (chartMetricFilter === "all" || chartMetricFilter === "views") && (
-            <Area type="monotone" dataKey="views" stroke={CHART_COLORS.views} strokeWidth={2} fill="url(#gradViews)" dot={makeDot(CHART_COLORS.views)} activeDot={makeActiveDot(CHART_COLORS.views)} name="views" isAnimationActive={shouldAnimate} animationDuration={600} animationEasing="ease-out" animationBegin={60} />
+            <Area type="monotone" dataKey="views" stroke={lineStroke(CHART_COLORS.views)} strokeWidth={2} fill={lineFill("url(#gradViews)")} dot={lineDot(CHART_COLORS.views)} activeDot={lineActiveDot(CHART_COLORS.views)} name="views" isAnimationActive={lineAnimates} animationDuration={600} animationEasing="ease-out" animationBegin={60} />
           )}
           {analyticsMode === "store" && (chartMetricFilter === "all" || chartMetricFilter === "orders") && (
-            <Area type="monotone" dataKey="sales" stroke={CHART_COLORS.orders} strokeWidth={2} fill="url(#gradOrders)" dot={makeDot(CHART_COLORS.orders)} activeDot={makeActiveDot(CHART_COLORS.orders)} name="sales" isAnimationActive={shouldAnimate} animationDuration={600} animationEasing="ease-out" animationBegin={60} />
+            <Area type="monotone" dataKey="sales" stroke={lineStroke(CHART_COLORS.orders)} strokeWidth={2} fill={lineFill("url(#gradOrders)")} dot={lineDot(CHART_COLORS.orders)} activeDot={lineActiveDot(CHART_COLORS.orders)} name="sales" isAnimationActive={lineAnimates} animationDuration={600} animationEasing="ease-out" animationBegin={60} />
           )}
           {analyticsMode === "store" && (chartMetricFilter === "all" || chartMetricFilter === "orders" || chartMetricFilter === "revenue") && (
-            <Area type="monotone" dataKey="refunds" stroke={CHART_COLORS.refunds} strokeWidth={2} fill="url(#gradRefunds)" dot={makeDot(CHART_COLORS.refunds)} activeDot={makeActiveDot(CHART_COLORS.refunds)} name="refunds" isAnimationActive={shouldAnimate} animationDuration={600} animationEasing="ease-out" animationBegin={45} />
+            <Area type="monotone" dataKey="refunds" stroke={lineStroke(CHART_COLORS.refunds)} strokeWidth={2} fill={lineFill("url(#gradRefunds)")} dot={lineDot(CHART_COLORS.refunds)} activeDot={lineActiveDot(CHART_COLORS.refunds)} name="refunds" isAnimationActive={lineAnimates} animationDuration={600} animationEasing="ease-out" animationBegin={45} />
           )}
           {analyticsMode === "store" && (chartMetricFilter === "all" || chartMetricFilter === "revenue") && (
-            <Area type="monotone" dataKey="revenue" stroke={CHART_COLORS.revenue} strokeWidth={2} fill="url(#gradRevenue)" dot={makeDot(CHART_COLORS.revenue)} activeDot={makeActiveDot(CHART_COLORS.revenue)} name="revenue" isAnimationActive={shouldAnimate} animationDuration={600} animationEasing="ease-out" animationBegin={45} />
+            <Area type="monotone" dataKey="revenue" stroke={lineStroke(CHART_COLORS.revenue)} strokeWidth={2} fill={lineFill("url(#gradRevenue)")} dot={lineDot(CHART_COLORS.revenue)} activeDot={lineActiveDot(CHART_COLORS.revenue)} name="revenue" isAnimationActive={lineAnimates} animationDuration={600} animationEasing="ease-out" animationBegin={45} />
           )}
           {analyticsMode === "store" && chartMetricFilter === "conversion" && (
-            <Area type="monotone" dataKey="conversion" stroke="#10b981" strokeWidth={2} fill="url(#gradConversion)" dot={makeDot("#10b981")} activeDot={makeActiveDot("#10b981")} name="conversion" isAnimationActive={shouldAnimate} animationDuration={600} animationEasing="ease-out" animationBegin={60} />
+            <Area type="monotone" dataKey="conversion" stroke={lineStroke("#10b981")} strokeWidth={2} fill={lineFill("url(#gradConversion)")} dot={lineDot("#10b981")} activeDot={lineActiveDot("#10b981")} name="conversion" isAnimationActive={lineAnimates} animationDuration={600} animationEasing="ease-out" animationBegin={60} />
           )}
           {/* OnePage areas */}
           {analyticsMode === "onepage" && (onePageChartFilter === "all" || onePageChartFilter === "views") && (
-            <Area type="monotone" dataKey="views" stroke={CHART_COLORS.views} strokeWidth={2} fill="url(#gradViews)" dot={makeDot(CHART_COLORS.views)} activeDot={makeActiveDot(CHART_COLORS.views)} name="views" connectNulls isAnimationActive={shouldAnimate} animationDuration={600} animationEasing="ease-out" animationBegin={60} />
+            <Area type="monotone" dataKey="views" stroke={lineStroke(CHART_COLORS.views)} strokeWidth={2} fill={lineFill("url(#gradViews)")} dot={lineDot(CHART_COLORS.views)} activeDot={lineActiveDot(CHART_COLORS.views)} name="views" connectNulls isAnimationActive={lineAnimates} animationDuration={600} animationEasing="ease-out" animationBegin={60} />
           )}
           {analyticsMode === "onepage" && (onePageChartFilter === "all" || onePageChartFilter === "clicks") && (
-            <Area type="monotone" dataKey="clicks" stroke={CHART_COLORS.clicks} strokeWidth={2} fill="url(#gradClicks)" dot={makeDot(CHART_COLORS.clicks)} activeDot={makeActiveDot(CHART_COLORS.clicks)} name="clicks" connectNulls isAnimationActive={shouldAnimate} animationDuration={600} animationEasing="ease-out" animationBegin={60} />
+            <Area type="monotone" dataKey="clicks" stroke={lineStroke(CHART_COLORS.clicks)} strokeWidth={2} fill={lineFill("url(#gradClicks)")} dot={lineDot(CHART_COLORS.clicks)} activeDot={lineActiveDot(CHART_COLORS.clicks)} name="clicks" connectNulls isAnimationActive={lineAnimates} animationDuration={600} animationEasing="ease-out" animationBegin={60} />
           )}
           {analyticsMode === "onepage" && (onePageChartFilter === "all" || onePageChartFilter === "subscribers") && (
-            <Area type="monotone" dataKey="subscribers" stroke="#8b5cf6" strokeWidth={2} fill="url(#gradSubscribers)" dot={makeDot("#8b5cf6")} activeDot={makeActiveDot("#8b5cf6")} name="subscribers" connectNulls isAnimationActive={shouldAnimate} animationDuration={600} animationEasing="ease-out" animationBegin={45} />
+            <Area type="monotone" dataKey="subscribers" stroke={lineStroke("#8b5cf6")} strokeWidth={2} fill={lineFill("url(#gradSubscribers)")} dot={lineDot("#8b5cf6")} activeDot={lineActiveDot("#8b5cf6")} name="subscribers" connectNulls isAnimationActive={lineAnimates} animationDuration={600} animationEasing="ease-out" animationBegin={45} />
           )}
           {analyticsMode === "onepage" && onePageChartFilter === "ctr" && (
-            <Area type="monotone" dataKey="ctr" stroke="#f59e0b" strokeWidth={2} fill="url(#gradCtr)" dot={makeDot("#f59e0b")} activeDot={makeActiveDot("#f59e0b")} name="ctr" connectNulls isAnimationActive={shouldAnimate} animationDuration={600} animationEasing="ease-out" animationBegin={60} />
+            <Area type="monotone" dataKey="ctr" stroke={lineStroke("#f59e0b")} strokeWidth={2} fill={lineFill("url(#gradCtr)")} dot={lineDot("#f59e0b")} activeDot={lineActiveDot("#f59e0b")} name="ctr" connectNulls isAnimationActive={lineAnimates} animationDuration={600} animationEasing="ease-out" animationBegin={60} />
           )}
         </AreaChart>
       </ResponsiveContainer>
