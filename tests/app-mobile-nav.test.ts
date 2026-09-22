@@ -615,8 +615,8 @@ function main() {
       && /window\.setTimeout\(\(\) => \{ setDrawn\(active\); setDimmed\(false\) \}, GLYPH_OUT\)/.test(nav)
       && /opacity: dimmed \? GLYPH_FLOOR : 1/.test(nav),
     "a glyph that changes at full strength is a switch, and the two are not the same shape")
-  check("and it too leaves quicker than it arrives",
-    /const GLYPH_OUT = 110/.test(nav) && /const GLYPH_IN = 250/.test(nav)
+  check("and it too leaves far quicker than it arrives",
+    /const GLYPH_OUT = 50/.test(nav) && /const GLYPH_IN = 250/.test(nav)
       && /transition: `opacity \$\{dimmed \? GLYPH_OUT : GLYPH_IN\}ms ease-out`/.test(nav))
   check("while the colour still eases, because colour moves nothing",
     /transition: "color 300ms ease-out"/.test(nav))
@@ -642,8 +642,20 @@ function main() {
       && /setVeiled\(true\)/.test(nav)
       && /window\.setTimeout\(\(\) => \{ put\(\); setVeiled\(false\) \}, HANDOFF_OUT\)/.test(nav),
     "a lens that changes place at full opacity is a jump somebody can see")
-  check("and it leaves quicker than it arrives",
-    /const HANDOFF_OUT = 120/.test(nav) && /const HANDOFF_IN = 260/.test(nav)
+  /*
+    THE DIP IS AS SHORT AS IT CAN BE WHILE STILL COVERING THE MOVE, and that
+    is the whole of why it is 50 and not 120. It was 120, and 120ms before
+    anything happens on the icon you just pressed is a delay you can feel: the
+    lens reached the pressed icon 134ms after the touch, and 100ms with it cut
+    to 50. Three frames still covers the move; one does not, and none leaves
+    it in the open.
+
+    The runtime numbers are too noisy to assert on — two runs of the same
+    build gave 100 and 117 — so the lengths are pinned here, where they are
+    exact, and the probe only bounds them loosely.
+  */
+  check("and it leaves far quicker than it arrives",
+    /const HANDOFF_OUT = 50/.test(nav) && /const HANDOFF_IN = 260/.test(nav)
       && /opacity \$\{veiled \? HANDOFF_OUT : HANDOFF_IN\}ms ease-out/.test(nav))
   check("while a released drag keeps its own arrival instead",
     /if \(putDownAt\.current === x \|\| slide\.bounce\) \{ put\(\); return \}/.test(nav),
