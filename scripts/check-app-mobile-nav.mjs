@@ -1523,16 +1523,25 @@ must(tap.backwards <= 1, "and sets off for the slot, not for the fingertip",
 must(tap.waypoints === 0, "a press puts the circle on the icon, rather than sending it across the bar",
   `it was seen in ${tap.waypoints} place(s) between the two slots: ${tap.frames.join(" ")}`)
 /*
-  And it is handed over rather than thrown: it dips almost out of sight, is
-  put down on the new slot while it is faint, and comes back up. So the frame
-  its position changes on is a frame nobody can see it on.
+  AND IT DOES NOT FADE. THESE THREE CHECKS USED TO ASSERT THE OPPOSITE, and
+  they are turned round rather than deleted so the reason is on the record.
+
+  They held the lens to dipping almost out of sight, moving while faint, and
+  coming back — which hid the change of place, and put a fade on every single
+  press. "Too much fade and cheapness in the click" is what that is, and a
+  dip is a wait however short it is made.
+
+  So there is no dip. The lens is at full strength on every frame of a press,
+  and its place changes in the open, which costs nothing now: it does not
+  travel, so there is no path to follow, and it does not fade, so there is no
+  flicker to catch. The smoothness is the ink filling the icon instead.
 */
-must(tap.seenMoving <= 0.25, "and it is faint on the frame it changes place, so the change is a dissolve rather than a jump",
-  `it was ${tap.seenMoving} visible on the frame its position changed`)
-must(tap.dimmestTo <= 0.25 && tap.dimmestTo > 0, "dipping on the way rather than blinking out",
-  `it went down to ${tap.dimmestTo}`)
-must(tap.backTo >= 0.99, "and coming all the way back up",
+must(tap.dimmestTo >= 0.99, "the lens never fades: it is at full strength on every frame of a press",
+  `it dropped to ${tap.dimmestTo} part way through`)
+must(tap.backTo >= 0.99, "and is still there at the end of one",
   `it finished at ${tap.backTo}`)
+must(tap.waypoints === 0, "and changes place in one step rather than sliding or dissolving",
+  `it was seen in ${tap.waypoints} place(s) on the way: ${tap.frames.join(" ")}`)
 /*
   AND NOTHING IS WAITED ON. Smoothness belongs to the coming back, never to
   the going away: a dip with a duration is a dip you wait through, on the one
@@ -1550,7 +1559,7 @@ must(tap.backTo >= 0.99, "and coming all the way back up",
   they are deterministic, and this catches only a return to something much
   worse. The number is printed either way, which is what it is actually for.
 */
-must(tap.arrivedMs <= 250, "and it is on the icon you pressed without a wait you can sit through",
+must(tap.arrivedMs <= 80, "and is on the icon you pressed within a few frames of the touch",
   `the lens took ${tap.arrivedMs}ms to reach the icon under the finger`)
 must(tap.grewPx <= 0.5, "and it does not change size on the way, having nothing to hold",
   `a tap grew the circle to ${tap.biggest}x, ${tap.grewPx}px across, and shrank it back`)
@@ -1618,9 +1627,9 @@ must(lens.easedOff, "and eases only on the way off, which nothing interrupts",
   two — so what is asserted is both, that a tap ticks exactly once and that
   the tick is no louder than "light".
 */
-must(lens.ticks.length === 1 && lens.ticks[0] === "light", "and a tap is one tick, at the moment of contact, and a quiet one",
+must(lens.ticks.length === 1 && lens.ticks[0] === "soft", "and a tap is one tick, at the moment of contact, and the quietest there is",
   `a tap fired ${lens.ticks.length} tick(s): ${lens.ticks.join(", ") || "none"}`)
-must(!lens.ticks.includes("medium"), "with nothing in the bar knocking as hard as it used to",
+must(!lens.ticks.some((t) => t === "medium" || t === "light"), "with nothing in the bar knocking at all any more",
   `a tap fired ${lens.ticks.join(", ")}`)
 
 console.log(`  the glyphs  ${opTrail.length} readings of ${opTrail[0].svg.length} glyphs across a press and the route landing`)
@@ -1629,21 +1638,20 @@ console.log(`              the box around one dimmed to ${boxDippedTo} and back 
 console.log(`              and changed over ${swapAtMs}ms after the touch\n`)
 must(partly.length === 0, "a glyph is either the outline or the solid, never a blend of the two",
   `${partly.length} reading(s) were part way between the two drawings: ${[...new Set(partly)].slice(0, 8).join(", ")}`)
-must(swapSeenAt <= 0.4, "and it changes over where the box around it is faint, so the change is soft rather than a switch",
-  `a glyph changed while its box was ${swapSeenAt} visible`)
 /*
-  Not zero: a glyph that blinks right out is a hole in the bar rather than a
-  dissolve. The floor is pinned exactly in tests/app-mobile-nav.test.ts; here
-  it is a band, because sampling every 12ms never lands on the floor itself —
-  set the floor to 0 and this reads 0.09 on the way down rather than 0.
+  AND NEITHER DOES THE ICON. Also turned round: this held the glyph to
+  changing over while the box around it was dimmed to a quarter, which is the
+  same fade in the same place for the same reason, and the same cheapness.
+  The swap is in the open now, on the frame the finger lands, and what takes
+  its time is the colour.
 */
-must(boxDippedTo <= 0.4 && boxDippedTo >= 0.15, "dimming through the change rather than blinking out",
-  `the faintest it went was ${boxDippedTo}`)
-must(boxBackTo >= 0.99, "and coming all the way back",
+must(swapSeenAt >= 0.99, "the icon never fades either: its glyph changes at full strength",
+  `a glyph changed while its box was only ${swapSeenAt} visible`)
+must(boxDippedTo >= 0.99, "staying solid the whole way through a press",
+  `the faintest an icon went was ${boxDippedTo}`)
+must(boxBackTo >= 0.99, "and solid at the end of one",
   `it finished at ${boxBackTo}`)
-/* Same caveat as the lens's arrival above: 48ms before, 24 after, and the
-   bound is loose because the spread is not much smaller than the change. */
-must(swapAtMs <= 140, "and the icon fills without a wait you can sit through",
+must(swapAtMs <= 40, "and it fills on the frame the finger lands, not after one",
   `the glyph did not change until ${swapAtMs}ms after the finger landed`)
 
 for (const ic of icons) {

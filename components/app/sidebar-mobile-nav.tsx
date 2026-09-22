@@ -155,21 +155,28 @@ function Collapsible({ open, children }: { open: boolean; children: React.ReactN
 const FILL_MATCH = 1.06
 
 /**
- * How long the icon takes to go faint, and to come back.
+ * ═══════════════════════════════════════════════════════════════════════════
+ *  NOTHING IN THIS BAR FADES
+ * ═══════════════════════════════════════════════════════════════════════════
+ * Every soft thing here was built out of opacity: the glyph dimmed and came
+ * back, the lens dipped and came back. Dipping a thing out and bringing it
+ * back is what reads as cheap, and the whole of it lands on the press, which
+ * is the one moment that has to feel like nothing at all happened in between.
  *
- * OUT IS SHORT ON PURPOSE AND IS NOT A STYLE CHOICE. It used to be 110ms, and
- * 110ms before anything happens on the icon you just pressed is a delay you
- * can feel. The dip is not there to take time — it is there so the swap
- * between two drawings that are not the same shape is not something to look
- * at — so it is as short as it can be while still covering the swap. Three
- * frames does that; one does not, and zero leaves the swap in the open.
+ * So the smoothness moves to where it belongs: the colour. An icon turning on
+ * goes to its ink colour over INK_EASE, the same way a button changes colour
+ * under a pointer, and that is the icon filling with black. It starts on the
+ * frame the finger lands, there is nothing to wait for and nothing to dip
+ * through, and no part of it is ever half-visible.
  *
- * In is where the smoothness lives, and nothing is waiting on it.
+ * The shape swaps outright in the same frame. It has to be outright, because
+ * the outline and the solid are different drawings and anything in between
+ * them is a shape that is neither — the whole reason a dip was there to hide
+ * it. With FILL_MATCH the two occupy the same box, so an outright swap moves
+ * nothing and changes no size; what is left to see is the colour arriving,
+ * which is the part that takes its time.
  */
-const GLYPH_OUT = 50
-const GLYPH_IN = 250
-/** Faint, not gone. A glyph that blinks out is a hole in the bar. */
-const GLYPH_FLOOR = 0.25
+const INK_EASE = "300ms cubic-bezier(0.22, 0.61, 0.36, 1)"
 
 /**
  * ===========================================================================
@@ -188,10 +195,8 @@ const GLYPH_FLOOR = 0.25
  * glyph swapped in a single frame instead — nothing to see moving, and hard
  * as a switch to look at.
  *
- * It is dimmed through the change now, the same way the lens is handed from
- * one slot to the next: down to a quarter, swapped there, and back up. Soft
- * to look at, and the difference between the two drawings is only ever a
- * quarter of a difference on screen.
+ * It swaps outright, in the frame the finger lands on, and the colour is what
+ * takes its time. See the note by INK_EASE above.
  *
  * THREE WAYS OF MAKING THE TWO AGREE WERE TRIED AND TWO ARE WRONG, recorded
  * because both look obvious. Drawing the outline over the solid, and giving
@@ -203,35 +208,17 @@ const GLYPH_FLOOR = 0.25
 function NavIcon({ icon, active, color, size = 22 }: { icon: NavIconPair; active: boolean; color: string; size?: number }) {
   const Line = icon.line
   const Fill = icon.fill
-  /* Which glyph is on screen. It lags `active` by the length of the dip. */
-  const [drawn, setDrawn] = useState(active)
-  const [dimmed, setDimmed] = useState(false)
-  useEffect(() => {
-    if (drawn === active) return
-    setDimmed(true)
-    const t = window.setTimeout(() => { setDrawn(active); setDimmed(false) }, GLYPH_OUT)
-    return () => window.clearTimeout(t)
-  }, [active, drawn])
   return (
-    <span
-      className="relative block shrink-0"
-      style={{
-        color,
-        width: size,
-        height: size,
-        opacity: dimmed ? GLYPH_FLOOR : 1,
-        transition: `opacity ${dimmed ? GLYPH_OUT : GLYPH_IN}ms ease-out`,
-      }}
-    >
-      {/* Neither of these fades. One of them is showing, and which one changes
-          while the box around them is faint. */}
-      <Line size={size} strokeWidth={1.5} style={{ position: "absolute", inset: 0, opacity: drawn ? 0 : 1 }} />
+    <span className="relative block shrink-0" style={{ color, width: size, height: size }}>
+      {/* No transition on either. One is showing, the other is not, and the
+          change between them is the same frame the finger lands on. */}
+      <Line size={size} strokeWidth={1.5} style={{ position: "absolute", inset: 0, opacity: active ? 0 : 1 }} />
       <Fill
         size={size}
         style={{
           position: "absolute",
           inset: 0,
-          opacity: drawn ? 1 : 0,
+          opacity: active ? 1 : 0,
           /* A constant, never animated: the solid is drawn at the size of the
              outline it replaces. See the note above. */
           scale: String(FILL_MATCH),
@@ -860,32 +847,25 @@ const PRESS_ON = "background-color 0s, box-shadow 0s"
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- *  THE LENS IS HANDED FROM ONE SLOT TO THE NEXT, NOT THROWN
+ *  THE LENS IS SIMPLY ON THE ICON YOU PRESSED
  * ═══════════════════════════════════════════════════════════════════════════
- * A press used to send the lens sliding across the bar, and that slide was
- * the reported glitch: it overshot the slot and came back, by an amount that
- * depended on how fast you tapped. Taking it out left the lens teleporting,
- * which is correct and reads as abrupt.
+ * It has been three things. It slid across the bar, and the slide overshot
+ * and came back by an amount that depended on how fast you tapped — the glitch
+ * that started all of this. It teleported, which was correct and read as
+ * abrupt. Then it dipped almost out of sight, moved while faint, and came
+ * back, which covered the move and put a fade on every press.
  *
- * So it is handed over instead of thrown. It dips almost out of sight, it is
- * put down on the new slot while it is faint, and it comes back up. The eye
- * follows a dissolve rather than a journey, and there is no journey to be
- * caught halfway through, to overshoot, or to land a pixel out.
+ * The fade is what reads as cheap, and it is a wait however short it is. So
+ * there is none: on the frame the finger lands the lens is on the icon under
+ * it, at full strength, and nothing about it is ever half-visible.
  *
- * THE PROPERTY THAT MATTERS, and the one the probe holds it to: the lens
- * never changes position on a frame where it can be seen. Position moves
- * only while opacity is down at the floor.
- *
- * AND THE DIP IS AS SHORT AS IT CAN BE. It was 120ms, and 120ms of nothing
- * happening on the icon you just pressed reads as lag. The dip is not there
- * to take time — it is there so the move is not something you can see — so it
- * is cut to three frames, which still covers the move while being too short
- * to wait through. Coming back up is where the smoothness is, and nothing is
- * waiting on that.
+ * Which leaves the change of place in the open — and that is fine, because
+ * there is no longer anything to see it happen against. It does not travel,
+ * so there is no path to follow; it does not fade, so there is no flicker to
+ * catch; and the thing that carries the smoothness is the ink filling the
+ * icon over INK_EASE, which starts on the same frame and takes its time.
  */
-const HANDOFF_FLOOR = 0.12
-const HANDOFF_OUT = 50
-const HANDOFF_IN = 260
+
 /**
  * Under a finger the circle LIFTS a little, which is the tell of the newer
  * system bars: the thing you are holding is the thing that is bigger.
@@ -1107,14 +1087,14 @@ function useSlide(count: number, onPick: (index: number) => void) {
       /* A render only when the slot changes, never per move. */
       setAt(next)
       /*
-        EVERY TICK IN THIS BAR IS ONE STEP QUIETER THAN IT WAS. They were
-        medium and light, and medium reads as loud on a control you press
-        several times a minute. The shape is kept — the tick when a finger
-        lands is still the firmer of the two — it is just moved down: light
-        where it was medium, and selection feedback, the softest thing the
-        Taptic Engine makes, where it was light.
+        EVERY TICK IN THIS BAR IS SELECTION FEEDBACK NOW. They were medium
+        and light, then light and soft, and it was still too much: this is a
+        control you press several times a minute, and an impact is a knock.
+        Soft is not an impact at all — it is the generator behind a picker
+        wheel and a segmented control, which is what a row of tabs is. There
+        is nothing quieter, and nothing better shaped.
       */
-      hapticTap(first ? "light" : "soft")
+      hapticTap("soft")
     }
   }
 
@@ -1172,7 +1152,7 @@ function useSlide(count: number, onPick: (index: number) => void) {
         if (away) return
         /* A drag lands, and landing is worth a tick of its own. A tap already
            ticked, at the better moment: when the finger arrived. */
-        if (dragged) hapticTap("light")
+        if (dragged) hapticTap("soft")
         onPick(picked)
       },
       onPointerCancel: end,
@@ -1306,24 +1286,11 @@ export function MobileNavPill({
     Where the lens was last put down, so a change of slot can be told from a
     re-render that changes nothing — only the first of those is a hand-over.
   */
-  const putDownAt = useRef(x)
-  const [veiled, setVeiled] = useState(false)
   useLayoutEffect(() => {
-    if (slide.following) { putDownAt.current = x; return }
+    if (slide.following) return
     const dot = slide.dotRef.current
-    if (!dot) return
-    const put = () => { dot.style.translate = `${x}px 0`; putDownAt.current = x }
-    /*
-      A released drag has its own arrival — it springs into the slot on
-      SETTLE, which is the bounce that gesture asked for — and a lens that is
-      already where it belongs has nothing to hand over. Both are written
-      straight out.
-    */
-    if (putDownAt.current === x || slide.bounce) { put(); return }
-    setVeiled(true)
-    const t = window.setTimeout(() => { put(); setVeiled(false) }, HANDOFF_OUT)
-    return () => window.clearTimeout(t)
-  }, [x, slide.following, slide.bounce, slide.dotRef])
+    if (dot) dot.style.translate = `${x}px 0`
+  }, [x, slide.following, slide.dotRef])
 
   return (
     <div
@@ -1439,13 +1406,13 @@ export function MobileNavPill({
               left: 0,
               /* `translate` is written by the loop and the effect above, never here. */
               scale: String(marked < 0 ? 0.55 : slide.following ? LIFT : 1),
-              opacity: marked < 0 ? 0 : veiled ? HANDOFF_FLOOR : 1,
+              opacity: marked < 0 ? 0 : 1,
               backgroundColor: slide.pressed ? PRESS_FILL : REST_FILL,
               boxShadow: `${slide.pressed ? PRESS_EDGE : REST_EDGE}, ${DROP}`,
               /* No transition on the position under a finger: the loop is the
                  motion. And the brightening goes on instantly, comes off
                  eased — see the note by PRESS_FILL. */
-              transition: `${slide.bounce && !slide.following ? SETTLE : NO_TRAVEL}, ${LIFT_EASE}, opacity ${veiled ? HANDOFF_OUT : HANDOFF_IN}ms ease-out, ${slide.pressed ? PRESS_ON : PRESS_OFF}`,
+              transition: `${slide.bounce && !slide.following ? SETTLE : NO_TRAVEL}, ${LIFT_EASE}, opacity 220ms ease-out, ${slide.pressed ? PRESS_ON : PRESS_OFF}`,
               willChange: "translate, scale",
             }}
           />
@@ -1480,7 +1447,8 @@ export function MobileNavPill({
                   width: SLOT,
                   height: DOT,
                   color: on ? ACTIVE_TEXT : "#616b7a",
-                  transition: "color 300ms ease-out",
+                  /* The icon filling with black. See INK_EASE. */
+                  transition: `color ${INK_EASE}`,
                 }}
               >
                 <NavIcon icon={item.icon} active={on} color="currentColor" size={22} />
@@ -1506,7 +1474,7 @@ export function MobileNavPill({
           aria-hidden={!menuOpen}
           tabIndex={menuOpen ? 0 : -1}
           onClick={() => {
-            hapticTap("light")
+            hapticTap("soft")
             setPending(null)
             onNavigate("/app/settings")
             onCloseMenu()
@@ -1536,7 +1504,7 @@ export function MobileNavPill({
           aria-label={menuOpen ? "Close menu" : "Menu"}
           aria-expanded={menuOpen}
           onClick={() => {
-            hapticTap("light")
+            hapticTap("soft")
             onToggleMenu()
           }}
           className="pointer-events-auto relative flex shrink-0 items-center justify-center rounded-full"
