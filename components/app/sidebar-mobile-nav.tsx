@@ -181,47 +181,64 @@ const INK_EASE = `${INK_MS}ms cubic-bezier(0.22, 0.61, 0.36, 1)`
 
 /**
  * ===========================================================================
- *  A 22x22 BOX, BOTH GLYPHS IN IT, AND THE SWAP HAPPENS WHERE IT IS FAINT
+ *  THE BLACK FILLS THE GLYPH, IT DOES NOT APPEAR IN IT
  * ===========================================================================
- * The line glyph and the solid one are not drawn the same size. A stroke sits
- * astride its path and reaches half a stroke past it, where a solid stops at
- * its edge, and three of these four are separate drawings from the icon set
- * besides. FILL_MATCH puts the two boxes on top of each other, which fixes
- * the two ENDS of the change.
+ * The last hard edge in the bar was this one. The colour took its time, the
+ * lens took its time, and the SHAPE still changed in a single frame: hollow
+ * one frame, solid the next, and then a smooth darkening after the fact. A
+ * frame is a frame however good everything around it is.
  *
- * It does not fix what is in between, and that is why they cannot simply be
- * cross-faded: two different drawings blended through each other make every
- * frame of the blend a shape that is neither, which on Products measured
- * 40x40 going in, 40x39 halfway and 39x38 coming out. So for a while the
- * glyph swapped in a single frame instead — nothing to see moving, and hard
- * as a switch to look at.
+ * It cannot be cross-faded. The outline and the solid are different drawings,
+ * so any blend of them is a shape that is neither — measured on Products as
+ * 40x40 going in, 40x39 halfway, 39x38 coming out — and that is the bump that
+ * was reported over and over. Dimming one and swapping at the bottom hides it
+ * and puts a fade on the press, which is the cheapness that was reported
+ * after that.
  *
- * It swaps outright, in the frame the finger lands on, and the colour is what
- * takes its time. See the note by INK_EASE above.
+ * So neither is faded and neither is blended: THEY ARE CLIPPED, against each
+ * other, by one edge that sweeps up the box. Below the edge the solid is
+ * drawn, above it the outline, and the two clips are exact complements — so
+ * every pixel is one drawing or the other, never a mix of both and never
+ * nothing. What the eye follows is the black filling the glyph from the
+ * bottom, which is what "it fills with black" describes.
  *
- * THREE WAYS OF MAKING THE TWO AGREE WERE TRIED AND TWO ARE WRONG, recorded
- * because both look obvious. Drawing the outline over the solid, and giving
- * the solid its own stroke, close up the gaps the solid is drawn WITH — a
- * stroke runs along every contour a shape has, including the ones cut out of
- * its middle — and the receipt goes out as a dark blob. Scaling is the one
- * that touches nothing but the size.
+ * Nothing fades: both are fully opaque throughout. Nothing moves: FILL_MATCH
+ * already puts the two in the same box, so the edge crosses one shape rather
+ * than travelling between two. And it starts on the frame the finger lands,
+ * on the ink's own curve, alongside the lens's glass and the icon's colour.
  */
+const FILLED_UP = "inset(0% 0 0 0)"
+const FILLED_NONE = "inset(100% 0 0 0)"
+const OUTLINE_ALL = "inset(0 0 0% 0)"
+const OUTLINE_NONE = "inset(0 0 100% 0)"
+
 function NavIcon({ icon, active, color, size = 22 }: { icon: NavIconPair; active: boolean; color: string; size?: number }) {
   const Line = icon.line
   const Fill = icon.fill
+  const sweep = `clip-path ${INK_EASE}`
   return (
     <span className="relative block shrink-0" style={{ color, width: size, height: size }}>
-      {/* No transition on either. One is showing, the other is not, and the
-          change between them is the same frame the finger lands on. */}
-      <Line size={size} strokeWidth={1.5} style={{ position: "absolute", inset: 0, opacity: active ? 0 : 1 }} />
+      {/* Above the edge, and gone once the edge is over the top. */}
+      <Line
+        size={size}
+        strokeWidth={1.5}
+        style={{
+          position: "absolute",
+          inset: 0,
+          clipPath: active ? OUTLINE_NONE : OUTLINE_ALL,
+          transition: sweep,
+        }}
+      />
+      {/* Below it, and the whole box once the edge is over the top. The scale
+          is a constant, never animated: the solid is drawn at the size of the
+          outline it replaces, which is what lets one edge serve both. */}
       <Fill
         size={size}
         style={{
           position: "absolute",
           inset: 0,
-          opacity: active ? 1 : 0,
-          /* A constant, never animated: the solid is drawn at the size of the
-             outline it replaces. See the note above. */
+          clipPath: active ? FILLED_UP : FILLED_NONE,
+          transition: sweep,
           scale: String(FILL_MATCH),
         }}
       />

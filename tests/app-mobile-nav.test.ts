@@ -608,10 +608,36 @@ function main() {
     both glyphs measure zero every frame of a press — so the movement was only
     ever the ink. A state with no duration cannot be seen moving.
   */
-  check("the glyph swaps outright rather than blending through shapes that are neither",
-    /style=\{\{ position: "absolute", inset: 0, opacity: active \? 0 : 1 \}\}/.test(nav)
-      && /opacity: active \? 1 : 0,/.test(nav),
-    "every frame of a cross-fade between two drawings is a shape that is neither of them")
+  /*
+    THE BLACK FILLS THE GLYPH, IT DOES NOT APPEAR IN IT. This check used to
+    hold the glyph to swapping OUTRIGHT, in one frame, and that was right at
+    the time: the outline and the solid are different drawings, so any blend
+    of them is a shape that is neither — 40x40 going in, 40x39 halfway, 39x38
+    coming out on Products — and dimming one to hide the swap puts a fade on
+    the press. Outright was what was left once both of those were ruled out,
+    and a single frame is the last hard edge there was.
+
+    There is a third way and this is it: neither faded nor blended, but
+    CLIPPED against the other by one edge that sweeps up the box. Below the
+    edge the solid, above it the outline, the two insets exact complements —
+    so every pixel is one drawing or the other, never a mix and never
+    nothing. Both are fully opaque throughout, so it is not a fade; the two
+    already share a box through FILL_MATCH, so the edge crosses one shape
+    rather than travelling between two.
+
+    Measured: the edge sweeps through 28 positions, and the two clips are
+    never more than 0 of the box apart.
+  */
+  check("the black fills the glyph, clipped by one edge rather than swapped in a frame",
+    /const FILLED_UP = "inset\(0% 0 0 0\)"/.test(nav) && /const FILLED_NONE = "inset\(100% 0 0 0\)"/.test(nav)
+      && /const OUTLINE_ALL = "inset\(0 0 0% 0\)"/.test(nav) && /const OUTLINE_NONE = "inset\(0 0 100% 0\)"/.test(nav)
+      && /clipPath: active \? OUTLINE_NONE : OUTLINE_ALL/.test(nav)
+      && /clipPath: active \? FILLED_UP : FILLED_NONE/.test(nav),
+    "a shape that changes in one frame is a hard edge however smooth everything around it is")
+  check("and both are fully opaque while it does, so it is a clip and not the fade that was thrown out",
+    !/opacity: active \? 1 : 0/.test(nav) && !/opacity: active \? 0 : 1/.test(nav)
+      && /const sweep = `clip-path \$\{INK_EASE\}`/.test(nav),
+    "the two clips being exact complements is what keeps a band of both, or neither, off the screen")
   /*
     AND NOTHING ABOUT IT FADES. This check used to say the opposite: it held
     the glyph to changing over while the box around it was dimmed to a

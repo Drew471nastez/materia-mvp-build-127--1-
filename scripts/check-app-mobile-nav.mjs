@@ -937,14 +937,45 @@ await sleep(400)
  * a real route change: every reading has to be all the way on or all the way
  * off. A fraction anywhere is a frame of a shape that is neither.
  */
+/*
+ * WHERE THE EDGE IS, NOT WHICH GLYPH IS VISIBLE.
+ *
+ * This used to read the two glyphs' opacities, because that was how one was
+ * shown and the other hidden. They are clipped against each other now: both
+ * are fully opaque the whole time, and one edge sweeps up the box with the
+ * solid below it and the outline above. Reading opacity would see two
+ * glyphs at 1 and call it a blend of both.
+ *
+ * So it reads the clips. `cut` is how far up the box the solid has filled,
+ * 0 to 1, taken from the inset the solid is clipped by; `gap` is how far
+ * that is from the outline's complementary inset, which has to stay at zero
+ * or there is a band showing both drawings, or neither.
+ */
 const OPACITIES = `(() => {
   const links = [...document.querySelectorAll('nav[aria-label="Main"] a[aria-label]')]
-  const a = (el) => +Number(getComputedStyle(el).opacity).toFixed(2)
+  const pct = (el, which) => {
+    const m = /inset\\(([^)]*)\\)/.exec(getComputedStyle(el).clipPath || "")
+    if (!m) return null
+    const parts = m[1].trim().split(/\\s+/)
+    const v = which === "top" ? parts[0] : parts[2] ?? parts[0]
+    const n = Number.parseFloat(v)
+    return Number.isFinite(n) ? Math.round((v.includes("%") ? n : (n / el.getBoundingClientRect().height) * 100)) / 100 : null
+  }
   return {
-    /* Each icon's two glyphs: which one is showing. */
-    svg: links.flatMap((l) => [...l.querySelectorAll("svg")].map(a)),
-    /* And the box around them, which is what dims through the change. */
-    box: links.map((l) => a(l.querySelector("span"))),
+    box: links.map((l) => +Number(getComputedStyle(l.querySelector("span")).opacity).toFixed(2)),
+    svgAlpha: links.flatMap((l) => [...l.querySelectorAll("svg")].map((sv) => +Number(getComputedStyle(sv).opacity).toFixed(2))),
+    /* How full the solid is, and how far the outline's edge is from it. */
+    cut: links.map((l) => {
+      const svgs = l.querySelectorAll("svg")
+      const filled = pct(svgs[1], "top")
+      return filled == null ? null : Math.round((1 - filled) * 100) / 100
+    }),
+    gap: links.map((l) => {
+      const svgs = l.querySelectorAll("svg")
+      const filled = pct(svgs[1], "top")
+      const outline = pct(svgs[0], "bottom")
+      return filled == null || outline == null ? null : Math.round(Math.abs(1 - filled - outline) * 100) / 100
+    }),
   }
 })()`
 await ev('window.__routeDelay = 260; window.__went = null; true')
@@ -953,7 +984,14 @@ await send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: 
 await sleep(50)
 await send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] })
 for (let i = 0; i < 40; i++) { opTrail.push(await ev(OPACITIES)); await sleep(12) }
-const partly = opTrail.flatMap((f) => f.svg).filter((v) => v > 0.01 && v < 0.99)
+/* Neither glyph is ever half-painted: they are clipped, not faded. */
+const partly = opTrail.flatMap((f) => f.svgAlpha).filter((v) => v > 0.01 && v < 0.99)
+/* The widest the two clips ever disagree, as a fraction of the box. Anything
+   above zero is a band showing both drawings at once, or neither. */
+const worstGap = Math.round(Math.max(0, ...opTrail.flatMap((f) => f.gap).filter((v) => v != null)) * 100) / 100
+/* How many distinct positions the edge is caught in while it sweeps. An edge
+   that sweeps has many; a glyph that switches has two. */
+const edgeSteps = new Set(opTrail.flatMap((f) => f.cut).filter((v) => v != null && v > 0.02 && v < 0.98)).size
 /*
   AND THE SWAP HAPPENS WHERE IT IS FAINT. The two drawings are not the same
   shape, so the frame the glyph changes on is a frame the shape changes on.
@@ -961,24 +999,14 @@ const partly = opTrail.flatMap((f) => f.svg).filter((v) => v > 0.01 && v < 0.99)
   something to look at, and this is where that is held to: on every frame a
   glyph changes, how visible was the box it sits in.
 */
-const swapSeenAt = (() => {
-  let worst = 0
-  for (let f = 1; f < opTrail.length; f++) {
-    for (let i = 0; i < opTrail[f].box.length; i++) {
-      const changed = opTrail[f].svg[i * 2] !== opTrail[f - 1].svg[i * 2]
-        || opTrail[f].svg[i * 2 + 1] !== opTrail[f - 1].svg[i * 2 + 1]
-      if (changed) worst = Math.max(worst, opTrail[f].box[i], opTrail[f - 1].box[i])
-    }
-  }
-  return Math.round(worst * 100) / 100
-})()
+const swapSeenAt = Math.round(Math.min(...opTrail.flatMap((f) => f.box)) * 100) / 100
 const boxDippedTo = Math.round(Math.min(...opTrail.flatMap((f) => f.box)) * 100) / 100
 /* And when the glyph actually changed, from the same recording. Readings are
    ~12ms apart here, and the trail starts on the frame of the touch. */
 const swapAtMs = (() => {
   for (let f = 1; f < opTrail.length; f++) {
-    for (let i = 0; i < opTrail[f].svg.length; i++) {
-      if (opTrail[f].svg[i] !== opTrail[0].svg[i]) return Math.round(f * 12)
+    for (let i = 0; i < opTrail[f].cut.length; i++) {
+      if (opTrail[f].cut[i] != null && Math.abs(opTrail[f].cut[i] - opTrail[0].cut[i]) > 0.02) return Math.round(f * 12)
     }
   }
   return Math.round(opTrail.length * 12)
@@ -1709,9 +1737,10 @@ must(lens.ticks[0] === "light", "and it is an impact, because selection feedback
 must(!lens.ticks.includes("medium"), "while still being the quietest impact there is",
   `a tap fired ${lens.ticks.join(", ")}`)
 
-console.log(`  the glyphs  ${opTrail.length} readings of ${opTrail[0].svg.length} glyphs across a press and the route landing`)
+console.log(`  the glyphs  ${opTrail.length} readings of ${opTrail[0].svgAlpha.length} glyphs across a press and the route landing`)
 console.log(`              ${partly.length} of them caught part way between the two drawings`)
-console.log(`              the box around one dimmed to ${boxDippedTo} and back to ${boxBackTo}; a glyph changed at ${swapSeenAt} visible`)
+console.log(`              neither glyph ever faded; the faintest an icon got was ${swapSeenAt}`)
+console.log(`              the edge swept through ${edgeSteps} positions, the two clips never more than ${worstGap} apart`)
 console.log(`              and changed over ${swapAtMs}ms after the touch\n`)
 must(partly.length === 0, "a glyph is either the outline or the solid, never a blend of the two",
   `${partly.length} reading(s) were part way between the two drawings: ${[...new Set(partly)].slice(0, 8).join(", ")}`)
@@ -1722,14 +1751,32 @@ must(partly.length === 0, "a glyph is either the outline or the solid, never a b
   The swap is in the open now, on the frame the finger lands, and what takes
   its time is the colour.
 */
-must(swapSeenAt >= 0.99, "the icon never fades either: its glyph changes at full strength",
-  `a glyph changed while its box was only ${swapSeenAt} visible`)
+/*
+  AND THE BLACK FILLS THE GLYPH RATHER THAN APPEARING IN IT.
+
+  The shape used to change in a single frame — hollow one frame, solid the
+  next — which is the last hard edge there was. The two cannot be blended,
+  because any mix of two different drawings is a shape that is neither, and
+  they cannot be faded, because a fade on the press is the cheapness. So they
+  are clipped against each other by one edge that sweeps up the box: below it
+  the solid, above it the outline, complements exactly.
+
+  Three things are held here. That the edge SWEEPS rather than jumping, which
+  is what makes it smooth. That the two clips stay exact complements, because
+  a gap between them is a band showing both drawings or neither. And that
+  neither glyph is ever half-painted, which is what says this is a clip and
+  not the fade that was thrown out.
+*/
+must(swapSeenAt >= 0.99, "the icon never fades: nothing about it is ever half-painted",
+  `an icon dropped to ${swapSeenAt} visible`)
+must(edgeSteps >= 4, "the black fills the glyph over a sweep rather than appearing in one frame",
+  `the edge was caught in only ${edgeSteps} position(s) between empty and full`)
+must(worstGap <= 0.02, "with the outline retreating exactly ahead of it, so no band shows both drawings or neither",
+  `the two clips were ${worstGap} of the box apart at worst`)
 must(boxDippedTo >= 0.99, "staying solid the whole way through a press",
   `the faintest an icon went was ${boxDippedTo}`)
-must(boxBackTo >= 0.99, "and solid at the end of one",
-  `it finished at ${boxBackTo}`)
-must(swapAtMs <= 40, "and it fills on the frame the finger lands, not after one",
-  `the glyph did not change until ${swapAtMs}ms after the finger landed`)
+must(swapAtMs <= 40, "and it starts filling on the frame the finger lands, not after one",
+  `the edge did not start moving until ${swapAtMs}ms after the finger landed`)
 
 for (const ic of icons) {
   must(!ic.missing, `${ic.label} is drawn at all`, "no ink found in its box")
