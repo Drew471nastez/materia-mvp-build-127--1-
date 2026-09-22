@@ -444,14 +444,24 @@ function main() {
   check("a tap is a drag of zero length, so the two can never disagree",
     !/onClick=\{\(\) => pick\(/.test(nav) && /const picked = slotAt\(e\.clientX\)/.test(nav))
   check("and it ticks once per slot crossed, not once per frame",
-    /if \(lastRef\.current !== next\) \{[\s\S]{0,900}?hapticTap\(first \? "medium" : "light"\)/.test(nav))
+    /if \(lastRef\.current !== next\) \{[\s\S]{0,1400}?hapticTap\(first \? "light" : "soft"\)/.test(nav))
   /*
     A DRAG lands, and landing is worth a tick of its own. A TAP already ticked
     at the better moment, when the finger arrived — firing again sixty
     milliseconds later is a stutter, not a second piece of information.
   */
   check("with a second tick when a DRAG lands, and none for a tap that already ticked",
-    /if \(dragged\) hapticTap\("medium"\)\s*\n\s*onPick\(picked\)/.test(nav))
+    /if \(dragged\) hapticTap\("light"\)\s*\n\s*onPick\(picked\)/.test(nav))
+  /*
+    AND EVERY TICK IN THE BAR IS A STEP QUIETER than it was. Medium reads as
+    loud on a control you press several times a minute, so the pair moved
+    down without losing its shape: light where it was medium, and selection
+    feedback — the softest thing the Taptic Engine makes, and the one built
+    for moving between options — where it was light.
+  */
+  check("and nothing in the bar knocks as hard as medium any more",
+    !/hapticTap\("medium"\)/.test(strip(nav)) && /hapticTap\(first \? "light" : "soft"\)/.test(nav),
+    "medium is a knock, and this bar is pressed several times a minute")
   check("a gesture that leaves the bar vertically is not a navigation",
     /const away = escaped\(e\.clientY\)/.test(nav) && /if \(away\) return/.test(nav),
     "a finger that lands on the bar and travels up the screen was trying to scroll")
@@ -668,8 +678,8 @@ function main() {
     "size and position are the two things that were reported as bumping")
   check("a tap is one tick, at the moment of contact",
     /const first = lastRef\.current === null/.test(nav)
-      && /hapticTap\(first \? "medium" : "light"\)/.test(nav)
-      && /if \(dragged\) hapticTap\("medium"\)/.test(nav),
+      && /hapticTap\(first \? "light" : "soft"\)/.test(nav)
+      && /if \(dragged\) hapticTap\("light"\)/.test(nav),
     "light going down and medium coming up, sixty milliseconds apart, is a stutter rather than a tick")
 
   /*

@@ -1095,7 +1095,15 @@ function useSlide(count: number, onPick: (index: number) => void) {
       lastRef.current = next
       /* A render only when the slot changes, never per move. */
       setAt(next)
-      hapticTap(first ? "medium" : "light")
+      /*
+        EVERY TICK IN THIS BAR IS ONE STEP QUIETER THAN IT WAS. They were
+        medium and light, and medium reads as loud on a control you press
+        several times a minute. The shape is kept — the tick when a finger
+        lands is still the firmer of the two — it is just moved down: light
+        where it was medium, and selection feedback, the softest thing the
+        Taptic Engine makes, where it was light.
+      */
+      hapticTap(first ? "light" : "soft")
     }
   }
 
@@ -1153,7 +1161,7 @@ function useSlide(count: number, onPick: (index: number) => void) {
         if (away) return
         /* A drag lands, and landing is worth a tick of its own. A tap already
            ticked, at the better moment: when the finger arrived. */
-        if (dragged) hapticTap("medium")
+        if (dragged) hapticTap("light")
         onPick(picked)
       },
       onPointerCancel: end,
@@ -1487,7 +1495,7 @@ export function MobileNavPill({
           aria-hidden={!menuOpen}
           tabIndex={menuOpen ? 0 : -1}
           onClick={() => {
-            hapticTap("medium")
+            hapticTap("light")
             setPending(null)
             onNavigate("/app/settings")
             onCloseMenu()
@@ -1517,7 +1525,7 @@ export function MobileNavPill({
           aria-label={menuOpen ? "Close menu" : "Menu"}
           aria-expanded={menuOpen}
           onClick={() => {
-            hapticTap("medium")
+            hapticTap("light")
             onToggleMenu()
           }}
           className="pointer-events-auto relative flex shrink-0 items-center justify-center rounded-full"

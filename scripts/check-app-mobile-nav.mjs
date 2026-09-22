@@ -1565,8 +1565,17 @@ must(lens.instantOn, "the answer is complete on the frame the finger lands, so a
   `background-color eases in over ${lens.heldFor}, and a 60ms tap would cut that off somewhere different every time`)
 must(lens.easedOff, "and eases only on the way off, which nothing interrupts",
   `the release runs in ${lens.backFor} rather than easing`)
-must(lens.ticks.length === 1 && lens.ticks[0] === "medium", "and a tap is one tick, at the moment of contact",
+/*
+  ONE TICK, AND A QUIET ONE. Every tick in this bar is a step down from what
+  it was: medium read as loud on a control you press several times a minute.
+  The shape is kept — the tick when a finger lands is still the firmer of the
+  two — so what is asserted is both, that a tap ticks exactly once and that
+  the tick is no louder than "light".
+*/
+must(lens.ticks.length === 1 && lens.ticks[0] === "light", "and a tap is one tick, at the moment of contact, and a quiet one",
   `a tap fired ${lens.ticks.length} tick(s): ${lens.ticks.join(", ") || "none"}`)
+must(!lens.ticks.includes("medium"), "with nothing in the bar knocking as hard as it used to",
+  `a tap fired ${lens.ticks.join(", ")}`)
 
 console.log(`  the glyphs  ${opTrail.length} readings of ${opTrail[0].svg.length} glyphs across a press and the route landing`)
 console.log(`              ${partly.length} of them caught part way between the two drawings`)
