@@ -548,6 +548,50 @@ const drag = {
   haptics: await ev("(globalThis.__haptics || []).slice()"),
   target: slots[3],
 }
+/*
+ * ── AND A TAP IS NOT A ONE-PIXEL DRAG ─────────────────────────────────────
+ *
+ * "When I click on an icon to navigate they have a glitch, moving,
+ * misaligned, bump like."
+ *
+ * The press used to aim the circle at the point the FINGER landed on rather
+ * than at the slot, so a tap set it travelling towards a spot a dozen or
+ * twenty pixels off-centre, got part of the way in the time a tap lasts, and
+ * was then written to the slot's centre on the lift. Out and back, by a
+ * distance that depends on where in the slot you hit.
+ *
+ * THE TEST ABOVE COULD NOT SEE IT, because it taps slots[2].x — the exact
+ * centre of the slot, where the fingertip and the destination are the same
+ * point and there is nothing to travel to. A finger does not do that. This
+ * one lands near the slot's inner edge, which is what makes the two
+ * destinations differ, and watches every frame in between.
+ *
+ * Monotonic is the whole assertion: a circle going to one place passes each
+ * point once. One that sets off for the fingertip and is then corrected to
+ * the slot reverses, and a reversal is the bump.
+ */
+await ev("window.__went = null; true")
+const OFF_CENTRE = Math.round(SLOT_W / 2) - 6
+const tapAt = slots[1].x - OFF_CENTRE
+await send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: tapAt, y: slots[1].y, radiusX: 12, radiusY: 12, force: 1 }] })
+const tapTrail = []
+for (let i = 0; i < 10; i++) { tapTrail.push(await ev(dot)); await sleep(16) }
+await send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] })
+await sleep(320)
+tapTrail.push(await ev(dot))
+const tap = {
+  trail: tapTrail,
+  from: tapTrail[0],
+  landed: tapTrail[tapTrail.length - 1],
+  target: slots[1].x,
+  finger: tapAt,
+  /* Every step goes the same way, or stands still. */
+  reversals: tapTrail.filter((v, i) => i > 1 && Math.sign(v - tapTrail[i - 1]) * Math.sign(tapTrail[i - 1] - tapTrail[i - 2]) < 0).length,
+  /* How far past the destination it went on its way to the fingertip. */
+  overshoot: Math.max(0, ...tapTrail.map((v) => (tapAt < slots[1].x ? slots[1].x - v : v - slots[1].x))),
+}
+await ev("window.__went = null; true")
+
 /* Put it back on Home so the screenshot below is the resting state. */
 await ev("window.__went = null; true")
 
@@ -975,6 +1019,14 @@ console.log(`  a slide     the circle went ${drag.trail[0]}px to ${drag.trail[dr
 console.log(`              ${drag.haptics.length} haptic ticks, landed on ${drag.went}\n`)
 must(drag.travelled > 100, "a finger sliding along the bar drags the circle with it",
   `the circle moved ${drag.travelled}px across a slide from the first slot to the fourth`)
+console.log(`  a tap       pressed ${OFF_CENTRE}px off the centre of ${slots[1].label}; the circle went ${tap.from}px to ${tap.landed}px`)
+console.log(`              slot centre ${tap.target}px, ${tap.reversals} reversals on the way, ${tap.overshoot}px past it at most\n`)
+must(Math.abs(tap.landed - tap.target) <= 2, "a tap leaves the circle on the slot it picked",
+  `the circle finished at ${tap.landed} and the slot's centre is ${tap.target}`)
+must(tap.reversals === 0, "and gets there in one movement, without setting off for the fingertip first",
+  `the circle changed direction ${tap.reversals} time(s) during a tap: ${tap.trail.join(" ")}`)
+must(tap.overshoot <= 4, "never travelling past the slot towards the finger",
+  `the circle went ${tap.overshoot}px past the slot's centre towards a finger ${OFF_CENTRE}px off it`)
 must(drag.distinct >= 3, "through the slots on the way, not straight to the end",
   `it only ever showed ${drag.distinct} positions`)
 must(drag.monotonic, "and it never goes backwards while the finger goes forwards",

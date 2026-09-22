@@ -785,6 +785,36 @@ function useSlide(count: number, onPick: (index: number) => void) {
   const posRef = useRef<number | null>(null)
   const frameRef = useRef(0)
 
+  /**
+   * ═════════════════════════════════════════════════════════════════════════
+   *  A TAP IS NOT A ONE-PIXEL DRAG
+   * ═════════════════════════════════════════════════════════════════════════
+   * Reported as the icons glitching and bumping when you press one to
+   * navigate, and it was the circle rather than the icons.
+   *
+   * The press began by aiming the circle at `leftFor(clientX)` — the point
+   * the FINGER landed on. Nobody taps the exact centre of a 55px slot, so the
+   * circle set off towards a spot a dozen or twenty pixels off-centre, got
+   * part of the way there in the time a tap lasts, and was then written to
+   * the slot's centre when the finger lifted. Out and back, every press, by a
+   * distance that depends on where in the slot you happened to hit: exactly
+   * the "moving, misaligned, bump" in the report, and random-looking for the
+   * same reason the last one was.
+   *
+   * So the finger's own x is only the target once the gesture has proved it
+   * is a drag. Until then the target is the centre of the slot under it,
+   * which is where the circle is going to end up anyway — so a tap is one
+   * movement to one place, and the lift writes the value it already has.
+   */
+  const movedRef = useRef(false)
+  const downXRef = useRef(0)
+  /** Past this the gesture is a drag, and the circle belongs under the finger. */
+  const DRAG_SLOP = 8
+
+  /** The circle's left edge when it is sitting on a slot. The same arithmetic
+      the component uses at rest, so the two cannot disagree by a pixel. */
+  const leftForSlot = (index: number): number => PAD + index * SLOT + (SLOT - DOT) / 2
+
   /** The circle's left edge that puts its centre under a finger, kept inside the bar. */
   const leftFor = (clientX: number): number => {
     const box = barRef.current?.getBoundingClientRect()
@@ -847,9 +877,12 @@ function useSlide(count: number, onPick: (index: number) => void) {
   }
 
   const move = (clientX: number) => {
-    targetRef.current = leftFor(clientX)
-    wake()
+    if (!movedRef.current && Math.abs(clientX - downXRef.current) > DRAG_SLOP) movedRef.current = true
     const next = slotAt(clientX)
+    /* Under the finger once this is a drag; on the slot while it is still
+       only a press. */
+    targetRef.current = movedRef.current ? leftFor(clientX) : leftForSlot(next)
+    wake()
     if (lastRef.current !== next) {
       lastRef.current = next
       /* A render only when the slot changes, never per move; and one tick
@@ -868,6 +901,7 @@ function useSlide(count: number, onPick: (index: number) => void) {
     setDragging(false)
     setAt(null)
     lastRef.current = null
+    movedRef.current = false
   }
 
   useEffect(() => () => { if (frameRef.current) cancelAnimationFrame(frameRef.current) }, [])
@@ -886,6 +920,8 @@ function useSlide(count: number, onPick: (index: number) => void) {
         posRef.current = drawnAt() ?? leftFor(e.clientX)
         setDragging(true)
         lastRef.current = null
+        movedRef.current = false
+        downXRef.current = e.clientX
         move(e.clientX)
       },
       onPointerMove: (e: React.PointerEvent) => {
