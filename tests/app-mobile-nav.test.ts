@@ -640,6 +640,34 @@ function main() {
     "a drag springs into the slot on SETTLE, which is the bounce that gesture asked for")
 
   /*
+    AND THE LENS IS HANDED OVER, NOT THROWN. A press used to send it sliding
+    across the bar, and that slide was the reported glitch: it overshot the
+    slot and came back by an amount that depended on how fast you tapped.
+    Taking it out left it teleporting, which is correct and reads as abrupt.
+
+    So it dips almost out of sight, is put down on the new slot while it is
+    faint, and comes back up. The eye follows a dissolve rather than a
+    journey, and there is no journey to be caught halfway through, to
+    overshoot, or to land a pixel out. Measured: it is 0.21 visible on the
+    frame its position changes, and comes back to 1.
+
+    Out is quicker than in, because the dip starts the instant a finger lands
+    and so has to keep up with the touch, while the arrival does not.
+  */
+  check("the lens dips before it changes slot, so the change is a dissolve rather than a jump",
+    /const HANDOFF_FLOOR = 0\.12/.test(nav)
+      && /opacity: marked < 0 \? 0 : veiled \? HANDOFF_FLOOR : 1/.test(nav)
+      && /setVeiled\(true\)/.test(nav)
+      && /window\.setTimeout\(\(\) => \{ put\(\); setVeiled\(false\) \}, HANDOFF_OUT\)/.test(nav),
+    "a lens that changes place at full opacity is a jump somebody can see")
+  check("and it leaves quicker than it arrives",
+    /const HANDOFF_OUT = 90/.test(nav) && /const HANDOFF_IN = 190/.test(nav)
+      && /opacity \$\{veiled \? HANDOFF_OUT : HANDOFF_IN\}ms ease-out/.test(nav))
+  check("while a released drag keeps its own arrival instead",
+    /if \(putDownAt\.current === x \|\| slide\.bounce\) \{ put\(\); return \}/.test(nav),
+    "a drag springs into the slot on SETTLE, which is the bounce that gesture asked for")
+
+  /*
     AND THE BAR ANSWERS A FINGER. Every moving thing was taken out of a press
     one at a time, and the last of them left a control that does nothing when
     you touch it. So the lens brightens under one: no size, no position,
