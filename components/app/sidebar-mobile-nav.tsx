@@ -149,22 +149,46 @@ function Collapsible({ open, children }: { open: boolean; children: React.ReactN
  * pixel by itself.
  */
 /**
- * A 22×22 box with both variants of the glyph stacked in it, cross-faded.
+ * How much bigger the solid glyph is drawn so that it occupies the same box
+ * as the outline it replaces. Measured, not chosen: see NavIcon below.
+ */
+const FILL_MATCH = 1.06
+
+/**
+ * ===========================================================================
+ *  A 22x22 BOX, BOTH GLYPHS IN IT, AND THEY ARE THE SAME SIZE
+ * ===========================================================================
+ * The line glyph and the solid one are not drawn the same size. A stroke sits
+ * astride its path and reaches half a stroke past it, where a solid stops at
+ * its edge, and three of these four are separate drawings from the icon set
+ * besides. So filling an icon in made it SHRINK — about half a pixel on every
+ * edge — and that is the little bump on the icon you press, reported four
+ * times and measured by photographing each icon with its tab on and again
+ * with its neighbour's on.
  *
- * The same trick the rail uses: the fill ARRIVES rather than appears, and
- * because both are painted in a fixed box nothing an icon does can move the
- * label beside it.
+ * Because the two boxes are the same size now, no blend of them is a
+ * different size either: the cross-fade has nothing left to change but the
+ * ink inside the outline, which is the whole point of it.
  *
- * NOTHING IS SCALED, OVERDRAWN OR CORRECTED HERE, and three attempts at that
- * are recorded in git so they are not made a fourth time. The line glyph and
- * the solid one are not exactly the same size — a stroke reaches half a
- * stroke past its path where a solid stops at it — and every way of forcing
- * them to agree made the icons worse than the half pixel it bought:
- * overdrawing one with the other, and giving the solid its own stroke, both
- * closed up the gaps the solid is drawn with and turned the receipt into a
- * dark blob; scaling the solid 6% left the drawing intact but changed how
- * pressing an icon feels, which is the thing being protected. Half a pixel
- * is not worth any of them.
+ * THREE WAYS OF DOING THIS, AND ONLY THE THIRD IS ANY GOOD. Written down
+ * because the first two look obvious and both ruin the icons.
+ *
+ *   Drawing the outline over the solid in both states pins the silhouette,
+ *   and fills in the gaps the solid is drawn WITH. The receipt went out as a
+ *   dark blob. It shipped, and came back within the hour.
+ *
+ *   Giving the solid its own 1.5px stroke pins it exactly, and closes the
+ *   same gaps for the same reason: a stroke runs along every contour a shape
+ *   has, including the ones cut out of its middle.
+ *
+ *   Scaling does not touch the drawing at all. The cutouts scale with
+ *   everything else, so the glyph is still the glyph, and both centres were
+ *   already in the same place, so growing it about its centre is the whole
+ *   correction. Six per cent lands it on the outline's box: +0 x +0 on three
+ *   of the four and half a pixel short on Products.
+ *
+ * The outline is what does not change, so the solid is the one that moves to
+ * meet it: three icons out of four are sitting there unfilled at any moment.
  */
 function NavIcon({ icon, active, color, size = 22 }: { icon: NavIconPair; active: boolean; color: string; size?: number }) {
   const Line = icon.line
@@ -178,7 +202,15 @@ function NavIcon({ icon, active, color, size = 22 }: { icon: NavIconPair; active
       />
       <Fill
         size={size}
-        style={{ position: "absolute", inset: 0, opacity: active ? 1 : 0, transition: "opacity 180ms ease-out" }}
+        style={{
+          position: "absolute",
+          inset: 0,
+          opacity: active ? 1 : 0,
+          transition: "opacity 180ms ease-out",
+          /* A constant, never animated: the solid is simply drawn at the size
+             of the outline it replaces. See the note above. */
+          scale: String(FILL_MATCH),
+        }}
       />
     </span>
   )

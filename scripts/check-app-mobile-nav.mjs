@@ -1390,16 +1390,17 @@ console.log(`              ${routeTap.turns} changes of direction, ${routeTap.pa
   by the person using it, and the first two are visible in the screenshot this
   file writes, which is where they should have been caught.
 
-  So what is checked is that the pair has not CHANGED — a glyph swapped for
-  one that sits somewhere else, or an overdraw reintroduced — not that the two
-  agree. The tolerance is the inherent difference plus the slop in reading it.
+  So the solid is drawn at the outline's size, and this is what says so. It is
+  the SILHOUETTE that is asserted and not the centre of weight: an icon
+  filling in moves its weight towards the middle of the shape by design, and
+  pinning that would be forbidding the fill.
 */
 for (const ic of icons) {
   must(!ic.missing, `${ic.label} is drawn at all`, "no ink found in its box")
-  must(Math.abs(ic.grewW) <= 4 && Math.abs(ic.grewH) <= 4,
-    `${ic.label} is within a stroke's width of the same size on as off`,
-    `its ink box changed by ${ic.grewW} x ${ic.grewH} at 2x, past what the two drawings differ by`)
-  must(ic.edges <= 2, `and within a stroke's width of the same place`,
+  must(Math.abs(ic.grewW) <= 1 && Math.abs(ic.grewH) <= 1,
+    `${ic.label} is the same size on as off`,
+    `its ink box changed by ${ic.grewW} x ${ic.grewH} at 2x when the tab turned on: the icon shrinks as it fills`)
+  must(ic.edges <= 1, `and in the same place, to the half pixel`,
     `an edge of it moved ${ic.edges} at 2x when the tab turned on`)
 }
 must(routeTap.arrived === "/app/products", "the page really does change under the bar, which is what a press is for",

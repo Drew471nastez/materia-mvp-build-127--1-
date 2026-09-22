@@ -544,27 +544,35 @@ function main() {
     the brighter fill and the waiting glyphs all belong to that.
   */
   /*
-    AND THE ICONS ARE THE PAIR THE ICON SET SHIPS, UNTOUCHED. The line glyph
-    and the solid one are not exactly the same size, and three ways of making
-    them agree were tried and all three were worse than the half pixel they
-    bought. Overdrawing the solid with the outline, and giving the solid its
-    own stroke, both closed up the gaps the solid is drawn with — a stroke
-    runs along every contour a shape has, including the ones cut out of its
-    middle — and the receipt went out as a dark blob. Scaling the solid 6%
-    left the drawing intact and still changed how pressing an icon felt.
+    AND THE SOLID GLYPH IS DRAWN AT THE OUTLINE'S SIZE. They are not drawn the
+    same size — a stroke reaches half a stroke past its path where a solid
+    stops at it, and three of the four are separate drawings from the icon set
+    besides — so filling an icon in made it SHRINK, about half a pixel on
+    every edge. That is the little bump on the icon you press.
 
-    This is the guard against a fourth attempt.
+    Because the two boxes are the same size, no blend of them is a different
+    size either, so the cross-fade has nothing left to change but the ink
+    inside the outline.
+
+    TWO OTHER WAYS OF DOING THIS ARE WRONG and this is the guard against them:
+    drawing the outline over the solid in both states, and giving the solid
+    its own stroke. Both close up the gaps the solid is drawn WITH, because a
+    stroke runs along every contour a shape has, including the ones cut out of
+    its middle, and the receipt goes out as a dark blob. The first shipped.
   */
-  check("neither glyph is overdrawn with the other, which closes the gaps it is drawn with",
+  check("the solid glyph is drawn at the size of the outline it replaces",
+    /const FILL_MATCH = 1\.06/.test(nav) && /scale: String\(FILL_MATCH\)/.test(nav),
+    "filling an icon in shrank it by half a pixel on every edge: the bump on the icon you press")
+  check("and neither glyph is overdrawn with the other, which closes the gaps it is drawn with",
     !/<Line size=\{size\} strokeWidth=\{1\.5\} style=\{\{ position: "absolute", inset: 0 \}\} \/>/.test(nav)
-      && !/<Fill[\s\S]{0,160}stroke="currentColor"/.test(nav),
+      && !/<Fill[\s\S]{0,200}stroke="currentColor"/.test(nav),
     "the receipt went out as a dark blob the one time this was got wrong")
-  check("and neither is scaled to fit the other",
-    !/FILL_MATCH/.test(nav) && !/<Fill[\s\S]{0,200}scale:/.test(nav),
-    "it left the drawing intact and still changed how pressing an icon felt")
+  check("and the scale is a constant, not something that animates",
+    !/transition:[^\n]*scale/.test(nav) && !/scale 1[0-9]{2}ms/.test(strip(nav)),
+    "a scale that animates is the bump this is meant to remove")
   check("they cross-fade in a fixed box, so the fill arrives rather than appearing",
     /opacity: active \? 0 : 1, transition: "opacity 180ms ease-out"/.test(nav)
-      && /opacity: active \? 1 : 0, transition: "opacity 180ms ease-out"/.test(nav))
+      && /opacity: active \? 1 : 0,\s*\n\s*transition: "opacity 180ms ease-out"/.test(nav))
 
   /*
     AND A PRESS DOES NOT TRAVEL. "When I click on the icon, make sure that it
