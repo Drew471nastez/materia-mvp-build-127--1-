@@ -399,6 +399,7 @@ const timeframeOptions: TimeframeOption[] = [
 ]
 
 import { AnalyticsChartWithTooltip, CHART_COLORS } from "@/components/app/analytics-chart"
+import { MetricSlide } from "@/components/app/metric-slide"
 
 /** One formatter for the page. Constructing an Intl.NumberFormat is not free. */
 const USD_FORMAT = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" })
@@ -503,6 +504,13 @@ function trendLabelsFor(timeframe: string, start: Date, end: Date): string[] {
  * thousand ticks before the page has even painted.
  */
 const TREND_SKELETON_MAX = 90
+
+/**
+ * The two metric strips in their drawn order. Tapping along one brings the
+ * next chart in from the side that tab is on, so this order is the direction.
+ */
+const STORE_TAB_ORDER = ["views", "revenue", "orders", "conversion"] as const
+const ONEPAGE_TAB_ORDER = ["views", "clicks", "subscribers", "ctr"] as const
 
 // Mobile Bottom Sheet for Timeframe selection
 function AnalyticsTimeframeSheet({
@@ -2707,6 +2715,10 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                           : "opacity-100 blur-0"
                   }`}
                 >
+                  <MetricSlide
+                    slot={analyticsMode === "onepage" ? onePageChartFilter : chartMetricFilter}
+                    order={analyticsMode === "onepage" ? ONEPAGE_TAB_ORDER : STORE_TAB_ORDER}
+                  >
                   <AnalyticsChartWithTooltip
                     chartDisplayData={chartDisplayData}
                     isLoading={chartIsLoading}
@@ -2717,6 +2729,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                     isTouchDevice={isTouchDevice}
                     formatPrice={formatPrice}
                   />
+                  </MetricSlide>
                 </div>
                 {!hasRealData && !chartIsLoading && (
                   <div className="absolute top-2 right-2 flex items-center gap-1.5 z-10">

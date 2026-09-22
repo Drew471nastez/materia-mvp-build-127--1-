@@ -1,5 +1,6 @@
 "use client"
 
+import { MetricSlide } from "@/components/app/metric-slide"
 import { useState, useEffect, useMemo, useRef, useCallback, type ReactNode } from "react"
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh"
 import { PullToRefreshIndicator } from "./pull-to-refresh-indicator"
@@ -85,6 +86,9 @@ interface ChartDataPoint {
 }
 
 type KPIType = "views" | "orders" | "revenue" | "conversion" | null
+
+/** The strip's own order, which is what decides which way the chart slides. */
+const KPI_TAB_ORDER = ["views", "revenue", "orders", "conversion"] as const
 
 /**
  * ===========================================================================
@@ -2909,7 +2913,11 @@ export function DashboardClient({
                     loading state — it says these numbers are not yours.
                   */}
                   <div className={`transition-opacity duration-300 ease-out ${showSampleData && !hasRealData ? "opacity-50" : "opacity-100"}`}>
-                  <ChartWithLongPressTooltip displayChartData={displayChartData} openKPIModal={openKPIModal} t={t} />
+                  {/* Tapping along the strip brings the next chart in from the
+                      side that tab is on; see components/app/metric-slide. */}
+                  <MetricSlide slot={openKPIModal ?? "views"} order={KPI_TAB_ORDER}>
+                    <ChartWithLongPressTooltip displayChartData={displayChartData} openKPIModal={openKPIModal} t={t} />
+                  </MetricSlide>
                   </div>
                   {!hasRealData && (
                     <div className="absolute top-2 right-2 flex items-center gap-1.5 z-10">
