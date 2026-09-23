@@ -141,12 +141,24 @@ export function getOrCreateSessionId(): string {
  * count visits rather than clicks. The server drops a repeat of the same step
  * for the same product in the same visit.
  */
+/**
+ * Steps already sent from this page, in memory only. Without analytics
+ * consent there is no session id for the server to recognise a repeat by,
+ * so a Buy pressed three times counted three visits and the funnel read
+ * more buyers than visitors. Nothing is stored: a reload starts it again,
+ * which is the one repeat left, and the price of not storing anything.
+ */
+const sentSteps = new Set<string>()
+
 export function trackFunnelStep(
   eventType: "buy_click" | "checkout_start",
   creatorId: string,
   productId?: string | null,
 ): Promise<void> {
   if (typeof window === "undefined" || !creatorId) return Promise.resolve()
+  const key = `${eventType}|${creatorId}|${productId || ""}`
+  if (sentSteps.has(key)) return Promise.resolve()
+  sentSteps.add(key)
   return fetch("/api/track-event", {
     method: "POST",
     headers: { "Content-Type": "application/json" },

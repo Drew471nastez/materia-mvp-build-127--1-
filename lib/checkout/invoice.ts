@@ -114,6 +114,11 @@ export async function invoiceForReceipt(admin: Db, receiptToken: string): Promis
 export async function invoiceForOrder(admin: Db, order: OrderRow, knownMetadata?: Record<string, string>): Promise<InvoiceData | null> {
   const total = Math.max(0, Number(order.amount_cents) || 0)
   if (total <= 0 || !order.stripe_payment_intent_id) return null
+  /* Only a payment that went through has an invoice: one that is pending,
+     failed or disputed would be printed "paid". A refunded sale keeps its
+     invoice, as a record of the sale the refund reverses. */
+  const status = String((order as { status?: string | null }).status ?? "completed")
+  if (status !== "completed" && status !== "refunded") return null
 
   let meta: Record<string, string> = knownMetadata ?? {}
   if (!knownMetadata) {

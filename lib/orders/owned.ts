@@ -77,7 +77,9 @@ export function canEmailAccess(line: Pick<OwnedLine, "status" | "receipt_token">
   return line.status === "completed" && Boolean(line.receipt_token)
 }
 
-const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+/* No brackets, quotes or separators: none appear in a real address, and an
+   address that carried markup would travel into the emails that show it. */
+const EMAIL = /^[^\s@<>"'`(),;:\\[\]]+@[^\s@<>"'`(),;:\\[\]]+\.[^\s@<>"'`(),;:\\[\]]{2,}$/
 
 /** The address, trimmed, when it looks like one a mail server would take. */
 export function cleanEmail(value: unknown): string | null {

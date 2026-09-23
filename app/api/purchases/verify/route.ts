@@ -43,7 +43,7 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { canDeliver } from "@/lib/receipts/rules"
+import { assetAllowedForVariants, canDeliver } from "@/lib/receipts/rules"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -78,6 +78,9 @@ export async function POST(request: NextRequest) {
        ------------------------------------------------------------------ */
     let isLoggedIn = false
     const variantIds = new Set<string>()
+    /* What each purchase covers, for the file list: a variant, or null for
+       "the whole product". The same list decideAccess judges a download by. */
+    const covers: Array<string | null> = []
     let hasPurchased = false
 
     try {
@@ -89,33 +92,33 @@ export async function POST(request: NextRequest) {
       if (user) {
         isLoggedIn = true
 
-        const { data: entitlements } = await admin
-          .from("entitlements")
-          .select("variant_id")
-          .eq("buyer_id", user.id)
-          .eq("product_id", productId)
-
-        if (entitlements && entitlements.length > 0) {
-          hasPurchased = true
-          for (const e of entitlements) if (e.variant_id) variantIds.add(e.variant_id)
-        }
-
         /*
-          Orders as well as entitlements, because the two can disagree: a
-          guest checkout that was later attached to this account updates the
-          order and may not have written an entitlement. The download route
-          checks both for the same reason.
+          JUDGED THE WAY THE DOWNLOAD ROUTE JUDGES (lib/receipts/rules
+          decideAccess): by this person's ORDERS when they have any, because
+          a refund changes the order and leaves the entitlement row behind;
+          by entitlements only when there is no order at all (free claims,
+          gifts). Whole rows, so a partial refund reads as the sale it is.
         */
-        const { data: orders } = await admin
-          .from("orders")
-          .select("variant_id")
-          .eq("buyer_id", user.id)
-          .eq("product_id", productId)
-          .eq("status", "completed")
+        const { data: orders } = await admin.from("orders").select("*").eq("buyer_id", user.id).eq("product_id", productId)
 
         if (orders && orders.length > 0) {
-          hasPurchased = true
-          for (const o of orders) if (o.variant_id) variantIds.add(o.variant_id)
+          for (const o of orders) {
+            if (!canDeliver(o)) continue
+            hasPurchased = true
+            covers.push(o.variant_id ?? null)
+            if (o.variant_id) variantIds.add(o.variant_id)
+          }
+        } else {
+          const { data: entitlements } = await admin
+            .from("entitlements")
+            .select("*")
+            .eq("buyer_id", user.id)
+            .eq("product_id", productId)
+          for (const e of entitlements ?? []) {
+            hasPurchased = true
+            covers.push(e.variant_id ?? null)
+            if (e.variant_id) variantIds.add(e.variant_id)
+          }
         }
       }
     } catch {
@@ -165,6 +168,7 @@ export async function POST(request: NextRequest) {
         if (!canDeliver(order)) continue
         validTokens.push(token)
         hasPurchased = true
+        covers.push(order.variant_id ?? null)
         if (order.variant_id) variantIds.add(order.variant_id)
       }
     }
@@ -185,11 +189,14 @@ export async function POST(request: NextRequest) {
        ------------------------------------------------------------------ */
     const { data: allAssets } = await admin
       .from("digital_assets")
-      .select("id, file_name")
+      .select("*")
       .eq("product_id", productId)
       .order("created_at", { ascending: true })
 
-    let assets = allAssets ?? []
+    /* Only what is there to download, and only the two fields the page uses. */
+    let assets = ((allAssets ?? []) as Array<Record<string, any>>)
+      .filter((a) => typeof a.upload_status !== "string" || a.upload_status === "completed")
+      .map((a) => ({ id: a.id as string, file_name: a.file_name as string }))
 
     /*
       A product with variants only hands over the files of the variants that
@@ -198,18 +205,22 @@ export async function POST(request: NextRequest) {
       the right list rather than offering files that 403.
     */
     if (variantIds.size > 0 && assets.length > 0) {
-      const { data: variantFiles } = await admin
+      const { data: variantFiles, error: mapError } = await admin
         .from("product_variant_files")
-        .select("digital_asset_id")
+        .select("variant_id, digital_asset_id")
         .in("variant_id", [...variantIds])
-
-      const allowed = new Set((variantFiles ?? []).map((f) => f.digital_asset_id as string))
-      /*
-        An empty mapping means this product's variants do not restrict files
-        — not that nothing is allowed. Returning nothing there would take
-        downloads away from buyers whose products never used the table.
-      */
-      if (allowed.size > 0) assets = assets.filter((a) => allowed.has(a.id))
+      /* The download route fails closed on this read; so does the list. */
+      if (mapError && (mapError as { code?: string }).code !== "42P01") {
+        assets = covers.includes(null) ? assets : []
+      } else {
+        const map = new Map<string, string[]>()
+        for (const f of (variantFiles ?? []) as Array<{ variant_id: string; digital_asset_id: string }>) {
+          map.set(f.variant_id, [...(map.get(f.variant_id) ?? []), f.digital_asset_id])
+        }
+        /* Per file, across everything bought: a variant with no files mapped,
+           or a purchase with no variant, covers every file. */
+        assets = assets.filter((a) => assetAllowedForVariants(a.id, covers, map))
+      }
     }
 
     return NextResponse.json({

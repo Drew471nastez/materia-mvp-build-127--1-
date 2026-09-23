@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { createClient } from "@/lib/supabase/server"
 import { sendBuyerDownloadEmail, sendSellerNotificationEmail, resolveSellerEmail } from "@/lib/email"
 import { rateLimit, addressSubject, callerAddress, LIMITS } from "@/lib/api/rate-limit"
 import { isPlausibleToken, isUuid } from "@/lib/receipts/rules"
@@ -67,9 +68,9 @@ export async function POST(request: NextRequest) {
 
     const { data: order } = await admin
       .from("orders")
-      .select(
-        "id, buyer_email, buyer_first_name, buyer_last_name, amount_cents, fee_cents, variant_name, product:products(title, creator_id)",
-      )
+      /* Every column: variant_name arrived in a later migration, and naming
+         a missing column fails the read, which answered "Order not found". */
+      .select("*, product:products(title, creator_id)")
       .eq("receipt_token", receiptToken)
       .eq("id", orderId)
       .maybeSingle()
@@ -82,6 +83,24 @@ export async function POST(request: NextRequest) {
     const creatorId: string = product?.creator_id ?? ""
     const baseUrl = process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || process.env.APP_URL || "https://storelib.com"
     const sellerReplyTo = creatorId ? await resolveSellerEmail(admin, creatorId) : "support@storelib.com"
+
+    /*
+      THE SELLER'S "YOU MADE A SALE" EMAIL IS THE SELLER'S TO ASK FOR. The
+      receipt token is the buyer's credential; with it alone a buyer could
+      send the seller that email five times a day, carrying whatever the
+      buyer had put in their name and address. Only the signed-in owner of
+      the product may resend it.
+    */
+    if (resendType !== "buyer") {
+      const supabase = await createClient()
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      const { data: owner } = user && creatorId
+        ? await admin.from("creators").select("id").eq("id", creatorId).eq("user_id", user.id).maybeSingle()
+        : { data: null }
+      if (!owner) return NextResponse.json({ error: "Only the seller can resend the sale notice." }, { status: 403 })
+    }
 
     let buyerResult: { success: boolean; error?: string } = { success: true }
     let sellerResult: { success: boolean; error?: string } = { success: true }

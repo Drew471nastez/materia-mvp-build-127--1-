@@ -83,7 +83,6 @@ const PUBLIC_BY_DESIGN: Record<string, string> = {
   "checkout/confirm-payment/route.ts": "keyed by the Stripe payment intent and its client secret, which only the paying page holds",
   "checkout/invoice/route.ts": "the receipt token is the credential",
   "receipt/[token]/assets/route.ts": "the receipt token in the path is the credential",
-  "receipt/resend/route.ts": "the receipt token is the credential",
   "receipt/view/route.ts": "the receipt token is the credential",
   "onepage/download/route.ts": "the download token is the credential",
   "onepage/download/[token]/route.ts": "the download token is the credential",

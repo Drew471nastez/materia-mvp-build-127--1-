@@ -42,7 +42,10 @@ export const runtime = "nodejs"
  */
 const PAGE = 1000
 const CEILING = 200_000
-const MAX_SPAN_MS = 6 * 366 * 24 * 3_600_000
+/* Long enough for "All time" from 2020 and years past it; the reads stop at
+   CEILING rows however long the period is. At six years "All time" was
+   refused outright and the whole page showed its failed state. */
+const MAX_SPAN_MS = 30 * 366 * 24 * 3_600_000
 
 const VIEW_COLUMNS =
   "id, session_id, visitor_id, product_id, created_at, source_category, referrer_domain, country_code, country_name, city, device_type, browser, os, page_url, utm_campaign"

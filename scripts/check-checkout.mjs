@@ -38,7 +38,7 @@ const stubs = join(root, ".checkout-probe")
 mkdirSync(stubs, { recursive: true })
 
 writeFileSync(join(stubs, "navigation.js"), `export const usePathname = () => "/checkout"
-export const useRouter = () => ({ push(u) { window.__pushed = u }, prefetch() {}, replace() {}, refresh() {}, back() {} })
+export const useRouter = () => ({ push(u) { window.__pushed = u }, prefetch() {}, replace(u) { window.__replaced = u }, refresh() {}, back() {} })
 export const useSearchParams = () => new URLSearchParams(location.search)
 `)
 writeFileSync(join(stubs, "link.jsx"), `import React from "react"
@@ -213,7 +213,8 @@ console.log("\nphone, 390 wide, a free product")
   expect(!!overlay && overlay.includes("It's yours"), "it ends on the drawn check", overlay)
   await p.screenshot({ path: join(shots, "checkout-free-done.png") })
   await sleep(1000)
-  expect((await p.evaluate(() => window.__pushed)) === "/checkout/receipt?token=tok_free_1234567890", "and then opens the receipt", await p.evaluate(() => window.__pushed))
+  /* Replaced, not pushed: Back from the receipt goes to the product, not to a finished checkout. */
+  expect((await p.evaluate(() => window.__replaced)) === "/receipt/tok_free_1234567890" && !(await p.evaluate(() => window.__pushed)), "and then opens the receipt in its place", await p.evaluate(() => [window.__replaced, window.__pushed]))
   await p.close()
 }
 

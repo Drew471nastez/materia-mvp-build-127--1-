@@ -72,8 +72,9 @@ function main() {
   }
   const responses = route.match(/NextResponse\.json\(\{[\s\S]*?\}\)/g) || []
   check("no response mentions a buyer", !responses.some((r) => /buyer|email|name/.test(r)))
-  check("orders are read by token, and only what the answer needs comes back",
-    /const COLUMNS = "receipt_token, product_id, variant_id, status, amount_cents"/.test(route) && /\.select\(`\$\{COLUMNS\}, refund_amount_cents`\)/.test(route) && !/\.select\("\*"\)/.test(route))
+  check("receipt tokens are read with only what the answer needs",
+    /const COLUMNS = "receipt_token, product_id, variant_id, status, amount_cents"/.test(route) && /\.select\(`\$\{COLUMNS\}, refund_amount_cents`\)\.in\("receipt_token", receiptTokens\)/.test(route))
+  check("and only an asset's id and name reach the page", /\.map\(\(a\) => \(\{ id: a\.id as string, file_name: a\.file_name as string \}\)\)/.test(route))
 
   /* ---------------------------------------------------------------------
      WHAT IT ACTUALLY ANSWERS
@@ -81,7 +82,9 @@ function main() {
   console.log("\n  what it answers")
 
   check("a signed-in buyer's entitlements count", /\.from\("entitlements"\)[\s\S]{0,200}\.eq\("buyer_id", user\.id\)/.test(route))
-  check("and their completed orders too", /\.from\("orders"\)[\s\S]{0,260}\.eq\("status", "completed"\)/.test(route))
+  check("an account is judged by its orders first, as the download route judges it",
+    /\.from\("orders"\)\.select\("\*"\)\.eq\("buyer_id", user\.id\)\.eq\("product_id", productId\)/.test(route) && /if \(!canDeliver\(o\)\) continue/.test(route)
+      && /\} else \{\s*\n\s*const \{ data: entitlements \}/.test(route))
   check("a guest with a valid receipt counts", /validTokens\.push\(token\)\s*\n\s*hasPurchased = true/.test(route))
   check("no session is not an error", /A guest is the case this is for|No session is not an error/.test(route))
 
@@ -91,8 +94,10 @@ function main() {
     that nothing is allowed. Getting that backwards takes downloads away from
     buyers whose products never used the table.
   */
-  check("variant files are filtered", /const allowed = new Set\(\(variantFiles \?\? \[\]\)/.test(route))
-  check("and an empty mapping means unrestricted, not forbidden", /if \(allowed\.size > 0\) assets = assets\.filter/.test(route))
+  check("files are allowed per file, across everything bought, by the same rule the download route uses",
+    /assets = assets\.filter\(\(a\) => assetAllowedForVariants\(a\.id, covers, map\)\)/.test(route))
+  check("and a mapping that cannot be read lists nothing a download would refuse", /mapError && \(mapError as \{ code\?: string \}\)\.code !== "42P01"/.test(route))
+  check("files still uploading are not offered", /a\.upload_status === "completed"/.test(route))
 
   /* ---------------------------------------------------------------------
      THE HOOK TREATS STORAGE AS A HINT

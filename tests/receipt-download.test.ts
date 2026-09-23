@@ -300,9 +300,11 @@ function main() {
   const load = code("lib/receipts/load.ts")
   check("the receipt is read by token", /q\.eq\("receipt_token", token\)/.test(load))
   check("with named columns, not the whole row", /const ORDER_COLUMNS = \[/.test(load) && !/"access_token"|"session_fingerprint"|"allowed_fingerprints"|"fee_cents"/.test(load))
-  check("files are sent with id, name and size only", /\.select\("id, product_id, file_name, file_size, created_at"\)/.test(load) && !/file_path/.test(load))
+  check("files are sent with id, name and size only", /list\.push\(\{ id: a\.id, name: a\.file_name \|\| "File", sizeBytes:/.test(load) && !/file_path/.test(load))
+  check("and not while still uploading", /a\.upload_status !== "completed"\) continue/.test(load))
   check("a basket's other lines must share the session AND the buyer email", /eq\("stripe_session_id", session\)/.test(load) && /buyer_email[\s\S]{0,80}=== email/.test(load))
-  check("files are only listed for an open line", /state === "open"\s*\?\s*filesForVariant/.test(load))
+  check("files are only listed for an open line, and not when the variant map cannot be read",
+    /state === "open" && !\(mappingUnknown && r\.variant_id\)\s*\?\s*filesForVariant/.test(load))
 
   const page = code("app/receipt/[token]/page.tsx")
   check("the page is never indexed and sends no Referer", /index: false/.test(page) && /referrer: "no-referrer"/.test(page))
@@ -364,8 +366,12 @@ function main() {
   check("and no longer stores the token in the security log", !/metadata: \{[^}]*receipt_token/.test(resend))
 
   const claim = code("app/api/purchases/claim/route.ts")
-  check("claiming only grants for a paid order", /if \(canDeliver\(order\)\)/.test(claim))
-  check("and the entitlement keeps the variant", /variant_id: order\.variant_id \?\? null/.test(claim))
+  check("claiming only grants for a paid line", /if \(canDeliver\(line\)\) await grant\(admin, user\.id, line\)/.test(claim))
+  check("and the entitlement keeps the variant", /variant_id: line\.variant_id \?\? null/.test(claim))
+  check("a basket is claimed whole: every line of the payment, same address, still unclaimed",
+    /\.eq\("stripe_session_id", order\.stripe_session_id\)\s*\n\s*\.eq\("buyer_email", order\.buyer_email\)/.test(claim))
+  check("two accounts claiming at once: only the one whose update matched gets access",
+    /\.is\("buyer_id", null\)\s*\n\s*\.select\("id"\)/.test(claim) && /if \(!won \|\| won\.length === 0\)/.test(claim))
   check("an order on another account stays there", /order\.buyer_id && order\.buyer_id !== user\.id/.test(claim))
 
   const verify = code("app/api/purchases/verify/route.ts")
@@ -375,9 +381,19 @@ function main() {
     const view = read("app/receipt/[token]/receipt-view.tsx")
     check("a paid card order offers its invoice PDF on the receipt",
       /\/api\/checkout\/invoice\?token=\$\{encodeURIComponent\(receipt\.primary\.token\)\}/.test(view)
-        && /invoice: totals\.totalCents > 0 && rows\.some\(\(r\) => !!r\.stripe_payment_intent_id\)/.test(read("lib/receipts/load.ts")))
+        && /invoice: rows\.length === 1 && totals\.totalCents > 0 && !!rows\[0\]\.stripe_payment_intent_id/.test(read("lib/receipts/load.ts")))
+    check("an unpaid order has no invoice", /if \(status !== "completed" && status !== "refunded"\) return null/.test(read("lib/checkout/invoice.ts")))
+    const resend = code("app/api/receipt/resend/route.ts")
+    check("only the signed-in seller can resend the seller's sale notice",
+      /if \(resendType !== "buyer"\) \{[\s\S]{0,400}\.eq\("user_id", user\.id\)/.test(resend) && /status: 403/.test(resend))
+    check("resend and change-email read whole rows, so an older database does not answer Order not found",
+      /\.select\("\*, product:products\(title, creator_id\)"\)/.test(resend) && /\.select\("\*, product:products\(title, creator_id\)"\)/.test(code("app/api/receipt/update-email/route.ts")))
+    check("an address with markup in it is refused", /\[\^\\s@<>"'`\(\),;:\\\\\[\\\]\]\+@/.test(read("app/api/receipt/update-email/route.ts")))
+    const email = read("lib/email.tsx")
+    check("the seller's sale email escapes everything a person typed",
+      /const buyerEmail = escapeHtml\(safeText\(params\.buyerEmail\)\)/.test(email) && /const productTitle = escapeHtml\(safeText\(params\.productTitle\)\)/.test(email))
     check("the download route and the account checks read whole orders, so the refund amount is there to read",
-      /accessStateOf\(o\)/.test(read("lib/receipts/rules.ts")) && /canDeliver\(order\)/.test(read("app/api/purchases/claim/route.ts"))
+      /accessStateOf\(o\)/.test(read("lib/receipts/rules.ts")) && /canDeliver\(line\)/.test(read("app/api/purchases/claim/route.ts"))
         && /canDeliver\(order\)/.test(read("app/api/purchases/verify/route.ts")))
   }
   console.log(`\n${passed} passed, ${failed} failed`)
