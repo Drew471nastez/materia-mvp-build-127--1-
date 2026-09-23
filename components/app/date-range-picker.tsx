@@ -4,35 +4,51 @@
  * ===========================================================================
  *  THE DATE RANGE PICKER EVERY /app PAGE USES
  * ===========================================================================
- * One button that says what period is showing, and opens:
+ * One button that says what period is showing. It opens a list:
  *
- *   a rail of presets        Today, Yesterday, Last ›, Period to date ›,
- *                            Black Friday Cyber Monday ›, Quarters ›, All
- *                            time, Custom range. A › opens its own list in
- *                            place, with the way back at the top.
- *   two date boxes           type a date, or read what the calendar chose
- *   two months               press a start, press an end; the band between
- *                            follows the pointer until the second press
- *   Cancel and Apply         nothing changes on the page until Apply
+ *   Today, Yesterday
+ *   Last 7 days, Last 30 days, Last 90 days, Last 12 months
+ *   Month to date, Year to date, All time
+ *   Quarters ›, Black Friday Cyber Monday ›, More periods ›
+ *   Custom range ›
  *
- * On a phone the same panel is a sheet from the bottom, with one month.
+ * A row is the answer: it applies and closes. A › slides to that row's own
+ * list, and Custom range slides to a second step with the calendar, the two
+ * date boxes, Back and Apply. That step is the only place anything waits for
+ * a button.
  *
- * `ComparePicker` is its partner: No comparison, Previous period, Previous
- * year, or a custom range chosen with the same panel.
+ * The same two steps everywhere: a popover on a computer (two months), the
+ * shared sheet on a phone (one month), and in place inside a dialog.
+ *
+ * WHAT THE OWNER SAW, AND WHAT CHANGED BECAUSE OF IT
+ *
+ *   The custom range was always on screen, a calendar and a rail of presets
+ *   squeezed into one sheet. It is a second step now, opened only by asking.
+ *
+ *   A step change moves by transform and opacity, 240ms on the iOS sheet
+ *   curve, and the box around the steps follows the new step's size on the
+ *   same curve. The size is measured once, from the step itself, and written
+ *   to the frame; nothing else computes it.
+ *
+ *   The sheet emptied itself as it closed (`{open && panel}`), so the list
+ *   vanished and the sheet collapsed on its way down. The panel now stays
+ *   until the sheet has gone, and a new one is made each time it opens.
+ *
+ *   Every month is six rows, so moving between months never changes the
+ *   height of anything.
  *
  * The dates are calendar days on the creator's clock: lib/date-range/range.ts
  * holds every rule about them, this file only draws.
  */
 import * as React from "react"
-import { ArrowRight, CalendarDays, CalendarRange, Check, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react"
+import { Check, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { cn } from "@/lib/utils"
 import {
-  COMPARE_LABEL,
   PRESET_LABEL,
   PRESET_MENU,
-  compareRange,
+  lengthOf,
   longDate,
   ordered,
   parseTyped,
@@ -41,15 +57,13 @@ import {
   rangeLabel,
   valueLabel,
   ymdOf,
-  type CompareMode,
-  type CompareValue,
-  type DateRange,
+  type PresetGroup,
   type PresetId,
   type RangeValue,
   type Ymd,
 } from "@/lib/date-range/range"
 
-/* ── the look, shared with the orders page's buttons ────────────────────── */
+/* ── the look ───────────────────────────────────────────────────────────── */
 
 export const pickerButton =
   "inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-lg border border-[#e3e4e8] bg-white px-2.5 text-[13px] font-medium text-[#1a1a2e] shadow-[0_1px_0_rgba(17,24,39,0.05)] transition-colors duration-100 hover:bg-[#f7f7f8] active:bg-[#f1f2f4] data-[state=open]:bg-[#ececef] data-[state=open]:shadow-[inset_0_1px_2px_rgba(17,24,39,0.12)] cursor-pointer select-none"
@@ -59,11 +73,14 @@ const surface =
 
 /** The month arrows: a small raised key, not a bare glyph, so they read as something to press. */
 const monthNav =
-  "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[#e3e4e8] bg-white text-[#303036] shadow-[0_1px_0_rgba(17,24,39,0.06),0_1px_2px_rgba(17,24,39,0.05)] transition-[background-color,box-shadow,translate] duration-100 hover:bg-[#f7f7f8] active:translate-y-px active:bg-[#f1f2f4] active:shadow-[inset_0_1px_2px_rgba(17,24,39,0.12)] disabled:pointer-events-none disabled:opacity-35"
+  "flex shrink-0 items-center justify-center rounded-lg border border-[#e3e4e8] bg-white text-[#303036] shadow-[0_1px_0_rgba(17,24,39,0.06),0_1px_2px_rgba(17,24,39,0.05)] transition-[background-color,box-shadow,translate] duration-100 hover:bg-[#f7f7f8] active:translate-y-px active:bg-[#f1f2f4] active:shadow-[inset_0_1px_2px_rgba(17,24,39,0.12)] disabled:pointer-events-none disabled:opacity-35"
 const secondaryBtn =
-  "inline-flex h-8 items-center justify-center rounded-lg border border-[#e3e4e8] bg-white px-3 text-[13px] font-medium text-[#1a1a2e] shadow-[0_1px_0_rgba(17,24,39,0.05)] hover:bg-[#f7f7f8] active:bg-[#f1f2f4]"
+  "inline-flex items-center justify-center rounded-lg border border-[#e3e4e8] bg-white font-medium text-[#1a1a2e] shadow-[0_1px_0_rgba(17,24,39,0.05)] hover:bg-[#f7f7f8] active:bg-[#f1f2f4]"
 const primaryBtn =
-  "inline-flex h-8 items-center justify-center rounded-lg bg-[#1a1a2e] px-3.5 text-[13px] font-medium text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_1px_2px_rgba(17,24,39,0.25)] hover:bg-[#2a2a40] active:bg-[#111122] disabled:cursor-not-allowed disabled:bg-[#d4d4d8] disabled:shadow-none"
+  "inline-flex items-center justify-center rounded-lg bg-[#1a1a2e] font-medium text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_1px_2px_rgba(17,24,39,0.25)] hover:bg-[#2a2a40] active:bg-[#111122] disabled:cursor-not-allowed disabled:bg-[#d4d4d8] disabled:shadow-none"
+
+/** How long one step takes to become the next. The curve is in globals.css (.drp-*). */
+export const STEP_MS = 240
 
 /** True below 640px, where panels become sheets, as everywhere else in /app. */
 function usePhone(): boolean {
@@ -78,102 +95,374 @@ function usePhone(): boolean {
   return phone
 }
 
+/* ── the frame the steps move in ────────────────────────────────────────── */
+
+/**
+ * Two steps side by side for the length of one move, and only then.
+ *
+ * The step that is leaving keeps its React key, so it keeps its state while
+ * it goes, and is inert and hidden from assistive technology from the first
+ * frame. The frame's size is the arriving step's, read from that step by a
+ * ResizeObserver and written straight to the frame, which transitions it on
+ * the same curve as the slide (see .drp-frame).
+ */
+function StepFrame({
+  active,
+  dir,
+  compact,
+  render,
+}: {
+  active: string
+  dir: 1 | -1
+  compact: boolean
+  render: (key: string) => React.ReactNode
+}) {
+  const [shown, setShown] = React.useState(active)
+  const [leaving, setLeaving] = React.useState<{ key: string; dir: 1 | -1 } | null>(null)
+  /* Decided during the render that receives the new step, so the first frame
+     painted already has both layers in place. */
+  if (shown !== active) {
+    setLeaving({ key: shown, dir })
+    setShown(active)
+  }
+  React.useEffect(() => {
+    if (!leaving) return
+    const t = window.setTimeout(() => setLeaving(null), STEP_MS)
+    return () => window.clearTimeout(t)
+  }, [leaving])
+
+  const frameRef = React.useRef<HTMLDivElement>(null)
+  const activeRef = React.useRef<HTMLDivElement>(null)
+  React.useLayoutEffect(() => {
+    const el = activeRef.current
+    const frame = frameRef.current
+    if (!el || !frame) return
+    const fit = () => {
+      frame.style.width = compact ? "" : `${el.offsetWidth}px`
+      frame.style.height = `${el.offsetHeight}px`
+    }
+    fit()
+    const ro = new ResizeObserver(fit)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [shown, compact])
+
+  const layers = leaving && leaving.key !== shown ? [leaving.key, shown] : [shown]
+  return (
+    <div ref={frameRef} className="drp-frame relative overflow-hidden" data-drp-frame>
+      {layers.map((k) => {
+        const on = k === shown
+        const motion = leaving ? (on ? (leaving.dir === 1 ? "drp-in-next" : "drp-in-back") : leaving.dir === 1 ? "drp-out-next" : "drp-out-back") : null
+        return (
+          <div
+            key={k}
+            ref={on ? activeRef : undefined}
+            data-drp-step={k}
+            aria-hidden={on ? undefined : true}
+            inert={!on}
+            className={cn(compact ? "w-full" : "w-max", !on && "pointer-events-none absolute left-0 top-0", !on && compact && "right-0", motion)}
+          >
+            {render(k)}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+/* ── the list ───────────────────────────────────────────────────────────── */
+
+function Row({
+  compact,
+  checked,
+  drill = false,
+  detail,
+  rowKey,
+  onClick,
+  children,
+}: {
+  compact: boolean
+  checked: boolean
+  drill?: boolean
+  detail?: string | null
+  rowKey: string
+  onClick: () => void
+  children: React.ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      role={drill ? "menuitem" : "menuitemradio"}
+      aria-checked={drill ? undefined : checked}
+      aria-haspopup={drill ? "menu" : undefined}
+      data-row={rowKey}
+      data-checked={checked || undefined}
+      onClick={onClick}
+      className={cn(
+        "flex w-full cursor-pointer items-center gap-3 rounded-lg text-left outline-none transition-colors duration-100 focus-visible:bg-[#f1f1f4]",
+        compact ? "min-h-[44px] px-3 text-[15px] active:bg-[#f1f1f4]" : "min-h-[34px] px-2.5 text-[13px] hover:bg-[#f4f4f6] active:bg-[#ececef]",
+        checked ? "font-semibold text-[#1a1a2e]" : "text-[#303036]",
+      )}
+    >
+      {/* The name always reads in full; the dates beside it give way first. */}
+      <span className={cn("truncate", detail ? "shrink-0" : "min-w-0 flex-1")}>{children}</span>
+      {detail ? (
+        <span className={cn("min-w-0 flex-1 truncate text-right font-normal tabular-nums text-[#6b7280]", compact ? "text-[13px]" : "text-[12px]")}>{detail}</span>
+      ) : null}
+      {drill ? (
+        <ChevronRight className="h-4 w-4 shrink-0 text-[#9ca3af]" aria-hidden />
+      ) : checked ? (
+        <Check className="h-4 w-4 shrink-0 text-[#1a1a2e]" strokeWidth={2.25} aria-hidden />
+      ) : (
+        /* The check's place, kept, so a label never moves when it is chosen. */
+        <span className="w-4 shrink-0" aria-hidden />
+      )}
+    </button>
+  )
+}
+
+/** Up and down move between rows, as in any menu. */
+function onRowsKey(e: React.KeyboardEvent<HTMLElement>) {
+  const step = { ArrowDown: 1, ArrowUp: -1 }[e.key]
+  const edge = e.key === "Home" ? 0 : e.key === "End" ? -1 : null
+  if (step === undefined && edge === null) return
+  const rows = Array.from(e.currentTarget.querySelectorAll<HTMLButtonElement>("[data-row]"))
+  if (!rows.length) return
+  e.preventDefault()
+  const at = rows.indexOf(document.activeElement as HTMLButtonElement)
+  const next = edge !== null ? (edge === 0 ? 0 : rows.length - 1) : at < 0 ? 0 : (at + (step as number) + rows.length) % rows.length
+  rows[next].focus()
+}
+
+function Divider({ compact }: { compact: boolean }) {
+  return <div aria-hidden className={cn("h-px bg-[#eef0f2]", compact ? "mx-3 my-1" : "mx-2 my-1")} />
+}
+
+/** What a group's row says on its right when one of its periods is showing. */
+function groupDetail(g: Extract<PresetGroup, { kind: "group" }>, value: RangeValue, today: Ymd): string | null {
+  if (value.preset === "custom" || !g.children.includes(value.preset)) return null
+  const id = value.preset
+  if (id.startsWith("bfcm")) return String(parts(presetRange(id, today).start).y)
+  return PRESET_LABEL[id]
+}
+
+function PresetList({
+  value,
+  today,
+  firstDay,
+  compact,
+  onPreset,
+  onOpen,
+}: {
+  value: RangeValue
+  today: Ymd
+  firstDay?: Ymd
+  compact: boolean
+  onPreset: (id: PresetId) => void
+  onOpen: (step: string) => void
+}) {
+  return (
+    <div role="menu" aria-label="Date range" onKeyDown={onRowsKey} className={compact ? "px-2 pb-2 pt-1" : "p-1.5"}>
+      {PRESET_MENU.map((section, i) => (
+        <React.Fragment key={i}>
+          {i > 0 ? <Divider compact={compact} /> : null}
+          {section.map((g) =>
+            g.kind === "item" ? (
+              <Row
+                key={g.id}
+                rowKey={g.id}
+                compact={compact}
+                checked={value.preset === g.id}
+                detail={value.preset === g.id ? rangeLabel(presetRange(g.id, today, firstDay)) : null}
+                onClick={() => onPreset(g.id)}
+              >
+                {PRESET_LABEL[g.id]}
+              </Row>
+            ) : g.kind === "group" ? (
+              <Row
+                key={g.label}
+                rowKey={`group:${g.label}`}
+                compact={compact}
+                drill
+                checked={value.preset !== "custom" && g.children.includes(value.preset)}
+                detail={groupDetail(g, value, today)}
+                onClick={() => onOpen(`group:${g.label}`)}
+              >
+                {g.label}
+              </Row>
+            ) : (
+              <Row
+                key="custom"
+                rowKey="custom"
+                compact={compact}
+                drill
+                checked={value.preset === "custom"}
+                detail={value.preset === "custom" ? rangeLabel(value) : null}
+                onClick={() => onOpen("custom")}
+              >
+                Custom range
+              </Row>
+            ),
+          )}
+        </React.Fragment>
+      ))}
+    </div>
+  )
+}
+
+function GroupList({
+  group,
+  value,
+  today,
+  compact,
+  onPreset,
+  onBack,
+}: {
+  group: Extract<PresetGroup, { kind: "group" }>
+  value: RangeValue
+  today: Ymd
+  compact: boolean
+  onPreset: (id: PresetId) => void
+  onBack: () => void
+}) {
+  return (
+    <div role="menu" aria-label={group.label} onKeyDown={onRowsKey} className={cn(compact ? "px-2 pb-2 pt-1" : "p-1.5", !compact && "w-[288px]")}>
+      <button
+        type="button"
+        data-row="back"
+        onClick={onBack}
+        className={cn(
+          "flex w-full cursor-pointer items-center gap-1 rounded-lg font-semibold text-[#1a1a2e] outline-none transition-colors duration-100 focus-visible:bg-[#f1f1f4]",
+          compact ? "min-h-[44px] px-2 text-[15px] active:bg-[#f1f1f4]" : "min-h-[34px] px-1.5 text-[13px] hover:bg-[#f4f4f6]",
+        )}
+      >
+        <ChevronLeft className="h-4 w-4 shrink-0" strokeWidth={2.25} aria-hidden />
+        {group.label}
+      </button>
+      <Divider compact={compact} />
+      {group.children.map((id) => {
+        const r = presetRange(id, today)
+        const quarter = /^q\d$/.test(id)
+        return (
+          <Row
+            key={id}
+            rowKey={id}
+            compact={compact}
+            checked={value.preset === id}
+            detail={quarter || value.preset === id ? rangeLabel(r) : null}
+            onClick={() => onPreset(id)}
+          >
+            {id.startsWith("bfcm") ? String(parts(r.start).y) : PRESET_LABEL[id]}
+          </Row>
+        )
+      })}
+    </div>
+  )
+}
+
 /* ── the calendar ───────────────────────────────────────────────────────── */
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
 const MONTHS_LONG = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
 
+/** Always six weeks, so every month is the same height and nothing below it moves. */
 function monthCells(y: number, m: number): (Ymd | null)[] {
   const first = new Date(Date.UTC(y, m, 1)).getUTCDay()
   const days = new Date(Date.UTC(y, m + 1, 0)).getUTCDate()
   const cells: (Ymd | null)[] = Array.from({ length: first }, () => null)
   for (let d = 1; d <= days; d++) cells.push(ymdOf(y, m, d))
-  while (cells.length % 7) cells.push(null)
+  while (cells.length < 42) cells.push(null)
   return cells
 }
 
+/** One day's square and the band under it. */
 function Month({
   y,
   m,
   range,
   hover,
-  max,
-  min,
+  today,
   onPick,
   onHover,
   focusDay,
   setFocusDay,
-  big = false,
-  slide,
+  compact,
 }: {
-  big?: boolean
-  /** The class that slides this month in from the side it came from. */
-  slide?: string
   y: number
   m: number
   range: { start: Ymd | null; end: Ymd | null }
   hover: Ymd | null
-  max: Ymd
-  min?: Ymd
+  today: Ymd
   onPick: (d: Ymd) => void
   onHover: (d: Ymd | null) => void
   focusDay: Ymd
   setFocusDay: (d: Ymd) => void
+  compact: boolean
 }) {
   /* While only a start is chosen, the band runs to wherever the pointer is. */
-  const lo = range.start && !range.end && hover ? ordered(range.start, hover).start : range.start
-  const hi = range.start && !range.end && hover ? ordered(range.start, hover).end : range.end ?? range.start
+  const previewing = !!range.start && !range.end && !!hover
+  const lo = previewing ? ordered(range.start as Ymd, hover as Ymd).start : range.start
+  const hi = previewing ? ordered(range.start as Ymd, hover as Ymd).end : range.end ?? range.start
   const cells = monthCells(y, m)
+  const cell = compact ? 44 : 36
   return (
-    <div className="min-w-0 flex-1">
-      <div className={cn("grid grid-cols-7 text-center font-medium text-[#6b7280]", big ? "text-[12.5px]" : "text-[12px]")}>
+    <div className={cn("min-w-0", compact ? "w-full" : "w-[280px]")}>
+      <div className={cn("grid grid-cols-7 pb-1.5 text-center font-medium text-[#8b8f98]", compact ? "text-[12px]" : "text-[11.5px]")} aria-hidden>
         {WEEKDAYS.map((w) => (
-          <div key={w} className="pb-2" aria-hidden>
-            {w}
-          </div>
+          <div key={w}>{compact ? w.slice(0, 1) : w.slice(0, 2)}</div>
         ))}
       </div>
-      <div role="grid" aria-label={`${MONTHS_LONG[m]} ${y}`} className={cn("grid grid-cols-7", slide)} onMouseLeave={() => onHover(null)}>
+      <div role="grid" aria-label={`${MONTHS_LONG[m]} ${y}`} className="grid grid-cols-7" style={{ gridTemplateRows: `repeat(6, ${cell}px)` }} onMouseLeave={() => onHover(null)}>
         {cells.map((d, i) => {
           if (!d) return <div key={`e${i}`} aria-hidden />
-          const disabled = d > max || (min !== undefined && d < min)
-          const inBand = lo && hi ? d >= lo && d <= hi : false
+          const disabled = d > today
+          const inBand = lo && hi && lo !== hi ? d >= lo && d <= hi : false
           const isStart = d === lo
           const isEnd = d === hi
+          const edge = (isStart || isEnd) && !(previewing && d === hover && d !== range.start)
           const col = i % 7
-          const edge = isStart || isEnd
           return (
-            <div
-              key={d}
-              className={cn(
-                "relative flex items-center justify-center transition-colors duration-150",
-                big ? "h-10" : "h-9",
-                inBand && "bg-[#f1f1f3]",
-                inBand && (isStart || col === 0) && "rounded-l-lg",
-                inBand && (isEnd || col === 6) && "rounded-r-lg",
-              )}
-            >
+            <div key={d} className="relative flex items-center justify-center">
+              {inBand ? (
+                <span
+                  aria-hidden
+                  className={cn(
+                    "drp-band absolute inset-y-0",
+                    previewing ? "bg-[#f4f4f7]" : "bg-[#efeff3]",
+                    isStart ? "left-1/2" : "left-0",
+                    isEnd ? "right-1/2" : "right-0",
+                    !isStart && col === 0 && "rounded-l-lg",
+                    !isEnd && col === 6 && "rounded-r-lg",
+                  )}
+                />
+              ) : null}
               <button
                 type="button"
                 data-day={d}
                 tabIndex={d === focusDay ? 0 : -1}
                 disabled={disabled}
                 aria-pressed={edge}
+                aria-current={d === today ? "date" : undefined}
                 aria-label={longDate(d)}
                 onClick={() => onPick(d)}
                 onMouseEnter={() => onHover(d)}
                 onFocus={() => setFocusDay(d)}
                 className={cn(
-                  "flex w-full items-center justify-center rounded-lg tabular-nums outline-none transition-[background-color,color,box-shadow] duration-100",
-                  big ? "h-10 text-[15px]" : "h-9 text-[13px]",
-                  "focus-visible:ring-2 focus-visible:ring-[#1a1a2e] focus-visible:ring-offset-1",
-                  disabled ? "cursor-default text-[#c4c6cc]" : "cursor-pointer",
-                  edge
-                    ? "drp-day-edge bg-[#1a1a2e] font-semibold text-white shadow-[0_1px_2px_rgba(17,24,39,0.25),inset_0_1px_0_rgba(255,255,255,0.12)]"
-                    : !disabled && "hover:bg-[#e6e6ea] active:bg-[#dcdce2]",
+                  "relative flex items-center justify-center rounded-lg tabular-nums outline-none transition-[background-color,color,box-shadow] duration-150",
+                  compact ? "h-11 w-11 text-[16px]" : "h-9 w-9 text-[13px]",
+                  "focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.55)]",
+                  disabled
+                    ? "cursor-default text-[#c7c9cf]"
+                    : edge
+                      ? "cursor-pointer bg-[#1a1a2e] font-semibold text-white shadow-[0_1px_2px_rgba(17,24,39,0.25),inset_0_1px_0_rgba(255,255,255,0.12)]"
+                      : cn("cursor-pointer text-[#1a1a2e] active:bg-[#e4e4e9]", !compact && "hover:bg-[#e8e8ed]"),
+                  d === today && !edge && "font-semibold",
                 )}
               >
                 {parts(d).d}
+                {d === today ? (
+                  <span aria-hidden className={cn("absolute left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-current", compact ? "bottom-[6px]" : "bottom-[4px]")} />
+                ) : null}
               </button>
             </div>
           )
@@ -183,23 +472,21 @@ function Month({
   )
 }
 
-/* ── the panel: rail, date boxes, months, footer ────────────────────────── */
-
 /** "Dec 31, 2025": what a narrow date box shows, where the long form is cut off. */
 function shortDate(v: Ymd): string {
   const { y, m, d } = parts(v)
   return `${MONTHS_LONG[m].slice(0, 3)} ${d}, ${y}`
 }
 
-function DateBox({ label, value, onCommit, short = false }: { label: string; value: Ymd | null; onCommit: (v: Ymd) => void; short?: boolean }) {
-  const show = (v: Ymd) => (short ? shortDate(v) : longDate(v))
+function DateBox({ label, value, onCommit, compact }: { label: string; value: Ymd | null; onCommit: (v: Ymd) => void; compact: boolean }) {
+  const show = (v: Ymd) => (compact ? shortDate(v) : longDate(v))
   const [text, setText] = React.useState(value ? show(value) : "")
   const [bad, setBad] = React.useState(false)
   React.useEffect(() => {
     setText(value ? show(value) : "")
     setBad(false)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value, short])
+  }, [value, compact])
   const commit = () => {
     const v = parseTyped(text)
     if (v) {
@@ -208,35 +495,39 @@ function DateBox({ label, value, onCommit, short = false }: { label: string; val
     } else if (text.trim()) setBad(true)
   }
   return (
-    <input
-      aria-label={label}
-      value={text}
-      placeholder={label}
-      onChange={(e) => setText(e.target.value)}
-      onBlur={commit}
-      onKeyDown={(e) => {
-        if (e.key === "Enter") {
-          e.preventDefault()
-          commit()
-        }
-      }}
-      aria-invalid={bad || undefined}
-      className={cn(
-        "h-9 min-w-0 flex-1 rounded-lg border bg-white px-3 text-[13px] tabular-nums text-[#1a1a2e] outline-none transition-shadow",
-        bad ? "border-[#e5484d] focus:shadow-[0_0_0_2px_rgba(229,72,77,0.2)]" : "border-[#d5d7dd] focus:border-[#1a1a2e] focus:shadow-[0_0_0_2px_rgba(26,26,46,0.12)]",
-      )}
-    />
+    <label className="flex min-w-0 flex-1 flex-col gap-1">
+      <span className="text-[11px] font-medium text-[#6b7280]">{label}</span>
+      <input
+        value={text}
+        placeholder={compact ? "Mon D, YYYY" : "Month D, YYYY"}
+        inputMode="text"
+        autoComplete="off"
+        onChange={(e) => setText(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault()
+            commit()
+          }
+        }}
+        aria-invalid={bad || undefined}
+        className={cn(
+          /* 16px on a phone: anything smaller and iOS zooms the page to type. */
+          "min-w-0 rounded-lg border bg-white px-3 tabular-nums text-[#1a1a2e] outline-none transition-[border-color,box-shadow] duration-150",
+          compact ? "h-11 text-[16px]" : "h-9 text-[13px]",
+          bad ? "border-[#e5484d] focus:shadow-[0_0_0_3px_rgba(229,72,77,0.18)]" : "border-[#d5d7dd] focus:border-[#1a1a2e] focus:shadow-[0_0_0_3px_rgba(26,26,46,0.10)]",
+        )}
+      />
+    </label>
   )
 }
 
 interface PanelProps {
-  initial: RangeValue
+  initial: DateRangeDraft
   today: Ymd
-  firstDay?: Ymd
-  /** Hide the rail: the comparison's custom range has no presets. */
-  presets?: boolean
   months: 1 | 2
-  onCancel: () => void
+  /** Back to the list. Without it the footer has no Back. */
+  onBack?: () => void
   onApply: (v: RangeValue) => void
   /**
    * Inside another dialog that has its own buttons: no footer, and every
@@ -245,18 +536,20 @@ interface PanelProps {
   inline?: boolean
 }
 
-export function RangePanel({ initial, today, firstDay, presets = true, months, onCancel, onApply, inline = false }: PanelProps) {
-  const [draft, setDraft] = React.useState<{ start: Ymd | null; end: Ymd | null; preset: PresetId | "custom" }>({
-    start: initial.start,
-    end: initial.end,
-    preset: initial.preset,
-  })
+type DateRangeDraft = { start: Ymd; end: Ymd }
+
+/**
+ * THE CUSTOM RANGE: two date boxes, the months, and Back and Apply. The
+ * second step of the picker, and on its own in the orders export dialog.
+ */
+export function RangePanel({ initial, today, months, onBack, onApply, inline = false }: PanelProps) {
+  const compact = months === 1
+  const [draft, setDraft] = React.useState<{ start: Ymd | null; end: Ymd | null }>({ start: initial.start, end: initial.end })
   const [hover, setHover] = React.useState<Ymd | null>(null)
-  const [group, setGroup] = React.useState<string | null>(null)
   /* The months shown end with the range's end, so a range is seen, not scrolled to. */
   const endParts = parts(initial.end)
   const [view, setViewState] = React.useState(() => ({ y: endParts.y, m: endParts.m - (months === 2 ? 1 : 0) }))
-  /* Which way the months last moved, so the new ones slide in from that side. */
+  /* Which way the months last moved, so the new ones arrive from that side. */
   const [dir, setDir] = React.useState<0 | 1 | -1>(0)
   const setView = (next: { y: number; m: number } | ((v: { y: number; m: number }) => { y: number; m: number })) => {
     setViewState((v) => {
@@ -281,29 +574,23 @@ export function RangePanel({ initial, today, firstDay, presets = true, months, o
     })
   }
 
-  const choosePreset = (id: PresetId) => {
-    const r = presetRange(id, today, firstDay)
-    setDraft({ ...r, preset: id })
-    show(r.end)
-  }
-
   const pick = (d: Ymd) => {
     setFocusDay(d)
     setDraft((cur) => {
-      if (!cur.start || cur.end) return { start: d, end: null, preset: "custom" }
-      const r = ordered(cur.start, d)
-      return { start: r.start, end: r.end, preset: "custom" }
+      if (!cur.start || cur.end) return { start: d, end: null }
+      return ordered(cur.start, d)
     })
   }
 
-  /* Arrow keys move through days, the way a date grid does. */
+  /* Arrow keys move through days, the way a date grid does; Page keys move a month. */
   const onGridKey = (e: React.KeyboardEvent) => {
-    const step = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 }[e.key]
-    if (step === undefined) return
-    e.preventDefault()
     const { y, m, d } = parts(focusDay)
-    const next = ymdOf(y, m, d + step)
-    if (next > today) return
+    const byDay = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 }[e.key]
+    const byMonth = { PageUp: -1, PageDown: 1 }[e.key]
+    if (byDay === undefined && byMonth === undefined) return
+    e.preventDefault()
+    let next = byDay !== undefined ? ymdOf(y, m, d + byDay) : ymdOf(y, m + (byMonth as number), Math.min(d, new Date(Date.UTC(y, m + (byMonth as number) + 1, 0)).getUTCDate()))
+    if (next > today) next = today
     setFocusDay(next)
     show(next)
     requestAnimationFrame(() => gridRef.current?.querySelector<HTMLButtonElement>(`[data-day="${next}"]`)?.focus())
@@ -313,7 +600,8 @@ export function RangePanel({ initial, today, firstDay, presets = true, months, o
     const t = view.y * 12 + view.m + i
     return { y: Math.floor(t / 12), m: t % 12 }
   })
-  const canForward = monthsShown[months - 1].y * 12 + monthsShown[months - 1].m < parts(today).y * 12 + parts(today).m
+  const lastShown = monthsShown[months - 1]
+  const canForward = lastShown.y * 12 + lastShown.m < parts(today).y * 12 + parts(today).m
   const back = () => setView((v) => ({ y: v.m === 0 ? v.y - 1 : v.y, m: (v.m + 11) % 12 }))
   const forward = () => {
     if (canForward) setView((v) => ({ y: v.m === 11 ? v.y + 1 : v.y, m: (v.m + 1) % 12 }))
@@ -326,201 +614,205 @@ export function RangePanel({ initial, today, firstDay, presets = true, months, o
   const applyRef = React.useRef(onApply)
   applyRef.current = onApply
   React.useEffect(() => {
-    if (inline && draft.start && draft.end) applyRef.current({ start: draft.start, end: draft.end, preset: draft.preset })
-  }, [inline, draft.start, draft.end, draft.preset])
-  const openGroup = PRESET_MENU.flat().find((g) => g.kind === "group" && g.label === group)
+    if (inline && draft.start && draft.end) applyRef.current({ start: draft.start, end: draft.end, preset: "custom" })
+  }, [inline, draft.start, draft.end])
+
+  const slide = dir === 1 ? "drp-month-next" : dir === -1 ? "drp-month-back" : undefined
+  const days = complete ? lengthOf({ start: draft.start as Ymd, end: draft.end as Ymd }) : 0
+  const navSize = compact ? "h-10 w-10" : "h-8 w-8"
 
   return (
-    <div className={cn("flex", months === 1 ? "flex-col" : "flex-row")}>
-      {presets && (
-        <nav
-          aria-label="Presets"
-          className={cn(
-            "shrink-0 bg-[#fafafb]",
-            months === 1 ? "max-h-[180px] overflow-y-auto border-b border-[#eef0f2] px-2 py-2" : "w-[220px] border-r border-[#eef0f2] px-2 py-3",
-          )}
-        >
-          {openGroup && openGroup.kind === "group" ? (
-            <div>
-              <button
-                type="button"
-                onClick={() => setGroup(null)}
-                className="flex h-8 w-full items-center gap-1 rounded-lg px-2 text-[13px] font-semibold text-[#1a1a2e] hover:bg-[#f1f1f3]"
-              >
-                <ChevronLeft className="h-4 w-4" />
-                {openGroup.label}
-              </button>
-              <div className="mt-1 space-y-0.5">
-                {openGroup.children.map((id) => (
-                  <RailItem key={id} active={draft.preset === id} onClick={() => choosePreset(id)}>
-                    {id.startsWith("bfcm") ? rangeLabel(presetRange(id, today)) : id.startsWith("q") ? `${PRESET_LABEL[id]} · ${rangeLabel(presetRange(id, today))}` : PRESET_LABEL[id]}
-                  </RailItem>
-                ))}
-              </div>
-            </div>
-          ) : (
-            PRESET_MENU.map((section, i) => (
-              <div key={i} className={cn("space-y-0.5", i > 0 && "mt-2 border-t border-[#eef0f2] pt-2")}>
-                {section.map((g) =>
-                  g.kind === "item" ? (
-                    <RailItem key={g.id} active={draft.preset === g.id} onClick={() => choosePreset(g.id)}>
-                      {PRESET_LABEL[g.id]}
-                    </RailItem>
-                  ) : g.kind === "group" ? (
-                    <RailItem
-                      key={g.label}
-                      active={g.children.includes(draft.preset as PresetId)}
-                      onClick={() => setGroup(g.label)}
-                      trailing={<ChevronRight className="h-4 w-4 text-[#9ca3af]" />}
-                    >
-                      {g.label}
-                    </RailItem>
-                  ) : (
-                    <RailItem key="custom" active={draft.preset === "custom"} onClick={() => setDraft((d) => ({ ...d, preset: "custom" }))}>
-                      Custom range
-                    </RailItem>
-                  ),
-                )}
-              </div>
-            ))
-          )}
-        </nav>
-      )}
-
-      <div className="min-w-0 flex-1">
-        <div className={cn(months === 2 ? "px-5 pt-4" : "px-4 pt-3")}>
-          <div className="flex items-center gap-2">
-            <DateBox
-              label="Start date"
-              short={months === 1}
-              value={draft.start}
-              onCommit={(v) => {
-                const clamped = v > today ? today : v
-                setDraft((d) => {
-                  const r = d.end ? ordered(clamped, d.end) : { start: clamped, end: null }
-                  return { start: r.start, end: r.end, preset: "custom" }
-                })
-                show(clamped)
-              }}
-            />
-            <ArrowRight className="h-4 w-4 shrink-0 text-[#9ca3af]" aria-hidden />
-            <DateBox
-              label="End date"
-              short={months === 1}
-              value={draft.end}
-              onCommit={(v) => {
-                const clamped = v > today ? today : v
-                setDraft((d) => {
-                  const r = ordered(d.start ?? clamped, clamped)
-                  return { start: r.start, end: r.end, preset: "custom" }
-                })
-                show(clamped)
-              }}
-            />
-          </div>
-
-          <div className="mt-4 flex items-center justify-between">
-            <button type="button" aria-label="Previous month" onClick={back} className={cn(monthNav, months === 1 && "h-10 w-10")}>
-              <ChevronLeft className="h-4 w-4" strokeWidth={2.25} />
-            </button>
-            <div className="flex flex-1 justify-around overflow-hidden text-[14px] font-semibold text-[#1a1a2e]">
-              {monthsShown.map((mo) => (
-                <span
-                  key={`${mo.y}-${mo.m}`}
-                  aria-live="polite"
-                  className={cn("tabular-nums", dir === 1 && "drp-slide-next", dir === -1 && "drp-slide-prev")}
-                >
-                  {MONTHS_LONG[mo.m]} {mo.y}
-                </span>
-              ))}
-            </div>
-            <button
-              type="button"
-              aria-label="Next month"
-              disabled={!canForward}
-              onClick={forward}
-              className={cn(monthNav, months === 1 && "h-10 w-10")}
-            >
-              <ChevronRight className="h-4 w-4" strokeWidth={2.25} />
-            </button>
-          </div>
-
-          <div
-            ref={gridRef}
-            onKeyDown={onGridKey}
-            onTouchStart={(e) => {
-              const t = e.touches[0]
-              swipe.current = t ? { x: t.clientX, y: t.clientY } : null
+    <div className={cn(compact ? "w-full" : "w-[624px]")}>
+      <div className={cn(compact ? "px-4 pt-1" : "px-5 pt-4")}>
+        <div className="flex items-end gap-2">
+          <DateBox
+            label="Start"
+            compact={compact}
+            value={draft.start}
+            onCommit={(v) => {
+              const clamped = v > today ? today : v
+              setDraft((d) => (d.end ? ordered(clamped, d.end) : { start: clamped, end: null }))
+              setFocusDay(clamped)
+              show(clamped)
             }}
-            onTouchEnd={(e) => {
-              const from = swipe.current
-              swipe.current = null
-              const t = e.changedTouches[0]
-              if (!from || !t) return
-              const dx = t.clientX - from.x
-              const dy = t.clientY - from.y
-              if (Math.abs(dx) < 44 || Math.abs(dx) < Math.abs(dy) * 1.5) return
-              if (dx < 0) forward()
-              else back()
+          />
+          <DateBox
+            label="End"
+            compact={compact}
+            value={draft.end}
+            onCommit={(v) => {
+              const clamped = v > today ? today : v
+              setDraft((d) => ordered(d.start ?? clamped, clamped))
+              setFocusDay(clamped)
+              show(clamped)
             }}
-            className={cn("mt-2 flex overflow-hidden pb-4", months === 2 ? "gap-6" : "")}
-          >
+          />
+        </div>
+
+        <div className={cn("flex items-center justify-between", compact ? "mt-3" : "mt-4")}>
+          <button type="button" aria-label="Previous month" onClick={back} className={cn(monthNav, navSize)}>
+            <ChevronLeft className="h-4 w-4" strokeWidth={2.25} />
+          </button>
+          <div className="flex flex-1 justify-around overflow-hidden">
             {monthsShown.map((mo) => (
-              <Month
-                big={months === 1}
-                slide={dir === 1 ? "drp-slide-next" : dir === -1 ? "drp-slide-prev" : undefined}
+              <span
                 key={`${mo.y}-${mo.m}`}
+                aria-live="polite"
+                className={cn("font-semibold tabular-nums text-[#1a1a2e]", compact ? "text-[15px]" : "text-[14px]", slide)}
+              >
+                {MONTHS_LONG[mo.m]} {mo.y}
+              </span>
+            ))}
+          </div>
+          <button type="button" aria-label="Next month" disabled={!canForward} onClick={forward} className={cn(monthNav, navSize)}>
+            <ChevronRight className="h-4 w-4" strokeWidth={2.25} />
+          </button>
+        </div>
+
+        <div
+          ref={gridRef}
+          onKeyDown={onGridKey}
+          onTouchStart={(e) => {
+            const t = e.touches[0]
+            swipe.current = t ? { x: t.clientX, y: t.clientY } : null
+          }}
+          onTouchEnd={(e) => {
+            const from = swipe.current
+            swipe.current = null
+            const t = e.changedTouches[0]
+            if (!from || !t) return
+            const dx = t.clientX - from.x
+            const dy = t.clientY - from.y
+            if (Math.abs(dx) < 44 || Math.abs(dx) < Math.abs(dy) * 1.5) return
+            if (dx < 0) forward()
+            else back()
+          }}
+          className={cn("mt-3 flex overflow-hidden", compact ? "pb-3" : "gap-6 pb-4")}
+        >
+          {monthsShown.map((mo) => (
+            <div key={`${mo.y}-${mo.m}`} className={cn(compact && "w-full", slide)}>
+              <Month
+                compact={compact}
                 y={mo.y}
                 m={mo.m}
                 range={draft}
                 hover={hover}
-                max={today}
+                today={today}
                 onPick={pick}
                 onHover={setHover}
                 focusDay={focusDay}
                 setFocusDay={setFocusDay}
               />
-            ))}
-          </div>
+            </div>
+          ))}
         </div>
+      </div>
 
-        {!inline && <div className="flex items-center justify-between gap-3 border-t border-[#eef0f2] px-4 py-3 sm:px-5">
-          <p className="min-w-0 truncate text-[12px] text-[#6b7280]" aria-live="polite">
-            {complete ? rangeLabel({ start: draft.start as Ymd, end: draft.end as Ymd }) : draft.start ? "Pick the last day" : "Pick the first day"}
+      {!inline && (
+        <div className={cn("flex items-center justify-between gap-3 border-t border-[#eef0f2]", compact ? "px-4 pb-1 pt-3" : "px-5 py-3")}>
+          <p className={cn("min-w-0 truncate tabular-nums text-[#6b7280]", compact ? "text-[13px]" : "text-[12px]")} aria-live="polite">
+            {complete ? `${days} ${days === 1 ? "day" : "days"}` : draft.start ? "Pick the last day" : "Pick the first day"}
           </p>
           <div className="flex shrink-0 gap-2">
-            <button type="button" className={secondaryBtn} onClick={onCancel}>
-              Cancel
-            </button>
+            {onBack ? (
+              <button type="button" className={cn(secondaryBtn, compact ? "h-11 px-4 text-[15px]" : "h-8 px-3 text-[13px]")} onClick={onBack}>
+                Back
+              </button>
+            ) : null}
             <button
               type="button"
-              className={primaryBtn}
+              className={cn(primaryBtn, compact ? "h-11 px-5 text-[15px]" : "h-8 px-3.5 text-[13px]")}
               disabled={!complete}
-              onClick={() => complete && onApply({ start: draft.start as Ymd, end: draft.end as Ymd, preset: draft.preset })}
+              onClick={() => complete && onApply({ start: draft.start as Ymd, end: draft.end as Ymd, preset: "custom" })}
             >
               Apply
             </button>
           </div>
-        </div>}
-      </div>
+        </div>
+      )}
     </div>
   )
 }
 
-function RailItem({ active, onClick, children, trailing }: { active: boolean; onClick: () => void; children: React.ReactNode; trailing?: React.ReactNode }) {
+/* ── the steps together ─────────────────────────────────────────────────── */
+
+function PickerPanel({
+  value,
+  today,
+  firstDay,
+  compact,
+  onPick,
+}: {
+  value: RangeValue
+  today: Ymd
+  firstDay?: Ymd
+  compact: boolean
+  onPick: (v: RangeValue) => void
+}) {
+  const [step, setStep] = React.useState("list")
+  const [dir, setDir] = React.useState<1 | -1>(1)
+  const rootRef = React.useRef<HTMLDivElement>(null)
+  /** Where focus goes once the next step is on screen: the step it came from loses it. */
+  const focusNext = React.useRef<string | null>(null)
+  const go = (next: string, d: 1 | -1, focus: string) => {
+    focusNext.current = focus
+    setDir(d)
+    setStep(next)
+  }
+  React.useEffect(() => {
+    const sel = focusNext.current
+    focusNext.current = null
+    if (!sel) return
+    rootRef.current?.querySelector<HTMLElement>(`[data-drp-step="${CSS.escape(step)}"] ${sel}`)?.focus({ preventScroll: true })
+  }, [step])
+
+  const preset = (id: PresetId) => onPick({ preset: id, ...presetRange(id, today, firstDay) })
+  const render = (key: string) => {
+    if (key === "custom") {
+      return (
+        <RangePanel
+          initial={{ start: value.start, end: value.end }}
+          today={today}
+          months={compact ? 1 : 2}
+          onBack={() => go("list", -1, `[data-row="custom"]`)}
+          onApply={onPick}
+        />
+      )
+    }
+    if (key.startsWith("group:")) {
+      const label = key.slice("group:".length)
+      const group = PRESET_MENU.flat().find((g): g is Extract<PresetGroup, { kind: "group" }> => g.kind === "group" && g.label === label)
+      if (group) {
+        return (
+          <GroupList
+            group={group}
+            value={value}
+            today={today}
+            compact={compact}
+            onPreset={preset}
+            onBack={() => go("list", -1, `[data-row="${CSS.escape(key)}"]`)}
+          />
+        )
+      }
+    }
+    return (
+      <div className={compact ? undefined : "w-[288px]"}>
+        <PresetList
+          value={value}
+          today={today}
+          firstDay={firstDay}
+          compact={compact}
+          onPreset={preset}
+          onOpen={(next) => go(next, 1, next === "custom" ? `[data-day][tabindex="0"]` : `[data-row]:not([data-row="back"])`)}
+        />
+      </div>
+    )
+  }
+
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-current={active || undefined}
-      className={cn(
-        "flex min-h-8 w-full items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-left text-[13px] transition-colors duration-75",
-        active ? "bg-[#ececef] font-semibold text-[#1a1a2e]" : "text-[#303036] hover:bg-[#f1f1f3]",
-      )}
-    >
-      <span className="min-w-0">{children}</span>
-      {trailing}
-    </button>
+    <div ref={rootRef} data-drp-panel>
+      <StepFrame active={step} dir={dir} compact={compact} render={render} />
+    </div>
   )
 }
 
@@ -544,9 +836,21 @@ export interface DateRangePickerProps {
 
 export function DateRangePicker({ value, onChange, today, firstDay, align = "start", className, inline = false }: DateRangePickerProps) {
   const [open, setOpen] = React.useState(false)
-  const phoneQuery = usePhone()
-  const phone = phoneQuery || inline
-  const label = valueLabel(value)
+  /* A new panel each time it opens, so it always opens on the list. Not
+     keyed by the value: a panel that is closing keeps what it shows. */
+  const [session, setSession] = React.useState(0)
+  const phone = usePhone()
+  const compact = phone || inline
+  const setShown = (o: boolean) => {
+    if (o) setSession((s) => s + 1)
+    setOpen(o)
+  }
+  /* A choice closes the picker at once; the page catches up behind it, at a
+     priority that cannot hold up the close. */
+  const pick = (v: RangeValue) => {
+    setOpen(false)
+    React.startTransition(() => onChange(v))
+  }
   const trigger = (
     <button
       type="button"
@@ -555,32 +859,19 @@ export function DateRangePicker({ value, onChange, today, firstDay, align = "sta
       aria-haspopup="dialog"
       aria-expanded={open}
       title={value.preset === "custom" ? undefined : rangeLabel(value)}
-      onClick={phone ? () => setOpen((o) => (inline ? !o : true)) : undefined}
+      onClick={compact ? () => setShown(inline ? !open : true) : undefined}
     >
-      <CalendarDays className="h-4 w-4 text-[#4b5563]" strokeWidth={1.75} />
-      <span className="tabular-nums">{label}</span>
-      <ChevronDown className={cn("h-3.5 w-3.5 text-[#6b7280] transition-transform duration-150", open && "rotate-180")} />
+      <span className="tabular-nums">{valueLabel(value)}</span>
+      <ChevronDown className={cn("h-3.5 w-3.5 text-[#6b7280] transition-transform duration-150", open && "rotate-180")} aria-hidden />
     </button>
   )
-  const panel = (months: 1 | 2) => (
-    <RangePanel
-      key={`${value.start}${value.end}${value.preset}`}
-      initial={value}
-      today={today}
-      firstDay={firstDay}
-      months={months}
-      onCancel={() => setOpen(false)}
-      onApply={(v) => {
-        setOpen(false)
-        onChange(v)
-      }}
-    />
-  )
+  const panel = <PickerPanel key={session} value={value} today={today} firstDay={firstDay} compact={compact} onPick={pick} />
+
   if (inline) {
     return (
       <div>
         {trigger}
-        {open && <div className="mt-2 overflow-hidden rounded-xl border border-[#e3e4e8] bg-white">{panel(1)}</div>}
+        {open && <div className="mt-2 overflow-hidden rounded-xl border border-[#e3e4e8] bg-white">{panel}</div>}
       </div>
     )
   }
@@ -589,153 +880,28 @@ export function DateRangePicker({ value, onChange, today, firstDay, align = "sta
       <>
         {trigger}
         <BottomSheet isOpen={open} onClose={() => setOpen(false)} title="Date range">
-          {open && panel(1)}
+          {panel}
         </BottomSheet>
       </>
     )
   }
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={setShown}>
       <PopoverTrigger asChild>{trigger}</PopoverTrigger>
-      <PopoverContent align={align} sideOffset={6} className={cn(surface, "w-auto max-w-[calc(100vw-24px)]")}>
-        {panel(2)}
-      </PopoverContent>
-    </Popover>
-  )
-}
-
-/* ── the comparison ─────────────────────────────────────────────────────── */
-
-export interface ComparePickerProps {
-  value: CompareValue
-  onChange: (v: CompareValue) => void
-  /** The period being compared, so the button can say what it is compared with. */
-  range: DateRange
-  today: Ymd
-  align?: "start" | "end"
-  className?: string
-}
-
-const COMPARE_MODES: CompareMode[] = ["none", "previous_period", "previous_year", "custom"]
-
-export function ComparePicker({ value, onChange, range, today, align = "start", className }: ComparePickerProps) {
-  const [open, setOpen] = React.useState(false)
-  const [custom, setCustom] = React.useState(false)
-  const phone = usePhone()
-  const cr = compareRange(range, value)
-  const label = cr ? rangeLabel(cr) : COMPARE_LABEL.none
-  const close = () => {
-    setOpen(false)
-    setCustom(false)
-  }
-  const trigger = (
-    <button
-      type="button"
-      className={cn(pickerButton, className)}
-      data-state={open ? "open" : "closed"}
-      aria-haspopup="dialog"
-      aria-expanded={open}
-      aria-label={`Compare to: ${cr ? `${COMPARE_LABEL[value.mode]}, ${label}` : label}`}
-      onClick={phone ? () => setOpen(true) : undefined}
-    >
-      <CalendarRange className="h-4 w-4 text-[#4b5563]" strokeWidth={1.75} />
-      <span className={cn("tabular-nums", !cr && "text-[#4b5563]")}>{label}</span>
-      <ChevronDown className={cn("h-3.5 w-3.5 text-[#6b7280] transition-transform duration-150", open && "rotate-180")} />
-    </button>
-  )
-  const initialCustom: RangeValue = {
-    preset: "custom",
-    ...(value.mode === "custom" && value.range ? value.range : compareRange(range, { mode: "previous_period" }) ?? range),
-  }
-  const body = (months: 1 | 2) =>
-    custom ? (
-      <RangePanel
-        initial={initialCustom}
-        today={today}
-        presets={false}
-        months={months}
-        onCancel={() => setCustom(false)}
-        onApply={(v) => {
-          onChange({ mode: "custom", range: { start: v.start, end: v.end } })
-          close()
+      <PopoverContent
+        align={align}
+        sideOffset={6}
+        className={cn(surface, "w-auto max-w-[calc(100vw-24px)]")}
+        onOpenAutoFocus={(e) => {
+          /* Onto the period that is showing, not the first row. */
+          e.preventDefault()
+          const el = e.currentTarget as HTMLElement | null
+          const row = el?.querySelector<HTMLElement>("[data-row][data-checked]") ?? el?.querySelector<HTMLElement>("[data-row]")
+          row?.focus({ preventScroll: true })
         }}
-      />
-    ) : (
-      <div role="menu" aria-label="Compare to" className="min-w-[220px] p-1.5">
-        {COMPARE_MODES.map((mode) => {
-          const r = mode === "custom" ? null : compareRange(range, { mode })
-          return (
-            <button
-              key={mode}
-              type="button"
-              role="menuitemradio"
-              aria-checked={value.mode === mode}
-              onClick={() => {
-                if (mode === "custom") {
-                  setCustom(true)
-                  return
-                }
-                onChange({ mode })
-                close()
-              }}
-              className={cn(
-                "flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left text-[13px] transition-colors duration-75 hover:bg-[#f1f1f3]",
-                value.mode === mode && "bg-[#ececef]",
-              )}
-            >
-              <span className="flex-1">
-                <span className={cn("block", value.mode === mode ? "font-semibold" : "font-medium")}>{COMPARE_LABEL[mode]}</span>
-                {r && <span className="block text-[12px] tabular-nums text-[#6b7280]">{rangeLabel(r)}</span>}
-              </span>
-              {value.mode === mode && <Check className="h-4 w-4 text-[#1a1a2e]" strokeWidth={2.25} />}
-            </button>
-          )
-        })}
-      </div>
-    )
-  if (phone) {
-    return (
-      <>
-        {trigger}
-        <BottomSheet isOpen={open} onClose={close} title={custom ? "Compare to" : "Comparison"}>
-          {open && body(1)}
-        </BottomSheet>
-      </>
-    )
-  }
-  return (
-    <Popover open={open} onOpenChange={(o) => (o ? setOpen(true) : close())}>
-      <PopoverTrigger asChild>{trigger}</PopoverTrigger>
-      <PopoverContent align={align} sideOffset={6} className={cn(surface, "w-auto max-w-[calc(100vw-24px)]")}>
-        {body(2)}
+      >
+        {panel}
       </PopoverContent>
     </Popover>
   )
 }
-
-/**
- * The two series names under a chart: the period and what it is compared
- * with, a solid and a dashed swatch, the way the chart draws them.
- */
-export function RangeLegend({ range, compare, color = "#8b5cf6" }: { range: DateRange; compare: DateRange | null; color?: string }) {
-  return (
-    <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-1 text-[12px] text-[#6b7280]">
-      <span className="inline-flex items-center gap-1.5 tabular-nums">
-        <span className="h-[3px] w-4 rounded-full" style={{ background: color }} aria-hidden />
-        {rangeLabel(range)}
-      </span>
-      {compare && (
-        <span className="inline-flex items-center gap-1.5 tabular-nums">
-          <span
-            className="h-[3px] w-4 rounded-full opacity-60"
-            style={{ backgroundImage: `repeating-linear-gradient(90deg, ${color} 0 4px, transparent 4px 7px)` }}
-            aria-hidden
-          />
-          {rangeLabel(compare)}
-        </span>
-      )}
-    </div>
-  )
-}
-
-export { longDate }

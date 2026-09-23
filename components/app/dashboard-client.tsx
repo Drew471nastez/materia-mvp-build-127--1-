@@ -67,6 +67,7 @@ import { getLinksShareUrl, getLinksUrl, getStoreShareUrl, getStoreUrl, getWebsit
 import { isNativeApp } from "@/lib/platform-utils"
 import { openExternal, hapticTap } from "@/lib/native-bridge"
 import { CHART_ANIM_MS } from "@/lib/chart-motion"
+import { AxisLabels, MORPH_EASE, MORPH_MS, fixedScale, useEndDotMotion } from "@/components/app/chart-morph"
 import { useToast } from "@/hooks/use-toast"
 import { GlidingActiveDot, GlidingCursor } from "@/components/app/chart-glide"
 import { STORELIB_LOGO } from "@/lib/brand/logo"
@@ -90,6 +91,9 @@ interface ChartDataPoint {
 }
 
 type KPIType = "views" | "orders" | "revenue" | "conversion" | null
+
+/** One empty series, the same object every time, so an empty chart is not a new one on each render. */
+const NO_POINTS: ChartDataPoint[] = []
 
 /** The strip's own order, which is what decides which way it scrolls. */
 const KPI_TAB_ORDER = ["views", "revenue", "orders", "conversion"] as const
@@ -127,6 +131,28 @@ function plotLeftFor(labels: string[]): number {
 }
 /** The right margin. */
 const PLOT_RIGHT = 10
+/** The band under the plot that holds the dates: recharts' own default, written down so the dot over the line can use it. */
+const XAXIS_H = 30
+const CHART_H = 200
+
+type Metric = Exclude<KPIType, null>
+
+/**
+ * The numbers on the axis, one formatter per metric, used to write them and
+ * to measure the gutter they need.
+ */
+function tickText(metric: KPIType, v: number): string {
+  const short = (n: number) => (n >= 1000 ? `${Number((n / 1000).toFixed(1))}k` : `${Number(n.toFixed(2))}`)
+  if (metric === "revenue") return `$${short(v)}`
+  if (metric === "conversion") return `${Number(v.toFixed(2))}%`
+  return short(v)
+}
+
+/** The scale a metric's series is drawn on: always three intervals, so the grid never moves. */
+function scaleOf(metric: KPIType, series: ChartDataPoint[]) {
+  const max = series.reduce((m, d) => Math.max(m, d.value ?? 0), 0)
+  return fixedScale(max, metric === "views" || metric === "orders")
+}
 
 
 
@@ -155,10 +181,13 @@ const PLOT_TOP = 10
 function ChartWithLongPressTooltip({
   displayChartData,
   openKPIModal,
+  widthFrom,
   t,
 }: {
   displayChartData: ChartDataPoint[]
   openKPIModal: KPIType
+  /** Every metric the tabs can show, so the axis is one width for all of them. */
+  widthFrom: Partial<Record<Metric, ChartDataPoint[]>>
   t: (key: string) => string
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -169,17 +198,21 @@ function ChartWithLongPressTooltip({
    * formatter, used to draw the ticks and to measure them, so the gutter can
    * never be sized for text the chart does not show.
    */
-  const axisTick = useCallback((v: number) => (
-    openKPIModal === "revenue" ? `$${v >= 1000 ? `${(v / 1000).toFixed(1)}k` : v.toFixed(0)}`
-      : openKPIModal === "conversion" ? `${v}%`
-      : v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(v)
-  ), [openKPIModal])
+  const axisTick = useCallback((v: number) => tickText(openKPIModal, v), [openKPIModal])
+  const scale = useMemo(() => scaleOf(openKPIModal, displayChartData), [openKPIModal, displayChartData])
+  const axisLabels = useMemo(() => scale.ticks.map(axisTick), [scale.ticks, axisTick])
 
+  /*
+    ONE WIDTH FOR EVERY TAB: the widest label of every metric, so choosing
+    Revenue after Views does not move the plot sideways. It changes with the
+    period, never with the tab.
+  */
   const plotLeft = useMemo(() => {
-    const top = displayChartData.reduce((m, d) => Math.max(m, d.value ?? 0), 0)
-    /* The ends and the middle: enough to catch the widest tick recharts draws. */
-    return plotLeftFor([axisTick(0), axisTick(top / 2), axisTick(top)])
-  }, [displayChartData, axisTick])
+    const widths = (Object.keys(widthFrom) as Metric[]).map((m) =>
+      plotLeftFor(scaleOf(m, widthFrom[m] ?? []).ticks.map((v) => tickText(m, v))),
+    )
+    return Math.max(plotLeftFor(axisLabels), ...widths)
+  }, [widthFrom, axisLabels])
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const tooltipActiveRef = useRef(false)
   const [tooltipActive, setTooltipActive] = useState(false)
@@ -218,11 +251,35 @@ function ChartWithLongPressTooltip({
    * The data is the only honest trigger. The metric changing is a request
    * for data, not the arrival of any.
    */
+  /*
+    AND IT IS RAISED BY THE RENDER THAT RECEIVES THE DATA. An effect runs
+    after that render has been painted with the flag still down, so the
+    first frame of every switch was the new line, cut in, and only then the
+    morph, from a line that had already arrived. Setting state during this
+    render re-runs it before anything is committed.
+  */
+  const seenSeriesRef = useRef(displayChartData)
+  if (seenSeriesRef.current !== displayChartData) {
+    seenSeriesRef.current = displayChartData
+    if (!shouldAnimate) setShouldAnimate(true)
+  }
   useEffect(() => {
-    setShouldAnimate(true)
+    if (!shouldAnimate) return
     const timer = setTimeout(() => setShouldAnimate(false), CHART_ANIM_MS)
     return () => clearTimeout(timer)
-  }, [displayChartData])
+  }, [shouldAnimate, displayChartData])
+
+  /* The card's width, for the dot at the end of the line. */
+  const [track, setTrack] = useState(0)
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const measure = () => setTrack(el.offsetWidth)
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
 
   const getIndexFromTouch = useCallback((clientX: number) => {
     const el = containerRef.current
@@ -591,8 +648,11 @@ const SLOP_Y = 12
     return shiftFor(x, track)
   }
 
-  // Show a dot on the last data point
-  const lastDotIndex = displayChartData.length - 1
+  /* The end of the line: a dot that moves with the morph instead of vanishing for it. */
+  const plotHeight = CHART_H - PLOT_TOP - XAXIS_H
+  const lastPoint = displayChartData.length > 1 ? displayChartData[displayChartData.length - 1] : null
+  const end = useEndDotMotion(lastPoint !== null && track > 0)
+  const endY = PLOT_TOP + (1 - Math.max(0, end.armed && lastPoint ? lastPoint.value : 0) / scale.top) * plotHeight
 
   return (
     <div
@@ -650,7 +710,7 @@ const SLOP_Y = 12
     >
       <LazyAreaChart data={displayChartData}>
         {({ AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine }) => (
-          <ResponsiveContainer width="100%" height={200}>
+          <ResponsiveContainer width="100%" height={CHART_H}>
             {/*
               ROOM FOR THE DOTS, now that there is no y axis reserving any.
               The axis used to take 40px on the left, and removing it left
@@ -666,9 +726,16 @@ const SLOP_Y = 12
                   <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
+              {/* At the ticks, placed by us: the same four heights on every tab. */}
+              <CartesianGrid
+                strokeDasharray="3 3"
+                stroke="#f3f4f6"
+                vertical={false}
+                horizontalPoints={scale.ticks.map((v) => PLOT_TOP + (1 - v / scale.top) * plotHeight)}
+              />
               <XAxis
                 dataKey="label"
+                height={XAXIS_H}
                 tick={{ fontSize: 11, fill: "#9ca3af" }}
                 tickLine={false}
                 axisLine={false}
@@ -680,13 +747,15 @@ const SLOP_Y = 12
                 thirty pixel drift between the axis and the finger came from
                 there being two.
               */}
+              {/* The numbers are AxisLabels, over the plot, so they cross-fade. */}
               <YAxis
-                tick={{ fontSize: 11, fill: "#9ca3af" }}
+                tick={false}
                 tickLine={false}
                 axisLine={false}
-                domain={[0, "auto"]}
+                domain={[0, scale.top]}
+                ticks={scale.ticks}
+                interval={0}
                 width={plotLeft}
-                tickFormatter={axisTick}
               />
               {/* Desktop-only Recharts tooltip */}
               {!isTouchDevice && (
@@ -736,7 +805,6 @@ const SLOP_Y = 12
                 fill="url(#kpiGrad)"
                 dot={((props: any) => {
                   const isActive = tooltipActive && props.index === activeIndex
-                  const isLast = props.index === lastDotIndex && !tooltipActive
                   if (isActive) {
                     // Large active dot on the line while swiping
                     return (
@@ -751,9 +819,6 @@ const SLOP_Y = 12
                         style={{ filter: "drop-shadow(0 1px 3px rgba(139,92,246,0.4))" }}
                       />
                     )
-                  }
-                  if (isLast) {
-                    return <circle key={`dot-${props.index}`} cx={props.cx} cy={props.cy} r={4} fill="#8b5cf6" stroke="#fff" strokeWidth={2} />
                   }
                   /*
                     NOTHING, rather than an invisible circle. This returned a
@@ -772,14 +837,30 @@ const SLOP_Y = 12
                 }) as unknown as React.ComponentProps<typeof Area>["dot"]}
                 activeDot={!isTouchDevice ? <GlidingActiveDot fill="#8b5cf6" /> : false}
                 isAnimationActive={shouldAnimate}
-                animationDuration={600}
-                animationEasing="ease-out"
+                animationDuration={MORPH_MS}
+                animationEasing={MORPH_EASE as React.ComponentProps<typeof Area>["animationEasing"]}
                 animationBegin={0}
               />
             </AreaChart>
           </ResponsiveContainer>
         )}
       </LazyAreaChart>
+
+      <AxisLabels labels={axisLabels} top={PLOT_TOP} height={plotHeight} width={plotLeft} />
+      {lastPoint && track > 0 && !tooltipActive ? (
+        <svg aria-hidden width="100%" height={CHART_H} style={{ position: "absolute", inset: 0, overflow: "visible", pointerEvents: "none" }}>
+          <circle
+            data-chart-end-dot
+            r={4}
+            cx={0}
+            cy={0}
+            fill="#8b5cf6"
+            stroke="#fff"
+            strokeWidth={2}
+            style={{ transform: `translate(${(track - PLOT_RIGHT).toFixed(1)}px, ${endY.toFixed(1)}px)`, transition: end.transition }}
+          />
+        </svg>
+      ) : null}
 
       {/*
         ONE STABLE THING FOR A FINGER TO LAND ON.
@@ -1400,7 +1481,6 @@ export function DashboardClient({
     localStorage.setItem("storelib_chart_expanded", String(chartExpanded))
   }, [chartExpanded])
 
-  const [chartData, setChartData] = useState<ChartDataPoint[]>([])
   const [isChartLoading, setIsChartLoading] = useState(false)
   // Sample data toggle — session-only (resets on page refresh, no localStorage)
   const [showSampleData, setShowSampleData] = useState(false)
@@ -1466,6 +1546,43 @@ export function DashboardClient({
       supabase.removeChannel(channel)
     }
   }, [productIds.join(",")]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const [chartEvents, setChartEvents] = useState<{
+    buckets: { start: number; end: number; label: string }[]
+    views: { at: number; key: string | null }[]
+    clicks: number[]
+  } | null>(null)
+  /**
+   * Every metric's series for the period, from the events read below (fetchChartEvents) and the
+   * orders the page keeps live. The same rules as the figures on the tabs:
+   * orders count completed and refunded, revenue counts completed only.
+   */
+  const chartSeries = useMemo<Record<Exclude<KPIType, null>, ChartDataPoint[]> | null>(() => {
+    if (!chartEvents) return null
+    const within = (t: number, b: { start: number; end: number }) => t >= b.start && t <= b.end
+    const valid = liveOrders
+      .filter((o) => o.status === "completed" || o.status === "refunded")
+      .map((o) => ({ at: Date.parse(o.created_at), refunded: o.status === "refunded"}))
+    const completed = liveOrders.filter((o) => o.status === "completed").map((o) => ({ at: Date.parse(o.created_at), cents: o.amount_cents || 0 }))
+    const out = { views: [] as ChartDataPoint[], orders: [] as ChartDataPoint[], revenue: [] as ChartDataPoint[], conversion: [] as ChartDataPoint[] }
+    for (const b of chartEvents.buckets) {
+      const seen = new Set<string>()
+      for (const v of chartEvents.views) if (v.key && within(v.at, b)) seen.add(v.key)
+      const views = seen.size
+      const clicks = chartEvents.clicks.reduce((n, t) => (within(t, b) ? n + 1 : n), 0)
+      const inBucket = valid.filter((o) => within(o.at, b))
+      const orders = inBucket.length
+      const refunds = inBucket.filter((o) => o.refunded).length
+      const revenue = completed.reduce((sum, o) => (within(o.at, b) ? sum + o.cents : sum), 0) / 100
+      out.views.push({ label: b.label, value: views, secondaryValue: clicks })
+      out.orders.push({ label: b.label, value: orders, refunds })
+      out.revenue.push({ label: b.label, value: revenue })
+      out.conversion.push({ label: b.label, value: views > 0 ? Number(((orders / views) * 100).toFixed(2)) : 0 })
+    }
+    return out
+  }, [chartEvents, liveOrders])
+  /** The chosen metric's series. A tab changes this and nothing else. */
+  const chartData = (openKPIModal && chartSeries?.[openKPIModal]) || NO_POINTS
 
   // ── Sample data overlay ────────────────────────────────────────────────────
   // True once any real metric exists — toggle and badge disappear permanently
@@ -1804,129 +1921,72 @@ export function DashboardClient({
     return buckets
   }
 
-  // Fetch detailed chart data for KPI modal — bulk fetch + local bucketing for speed
-  const fetchChartData = async (kpiType: KPIType) => {
-    if (!kpiType) return
-
+  /**
+   * =========================================================================
+   *  THE CHART IS READ ONCE PER PERIOD, NEVER PER TAB
+   * =========================================================================
+   * This fetched on every tab: tapping Revenue asked Supabase again, then
+   * redrew, so a tap was a wait and a line that appeared rather than one
+   * that moved. The events are read once for the period (views and clicks,
+   * the only two that are not already in `liveOrders`), and every metric's
+   * series is worked out from them here. A tab picks one of four series the
+   * page already holds, and the chart morphs to it.
+   *
+   * A newer period's answer wins: a slow reply for the period before is
+   * dropped rather than drawn over the new one.
+   */
+  const chartRequestRef = useRef(0)
+  const fetchChartEvents = async () => {
+    const request = ++chartRequestRef.current
     setIsChartLoading(true)
     const supabase = createClient()
-
     try {
       const { start, end } = periodDates()
-      // Use same filters as KPI display: completed+refunded for order counts, completed-only for revenue
-      const allValidOrders = liveOrders.filter(o => o.status === "completed" || o.status === "refunded")
-      const completedOrders = liveOrders.filter(o => o.status === "completed")
-
       // For all_time, extend start to 2020
       const fetchStart = timeframe === "all_time" ? new Date(2020, 0, 1) : start
-
-      // Bulk fetch all view events in ONE query
-      let viewEvents: any[] = []
-      let clickEvents: any[] = []
-
-      if (kpiType === "views" || kpiType === "conversion") {
-        const { data } = await supabase
+      const [viewsRead, clicksRead] = await Promise.all([
+        supabase
           .from("analytics_events")
           .select("id, visitor_id, session_id, product_id, created_at")
           .eq("creator_id", creatorId)
           .eq("event_type", "view")
           .gte("created_at", fetchStart.toISOString())
-          .lte("created_at", end.toISOString())
-        viewEvents = data || []
-
-        if (kpiType === "views") {
-          const { data: clicks } = await supabase
-            .from("analytics_events")
-            .select("id, created_at")
-            .eq("creator_id", creatorId)
-            .eq("event_type", "click")
-            .gte("created_at", fetchStart.toISOString())
-            .lte("created_at", end.toISOString())
-          clickEvents = clicks || []
-        }
-      }
-
-      // Generate time buckets and compute values locally
-      const buckets = generateTimeBuckets(timeframe, start, end)
-      const points: ChartDataPoint[] = []
-
-      for (const bucket of buckets) {
-        let value = 0
-        let secondaryValue = 0
-
-        if (kpiType === "views") {
-          const bucketViews = viewEvents.filter(e => {
-            const d = new Date(e.created_at)
-            return d >= bucket.start && d <= bucket.end
-          })
-          const uniqueKeys = new Set(bucketViews.map((e: any) => {
-            const identity = e.visitor_id || e.session_id
-            return identity ? `${identity}__${e.product_id || "store"}` : null
-          }).filter(Boolean))
-          value = uniqueKeys.size
-          secondaryValue = clickEvents.filter(e => {
-            const d = new Date(e.created_at)
-            return d >= bucket.start && d <= bucket.end
-          }).length
-        } else if (kpiType === "orders") {
-          // Use allValidOrders (completed + refunded) to match KPI display
-          const bucketOrders = allValidOrders.filter(o => {
-            const d = new Date(o.created_at)
-            return d >= bucket.start && d <= bucket.end
-          })
-          value = bucketOrders.length
-          // Count refunds in this bucket for tooltip info
-          secondaryValue = bucketOrders.filter(o => o.status === "refunded").length
-        } else if (kpiType === "revenue") {
-          // Use completedOrders only for revenue (refunded orders don't count as revenue)
-          value = completedOrders.filter(o => {
-            const d = new Date(o.created_at)
-            return d >= bucket.start && d <= bucket.end
-          }).reduce((sum, o) => sum + (o.amount_cents || 0), 0) / 100
-        } else if (kpiType === "conversion") {
-          const bucketViews = viewEvents.filter(e => {
-            const d = new Date(e.created_at)
-            return d >= bucket.start && d <= bucket.end
-          })
-          const views = new Set(bucketViews.map((e: any) => {
-            const id = e.visitor_id || e.session_id
-            return id ? `${id}__${e.product_id || "store"}` : null
-          }).filter(Boolean)).size
-          // Use allValidOrders for conversion rate to match KPI display
-          const orders = allValidOrders.filter(o => {
-            const d = new Date(o.created_at)
-            return d >= bucket.start && d <= bucket.end
-          }).length
-          value = views > 0 ? Number(((orders / views) * 100).toFixed(2)) : 0
-        }
-
-        points.push({
-          label: bucket.label,
-          value,
-          secondaryValue: kpiType === "views" ? secondaryValue : undefined,
-          refunds: kpiType === "orders" ? secondaryValue : undefined,
-        })
-      }
-
-      setChartData(points)
+          .lte("created_at", end.toISOString()),
+        supabase
+          .from("analytics_events")
+          .select("id, created_at")
+          .eq("creator_id", creatorId)
+          .eq("event_type", "click")
+          .gte("created_at", fetchStart.toISOString())
+          .lte("created_at", end.toISOString()),
+      ])
+      if (request !== chartRequestRef.current) return
+      const buckets = generateTimeBuckets(timeframe, start, end).map((b) => ({ start: b.start.getTime(), end: b.end.getTime(), label: b.label }))
+      setChartEvents({
+        buckets,
+        views: (viewsRead.data || []).map((e: any) => {
+          const identity = e.visitor_id || e.session_id
+          return { at: Date.parse(e.created_at), key: identity ? `${identity}__${e.product_id || "store"}` : null }
+        }),
+        clicks: (clicksRead.data || []).map((e: any) => Date.parse(e.created_at)),
+      })
       // Delay removing loading blur so chart lines redraw while still
       // blurred, then the CSS transition fades in the finished chart cleanly
       setTimeout(() => setIsChartLoading(false), 350)
     } catch (error) {
       console.error("Error fetching chart data:", error)
-      setIsChartLoading(false)
+      if (request === chartRequestRef.current) setIsChartLoading(false)
     }
   }
 
-  // Fetch chart data when modal opens or timeframe changes
+  // Read the chart's events when the period changes. Not when the tab does.
   useEffect(() => {
-    if (openKPIModal) {
-      // Safety net: if Supabase queries hang, stop the skeleton after 5 s
-      const safetyTimer = window.setTimeout(() => setIsChartLoading(false), 5000)
-      fetchChartData(openKPIModal).finally(() => window.clearTimeout(safetyTimer))
-      return () => window.clearTimeout(safetyTimer)
-    }
-  }, [openKPIModal, periodKey, creatorId]) // eslint-disable-line react-hooks/exhaustive-deps
+    // Safety net: if Supabase queries hang, stop the skeleton after 5 s
+    const safetyTimer = window.setTimeout(() => setIsChartLoading(false), 5000)
+    fetchChartEvents().finally(() => window.clearTimeout(safetyTimer))
+    return () => window.clearTimeout(safetyTimer)
+  }, [periodKey, creatorId]) // eslint-disable-line react-hooks/exhaustive-deps
+
 
   useEffect(() => {
     // Safety net: if analytics queries hang (slow network, Supabase latency),
@@ -2651,7 +2711,7 @@ export function DashboardClient({
                     loading state — it says these numbers are not yours.
                   */}
                   <div className={`transition-opacity duration-300 ease-out ${showSampleData && !hasRealData ? "opacity-50" : "opacity-100"}`}>
-                  <ChartWithLongPressTooltip displayChartData={displayChartData} openKPIModal={openKPIModal} t={t} />
+                  <ChartWithLongPressTooltip displayChartData={displayChartData} openKPIModal={openKPIModal} widthFrom={showSampleData && !hasRealData ? SAMPLE_CHART : chartSeries ?? {}} t={t} />
                   </div>
                   {!hasRealData && (
                     <div className="absolute top-2 right-2 flex items-center gap-1.5 z-10">

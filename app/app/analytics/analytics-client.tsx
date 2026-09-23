@@ -25,8 +25,11 @@
  *   and the days were sorted as dates in 2024, so a period across New Year
  *   put January before December.
  *
- * The comparison is the picker's own (lib/date-range/range compareBounds),
- * sent with the question, and No comparison hides every percentage.
+ * THERE IS NO COMPARISON CONTROL. Every percentage is against the period
+ * just before, the same number of days ending the day before
+ * (lib/date-range/range compareBounds), sent with the question. A link that
+ * still says ?compare=none or a custom comparison is read as that too, so
+ * nothing on the page is measured against something the page cannot show.
  */
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react"
@@ -35,11 +38,11 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { ChevronDown, Link2, ShoppingBag, Sparkles, TrendingDown, TrendingUp, Check } from "lucide-react"
 import { useLanguage } from "@/lib/i18n"
 import { AnnouncementBarMobile } from "@/components/app/announcement-bar-mobile"
-import { ComparePicker, DateRangePicker } from "@/components/app/date-range-picker"
+import { DateRangePicker } from "@/components/app/date-range-picker"
 import { usePeriodParams } from "@/components/app/use-period-params"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { viewerTimeZone } from "@/lib/orders/time-zone"
-import { boundsOf, compareBounds, compareRange, rangeLabel, type DateRange } from "@/lib/date-range/range"
+import { boundsOf, compareBounds, compareRange, rangeLabel, type CompareValue, type DateRange } from "@/lib/date-range/range"
 import { bucketLabel, bucketStarts, grainFor, type Span } from "@/lib/analytics/buckets"
 import { AnalyticsReports, useAnalyticsReports } from "./analytics-reports"
 import { AnalyticsChartWithTooltip, CHART_COLORS } from "@/components/app/analytics-chart"
@@ -109,13 +112,15 @@ const SAMPLE_ONEPAGE: Record<"views" | "clicks" | "subscribers" | "ctr", Figure>
   ctr: { value: 36.3, previous: 36.4, allTime: null },
 }
 
+/** What every percentage on the page is measured against. */
+const PREVIOUS_PERIOD: CompareValue = { mode: "previous_period" }
+
 /** One formatter for the page. Constructing an Intl.NumberFormat is not free. */
 const USD_FORMAT = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" })
 
 /**
- * What the percentages are measured against, from the comparison picker:
- * "Dec 1–Dec 31, 2025", or null when the picker says No comparison and
- * there are no percentages to show.
+ * What the percentages are measured against: "Dec 1–Dec 31, 2025", the
+ * period just before, or null for All time, which has nothing before it.
  */
 const CompareContext = createContext<string | null>("the previous period")
 
@@ -242,12 +247,13 @@ export function AnalyticsClient({ products }: AnalyticsClientProps) {
   const { t } = useLanguage()
 
   /**
-   * THE PERIOD AND WHAT IT IS COMPARED WITH, from the shared picker, kept in
-   * the address (components/app/use-period-params.ts). Days are the
-   * creator's days: lib/date-range/range.ts.
+   * THE PERIOD, from the shared picker, kept in the address
+   * (components/app/use-period-params.ts). Days are the creator's days:
+   * lib/date-range/range.ts. It is compared with the period just before.
    */
   const timeZone = useMemo(() => viewerTimeZone(), [])
-  const { period, setPeriod, compare, setCompare, today } = usePeriodParams(timeZone, "last_7_days")
+  const { period, setPeriod, today } = usePeriodParams(timeZone, "last_7_days")
+  const compare = PREVIOUS_PERIOD
   /* "All time" is compared with nothing: there is no before the beginning. */
   const isAllTime = period.preset === "all_time"
   const comparedRange = isAllTime ? null : compareRange(period, compare)
@@ -299,7 +305,7 @@ export function AnalyticsClient({ products }: AnalyticsClientProps) {
     [period.start, period.end, period.preset, timeZone, tick])
   const against = useMemo(() => (isAllTime ? null : compareBounds(period, compare, timeZone, Date.now())),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [period.start, period.end, period.preset, compare.mode, compare.range?.start, compare.range?.end, timeZone, tick])
+    [period.start, period.end, period.preset, timeZone, tick])
   const safeSpan = useMemo(() => ({ start: span.start, end: Math.max(span.end, span.start + 1) }), [span])
 
   const reportsState = useAnalyticsReports({
@@ -500,13 +506,10 @@ export function AnalyticsClient({ products }: AnalyticsClientProps) {
           </div>
         </div>
 
-        {/* The period, the mode on a wider screen, and the product */}
+        {/* The period, the mode on a wider screen, and the product. No comparison control. */}
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <DateRangePicker value={period} onChange={setPeriod} today={today} />
-              {!isAllTime ? <ComparePicker value={compare} onChange={setCompare} range={period} today={today} /> : null}
-            </div>
+            <DateRangePicker value={period} onChange={setPeriod} today={today} />
             <div className="hidden sm:flex items-center bg-[#f3f4f6] rounded-full p-0.5">
               {modeButton("store", "md")}
               {modeButton("onepage", "md")}

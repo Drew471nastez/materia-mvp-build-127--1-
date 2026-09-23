@@ -15,8 +15,8 @@ import {
 } from "lucide-react"
 import { Popover, PopoverTrigger } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
-import { ComparePicker, DateRangePicker } from "@/components/app/date-range-picker"
-import { presetRange, rangeLabel, type CompareValue, type RangeValue } from "@/lib/date-range/range"
+import { DateRangePicker } from "@/components/app/date-range-picker"
+import { presetRange, rangeLabel, type RangeValue } from "@/lib/date-range/range"
 import {
   COLUMNS,
   SORTS,
@@ -44,6 +44,7 @@ import {
   card,
   formatMoney,
   iconButton,
+  topBar,
 } from "./order-parts"
 
 export interface OrdersListProps {
@@ -57,8 +58,6 @@ export interface OrdersListProps {
   onSearchText: (q: string) => void
   period: RangeValue
   onPeriod: (v: RangeValue) => void
-  compare: CompareValue
-  onCompare: (c: CompareValue) => void
   today: string
   /** The first order's day, where "All time" begins. */
   firstDay?: string
@@ -80,8 +79,9 @@ export interface OrdersListProps {
 export function OrdersList(props: OrdersListProps) {
   const { allOrders, stripeConnected } = props
   return (
-    <div className="mx-auto max-w-[1200px] px-4 py-6 sm:px-6 lg:px-8">
-      <div className="flex items-center justify-between gap-3">
+    <div className="mx-auto max-w-[1200px] px-4 pb-6 sm:px-6 lg:px-8">
+      {/* The top bar: the same sticky bar, with the same depth, as an order's own. */}
+      <div className={cn(topBar, "justify-between gap-3")}>
         <h1 className="text-[24px] font-bold text-[#1a1a2e] sm:text-[28px]">Orders</h1>
         <button
           type="button"
@@ -103,12 +103,13 @@ export function OrdersList(props: OrdersListProps) {
         </div>
       ) : null}
 
-      {/* The same period and comparison picker every page in /app has. */}
+      {/*
+        The same period picker every page in /app has. No comparison control:
+        the changes are always against the period just before, as on
+        Analytics.
+      */}
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <DateRangePicker value={props.period} onChange={props.onPeriod} today={props.today} firstDay={props.firstDay} />
-        {props.period.preset !== "all_time" ? (
-          <ComparePicker value={props.compare} onChange={props.onCompare} range={props.period} today={props.today} />
-        ) : null}
       </div>
 
       <MetricsStrip metrics={props.metrics} comparable={props.comparable} />

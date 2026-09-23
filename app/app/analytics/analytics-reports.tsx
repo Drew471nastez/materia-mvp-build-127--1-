@@ -25,13 +25,21 @@
  * NOTHING MOVES WHILE IT LOADS. Every card body has a fixed height, and a
  * change of period keeps the figures on screen, softened, until the new ones
  * arrive.
+ *
+ * AND WHEN THEY ARRIVE, THE LINES MOVE TO THEM. A line chart here is drawn
+ * by hand, so a new answer used to be a new drawing, cut in. Each point now
+ * travels from where it was to where it goes, on the same curve and in the
+ * same time as the trend chart above (components/app/chart-morph); the grid
+ * is three intervals whatever the numbers, the numbers on it cross-fade, and
+ * the axis only ever widens, so a new period never pushes the plot about.
  */
 
 import * as React from "react"
 import { Globe } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { BreakdownRow, Headline, OnePageReports, Reports, Series } from "@/lib/analytics/reports"
-import { axisWidth, compactCount, compactMoney, compactPercent, niceScale } from "@/lib/analytics/chart-scale"
+import { axisWidth, compactCount, compactMoney, compactPercent } from "@/lib/analytics/chart-scale"
+import { AxisLabels, MORPH_MS, fixedScale, morphEase } from "@/components/app/chart-morph"
 import { viewerTimeZone } from "@/lib/orders/time-zone"
 import { HelpLabel } from "@/components/app/help-label"
 import { useChartScrub, type ChartScrub } from "@/components/app/use-chart-scrub"
@@ -168,11 +176,14 @@ function LineChart({ series, format, kind }: { series: Series; format: (n: numbe
   const n = series.current.length
 
   const max = Math.max(0, ...series.current, ...(compared ? series.previous : []))
-  const scale = niceScale(max, { integer: kind === "count", intervals: 2 })
+  const scale = fixedScale(max, kind === "count")
   const tickLabel = (t: number) => (kind === "money" ? compactMoney(t, scale.step) : kind === "percent" ? compactPercent(t) : compactCount(t))
   const labels = scale.ticks.map(tickLabel)
-  /* As wide as the widest number on it, and not a pixel more. */
-  const pad = { l: axisWidth(labels, 10, 8), r: 8, t: 10, b: 22 }
+  /* As wide as the widest number on it, and it only ever widens: a new
+     period with shorter numbers does not pull the plot back to the left. */
+  const widest = React.useRef(0)
+  widest.current = Math.max(widest.current, axisWidth(labels, 10, 8))
+  const pad = { l: widest.current, r: 8, t: 10, b: 22 }
   const plotW = W - pad.l - pad.r
   const x = (i: number) => pad.l + (n <= 1 ? plotW / 2 : (i / (n - 1)) * plotW)
 
@@ -195,9 +206,60 @@ function LineChart({ series, format, kind }: { series: Series; format: (n: numbe
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const y = (v: number) => pad.t + (1 - v / scale.top) * (H - pad.t - pad.b)
-  const path = (vals: number[]) => vals.map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join("")
-  const area = n > 1 ? `${path(series.current)}L${x(n - 1).toFixed(1)},${y(0)}L${x(0).toFixed(1)},${y(0)}Z` : ""
+  const plotH = H - pad.t - pad.b
+  const y = (v: number) => pad.t + (1 - v / scale.top) * plotH
+  const floor = y(0)
+
+  /*
+    THE LINE MOVES TO THE NEW NUMBERS. Where each point should be, in
+    pixels, and where it is drawn: the drawn one travels to the target over
+    MORPH_MS whenever the target changes. From the floor the first time, so
+    a card grows its line rather than having one appear. A point that did
+    not exist before starts from the nearest one that did.
+  */
+  const target = React.useMemo(
+    () => ({ cur: series.current.map((v) => y(v)), prev: compared ? series.previous.map((v) => y(v)) : [] }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [series, compared, scale.top, pad.t, plotH],
+  )
+  const [drawn, setDrawn] = React.useState(() => ({ cur: target.cur.map(() => floor), prev: target.prev.map(() => floor) }))
+  const drawnRef = React.useRef(drawn)
+  React.useEffect(() => {
+    const from = drawnRef.current
+    const still = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+    const mix = (a: number[], b: number[], k: number) =>
+      b.map((v, i) => {
+        const f = a.length ? a[Math.min(a.length - 1, Math.floor((i * a.length) / b.length))] : floor
+        return f + (v - f) * k
+      })
+    if (still) {
+      drawnRef.current = target
+      setDrawn(target)
+      return
+    }
+    const t0 = performance.now()
+    let raf = 0
+    const step = () => {
+      const k = morphEase(Math.min(1, (performance.now() - t0) / MORPH_MS))
+      const next = { cur: mix(from.cur, target.cur, k), prev: mix(from.prev, target.prev, k) }
+      drawnRef.current = next
+      setDrawn(next)
+      if (k < 1) raf = requestAnimationFrame(step)
+    }
+    raf = requestAnimationFrame(step)
+    return () => cancelAnimationFrame(raf)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [target])
+
+  /* For the one render between new numbers and the first frame of their
+     move, the drawn line may still have the old number of points: it is
+     stretched to the new count rather than left undrawn. */
+  const fit = (ys: number[], count: number) =>
+    ys.length === count ? ys : Array.from({ length: count }, (_, k) => (ys.length ? ys[Math.min(ys.length - 1, Math.floor((k * ys.length) / count))] : floor))
+  const cur = fit(drawn.cur, n)
+  const prev = fit(drawn.prev, compared ? series.previous.length : 0)
+  const path = (ys: number[]) => ys.map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${v.toFixed(1)}`).join("")
+  const area = n > 1 ? `${path(cur)}L${x(n - 1).toFixed(1)},${floor}L${x(0).toFixed(1)},${floor}Z` : ""
   const xl = n > 1 ? [0, Math.floor((n - 1) / 2), n - 1] : [0]
   const i = scrub.index
   const glide = useGlide(i !== null)
@@ -218,13 +280,9 @@ function LineChart({ series, format, kind }: { series: Series; format: (n: numbe
             <stop offset="100%" stopColor={SERIES} stopOpacity={0} />
           </linearGradient>
         </defs>
+        {/* Four lines at four fixed heights; the numbers on them are AxisLabels, below. */}
         {scale.ticks.map((t, k) => (
-          <g key={t}>
-            <line x1={pad.l} x2={W - pad.r} y1={y(t)} y2={y(t)} stroke="#eef0f2" strokeWidth={1} />
-            <text x={pad.l - 8} y={y(t) + 3.5} textAnchor="end" fontSize="10" fill="#9ca3af">
-              {labels[k]}
-            </text>
-          </g>
+          <line key={k} x1={pad.l} x2={W - pad.r} y1={y(t)} y2={y(t)} stroke="#eef0f2" strokeWidth={1} />
         ))}
         {xl.map((k) => (
           <text key={k} x={x(k)} y={H - 5} textAnchor={k === 0 ? "start" : k === n - 1 ? "end" : "middle"} fontSize="10" fill="#9ca3af">
@@ -232,8 +290,8 @@ function LineChart({ series, format, kind }: { series: Series; format: (n: numbe
           </text>
         ))}
         <path d={area} fill={`url(#${gradient})`} />
-        {compared ? <path d={path(series.previous)} fill="none" stroke={BEFORE} strokeWidth={1.5} strokeDasharray="4 4" strokeLinecap="round" /> : null}
-        <path d={path(series.current)} fill="none" stroke={SERIES} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+        {compared ? <path d={path(prev)} fill="none" stroke={BEFORE} strokeWidth={1.5} strokeDasharray="4 4" strokeLinecap="round" /> : null}
+        <path d={path(cur)} fill="none" stroke={SERIES} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
         {i !== null ? (
           <g style={{ transform: `translateX(${x(i).toFixed(1)}px)`, transition: glide }}>
             <line x1={0} x2={0} y1={pad.t} y2={H - pad.b} stroke="#d4d6dc" strokeWidth={1} />
@@ -262,6 +320,7 @@ function LineChart({ series, format, kind }: { series: Series; format: (n: numbe
           />
         ) : null}
       </svg>
+      <AxisLabels labels={labels} top={pad.t} height={plotH} width={pad.l} fontSize={10} />
       {i !== null ? (
         <div
           className="pointer-events-none absolute top-0 left-0 z-10 min-w-[136px] rounded-lg border border-[#e5e7eb] bg-white px-3 py-2 text-[12px] shadow-[0_10px_28px_-8px_rgba(17,24,39,0.22)]"

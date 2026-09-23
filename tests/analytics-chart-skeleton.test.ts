@@ -111,11 +111,13 @@ function main() {
     /const SKELETON_STROKE = "#e5e7eb"/.test(chart)
       && /const lineStroke = \(colour: string\) => \(isLoading \? SKELETON_STROKE : colour\)/.test(chart)
       && /const lineFill = \(gradient: string\) => \(isLoading \? "none" : gradient\)/.test(chart)
-      && /const lineDot = \(colour: string\) => \(isLoading \? false : makeDot\(colour\)\)/.test(chart))
-  check("every series goes through them, not just the one that was looked at",
-    (chart.match(/stroke=\{lineStroke\(/g) ?? []).length === 8
-      && (chart.match(/dot=\{lineDot\(/g) ?? []).length === 8,
-    `${(chart.match(/stroke=\{lineStroke\(/g) ?? []).length} of 8 series (the refunds line is gone: a count drawn on a dollar axis)`)
+      /* Recharts draws no dots at all now; the one at the end of the line is
+         drawn over the plot, and never on a placeholder. */
+      && /const lineDot = false as const/.test(chart)
+      && /const last = n > 1 && !isLoading \? chartDisplayData\[n - 1\] : null/.test(chart))
+  check("the series goes through them, in the one slot every metric shares",
+    /SLOTS\.slice\(0, slots\)\.map\(\(slot\) => \(\s*<Area[\s\S]{0,160}stroke=\{lineStroke\(CHART_COLORS\.views\)\}[\s\S]{0,60}fill=\{lineFill\(grad\("gradViolet"\)\)\}\s*dot=\{lineDot\}/.test(chart),
+    "each metric its own <Area> is what made a tab a replacement instead of a move")
   check("nothing in a placeholder can be pressed",
     /pointerEvents: isLoading \? "none" : undefined/.test(chart),
     "a finger on it would raise a tooltip reading zero for a number nobody has")
@@ -147,8 +149,8 @@ function main() {
       && /\}, \[shouldAnimate, chartDisplayData\]\)/.test(chart))
   check("a flat placeholder does not animate, because there is nothing to draw in",
     /const lineAnimates = isLoading \? false : shouldAnimate/.test(chart)
-      /* Eight series and the dashed comparison line. */
-      && (chart.match(/isAnimationActive=\{lineAnimates\}/g) ?? []).length === 9)
+      /* The series slot and the dashed comparison line. */
+      && (chart.match(/isAnimationActive=\{lineAnimates\}/g) ?? []).length === 2)
 
   console.log("\nAnd the whole of it is driven in a browser")
 

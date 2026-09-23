@@ -188,23 +188,64 @@ function main() {
   }
   check("and no page keeps a private list of presets or its own sheet",
     pages.every(([, f]) => !/timeframeOptions|CHART_TIMEFRAMES|statsTimeframeOptions|TimeframeBottomSheet|ChartTimeframeSheet|AnalyticsTimeframeSheet/.test(read(f))))
-  check("analytics and orders show the comparison picker too",
-    /<ComparePicker\b/.test(read("app/app/analytics/analytics-client.tsx")) && /<ComparePicker\b/.test(read("app/app/orders/orders-list.tsx")))
+  /*
+    THE COMPARISON CONTROL IS GONE, on the owner's word: "get rid of the
+    comparison selector". Both pages still compare, always with the period
+    just before, and neither lets an old ?compare= link hide the changes.
+  */
+  check("no page draws a comparison control, and the shared picker no longer has one",
+    pages.every(([, f]) => !/<ComparePicker\b/.test(read(f))) && !/export function ComparePicker/.test(read("components/app/date-range-picker.tsx")))
+  check("analytics and orders measure every change against the period just before",
+    /const compare = PREVIOUS_PERIOD/.test(read("app/app/analytics/analytics-client.tsx"))
+      && /const compare = PREVIOUS_PERIOD/.test(read("app/app/orders/orders-client.tsx"))
+      && /const PREVIOUS_PERIOD: CompareValue = \{ mode: "previous_period" \}/.test(read("app/app/analytics/analytics-client.tsx"))
+      && /const PREVIOUS_PERIOD: CompareValue = \{ mode: "previous_period" \}/.test(read("app/app/orders/orders-client.tsx")))
   check("analytics hides percentages with No comparison, and names what they compare with",
     /against === null\) return null/.test(read("app/app/analytics/analytics-client.tsx")) && /compared with \$\{against\}/.test(read("app/app/analytics/analytics-client.tsx")))
   check("and draws the comparison as a dashed line under the chart's own", /strokeDasharray="5 4"/.test(read("components/app/analytics-chart.tsx")))
   const picker = read("components/app/date-range-picker.tsx")
   check("the picker is a popover on a computer, a sheet on a phone, and in place inside a dialog",
     /<PopoverContent/.test(picker) && /<BottomSheet/.test(picker) && /if \(inline\)/.test(picker))
-  check("nothing changes on the page until Apply", /onApply=\{\(v\) => \{\s*setOpen\(false\)\s*onChange\(v\)/.test(picker))
+  /*
+    THE PICKER IS TWO STEPS, on the owner's word: "not with the custom range
+    inside the bottom sheet". It opens on a list; a row applies and closes;
+    Custom range is a second step and only that step waits for Apply.
+    Geometry and motion are measured in Chromium (no node appears and then
+    vanishes other than the step that is leaving, no month changes the
+    height); what is held here is the shape that produced those numbers.
+  */
+  const css = read("app/globals.css")
+  check("the button says the period and nothing else: no calendar icon",
+    !/CalendarDays|CalendarRange/.test(picker) && /<span className="tabular-nums">\{valueLabel\(value\)\}<\/span>/.test(picker))
+  check("a preset applies at once and closes; the page catches up behind the close",
+    /const pick = \(v: RangeValue\) => \{\s*setOpen\(false\)\s*React\.startTransition\(\(\) => onChange\(v\)\)/.test(picker)
+      && /const preset = \(id: PresetId\) => onPick\(/.test(picker))
+  check("Custom range is the last row, and a second step with Back and Apply",
+    JSON.stringify(PRESET_MENU[PRESET_MENU.length - 1]) === JSON.stringify([{ kind: "custom" }])
+      && /onOpen\("custom"\)/.test(picker) && /if \(key === "custom"\) \{\s*return \(\s*<RangePanel/.test(picker)
+      && />\s*Back\s*</.test(picker) && />\s*Apply\s*</.test(picker))
+  check("the rarer periods sit behind a row of their own",
+    PRESET_MENU.flat().filter((g) => g.kind === "group").map((g) => (g as { label: string }).label).join() === "Quarters,Black Friday Cyber Monday,More periods")
+  check("a step moves by transform on the iOS curve, and the frame follows the arriving step's measured size",
+    /@keyframes drp-in-next \{\s*from \{ opacity: 0; transform: translate3d/.test(css)
+      && /\.drp-frame \{\s*transition:\s*width 240ms cubic-bezier\(0\.32, 0\.72, 0, 1\),\s*height 240ms cubic-bezier\(0\.32, 0\.72, 0, 1\);/.test(css)
+      && /const ro = new ResizeObserver\(fit\)/.test(picker) && /export const STEP_MS = 240/.test(picker))
+  check("the step that is leaving is inert while it goes",
+    /inert=\{!on\}/.test(picker) && /aria-hidden=\{on \? undefined : true\}/.test(picker))
+  check("the sheet keeps its panel while it closes, and a new one opens each time",
+    /<BottomSheet isOpen=\{open\} onClose=\{\(\) => setOpen\(false\)\} title="Date range">\s*\{panel\}/.test(picker)
+      && !/\{open && panel\(/.test(picker) && /<PickerPanel key=\{session\}/.test(picker))
   check("days can be walked with the arrow keys", /ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7/.test(picker))
+  check("and the rows of the list with up and down", /const step = \{ ArrowDown: 1, ArrowUp: -1 \}\[e\.key\]/.test(picker))
+  check("every month is six rows, so changing month moves nothing below it",
+    /while \(cells\.length < 42\) cells\.push\(null\)/.test(picker) && /gridTemplateRows: `repeat\(6, \$\{cell\}px\)`/.test(picker))
+  check("a day is a 44px square on a phone",
+    /const cell = compact \? 44 : 36/.test(picker) && /compact \? "h-11 w-11 text-\[16px\]"/.test(picker))
   check("the month arrows are raised keys, and the months slide in from the side they were asked for",
-    /const monthNav =/.test(picker) && /drp-slide-next/.test(picker) && /drp-slide-prev/.test(picker)
-      && /@keyframes drp-in-next/.test(read("app/globals.css")) && /prefers-reduced-motion: reduce\) \{\s*\.drp-slide-next/.test(read("app/globals.css")))
+    /const monthNav =/.test(picker) && /drp-month-next/.test(picker) && /drp-month-back/.test(picker)
+      && /@keyframes drp-month-next/.test(css) && /prefers-reduced-motion: reduce\) \{\s*\.drp-frame \{ transition: none; \}\s*\.drp-in-next/.test(css))
   check("a sideways swipe across the days turns the month on a phone", /Math\.abs\(dx\) < 44 \|\| Math\.abs\(dx\) < Math\.abs\(dy\) \* 1\.5/.test(picker))
-  check("a picked day settles into place", /drp-day-edge/.test(picker) && /@keyframes drp-settle/.test(read("app/globals.css")))
   {
-    const css = read("app/globals.css")
     check("every sheet on a phone goes over the nav pill",
       /html:has\(\[data-app-sheet="open"\]\) \[data-app-nav-pill\],\s*\n\s*html:has\(\[role="dialog"\]\[aria-modal="true"\]:not\(\[data-mobile-menu\]\)\) \[data-app-nav-pill\],\s*\n\s*html:has\(body\[data-scroll-locked\]\) \[data-app-nav-pill\] \{\s*\n\s*z-index: 0;/.test(css))
     const sheets: [string, number][] = [

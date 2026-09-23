@@ -31,10 +31,18 @@
  * this chart use: a sideways drag or a short hold scrubs, a finger going
  * down the page scrolls it, and each new point is a light tick.
  *
- * THE SCALE IS OURS TOO (lib/analytics/chart-scale). A top with headroom
- * above the highest point and whole-number ticks for counts, so a day of one
- * view is drawn in the middle of the card rather than along its top edge,
- * and an axis exactly as wide as its widest label.
+ * THE SCALE IS OURS TOO (components/app/chart-morph fixedScale). A top
+ * with headroom above the highest point, whole-number ticks for counts, and
+ * always three intervals, so the grid is the same drawing on every tab.
+ *
+ * A METRIC TAB MOVES THE LINE, IT DOES NOT REPLACE IT. The series sits in
+ * one slot, `s0`, whatever the metric, and the slot keeps its key; a tab
+ * hands it other numbers and recharts animates each point from where it was
+ * to where it now goes, on the iOS curve. The axis is as wide as the widest
+ * label of every metric the tabs can show, so the plot never moves sideways,
+ * and its numbers cross-fade (chart-morph AxisLabels). The dot at the end of
+ * the line is ours, and travels with it. A tab never asks the server for
+ * anything: every metric is already in the series the page holds.
  */
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
@@ -42,8 +50,9 @@ import type { ComponentProps } from "react"
 import { XAxis, YAxis, CartesianGrid, ResponsiveContainer, AreaChart, Area } from "recharts"
 
 import { CHART_ANIM_MS } from "@/lib/chart-motion"
-import { axisWidth, compactCount, compactMoney, compactPercent, niceScale } from "@/lib/analytics/chart-scale"
+import { axisWidth, compactCount, compactMoney, compactPercent } from "@/lib/analytics/chart-scale"
 import { useChartScrub } from "@/components/app/use-chart-scrub"
+import { AxisLabels, MORPH_EASE, MORPH_MS, fixedScale, useEndDotMotion } from "@/components/app/chart-morph"
 
 /** How tall the chart is, and the band under the plot that holds the dates. */
 const CHART_H = 200
@@ -129,40 +138,40 @@ function visibleKeysFor(mode: "store" | "onepage", metric: string, onePage: stri
 
 /* ─── The plot: recharts, drawn when the series changes ─────────────────── */
 
+/** What the plot is given: the dates, the metric in its slot, and what it is compared with. */
+interface PlotPoint {
+  date: string
+  s0?: number
+  s1?: number
+  s2?: number
+  p?: number
+}
+
+/** The slots, in order. One while a single metric shows, which is always, from the tabs. */
+const SLOTS = ["s0", "s1", "s2"] as const
+
 interface PlotProps {
-  data: AnalyticsChartData[]
-  analyticsMode: "store" | "onepage"
-  chartMetricFilter: string
-  onePageChartFilter: string
+  data: PlotPoint[]
+  slots: number
   isLoading: boolean
-  compareKey: Key | null
+  compared: boolean
   top: number
   ticks: number[]
   plotLeft: number
-  axisTick: (v: number) => string
 }
 
-const Plot = memo(function Plot({
-  data: chartDisplayData,
-  analyticsMode,
-  chartMetricFilter,
-  onePageChartFilter,
-  isLoading,
-  compareKey,
-  top,
-  ticks,
-  plotLeft,
-  axisTick,
-}: PlotProps) {
+type Easing = ComponentProps<typeof Area>["animationEasing"]
+
+const Plot = memo(function Plot({ data: chartDisplayData, slots, isLoading, compared, top, ticks, plotLeft }: PlotProps) {
   const [shouldAnimate, setShouldAnimate] = useState(true)
 
   /**
-   * THE DRAW-IN IS DECIDED BY THE RENDER THAT RECEIVES THE DATA. An effect
+   * THE MORPH IS DECIDED BY THE RENDER THAT RECEIVES THE DATA. An effect
    * runs after the render it belongs to, so recharts would draw the new
-   * series with the old flag still down and only then be told to animate,
-   * with nothing left to play. Setting state during this render re-runs it
-   * before anything is committed. The series only: a metric changing is a
-   * request for data, not the arrival of any.
+   * series with the old flag still down, a cut to the new line, and only
+   * then be told to animate, with nothing left to play. Setting state
+   * during this render re-runs it before anything is committed. A tab is
+   * new data here: the page hands a new series for the metric chosen.
    */
   const seenSeriesRef = useRef(chartDisplayData)
   if (seenSeriesRef.current !== chartDisplayData) {
@@ -170,7 +179,8 @@ const Plot = memo(function Plot({
     if (!shouldAnimate) setShouldAnimate(true)
   }
 
-  /* Play the draw-in once, then switch it off so nothing re-animates. */
+  /* Play it once, then switch it off so nothing re-animates. The flag has to
+     outlast the morph (MORPH_MS): pulled early, recharts cuts to the end. */
   useEffect(() => {
     if (!shouldAnimate) return
     const timer = setTimeout(() => setShouldAnimate(false), CHART_ANIM_MS)
@@ -186,24 +196,11 @@ const Plot = memo(function Plot({
   const SKELETON_STROKE = "#e5e7eb"
   const lineStroke = (colour: string) => (isLoading ? SKELETON_STROKE : colour)
   const lineFill = (gradient: string) => (isLoading ? "none" : gradient)
-  const lineDot = (colour: string) => (isLoading ? false : makeDot(colour))
+  /* The dot at the end of the line is drawn over the plot (see below), so
+     recharts draws none: its own vanish for the length of every animation. */
+  const lineDot = false as const
   /* Nothing to draw in while it is flat; the draw-in belongs to the arrival. */
   const lineAnimates = isLoading ? false : shouldAnimate
-
-  const lastDotIndex = chartDisplayData.length - 1
-  /*
-    A HIDDEN DOT IS NO DOT. Only the last point carries one, to say where
-    the line ends; every other point returns null rather than an invisible
-    circle, which was 120 nodes reconciled on every render.
-  */
-  type AreaDot = ComponentProps<typeof Area>["dot"]
-  const makeDot = (color: string): AreaDot =>
-    ((props: { index?: number; cx?: number; cy?: number }) => {
-      if (props.index === lastDotIndex && chartDisplayData.length > 1) {
-        return <circle key={`dot-${props.index}`} cx={props.cx} cy={props.cy} r={3.5} fill={color} stroke="#fff" strokeWidth={2} />
-      }
-      return null
-    }) as unknown as AreaDot
 
   const grad = (id: string) => `url(#${id})`
 
@@ -216,7 +213,14 @@ const Plot = memo(function Plot({
             <stop offset="100%" stopColor={CHART_COLORS.views} stopOpacity={0} />
           </linearGradient>
         </defs>
-        <CartesianGrid stroke="#f1f2f4" vertical={false} />
+        {/* The grid lines at the ticks, placed by us: with the axis drawing no
+            text, recharts would keep only the top and the floor. The same
+            four heights on every tab. */}
+        <CartesianGrid
+          stroke="#f1f2f4"
+          vertical={false}
+          horizontalPoints={ticks.map((t) => PLOT_TOP + (1 - t / top) * (CHART_H - PLOT_TOP - XAXIS_H))}
+        />
         <XAxis
           dataKey="date"
           height={XAXIS_H}
@@ -228,10 +232,11 @@ const Plot = memo(function Plot({
         />
         {/*
           THE SCALE IS GIVEN, NOT GUESSED: a domain with headroom and the
-          ticks to draw on it, and a width that is the widest of them.
+          ticks the grid is drawn on, and a width that fits every metric's
+          widest label. The numbers themselves are AxisLabels, over the plot.
         */}
         <YAxis
-          tick={{ fontSize: 11, fill: "#9ca3af" }}
+          tick={false}
           tickLine={false}
           axisLine={false}
           domain={[0, top]}
@@ -239,15 +244,15 @@ const Plot = memo(function Plot({
           allowDataOverflow={false}
           interval={0}
           width={plotLeft}
-          tickFormatter={axisTick}
         />
         {/* The comparison, dashed and quieter, under the line it is compared with.
-            An Area with no fill, not a Line: an AreaChart draws only its areas,
-            so the dashed Line that was here was never on screen. */}
-        {compareKey && !isLoading && (
+            An Area with no fill, not a Line: an AreaChart draws only its areas.
+            Its own slot too, so it morphs with the line. */}
+        {compared && !isLoading && (
           <Area
+            key="p"
             type="monotone"
-            dataKey={compareKey as string}
+            dataKey="p"
             stroke={CHART_COLORS.compared}
             strokeWidth={1.5}
             strokeDasharray="5 4"
@@ -256,40 +261,62 @@ const Plot = memo(function Plot({
             dot={false}
             activeDot={false}
             isAnimationActive={lineAnimates}
-            animationDuration={600}
+            animationDuration={MORPH_MS}
+            animationEasing={MORPH_EASE as Easing}
+            animationBegin={0}
             name="compared"
           />
         )}
-        {/* Store series */}
-        {analyticsMode === "store" && (chartMetricFilter === "all" || chartMetricFilter === "views") && (
-          <Area type="monotone" dataKey="views" stroke={lineStroke(CHART_COLORS.views)} strokeWidth={2} fill={lineFill(grad("gradViolet"))} dot={lineDot(CHART_COLORS.views)} activeDot={false} name="views" isAnimationActive={lineAnimates} animationDuration={600} animationEasing="ease-out" animationBegin={60} />
-        )}
-        {analyticsMode === "store" && (chartMetricFilter === "all" || chartMetricFilter === "orders") && (
-          <Area type="monotone" dataKey="sales" stroke={lineStroke(CHART_COLORS.orders)} strokeWidth={2} fill={lineFill(grad("gradViolet"))} dot={lineDot(CHART_COLORS.orders)} activeDot={false} name="sales" isAnimationActive={lineAnimates} animationDuration={600} animationEasing="ease-out" animationBegin={60} />
-        )}
-        {analyticsMode === "store" && (chartMetricFilter === "all" || chartMetricFilter === "revenue") && (
-          <Area type="monotone" dataKey="revenue" stroke={lineStroke(CHART_COLORS.revenue)} strokeWidth={2} fill={lineFill(grad("gradViolet"))} dot={lineDot(CHART_COLORS.revenue)} activeDot={false} name="revenue" isAnimationActive={lineAnimates} animationDuration={600} animationEasing="ease-out" animationBegin={45} />
-        )}
-        {analyticsMode === "store" && chartMetricFilter === "conversion" && (
-          <Area type="monotone" dataKey="conversion" stroke={lineStroke(CHART_COLORS.conversion)} strokeWidth={2} fill={lineFill(grad("gradViolet"))} dot={lineDot(CHART_COLORS.conversion)} activeDot={false} name="conversion" isAnimationActive={lineAnimates} animationDuration={600} animationEasing="ease-out" animationBegin={60} />
-        )}
-        {/* OnePage series */}
-        {analyticsMode === "onepage" && (onePageChartFilter === "all" || onePageChartFilter === "views") && (
-          <Area type="monotone" dataKey="views" stroke={lineStroke(CHART_COLORS.views)} strokeWidth={2} fill={lineFill(grad("gradViolet"))} dot={lineDot(CHART_COLORS.views)} activeDot={false} name="views" connectNulls isAnimationActive={lineAnimates} animationDuration={600} animationEasing="ease-out" animationBegin={60} />
-        )}
-        {analyticsMode === "onepage" && (onePageChartFilter === "all" || onePageChartFilter === "clicks") && (
-          <Area type="monotone" dataKey="clicks" stroke={lineStroke(CHART_COLORS.clicks)} strokeWidth={2} fill={lineFill(grad("gradViolet"))} dot={lineDot(CHART_COLORS.clicks)} activeDot={false} name="clicks" connectNulls isAnimationActive={lineAnimates} animationDuration={600} animationEasing="ease-out" animationBegin={60} />
-        )}
-        {analyticsMode === "onepage" && (onePageChartFilter === "all" || onePageChartFilter === "subscribers") && (
-          <Area type="monotone" dataKey="subscribers" stroke={lineStroke(CHART_COLORS.subscribers)} strokeWidth={2} fill={lineFill(grad("gradViolet"))} dot={lineDot(CHART_COLORS.subscribers)} activeDot={false} name="subscribers" connectNulls isAnimationActive={lineAnimates} animationDuration={600} animationEasing="ease-out" animationBegin={45} />
-        )}
-        {analyticsMode === "onepage" && onePageChartFilter === "ctr" && (
-          <Area type="monotone" dataKey="ctr" stroke={lineStroke(CHART_COLORS.ctr)} strokeWidth={2} fill={lineFill(grad("gradViolet"))} dot={lineDot(CHART_COLORS.ctr)} activeDot={false} name="ctr" connectNulls isAnimationActive={lineAnimates} animationDuration={600} animationEasing="ease-out" animationBegin={60} />
-        )}
+        {/* The series, one slot per metric showing, each keeping its key across tabs. */}
+        {SLOTS.slice(0, slots).map((slot) => (
+          <Area
+            key={slot}
+            type="monotone"
+            dataKey={slot}
+            stroke={lineStroke(CHART_COLORS.views)}
+            strokeWidth={2}
+            fill={lineFill(grad("gradViolet"))}
+            dot={lineDot}
+            activeDot={false}
+            name={slot}
+            connectNulls
+            isAnimationActive={lineAnimates}
+            animationDuration={MORPH_MS}
+            animationEasing={MORPH_EASE as Easing}
+            animationBegin={0}
+          />
+        ))}
       </AreaChart>
     </ResponsiveContainer>
   )
 })
+
+type AxisKind = "count" | "money" | "percent"
+
+/** Every metric a set of tabs can show, and how its axis is written. */
+const METRICS_OF: Record<"store" | "onepage", Array<{ keys: Key[]; kind: AxisKind }>> = {
+  store: [
+    { keys: ["views", "prev_views"], kind: "count" },
+    { keys: ["sales", "prev_sales"], kind: "count" },
+    { keys: ["revenue", "prev_revenue"], kind: "money" },
+    { keys: ["conversion", "prev_conversion"], kind: "percent" },
+  ],
+  onepage: [
+    { keys: ["views"], kind: "count" },
+    { keys: ["clicks"], kind: "count" },
+    { keys: ["subscribers"], kind: "count" },
+    { keys: ["ctr"], kind: "percent" },
+  ],
+}
+
+const tickFor = (kind: AxisKind, step: number) => (v: number) =>
+  kind === "percent" ? compactPercent(v / 100) : kind === "money" ? compactMoney(v, step) : compactCount(v)
+
+function maxOf(data: AnalyticsChartData[], keys: Key[]): number {
+  let max = 0
+  for (const d of data) for (const k of keys) if (typeof d[k] === "number") max = Math.max(max, d[k] as number)
+  return max
+}
 
 /* ─── The chart: the plot, and the marker over it ───────────────────────── */
 
@@ -330,23 +357,45 @@ function AnalyticsChartWithTooltipInner({
   const isPercent = chartMetricFilter === "conversion" && analyticsMode === "store" ? true : analyticsMode === "onepage" && onePageChartFilter === "ctr"
   const isMoney = analyticsMode === "store" && chartMetricFilter === "revenue"
 
-  /* The scale, from every number the plot will draw. */
-  const scale = useMemo(() => {
-    let max = 0
-    for (const d of chartDisplayData) {
-      for (const k of visibleKeys) max = Math.max(max, typeof d[k] === "number" ? (d[k] as number) : 0)
-      if (compareKey && typeof d[compareKey] === "number") max = Math.max(max, d[compareKey] as number)
-    }
-    return niceScale(max, { integer: !isPercent && !isMoney, intervals: 3 })
-  }, [chartDisplayData, visibleKeys, compareKey, isPercent, isMoney])
+  /* The scale, from every number the plot will draw. Always three intervals. */
+  const scale = useMemo(
+    () => fixedScale(maxOf(chartDisplayData, compareKey ? [...visibleKeys, compareKey] : visibleKeys), !isPercent && !isMoney),
+    [chartDisplayData, visibleKeys, compareKey, isPercent, isMoney],
+  )
 
-  /** One formatter, used to draw the ticks and to measure how wide they are. */
+  /** One formatter, used to write the numbers on the axis and to measure how wide they are. */
   const axisTick = useCallback(
-    (v: number) => (isPercent ? compactPercent(v / 100) : isMoney ? compactMoney(v, scale.step) : compactCount(v)),
+    (v: number) => tickFor(isPercent ? "percent" : isMoney ? "money" : "count", scale.step)(v),
     [isPercent, isMoney, scale.step],
   )
-  /* The axis is as wide as the numbers on it, in the 11px they are drawn in. */
-  const plotLeft = useMemo(() => axisWidth(scale.ticks.map(axisTick), 11, 8), [scale.ticks, axisTick])
+  const axisLabels = useMemo(() => scale.ticks.map(axisTick), [scale.ticks, axisTick])
+  /*
+    ONE WIDTH FOR EVERY TAB. The widest label of every metric this mode can
+    show, measured in the 11px it is drawn in, so choosing Revenue after
+    Views does not move the plot sideways. It changes with the data, which
+    is a new period, never with the tab.
+  */
+  const plotLeft = useMemo(() => {
+    const widths = METRICS_OF[analyticsMode].map(({ keys, kind }) => {
+      const sc = fixedScale(maxOf(chartDisplayData, keys), kind === "count")
+      return axisWidth(sc.ticks.map(tickFor(kind, sc.step)), 11, 8)
+    })
+    return Math.max(axisWidth(axisLabels, 11, 8), ...widths)
+  }, [analyticsMode, chartDisplayData, axisLabels])
+
+  /* The plot's own series: the chosen metric in the first slot, whatever it is. */
+  const plotData = useMemo<PlotPoint[]>(
+    () =>
+      chartDisplayData.map((d) => {
+        const point: PlotPoint = { date: d.date }
+        visibleKeys.forEach((k, i) => {
+          point[SLOTS[i]] = typeof d[k] === "number" ? (d[k] as number) : 0
+        })
+        if (compareKey) point.p = typeof d[compareKey] === "number" ? (d[compareKey] as number) : undefined
+        return point
+      }),
+    [chartDisplayData, visibleKeys, compareKey],
+  )
 
   /* ── The marker ──────────────────────────────────────────────────────── */
   const n = chartDisplayData.length
@@ -408,6 +457,10 @@ function AnalyticsChartWithTooltipInner({
 
   const x = activeIndex !== null ? xOf(activeIndex) : 0
 
+  /* The end of the line: on the floor first, then with the line wherever it goes. */
+  const last = n > 1 && !isLoading ? chartDisplayData[n - 1] : null
+  const end = useEndDotMotion(last !== null && track > 0)
+
   return (
     <div
       ref={scrub.ref}
@@ -433,17 +486,15 @@ function AnalyticsChartWithTooltipInner({
       } as React.CSSProperties}
     >
       <Plot
-        data={chartDisplayData}
-        analyticsMode={analyticsMode}
-        chartMetricFilter={chartMetricFilter}
-        onePageChartFilter={onePageChartFilter}
+        data={plotData}
+        slots={Math.min(SLOTS.length, visibleKeys.length)}
         isLoading={isLoading}
-        compareKey={compareKey}
+        compared={!!compareKey}
         top={scale.top}
         ticks={scale.ticks}
         plotLeft={plotLeft}
-        axisTick={axisTick}
       />
+      <AxisLabels labels={axisLabels} top={PLOT_TOP} height={plotHeight} width={plotLeft} />
 
       {/*
         ONE STABLE THING FOR A FINGER TO LAND ON. A touch belongs to the node
@@ -458,6 +509,24 @@ function AnalyticsChartWithTooltipInner({
         height={CHART_H}
         style={{ position: "absolute", inset: 0, zIndex: 5, overflow: "visible", pointerEvents: "auto" }}
       >
+        {last && track > 0
+          ? visibleKeys.map((k) => (
+              <circle
+                key={`end-${k}`}
+                data-chart-end-dot
+                r={3.5}
+                cx={0}
+                cy={0}
+                fill={CHART_COLORS.views}
+                stroke="#fff"
+                strokeWidth={2}
+                style={{
+                  transform: `translate(${xOf(n - 1).toFixed(1)}px, ${yOf(end.armed && typeof last[k] === "number" ? (last[k] as number) : 0).toFixed(1)}px)`,
+                  transition: end.transition,
+                }}
+              />
+            ))
+          : null}
         {activePoint ? (
           <g data-chart-marker style={{ transform: `translateX(${x.toFixed(1)}px)`, transition, willChange: "transform" }}>
             <line x1={0} x2={0} y1={PLOT_TOP} y2={PLOT_TOP + plotHeight} stroke="#c4b5fd" strokeWidth={1} strokeDasharray="4 3" />

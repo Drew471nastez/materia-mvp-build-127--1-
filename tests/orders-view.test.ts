@@ -282,6 +282,14 @@ async function main() {
     check("opening an order does not ask the server", !/router\.push\(/.test(client))
     const list = read("app/app/orders/orders-list.tsx")
     check("the checkbox and Order columns are frozen", (list.match(/orders-sticky left-0/g) ?? []).length >= 2 && (list.match(/orders-sticky orders-edge left-10/g) ?? []).length >= 2)
+    const parts = read("app/app/orders/order-parts.tsx")
+    check("the metric lines are Storelib violet, the comparison grey and dashed",
+      /stroke="#8b5cf6"/.test(parts) && !/#2a78d6/i.test(parts) && /stroke="#b6bcc6"[\s\S]{0,80}strokeDasharray="3 3"/.test(parts))
+    check("the list and an order share one top bar, sticky, with a hairline and a soft shadow under it",
+      /export const topBar =\s*"sticky top-0[^"]*shadow-\[0_1px_0_rgba\(17,24,39,0\.06\),0_4px_12px_-8px_rgba\(17,24,39,0\.12\)\]/.test(parts)
+        && /className=\{cn\(topBar,/.test(list) && /<div className=\{topBar\}>/.test(read("app/app/orders/order-detail.tsx")))
+    check("no comparison control; the changes are always against the period before",
+      !/ComparePicker/.test(list) && /const compare = PREVIOUS_PERIOD/.test(client))
     check("the export does not let a cell run as a formula", /\^\[=\+\\-@\\t\\r\]/.test(read("lib/orders/export-csv.ts")))
     check("  and the dialog writes its file with that same function", /from "@\/lib\/orders\/export-csv"/.test(read("app/app/orders/export-dialog.tsx")))
   }
