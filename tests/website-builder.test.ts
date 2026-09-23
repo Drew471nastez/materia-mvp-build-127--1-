@@ -285,6 +285,33 @@ section("The page")
   check("mutations refresh the server's view rather than patching a client copy", /router\.refresh\(\)/.test(client) && /useTransition/.test(client))
   check("the page uses the shared action menu, dialogs and buttons", /ResponsiveActionMenu/.test(client) && /AlertDialog/.test(client) && /from "@\/components\/ui\/button"/.test(client))
   check("the primary action is Storelib dark, not a purple button", /Edit website/.test(client) && !/bg-\[#8b5cf6\]/.test(client))
+  {
+    /*
+      THE STRIP AND THE COVER. The tabs were glued into the top of the card
+      and the cover was cut flush with the card's edge, square on two sides.
+      Now the strip is its own bar above the card, and the cover has its own
+      12px corners on all four sides, with depth.
+    */
+    const live = client.slice(client.indexOf('<section aria-labelledby="live-heading"'), client.indexOf("{/* ── Library"))
+    check("the strip is its own bar above the card, not tabs inside it",
+      live.indexOf("<WebsiteTabs") > 0 && live.indexOf("<WebsiteTabs") < live.indexOf('className="overflow-hidden rounded-2xl border') &&
+        !/<nav/.test(live))
+    const strip = client.slice(client.indexOf("export function WebsiteTabs"), client.indexOf("const COVER_FRAME"))
+    check("  one white bar in the card style, cut into cells by hairlines",
+      /rounded-2xl border border-\[#e5e7eb\]\/60 bg-white shadow-\[0_1px_3px_rgba\(0,0,0,0\.04\)\]/.test(strip) && /divide-x divide-\[#eceef1\]/.test(strip))
+    check("  each cell a button, the active one marked by a rule along its foot and a faint fill",
+      /<button/.test(strip) && /after:h-\[2px\]/.test(strip) && /bg-\[#fafafb\] text-\[#1a1a2e\] after:opacity-100/.test(strip) && /aria-current=\{here \? "page" : undefined\}/.test(strip))
+    check("  on a phone it scrolls sideways with no scrollbar, keeping the active cell in view",
+      /overflow-x-auto/.test(strip) && /\[scrollbar-width:none\]/.test(strip) && /\[&::-webkit-scrollbar\]:hidden/.test(strip) &&
+        /row\.scrollTo\(\{ left \}\)/.test(strip) && !/scrollIntoView\(/.test(strip.replace(/\/\*[\s\S]*?\*\//g, "")))
+    const frame = /const COVER_FRAME =\s*"([^"]+)"/.exec(client)?.[1] ?? ""
+    check("the cover is clipped to 12px corners on all four sides",
+      /\brounded-\[12px\]/.test(frame) && /\boverflow-hidden\b/.test(frame) && /className=\{COVER_FRAME\}/.test(live))
+    check("  with a hairline drawn over the picture and a soft two layer shadow",
+      /after:shadow-\[inset_0_0_0_1px_rgba\(15,23,42,0\.08\)\]/.test(frame) && /shadow-\[0_1px_2px_rgba\(15,23,42,0\.06\),0_10px_28px_-14px_rgba\(15,23,42,0\.22\)\]/.test(frame))
+    check("  set into the card, not cut flush with its edge", /<div className="min-w-0 p-4 pb-3 lg:pb-4 lg:pr-2">/.test(live))
+    check("the old tab rule is gone from the stylesheet", !/\.wb-tab\b/.test(read("app/globals.css")))
+  }
   /**
    * The rule is that the live site opens in a new tab from a REAL anchor —
    * never `window.open`, which a pop-up blocker eats and a middle-click
