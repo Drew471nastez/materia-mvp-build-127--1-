@@ -1,241 +1,323 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { ownedOrderLines, type OwnedLine } from "@/lib/orders/owned"
+import { signOrderLink, verifyOrderLink } from "@/lib/orders/signed-link"
+import { isTimeZone } from "@/lib/orders/time-zone"
 
 export const runtime = "nodejs"
 
+/**
+ * ===========================================================================
+ *  AN ORDER'S INVOICE, AS A PDF
+ * ===========================================================================
+ * GET  ?orderId=<id>&tz=<zone>   signed in: the creator's own order only.
+ * GET  ?t=<signed link>          the phone app's system browser sheet, which
+ *                                has no session (lib/platform/save-file.ts).
+ *                                The link names the creator and the order,
+ *                                and ownership is checked again here.
+ * POST { orderId, disposition, timeZone }
+ *                                signed in: answers with that link.
+ *
+ * ONE INVOICE PER ORDER. A basket is one payment and one order on the
+ * Orders page, so its invoice lists every product in it, rather than a PDF
+ * per product that each claim to be the whole sale.
+ *
+ * It is the buyer's invoice: what they bought, what they paid, what came
+ * back. What Storelib kept and what the creator receives are on the order's
+ * page, not on a document the creator may forward to a customer.
+ */
+
+type Disposition = "inline" | "attachment"
+
+async function signedInCreator(): Promise<string | null> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return null
+  const admin = createAdminClient()
+  const { data: creator } = await admin.from("creators").select("id").eq("user_id", user.id).maybeSingle()
+  return (creator as { id: string } | null)?.id ?? null
+}
+
+export async function POST(request: Request) {
+  const creatorId = await signedInCreator()
+  if (!creatorId) return NextResponse.json({ error: "Sign in again to download the invoice." }, { status: 401 })
+
+  const body = await request.json().catch(() => null)
+  const admin = createAdminClient()
+  const lines = await ownedOrderLines(admin, creatorId, body?.orderId)
+  if (!lines) return NextResponse.json({ error: "This order was not found." }, { status: 404 })
+
+  const disposition: Disposition = body?.disposition === "inline" ? "inline" : "attachment"
+  const zone = isTimeZone(body?.timeZone) ? body.timeZone : "UTC"
+  const token = signOrderLink({ k: "invoice", c: creatorId, o: lines[0].id, z: zone, d: disposition })
+  if (!token) return NextResponse.json({ error: "Invoices are not available right now." }, { status: 503 })
+
+  const origin = new URL(request.url).origin
+  return NextResponse.json({ url: `${origin}/api/invoice?t=${encodeURIComponent(token)}` }, { headers: { "Cache-Control": "no-store" } })
+}
+
 export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url)
+  const admin = createAdminClient()
+
+  let creatorId: string | null
+  let orderId: string | null
+  let zone = "UTC"
+  let disposition: Disposition = "attachment"
+
+  const signed = searchParams.get("t")
+  if (signed) {
+    const link = verifyOrderLink(signed)
+    if (!link || link.k !== "invoice") {
+      return new NextResponse("This link has expired. Download the invoice again from the order.", {
+        status: 410,
+        headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" },
+      })
+    }
+    creatorId = link.c
+    orderId = link.o
+    zone = isTimeZone(link.z) ? link.z : "UTC"
+    disposition = link.d === "inline" ? "inline" : "attachment"
+  } else {
+    creatorId = await signedInCreator()
+    if (!creatorId) return NextResponse.json({ error: "Sign in again to download the invoice." }, { status: 401 })
+    orderId = searchParams.get("orderId")
+    const tz = searchParams.get("tz")
+    if (isTimeZone(tz)) zone = tz
+  }
+
+  const lines = await ownedOrderLines(admin, creatorId, orderId)
+  if (!lines) return NextResponse.json({ error: "This order was not found." }, { status: 404 })
+
   try {
-    const { searchParams } = new URL(request.url)
-    const orderId = searchParams.get("orderId")
-
-    if (!orderId) {
-      return NextResponse.json({ error: "Order ID is required" }, { status: 400 })
+    const [{ data: creator }, logo] = await Promise.all([
+      admin.from("creators").select("username, user_id, support_email").eq("id", creatorId).maybeSingle(),
+      storelibLogo(),
+    ])
+    let storeName = (creator?.username as string) || "Storelib"
+    if (creator?.user_id) {
+      const { data: profile } = await admin.from("profiles").select("display_name").eq("id", creator.user_id).maybeSingle()
+      if (profile?.display_name?.trim()) storeName = profile.display_name.trim()
     }
 
-    const supabase = await createClient()
-    const adminSupabase = createAdminClient()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-
-    const { data: creator } = await adminSupabase
-      .from("creators")
-      .select("id, username, default_currency")
-      .eq("user_id", user.id)
-      .single()
-
-    if (!creator) return NextResponse.json({ error: "Creator not found" }, { status: 404 })
-
-    // Fetch order with product info
-    const { data: order, error: orderError } = await adminSupabase
-      .from("orders")
-      .select("*, product:products(id, title, creator_id)")
-      .eq("id", orderId)
-      .single()
-
-    if (orderError || !order) {
-      return NextResponse.json({ error: "Order not found" }, { status: 404 })
-    }
-
-    // Verify this order belongs to the creator's product
-    if (order.product?.creator_id !== creator.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
-    }
-
-    const currency = creator.default_currency || "USD"
-    const storeName = creator.username || "Storelib"
-
-    const formatPrice = (cents: number) => {
-      return new Intl.NumberFormat("en-US", {
-        style: "currency",
-        currency,
-      }).format(cents / 100)
-    }
-
-    const invoiceDate = new Date(order.created_at).toLocaleDateString("en-US", {
-      year: "numeric", month: "long", day: "numeric",
+    const pdf = await drawInvoice({
+      lines,
+      storeName,
+      supportEmail: (creator?.support_email as string | null)?.trim() || null,
+      zone,
+      logo,
     })
-    const invoiceTime = new Date(order.created_at).toLocaleTimeString("en-US", {
-      hour: "numeric", minute: "2-digit",
-    })
-
-    const isRefunded = order.status === "refunded"
-    const refundDate = order.refunded_at
-      ? new Date(order.refunded_at).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })
-      : null
-    const refundTime = order.refunded_at
-      ? new Date(order.refunded_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
-      : null
-
-    // Fetch Storelib logo for invoice branding
-    let logoPngBuffer: Buffer | null = null
-    try {
-      const logoUrl = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/bimi-svg-tiny-12-ps%20(1).svg"
-      const logoResponse = await fetch(logoUrl)
-      if (logoResponse.ok) {
-        const svgBuffer = Buffer.from(await logoResponse.arrayBuffer())
-        const sharpMod = await import("sharp")
-        const sharpFn = sharpMod.default || sharpMod
-        logoPngBuffer = await (sharpFn as any)(svgBuffer).resize(80, 80, { fit: "inside" }).png().toBuffer()
-      }
-    } catch (logoErr) {
-      console.error("[Invoice] Logo fetch/convert failed:", logoErr)
-    }
-
-    // Generate PDF using PDFKit
-    // @ts-ignore - pdfkit CJS module
-    const pdfkitModule = await import("pdfkit")
-    const PDFDocument = pdfkitModule.default || pdfkitModule
-
-    const doc = new PDFDocument({ size: "A4", margin: 50 })
-    const chunks: Buffer[] = []
-
-    doc.on("data", (chunk: Buffer) => chunks.push(chunk))
-
-    const pdfReady = new Promise<Buffer>((resolve) => {
-      doc.on("end", () => resolve(Buffer.concat(chunks)))
-    })
-
-    // Header — Storelib logo next to Store name + INVOICE
-    if (logoPngBuffer) {
-      try {
-        const logoHeight = 26
-        doc.image(logoPngBuffer, 50, 48, { height: logoHeight })
-        doc.fontSize(17).font("Helvetica-Bold").fillColor("#1a1a2e").text(storeName, 50 + logoHeight + 8, 50)
-      } catch {
-        doc.fontSize(22).font("Helvetica-Bold").fillColor("#1a1a2e").text(storeName, 50, 50)
-      }
-    } else {
-      doc.fontSize(22).font("Helvetica-Bold").fillColor("#1a1a2e").text(storeName, 50, 50)
-    }
-
-    doc.fontSize(28).font("Helvetica-Bold").fillColor("#9ca3af").text("INVOICE", 400, 50, { align: "right" })
-
-    // Status badge next to INVOICE
-    if (isRefunded) {
-      doc.roundedRect(460, 82, 85, 20, 4).fillColor("#fef2f2").fill()
-      doc.fontSize(9).font("Helvetica-Bold").fillColor("#dc2626").text("REFUNDED", 467, 87, { width: 71, align: "center" })
-    } else {
-      doc.roundedRect(490, 82, 55, 20, 4).fillColor("#ecfdf5").fill()
-      doc.fontSize(9).font("Helvetica-Bold").fillColor("#059669").text("PAID", 497, 87, { width: 41, align: "center" })
-    }
-
-    // Divider
-    doc.moveTo(50, 110).lineTo(545, 110).strokeColor("#e5e7eb").lineWidth(1).stroke()
-
-    // Invoice details grid — 2x2 layout
-    const metaY = 125
-    doc.fontSize(9).font("Helvetica-Bold").fillColor("#9ca3af")
-    doc.text("INVOICE NUMBER", 50, metaY)
-    doc.text("DATE", 300, metaY)
-
-    doc.fontSize(12).font("Helvetica").fillColor("#1a1a2e")
-    doc.text(`#INV-${order.id.slice(0, 8).toUpperCase()}`, 50, metaY + 15)
-    doc.text(`${invoiceDate}`, 300, metaY + 15)
-    doc.fontSize(10).fillColor("#6b7280").text(`${invoiceTime}`, 300, metaY + 30)
-
-    const metaY2 = metaY + 50
-    doc.fontSize(9).font("Helvetica-Bold").fillColor("#9ca3af")
-    doc.text("CUSTOMER EMAIL", 50, metaY2)
-    doc.text("PAYMENT METHOD", 300, metaY2)
-
-    doc.fontSize(12).font("Helvetica").fillColor("#1a1a2e")
-    doc.text(order.customer_email || order.buyer_email || "N/A", 50, metaY2 + 15)
-    doc.text("Stripe", 300, metaY2 + 15)
-
-    // Buyer name if available
-    const buyerName = [order.buyer_first_name, order.buyer_last_name].filter(Boolean).join(" ")
-    const metaY3 = metaY2 + 45
-    if (buyerName) {
-      doc.fontSize(9).font("Helvetica-Bold").fillColor("#9ca3af")
-      doc.text("CUSTOMER NAME", 50, metaY3)
-      doc.fontSize(12).font("Helvetica").fillColor("#1a1a2e")
-      doc.text(buyerName, 50, metaY3 + 15)
-    }
-
-    doc.fontSize(9).font("Helvetica-Bold").fillColor("#9ca3af")
-    doc.text("ORDER ID", 300, metaY3)
-    doc.fontSize(10).font("Helvetica").fillColor("#6b7280")
-    doc.text(order.id, 300, metaY3 + 15)
-
-    // Line items table
-    const tableY = metaY3 + 50
-    doc.moveTo(50, tableY).lineTo(545, tableY).strokeColor("#e5e7eb").lineWidth(1.5).stroke()
-
-    doc.fontSize(9).font("Helvetica-Bold").fillColor("#6b7280")
-    doc.text("ITEM", 50, tableY + 10)
-    doc.text("QTY", 380, tableY + 10, { width: 40, align: "center" })
-    doc.text("AMOUNT", 430, tableY + 10, { align: "right", width: 115 })
-
-    doc.moveTo(50, tableY + 28).lineTo(545, tableY + 28).strokeColor("#f3f4f6").lineWidth(1).stroke()
-
-    // Item row
-    doc.fontSize(12).font("Helvetica").fillColor("#1a1a2e")
-    doc.text(order.product?.title || "Product", 50, tableY + 38, { width: 320 })
-    doc.text("1", 380, tableY + 38, { width: 40, align: "center" })
-    doc.text(formatPrice(order.amount_cents || 0), 430, tableY + 38, { align: "right", width: 115 })
-
-    // Totals section
-    const totalsY = tableY + 80
-    doc.moveTo(330, totalsY).lineTo(545, totalsY).strokeColor("#f3f4f6").lineWidth(1).stroke()
-
-    doc.fontSize(11).font("Helvetica").fillColor("#6b7280")
-    doc.text("Subtotal", 330, totalsY + 12)
-    doc.fillColor("#1a1a2e").text(formatPrice(order.amount_cents || 0), 430, totalsY + 12, { align: "right", width: 115 })
-
-    doc.fillColor("#6b7280").text("Platform Fee", 330, totalsY + 34)
-    doc.fillColor("#1a1a2e").text(`-${formatPrice(order.fee_cents || 0)}`, 430, totalsY + 34, { align: "right", width: 115 })
-
-    doc.moveTo(330, totalsY + 56).lineTo(545, totalsY + 56).strokeColor("#1a1a2e").lineWidth(1.5).stroke()
-
-    doc.fontSize(14).font("Helvetica-Bold").fillColor("#1a1a2e")
-    doc.text("Net Earnings", 330, totalsY + 66)
-    doc.text(formatPrice((order.amount_cents || 0) - (order.fee_cents || 0)), 430, totalsY + 66, { align: "right", width: 115 })
-
-    // Refund section
-    let currentY = totalsY + 105
-    if (isRefunded) {
-      doc.roundedRect(50, currentY, 495, 75, 6).fillColor("#fef2f2").fill()
-
-      doc.fontSize(12).font("Helvetica-Bold").fillColor("#dc2626")
-      doc.text("Refund Information", 65, currentY + 12)
-
-      doc.fontSize(10).font("Helvetica").fillColor("#7f1d1d")
-      doc.text(`Amount Refunded: ${formatPrice(order.refund_amount_cents || order.amount_cents)}`, 65, currentY + 30)
-      if (refundDate) doc.text(`Refund Date: ${refundDate}${refundTime ? ` at ${refundTime}` : ""}`, 65, currentY + 46)
-      if (order.refund_reason) doc.text(`Reason: ${order.refund_reason}`, 65, currentY + 62)
-
-      currentY += 95
-    }
-
-    // Footer
-    currentY = Math.max(currentY, 660)
-    doc.moveTo(50, currentY).lineTo(545, currentY).strokeColor("#e5e7eb").lineWidth(1).stroke()
-
-    doc.fontSize(10).font("Helvetica").fillColor("#9ca3af")
-    doc.text("Thank you for your purchase.", 50, currentY + 15, { align: "center", width: 495 })
-    doc.text(`${storeName} — Powered by Storelib`, 50, currentY + 30, { align: "center", width: 495 })
-    doc.fontSize(8).text(`Generated on ${new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}`, 50, currentY + 46, { align: "center", width: 495 })
-
-    doc.end()
-    const pdfBuffer = await pdfReady
-
-    return new NextResponse(pdfBuffer as unknown as BodyInit, {
+    const name = `invoice-${lines[0].id.slice(0, 8)}.pdf`
+    return new NextResponse(pdf as unknown as BodyInit, {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="invoice-${order.id.slice(0, 8)}.pdf"`,
-        "Content-Length": pdfBuffer.length.toString(),
+        "Content-Disposition": `${disposition}; filename="${name}"`,
+        "Content-Length": pdf.length.toString(),
+        "Cache-Control": "private, no-store",
+        "Referrer-Policy": "no-referrer",
       },
     })
-  } catch (error: any) {
-    console.error("[Invoice PDF Error]", error)
-    return NextResponse.json(
-      { error: error.message || "Failed to generate invoice" },
-      { status: 500 }
-    )
+  } catch (error) {
+    console.error("[invoice] could not draw the PDF:", error instanceof Error ? error.message : "unknown error")
+    return NextResponse.json({ error: "The invoice could not be made. Try again." }, { status: 500 })
   }
+}
+
+/* ─── The drawing ─────────────────────────────────────────────────────── */
+
+const LOGO_URL =
+  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/bimi-svg-tiny-12-ps%20(1).svg"
+
+/** The mark beside the store's name. A slow or missing logo never holds up the invoice. */
+async function storelibLogo(): Promise<Buffer | null> {
+  try {
+    const res = await fetch(LOGO_URL, { signal: AbortSignal.timeout(2500) })
+    if (!res.ok) return null
+    // @ts-ignore - sharp arrives with Next.js as an optional dependency, without types here
+    const sharpMod: any = await import("sharp")
+    const sharp = sharpMod.default || sharpMod
+    return await sharp(Buffer.from(await res.arrayBuffer())).resize(80, 80, { fit: "inside" }).png().toBuffer()
+  } catch {
+    return null
+  }
+}
+
+function paymentMethod(lines: OwnedLine[], totalCents: number): string {
+  if (totalCents === 0) return "No payment needed"
+  const line = lines[0]
+  if (line.card_brand) {
+    const brand = line.card_brand.replace(/^./, (c) => c.toUpperCase())
+    return line.card_last4 ? `${brand} ending ${line.card_last4}` : brand
+  }
+  if (line.payment_method === "paypal") return "PayPal"
+  if (line.payment_method && line.payment_method !== "card") return line.payment_method.replace(/_/g, " ")
+  return "Card"
+}
+
+function refundedOf(line: OwnedLine): number {
+  if (line.status !== "refunded") return 0
+  const whole = (line.amount_cents || 0) + (line.tip_cents || 0)
+  const recorded = line.refund_amount_cents
+  return typeof recorded === "number" && recorded > 0 ? Math.min(recorded, whole) : whole
+}
+
+async function drawInvoice({
+  lines,
+  storeName,
+  supportEmail,
+  zone,
+  logo,
+}: {
+  lines: OwnedLine[]
+  storeName: string
+  supportEmail: string | null
+  zone: string
+  logo: Buffer | null
+}): Promise<Buffer> {
+  const first = lines[0]
+  const currency = String((first as { currency?: string | null }).currency || "usd").toUpperCase()
+  const money = (cents: number) => {
+    try {
+      return new Intl.NumberFormat("en-US", { style: "currency", currency }).format(cents / 100)
+    } catch {
+      return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(cents / 100)
+    }
+  }
+  const day = (iso: string) => new Intl.DateTimeFormat("en-US", { timeZone: zone, year: "numeric", month: "long", day: "numeric" }).format(new Date(iso))
+  const time = (iso: string) => new Intl.DateTimeFormat("en-US", { timeZone: zone, hour: "numeric", minute: "2-digit" }).format(new Date(iso))
+
+  const subtotal = lines.reduce((n, l) => n + (l.amount_cents || 0), 0)
+  const tip = lines.reduce((n, l) => n + (l.tip_cents || 0), 0)
+  const total = subtotal + tip
+  const refunded = lines.reduce((n, l) => n + refundedOf(l), 0)
+  const pending = lines.some((l) => l.status === "pending")
+  const status = pending ? "PENDING" : refunded >= total && refunded > 0 ? "REFUNDED" : refunded > 0 ? "PARTLY REFUNDED" : "PAID"
+  const buyerName = [first.buyer_first_name, first.buyer_last_name].map((s) => (s || "").trim()).filter(Boolean).join(" ")
+  const buyerEmail = lines.map((l) => l.buyer_email || l.customer_email).find(Boolean) || ""
+
+  // @ts-ignore - pdfkit ships CommonJS without types
+  const pdfkitModule = await import("pdfkit")
+  const PDFDocument = (pdfkitModule as any).default || pdfkitModule
+  const doc = new PDFDocument({ size: "A4", margin: 50, info: { Title: `Invoice ${first.id.slice(0, 8).toUpperCase()}`, Author: storeName } })
+  const chunks: Buffer[] = []
+  doc.on("data", (chunk: Buffer) => chunks.push(chunk))
+  const done = new Promise<Buffer>((resolve) => doc.on("end", () => resolve(Buffer.concat(chunks))))
+
+  const INK = "#1a1a2e"
+  const MUTED = "#6b7280"
+  const FAINT = "#9ca3af"
+  const RULE = "#e5e7eb"
+  const L = 50
+  const R = 545
+
+  /* Header: the store, and what this is. */
+  let nameX = L
+  if (logo) {
+    try {
+      doc.image(logo, L, 47, { height: 24 })
+      nameX = L + 32
+    } catch {
+      nameX = L
+    }
+  }
+  doc.font("Helvetica-Bold").fontSize(17).fillColor(INK).text(storeName, nameX, 50, { width: 300, lineBreak: false, ellipsis: true })
+  doc.font("Helvetica-Bold").fontSize(24).fillColor(INK).text("Invoice", 345, 46, { width: R - 345, align: "right" })
+
+  const tone =
+    status === "PAID" ? { bg: "#ecfdf3", fg: "#15803d" } : status === "PENDING" ? { bg: "#fff7e0", fg: "#a16207" } : { bg: "#fef2f2", fg: "#b91c1c" }
+  doc.font("Helvetica-Bold").fontSize(8.5)
+  const badgeW = doc.widthOfString(status) + 16
+  doc.roundedRect(R - badgeW, 80, badgeW, 18, 4).fillColor(tone.bg).fill()
+  doc.fillColor(tone.fg).text(status, R - badgeW, 85, { width: badgeW, align: "center" })
+
+  doc.moveTo(L, 112).lineTo(R, 112).strokeColor(RULE).lineWidth(1).stroke()
+
+  /* Who, when, how. */
+  const label = (text: string, x: number, y: number) => doc.font("Helvetica-Bold").fontSize(8).fillColor(FAINT).text(text.toUpperCase(), x, y, { characterSpacing: 0.6 })
+  const value = (text: string, x: number, y: number, width = 230) => doc.font("Helvetica").fontSize(11).fillColor(INK).text(text, x, y, { width })
+  const small = (text: string, x: number, y: number, width = 230) => doc.font("Helvetica").fontSize(9.5).fillColor(MUTED).text(text, x, y, { width })
+
+  let y = 128
+  label("Invoice number", L, y)
+  label("Date", 300, y)
+  value(`INV-${first.id.slice(0, 8).toUpperCase()}`, L, y + 13)
+  value(day(first.created_at), 300, y + 13)
+  small(time(first.created_at), 300, y + 28)
+
+  y += 52
+  label("Billed to", L, y)
+  label("Payment", 300, y)
+  value(buyerName || buyerEmail || "Customer", L, y + 13)
+  if (buyerName && buyerEmail) small(buyerEmail, L, y + 28)
+  value(paymentMethod(lines, total), 300, y + 13)
+  small(`Order ${first.id}`, 300, y + 28, 245)
+
+  /* What was bought. */
+  y += 64
+  doc.moveTo(L, y).lineTo(R, y).strokeColor(RULE).lineWidth(1).stroke()
+  doc.font("Helvetica-Bold").fontSize(8).fillColor(FAINT)
+  doc.text("ITEM", L, y + 10, { characterSpacing: 0.6 })
+  doc.text("QTY", 380, y + 10, { width: 40, align: "center", characterSpacing: 0.6 })
+  doc.text("AMOUNT", 430, y + 10, { width: R - 430, align: "right", characterSpacing: 0.6 })
+  y += 28
+  doc.moveTo(L, y).lineTo(R, y).strokeColor("#f1f2f4").lineWidth(1).stroke()
+  y += 10
+
+  for (const line of lines) {
+    if (y > 700) {
+      doc.addPage()
+      y = 50
+    }
+    const title = line.product?.title || "Product"
+    doc.font("Helvetica").fontSize(11).fillColor(INK)
+    const titleHeight = doc.heightOfString(title, { width: 320 })
+    doc.text(title, L, y, { width: 320 })
+    doc.text("1", 380, y, { width: 40, align: "center" })
+    doc.text(money(line.amount_cents || 0), 430, y, { width: R - 430, align: "right" })
+    let rowBottom = y + titleHeight
+    const notes = [line.variant_name, line.status === "refunded" ? `Refunded ${money(refundedOf(line))}` : null].filter(Boolean).join(", ")
+    if (notes) {
+      doc.font("Helvetica").fontSize(9.5).fillColor(MUTED).text(notes, L, rowBottom + 2, { width: 320 })
+      rowBottom += 14
+    }
+    y = rowBottom + 12
+  }
+
+  /* The sums. */
+  if (y > 640) {
+    doc.addPage()
+    y = 50
+  }
+  y += 4
+  doc.moveTo(330, y).lineTo(R, y).strokeColor("#f1f2f4").lineWidth(1).stroke()
+  y += 12
+  const sum = (text: string, amount: string, strong = false) => {
+    doc.font(strong ? "Helvetica-Bold" : "Helvetica").fontSize(strong ? 12 : 10.5).fillColor(strong ? INK : MUTED).text(text, 330, y)
+    doc.fillColor(INK).text(amount, 430, y, { width: R - 430, align: "right" })
+    y += strong ? 22 : 19
+  }
+  sum("Subtotal", money(subtotal))
+  if (tip > 0) sum("Tip", money(tip))
+  sum("Total", money(total), true)
+  if (refunded > 0) {
+    const refundDate = lines.map((l) => l.refunded_at).filter((d): d is string => Boolean(d)).sort().at(-1)
+    sum(refundDate ? `Refunded ${day(refundDate)}` : "Refunded", `-${money(refunded)}`)
+  }
+  doc.moveTo(330, y).lineTo(R, y).strokeColor(INK).lineWidth(1.2).stroke()
+  y += 10
+  sum(pending ? "Amount due" : "Amount paid", money(pending ? total : Math.max(0, total - refunded)), true)
+
+  /* Footer. */
+  const footY = Math.max(y + 40, 700)
+  doc.moveTo(L, footY).lineTo(R, footY).strokeColor(RULE).lineWidth(1).stroke()
+  doc.font("Helvetica").fontSize(9.5).fillColor(FAINT)
+  doc.text(supportEmail ? `Questions about this order? Write to ${supportEmail}.` : "Thank you for your order.", L, footY + 14, { width: R - L, align: "center" })
+  doc.text(`${storeName}, sold on Storelib`, L, footY + 29, { width: R - L, align: "center" })
+
+  doc.end()
+  return done
 }

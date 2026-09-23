@@ -7,8 +7,10 @@
  * Which orders (this page, all of them, the ones ticked, the ones the search
  * and filters match, or a range of dates) and which kind of file. Every
  * order is already on the page (app/app/orders/sales/page.tsx reads them
- * all), so the file is written here in the browser, with nothing sent
- * anywhere.
+ * all), so in a browser the file is written here, with nothing sent
+ * anywhere. The phone app cannot save a file written in the page, so there
+ * the server writes the same file behind a short lived link
+ * (lib/platform/save-file.ts, app/api/app/orders/export).
  *
  * Two kinds of CSV, because they are read by different things:
  *   for spreadsheets   a byte order mark and CRLF line ends, which is what
@@ -21,79 +23,16 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 import { RangePanel } from "@/components/app/date-range-picker"
 import { cn } from "@/lib/utils"
 import { boundsOf, presetRange, rangeLabel, todayIn, valueLabel, type RangeValue } from "@/lib/date-range/range"
-import { FULFILLMENT_LABEL, PAYMENT_LABEL, SOURCE_LABEL, type Order } from "@/lib/orders/order-view"
+import type { Order } from "@/lib/orders/order-view"
+import { CSV_HEADER, csvCell, encodeRuns, ordersCsv, type ExportFormat } from "@/lib/orders/export-csv"
+import { saveFile, savedMessage } from "@/lib/platform/save-file"
 import { buttonPrimary, buttonSecondary } from "./order-parts"
 
 export type ExportScope = "page" | "all" | "selected" | "matching" | "dates"
-export type ExportFormat = "spreadsheet" | "plain"
-
-/** A cell a spreadsheet would read as a formula is written as text. */
-export function csvCell(value: string | number): string {
-  let s = String(value ?? "")
-  if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`
-  return `"${s.replace(/"/g, '""')}"`
-}
-
-export const CSV_HEADER = [
-  "Order",
-  "Date",
-  "Customer",
-  "Email",
-  "Source",
-  "Items",
-  "Products",
-  "Total",
-  "Refunded",
-  "Payment status",
-  "Fulfillment status",
-  "Delivery status",
-]
-
-/** The file's text. Pure, so tests/orders-export.test.ts can read it. */
-export function ordersCsv(orders: Order[], timeZone: string, format: ExportFormat): string {
-  const date = new Intl.DateTimeFormat("en-CA", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hourCycle: "h23",
-  })
-  const lines = orders.map((o) =>
-    [
-      `#${o.number}`,
-      date.format(new Date(o.createdAt)).replace(",", ""),
-      o.customerName || "",
-      o.customerEmail || "",
-      o.source ? SOURCE_LABEL[o.source] : "",
-      o.itemCount,
-      o.lines.map((l) => l.product?.title || "").join("; "),
-      (o.totalCents / 100).toFixed(2),
-      (o.refundedCents / 100).toFixed(2),
-      PAYMENT_LABEL[o.payment],
-      FULFILLMENT_LABEL[o.fulfillment],
-      o.delivery === "delivered" ? "Delivered" : o.delivery === "failed" ? "Not delivered" : "",
-    ]
-      .map(csvCell)
-      .join(","),
-  )
-  const eol = format === "spreadsheet" ? "\r\n" : "\n"
-  const body = [CSV_HEADER.map(csvCell).join(","), ...lines].join(eol) + eol
-  return format === "spreadsheet" ? `﻿${body}` : body
-}
-
-function download(text: string, name: string) {
-  const blob = new Blob([text], { type: "text/csv;charset=utf-8" })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement("a")
-  a.href = url
-  a.download = name
-  document.body.appendChild(a)
-  a.click()
-  a.remove()
-  setTimeout(() => URL.revokeObjectURL(url), 1000)
-}
+export type { ExportFormat }
+/* The file itself is written in lib/orders/export-csv.ts, where the server
+   can write the same one for the phone app. Named here too, as before. */
+export { csvCell, CSV_HEADER, ordersCsv }
 
 function Radio({
   checked,
@@ -191,9 +130,28 @@ export function ExportOrdersDialog({
     if (chosen.length === 0) return
     const stamp = today
     const name = scope === "dates" ? `orders-${dates.start}-to-${dates.end}.csv` : `orders-${stamp}.csv`
-    download(ordersCsv(chosen, timeZone, format), name)
-    onDone(`${chosen.length} order${chosen.length === 1 ? "" : "s"} exported`)
+    const count = `${chosen.length} order${chosen.length === 1 ? "" : "s"}`
+    const numbers = encodeRuns(chosen.map((o) => o.number))
     onClose()
+    /* A browser saves the file written here; the phone app opens a link the
+       server writes the same file behind (lib/platform/save-file.ts). */
+    saveFile({
+      name,
+      file: async () => new Blob([ordersCsv(chosen, timeZone, format)], { type: "text/csv;charset=utf-8" }),
+      link: async () => {
+        const res = await fetch("/api/app/orders/export", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ numbers, format, timeZone, name }),
+        })
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok || !data?.url) throw new Error(data?.error || "The export could not be made. Try again.")
+        return data.url as string
+      },
+    }).then(
+      (outcome) => onDone(outcome === "downloaded" ? `${count} exported` : savedMessage(outcome, "Orders file")),
+      (error) => onDone((error as Error)?.message || "The export could not be made. Try again."),
+    )
   }
 
   const plural = (n: number) => `${n} order${n === 1 ? "" : "s"}`

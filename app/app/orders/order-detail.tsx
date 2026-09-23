@@ -1,24 +1,59 @@
 "use client"
 
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ *  ONE ORDER, OPENED OVER THE LIST
+ * ═══════════════════════════════════════════════════════════════════════════
+ * What a creator comes here for, in the order they look for it: what was
+ * bought and whether the buyer has it, what was paid and what they keep, who
+ * bought it, and what happened since. Every action on it goes to a route that
+ * checks the order is this creator's before it does anything
+ * (lib/orders/owned.ts): the receipt and the email change
+ * (app/api/app/orders/[id]), the invoice (app/api/invoice), the refund
+ * (app/api/stripe/refund).
+ */
+
 import * as React from "react"
 import {
   ArrowLeft,
+  AtSign,
+  Banknote,
+  Check,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  Clock3,
   Copy,
   Download,
   ExternalLink,
+  KeyRound,
+  Landmark,
   Mail,
+  MailX,
   MoreHorizontal,
   Package,
   RotateCcw,
   Send,
+  ShoppingBag,
+  X,
+  type LucideIcon,
 } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import { cn } from "@/lib/utils"
 import { SOURCE_LABEL, dayHeading, fullDate, itemsLabel, timeOfDay, type Order, type OrderRow } from "@/lib/orders/order-view"
+import {
+  groupTimeline,
+  orderEvents,
+  paymentMethodOf,
+  relativeTime,
+  type OrderActivity,
+  type StripeStep,
+  type TimelineEvent,
+  type TimelineGlyph,
+  type TimelineTone,
+} from "@/lib/orders/timeline"
+import { copyText } from "@/lib/platform/copy-text"
 import {
   DeliveryBadge,
   FulfillmentBadge,
@@ -42,23 +77,34 @@ export interface OrderDetailProps {
   now: number
   onBack: () => void
   onStep: ((dir: -1 | 1) => void) | null
-  canStep: { newer: boolean; older: boolean }
+  /** Previous and next in the list's own order, whatever it is sorted by. */
+  canStep: { previous: boolean; next: boolean }
+  position: { index: number; count: number } | null
   onAction: (order: Order, action: OrderAction) => Promise<string>
   onNotice: (message: string) => void
 }
 
-export function OrderDetail({ order, timeZone, now, onBack, onStep, canStep, onAction, onNotice }: OrderDetailProps) {
+/** A row the buyer has paid for and can download, so its access email can be sent. */
+function canEmail(line: OrderRow): boolean {
+  return line.status === "completed" && Boolean(line.receipt_token)
+}
+
+export function OrderDetail({ order, timeZone, now, onBack, onStep, canStep, position, onAction, onNotice }: OrderDetailProps) {
   const [dialog, setDialog] = React.useState<"refund" | "email" | null>(null)
   const [busy, setBusy] = React.useState<string | null>(null)
+  /* Bumped after an action lands, so the timeline reads its history again. */
+  const [revision, setRevision] = React.useState(0)
 
   const refundable = order.lines.filter((l) => l.status === "completed" && (l.amount_cents || 0) > 0 && l.stripe_payment_intent_id)
-  const hasReceipt = order.lines.some((l) => l.receipt_token)
+  const emailable = order.lines.some(canEmail)
   const firstReceipt = order.lines.find((l) => l.receipt_token)?.receipt_token
 
   const run = async (label: string, action: OrderAction) => {
+    if (busy) return false
     setBusy(label)
     try {
       onNotice(await onAction(order, action))
+      setRevision((r) => r + 1)
       return true
     } catch (error) {
       onNotice((error as Error)?.message || "Something went wrong. Try again.")
@@ -68,17 +114,35 @@ export function OrderDetail({ order, timeZone, now, onBack, onStep, canStep, onA
     }
   }
 
+  const copy = async (text: string, what: string) => onNotice((await copyText(text)) ? `${what} copied` : `Could not copy the ${what.toLowerCase()}`)
+
+  /* Arrow keys step through the list on a keyboard, as the chevrons do. */
+  React.useEffect(() => {
+    if (!onStep) return
+    const onKey = (e: KeyboardEvent) => {
+      if (dialog || e.metaKey || e.ctrlKey || e.altKey) return
+      const el = e.target as HTMLElement | null
+      if (el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))) return
+      if (document.querySelector("[role=dialog], [role=menu]")) return
+      if (e.key === "ArrowLeft" && canStep.previous) onStep(-1)
+      else if (e.key === "ArrowRight" && canStep.next) onStep(1)
+      else if (e.key === "Escape") onBack()
+      else return
+      e.preventDefault()
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [onStep, onBack, canStep.previous, canStep.next, dialog])
+
   const items: ActionMenuItem[] = [
     ...(refundable.length > 0
       ? [{ label: "Refund", icon: <RotateCcw className="h-4 w-4" />, onClick: () => setDialog("refund") }]
       : []),
-    ...(hasReceipt
+    ...(emailable
       ? [{ label: "Resend receipt", icon: <Send className="h-4 w-4" />, onClick: () => void run("resend", { kind: "resend" }) }]
       : []),
     { label: "Download invoice", icon: <Download className="h-4 w-4" />, onClick: () => void run("invoice", { kind: "invoice" }) },
-    ...(hasReceipt
-      ? [{ label: "Change customer email", icon: <Mail className="h-4 w-4" />, onClick: () => setDialog("email") }]
-      : []),
+    { label: "Change customer email", icon: <Mail className="h-4 w-4" />, onClick: () => setDialog("email") },
     ...(firstReceipt
       ? [{ label: "View receipt", icon: <ExternalLink className="h-4 w-4" />, href: `/receipt/${firstReceipt}`, target: "_blank" as const, separatorBefore: true }]
       : []),
@@ -86,12 +150,7 @@ export function OrderDetail({ order, timeZone, now, onBack, onStep, canStep, onA
       label: "Copy order ID",
       icon: <Copy className="h-4 w-4" />,
       separatorBefore: !firstReceipt,
-      onClick: () => {
-        void navigator.clipboard?.writeText(order.id).then(
-          () => onNotice("Order ID copied"),
-          () => onNotice("Could not copy"),
-        )
-      },
+      onClick: () => void copy(order.id, "Order ID"),
     },
   ]
 
@@ -114,7 +173,7 @@ export function OrderDetail({ order, timeZone, now, onBack, onStep, canStep, onA
           menuWidth="w-56"
           items={items}
           trigger={
-            <button type="button" className={cn(buttonSecondary, "shrink-0")} disabled={busy !== null}>
+            <button type="button" className={cn(buttonSecondary, "shrink-0 px-2.5 sm:px-3")} disabled={busy !== null} aria-label="More actions">
               <span className="hidden sm:inline">More actions</span>
               <MoreHorizontal className="h-4 w-4 sm:hidden" />
               <ChevronDown className="hidden h-4 w-4 sm:block" />
@@ -122,11 +181,16 @@ export function OrderDetail({ order, timeZone, now, onBack, onStep, canStep, onA
           }
         />
         {onStep ? (
-          <div className="hidden shrink-0 items-center sm:flex">
-            <button type="button" aria-label="Newer order" disabled={!canStep.newer} onClick={() => onStep(-1)} className={iconButton}>
+          <div className="flex shrink-0 items-center">
+            {position ? (
+              <span className="mr-1 hidden text-[12px] tabular-nums text-[#6b7280] md:inline">
+                {position.index + 1} of {position.count}
+              </span>
+            ) : null}
+            <button type="button" aria-label="Previous order" title="Previous order" disabled={!canStep.previous} onClick={() => onStep(-1)} className={iconButton}>
               <ChevronLeft className="h-4 w-4" />
             </button>
-            <button type="button" aria-label="Older order" disabled={!canStep.older} onClick={() => onStep(1)} className={iconButton}>
+            <button type="button" aria-label="Next order" title="Next order" disabled={!canStep.next} onClick={() => onStep(1)} className={iconButton}>
               <ChevronRight className="h-4 w-4" />
             </button>
           </div>
@@ -139,18 +203,18 @@ export function OrderDetail({ order, timeZone, now, onBack, onStep, canStep, onA
 
       <div className="mt-5 grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_300px]">
         <div className="grid min-w-0 gap-4">
-          <FulfillmentCard order={order} timeZone={timeZone} busy={busy} onResend={hasReceipt ? () => void run("resend", { kind: "resend" }) : null} />
+          <FulfillmentCard order={order} timeZone={timeZone} busy={busy} onResend={emailable ? () => void run("resend", { kind: "resend" }) : null} />
           <PaymentCard
             order={order}
             busy={busy}
             onRefund={refundable.length > 0 ? () => setDialog("refund") : null}
             onInvoice={() => void run("invoice", { kind: "invoice" })}
           />
-          <Timeline order={order} timeZone={timeZone} now={now} />
+          <Timeline order={order} timeZone={timeZone} now={now} revision={revision} />
         </div>
         <div className="grid min-w-0 gap-4">
-          <CustomerCard order={order} onEdit={hasReceipt ? () => setDialog("email") : null} onNotice={onNotice} />
-          <DetailsCard order={order} />
+          <CustomerCard order={order} onEdit={() => setDialog("email")} onCopy={copy} />
+          <DetailsCard order={order} timeZone={timeZone} receipt={firstReceipt ?? null} onCopy={copy} />
         </div>
       </div>
 
@@ -167,6 +231,7 @@ export function OrderDetail({ order, timeZone, now, onBack, onStep, canStep, onA
       <EmailDialog
         open={dialog === "email"}
         current={order.customerEmail || ""}
+        sendsReceipt={emailable}
         onClose={() => setDialog(null)}
         onSubmit={async (email) => {
           const ok = await run("email", { kind: "email", email })
@@ -205,6 +270,13 @@ function Thumb({ line }: { line: OrderRow }) {
   )
 }
 
+function accessLine(order: Order, timeZone: string): string {
+  if (order.fulfillment !== "fulfilled") return order.payment === "failed" ? "No access: the payment failed" : "Access is given when the payment goes through"
+  if (order.deliveredAt) return `Receipt emailed ${fullDate(order.deliveredAt, timeZone)}`
+  if (order.delivery === "failed") return "Access given, but the receipt email did not arrive"
+  return "Access given when the payment went through"
+}
+
 function FulfillmentCard({
   order,
   timeZone,
@@ -220,31 +292,24 @@ function FulfillmentCard({
     <section className={card}>
       <CardHead aside={<DeliveryBadge status={order.delivery} />}>
         <FulfillmentBadge status={order.fulfillment} />
-        <span className="truncate text-[12px] text-[#6b7280]">#{order.number}-F1</span>
+        <span className="truncate text-[12px] text-[#6b7280]">{itemsLabel(order.itemCount)}</span>
       </CardHead>
       <div className="px-4 pb-1 pt-2 text-[13px] text-[#4b5563]">
-        <p>
-          {order.fulfillment === "fulfilled"
-            ? order.deliveredAt
-              ? `Sent by email on ${fullDate(order.deliveredAt, timeZone)}`
-              : "Access given when the payment went through"
-            : "Waiting for the payment"}
-        </p>
-        <p className="text-[#6b7280]">Digital product, no shipping</p>
+        <p>{accessLine(order, timeZone)}</p>
+        <p className="text-[#6b7280]">Digital download, no shipping</p>
       </div>
       <ul className="mx-4 mt-2 divide-y divide-[#f0f1f3] border-y border-[#f0f1f3]">
         {order.lines.map((line) => {
           const cents = line.amount_cents || 0
+          const kind = line.product?.type ? line.product.type.replace(/^./, (c) => c.toUpperCase()) : null
           return (
             <li key={line.id} className="flex items-center gap-3 py-3">
               <Thumb line={line} />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[13px] font-medium text-[#1a1a2e]">{line.product?.title || "Product removed"}</p>
                 <p className="truncate text-[12px] text-[#6b7280]">
-                  {[line.variant_name, line.product?.type ? line.product.type.replace(/^./, (c) => c.toUpperCase()) : null]
-                    .filter(Boolean)
-                    .join(" · ") || "Digital"}
-                  {line.status === "refunded" ? " · Refunded" : ""}
+                  {[line.variant_name, kind].filter(Boolean).join(" · ") || "Digital"}
+                  {line.status === "refunded" ? <span className="text-[#b42318]"> · Refunded</span> : null}
                 </p>
               </div>
               <span className="hidden text-[13px] tabular-nums text-[#6b7280] sm:inline">{formatMoney(cents)} &times; 1</span>
@@ -256,6 +321,7 @@ function FulfillmentCard({
       {onResend ? (
         <div className="flex justify-end px-4 py-3">
           <button type="button" className={buttonSecondary} onClick={onResend} disabled={busy !== null}>
+            <Send className="h-3.5 w-3.5" />
             {busy === "resend" ? "Sending…" : "Resend receipt"}
           </button>
         </div>
@@ -269,23 +335,11 @@ function FulfillmentCard({
 function Row({ label, middle, value, strong, muted }: { label: string; middle?: string; value: string; strong?: boolean; muted?: boolean }) {
   return (
     <div className={cn("flex items-baseline gap-3 py-1 text-[13px]", strong ? "font-semibold text-[#1a1a2e]" : muted ? "text-[#6b7280]" : "text-[#303036]")}>
-      <span className="w-[110px] shrink-0">{label}</span>
+      <span className="w-[96px] shrink-0 sm:w-[110px]">{label}</span>
       <span className="min-w-0 flex-1 truncate text-[#6b7280]">{middle}</span>
       <span className="shrink-0 tabular-nums">{value}</span>
     </div>
   )
-}
-
-function paymentMethodOf(order: Order): string | null {
-  const line = order.lines[0]
-  if (order.totalCents === 0) return "No payment needed"
-  if (line.card_brand) {
-    const brand = line.card_brand.replace(/^./, (c) => c.toUpperCase())
-    return line.card_last4 ? `${brand} •••• ${line.card_last4}` : brand
-  }
-  if (line.payment_method === "paypal") return line.paypal_email ? `PayPal, ${line.paypal_email}` : "PayPal"
-  if (line.payment_method && line.payment_method !== "card") return line.payment_method.replace(/_/g, " ")
-  return line.stripe_payment_intent_id ? "Card" : null
 }
 
 function PaymentCard({
@@ -300,8 +354,8 @@ function PaymentCard({
   onInvoice: () => void
 }) {
   const received = order.payment === "failed" || order.payment === "pending" ? 0 : order.totalCents
-  const net = received - order.refundedCents
-  const earnings = Math.max(0, net - (order.refundedCents >= received ? 0 : order.feeCents))
+  const fee = order.refundedCents >= received ? 0 : order.feeCents
+  const earnings = Math.max(0, received - order.refundedCents - fee)
   const method = paymentMethodOf(order)
   return (
     <section className={card}>
@@ -313,17 +367,18 @@ function PaymentCard({
         {order.tipCents > 0 ? <Row label="Tip" value={formatMoney(order.tipCents)} /> : null}
         <Row label="Total" value={formatMoney(order.totalCents)} strong />
         <div className="my-1.5 border-t border-[#f0f1f3]" />
-        <Row label="Paid" middle={method || undefined} value={formatMoney(received)} />
+        <Row label={order.payment === "pending" ? "Due" : "Paid"} middle={method || undefined} value={formatMoney(order.payment === "pending" ? order.totalCents : received)} />
         {order.refundedCents > 0 ? <Row label="Refunded" value={`−${formatMoney(order.refundedCents)}`} /> : null}
-        {order.feeCents > 0 && received > 0 ? (
+        {received > 0 ? (
           <>
-            <Row label="Storelib fee" value={`−${formatMoney(order.refundedCents >= received ? 0 : order.feeCents)}`} muted />
+            {order.feeCents > 0 ? <Row label="Storelib fee" value={`−${formatMoney(fee)}`} muted /> : null}
             <Row label="You receive" value={formatMoney(earnings)} strong />
           </>
         ) : null}
       </div>
       <div className="flex justify-end gap-2 px-4 py-3">
         <button type="button" className={buttonSecondary} onClick={onInvoice} disabled={busy !== null}>
+          <Download className="h-3.5 w-3.5" />
           {busy === "invoice" ? "Preparing…" : "Invoice"}
         </button>
         {onRefund ? (
@@ -341,83 +396,102 @@ function flagOf(code: string | null | undefined): string {
   return String.fromCodePoint(...code.toUpperCase().split("").map((c) => 127397 + c.charCodeAt(0)))
 }
 
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="min-w-0">
+      <dt className="text-[12px] font-medium text-[#6b7280]">{label}</dt>
+      <dd className="mt-0.5 min-w-0 text-[13px] text-[#303036]">{children}</dd>
+    </div>
+  )
+}
+
 function CustomerCard({
   order,
   onEdit,
-  onNotice,
+  onCopy,
 }: {
   order: Order
-  onEdit: (() => void) | null
-  onNotice: (message: string) => void
+  onEdit: () => void
+  onCopy: (text: string, what: string) => void
 }) {
   const line = order.lines[0]
   const device = [line.buyer_device_type, line.buyer_os, line.buyer_browser].filter(Boolean).join(", ")
+  const country = line.buyer_country || line.buyer_country_code
   return (
     <section className={cn(card, "px-4 py-3.5")}>
-      <h2 className="text-[13px] font-semibold text-[#1a1a2e]">Customer</h2>
-      <p className="mt-2 text-[13px] text-[#1a1a2e]">{order.customerName || "No name given"}</p>
-
-      <div className="mt-3 flex items-center justify-between">
-        <h3 className="text-[12px] font-medium text-[#6b7280]">Contact</h3>
-        {onEdit ? (
-          <button type="button" onClick={onEdit} className="text-[12px] font-medium text-[#6d4ae0] hover:underline">
-            Edit
-          </button>
-        ) : null}
-      </div>
-      {order.customerEmail ? (
-        <button
-          type="button"
-          title="Copy email"
-          onClick={() =>
-            void navigator.clipboard?.writeText(order.customerEmail!).then(
-              () => onNotice("Email copied"),
-              () => onNotice("Could not copy"),
-            )
-          }
-          className="mt-1 block max-w-full truncate text-left text-[13px] text-[#6d4ae0] hover:underline"
-        >
-          {order.customerEmail}
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="text-[13px] font-semibold text-[#1a1a2e]">Customer</h2>
+        <button type="button" onClick={onEdit} className="-mr-1 rounded-md px-1 text-[12px] font-medium text-[#6d4ae0] hover:underline">
+          Change email
         </button>
-      ) : (
-        <p className="mt-1 text-[13px] text-[#9ca3af]">No email</p>
-      )}
-
-      {line.buyer_country ? (
-        <>
-          <h3 className="mt-3 text-[12px] font-medium text-[#6b7280]">Location</h3>
-          <p className="mt-1 text-[13px] text-[#303036]">
-            {flagOf(line.buyer_country_code)} {line.buyer_country}
-          </p>
-        </>
-      ) : null}
-      {device ? (
-        <>
-          <h3 className="mt-3 text-[12px] font-medium text-[#6b7280]">Device</h3>
-          <p className="mt-1 text-[13px] text-[#303036]">{device}</p>
-        </>
-      ) : null}
+      </div>
+      <dl className="mt-2 grid gap-2.5">
+        <Field label="Name">{order.customerName || <span className="text-[#9ca3af]">Not given</span>}</Field>
+        <Field label="Email">
+          {order.customerEmail ? (
+            <button
+              type="button"
+              title="Copy email"
+              onClick={() => onCopy(order.customerEmail!, "Email")}
+              className="block max-w-full truncate text-left text-[#6d4ae0] hover:underline"
+            >
+              {order.customerEmail}
+            </button>
+          ) : (
+            <span className="text-[#9ca3af]">No email</span>
+          )}
+        </Field>
+        {country ? (
+          <Field label="Country">
+            {flagOf(line.buyer_country_code)} {country}
+          </Field>
+        ) : null}
+        {device ? <Field label="Device">{device}</Field> : null}
+      </dl>
     </section>
   )
 }
 
-function DetailsCard({ order }: { order: Order }) {
+function DetailsCard({
+  order,
+  timeZone,
+  receipt,
+  onCopy,
+}: {
+  order: Order
+  timeZone: string
+  receipt: string | null
+  onCopy: (text: string, what: string) => void
+}) {
   return (
     <section className={cn(card, "px-4 py-3.5")}>
       <h2 className="text-[13px] font-semibold text-[#1a1a2e]">Order details</h2>
-      <dl className="mt-2 grid gap-2 text-[13px]">
-        <div>
-          <dt className="text-[12px] font-medium text-[#6b7280]">Source</dt>
-          <dd className="text-[#303036]">{order.source ? SOURCE_LABEL[order.source] : "Not recorded"}</dd>
-        </div>
-        <div>
-          <dt className="text-[12px] font-medium text-[#6b7280]">Delivery method</dt>
-          <dd className="text-[#303036]">{order.customerEmail ? "Email, and the buyer's library" : "The buyer's library"}</dd>
-        </div>
-        <div>
-          <dt className="text-[12px] font-medium text-[#6b7280]">Order ID</dt>
-          <dd className="truncate font-mono text-[12px] text-[#303036]">{order.id}</dd>
-        </div>
+      <dl className="mt-2 grid gap-2.5">
+        <Field label="Placed">{fullDate(order.createdAt, timeZone)}</Field>
+        <Field label="Source">{order.source ? SOURCE_LABEL[order.source] : "Not recorded"}</Field>
+        <Field label="Delivery">{order.customerEmail ? "Email, and the buyer's library" : "The buyer's library"}</Field>
+        {receipt ? (
+          <Field label="Receipt">
+            <a href={`/receipt/${receipt}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[#6d4ae0] hover:underline">
+              View the buyer&apos;s receipt
+              <ExternalLink className="h-3 w-3" />
+            </a>
+          </Field>
+        ) : null}
+        <Field label="Order ID">
+          <span className="flex min-w-0 items-center gap-1">
+            <span className="truncate font-mono text-[12px]">{order.id}</span>
+            <button
+              type="button"
+              aria-label="Copy order ID"
+              title="Copy order ID"
+              onClick={() => onCopy(order.id, "Order ID")}
+              className={cn(iconButton, "h-7 w-7 shrink-0")}
+            >
+              <Copy className="h-3.5 w-3.5" />
+            </button>
+          </span>
+        </Field>
       </dl>
     </section>
   )
@@ -425,87 +499,65 @@ function DetailsCard({ order }: { order: Order }) {
 
 /* ─── Timeline ────────────────────────────────────────────────────────── */
 
-interface TimelineEvent {
-  id: string
-  at: string | null
-  text: string
-  detail?: string
-  tone?: "done" | "upcoming" | "problem"
+const GLYPH: Record<TimelineGlyph, LucideIcon> = {
+  placed: ShoppingBag,
+  paid: Check,
+  pending: Clock3,
+  failed: X,
+  access: KeyRound,
+  mail: Mail,
+  "mail-failed": MailX,
+  resent: Send,
+  "email-changed": AtSign,
+  refund: RotateCcw,
+  funds: Landmark,
+  payout: Banknote,
 }
 
-function localEvents(order: Order): TimelineEvent[] {
-  const events: TimelineEvent[] = []
-  const who = order.customerName || order.customerEmail
-  events.push({
-    id: "placed",
-    at: order.createdAt,
-    text: `${who ? `${who} placed` : "Placed"} this order${order.source ? ` on ${order.source === "website" ? "your website" : "Storelib"}` : ""}.`,
-  })
-  if (order.payment !== "pending" && order.payment !== "failed") {
-    const method = paymentMethodOf(order)
-    events.push({
-      id: "paid",
-      at: order.createdAt,
-      text: order.totalCents > 0 ? `A ${formatMoney(order.totalCents)} payment was processed.` : "Free order, nothing to pay.",
-      detail: order.totalCents > 0 && method ? method : undefined,
-    })
-  }
-  if (order.payment === "failed") events.push({ id: "failed", at: order.createdAt, text: "The payment failed.", tone: "problem" })
-  if (order.fulfillment === "fulfilled") {
-    events.push({ id: "access", at: order.createdAt, text: `Access given to ${itemsLabel(order.itemCount)}.` })
-  }
-  for (const line of order.lines) {
-    if (line.buyer_notified_at) {
-      events.push({ id: `mail-${line.id}`, at: line.buyer_notified_at, text: `Receipt sent to ${line.buyer_email || "the buyer"}.` })
-    } else if ((line.buyer_email_last_error || "").trim()) {
-      events.push({
-        id: `mail-${line.id}`,
-        at: null,
-        text: "The receipt email did not arrive.",
-        detail: line.buyer_email_last_error || undefined,
-        tone: "problem",
-      })
-    }
-    if (line.status === "refunded") {
-      const cents = line.refund_amount_cents && line.refund_amount_cents > 0 ? line.refund_amount_cents : line.amount_cents
-      events.push({
-        id: `refund-${line.id}`,
-        at: line.refunded_at || null,
-        text: `${formatMoney(cents)} refunded${order.lines.length > 1 && line.product ? ` for ${line.product.title}` : ""}.`,
-        detail: line.refund_reason ? line.refund_reason.replace(/_/g, " ") : undefined,
-      })
-    }
-  }
-  return events
+/* Semantic, never the accent: green for what went through, amber for what is
+   waiting, red for what failed or went back, grey for the rest. */
+const GLYPH_TONE: Record<TimelineTone, string> = {
+  success: "bg-[#e7f5ec] text-[#16803c] border-[#cde9d6]",
+  attention: "bg-[#fff4d9] text-[#9a5b00] border-[#f3dfaa]",
+  critical: "bg-[#fdecea] text-[#b42318] border-[#f5cfca]",
+  neutral: "bg-[#f3f4f6] text-[#4b5563] border-[#e3e5e9]",
+  upcoming: "bg-white text-[#9ca3af] border-dashed border-[#c9ccd3]",
 }
 
-const STRIPE_EVENTS = new Set(["funds_available", "payout_created", "payout_paid"])
+/** The rail runs through the middle of the 22px glyph column. */
+const RAIL = "absolute left-[10.5px] w-px bg-[#e4e6ea]"
 
-function Timeline({ order, timeZone, now }: { order: Order; timeZone: string; now: number }) {
-  const [remote, setRemote] = React.useState<TimelineEvent[]>([])
+function Timeline({ order, timeZone, now, revision }: { order: Order; timeZone: string; now: number; revision: number }) {
+  const [activity, setActivity] = React.useState<OrderActivity[]>([])
+  const [stripe, setStripe] = React.useState<StripeStep[]>([])
+  const [open, setOpen] = React.useState<string | null>(null)
   const paidLine = order.lines.find((l) => (l.amount_cents || 0) > 0 && l.stripe_payment_intent_id)
 
-  /* Payout steps come from Stripe, a second or so later. The timeline runs
-     oldest first, so they arrive at its foot and move nothing above them. */
+  /* History after the sale: receipts sent again, the email changed. Read
+     again after every action on the page. */
   React.useEffect(() => {
-    setRemote([])
+    let alive = true
+    fetch(`/api/app/orders/${encodeURIComponent(order.id)}/activity`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json) => {
+        if (alive && Array.isArray(json?.activity)) setActivity(json.activity)
+      })
+      .catch(() => {})
+    return () => {
+      alive = false
+    }
+  }, [order.id, revision])
+
+  /* Payout steps come from Stripe, a second or so later. What is still to
+     come is kept at the foot, so their arrival moves nothing above them. */
+  React.useEffect(() => {
+    setStripe([])
     if (!paidLine || order.payment === "failed" || order.payment === "pending") return
     let alive = true
     fetch(`/api/stripe/order-timeline?orderId=${encodeURIComponent(paidLine.id)}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((json) => {
-        if (!alive || !json?.timeline) return
-        setRemote(
-          (json.timeline as Array<{ id: string; label: string; description: string; timestamp: string | null; status: string }>)
-            .filter((e) => STRIPE_EVENTS.has(e.id))
-            .map((e) => ({
-              id: e.id,
-              at: e.timestamp,
-              text: e.label,
-              detail: e.description,
-              tone: e.status === "completed" ? "done" : "upcoming",
-            })),
-        )
+        if (alive && Array.isArray(json?.timeline)) setStripe(json.timeline)
       })
       .catch(() => {})
     return () => {
@@ -513,66 +565,70 @@ function Timeline({ order, timeZone, now }: { order: Order; timeZone: string; no
     }
   }, [paidLine?.id, order.payment])
 
-  const events = [...localEvents(order), ...remote]
-  const done = events.filter((e) => e.tone !== "upcoming")
-  const upcoming = events.filter((e) => e.tone === "upcoming")
-  done.sort((a, b) => (a.at ? Date.parse(a.at) : Infinity) - (b.at ? Date.parse(b.at) : Infinity))
-
-  /* Grouped by day, like a conversation: the day once as a heading, and
-     only the time beside each event. An event with no time of its own sits
-     in the day of the one before it. */
-  const groups: Array<{ day: string; events: TimelineEvent[] }> = []
-  for (const event of done) {
-    const day = event.at ? dayHeading(event.at, now, timeZone) : groups.at(-1)?.day ?? "Earlier"
-    const last = groups.at(-1)
-    if (last && last.day === day) last.events.push(event)
-    else groups.push({ day, events: [event] })
+  const groups = groupTimeline(orderEvents(order, activity, stripe), now, timeZone)
+  const rows: Array<{ kind: "day"; key: string; label: string } | { kind: "event"; key: string; event: TimelineEvent; upcoming: boolean }> = []
+  for (const g of groups) {
+    rows.push({ kind: "day", key: `day-${g.key}`, label: g.day })
+    for (const e of g.events) rows.push({ kind: "event", key: e.id, event: e, upcoming: g.upcoming })
   }
-  if (upcoming.length > 0) groups.push({ day: "Next", events: upcoming })
-  const total = done.length + upcoming.length
-  let index = 0
+  const firstEvent = rows.findIndex((r) => r.kind === "event")
+  const lastEvent = rows.map((r) => r.kind).lastIndexOf("event")
 
   return (
     <section className={cn(card, "px-4 pb-2 pt-3.5")}>
       <h2 className="text-[13px] font-semibold text-[#1a1a2e]">Timeline</h2>
-      <ol className="mt-2">
-        {groups.map((group) => (
-          <li key={group.day}>
-            <p className="pb-2 pl-[23px] pt-1 text-[12px] font-medium text-[#6b7280]">{group.day}</p>
-            <ol>
-              {group.events.map((event) => {
-                const last = ++index === total
-                return (
-                  <li key={event.id} className="relative flex gap-3 pb-4">
-                    {!last ? <span aria-hidden className="absolute left-[5px] top-[14px] h-[calc(100%+2px)] w-px bg-[#e5e7eb]" /> : null}
-                    <span
-                      aria-hidden
-                      className={cn(
-                        "relative mt-[5px] h-[11px] w-[11px] shrink-0 rounded-full border-2",
-                        event.tone === "upcoming"
-                          ? "border-[#c9ccd3] bg-white"
-                          : event.tone === "problem"
-                            ? "border-[#d92d20] bg-[#d92d20]"
-                            : "border-[#8b5cf6] bg-[#8b5cf6]",
-                      )}
-                    />
-                    <div className="flex min-w-0 flex-1 items-baseline justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className={cn("text-[13px]", event.tone === "upcoming" ? "text-[#6b7280]" : "text-[#1a1a2e]")}>{event.text}</p>
-                        {event.detail ? <p className="mt-0.5 text-[12px] text-[#6b7280] first-letter:uppercase">{event.detail}</p> : null}
-                      </div>
-                      {event.at ? (
-                        <time dateTime={event.at} title={fullDate(event.at, timeZone)} className="shrink-0 text-[12px] tabular-nums text-[#6b7280]">
-                          {group.day === "Next" ? dayHeading(event.at, now, timeZone) : timeOfDay(event.at, timeZone)}
-                        </time>
-                      ) : null}
-                    </div>
-                  </li>
-                )
-              })}
-            </ol>
-          </li>
-        ))}
+      <ol className="mt-1.5">
+        {rows.map((row, i) => {
+          if (row.kind === "day") {
+            return (
+              <li key={row.key} className="relative grid grid-cols-[22px_minmax(0,1fr)] gap-x-3 pb-1.5 pt-2">
+                {i > firstEvent && firstEvent >= 0 ? <span aria-hidden className={cn(RAIL, "bottom-0 top-0")} /> : null}
+                <span />
+                <p className="text-[12px] font-medium text-[#6b7280]">{row.label}</p>
+              </li>
+            )
+          }
+          const { event, upcoming } = row
+          const Glyph = GLYPH[event.glyph]
+          const exact = event.at ? fullDate(event.at, timeZone) : null
+          const short = event.at
+            ? upcoming
+              ? dayHeading(event.at, now, timeZone)
+              : relativeTime(event.at, now) ?? timeOfDay(event.at, timeZone)
+            : null
+          const expanded = open === event.id
+          return (
+            <li key={row.key} className="relative grid grid-cols-[22px_minmax(0,1fr)_auto] items-start gap-x-3 pb-3">
+              {i > firstEvent ? <span aria-hidden className={cn(RAIL, "top-0 h-[11px]")} /> : null}
+              {i < lastEvent ? <span aria-hidden className={cn(RAIL, "bottom-0 top-[11px]")} /> : null}
+              <span
+                aria-hidden
+                className={cn("relative z-[1] flex h-[22px] w-[22px] items-center justify-center rounded-full border", GLYPH_TONE[event.tone])}
+              >
+                <Glyph className="h-3 w-3" strokeWidth={2.25} />
+              </span>
+              <div className="min-w-0 pt-[2px]">
+                <p className={cn("text-[13px] leading-[18px]", upcoming ? "text-[#6b7280]" : "text-[#1a1a2e]")}>{event.text}</p>
+                {event.detail ? <p className="mt-0.5 break-words text-[12px] leading-4 text-[#6b7280] first-letter:uppercase">{event.detail}</p> : null}
+                {expanded && exact ? <p className="mt-0.5 text-[12px] leading-4 text-[#4b5563]">{exact}</p> : null}
+              </div>
+              {short && exact ? (
+                <button
+                  type="button"
+                  title={exact}
+                  aria-expanded={expanded}
+                  aria-label={`${short}. Show the exact time`}
+                  onClick={() => setOpen(expanded ? null : event.id)}
+                  className="-mr-1 rounded-md px-1 pt-[3px] text-[12px] leading-4 tabular-nums text-[#6b7280] hover:text-[#1a1a2e] hover:underline hover:decoration-dotted hover:underline-offset-2"
+                >
+                  <time dateTime={event.at!}>{short}</time>
+                </button>
+              ) : (
+                <span />
+              )}
+            </li>
+          )
+        })}
       </ol>
     </section>
   )
@@ -638,7 +694,7 @@ function RefundDialog({
                     setLineId(e.target.value)
                     if (next) setAmount(((next.amount_cents || 0) / 100).toFixed(2))
                   }}
-                  className="h-9 rounded-lg border border-[#d5d7dd] bg-white px-2.5 text-[13px] text-[#1a1a2e] outline-none focus:border-[#1a1a2e]"
+                  className="h-9 rounded-lg border border-[#d5d7dd] bg-white px-2.5 text-[16px] text-[#1a1a2e] outline-none focus:border-[#1a1a2e] sm:text-[13px]"
                 >
                   {lines.map((l) => (
                     <option key={l.id} value={l.id}>
@@ -656,7 +712,7 @@ function RefundDialog({
                   inputMode="decimal"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ""))}
-                  className="min-w-0 flex-1 bg-transparent pl-1 text-[13px] tabular-nums text-[#1a1a2e] outline-none"
+                  className="min-w-0 flex-1 bg-transparent pl-1 text-[16px] tabular-nums text-[#1a1a2e] outline-none sm:text-[13px]"
                 />
                 <span className="text-[12px] text-[#9ca3af]">of {formatMoney(Math.round(max * 100))}</span>
               </div>
@@ -666,7 +722,7 @@ function RefundDialog({
               <select
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
-                className="h-9 rounded-lg border border-[#d5d7dd] bg-white px-2.5 text-[13px] text-[#1a1a2e] outline-none focus:border-[#1a1a2e]"
+                className="h-9 rounded-lg border border-[#d5d7dd] bg-white px-2.5 text-[16px] text-[#1a1a2e] outline-none focus:border-[#1a1a2e] sm:text-[13px]"
               >
                 <option value="requested_by_customer">The buyer asked for it</option>
                 <option value="duplicate">Charged twice</option>
@@ -691,12 +747,14 @@ function RefundDialog({
 function EmailDialog({
   open,
   current,
+  sendsReceipt,
   onClose,
   onSubmit,
   busy,
 }: {
   open: boolean
   current: string
+  sendsReceipt: boolean
   onClose: () => void
   onSubmit: (email: string) => void
   busy: boolean
@@ -705,37 +763,48 @@ function EmailDialog({
   React.useEffect(() => {
     if (open) setEmail(current)
   }, [open, current])
-  const valid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) && email.trim() !== current
+  const trimmed = email.trim()
+  const wellFormed = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)
+  const same = trimmed.toLowerCase() === current.trim().toLowerCase()
+  const valid = wellFormed && !same
   return (
     <Dialog open={open} onOpenChange={(o) => (!o && !busy ? onClose() : undefined)}>
       <DialogContent className={dialogShell} showCloseButton={false}>
         <form
           onSubmit={(e) => {
             e.preventDefault()
-            if (valid) onSubmit(email.trim())
+            if (valid) onSubmit(trimmed)
           }}
         >
           <div className="px-5 pb-1 pt-5">
             <DialogTitle className="text-[16px] font-semibold text-[#1a1a2e]">Change customer email</DialogTitle>
             <DialogDescription className="mt-1 text-[13px] text-[#6b7280]">
-              The receipt and access link go to the new address. An order&apos;s email can be changed once.
+              {sendsReceipt
+                ? "The order moves to the new address, and the receipt with the download link is sent there now."
+                : "The order moves to the new address. Nothing is sent, as nothing in it has been paid for yet."}
             </DialogDescription>
           </div>
           <div className="px-5 py-4">
             <input
               type="email"
+              inputMode="email"
+              autoComplete="off"
+              autoCapitalize="none"
+              spellCheck={false}
+              aria-label="New email address"
               autoFocus
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="h-9 w-full rounded-lg border border-[#d5d7dd] bg-white px-2.5 text-[13px] text-[#1a1a2e] outline-none focus:border-[#1a1a2e]"
+              className="h-9 w-full rounded-lg border border-[#d5d7dd] bg-white px-2.5 text-[16px] text-[#1a1a2e] outline-none focus:border-[#1a1a2e] sm:text-[13px]"
             />
+            {trimmed && !wellFormed ? <p className="mt-1.5 text-[12px] text-[#b42318]">Enter a full address, like name@example.com</p> : null}
           </div>
           <div className="flex justify-end gap-2 border-t border-[#eef0f2] px-5 py-3">
             <button type="button" className={buttonSecondary} onClick={onClose} disabled={busy}>
               Cancel
             </button>
             <button type="submit" className={buttonPrimary} disabled={!valid || busy}>
-              {busy ? "Saving…" : "Save"}
+              {busy ? "Saving…" : sendsReceipt ? "Save and send" : "Save"}
             </button>
           </div>
         </form>
@@ -743,4 +812,3 @@ function EmailDialog({
     </Dialog>
   )
 }
-

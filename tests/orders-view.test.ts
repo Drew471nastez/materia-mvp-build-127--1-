@@ -266,22 +266,27 @@ async function main() {
 
   console.log("\nOrders: the page")
   {
+    /* The page reads its rows through lib/orders/load-rows.ts, which the
+       app's export link reads through too, so both count the same orders. */
     const page = read("app/app/orders/sales/page.tsx")
+    const loader = read("lib/orders/load-rows.ts")
+    check("the page reads its orders through the shared reader", /await readCreatorOrders\(admin, creator\.id\)/.test(page))
     check(
       "products are read with every column, so a missing one can never empty the list",
-      /\.from\("products"\)\s*\.select\("\*"\)/.test(page) && !/gallery_images"\)/.test(page),
+      /\.from\("products"\)\s*\.select\("\*"\)/.test(loader) && !/gallery_images"\)/.test(loader),
     )
-    check("a failed read stops the page instead of drawing no orders", /if \(productsError\) throw/.test(page) && /if \(ordersError\) throw/.test(page))
-    check("every order is read, a thousand at a time", /\.range\(from, from \+ 999\)/.test(page))
+    check("a failed read stops the page instead of drawing no orders", /if \(productsError\) throw/.test(loader) && /if \(ordersError\) throw/.test(loader))
+    check("every order is read, a thousand at a time", /\.range\(from, from \+ 999\)/.test(loader))
     check("the range the creator chose last time is read on the server", /initialRange=\{jar\.get\(RANGE_COOKIE\)/.test(page))
-    check("the orders are read for the signed-in creator's own products", /\.eq\("user_id", user\.id\)/.test(page) && /\.in\(\s*"product_id",/.test(page))
+    check("the orders are read for the signed-in creator's own products", /\.eq\("user_id", user\.id\)/.test(page) && /\.eq\("creator_id", creatorId\)/.test(loader) && /\.in\(\s*"product_id",/.test(loader))
     check("no Stripe call stands between the creator and the page", /after\(\(\) => catchMissedRefunds/.test(page) && !/await stripe\./.test(page.split("export default")[1]))
     const client = read("app/app/orders/orders-client.tsx")
     check("the list stays mounted under an open order", /inert=\{listCovered\}/.test(client) && !/listCovered \?\s*null/.test(client))
     check("opening an order does not ask the server", !/router\.push\(/.test(client))
     const list = read("app/app/orders/orders-list.tsx")
     check("the checkbox and Order columns are frozen", (list.match(/orders-sticky left-0/g) ?? []).length >= 2 && (list.match(/orders-sticky orders-edge left-10/g) ?? []).length >= 2)
-    check("the export does not let a cell run as a formula", /\^\[=\+\\-@\\t\\r\]/.test(read("app/app/orders/export-dialog.tsx")))
+    check("the export does not let a cell run as a formula", /\^\[=\+\\-@\\t\\r\]/.test(read("lib/orders/export-csv.ts")))
+    check("  and the dialog writes its file with that same function", /from "@\/lib\/orders\/export-csv"/.test(read("app/app/orders/export-dialog.tsx")))
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)

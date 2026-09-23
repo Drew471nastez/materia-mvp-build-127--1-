@@ -4465,8 +4465,27 @@ html.pop-in-flight #platform-header-root {
     animation: orders-fade-out 200ms ease-in both;
   }
 }
+/* Stepping to the previous or next order from inside one. The page does not
+   slide again, only its contents: the next order comes in a few pixels from
+   the side it lies on, quickly, so the change is seen as well as read. The
+   title bar is inside it, so the number changes with the rest. */
+@keyframes orders-step-next {
+  from { transform: translate3d(12px, 0, 0); opacity: 0.25; }
+  to { transform: translate3d(0, 0, 0); opacity: 1; }
+}
+@keyframes orders-step-previous {
+  from { transform: translate3d(-12px, 0, 0); opacity: 0.25; }
+  to { transform: translate3d(0, 0, 0); opacity: 1; }
+}
+.orders-step[data-dir="next"] {
+  animation: orders-step-next 180ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.orders-step[data-dir="previous"] {
+  animation: orders-step-previous 180ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
 @media (prefers-reduced-motion: reduce) {
-  .orders-detail[data-stage] {
+  .orders-detail[data-stage],
+  .orders-step[data-dir] {
     animation: none;
   }
 }

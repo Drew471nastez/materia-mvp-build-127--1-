@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
         .eq("order_id", orderId)
         .eq("email_type", "buyer_download")
 
-      console.log("[receipt/resend] Sending buyer email to:", order.buyer_email)
+      console.log("[receipt/resend] Sending buyer email for order:", order.id)
 
       buyerResult = await sendBuyerDownloadEmail(admin, {
         orderId: order.id,
@@ -122,7 +122,7 @@ export async function POST(request: NextRequest) {
         .eq("order_id", orderId)
         .eq("email_type", "seller_notification")
 
-      console.log("[receipt/resend] Sending seller email to:", sellerReplyTo)
+      console.log("[receipt/resend] Sending seller email for order:", order.id)
 
       sellerResult = await sendSellerNotificationEmail(admin, {
         orderId: order.id,

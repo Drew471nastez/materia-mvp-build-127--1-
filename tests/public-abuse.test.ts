@@ -42,6 +42,8 @@ const LIMITED: Record<string, string> = {
   "app/api/coupons/validate/route.ts": "coupon",
   "app/api/auth/request-password-reset/route.ts": "password-reset",
   "app/api/receipt/resend/route.ts": "receipt-resend",
+  "app/api/app/orders/[id]/resend/route.ts": "order-resend",
+  "app/api/app/orders/[id]/email/route.ts": "order-email-change",
 }
 
 function main() {

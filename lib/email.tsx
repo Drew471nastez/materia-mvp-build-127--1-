@@ -693,9 +693,8 @@ export async function sendBuyerDownloadEmail(
 
   try {
     console.log("[email] 📧 Attempting to send buyer email:", {
-      from: buildFromHeaderLocal(fromName),
-      to: customerEmail,
-      replyTo,
+      orderId,
+      to: maskEmail(customerEmail),
       subject,
     })
 
@@ -725,10 +724,10 @@ export async function sendBuyerDownloadEmail(
         return response
       },
       MAX_RETRIES,
-      `buyer email to ${customerEmail}`,
+      `buyer email for order ${orderId}`,
     )
 
-    console.log("[email] ✅ Buyer email sent successfully to:", customerEmail, "ID:", result.messageId)
+    console.log("[email] ✅ Buyer email sent for order:", orderId, "to:", maskEmail(customerEmail), "ID:", result.messageId)
     if (logId) await updateEmailLog(admin, logId, "sent")
     await updateOrderEmailStatus(admin, orderId, "buyer", true)
     return { success: true, logId: logId || undefined }
