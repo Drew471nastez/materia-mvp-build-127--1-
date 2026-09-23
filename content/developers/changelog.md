@@ -16,13 +16,17 @@ Every change since 1.0 has been additive. Nothing a section could do on 11 Septe
 
 **Added**
 
+- Section scripts run. A section's `<script>` runs on the published page and in the builder, inside a sandbox with an opaque origin, against a copy of the section's own markup. Changes to classes, allowed attributes, styles and text are mirrored to the page; clicks, keys and input are sent back. See [How the sandbox works](/developers/javascript#how-the-sandbox-works).
+- `storelib.scrollTo(element, options)`, `storelib.inEditor`, and `storelib.navigate(path)` for a section that declares `navigation`.
+- Agent connections. A creator connects Claude Code, Codex or any MCP client to one site from Website settings › AI agents. It can list, read, compile and save that site's section files, as drafts, over MCP at `/api/mcp` or HTTP at `/api/agent/v1`. See [Connect an agent to a site](/developers/ai#connect-an-agent-to-a-site).
+- The `timers` capability grants working `setTimeout`, `setInterval` and `requestAnimationFrame`.
 - Forms. A `<form>` in a section is submitted by the page, with no script. `data-storelib-form="subscribe"`, or any form with an email box and no action of its own, sends each address to the creator's Subscribers; `data-storelib-form="native"` leaves a form to the browser. The form carries `data-state` while it sends, and shows an element marked `data-storelib-success` when it is done. See [Forms](/developers/javascript#forms).
 - The library's Newsletter Signup section collects sign-ups with nothing set up. It previously showed no form until an outside mailing list address was pasted in.
 - The Storelib Developer Hub, [llms.txt](/llms.txt) and [llms-full.txt](/llms-full.txt), built from the same modules as the builder's AI.
 
 **Changed**
 
-- The documentation now states plainly that section scripts are checked and stored but not run, and teaches the HTML and CSS patterns that replace them. The builder's AI is told the same.
+- The compiler's messages for `@click`, `v-on:` and `on*=` name the section's `<script>` block, beside the HTML that needs no script.
 
 **Security**
 

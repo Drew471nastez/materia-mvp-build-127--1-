@@ -6,7 +6,7 @@ A section is one file, `sections/<type>.storelib`, that describes a section type
 | --- | --- | --- |
 | `<template>` | yes | The markup, in the template language below. |
 | `<style>` | no | CSS for this section's instances only. `<style scoped>` means the same thing. See [Styling](/developers/styling). |
-| `<script>` | no | Behaviour. Checked when saved, **not run on the page yet**. See [JavaScript](/developers/javascript). |
+| `<script>` | no | Behaviour. Checked when saved, then **run in a sandbox** against a copy of the section. See [JavaScript](/developers/javascript). |
 | `<schema>` | yes | JSON: the section's identity, settings, blocks and presets. See [Schema](/developers/schema). |
 
 ## Rules the parser enforces

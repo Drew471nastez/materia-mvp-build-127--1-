@@ -9,6 +9,7 @@
  * - EMAIL_REPLY_TO: "support@storelib.com"
  */
 
+import { maskEmail } from "@/lib/privacy/mask-email"
 import {
   sendMailgunEmail,
   isMailgunConfigured,
@@ -76,7 +77,7 @@ export async function sendEmail(options: SendEmailOptions): Promise<SendEmailRes
 
   console.log("[mail] Sending email via Mailgun:", {
     from: fromAddress,
-    to: options.to,
+    to: maskEmail(options.to),
     subject: options.subject,
     replyTo: options.replyTo || EMAIL_REPLY_TO,
   })
@@ -98,12 +99,12 @@ export async function sendEmail(options: SendEmailOptions): Promise<SendEmailRes
   if (result.success) {
     console.log("[mail] Email sent successfully:", {
       messageId: result.messageId,
-      to: options.to,
+      to: maskEmail(options.to),
     })
   } else {
     console.error("[mail] Failed to send email:", {
       error: result.error,
-      to: options.to,
+      to: maskEmail(options.to),
       subject: options.subject,
     })
   }

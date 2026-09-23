@@ -29,12 +29,17 @@ import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder
 export interface RenderedSection {
   html: string
   css: string
+  /** The checked script, for the sandbox frame. Absent when there is none. */
+  script?: string | null
+  capabilities?: string[]
 }
 
 export type SectionRenderFn = (
   section: SectionInstance,
   theme: ThemeSettingsValues,
-) => { ok: true; html: string; css: string } | { ok: false; errors: { file?: string; line?: number; message: string }[] }
+) =>
+  | { ok: true; html: string; css: string; script?: string | null; capabilities?: string[] }
+  | { ok: false; errors: { file?: string; line?: number; message: string }[] }
 
 interface StorelibContextValue {
   /** Already rendered, by section id. The published page's whole answer. */

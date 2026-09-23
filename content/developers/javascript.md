@@ -1,12 +1,36 @@
 # JavaScript and forms
 
-## Status: scripts are checked, not run
+## Status: scripts run, in a sandbox
 
-A section's `<script>` block is **compiled and checked when the file is saved, and stored, but not executed on the page yet**. The sandbox that will run section scripts has not shipped. Until it does, anything built in a script, a slider that advances, a tab that switches, a menu that opens, does nothing for a visitor.
+A section's `<script>` block is compiled and checked when the file is saved, and **run on the page, and in the builder, inside a sandbox**. It works for sliders that advance, counters, tabs with custom behaviour, and anything else built from listeners, classes, styles and text.
 
-So build every interaction with HTML and CSS. The browser already does almost everything a section needs, it works today, it keeps working when scripts do run, and it is faster and more accessible than the script it replaces. The patterns below cover what sections actually ask for.
+**Prefer HTML and CSS where they do the job alone.** They work before any script has loaded, they are faster, and they come with keyboard support. The patterns in the next part cover accordions, tabs, carousels, pop-ups and motion with no script at all. Reach for a script for what they cannot do: autoplay, a counter, a slider's dots.
 
-This page is marked here, rather than in small print, because an agent that believes the script runs will write one, and a creator will publish a section that looks finished and does nothing.
+### How the sandbox works
+
+A section's script does not run in the page it is on. That page may have a visitor who is signed in, has a cart, or is halfway through a checkout, and a section's code is written by whoever wrote the section. So it runs in one hidden `<iframe sandbox="allow-scripts">` per page, whose origin is opaque: it cannot read the visitor's cookies, storage or session, and it cannot see the page.
+
+Inside, `root` is **a copy of your section's own markup**, in a real document. `querySelector`, `classList`, `addEventListener`, `style` and `textContent` all work the ordinary way. Every change you make to the copy is sent to the page, checked, and applied to the real section. Every click, key and input on the real section is sent to the copy, so your listeners run.
+
+| Crosses to the page | Does not |
+| --- | --- |
+| Classes, `hidden`, `open`, `aria-*`, `data-*`, and the other attributes that describe rather than load | `src`, `href`, `action`, `on*` and anything else that loads or runs something |
+| Style properties, one at a time | A style value with `url(`, `expression(`, `javascript:` or a backslash |
+| Text of an element that holds only text | Markup. Text arrives as text, never as HTML |
+| Scrolling, through `storelib.scrollTo` | Adding or removing elements |
+| | Measurements. The copy is not laid out, so `getBoundingClientRect` and `offsetWidth` return 0 |
+
+**Show and hide what the template drew.** A script cannot add an element, because the page's copy belongs to the renderer and would be put back. Draw every slide, message or panel in the template, and switch between them with `hidden` or a class.
+
+**Scroll with `storelib.scrollTo`.** Setting `scrollLeft` changes the copy, which is not what the visitor sees:
+
+```js
+storelib.scrollTo(track, { left: slideWidth * index, behavior: "smooth" })
+```
+
+**Know where you are.** `storelib.inEditor` is `true` in the builder's canvas, so an autoplaying slider can hold still while somebody is designing it.
+
+A script that throws stops on its own, and the section keeps whatever it had drawn. A script that changes the page thousands of times a second is stopped.
 
 ## Interaction without script
 
@@ -168,8 +192,6 @@ YouTube links are served from `youtube-nocookie.com`. An `<iframe>` without the 
 
 ## The scripting API
 
-What follows is the contract section scripts will run under. It is enforced now, when a file is saved, so a script written against it today compiles today and runs unchanged when the runtime ships.
-
 The script is wrapped as a function and handed six things:
 
 ```js
@@ -181,20 +203,26 @@ The script is wrapped as a function and handed six things:
 
 | Name | What it is |
 | --- | --- |
-| `root` | This instance's root element. Query inside it; it is the whole of the page the script can see. |
+| `root` | A copy of this instance's markup, in the sandbox. Query inside it; it is the whole of the page the script can see. |
 | `settings`, `blocks`, `theme`, `page` | The same resolved data the template rendered from, as plain objects. |
-| `storelib` | The platform API. What is on it depends on the capabilities the section declares. |
+| `storelib` | The platform API: `scrollTo`, `inEditor`, `capabilities`, and whatever the section's declared capabilities add. |
+
+A slider that advances on its own and on a click. Every slide is in the template; the script only chooses which one shows. It declares `"capabilities": ["timers"]` for `setInterval`:
 
 ```js
 const slides = root.querySelectorAll(".slide")
+const dots = root.querySelectorAll(".dot")
 let current = 0
 function show(i) {
   current = (i + slides.length) % slides.length
   slides.forEach((el, j) => el.toggleAttribute("hidden", j !== current))
+  dots.forEach((el, j) => el.classList.toggle("is-on", j === current))
 }
 root.querySelector("[data-next]")?.addEventListener("click", () => show(current + 1))
 root.querySelector("[data-prev]")?.addEventListener("click", () => show(current - 1))
+dots.forEach((el, j) => el.addEventListener("click", () => show(j)))
 show(0)
+if (!storelib.inEditor && settings.autoplay) setInterval(() => show(current + 1), settings.interval * 1000)
 ```
 
 ### What a script cannot name

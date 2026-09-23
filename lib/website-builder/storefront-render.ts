@@ -121,7 +121,9 @@ export function renderWithSources(
   for (const section of sections) {
     if (!isStorelibSection(section.type, sources)) continue
     const out = renderStorelibSection(section, theme, { ...pageExtras, template }, sources, products)
-    if (out.ok) prerendered[section.id] = { html: out.html, css: out.css }
+    if (out.ok) {
+      prerendered[section.id] = { html: out.html, css: out.css, script: out.script, capabilities: out.capabilities }
+    }
   }
   return prerendered
 }

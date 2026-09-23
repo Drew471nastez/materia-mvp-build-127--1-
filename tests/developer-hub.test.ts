@@ -163,28 +163,35 @@ function main() {
   check("and how to embed a player, which the old reference never said",
     ALL_TOPICS.some((t) => t.id === "embed" && /\| embed/.test(t.text) && /"embed"/.test(t.text)))
 
-  console.log("\nThe claim that section scripts do not run is still true")
+  console.log("\nSection scripts run, in the sandbox, and everything says so")
 
   /*
-    THIS IS THE ONE THAT MUST FAIL ON PURPOSE ONE DAY. The hub, the AI's brief
-    and the compiler's own error messages all say section scripts are checked
-    and not run, because StorelibSection draws the html and the css and
-    nothing else. When the sandbox ships and something starts executing
-    `script`, this fails, and the message says everything that has to change
-    with it.
+    This used to be the check that had to fail on purpose one day: the claim
+    that section scripts do not run. That day was 23 September 2026. What it
+    pins now is the opposite claim, and the one thing that makes it safe:
+    the script runs in the sandbox frame and never in this document.
   */
   const host = read("components/website-builder/sections/StorelibSection.tsx")
-  check("nothing on the page executes a section's script",
-    !/out\.script|\.script\b.*(new Function|eval|createElement\(["']script)/.test(host) && !/new Function|<script/.test(host.replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, "")),
-    "section scripts run now: update the script topic in lib/storelib-ai/knowledge.ts, NO_SCRIPT_YET in template.ts, content/developers/javascript.md, ai.md, and this check")
-  check("and everything that says so, says so",
-    /NOT RUN on the page yet/.test(CORE_FORMAT)
-      && ALL_TOPICS.some((t) => t.id === "script" && /DOES NOT RUN ON THE PAGE YET/.test(t.text))
-      && /Section scripts are not run yet/.test(read("lib/storelib-theme/storelib/template.ts"))
-      && /## Status: scripts are checked, not run/.test(DEVELOPER_DOCS.javascript ?? ""))
-  check("the compiler no longer tells anyone to write a click handler in a script block",
-    !FOREIGN_SYNTAX.some(([, m]) => /receives the section's own root/.test(m))
-      && !FORBIDDEN_MARKUP.some(([, m]) => /put behaviour in the section's own <script> block/.test(m)))
+  const hostCode = host.replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, "")
+  check("the section hands its script to the sandbox",
+    /useSectionScript\(/.test(host) && /bundle: script/.test(host))
+  check("and never runs it in the page itself",
+    !/new Function|\beval\(|createElement\(["']script/.test(hostCode))
+  const sandbox = read("components/website-builder/sections/section-sandbox.tsx")
+  check("the frame is sandboxed with allow-scripts and nothing else",
+    /sandbox="allow-scripts"/.test(sandbox) && !/allow-same-origin/.test(sandbox.replace(/\/\*[\s\S]*?\*\//g, "")))
+  check("and everything that describes a script says it runs",
+    /runs in a sandbox/.test(CORE_FORMAT)
+      && ALL_TOPICS.some((t) => t.id === "script" && /RUNS IN A SANDBOX/.test(t.text))
+      && /## Status: scripts run, in a sandbox/.test(DEVELOPER_DOCS.javascript ?? "")
+      && !/not run yet|NOT RUN on the page yet|DOES NOT RUN ON THE PAGE YET/.test(
+        [CORE_FORMAT, ...ALL_TOPICS.map((t) => t.text), read("lib/storelib-theme/storelib/template.ts"), DEVELOPER_DOCS.ai ?? "", DEVELOPER_DOCS.sections ?? ""].join("\n"),
+      ))
+  check("and says what it cannot do",
+    /Adding or removing elements/.test(DEVELOPER_DOCS.javascript ?? "") && /cannot add or remove elements/.test(ALL_TOPICS.find((t) => t.id === "script")?.text ?? ""))
+  check("the compiler names both ways to handle a click, HTML first",
+    FOREIGN_SYNTAX.some(([re, m]) => re.test(' @click="x"') && /<details>/.test(m) && /addEventListener/.test(m))
+      && FORBIDDEN_MARKUP.some(([re, m]) => re.test(' onclick="x"') && /<script> block/.test(m)))
 
   console.log("\nIt can be found, by people and by agents")
 

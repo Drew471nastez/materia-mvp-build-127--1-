@@ -3,6 +3,8 @@ import { createClient } from "@supabase/supabase-js"
 import { sendEmail, buildFromHeader, isSmtpConfigured, EMAIL_FROM, EMAIL_REPLY_TO } from "@/lib/mail"
 import { ignoreError } from "@/lib/supabase/ignore-error"
 import { requireBearerSecret } from "@/lib/api/require-secret"
+import { automationEmail, standingOf } from "@/lib/email-automation"
+import { maskEmail } from "@/lib/privacy/mask-email"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -30,41 +32,7 @@ function safeText(s: string) {
   return (s || "").toString().replace(/\s+/g, " ").trim()
 }
 
-function wrapFlowEmailHtml(bodyContent: string, fromName: string): string {
-  return `<!DOCTYPE html>
-<html>
-<head>
-  <meta name="viewport" content="width=device-width,initial-scale=1.0">
-  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-</head>
-<body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;background-color:#f6f9fc;">
-  <table role="presentation" style="width:100%;padding:32px 16px;">
-    <tr>
-      <td align="center">
-        <table role="presentation" style="max-width:600px;width:100%;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,0.08);">
-          <tr>
-            <td style="padding:34px;">
-              <div style="font-size:15px;color:#374151;line-height:1.6;">
-                ${bodyContent}
-              </div>
-            </td>
-          </tr>
-          <tr>
-            <td style="padding:16px 22px;text-align:center;background:#f9fafb;color:#9ca3af;font-size:11px;">
-              © ${new Date().getFullYear()} ${safeText(fromName)}
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>`
-}
 
-function stripHtml(html: string): string {
-  return html.replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim()
-}
 
 // Resolve creator identity for sending emails
 async function resolveCreatorIdentity(creatorId: string): Promise<{ fromName: string; replyTo: string }> {
@@ -175,8 +143,31 @@ export async function GET(request: Request) {
           continue
         }
 
+        /**
+         * AND THE PERSON IS CHECKED AGAIN, NOT ONLY THE FLOW.
+         *
+         * This email was queued when somebody signed up, and is being sent
+         * days later. Unsubscribing in between did nothing: the row was
+         * still pending and still went. Now it is cancelled, and the send
+         * carries the unsubscribe link read here.
+         */
+        const standing = await standingOf(supabaseAdmin, email.creator_id, email.recipient_email)
+        if (standing.suppressed) {
+          await supabaseAdmin
+            .from("scheduled_flow_emails")
+            .update({ status: "cancelled", updated_at: new Date().toISOString() })
+            .eq("id", email.id)
+          console.log(`[cron/scheduled-emails] Cancelled ${email.id} - the address left the list`)
+          continue
+        }
+
         // Get creator identity for this email
         const identity = await resolveCreatorIdentity(email.creator_id)
+        const mail = automationEmail({
+          body: email.body,
+          fromName: identity.fromName,
+          unsubscribeToken: standing.unsubscribeToken,
+        })
 
         // Send the email
         const result = await sendEmail({
@@ -184,8 +175,9 @@ export async function GET(request: Request) {
           to: email.recipient_email.toLowerCase().trim(),
           replyTo: identity.replyTo,
           subject: email.subject,
-          html: wrapFlowEmailHtml(email.body, identity.fromName),
-          text: stripHtml(email.body),
+          html: mail.html,
+          text: mail.text,
+          headers: mail.headers,
         })
 
         if (result.success) {
@@ -222,7 +214,7 @@ export async function GET(request: Request) {
           )
 
           sent++
-          console.log(`[cron/scheduled-emails] ✅ Sent email to ${email.recipient_email}`)
+          console.log(`[cron/scheduled-emails] Sent email to ${maskEmail(email.recipient_email)}`)
         } else {
           throw new Error(result.error || "Failed to send")
         }
@@ -237,9 +229,9 @@ export async function GET(request: Request) {
           })
           .eq("id", email.id)
 
-        errors.push(`${email.recipient_email}: ${err.message}`)
+        errors.push(`${maskEmail(email.recipient_email)}: ${err.message}`)
         failed++
-        console.error(`[cron/scheduled-emails] ❌ Failed to send email to ${email.recipient_email}:`, err.message)
+        console.error(`[cron/scheduled-emails] Failed to send email to ${maskEmail(email.recipient_email)}:`, err.message)
       }
     }
 

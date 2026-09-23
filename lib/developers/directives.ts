@@ -60,11 +60,11 @@ export const FILTER_DOCS: Record<string, { use: string; does: string }> = {
 
 export const CAPABILITY_DOCS: Record<string, { grants: string; now: boolean }> = {
   embed: { grants: "One `<iframe>` whose `src` comes from the `embed` filter. This is markup, not script, so it works today.", now: true },
-  navigation: { grants: "`storelib.navigate(path)`: go to a page of this site.", now: false },
-  commerce: { grants: "`storelib.cart.add(variantId, quantity)` and `storelib.cart.get()`.", now: false },
-  analytics: { grants: "`storelib.analytics.track(event, props)`.", now: false },
-  forms: { grants: "`storelib.forms.submit(name, fields)`. A sign-up form needs no script and no capability at all; see Forms.", now: false },
-  timers: { grants: "The names `setTimeout`, `setInterval` and `requestAnimationFrame`.", now: false },
+  navigation: { grants: "`storelib.navigate(path)`: go to a page of this site. A path starting with one `/` only; the builder's canvas ignores it.", now: true },
+  commerce: { grants: "`storelib.cart.add(variantId, quantity)` and `storelib.cart.get()`. Declaring it is accepted; the functions are not on `storelib` yet.", now: false },
+  analytics: { grants: "`storelib.analytics.track(event, props)`. Declaring it is accepted; the function is not on `storelib` yet.", now: false },
+  forms: { grants: "`storelib.forms.submit(name, fields)`, not on `storelib` yet. A sign-up form needs no script and no capability at all; see Forms.", now: false },
+  timers: { grants: "The names `setTimeout`, `setInterval` and `requestAnimationFrame`.", now: true },
 }
 
 export const LIMIT_DOCS: Record<keyof typeof LIMITS, string> = {
@@ -235,7 +235,7 @@ export function expandDirective(name: string, arg?: string): DocNode[] {
         rows: CAPABILITIES.map((c) => [
           code(c),
           CAPABILITY_DOCS[c]?.grants ?? "",
-          CAPABILITY_DOCS[c]?.now ? "yes" : "no, needs the script runtime",
+          CAPABILITY_DOCS[c]?.now ? "yes" : "not yet",
         ]),
       }]
 

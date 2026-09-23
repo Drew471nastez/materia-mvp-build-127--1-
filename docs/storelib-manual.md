@@ -123,7 +123,7 @@ A section is one file ending in `.storelib`, holding up to four blocks.
 | --- | --- | --- |
 | `<template>` | Yes | Markup, output, conditionals, loops. |
 | `<style>` | No | CSS. Always scoped to this section's instances. |
-| `<script>` | No | Behaviour. Checked and stored; not executed yet. See section 11. |
+| `<script>` | No | Behaviour. Checked when saved, then run in a sandbox against a copy of the section. See section 11. |
 | `<schema>` | Yes | JSON: what this section is and which settings it has. |
 
 Rules the parser enforces:
@@ -937,10 +937,28 @@ the browser to wait before fetching the one thing the page is measured on.
 A section's `<script>` is for behaviour that belongs to that section: opening a
 menu, advancing a slider, submitting a form.
 
-**Scripts are parsed, checked and stored. They are not executed yet.** Write
-one if you want it ready, and do not build a section whose content depends on
-it running. Everything below is the contract it is checked against and will run
-under.
+**Scripts are parsed and checked when saved, then run in a sandbox**, on the
+published page and in the editor. The sandbox is one `<iframe sandbox="allow-scripts">`
+per page, with an opaque origin, so a script cannot read the visitor's cookies,
+storage or session, and cannot see the page.
+
+Inside it, `root` is a copy of the section's own markup in a real document.
+Ordinary DOM code works on it, and each change is sent to the page, checked,
+and applied to the real section: classes and the attributes that describe
+rather than load (`hidden`, `open`, `aria-*`, `data-*` and a few more), style
+properties one at a time, and the text of an element that holds only text.
+Clicks, keys and input on the real section are sent back to the copy, so the
+script's own listeners run.
+
+What does not cross: adding or removing elements, anything that loads or runs
+(`src`, `href`, `action`, `on*`, a style value with `url(`), markup (text
+arrives as text), and measurements, because the copy is not laid out. Scroll
+with `storelib.scrollTo(element, { left, top, behavior })`.
+`storelib.inEditor` is true in the editor. The page-side rules are
+`lib/storelib-theme/sandbox/protocol.ts`.
+
+Prefer HTML and CSS where they do the job alone: they work before any script
+has loaded.
 
 ### 11.2 The sandbox
 
@@ -953,7 +971,7 @@ The bundle is wrapped as:
 
 | Name | What it is |
 | --- | --- |
-| `root` | The section's root element. The whole DOM the script has. |
+| `root` | A copy of the section's markup, in the sandbox. The whole DOM the script has. |
 | `settings`, `blocks`, `theme`, `page` | The same resolved data the template rendered from. |
 | `storelib` | The API surface. What is on it depends on `capabilities`. |
 
@@ -981,11 +999,11 @@ Six, declared in the schema and shown in the editor.
 
 | Capability | Grants |
 | --- | --- |
-| `navigation` | `storelib.navigate(path)` |
-| `commerce` | `storelib.cart.add(variantId, qty)`, `storelib.cart.get()` |
-| `analytics` | `storelib.analytics.track(event, props)` |
-| `forms` | `storelib.forms.submit(name, fields)` |
-| `timers` | The names `setTimeout`, `setInterval` and `requestAnimationFrame`. Not `queueMicrotask`, which stays out. |
+| `navigation` | `storelib.navigate(path)`, a path on this site only. Ignored in the editor. |
+| `commerce` | Accepted. `storelib.cart.add` and `storelib.cart.get` are not on `storelib` yet. |
+| `analytics` | Accepted. `storelib.analytics.track` is not on `storelib` yet. |
+| `forms` | Accepted. `storelib.forms.submit` is not on `storelib` yet; a sign-up form needs no script. |
+| `timers` | Working `setTimeout`, `setInterval` and `requestAnimationFrame`. Not `queueMicrotask`, which stays out. |
 | `embed` | Markup rather than script: it lets the template open one allow-listed iframe. |
 
 An unknown capability is refused with the list of real ones. Everything a

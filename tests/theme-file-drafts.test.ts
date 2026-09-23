@@ -264,14 +264,17 @@ async function main() {
   // ═══════════════════════════════════════════════════════════════════════
   {
     const root = process.cwd()
-    const files = readFileSync(join(root, "app/api/website-builder/themes/[installId]/files/route.ts"), "utf8")
+    /* The route delegates its save to the module the agent API shares. */
+    const files =
+      readFileSync(join(root, "app/api/website-builder/themes/[installId]/files/route.ts"), "utf8") +
+      readFileSync(join(root, "lib/website-builder/save-theme-file.ts"), "utf8")
     const publish = readFileSync(join(root, "app/api/website-builder/themes/[installId]/publish/route.ts"), "utf8")
     const storefront = readFileSync(join(root, "lib/website-builder/storefront-render.ts"), "utf8")
     const codePage = readFileSync(join(root, "app/website-builder/code/[installId]/page.tsx"), "utf8")
     const sql = readFileSync(join(root, "supabase/sql/RUN_THEME_FILE_DRAFTS.sql"), "utf8")
 
-    check("saving goes through the draft half", /const saved = await saveDraft\(supabase, installId, path, content\)/.test(files))
-    check("and records a version", /await recordVersion\(supabase, installId, path, content, "save"\)/.test(files))
+    check("saving goes through the draft half", /const saved = await saveDraft\(db, installId, path, content\)/.test(files) && /saveThemeFile\(/.test(files))
+    check("and records a version", /await recordVersion\(db, installId, path, content, "save"\)/.test(files))
     check("publishing promotes the drafts, beside the sections it already promoted", /await promoteFileDrafts\(admin, installId\)/.test(publish) && publish.indexOf("await promoteFileDrafts(admin, installId)") > publish.indexOf("draft_sections: null"))
     /**
      * The one that keeps the whole thing meaningful: a visitor reads

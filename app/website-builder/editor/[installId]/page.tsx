@@ -5590,6 +5590,76 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     [showNotification],
   )
 
+  /**
+   * =========================================================================
+   *  SECTIONS A CONNECTED AGENT WRITES
+   * =========================================================================
+   * Claude Code, Codex or another agent connected under Website settings ›
+   * AI agents saves section files through app/api/mcp. It cannot place them
+   * on a page itself: the page's sections are this editor's, and a server
+   * write under an open editor would be overwritten by its next autosave.
+   *
+   * So the editor listens. Every few seconds while the tab is showing, it
+   * asks what agents wrote since it last asked; a NEW section is put on the
+   * page that is open, above the footer, the way Add Section would, and
+   * arrives with the same animation Ask AI's sections do. A change to an
+   * existing one redraws it. Either way it says who did it.
+   *
+   * Nothing is replayed: the first answer is only a cursor, so opening the
+   * builder does not add everything agents wrote last week.
+   */
+  type AgentEvent = { id: number; agent_name: string; path: string; action: "created" | "updated" }
+  const agentCursorRef = useRef<number | null>(null)
+  const handleAgentEventsRef = useRef<(events: AgentEvent[]) => Promise<void>>(async () => {})
+  handleAgentEventsRef.current = async (events: AgentEvent[]) => {
+    const files = await loadStorelibSources()
+    if (!files) return
+    const custom = customSectionSchemas(files)
+    for (const ev of events) {
+      const type = /^sections\/([a-z0-9_-]+)\.storelib$/.exec(ev.path)?.[1]
+      if (!type) continue
+      const schema = custom[type]
+      const label = schema?.name ?? type
+      if (ev.action === "created" && schema && !sectionsRef.current.some((sec) => sec.type === type)) {
+        const id = `${type}-${Date.now()}`
+        pushUndo()
+        setSections((previous) => placeWrittenSection(previous, writingAnchor(previous), instanceFromSchema(id, type, schema)))
+        setIsDirty(true)
+        setArrivedId(id)
+        scrollToSection(id)
+        showNotification(`${ev.agent_name} added ${label}`)
+      } else {
+        showNotification(`${ev.agent_name} updated ${label}`)
+      }
+    }
+  }
+  useEffect(() => {
+    let stopped = false
+    let timer: ReturnType<typeof setTimeout> | null = null
+    const tick = async () => {
+      if (stopped) return
+      if (document.visibilityState === "visible") {
+        try {
+          const after = agentCursorRef.current === null ? "" : `?after=${agentCursorRef.current}`
+          const res = await fetch(`/api/website-builder/themes/${installId}/agent-activity${after}`)
+          const d = (await res.json().catch(() => ({}))) as { ready?: boolean; cursor?: number; events?: AgentEvent[] }
+          /* Not set up on this database: stop asking until the next load. */
+          if (!res.ok || d.ready === false) return
+          if (typeof d.cursor === "number") agentCursorRef.current = d.cursor
+          if (d.events?.length) await handleAgentEventsRef.current(d.events)
+        } catch {
+          /* offline for a moment; the next tick asks again */
+        }
+      }
+      if (!stopped) timer = setTimeout(tick, 5_000)
+    }
+    void tick()
+    return () => {
+      stopped = true
+      if (timer) clearTimeout(timer)
+    }
+  }, [installId])
+
   // ── Sidebar panel rendering ─────────────────────────────────
 
   // Page browser content — shows all pages grouped by type

@@ -47,7 +47,7 @@ export interface Topic {
 export const CORE_FORMAT = `A Storelib section is ONE file with four blocks, each tag on its own line:
   <template> markup </template>
   <style> CSS </style>
-  <script> optional; checked when saved, NOT RUN on the page yet </script>
+  <script> optional; runs in a sandbox against a copy of this section </script>
   <schema> JSON </schema>
 
 THE TEMPLATE LANGUAGE IS NOT VUE, REACT OR JSX. v-if, @click, :class and JSX braces are refused by the compiler. It is:
@@ -95,13 +95,9 @@ const TOPICS: Topic[] = [
   {
     id: "script",
     triggers: /script|javascript|js|slider|carousel|autoplay|interval|timer|animate|animation|click|toggle|drag|scroll|tab|modal|popup|menu|open|close/i,
-    text: `A SECTION'S <script> DOES NOT RUN ON THE PAGE YET: it is checked and stored, never executed, so an interaction built in script does nothing for a visitor. USE HTML AND CSS:
-  accordion  <details><summary>; a shared name="{{ section.id }}-faq" keeps one open at a time
-  tabs       radios sharing a name; input:checked + label + .panel shows each panel
-  carousel   overflow-x: auto with scroll-snap-type: x mandatory
-  pop-up     <button popovertarget="{{ section.id }}-pop"> with <div popover id="{{ section.id }}-pop">
-  motion     CSS transitions and @keyframes, off under prefers-reduced-motion
-  A script kept for later may not name window, document, fetch, localStorage, eval or Function; timers need "timers". Capabilities: ${CAPABILITIES.join(", ")}.`,
+    text: `A SECTION'S <script> RUNS IN A SANDBOX, against a copy of the section's own markup. root is that copy: query inside it, add listeners, toggle classes, set styles and text, and the page mirrors each change. It cannot add or remove elements (show and hide what the template drew, with hidden or a class), cannot measure layout, and cannot set src, href or on* attributes. Scroll with storelib.scrollTo(el, { left, behavior: "smooth" }); storelib.inEditor is true in the builder.
+  PREFER HTML AND CSS where they do it alone, because they work before any script loads: <details> accordions (a shared name="{{ section.id }}-faq" keeps one open), radio :checked tabs, scroll-snap carousels, popovertarget pop-ups, CSS transitions stopped under prefers-reduced-motion. Use script for what they cannot: autoplay, counters, a slider's dots.
+  window, document, fetch, localStorage, eval and Function are refused by name. Timers need the "timers" capability. Capabilities: ${CAPABILITIES.join(", ")}.`,
   },
   {
     id: "forms",

@@ -156,8 +156,13 @@ section("The manual does not promise what the engine does not do")
    * feature that is not there, which is the worst kind of wrong.
    */
   check(
-    "it says plainly that scripts do not run yet",
-    /\*\*Scripts are parsed, checked and stored\. They are not executed yet\.\*\*/.test(manual),
+    "it says plainly that scripts run, and where",
+    /\*\*Scripts are parsed and checked when saved, then run in a sandbox\*\*/.test(manual)
+      && /<iframe sandbox="allow-scripts">/.test(manual),
+  )
+  check(
+    "and what does not cross from the sandbox to the page",
+    /What does not cross: adding or removing elements/.test(manual),
   )
   check(
     "and that a setting rename is not applied yet",
@@ -165,9 +170,8 @@ section("The manual does not promise what the engine does not do")
   )
   const runtime = readFileSync(join(root, "lib/website-builder/storelib-runtime.ts"), "utf8")
   check(
-    "which is still true: the renderer hands back html and css, and no script",
-    /return \{ ok: true, html: r\.html, css: r\.css \}/.test(runtime),
-    "the runtime now returns a script, so the manual needs updating",
+    "which is true: the renderer hands the checked script to the sandbox, never runs it",
+    /script: c\.value\.script \?\? null/.test(runtime) && !/new Function|\beval\(/.test(runtime),
   )
 }
 

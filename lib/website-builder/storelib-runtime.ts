@@ -88,7 +88,19 @@ export function toInstanceData(section: SectionInstance): SectionInstanceData {
 }
 
 export type StorelibRendered =
-  | { ok: true; html: string; css: string }
+  | {
+      ok: true
+      html: string
+      css: string
+      /**
+       * The section's checked `<script>`, wrapped as a function body, or
+       * null. It is NOT run here and never on the page: it goes to the
+       * sandbox frame. See components/website-builder/sections/section-sandbox.
+       */
+      script: string | null
+      /** What its schema declared, which is what the sandbox will grant. */
+      capabilities: string[]
+    }
   | { ok: false; errors: ThemeError[] }
 
 /**
@@ -119,5 +131,11 @@ export function renderStorelibSection(
     page,
     products,
   })
-  return { ok: true, html: r.html, css: r.css }
+  return {
+    ok: true,
+    html: r.html,
+    css: r.css,
+    script: c.value.script ?? null,
+    capabilities: c.value.schema.capabilities ?? [],
+  }
 }

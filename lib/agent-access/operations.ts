@@ -1,0 +1,161 @@
+/**
+ * ===========================================================================
+ *  WHAT A CONNECTED AGENT CAN DO TO A SITE
+ * ===========================================================================
+ * Four things, and the same four whether the agent arrives over MCP
+ * (app/api/mcp) or plain HTTP (app/api/agent/v1):
+ *
+ *   list      the theme's files, marking which are the creator's own
+ *   read      one file, the draft where there is one
+ *   compile   check a file without saving it, for the agent's own loop
+ *   write     save a section file: compiled, checked and saved as a DRAFT
+ *
+ * WHAT IT CANNOT DO, on purpose:
+ *   - write anywhere but `sections/<type>.storelib`. Templates, config and
+ *     layout decide what every page is and are the creator's to change;
+ *   - delete or rename anything;
+ *   - publish. Every write is a draft, exactly as a save in the code editor
+ *     is, and nothing reaches a visitor until the creator presses Publish;
+ *   - reach another site, or anything that is not a theme file: products,
+ *     orders, subscribers and the account are not on this list at all.
+ */
+import { compileSection } from "@/lib/storelib-theme"
+import { ENGINE_VERSION, SECTION_SCHEMA_VERSION, type ThemeError } from "@/lib/storelib-theme/types"
+import { editorContent } from "@/lib/website-builder/theme-file-drafts"
+import { safeThemePath, saveThemeFile } from "@/lib/website-builder/save-theme-file"
+import { DEFAULT_THEME_SOURCES } from "../../themes/default/sources.generated"
+import type { AgentIdentity } from "./tokens"
+
+type Db = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
+
+export const DOCS_URL = "https://storelib.com/developers/ai"
+export const FULL_TEXT_URL = "https://storelib.com/llms-full.txt"
+
+/** The one kind of file an agent may write. */
+export const WRITABLE = /^sections\/[a-z0-9_-]{1,64}\.storelib$/
+
+export function canWrite(path: string): boolean {
+  return safeThemePath(path) && WRITABLE.test(path)
+}
+
+export type OpResult<T> = { ok: true; value: T } | { ok: false; status: number; error: string; errors?: ThemeError[] }
+
+export interface FileEntry {
+  path: string
+  /** "yours" when the creator (or an agent) saved it; "theme" when it is the shipped file. */
+  origin: "yours" | "theme"
+  /** Saved and not yet published. */
+  unpublished: boolean
+}
+
+export async function listFiles(db: Db, installId: string): Promise<OpResult<{
+  framework: { engine: number; schema: number }
+  docs: string
+  writable: string
+  files: FileEntry[]
+}>> {
+  const { data, error } = await db
+    .from("store_theme_custom_files")
+    .select("path, content, draft_content")
+    .eq("install_id", installId)
+  if (error) return { ok: false, status: 500, error: "Could not read the theme's files" }
+
+  const files = new Map<string, FileEntry>()
+  for (const path of Object.keys(DEFAULT_THEME_SOURCES)) files.set(path, { path, origin: "theme", unpublished: false })
+  for (const row of (data ?? []) as { path: string; content: string; draft_content?: string | null }[]) {
+    const source = editorContent(row)
+    if (typeof source !== "string" || source.trim() === "") continue
+    files.set(row.path, {
+      path: row.path,
+      origin: "yours",
+      unpublished: typeof row.draft_content === "string" && row.draft_content !== row.content,
+    })
+  }
+  return {
+    ok: true,
+    value: {
+      framework: { engine: ENGINE_VERSION, schema: SECTION_SCHEMA_VERSION },
+      docs: DOCS_URL,
+      writable: "sections/<type>.storelib",
+      files: [...files.values()].sort((a, b) => a.path.localeCompare(b.path)),
+    },
+  }
+}
+
+export async function readFile(db: Db, installId: string, path: string): Promise<OpResult<{
+  path: string
+  source: string
+  origin: "yours" | "theme"
+  updated_at: string | null
+}>> {
+  if (!safeThemePath(path)) return { ok: false, status: 400, error: "Invalid path" }
+  const { data, error } = await db
+    .from("store_theme_custom_files")
+    .select("path, content, draft_content, updated_at")
+    .eq("install_id", installId)
+    .eq("path", path)
+    .maybeSingle()
+  if (error) return { ok: false, status: 500, error: "Could not read the file" }
+  if (data) {
+    const source = editorContent(data)
+    if (typeof source === "string" && source.trim() !== "") {
+      return { ok: true, value: { path, source, origin: "yours", updated_at: data.updated_at ?? null } }
+    }
+  }
+  const shipped = (DEFAULT_THEME_SOURCES as Record<string, string>)[path]
+  if (typeof shipped === "string") return { ok: true, value: { path, source: shipped, origin: "theme", updated_at: null } }
+  return { ok: false, status: 404, error: `There is no ${path} in this theme` }
+}
+
+/** Compile without saving: what the code editor's save would say, and nothing stored. */
+export function compileOnly(path: string, source: string): OpResult<{ path: string; warnings: ThemeError[] }> {
+  if (!safeThemePath(path) || !path.endsWith(".storelib")) {
+    return { ok: false, status: 400, error: "Compile takes a .storelib path, such as sections/pricing.storelib" }
+  }
+  const r = compileSection(source, { file: path })
+  if (r.ok === false) return { ok: false, status: 422, error: `${path} did not compile`, errors: r.errors }
+  return { ok: true, value: { path, warnings: r.warnings ?? [] } }
+}
+
+/**
+ * Save a section file for this connection. Compiled first, held to every
+ * rule the code editor's save is held to, saved as a draft, and written to
+ * the activity log so an open builder can put a new section on the page.
+ */
+export async function writeSection(
+  db: Db,
+  who: AgentIdentity,
+  path: string,
+  source: string,
+  baseUpdatedAt?: string,
+): Promise<OpResult<{ path: string; type: string; created: boolean; drafted: boolean; updated_at: string | null }>> {
+  if (!canWrite(path)) {
+    return {
+      ok: false,
+      status: 403,
+      error: "A connected agent writes section files only: sections/<type>.storelib, lower case, digits, _ and -.",
+    }
+  }
+  const saved = await saveThemeFile(db, who.installId, path, source, { baseUpdatedAt })
+  if (saved.ok === false) return { ok: false, status: saved.status, error: saved.error, errors: saved.errors }
+
+  /* The log is how an open builder hears about it. Never allowed to fail the
+     write it records: the file is saved either way. */
+  try {
+    await db.from("theme_agent_activity").insert({
+      install_id: who.installId,
+      token_id: who.tokenId,
+      agent_name: who.name,
+      path,
+      action: saved.created ? "created" : "updated",
+    })
+  } catch {
+    /* the table may not exist yet; the save stands */
+  }
+
+  const type = path.replace(/^sections\//, "").replace(/\.storelib$/, "")
+  return {
+    ok: true,
+    value: { path, type, created: saved.created, drafted: saved.drafted, updated_at: saved.row.updated_at ?? null },
+  }
+}

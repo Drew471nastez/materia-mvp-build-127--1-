@@ -48,6 +48,12 @@
  *                                   loading FROM somewhere.
  *   'unsafe-eval'                   monaco-editor and esbuild-wasm, which
  *                                   are how the code editor works.
+ *                                   The section-script sandbox also needs it:
+ *                                   the srcdoc frame in section-sandbox.tsx
+ *                                   inherits this policy, and runs a
+ *                                   section's checked script with indirect
+ *                                   eval. Removing it stops every section
+ *                                   script silently.
  *
  * `object-src 'none'` and `base-uri 'self'` carry real weight on their own:
  * they close <object> plugin injection and the `<base href>` trick that
@@ -81,7 +87,7 @@ const DIRECTIVES: [string, string[]][] = [
   ["script-src", [
     "'self'",
     "'unsafe-inline'",  // Next.js hydration; see the note above
-    "'unsafe-eval'",    // monaco-editor, esbuild-wasm
+    "'unsafe-eval'",    // monaco-editor, esbuild-wasm, and the section-script sandbox
     "https://js.stripe.com",
     "https://cdnjs.cloudflare.com",   // pdf.js, for reading a PDF in the browser
     "https://va.vercel-scripts.com",  // @vercel/analytics
