@@ -18,7 +18,7 @@ import { z } from "zod"
 import { reviewImages } from "@/lib/sites/agent/attachments"
 import { createClient } from "@/lib/supabase/server"
 import { resolveProvider } from "@/lib/sites/agent/provider"
-import { writeSection } from "@/lib/website-builder/agent/write-section"
+import { writeSection, type WriteStage } from "@/lib/website-builder/agent/write-section"
 import { editorContent, recordVersion, saveDraft, sourceMap } from "@/lib/website-builder/theme-file-drafts"
 import { schemasFromSources } from "@/lib/website-builder/storelib-schemas"
 import { SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
@@ -117,49 +117,106 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
 
   const resolved = resolveProvider({ requested: parsed.data.provider, tier: parsed.data.tier ?? "strong" })
 
-  const written = await writeSection({
-    provider: resolved.provider,
-    model: resolved.model,
-    prompt: parsed.data.prompt,
-    images,
-    takenTypes,
-    takenNames,
-    theme: {
-      settings: parsed.data.settings ?? null,
-      neighbours: (parsed.data.sectionTypes ?? []).map((type) => ({
-        type,
-        name: SECTION_SCHEMAS[type]?.name ?? mine[type]?.name,
-      })),
-    },
-    signal: request.signal,
-  })
+  /**
+   * The whole job, start to answer. `onStage` is how the panel is told what
+   * is happening while it waits, when it asked to be (below).
+   */
+  const run = async (onStage?: (stage: WriteStage, attempt: number) => void): Promise<{ status: number; body: Record<string, unknown> }> => {
+    const written = await writeSection({
+      provider: resolved.provider,
+      model: resolved.model,
+      prompt: parsed.data.prompt,
+      images,
+      takenTypes,
+      takenNames,
+      theme: {
+        settings: parsed.data.settings ?? null,
+        neighbours: (parsed.data.sectionTypes ?? []).map((type) => ({
+          type,
+          name: SECTION_SCHEMAS[type]?.name ?? mine[type]?.name,
+        })),
+      },
+      signal: request.signal,
+      onStage,
+    })
 
-  if (written.ok === false) {
-    return NextResponse.json(
-      { error: written.error, errors: written.errors, source: written.source },
-      { status: 422 },
-    )
+    /* An answer rather than a file: the message was a question, or too
+       unclear to build. Nothing was written, and nothing went wrong. */
+    if (written.ok === false && written.reply) return { status: 200, body: { reply: written.reply } }
+
+    if (written.ok === false) {
+      return { status: 422, body: { error: written.error, errors: written.errors, source: written.source } }
+    }
+
+    /**
+     * Saved the same way the code editor saves: into the draft half, with a
+     * version row. The creator opens it, reads it, changes it and publishes it.
+     * Nothing here puts it on a page or in front of a visitor.
+     */
+    const saved = await saveDraft(supabase, installId, written.value.path, written.value.source)
+    if (saved.ok === false) return { status: 500, body: { error: saved.error } }
+    await recordVersion(supabase, installId, written.value.path, written.value.source, "save")
+
+    return {
+      status: 200,
+      body: {
+        path: written.value.path,
+        type: written.value.type,
+        name: written.value.name,
+        drafted: saved.drafts,
+        /**
+         * An attachment that was refused is named rather than dropped in
+         * silence: otherwise the section comes back written from a picture the
+         * creator thinks it saw and it never did.
+         */
+        ignored: rejected.length ? rejected.map((r) => r.reason) : undefined,
+      },
+    }
   }
 
   /**
-   * Saved the same way the code editor saves: into the draft half, with a
-   * version row. The creator opens it, reads it, changes it and publishes it.
-   * Nothing here puts it on a page or in front of a visitor.
+   * ===========================================================================
+   *  SAYING WHAT IS HAPPENING, WHILE IT HAPPENS
+   * ===========================================================================
+   * Writing a section is one to three model calls and a compile after each,
+   * which is half a minute or more. The panel asks for a line per stage
+   * (`Accept: application/x-ndjson`) so it can say "Thinking", "Checking it",
+   * "Fixing a detail" as each one starts rather than one sentence for the
+   * whole wait. The last line is the answer, with the status it would have
+   * had. Anything that does not ask gets the plain JSON answer, as before.
    */
-  const saved = await saveDraft(supabase, installId, written.value.path, written.value.source)
-  if (saved.ok === false) return NextResponse.json({ error: saved.error }, { status: 500 })
-  await recordVersion(supabase, installId, written.value.path, written.value.source, "save")
+  if ((request.headers.get("accept") ?? "").includes("application/x-ndjson")) {
+    const encoder = new TextEncoder()
+    const stream = new ReadableStream<Uint8Array>({
+      async start(controller) {
+        const line = (value: unknown) => {
+          try {
+            controller.enqueue(encoder.encode(`${JSON.stringify(value)}\n`))
+          } catch {
+            /* The reader went away; the work finishes and is saved anyway. */
+          }
+        }
+        try {
+          const done = await run((stage, attempt) => line({ type: "stage", stage, attempt }))
+          /* The answer nested, not spread: a section has a `type` of its own,
+             and spreading it here overwrote the event's. */
+          line({ type: "result", status: done.status, answer: done.body })
+        } catch (e) {
+          line({ type: "result", status: 500, answer: { error: e instanceof Error ? e.message : "The section could not be written." } })
+        } finally {
+          try {
+            controller.close()
+          } catch {
+            /* already closed */
+          }
+        }
+      },
+    })
+    return new Response(stream, {
+      headers: { "Content-Type": "application/x-ndjson; charset=utf-8", "Cache-Control": "no-store", "X-Accel-Buffering": "no" },
+    })
+  }
 
-  return NextResponse.json({
-    path: written.value.path,
-    type: written.value.type,
-    name: written.value.name,
-    drafted: saved.drafts,
-    /**
-     * An attachment that was refused is named rather than dropped in
-     * silence: otherwise the section comes back written from a picture the
-     * creator thinks it saw and it never did.
-     */
-    ignored: rejected.length ? rejected.map((r) => r.reason) : undefined,
-  })
+  const done = await run()
+  return NextResponse.json(done.body, { status: done.status })
 }

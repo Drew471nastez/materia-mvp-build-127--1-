@@ -588,6 +588,34 @@ section("Robots, which is a setting somebody trusts")
         .index === true,
   )
   check(
+    "the panel's toggle, switched off, is noindex",
+    /**
+     * "Allow search indexing" is a toggle and stores a boolean. Only strings
+     * were read, so `false` fell through to the default and the site was
+     * indexed with the switch off.
+     */
+    (() => {
+      const off = themeMetadata({ seo_robots: false } as ThemeSettingsValues, { title: "t", description: "d" }).robots as {
+        index: boolean
+        follow: boolean
+      }
+      const on = themeMetadata({ seo_robots: true } as ThemeSettingsValues, { title: "t", description: "d" }).robots as {
+        index: boolean
+      }
+      return off.index === false && off.follow === false && on.index === true
+    })(),
+  )
+  check(
+    "a chosen language reaches the share card, and nonsense does not",
+    (() => {
+      const og = (v: unknown) =>
+        (themeMetadata({ site_language: v } as ThemeSettingsValues, { title: "t", description: "d" }).openGraph as {
+          locale?: string
+        }).locale
+      return og("ro") === "ro_RO" && og("xx") === undefined && og('"><script>') === undefined && og(undefined) === undefined
+    })(),
+  )
+  check(
     "a share image reaches both cards",
     (() => {
       const m = themeMetadata({ seo_og_image: "https://x/y.png" } as ThemeSettingsValues, {

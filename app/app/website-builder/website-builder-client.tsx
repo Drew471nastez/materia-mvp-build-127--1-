@@ -80,12 +80,15 @@ import {
   type ThemeDefinition,
 } from "@/lib/website-builder/theme-registry"
 import {
+  PHONE_FRAME,
   ThemeCoverPair,
   coverSpecFromDefinition,
   coverSpecFromSettings,
 } from "@/components/website-builder/theme-cover"
 import { relativeTime } from "@/lib/website-builder/relative-time"
 import { requestCover } from "@/lib/website-builder/cover-refresh"
+import { HelpLabel } from "@/components/app/help-label"
+import type { SettingsSection } from "@/components/website-builder/website-settings/types"
 
 export interface WebsiteSummary {
   id: string
@@ -117,14 +120,39 @@ export type EditorView = "preview" | "code" | "settings"
  * The legacy path stays as the fallback for the brief window before a new
  * creator has a username.
  */
-export function editorHref(username: string, installId: string, view: EditorView = "preview"): string {
+export function editorHref(
+  username: string,
+  installId: string,
+  view: EditorView = "preview",
+  /** With `view: "settings"`, the page of Website Settings to open on. */
+  section?: SettingsSection,
+): string {
   const base = username
     ? `/store/${encodeURIComponent(username)}/themes/${installId}/editor`
     : `/website-builder/editor/${installId}`
   const params = new URLSearchParams({ previewPath: "/" })
   if (view !== "preview") params.set("view", view)
+  if (view === "settings" && section) params.set("settings", section)
   return `${base}?${params.toString()}`
 }
+
+/**
+ * ===========================================================================
+ *  THE TABS ABOVE THE COVER
+ * ===========================================================================
+ * The places a creator goes for their live website, named the way a host
+ * names them. Overview is this page. Every other tab opens the matching
+ * page of Website Settings in the editor: there is one Domains page and one
+ * SEO page in Storelib, and a tab is a door to it rather than a second copy.
+ */
+export const WEBSITE_TABS: { label: string; section: SettingsSection | null }[] = [
+  { label: "Overview", section: null },
+  { label: "Pages", section: "pages" },
+  { label: "Domain", section: "domains" },
+  { label: "SEO", section: "seo" },
+  { label: "Publishing", section: "publishing" },
+  { label: "Settings", section: "general" },
+]
 
 /** "2 days ago" without the "ago", for a meta line that already reads as time. */
 function since(iso: string | null | undefined): string | null {
@@ -146,6 +174,15 @@ function StatusDot({ status, label = true }: { status: ThemeStatus; label?: bool
     <span className={cn("inline-flex items-center gap-1.5 text-[12px] font-semibold", tone.text)}>
       <span className={cn("h-1.5 w-1.5 rounded-full", tone.dot)} />
       {label && tone.name}
+    </span>
+  )
+}
+
+/** A draft, as the Orders table draws a status: a word on a tint. */
+function DraftBadge() {
+  return (
+    <span className="inline-flex h-[22px] items-center whitespace-nowrap rounded-[7px] bg-[#f1f2f4] px-2 text-[12px] font-medium text-[#3f3f46]">
+      Draft
     </span>
   )
 }
@@ -191,7 +228,7 @@ function WebsiteCover({
           className="h-full w-full object-cover object-top"
         />
         {phone && install.snapshot_mobile_url && (
-          <div className="absolute bottom-[5%] right-[4%] w-[18%] overflow-hidden rounded-[9%/4.5%] border-[2px] border-[#1a1a2e] bg-white shadow-[0_10px_24px_-8px_rgba(15,23,42,0.45)]">
+          <div className={PHONE_FRAME}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={install.snapshot_mobile_url}
@@ -293,6 +330,19 @@ function SectionHeading({
 
 // ── The page ───────────────────────────────────────────────────────────────
 
+/** Resolves once every picture has been fetched and decoded, or failed to. */
+async function decodedFirst(urls: (string | null)[]): Promise<void> {
+  await Promise.all(
+    urls.map((url) => {
+      if (!url) return null
+      const img = new Image()
+      img.decoding = "async"
+      img.src = url
+      return img.decode().catch(() => null)
+    }),
+  )
+}
+
 /**
  * A cover older than the site it is a picture of. Missing counts, and so
  * does one taken before the last save by more than the few seconds a save
@@ -349,7 +399,13 @@ export function WebsiteBuilderClient({
         /* Used even if this run was superseded: the site is already marked
            asked, so a result dropped here would leave its card stale for the
            rest of the visit. Cancelling only stops the NEXT one starting. */
-        if (got) setFresh((prev) => ({ ...prev, [i.id]: got }))
+        if (got) {
+          /* Decoded before it is swapped in. Handing the card a new URL
+             straight away blanked the cover while a 1440px picture arrived
+             and decoded, which is the flash of grey a retake used to be. */
+          await decodedFirst([got.url, got.mobile_url])
+          setFresh((prev) => ({ ...prev, [i.id]: got }))
+        }
       }
     })()
     return () => {
@@ -543,102 +599,129 @@ export function WebsiteBuilderClient({
         <section aria-labelledby="live-heading" data-page-block>
           <div className="overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
             {live ? (
-              <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
-                <button
-                  type="button"
-                  onClick={() => go(editorHref(username, live.id))}
-                  aria-label={`Edit ${live.name}`}
-                  className="group relative block min-w-0 overflow-hidden bg-[#eef0f3] text-left lg:border-r lg:border-[#eceef1]"
+              <>
+                {/* ── The tabs ─────────────────────────────────────────
+                    Across the top of the card, the way a host puts a site's
+                    sections above its preview. Text and a 2px rule under the
+                    one you are on: no pills, no icons. On a phone the row
+                    scrolls sideways under the thumb, and its padding is also
+                    its scroll padding so the first tab lines up with the
+                    card's text rather than the card's edge. */}
+                <nav
+                  aria-label="Website"
+                  className="flex overflow-x-auto border-b border-[#eceef1] px-2 scroll-px-2 [scrollbar-width:none] sm:px-3 [&::-webkit-scrollbar]:hidden"
                 >
-                  <span className="block aspect-[16/10] w-full">
-                    <WebsiteCover install={live} eager phone />
-                  </span>
-                  <span className="pointer-events-none absolute inset-0 bg-[#1a1a2e]/0 transition-colors duration-200 group-hover:bg-[#1a1a2e]/[0.04]" />
-                </button>
-                <div className="flex min-w-0 flex-col justify-center p-5 sm:p-6">
-                  <StatusDot status="published" />
-                  <h2 id="live-heading" className="mt-2 truncate text-[20px] font-semibold tracking-tight text-[#1a1a2e]">
-                    {live.name}
-                  </h2>
-                  <p className="mt-1 text-[13px] text-[#6b7280]">
-                    {live.published_at ? `Published ${since(live.published_at)}` : "Published"}
-                    <span className="mx-1.5 text-[#d1d5db]">·</span>
-                    Edited {since(live.saved_at)}
-                  </p>
-                  {/* The theme line, ONLY when it is not the site's name over
-                      again. A website starts out named after the theme it was
-                      built from, so for anybody who has not renamed theirs
-                      this printed the same words twice, one line apart, in two
-                      sizes of grey. It earns its place once they diverge. */}
-                  {live.theme && live.theme.name !== live.name && (
-                    <p className="mt-0.5 text-[12.5px] text-[#9ca3af]">
-                      {live.theme.name} <span className="text-[#d1d5db]">v{live.theme.version}</span>
-                    </p>
-                  )}
-                  {/* ── What you can do to it ────────────────────────────
-                      This was a row of five identical bordered squares with a
-                      glyph in each and no words anywhere: view, code,
-                      settings, export, more. Four of the five opened
-                      something that was ALSO a row of the menu standing right
-                      beside them, so the row was the menu again, drawn wider
-                      and without its labels. And a tooltip is the only thing
-                      that ever named them, which on a phone is nothing at
-                      all — five grey squares you have to press to find out.
+                  {WEBSITE_TABS.map((tab) => {
+                    const here = tab.section === null
+                    return (
+                      <button
+                        key={tab.label}
+                        type="button"
+                        aria-current={here ? "page" : undefined}
+                        onClick={here ? undefined : () => go(editorHref(username, live.id, "settings", tab.section ?? undefined))}
+                        className={cn(
+                          "wb-tab relative flex h-11 shrink-0 items-center px-3 text-[13.5px] font-medium transition-colors duration-150",
+                          here ? "text-[#1a1a2e]" : "text-[#6b7280] hover:text-[#1a1a2e]",
+                        )}
+                        data-active={here ? "" : undefined}
+                      >
+                        {tab.label}
+                      </button>
+                    )
+                  })}
+                </nav>
 
-                      Two buttons now, both of which say what they are. View
-                      site is the one action that is not about editing, so it
-                      keeps its place; everything else is in the menu, which
-                      had it already. */}
-                  <div className="mt-5 space-y-2">
-                    <Button
-                      onClick={() => go(editorHref(username, live.id))}
-                      className="h-11 w-full rounded-xl bg-[#1a1a2e] text-[14px] font-semibold text-white hover:bg-[#2d2d44]"
-                    >
-                      Edit website
-                    </Button>
-                    <div className="grid grid-cols-2 gap-2">
-                      {siteUrl ? (
-                        <a
-                          href={siteUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className={SECONDARY_ACTION}
-                        >
-                          <ExternalLink className="h-4 w-4 text-[#6b7280]" strokeWidth={1.9} />
-                          View site
-                        </a>
-                      ) : (
-                        <span />
+                <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
+                  <button
+                    type="button"
+                    onClick={() => go(editorHref(username, live.id))}
+                    aria-label={`Edit ${live.name}`}
+                    className="group relative block min-w-0 overflow-hidden bg-[#eef0f3] text-left lg:border-r lg:border-[#eceef1]"
+                  >
+                    <span className="block aspect-[16/10] w-full">
+                      <WebsiteCover install={live} eager phone />
+                    </span>
+                    <span className="pointer-events-none absolute inset-0 bg-[#1a1a2e]/0 transition-colors duration-200 group-hover:bg-[#1a1a2e]/[0.04]" />
+                  </button>
+                  <div className="flex min-w-0 flex-col p-5 sm:p-6">
+                    <StatusDot status="published" />
+                    <h2 id="live-heading" className="mt-2 truncate text-[20px] font-semibold tracking-tight text-[#1a1a2e]">
+                      {live.name}
+                    </h2>
+                    {/* ── The facts, as a list ──────────────────────────────
+                        Label on the left, value on the right, a hairline
+                        between: the way a settings page states things, and
+                        easier to scan than a sentence with dots in it. The
+                        theme row only when it is not the site's name again. */}
+                    <dl className="mt-4 divide-y divide-[#f0f1f3] border-y border-[#f0f1f3] text-[13px]">
+                      <div className="flex items-center justify-between gap-4 py-2.5">
+                        <dt className="text-[#6b7280]">Published</dt>
+                        <dd className="text-right font-medium text-[#1a1a2e]">{live.published_at ? since(live.published_at) : "Yes"}</dd>
+                      </div>
+                      <div className="flex items-center justify-between gap-4 py-2.5">
+                        <dt className="text-[#6b7280]">Last edited</dt>
+                        <dd className="text-right font-medium text-[#1a1a2e]">{since(live.saved_at)}</dd>
+                      </div>
+                      {live.theme && live.theme.name !== live.name && (
+                        <div className="flex items-center justify-between gap-4 py-2.5">
+                          <dt className="text-[#6b7280]">Theme</dt>
+                          <dd className="min-w-0 truncate text-right font-medium text-[#1a1a2e]">
+                            {live.theme.name} <span className="font-normal text-[#9ca3af]">v{live.theme.version}</span>
+                          </dd>
+                        </div>
                       )}
-                      <ResponsiveActionMenu
-                        title={live.name}
-                        // No `preview`: View site is its own button now, and a
-                        // menu row repeating the button above it is the thing
-                        // this block was rewritten to stop doing.
-                        items={menuFor(live)}
-                        menuWidth="w-52"
-                        trigger={
-                          <button type="button" className={SECONDARY_ACTION}>
-                            {busy?.startsWith(live.id) ? (
-                              <Loader2 className="h-4 w-4 animate-spin text-[#6b7280]" />
-                            ) : (
-                              <MoreHorizontal className="h-4 w-4 text-[#6b7280]" strokeWidth={1.9} />
-                            )}
-                            More
-                          </button>
-                        }
-                      />
+                    </dl>
+                    <div className="mt-auto space-y-2 pt-5">
+                      <Button
+                        onClick={() => go(editorHref(username, live.id))}
+                        className="h-11 w-full rounded-xl bg-[#1a1a2e] text-[14px] font-semibold text-white hover:bg-[#2d2d44]"
+                      >
+                        Edit website
+                      </Button>
+                      <div className="grid grid-cols-2 gap-2">
+                        {siteUrl ? (
+                          <a
+                            href={siteUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={SECONDARY_ACTION}
+                          >
+                            <ExternalLink className="h-4 w-4 text-[#6b7280]" strokeWidth={1.9} />
+                            View site
+                          </a>
+                        ) : (
+                          <span />
+                        )}
+                        <ResponsiveActionMenu
+                          title={live.name}
+                          // No `preview`: View site is its own button, and a
+                          // menu row repeating the button beside it is the
+                          // thing this block was rewritten to stop doing.
+                          items={menuFor(live)}
+                          menuWidth="w-52"
+                          trigger={
+                            <button type="button" className={SECONDARY_ACTION}>
+                              {busy?.startsWith(live.id) ? (
+                                <Loader2 className="h-4 w-4 animate-spin text-[#6b7280]" />
+                              ) : (
+                                <MoreHorizontal className="h-4 w-4 text-[#6b7280]" strokeWidth={1.9} />
+                              )}
+                              More
+                            </button>
+                          }
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
+              </>
             ) : (
               <div className="flex flex-col items-center gap-2 px-6 py-12 text-center">
                 <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#f3f4f6] text-[#6b7280]">
                   <Rocket className="h-4.5 w-4.5" />
                 </span>
                 <h2 id="live-heading" className="text-[15px] font-semibold text-[#1a1a2e]">Nothing is live</h2>
-                <p className="text-[13px] text-[#6b7280]">Publish a theme from your library.</p>
+                <p className="text-[13px] text-[#6b7280]">Publish a website from your library.</p>
               </div>
             )}
           </div>
@@ -649,17 +732,23 @@ export function WebsiteBuilderClient({
           <SectionHeading
             title="Library"
             /**
-             * "2 left", or "Full". It was a fraction — and a fraction whose
-             * top can be larger than its bottom, because the limit came in
-             * after some libraries were already over it. "5/3" is not a
-             * count anybody reads as a count; it reads as a broken meter.
-             * What somebody actually wants to know here is whether they can
-             * add another one.
+             * How full it is, as a count of websites, with the rule behind a
+             * dotted underline: one live and two drafts. "2 left" answered
+             * whether there was room without saying what the room was for,
+             * and the limit was only ever written in a toast.
              */
             aside={
-              <span className="text-[12.5px] font-medium tabular-nums text-[#9ca3af]" title={`Up to ${THEME_INSTALL_LIMIT} websites, including the live one`}>
-                {slotsLeft > 0 ? `${slotsLeft} left` : "Full"}
-              </span>
+              <HelpLabel
+                label={
+                  <span className="text-[12.5px] font-medium tabular-nums text-[#6b7280]">
+                    {/* A library from before the limit can hold more than it
+                        allows, and "5 of 3" reads as a broken counter. */}
+                    {slotsUsed > THEME_INSTALL_LIMIT ? `${slotsUsed} websites` : `${slotsUsed} of ${THEME_INSTALL_LIMIT} websites`}
+                  </span>
+                }
+                title="One live website and two drafts"
+                description={`You can keep ${THEME_INSTALL_LIMIT} websites. One is live at a time, and the others are drafts you can edit and publish in its place. Remove one to add another.`}
+              />
             }
           >
             <input
@@ -672,9 +761,7 @@ export function WebsiteBuilderClient({
                 if (f) void importZip(f)
               }}
             />
-            {/* 44px, like every other button on the page. These were 36,
-                which is under the size a thumb reliably hits and left the
-                heading row looking like a caption with two chips after it. */}
+            {/* 44px, like every other button on the page. */}
             <Button
               variant="ghost"
               onClick={() => fileInput.current?.click()}
@@ -697,89 +784,110 @@ export function WebsiteBuilderClient({
           </SectionHeading>
           <h2 id="library-heading" className="sr-only">Library</h2>
 
+          {/* ── A table, not a stack of cards ───────────────────────────
+              Column headings once, at the top, and each website a row under
+              them: the name where the eye starts, then the facts in columns
+              that line up down the page, then what you can do. A phone has
+              no room for columns, so the facts fold under the name. */}
           <div className="overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
             {library.length === 0 ? (
               <div className="px-6 py-9 text-center text-[13px] text-[#6b7280]">
-                No other themes yet.
+                No drafts. Add a theme to start another website.
               </div>
             ) : (
-              <ul className="divide-y divide-[#eceef1]">
-                {library.map((i) => {
-                  const def = getThemeDefinition(i.theme_id)
-                  const isBusy = busy?.startsWith(i.id) ?? false
-                  return (
-                    <li key={i.id} className="flex items-center gap-3 p-3 transition-colors hover:bg-[#fafbfc] sm:gap-4 sm:p-4">
-                      {/* The whole left of the row opens the editor — on a phone it is
-                          the only Edit there is. */}
-                      <button
-                        type="button"
-                        onClick={() => go(editorHref(username, i.id))}
-                        className="flex min-w-0 flex-1 items-center gap-3 rounded-lg text-left outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 sm:gap-4"
-                        aria-label={`Edit ${i.name}`}
-                      >
-                        <span className="relative block w-24 shrink-0 overflow-hidden rounded-lg border border-[#e5e7eb] bg-[#f3f4f6] sm:w-36">
-                          <span className="block aspect-[16/10]">
-                            <WebsiteCover install={i} />
-                          </span>
-                        </span>
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate text-[14.5px] font-semibold text-[#1a1a2e]">{i.name}</span>
-                          {/* No status word here. "Offline" and "Draft" name
-                              the same ordinary thing — a site you have not
-                              published — in language that sounds like a
-                              fault, on every row you have not published yet.
-                              The live site is called out in its own block
-                              above; everything in the library is simply a
-                              website you are working on. */}
-                          <span className="mt-1 flex items-center gap-2 text-[12.5px] text-[#6b7280]">
-                            <span className="truncate">
-                              Edited {since(i.saved_at)}
-                              {def && <> · {getIndustry(def.industry).label}</>}
+              <table className="w-full table-fixed border-collapse text-left">
+                <thead className="hidden bg-[#fafbfb] sm:table-header-group">
+                  <tr className="border-b border-[#eceef1] text-[12px] font-medium text-[#6b7280]">
+                    <th scope="col" className="h-9 px-4 font-medium">Website</th>
+                    <th scope="col" className="h-9 w-[104px] px-3 font-medium">Status</th>
+                    <th scope="col" className="hidden h-9 w-[132px] px-3 font-medium md:table-cell">Last edited</th>
+                    <th scope="col" className="h-9 w-[216px] px-4 text-right font-medium">
+                      <span className="sr-only">Actions</span>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#eceef1]">
+                  {library.map((i) => {
+                    const def = getThemeDefinition(i.theme_id)
+                    const isBusy = busy?.startsWith(i.id) ?? false
+                    return (
+                      <tr key={i.id} className="transition-colors duration-150 hover:bg-[#fafbfc]">
+                        <td className="p-3 sm:px-4">
+                          {/* The whole cell opens the editor: on a phone it is
+                              the only Edit there is. */}
+                          <button
+                            type="button"
+                            onClick={() => go(editorHref(username, i.id))}
+                            className="flex w-full min-w-0 items-center gap-3 rounded-lg text-left outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 sm:gap-4"
+                            aria-label={`Edit ${i.name}`}
+                          >
+                            <span className="relative block w-24 shrink-0 overflow-hidden rounded-lg border border-[#e5e7eb] bg-[#f3f4f6] sm:w-28">
+                              <span className="block aspect-[16/10]">
+                                <WebsiteCover install={i} />
+                              </span>
                             </span>
-                          </span>
-                        </span>
-                      </button>
-                      <div className="flex shrink-0 items-center gap-2">
-                        <Button
-                          variant="outline"
-                          onClick={() => setPublishing(i)}
-                          disabled={isBusy}
-                          className="hidden h-9 rounded-lg border-[#e5e7eb] bg-white px-3 text-[13px] font-medium text-[#1a1a2e] hover:bg-[#f8f9fa] sm:inline-flex"
-                        >
-                          {busy === `${i.id}:publish` ? <Loader2 className="h-4 w-4 animate-spin" /> : <Rocket className="h-4 w-4" />}
-                          Publish
-                        </Button>
-                        <Button
-                          onClick={() => go(editorHref(username, i.id))}
-                          className="hidden h-9 rounded-lg bg-[#1a1a2e] px-3.5 text-[13px] font-medium text-white hover:bg-[#2d2d44] sm:inline-flex"
-                        >
-                          Edit
-                        </Button>
-                        <ResponsiveActionMenu
-                          title={i.name}
-                          items={menuFor(i, { publish: true })}
-                          menuWidth="w-52"
-                          trigger={
-                            <button
-                              type="button"
-                              aria-label={`More actions for ${i.name}`}
-                              className="flex h-9 w-9 items-center justify-center rounded-lg text-[#6b7280] transition-colors hover:bg-[#eef0f3] hover:text-[#1a1a2e]"
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-[14px] font-semibold text-[#1a1a2e]">{i.name}</span>
+                              <span className="mt-0.5 block truncate text-[12.5px] text-[#6b7280]">
+                                {/* On a phone the columns fold in here, and the
+                                    edit time is the fact worth the room. */}
+                                <span className="hidden sm:inline">{def ? getIndustry(def.industry).label : i.theme?.name ?? "Theme"}</span>
+                                <span className="sm:hidden">Draft · Edited {since(i.saved_at)}</span>
+                              </span>
+                            </span>
+                          </button>
+                        </td>
+                        <td className="hidden px-3 sm:table-cell">
+                          <DraftBadge />
+                        </td>
+                        <td className="hidden px-3 text-[13px] text-[#4b5563] md:table-cell">{since(i.saved_at)}</td>
+                        <td className="w-[52px] pr-3 sm:w-auto sm:px-4">
+                          <div className="flex items-center justify-end gap-2">
+                            <Button
+                              variant="outline"
+                              onClick={() => setPublishing(i)}
+                              disabled={isBusy}
+                              className="hidden h-9 rounded-lg border-[#e5e7eb] bg-white px-3 text-[13px] font-medium text-[#1a1a2e] hover:bg-[#f8f9fa] sm:inline-flex"
                             >
-                              {isBusy && busy !== `${i.id}:publish` ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreHorizontal className="h-4 w-4" />}
-                            </button>
-                          }
-                        />
-                      </div>
-                    </li>
-                  )
-                })}
-              </ul>
+                              {busy === `${i.id}:publish` && <Loader2 className="h-4 w-4 animate-spin" />}
+                              Publish
+                            </Button>
+                            <Button
+                              onClick={() => go(editorHref(username, i.id))}
+                              className="hidden h-9 rounded-lg bg-[#1a1a2e] px-3.5 text-[13px] font-medium text-white hover:bg-[#2d2d44] sm:inline-flex"
+                            >
+                              Edit
+                            </Button>
+                            <ResponsiveActionMenu
+                              title={i.name}
+                              items={menuFor(i, { publish: true })}
+                              menuWidth="w-52"
+                              trigger={
+                                <button
+                                  type="button"
+                                  aria-label={`More actions for ${i.name}`}
+                                  className="flex h-9 w-9 items-center justify-center rounded-lg text-[#6b7280] transition-colors hover:bg-[#eef0f3] hover:text-[#1a1a2e]"
+                                >
+                                  {isBusy && busy !== `${i.id}:publish` ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreHorizontal className="h-4 w-4" />}
+                                </button>
+                              }
+                            />
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
             )}
           </div>
         </section>
 
         {/* ── Explore ────────────────────────────────────────────── */}
-        <section aria-labelledby="explore-heading" className="space-y-3 pb-6" data-page-block>
+        {/* `content-visibility: auto`: four drawn covers below the fold are
+            not laid out or painted until they are scrolled near, so the top
+            of the page is ready sooner on a phone. */}
+        <section aria-labelledby="explore-heading" className="space-y-3 pb-6 [contain-intrinsic-size:auto_420px] [content-visibility:auto]" data-page-block>
           <SectionHeading title="Browse themes">
             <Link
               href="/app/website-builder/themes"

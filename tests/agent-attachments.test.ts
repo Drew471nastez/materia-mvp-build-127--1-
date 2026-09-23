@@ -532,7 +532,7 @@ section("Code a section: the picture reaches that model too")
     !/prompt: z\.string\(\)\.min\(3\)/.test(route) && /prompt: z\.string\(\)\.max\(2000\)/.test(route),
   )
   check("it checks attachments through the one door", /reviewImages\(parsed\.data\.images\)/.test(route))
-  check("and hands them to the writer", /prompt: parsed\.data\.prompt,\n    images,/.test(route))
+  check("and hands them to the writer", /prompt: parsed\.data\.prompt,\n\s*images,/.test(route))
   check(
     "it still refuses a request that is neither words nor pictures",
     /!parsed\.data\.prompt\.trim\(\) && images\.length === 0/.test(route),

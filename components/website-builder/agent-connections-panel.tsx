@@ -60,11 +60,18 @@ function CopyBlock({ label, value, mono = true }: { label: string; value: string
   )
 }
 
-export function AgentConnectionsPanel({ installId }: { installId: string }) {
+/**
+ * `tool` picks the lines shown with a new token: the one command for Claude
+ * Code, the config for Codex. Without it both are shown, as before.
+ */
+export function AgentConnectionsPanel({ installId, tool }: { installId: string; tool?: "claude" | "codex" }) {
   const [connections, setConnections] = useState<Connection[] | null>(null)
   const [ready, setReady] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [name, setName] = useState("Claude Code")
+  const [name, setName] = useState(tool === "codex" ? "Codex" : "Claude Code")
+  useEffect(() => {
+    if (tool) setName(tool === "codex" ? "Codex" : "Claude Code")
+  }, [tool])
   const [creating, setCreating] = useState(false)
   /** The token just made. Held in memory only, and gone when this closes. */
   const [fresh, setFresh] = useState<{ name: string; token: string } | null>(null)
@@ -124,8 +131,8 @@ export function AgentConnectionsPanel({ installId }: { installId: string }) {
     <>
       <h2 className="text-[17px] font-medium">Direct connection</h2>
       <p className="mt-1 max-w-[600px] text-[14px] leading-relaxed text-white/60">
-        No repository needed. Connect Claude Code or Codex on your computer to this website with a token; what it saves
-        appears on the page you have open here within seconds.
+        No repository needed. {tool === "codex" ? "Codex" : tool === "claude" ? "Claude Code" : "Claude Code or Codex"} on
+        your computer connects to this website with a token; what it saves appears in the builder within seconds.
       </p>
 
       {!ready ? (
@@ -145,7 +152,9 @@ export function AgentConnectionsPanel({ installId }: { installId: string }) {
                 onChange={(e) => setName(e.target.value)}
                 maxLength={60}
                 placeholder="Claude Code"
-                className="h-11 min-w-0 flex-1 rounded-xl border border-white/15 bg-white/[0.04] px-4 text-[15px] text-white outline-none placeholder:text-white/30 focus:border-white/40"
+                /* sm:flex-1, not flex-1: in the phone's column a flex-basis of
+                   0 wins over h-11 and the box collapsed to a sliver. */
+                className="h-11 w-full min-w-0 rounded-xl border border-white/15 bg-white/[0.04] px-4 text-[15px] text-white outline-none placeholder:text-white/30 focus:border-white/40 sm:flex-1"
               />
               <button
                 type="button"
@@ -167,14 +176,21 @@ export function AgentConnectionsPanel({ installId }: { installId: string }) {
                 Copy the token now. It is not shown again; if you lose it, disconnect this one and connect again.
               </p>
               <CopyBlock label="Token" value={fresh.token} />
-              <CopyBlock
-                label="Claude Code: run this in a terminal"
-                value={`claude mcp add --transport http storelib ${MCP_URL} --header "Authorization: Bearer ${fresh.token}"`}
-              />
-              <CopyBlock
-                label="Codex: add to ~/.codex/config.toml, then set STORELIB_TOKEN to the token"
-                value={`[mcp_servers.storelib]\nurl = "${MCP_URL}"\nbearer_token_env_var = "STORELIB_TOKEN"`}
-              />
+              {tool !== "codex" && (
+                <CopyBlock
+                  label="Claude Code: run this in a terminal"
+                  value={`claude mcp add --transport http storelib ${MCP_URL} --header "Authorization: Bearer ${fresh.token}"`}
+                />
+              )}
+              {tool !== "claude" && (
+                <>
+                  <CopyBlock
+                    label="Codex: add to ~/.codex/config.toml"
+                    value={`[mcp_servers.storelib]\nurl = "${MCP_URL}"\nbearer_token_env_var = "STORELIB_TOKEN"`}
+                  />
+                  <CopyBlock label="Then, in the terminal you start Codex from" value={`export STORELIB_TOKEN="${fresh.token}"`} />
+                </>
+              )}
               <p className="mt-4 text-[13px] text-white/50">
                 Any other agent can use the same token with the HTTP API. See storelib.com/developers/ai.
               </p>

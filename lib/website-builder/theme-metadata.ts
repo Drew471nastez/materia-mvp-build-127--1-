@@ -14,6 +14,7 @@
 
 import type { Metadata } from "next"
 
+import { siteLocale } from "./site-language"
 import type { ThemeSettingsValues } from "./types"
 
 function str(value: unknown, fallback = ""): string {
@@ -32,13 +33,22 @@ export function themeMetadata(
   const t = theme as Record<string, unknown>
   const image = str(t.seo_og_image)
   const card = str(t.seo_twitter_card, "summary_large_image")
-  const robots = str(t.seo_robots, "index, follow")
+  /*
+    THE PANEL STORES A TOGGLE. "Allow search indexing" writes true or false,
+    and this read only strings, so switching it off stored `false`, which fell
+    through to the default and left the site indexed: the same failure this
+    file was written to end, a second time. A string is still read, for the
+    sites saved when the setting was a select.
+  */
+  const robots = t.seo_robots === false ? "noindex, nofollow" : t.seo_robots === true ? "index, follow" : str(t.seo_robots, "index, follow")
+  const locale = siteLocale(t)
 
   return {
     openGraph: {
       title: base.title,
       description: base.description,
       type: "website",
+      ...(locale ? { locale } : {}),
       ...(base.url ? { url: base.url } : {}),
       ...(image ? { images: [{ url: image }] } : {}),
     },

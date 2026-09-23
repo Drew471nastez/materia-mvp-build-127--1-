@@ -2,9 +2,11 @@
  * ===========================================================================
  *  WHAT A CONNECTED AGENT CAN DO TO A SITE
  * ===========================================================================
- * Four things, and the same four whether the agent arrives over MCP
+ * Five things, and the same five whether the agent arrives over MCP
  * (app/api/mcp) or plain HTTP (app/api/agent/v1):
  *
+ *   site      what the website is: brand, look, pages, published products
+ *             (./site-brief.ts, what a visitor could already see)
  *   list      the theme's files, marking which are the creator's own
  *   read      one file, the draft where there is one
  *   compile   check a file without saving it, for the agent's own loop
@@ -16,8 +18,9 @@
  *   - delete or rename anything;
  *   - publish. Every write is a draft, exactly as a save in the code editor
  *     is, and nothing reaches a visitor until the creator presses Publish;
- *   - reach another site, or anything that is not a theme file: products,
- *     orders, subscribers and the account are not on this list at all.
+ *   - reach another site, or anything private: orders, buyers, subscribers
+ *     and the account are not on this list at all. Products appear only as
+ *     the published cards a visitor sees.
  */
 import { compileSection } from "@/lib/storelib-theme"
 import { ENGINE_VERSION, SECTION_SCHEMA_VERSION, type ThemeError } from "@/lib/storelib-theme/types"

@@ -29,6 +29,17 @@ These are the mistakes that produce a file which looks right and is not. Check e
 5. **Colour comes from the scheme.** Declare a `color_scheme` setting and read `var(--scheme-*)`. A hex code for anything the scheme answers stops responding to the creator's theme.
 6. **Container queries, not media queries.** The builder's phone preview is not the width of the window.
 
+## Know the website before you write for it
+
+A section written without knowing the site is a section from another website: the wrong colours, an invented product, a headline for a business nobody runs. Before writing, find out:
+
+- **What it sells.** The published products, with their real titles and prices. Never invent a product, a price or a review. A connected agent reads them with `storelib_site`; the builder's AI is given them.
+- **What it is called and what it says about itself.** The brand name, tagline, site title and description. Write copy in the same voice and the site's language.
+- **How it looks.** The colour schemes and fonts. Use `var(--scheme-*)` and the theme's type styles, never a new palette.
+- **What is already on the page.** The sections each page has, so a new one does not repeat the one above it.
+
+Then read [Selling](/developers/selling) if the section shows a product, a price or a Buy button.
+
 ## An email box collects emails
 
 A `<form>` with an `<input type="email">` in a section sends every address to the site creator's Subscribers. The page does it, with no script. Mark it `data-storelib-form="subscribe"`, and never write a script to submit a form or ask the creator to paste a mailing list URL to make it work. See [Forms](/developers/javascript#forms).
@@ -90,11 +101,13 @@ sandbox against a copy of its own markup: prefer HTML and CSS.
 | Best for | Claude Code or Codex working in a repository, a team, a history of every change. | One person and one agent, nothing to set up on GitHub. |
 | What you see | The change in the builder within seconds, and a Storelib check on the commit. | The change in the builder within seconds. |
 
-Both reach one site and nothing else, both save drafts that go live only when you publish, and both are under **Website settings › Connections** in the builder, which the GitHub button in the top bar opens.
+Both reach one site and nothing else, both save drafts that go live only when you publish, and both are under **Website Settings › Advanced** in the builder, which the plug button in the top bar (**Connect Claude Code, Codex or ChatGPT**) opens. Pick your tool there and it shows only the steps for it.
+
+**ChatGPT** works through GitHub. Codex in ChatGPT edits a GitHub repository, so link one below, ask Codex for the change, and merge it into the linked branch: it reaches the site like any other push.
 
 ## Connect through GitHub
 
-1. In the builder, press the GitHub button in the top bar, or open **Website settings › Connections**.
+1. In the builder, press the plug button in the top bar, or open **Website Settings › Advanced**.
 2. Press **Connect GitHub**. GitHub asks which repositories to give Storelib; pick one, or make an empty one first.
 3. Back in the builder, pick the repository, the branch (its default branch unless you say otherwise) and, if the site should live in a folder of a bigger repository, the folder. Press **Link and send sections**.
 
@@ -117,7 +130,7 @@ claude "Add a pricing section with three tiers to sections/, then commit and pus
 
 An agent can work on a site directly: list its files, read them, compile a section until it is clean, and save it. The creator connects it once, from the builder.
 
-1. Open the site in the website builder, then **Website settings › Connections**, and scroll to **Direct connection**.
+1. Open the site in the website builder, then **Website Settings › Advanced**, and pick **Claude Code** or **Codex**.
 2. Name the connection, for example "Claude Code", and press **Connect**.
 3. Copy the token it shows. It is shown once. Storelib keeps only its hash, so a lost token is disconnected and replaced, never recovered.
 
@@ -127,7 +140,7 @@ An agent can work on a site directly: list its files, read them, compile a secti
 claude mcp add --transport http storelib https://storelib.com/api/mcp --header "Authorization: Bearer slb_..."
 ```
 
-**Codex.** Add this to `~/.codex/config.toml`, and set the environment variable `STORELIB_TOKEN` to the token:
+**Codex.** Add this to `~/.codex/config.toml`, and set the environment variable `STORELIB_TOKEN` to the token (`export STORELIB_TOKEN="slb_..."` in the terminal you start Codex from):
 
 ```toml
 [mcp_servers.storelib]
@@ -142,16 +155,17 @@ bearer_token_env_var = "STORELIB_TOKEN"
 | Tool | What it does |
 | --- | --- |
 | `storelib_guide` | This framework, in full. Read it before writing a section. |
+| `storelib_site` | What this website is: its name and address, brand, title and description, fonts and colour schemes, the sections on each page, and its published products with their prices and ids. Read it before writing, so the section fits this site. |
 | `storelib_list_files` | Every file of the site's theme, marked `yours` or `theme`. |
 | `storelib_read_file` | One file, the saved draft where there is one, with its `updated_at`. |
 | `storelib_compile` | Compiles a section without saving it, and answers `file:line message` for every error. |
 | `storelib_write_section` | Saves a section as a draft. It is compiled first and refused with its errors if it does not compile. |
 
-The loop that works: read the guide, write the file, compile it until it is clean, then save it. When changing a file that exists, pass the `updated_at` you read as `base_updated_at`, and a save made elsewhere in the meantime is refused rather than overwritten.
+The loop that works: read the guide and the site, write the file, compile it until it is clean, then save it. When changing a file that exists, pass the `updated_at` you read as `base_updated_at`, and a save made elsewhere in the meantime is refused rather than overwritten.
 
 ### What a connection can and cannot do
 
-- It reaches **one site**. Not the creator's other sites, products, orders, subscribers or account.
+- It reaches **one site**. Not the creator's other sites, orders, buyers, subscribers or account. It sees the site's published products only as a visitor does: title, price, picture and address.
 - It writes **section files only**: `sections/<type>.storelib`, lower case, digits, `_` and `-`. Templates, settings and layout are the creator's.
 - **Every save is a draft**, held to exactly the rules a save in the code editor is: it must compile, and its name must be free. Nothing reaches visitors until the creator publishes.
 - It cannot delete, rename or publish anything.
@@ -164,6 +178,7 @@ Every request carries `Authorization: Bearer slb_...`.
 
 | Request | Does |
 | --- | --- |
+| `GET /api/agent/v1/site` | What the website is, as `storelib_site` answers it. |
 | `GET /api/agent/v1/files` | Lists the theme's files. |
 | `GET /api/agent/v1/files?path=sections/x.storelib` | Reads one. |
 | `POST /api/agent/v1/compile` with `{ "path", "source" }` | Compiles without saving. `422` with `errors` when it does not compile. |

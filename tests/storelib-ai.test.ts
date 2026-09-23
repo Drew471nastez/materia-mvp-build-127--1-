@@ -336,6 +336,61 @@ async function main() {
   }
 
   // ═══════════════════════════════════════════════════════════════════════
+  section("Writing a section: an answer when it is not one, and room to finish")
+  // ═══════════════════════════════════════════════════════════════════════
+  {
+    const scripted = (answers: { text: string; stop?: ProviderTurn["stop"] }[]) => {
+      const seen: { turns: number; maxOutputTokens?: number; last: string }[] = []
+      let i = 0
+      const provider: AgentProvider = {
+        id: "scripted",
+        async complete(request): Promise<ProviderTurn> {
+          const turns = request.turns as { content?: string }[]
+          seen.push({ turns: turns.length, maxOutputTokens: request.maxOutputTokens, last: String(turns[turns.length - 1]?.content ?? "") })
+          const a = answers[Math.min(i++, answers.length - 1)]
+          return {
+            text: a.text,
+            toolCalls: [],
+            raw: [],
+            usage: { inputTokens: 1, cachedInputTokens: 0, cacheWriteTokens: 0, outputTokens: 1 },
+            stop: a.stop ?? "done",
+          }
+        },
+      }
+      return { provider, seen }
+    }
+
+    /* "hi" is not a section. It used to be written as one anyway, or fail
+       to compile, and the chat showed the compiler's report. */
+    {
+      const { provider, seen } = scripted([{ text: "REPLY: Tell me what the section should show. Try: a pricing section with three plans." }])
+      const stages: string[] = []
+      const out = await writeSection({ provider, model: "test", prompt: "hi", takenTypes: [], takenNames: [], onStage: (s) => stages.push(s) })
+      check("a message that is not a section gets an answer, not a file", out.ok === false && out.reply?.startsWith("Tell me what the section should show") === true)
+      check("and it asked the model once", seen.length === 1)
+      check("the writer is told it may answer instead", /THE ONE EXCEPTION/.test(writeSectionSystem([], [])) && /REPLY:/.test(writeSectionSystem([], [])))
+      check("it said it was thinking before it answered", stages[0] === "thinking")
+    }
+
+    /* A long file stopped by the length limit ends inside its <schema>: the
+       "Line 331: <schema> is never closed" a creator was shown. It is sent
+       back asking for a shorter whole file, not quoted the compiler. */
+    {
+      const good = GOOD.replace('"type": "questions"', '"type": "long_one"')
+      const { provider, seen } = scripted([
+        { text: good.slice(0, Math.floor(good.length * 0.8)), stop: "length" },
+        { text: good },
+      ])
+      const stages: string[] = []
+      const out = await writeSection({ provider, model: "test", prompt: "a long FAQ", takenTypes: [], takenNames: [], onStage: (s) => stages.push(s) })
+      check("a cut-off file is asked for again, and the second is kept", out.ok === true && seen.length === 2)
+      check("with the reason being its length, not a compile error", /cut off at the length limit/.test(seen[1].last) && /shorter/.test(seen[1].last))
+      check("there is room for a whole file", (seen[0].maxOutputTokens ?? 0) >= 16000)
+      check("the stages were reported in order", stages.join(",") === "thinking,checking,fixing,checking")
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
   section("Editing a section's source, driven end to end")
   // ═══════════════════════════════════════════════════════════════════════
   {

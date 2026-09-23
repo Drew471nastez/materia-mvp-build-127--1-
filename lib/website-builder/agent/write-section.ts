@@ -47,8 +47,20 @@ export function writeSectionSystem(existingNames: string[], existingTypes: strin
     "",
     "Answer with the file ONLY. No markdown fence, no explanation, no preamble.",
     "The first characters of your answer are `{#` or `<template>`.",
+    "",
+    "THE ONE EXCEPTION. If the message is not a description of a section to build (a greeting, a question, a request",
+    "to change something already on the page, or too vague to design from), do not write a file. Answer with `REPLY:`",
+    "followed by one to three plain sentences: answer the question, or say what you need to know, with one example of",
+    "a request that would work (\"A pricing section with three plans and a monthly or yearly switch\").",
   ].filter(Boolean).join("\n")
 }
+
+/** What the writer is doing, for a panel that wants to say so while it waits. */
+export type WriteStage = "thinking" | "checking" | "fixing"
+
+/** A cut-off answer is a file that stops mid-way; asking for the same again gets the same again. */
+const TOO_LONG =
+  "Your answer was cut off at the length limit before the file ended, so it cannot compile. Send the whole file again, complete and shorter: the same design, with less CSS, fewer settings and no comments."
 
 /** Strip a fence if the model added one anyway, which they do. */
 export function unfence(text: string): string {
@@ -67,7 +79,12 @@ export interface WrittenSection {
 
 export type WriteResult =
   | { ok: true; value: WrittenSection }
-  | { ok: false; error: string; errors?: ThemeError[]; source?: string }
+  /**
+   * `reply` is set when the model answered rather than wrote: the message was
+   * a question, or too unclear to build. It is a conversation, not a failure,
+   * and the panel shows it as one.
+   */
+  | { ok: false; error: string; errors?: ThemeError[]; source?: string; reply?: string }
 
 /**
  * One request, up to three attempts, one answer. `taken` is every type and
@@ -106,6 +123,8 @@ export async function writeSection(opts: {
    */
   theme?: ThemeContextInput
   signal?: AbortSignal
+  /** Told each time the work moves on, so a waiting panel can say what is happening. */
+  onStage?: (stage: WriteStage, attempt: number) => void
 }): Promise<WriteResult> {
   const system = writeSectionSystem(opts.takenNames, opts.takenTypes)
   const images = opts.images ?? []
@@ -133,23 +152,48 @@ export async function writeSection(opts: {
 
   for (let attempt = 0; attempt < MAX_REPAIR_ATTEMPTS; attempt++) {
     const last = attempt === MAX_REPAIR_ATTEMPTS - 1
+    opts.onStage?.(attempt === 0 ? "thinking" : "fixing", attempt)
     let text: string
+    let cutOff = false
     try {
       const turn = await opts.provider.complete({
         model: opts.model,
         system,
         turns: turns as never,
         tools: [],
-        maxOutputTokens: 8000,
+        /**
+         * ROOM FOR A WHOLE FILE. At 8000 a long section was cut off mid-way,
+         * so it ended inside its <schema> and "never closed" came back from
+         * the compiler on every attempt: each repair was asked for the same
+         * whole file and ran out of room at the same place.
+         */
+        maxOutputTokens: 16000,
         signal: opts.signal,
       })
       if (turn.stop === "refusal") return { ok: false, error: "The assistant declined to write that." }
       text = unfence(turn.text ?? "")
+      cutOff = turn.stop === "length"
     } catch (e) {
       return { ok: false, error: e instanceof Error ? e.message : "The assistant could not be reached." }
     }
 
     if (!text) return { ok: false, error: "The assistant sent nothing back." }
+
+    /* An answer instead of a file: the message was not something to build. */
+    const reply = text.match(/^REPLY:\s*([\s\S]+)$/)
+    if (reply) {
+      const said = reply[1].trim().slice(0, 600)
+      return { ok: false, error: said, reply: said }
+    }
+
+    opts.onStage?.("checking", attempt)
+
+    if (cutOff) {
+      if (last) return { ok: false, error: "The section was too long to finish.", source: text }
+      turns.push({ role: "assistant", content: text })
+      turns.push({ role: "user", content: TOO_LONG })
+      continue
+    }
 
     /**
      * The type comes from the file's own schema, and the file name follows it

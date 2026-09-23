@@ -4,7 +4,7 @@ import { useEffect, useState, useLayoutEffect, useCallback, useDeferredValue, us
 import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
 import {
-  ArrowLeft, Monitor, Smartphone, Loader2, Code2, ChevronDown, Plus, Eye, EyeOff, GripVertical, Trash2, Copy, Settings, Check, Layers, X, RotateCcw, Layout, AlignLeft, Image, ShoppingBag, MessageSquare, HelpCircle, Megaphone, BarChart2, Grid, Award, LayoutGrid, DollarSign, LayoutTemplate, Video, Users, MapPin, Mail, Clock, BookOpen, Shirt, Columns, Play, Star, Timer, Shield, Rss, SlidersHorizontal, Code, Bell, ChevronRight, Package, Undo2, Redo2, ExternalLink, Search, FileText, ArrowRight, FolderOpen, MoreHorizontal, Upload, Info, Crop, CheckCircle, Type, Square, Rows3, Grid3x3, MousePointerClick, MoveHorizontal, Hash, Columns2, LayoutDashboard, Badge as BadgeIcon, PanelTop, PanelBottom, ArrowUp, ArrowDown,
+  ArrowLeft, Plug, Monitor, Smartphone, Loader2, Code2, ChevronDown, Plus, Eye, EyeOff, GripVertical, Trash2, Copy, Settings, Check, Layers, X, RotateCcw, Layout, AlignLeft, Image, ShoppingBag, MessageSquare, HelpCircle, Megaphone, BarChart2, Grid, Award, LayoutGrid, DollarSign, LayoutTemplate, Video, Users, MapPin, Mail, Clock, BookOpen, Shirt, Columns, Play, Star, Timer, Shield, Rss, SlidersHorizontal, Code, Bell, ChevronRight, Package, Undo2, Redo2, ExternalLink, Search, FileText, ArrowRight, FolderOpen, MoreHorizontal, Upload, Info, Crop, CheckCircle, Type, Square, Rows3, Grid3x3, MousePointerClick, MoveHorizontal, Hash, Columns2, LayoutDashboard, Badge as BadgeIcon, PanelTop, PanelBottom, ArrowUp, ArrowDown,
 } from "lucide-react"
 import {
   DndContext,
@@ -57,7 +57,7 @@ import { PageSwitcher } from "@/components/website-builder/page-switcher"
 import { PublishPanel } from "@/components/website-builder/publish-panel"
 import { PreviewModeSwitch, CodePane, type PreviewMode } from "@/components/website-builder/preview-mode-switch"
 import { ProjectSettings } from "@/components/website-builder/project-settings"
-import { GitHubMark } from "@/components/website-builder/github-sync-panel"
+import { settingsSectionFrom, type SettingsSection } from "@/components/website-builder/website-settings/types"
 import { createClient } from "@/lib/supabase/client"
 import { GradientEditor } from "@/components/website-builder/editor/gradient-editor"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
@@ -3447,22 +3447,29 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     // stays the default; the pane is switched once, on arrival.
     const v = new URLSearchParams(window.location.search).get("view")
     if (v === "code" || v === "settings") setPreviewMode(v)
+    /* The switch alone drew the Settings segment as selected over a canvas
+       with no settings on it: the page itself has to be opened too. */
+    if (v === "settings") setProjectSettingsOpen(true)
   }, [])
   const [projectSettingsOpen, setProjectSettingsOpen] = useState(false)
-  /** Website settings opened straight on Connections, and what GitHub said. */
-  const [settingsSection, setSettingsSection] = useState<"agents" | null>(null)
+  /** Website settings opened on one subject (a tab on the website page, or
+      GitHub sending a creator back), and what GitHub said. */
+  const [settingsSection, setSettingsSection] = useState<SettingsSection | null>(null)
   const [githubReturned, setGithubReturned] = useState<string | null>(null)
   /**
-   * BACK FROM GITHUB. /api/github/setup sends the creator here with
-   * ?settings=connections&github=<result>. Open Connections so they can pick
-   * the repository, and take the two words off the address so a reload does
-   * not open it again.
+   * STRAIGHT TO ONE PAGE OF WEBSITE SETTINGS. `?settings=<page>` is how the
+   * tabs above the cover on /app/website-builder land on Domains, SEO and
+   * the rest, and how /api/github/setup sends a creator back
+   * (?settings=connections&github=<result>, which opens Advanced, where
+   * Connections lives now). The words are taken off the address so a reload
+   * does not open it again.
    */
   useEffect(() => {
     const url = new URL(window.location.href)
-    if (url.searchParams.get("settings") !== "connections") return
+    const wanted = settingsSectionFrom(url.searchParams.get("settings"))
+    if (!wanted) return
     setGithubReturned(url.searchParams.get("github"))
-    setSettingsSection("agents")
+    setSettingsSection(wanted)
     setPreviewMode("settings")
     setProjectSettingsOpen(true)
     url.searchParams.delete("settings")
@@ -3471,7 +3478,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   const openConnections = () => {
-    setSettingsSection("agents")
+    setSettingsSection("advanced")
     setPreviewMode("settings")
     setProjectSettingsOpen(true)
     setMobileSidebarOpen(false)
@@ -7264,8 +7271,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 },
               },
               {
-                label: "GitHub and AI agents",
-                icon: <GitHubMark className="h-4 w-4" />,
+                label: "Connect Claude Code or Codex",
+                icon: <Plug className="h-4 w-4" />,
                 onClick: openConnections,
               },
               {
@@ -7448,19 +7455,22 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             </TooltipContent>
           </Tooltip>
 
-          {/* GitHub: where Claude Code, Codex and a repository connect. */}
+          {/* Where Claude Code, Codex and ChatGPT connect. A plug rather than
+              GitHub's mark: GitHub is one of the two ways in, and somebody
+              with Claude Code on their laptop was not looking for it. A
+              phone reaches the same page from the menu. */}
           {!isMobileView && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
                   className="h-8 w-8 flex items-center justify-center rounded-lg text-[var(--wb-chrome-fg-2)] hover:bg-[var(--wb-chrome-hover)] hover:text-[var(--wb-chrome-fg)] transition-colors shrink-0 active:scale-90"
                   onClick={openConnections}
-                  aria-label="GitHub and AI agents"
+                  aria-label="Connect Claude Code, Codex or ChatGPT"
                 >
-                  <GitHubMark className="h-4 w-4" />
+                  <Plug className="h-4 w-4" strokeWidth={1.75} />
                 </button>
               </TooltipTrigger>
-              <TooltipContent side="bottom">GitHub and AI agents</TooltipContent>
+              <TooltipContent side="bottom">Connect Claude Code, Codex or ChatGPT</TooltipContent>
             </Tooltip>
           )}
 
@@ -7587,6 +7597,36 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         // copy of it is stale in every state it holds, and reloading is the
         // one honest way to pick all of it up at once.
         onRestored={() => window.location.reload()}
+        /* The website's own settings, through the one writer the editor has:
+           a favicon or a meta description set in Website Settings is a change
+           like any other, saved with the draft, undone with Undo, and live
+           when it is published. */
+        settings={settingsDraft}
+        onSettingChange={updateSetting}
+        pages={[
+          ...(Object.keys(PAGE_META) as PageKey[]).map((k) => ({
+            key: k,
+            name: PAGE_META[k].label,
+            path: k === "home" ? "/" : `/${k}`,
+          })),
+          ...customPages.map((p) => ({ key: p.key as string, name: p.name, path: `/${p.key}`, custom: true })),
+        ]}
+        productCount={productsLoading || products.length >= 100 ? null : products.length}
+        onAddPage={() => setAddPageOpen(true)}
+        onEditMenu={() => {
+          const header = sections.find((sec) => sec.type === "header")
+          setSidebarMode("sections")
+          setPageBrowserOpen(false)
+          if (header) {
+            setSelectedPanel({ type: "section", sectionId: header.id })
+            scrollToSection(header.id)
+          }
+          if (isMobileView) setMobileSidebarOpen(true)
+        }}
+        onOpenCode={() => void openCode()}
+        onPublish={() => setPublishOpen(true)}
+        onUnpublished={() => setInstall((cur) => (cur ? { ...cur, status: "unpublished" } : cur))}
+        onNavigate={requestExit}
       />
 
       {/* Leaving. Rendered the moment Back is pressed: going back can take a

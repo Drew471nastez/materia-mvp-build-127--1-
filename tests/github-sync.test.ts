@@ -190,14 +190,21 @@ function main() {
   console.log("\nIn the builder")
 
   const panel = read("components/website-builder/github-sync-panel.tsx")
-  check("Website settings has the GitHub card above the direct connection",
-    /<GitHubSyncPanel installId=\{installId\}/.test(read("components/website-builder/project-settings.tsx")))
+  {
+    const advanced = read("components/website-builder/website-settings/advanced.tsx")
+    check("Website settings › Advanced has the GitHub card, for every tool",
+      /<GitHubSyncPanel installId=\{ctx\.installId\}/.test(advanced) && (advanced.match(/<GitHubSyncPanel /g) ?? []).length === 2)
+    check("and ChatGPT is sent to GitHub, the route that works for it",
+      /tool === "chatgpt" \?/.test(advanced) && /Codex works on a GitHub repository/.test(advanced))
+  }
   check("it says how it works in three steps", /Connect a repository/.test(panel) && /Ask your agent for a change/.test(panel) && /It appears here/.test(panel))
   check("and says so plainly when GitHub is not set up on the server", /GitHub is not switched on for this Storelib yet/.test(panel))
   const editor = read("app/website-builder/editor/[installId]/page.tsx")
-  check("the top bar has a GitHub button that opens Connections", /aria-label="GitHub and AI agents"/.test(editor) && /onClick=\{openConnections\}/.test(editor))
+  check("the top bar has a button that opens Connections, named for the tools",
+    /aria-label="Connect Claude Code, Codex or ChatGPT"/.test(editor) && /onClick=\{openConnections\}/.test(editor))
   check("and coming back from GitHub opens Connections, then clears the address",
-    /searchParams\.get\("settings"\) !== "connections"/.test(editor) && /history\.replaceState/.test(editor))
+    /settingsSectionFrom\(url\.searchParams\.get\("settings"\)\)/.test(editor) && /history\.replaceState/.test(editor) &&
+      /if \(value === "connections" \|\| value === "agents"\) return "advanced"/.test(read("components/website-builder/website-settings/types.ts")))
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }
