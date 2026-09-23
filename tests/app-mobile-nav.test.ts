@@ -877,8 +877,8 @@ function main() {
     /a group opens and closes/.test(read("scripts/check-app-mobile-nav.mjs")))
 
   console.log("\nThe bar, this round")
-  check("3% bigger: a 60px bar, 55px slots and 23px glyphs",
-    /const BAR_H = 60\b/.test(nav) && /const SLOT = 55\b/.test(nav) && /const GLYPH = 23\b/.test(nav) && !/size=\{22\}/.test(nav))
+  check("3% bigger: a 60px bar and 55px slots, with the glyphs kept at the 22px their fill is matched at",
+    /const BAR_H = 60\b/.test(nav) && /const SLOT = 55\b/.test(nav) && /const GLYPH = 22\b/.test(nav))
   check("5% more blur in the glass", /backdropFilter: "blur\(25px\) saturate\(120%\)"/.test(nav))
   check("under a finger the lens leans into the slot it is over, and stretches with its speed",
     /const MAGNET = 0\.22/.test(nav) && /const STRETCH_MAX = 0\.14/.test(nav)

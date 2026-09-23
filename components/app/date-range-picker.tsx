@@ -59,7 +59,7 @@ const surface =
 
 /** The month arrows: a small raised key, not a bare glyph, so they read as something to press. */
 const monthNav =
-  "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[#e3e4e8] bg-white text-[#303036] shadow-[0_1px_0_rgba(17,24,39,0.06),0_1px_2px_rgba(17,24,39,0.05)] transition-[background-color,box-shadow,transform] duration-100 hover:bg-[#f7f7f8] active:translate-y-px active:bg-[#f1f2f4] active:shadow-[inset_0_1px_2px_rgba(17,24,39,0.12)] disabled:pointer-events-none disabled:opacity-35"
+  "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[#e3e4e8] bg-white text-[#303036] shadow-[0_1px_0_rgba(17,24,39,0.06),0_1px_2px_rgba(17,24,39,0.05)] transition-[background-color,box-shadow,translate] duration-100 hover:bg-[#f7f7f8] active:translate-y-px active:bg-[#f1f2f4] active:shadow-[inset_0_1px_2px_rgba(17,24,39,0.12)] disabled:pointer-events-none disabled:opacity-35"
 const secondaryBtn =
   "inline-flex h-8 items-center justify-center rounded-lg border border-[#e3e4e8] bg-white px-3 text-[13px] font-medium text-[#1a1a2e] shadow-[0_1px_0_rgba(17,24,39,0.05)] hover:bg-[#f7f7f8] active:bg-[#f1f2f4]"
 const primaryBtn =

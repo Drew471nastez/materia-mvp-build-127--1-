@@ -624,8 +624,13 @@ const GLASS: React.CSSProperties = {
 /** A little bigger again, as asked: 58 with 53px slots before this, and 3% on top. */
 const BAR_H = 60
 const SLOT = 55
-/** The glyphs grow with the bar: 22 before the 3%. */
-const GLYPH = 23
+/**
+ * The glyphs stay at 22 inside the bigger bar. At 23 the solid and the outline
+ * round to different device pixels and the icon measurably shrinks as it
+ * fills (scripts/check-app-mobile-nav.mjs: -2 x -1 at 2x); FILL_MATCH is
+ * measured at 22.
+ */
+const GLYPH = 22
 const PAD = 4
 /** The selector is a CIRCLE, so it is as wide as it is tall. */
 const DOT = BAR_H - PAD * 2
