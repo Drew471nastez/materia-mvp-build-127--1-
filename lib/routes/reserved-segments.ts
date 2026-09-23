@@ -32,6 +32,9 @@ export const RESERVED_ROOT_SEGMENTS: readonly string[] = [
   "blog",
   "c",
   "checkout",
+  /* The page a website cover's screenshot is taken of. A username of this
+     would put a creator's profile at the same address. */
+  "cover-render",
   "creator-page",
   "dashboard",
   "downloads",

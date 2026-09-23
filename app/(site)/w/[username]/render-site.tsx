@@ -293,3 +293,62 @@ async function previewPage(username: string, token: string, pageKey: string) {
     </StorelibSourcesProvider>
   )
 }
+
+/**
+ * ===========================================================================
+ *  THE SAVED HOME PAGE, FOR THE BROWSER THAT PHOTOGRAPHS IT
+ * ===========================================================================
+ * What the website page's cover is a screenshot of. The same drafts, the same
+ * sanitising, the same prerendered .storelib sections and the same ThemePage
+ * as the preview link above — so the picture is the page a visitor would get
+ * from this save, not an approximation of it — but found by INSTALL id, not
+ * by the published install's username, because every site in the library
+ * has a cover and only one of them is live.
+ *
+ * Reached only through app/(site)/cover-render/[pass], which has already
+ * checked the signed pass for this install. `preview` is true: a cover is of
+ * what was last saved, and that is the draft.
+ *
+ * The wrapper carries `data-snapshot-stage`, which turns off the theme's
+ * section entrance animation (app/globals.css). A screenshot taken during it
+ * would catch every section part way through fading in.
+ */
+export async function coverPage(installId: string) {
+  const admin = createAdminClient()
+  const { data: install } = await admin
+    .from("store_theme_installs")
+    .select("id, creator_id, store_theme_settings ( settings, draft_settings )")
+    .eq("id", installId)
+    .maybeSingle()
+  if (!install) notFound()
+
+  const row = install as { id: string; creator_id: string; store_theme_settings?: unknown }
+  const settingsRow = Array.isArray(row.store_theme_settings) ? (row.store_theme_settings[0] ?? null) : (row.store_theme_settings ?? null)
+  const themeSettings = (themeSettingsOf(settingsRow as never, true) ?? {}) as ThemeSettingsValues
+
+  const { data: pageData } = await admin
+    .from("store_theme_pages")
+    .select("sections, draft_sections")
+    .eq("install_id", installId)
+    .eq("page_key", "home")
+    .maybeSingle()
+
+  const sections = withUniversalChrome(sanitizeSections(pageSections<SectionInstance[]>(pageData as never, true) ?? []), {})
+  const products = await shopProducts(admin as never, row.creator_id)
+  const prerendered = await prerenderStorelibSections(admin as never, installId, sections, themeSettings, "index", products)
+
+  return (
+    <div data-snapshot-stage="">
+      <StorelibSourcesProvider prerendered={prerendered} page={{ template: "index" }}>
+        <ThemePage
+          theme={themeSettings}
+          sections={sections}
+          /* No creator: the newsletter and contact form must never send
+             anything from a screenshot. */
+          storefront={{ installId }}
+          emptyDetail="Check back soon!"
+        />
+      </StorelibSourcesProvider>
+    </div>
+  )
+}

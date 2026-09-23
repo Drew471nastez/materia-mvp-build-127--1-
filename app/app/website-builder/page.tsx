@@ -10,6 +10,7 @@ import {
   snapshotFolder,
   snapshotsNewestFirst,
   snapshotTakenAt,
+  mobilePartner,
 } from "@/lib/website-builder/snapshot"
 
 export const metadata: Metadata = {
@@ -47,12 +48,14 @@ type InstallRow = {
   snapshot_updated_at?: string | null
   theme: { name: string; version: string; slug: string } | { name: string; version: string; slug: string }[] | null
   settings: { settings: ThemeSettingsValues | null; updated_at: string }[] | { settings: ThemeSettingsValues | null; updated_at: string } | null
+  pages?: { updated_at: string }[] | null
 }
 
 const INSTALL_SELECT = `
   *,
   theme:themes(name, version, slug),
-  settings:store_theme_settings(settings, updated_at)
+  settings:store_theme_settings(settings, updated_at),
+  pages:store_theme_pages(updated_at)
 `
 
 function one<T>(v: T | T[] | null | undefined): T | null {
@@ -71,6 +74,13 @@ function newest(...isos: (string | null | undefined)[]): string {
 
 function toSummary(row: InstallRow): WebsiteSummary {
   const settings = one(row.settings)
+  /*
+    WHEN THE SITE WAS LAST EDITED: its pages and its settings, and nothing
+    else. Not the install row's own updated_at — recording a new cover
+    writes to that row, and counting it would make every cover look older
+    than the site it had just been taken of, and ask for another, forever.
+  */
+  const editedAt = newest(settings?.updated_at, ...(row.pages ?? []).map((p) => p.updated_at), row.created_at)
   return {
     id: row.id,
     name: row.name,
@@ -81,7 +91,8 @@ function toSummary(row: InstallRow): WebsiteSummary {
     published_at: row.published_at ?? null,
     snapshot_url: row.snapshot_url ?? null,
     snapshot_updated_at: row.snapshot_updated_at ?? null,
-    saved_at: newest(row.updated_at, settings?.updated_at, row.snapshot_updated_at, row.created_at),
+    saved_at: editedAt,
+    snapshot_mobile_url: null,
     theme: one(row.theme),
     settings: settings?.settings ?? null,
   }
@@ -159,22 +170,27 @@ async function withStoredCovers(given: WebsiteSummary[], userId: string): Promis
   const installs = given.map((i) =>
     i.snapshot_url && !isCurrentSnapshotUrl(i.snapshot_url) ? { ...i, snapshot_url: null, snapshot_updated_at: null } : i,
   )
-  const missing = installs.filter((i) => !i.snapshot_url)
-  if (missing.length === 0) return installs
+  /* Every install, not only the ones the column says nothing about: the
+     column records the desktop picture only, and the phone picture that
+     goes with it is found in the folder. */
+  const missing = installs
 
   const admin = createAdminClient()
   const bucket = admin.storage.from(SNAPSHOT_BUCKET)
-  const found = new Map<string, { url: string; at: string | null }>()
+  const found = new Map<string, { url: string; mobile: string | null; at: string | null }>()
 
   await Promise.all(
     missing.map(async (install) => {
       try {
         const folder = snapshotFolder(userId, install.id)
         const { data } = await bucket.list(folder, { limit: 100 })
-        const newest = snapshotsNewestFirst((data ?? []).map((f) => f.name))[0]
+        const names = (data ?? []).map((f) => f.name)
+        const newest = snapshotsNewestFirst(names)[0]
         if (!newest) return
+        const phone = mobilePartner(newest, names)
         found.set(install.id, {
           url: bucket.getPublicUrl(`${folder}/${newest}`).data.publicUrl,
+          mobile: phone ? bucket.getPublicUrl(`${folder}/${phone}`).data.publicUrl : null,
           at: snapshotTakenAt(newest),
         })
       } catch {
@@ -189,8 +205,8 @@ async function withStoredCovers(given: WebsiteSummary[], userId: string): Promis
     return {
       ...install,
       snapshot_url: hit.url,
+      snapshot_mobile_url: hit.mobile,
       snapshot_updated_at: hit.at,
-      saved_at: newest(install.saved_at, hit.at),
     }
   })
 }

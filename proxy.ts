@@ -51,6 +51,10 @@ const RESERVED_PATHS = [
   "/library",
   "/native-start",
   "/receipt",
+  /* The page a website cover's screenshot is taken of. A platform surface,
+     never a creator's site: on a subdomain or custom domain it must not be
+     read as a page of that site. */
+  "/cover-render",
   "/_next",
   "/favicon.ico",
   "/robots.txt",
@@ -540,7 +544,7 @@ function retireDomainScopedCookies(response: NextResponse, request: NextRequest)
  */
 const FRAME_RESERVED_FIRST_SEGMENT = new Set([
   "access", "account", "account-deletion", "admin", "api", "app", "auth", "blog", "c",
-  "checkout", "creator-page", "dashboard", "downloads", "editions", "explore",
+  "checkout", "cover-render", "creator-page", "dashboard", "downloads", "editions", "explore",
   "faq", "features", "help", "l", "legal", "library", "login", "native-start",
   "onboarding", "p", "pricing", "privacy", "products", "purchase", "receipt",
   "register", "request", "reset-password", "signup", "site", "sites", "store",
