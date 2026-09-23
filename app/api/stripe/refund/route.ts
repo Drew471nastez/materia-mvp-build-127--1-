@@ -58,15 +58,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Order has already been refunded" }, { status: 400 })
     }
 
+    /* Only money that was taken can go back. A pending or failed row has a
+       payment intent too, and refunding it would ask Stripe for a refund of
+       a charge that never happened. */
+    if (order.status !== "completed") {
+      return NextResponse.json({ error: "Only a paid order can be refunded" }, { status: 400 })
+    }
+
     if (!order.stripe_payment_intent_id) {
       return NextResponse.json({ error: "No payment intent found for this order" }, { status: 400 })
     }
 
     // Validate refund amount
     const maxRefundCents = order.amount_cents || 0
-    const refundAmountCents = amount ? Math.round(amount * 100) : maxRefundCents
+    const refundAmountCents = amount === undefined || amount === null ? maxRefundCents : Math.round(Number(amount) * 100)
 
-    if (refundAmountCents <= 0) {
+    if (!Number.isFinite(refundAmountCents) || refundAmountCents <= 0) {
       return NextResponse.json({ error: "Refund amount must be positive" }, { status: 400 })
     }
 
@@ -100,11 +107,12 @@ export async function POST(request: Request) {
       .eq("id", orderId)
 
     // Step 2: Try to update extra refund tracking columns (may not exist in DB yet)
+    const refundedAt = new Date().toISOString()
     try {
       await dbClient
         .from("orders")
         .update({
-          refunded_at: new Date().toISOString(),
+          refunded_at: refundedAt,
           refund_reason: reason || "requested_by_customer",
           refund_amount_cents: refundAmountCents,
           stripe_refund_id: refund.id,
@@ -169,6 +177,7 @@ export async function POST(request: Request) {
       refundId: refund.id,
       status: refund.status,
       amount: refundAmountCents,
+      refundedAt,
     })
   } catch (error: any) {
     console.error("[Stripe Refund Error]", error)

@@ -223,3 +223,11 @@ export const iconButton =
   "inline-flex h-8 w-8 items-center justify-center rounded-lg text-[#4b5563] transition-colors duration-100 hover:bg-[#f1f2f4] active:bg-[#e8e9ec] disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer select-none"
 
 export const card = "rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
+
+/**
+ * The page's own action, in the /app violet (CLAUDE.md): Export on the Orders
+ * list. A flat fill with a hairline of light on top and a soft violet shadow
+ * under it, a step darker on hover and again when pressed. Not a gradient.
+ */
+export const buttonAccent =
+  "inline-flex h-8 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-[#8b5cf6] px-3 text-[13px] font-medium text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_1px_2px_rgba(76,29,149,0.28),0_3px_8px_-3px_rgba(139,92,246,0.55)] transition-[background-color,box-shadow] duration-100 hover:bg-[#7c3aed] active:bg-[#6d28d9] active:shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_1px_1px_rgba(76,29,149,0.3)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#8b5cf6] disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none cursor-pointer select-none"

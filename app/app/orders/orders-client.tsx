@@ -25,7 +25,7 @@
  */
 
 import * as React from "react"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useSearchParams } from "next/navigation"
 import {
   COLUMNS_COOKIE,
   filterOrders,
@@ -48,6 +48,7 @@ import { todayIn, type CompareValue, type RangeValue } from "@/lib/date-range/ra
 import { writePeriod } from "@/lib/date-range/params"
 import { OrderDetail, type OrderAction } from "./order-detail"
 import { formatMoney } from "./order-parts"
+import { saveFile, savedMessage } from "@/lib/platform/save-file"
 
 interface OrdersClientProps {
   rows: OrderRow[]
@@ -62,8 +63,36 @@ interface OrdersClientProps {
 
 type Stage = "closed" | "entering" | "open" | "closing"
 
-/** The slide in globals.css (.orders-detail) takes 320ms. */
+/**
+ * The slide in globals.css (.orders-detail) takes 320ms at most. The stage
+ * moves on when the animation says it has ended; this is only the net under
+ * that, for an animation that never runs (a hidden tab, a style not loaded).
+ */
 const SLIDE_MS = 330
+const SLIDE_NET_MS = SLIDE_MS + 120
+
+/** Asked each time, so changing the setting applies without a reload. */
+function prefersReducedMotion(): boolean {
+  return typeof window !== "undefined" && Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)").matches)
+}
+
+/** What an action on an order sends back about each row's receipt email. */
+interface LineDelivery {
+  id: string
+  buyer_email?: string | null
+  buyer_notified_at: string | null
+  buyer_email_last_error: string | null
+}
+
+async function postJson(url: string, body?: unknown): Promise<{ res: Response; data: any }> {
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  })
+  const data = await res.json().catch(() => ({}))
+  return { res, data }
+}
 
 function writeAddress(mutate: (p: URLSearchParams) => void, mode: "push" | "replace") {
   const params = new URLSearchParams(window.location.search)
@@ -80,7 +109,6 @@ function findOrder(orders: Order[], id: string | null): Order | null {
 }
 
 export function OrdersClient(props: OrdersClientProps) {
-  const router = useRouter()
   const searchParams = useSearchParams()
 
   /* ── Data ─────────────────────────────────────────────────────────────── */
@@ -215,39 +243,66 @@ export function OrdersClient(props: OrdersClientProps) {
   const listRef = React.useRef<HTMLDivElement>(null)
   const detailRef = React.useRef<HTMLDivElement>(null)
 
+  /* The order the last step went to, and from which side, so that order
+     (and only that one, not the one being left) plays the step in. */
+  const [step, setStep] = React.useState<{ id: string; dir: "previous" | "next" } | null>(null)
+  const stageRef = React.useRef(stage)
+  React.useLayoutEffect(() => {
+    stageRef.current = stage
+  }, [stage])
+
   /* The slide is a CSS animation (.orders-detail in globals.css), not a
      transition between two states. A transition needs the page to be drawn
      once in its starting place before it moves, and on a phone the tap
      arrives in step with the frame, so the starting place was never drawn:
      measured, the order simply appeared. An animation starts when the
-     element does. The timer only says when it has finished. */
+     element does, and says when it has ended (onAnimationEnd below). With
+     reduced motion asked for there is no slide, and no wait for one. */
   React.useEffect(() => {
     if (target) {
       setShown(target)
       if (stage === "closed" || stage === "closing") {
+        if (prefersReducedMotion()) {
+          setStage("open")
+          return
+        }
         setStage("entering")
-        detailRef.current?.scrollTo({ top: 0 })
-        const done = window.setTimeout(() => setStage("open"), SLIDE_MS)
-        return () => window.clearTimeout(done)
+        const net = window.setTimeout(() => setStage((s) => (s === "entering" ? "open" : s)), SLIDE_NET_MS)
+        return () => window.clearTimeout(net)
       }
       return
     }
     if (stage === "open" || stage === "entering") {
       pushed.current = false
-      setStage("closing")
-      const done = window.setTimeout(() => {
+      if (prefersReducedMotion()) {
         setStage("closed")
         setShown(null)
-      }, SLIDE_MS)
-      return () => window.clearTimeout(done)
+        return
+      }
+      setStage("closing")
+      const net = window.setTimeout(finishClosing, SLIDE_NET_MS)
+      return () => window.clearTimeout(net)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [target?.id])
 
-  /* Stepping to the next order starts it at its top. */
-  React.useEffect(() => {
-    if (stage === "open") detailRef.current?.scrollTo({ top: 0 })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  function finishClosing() {
+    if (stageRef.current !== "closing") return
+    setStage("closed")
+    setShown(null)
+    setStep(null)
+  }
+
+  const onSlideEnd = (e: React.AnimationEvent<HTMLDivElement>) => {
+    if (e.target !== e.currentTarget) return
+    if (stage === "entering") setStage("open")
+    else if (stage === "closing") finishClosing()
+  }
+
+  /* Each order starts at its top, before it is drawn: after the paint, the
+     next order showed for a frame at the last one's scroll position. */
+  React.useLayoutEffect(() => {
+    detailRef.current?.scrollTo({ top: 0 })
   }, [shown?.id])
 
   /* An address naming an order that is not this creator's, or not there. */
@@ -256,6 +311,7 @@ export function OrdersClient(props: OrdersClientProps) {
   }, [openId, target])
 
   const onOpen = (id: string) => {
+    setStep(null)
     pushed.current = true
     writeAddress((p) => p.set("order", id), "push")
   }
@@ -266,7 +322,9 @@ export function OrdersClient(props: OrdersClientProps) {
   const at = shown ? filtered.findIndex((o) => o.id === shown.id) : -1
   const onStep = (dir: -1 | 1) => {
     const next = filtered[at + dir]
-    if (next) writeAddress((p) => p.set("order", next.id), "replace")
+    if (!next) return
+    setStep({ id: next.id, dir: dir < 0 ? "previous" : "next" })
+    writeAddress((p) => p.set("order", next.id), "replace")
   }
 
   /* ── Notices ────────────────────────────────────────────────────────── */
@@ -282,71 +340,79 @@ export function OrdersClient(props: OrdersClientProps) {
   const patchRows = (ids: string[], patch: Partial<OrderRow>) =>
     setRows((prev) => prev.map((r) => (ids.includes(r.id) ? { ...r, ...patch } : r)))
 
+  /* What a send wrote to each row, straight from the server's answer: the
+     page shows it at once, with no reload of every order. */
+  const applyDelivery = (lines: LineDelivery[] | undefined) => {
+    if (!Array.isArray(lines) || lines.length === 0) return
+    const byId = new Map(lines.map((l) => [l.id, l]))
+    setRows((prev) =>
+      prev.map((r) => {
+        const d = byId.get(r.id)
+        if (!d) return r
+        return {
+          ...r,
+          buyer_email: d.buyer_email ?? r.buyer_email,
+          buyer_notified_at: d.buyer_notified_at,
+          buyer_email_last_error: d.buyer_email_last_error,
+        }
+      }),
+    )
+  }
+
   const onAction = async (order: Order, action: OrderAction): Promise<string> => {
-    const withReceipt = order.lines.filter((l) => l.receipt_token)
     switch (action.kind) {
       case "refund": {
-        const res = await fetch("/api/stripe/refund", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ orderId: action.line.id, reason: action.reason, amount: action.amountCents / 100 }),
+        const { res, data } = await postJson("/api/stripe/refund", {
+          orderId: action.line.id,
+          reason: action.reason,
+          amount: action.amountCents / 100,
         })
-        const data = await res.json().catch(() => ({}))
         if (!res.ok) throw new Error(data?.error || "The refund did not go through.")
+        const cents = typeof data?.amount === "number" ? data.amount : action.amountCents
         patchRows([action.line.id], {
           status: "refunded",
-          refund_amount_cents: action.amountCents,
-          refunded_at: new Date().toISOString(),
+          refund_amount_cents: cents,
+          refunded_at: typeof data?.refundedAt === "string" ? data.refundedAt : new Date().toISOString(),
           refund_reason: action.reason,
         })
-        router.refresh()
-        return `Refunded ${formatMoney(action.amountCents)}`
+        return `Refunded ${formatMoney(cents)}`
       }
       case "resend": {
-        for (const line of withReceipt) {
-          const res = await fetch("/api/receipt/resend", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ receiptToken: line.receipt_token, orderId: line.id, resendType: "buyer" }),
-          })
-          const data = await res.json().catch(() => ({}))
-          if (data?.limitReached) throw new Error("This receipt has been sent the most times allowed.")
-          if (!res.ok || data?.success === false) throw new Error(data?.error || "The receipt was not sent.")
-        }
-        router.refresh()
+        const { res, data } = await postJson(`/api/app/orders/${encodeURIComponent(order.id)}/resend`)
+        applyDelivery(data?.lines)
+        if (!res.ok) throw new Error(data?.error || "The receipt was not sent. Try again.")
+        if (data?.failed > 0) return `Sent ${data.sent} of ${data.sent + data.failed} receipts. ${data.error ?? ""}`.trim()
         return `Receipt sent to ${order.customerEmail || "the buyer"}`
       }
       case "invoice": {
-        for (const [i, line] of order.lines.entries()) {
-          const res = await fetch(`/api/invoice?orderId=${encodeURIComponent(line.id)}`)
-          if (!res.ok) throw new Error("The invoice could not be made.")
-          const url = URL.createObjectURL(await res.blob())
-          const a = document.createElement("a")
-          a.href = url
-          a.download = `invoice-${order.number}${order.lines.length > 1 ? `-${i + 1}` : ""}.pdf`
-          document.body.appendChild(a)
-          a.click()
-          a.remove()
-          URL.revokeObjectURL(url)
-        }
-        return order.lines.length > 1 ? "Invoices downloaded" : "Invoice downloaded"
+        const outcome = await saveFile({
+          name: `invoice-${order.number}.pdf`,
+          viewable: true,
+          file: async () => {
+            const res = await fetch(`/api/invoice?orderId=${encodeURIComponent(order.id)}&tz=${encodeURIComponent(timeZone)}`)
+            if (!res.ok) {
+              const data = await res.json().catch(() => ({}))
+              throw new Error(data?.error || "The invoice could not be made. Try again.")
+            }
+            return res.blob()
+          },
+          link: async (disposition) => {
+            const { res, data } = await postJson("/api/invoice", { orderId: order.id, disposition, timeZone })
+            if (!res.ok || !data?.url) throw new Error(data?.error || "The invoice could not be made. Try again.")
+            return data.url as string
+          },
+        })
+        return savedMessage(outcome, "Invoice")
       }
       case "email": {
-        for (const line of withReceipt) {
-          const res = await fetch("/api/receipt/update-email", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ receiptToken: line.receipt_token, orderId: line.id, newEmail: action.email }),
-          })
-          const data = await res.json().catch(() => ({}))
-          if (!res.ok) throw new Error(data?.error || "The email was not changed.")
-        }
-        patchRows(
-          withReceipt.map((l) => l.id),
-          { buyer_email: action.email },
-        )
-        router.refresh()
-        return `Email changed to ${action.email}`
+        const { res, data } = await postJson(`/api/app/orders/${encodeURIComponent(order.id)}/email`, { email: action.email })
+        if (!res.ok) throw new Error(data?.error || "The email was not changed. Try again.")
+        const email = typeof data?.email === "string" ? data.email : action.email
+        patchRows(Array.isArray(data?.ids) ? data.ids : order.lines.map((l) => l.id), { buyer_email: email })
+        applyDelivery(data?.lines)
+        if (data?.sent > 0) return `Email changed. Receipt sent to ${email}`
+        if (data?.failed > 0) return `Email changed, but the receipt did not send. ${data.error ?? ""}`.trim()
+        return `Email changed to ${email}`
       }
     }
   }
@@ -402,19 +468,25 @@ export function OrdersClient(props: OrdersClientProps) {
           ref={detailRef}
           className="orders-pane orders-detail page-scroll absolute inset-0 overflow-y-auto overflow-x-hidden bg-[#f8f9fa]"
           data-stage={stage}
+          onAnimationEnd={onSlideEnd}
           role="region"
           aria-label={`Order ${shown.number}`}
         >
-          <OrderDetail
-            order={orders.find((o) => o.id === shown.id) ?? shown}
-            timeZone={timeZone}
-            now={now}
-            onBack={onBack}
-            onStep={at >= 0 ? onStep : null}
-            canStep={{ newer: at > 0, older: at >= 0 && at < filtered.length - 1 }}
-            onAction={onAction}
-            onNotice={onNotice}
-          />
+          {/* Keyed by the order, so a step to the next one draws it fresh
+              (its menus and dialogs closed) and plays the short step in. */}
+          <div key={shown.id} className="orders-step" data-dir={step?.id === shown.id ? step.dir : undefined}>
+            <OrderDetail
+              order={orders.find((o) => o.id === shown.id) ?? shown}
+              timeZone={timeZone}
+              now={now}
+              onBack={onBack}
+              onStep={at >= 0 ? onStep : null}
+              canStep={{ previous: at > 0, next: at >= 0 && at < filtered.length - 1 }}
+              position={at >= 0 ? { index: at, count: filtered.length } : null}
+              onAction={onAction}
+              onNotice={onNotice}
+            />
+          </div>
         </div>
       ) : null}
 

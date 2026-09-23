@@ -39,6 +39,7 @@ import {
   MenuSurface,
   PaymentBadge,
   Sparkline,
+  buttonAccent,
   buttonSecondary,
   card,
   formatMoney,
@@ -84,7 +85,7 @@ export function OrdersList(props: OrdersListProps) {
         <h1 className="text-[24px] font-bold text-[#1a1a2e] sm:text-[28px]">Orders</h1>
         <button
           type="button"
-          className={buttonSecondary}
+          className={buttonAccent}
           onClick={() => props.onExport()}
           disabled={allOrders.length === 0}
         >
