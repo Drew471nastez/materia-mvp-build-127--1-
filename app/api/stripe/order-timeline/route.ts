@@ -106,7 +106,7 @@ export async function GET(request: Request) {
               typeof charge.destination_payment === "string"
                 ? charge.destination_payment
                 : charge.destination_payment.id,
-              { expand: ["balance_transaction"], stripeAccount: creator.stripe_account_id }
+              { expand: ["balance_transaction"] }, { stripeAccount: creator.stripe_account_id }
             )
 
             const bt = destCharge.balance_transaction as any
