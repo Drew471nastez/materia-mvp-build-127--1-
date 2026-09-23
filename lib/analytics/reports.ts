@@ -704,10 +704,16 @@ export function buildOnePageReports(input: {
     previous: compared ? bucketCounts(items, prevStarts, prev, n) : [],
   })
 
-  const viewTimes = now.concat(before).map((s) => ({ at: s.at }))
   const clickTimes = times(input.clicks)
   const leadTimes = times(input.leads)
-  const viewSeries = series(viewTimes)
+  /* Each window from its own sessions. One list for both counted a session
+     inside an overlapping comparison twice in each series. */
+  const at = (xs: Array<{ at: number }>) => xs.map((s) => ({ at: s.at }))
+  const viewSeries: Series = {
+    labels,
+    current: bucketCounts(at(now), starts, cur, n),
+    previous: compared ? bucketCounts(at(before), prevStarts, prev, n) : [],
+  }
   const clickSeries = series(clickTimes)
   const leadSeries = series(leadTimes)
   const ctrSeries = {

@@ -116,7 +116,8 @@ export async function loadReceiptByToken(admin: SupabaseClient, token: string): 
     admin.from("products").select("id, title, slug, thumbnail_url, type, creator_id").in("id", productIds),
     admin
       .from("digital_assets")
-      .select("id, product_id, file_name, file_size, created_at")
+      /* Whole rows: upload_status arrived in a later migration. */
+      .select("*")
       .in("product_id", productIds)
       .order("created_at", { ascending: true }),
     variantIds.length > 0
@@ -130,6 +131,8 @@ export async function loadReceiptByToken(admin: SupabaseClient, token: string): 
   const products = new Map<string, any>(((productsRes as any).data ?? []).map((p: any) => [p.id, p]))
   const filesByProduct = new Map<string, Array<ReceiptFile & { productId: string }>>()
   for (const a of ((assetsRes as any).data ?? []) as any[]) {
+    /* A file still uploading, or whose upload failed, has nothing to download yet. */
+    if (typeof a.upload_status === "string" && a.upload_status !== "completed") continue
     const list = filesByProduct.get(a.product_id) ?? []
     list.push({ id: a.id, name: a.file_name || "File", sizeBytes: typeof a.file_size === "number" ? a.file_size : null, productId: a.product_id })
     filesByProduct.set(a.product_id, list)
@@ -141,6 +144,12 @@ export async function loadReceiptByToken(admin: SupabaseClient, token: string): 
     mapped.set(m.variant_id, list)
   }
   const variantNames = new Map<string, string>(((variantsRes as any).data ?? []).map((v: any) => [v.id, v.name]))
+  /* The download route refuses a variant's files when this map cannot be
+     read (lib/receipts/download-access fails closed), so the receipt does
+     not list them either: a Download button that can only say no is worse
+     than none. A missing table (42P01) means no variant restricts anything. */
+  const mappingError = (mappingRes as any).error as { code?: string } | null
+  const mappingUnknown = !!mappingError && mappingError.code !== "42P01"
 
   const items: ReceiptItem[] = rows.map((r) => {
     const product = products.get(r.product_id)
@@ -148,7 +157,7 @@ export async function loadReceiptByToken(admin: SupabaseClient, token: string): 
     const money = lineMoney(r)
     const all = filesByProduct.get(r.product_id) ?? []
     const files =
-      state === "open"
+      state === "open" && !(mappingUnknown && r.variant_id)
         ? filesForVariant(all, r.variant_id ? mapped.get(r.variant_id) : null).map(({ id, name, sizeBytes }) => ({ id, name, sizeBytes }))
         : []
     const type = product?.type ?? null
@@ -216,7 +225,9 @@ export async function loadReceiptByToken(admin: SupabaseClient, token: string): 
     },
     primary: { orderId: first.id, token },
     /* A card payment has an invoice to download (/api/checkout/invoice). */
-    invoice: totals.totalCents > 0 && rows.some((r) => !!r.stripe_payment_intent_id),
+    /* One line only: the invoice (lib/checkout/invoice) is drawn from one
+       order row, and for a basket it would show one item as the total. */
+    invoice: rows.length === 1 && totals.totalCents > 0 && !!rows[0].stripe_payment_intent_id,
   }
 
   return { view, buyerIds: [...new Set(rows.map((r) => r.buyer_id).filter(Boolean) as string[])] }

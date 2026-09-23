@@ -4,6 +4,7 @@ import { cookies } from "next/headers"
 import { ignoreError } from "@/lib/supabase/ignore-error"
 import { CONSENT_COOKIE, allows, parse } from "@/lib/consent/consent"
 import { isBotAgent } from "@/lib/analytics/user-agent"
+import { isOwnVisit } from "@/lib/analytics/own-visit"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -40,6 +41,24 @@ export async function POST(req: NextRequest) {
     if (isBotAgent(req.headers.get("user-agent"))) return NextResponse.json({ ok: true, counted: false })
 
     const supabase = createAdminClient()
+
+    /* The same checks a view gets (app/api/track-view): a real creator, a
+       product that is theirs, and not the creator on their own checkout.
+       A step posted for any id would otherwise land in the rollups. */
+    const { data: owner } = await supabase.from("creators").select("id, user_id").eq("id", payload.creatorId).maybeSingle()
+    if (!owner) return NextResponse.json({ ok: false, error: "Unknown page" }, { status: 404 })
+    if (payload.productId) {
+      const { data: product } = await supabase
+        .from("products")
+        .select("id")
+        .eq("id", payload.productId)
+        .eq("creator_id", payload.creatorId)
+        .maybeSingle()
+      if (!product) return NextResponse.json({ ok: false, error: "Unknown page" }, { status: 404 })
+    }
+    if (await isOwnVisit(req.cookies.getAll().map((c) => c.name), (owner as { user_id?: string | null }).user_id)) {
+      return NextResponse.json({ ok: true, counted: false, own: true })
+    }
 
     // Get country from request headers
     const countryCode = req.headers.get("x-vercel-ip-country") || req.geo?.country || null

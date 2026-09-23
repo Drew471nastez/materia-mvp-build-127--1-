@@ -147,6 +147,7 @@ const SUITES = [
   "tests/cookie-consent.test.ts",
   "tests/marketing-footer.test.ts",
   "tests/refund-sync.test.ts",
+  "tests/refund-sync-sim.test.ts",
   "tests/image-picker.test.ts",
   "tests/site-pages.test.ts",
   "tests/admin-auth.test.ts",

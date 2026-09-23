@@ -23,7 +23,9 @@ export const runtime = "nodejs"
  */
 
 const CHANGE_WINDOW_DAYS = 7
-const EMAIL_SHAPE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+/* No brackets, quotes or separators: an address that carried markup would
+   travel into the seller's sale email. None of these appear in a real one. */
+const EMAIL_SHAPE = /^[^\s@<>"'`(),;:\\[\]]+@[^\s@<>"'`(),;:\\[\]]+\.[^\s@<>"'`(),;:\\[\]]{2,}$/
 
 export async function POST(request: NextRequest) {
   let body: { receiptToken?: unknown; orderId?: unknown; newEmail?: unknown }
@@ -55,9 +57,9 @@ export async function POST(request: NextRequest) {
 
     const { data: order } = await admin
       .from("orders")
-      .select(
-        "id, buyer_id, buyer_email, buyer_first_name, created_at, amount_cents, variant_name, stripe_session_id, product:products(title, creator_id)",
-      )
+      /* Every column: variant_name arrived in a later migration, and naming
+         a missing column fails the read, which answered "Order not found". */
+      .select("*, product:products(title, creator_id)")
       .eq("receipt_token", receiptToken)
       .eq("id", orderId)
       .maybeSingle()

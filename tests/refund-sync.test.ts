@@ -59,7 +59,16 @@ const sync = strip(read("lib/stripe/refund-sync.ts"))
 check("every row of the payment is read, not one", /\.from\("orders"\)\.select\("\*"\)\.eq\("stripe_payment_intent_id", paymentIntentId\)\)?/.test(sync) && !/maybeSingle\(\)\s*\n?\s*if \(order && order\.status !== "refunded"\)/.test(sync))
 check("every refund of the charge is taken, oldest first, asking Stripe when the event leaves them out",
   /stripe\.refunds\.list\(\{ charge: charge\.id, limit: 100 \}\)/.test(sync) && /\.sort\(\(a, b\) => a\.created - b\.created\)/.test(sync))
-check("applied once per refund and row, by the ledger event", /\.eq\("stripe_refund_id", refundId\)\s*\.eq\("order_id", orderId\)/.test(sync))
+check("what each row gave back is read from the ledger events, which only the sync writes, not from the row",
+  /const events = await refundEventsFor\(db, rows\.map\(\(r\) => r\.id\)\)/.test(sync) && /e\.order_id === id && e\.stripe_refund_id !== refund\.id/.test(sync))
+check("a refund already applied in full is skipped, and one applied in part shares only what is left over the rows it missed",
+  /const left = refund\.amount - mine\.reduce/.test(sync) && /if \(left <= 0\) \{/.test(sync) && /\.filter\(\(r\) => !done\.has\(r\.id\)\)/.test(sync) && /allocateRefund\(open, left, named\)/.test(sync))
+check("two deliveries at once: the unique index refuses the second, read as already applied",
+  /if \(eventError && \(eventError as \{ code\?: string \}\)\.code === "23505"\) return "duplicate"/.test(sync)
+    && /CREATE UNIQUE INDEX IF NOT EXISTS ledger_events_refund_once\s*\n\s*ON public\.ledger_events \(stripe_refund_id, order_id\)/.test(read("supabase/sql/RUN_REFUND_LEDGER_ONCE.sql")))
+check("anything not recorded is thrown after the loop, so the webhook answers 500 and Stripe retries",
+  /if \(failures\.length > 0\) throw new Error/.test(sync))
+check("a refund comes out of pending only while its sale is still held", /const held = Array\.isArray\(sale\) && sale\.length > 0 && !sale\[0\]\.released_at/.test(sync))
 {
   const fn = sync.slice(sync.indexOf("async function applyToLedger"), sync.indexOf("export async function syncChargeRefund"))
   const marker = fn.indexOf('.from("ledger_events").insert(')
@@ -71,6 +80,12 @@ check("a refund from the Orders page is known by its own metadata, not by a row 
 check("and it neither rewrites the amount nor sends a second email", /if \(startedHere\) return/.test(sync) && /if \(!startedHere\) touched\.push/.test(sync))
 check("the refund email is given cents", /refundAmount: touched\.reduce\(\(n, t\) => n \+ t\.cents, 0\)/.test(sync) && !/\/ 100,?\s*\n?\s*currency/.test(sync))
 check("the Orders page tags its refunds so the webhook can tell", /metadata: \{\s*\n\s*order_id: orderId,\s*\n\s*creator_id: creator\.id,/.test(read("app/api/stripe/refund/route.ts")))
+{
+  const route = read("app/api/stripe/refund/route.ts")
+  check("the Orders page takes the seller's part back (destination charges do not on their own)", /refundParams\.reverse_transfer = true/.test(route))
+  check("and a double submit refunds once", /idempotencyKey: `storelib-refund:\$\{orderId\}`/.test(route))
+}
+check("no page counts the tip twice in a refund", !/amount_cents \|\| 0\) \+ \((line|order)\.tip_cents/.test(read("lib/orders/metrics.ts") + read("app/app/orders/sales/page.tsx")))
 const hook = strip(read("app/api/stripe/webhook/route.ts"))
 check("the webhook hands charge.refunded to it, and asks Stripe to retry when it fails",
   /syncChargeRefund\(supabaseAdmin, stripe, charge\)/.test(hook) && /Refund not recorded yet" \}, \{ status: 500 \}/.test(hook))

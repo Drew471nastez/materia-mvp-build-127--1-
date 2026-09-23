@@ -101,17 +101,21 @@ export async function POST(request: Request) {
       },
     }
     /*
-      DESTINATION CHARGES: the payment and its refund live on the platform
-      account (no stripeAccount here). A refund does NOT take the money back
-      from the seller by itself: without reverse_transfer the seller kept
-      what was transferred and Storelib's own balance paid the buyer.
-      reverse_transfer takes the refunded share back from the seller, and
-      refund_application_fee gives back the platform's share of its fee, which
-      is what the seller ledger (lib/stripe/refund-sync.ts) records.
+      DESTINATION CHARGES: the PaymentIntent and its refunds live on the
+      platform account, so no stripeAccount here. Stripe does NOT take the
+      seller's part back on its own: without `reverse_transfer` the platform
+      paid every refund in full while the seller kept what was transferred,
+      and the balance on Payouts (lib/stripe/refund-sync.ts) already takes it
+      off the seller. The application fee is not refunded, which is the fee
+      share that balance leaves with the platform.
+
+      ONE REFUND PER SUBMIT: the key makes a second submit of the same refund
+      (a double tap, two tabs) return the first instead of refunding twice.
     */
     refundParams.reverse_transfer = true
-    refundParams.refund_application_fee = true
-    const refund = await stripe.refunds.create(refundParams)
+    /* Keyed on what was refunded before too: a double tap repeats the key,
+       a later partial refund of what is left does not. */
+    const refund = await stripe.refunds.create(refundParams, { idempotencyKey: `storelib-refund:${orderId}:${alreadyRefunded}:${refundAmountCents}` })
 
     /* The row, at once, with the running total: the page reads it next. */
     const refundedAt = new Date().toISOString()

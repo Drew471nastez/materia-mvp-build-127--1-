@@ -362,6 +362,21 @@ console.log("\nThe look: Storelib's violet, a grey comparison, real logos")
   check("no order is spread across days it did not happen on", !/Distribute orders across existing dates/.test(page) && !/new Date\(a\.date \+ ", 2024"\)/.test(page))
 }
 
+console.log("\nAnalytics: from the review")
+{
+  const route = read("app/api/analytics/reports/route.ts")
+  const page = read("app/app/analytics/analytics-client.tsx")
+  check("All time is answered, not refused: the span allows years past 2020", /const MAX_SPAN_MS = 30 \* 366 \* 24 \* 3_600_000/.test(route))
+  check("and All time is compared with nothing", /const isAllTime = period\.preset === "all_time"/.test(page) && /isAllTime \? null : compareBounds\(/.test(page) && /\{!isAllTime \? <ComparePicker/.test(page))
+  check("OnePage views: each window counted from its own sessions, never twice", !/now\.concat\(before\)/.test(read("lib/analytics/reports.ts")) && /current: bucketCounts\(at\(now\), starts, cur, n\)/.test(read("lib/analytics/reports.ts")))
+  const ev = read("app/api/track-event/route.ts")
+  check("a funnel step needs a real creator and their own product, and the creator's own clicks do not count",
+    /from\("creators"\)\.select\("id, user_id"\)\.eq\("id", payload\.creatorId\)/.test(ev) && /\.eq\("creator_id", payload\.creatorId\)/.test(ev) && /isOwnVisit\(/.test(ev))
+  check("a step is sent once per page, with nothing stored", /const sentSteps = new Set<string>\(\)/.test(read("lib/analytics-utils.ts")) && /if \(sentSteps\.has\(key\)\) return Promise\.resolve\(\)/.test(read("lib/analytics-utils.ts")))
+  check("a failed refresh keeps the figures; only a different question clears them",
+    /questionOf\(s\.data\.key\) === question \? s\.data : null/.test(read("app/app/analytics/analytics-reports.tsx")))
+}
+
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed > 0) {
   console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`)

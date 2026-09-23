@@ -849,6 +849,14 @@ export interface ReportsState {
  * aborts the one in flight, so a quick run of taps cannot land out of order.
  * `refresh` asks the same question again, for the page's minute poll.
  */
+/** What was asked, without the moving end of a period that runs to now. */
+function questionOf(key: string | undefined): string {
+  const p = new URLSearchParams(key || "")
+  p.delete("end")
+  p.delete("cend")
+  return p.toString()
+}
+
 export function useAnalyticsReports({
   start,
   end,
@@ -884,6 +892,7 @@ export function useAnalyticsReports({
       q.set("compare", "none")
     }
     const key = q.toString()
+    const question = questionOf(key)
     fetch(`/api/analytics/reports?${q}`, { signal: ctrl.signal, cache: "no-store" })
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
       .then((json) => {
@@ -895,9 +904,11 @@ export function useAnalyticsReports({
       })
       .catch((e) => {
         if ((e as Error).name === "AbortError") return
-        /* The figures on screen belong to the range before; left up, they
-           would read as this range's. */
-        setState({ data: null, loading: false, failed: true })
+        /* A failed refresh of the same question keeps the figures on screen;
+           figures for a different question (another period, product or
+           mode) would read as this one's, so those go. The end of a running
+           period moves every minute, so it is not part of the question. */
+        setState((s) => ({ data: s.data && questionOf(s.data.key) === question ? s.data : null, loading: false, failed: true }))
       })
     return () => ctrl.abort()
   }, [start, end, cs, ce, product, mode, refresh])

@@ -248,7 +248,9 @@ export function AnalyticsClient({ products }: AnalyticsClientProps) {
    */
   const timeZone = useMemo(() => viewerTimeZone(), [])
   const { period, setPeriod, compare, setCompare, today } = usePeriodParams(timeZone, "last_7_days")
-  const comparedRange = compareRange(period, compare)
+  /* "All time" is compared with nothing: there is no before the beginning. */
+  const isAllTime = period.preset === "all_time"
+  const comparedRange = isAllTime ? null : compareRange(period, compare)
   const compareLabel = comparedRange ? rangeLabel(comparedRange) : null
 
   const initialMode = searchParams.get("mode") as AnalyticsMode | null
@@ -295,9 +297,9 @@ export function AnalyticsClient({ products }: AnalyticsClientProps) {
   const span = useMemo(() => boundsOf(period, timeZone, Date.now()),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [period.start, period.end, period.preset, timeZone, tick])
-  const against = useMemo(() => compareBounds(period, compare, timeZone, Date.now()),
+  const against = useMemo(() => (isAllTime ? null : compareBounds(period, compare, timeZone, Date.now())),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [period.start, period.end, compare.mode, compare.range?.start, compare.range?.end, timeZone, tick])
+    [period.start, period.end, period.preset, compare.mode, compare.range?.start, compare.range?.end, timeZone, tick])
   const safeSpan = useMemo(() => ({ start: span.start, end: Math.max(span.end, span.start + 1) }), [span])
 
   const reportsState = useAnalyticsReports({
@@ -503,7 +505,7 @@ export function AnalyticsClient({ products }: AnalyticsClientProps) {
           <div className="flex items-center gap-3">
             <div className="flex flex-wrap items-center gap-2">
               <DateRangePicker value={period} onChange={setPeriod} today={today} />
-              <ComparePicker value={compare} onChange={setCompare} range={period} today={today} />
+              {!isAllTime ? <ComparePicker value={compare} onChange={setCompare} range={period} today={today} /> : null}
             </div>
             <div className="hidden sm:flex items-center bg-[#f3f4f6] rounded-full p-0.5">
               {modeButton("store", "md")}

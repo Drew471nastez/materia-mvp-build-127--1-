@@ -598,15 +598,17 @@ function sellerEmailHtml(params: {
   footerBrand: string
   variantName?: string | null
 }) {
-  const productTitle = safeText(params.productTitle)
-  const variantName = params.variantName ? safeText(params.variantName) : null
-  const buyerFirstName = safeName(params.buyerFirstName)
-  const buyerLastName = safeName(params.buyerLastName)
-  const buyerEmail = safeText(params.buyerEmail)
-  const ordersLink = params.ordersLink
+  /* Every value a buyer or seller typed is escaped: a name, a title or an
+     address carrying markup must print as text in this email, not as a link. */
+  const productTitle = escapeHtml(safeText(params.productTitle))
+  const variantName = params.variantName ? escapeHtml(safeText(params.variantName)) : null
+  const buyerFirstName = escapeHtml(safeName(params.buyerFirstName))
+  const buyerLastName = escapeHtml(safeName(params.buyerLastName))
+  const buyerEmail = escapeHtml(safeText(params.buyerEmail))
+  const ordersLink = escapeHtml(params.ordersLink)
   const isFree = params.amountCents === 0
   const earnings = params.amountCents - params.feeCents
-  const footerBrand = safeText(params.footerBrand)
+  const footerBrand = escapeHtml(safeText(params.footerBrand))
 
   const formatUSD = (cents: number) =>
     new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(cents / 100)
