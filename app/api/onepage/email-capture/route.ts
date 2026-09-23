@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { sendLeadMagnetEmail, triggerEmailFlows } from "@/lib/email"
 import { v4 as uuidv4 } from "uuid"
+import { rateLimit, addressSubject, emailSubject, LIMITS } from "@/lib/api/rate-limit"
 
 export const runtime = "nodejs"
 
@@ -46,6 +47,16 @@ export async function POST(request: Request) {
     if (!emailRegex.test(normalizedEmail)) {
       return NextResponse.json({ error: "Invalid email format" }, { status: 400 })
     }
+
+    /* Same as the other sign-up forms: counted by address and by the address
+       being signed up. See lib/api/rate-limit.ts. */
+    const limited = await rateLimit({
+      bucket: "email-capture",
+      subjects: [addressSubject(request), emailSubject(normalizedEmail)],
+      windows: LIMITS.subscribe,
+      message: "That is a lot of sign-ups at once. Try again in a minute.",
+    })
+    if (limited) return limited
 
     // Get onepage with seller info
     const { data: onepage, error: onepageError } = await adminSupabase

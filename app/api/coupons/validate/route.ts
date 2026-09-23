@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { rateLimit, addressSubject, emailSubject, LIMITS } from "@/lib/api/rate-limit"
 
 /**
  * POST /api/coupons/validate
@@ -26,6 +27,19 @@ export async function POST(request: NextRequest) {
     if (!code || !creator_id || !product_id || price_cents == null) {
       return NextResponse.json({ ok: false, error: "code, creator_id, product_id, and price_cents are required" }, { status: 400 })
     }
+
+    /*
+      A discount code is a short string and this endpoint says whether a
+      guess was right. Without a limit, finding one is a loop. Ten a minute
+      is more than anybody types and nowhere near enough to search.
+    */
+    const limited = await rateLimit({
+      bucket: "coupon",
+      subjects: [addressSubject(request)],
+      windows: LIMITS.coupon,
+      message: "Too many codes tried just now. Wait a moment and try again.",
+    })
+    if (limited) return limited
 
     const admin = createAdminClient()
     const now = new Date().toISOString()

@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { sendBuyerDownloadEmail, sendSellerNotificationEmail, resolveSellerEmail } from "@/lib/email"
+import { rateLimit, addressSubject, emailSubject, LIMITS } from "@/lib/api/rate-limit"
 
 export const runtime = "nodejs"
 
@@ -30,6 +31,16 @@ export async function POST(request: NextRequest) {
     if (!receiptToken || !orderId) {
       return NextResponse.json({ error: "Missing receiptToken or orderId" }, { status: 400 })
     }
+
+    /* The token is the credential, so this is not open to everyone; it is
+       still a button that sends mail, and a held button sends a lot of it. */
+    const limited = await rateLimit({
+      bucket: "receipt-resend",
+      subjects: [addressSubject(request), `order:${String(orderId)}`],
+      windows: LIMITS.email,
+      message: "That receipt was just sent. Check your inbox, then try again shortly.",
+    })
+    if (limited) return limited
 
     const admin = createAdminClient()
 
