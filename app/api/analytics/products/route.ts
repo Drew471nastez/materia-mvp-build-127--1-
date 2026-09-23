@@ -189,10 +189,7 @@ export async function GET(request: NextRequest) {
         views: data.views,
         orders: data.orders,
         revenue: data.revenue,
-        conversionRate: Math.min(
-          data.views > 0 ? Number((data.orders / data.views) * 100).toFixed(2) : "0",
-          "100.00",
-        ) as any as number,
+        conversionRate: data.views > 0 ? Math.min(100, Number(((data.orders / data.views) * 100).toFixed(2))) : 0,
       }))
       .filter((p) => p.views > 0 || p.orders > 0) // Only include products with activity
       .sort((a, b) => {

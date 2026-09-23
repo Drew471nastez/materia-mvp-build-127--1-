@@ -22,7 +22,7 @@ import { cn } from "@/lib/utils"
 export const INK = "#1a1a2e"
 
 export const inputClass =
-  "block h-12 w-full min-w-0 rounded-[10px] border border-[#d4d6db] bg-white px-3.5 text-[16px] text-[#1a1a2e] outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-[#9ca3af] hover:border-[#b9bcc3] focus:border-[#1a1a2e] focus:shadow-[0_0_0_3px_rgba(26,26,46,0.10)] aria-[invalid=true]:border-[#dc2626] aria-[invalid=true]:shadow-[0_0_0_3px_rgba(220,38,38,0.10)] disabled:bg-[#f7f7f8] disabled:text-[#9ca3af] sm:text-[15px]"
+  "block h-12 w-full min-w-0 rounded-[10px] border border-[#d4d6db] bg-white px-3.5 text-[16px] text-[#1a1a2e] outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-[#9ca3af] hover:border-[#b9bcc3] focus:border-[#1a1a2e] focus:shadow-[0_0_0_3px_rgba(26,26,46,0.10)] aria-[invalid=true]:border-[#dc2626] aria-[invalid=true]:shadow-[0_0_0_3px_rgba(220,38,38,0.10)] disabled:bg-[#f7f7f8] disabled:text-[#9ca3af]"
 
 export function SectionTitle({ children, aside }: { children: React.ReactNode; aside?: React.ReactNode }) {
   return (

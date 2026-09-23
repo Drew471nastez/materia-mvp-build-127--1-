@@ -40,7 +40,7 @@ import { invoiceFilename, invoiceForOrder, renderInvoicePdf } from "./invoice"
 type Db = { from: (table: string) => any; rpc: (fn: string, args: Record<string, unknown>) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 
 export type Fulfilment =
-  | { ok: true; created: boolean; orderId: string; receiptToken: string; sessionFingerprint: string | null }
+  | { ok: true; created: boolean; orderId: string; receiptToken: string; sessionFingerprint: string | null; amountCents: number }
   | { ok: false; status: number; error: string }
 
 /** A PaymentIntent the product checkout (stripe-session) made, as opposed to a subscription's, a cart's or a payout's. */
@@ -94,7 +94,7 @@ export function paymentFacts(pi: Stripe.PaymentIntent): PaymentFacts {
   return facts
 }
 
-const ORDER_READ = "id, receipt_token, session_fingerprint"
+const ORDER_READ = "id, receipt_token, session_fingerprint, amount_cents"
 
 async function existingOrder(admin: Db, paymentIntentId: string, receiptToken?: string) {
   const { data } = await admin.from("orders").select(ORDER_READ).eq("stripe_payment_intent_id", paymentIntentId).maybeSingle()
@@ -125,8 +125,15 @@ export async function fulfilPaymentIntent(
   let pi: Stripe.PaymentIntent
   try {
     pi = await stripe.paymentIntents.retrieve(paymentIntentId, { expand: ["latest_charge", "latest_charge.transfer"] })
-  } catch {
-    return { ok: false, status: 400, error: "That payment could not be found." }
+  } catch (e) {
+    /* Stripe unreachable or rate limited is not "no such payment": the
+       webhook must answer 5xx so Stripe tries again, or a buyer who closed
+       the tab would be charged with no order. */
+    const code = (e as { statusCode?: number; type?: string })?.statusCode
+    if (code === 404 || (e as { type?: string })?.type === "StripeInvalidRequestError") {
+      return { ok: false, status: 400, error: "That payment could not be found." }
+    }
+    return { ok: false, status: 503, error: "The payment could not be checked just now. It is safe; try again in a moment." }
   }
   if (opts.clientSecret !== undefined && !sameSecret(pi.client_secret, opts.clientSecret)) {
     return { ok: false, status: 404, error: "That payment could not be found." }
@@ -137,7 +144,7 @@ export async function fulfilPaymentIntent(
   const m = pi.metadata
   const found = await existingOrder(admin, pi.id, m.receipt_token)
   if (found) {
-    return { ok: true, created: false, orderId: found.id, receiptToken: found.receipt_token, sessionFingerprint: found.session_fingerprint ?? null }
+    return { ok: true, created: false, orderId: found.id, receiptToken: found.receipt_token, sessionFingerprint: found.session_fingerprint ?? null, amountCents: found.amount_cents ?? pi.amount }
   }
 
   const productId = m.product_id
@@ -197,7 +204,7 @@ export async function fulfilPaymentIntent(
   if (error || !order) {
     /* Somebody else made it a moment ago: theirs is the order. */
     const raced = await existingOrder(admin, pi.id, m.receipt_token)
-    if (raced) return { ok: true, created: false, orderId: raced.id, receiptToken: raced.receipt_token, sessionFingerprint: raced.session_fingerprint ?? null }
+    if (raced) return { ok: true, created: false, orderId: raced.id, receiptToken: raced.receipt_token, sessionFingerprint: raced.session_fingerprint ?? null, amountCents: raced.amount_cents ?? total }
     console.error("[fulfil] order insert failed", pi.id, error?.code, error?.message)
     return { ok: false, status: 500, error: "The order could not be saved. The payment is safe; refresh this page in a moment." }
   }
@@ -230,27 +237,33 @@ export async function fulfilPaymentIntent(
     /* A business buyer gets the invoice with the email, not only a link to it. */
     let attachments: { filename: string; content: Uint8Array; contentType: string }[] | undefined
     if (businessFromMetadata(m)) {
-      const invoice = await invoiceForOrder(
-        admin,
-        {
-          id: order.id,
-          created_at: new Date().toISOString(),
-          status: "completed",
-          amount_cents: total,
-          tip_cents: tipCents,
-          buyer_email: buyerEmail,
-          buyer_first_name: m.buyer_first_name || null,
-          buyer_last_name: m.buyer_last_name || null,
-          payment_method: facts.paymentMethod,
-          card_brand: facts.cardBrand,
-          card_last4: facts.cardLast4,
-          variant_name: variantName,
-          stripe_payment_intent_id: pi.id,
-          product: { title: product?.title ?? m.product_title ?? null, creator_id: creatorId },
-        },
-        m,
-      )
-      if (invoice) attachments = [{ filename: invoiceFilename(invoice), content: await renderInvoicePdf(invoice), contentType: "application/pdf" }]
+      /* The invoice is extra: if it cannot be drawn, the receipt and the
+         seller's email still go, and the invoice waits on the receipt page. */
+      try {
+        const invoice = await invoiceForOrder(
+          admin,
+          {
+            id: order.id,
+            created_at: new Date().toISOString(),
+            status: "completed",
+            amount_cents: total,
+            tip_cents: tipCents,
+            buyer_email: buyerEmail,
+            buyer_first_name: m.buyer_first_name || null,
+            buyer_last_name: m.buyer_last_name || null,
+            payment_method: facts.paymentMethod,
+            card_brand: facts.cardBrand,
+            card_last4: facts.cardLast4,
+            variant_name: variantName,
+            stripe_payment_intent_id: pi.id,
+            product: { title: product?.title ?? m.product_title ?? null, creator_id: creatorId },
+          },
+          m,
+        )
+        if (invoice) attachments = [{ filename: invoiceFilename(invoice), content: await renderInvoicePdf(invoice), contentType: "application/pdf" }]
+      } catch (e) {
+        console.error(`[fulfil] invoice for order ${order.id} could not be drawn:`, e instanceof Error ? e.message : e)
+      }
     }
     await sendOrderEmails(admin, {
       orderId: order.id,
@@ -275,7 +288,7 @@ export async function fulfilPaymentIntent(
     await notifySale(creator.user_id, { productName: m.product_title || "A product", amountCents: total, orderId: order.id, productId })
   })
 
-  return { ok: true, created: true, orderId: order.id, receiptToken: order.receipt_token, sessionFingerprint: order.session_fingerprint ?? null }
+  return { ok: true, created: true, orderId: order.id, receiptToken: order.receipt_token, sessionFingerprint: order.session_fingerprint ?? null, amountCents: total }
 }
 
 function sameSecret(expected: string | null | undefined, given: string | null | undefined): boolean {
@@ -290,7 +303,7 @@ async function deviceFrom(request: Request) {
   return collectOrderDeviceInfo(request)
 }
 
-async function recordCustomer(admin: Db, c: { creatorId: string; email: string; first?: string; last?: string; total: number }) {
+export async function recordCustomer(admin: Db, c: { creatorId: string; email: string; first?: string; last?: string; total: number }) {
   if (!c.email) return
   const email = c.email.toLowerCase()
   const { data: existing } = await admin
@@ -383,7 +396,7 @@ async function grant(
  * later refund of one took its full amount off a balance it had never
  * added to.
  */
-async function recordSale(
+export async function recordSale(
   admin: Db,
   s: { creatorId: string; orderId: string; total: number; fee: number; destinationPaymentId: string | null },
 ) {

@@ -35,10 +35,13 @@ type Db = { from: (table: string) => any } // eslint-disable-line @typescript-es
 export interface InvoiceData {
   number: string
   issuedAt: Date
-  status: "paid" | "refunded"
+  status: "paid" | "refunded" | "partially_refunded" | "disputed"
   seller: { name: string; email: string | null; url: string | null }
   buyer: { name: string; email: string; business: BusinessDetails | null }
-  line: { description: string; detail: string | null; unitCents: number }
+  /** Every line of the payment: one for a checkout, one per product for a basket. */
+  lines: { description: string; detail: string | null; amountCents: number }[]
+  /** What has gone back to the buyer, when any has. */
+  refundedCents: number
   subtotalCents: number
   discountCents: number
   discountCode: string | null
@@ -92,6 +95,7 @@ interface OrderRow {
   card_last4: string | null
   variant_name: string | null
   stripe_payment_intent_id: string | null
+  stripe_session_id?: string | null
   refund_amount_cents?: number | null
   product: { title: string | null; creator_id: string | null } | null
 }
@@ -108,17 +112,35 @@ export async function invoiceForReceipt(admin: Db, receiptToken: string): Promis
     .select("*, product:products(title, creator_id)")
     .eq("receipt_token", receiptToken)
     .maybeSingle()
-  return order ? invoiceForOrder(admin, order as OrderRow) : null
+  if (!order) return null
+  /* A basket is one payment over several rows: its invoice lists them all,
+     whichever line's receipt it was opened from. */
+  if (order.stripe_session_id) {
+    const { data: rows } = await admin
+      .from("orders")
+      .select("*, product:products(title, creator_id)")
+      .eq("stripe_session_id", order.stripe_session_id)
+      .order("created_at", { ascending: true })
+      .limit(50)
+    if (rows && rows.length > 1) return invoiceForOrder(admin, order as OrderRow, undefined, rows as OrderRow[])
+  }
+  return invoiceForOrder(admin, order as OrderRow)
 }
 
-export async function invoiceForOrder(admin: Db, order: OrderRow, knownMetadata?: Record<string, string>): Promise<InvoiceData | null> {
-  const total = Math.max(0, Number(order.amount_cents) || 0)
+export async function invoiceForOrder(
+  admin: Db,
+  order: OrderRow,
+  knownMetadata?: Record<string, string>,
+  basket?: OrderRow[],
+): Promise<InvoiceData | null> {
+  const rows = basket && basket.length > 0 ? basket : [order]
+  const total = rows.reduce((n, r) => n + Math.max(0, Number(r.amount_cents) || 0), 0)
   if (total <= 0 || !order.stripe_payment_intent_id) return null
   /* Only a payment that went through has an invoice: one that is pending,
      failed or disputed would be printed "paid". A refunded sale keeps its
      invoice, as a record of the sale the refund reverses. */
-  const status = String((order as { status?: string | null }).status ?? "completed")
-  if (status !== "completed" && status !== "refunded") return null
+  const orderStatus = String((order as { status?: string | null }).status ?? "completed")
+  if (orderStatus !== "completed" && orderStatus !== "refunded") return null
 
   let meta: Record<string, string> = knownMetadata ?? {}
   if (!knownMetadata) {
@@ -129,12 +151,34 @@ export async function invoiceForOrder(admin: Db, order: OrderRow, knownMetadata?
     }
   }
 
-  const tip = Math.max(0, Number(order.tip_cents) || 0)
-  const discount = Math.max(0, Number(meta.discount_cents) || 0)
+  /* `amount_cents` is what each row was charged, the tip inside it. */
+  const tip = rows.reduce((n, r) => n + Math.max(0, Number(r.tip_cents) || 0), 0)
+  const discount = rows.length === 1 ? Math.max(0, Number(meta.discount_cents) || 0) : 0
   /* The price before the code, as the checkout recorded it; failing that,
      worked back from what was paid. */
   const recordedBase = Number(meta.base_price_cents)
-  const subtotal = Number.isFinite(recordedBase) && recordedBase > 0 ? recordedBase : total - tip + discount
+  const subtotal = rows.length === 1 && Number.isFinite(recordedBase) && recordedBase > 0 ? recordedBase : total - tip + discount
+  const lines: InvoiceData["lines"] =
+    rows.length === 1
+      ? [{ description: order.product?.title || meta.product_title || "Digital product", detail: order.variant_name || null, amountCents: subtotal }]
+      : rows.map((r) => ({
+          description: r.product?.title || "Digital product",
+          detail: r.variant_name || null,
+          amountCents: Math.max(0, (Number(r.amount_cents) || 0) - (Number(r.tip_cents) || 0)),
+        }))
+  const refunded = rows.reduce((n, r) => {
+    if (r.status !== "refunded") return n
+    const charged = Math.max(0, Number(r.amount_cents) || 0)
+    const recorded = Number(r.refund_amount_cents) || 0
+    return n + (recorded > 0 ? Math.min(recorded, charged) : charged)
+  }, 0)
+  const status: InvoiceData["status"] = rows.some((r) => r.status === "disputed")
+    ? "disputed"
+    : rows.every((r) => fullyRefunded(r))
+      ? "refunded"
+      : refunded > 0
+        ? "partially_refunded"
+        : "paid"
 
   const creatorId = order.product?.creator_id ?? null
   let seller: InvoiceData["seller"] = { name: meta.creator_name || "Storelib seller", email: null, url: null }
@@ -162,18 +206,15 @@ export async function invoiceForOrder(admin: Db, order: OrderRow, knownMetadata?
   return {
     number: invoiceNumber(order.id, issuedAt),
     issuedAt,
-    status: fullyRefunded(order) ? "refunded" : "paid",
+    status,
     seller,
     buyer: {
       name: [order.buyer_first_name, order.buyer_last_name].filter(Boolean).join(" ").trim(),
       email: order.buyer_email || meta.buyer_email || "",
       business: businessFromMetadata(meta),
     },
-    line: {
-      description: order.product?.title || meta.product_title || "Digital product",
-      detail: order.variant_name || null,
-      unitCents: subtotal,
-    },
+    lines,
+    refundedCents: refunded,
     subtotalCents: subtotal,
     discountCents: discount,
     discountCode: meta.coupon_code || null,
@@ -222,7 +263,7 @@ export async function renderInvoicePdf(inv: InvoiceData): Promise<Buffer> {
   const doc = new PDFDocument({
     size: "A4",
     margins: { top: 56, bottom: 56, left: 56, right: 56 },
-    info: { Title: `Invoice ${inv.number}`, Author: inv.seller.name, Subject: inv.line.description, Creator: "Storelib" },
+    info: { Title: `Invoice ${inv.number}`, Author: inv.seller.name, Subject: inv.lines.map((l) => l.description).join(", ").slice(0, 200), Creator: "Storelib" },
   })
   const chunks: Buffer[] = []
   doc.on("data", (c: Buffer) => chunks.push(c))
@@ -243,8 +284,14 @@ export async function renderInvoicePdf(inv: InvoiceData): Promise<Buffer> {
 
   /* Title and status */
   doc.font(BOLD).fontSize(22).fillColor(INK).text("Invoice", left, 56)
-  const status = inv.status === "refunded" ? "Refunded" : "Paid"
-  doc.font(BOLD).fontSize(11).fillColor(inv.status === "refunded" ? "#b42318" : "#067647").text(status, left, 64, { width, align: "right" })
+  const STATUS: Record<InvoiceData["status"], [string, string]> = {
+    paid: ["Paid", "#067647"],
+    refunded: ["Refunded", "#b42318"],
+    partially_refunded: ["Partially refunded", "#b54708"],
+    disputed: ["Disputed", "#b42318"],
+  }
+  const [status, statusColor] = STATUS[inv.status]
+  doc.font(BOLD).fontSize(11).fillColor(statusColor).text(status, left, 64, { width, align: "right" })
 
   /* The facts, as a small table */
   let y = 100
@@ -306,19 +353,21 @@ export async function renderInvoicePdf(inv: InvoiceData): Promise<Buffer> {
   y += 16
   doc.moveTo(left, y).lineTo(right, y).lineWidth(0.75).strokeColor(RULE).stroke()
   y += 10
-  doc.font(REG).fontSize(10).fillColor(INK).text(t(inv.line.description), left, y, { width: cQty - left - 8 })
-  let lineEnd = doc.y
-  if (inv.line.detail) {
-    doc.font(REG).fontSize(9).fillColor(MUTED).text(t(inv.line.detail), left, lineEnd + 1, { width: cQty - left - 8 })
-    lineEnd = doc.y
+  for (const line of inv.lines) {
+    doc.font(REG).fontSize(10).fillColor(INK).text(t(line.description), left, y, { width: cQty - left - 8 })
+    let lineEnd = doc.y
+    if (line.detail) {
+      doc.font(REG).fontSize(9).fillColor(MUTED).text(t(line.detail), left, lineEnd + 1, { width: cQty - left - 8 })
+      lineEnd = doc.y
+    }
+    doc.font(REG).fontSize(10).fillColor(INK)
+    doc.text("1", cQty, y, { width: cUnit - cQty - 8, align: "right" })
+    doc.text(moneyText(line.amountCents), cUnit, y, { width: cAmt - cUnit - 8, align: "right" })
+    doc.text(moneyText(line.amountCents), cAmt, y, { width: right - cAmt, align: "right" })
+    y = lineEnd + 12
+    doc.moveTo(left, y).lineTo(right, y).lineWidth(0.75).strokeColor(RULE).stroke()
+    y += 12
   }
-  doc.font(REG).fontSize(10).fillColor(INK)
-  doc.text("1", cQty, y, { width: cUnit - cQty - 8, align: "right" })
-  doc.text(moneyText(inv.line.unitCents), cUnit, y, { width: cAmt - cUnit - 8, align: "right" })
-  doc.text(moneyText(inv.line.unitCents), cAmt, y, { width: right - cAmt, align: "right" })
-  y = lineEnd + 12
-  doc.moveTo(left, y).lineTo(right, y).lineWidth(0.75).strokeColor(RULE).stroke()
-  y += 12
 
   /* Totals, right-hand */
   const tLabel = left + width * 0.5
@@ -335,7 +384,8 @@ export async function renderInvoicePdf(inv: InvoiceData): Promise<Buffer> {
   doc.moveTo(tLabel, y).lineTo(right, y).lineWidth(0.75).strokeColor(RULE).stroke()
   y += 10
   row("Total", moneyText(inv.totalCents), true)
-  row(inv.status === "refunded" ? "Amount refunded" : "Amount paid", `${moneyText(inv.totalCents)} USD`, true)
+  row("Amount paid", `${moneyText(inv.totalCents)} USD`, true)
+  if (inv.refundedCents > 0) row("Refunded", `-${moneyText(inv.refundedCents)} USD`, true)
 
   /* Payment */
   y += 14

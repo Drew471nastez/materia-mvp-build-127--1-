@@ -224,10 +224,9 @@ export async function loadReceiptByToken(admin: SupabaseClient, token: string): 
       unclaimed: rows.some((r) => !r.buyer_id),
     },
     primary: { orderId: first.id, token },
-    /* A card payment has an invoice to download (/api/checkout/invoice). */
-    /* One line only: the invoice (lib/checkout/invoice) is drawn from one
-       order row, and for a basket it would show one item as the total. */
-    invoice: rows.length === 1 && totals.totalCents > 0 && !!rows[0].stripe_payment_intent_id,
+    /* A card payment has an invoice to download (/api/checkout/invoice),
+       a basket's included: the invoice lists every row of the payment. */
+    invoice: totals.totalCents > 0 && !!rows[0].stripe_payment_intent_id,
   }
 
   return { view, buyerIds: [...new Set(rows.map((r) => r.buyer_id).filter(Boolean) as string[])] }

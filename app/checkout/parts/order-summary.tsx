@@ -79,7 +79,7 @@ export function LineItem({
                 const next = variants.find((v) => v.id === e.target.value)
                 if (next) onVariant(next)
               }}
-              className="h-8 max-w-full cursor-pointer appearance-none truncate rounded-[8px] border border-[#e5e7eb] bg-white py-0 pl-2.5 pr-7 text-[13px] text-[#4b5563] outline-none transition-colors hover:border-[#c9ccd2] focus:border-[#1a1a2e]"
+              className="h-9 max-w-full cursor-pointer appearance-none truncate rounded-[8px] border border-[#e5e7eb] bg-white py-0 pl-2.5 pr-7 text-[16px] text-[#4b5563] outline-none transition-colors hover:border-[#c9ccd2] focus:border-[#1a1a2e]"
             >
               {variants.map((v) => (
                 <option key={v.id} value={v.id}>
@@ -205,6 +205,18 @@ export function TipPicker({
 }) {
   const usingCustom = custom !== ""
   const id = `tip-custom${idSuffix}`
+  /* One tab stop for the group, arrows between the choices, as a radio group
+     is used everywhere else. */
+  const current = usingCustom ? -1 : TIPS.findIndex((c) => c === tipCents)
+  const focusable = current >= 0 ? current : 0
+  const onArrows = (e: React.KeyboardEvent<HTMLButtonElement>, i: number) => {
+    const step = e.key === "ArrowRight" || e.key === "ArrowDown" ? 1 : e.key === "ArrowLeft" || e.key === "ArrowUp" ? -1 : 0
+    if (!step) return
+    e.preventDefault()
+    const next = (i + step + TIPS.length) % TIPS.length
+    onPreset(TIPS[next])
+    ;(e.currentTarget.parentElement?.children[next] as HTMLElement | undefined)?.focus()
+  }
   return (
     <fieldset>
       <legend className="mb-2.5 text-[14px] font-medium text-[#1a1a2e]">Add a tip for {creatorName}</legend>
@@ -217,6 +229,8 @@ export function TipPicker({
               type="button"
               role="radio"
               aria-checked={on}
+              tabIndex={i === focusable ? 0 : -1}
+              onKeyDown={(e) => onArrows(e, i)}
               onClick={() => onPreset(cents)}
               className={cn(
                 "h-11 text-[14px] font-medium tabular-nums transition-colors duration-150",
@@ -241,7 +255,14 @@ export function TipPicker({
           inputMode="decimal"
           placeholder="Your own amount"
           value={custom}
-          onChange={(e) => onCustom(e.target.value.replace(/[^0-9.]/g, "").slice(0, 7))}
+          onChange={(e) => {
+            /* Dollars and cents, up to the $1,000 the server takes: what is
+               typed is what the total uses, never a clamped figure behind it. */
+            const typed = e.target.value.replace(/[^0-9.]/g, "").replace(/(\..*)\./g, "$1")
+            const [whole, frac] = typed.split(".")
+            const capped = Number(whole || 0) > 1000 ? "1000" : whole
+            onCustom(frac !== undefined ? `${capped}.${frac.slice(0, 2)}` : capped)
+          }}
           className="pl-7"
         />
       </div>

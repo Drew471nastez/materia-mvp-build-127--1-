@@ -130,7 +130,9 @@ export function orderEvents(order: Order, activity: OrderActivity[] = [], stripe
       })
     }
     if (line.status === "refunded") {
-      const cents = line.refund_amount_cents && line.refund_amount_cents > 0 ? line.refund_amount_cents : line.amount_cents
+      /* Never more than the line was charged, whatever was recorded. */
+      const charged = line.amount_cents || 0
+      const cents = line.refund_amount_cents && line.refund_amount_cents > 0 ? Math.min(line.refund_amount_cents, charged) : charged
       events.push({
         id: `refund-${line.id}`,
         at: line.refunded_at || null,

@@ -16,6 +16,7 @@ import { baseFor, priceOrder, totalsOf, wholeCents, MAX_TIP_CENTS } from "../lib
 import { checkCoupon, discountFor, escapeLike, normaliseCode, type CouponRow } from "../lib/checkout/coupons"
 import { businessFromMetadata, businessToMetadata, checkBusiness, EMPTY_BUSINESS } from "../lib/checkout/business"
 import { fullyRefunded } from "../lib/orders/refund-state"
+import { cartFingerprint, cartReceiptToken } from "../lib/checkout/cart-tokens"
 
 let passed = 0
 let failed = 0
@@ -117,6 +118,32 @@ async function main() {
   check("a partial refund keeps the product", !fullyRefunded({ status: "refunded", amount_cents: 1000, refund_amount_cents: 300 }))
   check("a completed order is not refunded", !fullyRefunded({ status: "completed", amount_cents: 1000 }))
 
+  console.log("\nOptions")
+  {
+    const r = await priceOrder(fakeDb({ variant: { id: "v1", product_id: PRODUCT } }), { productId: PRODUCT })
+    check("a product with options cannot be bought without one", r.ok === false && /option/i.test((r as { error: string }).error))
+  }
+
+  console.log("\nBaskets written once")
+  {
+    process.env.RECEIPT_TOKEN_SECRET = "test-secret"
+    const a = cartReceiptToken("cs_test_1", 0)
+    check("a basket line's token is the same every time", a === cartReceiptToken("cs_test_1", 0))
+    check("  and differs by line and by session", a !== cartReceiptToken("cs_test_1", 1) && a !== cartReceiptToken("cs_test_2", 0))
+    check("  and is a receipt token's shape", /^[A-Za-z0-9_-]{32}$/.test(a))
+    check("the session fingerprint is repeatable too", cartFingerprint("cs_test_1") === cartFingerprint("cs_test_1"))
+    const complete = read("app/api/checkout/cart/complete/route.ts")
+    check("the buyer's return and the webhook share one fulfilment", /fulfilCartSession\(/.test(complete) && /fulfilCartSession\(supabaseAdmin/.test(read("app/api/stripe/webhook/route.ts")))
+    check("a line written by the other caller counts as there, not as a failure", /error\?\.code === "23505"\) return \{ status: "exists" \}/.test(read("lib/checkout/fulfil-cart-item.ts")))
+    check("the cart is rate limited", /bucket: "payment"/.test(read("app/api/checkout/cart/route.ts")))
+  }
+
+  console.log("\nRefunds reach the seller")
+  const refundRoute = read("app/api/stripe/refund/route.ts")
+  check("a refund takes the money back from the seller", /reverse_transfer = true/.test(refundRoute))
+  check("the Refund button and the webhook record a refund the same way", /syncChargeRefund\(admin, stripe, charge\)/.test(refundRoute) && /syncChargeRefund\(supabaseAdmin, stripe, charge\)/.test(read("app/api/stripe/webhook/route.ts")))
+  check("a partly refunded order can be refunded again, up to what is left", /maxRefundCents = Math\.max\(0, \(order\.amount_cents \|\| 0\) - alreadyRefunded\)/.test(refundRoute))
+
   console.log("\nThe routes")
   const session = read("app/api/checkout/stripe-session/route.ts")
   check("the payment is priced by the server", /priceOrder\(/.test(session) && !/basePriceCents \+ \(tipCents/.test(session))
@@ -137,7 +164,18 @@ async function main() {
   check("the dead payment routes are gone", ["route.ts", "complete/route.ts", "free/route.ts", "create-intent/route.ts", "complete-free/route.ts"].every((f) => !existsSync(`app/api/checkout/${f}`)))
   check("the invoice font is traced into the functions that draw it", /'\/api\/checkout\/invoice': \['\.\/lib\/checkout\/fonts\/\*\*'\]/.test(read("next.config.mjs")))
 
+  check("a Stripe outage makes the webhook retry instead of dropping the order", /status: 503/.test(read("lib/checkout/fulfil-payment.ts")))
+  check("an invoice that cannot be drawn never stops the order emails", /invoice for order \$\{order\.id\} could not be drawn/.test(read("lib/checkout/fulfil-payment.ts")))
+
   console.log("\nThe page")
+  {
+    const client = read("app/checkout/checkout-client.tsx")
+    check("after paying, the payment goes in the address before the order is asked for", /url\.searchParams\.set\("payment_intent", paymentIntentId\)/.test(client))
+    check("  and making the order is retried before giving up", /for \(const wait of \[0, 1500, 4000\]\)/.test(client))
+    check("the $0.50 minimum is said before a wallet opens", /total < MIN_CHARGE_CENTS/.test(client))
+    check("nothing is payable once paid", /busy=\{busy \|\| !!paid \|\| settled\}/.test(client) && /inert=\{!!paid\}/.test(client))
+    check("Stripe.js waits until the app is known not to be the app", /useState<boolean \| null>\(null\)/.test(client))
+  }
   const page = read("app/checkout/checkout-client.tsx")
   check("no 'Secured checkout by Stripe' line", !/Secured checkout by Stripe/.test(page))
   check("the tip and the code are kept", /Add a tip for/.test(read("app/checkout/parts/order-summary.tsx")) && /Enter discount code/.test(read("app/checkout/parts/order-summary.tsx")))

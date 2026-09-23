@@ -123,7 +123,14 @@ export async function priceOrder(db: Db, req: PriceRequest, productSelect = "*")
   if (!product) return { ok: false, status: 404, error: "This product is not available." }
 
   let variant: PricedVariant | null = null
-  if (req.variantId !== undefined && req.variantId !== null && req.variantId !== "") {
+  const noVariant = req.variantId === undefined || req.variantId === null || req.variantId === ""
+  if (noVariant) {
+    /* A product with options is bought as one of them. Without one the
+       order has no variant, which the downloads read as the whole product,
+       so the cheapest price (or none) bought every option's files. */
+    const { data: anyOption } = await db.from("product_variants").select("id").eq("product_id", productId).limit(1).maybeSingle()
+    if (anyOption) return { ok: false, status: 400, error: "Choose an option for this product." }
+  } else {
     if (typeof req.variantId !== "string") return { ok: false, status: 400, error: "Unknown option." }
     const { data } = await db
       .from("product_variants")

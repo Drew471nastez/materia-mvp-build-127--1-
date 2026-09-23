@@ -15,7 +15,7 @@ import {
   type StepRow,
   type ViewRow,
 } from "@/lib/analytics/reports"
-import { categorizeServerSource, detectClientAppFromUA, referrerHost } from "@/lib/analytics/sources"
+import { categorizeServerSource, detectClientAppFromUA, isInternalReferrer, referrerHost } from "@/lib/analytics/sources"
 import { parseUserAgent } from "@/lib/analytics/user-agent"
 import { isTimeZone } from "@/lib/orders/time-zone"
 import { groupOrders, type OrderRow } from "@/lib/orders/order-view"
@@ -293,7 +293,10 @@ async function onePage(
       timeZone,
       mainDomain: getMainDomain(),
       linkLabels,
-      categorize: (host, ua) => categorizeServerSource(host || "Direct", null, null, detectClientAppFromUA(ua)),
+      /* Storelib itself and the payment pages are where a visitor just was,
+         not where the visit came from: direct, as the Referrers card has it. */
+      categorize: (host, ua) =>
+        categorizeServerSource(host && !isInternalReferrer(host, getMainDomain()) ? host : "Direct", null, null, detectClientAppFromUA(ua)),
       parseAgent: parseUserAgent,
       hostOf: referrerHost,
     })

@@ -13,14 +13,17 @@ import "server-only"
  * path takes real money today and rewriting it to share this would put every
  * purchase on the platform behind a change that only the cart needed.
  *
- * IDEMPOTENT PER LINE. Every order carries the Checkout Session id and the
- * product id, and the caller has already established that no order exists
- * for this session; within a session each line is written once because the
- * entitlement is checked before it is granted. A retry after a partial
- * failure re-runs the lines that are missing and skips the ones that landed.
+ * IDEMPOTENT PER LINE, UNDER A RACE. A line's receipt token is derived from
+ * its session and its place in the basket (lib/checkout/fulfil-cart-session),
+ * and the orders table holds receipt tokens UNIQUE. So when the buyer's
+ * return and Stripe's webhook write the same basket at once, the second
+ * insert of each line fails with 23505 and is reported as "exists", never
+ * as a second order. A retry after a partial failure writes only what is
+ * missing.
  */
 import { v4 as uuidv4 } from "uuid"
 import { tagOrderSource } from "@/lib/orders/order-source"
+import { recordCustomer } from "./fulfil-payment"
 
 export interface FulfilLineInput {
   productId: string
@@ -39,9 +42,8 @@ export interface FulfilContext {
   buyerEmail: string | null
   buyerFirstName: string | null
   buyerLastName: string | null
-  /** The platform's cut of the whole basket, split across its lines. */
-  feeCentsForLine: () => number
-  receiptTokenFor: (productId: string) => string
+  /** The line's receipt token, from its place in the basket. */
+  receiptTokenFor: (index: number) => string
   sessionFingerprint: string | null
   paymentMethod: string
   cardBrand: string | null
@@ -62,10 +64,11 @@ export interface FulfilledLine {
   amountCents: number
 }
 
-export async function fulfilCartLine(ctx: FulfilContext, line: FulfilLineInput): Promise<FulfilledLine | null> {
+export type LineOutcome = { status: "created"; line: FulfilledLine } | { status: "exists" } | { status: "failed" }
+
+export async function fulfilCartLine(ctx: FulfilContext, line: FulfilLineInput, index: number, feeCents: number): Promise<LineOutcome> {
   const amountCents = line.priceCents * line.quantity
-  const feeCents = ctx.feeCentsForLine()
-  const receiptToken = ctx.receiptTokenFor(line.productId)
+  const receiptToken = ctx.receiptTokenFor(index)
 
   const { data: order, error } = await ctx.admin
     .from("orders")
@@ -100,9 +103,10 @@ export async function fulfilCartLine(ctx: FulfilContext, line: FulfilLineInput):
     .select("id, receipt_token")
     .single()
 
+  if (error?.code === "23505") return { status: "exists" }
   if (error || !order) {
-    console.error("[checkout/cart] order insert failed for product", line.productId, error?.message)
-    return null
+    console.error("[checkout/cart] order insert failed for product", line.productId, error?.code, error?.message)
+    return { status: "failed" }
   }
   /* A basket is only ever filled on a creator's website. */
   await tagOrderSource(ctx.admin, order.id, "website")
@@ -134,7 +138,7 @@ export async function fulfilCartLine(ctx: FulfilContext, line: FulfilLineInput):
     event_type: "purchase",
   })
 
-  return { orderId: order.id, productId: line.productId, receiptToken: order.receipt_token, amountCents }
+  return { status: "created", line: { orderId: order.id, productId: line.productId, receiptToken: order.receipt_token, amountCents } }
 }
 
 /**
@@ -145,17 +149,14 @@ export async function recordCartCustomer(ctx: FulfilContext, basketTotalCents: n
   if (!ctx.buyerEmail || !ctx.creatorId) return
   const email = ctx.buyerEmail.toLowerCase().trim()
 
-  await ctx.admin.from("customers").upsert(
-    {
-      email,
-      creator_id: ctx.creatorId,
-      first_name: ctx.buyerFirstName,
-      last_name: ctx.buyerLastName,
-      order_count: 1,
-      total_spent_cents: basketTotalCents,
-    },
-    { onConflict: "email,creator_id", ignoreDuplicates: false },
-  )
+  /* Added to the buyer's history, not written over it. */
+  await recordCustomer(ctx.admin, {
+    creatorId: ctx.creatorId,
+    email,
+    first: ctx.buyerFirstName ?? undefined,
+    last: ctx.buyerLastName ?? undefined,
+    total: basketTotalCents,
+  })
 
   const { data: existing } = await ctx.admin
     .from("subscribers")

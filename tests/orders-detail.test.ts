@@ -139,7 +139,8 @@ async function main() {
     check("  and keeps no copy of an address in the history", !/email:/.test(notify.split("recordOrderEvent")[1] ?? ""))
     check("the buyer's email is masked in the send log", /"to", maskEmail\(customerEmail\)/.test(read("lib/email.tsx")) && !/Buyer email sent successfully to:", customerEmail/.test(read("lib/email.tsx")))
     const refund = code("app/api/stripe/refund/route.ts")
-    check("only a paid order can be refunded", /if \(order\.status !== "completed"\)/.test(refund) && /Number\.isFinite\(refundAmountCents\)/.test(refund))
+    check("only a paid order can be refunded", /if \(order\.status !== "completed" && order\.status !== "refunded"\)/.test(refund) && /Number\.isFinite\(refundAmountCents\)/.test(refund))
+    check("  and a partly refunded one only up to what is left", /maxRefundCents = Math\.max\(0, \(order\.amount_cents \|\| 0\) - alreadyRefunded\)/.test(refund))
     const page = code("app/app/orders/sales/page.tsx")
     check("a refund on one item of a basket does not mark the whole basket", /if \(group\.length > 1 && !charge\.refunded\) continue/.test(page))
   }

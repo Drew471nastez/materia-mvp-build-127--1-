@@ -351,8 +351,10 @@ function main() {
   const sender = email.slice(email.indexOf("export async function sendBuyerDownloadEmail"), email.indexOf("export async function sendSellerNotificationEmail"))
   check("the buyer's address is never logged in full", !/console\.(log|error)\([^)]*customerEmail\b(?!\))/.test(sender.replace(/maskEmail\(customerEmail\)/g, "")))
 
-  const cart = code("app/api/checkout/cart/complete/route.ts")
-  check("a basket sends one receipt email, not one per product", (cart.match(/sendBuyerDownloadEmail\(/g) ?? []).length === 1 && !/for \(const line of fulfilled\) \{\s*try \{\s*await sendBuyerDownloadEmail/.test(cart))
+  /* The basket's writes moved to lib/checkout/fulfil-cart-session.ts, shared
+     by the buyer's return and Stripe's webhook. */
+  const cart = code("lib/checkout/fulfil-cart-session.ts")
+  check("a basket sends one receipt email, not one per product", (cart.match(/sendBuyerDownloadEmail\(/g) ?? []).length === 1 && /if \(s\.ownsBasket\)/.test(cart))
 
   const update = code("app/api/receipt/update-email/route.ts")
   check("changing the address from a token alone is limited to a guest order", /if \(order\.buyer_id\)/.test(update))
@@ -381,8 +383,9 @@ function main() {
     const view = read("app/receipt/[token]/receipt-view.tsx")
     check("a paid card order offers its invoice PDF on the receipt",
       /\/api\/checkout\/invoice\?token=\$\{encodeURIComponent\(receipt\.primary\.token\)\}/.test(view)
-        && /invoice: rows\.length === 1 && totals\.totalCents > 0 && !!rows\[0\]\.stripe_payment_intent_id/.test(read("lib/receipts/load.ts")))
-    check("an unpaid order has no invoice", /if \(status !== "completed" && status !== "refunded"\) return null/.test(read("lib/checkout/invoice.ts")))
+        && /invoice: totals\.totalCents > 0 && !!rows\[0\]\.stripe_payment_intent_id/.test(read("lib/receipts/load.ts")))
+    check("  a basket's invoice lists every row of the payment", /\.eq\("stripe_session_id", order\.stripe_session_id\)/.test(read("lib/checkout/invoice.ts")))
+    check("an unpaid order has no invoice", /if \(orderStatus !== "completed" && orderStatus !== "refunded"\) return null/.test(read("lib/checkout/invoice.ts")))
     const resend = code("app/api/receipt/resend/route.ts")
     check("only the signed-in seller can resend the seller's sale notice",
       /if \(resendType !== "buyer"\) \{[\s\S]{0,400}\.eq\("user_id", user\.id\)/.test(resend) && /status: 403/.test(resend))

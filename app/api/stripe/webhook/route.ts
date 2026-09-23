@@ -8,6 +8,7 @@ import { sendOrderEmails, triggerEmailFlows, sendPayoutStatusEmail, sendFirstPay
 import { v4 as uuidv4 } from "uuid"
 import { orderSourceFrom, tagOrderSource } from "@/lib/orders/order-source"
 import { fulfilPaymentIntent, isCheckoutIntent } from "@/lib/checkout/fulfil-payment"
+import { fulfilCartSession, isCartSession } from "@/lib/checkout/fulfil-cart-session"
 import { syncChargeRefund } from "@/lib/stripe/refund-sync"
 
 export const runtime = "nodejs"
@@ -84,6 +85,27 @@ export async function POST(request: Request) {
   // ============================================================================
   // checkout.session.completed
   // ============================================================================
+  /*
+    A BASKET from a creator's website (app/api/checkout/cart). The buyer's
+    return writes it too; whichever comes first does, once
+    (lib/checkout/fulfil-cart-session.ts). A server failure answers 500 so
+    Stripe retries, and a retry only writes the lines still missing. A
+    delayed payment method completes later, with the async event.
+  */
+  if (event.type === "checkout.session.completed" || event.type === "checkout.session.async_payment_succeeded") {
+    const session = event.data.object as Stripe.Checkout.Session
+    if (isCartSession(session)) {
+      if (session.payment_status !== "paid") return NextResponse.json({ received: true, message: "Basket not paid yet" })
+      const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || ""
+      const result = await fulfilCartSession(supabaseAdmin, session.id, { baseUrl })
+      if (result.ok === false ? result.status >= 500 : !result.complete) {
+        console.error("[Webhook] basket fulfilment incomplete:", session.id)
+        return NextResponse.json({ error: "Basket not fully written" }, { status: 500 })
+      }
+      return NextResponse.json({ received: true })
+    }
+  }
+
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as Stripe.Checkout.Session
 
@@ -376,7 +398,7 @@ export async function POST(request: Request) {
             if (sellerCreator?.stripe_account_id && destinationPaymentId) {
               const destCharge = await stripe.charges.retrieve(
                 destinationPaymentId,
-                { expand: ["balance_transaction"], stripeAccount: sellerCreator.stripe_account_id }
+                { expand: ["balance_transaction"] }, { stripeAccount: sellerCreator.stripe_account_id }
               )
               const bt = destCharge.balance_transaction as any
               if (bt?.available_on) {
