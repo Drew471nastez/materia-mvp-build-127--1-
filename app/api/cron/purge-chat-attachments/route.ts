@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 
 import { purgeExpiredAttachments } from "@/lib/website-builder/agent/attachment-store"
+import { requireBearerSecret } from "@/lib/api/require-secret"
 
 /**
  * GET /api/cron/purge-chat-attachments
@@ -22,9 +23,10 @@ export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
 export async function GET(request: Request) {
-  if (request.headers.get("authorization") !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
+  /* Was compared against `Bearer ${process.env.CRON_SECRET}`, which with the
+     variable unset is the literal password "Bearer undefined". */
+  const denied = requireBearerSecret(request, "CRON_SECRET")
+  if (denied) return denied
   try {
     const { removed, failed } = await purgeExpiredAttachments()
     return NextResponse.json({ removed, failed })

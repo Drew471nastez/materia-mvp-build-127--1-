@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { requireBearerSecret } from "@/lib/api/require-secret"
 
 export const runtime = "nodejs"
 
@@ -10,14 +11,18 @@ export const runtime = "nodejs"
  */
 export async function POST(request: Request) {
   try {
-    const adminSecret = process.env.ADMIN_SECRET
-    const authHeader = request.headers.get("authorization")
+    /*
+      THIS USED TO BE OPEN WHEN ADMIN_SECRET WAS NOT SET. The comment said so
+      and called it initial setup: with no secret configured, anybody who
+      found this URL could set the password of the account named below to the
+      value named below, and create it if it did not exist.
 
-    // If ADMIN_SECRET is configured, require it. Otherwise allow the call
-    // (this endpoint targets a single hardcoded email for initial setup).
-    if (adminSecret && authHeader !== `Bearer ${adminSecret}`) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
+      Nothing in the product calls this route. It is here for one person's
+      initial setup and is safe to delete outright; until somebody says so it
+      refuses every caller that cannot present the secret.
+    */
+    const denied = requireBearerSecret(request, "ADMIN_SECRET")
+    if (denied) return denied
 
     const targetEmail = "andreibalan134@gmail.com"
     const targetPassword = "Test1234!"

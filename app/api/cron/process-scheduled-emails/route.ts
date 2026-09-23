@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 import { sendEmail, buildFromHeader, isSmtpConfigured, EMAIL_FROM, EMAIL_REPLY_TO } from "@/lib/mail"
 import { ignoreError } from "@/lib/supabase/ignore-error"
+import { requireBearerSecret } from "@/lib/api/require-secret"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -113,13 +114,10 @@ async function resolveCreatorIdentity(creatorId: string): Promise<{ fromName: st
 
 export async function GET(request: Request) {
   // Verify cron secret for security (optional but recommended)
-  const authHeader = request.headers.get("authorization")
-  const cronSecret = process.env.CRON_SECRET
-
-  // Allow if no secret is set (development) or if secret matches
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+  const denied = requireBearerSecret(request, "CRON_SECRET")
+  if (denied) {
     console.log("[cron/scheduled-emails] Unauthorized request")
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    return denied
   }
 
   console.log("[cron/scheduled-emails] Starting scheduled email processing...")

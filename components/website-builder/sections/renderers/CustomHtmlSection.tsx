@@ -1,10 +1,19 @@
 "use client"
 
 // Custom HTML — renders creator-authored HTML inside a padded container.
-// The HTML is their OWN site content so we intentionally use
-// `dangerouslySetInnerHTML` to match creator expectations (e.g. paste-in
-// embed codes, script tags, etc.). This is safe because the install is
-// scoped to the creator who authored it.
+//
+// WHAT MAKES THIS SAFE IS NOT WHO AUTHORED IT. This comment used to say the
+// install is scoped to the creator who wrote the HTML, so anything in it was
+// their own problem. Neither half holds. The page is served from
+// storelib.com, so script here runs on the platform's origin in front of
+// whoever is reading the store; and a theme can be imported from a package
+// somebody else built, which is a stranger's markup on this creator's site.
+//
+// What makes it safe is that `html_content` has been through
+// lib/website-builder/sanitize.ts before it reaches here: on save, on import,
+// and again on every read. Tags that can execute are not in the allow list,
+// so what arrives is markup. Keep it that way — a new path that writes this
+// setting has to clean it, and tests/theme-sharing.test.ts is what checks.
 
 import { sectionColors, str, SectionWrapper, type SectionProps } from "../_shared"
 

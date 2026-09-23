@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { notifyPayoutAvailable } from "@/lib/push/notifications"
+import { requireBearerSecret } from "@/lib/api/require-secret"
 
 /**
  * GET /api/cron/release-holds
@@ -22,10 +23,10 @@ import { notifyPayoutAvailable } from "@/lib/push/notifications"
 export async function GET(request: Request) {
   try {
     // Verify cron secret
-    const authHeader = request.headers.get("authorization")
-    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
+    /* Was compared against `Bearer ${process.env.CRON_SECRET}`, which with
+       the variable unset is the literal password "Bearer undefined". */
+    const denied = requireBearerSecret(request, "CRON_SECRET")
+    if (denied) return denied
 
     const adminSupabase = createAdminClient()
     const now = new Date()

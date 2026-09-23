@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { deleteAllUserData } from "@/app/api/auth/delete-account/route"
+import { requireBearerSecret } from "@/lib/api/require-secret"
 
 export const runtime = "nodejs"
 
@@ -13,12 +14,10 @@ export const runtime = "nodejs"
  */
 export async function POST(request: Request) {
   try {
-    const adminSecret = process.env.ADMIN_SECRET
-    const authHeader = request.headers.get("authorization")
-
-    if (!adminSecret || authHeader !== `Bearer ${adminSecret}`) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
+    /* This one was already right. It goes through the shared guard so there
+       is one shape to read and one place for the next person to copy. */
+    const denied = requireBearerSecret(request, "ADMIN_SECRET")
+    if (denied) return denied
 
     const body = await request.json()
     const { user_id, email } = body

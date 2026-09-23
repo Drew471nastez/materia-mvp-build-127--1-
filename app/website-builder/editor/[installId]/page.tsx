@@ -4,7 +4,7 @@ import { useEffect, useState, useLayoutEffect, useCallback, useDeferredValue, us
 import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
 import {
-  ArrowLeft, Monitor, Smartphone, Loader2, Code2, ChevronDown, Plus, Eye, EyeOff, GripVertical, Trash2, Copy, Settings, Check, Layers, X, RotateCcw, Layout, AlignLeft, Image, ShoppingBag, MessageSquare, HelpCircle, Megaphone, BarChart2, Grid, Award, LayoutGrid, DollarSign, LayoutTemplate, Video, Users, MapPin, Mail, Clock, BookOpen, Shirt, Columns, Play, Star, Timer, Shield, Rss, SlidersHorizontal, Code, Bell, ChevronRight, Package, Undo2, Redo2, ExternalLink, Search, FileText, ArrowRight, FolderOpen, MoreHorizontal, Upload, ImageIcon, Info, RefreshCw, Crop, CheckCircle, Type, Square, Rows3, Grid3x3, MousePointerClick, MoveHorizontal, Hash, Columns2, LayoutDashboard, Badge as BadgeIcon, PanelTop, PanelBottom, ArrowUp, ArrowDown,
+  ArrowLeft, Monitor, Smartphone, Loader2, Code2, ChevronDown, Plus, Eye, EyeOff, GripVertical, Trash2, Copy, Settings, Check, Layers, X, RotateCcw, Layout, AlignLeft, Image, ShoppingBag, MessageSquare, HelpCircle, Megaphone, BarChart2, Grid, Award, LayoutGrid, DollarSign, LayoutTemplate, Video, Users, MapPin, Mail, Clock, BookOpen, Shirt, Columns, Play, Star, Timer, Shield, Rss, SlidersHorizontal, Code, Bell, ChevronRight, Package, Undo2, Redo2, ExternalLink, Search, FileText, ArrowRight, FolderOpen, MoreHorizontal, Upload, Info, Crop, CheckCircle, Type, Square, Rows3, Grid3x3, MousePointerClick, MoveHorizontal, Hash, Columns2, LayoutDashboard, Badge as BadgeIcon, PanelTop, PanelBottom, ArrowUp, ArrowDown,
 } from "lucide-react"
 import {
   DndContext,
@@ -37,6 +37,7 @@ import {
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { MobileEditorSheet } from "@/components/website-builder/mobile-editor-sheet"
 import { SliderNumberControl } from "@/components/website-builder/editor/slider-number-control"
+import { WbImagePicker } from "@/components/website-builder/editor/image-picker"
 import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
 import { hapticTap } from "@/lib/native-bridge"
 import { BuilderLoader, useDelayedFlag, useLinger } from "@/components/website-builder/builder-loader"
@@ -1650,155 +1651,11 @@ function AddSectionModal({
 }
 
 // ── Professional Image Picker ────────────────────────────────
-function WbImagePicker({
-  value,
-  onChange,
-  label,
-  aspectRatio = "video",
-  bucket = "store-builder-images" as const,
-  folder = "logos",
-}: {
-  value: string | undefined
-  onChange: (url: string | null) => void
-  label?: string
-  aspectRatio?: "square" | "video" | "logo" | "favicon"
-  bucket?: "product-images" | "avatars" | "covers" | "store-builder-images"
-  folder?: string
-}) {
-  const [uploading, setUploading] = useState(false)
-  const [progress, setProgress] = useState(0)
-  const [dragOver, setDragOver] = useState(false)
-  const inputRef = useRef<HTMLInputElement>(null)
-
-  const url = typeof value === "string" && value ? value : null
-
-  // Allowed image MIME types for security
-  const ALLOWED_TYPES = new Set([
-    "image/jpeg", "image/png", "image/gif", "image/webp", "image/svg+xml", "image/avif",
-  ])
-  // Safe file extensions
-  const SAFE_EXTENSIONS = new Set(["jpg", "jpeg", "png", "gif", "webp", "svg", "avif"])
-
-  const handleFile = useCallback(async (file: File) => {
-    if (!ALLOWED_TYPES.has(file.type)) {
-      toast.error("Only JPEG, PNG, GIF, WebP, SVG, and AVIF images are allowed")
-      return
-    }
-    const ext = (file.name.split(".").pop() ?? "").toLowerCase()
-    if (!SAFE_EXTENSIONS.has(ext)) {
-      toast.error("Invalid file extension")
-      return
-    }
-    if (file.size > 5 * 1024 * 1024) { toast.error("Image must be under 5 MB"); return }
-
-    setUploading(true)
-    setProgress(10)
-    try {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not logged in")
-
-      // Sanitize filename: only keep alphanumeric + timestamp
-      const safeName = `${Date.now()}.${ext}`
-      const filePath = `${user.id}/${folder}/${safeName}`
-      setProgress(30)
-
-      const { error: uploadError } = await supabase.storage.from(bucket).upload(filePath, file, {
-        cacheControl: "31536000", // 1 year — immutable content-addressed names
-        upsert: true,
-        contentType: file.type,
-      })
-      if (uploadError) throw uploadError
-
-      setProgress(80)
-      const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(filePath)
-      setProgress(100)
-      onChange(urlData.publicUrl)
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Upload failed")
-    } finally {
-      setUploading(true) // brief delay to show 100%
-      setTimeout(() => { setUploading(false); setProgress(0) }, 300)
-    }
-  }, [bucket, folder, onChange])
-
-  const emptyAspectClass =
-    aspectRatio === "favicon" ? "min-h-[60px]"
-    : aspectRatio === "square" ? "aspect-square"
-    : aspectRatio === "logo" ? "min-h-[72px]"
-    : "aspect-video"
-  // Filled preview is kept small/compact so it doesn't dominate the sidebar
-  const filledClass =
-    aspectRatio === "favicon" ? "h-[60px]"
-    : aspectRatio === "square" ? "aspect-square max-h-[120px]"
-    : aspectRatio === "logo" ? "h-[68px]"
-    : "h-[96px]"
-
-  if (url) {
-    return (
-      <div className="space-y-2">
-        {label && <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">{label}</p>}
-        <div className={cn("relative w-full rounded-lg overflow-hidden border border-border bg-[#fafafa] flex items-center justify-center", filledClass)}>
-          <img src={url} alt="" className="max-w-full max-h-full object-contain p-2" />
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            className="flex-1 flex items-center justify-center gap-1.5 h-9 text-xs font-medium border border-border rounded-lg hover:bg-muted/50 transition-colors"
-            onClick={() => inputRef.current?.click()}
-          >
-            <RefreshCw className="h-3 w-3" />
-            Replace
-          </button>
-          <button
-            className="flex-1 flex items-center justify-center gap-1.5 h-9 text-xs font-medium border border-border rounded-lg hover:bg-muted/50 transition-colors text-red-500"
-            onClick={() => onChange(null)}
-          >
-            <Trash2 className="h-3 w-3" />
-            Remove
-          </button>
-        </div>
-        <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = "" }} />
-      </div>
-    )
-  }
-
-  return (
-    <div className="space-y-2.5">
-      {label && <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">{label}</p>}
-      <div
-        className={cn(
-          /* `wb-dropzone` is what app/globals.css shrinks on a phone: in a
-             bottom sheet an aspect-video box is a third of the screen given
-             to an empty rectangle. */
-          "wb-dropzone relative w-full rounded-lg border-2 border-dashed transition-colors cursor-pointer flex flex-col items-center justify-center gap-1.5 py-5",
-          emptyAspectClass,
-          dragOver ? "border-foreground/40 bg-muted" : "border-border bg-[#fafafa] hover:border-foreground/25 hover:bg-muted/60",
-        )}
-        onClick={() => inputRef.current?.click()}
-        onDragOver={e => { e.preventDefault(); setDragOver(true) }}
-        onDragLeave={() => setDragOver(false)}
-        onDrop={e => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files[0]; if (f) handleFile(f) }}
-      >
-        {uploading ? (
-          <div className="flex flex-col items-center gap-2">
-            <div className="h-5 w-5 border-2 border-foreground border-t-transparent rounded-full animate-spin" />
-            <p className="text-xs text-muted-foreground">Uploading... {progress}%</p>
-            <div className="w-32 h-1.5 bg-muted rounded-full overflow-hidden">
-              <div className="h-full bg-foreground rounded-full transition-all duration-300" style={{ width: `${progress}%` }} />
-            </div>
-          </div>
-        ) : (
-          <>
-            <ImageIcon className="h-5 w-5 text-muted-foreground/50" />
-            <p className="text-[13px] font-medium text-muted-foreground">Add Image</p>
-            <p className="text-[10px] text-muted-foreground/70">Click to upload or drag &amp; drop</p>
-          </>
-        )}
-      </div>
-      <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = "" }} />
-    </div>
-  )
-}
+/*
+  WbImagePicker moved to components/website-builder/editor/image-picker.tsx.
+  It is imported above. The move is so scripts/check-image-picker.mjs mounts
+  the same component the editor renders rather than a copy of it.
+*/
 
 // ── Branding Tab Panel — logo/favicon/tagline with header sync ──
 function BrandingTabPanel({
@@ -5722,12 +5579,28 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * if you went somewhere. Asked for as the back feeling "a little bit more
    * smooth" and opening a section "a little smooth, not so direct".
    *
-   * A depth, not a history: the list is 0 and a section's settings are 1, so
-   * the direction is subtraction. The ref is only ever written when the key
-   * changes, so a re-render for any other reason keeps the class it already
-   * had and cannot cut an animation short halfway.
+   * A position, not a history, so the direction is subtraction. The ref is
+   * only ever written when the key changes, so a re-render for any other
+   * reason keeps the class it already had and cannot cut an animation short
+   * halfway.
+   *
+   * THE THREE TABS ARE POSITIONS TOO. They were all 0, so moving between
+   * Sections, Pages and Settings subtracted to nothing and the panel was
+   * replaced with a cut — a heavy form appearing in one frame, which is what
+   * "dragging left and right between them is glitchy" describes. They are
+   * where they are drawn now, so the panel arrives from the side the tab you
+   * tapped is on, exactly as going into a section already did.
+   *
+   * A section's settings sit past all three, because they are somewhere you
+   * went from whichever tab you were on rather than a fourth tab.
    */
-  const panelDepth = (key: string) => (key.startsWith("section:") ? 1 : 0)
+  const TAB_POSITION: Record<string, number> = { sections: 0, pages: 1, settings: 2 }
+  const panelDepth = (key: string) => {
+    if (key.startsWith("section:")) return 10
+    if (key === "pages") return TAB_POSITION.pages
+    const tab = key.split(":")[0]
+    return TAB_POSITION[tab] ?? 0
+  }
   const panelMove = useRef<{ key: string; dir: number }>({ key: sidebarPanelKey, dir: 0 })
   if (panelMove.current.key !== sidebarPanelKey) {
     panelMove.current = {

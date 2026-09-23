@@ -36,7 +36,9 @@ const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
 function main() {
   const css = read("app/globals.css")
   const editor = read("app/website-builder/editor/[installId]/page.tsx")
+  const panels = read("components/website-builder/editor/design-panels.tsx")
   const sheet = read("components/website-builder/mobile-editor-sheet.tsx")
+  const picker = read("components/website-builder/editor/image-picker.tsx")
 
   /* The whole block, so "scoped to the sheet" can be checked rather than assumed. */
   const start = css.indexOf("THE EDITOR'S SHEET IS READ AND PRESSED WITH A THUMB")
@@ -87,7 +89,8 @@ function main() {
     /\.wb-dropzone > p \+ p \{[\s\S]{0,40}display: none;/.test(block),
     "the probe reads its computed display; this is only the rule that sets it",
   )
-  check("the dropzone carries the class the rules need", /"wb-dropzone relative w-full rounded-lg border-2 border-dashed/.test(editor))
+  check("the dropzone carries the class the rules need", /"wb-dropzone relative w-full rounded-lg border-2 border-dashed/.test(picker),
+    "the picker is its own module now; the rules still size this element")
   check(
     "and the slider the rules size is the one the editor uses",
     /import \{ SliderNumberControl \} from "@\/components\/website-builder\/editor\/slider-number-control"/.test(editor),
@@ -129,6 +132,79 @@ function main() {
     "matching on the value would give the box to the one case that needs the editor most",
   )
   check("and it is the editor the colour schemes already use", /from "@\/components\/website-builder\/editor\/gradient-editor"/.test(editor))
+
+  console.log("\nThe colour scheme swatch keeps its colour when a thumb touches it")
+
+  /*
+    THE SHEET CLEARS A HOVERED BACKGROUND, and on a phone `:hover` stays on
+    the last element tapped. The rule already spares anything that sets its
+    own background through a class. The scheme picker sets its own through a
+    STYLE ATTRIBUTE, because the colour is data rather than a utility, and
+    `!important` beats an inline style: tapping the swatch cleared it to
+    nothing and it stayed cleared. Reported as the colour scheme going white
+    and transparent out of nowhere.
+  */
+  check("the swatch paints itself from the scheme, inline, because a colour is data",
+    /style=\{\{ background: active\.gradient \|\| active\.background, color: active\.heading \}\}/.test(panels))
+  check("and the sheet's hover reset spares an element that painted itself that way",
+    (css.match(/:not\(\[style\*="background"\]\)/g) ?? []).length === 4,
+    "one for each of the four selectors: button and link, in the bottom sheet and the top one")
+  check("while still clearing a background that exists only as a hover state",
+    /\[data-mobile-bottom-sheet\] button:not\(\.wb-chip\):not\(\[style\*="background"\]\):not\(\[class\^="bg-"\]\)/.test(css),
+    "the class tests are what draw that line, and they stay")
+
+  console.log("\nThe three tabs are places, so the panel arrives from the side")
+
+  /*
+    Sections, Pages and Settings were all depth 0, so the direction between
+    them subtracted to nothing and the panel was replaced with a cut: a heavy
+    form appearing in a single frame. Going INTO a section already slid,
+    which is why only the tab row read as glitchy.
+  */
+  check("each tab has the position it is drawn in",
+    /const TAB_POSITION: Record<string, number> = \{ sections: 0, pages: 1, settings: 2 \}/.test(editor))
+  check("a section's settings sit past all three, because they are not a fourth tab",
+    /if \(key\.startsWith\("section:"\)\) return 10/.test(editor))
+  check("and the tab row is read by the same function the slide already used",
+    /const tab = key\.split\(":"\)\[0\]\s*\n\s*return TAB_POSITION\[tab\] \?\? 0/.test(editor))
+  check("with the layer asked for before the slide starts, not during it",
+    /\.wb-sheet-panel\[data-dir="in"\],\s*\n\.wb-sheet-panel\[data-dir="back"\] \{\s*\n\s*will-change: transform, opacity;/.test(css),
+    "a layer promoted halfway through its own slide drops the frames it spends being promoted")
+
+  console.log("\nReplace and Remove are one control, and uploading happens over the picture")
+
+  check("the two answers share one bordered row, split down the middle",
+    /<div className="grid grid-cols-2 overflow-hidden rounded-lg border border-border">/.test(picker)
+      && /border-l border-border text-\[13px\] font-medium transition-colors/.test(picker),
+    "two outlined pills with a gap read as two separate decisions")
+  check("at 44px for a thumb, and the sidebar's own size on a desktop",
+    (picker.match(/flex h-11 items-center justify-center gap-1\.5[^"]*md:h-9/g) ?? []).length === 2)
+  /*
+    THE UPLOADING STATE USED TO BE A BOX OF ITS OWN. A spinner and the word
+    Uploading, in the dashed empty dropzone, with no picture anywhere — so
+    choosing an image made the panel go blank, then showed a spinner, then
+    went blank again while the stored copy loaded, then popped.
+
+    It is now the picture you chose with the spinner over it, which is both
+    fewer states and the truthful one: the thing being uploaded is visible
+    the entire time it is uploading. tests/image-picker.test.ts holds the
+    detail and scripts/check-image-picker.mjs measures the sequence.
+  */
+  check("the spinner sits over the picture rather than in place of it",
+    /\{uploading && \(\s*\n\s*<span className="absolute inset-0 z-10 flex items-center justify-center bg-white\/55">/.test(picker))
+  check("and the dashed box has no uploading state left to get wrong",
+    !/>Uploading</.test(picker),
+    "there is nothing to lay out in 56px any more, because nothing is laid out there")
+  /*
+    It was set to 10, then 30, then 80, then 100 around a call that reports
+    no progress at all, so it sat at 30 for the whole upload and jumped.
+  */
+  check("and it claims no percentage, because there was never one to claim",
+    !/\{progress\}%/.test(picker) && !/setProgress/.test(picker),
+    "a number that is not measured is worse than no number")
+  check("the box cannot be re-opened while it is busy",
+    /const pick = \(\) => \{ if \(!uploading\) inputRef\.current\?\.click\(\) \}/.test(picker)
+      && /if \(uploading\) return; const f = e\.dataTransfer\.files\[0\]/.test(picker))
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }

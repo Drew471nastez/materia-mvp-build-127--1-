@@ -651,9 +651,20 @@ section("Kept for thirty days, and then not")
 
 {
   const cron = read("app/api/cron/purge-chat-attachments/route.ts")
+  /*
+    This used to assert the comparison it was written against:
+
+        headers.get("authorization") !== `Bearer ${process.env.CRON_SECRET}`
+
+    which is the shape that lets a stranger in. With CRON_SECRET unset the
+    template is the literal string "Bearer undefined", and that is then a
+    working password. The pin was holding the bug in place, so it now names
+    the shared guard, which refuses when the variable is missing.
+    tests/admin-key-routes.test.ts checks no route goes back to the old one.
+  */
   check(
     "the collector is behind the same secret as every other job here",
-    /authorization"\) !== `Bearer \$\{process\.env\.CRON_SECRET\}`/.test(cron),
+    /requireBearerSecret\(request, "CRON_SECRET"\)/.test(cron),
   )
   check("and it actually runs on a schedule", /purge-chat-attachments/.test(read("vercel.json")))
 }

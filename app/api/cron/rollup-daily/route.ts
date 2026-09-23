@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { requireBearerSecret } from "@/lib/api/require-secret"
 
 /**
  * CRON: Refresh daily analytics rollups for yesterday.
@@ -33,12 +34,8 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const authHeader = request.headers.get("authorization")
-    const cronSecret = process.env.CRON_SECRET
-
-    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
+    const denied = requireBearerSecret(request, "CRON_SECRET")
+    if (denied) return denied
 
     const { searchParams } = new URL(request.url)
     const dateParam = searchParams.get("date")

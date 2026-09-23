@@ -37,7 +37,7 @@
  * Keeping them apart is also what stops a new creator being cached as "no
  * such site" for an hour because somebody guessed their address early.
  */
-import { sanitizeSections } from "@/lib/website-builder/sanitize-sections"
+import { sanitizeSections, sanitizeThemeSettings } from "@/lib/website-builder/sanitize-sections"
 import { pageWithLiveLinks } from "@/lib/website-builder/live-links"
 import { applyUniversalChrome } from "@/lib/website-builder/universal-chrome"
 import { unstable_cache, revalidateTag, revalidatePath } from "next/cache"
@@ -203,8 +203,17 @@ async function buildSite(creatorId: string, displayName: string): Promise<BuiltL
     ? (row.store_theme_settings[0] ?? null)
     : (row.store_theme_settings ?? null)
 
-  // `false` is the whole point: published values only, never the drafts.
-  const themeSettings = (themeSettingsOf(settingsRow as never, false) ?? {}) as ThemeSettingsValues
+  /**
+   * `false` is the whole point: published values only, never the drafts.
+   *
+   * And cleaned, for the same reason the sections below are. A few theme
+   * settings are drawn as markup rather than as text, and a theme's own
+   * `.storelib` files may emit any of them through the template language's
+   * `raw` filter. An imported theme brings both with it.
+   */
+  const themeSettings = sanitizeThemeSettings(
+    (themeSettingsOf(settingsRow as never, false) ?? {}) as ThemeSettingsValues,
+  )
 
   const { data: pageRows } = await admin
     .from("store_theme_pages")
