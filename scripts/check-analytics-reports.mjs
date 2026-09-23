@@ -79,14 +79,63 @@ for (const [name, vp] of [["desktop, 1440 wide", { width: 1440, height: 1000 }],
   await svg.evaluate((el) => el.scrollIntoView({ block: "center" }))
   await sleep(200)
   const r = await svg.boundingBox()
-  /* A pointer on the desktop, a finger on the phone: a tap has to leave the
-     figures up, not flash them while the finger lifts. */
-  if (vp.hasTouch) await p.touchscreen.tap(r.x + r.width * 0.6, r.y + r.height / 2)
-  else await p.mouse.move(r.x + r.width * 0.6, r.y + r.height / 2)
-  await sleep(400)
-  const tip = await p.evaluate(() => [...document.querySelectorAll("section")].find((s) => s.querySelector("h3").textContent === "Sessions over time").querySelector(".pointer-events-none.absolute")?.textContent || "")
-  expect(/Thisperiod[\d.,$%]+Before[\d.,$%]+/.test(tip.replace(/\s/g, "")), vp.hasTouch ? "a tap on the chart shows that day's figures, and they stay" : "the chart shows that day's figures under the pointer", tip)
+  /* A pointer on the desktop glides; a finger drags sideways to scrub, the
+     same as the chart at the top of Analytics, and the page stays put. */
+  let tip = ""
+  if (vp.hasTouch) {
+    const y0 = r.y + r.height / 2
+    const top0 = await p.evaluate(() => window.scrollY)
+    await p.touchscreen.touchStart(r.x + r.width * 0.3, y0)
+    for (let k = 1; k <= 8; k++) {
+      await p.touchscreen.touchMove(r.x + r.width * (0.3 + k * 0.04), y0)
+      await sleep(16)
+    }
+    await sleep(120)
+    tip = await p.evaluate(() => [...document.querySelectorAll("section")].find((s) => s.querySelector("h3").textContent === "Sessions over time").querySelector(".pointer-events-none.absolute")?.textContent || "")
+    const top1 = await p.evaluate(() => window.scrollY)
+    await p.touchscreen.touchEnd()
+    expect(Math.abs(top1 - top0) < 2, "scrubbing the chart does not move the page", `${top0} -> ${top1}`)
+  } else {
+    await p.mouse.move(r.x + r.width * 0.6, r.y + r.height / 2)
+    await sleep(300)
+    tip = await p.evaluate(() => [...document.querySelectorAll("section")].find((s) => s.querySelector("h3").textContent === "Sessions over time").querySelector(".pointer-events-none.absolute")?.textContent || "")
+  }
+  expect(/Thisperiod[\d.,$%]+Before[\d.,$%]+/.test(tip.replace(/\s/g, "")), vp.hasTouch ? "a sideways drag scrubs the chart and shows that day" : "the chart shows that day's figures under the pointer", tip)
+
+  /* Nothing inside a card scrolls, so a wheel over a card moves the page. */
+  const inner = await p.evaluate(() => [...document.querySelectorAll("section *")].filter((el) => {
+    const cs = getComputedStyle(el)
+    return (cs.overflowY === "auto" || cs.overflowY === "scroll") && el.scrollHeight > el.clientHeight + 1
+  }).length)
+  expect(inner === 0, "no card has a scrolling area of its own", inner)
+
+  /* No purple left in the data. */
+  const purple = await p.evaluate(() => [...document.querySelectorAll("section svg path, section svg circle, section [style*='background']")].filter((el) => {
+    const c = (el.getAttribute("stroke") || "") + (el.getAttribute("fill") || "") + (el.getAttribute("style") || "")
+    return /8b5cf6|139,\s*92,\s*246/i.test(c)
+  }).length)
+  expect(purple === 0, "the data is drawn in the checked blue, not purple", purple)
+
   if (name.startsWith("desktop")) await p.screenshot({ path: join(shots, "desktop-tooltip.png"), clip: { x: r.x - 40, y: r.y - 140, width: r.width + 80, height: r.height + 200 } })
+  if (!vp.hasTouch) {
+    const help = await p.evaluateHandle(() => [...document.querySelectorAll("section h3")].find((h) => h.textContent === "Conversion rate breakdown"))
+    await help.hover()
+    await sleep(350)
+    const text = await p.evaluate(() => document.querySelector(".help-card")?.textContent || "")
+    expect(/pressed Buy/.test(text), "a card's title explains itself on hover", text)
+    await p.mouse.move(2, 2)
+    await sleep(250)
+    const viewAll = await p.evaluateHandle(() => [...document.querySelectorAll("section button")].find((b) => /^View all/.test(b.textContent)))
+    if (viewAll.asElement()) {
+      await viewAll.click()
+      await sleep(400)
+      const listed = await p.evaluate(() => document.querySelectorAll("[role=dialog] ol li").length)
+      expect(listed > 5, "View all opens the whole list", listed)
+      await p.screenshot({ path: join(shots, "desktop-view-all.png") })
+      await p.keyboard.press("Escape")
+      await sleep(300)
+    }
+  }
   await p.close()
 }
 await browser.close(); server.close()

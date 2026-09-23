@@ -33,18 +33,17 @@ import {
   SOURCE_LABEL,
   filterOrders,
   groupOrders,
-  isPeriod,
   pageOf,
   paramsFromQuery,
   queryFromParams,
-  readMetrics,
   type ColumnKey,
   type ListQuery,
   type Order,
   type OrderRow,
-  type Period,
 } from "@/lib/orders/order-view"
 import { rememberTimeZone, viewerTimeZone } from "@/lib/orders/time-zone"
+import { readMetrics } from "@/lib/orders/metrics"
+import { DEFAULT_RANGE, RANGE_COOKIE, parseRange, rangeWindow, serializeRange, type Range } from "@/lib/orders/range"
 import { OrdersList } from "./orders-list"
 import { OrderDetail, type OrderAction } from "./order-detail"
 import { formatMoney } from "./order-parts"
@@ -54,6 +53,8 @@ interface OrdersClientProps {
   products: Array<{ id: string; title: string }>
   stripeConnected: boolean
   hiddenColumns: ColumnKey[]
+  /** The range remembered from last time (a cookie), serialized. */
+  initialRange: string | null
   timeZone: string
   now: number
 }
@@ -100,8 +101,10 @@ export function OrdersClient(props: OrdersClientProps) {
 
   /* ── The address is the state ───────────────────────────────────────── */
   const query = queryFromParams(searchParams)
-  const periodParam = searchParams.get("period")
-  const period: Period = isPeriod(periodParam) ? periodParam : "today"
+  /* The date range: the address first (a shared link), then what this
+     creator chose last time, then the last 30 days. */
+  const [rememberedRange, setRememberedRange] = React.useState<Range>(() => parseRange(props.initialRange) ?? DEFAULT_RANGE)
+  const range: Range = parseRange(searchParams.get("range")) ?? rememberedRange
   const openId = searchParams.get("order")
 
   const [searchText, setSearchText] = React.useState(query.q)
@@ -130,17 +133,33 @@ export function OrdersClient(props: OrdersClientProps) {
     if (next.page !== undefined) listRef.current?.scrollTo({ top: 0 })
   }
 
-  const onPeriod = (p: Period) =>
-    writeAddress((params) => (p === "today" ? params.delete("period") : params.set("period", p)), "replace")
+  const onRange = (r: Range) => {
+    const value = serializeRange(r)
+    setRememberedRange(r)
+    document.cookie = `${RANGE_COOKIE}=${encodeURIComponent(value)}; path=/; max-age=31536000; samesite=lax`
+    writeAddress((params) => {
+      params.set("range", value)
+      params.delete("page")
+    }, "replace")
+    setSelected(new Set())
+    listRef.current?.scrollTo({ top: 0 })
+  }
 
   /* ── What the list shows ────────────────────────────────────────────── */
-  const filtered = React.useMemo(
-    () => filterOrders(orders, { ...query, q: searchText }),
+  const earliest = orders.length ? Date.parse(orders[orders.length - 1].createdAt) : null
+  const rangeKey = serializeRange(range)
+  const span = React.useMemo(
+    () => rangeWindow(range, now, timeZone, earliest),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [orders, query.view, query.source, query.product, searchText],
+    [rangeKey, now, timeZone, earliest],
   )
-  const range = pageOf(filtered, query.page)
-  const metrics = React.useMemo(() => readMetrics(orders, period, now, timeZone), [orders, period, now, timeZone])
+  const filtered = React.useMemo(
+    () => filterOrders(orders, { ...query, q: searchText }, span),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [orders, query.view, query.source, query.product, query.sort, searchText, span],
+  )
+  const page = pageOf(filtered, query.page)
+  const metrics = React.useMemo(() => readMetrics(orders, span, span.previous, timeZone), [orders, span, timeZone])
 
   /* ── Columns, remembered in a cookie so the server draws the same table ─ */
   const [hidden, setHidden] = React.useState(() => new Set(props.hiddenColumns))
@@ -329,15 +348,16 @@ export function OrdersClient(props: OrdersClientProps) {
       >
         <OrdersList
           allOrders={orders}
-          pageOrders={range.items}
+          pageOrders={page.items}
           matching={filtered.length}
-          range={range}
+          range={page}
           query={{ ...query, q: searchText }}
           onQuery={onQuery}
           searchText={searchText}
           onSearchText={onSearchText}
-          period={period}
-          onPeriod={onPeriod}
+          dateRange={range}
+          span={span}
+          onDateRange={onRange}
           metrics={metrics}
           hidden={hidden}
           onToggleColumn={onToggleColumn}

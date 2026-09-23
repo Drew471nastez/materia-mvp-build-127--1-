@@ -303,6 +303,13 @@ html.capacitor body {
     opacity: 0;
     animation: skeleton-reveal 260ms cubic-bezier(0.22, 1, 0.36, 1) 200ms forwards;
   }
+  /* For pages that are usually instant (Orders, Analytics): the outline only
+     appears when a load is genuinely slow, and then fades in rather than
+     flashing. */
+  .skeleton-late {
+    opacity: 0;
+    animation: skeleton-reveal 300ms cubic-bezier(0.22, 1, 0.36, 1) 450ms forwards;
+  }
   /* Variant for skeletons gated by a JS delay (e.g. in-component isLoading).
      Skips the 200 ms animation-delay — just fades in smoothly once mounted. */
   .skeleton-fade {
@@ -4457,4 +4464,18 @@ html.pop-in-flight #platform-header-root {
 .report-scroll {
   scrollbar-width: thin;
   scrollbar-color: rgba(156, 163, 175, 0.45) transparent;
+}
+
+/* The explanation behind a dotted underline (components/app/help-label.tsx):
+   a short fade and lift, from the side it opens on. */
+@keyframes help-card-in {
+  from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.help-card[data-state="open"] {
+  animation: help-card-in 160ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  transform-origin: var(--radix-popover-content-transform-origin);
+}
+@media (prefers-reduced-motion: reduce) {
+  .help-card[data-state="open"] { animation: none; }
 }

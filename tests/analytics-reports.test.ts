@@ -23,6 +23,9 @@ import {
 } from "../lib/analytics/reports"
 import type { OrderRow } from "../lib/orders/order-view"
 import { dayPart, firstName, greetingZone } from "../lib/greeting"
+import { buildOnePageReports } from "../lib/analytics/reports"
+import { categorizeServerSource, detectClientAppFromUA, referrerHost } from "../lib/analytics/sources"
+import { parseUserAgent } from "../lib/analytics/user-agent"
 
 let passed = 0
 let failed = 0
@@ -169,6 +172,48 @@ console.log("\nAnalytics: the pieces that feed it")
   check("a website's pages are counted", /<TrackView type="store" creatorId=\{site\.creatorId\}/.test(read("app/(site)/w/[username]/render-site.tsx")))
   check("  and its product pages, never a preview", /previewToken \? null : <TrackView type="product"/.test(read("components/website-builder/theme/render-product.tsx")))
   check("every country by name", /Intl\.DisplayNames\(\["en"\], \{ type: "region" \}\)/.test(read("app/api/track-view/route.ts")))
+}
+
+console.log("\nAnalytics: OnePage")
+{
+  const w = { start: T0 + 7 * DAY, end: T0 + 14 * DAY }
+  const IPHONE_IG = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 Instagram 300.0"
+  const MAC_CHROME = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
+  const r = buildOnePageReports({
+    views: [
+      { id: "1", visitor_id: "a", referrer: "", user_agent: IPHONE_IG, country_code: "RO", created_at: at(8) },
+      { id: "2", visitor_id: "b", referrer: "https://www.google.com/search?q=x", user_agent: MAC_CHROME, country_code: "US", created_at: at(9) },
+      { id: "3", visitor_id: "c", referrer: "https://t.co/abc", user_agent: MAC_CHROME, created_at: at(10) },
+      { id: "0", visitor_id: "z", referrer: "", user_agent: MAC_CHROME, created_at: at(3) },
+    ],
+    clicks: [
+      { block_id: "b1", url: "https://shop.example.com", created_at: at(8) },
+      { block_id: "b1", url: "https://shop.example.com", created_at: at(9) },
+      { block_id: "b2", url: "https://youtube.com/x", created_at: at(9) },
+    ],
+    leads: [{ created_at: at(10) }],
+    window: w,
+    timeZone: "UTC",
+    mainDomain: "storelib.com",
+    linkLabels: { b1: "My shop" },
+    categorize: (host, ua) => categorizeServerSource(host || "Direct", null, null, detectClientAppFromUA(ua)),
+    parseAgent: parseUserAgent,
+    hostOf: referrerHost,
+  })
+  check("views are counted in the period, against the one before", r.views.value === 3 && r.views.previous === 1)
+  check("clicks and the click-through rate agree", r.clicks.value === 3 && r.ctr.value === 1)
+  check("subscribers", r.subscribers.value === 1)
+  check("top links use the block's own name, then the link's site", r.links[0]?.label === "My shop" && r.links[1]?.label === "youtube.com", r.links)
+  const src = Object.fromEntries(r.breakdowns.source.map((x) => [x.key, x.value]))
+  check("an Instagram in-app view is Social, Google is Search, t.co is Social", src.social === 2 && src.organic_search === 1, src)
+  check("the device is read from the signature", r.breakdowns.device.find((d) => d.key === "mobile")?.value === 1)
+  check("iPhone is iOS, a Mac is macOS", parseUserAgent(IPHONE_IG).os === "iOS" && parseUserAgent(MAC_CHROME).os === "macOS")
+  check("Instagram's browser is named Instagram, not Safari", parseUserAgent(IPHONE_IG).browser === "Instagram")
+  check("an iPad is a tablet", parseUserAgent("Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X)").device === "tablet")
+  check("a referrer's host, without www", referrerHost("https://www.google.com/x") === "google.com" && referrerHost("") === "")
+  check("the view tracker and the reports share one set of source rules", /from "@\/lib\/analytics\/sources"/.test(read("app/api/track-view/route.ts")))
+  const route = read("app/api/analytics/reports/route.ts")
+  check("the OnePage is found from the signed-in user, never the request", /\.eq\("owner_id", userId\)/.test(route))
 }
 
 console.log("\nHome: the greeting")

@@ -2,7 +2,18 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { getMainDomain } from "@/lib/url-helpers"
-import { buildReports, previousWindow, type StepRow, type ViewRow } from "@/lib/analytics/reports"
+import {
+  buildOnePageReports,
+  buildReports,
+  previousWindow,
+  type OnePageClickRow,
+  type OnePageLeadRow,
+  type OnePageViewRow,
+  type StepRow,
+  type ViewRow,
+} from "@/lib/analytics/reports"
+import { categorizeServerSource, detectClientAppFromUA, referrerHost } from "@/lib/analytics/sources"
+import { parseUserAgent } from "@/lib/analytics/user-agent"
 import { isTimeZone } from "@/lib/orders/time-zone"
 import type { OrderRow } from "@/lib/orders/order-view"
 
@@ -56,6 +67,9 @@ export async function GET(request: Request) {
   }
 
   const admin = createAdminClient()
+
+  if (url.searchParams.get("mode") === "onepage") return onePage(admin, user.id, { start, end }, timeZone)
+
   const { data: creator } = await admin.from("creators").select("id").eq("user_id", user.id).single()
   if (!creator) return NextResponse.json({ error: "Creator not found" }, { status: 404 })
 
@@ -71,10 +85,21 @@ export async function GET(request: Request) {
   const to = new Date(end).toISOString()
 
   try {
+    /*
+      Named columns keep the read small; if the database is missing one of
+      them (an older install), the same read is made with `*` rather than
+      the report failing. A missing column must never read as "no visits".
+    */
+    let columns = VIEW_COLUMNS
+    const probe = await admin.from("analytics_events").select(VIEW_COLUMNS).eq("creator_id", creator.id).limit(1)
+    if (probe.error) {
+      console.warn("[analytics/reports] falling back to every column:", probe.error.message)
+      columns = "*"
+    }
     const views = await readAll<ViewRow>((a, b) => {
       let q = admin
         .from("analytics_events")
-        .select(VIEW_COLUMNS)
+        .select(columns)
         .eq("creator_id", creator.id)
         .eq("event_type", "view")
         .gte("created_at", from)
@@ -131,6 +156,81 @@ export async function GET(request: Request) {
     )
   } catch (error) {
     console.error("[analytics/reports]", (error as Error).message)
+    return NextResponse.json({ error: "Could not read analytics" }, { status: 500 })
+  }
+}
+
+/* ─── OnePage ──────────────────────────────────────────────────────────── */
+
+type Block = { id?: string; type?: string; data?: Record<string, unknown> }
+
+/** What a creator called a block, so "Top links" reads as their page does. */
+function blockLabel(block: Block): string | null {
+  const d = (block.data ?? {}) as Record<string, unknown>
+  const pick = (...keys: string[]) => keys.map((k) => d[k]).find((v) => typeof v === "string" && v.trim()) as string | undefined
+  return (
+    pick("label", "title", "product_title", "headline", "digital_product_title", "spotify_title", "apple_music_title", "soundcloud_title", "name") ??
+    null
+  )
+}
+
+async function onePage(
+  admin: ReturnType<typeof createAdminClient>,
+  userId: string,
+  span: { start: number; end: number },
+  timeZone: string,
+) {
+  /* The OnePage is found from the session's user, never from the request. */
+  const { data: page } = await admin
+    .from("onepages")
+    .select("id, published_blocks, draft_blocks")
+    .eq("owner_id", userId)
+    .maybeSingle()
+
+  const from = new Date(previousWindow(span).start).toISOString()
+  const to = new Date(span.end).toISOString()
+  const read = <T,>(table: string) =>
+    readAll<T>((a, b) =>
+      admin
+        .from(table)
+        .select("*")
+        .eq("onepage_id", page!.id)
+        .gte("created_at", from)
+        .lt("created_at", to)
+        .order("created_at", { ascending: true })
+        .range(a, b) as unknown as PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
+    )
+
+  try {
+    const [views, clicks, leads] = page?.id
+      ? await Promise.all([read<OnePageViewRow>("onepage_views"), read<OnePageClickRow>("onepage_clicks"), read<OnePageLeadRow>("onepage_leads")])
+      : [{ rows: [], truncated: false }, { rows: [], truncated: false }, { rows: [], truncated: false }]
+
+    const blocks = ((page?.published_blocks as Block[] | null) || (page?.draft_blocks as Block[] | null) || []) as Block[]
+    const linkLabels: Record<string, string> = {}
+    for (const b of blocks) {
+      const label = b?.id ? blockLabel(b) : null
+      if (b?.id && label) linkLabels[b.id] = label
+    }
+
+    const reports = buildOnePageReports({
+      views: views.rows,
+      clicks: clicks.rows,
+      leads: leads.rows,
+      window: span,
+      timeZone,
+      mainDomain: getMainDomain(),
+      linkLabels,
+      categorize: (host, ua) => categorizeServerSource(host || "Direct", null, null, detectClientAppFromUA(ua)),
+      parseAgent: parseUserAgent,
+      hostOf: referrerHost,
+    })
+    return NextResponse.json(
+      { reports, truncated: views.truncated || clicks.truncated || leads.truncated, hasPage: !!page?.id },
+      { headers: { "Cache-Control": "private, no-store" } },
+    )
+  } catch (error) {
+    console.error("[analytics/reports onepage]", (error as Error).message)
     return NextResponse.json({ error: "Could not read analytics" }, { status: 500 })
   }
 }

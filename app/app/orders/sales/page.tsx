@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { stripe } from "@/lib/stripe"
 import { COLUMNS_COOKIE, hiddenColumnsFrom, type OrderRow } from "@/lib/orders/order-view"
 import { TIME_ZONE_COOKIE, readTimeZone } from "@/lib/orders/time-zone"
+import { RANGE_COOKIE } from "@/lib/orders/range"
 import { OrdersClient } from "../orders-client"
 
 export const dynamic = "force-dynamic"
@@ -69,32 +70,52 @@ export default async function OrdersPage() {
     .single()
   if (!creator) redirect("/onboarding")
 
-  const { data: productsData } = await admin
+  /*
+    EVERY COLUMN, NOT A LIST OF THEM. This named `gallery_images`, a column
+    the products table does not have (it is `gallery_urls`), and PostgREST
+    answers a query naming a missing column with an error, not with the
+    columns it does have. The error was not looked at, so the page read "no
+    products", then "no orders", and a creator with a year of sales was told
+    they had none. `*` cannot name a column that is not there, and a failed
+    read now stops the page instead of drawing an empty one.
+  */
+  const { data: productsData, error: productsError } = await admin
     .from("products")
-    .select("id, title, type, thumbnail_url, gallery_images")
+    .select("*")
     .eq("creator_id", creator.id)
+  if (productsError) throw new Error(`Orders: could not read products (${productsError.message})`)
   const products = (productsData || []).map((p: any) => ({
     id: p.id as string,
     title: (p.title as string) || "Untitled product",
     type: (p.type as string) || null,
-    thumbnail_url: (p.thumbnail_url as string) || p.gallery_images?.[0] || null,
+    thumbnail_url: (p.thumbnail_url as string) || p.gallery_urls?.[0] || p.gallery_images?.[0] || null,
   }))
 
   let rows: OrderRow[] = []
   if (products.length > 0) {
     /* Scoped by the creator's own products, read with the service role: the
        creator id came from the session above, never from the request. */
-    const { data: ordersData } = await admin
-      .from("orders")
-      .select("*")
-      .in(
-        "product_id",
-        products.map((p) => p.id),
-      )
-      .order("created_at", { ascending: false })
+    /*
+      A page at a time: a query returns at most 1,000 rows, and a creator
+      with more orders than that would otherwise lose the oldest ones from
+      the list without a word.
+    */
+    const ordersData: any[] = []
+    const productIds = products.map((p) => p.id)
+    for (let from = 0; from < 100_000; from += 1000) {
+      const { data, error: ordersError } = await admin
+        .from("orders")
+        .select("*")
+        .in("product_id", productIds)
+        .order("created_at", { ascending: false })
+        .range(from, from + 999)
+      if (ordersError) throw new Error(`Orders: could not read orders (${ordersError.message})`)
+      ordersData.push(...(data ?? []))
+      if (!data || data.length < 1000) break
+    }
 
     const byId = new Map(products.map((p) => [p.id, p]))
-    rows = (ordersData || []).map((order: any) => {
+    rows = ordersData.map((order: any) => {
       const product = byId.get(order.product_id)
       return {
         id: order.id,
@@ -146,6 +167,7 @@ export default async function OrdersPage() {
       products={products.map((p) => ({ id: p.id, title: p.title }))}
       stripeConnected={creator.stripe_onboarding_status === "connected"}
       hiddenColumns={hiddenColumnsFrom(jar.get(COLUMNS_COOKIE)?.value)}
+      initialRange={jar.get(RANGE_COOKIE)?.value ?? null}
       timeZone={readTimeZone(jar.get(TIME_ZONE_COOKIE)?.value)}
       now={Date.now()}
     />
