@@ -94,7 +94,13 @@ import { LinkPicker, LinkTargetsProvider, useLinkTargets, type LinkTarget } from
 import { THEME_SETTINGS_GROUPS } from "@/lib/website-builder/theme-settings-schema"
 import SectionRenderer from "@/components/website-builder/sections/SectionRenderer"
 import { ThemePage } from "@/components/website-builder/theme/ThemePage"
-import { scheduleSnapshot, cancelScheduledSnapshot } from "@/lib/website-builder/snapshot-capture"
+import {
+  scheduleSnapshot,
+  cancelScheduledSnapshot,
+  readyForCapture,
+  SNAPSHOT_WIDTH,
+  type SnapshotStage,
+} from "@/lib/website-builder/snapshot-capture"
 import { FullScreenLock } from "@/components/website-builder/full-screen-lock"
 import { StorelibMark } from "@/components/storelib-mark"
 import { toast } from "sonner"
@@ -888,6 +894,19 @@ export type DeviceMode = "desktop" | "mobile"
 const DEVICE_WIDTH: Record<Exclude<DeviceMode, "desktop">, number> = {
   mobile: 390,
 }
+
+/**
+ * How many sections the cover's stage draws. The cover is the top 16:10 of a
+ * 1200px page — 750px — and a header and two or three sections always fill
+ * that. Drawing the rest would be rendering, and then photographing, a page
+ * nobody will see in the picture.
+ */
+const SNAPSHOT_STAGE_SECTIONS = 4
+/* Stable, so the stage's memoised canvas is not re-rendered by new closures. */
+const noop = () => {}
+const noopSelect = (_sectionId: string, _blockId?: string | null) => {}
+const noopAt = (_at: number) => {}
+const noopNavigate = (_href: string, _fromNav?: boolean) => {}
 
 /** A thumbnail draws the theme's own file, never a creator's edit of it. */
 const EMPTY_SOURCES: Record<string, string> = {}
@@ -3668,6 +3687,37 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const canvasRef = useRef<HTMLDivElement>(null)
   useEffect(() => () => cancelScheduledSnapshot(), [])
 
+  /*
+    THE COVER'S STAGE. See snapshotAfterSave for why the cover is not a
+    photograph of the canvas any more. What is on the stage while it is up,
+    the element it is drawn into, and the promise that resolves when React
+    has put it there.
+  */
+  const [snapshotStage, setSnapshotStage] = useState<{
+    theme: ThemeSettingsValues
+    sections: SectionInstance[]
+    sources: Record<string, string>
+    shopCards: ProductCard[]
+  } | null>(null)
+  const stageNodeRef = useRef<HTMLDivElement>(null)
+  const stageMountedRef = useRef<(() => void) | null>(null)
+  /* The newest of everything the stage draws from, read when the capture
+     finally runs — which is seconds after the save that asked for it, by
+     which time a closure would be holding an older page. */
+  const snapshotSourceRef = useRef<{
+    page: string
+    theme: ThemeSettingsValues
+    sections: SectionInstance[]
+    sources: Record<string, string>
+    shopCards: ProductCard[]
+  } | null>(null)
+  useEffect(() => {
+    if (snapshotStage && stageNodeRef.current && stageMountedRef.current) {
+      stageMountedRef.current()
+      stageMountedRef.current = null
+    }
+  }, [snapshotStage])
+
   // ── New: Sidebar mode, page browser, product/collection pages ──
   const [sidebarMode, setSidebarMode] = useState<"sections" | "settings">("sections")
   const [pageBrowserOpen, setPageBrowserOpen] = useState(false)
@@ -5144,44 +5194,55 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     })
 
   /**
-   * The website page's cover is a picture of the home page from the last
-   * save. Ask for one after a save has succeeded — debounced, idle-time.
-   * See lib/website-builder/snapshot-capture.ts for why.
+   * ===========================================================================
+   *  THE COVER IS TAKEN FROM A STAGE, NOT FROM THE CANVAS
+   * ===========================================================================
+   * The website page's cover is a picture of the home page as it was last
+   * saved. It used to be a photograph of the editor's canvas, and that is a
+   * photograph of whatever the canvas happens to be showing:
    *
-   * ---------------------------------------------------------------------
-   *  IT USED TO REFUSE TO RUN ON A PHONE, WHICH IS WHERE THIS IS EDITED
-   * ---------------------------------------------------------------------
-   * The guard also required `device === "desktop"` and `!isMobileView`, so
-   * that a cover was always a desktop-width picture. But the effect at
-   * line ~4223 is that opening the editor on a phone FORCES `device` to
-   * "mobile" — deliberately, so the 1200-wide layout is not rendered into
-   * a 390px viewport. The two together mean a save from a phone never
-   * produced a snapshot at all, and could not: every condition for taking
-   * one was made false by the act of opening the editor there.
+   *   on a phone, the 390px layout, which scaled up into the card is a giant
+   *   single column that looks nothing like the site on a screen
+   *   the selection outline round whichever section was last clicked
+   *   an insert strip wherever the pointer happened to be
    *
-   * So somebody who works on a phone has a cover frozen at whatever their
-   * last desktop session left, for as long as they never open a laptop.
-   * That is what "it should update all the time, based on what I did and
-   * saved" is about, and no amount of saving fixed it.
+   * Before that it refused to run on a phone at all, because opening the
+   * editor there forces `device` to "mobile" and the guard wanted desktop —
+   * so a creator who edits on a phone had a cover that never moved.
    *
-   * A cover of the phone layout is the right answer rather than a
-   * compromise. The canvas renders through the same ThemePage the site
-   * publishes, `deviceMode` and all, so what is captured is this website
-   * as it actually is at that width — and it is the width its owner is
-   * designing at. captureNode scales a narrow canvas up to the cover's
-   * full width, so it is sharp rather than a 390px picture stretched.
+   * Now a save asks for a picture of a STAGE: a copy of the home page drawn
+   * off to one side at exactly the cover's width, in desktop mode, with the
+   * inspector off and nothing selected. The .storelib sections lay out with
+   * container queries and the header with `deviceMode`, so it is the desktop
+   * page even when the editor is open on a phone. It is mounted only for the
+   * moment of the picture and holds only what the top of the cover can show,
+   * so it costs a few sections' rendering, once, after the save has settled.
    *
-   * What still has to hold, and does: the HOME page, because that is what
-   * a cover is of; PREVIEW mode, because the code editor is not the
-   * website; and nothing still loading, because a picture of a skeleton
-   * is worse than a stale one.
+   * What still has to hold: it is the HOME page, checked again when the
+   * picture is actually taken, because the editor may be on another page by
+   * then and `sections` would be that page's.
    */
+  const stageSnapshot = useCallback(async (): Promise<SnapshotStage | null> => {
+    const src = snapshotSourceRef.current
+    if (!src || src.page !== "home") return null
+    const body = src.sections.filter((sec) => !sec.hidden && sec.type !== "footer").slice(0, SNAPSHOT_STAGE_SECTIONS)
+    if (body.length === 0) return null
+    const mounted = new Promise<void>((resolve) => { stageMountedRef.current = resolve })
+    setSnapshotStage({ theme: src.theme, sections: body, sources: src.sources, shopCards: src.shopCards })
+    await Promise.race([mounted, new Promise((r) => setTimeout(r, 3000))])
+    const node = stageNodeRef.current
+    if (!node) {
+      setSnapshotStage(null)
+      return null
+    }
+    await readyForCapture(node)
+    return { node, release: () => setSnapshotStage(null) }
+  }, [])
+
   const snapshotAfterSave = () => {
-    const node = canvasRef.current
-    if (!node) return
-    if (currentPage !== "home" || previewMode !== "preview") return
+    if (currentPage !== "home") return
     if (loading || canvasLoading) return
-    scheduleSnapshot({ installId, node })
+    scheduleSnapshot({ installId, stage: stageSnapshot })
   }
 
   const saveDraft = async (options: { quiet?: boolean } = {}): Promise<boolean> => {
@@ -5333,6 +5394,15 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    */
   const canvasThemeSettings = useDeferredValue(activeThemeSettings)
   const canvasSections = useDeferredValue(sections)
+  /* The undeferred values: the cover should be of what was saved, not of
+     what the canvas has caught up to. */
+  snapshotSourceRef.current = {
+    page: currentPage,
+    theme: activeThemeSettings,
+    sections,
+    sources: storelibSources,
+    shopCards,
+  }
 
   /**
    * The canvas's two callbacks, made once.
@@ -6905,6 +6975,57 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         leaving && "wb-editor-leaving",
       )}
     >
+      {/*
+        THE COVER'S STAGE. Mounted for the moment a cover is taken and not
+        otherwise. In a portal on <body>, so nothing the editor's own layout
+        does — a transform, a clip, a scroller — can move or cut it.
+
+        In the viewport but invisible, rather than pushed off screen: a
+        picture the browser decides is far from the viewport may never be
+        fetched, and a stage with empty images makes a cover with empty
+        boxes. The WRAPPER is at opacity 0; the node photographed is the
+        one inside it, whose own opacity is 1, so the picture is not.
+        `inert` and aria-hidden, so nothing in it can be focused or read.
+      */}
+      {snapshotStage && typeof document !== "undefined" && createPortal(
+        <div
+          aria-hidden
+          inert
+          data-snapshot-stage=""
+          style={{
+            position: "fixed",
+            left: 0,
+            top: 0,
+            width: SNAPSHOT_WIDTH,
+            height: 800,
+            overflow: "hidden",
+            opacity: 0,
+            pointerEvents: "none",
+            zIndex: -1,
+          }}
+        >
+          <div ref={stageNodeRef} style={{ display: "flex", flexDirection: "column", width: "100%" }}>
+            <EditorCanvasPage
+              theme={snapshotStage.theme}
+              sources={snapshotStage.sources}
+              pageTemplate="index"
+              sections={snapshotStage.sections}
+              inspectorEnabled={false}
+              selectedSectionId={null}
+              device="desktop"
+              canvasRadiusPx={0}
+              bodyCount={snapshotStage.sections.length}
+              onSelectSection={noopSelect}
+              onAddSection={noop}
+              onAddSectionAt={noopAt}
+              onEditorNavigate={noopNavigate}
+              shopCards={snapshotStage.shopCards}
+              installId={installId}
+            />
+          </div>
+        </div>,
+        document.body,
+      )}
       <FullScreenLock tone={chromeTone} />
       {/* ── Top bar ── */}
       {/* Dark, like the reference: the bar is chrome, and chrome that is the

@@ -4179,3 +4179,26 @@ html.pop-in-flight #platform-header-root {
   .wb-image-skeleton::after { animation: none; }
   .wb-image-fade { transition: none; }
 }
+
+/* ===========================================================================
+ *  THE COVER'S STAGE DOES NOT ANIMATE IN
+ * ===========================================================================
+ * The stage is a fresh copy of the home page, mounted only for the moment a
+ * cover is photographed. Freshly mounted, every section plays the theme's
+ * entrance animation from `opacity: 0` — and html-to-image copies each
+ * element's COMPUTED style, so a capture taken during that half second gets
+ * the sections at whatever opacity they had reached: a washed-out cover, or
+ * a blank one.
+ *
+ * The same trap as the one fixed in snapshot-capture.ts, where the copied
+ * keyframes replayed inside the picture. That one was the picture; this one
+ * is the page it is taken of. Both have to be shut.
+ */
+[data-snapshot-stage] [data-section] {
+  animation: none !important;
+}
+[data-snapshot-stage] *,
+[data-snapshot-stage] *::before,
+[data-snapshot-stage] *::after {
+  transition: none !important;
+}

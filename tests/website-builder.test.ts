@@ -37,7 +37,19 @@ import {
   buildThemePreset,
   isThemeId,
 } from "@/lib/website-builder/theme-registry"
-import { looksLikeImage, previousSnapshotPath, SNAPSHOT_BUCKET } from "@/lib/website-builder/snapshot"
+import {
+  looksLikeImage,
+  previousSnapshotPath,
+  SNAPSHOT_BUCKET,
+  snapshotFolder,
+  snapshotsNewestFirst,
+  snapshotTakenAt,
+  SNAPSHOTS_KEPT,
+  SNAPSHOT_VERSION,
+  snapshotName,
+  staleSnapshots,
+  isCurrentSnapshotUrl,
+} from "@/lib/website-builder/snapshot"
 import { ThemeCover, ThemePhoneCover, coverSpecFromDefinition, coverSpecFromSettings } from "@/components/website-builder/theme-cover"
 import { editorHref } from "@/app/app/website-builder/website-builder-client"
 import { CUSTOM_SECTION_CATEGORY, STORELIB_SCHEMAS, STORELIB_SECTION_TYPES, addableSections, customAddableSections, customSectionSchemas, schemaFromStorelib } from "@/lib/website-builder/storelib-schemas"
@@ -413,7 +425,15 @@ section("The snapshot")
   const route = stripComments(read("app/api/website-builder/themes/[installId]/snapshot/route.ts"))
   check("the install must belong to the caller's creator, on read and on write", (route.match(/\.eq\("creator_id", creator\.id\)/g) ?? []).length >= 2)
   check("the install id is validated as a UUID before it becomes part of a path", /isThemeId\(installId\)/.test(route))
-  check("the storage path is built from the user id and the install id only", /`\$\{user\.id\}\/theme-snapshots\/\$\{installId\}\/\$\{stamp\}\.\$\{ext\}`/.test(route))
+  /* Unchanged in substance: the folder is now named in one helper that the
+     website page reads from too, so the two cannot disagree about where a
+     cover lives. The path is still made of the user's id, the validated
+     install id and a timestamp the route chose, and nothing else. */
+  check("the storage path is built from the user id and the install id only",
+    snapshotFolder("u1", "i1") === "u1/theme-snapshots/i1" &&
+      /const folder = snapshotFolder\(user\.id, installId\)/.test(route) &&
+      /const path = `\$\{folder\}\/\$\{snapshotName\(stamp, ext\)\}`/.test(route) &&
+      snapshotName("abc", "webp") === `abc.v${SNAPSHOT_VERSION}.webp`)
   check("the bytes are checked against the declared type", /looksLikeImage\(bytes, contentType\)/.test(route))
   check("the size is capped", /MAX_BYTES/.test(route) && /413/.test(route))
   check("a missing column is 'not stored', not a failure", /stored: false/.test(route))
@@ -445,30 +465,90 @@ section("The snapshot")
   check("the editor's canvas ref is attached to the page wrapper", /<div ref=\{canvasRef\}/.test(editor))
   check("a snapshot is requested after a successful draft save and after a publish", (editor.match(/snapshotAfterSave\(\)/g) ?? []).length >= 2)
   /*
-    THE HOME PAGE, IN PREVIEW MODE, FROM WHATEVER DEVICE.
+    THE COVER IS TAKEN FROM A STAGE, NOT FROM THE CANVAS.
 
-    This used to read "only the home page, AT DESKTOP WIDTH, in preview
-    mode", and the width was the bug. Opening the editor on a phone forces
-    `device` to "mobile" on purpose — a 1200-wide layout rendered into a
-    390px viewport is a squashed mess — so requiring `device === "desktop"`
-    and `!isMobileView` meant a save from a phone could never take a
-    snapshot. Not rarely: never, and by construction, because opening the
-    editor there is what made the condition false.
+    This block has said three things. First "only the home page, AT DESKTOP
+    WIDTH, in preview mode" — and opening the editor on a phone forces
+    `device` to "mobile", so a phone save could never take a cover. Then
+    "from whatever device": the width test went, and a phone save
+    photographed the 390px canvas and scaled it into a desktop card, which
+    is a giant one-column page, not the site. Neither was the real look.
 
-    The cover therefore froze at whatever a creator's last desktop session
-    left behind, however many times they saved afterwards.
-
-    A phone-width cover is the right answer and not a concession: the canvas
-    renders through the same ThemePage the site publishes, so what is
-    captured is the website as it really is at the width its owner is
-    working at. captureNode scales it up to the cover's full width.
+    Now a save asks for a picture of a stage: a fresh copy of the home page
+    at the cover's width, in desktop mode, inspector off, nothing selected,
+    mounted for the moment of the picture. Same cover from any device.
   */
-  check("only the home page, in preview mode, from whatever device it is edited on",
-    /currentPage !== "home" \|\| previewMode !== "preview"/.test(editor))
+  check("a save asks for a cover of the home page, and says nothing about the device",
+    /if \(currentPage !== "home"\) return/.test(editor) &&
+      /scheduleSnapshot\(\{ installId, stage: stageSnapshot \}\)/.test(editor))
   check("and the guard does not turn itself off on a phone, which is where it turned itself off before",
     !/device !== "desktop"/.test(editor.slice(editor.indexOf("const snapshotAfterSave"), editor.indexOf("const snapshotAfterSave") + 400))
       && !/isMobileView/.test(editor.slice(editor.indexOf("const snapshotAfterSave"), editor.indexOf("const snapshotAfterSave") + 400)),
     "opening the editor on a phone sets device to mobile, so a device test in here is a test that can only fail")
+  check("the stage is the desktop page with nothing of the editor's in it",
+    /<EditorCanvasPage[\s\S]{0,400}inspectorEnabled=\{false\}[\s\S]{0,80}selectedSectionId=\{null\}[\s\S]{0,40}device="desktop"/.test(editor))
+  check("and it is portalled to <body>, invisible, inert, and out of the way of the pointer",
+    /data-snapshot-stage=""/.test(editor) && /inert/.test(editor) && /opacity: 0,/.test(editor) &&
+      /pointerEvents: "none"/.test(editor) && /document\.body,\s*\)\}/.test(editor))
+  check("and it is re-checked as the home page when the picture is actually taken, seconds later",
+    /if \(!src \|\| src\.page !== "home"\) return null/.test(editor))
+  check("and it only draws what the top of a cover can show",
+    /\.slice\(0, SNAPSHOT_STAGE_SECTIONS\)/.test(editor) && /const SNAPSHOT_STAGE_SECTIONS = \d+/.test(editor))
+  check("and it does not animate in, or it would be photographed half faded",
+    /\[data-snapshot-stage\] \[data-section\] \{\s*animation: none !important;/.test(read("app/globals.css")))
+  /*
+    THE LINE THAT MADE EVERY COVER WRONG. html-to-image copied the page's
+    <style> elements into its picture, the theme's section entrance keyframes
+    came with them, and inside the picture every animation restarted from its
+    invisible first frame. The header is exempt from that animation as page
+    chrome, so every cover was a header over a blank page.
+  */
+  check("the picture leaves the page's stylesheets out, so no animation replays inside it",
+    /if \(el instanceof HTMLStyleElement\) return false/.test(capture) && /filter: keepInSnapshot/.test(capture))
+  check("and a stage is ready only once its fonts are in and its pictures decoded",
+    /export async function readyForCapture/.test(capture) && /img\.decode\(\)/.test(capture) && /document\.fonts/.test(capture))
+
+  /*
+    THE FOLDER IS THE RECORD. With no snapshot_url column the route uploaded
+    every picture, recorded none of them, and answered 200 — seventeen times
+    in a week for one site while its card showed the theme's sample copy.
+  */
+  check("the newest picture is chosen by the time in its name",
+    JSON.stringify(snapshotsNewestFirst(["mfa0.v2.webp", "mfb0.v2.webp", "mf90.v2.png"])) === JSON.stringify(["mfb0.v2.webp", "mfa0.v2.webp", "mf90.v2.png"]))
+  check("and a file this route did not write is never taken for a cover",
+    snapshotsNewestFirst(["../evil.v2.webp", "cover.gif", "notes.txt", "x.v2.webp.exe"]).length === 0)
+  check("and the name says when it was taken",
+    snapshotTakenAt(`${Date.UTC(2026, 8, 23).toString(36)}.v2.webp`) === "2026-09-23T00:00:00.000Z" && snapshotTakenAt("nope") === null)
+  /*
+    EVERY COVER FROM BEFORE VERSION 2 IS BLANK BELOW THE HEADER, because the
+    capture replayed the entrance animation inside the picture and
+    `animations_enabled` is on by default. Those are never shown — not even
+    when they are newer than a current one — and the route clears them out.
+  */
+  check("a picture from before versioning is never shown, however new it is",
+    JSON.stringify(snapshotsNewestFirst(["zzzz.webp", "mfa0.v2.webp"])) === JSON.stringify(["mfa0.v2.webp"]) &&
+      snapshotsNewestFirst(["zzzz.webp", "zzzy.png"]).length === 0)
+  check("and a recorded cover from before versioning counts as no cover",
+    !isCurrentSnapshotUrl("https://x.supabase.co/storage/v1/object/public/store-builder-images/u/theme-snapshots/i/mfa0.webp") &&
+      isCurrentSnapshotUrl("https://x.supabase.co/storage/v1/object/public/store-builder-images/u/theme-snapshots/i/mfa0.v2.webp") &&
+      !isCurrentSnapshotUrl(null))
+  check("pruning takes every old picture and keeps the newest current ones",
+    JSON.stringify(staleSnapshots(["a1.webp", "a2.png", "b1.v2.webp", "b2.v2.webp", "b3.v2.webp", "notes.txt"]).sort()) ===
+      JSON.stringify(["a1.webp", "a2.png", "b1.v2.webp"].sort()))
+  check("the route refuses a capture that does not say it is the current version",
+    /req\.headers\.get\("x-snapshot-version"\) !== String\(SNAPSHOT_VERSION\)/.test(route) && /status: 409/.test(route))
+  check("and the capture says it is",
+    /"X-Snapshot-Version": String\(SNAPSHOT_VERSION\)/.test(capture))
+  check("and the page treats an old recorded cover as none",
+    /isCurrentSnapshotUrl\(i\.snapshot_url\)/.test(read("app/app/website-builder/page.tsx")))
+  check("the website page reads the folder when the column says nothing",
+    /async function withStoredCovers/.test(read("app/app/website-builder/page.tsx")) &&
+      /const missing = installs\.filter\(\(i\) => !i\.snapshot_url\)/.test(read("app/app/website-builder/page.tsx")) &&
+      /snapshotFolder\(userId, install\.id\)/.test(read("app/app/website-builder/page.tsx")))
+  check("and the route keeps the folder to the newest few, whichever way the write went",
+    SNAPSHOTS_KEPT >= 2 && /after\(async \(\) =>/.test(route) && /staleSnapshots\(/.test(route))
+  check("and says so in the logs when there is no column, instead of a silent 200",
+    /console\.warn\(/.test(route) && /RUN_THEME_MARKETPLACE\.sql/.test(read("app/api/website-builder/themes/[installId]/snapshot/route.ts")))
   check("and a narrow canvas is scaled up to the cover's width rather than left soft",
     /const scale = SNAPSHOT_WIDTH \/ width/.test(capture) && !/Math\.min\(1, SNAPSHOT_WIDTH/.test(capture),
     "a 390px raster painted into a 1200px slot is the one soft picture on the page")

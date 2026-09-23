@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server"
+import { NextResponse, after } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { isThemeId } from "@/lib/website-builder/theme-registry"
@@ -7,7 +7,10 @@ import {
   MAX_BYTES,
   SNAPSHOT_TYPES as ALLOWED,
   looksLikeImage,
-  previousSnapshotPath,
+  snapshotFolder,
+  snapshotName,
+  staleSnapshots,
+  SNAPSHOT_VERSION,
 } from "@/lib/website-builder/snapshot"
 
 /**
@@ -37,6 +40,17 @@ export async function POST(req: Request, { params }: Params) {
   const { installId } = await params
   if (!isThemeId(installId)) {
     return NextResponse.json({ error: "Invalid install id" }, { status: 400 })
+  }
+
+  /*
+    THE CAPTURE SAYS WHICH VERSION IT IS. Every picture before version 2 was
+    the header over a blank page (see snapshot.ts), and an editor tab left
+    open across a deploy goes on running that capture. Its uploads are
+    refused here rather than stored: a 409 the editor swallows, and a cover
+    that stays as it was instead of turning blank.
+  */
+  if (req.headers.get("x-snapshot-version") !== String(SNAPSHOT_VERSION)) {
+    return NextResponse.json({ error: "This editor is out of date. Reload it to update covers." }, { status: 409 })
   }
 
   const contentType = (req.headers.get("content-type") ?? "").split(";")[0].trim().toLowerCase()
@@ -85,7 +99,8 @@ export async function POST(req: Request, { params }: Params) {
   // a year of cache on it; overwriting one path would leave the old picture
   // on the card until the cache expired.
   const stamp = Date.now().toString(36)
-  const path = `${user.id}/theme-snapshots/${installId}/${stamp}.${ext}`
+  const folder = snapshotFolder(user.id, installId)
+  const path = `${folder}/${snapshotName(stamp, ext)}`
 
   const { error: upErr } = await admin.storage.from(BUCKET).upload(path, bytes, {
     contentType,
@@ -105,21 +120,52 @@ export async function POST(req: Request, { params }: Params) {
     .eq("id", installId)
     .eq("creator_id", creator.id)
 
-  if (rowErr) {
-    if (/snapshot_url|snapshot_updated_at/.test(rowErr.message)) {
-      // Columns not there yet. The picture is uploaded and harmless; the page
-      // will draw its cover from the theme's colours until the SQL has run.
-      return NextResponse.json({ url, updated_at: updatedAt, stored: false })
-    }
+  const columnMissing = !!rowErr && /snapshot_url|snapshot_updated_at/.test(rowErr.message)
+  if (rowErr && !columnMissing) {
     return NextResponse.json({ error: rowErr.message }, { status: 500 })
   }
 
-  // Best effort: the previous picture is no longer referenced. Failing to
-  // remove it costs storage, not correctness, so the response does not wait
-  // on the result.
-  const previous = previousSnapshotPath(install, user.id, installId)
-  if (previous && previous !== path) {
-    void admin.storage.from(BUCKET).remove([previous]).catch(() => {})
+  /*
+    PRUNE THE FOLDER, WHICHEVER WAY THE WRITE WENT.
+
+    This used to delete one file: whichever the column pointed at. With the
+    column missing it deleted nothing, so every save left another picture
+    behind — seventeen for one site in a week, none of them reachable. The
+    folder is the record now (see snapshot.ts), so it is the folder that is
+    kept tidy: the newest SNAPSHOTS_KEPT current pictures stay and the rest go.
+
+    Scoped to this user's own folder for an install their creator owns, and
+    only names this route writes are ever considered. Best effort: a stale
+    picture costs storage, not correctness.
+
+    In `after()`, not a bare `void` promise. A serverless function can be
+    frozen the moment its response is sent, and work left dangling behind it
+    may simply never run — which is one more way this folder could have gone
+    on filling up with nobody the wiser.
+  */
+  after(async () => {
+    try {
+      const { data: files } = await admin.storage.from(BUCKET).list(folder, { limit: 100 })
+      /* Including every picture from before versioning, none of which is
+         ever shown and all of which are blank below the header. */
+      const stale = staleSnapshots((files ?? []).map((f) => f.name)).map((name) => `${folder}/${name}`)
+      if (stale.length) await admin.storage.from(BUCKET).remove(stale)
+    } catch {}
+  })
+
+  if (columnMissing) {
+    /*
+      SAID OUT LOUD, because it was silent for a week. The picture is saved
+      and the website page finds it by reading the folder, so the cover is
+      right either way — but the page is making an extra storage request per
+      site on every load that the column would save, and the only place that
+      is visible is here.
+    */
+    console.warn(
+      "[snapshot] store_theme_installs has no snapshot_url column; the cover is read from storage instead. " +
+        "Run supabase/sql/RUN_THEME_MARKETPLACE.sql to record it.",
+    )
+    return NextResponse.json({ url, updated_at: updatedAt, stored: false })
   }
 
   return NextResponse.json({ url, updated_at: updatedAt, stored: true })
