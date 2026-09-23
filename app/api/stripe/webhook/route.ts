@@ -6,6 +6,7 @@ import { createClient } from "@supabase/supabase-js"
 import { generateReceiptToken } from "@/lib/security"
 import { sendOrderEmails, triggerEmailFlows, sendPayoutStatusEmail, sendFirstPayoutEmail, sendBankUpdatedEmail, sendPayoutsPausedEmail, sendVerificationRequiredEmail, sendFirstSaleEmail, resolveSellerEmail, sendDisputeCreatedEmail, sendDisputeWonEmail, sendDisputeLostEmail, sendRefundEmails } from "@/lib/email"
 import { v4 as uuidv4 } from "uuid"
+import { orderSourceFrom, tagOrderSource } from "@/lib/orders/order-source"
 
 export const runtime = "nodejs"
 
@@ -347,6 +348,7 @@ export async function POST(request: Request) {
     }
 
     console.log("[Webhook] Order created:", order.id)
+    await tagOrderSource(supabaseAdmin, order.id, orderSourceFrom(metadata))
 
     // ── Ledger: record sale earnings ──────────────────────────────────────
     if (creatorId && totalAmount > 0) {

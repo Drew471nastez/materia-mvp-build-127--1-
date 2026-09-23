@@ -319,7 +319,9 @@ export function ProductSection({ section, theme, isEditing, isSelected, onClick 
                 if (isEditing || !productId) return
                 const slug = str((productData?.slug as unknown) ?? "", "")
                 const from = slug ? `&from=${encodeURIComponent(`/products/${slug}`)}` : ""
-                window.location.href = `/checkout?productId=${encodeURIComponent(productId)}${from}`
+                /* `src=website` is how the order ends up in the Orders
+                   table as a Website order (lib/orders/order-source.ts). */
+                window.location.href = `/checkout?productId=${encodeURIComponent(productId)}${from}&src=website`
               }}
               className="w-full py-3.5 text-base font-semibold text-white rounded-lg transition-colors cursor-pointer disabled:cursor-not-allowed"
               style={{ background: primaryColor, ...buttonRadiusStyle(theme) }}

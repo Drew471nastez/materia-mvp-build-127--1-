@@ -8,6 +8,7 @@ import { cookies } from "next/headers"
 import { generateReceiptToken } from "@/lib/security"
 import { collectOrderDeviceInfo } from "@/lib/device-info"
 import { calculatePlatformFee } from "@/lib/billing/fee-calculator"
+import { SOURCE_METADATA_KEY, orderSourceFromRequest } from "@/lib/orders/order-source"
 
 export async function POST(request: Request) {
   const supabase = await createClient()
@@ -208,6 +209,7 @@ export async function POST(request: Request) {
         enabled: true,
       },
       metadata: {
+        [SOURCE_METADATA_KEY]: orderSourceFromRequest(request),
         product_id: product.id,
         product_slug: product.slug,
         product_title: product.title,
@@ -288,6 +290,7 @@ export async function POST(request: Request) {
           currency: "usd",
           automatic_payment_methods: { enabled: true },
           metadata: {
+            [SOURCE_METADATA_KEY]: orderSourceFromRequest(request),
             product_id: product.id,
             product_slug: product.slug,
             product_title: product.title,

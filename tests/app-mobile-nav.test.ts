@@ -158,10 +158,22 @@ function main() {
     against rgb(248,249,250) for the bare page beside it.
   */
   check("the clearance is taken off the container that does not scroll, on every page that nests one",
-    /\.app-content-scroll:has\(> \.page-scroll, > \.dashboard-scroll-container, > \.sales-scroll-container\) \{\s*\n\s*padding-bottom: 0;/.test(css),
+    /\.app-content-scroll:has\(> \.page-scroll, > \.dashboard-scroll-container, > \.sales-scroll-container, > \.orders-stage\) \{\s*\n\s*padding-bottom: 0;/.test(css),
     "padding the outer box only shrinks the inner one and holds the page away from the bar")
   check("and put on the one that does",
-    /\.app-content-scroll > \.page-scroll,\s*\n\s*html\.app-layout \.app-content-scroll > \.dashboard-scroll-container,\s*\n\s*html\.app-layout \.app-content-scroll > \.sales-scroll-container \{\s*\n\s*padding-bottom: calc\(104px \+ env\(safe-area-inset-bottom, 0px\)\);/.test(css))
+    /\.app-content-scroll > \.page-scroll,\s*\n\s*html\.app-layout \.app-content-scroll > \.dashboard-scroll-container,\s*\n\s*html\.app-layout \.app-content-scroll > \.sales-scroll-container,[\s\S]{0,300}?html\.app-layout \.app-content-scroll > \.orders-stage > \.orders-pane \{\s*\n\s*padding-bottom: calc\(104px \+ env\(safe-area-inset-bottom, 0px\)\);/.test(css))
+  /*
+    ORDERS SCROLLS IN TWO PANES, the list and the order open over it
+    (app/app/orders/orders-client.tsx). Neither is the stage's direct child
+    scroller, so each carries the clearance itself; the stage, which does not
+    scroll, carries none.
+  */
+  check("Orders' two panes each get the clearance, the stage none",
+    (() => {
+      const client = read("app/app/orders/orders-client.tsx")
+      const panes = client.match(/className="orders-pane [^"]*overflow-y-auto/g) ?? []
+      return /className="orders-stage [^"]*h-full overflow-hidden/.test(client) && panes.length === 2
+    })())
   /*
     AND EVERY PAGE THAT NESTS ONE IS FOUND, not listed. The list used to be
     five files kept by hand, and analytics was the sixth: `h-full

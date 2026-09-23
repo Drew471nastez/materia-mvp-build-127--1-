@@ -6,6 +6,7 @@ import { sendOrderEmails } from "@/lib/email"
 import { cookies } from "next/headers"
 import { collectOrderDeviceInfo } from "@/lib/device-info"
 import { v4 as uuidv4 } from "uuid"
+import { orderSourceFrom, tagOrderSource } from "@/lib/orders/order-source"
 
 export const runtime = "nodejs"
 
@@ -190,6 +191,7 @@ export async function GET(request: Request) {
     }
 
     console.log("[checkout/complete] ✅ Order created:", order.id)
+    await tagOrderSource(admin, order.id, orderSourceFrom(metadata))
 
     if (sessionFingerprint) {
       // Get domain for cross-subdomain cookie support

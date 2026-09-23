@@ -1,4 +1,2 @@
-// Orders-level loading — shown by Next.js while /app/orders (= sales page)
-// loads data. Matches the orders/sales skeleton exactly so there is no
-// jarring transition between skeletons.
+// /app/orders is the sales page; one skeleton for both addresses.
 export { default } from "./sales/loading"

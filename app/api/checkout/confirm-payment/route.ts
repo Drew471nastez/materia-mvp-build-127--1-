@@ -6,6 +6,7 @@ import { sendOrderEmails } from "@/lib/email"
 import { cookies } from "next/headers"
 import { collectOrderDeviceInfo } from "@/lib/device-info"
 import { v4 as uuidv4 } from "uuid"
+import { orderSourceFrom, tagOrderSource } from "@/lib/orders/order-source"
 
 export const runtime = "nodejs"
 
@@ -174,6 +175,7 @@ export async function POST(request: Request) {
     }
 
     console.log("[confirm-payment] Order created:", order.id)
+    await tagOrderSource(admin, order.id, orderSourceFrom(metadata, request))
 
     // Set cookie for device recognition
     if (sessionFingerprint) {

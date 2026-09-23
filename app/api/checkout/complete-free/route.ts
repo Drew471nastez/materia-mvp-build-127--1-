@@ -6,6 +6,7 @@ import { sendOrderEmails } from "@/lib/email"
 import { cookies } from "next/headers"
 import { nanoid } from "nanoid"
 import { v4 as uuidv4 } from "uuid"
+import { orderSourceFromRequest, tagOrderSource } from "@/lib/orders/order-source"
 
 export const runtime = "nodejs"
 
@@ -136,6 +137,7 @@ export async function POST(req: Request) {
       console.error("[complete-free] orderError:", orderError)
       return NextResponse.json({ error: "Failed to create order" }, { status: 500 })
     }
+    await tagOrderSource(admin, order.id, orderSourceFromRequest(req))
 
     // Get domain for cross-subdomain cookie support
     const mainDomain = process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"
