@@ -37,7 +37,14 @@ export async function GET(request: NextRequest) {
     let endDate: Date = new Date()
     let numDays: number
 
-    if (customStartDate && customEndDate) {
+    /* Two instants from the shared date picker: days on the creator's clock. */
+    const startAt = Date.parse(searchParams.get("start") ?? "")
+    const endAt = Date.parse(searchParams.get("end") ?? "")
+    if (Number.isFinite(startAt) && Number.isFinite(endAt) && endAt > startAt && endAt - startAt < 12 * 366 * 86_400_000) {
+      startDate = new Date(startAt)
+      endDate = new Date(endAt - 1)
+      numDays = Math.max(1, Math.round((endAt - startAt) / 86_400_000))
+    } else if (customStartDate && customEndDate) {
       startDate = new Date(customStartDate)
       endDate = new Date(customEndDate)
       endDate.setHours(23, 59, 59, 999)

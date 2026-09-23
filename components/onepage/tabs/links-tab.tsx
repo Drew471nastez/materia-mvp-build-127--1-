@@ -123,7 +123,10 @@ import {
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from "recharts"
-import React, { useState, useEffect, useRef, useCallback } from "react"
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react"
+import { DateRangePicker } from "@/components/app/date-range-picker"
+import { viewerTimeZone } from "@/lib/orders/time-zone"
+import { boundsOf, longDate, resolveValue, todayIn, type RangeValue } from "@/lib/date-range/range"
 import { createClient } from "@/lib/supabase/client"
 import { BLOCKED_EXTENSIONS, readFileHeader, scanFile, MAX_DIGITAL_PRODUCT_FILE_SIZE } from "@/lib/storage/security"
 
@@ -4874,9 +4877,10 @@ function BlockItem({
   const [statsData, setStatsData] = useState<{ total_clicks: number; total_views: number; chart_data: { date: string; clicks: number; views: number }[] } | null>(null)
   const [statsLoading, setStatsLoading] = useState(false)
   const [clickCount, setClickCount] = useState<number | null>(null)
-  const [statsTimeframe, setStatsTimeframe] = useState<'7' | 'today' | '30' | 'custom'>('7')
-  const [customStartDate, setCustomStartDate] = useState('')
-  const [customEndDate, setCustomEndDate] = useState('')
+  /* The date picker every page in /app shares, opened in place in this dialog. */
+  const statsTimeZone = useMemo(() => viewerTimeZone(), [])
+  const statsToday = todayIn(statsTimeZone, Date.now())
+  const [statsPeriod, setStatsPeriod] = useState<RangeValue>(() => resolveValue({ preset: 'last_7_days' }, statsToday, 'last_7_days'))
   const [isMobileStatsViewport, setIsMobileStatsViewport] = useState(false)
   const [isStatsSheetPresented, setIsStatsSheetPresented] = useState(false)
   const [statsSheetDragY, setStatsSheetDragY] = useState(0)
@@ -5009,16 +5013,12 @@ function BlockItem({
   }, [showAnimationSheet, isMobileStatsViewport])
 
   // Fetch stats when modal is opened or timeframe changes
-  const fetchStats = async (days?: number, startDate?: string, endDate?: string) => {
+  const fetchStats = async (period: RangeValue) => {
     if (!onepage?.id) return
     setStatsLoading(true)
     try {
-      let url = `/api/onepage/stats?onepage_id=${onepage.id}&block_id=${block.id}`
-      if (startDate && endDate) {
-        url += `&start_date=${startDate}&end_date=${endDate}`
-      } else {
-        url += `&days=${days || 7}`
-      }
+      const b = boundsOf(period, statsTimeZone, Date.now())
+      const url = `/api/onepage/stats?onepage_id=${onepage.id}&block_id=${block.id}&start=${encodeURIComponent(new Date(b.start).toISOString())}&end=${encodeURIComponent(new Date(b.end).toISOString())}`
       const response = await fetch(url)
       if (response.ok) {
         const data = await response.json()
@@ -5033,15 +5033,9 @@ function BlockItem({
 
   // Refetch when timeframe changes
   useEffect(() => {
-    if (showStatsModal) {
-      if (statsTimeframe === 'custom' && customStartDate && customEndDate) {
-        fetchStats(undefined, customStartDate, customEndDate)
-      } else if (statsTimeframe !== 'custom') {
-        const days = statsTimeframe === 'today' ? 1 : parseInt(statsTimeframe)
-        fetchStats(days)
-      }
-    }
-  }, [statsTimeframe, customStartDate, customEndDate, showStatsModal])
+    if (showStatsModal) fetchStats(statsPeriod)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statsPeriod.preset, statsPeriod.start, statsPeriod.end, showStatsModal])
 
   // Fetch click count on mount for link buttons and email capture
   useEffect(() => {
@@ -5460,8 +5454,8 @@ function BlockItem({
               onClick={(e) => {
                 e.stopPropagation()
                 setIsStatsSheetPresented(false)
+                /* Opening the dialog fetches, in the effect that watches it. */
                 setShowStatsModal(true)
-                fetchStats(7)
               }}
               className="flex items-center gap-1 px-1.5 py-1 rounded-lg transition-colors text-gray-400 hover:text-gray-600 hover:bg-gray-100"
               title="View Stats"
@@ -5550,49 +5544,10 @@ function BlockItem({
                 </DialogHeader>
 
                 <div className={cn("p-4", isMobileStatsViewport && "max-h-[75vh] overflow-y-auto pb-[max(16px,env(safe-area-inset-bottom))]")}>
-                  {/* Timeframe selector */}
-                  <div className="flex gap-2 mb-4">
-                    {[
-                      { value: '7', label: '7 Days' },
-                      { value: 'today', label: 'Today' },
-                      { value: '30', label: '30 Days' },
-                      { value: 'custom', label: 'Custom' },
-                    ].map((tf) => (
-                      <button
-                        key={tf.value}
-                        type="button"
-                        onClick={() => setStatsTimeframe(tf.value as typeof statsTimeframe)}
-                        className={cn(
-                          "px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
-                          statsTimeframe === tf.value
-                            ? "bg-gray-900 text-white"
-                            : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                        )}
-                      >
-                        {tf.label}
-                      </button>
-                    ))}
+                  {/* The period: the same picker as every page in /app. */}
+                  <div className="mb-4">
+                    <DateRangePicker value={statsPeriod} onChange={setStatsPeriod} today={statsToday} inline />
                   </div>
-
-                  {/* Custom date range */}
-                  {statsTimeframe === 'custom' && (
-                    <div className="flex gap-2 mb-4">
-                      <Input
-                        type="date"
-                        value={customStartDate}
-                        onChange={(e) => setCustomStartDate(e.target.value)}
-                        className="flex-1 h-9 text-sm"
-                        placeholder="Start date"
-                      />
-                      <Input
-                        type="date"
-                        value={customEndDate}
-                        onChange={(e) => setCustomEndDate(e.target.value)}
-                        className="flex-1 h-9 text-sm"
-                        placeholder="End date"
-                      />
-                    </div>
-                  )}
 
                   {statsLoading ? (
                     <div className="flex items-center justify-center py-8">
@@ -5677,10 +5632,10 @@ function BlockItem({
                         </div>
                         <div className="flex justify-between mt-3 pt-2 border-t border-gray-200">
                           <span className="text-[10px] text-muted-foreground">
-                            {statsTimeframe === 'custom' ? customStartDate : statsTimeframe === 'today' ? 'Today' : `${statsTimeframe} days ago`}
+                            {longDate(statsPeriod.start)}
                           </span>
                           <span className="text-[10px] text-muted-foreground">
-                            {statsTimeframe === 'custom' ? customEndDate : 'Now'}
+                            {statsPeriod.end === statsToday ? 'Now' : longDate(statsPeriod.end)}
                           </span>
                         </div>
                         {/* Legend */}

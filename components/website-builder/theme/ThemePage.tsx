@@ -27,6 +27,7 @@
  * that knows about it.
  */
 
+import { setSiteConsentTheme } from "@/lib/consent/site-theme"
 import { StorefrontProvider, type Storefront } from "./storefront-context"
 import { SectionSandboxProvider } from "../sections/section-sandbox"
 import { SiteCartProvider } from "../site-cart"
@@ -250,68 +251,39 @@ function FreeShippingBar({ theme }: { theme: ThemeSettingsValues }) {
 // ── The cookie banner ───────────────────────────────────────────────────────
 
 /**
- * Six controls, a whole settings group, and not one line of code anywhere in
- * the repository read any of them. A creator who turned on "Show cookie
- * consent banner" to satisfy a legal obligation got nothing at all.
+ * THE SITE'S WORDS AND COLOURS FOR THE ONE COOKIE BANNER.
+ *
+ * This drew a second banner of its own, which stored an answer nothing read,
+ * under the platform banner that also asked. Now there is one banner and one
+ * record (components/cookie-consent-banner.tsx, lib/consent): with "Use my
+ * own cookie banner" on, it speaks with this site's text and colours.
  */
-function CookieBanner({ theme }: { theme: ThemeSettingsValues }) {
+function SiteCookieStyle({ theme }: { theme: ThemeSettingsValues }) {
   const t = theme as Record<string, unknown>
-  const [answered, setAnswered] = useState(true)
-
+  const on = Boolean(t.cookie_banner_enabled)
+  const text = str(t.cookie_banner_text, "")
+  const accept = str(t.cookie_accept_text, "")
+  const decline = str(t.cookie_decline_text, "")
+  const bg = str(t.cookie_bg, "#0f172a")
+  const color = str(t.cookie_text_color, "#ffffff")
+  const accent = str(t.primary_color, "#6366f1")
   useEffect(() => {
-    try {
-      setAnswered(window.localStorage.getItem("storelib:cookies") !== null)
-    } catch {
-      // Nowhere to record an answer, so nowhere to remember one: showing a
-      // banner that cannot be dismissed permanently is worse than not showing.
-      setAnswered(true)
+    if (!on) {
+      setSiteConsentTheme(null)
+      return
     }
-  }, [])
-
-  if (!t.cookie_banner_enabled || answered) return null
-
-  const answer = (value: "accepted" | "declined") => {
-    setAnswered(true)
-    try {
-      window.localStorage.setItem("storelib:cookies", value)
-    } catch {
-      // Dismissed for this page view.
-    }
-  }
-
-  return (
-    <div
-      className="fixed inset-x-3 bottom-3 z-50 flex flex-col gap-3 rounded-xl p-4 shadow-lg @[640px]:flex-row @[640px]:items-center sm:inset-x-6 sm:bottom-6"
-      style={{
-        background: str(t.cookie_bg, "#0f172a"),
-        color: str(t.cookie_text_color, "#ffffff"),
-      }}
-      role="dialog"
-      aria-label="Cookie consent"
-    >
-      <p className="flex-1 text-[13px] leading-relaxed">
-        {str(t.cookie_banner_text, "We use cookies to improve your experience on this site.")}
-      </p>
-      <div className="flex shrink-0 gap-2">
-        <button
-          type="button"
-          className="rounded-lg border px-4 py-2 text-[13px] font-medium"
-          style={{ borderColor: "currentColor" }}
-          onClick={() => answer("declined")}
-        >
-          {str(t.cookie_decline_text, "Decline")}
-        </button>
-        <button
-          type="button"
-          className="rounded-lg px-4 py-2 text-[13px] font-semibold"
-          style={{ background: str(t.primary_color, "#6366f1"), color: "#ffffff" }}
-          onClick={() => answer("accepted")}
-        >
-          {str(t.cookie_accept_text, "Accept all")}
-        </button>
-      </div>
-    </div>
-  )
+    setSiteConsentTheme({
+      /* Rich text in the setting; the banner shows it as words. */
+      text: text.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim() || undefined,
+      acceptText: accept || undefined,
+      declineText: decline || undefined,
+      background: bg,
+      color,
+      accent,
+    })
+    return () => setSiteConsentTheme(null)
+  }, [on, text, accept, decline, bg, color, accent])
+  return null
 }
 
 // ── The page ────────────────────────────────────────────────────────────────
@@ -481,7 +453,7 @@ export function ThemePage({
 
       {footers.map((section) => render(section, "footer", false))}
 
-      <CookieBanner theme={theme} />
+      <SiteCookieStyle theme={theme} />
     </div>
     </SiteCartProvider>
     </SectionSandboxProvider>

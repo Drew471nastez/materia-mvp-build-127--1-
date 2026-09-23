@@ -303,7 +303,7 @@ export const THEME_SETTINGS_GROUPS: ThemeSettingsGroup[] = [
     label: "Cookie & privacy",
     icon: "shield",
     fields: [
-      { id: "cookie_banner_enabled", label: "Show cookie consent banner", type: "toggle", default: false },
+      { id: "cookie_banner_enabled", label: "Use my own words and colours", type: "toggle", default: false },
       { id: "cookie_banner_text", label: "Banner text", type: "textarea", placeholder: "We use cookies to improve your experience..." },
       { id: "cookie_accept_text", label: "Accept button text", type: "text", placeholder: "Accept all" },
       { id: "cookie_decline_text", label: "Decline button text", type: "text", placeholder: "Decline" },

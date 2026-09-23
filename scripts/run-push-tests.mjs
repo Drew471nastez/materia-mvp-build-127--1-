@@ -140,6 +140,8 @@ const SUITES = [
   "tests/section-sandbox.test.ts",
   "tests/agent-connection.test.ts",
   "tests/github-sync.test.ts",
+  "tests/date-range.test.ts",
+  "tests/cookie-consent.test.ts",
   "tests/image-picker.test.ts",
   "tests/site-pages.test.ts",
   "tests/admin-auth.test.ts",

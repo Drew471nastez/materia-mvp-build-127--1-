@@ -48,6 +48,14 @@ export async function GET(request: NextRequest) {
       case "all": timeRangeDate = new Date(0); break
       default: timeRangeDate.setDate(now.getDate() - 30)
     }
+    /* A range from the shared date picker: ?start=&end=, both instants. */
+    let timeRangeEnd: Date | null = null
+    const startParam = Date.parse(searchParams.get("start") ?? "")
+    const endParam = Date.parse(searchParams.get("end") ?? "")
+    if (Number.isFinite(startParam) && Number.isFinite(endParam) && endParam > startParam) {
+      timeRangeDate = new Date(startParam)
+      timeRangeEnd = new Date(endParam)
+    }
 
     // FETCH ALL CAMPAIGNS with specified status (using admin to bypass RLS)
     const { data: allCampaigns, error: campaignsError } = await adminSupabase
@@ -67,7 +75,7 @@ export async function GET(request: NextRequest) {
     // Filter campaigns by time range for stats ONLY
     const campaignsInTimeRange = (allCampaigns || []).filter(c => {
       const date = c.sent_at ? new Date(c.sent_at) : new Date(c.created_at)
-      return date >= timeRangeDate
+      return date >= timeRangeDate && (!timeRangeEnd || date < timeRangeEnd)
     })
 
     // Calculate TOTAL SENT from campaigns in time range
@@ -114,6 +122,7 @@ export async function GET(request: NextRequest) {
       .select("event_type, campaign_id")
       .eq("creator_id", creator.id)
       .gte("created_at", timeRangeDate.toISOString())
+      .lt("created_at", (timeRangeEnd ?? new Date(Date.now() + 60_000)).toISOString())
 
     if (creatorEvents) {
       const campaignIdSet = new Set(campaignIds)

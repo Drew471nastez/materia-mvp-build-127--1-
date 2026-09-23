@@ -1,8 +1,11 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback } from "react"
+import { useMemo, useState, useEffect, useRef, useCallback } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { Switch } from "@/components/ui/switch"
+import { DateRangePicker } from "@/components/app/date-range-picker"
+import { viewerTimeZone } from "@/lib/orders/time-zone"
+import { boundsOf, resolveValue, todayIn, type RangeValue } from "@/lib/date-range/range"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import {
@@ -169,131 +172,6 @@ const tabs = [
   { id: "drafts" as const, label: "Drafts", icon: FileText },
 ]
 
-const statsTimeframeOptions = [
-  { value: "7d" as const, label: "Last 7 days" },
-  { value: "30d" as const, label: "Last 30 days" },
-  { value: "90d" as const, label: "Last 90 days" },
-  { value: "all" as const, label: "All time" },
-]
-
-function TimeframeBottomSheet({
-  isOpen,
-  onClose,
-  selectedValue,
-  onSelect,
-}: {
-  isOpen: boolean
-  onClose: () => void
-  selectedValue: "7d" | "30d" | "90d" | "all"
-  onSelect: (value: "7d" | "30d" | "90d" | "all") => void
-}) {
-  const [isVisible, setIsVisible] = useState(false)
-  const [isAnimating, setIsAnimating] = useState(false)
-  const [dragY, setDragY] = useState(0)
-  const [isDragging, setIsDragging] = useState(false)
-  const startY = useRef(0)
-
-  useEffect(() => {
-    if (isOpen && !isVisible) {
-      setIsVisible(true)
-      document.body.style.overflow = "hidden"
-      requestAnimationFrame(() => requestAnimationFrame(() => setIsAnimating(true)))
-    } else if (!isOpen && isVisible) {
-      setIsAnimating(false)
-      document.body.style.overflow = ""
-      const timer = setTimeout(() => {
-        setIsVisible(false)
-        setDragY(0)
-      }, 400)
-      return () => clearTimeout(timer)
-    }
-
-    return () => {
-      document.body.style.overflow = ""
-    }
-  }, [isOpen, isVisible])
-
-  const handleClose = () => {
-    setIsAnimating(false)
-    setDragY(0)
-    setTimeout(onClose, 400)
-  }
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    const touch = e.touches[0]
-    startY.current = touch.clientY
-    setIsDragging(true)
-  }
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!isDragging) return
-    const diff = e.touches[0].clientY - startY.current
-    if (diff > 0) setDragY(diff * 0.9)
-  }
-
-  const handleTouchEnd = () => {
-    if (!isDragging) return
-    setIsDragging(false)
-    if (dragY > 90) {
-      handleClose()
-    } else {
-      setDragY(0)
-    }
-  }
-
-  if (!isVisible) return null
-
-  return (
-    <div className="fixed inset-0 z-[100] md:hidden">
-      <div
-        className={`absolute inset-0 bg-black/50 backdrop-blur-[2px] transition-opacity duration-400 ease-out ${
-          isAnimating ? "opacity-100" : "opacity-0"
-        }`}
-        style={{ transitionDuration: "400ms" }}
-        onClick={handleClose}
-      />
-      <div
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-        className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl"
-        style={{
-          transform: isAnimating ? `translateY(${dragY}px)` : "translateY(100%)",
-          transition: isDragging ? "none" : "transform 360ms cubic-bezier(0.22, 0.9, 0.24, 1)",
-        }}
-      >
-        <div className="pt-3 pb-2">
-          <button onClick={handleClose} className="w-full flex justify-center py-2 cursor-pointer touch-none">
-            <div className="w-10 h-1.5 bg-gray-300 rounded-full" />
-          </button>
-        </div>
-        <div className="px-4 pb-4">
-          <h3 className="text-[16px] font-semibold text-[#1a1a2e] mb-4">Select time period</h3>
-          <div className="space-y-1 max-h-[50vh] overflow-y-auto overscroll-contain">
-            {statsTimeframeOptions.map((option) => (
-              <button
-                key={option.value}
-                onClick={() => {
-                  onSelect(option.value)
-                  handleClose()
-                }}
-                className={`w-full text-left px-4 py-3 rounded-xl text-[15px] font-medium transition-colors ${
-                  selectedValue === option.value
-                    ? "bg-[#f5f3ff] text-[#8b5cf6]"
-                    : "text-[#374151] hover:bg-[#f9fafb] active:bg-[#f3f4f6]"
-                }`}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="h-[env(safe-area-inset-bottom)]" />
-      </div>
-    </div>
-  )
-}
-
 const FLOW_TRIGGERS = [
   {
     id: "purchase",
@@ -378,8 +256,17 @@ export default function EmailsPage() {
     open_rate: number
     click_rate: number
   } | null>(null)
-  const [statsTimeRange, setStatsTimeRange] = useState<"7d" | "30d" | "90d" | "all">("30d")
-  const [isStatsTimeframeSheetOpen, setIsStatsTimeframeSheetOpen] = useState(false)
+  /* The date picker every page in /app shares. */
+  const statsTimeZone = useMemo(() => viewerTimeZone(), [])
+  const statsToday = todayIn(statsTimeZone, Date.now())
+  const [statsPeriod, setStatsPeriod] = useState<RangeValue>(() => resolveValue({ preset: "last_30_days" }, statsToday, "last_30_days"))
+  const statsTimeRange = `${statsPeriod.preset}:${statsPeriod.start}:${statsPeriod.end}`
+  /** The period as the two instants the stats routes read. All time sends none. */
+  const statsRangeQuery = () => {
+    if (statsPeriod.preset === "all_time") return "timeRange=all"
+    const b = boundsOf(statsPeriod, statsTimeZone, Date.now())
+    return `start=${encodeURIComponent(new Date(b.start).toISOString())}&end=${encodeURIComponent(new Date(b.end).toISOString())}`
+  }
   const [isMobileTopToastVisible, setIsMobileTopToastVisible] = useState(false)
 
   // Flows state
@@ -588,8 +475,8 @@ export default function EmailsPage() {
         const timestamp = Date.now()
         const randomId = Math.random().toString(36).substring(7)
         const endpoint = currentTab === "published"
-          ? `/api/email/stats?timeRange=${statsTimeRange}&_t=${timestamp}&_r=${randomId}`
-          : `/api/email/campaigns?status=${status}&timeRange=${statsTimeRange}&_t=${timestamp}&_r=${randomId}`
+          ? `/api/email/stats?${statsRangeQuery()}&_t=${timestamp}&_r=${randomId}`
+          : `/api/email/campaigns?status=${status}&${statsRangeQuery()}&_t=${timestamp}&_r=${randomId}`
 
         console.log("[emails page] Fetching:", endpoint)
 
@@ -2638,12 +2525,6 @@ Tips:
         </div>
       </div>
 
-      <TimeframeBottomSheet
-        isOpen={isStatsTimeframeSheetOpen}
-        onClose={() => setIsStatsTimeframeSheetOpen(false)}
-        selectedValue={statsTimeRange}
-        onSelect={setStatsTimeRange}
-      />
 
       {/* Content */}
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6">
@@ -2988,43 +2869,7 @@ Tips:
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <h2 className="text-sm font-medium text-gray-700">Overview</h2>
-                  <>
-                    <div className="hidden md:block">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="outline" className="h-9 px-3 rounded-lg text-sm font-medium gap-2 cursor-pointer">
-                            <Calendar className="h-4 w-4 text-gray-500" />
-                            {statsTimeRange === "7d" && "Last 7 days"}
-                            {statsTimeRange === "30d" && "Last 30 days"}
-                            {statsTimeRange === "90d" && "Last 90 days"}
-                            {statsTimeRange === "all" && "All time"}
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="rounded-xl min-w-[140px]">
-                          {statsTimeframeOptions.map((option) => (
-                            <DropdownMenuItem
-                              key={option.value}
-                              onClick={() => setStatsTimeRange(option.value)}
-                              className={cn("cursor-pointer", statsTimeRange === option.value && "bg-gray-100")}
-                            >
-                              {option.label}
-                            </DropdownMenuItem>
-                          ))}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                    <Button
-                      variant="outline"
-                      onClick={() => setIsStatsTimeframeSheetOpen(true)}
-                      className="md:hidden h-9 px-3 rounded-lg text-sm font-medium gap-2 cursor-pointer"
-                    >
-                      <Calendar className="h-4 w-4 text-gray-500" />
-                      {statsTimeRange === "7d" && "Last 7 days"}
-                      {statsTimeRange === "30d" && "Last 30 days"}
-                      {statsTimeRange === "90d" && "Last 90 days"}
-                      {statsTimeRange === "all" && "All time"}
-                    </Button>
-                  </>
+                  <DateRangePicker value={statsPeriod} onChange={setStatsPeriod} today={statsToday} align="end" />
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
                   <div className="bg-white rounded-xl border p-4">

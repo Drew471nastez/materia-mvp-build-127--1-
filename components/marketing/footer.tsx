@@ -3,7 +3,7 @@
 import Link from "next/link"
 import Image from "next/image"
 import { useState, useEffect } from "react"
-import { COOKIE_PREFS_EVENT } from "@/components/cookie-consent-banner"
+import { openCookiePreferences } from "@/lib/consent/client"
 import { isNativeApp } from "@/lib/platform-utils"
 import { STORELIB_LOGO } from "@/lib/brand/logo"
 
@@ -175,7 +175,7 @@ export function MarketingFooter() {
                   <li>
                     <button
                       type="button"
-                      onClick={() => window.dispatchEvent(new CustomEvent(COOKIE_PREFS_EVENT))}
+                      onClick={() => openCookiePreferences()}
                       className={`${linkClass} text-left`}
                     >
                       Cookie preferences

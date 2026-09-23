@@ -15,6 +15,7 @@
  * a flat row, and the columns the footer was designed around did not exist.
  */
 
+import { openCookiePreferences } from "@/lib/consent/client"
 import { useState, type FormEvent } from "react"
 import { Facebook, Instagram, Twitter, Youtube } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -338,6 +339,15 @@ export function FooterSection({
           style={{ borderColor: divider, color: textColor }}
         >
           {str(s.copyright, `© ${new Date().getFullYear()} ${str(s.logo_text, theme.brand_name ?? "My Store")}`)}
+          {/* How a visitor changes their cookie choice later: as easy as making it. */}
+          <button
+            type="button"
+            onClick={() => openCookiePreferences()}
+            className="ml-3 underline-offset-2 opacity-80 hover:underline hover:opacity-100"
+            style={{ color: textColor }}
+          >
+            Cookie preferences
+          </button>
         </div>
       </div>
     </SectionWrapper>

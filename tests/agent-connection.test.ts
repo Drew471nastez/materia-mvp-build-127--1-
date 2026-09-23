@@ -236,7 +236,7 @@ async function main() {
     /id: "advanced", label: "Advanced"/.test(read("components/website-builder/website-settings/types.ts")) &&
       /<AgentConnectionsPanel installId=\{ctx\.installId\} tool=\{tool\} \/>/.test(read("components/website-builder/website-settings/advanced.tsx")))
   check("which shows the token once, with the lines that use it",
-    /It is not shown again/.test(panel) && /claude mcp add --transport http storelib/.test(panel) && /bearer_token_env_var = "STORELIB_TOKEN"/.test(panel))
+    /The token is shown once/.test(panel) && /claude mcp add --transport http storelib/.test(panel) && /bearer_token_env_var = "STORELIB_TOKEN"/.test(panel))
   check("the token lives in memory only", !/localStorage|sessionStorage/.test(panel))
   check("disconnecting asks first", /confirmingId === c\.id/.test(panel))
 

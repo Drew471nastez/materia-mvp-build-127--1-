@@ -1,6 +1,8 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import { cn } from "@/lib/utils"
+import { openCookiePreferences } from "@/lib/consent/client"
 import { isNativeApp } from "@/lib/platform-utils"
 import { openExternal } from "@/lib/native-bridge"
 import { STORELIB_LOGO } from "@/lib/brand/logo"
@@ -243,6 +245,27 @@ export function SellerFooter({ isMobile, surface }: SellerFooterProps = {}) {
           <ResponsiveContent />
         </div>
       )}
+      {/* How a visitor changes their cookie choice later: as easy as making it. */}
+      <CookiePreferencesLink color={surface?.mutedColor} />
     </footer>
+  )
+}
+
+function CookiePreferencesLink({ color }: { color?: string }) {
+  /* The app has no banner, so nothing to reopen there. */
+  const [show, setShow] = useState(false)
+  useEffect(() => setShow(!isNativeApp()), [])
+  if (!show) return null
+  return (
+    <div className="pb-4 text-center">
+      <button
+        type="button"
+        onClick={() => openCookiePreferences()}
+        className="text-[12px] text-gray-500 underline-offset-2 hover:underline"
+        style={color ? { color } : undefined}
+      >
+        Cookie preferences
+      </button>
+    </div>
   )
 }

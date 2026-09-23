@@ -13,7 +13,7 @@
  * not connected; connected but no repository picked; linked.
  */
 import { useCallback, useEffect, useState } from "react"
-import { ExternalLink, Loader2 } from "lucide-react"
+import { ArrowDownToLine, ArrowUpFromLine, ExternalLink, Loader2 } from "lucide-react"
 import { relativeTime } from "@/lib/website-builder/relative-time"
 
 interface Link {
@@ -24,6 +24,17 @@ interface Link {
   lastSyncedAt: string | null
   lastSyncedSha: string | null
   lastError: string | null
+  pushOnSave: boolean
+  pullOnPush: boolean
+}
+
+interface SyncEvent {
+  id: number
+  direction: "to_github" | "from_github"
+  ok: boolean
+  summary: string
+  commit_sha: string | null
+  created_at: string
 }
 
 interface Status {
@@ -33,6 +44,7 @@ interface Status {
   repos: { fullName: string; defaultBranch: string; private: boolean }[]
   reposError?: string | null
   accounts: { installationId: number; account: string }[]
+  events: SyncEvent[]
 }
 
 /** What GitHub's round trip came back with, from ?github= on the editor's URL. */
@@ -52,6 +64,46 @@ export function GitHubMark({ className }: { className?: string }) {
   )
 }
 
+type Action = "select" | "export" | "disconnect" | "reuse" | "pull" | "settings"
+
+/**
+ * A direction and its switch. The switch is drawn here rather than borrowed:
+ * the thumb is placed with `left`, then moved by exactly the track's width
+ * less the thumb and both gaps, so it cannot land outside the track.
+ */
+function SyncRow({ icon, title, detail, on, busy, onChange }: {
+  icon: React.ReactNode
+  title: string
+  detail: string
+  on: boolean
+  busy: boolean
+  onChange: (v: boolean) => void
+}) {
+  return (
+    <label className="flex cursor-pointer items-center gap-3 border-b border-white/[0.07] px-3.5 py-3 last:border-0">
+      <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${on ? "bg-white text-[#0f0f0f]" : "bg-white/[0.06] text-white/40"}`}>{icon}</span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-[14px] font-medium">{title}</span>
+        <span className="block text-[13px] text-white/50">{on ? detail : "Off"}</span>
+      </span>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={on}
+        aria-label={title}
+        disabled={busy}
+        onClick={() => onChange(!on)}
+        className={`relative h-[22px] w-[40px] shrink-0 rounded-full transition-colors duration-200 disabled:opacity-60 ${on ? "bg-emerald-500" : "bg-white/15"}`}
+      >
+        <span
+          aria-hidden
+          className={`absolute left-[3px] top-[3px] h-4 w-4 rounded-full bg-white shadow transition-transform duration-200 ${on ? "translate-x-[18px]" : "translate-x-0"}`}
+        />
+      </button>
+    </label>
+  )
+}
+
 const STEPS = [
   ["Connect a repository", "Storelib writes this website's sections into it, with an AGENTS.md that tells Claude Code or Codex how they work."],
   ["Ask your agent for a change", "It edits a file in sections/ and pushes, like any other code change."],
@@ -61,7 +113,7 @@ const STEPS = [
 export function GitHubSyncPanel({ installId, returned }: { installId: string; returned?: string | null }) {
   const [status, setStatus] = useState<Status | null>(null)
   const [error, setError] = useState<string | null>(returned && RETURNED[returned] ? RETURNED[returned] : null)
-  const [busy, setBusy] = useState<null | "select" | "export" | "disconnect" | "reuse">(null)
+  const [busy, setBusy] = useState<null | Action>(null)
   const [repo, setRepo] = useState("")
   const [branch, setBranch] = useState("")
   const [folder, setFolder] = useState("")
@@ -88,7 +140,7 @@ export function GitHubSyncPanel({ installId, returned }: { installId: string; re
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [installId])
 
-  const post = async (body: Record<string, unknown>, kind: "select" | "export" | "reuse") => {
+  const post = async (body: Record<string, unknown>, kind: Action) => {
     setBusy(kind)
     setError(null)
     setNotice(null)
@@ -98,9 +150,14 @@ export function GitHubSyncPanel({ installId, returned }: { installId: string; re
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       })
-      const d = (await res.json().catch(() => ({}))) as { error?: string; upToDate?: boolean }
+      const d = (await res.json().catch(() => ({}))) as { error?: string; upToDate?: boolean; saved?: number; failed?: unknown[] }
       if (!res.ok) throw new Error(d.error || "GitHub did not answer")
-      if (kind !== "reuse") setNotice(d.upToDate ? "GitHub already has the latest." : "Sent to GitHub.")
+      if (kind === "export" || kind === "select") setNotice(d.upToDate ? "GitHub already has the latest." : "Pushed to GitHub.")
+      if (kind === "pull") {
+        const n = d.saved ?? 0
+        const bad = d.failed?.length ?? 0
+        setNotice(n === 0 && bad === 0 ? "Already up to date." : `${n} section${n === 1 ? "" : "s"} pulled as a draft${bad ? `, ${bad} did not compile` : ""}.`)
+      }
       await load()
     } catch (e) {
       setError(e instanceof Error ? e.message : "GitHub did not answer")
@@ -140,7 +197,7 @@ export function GitHubSyncPanel({ installId, returned }: { installId: string; re
         </div>
       </div>
 
-      <ol className="grid gap-px border-t border-white/[0.07] bg-white/[0.07] md:grid-cols-3">
+      {!status?.link?.repo && <ol className="grid gap-px border-t border-white/[0.07] bg-white/[0.07] md:grid-cols-3">
         {STEPS.map(([title, body], i) => (
           <li key={title} className="bg-[#141414] px-5 py-4 md:px-6">
             <p className="text-[13px] font-medium text-white/40">{i + 1}</p>
@@ -148,7 +205,7 @@ export function GitHubSyncPanel({ installId, returned }: { installId: string; re
             <p className="mt-1 text-[13px] leading-relaxed text-white/50">{body}</p>
           </li>
         ))}
-      </ol>
+      </ol>}
 
       <div className="border-t border-white/[0.07] p-5 md:p-6">
         {status === null ? (
@@ -259,47 +316,105 @@ export function GitHubSyncPanel({ installId, returned }: { installId: string; re
                   {link.lastSyncedAt ? `Synced ${relativeTime(link.lastSyncedAt)}` : "Not synced yet"}
                 </p>
               </div>
-              <div className="flex shrink-0 items-center gap-2">
-                {confirmDisconnect ? (
-                  <>
-                    <button type="button" onClick={() => setConfirmDisconnect(false)} className="h-9 rounded-lg px-3 text-[14px] text-white/70 hover:text-white">
-                      Keep
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void disconnect()}
-                      className="h-9 rounded-lg bg-red-500/90 px-4 text-[14px] font-medium text-white hover:bg-red-500"
-                    >
-                      Disconnect
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <button
-                      type="button"
-                      disabled={busy !== null}
-                      onClick={() => void post({ action: "export" }, "export")}
-                      className="inline-flex h-9 items-center gap-2 rounded-lg bg-white px-4 text-[14px] font-medium text-[#0f0f0f] hover:opacity-90 disabled:opacity-50"
-                    >
-                      {busy === "export" && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                      Send to GitHub
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setConfirmDisconnect(true)}
-                      className="h-9 rounded-lg border border-white/15 px-4 text-[14px] font-medium text-white transition-colors hover:bg-white/[0.1]"
-                    >
-                      Disconnect
-                    </button>
-                  </>
-                )}
+              <div className="flex shrink-0 flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  disabled={busy !== null}
+                  onClick={() => void post({ action: "pull" }, "pull")}
+                  className="inline-flex h-9 items-center gap-2 rounded-lg border border-white/15 px-3.5 text-[14px] font-medium text-white transition-colors hover:bg-white/[0.08] disabled:opacity-50"
+                >
+                  {busy === "pull" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ArrowDownToLine className="h-3.5 w-3.5" />}
+                  Pull
+                </button>
+                <button
+                  type="button"
+                  disabled={busy !== null}
+                  onClick={() => void post({ action: "export" }, "export")}
+                  className="inline-flex h-9 items-center gap-2 rounded-lg bg-white px-3.5 text-[14px] font-medium text-[#0f0f0f] hover:opacity-90 disabled:opacity-50"
+                >
+                  {busy === "export" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ArrowUpFromLine className="h-3.5 w-3.5" />}
+                  Push
+                </button>
               </div>
             </div>
-            {link.lastError && !error && <p className="mt-3 text-[14px] text-amber-300">Last push: {link.lastError}</p>}
-            <p className="mt-4 text-[13px] leading-relaxed text-white/45">
-              Only files named sections/&lt;name&gt;.storelib are read. Each push gets a Storelib check on GitHub: green when every
-              file compiled, red with the first error when one did not. Deleting a file on GitHub leaves the section on your site.
-            </p>
+
+            {/* Which way changes travel. Two switches, drawn as the two
+                directions they are, so what they do needs no paragraph. */}
+            <div className="mt-5 overflow-hidden rounded-xl border border-white/10">
+              <SyncRow
+                icon={<ArrowUpFromLine className="h-4 w-4" />}
+                title="Builder to GitHub"
+                detail="Every section you save here is committed"
+                on={link.pushOnSave}
+                busy={busy === "settings"}
+                onChange={(v) => void post({ action: "settings", pushOnSave: v }, "settings")}
+              />
+              <SyncRow
+                icon={<ArrowDownToLine className="h-4 w-4" />}
+                title="GitHub to builder"
+                detail="Every push to the branch arrives as a draft"
+                on={link.pullOnPush}
+                busy={busy === "settings"}
+                onChange={(v) => void post({ action: "settings", pullOnPush: v }, "settings")}
+              />
+            </div>
+
+            {link.lastError && !error && (
+              <p className="mt-3 rounded-lg border border-amber-400/25 bg-amber-400/[0.07] px-3 py-2 text-[13px] text-amber-200">{link.lastError}</p>
+            )}
+
+            {/* What went each way, lately. */}
+            {status.events.length > 0 && (
+              <div className="mt-5">
+                <p className="text-[13px] font-medium text-white/50">Recent</p>
+                <ul className="mt-2 space-y-px overflow-hidden rounded-xl border border-white/10">
+                  {status.events.map((ev) => (
+                    <li key={ev.id} className="flex items-center gap-3 bg-white/[0.02] px-3.5 py-2.5 text-[13px]">
+                      <span
+                        className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md ${ev.ok ? "bg-white/[0.06] text-white/70" : "bg-red-500/15 text-red-300"}`}
+                        aria-label={ev.direction === "to_github" ? "To GitHub" : "From GitHub"}
+                      >
+                        {ev.direction === "to_github" ? <ArrowUpFromLine className="h-3.5 w-3.5" /> : <ArrowDownToLine className="h-3.5 w-3.5" />}
+                      </span>
+                      <span className={`min-w-0 flex-1 truncate ${ev.ok ? "text-white/80" : "text-red-200"}`}>{ev.summary}</span>
+                      {ev.commit_sha && link.repo && (
+                        <a
+                          href={`https://github.com/${link.repo}/commit/${ev.commit_sha}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="hidden shrink-0 font-mono text-[12px] text-white/40 hover:text-white sm:inline"
+                        >
+                          {ev.commit_sha.slice(0, 7)}
+                        </a>
+                      )}
+                      <span className="shrink-0 text-[12px] text-white/35">{relativeTime(ev.created_at)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2 text-[13px]">
+              <button
+                type="button"
+                disabled={busy !== null}
+                onClick={() => void post({ action: "change-repo" }, "reuse")}
+                className="text-white/60 underline-offset-2 hover:text-white hover:underline disabled:opacity-50"
+              >
+                Change repository
+              </button>
+              {confirmDisconnect ? (
+                <span className="flex items-center gap-3">
+                  <span className="text-white/60">Disconnect GitHub? The repository stays as it is.</span>
+                  <button type="button" onClick={() => setConfirmDisconnect(false)} className="text-white/70 hover:text-white">Keep</button>
+                  <button type="button" onClick={() => void disconnect()} className="font-medium text-red-300 hover:text-red-200">Disconnect</button>
+                </span>
+              ) : (
+                <button type="button" onClick={() => setConfirmDisconnect(true)} className="text-white/60 underline-offset-2 hover:text-white hover:underline">
+                  Disconnect
+                </button>
+              )}
+            </div>
           </div>
         )}
 

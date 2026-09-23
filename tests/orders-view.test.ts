@@ -25,7 +25,8 @@ import {
   type OrderRow,
 } from "../lib/orders/order-view"
 import { readMetrics } from "../lib/orders/metrics"
-import { DEFAULT_RANGE, parseRange, rangeLabel, rangeWindow, serializeRange, windowLabel } from "../lib/orders/range"
+import { DEFAULT_PRESET, rangeWindow, readOrdersPeriod, serializePeriod } from "../lib/orders/range"
+import { presetRange, rangeLabel, type PresetId, type RangeValue } from "../lib/date-range/range"
 import { orderSourceFrom, orderSourceFromRequest, tagOrderSource } from "../lib/orders/order-source"
 import { readTimeZone } from "../lib/orders/time-zone"
 
@@ -133,24 +134,26 @@ async function main() {
   console.log("\nOrders: the date range")
   {
     const now = Date.parse("2025-04-08T15:30:00Z")
-    check("the last 30 days until the creator picks another", DEFAULT_RANGE.key === "30d")
-    const today = rangeWindow({ key: "today" }, now, "UTC")
+    const day = "2025-04-08"
+    const preset = (id: PresetId, firstDay?: string): RangeValue => ({ preset: id, ...presetRange(id, day, firstDay) })
+    const prev = { mode: "previous_period" } as const
+    check("the last 30 days until the creator picks another", DEFAULT_PRESET === "last_30_days" && readOrdersPeriod(new URLSearchParams(), null, day).period.preset === "last_30_days")
+    const today = rangeWindow(preset("today"), prev, now, "UTC")
     check("Today runs from midnight to now", today.start === Date.parse("2025-04-08T00:00:00Z") && today.end === now)
     check("  compared with yesterday up to the same time", today.previous!.start === today.start - DAY && today.previous!.end === now - DAY)
-    const month = rangeWindow({ key: "30d" }, now, "UTC")
+    const month = rangeWindow(preset("last_30_days"), prev, now, "UTC")
     check("Last 30 days is thirty days including today", month.start === Date.parse("2025-03-10T00:00:00Z"), new Date(month.start).toISOString())
-    const ytd = rangeWindow({ key: "ytd" }, now, "Europe/Bucharest")
+    const ytd = rangeWindow(preset("year_to_date"), prev, now, "Europe/Bucharest")
     check("This year starts at New Year's midnight where the creator is", new Date(ytd.start).toISOString() === "2024-12-31T22:00:00.000Z", new Date(ytd.start).toISOString())
-    const all = rangeWindow({ key: "all" }, now, "UTC", Date.parse("2023-06-02T10:00:00Z"))
+    const all = rangeWindow(preset("all_time", "2023-06-02"), prev, now, "UTC")
     check("All time reaches the first order, with nothing to compare it with", all.start === Date.parse("2023-06-02T00:00:00Z") && all.previous === null)
-    const custom = parseRange("custom:2025-02-01:2025-02-10")!
-    const cw = rangeWindow(custom, now, "UTC")
+    const custom = readOrdersPeriod(new URLSearchParams(), "custom:2025-02-01:2025-02-10", day).period
+    const cw = rangeWindow(custom, prev, now, "UTC")
     check("a custom range covers both of its days", cw.start === Date.parse("2025-02-01T00:00:00Z") && cw.end === Date.parse("2025-02-11T00:00:00Z"))
-    check("  and reads as its days", rangeLabel(custom, "UTC") === "Feb 1 \u2013 Feb 10, 2025", rangeLabel(custom, "UTC"))
-    check("  and round-trips through the cookie", serializeRange(custom) === "custom:2025-02-01:2025-02-10" && parseRange(encodeURIComponent("custom:2025-02-01:2025-02-10"))?.to === "2025-02-10")
-    check("a reversed custom range is put the right way round", parseRange("custom:2025-02-10:2025-02-01")?.from === "2025-02-01")
-    check("junk is not a range", parseRange("custom:2025-02-30:2025-03-01") === null && parseRange("forever") === null)
-    check("the days under the button", windowLabel(month, "UTC") === "Mar 10 \u2013 Apr 8, 2025", windowLabel(month, "UTC"))
+    check("  and reads as its days", rangeLabel(custom) === "Feb 1\u201310, 2025", rangeLabel(custom))
+    check("  and round-trips through the cookie", readOrdersPeriod(new URLSearchParams(), encodeURIComponent(serializePeriod(custom, prev)), day).period.end === "2025-02-10")
+    check("a reversed custom range is put the right way round", readOrdersPeriod(new URLSearchParams("range=custom&from=2025-02-10&to=2025-02-01"), null, day).period.start === "2025-02-01")
+    check("junk is not a range", readOrdersPeriod(new URLSearchParams("range=custom&from=2025-02-30&to=2025-03-01"), null, day).period.preset === "last_30_days")
   }
 
   console.log("\nOrders: the five figures")
@@ -166,7 +169,7 @@ async function main() {
       row("old", "2025-03-01T10:00:00Z", { status: "refunded", refund_amount_cents: 700, refunded_at: "2025-04-08T11:00:00Z" }),
       row("bad", "2025-04-08T12:00:00Z", { status: "failed" }),
     ])
-    const w = rangeWindow({ key: "today" }, now, "UTC")
+    const w = rangeWindow({ preset: "today", start: "2025-04-08", end: "2025-04-08" }, { mode: "previous_period" }, now, "UTC")
     const m = Object.fromEntries(readMetrics(orders, w, w.previous, "UTC").map((r) => [r.key, r]))
     check("orders: the basket once, not the failed payment", m.orders.value === 3, m.orders.value)
     check("  compared with yesterday up to this hour", m.orders.previous === 1 && m.orders.change === 2, m.orders)
@@ -178,7 +181,7 @@ async function main() {
     check("customers: two people, however many orders", m.customers.value === 2, m.customers.value)
     check("a refund counts on the day it was refunded", m.refunds.value === 700, m.refunds.value)
     check("the line has a point for the hour of each order", m.orders.series[9] === 1 && m.orders.series[14] === 1, m.orders.series)
-    const allTime = rangeWindow({ key: "all" }, now, "UTC", Date.parse("2025-03-01T10:00:00Z"))
+    const allTime = rangeWindow({ preset: "all_time", ...presetRange("all_time", "2025-04-08", "2025-03-01") }, { mode: "previous_period" }, now, "UTC")
     const quiet = readMetrics(orders, allTime, allTime.previous, "UTC")
     check("all time has figures and no comparison", quiet.every((r) => r.change === null) && quiet.find((r) => r.key === "orders")!.value === 6)
   }
@@ -278,7 +281,7 @@ async function main() {
     check("opening an order does not ask the server", !/router\.push\(/.test(client))
     const list = read("app/app/orders/orders-list.tsx")
     check("the checkbox and Order columns are frozen", (list.match(/orders-sticky left-0/g) ?? []).length >= 2 && (list.match(/orders-sticky orders-edge left-10/g) ?? []).length >= 2)
-    check("the export does not let a cell run as a formula", /\^\[=\+\\-@\\t\\r\]/.test(client))
+    check("the export does not let a cell run as a formula", /\^\[=\+\\-@\\t\\r\]/.test(read("app/app/orders/export-dialog.tsx")))
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)

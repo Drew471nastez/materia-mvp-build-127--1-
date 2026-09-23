@@ -13,7 +13,8 @@
  * a version row beside it. Nothing reaches a visitor until the creator
  * publishes, and nothing reaches the account at all unless it compiles.
  */
-import { NextResponse, type NextRequest } from "next/server"
+import { NextResponse, after, type NextRequest } from "next/server"
+import { mirrorToGitHub } from "@/lib/github-sync/mirror"
 import { z } from "zod"
 import { reviewImages } from "@/lib/sites/agent/attachments"
 import { createClient } from "@/lib/supabase/server"
@@ -156,6 +157,14 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
     const saved = await saveDraft(supabase, installId, written.value.path, written.value.source)
     if (saved.ok === false) return { status: 500, body: { error: saved.error } }
     await recordVersion(supabase, installId, written.value.path, written.value.source, "save")
+    /* Also reached from inside the streamed answer; if `after` is not
+       available there, the commit is simply started without waiting. */
+    const change = { kind: "save" as const, path: written.value.path, content: written.value.source }
+    try {
+      after(() => mirrorToGitHub(installId, change))
+    } catch {
+      void mirrorToGitHub(installId, change)
+    }
 
     return {
       status: 200,

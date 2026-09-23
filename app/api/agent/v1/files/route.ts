@@ -12,7 +12,8 @@
  *
  * Authorization: Bearer slb_... , made under Website settings in the builder.
  */
-import { NextResponse } from "next/server"
+import { NextResponse, after } from "next/server"
+import { mirrorToGitHub } from "@/lib/github-sync/mirror"
 import { authenticateAgent } from "@/lib/agent-access/tokens"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { listFiles, readFile, writeSection, type OpResult } from "@/lib/agent-access/operations"
@@ -47,5 +48,9 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: "Send JSON: { path, source }" }, { status: 400 })
   }
   const base = typeof body.base_updated_at === "string" ? body.base_updated_at : undefined
-  return answer(await writeSection(createAdminClient(), who, body.path, body.source, base))
+  const path = body.path
+  const source = body.source
+  const r = await writeSection(createAdminClient(), who, path, source, base)
+  if (r.ok === true) after(() => mirrorToGitHub(who.installId, { kind: "save", path, content: source }))
+  return answer(r)
 }

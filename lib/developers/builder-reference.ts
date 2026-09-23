@@ -215,8 +215,8 @@ export const THEME_SETTING_DOCS: Record<string, { does: string; as?: Partial<Spe
   seo_twitter_card: { does: "A small or a large picture when a link is shared on X." },
   seo_robots: { does: "Off asks search engines not to list the site." },
 
-  cookie_banner_enabled: { does: "Asks visitors for consent before cookies that are not essential." },
-  cookie_banner_text: { does: "What the banner says." },
+  cookie_banner_enabled: { does: "Every site asks visitors before storing anything optional, and a visitor can change their answer from Cookie preferences in the footer. On, the banner uses the words and colours below instead of Storelib's." },
+  cookie_banner_text: { does: "What the banner says, in place of Storelib's sentence." },
   cookie_accept_text: { does: "The words on the accept button." },
   cookie_decline_text: { does: "The words on the decline button." },
   cookie_bg: { does: "The banner's colour." },

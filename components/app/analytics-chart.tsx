@@ -24,7 +24,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { ComponentProps } from "react"
 import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  AreaChart, Area, ReferenceLine,
+  AreaChart, Area, Line, ReferenceLine,
 } from "recharts"
 
 import { hapticTap } from "@/lib/native-bridge"
@@ -88,6 +88,24 @@ export interface AnalyticsChartData {
   refunds?: number
   conversion?: number
   ctr?: number
+  prev_views?: number
+  prev_sales?: number
+  prev_revenue?: number
+  prev_refunds?: number
+  prev_conversion?: number
+}
+
+/**
+ * The key of the comparison series for one metric filter, or null. Drawn
+ * only when one metric is showing: four solid lines and four dashed ones on
+ * one plot is a drawing nobody can read.
+ */
+function previousKeyFor(filter: string): keyof AnalyticsChartData | null {
+  if (filter === "views") return "prev_views"
+  if (filter === "orders") return "prev_sales"
+  if (filter === "revenue") return "prev_revenue"
+  if (filter === "conversion") return "prev_conversion"
+  return null
 }
 
 function AnalyticsChartWithTooltipInner({
@@ -98,6 +116,7 @@ function AnalyticsChartWithTooltipInner({
   isTouchDevice,
   formatPrice,
   isLoading = false,
+  compareLabel = null,
 }: {
   chartDisplayData: AnalyticsChartData[]
   analyticsMode: "store" | "onepage"
@@ -113,6 +132,8 @@ function AnalyticsChartWithTooltipInner({
    * to the metric's colour and the line grows into shape.
    */
   isLoading?: boolean
+  /** What the dashed line is, "Dec 1–Dec 31, 2025", or null for no comparison. */
+  compareLabel?: string | null
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const tooltipRef = useRef<HTMLDivElement>(null)
@@ -581,6 +602,13 @@ const SLOP_Y = 12
       if ((chartMetricFilter === "all" || chartMetricFilter === "orders" || chartMetricFilter === "revenue") && activePoint.refunds) addLine("refunds", activePoint.refunds)
       if (chartMetricFilter === "all" || chartMetricFilter === "revenue") addLine("revenue", activePoint.revenue)
       if (chartMetricFilter === "conversion") addLine("conversion", activePoint.conversion)
+      const prevKey = previousKeyFor(chartMetricFilter)
+      const prevVal = prevKey ? (activePoint[prevKey] as number | undefined) : undefined
+      if (compareLabel && prevKey && prevVal != null) {
+        const base = prevKey.replace("prev_", "")
+        const v = base === "revenue" ? formatPrice(prevVal) : base === "conversion" ? `${prevVal}%` : prevVal.toLocaleString()
+        lines.push({ label: "Compared", value: v })
+      }
     } else {
       if (onePageChartFilter === "all" || onePageChartFilter === "views") addLine("views", activePoint.views)
       if (onePageChartFilter === "all" || onePageChartFilter === "clicks") addLine("clicks", activePoint.clicks)
@@ -789,10 +817,12 @@ const SLOP_Y = 12
                   const name = p.dataKey as string
                   const val = p.value as number
                   const labels: Record<string, string> = { views: "Views", clicks: "Clicks", sales: "Orders", revenue: "Revenue", subscribers: "Subscribers", conversion: "Conversion", ctr: "CTR", refunds: "Refunds" }
-                  const displayLabel = labels[name] || name
+                  const isPrev = name.startsWith("prev_")
+                  const base = isPrev ? name.slice(5) : name
+                  const displayLabel = isPrev ? "Compared" : labels[name] || name
                   let displayVal: string
-                  if (name === "revenue") displayVal = formatPrice(val)
-                  else if (name === "conversion" || name === "ctr") displayVal = `${val}%`
+                  if (base === "revenue") displayVal = formatPrice(val)
+                  else if (base === "conversion" || base === "ctr") displayVal = `${val}%`
                   else displayVal = val.toLocaleString()
                   lines.push({ label: displayLabel, value: displayVal })
                 })
@@ -815,6 +845,22 @@ const SLOP_Y = 12
               strokeWidth={1}
               strokeDasharray="4 3"
               ifOverflow="extendDomain"
+            />
+          )}
+          {/* The comparison, dashed and quieter, under the line it is compared with. */}
+          {analyticsMode === "store" && compareLabel && !isLoading && previousKeyFor(chartMetricFilter) && (
+            <Line
+              type="monotone"
+              dataKey={previousKeyFor(chartMetricFilter) as string}
+              stroke={chartMetricFilter === "revenue" ? CHART_COLORS.revenue : chartMetricFilter === "conversion" ? "#10b981" : CHART_COLORS.views}
+              strokeOpacity={0.45}
+              strokeWidth={1.75}
+              strokeDasharray="5 4"
+              dot={false}
+              activeDot={false}
+              isAnimationActive={lineAnimates}
+              animationDuration={600}
+              name="compared"
             />
           )}
           {/* Store areas */}

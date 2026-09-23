@@ -1,319 +1,284 @@
 "use client"
 
 /**
- * Cookie Consent System — Storelib
+ * ===========================================================================
+ *  THE COOKIE BANNER AND ITS PREFERENCES
+ * ===========================================================================
+ * Mounted once, in the root layout, for storelib.com and every creator's site.
  *
- * Matches the approach used by Gumroad, Payhip, and Shopify:
- *  - Slide-up bottom banner on first visit
- *  - Expandable "Manage" panel with per-category toggles
- *  - "Accept all" | "Decline" | "Manage" top-level actions
- *  - "Save preferences" inside the panel
- *  - Consent stored in localStorage (object, not plain string)
- *  - Also sets a non-httpOnly document cookie for cross-tab/SSR awareness
- *  - Re-openable from footer "Cookie Preferences" link via custom DOM event
- *  - Fully accessible (role=dialog, aria-checked on toggles)
- *  - Renders nothing during SSR to avoid hydration mismatch
+ *   THE BANNER    a card in the corner on a computer, across the bottom on a
+ *                 phone. Accept all and Reject all, the same size and the same
+ *                 weight: refusing must be as easy as agreeing. Manage opens
+ *                 the preferences.
+ *   PREFERENCES   each kind of cookie with what it is for and a switch, and
+ *                 under each, the exact cookies. Reachable at any time from
+ *                 "Cookie preferences" in a footer, so a choice can be changed
+ *                 as easily as it was made.
  *
- * Cookie categories:
- *  1. Essential   — always on, locked. Session, auth, checkout, CSRF.
- *  2. Analytics   — Vercel Analytics. Anonymised, no personal data.
+ * Until a choice is made nothing optional is stored and Vercel Analytics does
+ * not load. What each choice allows is decided in lib/consent, and every
+ * tracker asks it at the moment it would store something.
+ *
+ * Not shown in the native app, in the Sites editor or the website builder:
+ * they are tools reached from a signed-in account, which has had the banner
+ * on its own pages, and a card over their bottom bars is a card over the
+ * buttons. The choice made elsewhere still applies there.
  */
-
-import { useState, useEffect, useCallback } from "react"
+import { useCallback, useEffect, useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Analytics } from "@vercel/analytics/next"
+import { ChevronDown } from "lucide-react"
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog"
 import { isNativeApp } from "@/lib/native-bridge"
+import { cn } from "@/lib/utils"
+import {
+  CATEGORY_TEXT,
+  CONSENT_VERSION,
+  OPTIONAL,
+  STORED,
+  everything,
+  type Consent,
+  type ConsentCategory,
+  type OptionalCategory,
+} from "@/lib/consent/consent"
+import { OPEN_PREFERENCES_EVENT, onConsentChange, readConsent, writeConsent } from "@/lib/consent/client"
+import { useSiteConsentTheme } from "@/lib/consent/site-theme"
 
-// ─── Constants ──────────────────────────────────────────────────────────────
+/** Kept for the footers that open the preferences with it. */
+export const COOKIE_PREFS_EVENT = OPEN_PREFERENCES_EVENT
 
-const LS_KEY = "storelib_cookie_consent"
-const COOKIE_NAME = "storelib_analytics_consent"
-/** Custom DOM event dispatched by the footer "Cookie Preferences" link */
-export const COOKIE_PREFS_EVENT = "storelib:open-cookie-preferences"
-
-// ─── Types ───────────────────────────────────────────────────────────────────
-
-interface ConsentPrefs {
-  essential: true   // always true
-  analytics: boolean
-  version: number
-  timestamp: number
-}
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-/** Read consent from localStorage first, fall back to cookie (incognito / Safari) */
-function readConsent(): ConsentPrefs | null {
-  // 1. Try localStorage (primary store)
-  try {
-    const raw = localStorage.getItem(LS_KEY)
-    if (raw) {
-      const parsed = JSON.parse(raw)
-      if (typeof parsed?.analytics === "boolean") return parsed as ConsentPrefs
-    }
-  } catch { /* localStorage blocked — e.g. Safari incognito */ }
-
-  // 2. Fallback: read the document cookie so consent persists when LS is wiped
-  try {
-    const match = document.cookie.match(new RegExp(`(?:^|;\\s*)${COOKIE_NAME}=([01])`))
-    if (match) {
-      const analytics = match[1] === "1"
-      return { essential: true, analytics, version: 1, timestamp: 0 }
-    }
-  } catch { /* cookie access blocked */ }
-
-  return null
-}
-
-function writeConsent(analytics: boolean): ConsentPrefs {
-  const prefs: ConsentPrefs = {
-    essential: true,
-    analytics,
-    version: 1,
-    timestamp: Date.now(),
-  }
-  try {
-    localStorage.setItem(LS_KEY, JSON.stringify(prefs))
-    // Also set a document cookie (non-httpOnly) so server/edge can read consent
-    // if ever needed, and so consent persists if localStorage is cleared.
-    const maxAge = 60 * 60 * 24 * 365 // 1 year
-    const secure = typeof location !== "undefined" && location.protocol === "https:" ? "; Secure" : ""
-    document.cookie = `${COOKIE_NAME}=${analytics ? "1" : "0"}; max-age=${maxAge}; path=/; SameSite=Lax${secure}`
-  } catch { /* ignore */ }
-  return prefs
-}
-
-// ─── Toggle component ────────────────────────────────────────────────────────
-
-function Toggle({
-  checked,
-  onChange,
-  disabled,
-  label,
-}: {
-  checked: boolean
-  onChange?: () => void
-  disabled?: boolean
-  label: string
-}) {
+/**
+ * A switch drawn so its thumb cannot leave its track: placed with `left`,
+ * moved by exactly the track less the thumb and both gaps (40 - 20 - 2 - 2).
+ * The old one had no `left`, so a button's centring put the thumb halfway
+ * along before it moved, and "on" drew it outside the track.
+ */
+function Switch({ checked, onChange, disabled, label }: { checked: boolean; onChange?: (v: boolean) => void; disabled?: boolean; label: string }) {
   return (
     <button
-      role="switch"
       type="button"
+      role="switch"
       aria-checked={checked}
       aria-label={label}
-      onClick={disabled ? undefined : onChange}
       disabled={disabled}
-      className={[
-        "relative shrink-0 mt-0.5 h-[22px] w-[40px] rounded-full transition-colors duration-200",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900 focus-visible:ring-offset-2",
-        checked ? "bg-neutral-900" : "bg-neutral-300",
-        disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer",
-      ].join(" ")}
+      onClick={() => onChange?.(!checked)}
+      className={cn(
+        "relative h-6 w-10 shrink-0 rounded-full p-0 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e] focus-visible:ring-offset-2",
+        checked ? "bg-[#1a1a2e]" : "bg-[#d4d4d8]",
+        disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer",
+      )}
     >
       <span
-        className={[
-          "absolute top-[3px] h-4 w-4 rounded-full bg-white shadow transition-transform duration-200",
-          checked ? "translate-x-[19px]" : "translate-x-[3px]",
-        ].join(" ")}
+        aria-hidden
+        className={cn(
+          "absolute left-[2px] top-[2px] block h-5 w-5 rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,0.25)] transition-transform duration-200",
+          checked ? "translate-x-4" : "translate-x-0",
+        )}
       />
     </button>
   )
 }
 
-// ─── Banner ──────────────────────────────────────────────────────────────────
+function Category({
+  category,
+  checked,
+  onChange,
+}: {
+  category: ConsentCategory
+  checked: boolean
+  onChange?: (v: boolean) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const items = STORED.filter((s) => s.category === category)
+  const text = CATEGORY_TEXT[category]
+  return (
+    <div className="border-b border-[#eef0f2] py-4 last:border-0">
+      <div className="flex items-start gap-4">
+        <div className="min-w-0 flex-1">
+          <p className="text-[14px] font-semibold text-[#1a1a2e]">{text.title}</p>
+          <p className="mt-1 text-[13px] leading-relaxed text-[#6b7280]">{text.body}</p>
+        </div>
+        {category === "necessary" ? (
+          <span className="mt-0.5 shrink-0 text-[12px] font-medium text-[#6b7280]">Always on</span>
+        ) : (
+          <Switch checked={checked} onChange={onChange} label={text.title} />
+        )}
+      </div>
+      {items.length > 0 && (
+        <div className="mt-2">
+          <button
+            type="button"
+            onClick={() => setOpen((o) => !o)}
+            aria-expanded={open}
+            className="inline-flex items-center gap-1 rounded text-[12px] font-medium text-[#4b5563] outline-none hover:text-[#1a1a2e] focus-visible:ring-2 focus-visible:ring-[#1a1a2e] focus-visible:ring-offset-2"
+          >
+            {open ? "Hide" : "Show"} {items.length === 1 ? "the cookie" : `${items.length} cookies`}
+            <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", open && "rotate-180")} />
+          </button>
+          {open && (
+            <ul className="mt-2 divide-y divide-[#f1f2f4] overflow-hidden rounded-lg border border-[#eef0f2]">
+              {items.map((it) => (
+                <li key={it.name} className="grid gap-0.5 px-3 py-2 text-[12px] sm:grid-cols-[minmax(0,1fr)_auto] sm:gap-3">
+                  <span className="min-w-0">
+                    <code className="font-mono text-[11.5px] text-[#1a1a2e]">{it.name}</code>
+                    <span className="block text-[#6b7280]">{it.purpose}</span>
+                  </span>
+                  <span className="text-[#9ca3af] sm:text-right">{it.lasts}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
 
 export function CookieConsentBanner() {
-  // null = not hydrated yet (renders nothing — no SSR flash)
-  const [initialized, setInitialized] = useState(false)
-  const [consent, setConsent] = useState<ConsentPrefs | null>(null)
-  const [isOpen, setIsOpen] = useState(false)
-  const [showPrefs, setShowPrefs] = useState(false)
-  const [analyticsToggle, setAnalyticsToggle] = useState(true)
-  const [leaving, setLeaving] = useState(false)
   const pathname = usePathname()
+  const site = useSiteConsentTheme()
+  const [ready, setReady] = useState(false)
+  const [consent, setConsent] = useState<Consent | null>(null)
+  const [bannerOpen, setBannerOpen] = useState(false)
+  const [prefsOpen, setPrefsOpen] = useState(false)
+  const [draft, setDraft] = useState<Record<OptionalCategory, boolean>>({ preferences: false, analytics: false, marketing: false })
 
-  // Hydrate from localStorage on client mount
   useEffect(() => {
-    const stored = readConsent()
-    setConsent(stored)
-    setIsOpen(stored === null) // show banner only if no consent set yet
-    if (stored) setAnalyticsToggle(stored.analytics)
-    setInitialized(true)
+    const c = readConsent()
+    setConsent(c)
+    setBannerOpen(c === null)
+    setReady(true)
+    return onConsentChange((next) => {
+      setConsent(next)
+      if (next) setBannerOpen(false)
+    })
   }, [])
 
-  // Re-open from footer "Cookie Preferences" link
+  const openPrefs = useCallback(() => {
+    const c = readConsent()
+    /* Everything off until turned on: a preference is a choice, not a default. */
+    setDraft({ preferences: c?.preferences ?? false, analytics: c?.analytics ?? false, marketing: c?.marketing ?? false })
+    setPrefsOpen(true)
+  }, [])
+
   useEffect(() => {
-    const handler = () => {
-      const stored = readConsent()
-      if (stored) setAnalyticsToggle(stored.analytics)
-      else setAnalyticsToggle(true)
-      setShowPrefs(true)
-      setLeaving(false)
-      setIsOpen(true)
-    }
-    window.addEventListener(COOKIE_PREFS_EVENT, handler)
-    return () => window.removeEventListener(COOKIE_PREFS_EVENT, handler)
-  }, [])
+    window.addEventListener(OPEN_PREFERENCES_EVENT, openPrefs)
+    return () => window.removeEventListener(OPEN_PREFERENCES_EVENT, openPrefs)
+  }, [openPrefs])
 
-  // Cross-tab sync: if user accepts in another tab, dismiss banner here too
-  useEffect(() => {
-    const onStorage = (e: StorageEvent) => {
-      if (e.key !== LS_KEY || !e.newValue) return
-      try {
-        const updated = JSON.parse(e.newValue) as ConsentPrefs
-        if (typeof updated?.analytics === "boolean") {
-          setConsent(updated)
-          setAnalyticsToggle(updated.analytics)
-          setIsOpen(false)
-          setShowPrefs(false)
-        }
-      } catch { /* ignore malformed */ }
-    }
-    window.addEventListener("storage", onStorage)
-    return () => window.removeEventListener("storage", onStorage)
-  }, [])
+  const decide = (c: Consent) => {
+    writeConsent(c)
+    setConsent(c)
+    setBannerOpen(false)
+    setPrefsOpen(false)
+  }
+  const acceptAll = () => decide(everything(true, Date.now()))
+  const rejectAll = () => decide(everything(false, Date.now()))
+  const save = () => decide({ version: CONSENT_VERSION, ...draft, at: Math.floor(Date.now() / 1000) })
 
-  const applyConsent = useCallback((analytics: boolean) => {
-    const prefs = writeConsent(analytics)
-    setConsent(prefs)
-    setAnalyticsToggle(analytics)
-    setLeaving(true)
-    setTimeout(() => {
-      setIsOpen(false)
-      setShowPrefs(false)
-      setLeaving(false)
-    }, 280)
-  }, [])
+  if (!ready || isNativeApp()) return null
 
-  if (!initialized) return null
-  // Never show the banner (or load analytics) inside Capacitor iOS/Android.
-  // Auth/session cookies are unaffected — they are not gated on consent.
-  if (isNativeApp()) return null
-
-  /**
-   * The Sites editor is a full-viewport tool, not a page, and this banner is
-   * `fixed bottom-0 z-[9999]` — on a phone it sat exactly on top of the
-   * editor's Chat / Preview / Code bar and made it unclickable. Found by a
-   * click that could not land, not by looking at it.
-   *
-   * Suppressed rather than restyled, for the same reason it is suppressed in
-   * the native app: the editor is reached from inside a signed-in account, so
-   * the banner has a page of its own to appear on. Analytics still respects
-   * whatever was chosen there — only the banner is withheld.
-   */
+  /* Tools, not pages: see the note at the top. The choice still applies. */
   const inSitesEditor = pathname?.startsWith("/sites/") ?? false
+  const inBuilder = pathname?.startsWith("/website-builder/") ?? false
+  const quiet = inSitesEditor || inBuilder
+
+  const bg = site?.background || "#ffffff"
+  const fg = site?.color || "#1a1a2e"
+  const branded = Boolean(site?.background)
 
   return (
     <>
-      {/* Load Vercel Analytics only when analytics consent is given */}
-      {consent?.analytics === true && <Analytics />}
+      {consent?.analytics === true && !inSitesEditor && <Analytics />}
 
-      {isOpen && !inSitesEditor && (
-        <div
-          role="dialog"
-          aria-modal="false"
-          aria-label="Cookie consent"
-          className="fixed bottom-0 left-0 right-0 z-[9999] px-4 sm:px-5"
-          style={{
-            paddingBottom: "max(1rem, env(safe-area-inset-bottom))",
-            opacity: leaving ? 0 : 1,
-            transform: leaving ? "translateY(14px)" : "translateY(0)",
-            transition: "opacity 280ms ease, transform 280ms ease",
-            pointerEvents: leaving ? "none" : "auto",
-          }}
-        >
-          <div className="mx-auto max-w-3xl overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-2xl shadow-black/[0.08]">
-
-            {/* ── Top bar ────────────────────────────────────────────────── */}
-            <div className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center">
-              <p className="flex-1 text-[13.5px] leading-relaxed text-neutral-600">
-                We use cookies to improve your experience.{" "}
-                <Link
-                  href="/legal/privacy"
-                  className="font-medium text-neutral-900 underline underline-offset-2 transition-colors hover:text-neutral-700"
-                >
-                  Learn more
-                </Link>
-              </p>
-
-              <div className="flex shrink-0 items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowPrefs(v => !v)}
-                  className="h-9 rounded-lg border border-neutral-200 px-3.5 text-[13px] font-medium text-neutral-600 transition-colors hover:bg-neutral-50 active:bg-neutral-100"
-                >
-                  {showPrefs ? "Hide" : "Manage"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => applyConsent(false)}
-                  className="h-9 rounded-lg border border-neutral-200 px-3.5 text-[13px] font-medium text-neutral-700 transition-colors hover:bg-neutral-50 active:bg-neutral-100"
-                >
-                  Decline
-                </button>
-                <button
-                  type="button"
-                  onClick={() => applyConsent(true)}
-                  className="h-9 rounded-lg bg-neutral-900 px-4 text-[13px] font-medium text-white transition-colors hover:bg-neutral-800 active:bg-neutral-950"
-                >
-                  Accept all
-                </button>
-              </div>
+      {bannerOpen && !quiet && !prefsOpen && (
+        /* Positions the card; the card itself takes the clicks. */
+        <div className="pointer-events-none fixed bottom-0 left-0 right-0 z-[9999] flex justify-center px-3 pb-[max(12px,env(safe-area-inset-bottom))] sm:justify-start sm:px-5 sm:pb-5">
+          <section
+            role="region"
+            aria-label="Cookies"
+            className="cookie-card pointer-events-auto w-full max-w-[420px] rounded-2xl border border-black/[0.08] p-5 shadow-[0_18px_50px_-12px_rgba(17,24,39,0.35),0_2px_8px_rgba(17,24,39,0.08)]"
+            style={{ background: bg, color: fg }}
+          >
+            <p className="text-[15px] font-semibold">Cookies</p>
+            <p className="mt-1.5 text-[13px] leading-relaxed opacity-80">
+              {site?.text ||
+                "Necessary cookies keep this site working. With your OK we also count returning visitors, so creators can see what works."}{" "}
+              <Link href="/privacy#cookies" className="underline underline-offset-2">
+                Cookie policy
+              </Link>
+            </p>
+            {/* Equal buttons: saying no is as easy as saying yes. */}
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={rejectAll}
+                className="h-9 rounded-lg border text-[13px] font-semibold transition-opacity hover:opacity-85"
+                style={{ borderColor: branded ? "currentColor" : "#1a1a2e", background: "transparent", color: fg }}
+              >
+                {site?.declineText || "Reject all"}
+              </button>
+              <button
+                type="button"
+                onClick={acceptAll}
+                className="h-9 rounded-lg text-[13px] font-semibold transition-opacity hover:opacity-90"
+                style={{ background: site?.accent || "#1a1a2e", color: "#ffffff" }}
+              >
+                {site?.acceptText || "Accept all"}
+              </button>
             </div>
-
-            {/* ── Preferences panel ──────────────────────────────────────── */}
-            {showPrefs && (
-              <div className="space-y-0 border-t border-neutral-100 px-5 pb-5 pt-4">
-                <p className="mb-3 text-[13px] font-semibold tracking-tight text-neutral-800">
-                  Cookie preferences
-                </p>
-
-                {/* Essential */}
-                <div className="flex items-start gap-4 border-b border-neutral-100 py-3.5">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[13px] font-medium text-neutral-900">Essential</span>
-                      <span className="rounded bg-neutral-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
-                        Always on
-                      </span>
-                    </div>
-                    <p className="mt-1 text-[12px] leading-relaxed text-neutral-500">
-                      Required for login, checkout, and site security. Cannot be disabled.
-                    </p>
-                  </div>
-                  <Toggle checked={true} disabled label="Essential cookies — always on" />
-                </div>
-
-                {/* Analytics */}
-                <div className="flex items-start gap-4 py-3.5">
-                  <div className="flex-1">
-                    <span className="text-[13px] font-medium text-neutral-900">Analytics</span>
-                    <p className="mt-1 text-[12px] leading-relaxed text-neutral-500">
-                      Helps us understand how visitors use Storelib so we can improve it.
-                      No personal data is collected or shared with third parties.
-                    </p>
-                  </div>
-                  <Toggle
-                    checked={analyticsToggle}
-                    onChange={() => setAnalyticsToggle(v => !v)}
-                    label="Toggle analytics cookies"
-                  />
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => applyConsent(analyticsToggle)}
-                  className="mt-1 h-9 w-full rounded-xl bg-neutral-900 text-[13px] font-semibold text-white transition-colors hover:bg-neutral-800"
-                >
-                  Save preferences
-                </button>
-              </div>
-            )}
-          </div>
+            <button type="button" onClick={openPrefs} className="mt-3 text-[12px] font-medium underline underline-offset-2 opacity-70 hover:opacity-100">
+              Manage preferences
+            </button>
+          </section>
         </div>
       )}
+
+      <Dialog open={prefsOpen} onOpenChange={(o) => (o ? undefined : setPrefsOpen(false))}>
+        <DialogContent
+          showCloseButton={false}
+          /* Focus the panel itself, not its first link, so opening it does not
+             draw a focus ring on "Show 9 cookies". Tab still starts there. */
+          onOpenAutoFocus={(e) => {
+            e.preventDefault()
+            ;(e.currentTarget as HTMLElement | null)?.focus()
+          }}
+          tabIndex={-1}
+          className="flex max-h-[min(88vh,720px)] outline-none w-[calc(100%-24px)] max-w-[520px] flex-col gap-0 overflow-hidden rounded-2xl border border-[#e5e7eb] bg-white p-0 shadow-[0_24px_60px_-12px_rgba(17,24,39,0.3)]"
+        >
+          <div className="border-b border-[#eef0f2] px-5 pb-4 pt-5">
+            <DialogTitle className="text-[16px] font-semibold text-[#1a1a2e]">Cookie preferences</DialogTitle>
+            <DialogDescription className="mt-1 text-[13px] leading-relaxed text-[#6b7280]">
+              Choose what this site may store on this device. You can change this at any time from Cookie preferences at the
+              bottom of the page.
+            </DialogDescription>
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto px-5">
+            <Category category="necessary" checked />
+            {OPTIONAL.map((c) => (
+              <Category key={c} category={c} checked={draft[c]} onChange={(v) => setDraft((d) => ({ ...d, [c]: v }))} />
+            ))}
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#eef0f2] bg-[#fafafb] px-5 py-3">
+            <button type="button" onClick={rejectAll} className="h-9 rounded-lg px-3 text-[13px] font-medium text-[#1a1a2e] hover:bg-[#ececef]">
+              Reject all
+            </button>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={save}
+                className="h-9 rounded-lg border border-[#d5d7dd] bg-white px-3.5 text-[13px] font-medium text-[#1a1a2e] shadow-[0_1px_0_rgba(17,24,39,0.05)] hover:bg-[#f7f7f8]"
+              >
+                Save choices
+              </button>
+              <button type="button" onClick={acceptAll} className="h-9 rounded-lg bg-[#1a1a2e] px-3.5 text-[13px] font-medium text-white hover:bg-[#2a2a40]">
+                Accept all
+              </button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   )
 }

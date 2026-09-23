@@ -1,3 +1,5 @@
+import { isTimeZone } from "@/lib/orders/time-zone"
+import { addDays, todayIn } from "@/lib/date-range/range"
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -38,7 +40,25 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url)
     const timeframe = searchParams.get("timeframe") || searchParams.get("days") || "last_7"
-    const isHourlyMode = timeframe === "today" || timeframe === "yesterday"
+
+    /**
+     * A RANGE FROM THE SHARED DATE PICKER: ?start=&end= as instants and ?tz=
+     * the creator's zone. Days are then the creator's days, not UTC's, and a
+     * range of one day is drawn by the hour. The named timeframes above still
+     * work for anything that sends them.
+     */
+    const startParam = searchParams.get("start")
+    const endParam = searchParams.get("end")
+    const tzParam = searchParams.get("tz") || "UTC"
+    const tz = isTimeZone(tzParam) ? tzParam : "UTC"
+    const rangeStart = startParam ? Date.parse(startParam) : NaN
+    const rangeEnd = endParam ? Date.parse(endParam) : NaN
+    const ranged = Number.isFinite(rangeStart) && Number.isFinite(rangeEnd) && rangeEnd > rangeStart && rangeEnd - rangeStart < 12 * 366 * 86_400_000
+    const rangedHourly = ranged && rangeEnd - rangeStart <= 25 * 3_600_000
+    const isHourlyMode = ranged ? rangedHourly : timeframe === "today" || timeframe === "yesterday"
+    const dayIn = (d: Date) => todayIn(tz, d.getTime())
+    const hourIn = (d: Date) =>
+      new Intl.DateTimeFormat("en-GB", { timeZone: tz, hour: "2-digit", hourCycle: "h23" }).format(d).padStart(2, "0")
 
     const now = new Date()
     let createdGte: Date | null = null
@@ -85,9 +105,15 @@ export async function GET(request: Request) {
         createdGte = start
         break
       }
-      case "last_365":
-      case "365":
       case "30": {
+        /* This fell through to 365 days. */
+        const start = new Date(now)
+        start.setUTCDate(start.getUTCDate() - 30)
+        createdGte = start
+        break
+      }
+      case "last_365":
+      case "365": {
         const start = new Date(now)
         start.setUTCDate(start.getUTCDate() - 365)
         createdGte = start
@@ -107,6 +133,12 @@ export async function GET(request: Request) {
       }
     }
 
+    if (ranged) {
+      createdGte = new Date(rangeStart)
+      createdLte = new Date(rangeEnd)
+      seriesEndDate = new Date(rangeEnd)
+    }
+
     let query = adminSupabase
       .from("orders")
       .select("status, amount_cents, fee_cents, refund_amount_cents, created_at")
@@ -124,9 +156,11 @@ export async function GET(request: Request) {
 
     for (const order of orders || []) {
       const date = new Date(order.created_at)
-      const dateKey = isHourlyMode
-        ? String(date.getUTCHours()).padStart(2, "0")
-        : date.toISOString().split("T")[0]
+      const dateKey = ranged
+        ? (isHourlyMode ? hourIn(date) : dayIn(date))
+        : isHourlyMode
+          ? String(date.getUTCHours()).padStart(2, "0")
+          : date.toISOString().split("T")[0]
 
       if (order.status === "completed") {
         const gross = order.amount_cents || 0
@@ -165,7 +199,22 @@ export async function GET(request: Request) {
 
     const series: Array<{ date: string; revenue: number; gross: number; refundsAbs: number; count: number }> = []
 
-    if (isHourlyMode) {
+    if (ranged && !isHourlyMode) {
+      /* Every day of the range, on the creator's calendar. */
+      let day = dayIn(new Date(rangeStart))
+      const last = dayIn(new Date(rangeEnd - 1))
+      let guard = 0
+      while (day <= last && guard++ < 5000) {
+        series.push(bucketMap[day] || { date: day, revenue: 0, gross: 0, refundsAbs: 0, count: 0 })
+        day = addDays(day, 1)
+      }
+    } else if (ranged) {
+      const endHour = Math.min(23, Math.max(0, Number(hourIn(new Date(Math.min(rangeEnd - 1, Date.now()))))))
+      for (let h = 0; h <= endHour; h++) {
+        const key = String(h).padStart(2, "0")
+        series.push(bucketMap[key] || { date: key, revenue: 0, gross: 0, refundsAbs: 0, count: 0 })
+      }
+    } else if (isHourlyMode) {
       const endHour = timeframe === "today" ? new Date().getUTCHours() : 23
       for (let h = 0; h <= endHour; h++) {
         const key = String(h).padStart(2, "0")
