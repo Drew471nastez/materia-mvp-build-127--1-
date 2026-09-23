@@ -25,6 +25,7 @@ import {
   SectionWrapper,
   type SectionProps,
 } from "../_shared"
+import { stableHtml } from "../stable-html"
 
 export function FaqSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
   const s = section.settings
@@ -152,7 +153,7 @@ export function FaqSection({ section, theme, isEditing, isSelected, onClick }: S
                         paddingLeft: style === "minimal" ? 0 : undefined,
                         paddingRight: style === "minimal" ? 0 : undefined,
                       }}
-                      dangerouslySetInnerHTML={{ __html: str(block.settings.answer) }}
+                      dangerouslySetInnerHTML={stableHtml(str(block.settings.answer))}
                     />
                   )}
                 </div>

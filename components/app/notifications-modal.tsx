@@ -5,6 +5,7 @@ import { Bell, CreditCard, ChevronRight, X, Link2, Star, Loader2 } from "lucide-
 import { cn } from "@/lib/utils"
 import Link from "next/link"
 import { useLanguage } from "@/lib/i18n"
+import { BottomSheet } from "@/components/ui/bottom-sheet"
 
 interface Notification {
   id: string
@@ -77,12 +78,16 @@ export function NotificationsModal({
   const [dbNotifications, setDbNotifications] = useState<DbNotification[]>([])
   const panelRef = useRef<HTMLDivElement>(null)
   const { t } = useLanguage()
+  const closeSheet = useCallback(() => onOpenChange(false), [onOpenChange])
 
+  /* A media query answers once per crossing, where a resize listener asked on
+     every pixel of every keyboard and rotation. */
   useEffect(() => {
-    const checkMobile = () => setIsMobile(window.innerWidth < 768)
-    checkMobile()
-    window.addEventListener("resize", checkMobile)
-    return () => window.removeEventListener("resize", checkMobile)
+    const mq = window.matchMedia("(max-width: 767px)")
+    const sync = () => setIsMobile(mq.matches)
+    sync()
+    mq.addEventListener("change", sync)
+    return () => mq.removeEventListener("change", sync)
   }, [])
 
   // Load dismissed notifications from localStorage
@@ -91,8 +96,15 @@ export function NotificationsModal({
   }, [])
 
   // Fetch notifications from database when modal opens
+  /**
+   * THE SPINNER IS FOR THE FIRST LOAD ONLY. Every open used to swap the list
+   * for a spinner and back, so the sheet rose with one thing in it, changed
+   * height under the finger and then showed the same list it had last time.
+   * Now what was there stays while it is refreshed.
+   */
+  const loadedOnceRef = useRef(false)
   const fetchNotifications = useCallback(async () => {
-    setIsLoading(true)
+    if (!loadedOnceRef.current) setIsLoading(true)
     try {
       const res = await fetch("/api/notifications?limit=20")
       if (res.ok) {
@@ -102,6 +114,7 @@ export function NotificationsModal({
     } catch (err) {
       console.error("[notifications] Failed to fetch:", err)
     } finally {
+      loadedOnceRef.current = true
       setIsLoading(false)
     }
   }, [])
@@ -227,7 +240,14 @@ export function NotificationsModal({
     }
   }
 
-  const NotificationsContent = () => (
+  /**
+   * AN ELEMENT, NOT A COMPONENT. This was `const NotificationsContent = () =>`,
+   * a new component type on every render, so React threw the whole list away
+   * and built it again each time anything here changed: the tabs, the
+   * fetch finishing, a notification dismissed. Mid-animation that is a
+   * rebuilt subtree and a list scrolled back to the top.
+   */
+  const notificationsContent = (
     <div className="flex flex-col h-full min-h-0">
       {/* Tabs */}
       <div className="flex items-center gap-2 px-4 py-3 border-b overflow-x-auto scrollbar-hide">
@@ -249,7 +269,7 @@ export function NotificationsModal({
 
       {/* Notifications list */}
       <div className="flex-1 overflow-y-auto overscroll-contain min-h-0">
-        {isLoading ? (
+        {isLoading && notifications.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full py-12 px-4">
             <Loader2 className="w-8 h-8 text-neutral-400 animate-spin mb-4" />
             <p className="text-sm text-neutral-500">{t("notifications.loading")}</p>
@@ -282,9 +302,28 @@ export function NotificationsModal({
   // Mobile: Bottom sheet
   if (isMobile) {
     return (
-      <MobileNotificationBottomSheet open={open} onClose={() => onOpenChange(false)}>
-        <NotificationsContent />
-      </MobileNotificationBottomSheet>
+      <BottomSheet
+        isOpen={open}
+        onClose={closeSheet}
+        label="Notifications"
+        hideFrom="md"
+        fill
+        height="min(62dvh, 540px)"
+        header={
+          <div className="flex items-center justify-between border-b border-neutral-100 px-5 pb-3 pt-2">
+            <h3 className="text-[16px] font-semibold text-neutral-900">{t("notifications.title")}</h3>
+            <button
+              onClick={closeSheet}
+              aria-label="Close"
+              className="flex h-8 w-8 items-center justify-center rounded-full transition-colors active:bg-neutral-100"
+            >
+              <X className="h-4 w-4 text-neutral-500" />
+            </button>
+          </div>
+        }
+      >
+        {notificationsContent}
+      </BottomSheet>
     )
   }
 
@@ -309,158 +348,7 @@ export function NotificationsModal({
         </button>
       </div>
       <div className="max-h-[420px] overflow-y-auto overscroll-contain">
-        <NotificationsContent />
-      </div>
-    </div>
-  )
-}
-
-function MobileNotificationBottomSheet({
-  open,
-  onClose,
-  children,
-}: {
-  open: boolean
-  onClose: () => void
-  children: React.ReactNode
-}) {
-  const [isVisible, setIsVisible] = useState(false)
-  const [isAnimating, setIsAnimating] = useState(false)
-  const [dragY, setDragY] = useState(0)
-  const [isDragging, setIsDragging] = useState(false)
-  const startYRef = useRef(0)
-  const lastYRef = useRef(0)
-  const lastTimeRef = useRef(0)
-  const velocityRef = useRef(0)
-  const sheetRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (open && !isVisible) {
-      setIsVisible(true)
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          setIsAnimating(true)
-        })
-      })
-    } else if (!open && isVisible) {
-      setIsAnimating(false)
-      const timer = setTimeout(() => {
-        setIsVisible(false)
-        setDragY(0)
-      }, 400)
-      return () => clearTimeout(timer)
-    }
-    return undefined
-  }, [open, isVisible])
-
-  const handleClose = () => {
-    setIsAnimating(false)
-    setIsDragging(false)
-    setDragY(0)
-    velocityRef.current = 0
-    setTimeout(() => {
-      onClose()
-    }, 400)
-  }
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    const touch = e.touches[0]
-    const sheetEl = sheetRef.current
-    if (!sheetEl) return
-    const rect = sheetEl.getBoundingClientRect()
-    const touchYInSheet = touch.clientY - rect.top
-    // Only start drag from handle + header area (~64px from top of sheet)
-    if (touchYInSheet >= 0 && touchYInSheet <= 64) {
-      startYRef.current = touch.clientY
-      lastYRef.current = touch.clientY
-      lastTimeRef.current = Date.now()
-      velocityRef.current = 0
-      setIsDragging(true)
-    }
-  }
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!isDragging) return
-    const currentY = e.touches[0].clientY
-    const diff = currentY - startYRef.current
-    if (diff > 0) {
-      e.preventDefault()
-      const now = Date.now()
-      const dt = Math.max(1, now - lastTimeRef.current)
-      velocityRef.current = (currentY - lastYRef.current) / dt
-      lastYRef.current = currentY
-      lastTimeRef.current = now
-      const resisted = diff <= 160 ? diff * 0.92 : 147 + (diff - 160) * 0.4
-      setDragY(resisted)
-    }
-  }
-
-  const handleTouchEnd = () => {
-    if (!isDragging) return
-    setIsDragging(false)
-    if (dragY > 92 || velocityRef.current > 0.55) {
-      handleClose()
-    } else {
-      setDragY(0)
-    }
-  }
-
-  if (!isVisible) return null
-
-  return (
-    <div
-      data-app-sheet={isVisible ? "open" : undefined}
-      className="fixed inset-0 z-[100] md:hidden"
-      style={{ pointerEvents: isVisible ? "auto" : "none" }}
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-    >
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
-        style={{
-          opacity: isAnimating ? 1 : 0,
-          transition: isDragging ? "none" : "opacity 400ms cubic-bezier(0.32, 0.72, 0, 1)",
-        }}
-        onClick={isAnimating ? handleClose : undefined}
-      />
-      {/* Bottom Sheet — GPU-accelerated */}
-      <div
-        ref={sheetRef}
-        className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl flex flex-col overflow-hidden"
-        style={{
-          maxHeight: "85dvh",
-          transform: isAnimating ? `translate3d(0, ${dragY}px, 0)` : "translate3d(0, 100%, 0)",
-          transition: isDragging ? "none" : "transform 400ms cubic-bezier(0.32, 0.72, 0, 1)",
-          willChange: "transform",
-          backfaceVisibility: "hidden",
-          WebkitBackfaceVisibility: "hidden",
-        }}
-      >
-        {/* Drag handle */}
-        <div className="pt-3 pb-1 flex justify-center shrink-0 touch-none" data-sheet-handle>
-          <div className="h-[5px] w-10 rounded-full bg-gray-300" />
-        </div>
-        {/* Header */}
-        <div className="px-5 py-3 border-b border-neutral-100 flex items-center justify-between shrink-0">
-          <h3 className="text-[16px] font-semibold text-neutral-900">Notifications</h3>
-          <button
-            onClick={handleClose}
-            className="w-8 h-8 rounded-full hover:bg-neutral-100 flex items-center justify-center transition-colors"
-          >
-            <X className="w-4 h-4 text-neutral-500" />
-          </button>
-        </div>
-        {/* Content — flex-1 so NotificationsContent's inner scroll works */}
-        <div
-          className="flex-1 min-h-0 flex flex-col overflow-hidden"
-          style={{ touchAction: "pan-y", WebkitOverflowScrolling: "touch" } as React.CSSProperties}
-        >
-          {children}
-        </div>
-        {/* iOS safe area */}
-        <div className="shrink-0 h-[env(safe-area-inset-bottom)]" />
+        {notificationsContent}
       </div>
     </div>
   )
@@ -515,28 +403,19 @@ function NotificationItem({
   return content
 }
 
-// Badge component for notification count - red gradient with glassmorphism effect and subtle pulse animation
+/**
+ * The count on the bell. It pulses, and the pulse is a ring behind the badge
+ * that grows and fades: transform and opacity, so the compositor draws it.
+ * It was a `box-shadow` keyframe, which repaints the header on every frame
+ * for as long as there is anything unread, on every page of /app.
+ * See `.notification-badge-pulse` in app/globals.css.
+ */
 export function NotificationBadge({ count }: { count: number }) {
   if (count === 0) return null
 
   return (
-    <>
-      <style jsx>{`
-        @keyframes subtle-pulse {
-          0%, 100% {
-            box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
-          }
-          50% {
-            box-shadow: 0 0 0 4px rgba(239, 68, 68, 0);
-          }
-        }
-        .notification-badge-pulse {
-          animation: subtle-pulse 2.5s ease-in-out infinite;
-        }
-      `}</style>
-      <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[16px] h-[16px] px-1 text-[10px] font-semibold text-white rounded-full shadow-lg backdrop-blur-sm bg-gradient-to-br from-red-500 via-red-500 to-red-600 ring-2 ring-white/30 notification-badge-pulse">
-        {count > 9 ? "9+" : count}
-      </span>
-    </>
+    <span className="notification-badge-pulse absolute -top-1 -right-1 flex items-center justify-center min-w-[16px] h-[16px] px-1 text-[10px] font-semibold text-white rounded-full bg-red-500 ring-2 ring-white/30">
+      {count > 9 ? "9+" : count}
+    </span>
   )
 }

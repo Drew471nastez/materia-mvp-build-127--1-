@@ -11,6 +11,7 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { useLanguage } from "@/lib/i18n"
+import { BottomSheet } from "@/components/ui/bottom-sheet"
 
 const TABS = [
   { id: "general", label: "General", icon: Settings },
@@ -53,6 +54,7 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
   const [loading, setLoading] = useState<string | null>(null)
   const [portalLoading, setPortalLoading] = useState(false)
   const [selectedInvoice, setSelectedInvoice] = useState<any | null>(null)
+  const closeInvoice = useCallback(() => setSelectedInvoice(null), [])
   const [showUpgradeModal, setShowUpgradeModal] = useState<{ planId: string; planName: string; priceCents: number } | null>(null)
   const [upgradeLoading, setUpgradeLoading] = useState(false)
   const [showAllInvoices, setShowAllInvoices] = useState(false)
@@ -661,14 +663,26 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
         </div>
       )}
 
-      {/* Invoice Detail Bottom Sheet (Mobile) */}
-      {selectedInvoice && (
-        <div className="sm:hidden">
-          <MobileBottomSheet isOpen={!!selectedInvoice} onClose={() => setSelectedInvoice(null)} title="Invoice Details">
+      {/* Invoice Detail Bottom Sheet (Mobile). Always mounted, so it can
+          slide out after the invoice is cleared: the sheet keeps what it was
+          showing until it is gone. */}
+      <BottomSheet
+        isOpen={!!selectedInvoice}
+        onClose={closeInvoice}
+        label="Invoice Details"
+        header={
+          <div className="flex items-center justify-between border-b border-[#e5e7eb] px-5 pb-3 pt-2">
+            <h3 className="text-[16px] font-semibold text-[#1a1a2e]">Invoice Details</h3>
+            <button onClick={closeInvoice} aria-label="Close" className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#f3f4f6] text-[#6b7280] active:bg-[#e5e7eb]"><X className="h-4 w-4" /></button>
+          </div>
+        }
+      >
+        {selectedInvoice && (
+          <div className="p-5">
             <InvoiceContent invoice={selectedInvoice} formatDate={formatDate} formatAmount={formatAmount} getStatusBadge={getStatusBadge} currentPlan={currentPlan} />
-          </MobileBottomSheet>
-        </div>
-      )}
+          </div>
+        )}
+      </BottomSheet>
 
       {/* Upgrade Confirmation Modal */}
       {/* Fixed notification toast */}
@@ -963,63 +977,6 @@ function UpgradeConfirmModal({ planId, planName, priceCents, currentPlan, subscr
             </button>
           </div>
         </div>
-      </div>
-    </div>
-  )
-}
-
-/* ============================================================
-   Mobile Bottom Sheet
-   ============================================================ */
-function MobileBottomSheet({ isOpen, onClose, title, children }: { isOpen: boolean; onClose: () => void; title: string; children: React.ReactNode }) {
-  const [isVisible, setIsVisible] = useState(false)
-  const [isAnimating, setIsAnimating] = useState(false)
-  const [dragY, setDragY] = useState(0)
-  const [isDragging, setIsDragging] = useState(false)
-  const startY = useRef(0)
-  const sheetRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (isOpen && !isVisible) {
-      setIsVisible(true)
-      document.body.style.overflow = "hidden"
-      document.documentElement.style.overscrollBehavior = 'none'
-      document.body.style.overscrollBehavior = 'none'
-      requestAnimationFrame(() => { requestAnimationFrame(() => { setIsAnimating(true) }) })
-    } else if (!isOpen && isVisible) {
-      setIsAnimating(false)
-      const timer = setTimeout(() => { document.body.style.overflow = ""; document.documentElement.style.overscrollBehavior = ''; document.body.style.overscrollBehavior = ''; setIsVisible(false); setDragY(0) }, 400)
-      return () => clearTimeout(timer)
-    }
-    return () => { document.body.style.overflow = ""; document.documentElement.style.overscrollBehavior = ''; document.body.style.overscrollBehavior = '' }
-  }, [isOpen, isVisible])
-
-  const handleClose = () => { setIsAnimating(false); setDragY(0); setTimeout(onClose, 400) }
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    const touch = e.touches[0]; const sheet = sheetRef.current; if (!sheet) return
-    const rect = sheet.getBoundingClientRect()
-    const touchYInSheet = touch.clientY - rect.top
-    if (touchYInSheet <= 0 || touchYInSheet <= 100) { startY.current = touch.clientY; setIsDragging(true) }
-  }
-  const handleTouchMove = (e: React.TouchEvent) => { if (!isDragging) return; const diff = e.touches[0].clientY - startY.current; if (diff > 0) { e.preventDefault(); setDragY(diff * 0.8) } }
-  const handleTouchEnd = () => { if (!isDragging) return; setIsDragging(false); if (dragY > 80) handleClose(); else setDragY(0) }
-
-  if (!isVisible) return null
-
-  return (
-    <div data-app-sheet="open" className="fixed inset-0 z-[100]" onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
-      <div className={`absolute inset-0 bg-black/50 backdrop-blur-[2px] transition-opacity duration-400 ${isAnimating ? "opacity-100" : "opacity-0"}`} onClick={handleClose} />
-      <div ref={sheetRef}
-        className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl max-h-[85vh] overflow-hidden"
-        style={{ transform: isAnimating ? `translateY(${dragY}px)` : "translateY(100%)", transition: isDragging ? "none" : "transform 400ms cubic-bezier(0.32, 0.72, 0, 1)" }}
-      >
-        <div className="flex justify-center pt-3 pb-1"><div className="w-10 h-1 bg-[#d1d5db] rounded-full" /></div>
-        <div className="flex items-center justify-between px-5 pb-3 border-b border-[#e5e7eb]">
-          <h3 className="text-[16px] font-semibold text-[#1a1a2e]">{title}</h3>
-          <button onClick={handleClose} className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center text-[#6b7280] hover:bg-[#e5e7eb] cursor-pointer"><X className="h-4 w-4" /></button>
-        </div>
-        <div className="p-5 overflow-y-auto max-h-[70vh] overscroll-contain">{children}</div>
       </div>
     </div>
   )

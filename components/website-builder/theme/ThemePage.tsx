@@ -31,7 +31,7 @@ import { setSiteConsentTheme } from "@/lib/consent/site-theme"
 import { StorefrontProvider, type Storefront } from "./storefront-context"
 import { SectionSandboxProvider } from "../sections/section-sandbox"
 import { SiteCartProvider } from "../site-cart"
-import { Fragment, useEffect, useState, type CSSProperties, type ReactNode } from "react"
+import { Fragment, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react"
 
 import { THEME_ROOT_ATTRIBUTE, themeStylesheet, themeVars } from "@/lib/website-builder/theme-css"
 import { fontStylesheetHref } from "@/lib/website-builder/font-link"
@@ -371,6 +371,14 @@ export function ThemePage({
     ))
 
   const fontHref = fontStylesheetHref(theme as unknown as Record<string, unknown>)
+  /**
+   * The theme's stylesheet, built and handed to React once per theme. Inline,
+   * it was rebuilt on every render and, because React 19 compares the prop
+   * object rather than the string, written into the <style> again each time:
+   * a re-parse of the whole theme and a style recalculation of the page, on
+   * every keystroke in the builder. See ../sections/stable-html.
+   */
+  const themeCss = useMemo(() => ({ __html: themeStylesheet(theme) }), [theme])
 
   return (
     <StorefrontProvider value={storefront ?? {}}>
@@ -404,7 +412,7 @@ export function ThemePage({
         open in the same document — the editor canvas is one — and a global
         rule would leak from one to the other.
       */}
-      <style dangerouslySetInnerHTML={{ __html: themeStylesheet(theme) }} />
+      <style dangerouslySetInnerHTML={themeCss} />
       {/* The families the stylesheet above names. Without this they were
           names only: see lib/website-builder/font-link.ts. */}
       {fontHref && <link rel="stylesheet" href={fontHref} />}

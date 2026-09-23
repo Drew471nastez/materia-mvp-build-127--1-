@@ -887,7 +887,7 @@ section("A form that says it worked, did")
       /* The canvas now names its install so the header's search field can
          ask on its behalf. It still says `inEditor` and still hands over no
          creator, which are the two things this guard reads. */
-      /storefront=\{\{ inEditor: true, installId \}\}/.test(read("app/website-builder/editor/[installId]/page.tsx")),
+      /const storefront = useMemo\(\(\) => \(\{ inEditor: true, installId \}\), \[installId\]\)/.test(read("app/website-builder/editor/[installId]/page.tsx")),
   )
 
   check(

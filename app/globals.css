@@ -4396,8 +4396,37 @@ html.pop-in-flight #platform-header-root {
   from { transform: scaleX(0); }
   to { transform: scaleX(1); }
 }
+/* Reduced motion keeps the clock and loses the movement: the bar changes slide
+   when this animation ends, so it runs, drawing nothing, rather than stopping. */
+@keyframes announce-progress-still {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(0); }
+}
 @media (prefers-reduced-motion: reduce) {
-  .announce-progress { animation: none; transform: scaleX(0); }
+  .announce-progress { animation-name: announce-progress-still; transform: scaleX(0); }
+}
+
+/* The unread count on the bell (components/app/notifications-modal.tsx).
+   The pulse is a ring under the badge that grows and fades: transform and
+   opacity only, so the compositor draws it. It was a box-shadow keyframe,
+   which repainted the header on every frame of every /app page for as long
+   as anything was unread. */
+.notification-badge-pulse::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: rgba(239, 68, 68, 0.4);
+  animation: notification-badge-ring 2.5s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes notification-badge-ring {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.5); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .notification-badge-pulse::before { animation: none; opacity: 0; }
 }
 
 /*

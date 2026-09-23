@@ -26,6 +26,7 @@
 
 import * as React from "react"
 import { cn } from "@/lib/utils"
+import { useEchoedValue } from "./echo-field"
 
 export function AutoTextarea({
   value,
@@ -43,6 +44,8 @@ export function AutoTextarea({
   className?: string
 } & Omit<React.TextareaHTMLAttributes<HTMLTextAreaElement>, "value" | "onChange" | "className">) {
   const ref = React.useRef<HTMLTextAreaElement>(null)
+  /* What is typed shows at once; the editor hears of it in a transition. See ./echo-field. */
+  const [shown, set] = useEchoedValue(value, onChange)
 
   const fit = React.useCallback(() => {
     const el = ref.current
@@ -68,7 +71,7 @@ export function AutoTextarea({
    * assistant, by an undo, or by switching to another section, and a box that
    * only resized under a keystroke would be the wrong size for all three.
    */
-  React.useLayoutEffect(fit, [fit, value])
+  React.useLayoutEffect(fit, [fit, shown])
 
   /**
    * And when the panel changes width, because the same text wraps into a
@@ -93,8 +96,8 @@ export function AutoTextarea({
         className,
       )}
       placeholder={placeholder}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
+      value={shown}
+      onChange={(e) => set(e.target.value)}
       {...rest}
     />
   )

@@ -21,6 +21,7 @@ import {
   SectionWrapper,
   type SectionProps,
 } from "../_shared"
+import { stableHtml } from "../stable-html"
 
 const WIDTH: Record<string, string> = {
   narrow: "max-w-xl",
@@ -81,7 +82,7 @@ export function RichTextSection({ section, theme, isEditing, isSelected, onClick
           <div
             className="text-lg leading-relaxed [&_a]:underline [&_h3]:mb-2 [&_h3]:mt-6 [&_h3]:text-xl [&_h3]:font-semibold [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-4 [&_ul]:list-disc [&_ul]:pl-5"
             style={{ color: bodyColor }}
-            dangerouslySetInnerHTML={{ __html: str(s.body) }}
+            dangerouslySetInnerHTML={stableHtml(str(s.body))}
           />
         )}
         {!!s.button_text && (

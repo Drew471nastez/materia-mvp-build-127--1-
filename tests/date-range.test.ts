@@ -248,15 +248,21 @@ function main() {
   {
     check("every sheet on a phone goes over the nav pill",
       /html:has\(\[data-app-sheet="open"\]\) \[data-app-nav-pill\],\s*\n\s*html:has\(\[role="dialog"\]\[aria-modal="true"\]:not\(\[data-mobile-menu\]\)\) \[data-app-nav-pill\],\s*\n\s*html:has\(body\[data-scroll-locked\]\) \[data-app-nav-pill\] \{\s*\n\s*z-index: 0;/.test(css))
+    /* The phone sheets in these pages are the shared one now, which says it
+       is open itself; what is left drawing its own layer is a centred modal
+       that still has to say so. */
     const sheets: [string, number][] = [
-      ["app/app/payouts/payouts-client.tsx", 4],
+      ["app/app/payouts/payouts-client.tsx", 1],
       ["components/app/settings-form-new.tsx", 3],
-      ["components/app/billing/billing-page-client.tsx", 1],
+      ["components/app/billing/billing-page-client.tsx", 0],
     ]
+    const shared = ["app/app/payouts/payouts-client.tsx", "components/app/settings-form-new.tsx", "components/app/billing/billing-page-client.tsx", "components/app/notifications-modal.tsx", "components/app/sidebar.tsx"]
     check("and the sheets pages draw for themselves say when they are open",
       sheets.every(([f, n]) => (read(f).match(/data-app-sheet="open"/g) ?? []).length === n)
-        && /data-app-sheet=\{isVisible \? "open" : undefined\}/.test(read("components/app/dashboard-client.tsx"))
-        && /data-app-sheet=\{isVisible \? "open" : undefined\}/.test(read("components/app/notifications-modal.tsx")))
+        && /data-app-sheet=\{isOpen \? "open" : "closing"\}/.test(read("components/ui/bottom-sheet.tsx"))
+        && /role="dialog"\s*aria-modal="true"/.test(read("components/ui/bottom-sheet.tsx"))
+        && shared.every((f) => /<BottomSheet\b/.test(read(f)) && !/translateY\(100%\)|translate3d\(0, ?100%, ?0\)/.test(read(f)))
+        && /data-app-sheet=\{isVisible \? "open" : undefined\}/.test(read("components/app/dashboard-client.tsx")))
   }
   check("the old one-off modal is gone", !/date-range-picker-modal/.test(read("app/app/analytics/analytics-client.tsx")))
   check("the revenue chart's 30 days is 30 days, not 365", /case "30": \{\s*\/\* This fell through to 365 days\. \*\/\s*const start = new Date\(now\)\s*start\.setUTCDate\(start\.getUTCDate\(\) - 30\)/.test(read("app/api/stripe/revenue-chart/route.ts")))

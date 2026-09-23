@@ -2,51 +2,91 @@
 
 /**
  * ===========================================================================
- *  A BOTTOM SHEET THAT FOLLOWS THE THUMB
+ *  ONE SHEET, ONE MOTION
  * ===========================================================================
- * There were already three of these — in the platform header, in billing and
- * in settings — and they share the two faults that make a sheet feel cheap.
+ * Every phone sheet in /app is this component, so they all open, close and
+ * follow the thumb the same way. What it has to get right, and what each
+ * earlier version got wrong:
  *
- *   1. THE DRAG WENT THROUGH REACT. `setDragY(diff * 0.8)` on every touchmove
- *      is a render per frame of a gesture, with the transform applied on the
- *      way out. The same mistake the chart tooltip had, and the same fix: the
- *      finger writes the transform straight to the node, and React is only
- *      told when the gesture ends.
+ *   THE FIRST FRAME IS ALREADY OFF SCREEN. The account sheet "double
+ *   glitched": it appeared fully open for a frame, vanished, then slid up.
+ *   `present` was set from an effect, so the portal was committed by a
+ *   default priority render whose passive effects run AFTER the browser has
+ *   painted, and the effect that moved the sheet below the screen came one
+ *   paint too late. Measured over twenty opens: thirteen painted the sheet at
+ *   rest before it slid. Now the portal is committed in the same render that
+ *   flips `isOpen`, and the entrance starts in a layout effect, which runs
+ *   before that commit is painted.
  *
- *   2. `e.preventDefault()` INSIDE A REACT `onTouchMove` DOES NOTHING. React
- *      registers touchstart, touchmove and wheel passively on its root, so
- *      the call is a no-op and the page behind the sheet scrolls while the
- *      sheet is being dragged. The listeners here are native and non-passive,
- *      which is the only way to refuse that scroll.
+ *   THE MOTION IS THE COMPOSITOR'S. Open and close are Web Animations on
+ *   `transform` and `opacity` with one curve, so a busy main thread cannot
+ *   stall them, and an interruption (closed while opening, reopened while
+ *   closing) starts from wherever the sheet actually is, read off the running
+ *   animation. It can never jump backwards.
  *
- * And two things they did not do at all:
+ *   THE DRAG DOES NOT GO THROUGH REACT. The finger writes the transform once
+ *   per frame and React is told only when the gesture ends. The listeners are
+ *   native and non-passive, because React registers touchmove passively and
+ *   `preventDefault` in an `onTouchMove` prop does nothing.
  *
- *   A FLICK CLOSES. Distance alone means a fast short flick springs back,
- *   which reads as the sheet fighting you. Past 500px/s downward it closes
- *   whatever the distance.
+ *   A FLICK CLOSES, a stale flick does not, and a close takes as long as the
+ *   distance left says it should.
  *
- *   THE CLOSE TAKES AS LONG AS IT SHOULD. A fixed 400ms timer for every
- *   dismissal makes a flick feel slow and a gentle release feel abrupt. The
- *   duration is scaled to how far the sheet still has to travel.
+ *   WHAT IS INSIDE STAYS PUT WHILE IT LEAVES. A caller that renders
+ *   `{open && <Panel/>}` used to empty the sheet on the first frame of its
+ *   close, so it shrank to a handle as it went. The last children are kept
+ *   until the sheet is gone.
  *
- * Rubber band above the top, so pulling up meets resistance rather than a
- * wall, and the backdrop fades with the drag rather than only at the ends.
+ * `will-change` is set only while something is moving, so a sheet at rest
+ * does not hold a layer it does not need.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
+import { cn } from "@/lib/utils"
 
 /** Long enough to read as a movement, short enough not to be a wait. */
-const OPEN_MS = 380
-const CLOSE_MS = 260
+export const SHEET_OPEN_MS = 380
+export const SHEET_CLOSE_MS = 260
 /** iOS's own sheet curve: leaves fast, arrives slow, never overshoots. */
-const EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
+export const SHEET_EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
+const OPEN_MS = SHEET_OPEN_MS
+const CLOSE_MS = SHEET_CLOSE_MS
+const EASE = SHEET_EASE
 /** Past this, a release closes on distance alone. */
 const DISMISS_PX = 96
 /** Past this, a release closes however short the drag was. */
 const DISMISS_VELOCITY = 0.5
 /** How far a pull upward can move the sheet before it stops giving. */
 const PULL_CAP = 28
+/** A finger has to travel this far before the sheet decides what it is. */
+const SLOP_PX = 6
+
+const translate = (y: number) => `translate3d(0, ${y.toFixed(1)}px, 0)`
+
+/** Where the sheet really is right now, running animation included. */
+function readY(el: HTMLElement): number {
+  const t = getComputedStyle(el).transform
+  if (!t || t === "none") return 0
+  return new DOMMatrixReadOnly(t).m42
+}
+
+function reducedMotion() {
+  return typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+}
+
+/** The nearest thing between the finger and the sheet that scrolls vertically. */
+function scrollerAt(target: EventTarget | null, stop: HTMLElement): HTMLElement | null {
+  let el = target as HTMLElement | null
+  while (el && el !== stop) {
+    if (el.scrollHeight > el.clientHeight + 1) {
+      const oy = getComputedStyle(el).overflowY
+      if (oy === "auto" || oy === "scroll") return el
+    }
+    el = el.parentElement
+  }
+  return null
+}
 
 export function BottomSheet({
   isOpen,
@@ -54,6 +94,12 @@ export function BottomSheet({
   children,
   title,
   label,
+  header,
+  hideFrom = "sm",
+  fill = false,
+  height,
+  maxHeight = "min(86dvh, 720px)",
+  className,
 }: {
   isOpen: boolean
   onClose: () => void
@@ -61,170 +107,242 @@ export function BottomSheet({
   title?: string
   /** For a sheet with no visible title. */
   label?: string
+  /** Drawn under the handle, and draggable like it: a title row with a close button, say. */
+  header?: React.ReactNode
+  /** The width from which a phone sheet is not drawn at all. Match whatever decides to open it. */
+  hideFrom?: "sm" | "md" | null
+  /** The children lay themselves out and scroll themselves (a list under tabs, say). */
+  fill?: boolean
+  /** A fixed height, so content that arrives late does not move the top edge. */
+  height?: string
+  maxHeight?: string
+  className?: string
 }) {
   const [mounted, setMounted] = useState(false)
-  const [present, setPresent] = useState(false)
+  /**
+   * In the DOM or not. Derived during render, not in an effect: an effect
+   * that sets this is what put a whole extra paint between "open" and "the
+   * sheet is below the screen, ready to rise".
+   */
+  const [present, setPresent] = useState(isOpen)
+  const [prevOpen, setPrevOpen] = useState(isOpen)
+  if (isOpen !== prevOpen) {
+    setPrevOpen(isOpen)
+    if (isOpen) setPresent(true)
+  }
+
+  /* The children the sheet had while open, drawn unchanged while it leaves. */
+  const shownRef = useRef<React.ReactNode>(children)
+  if (isOpen) shownRef.current = children
+
   const sheetRef = useRef<HTMLDivElement>(null)
   const scrimRef = useRef<HTMLDivElement>(null)
-  const scrollRef = useRef<HTMLDivElement>(null)
 
-  /* Gesture state is refs: none of it should cause a render. */
+  /* Gesture and motion state is refs: none of it should cause a render. */
   const startYRef = useRef(0)
+  const startXRef = useRef(0)
   const lastYRef = useRef(0)
   const lastAtRef = useRef(0)
   const velocityRef = useRef(0)
   const draggingRef = useRef(false)
+  const pendingRef = useRef(false)
+  const fromHandleRef = useRef(false)
+  const scrollerRef = useRef<HTMLElement | null>(null)
   const offsetRef = useRef(0)
+  const heightRef = useRef(0)
   const rafRef = useRef<number | null>(null)
-  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const animsRef = useRef<Animation[]>([])
   const closingRef = useRef(false)
+  const flickRef = useRef(0)
+  const onCloseRef = useRef(onClose)
+  useEffect(() => { onCloseRef.current = onClose })
+  const isOpenRef = useRef(isOpen)
+  useLayoutEffect(() => { isOpenRef.current = isOpen }, [isOpen])
 
   useEffect(() => setMounted(true), [])
+
+  const stopMotion = useCallback(() => {
+    for (const a of animsRef.current) a.cancel()
+    animsRef.current = []
+    if (rafRef.current != null) { cancelAnimationFrame(rafRef.current); rafRef.current = null }
+  }, [])
 
   const paint = useCallback(() => {
     rafRef.current = null
     const sheet = sheetRef.current
     if (!sheet) return
-    sheet.style.transform = `translate3d(0, ${offsetRef.current.toFixed(1)}px, 0)`
+    sheet.style.transform = translate(offsetRef.current)
     const scrim = scrimRef.current
-    if (scrim) {
-      /* The backdrop lightens as the sheet leaves, so the two move together. */
-      const height = sheet.offsetHeight || 1
-      scrim.style.opacity = String(Math.max(0, 1 - offsetRef.current / height))
-    }
+    /* The backdrop lightens as the sheet leaves, so the two move together. */
+    if (scrim) scrim.style.opacity = String(Math.max(0, Math.min(1, 1 - offsetRef.current / (heightRef.current || 1))))
   }, [])
 
   const schedule = useCallback(() => {
     if (rafRef.current == null) rafRef.current = requestAnimationFrame(paint)
   }, [paint])
 
-  /** Slides the sheet to a resting place with a transition, then lets go. */
-  const settle = useCallback((to: number, ms: number, then?: () => void) => {
+  /**
+   * Move from wherever the sheet is to `to`, on the compositor.
+   *
+   * The final value goes on the node first and the animation plays over it,
+   * so when the animation ends there is nothing to hand back: the node is
+   * already where the animation left it.
+   */
+  const glide = useCallback((from: number, to: number, ms: number, then?: () => void) => {
     const sheet = sheetRef.current
-    if (!sheet) { then?.(); return }
-    if (rafRef.current != null) { cancelAnimationFrame(rafRef.current); rafRef.current = null }
-    sheet.style.transition = `transform ${ms}ms ${EASE}`
     const scrim = scrimRef.current
-    if (scrim) scrim.style.transition = `opacity ${ms}ms ${EASE}`
+    if (!sheet) { then?.(); return }
+    stopMotion()
+    const h = heightRef.current || sheet.offsetHeight || 1
+    const duration = reducedMotion() ? 1 : Math.max(1, Math.round(ms))
+    const opacity = (y: number) => Math.max(0, Math.min(1, 1 - y / h))
     offsetRef.current = to
-    /* Read once so the browser has the start position before the new one. */
-    void sheet.offsetHeight
-    sheet.style.transform = `translate3d(0, ${to}px, 0)`
-    if (scrim) scrim.style.opacity = to > 0 ? "0" : "1"
-    if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
-    closeTimerRef.current = setTimeout(() => {
-      sheet.style.transition = ""
-      if (scrim) scrim.style.transition = ""
+    sheet.style.willChange = "transform"
+    sheet.style.transform = translate(to)
+    if (scrim) scrim.style.opacity = String(opacity(to))
+    if (typeof sheet.animate !== "function") {
+      sheet.style.willChange = ""
       then?.()
-    }, ms)
+      return
+    }
+    const timing: KeyframeAnimationOptions = { duration, easing: EASE }
+    const a = sheet.animate([{ transform: translate(from) }, { transform: translate(to) }], timing)
+    const anims = [a]
+    if (scrim) anims.push(scrim.animate([{ opacity: opacity(from) }, { opacity: opacity(to) }], timing))
+    animsRef.current = anims
+    a.onfinish = () => {
+      if (animsRef.current[0] !== a) return
+      animsRef.current = []
+      sheet.style.willChange = ""
+      then?.()
+    }
+  }, [stopMotion])
+
+  /** Where the sheet is this frame: mid-animation, mid-drag or at rest. */
+  const currentY = useCallback(() => {
+    const sheet = sheetRef.current
+    if (!sheet) return 0
+    if (animsRef.current.length) return readY(sheet)
+    return offsetRef.current
   }, [])
 
-  /**
-   * Out of the way, then gone.
-   *
-   * ONE DISMISSAL, and `closingRef` is what makes it one. A drag that
-   * dismisses ends by calling `onClose`, which flips `isOpen`, which reached
-   * the effect below and started a SECOND slide from a sheet that had
-   * already left — re-arming the transition and holding the unmount open for
-   * another three hundred milliseconds after the sheet was gone.
-   */
+  /* ── Open and close ─────────────────────────────────────────────────── */
+  useLayoutEffect(() => {
+    if (!mounted || !present) return
+    const sheet = sheetRef.current
+    if (!sheet) return
+    heightRef.current = sheet.offsetHeight || 600
+    if (isOpen) {
+      closingRef.current = false
+      /* Fresh: from below the screen. Reopened mid-close: from where it is. */
+      const from = animsRef.current.length ? readY(sheet) : heightRef.current
+      glide(from, 0, OPEN_MS)
+      return
+    }
+    /**
+     * ONE DISMISSAL, and `closingRef` is what makes it one. A drag that
+     * dismisses has already started the slide out before it tells the
+     * parent, and the parent's answer must not start a second one.
+     */
+    if (closingRef.current) return
+    closingRef.current = true
+    const from = currentY()
+    const travel = Math.max(1, heightRef.current - from)
+    const v = flickRef.current
+    flickRef.current = 0
+    /* A hard flick has less left to do and should take less time doing it. */
+    const ms = v > 0
+      ? Math.max(140, Math.min(CLOSE_MS, travel / (v * 2.2)))
+      : Math.max(160, CLOSE_MS * Math.min(1, travel / heightRef.current))
+    glide(from, heightRef.current, ms, () => {
+      closingRef.current = false
+      setPresent(false)
+    })
+  }, [isOpen, present, mounted, glide, currentY])
+
+  useEffect(() => () => stopMotion(), [stopMotion])
+
+  /** Out of the way, then gone: the parent is told, and its answer closes it. */
   const dismiss = useCallback((velocity = 0) => {
     if (closingRef.current) return
     closingRef.current = true
     const sheet = sheetRef.current
-    const travel = Math.max(1, (sheet?.offsetHeight ?? 400) - offsetRef.current)
-    /* A hard flick has less left to do and should take less time doing it. */
+    const h = heightRef.current || sheet?.offsetHeight || 600
+    const from = currentY()
+    const travel = Math.max(1, h - from)
     const ms = Math.max(140, Math.min(CLOSE_MS, velocity > 0 ? travel / (velocity * 2.2) : CLOSE_MS))
-    settle(sheet?.offsetHeight ?? 600, ms, () => {
-      setPresent(false)
-      onClose()
-    })
-  }, [onClose, settle])
-
-  /* ── Open and close ─────────────────────────────────────────────────── */
-  useEffect(() => {
-    if (isOpen) {
+    glide(from, h, ms, () => {
       closingRef.current = false
-      setPresent(true)
-      return
-    }
-    if (present) dismiss()
-  }, [isOpen, present, dismiss])
+      /* The parent said no (a refund still in flight, say): come back up
+         rather than leave a sheet it still thinks is open. */
+      if (isOpenRef.current) { glide(h, 0, OPEN_MS); return }
+      setPresent(false)
+    })
+    onCloseRef.current()
+  }, [currentY, glide])
 
-  /* The entrance, once the node exists to move. */
-  useEffect(() => {
-    if (!present) return
-    const sheet = sheetRef.current
-    if (!sheet) return
-    offsetRef.current = sheet.offsetHeight || 600
-    sheet.style.transform = `translate3d(0, ${offsetRef.current}px, 0)`
-    if (scrimRef.current) scrimRef.current.style.opacity = "0"
-    /* Two frames: the first commits the closed position, the second animates
-       from it. One frame and the browser collapses them into no movement. */
-    const id = requestAnimationFrame(() => requestAnimationFrame(() => settle(0, OPEN_MS)))
-    return () => cancelAnimationFrame(id)
-  }, [present, settle])
-
-  /* Nothing behind a sheet scrolls. */
-  useEffect(() => {
-    if (!present) return
-    const body = document.body.style.overflow
-    document.body.style.overflow = "hidden"
-    return () => { document.body.style.overflow = body }
-  }, [present])
-
-  useEffect(() => () => {
-    if (rafRef.current != null) cancelAnimationFrame(rafRef.current)
-    if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
-  }, [])
+  const requestClose = useCallback(() => { dismiss(0) }, [dismiss])
 
   /* ── The drag ───────────────────────────────────────────────────────── */
   useEffect(() => {
-    if (!present) return
+    if (!mounted || !present) return
     const sheet = sheetRef.current
     if (!sheet) return
 
-    const atTop = () => (scrollRef.current?.scrollTop ?? 0) <= 1
-
     const onStart = (e: TouchEvent) => {
-      const handle = (e.target as HTMLElement | null)?.closest?.("[data-sheet-handle]")
-      /* From the handle always; from the body only when there is nothing to
-         scroll up to, or a downward flick would fight the list. */
-      if (!handle && !atTop()) return
-      if (closeTimerRef.current) { clearTimeout(closeTimerRef.current); closeTimerRef.current = null }
-      sheet.style.transition = ""
-      if (scrimRef.current) scrimRef.current.style.transition = ""
-      draggingRef.current = true
+      if (closingRef.current || e.touches.length > 1) return
+      const target = e.target as HTMLElement | null
+      fromHandleRef.current = !!target?.closest?.("[data-sheet-handle]")
+      scrollerRef.current = fromHandleRef.current ? null : scrollerAt(target, sheet)
+      /* Mid-animation: take the sheet from exactly where it is. */
+      if (animsRef.current.length) {
+        const y = readY(sheet)
+        stopMotion()
+        offsetRef.current = y
+        sheet.style.transform = translate(y)
+        schedule()
+      }
+      heightRef.current = sheet.offsetHeight || heightRef.current
+      pendingRef.current = true
+      draggingRef.current = false
       startYRef.current = e.touches[0].clientY - offsetRef.current
+      startXRef.current = e.touches[0].clientX
       lastYRef.current = e.touches[0].clientY
       lastAtRef.current = performance.now()
       velocityRef.current = 0
     }
 
     const onMove = (e: TouchEvent) => {
-      if (!draggingRef.current) return
+      if (!pendingRef.current && !draggingRef.current) return
       const y = e.touches[0].clientY
+      if (pendingRef.current) {
+        const dy = y - lastYRef.current
+        const dx = e.touches[0].clientX - startXRef.current
+        if (Math.abs(dy) < SLOP_PX && Math.abs(dx) < SLOP_PX) {
+          if (e.cancelable && fromHandleRef.current) e.preventDefault()
+          return
+        }
+        pendingRef.current = false
+        /* Sideways is a row of tabs or chips scrolling, not the sheet. */
+        if (Math.abs(dx) > Math.abs(dy)) return
+        const scroller = scrollerRef.current
+        if (!fromHandleRef.current && scroller) {
+          /* A list that can scroll the way the finger went gets the finger. */
+          if (dy < 0 || scroller.scrollTop > 1) return
+        }
+        draggingRef.current = true
+        sheet.style.willChange = "transform"
+      }
+      if (!draggingRef.current) return
       let next = y - startYRef.current
       if (next < 0) {
         /**
-         * =================================================================
-         *  PULLING UP MOVES THE SHEET, AND THE SHEET HAS A BOTTOM
-         * =================================================================
-         * This was `next / 3` with nothing stopping it, so a long upward
-         * drag translated the sheet a long way up — and the sheet is
-         * anchored to the bottom of the screen, so everything it uncovered
-         * down there was the scrim. That is the black band.
-         *
-         * Two things keep it shut. The give is capped, so a pull has
-         * somewhere to go and then firmly stops; and the sheet paints on
-         * past its own bottom edge (see the skirt below), so even the capped
-         * amount uncovers nothing.
+         * PULLING UP MOVES THE SHEET, AND THE SHEET HAS A BOTTOM. The give is
+         * capped, so a pull has somewhere to go and then firmly stops, and
+         * the sheet paints on past its own bottom edge (the skirt below), so
+         * even the capped amount uncovers nothing.
          */
         next = -PULL_CAP * (1 - Math.exp(next / (PULL_CAP * 2)))
-      } else if (!atTop() && next > 0) {
-        draggingRef.current = false
-        settle(0, 180)
-        return
       }
       /* Native and non-passive, so this actually refuses the page's scroll. */
       if (e.cancelable) e.preventDefault()
@@ -238,19 +356,27 @@ export function BottomSheet({
     }
 
     const onEnd = () => {
-      if (!draggingRef.current) return
+      pendingRef.current = false
+      if (!draggingRef.current) {
+        /* Touched mid-animation and let go without dragging: finish the move. */
+        if (!closingRef.current && Math.abs(offsetRef.current) > 0.5 && !animsRef.current.length) {
+          glide(offsetRef.current, 0, OPEN_MS * 0.6)
+        }
+        return
+      }
       draggingRef.current = false
+      if (rafRef.current != null) { cancelAnimationFrame(rafRef.current); rafRef.current = null; paint() }
       /**
        * A FLICK IS A FLICK ONLY IF THE FINGER WAS STILL MOVING WHEN IT LEFT.
-       *
-       * Velocity comes from the last move, so a fast drag followed by a pause
-       * and then a lift carried the speed of the drag into the release and
-       * closed a sheet the person had just stopped to keep. Anything older
-       * than a few frames is not a flick, it is a rest.
+       * Anything older than a few frames is not a flick, it is a rest.
        */
       const v = performance.now() - lastAtRef.current > 80 ? 0 : velocityRef.current
-      if (offsetRef.current > DISMISS_PX || v > DISMISS_VELOCITY) dismiss(Math.max(v, 0))
-      else settle(0, 220)
+      if (offsetRef.current > DISMISS_PX || v > DISMISS_VELOCITY) {
+        dismiss(Math.max(v, 0))
+      } else {
+        const h = heightRef.current || 1
+        glide(offsetRef.current, 0, Math.max(200, Math.min(OPEN_MS, OPEN_MS * 2 * Math.abs(offsetRef.current) / h)))
+      }
     }
 
     sheet.addEventListener("touchstart", onStart, { passive: false })
@@ -263,48 +389,76 @@ export function BottomSheet({
       sheet.removeEventListener("touchend", onEnd)
       sheet.removeEventListener("touchcancel", onEnd)
     }
-  }, [present, dismiss, settle, schedule])
+  }, [mounted, present, dismiss, glide, paint, schedule, stopMotion])
+
+  /* The scrim takes no scroll: a drag on it must not move the page behind. */
+  useEffect(() => {
+    if (!mounted || !present) return
+    const scrim = scrimRef.current
+    if (!scrim) return
+    const refuse = (e: TouchEvent) => { if (e.cancelable) e.preventDefault() }
+    scrim.addEventListener("touchmove", refuse, { passive: false })
+    return () => scrim.removeEventListener("touchmove", refuse)
+  }, [mounted, present])
 
   useEffect(() => {
-    if (!present) return
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose() }
+    if (!isOpen) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") requestClose() }
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
-  }, [present, onClose])
+  }, [isOpen, requestClose])
 
   if (!mounted || !present) return null
 
   return createPortal(
-    <div className="fixed inset-0 z-[200] sm:hidden" role="dialog" aria-modal="true" aria-label={label ?? title}>
+    <div
+      data-app-sheet={isOpen ? "open" : "closing"}
+      className={cn("fixed inset-0 z-[200]", hideFrom === "sm" && "sm:hidden", hideFrom === "md" && "md:hidden")}
+      role="dialog"
+      aria-modal="true"
+      aria-label={label ?? title}
+    >
       <div
         ref={scrimRef}
-        onClick={onClose}
+        onClick={requestClose}
         className="absolute inset-0 bg-black/40"
-        style={{ opacity: 0, willChange: "opacity" }}
+        /* Below the screen and invisible on the very first paint, before any
+           script has run: there is no frame in which the sheet is at rest. */
+        style={{ opacity: 0, touchAction: "none" }}
       />
       <div
         ref={sheetRef}
-        className="absolute inset-x-0 bottom-0 rounded-t-[20px] bg-white shadow-[0_-8px_40px_rgba(0,0,0,0.18)]"
+        data-sheet-panel=""
+        className={cn("absolute inset-x-0 bottom-0 rounded-t-[20px] bg-white shadow-[0_-8px_40px_rgba(0,0,0,0.18)]", className)}
         style={{
+          transform: "translate3d(0, 100%, 0)",
           /* The sheet owns every touch on it: the browser must not decide
              half way through that this was a scroll. */
           touchAction: "none",
-          willChange: "transform",
           paddingBottom: "max(env(safe-area-inset-bottom), 12px)",
-          maxHeight: "min(86dvh, 720px)",
+          maxHeight,
+          height,
           display: "flex",
           flexDirection: "column",
+          contain: "layout style",
         }}
       >
         <div data-sheet-handle className="shrink-0 pt-2.5 pb-1">
           <div className="mx-auto h-1 w-9 rounded-full bg-neutral-300" />
-          {title && (
+          {title && !header && (
             <p className="px-5 pt-3 text-[15px] font-semibold text-neutral-900">{title}</p>
           )}
+          {header}
         </div>
-        <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain" style={{ touchAction: "pan-y" }}>
-          {children}
-        </div>
+        {fill ? (
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden" style={{ touchAction: "pan-x pan-y" }}>
+            {shownRef.current}
+          </div>
+        ) : (
+          <div data-sheet-scroll="" className="min-h-0 flex-1 overflow-y-auto overscroll-contain" style={{ touchAction: "pan-y" }}>
+            {shownRef.current}
+          </div>
+        )}
         {/*
           THE SKIRT. The sheet's own colour, carried on below where the sheet
           ends. Nothing here is ever meant to be seen: it is what is there

@@ -176,7 +176,8 @@ function main() {
   check("the live shop and search prefer what the creator saved",
     /site\.pages\.products/.test(read("app/(site)/w/[username]/products/page.tsx")) && /site\.pages\.search/.test(read("app/(site)/w/[username]/search/page.tsx")))
   check("the canvas tells the field which site it is, so it can ask",
-    /storefront=\{\{ inEditor: true, installId \}\}/.test(editor) && /install=\$\{encodeURIComponent\(installId\)\}/.test(header))
+    /const storefront = useMemo\(\(\) => \(\{ inEditor: true, installId \}\), \[installId\]\)/.test(editor) && /storefront=\{storefront\}/.test(editor)
+      && /install=\$\{encodeURIComponent\(installId\)\}/.test(header))
 
   console.log("\n  the field draws nothing native")
 

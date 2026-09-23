@@ -33,7 +33,7 @@ import { Button } from "@/components/ui/button"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { createClient, isNativePlatform } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
-import { useState, useEffect, useRef, useCallback } from "react"
+import { forwardRef, memo, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react"
 // Sheet removed — mobile sidebar now uses pure CSS transitions for reliable close animation
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { DesktopSidebarContent, NAV_ICONS, NAV_ICONS_EXTRA } from "@/components/app/sidebar-desktop-nav"
@@ -110,6 +110,227 @@ function getDismissedNotifications(): string[] {
   }
 }
 
+/**
+ * ===========================================================================
+ *  THE ACCOUNT TRIGGER AND ITS SHEET, ON THEIR OWN
+ * ===========================================================================
+ * The open state used to live in AppSidebar, so every open and every close
+ * re-rendered the whole sidebar: the desktop nav, the header, the pill, the
+ * menu page, the notifications. Traced on a phone profile that was a 60 to
+ * 90ms task on the tap that opens the sheet, in the same frame the sheet has
+ * to start moving in. Here the state is local and the component is memoised,
+ * so a tap re-renders a button and a sheet.
+ */
+const MobileAccountMenu = memo(function MobileAccountMenu({
+  avatarUrl,
+  avatarSrc,
+  userDisplayName,
+  userInitials,
+  settingsLabel,
+  billingLabel,
+  languageLabel,
+  onOpening,
+  onLanguage,
+  onSignOut,
+}: {
+  avatarUrl?: string
+  avatarSrc: string | undefined
+  userDisplayName: string
+  userInitials: string
+  settingsLabel: string
+  billingLabel: string
+  languageLabel: string
+  onOpening: () => void
+  onLanguage: () => void
+  onSignOut: () => void
+}) {
+  const [mobileProfileDropdownOpen, setMobileProfileDropdownOpen] = useState(false)
+  const closeMobileProfile = useCallback(() => setMobileProfileDropdownOpen(false), [])
+  const pathname = usePathname()
+  /* A page change closes it, as it closed everything else in the sidebar. */
+  useEffect(() => { setMobileProfileDropdownOpen(false) }, [pathname])
+  const items = useMemo(() => [
+    { href: "/app/settings", label: settingsLabel, icon: Settings },
+    { href: "/app/settings/billing", label: billingLabel, icon: CreditCard },
+    { href: "/help", label: "Help", icon: HelpCircle, target: "_blank" as const },
+    { href: "/explore", label: "Explore", icon: Compass, target: "_blank" as const },
+    { href: "/library", label: "Library", icon: Library },
+  ], [settingsLabel, billingLabel])
+
+  return (
+    <>
+    <div className="relative flex-1 z-[60]">
+      <button
+        onClick={() => {
+          onOpening()
+          setMobileProfileDropdownOpen((v) => !v)
+        }}
+        aria-haspopup="dialog"
+        aria-expanded={mobileProfileDropdownOpen}
+        className={cn(
+          "flex items-center gap-2 w-fit justify-start rounded-xl px-2 py-1.5 transition-colors duration-200 ease-out",
+          mobileProfileDropdownOpen ? "bg-white/15" : "hover:bg-white/10"
+        )}
+      >
+        <div
+          className="relative h-6 w-6 shrink-0 rounded-full ring-1 ring-white/20 overflow-hidden"
+          style={{
+            transform: 'translateZ(0)',
+            willChange: 'contents',
+            contain: 'layout paint',
+            isolation: 'isolate',
+          }}
+        >
+          {/* Always render fallback behind */}
+          <div className="absolute inset-0 bg-neutral-700 flex items-center justify-center text-white text-[10px] font-medium">
+            {userInitials}
+          </div>
+          {/* Image on top when available */}
+          {avatarUrl && (
+            <img
+              src={avatarSrc}
+              alt={userDisplayName}
+              width={24}
+              height={24}
+              className="absolute inset-0 w-full h-full object-cover"
+              loading="eager"
+              decoding="async"
+              style={{ backfaceVisibility: 'hidden' }}
+              onError={(e) => { e.currentTarget.style.display = 'none' }}
+            />
+          )}
+        </div>
+        <span className="text-[13px] font-medium text-white/90 max-w-[120px] truncate">
+          {userDisplayName}
+        </span>
+        <ChevronDown
+          className={cn(
+            "h-3.5 w-3.5 text-white/50 transition-transform duration-200 ease-out",
+            mobileProfileDropdownOpen && "rotate-180"
+          )}
+        />
+      </button>
+
+      {/*
+        THE ACCOUNT MENU IS A SHEET, NOT A DROPDOWN.
+
+        A 200px card hanging off the avatar is a desktop shape: on a
+        phone it opens under the thumb that pressed it, covers the page
+        it belongs to, and has nothing to grab. A sheet comes from the
+        bottom, where the hand is, and can be pushed back down.
+
+        The drag is in components/ui/bottom-sheet — the sheet follows
+        the finger every frame, a flick closes it, and the listeners are
+        native because React registers touchmove passively and a sheet
+        that cannot refuse the page's scroll slides against it.
+      */}
+    </div>
+    <BottomSheet
+      isOpen={mobileProfileDropdownOpen}
+      onClose={closeMobileProfile}
+      label="Account"
+      hideFrom="md"
+    >
+      <div className="px-3 pb-3">
+        <div className="flex items-center gap-3 px-2 pb-3 pt-1">
+          <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full ring-1 ring-neutral-200">
+            <div className="absolute inset-0 flex items-center justify-center bg-neutral-100 text-[13px] font-medium text-neutral-500">
+              {userInitials}
+            </div>
+            {avatarUrl && (
+              <img src={avatarSrc} alt={userDisplayName} width={40} height={40} className="absolute inset-0 h-full w-full object-cover" loading="eager" decoding="sync" />
+            )}
+          </div>
+          <span className="truncate text-[15px] font-semibold text-neutral-900">{userDisplayName}</span>
+        </div>
+
+        {items.map((item) => {
+          const Icon = item.icon
+          const isExplore = item.href === "/explore"
+          const isHelp = item.href === "/help"
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              {...("target" in item ? { target: item.target, rel: "noopener noreferrer" } : {})}
+              onClick={(e) => {
+                if (isHelp && isNativeApp()) {
+                  e.preventDefault()
+                  openExternal(HELP_FULL_URL)
+                } else if (isExplore && isNativeApp()) {
+                  e.preventDefault()
+                  openExternal(EXPLORE_FULL_URL)
+                }
+                setMobileProfileDropdownOpen(false)
+              }}
+              className="flex items-center gap-3 rounded-xl px-3 py-3 text-[15px] font-medium text-neutral-800 active:bg-neutral-100"
+            >
+              <Icon className="h-[18px] w-[18px] shrink-0 text-neutral-400" strokeWidth={1.75} />
+              <span>{item.label}</span>
+            </Link>
+          )
+        })}
+        <button
+          onClick={() => {
+            setMobileProfileDropdownOpen(false)
+            onLanguage()
+          }}
+          className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-[15px] font-medium text-neutral-800 active:bg-neutral-100"
+        >
+          <Globe className="h-[18px] w-[18px] shrink-0 text-neutral-400" strokeWidth={1.75} />
+          <span>{languageLabel}</span>
+        </button>
+
+        <div className="my-1.5 h-px bg-neutral-100" />
+
+        <button
+          onClick={() => {
+            setMobileProfileDropdownOpen(false)
+            onSignOut()
+          }}
+          className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-[15px] font-medium text-red-600 active:bg-red-50"
+        >
+          <LogOut className="h-[18px] w-[18px] shrink-0" strokeWidth={1.75} />
+          <span>Logout</span>
+        </button>
+      </div>
+    </BottomSheet>
+    </>
+  )
+})
+
+type NotificationsHandle = { open: () => void }
+
+/**
+ * The notifications sheet and its open state, memoised for the same reason
+ * as the account menu above: the bell used to set state in AppSidebar, and
+ * the whole sidebar rendered again on the tap that has to start the sheet
+ * moving, and again on the way out.
+ */
+const NotificationsHost = memo(forwardRef<NotificationsHandle, {
+  stripeConnected: boolean
+  stripeStatus: string
+  onePagePublished: boolean
+  onClosed: () => void
+}>(function NotificationsHost({ stripeConnected, stripeStatus, onePagePublished, onClosed }, ref) {
+  const [open, setOpen] = useState(false)
+  useImperativeHandle(ref, () => ({ open: () => setOpen(true) }), [])
+  const wasOpenRef = useRef(false)
+  useEffect(() => {
+    if (wasOpenRef.current && !open) onClosed()
+    wasOpenRef.current = open
+  }, [open, onClosed])
+  return (
+    <NotificationsModal
+      open={open}
+      onOpenChange={setOpen}
+      stripeConnected={stripeConnected}
+      stripeStatus={stripeStatus}
+      onePagePublished={onePagePublished}
+    />
+  )
+}))
+
 export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, displayName, stripeConnected = false, stripeStatus = "not_connected", onePagePublished = false, setupProgress }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
@@ -125,20 +346,23 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   useLockAppScroll(mobileMenuOpen)
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false)
-  const [mobileProfileDropdownOpen, setMobileProfileDropdownOpen] = useState(false)
-  const [notificationsOpen, setNotificationsOpen] = useState(false)
+  /* The bell opens the host below by ref: its open state is the host's, so
+     opening notifications does not re-render this whole sidebar. */
+  const notificationsRef = useRef<NotificationsHandle>(null)
+  const openNotifications = useCallback(() => notificationsRef.current?.open(), [])
   const [dismissedNotifications, setDismissedNotifications] = useState<string[]>([])
   // Optimistic active-link state: the clicked href lights up immediately, even
   // before the new page finishes loading. Cleared as soon as pathname catches
   // up. Makes sidebar clicks feel instant instead of waiting on the route.
   const [pendingHref, setPendingHref] = useState<string | null>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
-  const mobileDropdownRef = useRef<HTMLDivElement>(null)
+  /* Stable, so the memoised account menu is not re-rendered by them. */
+  const closeMobileMenu = useCallback(() => setMobileMenuOpen(false), [])
+  const openLanguage = useCallback(() => setLanguageOpen(true), [])
 
   useEffect(() => {
     setMobileMenuOpen(false)
     setProfileDropdownOpen(false)
-    setMobileProfileDropdownOpen(false)
     setHeaderProfileOpen(false)
     setSearchOpen(false)
     // Pathname changed — the optimistic active state has served its purpose.
@@ -150,21 +374,27 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     setDismissedNotifications(getDismissedNotifications())
   }, [])
 
-  // Re-check dismissed notifications when notifications modal closes
-  useEffect(() => {
-    if (!notificationsOpen) {
-      setDismissedNotifications(getDismissedNotifications())
-    }
-  }, [notificationsOpen])
+  // Re-check dismissed notifications when notifications modal closes, and
+  // render only when the answer is different.
+  const refreshDismissed = useCallback(() => {
+    setDismissedNotifications((prev) => {
+      const next = getDismissedNotifications()
+      return next.join(",") === prev.join(",") ? prev : next
+    })
+  }, [])
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setProfileDropdownOpen(false)
       }
-      if (mobileDropdownRef.current && !mobileDropdownRef.current.contains(event.target as Node)) {
-        setMobileProfileDropdownOpen(false)
-      }
+      /*
+        NOT THE ACCOUNT SHEET. It is portaled to <body>, so every press inside
+        it is "outside" this row, and on a phone a tap is followed by a
+        synthesized mousedown: pressing the sheet's own name, or letting go
+        of its handle without dragging, closed it under the finger. The sheet
+        closes itself from its scrim, its handle and Escape.
+      */
     }
     document.addEventListener("mousedown", handleClickOutside)
     return () => document.removeEventListener("mousedown", handleClickOutside)
@@ -189,6 +419,9 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
       window.location.assign("/login")
     }
   }
+  const signOutRef = useRef(handleSignOut)
+  useEffect(() => { signOutRef.current = handleSignOut })
+  const signOut = useCallback(() => { void signOutRef.current() }, [])
 
   type NavItemChild = { href: string; label: string }
   type NavItemData = {
@@ -740,7 +973,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
                 <Compass className="h-[19px] w-[19px]" strokeWidth={1.5} />
               </Link>
               <button
-                onClick={() => setNotificationsOpen(true)}
+                onClick={openNotifications}
                 className="flex h-[34px] w-[34px] items-center justify-center rounded-lg text-white/75 hover:text-white hover:bg-white/10 transition-all relative"
                 title="Notifications"
               >
@@ -926,71 +1159,21 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
             see components/app/sidebar-mobile-nav — so this row carries only
             what it is for: who you are, and what is waiting for you.
           */}
-          {/* Who you are, and the store you are in */}
-          <div ref={mobileDropdownRef} className="relative flex-1 z-[60]">
-            <button
-              onClick={() => {
-                if (mobileMenuOpen) setMobileMenuOpen(false)
-                setMobileProfileDropdownOpen(!mobileProfileDropdownOpen)
-              }}
-              className={cn(
-                "flex items-center gap-2 w-fit justify-start rounded-xl px-2 py-1.5 transition-all duration-200 ease-out",
-                mobileProfileDropdownOpen ? "bg-white/15" : "hover:bg-white/10"
-              )}
-            >
-              <div
-                className="relative h-6 w-6 shrink-0 rounded-full ring-1 ring-white/20 overflow-hidden"
-                style={{
-                  transform: 'translateZ(0)',
-                  willChange: 'contents',
-                  contain: 'layout paint',
-                  isolation: 'isolate',
-                }}
-              >
-                {/* Always render fallback behind */}
-                <div className="absolute inset-0 bg-neutral-700 flex items-center justify-center text-white text-[10px] font-medium">
-                  {userInitials}
-                </div>
-                {/* Image on top when available */}
-                {avatarUrl && (
-                  <img
-                    src={avatarSrc}
-                    alt={userDisplayName}
-                    width={24}
-                    height={24}
-                    className="absolute inset-0 w-full h-full object-cover"
-                    loading="eager"
-                    decoding="async"
-                    style={{ backfaceVisibility: 'hidden' }}
-                    onError={(e) => { e.currentTarget.style.display = 'none' }}
-                  />
-                )}
-              </div>
-              <span className="text-[13px] font-medium text-white/90 max-w-[120px] truncate">
-                {userDisplayName}
-              </span>
-              <ChevronDown
-                className={cn(
-                  "h-3.5 w-3.5 text-white/50 transition-transform duration-200 ease-out",
-                  mobileProfileDropdownOpen && "rotate-180"
-                )}
-              />
-            </button>
-
-            {/*
-              THE ACCOUNT MENU IS A SHEET, NOT A DROPDOWN.
-
-              A 200px card hanging off the avatar is a desktop shape: on a
-              phone it opens under the thumb that pressed it, covers the page
-              it belongs to, and has nothing to grab. A sheet comes from the
-              bottom, where the hand is, and can be pushed back down.
-
-              The drag is in components/ui/bottom-sheet — the sheet follows
-              the finger every frame, a flick closes it, and the listeners are
-              native because React registers touchmove passively and a sheet
-              that cannot refuse the page's scroll slides against it.
-            */}
-          </div>
+          {/* Who you are, and the store you are in. Its own component, holding
+              its own open state, so opening the account sheet re-renders the
+              trigger and the sheet and nothing else in this sidebar. */}
+          <MobileAccountMenu
+            avatarUrl={avatarUrl}
+            avatarSrc={avatarSrc}
+            userDisplayName={userDisplayName}
+            userInitials={userInitials}
+            settingsLabel={t("nav.settings")}
+            billingLabel={t("settings.billing")}
+            languageLabel={t("settings.language")}
+            onOpening={closeMobileMenu}
+            onLanguage={openLanguage}
+            onSignOut={signOut}
+          />
 
           {/* Right side: Explore, then Notifications */}
           <div className="flex items-center gap-0.5">
@@ -1019,7 +1202,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
               variant="ghost"
               size="icon"
               className="h-9 w-9 shrink-0 rounded-xl text-white/90 hover:text-white hover:bg-white/10 relative"
-              onClick={() => setNotificationsOpen(true)}
+              onClick={openNotifications}
               aria-label="Notifications"
             >
               <Bell className="h-5 w-5" />
@@ -1031,83 +1214,14 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         </div>
       </header>
 
-      <BottomSheet
-        isOpen={mobileProfileDropdownOpen}
-        onClose={() => setMobileProfileDropdownOpen(false)}
-        label="Account"
-      >
-        <div className="px-3 pb-3">
-          <div className="flex items-center gap-3 px-2 pb-3 pt-1">
-            <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full ring-1 ring-neutral-200">
-              <div className="absolute inset-0 flex items-center justify-center bg-neutral-100 text-[13px] font-medium text-neutral-500">
-                {userInitials}
-              </div>
-              {avatarUrl && (
-                <img src={avatarSrc} alt={userDisplayName} className="absolute inset-0 h-full w-full object-cover" loading="eager" decoding="async" />
-              )}
-            </div>
-            <span className="truncate text-[15px] font-semibold text-neutral-900">{userDisplayName}</span>
-          </div>
-
-          {profileDropdownItems.map((item) => {
-            const Icon = item.icon
-            const isExplore = item.href === "/explore"
-            const isHelp = item.href === "/help"
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                {...("target" in item ? { target: item.target, rel: "noopener noreferrer" } : {})}
-                onClick={(e) => {
-                  if (isHelp && isNativeApp()) {
-                    e.preventDefault()
-                    openExternal(HELP_FULL_URL)
-                  } else if (isExplore && isNativeApp()) {
-                    e.preventDefault()
-                    openExternal(EXPLORE_FULL_URL)
-                  }
-                  setMobileProfileDropdownOpen(false)
-                }}
-                className="flex items-center gap-3 rounded-xl px-3 py-3 text-[15px] font-medium text-neutral-800 active:bg-neutral-100"
-              >
-                <Icon className="h-[18px] w-[18px] shrink-0 text-neutral-400" strokeWidth={1.75} />
-                <span>{item.label}</span>
-              </Link>
-            )
-          })}
-          <button
-            onClick={() => {
-              setMobileProfileDropdownOpen(false)
-              setLanguageOpen(true)
-            }}
-            className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-[15px] font-medium text-neutral-800 active:bg-neutral-100"
-          >
-            <Globe className="h-[18px] w-[18px] shrink-0 text-neutral-400" strokeWidth={1.75} />
-            <span>{t("settings.language")}</span>
-          </button>
-
-          <div className="my-1.5 h-px bg-neutral-100" />
-
-          <button
-            onClick={() => {
-              setMobileProfileDropdownOpen(false)
-              handleSignOut()
-            }}
-            className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-[15px] font-medium text-red-600 active:bg-red-50"
-          >
-            <LogOut className="h-[18px] w-[18px] shrink-0" strokeWidth={1.75} />
-            <span>Logout</span>
-          </button>
-        </div>
-      </BottomSheet>
 
       {/* Notifications Modal */}
-      <NotificationsModal
-        open={notificationsOpen}
-        onOpenChange={setNotificationsOpen}
+      <NotificationsHost
+        ref={notificationsRef}
         stripeConnected={stripeConnected}
         stripeStatus={stripeStatus}
         onePagePublished={onePagePublished}
+        onClosed={refreshDismissed}
       />
 
       {/*
@@ -1177,7 +1291,6 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
       <MobileNavPill
         menuOpen={mobileMenuOpen}
         onToggleMenu={() => {
-          if (mobileProfileDropdownOpen) setMobileProfileDropdownOpen(false)
           setMobileMenuOpen((v) => !v)
         }}
         onCloseMenu={() => setMobileMenuOpen(false)}

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback } from "react"
+import { useState, useEffect, useLayoutEffect, useRef, useCallback } from "react"
 import Link from "next/link"
 import { createClient } from "@/lib/supabase/client"
 import { optimizedImageUrl } from "@/lib/images/optimized-url"
@@ -12,38 +12,76 @@ const TYPING_PHRASES = [
   "Share your passion...",
   "Build your online store...",
 ]
+const TYPING_MS = 70
+const DELETING_MS = 35
+const TYPED_PAUSE_MS = 2000
 
-function useTypingEffect(
-  phrases: string[],
-  typingSpeed = 70,
-  deletingSpeed = 35,
-  pauseDuration = 2000,
-) {
-  const [displayText, setDisplayText] = useState("")
-  const [phraseIndex, setPhraseIndex] = useState(0)
-  const [phase, setPhase] = useState<"typing" | "deleting">("typing")
-
+/**
+ * THE TYPED HEADLINE, WITHOUT REACT.
+ *
+ * It was a `useState` per character, so every 35 to 70ms the whole hero
+ * rendered again (five cards, their styles and srcsets) to change one letter,
+ * forever, including with the hero scrolled away and the tab in the
+ * background. Now the letters go straight into a text node, and the typing
+ * stops while nobody can see it.
+ */
+function TypingHeadline() {
+  const textRef = useRef<HTMLSpanElement>(null)
   useEffect(() => {
-    const current = phrases[phraseIndex]
-    if (phase === "typing") {
-      if (displayText.length < current.length) {
-        const t = setTimeout(() => setDisplayText(current.slice(0, displayText.length + 1)), typingSpeed)
-        return () => clearTimeout(t)
+    const el = textRef.current
+    if (!el) return
+    const node = document.createTextNode("")
+    el.replaceChildren(node)
+    let phrase = 0
+    let length = 0
+    let deleting = false
+    let timer: ReturnType<typeof setTimeout> | null = null
+    let onScreen = true
+
+    const step = () => {
+      timer = null
+      const current = TYPING_PHRASES[phrase]
+      let wait = TYPING_MS
+      if (!deleting) {
+        if (length < current.length) {
+          length++
+          wait = length === current.length ? TYPED_PAUSE_MS : TYPING_MS
+          if (length === current.length) deleting = true
+        }
+      } else if (length > 0) {
+        length--
+        wait = DELETING_MS
+        if (length === 0) {
+          phrase = (phrase + 1) % TYPING_PHRASES.length
+          deleting = false
+          wait = TYPING_MS
+        }
       }
-      const t = setTimeout(() => setPhase("deleting"), pauseDuration)
-      return () => clearTimeout(t)
+      node.data = TYPING_PHRASES[phrase].slice(0, length)
+      schedule(wait)
     }
-
-    if (displayText.length > 0) {
-      const t = setTimeout(() => setDisplayText(displayText.slice(0, -1)), deletingSpeed)
-      return () => clearTimeout(t)
+    const schedule = (wait: number) => {
+      if (timer || !onScreen || document.visibilityState === "hidden") return
+      timer = setTimeout(step, wait)
     }
-
-    setPhraseIndex((p) => (p + 1) % phrases.length)
-    setPhase("typing")
-  }, [displayText, phraseIndex, phase, phrases, typingSpeed, deletingSpeed, pauseDuration])
-
-  return displayText
+    const pause = () => { if (timer) { clearTimeout(timer); timer = null } }
+    const sync = () => {
+      if (onScreen && document.visibilityState !== "hidden") schedule(TYPING_MS)
+      else pause()
+    }
+    const io = typeof IntersectionObserver === "function"
+      ? new IntersectionObserver(([entry]) => { onScreen = entry.isIntersecting; sync() })
+      : null
+    io?.observe(el)
+    document.addEventListener("visibilitychange", sync)
+    schedule(TYPING_MS)
+    return () => {
+      pause()
+      io?.disconnect()
+      document.removeEventListener("visibilitychange", sync)
+    }
+  }, [])
+  return <span ref={textRef} />
 }
 
 const PARTNER_LOGOS = [
@@ -131,6 +169,48 @@ const CANVAS_W = 1100
 const CANVAS_H = 375
 const AUTOPLAY_INTERVAL = 3800
 const CARD_TRANSITION_MS = 1500
+/**
+ * The box every card is drawn in: the centre card's size. A card's size in the
+ * collage is a `scale` of this box, never a width, so a rotation moves and
+ * scales five layers the compositor already has and lays nothing out. It
+ * animated width and height before, which was a layout and a re-raster of
+ * five images on every frame of every rotation. The ratio is the cards' own
+ * 4:5 in both sets, so a scale is exactly the old width and height.
+ */
+const DESKTOP_BASE = 280
+const MOBILE_BASE = 260
+/** Below this the phone set is used: the same edge as the `sm` breakpoint. */
+const MOBILE_QUERY = "(max-width: 639px)"
+
+interface Pose { transform: string; opacity: number; zIndex: number }
+
+function poseOf(from: CardDef, to: CardDef, t: number, base: number): Pose {
+  const width = lerp(from.width, to.width, t)
+  const height = lerp(from.height, to.height, t)
+  const scale = lerp(from.scale ?? 1, to.scale ?? 1, t)
+  const tx = lerp(from.left, to.left, t) + width * (1 - scale) / 2
+  const ty = lerp(from.top, to.top, t) + height * (1 - scale) / 2
+  const k = (width * scale) / base
+  return {
+    transform: `translate3d(${tx.toFixed(2)}px,${ty.toFixed(2)}px,0) scale(${k.toFixed(4)})`,
+    opacity: lerp(from.opacity ?? 1, to.opacity ?? 1, t),
+    zIndex: Math.round(lerp(from.zIndex, to.zIndex, t)),
+  }
+}
+
+/** A card at rest, for both sets at once, as CSS variables: right on the server's first paint. */
+function restVars(slot: number): React.CSSProperties {
+  const d = poseOf(DESKTOP_CARDS[slot], DESKTOP_CARDS[slot], 1, DESKTOP_BASE)
+  const m = poseOf(MOBILE_CARDS[slot], MOBILE_CARDS[slot], 1, MOBILE_BASE)
+  return {
+    ["--hc-t" as string]: d.transform,
+    ["--hc-o" as string]: d.opacity,
+    ["--hc-z" as string]: d.zIndex,
+    ["--hc-tm" as string]: m.transform,
+    ["--hc-om" as string]: m.opacity,
+    ["--hc-zm" as string]: m.zIndex,
+  }
+}
 
 const rotateOrder = (order: number[], direction: 1 | -1) => {
   const next = [...order]
@@ -149,72 +229,51 @@ const lerp = (from: number, to: number, t: number) => from + (to - from) * t
 const ease = (t: number) => t < 0.5 ? 8 * t * t * t * t : 1 - Math.pow(-2 * t + 2, 4) / 2
 
 export function Hero() {
-  const typedText = useTypingEffect(TYPING_PHRASES)
   const [cardOrder, setCardOrder] = useState([0, 1, 2, 3, 4])
-  // transition state removed — animation is now driven imperatively via cardRefs
-  // to eliminate ~90 React re-renders per rotation on iOS/Android.
-  const [isMobile, setIsMobile] = useState(false)
   const [loadedImages, setLoadedImages] = useState<Set<number>>(new Set())
-  // imagesLoaded (all-5 flag) removed — text is now shown immediately without waiting
-  // for all images. Per-card skeleton uses loadedImages.has(idx) instead.
   const [logosLoaded, setLogosLoaded] = useState(false)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [isCreator, setIsCreator] = useState(false)
   const loadedLogosCount = useRef(0)
 
-  const autoplayRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const autoplayRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const orderRef = useRef(cardOrder)
   const animatingRef = useRef(false)
   const rafRef = useRef<number | null>(null)
+  const activeRef = useRef(true)
   const loadedImageSetRef = useRef(new Set<number>())
   // Refs for imperative card DOM updates — bypasses React reconciler during animation
   const cardRefs = useRef<(HTMLDivElement | null)[]>([null, null, null, null, null])
-  const isMobileRef = useRef(false)
+  const sectionRef = useRef<HTMLElement>(null)
 
   const clearAutoplay = useCallback(() => {
     if (autoplayRef.current) {
-      clearInterval(autoplayRef.current)
+      clearTimeout(autoplayRef.current)
       autoplayRef.current = null
     }
   }, [])
 
-  // Apply a card's computed position directly to its DOM element — no React re-render.
-  // This keeps all animation work off the React reconciler (crucial on iOS/Android).
-  const applyCardStyle = useCallback((imageIdx: number, order: number[], t: number, fromOrder: number[], toOrder: number[]) => {
-    const el = cardRefs.current[imageIdx]
-    if (!el) return
-    const cards = isMobileRef.current ? MOBILE_CARDS : DESKTOP_CARDS
-    const fromPos = fromOrder.indexOf(imageIdx)
-    const toPos = toOrder.indexOf(imageIdx)
-    const fromCard = cards[fromPos]
-    const toCard = cards[toPos]
-    const left    = lerp(fromCard.left,         toCard.left,         t)
-    const top     = lerp(fromCard.top,          toCard.top,          t)
-    const width   = lerp(fromCard.width,        toCard.width,        t)
-    const height  = lerp(fromCard.height,       toCard.height,       t)
-    const scale   = lerp(fromCard.scale  ?? 1,  toCard.scale  ?? 1,  t)
-    const opacity = lerp(fromCard.opacity ?? 1, toCard.opacity ?? 1, t)
-    const zIndex  = Math.round(lerp(fromCard.zIndex, toCard.zIndex, t))
-    const tx = left + width * (1 - scale) / 2
-    const ty = top  + height * (1 - scale) / 2
-    el.style.width   = `${width}px`
-    el.style.height  = `${height}px`
-    el.style.zIndex  = String(zIndex)
-    el.style.opacity = String(opacity)
-    el.style.transform = `translate3d(${tx}px,${ty}px,0) scale(${scale})`
+  /** Hand every card back to its resting CSS variables. */
+  const release = useCallback(() => {
+    for (const el of cardRefs.current) {
+      if (!el) continue
+      el.style.transform = ""
+      el.style.opacity = ""
+      el.style.zIndex = ""
+    }
   }, [])
 
-  // Cancel any in-progress RAF animation and snap cards to current order.
+  // Cancel any in-progress animation and let the cards rest where the order says.
   const cancelAnimation = useCallback(() => {
     if (rafRef.current !== null) {
       cancelAnimationFrame(rafRef.current)
       rafRef.current = null
     }
     animatingRef.current = false
-    // Snap all cards to their resting position in current order
-    const cur = orderRef.current
-    IMAGES.forEach((_, idx) => applyCardStyle(idx, cur, 1, cur, cur))
-  }, [applyCardStyle])
+    release()
+  }, [release])
+
+  const scheduleNextRef = useRef<() => void>(() => {})
 
   const startRotation = useCallback((direction: 1 | -1 = 1) => {
     if (animatingRef.current) return
@@ -227,49 +286,69 @@ export function Hero() {
     if (prefersReduced || document.hidden) {
       orderRef.current = to
       setCardOrder(to)
+      scheduleNextRef.current()
       return
     }
 
+    const mobile = window.matchMedia(MOBILE_QUERY).matches
+    const cards = mobile ? MOBILE_CARDS : DESKTOP_CARDS
+    const base = mobile ? MOBILE_BASE : DESKTOP_BASE
+    const lastZ = [-1, -1, -1, -1, -1]
     const start = performance.now()
     animatingRef.current = true
+    for (const el of cardRefs.current) if (el) el.style.willChange = "transform, opacity"
 
     const tick = (now: number) => {
       const raw = Math.min(1, (now - start) / CARD_TRANSITION_MS)
       const t = ease(raw)
 
-      // Imperatively update each card's DOM style — ZERO React re-renders per frame.
-      IMAGES.forEach((_, imageIdx) => applyCardStyle(imageIdx, [], t, from, to))
+      // Transform and opacity only, straight onto the nodes: no React, no layout.
+      for (let imageIdx = 0; imageIdx < 5; imageIdx++) {
+        const el = cardRefs.current[imageIdx]
+        if (!el) continue
+        const p = poseOf(cards[from.indexOf(imageIdx)], cards[to.indexOf(imageIdx)], t, base)
+        el.style.transform = p.transform
+        el.style.opacity = String(p.opacity)
+        if (p.zIndex !== lastZ[imageIdx]) {
+          el.style.zIndex = String(p.zIndex)
+          lastZ[imageIdx] = p.zIndex
+        }
+      }
 
       if (raw < 1) {
         rafRef.current = requestAnimationFrame(tick)
         return
       }
 
-      // Animation done — one React state update to register the new order.
+      // Done: one React update registers the new order, and the cards go back
+      // to their resting variables once it has committed (see the layout effect).
       orderRef.current = to
       setCardOrder(to)
       animatingRef.current = false
       rafRef.current = null
+      scheduleNextRef.current()
     }
 
     rafRef.current = requestAnimationFrame(tick)
-  }, [applyCardStyle])
-
-  const restartAutoplay = useCallback(() => {
-    clearAutoplay()
-    autoplayRef.current = setInterval(() => startRotation(1), AUTOPLAY_INTERVAL)
-  }, [clearAutoplay, startRotation])
-
-  useEffect(() => {
-    const update = () => {
-      const m = window.innerWidth < 640
-      setIsMobile(m)
-      isMobileRef.current = m
-    }
-    update()
-    window.addEventListener("resize", update)
-    return () => window.removeEventListener("resize", update)
   }, [])
+
+  /* The next rotation is booked when this one ends, never on a fixed clock, so
+     rotations cannot queue up behind a slow frame. */
+  scheduleNextRef.current = () => {
+    clearAutoplay()
+    if (!activeRef.current) return
+    autoplayRef.current = setTimeout(() => {
+      autoplayRef.current = null
+      startRotation(1)
+    }, AUTOPLAY_INTERVAL)
+  }
+
+  /* The new order has committed its variables: the inline motion can go. */
+  useLayoutEffect(() => {
+    if (animatingRef.current) return
+    release()
+    for (const el of cardRefs.current) if (el) el.style.willChange = ""
+  }, [cardOrder, release])
 
   // Defer auth check — not needed for initial paint (CTA defaults to "Sign Up")
   useEffect(() => {
@@ -301,48 +380,39 @@ export function Hero() {
     return () => clearTimeout(timer)
   }, [])
 
-  // Pause autoplay when hero is scrolled out of view to save CPU
-  const sectionRef = useRef<HTMLElement>(null)
+  /**
+   * NOTHING MOVES WHILE NOBODY IS LOOKING. Scrolled away or in a background
+   * tab, the rotation stops booking itself and the section is marked paused,
+   * which the stylesheet uses to pause the logo strip and the loading shimmer.
+   */
   useEffect(() => {
     const el = sectionRef.current
-    if (!el) {
-      restartAutoplay()
-      return () => {
+    let onScreen = true
+    const sync = () => {
+      const active = onScreen && !document.hidden
+      if (active === activeRef.current) return
+      activeRef.current = active
+      if (el) el.toggleAttribute("data-paused", !active)
+      if (active) scheduleNextRef.current()
+      else {
         clearAutoplay()
-        if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
+        if (document.hidden) cancelAnimation()
       }
     }
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting && !document.hidden) {
-          restartAutoplay()
-        } else {
-          clearAutoplay()
-        }
-      },
-      { threshold: 0.1 },
-    )
-    observer.observe(el)
-
-    // Pause animation when tab goes to background — saves CPU/GPU on slow devices
-    const onVisibility = () => {
-      if (document.hidden) {
-        clearAutoplay()
-        cancelAnimation()
-      } else {
-        restartAutoplay()
-      }
-    }
-    document.addEventListener("visibilitychange", onVisibility)
+    const observer = el && typeof IntersectionObserver === "function"
+      ? new IntersectionObserver(([entry]) => { onScreen = entry.isIntersecting; sync() }, { threshold: 0.1 })
+      : null
+    if (el) observer?.observe(el)
+    document.addEventListener("visibilitychange", sync)
+    scheduleNextRef.current()
 
     return () => {
-      observer.disconnect()
-      document.removeEventListener("visibilitychange", onVisibility)
+      observer?.disconnect()
+      document.removeEventListener("visibilitychange", sync)
       clearAutoplay()
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
     }
-  }, [clearAutoplay, restartAutoplay])
+  }, [clearAutoplay, cancelAnimation])
 
   const markImageLoaded = useCallback((idx: number) => {
     if (loadedImageSetRef.current.has(idx)) return
@@ -350,70 +420,17 @@ export function Hero() {
     setLoadedImages(new Set(loadedImageSetRef.current))
   }, [])
 
-  const loadImageByIndex = useCallback((idx: number) => {
-    if (loadedImageSetRef.current.has(idx)) return Promise.resolve()
-
-    return new Promise<void>((resolve) => {
-      const img = new Image()
-      img.decoding = "async"
-      img.onload = () => {
-        markImageLoaded(idx)
-        resolve()
-      }
-      img.onerror = () => {
-        markImageLoaded(idx)
-        resolve()
-      }
-      img.src = IMAGES[idx]
-    })
+  /**
+   * ONE DOWNLOAD PER CARD. There was a second loader here that fetched the
+   * small file with `new Image()` while the <img> picked its own from the
+   * srcset, which on a desktop is the large one: two files per card, and the
+   * card was shown when the one it was NOT drawing had arrived. Now the <img>
+   * says when it has loaded, including when it loaded before hydration and
+   * `onLoad` has already been and gone.
+   */
+  const imgRef = useCallback((idx: number) => (img: HTMLImageElement | null) => {
+    if (img && img.complete && img.naturalWidth > 0) markImageLoaded(idx)
   }, [markImageLoaded])
-
-
-  // Progressive image loading for collage:
-  // Center + adjacent cards load IN PARALLEL for fast initial display.
-  // Sequential queue was too slow on poor connections (5 images × wait-time each).
-  // Edge cards (0, 4) are deferred until the browser is idle.
-  useEffect(() => {
-    const CENTER = 2
-    // Fire all three requests simultaneously — browser HTTP/2 handles concurrency
-    loadImageByIndex(CENTER)
-    loadImageByIndex(CENTER - 1)
-    loadImageByIndex(CENTER + 1)
-
-    const connection = (navigator as Navigator & {
-      connection?: { saveData?: boolean; effectiveType?: string }
-    }).connection
-    const isConstrained = Boolean(
-      connection?.saveData ||
-      connection?.effectiveType?.includes("2g") ||
-      connection?.effectiveType === "slow-2g",
-    )
-
-    if (isConstrained) return
-
-    const scheduleBackgroundLoad = () => {
-      loadImageByIndex(0)
-      loadImageByIndex(4)
-    }
-
-    if (typeof window.requestIdleCallback === "function") {
-      const idleHandle = window.requestIdleCallback(scheduleBackgroundLoad, { timeout: 1400 })
-      return () => window.cancelIdleCallback(idleHandle)
-    }
-
-    const timeout = window.setTimeout(scheduleBackgroundLoad, 700)
-    return () => window.clearTimeout(timeout)
-  }, [loadImageByIndex])
-
-  // Ensure currently visible cards are always loaded — load directly, no queue overhead
-  useEffect(() => {
-    const prioritized = new Set<number>([
-      cardOrder[1], cardOrder[2], cardOrder[3],
-    ])
-    for (const idx of prioritized) {
-      if (typeof idx === "number") loadImageByIndex(idx)
-    }
-  }, [cardOrder, loadImageByIndex])
 
   // Preload partner logos
   useEffect(() => {
@@ -441,8 +458,6 @@ export function Hero() {
 
     Promise.all(PARTNER_LOGOS.map(loadLogo))
   }, [])
-
-  const activeCards = isMobile ? MOBILE_CARDS : DESKTOP_CARDS
 
   return (
     <section ref={sectionRef} className="hero-section flex flex-col items-center bg-white pt-7 sm:pt-10 pb-8 sm:pb-[67px] overflow-hidden">
@@ -481,21 +496,33 @@ export function Hero() {
         }
         .logo-marquee {
           animation: logo-scroll 30s linear infinite;
-          will-change: transform;
           backface-visibility: hidden;
         }
+        /* A fixed box, placed and sized by transform alone. At rest the
+           transform, opacity and layer come from the variables each card
+           carries for both sets, so the server's HTML is already right on a
+           phone and nothing jumps when the page hydrates. */
         .collage-card {
-          /* Only list GPU-compositable properties — left/top/width/height/filter
-             are layout/paint ops that cannot be composited and hurt perf in will-change */
-          will-change: transform, opacity;
+          position: absolute;
+          left: 0;
+          top: 0;
+          width: ${DESKTOP_BASE}px;
+          height: ${DESKTOP_BASE * 1.25}px;
+          transform-origin: 0 0;
+          transform: var(--hc-t);
+          opacity: var(--hc-o);
+          z-index: var(--hc-z);
           backface-visibility: hidden;
           contain: layout style paint;
-          /* transform-style: preserve-3d removed — creates an expensive 3D stacking
-             context on every card with no visual benefit for this 2D collage */
         }
-        .collage-card img {
-          content-visibility: auto;
-          contain-intrinsic-size: 280px 350px;
+        @media ${MOBILE_QUERY} {
+          .collage-card {
+            width: ${MOBILE_BASE}px;
+            height: ${MOBILE_BASE * 1.25}px;
+            transform: var(--hc-tm);
+            opacity: var(--hc-om);
+            z-index: var(--hc-zm);
+          }
         }
         @keyframes shimmer-gradient {
           0% { background-position: -200% 0; }
@@ -516,6 +543,13 @@ export function Hero() {
         .collage-shimmer-overlay {
           transition: opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1);
         }
+        /* Loaded: the shimmer stops, and fades out standing still. It was
+           left running under opacity 0, repainting for ever. */
+        .collage-shimmer[data-done] { animation: none; }
+        .hero-section[data-paused] .logo-marquee,
+        .hero-section[data-paused] .collage-shimmer {
+          animation-play-state: paused;
+        }
       `}} />
 
       <div className="relative w-full mb-7 sm:mb-[42px] lg:mb-[95px] animate-scale-fade-in">
@@ -525,39 +559,25 @@ export function Hero() {
             style={{ width: CANVAS_W, height: CANVAS_H }}
           >
             {IMAGES.map((src, imageIdx) => {
-              // During animation, imperative code drives these styles directly on the DOM
-              // via cardRefs — no React re-render needed per frame. React only renders
-              // the RESTING position from cardOrder (applied once per rotation end).
-              const pos   = cardOrder.indexOf(imageIdx)
-              const card  = activeCards[pos]
-              const scale = card.scale ?? 1
-              const tx = card.left + card.width * (1 - scale) / 2
-              const ty = card.top  + card.height * (1 - scale) / 2
-
+              // During a rotation the tick writes transform and opacity onto the
+              // node; at rest the card reads its slot from these variables.
+              const loaded = loadedImages.has(imageIdx)
               return (
                 <div
                   key={imageIdx}
                   ref={el => { cardRefs.current[imageIdx] = el }}
-                  className="collage-card absolute rounded-[14px] overflow-hidden shadow-sm shadow-black/10"
-                  style={{
-                    left: 0,
-                    top: 0,
-                    width:  card.width,
-                    height: card.height,
-                    zIndex: card.zIndex,
-                    opacity: card.opacity ?? 1,
-                    transform: `translate3d(${tx}px,${ty}px,0) scale(${scale})`,
-                    transformOrigin: "0 0",
-                    willChange: "transform, opacity",
-                  }}
+                  className="collage-card rounded-[14px] overflow-hidden shadow-sm shadow-black/10"
+                  style={restVars(cardOrder.indexOf(imageIdx))}
                 >
                   {/* Gradient shimmer overlay — sits on top of the image and
                       fades out smoothly once the image finishes loading */}
                   <div
                     className="collage-shimmer collage-shimmer-overlay absolute inset-0 z-10 rounded-[14px]"
-                    style={{ opacity: loadedImages.has(imageIdx) ? 0 : 1, pointerEvents: "none" }}
+                    data-done={loaded ? "" : undefined}
+                    style={{ opacity: loaded ? 0 : 1, pointerEvents: "none" }}
                   />
                   <img
+                    ref={imgRef(imageIdx)}
                     /*
                       The widths here must be the widths the optimizer
                       actually SERVES, not the ones asked for.
@@ -582,13 +602,17 @@ export function Hero() {
                     sizes="(max-width: 640px) 245px, 305px"
                     src={src}
                     alt=""
+                    width={DESKTOP_BASE}
+                    height={DESKTOP_BASE * 1.25}
                     className="w-full h-full object-cover pointer-events-none transition-opacity duration-700 ease-out"
-                    style={{ opacity: loadedImages.has(imageIdx) ? 1 : 0 }}
+                    style={{ opacity: loaded ? 1 : 0 }}
                     draggable={false}
                     decoding="async"
-                    loading={imageIdx === cardOrder[2] ? "eager" : "lazy"}
-                    fetchPriority={imageIdx === cardOrder[2] ? "high" : "low"}
+                    /* The three a phone shows first load first; the centre one first of all. */
+                    loading={imageIdx === 0 || imageIdx === 4 ? "lazy" : "eager"}
+                    fetchPriority={imageIdx === 2 ? "high" : imageIdx === 0 || imageIdx === 4 ? "low" : "auto"}
                     onLoad={() => markImageLoaded(imageIdx)}
+                    onError={() => markImageLoaded(imageIdx)}
                   />
                 </div>
               )
@@ -597,14 +621,9 @@ export function Hero() {
 
           <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none -translate-y-[7%] sm:translate-y-0">
             <div className="relative bg-white rounded-[24px] sm:rounded-[28px] shadow-lg shadow-neutral-200/50 border border-neutral-100/80 px-5 sm:px-10 md:px-14 md:pt-14 md:pb-12 w-[82%] max-w-[480px] text-center pointer-events-auto scale-y-[0.99] sm:scale-y-100 origin-top pt-9 pb-9 sm:pt-12 sm:pb-10">
-              {/* Text shown immediately — no dependency on image loading state.
-                  Previously gated on imagesLoaded which meant ALL 5 collage images
-                  had to finish before the headline or CTA text would appear. On slow
-                  connections this could take 10–30 s. Now the text appears instantly
-                  and the typing cursor starts right away. */}
               <>
                 <div className="absolute left-1/2 -translate-x-1/2 -top-3.5 sm:-top-4">
-                  <div className="flex items-center gap-2 bg-gray-100/95 backdrop-blur-sm text-gray-700 text-[10px] sm:text-[11px] font-medium px-3 sm:px-3.5 py-1.5 rounded-full whitespace-nowrap shadow-sm border border-gray-200/50">
+                  <div className="flex items-center gap-2 bg-gray-100 text-gray-700 text-[10px] sm:text-[11px] font-medium px-3 sm:px-3.5 py-1.5 rounded-full whitespace-nowrap shadow-sm border border-gray-200/50">
                     <span className="w-4 h-4 sm:w-[18px] sm:h-[18px] rounded-full bg-gray-200 inline-flex items-center justify-center">
                       <svg viewBox="0 0 16 16" fill="none" className="w-[9px] h-[9px] sm:w-[10px] sm:h-[10px]">
                         <path d="M8.5 1L3 9.5h4.5L7 15l6-8.5H8.5L9 1h-.5z" fill="#7c3aed" stroke="#7c3aed" strokeWidth="0.5" strokeLinejoin="round" />
@@ -615,7 +634,7 @@ export function Hero() {
                 </div>
                 <h1 className="text-[22px] sm:text-3xl md:text-[38px] md:leading-[1.2] font-bold text-neutral-900 leading-tight min-h-[2.5em] sm:min-h-[2.4em] flex items-center justify-center">
                   <span>
-                    {typedText}
+                    <TypingHeadline />
                     <span className="inline-block w-[3px] h-[0.85em] bg-violet-500 ml-0.5 animate-pulse align-middle rounded-full" />
                   </span>
                 </h1>

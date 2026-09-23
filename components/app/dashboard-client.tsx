@@ -1,7 +1,7 @@
 "use client"
 
 import { useTabStrip } from "@/components/app/use-tab-strip"
-import { useState, useEffect, useMemo, useRef, useCallback, type ReactNode } from "react"
+import { memo, useState, useEffect, useMemo, useRef, useCallback, type ReactNode } from "react"
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh"
 import { PullToRefreshIndicator } from "./pull-to-refresh-indicator"
 import { useHideNativeSplash } from "@/hooks/use-hide-native-splash"
@@ -1374,6 +1374,157 @@ const DASH_LEGACY_TIMEFRAME: Partial<Record<RangeValue["preset"], string>> = {
   all_time: "all_time",
 }
 
+/**
+ * ===========================================================================
+ *  THE ANNOUNCEMENT BAR: ONE SLIDE AT A TIME, ALWAYS, AND ONLY WHEN SEEN
+ * ===========================================================================
+ * Reported first as two slides' text interlacing and the progress line
+ * stopping part way (timers that outlived their cycle), and then as lag.
+ *
+ * THE LAG. The cycle's state lived in DashboardClient, so every slide change
+ * was two renders of the whole dashboard, chart included, every fifteen
+ * seconds, on a hidden tab and with the bar scrolled away as much as on
+ * screen. The bar is its own memoised component now: a slide change renders
+ * the bar and nothing else.
+ *
+ * THE CLOCK IS THE LINE. The line is a CSS animation on `transform`, which the
+ * compositor runs, and the slide changes when it ends (onAnimationEnd), then
+ * once more after the fade. So pausing the line pauses the bar: off screen
+ * (IntersectionObserver) or with the tab hidden, the line is paused and
+ * nothing here runs at all. The one timer left, the fade, is cleared on the
+ * way out.
+ *
+ * The line is keyed to the cycle, so each slide draws its own from nothing.
+ */
+type AnnouncementSlide = "upgrade" | "steps" | "payouts"
+const DURATION = 15000
+const FADE_MS = 320
+
+const AnnouncementBar = memo(function AnnouncementBar({
+  slides,
+  completedSteps,
+  totalSteps,
+}: {
+  slides: AnnouncementSlide[]
+  completedSteps: number
+  totalSteps: number
+}) {
+  const { t } = useLanguage()
+  const [announceCycle, setAnnounceCycle] = useState(0)
+  const [announceLeaving, setAnnounceLeaving] = useState(false)
+  const [paused, setPaused] = useState(false)
+  const barRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const el = barRef.current
+    if (!el) return
+    let onScreen = true
+    const sync = () => setPaused(!onScreen || document.visibilityState === "hidden")
+    const io = typeof IntersectionObserver === "function"
+      ? new IntersectionObserver(([entry]) => { onScreen = entry.isIntersecting; sync() })
+      : null
+    io?.observe(el)
+    document.addEventListener("visibilitychange", sync)
+    sync()
+    return () => {
+      io?.disconnect()
+      document.removeEventListener("visibilitychange", sync)
+    }
+  }, [])
+
+  /* The next slide is picked only after the last has faded out. */
+  useEffect(() => {
+    if (!announceLeaving) return
+    const swap = setTimeout(() => {
+      setAnnounceCycle((c) => c + 1)
+      setAnnounceLeaving(false)
+    }, FADE_MS)
+    return () => clearTimeout(swap)
+  }, [announceLeaving])
+
+  const announcementType = slides[announceCycle % slides.length]
+  const announcementVisible = !announceLeaving
+
+  return (
+      <div ref={barRef} className="bg-[#8b5cf6] text-white">
+        <div className="py-2 px-4 md:py-2.5">
+          <div
+            className={`max-w-[1200px] mx-auto flex h-7 md:h-8 items-center justify-center gap-2 md:gap-3 text-center whitespace-nowrap transition-opacity duration-300 ${
+              announcementVisible ? "opacity-100" : "opacity-0"
+            }`}
+          >
+            {announcementType === "upgrade" && (
+              <>
+                <span className="text-[12px] md:text-[14px] text-white/90">
+                  <span className="font-semibold text-white">{t("dashboard.tryProFree")}</span>
+                  <span className="hidden md:inline text-white/85 ml-2">{t("dashboard.proSubtitle")}</span>
+                </span>
+                <Link
+                  href="/app/settings/billing/upgrade"
+                  className="relative inline-flex items-center gap-1 md:gap-1.5 px-2.5 md:px-3 py-0.5 md:py-1 bg-gradient-to-r from-gray-900 to-black text-white text-[11px] md:text-[13px] font-medium rounded-full transition-all shrink-0 overflow-hidden group"
+                >
+                  <span className="absolute inset-0 rounded-full border border-white/30 group-hover:border-white/50 transition-colors" />
+                  {/* The sweep runs while hovered and not otherwise: it was an
+                    infinite animation on a layer at opacity 0, which kept the
+                    compositor producing frames for as long as the page was open. */}
+                <span className="absolute inset-0 rounded-full opacity-0 group-hover:opacity-100 group-hover:[animation:laser-sweep_2s_linear_infinite] transition-opacity" style={{ background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent)' }} />
+                  <Sparkles className="h-3 w-3 md:h-3.5 md:w-3.5 relative z-10" />
+                  <span className="relative z-10">{t("dashboard.upgrade")}</span>
+                </Link>
+              </>
+            )}
+            {announcementType === "steps" && (
+              <>
+                <span className="text-[12px] md:text-[14px] text-white/90">
+                  <span className="font-semibold text-white">{t("dashboard.completeSetup")}</span>
+                  <span className="md:hidden text-white/85 ml-1.5">{completedSteps}/{totalSteps}</span>
+                  <span className="hidden md:inline text-white/85 ml-2">{totalSteps - completedSteps} {t("dashboard.stepsRemaining")}</span>
+                </span>
+                <button
+                  onClick={() => {
+                    const setupSection = document.getElementById("store-setup-section")
+                    setupSection?.scrollIntoView({ behavior: "smooth" })
+                  }}
+                  className="inline-flex items-center gap-1 md:gap-1.5 px-2.5 md:px-3 py-0.5 md:py-1 bg-gradient-to-r from-white/90 to-gray-100/90 text-gray-800 text-[11px] md:text-[13px] font-medium rounded-full transition-all hover:from-white hover:to-gray-50 shrink-0"
+                >
+                  {t("common.continue")}
+                  <ChevronRight className="h-3 w-3 md:h-3.5 md:w-3.5" />
+                </button>
+              </>
+            )}
+            {announcementType === "payouts" && (
+              <>
+                <span className="text-[12px] md:text-[14px] text-white/90">
+                  <span className="font-semibold text-white">{t("dashboard.getPaid")}</span>
+                  <span className="hidden md:inline text-white/85 ml-2">{t("dashboard.connectPayoutsDesc")}</span>
+                </span>
+                <Link
+                  href="/app/settings?tab=payments"
+                  className="inline-flex items-center gap-1 md:gap-1.5 px-2.5 md:px-3 py-0.5 md:py-1 bg-gradient-to-r from-white/90 to-gray-100/90 text-gray-800 text-[11px] md:text-[13px] font-medium rounded-full transition-all hover:from-white hover:to-gray-50 shrink-0"
+                >
+                  <Wallet className="h-3 w-3 md:h-3.5 md:w-3.5" />
+                  {t("common.connect")}
+                </Link>
+              </>
+            )}
+          </div>
+        </div>
+        {/* How long until the next slide. Keyed to the cycle, so each slide
+            draws its own line from nothing; see "ONE SLIDE AT A TIME". */}
+        <div className="h-[2px] bg-white/10 overflow-hidden">
+          {slides.length > 1 && (
+            <div
+              key={announceCycle}
+              className="announce-progress h-full bg-white/35"
+              style={{ animationDuration: `${DURATION}ms`, animationPlayState: paused ? "paused" : "running" }}
+              onAnimationEnd={() => setAnnounceLeaving(true)}
+            />
+          )}
+        </div>
+      </div>
+  )
+})
+
 export function DashboardClient({
   creatorId,
   displayName,
@@ -2092,50 +2243,14 @@ export function DashboardClient({
   const mobileHandleLabel = creatorHandle.length > 14 ? `${creatorHandle.slice(0, 14)}...` : creatorHandle
 
 
-  /**
-   * ===========================================================================
-   *  THE ANNOUNCEMENT BAR: ONE SLIDE AT A TIME, ALWAYS
-   * ===========================================================================
-   * Reported as two slides' text interlacing, and the progress line stopping
-   * part way. Both were the timers:
-   *
-   *   - the swap ran in a timeout nested inside another, and cleanup cleared
-   *     only the outer one, so a re-run (a setup step completing, a remount)
-   *     left an orphan swap that fired into the NEXT cycle's fade, and two
-   *     cycles interleaved;
-   *   - the next slide was chosen by a setter that could return the same
-   *     slide, which changed no state, so the effect never ran again: the bar
-   *     stopped rotating and its line stopped where it was.
-   *
-   * Now the slides are a list worked out from the account, a counter picks
-   * one, and each cycle is exactly two timers that are both cleared on the
-   * way out. The line is a CSS animation keyed to the cycle, so it restarts
-   * from nothing with its slide and cannot be left half drawn.
-   */
-  const DURATION = 15000
-  const FADE_MS = 320
+  /* The purple bar's slides, worked out from the account. The bar itself,
+     its timing and its state are AnnouncementBar, above. */
   const slides = useMemo(() => {
-    const list: ("upgrade" | "steps" | "payouts")[] = ["upgrade"]
+    const list: AnnouncementSlide[] = ["upgrade"]
     if (!allCompleted) list.push("steps")
     if (hasProducts && !hasPayouts) list.push("payouts")
     return list
   }, [allCompleted, hasProducts, hasPayouts])
-  const [announceCycle, setAnnounceCycle] = useState(0)
-  const [announceLeaving, setAnnounceLeaving] = useState(false)
-  useEffect(() => {
-    if (slides.length < 2) return
-    const leave = setTimeout(() => setAnnounceLeaving(true), DURATION)
-    const swap = setTimeout(() => {
-      setAnnounceCycle((c) => c + 1)
-      setAnnounceLeaving(false)
-    }, DURATION + FADE_MS)
-    return () => {
-      clearTimeout(leave)
-      clearTimeout(swap)
-    }
-  }, [announceCycle, slides.length])
-  const announcementType = slides[announceCycle % slides.length]
-  const announcementVisible = !announceLeaving
 
   // Build substep data based on step completion
   const getSubstepData = (step: SetupStep) => {
@@ -2209,78 +2324,7 @@ export function DashboardClient({
         The bar stays put now. Only what is below it moves, so the gap the
         spinner lives in opens UNDER the bar, where a refresh indicator belongs.
       */}
-      <div className="bg-[#8b5cf6] text-white">
-        <div className="py-2 px-4 md:py-2.5">
-          <div
-            className={`max-w-[1200px] mx-auto flex h-7 md:h-8 items-center justify-center gap-2 md:gap-3 text-center whitespace-nowrap transition-opacity duration-300 ${
-              announcementVisible ? "opacity-100" : "opacity-0"
-            }`}
-          >
-            {announcementType === "upgrade" && (
-              <>
-                <span className="text-[12px] md:text-[14px] text-white/90">
-                  <span className="font-semibold text-white">{t("dashboard.tryProFree")}</span>
-                  <span className="hidden md:inline text-white/85 ml-2">{t("dashboard.proSubtitle")}</span>
-                </span>
-                <Link
-                  href="/app/settings/billing/upgrade"
-                  className="relative inline-flex items-center gap-1 md:gap-1.5 px-2.5 md:px-3 py-0.5 md:py-1 bg-gradient-to-r from-gray-900 to-black text-white text-[11px] md:text-[13px] font-medium rounded-full transition-all shrink-0 overflow-hidden group"
-                >
-                  <span className="absolute inset-0 rounded-full border border-white/30 group-hover:border-white/50 transition-colors" />
-                  <span className="absolute inset-0 rounded-full opacity-0 group-hover:opacity-100 transition-opacity" style={{ background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent)', animation: 'laser-sweep 2s infinite linear' }} />
-                  <Sparkles className="h-3 w-3 md:h-3.5 md:w-3.5 relative z-10" />
-                  <span className="relative z-10">{t("dashboard.upgrade")}</span>
-                </Link>
-              </>
-            )}
-            {announcementType === "steps" && (
-              <>
-                <span className="text-[12px] md:text-[14px] text-white/90">
-                  <span className="font-semibold text-white">{t("dashboard.completeSetup")}</span>
-                  <span className="md:hidden text-white/85 ml-1.5">{completedSteps}/{totalSteps}</span>
-                  <span className="hidden md:inline text-white/85 ml-2">{totalSteps - completedSteps} {t("dashboard.stepsRemaining")}</span>
-                </span>
-                <button
-                  onClick={() => {
-                    const setupSection = document.getElementById("store-setup-section")
-                    setupSection?.scrollIntoView({ behavior: "smooth" })
-                  }}
-                  className="inline-flex items-center gap-1 md:gap-1.5 px-2.5 md:px-3 py-0.5 md:py-1 bg-gradient-to-r from-white/90 to-gray-100/90 text-gray-800 text-[11px] md:text-[13px] font-medium rounded-full transition-all hover:from-white hover:to-gray-50 shrink-0"
-                >
-                  {t("common.continue")}
-                  <ChevronRight className="h-3 w-3 md:h-3.5 md:w-3.5" />
-                </button>
-              </>
-            )}
-            {announcementType === "payouts" && (
-              <>
-                <span className="text-[12px] md:text-[14px] text-white/90">
-                  <span className="font-semibold text-white">{t("dashboard.getPaid")}</span>
-                  <span className="hidden md:inline text-white/85 ml-2">{t("dashboard.connectPayoutsDesc")}</span>
-                </span>
-                <Link
-                  href="/app/settings?tab=payments"
-                  className="inline-flex items-center gap-1 md:gap-1.5 px-2.5 md:px-3 py-0.5 md:py-1 bg-gradient-to-r from-white/90 to-gray-100/90 text-gray-800 text-[11px] md:text-[13px] font-medium rounded-full transition-all hover:from-white hover:to-gray-50 shrink-0"
-                >
-                  <Wallet className="h-3 w-3 md:h-3.5 md:w-3.5" />
-                  {t("common.connect")}
-                </Link>
-              </>
-            )}
-          </div>
-        </div>
-        {/* How long until the next slide. Keyed to the cycle, so each slide
-            draws its own line from nothing; see "ONE SLIDE AT A TIME". */}
-        <div className="h-[2px] bg-white/10 overflow-hidden">
-          {slides.length > 1 && (
-            <div
-              key={announceCycle}
-              className="announce-progress h-full bg-white/35"
-              style={{ animationDuration: `${DURATION}ms` }}
-            />
-          )}
-        </div>
-      </div>
+      <AnnouncementBar slides={slides} completedSteps={completedSteps} totalSteps={totalSteps} />
 
       {/*
         Everything below the anchored bar. `relative` makes this the positioning

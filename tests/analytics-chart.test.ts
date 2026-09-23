@@ -515,7 +515,18 @@ section("One bottom sheet, and the finger moves it")
   )
   check(
     "the finger writes the transform, React is only told at the ends",
-    /sheet\.style\.transform = `translate3d/.test(sheet) && !/setDragY/.test(sheet),
+    /sheet\.style\.transform = translate\(offsetRef\.current\)/.test(sheet) && /const translate = \(y: number\) => `translate3d\(/.test(sheet) && !/setDragY/.test(sheet),
+  )
+  check(
+    "the first frame the sheet exists it is below the screen",
+    /transform: "translate3d\(0, 100%, 0\)"/.test(sheet) && /useLayoutEffect\(\(\) => \{\s*if \(!mounted \|\| !present\) return/.test(sheet)
+      && /if \(isOpen !== prevOpen\) \{\s*setPrevOpen\(isOpen\)\s*if \(isOpen\) setPresent\(true\)/.test(sheet),
+    "`present` set from an effect committed the sheet at rest and moved it a paint later: it showed, vanished and slid up.",
+  )
+  check(
+    "open and close run on the compositor, from wherever the sheet is",
+    /sheet\.animate\(\[\{ transform: translate\(from\) \}, \{ transform: translate\(to\) \}\]/.test(sheet) && /readY\(sheet\)/.test(sheet)
+      && !/transition = `transform/.test(sheet),
   )
   check(
     "a pull upward is capped, and the sheet paints on past its own bottom",

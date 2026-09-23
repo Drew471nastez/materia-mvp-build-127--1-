@@ -8,7 +8,7 @@
  * imports the engine, which is what keeps it out of every published site's
  * bundle — see storelib-sources.tsx.
  */
-import { useCallback, type ReactNode } from "react"
+import { useCallback, useMemo, type ReactNode } from "react"
 import { renderStorelibSection } from "@/lib/website-builder/storelib-runtime"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 import type { RenderContext } from "@/lib/storelib-theme/types"
@@ -49,8 +49,12 @@ export function StorelibLiveProvider({
       renderStorelibSection(section, theme, { template, in_editor: inEditor === true }, sources, products),
     [sources, template, inEditor, products],
   )
+  /* The same object while the template is the same. Inline, it was a new
+     context value on every render of the canvas, and every section that reads
+     the context rendered again with it, past SectionRenderer's memo. */
+  const pageValue = useMemo(() => ({ template }), [template])
   return (
-    <StorelibRenderProvider render={render} page={{ template }}>
+    <StorelibRenderProvider render={render} page={pageValue}>
       {children}
     </StorelibRenderProvider>
   )

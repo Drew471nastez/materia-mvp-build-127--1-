@@ -60,6 +60,7 @@ export default function GlobeWidget() {
     if (!containerRef.current || globeRef.current) return
 
     let cancelled = false
+    let stopWatching = () => {}
 
     ;(async () => {
       const GlobeGl = (await import("globe.gl")).default
@@ -107,10 +108,39 @@ export default function GlobeWidget() {
       controls.maxPolarAngle = Math.PI
 
       globeRef.current = globe
+
+      /**
+       * DRAWN ONLY WHILE SEEN. globe.gl renders a WebGL frame on every
+       * animation frame for as long as it exists, so on the front page it was
+       * drawing a spinning earth under the hero, off screen and in background
+       * tabs: about a seventh of the main thread on a throttled phone while
+       * the hero's cards were trying to move. It pauses out of view and picks
+       * up where it was.
+       */
+      let onScreen = true
+      const sync = () => {
+        const g = globeRef.current
+        if (!g) return
+        if (onScreen && document.visibilityState !== "hidden") g.resumeAnimation?.()
+        else g.pauseAnimation?.()
+      }
+      const io = typeof IntersectionObserver === "function"
+        ? new IntersectionObserver(([entry]) => { onScreen = entry.isIntersecting; sync() })
+        : null
+      io?.observe(containerRef.current)
+      document.addEventListener("visibilitychange", sync)
+      stopWatching = () => {
+        io?.disconnect()
+        document.removeEventListener("visibilitychange", sync)
+      }
     })()
 
     return () => {
       cancelled = true
+      stopWatching()
+      /* Clearing the container left the render loop and its WebGL context
+         running after the page had gone. */
+      globeRef.current?._destructor?.()
       if (containerRef.current) {
         containerRef.current.innerHTML = ""
       }
