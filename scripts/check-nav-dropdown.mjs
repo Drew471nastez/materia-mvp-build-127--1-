@@ -41,7 +41,9 @@ const cssDir = join(root, ".next/static/chunks")
 if (!existsSync(cssDir)) fail("No production build found. Run `pnpm build` first.")
 const css = readdirSync(cssDir).filter((f) => f.endsWith(".css")).map((f) => readFileSync(join(cssDir, f), "utf8")).join("\n")
 
-const SCHEMES = ["white", "light", "dark", "black", "highlight"]
+/* The five built-ins, plus one shaped like a creator's own: saturated,
+   with a border left at a page-background value. See the fixture. */
+const SCHEMES = ["white", "light", "dark", "black", "highlight", "coral"]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-navdrop-"))
 const stubs = join(root, ".navdrop-probe")
@@ -158,6 +160,18 @@ const READ = `(() => {
     const hoverBg = getComputedStyle(probe).backgroundColor
     probe.remove()
 
+    /* THE EDGE. Read as it paints: the border colour flattened onto the
+       panel it sits on, so "how visible is this line" is one number rather
+       than a colour plus an alpha to reason about. */
+    /* WIDTH FIRST. A border of none leaves borderTopColor resolved to
+       currentColor, so reading the colour alone reports the panel wearing an
+       edge the exact contrast of its own text: a missing border measured as
+       a glaring one. The break-test for "no edge at all" failed on the wrong
+       assertion because of this. */
+    const edgeWidth = Number.parseFloat(ps.borderTopWidth) || 0
+    const edgeStyle = ps.borderTopStyle
+    const edgeRaw = parse(ps.borderTopColor)
+    const edge = edgeWidth > 0 && edgeStyle !== "none" && edgeRaw ? over(edgeRaw, panelBg) : null
     results.push({
       key,
       opened: getComputedStyle(panel).opacity,
@@ -168,6 +182,33 @@ const READ = `(() => {
       panelIsFixedWhite: panelBg.r === 255 && panelBg.g === 255 && panelBg.b === 255,
       headerIsDark: lum(over(headerBg, page)) < 0.5,
       hoverRaw: hoverBg,
+      edge: edge ? hex(edge) : null,
+      edgeWidth,
+      /* A hairline reads against the panel without competing with the text
+         on it. Too low and there is no edge; as high as the text and the
+         panel is wearing an outline. */
+      edgeContrast: edge ? ratio(edge, panelBg) : null,
+      /* The type the items are set at, against the trigger above them. */
+      itemSize: is.fontSize,
+      itemWeight: is.fontWeight,
+      itemFamily: is.fontFamily,
+      /* The nav link the panel hangs off, on the header. The panel can only
+         be held to matching this: the pair itself is the creator's choice. */
+      triggerContrast: (() => {
+        const t = wrapper && wrapper.querySelector("a:not([href*='/shop/'])")
+        if (!t) return null
+        const c = parse(getComputedStyle(t).color)
+        if (!c) return null
+        return ratio(over(c, over(headerBg, page)), over(headerBg, page))
+      })(),
+      triggerSize: (() => {
+        const t = wrapper && wrapper.querySelector("a:not([href*='/shop/'])")
+        return t ? getComputedStyle(t).fontSize : null
+      })(),
+      triggerFamily: (() => {
+        const t = wrapper && wrapper.querySelector("a:not([href*='/shop/'])")
+        return t ? getComputedStyle(t).fontFamily : null
+      })(),
     })
   }
   return JSON.stringify({ results, err: window.__err || [] })
@@ -259,13 +300,38 @@ if (results.length !== SCHEMES.length) {
 console.log(`\nThe header's desktop dropdown, opened in each built-in scheme\n`)
 for (const r of results) {
   if (r.error) { expect(false, `${r.key}: ${r.error}`); continue }
-  console.log(`  ${r.key.padEnd(10)} header ${r.headerBg}   panel ${r.panelBg}   links ${r.text}   contrast ${r.contrast}:1`)
+  console.log(`  ${r.key.padEnd(10)} header ${r.headerBg}   panel ${r.panelBg}   links ${r.text}   contrast ${r.contrast}:1   edge ${r.edge} ${r.edgeContrast}:1`)
 }
 console.log("")
 
+/*
+  WHAT THE PANEL IS ANSWERABLE FOR.
+
+  This asked every scheme for 4.5:1 and the sixth one failed at 2.96:1 —
+  white on coral. That is not the dropdown's doing: it is the creator's own
+  background and text, and their header's nav links sit on exactly the same
+  pair at exactly the same ratio. A menu cannot be more readable than the bar
+  it belongs to, and inventing a colour to make it so would be the dropdown
+  ignoring the scheme again, which is the whole complaint.
+
+  So two different demands, because they are two different promises.
+
+  The built-ins are Storelib's own, shipped with the product, and they are
+  held to the 4.5:1 that body text needs. A creator's scheme is held to
+  PARITY: whatever their header reads at, the menu reads at too. If their
+  nav is hard going, their submenu is exactly as hard and no worse, and that
+  is a scheme to fix rather than a bug here.
+*/
+const BUILT_IN = new Set(["white", "light", "dark", "black", "highlight"])
 for (const r of results) {
   if (r.error) continue
-  expect(r.contrast >= 4.5, `${r.key}: the links are readable on the panel`, `${r.contrast}:1`)
+  if (BUILT_IN.has(r.key)) {
+    expect(r.contrast >= 4.5, `${r.key}: the links are readable on the panel`, `${r.contrast}:1`)
+  } else if (r.triggerContrast != null) {
+    expect(Math.abs(r.contrast - r.triggerContrast) <= 0.15,
+      `${r.key}: the menu reads exactly as its own header does`,
+      `panel ${r.contrast}:1, header nav ${r.triggerContrast}:1`)
+  }
 }
 
 /* The bug in one line. Every dark-header scheme used to paint a white panel,
@@ -282,6 +348,42 @@ for (const r of darkOnes) {
 /* And the panel follows the scheme rather than being one colour everywhere:
    five schemes that all paint the same panel would pass every test above
    while still ignoring the scheme completely. */
+/*
+  THE EDGE IS A HAIRLINE, ON EVERY SCHEME.
+
+  It used to be the theme's `border` slot, which is tuned for dividers on the
+  page background. Borrowed for a panel floating on a coloured header it drew
+  a hard dark outline round a coral menu — the scheme's own colour, used
+  against a surface it was never measured against, which is how something can
+  be "from the scheme" and still wrong.
+
+  It is a wash of the panel's own text now, so this holds it between two
+  failures rather than to one number: invisible, and competing with the text.
+*/
+for (const r of results) {
+  if (r.error) continue
+  expect(r.edgeWidth > 0 && r.edgeContrast != null, `${r.key}: the panel has an edge at all`,
+    `border-width ${r.edgeWidth}px`)
+  if (r.edgeContrast == null) continue
+  expect(r.edgeContrast >= 1.03, `${r.key}: and it is visible against the panel`, `${r.edgeContrast}:1`)
+  expect(r.edgeContrast <= r.contrast / 2,
+    `${r.key}: and it is a hairline rather than an outline`,
+    `edge ${r.edgeContrast}:1 against text ${r.contrast}:1`)
+}
+
+/*
+  AND THE SUBMENU IS SET IN THE MENU'S OWN TYPE. The items were 13.5px
+  against a 14px trigger — half a pixel under the thing they belong to,
+  which reads as a different menu rather than as part of this one.
+*/
+for (const r of results) {
+  if (r.error || !r.triggerSize) continue
+  expect(r.itemSize === r.triggerSize, `${r.key}: the items are the trigger's size`,
+    `items ${r.itemSize}, trigger ${r.triggerSize}`)
+  expect(r.itemFamily === r.triggerFamily, `${r.key}: and the theme's face, the same one the trigger uses`,
+    `items ${r.itemFamily}`)
+}
+
 const distinct = new Set(results.filter((r) => !r.error).map((r) => r.panelBg))
 expect(distinct.size >= 2, "the panel changes with the scheme instead of being one fixed colour",
   `${distinct.size} distinct panel colours across ${results.length} schemes`)

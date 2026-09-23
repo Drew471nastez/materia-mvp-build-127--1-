@@ -3427,7 +3427,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const [previewMode, setPreviewMode] = useState<PreviewMode>("preview")
   useEffect(() => {
     // `?view=code` / `?view=settings` — the website page's "Edit code" and
-    // "Project settings" open the editor straight onto that pane. Preview
+    // "Website settings" open the editor straight onto that pane. Preview
     // stays the default; the pane is switched once, on arrival.
     const v = new URLSearchParams(window.location.search).get("view")
     if (v === "code" || v === "settings") setPreviewMode(v)
@@ -7027,10 +7027,10 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 },
               },
               {
-                // The desktop pill has a Project Settings segment. A phone has
+                // The desktop pill has a Website Settings segment. A phone has
                 // no pill, so this is the phone's way in; on a desktop it is
                 // the same page from a second door.
-                label: "Project settings",
+                label: "Website settings",
                 icon: <SlidersHorizontal className="h-4 w-4" />,
                 onClick: () => {
                   setPreviewMode("settings")
@@ -7083,7 +7083,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               name and menu rather than preceding them: the row reads left to
               right as which project, what to do with it, then how you are
               looking at it. A phone has no room for it and reaches Code and
-              Project settings from the menu. */}
+              Website settings from the menu. */}
           {!isMobileView && (
             <div className="ml-1.5 shrink-0">
               <PreviewModeSwitch
@@ -7485,7 +7485,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
              states — finger tracks in real time. */
           /**
            * AND NOTHING OF THE EDITOR IS LEFT OVER A PAGE THAT COVERS THE
-           * SCREEN. Project settings is a full surface; the sheet is a
+           * SCREEN. Website settings is a full surface; the sheet is a
            * separate layer in the body, so it kept its place at the bottom
            * of the screen and printed itself over the settings page. It is
            * not rendered while that page is open.

@@ -57,7 +57,30 @@ const KNOWN_UNFIXED = new Set([
 const HOOK =
   /^\s{2}(?:const|let)?\s*.*\buse(?:State|Effect|Ref|Memo|Callback|LayoutEffect|Reducer|Context|Transition|Id|SyncExternalStore|ImperativeHandle)\s*\(/
 const EARLY_RETURN = /^\s{2}if\s*\(.*\)\s*return\b/
-const COMPONENT_START = /^(export )?(default )?function [A-Z]|^(export )?const [A-Z]\w* = /
+/*
+  WHERE A SCOPE THAT CAN HOLD HOOKS BEGINS.
+
+  Components, and CUSTOM HOOKS — `useHover` can put a hook below an early
+  return exactly as a component can, and every caller inherits the bug.
+
+  A lowercase helper is a different matter: it is not a component, so its
+  `if (...) return` is an ordinary guard clause and means nothing here.
+*/
+const COMPONENT_START =
+  /^(export )?(default )?(async )?function (use[A-Z]|[A-Z])|^(export )?const (use[A-Z]|[A-Z])\w* = /
+/*
+  AND WHERE ONE ENDS. Any other top-level binding closes the scope above it.
+
+  Without this the scanner had no lower boundary at all: a helper's guard
+  clause set `returnedAt` and the NEXT function's first hook was reported
+  against it. It went unnoticed while a component happened to sit between
+  the two — `isRouteActive` returns early, and a component was declared
+  between it and `useHover`, which reset the state by accident. Deleting
+  that component made a real-looking violation appear in a file nobody had
+  touched, which is the kind of failure that gets a guard deleted rather
+  than read.
+*/
+const OTHER_TOP_LEVEL = /^(export )?(default )?(async )?function \w|^(export )?const \w+ = /
 
 function violations(): string[] {
   const files = execSync("git ls-files 'components/**/*.tsx' 'app/**/*.tsx'", { encoding: "utf8" })
@@ -82,6 +105,13 @@ function violations(): string[] {
       const line = lines[i]
       if (COMPONENT_START.test(line)) {
         inComponent = true
+        returnedAt = 0
+        continue
+      }
+      if (OTHER_TOP_LEVEL.test(line)) {
+        /* A plain helper. Its guards belong to it and stop at its closing
+           brace, so nothing below it is "after an early return". */
+        inComponent = false
         returnedAt = 0
         continue
       }

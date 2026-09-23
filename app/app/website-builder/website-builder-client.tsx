@@ -409,7 +409,7 @@ export function WebsiteBuilderClient({
       { label: "Rename", icon: <Pencil className="h-4 w-4" />, onClick: () => setRenaming(i), separatorBefore: items.length > 0 },
       { label: "Duplicate", icon: <Layers className="h-4 w-4" />, onClick: () => void duplicate(i) },
       { label: "Edit code", icon: <Code2 className="h-4 w-4" />, onClick: () => go(editorHref(username, i.id, "code")) },
-      { label: "Project settings", icon: <Settings2 className="h-4 w-4" />, onClick: () => go(editorHref(username, i.id, "settings")) },
+      { label: "Website settings", icon: <Settings2 className="h-4 w-4" />, onClick: () => go(editorHref(username, i.id, "settings")) },
       { label: "Export theme", icon: <Download className="h-4 w-4" />, onClick: () => void exportTheme(i) },
     )
     if (i.status === "published") {

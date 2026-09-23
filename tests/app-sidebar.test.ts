@@ -430,41 +430,49 @@ section("The submenu has a height to animate")
 }
 
 // ===========================================================================
-section("Communities is not a link, and says why")
+section("The sidebar advertises nothing that does not exist")
 // ===========================================================================
 
+/*
+  THIS SECTION USED TO CHECK THE COMING-SOON ROW, CAREFULLY.
+
+  There was a "Tools" heading in the sidebar with one row under it,
+  Communities, which was not a link and could not be clicked. It had a
+  portalled tooltip that faded in over its own frame to explain why. Before
+  that the same machinery carried a link shortener.
+
+  All of it is gone, on the owner's instruction. What is worth keeping is
+  the rule the removals point at: the sidebar lists pages that exist. A row
+  that goes nowhere spends a permanent slot in the one piece of navigation
+  every screen has, to say that one day it might do something.
+
+  So the checks now hold the absence, including the machinery — a tooltip
+  component with no row to hang off is how the row comes back.
+*/
 {
+  /*
+    READ THROUGH stripComments. Every one of these forbids a name, and the
+    comment that explains why the name went says the name. The first run of
+    this failed on its own note — the file's own record of what was removed
+    matched the guard against it coming back. That trap is written down at
+    the top of tests/creator-page.test.ts and it caught this file too.
+  */
+  const nav = stripComments(navSource)
+  const shell = stripComments(shellSource)
   check(
-    "it is a span rather than an anchor, so there is nothing to click",
-    /export function ComingSoonItem/.test(navSource) &&
-      /<span\s+ref=\{ref\}/.test(navSource),
+    "no row advertises something that is not built yet",
+    !/ComingSoonItem|ComingSoonTooltip/.test(nav) && !/coming soon/i.test(nav),
   )
   check(
-    "the tooltip is drawn, not the browser's",
-    // `title` gives you the operating system's tooltip after a second and a
-    // half, in the wrong place, in the wrong font.
-    !/title=/.test(navSource) && /role="tooltip"/.test(navSource),
+    "and the Tools heading that held the one of them is gone with it",
+    !/toolsLabel|communitiesLabel/.test(nav) &&
+      !/toolsLabel|communitiesLabel/.test(shell) &&
+      !/linkShortener/i.test(nav) &&
+      !/linkShortener/i.test(shell),
   )
   check(
-    "it is portalled, so the sidebar's own overflow cannot clip it",
-    /createPortal\(/.test(navSource) && /document\.body/.test(navSource),
-  )
-  check(
-    "and it fades and moves in rather than appearing",
-    /**
-     * With both states set in one commit the browser only ever sees the end
-     * state and there is no animation at all — hence the frame between mount
-     * and shown.
-     */
-    /transition: "opacity 140ms ease, transform 140ms ease"/.test(navSource) &&
-      /requestAnimationFrame\(\(\) => setShown\(true\)\)/.test(navSource),
-  )
-  check(
-    "the one unavailable tool is Communities, and Link shortener is gone",
-    (navSource.match(/<ComingSoonItem/g) ?? []).length === 1 &&
-      /label=\{communitiesLabel\}/.test(navSource) &&
-      !/linkShortener/i.test(navSource) &&
-      !/linkShortener/i.test(shellSource),
+    "and nothing is left in the icon set for a row that no longer exists",
+    !/communities/i.test(nav),
   )
 }
 
