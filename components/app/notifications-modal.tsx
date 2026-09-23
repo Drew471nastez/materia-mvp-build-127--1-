@@ -409,6 +409,7 @@ function MobileNotificationBottomSheet({
 
   return (
     <div
+      data-app-sheet={isVisible ? "open" : undefined}
       className="fixed inset-0 z-[100] md:hidden"
       style={{ pointerEvents: isVisible ? "auto" : "none" }}
       onTouchStart={handleTouchStart}

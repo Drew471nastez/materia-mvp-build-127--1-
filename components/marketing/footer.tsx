@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import Image from "next/image"
-import { useState, useEffect } from "react"
+import { useState, useEffect, type FormEvent } from "react"
 import { openCookiePreferences } from "@/lib/consent/client"
 import { isNativeApp } from "@/lib/platform-utils"
 import { STORELIB_LOGO } from "@/lib/brand/logo"
@@ -50,84 +50,78 @@ function YouTubeIcon({ className }: { className?: string }) {
   )
 }
 
-/**
- * WHAT THE FOOTER LINKS TO, in the groups a visitor looks for them under.
- *
- * Every entry is a page that exists. The old footer had an Affiliate Program
- * link to a route that was never built, and a newsletter box that pretended
- * to subscribe people (it waited half a second and said thanks). Both are
- * gone rather than faked. Solutions open the part of /app that does the job;
- * a visitor who is not signed in is sent to sign in and brought back.
- */
-type FooterLink = { label: string; href: string; external?: boolean }
-
-const GROUPS: { title: string; links: FooterLink[] }[] = [
-  {
-    title: "Product",
-    links: [
-      { label: "Features", href: "/features" },
-      { label: "Pricing", href: "/pricing" },
-      { label: "Website builder", href: "/app/website-builder" },
-      { label: "Creator page", href: "/creator-page" },
-      { label: "Discover", href: "/explore" },
-    ],
-  },
-  {
-    title: "Solutions",
-    links: [
-      { label: "Digital products", href: "/app/products/new" },
-      { label: "Courses", href: "/app/courses" },
-      { label: "Email automations", href: "/app/emails" },
-      { label: "Discount codes", href: "/app/coupons" },
-      { label: "Link in bio", href: "/app/onepage" },
-    ],
-  },
-  {
-    title: "Resources",
-    links: [
-      { label: "Developers", href: "/developers" },
-      { label: "Builder guide", href: "/developers/website-builder" },
-      { label: "Connect Claude Code", href: "/developers/ai" },
-      { label: "Changelog", href: "/developers/changelog" },
-      { label: "llms.txt", href: "/llms.txt", external: true },
-    ],
-  },
-  {
-    title: "Support",
-    links: [
-      { label: "Help center", href: "/help" },
-      { label: "FAQ", href: "/faq" },
-      { label: "Email us", href: "mailto:team@storelib.com", external: true },
-      { label: "Delete account", href: "/account-deletion" },
-    ],
-  },
-  {
-    title: "Company",
-    links: [
-      { label: "Blog", href: "/blog" },
-      { label: "Terms", href: "/terms" },
-      { label: "Privacy", href: "/privacy" },
-      { label: "Sign in", href: "/login" },
-    ],
-  },
-]
 
 const SOCIAL = [
-  { label: "Instagram", href: "https://instagram.com", Icon: InstagramIcon },
-  { label: "TikTok", href: "https://tiktok.com", Icon: TikTokIcon },
-  { label: "X", href: "https://x.com", Icon: XIcon },
-  { label: "YouTube", href: "https://youtube.com", Icon: YouTubeIcon },
   { label: "Facebook", href: "https://facebook.com", Icon: FacebookIcon },
+  { label: "Instagram", href: "https://instagram.com", Icon: InstagramIcon },
+  { label: "X", href: "https://x.com", Icon: XIcon },
+  { label: "TikTok", href: "https://tiktok.com", Icon: TikTokIcon },
+  { label: "YouTube", href: "https://youtube.com", Icon: YouTubeIcon },
 ]
 
-const linkClass = "whitespace-nowrap text-[14px] leading-6 text-white/55 transition-colors duration-150 hover:text-white"
+const PRODUCT = [
+  { label: "Home", href: "/" },
+  { label: "Discover", href: "/explore" },
+  { label: "Blog", href: "/blog" },
+  { label: "Sign In", href: "/login" },
+  { label: "Pricing", href: "/pricing" },
+  { label: "Features", href: "/features" },
+  { label: "Developers", href: "/developers" },
+]
 
+const SUPPORT = [
+  { label: "Help", href: "/help" },
+  /* There is no affiliate page yet; asking by email is the real way in. */
+  { label: "Affiliate Program", href: "mailto:team@storelib.com?subject=Affiliate%20Program" },
+  { label: "Terms of Service", href: "/terms" },
+  { label: "Privacy Policy", href: "/privacy" },
+]
+
+const linkClass = "block text-left text-[14px] leading-6 text-white/55 transition-colors duration-150 hover:text-white"
+
+/**
+ * The storelib.com footer. The layout people know (logo and contact, Product,
+ * Support, the community sign-up), on a near-black with depth: a lit top edge
+ * and a soft falloff drawn in globals.css (.storelib-footer), and a sign-up
+ * field that sits into the surface rather than on it.
+ *
+ * The sign-up is real: it posts to /api/newsletter, which stores the address
+ * with the time and the wording agreed to. It used to wait half a second and
+ * say thanks without keeping anything.
+ */
 export function MarketingFooter() {
   const [logoHref, setLogoHref] = useState("/")
+  const [email, setEmail] = useState("")
+  const [state, setState] = useState<"idle" | "sending" | "done">("idle")
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (isNativeApp()) setLogoHref("/explore")
   }, [])
+
+  const subscribe = async (e: FormEvent) => {
+    e.preventDefault()
+    if (!email.trim() || state === "sending") return
+    setState("sending")
+    setError(null)
+    try {
+      const res = await fetch("/api/newsletter", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim() }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => null)
+        setError(typeof data?.error === "string" ? data.error : "That did not go through. Try again in a moment.")
+        setState("idle")
+        return
+      }
+      setState("done")
+    } catch {
+      setError("No connection. Try again in a moment.")
+      setState("idle")
+    }
+  }
 
   return (
     <footer
@@ -135,80 +129,121 @@ export function MarketingFooter() {
       style={{
         /* Extend dark bg into body's safe-area-inset-bottom padding so
            there is no white strip above the iOS home indicator */
-        marginBottom: 'calc(-1 * env(safe-area-inset-bottom, 0px))',
-        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+        marginBottom: "calc(-1 * env(safe-area-inset-bottom, 0px))",
+        paddingBottom: "env(safe-area-inset-bottom, 0px)",
       }}
     >
-      <div className="relative mx-auto max-w-[1200px] px-4 pt-14 pb-8 sm:px-6 md:pt-20 lg:px-8">
-        <div>
-            <Link href={logoHref} scroll={true} className="inline-flex items-center gap-2.5 transition-opacity hover:opacity-80">
-              <Image
-                src={LOGO_URL}
-                alt="Storelib"
-                width={32}
-                height={32}
-                className="h-8 w-8 rounded-[7px]"
-              />
-              <span className="text-[17px] font-semibold tracking-[-0.01em] text-white">Storelib</span>
+      <div className="relative mx-auto max-w-[1400px] px-4 pb-6 pt-12 sm:px-6 md:pb-8 md:pt-16 lg:px-8">
+        <div className="grid grid-cols-2 gap-8 md:grid-cols-5 lg:gap-12">
+          <div className="col-span-2 space-y-6 md:col-span-1">
+            <Link href={logoHref} scroll={true} className="flex flex-wrap items-center gap-3 transition-opacity hover:opacity-80">
+              <Image src={LOGO_URL} alt="Storelib" width={40} height={40} className="h-10 w-10 rounded-[7px] shadow-[0_6px_18px_-6px_rgba(139,92,246,0.55)]" />
+              <span className="text-xl font-bold text-white">Storelib</span>
             </Link>
-            <p className="mt-3 max-w-[320px] text-[14px] leading-6 text-white/45">
-              Sell what you make, on a site that is yours.
-            </p>
-        </div>
 
-        {/* Six groups: two across on a phone, three on a tablet, one row from 1024px. */}
-        <div className="mt-12 grid grid-cols-2 gap-x-6 gap-y-10 sm:grid-cols-3 lg:grid-cols-6 lg:gap-x-8">
-          {GROUPS.map((group) => (
-            <nav key={group.title} aria-label={group.title}>
-              <h4 className="text-[13px] font-medium text-white/90">{group.title}</h4>
-              <ul className="mt-4 space-y-2.5">
-                {group.links.map((link) => (
-                  <li key={link.label}>
-                    {link.external ? (
-                      <a href={link.href} className={linkClass}>{link.label}</a>
-                    ) : (
-                      <Link href={link.href} className={linkClass}>{link.label}</Link>
-                    )}
-                  </li>
-                ))}
-                {group.title === "Support" && (
-                  <li>
-                    <button
-                      type="button"
-                      onClick={() => openCookiePreferences()}
-                      className={`${linkClass} text-left`}
-                    >
-                      Cookie preferences
-                    </button>
-                  </li>
-                )}
-              </ul>
-            </nav>
-          ))}
+            <div className="space-y-2">
+              <p className="text-sm text-white/50">Copyright {new Date().getFullYear()} Storelib Inc. All rights reserved.</p>
+              <a href="mailto:team@storelib.com" className="text-sm text-white/50 transition-colors hover:text-white">
+                team@storelib.com
+              </a>
+            </div>
 
-          <nav aria-label="Follow Storelib">
-            <h4 className="text-[13px] font-medium text-white/90">Follow</h4>
-            <ul className="mt-4 space-y-2.5">
+            <div className="flex items-center gap-4">
               {SOCIAL.map(({ label, href, Icon }) => (
-                <li key={label}>
-                  <a
-                    href={href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={`${linkClass} inline-flex items-center gap-2.5`}
-                  >
-                    <Icon className="h-4 w-4 shrink-0" />
-                    {label}
-                  </a>
-                </li>
+                <a
+                  key={label}
+                  href={href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={label}
+                  className="text-white/85 transition-colors hover:text-white"
+                >
+                  <Icon className="h-5 w-5" />
+                </a>
               ))}
-            </ul>
+            </div>
+          </div>
+
+          <nav aria-label="Product" className="space-y-4">
+            <h4 className="text-sm font-semibold text-white">Product</h4>
+            <div className="space-y-3">
+              {PRODUCT.map((l) => (
+                <Link key={l.label} href={l.href} className={linkClass}>
+                  {l.label}
+                </Link>
+              ))}
+            </div>
           </nav>
+
+          <nav aria-label="Support" className="space-y-4">
+            <h4 className="text-sm font-semibold text-white">Support</h4>
+            <div className="space-y-3">
+              {SUPPORT.map((l) =>
+                l.href.startsWith("mailto:") ? (
+                  <a key={l.label} href={l.href} className={linkClass}>
+                    {l.label}
+                  </a>
+                ) : (
+                  <Link key={l.label} href={l.href} className={linkClass}>
+                    {l.label}
+                  </Link>
+                ),
+              )}
+              <button type="button" onClick={() => openCookiePreferences()} className={linkClass}>
+                Cookie Preferences
+              </button>
+            </div>
+          </nav>
+
+          <div className="col-span-2 space-y-4">
+            <h4 className="text-sm font-semibold text-white">Join Our Community!</h4>
+            <p className="text-sm text-white/50">Receive weekly assets and future templates for free by joining our community.</p>
+
+            {state === "done" ? (
+              <p className="flex h-12 items-center gap-2 text-sm text-emerald-400" role="status">
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                Thanks for subscribing!
+              </p>
+            ) : (
+              <form onSubmit={subscribe} className="flex gap-2" noValidate>
+                <label htmlFor="footer-email" className="sr-only">
+                  Email
+                </label>
+                <input
+                  id="footer-email"
+                  type="email"
+                  inputMode="email"
+                  autoComplete="email"
+                  required
+                  placeholder="Enter your email..."
+                  value={email}
+                  onChange={(e) => {
+                    setEmail(e.target.value)
+                    if (error) setError(null)
+                  }}
+                  className="storelib-footer-field h-12 min-w-0 flex-1 rounded-xl px-4 text-[15px] text-white placeholder:text-white/35 focus:outline-none"
+                />
+                <button
+                  type="submit"
+                  disabled={state === "sending"}
+                  className="storelib-footer-cta h-12 shrink-0 rounded-xl px-6 text-[15px] font-semibold text-white disabled:opacity-70"
+                >
+                  {state === "sending" ? "Sending" : "Sign Up"}
+                </button>
+              </form>
+            )}
+            {error ? (
+              <p className="text-[13px] text-red-300" role="alert">
+                {error}
+              </p>
+            ) : null}
+          </div>
         </div>
 
-        <div className="mt-14 flex flex-col gap-3 border-t border-white/[0.07] pt-6 text-[13px] text-white/40 sm:flex-row sm:items-center sm:justify-between">
-          <p>&copy; {new Date().getFullYear()} Storelib Inc.</p>
-          <a href="mailto:team@storelib.com" className="transition-colors hover:text-white">team@storelib.com</a>
+        <div className="mt-10 border-t border-white/[0.07] pt-5">
+          <p className="text-center text-xs text-white/40">&copy; {new Date().getFullYear()} Storelib. All rights reserved.</p>
         </div>
       </div>
     </footer>

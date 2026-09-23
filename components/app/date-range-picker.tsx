@@ -57,6 +57,9 @@ export const pickerButton =
 const surface =
   "overflow-hidden rounded-xl border border-[#e3e4e8] bg-white p-0 text-[#1a1a2e] shadow-[0_12px_40px_-8px_rgba(17,24,39,0.22),0_2px_6px_rgba(17,24,39,0.06)]"
 
+/** The month arrows: a small raised key, not a bare glyph, so they read as something to press. */
+const monthNav =
+  "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[#e3e4e8] bg-white text-[#303036] shadow-[0_1px_0_rgba(17,24,39,0.06),0_1px_2px_rgba(17,24,39,0.05)] transition-[background-color,box-shadow,transform] duration-100 hover:bg-[#f7f7f8] active:translate-y-px active:bg-[#f1f2f4] active:shadow-[inset_0_1px_2px_rgba(17,24,39,0.12)] disabled:pointer-events-none disabled:opacity-35"
 const secondaryBtn =
   "inline-flex h-8 items-center justify-center rounded-lg border border-[#e3e4e8] bg-white px-3 text-[13px] font-medium text-[#1a1a2e] shadow-[0_1px_0_rgba(17,24,39,0.05)] hover:bg-[#f7f7f8] active:bg-[#f1f2f4]"
 const primaryBtn =
@@ -100,7 +103,12 @@ function Month({
   onHover,
   focusDay,
   setFocusDay,
+  big = false,
+  slide,
 }: {
+  big?: boolean
+  /** The class that slides this month in from the side it came from. */
+  slide?: string
   y: number
   m: number
   range: { start: Ymd | null; end: Ymd | null }
@@ -118,14 +126,14 @@ function Month({
   const cells = monthCells(y, m)
   return (
     <div className="min-w-0 flex-1">
-      <div className="grid grid-cols-7 text-center text-[12px] font-medium text-[#6b7280]">
+      <div className={cn("grid grid-cols-7 text-center font-medium text-[#6b7280]", big ? "text-[12.5px]" : "text-[12px]")}>
         {WEEKDAYS.map((w) => (
           <div key={w} className="pb-2" aria-hidden>
             {w}
           </div>
         ))}
       </div>
-      <div role="grid" aria-label={`${MONTHS_LONG[m]} ${y}`} className="grid grid-cols-7" onMouseLeave={() => onHover(null)}>
+      <div role="grid" aria-label={`${MONTHS_LONG[m]} ${y}`} className={cn("grid grid-cols-7", slide)} onMouseLeave={() => onHover(null)}>
         {cells.map((d, i) => {
           if (!d) return <div key={`e${i}`} aria-hidden />
           const disabled = d > max || (min !== undefined && d < min)
@@ -138,7 +146,8 @@ function Month({
             <div
               key={d}
               className={cn(
-                "relative flex h-9 items-center justify-center",
+                "relative flex items-center justify-center transition-colors duration-150",
+                big ? "h-10" : "h-9",
                 inBand && "bg-[#f1f1f3]",
                 inBand && (isStart || col === 0) && "rounded-l-lg",
                 inBand && (isEnd || col === 6) && "rounded-r-lg",
@@ -155,10 +164,13 @@ function Month({
                 onMouseEnter={() => onHover(d)}
                 onFocus={() => setFocusDay(d)}
                 className={cn(
-                  "flex h-9 w-full items-center justify-center rounded-lg text-[13px] tabular-nums outline-none transition-colors duration-75",
+                  "flex w-full items-center justify-center rounded-lg tabular-nums outline-none transition-[background-color,color,box-shadow] duration-100",
+                  big ? "h-10 text-[15px]" : "h-9 text-[13px]",
                   "focus-visible:ring-2 focus-visible:ring-[#1a1a2e] focus-visible:ring-offset-1",
                   disabled ? "cursor-default text-[#c4c6cc]" : "cursor-pointer",
-                  edge ? "bg-[#1a1a2e] font-semibold text-white" : !disabled && "hover:bg-[#e6e6ea]",
+                  edge
+                    ? "drp-day-edge bg-[#1a1a2e] font-semibold text-white shadow-[0_1px_2px_rgba(17,24,39,0.25),inset_0_1px_0_rgba(255,255,255,0.12)]"
+                    : !disabled && "hover:bg-[#e6e6ea] active:bg-[#dcdce2]",
                 )}
               >
                 {parts(d).d}
@@ -243,7 +255,17 @@ export function RangePanel({ initial, today, firstDay, presets = true, months, o
   const [group, setGroup] = React.useState<string | null>(null)
   /* The months shown end with the range's end, so a range is seen, not scrolled to. */
   const endParts = parts(initial.end)
-  const [view, setView] = React.useState(() => ({ y: endParts.y, m: endParts.m - (months === 2 ? 1 : 0) }))
+  const [view, setViewState] = React.useState(() => ({ y: endParts.y, m: endParts.m - (months === 2 ? 1 : 0) }))
+  /* Which way the months last moved, so the new ones slide in from that side. */
+  const [dir, setDir] = React.useState<0 | 1 | -1>(0)
+  const setView = (next: { y: number; m: number } | ((v: { y: number; m: number }) => { y: number; m: number })) => {
+    setViewState((v) => {
+      const n = typeof next === "function" ? next(v) : next
+      const delta = n.y * 12 + n.m - (v.y * 12 + v.m)
+      if (delta !== 0) setDir(delta > 0 ? 1 : -1)
+      return n
+    })
+  }
   const [focusDay, setFocusDay] = React.useState<Ymd>(initial.end)
   const gridRef = React.useRef<HTMLDivElement>(null)
 
@@ -292,6 +314,13 @@ export function RangePanel({ initial, today, firstDay, presets = true, months, o
     return { y: Math.floor(t / 12), m: t % 12 }
   })
   const canForward = monthsShown[months - 1].y * 12 + monthsShown[months - 1].m < parts(today).y * 12 + parts(today).m
+  const back = () => setView((v) => ({ y: v.m === 0 ? v.y - 1 : v.y, m: (v.m + 11) % 12 }))
+  const forward = () => {
+    if (canForward) setView((v) => ({ y: v.m === 11 ? v.y + 1 : v.y, m: (v.m + 1) % 12 }))
+  }
+  /* On a phone a sideways swipe across the days turns the month, the way the
+     system calendar does. Vertical movement is left to the sheet. */
+  const swipe = React.useRef<{ x: number; y: number } | null>(null)
 
   const complete = draft.start !== null && draft.end !== null
   const applyRef = React.useRef(onApply)
@@ -391,17 +420,16 @@ export function RangePanel({ initial, today, firstDay, presets = true, months, o
           </div>
 
           <div className="mt-4 flex items-center justify-between">
-            <button
-              type="button"
-              aria-label="Previous month"
-              onClick={() => setView((v) => ({ y: v.m === 0 ? v.y - 1 : v.y, m: (v.m + 11) % 12 }))}
-              className="flex h-8 w-8 items-center justify-center rounded-lg text-[#4b5563] hover:bg-[#f1f1f3]"
-            >
-              <ChevronLeft className="h-4 w-4" />
+            <button type="button" aria-label="Previous month" onClick={back} className={cn(monthNav, months === 1 && "h-10 w-10")}>
+              <ChevronLeft className="h-4 w-4" strokeWidth={2.25} />
             </button>
-            <div className="flex flex-1 justify-around text-[14px] font-semibold">
+            <div className="flex flex-1 justify-around overflow-hidden text-[14px] font-semibold text-[#1a1a2e]">
               {monthsShown.map((mo) => (
-                <span key={`${mo.y}-${mo.m}`} aria-live="polite">
+                <span
+                  key={`${mo.y}-${mo.m}`}
+                  aria-live="polite"
+                  className={cn("tabular-nums", dir === 1 && "drp-slide-next", dir === -1 && "drp-slide-prev")}
+                >
                   {MONTHS_LONG[mo.m]} {mo.y}
                 </span>
               ))}
@@ -410,16 +438,37 @@ export function RangePanel({ initial, today, firstDay, presets = true, months, o
               type="button"
               aria-label="Next month"
               disabled={!canForward}
-              onClick={() => setView((v) => ({ y: v.m === 11 ? v.y + 1 : v.y, m: (v.m + 1) % 12 }))}
-              className="flex h-8 w-8 items-center justify-center rounded-lg text-[#4b5563] hover:bg-[#f1f1f3] disabled:opacity-30 disabled:hover:bg-transparent"
+              onClick={forward}
+              className={cn(monthNav, months === 1 && "h-10 w-10")}
             >
-              <ChevronRight className="h-4 w-4" />
+              <ChevronRight className="h-4 w-4" strokeWidth={2.25} />
             </button>
           </div>
 
-          <div ref={gridRef} onKeyDown={onGridKey} className={cn("mt-2 flex pb-4", months === 2 ? "gap-6" : "")}>
+          <div
+            ref={gridRef}
+            onKeyDown={onGridKey}
+            onTouchStart={(e) => {
+              const t = e.touches[0]
+              swipe.current = t ? { x: t.clientX, y: t.clientY } : null
+            }}
+            onTouchEnd={(e) => {
+              const from = swipe.current
+              swipe.current = null
+              const t = e.changedTouches[0]
+              if (!from || !t) return
+              const dx = t.clientX - from.x
+              const dy = t.clientY - from.y
+              if (Math.abs(dx) < 44 || Math.abs(dx) < Math.abs(dy) * 1.5) return
+              if (dx < 0) forward()
+              else back()
+            }}
+            className={cn("mt-2 flex overflow-hidden pb-4", months === 2 ? "gap-6" : "")}
+          >
             {monthsShown.map((mo) => (
               <Month
+                big={months === 1}
+                slide={dir === 1 ? "drp-slide-next" : dir === -1 ? "drp-slide-prev" : undefined}
                 key={`${mo.y}-${mo.m}`}
                 y={mo.y}
                 m={mo.m}

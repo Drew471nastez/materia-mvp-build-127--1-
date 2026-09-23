@@ -394,8 +394,8 @@ function main() {
     /const HALO_LAYERS = 12/.test(nav)
       && /data-app-nav-fade-step=""[\s\S]{0,200}borderRadius: "50%"/.test(nav)
       && /inset: i \* HALO_STEP,/.test(nav))
-  check("whose blur ramps from nothing at the outermost to 0.45px at the innermost",
-    /const HALO_BLUR = 0\.45/.test(nav)
+  check("whose blur ramps from nothing at the outermost to 0.47px at the innermost",
+    /const HALO_BLUR = 0\.47/.test(nav)
       && /const haloBlur = \(i: number\) => Math\.round\(HALO_BLUR \* \(\(i \+ 1\) \/ HALO_LAYERS\) \*\* 2/.test(nav)
       && /backdropFilter: `blur\(\$\{haloBlur\(i\)\}px\)`/.test(nav),
     "the same blur on every layer puts an edge on the outermost one")
@@ -532,8 +532,9 @@ function main() {
     not smooth at all". Let go of it and it springs to the slot.
   */
   check("under a finger the circle follows the finger itself, not the finger's slot, with no transition",
-    /const FOLLOW = 0\.6/.test(nav)
-      && /targetRef\.current = leftFor\(clientX\)/.test(nav)
+    /const FOLLOW = 0\.72/.test(nav)
+      && /const under = leftFor\(clientX\)/.test(nav)
+      && /targetRef\.current = under \+ \(leftForSlot\(next\) - under\) \* MAGNET/.test(nav)
       && /posRef\.current \+= gap \* FOLLOW/.test(nav)
       && /frameRef\.current = requestAnimationFrame\(step\)/.test(nav)
       && /slide\.bounce && !slide\.following \? SETTLE : NO_TRAVEL/.test(nav),
@@ -576,8 +577,8 @@ function main() {
   check("and a drag beginning during a spring picks the circle up from where it is drawn",
     /posRef\.current = drawnAt\(\) \?\? leftFor\(clientX\)/.test(nav)
       && /getComputedStyle\(dot\)\.translate/.test(nav))
-  check("it settles with a little overshoot, on its own property, and lifts on another",
-    /const SETTLE = `translate 420ms cubic-bezier\(0\.32, 1\.24, 0\.44, 1\)`/.test(nav)
+  check("it settles with a small overshoot, on its own property, and lifts on another",
+    /const SETTLE = `translate 380ms cubic-bezier\(0\.3, 1\.12, 0\.42, 1\)`/.test(nav)
       && /const LIFT = 1\.06/.test(nav) && /slide\.following \? LIFT : 1/.test(nav)
       && /const LIFT_EASE = `scale 200ms/.test(nav))
   /*
@@ -810,7 +811,7 @@ function main() {
       && /slide\.bounce && !slide\.following \? SETTLE : NO_TRAVEL/.test(nav),
     "a journey across the bar on every press is the movement that was reported")
   check("and the frame loop is only ever started by a finger that is dragging",
-    /if \(movedRef\.current\) \{\s*\n[^\n]*\n\s*targetRef\.current = leftFor\(clientX\)\s*\n\s*wake\(\)/.test(nav)
+    /if \(movedRef\.current\) \{[\s\S]{0,260}?targetRef\.current = under \+ \(leftForSlot\(next\) - under\) \* MAGNET\s*\n\s*wake\(\)\s*\n\s*\}/.test(nav)
       && /posRef\.current = null/.test(nav),
     "a loop that runs on a press is a journey with frames in it, whatever the transition says")
 
@@ -825,10 +826,10 @@ function main() {
       && /movedRef\.current = true[\s\S]{0,300}?setFollowing\(true\)/.test(nav),
     "left over from the last gesture, the first tap after a drag would lift and bounce")
   check("and only a released drag animates at all",
-    /const SETTLE = `translate 420ms/.test(nav)
+    /const SETTLE = `translate 380ms/.test(nav)
       && /slide\.bounce && !slide\.following \? SETTLE : NO_TRAVEL/.test(nav)
       && !/LAND/.test(strip(nav)),
-    "SETTLE's third control point is 1.24: past the slot and back, which a press never asked for")
+    "SETTLE's third control point is 1.12: past the slot and back, which a press never asked for")
   check("the finger is known from a ref, not from state a render behind",
     /if \(!activeRef\.current\) return/.test(nav) && !/if \(!dragging\) return/.test(strip(nav)))
   /*
@@ -874,6 +875,16 @@ function main() {
     /gridTemplateRows: open \? "1fr" : "0fr"/.test(nav) && !/scrollHeight/.test(strip(nav)))
   check("and the driven measurement of all of it is in the probe",
     /a group opens and closes/.test(read("scripts/check-app-mobile-nav.mjs")))
+
+  console.log("\nThe bar, this round")
+  check("3% bigger: a 60px bar, 55px slots and 23px glyphs",
+    /const BAR_H = 60\b/.test(nav) && /const SLOT = 55\b/.test(nav) && /const GLYPH = 23\b/.test(nav) && !/size=\{22\}/.test(nav))
+  check("5% more blur in the glass", /backdropFilter: "blur\(25px\) saturate\(120%\)"/.test(nav))
+  check("under a finger the lens leans into the slot it is over, and stretches with its speed",
+    /const MAGNET = 0\.22/.test(nav) && /const STRETCH_MAX = 0\.14/.test(nav)
+      && /dot\.style\.transform = k > 0\.004 \? `scale\(\$\{1 \+ k\}, \$\{1 - k \* 0\.45\}\)` : ""/.test(nav)
+      && /paint\(gap \* FOLLOW\)/.test(nav))
+  check("and rounds off again, eased, as it lets go", /dotRef\.current\.style\.transform = ""/.test(nav) && /transform 280ms cubic-bezier\(0\.32, 0\.72, 0, 1\)/.test(nav))
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }
