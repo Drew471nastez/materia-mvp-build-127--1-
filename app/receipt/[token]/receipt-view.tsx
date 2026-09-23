@@ -457,7 +457,7 @@ export function ReceiptView({ receipt, viewer, locale }: { receipt: Receipt; vie
                   value={newEmail}
                   onChange={(e) => setNewEmail(e.target.value)}
                   placeholder="you@example.com"
-                  className="h-10 min-w-0 flex-1 rounded-xl border border-[#e5e7eb] bg-white px-3 text-[16px] text-[#1a1a2e] outline-none placeholder:text-[#9ca3af] focus:border-[#8b5cf6] focus:ring-2 focus:ring-[#8b5cf6]/20 sm:text-[14px]"
+                  className="h-10 min-w-0 flex-1 rounded-xl border border-[#e5e7eb] bg-white px-3 text-[16px] text-[#1a1a2e] outline-none placeholder:text-[#9ca3af] focus:border-[#8b5cf6] focus:ring-2 focus:ring-[#8b5cf6]/20"
                 />
                 <div className="flex gap-2">
                   <button type="submit" disabled={emailState === "sending"} className={`${PRIMARY} flex-1 sm:flex-none`}>

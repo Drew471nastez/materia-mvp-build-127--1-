@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { rateLimit, addressSubject, LIMITS } from "@/lib/api/rate-limit"
 import { baseFor } from "@/lib/checkout/pricing"
 import { stripe } from "@/lib/stripe"
 import { createClient } from "@/lib/supabase/server"
@@ -80,6 +81,15 @@ export async function POST(request: Request) {
   } catch {
     return NextResponse.json({ error: "Bad request" }, { status: 400 })
   }
+
+  /* Each call makes a Stripe Checkout Session: counted with the other payment routes. */
+  const limited = await rateLimit({
+    bucket: "payment",
+    subjects: [addressSubject(request)],
+    windows: LIMITS.payment,
+    message: "Too many checkouts started just now. Wait a few minutes and try again.",
+  })
+  if (limited) return limited
 
   const incoming = Array.isArray(body.items) ? body.items.slice(0, MAX_LINES) : []
   if (incoming.length === 0) {

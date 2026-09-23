@@ -349,8 +349,10 @@ function main() {
   const sender = email.slice(email.indexOf("export async function sendBuyerDownloadEmail"), email.indexOf("export async function sendSellerNotificationEmail"))
   check("the buyer's address is never logged in full", !/console\.(log|error)\([^)]*customerEmail\b(?!\))/.test(sender.replace(/maskEmail\(customerEmail\)/g, "")))
 
-  const cart = code("app/api/checkout/cart/complete/route.ts")
-  check("a basket sends one receipt email, not one per product", (cart.match(/sendBuyerDownloadEmail\(/g) ?? []).length === 1 && !/for \(const line of fulfilled\) \{\s*try \{\s*await sendBuyerDownloadEmail/.test(cart))
+  /* The basket's writes moved to lib/checkout/fulfil-cart-session.ts, shared
+     by the buyer's return and Stripe's webhook. */
+  const cart = code("lib/checkout/fulfil-cart-session.ts")
+  check("a basket sends one receipt email, not one per product", (cart.match(/sendBuyerDownloadEmail\(/g) ?? []).length === 1 && /if \(s\.ownsBasket\)/.test(cart))
 
   const update = code("app/api/receipt/update-email/route.ts")
   check("changing the address from a token alone is limited to a guest order", /if \(order\.buyer_id\)/.test(update))

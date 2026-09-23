@@ -1,4 +1,5 @@
 import { Suspense } from "react"
+import { MAX_PWYW_CENTS } from "@/lib/checkout/pricing"
 import { notFound, redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import CheckoutPageClient from "./checkout-client"
@@ -44,7 +45,15 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
   const creatorUsername = creatorProfile?.username || creator?.slug || ""
 
   // Fetch variant if specified (with PWYW fields)
-  let selectedVariant = null
+  let selectedVariant: {
+    id: string
+    name: string
+    description: string | null
+    price_cents: number
+    pay_what_you_want?: boolean | null
+    pwyw_min_price_cents?: number | null
+    pwyw_suggested_price_cents?: number | null
+  } | null = null
   if (variantId) {
     const { data: variant } = await supabase
       .from("product_variants")
@@ -101,6 +110,13 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
     .eq("product_id", productId)
     .order("price_cents", { ascending: true })
 
+  /* A product with options is bought as one of them (the server refuses it
+     otherwise): arriving without one, the first is chosen, and the buyer can
+     change it in the order summary. */
+  if (!selectedVariant && allVariants && allVariants.length > 0) {
+    selectedVariant = allVariants[0]
+  }
+
   // Determine if PWYW is active
   const isVariantPwyw = selectedVariant && (selectedVariant as any).pay_what_you_want
   const isProductPwyw = !selectedVariant && (product as any).pay_what_you_want
@@ -130,7 +146,7 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
   if (isPwywActive && customPrice != null && customPrice !== "") {
     const asked = parseInt(customPrice, 10)
     /* Unreadable or below the minimum: the minimum. */
-    const chosen = Number.isFinite(asked) && asked >= pwywMinPriceCents ? asked : pwywMinPriceCents
+    const chosen = Number.isFinite(asked) && asked >= pwywMinPriceCents && asked <= MAX_PWYW_CENTS ? asked : pwywMinPriceCents
     customPriceCents = chosen
     finalPriceCents = chosen
   }
@@ -178,8 +194,23 @@ export default async function CheckoutPage(props: CheckoutPageProps) {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-screen items-center justify-center bg-background">
-          <div className="animate-pulse text-muted-foreground">Loading checkout...</div>
+        /* The page's own shape, shown only when loading is slow (skeleton-deferred). */
+        <div className="skeleton-deferred min-h-screen bg-white lg:bg-[linear-gradient(to_right,#ffffff_50%,#f8f9fa_50%)]" aria-busy>
+          <div className="h-14 border-b border-[#e5e7eb] bg-white" />
+          <div className="mx-auto grid max-w-[1100px] gap-8 px-4 pt-8 sm:px-6 lg:grid-cols-2 lg:px-8">
+            <div className="mx-auto w-full max-w-[600px] space-y-3 lg:mr-0 lg:pr-4">
+              <div className="h-6 w-28 rounded-md bg-[#f1f2f4]" />
+              <div className="h-12 rounded-[10px] bg-[#f1f2f4]" />
+              <div className="h-12 rounded-[10px] bg-[#f1f2f4]" />
+              <div className="mt-6 h-6 w-28 rounded-md bg-[#f1f2f4]" />
+              <div className="h-44 rounded-[12px] bg-[#f1f2f4]" />
+            </div>
+            <div className="hidden space-y-4 lg:block lg:pl-8">
+              <div className="h-16 rounded-[10px] bg-[#eceef1]" />
+              <div className="h-12 rounded-[10px] bg-[#eceef1]" />
+              <div className="h-24 rounded-[10px] bg-[#eceef1]" />
+            </div>
+          </div>
         </div>
       }
     >

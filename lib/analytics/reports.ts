@@ -30,6 +30,7 @@
  */
 
 import { groupOrders, startOfDay, type OrderRow } from "../orders/order-view"
+import { isInternalReferrer } from "./sources"
 import { bucketIndex, bucketLabel, bucketStarts, grainFor, previousWindow, spansToRead, type Grain, type Span } from "./buckets"
 
 export { bucketStarts, grainFor, previousWindow, spansToRead, type Grain, type Span }
@@ -276,7 +277,8 @@ export function referrerKeyer(mainDomain: string): Keyer {
   return (s: Session) => {
     const d = (s.first.referrer_domain || "").trim().toLowerCase().replace(/^www\./, "")
     if (!d || d === "direct") return null
-    const self = channelOfUrl(`https://${d}`, mainDomain) === "storelib" || d.endsWith(mainDomain.replace(/^www\./, ""))
+    /* A whole host, not a suffix: "mystorelib.com" is somebody else's site. */
+    const self = channelOfUrl(`https://${d}`, mainDomain) === "storelib" || isInternalReferrer(d, mainDomain)
     return self ? null : { key: d, label: d }
   }
 }

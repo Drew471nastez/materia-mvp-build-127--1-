@@ -52,6 +52,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       receiptToken: result.receiptToken,
+      amountCents: result.amountCents,
       redirectUrl: `/receipt/${result.receiptToken}`,
     })
   } catch (error) {

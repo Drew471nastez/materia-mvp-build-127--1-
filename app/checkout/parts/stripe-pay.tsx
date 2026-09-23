@@ -141,6 +141,9 @@ function StripePayInner({
   /** null while the wallets are being asked; then whether any can pay. */
   const [express, setExpress] = React.useState<boolean | null>(null)
   const [paymentReady, setPaymentReady] = React.useState(false)
+  /* Set once. The email is the element's own after that: passing it back on
+     every keystroke asked Stripe to update an option that cannot change. */
+  const [linkOptions] = React.useState(() => ({ defaultValues: { email } }))
 
   const pay = async () => {
     onError(null)
@@ -181,6 +184,9 @@ function StripePayInner({
       {/* ── Express ─────────────────────────────────────────────────── */}
       <section
         aria-label="Express checkout"
+        /* No wallet here: gone for a screen reader and the keyboard too. */
+        inert={express === false}
+        aria-hidden={express === false || undefined}
         className={cn(
           "grid transition-[grid-template-rows,opacity] duration-200 ease-out motion-reduce:transition-none",
           express === false ? "grid-rows-[0fr] opacity-0" : "grid-rows-[1fr] opacity-100",
@@ -259,7 +265,7 @@ function StripePayInner({
           Contact
         </h2>
         <LinkAuthenticationElement
-          options={{ defaultValues: { email } }}
+          options={linkOptions}
           onChange={(e) => onEmail(e.value.email)}
         />
         <div className="mt-3">{contactExtra}</div>
@@ -267,10 +273,9 @@ function StripePayInner({
 
       {/* ── Payment ─────────────────────────────────────────────────── */}
       <section aria-labelledby="checkout-payment" className="mt-8">
-        <h2 id="checkout-payment" className="mb-1 text-[18px] font-semibold tracking-[-0.01em] text-[#1a1a2e]">
+        <h2 id="checkout-payment" className="mb-3.5 text-[18px] font-semibold tracking-[-0.01em] text-[#1a1a2e]">
           Payment
         </h2>
-        <p className="mb-3.5 text-[13px] text-[#6b7280]">All transactions are secure and encrypted.</p>
         <div className={cn("min-h-[180px] rounded-[10px] transition-opacity duration-200", !paymentReady && "checkout-shimmer")}>
           <PaymentElement
             onReady={() => setPaymentReady(true)}

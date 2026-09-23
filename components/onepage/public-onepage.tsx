@@ -184,10 +184,12 @@ interface DigitalAsset {
 // Quick Checkout Form Component - isolated to prevent parent re-renders on input changes
 function QuickCheckoutFormContent({
   ctaText,
+  sellerName,
   error,
   onSubmit,
 }: {
   ctaText: string
+  sellerName: string
   error: string | null
   onSubmit: (data: { firstName: string; lastName: string; email: string }) => void
 }) {
@@ -253,7 +255,9 @@ function QuickCheckoutFormContent({
       </button>
 
       <p className="text-xs text-gray-400 text-center pb-4 sm:pb-0">
-        You'll receive a confirmation email with your download link
+        {/* Said before the button is pressed: taking the download adds the
+            address to the seller's list (app/api/checkout/quick-free). */}
+        We'll email your download link, and {sellerName} may send you updates. Unsubscribe any time.
       </p>
     </div>
   )
@@ -2673,6 +2677,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
               {quickCheckoutStep === 'form' && (
                 <QuickCheckoutFormContent
                   ctaText={quickCheckoutModalData.ctaText}
+                  sellerName={sellerName}
                   error={quickCheckoutError}
                   onSubmit={handleQuickCheckoutSubmit}
                 />

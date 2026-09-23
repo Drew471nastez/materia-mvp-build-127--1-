@@ -49,7 +49,16 @@ export async function sendAccessEmails(admin: any, creatorId: string, lines: Own
   await admin.from("orders").update({ buyer_notified_at: null, buyer_email_last_error: null }).in("id", ids)
   await admin.from("email_logs").delete().in("order_id", ids).eq("email_type", "buyer_download")
 
+  /* ONE email per payment: since the receipt lists the whole basket, a
+     line-by-line send put the same basket in the inbox once per product. */
+  const payments = new Map<string, OwnedLine[]>()
   for (const line of eligible) {
+    const key = line.stripe_session_id || line.stripe_payment_intent_id || line.id
+    payments.set(key, [...(payments.get(key) ?? []), line])
+  }
+
+  for (const group of payments.values()) {
+    const line = group[0]
     const result = await sendBuyerDownloadEmail(admin, {
       orderId: line.id,
       creatorId,
@@ -61,8 +70,12 @@ export async function sendAccessEmails(admin: any, creatorId: string, lines: Own
       baseUrl: siteUrl(),
       variantName: line.variant_name ?? null,
     })
-    if (result.success) report.sent++
-    else {
+    if (result.success) {
+      report.sent++
+      /* The other lines went in the same email. */
+      const rest = group.slice(1).map((l) => l.id)
+      if (rest.length) await admin.from("orders").update({ buyer_notified_at: new Date().toISOString(), buyer_email_last_error: null }).in("id", rest)
+    } else {
       report.failed++
       report.error ??= result.error || "The email provider did not accept it"
     }

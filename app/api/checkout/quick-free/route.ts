@@ -227,7 +227,7 @@ export async function POST(request: Request) {
         status: "subscribed",
         is_active: true,
         subscribed_at: new Date().toISOString(),
-        consent_text: "Subscribed via product checkout",
+        consent_text: "Subscribed via free download; the form states that the seller may send updates",
         consent_timestamp: new Date().toISOString(),
         unsubscribe_token: unsubscribeToken,
       })

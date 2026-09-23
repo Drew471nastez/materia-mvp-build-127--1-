@@ -147,11 +147,11 @@ export async function POST(request: Request) {
   const metadata: Record<string, string> = {
     [SOURCE_METADATA_KEY]: orderSourceFromRequest(request),
     product_id: product.id,
-    product_slug: String(product.slug || ""),
+    product_slug: String(product.slug || "").slice(0, 200),
     product_title: String(product.title || "").slice(0, 480),
     product_type: String(product.type || ""),
     creator_id: creator.id,
-    creator_name: creatorProfile?.display_name || creator.display_name || "Creator",
+    creator_name: String(creatorProfile?.display_name || creator.display_name || "Creator").slice(0, 200),
     buyer_id: user?.id || "",
     buyer_first_name: firstName,
     buyer_last_name: lastName,
@@ -169,8 +169,10 @@ export async function POST(request: Request) {
     fee_fixed_cents: String(fee.feeFixedCents),
     plan_used: fee.planId,
     variant_id: variant?.id || "",
-    variant_name: variant?.name || "",
-    variant_price_cents: variant ? String(variant.price_cents ?? "") : "",
+    variant_name: String(variant?.name || "").slice(0, 200),
+    /* What was paid for the option: a pay-what-you-want option's stored
+       price is 0 or its minimum, not the buyer's amount. */
+    variant_price_cents: variant ? String(totals.baseCents) : "",
     buyer_country: geoInfo.country || "",
     buyer_country_code: geoInfo.countryCode || "",
     buyer_device_type: deviceInfo.deviceType || "",

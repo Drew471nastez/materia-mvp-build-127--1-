@@ -38,7 +38,7 @@ const stubs = join(root, ".checkout-probe")
 mkdirSync(stubs, { recursive: true })
 
 writeFileSync(join(stubs, "navigation.js"), `export const usePathname = () => "/checkout"
-export const useRouter = () => ({ push(u) { window.__pushed = u }, prefetch() {}, replace() {}, refresh() {}, back() {} })
+export const useRouter = () => ({ push(u) { window.__pushed = u }, prefetch() {}, replace(u) { window.__pushed = u }, refresh() {}, back() {} })
 export const useSearchParams = () => new URLSearchParams(location.search)
 `)
 writeFileSync(join(stubs, "link.jsx"), `import React from "react"
@@ -213,7 +213,7 @@ console.log("\nphone, 390 wide, a free product")
   expect(!!overlay && overlay.includes("It's yours"), "it ends on the drawn check", overlay)
   await p.screenshot({ path: join(shots, "checkout-free-done.png") })
   await sleep(1000)
-  expect((await p.evaluate(() => window.__pushed)) === "/checkout/receipt?token=tok_free_1234567890", "and then opens the receipt", await p.evaluate(() => window.__pushed))
+  expect((await p.evaluate(() => window.__pushed)) === "/receipt/tok_free_1234567890", "and then opens the receipt, in place of the checkout", await p.evaluate(() => window.__pushed))
   await p.close()
 }
 

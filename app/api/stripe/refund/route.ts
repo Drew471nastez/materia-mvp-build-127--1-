@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { stripe } from "@/lib/stripe"
+import { syncChargeRefunds } from "@/lib/checkout/refunds"
+import { fullyRefunded } from "@/lib/orders/refund-state"
 
 function tryCreateAdminClient() {
   try {
@@ -54,14 +56,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized - order does not belong to you" }, { status: 403 })
     }
 
-    if (order.status === "refunded") {
+    /* A partly refunded order can be refunded again, up to what is left;
+       one refunded in full cannot. */
+    const alreadyRefunded = order.status === "refunded" ? Math.max(0, Number(order.refund_amount_cents) || 0) : 0
+    if (order.status === "refunded" && fullyRefunded(order)) {
       return NextResponse.json({ error: "Order has already been refunded" }, { status: 400 })
     }
 
     /* Only money that was taken can go back. A pending or failed row has a
        payment intent too, and refunding it would ask Stripe for a refund of
        a charge that never happened. */
-    if (order.status !== "completed") {
+    if (order.status !== "completed" && order.status !== "refunded") {
       return NextResponse.json({ error: "Only a paid order can be refunded" }, { status: 400 })
     }
 
@@ -70,7 +75,7 @@ export async function POST(request: Request) {
     }
 
     // Validate refund amount
-    const maxRefundCents = order.amount_cents || 0
+    const maxRefundCents = Math.max(0, (order.amount_cents || 0) - alreadyRefunded)
     const refundAmountCents = amount === undefined || amount === null ? maxRefundCents : Math.round(Number(amount) * 100)
 
     if (!Number.isFinite(refundAmountCents) || refundAmountCents <= 0) {
@@ -95,32 +100,40 @@ export async function POST(request: Request) {
         refund_reason: reason || "requested_by_customer",
       },
     }
-    // NOTE: This app uses destination charges — PIs and refunds live on the PLATFORM account.
-    // Do NOT pass stripeAccount; the refund is created on the platform and automatically reverses the transfer.
+    /*
+      DESTINATION CHARGES: the payment and its refund live on the platform
+      account (no stripeAccount here). A refund does NOT take the money back
+      from the seller by itself: without reverse_transfer the seller kept
+      what was transferred and Storelib's own balance paid the buyer.
+      reverse_transfer takes the refunded share back from the seller, and
+      refund_application_fee gives back the platform's share of its fee, which
+      is what the seller ledger (lib/checkout/refunds.ts) records.
+    */
+    refundParams.reverse_transfer = true
+    refundParams.refund_application_fee = true
     const refund = await stripe.refunds.create(refundParams)
 
-    // Update order status in database — split into two updates for column safety
-    // Step 1: Update status (this column always exists)
-    await dbClient
-      .from("orders")
-      .update({ status: "refunded" })
-      .eq("id", orderId)
-
-    // Step 2: Try to update extra refund tracking columns (may not exist in DB yet)
+    /* The order rows, the library and the ledger, recorded now so the page
+       is right at once; Stripe's charge.refunded runs the same idempotent
+       step again when it arrives. */
     const refundedAt = new Date().toISOString()
+    const admin = tryCreateAdminClient()
     try {
-      await dbClient
-        .from("orders")
-        .update({
-          refunded_at: refundedAt,
-          refund_reason: reason || "requested_by_customer",
-          refund_amount_cents: refundAmountCents,
-          stripe_refund_id: refund.id,
-        })
-        .eq("id", orderId)
-    } catch {
-      // Extra columns may not exist yet — status is already updated
-      console.log("[Refund] Extra refund columns not yet in DB — run migration 059")
+      const pi = await stripe.paymentIntents.retrieve(order.stripe_payment_intent_id, { expand: ["latest_charge"] })
+      const charge = pi.latest_charge && typeof pi.latest_charge === "object" ? (pi.latest_charge as import("stripe").Stripe.Charge) : null
+      if (charge && admin) await syncChargeRefunds(admin, charge)
+      else throw new Error("no charge to read")
+    } catch (syncErr) {
+      console.error("[Refund] recording failed, falling back to the order row:", syncErr instanceof Error ? syncErr.message : syncErr)
+      await dbClient.from("orders").update({ status: "refunded" }).eq("id", orderId)
+      try {
+        await dbClient
+          .from("orders")
+          .update({ refunded_at: refundedAt, refund_reason: reason || "requested_by_customer", refund_amount_cents: alreadyRefunded + refundAmountCents, stripe_refund_id: refund.id })
+          .eq("id", orderId)
+      } catch {
+        /* status is recorded */
+      }
     }
 
     // Send refund notification emails
@@ -181,9 +194,9 @@ export async function POST(request: Request) {
     })
   } catch (error: any) {
     console.error("[Stripe Refund Error]", error)
-    return NextResponse.json(
-      { error: error.message || "Failed to process refund" },
-      { status: 500 }
-    )
+    /* Stripe's own words for a refund it refused are useful to the seller;
+       anything else is plumbing and stays in the log. */
+    const message = error?.type === "StripeInvalidRequestError" && error?.raw?.message ? error.raw.message : "The refund could not be made. Nothing was changed. Try again."
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }

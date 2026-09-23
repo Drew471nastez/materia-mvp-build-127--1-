@@ -67,6 +67,7 @@ interface CheckoutPageClientProps {
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const TIP_MAX_CENTS = 100_000
+const MIN_CHARGE_CENTS = 50
 
 /** Names and email survive a reload and a trip to the product page, for this tab only. */
 function remembered(key: string): string {
@@ -126,6 +127,8 @@ export default function CheckoutPageClient({
   const [variant, setVariant] = React.useState<SummaryVariant | null>(initialVariant ?? null)
   /* A pay-what-you-want amount belongs to the option it was chosen for. */
   const customPrice = (variant?.id ?? null) === (initialVariant?.id ?? null) && isPwyw ? customPriceCents ?? null : null
+  /* "Your price" belongs to that option too, not to one picked after it. */
+  const pwywNow = customPrice !== null
   const subtotal = variant ? variant.priceCents : product.price_cents
 
   const [tipPreset, setTipPreset] = React.useState(0)
@@ -149,8 +152,11 @@ export default function CheckoutPageClient({
   const [error, setError] = React.useState<string | null>(null)
   const [busy, setBusy] = React.useState(false)
   const [paid, setPaid] = React.useState<{ total: number; free: boolean } | null>(null)
+  /** Paid (or processing) and no longer payable, whatever happens next. */
+  const [settled, setSettled] = React.useState(false)
   const [summaryOpen, setSummaryOpen] = React.useState(false)
-  const [nativeApp, setNativeApp] = React.useState(false)
+  /** null until the first effect knows: in the app, Stripe.js must never load, even for one render. */
+  const [nativeApp, setNativeApp] = React.useState<boolean | null>(null)
   const [card, setCard] = React.useState<NativeCard>(EMPTY_CARD)
   const secretRef = React.useRef<string | null>(null)
 
@@ -163,33 +169,71 @@ export default function CheckoutPageClient({
   const from = searchParams.get("from") || ""
   const productUrl = from.startsWith("/") && !from.startsWith("//") ? from : getProductUrl(creator.username, product.slug)
 
-  /* ── Arriving back from a bank's 3-D Secure page ─────────────────── */
+  /* ── After paying: the order, then the receipt ───────────────────── */
+  /**
+   * The payment is written into the address before the order is asked for,
+   * the same way a bank's 3-D Secure page returns it. If making the order
+   * fails (a timeout, a moment's outage) a refresh finishes it from there,
+   * rather than showing an empty checkout that would take a second payment.
+   * The webhook makes the same order anyway; this only fetches its receipt.
+   */
   const finish = React.useCallback(
-    async (paymentIntentId: string, clientSecret: string, amount: number) => {
-      const res = await postJson<{ receiptToken?: string }>("/api/checkout/confirm-payment", { paymentIntentId, clientSecret })
-      if (!res.ok || !res.data.receiptToken) throw new Error(res.data.error || "The order could not be finished. The payment is safe; refresh this page in a moment.")
-      const token = res.data.receiptToken
-      setPaid({ total: amount, free: false })
-      window.setTimeout(() => router.replace(`/receipt/${encodeURIComponent(token)}`), 1100)
+    async (paymentIntentId: string, clientSecret: string) => {
+      const url = new URL(window.location.href)
+      url.searchParams.set("payment_intent", paymentIntentId)
+      url.searchParams.set("payment_intent_client_secret", clientSecret)
+      url.searchParams.set("redirect_status", "succeeded")
+      window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash)
+
+      let last = "Your payment went through. The order is still being saved: refresh this page in a moment. You will not be charged again."
+      for (const wait of [0, 1500, 4000]) {
+        if (wait) await new Promise((r) => setTimeout(r, wait))
+        const res = await postJson<{ receiptToken?: string; amountCents?: number }>("/api/checkout/confirm-payment", { paymentIntentId, clientSecret }).catch(
+          () => null,
+        )
+        if (res?.ok && res.data.receiptToken) {
+          const token = res.data.receiptToken
+          setPaid({ total: res.data.amountCents ?? 0, free: false })
+          window.setTimeout(() => router.replace(`/receipt/${encodeURIComponent(token)}`), 1100)
+          return
+        }
+        /* A refusal is an answer; only a failure to answer is retried. */
+        if (res && res.status >= 400 && res.status < 500) {
+          last = res.data.error || last
+          break
+        }
+      }
+      setSettled(true)
+      throw new Error(last)
     },
     [router],
   )
 
+  /* Arriving with a payment in the address: back from a bank's page, or a
+     refresh after the order could not be finished. */
   React.useEffect(() => {
     const piId = searchParams.get("payment_intent")
     const secret = searchParams.get("payment_intent_client_secret")
     if (!piId || !secret) return
     const status = searchParams.get("redirect_status")
-    /* Off the address at once: a reload must not run it again. */
-    const url = new URL(window.location.href)
-    for (const k of ["payment_intent", "payment_intent_client_secret", "redirect_status"]) url.searchParams.delete(k)
-    window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash)
+    const clear = () => {
+      const url = new URL(window.location.href)
+      for (const k of ["payment_intent", "payment_intent_client_secret", "redirect_status"]) url.searchParams.delete(k)
+      window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash)
+    }
     if (status === "failed") {
+      clear()
       setError("The bank did not approve the payment. Nothing was charged. Try again or use another card.")
       return
     }
+    if (status === "processing" || status === "pending") {
+      clear()
+      setSettled(true)
+      setError("Your bank is still processing the payment. The receipt will be emailed to you as soon as it clears.")
+      return
+    }
     setBusy(true)
-    finish(piId, secret, total)
+    finish(piId, secret)
       .catch((e: Error) => setError(e.message))
       .finally(() => setBusy(false))
     // Once, on arrival.
@@ -210,9 +254,13 @@ export default function CheckoutPageClient({
   }
 
   const check = (mode: "card" | "express" | "free"): string | null => {
+    if (paid || settled) return "This order is already paid."
+    /* Stripe's smallest charge: said before a wallet sheet opens, not after. */
+    if (mode !== "free" && total > 0 && total < MIN_CHARGE_CENTS) return "The smallest card payment is $0.50. Add to the tip or remove the code."
     if (mode !== "express") {
       if (!EMAIL.test(email.trim())) return "Enter a valid email address."
-      if (!firstName.trim() || !lastName.trim()) return "Enter your first and last name."
+      /* A last name is not required: some people have one name. */
+      if (!firstName.trim()) return "Enter your first name."
     }
     if (mode !== "free") {
       const b = checkBusinessNow()
@@ -226,17 +274,21 @@ export default function CheckoutPageClient({
   }
 
   const orderBody = (contact?: { email?: string; name?: string }) => {
-    /* A wallet brings its own name; split it the way a form would have. */
+    const payerEmail = (contact?.email || email).trim()
+    /* The form's name when it was typed, whole; otherwise the wallet's, split
+       the way a form would have it; otherwise the email's name, because the
+       order needs one and a wallet does not always send it. */
     const walletName = (contact?.name || "").trim().split(/\s+/).filter(Boolean)
+    const typed = firstName.trim() !== ""
     return {
       productId: product.id,
       variantId: variant?.id ?? null,
       customPriceCents: customPrice,
       tipCents,
       couponCode: applied?.code ?? "",
-      firstName: firstName.trim() || walletName[0] || "",
-      lastName: lastName.trim() || walletName.slice(1).join(" "),
-      email: (contact?.email || email).trim(),
+      firstName: typed ? firstName.trim() : walletName[0] || payerEmail.split("@")[0] || "",
+      lastName: typed ? lastName.trim() : walletName.slice(1).join(" "),
+      email: payerEmail,
       emailOptIn,
       agreedToTerms: agreed,
       business: businessOn ? business : null,
@@ -256,6 +308,9 @@ export default function CheckoutPageClient({
 
   const onPaid = async (paymentIntentId: string, status: string) => {
     if (status === "processing") {
+      /* Paid, not yet cleared: nothing more to press. The webhook makes the
+         order when it clears, and the receipt is emailed then. */
+      setSettled(true)
       setError("Your bank is still processing the payment. The receipt will be emailed to you as soon as it clears.")
       return
     }
@@ -263,11 +318,12 @@ export default function CheckoutPageClient({
       setError("The payment was not completed. Nothing was charged. Try again.")
       return
     }
-    await finish(paymentIntentId, secretRef.current || "", total)
+    await finish(paymentIntentId, secretRef.current || "")
   }
 
   /* ── The app: card fields straight to Stripe ─────────────────────── */
   const payNative = async () => {
+    if (busy) return
     setError(null)
     const problem = check("card")
     if (problem) return setError(problem)
@@ -316,6 +372,7 @@ export default function CheckoutPageClient({
 
   /* ── Free ────────────────────────────────────────────────────────── */
   const takeFree = async () => {
+    if (busy) return
     setError(null)
     const problem = check("free")
     if (problem) return setError(problem)
@@ -443,11 +500,11 @@ export default function CheckoutPageClient({
   )
 
   const totals = (
-    <Totals subtotal={subtotal} discountCents={discountCents} discountLabel={applied?.code} tipCents={tipCents} total={total} isPwyw={isPwyw} />
+    <Totals subtotal={subtotal} discountCents={discountCents} discountLabel={applied?.code} tipCents={tipCents} total={total} isPwyw={pwywNow} />
   )
 
   const line = (
-    <LineItem product={product} variant={variant} variants={allVariants} onVariant={chooseVariant} priceCents={subtotal} isPwyw={isPwyw} />
+    <LineItem product={product} variant={variant} variants={allVariants} onVariant={chooseVariant} priceCents={subtotal} isPwyw={pwywNow} />
   )
 
   const consent = (
@@ -512,12 +569,15 @@ export default function CheckoutPageClient({
         </section>
         <div className="mt-8 space-y-5">{beforePay}</div>
         <div className="mt-5">
-          <PayButton onClick={() => void takeFree()} busy={busy}>
+          <PayButton onClick={() => void takeFree()} busy={busy} disabled={!!paid || settled}>
             {busy ? "Processing" : "Get it free"}
           </PayButton>
         </div>
       </div>
     )
+  } else if (nativeApp === null) {
+    /* The form's place, held for the one frame before the platform is known. */
+    payment = <div aria-hidden className="checkout-shimmer h-[520px] rounded-[12px]" />
   } else if (nativeApp) {
     payment = (
       <div>
@@ -531,15 +591,14 @@ export default function CheckoutPageClient({
           </div>
         </section>
         <section aria-labelledby="checkout-payment-app" className="mt-8">
-          <h2 id="checkout-payment-app" className="mb-1 text-[18px] font-semibold tracking-[-0.01em] text-[#1a1a2e]">
+          <h2 id="checkout-payment-app" className="mb-3.5 text-[18px] font-semibold tracking-[-0.01em] text-[#1a1a2e]">
             Payment
           </h2>
-          <p className="mb-3.5 text-[13px] text-[#6b7280]">All transactions are secure and encrypted.</p>
           <NativeCardFields value={card} onChange={setCard} />
         </section>
         <div className="mt-8 space-y-5">{beforePay}</div>
         <div className="mt-5">
-          <PayButton onClick={() => void payNative()} busy={busy}>
+          <PayButton onClick={() => void payNative()} busy={busy} disabled={!!paid || settled}>
             {busy ? "Processing" : payLabel}
           </PayButton>
         </div>
@@ -557,7 +616,8 @@ export default function CheckoutPageClient({
         payerName={() => `${firstName} ${lastName}`.trim()}
         onPaid={onPaid}
         onError={setError}
-        busy={busy}
+        /* Still pressed after it worked: nothing is payable twice. */
+        busy={busy || !!paid || settled}
         setBusy={setBusy}
         payLabel={payLabel}
         contactExtra={namesAndNews}
@@ -569,6 +629,8 @@ export default function CheckoutPageClient({
   return (
     <div
       data-page="checkout"
+      /* Under the paid check, nothing behind it can be reached. */
+      inert={!!paid}
       className="min-h-screen bg-white lg:bg-[linear-gradient(to_right,#ffffff_calc(50%-0.5px),#e5e7eb_calc(50%-0.5px),#e5e7eb_calc(50%+0.5px),#f8f9fa_calc(50%+0.5px))]"
     >
       <header className="border-b border-[#e5e7eb] bg-white pt-[env(safe-area-inset-top)]">
