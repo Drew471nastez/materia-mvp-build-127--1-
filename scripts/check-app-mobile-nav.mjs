@@ -938,53 +938,40 @@ await sleep(400)
  * off. A fraction anywhere is a frame of a shape that is neither.
  */
 /*
- * WHERE THE BAND'S EDGES ARE, NOT WHICH GLYPH IS VISIBLE.
+ * HOW FAR THROUGH THE CROSS-FADE, AND WHETHER THE PAIR EVER GOES LIGHT.
  *
- * This used to read the two glyphs' opacities, because that was how one was
- * shown and the other hidden. They are clipped against each other now: all
- * of them are fully opaque, and a band grows from the centre line with the
- * ink inside it and the outline outside. Reading opacity would see three
- * glyphs at 1 and call it a blend of all three.
+ * This reader has been rewritten twice, once per redesign of the fill, and
+ * each time it took the number the design happened to have. It read the two
+ * glyphs' OPACITIES when one was shown and the other hidden; then it read
+ * the CLIPS, because the band made all three fully opaque and reading
+ * opacity would have seen three glyphs at 1 and called it a blend.
  *
- * So it reads the clips, by the part each element says it is. `cut` is how
- * much of the box the band has opened to, 0 to 1. `gap` is how far the two
- * outline pieces are from being the band's exact complement, checked at BOTH
- * edges — a band has two of them, and either one drifting leaves a stripe
- * showing both drawings or neither.
+ * It is a cross-fade again, so it reads opacity again — but the old question
+ * ("is either glyph part-painted?") is the wrong one now, because in a
+ * cross-fade both always are. The question that matters is whether the PAIR
+ * holds up while the two trade:
+ *
+ *   `sum` is outline + ink. Two complements sum to 1 at every moment. Below
+ *   1 is the pair going light, which is the dip thrown out twice and
+ *   reported as cheap; above 1 is both drawings at once, the dark blob.
+ *
+ *   `ink` is how far through the fade the solid is, 0 to 1, which is what
+ *   says the fill sweeps rather than jumping.
  */
 const OPACITIES = `(() => {
   const links = [...document.querySelectorAll('nav[aria-label="Main"] a[aria-label]')]
-  const side = (el, which) => {
-    const m = /inset\\(([^)]*)\\)/.exec(getComputedStyle(el).clipPath || "")
-    if (!m) return null
-    const parts = m[1].trim().split(/\\s+/)
-    const raw = which === "top" ? parts[0] : (parts[2] ?? parts[0])
-    const n = Number.parseFloat(raw)
-    if (!Number.isFinite(n)) return null
-    const h = el.getBoundingClientRect().height || 1
-    return Math.round((raw.includes("%") ? n : (n / h) * 100)) / 100
-  }
+  const alpha = (el) => el ? +Number(getComputedStyle(el).opacity).toFixed(2) : null
   const read = (l) => {
-    const ink = l.querySelector('[data-part="ink"]')
-    const above = l.querySelector('[data-part="outline-above"]')
-    const below = l.querySelector('[data-part="outline-below"]')
-    if (!ink || !above || !below) return { cut: null, gap: null }
-    const top = side(ink, "top"), bottom = side(ink, "bottom")
-    const aboveEnds = side(above, "bottom"), belowStarts = side(below, "top")
-    if ([top, bottom, aboveEnds, belowStarts].some((v) => v == null)) return { cut: null, gap: null }
-    return {
-      /* How much of the box the band covers. */
-      cut: Math.round((1 - top - bottom) * 100) / 100,
-      /* The outline above has to stop exactly where the band starts, and the
-         one below has to start exactly where the band ends. */
-      gap: Math.round(Math.max(Math.abs(1 - aboveEnds - top), Math.abs(1 - belowStarts - bottom)) * 100) / 100,
-    }
+    const ink = alpha(l.querySelector('[data-part="ink"]'))
+    const out = alpha(l.querySelector('[data-part="outline"]'))
+    if (ink == null || out == null) return { ink: null, sum: null }
+    return { ink, sum: Math.round((ink + out) * 100) / 100 }
   }
   return {
     box: links.map((l) => +Number(getComputedStyle(l.querySelector("span")).opacity).toFixed(2)),
     svgAlpha: links.flatMap((l) => [...l.querySelectorAll("svg")].map((sv) => +Number(getComputedStyle(sv).opacity).toFixed(2))),
-    cut: links.map((l) => read(l).cut),
-    gap: links.map((l) => read(l).gap),
+    ink: links.map((l) => read(l).ink),
+    sum: links.map((l) => read(l).sum),
   }
 })()`
 await ev('window.__routeDelay = 260; window.__went = null; true')
@@ -993,14 +980,16 @@ await send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: 
 await sleep(50)
 await send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] })
 for (let i = 0; i < 40; i++) { opTrail.push(await ev(OPACITIES)); await sleep(12) }
-/* Neither glyph is ever half-painted: they are clipped, not faded. */
-const partly = opTrail.flatMap((f) => f.svgAlpha).filter((v) => v > 0.01 && v < 0.99)
+/* How far the pair ever strays from summing to 1: the pair going light, or
+   both drawings painted at once. */
+const worstSum = Math.round(Math.max(0, ...opTrail.flatMap((f) => f.sum).filter((v) => v != null).map((v) => Math.abs(v - 1))) * 100) / 100
 /* The widest the two clips ever disagree, as a fraction of the box. Anything
    above zero is a band showing both drawings at once, or neither. */
-const worstGap = Math.round(Math.max(0, ...opTrail.flatMap((f) => f.gap).filter((v) => v != null)) * 100) / 100
+/* Readings caught mid-fade, which is what says it sweeps rather than jumps. */
+const fadeSteps = new Set(opTrail.flatMap((f) => f.ink).filter((v) => v != null && v > 0.02 && v < 0.98)).size
 /* How many distinct positions the edge is caught in while it sweeps. An edge
    that sweeps has many; a glyph that switches has two. */
-const edgeSteps = new Set(opTrail.flatMap((f) => f.cut).filter((v) => v != null && v > 0.02 && v < 0.98)).size
+
 /*
   AND THE SWAP HAPPENS WHERE IT IS FAINT. The two drawings are not the same
   shape, so the frame the glyph changes on is a frame the shape changes on.
@@ -1014,8 +1003,8 @@ const boxDippedTo = Math.round(Math.min(...opTrail.flatMap((f) => f.box)) * 100)
    ~12ms apart here, and the trail starts on the frame of the touch. */
 const swapAtMs = (() => {
   for (let f = 1; f < opTrail.length; f++) {
-    for (let i = 0; i < opTrail[f].cut.length; i++) {
-      if (opTrail[f].cut[i] != null && Math.abs(opTrail[f].cut[i] - opTrail[0].cut[i]) > 0.02) return Math.round(f * 12)
+    for (let i = 0; i < opTrail[f].ink.length; i++) {
+      if (opTrail[f].ink[i] != null && Math.abs(opTrail[f].ink[i] - opTrail[0].ink[i]) > 0.02) return Math.round(f * 12)
     }
   }
   return Math.round(opTrail.length * 12)
@@ -1747,45 +1736,39 @@ must(!lens.ticks.includes("medium"), "while still being the quietest impact ther
   `a tap fired ${lens.ticks.join(", ")}`)
 
 console.log(`  the glyphs  ${opTrail.length} readings of ${opTrail[0].svgAlpha.length} glyphs across a press and the route landing`)
-console.log(`              ${partly.length} of them caught part way between the two drawings`)
-console.log(`              neither glyph ever faded; the faintest an icon got was ${swapSeenAt}`)
-console.log(`              the edge swept through ${edgeSteps} positions, the two clips never more than ${worstGap} apart`)
-console.log(`              and changed over ${swapAtMs}ms after the touch\n`)
-must(partly.length === 0, "a glyph is either the outline or the solid, never a blend of the two",
-  `${partly.length} reading(s) were part way between the two drawings: ${[...new Set(partly)].slice(0, 8).join(", ")}`)
-/*
-  AND NEITHER DOES THE ICON. Also turned round: this held the glyph to
-  changing over while the box around it was dimmed to a quarter, which is the
-  same fade in the same place for the same reason, and the same cheapness.
-  The swap is in the open now, on the frame the finger lands, and what takes
-  its time is the colour.
-*/
-/*
-  AND THE BLACK FILLS THE GLYPH RATHER THAN APPEARING IN IT.
+console.log(`              the pair strayed from summing to 1 by at most ${worstSum}`)
+console.log(`              the fade was caught in ${fadeSteps} positions between the two drawings`)
+console.log(`              the box around them never went below ${boxDippedTo}`)
+console.log(`              and it started ${swapAtMs}ms after the touch\n`)
 
-  The shape used to change in a single frame — hollow one frame, solid the
-  next — which is the last hard edge there was. The two cannot be blended,
-  because any mix of two different drawings is a shape that is neither, and
-  they cannot be faded, because a fade on the press is the cheapness. So they
-  are clipped against each other by one edge that sweeps up the box: below it
-  the solid, above it the outline, complements exactly.
+/*
+  THE PAIR NEVER GOES LIGHT, AND IS NEVER DOUBLE.
 
-  Three things are held here. That the edge SWEEPS rather than jumping, which
-  is what makes it smooth. That the two clips stay exact complements, because
-  a gap between them is a band showing both drawings or neither. And that
-  neither glyph is ever half-painted, which is what says this is a clip and
-  not the fade that was thrown out.
+  The rule that has survived all three versions of this fill is that the
+  glyph must not dim out and come back. A cross-fade satisfies it only if the
+  two are exact complements: if the outline leaves faster than the solid
+  arrives, the pair goes light mid-press, which is the dip reported as cheap;
+  if it leaves slower, both drawings are painted at once and the icon reads
+  as a blob for a few frames.
+
+  This is the demand the band's `gap` made of the two clips, asked of
+  opacities instead. It is the one assertion here that did not need
+  rewriting in spirit when the mechanism changed underneath it.
 */
-must(swapSeenAt >= 0.99, "the icon never fades: nothing about it is ever half-painted",
-  `an icon dropped to ${swapSeenAt} visible`)
-must(edgeSteps >= 4, "the black fills the glyph over a sweep rather than appearing in one frame",
-  `the edge was caught in only ${edgeSteps} position(s) between empty and full`)
-must(worstGap <= 0.02, "with the outline retreating exactly ahead of it, so no band shows both drawings or neither",
-  `the two clips were ${worstGap} of the box apart at worst`)
-must(boxDippedTo >= 0.99, "staying solid the whole way through a press",
+must(worstSum <= 0.05, "the two glyphs are exact complements: the pair never goes light or double",
+  `outline + ink strayed from 1 by ${worstSum} at worst`)
+/*
+  AND IT SWEEPS RATHER THAN JUMPING. A state with no duration cannot be seen
+  moving, and a glyph that changes in one frame is a hard edge however smooth
+  everything around it is. Readings are ~12ms apart and the fill runs for
+  FILL_MS, so a real cross-fade is caught several times part way through.
+*/
+must(fadeSteps >= 4, "and the fill sweeps rather than appearing in one frame",
+  `the fade was caught in only ${fadeSteps} position(s) between the two drawings`)
+must(boxDippedTo >= 0.99, "while the box around them stays solid the whole way through a press",
   `the faintest an icon went was ${boxDippedTo}`)
 must(swapAtMs <= 40, "and it starts filling on the frame the finger lands, not after one",
-  `the edge did not start moving until ${swapAtMs}ms after the finger landed`)
+  `the fill did not start until ${swapAtMs}ms after the finger landed`)
 
 for (const ic of icons) {
   must(!ic.missing, `${ic.label} is drawn at all`, "no ink found in its box")

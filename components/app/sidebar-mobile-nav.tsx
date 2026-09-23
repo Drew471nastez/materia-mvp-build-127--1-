@@ -42,6 +42,9 @@ import {
   type NavIconPair,
   type NavItemData,
   type NavChild,
+  FILL_TRANSITION,
+  FILL_MS,
+  FILL_CURVE,
 } from "@/components/app/sidebar-desktop-nav"
 
 /* ── The palette ──────────────────────────────────────────────────────────
@@ -156,102 +159,80 @@ const FILL_MATCH = 1.06
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- *  NOTHING IN THIS BAR FADES
+ *  WHAT THE LENS TAKES ITS TIME OVER
  * ═══════════════════════════════════════════════════════════════════════════
- * Every soft thing here was built out of opacity: the glyph dimmed and came
- * back, the lens dipped and came back. Dipping a thing out and bringing it
- * back is what reads as cheap, and the whole of it lands on the press, which
- * is the one moment that has to feel like nothing at all happened in between.
+ * This used to say NOTHING IN THIS BAR FADES, and it was the rule that
+ * produced the clipped band NavIcon no longer uses. The reasoning behind it
+ * was about one specific fade: the glyph DIMMING OUT AND COMING BACK, a dip
+ * to nothing and a return, landing on the press. That is still the thing to
+ * avoid, and nothing here does it.
  *
- * So the smoothness moves to where it belongs: the colour. An icon turning on
- * goes to its ink colour over INK_EASE, the same way a button changes colour
- * under a pointer, and that is the icon filling with black. It starts on the
- * frame the finger lands, there is nothing to wait for and nothing to dip
- * through, and no part of it is ever half-visible.
+ * A cross-fade between two glyphs is not that. Neither one dips: one is
+ * arriving exactly as fast as the other leaves, and because FILL_MATCH puts
+ * them in the same box the pair never goes light or changes size. It is what
+ * the desktop sidebar has always done, and it is what was asked for after
+ * the band shipped.
  *
- * The shape swaps outright in the same frame. It has to be outright, because
- * the outline and the solid are different drawings and anything in between
- * them is a shape that is neither — the whole reason a dip was there to hide
- * it. With FILL_MATCH the two occupy the same box, so an outright swap moves
- * nothing and changes no size; what is left to see is the colour arriving,
- * which is the part that takes its time.
+ * INK_MS and INK_EASE are now the LENS's timing, not the glyph's — the glass
+ * emptying for the frame it changes slot and filling back. The icon is
+ * quicker than the glass on purpose: the thing you pressed answers first and
+ * the weight of the bar follows it.
  */
 const INK_MS = 360
 const INK_EASE = `${INK_MS}ms cubic-bezier(0.22, 0.61, 0.36, 1)`
 
 /**
  * ===========================================================================
- *  THE BLACK OPENS OUT FROM THE MIDDLE OF THE GLYPH
+ *  THE SAME FILL THE SIDEBAR HAS
  * ===========================================================================
- * The last hard edge in the bar was the shape. The colour took its time, the
- * lens's glass took its time, and the glyph still went hollow one frame and
- * solid the next. A frame is a frame however good everything around it is.
+ * This was a band of ink opening out from the centre line of the glyph: the
+ * solid clipped to the band, the outline drawn twice and clipped to the two
+ * halves outside it, the three exact complements at every moment. It was
+ * built that way to avoid a fade, because a fade had been reported as cheap,
+ * and to avoid a one-frame swap, because a swap had been reported as a bump.
  *
- * The two cannot be blended: the outline and the solid are different
- * drawings, so any mix of them is a shape that is neither — 40x40 going in,
- * 40x39 halfway, 39x38 coming out on Products — and that is the bump that was
- * reported over and over. Dimming one to hide the swap puts a fade on the
- * press, which is the cheapness that was reported after that.
+ * It was still wrong. Ink travelling out of the middle of a glyph is a
+ * gesture — it draws attention to itself, and the icon reads as performing
+ * rather than as being on. What was asked for after seeing it is the fill
+ * the DESKTOP SIDEBAR has, which is none of that: both variants stacked in
+ * the same box, cross-faded, nothing moving.
  *
- * So neither is faded and neither is blended: THEY ARE CLIPPED against each
- * other, and the ink OPENS OUT FROM THE MIDDLE. A band grows from the centre
- * line of the box; inside it the solid is drawn, outside it the outline, and
- * the two are exact complements at every moment, so every pixel is one
- * drawing or the other and never a mix or a gap.
+ * So this is now sidebar-desktop-nav's NavIcon, on a 22px box instead of a
+ * 20px one, down to importing its transition rather than restating it. The
+ * things that were learned the hard way and still apply are kept:
  *
- * IT TOOK THREE GOES TO GET THE DIRECTION RIGHT — up from the bottom, which
- * reads as a glass filling, then down from the top — and the third needs one
- * more element than the other two, which is why it was not first. A band has
- * TWO outsides. `inset()` cuts in from each side of one rectangle, so it can
- * say "the middle" but it cannot say "everything but the middle" in a single
- * clip. The outline is therefore drawn twice, once above the band and once
- * below it, each retreating outward exactly ahead of its own edge. The two
- * pieces are the same glyph and never overlap, so there is nothing to see
- * where they meet.
+ *   FILL_MATCH stays. The solid and the outline are different drawings and
+ *   the solid reads about six per cent smaller; cross-fading two glyphs of
+ *   different sizes shows the size changing through the blend, which is the
+ *   bump that was reported over and over. Matched, the blend has nothing
+ *   left to change but the ink inside the outline. It is a constant and
+ *   never animates.
  *
- * A circle opening from the centre would be better still and is not possible
- * here: it would need the outline clipped to everything OUTSIDE a circle,
- * which no number of inset() rectangles can express. The ways round that are
- * the two already rejected — drawing one glyph over the other, which closes
- * the gaps the solid is drawn with, or masking with gradients, which brings
- * the fades back.
+ *   Neither glyph is drawn over the other, and the solid gets no stroke of
+ *   its own. Both close up the gaps the solid is drawn WITH — a stroke runs
+ *   along every contour including the ones cut out of the middle — and the
+ *   receipt icon goes out as a dark blob. That shipped once.
+ *
+ * The lens's glass keeps its own timing (INK_EASE, INK_MS). That part was
+ * not what was objected to, and it is the bar's weight rather than the
+ * icon's.
  */
-/** The ink: a band from the centre line, none of the box to all of it. */
-const INK_NONE = "inset(50% 0 50% 0)"
-const INK_ALL = "inset(0% 0 0% 0)"
-/** The outline above the band, and the outline below it, each going from its
-    half of the box to nothing as the band opens past it. */
-const ABOVE_ALL = "inset(0 0 50% 0)"
-const ABOVE_NONE = "inset(0 0 100% 0)"
-const BELOW_ALL = "inset(50% 0 0 0)"
-const BELOW_NONE = "inset(100% 0 0 0)"
-
 function NavIcon({ icon, active, color, size = 22 }: { icon: NavIconPair; active: boolean; color: string; size?: number }) {
   const Line = icon.line
   const Fill = icon.fill
-  const sweep = `clip-path ${INK_EASE}`
-  const piece = { position: "absolute", inset: 0, transition: sweep } as const
+  const piece = { position: "absolute", inset: 0, transition: FILL_TRANSITION } as const
   return (
     <span className="relative block shrink-0" style={{ color, width: size, height: size }}>
       <Line
         size={size}
         strokeWidth={1.5}
-        data-part="outline-above"
-        style={{ ...piece, clipPath: active ? ABOVE_NONE : ABOVE_ALL }}
+        data-part="outline"
+        style={{ ...piece, opacity: active ? 0 : 1 }}
       />
-      <Line
-        size={size}
-        strokeWidth={1.5}
-        data-part="outline-below"
-        style={{ ...piece, clipPath: active ? BELOW_NONE : BELOW_ALL }}
-      />
-      {/* The scale is a constant, never animated: the solid is drawn at the
-          size of the outline it replaces, which is what lets one band serve
-          both without the edges of the two drawings disagreeing. */}
       <Fill
         size={size}
         data-part="ink"
-        style={{ ...piece, clipPath: active ? INK_ALL : INK_NONE, scale: String(FILL_MATCH) }}
+        style={{ ...piece, opacity: active ? 1 : 0, scale: String(FILL_MATCH) }}
       />
     </span>
   )
@@ -1548,8 +1529,16 @@ export function MobileNavPill({
                   width: SLOT,
                   height: DOT,
                   color: on ? ACTIVE_TEXT : "#616b7a",
-                  /* The icon filling with black. See INK_EASE. */
-                  transition: `color ${INK_EASE}`,
+                  /*
+                    THE COLOUR TRAVELS WITH THE GLYPH, NOT WITH THE GLASS.
+
+                    This was on INK_EASE, 360ms, from when the glyph swapped
+                    in one frame and the colour was the only thing with any
+                    duration in it. Against a 160ms cross-fade that reads as
+                    two events: the solid arrives, and then it darkens for
+                    another fifth of a second. One fill, one duration.
+                  */
+                  transition: `color ${FILL_MS}ms ${FILL_CURVE}`,
                 }}
               >
                 <NavIcon icon={item.icon} active={on} color="currentColor" size={22} />
