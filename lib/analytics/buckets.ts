@@ -17,6 +17,18 @@ export interface Span {
 
 export type Grain = "hour" | "day" | "month"
 
+/**
+ * The stretches of time to read: the period and its comparison, as one
+ * stretch when they touch or overlap, as two when they do not, so a
+ * comparison with last year does not mean reading the whole year between.
+ */
+export function spansToRead(cur: Span, prev: Span | null): Span[] {
+  if (!prev || prev.end <= prev.start) return [cur]
+  const [a, b] = prev.start <= cur.start ? [prev, cur] : [cur, prev]
+  if (b.start <= a.end) return [{ start: a.start, end: Math.max(a.end, b.end) }]
+  return [a, b]
+}
+
 export function previousWindow(w: Span): Span {
   const length = w.end - w.start
   return { start: w.start - length, end: w.start }
@@ -39,7 +51,14 @@ function monthStart(ms: number, timeZone: string): number {
 export function bucketStarts(w: Span, grain: Grain, timeZone: string): number[] {
   const out: number[] = []
   if (grain === "hour") {
-    for (let t = w.start - (w.start % HOUR); t < w.end; t += HOUR) out.push(t)
+    /*
+      On the viewer's clock, not UTC's. `w.start % HOUR` is a UTC hour, which
+      is also a local hour almost everywhere, and not in India, Nepal, Iran,
+      Newfoundland or central Australia: there every bucket ran from half
+      past to half past and "9 am" held the visits from 9:30 to 10:30.
+    */
+    const midnight = startOfDay(w.start, timeZone)
+    for (let t = midnight + Math.floor((w.start - midnight) / HOUR) * HOUR; t < w.end; t += HOUR) out.push(t)
   } else if (grain === "day") {
     for (let t = startOfDay(w.start, timeZone); t < w.end; t = startOfDay(t + DAY + 2 * HOUR, timeZone)) out.push(t)
   } else {

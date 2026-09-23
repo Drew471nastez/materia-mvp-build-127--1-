@@ -1,4 +1,6 @@
 import { hasConsent } from "@/lib/consent/client"
+import { categorizeServerSource, detectClientAppFromUA, isInternalReferrer } from "@/lib/analytics/sources"
+import { parseUserAgent } from "@/lib/analytics/user-agent"
 // lib/analytics-utils.ts
 // Utility functions for analytics tracking
 
@@ -78,8 +80,8 @@ export function getReferrerHost(): string {
     const refHost = normalizeHost(new URL(ref).hostname)
     const currentHost = normalizeHost(window.location.hostname)
 
-    // Ignore self-referrals
-    if (!refHost || refHost === currentHost) return "Direct"
+    // Ignore self-referrals: this page, Storelib, a creator's Storelib site, the payment page
+    if (!refHost || isInternalReferrer(refHost, process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com", currentHost)) return "Direct"
 
     return refHost
   } catch {
@@ -187,38 +189,41 @@ export function markViewAsTracked(pageKey: string): void {
 export function getPageKey(type: string, creatorId: string, productId?: string | null): string {
   return productId ? `${type}_${creatorId}_${productId}` : `${type}_${creatorId}`
 }
+/**
+ * ===========================================================================
+ *  DEVICE, BROWSER AND SYSTEM, BY THE SAME RULES THE SERVER READS
+ * ===========================================================================
+ * These were their own set of `includes` checks, and the order was wrong in
+ * a way that reached every report: an iPhone says "like Mac OS X", the Mac
+ * test ran first, and so every iPhone was recorded as macOS. Opera and
+ * Samsung Internet say "Chrome" and were counted as Chrome. They now read
+ * lib/analytics/user-agent, which the OnePage reports already used.
+ *
+ * AN iPAD SAYS IT IS A MAC. Since iPadOS 13 Safari sends the desktop Mac
+ * signature, and the only tell is a touch screen, which no Mac has.
+ */
+function agent(): ReturnType<typeof parseUserAgent> {
+  if (typeof navigator === "undefined") return { device: null, browser: null, os: null }
+  const parsed = parseUserAgent(navigator.userAgent)
+  const iPad = /macintosh/i.test(navigator.userAgent) && (navigator.maxTouchPoints ?? 0) > 1
+  return iPad ? { ...parsed, device: "tablet", os: "iOS" } : parsed
+}
 
-// Get device type from user agent
 export function getDeviceType(): "desktop" | "mobile" | "tablet" {
-  if (typeof navigator === "undefined") return "desktop"
-  const ua = navigator.userAgent.toLowerCase()
-  if (/(tablet|ipad|playbook|silk)|(android(?!.*mobi))/i.test(ua)) return "tablet"
-  if (/mobile|iphone|ipod|android|blackberry|opera mini|iemobile/i.test(ua)) return "mobile"
-  return "desktop"
+  return agent().device ?? "desktop"
 }
 
-// Get browser name from user agent
 export function getBrowser(): string {
-  if (typeof navigator === "undefined") return "unknown"
-  const ua = navigator.userAgent
-  if (ua.includes("Firefox")) return "Firefox"
-  if (ua.includes("Chrome") && !ua.includes("Edg")) return "Chrome"
-  if (ua.includes("Safari") && !ua.includes("Chrome")) return "Safari"
-  if (ua.includes("Edg")) return "Edge"
-  if (ua.includes("Opera") || ua.includes("OPR")) return "Opera"
-  return "Other"
+  return agent().browser ?? "Other"
 }
 
-// Get OS from user agent
 export function getOS(): string {
-  if (typeof navigator === "undefined") return "unknown"
-  const ua = navigator.userAgent
-  if (ua.includes("Windows")) return "Windows"
-  if (ua.includes("Mac OS")) return "macOS"
-  if (ua.includes("Linux") && !ua.includes("Android")) return "Linux"
-  if (ua.includes("Android")) return "Android"
-  if (ua.includes("iOS") || ua.includes("iPhone") || ua.includes("iPad")) return "iOS"
-  return "Other"
+  return agent().os ?? "Other"
+}
+
+/** A browser driven by a script says so; a person's never does. */
+export function isAutomatedBrowser(): boolean {
+  return typeof navigator !== "undefined" && (navigator as Navigator & { webdriver?: boolean }).webdriver === true
 }
 
 // Get screen dimensions
@@ -233,200 +238,23 @@ export function getLanguage(): string {
   return navigator.language || "en"
 }
 
-/**
- * Detect "client app" based on in-app browser user agent.
- * This helps when referrer is missing (DM shares / in-app browsers).
- *
- * IMPORTANT:
- * - Instagram/TikTok/FB/Threads/Snap/Telegram are usually detectable.
- * - WhatsApp is inconsistent across devices; UTMs are the only guaranteed fix for WhatsApp.
- */
+/** The in-app browser a link was opened in, from its signature. */
 export function detectClientApp(): string | null {
   if (typeof navigator === "undefined") return null
-  const ua = navigator.userAgent.toLowerCase()
-
-  if (ua.includes("instagram")) return "instagram"
-  if (ua.includes("tiktok")) return "tiktok"
-  if (ua.includes("fbav") || ua.includes("fban") || ua.includes("facebook")) return "facebook"
-  if (ua.includes("threads")) return "threads"
-  if (ua.includes("snapchat")) return "snapchat"
-  if (ua.includes("telegram")) return "telegram"
-  if (ua.includes("whatsapp")) return "whatsapp"
-
-  return null
+  return detectClientAppFromUA(navigator.userAgent)
 }
 
-// Categorize traffic source (client-side hint only; server is authoritative)
+/**
+ * The browser's hint at a source. The server decides the one that is stored
+ * (app/api/track-view), with the same function, so the two cannot disagree.
+ */
 export function categorizeTrafficSource(
   referrer: string,
   utmSource?: string | null,
   utmMedium?: string | null,
   clientApp?: string | null,
 ): string {
-  const source = (utmSource || "").toLowerCase()
-  const medium = (utmMedium || "").toLowerCase()
-  const ref = (referrer || "").toLowerCase()
-  const app = (clientApp || "").toLowerCase()
-
-  // 1) UTMs always win
-  if (source || medium) {
-    if (medium.includes("cpc") || medium.includes("ppc") || medium.includes("paid") || medium.includes("ads")) {
-      if (source.includes("google")) return "paid_search"
-      return "paid"
-    }
-
-    if (medium.includes("email") || source.includes("email") || medium.includes("newsletter")) return "email"
-    if (medium.includes("affiliate") || source.includes("affiliate")) return "affiliate"
-
-    // explicit messaging UTMs
-    if (source.includes("whatsapp")) return "social_whatsapp"
-    if (source.includes("telegram")) return "social_telegram"
-
-    if (medium.includes("social") || isSocialSource(source)) return getSocialPlatform(source)
-
-    return "referral"
-  }
-
-  // 2) Referrer missing -> use client app fallback
-  if (!ref || ref === "direct") {
-    if (app === "whatsapp") return "social_whatsapp"
-    if (app === "telegram") return "social_telegram"
-    if (app === "instagram") return "social_instagram"
-    if (app === "tiktok") return "social_tiktok"
-    if (app === "facebook") return "social_facebook"
-    if (app === "threads") return "social_threads"
-    if (app === "snapchat") return "social_snapchat"
-    return "direct"
-  }
-
-  // 3) Email domains before search engines
-  if (isEmailDomain(ref)) return "email"
-
-  // 4) Social redirectors / shorteners
-  if (isSocialRedirectDomain(ref)) return getSocialPlatformFromDomain(ref)
-
-  // 5) Social direct
-  if (isSocialDomain(ref)) return getSocialPlatformFromDomain(ref)
-
-  // 6) Search engines
-  if (isSearchEngineDomain(ref)) return "organic_search"
-
-  return "referral"
-}
-
-function isSearchEngineDomain(domain: string): boolean {
-  return (
-    domain.includes("google.") ||
-    domain.includes("bing.") ||
-    domain.includes("yahoo.") ||
-    domain.includes("duckduckgo.") ||
-    domain.includes("baidu.") ||
-    domain.includes("yandex.")
-  )
-}
-
-function isEmailDomain(domain: string): boolean {
-  const emailDomains = [
-    "mail.google.com",
-    "gmail.com",
-    "outlook.live.com",
-    "outlook.office.com",
-    "mail.yahoo.com",
-    "protection.outlook.com",
-  ]
-  return emailDomains.some((d) => domain.includes(d))
-}
-
-function isSocialRedirectDomain(domain: string): boolean {
-  const redirects = [
-    "l.instagram.com",
-    "lm.facebook.com",
-    "l.facebook.com",
-    "t.co",
-    "linktr.ee",
-    "lnk.bio",
-    "bit.ly",
-    "cutt.ly",
-    "tinyurl.com",
-    "wa.me",
-    "whatsapp.com",
-    "t.me",
-    "telegram.me",
-  ]
-  return redirects.some((d) => domain.includes(d))
-}
-
-function isSocialSource(source: string): boolean {
-  const socialKeywords = [
-    "instagram",
-    "tiktok",
-    "facebook",
-    "twitter",
-    "x",
-    "youtube",
-    "pinterest",
-    "linkedin",
-    "snapchat",
-    "reddit",
-    "threads",
-    "whatsapp",
-    "telegram",
-  ]
-  return socialKeywords.some((keyword) => source.includes(keyword))
-}
-
-function isSocialDomain(domain: string): boolean {
-  const socialDomains = [
-    "instagram.com",
-    "tiktok.com",
-    "facebook.com",
-    "twitter.com",
-    "x.com",
-    "youtube.com",
-    "pinterest.com",
-    "linkedin.com",
-    "snapchat.com",
-    "reddit.com",
-    "threads.net",
-    "whatsapp.com",
-    "wa.me",
-    "t.me",
-    "telegram.me",
-  ]
-  return socialDomains.some((social) => domain.includes(social))
-}
-
-function getSocialPlatform(source: string): string {
-  if (source.includes("whatsapp")) return "social_whatsapp"
-  if (source.includes("telegram")) return "social_telegram"
-  if (source.includes("instagram") || source.includes("ig")) return "social_instagram"
-  if (source.includes("tiktok")) return "social_tiktok"
-  if (source.includes("facebook") || source.includes("fb")) return "social_facebook"
-  if (source.includes("twitter") || source === "x" || source.includes("x.com")) return "social_x"
-  if (source.includes("youtube") || source.includes("yt")) return "social_youtube"
-  if (source.includes("pinterest")) return "social_pinterest"
-  if (source.includes("linkedin")) return "social_linkedin"
-  if (source.includes("snapchat")) return "social_snapchat"
-  if (source.includes("reddit")) return "social_reddit"
-  if (source.includes("threads")) return "social_threads"
-  return "social"
-}
-
-function getSocialPlatformFromDomain(domain: string): string {
-  const d = domain.toLowerCase()
-  if (d.includes("whatsapp") || d.includes("wa.me")) return "social_whatsapp"
-  if (d.includes("t.me") || d.includes("telegram.me")) return "social_telegram"
-  if (d.includes("instagram")) return "social_instagram"
-  if (d.includes("tiktok")) return "social_tiktok"
-  if (d.includes("facebook") || d.includes("lm.facebook.com") || d.includes("l.facebook.com")) return "social_facebook"
-  if (d.includes("twitter") || d.includes("x.com") || d.includes("t.co")) return "social_x"
-  if (d.includes("youtube")) return "social_youtube"
-  if (d.includes("pinterest")) return "social_pinterest"
-  if (d.includes("linkedin")) return "social_linkedin"
-  if (d.includes("snapchat")) return "social_snapchat"
-  if (d.includes("reddit")) return "social_reddit"
-  if (d.includes("threads")) return "social_threads"
-  return "social"
+  return categorizeServerSource(referrer, utmSource, utmMedium, clientApp)
 }
 
 /**

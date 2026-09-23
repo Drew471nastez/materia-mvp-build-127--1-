@@ -6,15 +6,18 @@
  * ═══════════════════════════════════════════════════════════════════════════
  * Read from app/api/analytics/reports, which counts on the server from every
  * row (lib/analytics/reports.ts has the rules), for the store or the OnePage.
+ * The page reads it once and hands the same answer to the chart at the top
+ * and to these cards (useAnalyticsReports), so the two never disagree.
  *
- * DRAWN TO ONE SET OF SPECS. One calm blue for a single series, the period
- * before as a grey dashed line, the donut in the first three slots of a
- * palette checked for colour blindness, the funnel in one blue stepped light
- * to dark. Thin marks, recessive grid, text in ink, never in the data colour.
+ * DRAWN IN STORELIB'S OWN COLOUR. The violet of every other /app screen for
+ * the period, the period it is compared with as a quiet grey dashed line, the
+ * donut and the funnel in steps of the same violet. Thin marks, a recessive
+ * grid, text in ink and never in the data colour.
  *
- * READ THE SAME WAY AS THE CHART ABOVE. A pointer glides along a line; a
- * finger scrubs it with a sideways drag or a hold, with a tick per point, and
- * a finger going down the page is a scroll (components/app/use-chart-scrub).
+ * READ THE SAME WAY AS THE CHART ABOVE. A pointer or a finger moves a marker
+ * that glides from point to point and stops on each one; a sideways drag or
+ * a hold scrubs, a finger going down the page is a scroll
+ * (components/app/use-chart-scrub).
  *
  * NOTHING SCROLLS INSIDE A CARD. A list shows its top five and opens the rest
  * in a sheet, so a wheel or a thumb over a card always moves the page.
@@ -28,27 +31,35 @@ import * as React from "react"
 import { Globe } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { BreakdownRow, Headline, OnePageReports, Reports, Series } from "@/lib/analytics/reports"
+import { axisWidth, compactCount, compactMoney, compactPercent, niceScale } from "@/lib/analytics/chart-scale"
 import { viewerTimeZone } from "@/lib/orders/time-zone"
 import { HelpLabel } from "@/components/app/help-label"
 import { useChartScrub, type ChartScrub } from "@/components/app/use-chart-scrub"
 import { SourceIcon, type IconFor } from "@/components/analytics/source-icon"
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 
-/* Validated with the dataviz palette checker: see the note at the top. */
-const SERIES = "#2a78d6"
-const BEFORE = "#b6bcc6"
-const CATEGORICAL = ["#2a78d6", "#eb6834", "#1baf7a"]
-const FUNNEL = ["#184f95", "#2a78d6", "#5598e7", "#86b6ef"]
+/** Storelib's accent, the one every /app screen already uses. */
+export const SERIES = "#8b5cf6"
+/** The period it is compared with: grey, dashed, behind. */
+export const BEFORE = "#b8bcc6"
+/** Two or three parts of a whole, in steps of the same violet. */
+const CATEGORICAL = ["#8b5cf6", "#c4b5fd", "#e4dcfd"]
+const FUNNEL = ["#6d28d9", "#8b5cf6", "#a78bfa", "#c4b5fd"]
+/** Every move of a marker between two points: short, and slowing into place. */
+const GLIDE = "transform 140ms cubic-bezier(0.2, 0.8, 0.2, 1)"
 
 const money = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" })
 const moneyShort = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", notation: "compact", maximumFractionDigits: 1 })
 const fmtMoney = (cents: number) => money.format((cents || 0) / 100)
-const fmtMoneyShort = (cents: number) => (Math.abs(cents) >= 100_000 ? moneyShort.format(cents / 100) : fmtMoney(cents))
+const fmtMoneyShort = (cents: number) => (Math.abs(cents) >= 100_000 ? moneyShort.format(cents / 100).replace("K", "k") : fmtMoney(cents))
 const fmtCount = (n: number) => Math.round(n).toLocaleString("en-US")
 const fmtPct = (f: number) => `${(f * 100).toFixed(f > 0 && f < 0.1 ? 2 : 1).replace(/\.0+$/, "")}%`
 
 const LIST_ROWS = 5
 const BODY = "h-[236px]"
+
+/** Whether there is a period to compare with. Off, every "was" and every percentage goes. */
+const ComparedContext = React.createContext(true)
 
 /* ─── Frame ───────────────────────────────────────────────────────────── */
 
@@ -87,7 +98,7 @@ function Tabs<T extends string>({ value, options, onChange }: { value: T; option
           aria-selected={o.value === value}
           onClick={() => onChange(o.value)}
           className={cn(
-            "h-7 cursor-pointer rounded-md px-2.5 text-[12px] font-medium transition-[background-color,color,box-shadow] duration-150",
+            "h-8 cursor-pointer rounded-md px-3 text-[12px] font-medium transition-[background-color,color,box-shadow] duration-150 sm:h-7 sm:px-2.5",
             o.value === value ? "bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(17,24,39,0.12)]" : "text-[#6b7280] hover:text-[#1a1a2e]",
           )}
         >
@@ -99,6 +110,8 @@ function Tabs<T extends string>({ value, options, onChange }: { value: T; option
 }
 
 function Change({ h, upIsBad = false }: { h: Pick<Headline, "change" | "value">; upIsBad?: boolean }) {
+  const compared = React.useContext(ComparedContext)
+  if (!compared) return null
   if (h.change === null) return <span className="text-[13px] text-[#9ca3af]">{h.value > 0 ? "New" : "–"}</span>
   const pct = Math.round(h.change * 100)
   if (pct === 0) return <span className="text-[13px] text-[#9ca3af]">0%</span>
@@ -125,21 +138,41 @@ function Empty({ children }: { children: React.ReactNode }) {
 
 /* ─── Line chart ──────────────────────────────────────────────────────── */
 
-function niceCeil(v: number): number {
-  const exp = Math.pow(10, Math.floor(Math.log10(v)))
-  const f = v / exp
-  const nice = f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10
-  return nice * exp
+type AxisKind = "count" | "money" | "percent"
+
+/**
+ * The first placement of a marker is a cut, and every move after it a
+ * glide: turning the transition on only once the marker has been painted
+ * where it starts is what stops it swooping in from the corner.
+ */
+export function useGlide(shown: boolean): string {
+  const [settled, setSettled] = React.useState(false)
+  React.useEffect(() => {
+    if (!shown) {
+      setSettled(false)
+      return
+    }
+    const id = requestAnimationFrame(() => setSettled(true))
+    return () => cancelAnimationFrame(id)
+  }, [shown])
+  return shown && settled ? GLIDE : "none"
 }
 
-function LineChart({ series, format, compact }: { series: Series; format: (n: number) => string; compact: (n: number) => string }) {
+function LineChart({ series, format, kind }: { series: Series; format: (n: number) => string; kind: AxisKind }) {
+  const compared = React.useContext(ComparedContext) && series.previous.length > 0
   /* Drawn at the card's own width in pixels, measured before the first
      paint and again on resize, so the plot reaches both edges and the axis
      text stays 10px. */
   const [W, setW] = React.useState(320)
   const H = 150
-  const pad = { l: 44, r: 8, t: 10, b: 22 }
   const n = series.current.length
+
+  const max = Math.max(0, ...series.current, ...(compared ? series.previous : []))
+  const scale = niceScale(max, { integer: kind === "count", intervals: 2 })
+  const tickLabel = (t: number) => (kind === "money" ? compactMoney(t, scale.step) : kind === "percent" ? compactPercent(t) : compactCount(t))
+  const labels = scale.ticks.map(tickLabel)
+  /* As wide as the widest number on it, and not a pixel more. */
+  const pad = { l: axisWidth(labels, 10, 8), r: 8, t: 10, b: 22 }
   const plotW = W - pad.l - pad.r
   const x = (i: number) => pad.l + (n <= 1 ? plotW / 2 : (i / (n - 1)) * plotW)
 
@@ -162,14 +195,13 @@ function LineChart({ series, format, compact }: { series: Series; format: (n: nu
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const max = Math.max(...series.current, ...series.previous, 0)
-  const top = max > 0 ? niceCeil(max) : 1
-  const y = (v: number) => pad.t + (1 - v / top) * (H - pad.t - pad.b)
+  const y = (v: number) => pad.t + (1 - v / scale.top) * (H - pad.t - pad.b)
   const path = (vals: number[]) => vals.map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join("")
   const area = n > 1 ? `${path(series.current)}L${x(n - 1).toFixed(1)},${y(0)}L${x(0).toFixed(1)},${y(0)}Z` : ""
-  const ticks = [0, top / 2, top]
   const xl = n > 1 ? [0, Math.floor((n - 1) / 2), n - 1] : [0]
   const i = scrub.index
+  const glide = useGlide(i !== null)
+  const gradient = React.useId().replace(/:/g, "")
 
   return (
     <div
@@ -179,12 +211,18 @@ function LineChart({ series, format, compact }: { series: Series; format: (n: nu
       onPointerMove={scrub.onPointerMove}
       onPointerLeave={scrub.onPointerLeave}
     >
-      <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} className="block h-[150px] w-full" role="img" aria-label="Chart">
-        {ticks.map((t) => (
+      <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} className="block h-[150px] w-full overflow-visible" role="img" aria-label="Chart">
+        <defs>
+          <linearGradient id={gradient} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={SERIES} stopOpacity={0.14} />
+            <stop offset="100%" stopColor={SERIES} stopOpacity={0} />
+          </linearGradient>
+        </defs>
+        {scale.ticks.map((t, k) => (
           <g key={t}>
             <line x1={pad.l} x2={W - pad.r} y1={y(t)} y2={y(t)} stroke="#eef0f2" strokeWidth={1} />
             <text x={pad.l - 8} y={y(t) + 3.5} textAnchor="end" fontSize="10" fill="#9ca3af">
-              {compact(t)}
+              {labels[k]}
             </text>
           </g>
         ))}
@@ -193,59 +231,84 @@ function LineChart({ series, format, compact }: { series: Series; format: (n: nu
             {series.labels[k]}
           </text>
         ))}
-        <path d={area} fill={SERIES} opacity={0.08} />
-        <path d={path(series.previous)} fill="none" stroke={BEFORE} strokeWidth={1.5} strokeDasharray="4 4" />
+        <path d={area} fill={`url(#${gradient})`} />
+        {compared ? <path d={path(series.previous)} fill="none" stroke={BEFORE} strokeWidth={1.5} strokeDasharray="4 4" strokeLinecap="round" /> : null}
         <path d={path(series.current)} fill="none" stroke={SERIES} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
         {i !== null ? (
-          <g>
-            <line x1={x(i)} x2={x(i)} y1={pad.t} y2={H - pad.b} stroke="#c9ccd3" strokeWidth={1} />
-            <circle cx={x(i)} cy={y(series.previous[i] ?? 0)} r={3} fill="#fff" stroke={BEFORE} strokeWidth={1.5} />
-            <circle cx={x(i)} cy={y(series.current[i])} r={4.5} fill={SERIES} stroke="#fff" strokeWidth={2} />
+          <g style={{ transform: `translateX(${x(i).toFixed(1)}px)`, transition: glide }}>
+            <line x1={0} x2={0} y1={pad.t} y2={H - pad.b} stroke="#d4d6dc" strokeWidth={1} />
           </g>
+        ) : null}
+        {i !== null && compared ? (
+          <circle
+            r={3}
+            cx={0}
+            cy={0}
+            fill="#fff"
+            stroke={BEFORE}
+            strokeWidth={1.5}
+            style={{ transform: `translate(${x(i).toFixed(1)}px, ${y(series.previous[i] ?? 0).toFixed(1)}px)`, transition: glide }}
+          />
+        ) : null}
+        {i !== null ? (
+          <circle
+            r={4.5}
+            cx={0}
+            cy={0}
+            fill={SERIES}
+            stroke="#fff"
+            strokeWidth={2}
+            style={{ transform: `translate(${x(i).toFixed(1)}px, ${y(series.current[i]).toFixed(1)}px)`, transition: glide }}
+          />
         ) : null}
       </svg>
       {i !== null ? (
         <div
-          className="pointer-events-none absolute top-0 left-0 z-10 min-w-[148px] rounded-lg border border-[#e5e7eb] bg-white px-3 py-2 text-[12px] shadow-[0_10px_28px_-8px_rgba(17,24,39,0.22)]"
+          className="pointer-events-none absolute top-0 left-0 z-10 min-w-[136px] rounded-lg border border-[#e5e7eb] bg-white px-3 py-2 text-[12px] shadow-[0_10px_28px_-8px_rgba(17,24,39,0.22)]"
           style={{
-            transform: `translateX(clamp(0px, calc(${x(i).toFixed(1)}px - 50%), calc(${W}px - 100%))) translateY(-8px)`,
-            transition: scrub.input === "mouse" ? "transform 120ms cubic-bezier(0.2, 0.8, 0.2, 1)" : "none",
+            transform: `translateX(clamp(0px, calc(${x(i).toFixed(1)}px - 50%), calc(${W}px - 100%))) translateY(-12px)`,
+            transition: glide,
+            willChange: "transform",
           }}
         >
           <p className="text-[11px] font-medium text-[#6b7280]">{series.labels[i]}</p>
           <p className="mt-1 flex items-center justify-between gap-4">
             <span className="flex items-center gap-1.5 text-[#4b5563]">
               <span className="h-[2px] w-3 rounded" style={{ background: SERIES }} />
-              This period
+              {compared ? "This period" : "Value"}
             </span>
             <span className="font-semibold tabular-nums text-[#1a1a2e]">{format(series.current[i])}</span>
           </p>
-          <p className="flex items-center justify-between gap-4">
-            <span className="flex items-center gap-1.5 text-[#6b7280]">
-              <span className="h-0 w-3 border-t-2 border-dashed" style={{ borderColor: BEFORE }} />
-              Before
-            </span>
-            <span className="tabular-nums text-[#4b5563]">{format(series.previous[i] ?? 0)}</span>
-          </p>
+          {compared ? (
+            <p className="flex items-center justify-between gap-4">
+              <span className="flex items-center gap-1.5 text-[#6b7280]">
+                <span className="h-0 w-3 border-t-2 border-dashed" style={{ borderColor: BEFORE }} />
+                Before
+              </span>
+              <span className="tabular-nums text-[#4b5563]">{format(series.previous[i] ?? 0)}</span>
+            </p>
+          ) : null}
         </div>
       ) : null}
-      <div className="mt-2 flex items-center gap-4 text-[12px] text-[#6b7280]">
-        <span className="flex items-center gap-1.5">
-          <span className="h-[2px] w-3.5 rounded" style={{ background: SERIES }} />
-          This period
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="h-0 w-3.5 border-t-2 border-dashed" style={{ borderColor: BEFORE }} />
-          Period before
-        </span>
-      </div>
+      {compared ? (
+        <div className="mt-2 flex items-center gap-4 text-[12px] text-[#6b7280]">
+          <span className="flex items-center gap-1.5">
+            <span className="h-[2px] w-3.5 rounded" style={{ background: SERIES }} />
+            This period
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="h-0 w-3.5 border-t-2 border-dashed" style={{ borderColor: BEFORE }} />
+            Period before
+          </span>
+        </div>
+      ) : null}
     </div>
   )
 }
 
 /* ─── Donut ───────────────────────────────────────────────────────────── */
 
-function Donut({ rows, total, format }: { rows: BreakdownRow[]; total: string; format: (n: number) => string }) {
+function Donut({ rows, total, format, sub }: { rows: BreakdownRow[]; total: string; format: (n: number) => string; sub?: (r: BreakdownRow) => string | null }) {
   const R = 52
   const C = 2 * Math.PI * R
   let offset = 0
@@ -285,14 +348,21 @@ function Donut({ rows, total, format }: { rows: BreakdownRow[]; total: string; f
         {rows.slice(0, CATEGORICAL.length).map((r, i) => (
           <li
             key={r.key}
-            className={cn("flex items-center gap-2 rounded-md text-[13px] transition-opacity duration-150", hover && hover !== r.key && "opacity-50")}
+            className={cn("rounded-md text-[13px] transition-opacity duration-150", hover && hover !== r.key && "opacity-50")}
             onPointerEnter={() => setHover(r.key)}
             onPointerLeave={() => setHover(null)}
           >
-            <span className="h-2.5 w-2.5 shrink-0 rounded-[3px]" style={{ background: CATEGORICAL[i] }} />
-            <span className="min-w-0 flex-1 truncate text-[#303036]">{r.label}</span>
-            <span className="tabular-nums text-[#1a1a2e]">{format(r.value)}</span>
-            <span className="w-10 text-right tabular-nums text-[#9ca3af]">{Math.round(r.share * 100)}%</span>
+            <div className="flex items-center gap-2">
+              <span className="h-2.5 w-2.5 shrink-0 rounded-[3px]" style={{ background: CATEGORICAL[i] }} />
+              <span className="min-w-0 flex-1 truncate text-[#303036]">{r.label}</span>
+              <span className="tabular-nums text-[#1a1a2e]">{format(r.value)}</span>
+              {sub ? null : <span className="w-10 text-right tabular-nums text-[#9ca3af]">{Math.round(r.share * 100)}%</span>}
+            </div>
+            {sub ? (
+              <p className="pl-[18px] text-[12px] tabular-nums text-[#9ca3af]">
+                {sub(r)}, {Math.round(r.share * 100)}%
+              </p>
+            ) : null}
           </li>
         ))}
       </ul>
@@ -305,6 +375,8 @@ function Donut({ rows, total, format }: { rows: BreakdownRow[]; total: string; f
 type Lead = { flag: true } | { icon: IconFor } | null
 
 function RowChange({ r }: { r: BreakdownRow }) {
+  const compared = React.useContext(ComparedContext)
+  if (!compared) return null
   if (r.previous <= 0) return <span className="text-[12px] text-[#c4c7cf]">{r.value > 0 ? "New" : "–"}</span>
   const pct = Math.round(((r.value - r.previous) / r.previous) * 100)
   if (pct === 0) return <span className="text-[12px] text-[#9ca3af]">0%</span>
@@ -334,6 +406,7 @@ function Row({
   lead: Lead
   sub?: string | null
 }) {
+  const compared = React.useContext(ComparedContext)
   return (
     <li className="group flex h-10 items-center gap-2.5" title={sub ?? undefined}>
       {lead && "flag" in lead ? (
@@ -349,14 +422,16 @@ function Row({
             {r.label}
           </span>
           <span className="shrink-0 font-medium tabular-nums text-[#1a1a2e]">{format(r.value)}</span>
-          <span className="w-11 shrink-0 text-right">
-            <RowChange r={r} />
-          </span>
+          {compared ? (
+            <span className="w-11 shrink-0 text-right">
+              <RowChange r={r} />
+            </span>
+          ) : null}
         </div>
-        <div className="mt-1.5 pr-[52px]">
+        <div className={cn("mt-1.5", compared && "pr-[52px]")}>
           <div
-            className="h-[6px] rounded-r-[3px] transition-[width,opacity] duration-500 group-hover:opacity-90"
-            style={{ width: `${Math.max(1.5, (r.value / max) * 100)}%`, background: SERIES, opacity: 0.85 }}
+            className="h-[6px] rounded-r-[3px] transition-[width,opacity] duration-500 group-hover:opacity-100"
+            style={{ width: `${Math.max(1.5, (r.value / max) * 100)}%`, background: SERIES, opacity: 0.8 }}
           />
         </div>
       </div>
@@ -394,7 +469,7 @@ function BarList({
         <button
           type="button"
           onClick={() => setAll(true)}
-          className="mt-auto w-fit cursor-pointer rounded-md py-1 text-[12px] font-medium text-[#2a63b8] hover:underline"
+          className="mt-auto w-fit cursor-pointer rounded-md py-1 text-[12px] font-medium text-[#7c3aed] hover:underline"
         >
           View all {rows.length}
         </button>
@@ -418,11 +493,12 @@ function BarList({
 /* ─── Funnel ──────────────────────────────────────────────────────────── */
 
 function Funnel({ steps }: { steps: Reports["funnel"] }) {
+  const compared = React.useContext(ComparedContext)
   const top = Math.max(steps[0]?.value ?? 0, ...steps.map((s) => s.value), 1)
   return (
     <div className="mt-2 grid flex-1 grid-cols-4 gap-2">
       {steps.map((s, i) => {
-        const prevRate = steps[0].previous > 0 ? s.previous / steps[0].previous : null
+        const prevRate = compared && steps[0].previous > 0 ? s.previous / steps[0].previous : null
         return (
           <div key={s.key} className={cn("flex min-w-0 flex-col", i > 0 && "border-l border-[#eef0f2] pl-2")}>
             <p className="truncate text-[12px] text-[#6b7280]" title={s.label}>
@@ -571,12 +647,16 @@ function VisitCards({ b, blank, noun }: { b: Breakdowns | null; blank: boolean; 
 
 function StoreGrid({ r }: { r: Reports | null }) {
   const blank = !r
+  const orders = (row: BreakdownRow) => {
+    const n = row.extra?.orders ?? 0
+    return `${fmtCount(n)} ${n === 1 ? "order" : "orders"}`
+  }
   return (
     <>
-      <Card title="Total sales by channel" help="Money taken in the period, less refunds, split by where the order was placed: your Storelib page or your website.">
+      <Card title="Total sales by channel" help="Money taken in the period, less refunds, split by where the order was placed: your Storelib page or your website. Orders from before the channel was recorded count as your Storelib page.">
         <div className={BODY}>
-          {blank ? <Skeleton /> : r!.salesByChannel.length === 0 ? <Empty>No sales in this period</Empty> : (
-            <Donut rows={r!.salesByChannel} total={fmtMoneyShort(r!.sales.value)} format={fmtMoneyShort} />
+          {blank ? <Skeleton /> : r!.salesByChannel.length === 0 ? <Empty>No orders in this period</Empty> : (
+            <Donut rows={r!.salesByChannel} total={fmtMoneyShort(r!.sales.value)} format={fmtMoneyShort} sub={orders} />
           )}
         </div>
       </Card>
@@ -586,7 +666,7 @@ function StoreGrid({ r }: { r: Reports | null }) {
           {blank ? <Skeleton lines /> : (
             <>
               <Figure value={fmtMoney(r!.aov.value)} h={r!.aov} />
-              <LineChart series={r!.aov.series} format={fmtMoney} compact={fmtMoneyShort} />
+              <LineChart series={r!.aov.series} format={fmtMoney} kind="money" />
             </>
           )}
         </div>
@@ -606,12 +686,12 @@ function StoreGrid({ r }: { r: Reports | null }) {
         </div>
       </Card>
 
-      <Card title="Sessions over time" help="Visits to your Storelib page and your website. A visit ends after 30 minutes without opening a page.">
+      <Card title="Sessions over time" help="Visits to your Storelib page and your website. A visit ends after 30 minutes without opening a page. Your own visits and search engine robots are not counted.">
         <div className={BODY}>
           {blank ? <Skeleton lines /> : (
             <>
               <Figure value={fmtCount(r!.sessions.value)} h={r!.sessions} />
-              <LineChart series={r!.sessions.series} format={fmtCount} compact={fmtCount} />
+              <LineChart series={r!.sessions.series} format={fmtCount} kind="count" />
             </>
           )}
         </div>
@@ -622,7 +702,7 @@ function StoreGrid({ r }: { r: Reports | null }) {
           {blank ? <Skeleton lines /> : (
             <>
               <Figure value={fmtPct(r!.conversion.value)} h={r!.conversion} />
-              <LineChart series={r!.conversion.series} format={fmtPct} compact={(n) => `${Math.round(n * 100)}%`} />
+              <LineChart series={r!.conversion.series} format={fmtPct} kind="percent" />
             </>
           )}
         </div>
@@ -682,7 +762,7 @@ function OnePageGrid({ r, hasPage }: { r: OnePageReports | null; hasPage: boolea
           {blank ? <Skeleton lines /> : (
             <>
               <Figure value={fmtCount(r!.views.value)} h={r!.views} />
-              <LineChart series={r!.views.series} format={fmtCount} compact={fmtCount} />
+              <LineChart series={r!.views.series} format={fmtCount} kind="count" />
             </>
           )}
         </div>
@@ -693,7 +773,7 @@ function OnePageGrid({ r, hasPage }: { r: OnePageReports | null; hasPage: boolea
           {blank ? <Skeleton lines /> : (
             <>
               <Figure value={fmtCount(r!.clicks.value)} h={r!.clicks} />
-              <LineChart series={r!.clicks.series} format={fmtCount} compact={fmtCount} />
+              <LineChart series={r!.clicks.series} format={fmtCount} kind="count" />
             </>
           )}
         </div>
@@ -704,7 +784,7 @@ function OnePageGrid({ r, hasPage }: { r: OnePageReports | null; hasPage: boolea
           {blank ? <Skeleton lines /> : (
             <>
               <Figure value={fmtPct(r!.ctr.value)} h={r!.ctr} />
-              <LineChart series={r!.ctr.series} format={fmtPct} compact={(n) => `${Math.round(n * 100)}%`} />
+              <LineChart series={r!.ctr.series} format={fmtPct} kind="percent" />
             </>
           )}
         </div>
@@ -729,7 +809,7 @@ function OnePageGrid({ r, hasPage }: { r: OnePageReports | null; hasPage: boolea
           {blank ? <Skeleton lines /> : (
             <>
               <Figure value={fmtCount(r!.subscribers.value)} h={r!.subscribers} />
-              <LineChart series={r!.subscribers.series} format={fmtCount} compact={fmtCount} />
+              <LineChart series={r!.subscribers.series} format={fmtCount} kind="count" />
             </>
           )}
         </div>
@@ -740,74 +820,149 @@ function OnePageGrid({ r, hasPage }: { r: OnePageReports | null; hasPage: boolea
   )
 }
 
+/* ─── The data, read once for the whole page ──────────────────────────── */
+
+export interface StoreAllTime {
+  views: number
+  orders: number
+  salesCents: number
+}
+export interface OnePageAllTime {
+  views: number
+  clicks: number
+  subscribers: number
+}
+
+export type ReportsAnswer =
+  | { mode: "store"; key: string; reports: Reports; allTime: StoreAllTime | null; truncated: boolean }
+  | { mode: "onepage"; key: string; reports: OnePageReports; allTime: OnePageAllTime | null; truncated: boolean; hasPage: boolean }
+
+export interface ReportsState {
+  data: ReportsAnswer | null
+  loading: boolean
+  failed: boolean
+}
+
+/**
+ * The page's one read of /api/analytics/reports. `compare` is the
+ * comparison picker's span, or null for No comparison. A new question
+ * aborts the one in flight, so a quick run of taps cannot land out of order.
+ * `refresh` asks the same question again, for the page's minute poll.
+ */
+export function useAnalyticsReports({
+  start,
+  end,
+  compare,
+  product,
+  mode,
+  refresh = 0,
+}: {
+  start: number
+  end: number
+  compare: { start: number; end: number } | null
+  product: string
+  mode: "store" | "onepage"
+  refresh?: number
+}): ReportsState {
+  const [state, setState] = React.useState<ReportsState>({ data: null, loading: true, failed: false })
+  const cs = compare?.start ?? null
+  const ce = compare?.end ?? null
+  React.useEffect(() => {
+    const ctrl = new AbortController()
+    setState((s) => ({ ...s, loading: true, failed: false }))
+    const q = new URLSearchParams({
+      start: new Date(start).toISOString(),
+      end: new Date(end).toISOString(),
+      tz: viewerTimeZone(),
+      product,
+      mode,
+    })
+    if (cs !== null && ce !== null) {
+      q.set("cstart", new Date(cs).toISOString())
+      q.set("cend", new Date(ce).toISOString())
+    } else {
+      q.set("compare", "none")
+    }
+    const key = q.toString()
+    fetch(`/api/analytics/reports?${q}`, { signal: ctrl.signal, cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+      .then((json) => {
+        setState({
+          data: { ...json, allTime: json.allTime ?? null, truncated: !!json.truncated, mode, key } as ReportsAnswer,
+          loading: false,
+          failed: false,
+        })
+      })
+      .catch((e) => {
+        if ((e as Error).name === "AbortError") return
+        setState((s) => ({ ...s, loading: false, failed: true }))
+      })
+    return () => ctrl.abort()
+  }, [start, end, cs, ce, product, mode, refresh])
+  return state
+}
+
+/**
+ * The cards. Given the page's answer as `state`; without one they read
+ * their own, with the period just before as the comparison, which is what
+ * the probe in scripts/render-analytics-reports.tsx mounts.
+ */
 export function AnalyticsReports({
   start,
   end,
   product,
   mode = "store",
+  state,
 }: {
   start: Date
   end: Date
   product: string
   mode?: "store" | "onepage"
+  state?: ReportsState
 }) {
-  const [data, setData] = React.useState<{ mode: string; reports: Reports | OnePageReports; truncated: boolean; hasPage?: boolean } | null>(null)
-  const [loading, setLoading] = React.useState(true)
-  const [failed, setFailed] = React.useState(false)
+  return state ? (
+    <ReportsView state={state} mode={mode} />
+  ) : (
+    <SelfLoading start={start.getTime()} end={end.getTime()} product={product} mode={mode} />
+  )
+}
 
-  const startMs = start.getTime()
-  const endMs = end.getTime()
-  React.useEffect(() => {
-    const ctrl = new AbortController()
-    setLoading(true)
-    setFailed(false)
-    const q = new URLSearchParams({
-      start: new Date(startMs).toISOString(),
-      end: new Date(endMs).toISOString(),
-      tz: viewerTimeZone(),
-      product,
-      mode,
-    })
-    fetch(`/api/analytics/reports?${q}`, { signal: ctrl.signal, cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
-      .then((json) => {
-        setData({ ...json, mode })
-        setLoading(false)
-      })
-      .catch((e) => {
-        if ((e as Error).name === "AbortError") return
-        setFailed(true)
-        setLoading(false)
-      })
-    return () => ctrl.abort()
-  }, [startMs, endMs, product, mode])
+function SelfLoading({ start, end, product, mode }: { start: number; end: number; product: string; mode: "store" | "onepage" }) {
+  const compare = React.useMemo(() => ({ start: start - (end - start), end: start }), [start, end])
+  const state = useAnalyticsReports({ start, end, compare, product, mode })
+  return <ReportsView state={state} mode={mode} />
+}
 
+function ReportsView({ state, mode }: { state: ReportsState; mode: "store" | "onepage" }) {
+  const { data, loading, failed } = state
   /* Reports for the other mode are not these reports: draw the frames. */
   const current = data && data.mode === mode ? data : null
   const soft = loading && !!current
 
   return (
-    <div
-      aria-busy={loading}
-      className={cn("grid gap-4 transition-[opacity,filter] duration-300 md:grid-cols-2 xl:grid-cols-3", soft && "opacity-60 blur-[0.5px]")}
-    >
-      {failed && !current ? (
-        <p className="rounded-xl border border-[#fde8e7] bg-[#fff7f6] px-4 py-3 text-[13px] text-[#8a1c0f] md:col-span-2 xl:col-span-3">
-          The reports could not be loaded. Refresh the page to try again.
-        </p>
-      ) : null}
+    <ComparedContext.Provider value={current ? current.reports.compared !== false : true}>
+      <div
+        aria-busy={loading}
+        className={cn("grid gap-4 transition-[opacity,filter] duration-300 md:grid-cols-2 xl:grid-cols-3", soft && "opacity-60 blur-[0.5px]")}
+      >
+        {failed && !current ? (
+          <p className="rounded-xl border border-[#fde8e7] bg-[#fff7f6] px-4 py-3 text-[13px] text-[#8a1c0f] md:col-span-2 xl:col-span-3">
+            The reports could not be loaded. Refresh the page to try again.
+          </p>
+        ) : null}
 
-      {mode === "store" ? (
-        <StoreGrid r={(current?.reports as Reports) ?? null} />
-      ) : (
-        <OnePageGrid r={(current?.reports as OnePageReports) ?? null} hasPage={current?.hasPage !== false} />
-      )}
+        {mode === "store" ? (
+          <StoreGrid r={current?.mode === "store" ? current.reports : null} />
+        ) : (
+          <OnePageGrid r={current?.mode === "onepage" ? current.reports : null} hasPage={current?.mode === "onepage" ? current.hasPage !== false : true} />
+        )}
 
-      {current?.truncated ? (
-        <p className="text-[12px] text-[#9ca3af] md:col-span-2 xl:col-span-3">
-          This period has more activity than one report reads at once. Choose a shorter period for exact figures.
-        </p>
-      ) : null}
-    </div>
+        {current?.truncated ? (
+          <p className="text-[12px] text-[#9ca3af] md:col-span-2 xl:col-span-3">
+            This period has more activity than one report reads at once. Choose a shorter period for exact figures.
+          </p>
+        ) : null}
+      </div>
+    </ComparedContext.Provider>
   )
 }

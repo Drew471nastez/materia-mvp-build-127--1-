@@ -44,7 +44,7 @@ export function parseUserAgent(raw: string | null | undefined): ParsedAgent {
       ? "Facebook"
       : /tiktok|musical_ly|bytedancewebview/.test(ua)
         ? "TikTok"
-        : /edg\//.test(ua)
+        : /edg\/|edga\/|edgios\//.test(ua)
           ? "Edge"
           : /opr\/|opera/.test(ua)
             ? "Opera"
@@ -59,4 +59,20 @@ export function parseUserAgent(raw: string | null | undefined): ParsedAgent {
                     : null
 
   return { device, browser, os }
+}
+
+/**
+ * NOT A PERSON. Crawlers, link previews, uptime checks and headless browsers
+ * that run a page's script and so reach the view tracker. Googlebot renders
+ * JavaScript, and so do the audit tools a creator points at their own page:
+ * every one of them was counted as a visit. Matched on the words these agents
+ * put in their signatures. An empty signature is not a browser either.
+ */
+const BOT =
+  /(^|[^a-z])bot([^a-z]|$)|bot\/|bot;|\+https?:\/\/|crawl|spider|slurp|mediapartners|facebookexternalhit|facebookcatalog|meta-externalagent|embedly|quora link preview|outbrain|vkshare|w3c_validator|telegrambot|discordbot|slackbot|linkedinbot|skypeuripreview|redditbot|applebot|bingpreview|headlesschrome|phantomjs|puppeteer|playwright|lighthouse|pagespeed|gtmetrix|pingdom|uptimerobot|statuscake|site24x7|checkly|curl\/|wget\/|python-requests|python-urllib|aiohttp|httpx|go-http-client|okhttp|java\/|libwww|axios\/|node-fetch|undici|scrapy|ahrefs|semrush|mj12|petalbot|bytespider|gptbot|chatgpt-user|oai-searchbot|claudebot|claude-web|anthropic-ai|perplexitybot|ccbot|amazonbot|yandex(bot|images)|baiduspider|duckduckbot|sogou|exabot|seznambot|ia_archiver/
+
+export function isBotAgent(raw: string | null | undefined): boolean {
+  const ua = (raw || "").trim().toLowerCase()
+  if (!ua) return true
+  return BOT.test(ua)
 }

@@ -1,18 +1,26 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import { type NextRequest, NextResponse } from "next/server"
+import { cookies } from "next/headers"
 import { ignoreError } from "@/lib/supabase/ignore-error"
+import { CONSENT_COOKIE, allows, parse } from "@/lib/consent/consent"
+import { isBotAgent } from "@/lib/analytics/user-agent"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
 
+const EVENTS = ["buy_click", "checkout_start", "checkout_complete", "download"] as const
+type EventType = (typeof EVENTS)[number]
+
 interface TrackEventPayload {
-  eventType: "buy_click" | "checkout_start" | "checkout_complete" | "download"
+  eventType: EventType
   creatorId: string
   productId?: string
   sessionId?: string
   visitorId?: string
   metadata?: Record<string, any>
 }
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export async function POST(req: NextRequest) {
   try {
@@ -21,14 +29,30 @@ export async function POST(req: NextRequest) {
     if (!payload.eventType || !payload.creatorId) {
       return NextResponse.json({ ok: false, error: "Missing required fields" }, { status: 400 })
     }
+    /* Only the steps the funnel knows, for a real page's ids. */
+    if (
+      !(EVENTS as readonly string[]).includes(payload.eventType) ||
+      !UUID.test(payload.creatorId) ||
+      (payload.productId && !UUID.test(payload.productId))
+    ) {
+      return NextResponse.json({ ok: false, error: "Unknown event" }, { status: 400 })
+    }
+    if (isBotAgent(req.headers.get("user-agent"))) return NextResponse.json({ ok: true, counted: false })
 
     const supabase = createAdminClient()
 
     // Get country from request headers
     const countryCode = req.headers.get("x-vercel-ip-country") || req.geo?.country || null
 
-    const sessionId = typeof payload.sessionId === "string" && payload.sessionId.length <= 80 ? payload.sessionId : null
-    const visitorId = typeof payload.visitorId === "string" && payload.visitorId.length <= 80 ? payload.visitorId : null
+    /**
+     * THE VISITOR'S OWN RECORD DECIDES, not the page. The browser leaves the
+     * ids out without analytics consent (lib/analytics-utils); this is the
+     * same rule on the server, so ids a page sent anyway are dropped. The
+     * step is still counted, with no identifier.
+     */
+    const consented = allows(parse((await cookies()).get(CONSENT_COOKIE)?.value, Date.now()), "analytics")
+    const sessionId = consented && typeof payload.sessionId === "string" && payload.sessionId.length <= 80 ? payload.sessionId : null
+    const visitorId = consented && typeof payload.visitorId === "string" && payload.visitorId.length <= 80 ? payload.visitorId : null
 
     /*
       ONE STEP PER VISIT. The checkout page reported "reached checkout" every

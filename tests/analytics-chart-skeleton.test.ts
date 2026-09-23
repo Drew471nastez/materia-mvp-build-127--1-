@@ -56,13 +56,21 @@ function main() {
     category axis, the curve is a new one, and the line is replaced rather
     than grown — which is the thing being fixed. One function, both callers.
   */
+  /*
+    The series now comes from the server, labelled there by
+    lib/analytics/buckets. So the placeholder is labelled by the same two
+    functions, bucketStarts and bucketLabel, rather than by a list of its own:
+    the rule is unchanged, one builder of dates for both.
+  */
   check("there is one builder for the date buckets",
-    /function trendLabelsFor\(timeframe: string, start: Date, end: Date\): string\[\]/.test(client))
-  check("the fetch seeds from it",
-    /for \(const label of trendLabelsFor\(timeframe, start, end\)\) \{\s*\n\s*trendDataByKey\[label\] = \{ date: label,/.test(client),
-    "a fetch that seeds its own list can drift from the placeholder's")
+    /function trendLabelsFor\(span: Span, timeZone: string\): string\[\]/.test(client)
+      && /bucketStarts\(span, grain, timeZone\)\.map\(\(s\) => bucketLabel\(s, grain, timeZone\)\)/.test(client))
+  check("the series is labelled by the same functions, on the server",
+    /const labels = starts\.map\(\(s\) => bucketLabel\(s, grain, timeZone\)\)/.test(read("lib/analytics/reports.ts"))
+      && /date,\s*\n\s*views: r\.views\.series\.current\[i\]/.test(client),
+    "a series labelled one way and a placeholder labelled another is a swap, not a draw-in")
   check("and the placeholder is built from it",
-    /trendLabelsFor\(timeframe, start, end\)\s*\n\s*\.slice\(-TREND_SKELETON_MAX\)/.test(client))
+    /trendLabelsFor\(safeSpan, timeZone\)\s*\n\s*\.slice\(-TREND_SKELETON_MAX\)/.test(client))
   check("with neither branch keeping a loop of its own",
     !/while \(currentDate <= endDate\)/.test(strip(client))
       && !/Initialize all hours with 0 values/.test(client),
@@ -105,9 +113,9 @@ function main() {
       && /const lineFill = \(gradient: string\) => \(isLoading \? "none" : gradient\)/.test(chart)
       && /const lineDot = \(colour: string\) => \(isLoading \? false : makeDot\(colour\)\)/.test(chart))
   check("every series goes through them, not just the one that was looked at",
-    (chart.match(/stroke=\{lineStroke\(/g) ?? []).length === 9
-      && (chart.match(/dot=\{lineDot\(/g) ?? []).length === 9,
-    `${(chart.match(/stroke=\{lineStroke\(/g) ?? []).length} of 9 series`)
+    (chart.match(/stroke=\{lineStroke\(/g) ?? []).length === 8
+      && (chart.match(/dot=\{lineDot\(/g) ?? []).length === 8,
+    `${(chart.match(/stroke=\{lineStroke\(/g) ?? []).length} of 8 series (the refunds line is gone: a count drawn on a dollar axis)`)
   check("nothing in a placeholder can be pressed",
     /pointerEvents: isLoading \? "none" : undefined/.test(chart),
     "a finger on it would raise a tooltip reading zero for a number nobody has")
@@ -139,8 +147,8 @@ function main() {
       && /\}, \[shouldAnimate, chartDisplayData\]\)/.test(chart))
   check("a flat placeholder does not animate, because there is nothing to draw in",
     /const lineAnimates = isLoading \? false : shouldAnimate/.test(chart)
-      /* Nine series and the dashed comparison line. */
-      && (chart.match(/isAnimationActive=\{lineAnimates\}/g) ?? []).length === 10)
+      /* Eight series and the dashed comparison line. */
+      && (chart.match(/isAnimationActive=\{lineAnimates\}/g) ?? []).length === 9)
 
   console.log("\nAnd the whole of it is driven in a browser")
 

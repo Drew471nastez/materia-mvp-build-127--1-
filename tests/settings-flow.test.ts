@@ -221,23 +221,32 @@ check(
   /<YAxis/.test(code("components/app/analytics-chart.tsx")) &&
     /<YAxis/.test(code("components/app/dashboard-client.tsx")),
 )
+/*
+  THE ANALYTICS CHART MEASURES EACH LABEL IN THE FONT IT IS DRAWN IN
+  (lib/analytics/chart-scale axisWidth) rather than counting characters,
+  because the owner found the gutter too wide for "0 50 100" on a phone. The
+  dashboard keeps its own estimate; both are held to "one formatter draws
+  the ticks and measures them".
+*/
 check(
   "the axis is measured from its own labels rather than being a flat 40px",
-  ["components/app/analytics-chart.tsx", "components/app/dashboard-client.tsx"].every((f) => {
-    const src = code(f)
+  (() => {
+    const home = code("components/app/dashboard-client.tsx")
+    const analytics = code("components/app/analytics-chart.tsx")
     return (
-      /function plotLeftFor\(labels: string\[\]\): number/.test(src) &&
-      /Math\.max\(22, Math\.min\(46, longest\.length \* 7 \+ 10\)\)/.test(src) &&
-      !/const PLOT_LEFT = \d+/.test(src)
+      /function plotLeftFor\(labels: string\[\]\): number/.test(home) &&
+      /Math\.max\(22, Math\.min\(46, longest\.length \* 7 \+ 10\)\)/.test(home) &&
+      /axisWidth\(scale\.ticks\.map\(axisTick\), 11, 8\)/.test(analytics) &&
+      ![home, analytics].some((src) => /const PLOT_LEFT = \d+/.test(src))
     )
-  }),
+  })(),
 )
 check(
   "one formatter both draws the ticks and measures them, so the gutter fits what is shown",
-  ["components/app/analytics-chart.tsx", "components/app/dashboard-client.tsx"].every((f) => {
-    const src = code(f)
-    return /tickFormatter=\{axisTick\}/.test(src) && /plotLeftFor\(\[axisTick\(0\)/.test(src)
-  }),
+  /tickFormatter=\{axisTick\}/.test(code("components/app/dashboard-client.tsx")) &&
+    /plotLeftFor\(\[axisTick\(0\)/.test(code("components/app/dashboard-client.tsx")) &&
+    /tickFormatter=\{axisTick\}/.test(code("components/app/analytics-chart.tsx")) &&
+    /axisWidth\(scale\.ticks\.map\(axisTick\)/.test(code("components/app/analytics-chart.tsx")),
 )
 check(
   "and the measured width is what the axis, the margin and the finger all read",
@@ -423,7 +432,7 @@ check(
 section("The scrub, on a phone")
 // ---------------------------------------------------------------------------
 
-for (const f of ["components/app/dashboard-client.tsx", "components/app/analytics-chart.tsx"]) {
+for (const f of ["components/app/dashboard-client.tsx"]) {
   const src = code(f)
   const name = f.split("/").pop()
 
@@ -507,9 +516,8 @@ check(
      * phone.
      */
     const a = code("components/app/dashboard-client.tsx")
-    const b = code("components/app/analytics-chart.tsx")
     const parts = [
-        /const SLOP_X = 8/,
+      /const SLOP_X = 8/,
       /const SLOP_Y = 12/,
       /\} else if \(dy > dx \* 1\.4\) \{/,
       /function shiftFor\(x: number, track: number\): string/,
@@ -521,9 +529,71 @@ check(
       /tickFormatter=\{axisTick\}/,
       /\}, 100\)/,
     ]
-    return parts.every((re) => re.test(a) && re.test(b))
+    /*
+      The analytics chart reads the shared gesture now
+      (components/app/use-chart-scrub), so its half of the pair is that hook
+      plus the chart: the same slop, the same bias, the same hold.
+    */
+    const b = code("components/app/analytics-chart.tsx") + code("components/app/use-chart-scrub.ts")
+    const shared = [
+      /const SLOP_X = 8/,
+      /const SLOP_Y = 12/,
+      /\} else if \(dy > dx \* 1\.4\) \{/,
+      /function shiftFor\(x: number, track: number\): string/,
+      /tickFormatter=\{axisTick\}/,
+      /const HOLD_MS = 100/,
+    ]
+    return parts.every((re) => re.test(a)) && shared.every((re) => re.test(b))
   })(),
 )
+
+// ---------------------------------------------------------------------------
+section("The analytics chart: a marker that glides and stops on the day")
+// ---------------------------------------------------------------------------
+/*
+  "The analytics still don't have the smoothness of the charts." Each point a
+  finger crossed used to re-render recharts, because the dots were drawn by a
+  function of the active index. The plot and the marker are two layers now,
+  and only the marker moves.
+*/
+{
+  const chart = code("components/app/analytics-chart.tsx")
+  const hook = code("components/app/use-chart-scrub.ts")
+  check(
+    "the analytics chart reads the shared gesture, not a copy of it",
+    /useChartScrub<HTMLDivElement>\(indexAt\)/.test(chart) && !/addEventListener\("touchstart"/.test(chart),
+  )
+  check(
+    "the plot is memoised, and nothing about the finger is among its props",
+    /const Plot = memo\(function Plot\(/.test(chart) && !/interface PlotProps \{[^}]*activeIndex/.test(chart),
+  )
+  check(
+    "the marker sits over its own point, in the plot area",
+    /const plotWidth = Math\.max\(0, track - plotLeft - PLOT_RIGHT\)/.test(chart) &&
+      /plotLeft \+ \(i \/ \(n - 1\)\) \* plotWidth/.test(chart) &&
+      /const chartLeft = rect\.left \+ plotLeft/.test(chart),
+  )
+  check(
+    "it moves by transform and glides, except where it first appears",
+    /const transition = shown && settled \? GLIDE : "none"/.test(chart) &&
+      /transform: shiftFor\(x, track\)/.test(chart) &&
+      /transform: `translateX\(\$\{x\.toFixed\(1\)\}px\)`/.test(chart),
+  )
+  check(
+    "one haptic per point crossed, and it is forgotten when the finger lifts",
+    /if \(i !== lastIndex\) \{[\s\S]{0,80}hapticTap/.test(hook) && /lastIndex = null/.test(hook),
+  )
+  check(
+    "a hold scrubs from where the finger is now, in a tenth of a second",
+    /show\(lastX, true\)/.test(hook) && /const HOLD_MS = 100/.test(hook),
+  )
+  check(
+    "a hold that turns into a scroll lets go, and nothing cancels a touchstart",
+    /if \(!moved && dy > SLOP_Y\) \{/.test(hook) &&
+      /addEventListener\("touchstart", onStart, \{ passive: true \}\)/.test(hook) &&
+      /addEventListener\("touchmove", onMove, \{ passive: false \}\)/.test(hook),
+  )
+}
 
 
 // ---------------------------------------------------------------------------
@@ -542,7 +612,7 @@ section("THE AUDIT: every chart request, on both charts")
 {
   const charts: Array<[string, string]> = [
     ["home", code("components/app/dashboard-client.tsx")],
-    ["analytics", code("components/app/analytics-chart.tsx")],
+    ["analytics", code("components/app/analytics-chart.tsx") + code("components/app/use-chart-scrub.ts")],
   ]
 
   const required: Array<[string, RegExp]> = [
@@ -575,8 +645,24 @@ section("THE AUDIT: every chart request, on both charts")
     ["one redraw per metric switch, on the data", /\}, \[(?:shouldAnimate, )?(displayChartData|chartDisplayData)\]\)/],
   ]
 
+  /*
+    THE ANALYTICS CHART'S FORM OF EACH RULE. It reads the shared gesture
+    (components/app/use-chart-scrub) and draws a marker that glides between
+    points and stops on each, so a few rules are held in the words that
+    express them there. Every rule still has to hold on both charts.
+  */
+  const ANALYTICS_FORM: Record<string, RegExp> = {
+    "the axis is measured from its own labels": /axisWidth\(scale\.ticks\.map\(axisTick\), 11, 8\)/,
+    "the tooltip sits over its own point, in the plot area": /plotLeft \+ \(i \/ \(n - 1\)\) \* plotWidth/,
+    "the hold reads where the finger is now": /show\(lastX, true\)/,
+    "a hold lands in about a tenth of a second": /const HOLD_MS = 100/,
+    "the box follows the finger every frame": /transform: shiftFor\(x, track\)/,
+    "no transition fights that follow": /shown && settled \? GLIDE : "none"/,
+    "one haptic per point crossed": /if \(i !== lastIndex\) \{/,
+    "the haptic resets when the finger lifts": /lastIndex = null/,
+  }
   for (const [label, re] of required) {
-    const missing = charts.filter(([, src]) => !re.test(src)).map(([name]) => name)
+    const missing = charts.filter(([name, src]) => !((name === "analytics" && ANALYTICS_FORM[label]) || re).test(src)).map(([name]) => name)
     check(
       `both charts: ${label}`,
       missing.length === 0,

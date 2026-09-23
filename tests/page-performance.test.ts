@@ -328,11 +328,17 @@ check(
       pointed at the page and went red for a chart that had not changed
       behaviour at all, only address.
     */
-    const analytics = code("components/app/analytics-chart.tsx")
+    /*
+      And the analytics chart now reads the shared gesture in
+      components/app/use-chart-scrub, which is where its taps are asked for.
+    */
+    const analytics = code("components/app/use-chart-scrub.ts")
     return (dash.match(/hapticTap\(/g)?.length ?? 0) >= 2 &&
-           (analytics.match(/hapticTap\(/g)?.length ?? 0) >= 2
+           (analytics.match(/hapticTap\(/g)?.length ?? 0) >= 1 &&
+           /hapticTap\(strong \? "medium" : "light"\)/.test(analytics) &&
+           /useChartScrub</.test(code("components/app/analytics-chart.tsx"))
   })(),
-  "        dashboard-client.tsx + analytics-chart.tsx",
+  "        dashboard-client.tsx + use-chart-scrub.ts (the analytics chart's gesture)",
 )
 
 check(
