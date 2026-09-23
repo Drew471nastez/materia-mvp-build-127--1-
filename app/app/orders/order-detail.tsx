@@ -355,7 +355,9 @@ function PaymentCard({
   onInvoice: () => void
 }) {
   const received = order.payment === "failed" || order.payment === "pending" ? 0 : order.totalCents
-  const fee = order.refundedCents >= received ? 0 : order.feeCents
+  /* A refund gives back the same share of the fee as of the sale, the way
+     the seller's balance counts it (lib/stripe/refund-allocation feeShare). */
+  const fee = received <= 0 || order.refundedCents >= received ? 0 : order.feeCents - Math.round((order.feeCents * order.refundedCents) / received)
   const earnings = Math.max(0, received - order.refundedCents - fee)
   const method = paymentMethodOf(order)
   return (

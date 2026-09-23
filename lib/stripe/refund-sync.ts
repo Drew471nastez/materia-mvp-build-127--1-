@@ -2,7 +2,7 @@ import "server-only"
 
 import type Stripe from "stripe"
 import { sendRefundEmails } from "@/lib/email"
-import { allocateRefund, feeShare, refundedSoFar, type RefundLine } from "./refund-allocation"
+import { allocateRefund, feeShare, type RefundLine } from "./refund-allocation"
 
 /**
  * ===========================================================================
@@ -61,15 +61,21 @@ async function refundsOf(stripe: Stripe, charge: Stripe.Charge): Promise<Stripe.
     .sort((a, b) => a.created - b.created)
 }
 
-async function alreadyApplied(db: Db, refundId: string, orderId: string): Promise<boolean> {
-  const { data } = await db
+interface RefundEvent {
+  order_id: string
+  stripe_refund_id: string | null
+  amount_cents: number | null
+}
+
+/** Every refund already recorded against these rows, by any refund. */
+async function refundEventsFor(db: Db, orderIds: string[]): Promise<RefundEvent[]> {
+  const { data, error } = await db
     .from("ledger_events")
-    .select("id")
-    .eq("stripe_refund_id", refundId)
-    .eq("order_id", orderId)
+    .select("order_id, stripe_refund_id, amount_cents")
     .eq("event_type", "refund")
-    .limit(1)
-  return Array.isArray(data) && data.length > 0
+    .in("order_id", orderIds)
+  if (error) throw new Error(`refund events read failed: ${error.message}`)
+  return (data ?? []) as RefundEvent[]
 }
 
 async function creatorOf(db: Db, productId: string | null): Promise<string | null> {
@@ -124,18 +130,26 @@ async function revokeIfFull(db: Db, row: OrderRow, cents: number, before: number
  * money off twice; written first, the worst a failure can do is leave the
  * balance short of one refund, which the error log names.
  */
-async function applyToLedger(db: Db, row: OrderRow, refund: Stripe.Refund, cents: number, currency: string): Promise<boolean> {
+async function applyToLedger(db: Db, row: OrderRow, refund: Stripe.Refund, cents: number, currency: string): Promise<"recorded" | "duplicate" | "no-seller"> {
   const creatorId = await creatorOf(db, row.product_id)
-  if (!creatorId) return false
+  if (!creatorId) return "no-seller"
 
   const { data: sale } = await db
     .from("ledger_events")
-    .select("fee_cents")
+    .select("fee_cents, released_at")
     .eq("order_id", row.id)
     .eq("event_type", "sale")
     .limit(1)
   const fee = feeShare(Number(sale?.[0]?.fee_cents) || 0, row.amount_cents || 0, cents)
   const net = Math.max(0, cents - fee)
+  /*
+    Where the money is. While the sale is on hold its part of the balance is
+    in pending, and the hold's release gives only what refunds left of it
+    (app/api/cron/release-holds). Once released it is in available, and
+    taking it from pending instead would take another sale's held money,
+    which that sale's release would then pay out again.
+  */
+  const held = Array.isArray(sale) && sale.length > 0 && !sale[0].released_at
 
   const { data: ledger } = await db.from("seller_ledger").select("*").eq("creator_id", creatorId).maybeSingle()
   let fromPending = 0
@@ -143,10 +157,19 @@ async function applyToLedger(db: Db, row: OrderRow, refund: Stripe.Refund, cents
   let remaining = 0
   if (ledger && net > 0) {
     remaining = net
-    fromPending = Math.min(remaining, Math.max(0, ledger.pending_amount || 0))
-    remaining -= fromPending
-    fromAvailable = Math.min(remaining, Math.max(0, ledger.available_amount || 0))
-    remaining -= fromAvailable
+    const pending = Math.max(0, ledger.pending_amount || 0)
+    const available = Math.max(0, ledger.available_amount || 0)
+    if (held) {
+      fromPending = Math.min(remaining, pending)
+      remaining -= fromPending
+      fromAvailable = Math.min(remaining, available)
+      remaining -= fromAvailable
+    } else {
+      fromAvailable = Math.min(remaining, available)
+      remaining -= fromAvailable
+      fromPending = Math.min(remaining, pending)
+      remaining -= fromPending
+    }
   }
 
   const { error: eventError } = await db.from("ledger_events").insert({
@@ -162,6 +185,9 @@ async function applyToLedger(db: Db, row: OrderRow, refund: Stripe.Refund, cents
     stripe_refund_id: refund.id,
     description: `Refund: $${(cents / 100).toFixed(2)}`,
   })
+  /* 23505: another delivery of this same event got there first (the unique
+     index in supabase/sql/RUN_REFUND_LEDGER_ONCE.sql). Already applied. */
+  if (eventError && (eventError as { code?: string }).code === "23505") return "duplicate"
   if (eventError) throw new Error(`refund event not recorded: ${eventError.message}`)
 
   if (ledger && net > 0) {
@@ -176,7 +202,7 @@ async function applyToLedger(db: Db, row: OrderRow, refund: Stripe.Refund, cents
       .eq("creator_id", creatorId)
     if (ledgerError) console.error("[refund-sync] balance not reduced for refund", refund.id, "order", row.id, ledgerError.message)
   }
-  return true
+  return "recorded"
 }
 
 export async function syncChargeRefund(db: Db, stripe: Stripe, charge: Stripe.Charge): Promise<RefundSyncResult> {
@@ -190,40 +216,64 @@ export async function syncChargeRefund(db: Db, stripe: Stripe, charge: Stripe.Ch
   if (rows.length === 0) return result
 
   const currency = charge.currency || "usd"
+  /*
+    WHAT EACH ROW HAS GIVEN BACK is read from the ledger events, which only
+    this function writes, and not from the row: the Orders page and its
+    missed-refund check (app/app/orders/sales/page.tsx) write the row's
+    refund amount too, and adding to a figure somebody else already added
+    this refund to is how a $5 refund of a $10 order became $10.
+  */
+  const events = await refundEventsFor(db, rows.map((r) => r.id))
+  const failures: string[] = []
 
   for (const refund of await refundsOf(stripe, charge)) {
+    const mine = events.filter((e) => e.stripe_refund_id === refund.id)
+    const done = new Set(mine.map((e) => e.order_id))
+    const left = refund.amount - mine.reduce((n, e) => n + (e.amount_cents || 0), 0)
+    if (left <= 0) {
+      result.skipped += mine.length
+      continue
+    }
+    /* Each row as the other refunds have left it, and only the rows this
+       refund has not been applied to yet, sharing only what is left of it:
+       a delivery after a partial failure finishes the job rather than
+       splitting the whole refund again over rows that changed since. */
+    const before = (id: string) =>
+      events.filter((e) => e.order_id === id && e.stripe_refund_id !== refund.id).reduce((n, e) => n + (e.amount_cents || 0), 0)
+    const open = rows
+      .filter((r) => !done.has(r.id))
+      .map((r) => ({ id: r.id, amount_cents: r.amount_cents, status: before(r.id) > 0 ? "refunded" : "completed", refund_amount_cents: before(r.id) }))
     const named = typeof refund.metadata?.order_id === "string" ? refund.metadata.order_id : null
-    const shares = allocateRefund(rows, refund.amount, named)
+    const shares = allocateRefund(open, left, named)
     const touched: Array<{ row: OrderRow; cents: number }> = []
 
     for (const share of shares) {
       const row = rows.find((r) => r.id === share.id)
       if (!row) continue
-      if (await alreadyApplied(db, refund.id, row.id)) {
+      /*
+        The Orders page tags its refunds with the creator and the row
+        (app/api/stripe/refund) and writes the row's amount itself. Read
+        from the refund, not from the row, because this event can arrive
+        before the page has finished writing it.
+      */
+      const startedHere = named === row.id && typeof refund.metadata?.creator_id === "string"
+      const already = before(row.id)
+      let outcome: "recorded" | "duplicate" | "no-seller"
+      try {
+        outcome = await applyToLedger(db, row, refund, share.cents, currency)
+      } catch (e) {
+        failures.push(`${refund.id}/${row.id}: ${e instanceof Error ? e.message : String(e)}`)
+        continue
+      }
+      if (outcome === "duplicate") {
         result.skipped++
         continue
       }
-      /*
-        The Orders page tags its refunds with the creator and the row
-        (app/api/stripe/refund) and records the amount on the row itself.
-        That is read from the refund, not from the row, because this event
-        can arrive before the page has finished writing it.
-      */
-      const startedHere = named === row.id && typeof refund.metadata?.creator_id === "string"
-      const before = startedHere ? 0 : refundedSoFar(row)
-      try {
-        await applyToLedger(db, row, refund, share.cents, currency)
-      } catch (e) {
-        /* Nothing recorded, so nothing marks it applied: the retry will. */
-        console.error("[refund-sync] refund not applied:", refund.id, row.id, e instanceof Error ? e.message : e)
-        continue
-      }
-      await markRow(db, row, refund, share.cents, startedHere, before)
-      await revokeIfFull(db, row, share.cents, before)
+      await markRow(db, row, refund, share.cents, startedHere, already)
+      await revokeIfFull(db, row, share.cents, already)
       if (!startedHere) touched.push({ row, cents: share.cents })
-      /* Later refunds of the same charge see what this one gave back. */
-      row.status = "refunded"
-      row.refund_amount_cents = Math.min(Math.max(0, row.amount_cents || 0), before + share.cents)
+      /* Later refunds of the same charge see this one. */
+      events.push({ order_id: row.id, stripe_refund_id: refund.id, amount_cents: share.cents })
       result.applied++
     }
 
@@ -237,6 +287,10 @@ export async function syncChargeRefund(db: Db, stripe: Stripe, charge: Stripe.Ch
       }
     }
   }
+
+  /* Anything not recorded makes the webhook answer 500, so Stripe sends the
+     event again, and the rows that were recorded are skipped then. */
+  if (failures.length > 0) throw new Error(`not recorded: ${failures.join("; ")}`)
   return result
 }
 

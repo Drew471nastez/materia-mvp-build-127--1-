@@ -95,9 +95,20 @@ export async function POST(request: Request) {
         refund_reason: reason || "requested_by_customer",
       },
     }
-    // NOTE: This app uses destination charges — PIs and refunds live on the PLATFORM account.
-    // Do NOT pass stripeAccount; the refund is created on the platform and automatically reverses the transfer.
-    const refund = await stripe.refunds.create(refundParams)
+    /*
+      DESTINATION CHARGES: the PaymentIntent and its refunds live on the
+      platform account, so no stripeAccount here. Stripe does NOT take the
+      seller's part back on its own: without `reverse_transfer` the platform
+      paid every refund in full while the seller kept what was transferred,
+      and the balance on Payouts (lib/stripe/refund-sync.ts) already takes it
+      off the seller. The application fee is not refunded, which is the fee
+      share that balance leaves with the platform.
+
+      ONE REFUND PER ROW: the key makes a second submit of the same refund
+      (a double tap, two tabs) return the first instead of refunding twice.
+    */
+    refundParams.reverse_transfer = true
+    const refund = await stripe.refunds.create(refundParams, { idempotencyKey: `storelib-refund:${orderId}` })
 
     // Update order status in database — split into two updates for column safety
     // Step 1: Update status (this column always exists)

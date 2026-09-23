@@ -50,7 +50,8 @@ function refundsIn(orders: Order[], w: Window, starts: number[]): { total: numbe
       if (line.status !== "refunded") continue
       const at = Date.parse(line.refunded_at || line.created_at)
       if (!inside(at, w)) continue
-      const whole = (line.amount_cents || 0) + (line.tip_cents || 0)
+      /* What was charged, the tip already inside it. */
+      const whole = line.amount_cents || 0
       const cents = line.refund_amount_cents && line.refund_amount_cents > 0 ? Math.min(line.refund_amount_cents, whole) : whole
       total += cents
       const i = bucketIndex(starts, at)

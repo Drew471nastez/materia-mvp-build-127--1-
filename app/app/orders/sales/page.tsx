@@ -64,7 +64,8 @@ async function catchMissedRefunds(rows: OrderRow[]) {
         for (const order of group) {
           if (order.status !== "completed") continue
           await admin.from("orders").update({ status: "refunded" }).eq("id", order.id)
-          const whole = (order.amount_cents || 0) + (order.tip_cents || 0)
+          /* What was charged, the tip already inside it. */
+          const whole = order.amount_cents || 0
           await admin
             .from("orders")
             .update({
