@@ -91,14 +91,14 @@ for (const [name, vp] of [["desktop, 1440 wide", { width: 1440, height: 1000 }],
       await sleep(16)
     }
     await sleep(120)
-    tip = await p.evaluate(() => [...document.querySelectorAll("section")].find((s) => s.querySelector("h3").textContent === "Sessions over time").querySelector(".pointer-events-none.absolute")?.textContent || "")
+    tip = await p.evaluate(() => [...document.querySelectorAll("section")].find((s) => s.querySelector("h3").textContent === "Sessions over time").querySelector(".pointer-events-none.absolute:not([data-chart-axis])")?.textContent || "")
     const top1 = await p.evaluate(() => window.scrollY)
     await p.touchscreen.touchEnd()
     expect(Math.abs(top1 - top0) < 2, "scrubbing the chart does not move the page", `${top0} -> ${top1}`)
   } else {
     await p.mouse.move(r.x + r.width * 0.6, r.y + r.height / 2)
     await sleep(300)
-    tip = await p.evaluate(() => [...document.querySelectorAll("section")].find((s) => s.querySelector("h3").textContent === "Sessions over time").querySelector(".pointer-events-none.absolute")?.textContent || "")
+    tip = await p.evaluate(() => [...document.querySelectorAll("section")].find((s) => s.querySelector("h3").textContent === "Sessions over time").querySelector(".pointer-events-none.absolute:not([data-chart-axis])")?.textContent || "")
   }
   expect(/Thisperiod[\d.,$%]+Before[\d.,$%]+/.test(tip.replace(/\s/g, "")), vp.hasTouch ? "a sideways drag scrubs the chart and shows that day" : "the chart shows that day's figures under the pointer", tip)
 
