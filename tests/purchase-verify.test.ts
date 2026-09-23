@@ -72,7 +72,8 @@ function main() {
   }
   const responses = route.match(/NextResponse\.json\(\{[\s\S]*?\}\)/g) || []
   check("no response mentions a buyer", !responses.some((r) => /buyer|email|name/.test(r)))
-  check("orders are read by token, and only three columns come back", /\.select\("receipt_token, product_id, variant_id, status"\)/.test(route))
+  check("orders are read by token, and only what the answer needs comes back",
+    /const COLUMNS = "receipt_token, product_id, variant_id, status, amount_cents"/.test(route) && /\.select\(`\$\{COLUMNS\}, refund_amount_cents`\)/.test(route) && !/\.select\("\*"\)/.test(route))
 
   /* ---------------------------------------------------------------------
      WHAT IT ACTUALLY ANSWERS

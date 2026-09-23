@@ -101,6 +101,7 @@ const SUITES = [
   "tests/keyboard-scroll-loop.test.ts",
   "tests/product-page-cache.test.ts",
   "tests/purchase-verify.test.ts",
+  "tests/receipt-download.test.ts",
   "tests/policy-pages.test.ts",
   "tests/section-responsive.test.ts",
   "tests/anthropic-provider.test.ts",

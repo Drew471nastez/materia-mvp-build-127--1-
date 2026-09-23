@@ -137,7 +137,7 @@ async function main() {
     check("a resend clears the last send's record before sending", /buyer_notified_at: null, buyer_email_last_error: null/.test(notify) && /from\("email_logs"\)\.delete\(\)/.test(notify))
     check("  then reads back what the send wrote", /select\("id, buyer_email, buyer_notified_at, buyer_email_last_error"\)/.test(notify))
     check("  and keeps no copy of an address in the history", !/email:/.test(notify.split("recordOrderEvent")[1] ?? ""))
-    check("the buyer's email is masked in the send log", /to: maskEmail\(customerEmail\)/.test(read("lib/email.tsx")) && !/Buyer email sent successfully to:", customerEmail/.test(read("lib/email.tsx")))
+    check("the buyer's email is masked in the send log", /"to", maskEmail\(customerEmail\)/.test(read("lib/email.tsx")) && !/Buyer email sent successfully to:", customerEmail/.test(read("lib/email.tsx")))
     const refund = code("app/api/stripe/refund/route.ts")
     check("only a paid order can be refunded", /if \(order\.status !== "completed"\)/.test(refund) && /Number\.isFinite\(refundAmountCents\)/.test(refund))
     const page = code("app/app/orders/sales/page.tsx")

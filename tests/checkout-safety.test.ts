@@ -133,7 +133,7 @@ async function main() {
   check("the webhook makes the order when the browser does not", /fulfilPaymentIntent\(supabaseAdmin, pi\.id/.test(read("app/api/stripe/webhook/route.ts")))
   check("confirming needs the client secret, not only the id", /!paymentIntentId \|\| !clientSecret/.test(read("app/api/checkout/confirm-payment/route.ts")))
   check("the app's card path only confirms a checkout's own payment", /isCheckoutIntent\(current\)/.test(read("app/api/checkout/confirm-with-pm/route.ts")))
-  check("downloads fail closed when the variant check errors", /refusing/.test(read("app/api/download/[assetId]/route.ts")) && !/Fail-open/.test(read("app/api/download/[assetId]/route.ts")))
+  check("downloads fail closed when the variant check errors", /variant check failed, refusing/.test(read("lib/receipts/download-access.ts")) && !/Fail-open/.test(read("app/api/download/[assetId]/route.ts")) && !/Fail-open/.test(read("lib/receipts/download-access.ts")))
   check("the dead payment routes are gone", ["route.ts", "complete/route.ts", "free/route.ts", "create-intent/route.ts", "complete-free/route.ts"].every((f) => !existsSync(`app/api/checkout/${f}`)))
   check("the invoice font is traced into the functions that draw it", /'\/api\/checkout\/invoice': \['\.\/lib\/checkout\/fonts\/\*\*'\]/.test(read("next.config.mjs")))
 

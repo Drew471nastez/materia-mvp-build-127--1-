@@ -1,134 +1,119 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { sendBuyerDownloadEmail, sendSellerNotificationEmail, resolveSellerEmail } from "@/lib/email"
-import { rateLimit, addressSubject, emailSubject, LIMITS } from "@/lib/api/rate-limit"
+import { rateLimit, addressSubject, callerAddress, LIMITS } from "@/lib/api/rate-limit"
+import { isPlausibleToken, isUuid } from "@/lib/receipts/rules"
 
 export const runtime = "nodejs"
 
-async function checkResendLimit(admin: any, orderId: string): Promise<{ allowed: boolean; count: number }> {
-  const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+/**
+ * Sends a receipt again. Called by the buyer from the receipt page and by the
+ * seller from Orders and Payouts, always with the order id AND its receipt
+ * token: the pair must match one row or nothing is sent. The email goes to
+ * the address on the order, never to one named in the request.
+ *
+ * A basket is one email: sendBuyerDownloadEmail reads every line of the
+ * payment through lib/receipts/load and lists them together.
+ */
 
-  const { data: events, error } = await admin
+const MAX_PER_DAY = 5
+
+async function resendsToday(admin: any, orderId: string): Promise<number> {
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+  const { count, error } = await admin
     .from("security_events")
-    .select("id")
+    .select("id", { count: "exact", head: true })
     .eq("order_id", orderId)
     .eq("event_type", "receipt_resent")
-    .gte("created_at", twentyFourHoursAgo)
-
-  if (error) {
-    console.error("[receipt/resend] Error checking resend limit:", error)
-    return { allowed: true, count: 0 }
-  }
-
-  const count = events?.length || 0
-  return { allowed: count < 5, count }
+    .gte("created_at", since)
+  if (error) return 0
+  return count ?? 0
 }
 
 export async function POST(request: NextRequest) {
+  let body: { receiptToken?: unknown; orderId?: unknown; resendType?: unknown }
   try {
-    const { receiptToken, orderId, resendType = "buyer" } = await request.json()
+    body = await request.json()
+  } catch {
+    return NextResponse.json({ error: "Bad request" }, { status: 400 })
+  }
+  const { receiptToken, orderId } = body
+  const resendType = body.resendType === "seller" || body.resendType === "both" || body.resendType === "all" ? body.resendType : "buyer"
 
-    if (!receiptToken || !orderId) {
-      return NextResponse.json({ error: "Missing receiptToken or orderId" }, { status: 400 })
-    }
+  if (!isPlausibleToken(receiptToken) || !isUuid(orderId)) {
+    return NextResponse.json({ error: "Order not found" }, { status: 404 })
+  }
 
-    /* The token is the credential, so this is not open to everyone; it is
-       still a button that sends mail, and a held button sends a lot of it. */
-    const limited = await rateLimit({
-      bucket: "receipt-resend",
-      subjects: [addressSubject(request), `order:${String(orderId)}`],
-      windows: LIMITS.email,
-      message: "That receipt was just sent. Check your inbox, then try again shortly.",
-    })
-    if (limited) return limited
+  /* The token is the credential, so this is not open to everyone; it is
+     still a button that sends mail, and a held button sends a lot of it. */
+  const limited = await rateLimit({
+    bucket: "receipt-resend",
+    subjects: [addressSubject(request), `order:${String(orderId)}`],
+    windows: LIMITS.email,
+    message: "That receipt was just sent. Check your inbox, then try again shortly.",
+  })
+  if (limited) return limited
 
+  try {
     const admin = createAdminClient()
 
-    // Check rate limit
-    const { allowed, count } = await checkResendLimit(admin, orderId)
-    if (!allowed) {
+    const count = await resendsToday(admin, orderId)
+    if (count >= MAX_PER_DAY) {
       return NextResponse.json(
-        {
-          error: "You've reached the maximum of 5 email resends in 24 hours for this order",
-          limitReached: true,
-          count,
-        },
+        { error: "This receipt has been sent 5 times today. Try again tomorrow.", limitReached: true, count },
         { status: 429 },
       )
     }
 
-    // Get order details
-    const { data: order, error: orderError } = await admin
+    const { data: order } = await admin
       .from("orders")
-      .select("*, product:products(*, creator:creators!inner(id, user_id))")
+      .select(
+        "id, buyer_email, buyer_first_name, buyer_last_name, amount_cents, fee_cents, variant_name, product:products(title, creator_id)",
+      )
       .eq("receipt_token", receiptToken)
       .eq("id", orderId)
-      .single()
+      .maybeSingle()
 
-    if (orderError || !order) {
+    if (!order || !order.buyer_email) {
       return NextResponse.json({ error: "Order not found" }, { status: 404 })
     }
 
-    const creatorId = order?.product?.creator?.id
+    const product: any = Array.isArray(order.product) ? order.product[0] : order.product
+    const creatorId: string = product?.creator_id ?? ""
     const baseUrl = process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || process.env.APP_URL || "https://storelib.com"
-
-    // Get seller email for reply-to and seller notification
     const sellerReplyTo = creatorId ? await resolveSellerEmail(admin, creatorId) : "support@storelib.com"
 
     let buyerResult: { success: boolean; error?: string } = { success: true }
     let sellerResult: { success: boolean; error?: string } = { success: true }
 
-    // Send buyer email (always, or if resendType is "buyer" or "both")
     if (resendType === "buyer" || resendType === "both" || resendType === "all") {
-      // Clear previous error status and email logs before resending
-      await admin.from("orders").update({
-        buyer_email_last_error: null,
-        buyer_notified_at: null,
-      }).eq("id", orderId)
-
-      // Clear previous email_logs to allow resend (they check for "sent" status)
-      await admin.from("email_logs")
-        .delete()
-        .eq("order_id", orderId)
-        .eq("email_type", "buyer_download")
-
-      console.log("[receipt/resend] Sending buyer email for order:", order.id)
+      /* Clear the "already sent" marker so the sender does not skip it. */
+      await admin.from("orders").update({ buyer_email_last_error: null }).eq("id", order.id)
+      await admin.from("email_logs").delete().eq("order_id", order.id).eq("email_type", "buyer_download")
 
       buyerResult = await sendBuyerDownloadEmail(admin, {
         orderId: order.id,
         creatorId,
         buyerEmail: order.buyer_email,
         buyerFirstName: order.buyer_first_name || "",
-        productTitle: order.product?.title || "Your purchase",
+        productTitle: product?.title || "Your purchase",
         receiptToken,
         sellerReplyTo,
         baseUrl,
+        variantName: order.variant_name ?? null,
+        amountCents: order.amount_cents ?? null,
       })
-
-      console.log("[receipt/resend] Buyer email result:", buyerResult.success ? "success" : "failed", buyerResult.error || "")
     }
 
-    // Send seller notification if requested or if it previously failed
     if (resendType === "seller" || resendType === "both" || resendType === "all") {
-      // Clear previous error status and email logs before resending
-      await admin.from("orders").update({
-        seller_email_last_error: null,
-        seller_notified_at: null,
-      }).eq("id", orderId)
-
-      // Clear previous email_logs to allow resend (they check for "sent" status)
-      await admin.from("email_logs")
-        .delete()
-        .eq("order_id", orderId)
-        .eq("email_type", "seller_notification")
-
-      console.log("[receipt/resend] Sending seller email for order:", order.id)
+      await admin.from("orders").update({ seller_email_last_error: null }).eq("id", order.id)
+      await admin.from("email_logs").delete().eq("order_id", order.id).eq("email_type", "seller_notification")
 
       sellerResult = await sendSellerNotificationEmail(admin, {
         orderId: order.id,
         creatorId,
         sellerEmail: sellerReplyTo,
-        productTitle: order.product?.title || "Your purchase",
+        productTitle: product?.title || "Your purchase",
         buyerFirstName: order.buyer_first_name || "",
         buyerLastName: order.buyer_last_name || "",
         buyerEmail: order.buyer_email,
@@ -136,56 +121,39 @@ export async function POST(request: NextRequest) {
         feeCents: order.fee_cents || 0,
         baseUrl,
       })
-
-      console.log("[receipt/resend] Seller email result:", sellerResult.success ? "success" : "failed", sellerResult.error || "")
     }
 
-    // Log the resend event
+    /* Recorded for the daily cap and for support. No token, no addresses. */
     await admin.from("security_events").insert({
-      order_id: orderId,
+      order_id: order.id,
       event_type: "receipt_resent",
-      ip: request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "unknown",
+      ip: callerAddress(request) || "unknown",
       user_agent: request.headers.get("user-agent") || "unknown",
-      metadata: {
-        receipt_token: receiptToken,
-        reply_to: sellerReplyTo,
-        resend_type: resendType,
-        buyer_success: buyerResult.success,
-        seller_success: sellerResult.success,
-      },
+      metadata: { resend_type: resendType, buyer_success: buyerResult.success, seller_success: sellerResult.success },
     })
 
-    // Determine overall success
-    const overallSuccess = (resendType === "buyer" ? buyerResult.success : true) &&
-                          (resendType === "seller" ? sellerResult.success : true) &&
-                          (resendType === "both" || resendType === "all" ? buyerResult.success && sellerResult.success : true)
-
-    if (!overallSuccess) {
-      const errors: string[] = []
-      if (!buyerResult.success && buyerResult.error) errors.push(`Buyer: ${buyerResult.error}`)
-      if (!sellerResult.success && sellerResult.error) errors.push(`Seller: ${sellerResult.error}`)
-
-      return NextResponse.json({
-        success: false,
-        error: "Some emails failed to send",
-        details: errors.join("; "),
-        buyerSuccess: buyerResult.success,
-        sellerSuccess: sellerResult.success,
-        remainingAttempts: 5 - count - 1,
-      }, { status: 500 })
+    const ok = buyerResult.success && sellerResult.success
+    if (!ok) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "The email did not go out. Try again in a minute.",
+          buyerSuccess: buyerResult.success,
+          sellerSuccess: sellerResult.success,
+          remainingAttempts: Math.max(0, MAX_PER_DAY - count - 1),
+        },
+        { status: 502 },
+      )
     }
 
     return NextResponse.json({
       success: true,
       buyerSuccess: buyerResult.success,
       sellerSuccess: sellerResult.success,
-      remainingAttempts: 5 - count - 1,
+      remainingAttempts: Math.max(0, MAX_PER_DAY - count - 1),
     })
   } catch (error: unknown) {
-    console.error("[receipt/resend] Error:", error)
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Internal server error" },
-      { status: 500 },
-    )
+    console.error("[receipt/resend] failed:", error instanceof Error ? error.message : error)
+    return NextResponse.json({ error: "The email did not go out. Try again in a minute." }, { status: 500 })
   }
 }

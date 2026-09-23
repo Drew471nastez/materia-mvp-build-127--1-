@@ -10,6 +10,8 @@ import {
 import { isAssetSafeToDownload } from "@/lib/storage/antivirus"
 import { headers } from "next/headers"
 import { ensureProductBundle, getBundleSignedUrl, BUNDLE_THRESHOLD } from "@/lib/bundles"
+import { resolveDownloadAccess } from "@/lib/receipts/download-access"
+import { DENY_MESSAGES, isUuid } from "@/lib/receipts/rules"
 
 export const runtime = "nodejs"
 
@@ -191,109 +193,40 @@ export async function GET(
  * Handle asset-based downloads (purchased products with receipt tokens).
  */
 async function handleAssetDownload(
-  request: NextRequest,
+  _request: NextRequest,
   admin: ReturnType<typeof createAdminClient>,
   assetId: string,
   receiptOrToken: string,
   ip: string | null,
   userAgent: string | null,
 ) {
-  // Get the asset
-  const { data: asset } = await admin
-    .from("digital_assets")
-    .select("*, product:products(id, creator_id, title)")
-    .eq("id", assetId)
-    .single()
+  /* The same door as /api/download/[assetId]: one rule for every file,
+     in lib/receipts. A refunded or unpaid order is refused here too. */
+  if (!isUuid(assetId)) {
+    return NextResponse.json({ error: "Asset not found" }, { status: 404 })
+  }
+
+  let userId: string | null = null
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    userId = user?.id ?? null
+  } catch {
+    // A guest with a receipt has no session
+  }
+
+  const { asset, decision, orderId, entitlementId } = await resolveDownloadAccess(admin, {
+    assetId,
+    receiptToken: receiptOrToken,
+    userId,
+  })
 
   if (!asset) {
     return NextResponse.json({ error: "Asset not found" }, { status: 404 })
   }
 
-  let hasAccess = false
-  let orderId: string | null = null
-  let entitlementId: string | null = null
-
-  // Check via receipt token
-  try {
-    const { data: order } = await admin
-      .from("orders")
-      .select("id, product_id, buyer_id, variant_id")
-      .eq("receipt_token", receiptOrToken)
-      .single()
-
-    if (order && order.product_id === asset.product_id) {
-      orderId = order.id
-      hasAccess = true
-
-      // Variant access check (fail-open on error)
-      if (order.variant_id) {
-        try {
-          const { data: variantFile, error: variantError } = await admin
-            .from("product_variant_files")
-            .select("id")
-            .eq("variant_id", order.variant_id)
-            .eq("digital_asset_id", assetId)
-            .maybeSingle()
-
-          if (!variantError && !variantFile) {
-            hasAccess = false
-          }
-        } catch {
-          // Fail-open
-        }
-      }
-    }
-  } catch {
-    // Receipt token lookup failed
-  }
-
-  // Check authenticated user access
-  if (!hasAccess) {
-    try {
-      const supabase = await createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-
-      if (user) {
-        // Check entitlement
-        try {
-          const { data: entitlement } = await admin
-            .from("entitlements")
-            .select("id")
-            .eq("buyer_id", user.id)
-            .eq("product_id", asset.product_id)
-            .single()
-
-          if (entitlement) {
-            hasAccess = true
-            entitlementId = entitlement.id
-          }
-        } catch {
-          // Non-fatal
-        }
-
-        // Allow creator access
-        if (!hasAccess && asset.product?.creator_id) {
-          try {
-            const { data: creator } = await admin
-              .from("creators")
-              .select("id")
-              .eq("user_id", user.id)
-              .eq("id", asset.product.creator_id)
-              .single()
-
-            if (creator) hasAccess = true
-          } catch {
-            // Non-fatal
-          }
-        }
-      }
-    } catch {
-      // Auth check failed
-    }
-  }
-
-  if (!hasAccess) {
-    return NextResponse.json({ error: "Access denied" }, { status: 403 })
+  if (!decision.ok) {
+    return NextResponse.json({ error: DENY_MESSAGES[decision.reason], reason: decision.reason }, { status: 403 })
   }
 
   // Check if file has been scanned and is safe to download
@@ -307,6 +240,10 @@ async function handleAssetDownload(
     }
   } catch {
     // If safety check fails, allow download (fail-open)
+  }
+
+  if (!asset.file_path) {
+    return NextResponse.json({ error: "Asset file not available" }, { status: 404 })
   }
 
   // Generate signed URL

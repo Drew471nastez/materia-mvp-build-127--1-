@@ -7,7 +7,7 @@ import { nanoid } from "nanoid"
 import { generateReceiptToken } from "@/lib/security"
 import { collectOrderDeviceInfo } from "@/lib/device-info"
 import { getMainDomain } from "@/lib/url-helpers"
-import { sendOrderEmails } from "@/lib/email"
+import { sendBuyerDownloadEmail, sendSellerNotificationEmail, resolveSellerEmail } from "@/lib/email"
 import { unpackItems, packedTotalCents, apportionFee } from "@/lib/checkout/cart-items"
 import { fulfilCartLine, recordCartCustomer, type FulfilContext } from "@/lib/checkout/fulfil-cart-item"
 
@@ -180,38 +180,57 @@ export async function GET(request: Request) {
       domain: isLocalhost ? undefined : `.${mainDomain}`,
     })
 
-    /* One email per product, which is what the existing sender knows how to
-       write and what a buyer needs: each product's email carries that
-       product's download. Failures here do not undo a purchase. */
+    /* ONE receipt email for the basket, as one payment deserves: the sender
+       reads every line of this session through lib/receipts/load and lists
+       them with one total. The seller still hears about each product, which
+       is what their notification is for. Failures here do not undo a
+       purchase; the receipt page offers Resend. */
     if (buyerEmail) {
       const { data: rows } = await admin
         .from("products")
         .select("id, title")
         .in("id", fulfilled.map((f) => f.productId))
       const titles = new Map((rows ?? []).map((r: any) => [r.id, r.title]))
+      const sellerEmail = await resolveSellerEmail(admin, creatorId)
+      const first = fulfilled[0]
+
+      try {
+        await sendBuyerDownloadEmail(admin, {
+          orderId: first.orderId,
+          creatorId,
+          buyerEmail,
+          buyerFirstName: firstName ?? "",
+          productTitle: titles.get(first.productId) ?? "Your purchase",
+          receiptToken: first.receiptToken,
+          sellerReplyTo: sellerEmail,
+          baseUrl: platform,
+          amountCents: paidTotal,
+        })
+      } catch (err) {
+        console.error("[checkout/cart/complete] receipt email failed for session", sessionId, err instanceof Error ? err.message : err)
+      }
 
       for (const line of fulfilled) {
         try {
-          await sendOrderEmails(admin, {
+          await sendSellerNotificationEmail(admin, {
             orderId: line.orderId,
-            buyerEmail,
+            creatorId,
+            sellerEmail,
+            productTitle: titles.get(line.productId) ?? "Your purchase",
             buyerFirstName: firstName ?? "",
             buyerLastName: lastName ?? "",
-            productTitle: titles.get(line.productId) ?? "Your purchase",
-            receiptToken: line.receiptToken,
-            creatorId,
+            buyerEmail,
             amountCents: line.amountCents,
             feeCents: 0,
             baseUrl: platform,
-            variantName: null,
           })
         } catch (err) {
-          console.error("[checkout/cart/complete] email failed for order", line.orderId, err)
+          console.error("[checkout/cart/complete] seller email failed for order", line.orderId, err instanceof Error ? err.message : err)
         }
       }
     }
 
-    return NextResponse.redirect(`${platform}/receipt/cart/${encodeURIComponent(sessionId)}`)
+    return NextResponse.redirect(`${platform}/receipt/${encodeURIComponent(fulfilled[0].receiptToken)}`)
   } catch (error) {
     console.error("[checkout/cart/complete] error:", error)
     return NextResponse.redirect(`${platform}/explore?checkout=error`)

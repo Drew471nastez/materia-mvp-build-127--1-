@@ -170,7 +170,7 @@ export default function CheckoutPageClient({
       if (!res.ok || !res.data.receiptToken) throw new Error(res.data.error || "The order could not be finished. The payment is safe; refresh this page in a moment.")
       const token = res.data.receiptToken
       setPaid({ total: amount, free: false })
-      window.setTimeout(() => router.push(`/checkout/receipt?token=${encodeURIComponent(token)}`), 1100)
+      window.setTimeout(() => router.replace(`/receipt/${encodeURIComponent(token)}`), 1100)
     },
     [router],
   )
@@ -329,7 +329,7 @@ export default function CheckoutPageClient({
       if (!res.ok || !res.data.receiptToken) throw new Error(res.data.error || "The order could not be finished. Try again.")
       const token = res.data.receiptToken
       setPaid({ total: 0, free: true })
-      window.setTimeout(() => router.push(`/checkout/receipt?token=${encodeURIComponent(token)}`), 1100)
+      window.setTimeout(() => router.replace(`/receipt/${encodeURIComponent(token)}`), 1100)
     } catch (e) {
       setError(e instanceof Error ? e.message : "The order could not be finished. Try again.")
     } finally {

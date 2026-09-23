@@ -8,8 +8,6 @@ import { isNativeApp } from "@/lib/platform-utils"
 
 interface DownloadButtonProps {
   assetId: string
-  orderId?: string | null
-  token?: string | null
   receiptToken?: string | null
   fileName?: string
   variant?: "default" | "outline" | "secondary"
@@ -19,34 +17,38 @@ interface DownloadButtonProps {
   children?: React.ReactNode
 }
 
+export interface DownloadResult {
+  success: boolean
+  error?: string
+  /** Why the server refused, when it did: "refunded", "pending", ... */
+  reason?: string
+  /** "viewer" inside the native app, where iOS shows the file with Share. */
+  openedIn?: "viewer" | "browser"
+}
+
 /**
- * Handles entitlement-based file downloads.
- * Supports both:
- * - New receipt-based downloads
- * - Legacy orderId + token downloads
+ * Fetches a short-lived signed URL for one file from /api/download and hands
+ * it to the platform. The URL is made per click by the server, after it has
+ * checked the receipt token or the session, and it is never stored.
+ *
+ * IN THE APP. The iOS and Android shells are WKWebView and Android WebView,
+ * which ignore <a download>. The file is opened with @capacitor/browser
+ * instead (SFSafariViewController on iOS, a Custom Tab on Android), where
+ * iOS shows the file with its Share button, so Save to Files works, and
+ * Android hands it to the download manager.
+ *
+ * IN A BROWSER. The signed URL is created with download=true, so storage
+ * answers with Content-Disposition: attachment and a plain anchor click
+ * saves it, including in mobile Safari, without a pop-up to be blocked.
  */
 export async function downloadEntitledFile(
   assetId: string,
-  options?: {
-    orderId?: string | null
-    token?: string | null
-    receiptToken?: string | null
-  },
-): Promise<{ success: boolean; error?: string }> {
+  options?: { receiptToken?: string | null },
+): Promise<DownloadResult> {
   try {
-    let apiUrl = `/api/download/${assetId}`
-    const params = new URLSearchParams()
-
+    let apiUrl = `/api/download/${encodeURIComponent(assetId)}`
     if (options?.receiptToken) {
-      params.set("receipt", options.receiptToken)
-    } else if (options?.orderId && options?.token) {
-      // Legacy support
-      params.set("order", options.orderId)
-      params.set("token", options.token)
-    }
-
-    if (params.toString()) {
-      apiUrl += `?${params.toString()}`
+      apiUrl += `?${new URLSearchParams({ receipt: options.receiptToken }).toString()}`
     }
 
     // Get signed download URL from our API (with 30s timeout to prevent hanging)
@@ -55,30 +57,29 @@ export async function downloadEntitledFile(
 
     let response: Response
     try {
-      response = await fetch(apiUrl, { signal: controller.signal })
+      response = await fetch(apiUrl, { signal: controller.signal, cache: "no-store", credentials: "same-origin" })
     } finally {
       clearTimeout(timeoutId)
     }
 
-    const data = await response.json()
+    const data = await response.json().catch(() => ({}) as Record<string, any>)
 
-    if (!response.ok || !data.success) {
-      throw new Error(data.error || data.message || "Failed to get download link")
+    if (!response.ok || !data.success || typeof data.downloadUrl !== "string") {
+      return {
+        success: false,
+        error: data.error || data.message || "The file could not be fetched. Try again.",
+        reason: typeof data.reason === "string" ? data.reason : undefined,
+      }
     }
 
     const filename = data.fileName || "download"
 
-    // In Capacitor: open the signed URL in the in-app browser (SFSafariViewController
-    // on iOS, Custom Chrome Tab on Android) so the file downloads inside the app
-    // without jumping to system Safari or Chrome.
     if (isNativeApp()) {
       const { Browser } = await import("@capacitor/browser")
       await Browser.open({ url: data.downloadUrl })
-      return { success: true }
+      return { success: true, openedIn: "viewer" }
     }
 
-    // Web browser: use <a download> — the signed Supabase URL has
-    // Content-Disposition: attachment so the browser downloads the file natively.
     const link = document.createElement("a")
     link.href = data.downloadUrl
     link.download = filename
@@ -86,12 +87,12 @@ export async function downloadEntitledFile(
     link.rel = "noopener noreferrer"
     document.body.appendChild(link)
     link.click()
-    setTimeout(() => document.body.removeChild(link), 300)
+    setTimeout(() => link.remove(), 300)
 
-    return { success: true }
+    return { success: true, openedIn: "browser" }
   } catch (err) {
     if (err instanceof DOMException && err.name === "AbortError") {
-      return { success: false, error: "Request timed out. Please try again." }
+      return { success: false, error: "That took too long. Check your connection and try again." }
     }
     return {
       success: false,
@@ -125,8 +126,6 @@ function DownloadToast({ message, visible, onDone }: { message: string; visible:
 
 export function DownloadButton({
   assetId,
-  orderId,
-  token,
   receiptToken,
   fileName,
   variant = "default",
@@ -146,11 +145,7 @@ export function DownloadButton({
     setStatus("loading")
     setError(null)
 
-    const result = await downloadEntitledFile(assetId, {
-      orderId,
-      token,
-      receiptToken,
-    })
+    const result = await downloadEntitledFile(assetId, { receiptToken })
 
     if (result.success) {
       setStatus("success")

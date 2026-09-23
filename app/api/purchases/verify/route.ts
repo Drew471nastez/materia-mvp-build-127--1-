@@ -43,6 +43,7 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { canDeliver } from "@/lib/receipts/rules"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -128,10 +129,18 @@ export async function POST(request: NextRequest) {
     const staleTokens: string[] = []
 
     if (receiptTokens.length > 0) {
-      const { data: orders } = await admin
-        .from("orders")
-        .select("receipt_token, product_id, variant_id, status")
-        .in("receipt_token", receiptTokens)
+      /*
+        Only what the answer needs: the token, what it is for, and whether it
+        still delivers. The refund amount decides a partial refund (lib/
+        receipts/rules canDeliver); its column is not in every database, so
+        a read naming it that fails is retried without it, which reads any
+        refund as a full one: the safe way round.
+      */
+      const COLUMNS = "receipt_token, product_id, variant_id, status, amount_cents"
+      const full = await admin.from("orders").select(`${COLUMNS}, refund_amount_cents`).in("receipt_token", receiptTokens)
+      const orders = (full.error
+        ? (await admin.from("orders").select(COLUMNS).in("receipt_token", receiptTokens)).data
+        : full.data) as Array<Record<string, any>> | null
 
       const byToken = new Map((orders ?? []).map((o) => [o.receipt_token as string, o]))
 
@@ -146,6 +155,14 @@ export async function POST(request: NextRequest) {
           staleTokens.push(token)
           continue
         }
+        /*
+          A refunded, failed or disputed order no longer counts as bought.
+          The download route refuses it either way (lib/receipts/rules
+          decideAccess); saying so here keeps the page from offering a
+          Download button that can only answer no. Not stale: the receipt
+          still exists and still opens, it just has nothing to hand over.
+        */
+        if (!canDeliver(order)) continue
         validTokens.push(token)
         hasPurchased = true
         if (order.variant_id) variantIds.add(order.variant_id)
