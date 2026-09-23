@@ -60,6 +60,8 @@ const ANALYTICS = stripComments(readFileSync(join(root, "components/app/analytic
 const DASHBOARD = stripComments(readFileSync(join(root, "components/app/dashboard-client.tsx"), "utf8"))
 const PAGE = stripComments(readFileSync(join(root, "app/app/analytics/analytics-client.tsx"), "utf8"))
 const GLIDE = stripComments(readFileSync(join(root, "components/app/chart-glide.tsx"), "utf8"))
+const MORPH = stripComments(readFileSync(join(root, "components/app/chart-morph.tsx"), "utf8"))
+const CSS = readFileSync(join(root, "app/globals.css"), "utf8")
 
 /** Both charts, so a fix applied to one and not the other cannot pass. */
 const CHARTS: [string, string][] = [
@@ -204,9 +206,42 @@ for (const [name, src] of CHARTS) {
      * nearly a second and a half before the chart stops moving — long enough
      * to read as the page being slow rather than as an animation.
      */
-    !/animationDuration=\{(?:900|1100)\}/.test(src) && /animationDuration=\{600\}/.test(src),
+    !/animationDuration=\{(?:900|1100)\}/.test(src) && /animationDuration=\{MORPH_MS\}/.test(src)
+      && Number(MORPH.match(/export const MORPH_MS = (\d+)/)?.[1] ?? 9999) <= 600,
   )
 }
+
+// ===========================================================================
+section("A metric tab moves the line, and nothing else moves")
+// ===========================================================================
+/**
+ * "When changing tabs there is no lag, no glitches in the lines, no layout
+ * shifts." Measured in Chromium on both charts, every frame of a tab switch:
+ * a line on screen in every frame, 35 or more distinct positions of its
+ * first point on the way (a morph, not a cut), the plot's left edge and the
+ * four grid rows identical before, during and after, and no layout shift.
+ * What is held here is the shape that produced those numbers.
+ */
+for (const [name, src] of CHARTS) {
+  check(`${name}: the series keeps its place, so recharts moves it rather than replacing it`,
+    name === "the analytics trend chart"
+      ? /SLOTS\.slice\(0, slots\)\.map\(\(slot\) => \(\s*<Area\s*key=\{slot\}/.test(src) && !/chartMetricFilter === "orders"\) && \(\s*<Area/.test(src)
+      : /dataKey="value"/.test(src))
+  check(`${name}: on the iOS curve`, /animationEasing=\{MORPH_EASE as /.test(src))
+  check(`${name}: the grid is three intervals on every tab, placed by us`,
+    /fixedScale\(/.test(src) && /horizontalPoints=\{/.test(src))
+  check(`${name}: the axis numbers cross-fade instead of being swapped`, /<AxisLabels labels=\{axisLabels\}/.test(src) && /tick=\{false\}/.test(src))
+  check(`${name}: the dot at the end travels with the line instead of vanishing for the animation`,
+    /data-chart-end-dot/.test(src) && /useEndDotMotion\(/.test(src))
+}
+check("the scale never changes its number of intervals", /export const INTERVALS = 3/.test(MORPH) && /Array\.from\(\{ length: INTERVALS \+ 1 \}/.test(MORPH))
+check("the axis numbers fade in and out in the stylesheet, with reduced motion respected",
+  /\.chart-axis-in \{ animation: chart-axis-in/.test(CSS) && /prefers-reduced-motion: reduce\) \{\s*\.chart-axis-in, \.chart-axis-out/.test(CSS))
+check("a dashboard tab reads nothing: the chart's events are fetched once per period",
+  /\}, \[periodKey, creatorId\]\)/.test(DASHBOARD) && /const chartData = \(openKPIModal && chartSeries\?\.\[openKPIModal\]\) \|\| NO_POINTS/.test(DASHBOARD)
+    && !/fetchChartData\(openKPIModal\)/.test(DASHBOARD))
+check("an analytics tab reads nothing: the metric is not part of the question",
+  !/chartMetricFilter/.test(PAGE.slice(PAGE.indexOf("useAnalyticsReports({"), PAGE.indexOf("useAnalyticsReports({") + 300)))
 
 // ===========================================================================
 section("The chart keeps the horizontal axis and gives back the vertical one")

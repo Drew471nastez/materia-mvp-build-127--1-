@@ -236,17 +236,32 @@ check(
     return (
       /function plotLeftFor\(labels: string\[\]\): number/.test(home) &&
       /Math\.max\(22, Math\.min\(46, longest\.length \* 7 \+ 10\)\)/.test(home) &&
-      /axisWidth\(scale\.ticks\.map\(axisTick\), 11, 8\)/.test(analytics) &&
+      /axisWidth\(axisLabels, 11, 8\)/.test(analytics) &&
       ![home, analytics].some((src) => /const PLOT_LEFT = \d+/.test(src))
     )
   })(),
 )
+/*
+  THE NUMBERS ARE DRAWN OVER THE PLOT NOW (components/app/chart-morph
+  AxisLabels), so they can cross-fade when a tab changes them; recharts keys
+  each tick by its value and would replace it outright. The rule is the same:
+  one formatter writes the labels and the same labels are measured, and the
+  gutter is the widest label of every metric the tabs can show, so a tab
+  never moves the plot sideways.
+*/
 check(
   "one formatter both draws the ticks and measures them, so the gutter fits what is shown",
-  /tickFormatter=\{axisTick\}/.test(code("components/app/dashboard-client.tsx")) &&
-    /plotLeftFor\(\[axisTick\(0\)/.test(code("components/app/dashboard-client.tsx")) &&
-    /tickFormatter=\{axisTick\}/.test(code("components/app/analytics-chart.tsx")) &&
-    /axisWidth\(scale\.ticks\.map\(axisTick\)/.test(code("components/app/analytics-chart.tsx")),
+  /const axisLabels = useMemo\(\(\) => scale\.ticks\.map\(axisTick\)/.test(code("components/app/dashboard-client.tsx")) &&
+    /plotLeftFor\(axisLabels\)/.test(code("components/app/dashboard-client.tsx")) &&
+    /<AxisLabels labels=\{axisLabels\}/.test(code("components/app/dashboard-client.tsx")) &&
+    /const axisLabels = useMemo\(\(\) => scale\.ticks\.map\(axisTick\)/.test(code("components/app/analytics-chart.tsx")) &&
+    /axisWidth\(axisLabels, 11, 8\)/.test(code("components/app/analytics-chart.tsx")) &&
+    /<AxisLabels labels=\{axisLabels\}/.test(code("components/app/analytics-chart.tsx")),
+)
+check(
+  "and one width for every tab, taken from every metric the tabs can show",
+  /const widths = \(Object\.keys\(widthFrom\) as Metric\[\]\)/.test(code("components/app/dashboard-client.tsx")) &&
+    /const widths = METRICS_OF\[analyticsMode\]\.map/.test(code("components/app/analytics-chart.tsx")),
 )
 check(
   "and the measured width is what the axis, the margin and the finger all read",
@@ -414,16 +429,23 @@ section("The chart tooltip stays in its card")
 
 
 check(
-  "switching metric redraws the chart once, when its data arrives",
+  "switching metric draws once, from the render that receives the series, and fetches nothing",
   (() => {
     /**
      * `openKPIModal` used to sit in these deps beside the data. Tapping
-     * Revenue fired the animation immediately — redrawing the chart with the
-     * OLD numbers still in it — and again when the fetch returned. Two draws,
+     * Revenue fired the animation immediately, redrawing the chart with the
+     * OLD numbers still in it, and again when the fetch returned. Two draws,
      * the first of the wrong thing: the double refresh.
+     *
+     * Then the flag was raised by an effect on the data, which runs after the
+     * new line has been painted: one frame of the new line cut in, then the
+     * morph. It is raised during the render now, and a tab does not fetch at
+     * all: the chart's events are read once per period.
      */
     const src = code("components/app/dashboard-client.tsx")
-    return /setShouldAnimate\(true\)[\s\S]{0,200}\}, \[displayChartData\]\)/.test(src)
+    return /if \(seenSeriesRef\.current !== displayChartData\) \{\s*seenSeriesRef\.current = displayChartData\s*if \(!shouldAnimate\) setShouldAnimate\(true\)/.test(src)
+      && !/useEffect\(\(\) => \{\s*setShouldAnimate\(true\)/.test(src)
+      && /\}, \[periodKey, creatorId\]\)/.test(src) && !/\}, \[openKPIModal, periodKey, creatorId\]\)/.test(src)
   })(),
 )
 
@@ -526,7 +548,7 @@ check(
       /lastTouchXRef/,
       /idx !== lastHapticIndexRef\.current/,
       /function plotLeftFor\(labels: string\[\]\): number/,
-      /tickFormatter=\{axisTick\}/,
+      /<AxisLabels labels=\{axisLabels\}/,
       /\}, 100\)/,
     ]
     /*
@@ -540,7 +562,7 @@ check(
       /const SLOP_Y = 12/,
       /\} else if \(dy > dx \* 1\.4\) \{/,
       /function shiftFor\(x: number, track: number\): string/,
-      /tickFormatter=\{axisTick\}/,
+      /<AxisLabels labels=\{axisLabels\}/,
       /const HOLD_MS = 100/,
     ]
     return parts.every((re) => re.test(a)) && shared.every((re) => re.test(b))
@@ -620,7 +642,7 @@ section("THE AUDIT: every chart request, on both charts")
     ["nothing measures the tooltip's width from a ref", /^(?!.*tooltipRef\.current\?\.offsetWidth)/s],
     ["the numbers are on the axis", /<YAxis/],
     ["the axis is measured from its own labels", /function plotLeftFor\(labels: string\[\]\): number/],
-    ["one formatter draws and measures the ticks", /tickFormatter=\{axisTick\}/],
+    ["one formatter draws and measures the ticks", /const axisLabels = useMemo\(\(\) => scale\.ticks\.map\(axisTick\)[\s\S]*<AxisLabels labels=\{axisLabels\}/],
     ["the axis width is what the finger reads", /rect\.left \+ plotLeft/],
     ["room above for the active dot", /const PLOT_TOP = \d+/],
     ["the tooltip sits over its own point, in the plot area", /plotLeft \+ \(activeIndex/],
@@ -652,7 +674,7 @@ section("THE AUDIT: every chart request, on both charts")
     express them there. Every rule still has to hold on both charts.
   */
   const ANALYTICS_FORM: Record<string, RegExp> = {
-    "the axis is measured from its own labels": /axisWidth\(scale\.ticks\.map\(axisTick\), 11, 8\)/,
+    "the axis is measured from its own labels": /axisWidth\(axisLabels, 11, 8\)/,
     "the tooltip sits over its own point, in the plot area": /plotLeft \+ \(i \/ \(n - 1\)\) \* plotWidth/,
     "the hold reads where the finger is now": /show\(lastX, true\)/,
     "a hold lands in about a tenth of a second": /const HOLD_MS = 100/,
