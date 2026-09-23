@@ -35,7 +35,7 @@ window.__deferred = true
  * real canvas is a whole page of sections, and on a phone it is well over a
  * frame. Twenty milliseconds is a modest version of that.
  */
-const RENDER_MS = 20
+const RENDER_MS = 60
 
 const Canvas = React.memo(function Canvas({ value }: { value: number }) {
   window.__heavy++

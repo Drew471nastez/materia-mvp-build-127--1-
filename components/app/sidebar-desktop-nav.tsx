@@ -93,8 +93,6 @@ import { SettingsIcon as SettingsBold } from "@solar-icons/react/bold/settings"
  */
 import { UserIdIcon as CreatorPageLinear } from "@solar-icons/react/linear/user-id"
 import { UserIdIcon as CreatorPageBold } from "@solar-icons/react/bold/user-id"
-import { UsersGroupRoundedIcon as PeopleLinear } from "@solar-icons/react/linear/users-group-rounded"
-import { UsersGroupRoundedIcon as PeopleBold } from "@solar-icons/react/bold/users-group-rounded"
 
 import { cn } from "@/lib/utils"
 
@@ -287,22 +285,15 @@ export const NAV_ICONS = {
  * Kept beside NAV_ICONS rather than inlined so every icon in the rail is
  * declared in one place and none of them can drift out of the family.
  */
+/*
+  Icons for rows that are not one of the pages in NAV_ICONS. There is one
+  left. This held Communities as well, under a "Tools" heading, and a link
+  shortener before that; both were rows for things that did not exist, and
+  a sidebar is not the place to advertise. The heading went with them,
+  since a section of one item is not a section.
+*/
 export const NAV_ICONS_EXTRA = {
   settings: { line: SettingsLinear, fill: SettingsBold },
-  /*
-    SCISSORS, NOT A CHAIN LINK — and not by preference.
-
-    RiLinksLine and RiLinksFill are THE SAME PATH. Remix ships a "fill"
-    export for that icon that is byte-identical to its line version, so the
-    row could never fill: the cross-fade would run and land on the glyph it
-    started from. The browser probe caught it by comparing the two path
-    strings, which is the only way to catch it — nothing about the types or
-    the names says the pair is a pair in name only.
-
-    Scissors has a real filled form, and for a link SHORTENER it is the
-    better metaphor anyway.
-  */
-  communities: { line: PeopleLinear, fill: PeopleBold },
 } as const satisfies Record<string, NavIconPair>
 
 /**
@@ -393,83 +384,6 @@ function NavIcon({
 export function isRouteActive(pathname: string, href: string): boolean {
   if (href === "/app") return pathname === "/app"
   return pathname === href || pathname.startsWith(`${href}/`)
-}
-
-// ── A tooltip that is not the browser's ─────────────────────────────────────
-
-/**
- * Portalled to the body so it is never clipped by the sidebar's own overflow,
- * and positioned from the row's measured box rather than by CSS anchoring,
- * which has no answer in Safari yet.
- */
-function ComingSoonTooltip({ anchor }: { anchor: DOMRect | null }) {
-  const [shown, setShown] = useState(false)
-
-  // One frame between mount and the visible state, so the transition has a
-  // start frame to run from. Setting both in the same commit means no
-  // animation at all — the browser only ever sees the end state.
-  useEffect(() => {
-    const id = requestAnimationFrame(() => setShown(true))
-    return () => cancelAnimationFrame(id)
-  }, [])
-
-  if (!anchor || typeof document === "undefined") return null
-
-  return createPortal(
-    <div
-      role="tooltip"
-      style={{
-        position: "fixed",
-        left: anchor.right + 10,
-        top: anchor.top + anchor.height / 2,
-        zIndex: 99999,
-        pointerEvents: "none",
-        background: ACTIVE_TEXT,
-        color: "#ffffff",
-        fontSize: 12,
-        fontWeight: 500,
-        borderRadius: 7,
-        padding: "5px 8px",
-        whiteSpace: "nowrap",
-        opacity: shown ? 1 : 0,
-        transform: `translateY(-50%) translateX(${shown ? 0 : -4}px)`,
-        transition: "opacity 140ms ease, transform 140ms ease",
-      }}
-    >
-      Coming soon
-    </div>,
-    document.body,
-  )
-}
-
-/**
- * A row for something that does not exist yet. It is not a link and it does
- * not navigate; hovering it explains why rather than leaving somebody to
- * click a dead item and wonder.
- */
-export function ComingSoonItem({
-  icon,
-  label,
-}: {
-  icon: NavIconPair
-  label: string
-}) {
-  const ref = useRef<HTMLSpanElement>(null)
-  const [anchor, setAnchor] = useState<DOMRect | null>(null)
-
-  return (
-    <span
-      ref={ref}
-      className={cn(ROW, "cursor-default select-none")}
-      style={{ color: MUTED_TEXT }}
-      onMouseEnter={() => setAnchor(ref.current?.getBoundingClientRect() ?? null)}
-      onMouseLeave={() => setAnchor(null)}
-    >
-      <NavIcon icon={icon} active={false} color={MUTED_TEXT} />
-      <span className="whitespace-nowrap">{label}</span>
-      {anchor && <ComingSoonTooltip anchor={anchor} />}
-    </span>
-  )
 }
 
 // ── The rows ────────────────────────────────────────────────────────────────
@@ -722,8 +636,6 @@ export function DesktopSidebarContent({
   onNavigate,
   onForceNavigate,
   onPrefetch,
-  toolsLabel,
-  communitiesLabel,
   settingsLabel,
   upgradeTitle,
   upgradeSubtitle,
@@ -735,8 +647,6 @@ export function DesktopSidebarContent({
   onNavigate?: (href: string) => void
   onForceNavigate: (href: string) => void
   onPrefetch?: (href: string) => void
-  toolsLabel: string
-  communitiesLabel: string
   settingsLabel: string
   upgradeTitle: string
   upgradeSubtitle: string
@@ -778,18 +688,6 @@ export function DesktopSidebarContent({
               onPrefetch={onPrefetch}
             />
           ))}
-        </div>
-
-        <div className="mt-5">
-          <p
-            className="mb-1 px-[14px] text-[12px] font-semibold uppercase"
-            style={{ color: LABEL_TEXT, letterSpacing: "0.02em" }}
-          >
-            {toolsLabel}
-          </p>
-          <div className="space-y-[2px]">
-            <ComingSoonItem icon={NAV_ICONS_EXTRA.communities} label={communitiesLabel} />
-          </div>
         </div>
 
         {storeUnpublishedNote && (

@@ -1241,8 +1241,6 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
           onPrefetch={(href) => {
             try { router.prefetch(href) } catch {}
           }}
-          toolsLabel="Tools"
-          communitiesLabel="Communities"
           settingsLabel={t("nav.settings")}
           upgradeTitle={t("nav.upgradeToPro")}
           upgradeSubtitle={t("nav.unlockBenefits")}

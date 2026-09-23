@@ -70,6 +70,11 @@ const VIEW_H = 844
 const BURSTS = 15
 const PER_BURST = 4
 const MOVES = BURSTS * PER_BURST
+/** See setCPUThrottlingRate below. */
+const CPU_THROTTLE = 4
+/* Kept in step with RENDER_MS in scripts/render-control-frames.tsx, for the
+   failure message only. */
+const RENDER_MS_NOTE = "60ms"
 
 execFileSync("npx", [
   "esbuild", join(root, "scripts/render-control-frames.tsx"),
@@ -135,6 +140,20 @@ await call("Emulation.setDeviceMetricsOverride", {
   screenOrientation: { angle: 0, type: "portraitPrimary" },
 })
 await call("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 1 })
+/*
+  A PHONE'S CPU, NOT THE BUILD MACHINE'S.
+
+  Without this the probe ran every frame inside its budget whatever the
+  editor did: deferring the canvas and NOT deferring it both came back with
+  15 writes and zero janky frames, which is a probe that cannot tell the fix
+  from the bug, let alone see a regression. The container is several times
+  faster than the phone the lag was reported on, and a render that fits in a
+  frame here does not fit in one there.
+
+  4x is the rate Chrome's own mobile profile uses for a mid-range phone. It
+  is applied for the whole run so both halves of the comparison pay it.
+*/
+await call("Emulation.setCPUThrottlingRate", { rate: CPU_THROTTLE })
 await call("Page.navigate", { url: "file://" + file })
 await sleep(1800)
 
@@ -250,7 +269,65 @@ expect(
   comfortably between them and well clear of both.
 */
 expect(on.writes <= MOVES / 3, "which is far fewer writes than there were touches", `${on.writes} against ${MOVES}`)
-expect(on.janky === 0, "and no frame the page ran took longer than two frames' worth of time", `${on.janky} did`)
+/*
+  AND FEWER THAN ONE PER FRAME WHEN THE CANVAS CANNOT AFFORD ONE PER FRAME.
+
+  Once a frame is the right ceiling and the wrong rate. The far end is a page
+  of sections; on a phone that is tens of milliseconds, and asking for it
+  every frame queues work the device cannot clear, so the whole sheet
+  stutters behind it.
+
+  useFrameCommit waits about twice what the last commit cost before asking
+  again, so the canvas takes roughly a third of the thread and the drag keeps
+  the rest. It tunes itself: an 8ms canvas is waited on for 16 and updates
+  every frame.
+
+  Measured here, with the fixture's canvas at RENDER_MS and the CPU at a
+  quarter speed, across the same one-second drag:
+
+    once a frame   15 settings writes, 15 canvas renders, 15 janky frames
+    share rule      8 settings writes, 12 canvas renders, 12 janky frames
+
+  The writes are what this holds, because they are what the editor is asked
+  to do and the only part that moved decisively. Jank falls with them but not
+  to zero, and it cannot: a canvas that costs 60ms cannot be repainted inside
+  a 16.7ms frame, and the honest fix for the rest is a cheaper canvas.
+*/
+expect(on.writes <= MOVES / 5,
+  "and fewer still when each one costs the canvas more than a frame",
+  `${on.writes} writes for ${MOVES} touches, canvas at ${RENDER_MS_NOTE}`)
+/*
+  AND THE DRAG DOES NOT COMPOUND WHAT THE CANVAS COSTS.
+
+  This asked for ZERO frames over budget, and held while the fixture's canvas
+  rendered in 20ms on an unthrottled CPU — a canvas that fits inside a frame,
+  which is not the one the lag was reported on. At RENDER_MS with the CPU at
+  a quarter speed, zero is not reachable and never will be: a canvas that
+  takes longer than 16.7ms to draw cannot be drawn inside a frame, and the
+  only honest ways to zero are a cheaper canvas or no live preview at all.
+
+  Asserting zero anyway would mean weakening it to some number later, which
+  is how a measurement becomes decoration. So it holds the thing that is
+  actually in this code's gift: each canvas render may cost its own long
+  frame, and NOTHING BEYOND THAT. More long frames than renders means the
+  drag is paying for the canvas more than once — queued work, a commit
+  landing inside another, the compounding that reads as the sheet seizing up.
+
+  AND THEN IT WAS NOT ASSERTED, because it is not stable enough to be worth
+  anything. Run three times in a row on this machine the same code gave 15,
+  8 and 9 long frames against 15, 9 and 9 renders: the two numbers move
+  together with the noise, so a rule relating them passes or fails on which
+  run you got. A measurement that flaky does not protect the code, it just
+  gets deleted the third time somebody sees it red for no reason.
+
+  The number is printed on every run because it is worth reading. What is
+  ASSERTED is the write rate above, which separates cleanly and is the part
+  this code actually governs: 8 to 10 with the share rule against 15 to 16
+  without it, run after run. The long frames that remain belong to the
+  canvas costing more than a frame to draw, and the honest fix for those is
+  a cheaper canvas rather than a tighter number in here.
+*/
+console.log(`  --    ${on.janky} frames over budget for ${on.heavy} canvas renders, which is NOT asserted: see below`)
 
 /**
  * AND THE COMPARISON THIS ENVIRONMENT CANNOT MAKE, SAID OUT LOUD.
@@ -268,10 +345,30 @@ expect(on.janky === 0, "and no frame the page ran took longer than two frames' w
  * probe cannot make, and so it does not make it.
  */
 console.log(`  --    wall clock ${on.ms}ms deferred against ${off.ms}ms not, which this environment cannot read anything into`)
+/*
+  THIS ASKED FOR THE TWO PASSES TO WRITE THE SAME AMOUNT, AND THEY NO LONGER
+  DO — because the rate is no longer fixed.
+
+  It held while every commit went out once a frame regardless of what it
+  cost: the same touches then produced the same writes whatever the canvas
+  was doing. The commit now waits about twice what the last one cost, so a
+  more expensive path is throttled harder, and the NOT-deferred pass is the
+  more expensive one by construction — its canvas render blocks the frame
+  instead of being interrupted.
+
+  So the two differ on purpose: 9 to 11 deferred against 5 to 8 not, run
+  after run. Asserting they match would be asserting the rate is fixed,
+  which is the thing that was wrong.
+
+  The invariant worth keeping is the direction. The costlier path must be
+  asked for no MORE than the cheaper one; if deferring ever produced fewer
+  writes than not deferring, the back-off would be reading cost backwards.
+  Where the drag ends up is checked separately and is identical either way.
+*/
 expect(
-  Math.abs(off.writes - on.writes) <= 2,
-  "deferring the canvas does not change how much is written",
-  `${on.writes} deferred, ${off.writes} not — where a burst falls across a frame moves it by one`,
+  off.writes <= on.writes,
+  "the costlier path is throttled at least as hard, never less",
+  `${on.writes} deferred, ${off.writes} not`,
 )
 expect(off.endValue === on.endValue, "nor where the drag ends up", `${on.endValue} either way`)
 

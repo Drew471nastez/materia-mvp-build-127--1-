@@ -4107,6 +4107,41 @@ html.pop-in-flight #platform-header-root {
 }
 
 /* ===========================================================================
+ *  AND ITS EDGE IS A HAIRLINE OF THE SAME INK
+ * ===========================================================================
+ * The panel's border was the theme's `border` slot. That slot is tuned for
+ * dividers drawn on the page's BACKGROUND, so on a menu floating over a
+ * coloured header it came out as a hard dark outline — the scheme's own
+ * colour, used against a surface it was never measured against.
+ *
+ * currentColor here is `header_dropdown_link`, the panel's own text. An edge
+ * mixed from it is in proportion on every scheme, including ones that do not
+ * exist yet, and it cannot contradict the text sitting on it.
+ */
+.theme-nav-dropdown {
+  border: 1px solid color-mix(in srgb, currentColor 14%, transparent);
+}
+
+/* ===========================================================================
+ *  A PRESSABLE THING TINTS WITH ITS OWN INK
+ * ===========================================================================
+ * `hover:bg-black/5` was on eighteen controls in the header — the drawer's
+ * close and back buttons, the account and wishlist rows, every link in the
+ * mobile menu. Black at five per cent is invisible on a dark scheme and on a
+ * saturated one, so on those the controls answered a pointer with nothing.
+ * The two inside the drawer's title bar had the opposite problem: they were
+ * `hover:bg-white/10`, which only worked while that bar was hardcoded black.
+ *
+ * One rule, from currentColor, works on both and on anything in between.
+ */
+.theme-tint-hover {
+  transition: background-color 140ms ease;
+}
+.theme-tint-hover:hover {
+  background-color: color-mix(in srgb, currentColor 8%, transparent);
+}
+
+/* ===========================================================================
    THE EDITOR'S IMAGE BOX WHILE ITS PICTURE IS STILL ARRIVING
    ===========================================================================
    An <img> pointed at a URL the browser has not seen occupies its box and

@@ -238,7 +238,7 @@ export function ProjectSettings({
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="Project settings"
+      aria-label="Website settings"
       className="wb-settings-in fixed inset-0 z-[150] flex flex-col overflow-hidden bg-[#0f0f0f] text-white md:flex-row"
       /**
        * THE PHONE'S OWN FURNITURE IS NOT A SUGGESTION. This is pinned to the
@@ -267,7 +267,7 @@ export function ProjectSettings({
         </div>
         <div className="mx-5 my-4 border-t border-white/10 md:mx-6 md:my-6" />
         <p className="hidden px-6 pb-2 text-[12px] font-medium uppercase tracking-wider text-white/40 md:block">
-          Project Settings
+          Website Settings
         </p>
         {/* Horizontal on a phone, vertical on a desktop. A vertical nav in a
             390px column pushes the content off the screen. */}

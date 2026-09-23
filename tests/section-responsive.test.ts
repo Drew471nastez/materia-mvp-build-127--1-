@@ -451,7 +451,7 @@ check(
 )
 
 check(
-  "a phone has no pill; the desktop pill is Preview / Code / Project Settings, Preview by default",
+  "a phone has no pill; the desktop pill is Preview / Code / Website Settings, Preview by default",
   // A 3-segment pill in a 390px bar is what the user called not a good idea
   // on a phone. Code and Settings are reached from the menu there.
   // It follows the project's name and menu, so the row reads left to right as
@@ -698,7 +698,7 @@ check(
   /data-seg=\{m\}/.test(modeSwitch) &&
     /getBoundingClientRect\(\)/.test(modeSwitch) &&
     /transform: `translateX\(\$\{bubble\.left\}px\)`/.test(modeSwitch) &&
-    /seg\("settings", "Project Settings", Settings\)/.test(modeSwitch),
+    /seg\("settings", "Website Settings", Settings\)/.test(modeSwitch),
 )
 
 check(

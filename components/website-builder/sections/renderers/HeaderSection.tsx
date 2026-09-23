@@ -548,7 +548,7 @@ function HeaderSearchPanel({
             <button
               type="submit"
               aria-label="Search"
-              className="absolute right-1 top-1/2 -translate-y-1/2 h-9 w-9 flex items-center justify-center rounded-full transition-colors hover:bg-black/5"
+              className="absolute right-1 top-1/2 -translate-y-1/2 h-9 w-9 flex items-center justify-center rounded-full transition-colors theme-tint-hover"
               style={{ color: scheme.heading }}
             >
               <Search className="h-[18px] w-[18px]" strokeWidth={1.8} />
@@ -558,7 +558,7 @@ function HeaderSearchPanel({
             type="button"
             onClick={onClose}
             aria-label="Close search"
-            className="h-9 w-9 shrink-0 self-center flex items-center justify-center rounded-full transition-colors hover:bg-black/5"
+            className="h-9 w-9 shrink-0 self-center flex items-center justify-center rounded-full transition-colors theme-tint-hover"
             style={{ color: scheme.heading }}
           >
             <X className="h-5 w-5" strokeWidth={1.8} />
@@ -624,7 +624,7 @@ function HeaderSearchPanel({
                         <a
                           href={h.url}
                           onClick={onEditorNavigate ? (e) => { e.preventDefault(); e.stopPropagation(); onEditorNavigate(h.url, true); onClose() } : undefined}
-                          className="flex items-center gap-3 px-3 py-2 transition-colors hover:bg-black/5"
+                          className="flex items-center gap-3 px-3 py-2 transition-colors theme-tint-hover"
                         >
                           <span
                             className="h-11 w-11 shrink-0 overflow-hidden"
@@ -644,7 +644,7 @@ function HeaderSearchPanel({
                   <a
                     href={viewAll}
                     onClick={onEditorNavigate ? (e) => { e.preventDefault(); e.stopPropagation(); onEditorNavigate("/search", true); onClose() } : undefined}
-                    className="flex items-center justify-between px-4 py-3 text-[13px] font-semibold transition-colors hover:bg-black/5"
+                    className="flex items-center justify-between px-4 py-3 text-[13px] font-semibold transition-colors theme-tint-hover"
                     style={{ borderTop: `1px solid ${scheme.inset_border}` }}
                   >
                     <span>View all {total} result{total === 1 ? "" : "s"}</span>
@@ -666,7 +666,7 @@ function CartButton() {
       type="button"
       onClick={() => setOpen(true)}
       aria-label={ready && count > 0 ? `Cart, ${count} item${count === 1 ? "" : "s"}` : "Cart"}
-      className="relative h-9 w-9 flex items-center justify-center rounded-full hover:bg-black/5 transition-colors"
+      className="relative h-9 w-9 flex items-center justify-center rounded-full theme-tint-hover transition-colors"
     >
       <ShoppingBag className="h-[18px] w-[18px]" strokeWidth={1.8} />
       {ready && count > 0 && (
@@ -759,7 +759,14 @@ function HeaderCartDrawer({
       >
         <div
           className="flex items-center px-3 h-[60px] shrink-0 gap-1"
-          style={{ background: "#0f0f10", color: "#ffffff" }}
+          /*
+            THE SCHEME, NOT A FIXED BLACK. This was `#0f0f10` on `#ffffff`,
+            so a drawer whose body is painted from `scheme.bg` opened with a
+            black slab across the top of it — on a coral header, on a cream
+            one, on every scheme anybody picks. `heading` on `background` is
+            the same pairing the panel below it already uses.
+          */
+          style={{ background: scheme.bg, color: scheme.heading }}
         >
           <span className="flex-1 text-[18px] font-semibold truncate px-1">
             {count > 0 ? `Cart (${count})` : "Cart"}
@@ -768,7 +775,7 @@ function HeaderCartDrawer({
             type="button"
             onClick={onClose}
             aria-label="Close cart"
-            className="h-9 w-9 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors text-white"
+            className="theme-tint-hover h-9 w-9 flex items-center justify-center rounded-full transition-colors"
           >
             <X className="h-5 w-5" strokeWidth={2} />
           </button>
@@ -815,7 +822,7 @@ function HeaderCartDrawer({
                             type="button"
                             onClick={() => remove(k)}
                             aria-label={`Remove ${l.title}`}
-                            className="h-7 w-7 flex items-center justify-center rounded-full hover:bg-black/5 transition-colors opacity-60"
+                            className="h-7 w-7 flex items-center justify-center rounded-full theme-tint-hover transition-colors opacity-60"
                           >
                             <Trash2 className="h-[15px] w-[15px]" strokeWidth={1.8} />
                           </button>
@@ -825,7 +832,7 @@ function HeaderCartDrawer({
                               type="button"
                               onClick={() => setQty(k, l.quantity - 1)}
                               aria-label={l.quantity === 1 ? `Remove ${l.title}` : `One fewer ${l.title}`}
-                              className="h-7 w-7 flex items-center justify-center rounded-full hover:bg-black/5 transition-colors"
+                              className="h-7 w-7 flex items-center justify-center rounded-full theme-tint-hover transition-colors"
                             >
                               {l.quantity === 1
                                 ? <Trash2 className="h-[13px] w-[13px]" strokeWidth={1.8} />
@@ -836,7 +843,7 @@ function HeaderCartDrawer({
                               type="button"
                               onClick={() => setQty(k, l.quantity + 1)}
                               aria-label={`One more ${l.title}`}
-                              className="h-7 w-7 flex items-center justify-center rounded-full hover:bg-black/5 transition-colors"
+                              className="h-7 w-7 flex items-center justify-center rounded-full theme-tint-hover transition-colors"
                             >
                               <Plus className="h-[13px] w-[13px]" strokeWidth={2} />
                             </button>
@@ -1071,7 +1078,14 @@ function MobileDrawerInner({
             the submenu's label — exactly like the iOS Settings app. */}
         <div
           className="flex items-center px-3 h-[60px] shrink-0 gap-1"
-          style={{ background: "#0f0f10", color: "#ffffff" }}
+          /*
+            THE SCHEME, NOT A FIXED BLACK. This was `#0f0f10` on `#ffffff`,
+            so a drawer whose body is painted from `scheme.bg` opened with a
+            black slab across the top of it — on a coral header, on a cream
+            one, on every scheme anybody picks. `heading` on `background` is
+            the same pairing the panel below it already uses.
+          */
+          style={{ background: scheme.bg, color: scheme.heading }}
         >
           {/* Back button — mounted but invisible/non-interactive on root
               so the title's position stays stable during the slide. */}
@@ -1080,7 +1094,7 @@ function MobileDrawerInner({
             onClick={() => setActiveSubmenuId(null)}
             aria-label="Back to main menu"
             className={cn(
-              "h-9 w-9 flex items-center justify-center rounded-full hover:bg-white/10 transition-all text-white",
+              "theme-tint-hover h-9 w-9 flex items-center justify-center rounded-full transition-all",
               inSubmenu ? "opacity-100" : "opacity-0 pointer-events-none",
             )}
             style={{
@@ -1096,7 +1110,7 @@ function MobileDrawerInner({
             type="button"
             onClick={onClose}
             aria-label="Close menu"
-            className="h-9 w-9 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors text-white"
+            className="theme-tint-hover h-9 w-9 flex items-center justify-center rounded-full transition-colors"
           >
             <X className="h-5 w-5" strokeWidth={2} />
           </button>
@@ -1134,7 +1148,7 @@ function MobileDrawerInner({
                       <button
                         type="button"
                         onClick={() => setActiveSubmenuId(item.id)}
-                        className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-black/5 transition-colors"
+                        className="w-full flex items-center justify-between px-5 py-4 text-left theme-tint-hover transition-colors"
                         style={{ color: scheme.nav_link }}
                         aria-haspopup="menu"
                       >
@@ -1147,7 +1161,7 @@ function MobileDrawerInner({
                         target={item.openInNew ? "_blank" : undefined}
                         rel={item.openInNew ? "noopener noreferrer" : undefined}
                         onClick={handleLinkClick(item.href)}
-                        className="flex items-center justify-between px-5 py-4 hover:bg-black/5 transition-colors"
+                        className="flex items-center justify-between px-5 py-4 theme-tint-hover transition-colors"
                         style={{ color: scheme.nav_link }}
                       >
                         <span className="text-[17px] font-semibold">{item.label}</span>
@@ -1175,7 +1189,7 @@ function MobileDrawerInner({
                   rel={child.openInNew ? "noopener noreferrer" : undefined}
                   onClick={handleLinkClick(child.href)}
                   className={cn(
-                    "flex items-center justify-between px-5 py-4 hover:bg-black/5 transition-colors",
+                    "flex items-center justify-between px-5 py-4 theme-tint-hover transition-colors",
                     idx > 0 && "border-t border-black/10",
                   )}
                   style={{ color: scheme.nav_link }}
@@ -1253,7 +1267,7 @@ function MobileDrawerInner({
                 href={`https://${getMainDomain()}/wishlist`}
                 aria-label="Wishlist"
                 onClick={onEditorNavigate ? (e) => e.preventDefault() : undefined}
-                className="relative h-9 w-9 flex items-center justify-center rounded-full hover:bg-black/5 transition-colors -ml-2"
+                className="relative h-9 w-9 flex items-center justify-center rounded-full theme-tint-hover transition-colors -ml-2"
               >
                 {/* No count badge. It was the character "0", written into the
                     markup: a number that was never anything else. */}
@@ -1266,7 +1280,7 @@ function MobileDrawerInner({
                 href={`https://${getMainDomain()}/wishlist`}
                 aria-label="Wishlist"
                 onClick={onEditorNavigate ? (e) => e.preventDefault() : undefined}
-                className="relative h-9 w-9 flex items-center justify-center rounded-full hover:bg-black/5 transition-colors -mr-2"
+                className="relative h-9 w-9 flex items-center justify-center rounded-full theme-tint-hover transition-colors -mr-2"
               >
                 <Heart className="h-[22px] w-[22px]" strokeWidth={1.8} style={{ color: scheme.nav_link }} />
               </a>
@@ -1909,7 +1923,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
               // and because the dropdown lives inside that stacking context
               // its effective paint order vs. outside siblings = z-[60] —
               // still comfortably above all non-sticky section content.
-              "absolute left-0 top-full mt-2 min-w-[200px] rounded-xl shadow-xl py-2 z-[70]",
+              "theme-nav-dropdown absolute left-0 top-full mt-2 min-w-[200px] rounded-xl shadow-xl py-2 z-[70]",
               "opacity-0 translate-y-1 pointer-events-none",
               "group-hover/navitem:opacity-100 group-hover/navitem:translate-y-0 group-hover/navitem:pointer-events-auto",
               "transition-[opacity,translate] duration-200 ease-out",
@@ -1918,20 +1932,31 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
               THE SCHEME PAINTS THIS, NOT A HARDCODED WHITE.
 
               It was `bg-white` with `ring-black/5` and `text-gray-800`
-              children, which is a white card with dark text whatever the
-              header is. On a dark scheme it came out as a white slab hanging
-              off a black bar, and the links inside it were unreadable against
-              it. The mobile drawer twenty lines up has always painted itself
-              from `scheme`; this is the one part of the header that did not.
+              children: a white card with dark text whatever the header was,
+              so on a dark scheme it hung off the bar as a white slab with
+              unreadable links. `header_dropdown_bg` and
+              `header_dropdown_link` are slots the scheme already has — they
+              resolve to its background and text — so there was nothing to
+              add, only something to read.
 
-              `header_dropdown_bg` and `header_dropdown_link` are slots the
-              scheme already has — they resolve to the scheme's background and
-              text — so there was nothing to add, only something to read.
+              AND THE EDGE COMES FROM THE PANEL'S OWN INK. The first version
+              of this used `scheme.inset_border`, which is the theme's
+              BORDER slot, and that slot is for dividers drawn on the page's
+              background. Borrowed for a panel floating on a coloured bar it
+              came out as a hard dark outline round a coral menu — the line
+              was the scheme's, and it was still the wrong line, because a
+              scheme tunes that colour against a different surface.
+
+              A wash of `currentColor` cannot be wrong that way: currentColor
+              here IS `header_dropdown_link`, so the edge is always a
+              hairline of the panel's own text, in proportion, on a light
+              scheme and a dark one and on anything anybody builds later. It
+              is the same reasoning as the hover tint below, which was got
+              right first.
             */
             style={{
               backgroundColor: scheme.header_dropdown_bg || scheme.bg,
               color: scheme.header_dropdown_link || scheme.nav_link,
-              border: `1px solid ${scheme.inset_border}`,
             }}
           >
             {kids.map(child => {
@@ -1949,7 +1974,14 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
                     panel and lands right on a dark scheme and a light one
                     alike. `hover:bg-gray-50` only ever worked on white.
                   */
-                  className="theme-nav-dropdown-item block px-4 py-2 text-[13.5px] font-medium transition-colors whitespace-nowrap"
+                  /*
+                    THE TRIGGER'S OWN TYPE. 14px and font-medium are what the
+                    nav link above renders at, and the family comes from the
+                    theme's stylesheet through the header. A submenu set half
+                    a pixel under its own trigger reads as a different menu
+                    rather than as part of this one.
+                  */
+                  className="theme-nav-dropdown-item block px-4 py-2 text-[14px] font-medium transition-colors whitespace-nowrap"
                   style={{ color: "inherit" }}
                   onClick={e => {
                     if (onEditorNavigate) {
@@ -2028,7 +2060,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
             aria-label="Search"
             aria-expanded={searchOpen}
             onClick={(e) => { e.stopPropagation(); setSearchOpen((v) => !v) }}
-            className="h-9 w-9 flex items-center justify-center rounded-full hover:bg-black/5 transition-colors"
+            className="h-9 w-9 flex items-center justify-center rounded-full theme-tint-hover transition-colors"
           >
             <Search className="h-[18px] w-[18px]" strokeWidth={1.8} />
           </button>
@@ -2037,7 +2069,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
             href="/search"
             aria-label="Search"
             onClick={onEditorNavigate ? (e) => e.preventDefault() : undefined}
-            className="h-9 w-9 flex items-center justify-center rounded-full hover:bg-black/5 transition-colors"
+            className="h-9 w-9 flex items-center justify-center rounded-full theme-tint-hover transition-colors"
           >
             <Search className="h-[18px] w-[18px]" strokeWidth={1.8} />
           </a>
@@ -2048,7 +2080,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
           href={platformUrl("/account/continue")}
           aria-label="Account"
           onClick={goToPlatform("/account/continue", !!onEditorNavigate)}
-          className="h-9 w-9 flex items-center justify-center rounded-full hover:bg-black/5 transition-colors"
+          className="h-9 w-9 flex items-center justify-center rounded-full theme-tint-hover transition-colors"
         >
           <User className="h-[18px] w-[18px]" strokeWidth={1.8} />
         </a>
@@ -2058,7 +2090,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
           href={`https://${getMainDomain()}/wishlist`}
           aria-label="Wishlist"
           onClick={onEditorNavigate ? (e) => e.preventDefault() : undefined}
-          className="h-9 w-9 flex items-center justify-center rounded-full hover:bg-black/5 transition-colors"
+          className="h-9 w-9 flex items-center justify-center rounded-full theme-tint-hover transition-colors"
         >
           <Heart className="h-[18px] w-[18px]" strokeWidth={1.8} />
         </a>
@@ -2137,7 +2169,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
       aria-label={mobileNavOpen ? "Close menu" : "Open menu"}
       aria-expanded={mobileNavOpen}
       className={cn(
-        "h-9 w-9 items-center justify-center rounded-full hover:bg-black/5 transition-colors shrink-0",
+        "h-9 w-9 items-center justify-center rounded-full theme-tint-hover transition-colors shrink-0",
         hasDeviceMode
           ? (forceMobile ? "flex" : "hidden")
           : "flex md:hidden",

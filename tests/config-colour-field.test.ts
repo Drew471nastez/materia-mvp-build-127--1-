@@ -159,6 +159,66 @@ function main() {
     )
   }
 
+  // ── 4. Every control the registry defines has an editor ──────────────
+  /**
+   * THE QUESTION THIS ANSWERS: "are all the config controls updated, in
+   * general settings and in the sections tab?"
+   *
+   * It cannot be answered by reading the panel, because the panel does not
+   * list the controls — the REGISTRY does, and the panel draws whatever a
+   * schema asks for. So the two sets are compared directly: every type the
+   * registry defines must have a branch in FieldEditor, and every branch in
+   * FieldEditor must be a type the registry defines.
+   *
+   * Both directions matter. A registry type with no branch falls through to
+   * the last case and a creator gets a bare text box where a picker belongs
+   * — which is exactly how an icon field came to be edited by typing a
+   * kebab-case lucide name from memory. A branch with no registry type is
+   * dead code, or a control someone spelled differently, and the aliases are
+   * the registry's job rather than a second spelling here.
+   */
+  {
+    const registry = JSON.parse(read("lib/storelib-theme/controls/storelib-controls.json")) as {
+      types: Record<string, unknown>
+      legacy_aliases: Record<string, string>
+    }
+    const defined = Object.keys(registry.types).sort()
+    /*
+      SCOPED TO FieldEditor, not to the file.
+
+      Scanning the whole editor for `kind === "..."` also caught
+      remove_section, update_section and update_theme, which are the agent's
+      OPERATION kinds several thousand lines away. The check failed naming
+      three controls that were never controls — a guard that reports work
+      nobody has to do is a guard that gets muted.
+    */
+    const fnStart = editor.indexOf("function FieldEditor(")
+    const after = editor.indexOf("\nfunction ", fnStart + 1)
+    const body = editor.slice(fnStart, after > 0 ? after : undefined)
+    /* `kind` is what resolveControlType returns, so aliases are resolved
+       before they reach these branches and never appear as one. */
+    const drawn = [...new Set([...body.matchAll(/kind === "([a-z_]+)"/g)].map((m) => m[1]))].sort()
+
+    const missing = defined.filter((t) => !drawn.includes(t))
+    const extra = drawn.filter((t) => !defined.includes(t))
+
+    check(
+      `every one of the ${defined.length} controls the registry defines has an editor`,
+      missing.length === 0,
+      missing.length ? `no branch for: ${missing.join(", ")}` : undefined,
+    )
+    check(
+      "and the panel draws nothing the registry does not define",
+      extra.length === 0,
+      extra.length ? `drawn but not defined: ${extra.join(", ")}` : undefined,
+    )
+    check(
+      "and every legacy spelling resolves rather than being handled twice",
+      Object.keys(registry.legacy_aliases).every((alias) => !drawn.includes(alias)),
+      `aliases: ${Object.keys(registry.legacy_aliases).join(", ")}`,
+    )
+  }
+
   console.log(`\n  ${passed} passed, ${failed} failed`)
   if (failed) {
     console.log(`\n  Failed: ${failures.join(", ")}\n`)

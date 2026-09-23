@@ -24,7 +24,7 @@ import { cn } from "@/lib/utils"
  * arrive.
  *
  * The bubble is measured, not computed. Segments are sized by their content,
- * and "Project Settings" is not the width of "Code", so a fraction of the
+ * and "Website Settings" is not the width of "Code", so a fraction of the
  * pill would land a third of the time. It is read from the DOM with rects
  * and re-read whenever a segment changes size.
  */
@@ -136,7 +136,7 @@ export function PreviewModeSwitch({
       )}
       {seg("preview", "Preview", Globe)}
       {seg("code", "Code", Code2)}
-      {seg("settings", "Project Settings", Settings)}
+      {seg("settings", "Website Settings", Settings)}
     </div>
   )
 }
