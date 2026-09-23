@@ -110,6 +110,40 @@ export async function readFile(db: Db, installId: string, path: string): Promise
   return { ok: false, status: 404, error: `There is no ${path} in this theme` }
 }
 
+/**
+ * What a refusal may say outside Storelib. A 4xx is written for the person
+ * reading it (a path, a size, a name clash) and goes out as it is. A 5xx
+ * carries the database's own words, which name tables and constraints, and
+ * those stay in here.
+ */
+export function publicError(status: number, error: string): string {
+  return status >= 500 ? "Could not save the file just now. Try again." : error
+}
+
+/**
+ * Every section file's source, as the builder would open it, for the paths
+ * asked (or all of them), in ONE read. Syncing a site to GitHub used to list
+ * the files and then read each one again on its own, a query per section.
+ */
+export async function sectionSources(db: Db, installId: string, paths?: string[]): Promise<Map<string, string>> {
+  const wanted = paths ? paths.filter((p) => WRITABLE.test(p)) : null
+  const out = new Map<string, string>()
+  for (const [path, source] of Object.entries(DEFAULT_THEME_SOURCES as Record<string, string>)) {
+    if (WRITABLE.test(path) && (!wanted || wanted.includes(path))) out.set(path, source)
+  }
+  if (wanted && wanted.length === 0) return out
+  let q = db.from("store_theme_custom_files").select("path, content, draft_content").eq("install_id", installId)
+  q = wanted ? q.in("path", wanted) : q.like("path", "sections/%")
+  const { data, error } = await q
+  if (error) throw new Error("Could not read the theme's files")
+  for (const row of (data ?? []) as { path: string; content: string; draft_content?: string | null }[]) {
+    if (!WRITABLE.test(row.path)) continue
+    const source = editorContent(row)
+    if (typeof source === "string" && source.trim() !== "") out.set(row.path, source)
+  }
+  return out
+}
+
 /** Compile without saving: what the code editor's save would say, and nothing stored. */
 export function compileOnly(path: string, source: string): OpResult<{ path: string; warnings: ThemeError[] }> {
   if (!safeThemePath(path) || !path.endsWith(".storelib")) {
@@ -140,7 +174,7 @@ export async function writeSection(
     }
   }
   const saved = await saveThemeFile(db, who.installId, path, source, { baseUpdatedAt })
-  if (saved.ok === false) return { ok: false, status: saved.status, error: saved.error, errors: saved.errors }
+  if (saved.ok === false) return { ok: false, status: saved.status, error: publicError(saved.status, saved.error), errors: saved.errors }
 
   /* The log is how an open builder hears about it. Never allowed to fail the
      write it records: the file is saved either way. */

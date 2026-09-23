@@ -29,6 +29,8 @@ export async function POST(req: Request) {
   const cfg = githubConfig()
   if (!cfg) return NextResponse.json({ error: "Not configured" }, { status: 503 })
 
+  /* Refused on its declared size before a byte is read, then measured again. */
+  if (Number(req.headers.get("content-length")) > MAX_BODY) return NextResponse.json({ error: "Too large" }, { status: 413 })
   const raw = await req.text()
   if (raw.length > MAX_BODY) return NextResponse.json({ error: "Too large" }, { status: 413 })
   if (!verifySignature(raw, req.headers.get("x-hub-signature-256"), cfg.webhookSecret)) {
@@ -54,11 +56,14 @@ export async function POST(req: Request) {
   }
 
   if (event === "installation_repositories" && body.action === "removed") {
-    const gone = ((body.repositories_removed as { id?: number }[] | undefined) ?? []).map((r) => Number(r.id)).filter(Number.isSafeInteger)
-    if (gone.length) {
+    const gone = ((body.repositories_removed as { id?: number }[] | undefined) ?? []).map((r) => Number(r.id)).filter(Number.isSafeInteger).slice(0, 1000)
+    const installation = Number((body.installation as { id?: number } | undefined)?.id)
+    if (gone.length && Number.isSafeInteger(installation)) {
+      /* Only the links that reached it through THIS installation. */
       await db
         .from("theme_github_links")
         .update({ repo_id: null, repo_full_name: null, branch: null, last_error: "Storelib can no longer reach this repository", updated_at: new Date().toISOString() })
+        .eq("installation_id", installation)
         .in("repo_id", gone)
     }
     return NextResponse.json({ ok: true })

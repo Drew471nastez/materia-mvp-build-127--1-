@@ -149,6 +149,8 @@ export interface PushPayload {
   pusher?: { name?: string }
   sender?: { login?: string; type?: string }
   repository?: { id?: number; full_name?: string }
+  /** Which installation of the app sent it; every app webhook carries one. */
+  installation?: { id?: number }
 }
 
 /** "refs/heads/main" → "main"; a tag or anything else → null. */

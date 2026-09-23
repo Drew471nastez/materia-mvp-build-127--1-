@@ -22,8 +22,9 @@ import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { githubConfig, installationRepos, installationToken, GitHubError } from "@/lib/github-sync/github"
 import { normalizeRoot, validBranch, validRepoName } from "@/lib/github-sync/core"
-import { exportSite, pullNow, type GitHubLink } from "@/lib/github-sync/sync"
+import { SyncError, exportSite, pullNow, type GitHubLink } from "@/lib/github-sync/sync"
 import { linksNotSetUp, ownInstall } from "@/lib/github-sync/own-install"
+import { rateLimit } from "@/lib/api/rate-limit"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -65,7 +66,10 @@ function explain(e: unknown): string {
     if (e.status === 409) return "GitHub reported a conflict on that branch. Try again in a moment."
     return `GitHub: ${e.message}`
   }
-  return e instanceof Error ? e.message : "Something went wrong talking to GitHub"
+  /* Only messages written for the creator. A network or database error's
+     own words name internals and are not shown. */
+  if (e instanceof SyncError) return e.message
+  return "Something went wrong talking to GitHub. Try again."
 }
 
 export async function GET(req: Request, { params }: Params) {
@@ -137,6 +141,20 @@ export async function POST(req: Request, { params }: Params) {
   if (!cfg) return NextResponse.json({ error: "GitHub is not set up on this server yet." }, { status: 503 })
 
   const body = (await req.json().catch(() => ({}))) as Record<string, unknown>
+
+  /*
+    Per site. Pull, Push and linking each spend GitHub calls from the app's
+    hourly allowance, which every site on the installation shares; a button
+    held down, or a script, must not spend it for all of them.
+  */
+  const limited = await rateLimit({
+    bucket: "github-sync",
+    subjects: [`install:${own.installId}`],
+    windows: [{ limit: 12, seconds: 60 }, { limit: 150, seconds: 3600 }],
+    message: "That is a lot of GitHub syncs in a row. Wait a minute and try again.",
+  })
+  if (limited) return limited
+
   const db = createAdminClient()
   const { data, error } = await readLink(db, own.installId)
   if (error) {

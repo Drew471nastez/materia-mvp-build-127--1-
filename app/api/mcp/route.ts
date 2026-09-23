@@ -2,8 +2,8 @@
  * ===========================================================================
  *  storelib.com/api/mcp: A SITE'S SECTION FILES, AS MCP TOOLS
  * ===========================================================================
- * Claude Code:
- *   claude mcp add --transport http storelib https://storelib.com/api/mcp \
+ * Claude Code, available from every folder (user scope):
+ *   claude mcp add --transport http --scope user storelib https://storelib.com/api/mcp \
  *     --header "Authorization: Bearer slb_..."
  *
  * Codex, in ~/.codex/config.toml:
@@ -23,6 +23,7 @@ import { NextResponse } from "next/server"
 import { authenticateAgent } from "@/lib/agent-access/tokens"
 import { bindOps } from "@/lib/agent-access/bind"
 import { handleMcp, type RpcRequest } from "@/lib/agent-access/mcp"
+import { readBodyCapped } from "@/lib/agent-access/body"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -34,13 +35,14 @@ export async function POST(request: Request) {
   const who = await authenticateAgent(request)
   if (who instanceof NextResponse) return who
 
-  const raw = await request.text()
-  if (raw.length > MAX_BODY) {
-    return NextResponse.json({ jsonrpc: "2.0", id: null, error: { code: -32600, message: "Request too large" } }, { status: 413 })
+  /* Counted as it arrives and cut off at the limit, not read whole and then measured. */
+  const read = await readBodyCapped(request, MAX_BODY)
+  if (read.ok === false) {
+    return NextResponse.json({ jsonrpc: "2.0", id: null, error: { code: -32600, message: read.error } }, { status: read.status })
   }
   let body: unknown
   try {
-    body = JSON.parse(raw)
+    body = JSON.parse(read.text)
   } catch {
     return NextResponse.json({ jsonrpc: "2.0", id: null, error: { code: -32700, message: "Parse error" } }, { status: 400 })
   }

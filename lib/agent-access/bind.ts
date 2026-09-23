@@ -20,9 +20,14 @@ export async function bindOps(who: AgentIdentity): Promise<BoundOps> {
    * else; see ./operations.ts for what they may touch.
    */
   const db = createAdminClient()
-  const { data: install } = await db.from("store_theme_installs").select("name").eq("id", who.installId).maybeSingle()
+  /* The name came with the token check (./tokens.ts); read it only if not. */
+  let siteName = who.siteName
+  if (siteName === undefined) {
+    const { data: install } = await db.from("store_theme_installs").select("name").eq("id", who.installId).maybeSingle()
+    siteName = install?.name ?? undefined
+  }
   return {
-    siteName: install?.name ?? "your site",
+    siteName: siteName || "your site",
     agentName: who.name,
     list: () => listFiles(db, who.installId),
     read: (path) => readFile(db, who.installId, path),
