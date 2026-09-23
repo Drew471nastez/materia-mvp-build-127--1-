@@ -54,6 +54,7 @@ const SUITES = [
   "tests/gallery-and-back.test.ts",
   "tests/motion-properties.test.ts",
   "tests/creator-page.test.ts",
+  "tests/config-colour-field.test.ts",
   "tests/contact-gate.test.ts",
   "tests/hook-order.test.ts",
   "tests/link-navigation.test.ts",

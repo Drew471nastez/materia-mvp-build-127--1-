@@ -74,3 +74,9 @@ tsconfig.*.generated.json
 .onepage-probe/
 .dash-probe/
 .nav-probe/
+
+# Written and removed by scripts/check-nav-dropdown.mjs while it bundles the probe.
+.navdrop-probe/
+# The screenshot that probe leaves behind, so the dropdown can be looked at
+# and not only measured.
+.probe-nav-dropdown.png

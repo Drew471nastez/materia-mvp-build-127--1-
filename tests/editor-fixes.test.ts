@@ -116,11 +116,47 @@ function main() {
      * padding because the measurement reads padding.
      */
     check("a content-fit sheet gets no room, or it would never settle", /fit \? "0px"/.test(sheet))
-    check("written in the same place as the transform, so it moves with the finger", (() => {
+    /**
+     * THIS ASSERTION USED TO SAY THE OPPOSITE, AND IT WAS WRONG.
+     *
+     * It required the property to be written inside `writeTransform`,
+     * "written in the same place as the transform, so it moves with the
+     * finger". Two measurements say that was the bug rather than the fix.
+     *
+     * `--wb-sheet-hidden` feeds the HEIGHT of the spacer after the
+     * scroller's content. A transform is compositor work; a height is not.
+     * Written on every drag frame it invalidated layout on every drag
+     * frame: scripts/check-sheet-frames.mjs counts 57 layouts across a
+     * one-second drag with it, and 0 without.
+     *
+     * And "moves with the finger" is not something the user wanted. The
+     * same probe, with the scroller pinned to the bottom before the drag:
+     *
+     *   every frame   spacer 354px → 614px, scrollTop 1442, max 1442 → 1702
+     *   at rest only  spacer 354px,          scrollTop 1442, max 1442
+     *
+     * So the old behaviour un-pinned the content from the bottom by 260px
+     * while the finger was still down. Dragging the sheet scrolled what was
+     * inside it.
+     *
+     * The room still has to be right whenever the sheet is AT REST, which is
+     * when it is read — and it comes to rest in two ways, a snap under a
+     * finger and a move with no finger at all, so both paths are checked.
+     */
+    check("the room is set where the sheet comes to rest, not on every drag frame", (() => {
       const i = sheet.indexOf("const writeTransform")
-      const j = sheet.indexOf("--wb-sheet-hidden", i)
-      return i > 0 && j > i && j - i < 2000
+      const j = sheet.indexOf("const layoutHiddenRoom")
+      if (i < 0 || j < 0) return false
+      /* The write lives in its own callback, not inside writeTransform. */
+      const body = sheet.slice(i, sheet.indexOf("\n  }", i))
+      return !body.includes("--wb-sheet-hidden")
     })())
+    check("a snap under a finger brings it up to date", (() => {
+      const i = sheet.indexOf("const applyTransformNow")
+      const j = sheet.indexOf("layoutHiddenRoom(", i)
+      return i > 0 && j > i && j - i < 400
+    })())
+    check("and so does coming to rest with no finger on it", /React\.useEffect\(\(\) => \{\s*if \(drag\.current\.active\) return\s*layoutHiddenRoom\(open \? settledY : closedY\)/.test(sheet))
   }
 
   // ═══════════════════════════════════════════════════════════════════════
