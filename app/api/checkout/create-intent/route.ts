@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import crypto from "crypto"
 import { getValidatedPlatformStatementDescriptor } from "@/lib/payments/platform-descriptor"
 import { calculatePlatformFee } from "@/lib/billing/fee-calculator"
+import { SOURCE_METADATA_KEY, orderSourceFromRequest } from "@/lib/orders/order-source"
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 
@@ -82,6 +83,7 @@ export async function POST(req: Request) {
       currency,
       automatic_payment_methods: { enabled: true },
       metadata: {
+        [SOURCE_METADATA_KEY]: orderSourceFromRequest(req),
         product_id: product.id,
         creator_id: product.creator_id,
         buyer_id: user?.id || "",

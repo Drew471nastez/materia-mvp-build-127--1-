@@ -43,7 +43,6 @@ const RETURNS: Array<[string, string]> = [
   ["app/library/my-downloads/page.tsx", "Library"],
   ["app/library/wishlist/page.tsx", "Library"],
   ["app/library/settings/buyer-settings.tsx", "Library"],
-  ["app/app/orders/[id]/page.tsx", "Back to Orders"],
 ]
 
 function main() {
@@ -107,6 +106,15 @@ function main() {
     check(`${file} uses ReturnLink`, /<ReturnLink/.test(src), `for "${label}"`)
     check(`  and imports it`, /from "@\/components\/navigation\/return-link"/.test(src))
   }
+  /* An order opens over the Orders list rather than on a route of its own
+     (app/app/orders/orders-client.tsx). Its back arrow has the same duty as
+     a ReturnLink: when the order was opened from the list, it pops that
+     entry instead of pushing the list again. */
+  const orders = read("app/app/orders/orders-client.tsx")
+  check("an order's back arrow pops the entry it pushed", /if \(pushed\.current\) window\.history\.back\(\)/.test(orders))
+  check("  and opening one pushes exactly one entry", /writeAddress\(\(p\) => p\.set\("order", id\), "push"\)/.test(orders))
+  check("the old order address still lands on the order", /redirect\(`\/app\/orders\?order=/.test(read("app/app/orders/[id]/page.tsx")))
+
   /* The reported one specifically: it was an <a href>, which is a full
      document load AS WELL AS a push. */
   const checkout = read("app/checkout/checkout-client.tsx")

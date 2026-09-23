@@ -20,6 +20,7 @@ import "server-only"
  * failure re-runs the lines that are missing and skips the ones that landed.
  */
 import { v4 as uuidv4 } from "uuid"
+import { tagOrderSource } from "@/lib/orders/order-source"
 
 export interface FulfilLineInput {
   productId: string
@@ -103,6 +104,8 @@ export async function fulfilCartLine(ctx: FulfilContext, line: FulfilLineInput):
     console.error("[checkout/cart] order insert failed for product", line.productId, error?.message)
     return null
   }
+  /* A basket is only ever filled on a creator's website. */
+  await tagOrderSource(ctx.admin, order.id, "website")
 
   if (ctx.buyerId) {
     let q = ctx.admin

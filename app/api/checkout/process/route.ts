@@ -7,6 +7,7 @@ import { generateReceiptToken } from "@/lib/security"
 import { sendOrderEmails, triggerEmailFlows } from "@/lib/email"
 import { collectOrderDeviceInfo } from "@/lib/device-info"
 import { v4 as uuidv4 } from "uuid"
+import { orderSourceFromRequest, tagOrderSource } from "@/lib/orders/order-source"
 
 export const runtime = "nodejs"
 
@@ -211,6 +212,7 @@ export async function POST(request: Request) {
     }
 
     console.log("[checkout/process] ✅ Order created successfully:", order.id)
+    await tagOrderSource(admin, order.id, orderSourceFromRequest(request))
 
     // Upsert customer
     await admin.rpc("upsert_customer", {

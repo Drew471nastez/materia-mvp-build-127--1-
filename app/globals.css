@@ -2606,12 +2606,15 @@ html.capacitor .app-content-scroll {
    * supported a page gets both paddings and a little dead space at its foot,
    * which is where it started.
    * ─────────────────────────────────────────────────────────────────────── */
-  html.app-layout .app-content-scroll:has(> .page-scroll, > .dashboard-scroll-container, > .sales-scroll-container) {
+  html.app-layout .app-content-scroll:has(> .page-scroll, > .dashboard-scroll-container, > .sales-scroll-container, > .orders-stage) {
     padding-bottom: 0;
   }
   html.app-layout .app-content-scroll > .page-scroll,
   html.app-layout .app-content-scroll > .dashboard-scroll-container,
-  html.app-layout .app-content-scroll > .sales-scroll-container {
+  html.app-layout .app-content-scroll > .sales-scroll-container,
+  /* Orders scrolls in two panes, the list and the order over it, so the
+     room for the bar goes on each of them rather than on the stage. */
+  html.app-layout .app-content-scroll > .orders-stage > .orders-pane {
     padding-bottom: calc(104px + env(safe-area-inset-bottom, 0px));
   }
 
@@ -4365,4 +4368,76 @@ html.pop-in-flight #platform-header-root {
   .wb-bone::after,
   .wb-section-arrive { animation: none; }
   .wb-bone::after { display: none; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ *  ORDERS (app/app/orders)
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+/* The table swipes sideways under a finger and keeps its first two columns.
+   `overscroll-behavior-x: contain` stops a swipe that reaches the end from
+   turning into the browser's back gesture. */
+.orders-scroller {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(156, 163, 175, 0.45) transparent;
+}
+.orders-sticky {
+  position: sticky;
+  z-index: 1;
+}
+/* A hairline where the frozen columns end, once there is anything to the
+   right of them, and a soft shadow once something has gone under them. */
+.orders-scroller[data-overflow="true"] .orders-edge {
+  box-shadow: inset -1px 0 0 #eceef1;
+}
+.orders-scroller[data-scrolled="true"] .orders-edge {
+  box-shadow: inset -1px 0 0 #e3e5e9, 8px 0 10px -8px rgba(17, 24, 39, 0.18);
+}
+.orders-strip {
+  scrollbar-width: none;
+}
+.orders-strip::-webkit-scrollbar {
+  display: none;
+}
+
+/* An order slides in over the list. On a phone it is a push from the right
+   edge, like any other page on the phone; wider, a short slide and fade.
+   Keyframes rather than a transition: see the note in orders-client.tsx. */
+@keyframes orders-push-in {
+  from { transform: translate3d(100%, 0, 0); box-shadow: -12px 0 32px rgba(17, 24, 39, 0.08); }
+  to { transform: translate3d(0, 0, 0); box-shadow: -12px 0 32px rgba(17, 24, 39, 0); }
+}
+@keyframes orders-push-out {
+  from { transform: translate3d(0, 0, 0); box-shadow: -12px 0 32px rgba(17, 24, 39, 0); }
+  to { transform: translate3d(100%, 0, 0); box-shadow: -12px 0 32px rgba(17, 24, 39, 0.08); }
+}
+@keyframes orders-fade-in {
+  from { transform: translate3d(24px, 0, 0); opacity: 0; }
+  to { transform: translate3d(0, 0, 0); opacity: 1; }
+}
+@keyframes orders-fade-out {
+  from { transform: translate3d(0, 0, 0); opacity: 1; }
+  to { transform: translate3d(24px, 0, 0); opacity: 0; }
+}
+.orders-detail[data-stage="entering"] {
+  animation: orders-push-in 320ms cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+.orders-detail[data-stage="closing"] {
+  animation: orders-push-out 280ms cubic-bezier(0.32, 0.72, 0, 1) both;
+  pointer-events: none;
+}
+@media (min-width: 768px) {
+  .orders-detail[data-stage="entering"] {
+    animation: orders-fade-in 240ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+  .orders-detail[data-stage="closing"] {
+    animation: orders-fade-out 200ms ease-in both;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .orders-detail[data-stage] {
+    animation: none;
+  }
 }

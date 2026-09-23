@@ -1,8 +1,12 @@
+import { after } from "next/server"
+import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { stripe } from "@/lib/stripe"
-import { SalesClient } from "./sales-client"
+import { COLUMNS_COOKIE, hiddenColumnsFrom, type OrderRow } from "@/lib/orders/order-view"
+import { TIME_ZONE_COOKIE, readTimeZone } from "@/lib/orders/time-zone"
+import { OrdersClient } from "../orders-client"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -11,179 +15,139 @@ export const metadata = {
   title: "Orders",
 }
 
-export default async function OrdersSalesPage() {
+/**
+ * A REFUND MADE IN THE STRIPE DASHBOARD reaches us as `charge.refunded` on the
+ * webhook. This is the net under that, for a webhook that never arrived.
+ *
+ * It used to run before the page rendered, one Stripe call after another for
+ * every paid order the creator had ever taken: a page that got slower with
+ * every sale. It runs after the response now, on recent orders only and a
+ * few at a time, and what it finds shows on the next visit.
+ */
+const REFUND_CHECK_DAYS = 120
+const REFUND_CHECK_CONCURRENCY = 6
+const REFUND_CHECK_MAX = 60
+
+async function catchMissedRefunds(rows: OrderRow[]) {
+  const admin = createAdminClient()
+  const since = Date.now() - REFUND_CHECK_DAYS * 24 * 3_600_000
+  const queue = rows.filter(
+    (o) => o.status === "completed" && o.stripe_payment_intent_id && Date.parse(o.created_at) >= since,
+  ).slice(0, REFUND_CHECK_MAX)
+  const worker = async () => {
+    for (let order = queue.shift(); order; order = queue.shift()) {
+      try {
+        const pi = await stripe.paymentIntents.retrieve(order.stripe_payment_intent_id!, { expand: ["latest_charge"] })
+        const charge = pi.latest_charge as { refunded?: boolean; amount_refunded?: number } | null
+        if (!charge || !(charge.refunded || (charge.amount_refunded ?? 0) > 0)) continue
+        await admin.from("orders").update({ status: "refunded" }).eq("id", order.id)
+        await admin
+          .from("orders")
+          .update({ refund_amount_cents: charge.amount_refunded || order.amount_cents, refunded_at: new Date().toISOString() })
+          .eq("id", order.id)
+      } catch {
+        /* An invalid or rate limited intent is left for the next visit. */
+      }
+    }
+  }
+  await Promise.all(Array.from({ length: REFUND_CHECK_CONCURRENCY }, worker))
+}
+
+export default async function OrdersPage() {
   const supabase = await createClient()
-  const adminSupabase = createAdminClient()
+  const admin = createAdminClient()
 
   const {
     data: { user },
   } = await supabase.auth.getUser()
+  if (!user) redirect("/login")
 
-  if (!user) {
-    redirect("/login")
-  }
-
-  // Step 1: Get creator
-  const { data: creator } = await adminSupabase
+  const { data: creator } = await admin
     .from("creators")
-    .select("*")
+    .select("id, stripe_onboarding_status")
     .eq("user_id", user.id)
     .single()
+  if (!creator) redirect("/onboarding")
 
-  if (!creator) {
-    redirect("/onboarding")
-  }
-
-  // Step 2: Get profile
-  const { data: profile } = await adminSupabase
-    .from("profiles")
-    .select("display_name")
-    .eq("id", user.id)
-    .single()
-
-  // Step 3: Get ALL products for this creator
-  const { data: productsData } = await adminSupabase
+  const { data: productsData } = await admin
     .from("products")
-    .select("*")
+    .select("id, title, type, thumbnail_url, gallery_images")
     .eq("creator_id", creator.id)
+  const products = (productsData || []).map((p: any) => ({
+    id: p.id as string,
+    title: (p.title as string) || "Untitled product",
+    type: (p.type as string) || null,
+    thumbnail_url: (p.thumbnail_url as string) || p.gallery_images?.[0] || null,
+  }))
 
-  const products = productsData || []
-
-  // Step 3b: Get view counts from analytics_events table
-  const productIds = products.map(p => p.id)
-  let viewCountsMap: Record<string, number> = {}
-
-  if (productIds.length > 0) {
-    // Query unique views per product from analytics_events
-    const { data: viewEvents } = await adminSupabase
-      .from("analytics_events")
-      .select("product_id, visitor_id, session_id")
-      .eq("creator_id", creator.id)
-      .eq("event_type", "view")
-      .in("product_id", productIds)
-
-    // Count unique views per product (dedupe by visitor_id or session_id)
-    if (viewEvents) {
-      const viewedKeys = new Map<string, Set<string>>()
-
-      viewEvents.forEach(ev => {
-        if (!ev.product_id) return
-
-        const identity = ev.visitor_id || ev.session_id || "unknown"
-        const key = `${identity}__${ev.product_id}`
-
-        if (!viewedKeys.has(ev.product_id)) {
-          viewedKeys.set(ev.product_id, new Set())
-        }
-
-        const productKeys = viewedKeys.get(ev.product_id)!
-        if (!productKeys.has(key)) {
-          productKeys.add(key)
-          viewCountsMap[ev.product_id] = (viewCountsMap[ev.product_id] || 0) + 1
-        }
-      })
-    }
-  }
-
-  // Step 4: Get ALL orders for these products
-  let initialOrders: any[] = []
-  let initialSummary = {
-    totalSales: 0,
-    totalOrders: 0,
-    avgOrderValue: 0,
-    refundCount: 0,
-    refundAmount: 0,
-  }
-
+  let rows: OrderRow[] = []
   if (products.length > 0) {
-    const productIds = products.map(p => p.id)
-
-    const { data: ordersData } = await adminSupabase
+    /* Scoped by the creator's own products, read with the service role: the
+       creator id came from the session above, never from the request. */
+    const { data: ordersData } = await admin
       .from("orders")
       .select("*")
-      .in("product_id", productIds)
+      .in(
+        "product_id",
+        products.map((p) => p.id),
+      )
       .order("created_at", { ascending: false })
 
-    // Server-side refund sync: check Stripe for refunded orders still marked completed
-    // NOTE: This app uses destination charges — PIs live on the PLATFORM account, not the connected account.
-    // So we retrieve PIs WITHOUT the stripeAccount parameter.
-    if (ordersData) {
-      const completedWithPI = ordersData.filter(
-        (o: any) => o.status === "completed" && o.stripe_payment_intent_id
-      )
-      for (const order of completedWithPI) {
-        try {
-          const pi = await stripe.paymentIntents.retrieve(
-            order.stripe_payment_intent_id,
-            { expand: ["latest_charge"] }
-          )
-          const charge = pi.latest_charge as any
-          if (charge && (charge.refunded === true || (charge.amount_refunded && charge.amount_refunded > 0))) {
-            await adminSupabase
-              .from("orders")
-              .update({ status: "refunded" })
-              .eq("id", order.id)
-            order.status = "refunded"
-            // Try extra columns
-            try {
-              await adminSupabase.from("orders").update({
-                refund_amount_cents: charge.amount_refunded || order.amount_cents,
-                refunded_at: new Date().toISOString(),
-              }).eq("id", order.id)
-              order.refund_amount_cents = charge.amount_refunded || order.amount_cents
-              order.refunded_at = new Date().toISOString()
-            } catch { /* columns may not exist */ }
-          }
-        } catch {
-          // Skip — PI might be invalid or rate limited
-        }
-      }
-    }
-
-    // Map orders with product info
-    initialOrders = (ordersData || []).map(order => {
-      const product = products.find(p => p.id === order.product_id)
+    const byId = new Map(products.map((p) => [p.id, p]))
+    rows = (ordersData || []).map((order: any) => {
+      const product = byId.get(order.product_id)
       return {
-        ...order,
-        product: product ? {
-          id: product.id,
-          title: product.title,
-          type: product.type,
-          thumbnail_url: product.thumbnail_url || product.gallery_images?.[0] || null
-        } : null
+        id: order.id,
+        product_id: order.product_id,
+        amount_cents: order.amount_cents || 0,
+        fee_cents: order.fee_cents ?? null,
+        tip_cents: order.tip_cents ?? null,
+        status: order.status || "pending",
+        created_at: order.created_at,
+        payment_method: order.payment_method ?? null,
+        card_brand: order.card_brand ?? null,
+        card_last4: order.card_last4 ?? null,
+        paypal_email: order.paypal_email ?? null,
+        buyer_email: order.buyer_email ?? order.customer_email ?? null,
+        buyer_first_name: order.buyer_first_name ?? null,
+        buyer_last_name: order.buyer_last_name ?? null,
+        buyer_country: order.buyer_country ?? null,
+        buyer_country_code: order.buyer_country_code ?? null,
+        buyer_device_type: order.buyer_device_type ?? null,
+        buyer_os: order.buyer_os ?? null,
+        buyer_browser: order.buyer_browser ?? null,
+        receipt_token: order.receipt_token ?? null,
+        stripe_session_id: order.stripe_session_id ?? null,
+        stripe_payment_intent_id: order.stripe_payment_intent_id ?? null,
+        refund_reason: order.refund_reason ?? null,
+        refund_amount_cents: order.refund_amount_cents ?? null,
+        refunded_at: order.refunded_at ?? null,
+        buyer_notified_at: order.buyer_notified_at ?? null,
+        buyer_email_last_error: order.buyer_email_last_error ?? null,
+        variant_name: order.variant_name ?? null,
+        source: order.source ?? null,
+        product: product
+          ? { id: product.id, title: product.title, type: product.type, thumbnail_url: product.thumbnail_url }
+          : null,
       }
     })
 
-    // Calculate summary — totalOrders includes both completed + refunded
-    const completedOrders = initialOrders.filter(o => o.status === "completed")
-    const refundedOrders = initialOrders.filter(o => o.status === "refunded")
-    const allValidOrders = initialOrders.filter(o => o.status === "completed" || o.status === "refunded")
-    initialSummary.totalSales = completedOrders.reduce((sum, o) => sum + (o.amount_cents || 0), 0)
-    initialSummary.totalOrders = allValidOrders.length
-    initialSummary.avgOrderValue = allValidOrders.length > 0
-      ? Math.round(initialSummary.totalSales / allValidOrders.length)
-      : 0
-    initialSummary.refundCount = refundedOrders.length
-    initialSummary.refundAmount = refundedOrders.reduce((sum, o) => sum + (o.refund_amount_cents || o.amount_cents || 0), 0)
+    if (rows.length > 0) {
+      const snapshot = rows
+      after(() => catchMissedRefunds(snapshot))
+    }
   }
 
+  const jar = await cookies()
+
   return (
-    <SalesClient
-      creatorId={creator.id}
-      products={products.map(p => ({
-        id: p.id,
-        title: p.title,
-        type: p.type,
-        price_cents: p.price_cents,
-        thumbnail_url: p.thumbnail_url || p.gallery_images?.[0] || null,
-        view_count: viewCountsMap[p.id] || 0
-      }))}
-      initialSummary={initialSummary}
-      initialOrders={initialOrders}
-      currency={creator.default_currency || "USD"}
+    <OrdersClient
+      rows={rows}
+      products={products.map((p) => ({ id: p.id, title: p.title }))}
       stripeConnected={creator.stripe_onboarding_status === "connected"}
-      storeName="Storelib"
-      sellerName={profile?.display_name || "Seller"}
+      hiddenColumns={hiddenColumnsFrom(jar.get(COLUMNS_COOKIE)?.value)}
+      timeZone={readTimeZone(jar.get(TIME_ZONE_COOKIE)?.value)}
+      now={Date.now()}
     />
   )
 }
