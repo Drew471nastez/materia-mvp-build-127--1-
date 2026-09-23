@@ -98,6 +98,7 @@ export function BottomSheet({
   hideFrom = "sm",
   fill = false,
   height,
+  maxHeight = "min(86dvh, 720px)",
   className,
 }: {
   isOpen: boolean
@@ -114,6 +115,7 @@ export function BottomSheet({
   fill?: boolean
   /** A fixed height, so content that arrives late does not move the top edge. */
   height?: string
+  maxHeight?: string
   className?: string
 }) {
   const [mounted, setMounted] = useState(false)
@@ -154,6 +156,8 @@ export function BottomSheet({
   const flickRef = useRef(0)
   const onCloseRef = useRef(onClose)
   useEffect(() => { onCloseRef.current = onClose })
+  const isOpenRef = useRef(isOpen)
+  useLayoutEffect(() => { isOpenRef.current = isOpen }, [isOpen])
 
   useEffect(() => setMounted(true), [])
 
@@ -269,6 +273,9 @@ export function BottomSheet({
     const ms = Math.max(140, Math.min(CLOSE_MS, velocity > 0 ? travel / (velocity * 2.2) : CLOSE_MS))
     glide(from, h, ms, () => {
       closingRef.current = false
+      /* The parent said no (a refund still in flight, say): come back up
+         rather than leave a sheet it still thinks is open. */
+      if (isOpenRef.current) { glide(h, 0, OPEN_MS); return }
       setPresent(false)
     })
     onCloseRef.current()
@@ -429,7 +436,7 @@ export function BottomSheet({
              half way through that this was a scroll. */
           touchAction: "none",
           paddingBottom: "max(env(safe-area-inset-bottom), 12px)",
-          maxHeight: "min(86dvh, 720px)",
+          maxHeight,
           height,
           display: "flex",
           flexDirection: "column",

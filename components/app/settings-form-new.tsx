@@ -1,6 +1,7 @@
 "use client"
 
 import type React from "react"
+import { BottomSheet, SHEET_CLOSE_MS, SHEET_EASE, SHEET_OPEN_MS } from "@/components/ui/bottom-sheet"
 import { useState, useRef, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { createClient, isNativePlatform } from "@/lib/supabase/client"
@@ -231,7 +232,25 @@ interface SettingsFormProps {
   initialTab?: TabId
 }
 
-// Mobile Bottom Sheet Component
+/**
+ * A phone, by the same breakpoint the sheet hides itself at. One answer, so
+ * the children are drawn once: they used to be drawn twice, in a desktop
+ * modal and a phone sheet, with CSS hiding one, which doubled every input
+ * and left refs pointing at whichever copy mounted last.
+ */
+function useIsPhone() {
+  const [phone, setPhone] = useState(false)
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 639px)")
+    const sync = () => setPhone(mq.matches)
+    sync()
+    mq.addEventListener("change", sync)
+    return () => mq.removeEventListener("change", sync)
+  }, [])
+  return phone
+}
+
+// Settings' own sheet: the shared phone sheet below 640px, a centred modal above.
 function MobileBottomSheet({
   isOpen,
   onClose,
@@ -243,173 +262,94 @@ function MobileBottomSheet({
   title: string
   children: React.ReactNode
 }) {
-  const [isVisible, setIsVisible] = useState(false)
+  const phone = useIsPhone()
+  if (phone) {
+    return (
+      <BottomSheet
+        isOpen={isOpen}
+        onClose={onClose}
+        label={title}
+        header={<h3 className="px-4 pb-3 pt-3 text-[16px] font-semibold text-[#1a1a2e]">{title}</h3>}
+      >
+        <div className="px-4 pb-4">{children}</div>
+      </BottomSheet>
+    )
+  }
+  return <DesktopSettingsModal isOpen={isOpen} onClose={onClose} title={title}>{children}</DesktopSettingsModal>
+}
+
+/** The desktop half: fades and scales in, on the same curve as the sheet. */
+function DesktopSettingsModal({
+  isOpen,
+  onClose,
+  title,
+  children,
+}: {
+  isOpen: boolean
+  onClose: () => void
+  title: string
+  children: React.ReactNode
+}) {
+  const [isVisible, setIsVisible] = useState(isOpen)
   const [isAnimating, setIsAnimating] = useState(false)
-  const [dragY, setDragY] = useState(0)
-  const [isDragging, setIsDragging] = useState(false)
-  const sheetRef = useRef<HTMLDivElement>(null)
-  const handleBarRef = useRef<HTMLDivElement>(null)
-  const overlayRef = useRef<HTMLDivElement>(null)
-  // Refs for native non-passive touch handlers (avoids stale closures)
-  const isDraggingRef = useRef(false)
-  const startYRef = useRef(0)
-  const dragYRef = useRef(0)
-  const scrollYRef = useRef(0)
+  const [prevOpen, setPrevOpen] = useState(isOpen)
+  if (isOpen !== prevOpen) {
+    setPrevOpen(isOpen)
+    if (isOpen) setIsVisible(true)
+    else setIsAnimating(false)
+  }
+  const shownRef = useRef<React.ReactNode>(children)
+  if (isOpen) shownRef.current = children
 
   useEffect(() => {
-    if (isOpen && !isVisible) {
-      setIsVisible(true)
-      scrollYRef.current = window.scrollY
-      // Lock scroll without position:fixed to prevent layout shifts on iOS Capacitor.
-      // position:fixed on body causes the sticky black platform header to jump and
-      // create extra black space above it. overflow:hidden is sufficient here because
-      // the sheet overlay already blocks all touch-through, and CapacitorBounceGuard
-      // handles rubber-band prevention at the document level.
-      document.documentElement.style.overflow = "hidden"
-      document.body.style.overflow = "hidden"
-      document.documentElement.style.overscrollBehavior = "none"
-      document.body.style.overscrollBehavior = "none"
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          setIsAnimating(true)
-        })
-      })
-    } else if (!isOpen && isVisible) {
-      setIsAnimating(false)
-      const timer = setTimeout(() => {
-        document.documentElement.style.overflow = ""
-        document.body.style.overflow = ""
-        document.documentElement.style.overscrollBehavior = ""
-        document.body.style.overscrollBehavior = ""
-        setIsVisible(false)
-        setDragY(0)
-        dragYRef.current = 0
-      }, 400)
-      return () => clearTimeout(timer)
+    if (!isVisible) return
+    if (isOpen) {
+      const id = requestAnimationFrame(() => requestAnimationFrame(() => setIsAnimating(true)))
+      return () => cancelAnimationFrame(id)
     }
-    return () => {
-      document.documentElement.style.overflow = ""
-      document.body.style.overflow = ""
-      document.documentElement.style.overscrollBehavior = ""
-      document.body.style.overscrollBehavior = ""
-    }
+    const timer = setTimeout(() => setIsVisible(false), SHEET_CLOSE_MS)
+    return () => clearTimeout(timer)
   }, [isOpen, isVisible])
 
-  // Attach non-passive touchmove on the handle bar so preventDefault() actually works
   useEffect(() => {
-    const handle = handleBarRef.current
-    if (!handle || !isVisible) return
-    const onTouchMove = (e: TouchEvent) => {
-      if (!isDraggingRef.current) return
-      const diff = e.touches[0].clientY - startYRef.current
-      if (diff > 0) {
-        e.preventDefault()
-        const newDrag = diff * 0.8
-        dragYRef.current = newDrag
-        setDragY(newDrag)
-      }
-    }
-    handle.addEventListener("touchmove", onTouchMove, { passive: false })
-    return () => handle.removeEventListener("touchmove", onTouchMove)
-  }, [isVisible])
-
-  // Prevent the backdrop overlay from letting touch events reach the page below
-  useEffect(() => {
-    const overlay = overlayRef.current
-    if (!overlay || !isVisible) return
-    const prevent = (e: TouchEvent) => e.preventDefault()
-    overlay.addEventListener("touchmove", prevent, { passive: false })
-    return () => overlay.removeEventListener("touchmove", prevent)
-  }, [isVisible])
-
-  const handleClose = () => {
-    setIsAnimating(false)
-    setDragY(0)
-    dragYRef.current = 0
-    setTimeout(() => {
-      onClose()
-    }, 400)
-  }
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    startYRef.current = e.touches[0].clientY
-    isDraggingRef.current = true
-    setIsDragging(true)
-  }
-
-  const handleTouchEnd = () => {
-    if (!isDraggingRef.current) return
-    isDraggingRef.current = false
-    setIsDragging(false)
-    if (dragYRef.current > 80) {
-      handleClose()
-    } else {
-      setDragY(0)
-      dragYRef.current = 0
-    }
-  }
+    if (!isOpen) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose() }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [isOpen, onClose])
 
   if (!isVisible) return null
 
   return (
-    <div data-app-sheet="open" className="fixed inset-0 z-[100]" style={{ touchAction: "none" }}>
+    <div data-app-sheet="open" className="fixed inset-0 z-[100]" role="dialog" aria-modal="true" aria-label={title}>
       <div
-        ref={overlayRef}
-        className={`absolute inset-0 bg-black/50 backdrop-blur-[2px] transition-opacity duration-400 ${
-          isAnimating ? "opacity-100" : "opacity-0"
-        }`}
-        onClick={handleClose}
+        className="absolute inset-0 bg-black/50 transition-opacity"
+        style={{ opacity: isAnimating ? 1 : 0, transitionDuration: `${isAnimating ? SHEET_OPEN_MS : SHEET_CLOSE_MS}ms`, transitionTimingFunction: SHEET_EASE }}
+        onClick={onClose}
       />
-      {/* Desktop Modal */}
-      <div className="hidden sm:flex fixed inset-0 items-center justify-center p-4">
+      <div className="pointer-events-none fixed inset-0 flex items-center justify-center p-4">
         <div
-          className={`relative bg-white rounded-2xl w-full max-w-md shadow-xl transition-all duration-400 ${
-            isAnimating ? "opacity-100 scale-100" : "opacity-0 scale-95"
-          }`}
-          style={{ transitionTimingFunction: "cubic-bezier(0.32, 0.72, 0, 1)", touchAction: "auto" }}
+          className="pointer-events-auto relative w-full max-w-md rounded-2xl bg-white shadow-xl"
+          style={{
+            opacity: isAnimating ? 1 : 0,
+            transform: isAnimating ? "none" : "scale(0.95)",
+            transitionProperty: "opacity, transform",
+            transitionDuration: `${isAnimating ? SHEET_OPEN_MS : SHEET_CLOSE_MS}ms`,
+            transitionTimingFunction: SHEET_EASE,
+          }}
         >
           <div className="flex items-center justify-between p-4 border-b border-[#e5e7eb]">
             <h2 className="text-[18px] font-semibold text-[#1a1a2e]">{title}</h2>
             <button
-              onClick={handleClose}
+              onClick={onClose}
+              aria-label="Close"
               className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center text-[#6b7280] hover:bg-[#e5e7eb] transition-colors cursor-pointer"
             >
               <X className="h-4 w-4" />
             </button>
           </div>
-          <div className="p-4 max-h-[70vh] overflow-y-auto overscroll-contain" style={{ touchAction: "pan-y" }}>{children}</div>
+          <div className="p-4 max-h-[70vh] overflow-y-auto overscroll-contain">{shownRef.current}</div>
         </div>
-      </div>
-      {/* Mobile Bottom Sheet */}
-      <div
-        ref={sheetRef}
-        className="sm:hidden absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl max-h-[90vh] overflow-hidden"
-        style={{
-          transform: isAnimating ? `translateY(${dragY}px)` : "translateY(100%)",
-          transition: isDragging ? "none" : "transform 400ms cubic-bezier(0.32, 0.72, 0, 1)",
-          touchAction: "none",
-        }}
-      >
-        {/* Handle bar — drag target; native non-passive listener handles move */}
-        <div
-          ref={handleBarRef}
-          className="pt-3 pb-2"
-          onTouchStart={handleTouchStart}
-          onTouchEnd={handleTouchEnd}
-          style={{ touchAction: "none" }}
-        >
-          <button
-            onClick={handleClose}
-            className="w-full flex justify-center py-2 cursor-pointer touch-none"
-          >
-            <div className="w-10 h-1.5 bg-gray-300 rounded-full" />
-          </button>
-        </div>
-        <div className="px-4 pb-4 overflow-y-auto overscroll-contain max-h-[calc(90vh-60px)]" style={{ touchAction: "pan-y" }}>
-          <h3 className="text-[16px] font-semibold text-[#1a1a2e] mb-4">{title}</h3>
-          {children}
-        </div>
-        <div className="h-[env(safe-area-inset-bottom)]" />
       </div>
     </div>
   )

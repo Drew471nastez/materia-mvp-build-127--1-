@@ -53,6 +53,7 @@ import {
   Mail,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { DateRangePicker } from "@/components/app/date-range-picker";
 import { viewerTimeZone } from "@/lib/orders/time-zone";
 import { boundsOf, resolveValue, todayIn, type RangeValue } from "@/lib/date-range/range";
@@ -620,17 +621,8 @@ function WithdrawPanel({
     currency: string;
   } | null>(null);
   const [inTransitAmount, setInTransitAmount] = useState(0);
-  const [detailsDragY, setDetailsDragY] = useState(0);
-  const [detailsIsDragging, setDetailsIsDragging] = useState(false);
-  const detailsStartY = useRef(0);
-  const [dragY, setDragY] = useState(0);
-  const [isDragging, setIsDragging] = useState(false);
-  const startY = useRef(0);
-  // Smooth animation states for mobile bottom sheets
-  const [breakdownVisible, setBreakdownVisible] = useState(false);
-  const [breakdownAnimating, setBreakdownAnimating] = useState(false);
-  const [detailsVisible, setDetailsVisible] = useState(false);
-  const [detailsAnimating, setDetailsAnimating] = useState(false);
+  const closeBreakdown = useCallback(() => setOpenBreakdown(false), []);
+  const closeDetails = useCallback(() => setOpenDetails(false), []);
   const [successPayout, setSuccessPayout] = useState<{
     amount: number;
     currency: string;
@@ -716,30 +708,6 @@ function WithdrawPanel({
       setDetailsLoading(false);
     }
   };
-
-  // Drive smooth slide-in/out animations for the breakdown mobile sheet
-  useEffect(() => {
-    if (openBreakdown) {
-      setBreakdownVisible(true);
-      requestAnimationFrame(() => requestAnimationFrame(() => setBreakdownAnimating(true)));
-    } else {
-      setBreakdownAnimating(false);
-      const t = setTimeout(() => setBreakdownVisible(false), 400);
-      return () => clearTimeout(t);
-    }
-  }, [openBreakdown]);
-
-  // Drive smooth slide-in/out animations for the details mobile sheet
-  useEffect(() => {
-    if (openDetails) {
-      setDetailsVisible(true);
-      requestAnimationFrame(() => requestAnimationFrame(() => setDetailsAnimating(true)));
-    } else {
-      setDetailsAnimating(false);
-      const t = setTimeout(() => setDetailsVisible(false), 400);
-      return () => clearTimeout(t);
-    }
-  }, [openDetails]);
 
   // Auto-dismiss success block after 8 seconds
   useEffect(() => {
@@ -1071,133 +1039,96 @@ function WithdrawPanel({
         </>
       )}
 
-      {/* Mobile Earnings Breakdown bottom sheet — rendered separately for smooth animation */}
-      {breakdownVisible && (
-        <div data-app-sheet="open" className="fixed inset-0 z-[80] sm:hidden">
-          <div
-            className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
-            style={{
-              opacity: breakdownAnimating ? (dragY > 0 ? Math.max(0, 1 - dragY / 300) : 1) : 0,
-              transition: isDragging ? "none" : "opacity 400ms cubic-bezier(0.32,0.72,0,1)",
-            }}
-            onClick={() => setOpenBreakdown(false)}
-          />
-          <div
-            className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl"
-            onTouchStart={(e) => {
-              startY.current = e.touches[0].clientY;
-              setIsDragging(true);
-            }}
-            onTouchMove={(e) => {
-              if (!isDragging) return;
-              const diff = e.touches[0].clientY - startY.current;
-              if (diff > 0) setDragY(diff * 0.85);
-            }}
-            onTouchEnd={() => {
-              if (dragY > 80) setOpenBreakdown(false);
-              setDragY(0);
-              setIsDragging(false);
-            }}
-            style={{
-              transform: breakdownAnimating ? `translateY(${dragY}px)` : "translateY(100%)",
-              transition: isDragging ? "none" : "transform 420ms cubic-bezier(0.32,0.72,0,1)",
-              willChange: "transform",
-            }}
-          >
-            <div className="pt-3 pb-2 flex justify-center">
-              <div className="w-10 h-1.5 rounded-full bg-[#d1d5db]" />
+      {/* Mobile Earnings Breakdown: the shared phone sheet. */}
+      <BottomSheet isOpen={openBreakdown} onClose={closeBreakdown} label="Balance Breakdown">
+        <div className="px-5 pb-5">
+          <h3 className="text-[18px] font-semibold text-[#1a1a2e]">Balance Breakdown</h3>
+          <p className="text-[13px] text-[#6b7280] mt-0.5">Your current balance details.</p>
+          <div className="mt-4 space-y-2">
+            <div className="bg-[#f9fafb] border border-[#f0f0f0] rounded-xl p-3.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-7 h-7 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
+                    <Clock className="h-3.5 w-3.5 text-[#6b7280]" />
+                  </div>
+                  <div>
+                    <p className="text-[13px] font-medium text-[#1a1a2e]">Available soon</p>
+                    <p className="text-[10px] text-[#9ca3af]">Processing — usually 2–7 business days</p>
+                  </div>
+                </div>
+                <span className="text-[14px] font-semibold text-[#1a1a2e]">{fmt(pendingBalance, currency)}</span>
+              </div>
+              {holdItemsLoading ? (
+                <div className="mt-2.5 space-y-1.5">
+                  {[1, 2].map((i) => (
+                    <div key={i} className="h-5 rounded bg-gray-100 animate-pulse" />
+                  ))}
+                </div>
+              ) : holdItems.length > 0 ? (
+                <div className="mt-2.5 space-y-1 border-t border-[#e5e7eb] pt-2.5">
+                  {holdItems.map((item) => (
+                    <div key={item.id} className="flex items-center justify-between">
+                      <span className="text-[10px] text-[#6b7280] truncate max-w-[55%]">
+                        {item.description}
+                      </span>
+                      <span className="text-[10px] text-[#9ca3af] font-mono whitespace-nowrap">
+                        {new Date(item.hold_until) <= new Date()
+                          ? "Ready"
+                          : `${new Date(item.hold_until).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
+                        } · {fmt(item.amount_cents, currency)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
             </div>
-            <div className="px-5 pb-5">
-              <h3 className="text-[18px] font-semibold text-[#1a1a2e]">Balance Breakdown</h3>
-              <p className="text-[13px] text-[#6b7280] mt-0.5">Your current balance details.</p>
-              <div className="mt-4 space-y-2">
-                <div className="bg-[#f9fafb] border border-[#f0f0f0] rounded-xl p-3.5">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-7 h-7 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
-                        <Clock className="h-3.5 w-3.5 text-[#6b7280]" />
-                      </div>
-                      <div>
-                        <p className="text-[13px] font-medium text-[#1a1a2e]">Available soon</p>
-                        <p className="text-[10px] text-[#9ca3af]">Processing — usually 2–7 business days</p>
-                      </div>
-                    </div>
-                    <span className="text-[14px] font-semibold text-[#1a1a2e]">{fmt(pendingBalance, currency)}</span>
-                  </div>
-                  {holdItemsLoading ? (
-                    <div className="mt-2.5 space-y-1.5">
-                      {[1, 2].map((i) => (
-                        <div key={i} className="h-5 rounded bg-gray-100 animate-pulse" />
-                      ))}
-                    </div>
-                  ) : holdItems.length > 0 ? (
-                    <div className="mt-2.5 space-y-1 border-t border-[#e5e7eb] pt-2.5">
-                      {holdItems.map((item) => (
-                        <div key={item.id} className="flex items-center justify-between">
-                          <span className="text-[10px] text-[#6b7280] truncate max-w-[55%]">
-                            {item.description}
-                          </span>
-                          <span className="text-[10px] text-[#9ca3af] font-mono whitespace-nowrap">
-                            {new Date(item.hold_until) <= new Date()
-                              ? "Ready"
-                              : `${new Date(item.hold_until).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
-                            } · {fmt(item.amount_cents, currency)}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  ) : null}
+            <div className="flex items-center justify-between bg-[#f9fafb] border border-[#f0f0f0] rounded-xl p-3.5">
+              <div className="flex items-center gap-2.5">
+                <div className="w-7 h-7 rounded-lg bg-[#ede9fe] flex items-center justify-center">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-[#8b5cf6]" />
                 </div>
-                <div className="flex items-center justify-between bg-[#f9fafb] border border-[#f0f0f0] rounded-xl p-3.5">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-7 h-7 rounded-lg bg-[#ede9fe] flex items-center justify-center">
-                      <CheckCircle2 className="h-3.5 w-3.5 text-[#8b5cf6]" />
-                    </div>
-                    <div>
-                      <p className="text-[13px] font-medium text-[#1a1a2e]">Available for cash out</p>
-                      <p className="text-[10px] text-[#9ca3af]">Ready to withdraw</p>
-                    </div>
-                  </div>
-                  <span className="text-[14px] font-semibold text-[#1a1a2e]">{fmt(availableBalance, currency)}</span>
-                </div>
-                {inTransitAmount > 0 && (
-                  <div className="flex items-center justify-between bg-[#f9fafb] border border-[#f0f0f0] rounded-xl p-3.5">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center">
-                        <Send className="h-3.5 w-3.5 text-blue-500" />
-                      </div>
-                      <div>
-                        <p className="text-[13px] font-medium text-[#1a1a2e]">On the way to bank</p>
-                        <p className="text-[10px] text-[#9ca3af]">24–48 hours</p>
-                      </div>
-                    </div>
-                    <span className="text-[14px] font-semibold text-[#1a1a2e]">{fmt(inTransitAmount, currency)}</span>
-                  </div>
-                )}
-                <div className="flex items-center justify-between pt-3 border-t border-[#e5e7eb] px-1">
-                  <span className="text-[13px] font-medium text-[#1a1a2e]">Total balance</span>
-                  <span className="text-[16px] font-bold text-[#8b5cf6]">{fmt(availableBalance + pendingBalance + inTransitAmount, currency)}</span>
+                <div>
+                  <p className="text-[13px] font-medium text-[#1a1a2e]">Available for cash out</p>
+                  <p className="text-[10px] text-[#9ca3af]">Ready to withdraw</p>
                 </div>
               </div>
-              <div className="mt-4 bg-[#f9fafb] border border-[#f0f0f0] rounded-xl p-3">
-                <div className="flex items-start gap-2">
-                  <Info className="h-3.5 w-3.5 text-[#9ca3af] mt-0.5 shrink-0" />
-                  <p className="text-[11px] text-[#6b7280] leading-relaxed">
-                    Payments are processed by Stripe and typically settle in 2–7 business days depending on your country. Once settled, funds become available for cash out.
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setOpenBreakdown(false)}
-                className="w-full mt-5 bg-[#8b5cf6] hover:bg-[#7c3aed] text-white rounded-xl py-3 text-[14px] font-medium transition-colors"
-              >
-                Okay
-              </button>
+              <span className="text-[14px] font-semibold text-[#1a1a2e]">{fmt(availableBalance, currency)}</span>
             </div>
-            <div style={{ height: "max(env(safe-area-inset-bottom), 12px)" }} />
+            {inTransitAmount > 0 && (
+              <div className="flex items-center justify-between bg-[#f9fafb] border border-[#f0f0f0] rounded-xl p-3.5">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center">
+                    <Send className="h-3.5 w-3.5 text-blue-500" />
+                  </div>
+                  <div>
+                    <p className="text-[13px] font-medium text-[#1a1a2e]">On the way to bank</p>
+                    <p className="text-[10px] text-[#9ca3af]">24–48 hours</p>
+                  </div>
+                </div>
+                <span className="text-[14px] font-semibold text-[#1a1a2e]">{fmt(inTransitAmount, currency)}</span>
+              </div>
+            )}
+            <div className="flex items-center justify-between pt-3 border-t border-[#e5e7eb] px-1">
+              <span className="text-[13px] font-medium text-[#1a1a2e]">Total balance</span>
+              <span className="text-[16px] font-bold text-[#8b5cf6]">{fmt(availableBalance + pendingBalance + inTransitAmount, currency)}</span>
+            </div>
           </div>
+          <div className="mt-4 bg-[#f9fafb] border border-[#f0f0f0] rounded-xl p-3">
+            <div className="flex items-start gap-2">
+              <Info className="h-3.5 w-3.5 text-[#9ca3af] mt-0.5 shrink-0" />
+              <p className="text-[11px] text-[#6b7280] leading-relaxed">
+                Payments are processed by Stripe and typically settle in 2–7 business days depending on your country. Once settled, funds become available for cash out.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setOpenBreakdown(false)}
+            className="w-full mt-5 bg-[#8b5cf6] hover:bg-[#7c3aed] text-white rounded-xl py-3 text-[14px] font-medium transition-colors"
+          >
+            Okay
+          </button>
         </div>
-      )}
+      </BottomSheet>
 
       {/* ── See Details Modal ── */}
       {openDetails && (
@@ -1311,108 +1242,71 @@ function WithdrawPanel({
         </>
       )}
 
-      {/* Mobile See Details bottom sheet — rendered separately for smooth animation */}
-      {detailsVisible && (
-        <div data-app-sheet="open" className="fixed inset-0 z-[90] sm:hidden">
-          <div
-            className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
-            style={{
-              opacity: detailsAnimating ? (detailsDragY > 0 ? Math.max(0, 1 - detailsDragY / 300) : 1) : 0,
-              transition: detailsIsDragging ? "none" : "opacity 400ms cubic-bezier(0.32,0.72,0,1)",
-            }}
-            onClick={() => setOpenDetails(false)}
-          />
-          <div
-            className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl"
-            onTouchStart={(e) => {
-              detailsStartY.current = e.touches[0].clientY;
-              setDetailsIsDragging(true);
-            }}
-            onTouchMove={(e) => {
-              if (!detailsIsDragging) return;
-              const diff = e.touches[0].clientY - detailsStartY.current;
-              if (diff > 0) setDetailsDragY(diff * 0.85);
-            }}
-            onTouchEnd={() => {
-              if (detailsDragY > 80) setOpenDetails(false);
-              setDetailsDragY(0);
-              setDetailsIsDragging(false);
-            }}
-            style={{
-              transform: detailsAnimating ? `translateY(${detailsDragY}px)` : "translateY(100%)",
-              transition: detailsIsDragging ? "none" : "transform 420ms cubic-bezier(0.32,0.72,0,1)",
-              willChange: "transform",
-            }}
-          >
-            <div className="pt-3 pb-1 flex justify-center">
-              <div className="w-10 h-1.5 rounded-full bg-[#d1d5db]" />
-            </div>
-            <div className="px-5 pb-5">
-              <h3 className="text-[18px] font-semibold text-[#1a1a2e] mt-1 mb-4">Your balance</h3>
-              <div className="space-y-0 rounded-2xl border border-[#e5e7eb] overflow-hidden">
-                {[
-                  { label: "On the way to your bank", value: inTransitAmount, icon: <Send className="h-3.5 w-3.5 text-[#6b7280]" /> },
-                  { label: "Available to pay out soon", value: pendingBalance, icon: <Clock className="h-3.5 w-3.5 text-[#6b7280]" /> },
-                  { label: "Available in your balance", value: availableBalance, icon: <CheckCircle2 className="h-3.5 w-3.5 text-[#6b7280]" /> },
-                ].map(({ label, value, icon }, i) => (
-                  <div key={i} className="flex items-center justify-between px-4 py-3 border-b border-[#f3f4f6] last:border-0">
-                    <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-lg bg-[#f3f4f6] flex items-center justify-center">{icon}</div>
-                      <span className="text-[12px] text-[#374151]">{label}</span>
-                    </div>
-                    <span className="text-[13px] font-semibold text-[#1a1a2e]">{fmt(value, currency)}</span>
-                  </div>
-                ))}
-                <div className="flex items-center justify-between px-4 py-3 bg-[#f9fafb]">
-                  <span className="text-[13px] font-semibold text-[#374151]">Total balance</span>
-                  <span className="text-[14px] font-bold text-[#1a1a2e]">{fmt(availableBalance + pendingBalance, currency)}</span>
+      {/* Mobile See Details: the shared phone sheet. */}
+      <BottomSheet isOpen={openDetails} onClose={closeDetails} label="Your balance">
+        <div className="px-5 pb-5">
+          <h3 className="text-[18px] font-semibold text-[#1a1a2e] mt-1 mb-4">Your balance</h3>
+          <div className="space-y-0 rounded-2xl border border-[#e5e7eb] overflow-hidden">
+            {[
+              { label: "On the way to your bank", value: inTransitAmount, icon: <Send className="h-3.5 w-3.5 text-[#6b7280]" /> },
+              { label: "Available to pay out soon", value: pendingBalance, icon: <Clock className="h-3.5 w-3.5 text-[#6b7280]" /> },
+              { label: "Available in your balance", value: availableBalance, icon: <CheckCircle2 className="h-3.5 w-3.5 text-[#6b7280]" /> },
+            ].map(({ label, value, icon }, i) => (
+              <div key={i} className="flex items-center justify-between px-4 py-3 border-b border-[#f3f4f6] last:border-0">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-lg bg-[#f3f4f6] flex items-center justify-center">{icon}</div>
+                  <span className="text-[12px] text-[#374151]">{label}</span>
                 </div>
+                <span className="text-[13px] font-semibold text-[#1a1a2e]">{fmt(value, currency)}</span>
               </div>
-              <button
-                onClick={handleWithdraw}
-                disabled={loading}
-                className={cn(
-                  "w-full mt-4 flex items-center justify-center gap-2 px-4 py-3 text-[14px] font-medium text-white bg-[#635bff] rounded-xl transition-colors",
-                  availableBalance <= 0
-                    ? "opacity-40 cursor-not-allowed"
-                    : "hover:bg-[#564de8] disabled:opacity-50 disabled:cursor-not-allowed",
-                )}
-              >
-                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Banknote className="h-4 w-4" />}
-                {availableBalance <= 0 ? "No funds yet" : "Cash out"}
-              </button>
-              <div className="mt-4 pt-4 border-t border-[#f3f4f6]">
-                {detailsLoading ? (
-                  <div className="h-4 w-48 bg-gray-100 rounded animate-pulse" />
-                ) : detailsBank ? (
-                  <p className="text-[12px] text-[#9ca3af] leading-relaxed">
-                    Your funds are manually paid out to{" "}
-                    <span className="font-medium text-[#6b7280]">
-                      {detailsBank.bankName || "Bank account"} ••••{detailsBank.last4}
-                    </span>.{" "}
-                    <button
-                      onClick={() => openAccountLink("update")}
-                      disabled={accountLinkLoading}
-                      className="text-[#8b5cf6] hover:underline font-medium"
-                    >
-                      Update bank account
-                    </button>
-                  </p>
-                ) : (
-                  <button
-                    onClick={() => openAccountLink("update")}
-                    disabled={accountLinkLoading}
-                    className="text-[12px] text-[#8b5cf6] hover:underline font-medium"
-                  >
-                    Update bank account →
-                  </button>
-                )}
-              </div>
+            ))}
+            <div className="flex items-center justify-between px-4 py-3 bg-[#f9fafb]">
+              <span className="text-[13px] font-semibold text-[#374151]">Total balance</span>
+              <span className="text-[14px] font-bold text-[#1a1a2e]">{fmt(availableBalance + pendingBalance, currency)}</span>
             </div>
-            <div style={{ height: "max(env(safe-area-inset-bottom), 16px)" }} />
+          </div>
+          <button
+            onClick={handleWithdraw}
+            disabled={loading}
+            className={cn(
+              "w-full mt-4 flex items-center justify-center gap-2 px-4 py-3 text-[14px] font-medium text-white bg-[#635bff] rounded-xl transition-colors",
+              availableBalance <= 0
+                ? "opacity-40 cursor-not-allowed"
+                : "hover:bg-[#564de8] disabled:opacity-50 disabled:cursor-not-allowed",
+            )}
+          >
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Banknote className="h-4 w-4" />}
+            {availableBalance <= 0 ? "No funds yet" : "Cash out"}
+          </button>
+          <div className="mt-4 pt-4 border-t border-[#f3f4f6]">
+            {detailsLoading ? (
+              <div className="h-4 w-48 bg-gray-100 rounded animate-pulse" />
+            ) : detailsBank ? (
+              <p className="text-[12px] text-[#9ca3af] leading-relaxed">
+                Your funds are manually paid out to{" "}
+                <span className="font-medium text-[#6b7280]">
+                  {detailsBank.bankName || "Bank account"} ••••{detailsBank.last4}
+                </span>.{" "}
+                <button
+                  onClick={() => openAccountLink("update")}
+                  disabled={accountLinkLoading}
+                  className="text-[#8b5cf6] hover:underline font-medium"
+                >
+                  Update bank account
+                </button>
+              </p>
+            ) : (
+              <button
+                onClick={() => openAccountLink("update")}
+                disabled={accountLinkLoading}
+                className="text-[12px] text-[#8b5cf6] hover:underline font-medium"
+              >
+                Update bank account →
+              </button>
+            )}
           </div>
         </div>
-      )}
+      </BottomSheet>
     </div>
   );
 }
@@ -1543,7 +1437,7 @@ function OrderTimeline({
 // ─── Order Details Modal (Desktop centered + Mobile bottom sheet) ──────────────
 
 function OrderDetailsModal({
-  order,
+  order: orderProp,
   currency,
   onClose,
   onRefundSuccess,
@@ -1556,8 +1450,6 @@ function OrderDetailsModal({
   const [isVisible, setIsVisible] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const [dragY, setDragY] = useState(0);
-  const [isDragging, setIsDragging] = useState(false);
   const [showTimeline, setShowTimeline] = useState(false);
   const [copiedId, setCopiedId] = useState(false);
   const [refundLoading, setRefundLoading] = useState(false);
@@ -1578,16 +1470,15 @@ function OrderDetailsModal({
     setNotification({ message, visible: true, type });
     notificationTimer.current = setTimeout(() => setNotification(n => ({ ...n, visible: false })), 4000);
   };
-  // Smooth refund sheet states
-  const [refundSheetVisible, setRefundSheetVisible] = useState(false);
-  const [refundSheetAnimating, setRefundSheetAnimating] = useState(false);
-  const [refundDragY, setRefundDragY] = useState(0);
-  const [refundIsDragging, setRefundIsDragging] = useState(false);
-  const refundStartY = useRef(0);
-  const startY = useRef(0);
-  const sheetRef = useRef<HTMLDivElement>(null);
-
-  const isOpen = !!order;
+  /**
+   * THE ORDER IT WAS SHOWING, KEPT WHILE IT LEAVES. The parent clears the
+   * order the moment it is closed, and this returned null on that render, so
+   * the phone sheet vanished instead of sliding down.
+   */
+  const lastOrderRef = useRef(orderProp);
+  if (orderProp) lastOrderRef.current = orderProp;
+  const order = orderProp ?? lastOrderRef.current;
+  const isOpen = !!orderProp;
 
   useEffect(() => {
     setMounted(true);
@@ -1607,7 +1498,6 @@ function OrderDetailsModal({
       document.body.style.overflow = "";
       const t = setTimeout(() => {
         setIsVisible(false);
-        setDragY(0);
       }, 400);
       return () => clearTimeout(t);
     }
@@ -1628,26 +1518,8 @@ function OrderDetailsModal({
 
   const handleClose = () => {
     setIsAnimating(false);
-    setDragY(0);
     setTimeout(() => onClose(), 400);
   };
-
-  // Drive smooth animation for the refund mobile bottom sheet
-  useEffect(() => {
-    if (showRefundConfirm) {
-      setRefundSheetVisible(true);
-      requestAnimationFrame(() => requestAnimationFrame(() => setRefundSheetAnimating(true)));
-    } else if (refundSheetVisible) {
-      // Animate out, then unmount
-      setRefundSheetAnimating(false);
-      const t = setTimeout(() => {
-        setRefundSheetVisible(false);
-        setRefundDragY(0);
-      }, 420);
-      return () => clearTimeout(t);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showRefundConfirm]);
 
   const closeRefundSheet = () => {
     if (refundLoading) return;
@@ -1694,28 +1566,6 @@ function OrderDetailsModal({
     setShowEditEmail(true);
   };
 
-  const handleTouchStart = (e: React.TouchEvent) => {
-    const touch = e.touches[0];
-    const el = sheetRef.current;
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    if (touch.clientY - rect.top <= 60) {
-      startY.current = touch.clientY;
-      setIsDragging(true);
-    }
-  };
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!isDragging) return;
-    const diff = e.touches[0].clientY - startY.current;
-    if (diff > 0) setDragY(diff * 0.9);
-  };
-  const handleTouchEnd = () => {
-    if (!isDragging) return;
-    setIsDragging(false);
-    if (dragY > 90) handleClose();
-    else setDragY(0);
-  };
-
   const handleCopyId = () => {
     if (!order) return;
     navigator.clipboard.writeText(order.id);
@@ -1748,7 +1598,7 @@ function OrderDetailsModal({
     }
   };
 
-  if (!isVisible || !order || !mounted) return null;
+  if (!order || !mounted) return null;
 
   const net = order.amount_cents - (order.fee_cents || 0);
   const buyerName =
@@ -2381,6 +2231,7 @@ function OrderDetailsModal({
   return createPortal(
     <>
       {/* ── Desktop Modal ── */}
+      {isVisible && (
       <div className="fixed inset-0 z-50 hidden sm:flex items-center justify-center">
         <div
           className={cn(
@@ -2417,7 +2268,7 @@ function OrderDetailsModal({
           </div>
           {/* Scrollable content */}
           <div className="p-6 space-y-4 overflow-y-auto flex-1 min-h-0">
-            <ContentSections compact={false} hideActions={true} />
+            {ContentSections({ compact: false, hideActions: true })}
           </div>
           {/* Sticky footer — action buttons */}
           <div className="border-t border-[#e5e7eb] px-6 py-4 flex-shrink-0 flex items-center gap-2">
@@ -2469,120 +2320,93 @@ function OrderDetailsModal({
           </div>
         </div>
       </div>
+      )}
 
-      {/* ── Mobile Bottom Sheet ── */}
-      <div data-app-sheet="open" className="fixed inset-0 z-[80] sm:hidden">
-        <div
-          className="absolute inset-0 bg-black/50 backdrop-blur-[2px]"
-          style={{
-            opacity: isAnimating ? (dragY > 0 ? Math.max(0, 1 - dragY / 350) : 1) : 0,
-            transition: isDragging ? "none" : "opacity 380ms cubic-bezier(0.32,0.72,0,1)",
-          }}
-          onClick={handleClose}
-        />
-        <div
-          ref={sheetRef}
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-          className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl flex flex-col"
-          style={{
-            transform: isAnimating
-              ? `translateY(${dragY}px)`
-              : "translateY(100%)",
-            transition: isDragging
-              ? "none"
-              : "transform 420ms cubic-bezier(0.32,0.72,0,1)",
-            maxHeight: "61vh",
-            willChange: "transform",
-          }}
-        >
-          {/* Handle */}
-          <div className="pt-3 pb-2 flex-shrink-0">
-            <button
-              onClick={handleClose}
-              className="w-full flex justify-center py-2 cursor-pointer touch-none"
-            >
-              <div className="w-10 h-1.5 bg-gray-300 rounded-full" />
-            </button>
-          </div>
-          {/* Header */}
-          <div className="px-4 pb-3 flex items-center justify-between border-b border-[#e5e7eb] flex-shrink-0">
+      {/* ── Mobile Bottom Sheet ──
+          The shared phone sheet. Edit Email and Refund open over it rather
+          than closing it first: closing cleared the order, and the refund
+          sheet that was meant to follow 450ms later had no order to show. */}
+      <BottomSheet
+        isOpen={isOpen}
+        onClose={onClose}
+        label="Order Details"
+        fill
+        maxHeight="61vh"
+        header={
+          <div className="px-4 pb-3 pt-2 flex items-center justify-between border-b border-[#e5e7eb]">
             <h3 className="text-[16px] font-semibold text-[#1a1a2e]">
               Order Details
             </h3>
             {getStatusBadge(order.status)}
           </div>
-          {/* Scrollable content */}
-          <div className="px-4 py-4 overflow-y-auto overscroll-contain flex-1 min-h-0 space-y-3 [-webkit-overflow-scrolling:touch]">
-            <ContentSections compact={true} hideActions={true} />
-          </div>
-          {/* Sticky footer — 2×2 action buttons matching Sales page */}
-          <div
-            className="px-4 pt-4 border-t border-[#e5e7eb] bg-white flex-shrink-0"
-            style={{ paddingBottom: "max(env(safe-area-inset-bottom), 20px)" }}
-          >
-            {/* Row 1: Invoice + Resend */}
-            <div className="flex items-center gap-2 mb-2">
-              {order.stripe_payment_intent_id ? (
-                <a
-                  href={`/api/stripe/invoice?orderId=${order.id}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex-1 px-3 py-2.5 text-[12px] font-medium text-[#374151] bg-[#f3f4f6] rounded-lg active:bg-[#e5e7eb] transition-colors flex items-center justify-center gap-1.5"
-                >
-                  <FileText className="h-3.5 w-3.5" />
-                  Invoice
-                </a>
-              ) : (
-                <span className="flex-1 px-3 py-2.5 text-[12px] font-medium text-[#9ca3af] bg-[#f3f4f6] rounded-lg flex items-center justify-center gap-1.5 cursor-not-allowed opacity-60">
-                  <FileText className="h-3.5 w-3.5" />
-                  Invoice
-                </span>
-              )}
-              <button
-                onClick={handleResend}
-                disabled={resendLoading}
-                className="flex-1 px-3 py-2.5 text-[12px] font-medium text-[#374151] bg-[#f3f4f6] rounded-lg active:bg-[#e5e7eb] transition-colors flex items-center justify-center gap-1.5 disabled:opacity-60"
-              >
-                {resendLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
-                {resendLoading ? "Sending…" : "Resend"}
-              </button>
-            </div>
-            {/* Row 2: Edit Email + Refund */}
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => { openEditEmail(); handleClose(); }}
+        }
+      >
+        {/* Scrollable content */}
+        <div className="px-4 py-4 overflow-y-auto overscroll-contain flex-1 min-h-0 space-y-3 [-webkit-overflow-scrolling:touch]">
+          {ContentSections({ compact: true, hideActions: true })}
+        </div>
+        {/* Sticky footer — 2×2 action buttons matching Sales page */}
+        <div
+          className="px-4 pt-4 border-t border-[#e5e7eb] bg-white flex-shrink-0"
+          style={{ paddingBottom: 8 }}
+        >
+          {/* Row 1: Invoice + Resend */}
+          <div className="flex items-center gap-2 mb-2">
+            {order.stripe_payment_intent_id ? (
+              <a
+                href={`/api/stripe/invoice?orderId=${order.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="flex-1 px-3 py-2.5 text-[12px] font-medium text-[#374151] bg-[#f3f4f6] rounded-lg active:bg-[#e5e7eb] transition-colors flex items-center justify-center gap-1.5"
               >
-                <Mail className="h-3.5 w-3.5" />
-                Edit Email
+                <FileText className="h-3.5 w-3.5" />
+                Invoice
+              </a>
+            ) : (
+              <span className="flex-1 px-3 py-2.5 text-[12px] font-medium text-[#9ca3af] bg-[#f3f4f6] rounded-lg flex items-center justify-center gap-1.5 cursor-not-allowed opacity-60">
+                <FileText className="h-3.5 w-3.5" />
+                Invoice
+              </span>
+            )}
+            <button
+              onClick={handleResend}
+              disabled={resendLoading}
+              className="flex-1 px-3 py-2.5 text-[12px] font-medium text-[#374151] bg-[#f3f4f6] rounded-lg active:bg-[#e5e7eb] transition-colors flex items-center justify-center gap-1.5 disabled:opacity-60"
+            >
+              {resendLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+              {resendLoading ? "Sending…" : "Resend"}
+            </button>
+          </div>
+          {/* Row 2: Edit Email + Refund */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={openEditEmail}
+              className="flex-1 px-3 py-2.5 text-[12px] font-medium text-[#374151] bg-[#f3f4f6] rounded-lg active:bg-[#e5e7eb] transition-colors flex items-center justify-center gap-1.5"
+            >
+              <Mail className="h-3.5 w-3.5" />
+              Edit Email
+            </button>
+            {order.status === "completed" && !refundDone ? (
+              <button
+                onClick={() => {
+                  setRefundReason("");
+                  setRefundError(null);
+                  setShowRefundConfirm(true);
+                }}
+                className="flex-1 px-3 py-2.5 text-[12px] font-medium text-rose-600 bg-rose-50 rounded-lg active:bg-rose-100 transition-colors flex items-center justify-center gap-1.5"
+              >
+                <RotateCcw className="h-3.5 w-3.5" />
+                Refund
               </button>
-              {order.status === "completed" && !refundDone ? (
-                <button
-                  onClick={() => {
-                    handleClose();
-                    setTimeout(() => {
-                      setRefundReason("");
-                      setRefundError(null);
-                      setShowRefundConfirm(true);
-                    }, 450);
-                  }}
-                  className="flex-1 px-3 py-2.5 text-[12px] font-medium text-rose-600 bg-rose-50 rounded-lg active:bg-rose-100 transition-colors flex items-center justify-center gap-1.5"
-                >
-                  <RotateCcw className="h-3.5 w-3.5" />
-                  Refund
-                </button>
-              ) : order.status === "refunded" || refundDone ? (
-                <span className="flex-1 px-3 py-2.5 text-[12px] font-medium text-rose-400 bg-rose-50 rounded-lg flex items-center justify-center gap-1.5 cursor-not-allowed opacity-70">
-                  <RotateCcw className="h-3.5 w-3.5" />
-                  Refunded
-                </span>
-              ) : null}
-            </div>
+            ) : order.status === "refunded" || refundDone ? (
+              <span className="flex-1 px-3 py-2.5 text-[12px] font-medium text-rose-400 bg-rose-50 rounded-lg flex items-center justify-center gap-1.5 cursor-not-allowed opacity-70">
+                <RotateCcw className="h-3.5 w-3.5" />
+                Refunded
+              </span>
+            ) : null}
           </div>
         </div>
-      </div>
+      </BottomSheet>
 
       {/* ── Refund Confirmation — desktop centered modal + mobile bottom sheet ── */}
       {showRefundConfirm && (
@@ -2684,133 +2508,100 @@ function OrderDetailsModal({
         </>
       )}
 
-      {/* Mobile refund bottom sheet — separate block for smooth slide animation */}
-      {refundSheetVisible && (
-        <div data-app-sheet="open" className="fixed inset-0 z-[80] sm:hidden">
-          <div
-            className="absolute inset-0 bg-black/50 backdrop-blur-[2px]"
-            style={{
-              opacity: refundSheetAnimating ? (refundDragY > 0 ? Math.max(0, 1 - refundDragY / 280) : 1) : 0,
-              transition: refundIsDragging ? "none" : "opacity 400ms cubic-bezier(0.32,0.72,0,1)",
-            }}
-            onClick={closeRefundSheet}
-          />
-          <div
-            className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl"
-            onTouchStart={(e) => {
-              refundStartY.current = e.touches[0].clientY;
-              setRefundIsDragging(true);
-            }}
-            onTouchMove={(e) => {
-              if (!refundIsDragging) return;
-              const diff = e.touches[0].clientY - refundStartY.current;
-              if (diff > 0) setRefundDragY(diff * 0.85);
-            }}
-            onTouchEnd={() => {
-              setRefundIsDragging(false);
-              if (refundDragY > 80) { closeRefundSheet(); }
-              else setRefundDragY(0);
-            }}
-            style={{
-              transform: refundSheetAnimating ? `translateY(${refundDragY}px)` : "translateY(100%)",
-              transition: refundIsDragging ? "none" : "transform 420ms cubic-bezier(0.32,0.72,0,1)",
-              willChange: "transform",
-            }}
-          >
-            {/* Drag handle */}
-            <div className="pt-3 pb-1 flex justify-center touch-none select-none">
-              <div className="w-10 h-[5px] rounded-full bg-[#d1d5db]" />
-            </div>
-            {/* Header */}
-            <div className="px-5 pt-2 pb-4 border-b border-[#f3f4f6]">
-              <div className="flex items-center justify-between">
-                <h2 className="text-[17px] font-semibold text-[#1a1a2e]">Issue Refund</h2>
-                <button
-                  onClick={closeRefundSheet}
-                  className="w-7 h-7 rounded-full bg-[#f3f4f6] flex items-center justify-center text-[#6b7280]"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              </div>
-              <p className="text-[12px] text-[#6b7280] mt-0.5">The customer will be notified via email.</p>
-            </div>
-            {/* Content */}
-            <div className="px-5 py-4 space-y-4">
-              <div className="flex items-center gap-3 p-3 bg-[#f9fafb] rounded-xl">
-                {order.product?.thumbnail_url ? (
-                  <img src={order.product.thumbnail_url} alt="" className="w-10 h-10 rounded-xl object-cover" />
-                ) : (
-                  <div className="w-10 h-10 rounded-xl bg-[#e5e7eb] flex items-center justify-center">
-                    <Package className="h-4 w-4 text-[#9ca3af]" />
-                  </div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <p className="text-[14px] font-medium text-[#1a1a2e] truncate">{order.product?.title || "Product"}</p>
-                  <p className="text-[12px] text-[#9ca3af]">{order.buyer_email || order.customer_email || ""}</p>
-                </div>
-                <p className="text-[14px] font-semibold text-[#1a1a2e] shrink-0">{fmt(order.amount_cents, currency)}</p>
-              </div>
-              <div>
-                <label className="block text-[13px] font-medium text-[#374151] mb-2.5">Select a reason</label>
-                <div className="grid grid-cols-2 gap-2">
-                  {[
-                    { value: "requested_by_customer", label: "Customer request" },
-                    { value: "duplicate", label: "Duplicate charge" },
-                    { value: "fraudulent", label: "Fraudulent" },
-                    { value: "other", label: "Other" },
-                  ].map((opt) => (
-                    <button
-                      key={opt.value}
-                      onClick={() => setRefundReason(opt.value)}
-                      className={cn(
-                        "px-3 py-3 rounded-xl text-[13px] font-medium transition-colors border active:scale-95",
-                        refundReason === opt.value
-                          ? "bg-[#f5f3ff] border-[#8b5cf6] text-[#8b5cf6]"
-                          : "border-[#e5e7eb] text-[#6b7280] bg-white",
-                      )}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              {refundError && (
-                <div className="p-3 bg-red-50 border border-red-200 rounded-xl">
-                  <p className="text-[12px] text-red-600 flex items-center gap-2">
-                    <AlertCircle className="h-4 w-4 shrink-0" />{refundError}
-                  </p>
-                </div>
-              )}
-            </div>
-            {/* Actions */}
-            <div className="px-5 pb-4 flex flex-col gap-2.5">
-              <button
-                onClick={handleRefundConfirm}
-                disabled={refundLoading || !refundReason}
-                className="w-full py-3.5 text-[15px] font-semibold text-white bg-red-600 rounded-2xl hover:bg-red-700 active:bg-red-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              >
-                {refundLoading ? (
-                  <><Loader2 className="h-4 w-4 animate-spin" /> Processing…</>
-                ) : (
-                  <><RotateCcw className="h-4 w-4" /> Confirm Refund</>
-                )}
-              </button>
+      {/* Mobile refund: the shared phone sheet, over the order's own. */}
+      <BottomSheet
+        isOpen={showRefundConfirm}
+        onClose={closeRefundSheet}
+        label="Issue Refund"
+        header={
+          <div className="px-5 pt-2 pb-4 border-b border-[#f3f4f6]">
+            <div className="flex items-center justify-between">
+              <h2 className="text-[17px] font-semibold text-[#1a1a2e]">Issue Refund</h2>
               <button
                 onClick={closeRefundSheet}
-                disabled={refundLoading}
-                className="w-full py-3.5 text-[15px] font-medium text-[#374151] bg-[#f3f4f6] rounded-2xl hover:bg-[#e5e7eb] active:bg-[#d1d5db] transition-colors disabled:opacity-50"
+                className="w-7 h-7 rounded-full bg-[#f3f4f6] flex items-center justify-center text-[#6b7280]"
               >
-                Cancel
+                <X className="h-3.5 w-3.5" />
               </button>
             </div>
-            <div style={{ height: "max(env(safe-area-inset-bottom), 12px)" }} />
+            <p className="text-[12px] text-[#6b7280] mt-0.5">The customer will be notified via email.</p>
           </div>
+        }
+      >
+        {/* Content */}
+        <div className="px-5 py-4 space-y-4">
+          <div className="flex items-center gap-3 p-3 bg-[#f9fafb] rounded-xl">
+            {order.product?.thumbnail_url ? (
+              <img src={order.product.thumbnail_url} alt="" className="w-10 h-10 rounded-xl object-cover" />
+            ) : (
+              <div className="w-10 h-10 rounded-xl bg-[#e5e7eb] flex items-center justify-center">
+                <Package className="h-4 w-4 text-[#9ca3af]" />
+              </div>
+            )}
+            <div className="flex-1 min-w-0">
+              <p className="text-[14px] font-medium text-[#1a1a2e] truncate">{order.product?.title || "Product"}</p>
+              <p className="text-[12px] text-[#9ca3af]">{order.buyer_email || order.customer_email || ""}</p>
+            </div>
+            <p className="text-[14px] font-semibold text-[#1a1a2e] shrink-0">{fmt(order.amount_cents, currency)}</p>
+          </div>
+          <div>
+            <label className="block text-[13px] font-medium text-[#374151] mb-2.5">Select a reason</label>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { value: "requested_by_customer", label: "Customer request" },
+                { value: "duplicate", label: "Duplicate charge" },
+                { value: "fraudulent", label: "Fraudulent" },
+                { value: "other", label: "Other" },
+              ].map((opt) => (
+                <button
+                  key={opt.value}
+                  onClick={() => setRefundReason(opt.value)}
+                  className={cn(
+                    "px-3 py-3 rounded-xl text-[13px] font-medium transition-colors border active:scale-95",
+                    refundReason === opt.value
+                      ? "bg-[#f5f3ff] border-[#8b5cf6] text-[#8b5cf6]"
+                      : "border-[#e5e7eb] text-[#6b7280] bg-white",
+                  )}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          {refundError && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-xl">
+              <p className="text-[12px] text-red-600 flex items-center gap-2">
+                <AlertCircle className="h-4 w-4 shrink-0" />{refundError}
+              </p>
+            </div>
+          )}
         </div>
-      )}
+        {/* Actions */}
+        <div className="px-5 pb-4 flex flex-col gap-2.5">
+          <button
+            onClick={handleRefundConfirm}
+            disabled={refundLoading || !refundReason}
+            className="w-full py-3.5 text-[15px] font-semibold text-white bg-red-600 rounded-2xl hover:bg-red-700 active:bg-red-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          >
+            {refundLoading ? (
+              <><Loader2 className="h-4 w-4 animate-spin" /> Processing…</>
+            ) : (
+              <><RotateCcw className="h-4 w-4" /> Confirm Refund</>
+            )}
+          </button>
+          <button
+            onClick={closeRefundSheet}
+            disabled={refundLoading}
+            className="w-full py-3.5 text-[15px] font-medium text-[#374151] bg-[#f3f4f6] rounded-2xl hover:bg-[#e5e7eb] active:bg-[#d1d5db] transition-colors disabled:opacity-50"
+          >
+            Cancel
+          </button>
+        </div>
+      </BottomSheet>
 
       {/* ── Edit Email Modal ── */}
       {showEditEmail && order && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+        <div data-app-sheet="open" className="fixed inset-0 z-[210] flex items-center justify-center p-4">
           <div
             className="absolute inset-0 bg-black/50 animate-in fade-in duration-200"
             onClick={() => setShowEditEmail(false)}
@@ -2956,6 +2747,7 @@ function ExportDropdown({
   currency: string;
 }) {
   const [open, setOpen] = useState(false);
+  const closeExport = useCallback(() => setOpen(false), []);
   const [isMobile, setIsMobile] = useState(false);
   const [payoutsLoading, setPayoutsLoading] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -3038,7 +2830,7 @@ function ExportDropdown({
       {isMobile && (
         <ExportBottomSheet
           isOpen={open}
-          onClose={() => setOpen(false)}
+          onClose={closeExport}
           onEarnings={handleEarnings}
           onPayouts={handlePayouts}
           payoutsLoading={payoutsLoading}
@@ -3048,7 +2840,7 @@ function ExportDropdown({
   );
 }
 
-// Mobile bottom sheet for export — GPU-smooth, velocity-based fling-to-close
+// Mobile bottom sheet for export: the shared phone sheet.
 function ExportBottomSheet({
   isOpen,
   onClose,
@@ -3062,171 +2854,58 @@ function ExportBottomSheet({
   onPayouts: () => void;
   payoutsLoading: boolean;
 }) {
-  const [isVisible, setIsVisible] = useState(false);
-  const [isAnimating, setIsAnimating] = useState(false);
-  const [dragY, setDragY] = useState(0);
-  const [isDragging, setIsDragging] = useState(false);
-  const startYRef = useRef(0);
-  const lastYRef = useRef(0);
-  const lastTimeRef = useRef(0);
-  const velocityRef = useRef(0);
-  const sheetRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (isOpen && !isVisible) {
-      setIsVisible(true);
-      document.body.style.overflow = "hidden";
-      requestAnimationFrame(() =>
-        requestAnimationFrame(() => setIsAnimating(true)),
-      );
-    } else if (!isOpen && isVisible) {
-      setIsAnimating(false);
-      document.body.style.overflow = "";
-      const t = setTimeout(() => {
-        setIsVisible(false);
-        setDragY(0);
-      }, 400);
-      return () => clearTimeout(t);
-    }
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, [isOpen, isVisible]);
-
-  const handleClose = () => {
-    setIsAnimating(false);
-    setIsDragging(false);
-    setDragY(0);
-    velocityRef.current = 0;
-    setTimeout(() => onClose(), 400);
-  };
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    const touch = e.touches[0];
-    const el = sheetRef.current;
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    if (touch.clientY - rect.top <= 80) {
-      startYRef.current = touch.clientY;
-      lastYRef.current = touch.clientY;
-      lastTimeRef.current = Date.now();
-      velocityRef.current = 0;
-      setIsDragging(true);
-    }
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!isDragging) return;
-    const currentY = e.touches[0].clientY;
-    const diff = currentY - startYRef.current;
-    if (diff > 0) {
-      e.preventDefault();
-      const now = Date.now();
-      const dt = Math.max(1, now - lastTimeRef.current);
-      velocityRef.current = (currentY - lastYRef.current) / dt;
-      lastYRef.current = currentY;
-      lastTimeRef.current = now;
-      setDragY(diff <= 160 ? diff * 0.92 : 147 + (diff - 160) * 0.4);
-    }
-  };
-
-  const handleTouchEnd = () => {
-    if (!isDragging) return;
-    setIsDragging(false);
-    if (dragY > 92 || velocityRef.current > 0.55) handleClose();
-    else setDragY(0);
-  };
-
-  if (!isVisible) return null;
-
-  return createPortal(
-    <div
-      className="fixed inset-0 z-[100]"
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-    >
-      <div
-        className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
-        style={{
-          opacity: isAnimating ? 1 : 0,
-          transition: isDragging
-            ? "none"
-            : "opacity 400ms cubic-bezier(0.32,0.72,0,1)",
-        }}
-        onClick={handleClose}
-      />
-      <div
-        ref={sheetRef}
-        className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl"
-        style={{
-          transform: isAnimating
-            ? `translate3d(0,${dragY}px,0)`
-            : "translate3d(0,100%,0)",
-          transition: isDragging
-            ? "none"
-            : "transform 400ms cubic-bezier(0.32,0.72,0,1)",
-          willChange: "transform",
-          backfaceVisibility: "hidden",
-        }}
-      >
-        {/* Drag handle */}
-        <div className="pt-3 pb-1 flex justify-center cursor-grab active:cursor-grabbing touch-none">
-          <div className="h-[5px] w-10 rounded-full bg-gray-300" />
-        </div>
-        <div className="px-4 pb-4">
-          <h3 className="text-[16px] font-semibold text-[#1a1a2e] mb-4">
-            Export data
-          </h3>
-          <div className="space-y-2">
-            <button
-              onClick={() => {
-                onEarnings();
-                handleClose();
-              }}
-              className="w-full flex items-center gap-3 px-4 py-3.5 bg-[#f9fafb] rounded-xl text-[14px] font-medium text-[#374151] active:bg-[#f3f4f6] transition-colors"
-            >
-              <div className="w-9 h-9 rounded-xl bg-white border border-[#e5e7eb] flex items-center justify-center shrink-0">
+  return (
+    <BottomSheet isOpen={isOpen} onClose={onClose} label="Export data">
+      <div className="px-4 pb-4">
+        <h3 className="text-[16px] font-semibold text-[#1a1a2e] mb-4">
+          Export data
+        </h3>
+        <div className="space-y-2">
+          <button
+            onClick={() => {
+              onEarnings();
+              onClose();
+            }}
+            className="w-full flex items-center gap-3 px-4 py-3.5 bg-[#f9fafb] rounded-xl text-[14px] font-medium text-[#374151] active:bg-[#f3f4f6] transition-colors"
+          >
+            <div className="w-9 h-9 rounded-xl bg-white border border-[#e5e7eb] flex items-center justify-center shrink-0">
+              <Download className="h-4 w-4 text-[#8b5cf6]" />
+            </div>
+            <div className="text-left">
+              <p className="text-[14px] font-medium text-[#1a1a2e]">
+                Earnings summary
+              </p>
+              <p className="text-[12px] text-[#9ca3af]">
+                Sales, amounts, status — CSV
+              </p>
+            </div>
+          </button>
+          <button
+            disabled={payoutsLoading}
+            onClick={() => {
+              onPayouts();
+            }}
+            className="w-full flex items-center gap-3 px-4 py-3.5 bg-[#f9fafb] rounded-xl text-[14px] font-medium text-[#374151] active:bg-[#f3f4f6] transition-colors disabled:opacity-50"
+          >
+            <div className="w-9 h-9 rounded-xl bg-white border border-[#e5e7eb] flex items-center justify-center shrink-0">
+              {payoutsLoading ? (
+                <Loader2 className="h-4 w-4 text-[#8b5cf6] animate-spin" />
+              ) : (
                 <Download className="h-4 w-4 text-[#8b5cf6]" />
-              </div>
-              <div className="text-left">
-                <p className="text-[14px] font-medium text-[#1a1a2e]">
-                  Earnings summary
-                </p>
-                <p className="text-[12px] text-[#9ca3af]">
-                  Sales, amounts, status — CSV
-                </p>
-              </div>
-            </button>
-            <button
-              disabled={payoutsLoading}
-              onClick={() => {
-                onPayouts();
-              }}
-              className="w-full flex items-center gap-3 px-4 py-3.5 bg-[#f9fafb] rounded-xl text-[14px] font-medium text-[#374151] active:bg-[#f3f4f6] transition-colors disabled:opacity-50"
-            >
-              <div className="w-9 h-9 rounded-xl bg-white border border-[#e5e7eb] flex items-center justify-center shrink-0">
-                {payoutsLoading ? (
-                  <Loader2 className="h-4 w-4 text-[#8b5cf6] animate-spin" />
-                ) : (
-                  <Download className="h-4 w-4 text-[#8b5cf6]" />
-                )}
-              </div>
-              <div className="text-left">
-                <p className="text-[14px] font-medium text-[#1a1a2e]">
-                  Payouts history
-                </p>
-                <p className="text-[12px] text-[#9ca3af]">
-                  Bank transfers, dates, amounts — CSV
-                </p>
-              </div>
-            </button>
-          </div>
+              )}
+            </div>
+            <div className="text-left">
+              <p className="text-[14px] font-medium text-[#1a1a2e]">
+                Payouts history
+              </p>
+              <p className="text-[12px] text-[#9ca3af]">
+                Bank transfers, dates, amounts — CSV
+              </p>
+            </div>
+          </button>
         </div>
-        <div style={{ height: "max(env(safe-area-inset-bottom), 16px)" }} />
       </div>
-    </div>,
-    document.body,
+    </BottomSheet>
   );
 }
 
