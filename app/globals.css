@@ -4396,8 +4396,14 @@ html.pop-in-flight #platform-header-root {
   from { transform: scaleX(0); }
   to { transform: scaleX(1); }
 }
+/* Reduced motion keeps the clock and loses the movement: the bar changes slide
+   when this animation ends, so it runs, drawing nothing, rather than stopping. */
+@keyframes announce-progress-still {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(0); }
+}
 @media (prefers-reduced-motion: reduce) {
-  .announce-progress { animation: none; transform: scaleX(0); }
+  .announce-progress { animation-name: announce-progress-still; transform: scaleX(0); }
 }
 
 /* The unread count on the bell (components/app/notifications-modal.tsx).

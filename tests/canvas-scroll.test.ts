@@ -600,9 +600,15 @@ section("Leaving a page always ends, one way or the other")
     console.log("\nThe dashboard's announcement slides never overlap")
     const dash = readFileSync(join(process.cwd(), "components/app/dashboard-client.tsx"), "utf8")
     const effect = dash.slice(dash.indexOf("const [announceLeaving"), dash.indexOf("const announcementType"))
-    check("each cycle is exactly two timers, and both are cleared",
-      (effect.match(/setTimeout\(/g) ?? []).length === 2 && /clearTimeout\(leave\)/.test(effect) && /clearTimeout\(swap\)/.test(effect))
-    check("the next slide is picked only after the last has faded out", /DURATION \+ FADE_MS/.test(effect))
+    const bar = dash.slice(dash.indexOf("const AnnouncementBar = memo("), dash.indexOf("export function DashboardClient("))
+    check("each cycle is the line ending and one timer, and the timer is cleared",
+      (effect.match(/setTimeout\(/g) ?? []).length === 1 && /clearTimeout\(swap\)/.test(effect)
+        && /onAnimationEnd=\{\(\) => setAnnounceLeaving\(true\)\}/.test(bar))
+    check("the next slide is picked only after the last has faded out", /\}, FADE_MS\)/.test(effect) && /if \(!announceLeaving\) return/.test(effect))
+    check("the bar holds its own state, so a slide change does not render the dashboard",
+      bar.length > 0 && /<AnnouncementBar slides=\{slides\}/.test(dash) && !/useState\(0\)[^\n]*\n[^\n]*announceLeaving/.test(dash.slice(dash.indexOf("export function DashboardClient("))))
+    check("and it stops when nobody can see it",
+      /new IntersectionObserver/.test(bar) && /document\.visibilityState === "hidden"/.test(bar) && /animationPlayState: paused \? "paused" : "running"/.test(bar))
     check("one slide is drawn at a time, picked by the counter", /const announcementType = slides\[announceCycle % slides\.length\]/.test(dash))
     check("and its line restarts with it", /key=\{announceCycle\}/.test(dash) && /announce-progress/.test(dash))
     check("the bar holds one line, so two slides can never stack", /whitespace-nowrap/.test(dash.slice(dash.indexOf("announcementType ==="), dash.indexOf("announcementType ===") + 4000)) || /h-7 md:h-8[^"]*whitespace-nowrap|whitespace-nowrap[^"]*h-7 md:h-8/.test(dash))
