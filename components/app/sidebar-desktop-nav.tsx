@@ -151,8 +151,17 @@ const ROW =
  * 575 would snap to 600, and a five per cent step would land wherever the
  * rounding happened to put it — which is to say, nowhere near five per cent.
  */
-/** Long enough to read as a change, short enough not to lag the click. */
-const FILL_TRANSITION = "opacity 160ms cubic-bezier(0.2, 0, 0, 1)"
+/**
+ * Long enough to read as a change, short enough not to lag the click.
+ *
+ * EXPORTED, because the phone's bar uses this exact value. The two bars are
+ * the same four icons doing the same thing and they were asked to feel the
+ * same; two constants would be the same intention written twice, and the
+ * second one drifts the moment either is tuned.
+ */
+export const FILL_MS = 160
+export const FILL_CURVE = "cubic-bezier(0.2, 0, 0, 1)"
+export const FILL_TRANSITION = `opacity ${FILL_MS}ms ${FILL_CURVE}`
 
 /**
  * 1.5 in a 24-unit box — Solar's own drawing weight, which is the weight the

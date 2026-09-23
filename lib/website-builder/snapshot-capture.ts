@@ -114,7 +114,20 @@ export async function captureNode(node: HTMLElement): Promise<Blob | null> {
   if (height < 120) return null
 
   const { toCanvas } = await import("html-to-image")
-  const scale = Math.min(1, SNAPSHOT_WIDTH / width)
+  /**
+   * TO THE COVER'S WIDTH, UP OR DOWN.
+   *
+   * This was `Math.min(1, SNAPSHOT_WIDTH / width)`, which never enlarged
+   * anything — right while only a desktop canvas was ever captured, since
+   * that is already wider than the cover and only ever needs shrinking.
+   *
+   * A phone's canvas is 390px. Capped at 1 it rasterises at 390x244, and
+   * the website page then paints it into a slot three times that wide, so
+   * the cover is soft where every other picture on the page is sharp. The
+   * cost of removing the cap is nothing: the output is SNAPSHOT_WIDTH
+   * across either way, which is the number the cap was there to protect.
+   */
+  const scale = SNAPSHOT_WIDTH / width
 
   const canvas = await withTimeout(
     toCanvas(node, {

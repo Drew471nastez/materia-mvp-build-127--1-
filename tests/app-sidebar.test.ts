@@ -246,7 +246,21 @@ section("A row is the same size in every state")
       /<Fill\s+size=\{20\}\s+data-variant="filled"/.test(navSource) &&
       /opacity: active \? 0 : 1, transition: FILL_TRANSITION/.test(navSource) &&
       /opacity: active \? 1 : 0, transition: FILL_TRANSITION/.test(navSource) &&
-      /const FILL_TRANSITION = "opacity \d+ms/.test(navSource),
+      /*
+        THE CONSTANT IS NOW BUILT FROM TWO PARTS, AND EXPORTED.
+
+        It was the literal `"opacity 160ms cubic-bezier(...)"`. The phone's
+        bar was asked to feel like this one, so it imports this transition
+        rather than restating the number, and it needs the duration and the
+        curve separately as well — the glyph's colour has to travel with the
+        fill, and that is a `color` transition, not an `opacity` one.
+
+        What this line guards is unchanged: the fill is an opacity animation
+        with a real duration on it, not a swap.
+      */
+      /export const FILL_MS = \d+/.test(navSource) &&
+      /export const FILL_CURVE = "cubic-bezier\(/.test(navSource) &&
+      /export const FILL_TRANSITION = `opacity \$\{FILL_MS\}ms \$\{FILL_CURVE\}`/.test(navSource),
   )
   check(
     "and the row is not a `group`, so a touch device cannot cancel that fade",

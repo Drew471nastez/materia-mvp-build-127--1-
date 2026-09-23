@@ -609,78 +609,72 @@ function main() {
     ever the ink. A state with no duration cannot be seen moving.
   */
   /*
-    THE BLACK FILLS THE GLYPH, IT DOES NOT APPEAR IN IT. This check used to
-    hold the glyph to swapping OUTRIGHT, in one frame, and that was right at
-    the time: the outline and the solid are different drawings, so any blend
-    of them is a shape that is neither — 40x40 going in, 40x39 halfway, 39x38
-    coming out on Products — and dimming one to hide the swap puts a fade on
-    the press. Outright was what was left once both of those were ruled out,
-    and a single frame is the last hard edge there was.
+    THE FILL IS THE ONE THE SIDEBAR HAS. This block has now said three
+    different things, and the history is the point rather than clutter.
 
-    There is a third way and this is it: neither faded nor blended, but
-    CLIPPED against the other by one edge that sweeps up the box. Below the
-    edge the solid, above it the outline, the two insets exact complements —
-    so every pixel is one drawing or the other, never a mix and never
-    nothing. Both are fully opaque throughout, so it is not a fade; the two
-    already share a box through FILL_MATCH, so the edge crosses one shape
-    rather than travelling between two.
+    FIRST it held the glyph to changing over while the box around it was
+    dimmed to a quarter. That hid the swap between two drawings that are not
+    the same shape, and put a fade on every press: "too much fade and
+    cheapness in the click".
 
-    Measured: the edge sweeps through 28 positions, and the two clips are
-    never more than 0 of the box apart.
+    THEN it held the glyph to swapping OUTRIGHT, in one frame, since a blend
+    of two different drawings is a shape that is neither — Products measured
+    40x40 going in, 40x39 halfway, 39x38 coming out. A single frame was the
+    last hard edge in the bar, so THEN it held the two to being CLIPPED
+    against each other, a band of ink opening from the centre line with the
+    outline drawn twice outside it, the three exact complements at every
+    moment.
+
+    That shipped, was looked at, and was rejected: ink travelling out of the
+    middle of a glyph is a gesture, and the icon reads as performing rather
+    than as being on. What was asked for instead is the fill the DESKTOP
+    SIDEBAR has — both variants stacked and cross-faded, nothing moving.
+
+    So the rule is now the plainest of the four: the phone's bar renders the
+    same two elements the sidebar does, with the sidebar's own transition
+    imported rather than restated. A second constant holding the same
+    intention is the one that drifts when either is tuned.
   */
-  check("the black opens out from the middle, clipped rather than swapped in a frame",
-    /const INK_NONE = "inset\(50% 0 50% 0\)"/.test(nav) && /const INK_ALL = "inset\(0% 0 0% 0\)"/.test(nav)
-      && /clipPath: active \? INK_ALL : INK_NONE/.test(nav),
-    "a shape that changes in one frame is a hard edge however smooth everything around it is")
+  check("the glyph cross-fades, the way the desktop sidebar's does",
+    /opacity: active \? 0 : 1/.test(nav) && /opacity: active \? 1 : 0/.test(nav)
+      && /transition: FILL_TRANSITION/.test(nav),
+    "the band that opened from the middle of the glyph read as a gesture rather than as a state")
+  check("and it uses the sidebar's transition rather than a copy of the number",
+    /FILL_TRANSITION,/.test(nav) && /from "@\/components\/app\/sidebar-desktop-nav"/.test(nav)
+      && /export const FILL_TRANSITION = `opacity \$\{FILL_MS\}ms \$\{FILL_CURVE\}`/.test(read("components/app/sidebar-desktop-nav.tsx")),
+    "two constants for one intention is the second one going stale")
   /*
-    A BAND HAS TWO OUTSIDES, which is why the outline is drawn twice. inset()
-    cuts in from each side of ONE rectangle, so it can say "the middle" and it
-    cannot say "everything but the middle" in a single clip. One piece sits
-    above the band and one below, each retreating outward exactly ahead of its
-    own edge; they are the same glyph and never overlap, so there is nothing
-    to see where they meet.
-
-    It took three goes to get the direction right — up from the bottom, which
-    reads as a glass filling, then down from the top — and this is the one
-    that needs the extra element, which is why it was not first.
-
-    A circle opening from the centre would be better still and cannot be done
-    here: it needs the outline clipped to everything OUTSIDE a circle, which
-    no number of inset() rectangles can express, and the ways round that are
-    the two already rejected — drawing one glyph over the other, or masking
-    with gradients.
+    NOTHING IS LEFT OF THE BAND. Its six inset() constants and the two-piece
+    outline were load-bearing for each other — a band that is not exactly
+    complemented leaves a stripe showing both drawings or neither — so half of
+    it surviving a later edit would be worse than either whole design.
   */
-  check("with the outline drawn in two pieces, one either side of the band",
-    /const ABOVE_ALL = "inset\(0 0 50% 0\)"/.test(nav) && /const ABOVE_NONE = "inset\(0 0 100% 0\)"/.test(nav)
-      && /const BELOW_ALL = "inset\(50% 0 0 0\)"/.test(nav) && /const BELOW_NONE = "inset\(100% 0 0 0\)"/.test(nav)
-      && /data-part="outline-above"/.test(nav) && /data-part="outline-below"/.test(nav)
-      && /clipPath: active \? ABOVE_NONE : ABOVE_ALL/.test(nav)
-      && /clipPath: active \? BELOW_NONE : BELOW_ALL/.test(nav),
-    "one clip cannot express everything but the middle, and a band that is not exactly complemented leaves a stripe")
-  check("and both are fully opaque while it does, so it is a clip and not the fade that was thrown out",
-    !/opacity: active \? 1 : 0/.test(nav) && !/opacity: active \? 0 : 1/.test(nav)
-      && /const sweep = `clip-path \$\{INK_EASE\}`/.test(nav),
-    "the two clips being exact complements is what keeps a band of both, or neither, off the screen")
+  check("and no part of the clipped band is left behind",
+    !/INK_NONE|INK_ALL|ABOVE_ALL|ABOVE_NONE|BELOW_ALL|BELOW_NONE/.test(nav)
+      && !/outline-above|outline-below/.test(nav) && !/clipPath/.test(nav),
+    "a band half removed leaves a stripe of both drawings or of neither")
   /*
-    AND NOTHING ABOUT IT FADES. This check used to say the opposite: it held
-    the glyph to changing over while the box around it was dimmed to a
-    quarter, which hid the swap between two drawings that are not the same
-    shape, and put a fade on every press. "Too much fade and cheapness in the
-    click" is what that is, and a dip is a wait however short it is made.
-
-    So the swap is in the open, on the frame the finger lands, and what takes
-    its time is the COLOUR — the icon going to its ink over INK_EASE, the same
-    way a button changes colour under a pointer. That is the icon filling with
-    black, and it is the only thing here with a duration on it.
+    AND NOTHING DIPS. The rule that survived all three rewrites: the glyph
+    must never dim out and come back. A cross-fade is not that — one arrives
+    exactly as fast as the other leaves, and FILL_MATCH keeps them in one box
+    so the pair never goes light or changes size. A DIP is a wait, however
+    short it is made, and it lands on the press.
   */
-  check("and it does not dim through the change: no fade, nothing half-visible",
+  check("and it does not dim through the change: nothing dips out and comes back",
     !/GLYPH_FLOOR/.test(nav) && !/GLYPH_OUT/.test(nav)
       && !/opacity: dimmed/.test(nav) && !/setDimmed/.test(nav),
     "dipping a thing out and bringing it back is the cheapness, and it lands on the press")
-  check("and the smoothness is the colour instead, on its own curve",
-    /const INK_EASE = `\$\{INK_MS\}ms cubic-bezier\(0\.22, 0\.61, 0\.36, 1\)`/.test(nav)
-      && /transition: `color \$\{INK_EASE\}`/.test(nav),
-    "the icon filling with black is a colour arriving, which is the one thing that should take time")
+  /*
+    AND THE COLOUR TRAVELS WITH THE GLYPH. It was on INK_EASE, 360ms, from
+    when the glyph swapped in one frame and the colour was the only thing
+    with a duration in it. Against a 160ms cross-fade that is two events: the
+    solid arrives, then it darkens for another fifth of a second. INK_EASE
+    stays, as the LENS's timing, which is a different thing moving.
+  */
+  check("and the colour arrives with the fill rather than on the lens's curve",
+    /transition: `color \$\{FILL_MS\}ms \$\{FILL_CURVE\}`/.test(nav)
+      && !/transition: `color \$\{INK_EASE\}`/.test(nav),
+    "one fill, one duration: the glyph must not arrive and then keep darkening")
 
   /*
     AND THE LENS IS HANDED OVER, NOT THROWN. A press used to send it sliding

@@ -5145,14 +5145,41 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
   /**
    * The website page's cover is a picture of the home page from the last
-   * save. Ask for one after a save has succeeded — debounced, idle-time,
-   * and only when the canvas is showing the home page at desktop width.
-   * See lib/website-builder/snapshot-capture.ts for why each of those.
+   * save. Ask for one after a save has succeeded — debounced, idle-time.
+   * See lib/website-builder/snapshot-capture.ts for why.
+   *
+   * ---------------------------------------------------------------------
+   *  IT USED TO REFUSE TO RUN ON A PHONE, WHICH IS WHERE THIS IS EDITED
+   * ---------------------------------------------------------------------
+   * The guard also required `device === "desktop"` and `!isMobileView`, so
+   * that a cover was always a desktop-width picture. But the effect at
+   * line ~4223 is that opening the editor on a phone FORCES `device` to
+   * "mobile" — deliberately, so the 1200-wide layout is not rendered into
+   * a 390px viewport. The two together mean a save from a phone never
+   * produced a snapshot at all, and could not: every condition for taking
+   * one was made false by the act of opening the editor there.
+   *
+   * So somebody who works on a phone has a cover frozen at whatever their
+   * last desktop session left, for as long as they never open a laptop.
+   * That is what "it should update all the time, based on what I did and
+   * saved" is about, and no amount of saving fixed it.
+   *
+   * A cover of the phone layout is the right answer rather than a
+   * compromise. The canvas renders through the same ThemePage the site
+   * publishes, `deviceMode` and all, so what is captured is this website
+   * as it actually is at that width — and it is the width its owner is
+   * designing at. captureNode scales a narrow canvas up to the cover's
+   * full width, so it is sharp rather than a 390px picture stretched.
+   *
+   * What still has to hold, and does: the HOME page, because that is what
+   * a cover is of; PREVIEW mode, because the code editor is not the
+   * website; and nothing still loading, because a picture of a skeleton
+   * is worse than a stale one.
    */
   const snapshotAfterSave = () => {
     const node = canvasRef.current
     if (!node) return
-    if (currentPage !== "home" || device !== "desktop" || previewMode !== "preview" || isMobileView) return
+    if (currentPage !== "home" || previewMode !== "preview") return
     if (loading || canvasLoading) return
     scheduleSnapshot({ installId, node })
   }
