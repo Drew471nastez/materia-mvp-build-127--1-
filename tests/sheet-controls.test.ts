@@ -206,6 +206,34 @@ function main() {
     /const pick = \(\) => \{ if \(!uploading\) inputRef\.current\?\.click\(\) \}/.test(picker)
       && /if \(uploading\) return; const f = e\.dataTransfer\.files\[0\]/.test(picker))
 
+  console.log("\nA row with a label at each end does not wrap when the column is narrow")
+
+  /*
+    A flex item's `min-width` is `auto`, so it will not shrink below its own
+    content: two of them in a row that has run out of width do not shrink,
+    the text inside them wraps, and the row doubles in height. Reported as
+    "Advanced" over "colors" beside "Using" over "scheme".
+
+    scripts/check-panel-rows.mjs measures both markups at five widths and
+    shows the old one wrapping at 220px and below. These are the classes
+    that produce the measured result.
+  */
+  check("the name keeps its line and is not the thing that shrinks",
+    /<span className="shrink-0 whitespace-nowrap font-medium text-foreground">Advanced colors<\/span>/.test(panels))
+  check("the status beside it may shrink, and loses characters rather than lines",
+    /<span className="flex min-w-0 items-center gap-2 text-\[12px\] text-muted-foreground">\s*\n\s*<span className="truncate">/.test(panels),
+    "`min-w-0` is what lets a flex child shrink at all; without it `truncate` never fires")
+  check("the chevron is never squeezed",
+    /<ChevronDown className=\{cn\("h-3\.5 w-3\.5 shrink-0 transition-transform duration-200", customizeOpen && "rotate-180"\)\} \/>/.test(panels))
+  check("and the row is a thumb's height on a phone, the sidebar's on a desktop",
+    /className="w-full flex items-center justify-between gap-2 overflow-hidden px-3 h-11 md:h-10 text-sm"/.test(panels))
+  check("the same shape one panel down got the same three rules",
+    /<span className="min-w-0 truncate">Page colors<\/span>/.test(panels)
+      && /h-3\.5 w-3\.5 shrink-0 text-muted-foreground transition-transform/.test(panels),
+    "it had not been reported yet, which is not a reason to leave it")
+  check("and the probe compares the two markups rather than asserting the new one looks fine",
+    /the markup that was reported really does wrap, so this is measuring something/.test(read("scripts/check-panel-rows.mjs")))
+
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }
 }

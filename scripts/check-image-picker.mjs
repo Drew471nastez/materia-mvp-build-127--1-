@@ -136,6 +136,10 @@ function look(id) {
   */
   const storedVisible = stored && / opacity-100(?: |$)/.test(" " + stored.className)
   return {
+    /* Is there anything at all under the stored layer right now. */
+    underlay: !!(local || waiting),
+    /* Has the component started showing the stored copy. */
+    storedOpaque: !!storedVisible,
     state: storedVisible ? "stored" : local ? "local" : waiting ? "waiting" : "EMPTY",
     height: Math.round(box.getBoundingClientRect().height),
     storedOpacity: stored ? getComputedStyle(stored).opacity : null,
@@ -159,8 +163,11 @@ async function sequence(id, limit) {
     /* React has not committed yet. Not a state of the box, so not recorded. */
     if (s.state !== "no-box") {
       const last = seen[seen.length - 1]
-      if (!last || last.state !== s.state || last.height !== s.height) seen.push(s)
-      if (s.state === "stored") break
+      if (!last || last.state !== s.state || last.height !== s.height
+        || last.underlay !== s.underlay || last.storedOpaque !== s.storedOpaque) seen.push(s)
+      /* Not at the first opaque frame: the underlay has to outlive the fade,
+         so keep going until it is really gone. */
+      if (s.state === "stored" && !s.underlay) break
     }
     await tick()
   }
@@ -240,6 +247,31 @@ addEventListener("load", () => setTimeout(measure, 0))
   /* ── DOES IT JUMP ────────────────────────────────────────────────────── */
   const heights = [...new Set(m.samples.map((s) => s.height))]
   expect(heights.length === 1, "the box is the same height the whole way through, so nothing below it moves", `heights seen: ${heights.join(", ")}`)
+
+  /* ── AND IS ANYTHING UNDER IT WHILE IT FADES ─────────────────────────── */
+  /*
+    THE GLITCH AT THE END OF AN UPLOAD. The first version of this component
+    took the local copy away in the same commit that let the stored one start
+    appearing — and the stored one starts at zero and takes 260ms to arrive.
+    So the empty box this whole component exists to remove came back, a
+    quarter of a second later, right as the upload finished.
+
+    What is asserted is the first frame the stored layer is allowed to show:
+    something must still be under it. A later frame with no underlay is
+    correct and expected, which is why this looks at the first one rather
+    than at all of them.
+  */
+  const firstOpaque = (rows) => rows.find((s) => s.storedOpaque)
+  for (const [label, rows] of [["after an upload", m.samples], ["on a panel opening", m.arriving]]) {
+    const at = firstOpaque(rows)
+    expect(
+      !!at && at.underlay,
+      `${label}, the picture underneath is still there when the stored copy starts to appear`,
+      at ? "the box was emptied in the same frame the fade started" : "the stored copy never appeared",
+    )
+  }
+  const bare = m.samples.concat(m.arriving).filter((s) => s.state === "EMPTY")
+  expect(bare.length === 0, "and at no point in either sequence is the box empty", `${bare.length} empty frames`)
 
   /* ── DOES IT FADE ────────────────────────────────────────────────────── */
   const last = m.samples[m.samples.length - 1]
