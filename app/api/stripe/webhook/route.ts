@@ -4,10 +4,11 @@ import type Stripe from "stripe"
 import { stripe } from "@/lib/stripe"
 import { createClient } from "@supabase/supabase-js"
 import { generateReceiptToken } from "@/lib/security"
-import { sendOrderEmails, triggerEmailFlows, sendPayoutStatusEmail, sendFirstPayoutEmail, sendBankUpdatedEmail, sendPayoutsPausedEmail, sendVerificationRequiredEmail, sendFirstSaleEmail, resolveSellerEmail, sendDisputeCreatedEmail, sendDisputeWonEmail, sendDisputeLostEmail, sendRefundEmails } from "@/lib/email"
+import { sendOrderEmails, triggerEmailFlows, sendPayoutStatusEmail, sendFirstPayoutEmail, sendBankUpdatedEmail, sendPayoutsPausedEmail, sendVerificationRequiredEmail, sendFirstSaleEmail, resolveSellerEmail, sendDisputeCreatedEmail, sendDisputeWonEmail, sendDisputeLostEmail } from "@/lib/email"
 import { v4 as uuidv4 } from "uuid"
 import { orderSourceFrom, tagOrderSource } from "@/lib/orders/order-source"
 import { fulfilPaymentIntent, isCheckoutIntent } from "@/lib/checkout/fulfil-payment"
+import { syncChargeRefund } from "@/lib/stripe/refund-sync"
 
 export const runtime = "nodejs"
 
@@ -1041,228 +1042,17 @@ export async function POST(request: Request) {
   // ============================================================================
 
   if (event.type === "charge.refunded") {
+    /* Every refund of the charge, split across the order rows it belongs to
+       and applied to each once: lib/stripe/refund-sync.ts has the why. */
     const charge = event.data.object as Stripe.Charge
-    const paymentIntentId = typeof charge.payment_intent === "string" ? charge.payment_intent : charge.payment_intent?.id
-
-    console.log("[Webhook] Charge refunded:", charge.id, "PI:", paymentIntentId)
-
-    if (paymentIntentId) {
-      try {
-        // Find the order by stripe_payment_intent_id
-        const { data: order } = await supabaseAdmin
-          .from("orders")
-          .select("id, status, amount_cents")
-          .eq("stripe_payment_intent_id", paymentIntentId)
-          .maybeSingle()
-
-        if (order && order.status !== "refunded") {
-          // Update status first (column always exists)
-          await supabaseAdmin
-            .from("orders")
-            .update({ status: "refunded" })
-            .eq("id", order.id)
-
-          // Try extra refund columns (may not exist yet)
-          try {
-            // Use the most recent refund object's amount (not cumulative charge.amount_refunded)
-            const refund = charge.refunds?.data?.[0]
-            const refundAmountCents = refund?.amount || charge.amount_refunded || order.amount_cents
-            await supabaseAdmin
-              .from("orders")
-              .update({
-                refunded_at: new Date().toISOString(),
-                refund_reason: refund?.reason || "requested_by_customer",
-                refund_amount_cents: refundAmountCents,
-                stripe_refund_id: refund?.id || null,
-              })
-              .eq("id", order.id)
-          } catch {
-            // Extra columns may not exist yet
-          }
-
-          console.log("[Webhook] Order", order.id, "marked as refunded via webhook")
-
-          /* The money went back, so the product leaves the buyer's library.
-             Only on a full refund: a partial one is a goodwill gesture on a
-             sale that stands. The receipt and its downloads already refuse
-             a refunded order (app/api/download, app/api/receipt). */
-          if (charge.refunded) {
-            try {
-              const { data: refundedOrder } = await supabaseAdmin
-                .from("orders")
-                .select("buyer_id, product_id, variant_id")
-                .eq("id", order.id)
-                .maybeSingle()
-              if (refundedOrder?.buyer_id && refundedOrder.product_id) {
-                let revoke = supabaseAdmin
-                  .from("entitlements")
-                  .delete()
-                  .eq("buyer_id", refundedOrder.buyer_id)
-                  .eq("product_id", refundedOrder.product_id)
-                revoke = refundedOrder.variant_id ? revoke.eq("variant_id", refundedOrder.variant_id) : revoke.is("variant_id", null)
-                await revoke
-              }
-            } catch (revokeErr) {
-              console.error("[Webhook] Entitlement revoke failed (non-fatal):", revokeErr)
-            }
-          }
-
-          // ── Ledger: process refund bucket subtraction ───────────────────
-          try {
-            // Use actual refund amount from the refund object, not cumulative charge.amount_refunded
-            const latestRefund = charge.refunds?.data?.[0]
-            const refundAmountCents = latestRefund?.amount || charge.amount_refunded || order.amount_cents
-
-            // Find the creator via the order's product
-            const { data: product } = await supabaseAdmin
-              .from("products")
-              .select("creator_id")
-              .eq("id", (order as any).product_id || "")
-              .maybeSingle()
-
-            // Fallback: find from order if product_id not available
-            let refundCreatorId = product?.creator_id
-            if (!refundCreatorId) {
-              const { data: fullOrder } = await supabaseAdmin
-                .from("orders")
-                .select("product_id")
-                .eq("id", order.id)
-                .single()
-              if (fullOrder?.product_id) {
-                const { data: p } = await supabaseAdmin
-                  .from("products")
-                  .select("creator_id")
-                  .eq("id", fullOrder.product_id)
-                  .single()
-                refundCreatorId = p?.creator_id
-              }
-            }
-
-            if (refundCreatorId) {
-              // Idempotency: check if we already processed this refund's ledger impact
-              const latestRefund = charge.refunds?.data?.[0]
-              if (latestRefund?.id) {
-                const { data: existingRefundEvent } = await supabaseAdmin
-                  .from("ledger_events")
-                  .select("id")
-                  .eq("stripe_refund_id", latestRefund.id)
-                  .eq("event_type", "refund")
-                  .maybeSingle()
-
-                if (existingRefundEvent) {
-                  console.log("[Webhook] Refund ledger event already processed:", latestRefund.id)
-                  return NextResponse.json({ received: true })
-                }
-              }
-
-              // Find the original sale ledger event for fee calculation
-              const { data: saleLedgerEvent } = await supabaseAdmin
-                .from("ledger_events")
-                .select("fee_cents, net_seller_cents")
-                .eq("order_id", order.id)
-                .eq("event_type", "sale")
-                .maybeSingle()
-
-              // Calculate refund net (Stripe reverses both transfer + fee)
-              const originalFee = saleLedgerEvent?.fee_cents || 0
-              const refundNet = refundAmountCents - originalFee
-
-              const { data: ledger } = await supabaseAdmin
-                .from("seller_ledger")
-                .select("*")
-                .eq("creator_id", refundCreatorId)
-                .single()
-
-              if (ledger && refundNet > 0) {
-                // Subtract from buckets in order: pending → available → negative
-                let remaining = refundNet
-                let fromPending = Math.min(remaining, ledger.pending_amount)
-                remaining -= fromPending
-
-                let fromAvailable = Math.min(remaining, ledger.available_amount)
-                remaining -= fromAvailable
-
-                let newNegative = ledger.negative_balance + remaining
-
-                await supabaseAdmin
-                  .from("seller_ledger")
-                  .update({
-                    pending_amount: ledger.pending_amount - fromPending,
-                    available_amount: ledger.available_amount - fromAvailable,
-                    negative_balance: newNegative,
-                    lifetime_refunds: ledger.lifetime_refunds + refundAmountCents,
-                  })
-                  .eq("creator_id", refundCreatorId)
-
-                const refund = charge.refunds?.data?.[0]
-                await supabaseAdmin.from("ledger_events").insert({
-                  creator_id: refundCreatorId,
-                  event_type: "refund",
-                  amount_cents: refundAmountCents,
-                  net_seller_cents: refundNet,
-                  fee_cents: originalFee,
-                  currency: "usd",
-                  pending_delta: -fromPending,
-                  available_delta: -fromAvailable,
-                  order_id: order.id,
-                  stripe_refund_id: refund?.id || null,
-                  description: `Refund: $${(refundAmountCents / 100).toFixed(2)}`,
-                })
-              }
-            }
-          } catch (ledgerRefundErr) {
-            console.error("[Webhook] Ledger refund update failed (non-fatal):", ledgerRefundErr)
-          }
-
-          // Send refund notification emails (non-fatal — never block the webhook response)
-          try {
-            const { data: fullRefundOrder } = await supabaseAdmin
-              .from("orders")
-              .select("buyer_email, customer_email, created_at, product:products(title, creator:creators(display_name, avatar_url, username, user_id))")
-              .eq("id", order.id)
-              .single()
-
-            if (fullRefundOrder) {
-              const refundBuyerEmail = (fullRefundOrder as any).buyer_email || (fullRefundOrder as any).customer_email
-              const refundProduct = (fullRefundOrder as any).product as any
-              const refundProductTitle = refundProduct?.title || "Your purchase"
-              const refundCreator = refundProduct?.creator as any
-              const refundStoreName = refundCreator?.display_name || refundCreator?.username || "Storelib"
-              const latestRefund = charge.refunds?.data?.[0]
-              const refundAmountForEmail = (latestRefund?.amount || charge.amount_refunded || order.amount_cents) / 100
-
-              let refundSellerEmail: string | undefined
-              if (refundCreator?.user_id) {
-                const { data: sp } = await supabaseAdmin
-                  .from("profiles")
-                  .select("email")
-                  .eq("id", refundCreator.user_id)
-                  .single()
-                refundSellerEmail = sp?.email || undefined
-              }
-
-              await sendRefundEmails({
-                buyerEmail: refundBuyerEmail,
-                sellerEmail: refundSellerEmail,
-                productTitle: refundProductTitle,
-                refundAmount: refundAmountForEmail,
-                currency: charge.currency || "usd",
-                orderId: order.id,
-                reason: latestRefund?.reason || "requested_by_customer",
-                storeName: refundStoreName,
-                orderDate: (fullRefundOrder as any).created_at,
-              })
-              console.log("[Webhook] Refund emails sent for order:", order.id)
-            }
-          } catch (refundEmailErr) {
-            console.error("[Webhook] Refund email send failed (non-fatal):", refundEmailErr)
-          }
-        }
-      } catch (error) {
-        console.error("[Webhook] Error processing charge.refunded:", error)
-      }
+    try {
+      const done = await syncChargeRefund(supabaseAdmin, stripe, charge)
+      console.log("[Webhook] charge.refunded", charge.id, "applied:", done.applied, "already applied:", done.skipped)
+    } catch (error) {
+      console.error("[Webhook] Error processing charge.refunded:", error instanceof Error ? error.message : error)
+      /* A 500 makes Stripe retry, and a retry skips what was applied. */
+      return NextResponse.json({ error: "Refund not recorded yet" }, { status: 500 })
     }
-
     return NextResponse.json({ received: true })
   }
 
