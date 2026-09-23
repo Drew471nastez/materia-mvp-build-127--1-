@@ -19,7 +19,7 @@
 import "server-only"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { COMMIT_MARKER, changesFor, describeChange, statusLine, type BuilderChange } from "./core"
-import { commitFiles, githubConfig, installationToken } from "./github"
+import { GitHubError, commitFiles, githubConfig, installationToken } from "./github"
 
 type Db = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -76,7 +76,8 @@ export async function mirrorToGitHub(installId: string, change: BuilderChange): 
     }
     await recordEvent(db, installId, { direction: "to_github", ok: true, summary: sha ? summary : `${summary}; GitHub already had it`, commit_sha: sha })
   } catch (e) {
-    const why = e instanceof Error ? e.message : "GitHub did not answer"
+    /* GitHub's own message says what to fix; anything else is not shown as is. */
+    const why = e instanceof GitHubError ? e.message : "GitHub did not answer"
     await db.from("theme_github_links").update({ last_error: `Sending to GitHub: ${why}`, updated_at: new Date().toISOString() }).eq("install_id", installId)
     await recordEvent(db, installId, { direction: "to_github", ok: false, summary: `${summary}, not sent: ${why}` })
   }

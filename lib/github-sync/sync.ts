@@ -17,7 +17,7 @@
  */
 import "server-only"
 import { saveThemeFile } from "@/lib/website-builder/save-theme-file"
-import { listFiles, readFile } from "@/lib/agent-access/operations"
+import { publicError, sectionSources } from "@/lib/agent-access/operations"
 import {
   COMMIT_MARKER,
   MAX_FILES_PER_PUSH,
@@ -65,21 +65,28 @@ export interface GitHubLink {
   pull_on_push?: boolean
 }
 
+/**
+ * A failure written for the creator to read. Anything else thrown in here
+ * (a network error, a database's own message) is not shown to them as it
+ * is: see `explain` in the GitHub route.
+ */
+export class SyncError extends Error {}
+
 export function editorUrl(installId: string) {
   return `${APP_URL}/website-builder/editor/${installId}`
 }
 
 /** Storelib → GitHub, in one commit. Returns the commit, or null when the repository already matched. */
 export async function exportSite(db: Db, cfg: GitHubConfig, link: GitHubLink, siteName: string): Promise<string | null> {
-  if (!link.repo_full_name || !link.branch) throw new Error("Pick a repository first")
-  const listed = await listFiles(db, link.install_id)
-  if (listed.ok === false) throw new Error(listed.error)
-  const sections: { path: string; source: string }[] = []
-  for (const f of listed.value.files) {
-    if (!SYNCED.test(f.path)) continue
-    const r = await readFile(db, link.install_id, f.path)
-    if (r.ok === true) sections.push({ path: f.path, source: r.value.source })
+  if (!link.repo_full_name || !link.branch) throw new SyncError("Pick a repository first")
+  /* Every section's text in one read, not a list and then a read per file. */
+  let all: Map<string, string>
+  try {
+    all = await sectionSources(db, link.install_id)
+  } catch {
+    throw new SyncError("Could not read this website's sections. Try again.")
   }
+  const sections = [...all].filter(([path]) => SYNCED.test(path)).map(([path, source]) => ({ path, source }))
   const files = exportPlan(sections, { siteName, branch: link.branch, root: link.root_path })
   const token = await installationToken(cfg, link.installation_id)
   const sha = await commitFiles(
@@ -118,18 +125,27 @@ async function takeFiles(
   who: string,
 ): Promise<{ saved: string[]; unchanged: string[]; failed: { path: string; error: string }[] }> {
   const out = { saved: [] as string[], unchanged: [] as string[], failed: [] as { path: string; error: string }[] }
+  /* What the site has now for every one of these, in one read. A redelivered
+     webhook finds them all unchanged and writes nothing. */
+  let current: Map<string, string>
+  try {
+    current = await sectionSources(db, link.install_id, paths)
+  } catch {
+    current = new Map()
+  }
   for (const path of paths) {
     const source = await fileAt(token, repo, `${link.root_path}${path}`, ref)
     if (source === null) continue
-    const current = await readFile(db, link.install_id, path)
-    if (current.ok === true && current.value.source === source) {
+    if (current.get(path) === source) {
       out.unchanged.push(path)
       continue
     }
     const saved = await saveThemeFile(db, link.install_id, path, source)
     if (saved.ok === false) {
       const first = saved.errors?.[0]
-      out.failed.push({ path, error: `${path}${first?.line ? ` line ${first.line}` : ""}: ${first?.message ?? saved.error}` })
+      /* This line becomes a commit status, which a public repository shows
+         to everyone: a database's own words never go into it. */
+      out.failed.push({ path, error: `${path}${first?.line ? ` line ${first.line}` : ""}: ${first?.message ?? publicError(saved.status, saved.error)}` })
       continue
     }
     out.saved.push(path)
@@ -161,13 +177,13 @@ function takenSummary(r: { saved: string[]; failed: { error: string }[] }, how: 
 
 /** "Pull from GitHub": every section file on the linked branch, now. */
 export async function pullNow(db: Db, cfg: GitHubConfig, link: GitHubLink): Promise<{ saved: number; unchanged: number; failed: { path: string; error: string }[] }> {
-  if (!link.repo_full_name || !link.branch) throw new Error("Pick a repository first")
+  if (!link.repo_full_name || !link.branch) throw new SyncError("Pick a repository first")
   const token = await installationToken(cfg, link.installation_id)
   const tree = await listTree(token, link.repo_full_name, link.branch)
   const paths = tree.paths
     .map((p) => (p.startsWith(link.root_path) ? p.slice(link.root_path.length) : null))
     .filter((p): p is string => p !== null && SYNCED.test(p))
-  if (paths.length > MAX_FILES_PER_PULL) throw new Error(`${paths.length} section files; at most ${MAX_FILES_PER_PULL} are pulled at once`)
+  if (paths.length > MAX_FILES_PER_PULL) throw new SyncError(`${paths.length} section files; at most ${MAX_FILES_PER_PULL} are pulled at once`)
   const r = await takeFiles(db, token, link, link.repo_full_name, tree.sha, paths, "GitHub")
   await db
     .from("theme_github_links")
@@ -200,9 +216,14 @@ export async function applyPush(db: Db, cfg: GitHubConfig, payload: PushPayload)
   if (!branch || !repoId || !repo || !after || payload.deleted) return []
   if (isOwnPush(payload, cfg.slug)) return []
 
-  const { data } = await db.from("theme_github_links").select("*").eq("repo_id", repoId).eq("branch", branch)
-  /* A site whose creator switched incoming changes off is left alone. */
-  const links = ((data ?? []) as GitHubLink[]).filter((l) => l.pull_on_push !== false)
+  const { data } = await db.from("theme_github_links").select("*").eq("repo_id", repoId).eq("branch", branch).limit(100)
+  /* A site whose creator switched incoming changes off is left alone, and so
+     is a link made through another installation than the one GitHub says
+     sent this: its token is not the one that can read this repository. */
+  const from = Number(payload.installation?.id)
+  const links = ((data ?? []) as GitHubLink[]).filter(
+    (l) => l.pull_on_push !== false && (!Number.isSafeInteger(from) || Number(l.installation_id) === from),
+  )
   if (links.length === 0) return []
 
   const token = await installationToken(cfg, links[0].installation_id)

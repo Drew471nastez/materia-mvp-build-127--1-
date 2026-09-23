@@ -4574,43 +4574,6 @@ html.pop-in-flight #platform-header-root {
   .help-card[data-state="open"] { animation: none; }
 }
 
-/* The tabs above a website's cover (/app/website-builder). A 2px rule under
-   the page you are on; a lighter one grows in under the one you point at.
-   The rule is drawn inside the tab, not over the row's border, because the
-   row scrolls sideways on a phone and a scroller clips what hangs below it. */
-.wb-tab::after {
-  content: "";
-  position: absolute;
-  left: 12px;
-  right: 12px;
-  bottom: 0;
-  height: 2px;
-  border-radius: 2px 2px 0 0;
-  background: #1a1a2e;
-  opacity: 0;
-  transform: scaleX(0.6);
-  transition: opacity 180ms ease, transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1), background-color 180ms ease;
-}
-.wb-tab[data-active]::after {
-  opacity: 1;
-  transform: none;
-}
-@media (hover: hover) {
-  .wb-tab:not([data-active]):hover::after {
-    opacity: 1;
-    transform: none;
-    background: #d1d5db;
-  }
-}
-.wb-tab:focus-visible {
-  outline: 2px solid #1a1a2e;
-  outline-offset: -6px;
-  border-radius: 10px;
-}
-@media (prefers-reduced-motion: reduce) {
-  .wb-tab::after { transition: none; }
-}
-
 /* Storelib AI's status line (components/website-builder/ai-status.tsx): a
    slow sweep of light across the words, a soft pulse beside them, and a
    short fade when the words change. */

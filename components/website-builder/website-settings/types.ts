@@ -31,6 +31,9 @@ export function settingsSectionFrom(value: string | null | undefined): SettingsS
   return IDS.has(value) ? (value as SettingsSection) : null
 }
 
+/** The two ways an AI coding tool reaches a site, on Advanced › Connections. */
+export type ConnectVia = "direct" | "github"
+
 export interface SitePage {
   key: string
   name: string
@@ -53,6 +56,8 @@ export interface SettingsContext {
   pages: SitePage[]
   productCount: number | null
   githubReturned: string | null
+  /** The path Connections opens on, when something asked for one. */
+  connectVia: ConnectVia | null
   go: (section: SettingsSection) => void
   onRenamed: (name: string) => void
   onRestored?: () => void

@@ -20,9 +20,11 @@ import { readFileSync } from "node:fs"
 import { join } from "node:path"
 
 import { hashToken, looksLikeToken, mintToken, TOKEN_PREFIX } from "@/lib/agent-access/token-format"
-import { WRITABLE, canWrite, compileOnly } from "@/lib/agent-access/operations"
+import { WRITABLE, canWrite, compileOnly, publicError } from "@/lib/agent-access/operations"
 import { PROTOCOL_VERSIONS, TOOLS, formatErrors, handleMcp, type BoundOps } from "@/lib/agent-access/mcp"
 import { briefFrom } from "@/lib/agent-access/site-brief"
+import { readBodyCapped } from "@/lib/agent-access/body"
+import { FIRST_ASK, afterSetup, detectOs, openTerminalGuide, setupCommands } from "@/lib/agent-access/setup-commands"
 
 let passed = 0
 let failed = 0
@@ -210,7 +212,9 @@ async function main() {
 
   const mcpRoute = read("app/api/mcp/route.ts")
   check("the MCP route authenticates before it reads the body",
-    mcpRoute.indexOf("await authenticateAgent(request)") < mcpRoute.indexOf("await request.text()"))
+    mcpRoute.indexOf("await authenticateAgent(request)") > 0 &&
+      mcpRoute.indexOf("await authenticateAgent(request)") < mcpRoute.indexOf("await readBodyCapped(request, MAX_BODY)"))
+  check("and never reads a body whole before measuring it", !/await request\.(text|json)\(\)/.test(mcpRoute))
   check("caps the body and the batch", /MAX_BODY/.test(mcpRoute) && /\.slice\(0, 20\)/.test(mcpRoute))
   check("answers a batch of notifications with 202 and nothing", /status: 202/.test(mcpRoute))
   check("and says it has no stream on GET", /status: 405/.test(mcpRoute))
@@ -232,13 +236,88 @@ async function main() {
   check("a site holds a bounded number", /MAX_CONNECTIONS = 10/.test(manage))
 
   const panel = read("components/website-builder/agent-connections-panel.tsx")
+  const advanced = read("components/website-builder/website-settings/advanced.tsx")
   check("Website settings has a Connections page, under Advanced",
     /id: "advanced", label: "Advanced"/.test(read("components/website-builder/website-settings/types.ts")) &&
-      /<AgentConnectionsPanel installId=\{ctx\.installId\} tool=\{tool\} \/>/.test(read("components/website-builder/website-settings/advanced.tsx")))
-  check("which shows the token once, with the lines that use it",
-    /The token is shown once/.test(panel) && /claude mcp add --transport http storelib/.test(panel) && /bearer_token_env_var = "STORELIB_TOKEN"/.test(panel))
+      /<AgentConnectionsPanel installId=\{ctx\.installId\} \/>/.test(advanced))
+  check("which starts with one choice: directly, or through GitHub",
+    /role="radiogroup" aria-label="How to connect"/.test(advanced) &&
+      /title: "Connect directly", tools: "Claude Code, Codex CLI", note: "Recommended"/.test(advanced) &&
+      /title: "Through GitHub", tools: "ChatGPT Codex, Claude Code on the web, any tool that works on a repo"/.test(advanced))
+  check("and shows only the path picked", /via === "github" \?/.test(advanced) && (advanced.match(/<AgentConnectionsPanel /g) ?? []).length === 1)
+  check("which shows the token once, inside the lines that use it",
+    /shown only this once/.test(panel) && /setupCommands\(agent, os, token\)/.test(panel) && /const token = fresh\?\.token \?\? NO_TOKEN_YET/.test(panel))
+  check("every line has its own Copy button, and none can be copied before there is a token",
+    /<CommandBlock key=\{line\.label\}[^\n]*disabled=\{!fresh\} \/>/.test(panel) && /if \(disabled\) return/.test(read("components/website-builder/setup-steps.tsx")))
   check("the token lives in memory only", !/localStorage|sessionStorage/.test(panel))
   check("disconnecting asks first", /confirmingId === c\.id/.test(panel))
+
+  console.log("\nSetting it up on a computer")
+
+  const T = "slb_TESTTOKEN"
+  const claude = setupCommands("claude", "mac", T)
+  check("Claude Code is added at user scope, so it works from every folder",
+    claude.length === 1 && claude[0].value === `claude mcp add --transport http --scope user storelib https://storelib.com/api/mcp --header "Authorization: Bearer ${T}"`)
+  check("  and the line is the same on Windows and Linux",
+    setupCommands("claude", "windows", T)[0].value === claude[0].value && setupCommands("claude", "linux", T)[0].value === claude[0].value)
+  const mac = setupCommands("codex", "mac", T).map((c) => c.value)
+  check("Codex on a Mac: the config is written once, the token exported and kept in ~/.zshrc",
+    /grep -qs "mcp_servers\.storelib" ~\/\.codex\/config\.toml \|\|/.test(mac[0]) && /bearer_token_env_var = "STORELIB_TOKEN"/.test(mac[0]) &&
+      mac[1] === `echo 'export STORELIB_TOKEN=${T}' >> ~/.zshrc && export STORELIB_TOKEN=${T}`)
+  check("Codex on Linux keeps it in ~/.bashrc", /~\/\.bashrc/.test(setupCommands("codex", "linux", T)[1].value))
+  const win = setupCommands("codex", "windows", T).map((c) => c.value)
+  check("Codex on Windows speaks PowerShell: $env: for this window, setx to keep it",
+    win[1] === `setx STORELIB_TOKEN "${T}"; $env:STORELIB_TOKEN="${T}"` && !/\bexport\b|~\//.test(win.join("\n")) &&
+      /\$HOME\\\.codex\\config\.toml/.test(win[0]) && /Select-String -Quiet/.test(win[0]))
+  check("the token is in the lines and nowhere else", setupCommands("other", "mac", T).some((c) => c.value === `Authorization: Bearer ${T}`))
+  check("the computer is read from Client Hints first, then platform, then the user agent",
+    detectOs({ userAgentData: { platform: "Windows" }, platform: "MacIntel" }) === "windows" &&
+      detectOs({ platform: "Win32" }) === "windows" && detectOs({ platform: "MacIntel" }) === "mac" &&
+      detectOs({ platform: "Linux x86_64", userAgent: "Mozilla/5.0 (X11; Linux x86_64)" }) === "linux" &&
+      detectOs({ userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" }) === "windows")
+  check("  and a phone, or nothing at all, is a Mac",
+    detectOs({ platform: "iPhone", userAgent: "iPhone" }) === "mac" &&
+      detectOs({ platform: "Linux armv8l", userAgent: "Mozilla/5.0 (Linux; Android 14)" }) === "mac" && detectOs({}) === "mac")
+  const keys = (os: "mac" | "windows" | "linux") => openTerminalGuide(os).parts.map((p) => ("key" in p ? p.key : "type" in p ? `type ${p.type}` : "then")).join(" ")
+  check("opening a terminal is shown as keys: ⌘ Space, Win, Ctrl Alt T",
+    keys("mac") === "⌘ Space then type Terminal then Return" && keys("windows") === "⊞ Win then type Terminal then Enter" &&
+      keys("linux") === "Ctrl Alt T" && /PowerShell/.test(openTerminalGuide("windows").aside ?? ""))
+  check("then what to ask, and how to see it worked",
+    FIRST_ASK === "Add a pricing section to my Storelib site" && afterSetup("claude")?.check === "claude mcp list" && afterSetup("other") === null &&
+      /Done\? Run <Code>\{next\.start\}<\/Code>/.test(panel))
+
+  console.log("\nHolding up at scale, and keeping to its own site")
+
+  check("the token read joins the site and checks it is still the token maker's",
+    /install:store_theme_installs!inner\(creator_id, name\)/.test(tokens) && /site\.creator_id === row\.creator_id/.test(tokens))
+  check("  and survives a schema cache that has not learnt the join", /\/relationship\/i\.test/.test(tokens))
+  check("wrong tokens are throttled per address, and only wrong ones",
+    /bucket: "agent-auth-fail"/.test(tokens) && /subjects: \[addressSubject\(request\)\]/.test(tokens) && tokens.indexOf("return refused(request") > tokens.indexOf(".maybeSingle()"))
+  check("last used is written after the answer, at most once a minute", /later\(async \(\) =>/.test(tokens) && /60_000/.test(tokens))
+  check("MCP gets the site name from the token read, not another query", /let siteName = who\.siteName/.test(read("lib/agent-access/bind.ts")))
+  {
+    const big = await readBodyCapped(new Request("http://x/", { method: "POST", body: "a".repeat(2048) }), 1000)
+    const lied = await readBodyCapped(new Request("http://x/", { method: "POST", body: "a".repeat(2048), headers: { "content-length": "10" } }), 1000)
+    const fine = await readBodyCapped(new Request("http://x/", { method: "POST", body: "{\"a\":1}" }), 1000)
+    check("a body over the limit is refused, whatever its header says", big.ok === false && big.status === 413 && lied.ok === false && lied.status === 413)
+    check("  and one under it is read as it was sent", fine.ok === true && fine.text === "{\"a\":1}")
+  }
+  for (const file of ["app/api/agent/v1/files/route.ts", "app/api/agent/v1/compile/route.ts"]) {
+    check(`${file.replace("app/api/", "")} caps its body`, /readJsonCapped/.test(read(file)) && !/await request\.json\(\)/.test(read(file)))
+  }
+  check("a database's own words never reach an agent",
+    publicError(500, "duplicate key value violates unique constraint") === "Could not save the file just now. Try again." &&
+      publicError(409, "This file was saved somewhere else") === "This file was saved somewhere else" &&
+      /error: publicError\(saved\.status, saved\.error\)/.test(read("lib/agent-access/operations.ts")))
+  check("making tokens is rate limited per person, and ids are checked before a query",
+    /bucket: "agent-token-mint"/.test(manage) && /if \(!UUID\.test\(installId\)\) return null/.test(manage) && /!UUID\.test\(id\)/.test(manage))
+  check("the list of connections is bounded", /\.limit\(MAX_CONNECTIONS\)/.test(manage))
+  const idx = read("supabase/sql/RUN_AGENT_ACCESS_INDEXES.sql")
+  check("the foreign keys a cascade walks are indexed, additively",
+    idx === read("supabase/migrations/20260924_agent_access_indexes.sql") &&
+      /CREATE INDEX IF NOT EXISTS idx_theme_agent_tokens_creator/.test(idx) && /CREATE INDEX IF NOT EXISTS idx_theme_agent_activity_token/.test(idx) &&
+      /CREATE INDEX IF NOT EXISTS idx_theme_github_links_creator/.test(idx) &&
+      !/ALTER|DROP|INSERT|UPDATE|DELETE|GRANT|REVOKE/i.test(idx.replace(/--.*$/gm, "")))
 
   console.log("\nA section an agent writes appears on the open page")
 

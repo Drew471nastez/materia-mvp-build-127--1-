@@ -16,6 +16,7 @@ type Params = { params: Promise<{ installId: string }> }
 
 export async function GET(req: Request, { params }: Params) {
   const { installId } = await params
+  if (!/^[0-9a-f-]{36}$/i.test(installId)) return NextResponse.json({ error: "Not found" }, { status: 404 })
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })

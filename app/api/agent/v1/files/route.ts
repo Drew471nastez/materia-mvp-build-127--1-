@@ -17,6 +17,7 @@ import { mirrorToGitHub } from "@/lib/github-sync/mirror"
 import { authenticateAgent } from "@/lib/agent-access/tokens"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { listFiles, readFile, writeSection, type OpResult } from "@/lib/agent-access/operations"
+import { MAX_AGENT_BODY, readJsonCapped } from "@/lib/agent-access/body"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -38,12 +39,11 @@ export async function GET(request: Request) {
 export async function PUT(request: Request) {
   const who = await authenticateAgent(request)
   if (who instanceof NextResponse) return who
-  let body: { path?: unknown; source?: unknown; base_updated_at?: unknown }
-  try {
-    body = await request.json()
-  } catch {
-    return NextResponse.json({ error: "Send JSON: { path, source }" }, { status: 400 })
+  const read = await readJsonCapped<{ path?: unknown; source?: unknown; base_updated_at?: unknown } | null>(request, MAX_AGENT_BODY)
+  if (read.ok === false) {
+    return NextResponse.json({ error: read.status === 413 ? "Request too large" : "Send JSON: { path, source }" }, { status: read.status })
   }
+  const body = read.value ?? {}
   if (typeof body.path !== "string" || typeof body.source !== "string") {
     return NextResponse.json({ error: "Send JSON: { path, source }" }, { status: 400 })
   }

@@ -13,6 +13,7 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { mintToken } from "@/lib/agent-access/tokens"
+import { rateLimit } from "@/lib/api/rate-limit"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -22,7 +23,12 @@ type Params = { params: Promise<{ installId: string }> }
 /** A site can hold a few; nobody needs a hundred live tokens for one site. */
 const MAX_CONNECTIONS = 10
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 async function ownInstall(installId: string) {
+  /* Not a site id at all: no session lookup, no query, and no database
+     error about a malformed uuid on its way back to the browser. */
+  if (!UUID.test(installId)) return null
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
@@ -34,7 +40,7 @@ async function ownInstall(installId: string) {
     .eq("id", installId)
     .eq("creator_id", creator.id)
     .maybeSingle()
-  return install ? { creatorId: creator.id as string, installId: install.id as string } : null
+  return install ? { creatorId: creator.id as string, installId: install.id as string, userId: user.id } : null
 }
 
 function notSetUp(message: string | undefined) {
@@ -51,6 +57,7 @@ export async function GET(_req: Request, { params }: Params) {
     .eq("install_id", own.installId)
     .is("revoked_at", null)
     .order("created_at", { ascending: false })
+    .limit(MAX_CONNECTIONS)
   if (error) {
     if (notSetUp(error.message)) return NextResponse.json({ connections: [], ready: false })
     return NextResponse.json({ error: "Could not read connections" }, { status: 500 })
@@ -71,6 +78,16 @@ export async function POST(req: Request, { params }: Params) {
     /* an empty body falls through to the default name */
   }
   if (!name) name = "AI agent"
+
+  /* Making tokens, per person. The cap of ten live ones per site does not
+     stop a loop of make and disconnect; this does. */
+  const limited = await rateLimit({
+    bucket: "agent-token-mint",
+    subjects: [`user:${own.userId}`],
+    windows: [{ limit: 10, seconds: 600 }, { limit: 40, seconds: 86400 }],
+    message: "That is a lot of new tokens. Wait a few minutes.",
+  })
+  if (limited) return limited
 
   const db = createAdminClient()
   const { count, error: countError } = await db
@@ -104,7 +121,7 @@ export async function DELETE(req: Request, { params }: Params) {
   const own = await ownInstall(installId)
   if (!own) return NextResponse.json({ error: "Not found" }, { status: 404 })
   const id = new URL(req.url).searchParams.get("id")
-  if (!id) return NextResponse.json({ error: "id required" }, { status: 400 })
+  if (!id || !UUID.test(id)) return NextResponse.json({ error: "id required" }, { status: 400 })
   const { error } = await createAdminClient()
     .from("theme_agent_tokens")
     .update({ revoked_at: new Date().toISOString() })

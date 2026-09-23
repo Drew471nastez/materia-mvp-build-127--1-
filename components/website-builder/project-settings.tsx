@@ -16,6 +16,7 @@ import { PublishingSettings } from "@/components/website-builder/website-setting
 import { SeoSettings } from "@/components/website-builder/website-settings/seo"
 import {
   SETTINGS_SECTIONS,
+  type ConnectVia,
   type SettingsContext,
   type SettingsSection,
   type SitePage,
@@ -67,6 +68,7 @@ export function ProjectSettings({
   onEditPage,
   initialSection = null,
   githubReturned = null,
+  connectVia = null,
   settings = {},
   onSettingChange = () => {},
   pages = [],
@@ -95,6 +97,8 @@ export function ProjectSettings({
   initialSection?: SettingsSection | null
   /** What GitHub's round trip came back with, shown on the GitHub card. */
   githubReturned?: string | null
+  /** Open Connections on this path: GitHub, from the top bar's GitHub button. */
+  connectVia?: ConnectVia | null
   settings?: ThemeSettingsValues
   onSettingChange?: (key: string, value: unknown) => void
   pages?: SitePage[]
@@ -163,6 +167,7 @@ export function ProjectSettings({
     pages,
     productCount,
     githubReturned,
+    connectVia,
     go,
     onRenamed,
     onRestored,

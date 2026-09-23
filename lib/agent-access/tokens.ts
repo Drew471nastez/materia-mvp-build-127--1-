@@ -14,9 +14,9 @@
  */
 import "server-only"
 import { timingSafeEqual } from "node:crypto"
-import { NextResponse } from "next/server"
+import { NextResponse, after } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { rateLimit } from "@/lib/api/rate-limit"
+import { addressSubject, rateLimit } from "@/lib/api/rate-limit"
 import { hashToken, looksLikeToken } from "./token-format"
 
 export { TOKEN_PREFIX, hashToken, looksLikeToken, mintToken } from "./token-format"
@@ -27,6 +27,35 @@ export interface AgentIdentity {
   creatorId: string
   /** What the creator called it: "Claude Code", "Codex on my laptop". */
   name: string
+  /** The site's own name, read in the same query as the token. */
+  siteName?: string
+}
+
+/**
+ * Wrong tokens, counted per address. A token is 256 random bits, so guessing
+ * one is not the worry; a script sending a stream of made-up ones is, since
+ * each is a database read. Only a request that got as far as the database
+ * and was refused is counted, so a working connection never pays for it.
+ */
+const FAILED_AUTH = [{ limit: 20, seconds: 60 }, { limit: 200, seconds: 3600 }] as const
+
+async function refused(request: Request, message: string): Promise<NextResponse> {
+  const limited = await rateLimit({
+    bucket: "agent-auth-fail",
+    subjects: [addressSubject(request)],
+    windows: FAILED_AUTH,
+    message: "Too many wrong connection tokens from here. Wait a minute.",
+  })
+  return limited ?? NextResponse.json({ error: message }, { status: 401 })
+}
+
+/** Runs after the answer when there is a request to run it after, else now. */
+function later(task: () => Promise<unknown>) {
+  try {
+    after(task)
+  } catch {
+    void task().catch(() => {})
+  }
 }
 
 /**
@@ -45,11 +74,47 @@ export async function authenticateAgent(request: Request): Promise<AgentIdentity
 
   const hash = hashToken(token)
   const db = createAdminClient()
-  const { data: row, error } = await db
+  /*
+    ONE READ, BY THE UNIQUE INDEX ON token_hash, with the site it reaches
+    joined in. The join is the ownership check: the token must name a site
+    that still exists and still belongs to the creator who made the token.
+    `!inner` drops the row when the site is gone, so a token outliving its
+    site is refused rather than trusted.
+  */
+  type TokenRow = {
+    id: string
+    install_id: string
+    creator_id: string
+    name: string
+    token_hash: string
+    revoked_at: string | null
+    last_used_at: string | null
+    install: { creator_id?: string; name?: string } | { creator_id?: string; name?: string }[] | null
+  }
+  const COLUMNS = "id, install_id, creator_id, name, token_hash, revoked_at, last_used_at"
+  let { data: row, error } = (await db
     .from("theme_agent_tokens")
-    .select("id, install_id, creator_id, name, token_hash, revoked_at, last_used_at")
+    .select(`${COLUMNS}, install:store_theme_installs!inner(creator_id, name)`)
     .eq("token_hash", hash)
-    .maybeSingle()
+    .maybeSingle()) as { data: TokenRow | null; error: { message?: string } | null }
+
+  /*
+    A schema cache that has not learnt the relationship yet answers the join
+    with an error. That must not take every connection down, so the same
+    check is made in two reads instead.
+  */
+  if (error && /relationship/i.test(error.message ?? "")) {
+    const plain = (await db.from("theme_agent_tokens").select(COLUMNS).eq("token_hash", hash).maybeSingle()) as {
+      data: Omit<TokenRow, "install"> | null
+      error: { message?: string } | null
+    }
+    error = plain.error
+    row = null
+    if (!plain.error && plain.data) {
+      const { data: install } = await db.from("store_theme_installs").select("creator_id, name").eq("id", plain.data.install_id).maybeSingle()
+      row = { ...plain.data, install: install ?? null }
+    }
+  }
 
   if (error) {
     /* The table is missing until the migration has run. Say so, not "no". */
@@ -71,8 +136,10 @@ export async function authenticateAgent(request: Request): Promise<AgentIdentity
     typeof row.token_hash === "string" &&
     row.token_hash.length === hash.length &&
     timingSafeEqual(Buffer.from(row.token_hash), Buffer.from(hash))
-  if (!row || !matches || row.revoked_at) {
-    return NextResponse.json({ error: "This connection token is not valid, or it was disconnected." }, { status: 401 })
+  const site = Array.isArray(row?.install) ? row?.install[0] : row?.install
+  const owned = !!row && !!site && site.creator_id === row.creator_id
+  if (!row || !matches || row.revoked_at || !owned) {
+    return refused(request, "This connection token is not valid, or it was disconnected.")
   }
 
   /* Per connection: generous for an agent at work, useless for a script
@@ -85,11 +152,15 @@ export async function authenticateAgent(request: Request): Promise<AgentIdentity
   })
   if (limited) return limited
 
-  /* Written at most once a minute: a busy agent is not a write per call. */
+  /* Written at most once a minute, and after the answer: a busy agent is not
+     a write per call, and no call waits for one. */
   const last = row.last_used_at ? Date.parse(row.last_used_at) : 0
+  const tokenId = row.id
   if (!last || Date.now() - last > 60_000) {
-    await db.from("theme_agent_tokens").update({ last_used_at: new Date().toISOString() }).eq("id", row.id)
+    later(async () => {
+      await db.from("theme_agent_tokens").update({ last_used_at: new Date().toISOString() }).eq("id", tokenId)
+    })
   }
 
-  return { tokenId: row.id, installId: row.install_id, creatorId: row.creator_id, name: row.name }
+  return { tokenId: row.id, installId: row.install_id, creatorId: row.creator_id, name: row.name, siteName: site?.name ?? undefined }
 }

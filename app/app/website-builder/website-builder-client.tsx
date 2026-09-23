@@ -154,6 +154,91 @@ export const WEBSITE_TABS: { label: string; section: SettingsSection | null }[] 
   { label: "Settings", section: "general" },
 ]
 
+/**
+ * ===========================================================================
+ *  THE STRIP
+ * ===========================================================================
+ * One white bar in the page's own card style, cut into equal cells by
+ * hairlines, each cell a button. The one you are on carries a 2px rule along
+ * its foot and a faint fill. Pressing another moves the rule there at once,
+ * so the press is answered before the editor has loaded.
+ *
+ * On a phone the six cells are wider than the screen. The bar keeps its
+ * corners and the cells scroll sideways inside it with no scrollbar drawn,
+ * and the active cell is scrolled into view whenever it changes.
+ */
+export function WebsiteTabs({ onOpen }: { onOpen: (section: SettingsSection) => void }) {
+  const [pressed, setPressed] = React.useState<string | null>(null)
+  const active = pressed ?? WEBSITE_TABS[0].label
+  const scroller = React.useRef<HTMLDivElement>(null)
+
+  React.useEffect(() => {
+    const row = scroller.current
+    const cell = row?.querySelector<HTMLElement>("[data-active]")
+    if (!row || !cell) return
+    /* By hand, not scrollIntoView: that also scrolls the page vertically
+       to bring the bar to the top, which nobody asked for. */
+    const left = cell.offsetLeft
+    const right = left + cell.offsetWidth
+    if (left < row.scrollLeft) row.scrollTo({ left })
+    else if (right > row.scrollLeft + row.clientWidth) row.scrollTo({ left: right - row.clientWidth })
+  }, [active])
+
+  return (
+    <nav
+      aria-label="Website"
+      data-website-tabs=""
+      className="overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
+    >
+      <div
+        ref={scroller}
+        className="flex divide-x divide-[#eceef1] overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      >
+        {WEBSITE_TABS.map((tab) => {
+          const on = tab.label === active
+          const here = tab.section === null
+          return (
+            <button
+              key={tab.label}
+              type="button"
+              aria-current={here ? "page" : undefined}
+              data-active={on ? "" : undefined}
+              onClick={
+                here
+                  ? undefined
+                  : () => {
+                      setPressed(tab.label)
+                      onOpen(tab.section as SettingsSection)
+                    }
+              }
+              className={cn(
+                "relative flex h-12 min-w-[104px] flex-1 shrink-0 items-center justify-center whitespace-nowrap px-4 text-[13.5px] font-medium outline-none transition-colors duration-150",
+                "focus-visible:bg-[#f3f4f6] focus-visible:text-[#1a1a2e]",
+                "after:absolute after:inset-x-4 after:bottom-0 after:h-[2px] after:rounded-t-full after:bg-[#1a1a2e] after:transition-[opacity,scale] after:duration-200 after:ease-out motion-reduce:after:transition-none",
+                on
+                  ? "bg-[#fafafb] text-[#1a1a2e] after:opacity-100"
+                  : "text-[#6b7280] after:scale-x-50 after:opacity-0 hover:bg-[#fafbfc] hover:text-[#1a1a2e]",
+              )}
+            >
+              {tab.label}
+            </button>
+          )
+        })}
+      </div>
+    </nav>
+  )
+}
+
+/**
+ * The live cover's frame: 12px corners on all four sides, clipped on the
+ * frame itself so nothing inside is drawn square past the curve. The
+ * hairline is drawn OVER the picture (the last child), so the edge of a
+ * screenshot never shows past it; the depth is two soft shadows, one close
+ * and one wide.
+ */
+const COVER_FRAME =
+  "group relative block w-full overflow-hidden rounded-[12px] bg-[#eef0f3] text-left isolate outline-none [transform:translateZ(0)] shadow-[0_1px_2px_rgba(15,23,42,0.06),0_10px_28px_-14px_rgba(15,23,42,0.22)] after:pointer-events-none after:absolute after:inset-0 after:z-10 after:rounded-[inherit] after:shadow-[inset_0_0_0_1px_rgba(15,23,42,0.08)] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/25 focus-visible:ring-offset-2"
+
 /** "2 days ago" without the "ago", for a meta line that already reads as time. */
 function since(iso: string | null | undefined): string | null {
   const t = relativeTime(iso)
@@ -596,54 +681,37 @@ export function WebsiteBuilderClient({
             page's own two gutters. scripts/check-website-page.mjs reads them
             and compares the left inset to the right, which is the complaint
             that started this rewrite: things on this page did not line up. */}
-        <section aria-labelledby="live-heading" data-page-block>
+        <section aria-labelledby="live-heading" className="space-y-3" data-page-block>
+          {/* ── The strip ─────────────────────────────────────────────
+              Its own bar above the cover, the way a host lays out a site's
+              sections: one white bar cut into cells by hairlines. It is not
+              glued into the card under it, so the card is the site and the
+              bar is where you go from it. */}
+          {live && <WebsiteTabs onOpen={(section) => go(editorHref(username, live.id, "settings", section))} />}
           <div className="overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
             {live ? (
               <>
-                {/* ── The tabs ─────────────────────────────────────────
-                    Across the top of the card, the way a host puts a site's
-                    sections above its preview. Text and a 2px rule under the
-                    one you are on: no pills, no icons. On a phone the row
-                    scrolls sideways under the thumb, and its padding is also
-                    its scroll padding so the first tab lines up with the
-                    card's text rather than the card's edge. */}
-                <nav
-                  aria-label="Website"
-                  className="flex overflow-x-auto border-b border-[#eceef1] px-2 scroll-px-2 [scrollbar-width:none] sm:px-3 [&::-webkit-scrollbar]:hidden"
-                >
-                  {WEBSITE_TABS.map((tab) => {
-                    const here = tab.section === null
-                    return (
-                      <button
-                        key={tab.label}
-                        type="button"
-                        aria-current={here ? "page" : undefined}
-                        onClick={here ? undefined : () => go(editorHref(username, live.id, "settings", tab.section ?? undefined))}
-                        className={cn(
-                          "wb-tab relative flex h-11 shrink-0 items-center px-3 text-[13.5px] font-medium transition-colors duration-150",
-                          here ? "text-[#1a1a2e]" : "text-[#6b7280] hover:text-[#1a1a2e]",
-                        )}
-                        data-active={here ? "" : undefined}
-                      >
-                        {tab.label}
-                      </button>
-                    )
-                  })}
-                </nav>
-
                 <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
-                  <button
-                    type="button"
-                    onClick={() => go(editorHref(username, live.id))}
-                    aria-label={`Edit ${live.name}`}
-                    className="group relative block min-w-0 overflow-hidden bg-[#eef0f3] text-left lg:border-r lg:border-[#eceef1]"
-                  >
-                    <span className="block aspect-[16/10] w-full">
-                      <WebsiteCover install={live} eager phone />
-                    </span>
-                    <span className="pointer-events-none absolute inset-0 bg-[#1a1a2e]/0 transition-colors duration-200 group-hover:bg-[#1a1a2e]/[0.04]" />
-                  </button>
-                  <div className="flex min-w-0 flex-col p-5 sm:p-6">
+                  {/* ── The cover ───────────────────────────────────────
+                      Set into the card rather than cut flush with its edge,
+                      so it has corners of its own on all four sides. The clip
+                      is on the picture itself, with a hairline and a short
+                      two layer shadow for depth. */}
+                  <div className="min-w-0 p-4 pb-3 lg:pb-4 lg:pr-2">
+                    <button
+                      type="button"
+                      onClick={() => go(editorHref(username, live.id))}
+                      aria-label={`Edit ${live.name}`}
+                      data-cover=""
+                      className={COVER_FRAME}
+                    >
+                      <span className="block aspect-[16/10] w-full">
+                        <WebsiteCover install={live} eager phone />
+                      </span>
+                      <span className="pointer-events-none absolute inset-0 rounded-[inherit] bg-[#1a1a2e]/0 transition-colors duration-200 group-hover:bg-[#1a1a2e]/[0.04]" />
+                    </button>
+                  </div>
+                  <div className="flex min-w-0 flex-col px-4 pb-4 pt-2 lg:p-6 lg:pl-4">
                     <StatusDot status="published" />
                     <h2 id="live-heading" className="mt-2 truncate text-[20px] font-semibold tracking-tight text-[#1a1a2e]">
                       {live.name}

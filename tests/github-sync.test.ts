@@ -172,7 +172,12 @@ function main() {
   const sync = read("lib/github-sync/sync.ts")
   check("through the one save every editor uses: compiled first, a draft, versioned", /saveThemeFile\(db, link\.install_id, path, source\)/.test(sync))
   check("a file already saved with the same text is skipped, so a redelivered webhook changes nothing",
-    /current\.value\.source === source/.test(sync) && /out\.unchanged\.push\(path\)/.test(sync))
+    /current\.get\(path\) === source/.test(sync) && /out\.unchanged\.push\(path\)/.test(sync))
+  check("what the site has now is read once for the whole push, not once per file",
+    /current = await sectionSources\(db, link\.install_id, paths\)/.test(sync) && !/await readFile\(/.test(sync))
+  check("sending to GitHub reads every section in one query, not a list and a read each",
+    /all = await sectionSources\(db, link\.install_id\)/.test(sync) && !/listFiles\(/.test(sync))
+  check("a database's own words never go into a commit status", /publicError\(saved\.status, saved\.error\)/.test(sync))
   check("an open builder hears about it through the same activity log agents write",
     /from\("theme_agent_activity"\)\.insert\(/.test(sync) && /token_id: null/.test(sync))
   check(`at most ${MAX_FILES_PER_PUSH} files from one push`, /changed\.length > MAX_FILES_PER_PUSH/.test(sync))
@@ -193,16 +198,30 @@ function main() {
   const panel = read("components/website-builder/github-sync-panel.tsx")
   {
     const advanced = read("components/website-builder/website-settings/advanced.tsx")
-    check("Website settings › Advanced has the GitHub card, for every tool",
-      /<GitHubSyncPanel installId=\{ctx\.installId\}/.test(advanced) && (advanced.match(/<GitHubSyncPanel /g) ?? []).length === 2)
+    check("Website settings › Advanced has the GitHub path, as one of two answers to one question",
+      /<GitHubSyncPanel installId=\{ctx\.installId\}/.test(advanced) && (advanced.match(/<GitHubSyncPanel /g) ?? []).length === 1 &&
+        /via === "github" \?/.test(advanced))
     check("and ChatGPT is sent to GitHub, the route that works for it",
-      /tool === "chatgpt" \?/.test(advanced) && /Codex works on a GitHub repository/.test(advanced))
+      /id: "github", title: "Through GitHub", tools: "ChatGPT Codex, Claude Code on the web/.test(advanced))
+    check("the GitHub button and a return from GitHub open that path",
+      /ctx\.connectVia \?\? \(ctx\.githubReturned \? "github" : "direct"\)/.test(advanced))
   }
   check("it says how it works in three steps", /Connect a repository/.test(panel) && /Ask your agent for a change/.test(panel) && /It appears here/.test(panel))
   check("and says so plainly when GitHub is not set up on the server", /GitHub is not switched on for this Storelib yet/.test(panel))
   const editor = read("app/website-builder/editor/[installId]/page.tsx")
-  check("the top bar has a button that opens Connections, named for the tools",
-    /aria-label="Connect Claude Code, Codex or ChatGPT"/.test(editor) && /onClick=\{openConnections\}/.test(editor))
+  const ghButton = read("components/website-builder/github-button.tsx")
+  check("the top bar keeps GitHub's mark, labelled GitHub, opening the GitHub path",
+    /<GitHubTopBarButton installId=\{installId\} onOpen=\{openGitHub\}/.test(editor) && /aria-label="GitHub"/.test(ghButton) &&
+      /<GitHubMark className="h-4 w-4" \/>/.test(ghButton) && /const openGitHub = \(\) => \{\s*openConnections\(\)\s*setConnectVia\("github"\)/.test(editor))
+  check("  with a green dot when the site is linked, and nothing when it is not",
+    /\{repo && \(\s*<span[\s\S]{0,200}bg-emerald-500/.test(ghButton) && /setRepo\(d\?\.linked && d\.repo \? d\.repo : null\)/.test(ghButton))
+  check("  asked with one small read that never calls GitHub, and asked again when settings close",
+    /\?brief=1/.test(ghButton) && /recheck=\{projectSettingsOpen\}/.test(editor) &&
+      (() => {
+        const brief = read("app/api/website-builder/themes/[installId]/github/route.ts").split('get("brief") === "1"')[1]?.split("return NextResponse.json")[0] ?? ""
+        return brief.length > 0 && !/installationToken|installationRepos/.test(brief)
+      })())
+  check("  and a phone reaches it from the menu", /isMobileView\s*\?\s*\[\{ label: "GitHub", icon: <GitHubMark/.test(editor))
   check("and coming back from GitHub opens Connections, then clears the address",
     /settingsSectionFrom\(url\.searchParams\.get\("settings"\)\)/.test(editor) && /history\.replaceState/.test(editor) &&
       /if \(value === "connections" \|\| value === "agents"\) return "advanced"/.test(read("components/website-builder/website-settings/types.ts")))
@@ -239,7 +258,9 @@ function main() {
 
   console.log("\nSwitches, pull and activity")
   const sync2 = read("lib/github-sync/sync.ts")
-  check("a site with incoming changes switched off is left alone", /filter\(\(l\) => l\.pull_on_push !== false\)/.test(sync2))
+  check("a site with incoming changes switched off is left alone", /\(l\) => l\.pull_on_push !== false &&/.test(sync2))
+  check("and so is a link made through another installation than the one that sent the push",
+    /Number\(l\.installation_id\) === from/.test(sync2) && /const from = Number\(payload\.installation\?\.id\)/.test(sync2))
   check("Pull from GitHub reads the whole branch through the same save loop", /export async function pullNow/.test(sync2) && /listTree\(token/.test(sync2) && /takeFiles\(db, token, link, link\.repo_full_name, tree\.sha/.test(sync2))
   check("each way is written to the activity list", (sync2.match(/recordEvent\(db/g) ?? []).length >= 3)
   const route = read("app/api/website-builder/themes/[installId]/github/route.ts")
@@ -253,7 +274,23 @@ function main() {
     /Builder to GitHub/.test(panel2) && /GitHub to builder/.test(panel2) && /action: "pull"/.test(panel2) && /status\.events\.map/.test(panel2))
   check("its switch cannot draw outside its track", /absolute left-\[3px\] top-\[3px\] h-4 w-4/.test(panel2) && /translate-x-\[18px\]/.test(panel2))
   const direct = read("components/website-builder/agent-connections-panel.tsx")
-  check("the direct connection is three steps with only the chosen agent's command", /role="radiogroup" aria-label="Agent"/.test(direct) && /commandFor\(agent, fresh\.token\)/.test(direct) && /<Step n=\{3\}/.test(direct))
+  check("the direct connection is three steps with only the chosen agent's command",
+    /<Segmented label="Agent"/.test(direct) && /role="radiogroup" aria-label=\{label\}/.test(direct) &&
+      /setupCommands\(agent, os, token\)/.test(direct) && /n=\{terminal \? 3 : 2\}/.test(direct) && /\bn=\{2\}/.test(direct))
+  check("the GitHub path is the same three steps while nothing is linked, and acting is step one",
+    /<Step n=\{1\} title=\{STEPS\[0\]\[0\]\}>/.test(panel2) && /<Step n=\{3\} title=\{STEPS\[2\]\[0\]\} muted>/.test(panel2) && /\{connectButtons\}/.test(panel2))
+
+  console.log("\nGitHub, safely")
+  check("an error that is not GitHub's own, or written for the creator, is not shown as it is",
+    /if \(e instanceof SyncError\) return e\.message/.test(route) && !/return e instanceof Error \? e\.message/.test(route))
+  check("  including in what a failed commit writes to the activity list", /const why = e instanceof GitHubError \? e\.message : "GitHub did not answer"/.test(mirror))
+  check("Pull, Push and linking are rate limited per site", /bucket: "github-sync"/.test(route) && /subjects: \[`install:\$\{own\.installId\}`\]/.test(route))
+  check("the webhook refuses an oversized body before reading it",
+    hook.indexOf('req.headers.get("content-length")') > 0 && hook.indexOf('req.headers.get("content-length")') < hook.indexOf("await req.text()"))
+  check("a repository taken from one installation unlinks only that installation's sites",
+    /\.eq\("installation_id", installation\)\s*\n\s*\.in\("repo_id", gone\)/.test(hook))
+  check("installation tokens are minted per use and never written anywhere",
+    !/installation_token|access_token/.test(read("supabase/sql/RUN_GITHUB_SYNC.sql")) && !/\.(insert|update|upsert)\(\{[^)]*\btoken\b\s*:/.test(route + sync2 + mirror))
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }
