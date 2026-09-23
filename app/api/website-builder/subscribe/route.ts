@@ -26,6 +26,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { triggerEmailFlows } from "@/lib/email"
 import { randomUUID } from "node:crypto"
+import { rateLimit, addressSubject, emailSubject, LIMITS } from "@/lib/api/rate-limit"
 
 /** Deliberately plain. A clever pattern refuses addresses that work. */
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
@@ -47,6 +48,15 @@ export async function POST(req: NextRequest) {
   if (!creatorId || !EMAIL.test(email) || email.length > 254) {
     return NextResponse.json({ error: "Enter a valid email address" }, { status: 400 })
   }
+
+  /* Counted before anything is read or written. See lib/api/rate-limit.ts. */
+  const limited = await rateLimit({
+    bucket: "subscribe",
+    subjects: [addressSubject(req), emailSubject(email)],
+    windows: LIMITS.subscribe,
+    message: "That is a lot of sign-ups at once. Try again in a minute.",
+  })
+  if (limited) return limited
 
   const db = createAdminClient()
 

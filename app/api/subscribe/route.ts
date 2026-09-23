@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { rateLimit, addressSubject, emailSubject, LIMITS } from "@/lib/api/rate-limit"
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,6 +11,17 @@ export async function POST(request: NextRequest) {
     if (!email) {
       return NextResponse.json({ error: "Email is required" }, { status: 400 })
     }
+
+    /* Counted by address and by the address being signed up, so neither a
+       script from one machine nor one rotating through many can fill a
+       creator's list. See lib/api/rate-limit.ts. */
+    const limited = await rateLimit({
+      bucket: "subscribe",
+      subjects: [addressSubject(request), emailSubject(email)],
+      windows: LIMITS.subscribe,
+      message: "That is a lot of sign-ups at once. Try again in a minute.",
+    })
+    if (limited) return limited
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     const normalizedEmail = email.toLowerCase().trim()

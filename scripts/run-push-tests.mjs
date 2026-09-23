@@ -129,6 +129,7 @@ const SUITES = [
   "tests/theme-sharing.test.ts",
   "tests/raw-html-surface.test.ts",
   "tests/admin-key-routes.test.ts",
+  "tests/public-abuse.test.ts",
   "tests/image-picker.test.ts",
   "tests/site-pages.test.ts",
   "tests/admin-auth.test.ts",

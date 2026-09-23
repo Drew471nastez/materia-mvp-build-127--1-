@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { randomBytes } from "crypto"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { sendEmail, isSmtpConfigured } from "@/lib/mail"
+import { rateLimit, addressSubject, emailSubject, LIMITS } from "@/lib/api/rate-limit"
 
 export const runtime = "nodejs"
 
@@ -64,6 +65,20 @@ export async function POST(request: Request) {
     if (!email) {
       return NextResponse.json({ error: "Email is required" }, { status: 400 })
     }
+
+    /*
+      This form sends mail to an address the caller names. Unlimited, it is a
+      way to send somebody a few thousand messages from this domain, which is
+      how a domain stops being delivered anywhere. Counted by the address
+      being mailed as well as the one asking.
+    */
+    const limited = await rateLimit({
+      bucket: "password-reset",
+      subjects: [addressSubject(request), emailSubject(email)],
+      windows: LIMITS.email,
+      message: "A reset link was already sent. Check your inbox, then try again shortly.",
+    })
+    if (limited) return limited
 
     const cleanEmail = email.trim().toLowerCase()
     const adminSupabase = createAdminClient()
