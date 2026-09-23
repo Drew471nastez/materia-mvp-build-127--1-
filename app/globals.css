@@ -4681,6 +4681,7 @@ html.pop-in-flight #platform-header-root {
   .checkout-paid-text { animation: none; }
   .checkout-paid-ring,
   .checkout-paid-check { animation: none; stroke-dashoffset: 0; }
+}
 
 /* ── The date picker's months and days (components/app/date-range-picker) ──
    A month arrives from the side it was asked for; a picked day settles into
