@@ -4,6 +4,13 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import type { ThemeSettingsValues, ThemeStatus } from "@/lib/website-builder/types"
 import { WebsiteBuilderClient, type WebsiteSummary } from "./website-builder-client"
+import {
+  SNAPSHOT_BUCKET,
+  isCurrentSnapshotUrl,
+  snapshotFolder,
+  snapshotsNewestFirst,
+  snapshotTakenAt,
+} from "@/lib/website-builder/snapshot"
 
 export const metadata: Metadata = {
   title: "Website",
@@ -110,7 +117,80 @@ export default async function WebsiteBuilderPage() {
     ;({ data: rows } = await load())
   }
 
-  const installs = ((rows ?? []) as unknown as InstallRow[]).map(toSummary)
+  const installs = await withStoredCovers(
+    ((rows ?? []) as unknown as InstallRow[]).map(toSummary),
+    user.id,
+  )
 
   return <WebsiteBuilderClient installs={installs} username={username} />
+}
+
+/**
+ * ===========================================================================
+ *  A COVER THE COLUMN LOST IS FOUND IN THE FOLDER
+ * ===========================================================================
+ * The editor photographs the home page after every save and the route
+ * uploads it. If the database has no `snapshot_url` column the route cannot
+ * record where it put it, answers 200 anyway, and this page — which only
+ * ever looked at the column — drew the theme's stock artwork instead. In
+ * production that was a site called THE CHAIR showing a cover that said
+ * "Presets that hit different", which is Digital Wave's sample copy, after
+ * seventeen snapshots of the real thing had been uploaded that week.
+ *
+ * So for any install the column says nothing about, the install's own
+ * snapshot folder is asked for its newest picture. Once the column exists
+ * and is filled, none of these requests are made at all.
+ *
+ * COST. One storage listing per install without a recorded cover, all at
+ * once rather than one after another, and a creator has a handful. The
+ * listing is capped and scoped to the signed-in user's own folders: the
+ * path is built from their id and an install their creator row owns, never
+ * from anything in the request.
+ *
+ * A listing that fails leaves that one card on its drawn cover, which is
+ * what it showed before. The page never waits on a picture to render.
+ */
+async function withStoredCovers(given: WebsiteSummary[], userId: string): Promise<WebsiteSummary[]> {
+  /*
+    A cover recorded by a capture older than SNAPSHOT_VERSION is the header
+    over a blank page, and is treated as no cover at all: the folder is asked
+    for a current one, and failing that the card draws its stand-in.
+  */
+  const installs = given.map((i) =>
+    i.snapshot_url && !isCurrentSnapshotUrl(i.snapshot_url) ? { ...i, snapshot_url: null, snapshot_updated_at: null } : i,
+  )
+  const missing = installs.filter((i) => !i.snapshot_url)
+  if (missing.length === 0) return installs
+
+  const admin = createAdminClient()
+  const bucket = admin.storage.from(SNAPSHOT_BUCKET)
+  const found = new Map<string, { url: string; at: string | null }>()
+
+  await Promise.all(
+    missing.map(async (install) => {
+      try {
+        const folder = snapshotFolder(userId, install.id)
+        const { data } = await bucket.list(folder, { limit: 100 })
+        const newest = snapshotsNewestFirst((data ?? []).map((f) => f.name))[0]
+        if (!newest) return
+        found.set(install.id, {
+          url: bucket.getPublicUrl(`${folder}/${newest}`).data.publicUrl,
+          at: snapshotTakenAt(newest),
+        })
+      } catch {
+        /* That card keeps its drawn cover. */
+      }
+    }),
+  )
+
+  return installs.map((install) => {
+    const hit = found.get(install.id)
+    if (!hit) return install
+    return {
+      ...install,
+      snapshot_url: hit.url,
+      snapshot_updated_at: hit.at,
+      saved_at: newest(install.saved_at, hit.at),
+    }
+  })
 }

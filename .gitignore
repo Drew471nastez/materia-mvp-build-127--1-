@@ -86,3 +86,10 @@ tsconfig.*.generated.json
 # The screenshot that probe leaves behind, so the dropdown can be looked at
 # and not only measured.
 .probe-nav-dropdown.png
+
+# Written by scripts/check-cover-capture.mjs while it bundles the probe, and
+# the three pictures it leaves so the cover can be looked at, not only measured.
+.cover-probe/
+.probe-cover-page.png
+.probe-cover-capture.png
+.probe-cover-stage.png

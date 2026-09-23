@@ -30,9 +30,114 @@ export function previousSnapshotPath(
   const prefix = `${userId}/theme-snapshots/${installId}/`
   if (!path.startsWith(prefix)) return null
   const rest = path.slice(prefix.length)
-  if (!/^[a-z0-9]+\.(webp|png|jpg)$/.test(rest)) return null
+  if (!/^[a-z0-9]+(\.v\d+)?\.(webp|png|jpg)$/.test(rest)) return null
   return path
 }
+
+/**
+ * ===========================================================================
+ *  THE FOLDER IS THE RECORD, THE COLUMN IS A SHORTCUT TO IT
+ * ===========================================================================
+ * The cover was only ever found through `store_theme_installs.snapshot_url`.
+ * When that column is missing from the database the route uploads the
+ * picture, fails to record it, and answers 200 with `stored: false` — so
+ * production logged seventeen successful snapshots in a week for one site
+ * while its cover went on showing the theme's stock artwork, because nothing
+ * pointed at any of them.
+ *
+ * Every snapshot is written under one folder per install, named for the
+ * moment it was taken. So the folder can answer "which is the newest" on its
+ * own, and the column becomes what it should have been: a way to skip asking.
+ */
+export function snapshotFolder(userId: string, installId: string): string {
+  return `${userId}/theme-snapshots/${installId}`
+}
+
+/**
+ * ===========================================================================
+ *  WHICH PICTURES ARE WORTH SHOWING
+ * ===========================================================================
+ * Every cover taken before version 2 is wrong, and not occasionally: the
+ * capture copied the page's stylesheets into the picture, the theme's
+ * section entrance animation replayed inside it from `opacity: 0`, and
+ * `animations_enabled` is on by default. So those pictures are the header
+ * over a blank page. Showing one would be worse than the theme's drawn
+ * stand-in, so they are never shown, and the route clears them out.
+ *
+ * A date would not do as the line between the two. An editor tab left open
+ * across the deploy is still running the old capture, and would go on
+ * uploading blank covers after any date anybody picked. So the version is
+ * sent BY THE CAPTURE (`X-Snapshot-Version`), the route refuses anything
+ * without the current one, and it is written into the name, so a picture
+ * says which code took it.
+ */
+export const SNAPSHOT_VERSION = 2
+
+/** Any name this route has written: a base-36 timestamp, a version from 2
+    on, and an image extension. The captures before versioning had none. */
+const SNAPSHOT_NAME = /^([a-z0-9]+)(?:\.v(\d+))?\.(webp|png|jpg)$/
+
+function parseName(name: string): { at: number; version: number } | null {
+  const m = SNAPSHOT_NAME.exec(name)
+  if (!m) return null
+  const at = Number.parseInt(m[1], 36)
+  if (!Number.isFinite(at)) return null
+  return { at, version: m[2] ? Number(m[2]) : 1 }
+}
+
+/** The name a capture at this version is stored under. */
+export function snapshotName(stamp: string, ext: string): string {
+  return `${stamp}.v${SNAPSHOT_VERSION}.${ext}`
+}
+
+/**
+ * The CURRENT pictures in a snapshot folder, newest first — the ones that
+ * may be shown. Anything this route did not write, and anything taken by a
+ * capture older than SNAPSHOT_VERSION, is left out. Ordered by the time in
+ * the NAME, which the code that took the picture set, rather than by the
+ * listing's order.
+ */
+export function snapshotsNewestFirst(names: string[]): string[] {
+  return names
+    .map((name) => ({ name, parsed: parseName(name) }))
+    .filter((f) => f.parsed !== null && f.parsed.version >= SNAPSHOT_VERSION)
+    .sort((a, b) => b.parsed!.at - a.parsed!.at)
+    .map((f) => f.name)
+}
+
+/**
+ * What a folder can do without: every picture this route wrote except the
+ * newest SNAPSHOTS_KEPT current ones — which includes every picture from
+ * before versioning, since none of those is ever shown.
+ */
+export function staleSnapshots(names: string[]): string[] {
+  const keep = new Set(snapshotsNewestFirst(names).slice(0, SNAPSHOTS_KEPT))
+  return names.filter((name) => parseName(name) !== null && !keep.has(name))
+}
+
+/** Whether a stored cover URL points at a picture worth showing. */
+export function isCurrentSnapshotUrl(url: string | null | undefined): boolean {
+  if (!url) return false
+  const file = url.split("?")[0].split("/").pop() ?? ""
+  const parsed = parseName(decodeURIComponent(file))
+  return parsed !== null && parsed.version >= SNAPSHOT_VERSION
+}
+
+/**
+ * When the name says the picture was taken, as an ISO date — the card's
+ * "Edited 3m ago" reads it when there is no column to read instead.
+ */
+export function snapshotTakenAt(name: string): string | null {
+  const parsed = parseName(name)
+  return parsed ? new Date(parsed.at).toISOString() : null
+}
+
+/**
+ * How many pictures a folder keeps. Two rather than one: two saves a few
+ * seconds apart can upload out of order, and pruning to exactly one could
+ * delete the picture the other request is about to point at.
+ */
+export const SNAPSHOTS_KEPT = 2
 
 /** Magic bytes, because a content-type header is a claim, not a fact. */
 export function looksLikeImage(bytes: Uint8Array, contentType: string): boolean {
