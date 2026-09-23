@@ -3129,10 +3129,21 @@ html.capacitor.library-layout::before {
      base utility (`bg-primary`, `bg-background`) matches and a prefixed one
      (`hover:bg-gray-100`) does not, because its token starts with `hover:`.
      That is the whole distinction this rule was always trying to draw. */
-  [data-mobile-bottom-sheet] button:not(.wb-chip):not([class^="bg-"]):not([class*=" bg-"]):hover,
-  [data-mobile-bottom-sheet] a:not(.wb-chip):not([class^="bg-"]):not([class*=" bg-"]):hover,
-  [data-mobile-top-sheet] button:not(.wb-chip):not([class^="bg-"]):not([class*=" bg-"]):hover,
-  [data-mobile-top-sheet] a:not(.wb-chip):not([class^="bg-"]):not([class*=" bg-"]):hover {
+  /* AND AN INLINE BACKGROUND IS ITS OWN TOO, which is where this caught the
+     colour scheme picker. That control paints itself in the scheme it is
+     showing, through a style attribute rather than a class, because the
+     colour is data and not a utility. `!important` beats an inline style, so
+     tapping it cleared the swatch to nothing, and on a phone `:hover` stays
+     on the last element tapped: it went white and stayed white. Reported as
+     "the colour scheme tab becomes white transparent out of nowhere".
+
+     The class tests below cannot see that background, so the attribute test
+     is here beside them. It reads the style attribute for the word, which
+     covers `background` and `background-color` alike. */
+  [data-mobile-bottom-sheet] button:not(.wb-chip):not([style*="background"]):not([class^="bg-"]):not([class*=" bg-"]):hover,
+  [data-mobile-bottom-sheet] a:not(.wb-chip):not([style*="background"]):not([class^="bg-"]):not([class*=" bg-"]):hover,
+  [data-mobile-top-sheet] button:not(.wb-chip):not([style*="background"]):not([class^="bg-"]):not([class*=" bg-"]):hover,
+  [data-mobile-top-sheet] a:not(.wb-chip):not([style*="background"]):not([class^="bg-"]):not([class*=" bg-"]):hover {
     background-color: transparent !important;
   }
 
@@ -4055,6 +4066,14 @@ html.pop-in-flight #platform-header-root {
  * form of inputs, and animating its position any other way is a layout per
  * frame while somebody is waiting to use it.
  */
+/* The layer is asked for BEFORE the first frame. A panel that is promoted
+   halfway through its own slide drops the frames it spends being promoted,
+   which on the heaviest panel here is exactly where a stutter would land. */
+.wb-sheet-panel[data-dir="in"],
+.wb-sheet-panel[data-dir="back"] {
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+}
 .wb-sheet-panel[data-dir="in"] {
   animation: wb-panel-in 280ms cubic-bezier(0.32, 0.72, 0, 1) both;
 }

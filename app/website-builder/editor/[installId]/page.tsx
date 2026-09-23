@@ -1641,7 +1641,6 @@ function WbImagePicker({
   folder?: string
 }) {
   const [uploading, setUploading] = useState(false)
-  const [progress, setProgress] = useState(0)
   const [dragOver, setDragOver] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -1667,7 +1666,6 @@ function WbImagePicker({
     if (file.size > 5 * 1024 * 1024) { toast.error("Image must be under 5 MB"); return }
 
     setUploading(true)
-    setProgress(10)
     try {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
@@ -1676,7 +1674,6 @@ function WbImagePicker({
       // Sanitize filename: only keep alphanumeric + timestamp
       const safeName = `${Date.now()}.${ext}`
       const filePath = `${user.id}/${folder}/${safeName}`
-      setProgress(30)
 
       const { error: uploadError } = await supabase.storage.from(bucket).upload(filePath, file, {
         cacheControl: "31536000", // 1 year — immutable content-addressed names
@@ -1685,15 +1682,12 @@ function WbImagePicker({
       })
       if (uploadError) throw uploadError
 
-      setProgress(80)
       const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(filePath)
-      setProgress(100)
       onChange(urlData.publicUrl)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Upload failed")
     } finally {
-      setUploading(true) // brief delay to show 100%
-      setTimeout(() => { setUploading(false); setProgress(0) }, 300)
+      setUploading(false)
     }
   }, [bucket, folder, onChange])
 
@@ -1716,19 +1710,27 @@ function WbImagePicker({
         <div className={cn("relative w-full rounded-lg overflow-hidden border border-border bg-[#fafafa] flex items-center justify-center", filledClass)}>
           <img src={url} alt="" className="max-w-full max-h-full object-contain p-2" />
         </div>
-        <div className="flex items-center gap-2">
+        {/*
+          ONE CONTROL, SPLIT, not two buttons with a gap between them. Two
+          outlined pills side by side read as two separate decisions; this is
+          one decision with two answers, which is what the picture asked for.
+          44px on a phone, because that is the smallest thing a thumb hits.
+        */}
+        <div className="grid grid-cols-2 overflow-hidden rounded-lg border border-border">
           <button
-            className="flex-1 flex items-center justify-center gap-1.5 h-9 text-xs font-medium border border-border rounded-lg hover:bg-muted/50 transition-colors"
+            type="button"
+            className="flex h-11 items-center justify-center gap-1.5 text-[13px] font-medium transition-colors hover:bg-muted/60 md:h-9 md:text-xs"
             onClick={() => inputRef.current?.click()}
           >
-            <RefreshCw className="h-3 w-3" />
+            <RefreshCw className="h-3.5 w-3.5 md:h-3 md:w-3" />
             Replace
           </button>
           <button
-            className="flex-1 flex items-center justify-center gap-1.5 h-9 text-xs font-medium border border-border rounded-lg hover:bg-muted/50 transition-colors text-red-500"
+            type="button"
+            className="flex h-11 items-center justify-center gap-1.5 border-l border-border text-[13px] font-medium transition-colors hover:bg-muted/60 md:h-9 md:text-xs"
             onClick={() => onChange(null)}
           >
-            <Trash2 className="h-3 w-3" />
+            <Trash2 className="h-3.5 w-3.5 md:h-3 md:w-3" />
             Remove
           </button>
         </div>
@@ -1749,18 +1751,34 @@ function WbImagePicker({
           emptyAspectClass,
           dragOver ? "border-foreground/40 bg-muted" : "border-border bg-[#fafafa] hover:border-foreground/25 hover:bg-muted/60",
         )}
-        onClick={() => inputRef.current?.click()}
+        onClick={() => { if (!uploading) inputRef.current?.click() }}
         onDragOver={e => { e.preventDefault(); setDragOver(true) }}
         onDragLeave={() => setDragOver(false)}
-        onDrop={e => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files[0]; if (f) handleFile(f) }}
+        onDrop={e => { e.preventDefault(); setDragOver(false); if (uploading) return; const f = e.dataTransfer.files[0]; if (f) handleFile(f) }}
       >
         {uploading ? (
-          <div className="flex flex-col items-center gap-2">
-            <div className="h-5 w-5 border-2 border-foreground border-t-transparent rounded-full animate-spin" />
-            <p className="text-xs text-muted-foreground">Uploading... {progress}%</p>
-            <div className="w-32 h-1.5 bg-muted rounded-full overflow-hidden">
-              <div className="h-full bg-foreground rounded-full transition-all duration-300" style={{ width: `${progress}%` }} />
-            </div>
+          /*
+            ═══════════════════════════════════════════════════════════════
+             WHAT IT LOOKS LIKE WHILE IT UPLOADS
+            ═══════════════════════════════════════════════════════════════
+            A spinner over a label over a bar: three things stacked, 58px of
+            them, inside a box that a phone shrinks to 56px with no vertical
+            padding. They overflowed it, touched its edges and ran into each
+            other. That is the cramped, misaligned state in the report.
+
+            It is a ROW now, which is the shape the box actually is on a
+            phone, and the same shape the empty state beside it already uses.
+            One line, centred, with room to spare in 56px.
+
+            AND THE PERCENTAGE IS GONE, because it was never a percentage.
+            It was set to 10, then 30, then 80, then 100 around a call that
+            reports no progress at all, so it sat at 30 for the whole upload
+            and then jumped. A spinner says the same true thing without
+            claiming to know how far along it is.
+          */
+          <div className="flex items-center justify-center gap-2.5">
+            <span className="h-4 w-4 shrink-0 rounded-full border-2 border-foreground/70 border-t-transparent animate-spin" />
+            <span className="text-[13px] font-medium text-muted-foreground">Uploading</span>
           </div>
         ) : (
           <>
@@ -5756,12 +5774,28 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * if you went somewhere. Asked for as the back feeling "a little bit more
    * smooth" and opening a section "a little smooth, not so direct".
    *
-   * A depth, not a history: the list is 0 and a section's settings are 1, so
-   * the direction is subtraction. The ref is only ever written when the key
-   * changes, so a re-render for any other reason keeps the class it already
-   * had and cannot cut an animation short halfway.
+   * A position, not a history, so the direction is subtraction. The ref is
+   * only ever written when the key changes, so a re-render for any other
+   * reason keeps the class it already had and cannot cut an animation short
+   * halfway.
+   *
+   * THE THREE TABS ARE POSITIONS TOO. They were all 0, so moving between
+   * Sections, Pages and Settings subtracted to nothing and the panel was
+   * replaced with a cut — a heavy form appearing in one frame, which is what
+   * "dragging left and right between them is glitchy" describes. They are
+   * where they are drawn now, so the panel arrives from the side the tab you
+   * tapped is on, exactly as going into a section already did.
+   *
+   * A section's settings sit past all three, because they are somewhere you
+   * went from whichever tab you were on rather than a fourth tab.
    */
-  const panelDepth = (key: string) => (key.startsWith("section:") ? 1 : 0)
+  const TAB_POSITION: Record<string, number> = { sections: 0, pages: 1, settings: 2 }
+  const panelDepth = (key: string) => {
+    if (key.startsWith("section:")) return 10
+    if (key === "pages") return TAB_POSITION.pages
+    const tab = key.split(":")[0]
+    return TAB_POSITION[tab] ?? 0
+  }
   const panelMove = useRef<{ key: string; dir: number }>({ key: sidebarPanelKey, dir: 0 })
   if (panelMove.current.key !== sidebarPanelKey) {
     panelMove.current = {
