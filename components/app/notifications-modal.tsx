@@ -308,7 +308,7 @@ export function NotificationsModal({
         label="Notifications"
         hideFrom="md"
         fill
-        height="min(78dvh, 640px)"
+        height="min(62dvh, 540px)"
         header={
           <div className="flex items-center justify-between border-b border-neutral-100 px-5 pb-3 pt-2">
             <h3 className="text-[16px] font-semibold text-neutral-900">{t("notifications.title")}</h3>
