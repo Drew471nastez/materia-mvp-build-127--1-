@@ -114,7 +114,8 @@ export function Checkbox({
 
 /**
  * The shape of the period under its number: this period as a line, the one
- * it is compared with dashed behind it. Both share one vertical scale, or
+ * it is compared with dashed behind it, in the same checked blue and grey as
+ * the Analytics reports. Both share one vertical scale, or
  * the comparison would lie. Drawn in a fixed box, so a new reading never
  * moves anything around it.
  */
@@ -135,7 +136,7 @@ export function Sparkline({ series, previous }: { series: number[]; previous: nu
       <polyline
         points={points(previous)}
         fill="none"
-        stroke="#c9ccd3"
+        stroke="#b6bcc6"
         strokeWidth="1.25"
         strokeDasharray="3 3"
         vectorEffect="non-scaling-stroke"
@@ -143,7 +144,7 @@ export function Sparkline({ series, previous }: { series: number[]; previous: nu
       <polyline
         points={points(series)}
         fill="none"
-        stroke="#8b5cf6"
+        stroke="#2a78d6"
         strokeWidth="1.75"
         strokeLinejoin="round"
         strokeLinecap="round"

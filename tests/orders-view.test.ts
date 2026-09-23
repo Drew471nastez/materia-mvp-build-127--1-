@@ -19,13 +19,13 @@ import {
   listDate,
   pageOf,
   paramsFromQuery,
-  periodWindows,
   queryFromParams,
-  readMetrics,
   startOfDay,
   DEFAULT_QUERY,
   type OrderRow,
 } from "../lib/orders/order-view"
+import { readMetrics } from "../lib/orders/metrics"
+import { DEFAULT_RANGE, parseRange, rangeLabel, rangeWindow, serializeRange, windowLabel } from "../lib/orders/range"
 import { orderSourceFrom, orderSourceFromRequest, tagOrderSource } from "../lib/orders/order-source"
 import { readTimeZone } from "../lib/orders/time-zone"
 
@@ -130,36 +130,57 @@ async function main() {
     check("the cookie is read only when it names a real zone", readTimeZone("Europe%2FBucharest") === "Europe/Bucharest" && readTimeZone("nope") === "UTC")
   }
 
-  console.log("\nOrders: the metrics strip")
+  console.log("\nOrders: the date range")
   {
     const now = Date.parse("2025-04-08T15:30:00Z")
-    const { current, previous } = periodWindows("today", now, "UTC")
-    check("Today runs from midnight to now", current.start === Date.parse("2025-04-08T00:00:00Z") && current.end === now)
-    check("and is compared with yesterday up to the same hour", previous.end === now - DAY && previous.start === current.start - DAY)
-    check("Today has an hour per point", current.buckets.length === 24)
-    const week = periodWindows("7d", now, "UTC")
-    check("Last 7 days is seven days including today", week.current.buckets.length === 7 && week.current.start === Date.parse("2025-04-02T00:00:00Z"))
-    check("and the previous 7 days end where it starts", week.previous.end === week.current.start && week.previous.start === week.current.start - 7 * DAY)
+    check("the last 30 days until the creator picks another", DEFAULT_RANGE.key === "30d")
+    const today = rangeWindow({ key: "today" }, now, "UTC")
+    check("Today runs from midnight to now", today.start === Date.parse("2025-04-08T00:00:00Z") && today.end === now)
+    check("  compared with yesterday up to the same time", today.previous!.start === today.start - DAY && today.previous!.end === now - DAY)
+    const month = rangeWindow({ key: "30d" }, now, "UTC")
+    check("Last 30 days is thirty days including today", month.start === Date.parse("2025-03-10T00:00:00Z"), new Date(month.start).toISOString())
+    const ytd = rangeWindow({ key: "ytd" }, now, "Europe/Bucharest")
+    check("This year starts at New Year's midnight where the creator is", new Date(ytd.start).toISOString() === "2024-12-31T22:00:00.000Z", new Date(ytd.start).toISOString())
+    const all = rangeWindow({ key: "all" }, now, "UTC", Date.parse("2023-06-02T10:00:00Z"))
+    check("All time reaches the first order, with nothing to compare it with", all.start === Date.parse("2023-06-02T00:00:00Z") && all.previous === null)
+    const custom = parseRange("custom:2025-02-01:2025-02-10")!
+    const cw = rangeWindow(custom, now, "UTC")
+    check("a custom range covers both of its days", cw.start === Date.parse("2025-02-01T00:00:00Z") && cw.end === Date.parse("2025-02-11T00:00:00Z"))
+    check("  and reads as its days", rangeLabel(custom, "UTC") === "Feb 1 \u2013 Feb 10, 2025", rangeLabel(custom, "UTC"))
+    check("  and round-trips through the cookie", serializeRange(custom) === "custom:2025-02-01:2025-02-10" && parseRange(encodeURIComponent("custom:2025-02-01:2025-02-10"))?.to === "2025-02-10")
+    check("a reversed custom range is put the right way round", parseRange("custom:2025-02-10:2025-02-01")?.from === "2025-02-01")
+    check("junk is not a range", parseRange("custom:2025-02-30:2025-03-01") === null && parseRange("forever") === null)
+    check("the days under the button", windowLabel(month, "UTC") === "Mar 10 \u2013 Apr 8, 2025", windowLabel(month, "UTC"))
+  }
 
+  console.log("\nOrders: the five figures")
+  {
+    const now = Date.parse("2025-04-08T15:30:00Z")
     const orders = groupOrders([
-      row("t1", "2025-04-08T09:00:00Z", { buyer_notified_at: "2025-04-08T09:01:00Z" }),
-      row("t2", "2025-04-08T14:00:00Z", { stripe_session_id: "cs_9" }),
-      row("t3", "2025-04-08T14:00:01Z", { stripe_session_id: "cs_9", product_id: "p2" }),
+      row("t1", "2025-04-08T09:00:00Z", { buyer_email: "a@x.com" }),
+      row("t2", "2025-04-08T14:00:00Z", { stripe_session_id: "cs_9", buyer_email: "b@x.com" }),
+      row("t3", "2025-04-08T14:00:01Z", { stripe_session_id: "cs_9", product_id: "p2", buyer_email: "b@x.com" }),
+      row("t4", "2025-04-08T15:00:00Z", { buyer_email: "a@x.com", amount_cents: 0 }),
       row("y1", "2025-04-07T10:00:00Z"),
       row("y2", "2025-04-07T16:00:00Z"),
       row("old", "2025-03-01T10:00:00Z", { status: "refunded", refund_amount_cents: 700, refunded_at: "2025-04-08T11:00:00Z" }),
       row("bad", "2025-04-08T12:00:00Z", { status: "failed" }),
     ])
-    const m = Object.fromEntries(readMetrics(orders, "today", now, "UTC").map((r) => [r.key, r]))
-    check("Orders today counts the basket once and not the failed payment", m.orders.value === 2, m.orders.value)
-    check("Items ordered counts the basket's items", m.items.value === 3, m.items.value)
-    check("yesterday only counts up to this hour", m.orders.previous === 1, m.orders.previous)
-    check("so the change is +100%", m.orders.change === 1, m.orders.change)
-    check("a refund counts on the day it was refunded", m.reversals.value === 700, m.reversals.value)
-    check("Orders delivered counts the day the receipt arrived", m.delivered.value === 1)
+    const w = rangeWindow({ key: "today" }, now, "UTC")
+    const m = Object.fromEntries(readMetrics(orders, w, w.previous, "UTC").map((r) => [r.key, r]))
+    check("orders: the basket once, not the failed payment", m.orders.value === 3, m.orders.value)
+    check("  compared with yesterday up to this hour", m.orders.previous === 1 && m.orders.change === 2, m.orders)
+    const byTotal = filterOrders(orders, { ...DEFAULT_QUERY, sort: "total_desc" }, w)
+    check("sorting by total puts the basket first", byTotal[0].id === "t2", byTotal.map((o) => o.id))
+    check("the table only lists orders inside the range", filterOrders(orders, DEFAULT_QUERY, w).every((o) => Date.parse(o.createdAt) >= w.start))
+    check("total sales: what was paid in the period", m.sales.value === 1000 + 2000 + 0, m.sales.value)
+    check("average order value leaves free orders out", m.aov.value === 1500, m.aov.value)
+    check("customers: two people, however many orders", m.customers.value === 2, m.customers.value)
+    check("a refund counts on the day it was refunded", m.refunds.value === 700, m.refunds.value)
     check("the line has a point for the hour of each order", m.orders.series[9] === 1 && m.orders.series[14] === 1, m.orders.series)
-    const quiet = readMetrics([], "30d", now, "UTC")
-    check("nothing to compare is no change, not zero change", quiet.every((r) => r.change === null && r.value === 0))
+    const allTime = rangeWindow({ key: "all" }, now, "UTC", Date.parse("2025-03-01T10:00:00Z"))
+    const quiet = readMetrics(orders, allTime, allTime.previous, "UTC")
+    check("all time has figures and no comparison", quiet.every((r) => r.change === null) && quiet.find((r) => r.key === "orders")!.value === 6)
   }
 
   console.log("\nOrders: the list")
@@ -181,7 +202,7 @@ async function main() {
     check("the Website filter", filterOrders(orders, { ...DEFAULT_QUERY, source: "website" }).length === 60)
     check("the Refunded view", filterOrders(orders, { ...DEFAULT_QUERY, view: "refunded" }).length === 1)
 
-    const q = { view: "paid" as const, q: "ana", source: "website" as const, product: "p1", page: 3 }
+    const q = { view: "paid" as const, q: "ana", source: "website" as const, product: "p1", sort: "total_desc" as const, page: 3 }
     const params = paramsFromQuery(q, new URLSearchParams("order=abc&period=7d"))
     check("the list's state round-trips through the address", JSON.stringify(queryFromParams(params)) === JSON.stringify(q))
     check("  without touching the open order or the period", params.get("order") === "abc" && params.get("period") === "7d")
@@ -243,6 +264,13 @@ async function main() {
   console.log("\nOrders: the page")
   {
     const page = read("app/app/orders/sales/page.tsx")
+    check(
+      "products are read with every column, so a missing one can never empty the list",
+      /\.from\("products"\)\s*\.select\("\*"\)/.test(page) && !/gallery_images"\)/.test(page),
+    )
+    check("a failed read stops the page instead of drawing no orders", /if \(productsError\) throw/.test(page) && /if \(ordersError\) throw/.test(page))
+    check("every order is read, a thousand at a time", /\.range\(from, from \+ 999\)/.test(page))
+    check("the range the creator chose last time is read on the server", /initialRange=\{jar\.get\(RANGE_COOKIE\)/.test(page))
     check("the orders are read for the signed-in creator's own products", /\.eq\("user_id", user\.id\)/.test(page) && /\.in\(\s*"product_id",/.test(page))
     check("no Stripe call stands between the creator and the page", /after\(\(\) => catchMissedRefunds/.test(page) && !/await stripe\./.test(page.split("export default")[1]))
     const client = read("app/app/orders/orders-client.tsx")

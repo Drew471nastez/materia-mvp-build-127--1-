@@ -3,6 +3,7 @@
 import * as React from "react"
 import Link from "next/link"
 import {
+  ArrowUpDown,
   CalendarDays,
   ChevronDown,
   ChevronLeft,
@@ -17,8 +18,7 @@ import { Popover, PopoverTrigger } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
 import {
   COLUMNS,
-  METRICS,
-  PERIODS,
+  SORTS,
   SOURCE_LABEL,
   VIEWS,
   inView,
@@ -26,10 +26,12 @@ import {
   listDate,
   type ColumnKey,
   type ListQuery,
-  type MetricReading,
   type Order,
-  type Period,
 } from "@/lib/orders/order-view"
+import { METRICS, type MetricReading } from "@/lib/orders/metrics"
+import { RANGE_PRESETS, comparisonLabel, rangeLabel, windowLabel, type Range, type RangeWindow } from "@/lib/orders/range"
+import { DateRangePickerModal } from "@/components/app/date-range-picker-modal"
+import { HelpLabel } from "@/components/app/help-label"
 import {
   Checkbox,
   DeliveryBadge,
@@ -53,8 +55,9 @@ export interface OrdersListProps {
   onQuery: (next: Partial<ListQuery>) => void
   searchText: string
   onSearchText: (q: string) => void
-  period: Period
-  onPeriod: (p: Period) => void
+  dateRange: Range
+  span: RangeWindow
+  onDateRange: (r: Range) => void
   metrics: MetricReading[]
   hidden: Set<ColumnKey>
   onToggleColumn: (key: ColumnKey) => void
@@ -94,74 +97,113 @@ export function OrdersList(props: OrdersListProps) {
         </div>
       ) : null}
 
-      <MetricsStrip period={props.period} onPeriod={props.onPeriod} metrics={props.metrics} />
+      <RangeRow dateRange={props.dateRange} span={props.span} onDateRange={props.onDateRange} timeZone={props.timeZone} />
+
+      <MetricsStrip metrics={props.metrics} comparable={props.span.previous !== null} />
 
       <OrdersTable {...props} />
     </div>
   )
 }
 
-/* ─── Metrics ─────────────────────────────────────────────────────────── */
+/* ─── The date range ───────────────────────────────────────────────── */
 
-function MetricsStrip({
-  period,
-  onPeriod,
-  metrics,
+function isoDayLocal(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+}
+
+function RangeRow({
+  dateRange,
+  span,
+  onDateRange,
+  timeZone,
 }: {
-  period: Period
-  onPeriod: (p: Period) => void
-  metrics: MetricReading[]
+  dateRange: Range
+  span: RangeWindow
+  onDateRange: (r: Range) => void
+  timeZone: string
 }) {
   const [open, setOpen] = React.useState(false)
-  const current = PERIODS.find((p) => p.value === period)!
+  const [custom, setCustom] = React.useState(false)
+  const label = rangeLabel(dateRange, timeZone)
   return (
-    <section aria-label="Order metrics" className={cn(card, "mt-5 overflow-hidden")}>
-      <div className="orders-strip flex overflow-x-auto overscroll-x-contain">
-        <div className="flex shrink-0 items-center py-3 pl-3 pr-2">
-          <Popover open={open} onOpenChange={setOpen}>
-            <PopoverTrigger asChild>
-              <button type="button" className={cn(buttonSecondary, "gap-2 pl-2.5")} aria-label={`Period: ${current.label}`}>
-                <CalendarDays className="h-4 w-4 text-[#4b5563]" />
-                {current.label}
-              </button>
-            </PopoverTrigger>
-            <MenuSurface className="w-[300px]">
-              <div role="menu" aria-label="Period">
-                {PERIODS.map((p) => (
-                  <MenuOption
-                    key={p.value}
-                    selected={p.value === period}
-                    hint={p.comparison}
-                    onSelect={() => {
-                      onPeriod(p.value)
-                      setOpen(false)
-                    }}
-                  >
-                    {p.label}
-                  </MenuOption>
-                ))}
-              </div>
-            </MenuSurface>
-          </Popover>
-        </div>
-        {metrics.map((reading) => {
+    <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <button type="button" className={cn(buttonSecondary, "gap-2 pl-2.5")} aria-label={`Date range: ${label}`}>
+            <CalendarDays className="h-4 w-4 text-[#4b5563]" />
+            {label}
+            <ChevronDown className="h-3.5 w-3.5 text-[#6b7280]" />
+          </button>
+        </PopoverTrigger>
+        <MenuSurface className="w-[240px]">
+          <div role="menu" aria-label="Date range">
+            {RANGE_PRESETS.map((p) => (
+              <MenuOption
+                key={p.key}
+                selected={dateRange.key === p.key}
+                onSelect={() => {
+                  onDateRange({ key: p.key })
+                  setOpen(false)
+                }}
+              >
+                {p.label}
+              </MenuOption>
+            ))}
+            <div className="my-1 border-t border-[#eef0f2]" />
+            <MenuOption
+              selected={dateRange.key === "custom"}
+              hint={dateRange.key === "custom" ? label : "Pick the first and last day"}
+              onSelect={() => {
+                setOpen(false)
+                setCustom(true)
+              }}
+            >
+              Custom range
+            </MenuOption>
+          </div>
+        </MenuSurface>
+      </Popover>
+      <span className="text-[13px] text-[#6b7280]">
+        {windowLabel(span, timeZone)}
+        {comparisonLabel(dateRange, span) ? <span className="hidden sm:inline">, {comparisonLabel(dateRange, span)}</span> : null}
+      </span>
+      <DateRangePickerModal
+        open={custom}
+        onOpenChange={setCustom}
+        initialStart={dateRange.key === "custom" && dateRange.from ? new Date(`${dateRange.from}T00:00:00`) : null}
+        initialEnd={dateRange.key === "custom" && dateRange.to ? new Date(`${dateRange.to}T00:00:00`) : null}
+        onApply={(start, end) => {
+          onDateRange({ key: "custom", from: isoDayLocal(start), to: isoDayLocal(end) })
+          setCustom(false)
+        }}
+      />
+    </div>
+  )
+}
+
+/* ─── Metrics ─────────────────────────────────────────────────────────── */
+
+function MetricsStrip({ metrics, comparable }: { metrics: MetricReading[]; comparable: boolean }) {
+  return (
+    <section aria-label="Order metrics" className={cn(card, "mt-3 overflow-hidden")}>
+      <div className="orders-strip flex overflow-x-auto">
+        {metrics.map((reading, i) => {
           const meta = METRICS.find((m) => m.key === reading.key)!
           return (
             <div
               key={reading.key}
-              className="flex min-w-[152px] flex-1 shrink-0 flex-col justify-between border-l border-[#eef0f2] px-4 pb-2 pt-3"
+              className={cn(
+                "flex min-w-[150px] flex-1 shrink-0 flex-col justify-between px-4 pb-2 pt-3",
+                i > 0 && "border-l border-[#eef0f2]",
+              )}
             >
-              <span
-                title={meta.help}
-                className="w-fit cursor-default text-[12px] font-medium text-[#4b5563] underline decoration-[#c4c7cf] decoration-dotted underline-offset-[3px]"
-              >
-                {meta.label}
-              </span>
+              <HelpLabel label={meta.label} description={meta.help} className="text-[12px] font-medium text-[#4b5563]" />
               <div className="mt-1 flex h-6 items-baseline gap-2">
                 <span className="text-[16px] font-semibold tabular-nums text-[#1a1a2e]">
-                  {meta.money ? formatMoney(reading.value) : reading.value.toLocaleString("en-US")}
+                  {meta.money ? formatMoney(reading.value) : Math.round(reading.value).toLocaleString("en-US")}
                 </span>
-                <Change reading={reading} upIsBad={!!meta.upIsBad} />
+                {comparable ? <Change reading={reading} upIsBad={!!meta.upIsBad} /> : null}
               </div>
               <div className="mt-1.5">
                 <Sparkline series={reading.series} previous={reading.previousSeries} />
@@ -286,6 +328,7 @@ function OrdersTable(props: OrdersListProps) {
             </button>
           </>
         )}
+        <SortMenu value={query.sort} onChange={(sort) => onQuery({ sort, page: 1 })} />
         <ColumnsMenu hidden={hidden} onToggle={props.onToggleColumn} />
       </div>
 
@@ -294,11 +337,14 @@ function OrdersTable(props: OrdersListProps) {
       {pageOrders.length === 0 ? (
         <EmptyState
           hasOrders={allOrders.length > 0}
+          filtering={filtering || query.view !== "all"}
+          rangeName={props.dateRange.key === "all" ? null : rangeLabel(props.dateRange, props.timeZone)}
           onClear={() => {
             props.onSearchText("")
             onQuery({ view: "all", q: "", source: "any", product: "", page: 1 })
             setSearching(false)
           }}
+          onAllTime={() => props.onDateRange({ key: "all" })}
         />
       ) : (
         <div ref={scrollerRef} className="orders-scroller overflow-x-auto overscroll-x-contain" data-scrolled="false">
@@ -621,20 +667,80 @@ function ColumnsMenu({ hidden, onToggle }: { hidden: Set<ColumnKey>; onToggle: (
   )
 }
 
-function EmptyState({ hasOrders, onClear }: { hasOrders: boolean; onClear: () => void }) {
+function EmptyState({
+  hasOrders,
+  filtering,
+  rangeName,
+  onClear,
+  onAllTime,
+}: {
+  hasOrders: boolean
+  filtering: boolean
+  rangeName: string | null
+  onClear: () => void
+  onAllTime: () => void
+}) {
+  /* Say which of the three it is: nothing sold yet, nothing in these dates,
+     or nothing through these filters. Each has its own way out. */
+  const title = !hasOrders ? "No orders yet" : filtering ? "No orders match" : `No orders in ${rangeName ? rangeName.toLowerCase().replace(/^last/, "the last") : "this period"}`
+  const body = !hasOrders
+    ? "Orders from your Storelib page and your website show up here as soon as someone buys."
+    : filtering
+      ? "Try another search, or clear the filters."
+      : "Your earlier orders are still here. Choose a longer period to see them."
   return (
     <div className="flex flex-col items-center px-6 py-14 text-center">
-      <p className="text-[15px] font-semibold text-[#1a1a2e]">{hasOrders ? "No orders match" : "No orders yet"}</p>
-      <p className="mt-1 max-w-[340px] text-[13px] text-[#6b7280]">
-        {hasOrders
-          ? "Try another search, or clear the filters."
-          : "Orders from your Storelib page and your website show up here as soon as someone buys."}
-      </p>
+      <p className="text-[15px] font-semibold text-[#1a1a2e]">{title}</p>
+      <p className="mt-1 max-w-[340px] text-[13px] text-[#6b7280]">{body}</p>
       {hasOrders ? (
-        <button type="button" className={cn(buttonSecondary, "mt-4")} onClick={onClear}>
-          Clear filters
-        </button>
+        <div className="mt-4 flex flex-wrap justify-center gap-2">
+          {filtering ? (
+            <button type="button" className={buttonSecondary} onClick={onClear}>
+              Clear filters
+            </button>
+          ) : null}
+          {rangeName ? (
+            <button type="button" className={buttonSecondary} onClick={onAllTime}>
+              Show all time
+            </button>
+          ) : null}
+        </div>
       ) : null}
     </div>
+  )
+}
+
+function SortMenu({ value, onChange }: { value: ListQuery["sort"]; onChange: (s: ListQuery["sort"]) => void }) {
+  const [open, setOpen] = React.useState(false)
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className={cn(iconButton, "shrink-0", value !== "newest" && "bg-[#eceef1] text-[#1a1a2e]")}
+          aria-label="Sort"
+          title="Sort"
+        >
+          <ArrowUpDown className="h-4 w-4" />
+        </button>
+      </PopoverTrigger>
+      <MenuSurface align="end" className="w-[200px]">
+        <p className="px-2.5 pb-1 pt-1.5 text-[12px] font-medium text-[#6b7280]">Sort by</p>
+        <div role="menu" aria-label="Sort">
+          {SORTS.map((o) => (
+            <MenuOption
+              key={o.value}
+              selected={o.value === value}
+              onSelect={() => {
+                onChange(o.value)
+                setOpen(false)
+              }}
+            >
+              {o.label}
+            </MenuOption>
+          ))}
+        </div>
+      </MenuSurface>
+    </Popover>
   )
 }

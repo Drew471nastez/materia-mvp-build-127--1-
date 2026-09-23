@@ -26,6 +26,9 @@
  */
 
 import { groupOrders, startOfDay, type OrderRow } from "../orders/order-view"
+import { bucketIndex, bucketLabel, bucketStarts, grainFor, previousWindow, type Grain, type Span } from "./buckets"
+
+export { bucketStarts, grainFor, previousWindow, type Grain, type Span }
 
 export interface ViewRow {
   id?: string
@@ -52,13 +55,6 @@ export interface StepRow {
   product_id?: string | null
   created_at: string
 }
-
-export interface Span {
-  start: number
-  end: number
-}
-
-export type Grain = "hour" | "day" | "month"
 
 export interface Series {
   labels: string[]
@@ -110,58 +106,6 @@ export interface Reports {
 
 const HOUR = 3_600_000
 const DAY = 24 * HOUR
-
-/* ─── Windows and buckets ─────────────────────────────────────────────── */
-
-export function previousWindow(w: Span): Span {
-  const length = w.end - w.start
-  return { start: w.start - length, end: w.start }
-}
-
-export function grainFor(w: Span): Grain {
-  const length = w.end - w.start
-  if (length <= 2 * DAY + HOUR) return "hour"
-  if (length <= 92 * DAY) return "day"
-  return "month"
-}
-
-function monthStart(ms: number, timeZone: string): number {
-  const day = startOfDay(ms, timeZone)
-  const dom = Number(new Intl.DateTimeFormat("en-US", { timeZone, day: "numeric" }).format(new Date(day + HOUR)))
-  return startOfDay(day - (dom - 1) * DAY + HOUR, timeZone)
-}
-
-/** Where each bucket of the window starts, in the viewer's zone. */
-export function bucketStarts(w: Span, grain: Grain, timeZone: string): number[] {
-  const out: number[] = []
-  if (grain === "hour") {
-    for (let t = w.start - (w.start % HOUR); t < w.end; t += HOUR) out.push(t)
-  } else if (grain === "day") {
-    for (let t = startOfDay(w.start, timeZone); t < w.end; t = startOfDay(t + DAY + 2 * HOUR, timeZone)) out.push(t)
-  } else {
-    for (let t = monthStart(w.start, timeZone); t < w.end; t = monthStart(t + 32 * DAY, timeZone)) out.push(t)
-  }
-  return out.length > 0 ? out : [w.start]
-}
-
-function bucketIndex(starts: number[], at: number): number {
-  let lo = 0
-  let hi = starts.length - 1
-  if (at < starts[0]) return -1
-  while (lo < hi) {
-    const mid = (lo + hi + 1) >> 1
-    if (starts[mid] <= at) lo = mid
-    else hi = mid - 1
-  }
-  return lo
-}
-
-function bucketLabel(ms: number, grain: Grain, timeZone: string): string {
-  const fmt = (o: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat("en-US", { ...o, timeZone }).format(new Date(ms))
-  if (grain === "hour") return fmt({ hour: "numeric" }).replace(" AM", " am").replace(" PM", " pm")
-  if (grain === "day") return fmt({ month: "short", day: "numeric" })
-  return fmt({ month: "short", year: "2-digit" }).replace(" ", " ’")
-}
 
 /* ─── Sessions ────────────────────────────────────────────────────────── */
 
@@ -287,7 +231,7 @@ function landingPath(url: string | null | undefined, mainDomain: string): string
 
 type Keyer = (s: Session) => { key: string; label: string } | null
 
-function breakdown(current: Session[], previous: Session[], keyer: Keyer, limit = 10): BreakdownRow[] {
+function breakdown(current: Session[], previous: Session[], keyer: Keyer, limit = 25): BreakdownRow[] {
   const now = new Map<string, { label: string; value: number }>()
   const before = new Map<string, number>()
   for (const s of current) {
@@ -310,6 +254,65 @@ function breakdown(current: Session[], previous: Session[], keyer: Keyer, limit 
 
 function headline(value: number, previous: number): Headline {
   return { value, previous, change: previous > 0 ? (value - previous) / previous : null }
+}
+
+/* ─── The breakdowns every kind of page shares ─────────────────────────── */
+
+export function referrerKeyer(mainDomain: string): Keyer {
+  return (s: Session) => {
+    const d = (s.first.referrer_domain || "").trim().toLowerCase().replace(/^www\./, "")
+    if (!d || d === "direct") return null
+    const self = channelOfUrl(`https://${d}`, mainDomain) === "storelib" || d.endsWith(mainDomain.replace(/^www\./, ""))
+    return self ? null : { key: d, label: d }
+  }
+}
+
+const keyCountry: Keyer = (s) =>
+  s.first.country_code && s.first.country_code !== "XX"
+    ? { key: s.first.country_code.toUpperCase(), label: countryName(s.first.country_code.toUpperCase(), s.first.country_name) }
+    : null
+
+function visitBreakdowns(now: Session[], before: Session[], mainDomain: string) {
+  return {
+    source: breakdown(now, before, (s) => {
+      const g = sourceGroup(s.first.source_category)
+      return { key: g, label: SOURCE_LABEL[g] }
+    }),
+    referrer: breakdown(now, before, referrerKeyer(mainDomain)),
+    social: breakdown(now, before, (s) => {
+      const n = socialNetwork(s.first.source_category)
+      return n ? { key: n, label: SOCIAL_LABEL[n] ?? (n === "other" ? "Other social" : titleCase(n)) } : null
+    }),
+    campaign: breakdown(now, before, (s) => {
+      const c = (s.first.utm_campaign || "").trim()
+      return c ? { key: c.toLowerCase(), label: c } : null
+    }),
+    country: breakdown(now, before, keyCountry).map((r) => ({ ...r, extra: { code: r.key } })),
+    city: breakdown(now, before, (s) => {
+      const c = (s.first.city || "").trim()
+      if (!c) return null
+      let city = c
+      try {
+        city = decodeURIComponent(c)
+      } catch {
+        /* Stored plain. */
+      }
+      const cc = (s.first.country_code || "").toUpperCase()
+      return { key: `${city}|${cc}`, label: cc ? `${city}, ${countryName(cc, s.first.country_name)}` : city }
+    }),
+    device: breakdown(now, before, (s) => {
+      const d = deviceLabel(s.first.device_type)
+      return { key: d.toLowerCase(), label: d }
+    }),
+    browser: breakdown(now, before, (s) => {
+      const b = (s.first.browser || "").trim()
+      return { key: (b || "unknown").toLowerCase(), label: b ? titleCase(b) : "Unknown" }
+    }),
+    os: breakdown(now, before, (s) => {
+      const o = (s.first.os || "").trim()
+      return { key: (o || "unknown").toLowerCase(), label: o || "Unknown" }
+    }),
+  }
 }
 
 /* ─── Everything ──────────────────────────────────────────────────────── */
@@ -467,11 +470,7 @@ export function buildReports(input: {
 
   /* Country: visits, and the orders and money from buyers there. */
   const countryRows = (() => {
-    const rows = breakdown(sessionsNow, sessionsBefore, (s) =>
-      s.first.country_code && s.first.country_code !== "XX"
-        ? { key: s.first.country_code.toUpperCase(), label: countryName(s.first.country_code.toUpperCase(), s.first.country_name) }
-        : null,
-    12)
+    const rows = breakdown(sessionsNow, sessionsBefore, keyCountry, 25)
     const byCode = new Map(rows.map((r) => [r.key, r]))
     for (const o of ordersNow) {
       const code = (o.lines[0].buyer_country_code || "").toUpperCase()
@@ -489,15 +488,10 @@ export function buildReports(input: {
       }
     }
     for (const r of rows) r.extra = { code: r.key, orders: r.extra?.orders ?? 0, salesCents: r.extra?.salesCents ?? 0 }
-    return rows.sort((a, b) => b.value - a.value || (b.extra?.orders ?? 0) - (a.extra?.orders ?? 0)).slice(0, 12)
+    return rows.sort((a, b) => b.value - a.value || (b.extra?.orders ?? 0) - (a.extra?.orders ?? 0)).slice(0, 25)
   })()
 
-  const refDomain = (s: Session) => {
-    const d = (s.first.referrer_domain || "").trim().toLowerCase().replace(/^www\./, "")
-    if (!d || d === "direct") return null
-    const self = channelOfUrl(`https://${d}`, mainDomain) === "storelib" || d.endsWith(mainDomain.replace(/^www\./, ""))
-    return self ? null : { key: d, label: d }
-  }
+  const refDomain = referrerKeyer(mainDomain)
 
   return {
     grain,
@@ -510,44 +504,8 @@ export function buildReports(input: {
     salesByProduct: productRows,
     funnel,
     breakdowns: {
-      source: breakdown(sessionsNow, sessionsBefore, (s) => {
-        const g = sourceGroup(s.first.source_category)
-        return { key: g, label: SOURCE_LABEL[g] }
-      }),
-      referrer: breakdown(sessionsNow, sessionsBefore, refDomain),
-      social: breakdown(sessionsNow, sessionsBefore, (s) => {
-        const n = socialNetwork(s.first.source_category)
-        return n ? { key: n, label: SOCIAL_LABEL[n] ?? (n === "other" ? "Other social" : titleCase(n)) } : null
-      }),
-      campaign: breakdown(sessionsNow, sessionsBefore, (s) => {
-        const c = (s.first.utm_campaign || "").trim()
-        return c ? { key: c.toLowerCase(), label: c } : null
-      }),
+      ...visitBreakdowns(sessionsNow, sessionsBefore, mainDomain),
       country: countryRows,
-      city: breakdown(sessionsNow, sessionsBefore, (s) => {
-        const c = (s.first.city || "").trim()
-        if (!c) return null
-        let city = c
-        try {
-          city = decodeURIComponent(c)
-        } catch {
-          /* Stored plain. */
-        }
-        const cc = (s.first.country_code || "").toUpperCase()
-        return { key: `${city}|${cc}`, label: cc ? `${city}, ${countryName(cc, s.first.country_name)}` : city }
-      }),
-      device: breakdown(sessionsNow, sessionsBefore, (s) => {
-        const d = deviceLabel(s.first.device_type)
-        return { key: d.toLowerCase(), label: d }
-      }),
-      browser: breakdown(sessionsNow, sessionsBefore, (s) => {
-        const b = (s.first.browser || "").trim()
-        return { key: (b || "unknown").toLowerCase(), label: b ? titleCase(b) : "Unknown" }
-      }),
-      os: breakdown(sessionsNow, sessionsBefore, (s) => {
-        const o = (s.first.os || "").trim()
-        return { key: (o || "unknown").toLowerCase(), label: o || "Unknown" }
-      }),
       landing: breakdown(sessionsNow, sessionsBefore, (s) => {
         const p = landingPath(s.first.page_url, mainDomain)
         return p ? { key: p, label: p } : null
@@ -557,5 +515,150 @@ export function buildReports(input: {
         return c ? { key: c, label: c === "website" ? "Website" : "Storelib" } : { key: "unknown", label: "Not recorded" }
       }),
     },
+  }
+}
+
+/* ─── OnePage ──────────────────────────────────────────────────────────── */
+
+export interface OnePageViewRow {
+  id?: string
+  visitor_id?: string | null
+  referrer?: string | null
+  user_agent?: string | null
+  country_code?: string | null
+  country_name?: string | null
+  created_at: string
+}
+
+export interface OnePageClickRow {
+  block_id: string
+  url?: string | null
+  visitor_id?: string | null
+  created_at: string
+}
+
+export interface OnePageLeadRow {
+  created_at: string
+}
+
+export interface OnePageReports {
+  grain: Grain
+  views: Headline & { series: Series }
+  clicks: Headline & { series: Series }
+  ctr: Headline & { series: Series }
+  subscribers: Headline & { series: Series }
+  links: BreakdownRow[]
+  breakdowns: ReturnType<typeof visitBreakdowns>
+}
+
+/**
+ * A OnePage view is already one per visitor per day (app/api/onepage/track),
+ * so each is a visit. Its source, device and browser are read from what it
+ * kept: the referrer and the browser's signature, by the same rules a
+ * Storelib page view is named with (lib/analytics/sources, user-agent).
+ */
+export function buildOnePageReports(input: {
+  views: OnePageViewRow[]
+  clicks: OnePageClickRow[]
+  leads: OnePageLeadRow[]
+  window: Span
+  timeZone: string
+  mainDomain: string
+  linkLabels: Record<string, string>
+  categorize: (referrerHost: string, userAgent: string | null) => string
+  parseAgent: (ua: string | null | undefined) => { device: string | null; browser: string | null; os: string | null }
+  hostOf: (referrer: string | null | undefined) => string
+}): OnePageReports {
+  const { window: cur, timeZone } = input
+  const prev = previousWindow(cur)
+  const grain = grainFor(cur)
+  const starts = bucketStarts(cur, grain, timeZone)
+  const prevStarts = starts.map((s) => s - (cur.start - prev.start))
+  const labels = starts.map((s) => bucketLabel(s, grain, timeZone))
+
+  const asViews: ViewRow[] = input.views.map((v, i) => {
+    const agent = input.parseAgent(v.user_agent)
+    const host = input.hostOf(v.referrer)
+    return {
+      id: v.id ?? `v${i}`,
+      session_id: `op:${v.id ?? i}`,
+      visitor_id: v.visitor_id ?? null,
+      created_at: v.created_at,
+      source_category: input.categorize(host, v.user_agent ?? null),
+      referrer_domain: host || "Direct",
+      country_code: v.country_code ?? null,
+      country_name: v.country_name ?? null,
+      device_type: agent.device,
+      browser: agent.browser,
+      os: agent.os,
+      page_url: null,
+    }
+  })
+  const now = sessionsOf(asViews, cur, timeZone)
+  const before = sessionsOf(asViews, prev, timeZone)
+
+  const times = (rows: Array<{ created_at: string }>) => rows.map((r) => Date.parse(r.created_at))
+  const countIn = (items: number[], from: number[], w: Span) => {
+    const out = from.map(() => 0)
+    for (const at of items) {
+      if (!(at >= w.start && at < w.end)) continue
+      const i = bucketIndex(from, at)
+      if (i >= 0) out[i]++
+    }
+    return out
+  }
+  const inSpan = (at: number, w: Span) => at >= w.start && at < w.end
+  const sum = (xs: number[]) => xs.reduce((n, x) => n + x, 0)
+
+  const viewTimes = now.map((s) => s.at).concat(before.map((s) => s.at))
+  const clickTimes = times(input.clicks)
+  const leadTimes = times(input.leads)
+  const viewSeries = { labels, current: countIn(viewTimes, starts, cur), previous: countIn(viewTimes, prevStarts, prev) }
+  const clickSeries = { labels, current: countIn(clickTimes, starts, cur), previous: countIn(clickTimes, prevStarts, prev) }
+  const leadSeries = { labels, current: countIn(leadTimes, starts, cur), previous: countIn(leadTimes, prevStarts, prev) }
+  const ctrSeries = {
+    labels,
+    current: clickSeries.current.map((c, i) => (viewSeries.current[i] ? c / viewSeries.current[i] : 0)),
+    previous: clickSeries.previous.map((c, i) => (viewSeries.previous[i] ? c / viewSeries.previous[i] : 0)),
+  }
+  const clicksNow = clickTimes.filter((t) => inSpan(t, cur)).length
+  const clicksBefore = clickTimes.filter((t) => inSpan(t, prev)).length
+  const ratio = (a: number, b: number) => (b > 0 ? a / b : 0)
+
+  /* Links: clicks per block, named from the page's own blocks. */
+  const linkRows = (() => {
+    const tally = (w: Span) => {
+      const m = new Map<string, number>()
+      for (const c of input.clicks) {
+        if (!inSpan(Date.parse(c.created_at), w)) continue
+        m.set(c.block_id, (m.get(c.block_id) ?? 0) + 1)
+      }
+      return m
+    }
+    const a = tally(cur)
+    const b = tally(prev)
+    const total = sum([...a.values()])
+    const urlOf = new Map(input.clicks.map((c) => [c.block_id, c.url || ""]))
+    return [...a.entries()]
+      .map(([id, value]) => {
+        const url = urlOf.get(id) || ""
+        const label = input.linkLabels[id] || input.hostOf(url) || "Link"
+        return { key: id, label, value, previous: b.get(id) ?? 0, share: total ? value / total : 0 }
+      })
+      .sort((x, y) => y.value - x.value || x.label.localeCompare(y.label))
+      .slice(0, 25)
+  })()
+
+  return {
+    grain,
+    views: { ...headline(now.length, before.length), series: viewSeries },
+    clicks: { ...headline(clicksNow, clicksBefore), series: clickSeries },
+    ctr: { ...headline(ratio(clicksNow, now.length), ratio(clicksBefore, before.length)), series: ctrSeries },
+    subscribers: {
+      ...headline(leadTimes.filter((t) => inSpan(t, cur)).length, leadTimes.filter((t) => inSpan(t, prev)).length),
+      series: leadSeries,
+    },
+    links: linkRows,
+    breakdowns: visitBreakdowns(now, before, input.mainDomain),
   }
 }

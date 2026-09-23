@@ -196,110 +196,6 @@ export function startOfDay(ms: number, timeZone: string): number {
   return ms - sinceMidnight(ms, timeZone)
 }
 
-/* ─── The metrics strip ───────────────────────────────────────────────── */
-
-export type Period = "today" | "7d" | "30d"
-
-export const PERIODS: Array<{ value: Period; label: string; comparison: string }> = [
-  { value: "today", label: "Today", comparison: "Compared to yesterday up to the current hour" },
-  { value: "7d", label: "Last 7 days", comparison: "Compared to the previous 7 days" },
-  { value: "30d", label: "Last 30 days", comparison: "Compared to the previous 30 days" },
-]
-
-export function isPeriod(value: unknown): value is Period {
-  return value === "today" || value === "7d" || value === "30d"
-}
-
-export interface TimeWindow {
-  start: number
-  end: number
-  /** Where each bucket of the sparkline begins. */
-  buckets: number[]
-  bucketSize: number
-}
-
-export function periodWindows(period: Period, now: number, timeZone: string): { current: TimeWindow; previous: TimeWindow } {
-  const today = startOfDay(now, timeZone)
-  if (period === "today") {
-    const buckets = Array.from({ length: 24 }, (_, h) => today + h * HOUR)
-    return {
-      current: { start: today, end: now, buckets, bucketSize: HOUR },
-      previous: { start: today - DAY, end: now - DAY, buckets: buckets.map((b) => b - DAY), bucketSize: HOUR },
-    }
-  }
-  const days = period === "7d" ? 7 : 30
-  const start = today - (days - 1) * DAY
-  const buckets = Array.from({ length: days }, (_, d) => start + d * DAY)
-  return {
-    current: { start, end: now, buckets, bucketSize: DAY },
-    previous: { start: start - days * DAY, end: start, buckets: buckets.map((b) => b - days * DAY), bucketSize: DAY },
-  }
-}
-
-export type MetricKey = "orders" | "items" | "reversals" | "fulfilled" | "delivered"
-
-export const METRICS: Array<{ key: MetricKey; label: string; money?: boolean; upIsBad?: boolean; help: string }> = [
-  { key: "orders", label: "Orders", help: "Orders placed, not counting failed payments." },
-  { key: "items", label: "Items ordered", help: "Products across those orders." },
-  { key: "reversals", label: "Sales reversals", money: true, upIsBad: true, help: "Money refunded, on the day it was refunded." },
-  { key: "fulfilled", label: "Orders fulfilled", help: "Orders whose buyer got access to what they paid for." },
-  { key: "delivered", label: "Orders delivered", help: "Orders whose receipt and access email reached the buyer." },
-]
-
-export interface MetricReading {
-  key: MetricKey
-  value: number
-  previous: number
-  series: number[]
-  previousSeries: number[]
-  /** Fraction, e.g. 0.12 for +12%. Null when there is nothing to compare. */
-  change: number | null
-}
-
-/** The instants at which an order counts towards each metric, and by how much. */
-function contributions(order: Order, key: MetricKey): Array<[number, number]> {
-  const placed = Date.parse(order.createdAt)
-  switch (key) {
-    case "orders":
-      return order.payment === "failed" ? [] : [[placed, 1]]
-    case "items":
-      return order.payment === "failed" ? [] : [[placed, order.itemCount]]
-    case "fulfilled":
-      return order.fulfillment === "fulfilled" ? [[placed, 1]] : []
-    case "delivered":
-      return order.deliveredAt ? [[Date.parse(order.deliveredAt), 1]] : []
-    case "reversals":
-      return order.lines
-        .filter((r) => r.status === "refunded")
-        .map((r) => [Date.parse(r.refunded_at || r.created_at), refundedCentsOf(r)] as [number, number])
-  }
-}
-
-function tally(orders: Order[], key: MetricKey, window: TimeWindow): { total: number; series: number[] } {
-  const series = window.buckets.map(() => 0)
-  let total = 0
-  for (const order of orders) {
-    for (const [at, amount] of contributions(order, key)) {
-      if (!(at >= window.start && at <= window.end)) continue
-      total += amount
-      const i = Math.floor((at - window.buckets[0]) / window.bucketSize)
-      if (i >= 0 && i < series.length) series[i] += amount
-    }
-  }
-  return { total, series }
-}
-
-export function readMetrics(orders: Order[], period: Period, now: number, timeZone: string): MetricReading[] {
-  const { current, previous } = periodWindows(period, now, timeZone)
-  return METRICS.map(({ key }) => {
-    const cur = tally(orders, key, current)
-    const prev = tally(orders, key, previous)
-    let change: number | null = null
-    if (prev.total > 0) change = (cur.total - prev.total) / prev.total
-    return { key, value: cur.total, previous: prev.total, series: cur.series, previousSeries: prev.series, change }
-  })
-}
-
 /* ─── The list: views, search, filters, pages ─────────────────────────── */
 
 export type View = "all" | "paid" | "pending" | "refunded"
@@ -328,15 +224,29 @@ export function inView(order: Order, view: View): boolean {
   }
 }
 
+export type Sort = "newest" | "oldest" | "total_desc" | "total_asc"
+
+export const SORTS: Array<{ value: Sort; label: string }> = [
+  { value: "newest", label: "Newest first" },
+  { value: "oldest", label: "Oldest first" },
+  { value: "total_desc", label: "Highest total" },
+  { value: "total_asc", label: "Lowest total" },
+]
+
+export function isSort(value: unknown): value is Sort {
+  return SORTS.some((s) => s.value === value)
+}
+
 export interface ListQuery {
   view: View
   q: string
   source: OrderSource | "any"
   product: string
+  sort: Sort
   page: number
 }
 
-export const DEFAULT_QUERY: ListQuery = { view: "all", q: "", source: "any", product: "", page: 1 }
+export const DEFAULT_QUERY: ListQuery = { view: "all", q: "", source: "any", product: "", sort: "newest", page: 1 }
 
 export function matchesSearch(order: Order, q: string): boolean {
   const needle = q.trim().toLowerCase().replace(/^#/, "")
@@ -351,14 +261,35 @@ export function matchesSearch(order: Order, q: string): boolean {
   return haystack.some((s) => (s || "").toLowerCase().includes(needle))
 }
 
-export function filterOrders(orders: Order[], query: ListQuery): Order[] {
-  return orders.filter(
-    (o) =>
+/**
+ * The orders the table shows: inside the page's date range (when there is
+ * one), in the open view, through the filters and the search, in the order
+ * asked for. Newest first unless told otherwise.
+ */
+export function filterOrders(orders: Order[], query: ListQuery, within?: { start: number; end: number } | null): Order[] {
+  const list = orders.filter((o) => {
+    if (within) {
+      const at = Date.parse(o.createdAt)
+      if (!(at >= within.start && at < within.end)) return false
+    }
+    return (
       inView(o, query.view) &&
       (query.source === "any" || o.source === query.source) &&
       (!query.product || o.lines.some((l) => l.product_id === query.product)) &&
-      matchesSearch(o, query.q),
-  )
+      matchesSearch(o, query.q)
+    )
+  })
+  const byDate = (a: Order, b: Order) => b.createdAt.localeCompare(a.createdAt) || b.number - a.number
+  switch (query.sort) {
+    case "oldest":
+      return list.sort((a, b) => -byDate(a, b))
+    case "total_desc":
+      return list.sort((a, b) => b.totalCents - a.totalCents || byDate(a, b))
+    case "total_asc":
+      return list.sort((a, b) => a.totalCents - b.totalCents || byDate(a, b))
+    default:
+      return list.sort(byDate)
+  }
 }
 
 export function pageOf<T>(items: T[], page: number): { items: T[]; page: number; pages: number; from: number; to: number } {
@@ -384,6 +315,7 @@ export function queryFromParams(params: { get(name: string): string | null }): L
     q: (params.get("q") || "").slice(0, 200),
     source: source === "website" || source === "storelib" ? source : "any",
     product: params.get("product") || "",
+    sort: isSort(params.get("sort")) ? (params.get("sort") as Sort) : "newest",
     page: Math.max(1, Number.parseInt(params.get("page") || "1", 10) || 1),
   }
 }
@@ -398,6 +330,7 @@ export function paramsFromQuery(query: ListQuery, base?: URLSearchParams): URLSe
   set("q", query.q.trim(), "")
   set("source", query.source, "any")
   set("product", query.product, "")
+  set("sort", query.sort, "newest")
   set("page", String(query.page), "1")
   return params
 }

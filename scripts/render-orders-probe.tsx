@@ -95,6 +95,7 @@ export function App() {
           ]}
           stripeConnected
           hiddenColumns={[]}
+          initialRange={null}
           timeZone={g.__probeTz}
           now={now}
         />
