@@ -419,15 +419,38 @@ export function SectionDesignPanel({
 
           {support.colorOverrides.length > 0 && (
             <div className="rounded-lg border border-border">
+              {/*
+                ═══════════════════════════════════════════════════════════
+                 TWO LABELS IN A ROW THAT IS SOMETIMES NARROW
+                ═══════════════════════════════════════════════════════════
+                A flex child's `min-width` is `auto`, which means it will not
+                shrink below its own content. Two of them in a row that runs
+                out of width therefore do not shrink at all: the text inside
+                them wraps instead, both sides at once, and the row grows to
+                two lines. Reported with a picture of "Advanced" over
+                "colors" beside "Using" over "scheme".
+
+                The scheme trigger directly above this has always had the
+                answer. `min-w-0` so a child may shrink, `truncate` on the
+                part that may lose characters, `shrink-0` on the part that
+                may not. This is the same three things.
+
+                Which shrinks is a decision: the name of the control stays
+                whole and the status beside it gives up characters first,
+                because "Advanced colors" is what you are looking for and
+                "Using scheme" is what you already know.
+              */}
               <button
                 type="button"
                 onClick={() => setCustomizeOpen((o) => !o)}
-                className="w-full flex items-center justify-between px-3 h-10 text-sm"
+                className="w-full flex items-center justify-between gap-2 overflow-hidden px-3 h-11 md:h-10 text-sm"
               >
-                <span className="font-medium text-foreground">Advanced colors</span>
-                <span className="flex items-center gap-2 text-[12px] text-muted-foreground">
-                  {overridden > 0 ? `${overridden} customized` : "Using scheme"}
-                  <ChevronDown className={cn("h-3.5 w-3.5 transition-transform duration-200", customizeOpen && "rotate-180")} />
+                <span className="shrink-0 whitespace-nowrap font-medium text-foreground">Advanced colors</span>
+                <span className="flex min-w-0 items-center gap-2 text-[12px] text-muted-foreground">
+                  <span className="truncate">
+                    {overridden > 0 ? `${overridden} customized` : "Using scheme"}
+                  </span>
+                  <ChevronDown className={cn("h-3.5 w-3.5 shrink-0 transition-transform duration-200", customizeOpen && "rotate-180")} />
                 </span>
               </button>
               {customizeOpen && (
@@ -710,9 +733,10 @@ export function ColorsPanel({
 
       {advanced && (
         <div className="border-t border-border pt-3">
-          <button type="button" onClick={() => setAdvancedOpen((o) => !o)} className="w-full flex items-center justify-between text-sm font-medium text-foreground">
-            Page colors
-            <ChevronDown className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform duration-200", advancedOpen && "rotate-180")} />
+          {/* Same row, same three rules, before it is reported too. */}
+          <button type="button" onClick={() => setAdvancedOpen((o) => !o)} className="w-full flex items-center justify-between gap-2 text-sm font-medium text-foreground">
+            <span className="min-w-0 truncate">Page colors</span>
+            <ChevronDown className={cn("h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-200", advancedOpen && "rotate-180")} />
           </button>
           <p className="text-[11px] text-muted-foreground mt-1">The page behind the sections, the announcement bar and links outside any section.</p>
           {advancedOpen && <div className="space-y-4 mt-3">{advanced}</div>}

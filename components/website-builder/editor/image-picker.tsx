@@ -82,6 +82,12 @@ export function WbImagePicker({
     if (previewRef.current) URL.revokeObjectURL(previewRef.current)
     previewRef.current = file ? URL.createObjectURL(file) : null
     setPreview(previewRef.current)
+    /*
+      A replacement starts the whole sequence again. Without this the box
+      still counts the PREVIOUS picture as arrived, so the file just chosen
+      would sit behind it unseen until the new upload returned.
+    */
+    if (file) { setReadyUrl(null); setFadedUrl(null) }
   }, [])
   useEffect(() => () => { if (previewRef.current) URL.revokeObjectURL(previewRef.current) }, [])
 
@@ -93,6 +99,36 @@ export function WbImagePicker({
    */
   const [readyUrl, setReadyUrl] = useState<string | null>(null)
   const ready = url !== null && readyUrl === url
+
+  /**
+   * ===================================================================
+   *  AND WHICH ONE HAS FINISHED ARRIVING, WHICH IS NOT THE SAME THING
+   * ===================================================================
+   * `ready` means the stored copy has decoded, so it is allowed to start
+   * appearing. It starts at nothing and takes IMAGE_FADE_MS to get there.
+   *
+   * The first version of this took the layer underneath away the moment
+   * `ready` turned true, which put an empty box under an image at zero
+   * opacity for the whole fade. Reported as a glitch right at the end of
+   * an upload, and it was exactly the bug this component exists to fix,
+   * moved a quarter of a second later.
+   *
+   * So what is underneath stays until the thing above it is actually
+   * opaque. Derived from the url for the same reason `ready` is: a value
+   * that changes is not finished, in the render that changes it.
+   */
+  const [fadedUrl, setFadedUrl] = useState<string | null>(null)
+  const faded = url !== null && fadedUrl === url
+  useEffect(() => {
+    if (!ready || faded) return
+    const timer = setTimeout(() => setFadedUrl(url), IMAGE_FADE_MS)
+    return () => clearTimeout(timer)
+  }, [ready, faded, url])
+
+  /* Once it is, the file is no longer holding anything up. */
+  useEffect(() => {
+    if (faded && previewRef.current) showFile(null)
+  }, [faded, showFile])
 
   const handleFile = useCallback(async (file: File) => {
     if (!ALLOWED_TYPES.has(file.type)) {
@@ -179,8 +215,12 @@ export function WbImagePicker({
             filledClass,
           )}
         >
-          {/* What is underneath: the file itself, or a sweep when there is no file. */}
-          {!ready && (
+          {/*
+            What is underneath: the file itself, or a sweep when there is no
+            file. `!faded` rather than `!ready`, so it is still there through
+            the fade that covers it.
+          */}
+          {!faded && (
             preview
               ? <img src={preview} alt="" data-wb-image-layer="local" className="absolute inset-0 h-full w-full object-contain p-2" />
               : <span data-wb-image-layer="waiting" className="wb-image-skeleton absolute inset-0" aria-hidden />

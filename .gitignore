@@ -34,6 +34,12 @@ public/sites/bundler-worker.js
 public/sites/vendor/
 public/sites/monaco/
 
+# Every check-*.mjs probe bundles into a dot directory named after itself and
+# deletes it on the way out. A probe that fails before its `finally` leaves one
+# behind, and four of them reached `git add -A` before this line existed. The
+# glob covers the ones below and every one added after.
+.*-probe/
+
 # Written and removed by scripts/check-sidebar.mjs while it bundles the probe.
 .sidebar-probe/
 

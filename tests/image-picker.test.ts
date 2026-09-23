@@ -76,6 +76,26 @@ function main() {
     "React attaches onLoad after mount; an image out of cache is complete before that")
   check("and one that will not load does not leave the box waiting for ever",
     /onError=\{\(\) => setReadyUrl\(url\)\}/.test(picker))
+  /*
+    THE GLITCH AT THE END OF AN UPLOAD, which was this component's own. The
+    layer underneath was removed the moment `ready` turned true, and `ready`
+    only means the stored copy is allowed to START appearing: it begins at
+    nothing and takes IMAGE_FADE_MS to arrive. So the empty box came back for
+    a quarter of a second, right as the upload finished.
+  */
+  check("what is underneath outlives the fade that covers it",
+    /const faded = url !== null && fadedUrl === url/.test(picker)
+      && /\{!faded && \(/.test(picker),
+    "removing it when the fade STARTS puts an empty box under an image at zero opacity")
+  check("with the end of the fade timed from the picture, not from a mount",
+    /const timer = setTimeout\(\(\) => setFadedUrl\(url\), IMAGE_FADE_MS\)/.test(picker)
+      && /\}, \[ready, faded, url\]\)/.test(picker))
+  check("and choosing a replacement starts the sequence over",
+    /if \(file\) \{ setReadyUrl\(null\); setFadedUrl\(null\) \}/.test(picker),
+    "otherwise the previous picture still counts as arrived and hides the file just chosen")
+  check("the file is let go once it is no longer holding anything up",
+    /if \(faded && previewRef\.current\) showFile\(null\)/.test(picker))
+
   check("until then the box holds the local file, or a sweep when there is none",
     /preview\s*\n\s*\? <img src=\{preview\}/.test(picker)
       && /: <span data-wb-image-layer="waiting" className="wb-image-skeleton absolute inset-0"/.test(picker))
@@ -104,6 +124,9 @@ function main() {
     /from "\.\.\/components\/website-builder\/editor\/image-picker"/.test(read("scripts/render-image-picker.tsx")))
   check("and says what it cannot see",
     /WHAT THIS CAN AND CANNOT SEE/.test(read("scripts/check-image-picker.mjs")))
+  check("and it watches the frame the fade starts on, which is where the glitch was",
+    /the picture underneath is still there when the stored copy starts to appear/.test(read("scripts/check-image-picker.mjs")),
+    "reverting the component to `!ready` makes that assertion fail, which is how it was checked")
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }

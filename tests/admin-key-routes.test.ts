@@ -208,6 +208,27 @@ function main() {
     /^import "server-only"$/m.test(readFileSync(join(process.cwd(), "lib/supabase/admin.ts"), "utf8")),
   )
 
+  console.log("\nAnd a link whose token IS the credential does not leak it in a Referer header")
+
+  /*
+    Most of the public routes above are reached by a link whose token is the
+    whole of the credential: a receipt, a download, an unsubscribe. A page
+    opened at such a URL sends that URL to any third party it then loads or
+    links to, in the Referer header, unless it is told not to. Modern
+    browsers default to this policy, which is a reason to set it rather than
+    a reason not to: a default is not a guarantee, and the value of what is
+    in these URLs does not depend on the visitor's browser version.
+  */
+  const vercel = JSON.parse(readFileSync(join(process.cwd(), "vercel.json"), "utf8"))
+  const headers = (vercel.headers ?? []).flatMap((h: { headers?: { key: string; value: string }[] }) => h.headers ?? [])
+  const named = Object.fromEntries(headers.map((h: { key: string; value: string }) => [h.key, h.value]))
+  check("the referrer is trimmed to the origin when it crosses one",
+    named["Referrer-Policy"] === "strict-origin-when-cross-origin",
+    `got ${named["Referrer-Policy"] ?? "nothing"}`)
+  check("the site still cannot be framed", named["X-Frame-Options"] === "DENY")
+  check("and a file is served as the type it was stored as", named["X-Content-Type-Options"] === "nosniff",
+    "an uploaded file sniffed as HTML is script on this origin")
+
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }
 }
