@@ -91,3 +91,59 @@ export function sanitizeThemeSettings<T extends Record<string, unknown>>(setting
   if (!settings) return {} as T
   return sanitizeSettings(settings, THEME_HTML_SETTINGS) as T
 }
+
+/**
+ * ===========================================================================
+ *  A WHOLE INSTALL, AS THE EDITOR LOADS IT
+ * ===========================================================================
+ * `/api/website-builder/themes/[installId]` answers with the install and
+ * everything hanging off it in one query: `pages:store_theme_pages(*)` and
+ * `settings:store_theme_settings(*)`. The editor builds its canvas from that
+ * response, and the canvas renders section settings with
+ * `dangerouslySetInnerHTML`.
+ *
+ * It was the last read that did not clean what it returned. The sections
+ * endpoint one directory over does, and so does everything a visitor
+ * reaches, which made this the one door left open into a signed-in session.
+ *
+ * Both shapes of embedded row are handled because PostgREST returns a
+ * one-to-one join as an object or as a single-element array depending on how
+ * the relationship is declared, and this code should not care which.
+ */
+type PageRow = { sections?: unknown; draft_sections?: unknown }
+type SettingsRow = { settings?: unknown; draft_settings?: unknown }
+
+function cleanPage<T extends PageRow>(page: T): T {
+  if (!page || typeof page !== "object") return page
+  return {
+    ...page,
+    ...(page.sections ? { sections: sanitizeSections(page.sections as SectionInstance[]) } : {}),
+    ...(page.draft_sections ? { draft_sections: sanitizeSections(page.draft_sections as SectionInstance[]) } : {}),
+  }
+}
+
+function cleanSettings<T extends SettingsRow>(row: T): T {
+  if (!row || typeof row !== "object") return row
+  return {
+    ...row,
+    ...(row.settings ? { settings: sanitizeThemeSettings(row.settings as Record<string, unknown>) } : {}),
+    ...(row.draft_settings ? { draft_settings: sanitizeThemeSettings(row.draft_settings as Record<string, unknown>) } : {}),
+  }
+}
+
+/** One embedded relation, however PostgREST chose to shape it. */
+function mapEmbedded<T>(value: unknown, fn: (row: T) => T): unknown {
+  if (Array.isArray(value)) return value.map((row) => fn(row as T))
+  if (value && typeof value === "object") return fn(value as T)
+  return value
+}
+
+export function sanitizeInstallRow<T>(install: T): T {
+  if (!install || typeof install !== "object") return install
+  const row = install as Record<string, unknown>
+  return {
+    ...row,
+    ...(row.pages !== undefined ? { pages: mapEmbedded<PageRow>(row.pages, cleanPage) } : {}),
+    ...(row.settings !== undefined ? { settings: mapEmbedded<SettingsRow>(row.settings, cleanSettings) } : {}),
+  } as T
+}
