@@ -137,7 +137,7 @@ An agent can work on a site directly: list its files, read them, compile a secti
 **Claude Code.** Run this in a terminal, with the token in place of `slb_...`:
 
 ```bash
-claude mcp add --transport http storelib https://storelib.com/api/mcp --header "Authorization: Bearer slb_..."
+claude mcp add --transport http --scope user storelib https://storelib.com/api/mcp --header "Authorization: Bearer slb_..."
 ```
 
 **Codex.** Add this to `~/.codex/config.toml`, and set the environment variable `STORELIB_TOKEN` to the token (`export STORELIB_TOKEN="slb_..."` in the terminal you start Codex from):
