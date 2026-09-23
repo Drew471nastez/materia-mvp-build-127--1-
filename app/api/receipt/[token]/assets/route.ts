@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { fullyRefunded } from "@/lib/orders/refund-state"
 
 export async function GET(
   request: Request,
@@ -17,12 +18,18 @@ export async function GET(
     // Fetch order by receipt token
     const { data: order, error: orderError } = await admin
       .from("orders")
-      .select("id, product_id, variant_id")
+      .select("*")
       .eq("receipt_token", token)
       .maybeSingle()
 
     if (orderError || !order) {
       return NextResponse.json({ error: "Order not found" }, { status: 404 })
+    }
+    /* A refunded order gave its money back, and its files with it. Every
+       column is read because the refund amount's column is not in every
+       database, and naming a missing one fails the whole read. */
+    if (fullyRefunded(order)) {
+      return NextResponse.json({ error: "This order was refunded." }, { status: 410 })
     }
 
     let assets: any[] = []

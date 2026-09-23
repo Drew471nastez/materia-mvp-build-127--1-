@@ -111,11 +111,18 @@ export function ProjectSettings({
   const [picked, setPicked] = useState(false)
   const panelRef = useRef<HTMLElement | null>(null)
 
-  useEffect(() => {
-    if (!open) return
-    setSection(initialSection ?? "general")
-    setPicked(initialSection !== null)
-  }, [open, initialSection])
+  /* Reset while rendering, not in an effect: an effect runs after paint,
+     so a reopened Settings showed the last subject for a frame first (and
+     on a phone, that subject's page instead of the list). */
+  const openedAs = open ? `open:${initialSection ?? ""}` : "closed"
+  const [seen, setSeen] = useState<string | null>(null)
+  if (seen !== openedAs) {
+    setSeen(openedAs)
+    if (open) {
+      setSection(initialSection ?? "general")
+      setPicked(initialSection !== null)
+    }
+  }
 
   useEffect(() => {
     if (!open) return

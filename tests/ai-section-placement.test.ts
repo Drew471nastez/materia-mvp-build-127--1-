@@ -150,7 +150,7 @@ function main() {
   check("the spot is held before the request goes", writeOne.indexOf("onWriteStart?.(prompt)") > -1
     && writeOne.indexOf("onWriteStart?.(prompt)") < writeOne.indexOf("await fetch("))
   check("a section that was kept is handed over by type", /onWriteDone\?\.\(section\)/.test(writeOne) && /const section = \{ type, name: d\.name, path: d\.path \}/.test(writeOne))
-  check("anything else lets go of the spot, and says why", /finally \{\s*if \(!kept\) onWriteFailed\?\.\(reason\)/.test(writeOne))
+  check("anything else lets go of the spot, and says why", /finally \{\s*if \(!kept\) onWriteFailed\?\.\(reason, answered\)/.test(writeOne))
   check("the editor failing to place it is not reported as the write failing",
     /\.catch\(\(\) => false\)/.test(writeOne))
   check("the request reads the settings and sections of now, not of the first render",
@@ -185,7 +185,7 @@ function main() {
     /if \(section\.type === WRITING_SECTION_TYPE\) \{[\s\S]{0,200}<WritingSection prompt=/.test(editor))
   check("the insert strips are counted without it", /gapWithoutPlaceholder\(sections, at\)/.test(editor))
   check("a phone closes the chat to show the canvas, and reopens it on failure",
-    /if \(isMobileView\) setAiOpen\(false\)/.test(editor) && /if \(isMobileViewRef\.current\) setAiOpen\(true\)/.test(editor))
+    /if \(isMobileView\) setAiOpen\(false\)/.test(editor) && /if \(isMobileViewRef\.current \|\| answered\) setAiOpen\(true\)/.test(editor))
   check("a desktop whose chat was closed meanwhile is told why the spot went",
     /else if \(!aiOpenRef\.current\) showNotification\(reason, "error"\)/.test(editor))
   check("the AI's own add_section is replayed with the creator's sections in the lookup",

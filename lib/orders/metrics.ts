@@ -117,7 +117,10 @@ export function readMetrics(
 ): MetricReading[] {
   const grain = grainFor(window)
   const starts = bucketStarts(window, grain, timeZone)
-  const prevStarts = previous ? starts.map((s) => s - (window.start - previous.start)) : []
+  /* The comparison's own buckets: a custom comparison can be longer or
+     shorter than the range, and shifted copies of this window's starts
+     would pile everything past their end into the last one. */
+  const prevStarts = previous ? bucketStarts(previous, grain, timeZone) : []
   return METRICS.map(({ key }) => {
     const cur = reading(orders, key, window, starts)
     const prev = previous ? reading(orders, key, previous, prevStarts) : { total: 0, series: [] as number[] }

@@ -186,4 +186,12 @@ export const LIMITS = {
   coupon: [{ limit: 10, seconds: 60 }, { limit: 60, seconds: 3600 }],
   /** Anything that sends an email to somebody who did not ask twice. */
   email: [{ limit: 3, seconds: 300 }, { limit: 10, seconds: 86400 }],
+  /**
+   * Starting or confirming a card payment. A buyer whose card is declined
+   * tries two or three more; a list of stolen numbers is tried by the
+   * hundred, and this is the limit that makes the checkout useless for it.
+   */
+  payment: [{ limit: 10, seconds: 600 }, { limit: 40, seconds: 86400 }],
+  /** Taking a free product, which emails the address it is given. */
+  claim: [{ limit: 5, seconds: 600 }, { limit: 30, seconds: 86400 }],
 } as const satisfies Record<string, readonly RateWindow[]>

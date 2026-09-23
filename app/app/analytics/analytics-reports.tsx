@@ -776,6 +776,9 @@ export function AnalyticsReports({
       })
       .catch((e) => {
         if ((e as Error).name === "AbortError") return
+        /* The figures on screen belong to the range before; left up, they
+           would read as this range's. */
+        setData(null)
         setFailed(true)
         setLoading(false)
       })

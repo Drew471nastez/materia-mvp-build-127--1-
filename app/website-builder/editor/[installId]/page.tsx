@@ -3445,11 +3445,18 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     // `?view=code` / `?view=settings` — the website page's "Edit code" and
     // "Website settings" open the editor straight onto that pane. Preview
     // stays the default; the pane is switched once, on arrival.
-    const v = new URLSearchParams(window.location.search).get("view")
+    const url = new URL(window.location.href)
+    const v = url.searchParams.get("view")
     if (v === "code" || v === "settings") setPreviewMode(v)
     /* The switch alone drew the Settings segment as selected over a canvas
        with no settings on it: the page itself has to be opened too. */
     if (v === "settings") setProjectSettingsOpen(true)
+    /* Once, on arrival: left on the address, every reload (the one after a
+       backup is restored among them) would open the pane again. */
+    if (v !== null) {
+      url.searchParams.delete("view")
+      window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash)
+    }
   }, [])
   const [projectSettingsOpen, setProjectSettingsOpen] = useState(false)
   /** Website settings opened on one subject (a tab on the website page, or
@@ -5617,10 +5624,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const isMobileViewRef = useRef(isMobileView)
   isMobileViewRef.current = isMobileView
   const handleWriteFailed = useCallback(
-    (reason: string) => {
+    (reason: string, answered?: boolean) => {
       aiWritingRef.current = null
       setAiWriting(null)
-      if (isMobileViewRef.current) setAiOpen(true)
+      /* An answer is read where it was asked: the chat opens on it, and it
+         is never a red error notice. */
+      if (isMobileViewRef.current || answered) setAiOpen(true)
       else if (!aiOpenRef.current) showNotification(reason, "error")
     },
     [showNotification],

@@ -247,10 +247,7 @@ async function main() {
     const insertFirst: Array<[string, RegExp]> = [
       ["app/api/checkout/process/route.ts", /Order created successfully:", order\.id\)\n\s*await tagOrderSource\(admin, order\.id, orderSourceFromRequest\(request\)\)/],
       ["app/api/checkout/quick-free/route.ts", /await tagOrderSource\(admin, order\.id, orderSourceFromRequest\(request\)\)/],
-      ["app/api/checkout/complete-free/route.ts", /await tagOrderSource\(admin, order\.id, orderSourceFromRequest\(req\)\)/],
-      ["app/api/checkout/free/route.ts", /await tagOrderSource\(admin, order\.id, orderSourceFrom\(null, request\)\)/],
-      ["app/api/checkout/confirm-payment/route.ts", /await tagOrderSource\(admin, order\.id, orderSourceFrom\(metadata, request\)\)/],
-      ["app/api/checkout/complete/route.ts", /await tagOrderSource\(admin, order\.id, orderSourceFrom\(metadata\)\)/],
+      ["lib/checkout/fulfil-payment.ts", /await tagOrderSource\(admin, order\.id, orderSourceFrom\(m, opts\.request\)\)/],
       ["app/api/stripe/webhook/route.ts", /await tagOrderSource\(supabaseAdmin, order\.id, orderSourceFrom\(metadata\)\)/],
       ["lib/checkout/fulfil-cart-item.ts", /await tagOrderSource\(ctx\.admin, order\.id, "website"\)/],
     ]
@@ -259,7 +256,7 @@ async function main() {
       check(`${file} records the source`, pattern.test(src))
       check(`  and never puts it in the insert itself`, !/insert\([^)]*source:/s.test(src.replace(/source: "checkout"/g, "")))
     }
-    check("the PaymentIntent carries it to fulfilment", (read("app/api/checkout/stripe-session/route.ts").match(/\[SOURCE_METADATA_KEY\]: orderSourceFromRequest\(request\)/g) ?? []).length === 2)
+    check("the PaymentIntent carries it to fulfilment", (read("app/api/checkout/stripe-session/route.ts").match(/\[SOURCE_METADATA_KEY\]: orderSourceFromRequest\(request\)/g) ?? []).length === 1)
     check("a website's Buy button marks its checkout", /&src=website`/.test(read("components/website-builder/sections/renderers/ProductSection.tsx")))
     check("the column arrives by SQL, additive", /add column if not exists source text/.test(read("supabase/sql/RUN_ORDER_SOURCE.sql")))
   }

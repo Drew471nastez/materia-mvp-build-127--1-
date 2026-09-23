@@ -39,7 +39,10 @@ function monthStart(ms: number, timeZone: string): number {
 export function bucketStarts(w: Span, grain: Grain, timeZone: string): number[] {
   const out: number[] = []
   if (grain === "hour") {
-    for (let t = w.start - (w.start % HOUR); t < w.end; t += HOUR) out.push(t)
+    /* From local midnight, not from the epoch: an epoch hour is a UTC hour,
+       which is half past in India and quarter to in Nepal. */
+    const t0 = w.start - ((w.start - startOfDay(w.start, timeZone)) % HOUR)
+    for (let t = t0; t < w.end; t += HOUR) out.push(t)
   } else if (grain === "day") {
     for (let t = startOfDay(w.start, timeZone); t < w.end; t = startOfDay(t + DAY + 2 * HOUR, timeZone)) out.push(t)
   } else {

@@ -15,6 +15,14 @@ function normalizeLower(v?: string | null): string {
   return normalizeStr(v).toLowerCase()
 }
 
+/** "https://www.Reddit.com/r/x" and "reddit.com" are both "reddit.com". */
+function hostOf(ref: string): string {
+  return ref
+    .replace(/^[a-z][a-z0-9+.-]*:\/\//, "")
+    .split(/[/?#:]/)[0]
+    .replace(/^www\./, "")
+}
+
 /**
  * ✅ Server-side client app detection using User-Agent.
  * This is crucial when referrer is empty and clientApp isn't sent / is unreliable.
@@ -93,26 +101,31 @@ export function categorizeServerSource(
     return "direct"
   }
 
+  /* Short domains are compared as whole hosts: "t.co" is inside
+     "reddit.com" and "pinterest.com", "x.com" inside "dropbox.com", and
+     "t.me" inside "about.me". Brand names stay substrings, so
+     "l.instagram.com" and "web.whatsapp.com" still count. */
+  const host = hostOf(ref)
+  const at = (...domains: string[]) => domains.some((d) => host === d || host.endsWith(`.${d}`))
+
   // 3) Email referrers
-  if (
-    ["mail.google.com", "gmail.com", "outlook.live.com", "outlook.office.com", "mail.yahoo.com"].some((d) => ref.includes(d))
-  ) {
+  if (at("mail.google.com", "gmail.com", "outlook.live.com", "outlook.office.com", "mail.yahoo.com")) {
     return "email"
   }
 
   // 4) Social referrers + redirectors
-  if (ref.includes("wa.me") || ref.includes("whatsapp")) return "social_whatsapp"
-  if (ref.includes("t.me") || ref.includes("telegram")) return "social_telegram"
-  if (ref.includes("instagram")) return "social_instagram"
-  if (ref.includes("tiktok")) return "social_tiktok"
-  if (ref.includes("facebook")) return "social_facebook"
-  if (ref.includes("twitter") || ref.includes("x.com") || ref.includes("t.co")) return "social_x"
-  if (ref.includes("youtube")) return "social_youtube"
-  if (ref.includes("pinterest")) return "social_pinterest"
-  if (ref.includes("linkedin")) return "social_linkedin"
-  if (ref.includes("snapchat")) return "social_snapchat"
-  if (ref.includes("reddit")) return "social_reddit"
-  if (ref.includes("threads")) return "social_threads"
+  if (at("wa.me") || host.includes("whatsapp")) return "social_whatsapp"
+  if (at("t.me") || host.includes("telegram")) return "social_telegram"
+  if (host.includes("instagram")) return "social_instagram"
+  if (host.includes("tiktok")) return "social_tiktok"
+  if (host.includes("facebook") || at("fb.me", "fb.com")) return "social_facebook"
+  if (host.includes("twitter") || at("x.com", "t.co")) return "social_x"
+  if (host.includes("youtube") || at("youtu.be")) return "social_youtube"
+  if (host.includes("pinterest") || at("pin.it")) return "social_pinterest"
+  if (host.includes("linkedin") || at("lnkd.in")) return "social_linkedin"
+  if (host.includes("snapchat")) return "social_snapchat"
+  if (host.includes("reddit") || at("redd.it")) return "social_reddit"
+  if (at("threads.net", "threads.com")) return "social_threads"
 
   // 5) Search engines
   if (["google.", "bing.", "yahoo.", "duckduckgo.", "baidu.", "yandex."].some((d) => ref.includes(d))) {

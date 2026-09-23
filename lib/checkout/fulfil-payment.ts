@@ -1,0 +1,444 @@
+import "server-only"
+
+/**
+ * ===========================================================================
+ *  A PAID CHECKOUT BECOMES AN ORDER, EXACTLY ONCE
+ * ===========================================================================
+ * Two things can report that a checkout's PaymentIntent succeeded:
+ *
+ *   the buyer's browser   /api/checkout/confirm-payment, straight after
+ *                         paying or after a bank's 3-D Secure page;
+ *   Stripe itself         the payment_intent.succeeded webhook.
+ *
+ * Both call this, and whichever arrives first makes the order. The browser
+ * used to be the only one: a buyer who paid and closed the tab was charged,
+ * the seller was paid, and no order, library entry or email ever existed,
+ * because the webhook looked for the order and did nothing when it was not
+ * there.
+ *
+ * ONCE, UNDER A RACE. The two can arrive together. Each checks for an order
+ * with this PaymentIntent and inserts when there is none; the insert carries
+ * the checkout's `receipt_token`, which the orders table holds UNIQUE, so the
+ * second insert fails with 23505 and that caller reads the winner's order
+ * back. Only the caller whose insert made the row sends emails, grants the
+ * product and writes the seller's ledger, so none of that happens twice.
+ *
+ * `latest_charge`, not `charges`: Stripe removed `charges` from the
+ * PaymentIntent in API version 2022-11-15, and asking to expand a field that
+ * does not exist is an error. The SDK here pins 2025-11-17.clover.
+ */
+
+import type Stripe from "stripe"
+import { v4 as uuidv4 } from "uuid"
+import { stripe } from "@/lib/stripe"
+import { sendOrderEmails } from "@/lib/email"
+import { orderSourceFrom, tagOrderSource } from "@/lib/orders/order-source"
+import { recordCouponUse } from "./coupons"
+import { businessFromMetadata } from "./business"
+import { invoiceFilename, invoiceForOrder, renderInvoicePdf } from "./invoice"
+
+type Db = { from: (table: string) => any; rpc: (fn: string, args: Record<string, unknown>) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
+
+export type Fulfilment =
+  | { ok: true; created: boolean; orderId: string; receiptToken: string; sessionFingerprint: string | null }
+  | { ok: false; status: number; error: string }
+
+/** A PaymentIntent the product checkout (stripe-session) made, as opposed to a subscription's, a cart's or a payout's. */
+export function isCheckoutIntent(pi: Pick<Stripe.PaymentIntent, "metadata">): boolean {
+  const m = pi.metadata || {}
+  return Boolean(m.product_id && m.creator_id && m.receipt_token)
+}
+
+interface PaymentFacts {
+  paymentMethod: string
+  cardBrand: string | null
+  cardLast4: string | null
+  paypalEmail: string | null
+  applicationFeeCents: number | null
+  transferId: string | null
+  destinationPaymentId: string | null
+}
+
+export function paymentFacts(pi: Stripe.PaymentIntent): PaymentFacts {
+  const facts: PaymentFacts = {
+    paymentMethod: "card",
+    cardBrand: null,
+    cardLast4: null,
+    paypalEmail: null,
+    applicationFeeCents: null,
+    transferId: null,
+    destinationPaymentId: null,
+  }
+  const charge = pi.latest_charge && typeof pi.latest_charge === "object" ? (pi.latest_charge as Stripe.Charge) : null
+  if (!charge) return facts
+  if (typeof charge.application_fee_amount === "number") facts.applicationFeeCents = charge.application_fee_amount
+  if (charge.transfer) {
+    if (typeof charge.transfer === "string") facts.transferId = charge.transfer
+    else {
+      facts.transferId = charge.transfer.id
+      const dest = charge.transfer.destination_payment
+      facts.destinationPaymentId = typeof dest === "string" ? dest : dest?.id ?? null
+    }
+  }
+  const d = charge.payment_method_details
+  if (d?.card) {
+    facts.paymentMethod = "card"
+    facts.cardBrand = d.card.brand || null
+    facts.cardLast4 = d.card.last4 || null
+  } else if (d?.paypal) {
+    facts.paymentMethod = "paypal"
+    facts.paypalEmail = d.paypal.payer_email || null
+  } else if (d?.type) {
+    facts.paymentMethod = d.type
+  }
+  return facts
+}
+
+const ORDER_READ = "id, receipt_token, session_fingerprint"
+
+async function existingOrder(admin: Db, paymentIntentId: string, receiptToken?: string) {
+  const { data } = await admin.from("orders").select(ORDER_READ).eq("stripe_payment_intent_id", paymentIntentId).maybeSingle()
+  if (data || !receiptToken) return data
+  const { data: byToken } = await admin.from("orders").select(ORDER_READ).eq("receipt_token", receiptToken).maybeSingle()
+  return byToken
+}
+
+export async function fulfilPaymentIntent(
+  admin: Db,
+  paymentIntentId: string,
+  opts: {
+    request?: Request
+    baseUrl: string
+    /**
+     * From the browser: the PaymentIntent's client secret, which only the
+     * page that paid holds. A PaymentIntent id alone shows up in addresses
+     * (the 3-D Secure return puts it there) and must not be enough to be
+     * handed the receipt, which is the key to the download.
+     */
+    clientSecret?: string | null
+  },
+): Promise<Fulfilment> {
+  if (typeof paymentIntentId !== "string" || !/^pi_[A-Za-z0-9]+$/.test(paymentIntentId)) {
+    return { ok: false, status: 400, error: "Missing payment." }
+  }
+
+  let pi: Stripe.PaymentIntent
+  try {
+    pi = await stripe.paymentIntents.retrieve(paymentIntentId, { expand: ["latest_charge", "latest_charge.transfer"] })
+  } catch {
+    return { ok: false, status: 400, error: "That payment could not be found." }
+  }
+  if (opts.clientSecret !== undefined && !sameSecret(pi.client_secret, opts.clientSecret)) {
+    return { ok: false, status: 404, error: "That payment could not be found." }
+  }
+  if (pi.status !== "succeeded") return { ok: false, status: 400, error: "The payment has not completed." }
+  if (!isCheckoutIntent(pi)) return { ok: false, status: 400, error: "That payment is not a checkout." }
+
+  const m = pi.metadata
+  const found = await existingOrder(admin, pi.id, m.receipt_token)
+  if (found) {
+    return { ok: true, created: false, orderId: found.id, receiptToken: found.receipt_token, sessionFingerprint: found.session_fingerprint ?? null }
+  }
+
+  const productId = m.product_id
+  const creatorId = m.creator_id
+  const buyerId = m.buyer_id || null
+  const buyerEmail = (m.buyer_email || pi.receipt_email || "").trim()
+  const total = pi.amount_received || pi.amount || 0
+  const tipCents = Math.max(0, Number.parseInt(m.tip_cents || "0", 10) || 0)
+  const variantId = m.variant_id || null
+  const variantName = m.variant_name || null
+  const variantPriceCents = m.variant_price_cents ? Number.parseInt(m.variant_price_cents, 10) : null
+  const facts = paymentFacts(pi)
+  const recordedFee = Number.parseInt(m.platform_fee_cents || "", 10)
+  const feeCents = facts.applicationFeeCents ?? (Number.isFinite(recordedFee) ? recordedFee : 0)
+  const device = opts.request ? await deviceFrom(opts.request) : null
+
+  const row = {
+    buyer_id: buyerId,
+    buyer_first_name: m.buyer_first_name || null,
+    buyer_last_name: m.buyer_last_name || null,
+    buyer_email: buyerEmail || null,
+    product_id: productId,
+    amount_cents: total,
+    tip_cents: tipCents,
+    fee_cents: feeCents,
+    application_fee_cents: feeCents,
+    transfer_id: facts.transferId,
+    currency: "usd",
+    provider: "stripe",
+    status: "completed",
+    stripe_payment_intent_id: pi.id,
+    access_token: buyerId ? null : m.access_token || null,
+    session_fingerprint: m.session_fingerprint || null,
+    receipt_token: m.receipt_token,
+    allowed_fingerprints: m.session_fingerprint ? [m.session_fingerprint] : [],
+    buyer_email_attempt_count: 0,
+    seller_email_attempt_count: 0,
+    payment_method: facts.paymentMethod,
+    card_brand: facts.cardBrand,
+    card_last4: facts.cardLast4,
+    paypal_email: facts.paypalEmail,
+    buyer_country: m.buyer_country || device?.geoInfo.country || null,
+    buyer_country_code: m.buyer_country_code || device?.geoInfo.countryCode || null,
+    buyer_device_type: m.buyer_device_type || device?.deviceInfo.deviceType || null,
+    buyer_os: m.buyer_os || device?.deviceInfo.os || null,
+    buyer_browser: m.buyer_browser || device?.deviceInfo.browser || null,
+    variant_id: variantId,
+    variant_name: variantName,
+    variant_price_cents: variantPriceCents,
+    variant_currency: "USD",
+    variant_snapshot: variantId && variantName ? { id: variantId, name: variantName, price_cents: variantPriceCents } : null,
+    agreed_to_terms: m.agreed_to_terms === "true",
+    agreed_at: m.agreed_at || new Date(pi.created * 1000).toISOString(),
+  }
+
+  const { data: order, error } = await admin.from("orders").insert(row).select(ORDER_READ).single()
+  if (error || !order) {
+    /* Somebody else made it a moment ago: theirs is the order. */
+    const raced = await existingOrder(admin, pi.id, m.receipt_token)
+    if (raced) return { ok: true, created: false, orderId: raced.id, receiptToken: raced.receipt_token, sessionFingerprint: raced.session_fingerprint ?? null }
+    console.error("[fulfil] order insert failed", pi.id, error?.code, error?.message)
+    return { ok: false, status: 500, error: "The order could not be saved. The payment is safe; refresh this page in a moment." }
+  }
+
+  await tagOrderSource(admin, order.id, orderSourceFrom(m, opts.request))
+
+  /* Everything after the order is recorded is allowed to fail on its own:
+     the buyer paid and the order exists, whatever an email server says. */
+  const step = async (name: string, fn: () => Promise<unknown>) => {
+    try {
+      await fn()
+    } catch (e) {
+      console.error(`[fulfil] ${name} failed for order ${order.id}:`, e instanceof Error ? e.message : e)
+    }
+  }
+
+  await step("customer", () => recordCustomer(admin, { creatorId, email: buyerEmail, first: m.buyer_first_name, last: m.buyer_last_name, total }))
+  if (m.email_opt_in === "true") await step("subscriber", () => subscribe(admin, { creatorId, email: buyerEmail, orderId: order.id, name: `${m.buyer_first_name || ""} ${m.buyer_last_name || ""}`.trim() }))
+  await step("entitlement", () => grant(admin, { buyerId, email: buyerEmail, orderId: order.id, creatorId, productId, variantId }))
+  await step("sales count", async () => {
+    await admin.rpc("increment_product_sales", { p_product_id: productId })
+    await admin.from("analytics_events").insert({ creator_id: creatorId, product_id: productId, event_type: "purchase" })
+  })
+  if (m.coupon_id) await step("coupon use", () => recordCouponUse(admin, m.coupon_id))
+  await step("ledger", () => recordSale(admin, { creatorId, orderId: order.id, total, fee: feeCents, destinationPaymentId: facts.destinationPaymentId }))
+
+  await step("emails", async () => {
+    if (!buyerEmail) return
+    const { data: product } = await admin.from("products").select("title").eq("id", productId).maybeSingle()
+    /* A business buyer gets the invoice with the email, not only a link to it. */
+    let attachments: { filename: string; content: Uint8Array; contentType: string }[] | undefined
+    if (businessFromMetadata(m)) {
+      const invoice = await invoiceForOrder(
+        admin,
+        {
+          id: order.id,
+          created_at: new Date().toISOString(),
+          status: "completed",
+          amount_cents: total,
+          tip_cents: tipCents,
+          buyer_email: buyerEmail,
+          buyer_first_name: m.buyer_first_name || null,
+          buyer_last_name: m.buyer_last_name || null,
+          payment_method: facts.paymentMethod,
+          card_brand: facts.cardBrand,
+          card_last4: facts.cardLast4,
+          variant_name: variantName,
+          stripe_payment_intent_id: pi.id,
+          product: { title: product?.title ?? m.product_title ?? null, creator_id: creatorId },
+        },
+        m,
+      )
+      if (invoice) attachments = [{ filename: invoiceFilename(invoice), content: await renderInvoicePdf(invoice), contentType: "application/pdf" }]
+    }
+    await sendOrderEmails(admin, {
+      orderId: order.id,
+      buyerEmail,
+      buyerFirstName: m.buyer_first_name || "",
+      buyerLastName: m.buyer_last_name || "",
+      productTitle: product?.title || m.product_title || "Your purchase",
+      receiptToken: order.receipt_token,
+      creatorId,
+      amountCents: total,
+      feeCents,
+      baseUrl: opts.baseUrl,
+      variantName,
+      attachments,
+    })
+  })
+
+  await step("push", async () => {
+    const { data: creator } = await admin.from("creators").select("user_id").eq("id", creatorId).maybeSingle()
+    if (!creator?.user_id) return
+    const { notifySale } = await import("@/lib/push/notifications")
+    await notifySale(creator.user_id, { productName: m.product_title || "A product", amountCents: total, orderId: order.id, productId })
+  })
+
+  return { ok: true, created: true, orderId: order.id, receiptToken: order.receipt_token, sessionFingerprint: order.session_fingerprint ?? null }
+}
+
+function sameSecret(expected: string | null | undefined, given: string | null | undefined): boolean {
+  if (typeof expected !== "string" || typeof given !== "string" || expected.length !== given.length) return false
+  let diff = 0
+  for (let i = 0; i < expected.length; i++) diff |= expected.charCodeAt(i) ^ given.charCodeAt(i)
+  return diff === 0
+}
+
+async function deviceFrom(request: Request) {
+  const { collectOrderDeviceInfo } = await import("@/lib/device-info")
+  return collectOrderDeviceInfo(request)
+}
+
+async function recordCustomer(admin: Db, c: { creatorId: string; email: string; first?: string; last?: string; total: number }) {
+  if (!c.email) return
+  const email = c.email.toLowerCase()
+  const { data: existing } = await admin
+    .from("customers")
+    .select("id, order_count, total_spent_cents")
+    .eq("creator_id", c.creatorId)
+    .eq("email", email)
+    .maybeSingle()
+  if (existing) {
+    /* Added to, not overwritten: this was an upsert of 1 and this order's
+       total, which reset a returning customer's history on every purchase. */
+    await admin
+      .from("customers")
+      .update({
+        order_count: (existing.order_count || 0) + 1,
+        total_spent_cents: (existing.total_spent_cents || 0) + c.total,
+        first_name: c.first || undefined,
+        last_name: c.last || undefined,
+      })
+      .eq("id", existing.id)
+    return
+  }
+  await admin.from("customers").insert({
+    email,
+    creator_id: c.creatorId,
+    first_name: c.first || null,
+    last_name: c.last || null,
+    order_count: 1,
+    total_spent_cents: c.total,
+  })
+}
+
+async function subscribe(admin: Db, s: { creatorId: string; email: string; orderId: string; name: string }) {
+  if (!s.email) return
+  const email = s.email.toLowerCase()
+  const { data: existing } = await admin.from("subscribers").select("id, status").eq("creator_id", s.creatorId).eq("email", email).maybeSingle()
+  const now = new Date().toISOString()
+  if (!existing) {
+    await admin.from("subscribers").insert({
+      email,
+      name: s.name || null,
+      source: "checkout",
+      source_id: s.orderId,
+      creator_id: s.creatorId,
+      status: "subscribed",
+      is_active: true,
+      subscribed_at: now,
+      consent_text: "Subscribed via product checkout (opted in)",
+      consent_timestamp: now,
+      unsubscribe_token: uuidv4(),
+    })
+  } else if (existing.status === "unsubscribed") {
+    await admin.from("subscribers").update({ status: "subscribed", is_active: true, subscribed_at: now, unsubscribed_at: null }).eq("id", existing.id)
+  }
+}
+
+/**
+ * The product in the buyer's library: by their account when signed in, or
+ * by an account with the address they paid with.
+ */
+async function grant(
+  admin: Db,
+  g: { buyerId: string | null; email: string; orderId: string; creatorId: string; productId: string; variantId: string | null },
+) {
+  let buyerId = g.buyerId
+  if (!buyerId && g.email) {
+    const { data: profile } = await admin.from("profiles").select("id").eq("email", g.email.toLowerCase()).maybeSingle()
+    if (profile) {
+      buyerId = profile.id
+      await admin.from("orders").update({ buyer_id: buyerId }).eq("id", g.orderId)
+    }
+  }
+  if (!buyerId) return
+  let q = admin.from("entitlements").select("id").eq("buyer_id", buyerId).eq("product_id", g.productId)
+  q = g.variantId ? q.eq("variant_id", g.variantId) : q.is("variant_id", null)
+  const { data: owned } = await q.maybeSingle()
+  if (owned) return
+  await admin.from("entitlements").insert({
+    buyer_id: buyerId,
+    creator_id: g.creatorId,
+    product_id: g.productId,
+    variant_id: g.variantId,
+    community_access: false,
+  })
+}
+
+/**
+ * The seller's balance. Only the webhook's old Checkout Session path wrote
+ * it, so every sale through this checkout was missing from the ledger and a
+ * later refund of one took its full amount off a balance it had never
+ * added to.
+ */
+async function recordSale(
+  admin: Db,
+  s: { creatorId: string; orderId: string; total: number; fee: number; destinationPaymentId: string | null },
+) {
+  if (s.total <= 0) return
+  const net = s.total - s.fee
+
+  /* Held until Stripe says the money is available on the seller's side. */
+  let holdUntil: Date | null = null
+  if (s.destinationPaymentId) {
+    try {
+      const { data: seller } = await admin.from("creators").select("stripe_account_id").eq("id", s.creatorId).maybeSingle()
+      if (seller?.stripe_account_id) {
+        const charge = await stripe.charges.retrieve(s.destinationPaymentId, { expand: ["balance_transaction"] }, { stripeAccount: seller.stripe_account_id })
+        const bt = charge.balance_transaction as Stripe.BalanceTransaction | null
+        if (bt?.available_on) holdUntil = new Date(bt.available_on * 1000)
+      }
+    } catch {
+      /* estimated below */
+    }
+  }
+  if (!holdUntil) {
+    holdUntil = new Date()
+    holdUntil.setDate(holdUntil.getDate() + 3)
+  }
+
+  await admin.from("seller_ledger").upsert({ creator_id: s.creatorId }, { onConflict: "creator_id" })
+  const { data: ledger } = await admin.from("seller_ledger").select("*").eq("creator_id", s.creatorId).single()
+  if (!ledger) return
+
+  let pending = net
+  let negative = ledger.negative_balance || 0
+  if (negative > 0) {
+    const absorbed = Math.min(pending, negative)
+    pending -= absorbed
+    negative -= absorbed
+  }
+  await admin
+    .from("seller_ledger")
+    .update({
+      pending_amount: (ledger.pending_amount || 0) + pending,
+      lifetime_earnings: (ledger.lifetime_earnings || 0) + s.total,
+      lifetime_fees: (ledger.lifetime_fees || 0) + s.fee,
+      negative_balance: negative,
+    })
+    .eq("creator_id", s.creatorId)
+  await admin.from("ledger_events").insert({
+    creator_id: s.creatorId,
+    event_type: "sale",
+    amount_cents: s.total,
+    net_seller_cents: net,
+    fee_cents: s.fee,
+    currency: "usd",
+    pending_delta: pending,
+    order_id: s.orderId,
+    hold_until: holdUntil.toISOString(),
+    description: `Sale: $${(s.total / 100).toFixed(2)} (net $${(net / 100).toFixed(2)})`,
+  })
+}

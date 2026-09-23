@@ -26,6 +26,15 @@ const nextConfig = {
     '/api/website-builder/themes/*/cover': [
       './node_modules/.pnpm/@sparticuz+chromium@*/node_modules/@sparticuz/chromium/bin/**',
     ],
+    /*
+      THE INVOICE'S TYPEFACE. lib/checkout/invoice.ts reads Inter from
+      lib/checkout/fonts by path, which tracing cannot see, for every route
+      that draws an invoice: the download, and the two that email one with a
+      business purchase.
+    */
+    '/api/checkout/invoice': ['./lib/checkout/fonts/**'],
+    '/api/checkout/confirm-payment': ['./lib/checkout/fonts/**'],
+    '/api/stripe/webhook': ['./lib/checkout/fonts/**'],
   },
   typescript: {
     ignoreBuildErrors: true,
