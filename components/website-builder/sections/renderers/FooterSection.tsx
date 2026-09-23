@@ -15,8 +15,11 @@
  * a flat row, and the columns the footer was designed around did not exist.
  */
 
+import { useState, type FormEvent } from "react"
 import { Facebook, Instagram, Twitter, Youtube } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { subscribeToCreator } from "@/lib/website-builder/subscribe-client"
+import { useStorefront } from "../../theme/storefront-context"
 import { ThemeSocials } from "../../theme/ThemeSocials"
 import {
   bool,
@@ -36,6 +39,102 @@ const COLUMNS: Record<string, string> = {
 }
 
 /** TikTok is not in lucide, so it is drawn rather than left out. */
+/**
+ * ===========================================================================
+ *  THE FOOTER'S SIGN-UP BOX
+ * ===========================================================================
+ * It called `preventDefault()` and stopped. A visitor typed their address,
+ * pressed Join, and nothing happened: no message, no sign-up, nothing
+ * recorded anywhere. The comment beside it said the dedicated newsletter
+ * section was what collected addresses, which is true and no help to someone
+ * who used the box in front of them.
+ *
+ * It goes to the creator's Subscribers now, through the same client as every
+ * other sign-up on a site. Its own component so the footer, which is large
+ * and stateless, does not grow hooks.
+ */
+function FooterSignup({
+  buttonText,
+  textColor,
+  divider,
+  accent,
+  buttonTextColor,
+}: {
+  buttonText: string
+  textColor: string
+  divider: string
+  accent: string
+  buttonTextColor: string
+}) {
+  const { creatorId, inEditor } = useStorefront()
+  const [state, setState] = useState<"idle" | "sending" | "done" | "error">("idle")
+  const [message, setMessage] = useState("")
+
+  const submit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    // The canvas is not a place to join a mailing list.
+    if (inEditor) {
+      setState("done")
+      setMessage("Sign-ups go to Subscribers on your live site.")
+      return
+    }
+    /* Nobody to send it to. Saying thanks here would be saying it was kept. */
+    if (!creatorId) {
+      setState("error")
+      setMessage("Sign-ups are not available on this page.")
+      return
+    }
+    const email = String(new FormData(e.currentTarget).get("email") ?? "")
+    setState("sending")
+    const result = await subscribeToCreator({ creatorId, email, placement: "footer" })
+    if (result.ok === false) {
+      setState("error")
+      setMessage(result.error)
+    } else {
+      setState("done")
+      setMessage("Thanks, you're on the list.")
+    }
+  }
+
+  if (state === "done") {
+    return (
+      <p role="status" className="text-[13px]" style={{ color: textColor }}>
+        {message}
+      </p>
+    )
+  }
+
+  return (
+    <form className="flex flex-col gap-2" onSubmit={submit}>
+      <div className="flex gap-2">
+        <input
+          type="email"
+          name="email"
+          required
+          autoComplete="email"
+          aria-label="Email address"
+          placeholder="you@example.com"
+          className="min-w-0 flex-1 rounded-md border px-3 py-2 text-[13px] outline-none"
+          style={{ borderColor: divider, background: "transparent", color: textColor }}
+        />
+        <button
+          type="submit"
+          disabled={state === "sending"}
+          className="rounded-md px-3 py-2 text-[13px] font-semibold disabled:opacity-60"
+          style={{ background: accent, color: buttonTextColor }}
+        >
+          {buttonText}
+        </button>
+      </div>
+      {state === "error" && (
+        <p role="alert" className="text-[12px]" style={{ color: textColor }}>
+          {message}
+        </p>
+      )}
+    </form>
+  )
+}
+
 function TikTok({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
@@ -208,27 +307,13 @@ export function FooterSection({
                   {str(s.newsletter_subtext)}
                 </p>
               )}
-              <form
-                className="flex gap-2"
-                // The editor canvas is not a place to submit anything, and on
-                // a live page the section has no endpoint of its own — the
-                // dedicated newsletter section is what collects addresses.
-                onSubmit={(e) => e.preventDefault()}
-              >
-                <input
-                  type="email"
-                  placeholder="you@example.com"
-                  className="min-w-0 flex-1 rounded-md border px-3 py-2 text-[13px] outline-none"
-                  style={{ borderColor: divider, background: "transparent", color: textColor }}
-                />
-                <button
-                  type="submit"
-                  className="rounded-md px-3 py-2 text-[13px] font-semibold"
-                  style={{ background: accent, color: c.primary_btn_text }}
-                >
-                  {str(s.newsletter_button_text, "Join")}
-                </button>
-              </form>
+              <FooterSignup
+                buttonText={str(s.newsletter_button_text, "Join")}
+                textColor={textColor}
+                divider={divider}
+                accent={accent}
+                buttonTextColor={c.primary_btn_text}
+              />
             </div>
           )}
         </div>

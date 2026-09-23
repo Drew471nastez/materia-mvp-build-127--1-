@@ -166,8 +166,21 @@ export function ThemeChat({
   onClose,
   onOpenCodeEditor,
   onSourcesChanged,
+  onWriteStart,
+  onWriteDone,
+  onWriteFailed,
 }: {
   installId: string
+  /**
+   * WRITING A SECTION, AS THE CANVAS SEES IT. Start holds a spot on the page
+   * where the section will go; done puts it there, and answers whether it
+   * could (false when the creator has moved to another page meanwhile);
+   * failed lets go of the spot. See lib/website-builder/ai-placement.ts.
+   */
+  onWriteStart?: (prompt: string) => void
+  onWriteDone?: (section: { type: string; name: string; path: string }) => Promise<boolean> | boolean
+  /** With the reason, for an editor whose chat is closed and so cannot show it. */
+  onWriteFailed?: (reason: string) => void
   /**
    * Opens the code editor at a path. A section the assistant writes is a file,
    * and the honest end of that is the creator reading it — not a thing that
@@ -210,7 +223,7 @@ export function ThemeChat({
    */
   const [mode, setMode] = React.useState<"change" | "code">("change")
   /** The last section written, so the panel can offer to open it. */
-  const [written, setWritten] = React.useState<{ path: string; name: string } | null>(null)
+  const [written, setWritten] = React.useState<{ path: string; name: string; placed: boolean } | null>(null)
   const [writing, setWriting] = React.useState(false)
   const [writeError, setWriteError] = React.useState<string | null>(null)
   const [busy, setBusy] = React.useState(false)
@@ -767,6 +780,9 @@ export function ThemeChat({
       setWritten(null)
       setAttached([])
       setAttachError(null)
+      onWriteStart?.(prompt)
+      let kept = false
+      let reason = "The section could not be written."
       try {
         const res = await fetch(`/api/website-builder/themes/${installId}/sections/code`, {
           method: "POST",
@@ -793,26 +809,46 @@ export function ThemeChat({
         })
         const d = (await res.json().catch(() => ({}))) as {
           path?: string
+          type?: string
           name?: string
           error?: string
           errors?: { line?: number; message: string }[]
         }
-        if (!res.ok) {
-          setWriteError(
-            d.errors?.length
-              ? `${d.error ?? "It did not compile."} ${d.errors[0].line ? `Line ${d.errors[0].line}: ` : ""}${d.errors[0].message}`
-              : d.error ?? "That did not work.",
-          )
+        const type = d.type ?? d.path?.match(/^sections\/([a-z0-9_-]+)\.storelib$/)?.[1]
+        if (!res.ok || !d.path || !d.name || !type) {
+          reason = d.errors?.length
+            ? `${d.error ?? "It did not compile."} ${d.errors[0].line ? `Line ${d.errors[0].line}: ` : ""}${d.errors[0].message}`
+            : d.error ?? "That did not work."
+          setWriteError(reason)
           return
         }
-        if (d.path && d.name) setWritten({ path: d.path, name: d.name })
+        /**
+         * Written and kept, whatever happens next: the file is saved. If the
+         * editor cannot put it on the page, it is still in Add Section, and
+         * the message below says so rather than reporting a failure.
+         */
+        kept = true
+        const section = { type, name: d.name, path: d.path }
+        const placed = await Promise.resolve()
+          .then(() => onWriteDone?.(section))
+          .then((v) => v === true)
+          .catch(() => false)
+        setWritten({ path: section.path, name: section.name, placed })
       } catch {
-        setWriteError("The assistant could not be reached.")
+        reason = "The assistant could not be reached."
+        setWriteError(reason)
       } finally {
+        if (!kept) onWriteFailed?.(reason)
         setWriting(false)
       }
     },
-    [installId],
+    /**
+     * Everything it reads. This list was `[installId]` alone, so the request
+     * carried the site's settings and sections as they were when the panel
+     * first rendered: a section written after changing the colours was
+     * written for the old ones.
+     */
+    [installId, settings, sections, onWriteStart, onWriteDone, onWriteFailed],
   )
 
   const submit = React.useCallback(
@@ -1003,7 +1039,7 @@ export function ThemeChat({
             <p className="text-[13px] leading-relaxed text-muted-foreground">
               {mode === "change"
                 ? "Describe a change and it is made on this page. It writes the same sections, blocks and controls the panels do, the same sliders, pickers and colours, so everything stays undoable and nothing saves until you press Save."
-                : "Describe a section the library does not have and it is written as a .storelib file: blocks, your colour scheme, responsive rules. It has to compile before it is kept, and it lands in the code editor for you to read before it goes anywhere near a page."}
+                : "Describe a section the library does not have and it is written as a .storelib file, with blocks, your colour scheme and a phone layout. It has to compile before it is kept. It appears on this page where you are working, and goes live when you publish."}
             </p>
 
             <div className="space-y-1.5">
@@ -1171,10 +1207,14 @@ export function ThemeChat({
             reported to nobody. */}
         {written && (
           <div className="mb-2 rounded-lg border border-border bg-background p-3">
-            <p className="text-[13px] font-medium text-foreground">{written.name} is written</p>
+            <p className="text-[13px] font-medium text-foreground">
+              {written.placed ? `${written.name} is on the page` : `${written.name} is written`}
+            </p>
             <p className="mt-1 text-[12.5px] leading-snug text-muted-foreground">
-              It compiled and is saved as <span className="font-mono text-[12px]">{written.path}</span>.
-              It is in Add Section under Created by you, and not published until you publish.
+              It compiled and is saved as <span className="font-mono text-[12px]">{written.path}</span>.{" "}
+              {written.placed
+                ? "It goes live when you publish."
+                : "Add it from Add Section, under Created by you. It goes live when you publish."}
             </p>
             {onOpenCodeEditor && (
               <button
@@ -1182,7 +1222,7 @@ export function ThemeChat({
                 onClick={() => onOpenCodeEditor(written.path)}
                 className="mt-2 h-7 rounded-md bg-foreground px-2.5 text-[12px] font-[550] text-background"
               >
-                Open it
+                Open the code
               </button>
             )}
           </div>

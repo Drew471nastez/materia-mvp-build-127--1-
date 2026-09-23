@@ -1,16 +1,21 @@
 "use client"
 
-// Contact form — centered or split form. Submission is stubbed at the
-// renderer level (success/error state is local); the host app is
-// responsible for wiring the POST target if it wants real submissions.
+// Contact form: centered or split. The message goes to the recipient the
+// creator set, through the visitor's own mail app (see `submit` below).
+// Ticking "Keep me updated" also adds the sender to the creator's
+// Subscribers, and nothing else does.
 
 import { useState } from "react"
 import { sectionColors, str, bool, SectionWrapper, type SectionProps } from "../_shared"
+import { useStorefront } from "../../theme/storefront-context"
+import { subscribeToCreator } from "@/lib/website-builder/subscribe-client"
 
 export function ContactFormSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
   const s = section.settings
   const c = sectionColors(section, theme)
   const [state, setState] = useState<"idle" | "success" | "error">("idle")
+  const { creatorId, inEditor } = useStorefront()
+  const offerOptIn = bool(s.show_subscribe_opt_in, true)
   const bg = str(s.bg_color) || c.bg
   const color = str(s.text_color) || c.text
   const inputBg = str(s.input_bg_color) || c.input_background
@@ -70,6 +75,18 @@ export function ContactFormSection({ section, theme, isEditing, isSelected, onCl
       .filter((line) => line !== undefined && line !== "")
       .join("\n")
 
+    /*
+      A CONTACT MESSAGE IS NOT A SIGN-UP. Somebody writing to ask a question
+      has not agreed to a mailing list, and adding them anyway is the kind of
+      thing that gets a creator's email reported and, in the EU, fined. So the
+      sender is added to Subscribers only when they ticked the box, which
+      starts unticked. Started before the mail app opens rather than awaited,
+      because opening it is the thing the visitor is waiting for.
+    */
+    if (offerOptIn && data.get("subscribe") === "yes" && creatorId && !inEditor) {
+      void subscribeToCreator({ creatorId, email: value("email"), name: value("name"), placement: "contact" })
+    }
+
     window.location.href = `mailto:${encodeURIComponent(recipient)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
     setState("success")
   }
@@ -88,6 +105,13 @@ export function ContactFormSection({ section, theme, isEditing, isSelected, onCl
           {bool(s.show_phone, false) && <input type="tel" name="phone" placeholder="Phone" className={inputClass} style={inputStyle} />}
           {bool(s.show_subject, true) && <input type="text" name="subject" placeholder="Subject" className={inputClass} style={inputStyle} />}
           {bool(s.show_message, true) && <textarea name="message" placeholder="Message" rows={5} required className={inputClass} style={inputStyle} />}
+          {offerOptIn && (
+            <label className="flex items-center gap-2 text-sm" style={{ color }}>
+              {/* Unticked, always. Consent is something a person gives. */}
+              <input type="checkbox" name="subscribe" value="yes" className="h-4 w-4" />
+              Keep me updated
+            </label>
+          )}
           <button type="submit" className="px-5 py-3 rounded text-sm font-semibold" style={{ background: btnBg, color: btnText }}>
             {str(s.submit_button_text, "Send Message")}
           </button>

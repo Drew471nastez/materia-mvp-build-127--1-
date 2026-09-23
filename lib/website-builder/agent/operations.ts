@@ -130,7 +130,8 @@ export function buildSection(id: string, type: string, schemas?: SchemaMap): Sec
 export function applyOp(state: ThemeState, op: ThemeOp, schemas?: SchemaMap): ThemeState {
   switch (op.kind) {
     case "add_section": {
-      const section = buildSection(op.id, op.sectionType)
+      /* With the lookup: a section the creator wrote is added like any other. */
+      const section = buildSection(op.id, op.sectionType, schemas)
       if (!section) return state
       if (op.settings) section.settings = { ...section.settings, ...op.settings }
 
@@ -312,8 +313,8 @@ function writableFields(type: string, schemas?: SchemaMap): SchemaField[] {
   return (schemaOf(schemas, type)?.fields ?? []).filter((f) => !NOT_A_SETTING.has(f.type))
 }
 
-function writableBlockFields(sectionType: string, blockType: string): SchemaField[] {
-  return (blockSpecs(sectionType).find((b) => b.type === blockType)?.fields ?? []).filter(
+function writableBlockFields(sectionType: string, blockType: string, schemas?: SchemaMap): SchemaField[] {
+  return (blockSpecs(sectionType, schemas).find((b) => b.type === blockType)?.fields ?? []).filter(
     (f) => !NOT_A_SETTING.has(f.type),
   )
 }
@@ -405,8 +406,8 @@ function describeFieldList(fields: SchemaField[], indent = "  "): string {
 }
 
 /** Every control on a section type, for a model that is about to write one. */
-export function describeFields(type: string): string {
-  return describeFieldList(writableFields(type))
+export function describeFields(type: string, schemas?: SchemaMap): string {
+  return describeFieldList(writableFields(type, schemas))
 }
 
 export interface SettingsCheck {
@@ -536,13 +537,13 @@ export function maxBlocks(sectionType: string, schemas?: SchemaMap): number | un
 }
 
 /** The field ids one block type accepts, for validating a write. */
-export function blockFieldIds(sectionType: string, blockType: string): string[] {
-  return writableBlockFields(sectionType, blockType).map((f) => f.id)
+export function blockFieldIds(sectionType: string, blockType: string, schemas?: SchemaMap): string[] {
+  return writableBlockFields(sectionType, blockType, schemas).map((f) => f.id)
 }
 
 /** Every control on one block type, described. */
-export function describeBlockFields(sectionType: string, blockType: string, indent = "  "): string {
-  return describeFieldList(writableBlockFields(sectionType, blockType), indent)
+export function describeBlockFields(sectionType: string, blockType: string, indent = "  ", schemas?: SchemaMap): string {
+  return describeFieldList(writableBlockFields(sectionType, blockType, schemas), indent)
 }
 
 /** The controls themselves, for checkSettings. */
@@ -551,7 +552,7 @@ export function fieldsFor(type: string, schemas?: SchemaMap): SchemaField[] {
 }
 
 export function blockFieldsFor(sectionType: string, blockType: string, schemas?: SchemaMap): SchemaField[] {
-  return writableBlockFields(sectionType, blockType)
+  return writableBlockFields(sectionType, blockType, schemas)
 }
 
 /**
@@ -601,10 +602,10 @@ export function describeTheme(state: ThemeState, page: string, schemas?: SchemaM
  */
 export function describeSection(section: SectionInstance, schemas?: SchemaMap): string {
   const specs = blockSpecs(section.type, schemas)
-  const cap = maxBlocks(section.type)
+  const cap = maxBlocks(section.type, schemas)
   const parts = [
     `${section.type} [${section.id}] "${section.name}"${section.hidden ? " — HIDDEN from the page" : ""}`,
-    `CONTROLS THIS SECTION HAS\n${describeFields(section.type)}`,
+    `CONTROLS THIS SECTION HAS\n${describeFields(section.type, schemas)}`,
     `CURRENT SETTINGS\n${JSON.stringify(section.settings, null, 2).slice(0, 5_000)}`,
   ]
 
@@ -613,7 +614,7 @@ export function describeSection(section: SectionInstance, schemas?: SchemaMap): 
       [
         `BLOCK TYPES THIS SECTION TAKES${cap !== undefined ? ` (at most ${cap})` : ""}:`,
         ...specs.map((b) =>
-          [`  ${b.type} — ${b.name}`, describeBlockFields(section.type, b.type, "      ")].join("\n"),
+          [`  ${b.type} — ${b.name}`, describeBlockFields(section.type, b.type, "      ", schemas)].join("\n"),
         ),
       ].join("\n"),
     )

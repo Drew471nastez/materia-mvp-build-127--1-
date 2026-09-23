@@ -47,6 +47,13 @@
       "placeholder": "Message shown on error"
     },
     {
+      "id": "show_subscribe_opt_in",
+      "label": "Offer to join your list",
+      "type": "toggle",
+      "default": true,
+      "info": "Adds an unticked \"Keep me updated\" box. Anyone who ticks it lands in your Subscribers. Nobody is added without ticking it."
+    },
+    {
       "id": "show_name",
       "label": "Show Name Field",
       "type": "toggle",

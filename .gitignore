@@ -86,6 +86,8 @@ tsconfig.*.generated.json
 # The screenshot that probe leaves behind, so the dropdown can be looked at
 # and not only measured.
 .probe-nav-dropdown.png
+# And the one scripts/check-writing-section.mjs leaves, of the Ask AI placeholder.
+.probe-writing-section.png
 
 # Written by scripts/check-cover-capture.mjs while it bundles the probe, and
 # the three pictures it leaves so the cover can be looked at, not only measured.

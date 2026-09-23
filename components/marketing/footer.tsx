@@ -202,8 +202,9 @@ export function MarketingFooter() {
               <Link href="/features" className="block text-sm text-gray-400 hover:text-white transition-colors">
                 Features
               </Link>
-              <Link href="/blog" className="block text-sm text-gray-400 hover:text-white transition-colors">
-                Blog
+              {/* Was a second Blog link. The Developer Hub needs one from every page to be found. */}
+              <Link href="/developers" className="block text-sm text-gray-400 hover:text-white transition-colors">
+                Developers
               </Link>
             </div>
           </div>

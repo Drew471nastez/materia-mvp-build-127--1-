@@ -81,6 +81,8 @@ export function ConditionalFooter() {
       pathname.startsWith("/app") ||
       pathname.startsWith("/marketplace") ||
       pathname.startsWith("/blog") ||
+      /* The Storelib Developer Hub: without this it drew with no footer. */
+      pathname.startsWith("/developers") ||
       pathname.startsWith("/pricing") ||
       pathname.startsWith("/privacy") ||
       pathname.startsWith("/terms") ||

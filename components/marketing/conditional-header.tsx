@@ -56,6 +56,8 @@ function isKnownPlatformPath(p: string): boolean {
     p.startsWith("/blog") ||
     p.startsWith("/pricing") ||
     p.startsWith("/faq") ||
+    /* The Storelib Developer Hub. Not on this list, it drew with no header. */
+    p.startsWith("/developers") ||
     p.startsWith("/privacy") ||
     p.startsWith("/terms") ||
     p.startsWith("/help") ||

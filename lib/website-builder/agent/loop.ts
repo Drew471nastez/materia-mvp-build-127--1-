@@ -1170,7 +1170,7 @@ function execute(
       return {
         output: [
           `${wanted} — ${schema.name}${schema.description ? `: ${schema.description}` : ""}`,
-          `CONTROLS\n${describeFields(wanted)}`,
+          `CONTROLS\n${describeFields(wanted, schemas)}`,
           specimen
             ? `WHAT IT LOOKS LIKE WHEN ADDED (its preset)\n${JSON.stringify(
                 { settings: specimen.settings, blocks: specimen.blocks },
@@ -1190,7 +1190,7 @@ function execute(
       let settings = parseSettings(args.settingsJson) ?? undefined
       let notes: string[] = []
       if (settings && Object.keys(settings).length > 0) {
-        const checked = checkSettings(fieldsFor(sectionType), settings, sectionType)
+        const checked = checkSettings(fieldsFor(sectionType, schemas), settings, sectionType)
         if (checked.error) return { output: `${checked.error}\n\nNothing was added.` }
         settings = checked.settings
         notes = checked.notes
@@ -1209,11 +1209,11 @@ function execute(
        * round trip for something already known here) or, far worse, writes
        * from memory and gets refused.
        */
-      const created = applyOp(state, op).sections.find((s) => s.id === fresh)
+      const created = applyOp(state, op, schemas).sections.find((s) => s.id === fresh)
       return {
         output: [
           `Added ${sectionType} as [${fresh}].${notes.length > 0 ? ` (${notes.join("; ")})` : ""}`,
-          created ? describeSection(created) : "",
+          created ? describeSection(created, schemas) : "",
         ]
           .filter(Boolean)
           .join("\n\n"),
@@ -1277,7 +1277,7 @@ function execute(
       if (!section) return { output: notFound(sectionId, state), failed: true }
 
       const blockType = typeof args.blockType === "string" ? args.blockType : ""
-      const specs = blockSpecs(section.type)
+      const specs = blockSpecs(section.type, schemas)
       if (!specs.some((b) => b.type === blockType)) {
         return {
           output: `${section.type} does not take a "${blockType}" block. It takes: ${
@@ -1291,7 +1291,7 @@ function execute(
        * four; a fifth is a section that renders wrong rather than a section
        * with more in it.
        */
-      const cap = maxBlocks(section.type)
+      const cap = maxBlocks(section.type, schemas)
       if (cap !== undefined && (section.blocks?.length ?? 0) >= cap) {
         return {
           output: `${section.type} takes at most ${cap} blocks and already has ${section.blocks?.length ?? 0}. Change one of the existing ones, or remove one first.`,
@@ -1303,7 +1303,7 @@ function execute(
         return { output: 'Send `settingsJson` as a JSON object in a string, e.g. {"question":"…"}.' }
       }
       const checked = checkSettings(
-        blockFieldsFor(section.type, blockType),
+        blockFieldsFor(section.type, blockType, schemas),
         settings,
         `a ${blockType} block`,
       )
@@ -1339,7 +1339,7 @@ function execute(
         return { output: 'Send `settingsJson` as a JSON object in a string.' }
       }
       const checked = checkSettings(
-        blockFieldsFor(section.type, block.type),
+        blockFieldsFor(section.type, block.type, schemas),
         settings,
         `a ${block.type} block`,
       )

@@ -33,8 +33,28 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
 
 const MAX_NAME = 120
 
+/**
+ * WHERE ON THE PAGE THEY SAID YES.
+ *
+ * A consent record has to say what somebody agreed to, and "the newsletter
+ * section" is not true of a footer box or a ticked checkbox on a contact form.
+ * The caller names the placement; an unknown one is recorded as the generic
+ * form rather than refused, because refusing a sign-up over a label would be
+ * the wrong failure.
+ */
+const CONSENT: Record<string, string> = {
+  newsletter: "Subscribed via the newsletter section of this creator's website",
+  footer: "Subscribed via the sign-up box in the footer of this creator's website",
+  contact: "Ticked \"Keep me updated\" on the contact form of this creator's website",
+  section: "Subscribed via a sign-up form on this creator's website",
+}
+
+function consentFor(placement: unknown): string {
+  return typeof placement === "string" && CONSENT[placement] ? CONSENT[placement] : CONSENT.newsletter
+}
+
 export async function POST(req: NextRequest) {
-  let body: { creator_id?: unknown; email?: unknown; name?: unknown; source?: unknown }
+  let body: { creator_id?: unknown; email?: unknown; name?: unknown; source?: unknown; placement?: unknown }
   try {
     body = await req.json()
   } catch {
@@ -79,12 +99,20 @@ export async function POST(req: NextRequest) {
   const { error } = await db.from("subscribers").insert({
     email,
     name: name || null,
+    /*
+      One source for every website sign-up, and deliberately the value that
+      has been in production since this route was written. An old setup
+      script declares `CHECK (source IN ('onepage', 'store_builder'))`, and
+      whether that constraint is live on a given database cannot be seen from
+      here. A new value into a constrained column fails every insert, so the
+      WHERE on the page goes in the consent line instead, which is free text.
+    */
     source: "website_builder_newsletter",
     creator_id: creatorId,
     status: "subscribed",
     is_active: true,
     subscribed_at: new Date().toISOString(),
-    consent_text: "Subscribed via the newsletter section of this creator's website",
+    consent_text: consentFor(body.placement),
     consent_timestamp: new Date().toISOString(),
     unsubscribe_token: randomUUID(),
   })

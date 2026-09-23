@@ -1,0 +1,44 @@
+<template>
+<section class="vf" data-scheme="{{ settings.color_scheme }}" style="--vf-pt: {{ settings.padding_top }}px; --vf-pb: {{ settings.padding_bottom }}px;">
+  <div class="vf__in">
+    <div class="vf__copy">
+      {% if settings.heading != "" %}<h2 class="vf__h">{{ settings.heading }}</h2>{% endif %}
+      {% if settings.text != "" %}<p class="vf__p">{{ settings.text }}</p>{% endif %}
+    </div>
+    {% if settings.video_url != "" %}
+      <iframe class="vf__player" src="{{ settings.video_url | embed }}" title="{{ settings.video_title }}" loading="lazy" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>
+    {% elsif page.in_editor %}
+      <p class="vf__empty">Paste a YouTube, Vimeo, Spotify or SoundCloud link in the panel.</p>
+    {% endif %}
+  </div>
+</section>
+</template>
+
+<style>
+.vf { container-type: inline-size; background: var(--scheme-background); padding: var(--vf-pt) var(--theme-padding-x, 24px) var(--vf-pb); }
+.vf__in { display: grid; gap: 28px; max-width: var(--theme-page-width, 1280px); margin: 0 auto; }
+.vf__h { margin: 0; color: var(--scheme-heading); font-size: var(--section-heading-size, 32px); line-height: var(--section-heading-line-height, 1.15); }
+.vf__p { margin: 14px 0 0; color: var(--scheme-text); font-size: var(--section-text-size, 17px); line-height: 1.6; }
+.vf__player { display: block; width: 100%; aspect-ratio: 16 / 9; border: 0; border-radius: {{ theme.radius.medium }}px; background: var(--scheme-background-secondary); }
+.vf__empty { margin: 0; padding: 48px 20px; text-align: center; color: var(--scheme-text-muted); border: 1px dashed var(--scheme-border); border-radius: {{ theme.radius.medium }}px; }
+@container (min-width: 900px) { .vf__in { grid-template-columns: 2fr 3fr; align-items: center; gap: 48px; } }
+</style>
+
+<schema>
+{
+  "type": "video_feature",
+  "name": "Video with text",
+  "category": "Media",
+  "capabilities": ["embed"],
+  "settings": [
+    { "type": "text", "id": "heading", "label": "Heading", "default": "See it in use" },
+    { "type": "textarea", "id": "text", "label": "Text", "default": "Two minutes, start to finish." },
+    { "type": "url", "id": "video_url", "label": "Video link", "default": "", "info": "A YouTube, Vimeo, Spotify or SoundCloud link, as you would copy it from the address bar." },
+    { "type": "text", "id": "video_title", "label": "Video title", "default": "Product demo", "info": "Read aloud by screen readers." },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "white" },
+    { "type": "range", "id": "padding_top", "label": "Top padding", "default": 72, "min": 0, "max": 200, "step": 4, "unit": "px" },
+    { "type": "range", "id": "padding_bottom", "label": "Bottom padding", "default": 72, "min": 0, "max": 200, "step": 4, "unit": "px" }
+  ],
+  "presets": [{ "name": "Video with text" }]
+}
+</schema>

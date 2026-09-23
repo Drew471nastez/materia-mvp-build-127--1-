@@ -87,6 +87,17 @@ import { isCanvasNavigationLink, isTypingTarget, leavesThePage, type ClickTarget
 import { watchKeyboard } from "@/lib/website-builder/keyboard-watch"
 import { clearStaleDocumentLocks, watchForStuckLayer } from "@/lib/website-builder/stuck-layer"
 import { CUSTOM_SECTION_CATEGORY, customAddableSections, customSectionSchemas, schemaFor } from "@/lib/website-builder/storelib-schemas"
+import {
+  WRITING_SECTION_ID,
+  WRITING_SECTION_TYPE,
+  gapWithoutPlaceholder,
+  instanceFromSchema,
+  placeWrittenSection,
+  withWritingPlaceholder,
+  writingAnchor,
+  type WritingAnchor,
+} from "@/lib/website-builder/ai-placement"
+import { WritingSection } from "@/components/website-builder/editor/writing-section"
 import { StorelibLiveProvider } from "@/components/website-builder/sections/storelib-live"
 import { bodyGapToListIndex } from "@/lib/website-builder/section-order"
 import { IconPicker } from "@/components/website-builder/icon-picker"
@@ -3381,14 +3392,18 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * one is a hit.
    */
   const [storelibSources, setStorelibSources] = useState<Record<string, string>>({})
-  const loadStorelibSources = useCallback(async () => {
+  /** Also hands back what it loaded, for a caller that needs it this tick: see handleWriteDone. */
+  const loadStorelibSources = useCallback(async (): Promise<Record<string, string> | null> => {
     try {
       const res = await fetch(`/api/website-builder/themes/${installId}/files?sources=1`)
-      if (!res.ok) return
+      if (!res.ok) return null
       const d = (await res.json()) as { files?: Record<string, string> }
-      setStorelibSources(d.files ?? {})
+      const files = d.files ?? {}
+      setStorelibSources(files)
+      return files
     } catch {
       /* the bundled sources still render; the next save reloads */
+      return null
     }
   }, [installId])
   useEffect(() => { void loadStorelibSources() }, [loadStorelibSources])
@@ -3498,6 +3513,19 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const [canvasInsertAt, setCanvasInsertAt] = useState<number | null>(null)
   /** The AI panel, docked beside the sidebar. Closed until asked for. */
   const [aiOpen, setAiOpen] = useState(false)
+  /**
+   * A SECTION ASK AI IS WRITING, and the spot on this page it will land in.
+   * The canvas draws a placeholder there until the file compiles, then the
+   * section itself. `placedId` is set the moment it is placed and the
+   * placeholder stays until the canvas is drawing that section, so there is
+   * no frame with neither. See lib/website-builder/ai-placement.ts.
+   */
+  const [aiWriting, setAiWriting] = useState<
+    { anchor: WritingAnchor; prompt: string; page: PageKey; placedId?: string } | null
+  >(null)
+  const aiWritingRef = useRef(aiWriting)
+  /** The section that has just arrived, for the one animation it gets. */
+  const [arrivedId, setArrivedId] = useState<string | null>(null)
   /** A file to open the code editor onto, set when the assistant writes one. */
   const [codeFilePath, setCodeFilePath] = useState<string | null>(null)
   /**
@@ -3607,8 +3635,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       )
     }
 
-    setSections(previous => applyOp({ sections: previous, settings: {} }, op).sections)
-  }, [sections])
+    /**
+     * WITH THE LOOKUP. Without it an `add_section` of a type the creator
+     * wrote found no schema and did nothing, while the chat reported it
+     * added: the assistant could see their sections and not place one.
+     */
+    setSections(previous => applyOp({ sections: previous, settings: {} }, op, librarySchemas).sections)
+  }, [sections, librarySchemas])
 
   /**
    * =========================================================================
@@ -5312,7 +5345,36 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * has to light up the canvas at once, because the tap WAS on the canvas.
    */
   const canvasThemeSettings = useDeferredValue(activeThemeSettings)
-  const canvasSections = useDeferredValue(sections)
+  const deferredSections = useDeferredValue(sections)
+
+  /**
+   * THE PLACEHOLDER GOES IN HERE AND NOWHERE ELSE. `sections` is what is
+   * saved, undone and published; this is only what the canvas draws. It is
+   * shown on the page it was started from, and until the canvas is drawing
+   * the section that replaced it.
+   */
+  const writingShown =
+    aiWriting !== null &&
+    aiWriting.page === currentPage &&
+    !(aiWriting.placedId && deferredSections.some((s) => s.id === aiWriting.placedId))
+  const canvasSections = useMemo(
+    () => (writingShown && aiWriting ? withWritingPlaceholder(deferredSections, aiWriting.anchor, aiWriting.prompt) : deferredSections),
+    [writingShown, aiWriting, deferredSections],
+  )
+  /** Placed and drawn, or placed and left behind on another page: either way, done. */
+  useEffect(() => {
+    if (!aiWriting?.placedId) return
+    if (aiWriting.page !== currentPage || deferredSections.some((s) => s.id === aiWriting.placedId)) {
+      aiWritingRef.current = null
+      setAiWriting(null)
+    }
+  }, [aiWriting, currentPage, deferredSections])
+  useEffect(() => {
+    if (!arrivedId) return
+    const t = setTimeout(() => setArrivedId(null), 700)
+    return () => clearTimeout(t)
+  }, [arrivedId])
+
   /**
    * The canvas's two callbacks, made once.
    *
@@ -5444,6 +5506,89 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   // Narrow the selected section id safely
   const selectedSectionId: string | null =
     selectedPanel.type === "section" ? (selectedPanel as { type: "section"; sectionId: string }).sectionId : null
+
+  /**
+   * =========================================================================
+   *  A SECTION ASK AI WRITES LANDS ON THE PAGE
+   * =========================================================================
+   * It used to land in Add Section under "Created by you", with nothing on
+   * the canvas for the thirty seconds it took and nothing there after. Now
+   * the spot is held while it is written, and the section is put in it the
+   * moment it compiles: added, selected, saved with the page like a section
+   * added by hand, and one Undo away from gone.
+   *
+   * The spot: the gap the creator picked, or under the section they have
+   * open, or the end of the page above the footer.
+   */
+  const handleWriteStart = useCallback(
+    (prompt: string) => {
+      const current = sectionsRef.current
+      const chosenIndex =
+        canvasInsertAt != null ? bodyGapToListIndex(current, canvasInsertAt) : pendingInsertIndex
+      const next = {
+        anchor: writingAnchor(current, { chosenIndex, selectedId: selectedSectionId }),
+        prompt,
+        page: currentPageRef.current,
+      }
+      aiWritingRef.current = next
+      setAiWriting(next)
+      /* On a phone the chat covers the canvas, and the canvas is the point. */
+      if (isMobileView) setAiOpen(false)
+      scrollToSection(WRITING_SECTION_ID)
+    },
+    [canvasInsertAt, pendingInsertIndex, selectedSectionId, isMobileView, scrollToSection],
+  )
+
+  /**
+   * True when the section is on the page. False sends the chat's other
+   * message, "add it from Add Section": the creator went to another page
+   * while it was written, or its file could not be read back just now.
+   */
+  const handleWriteDone = useCallback(
+    async ({ type }: { type: string; name: string; path: string }): Promise<boolean> => {
+      const writing = aiWritingRef.current
+      /* The file is new, so the canvas has to fetch it before it can draw it. */
+      const files = await loadStorelibSources()
+      const schema = files ? customSectionSchemas(files)[type] : undefined
+      if (!writing || !schema || writing.page !== currentPageRef.current) {
+        aiWritingRef.current = null
+        setAiWriting(null)
+        return false
+      }
+      const id = `${type}-${Date.now()}`
+      pushUndo()
+      setSections((previous) => placeWrittenSection(previous, writing.anchor, instanceFromSchema(id, type, schema)))
+      const placed = { ...writing, placedId: id }
+      aiWritingRef.current = placed
+      setAiWriting(placed)
+      setSelectedPanel({ type: "section", sectionId: id })
+      setIsDirty(true)
+      setArrivedId(id)
+      scrollToSection(id)
+      return true
+    },
+    [loadStorelibSources, pushUndo, scrollToSection],
+  )
+
+  /**
+   * The reason is in the chat. A phone closed the chat to show the canvas, so
+   * it opens again; on a desktop the chat may have been closed meanwhile,
+   * and then the reason is said here instead of the spot vanishing unexplained.
+   * Refs, because this runs from a request that started several renders ago.
+   */
+  const aiOpenRef = useRef(aiOpen)
+  aiOpenRef.current = aiOpen
+  const isMobileViewRef = useRef(isMobileView)
+  isMobileViewRef.current = isMobileView
+  const handleWriteFailed = useCallback(
+    (reason: string) => {
+      aiWritingRef.current = null
+      setAiWriting(null)
+      if (isMobileViewRef.current) setAiOpen(true)
+      else if (!aiOpenRef.current) showNotification(reason, "error")
+    },
+    [showNotification],
+  )
 
   // ── Sidebar panel rendering ─────────────────────────────────
 
@@ -7575,6 +7720,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               onOp={applyAiOp}
               onClose={() => setAiOpen(false)}
               onSourcesChanged={() => { void loadStorelibSources() }}
+              onWriteStart={handleWriteStart}
+              onWriteDone={handleWriteDone}
+              onWriteFailed={handleWriteFailed}
               onOpenCodeEditor={(path) => {
                 setAiOpen(false)
                 void openCode(path)
@@ -7600,6 +7748,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               onOp={applyAiOp}
               onClose={() => setAiOpen(false)}
               onSourcesChanged={() => { void loadStorelibSources() }}
+              onWriteStart={handleWriteStart}
+              onWriteDone={handleWriteDone}
+              onWriteFailed={handleWriteFailed}
               onOpenCodeEditor={(path) => {
                 setAiOpen(false)
                 void openCode(path)
@@ -8074,6 +8225,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 sources={storelibSources}
                 pageTemplate={currentPage === "home" ? "index" : currentPage}
                 sections={canvasSections}
+                arrivedId={arrivedId}
                 inspectorEnabled={inspectorEnabled}
                 selectedSectionId={selectedSectionId}
                 device={device}
@@ -8087,7 +8239,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                  * is the chewed blue corner that was reported.
                  */
                 canvasRadiusPx={isMobileView ? 0 : device === "desktop" ? 20 : 16}
-                bodyCount={bodyCount}
+                bodyCount={bodyCount + (writingShown ? 1 : 0)}
                 onSelectSection={selectSectionFromCanvas}
                 onAddSection={openAddSection}
                 onAddSectionAt={openAddSectionAt}
@@ -8664,6 +8816,7 @@ function SectionToolbar({
 const EditorCanvasPage = memo(function EditorCanvasPage({
   theme,
   sections,
+  arrivedId,
   sources,
   pageTemplate,
   inspectorEnabled,
@@ -8682,6 +8835,8 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
 }: {
   theme: ThemeSettingsValues
   sections: SectionInstance[]
+  /** A section Ask AI has just put on the page, which arrives rather than appears. */
+  arrivedId?: string | null
   /** Saved .storelib files, path to source; see storelibSources in the editor. */
   sources: Record<string, string>
   /** Which page's sections these are, for `page.template` in a section. */
@@ -8726,7 +8881,15 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
        * inspector on: with it off the canvas is a plain preview, and nothing
        * in it is meant to be a control.
        */
-      renderGap={inspectorEnabled ? (at) => <CanvasInsertStrip onClick={() => onAddSectionAt(at)} /> : undefined}
+      renderGap={
+        inspectorEnabled
+          ? (at) => {
+              /* Counted without the placeholder, which is not in the page. */
+              const gap = gapWithoutPlaceholder(sections, at)
+              return gap === null ? null : <CanvasInsertStrip onClick={() => onAddSectionAt(gap)} />
+            }
+          : undefined
+      }
       /**
        * `atTop` says whether this header has any chrome above it.
        * ThemePage answers that because ThemePage draws the chrome;
@@ -8734,6 +8897,14 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
        * announcement bar came to exist in four places at once.
        */
       renderSection={(section, role, atTop) => {
+        /* The spot Ask AI is writing into. Not a section: nothing to select. */
+        if (section.type === WRITING_SECTION_TYPE) {
+          return (
+            <div key={section.id} id={`wb-section-${section.id}`}>
+              <WritingSection prompt={typeof section.settings.prompt === "string" ? section.settings.prompt : ""} />
+            </div>
+          )
+        }
         const shared = {
           section,
           theme,
@@ -8804,7 +8975,11 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
         }
 
         return (
-          <div key={section.id} id={`wb-section-${section.id}`}>
+          <div
+            key={section.id}
+            id={`wb-section-${section.id}`}
+            className={section.id === arrivedId ? "wb-section-arrive" : undefined}
+          >
             <SectionRenderer
               {...shared}
               canvasRoundedBottomPx={
