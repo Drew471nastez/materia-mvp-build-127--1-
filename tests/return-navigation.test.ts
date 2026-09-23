@@ -38,7 +38,6 @@ const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
 /** Surfaces whose control names the page behind it. */
 const RETURNS: Array<[string, string]> = [
   ["app/checkout/checkout-client.tsx", "Back to product"],
-  ["app/checkout/receipt/checkout-receipt-client.tsx", "Back to product"],
   ["app/library/products/[id]/page.tsx", "Library"],
   ["app/library/my-downloads/page.tsx", "Library"],
   ["app/library/wishlist/page.tsx", "Library"],
@@ -122,6 +121,24 @@ function main() {
     "the checkout's control is no longer a bare anchor",
     !/<a href=\{productUrl\}/.test(checkout),
     "an <a href> is a document load and a push",
+  )
+  /*
+    The checkout's own receipt used to carry a "Back to product" ReturnLink
+    and was listed above. There is one receipt page now (/receipt/<token>),
+    and the checkout REPLACES itself with it, so the entry behind a receipt
+    is the product the buyer came from and the browser's own back returns
+    there. The old address only forwards.
+  */
+  check(
+    "a finished checkout replaces itself with the receipt rather than pushing it",
+    /router\.replace\(`\/receipt\/\$\{encodeURIComponent\(receiptToken\)\}`\)/.test(checkout) &&
+      !/router\.push\(`\/checkout\/receipt/.test(checkout),
+    "a push leaves the paid checkout behind the receipt, one back away",
+  )
+  check(
+    "and the old checkout receipt address forwards to the one receipt",
+    /redirect\(`\/receipt\/\$\{token\}`\)/.test(read("app/checkout/receipt/page.tsx")) &&
+      !existsSync(join(process.cwd(), "app/checkout/receipt/checkout-receipt-client.tsx")),
   )
 
   /* ---------------------------------------------------------------------

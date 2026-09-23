@@ -1101,13 +1101,14 @@ export default function CheckoutPageClient({
     )
   }, [firstName, lastName, email])
 
-  // Handle successful order: redirect to checkout/receipt page
+  // Handle successful order: go to the receipt. Replace rather than push, so
+  // Back from the receipt returns to the product, not to a finished checkout.
   const completeOrder = useCallback(async (receiptToken: string, _newOrderId?: string) => {
     // Fire-and-forget: increment coupon usage count after successful purchase
     if (appliedCouponId) {
       fetch(`/api/coupons/${appliedCouponId}/use`, { method: "POST" }).catch(() => {})
     }
-    router.push(`/checkout/receipt?token=${encodeURIComponent(receiptToken)}`)
+    router.replace(`/receipt/${encodeURIComponent(receiptToken)}`)
   }, [router, appliedCouponId])
 
   // Handle return from Stripe 3DS redirect (bank auth page → return_url → back here)
@@ -1129,7 +1130,7 @@ export default function CheckoutPageClient({
           const data = await res.json()
           if (res.ok) {
             const match = data.redirectUrl?.match(/\/receipt\/([^?]+)/)
-            router.push(`/checkout/receipt?token=${encodeURIComponent(match?.[1] || '')}`)
+            router.replace(`/receipt/${encodeURIComponent(match?.[1] || '')}`)
           } else {
             setError(data.error || 'Failed to complete order')
             setIsSubmitting(false)

@@ -1,80 +1,89 @@
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
+import { canDeliver, isPlausibleToken } from "@/lib/receipts/rules"
 
+/**
+ * Moves a guest order into the signed-in person's library. The receipt token
+ * is the proof of purchase, the same as on the receipt page, so whoever holds
+ * it may attach the order to their account, once. An order already on
+ * another account stays there.
+ *
+ * The entitlement written carries the order's variant. Without it an
+ * entitlement reads as "the whole product", which would hand a buyer of the
+ * cheaper option every file of the dearer one. Only a paid order grants
+ * anything; a refunded one is attached for the record and grants nothing.
+ */
 export async function POST(request: Request) {
   try {
-    const { receiptToken } = await request.json()
-
-    if (!receiptToken) {
-      return NextResponse.json({ error: "Missing receiptToken" }, { status: 400 })
+    const { receiptToken } = await request.json().catch(() => ({}))
+    if (!isPlausibleToken(receiptToken)) {
+      return NextResponse.json({ error: "Order not found" }, { status: 404 })
     }
 
     const supabase = await createClient()
     const admin = createAdminClient()
 
-    // Get the logged-in user
     const {
       data: { user },
     } = await supabase.auth.getUser()
-
     if (!user) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
     }
 
-    // Find the order by receipt token
-    const { data: order, error: orderError } = await admin
+    const { data: order } = await admin
       .from("orders")
-      .select("*, product:products(*, creator:creators(id))")
+      .select("id, buyer_id, product_id, variant_id, status, product:products(creator_id)")
       .eq("receipt_token", receiptToken)
-      .single()
-
-    if (orderError || !order) {
-      return NextResponse.json({ error: "Order not found" }, { status: 404 })
-    }
-
-    // Check if order is already claimed by another user
-    if (order.buyer_id && order.buyer_id !== user.id) {
-      return NextResponse.json({ error: "Order already claimed by another user" }, { status: 400 })
-    }
-
-    // If already claimed by this user, just return success
-    if (order.buyer_id === user.id) {
-      return NextResponse.json({ ok: true, message: "Order already claimed" })
-    }
-
-    // Update the order to attach to this user
-    const { error: updateError } = await admin.from("orders").update({ buyer_id: user.id }).eq("id", order.id)
-
-    if (updateError) {
-      console.error("Error updating order:", updateError)
-      return NextResponse.json({ error: "Failed to claim order" }, { status: 500 })
-    }
-
-    // Create entitlement if it doesn't exist
-    const { data: existingEntitlement } = await admin
-      .from("entitlements")
-      .select("id")
-      .eq("buyer_id", user.id)
-      .eq("product_id", order.product_id)
       .maybeSingle()
 
-    if (!existingEntitlement) {
-      const creatorId = order.product?.creator?.id || order.product?.creator_id
+    if (!order) {
+      return NextResponse.json({ error: "Order not found" }, { status: 404 })
+    }
+    if (order.buyer_id && order.buyer_id !== user.id) {
+      return NextResponse.json({ error: "This order is already in another account" }, { status: 409 })
+    }
 
-      if (creatorId) {
-        await admin.from("entitlements").insert({
-          buyer_id: user.id,
-          creator_id: creatorId,
-          product_id: order.product_id,
-          community_access: order.product?.includes_community || false,
-        })
+    if (!order.buyer_id) {
+      const { error: updateError } = await admin
+        .from("orders")
+        .update({ buyer_id: user.id })
+        .eq("id", order.id)
+        .is("buyer_id", null)
+      if (updateError) {
+        console.error("[purchases/claim] could not attach order", order.id)
+        return NextResponse.json({ error: "Failed to claim order" }, { status: 500 })
       }
     }
 
-    return NextResponse.json({ ok: true, message: "Order claimed successfully" })
+    if (canDeliver(order.status)) {
+      const product: any = Array.isArray(order.product) ? order.product[0] : order.product
+      const creatorId = product?.creator_id
+      let q = admin.from("entitlements").select("id").eq("buyer_id", user.id).eq("product_id", order.product_id)
+      q = order.variant_id ? q.eq("variant_id", order.variant_id) : q.is("variant_id", null)
+      const { data: existing, error: readError } = await q.maybeSingle()
+
+      if (!existing && creatorId) {
+        const row = {
+          buyer_id: user.id,
+          creator_id: creatorId,
+          product_id: order.product_id,
+          variant_id: order.variant_id ?? null,
+          community_access: false,
+        }
+        const { error: insertError } = await admin.from("entitlements").insert(row)
+        /* A database from before entitlements had variant_id: the order row,
+           which the download route reads first, still carries the variant. */
+        if (insertError && readError) {
+          const { variant_id: _drop, ...legacy } = row
+          await admin.from("entitlements").insert(legacy)
+        }
+      }
+    }
+
+    return NextResponse.json({ ok: true })
   } catch (error) {
-    console.error("Error claiming order:", error)
+    console.error("[purchases/claim] failed:", error instanceof Error ? error.message : error)
     return NextResponse.json({ error: "Failed to claim order" }, { status: 500 })
   }
 }

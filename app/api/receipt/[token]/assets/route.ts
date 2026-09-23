@@ -1,62 +1,37 @@
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { loadReceiptByToken } from "@/lib/receipts/load"
+import { isPlausibleToken } from "@/lib/receipts/rules"
 
-export async function GET(
-  request: Request,
-  { params }: { params: Promise<{ token: string }> }
-) {
+export const runtime = "nodejs"
+
+/**
+ * The files a receipt token gives access to, for callers that only need the
+ * list. Read through the same loader as the receipt page, so the variant rule
+ * and the payment state are the same: a refunded or unpaid order lists no
+ * files and says why. Names and sizes only, never where a file is stored.
+ */
+export async function GET(_request: Request, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params
-
-  if (!token) {
-    return NextResponse.json({ error: "Missing token" }, { status: 400 })
+  if (!isPlausibleToken(token)) {
+    return NextResponse.json({ error: "Order not found" }, { status: 404 })
   }
 
   try {
-    const admin = createAdminClient()
-
-    // Fetch order by receipt token
-    const { data: order, error: orderError } = await admin
-      .from("orders")
-      .select("id, product_id, variant_id")
-      .eq("receipt_token", token)
-      .maybeSingle()
-
-    if (orderError || !order) {
+    const loaded = await loadReceiptByToken(createAdminClient(), token)
+    const item = loaded?.view.items.find((i) => i.token === token)
+    if (!loaded || !item) {
       return NextResponse.json({ error: "Order not found" }, { status: 404 })
     }
 
-    let assets: any[] = []
-
-    if (order.variant_id) {
-      // Variant-specific files
-      const { data: variantFiles } = await admin
-        .from("product_variant_files")
-        .select(`
-          digital_asset_id,
-          digital_assets (
-            id,
-            file_name,
-            file_size,
-            mime_type
-          )
-        `)
-        .eq("variant_id", order.variant_id)
-
-      assets = variantFiles?.map((vf: any) => vf.digital_assets).filter(Boolean) || []
-    } else {
-      // All product files
-      const { data: allAssets } = await admin
-        .from("digital_assets")
-        .select("id, file_name, file_size, mime_type")
-        .eq("product_id", order.product_id)
-
-      assets = allAssets || []
-    }
-
-    return NextResponse.json({
-      assets,
-      orderId: order.id,
-    })
+    return NextResponse.json(
+      {
+        orderId: item.orderId,
+        state: item.state,
+        assets: item.files.map((f) => ({ id: f.id, file_name: f.name, file_size: f.sizeBytes })),
+      },
+      { headers: { "Cache-Control": "no-store" } },
+    )
   } catch {
     return NextResponse.json({ error: "Failed to fetch assets" }, { status: 500 })
   }
