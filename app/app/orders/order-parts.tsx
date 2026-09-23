@@ -15,6 +15,15 @@ import { FULFILLMENT_LABEL, PAYMENT_LABEL } from "@/lib/orders/order-view"
 
 export const INK = "#1a1a2e"
 
+/**
+ * The top bar of the list and of an order: sticky over the page it belongs
+ * to, with a hairline and a short soft shadow under it, so what scrolls
+ * beneath reads as going under it rather than being cut off. One string for
+ * both, so the two bars cannot drift apart.
+ */
+export const topBar =
+  "sticky top-0 z-10 -mx-4 flex min-h-[60px] items-center gap-2 bg-[#f8f9fa] px-4 pt-2 pb-2 shadow-[0_1px_0_rgba(17,24,39,0.06),0_4px_12px_-8px_rgba(17,24,39,0.12)] sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8"
+
 const money = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" })
 
 export function formatMoney(cents: number): string {
@@ -114,8 +123,8 @@ export function Checkbox({
 
 /**
  * The shape of the period under its number: this period as a line, the one
- * it is compared with dashed behind it, in the same checked blue and grey as
- * the Analytics reports. Both share one vertical scale, or
+ * it is compared with dashed behind it, in the violet and grey of the
+ * Analytics reports. Both share one vertical scale, or
  * the comparison would lie. Drawn in a fixed box, so a new reading never
  * moves anything around it.
  */
@@ -144,7 +153,7 @@ export function Sparkline({ series, previous }: { series: number[]; previous: nu
       <polyline
         points={points(series)}
         fill="none"
-        stroke="#2a78d6"
+        stroke="#8b5cf6"
         strokeWidth="1.75"
         strokeLinejoin="round"
         strokeLinecap="round"

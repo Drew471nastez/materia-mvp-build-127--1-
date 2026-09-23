@@ -367,7 +367,7 @@ console.log("\nAnalytics: from the review")
   const route = read("app/api/analytics/reports/route.ts")
   const page = read("app/app/analytics/analytics-client.tsx")
   check("All time is answered, not refused: the span allows years past 2020", /const MAX_SPAN_MS = 30 \* 366 \* 24 \* 3_600_000/.test(route))
-  check("and All time is compared with nothing", /const isAllTime = period\.preset === "all_time"/.test(page) && /isAllTime \? null : compareBounds\(/.test(page) && /\{!isAllTime \? <ComparePicker/.test(page))
+  check("and All time is compared with nothing", /const isAllTime = period\.preset === "all_time"/.test(page) && /isAllTime \? null : compareBounds\(/.test(page) && !/<ComparePicker/.test(page))
   check("OnePage views: each window counted from its own sessions, never twice", !/now\.concat\(before\)/.test(read("lib/analytics/reports.ts")) && /current: bucketCounts\(at\(now\), starts, cur, n\)/.test(read("lib/analytics/reports.ts")))
   const ev = read("app/api/track-event/route.ts")
   check("a funnel step needs a real creator and their own product, and the creator's own clicks do not count",

@@ -50,6 +50,9 @@ import { OrderDetail, type OrderAction } from "./order-detail"
 import { formatMoney } from "./order-parts"
 import { saveFile, savedMessage } from "@/lib/platform/save-file"
 
+/** What every change on this page is measured against. */
+const PREVIOUS_PERIOD: CompareValue = { mode: "previous_period" }
+
 interface OrdersClientProps {
   rows: OrderRow[]
   products: Array<{ id: string; title: string }>
@@ -140,10 +143,17 @@ export function OrdersClient(props: OrdersClientProps) {
   const earliest = orders.length ? Date.parse(orders[orders.length - 1].createdAt) : null
   const firstDay = firstDayOf(earliest, timeZone)
   const today = todayIn(timeZone, now)
-  const { period, compare } = React.useMemo(
+  const { period } = React.useMemo(
     () => readOrdersPeriod(new URLSearchParams(searchParams.toString()), remembered, today, firstDay),
     [searchParams, remembered, today, firstDay],
   )
+  /*
+    ALWAYS THE PERIOD JUST BEFORE. There is no comparison control on this
+    page any more (nor on Analytics), so an old link or cookie that says
+    ?compare=none or a custom comparison must not leave the changes hidden
+    or measured against something nobody can see or change.
+  */
+  const compare = PREVIOUS_PERIOD
   const openId = searchParams.get("order")
 
   const [searchText, setSearchText] = React.useState(query.q)
@@ -190,10 +200,6 @@ export function OrdersClient(props: OrdersClientProps) {
     }, "replace")
     setSelected(new Set())
     listRef.current?.scrollTo({ top: 0 })
-  }
-  const onCompare = (c: CompareValue) => {
-    remember(period, c)
-    writeAddress((params) => writePeriod(params, null, c, DEFAULT_PRESET), "replace")
   }
 
   /* ── What the list shows ────────────────────────────────────────────── */
@@ -444,8 +450,6 @@ export function OrdersClient(props: OrdersClientProps) {
           onSearchText={onSearchText}
           period={period}
           onPeriod={onRange}
-          compare={compare}
-          onCompare={onCompare}
           today={today}
           firstDay={firstDay}
           comparable={span.previous !== null}

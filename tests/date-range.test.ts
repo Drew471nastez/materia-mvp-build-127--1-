@@ -188,8 +188,18 @@ function main() {
   }
   check("and no page keeps a private list of presets or its own sheet",
     pages.every(([, f]) => !/timeframeOptions|CHART_TIMEFRAMES|statsTimeframeOptions|TimeframeBottomSheet|ChartTimeframeSheet|AnalyticsTimeframeSheet/.test(read(f))))
-  check("analytics and orders show the comparison picker too",
-    /<ComparePicker\b/.test(read("app/app/analytics/analytics-client.tsx")) && /<ComparePicker\b/.test(read("app/app/orders/orders-list.tsx")))
+  /*
+    THE COMPARISON CONTROL IS GONE, on the owner's word: "get rid of the
+    comparison selector". Both pages still compare, always with the period
+    just before, and neither lets an old ?compare= link hide the changes.
+  */
+  check("no page draws a comparison control, and the shared picker no longer has one",
+    pages.every(([, f]) => !/<ComparePicker\b/.test(read(f))) && !/export function ComparePicker/.test(read("components/app/date-range-picker.tsx")))
+  check("analytics and orders measure every change against the period just before",
+    /const compare = PREVIOUS_PERIOD/.test(read("app/app/analytics/analytics-client.tsx"))
+      && /const compare = PREVIOUS_PERIOD/.test(read("app/app/orders/orders-client.tsx"))
+      && /const PREVIOUS_PERIOD: CompareValue = \{ mode: "previous_period" \}/.test(read("app/app/analytics/analytics-client.tsx"))
+      && /const PREVIOUS_PERIOD: CompareValue = \{ mode: "previous_period" \}/.test(read("app/app/orders/orders-client.tsx")))
   check("analytics hides percentages with No comparison, and names what they compare with",
     /against === null\) return null/.test(read("app/app/analytics/analytics-client.tsx")) && /compared with \$\{against\}/.test(read("app/app/analytics/analytics-client.tsx")))
   check("and draws the comparison as a dashed line under the chart's own", /strokeDasharray="5 4"/.test(read("components/app/analytics-chart.tsx")))

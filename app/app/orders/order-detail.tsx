@@ -63,6 +63,7 @@ import {
   card,
   formatMoney,
   iconButton,
+  topBar,
 } from "./order-parts"
 
 export type OrderAction =
@@ -157,7 +158,7 @@ export function OrderDetail({ order, timeZone, now, onBack, onStep, canStep, pos
   return (
     <div className="mx-auto max-w-[1040px] px-4 pb-6 sm:px-6 lg:px-8">
       {/* Title bar. Stays in reach while the order scrolls under it. */}
-      <div className="sticky top-0 z-10 -mx-4 flex min-h-[60px] items-center gap-2 bg-[#f8f9fa] px-4 pt-2 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
+      <div className={topBar}>
         <button type="button" onClick={onBack} aria-label="Back to orders" className={cn(iconButton, "-ml-1.5 h-9 w-9")}>
           <ArrowLeft className="h-5 w-5" />
         </button>
