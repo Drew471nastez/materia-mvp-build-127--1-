@@ -84,7 +84,7 @@ export const PAGE_SIZE = 50
 
 function refundedCentsOf(row: OrderRow): number {
   if (row.status !== "refunded") return 0
-  const whole = (row.amount_cents || 0) + (row.tip_cents || 0)
+  const whole = row.amount_cents || 0
   const recorded = row.refund_amount_cents
   return typeof recorded === "number" && recorded > 0 ? Math.min(recorded, whole) : whole
 }
@@ -133,9 +133,12 @@ export function groupOrders(rows: OrderRow[]): Order[] {
   for (const lines of groups.values()) {
     lines.sort((a, b) => a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id))
     const first = lines[0]
-    const subtotalCents = lines.reduce((n, r) => n + (r.amount_cents || 0), 0)
+    /* `amount_cents` is what was charged, the tip already inside it (the
+       PaymentIntent's amount), so the tip is taken out for the subtotal and
+       not added again for the total. */
     const tipCents = lines.reduce((n, r) => n + (r.tip_cents || 0), 0)
-    const totalCents = subtotalCents + tipCents
+    const totalCents = lines.reduce((n, r) => n + (r.amount_cents || 0), 0)
+    const subtotalCents = Math.max(0, totalCents - tipCents)
     const refundedCents = lines.reduce((n, r) => n + refundedCentsOf(r), 0)
     const delivered = lines.map((r) => r.buyer_notified_at).filter((d): d is string => !!d).sort()
     const emailFailed = lines.some((r) => !r.buyer_notified_at && (r.buyer_email_last_error || "").trim())

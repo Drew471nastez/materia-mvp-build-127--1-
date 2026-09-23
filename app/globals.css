@@ -4639,6 +4639,50 @@ html.pop-in-flight #platform-header-root {
   .ai-status-dot { animation: none; opacity: 0.6; }
 }
 
+/* ─── Checkout ──────────────────────────────────────────────────────────
+   A new line (a discount, a message) rises into place; a Stripe field that
+   has not drawn yet shimmers where it will be; and paying ends on a check
+   that draws itself in its circle. All of it still under reduced motion. */
+@keyframes checkout-rise {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+.checkout-rise { animation: checkout-rise 180ms ease-out both; }
+
+@keyframes checkout-shimmer {
+  from { background-position: 100% 0; }
+  to { background-position: -100% 0; }
+}
+.checkout-shimmer {
+  background: linear-gradient(90deg, #f3f4f6 25%, #eceef1 50%, #f3f4f6 75%);
+  background-size: 200% 100%;
+  animation: checkout-shimmer 1.4s linear infinite;
+}
+
+@keyframes checkout-paid-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes checkout-paid-draw { to { stroke-dashoffset: 0; } }
+.checkout-paid { animation: checkout-paid-in 160ms ease-out both; }
+.checkout-paid-ring {
+  stroke-dasharray: 183;
+  stroke-dashoffset: 183;
+  animation: checkout-paid-draw 520ms cubic-bezier(0.65, 0, 0.35, 1) 60ms forwards;
+}
+.checkout-paid-check {
+  stroke-dasharray: 40;
+  stroke-dashoffset: 40;
+  animation: checkout-paid-draw 300ms cubic-bezier(0.65, 0, 0.35, 1) 520ms forwards;
+}
+.checkout-paid-text { animation: checkout-rise 240ms ease-out 560ms both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .checkout-rise,
+  .checkout-shimmer,
+  .checkout-paid,
+  .checkout-paid-text { animation: none; }
+  .checkout-paid-ring,
+  .checkout-paid-check { animation: none; stroke-dashoffset: 0; }
+}
+
 /* ── The date picker's months and days (components/app/date-range-picker) ──
    A month arrives from the side it was asked for; a picked day settles into
    place. Transform and opacity only, so it runs on the compositor. */

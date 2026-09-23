@@ -40,6 +40,14 @@ export interface MailgunSendOptions {
   tags?: string[]
   metadata?: Record<string, string>
   headers?: Record<string, string>
+  /** Files sent with the message, such as a buyer's invoice as a PDF. */
+  attachments?: MailAttachment[]
+}
+
+export interface MailAttachment {
+  filename: string
+  content: Uint8Array
+  contentType: string
 }
 
 /**
@@ -183,6 +191,10 @@ export async function sendMailgunEmail(options: MailgunSendOptions): Promise<Mai
     for (const tag of options.tags) {
       formData.append("o:tag", tag)
     }
+  }
+
+  for (const file of options.attachments ?? []) {
+    formData.append("attachment", new Blob([file.content as BlobPart], { type: file.contentType }), file.filename)
   }
 
   // Add metadata/variables

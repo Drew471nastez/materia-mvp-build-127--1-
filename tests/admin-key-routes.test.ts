@@ -80,8 +80,8 @@ const PUBLIC_BY_DESIGN: Record<string, string> = {
   "auth/verify-email/route.ts": "carries the verification token",
 
   // Buyers. A buyer does not have an account on this platform.
-  "checkout/complete/route.ts": "keyed by the Stripe payment intent, which the buyer alone holds",
-  "checkout/confirm-payment/route.ts": "keyed by the Stripe payment intent",
+  "checkout/confirm-payment/route.ts": "keyed by the Stripe payment intent and its client secret, which only the paying page holds",
+  "checkout/invoice/route.ts": "the receipt token is the credential",
   "receipt/[token]/assets/route.ts": "the receipt token in the path is the credential",
   "receipt/resend/route.ts": "the receipt token is the credential",
   "receipt/update-email/route.ts": "the receipt token is the credential",
@@ -89,7 +89,6 @@ const PUBLIC_BY_DESIGN: Record<string, string> = {
   "onepage/download/route.ts": "the download token is the credential",
   "onepage/download/[token]/route.ts": "the download token is the credential",
   "coupons/validate/route.ts": "a buyer checking a code at checkout, and it answers yes or no",
-  "coupons/[id]/use/route.ts": "records a redemption made during a checkout",
 
   // Email, opened in a mail client with no cookies.
   "email/click/route.ts": "a link in a sent email, keyed by its own token",

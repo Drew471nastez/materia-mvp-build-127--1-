@@ -1,18 +1,11 @@
-import { Suspense } from "react"
-import CheckoutClient from "./CheckoutClient"
+import { redirect } from "next/navigation"
 
-export default async function CheckoutPage() {
-  return (
-    <Suspense fallback={<CheckoutLoading />}>
-      <CheckoutClient />
-    </Suspense>
-  )
-}
-
-function CheckoutLoading() {
-  return (
-    <div className="min-h-screen bg-[#2b2b2b] text-white flex items-center justify-center">
-      <div className="text-sm opacity-70">Loading checkout…</div>
-    </div>
-  )
+/**
+ * An old address for buying one product. It had its own payment routes,
+ * which charged the platform when the seller could not be paid and never
+ * made an order; nothing links here now. The one checkout is /checkout.
+ */
+export default async function CheckoutRedirect({ searchParams }: { searchParams: Promise<{ product_id?: string }> }) {
+  const { product_id } = await searchParams
+  redirect(product_id && /^[0-9a-f-]{36}$/i.test(product_id) ? `/checkout?productId=${product_id}` : "/explore")
 }

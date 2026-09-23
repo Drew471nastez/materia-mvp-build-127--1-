@@ -270,7 +270,8 @@ export function ThemeChat({
   onWriteStart?: (prompt: string) => void
   onWriteDone?: (section: { type: string; name: string; path: string }) => Promise<boolean> | boolean
   /** With the reason, for an editor whose chat is closed and so cannot show it. */
-  onWriteFailed?: (reason: string) => void
+  /** Nothing was written: `answered` when it replied in words instead, which is not a failure. */
+  onWriteFailed?: (reason: string, answered?: boolean) => void
   /**
    * Opens the code editor at a path. A section the assistant writes is a file,
    * and the honest end of that is the creator reading it — not a thing that
@@ -886,6 +887,7 @@ export function ThemeChat({
       setAttachError(null)
       onWriteStart?.(prompt)
       let kept = false
+      let answered = false
       let reason = "The section could not be written."
       try {
         const res = await fetch(`/api/website-builder/themes/${installId}/sections/code`, {
@@ -917,6 +919,7 @@ export function ThemeChat({
            to build. A conversation, shown as one, and nothing to retry. */
         if (d.reply) {
           reason = d.reply
+          answered = true
           setWriteReply({ prompt, text: d.reply })
           return
         }
@@ -946,7 +949,7 @@ export function ThemeChat({
         reason = "Storelib AI could not be reached. Check your connection and try again."
         setWriteError(reason)
       } finally {
-        if (!kept) onWriteFailed?.(reason)
+        if (!kept) onWriteFailed?.(reason, answered)
         setWriting(false)
         setWriteStage(null)
       }

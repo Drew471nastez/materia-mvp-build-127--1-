@@ -9,6 +9,7 @@
  */
 
 import { sendEmail, buildFromHeader, isSmtpConfigured, EMAIL_FROM, EMAIL_REPLY_TO } from "./mail"
+import type { MailAttachment } from "./mailgun"
 import { automationEmail, personalize, personalizeText, standingOf } from "@/lib/email-automation"
 import { maskEmail } from "@/lib/privacy/mask-email"
 import { ignoreError } from "@/lib/supabase/ignore-error"
@@ -129,6 +130,8 @@ export interface SendBuyerEmailParams {
   sellerReplyTo?: string
   baseUrl?: string
   variantName?: string | null
+  /** Sent with the email: a business buyer's invoice, as a PDF. */
+  attachments?: MailAttachment[]
 }
 
 export interface SendSellerEmailParams {
@@ -655,7 +658,7 @@ export async function sendBuyerDownloadEmail(
   params: SendBuyerEmailParams,
   attempt = 1,
 ): Promise<{ success: boolean; error?: string; logId?: string }> {
-  const { orderId, creatorId, buyerEmail, buyerFirstName, productTitle, receiptToken, sellerReplyTo, baseUrl, variantName } = params
+  const { orderId, creatorId, buyerEmail, buyerFirstName, productTitle, receiptToken, sellerReplyTo, baseUrl, variantName, attachments } = params
 
   const alreadySent = await wasEmailAlreadySent(admin, orderId, "buyer_download")
   if (alreadySent) return { success: true }
@@ -716,6 +719,7 @@ export async function sendBuyerDownloadEmail(
             variantName,
           }),
           text: buyerEmailText({ buyerFirstName, productTitle, receiptLink, variantName }),
+          attachments,
         })
 
         if (!response.success) {
@@ -880,6 +884,8 @@ export async function sendOrderEmails(
     feeCents: number
     baseUrl?: string
     variantName?: string | null
+    /** For the buyer's email only. */
+    attachments?: MailAttachment[]
   },
 ): Promise<{ buyerSuccess: boolean; sellerSuccess: boolean }> {
   const {
@@ -894,6 +900,7 @@ export async function sendOrderEmails(
     feeCents,
     baseUrl,
     variantName,
+    attachments,
   } = params
 
   console.log("[sendOrderEmails] 📧 Processing order emails:", {
@@ -933,6 +940,7 @@ export async function sendOrderEmails(
       sellerReplyTo: sellerEmail, // Buyer can reply to seller!
       baseUrl,
       variantName,
+      attachments,
     })
     console.log("[sendOrderEmails] Buyer email result:", buyerResult.success ? "✅ sent" : "❌ failed", buyerResult.error || "")
   } catch (buyerErr: any) {

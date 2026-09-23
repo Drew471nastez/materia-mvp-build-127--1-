@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { fullyRefunded } from "@/lib/orders/refund-state"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { headers, cookies } from "next/headers"
@@ -42,47 +43,42 @@ export async function GET(request: Request, { params }: { params: Promise<{ asse
     let entitlementId: string | null = null
     let orderIdForLog: string | null = null
 
+    /*
+      WHICH FILES A PURCHASE COVERS. An order or entitlement with a variant
+      covers that variant's files; one without covers the product's. The
+      check fails CLOSED: it used to allow the download whenever its own
+      query errored. And a refunded order covers nothing.
+    */
+    /* Orders are read whole ("*"): the refund amount's column is not in
+       every database, and naming a missing column fails the read. */
+    const variantCovers = async (variantId: string | null): Promise<boolean> => {
+      if (!variantId) return true
+      const { data, error } = await admin
+        .from("product_variant_files")
+        .select("id")
+        .eq("variant_id", variantId)
+        .eq("digital_asset_id", assetId)
+        .maybeSingle()
+      if (error) {
+        console.error("[download] variant check failed, refusing:", error.message)
+        return false
+      }
+      return Boolean(data)
+    }
+
     // Check access via receipt token
     if (receiptToken) {
       try {
         const { data: order } = await admin
           .from("orders")
-          .select("id, product_id, buyer_id, allowed_fingerprints, session_fingerprint, variant_id")
+          .select("*")
           .eq("receipt_token", receiptToken)
-          .single()
+          .maybeSingle()
 
-        if (order && order.product_id === asset.product_id) {
+        if (order && order.product_id === asset.product_id && !fullyRefunded(order)) {
           orderIdForLog = order.id
-
-          // VARIANT ACCESS CHECK: If order has a variant, verify the asset is assigned to that variant
-          // Fail-open: if the variant check query fails, allow access rather than denying
-          let variantAccessOk = true
-          if (order.variant_id) {
-            try {
-              const { data: variantFile, error: variantError } = await admin
-                .from("product_variant_files")
-                .select("id")
-                .eq("variant_id", order.variant_id)
-                .eq("digital_asset_id", assetId)
-                .maybeSingle()
-
-              if (!variantError && !variantFile) {
-                // Query succeeded but no matching file - this variant doesn't include this asset
-                variantAccessOk = false
-                console.log("[download] Asset not assigned to purchased variant:", assetId, order.variant_id)
-              }
-              // If variantError, fail-open (allow access)
-            } catch {
-              // Fail-open on any exception
-              console.warn("[download] Variant check failed, allowing access")
-            }
-          }
-
-          if (variantAccessOk) {
-            // A valid receipt token matching the order+product is sufficient proof of purchase.
-            // No additional fingerprint/session check needed — the receipt token IS the credential.
-            hasAccess = true
-          }
+          // A valid receipt token matching the order and product is the credential.
+          hasAccess = await variantCovers(order.variant_id)
         }
       } catch (err) {
         console.error("[download] Receipt token lookup failed:", err)
@@ -94,103 +90,60 @@ export async function GET(request: Request, { params }: { params: Promise<{ asse
       try {
         const { data: order } = await admin
           .from("orders")
-          .select("id, access_token, product_id, allowed_fingerprints, session_fingerprint, variant_id")
+          .select("*")
           .eq("id", orderId)
-          .single()
+          .maybeSingle()
 
-        if (order && order.access_token === accessToken && order.product_id === asset.product_id) {
+        if (order && order.access_token === accessToken && order.product_id === asset.product_id && !fullyRefunded(order)) {
           orderIdForLog = order.id
-
-          // VARIANT ACCESS CHECK (fail-open)
-          let variantAccessOk = true
-          if (order.variant_id) {
-            try {
-              const { data: variantFile, error: variantError } = await admin
-                .from("product_variant_files")
-                .select("id")
-                .eq("variant_id", order.variant_id)
-                .eq("digital_asset_id", assetId)
-                .maybeSingle()
-
-              if (!variantError && !variantFile) {
-                variantAccessOk = false
-                console.log("[download] Asset not assigned to purchased variant (legacy):", assetId, order.variant_id)
-              }
-            } catch {
-              console.warn("[download] Variant check failed (legacy), allowing access")
-            }
-          }
-
-          if (variantAccessOk) {
-            const sessionCookie = cookieStore.get("materia_session")
-            const allowedFingerprints = order.allowed_fingerprints || []
-
-            if (sessionCookie && allowedFingerprints.includes(sessionCookie.value)) {
-              hasAccess = true
-            } else if (order.session_fingerprint && sessionCookie?.value === order.session_fingerprint) {
-              hasAccess = true
-            }
-          }
+          const sessionCookie = cookieStore.get("materia_session")
+          const allowedFingerprints: string[] = order.allowed_fingerprints || []
+          const recognised =
+            !!sessionCookie &&
+            (allowedFingerprints.includes(sessionCookie.value) || (!!order.session_fingerprint && sessionCookie.value === order.session_fingerprint))
+          if (recognised) hasAccess = await variantCovers(order.variant_id)
         }
       } catch (err) {
         console.error("[download] Legacy token lookup failed:", err)
       }
     }
 
-    // Check user access via entitlement
+    // Check user access via entitlement, then via a completed order
     if (user && !hasAccess) {
       try {
-        const { data: entitlement } = await admin
+        /* Every entitlement to the product, not one: a buyer with two
+           variants has two rows, and `.maybeSingle()` answered that with an
+           error. Each is checked against the file's variant. */
+        const { data: entitlements } = await admin
           .from("entitlements")
-          .select("id")
+          .select("id, variant_id")
           .eq("buyer_id", user.id)
           .eq("product_id", asset.product_id)
-          .maybeSingle()
-
-        if (entitlement) {
-          hasAccess = true
-          entitlementId = entitlement.id
+        for (const e of entitlements ?? []) {
+          if (await variantCovers(e.variant_id)) {
+            hasAccess = true
+            entitlementId = e.id
+            break
+          }
         }
       } catch {
         // Non-fatal — continue to order check
       }
 
-      // Check user access via completed order (fallback when no entitlement record)
       if (!hasAccess) {
         try {
-          const { data: userOrder } = await admin
+          const { data: userOrders } = await admin
             .from("orders")
             .select("id, variant_id")
             .eq("buyer_id", user.id)
             .eq("product_id", asset.product_id)
             .eq("status", "completed")
-            .limit(1)
-            .maybeSingle()
-
-          if (userOrder) {
-            orderIdForLog = userOrder.id
-
-            // Variant access check (fail-open)
-            let variantAccessOk = true
-            if (userOrder.variant_id) {
-              try {
-                const { data: variantFile, error: variantError } = await admin
-                  .from("product_variant_files")
-                  .select("id")
-                  .eq("variant_id", userOrder.variant_id)
-                  .eq("digital_asset_id", assetId)
-                  .maybeSingle()
-
-                if (!variantError && !variantFile) {
-                  variantAccessOk = false
-                }
-              } catch {
-                // Fail-open
-              }
-            }
-
-            if (variantAccessOk) {
+            .limit(20)
+          for (const o of userOrders ?? []) {
+            if (await variantCovers(o.variant_id)) {
               hasAccess = true
+              orderIdForLog = o.id
+              break
             }
           }
         } catch {

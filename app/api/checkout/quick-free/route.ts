@@ -7,6 +7,8 @@ import { generateReceiptToken } from "@/lib/security"
 import { sendOrderEmails } from "@/lib/email"
 import { v4 as uuidv4 } from "uuid"
 import { orderSourceFromRequest, tagOrderSource } from "@/lib/orders/order-source"
+import { rateLimit, addressSubject, emailSubject, LIMITS } from "@/lib/api/rate-limit"
+import { baseFor } from "@/lib/checkout/pricing"
 
 export const runtime = "nodejs"
 
@@ -25,9 +27,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "All fields are required" }, { status: 400 })
     }
 
-    if (!email.includes("@") || !email.includes(".")) {
+    if (typeof email !== "string" || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
       return NextResponse.json({ error: "Valid email address is required" }, { status: 400 })
     }
+
+    /* Each claim emails the address it is given. */
+    const limited = await rateLimit({
+      bucket: "claim",
+      subjects: [addressSubject(request), emailSubject(email)],
+      windows: LIMITS.claim,
+      message: "That is a lot of requests from one place. Try again in a few minutes.",
+    })
+    if (limited) return limited
 
     const {
       data: { user },
@@ -48,9 +59,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Product not found" }, { status: 404 })
     }
 
-    // Verify product is free
-    if (product.price_cents && product.price_cents > 0) {
+    /* Free means free: not a pay-what-you-want product (its price is in
+       `pwyw_min_price_cents`, with `price_cents` left at 0), and not a
+       product with a paid option, whose files an order without a variant
+       would have handed over whole. */
+    const base = baseFor(product, undefined)
+    if (base.ok === false || base.cents > 0) {
       return NextResponse.json({ error: "Quick checkout is only available for free products" }, { status: 400 })
+    }
+    const { data: paidOption } = await admin
+      .from("product_variants")
+      .select("id")
+      .eq("product_id", product_id)
+      .or("price_cents.gt.0,pay_what_you_want.eq.true")
+      .limit(1)
+    if (paidOption && paidOption.length > 0) {
+      return NextResponse.json({ error: "Choose an option on the product page to get this." }, { status: 400 })
     }
 
     // Check if user already owns product
@@ -67,7 +91,7 @@ export async function POST(request: Request) {
         // Fetch digital assets for user who already owns the product
         const { data: assets } = await admin
           .from("digital_assets")
-          .select("id, file_name, file_path")
+          .select("id, file_name")
           .eq("product_id", product_id)
           .order("created_at", { ascending: true })
 
@@ -165,7 +189,6 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           error: "Failed to create order",
-          details: orderError?.message,
         },
         { status: 500 },
       )
@@ -251,7 +274,7 @@ export async function POST(request: Request) {
     // Fetch digital assets
     const { data: assets } = await admin
       .from("digital_assets")
-      .select("id, file_name, file_path")
+      .select("id, file_name")
       .eq("product_id", product_id)
       .order("created_at", { ascending: true })
 
@@ -291,7 +314,6 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         error: "Checkout failed",
-        details: error instanceof Error ? error.message : "Unknown error",
       },
       { status: 500 },
     )

@@ -40,21 +40,24 @@ export function AiStatus({ label, className }: { label: string; className?: stri
  * to be writing it. `after` is in milliseconds from when `stage` began.
  */
 export function useStageLabel(stage: string | null, labels: Record<string, string>, later: Record<string, { after: number; label: string }> = {}): string | null {
-  const [since, setSince] = React.useState(0)
-  const [now, setNow] = React.useState(0)
+  /* The clock carries the stage it is timing. On the render where a new
+     stage arrives, before the effect below restarts it, the clock is still
+     the old stage's, and its hours of "thinking" must not count as this
+     stage's: a mismatch reads as no time at all. */
+  const [clock, setClock] = React.useState<{ stage: string | null; since: number; now: number }>({ stage: null, since: 0, now: 0 })
   React.useEffect(() => {
     if (!stage) return
     const start = Date.now()
-    setSince(start)
-    setNow(start)
+    setClock({ stage, since: start, now: start })
     const next = later[stage]
     if (!next) return
-    const timer = window.setTimeout(() => setNow(Date.now()), next.after + 20)
+    const timer = window.setTimeout(() => setClock((c) => (c.stage === stage ? { ...c, now: Date.now() } : c)), next.after + 20)
     return () => window.clearTimeout(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stage])
   if (!stage) return null
   const next = later[stage]
-  if (next && now - since >= next.after) return next.label
+  const elapsed = clock.stage === stage ? clock.now - clock.since : 0
+  if (next && elapsed >= next.after) return next.label
   return labels[stage] ?? null
 }
