@@ -49,7 +49,10 @@ import {
   snapshotName,
   staleSnapshots,
   isCurrentSnapshotUrl,
+  mobilePartner,
 } from "@/lib/website-builder/snapshot"
+import { coverIsStale } from "@/app/app/website-builder/website-builder-client"
+import { mintCoverPass, readCoverPass } from "@/lib/website-builder/cover-pass"
 import { ThemeCover, ThemePhoneCover, coverSpecFromDefinition, coverSpecFromSettings } from "@/components/website-builder/theme-cover"
 import { editorHref } from "@/app/app/website-builder/website-builder-client"
 import { CUSTOM_SECTION_CATEGORY, STORELIB_SCHEMAS, STORELIB_SECTION_TYPES, addableSections, customAddableSections, customSectionSchemas, schemaFromStorelib } from "@/lib/website-builder/storelib-schemas"
@@ -257,7 +260,16 @@ section("The page")
   const loading = read("app/app/website-builder/loading.tsx")
   check("the route is a server component", !/^\s*"use client"/m.test(page) && /export default async function/.test(page))
   check("the server reads installs itself and seeds a first-time creator in the same request", /store_theme_installs/.test(page) && /initialize_creator_themes/.test(page))
-  check("the server does not fetch pages or sections just to draw a list", !/store_theme_pages|sections/.test(page.replace(/\/\*[\s\S]*?\*\//g, "")))
+  /*
+    PAGES' TIMESTAMPS, NEVER THEIR SECTIONS. The list needs to know when each
+    site was last edited, to tell a cover that is older than the site from
+    one that is not, and that is the one thing it reads from the pages. The
+    sections — the whole content of every page — are what this was written
+    to keep out, and they still are.
+  */
+  check("the server does not fetch pages' sections just to draw a list",
+    !/sections/.test(page.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "")) &&
+      /pages:store_theme_pages\(updated_at\)/.test(page))
   check("the client is a client component", /^\s*"use client"/m.test(client))
   check("the client never fetches on mount — the server already handed it the data", !/fetch\("\/api\/website-builder\/themes"\)/.test(client) && !/initialize/.test(client))
   check(
@@ -419,140 +431,171 @@ section("The add route")
   check("a half-built install is rolled back rather than left as an empty website", /\.delete\(\)\.eq\("id", newInstall\.id\)/.test(add))
 }
 
-// ── 6. The snapshot ─────────────────────────────────────────────────────
-section("The snapshot")
+// ── 6. The cover ────────────────────────────────────────────────────────
+/*
+  THE COVER IS TAKEN BY A BROWSER ON THE SERVER.
+
+  It used to be photographed in the editor with html-to-image, and that was
+  wrong three ways in turn: blank below the header (the theme's entrance
+  animation replayed inside the picture), phone-shaped from a phone, and
+  then a hidden copy of the page to work round the second. The card went on
+  showing the theme's sample copy — "Presets that hit different" for a site
+  called THE CHAIR — through all of it.
+
+  Now a real Chromium opens the saved home page, the way a visitor's browser
+  does, and photographs it at a laptop's width and a phone's. The checks
+  below hold who may ask for that, what the browser is allowed to open, what
+  gets kept, and when it is asked for. scripts/check-cover-shot.mts holds the
+  pictures themselves.
+*/
+section("The cover")
 {
-  const route = stripComments(read("app/api/website-builder/themes/[installId]/snapshot/route.ts"))
-  check("the install must belong to the caller's creator, on read and on write", (route.match(/\.eq\("creator_id", creator\.id\)/g) ?? []).length >= 2)
+  const route = stripComments(read("app/api/website-builder/themes/[installId]/cover/route.ts"))
+  check("the install must belong to the caller's creator", /\.eq\("creator_id", \(creator as \{ id: string \}\)\.id\)/.test(route))
   check("the install id is validated as a UUID before it becomes part of a path", /isThemeId\(installId\)/.test(route))
-  /* Unchanged in substance: the folder is now named in one helper that the
-     website page reads from too, so the two cannot disagree about where a
-     cover lives. The path is still made of the user's id, the validated
-     install id and a timestamp the route chose, and nothing else. */
   check("the storage path is built from the user id and the install id only",
     snapshotFolder("u1", "i1") === "u1/theme-snapshots/i1" &&
       /const folder = snapshotFolder\(user\.id, installId\)/.test(route) &&
-      /const path = `\$\{folder\}\/\$\{snapshotName\(stamp, ext\)\}`/.test(route) &&
-      snapshotName("abc", "webp") === `abc.v${SNAPSHOT_VERSION}.webp`)
-  check("the bytes are checked against the declared type", /looksLikeImage\(bytes, contentType\)/.test(route))
-  check("the size is capped", /MAX_BYTES/.test(route) && /413/.test(route))
-  check("a missing column is 'not stored', not a failure", /stored: false/.test(route))
-  check("the bucket is the existing public builder bucket", SNAPSHOT_BUCKET === "store-builder-images")
-
-  const webp = new Uint8Array([0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x45, 0x42, 0x50, 0x56, 0x50, 0x38])
-  const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0x0d, 0x49, 0x48, 0x44, 0x52])
-  check("magic bytes: a WebP is a WebP", looksLikeImage(webp, "image/webp"))
-  check("magic bytes: a PNG claiming to be WebP is refused", !looksLikeImage(png, "image/webp"))
-  check("magic bytes: a PNG is a PNG", looksLikeImage(png, "image/png"))
-  check("magic bytes: text is not an image", !looksLikeImage(new TextEncoder().encode("<svg onload=alert(1)>"), "image/webp"))
-
-  const uid = "11111111-1111-4111-8111-111111111111"
-  const iid = "22222222-2222-4222-8222-222222222222"
-  const mine = `https://x.supabase.co/storage/v1/object/public/${SNAPSHOT_BUCKET}/${uid}/theme-snapshots/${iid}/abc123.webp`
-  check("the previous snapshot is only removed from the caller's own folder for that install", previousSnapshotPath({ snapshot_url: mine }, uid, iid) === `${uid}/theme-snapshots/${iid}/abc123.webp`)
-  check("someone else's path is left alone", previousSnapshotPath({ snapshot_url: mine }, "someone-else", iid) === null)
-  check("another install's path is left alone", previousSnapshotPath({ snapshot_url: mine }, uid, "33333333-3333-4333-8333-333333333333") === null)
-  check("a traversal in the url is left alone", previousSnapshotPath({ snapshot_url: mine.replace("abc123.webp", "../../other.webp") }, uid, iid) === null)
-  check("no snapshot, nothing to remove", previousSnapshotPath({ snapshot_url: null }, uid, iid) === null)
-
-  const capture = stripComments(read("lib/website-builder/snapshot-capture.ts"))
-  check("capture is debounced and idle-time, never inline with the save", /SNAPSHOT_DEBOUNCE_MS/.test(capture) && /requestIdleCallback/.test(capture))
-  check("capture crops to the top of the page before rasterising", /SNAPSHOT_ASPECT/.test(capture) && /height,/.test(capture))
-  check("capture caps the width and encodes WebP", /SNAPSHOT_WIDTH/.test(capture) && /"image\/webp"/.test(capture))
-  check("capture never throws into the editor", /Silent by design/.test(read("lib/website-builder/snapshot-capture.ts")))
-
-  const editor = stripComments(read("app/website-builder/editor/[installId]/page.tsx"))
-  check("the editor's canvas ref is attached to the page wrapper", /<div ref=\{canvasRef\}/.test(editor))
-  check("a snapshot is requested after a successful draft save and after a publish", (editor.match(/snapshotAfterSave\(\)/g) ?? []).length >= 2)
+      snapshotName("abc", "webp") === `abc.v${SNAPSHOT_VERSION}.webp` &&
+      snapshotName("abc", "webp", true) === `abc.v${SNAPSHOT_VERSION}.m.webp`)
   /*
-    THE COVER IS TAKEN FROM A STAGE, NOT FROM THE CANVAS.
-
-    This block has said three things. First "only the home page, AT DESKTOP
-    WIDTH, in preview mode" — and opening the editor on a phone forces
-    `device` to "mobile", so a phone save could never take a cover. Then
-    "from whatever device": the width test went, and a phone save
-    photographed the 390px canvas and scaled it into a desktop card, which
-    is a giant one-column page, not the site. Neither was the real look.
-
-    Now a save asks for a picture of a stage: a fresh copy of the home page
-    at the cover's width, in desktop mode, inspector off, nothing selected,
-    mounted for the moment of the picture. Same cover from any device.
+    THE BROWSER GOES WHERE THIS SERVER SAYS. The render page's origin is this
+    deployment's own when it is one of ours and the main domain otherwise —
+    never the Host header on trust, because that is the caller's to write and
+    this is where a browser holding a pass is about to go.
   */
-  check("a save asks for a cover of the home page, and says nothing about the device",
-    /if \(currentPage !== "home"\) return/.test(editor) &&
-      /scheduleSnapshot\(\{ installId, stage: stageSnapshot \}\)/.test(editor))
-  check("and the guard does not turn itself off on a phone, which is where it turned itself off before",
-    !/device !== "desktop"/.test(editor.slice(editor.indexOf("const snapshotAfterSave"), editor.indexOf("const snapshotAfterSave") + 400))
-      && !/isMobileView/.test(editor.slice(editor.indexOf("const snapshotAfterSave"), editor.indexOf("const snapshotAfterSave") + 400)),
-    "opening the editor on a phone sets device to mobile, so a device test in here is a test that can only fail")
-  check("the stage is the desktop page with nothing of the editor's in it",
-    /<EditorCanvasPage[\s\S]{0,400}inspectorEnabled=\{false\}[\s\S]{0,80}selectedSectionId=\{null\}[\s\S]{0,40}device="desktop"/.test(editor))
-  check("and it is portalled to <body>, invisible, inert, and out of the way of the pointer",
-    /data-snapshot-stage=""/.test(editor) && /inert/.test(editor) && /opacity: 0,/.test(editor) &&
-      /pointerEvents: "none"/.test(editor) && /document\.body,\s*\)\}/.test(editor))
-  check("and it is re-checked as the home page when the picture is actually taken, seconds later",
-    /if \(!src \|\| src\.page !== "home"\) return null/.test(editor))
-  check("and it only draws what the top of a cover can show",
-    /\.slice\(0, SNAPSHOT_STAGE_SECTIONS\)/.test(editor) && /const SNAPSHOT_STAGE_SECTIONS = \d+/.test(editor))
-  check("and it does not animate in, or it would be photographed half faded",
-    /\[data-snapshot-stage\] \[data-section\] \{\s*animation: none !important;/.test(read("app/globals.css")))
-  /*
-    THE LINE THAT MADE EVERY COVER WRONG. html-to-image copied the page's
-    <style> elements into its picture, the theme's section entrance keyframes
-    came with them, and inside the picture every animation restarted from its
-    invisible first frame. The header is exempt from that animation as page
-    chrome, so every cover was a header over a blank page.
-  */
-  check("the picture leaves the page's stylesheets out, so no animation replays inside it",
-    /if \(el instanceof HTMLStyleElement\) return false/.test(capture) && /filter: keepInSnapshot/.test(capture))
-  check("and a stage is ready only once its fonts are in and its pictures decoded",
-    /export async function readyForCapture/.test(capture) && /img\.decode\(\)/.test(capture) && /document\.fonts/.test(capture))
-
-  /*
-    THE FOLDER IS THE RECORD. With no snapshot_url column the route uploaded
-    every picture, recorded none of them, and answered 200 — seventeen times
-    in a week for one site while its card showed the theme's sample copy.
-  */
-  check("the newest picture is chosen by the time in its name",
-    JSON.stringify(snapshotsNewestFirst(["mfa0.v2.webp", "mfb0.v2.webp", "mf90.v2.png"])) === JSON.stringify(["mfb0.v2.webp", "mfa0.v2.webp", "mf90.v2.png"]))
-  check("and a file this route did not write is never taken for a cover",
-    snapshotsNewestFirst(["../evil.v2.webp", "cover.gif", "notes.txt", "x.v2.webp.exe"]).length === 0)
-  check("and the name says when it was taken",
-    snapshotTakenAt(`${Date.UTC(2026, 8, 23).toString(36)}.v2.webp`) === "2026-09-23T00:00:00.000Z" && snapshotTakenAt("nope") === null)
-  /*
-    EVERY COVER FROM BEFORE VERSION 2 IS BLANK BELOW THE HEADER, because the
-    capture replayed the entrance animation inside the picture and
-    `animations_enabled` is on by default. Those are never shown — not even
-    when they are newer than a current one — and the route clears them out.
-  */
-  check("a picture from before versioning is never shown, however new it is",
-    JSON.stringify(snapshotsNewestFirst(["zzzz.webp", "mfa0.v2.webp"])) === JSON.stringify(["mfa0.v2.webp"]) &&
-      snapshotsNewestFirst(["zzzz.webp", "zzzy.png"]).length === 0)
-  check("and a recorded cover from before versioning counts as no cover",
-    !isCurrentSnapshotUrl("https://x.supabase.co/storage/v1/object/public/store-builder-images/u/theme-snapshots/i/mfa0.webp") &&
-      isCurrentSnapshotUrl("https://x.supabase.co/storage/v1/object/public/store-builder-images/u/theme-snapshots/i/mfa0.v2.webp") &&
-      !isCurrentSnapshotUrl(null))
-  check("pruning takes every old picture and keeps the newest current ones",
-    JSON.stringify(staleSnapshots(["a1.webp", "a2.png", "b1.v2.webp", "b2.v2.webp", "b3.v2.webp", "notes.txt"]).sort()) ===
-      JSON.stringify(["a1.webp", "a2.png", "b1.v2.webp"].sort()))
-  check("the route refuses a capture that does not say it is the current version",
-    /req\.headers\.get\("x-snapshot-version"\) !== String\(SNAPSHOT_VERSION\)/.test(route) && /status: 409/.test(route))
-  check("and the capture says it is",
-    /"X-Snapshot-Version": String\(SNAPSHOT_VERSION\)/.test(capture))
-  check("and the page treats an old recorded cover as none",
-    /isCurrentSnapshotUrl\(i\.snapshot_url\)/.test(read("app/app/website-builder/page.tsx")))
-  check("the website page reads the folder when the column says nothing",
-    /async function withStoredCovers/.test(read("app/app/website-builder/page.tsx")) &&
-      /const missing = installs\.filter\(\(i\) => !i\.snapshot_url\)/.test(read("app/app/website-builder/page.tsx")) &&
-      /snapshotFolder\(userId, install\.id\)/.test(read("app/app/website-builder/page.tsx")))
-  check("and the route keeps the folder to the newest few, whichever way the write went",
+  check("the browser is sent to this server's own render page, not to a host the request names",
+    /function renderOrigin\(req: Request\)/.test(route) && /return `https:\/\/\$\{main\}`/.test(route) &&
+      /\/cover-render\/\$\{encodeURIComponent\(pass\)\}/.test(route))
+  check("a cover taken moments ago is handed back rather than taken again",
+    /const MIN_GAP_MS = \d+/.test(route) && /Date\.now\(\) - newestAt < MIN_GAP_MS/.test(route))
+  check("a cover that cannot be taken is said out loud and keeps the last one",
+    /console\.error\("\[cover\]/.test(route) && /status: 502/.test(route))
+  check("the folder is kept to the newest few covers, after the response",
     SNAPSHOTS_KEPT >= 2 && /after\(async \(\) =>/.test(route) && /staleSnapshots\(/.test(route))
-  check("and says so in the logs when there is no column, instead of a silent 200",
-    /console\.warn\(/.test(route) && /RUN_THEME_MARKETPLACE\.sql/.test(read("app/api/website-builder/themes/[installId]/snapshot/route.ts")))
-  check("and a narrow canvas is scaled up to the cover's width rather than left soft",
-    /const scale = SNAPSHOT_WIDTH \/ width/.test(capture) && !/Math\.min\(1, SNAPSHOT_WIDTH/.test(capture),
-    "a 390px raster painted into a 1200px slot is the one soft picture on the page")
-  check("a pending snapshot is cancelled when the editor unmounts", /cancelScheduledSnapshot\(\)/.test(editor))
+  check("the route has the time a cold browser needs", /export const maxDuration = \d+/.test(route) && /runtime = "nodejs"/.test(route))
+
+  /*
+    THE PASS. The browser has no session, and the creator's own preview link
+    is theirs to make and share, so it is not borrowed. The pass is for one
+    install, for two minutes, signed with a server-only secret.
+  */
+  const pass = read("lib/website-builder/cover-pass.ts")
+  check("the pass is server-only and signed", /^import "server-only"/m.test(pass) && /createHmac\("sha256"/.test(pass))
+  check("it names one install, inside the signed part", /const body = `\$\{installId\}\.\$\{/.test(pass))
+  check("it expires in minutes", /const TTL_MS = 2 \* 60 \* 1000/.test(pass) && /< now\) return null/.test(pass))
+  check("and is compared in constant time", /timingSafeEqual\(a, b\)/.test(pass))
+  check("it never uses the service key itself, only a key derived from it",
+    /createHmac\("sha256", base\)\.update\("storelib:cover-render:v1"\)/.test(pass))
+
+  /* And by running it, because a signature scheme read as source is a
+     signature scheme nobody has tried to break. */
+  {
+    const had = process.env.SUPABASE_SERVICE_ROLE_KEY
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||= "test-service-role-key-for-the-suite"
+    const A = "11111111-1111-4111-8111-111111111111"
+    const B = "22222222-2222-4222-8222-222222222222"
+    const now = Date.UTC(2026, 8, 23)
+    const good = mintCoverPass(A, now)
+    const [id, exp, sig] = good.split(".")
+    check("  a pass this server made opens its own install", readCoverPass(good, now + 1000) === A)
+    check("  not once its two minutes are up", readCoverPass(good, now + 3 * 60 * 1000) === null)
+    check("  not with another install's id put in its place", readCoverPass(`${B}.${exp}.${sig}`, now) === null)
+    check("  not with its time pushed back", readCoverPass(`${id}.${(now + 60 * 60 * 1000).toString(36)}.${sig}`, now) === null)
+    check("  not with its signature altered", readCoverPass(`${id}.${exp}.${sig.slice(0, -2)}AA`, now) === null)
+    check("  and not for anything that is not a pass at all",
+      readCoverPass("", now) === null && readCoverPass("../../etc", now) === null && readCoverPass("a.b.c.d", now) === null)
+    if (had === undefined) delete process.env.SUPABASE_SERVICE_ROLE_KEY
+  }
+
+  const render = stripComments(read("app/(site)/cover-render/[pass]/page.tsx"))
+  check("the render page refuses anything that is not a live pass", /const installId = readCoverPass\(/.test(render) && /if \(!installId\) notFound\(\)/.test(render))
+  check("and is dynamic and never indexed", /dynamic = "force-dynamic"/.test(render) && /index: false/.test(render))
+  check("and its path is reserved on every domain and as a username",
+    /"\/cover-render"/.test(read("proxy.ts")) && /"cover-render"/.test(read("lib/routes/reserved-segments.ts")))
+  const site = read("app/(site)/w/[username]/render-site.tsx")
+  check("it draws the SAVED page — drafts — through the same renderer as the site",
+    /export async function coverPage\(installId: string\)/.test(site) &&
+      /pageSections<SectionInstance\[\]>\(pageData as never, true\)/.test(site) &&
+      /themeSettingsOf\(settingsRow as never, true\)/.test(site))
+  check("inside the wrapper that stops sections animating in, or the screenshot catches them fading",
+    /<div data-snapshot-stage="">/.test(site) &&
+      /\[data-snapshot-stage\] \[data-section\] \{\s*animation: none !important;/.test(read("app/globals.css")))
+  check("and a screenshot can never send a form: no creator is handed to the page",
+    /storefront=\{\{ installId \}\}/.test(site))
+
+  const shot = read("lib/website-builder/cover-shot.ts")
+  check("the screenshots are a laptop's screen and a phone's",
+    /DESKTOP = \{ width: 1440, height: 900 \}/.test(shot) && /PHONE = \{ width: 390, height: 844 \}/.test(shot))
+  check("and are taken once the network has gone quiet, the fonts are in and the pictures decoded",
+    /waitUntil: "networkidle0"/.test(shot) && /document\.fonts\?\.ready/.test(shot) && /img\.decode\(\)/.test(shot))
+  check("on Vercel with the serverless Chromium, anywhere else with the one CHROMIUM_PATH names",
+    /@sparticuz\/chromium/.test(shot) && /process\.env\.CHROMIUM_PATH/.test(shot))
+  const config = read("next.config.mjs")
+  check("and the build ships the browser with the one route that launches it",
+    /'@sparticuz\/chromium', 'puppeteer-core'\]/.test(config) &&
+      /*
+        A glob, so `[installId]` would be a character class and never match
+        the route. It did exactly that the first time: the binary was left
+        out of the function, and the route would have failed on its first
+        call in production. `*` is one segment.
+      */
+      /'\/api\/website-builder\/themes\/\*\/cover': \[/.test(config) &&
+      !/'\/api\/website-builder\/themes\/\[installId\]\/cover'/.test(config) &&
+      /@sparticuz\+chromium@\*\/node_modules\/@sparticuz\/chromium\/bin\/\*\*/.test(config))
+
+  /* The names, and which pictures are ever shown. */
+  check("the newest cover is chosen by the time in its name",
+    JSON.stringify(snapshotsNewestFirst(["mfa0.v3.webp", "mfb0.v3.webp", "mf90.v3.png"])) === JSON.stringify(["mfb0.v3.webp", "mfa0.v3.webp", "mf90.v3.png"]))
+  check("a phone picture is never taken for the cover itself, only paired with one",
+    JSON.stringify(snapshotsNewestFirst(["mfb0.v3.m.webp", "mfa0.v3.webp"])) === JSON.stringify(["mfa0.v3.webp"]) &&
+      mobilePartner("mfa0.v3.webp", ["mfa0.v3.webp", "mfa0.v3.m.webp", "mfb0.v3.m.webp"]) === "mfa0.v3.m.webp" &&
+      mobilePartner("mfa0.v3.webp", ["mfa0.v3.webp", "mfb0.v3.m.webp"]) === null)
+  check("a file this code did not write is never taken for a cover",
+    snapshotsNewestFirst(["../evil.v3.webp", "cover.gif", "notes.txt", "x.v3.webp.exe"]).length === 0)
+  check("a picture from before versioning is never shown, however new it is",
+    JSON.stringify(snapshotsNewestFirst(["zzzz.webp", "mfa0.v3.webp"])) === JSON.stringify(["mfa0.v3.webp"]))
+  check("a recorded cover from before versioning counts as no cover",
+    !isCurrentSnapshotUrl("https://x.supabase.co/storage/v1/object/public/store-builder-images/u/theme-snapshots/i/mfa0.webp") &&
+      isCurrentSnapshotUrl("https://x.supabase.co/storage/v1/object/public/store-builder-images/u/theme-snapshots/i/mfa0.v3.webp") &&
+      !isCurrentSnapshotUrl(null))
+  check("pruning keeps the newest covers with their phone pictures and takes everything else",
+    JSON.stringify(staleSnapshots(["a1.webp", "b1.v3.webp", "b1.v3.m.webp", "b2.v3.webp", "b2.v3.m.webp", "b3.v3.webp", "b3.v3.m.webp", "notes.txt"]).sort()) ===
+      JSON.stringify(["a1.webp", "b1.v3.m.webp", "b1.v3.webp"].sort()))
+  check("and the name says when it was taken",
+    snapshotTakenAt(`${Date.UTC(2026, 8, 23).toString(36)}.v3.webp`) === "2026-09-23T00:00:00.000Z" && snapshotTakenAt("nope") === null)
+
+  /* When it is asked for. */
+  const refresh = read("lib/website-builder/cover-refresh.ts")
+  check("the editor asks once the saving has stopped, not once a save",
+    /export const QUIET_MS = \d+/.test(refresh) && /clearTimeout\(timer\)/.test(refresh))
+  check("and a save still waiting asks on the way out rather than never",
+    /export function flushCoverRefresh/.test(refresh) && /keepalive: true/.test(refresh))
+  const editor = stripComments(read("app/website-builder/editor/[installId]/page.tsx"))
+  check("a save schedules it, whichever page or device the editor is on",
+    /const snapshotAfterSave = \(\) => \{\s*scheduleCoverRefresh\(installId\)\s*\}/.test(editor) &&
+      (editor.match(/snapshotAfterSave\(\)/g) ?? []).length >= 2)
+  check("and leaving the editor flushes it", /useEffect\(\(\) => \(\) => flushCoverRefresh\(\), \[\]\)/.test(editor))
+  check("nothing of the in-browser capture is left in the editor",
+    !/html-to-image|captureNode|snapshotStage|stageSnapshot|data-snapshot-stage/.test(editor))
+  const client = read("app/app/website-builder/website-builder-client.tsx")
+  check("the website page retakes a cover that is older than the site",
+    /export function coverIsStale/.test(client) && /await requestCover\(i\.id\)/.test(client))
+  check("  missing is stale", coverIsStale({ snapshot_url: null, snapshot_updated_at: null, saved_at: "2026-09-23T00:00:00Z" }))
+  check("  older than the last save is stale", coverIsStale({ snapshot_url: "x", snapshot_updated_at: "2026-09-23T00:00:00Z", saved_at: "2026-09-23T00:01:00Z" }))
+  check("  taken after it is not", !coverIsStale({ snapshot_url: "x", snapshot_updated_at: "2026-09-23T00:01:00Z", saved_at: "2026-09-23T00:00:00Z" }))
+  /*
+    NOT THE INSTALL ROW'S OWN TIME. Recording a cover writes to that row, so
+    counting it as an edit would make every new cover look older than the
+    site and ask for another, forever.
+  */
+  const page = read("app/app/website-builder/page.tsx")
+  check("'last edited' is the pages and the settings, never the row a cover is recorded on",
+    /const editedAt = newest\(settings\?\.updated_at, \.\.\.\(row\.pages \?\? \[\]\)\.map\(\(p\) => p\.updated_at\), row\.created_at\)/.test(page) &&
+      !/saved_at: newest\(row\.updated_at/.test(page))
+  check("the card draws the phone picture in front of the desktop one",
+    /install\.snapshot_mobile_url/.test(client) && /aspect-\[390\/780\]/.test(client))
+  check("the page finds the phone picture in the folder", /mobilePartner\(newest, names\)/.test(page))
   check("the editor opens on the pane the website page asked for", /get\("view"\)/.test(editor) && /v === "code" \|\| v === "settings"/.test(editor))
 }
 

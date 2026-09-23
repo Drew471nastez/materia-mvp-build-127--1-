@@ -30,7 +30,7 @@ export function previousSnapshotPath(
   const prefix = `${userId}/theme-snapshots/${installId}/`
   if (!path.startsWith(prefix)) return null
   const rest = path.slice(prefix.length)
-  if (!/^[a-z0-9]+(\.v\d+)?\.(webp|png|jpg)$/.test(rest)) return null
+  if (!/^[a-z0-9]+(\.v\d+)?(\.m)?\.(webp|png|jpg)$/.test(rest)) return null
   return path
 }
 
@@ -71,23 +71,44 @@ export function snapshotFolder(userId: string, installId: string): string {
  * without the current one, and it is written into the name, so a picture
  * says which code took it.
  */
-export const SNAPSHOT_VERSION = 2
+export const SNAPSHOT_VERSION = 3
+/** The oldest version whose pictures are still worth showing. Version 2 was
+    the in-browser capture after its blank-page fault was fixed. */
+export const OLDEST_SHOWN_VERSION = 2
 
-/** Any name this route has written: a base-36 timestamp, a version from 2
-    on, and an image extension. The captures before versioning had none. */
-const SNAPSHOT_NAME = /^([a-z0-9]+)(?:\.v(\d+))?\.(webp|png|jpg)$/
+/**
+ * Any name this code has written: a base-36 timestamp, a version, an
+ * optional `.m` for the phone picture, and an extension. The captures before
+ * versioning had no version and are never shown.
+ *
+ * VERSION 3 IS TAKEN ON THE SERVER. A real Chromium opens the saved home
+ * page, as a visitor's browser would, and photographs it twice: at desktop
+ * width, and at a phone's. Both land under one timestamp, so the card can
+ * always pair a desktop picture with the phone picture from the same save.
+ */
+const SNAPSHOT_NAME = /^([a-z0-9]+)(?:\.v(\d+))?(\.m)?\.(webp|png|jpg)$/
 
-function parseName(name: string): { at: number; version: number } | null {
+function parseName(name: string): { at: number; version: number; mobile: boolean; stamp: string } | null {
   const m = SNAPSHOT_NAME.exec(name)
   if (!m) return null
   const at = Number.parseInt(m[1], 36)
   if (!Number.isFinite(at)) return null
-  return { at, version: m[2] ? Number(m[2]) : 1 }
+  return { at, version: m[2] ? Number(m[2]) : 1, mobile: !!m[3], stamp: m[1] }
 }
 
-/** The name a capture at this version is stored under. */
-export function snapshotName(stamp: string, ext: string): string {
-  return `${stamp}.v${SNAPSHOT_VERSION}.${ext}`
+/** The name a picture at this version is stored under. */
+export function snapshotName(stamp: string, ext: string, mobile = false): string {
+  return `${stamp}.v${SNAPSHOT_VERSION}${mobile ? ".m" : ""}.${ext}`
+}
+
+/** The phone picture taken alongside a desktop one, if it is in `names`. */
+export function mobilePartner(desktop: string, names: string[]): string | null {
+  const d = parseName(desktop)
+  if (!d || d.mobile) return null
+  return names.find((n) => {
+    const p = parseName(n)
+    return !!p && p.mobile && p.stamp === d.stamp && p.version === d.version
+  }) ?? null
 }
 
 /**
@@ -100,18 +121,23 @@ export function snapshotName(stamp: string, ext: string): string {
 export function snapshotsNewestFirst(names: string[]): string[] {
   return names
     .map((name) => ({ name, parsed: parseName(name) }))
-    .filter((f) => f.parsed !== null && f.parsed.version >= SNAPSHOT_VERSION)
-    .sort((a, b) => b.parsed!.at - a.parsed!.at)
+    .filter((f) => f.parsed !== null && !f.parsed.mobile && f.parsed.version >= OLDEST_SHOWN_VERSION)
+    .sort((a, b) => b.parsed!.at - a.parsed!.at || b.parsed!.version - a.parsed!.version)
     .map((f) => f.name)
 }
 
 /**
- * What a folder can do without: every picture this route wrote except the
- * newest SNAPSHOTS_KEPT current ones — which includes every picture from
- * before versioning, since none of those is ever shown.
+ * What a folder can do without: every picture this code wrote except the
+ * newest SNAPSHOTS_KEPT covers and their phone pictures — which includes
+ * every picture from before versioning, since none of those is ever shown.
  */
 export function staleSnapshots(names: string[]): string[] {
-  const keep = new Set(snapshotsNewestFirst(names).slice(0, SNAPSHOTS_KEPT))
+  const keep = new Set<string>()
+  for (const desktop of snapshotsNewestFirst(names).slice(0, SNAPSHOTS_KEPT)) {
+    keep.add(desktop)
+    const phone = mobilePartner(desktop, names)
+    if (phone) keep.add(phone)
+  }
   return names.filter((name) => parseName(name) !== null && !keep.has(name))
 }
 
@@ -120,7 +146,7 @@ export function isCurrentSnapshotUrl(url: string | null | undefined): boolean {
   if (!url) return false
   const file = url.split("?")[0].split("/").pop() ?? ""
   const parsed = parseName(decodeURIComponent(file))
-  return parsed !== null && parsed.version >= SNAPSHOT_VERSION
+  return parsed !== null && !parsed.mobile && parsed.version >= OLDEST_SHOWN_VERSION
 }
 
 /**

@@ -92,6 +92,7 @@ tsconfig.*.generated.json
 # Written by scripts/check-cover-capture.mjs while it bundles the probe, and
 # the three pictures it leaves so the cover can be looked at, not only measured.
 .cover-probe/
-.probe-cover-page.png
-.probe-cover-capture.png
-.probe-cover-stage.png
+.probe-cover-desktop.webp
+.probe-cover-phone.webp
+.probe-cover-desktop.png
+.probe-cover-phone.png

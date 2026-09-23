@@ -1,5 +1,32 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  /**
+   * THE COVER'S BROWSER. @sparticuz/chromium reads a compressed Chromium out
+   * of its own bin/ folder at run time, and puppeteer-core loads it with
+   * dynamic requires — neither survives being bundled, so both are in the
+   * serverExternalPackages list below. The binary is read by path, not imported,
+   * which the build's file tracing cannot see, so it is named for the one
+   * route that launches it (lib/website-builder/cover-shot.ts).
+   */
+  outputFileTracingIncludes: {
+    /*
+      A GLOB, NOT A ROUTE. Next matches these keys with picomatch, and in a
+      glob `[installId]` is a character class — one letter out of that set —
+      so the route's own name never matched it and the browser was left out
+      of the function: 503 files traced, the binary not among them, and a
+      cover route that would have failed on its first call. `*` is one path
+      segment, which is what was meant.
+    */
+    /*
+      ONE COPY OF THE BROWSER. The package finds its binary next to its own
+      module file (`import.meta.url`), which Node resolves to the real path
+      under .pnpm. The symlinked node_modules/@sparticuz path traced a second
+      copy of the same 67MB into the function, for nothing.
+    */
+    '/api/website-builder/themes/*/cover': [
+      './node_modules/.pnpm/@sparticuz+chromium@*/node_modules/@sparticuz/chromium/bin/**',
+    ],
+  },
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -83,7 +110,7 @@ const nextConfig = {
   // allowed to finish, and a production install without dev packages would
   // have had no compiler — so the gate would have reported "could not check"
   // for every run and quietly stopped gating anything. It is a dependency now.
-  serverExternalPackages: ['pdfkit', 'fontkit', 'linebreak', 'png-js', 'sharp', 'esbuild', 'typescript'],
+  serverExternalPackages: ['pdfkit', 'fontkit', 'linebreak', 'png-js', 'sharp', 'esbuild', 'typescript', '@sparticuz/chromium', 'puppeteer-core'],
   // Note: Vercel serverless functions have a 4.5MB body size limit.
   // Large file uploads bypass the server via direct-to-storage signed URLs
   // (see /api/v2/upload/prepare). Chunked uploads (/api/v2/upload/chunk)

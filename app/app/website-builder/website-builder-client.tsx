@@ -85,6 +85,7 @@ import {
   coverSpecFromSettings,
 } from "@/components/website-builder/theme-cover"
 import { relativeTime } from "@/lib/website-builder/relative-time"
+import { requestCover } from "@/lib/website-builder/cover-refresh"
 
 export interface WebsiteSummary {
   id: string
@@ -94,10 +95,16 @@ export interface WebsiteSummary {
   created_at: string
   updated_at: string
   published_at: string | null
-  /** Last-save picture from the editor; null until the editor has saved once. */
+  /**
+   * The cover: screenshots of the saved home page, taken by a browser on the
+   * server — at a laptop's width, and at a phone's. Null until one has been
+   * taken, when the card draws the theme's stand-in instead.
+   */
   snapshot_url: string | null
+  snapshot_mobile_url: string | null
   snapshot_updated_at: string | null
-  /** The newest of the install's own timestamps and its settings row. */
+  /** When the site's pages or settings were last saved. Not the install
+      row's own time, which recording a cover also moves. */
   saved_at: string
   theme: { name: string; version: string; slug: string } | null
   settings: ThemeSettingsValues | null
@@ -162,19 +169,43 @@ function WebsiteCover({
 }) {
   const def = getThemeDefinition(install.theme_id)
   if (install.snapshot_url) {
+    /*
+      THE SITE, AT BOTH WIDTHS. The desktop screenshot fills the card and the
+      phone screenshot stands in front of it in a phone's frame — the same
+      place and shape the theme's drawn stand-in uses, so the card does not
+      change layout when a real cover arrives. Both pictures are from one
+      save: the route writes them under one timestamp.
+    */
     return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={install.snapshot_url}
-        alt=""
-        width={1200}
-        height={750}
-        loading={eager ? "eager" : "lazy"}
-        fetchPriority={eager ? "high" : "auto"}
-        decoding="async"
-        draggable={false}
-        className={cn("h-full w-full object-cover object-top", className)}
-      />
+      <div className={cn("relative h-full w-full overflow-hidden", className)}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={install.snapshot_url}
+          alt=""
+          width={1440}
+          height={900}
+          loading={eager ? "eager" : "lazy"}
+          fetchPriority={eager ? "high" : "auto"}
+          decoding="async"
+          draggable={false}
+          className="h-full w-full object-cover object-top"
+        />
+        {phone && install.snapshot_mobile_url && (
+          <div className="absolute bottom-[5%] right-[4%] w-[18%] overflow-hidden rounded-[9%/4.5%] border-[2px] border-[#1a1a2e] bg-white shadow-[0_10px_24px_-8px_rgba(15,23,42,0.45)]">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={install.snapshot_mobile_url}
+              alt=""
+              width={390}
+              height={844}
+              loading={eager ? "eager" : "lazy"}
+              decoding="async"
+              draggable={false}
+              className="block aspect-[390/780] w-full object-cover object-top"
+            />
+          </div>
+        )}
+      </div>
     )
   }
   return (
@@ -262,13 +293,70 @@ function SectionHeading({
 
 // ── The page ───────────────────────────────────────────────────────────────
 
+/**
+ * A cover older than the site it is a picture of. Missing counts, and so
+ * does one taken before the last save by more than the few seconds a save
+ * and its cover can straddle.
+ */
+export function coverIsStale(i: Pick<WebsiteSummary, "snapshot_url" | "snapshot_updated_at" | "saved_at">): boolean {
+  if (!i.snapshot_url || !i.snapshot_updated_at) return true
+  return Date.parse(i.saved_at) > Date.parse(i.snapshot_updated_at) + 5000
+}
+
 export function WebsiteBuilderClient({
-  installs,
+  installs: given,
   username,
 }: {
   installs: WebsiteSummary[]
   username: string
 }) {
+  /*
+    ===========================================================================
+     A COVER OLDER THAN THE SITE IS RETAKEN WHILE YOU LOOK AT IT
+    ===========================================================================
+    The editor asks for a new cover once the saving has stopped. That misses
+    the saves it never saw: an editor closed a moment after a change, a tab
+    from before this code, a site nobody has opened since. So this page asks
+    too, for any site whose cover is missing or older than its last save,
+    and puts the new pictures in as they arrive.
+
+    The live site first, because it is the big card; then the library, one
+    at a time, because each cover is a browser launch on the server and there
+    is no reason to start five at once. Each site is asked about once per
+    visit. A cover that cannot be taken leaves the card as it was.
+  */
+  const [fresh, setFresh] = React.useState<Record<string, { url: string; mobile_url: string | null; updated_at: string }>>({})
+  const asked = React.useRef(new Set<string>())
+  const installs = React.useMemo(
+    () =>
+      given.map((i) => {
+        const f = fresh[i.id]
+        return f ? { ...i, snapshot_url: f.url, snapshot_mobile_url: f.mobile_url, snapshot_updated_at: f.updated_at } : i
+      }),
+    [given, fresh],
+  )
+  React.useEffect(() => {
+    const queue = [...given]
+      .sort((a, b) => (a.status === "published" ? -1 : 0) - (b.status === "published" ? -1 : 0))
+      .filter((i) => coverIsStale(i) && !asked.current.has(i.id))
+    if (queue.length === 0) return
+    let cancelled = false
+    ;(async () => {
+      for (const i of queue) {
+        if (cancelled) return
+        asked.current.add(i.id)
+        const got = await requestCover(i.id)
+        /* Used even if this run was superseded: the site is already marked
+           asked, so a result dropped here would leave its card stale for the
+           rest of the visit. Cancelling only stops the NEXT one starting. */
+        if (got) setFresh((prev) => ({ ...prev, [i.id]: got }))
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [given])
+
   const router = useRouter()
   const { toast } = useToast()
   const [isRefreshing, startRefresh] = React.useTransition()
