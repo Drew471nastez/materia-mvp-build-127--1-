@@ -135,6 +135,19 @@ function Category({
   )
 }
 
+/** Black or white, whichever reads on this colour (WCAG relative luminance). */
+function readableOn(hex: string): string {
+  const m = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(hex.trim())
+  if (!m) return "#ffffff"
+  const h = m[1].length === 3 ? m[1].replace(/./g, (c) => c + c) : m[1]
+  const lin = (i: number) => {
+    const c = parseInt(h.slice(i, i + 2), 16) / 255
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
+  }
+  const L = 0.2126 * lin(0) + 0.7152 * lin(2) + 0.0722 * lin(4)
+  return L > 0.4 ? "#111111" : "#ffffff"
+}
+
 export function CookieConsentBanner() {
   const pathname = usePathname()
   const site = useSiteConsentTheme()
@@ -144,10 +157,20 @@ export function CookieConsentBanner() {
   const [prefsOpen, setPrefsOpen] = useState(false)
   const [draft, setDraft] = useState<Record<OptionalCategory, boolean>>({ preferences: false, analytics: false, marketing: false })
 
+  /* A page shown inside another (the Website page's preview, the builder's
+     canvas) is a picture of a site, not a visit to it: it asks nothing. */
+  const [embedded, setEmbedded] = useState(false)
+
   useEffect(() => {
     const c = readConsent()
     setConsent(c)
     setBannerOpen(c === null)
+    try {
+      setEmbedded(window.self !== window.top)
+    } catch {
+      /* A cross-origin parent throws on reading top: embedded all the same. */
+      setEmbedded(true)
+    }
     setReady(true)
     return onConsentChange((next) => {
       setConsent(next)
@@ -179,18 +202,28 @@ export function CookieConsentBanner() {
 
   if (!ready || isNativeApp()) return null
 
-  /* Tools, not pages: see the note at the top. The choice still applies. */
+  /*
+    TOOLS, NOT PAGES. The dashboard (/app), the builders and the admin are
+    where a signed-in creator works; the banner belongs to the pages visitors
+    land on (storelib.com, a creator's page, a built site). Nothing optional
+    loads in the tools either way, because nothing optional loads without a
+    yes: the choice made anywhere still applies here.
+  */
   const inSitesEditor = pathname?.startsWith("/sites/") ?? false
   const inBuilder = pathname?.startsWith("/website-builder/") ?? false
-  const quiet = inSitesEditor || inBuilder
+  const inApp = pathname === "/app" || (pathname?.startsWith("/app/") ?? false) || (pathname?.startsWith("/admin") ?? false)
+  const quiet = inSitesEditor || inBuilder || inApp || embedded
 
+  /* Storelib's own look unless the site set its banner colours itself. */
   const bg = site?.background || "#ffffff"
   const fg = site?.color || "#1a1a2e"
   const branded = Boolean(site?.background)
+  const accent = site?.accent || "#1a1a2e"
+  const onAccent = readableOn(accent)
 
   return (
     <>
-      {consent?.analytics === true && !inSitesEditor && <Analytics />}
+      {consent?.analytics === true && !inSitesEditor && !embedded && <Analytics />}
 
       {bannerOpen && !quiet && !prefsOpen && (
         /* Positions the card; the card itself takes the clicks. */
@@ -198,11 +231,11 @@ export function CookieConsentBanner() {
           <section
             role="region"
             aria-label="Cookies"
-            className="cookie-card pointer-events-auto w-full max-w-[420px] rounded-2xl border border-black/[0.08] p-5 shadow-[0_18px_50px_-12px_rgba(17,24,39,0.35),0_2px_8px_rgba(17,24,39,0.08)]"
+            className="cookie-card pointer-events-auto w-full max-w-[400px] rounded-2xl border border-[#e5e7eb]/80 p-5 shadow-[0_12px_32px_-12px_rgba(17,24,39,0.18),0_1px_3px_rgba(0,0,0,0.04)]"
             style={{ background: bg, color: fg }}
           >
             <p className="text-[15px] font-semibold">Cookies</p>
-            <p className="mt-1.5 text-[13px] leading-relaxed opacity-80">
+            <p className="mt-1 text-[13px] leading-relaxed" style={{ color: branded ? fg : "#6b7280", opacity: branded ? 0.8 : 1 }}>
               {site?.text ||
                 "Necessary cookies keep this site working. With your OK we also count returning visitors, so creators can see what works."}{" "}
               <Link href="/privacy#cookies" className="underline underline-offset-2">
@@ -214,21 +247,21 @@ export function CookieConsentBanner() {
               <button
                 type="button"
                 onClick={rejectAll}
-                className="h-9 rounded-lg border text-[13px] font-semibold transition-opacity hover:opacity-85"
-                style={{ borderColor: branded ? "currentColor" : "#1a1a2e", background: "transparent", color: fg }}
+                className="h-10 rounded-xl border text-[13px] font-semibold transition-[opacity,background-color] hover:opacity-85 active:scale-[0.98]"
+                style={{ borderColor: branded ? "currentColor" : "#e5e7eb", background: branded ? "transparent" : "#ffffff", color: fg }}
               >
                 {site?.declineText || "Reject all"}
               </button>
               <button
                 type="button"
                 onClick={acceptAll}
-                className="h-9 rounded-lg text-[13px] font-semibold transition-opacity hover:opacity-90"
-                style={{ background: site?.accent || "#1a1a2e", color: "#ffffff" }}
+                className="h-10 rounded-xl text-[13px] font-semibold transition-opacity hover:opacity-90 active:scale-[0.98]"
+                style={{ background: accent, color: onAccent }}
               >
                 {site?.acceptText || "Accept all"}
               </button>
             </div>
-            <button type="button" onClick={openPrefs} className="mt-3 text-[12px] font-medium underline underline-offset-2 opacity-70 hover:opacity-100">
+            <button type="button" onClick={openPrefs} className="mt-3 text-[12px] font-medium opacity-60 transition-opacity hover:opacity-100">
               Manage preferences
             </button>
           </section>

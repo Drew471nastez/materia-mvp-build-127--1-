@@ -91,7 +91,10 @@ function main() {
   console.log("\nThe banner")
   const banner = read("components/cookie-consent-banner.tsx")
   check("Accept all and Reject all are the same size, side by side", /grid grid-cols-2 gap-2/.test(banner) && /Reject all/.test(banner) && /Accept all/.test(banner))
-  check("Vercel Analytics loads only with analytics consent", /consent\?\.analytics === true && !inSitesEditor && <Analytics \/>/.test(banner))
+  check("Vercel Analytics loads only with analytics consent", /consent\?\.analytics === true && !inSitesEditor && !embedded && <Analytics \/>/.test(banner))
+  check("it is not drawn in the dashboard or the admin", /pathname === "\/app"/.test(banner) && /pathname\?\.startsWith\("\/app\/"\)/.test(banner) && /pathname\?\.startsWith\("\/admin"\)/.test(banner) && /const quiet = [^\n]*inApp/.test(banner))
+  check("it is not drawn inside a preview frame", /window\.self !== window\.top/.test(banner) && /const quiet = [^\n]*embedded/.test(banner))
+  check("the accept button's text reads on the site's accent", /function readableOn\(/.test(banner) && /color: onAccent/.test(banner))
   check("the preferences start with everything optional off", /preferences: c\?\.preferences \?\? false, analytics: c\?\.analytics \?\? false/.test(banner))
   check("the switch cannot draw outside its track: placed with left, moved by the exact travel",
     /absolute left-\[2px\] top-\[2px\] block h-5 w-5/.test(banner) && /relative h-6 w-10/.test(banner) && /translate-x-4/.test(banner))
@@ -100,6 +103,7 @@ function main() {
   check("a creator's site no longer draws a second banner of its own",
     !/storelib:cookies/.test(theme) && /setSiteConsentTheme\(/.test(theme))
   check("its words and colours style the one banner instead", /site\?\.text/.test(banner) && /site\?\.background/.test(banner))
+  check("a site that set no banner colours gets Storelib's own, not a navy default", !/cookie_bg, "#0f172a"/.test(theme))
   for (const [where, file] of [
     ["storelib.com's footer", "components/marketing/footer.tsx"],
     ["a creator's page footer", "components/storefront/seller-footer.tsx"],

@@ -264,8 +264,10 @@ function SiteCookieStyle({ theme }: { theme: ThemeSettingsValues }) {
   const text = str(t.cookie_banner_text, "")
   const accept = str(t.cookie_accept_text, "")
   const decline = str(t.cookie_decline_text, "")
-  const bg = str(t.cookie_bg, "#0f172a")
-  const color = str(t.cookie_text_color, "#ffffff")
+  /* Only colours the creator set: an unset one is Storelib's own banner, not
+     a navy panel the creator never chose. */
+  const bg = str(t.cookie_bg, "")
+  const color = str(t.cookie_text_color, "")
   const accent = str(t.primary_color, "#6366f1")
   useEffect(() => {
     if (!on) {
@@ -277,8 +279,8 @@ function SiteCookieStyle({ theme }: { theme: ThemeSettingsValues }) {
       text: text.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim() || undefined,
       acceptText: accept || undefined,
       declineText: decline || undefined,
-      background: bg,
-      color,
+      background: bg || undefined,
+      color: bg ? color || undefined : undefined,
       accent,
     })
     return () => setSiteConsentTheme(null)
