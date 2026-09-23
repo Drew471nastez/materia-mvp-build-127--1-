@@ -1,42 +1,43 @@
 "use client"
 
 import { useState } from "react"
+import { Terminal } from "lucide-react"
 import { AgentConnectionsPanel } from "@/components/website-builder/agent-connections-panel"
-import { GitHubSyncPanel } from "@/components/website-builder/github-sync-panel"
+import { GitHubMark, GitHubSyncPanel } from "@/components/website-builder/github-sync-panel"
 import { cn } from "@/lib/utils"
 import { Card, Lead, PageTitle, Row, buttonClass } from "./parts"
-import type { SettingsContext } from "./types"
+import type { ConnectVia, SettingsContext } from "./types"
 
-type Tool = "claude" | "codex" | "chatgpt"
-
-const TOOLS: { id: Tool; label: string }[] = [
-  { id: "claude", label: "Claude Code" },
-  { id: "codex", label: "Codex" },
-  { id: "chatgpt", label: "ChatGPT" },
+const PATHS: { id: ConnectVia; title: string; tools: string; note?: string }[] = [
+  { id: "direct", title: "Connect directly", tools: "Claude Code, Codex CLI", note: "Recommended" },
+  { id: "github", title: "Through GitHub", tools: "ChatGPT Codex, Claude Code on the web, any tool that works on a repo" },
 ]
 
 /**
  * ===========================================================================
  *  CONNECT AN AI CODING TOOL
  * ===========================================================================
- * "I cannot see how to connect Claude Code" was the report. The two ways in
- * were both here, one under the other, each explaining itself in general
- * terms, and a creator had to work out which one applied to the tool they
- * had. So the first question is the tool, and each answer shows only the
- * path that works for it:
+ * One question first: how does your tool reach this website?
  *
- *   Claude Code, Codex  a token and one command, straight from the computer
- *                       (the MCP endpoint takes a bearer token);
- *   ChatGPT             through GitHub. ChatGPT's Codex works on a GitHub
- *                       repository, and cannot send a token header, so a
- *                       linked repository is the route that works.
+ *   Connect directly   Claude Code or the Codex CLI on your own computer. A
+ *                      token and one line in a terminal; nothing else to set
+ *                      up, so it is the one we recommend.
+ *   Through GitHub     For anything that works on a repository rather than
+ *                      on your computer: ChatGPT's Codex, Claude Code on the
+ *                      web. Link a repository, and a push arrives here.
  *
- * GitHub is offered under the first two as well, for anybody who would
- * rather review a change as a commit. Whatever arrives either way is a
- * draft of this one website until it is published.
+ * Each answer is its own three steps, and the other is not on the screen.
+ * The two used to be stacked one under the other, each explaining itself,
+ * with a row of tool names above them that decided which order they came in,
+ * and a creator had to read all of it to work out which part applied.
+ *
+ * Whatever arrives either way is a draft of this one website until it is
+ * published.
  */
 export function AdvancedSettings({ ctx }: { ctx: SettingsContext }) {
-  const [tool, setTool] = useState<Tool>("claude")
+  /* Back from GitHub's install page, or sent by the top bar's GitHub button:
+     the GitHub path. Otherwise the recommended one. */
+  const [via, setVia] = useState<ConnectVia>(ctx.connectVia ?? (ctx.githubReturned ? "github" : "direct"))
 
   return (
     <>
@@ -44,53 +45,48 @@ export function AdvancedSettings({ ctx }: { ctx: SettingsContext }) {
 
       <section className="mt-6">
         <h2 className="text-[17px] font-medium">Connect Claude Code, Codex or ChatGPT</h2>
-        <Lead>
-          Let an AI coding tool write this website&apos;s sections. It reaches this website and nothing else, and what it
-          writes is a draft until you publish.
-        </Lead>
+        <Lead>They write this website&apos;s sections. They reach this website only, and what they write is a draft until you publish.</Lead>
 
-        <div role="tablist" aria-label="Which tool" className="mt-5 inline-flex rounded-xl border border-white/10 bg-white/[0.03] p-1">
-          {TOOLS.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              role="tab"
-              aria-selected={tool === t.id}
-              onClick={() => setTool(t.id)}
-              className={cn(
-                "h-9 rounded-lg px-4 text-[14px] font-medium transition-colors duration-150",
-                tool === t.id ? "bg-white text-[#0f0f0f]" : "text-white/65 hover:text-white",
-              )}
-            >
-              {t.label}
-            </button>
-          ))}
+        <div role="radiogroup" aria-label="How to connect" className="mt-5 grid gap-3 sm:grid-cols-2">
+          {PATHS.map((p) => {
+            const on = via === p.id
+            return (
+              <button
+                key={p.id}
+                type="button"
+                role="radio"
+                aria-checked={on}
+                onClick={() => setVia(p.id)}
+                className={cn(
+                  "group flex items-start gap-3.5 rounded-2xl border p-4 text-left transition-colors duration-150 md:p-5",
+                  on ? "border-white/70 bg-white/[0.07]" : "border-white/10 bg-white/[0.02] hover:border-white/25 hover:bg-white/[0.04]",
+                )}
+              >
+                <span
+                  className={cn(
+                    "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-colors duration-150",
+                    on ? "bg-white text-[#0f0f0f]" : "bg-white/[0.07] text-white/70",
+                  )}
+                >
+                  {p.id === "github" ? <GitHubMark className="h-[18px] w-[18px]" /> : <Terminal className="h-[18px] w-[18px]" strokeWidth={2} />}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-baseline justify-between gap-3">
+                    <span className="text-[15px] font-medium text-white">{p.title}</span>
+                    {p.note && <span className="shrink-0 text-[12.5px] text-emerald-300/90">{p.note}</span>}
+                  </span>
+                  <span className="mt-1 block text-[13.5px] leading-snug text-white/55">{p.tools}</span>
+                </span>
+              </button>
+            )
+          })}
         </div>
 
-        <div className="mt-6" role="tabpanel">
-          {tool === "chatgpt" ? (
-            <>
-              <p className="max-w-[600px] text-[14px] leading-relaxed text-white/60">
-                In ChatGPT, Codex works on a GitHub repository. Link one here, ask Codex for a change, and merge it: the
-                change appears in the builder within seconds.
-              </p>
-              <div className="mt-6">
-                <GitHubSyncPanel installId={ctx.installId} returned={ctx.githubReturned} />
-              </div>
-            </>
+        <div className="mt-8">
+          {via === "github" ? (
+            <GitHubSyncPanel installId={ctx.installId} returned={ctx.githubReturned} />
           ) : (
-            <>
-              <AgentConnectionsPanel installId={ctx.installId} tool={tool} />
-              <div className="mt-12 border-t border-white/10 pt-10">
-                <h2 className="text-[17px] font-medium">Or through GitHub</h2>
-                <p className="mt-1 max-w-[600px] text-[14px] leading-relaxed text-white/60">
-                  For changes you want to review as commits first.
-                </p>
-                <div className="mt-5">
-                  <GitHubSyncPanel installId={ctx.installId} returned={ctx.githubReturned} />
-                </div>
-              </div>
-            </>
+            <AgentConnectionsPanel installId={ctx.installId} />
           )}
         </div>
       </section>

@@ -10,11 +10,14 @@
  * shows it within seconds. See lib/github-sync.
  *
  * Four states, each one screen: GitHub is not set up on this Storelib;
- * not connected; connected but no repository picked; linked.
+ * not connected; connected but no repository picked; linked. The first
+ * three are the three steps, with the first one being where you act; the
+ * last is the linked repository and its two switches.
  */
 import { useCallback, useEffect, useState } from "react"
 import { ArrowDownToLine, ArrowUpFromLine, ExternalLink, Loader2 } from "lucide-react"
 import { relativeTime } from "@/lib/website-builder/relative-time"
+import { Step, Steps } from "@/components/website-builder/setup-steps"
 
 interface Link {
   account: string
@@ -105,9 +108,9 @@ function SyncRow({ icon, title, detail, on, busy, onChange }: {
 }
 
 const STEPS = [
-  ["Connect a repository", "Storelib writes this website's sections into it, with an AGENTS.md that tells Claude Code or Codex how they work."],
-  ["Ask your agent for a change", "It edits a file in sections/ and pushes, like any other code change."],
-  ["It appears here", "Within seconds, as a draft. A new section is placed on the page you have open. Publish when you like it."],
+  ["Connect a repository", "Storelib writes this website's sections into it, with an AGENTS.md your tool reads first."],
+  ["Ask your agent for a change", "Open the repository in ChatGPT Codex or Claude Code on the web and ask for a section."],
+  ["It appears here", "Merge it and it arrives within seconds, as a draft. Publish when you like it."],
 ] as const
 
 export function GitHubSyncPanel({ installId, returned }: { installId: string; returned?: string | null }) {
@@ -184,39 +187,7 @@ export function GitHubSyncPanel({ installId, returned }: { installId: string; re
   const link = status?.link ?? null
   const linked = Boolean(link?.repo)
 
-  return (
-    <section aria-labelledby="github-title" className="rounded-2xl border border-white/10 bg-white/[0.03]">
-      <div className="flex items-start gap-4 p-5 md:p-6">
-        <GitHubMark className="mt-0.5 h-6 w-6 shrink-0 text-white" />
-        <div className="min-w-0 flex-1">
-          <h2 id="github-title" className="text-[17px] font-medium">GitHub</h2>
-          <p className="mt-1 max-w-[560px] text-[14px] leading-relaxed text-white/60">
-            Keep this website&apos;s sections in a repository. Claude Code, Codex or anyone on your team pushes a change and it
-            shows up here.
-          </p>
-        </div>
-      </div>
-
-      {!status?.link?.repo && <ol className="grid gap-px border-t border-white/[0.07] bg-white/[0.07] md:grid-cols-3">
-        {STEPS.map(([title, body], i) => (
-          <li key={title} className="bg-[#141414] px-5 py-4 md:px-6">
-            <p className="text-[13px] font-medium text-white/40">{i + 1}</p>
-            <p className="mt-1 text-[14px] font-medium">{title}</p>
-            <p className="mt-1 text-[13px] leading-relaxed text-white/50">{body}</p>
-          </li>
-        ))}
-      </ol>}
-
-      <div className="border-t border-white/[0.07] p-5 md:p-6">
-        {status === null ? (
-          <div className="flex items-center gap-2 text-[14px] text-white/50">
-            <Loader2 className="h-4 w-4 animate-spin" /> Checking GitHub
-          </div>
-        ) : !status.configured ? (
-          <p className="text-[14px] text-white/60">GitHub is not switched on for this Storelib yet.</p>
-        ) : !status.ready ? (
-          <p className="text-[14px] text-white/60">GitHub needs a database update first. Run supabase/sql/RUN_GITHUB_SYNC.sql.</p>
-        ) : !link ? (
+  const connectButtons = status ? (
           <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
             <a
               href={`/api/github/connect?installId=${encodeURIComponent(installId)}`}
@@ -238,7 +209,9 @@ export function GitHubSyncPanel({ installId, returned }: { installId: string; re
               </button>
             ))}
           </div>
-        ) : !linked ? (
+  ) : null
+
+  const picker = status && link ? (
           <div>
             <p className="text-[14px] text-white/60">
               Connected to <span className="text-white">{link.account || "GitHub"}</span>. Pick the repository for this website.
@@ -296,7 +269,70 @@ export function GitHubSyncPanel({ installId, returned }: { installId: string; re
               </div>
             )}
           </div>
-        ) : (
+  ) : null
+
+  const messages = (
+    <>
+      {notice && <p className="mt-4 text-[14px] text-emerald-300">{notice}</p>}
+      {error && (
+        <p className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-[14px] text-red-300">{error}</p>
+      )}
+    </>
+  )
+
+  /*
+    NOT LINKED YET: the same three steps as connecting directly, and the
+    first one is where you do it. The two after it say what happens next,
+    in a line each, and are drawn quieter until there is a repository.
+  */
+  if (!linked) {
+    return (
+      <section aria-labelledby="github-title">
+        <h2 id="github-title" className="sr-only">GitHub</h2>
+        <Steps>
+          <Step n={1} title={STEPS[0][0]}>
+            {status === null ? (
+              <div className="flex items-center gap-2 text-[14px] text-white/50">
+                <Loader2 className="h-4 w-4 animate-spin" /> Checking GitHub
+              </div>
+            ) : !status.configured ? (
+              <p className="text-[14px] text-white/60">GitHub is not switched on for this Storelib yet.</p>
+            ) : !status.ready ? (
+              <p className="text-[14px] text-white/60">GitHub needs a database update first. Run supabase/sql/RUN_GITHUB_SYNC.sql.</p>
+            ) : !link ? (
+              <>
+                <p className="mb-3 text-[13.5px] text-white/55">{STEPS[0][1]}</p>
+                {connectButtons}
+              </>
+            ) : (
+              picker
+            )}
+          </Step>
+          <Step n={2} title={STEPS[1][0]} muted>
+            <p className="text-[13.5px] leading-relaxed text-white/60">{STEPS[1][1]}</p>
+          </Step>
+          <Step n={3} title={STEPS[2][0]} muted>
+            <p className="text-[13.5px] leading-relaxed text-white/60">{STEPS[2][1]}</p>
+          </Step>
+        </Steps>
+        {messages}
+      </section>
+    )
+  }
+
+  return (
+    <section aria-labelledby="github-title" className="rounded-2xl border border-white/10 bg-white/[0.03]">
+      <div className="flex items-center gap-3 border-b border-white/[0.07] px-5 py-4 md:px-6">
+        <GitHubMark className="h-5 w-5 shrink-0 text-white" />
+        <h2 id="github-title" className="text-[15px] font-medium">GitHub</h2>
+        <span className="ml-auto inline-flex items-center gap-1.5 text-[12.5px] font-medium text-emerald-300">
+          <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+          Linked
+        </span>
+      </div>
+
+      <div className="p-5 md:p-6">
+        {status && link && (
           <div>
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">
@@ -418,10 +454,7 @@ export function GitHubSyncPanel({ installId, returned }: { installId: string; re
           </div>
         )}
 
-        {notice && <p className="mt-4 text-[14px] text-emerald-300">{notice}</p>}
-        {error && (
-          <p className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-[14px] text-red-300">{error}</p>
-        )}
+        {messages}
       </div>
     </section>
   )

@@ -57,7 +57,9 @@ import { PageSwitcher } from "@/components/website-builder/page-switcher"
 import { PublishPanel } from "@/components/website-builder/publish-panel"
 import { PreviewModeSwitch, CodePane, type PreviewMode } from "@/components/website-builder/preview-mode-switch"
 import { ProjectSettings } from "@/components/website-builder/project-settings"
-import { settingsSectionFrom, type SettingsSection } from "@/components/website-builder/website-settings/types"
+import { settingsSectionFrom, type ConnectVia, type SettingsSection } from "@/components/website-builder/website-settings/types"
+import { GitHubTopBarButton } from "@/components/website-builder/github-button"
+import { GitHubMark } from "@/components/website-builder/github-sync-panel"
 import { createClient } from "@/lib/supabase/client"
 import { GradientEditor } from "@/components/website-builder/editor/gradient-editor"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
@@ -3484,7 +3486,14 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+  /** Which path Connections opens on: GitHub from the GitHub button, else the default. */
+  const [connectVia, setConnectVia] = useState<ConnectVia | null>(null)
+  const openGitHub = () => {
+    openConnections()
+    setConnectVia("github")
+  }
   const openConnections = () => {
+    setConnectVia(null)
     setSettingsSection("advanced")
     setPreviewMode("settings")
     setProjectSettingsOpen(true)
@@ -7284,6 +7293,10 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 icon: <Plug className="h-4 w-4" />,
                 onClick: openConnections,
               },
+              /* The bar's GitHub button, for a phone, whose bar has no room. */
+              ...(isMobileView
+                ? [{ label: "GitHub", icon: <GitHubMark className="h-4 w-4" />, onClick: openGitHub }]
+                : []),
               {
                 label: "Undo",
                 icon: <Undo2 className="h-4 w-4" />,
@@ -7464,23 +7477,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             </TooltipContent>
           </Tooltip>
 
-          {/* Where Claude Code, Codex and ChatGPT connect. A plug rather than
-              GitHub's mark: GitHub is one of the two ways in, and somebody
-              with Claude Code on their laptop was not looking for it. A
-              phone reaches the same page from the menu. */}
+          {/* GitHub, by its own mark, with a green dot when this site is
+              linked to a repository. It opens Connections on the GitHub
+              path; connecting Claude Code or Codex directly is the other
+              path on the same page, and in the menu. A phone reaches it
+              from the menu too. */}
           {!isMobileView && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  className="h-8 w-8 flex items-center justify-center rounded-lg text-[var(--wb-chrome-fg-2)] hover:bg-[var(--wb-chrome-hover)] hover:text-[var(--wb-chrome-fg)] transition-colors shrink-0 active:scale-90"
-                  onClick={openConnections}
-                  aria-label="Connect Claude Code, Codex or ChatGPT"
-                >
-                  <Plug className="h-4 w-4" strokeWidth={1.75} />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">Connect Claude Code, Codex or ChatGPT</TooltipContent>
-            </Tooltip>
+            <GitHubTopBarButton installId={installId} onOpen={openGitHub} recheck={projectSettingsOpen} />
           )}
 
           {/* Ask AI */}
@@ -7589,10 +7592,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           setProjectSettingsOpen(false)
           setSettingsSection(null)
           setGithubReturned(null)
+          setConnectVia(null)
           setPreviewMode("preview")
         }}
         initialSection={settingsSection}
         githubReturned={githubReturned}
+        connectVia={connectVia}
         installId={installId}
         name={install?.name ?? ""}
         onRenamed={(name) => setInstall((cur) => (cur ? { ...cur, name } : cur))}
