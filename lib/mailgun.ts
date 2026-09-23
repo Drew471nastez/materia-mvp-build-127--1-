@@ -8,6 +8,7 @@
  * - EMAIL_FROM: "Storelib <noreply@storelib.com>"
  * - EMAIL_REPLY_TO: "support@storelib.com"
  */
+import { maskEmail } from "@/lib/privacy/mask-email"
 
 // Mailgun configuration from environment variables
 const MAILGUN_API_KEY = process.env.MAILGUN_API_KEY || ""
@@ -101,7 +102,7 @@ async function isEmailSuppressed(email: string): Promise<boolean> {
       { headers: { Authorization: `Basic ${authString}` } }
     )
     if (bounceRes.ok) {
-      console.warn("[mailgun] Email is on bounce suppression list:", email)
+      console.warn("[mailgun] Email is on bounce suppression list:", maskEmail(email))
       return true
     }
 
@@ -111,7 +112,7 @@ async function isEmailSuppressed(email: string): Promise<boolean> {
       { headers: { Authorization: `Basic ${authString}` } }
     )
     if (complaintRes.ok) {
-      console.warn("[mailgun] Email is on complaint suppression list:", email)
+      console.warn("[mailgun] Email is on complaint suppression list:", maskEmail(email))
       return true
     }
 
@@ -137,10 +138,10 @@ export async function sendMailgunEmail(options: MailgunSendOptions): Promise<Mai
 
   // Validate email format before sending
   if (!isValidEmail(options.to)) {
-    console.warn("[mailgun] Invalid email format, skipping:", options.to)
+    console.warn("[mailgun] Invalid email format, skipping:", maskEmail(options.to))
     return {
       success: false,
-      error: `Invalid email format: ${options.to}`,
+      error: "Invalid email format",
     }
   }
 
@@ -149,7 +150,7 @@ export async function sendMailgunEmail(options: MailgunSendOptions): Promise<Mai
   if (suppressed) {
     return {
       success: false,
-      error: `Email suppressed: ${options.to} is on the bounce or complaint list`,
+      error: "Email suppressed: the address is on the bounce or complaint list",
     }
   }
 
@@ -199,7 +200,7 @@ export async function sendMailgunEmail(options: MailgunSendOptions): Promise<Mai
 
   console.log("[mailgun] Sending email:", {
     from: fromAddress,
-    to: options.to,
+    to: maskEmail(options.to),
     subject: options.subject,
     replyTo,
     url,
@@ -242,7 +243,7 @@ export async function sendMailgunEmail(options: MailgunSendOptions): Promise<Mai
           status: response.status,
           statusText: response.statusText,
           body: responseData,
-          to: options.to,
+          to: maskEmail(options.to),
           subject: options.subject,
         })
 
@@ -254,7 +255,7 @@ export async function sendMailgunEmail(options: MailgunSendOptions): Promise<Mai
 
       console.log("[mailgun] Email sent successfully:", {
         messageId: responseData.id,
-        to: options.to,
+        to: maskEmail(options.to),
         message: responseData.message,
       })
 
@@ -265,7 +266,7 @@ export async function sendMailgunEmail(options: MailgunSendOptions): Promise<Mai
     } catch (error: any) {
       console.error("[mailgun] Request failed:", {
         error: error.message || error,
-        to: options.to,
+        to: maskEmail(options.to),
         subject: options.subject,
       })
 

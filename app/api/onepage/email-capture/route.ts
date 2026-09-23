@@ -283,7 +283,7 @@ export async function POST(request: Request) {
           }
         }
       } else if (existingSubscriber.status === "unsubscribed") {
-        await adminSupabase
+        const { error: resubError } = await adminSupabase
           .from("subscribers")
           .update({
             status: "subscribed",
@@ -292,6 +292,20 @@ export async function POST(request: Request) {
             unsubscribed_at: null,
           })
           .eq("id", existingSubscriber.id)
+
+        /* Joining again is joining, so the welcome goes, as it does above. */
+        if (!resubError) {
+          try {
+            await triggerEmailFlows(adminSupabase, {
+              triggerType: "new_subscriber",
+              creatorId: onepage.seller_id,
+              recipientEmail: normalizedEmail,
+              recipientName: name || undefined,
+            })
+          } catch (flowErr) {
+            console.error("[email-capture] Email flow trigger error (non-fatal):", flowErr)
+          }
+        }
       }
     }
 

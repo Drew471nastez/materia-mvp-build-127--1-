@@ -1,7 +1,11 @@
-import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { triggerEmailFlows } from "@/lib/email"
 import { NextResponse } from "next/server"
+import { randomUUID } from "node:crypto"
+import { rateLimit, addressSubject, emailSubject, LIMITS } from "@/lib/api/rate-limit"
+
+/** Deliberately plain. A clever pattern refuses addresses that work. */
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
 
 export const runtime = "nodejs"
 
@@ -13,39 +17,113 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Email and creator ID are required" }, { status: 400 })
     }
 
-    const supabase = await createClient()
-    const adminSupabase = createAdminClient()
-
-    // Save subscriber (you'll need to create this table in your database)
-    const { error } = await supabase.from("subscribers").insert({
-      email,
-      name: name || null,
-      creator_id: creatorId,
-      subscribed_at: new Date().toISOString(),
-      status: "subscribed",
-      is_active: true,
-    })
-
-    if (error) {
-      console.error("Subscriber insert error:", error)
-      return NextResponse.json({ error: "Failed to subscribe" }, { status: 500 })
+    const address = String(email).toLowerCase().trim()
+    if (!EMAIL.test(address)) {
+      return NextResponse.json({ error: "Enter a valid email address" }, { status: 400 })
     }
 
-    // Trigger new_subscriber email flows
-    try {
-      await triggerEmailFlows(adminSupabase, {
-        triggerType: "new_subscriber",
-        creatorId,
-        recipientEmail: email,
-        recipientName: name || undefined,
+    /* Counted by address and by the address being signed up, like every
+       other public sign-up route. See lib/api/rate-limit.ts. */
+    const limited = await rateLimit({
+      bucket: "subscribe",
+      subjects: [addressSubject(request), emailSubject(address)],
+      windows: LIMITS.subscribe,
+      message: "That is a lot of sign-ups at once. Try again in a minute.",
+    })
+    if (limited) return limited
+
+    const adminSupabase = createAdminClient()
+
+    /**
+     * THE CREATOR HAS TO EXIST. This wrote whatever id it was handed, so a
+     * made-up one left an orphan row that no creator could ever see or
+     * delete, and fired flows for nobody.
+     */
+    const { data: creator } = await adminSupabase
+      .from("creators")
+      .select("id")
+      .eq("id", creatorId)
+      .maybeSingle()
+    if (!creator) {
+      return NextResponse.json({ error: "Could not find creator" }, { status: 400 })
+    }
+
+    /**
+     * ALREADY ON THE LIST IS NOT AN ERROR, and not a second welcome email.
+     * Somebody who unsubscribed and signs up again is joining again, so
+     * they are resubscribed and the welcome does go.
+     */
+    const { data: existing } = await adminSupabase
+      .from("subscribers")
+      .select("id, status, is_active")
+      .eq("creator_id", creator.id)
+      .eq("email", address)
+      .maybeSingle()
+
+    let welcome = true
+    if (existing) {
+      const onTheList = existing.status === "subscribed" && existing.is_active !== false
+      if (onTheList) {
+        welcome = false
+      } else {
+        const { error: updateError } = await adminSupabase
+          .from("subscribers")
+          .update({
+            status: "subscribed",
+            is_active: true,
+            subscribed_at: new Date().toISOString(),
+            unsubscribed_at: null,
+          })
+          .eq("id", existing.id)
+        if (updateError) {
+          console.error("[subscribers] Resubscribe failed:", updateError.message)
+          return NextResponse.json({ error: "Failed to subscribe" }, { status: 500 })
+        }
+      }
+    } else {
+      /**
+       * WITH AN UNSUBSCRIBE TOKEN. Written without one, this row had no way
+       * out of: every email to it carried no unsubscribe link, because the
+       * link IS the token. The column has a default, but only where the
+       * migration that added it has run.
+       */
+      const { error } = await adminSupabase.from("subscribers").insert({
+        email: address,
+        name: name || null,
+        creator_id: creator.id,
+        source: "creator_page",
+        status: "subscribed",
+        is_active: true,
+        subscribed_at: new Date().toISOString(),
+        consent_text: "Subscribed from the creator's page",
+        consent_timestamp: new Date().toISOString(),
+        unsubscribe_token: randomUUID(),
       })
-    } catch (flowErr) {
-      console.error("[subscribers] Email flow trigger error (non-fatal):", flowErr)
+
+      if (error) {
+        // A race with another submission of the same address is a success here.
+        if (error.code === "23505") return NextResponse.json({ success: true })
+        console.error("[subscribers] Insert failed:", error.message)
+        return NextResponse.json({ error: "Failed to subscribe" }, { status: 500 })
+      }
+    }
+
+    if (welcome) {
+      try {
+        await triggerEmailFlows(adminSupabase, {
+          triggerType: "new_subscriber",
+          creatorId: creator.id,
+          recipientEmail: address,
+          recipientName: name || undefined,
+        })
+      } catch (flowErr) {
+        console.error("[subscribers] Email flow trigger error (non-fatal):", flowErr)
+      }
     }
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error("Subscribe error:", error)
+    console.error("[subscribers] Subscribe error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

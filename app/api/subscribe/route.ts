@@ -1,6 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { rateLimit, addressSubject, emailSubject, LIMITS } from "@/lib/api/rate-limit"
+import { triggerEmailFlows } from "@/lib/email"
+import { randomUUID } from "node:crypto"
 
 export async function POST(request: NextRequest) {
   try {
@@ -161,6 +163,18 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "Failed to resubscribe" }, { status: 500 })
       }
 
+      /* Joining again is joining: the welcome goes, as it did the first time. */
+      try {
+        await triggerEmailFlows(adminSupabase, {
+          triggerType: "new_subscriber",
+          creatorId: resolvedCreatorId,
+          recipientEmail: normalizedEmail,
+          recipientName: name || undefined,
+        })
+      } catch (flowErr) {
+        console.error("[subscribe] Email flow trigger error (non-fatal):", flowErr)
+      }
+
       return NextResponse.json({ 
         success: true, 
         message: "Resubscribed successfully" 
@@ -181,6 +195,9 @@ export async function POST(request: NextRequest) {
         subscribed_at: new Date().toISOString(),
         consent_text: "I agree to receive email updates",
         consent_timestamp: new Date().toISOString(),
+        /* The unsubscribe link IS this token. A row written without one can
+           be emailed and never left. */
+        unsubscribe_token: randomUUID(),
       })
       .select("id, email")
       .single()
@@ -198,6 +215,24 @@ export async function POST(request: NextRequest) {
       }
       
       return NextResponse.json({ error: "Failed to subscribe" }, { status: 500 })
+    }
+
+    /**
+     * THE CREATOR'S WELCOME EMAIL. This route wrote the subscriber and
+     * stopped, so a person who joined here got nothing while the same
+     * person joining through a built site got the welcome. Every capture
+     * path fires the same trigger now. A failure here is not the visitor's
+     * problem: they are subscribed either way.
+     */
+    try {
+      await triggerEmailFlows(adminSupabase, {
+        triggerType: "new_subscriber",
+        creatorId: resolvedCreatorId,
+        recipientEmail: normalizedEmail,
+        recipientName: name || undefined,
+      })
+    } catch (flowErr) {
+      console.error("[subscribe] Email flow trigger error (non-fatal):", flowErr)
     }
 
     return NextResponse.json({ 

@@ -305,7 +305,7 @@ const FLOW_TRIGGERS = [
 <p>Thank you so much for purchasing! I'm really excited for you to dive in and start your journey.</p>
 <p>I created this product because I believe it can truly help you achieve your goals. I've put my heart into making this as valuable as possible, and I hope it serves you well.</p>
 <p>If you have any questions at all, just reply to this email - I read every message personally!</p>
-<p>Best,<br/>[Your name]</p>`,
+<p>Best</p>`,
   },
   {
     id: "new_subscriber",
@@ -318,7 +318,7 @@ const FLOW_TRIGGERS = [
 <p>Welcome! I'm so glad you decided to join.</p>
 <p>I'm passionate about helping people like you succeed, and I'll be sharing my best tips, insights, and exclusive content with you.</p>
 <p>Feel free to reply to this email and introduce yourself - I'd love to hear from you!</p>
-<p>Talk soon,<br/>[Your name]</p>`,
+<p>Talk soon</p>`,
   },
 ]
 
@@ -774,16 +774,17 @@ export default function EmailsPage() {
     const supabase = createClient()
     const triggerInfo = FLOW_TRIGGERS.find(t => t.id === triggerType)
 
-    // Check if flow of this type already exists
+    /**
+     * ONE PER TRIGGER, AND THE SECOND CLICK OPENS THE FIRST.
+     *
+     * This used to answer with a red error toast and leave you where you
+     * were, which reads as a failure for doing the obvious thing: pressing
+     * the button for the automation you already have.
+     */
     const existingFlow = flows.find(f => f.trigger_type === triggerType)
     if (existingFlow) {
-      const flowTypeName = triggerType === "purchase" ? "Purchase" : "New Subscriber"
-      toast({
-        title: `Already have a ${flowTypeName} flow added`,
-        description: `You can only have one ${flowTypeName} flow. Edit the existing one instead.`,
-        variant: "destructive"
-      })
       setShowCreateFlowDialog(false)
+      handleEditFlow(existingFlow)
       return
     }
 
@@ -2847,8 +2848,8 @@ Tips:
             {/* Header */}
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-[15px] font-semibold text-[#1a1a2e]">Email Automations</h2>
-                <p className="text-[13px] text-[#6b7280]">Create automated email sequences triggered by events</p>
+                <h2 className="text-[15px] font-semibold text-[#1a1a2e]">Automations</h2>
+                <p className="text-[13px] text-[#6b7280]">Emails Storelib sends for you when someone joins your list or buys something</p>
               </div>
               <Button
                 onClick={() => setShowCreateFlowDialog(true)}
@@ -2869,9 +2870,10 @@ Tips:
                 <div className="w-16 h-16 rounded-2xl bg-violet-100 flex items-center justify-center mx-auto mb-4">
                   <Zap className="h-8 w-8 text-violet-600" />
                 </div>
-                <h3 className="font-semibold text-[#1a1a2e] mb-2">No flows yet</h3>
+                <h3 className="font-semibold text-[#1a1a2e] mb-2">No automations yet</h3>
                 <p className="text-[13px] text-[#6b7280] max-w-sm mx-auto mb-6">
-                  Create automated email sequences that trigger when customers make purchases or subscribe to your list.
+                  A welcome email goes to everyone who joins your list, from any sign-up box on your site.
+                  Write it once and it sends on its own.
                 </p>
                 <Button
                   onClick={() => setShowCreateFlowDialog(true)}

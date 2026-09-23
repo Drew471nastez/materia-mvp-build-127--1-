@@ -9,6 +9,8 @@
  */
 
 import { sendEmail, buildFromHeader, isSmtpConfigured, EMAIL_FROM, EMAIL_REPLY_TO } from "./mail"
+import { automationEmail, personalize, personalizeText, standingOf } from "@/lib/email-automation"
+import { maskEmail } from "@/lib/privacy/mask-email"
 import { ignoreError } from "@/lib/supabase/ignore-error"
 
 // MUST be a real mailbox on your verified domain in Amazon SES
@@ -1599,10 +1601,24 @@ export async function triggerEmailFlows(
   const { triggerType, creatorId, recipientEmail, recipientName, productTitle, productId, orderId } = params
   const errors: string[] = []
   let triggered = 0
+  const who = maskEmail(recipientEmail)
 
-  console.log("[email-flows] 🔄 Triggering flows for:", { triggerType, creatorId, recipientEmail })
+  console.log("[email-flows] Triggering flows for:", { triggerType, creatorId, recipient: who })
 
   try {
+    /**
+     * NOBODY WHO HAS LEFT GETS ANOTHER ONE. This was not checked at all: an
+     * automation fired on the sign-up and again, days later, out of the
+     * queue, whether or not the person had unsubscribed in between. The
+     * token comes back from the same read, so the email below can carry the
+     * way out that the law and every inbox provider require.
+     */
+    const standing = await standingOf(admin, creatorId, recipientEmail)
+    if (standing.suppressed) {
+      console.log("[email-flows] Skipped: this address is not on the creator's list:", who)
+      return { triggered: 0, errors: [] }
+    }
+
     // Find active flows with matching trigger type
     const { data: flows, error: flowsError } = await admin
       .from("email_flows")
@@ -1612,7 +1628,7 @@ export async function triggerEmailFlows(
       .eq("status", "active")
 
     if (flowsError) {
-      console.error("[email-flows] ❌ Error fetching flows:", flowsError)
+      console.error("[email-flows] Error fetching flows:", flowsError)
       return { triggered: 0, errors: [flowsError.message] }
     }
 
@@ -1621,14 +1637,11 @@ export async function triggerEmailFlows(
       return { triggered: 0, errors: [] }
     }
 
-    console.log("[email-flows] Found", flows.length, "active flow(s)")
-
     // Get creator identity for sending
     const identity = await resolveCreatorIdentity(admin, creatorId)
     const fromName = identity?.fromName || PLATFORM_BRAND_NAME
     const replyTo = identity?.replyTo || DEFAULT_SUPPORT
 
-    // Process each flow
     for (const flow of flows as EmailFlow[]) {
       try {
         const steps = flow.steps || []
@@ -1639,70 +1652,56 @@ export async function triggerEmailFlows(
           continue
         }
 
-        // For now, we'll send the first email immediately and queue the rest
-        // In a production system, you'd want a proper job queue for delayed emails
-        for (let i = 0; i < emailSteps.length; i++) {
-          const step = emailSteps[i]
+        for (const step of emailSteps) {
           const delayMs = calculateDelayMs(step.config.delay_value || 0, step.config.delay_unit || "minutes")
+          const values = { name: recipientName, product: productTitle }
+          const subject = personalizeText(step.config.subject || "A message from " + fromName, values)
+          const body = personalize(step.config.body || "", values)
 
-          // Replace personalization tokens
-          const personalizedSubject = personalizeContent(step.config.subject || "Update from your purchase", {
-            customer_name: recipientName || "there",
-            product_name: productTitle || "your product",
-          })
-          const personalizedBody = personalizeContent(step.config.body || "", {
-            customer_name: recipientName || "there",
-            product_name: productTitle || "your product",
-          })
-
-          // If delay is 0, send immediately; otherwise schedule for later
           if (delayMs === 0) {
-            // Send email immediately (no delay)
             try {
-              console.log("[email-flows] 📧 Sending flow email immediately to:", recipientEmail)
+              const mail = automationEmail({ body, fromName, unsubscribeToken: standing.unsubscribeToken })
               const result = await sendEmail({
                 from: buildFromHeaderLocal(fromName),
                 to: normalizeEmail(recipientEmail),
                 replyTo,
-                subject: personalizedSubject,
-                html: wrapFlowEmailHtml(personalizedBody, fromName),
-                text: stripHtml(personalizedBody),
+                subject,
+                html: mail.html,
+                text: mail.text,
+                headers: mail.headers,
               })
 
               if (result.success) {
-                console.log("[email-flows] ✅ Sent flow email immediately:", flow.name, "to:", recipientEmail)
+                console.log("[email-flows] Sent:", flow.name, "to:", who)
                 triggered++
-
-                // Log the email event (ignore errors if table doesn't exist)
                 await ignoreError(
                   admin.from("email_events").insert({
                     flow_id: flow.id,
                     recipient_email: recipientEmail,
                     event_type: "sent",
-                    metadata: { step_id: step.id, subject: personalizedSubject },
+                    metadata: { step_id: step.id, subject },
                   }),
                 )
               } else {
-                console.error("[email-flows] ❌ Failed to send flow email:", result.error)
+                console.error("[email-flows] Failed to send:", result.error)
                 errors.push(`Flow ${flow.name}: ${result.error || "Send failed"}`)
               }
             } catch (emailErr: any) {
-              console.error("[email-flows] ❌ Email send error:", emailErr)
+              console.error("[email-flows] Email send error:", emailErr)
               errors.push(`Flow ${flow.name}: ${emailErr.message}`)
             }
           } else {
-            // Schedule email for later - store in scheduled_flow_emails table
+            /* Queued for the cron, which checks the flow AND the person again
+               before it sends: see app/api/cron/process-scheduled-emails. */
             const scheduledTime = new Date(Date.now() + delayMs)
-            console.log("[email-flows] 📅 Scheduling email for:", scheduledTime.toISOString(), "to:", recipientEmail)
-
             try {
               const { error: scheduleError } = await admin.from("scheduled_flow_emails").insert({
                 flow_id: flow.id,
                 step_id: step.id,
                 recipient_email: recipientEmail,
                 recipient_name: recipientName || null,
-                subject: personalizedSubject,
-                body: personalizedBody,
+                subject,
+                body,
                 scheduled_for: scheduledTime.toISOString(),
                 status: "pending",
                 creator_id: creatorId,
@@ -1711,14 +1710,14 @@ export async function triggerEmailFlows(
               })
 
               if (scheduleError) {
-                console.error("[email-flows] ❌ Failed to schedule email:", scheduleError)
+                console.error("[email-flows] Failed to schedule:", scheduleError)
                 errors.push(`Flow ${flow.name}: Failed to schedule - ${scheduleError.message}`)
               } else {
-                console.log("[email-flows] ✅ Email scheduled for:", scheduledTime.toISOString())
+                console.log("[email-flows] Scheduled for:", scheduledTime.toISOString())
                 triggered++
               }
             } catch (err: any) {
-              console.error("[email-flows] ❌ Schedule error:", err)
+              console.error("[email-flows] Schedule error:", err)
               errors.push(`Flow ${flow.name}: ${err.message}`)
             }
           }
@@ -1728,10 +1727,10 @@ export async function triggerEmailFlows(
       }
     }
 
-    console.log("[email-flows] ✅ Completed triggering flows:", { triggered, errors })
+    console.log("[email-flows] Completed:", { triggered, errors: errors.length })
     return { triggered, errors }
   } catch (err: any) {
-    console.error("[email-flows] ❌ Error triggering flows:", err)
+    console.error("[email-flows] Error triggering flows:", err)
     return { triggered: 0, errors: [err.message] }
   }
 }
@@ -1745,26 +1744,6 @@ function calculateDelayMs(value: number, unit: "minutes" | "hours" | "days"): nu
   return value * (multipliers[unit] || multipliers.minutes)
 }
 
-function personalizeContent(content: string, tokens: Record<string, string>): string {
-  let result = content
-  for (const [key, value] of Object.entries(tokens)) {
-    const patterns = [
-      new RegExp(`{{\\s*${key}\\s*}}`, "gi"),
-      new RegExp(`\\{${key}\\}`, "gi"),
-      new RegExp(`Customer Name`, "gi"),
-      new RegExp(`Product Name`, "gi"),
-    ]
-
-    if (key === "customer_name") {
-      result = result.replace(/\{\{\s*customer_name\s*\}\}/gi, value)
-      result = result.replace(/Customer Name/g, value)
-    } else if (key === "product_name") {
-      result = result.replace(/\{\{\s*product_name\s*\}\}/gi, value)
-      result = result.replace(/Product Name/g, value)
-    }
-  }
-  return result
-}
 
 // -------------------------
 // Refund Confirmation Emails (Transactional)
@@ -3561,37 +3540,6 @@ function stripHtml(html: string): string {
   return html.replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim()
 }
 
-function wrapFlowEmailHtml(bodyContent: string, fromName: string): string {
-  return `<!DOCTYPE html>
-<html>
-<head>
-  <meta name="viewport" content="width=device-width,initial-scale=1.0">
-  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-</head>
-<body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;background-color:#f6f9fc;">
-  <table role="presentation" style="width:100%;padding:32px 16px;">
-    <tr>
-      <td align="center">
-        <table role="presentation" style="max-width:600px;width:100%;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,0.08);">
-          <tr>
-            <td style="padding:34px;">
-              <div style="font-size:15px;color:#374151;line-height:1.6;">
-                ${bodyContent}
-              </div>
-            </td>
-          </tr>
-          <tr>
-            <td style="padding:16px 22px;text-align:center;background:#f9fafb;color:#9ca3af;font-size:11px;">
-              © ${new Date().getFullYear()} ${safeText(fromName)}
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>`
-}
 
 // ─── 1099-K Tax Form Notification Email ──────────────────────────────────────
 
