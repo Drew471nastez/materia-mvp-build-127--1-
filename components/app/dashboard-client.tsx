@@ -178,7 +178,7 @@ const PLOT_TOP = 10
  * - Smooth animation when switching between KPI modals
  * - Desktop hover works normally via Recharts default
  */
-export function ChartWithLongPressTooltip({
+function ChartWithLongPressTooltip({
   displayChartData,
   openKPIModal,
   widthFrom,
