@@ -195,10 +195,8 @@ export function ExportOrdersDialog({
                 <RangePanel
                   initial={dates}
                   today={today}
-                  presets={false}
                   months={1}
                   inline
-                  onCancel={() => setScope("page")}
                   onApply={setDates}
                 />
               </div>

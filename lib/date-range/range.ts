@@ -215,8 +215,10 @@ export const PRESET_LABEL: Record<PresetId, string> = {
 }
 
 /**
- * The list the picker shows. Items with `children` open into their own list,
- * the way a reader drills into "Last" and comes back out.
+ * The list the picker opens to. The periods people choose most are rows of
+ * their own, one tap and done; the rarer ones sit behind a row that opens
+ * its own list; and a range of one's own is the last row, a second step with
+ * the calendar in it.
  */
 export type PresetGroup =
   | { kind: "item"; id: PresetId }
@@ -226,13 +228,20 @@ export type PresetGroup =
 export const PRESET_MENU: PresetGroup[][] = [
   [{ kind: "item", id: "today" }, { kind: "item", id: "yesterday" }],
   [
-    { kind: "group", label: "Last", children: ["last_7_days", "last_30_days", "last_90_days", "last_365_days", "last_12_months", "last_week", "last_month", "last_quarter", "last_year"] },
-    { kind: "group", label: "Period to date", children: ["week_to_date", "month_to_date", "quarter_to_date", "year_to_date"] },
+    { kind: "item", id: "last_7_days" },
+    { kind: "item", id: "last_30_days" },
+    { kind: "item", id: "last_90_days" },
+    { kind: "item", id: "last_12_months" },
   ],
+  [{ kind: "item", id: "month_to_date" }, { kind: "item", id: "year_to_date" }, { kind: "item", id: "all_time" }],
   [
-    { kind: "group", label: "Black Friday Cyber Monday", children: ["bfcm", "bfcm_last_year"] },
     { kind: "group", label: "Quarters", children: ["q1", "q2", "q3", "q4"] },
-    { kind: "item", id: "all_time" },
+    { kind: "group", label: "Black Friday Cyber Monday", children: ["bfcm", "bfcm_last_year"] },
+    {
+      kind: "group",
+      label: "More periods",
+      children: ["last_week", "last_month", "last_quarter", "last_year", "week_to_date", "quarter_to_date", "last_365_days"],
+    },
   ],
   [{ kind: "custom" }],
 ]
