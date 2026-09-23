@@ -22,7 +22,7 @@ When a person asks you for a section, answer with the file and nothing else arou
 
 These are the mistakes that produce a file which looks right and is not. Check each before you answer.
 
-1. **Section scripts do not run yet.** A `<script>` is checked and stored, and never executed. A slider, tab set or toggle written in JavaScript does nothing for a visitor. Build interactions with HTML and CSS: `<details>`, radio inputs and `:checked`, scroll snapping, the `popover` attribute. See [JavaScript](/developers/javascript).
+1. **A section's script runs against a copy.** It runs in a sandbox, and `root` is a copy of the section's own markup: toggle classes, set styles and text, add listeners, and the page mirrors each change. It cannot add or remove elements, measure layout, or set `src`, `href` or `on*`. Where HTML does it alone (`<details>`, radio inputs and `:checked`, scroll snapping, the `popover` attribute), use HTML. See [JavaScript](/developers/javascript).
 2. **The template language is not Vue, React, JSX or Liquid.** `v-if`, `@click`, `:class`, `{% assign %}` and JSX braces are refused. It is `{{ }}`, `{% if %}`, `{% for %}`, `{# #}` and filters, and nothing else.
 3. **Every name must be declared.** `{{ settings.subtitle }}` does not compile unless the schema declares `subtitle`. Check every path your template and CSS read against your schema.
 4. **Repeated content is blocks.** Never `feature_1`, `feature_2`, `feature_3`.
@@ -50,7 +50,7 @@ Most requests are not new sections. "Make the heading bigger", "use the dark sch
 - Write outside `sections/`, `templates/`, `config/`, `layout/`, `snippets/` and `locales/`.
 - Invent an asset. Images are chosen by the creator through an `image_picker`; never put a URL to a picture into a default.
 - Declare a capability the section does not need.
-- Use `window`, `document`, `fetch`, `localStorage` or `eval`, even in a script that is not run yet. They are refused when the file is saved.
+- Use `window`, `document`, `fetch`, `localStorage` or `eval`. They are refused when the file is saved; query inside `root` instead.
 - Add a contact form's sender to the mailing list. Only a box they ticked may do that.
 
 ## The brief the builder's AI is given
@@ -71,8 +71,8 @@ Some reference is added only when a request is about it. These topics are includ
 This is a Storelib theme. Sections are .storelib files written in the
 Storelib Builder Framework. Before writing or changing any file under
 sections/, read https://storelib.com/llms-full.txt and follow
-https://storelib.com/developers/ai. Section scripts do not run yet:
-build interactions with HTML and CSS.
+https://storelib.com/developers/ai. A section's script runs in a
+sandbox against a copy of its own markup: prefer HTML and CSS.
 ```
 
 **Codex.** Put the same paragraph in `AGENTS.md` at the root of the theme folder.
@@ -81,11 +81,69 @@ build interactions with HTML and CSS.
 
 **ChatGPT, Claude.ai and others.** Give it the link, or download [llms-full.txt](/llms-full.txt) and attach it, and ask for "a Storelib section, as one .storelib file".
 
-## Getting an agent's work onto a site
+## Connect an agent to a site
 
-Today, there are two ways:
+An agent can work on a site directly: list its files, read them, compile a section until it is clean, and save it. The creator connects it once, from the builder.
+
+1. Open the site in the website builder, then **Website settings › AI agents**.
+2. Name the connection, for example "Claude Code", and press **Connect**.
+3. Copy the token it shows. It is shown once. Storelib keeps only its hash, so a lost token is disconnected and replaced, never recovered.
+
+**Claude Code.** Run this in a terminal, with the token in place of `slb_...`:
+
+```bash
+claude mcp add --transport http storelib https://storelib.com/api/mcp --header "Authorization: Bearer slb_..."
+```
+
+**Codex.** Add this to `~/.codex/config.toml`, and set the environment variable `STORELIB_TOKEN` to the token:
+
+```toml
+[mcp_servers.storelib]
+url = "https://storelib.com/api/mcp"
+bearer_token_env_var = "STORELIB_TOKEN"
+```
+
+**Anything else** that speaks MCP over HTTP takes the same address and header. An agent or script that does not speak MCP can use the same token with plain HTTP, below.
+
+### The tools
+
+| Tool | What it does |
+| --- | --- |
+| `storelib_guide` | This framework, in full. Read it before writing a section. |
+| `storelib_list_files` | Every file of the site's theme, marked `yours` or `theme`. |
+| `storelib_read_file` | One file, the saved draft where there is one, with its `updated_at`. |
+| `storelib_compile` | Compiles a section without saving it, and answers `file:line message` for every error. |
+| `storelib_write_section` | Saves a section as a draft. It is compiled first and refused with its errors if it does not compile. |
+
+The loop that works: read the guide, write the file, compile it until it is clean, then save it. When changing a file that exists, pass the `updated_at` you read as `base_updated_at`, and a save made elsewhere in the meantime is refused rather than overwritten.
+
+### What a connection can and cannot do
+
+- It reaches **one site**. Not the creator's other sites, products, orders, subscribers or account.
+- It writes **section files only**: `sections/<type>.storelib`, lower case, digits, `_` and `-`. Templates, settings and layout are the creator's.
+- **Every save is a draft**, held to exactly the rules a save in the code editor is: it must compile, and its name must be free. Nothing reaches visitors until the creator publishes.
+- It cannot delete, rename or publish anything.
+- **A new section appears on the page the creator has open** in the builder, above the footer, labelled with the connection's name. If the builder is closed it waits in Add Section, under Created by you.
+- The creator can disconnect it at any time; the token stops working on its next request.
+
+### Over plain HTTP
+
+Every request carries `Authorization: Bearer slb_...`.
+
+| Request | Does |
+| --- | --- |
+| `GET /api/agent/v1/files` | Lists the theme's files. |
+| `GET /api/agent/v1/files?path=sections/x.storelib` | Reads one. |
+| `POST /api/agent/v1/compile` with `{ "path", "source" }` | Compiles without saving. `422` with `errors` when it does not compile. |
+| `PUT /api/agent/v1/files` with `{ "path", "source", "base_updated_at"? }` | Saves a section as a draft. |
+
+```bash
+curl -X PUT https://storelib.com/api/agent/v1/files \
+  -H "Authorization: Bearer slb_..." -H "Content-Type: application/json" \
+  -d '{"path":"sections/pricing.storelib","source":"<template>..."}'
+```
+
+## Without a connection
 
 - **One section.** Open the code editor in the website builder, create `sections/<type>.storelib`, paste the file and save. It compiles, appears in Add Section, and can be placed on any page.
 - **A whole theme.** Export the theme from the builder as a `.storelib-theme` file, unzip it, let the agent work on the folder, zip it and import it. The import checks every file and refuses the package with the reasons if anything is wrong, so a broken edit never reaches a live site.
-
-Connecting an agent to a site directly, so it can read and write the theme's files itself, is not available yet. When it is, it will use exactly the files, compiler and errors described here.

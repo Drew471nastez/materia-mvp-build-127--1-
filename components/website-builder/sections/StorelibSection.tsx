@@ -19,12 +19,13 @@
  * published page renders nothing, so a broken section is a gap and not a
  * broken storefront.
  */
-import { useMemo, type FormEvent, type MouseEvent } from "react"
+import { useMemo, useState, type FormEvent, type MouseEvent } from "react"
 import { SectionWrapper, type SectionProps } from "./_shared"
-import { useStorelibContext } from "./storelib-sources"
+import { useStorelibContext, useStorelibPage } from "./storelib-sources"
 import { useStorefront } from "../theme/storefront-context"
 import { formIntent } from "@/lib/website-builder/form-intent"
 import { subscribeToCreator } from "@/lib/website-builder/subscribe-client"
+import { useSectionScript } from "./section-sandbox"
 
 /**
  * A form's state, written onto the form so a section's own CSS can style it:
@@ -79,9 +80,24 @@ export function StorelibSection({
    */
   const { prerendered, render } = useStorelibContext()
   const { creatorId, inEditor } = useStorefront()
+  /**
+   * The element the section's own markup is drawn into, so its script can be
+   * given a sandbox of the same shape. State rather than a ref, because the
+   * hook below has to run again once the node exists.
+   */
+  const [scriptRoot, setScriptRoot] = useState<HTMLDivElement | null>(null)
+  const { template: pageTemplate } = useStorelibPage()
   const out = useMemo(() => {
     const ready = prerendered[section.id]
-    if (ready) return { ok: true as const, html: ready.html, css: ready.css }
+    if (ready) {
+      return {
+        ok: true as const,
+        html: ready.html,
+        css: ready.css,
+        script: ready.script ?? null,
+        capabilities: ready.capabilities ?? [],
+      }
+    }
     if (render) return render(section, theme)
     return {
       ok: false as const,
@@ -91,6 +107,32 @@ export function StorelibSection({
       }],
     }
   }, [prerendered, render, section, theme])
+
+  /**
+   * ITS SCRIPT RUNS, AND NOT HERE.
+   *
+   * A section's `<script>` is compiled and checked when it is saved, and
+   * then run inside one `<iframe sandbox="allow-scripts">` for the page,
+   * against a copy of this section's markup. Nothing in it can reach this
+   * document, the visitor's session or their cart; what comes back is a
+   * short list of allowed changes. See ./section-sandbox.tsx.
+   */
+  const script = out.ok === true ? out.script ?? null : null
+  useSectionScript(
+    script
+      ? {
+          id: section.id,
+          html: out.ok === true ? out.html : "",
+          bundle: script,
+          settings: section.settings ?? {},
+          blocks: (section.blocks ?? []) as unknown[],
+          theme: theme as unknown as Record<string, unknown>,
+          page: { template: pageTemplate },
+          capabilities: out.ok === true ? out.capabilities ?? [] : [],
+        }
+      : null,
+    scriptRoot,
+  )
 
   if (out.ok === false) {
     if (!isEditing && !insideEditor) return null
@@ -129,8 +171,9 @@ export function StorelibSection({
    * ===========================================================================
    *  AN EMAIL BOX IN A SECTION COLLECTS EMAILS FOR THIS SITE'S CREATOR
    * ===========================================================================
-   * A section's `<script>` does not run yet, so a form it draws cannot submit
-   * itself. This does, following the rule in lib/website-builder/form-intent.ts:
+   * A form a section draws is submitted by the page, not by the section's
+   * script, which runs in a sandbox with no network of its own. This does
+   * it, following the rule in lib/website-builder/form-intent.ts:
    * an email box with no address of its own goes to the creator's
    * Subscribers, with no script and nothing for the section's author to wire.
    *
@@ -181,7 +224,12 @@ export function StorelibSection({
       canvasRoundedBottomPx={canvasRoundedBottomPx}
     >
       {out.css ? <style dangerouslySetInnerHTML={{ __html: out.css }} /> : null}
-      <div onClickCapture={intercept} onSubmitCapture={onSubmit} dangerouslySetInnerHTML={{ __html: out.html }} />
+      <div
+        ref={setScriptRoot}
+        onClickCapture={intercept}
+        onSubmitCapture={onSubmit}
+        dangerouslySetInnerHTML={{ __html: out.html }}
+      />
     </SectionWrapper>
   )
 }

@@ -22,11 +22,17 @@
  * page. A script that needs one of these needs a capability, and reaches it
  * through `storelib.*`, where it can be logged, limited and revoked.
  *
- * The second line is the sandbox: the compiled script runs inside the
- * preview/storefront iframe, not in the editor, so even a name this list
- * missed has nothing to reach. Until that iframe exists (Phase D), scripts
- * are compiled and validated but NOT executed, and the compiled section says
- * so. That is a deliberate no rather than a quiet yes.
+ * The second line is the sandbox, and it is the one that matters: the
+ * compiled script runs inside an `<iframe sandbox="allow-scripts">` with an
+ * opaque origin, against a copy of its own section's markup, so even a name
+ * this list missed has nothing to reach. What it changes comes back to the
+ * page as a short list of allowed edits. See lib/storelib-theme/sandbox/ and
+ * components/website-builder/sections/section-sandbox.tsx.
+ *
+ * This list is kept even so. It turns "why does document.querySelector find
+ * nothing?" into an error with a line number at save time, and it is what
+ * keeps a section safe to place twice on one page: `root`, never the
+ * document.
  *
  * This is not a JavaScript parser. It is a tokenizer good enough to find
  * identifiers outside strings and comments, which is what a name list

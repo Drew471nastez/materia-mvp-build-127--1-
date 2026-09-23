@@ -28,6 +28,7 @@
  */
 
 import { StorefrontProvider, type Storefront } from "./storefront-context"
+import { SectionSandboxProvider } from "../sections/section-sandbox"
 import { SiteCartProvider } from "../site-cart"
 import { Fragment, useEffect, useState, type CSSProperties, type ReactNode } from "react"
 
@@ -399,6 +400,12 @@ export function ThemePage({
   return (
     <StorefrontProvider value={storefront ?? {}}>
     {/*
+      One sandbox for the page, created only if a section on it has a
+      script. See components/website-builder/sections/section-sandbox.tsx
+      for why a section's code does not run in this document.
+    */}
+    <SectionSandboxProvider inEditor={storefront?.inEditor === true}>
+    {/*
       THE CART WRAPS THE WHOLE PAGE, not the header, because both ends of it
       are on the page: the bag and its drawer are in the header, and the Add
       to cart buttons are in the sections below. Keyed by the creator rather
@@ -472,6 +479,7 @@ export function ThemePage({
       <CookieBanner theme={theme} />
     </div>
     </SiteCartProvider>
+    </SectionSandboxProvider>
     </StorefrontProvider>
   )
 }

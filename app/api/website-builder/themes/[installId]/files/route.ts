@@ -1,6 +1,6 @@
-import { LIMITS } from "@/lib/storelib-theme/types"
 import { NextResponse } from "next/server"
-import { editorContent, hasUnpublishedEdit, listVersions, recordVersion, saveDraft, sourceMap } from "@/lib/website-builder/theme-file-drafts"
+import { editorContent, hasUnpublishedEdit, listVersions, sourceMap } from "@/lib/website-builder/theme-file-drafts"
+import { saveThemeFile } from "@/lib/website-builder/save-theme-file"
 import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
 import { getDefaultFileContent } from "@/lib/website-builder/theme-file-tree"
@@ -174,41 +174,6 @@ export async function GET(req: Request, { params }: Params) {
  * with a creator's file shadowing the theme's of the same path. `except` is
  * the file being saved, which is allowed to keep its own name.
  */
-async function sectionNamesInUse(
-  supabase: NonNullable<Awaited<ReturnType<typeof getCreatorInstall>>["supabase"]>,
-  installId: string,
-  except: string,
-): Promise<Map<string, string>> {
-  /**
-   * DRAFTS COUNT. A section renamed in the editor and not yet published is
-   * still a name somebody has taken, and reading `content` alone would let a
-   * second section be given the same one — the clash only appearing when
-   * both went live. `sourceMap` takes the draft where there is one and skips
-   * a row with nothing in either half.
-   */
-  const withDraft = await supabase
-    .from("store_theme_custom_files")
-    .select("path, content, draft_content")
-    .eq("install_id", installId)
-    .like("path", "%.storelib")
-  const rows = withDraft.error
-    ? ((await supabase.from("store_theme_custom_files").select("path, content").eq("install_id", installId).like("path", "%.storelib")).data ?? [])
-    : (withDraft.data ?? [])
-  const sources: Record<string, string> = {}
-  for (const [p, c] of Object.entries(DEFAULT_THEME_SOURCES)) {
-    if (/^sections\/[a-z0-9_-]+\.storelib$/.test(p)) sources[p] = c
-  }
-  for (const [p, c] of Object.entries(sourceMap(rows as { path: string; content: string; draft_content?: string | null }[]))) {
-    if (/^sections\/[a-z0-9_-]+\.storelib$/.test(p)) sources[p] = c
-  }
-  const out = new Map<string, string>()
-  for (const [p, c] of Object.entries(sources)) {
-    if (p === except) continue
-    const r = compileSection(c, { file: p })
-    if (r.ok === true) out.set(r.value.schema.name.trim().toLowerCase(), p)
-  }
-  return out
-}
 
 export async function PUT(req: Request, { params }: Params) {
   const { installId } = await params
@@ -231,121 +196,25 @@ export async function PUT(req: Request, { params }: Params) {
   const { path, content } = parsed.data
 
   /**
-   * COMPILE BEFORE STORE. A .storelib file that does not compile is not
-   * saved, and the answer carries every error with the line it is on, so
-   * the code editor can point at it. A section file must also be the
-   * section its name says it is. Nothing half-broken ever reaches the
-   * canvas or the storefront (docs/theme/12-validation-and-errors.md).
+   * One function holds every rule a save passes: the compiler, the name
+   * nobody else has taken, the row nobody changed underneath you, the file
+   * count, the draft half and the version row. An agent connected to the
+   * site saves through the same one: lib/website-builder/save-theme-file.ts.
    */
-  if (path.endsWith(".storelib")) {
-    const m = path.match(/^sections\/([a-z0-9_-]+)\.storelib$/)
-    /**
-     * NO `expectType`. A section's type is its FILE NAME — that is what a
-     * page stores and what the library is keyed by — and the schema's own
-     * `type` line used to have to repeat it exactly or the file would not
-     * save. Every copy of a section therefore refused to save under its new
-     * name ("the schema says type hero_centered but the file is my_hero"),
-     * and so did every rename, which is the way most people start writing
-     * one. The line is documentation now: the name on the disk decides, and
-     * nothing has to be edited in two places to agree with itself.
-     */
-    const r = compileSection(content, { file: path })
-    if (r.ok === false) {
-      return NextResponse.json(
-        { error: `${path} did not compile`, errors: r.errors },
-        { status: 422 },
-      )
-    }
-    /**
-     * NO TWO SECTIONS SHARE A NAME. The name is what the Add Section
-     * library, the sidebar and the page's own list of sections all show, so
-     * two called "FAQ" are two rows nobody can tell apart — and the one you
-     * meant to edit is a coin toss. Checked here rather than in the editor
-     * because the editor only knows the files it has open.
-     */
-    if (m) {
-      const taken = await sectionNamesInUse(supabase, installId, path)
-      const name = r.value.schema.name.trim()
-      const clash = taken.get(name.toLowerCase())
-      if (clash) {
-        return NextResponse.json(
-          { error: `Another section is already called "${name}". It is ${clash}. Give this one a different name in its schema.` },
-          { status: 409 },
-        )
-      }
-    }
+  const result = await saveThemeFile(supabase, installId, path, content, {
+    baseUpdatedAt: parsed.data.base_updated_at,
+  })
+  if (result.ok === false) {
+    return NextResponse.json(
+      { error: result.error, ...(result.errors ? { errors: result.errors } : {}), ...(result.conflict ? { conflict: result.conflict } : {}) },
+      { status: result.status },
+    )
   }
-
-  /**
-   * HAS IT MOVED SINCE? Only checked when the editor said what it loaded, and
-   * only refused when the row is genuinely newer — the answer carries what is
-   * there now, so the editor can show both rather than just saying no.
-   */
-  if (parsed.data.base_updated_at) {
-    const { data: current } = await supabase
-      .from("store_theme_custom_files")
-      .select("content, updated_at")
-      .eq("install_id", installId)
-      .eq("path", path)
-      .maybeSingle()
-    if (current && current.updated_at && current.updated_at !== parsed.data.base_updated_at) {
-      return NextResponse.json(
-        {
-          error: "This file was saved somewhere else while you were editing it.",
-          conflict: { updated_at: current.updated_at, content: current.content },
-        },
-        { status: 409 },
-      )
-    }
-  }
-
-  /**
-   * SAVED, NOT SHIPPED. The file goes into its draft half and the live site
-   * carries on showing what was published, the same way a section's settings
-   * do. Publish is what puts it in front of visitors.
-   *
-   * And the save is kept: a row per version, so a mistake made this morning
-   * can be undone this afternoon. Neither depends on the migration having
-   * been run — see lib/website-builder/theme-file-drafts.ts.
-   */
-  /**
-   * HOW MANY FILES ONE THEME HOLDS. Enforced when a package was imported and
-   * never on the path a person uses, so an install could be grown one file at
-   * a time past what an export will accept — which turns into a theme that
-   * cannot be backed up, found at the moment somebody tries.
-   *
-   * Only counted when the file is a new one: editing the two-thousandth file
-   * is not what the limit is for.
-   */
-  {
-    const { data: existingRow } = await supabase
-      .from("store_theme_custom_files")
-      .select("path")
-      .eq("install_id", installId)
-      .eq("path", path)
-      .maybeSingle()
-    if (!existingRow) {
-      const { count } = await supabase
-        .from("store_theme_custom_files")
-        .select("path", { count: "exact", head: true })
-        .eq("install_id", installId)
-      if ((count ?? 0) >= LIMITS.filesPerPackage) {
-        return NextResponse.json(
-          { error: `A theme holds ${LIMITS.filesPerPackage} files. Delete one to add another.` },
-          { status: 413 },
-        )
-      }
-    }
-  }
-
-  const saved = await saveDraft(supabase, installId, path, content)
-  if (saved.ok === false) return NextResponse.json({ error: saved.error }, { status: 500 })
-  await recordVersion(supabase, installId, path, content, "save")
 
   return NextResponse.json({
-    file: saved.row,
+    file: result.row,
     /** False when this install has no draft column yet: the save went live. */
-    drafted: saved.drafts,
+    drafted: result.drafted,
   })
 }
 

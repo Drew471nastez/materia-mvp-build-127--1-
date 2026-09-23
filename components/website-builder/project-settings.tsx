@@ -1,7 +1,8 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
-import { ArrowLeft, Check, Copy, ExternalLink, FileText, Globe, History, Loader2, Rocket, Scale, Settings, Sparkles, Upload } from "lucide-react"
+import { ArrowLeft, Bot, Check, Copy, ExternalLink, FileText, Globe, History, Loader2, Rocket, Scale, Settings, Sparkles, Upload } from "lucide-react"
+import { AgentConnectionsPanel } from "@/components/website-builder/agent-connections-panel"
 
 import { relativeTime } from "@/components/website-builder/publish-panel"
 import { createPortal } from "react-dom"
@@ -33,7 +34,7 @@ import { POLICY_PAGES } from "@/lib/website-builder/policy-pages"
  * restore that takes a safety copy first).
  */
 
-type Section = "general" | "domains" | "policies" | "publishing" | "backups"
+type Section = "general" | "domains" | "policies" | "publishing" | "backups" | "agents"
 
 interface BackupRow {
   id: string
@@ -230,6 +231,7 @@ export function ProjectSettings({
     { id: "policies", label: "Policies", Icon: Scale },
     { id: "publishing", label: "Publishing", Icon: Rocket },
     { id: "backups", label: "Backups", Icon: History },
+    { id: "agents", label: "AI agents", Icon: Bot },
   ]
 
   const ago = relativeTime(publishedAt)
@@ -435,6 +437,8 @@ export function ProjectSettings({
               </div>
             </>
           )}
+
+          {section === "agents" && <AgentConnectionsPanel installId={installId} />}
 
           {section === "backups" && (
             <>

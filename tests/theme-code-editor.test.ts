@@ -464,7 +464,11 @@ section("A section that lives in a .storelib file is edited as that file")
 section("Save compiles, errors carry lines, the canvas finds out")
 // ===========================================================================
 {
-  const route = readFileSync(join(root, "app/api/website-builder/themes/[installId]/files/route.ts"), "utf8")
+  /* The save's rules live in one module now, shared with the agent API; the
+     route delegates to it. Read together, they are the same rules as before. */
+  const route =
+    readFileSync(join(root, "app/api/website-builder/themes/[installId]/files/route.ts"), "utf8") +
+    readFileSync(join(root, "lib/website-builder/save-theme-file.ts"), "utf8")
   const codePage = readFileSync(join(root, "app/website-builder/code/[installId]/page.tsx"), "utf8")
   const editor = readFileSync(join(root, "app/website-builder/editor/[installId]/page.tsx"), "utf8")
   // `<name>.storelib.com` is the website and lives at /w; the apex path is
@@ -474,7 +478,9 @@ section("Save compiles, errors carry lines, the canvas finds out")
 
   check(
     "PUT compiles a .storelib before storing it and refuses with the errors, 422",
-    /compileSection\(content, \{ file: path \}\)/.test(route) && /\{ error: `\$\{path\} did not compile`, errors: r\.errors \},\s*\{ status: 422 \}/.test(route),
+    /compileSection\(content, \{ file: path \}\)/.test(route)
+      && /status: 422, error: `\$\{path\} did not compile`, errors: r\.errors/.test(route)
+      && /saveThemeFile\(supabase, installId, path, content/.test(route),
   )
   /**
    * AND IT DOES NOT DEMAND THE SCHEMA REPEAT THE FILE NAME. A section's type
@@ -534,7 +540,11 @@ section("Save compiles, errors carry lines, the canvas finds out")
 section("A rename is a delete, for the pages that use the section")
 // ===========================================================================
 {
-  const route = readFileSync(join(root, "app/api/website-builder/themes/[installId]/files/route.ts"), "utf8")
+  /* The save's rules live in one module now, shared with the agent API; the
+     route delegates to it. Read together, they are the same rules as before. */
+  const route =
+    readFileSync(join(root, "app/api/website-builder/themes/[installId]/files/route.ts"), "utf8") +
+    readFileSync(join(root, "lib/website-builder/save-theme-file.ts"), "utf8")
   const codePage = readFileSync(join(root, "app/website-builder/code/[installId]/page.tsx"), "utf8")
 
   /**
@@ -649,7 +659,11 @@ section("Create writes the file, and you name it rather than its path")
 // ===========================================================================
 {
   const codePage = readFileSync(join(root, "app/website-builder/code/[installId]/page.tsx"), "utf8")
-  const route = readFileSync(join(root, "app/api/website-builder/themes/[installId]/files/route.ts"), "utf8")
+  /* The save's rules live in one module now, shared with the agent API; the
+     route delegates to it. Read together, they are the same rules as before. */
+  const route =
+    readFileSync(join(root, "app/api/website-builder/themes/[installId]/files/route.ts"), "utf8") +
+    readFileSync(join(root, "lib/website-builder/save-theme-file.ts"), "utf8")
 
   /**
    * Create used to open a tab and nothing else: the starter went in the
@@ -829,7 +843,11 @@ section("Nothing typed into this editor is lost without somebody choosing it")
 // ===========================================================================
 {
   const codePage = readFileSync(join(root, "app/website-builder/code/[installId]/page.tsx"), "utf8")
-  const route = readFileSync(join(root, "app/api/website-builder/themes/[installId]/files/route.ts"), "utf8")
+  /* The save's rules live in one module now, shared with the agent API; the
+     route delegates to it. Read together, they are the same rules as before. */
+  const route =
+    readFileSync(join(root, "app/api/website-builder/themes/[installId]/files/route.ts"), "utf8") +
+    readFileSync(join(root, "lib/website-builder/save-theme-file.ts"), "utf8")
 
   /**
    * Clicking another file in the tree used to discard everything typed into
@@ -853,10 +871,11 @@ section("Nothing typed into this editor is lost without somebody choosing it")
 
   // Two tabs, one file.
   check("a save carries what this editor loaded", /base_updated_at: savedAt \?\? undefined/.test(codePage) && /base_updated_at: z\.string\(\)\.optional\(\)/.test(route))
-  check("and the server refuses one that would overwrite a newer file", /current\.updated_at !== parsed\.data\.base_updated_at/.test(route) && /status: 409/.test(route))
+  check("and the server refuses one that would overwrite a newer file",
+    /current\.updated_at !== opts\.baseUpdatedAt/.test(route) && /baseUpdatedAt: parsed\.data\.base_updated_at/.test(route) && /status: 409/.test(route))
   check("the refusal carries the other version, so neither is lost", /conflict: \{ updated_at: current\.updated_at, content: current\.content \}/.test(route) && /setConflict\(\{ path: selectedFile\.path/.test(codePage))
   check("and whoever is here chooses between them", /Show theirs/.test(codePage) && /Keep mine and save/.test(codePage))
-  check("an older client that sends no version still saves", /if \(parsed\.data\.base_updated_at\) \{/.test(route))
+  check("an older client that sends no version still saves", /if \(opts\.baseUpdatedAt && current/.test(route))
 }
 
 // ===========================================================================
@@ -1132,7 +1151,11 @@ section("The code editor on a phone")
     held.ok === false && held.errors.some((e) => /a section's type is its file name/.test(e.message)),
   )
 
-  const route = readFileSync(join(root, "app/api/website-builder/themes/[installId]/files/route.ts"), "utf8")
+  /* The save's rules live in one module now, shared with the agent API; the
+     route delegates to it. Read together, they are the same rules as before. */
+  const route =
+    readFileSync(join(root, "app/api/website-builder/themes/[installId]/files/route.ts"), "utf8") +
+    readFileSync(join(root, "lib/website-builder/save-theme-file.ts"), "utf8")
   const code = route.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/(^|[^:])\/\/.*$/gm, "$1")
   check("neither saving nor renaming asks it to", !/expectType/.test(code))
   check(

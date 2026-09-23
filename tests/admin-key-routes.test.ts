@@ -48,6 +48,9 @@ const PROOFS: [string, RegExp][] = [
   ["the admin password", /isAdminAuthenticated/],
   ["a shared secret, failing closed", /requireBearerSecret\(/],
   ["a signature on the payload", /constructEvent|HOOK_SECRET/],
+  /* An agent connected to one site: its token, hashed, looked up, revocable.
+     See lib/agent-access/tokens.ts. */
+  ["a site connection token", /await authenticateAgent\(request\)/],
 ]
 
 /**

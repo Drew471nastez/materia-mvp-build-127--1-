@@ -244,13 +244,13 @@ function parseExpr(src: string, line: number): Expr {
  * level and exported so the Developer Hub's list of refusals is generated from
  * this rather than retyped (lib/developers/directives.ts).
  *
- * `v-on:` and `@click` USED TO SAY "a <script> block, which receives the
- * section's own root". Section scripts are checked and stored but not run,
- * so that message sent every author who reached for a click handler to write
- * code that would never execute, and the section published looking finished
- * and doing nothing. It now names what does work.
+ * `v-on:` and `@click` name the two ways a section responds to a person:
+ * HTML that does it with no script at all, which is right for open and
+ * close, tabs and pop-ups, and a listener in the section's own <script>
+ * block, which runs in a sandbox against a copy of the section. Both are
+ * named, HTML first, because it works before any script has loaded.
  */
-const NO_SCRIPT_YET = `HTML that does it without script: <details> for open and close, a radio input with :checked for tabs, popovertarget for a pop-up. Section scripts are not run yet`
+const HANDLER_INSTEAD = `HTML where it does it alone (<details> for open and close, a radio input with :checked for tabs, popovertarget for a pop-up), or a listener in the section's <script> block: root.querySelector(".x").addEventListener("click", …)`
 
 export const FOREIGN_SYNTAX: [RegExp, string][] = [
   [/\sv-if\s*=/i, `{% if … %} … {% endif %}`],
@@ -262,15 +262,15 @@ export const FOREIGN_SYNTAX: [RegExp, string][] = [
   [/\sv-model\s*=/i, `a setting in the schema; a section does not hold state`],
   [/\sv-html\s*=/i, `{{ settings.body | raw }}, for a richtext setting`],
   [/\sv-text\s*=/i, `{{ settings.text }}`],
-  [/\sv-on:/i, NO_SCRIPT_YET],
-  [/\s@click\s*=/i, NO_SCRIPT_YET],
+  [/\sv-on:/i, HANDLER_INSTEAD],
+  [/\s@click\s*=/i, HANDLER_INSTEAD],
   [/\s:key\s*=/i, `nothing: a {% for %} needs no key`],
   [/\s:([a-z-]+)\s*=/i, `the attribute itself, with the value in it`],
 ]
 
 export const FORBIDDEN_MARKUP: [RegExp, string][] = [
-  [/<script\b/i, "a <script> tag inside <template>. Section scripts are not run yet, so build it with HTML and CSS: <details>, a radio input with :checked, or popovertarget"],
-  [/\son[a-z]+\s*=/i, "an on*= attribute. Section scripts are not run yet, so build it with HTML and CSS: <details>, a radio input with :checked, or popovertarget"],
+  [/<script\b/i, "a <script> tag inside <template>. A section's script goes in its own <script> block, beside <template>, where it runs in a sandbox"],
+  [/\son[a-z]+\s*=/i, "an on*= attribute. Add the listener in the section's <script> block instead, or use HTML that needs none: <details>, a radio input with :checked, or popovertarget"],
   [/javascript:/i, "a javascript: URL"],
   [/<object\b|<embed\b/i, "an <object> or <embed>"],
 ]
