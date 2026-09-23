@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { sendBuyerDownloadEmail, sendSellerNotificationEmail, resolveSellerEmail } from "@/lib/email"
+import { requireBearerSecret } from "@/lib/api/require-secret"
 
 export const runtime = "nodejs"
 
@@ -9,6 +10,17 @@ const RETRY_DELAYS = [5000, 15000, 30000] // 5s, 15s, 30s
 
 export async function POST(request: Request) {
   try {
+    /*
+      NOTHING SIGNED IN REACHES THIS. It took an order id and nothing else,
+      re-sent that order's emails with the service role key, and slept up to
+      thirty seconds inside the request while doing it — so a stranger with
+      an order id could both mail somebody else's buyer and hold a function
+      open at will. It is an internal retry, so it carries the same bearer
+      token the cron routes do, and refuses when that is not configured.
+    */
+    const denied = requireBearerSecret(request, "CRON_SECRET")
+    if (denied) return denied
+
     const { orderId } = await request.json()
 
     if (!orderId) {

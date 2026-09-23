@@ -4,7 +4,7 @@ import { useEffect, useState, useLayoutEffect, useCallback, useDeferredValue, us
 import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
 import {
-  ArrowLeft, Monitor, Smartphone, Loader2, Code2, ChevronDown, Plus, Eye, EyeOff, GripVertical, Trash2, Copy, Settings, Check, Layers, X, RotateCcw, Layout, AlignLeft, Image, ShoppingBag, MessageSquare, HelpCircle, Megaphone, BarChart2, Grid, Award, LayoutGrid, DollarSign, LayoutTemplate, Video, Users, MapPin, Mail, Clock, BookOpen, Shirt, Columns, Play, Star, Timer, Shield, Rss, SlidersHorizontal, Code, Bell, ChevronRight, Package, Undo2, Redo2, ExternalLink, Search, FileText, ArrowRight, FolderOpen, MoreHorizontal, Upload, ImageIcon, Info, RefreshCw, Crop, CheckCircle, Type, Square, Rows3, Grid3x3, MousePointerClick, MoveHorizontal, Hash, Columns2, LayoutDashboard, Badge as BadgeIcon, PanelTop, PanelBottom, ArrowUp, ArrowDown,
+  ArrowLeft, Monitor, Smartphone, Loader2, Code2, ChevronDown, Plus, Eye, EyeOff, GripVertical, Trash2, Copy, Settings, Check, Layers, X, RotateCcw, Layout, AlignLeft, Image, ShoppingBag, MessageSquare, HelpCircle, Megaphone, BarChart2, Grid, Award, LayoutGrid, DollarSign, LayoutTemplate, Video, Users, MapPin, Mail, Clock, BookOpen, Shirt, Columns, Play, Star, Timer, Shield, Rss, SlidersHorizontal, Code, Bell, ChevronRight, Package, Undo2, Redo2, ExternalLink, Search, FileText, ArrowRight, FolderOpen, MoreHorizontal, Upload, Info, Crop, CheckCircle, Type, Square, Rows3, Grid3x3, MousePointerClick, MoveHorizontal, Hash, Columns2, LayoutDashboard, Badge as BadgeIcon, PanelTop, PanelBottom, ArrowUp, ArrowDown,
 } from "lucide-react"
 import {
   DndContext,
@@ -37,6 +37,7 @@ import {
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { MobileEditorSheet } from "@/components/website-builder/mobile-editor-sheet"
 import { SliderNumberControl } from "@/components/website-builder/editor/slider-number-control"
+import { WbImagePicker } from "@/components/website-builder/editor/image-picker"
 import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
 import { hapticTap } from "@/lib/native-bridge"
 import { BuilderLoader, useDelayedFlag, useLinger } from "@/components/website-builder/builder-loader"
@@ -1625,173 +1626,11 @@ function AddSectionModal({
 }
 
 // ── Professional Image Picker ────────────────────────────────
-function WbImagePicker({
-  value,
-  onChange,
-  label,
-  aspectRatio = "video",
-  bucket = "store-builder-images" as const,
-  folder = "logos",
-}: {
-  value: string | undefined
-  onChange: (url: string | null) => void
-  label?: string
-  aspectRatio?: "square" | "video" | "logo" | "favicon"
-  bucket?: "product-images" | "avatars" | "covers" | "store-builder-images"
-  folder?: string
-}) {
-  const [uploading, setUploading] = useState(false)
-  const [dragOver, setDragOver] = useState(false)
-  const inputRef = useRef<HTMLInputElement>(null)
-
-  const url = typeof value === "string" && value ? value : null
-
-  // Allowed image MIME types for security
-  const ALLOWED_TYPES = new Set([
-    "image/jpeg", "image/png", "image/gif", "image/webp", "image/svg+xml", "image/avif",
-  ])
-  // Safe file extensions
-  const SAFE_EXTENSIONS = new Set(["jpg", "jpeg", "png", "gif", "webp", "svg", "avif"])
-
-  const handleFile = useCallback(async (file: File) => {
-    if (!ALLOWED_TYPES.has(file.type)) {
-      toast.error("Only JPEG, PNG, GIF, WebP, SVG, and AVIF images are allowed")
-      return
-    }
-    const ext = (file.name.split(".").pop() ?? "").toLowerCase()
-    if (!SAFE_EXTENSIONS.has(ext)) {
-      toast.error("Invalid file extension")
-      return
-    }
-    if (file.size > 5 * 1024 * 1024) { toast.error("Image must be under 5 MB"); return }
-
-    setUploading(true)
-    try {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not logged in")
-
-      // Sanitize filename: only keep alphanumeric + timestamp
-      const safeName = `${Date.now()}.${ext}`
-      const filePath = `${user.id}/${folder}/${safeName}`
-
-      const { error: uploadError } = await supabase.storage.from(bucket).upload(filePath, file, {
-        cacheControl: "31536000", // 1 year — immutable content-addressed names
-        upsert: true,
-        contentType: file.type,
-      })
-      if (uploadError) throw uploadError
-
-      const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(filePath)
-      onChange(urlData.publicUrl)
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Upload failed")
-    } finally {
-      setUploading(false)
-    }
-  }, [bucket, folder, onChange])
-
-  const emptyAspectClass =
-    aspectRatio === "favicon" ? "min-h-[60px]"
-    : aspectRatio === "square" ? "aspect-square"
-    : aspectRatio === "logo" ? "min-h-[72px]"
-    : "aspect-video"
-  // Filled preview is kept small/compact so it doesn't dominate the sidebar
-  const filledClass =
-    aspectRatio === "favicon" ? "h-[60px]"
-    : aspectRatio === "square" ? "aspect-square max-h-[120px]"
-    : aspectRatio === "logo" ? "h-[68px]"
-    : "h-[96px]"
-
-  if (url) {
-    return (
-      <div className="space-y-2">
-        {label && <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">{label}</p>}
-        <div className={cn("relative w-full rounded-lg overflow-hidden border border-border bg-[#fafafa] flex items-center justify-center", filledClass)}>
-          <img src={url} alt="" className="max-w-full max-h-full object-contain p-2" />
-        </div>
-        {/*
-          ONE CONTROL, SPLIT, not two buttons with a gap between them. Two
-          outlined pills side by side read as two separate decisions; this is
-          one decision with two answers, which is what the picture asked for.
-          44px on a phone, because that is the smallest thing a thumb hits.
-        */}
-        <div className="grid grid-cols-2 overflow-hidden rounded-lg border border-border">
-          <button
-            type="button"
-            className="flex h-11 items-center justify-center gap-1.5 text-[13px] font-medium transition-colors hover:bg-muted/60 md:h-9 md:text-xs"
-            onClick={() => inputRef.current?.click()}
-          >
-            <RefreshCw className="h-3.5 w-3.5 md:h-3 md:w-3" />
-            Replace
-          </button>
-          <button
-            type="button"
-            className="flex h-11 items-center justify-center gap-1.5 border-l border-border text-[13px] font-medium transition-colors hover:bg-muted/60 md:h-9 md:text-xs"
-            onClick={() => onChange(null)}
-          >
-            <Trash2 className="h-3.5 w-3.5 md:h-3 md:w-3" />
-            Remove
-          </button>
-        </div>
-        <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = "" }} />
-      </div>
-    )
-  }
-
-  return (
-    <div className="space-y-2.5">
-      {label && <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">{label}</p>}
-      <div
-        className={cn(
-          /* `wb-dropzone` is what app/globals.css shrinks on a phone: in a
-             bottom sheet an aspect-video box is a third of the screen given
-             to an empty rectangle. */
-          "wb-dropzone relative w-full rounded-lg border-2 border-dashed transition-colors cursor-pointer flex flex-col items-center justify-center gap-1.5 py-5",
-          emptyAspectClass,
-          dragOver ? "border-foreground/40 bg-muted" : "border-border bg-[#fafafa] hover:border-foreground/25 hover:bg-muted/60",
-        )}
-        onClick={() => { if (!uploading) inputRef.current?.click() }}
-        onDragOver={e => { e.preventDefault(); setDragOver(true) }}
-        onDragLeave={() => setDragOver(false)}
-        onDrop={e => { e.preventDefault(); setDragOver(false); if (uploading) return; const f = e.dataTransfer.files[0]; if (f) handleFile(f) }}
-      >
-        {uploading ? (
-          /*
-            ═══════════════════════════════════════════════════════════════
-             WHAT IT LOOKS LIKE WHILE IT UPLOADS
-            ═══════════════════════════════════════════════════════════════
-            A spinner over a label over a bar: three things stacked, 58px of
-            them, inside a box that a phone shrinks to 56px with no vertical
-            padding. They overflowed it, touched its edges and ran into each
-            other. That is the cramped, misaligned state in the report.
-
-            It is a ROW now, which is the shape the box actually is on a
-            phone, and the same shape the empty state beside it already uses.
-            One line, centred, with room to spare in 56px.
-
-            AND THE PERCENTAGE IS GONE, because it was never a percentage.
-            It was set to 10, then 30, then 80, then 100 around a call that
-            reports no progress at all, so it sat at 30 for the whole upload
-            and then jumped. A spinner says the same true thing without
-            claiming to know how far along it is.
-          */
-          <div className="flex items-center justify-center gap-2.5">
-            <span className="h-4 w-4 shrink-0 rounded-full border-2 border-foreground/70 border-t-transparent animate-spin" />
-            <span className="text-[13px] font-medium text-muted-foreground">Uploading</span>
-          </div>
-        ) : (
-          <>
-            <ImageIcon className="h-5 w-5 text-muted-foreground/50" />
-            <p className="text-[13px] font-medium text-muted-foreground">Add Image</p>
-            <p className="text-[10px] text-muted-foreground/70">Click to upload or drag &amp; drop</p>
-          </>
-        )}
-      </div>
-      <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = "" }} />
-    </div>
-  )
-}
+/*
+  WbImagePicker moved to components/website-builder/editor/image-picker.tsx.
+  It is imported above. The move is so scripts/check-image-picker.mjs mounts
+  the same component the editor renders rather than a copy of it.
+*/
 
 // ── Branding Tab Panel — logo/favicon/tagline with header sync ──
 function BrandingTabPanel({

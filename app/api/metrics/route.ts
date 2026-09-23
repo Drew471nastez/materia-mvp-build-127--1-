@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { getAllMetrics } from "@/lib/observability"
+import { requireBearerSecret } from "@/lib/api/require-secret"
 
 /**
  * GET /api/metrics
@@ -12,15 +13,10 @@ import { getAllMetrics } from "@/lib/observability"
  * Protected: requires CRON_SECRET or admin auth.
  */
 export async function GET(request: Request) {
-  const authHeader = request.headers.get("authorization")
-  const cronSecret = process.env.CRON_SECRET
-
-  // Only allow with secret or in development
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-    if (process.env.NODE_ENV !== "development") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-  }
+  /* Fails closed, including when CRON_SECRET is not configured. The
+     development escape hatch stays: a local run has no secret to present. */
+  const denied = requireBearerSecret(request, "CRON_SECRET")
+  if (denied && process.env.NODE_ENV !== "development") return denied
 
   return NextResponse.json(getAllMetrics())
 }

@@ -108,12 +108,41 @@ export async function GET(req: Request, { params }: Params) {
     const homeSections = ((home?.draft_sections ?? home?.sections) as SectionInstance[] | null) ?? []
     const theme = ((settingsRow?.draft_settings ?? settingsRow?.settings) as ThemeSettingsValues | null) ?? ({} as ThemeSettingsValues)
     const generated = pageKey === "products" ? shopSections(homeSections, theme) : searchSections(homeSections)
-    return NextResponse.json({ page: null, sections: generated, has_draft: false, generated: true })
+    return NextResponse.json({ page: null, sections: sanitizeSections(generated), has_draft: false, generated: true })
   }
 
+  /**
+   * ===========================================================================
+   *  CLEANED ON THE WAY OUT AS WELL AS ON THE WAY IN
+   * ===========================================================================
+   * PUT below runs every save through `sanitizeSections`, which is the
+   * authority. It is not the only way a row gets written, though: a theme
+   * imported from a package, a duplicate, a snapshot, a row edited by hand.
+   * Those arrive already in the table, and this is what hands them to the
+   * editor, where the canvas renders section settings with
+   * `dangerouslySetInnerHTML` on storelib.com in the creator's own signed-in
+   * session.
+   *
+   * So the read is cleaned too. lib/website-builder/published-site.ts and
+   * app/(site)/w/[username]/render-site.tsx already do this for what a
+   * visitor sees; the editor was the one read path that did not, and the
+   * editor is the one where the person looking at it is signed in.
+   *
+   * `sanitizeSections` returns the same array when nothing was unsafe, so
+   * the ordinary case costs a walk and allocates nothing.
+   */
+  const clean = sanitizeSections(sections ?? [])
+  const page = data
+    ? {
+        ...data,
+        sections: data.sections ? sanitizeSections(data.sections as SectionInstance[]) : data.sections,
+        draft_sections: data.draft_sections ? sanitizeSections(data.draft_sections as SectionInstance[]) : data.draft_sections,
+      }
+    : data
+
   return NextResponse.json({
-    page: data,
-    sections: sections ?? [],
+    page,
+    sections: clean,
     has_draft: data?.draft_sections !== null,
   })
 }

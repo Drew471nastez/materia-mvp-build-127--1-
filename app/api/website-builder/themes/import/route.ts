@@ -27,6 +27,8 @@ import {
   type MediaKind,
 } from "@/lib/storelib-theme/media"
 import { SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
+import { sanitizeSections, sanitizeThemeSettings } from "@/lib/website-builder/sanitize-sections"
+import type { SectionInstance } from "@/lib/website-builder/types"
 import { STORELIB_DEFAULT_ID, THEME_REGISTRY, themeCatalogRow } from "@/lib/website-builder/theme-registry"
 
 import { DEFAULT_THEME_SOURCES } from "../../../../../themes/default/sources.generated"
@@ -146,12 +148,38 @@ export async function POST(req: Request) {
       }
     }
 
-    const settings = rewriteUrls(JSON.parse(pkg.files["config/settings.json"] ?? "{}"), refToUrl) as Record<string, unknown>
+    /**
+     * ===================================================================
+     *  A PACKAGE IS SOMEBODY ELSE'S HTML, AND IT IS CLEANED AT THE DOOR
+     * ===================================================================
+     * Several settings reach the DOM as markup rather than as text: a
+     * custom HTML block, a rich text body, an FAQ answer, a tab's
+     * content, a pasted map embed. Inside one account that is the
+     * creator's own writing. A package is not: it is a file somebody
+     * else built, and the moment themes are passed between creators its
+     * settings are a stranger's markup running on this creator's site,
+     * under storelib.com, in their editor session and in front of their
+     * customers.
+     *
+     * `/api/website-builder/themes/[installId]/sections` already cleans
+     * everything the editor saves. This is the other way in, and it
+     * wrote whatever the zip contained. So the same allow list runs
+     * here, before a row exists: script, event handlers and javascript:
+     * URLs are dropped rather than stored and dealt with later.
+     */
+    const settings = sanitizeThemeSettings(
+      rewriteUrls(JSON.parse(pkg.files["config/settings.json"] ?? "{}"), refToUrl) as Record<string, unknown>,
+    )
     const pages: { page_key: string; sections: unknown }[] = []
     for (const [path, text] of Object.entries(pkg.files)) {
       const m = path.match(/^templates\/([A-Za-z0-9_.\-]+)\.json$/)
       if (!m) continue
-      pages.push({ page_key: m[1], sections: rewriteUrls(sectionsFromTemplate(JSON.parse(text)), refToUrl) })
+      pages.push({
+        page_key: m[1],
+        sections: sanitizeSections(
+          rewriteUrls(sectionsFromTemplate(JSON.parse(text)), refToUrl) as SectionInstance[],
+        ),
+      })
     }
 
     const { data: maxRow } = await admin
@@ -284,8 +312,10 @@ export async function POST(req: Request) {
   }
 
   // Rewrite manifest URLs back to the freshly uploaded URLs
-  const importedSettings = rewriteUrls(manifest.settings ?? {}, localToRemote) as Record<string, unknown>
-  const importedPages = rewriteUrls(manifest.pages ?? [], localToRemote) as { page_key: string; sections: unknown }[]
+  const importedSettings = sanitizeThemeSettings(rewriteUrls(manifest.settings ?? {}, localToRemote) as Record<string, unknown>)
+  /* Same reasoning as the package path above: cleaned before it is stored. */
+  const importedPages = (rewriteUrls(manifest.pages ?? [], localToRemote) as { page_key: string; sections: unknown }[])
+    .map(p => ({ ...p, sections: sanitizeSections(p.sections as SectionInstance[]) }))
 
   // Stage 3 forward-compat: if the manifest includes a `theme_pack`
   // block (schema-only overrides shipped by the creator), stash it

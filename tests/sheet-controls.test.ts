@@ -38,6 +38,7 @@ function main() {
   const editor = read("app/website-builder/editor/[installId]/page.tsx")
   const panels = read("components/website-builder/editor/design-panels.tsx")
   const sheet = read("components/website-builder/mobile-editor-sheet.tsx")
+  const picker = read("components/website-builder/editor/image-picker.tsx")
 
   /* The whole block, so "scoped to the sheet" can be checked rather than assumed. */
   const start = css.indexOf("THE EDITOR'S SHEET IS READ AND PRESSED WITH A THUMB")
@@ -88,7 +89,8 @@ function main() {
     /\.wb-dropzone > p \+ p \{[\s\S]{0,40}display: none;/.test(block),
     "the probe reads its computed display; this is only the rule that sets it",
   )
-  check("the dropzone carries the class the rules need", /"wb-dropzone relative w-full rounded-lg border-2 border-dashed/.test(editor))
+  check("the dropzone carries the class the rules need", /"wb-dropzone relative w-full rounded-lg border-2 border-dashed/.test(picker),
+    "the picker is its own module now; the rules still size this element")
   check(
     "and the slider the rules size is the one the editor uses",
     /import \{ SliderNumberControl \} from "@\/components\/website-builder\/editor\/slider-number-control"/.test(editor),
@@ -169,31 +171,40 @@ function main() {
     /\.wb-sheet-panel\[data-dir="in"\],\s*\n\.wb-sheet-panel\[data-dir="back"\] \{\s*\n\s*will-change: transform, opacity;/.test(css),
     "a layer promoted halfway through its own slide drops the frames it spends being promoted")
 
-  console.log("\nReplace and Remove are one control, and uploading fits the box")
+  console.log("\nReplace and Remove are one control, and uploading happens over the picture")
 
   check("the two answers share one bordered row, split down the middle",
-    /<div className="grid grid-cols-2 overflow-hidden rounded-lg border border-border">/.test(editor)
-      && /border-l border-border text-\[13px\] font-medium transition-colors/.test(editor),
+    /<div className="grid grid-cols-2 overflow-hidden rounded-lg border border-border">/.test(picker)
+      && /border-l border-border text-\[13px\] font-medium transition-colors/.test(picker),
     "two outlined pills with a gap read as two separate decisions")
   check("at 44px for a thumb, and the sidebar's own size on a desktop",
-    (editor.match(/flex h-11 items-center justify-center gap-1\.5[^"]*md:h-9/g) ?? []).length === 2)
+    (picker.match(/flex h-11 items-center justify-center gap-1\.5[^"]*md:h-9/g) ?? []).length === 2)
   /*
-    A spinner over a label over a bar is 58px of content in a box a phone
-    shrinks to 56px with no vertical padding. It overflowed, touched the
-    edges and ran into itself.
+    THE UPLOADING STATE USED TO BE A BOX OF ITS OWN. A spinner and the word
+    Uploading, in the dashed empty dropzone, with no picture anywhere — so
+    choosing an image made the panel go blank, then showed a spinner, then
+    went blank again while the stored copy loaded, then popped.
+
+    It is now the picture you chose with the spinner over it, which is both
+    fewer states and the truthful one: the thing being uploaded is visible
+    the entire time it is uploading. tests/image-picker.test.ts holds the
+    detail and scripts/check-image-picker.mjs measures the sequence.
   */
-  check("the uploading state is one centred row, the shape the box actually is",
-    /<div className="flex items-center justify-center gap-2\.5">\s*\n\s*<span className="h-4 w-4 shrink-0 rounded-full border-2 border-foreground\/70 border-t-transparent animate-spin" \/>/.test(editor))
+  check("the spinner sits over the picture rather than in place of it",
+    /\{uploading && \(\s*\n\s*<span className="absolute inset-0 z-10 flex items-center justify-center bg-white\/55">/.test(picker))
+  check("and the dashed box has no uploading state left to get wrong",
+    !/>Uploading</.test(picker),
+    "there is nothing to lay out in 56px any more, because nothing is laid out there")
   /*
     It was set to 10, then 30, then 80, then 100 around a call that reports
     no progress at all, so it sat at 30 for the whole upload and jumped.
   */
   check("and it claims no percentage, because there was never one to claim",
-    !/Uploading\.\.\. \{progress\}%/.test(editor) && !/setProgress/.test(editor.slice(editor.indexOf("function WbImagePicker"))),
+    !/\{progress\}%/.test(picker) && !/setProgress/.test(picker),
     "a number that is not measured is worse than no number")
   check("the box cannot be re-opened while it is busy",
-    /onClick=\{\(\) => \{ if \(!uploading\) inputRef\.current\?\.click\(\) \}\}/.test(editor)
-      && /if \(uploading\) return; const f = e\.dataTransfer\.files\[0\]/.test(editor))
+    /const pick = \(\) => \{ if \(!uploading\) inputRef\.current\?\.click\(\) \}/.test(picker)
+      && /if \(uploading\) return; const f = e\.dataTransfer\.files\[0\]/.test(picker))
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }

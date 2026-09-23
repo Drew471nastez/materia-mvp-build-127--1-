@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { createClient as createServiceClient } from "@supabase/supabase-js"
+import { matchesSecret } from "@/lib/api/require-secret"
 
 const VERCEL_TOKEN = process.env.VERCEL_TOKEN
 const VERCEL_PROJECT_ID = process.env.VERCEL_PROJECT_ID
@@ -35,7 +36,9 @@ export async function POST(request: Request) {
   const { secret } = await request.json().catch(() => ({ secret: null }))
   const cronSecret = process.env.CRON_SECRET || process.env.DOMAIN_CLEANUP_SECRET
 
-  if (cronSecret && secret !== cronSecret) {
+  /* Fails closed: with neither variable set this used to skip the check and
+     serve the route to anyone who posted to it. */
+  if (!cronSecret || !matchesSecret(secret, cronSecret)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
