@@ -194,15 +194,27 @@ function main() {
   console.log("\nThe placeholder itself")
 
   const component = read("components/website-builder/editor/writing-section.tsx")
-  check("it announces itself to a screen reader", /role="status"/.test(component) && /aria-live="polite"/.test(component))
-  const words = (component.match(/>[^<>{}]+</g) ?? []).join(" ")
-  check("and says only what is true: no invented progress",
-    /Writing a section/.test(words) && !/%|Styling|Compiling|Almost|step \d|seconds/i.test(words), words)
+  check("it announces itself to a screen reader, and only to one",
+    /className="sr-only" role="status" aria-live="polite"/.test(component) && /Writing a section/.test(component))
+  /* What is drawn is code and nothing else: no label, no prompt, no bones. */
+  const drawn = component.slice(component.indexOf("return (\n    <div className=\"wb-writing\""))
+  check("nothing but the code lane is drawn",
+    /<div className="wb-writing-inner" aria-hidden="true">\s*<div ref=\{codeRef\} className="wb-code" \/>/.test(drawn)
+      && !/wb-writing-label|wb-writing-prompt|wb-bone/.test(component))
+  check("and it claims no progress it does not have",
+    !/%|Styling|Compiling|Almost|step \d|line \d/i.test(drawn.replace(/\{prompt[^}]*\}/g, "")))
+  check("it types by animation frame into the DOM, not by re-rendering",
+    /requestAnimationFrame\(draw\)/.test(component) && /el\.innerHTML =/.test(component) && !/useState/.test(component))
+  check("its colouring is one pass over its own sample, so no markup leaks into the lane",
+    /const token = \/\(/.test(component) && /The input is SAMPLE above and\s*\n \* nothing else/.test(component))
   const css = read("app/globals.css")
   const block = css.slice(css.indexOf("A SECTION THE AI IS STILL WRITING"))
   check("coloured from the page it sits on", /var\(--theme-text/.test(block) && /var\(--theme-bg/.test(block))
+  check("faded from clear at the top to solid at the bottom",
+    /mask-image: linear-gradient\(to bottom, transparent 0%, #000 62%\)/.test(block))
   check("every motion stops under reduced motion",
-    /@media \(prefers-reduced-motion: reduce\) \{\s*\.wb-writing,\s*\.wb-writing::before,\s*\.wb-writing-dot,\s*\.wb-bone,\s*\.wb-bone::after,\s*\.wb-section-arrive \{ animation: none; \}/.test(block))
+    /@media \(prefers-reduced-motion: reduce\) \{\s*\.wb-writing,\s*\.wb-writing::before,\s*\.wb-writing-inner::after,\s*\.wb-code-caret,\s*\.wb-section-arrive \{ animation: none; \}/.test(block)
+      && /prefers-reduced-motion: reduce\)"\)\.matches === true/.test(component))
   check("no em dash in anything a creator reads",
     ![component.replace(/\/\*\*[\s\S]*?\*\//g, ""), chat.match(/"Describe a section the library does not have[^"]*"/)?.[0] ?? ""].some((t) => /—|–/.test(t)))
 

@@ -37,6 +37,8 @@ import { compileSection } from "@/lib/storelib-theme"
 import { CAPABILITIES } from "@/lib/storelib-theme/storelib/script"
 import { FILTER_NAMES, FOREIGN_SYNTAX, FORBIDDEN_MARKUP } from "@/lib/storelib-theme/storelib/template"
 import { LIMITS } from "@/lib/storelib-theme/types"
+import { CONTROL_TYPES } from "@/lib/storelib-theme/controls/registry"
+import { THEME_SETTING_DOCS, themeSettingGroups, themeSettingIds } from "@/lib/developers/builder-reference"
 import { ALL_TOPICS, CORE_FORMAT, checkSectionQuality, qualityErrors, writeSectionRules } from "@/lib/storelib-ai"
 
 let passed = 0
@@ -216,7 +218,7 @@ function main() {
   check("with the blog's header, not the marketplace search strip laid over the page on a phone",
     /isDevelopersRoute = pathname === "\/developers" \|\| pathname\.startsWith\("\/developers\/"\)/.test(read("components/platform/platform-header-client.tsx"))
       && /!isFaqRoute && !isDevelopersRoute && !isSellerOrProductPage/.test(read("components/platform/platform-header-client.tsx")))
-  check("and a link to it in every page's footer", /<Link href="\/developers"/.test(read("components/marketing/footer.tsx")))
+  check("and a link to it in every page's footer", /\{ label: "Developers", href: "\/developers" \}/.test(read("components/marketing/footer.tsx")))
 
   const hub = read("components/developers/hub-page.tsx")
   check("each page has its own title, description and canonical address",
@@ -233,6 +235,32 @@ function main() {
     !/dangerouslySetInnerHTML/.test(read("components/developers/doc-content.tsx"))
       && !/dangerouslySetInnerHTML/.test(read("components/developers/inline.tsx"))
       && !/dangerouslySetInnerHTML/.test(read("components/developers/code-block.tsx")))
+
+  console.log("\nThe builder guide shows every setting")
+
+  const guideSrc = DEVELOPER_DOCS["website-builder"] ?? ""
+  check("the guide is a page of the hub", DEV_PAGES.some((p) => p.slug === "website-builder") && guideSrc.length > 4000)
+  const described = new Set(Object.keys(THEME_SETTING_DOCS))
+  const undescribed = themeSettingIds().filter((id) => !described.has(id))
+  check("every theme setting has words for what it does", undescribed.length === 0, undescribed.join(", "))
+  const stale = [...described].filter((id) => !themeSettingIds().includes(id))
+  check("and none describes a setting that no longer exists", stale.length === 0, stale.join(", "))
+  const groupsShown = themeSettingGroups().map((g) => g.id)
+  const groupsMissing = groupsShown.filter((g) => !guideSrc.includes(`@[theme-settings:${g}]`))
+  check("every group of General Settings is drawn on the guide", groupsMissing.length === 0, groupsMissing.join(", "))
+  const guide = expandAll(parseMarkdown(guideSrc))
+  const drawn = guide.flatMap((n) => (n.kind === "specimens" ? n.items.map((it) => it.id) : []))
+  check("every control type is drawn", CONTROL_TYPES.every((t) => drawn.includes(t)))
+  check("every theme setting is drawn", themeSettingIds().every((id) => drawn.includes(id)))
+  check("and every built-in colour scheme", guide.some((n) => n.kind === "schemes" && n.schemes.length === 5))
+  check("a select's default is drawn as the option it names, not the stored value",
+    themeSettingGroups().flatMap((g) => g.items).find((it) => it.id === "button_size")?.value === "Medium")
+  check("the drawings are pictures, not controls: hidden from a screen reader and untouchable",
+    /aria-hidden="true" className="pointer-events-none select-none/.test(read("components/developers/specimens.tsx"))
+      && !/<input|<button|<select/.test(read("components/developers/specimens.tsx")))
+  const guideText = pageText("website-builder")
+  check("and /llms-full.txt carries the same settings as a table", /\| Default style \(`button_style`\) \| radio/.test(guideText))
+  check("the guide's copy has no em dash", !/\u2014/.test(guideSrc))
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }

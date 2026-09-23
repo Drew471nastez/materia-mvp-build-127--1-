@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react"
 import { ArrowLeft, Bot, Check, Copy, ExternalLink, FileText, Globe, History, Loader2, Rocket, Scale, Settings, Sparkles, Upload } from "lucide-react"
 import { AgentConnectionsPanel } from "@/components/website-builder/agent-connections-panel"
+import { GitHubSyncPanel } from "@/components/website-builder/github-sync-panel"
 
 import { relativeTime } from "@/components/website-builder/publish-panel"
 import { createPortal } from "react-dom"
@@ -71,6 +72,8 @@ export function ProjectSettings({
   publishedAt,
   onRestored,
   onEditPage,
+  initialSection = null,
+  githubReturned = null,
 }: {
   open: boolean
   onClose: () => void
@@ -92,6 +95,10 @@ export function ProjectSettings({
    * second way to write the same rows, which is how a draft gets lost.
    */
   onEditPage?: (pageKey: string) => void
+  /** Open on this page rather than General: GitHub sends a creator back to Connections. */
+  initialSection?: "agents" | null
+  /** What GitHub's round trip came back with, shown on the GitHub card. */
+  githubReturned?: string | null
 }) {
   const [section, setSection] = useState<Section>("general")
   const [draft, setDraft] = useState(name)
@@ -99,6 +106,10 @@ export function ProjectSettings({
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+
+  useEffect(() => {
+    if (open && initialSection) setSection(initialSection)
+  }, [open, initialSection])
 
   useEffect(() => {
     if (open) {
@@ -231,7 +242,7 @@ export function ProjectSettings({
     { id: "policies", label: "Policies", Icon: Scale },
     { id: "publishing", label: "Publishing", Icon: Rocket },
     { id: "backups", label: "Backups", Icon: History },
-    { id: "agents", label: "AI agents", Icon: Bot },
+    { id: "agents", label: "Connections", Icon: Bot },
   ]
 
   const ago = relativeTime(publishedAt)
@@ -438,7 +449,22 @@ export function ProjectSettings({
             </>
           )}
 
-          {section === "agents" && <AgentConnectionsPanel installId={installId} />}
+          {section === "agents" && (
+            <>
+              <h1 className="text-[26px] font-semibold tracking-[-0.01em] md:text-[30px]">Connections</h1>
+              <p className="mt-3 max-w-[600px] text-[15px] leading-relaxed text-white/60">
+                Let Claude Code, Codex or another AI agent work on this website&apos;s sections. Through GitHub, or straight
+                from your computer. Either way it reaches this website and nothing else, and what it writes is a draft until
+                you publish.
+              </p>
+              <div className="mt-8">
+                <GitHubSyncPanel installId={installId} returned={githubReturned} />
+              </div>
+              <div className="mt-10">
+                <AgentConnectionsPanel installId={installId} />
+              </div>
+            </>
+          )}
 
           {section === "backups" && (
             <>

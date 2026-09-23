@@ -2293,48 +2293,50 @@ export function DashboardClient({
   const mobileHandleLabel = creatorHandle.length > 14 ? `${creatorHandle.slice(0, 14)}...` : creatorHandle
 
 
-  // Announcement bar state
-  const DURATION = 15000 // 15 seconds — matches the CSS transition below
-  const [announcementType, setAnnouncementType] = useState<"upgrade" | "steps" | "payouts">("upgrade")
-  const [announcementVisible, setAnnouncementVisible] = useState(true)
-  // 0 = bar just reset (no transition), 100 = bar animating to full (CSS 15 s linear transition)
-  const [progressTarget, setProgressTarget] = useState(100)
-
-  // Rotate announcements every 15 s. Progress bar is driven purely by CSS transition —
-  // no setInterval/setState at 50 ms, which was causing 20 re-renders per second.
+  /**
+   * ===========================================================================
+   *  THE ANNOUNCEMENT BAR: ONE SLIDE AT A TIME, ALWAYS
+   * ===========================================================================
+   * Reported as two slides' text interlacing, and the progress line stopping
+   * part way. Both were the timers:
+   *
+   *   - the swap ran in a timeout nested inside another, and cleanup cleared
+   *     only the outer one, so a re-run (a setup step completing, a remount)
+   *     left an orphan swap that fired into the NEXT cycle's fade, and two
+   *     cycles interleaved;
+   *   - the next slide was chosen by a setter that could return the same
+   *     slide, which changed no state, so the effect never ran again: the bar
+   *     stopped rotating and its line stopped where it was.
+   *
+   * Now the slides are a list worked out from the account, a counter picks
+   * one, and each cycle is exactly two timers that are both cleared on the
+   * way out. The line is a CSS animation keyed to the cycle, so it restarts
+   * from nothing with its slide and cannot be left half drawn.
+   */
+  const DURATION = 15000
+  const FADE_MS = 320
+  const slides = useMemo(() => {
+    const list: ("upgrade" | "steps" | "payouts")[] = ["upgrade"]
+    if (!allCompleted) list.push("steps")
+    if (hasProducts && !hasPayouts) list.push("payouts")
+    return list
+  }, [allCompleted, hasProducts, hasPayouts])
+  const [announceCycle, setAnnounceCycle] = useState(0)
+  const [announceLeaving, setAnnounceLeaving] = useState(false)
   useEffect(() => {
-    // Instantly reset bar to 0 (transition: none), then on next frame animate to 100 (15 s linear)
-    setProgressTarget(0)
-    const raf = requestAnimationFrame(() => requestAnimationFrame(() => setProgressTarget(100)))
-
-    // Rotate announcements — 360 ms matches the CSS transition-duration (300 ms)
-    // plus a safety margin so opacity is fully 0 before content swaps.
-    const rotateTimer = setTimeout(() => {
-      setAnnouncementVisible(false)
-      setTimeout(() => {
-        setAnnouncementType((prev) => {
-          if (prev === "upgrade") {
-            if (!allCompleted) return "steps"
-            if (hasProducts && !hasPayouts) return "payouts"
-            return "upgrade"
-          } else if (prev === "steps") {
-            if (hasProducts && !hasPayouts) return "payouts"
-            return "upgrade"
-          } else {
-            // was "payouts"
-            return "upgrade"
-          }
-        })
-        setProgressTarget(0)
-        setAnnouncementVisible(true)
-      }, 360)
-    }, DURATION)
-
+    if (slides.length < 2) return
+    const leave = setTimeout(() => setAnnounceLeaving(true), DURATION)
+    const swap = setTimeout(() => {
+      setAnnounceCycle((c) => c + 1)
+      setAnnounceLeaving(false)
+    }, DURATION + FADE_MS)
     return () => {
-      cancelAnimationFrame(raf)
-      clearTimeout(rotateTimer)
+      clearTimeout(leave)
+      clearTimeout(swap)
     }
-  }, [announcementType, allCompleted, hasProducts, hasPayouts])
+  }, [announceCycle, slides.length])
+  const announcementType = slides[announceCycle % slides.length]
+  const announcementVisible = !announceLeaving
 
   // Build substep data based on step completion
   const getSubstepData = (step: SetupStep) => {
@@ -2411,7 +2413,7 @@ export function DashboardClient({
       <div className="bg-[#8b5cf6] text-white">
         <div className="py-2 px-4 md:py-2.5">
           <div
-            className={`max-w-[1200px] mx-auto flex items-center justify-center gap-2 md:gap-3 text-center transition-opacity duration-300 ${
+            className={`max-w-[1200px] mx-auto flex h-7 md:h-8 items-center justify-center gap-2 md:gap-3 text-center whitespace-nowrap transition-opacity duration-300 ${
               announcementVisible ? "opacity-100" : "opacity-0"
             }`}
           >
@@ -2419,7 +2421,7 @@ export function DashboardClient({
               <>
                 <span className="text-[12px] md:text-[14px] text-white/90">
                   <span className="font-semibold text-white">{t("dashboard.tryProFree")}</span>
-                  <span className="hidden md:inline"> — {t("dashboard.proSubtitle")}</span>
+                  <span className="hidden md:inline text-white/85 ml-2">{t("dashboard.proSubtitle")}</span>
                 </span>
                 <Link
                   href="/app/settings/billing/upgrade"
@@ -2436,8 +2438,8 @@ export function DashboardClient({
               <>
                 <span className="text-[12px] md:text-[14px] text-white/90">
                   <span className="font-semibold text-white">{t("dashboard.completeSetup")}</span>
-                  <span className="md:hidden"> — {completedSteps}/{totalSteps}</span>
-                  <span className="hidden md:inline"> — {totalSteps - completedSteps} {t("dashboard.stepsRemaining")}</span>
+                  <span className="md:hidden text-white/85 ml-1.5">{completedSteps}/{totalSteps}</span>
+                  <span className="hidden md:inline text-white/85 ml-2">{totalSteps - completedSteps} {t("dashboard.stepsRemaining")}</span>
                 </span>
                 <button
                   onClick={() => {
@@ -2455,7 +2457,7 @@ export function DashboardClient({
               <>
                 <span className="text-[12px] md:text-[14px] text-white/90">
                   <span className="font-semibold text-white">{t("dashboard.getPaid")}</span>
-                  <span className="hidden md:inline"> — {t("dashboard.connectPayoutsDesc")}</span>
+                  <span className="hidden md:inline text-white/85 ml-2">{t("dashboard.connectPayoutsDesc")}</span>
                 </span>
                 <Link
                   href="/app/settings?tab=payments"
@@ -2468,15 +2470,16 @@ export function DashboardClient({
             )}
           </div>
         </div>
-        {/* Subtle progress bar — CSS-driven, no JS per-frame updates */}
-        <div className="h-[2px] bg-white/10">
-          <div
-            className="h-full bg-white/30"
-            style={{
-              width: `${progressTarget}%`,
-              transition: progressTarget === 0 ? 'none' : 'width 15s linear',
-            }}
-          />
+        {/* How long until the next slide. Keyed to the cycle, so each slide
+            draws its own line from nothing; see "ONE SLIDE AT A TIME". */}
+        <div className="h-[2px] bg-white/10 overflow-hidden">
+          {slides.length > 1 && (
+            <div
+              key={announceCycle}
+              className="announce-progress h-full bg-white/35"
+              style={{ animationDuration: `${DURATION}ms` }}
+            />
+          )}
         </div>
       </div>
 

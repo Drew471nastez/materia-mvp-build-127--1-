@@ -26,6 +26,7 @@ import { ENGINE_VERSION, LIMITS, SECTION_SCHEMA_VERSION, THEME_FORMAT_VERSION } 
 import { ALL_TOPICS, MAX_REPAIR_ATTEMPTS, writeSectionRules } from "@/lib/storelib-ai"
 
 import { DEVELOPER_EXAMPLES } from "./content.generated"
+import { builtInSchemes, controlSpecimens, themeSettingGroups, typeStyleRows } from "./builder-reference"
 import type { DocNode } from "./markdown"
 
 /* ── words the engine does not carry, keyed by the engine's own names ────── */
@@ -130,6 +131,7 @@ export function exampleTypes(): string[] {
 export const DIRECTIVE_NAMES = [
   "limits", "filters", "refusals", "controls", "legacy-controls", "scheme-vars", "type-styles",
   "embed-hosts", "forbidden", "capabilities", "versions", "example", "ai-brief", "ai-topics-extra", "ai-loop",
+  "builder-controls", "theme-settings", "builder-schemes", "builder-type-styles",
 ] as const
 
 export function expandDirective(name: string, arg?: string): DocNode[] {
@@ -274,6 +276,29 @@ export function expandDirective(name: string, arg?: string): DocNode[] {
           children: [{ kind: "code" as const, lang: "text", code: t.text }],
         }))
     }
+
+    case "builder-controls":
+      return [{ kind: "specimens", items: controlSpecimens() }]
+
+    case "theme-settings": {
+      /* One group, or all of them, each under its own heading. */
+      const groups = themeSettingGroups().filter((g) => !arg || g.id === arg)
+      if (arg) return groups.flatMap((g) => [{ kind: "specimens" as const, items: g.items }])
+      return groups.flatMap((g) => [
+        { kind: "heading" as const, level: 3 as const, text: g.label, id: `settings-${g.id}` },
+        { kind: "specimens" as const, items: g.items },
+      ])
+    }
+
+    case "builder-schemes":
+      return [{ kind: "schemes", schemes: builtInSchemes() }]
+
+    case "builder-type-styles":
+      return [{
+        kind: "table",
+        head: ["Style", "Key", "Font", "Weight", "Size, px (desktop / tablet / phone)", "Line height", "Letter spacing, px"],
+        rows: typeStyleRows(),
+      }]
 
     case "ai-loop":
       return [{

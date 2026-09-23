@@ -2,7 +2,7 @@
  * ===========================================================================
  *  CLAUDE CODE, CODEX OR ANY AGENT, CONNECTED TO ONE STORELIB SITE
  * ===========================================================================
- * A creator makes a connection under Website settings › AI agents and gets
+ * A creator makes a connection under Website settings › Connections and gets
  * a token, once. With it an agent can list, read, compile and write that
  * site's section files, over MCP (app/api/mcp) or plain HTTP
  * (app/api/agent/v1), and nothing else.
@@ -199,7 +199,7 @@ async function main() {
   check("a site holds a bounded number", /MAX_CONNECTIONS = 10/.test(manage))
 
   const panel = read("components/website-builder/agent-connections-panel.tsx")
-  check("Website settings has an AI agents page", /id: "agents", label: "AI agents"/.test(read("components/website-builder/project-settings.tsx")))
+  check("Website settings has a Connections page", /id: "agents", label: "Connections"/.test(read("components/website-builder/project-settings.tsx")))
   check("which shows the token once, with the lines that use it",
     /It is not shown again/.test(panel) && /claude mcp add --transport http storelib/.test(panel) && /bearer_token_env_var = "STORELIB_TOKEN"/.test(panel))
   check("the token lives in memory only", !/localStorage|sessionStorage/.test(panel))
@@ -221,7 +221,7 @@ async function main() {
   console.log("\nThe docs say how")
 
   const ai = read("content/developers/ai.md")
-  check("the AI agents page explains connecting", /## Connect an agent to a site/.test(ai) && /claude mcp add --transport http storelib/.test(ai) && /storelib_write_section/.test(ai))
+  check("the AI agents page explains connecting", /## Connect an agent directly/.test(ai) && /claude mcp add --transport http storelib/.test(ai) && /storelib_write_section/.test(ai))
   check("and no longer says it is not available", !/is not available yet/.test(ai))
 
   console.log(`\n${passed} passed, ${failed} failed`)

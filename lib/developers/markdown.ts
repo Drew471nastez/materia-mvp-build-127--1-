@@ -22,6 +22,8 @@
  * `dangerouslySetInnerHTML`.
  */
 
+import type { SchemeSwatch, Specimen } from "./builder-reference"
+
 /** Inline markdown: `code`, **bold**, *emphasis*, [text](href). Kept as written. */
 export type Inline = string
 
@@ -35,6 +37,10 @@ export type DocNode =
   | { kind: "rule" }
   | { kind: "details"; summary: string; children: DocNode[] }
   | { kind: "directive"; name: string; arg?: string }
+  /** Settings drawn as the builder draws them. Only ever made by a directive. */
+  | { kind: "specimens"; items: Specimen[] }
+  /** Colour schemes as swatches. Only ever made by a directive. */
+  | { kind: "schemes"; schemes: SchemeSwatch[] }
 
 /** The words of a piece of inline markdown, without its markup. */
 export function plainInline(text: Inline): string {

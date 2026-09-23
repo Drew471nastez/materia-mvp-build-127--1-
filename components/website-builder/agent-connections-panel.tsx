@@ -2,7 +2,7 @@
 
 /**
  * ===========================================================================
- *  WEBSITE SETTINGS › AI AGENTS
+ *  WEBSITE SETTINGS › CONNECTIONS › DIRECT CONNECTION
  * ===========================================================================
  * Where a creator lets Claude Code, Codex or another agent work on this
  * website's sections from their own computer. A connection is a token that
@@ -122,11 +122,10 @@ export function AgentConnectionsPanel({ installId }: { installId: string }) {
 
   return (
     <>
-      <h1 className="text-[26px] font-semibold tracking-[-0.01em] md:text-[30px]">AI agents</h1>
-      <p className="mt-3 max-w-[600px] text-[15px] leading-relaxed text-white/60">
-        Let Claude Code, Codex or another agent write this website&apos;s sections from your computer. It reaches this
-        website and nothing else, and everything it saves is a draft until you publish. A new section it writes appears
-        on the page you have open here.
+      <h2 className="text-[17px] font-medium">Direct connection</h2>
+      <p className="mt-1 max-w-[600px] text-[14px] leading-relaxed text-white/60">
+        No repository needed. Connect Claude Code or Codex on your computer to this website with a token; what it saves
+        appears on the page you have open here within seconds.
       </p>
 
       {!ready ? (
@@ -135,7 +134,7 @@ export function AgentConnectionsPanel({ installId }: { installId: string }) {
         </div>
       ) : (
         <>
-          <div className="mt-8 rounded-2xl border border-white/10 bg-white/[0.03] p-5 md:p-6">
+          <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.03] p-5 md:p-6">
             <label htmlFor="agent-name" className="text-[15px] font-medium">
               Connect an agent
             </label>
