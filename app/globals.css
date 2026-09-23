@@ -4702,6 +4702,28 @@ html.pop-in-flight #platform-header-root {
   .checkout-paid-check { animation: none; stroke-dashoffset: 0; }
 }
 
+/* ── The trend charts' axis numbers (components/app/chart-morph) ────────────
+   A metric tab changes the numbers on the axis while the line morphs: the
+   old set fades out as the new set fades in, at the same heights, over
+   about half the morph. Opacity only. */
+@keyframes chart-axis-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes chart-axis-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+.chart-axis-in { animation: chart-axis-in 280ms cubic-bezier(0.32, 0.72, 0, 1) both; }
+.chart-axis-out { animation: chart-axis-out 200ms cubic-bezier(0.32, 0.72, 0, 1) both; }
+/* The placeholder's numbers breathe with its line and grid. */
+[data-chart-loading="true"] .chart-axis-label {
+  animation: chart-skeleton-breath 1.7s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .chart-axis-in, .chart-axis-out, [data-chart-loading="true"] .chart-axis-label { animation: none; }
+}
+
 /* ── The date picker (components/app/date-range-picker) ─────────────────────
    Two steps, the list and the custom range, and the months inside the
    second. A step arrives from the side it was asked for while the one it
