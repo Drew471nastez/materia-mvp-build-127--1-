@@ -628,30 +628,35 @@ function main() {
     Measured: the edge sweeps through 28 positions, and the two clips are
     never more than 0 of the box apart.
   */
-  check("the black fills the glyph, clipped by one edge rather than swapped in a frame",
-    /const FILLED_ALL = "inset\(0 0 0% 0\)"/.test(nav) && /const FILLED_NONE = "inset\(0 0 100% 0\)"/.test(nav)
-      && /const OUTLINE_ALL = "inset\(0% 0 0 0\)"/.test(nav) && /const OUTLINE_NONE = "inset\(100% 0 0 0\)"/.test(nav)
-      && /clipPath: active \? OUTLINE_NONE : OUTLINE_ALL/.test(nav)
-      && /clipPath: active \? FILLED_ALL : FILLED_NONE/.test(nav),
+  check("the black opens out from the middle, clipped rather than swapped in a frame",
+    /const INK_NONE = "inset\(50% 0 50% 0\)"/.test(nav) && /const INK_ALL = "inset\(0% 0 0% 0\)"/.test(nav)
+      && /clipPath: active \? INK_ALL : INK_NONE/.test(nav),
     "a shape that changes in one frame is a hard edge however smooth everything around it is")
   /*
-    AND THE EDGE COMES DOWN. It rose from the bottom first, which reads as
-    something filling like a glass, and the ink is not a liquid: coming down
-    is the ink arriving on the glyph rather than collecting in it. The solid
-    is cut in from the BOTTOM so what it shows grows downward from the top,
-    and the outline is cut in from the TOP so it retreats exactly ahead.
+    A BAND HAS TWO OUTSIDES, which is why the outline is drawn twice. inset()
+    cuts in from each side of ONE rectangle, so it can say "the middle" and it
+    cannot say "everything but the middle" in a single clip. One piece sits
+    above the band and one below, each retreating outward exactly ahead of its
+    own edge; they are the same glyph and never overlap, so there is nothing
+    to see where they meet.
 
-    A straight edge is the only shape this can be, and it is worth knowing
-    why: inset() says how far to cut in from each side, so it can express a
-    half of the box and its exact opposite, and nothing else. Growing from
-    the middle would need the outline clipped to everything OUTSIDE a circle,
-    which inset() cannot say — and the ways round that are the two already
-    rejected, drawing one glyph over the other or masking with gradients.
+    It took three goes to get the direction right — up from the bottom, which
+    reads as a glass filling, then down from the top — and this is the one
+    that needs the extra element, which is why it was not first.
+
+    A circle opening from the centre would be better still and cannot be done
+    here: it needs the outline clipped to everything OUTSIDE a circle, which
+    no number of inset() rectangles can express, and the ways round that are
+    the two already rejected — drawing one glyph over the other, or masking
+    with gradients.
   */
-  check("and it comes down the glyph rather than rising up it",
-    /const FILLED_NONE = "inset\(0 0 100% 0\)"/.test(nav)
-      && /const OUTLINE_NONE = "inset\(100% 0 0 0\)"/.test(nav),
-    "rising from the bottom reads as a glass filling, and ink is not a liquid")
+  check("with the outline drawn in two pieces, one either side of the band",
+    /const ABOVE_ALL = "inset\(0 0 50% 0\)"/.test(nav) && /const ABOVE_NONE = "inset\(0 0 100% 0\)"/.test(nav)
+      && /const BELOW_ALL = "inset\(50% 0 0 0\)"/.test(nav) && /const BELOW_NONE = "inset\(100% 0 0 0\)"/.test(nav)
+      && /data-part="outline-above"/.test(nav) && /data-part="outline-below"/.test(nav)
+      && /clipPath: active \? ABOVE_NONE : ABOVE_ALL/.test(nav)
+      && /clipPath: active \? BELOW_NONE : BELOW_ALL/.test(nav),
+    "one clip cannot express everything but the middle, and a band that is not exactly complemented leaves a stripe")
   check("and both are fully opaque while it does, so it is a clip and not the fade that was thrown out",
     !/opacity: active \? 1 : 0/.test(nav) && !/opacity: active \? 0 : 1/.test(nav)
       && /const sweep = `clip-path \$\{INK_EASE\}`/.test(nav),

@@ -181,84 +181,77 @@ const INK_EASE = `${INK_MS}ms cubic-bezier(0.22, 0.61, 0.36, 1)`
 
 /**
  * ===========================================================================
- *  THE BLACK FILLS THE GLYPH, IT DOES NOT APPEAR IN IT
+ *  THE BLACK OPENS OUT FROM THE MIDDLE OF THE GLYPH
  * ===========================================================================
- * The last hard edge in the bar was this one. The colour took its time, the
- * lens took its time, and the SHAPE still changed in a single frame: hollow
- * one frame, solid the next, and then a smooth darkening after the fact. A
- * frame is a frame however good everything around it is.
+ * The last hard edge in the bar was the shape. The colour took its time, the
+ * lens's glass took its time, and the glyph still went hollow one frame and
+ * solid the next. A frame is a frame however good everything around it is.
  *
- * It cannot be cross-faded. The outline and the solid are different drawings,
- * so any blend of them is a shape that is neither — measured on Products as
- * 40x40 going in, 40x39 halfway, 39x38 coming out — and that is the bump that
- * was reported over and over. Dimming one and swapping at the bottom hides it
- * and puts a fade on the press, which is the cheapness that was reported
- * after that.
+ * The two cannot be blended: the outline and the solid are different
+ * drawings, so any mix of them is a shape that is neither — 40x40 going in,
+ * 40x39 halfway, 39x38 coming out on Products — and that is the bump that was
+ * reported over and over. Dimming one to hide the swap puts a fade on the
+ * press, which is the cheapness that was reported after that.
  *
- * So neither is faded and neither is blended: THEY ARE CLIPPED, against each
- * other, by one edge that crosses the box. On one side of the edge the solid
- * is drawn, on the other the outline, and the two clips are exact
- * complements — so every pixel is one drawing or the other, never a mix of
- * both and never nothing.
+ * So neither is faded and neither is blended: THEY ARE CLIPPED against each
+ * other, and the ink OPENS OUT FROM THE MIDDLE. A band grows from the centre
+ * line of the box; inside it the solid is drawn, outside it the outline, and
+ * the two are exact complements at every moment, so every pixel is one
+ * drawing or the other and never a mix or a gap.
  *
- * THE EDGE COMES DOWN, not up. It rose from the bottom first, which reads as
- * something filling like a glass, and the ink is not a liquid. Coming down
- * is the ink arriving on the glyph rather than collecting in it.
+ * IT TOOK THREE GOES TO GET THE DIRECTION RIGHT — up from the bottom, which
+ * reads as a glass filling, then down from the top — and the third needs one
+ * more element than the other two, which is why it was not first. A band has
+ * TWO outsides. `inset()` cuts in from each side of one rectangle, so it can
+ * say "the middle" but it cannot say "everything but the middle" in a single
+ * clip. The outline is therefore drawn twice, once above the band and once
+ * below it, each retreating outward exactly ahead of its own edge. The two
+ * pieces are the same glyph and never overlap, so there is nothing to see
+ * where they meet.
  *
- * A straight edge is the only shape this technique can do, and the reason is
- * worth writing down: `inset()` says how far to cut in from each side, so it
- * can express a half of the box and its exact opposite, and nothing else.
- * Growing from the middle outward would need the outline clipped to
- * everything OUTSIDE a circle, which inset() cannot say at all — and the ways
- * round that are the two that were already tried and rejected: drawing one
- * glyph over the other, which closes the gaps the solid is drawn with, or
- * masking with gradients, which brings the fades back. So the choice here is
- * which way the edge travels, and it travels down.
- *
- * Nothing fades: both are fully opaque throughout. Nothing moves: FILL_MATCH
- * already puts the two in the same box, so the edge crosses one shape rather
- * than travelling between two. And it starts on the frame the finger lands,
- * on the ink's own curve, alongside the lens's glass and the icon's colour.
+ * A circle opening from the centre would be better still and is not possible
+ * here: it would need the outline clipped to everything OUTSIDE a circle,
+ * which no number of inset() rectangles can express. The ways round that are
+ * the two already rejected — drawing one glyph over the other, which closes
+ * the gaps the solid is drawn with, or masking with gradients, which brings
+ * the fades back.
  */
-/** The solid, all of it, and none of it: cut in from the BOTTOM, so what is
-    revealed grows downward from the top. */
-const FILLED_ALL = "inset(0 0 0% 0)"
-const FILLED_NONE = "inset(0 0 100% 0)"
-/** The outline, all of it and none of it: cut in from the TOP, so it retreats
-    downward exactly ahead of the solid. At every moment the two are halves of
-    the same box. */
-const OUTLINE_ALL = "inset(0% 0 0 0)"
-const OUTLINE_NONE = "inset(100% 0 0 0)"
+/** The ink: a band from the centre line, none of the box to all of it. */
+const INK_NONE = "inset(50% 0 50% 0)"
+const INK_ALL = "inset(0% 0 0% 0)"
+/** The outline above the band, and the outline below it, each going from its
+    half of the box to nothing as the band opens past it. */
+const ABOVE_ALL = "inset(0 0 50% 0)"
+const ABOVE_NONE = "inset(0 0 100% 0)"
+const BELOW_ALL = "inset(50% 0 0 0)"
+const BELOW_NONE = "inset(100% 0 0 0)"
 
 function NavIcon({ icon, active, color, size = 22 }: { icon: NavIconPair; active: boolean; color: string; size?: number }) {
   const Line = icon.line
   const Fill = icon.fill
   const sweep = `clip-path ${INK_EASE}`
+  const piece = { position: "absolute", inset: 0, transition: sweep } as const
   return (
     <span className="relative block shrink-0" style={{ color, width: size, height: size }}>
-      {/* Below the edge, and gone once the edge is past the bottom. */}
       <Line
         size={size}
         strokeWidth={1.5}
-        style={{
-          position: "absolute",
-          inset: 0,
-          clipPath: active ? OUTLINE_NONE : OUTLINE_ALL,
-          transition: sweep,
-        }}
+        data-part="outline-above"
+        style={{ ...piece, clipPath: active ? ABOVE_NONE : ABOVE_ALL }}
       />
-      {/* Above it, and the whole box once the edge is past the bottom. The scale
-          is a constant, never animated: the solid is drawn at the size of the
-          outline it replaces, which is what lets one edge serve both. */}
+      <Line
+        size={size}
+        strokeWidth={1.5}
+        data-part="outline-below"
+        style={{ ...piece, clipPath: active ? BELOW_NONE : BELOW_ALL }}
+      />
+      {/* The scale is a constant, never animated: the solid is drawn at the
+          size of the outline it replaces, which is what lets one band serve
+          both without the edges of the two drawings disagreeing. */}
       <Fill
         size={size}
-        style={{
-          position: "absolute",
-          inset: 0,
-          clipPath: active ? FILLED_ALL : FILLED_NONE,
-          transition: sweep,
-          scale: String(FILL_MATCH),
-        }}
+        data-part="ink"
+        style={{ ...piece, clipPath: active ? INK_ALL : INK_NONE, scale: String(FILL_MATCH) }}
       />
     </span>
   )
