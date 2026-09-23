@@ -99,6 +99,7 @@ import { StorelibMark } from "@/components/storelib-mark"
 import { toast } from "sonner"
 import { getWebsiteShareUrl, getWebsiteUrlDisplay } from "@/lib/url-helpers"
 import { ThemeChat } from "@/components/website-builder/theme-chat"
+import { ColorField } from "@/components/storefront/color-field"
 import { applyOp, type ThemeOp } from "@/lib/website-builder/agent/operations"
 
 // ── Custom back-with-bar icon (topbar) ──────────────────────
@@ -376,6 +377,25 @@ function ResponsiveField({
   )
 }
 
+/**
+ * WHICH CONTROLS NAME THEMSELVES.
+ *
+ * Most controls in this sidebar are a bare input and the panel puts a
+ * `<label>` above them. Three do not: `header` and `paragraph` ARE text, and
+ * a colour now opens as a ColorField, whose closed row already reads
+ * "Background   #FFFFFF" with the swatch. Labelling those from outside
+ * prints the name twice.
+ *
+ * This lives in one place because the panel renders fields from five
+ * different call sites — section settings, block settings, the advanced
+ * colours list, and two legacy paths — and a rule spelled out five times is
+ * a rule that will be right in four of them. Spelling it once is what makes
+ * "all of them are updated" checkable rather than hopeful.
+ */
+function fieldCarriesOwnLabel(field: SchemaField): boolean {
+  return field.type === "color" || field.type === "header" || field.type === "paragraph"
+}
+
 // ── Field editor ─────────────────────────────────────────────
 function FieldEditor({
   field,
@@ -494,23 +514,28 @@ function FieldEditor({
   }
 
   if (kind === "color") {
+    /*
+      THE BUILDER'S OWN PICKER, NOT THE BROWSER'S.
+
+      This was a native `<input type="color">` in a 36px box with the swatch
+      blown up past its edges by `-inset-1`. Chrome draws that control as a
+      colour band with white under it and macOS opens the system colour
+      panel on top of the app — which is the "old school" strip in the
+      report, and the one control in the whole config sidebar that did not
+      look like the rest of it.
+
+      ColorField is what every other colour in this product opens: the
+      builder's saturation box, hue slider, hex field and the page's own
+      colours, in the flow, under its own row. It carries its own label, so
+      the call sites below do not add one for a colour.
+    */
     return (
-      <div className="flex items-center gap-2">
-        <div className="relative h-9 w-9 rounded-lg overflow-hidden border border-border shrink-0">
-          <input
-            type="color"
-            className="absolute -inset-1 cursor-pointer"
-            value={typeof raw === "string" ? raw : "#000000"}
-            onChange={e => onChange(e.target.value)}
-          />
-        </div>
-        <input
-          type="text"
-          className="flex-1 h-9 px-3 text-sm border border-border rounded-lg bg-background font-mono focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 transition-colors"
-          value={typeof raw === "string" ? raw : ""}
-          onChange={e => onChange(e.target.value)}
-        />
-      </div>
+      <ColorField
+        label={field.label}
+        value={typeof raw === "string" ? raw : ""}
+        fallback={typeof field.default === "string" ? field.default : "#000000"}
+        onChange={onChange}
+      />
     )
   }
 
@@ -1885,79 +1910,18 @@ function BrandingTabPanel({
   )
 }
 
-// ── Professional Color Picker with Swatches ──────────────────
-const COLOR_SWATCHES = [
-  "#000000", "#374151", "#3B82F6", "#10B981", "#F59E0B",
-  "#EF4444", "#8B5CF6", "#EC4899", "#6366F1", "#14B8A6",
-]
+/*
+  THE SECOND COLOUR PICKER IS GONE.
 
-function WbColorPicker({
-  label,
-  value,
-  onChange,
-  defaultValue = "#000000",
-}: {
-  label: string
-  value: unknown
-  onChange: (v: string) => void
-  defaultValue?: string
-}) {
-  const color = typeof value === "string" && value ? value : defaultValue
-  const [inputVal, setInputVal] = useState(color)
+  `WbColorPicker` sat here with its own swatch row and a native
+  `<input type="color">` behind a 40px chip. It had no call sites — nothing
+  in the product rendered it — but it was the thing anyone grepping this
+  file for a colour control would find first, and it hid a real one: the
+  native input that hands the user to the operating system's colour panel.
 
-  useEffect(() => {
-    setInputVal(typeof value === "string" && value ? value : defaultValue)
-  }, [value, defaultValue])
-
-  const handleInput = (v: string) => {
-    setInputVal(v)
-    if (/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(v) || v === "transparent") {
-      onChange(v)
-    }
-  }
-
-  return (
-    <div className="space-y-2.5">
-      <p className="text-sm font-medium text-foreground">{label}</p>
-      <div className="flex items-center gap-2.5">
-        <div className="relative h-10 w-10 rounded-lg overflow-hidden border border-border shrink-0 shadow-sm">
-          {color === "transparent" ? (
-            <div className="w-full h-full" style={{ background: "repeating-conic-gradient(#e5e7eb 0% 25%, transparent 0% 50%) 50% / 10px 10px" }} />
-          ) : (
-            <div className="w-full h-full" style={{ backgroundColor: color }} />
-          )}
-          <input
-            type="color"
-            className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-            value={color === "transparent" ? "#ffffff" : color}
-            onChange={e => { onChange(e.target.value); setInputVal(e.target.value) }}
-          />
-        </div>
-        <input
-          type="text"
-          className="flex-1 h-10 px-3 text-sm border border-border rounded-lg bg-background font-mono focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 transition-colors"
-          value={inputVal}
-          onChange={e => handleInput(e.target.value)}
-          onBlur={() => setInputVal(color)}
-        />
-      </div>
-      <div className="flex items-center gap-1.5 flex-wrap">
-        {COLOR_SWATCHES.map(sw => (
-          <button
-            key={sw}
-            type="button"
-            className={cn(
-              "h-7 w-7 rounded-full border-2 transition-all hover:scale-110",
-              color === sw ? "border-foreground ring-2 ring-foreground/10 scale-110" : "border-transparent"
-            )}
-            style={{ backgroundColor: sw }}
-            onClick={() => { onChange(sw); setInputVal(sw) }}
-          />
-        ))}
-      </div>
-    </div>
-  )
-}
+  One colour control now, ColorField, reached through FieldEditor, the same
+  picker the storefront dialogs open.
+*/
 
 // ── Professional Slider with value display ───────────────────
 function WbSlider({
@@ -2446,7 +2410,9 @@ function SortableNavLink({
           }
           return (
             <div key={field.id}>
-              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">{field.label}</label>
+              {!fieldCarriesOwnLabel(field) && (
+                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">{field.label}</label>
+              )}
               {field.id === "url" ? (
                 <NavLinkPicker
                   value={typeof block.settings.url === "string" ? block.settings.url : ""}
@@ -5849,7 +5815,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                           onInitialActiveConsumed={() => setEditSchemeKey(null)}
                           advanced={THEME_SETTINGS_GROUPS.find(g => g.id === "colors")?.fields.map(field => (
                             <div key={field.id}>
-                              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">{field.label}</label>
+                              {!fieldCarriesOwnLabel(field) && (
+                                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">{field.label}</label>
+                              )}
                               <FieldEditor
                                 field={field}
                                 value={settingsDraft[field.id as keyof ThemeSettingsValues] ?? field.default}
@@ -5926,10 +5894,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                                   />
                                 </>
                               ) : field.type === "color" ? (
-                                <>
-                                  <label className="text-xs font-medium text-muted-foreground mb-1.5 block">{field.label}</label>
-                                  <FieldEditor field={field} value={val} onChange={v => updateSetting(field.id, v)} />
-                                </>
+                                /* No label here: fieldCarriesOwnLabel(field) is true for a
+                                   colour, because ColorField's own row is the label. */
+                                <FieldEditor field={field} value={val} onChange={v => updateSetting(field.id, v)} />
                               ) : field.type === "header" || field.type === "paragraph" ? (
                                 <FieldEditor field={field} value={val} onChange={v => updateSetting(field.id, v)} />
                               ) : (
@@ -6275,7 +6242,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 <div className="p-4 space-y-4">
                   {clean.map(field => (
                     <div key={field.id}>
-                      {field.type !== "header" && field.type !== "paragraph" && (
+                      {!fieldCarriesOwnLabel(field) && (
                         <label className="text-xs font-medium text-muted-foreground mb-1.5 block">{field.label}</label>
                       )}
                       <FieldEditor
@@ -6358,7 +6325,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                         <div className="px-3 pb-3 space-y-3 border-t border-border pt-3">
                           {blockSchema?.fields.map(field => (
                             <div key={field.id}>
-                              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">{field.label}</label>
+                              {!fieldCarriesOwnLabel(field) && (
+                                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">{field.label}</label>
+                              )}
                               <FieldEditor
                                 field={field}
                                 value={block.settings[field.id]}
@@ -6542,10 +6511,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                                 />
                               </>
                             ) : field.type === "color" ? (
-                              <>
-                                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">{field.label}</label>
-                                <FieldEditor field={field} value={val} onChange={v => updateSetting(field.id, v)} />
-                              </>
+                              /* No label here: fieldCarriesOwnLabel(field) is true for a
+                                 colour, because ColorField's own row is the label. */
+                              <FieldEditor field={field} value={val} onChange={v => updateSetting(field.id, v)} />
                             ) : field.type === "header" || field.type === "paragraph" ? (
                               <FieldEditor field={field} value={val} onChange={v => updateSetting(field.id, v)} />
                             ) : (

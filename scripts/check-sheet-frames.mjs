@@ -74,7 +74,7 @@ writeFileSync(file,
   `<!doctype html><html class="light"><head><meta charset="utf-8">` +
   `<meta name="viewport" content="width=device-width,initial-scale=1">` +
   `<style>${css}</style><style>body{margin:0}</style></head><body><div id="app"></div>` +
-  `<script>window.process={env:{NODE_ENV:"production"}}</script>` +
+  `<script>window.__err=[];window.addEventListener("error",function(e){window.__err.push(String(e.message))});window.addEventListener("unhandledrejection",function(e){window.__err.push("rejected: "+String(e.reason))});window.process={env:{NODE_ENV:"production"}}</script>` +
   `<script>${readFileSync(join(out, "probe.js"), "utf8")}</script></body></html>`)
 
 /*
@@ -177,13 +177,56 @@ await sleep(1600)
 const armed = await call("Runtime.evaluate", { expression: ARM, awaitPromise: true, returnByValue: true })
 if (armed.exceptionDetails) fail(`Arming threw: ${JSON.stringify(armed.exceptionDetails.text || armed.exceptionDetails)}`)
 const a = JSON.parse(armed.result.value)
-if (!a.foundSheet) fail("The sheet never mounted, so there was nothing to drag.")
+if (!a.foundSheet) {
+  const why = await call("Runtime.evaluate", { expression: 'JSON.stringify({ threw: window.__threw || null, err: (window.__err||[]).slice(0,3), body: document.body.innerHTML.slice(0,300) })', returnByValue: true })
+  fail("The sheet never mounted: " + (why.result && why.result.value))
+}
+
+/* The layout assertion below counts what reading --wb-sheet-hidden costs, and
+   the only node that reads it is the ::after inside [data-sheet-scroll]. Drop
+   that attribute from the fixture and the count is 0 whether or not the sheet
+   has the bug, so the probe goes green on a broken sheet. That happened: the
+   first run of this comparison reported "no difference" because the fixture's
+   scroller was unmarked. Check the shape before trusting the number. */
+const shape = await call("Runtime.evaluate", {
+  expression: `(() => {
+    const el = document.querySelector('[data-mobile-bottom-sheet] [data-sheet-scroll]')
+    if (!el) return "no [data-sheet-scroll] inside the sheet"
+    const h = getComputedStyle(el, "::after").height
+    return h && h !== "auto" ? "" : "the ::after spacer resolved to " + h
+  })()`,
+  returnByValue: true,
+})
+if (shape.result.value) {
+  fail(`The fixture is not the shape the assertion needs: ${shape.result.value}.\n` +
+    `Nothing would read --wb-sheet-hidden, so "cost no layout" would pass on a sheet that has the bug.\n` +
+    `Give the fixture's scroller data-sheet-scroll in scripts/render-sheet-frames.tsx.`)
+}
 
 /* A real finger: down, sixty moves down the screen, up. */
 const touch = (type, y) => call("Input.dispatchTouchEvent", {
   type,
   touchPoints: type === "touchEnd" ? [] : [{ x: a.grabAt.x, y }],
 })
+/*
+  AND WHAT THE DRAG COSTS THE MAIN THREAD, WHICH IS THE WHOLE OF "IT LAGS".
+
+  Frame pacing says whether the browser kept up. It cannot say WHY it did
+  not, and in headless with no compositor it keeps up with almost anything.
+  The browser's own counters can: a transform is handed to the compositor and
+  lays nothing out, so a drag that is doing only that adds no layouts at all.
+  One per frame means something in the loop is writing a property that
+  invalidates geometry, and that is the shape of a drag that stutters on a
+  phone and looks fine on a laptop.
+*/
+await call("Performance.enable", {})
+const counter = async (name) => {
+  const { metrics } = await call("Performance.getMetrics", {})
+  return metrics.find((m) => m.name === name)?.value ?? 0
+}
+const layoutsBefore = await counter("LayoutCount")
+const stylesBefore = await counter("RecalcStyleCount")
+
 await touch("touchStart", a.grabAt.y)
 const startedAt = Date.now()
 for (let i = 1; i <= MOVES; i++) {
@@ -191,6 +234,8 @@ for (let i = 1; i <= MOVES; i++) {
   await sleep(16)
 }
 const dragMs = Date.now() - startedAt
+const layoutsDuring = (await counter("LayoutCount")) - layoutsBefore
+const stylesDuring = (await counter("RecalcStyleCount")) - stylesBefore
 await touch("touchEnd", a.grabAt.y + DRAG_PX)
 
 const read = await call("Runtime.evaluate", { expression: READ, awaitPromise: true, returnByValue: true })
@@ -249,7 +294,8 @@ const expect = (ok, what, got) => {
 
 console.log(`\nDragging the editor's sheet ${DRAG_PX}px with ${MOVES} touches over ${dragMs}ms\n`)
 console.log(`  ${r.frames} frames, median ${r.median}ms, p95 ${r.p95}ms, worst ${r.worstGap}ms, ${r.janky} over 34ms`)
-console.log(`  ${r.writes} transform writes\n`)
+console.log(`  ${r.writes} transform writes`)
+console.log(`  ${layoutsDuring} layouts and ${stylesDuring} style recalcs while the finger was down\n`)
 
 /* Headless Chromium with no GPU does not pace to a display, so this is not
    a claim about 60Hz on a phone. What it can show is a drag that keeps up
@@ -260,6 +306,20 @@ expect(r.writes <= r.frames + 2, "and never more than once a frame, which is the
   `${r.writes} writes across ${r.frames} frames`)
 expect(r.janky === 0, "no frame took longer than two frames' worth of time", `${r.janky} did`)
 expect(r.p95 <= 34, "and the slow end of them is still inside a frame budget", `p95 ${r.p95}ms`)
+
+/* The one that caught the real defect on Capacitor. transform is compositor
+   work; a custom property that feeds a height is not, and the sheet used to
+   write --wb-sheet-hidden on every drag frame. The spacer inside
+   [data-sheet-scroll] reads that variable, so every frame invalidated layout
+   and the drag did a full layout per touch: 57 of them across this sweep.
+   Writing it only at rest takes that to 0.
+
+   This assertion is worth nothing unless the fixture keeps data-sheet-scroll
+   on its scroller. Without the attribute nothing reads the variable, the
+   count is 0 either way, and the probe passes a sheet that has the bug. That
+   is exactly how the first measurement came back "no difference". */
+expect(layoutsDuring === 0, "the drag cost no layout, only compositor work",
+  `${layoutsDuring} layout${layoutsDuring === 1 ? "" : "s"} across ${r.writes} frames`)
 
 console.log("\nAnd opening it again, with the panel mounted inside\n")
 console.log(`  ${o.frames} frames, median ${o.median}ms, worst ${o.worstGap}ms, ${o.janky} over 34ms`)

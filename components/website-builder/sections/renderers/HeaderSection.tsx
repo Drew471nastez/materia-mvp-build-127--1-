@@ -1909,11 +1909,30 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
               // and because the dropdown lives inside that stacking context
               // its effective paint order vs. outside siblings = z-[60] —
               // still comfortably above all non-sticky section content.
-              "absolute left-0 top-full mt-2 min-w-[200px] rounded-xl shadow-xl ring-1 ring-black/5 bg-white py-2 z-[70]",
+              "absolute left-0 top-full mt-2 min-w-[200px] rounded-xl shadow-xl py-2 z-[70]",
               "opacity-0 translate-y-1 pointer-events-none",
               "group-hover/navitem:opacity-100 group-hover/navitem:translate-y-0 group-hover/navitem:pointer-events-auto",
               "transition-[opacity,translate] duration-200 ease-out",
             )}
+            /*
+              THE SCHEME PAINTS THIS, NOT A HARDCODED WHITE.
+
+              It was `bg-white` with `ring-black/5` and `text-gray-800`
+              children, which is a white card with dark text whatever the
+              header is. On a dark scheme it came out as a white slab hanging
+              off a black bar, and the links inside it were unreadable against
+              it. The mobile drawer twenty lines up has always painted itself
+              from `scheme`; this is the one part of the header that did not.
+
+              `header_dropdown_bg` and `header_dropdown_link` are slots the
+              scheme already has — they resolve to the scheme's background and
+              text — so there was nothing to add, only something to read.
+            */
+            style={{
+              backgroundColor: scheme.header_dropdown_bg || scheme.bg,
+              color: scheme.header_dropdown_link || scheme.nav_link,
+              border: `1px solid ${scheme.inset_border}`,
+            }}
           >
             {kids.map(child => {
               const childHref = resolveHref(child)
@@ -1924,7 +1943,14 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
                   href={childHref}
                   target={childOpenInNew ? "_blank" : undefined}
                   rel={childOpenInNew ? "noopener noreferrer" : undefined}
-                  className="block px-4 py-2 text-[13.5px] font-medium text-gray-800 hover:bg-gray-50 transition-colors whitespace-nowrap"
+                  /*
+                    `currentColor` is the panel's own link colour from the
+                    scheme, so the hover tint is a wash of the text over the
+                    panel and lands right on a dark scheme and a light one
+                    alike. `hover:bg-gray-50` only ever worked on white.
+                  */
+                  className="theme-nav-dropdown-item block px-4 py-2 text-[13.5px] font-medium transition-colors whitespace-nowrap"
+                  style={{ color: "inherit" }}
                   onClick={e => {
                     if (onEditorNavigate) {
                       e.preventDefault()

@@ -731,24 +731,13 @@ export function MobileEditorSheet({
     const overlay = overlayRef.current
     const cY = offsetsRef.current[offsetsRef.current.length - 1]
     if (sheet) {
+      /*
+        THE ONLY THING WRITTEN PER FRAME, AND THE ONLY THING THAT CAN BE.
+        A transform is handed to the compositor; nothing here is laid out
+        again for it. See `layoutHiddenRoom` below for what used to be
+        written alongside it and why it could not stay.
+      */
       sheet.style.transform = `translateY(${y}px)`
-      /**
-       * ═════════════════════════════════════════════════════════════════════
-       *  WHAT THE SHEET HIDES, THE SCROLLER GETS BACK
-       * ═════════════════════════════════════════════════════════════════════
-       * The sheet is always its full height and is slid DOWN by `y`, so at a
-       * half-open stop the bottom `y` pixels of it are below the screen. The
-       * scroller inside is sized for the whole sheet, and its last `y` pixels
-       * of content sit in that hidden part: you scroll to the end and the end
-       * is off the bottom of the phone. This is that number, handed to the
-       * stylesheet, which adds exactly that much room after the content (see
-       * `[data-sheet-scroll]::after` in globals.css).
-       *
-       * Zero for a content-fit sheet, whose height is measured from that same
-       * content: room added there would be measured, grow the sheet, add more
-       * room, and never settle.
-       */
-      sheet.style.setProperty("--wb-sheet-hidden", fit ? "0px" : `${Math.max(0, Math.round(y))}px`)
     }
     if (overlay) {
       const opacity = cY > 0 ? Math.max(0, Math.min(1, 1 - y / cY)) : 0
@@ -767,10 +756,64 @@ export function MobileEditorSheet({
   }
 
   /**
+   * ═══════════════════════════════════════════════════════════════════════════
+   *  WHAT THE SHEET HIDES, THE SCROLLER GETS BACK — ONCE IT HAS STOPPED
+   * ═══════════════════════════════════════════════════════════════════════════
+   * The sheet is always its full height and is slid DOWN by `y`, so at a
+   * half-open stop the bottom `y` pixels of it are below the screen. The
+   * scroller inside is sized for the whole sheet, and its last `y` pixels of
+   * content sit in that hidden part: you scroll to the end and the end is off
+   * the bottom of the phone. This is that number, handed to the stylesheet,
+   * which adds exactly that much room after the content (see
+   * `[data-sheet-scroll]::after` in globals.css).
+   *
+   * IT USED TO BE WRITTEN EVERY FRAME OF THE DRAG, next to the transform, and
+   * that is what made the drag heavy on a phone. The transform is compositor
+   * work and costs the main thread nothing. This is a custom property that a
+   * `::after` inside the scroller uses as its HEIGHT — so setting it laid the
+   * scroller's whole content out again, once per frame, behind a finger, with
+   * every section row in the sheet to re-measure. A drag is the one moment
+   * that cannot afford layout.
+   *
+   * Nothing needs it mid-drag: the room only matters to someone SCROLLING the
+   * sheet, and a finger that is dragging the sheet is not scrolling it — the
+   * arbitration at touchdown picks one or the other and never both. So it is
+   * written when the sheet comes to rest, which is the only moment its value
+   * is the one that lasts.
+   *
+   * Zero for a content-fit sheet, whose height is measured from that same
+   * content: room added there would be measured, grow the sheet, add more
+   * room, and never settle.
+   */
+  const layoutHiddenRoom = React.useCallback((y: number) => {
+    const sheet = sheetRef.current
+    if (!sheet) return
+    sheet.style.setProperty("--wb-sheet-hidden", fit ? "0px" : `${Math.max(0, Math.round(y))}px`)
+  }, [fit])
+
+  /**
    * The snap has to land exactly, so it writes straight through: a queued rAF
    * carrying the last DRAG position would fire after the transition had been
    * turned on and animate the sheet back to where the finger was.
    */
+  /*
+    The sheet also comes to rest without a finger — opening, closing, the
+    keyboard arriving, a stop being re-measured on rotate — and none of those
+    go through the snap. This is the other half of `layoutHiddenRoom`: while a
+    finger is down it stays out of the way, and the moment there is none the
+    room under the content is brought up to date.
+
+    IT LIVES UP HERE, ABOVE `if (!mounted) return null`, and that is not
+    tidiness. Put below it, this hook runs on every render after the first and
+    on none before, which is a different number of hooks between two renders —
+    React error #310, the whole sheet gone, and it is invisible in a diff. The
+    probe caught it as a sheet that never mounted.
+  */
+  React.useEffect(() => {
+    if (drag.current.active) return
+    layoutHiddenRoom(open ? settledY : closedY)
+  }, [open, settledY, closedY, layoutHiddenRoom])
+
   const applyTransformNow = (y: number) => {
     if (rafId.current) {
       cancelAnimationFrame(rafId.current)
@@ -778,6 +821,8 @@ export function MobileEditorSheet({
     }
     pendingY.current = null
     writeTransform(y)
+    /* Landed, so the room under the content is the room it will keep. */
+    layoutHiddenRoom(y)
   }
 
   React.useEffect(() => () => {
@@ -1225,6 +1270,7 @@ export function MobileEditorSheet({
   const dragging = drag.current.active
   const closedOffset = offsets[offsets.length - 1] ?? 0
   const renderY = dragging ? drag.current.currentY : open ? settledY : closedY
+
   const renderOpacity = dragging
     ? closedOffset > 0
       ? Math.max(0, Math.min(1, 1 - renderY / closedOffset))

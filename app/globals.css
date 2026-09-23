@@ -4073,3 +4073,16 @@ html.pop-in-flight #platform-header-root {
   .wb-sheet-panel[data-dir="in"],
   .wb-sheet-panel[data-dir="back"] { animation: none; }
 }
+
+/* ===========================================================================
+ *  A HEADER DROPDOWN ITEM TINTS WITH ITS OWN INK
+ * ===========================================================================
+ * The panel paints itself from the theme's colour scheme, so its hover
+ * cannot be a fixed grey: `hover:bg-gray-50` is invisible on every dark
+ * scheme, and a fixed white tint is invisible on every light one. A wash of
+ * `currentColor` — which is the scheme's own link colour — is the same
+ * gesture either way round.
+ */
+.theme-nav-dropdown-item:hover {
+  background-color: color-mix(in srgb, currentColor 8%, transparent);
+}
