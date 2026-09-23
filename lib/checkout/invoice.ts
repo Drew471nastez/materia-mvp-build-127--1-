@@ -139,8 +139,8 @@ export async function invoiceForOrder(
   /* Only a payment that went through has an invoice: one that is pending,
      failed or disputed would be printed "paid". A refunded sale keeps its
      invoice, as a record of the sale the refund reverses. */
-  const status = String((order as { status?: string | null }).status ?? "completed")
-  if (status !== "completed" && status !== "refunded") return null
+  const orderStatus = String((order as { status?: string | null }).status ?? "completed")
+  if (orderStatus !== "completed" && orderStatus !== "refunded") return null
 
   let meta: Record<string, string> = knownMetadata ?? {}
   if (!knownMetadata) {

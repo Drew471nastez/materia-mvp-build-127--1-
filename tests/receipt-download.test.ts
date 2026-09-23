@@ -383,8 +383,9 @@ function main() {
     const view = read("app/receipt/[token]/receipt-view.tsx")
     check("a paid card order offers its invoice PDF on the receipt",
       /\/api\/checkout\/invoice\?token=\$\{encodeURIComponent\(receipt\.primary\.token\)\}/.test(view)
-        && /invoice: rows\.length === 1 && totals\.totalCents > 0 && !!rows\[0\]\.stripe_payment_intent_id/.test(read("lib/receipts/load.ts")))
-    check("an unpaid order has no invoice", /if \(status !== "completed" && status !== "refunded"\) return null/.test(read("lib/checkout/invoice.ts")))
+        && /invoice: totals\.totalCents > 0 && !!rows\[0\]\.stripe_payment_intent_id/.test(read("lib/receipts/load.ts")))
+    check("  a basket's invoice lists every row of the payment", /\.eq\("stripe_session_id", order\.stripe_session_id\)/.test(read("lib/checkout/invoice.ts")))
+    check("an unpaid order has no invoice", /if \(orderStatus !== "completed" && orderStatus !== "refunded"\) return null/.test(read("lib/checkout/invoice.ts")))
     const resend = code("app/api/receipt/resend/route.ts")
     check("only the signed-in seller can resend the seller's sale notice",
       /if \(resendType !== "buyer"\) \{[\s\S]{0,400}\.eq\("user_id", user\.id\)/.test(resend) && /status: 403/.test(resend))

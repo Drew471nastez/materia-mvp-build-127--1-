@@ -83,7 +83,7 @@ check("the Orders page tags its refunds so the webhook can tell", /metadata: \{\
 {
   const route = read("app/api/stripe/refund/route.ts")
   check("the Orders page takes the seller's part back (destination charges do not on their own)", /refundParams\.reverse_transfer = true/.test(route))
-  check("and a double submit refunds once", /idempotencyKey: `storelib-refund:\$\{orderId\}`/.test(route))
+  check("and a double submit refunds once", /idempotencyKey: `storelib-refund:\$\{orderId\}:\$\{alreadyRefunded\}:\$\{refundAmountCents\}`/.test(route))
 }
 check("no page counts the tip twice in a refund", !/amount_cents \|\| 0\) \+ \((line|order)\.tip_cents/.test(read("lib/orders/metrics.ts") + read("app/app/orders/sales/page.tsx")))
 const hook = strip(read("app/api/stripe/webhook/route.ts"))
