@@ -22,6 +22,7 @@ import { join } from "node:path"
 import { hashToken, looksLikeToken, mintToken, TOKEN_PREFIX } from "@/lib/agent-access/token-format"
 import { WRITABLE, canWrite, compileOnly } from "@/lib/agent-access/operations"
 import { PROTOCOL_VERSIONS, TOOLS, formatErrors, handleMcp, type BoundOps } from "@/lib/agent-access/mcp"
+import { briefFrom } from "@/lib/agent-access/site-brief"
 
 let passed = 0
 let failed = 0
@@ -54,6 +55,10 @@ function fakeOps() {
       return { ok: true, value: { path, type: "pricing", created: true, drafted: true, updated_at: "2026-09-23T10:01:00Z" } }
     },
     guide: () => "THE GUIDE",
+    site: async () => {
+      calls.push("site")
+      return { ok: true, value: briefFrom({ name: "Astrid Studio", address: "https://astrid.storelib.com", live: true, settings: { brand_name: "Astrid" }, pages: [], products: [] }) }
+    },
   }
   return { ops, calls }
 }
@@ -154,7 +159,7 @@ async function main() {
 
   const list = await handleMcp({ jsonrpc: "2.0", id: 6, method: "tools/list" }, fake)
   const names = ((list as { result?: { tools?: { name: string }[] } })?.result?.tools ?? []).map((t) => t.name)
-  check("it offers exactly five tools", JSON.stringify(names) === JSON.stringify(["storelib_guide", "storelib_list_files", "storelib_read_file", "storelib_compile", "storelib_write_section"]))
+  check("it offers exactly six tools", JSON.stringify(names) === JSON.stringify(["storelib_guide", "storelib_site", "storelib_list_files", "storelib_read_file", "storelib_compile", "storelib_write_section"]))
   check("each with a JSON schema that allows nothing extra",
     TOOLS.every((t) => t.inputSchema.type === "object" && t.inputSchema.additionalProperties === false))
   check("and nothing named delete, publish or rename", !names.some((n) => /delete|publish|rename|remove/.test(n)))
@@ -162,6 +167,34 @@ async function main() {
   const call = (name: string, args: Record<string, unknown> = {}) =>
     handleMcp({ jsonrpc: "2.0", id: 7, method: "tools/call", params: { name, arguments: args } }, fake)
   check("the guide is the framework's own text", textOf(await call("storelib_guide")) === "THE GUIDE")
+  check("the site is described, so a section fits it", /"Astrid"/.test(textOf(await call("storelib_site"))) && calls.includes("site"))
+  check("and the agent is told to read it first", /storelib_site/.test(String(initResult.instructions)))
+
+  console.log("\nWhat the site brief holds, and what it never does")
+  {
+    const brief = briefFrom({
+      name: "Astrid Studio",
+      address: "https://astrid.storelib.com",
+      live: true,
+      settings: { brand_name: "Astrid", seo_description: "Film presets", site_language: "ro", font_heading: "Fraunces", email: "owner@example.com", stripe_account: "acct_x" },
+      pages: [
+        { page_key: "about", sections: [{ type: "text", name: "Story" }] },
+        { page_key: "home", sections: [{ type: "hero", name: "Hero", settings: { heading: "x" } }, { type: "faq", hidden: true }, "junk"] },
+      ],
+      products: [{ id: "p1", type: "product", settings: { title: "Preset pack", price: "$12.00", compare_price: "", image: "", url: "/products/preset-pack", tag: "Sold out" } }],
+    })
+    check("home comes first, and each page lists its sections by type", brief.pages[0].key === "home" && brief.pages[0].sections.map((x) => x.type).join() === "hero,faq" && brief.pages[0].sections[1].hidden === true)
+    check("a section's settings are not copied out, only what it is", !JSON.stringify(brief.pages).includes("heading"))
+    check("products come as a visitor sees them, with the id checkout takes", brief.products[0].id === "p1" && brief.products[0].price === "$12.00" && brief.products[0].sold_out === true)
+    check("the look is there: fonts, and every colour scheme with its colours", brief.look.fonts.heading === "Fraunces" && brief.look.color_schemes.length > 0 && typeof brief.look.color_schemes[0].background === "string")
+    check("so are its words and its language", brief.seo.description === "Film presets" && brief.language === "ro")
+    check("nothing that is not a design setting leaks, whatever the settings hold", !/owner@example\.com|acct_x/.test(JSON.stringify(brief)))
+    check("and it says how to sell: the checkout link, and no payment forms", /\/checkout\?productId=\{\{ block\.id \}\}&src=website/.test(brief.selling) && /Never build a payment form/.test(brief.selling))
+    const src = read("lib/agent-access/site-brief.ts")
+    check("it reads only this connection's install and creator",
+      /\.eq\("id", who\.installId\)\s*\.eq\("creator_id", who\.creatorId\)/.test(src) && /eq\("install_id", who\.installId\)/.test(src) && /shopProducts\(db, who\.creatorId\)/.test(src))
+    check("and never orders, buyers or subscribers", !/from\("(orders|purchases|subscribers|customers|profiles)"\)/.test(src))
+  }
   check("reading gives the source and when it was saved", /updated_at 2026-09-23T10:00:00Z/.test(textOf(await call("storelib_read_file", { path: "sections/hero.storelib" }))))
   const missing = await call("storelib_read_file", { path: "sections/missing.storelib" })
   check("a failure is a tool result with isError, which the agent reads, not a protocol error",
@@ -181,7 +214,7 @@ async function main() {
   check("caps the body and the batch", /MAX_BODY/.test(mcpRoute) && /\.slice\(0, 20\)/.test(mcpRoute))
   check("answers a batch of notifications with 202 and nothing", /status: 202/.test(mcpRoute))
   check("and says it has no stream on GET", /status: 405/.test(mcpRoute))
-  for (const file of ["app/api/agent/v1/files/route.ts", "app/api/agent/v1/compile/route.ts"]) {
+  for (const file of ["app/api/agent/v1/files/route.ts", "app/api/agent/v1/compile/route.ts", "app/api/agent/v1/site/route.ts"]) {
     const src = read(file)
     check(`${file.replace("app/api/", "")} authenticates first in every handler`,
       (src.match(/export async function (GET|PUT|POST)/g) ?? []).length === (src.match(/const who = await authenticateAgent\(request\)\n\s*if \(who instanceof NextResponse\) return who/g) ?? []).length)
@@ -199,7 +232,9 @@ async function main() {
   check("a site holds a bounded number", /MAX_CONNECTIONS = 10/.test(manage))
 
   const panel = read("components/website-builder/agent-connections-panel.tsx")
-  check("Website settings has a Connections page", /id: "agents", label: "Connections"/.test(read("components/website-builder/project-settings.tsx")))
+  check("Website settings has a Connections page, under Advanced",
+    /id: "advanced", label: "Advanced"/.test(read("components/website-builder/website-settings/types.ts")) &&
+      /<AgentConnectionsPanel installId=\{ctx\.installId\} tool=\{tool\} \/>/.test(read("components/website-builder/website-settings/advanced.tsx")))
   check("which shows the token once, with the lines that use it",
     /It is not shown again/.test(panel) && /claude mcp add --transport http storelib/.test(panel) && /bearer_token_env_var = "STORELIB_TOKEN"/.test(panel))
   check("the token lives in memory only", !/localStorage|sessionStorage/.test(panel))

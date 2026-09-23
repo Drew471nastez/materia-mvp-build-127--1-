@@ -264,13 +264,16 @@ async function main() {
   section("They are reachable, and they are edited where the editor is")
   // ════════════════════════════════════════════════════════════════════════
   {
-    const settings = readFileSync(join(root, "components/website-builder/project-settings.tsx"), "utf8")
+    const settings =
+      readFileSync(join(root, "components/website-builder/website-settings/types.ts"), "utf8") +
+      readFileSync(join(root, "components/website-builder/website-settings/policies.tsx"), "utf8") +
+      readFileSync(join(root, "components/website-builder/project-settings.tsx"), "utf8")
     const editor = readFileSync(join(root, "app/website-builder/editor/[installId]/page.tsx"), "utf8")
     const switcher = readFileSync(join(root, "components/website-builder/page-switcher.tsx"), "utf8")
 
     check("project settings has a Policies section", /id: "policies"/.test(settings) && /POLICY_PAGES\.map/.test(settings))
     check("it lists them from the one definition, not a second copy", /from "@\/lib\/website-builder\/policy-pages"/.test(settings))
-    check("and editing opens the page in the builder", /onEditPage\?\.\(page\.key\)/.test(settings) && /onEditPage=\{\(pageKey\) =>/.test(editor))
+    check("and editing opens the page in the builder", /ctx\.onEditPage\(page\.key\)/.test(settings) && /onEditPage\?\.\(key\)/.test(settings) && /onEditPage=\{\(pageKey\) =>/.test(editor))
 
     /**
      * The editor resolves an in-site link to a page it knows about, which is

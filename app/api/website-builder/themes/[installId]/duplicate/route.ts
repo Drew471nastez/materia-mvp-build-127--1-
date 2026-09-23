@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { LIBRARY_FULL_MESSAGE, librarySlotsLeft } from "@/lib/website-builder/library-limit"
 
 type Params = { params: Promise<{ installId: string }> }
 
@@ -26,6 +27,11 @@ export async function POST(req: Request, { params }: Params) {
     .eq("creator_id", creator.id)
     .maybeSingle()
   if (!source) return NextResponse.json({ error: "Theme not found" }, { status: 404 })
+
+  // A copy is a website like any other, and counts towards the same limit.
+  if ((await librarySlotsLeft(supabase, creator.id)) === 0) {
+    return NextResponse.json({ error: LIBRARY_FULL_MESSAGE }, { status: 400 })
+  }
 
   const body = await req.json().catch(() => ({}))
   const newName: string = body?.name ?? `${source.name} (copy)`

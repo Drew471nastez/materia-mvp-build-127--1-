@@ -40,6 +40,8 @@ import {
 import { ImageViewer, type ViewableImage } from "@/components/website-builder/image-viewer"
 import { StorelibMark } from "@/components/storelib-mark"
 import { WorkPanel, type WorkCode, type WorkStep } from "@/components/website-builder/work-panel"
+import { AiStatus, useStageLabel } from "@/components/website-builder/ai-status"
+import type { WriteStage } from "@/lib/website-builder/agent/write-section"
 import { cn } from "@/lib/utils"
 import {
   ALLOWED_IMAGE_TYPES,
@@ -154,6 +156,94 @@ interface Attachment {
   url: string
 }
 
+/**
+ * The writer's answer, read as it arrives. The route sends a line per stage
+ * and then the result when asked for NDJSON; an older deployment, or a
+ * proxy that buffered it, answers with plain JSON, which is read the same.
+ */
+async function readWriteAnswer(
+  res: Response,
+  onStage: (stage: WriteStage) => void,
+): Promise<{
+  status: number
+  path?: string
+  type?: string
+  name?: string
+  error?: string
+  reply?: string
+  errors?: { line?: number; message: string }[]
+}> {
+  const kind = res.headers.get("content-type") ?? ""
+  if (!kind.includes("application/x-ndjson") || !res.body) {
+    const json = (await res.json().catch(() => ({}))) as Record<string, unknown>
+    return { status: res.status, ...json }
+  }
+  const reader = res.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ""
+  let result: { status?: number; answer?: Record<string, unknown> } | null = null
+  for (;;) {
+    const { value, done } = await reader.read()
+    if (value) buffer += decoder.decode(value, { stream: true })
+    let at = buffer.indexOf("\n")
+    while (at >= 0) {
+      const line = buffer.slice(0, at).trim()
+      buffer = buffer.slice(at + 1)
+      at = buffer.indexOf("\n")
+      if (!line) continue
+      try {
+        const event = JSON.parse(line) as { type?: string; stage?: WriteStage; status?: number; answer?: Record<string, unknown> }
+        if (event.type === "stage" && event.stage) onStage(event.stage)
+        else if (event.type === "result") result = event
+      } catch {
+        /* a partial line; the next read completes it */
+      }
+    }
+    if (done) break
+  }
+  if (!result) return { status: 502, error: "The answer was cut off." }
+  return { ...(result.answer ?? {}), status: typeof result.status === "number" ? result.status : 500 }
+}
+
+/**
+ * What went wrong, in words a creator can act on. The compiler's report and
+ * the model's plumbing are not that: they say "try again" or "say more",
+ * which is the only thing anybody in this panel can actually do about them.
+ * A plain sentence from the route (describe the section, the theme is full)
+ * is already written for a person, and is passed through.
+ */
+function plainWriteError(status: number, error: string | undefined, compileErrors: boolean): string {
+  const raw = error ?? ""
+  if (compileErrors || /did not compile|would not be correct|too long to finish|could not produce|sent nothing|cut off/i.test(raw)) {
+    return "I could not get that section right this time. Try again, or describe it in a few more words."
+  }
+  if (/declined/i.test(raw)) return "That is not something I can write. Try describing a different section."
+  if (status === 401) return "Your session ended. Sign in again to use Storelib AI."
+  if (status === 429 || status >= 500 || /reach|fetch|network|timeout|overload|rate limit/i.test(raw)) {
+    return "Storelib AI is busy right now. Try again in a moment."
+  }
+  return raw || "That did not work. Try again."
+}
+
+/**
+ * The page agent's line while it runs, moved on by what the run has shown
+ * so far: nothing yet, a plan or a step, then changes arriving on the page.
+ */
+function RunStatus({ exchange }: { exchange: Exchange }) {
+  const stage =
+    exchange.changes.length > 0
+      ? "changing"
+      : exchange.plan || (exchange.steps?.length ?? 0) > 0 || exchange.note
+        ? "working"
+        : "starting"
+  const label = useStageLabel(
+    stage,
+    { starting: "Starting…", working: "Working on it…", changing: "Making changes…" },
+    { starting: { after: 1200, label: "Thinking…" } },
+  )
+  return label ? <AiStatus label={label} /> : null
+}
+
 export function ThemeChat({
   installId,
   page,
@@ -226,6 +316,17 @@ export function ThemeChat({
   const [written, setWritten] = React.useState<{ path: string; name: string; placed: boolean } | null>(null)
   const [writing, setWriting] = React.useState(false)
   const [writeError, setWriteError] = React.useState<string | null>(null)
+  /** Where the writer has got to, from the server's own reports. */
+  const [writeStage, setWriteStage] = React.useState<"starting" | WriteStage | null>(null)
+  /** An answer instead of a section: the message was a question, or unclear. */
+  const [writeReply, setWriteReply] = React.useState<{ prompt: string; text: string } | null>(null)
+  /** The last request, so Try again can make it again without retyping it. */
+  const lastWrite = React.useRef<{ prompt: string; images: Attachment[] } | null>(null)
+  const writeLabel = useStageLabel(
+    writeStage,
+    { starting: "Starting…", thinking: "Thinking…", checking: "Checking it…", fixing: "Fixing a detail…" },
+    { thinking: { after: 4500, label: "Writing the section…" }, fixing: { after: 4500, label: "Writing it again…" } },
+  )
   const [busy, setBusy] = React.useState(false)
   /**
    * THE NEXT THING TO ASK, WHILE THE LAST ONE IS STILL GOING.
@@ -775,8 +876,11 @@ export function ThemeChat({
    */
   const writeOne = React.useCallback(
     async (prompt: string, images: Attachment[] = []) => {
+      lastWrite.current = { prompt, images }
       setWriting(true)
+      setWriteStage("starting")
       setWriteError(null)
+      setWriteReply(null)
       setWritten(null)
       setAttached([])
       setAttachError(null)
@@ -786,7 +890,8 @@ export function ThemeChat({
       try {
         const res = await fetch(`/api/website-builder/themes/${installId}/sections/code`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          /* One line per stage, then the answer: see the route. */
+          headers: { "Content-Type": "application/json", Accept: "application/x-ndjson" },
           /**
            * THE PICTURES GO TOO. They used not to, which is the whole of the
            * bug: attaching a screenshot here sent `{ prompt: "" }`, failed
@@ -807,18 +912,21 @@ export function ThemeChat({
             sectionTypes: [...new Set(sections.map((s) => s.type))].slice(0, 40),
           }),
         })
-        const d = (await res.json().catch(() => ({}))) as {
-          path?: string
-          type?: string
-          name?: string
-          error?: string
-          errors?: { line?: number; message: string }[]
+        const d = await readWriteAnswer(res, setWriteStage)
+        /* It answered instead: the message was a question, or too unclear
+           to build. A conversation, shown as one, and nothing to retry. */
+        if (d.reply) {
+          reason = d.reply
+          setWriteReply({ prompt, text: d.reply })
+          return
         }
         const type = d.type ?? d.path?.match(/^sections\/([a-z0-9_-]+)\.storelib$/)?.[1]
-        if (!res.ok || !d.path || !d.name || !type) {
-          reason = d.errors?.length
-            ? `${d.error ?? "It did not compile."} ${d.errors[0].line ? `Line ${d.errors[0].line}: ` : ""}${d.errors[0].message}`
-            : d.error ?? "That did not work."
+        if (d.status >= 400 || !d.path || !d.name || !type) {
+          /* The compiler's own words are for the code editor, not for this
+             chat: "Line 331: <schema> is never closed" tells a creator
+             nothing they can act on. The detail stays in the console. */
+          if (d.errors?.length) console.warn("[storelib ai] section did not compile", d.errors)
+          reason = plainWriteError(d.status, d.error, Boolean(d.errors?.length))
           setWriteError(reason)
           return
         }
@@ -835,11 +943,12 @@ export function ThemeChat({
           .catch(() => false)
         setWritten({ path: section.path, name: section.name, placed })
       } catch {
-        reason = "The assistant could not be reached."
+        reason = "Storelib AI could not be reached. Check your connection and try again."
         setWriteError(reason)
       } finally {
         if (!kept) onWriteFailed?.(reason)
         setWriting(false)
+        setWriteStage(null)
       }
     },
     /**
@@ -1118,12 +1227,7 @@ export function ThemeChat({
                   </p>
                 )}
 
-                {exchange.running && (
-                  <p className="flex items-center gap-2 text-[12px] text-muted-foreground">
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                    Working
-                  </p>
-                )}
+                {exchange.running && <RunStatus exchange={exchange} />}
 
                 {exchange.reply && (
                   <p className="text-[13px] leading-relaxed text-muted-foreground">{exchange.reply}</p>
@@ -1228,19 +1332,36 @@ export function ThemeChat({
           </div>
         )}
 
-        {writeError && (
-          <p className="mb-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-[12.5px] leading-snug text-foreground">
-            {writeError}
-          </p>
+        {/* It answered rather than wrote: the question, then the answer,
+            like any other turn of a conversation. */}
+        {writeReply && !writing && (
+          <div className="mb-2 space-y-1.5 rounded-lg border border-border bg-background p-3">
+            <p className="text-[12.5px] text-muted-foreground">{writeReply.prompt}</p>
+            <p className="text-[13px] leading-relaxed text-foreground">{writeReply.text}</p>
+          </div>
         )}
 
-        {/* The same report while it is still happening. */}
-        {writing && (
-          <p className="mb-2 flex items-center gap-2 px-0.5 text-[12.5px] text-muted-foreground">
-            <Loader2 className="h-3 w-3 shrink-0 animate-spin" />
-            Writing it, then compiling it. A section that does not compile is not kept.
-          </p>
+        {writeError && !writing && (
+          <div className="mb-2 space-y-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3">
+            <p className="text-[12.5px] leading-snug text-foreground">{writeError}</p>
+            {lastWrite.current && (
+              <button
+                type="button"
+                onClick={() => {
+                  const again = lastWrite.current
+                  if (again) void writeOne(again.prompt, again.images)
+                }}
+                className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-2 py-1 text-[11.5px] text-muted-foreground transition-colors hover:border-foreground/25 hover:text-foreground"
+              >
+                <RotateCcw className="h-3 w-3" strokeWidth={2} />
+                Try again
+              </button>
+            )}
+          </div>
         )}
+
+        {/* What it is doing while it does it, from the server's reports. */}
+        {writing && writeLabel && <AiStatus label={writeLabel} className="mb-2 px-0.5" />}
 
         {/*
           THE SCOPE OF THE EDIT, WHERE YOU ARE ABOUT TO TYPE IT.

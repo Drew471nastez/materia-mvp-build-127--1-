@@ -7,11 +7,9 @@
  * fades this in, and then it is the page's real shapes at their real sizes,
  * so nothing jumps when the data lands.
  *
- * Which means this file is only correct while it matches the page. It stopped
- * being: it still drew two buttons beside the title and a row of five little
- * squares under the primary action, and the page has neither. Both are below
- * in the shape they are now — a title with the address under it, and three
- * full-width buttons.
+ * Which means this file is only correct while it matches the page: the
+ * title and address, the live card with its row of tabs and its list of
+ * facts, and the library as a table with its heading row.
  */
 export default function WebsiteBuilderLoading() {
   return (
@@ -23,16 +21,28 @@ export default function WebsiteBuilderLoading() {
           <div className="mt-2.5 h-4 w-52 rounded bg-[#eef0f3]" />
         </div>
 
-        {/* The live website. */}
+        {/* The live website: its tabs, the cover, the facts, the buttons. */}
         <div className="overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+          <div className="flex h-11 items-center gap-6 border-b border-[#eceef1] px-5">
+            {[64, 40, 48, 28, 72, 56].map((w, i) => (
+              <div key={i} className="h-3 shrink-0 rounded bg-[#eef0f3]" style={{ width: w }} />
+            ))}
+          </div>
           <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
             <div className="aspect-[16/10] bg-[#eef0f3]" />
-            <div className="flex flex-col justify-center p-5 sm:p-6">
+            <div className="flex flex-col p-5 sm:p-6">
               <div className="h-3 w-10 rounded bg-[#e9ebee]" />
               <div className="mt-3 h-6 w-44 rounded-md bg-[#e9ebee]" />
-              <div className="mt-2 h-3.5 w-52 rounded bg-[#eef0f3]" />
+              <div className="mt-4 divide-y divide-[#f0f1f3] border-y border-[#f0f1f3]">
+                {[0, 1].map((i) => (
+                  <div key={i} className="flex h-[41px] items-center justify-between">
+                    <div className="h-3 w-20 rounded bg-[#eef0f3]" />
+                    <div className="h-3 w-14 rounded bg-[#e9ebee]" />
+                  </div>
+                ))}
+              </div>
               {/* One primary, then two beside each other: the real block. */}
-              <div className="mt-5 space-y-2">
+              <div className="mt-auto space-y-2 pt-5">
                 <div className="h-11 rounded-xl bg-[#e9ebee]" />
                 <div className="grid grid-cols-2 gap-2">
                   <div className="h-11 rounded-xl border border-[#e5e7eb] bg-white" />
@@ -50,9 +60,10 @@ export default function WebsiteBuilderLoading() {
             <div className="h-11 w-[124px] rounded-xl border border-[#e5e7eb] bg-white" />
           </div>
           <div className="divide-y divide-[#eceef1] overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white">
+            <div className="hidden h-9 bg-[#fafbfb] sm:block" />
             {[0, 1].map((i) => (
-              <div key={i} className="flex items-center gap-4 p-3 sm:p-4">
-                <div className="aspect-[16/10] w-24 rounded-lg bg-[#eef0f3] sm:w-36" />
+              <div key={i} className="flex items-center gap-4 p-3 sm:px-4">
+                <div className="aspect-[16/10] w-24 rounded-lg bg-[#eef0f3] sm:w-28" />
                 <div className="flex-1">
                   <div className="h-[15px] w-40 rounded bg-[#e9ebee]" />
                   <div className="mt-2 h-3 w-48 rounded bg-[#eef0f3]" />

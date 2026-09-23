@@ -17,6 +17,7 @@
  */
 import type { ThemeError } from "@/lib/storelib-theme/types"
 import type { FileEntry, OpResult } from "./operations"
+import type { SiteBrief } from "./site-brief"
 
 /** The protocol versions this server can speak, newest first. */
 export const PROTOCOL_VERSIONS = ["2025-06-18", "2025-03-26", "2024-11-05"] as const
@@ -29,6 +30,8 @@ export interface BoundOps {
   compile: (path: string, source: string) => OpResult<{ path: string; warnings: ThemeError[] }>
   write: (path: string, source: string, baseUpdatedAt?: string) => Promise<OpResult<{ path: string; type: string; created: boolean; drafted: boolean; updated_at: string | null }>>
   guide: () => string
+  /** What the website is: see ./site-brief.ts. Optional so older test doubles still bind. */
+  site?: () => Promise<OpResult<SiteBrief>>
 }
 
 type Json = Record<string, unknown>
@@ -45,6 +48,12 @@ export const TOOLS = [
     name: "storelib_guide",
     description:
       "The Storelib Builder Framework: the file format, template language, schema, styling and script rules. Read this BEFORE writing any section. The template language is not Vue, React, JSX or Liquid.",
+    inputSchema: { type: "object", properties: {}, additionalProperties: false },
+  },
+  {
+    name: "storelib_site",
+    description:
+      "What this website is: its name and address, brand, title and description, fonts and colour schemes, the sections on each page, and its published products with prices and ids. Read it before writing a section, so the section fits this site and sells what it really sells.",
     inputSchema: { type: "object", properties: {}, additionalProperties: false },
   },
   {
@@ -129,7 +138,7 @@ export async function handleMcp(msg: RpcRequest, ops: BoundOps): Promise<RpcResp
         serverInfo: { name: "storelib", title: "Storelib", version: "1.0.0" },
         instructions:
           `Connected to the Storelib site "${ops.siteName}" as "${ops.agentName}". ` +
-          "Call storelib_guide before writing a section. Compile with storelib_compile until it is clean, then save with storelib_write_section. " +
+          "Call storelib_guide and storelib_site before writing a section. Compile with storelib_compile until it is clean, then save with storelib_write_section. " +
           "Every save is a draft; the creator publishes.",
       })
     }
@@ -143,6 +152,11 @@ export async function handleMcp(msg: RpcRequest, ops: BoundOps): Promise<RpcResp
       switch (name) {
         case "storelib_guide":
           return ok(text(ops.guide()))
+        case "storelib_site": {
+          if (!ops.site) return fail(-32602, "Unknown tool: storelib_site")
+          const r = await ops.site()
+          return ok(refusal(r) ?? text(JSON.stringify(r.ok === true ? r.value : null, null, 2)))
+        }
         case "storelib_list_files": {
           const r = await ops.list()
           return ok(refusal(r) ?? text(JSON.stringify(r.ok === true ? r.value : null, null, 2)))

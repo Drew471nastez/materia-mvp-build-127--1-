@@ -211,7 +211,9 @@ export function WbImagePicker({
         <div
           data-wb-image-box
           className={cn(
-            "relative w-full rounded-lg overflow-hidden border border-border bg-[#fafafa] flex items-center justify-center",
+            /* `dark:` only inside a `.dark` parent: Website Settings is one,
+               the editor's sidebar is not, and is unchanged. */
+            "relative w-full rounded-lg overflow-hidden border border-border bg-[#fafafa] dark:bg-white/[0.04] flex items-center justify-center",
             filledClass,
           )}
         >
@@ -290,7 +292,9 @@ export function WbImagePicker({
              to an empty rectangle. */
           "wb-dropzone relative w-full rounded-lg border-2 border-dashed transition-colors cursor-pointer flex flex-col items-center justify-center gap-1.5 py-5",
           emptyAspectClass,
-          dragOver ? "border-foreground/40 bg-muted" : "border-border bg-[#fafafa] hover:border-foreground/25 hover:bg-muted/60",
+          dragOver
+            ? "border-foreground/40 bg-muted"
+            : "border-border bg-[#fafafa] hover:border-foreground/25 hover:bg-muted/60 dark:bg-white/[0.03] dark:hover:bg-white/[0.06]",
         )}
         onClick={pick}
         onDragOver={e => { e.preventDefault(); setDragOver(true) }}

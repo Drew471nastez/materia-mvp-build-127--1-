@@ -24,14 +24,14 @@ From left to right on a computer:
 | Exit | Back to your websites. If a save is still going or a code file is unsaved, it asks first: **Stay here** or **Leave anyway**. |
 | Sections, Pages, General Settings | Switch what the sidebar shows. |
 | Website name and green dot | The dot means the website is published. |
-| **…** menu | View code, Theme settings, Website settings, GitHub and AI agents, Undo, Redo, View live site, Back to Dashboard. On a phone this is also how you reach Code and Website settings. |
+| **…** menu | View code, Theme settings, Website settings, Connect Claude Code or Codex, Undo, Redo, View live site, Back to Dashboard. On a phone this is also how you reach Code, Website settings and the connections. |
 | Preview, Code, Website Settings | Three ways of looking at the project. Code opens the code editor over the canvas. |
 | Desktop or phone | One button that switches the canvas between the full width and a 390px phone. |
 | Page switcher | Which page you are editing. See [Pages](#pages). |
 | Open the live page | The page you are on, on the live site, in a new tab. |
 | Undo and Redo | 30 steps. Typing in a box counts as one step. Changing page starts a fresh history. |
 | Inspector | On: click a section in the canvas to select it. Off: the canvas is a plain preview you can click through. |
-| GitHub | Opens Website settings on Connections, where Claude Code, Codex and a GitHub repository connect. |
+| Plug | **Connect Claude Code, Codex or ChatGPT.** Opens Website Settings › Advanced, where they connect. |
 | Ask AI | Opens and closes the AI panel. |
 | Publish, or Save | See [Saving and publishing](#saving-and-publishing). |
 
@@ -176,7 +176,9 @@ A section that fails to draw says so in its place, with the error and **Try agai
 Ask AI has two modes.
 
 - **Change this page**: describe a change and it is made with the same sections, blocks and settings the panels use. It is one step of Undo, and nothing is saved until the builder saves. Select a section first and it can be limited to that one.
-- **Code a section**: describe a section the library does not have. It is written as a section file, compiled, and only kept if it compiles. While it is being written, the spot it will fill shows code being typed, and the finished section takes its place.
+- **Code a section**: describe a section the library does not have. It is written as a section file, compiled, and only kept if it compiles; a file that does not compile is sent back to be fixed, up to three times. While it is being written, the panel says what it is doing (Starting, Thinking, Writing the section, Checking it, Fixing a detail), the spot it will fill shows code being typed, and the finished section takes its place. If it still cannot get it right, it says so in plain words with **Try again**, never with the compiler's report.
+
+Both modes answer rather than guess. A greeting, a question, or a request too unclear to act on gets a short reply saying what it understood and what to ask for, and nothing on the page changes.
 
 You can attach up to four pictures (PNG, JPEG, WebP or GIF) of something you want built. Pressing Enter while it is working queues the next request.
 
@@ -194,16 +196,23 @@ The language section files are written in is the [Storelib Builder Framework](/d
 
 ## Website settings
 
-**Website Settings**, in the top bar, is a page of its own:
+**Website Settings**, in the top bar, is a page of its own, with nine subjects down the left. On a phone they are a list, and each opens with its own Back. The tabs above the live website's cover on the Website page (Pages, Domain, SEO, Publishing, Settings) open the matching one.
+
+Every website has its own settings. Anything marked below as part of the draft is saved with the website's other changes, can be undone, and reaches visitors when you publish.
 
 | Page | What is there |
 | --- | --- |
-| General | The website's name. |
-| Domains & Hosting | The website's address, to copy or open. |
-| Policies | The refund, privacy and terms pages, each with **Edit**. |
-| Publishing | Whether the website is live, and when it was last published. |
-| Backups | A backup is kept every time you publish and every time Ask AI finishes. **Back up now** makes one, **Load** restores one (after saving the current draft as a backup first). The newest 30 are kept. |
-| Connections | GitHub, and a direct connection for Claude Code or Codex. See [Building with AI agents](/developers/ai). |
+| General | The website's name, which only you see. Its address, set by your username. Whether it is live. Its favicon and its language (both part of the draft); the language sets the page's `lang` and the share card's locale. |
+| Domains | The Storelib address, and a custom domain if one is connected, with its status: waiting for DNS, securing, or connected. The `www.` address is the main one and the bare domain redirects to it. HTTPS is set up for both. **Connect a domain** opens Settings › Domains. |
+| SEO & Social | A preview of the search result. Site title, meta description, social image, share card size, and whether search engines may list the website (all part of the draft). |
+| Pages & Navigation | Every page with **Edit**, which opens it in the builder, and **Add page**. **Edit menu** selects the header, where the menu is. |
+| Commerce | How many published products the website can show, and **Manage products**. Checkout is Storelib's, paid by card or Google Pay through Stripe, in US dollars. **Payments settings** is where payouts go. Free shipping from an amount, and the free shipping bar (part of the draft). |
+| Policies | The refund, privacy and terms pages, each with **Edit**. The cookie banner, its message and its two buttons (part of the draft). |
+| Publishing | Live or draft, the published address, when it was last published, **Publish**, and **Take offline**, which asks first and deletes nothing. |
+| Backups & Versions | A backup is kept every time you publish and every time Ask AI finishes. **Back up now** makes one; **Restore** puts one back (after saving the current draft as a backup first). The newest 30 are kept. **Duplicate** makes a draft copy, if the library has room. |
+| Advanced | **Connect Claude Code, Codex or ChatGPT**: pick the tool and follow its steps. Claude Code and Codex connect directly with a token or through GitHub; ChatGPT connects through GitHub. **Edit code**, and the developer docs. See [Building with AI agents](/developers/ai). |
+
+A creator keeps up to three websites: one live and two drafts. Add theme, Duplicate and Import all refuse a fourth, on the server.
 
 ## Saving and publishing
 

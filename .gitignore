@@ -93,6 +93,7 @@ tsconfig.*.generated.json
 # the three pictures it leaves so the cover can be looked at, not only measured.
 .cover-probe/
 .orders-probe/
+.settings-probe/
 .probe-cover-desktop.webp
 .probe-cover-phone.webp
 .probe-cover-desktop.png

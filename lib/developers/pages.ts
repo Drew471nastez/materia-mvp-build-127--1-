@@ -98,6 +98,14 @@ export const DEV_PAGES: readonly DevPage[] = [
     group: "Framework",
   },
   {
+    slug: "selling",
+    title: "Selling: products, checkout and payments",
+    nav: "Selling",
+    description:
+      "How a section shows the creator's products and sends a buyer to Storelib checkout: the product fields, the checkout link, the cart, what checkout does with the money, and what a section may never do with payments.",
+    group: "Build",
+  },
+  {
     slug: "examples",
     title: "Examples",
     nav: "Examples",

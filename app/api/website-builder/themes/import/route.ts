@@ -11,6 +11,7 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { LIBRARY_FULL_MESSAGE, librarySlotsLeft } from "@/lib/website-builder/library-limit"
 import JSZip from "jszip"
 import {
   parseThemePackageManifest,
@@ -62,6 +63,12 @@ export async function POST(req: Request) {
     .eq("user_id", user.id)
     .maybeSingle()
   if (!creator) return NextResponse.json({ error: "Creator not found" }, { status: 404 })
+
+  /* Asked before the upload is read: a full library refuses a 50 MB zip
+     without unpacking it first. */
+  if ((await librarySlotsLeft(supabase, creator.id)) === 0) {
+    return NextResponse.json({ error: LIBRARY_FULL_MESSAGE }, { status: 400 })
+  }
 
   // Parse multipart form
   const form = await req.formData()

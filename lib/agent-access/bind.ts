@@ -1,11 +1,12 @@
 /**
- * The four operations bound to one authenticated connection, the one shape
+ * The operations bound to one authenticated connection, the one shape
  * both the MCP route and anything else that wants them take.
  */
 import "server-only"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { hubText } from "@/lib/developers/render-text"
 import { compileOnly, listFiles, readFile, writeSection } from "./operations"
+import { siteBrief } from "./site-brief"
 import type { BoundOps } from "./mcp"
 import type { AgentIdentity } from "./tokens"
 
@@ -26,5 +27,6 @@ export async function bindOps(who: AgentIdentity): Promise<BoundOps> {
     compile: (path, source) => compileOnly(path, source),
     write: (path, source, base) => writeSection(db, who, path, source, base),
     guide: () => hubText(),
+    site: () => siteBrief(db, who),
   }
 }

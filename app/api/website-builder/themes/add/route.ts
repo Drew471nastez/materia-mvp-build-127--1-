@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { LIBRARY_FULL_MESSAGE, librarySlotsLeft } from "@/lib/website-builder/library-limit"
 import {
   THEME_INSTALL_LIMIT,
   buildThemePreset,
@@ -14,7 +15,7 @@ import {
  *
  * Installs a theme from the registry as a new draft website: the install row,
  * its global settings, and a home and product page built by the theme's
- * preset. The creator's own websites are capped at THEME_INSTALL_LIMIT.
+ * preset. The creator's own websites are capped at THEME_INSTALL_LIMIT (lib/website-builder/library-limit.ts).
  *
  * The registry (`lib/website-builder/theme-registry.ts`) is the catalogue.
  * The `themes` table mirrors it, and if a registry theme is missing there —
@@ -41,16 +42,9 @@ export async function POST(req: Request) {
   const def = getThemeDefinition(themeId)
   if (!def) return NextResponse.json({ error: "Theme not found in catalog" }, { status: 404 })
 
-  const { count } = await supabase
-    .from("store_theme_installs")
-    .select("id", { count: "exact", head: true })
-    .eq("creator_id", creator.id)
-
-  if ((count ?? 0) >= THEME_INSTALL_LIMIT) {
-    return NextResponse.json(
-      { error: `You can keep up to ${THEME_INSTALL_LIMIT} websites. Remove one to add another.` },
-      { status: 400 },
-    )
+  const slotsLeft = await librarySlotsLeft(supabase, creator.id)
+  if (slotsLeft === 0) {
+    return NextResponse.json({ error: LIBRARY_FULL_MESSAGE }, { status: 400 })
   }
 
   const { data: existing } = await supabase
@@ -85,7 +79,8 @@ export async function POST(req: Request) {
       name: def.name,
       status: "draft",
       is_custom: false,
-      sort_order: (count ?? 0) + 1,
+      // After the websites already there.
+      sort_order: THEME_INSTALL_LIMIT - slotsLeft + 1,
     })
     .select()
     .single()

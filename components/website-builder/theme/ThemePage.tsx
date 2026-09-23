@@ -34,6 +34,7 @@ import { Fragment, useEffect, useState, type CSSProperties, type ReactNode } fro
 
 import { THEME_ROOT_ATTRIBUTE, themeStylesheet, themeVars } from "@/lib/website-builder/theme-css"
 import { fontStylesheetHref } from "@/lib/website-builder/font-link"
+import { siteDirection, siteLanguage } from "@/lib/website-builder/site-language"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 import SectionRenderer from "../sections/SectionRenderer"
 
@@ -416,6 +417,10 @@ export function ThemePage({
     <SiteCartProvider shopId={storefront?.inEditor ? undefined : storefront?.creatorId}>
     <div
       {...{ [THEME_ROOT_ATTRIBUTE]: "" }}
+      /* Website Settings › General › Language. Absent until one is chosen,
+         so the document's own `lang` stands. */
+      lang={siteLanguage(theme as Record<string, unknown>)}
+      dir={siteDirection(theme as Record<string, unknown>)}
       className={className}
       style={{ ...(themeVars(theme) as CSSProperties), ...pageFill(storefront?.inEditor === true), ...style }}
     >

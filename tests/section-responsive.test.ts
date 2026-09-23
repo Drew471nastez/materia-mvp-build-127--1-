@@ -611,6 +611,11 @@ section("A dark bar stays dark, and settings is a page")
 // ===========================================================================
 
 const settingsPage = readFileSync(join(root, "components/website-builder/project-settings.tsx"), "utf8")
+/** The nine pages of Website Settings live beside the shell, one file each. */
+const settingsFiles = ["types.ts", "general.tsx", "backups.tsx"].map((f) =>
+  readFileSync(join(root, "components/website-builder/website-settings", f), "utf8"),
+)
+const settingsAll = [settingsPage, ...settingsFiles].join("\n")
 const publishPanel = readFileSync(join(root, "components/website-builder/publish-panel.tsx"), "utf8")
 const codePage = readFileSync(join(root, "app/website-builder/code/[installId]/page.tsx"), "utf8")
 const headerSrc = editor.slice(editor.indexOf("<header className"), editor.indexOf("</header>"))
@@ -1504,10 +1509,10 @@ check(
   "project settings is a full page over the builder, closed by Back or Escape, and it can rename",
   /<ProjectSettings/.test(editor) &&
     /fixed inset-0 z-\[150\]/.test(settingsPage) &&
-    /Back to project/.test(settingsPage) &&
+    /Back to editor/.test(settingsPage) &&
     /e\.key === "Escape"/.test(settingsPage) &&
-    /method: "PATCH"/.test(settingsPage) &&
-    /JSON\.stringify\(\{ name: draft\.trim\(\) \}\)/.test(settingsPage),
+    /method: "PATCH"/.test(settingsAll) &&
+    /JSON\.stringify\(\{ name: draft\.trim\(\) \}\)/.test(settingsAll),
 )
 
 check(
@@ -1515,8 +1520,12 @@ check(
   // The reference has Analytics, Knowledge, Skills, Backups. A nav entry that
   // opens an empty panel is a promise the product cannot keep. Backups is
   // offered because it is real now: a table, two routes, a safety copy.
-  !/Analytics|Knowledge|Skills/.test(settingsPage.slice(settingsPage.indexOf("const NAV"), settingsPage.indexOf("const NAV") + 400)) &&
-    /\{ id: "backups", label: "Backups", Icon: History \}/.test(settingsPage),
+  (() => {
+    const types = settingsFiles[0]
+    const list = types.slice(types.indexOf("SETTINGS_SECTIONS = ["), types.indexOf("] as const"))
+    return !/Analytics|Knowledge|Skills/.test(list) && /\{ id: "backups", label: "Backups & Versions" \}/.test(list) &&
+      (list.match(/\{ id: "/g) ?? []).length === 9
+  })(),
 )
 
 
@@ -2047,10 +2056,10 @@ check(
 
 check(
   "the Backups page lists moments with a Load, asks before restoring, and says what will and will not happen",
-  /Storelib saves a backup each time it completes a task and each time you publish/.test(settingsPage) &&
-    /Restore this backup\?/.test(settingsPage) &&
-    /A backup of the draft you have now is saved first, so this can be undone/.test(settingsPage) &&
-    /Nothing changes on your live site until you publish/.test(settingsPage) &&
+  /A backup is saved automatically each time Storelib AI finishes a task and each time you publish/.test(settingsAll) &&
+    /Restore this backup\?/.test(settingsAll) &&
+    /A backup of the draft you have now is saved first, so this can be undone/.test(settingsAll) &&
+    /Nothing changes on your live site until you publish/.test(settingsAll) &&
     /onRestored=\{\(\) => window\.location\.reload\(\)\}/.test(editor),
 )
 
@@ -3056,7 +3065,10 @@ check(
   "the library says how much room is left, rather than showing a fraction that can read as broken",
   // The limit came in after some libraries were already over it, so the
   // counter could say "5/3" — not a count anybody reads as a count.
-  /slotsLeft > 0 \? `\$\{slotsLeft\} left` : "Full"/.test(wbPage) &&
+  /* A count of websites against the limit, with the rule behind it, and
+     never "5 of 3" for a library from before the limit. */
+  /slotsUsed > THEME_INSTALL_LIMIT \? `\$\{slotsUsed\} websites` : `\$\{slotsUsed\} of \$\{THEME_INSTALL_LIMIT\} websites`/.test(wbPage) &&
+    /One live website and two drafts/.test(wbPage) &&
     !/\{slotsUsed\}\/\{THEME_INSTALL_LIMIT\}/.test(wbPage),
 )
 

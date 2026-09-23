@@ -417,6 +417,22 @@ export function ThemePhoneCover({ spec, className, style }: { spec: ThemeCoverSp
 }
 
 /**
+ * ===========================================================================
+ *  THE PHONE IN THE CORNER
+ * ===========================================================================
+ * One frame for every cover, drawn or photographed, so the two never differ.
+ *
+ * It was a 2px near-black outline under a long dark shadow: a toy phone
+ * pasted on, and the heaviest thing on the card. Now it is a thin white
+ * bezel with a hairline edge and a short, soft shadow, the way a theme store
+ * shows the phone version: present, and quieter than the site it frames.
+ * The bezel is in pixels, not percent, because a percentage of padding is a
+ * percentage of the COVER's width and would thicken on the big card.
+ */
+export const PHONE_FRAME =
+  "absolute bottom-[5%] right-[4%] w-[18%] overflow-hidden rounded-[12%/5.6%] border-[3px] border-white bg-white ring-1 ring-black/[0.08] shadow-[0_1px_2px_rgba(15,23,42,0.08),0_8px_20px_-10px_rgba(15,23,42,0.28)]"
+
+/**
  * A desktop cover with the phone version tucked into its corner — one
  * picture that says "this is a website" and "it works on a phone" at once.
  */
@@ -439,7 +455,7 @@ export function ThemeCoverPair({
         // the parent clips, so what it drew was a phone with its lower edge
         // sliced flat across — which reads as a picture that failed to load
         // rather than as a deliberate bleed.
-        <div className="absolute bottom-[5%] right-[4%] w-[18%] overflow-hidden rounded-[9%/4.5%] border-[2px] border-[#1a1a2e] bg-white shadow-[0_10px_24px_-8px_rgba(15,23,42,0.45)]">
+        <div className={PHONE_FRAME}>
           <div className="aspect-[390/780]">
             <ThemePhoneCover spec={spec} className="h-full w-full" />
           </div>

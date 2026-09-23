@@ -268,6 +268,23 @@ The rules that are refused most often:
   \`data-scheme="{{ settings.color_scheme }}"\`.
 - Links built from a setting go through \`| url\`.
 - The schema's \`name\` must not be the name of another section on the site.
+
+## Writing for this website
+
+A section should look and read like the rest of ${opts.siteName}, not like a
+template. Before writing one:
+
+- Use the site's colour schemes through \`var(--scheme-*)\` and its type
+  styles. Never introduce a new palette or font.
+- Write copy about what the site really sells, in its own voice. Never invent
+  a product, a price, a discount or a review.
+- Products reach a section as \`products\` (title, formatted price, picture,
+  page URL). Link a card to \`{{ block.settings.url | url }}\`, or straight
+  to checkout with \`/checkout?productId={{ block.id }}&src=website\`.
+- Never build a payment form or load a payment or tracking script. Storelib
+  checkout takes the payment.
+
+The whole of that is at https://storelib.com/developers/selling.
 `
 }
 
