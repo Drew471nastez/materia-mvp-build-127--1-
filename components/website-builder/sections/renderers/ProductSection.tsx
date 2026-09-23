@@ -12,6 +12,8 @@ import { Facebook, FileText, Heart, Instagram, Package, Share2, Twitter } from "
 import { useState } from "react"
 import { cn } from "@/lib/utils"
 import { useSiteCart } from "../../site-cart"
+import { useStorefront } from "../../theme/storefront-context"
+import { trackFunnelStep } from "@/lib/analytics-utils"
 import {
   type SectionProps,
   resolveScheme,
@@ -34,6 +36,7 @@ export function ProductSection({ section, theme, isEditing, isSelected, onClick 
 
   // Product data is injected via section.settings._product_data by the editor
   const { add } = useSiteCart()
+  const storefront = useStorefront()
   const productData = (s._product_data as Record<string, unknown> | undefined) ?? null
 
   const productId = str(productData?.id as unknown, "")
@@ -321,6 +324,7 @@ export function ProductSection({ section, theme, isEditing, isSelected, onClick 
                 const from = slug ? `&from=${encodeURIComponent(`/products/${slug}`)}` : ""
                 /* `src=website` is how the order ends up in the Orders
                    table as a Website order (lib/orders/order-source.ts). */
+                if (storefront.creatorId) void trackFunnelStep("buy_click", storefront.creatorId, productId)
                 window.location.href = `/checkout?productId=${encodeURIComponent(productId)}${from}&src=website`
               }}
               className="w-full py-3.5 text-base font-semibold text-white rounded-lg transition-colors cursor-pointer disabled:cursor-not-allowed"

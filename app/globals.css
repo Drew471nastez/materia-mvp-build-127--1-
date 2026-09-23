@@ -358,8 +358,18 @@ html.capacitor body {
     from { opacity: 0; }
     to   { opacity: 1; }
   }
+  /*
+    BACKWARDS, NOT BOTH. An animation that fills forwards is still in effect
+    after it ends, and an element with an opacity animation in effect is a
+    stacking context for as long as it is. That turned every page into a box
+    that nothing inside could rise out of: a bottom sheet at z-index 100 was
+    drawn under the navigation pill at 55, which sits outside the page.
+    Measured: the pill won the point under it until this said `backwards`,
+    and the sheet won after. The end state is opacity 1, which is what the
+    element is anyway, so nothing needs holding there.
+  */
   .app-page-enter {
-    animation: app-page-enter 380ms cubic-bezier(0.32, 0.72, 0, 1) both;
+    animation: app-page-enter 380ms cubic-bezier(0.32, 0.72, 0, 1) backwards;
   }
 
   /*
@@ -4440,4 +4450,11 @@ html.pop-in-flight #platform-header-root {
   .orders-detail[data-stage] {
     animation: none;
   }
+}
+
+/* A report card's list scrolls inside the card, which keeps every card the
+   same height whatever it lists (app/app/analytics/analytics-reports.tsx). */
+.report-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(156, 163, 175, 0.45) transparent;
 }

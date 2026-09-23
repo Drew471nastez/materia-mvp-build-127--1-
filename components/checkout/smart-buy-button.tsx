@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Loader2, Download } from "lucide-react"
 import { downloadEntitledFile } from "@/components/download-button"
 import { useRouter } from "next/navigation"
+import { trackFunnelStep } from "@/lib/analytics-utils"
 
 interface SmartBuyButtonProps {
   productId: string
@@ -140,15 +141,7 @@ export function SmartBuyButton({
 
     if (creatorId) {
       try {
-        await fetch("/api/track-event", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            eventType: "buy_click",
-            creatorId,
-            productId,
-          }),
-        })
+        await trackFunnelStep("buy_click", creatorId, productId)
       } catch (e) {
         // Don't block checkout on tracking failure
       }

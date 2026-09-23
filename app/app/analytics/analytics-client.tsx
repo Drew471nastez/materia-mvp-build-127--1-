@@ -28,6 +28,7 @@ import { useLanguage } from "@/lib/i18n"
 import { triggerHaptic, hapticTap } from "@/lib/native-bridge"
 import { AnnouncementBarMobile } from "@/components/app/announcement-bar-mobile"
 import { DateRangePickerModal } from "@/components/app/date-range-picker-modal"
+import { AnalyticsReports } from "./analytics-reports"
 
 // Custom Spotify Icon (brand SVG)
 const SpotifyIcon = ({ className }: { className?: string }) => (
@@ -1016,6 +1017,10 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
     return { start, end }
   }, [timeframe, customStart, customEnd])
 
+  /* One range per choice of period, so the reports are asked for once, not
+     on every render (the end of "Today" is "now"). */
+  const reportRange = useMemo(() => getTimeframeDates(), [getTimeframeDates])
+
   // Get filtered orders (same as Sales page)
   const getFilteredOrders = useCallback(() => {
     const { start, end } = getTimeframeDates()
@@ -1702,19 +1707,17 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
 
       setTrafficSources(trafficSourcesArray)
 
-      // Device data (simulated distribution)
-      const totalViews = viewOnlyEvents.length
-      const deviceCounts = {
-        mobile: Math.round(totalViews * 0.55),
-        desktop: Math.round(totalViews * 0.35),
-        tablet: Math.round(totalViews * 0.10),
-      }
-      const deviceDataArray = Object.entries(deviceCounts).map(([device, views]) => ({
-        device,
-        views,
-        orders: 0,
-        conversionRate: 0,
-      }))
+      /* Devices as recorded, per view. This was a fixed 55/35/10 split of
+         the total, the same for every creator, whatever their visitors used. */
+      const deviceCounts: Record<string, number> = {}
+      viewOnlyEvents.forEach((e: any) => {
+        const d = String(e.device_type || "").toLowerCase()
+        const key = d === "mobile" || d === "desktop" || d === "tablet" ? d : "unknown"
+        deviceCounts[key] = (deviceCounts[key] || 0) + 1
+      })
+      const deviceDataArray = Object.entries(deviceCounts)
+        .map(([device, views]) => ({ device, views, orders: 0, conversionRate: 0 }))
+        .sort((a, b) => b.views - a.views)
       setDeviceData(deviceDataArray)
 
       // Country data from analytics events (ONLY for Store mode - OnePage sets its own country data)
@@ -2766,6 +2769,13 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
           </div>
         </div>
 
+        {/* The reports under the chart. The store's are read on the server
+            from every row (app/app/analytics/analytics-reports.tsx); the
+            OnePage keeps its own cards below. */}
+        {analyticsMode === "store" ? (
+          <AnalyticsReports start={reportRange.start} end={reportRange.end} product={selectedProduct} />
+        ) : (
+          <>
         {/* Traffic & Device Distribution */}
         <div className="grid gap-4 lg:grid-cols-2">
           <Card className={`border-[#e5e7eb] bg-white transition-[opacity,filter] duration-[700ms] ease-[cubic-bezier(0.32,0.72,0,1)] ${isRefreshing ? "opacity-60 blur-[1px]" : showSampleData && !hasRealData ? "opacity-60 blur-0" : "opacity-100 blur-0"}`}>
@@ -3347,6 +3357,8 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
             )}
           </CardContent>
         </Card>
+          </>
+        )}
 
         </>
         )}

@@ -98,15 +98,57 @@ export function getUTMParams(): UTM {
   }
 }
 
-// Get or create session ID (30 minutes)
+/**
+ * The analytics session: one visit, ending after 30 minutes without a page.
+ *
+ * ITS OWN COOKIE. This was `materia_session`, which is also the name of the
+ * checkout's httpOnly device cookie (app/api/checkout/*). A script can
+ * neither read nor overwrite an httpOnly cookie, so once somebody had bought
+ * something every page they opened made a new session id here and the
+ * Sessions figure counted each of their page views as a visit. And before
+ * they bought, the checkout read this one as its device fingerprint.
+ *
+ * SLIDING. Every use pushes the 30 minutes on, so a visit is 30 minutes of
+ * inactivity rather than 30 minutes from the first page.
+ */
+const SESSION_COOKIE = "sl_asid"
+const SESSION_SECONDS = 60 * 30
+
 export function getOrCreateSessionId(): string {
   if (typeof document === "undefined") return ""
-  const match = document.cookie.match(/(?:^|;\s*)materia_session=([^;]+)/)
-  if (match?.[1]) return decodeURIComponent(match[1])
-
-  const sid = `s_${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`
-  document.cookie = `materia_session=${encodeURIComponent(sid)}; path=/; max-age=${60 * 30}; samesite=lax; secure`
+  const match = document.cookie.match(/(?:^|;\s*)sl_asid=([^;]+)/)
+  const sid = match?.[1]
+    ? decodeURIComponent(match[1])
+    : `s_${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`
+  document.cookie = `${SESSION_COOKIE}=${encodeURIComponent(sid)}; path=/; max-age=${SESSION_SECONDS}; samesite=lax; secure`
   return sid
+}
+
+/**
+ * A step towards a sale, sent with the visit it belongs to so the funnel can
+ * count visits rather than clicks. The server drops a repeat of the same step
+ * for the same product in the same visit.
+ */
+export function trackFunnelStep(
+  eventType: "buy_click" | "checkout_start",
+  creatorId: string,
+  productId?: string | null,
+): Promise<void> {
+  if (typeof window === "undefined" || !creatorId) return Promise.resolve()
+  return fetch("/api/track-event", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    keepalive: true,
+    body: JSON.stringify({
+      eventType,
+      creatorId,
+      productId: productId || undefined,
+      sessionId: getOrCreateSessionId(),
+      visitorId: getOrCreateVisitorId(),
+    }),
+  })
+    .then(() => undefined)
+    .catch(() => undefined)
 }
 
 // Get or create visitor ID (persistent ~1 year)
