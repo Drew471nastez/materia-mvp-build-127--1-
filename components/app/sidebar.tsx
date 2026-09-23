@@ -133,7 +133,8 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
   // up. Makes sidebar clicks feel instant instead of waiting on the route.
   const [pendingHref, setPendingHref] = useState<string | null>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
-  const mobileDropdownRef = useRef<HTMLDivElement>(null)
+  /* Stable, so the sheet is not handed a new close on every render here. */
+  const closeMobileProfile = useCallback(() => setMobileProfileDropdownOpen(false), [])
 
   useEffect(() => {
     setMobileMenuOpen(false)
@@ -162,9 +163,13 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setProfileDropdownOpen(false)
       }
-      if (mobileDropdownRef.current && !mobileDropdownRef.current.contains(event.target as Node)) {
-        setMobileProfileDropdownOpen(false)
-      }
+      /*
+        NOT THE ACCOUNT SHEET. It is portaled to <body>, so every press inside
+        it is "outside" this row, and on a phone a tap is followed by a
+        synthesized mousedown: pressing the sheet's own name, or letting go
+        of its handle without dragging, closed it under the finger. The sheet
+        closes itself from its scrim, its handle and Escape.
+      */
     }
     document.addEventListener("mousedown", handleClickOutside)
     return () => document.removeEventListener("mousedown", handleClickOutside)
@@ -927,11 +932,11 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
             what it is for: who you are, and what is waiting for you.
           */}
           {/* Who you are, and the store you are in */}
-          <div ref={mobileDropdownRef} className="relative flex-1 z-[60]">
+          <div className="relative flex-1 z-[60]">
             <button
               onClick={() => {
                 if (mobileMenuOpen) setMobileMenuOpen(false)
-                setMobileProfileDropdownOpen(!mobileProfileDropdownOpen)
+                setMobileProfileDropdownOpen((v) => !v)
               }}
               className={cn(
                 "flex items-center gap-2 w-fit justify-start rounded-xl px-2 py-1.5 transition-all duration-200 ease-out",
@@ -1033,8 +1038,9 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
 
       <BottomSheet
         isOpen={mobileProfileDropdownOpen}
-        onClose={() => setMobileProfileDropdownOpen(false)}
+        onClose={closeMobileProfile}
         label="Account"
+        hideFrom="md"
       >
         <div className="px-3 pb-3">
           <div className="flex items-center gap-3 px-2 pb-3 pt-1">
@@ -1043,7 +1049,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
                 {userInitials}
               </div>
               {avatarUrl && (
-                <img src={avatarSrc} alt={userDisplayName} className="absolute inset-0 h-full w-full object-cover" loading="eager" decoding="async" />
+                <img src={avatarSrc} alt={userDisplayName} width={40} height={40} className="absolute inset-0 h-full w-full object-cover" loading="eager" decoding="sync" />
               )}
             </div>
             <span className="truncate text-[15px] font-semibold text-neutral-900">{userDisplayName}</span>
