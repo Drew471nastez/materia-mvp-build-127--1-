@@ -938,45 +938,53 @@ await sleep(400)
  * off. A fraction anywhere is a frame of a shape that is neither.
  */
 /*
- * WHERE THE EDGE IS, NOT WHICH GLYPH IS VISIBLE.
+ * WHERE THE BAND'S EDGES ARE, NOT WHICH GLYPH IS VISIBLE.
  *
  * This used to read the two glyphs' opacities, because that was how one was
- * shown and the other hidden. They are clipped against each other now: both
- * are fully opaque the whole time, and one edge sweeps up the box with the
- * solid below it and the outline above. Reading opacity would see two
- * glyphs at 1 and call it a blend of both.
+ * shown and the other hidden. They are clipped against each other now: all
+ * of them are fully opaque, and a band grows from the centre line with the
+ * ink inside it and the outline outside. Reading opacity would see three
+ * glyphs at 1 and call it a blend of all three.
  *
- * So it reads the clips. `cut` is how much of the box the solid has filled,
- * 0 to 1, taken from the inset it is clipped by — from the BOTTOM, because
- * the edge comes down. `gap` is how far that is from the outline's
- * complementary inset, taken from the top, and it has to stay at zero or
- * there is a band showing both drawings, or neither.
+ * So it reads the clips, by the part each element says it is. `cut` is how
+ * much of the box the band has opened to, 0 to 1. `gap` is how far the two
+ * outline pieces are from being the band's exact complement, checked at BOTH
+ * edges — a band has two of them, and either one drifting leaves a stripe
+ * showing both drawings or neither.
  */
 const OPACITIES = `(() => {
   const links = [...document.querySelectorAll('nav[aria-label="Main"] a[aria-label]')]
-  const pct = (el, which) => {
+  const side = (el, which) => {
     const m = /inset\\(([^)]*)\\)/.exec(getComputedStyle(el).clipPath || "")
     if (!m) return null
     const parts = m[1].trim().split(/\\s+/)
-    const v = which === "top" ? parts[0] : parts[2] ?? parts[0]
-    const n = Number.parseFloat(v)
-    return Number.isFinite(n) ? Math.round((v.includes("%") ? n : (n / el.getBoundingClientRect().height) * 100)) / 100 : null
+    const raw = which === "top" ? parts[0] : (parts[2] ?? parts[0])
+    const n = Number.parseFloat(raw)
+    if (!Number.isFinite(n)) return null
+    const h = el.getBoundingClientRect().height || 1
+    return Math.round((raw.includes("%") ? n : (n / h) * 100)) / 100
+  }
+  const read = (l) => {
+    const ink = l.querySelector('[data-part="ink"]')
+    const above = l.querySelector('[data-part="outline-above"]')
+    const below = l.querySelector('[data-part="outline-below"]')
+    if (!ink || !above || !below) return { cut: null, gap: null }
+    const top = side(ink, "top"), bottom = side(ink, "bottom")
+    const aboveEnds = side(above, "bottom"), belowStarts = side(below, "top")
+    if ([top, bottom, aboveEnds, belowStarts].some((v) => v == null)) return { cut: null, gap: null }
+    return {
+      /* How much of the box the band covers. */
+      cut: Math.round((1 - top - bottom) * 100) / 100,
+      /* The outline above has to stop exactly where the band starts, and the
+         one below has to start exactly where the band ends. */
+      gap: Math.round(Math.max(Math.abs(1 - aboveEnds - top), Math.abs(1 - belowStarts - bottom)) * 100) / 100,
+    }
   }
   return {
     box: links.map((l) => +Number(getComputedStyle(l.querySelector("span")).opacity).toFixed(2)),
     svgAlpha: links.flatMap((l) => [...l.querySelectorAll("svg")].map((sv) => +Number(getComputedStyle(sv).opacity).toFixed(2))),
-    /* How full the solid is, and how far the outline's edge is from it. */
-    cut: links.map((l) => {
-      const svgs = l.querySelectorAll("svg")
-      const filled = pct(svgs[1], "bottom")
-      return filled == null ? null : Math.round((1 - filled) * 100) / 100
-    }),
-    gap: links.map((l) => {
-      const svgs = l.querySelectorAll("svg")
-      const filled = pct(svgs[1], "bottom")
-      const outline = pct(svgs[0], "top")
-      return filled == null || outline == null ? null : Math.round(Math.abs(1 - filled - outline) * 100) / 100
-    }),
+    cut: links.map((l) => read(l).cut),
+    gap: links.map((l) => read(l).gap),
   }
 })()`
 await ev('window.__routeDelay = 260; window.__went = null; true')
