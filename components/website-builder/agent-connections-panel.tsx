@@ -28,10 +28,36 @@ interface Connection {
 
 const MCP_URL = "https://storelib.com/api/mcp"
 
-function CopyBlock({ label, value, mono = true }: { label: string; value: string; mono?: boolean }) {
+type AgentId = "claude" | "codex" | "other"
+
+const AGENTS: { id: AgentId; label: string; name: string; step: string }[] = [
+  { id: "claude", label: "Claude Code", name: "Claude Code", step: "Run this in your terminal" },
+  { id: "codex", label: "Codex", name: "Codex", step: "Add this to ~/.codex/config.toml, then set the token" },
+  { id: "other", label: "Other", name: "AI agent", step: "Point any MCP client here, with this header" },
+]
+
+function commandFor(agent: AgentId, token: string): string {
+  if (agent === "claude") return `claude mcp add --transport http storelib ${MCP_URL} --header "Authorization: Bearer ${token}"`
+  if (agent === "codex") return `[mcp_servers.storelib]\nurl = "${MCP_URL}"\nbearer_token_env_var = "STORELIB_TOKEN"`
+  return `${MCP_URL}\nAuthorization: Bearer ${token}`
+}
+
+function Step({ n, title, children }: { n: number; title: string; children: React.ReactNode }) {
+  return (
+    <li className="flex gap-3.5">
+      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/10 text-[12px] font-semibold tabular-nums">{n}</span>
+      <div className="min-w-0 flex-1">
+        <p className="text-[14px] font-medium">{title}</p>
+        <div className="mt-1.5">{children}</div>
+      </div>
+    </li>
+  )
+}
+
+function CopyBlock({ label, value, mono = true }: { label?: string; value: string; mono?: boolean }) {
   const [copied, setCopied] = useState(false)
   return (
-    <div className="mt-4">
+    <div className="mt-2">
       <div className="flex items-center justify-between gap-3">
         <p className="text-[13px] font-medium text-white/60">{label}</p>
         <button
@@ -61,16 +87,21 @@ function CopyBlock({ label, value, mono = true }: { label: string; value: string
 }
 
 /**
- * `tool` picks the lines shown with a new token: the one command for Claude
- * Code, the config for Codex. Without it both are shown, as before.
+ * `tool` is the agent the settings page's tabs picked: its command is the
+ * one shown with a new token. Without it the panel asks which agent.
  */
 export function AgentConnectionsPanel({ installId, tool }: { installId: string; tool?: "claude" | "codex" }) {
   const [connections, setConnections] = useState<Connection[] | null>(null)
   const [ready, setReady] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [name, setName] = useState(tool === "codex" ? "Codex" : "Claude Code")
+  const initial: AgentId = tool ?? "claude"
+  const [agent, setAgent] = useState<AgentId>(initial)
+  const [name, setName] = useState(AGENTS.find((x) => x.id === initial)!.name)
+  /* The settings page's own tabs pick the agent; follow them. */
   useEffect(() => {
-    if (tool) setName(tool === "codex" ? "Codex" : "Claude Code")
+    if (!tool) return
+    setAgent(tool)
+    setName(AGENTS.find((x) => x.id === tool)!.name)
   }, [tool])
   const [creating, setCreating] = useState(false)
   /** The token just made. Held in memory only, and gone when this closes. */
@@ -131,23 +162,44 @@ export function AgentConnectionsPanel({ installId, tool }: { installId: string; 
     <>
       <h2 className="text-[17px] font-medium">Direct connection</h2>
       <p className="mt-1 max-w-[600px] text-[14px] leading-relaxed text-white/60">
-        No repository needed. {tool === "codex" ? "Codex" : tool === "claude" ? "Claude Code" : "Claude Code or Codex"} on
-        your computer connects to this website with a token; what it saves appears in the builder within seconds.
+        No repository. Your agent talks to this website straight from your computer.
       </p>
 
       {!ready ? (
-        <div className="mt-8 rounded-2xl border border-white/10 bg-white/[0.03] p-5 text-[15px] text-white/60 md:p-6">
+        <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.03] p-5 text-[15px] text-white/60 md:p-6">
           Agent connections are not switched on for this Storelib yet.
         </div>
       ) : (
         <>
           <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.03] p-5 md:p-6">
-            <label htmlFor="agent-name" className="text-[15px] font-medium">
-              Connect an agent
-            </label>
-            <div className="mt-3 flex flex-col gap-3 sm:flex-row">
+            {/* Which agent. Picking one names the connection and decides
+                which command is shown; nothing else needs choosing. */}
+            {!tool && (
+            <div role="radiogroup" aria-label="Agent" className="mb-3 grid grid-cols-3 gap-2">
+              {AGENTS.map((a) => (
+                <button
+                  key={a.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={agent === a.id}
+                  onClick={() => {
+                    setAgent(a.id)
+                    setName(a.name)
+                  }}
+                  className={cn(
+                    "flex h-11 items-center justify-center rounded-xl border text-[14px] font-medium transition-colors",
+                    agent === a.id ? "border-white bg-white text-[#0f0f0f]" : "border-white/15 text-white/80 hover:bg-white/[0.06]",
+                  )}
+                >
+                  {a.label}
+                </button>
+              ))}
+            </div>
+            )}
+            <div className="flex flex-col gap-3 sm:flex-row">
               <input
                 id="agent-name"
+                aria-label="Name for this connection"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 maxLength={60}
@@ -166,34 +218,28 @@ export function AgentConnectionsPanel({ installId, tool }: { installId: string; 
                 Connect
               </button>
             </div>
-            <p className="mt-2 text-[13px] text-white/40">The name is how its changes are labelled in the builder.</p>
+            <p className="mt-2 text-[13px] text-white/40">The name labels its changes in the builder.</p>
           </div>
 
           {fresh && (
-            <div className="mt-6 rounded-2xl border border-emerald-400/30 bg-emerald-400/[0.06] p-5 md:p-6">
-              <p className="text-[15px] font-medium">{fresh.name} is connected</p>
-              <p className="mt-1 text-[14px] text-white/60">
-                Copy the token now. It is not shown again; if you lose it, disconnect this one and connect again.
+            <div className="mt-5 rounded-2xl border border-emerald-400/30 bg-emerald-400/[0.05] p-5 md:p-6">
+              <p className="flex items-center gap-2 text-[15px] font-medium">
+                <Check className="h-4 w-4 text-emerald-300" strokeWidth={2.5} />
+                {fresh.name} can connect
               </p>
-              <CopyBlock label="Token" value={fresh.token} />
-              {tool !== "codex" && (
-                <CopyBlock
-                  label="Claude Code: run this in a terminal"
-                  value={`claude mcp add --transport http storelib ${MCP_URL} --header "Authorization: Bearer ${fresh.token}"`}
-                />
-              )}
-              {tool !== "claude" && (
-                <>
-                  <CopyBlock
-                    label="Codex: add to ~/.codex/config.toml"
-                    value={`[mcp_servers.storelib]\nurl = "${MCP_URL}"\nbearer_token_env_var = "STORELIB_TOKEN"`}
-                  />
-                  <CopyBlock label="Then, in the terminal you start Codex from" value={`export STORELIB_TOKEN="${fresh.token}"`} />
-                </>
-              )}
-              <p className="mt-4 text-[13px] text-white/50">
-                Any other agent can use the same token with the HTTP API. See storelib.com/developers/ai.
-              </p>
+              <ol className="mt-4 space-y-5">
+                <Step n={1} title={AGENTS.find((a) => a.id === agent)?.step ?? "Run this"}>
+                  <CopyBlock value={commandFor(agent, fresh.token)} />
+                  {agent === "codex" && <CopyBlock value={`export STORELIB_TOKEN=${fresh.token}`} />}
+                </Step>
+                <Step n={2} title="Ask it for a section">
+                  <p className="text-[14px] text-white/70">&ldquo;Add a pricing section with three plans to my Storelib site.&rdquo;</p>
+                </Step>
+                <Step n={3} title="Watch it arrive">
+                  <p className="text-[14px] text-white/70">It appears on the page you have open here, as a draft.</p>
+                </Step>
+              </ol>
+              <p className="mt-5 text-[13px] text-amber-200/80">The token is shown once. Lost it? Disconnect and connect again.</p>
             </div>
           )}
 

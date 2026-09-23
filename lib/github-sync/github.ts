@@ -172,8 +172,11 @@ export async function setStatus(
   })
 }
 
+/** One change in a commit: a file's new text, or its removal. */
+export type FileChange = { path: string; content: string } | { path: string; delete: true }
+
 /**
- * Write many files as ONE commit on a branch, through the Git data API.
+ * Write many changes as ONE commit on a branch, through the Git data API.
  * Returns the new commit, or null when nothing differed. An empty repository
  * has no commit to build on, so its first file goes in through the contents
  * API and the rest follow as usual.
@@ -182,15 +185,20 @@ export async function commitFiles(
   token: string,
   repo: string,
   branch: string,
-  files: { path: string; content: string }[],
+  changes: FileChange[],
   message: string,
 ): Promise<string | null> {
+  const files = changes.filter((c): c is { path: string; content: string } => !("delete" in c))
   let head: string
   try {
     const ref = await call<{ object: { sha: string } }>(`/repos/${repo}/git/ref/heads/${branch}`, token)
     head = ref.object.sha
   } catch (e) {
-    if (!(e instanceof GitHubError) || (e.status !== 404 && e.status !== 409) || files.length === 0) throw e
+    if (!(e instanceof GitHubError) || (e.status !== 404 && e.status !== 409) || files.length === 0) {
+      /* Nothing to write into an empty repository, only removals: nothing to do. */
+      if (e instanceof GitHubError && (e.status === 404 || e.status === 409) && files.length === 0) return null
+      throw e
+    }
     const first = files[0]
     const created = await call<{ commit: { sha: string } }>(
       `/repos/${repo}/contents/${first.path.split("/").map(encodeURIComponent).join("/")}`,
@@ -204,7 +212,12 @@ export async function commitFiles(
     method: "POST",
     body: {
       base_tree: commit.tree.sha,
-      tree: files.map((f) => ({ path: f.path, mode: "100644", type: "blob", content: f.content })),
+      /* A removal is an entry with no blob; GitHub drops the path. */
+      tree: changes.map((c) =>
+        "delete" in c
+          ? { path: c.path, mode: "100644", type: "blob", sha: null }
+          : { path: c.path, mode: "100644", type: "blob", content: c.content },
+      ),
     },
   })
   if (tree.sha === commit.tree.sha) return null
@@ -214,4 +227,17 @@ export async function commitFiles(
   })
   await call(`/repos/${repo}/git/refs/heads/${branch}`, token, { method: "PATCH", body: { sha: made.sha } })
   return made.sha
+}
+
+/** Every file path on a branch, for "Pull from GitHub". */
+export async function listTree(token: string, repo: string, branch: string): Promise<{ sha: string; paths: string[] }> {
+  const ref = await call<{ object: { sha: string } }>(`/repos/${repo}/git/ref/heads/${branch}`, token)
+  const tree = await call<{ tree?: { path?: string; type?: string }[]; truncated?: boolean }>(
+    `/repos/${repo}/git/trees/${ref.object.sha}?recursive=1`,
+    token,
+  )
+  return {
+    sha: ref.object.sha,
+    paths: (tree.tree ?? []).filter((t) => t.type === "blob" && typeof t.path === "string").map((t) => t.path as string),
+  }
 }

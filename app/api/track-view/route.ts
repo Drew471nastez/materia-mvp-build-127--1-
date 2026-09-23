@@ -2,6 +2,7 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import { type NextRequest, NextResponse } from "next/server"
 import { cookies } from "next/headers"
+import { CONSENT_COOKIE, allows, parse } from "@/lib/consent/consent"
 import { ignoreError } from "@/lib/supabase/ignore-error"
 import { categorizeServerSource, detectClientAppFromUA } from "@/lib/analytics/sources"
 
@@ -99,16 +100,24 @@ export async function POST(req: NextRequest) {
     const supabase = createAdminClient()
     const cookieStore = await cookies()
 
-    // ---- visitor identity (ONE source of truth)
-    let visitorId = cookieStore.get("visitor_id")?.value || payload.visitorId
-    if (!visitorId) visitorId = `v_${crypto.randomUUID().replace(/-/g, "")}`
+    /**
+     * ---- consent, read from the visitor's own record, not from the page.
+     * Without analytics consent the view is counted with a throwaway id:
+     * no cookie is read or set (one left from before is deleted), and no
+     * city or region is kept, only the country.
+     */
+    const consented = allows(parse(cookieStore.get(CONSENT_COOKIE)?.value, Date.now()), "analytics")
 
-    const sessionId = payload.sessionId || `s_${crypto.randomUUID().replace(/-/g, "")}`
+    // ---- visitor identity (ONE source of truth)
+    let visitorId = consented ? cookieStore.get("visitor_id")?.value || payload.visitorId : undefined
+    if (!visitorId) visitorId = `${consented ? "v" : "anon"}_${crypto.randomUUID().replace(/-/g, "")}`
+
+    const sessionId = (consented && payload.sessionId) || `s_${crypto.randomUUID().replace(/-/g, "")}`
 
     // ---- geo
     const country = getCountryFromRequest(req)
-    const city = req.headers.get("x-vercel-ip-city") || req.geo?.city || null
-    const region = req.headers.get("x-vercel-ip-country-region") || req.geo?.region || null
+    const city = consented ? req.headers.get("x-vercel-ip-city") || req.geo?.city || null : null
+    const region = consented ? req.headers.get("x-vercel-ip-country-region") || req.geo?.region || null : null
 
     // ✅ UA-based app detection fallback (fixes IG/TikTok/FB/etc when referrer is blank)
     const ua = req.headers.get("user-agent")
@@ -263,6 +272,10 @@ export async function POST(req: NextRequest) {
       referrerDomain,
     })
 
+    if (!consented) {
+      if (cookieStore.get("visitor_id")) res.cookies.set("visitor_id", "", { maxAge: 0, path: "/" })
+      return res
+    }
     res.cookies.set("visitor_id", visitorId, {
       maxAge: 60 * 60 * 24 * 365,
       httpOnly: true,

@@ -1,4 +1,5 @@
-import { NextResponse } from "next/server"
+import { NextResponse, after } from "next/server"
+import { mirrorToGitHub } from "@/lib/github-sync/mirror"
 import { editorContent, hasUnpublishedEdit, listVersions, sourceMap } from "@/lib/website-builder/theme-file-drafts"
 import { saveThemeFile } from "@/lib/website-builder/save-theme-file"
 import { z } from "zod"
@@ -211,6 +212,9 @@ export async function PUT(req: Request, { params }: Params) {
     )
   }
 
+  /* Committed to the linked GitHub repository after the answer, if there is one. */
+  after(() => mirrorToGitHub(installId, { kind: "save", path, content }))
+
   return NextResponse.json({
     file: result.row,
     /** False when this install has no draft column yet: the save went live. */
@@ -256,6 +260,11 @@ export async function DELETE(req: Request, { params }: Params) {
     .eq("install_id", installId)
     .eq("path", path)
 
+  /* On GitHub too: a shipped section goes back to the theme's text, one of
+     your own is removed. */
+  const shipped = (DEFAULT_THEME_SOURCES as Record<string, string>)[path]
+  after(() => mirrorToGitHub(installId, typeof shipped === "string" ? { kind: "save", path, content: shipped } : { kind: "delete", path }))
+
   return NextResponse.json({ ok: true })
 }
 
@@ -273,13 +282,26 @@ export async function PATCH(req: Request, { params }: Params) {
   const { from, to } = parsed.data
   if (from === to) return NextResponse.json({ ok: true, path: to })
 
-  const { data: existing } = await supabase
+  /**
+   * THE DRAFT MOVES WITH IT. This read `content` alone, which is what was
+   * last PUBLISHED, and wrote only that under the new name: a file saved and
+   * not yet published was renamed back to an older version, or to nothing,
+   * and the draft was deleted with the old row.
+   */
+  const withDraft = await supabase
     .from("store_theme_custom_files")
-    .select("content")
+    .select("content, draft_content")
     .eq("install_id", installId)
     .eq("path", from)
     .maybeSingle()
+  const hasDraftColumn = !withDraft.error
+  const existing = (hasDraftColumn
+    ? withDraft.data
+    : (await supabase.from("store_theme_custom_files").select("content").eq("install_id", installId).eq("path", from).maybeSingle()).data) as
+    | { content: string; draft_content?: string | null }
+    | null
   if (!existing) return NextResponse.json({ error: `${from} is not a saved file` }, { status: 404 })
+  const source = editorContent({ content: existing.content, draft_content: existing.draft_content ?? null })
 
   /**
    * A RENAME IS A DELETE, FOR THE PAGES THAT USE IT. `sections/x.storelib`
@@ -303,14 +325,20 @@ export async function PATCH(req: Request, { params }: Params) {
    * every rename fail with a compile error it could do nothing about.
    */
   if (to.endsWith(".storelib")) {
-    const r = compileSection(existing.content, { file: to })
+    const r = compileSection(source, { file: to })
     if (r.ok === false) return NextResponse.json({ error: `${to} did not compile`, errors: r.errors }, { status: 422 })
   }
 
   const { error: upsertErr } = await supabase
     .from("store_theme_custom_files")
-    .upsert({ install_id: installId, path: to, content: existing.content }, { onConflict: "install_id,path" })
+    .upsert(
+      hasDraftColumn
+        ? { install_id: installId, path: to, content: existing.content, draft_content: existing.draft_content ?? null }
+        : { install_id: installId, path: to, content: existing.content },
+      { onConflict: "install_id,path" },
+    )
   if (upsertErr) return NextResponse.json({ error: upsertErr.message }, { status: 500 })
   await supabase.from("store_theme_custom_files").delete().eq("install_id", installId).eq("path", from)
+  after(() => mirrorToGitHub(installId, { kind: "rename", from, to, content: source }))
   return NextResponse.json({ ok: true, path: to })
 }

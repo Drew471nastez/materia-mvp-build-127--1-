@@ -41,6 +41,7 @@ import {
   verifySignature,
   verifyState,
 } from "@/lib/github-sync/core"
+import { changesFor, describeChange } from "@/lib/github-sync/core"
 
 let passed = 0
 let failed = 0
@@ -205,6 +206,54 @@ function main() {
   check("and coming back from GitHub opens Connections, then clears the address",
     /settingsSectionFrom\(url\.searchParams\.get\("settings"\)\)/.test(editor) && /history\.replaceState/.test(editor) &&
       /if \(value === "connections" \|\| value === "agents"\) return "advanced"/.test(read("components/website-builder/website-settings/types.ts")))
+
+  console.log("\nBoth ways: the builder's saves reach the repository")
+
+  check("a save becomes a file, a delete a removal, a rename both", (() => {
+    const save = changesFor("", { kind: "save", path: "sections/faq.storelib", content: "x" })
+    const del = changesFor("site/", { kind: "delete", path: "sections/faq.storelib" })
+    const ren = changesFor("", { kind: "rename", from: "sections/a.storelib", to: "sections/b.storelib", content: "y" })
+    return save.length === 1 && "content" in save[0] && save[0].path === "sections/faq.storelib"
+      && del.length === 1 && "delete" in del[0] && del[0].path === "site/sections/faq.storelib"
+      && ren.length === 2 && "delete" in ren[0] && ren[0].path === "sections/a.storelib" && "content" in ren[1] && ren[1].path === "sections/b.storelib"
+  })())
+  check("only section files travel", changesFor("", { kind: "save", path: "templates/home.json", content: "{}" }).length === 0)
+  check("the change is described in words", describeChange({ kind: "rename", from: "sections/a.storelib", to: "sections/b.storelib", content: "" }) === "Renamed a to b in the builder")
+  const mirror = read("lib/github-sync/mirror.ts")
+  check("only when the site is linked and sends changes", /link\.push_on_save === false\) return/.test(mirror))
+  check("marked as Storelib's own, so the push does not come back", /COMMIT_MARKER/.test(mirror))
+  check("and a commit that fails is written to the activity list, never failing the save", /direction: "to_github", ok: false/.test(mirror) && !/throw /.test(mirror.replace(/catch \(e\)[\s\S]*$/, "")))
+  for (const [where, file] of [
+    ["the code editor", "app/api/website-builder/themes/[installId]/files/route.ts"],
+    ["Ask AI writing a section", "app/api/website-builder/themes/[installId]/sections/code/route.ts"],
+    ["an agent over MCP", "lib/agent-access/bind.ts"],
+    ["an agent over HTTP", "app/api/agent/v1/files/route.ts"],
+  ] as const) {
+    check(`${where} commits after answering`, /after\(\(\) => mirrorToGitHub\(/.test(read(file)))
+  }
+  check("but a save that came FROM GitHub is not sent back to it", !/mirrorToGitHub/.test(read("lib/github-sync/sync.ts")))
+  const files = read("app/api/website-builder/themes/[installId]/files/route.ts")
+  check("deleting a shipped section in the builder puts the theme's text back on GitHub, not a hole",
+    /typeof shipped === "string" \? \{ kind: "save", path, content: shipped \} : \{ kind: "delete", path \}/.test(files))
+  check("a rename carries the unpublished draft, not only what was published", /select\("content, draft_content"\)/.test(files) && /draft_content: existing\.draft_content \?\? null/.test(files))
+
+  console.log("\nSwitches, pull and activity")
+  const sync2 = read("lib/github-sync/sync.ts")
+  check("a site with incoming changes switched off is left alone", /filter\(\(l\) => l\.pull_on_push !== false\)/.test(sync2))
+  check("Pull from GitHub reads the whole branch through the same save loop", /export async function pullNow/.test(sync2) && /listTree\(token/.test(sync2) && /takeFiles\(db, token, link, link\.repo_full_name, tree\.sha/.test(sync2))
+  check("each way is written to the activity list", (sync2.match(/recordEvent\(db/g) ?? []).length >= 3)
+  const route = read("app/api/website-builder/themes/[installId]/github/route.ts")
+  check("the route takes pull, settings and change-repo", /body\.action === "pull"/.test(route) && /body\.action === "settings"/.test(route) && /body\.action === "change-repo"/.test(route))
+  check("and still works on a database that ran the first SQL", /push_on_save\|pull_on_push/.test(route))
+  const sql2 = read("supabase/sql/RUN_GITHUB_SYNC.sql")
+  check("the SQL adds the switches to an existing table and makes the activity table, read-only to creators",
+    /ADD COLUMN IF NOT EXISTS push_on_save/.test(sql2) && /CREATE TABLE IF NOT EXISTS theme_github_events/.test(sql2) && /REVOKE INSERT, UPDATE, DELETE ON theme_github_events/.test(sql2))
+  const panel2 = read("components/website-builder/github-sync-panel.tsx")
+  check("the panel shows both directions as switches, Pull, Push and what happened lately",
+    /Builder to GitHub/.test(panel2) && /GitHub to builder/.test(panel2) && /action: "pull"/.test(panel2) && /status\.events\.map/.test(panel2))
+  check("its switch cannot draw outside its track", /absolute left-\[3px\] top-\[3px\] h-4 w-4/.test(panel2) && /translate-x-\[18px\]/.test(panel2))
+  const direct = read("components/website-builder/agent-connections-panel.tsx")
+  check("the direct connection is three steps with only the chosen agent's command", /role="radiogroup" aria-label="Agent"/.test(direct) && /commandFor\(agent, fresh\.token\)/.test(direct) && /<Step n=\{3\}/.test(direct))
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }

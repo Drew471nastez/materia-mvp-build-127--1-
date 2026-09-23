@@ -70,6 +70,8 @@ import { CHART_ANIM_MS } from "@/lib/chart-motion"
 import { useToast } from "@/hooks/use-toast"
 import { GlidingActiveDot, GlidingCursor } from "@/components/app/chart-glide"
 import { STORELIB_LOGO } from "@/lib/brand/logo"
+import { DateRangePicker } from "@/components/app/date-range-picker"
+import { boundsOf, resolveValue, todayIn, type RangeValue } from "@/lib/date-range/range"
 
 interface SetupStep {
   id: string
@@ -963,12 +965,6 @@ function CopyLinkIcon({ className = "w-4 h-4" }: { className?: string }) {
   )
 }
 
-type TimeframeOption = {
-  value: string
-  label: string
-  getDates: () => { start: Date; end: Date }
-}
-
 function QuickAccessRow({
   label,
   url,
@@ -1033,112 +1029,6 @@ function QuickAccessRow({
 }
 
 
-const timeframeOptions: TimeframeOption[] = [
-  {
-    value: "today",
-    label: "Today",
-    getDates: () => {
-      const start = new Date()
-      start.setHours(0, 0, 0, 0)
-      const end = new Date()
-      return { start, end }
-    },
-  },
-  {
-    value: "yesterday",
-    label: "Yesterday",
-    getDates: () => {
-      const start = new Date()
-      start.setDate(start.getDate() - 1)
-      start.setHours(0, 0, 0, 0)
-      const end = new Date()
-      end.setDate(end.getDate() - 1)
-      end.setHours(23, 59, 59, 999)
-      return { start, end }
-    },
-  },
-  {
-    value: "last_48_hours",
-    label: "Last 48 hours",
-    getDates: () => {
-      const end = new Date()
-      const start = new Date()
-      start.setHours(start.getHours() - 48)
-      return { start, end }
-    },
-  },
-  {
-    value: "last_7_days",
-    label: "Last 7 days",
-    getDates: () => {
-      const end = new Date()
-      const start = new Date()
-      start.setDate(start.getDate() - 7)
-      return { start, end }
-    },
-  },
-  {
-    value: "last_30_days",
-    label: "Last 30 days",
-    getDates: () => {
-      const end = new Date()
-      const start = new Date()
-      start.setDate(start.getDate() - 30)
-      return { start, end }
-    },
-  },
-  {
-    value: "this_month",
-    label: "This month",
-    getDates: () => {
-      const end = new Date()
-      const start = new Date()
-      start.setDate(1)
-      start.setHours(0, 0, 0, 0)
-      return { start, end }
-    },
-  },
-  {
-    value: "last_90_days",
-    label: "Last 90 days",
-    getDates: () => {
-      const end = new Date()
-      const start = new Date()
-      start.setDate(start.getDate() - 90)
-      return { start, end }
-    },
-  },
-  {
-    value: "last_365_days",
-    label: "Last 365 days",
-    getDates: () => {
-      const end = new Date()
-      const start = new Date()
-      start.setDate(start.getDate() - 365)
-      return { start, end }
-    },
-  },
-  {
-    value: "last_year",
-    label: "Last year",
-    getDates: () => {
-      const end = new Date()
-      const start = new Date()
-      start.setFullYear(start.getFullYear() - 1)
-      return { start, end }
-    },
-  },
-  {
-    value: "all_time",
-    label: "All time",
-    getDates: () => {
-      const end = new Date()
-      const start = new Date(2020, 0, 1) // Start from 2020
-      return { start, end }
-    },
-  },
-]
-
 // Helper function to calculate percentage change
 const calculatePercentChange = (current: number, previous: number): { value: number; isPositive: boolean; isZero: boolean } => {
   if (previous === 0 && current === 0) return { value: 0, isPositive: true, isZero: true }
@@ -1168,33 +1058,6 @@ function PercentChangeIndicator({ current, previous }: { current: number; previo
 }
 
 // Helper function to format period text naturally
-const formatPeriodText = (timeframeValue: string): string => {
-  switch (timeframeValue) {
-    case "today":
-      return "today"
-    case "yesterday":
-      return "yesterday"
-    case "last_48_hours":
-      return "in last 48h"
-    case "last_7_days":
-      return "in last 7 days"
-    case "last_30_days":
-      return "in last 30 days"
-    case "this_month":
-      return "this month"
-    case "last_90_days":
-      return "in last 90 days"
-    case "last_365_days":
-      return "in last 365 days"
-    case "last_year":
-      return "last year"
-    case "all_time":
-      return "all time"
-    default:
-      return ""
-  }
-}
-
 // Progress circle component with purple accent
 function ProgressCircle({ progress, size = 32 }: { progress: number; size?: number }) {
   const strokeWidth = 2.5
@@ -1225,169 +1088,6 @@ function ProgressCircle({ progress, size = 32 }: { progress: number; size?: numb
         className="transition-all duration-500"
       />
     </svg>
-  )
-}
-
-// Mobile Bottom Sheet for Timeframe Selector with smooth GPU-accelerated swipe-to-close
-function TimeframeBottomSheet({
-  isOpen,
-  onClose,
-  options,
-  selectedValue,
-  onSelect,
-  t,
-}: {
-  isOpen: boolean
-  onClose: () => void
-  options: TimeframeOption[]
-  selectedValue: string
-  onSelect: (value: string) => void
-  t: (key: any) => string
-}) {
-  const [isVisible, setIsVisible] = useState(false)
-  const [isAnimating, setIsAnimating] = useState(false)
-  const [dragY, setDragY] = useState(0)
-  const [isDragging, setIsDragging] = useState(false)
-  const startYRef = useRef(0)
-  const lastYRef = useRef(0)
-  const lastTimeRef = useRef(0)
-  const velocityRef = useRef(0)
-  const sheetRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (isOpen && !isVisible) {
-      setIsVisible(true)
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          setIsAnimating(true)
-        })
-      })
-    } else if (!isOpen && isVisible) {
-      setIsAnimating(false)
-      const timer = setTimeout(() => {
-        setIsVisible(false)
-        setDragY(0)
-      }, 400)
-      return () => clearTimeout(timer)
-    }
-    return undefined
-  }, [isOpen, isVisible])
-
-  const handleClose = () => {
-    setIsAnimating(false)
-    setIsDragging(false)
-    setDragY(0)
-    velocityRef.current = 0
-    setTimeout(() => {
-      onClose()
-    }, 400)
-  }
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    const touch = e.touches[0]
-    const sheetElement = sheetRef.current
-    if (!sheetElement) return
-    const sheetRect = sheetElement.getBoundingClientRect()
-    // Allow drag from anywhere above the sheet content area (backdrop + handle + header)
-    // Only block drag if touch is deep inside sheet content (scrollable area)
-    const touchYInSheet = touch.clientY - sheetRect.top
-    if (touchYInSheet <= 0 || touchYInSheet <= 100) {
-      // Touch is on backdrop (above sheet) or in handle/header area
-      startYRef.current = touch.clientY
-      lastYRef.current = touch.clientY
-      lastTimeRef.current = Date.now()
-      velocityRef.current = 0
-      setIsDragging(true)
-    }
-  }
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!isDragging) return
-    const currentY = e.touches[0].clientY
-    const diff = currentY - startYRef.current
-    if (diff > 0) {
-      e.preventDefault()
-      const now = Date.now()
-      const dt = Math.max(1, now - lastTimeRef.current)
-      velocityRef.current = (currentY - lastYRef.current) / dt
-      lastYRef.current = currentY
-      lastTimeRef.current = now
-      const resisted = diff <= 160 ? diff * 0.92 : 147 + (diff - 160) * 0.4
-      setDragY(resisted)
-    }
-  }
-
-  const handleTouchEnd = () => {
-    if (!isDragging) return
-    setIsDragging(false)
-    if (dragY > 92 || velocityRef.current > 0.55) {
-      handleClose()
-    } else {
-      setDragY(0)
-    }
-  }
-
-  if (!isVisible) return null
-
-  return (
-    <div
-      data-dashboard-sheet
-      className="fixed inset-0 z-[100] md:hidden"
-      style={{ pointerEvents: isVisible ? "auto" : "none", touchAction: "none" }}
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-    >
-      {/* Backdrop with smooth fade + blur */}
-      <div
-        className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
-        style={{
-          opacity: isAnimating ? 1 : 0,
-          transition: isDragging ? 'none' : 'opacity 400ms cubic-bezier(0.32, 0.72, 0, 1)',
-        }}
-        onClick={isAnimating ? handleClose : undefined}
-      />
-      {/* Bottom Sheet - GPU accelerated */}
-      <div
-        ref={sheetRef}
-        className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl"
-        style={{
-          transform: isAnimating ? `translate3d(0, ${dragY}px, 0)` : "translate3d(0, 100%, 0)",
-          transition: isDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
-          willChange: 'transform',
-          backfaceVisibility: 'hidden',
-          WebkitBackfaceVisibility: 'hidden',
-        }}
-      >
-        {/* Handle bar */}
-        <div className="pt-3 pb-1 flex justify-center cursor-grab active:cursor-grabbing touch-none" data-sheet-handle>
-          <div className="h-[5px] w-10 rounded-full bg-gray-300" />
-        </div>
-        <div className="px-4 pb-4">
-          <h3 className="text-[16px] font-semibold text-[#1a1a2e] mb-4">{t("time.selectPeriod")}</h3>
-          <div className="space-y-1 max-h-[50vh] overflow-y-auto overscroll-contain" style={{ touchAction: 'pan-y' }}>
-            {options.map((option) => (
-              <button
-                key={option.value}
-                onClick={() => {
-                  onSelect(option.value)
-                  handleClose()
-                }}
-                className={`w-full text-left px-4 py-3 rounded-xl text-[15px] font-medium transition-colors ${
-                  selectedValue === option.value
-                    ? "bg-[#f5f3ff] text-[#8b5cf6]"
-                    : "text-[#374151] hover:bg-[#f9fafb] active:bg-[#f3f4f6]"
-                }`}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
-        </div>
-        {/* Safe area padding for iOS */}
-        <div className="h-[env(safe-area-inset-bottom)]" />
-      </div>
-    </div>
   )
 }
 
@@ -1580,6 +1280,18 @@ function QuickAccessBottomSheet({
   )
 }
 
+/** Which of the chart's bucket shapes a preset draws with; the rest are drawn between their dates. */
+const DASH_LEGACY_TIMEFRAME: Partial<Record<RangeValue["preset"], string>> = {
+  today: "today",
+  yesterday: "yesterday",
+  last_7_days: "last_7_days",
+  last_30_days: "last_30_days",
+  month_to_date: "this_month",
+  last_90_days: "last_90_days",
+  last_365_days: "last_365_days",
+  all_time: "all_time",
+}
+
 export function DashboardClient({
   creatorId,
   displayName,
@@ -1595,13 +1307,34 @@ export function DashboardClient({
   websitePublished = false,
   subscriptionPlanId = "free",
 }: DashboardClientProps) {
-  const [timeframe, setTimeframe] = useState(() => {
-    if (typeof window !== "undefined") {
-      return localStorage.getItem("dashboard_timeframe") || "last_7_days"
+  /**
+   * THE PERIOD, from the date picker every page in /app shares, remembered
+   * on this device as the old choice was. A preset is re-read against today
+   * each time, so "Last 7 days" chosen last week is still the last 7 days.
+   * `timeframe` is the older name the chart's bucket shapes still branch on.
+   */
+  const dashTimeZone = useMemo(() => viewerTimeZone(), [])
+  const dashToday = todayIn(dashTimeZone, Date.now())
+  const [period, setPeriod] = useState<RangeValue>(() => {
+    let saved: Partial<RangeValue> | null = null
+    try {
+      const raw = typeof window !== "undefined" ? localStorage.getItem("dashboard_period") : null
+      saved = raw ? (JSON.parse(raw) as Partial<RangeValue>) : null
+      /* The old key held a bare preset name. */
+      const legacy = !saved && typeof window !== "undefined" ? localStorage.getItem("dashboard_timeframe") : null
+      if (legacy) saved = { preset: (legacy === "this_month" ? "month_to_date" : legacy) as RangeValue["preset"] }
+    } catch {
+      saved = null
     }
-    return "last_7_days"
+    return resolveValue(saved, dashToday, "last_7_days")
   })
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false)
+  const timeframe = DASH_LEGACY_TIMEFRAME[period.preset] ?? "custom"
+  const periodKey = `${period.preset}:${period.start}:${period.end}`
+  /** The period's instants: whole days on the creator's clock, to now. */
+  const periodDates = () => {
+    const b = boundsOf(period, dashTimeZone, Date.now())
+    return { start: new Date(b.start), end: new Date(Math.max(b.start, b.end - 1)) }
+  }
   const [isProfileAccessOpen, setIsProfileAccessOpen] = useState(false)
   const [isProfileAccessVisible, setIsProfileAccessVisible] = useState(false)
   const [isProfileAccessAnimating, setIsProfileAccessAnimating] = useState(false)
@@ -1611,10 +1344,14 @@ export function DashboardClient({
 
   useHideNativeSplash()
 
-  // Persist timeframe selection to localStorage
+  // Remember the period on this device
   useEffect(() => {
-    localStorage.setItem("dashboard_timeframe", timeframe)
-  }, [timeframe])
+    try {
+      localStorage.setItem("dashboard_period", JSON.stringify({ preset: period.preset, start: period.start, end: period.end }))
+    } catch {
+      /* private mode: the default next time */
+    }
+  }, [periodKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Canonical subdomain URLs for display text and clipboard copy
   const publicStoreUrl = connectedDomain ? `https://${connectedDomain}` : (creatorHandle ? getStoreShareUrl(creatorHandle) : "")
@@ -1629,7 +1366,6 @@ export function DashboardClient({
   // Internal-path URLs for in-app navigation (preserves auth in Capacitor)
   const navStoreUrl = connectedDomain ? `https://${connectedDomain}` : (creatorHandle ? getStoreUrl(creatorHandle) : "")
   const navOnePageUrl = connectedDomain ? `https://${connectedDomain}/links` : (creatorHandle ? getLinksUrl(creatorHandle) : "")
-  const [isMobileSheetOpen, setIsMobileSheetOpen] = useState(false)
   // loading.tsx already renders the streaming skeleton. On first mount we
   // render the shell immediately with a subtle blur on data-bound fields so
   // there's no second full-page skeleton flash ("double load"). isLoading
@@ -1797,10 +1533,8 @@ export function DashboardClient({
     const supabase = createClient()
 
     try {
-      const option = timeframeOptions.find((o) => o.value === selectedTimeframe)
-      if (!option) return
-
-      const { start, end } = option.getDates()
+      void selectedTimeframe
+      const { start, end } = periodDates()
 
       // Calculate previous period dates (same duration, immediately before)
       const periodDuration = end.getTime() - start.getTime()
@@ -2030,6 +1764,19 @@ export function DashboardClient({
           label: wStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
         })
       }
+    } else if (tf === "custom" && end.getTime() - start.getTime() > 92 * 86_400_000) {
+      /* A long chosen range is drawn a month at a time, not a thousand days. */
+      const cursor = new Date(start.getFullYear(), start.getMonth(), 1)
+      while (cursor <= end) {
+        const mStart = new Date(cursor)
+        const mEnd = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0, 23, 59, 59, 999)
+        buckets.push({
+          start: mStart < start ? start : mStart,
+          end: mEnd > end ? end : mEnd,
+          label: mStart.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }),
+        })
+        cursor.setMonth(cursor.getMonth() + 1)
+      }
     } else {
       let dayStep = 1
       let dayCount: number
@@ -2064,10 +1811,7 @@ export function DashboardClient({
     const supabase = createClient()
 
     try {
-      const option = timeframeOptions.find((o) => o.value === timeframe)
-      if (!option) return
-
-      const { start, end } = option.getDates()
+      const { start, end } = periodDates()
       // Use same filters as KPI display: completed+refunded for order counts, completed-only for revenue
       const allValidOrders = liveOrders.filter(o => o.status === "completed" || o.status === "refunded")
       const completedOrders = liveOrders.filter(o => o.status === "completed")
@@ -2181,7 +1925,7 @@ export function DashboardClient({
       fetchChartData(openKPIModal).finally(() => window.clearTimeout(safetyTimer))
       return () => window.clearTimeout(safetyTimer)
     }
-  }, [openKPIModal, timeframe, creatorId])
+  }, [openKPIModal, periodKey, creatorId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     // Safety net: if analytics queries hang (slow network, Supabase latency),
@@ -2192,16 +1936,14 @@ export function DashboardClient({
     }, 5000)
     fetchAnalytics(timeframe).finally(() => window.clearTimeout(safetyTimer))
     return () => window.clearTimeout(safetyTimer)
-  }, [timeframe, creatorId])
+  }, [periodKey, creatorId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // When liveOrders updates (realtime), recalculate order KPIs without re-fetching views
   useEffect(() => {
     // Skip on first render — fetchAnalytics will handle it
     if (isFirstLoadRef.current) return
 
-    const option = timeframeOptions.find((o) => o.value === timeframe)
-    if (!option) return
-    const { start, end } = option.getDates()
+    const { start, end } = periodDates()
     const periodDuration = end.getTime() - start.getTime()
     const prevEnd = new Date(start.getTime() - 1)
     const prevStart = new Date(prevEnd.getTime() - periodDuration)
@@ -2270,9 +2012,6 @@ export function DashboardClient({
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as HTMLElement
-      if (!target.closest(".timeframe-dropdown")) {
-        setIsDropdownOpen(false)
-      }
       if (profileAccessRef.current && !profileAccessRef.current.contains(target)) {
         setIsProfileAccessOpen(false)
       }
@@ -2281,7 +2020,6 @@ export function DashboardClient({
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [])
 
-  const selectedOption = timeframeOptions.find((o) => o.value === timeframe)
   const completedSteps = initialSetupSteps.filter((s) => s.completed).length
   const totalSteps = initialSetupSteps.length
   const allCompleted = completedSteps === totalSteps
@@ -2364,7 +2102,7 @@ export function DashboardClient({
   const handlePullRefresh = useCallback(async () => {
     await fetchAnalytics(timeframe)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timeframe])
+  }, [periodKey])
 
   const { pullDistance, phase: pullPhase } = usePullToRefresh(scrollRef, handlePullRefresh)
 
@@ -2729,37 +2467,8 @@ export function DashboardClient({
 
           {/* Desktop: Timeframe Dropdown + Live Indicator */}
           <div className="hidden md:flex items-center gap-3">
-            <div className="relative timeframe-dropdown">
-              <button
-                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-[#e5e7eb] rounded-xl text-[13px] font-medium text-[#374151] hover:bg-[#f9fafb] transition-colors shadow-[0_1px_2px_rgba(0,0,0,0.03)]"
-              >
-                {selectedOption?.label || "Last 7 days"}
-                <ChevronDown
-                  className={`h-4 w-4 text-[#9ca3af] transition-transform duration-200 ${isDropdownOpen ? "rotate-180" : ""}`}
-                />
-              </button>
-              {isDropdownOpen && (
-                <div className="absolute right-0 top-full mt-2 w-48 bg-white border border-[#e5e7eb] rounded-xl shadow-lg z-50 py-1 animate-in fade-in-0 zoom-in-95 duration-100">
-                  {timeframeOptions.map((option) => (
-                    <button
-                      key={option.value}
-                      onClick={() => {
-                        setTimeframe(option.value)
-                        setIsDropdownOpen(false)
-                      }}
-                      className={`w-full text-left px-4 py-2 text-[13px] font-medium transition-colors ${
-                        timeframe === option.value
-                          ? "bg-[#f5f3ff] text-[#8b5cf6]"
-                          : "text-[#374151] hover:bg-[#f9fafb]"
-                      }`}
-                    >
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+            {/* The date picker every page in /app shares. */}
+            <DateRangePicker value={period} onChange={setPeriod} today={dashToday} align="end" className="h-[38px] rounded-xl px-3.5" />
             {/* Live Indicator Pill - Desktop */}
             <div className="flex items-center gap-1.5 px-3 py-2 bg-[#f3f4f6] rounded-lg">
               <div
@@ -2796,13 +2505,7 @@ export function DashboardClient({
                 {liveVisitors} {t("dashboard.liveVisitors")}
               </span>
             </div>
-            <button
-              onClick={() => setIsMobileSheetOpen(true)}
-              className="w-fit inline-flex items-center gap-2 px-4 py-2 bg-white border border-[#e5e7eb] rounded-xl text-[13px] font-medium text-[#374151] shadow-[0_1px_2px_rgba(0,0,0,0.03)] h-[38px]"
-            >
-              {selectedOption?.label || "Last 7 days"}
-              <ChevronDown className="h-4 w-4 text-[#9ca3af]" />
-            </button>
+            <DateRangePicker value={period} onChange={setPeriod} today={dashToday} align="end" className="h-[38px] rounded-xl px-3" />
           </div>
         </div>
 
@@ -3297,14 +3000,6 @@ export function DashboardClient({
       </div>{/* end below-the-bar area that hosts the pull indicator */}
 
       {/* Bottom sheets rendered OUTSIDE transform wrapper — iOS position:fixed requires no ancestor transform */}
-      <TimeframeBottomSheet
-        isOpen={isMobileSheetOpen}
-        onClose={() => setIsMobileSheetOpen(false)}
-        options={timeframeOptions}
-        selectedValue={timeframe}
-        onSelect={setTimeframe}
-        t={t}
-      />
       <QuickAccessBottomSheet
         isOpen={isQuickAccessMobileOpen}
         onClose={() => setIsQuickAccessMobileOpen(false)}

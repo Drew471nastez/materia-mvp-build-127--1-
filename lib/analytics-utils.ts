@@ -1,3 +1,4 @@
+import { hasConsent } from "@/lib/consent/client"
 // lib/analytics-utils.ts
 // Utility functions for analytics tracking
 
@@ -21,6 +22,15 @@ export type Attribution = {
 
 const ATTR_PREFIX = "materia_attr_"
 
+/**
+ * WITHOUT ANALYTICS CONSENT NOTHING HERE IS STORED. No visitor or session
+ * cookie is made and no attribution is kept: the view is still counted, once
+ * and without an identifier, by app/api/track-view. See lib/consent.
+ */
+function analyticsAllowed(): boolean {
+  return hasConsent("analytics")
+}
+
 function normalizeHost(host: string): string {
   return host.replace(/^www\./, "").trim().toLowerCase()
 }
@@ -40,7 +50,7 @@ function safeJsonParse<T>(value: string | null): T | null {
  */
 export function storeAttribution(sessionId: string, data: Attribution): void {
   if (typeof window === "undefined") return
-  if (!sessionId) return
+  if (!sessionId || !analyticsAllowed()) return
   try {
     window.localStorage.setItem(`${ATTR_PREFIX}${sessionId}`, JSON.stringify(data))
   } catch {
@@ -115,7 +125,7 @@ const SESSION_COOKIE = "sl_asid"
 const SESSION_SECONDS = 60 * 30
 
 export function getOrCreateSessionId(): string {
-  if (typeof document === "undefined") return ""
+  if (typeof document === "undefined" || !analyticsAllowed()) return ""
   const match = document.cookie.match(/(?:^|;\s*)sl_asid=([^;]+)/)
   const sid = match?.[1]
     ? decodeURIComponent(match[1])
@@ -143,8 +153,9 @@ export function trackFunnelStep(
       eventType,
       creatorId,
       productId: productId || undefined,
-      sessionId: getOrCreateSessionId(),
-      visitorId: getOrCreateVisitorId(),
+      /* Without analytics consent these are empty, and not sent at all. */
+      sessionId: getOrCreateSessionId() || undefined,
+      visitorId: getOrCreateVisitorId() || undefined,
     }),
   })
     .then(() => undefined)
@@ -153,7 +164,7 @@ export function trackFunnelStep(
 
 // Get or create visitor ID (persistent ~1 year)
 export function getOrCreateVisitorId(): string {
-  if (typeof document === "undefined") return ""
+  if (typeof document === "undefined" || !analyticsAllowed()) return ""
   const match = document.cookie.match(/(?:^|;\s*)materia_visitor=([^;]+)/)
   if (match?.[1]) return decodeURIComponent(match[1])
 

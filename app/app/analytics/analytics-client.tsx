@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef, useMemo } from "react"
+import { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from "react"
 import Link from "next/link"
 import { useSearchParams, useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -27,7 +27,10 @@ import { createClient } from "@/lib/supabase/client"
 import { useLanguage } from "@/lib/i18n"
 import { triggerHaptic, hapticTap } from "@/lib/native-bridge"
 import { AnnouncementBarMobile } from "@/components/app/announcement-bar-mobile"
-import { DateRangePickerModal } from "@/components/app/date-range-picker-modal"
+import { ComparePicker, DateRangePicker, RangeLegend } from "@/components/app/date-range-picker"
+import { usePeriodParams } from "@/components/app/use-period-params"
+import { viewerTimeZone } from "@/lib/orders/time-zone"
+import { boundsOf, compareBounds, compareRange, rangeLabel, valueLabel, type RangeValue } from "@/lib/date-range/range"
 import { AnalyticsReports } from "./analytics-reports"
 
 // Custom Spotify Icon (brand SVG)
@@ -212,6 +215,12 @@ interface TrendData {
   clicks?: number
   subscribers?: number
   refunds?: number
+  /** The same bucket of the period it is compared with. Absent with no comparison. */
+  prev_views?: number
+  prev_sales?: number
+  prev_revenue?: number
+  prev_refunds?: number
+  prev_conversion?: number
 }
 
 interface TrafficSource {
@@ -267,13 +276,6 @@ type KPIType = "views" | "orders" | "revenue" | "conversion" | "clicks" | "subsc
 type ChartMetricFilter = "all" | "views" | "orders" | "revenue" | "conversion"
 type OnePageChartFilter = "all" | "views" | "clicks" | "subscribers" | "ctr"
 
-type TimeframeOption = {
-  value: string
-  label: string
-  shortLabel: string
-  getDates: () => { start: Date; end: Date }
-}
-
 // ── Sample data for analytics chart ───────────────────────────────────────
 const ANALYTICS_SAMPLE_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 const ANALYTICS_SAMPLE_TREND = ANALYTICS_SAMPLE_DAYS.map((d, i) => ({
@@ -294,110 +296,20 @@ const ANALYTICS_SAMPLE_SUMMARY: Summary = {
   allTimeViews: 1660, allTimeOrders: 95, allTimeRevenue: 125000,
 }
 
-const timeframeOptions: TimeframeOption[] = [
-  {
-    value: "custom",
-    label: "Custom range",
-    shortLabel: "Custom",
-    getDates: () => {
-      const end = new Date()
-      const start = new Date()
-      start.setDate(start.getDate() - 7)
-      return { start, end }
-    },
-  },
-  {
-    value: "today",
-    label: "Today",
-    shortLabel: "Today",
-    getDates: () => {
-      const start = new Date()
-      start.setHours(0, 0, 0, 0)
-      const end = new Date()
-      return { start, end }
-    },
-  },
-  {
-    value: "yesterday",
-    label: "Yesterday",
-    shortLabel: "Yesterday",
-    getDates: () => {
-      const start = new Date()
-      start.setDate(start.getDate() - 1)
-      start.setHours(0, 0, 0, 0)
-      const end = new Date()
-      end.setDate(end.getDate() - 1)
-      end.setHours(23, 59, 59, 999)
-      return { start, end }
-    },
-  },
-  {
-    value: "last_7_days",
-    label: "Last 7 days",
-    shortLabel: "7 days",
-    getDates: () => {
-      const end = new Date()
-      const start = new Date()
-      start.setDate(start.getDate() - 7)
-      return { start, end }
-    },
-  },
-  {
-    value: "last_30_days",
-    label: "Last 30 days",
-    shortLabel: "30 days",
-    getDates: () => {
-      const end = new Date()
-      const start = new Date()
-      start.setDate(start.getDate() - 30)
-      return { start, end }
-    },
-  },
-  {
-    value: "this_month",
-    label: "This month",
-    shortLabel: "This month",
-    getDates: () => {
-      const end = new Date()
-      const start = new Date()
-      start.setDate(1)
-      start.setHours(0, 0, 0, 0)
-      return { start, end }
-    },
-  },
-  {
-    value: "last_90_days",
-    label: "Last 90 days",
-    shortLabel: "90 days",
-    getDates: () => {
-      const end = new Date()
-      const start = new Date()
-      start.setDate(start.getDate() - 90)
-      return { start, end }
-    },
-  },
-  {
-    value: "last_year",
-    label: "Last year",
-    shortLabel: "Last year",
-    getDates: () => {
-      const end = new Date()
-      const start = new Date()
-      start.setFullYear(start.getFullYear() - 1)
-      return { start, end }
-    },
-  },
-  {
-    value: "all_time",
-    label: "All time",
-    shortLabel: "All time",
-    getDates: () => {
-      const end = new Date()
-      const start = new Date(2020, 0, 1)
-      return { start, end }
-    },
-  },
-]
+/**
+ * Which of the chart's older shapes a preset draws with. Anything not listed
+ * is drawn day by day between its two dates ("custom").
+ */
+const LEGACY_TIMEFRAME: Partial<Record<RangeValue["preset"], string>> = {
+  today: "today",
+  yesterday: "yesterday",
+  last_7_days: "last_7_days",
+  last_30_days: "last_30_days",
+  month_to_date: "this_month",
+  last_90_days: "last_90_days",
+  last_365_days: "last_year",
+  all_time: "all_time",
+}
 
 import { AnalyticsChartWithTooltip, CHART_COLORS } from "@/components/app/analytics-chart"
 import { useTabStrip } from "@/components/app/use-tab-strip"
@@ -415,18 +327,26 @@ const calculatePercentChange = (current: number, previous: number): { value: num
   return { value: Math.abs(change), isPositive: change >= 0, isZero: change === 0 }
 }
 
+/**
+ * What the percentages are measured against, from the comparison picker:
+ * "Dec 1–Dec 31, 2025", or null when the picker says No comparison and
+ * there are no percentages to show.
+ */
+const CompareContext = createContext<string | null>("the previous period")
+
 // Small percentage change indicator component
 function PercentChangeIndicator({ current, previous }: { current: number; previous: number }) {
+  const against = useContext(CompareContext)
   const { value, isPositive, isZero } = calculatePercentChange(current, previous)
 
-  if (isZero) return null
+  if (isZero || against === null) return null
 
   return (
     <span
       className={`inline-flex items-center gap-0.5 text-[11px] font-medium cursor-help ${
         isPositive ? "text-emerald-600" : "text-[#9ca3af]"
       }`}
-      title={`${isPositive ? "+" : "-"}${Math.round(value)}% compared to previous period`}
+      title={`${isPositive ? "+" : "-"}${Math.round(value)}% compared with ${against}`}
     >
       {isPositive ? (
         <TrendingUp className="h-3 w-3" />
@@ -512,168 +432,6 @@ const TREND_SKELETON_MAX = 90
  */
 const STORE_TAB_ORDER = ["views", "revenue", "orders", "conversion"] as const
 const ONEPAGE_TAB_ORDER = ["views", "clicks", "subscribers", "ctr"] as const
-
-// Mobile Bottom Sheet for Timeframe selection
-function AnalyticsTimeframeSheet({
-  isOpen,
-  onClose,
-  options,
-  selectedValue,
-  onSelect,
-}: {
-  isOpen: boolean
-  onClose: () => void
-  options: TimeframeOption[]
-  selectedValue: string
-  onSelect: (value: string) => void
-}) {
-  const [isVisible, setIsVisible] = useState(false)
-  const [isAnimating, setIsAnimating] = useState(false)
-  const [dragY, setDragY] = useState(0)
-  const [isDragging, setIsDragging] = useState(false)
-  const startYRef = useRef(0)
-  const lastYRef = useRef(0)
-  const lastTimeRef = useRef(0)
-  const velocityRef = useRef(0)
-  const sheetRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (isOpen && !isVisible) {
-      setIsVisible(true)
-      document.body.style.overflow = "hidden"
-      document.documentElement.style.overscrollBehavior = 'none'
-      document.body.style.overscrollBehavior = 'none'
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          setIsAnimating(true)
-        })
-      })
-    } else if (!isOpen && isVisible) {
-      setIsAnimating(false)
-      document.body.style.overflow = ""
-      document.documentElement.style.overscrollBehavior = ''
-      document.body.style.overscrollBehavior = ''
-      const timer = setTimeout(() => {
-        setIsVisible(false)
-        setDragY(0)
-      }, 400)
-      return () => clearTimeout(timer)
-    }
-    return () => {
-      document.body.style.overflow = ""
-      document.documentElement.style.overscrollBehavior = ''
-      document.body.style.overscrollBehavior = ''
-    }
-  }, [isOpen, isVisible])
-
-  const handleClose = () => {
-    setIsAnimating(false)
-    setIsDragging(false)
-    setDragY(0)
-    velocityRef.current = 0
-    setTimeout(() => {
-      onClose()
-    }, 400)
-  }
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    const touch = e.touches[0]
-    const sheetElement = sheetRef.current
-    if (!sheetElement) return
-    const sheetRect = sheetElement.getBoundingClientRect()
-    const touchYInSheet = touch.clientY - sheetRect.top
-    if (touchYInSheet <= 0 || touchYInSheet <= 100) {
-      startYRef.current = touch.clientY
-      lastYRef.current = touch.clientY
-      lastTimeRef.current = Date.now()
-      velocityRef.current = 0
-      setIsDragging(true)
-    }
-  }
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!isDragging) return
-    const currentY = e.touches[0].clientY
-    const diff = currentY - startYRef.current
-    if (diff > 0) {
-      e.preventDefault()
-      const now = Date.now()
-      const dt = Math.max(1, now - lastTimeRef.current)
-      velocityRef.current = (currentY - lastYRef.current) / dt
-      lastYRef.current = currentY
-      lastTimeRef.current = now
-      const resisted = diff <= 160 ? diff * 0.92 : 147 + (diff - 160) * 0.4
-      setDragY(resisted)
-    }
-  }
-
-  const handleTouchEnd = () => {
-    if (!isDragging) return
-    setIsDragging(false)
-    if (dragY > 92 || velocityRef.current > 0.55) {
-      handleClose()
-    } else {
-      setDragY(0)
-    }
-  }
-
-  if (!isVisible) return null
-
-  return (
-    <div
-      className="fixed inset-0 z-[100] md:hidden"
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-    >
-      <div
-        className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
-        style={{
-          opacity: isAnimating ? 1 : 0,
-          transition: isDragging ? 'none' : 'opacity 400ms cubic-bezier(0.32, 0.72, 0, 1)',
-        }}
-        onClick={handleClose}
-      />
-      <div
-        ref={sheetRef}
-        className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl"
-        style={{
-          transform: isAnimating ? `translate3d(0, ${dragY}px, 0)` : "translate3d(0, 100%, 0)",
-          transition: isDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
-          willChange: 'transform',
-          backfaceVisibility: 'hidden',
-          WebkitBackfaceVisibility: 'hidden',
-        }}
-      >
-        <div className="pt-3 pb-1 flex justify-center cursor-grab active:cursor-grabbing touch-none">
-          <div className="h-[5px] w-10 rounded-full bg-gray-300" />
-        </div>
-        <div className="px-4 pb-4">
-          <h3 className="text-[16px] font-semibold text-[#1a1a2e] mb-4">Select time period</h3>
-          <div className="space-y-1 max-h-[50vh] overflow-y-auto overscroll-contain">
-            {options.map((option) => (
-              <button
-                key={option.value}
-                onClick={() => {
-                  onSelect(option.value)
-                  handleClose()
-                }}
-                className={`w-full text-left px-4 py-3 rounded-xl text-[15px] font-medium transition-colors ${
-                  selectedValue === option.value
-                    ? "bg-[#f3f4f6] text-[#1a1a2e]"
-                    : "text-[#374151] hover:bg-[#f9fafb] active:bg-[#f3f4f6]"
-                }`}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="h-[env(safe-area-inset-bottom)]" />
-      </div>
-    </div>
-  )
-}
 
 // Mobile Bottom Sheet for Products selection
 function AnalyticsProductsSheet({
@@ -879,18 +637,29 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
     const timer = setTimeout(() => setShowLoadingSkeleton(true), 200)
     return () => clearTimeout(timer)
   }, [isLoading])
-  const [timeframe, setTimeframe] = useState("last_7_days")
-  const [isTimeframeOpen, setIsTimeframeOpen] = useState(false)
+  /**
+   * THE PERIOD AND WHAT IT IS COMPARED WITH, from the shared picker, kept in
+   * the address (components/app/use-period-params.ts). Days are the
+   * creator's days: lib/date-range/range.ts.
+   */
+  const timeZone = useMemo(() => viewerTimeZone(), [])
+  const { period, setPeriod, compare, setCompare, today } = usePeriodParams(timeZone, "last_7_days")
+  /*
+   * The bucket logic below still reads the old names: hours for today and
+   * yesterday, the fixed shapes for the presets it always had, and days
+   * between the two dates for everything else.
+   */
+  const comparedRange = compareRange(period, compare)
+  const compareLabel = comparedRange ? rangeLabel(comparedRange) : null
+  const timeframe = LEGACY_TIMEFRAME[period.preset] ?? "custom"
+  const customStart = period.start
+  const customEnd = period.end
   const [isProductsOpen, setIsProductsOpen] = useState(false)
   const [selectedProduct, setSelectedProduct] = useState("all")
   // Mobile bottom sheet states
-  const [isTimeframeSheetOpen, setIsTimeframeSheetOpen] = useState(false)
   const [isProductsSheetOpen, setIsProductsSheetOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   const [isTouchDevice, setIsTouchDevice] = useState(false)
-  const [customStart, setCustomStart] = useState("")
-  const [customEnd, setCustomEnd] = useState("")
-  const [isCustomRangeOpen, setIsCustomRangeOpen] = useState(false)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   // Initialize analytics mode from URL param (?mode=onepage or ?mode=store)
   const initialMode = searchParams.get("mode") as AnalyticsMode | null
@@ -1000,22 +769,23 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
   const [mostClickedBlocks, setMostClickedBlocks] = useState<MostClickedBlock[]>([])
   const [showAllMostClicked, setShowAllMostClicked] = useState(false)
 
-  const selectedTimeframeOption = timeframeOptions.find((o) => o.value === timeframe)
-
-  // Get timeframe dates
+  /**
+   * The period's first and last instants. Whole days on the creator's clock,
+   * the last one running to now. This read "2025-12-31" as UTC midnight,
+   * which left the last day of every custom range out.
+   */
   const getTimeframeDates = useCallback(() => {
-    const option = timeframeOptions.find((o) => o.value === timeframe)
-    if (option && timeframe !== "custom") {
-      return option.getDates()
-    }
-    if (customStart && customEnd) {
-      return { start: new Date(customStart), end: new Date(customEnd) }
-    }
-    const end = new Date()
-    const start = new Date()
-    start.setDate(start.getDate() - 7)
-    return { start, end }
-  }, [timeframe, customStart, customEnd])
+    const b = boundsOf(period, timeZone, Date.now())
+    return { start: new Date(b.start), end: new Date(Math.max(b.start, b.end - 1)) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [period.start, period.end, period.preset, timeZone])
+
+  /** What the period is compared with, or null for no comparison. */
+  const getCompareDates = useCallback((): { start: Date; end: Date } | null => {
+    const b = compareBounds(period, compare, timeZone, Date.now())
+    return b ? { start: new Date(b.start), end: new Date(Math.max(b.start, b.end - 1)) } : null
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [period.start, period.end, compare.mode, compare.range?.start, compare.range?.end, timeZone])
 
   /* One range per choice of period, so the reports are asked for once, not
      on every render (the end of "Today" is "now"). */
@@ -1048,6 +818,8 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
       const { start, end } = getTimeframeDates()
 
       let viewOnlyEvents: any[] = []
+      /** What the comparison line is drawn from, when there is a comparison. */
+      let previousSeries: { start: number; views: number[]; orders: { at: number; status: string; cents: number }[] } | null = null
       let clickEvents: any[] = []
       let leadEvents: any[] = []
       let periodViews = 0
@@ -1117,10 +889,10 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
           leadEvents = onePageLeads || []
           periodSubscribers = leadEvents.length
 
-          // Calculate previous period dates (same duration, immediately before)
-          const periodDuration = end.getTime() - start.getTime()
-          const prevEnd = new Date(start.getTime() - 1)
-          const prevStart = new Date(prevEnd.getTime() - periodDuration)
+          /* What the comparison picker says, or an empty window for none. */
+          const cmp = getCompareDates()
+          const prevStart = cmp?.start ?? new Date(0)
+          const prevEnd = cmp?.end ?? new Date(-1)
 
           // Fetch previous period OnePage views
           const { data: prevOnePageViews } = await supabase
@@ -1448,15 +1220,15 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
         // Calculate conversion rate
         const conversionRate = periodViews > 0 ? (totalOrdersFromLocal / periodViews) * 100 : 0
 
-        // Calculate previous period dates (same duration, immediately before)
-        const periodDuration = end.getTime() - start.getTime()
-        const prevEnd = new Date(start.getTime() - 1)
-        const prevStart = new Date(prevEnd.getTime() - periodDuration)
+        /* What the comparison picker says, or an empty window for none. */
+        const cmp = getCompareDates()
+        const prevStart = cmp?.start ?? new Date(0)
+        const prevEnd = cmp?.end ?? new Date(-1)
 
         // Fetch previous period views
         let prevViewsQuery = supabase
           .from("analytics_events")
-          .select("id, visitor_id, session_id, product_id")
+          .select("id, visitor_id, session_id, product_id, created_at")
           .eq("creator_id", creatorId)
           .eq("event_type", "view")
           .gte("created_at", prevStart.toISOString())
@@ -1484,6 +1256,13 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
         })
         const prevPeriodOrders = prevPeriodOrdersData.length
         const prevPeriodRevenue = prevPeriodOrdersData.filter(o => o.status === "completed").reduce((sum, o) => sum + (o.amount_cents || 0), 0)
+        if (cmp) {
+          previousSeries = {
+            start: cmp.start.getTime(),
+            views: (prevViewEvents || []).map((e: any) => Date.parse(e.created_at)).filter((t: number) => Number.isFinite(t)),
+            orders: prevPeriodOrdersData.map((o) => ({ at: Date.parse(o.created_at), status: o.status, cents: o.amount_cents || 0 })),
+          }
+        }
 
         // Fetch all-time views
         let allTimeViewsQuery = supabase
@@ -1684,6 +1463,36 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
         return dateA.getTime() - dateB.getTime()
       })
 
+      /*
+       * THE COMPARISON LINE. Bucket i of the comparison is the same distance
+       * into its period as bucket i of the current one: hour i of yesterday
+       * beside hour i of today, day i of last year beside day i of this.
+       */
+      if (previousSeries && analyticsMode === "store") {
+        const bucketMs = isHourlyTimeframe ? 3_600_000 : 86_400_000
+        for (const row of trendArray) {
+          row.prev_views = 0
+          row.prev_sales = 0
+          row.prev_revenue = 0
+          row.prev_refunds = 0
+        }
+        const at = (ms: number) => {
+          const i = Math.floor((ms - (previousSeries as { start: number }).start) / bucketMs)
+          return i >= 0 && i < trendArray.length ? trendArray[i] : null
+        }
+        for (const t of previousSeries.views) {
+          const row = at(t)
+          if (row) row.prev_views = (row.prev_views ?? 0) + 1
+        }
+        for (const o of previousSeries.orders) {
+          const row = at(o.at)
+          if (!row) continue
+          row.prev_sales = (row.prev_sales ?? 0) + 1
+          if (o.status === "completed") row.prev_revenue = (row.prev_revenue ?? 0) + o.cents
+          if (o.status === "refunded") row.prev_refunds = (row.prev_refunds ?? 0) + 1
+        }
+      }
+
       setTrendData(trendArray)
       /* Batched into the same commit, so the series and their numbers change together. */
       setTrendMode(analyticsMode)
@@ -1805,7 +1614,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
       }
       isFirstLoadRef.current = false
     }
-  }, [creatorId, userId, getTimeframeDates, selectedProduct, analyticsMode, initialOrders, products, timeframe])
+  }, [creatorId, userId, getTimeframeDates, getCompareDates, selectedProduct, analyticsMode, initialOrders, products, timeframe])
 
   useEffect(() => {
     fetchAnalytics()
@@ -2013,7 +1822,6 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as HTMLElement
-      if (!target.closest(".timeframe-dropdown")) setIsTimeframeOpen(false)
       if (!target.closest(".products-dropdown")) setIsProductsOpen(false)
     }
     document.addEventListener("mousedown", handleClickOutside)
@@ -2154,6 +1962,9 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
   const rawChartData = useMemo(() => (chartIsLoading ? skeletonTrend : trendData).map(d => ({
     ...d,
     conversion: d.views > 0 ? Number(((d.sales / d.views) * 100).toFixed(2)) : 0,
+    ...(d.prev_views !== undefined
+      ? { prev_conversion: d.prev_views > 0 ? Number((((d.prev_sales ?? 0) / d.prev_views) * 100).toFixed(2)) : 0 }
+      : {}),
     ctr: d.views > 0 && d.clicks ? Number(((d.clicks / d.views) * 100).toFixed(2)) : 0,
   })), [chartIsLoading, skeletonTrend, trendData])
 
@@ -2221,7 +2032,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-1.5">
             <span className="text-[11px] font-medium text-violet-600">{label}</span>
-            <span className="text-[10px] text-[#9ca3af] hidden sm:inline">• {selectedTimeframeOption?.label}</span>
+            <span className="text-[10px] text-[#9ca3af] hidden sm:inline">• {valueLabel(period)}</span>
           </div>
           <button
             onClick={(e) => { e.stopPropagation(); setOpenKPIModal(null) }}
@@ -2268,6 +2079,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
   }
 
   return (
+    <CompareContext.Provider value={compareLabel}>
     <div className="h-full overflow-y-auto page-scroll bg-[#fafafa] select-none overscroll-none app-page-enter" style={{ WebkitUserSelect: "none", WebkitTouchCallout: "none", overscrollBehavior: "none" } as React.CSSProperties}>
       {/* Announcement Bar — fixed above black header on mobile */}
       <AnnouncementBarMobile>
@@ -2423,47 +2235,10 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
         {/* Header with Timeframe, Mode Switcher, and Products */}
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            {/* Timeframe Dropdown - bottom sheet on mobile, dropdown on desktop */}
-            <div className="relative timeframe-dropdown">
-              <button
-                onClick={() => {
-                  triggerHaptic("light")
-                  if (isMobile) {
-                    setIsTimeframeSheetOpen(true)
-                  } else {
-                    setIsTimeframeOpen(!isTimeframeOpen)
-                  }
-                }}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-[#e5e7eb] rounded-xl text-[13px] font-medium text-[#374151] hover:bg-[#f9fafb] transition-colors shadow-sm cursor-pointer"
-              >
-                {selectedTimeframeOption?.label || "Last 7 days"}
-                <ChevronDown className={`h-4 w-4 text-[#9ca3af] transition-transform duration-200 ${isTimeframeOpen ? "rotate-180" : ""}`} />
-              </button>
-              {isTimeframeOpen && !isMobile && (
-                <div className="absolute left-0 top-full mt-2 w-48 bg-white border border-[#e5e7eb] rounded-xl shadow-lg z-50 py-1">
-                  {timeframeOptions.map((option) => (
-                    <button
-                      key={option.value}
-                      onClick={() => {
-                        setIsTimeframeOpen(false)
-                        if (option.value === "custom") {
-                          // Open the rich calendar picker instead of flipping
-                          // to the inline input row — smoother and matches
-                          // the Shopify-admin pattern.
-                          setIsCustomRangeOpen(true)
-                        } else {
-                          setTimeframe(option.value)
-                        }
-                      }}
-                      className={`w-full text-left px-4 py-2.5 text-[13px] transition-colors ${
-                        timeframe === option.value ? "bg-[#f5f3ff] text-[#8b5cf6] font-medium" : "text-[#374151] hover:bg-[#f9fafb]"
-                      }`}
-                    >
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
-              )}
+            {/* The period and its comparison: the one picker every page in /app uses. */}
+            <div className="flex flex-wrap items-center gap-2">
+              <DateRangePicker value={period} onChange={setPeriod} today={today} />
+              <ComparePicker value={compare} onChange={setCompare} range={period} today={today} />
             </div>
 
             {/* Analytics Mode Switcher - hidden on mobile (shown next to title instead) */}
@@ -2533,37 +2308,6 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
             </div>
           )}
         </div>
-
-        {/* Custom date range summary — click to reopen the calendar modal. */}
-        {timeframe === "custom" && customStart && customEnd && (
-          <button
-            type="button"
-            onClick={() => setIsCustomRangeOpen(true)}
-            className="inline-flex items-center gap-2 px-3 py-1.5 bg-white border border-[#e5e7eb] rounded-full text-[12px] font-medium text-[#374151] hover:bg-[#f9fafb] transition-colors shadow-sm"
-          >
-            <Calendar className="h-3.5 w-3.5 text-[#9ca3af]" />
-            {new Date(customStart).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-            <span className="text-[#9ca3af]">–</span>
-            {new Date(customEnd).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-          </button>
-        )}
-
-        {/* Rich date range picker modal */}
-        <DateRangePickerModal
-          open={isCustomRangeOpen}
-          onOpenChange={setIsCustomRangeOpen}
-          initialStart={customStart ? new Date(customStart) : null}
-          initialEnd={customEnd ? new Date(customEnd) : null}
-          onApply={(start, end) => {
-            // Format as YYYY-MM-DD so getTimeframeDates() keeps working without
-            // timezone shift from ISO parsing.
-            const toYMD = (d: Date) =>
-              `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
-            setCustomStart(toYMD(start))
-            setCustomEnd(toYMD(end))
-            setTimeframe("custom")
-          }}
-        />
 
         {/* Unified KPI Tabs + Chart Card */}
         <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
@@ -2748,7 +2492,18 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                     onePageChartFilter={onePageChartFilter}
                     isTouchDevice={isTouchDevice}
                     formatPrice={formatPrice}
+                    compareLabel={compareLabel}
                   />
+                  {/* Which line is which: the period, and what it is compared with. */}
+                  {analyticsMode === "store" && !chartIsLoading && (hasRealData || !showSampleData) && (
+                    <div className="mt-2">
+                      <RangeLegend
+                        range={period}
+                        compare={["views", "orders", "revenue", "conversion"].includes(chartMetricFilter) ? comparedRange : null}
+                        color={chartMetricFilter === "revenue" ? CHART_COLORS.revenue : chartMetricFilter === "conversion" ? "#10b981" : CHART_COLORS.views}
+                      />
+                    </div>
+                  )}
                 </div>
                 {!hasRealData && !chartIsLoading && (
                   <div className="absolute top-2 right-2 flex items-center gap-1.5 z-10">
@@ -2786,21 +2541,6 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
       </div>
 
       {/* Mobile Bottom Sheets */}
-      <AnalyticsTimeframeSheet
-        isOpen={isTimeframeSheetOpen}
-        onClose={() => setIsTimeframeSheetOpen(false)}
-        options={timeframeOptions}
-        selectedValue={timeframe}
-        onSelect={(value) => {
-          if (value === "custom") {
-            // Defer opening the calendar until the sheet has finished its
-            // dismiss animation so the two modals don't fight for focus.
-            setTimeout(() => setIsCustomRangeOpen(true), 420)
-          } else {
-            setTimeframe(value)
-          }
-        }}
-      />
       <AnalyticsProductsSheet
         isOpen={isProductsSheetOpen}
         onClose={() => setIsProductsSheetOpen(false)}
@@ -2809,6 +2549,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
         onSelect={(value) => setSelectedProduct(value)}
       />
     </div>
+    </CompareContext.Provider>
   )
 }
 

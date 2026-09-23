@@ -1,5 +1,6 @@
 "use client"
 
+import { hasConsent } from "@/lib/consent/client"
 import type React from "react"
 
 import Image from "next/image"
@@ -559,7 +560,8 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
   const applyWishlistCount = useCallback((next: number) => {
     setWishlistCount((prev) => (prev === next ? prev : next))
     try {
-      document.cookie = `storelib_wishlist_count=${next}; path=/; max-age=31536000; samesite=lax`
+      /* A layout convenience: only with Preferences allowed (lib/consent). */
+      if (hasConsent("preferences")) document.cookie = `storelib_wishlist_count=${next}; path=/; max-age=31536000; samesite=lax`
     } catch {
       /* cookies unavailable — the badge is still correct for this page */
     }

@@ -139,7 +139,8 @@ function main() {
       && /\}, \[shouldAnimate, chartDisplayData\]\)/.test(chart))
   check("a flat placeholder does not animate, because there is nothing to draw in",
     /const lineAnimates = isLoading \? false : shouldAnimate/.test(chart)
-      && (chart.match(/isAnimationActive=\{lineAnimates\}/g) ?? []).length === 9)
+      /* Nine series and the dashed comparison line. */
+      && (chart.match(/isAnimationActive=\{lineAnimates\}/g) ?? []).length === 10)
 
   console.log("\nAnd the whole of it is driven in a browser")
 

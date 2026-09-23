@@ -28,9 +28,6 @@ import * as React from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import {
   COLUMNS_COOKIE,
-  PAYMENT_LABEL,
-  FULFILLMENT_LABEL,
-  SOURCE_LABEL,
   filterOrders,
   groupOrders,
   pageOf,
@@ -43,8 +40,12 @@ import {
 } from "@/lib/orders/order-view"
 import { rememberTimeZone, viewerTimeZone } from "@/lib/orders/time-zone"
 import { readMetrics } from "@/lib/orders/metrics"
-import { DEFAULT_RANGE, RANGE_COOKIE, parseRange, rangeWindow, serializeRange, type Range } from "@/lib/orders/range"
+import { DEFAULT_PRESET, RANGE_COOKIE, firstDayOf, rangeWindow, readOrdersPeriod, serializePeriod } from "@/lib/orders/range"
 import { OrdersList } from "./orders-list"
+import { ExportOrdersDialog } from "./export-dialog"
+import { hasConsent } from "@/lib/consent/client"
+import { todayIn, type CompareValue, type RangeValue } from "@/lib/date-range/range"
+import { writePeriod } from "@/lib/date-range/params"
 import { OrderDetail, type OrderAction } from "./order-detail"
 import { formatMoney } from "./order-parts"
 
@@ -101,10 +102,20 @@ export function OrdersClient(props: OrdersClientProps) {
 
   /* ── The address is the state ───────────────────────────────────────── */
   const query = queryFromParams(searchParams)
-  /* The date range: the address first (a shared link), then what this
-     creator chose last time, then the last 30 days. */
-  const [rememberedRange, setRememberedRange] = React.useState<Range>(() => parseRange(props.initialRange) ?? DEFAULT_RANGE)
-  const range: Range = parseRange(searchParams.get("range")) ?? rememberedRange
+  /*
+    THE PERIOD AND ITS COMPARISON: the same picker every page in /app has.
+    The address first (a shared link), then what this creator chose last
+    time (a cookie, kept only with Preferences allowed), then the last 30
+    days. Older links (?range=30d, ?period=7d) still open what they meant.
+  */
+  const [remembered, setRemembered] = React.useState<string>(props.initialRange ?? "")
+  const earliest = orders.length ? Date.parse(orders[orders.length - 1].createdAt) : null
+  const firstDay = firstDayOf(earliest, timeZone)
+  const today = todayIn(timeZone, now)
+  const { period, compare } = React.useMemo(
+    () => readOrdersPeriod(new URLSearchParams(searchParams.toString()), remembered, today, firstDay),
+    [searchParams, remembered, today, firstDay],
+  )
   const openId = searchParams.get("order")
 
   const [searchText, setSearchText] = React.useState(query.q)
@@ -133,25 +144,35 @@ export function OrdersClient(props: OrdersClientProps) {
     if (next.page !== undefined) listRef.current?.scrollTo({ top: 0 })
   }
 
-  const onRange = (r: Range) => {
-    const value = serializeRange(r)
-    setRememberedRange(r)
-    document.cookie = `${RANGE_COOKIE}=${encodeURIComponent(value)}; path=/; max-age=31536000; samesite=lax`
+  const remember = (p: RangeValue, c: CompareValue) => {
+    const value = serializePeriod(p, c)
+    setRemembered(value)
+    if (hasConsent("preferences")) {
+      document.cookie = value
+        ? `${RANGE_COOKIE}=${encodeURIComponent(value)}; path=/; max-age=31536000; samesite=lax`
+        : `${RANGE_COOKIE}=; path=/; max-age=0; samesite=lax`
+    }
+  }
+  const onRange = (v: RangeValue) => {
+    remember(v, compare)
     writeAddress((params) => {
-      params.set("range", value)
+      params.delete("period")
+      writePeriod(params, v, null, DEFAULT_PRESET)
       params.delete("page")
     }, "replace")
     setSelected(new Set())
     listRef.current?.scrollTo({ top: 0 })
   }
+  const onCompare = (c: CompareValue) => {
+    remember(period, c)
+    writeAddress((params) => writePeriod(params, null, c, DEFAULT_PRESET), "replace")
+  }
 
   /* ── What the list shows ────────────────────────────────────────────── */
-  const earliest = orders.length ? Date.parse(orders[orders.length - 1].createdAt) : null
-  const rangeKey = serializeRange(range)
   const span = React.useMemo(
-    () => rangeWindow(range, now, timeZone, earliest),
+    () => rangeWindow(period, compare, now, timeZone),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [rangeKey, now, timeZone, earliest],
+    [period.preset, period.start, period.end, compare.mode, compare.range?.start, compare.range?.end, now, timeZone],
   )
   const filtered = React.useMemo(
     () => filterOrders(orders, { ...query, q: searchText }, span),
@@ -168,7 +189,8 @@ export function OrdersClient(props: OrdersClientProps) {
       const next = new Set(prev)
       if (next.has(key)) next.delete(key)
       else next.add(key)
-      document.cookie = `${COLUMNS_COOKIE}=${[...next].join(".")}; path=/; max-age=31536000; samesite=lax`
+      /* Remembered between visits only with Preferences allowed; this visit keeps it either way. */
+      if (hasConsent("preferences")) document.cookie = `${COLUMNS_COOKIE}=${[...next].join(".")}; path=/; max-age=31536000; samesite=lax`
       return next
     })
   }
@@ -329,11 +351,10 @@ export function OrdersClient(props: OrdersClientProps) {
     }
   }
 
-  const onExport = (only?: Set<string>) => {
-    const list = only ? orders.filter((o) => only.has(o.id)) : filtered
-    if (list.length === 0) return
-    downloadCsv(list, timeZone)
-  }
+  /* Export opens the dialog; which orders and which file are chosen there. */
+  const [exporting, setExporting] = React.useState(false)
+  const onExport = () => setExporting(true)
+  const filtering = Boolean(searchText.trim()) || query.source !== "any" || Boolean(query.product) || query.view !== "all"
 
   const listCovered = stage === "open"
 
@@ -355,9 +376,13 @@ export function OrdersClient(props: OrdersClientProps) {
           onQuery={onQuery}
           searchText={searchText}
           onSearchText={onSearchText}
-          dateRange={range}
-          span={span}
-          onDateRange={onRange}
+          period={period}
+          onPeriod={onRange}
+          compare={compare}
+          onCompare={onCompare}
+          today={today}
+          firstDay={firstDay}
+          comparable={span.previous !== null}
           metrics={metrics}
           hidden={hidden}
           onToggleColumn={onToggleColumn}
@@ -393,6 +418,19 @@ export function OrdersClient(props: OrdersClientProps) {
         </div>
       ) : null}
 
+      <ExportOrdersDialog
+        open={exporting}
+        onClose={() => setExporting(false)}
+        all={orders}
+        pageOrders={page.items}
+        matching={filtered}
+        period={period}
+        filtering={filtering}
+        selected={selected}
+        timeZone={timeZone}
+        onDone={onNotice}
+      />
+
       <div
         aria-live="polite"
         className="pointer-events-none fixed left-1/2 top-[calc(68px+env(safe-area-inset-top,0px)+12px)] z-[100] -translate-x-1/2 md:top-[calc(58px+env(safe-area-inset-top,0px)+12px)]"
@@ -405,66 +443,4 @@ export function OrdersClient(props: OrdersClientProps) {
       </div>
     </div>
   )
-}
-
-/* ─── Export ──────────────────────────────────────────────────────────── */
-
-/** A cell a spreadsheet would read as a formula is written as text. */
-function csvCell(value: string | number): string {
-  let s = String(value ?? "")
-  if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`
-  return `"${s.replace(/"/g, '""')}"`
-}
-
-function downloadCsv(orders: Order[], timeZone: string) {
-  const header = [
-    "Order",
-    "Date",
-    "Customer",
-    "Email",
-    "Source",
-    "Items",
-    "Products",
-    "Total",
-    "Refunded",
-    "Payment status",
-    "Fulfillment status",
-    "Delivery status",
-  ]
-  const date = new Intl.DateTimeFormat("en-CA", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hourCycle: "h23",
-  })
-  const lines = orders.map((o) =>
-    [
-      `#${o.number}`,
-      date.format(new Date(o.createdAt)).replace(",", ""),
-      o.customerName || "",
-      o.customerEmail || "",
-      o.source ? SOURCE_LABEL[o.source] : "",
-      o.itemCount,
-      o.lines.map((l) => l.product?.title || "").join("; "),
-      (o.totalCents / 100).toFixed(2),
-      (o.refundedCents / 100).toFixed(2),
-      PAYMENT_LABEL[o.payment],
-      FULFILLMENT_LABEL[o.fulfillment],
-      o.delivery === "delivered" ? "Delivered" : o.delivery === "failed" ? "Not delivered" : "",
-    ]
-      .map(csvCell)
-      .join(","),
-  )
-  const blob = new Blob([[header.map(csvCell).join(","), ...lines].join("\n")], { type: "text/csv;charset=utf-8" })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement("a")
-  a.href = url
-  a.download = `orders-${new Date().toISOString().slice(0, 10)}.csv`
-  document.body.appendChild(a)
-  a.click()
-  a.remove()
-  URL.revokeObjectURL(url)
 }

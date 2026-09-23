@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
 import {
   AreaChart,
@@ -53,6 +53,9 @@ import {
   Mail,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { DateRangePicker } from "@/components/app/date-range-picker";
+import { viewerTimeZone } from "@/lib/orders/time-zone";
+import { boundsOf, resolveValue, todayIn, type RangeValue } from "@/lib/date-range/range";
 import { useToast } from "@/hooks/use-toast";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -311,179 +314,12 @@ function TouchTooltip({
 
 // ─── Revenue Chart ────────────────────────────────────────────────────────────
 
-const CHART_TIMEFRAMES = [
-  { value: "today", label: "Today" },
-  { value: "yesterday", label: "Yesterday" },
-  { value: "last_7", label: "Last 7 days" },
-  { value: "this_month", label: "This month" },
-  { value: "last_90", label: "Last 90 days" },
-  { value: "last_365", label: "Last 365 days" },
-  { value: "all_time", label: "All time" },
-] as const;
-
-type ChartTimeframeValue = (typeof CHART_TIMEFRAMES)[number]["value"];
-
-// Mobile bottom sheet for chart timeframe selection
-function ChartTimeframeSheet({
-  isOpen,
-  onClose,
-  selected,
-  onSelect,
-}: {
-  isOpen: boolean;
-  onClose: () => void;
-  selected: ChartTimeframeValue;
-  onSelect: (v: ChartTimeframeValue) => void;
-}) {
-  const [isVisible, setIsVisible] = useState(false);
-  const [isAnimating, setIsAnimating] = useState(false);
-  const [dragY, setDragY] = useState(0);
-  const [isDragging, setIsDragging] = useState(false);
-  const startYRef = useRef(0);
-  const lastYRef = useRef(0);
-  const lastTimeRef = useRef(0);
-  const velocityRef = useRef(0);
-  const sheetRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (isOpen && !isVisible) {
-      setIsVisible(true);
-      document.body.style.overflow = "hidden";
-      requestAnimationFrame(() =>
-        requestAnimationFrame(() => setIsAnimating(true)),
-      );
-    } else if (!isOpen && isVisible) {
-      setIsAnimating(false);
-      document.body.style.overflow = "";
-      const t = setTimeout(() => {
-        setIsVisible(false);
-        setDragY(0);
-      }, 400);
-      return () => clearTimeout(t);
-    }
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, [isOpen, isVisible]);
-
-  const handleClose = () => {
-    setIsAnimating(false);
-    setIsDragging(false);
-    setDragY(0);
-    velocityRef.current = 0;
-    setTimeout(() => onClose(), 400);
-  };
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    const touch = e.touches[0];
-    const el = sheetRef.current;
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    if (touch.clientY - rect.top <= 80) {
-      startYRef.current = touch.clientY;
-      lastYRef.current = touch.clientY;
-      lastTimeRef.current = Date.now();
-      velocityRef.current = 0;
-      setIsDragging(true);
-    }
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!isDragging) return;
-    const currentY = e.touches[0].clientY;
-    const diff = currentY - startYRef.current;
-    if (diff > 0) {
-      e.preventDefault();
-      const now = Date.now();
-      const dt = Math.max(1, now - lastTimeRef.current);
-      velocityRef.current = (currentY - lastYRef.current) / dt;
-      lastYRef.current = currentY;
-      lastTimeRef.current = now;
-      const resisted = diff <= 160 ? diff * 0.92 : 147 + (diff - 160) * 0.4;
-      setDragY(resisted);
-    }
-  };
-
-  const handleTouchEnd = () => {
-    if (!isDragging) return;
-    setIsDragging(false);
-    if (dragY > 92 || velocityRef.current > 0.55) handleClose();
-    else setDragY(0);
-  };
-
-  if (!isVisible) return null;
-
-  return createPortal(
-    <div
-      className="fixed inset-0 z-[100] md:hidden"
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-    >
-      <div
-        className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
-        style={{
-          opacity: isAnimating ? 1 : 0,
-          transition: isDragging
-            ? "none"
-            : "opacity 400ms cubic-bezier(0.32,0.72,0,1)",
-        }}
-        onClick={handleClose}
-      />
-      <div
-        ref={sheetRef}
-        className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl"
-        style={{
-          transform: isAnimating
-            ? `translate3d(0,${dragY}px,0)`
-            : "translate3d(0,100%,0)",
-          transition: isDragging
-            ? "none"
-            : "transform 400ms cubic-bezier(0.32,0.72,0,1)",
-          willChange: "transform",
-          backfaceVisibility: "hidden",
-        }}
-      >
-        {/* Drag handle */}
-        <div className="pt-4 pb-1 flex justify-center touch-none select-none">
-          <div className="h-[5px] w-10 rounded-full bg-[#d1d5db]" />
-        </div>
-        <div className="px-5 pt-5 pb-4">
-          <h3 className="text-[17px] font-semibold text-[#1a1a2e] mb-4">
-            Select time period
-          </h3>
-          <div className="space-y-1 max-h-[55vh] overflow-y-auto overscroll-contain">
-            {CHART_TIMEFRAMES.map((opt) => (
-              <button
-                key={opt.value}
-                onClick={() => {
-                  onSelect(opt.value);
-                  handleClose();
-                }}
-                className={cn(
-                  "w-full text-left px-4 py-3.5 rounded-xl text-[15px] font-medium transition-colors active:scale-[0.98]",
-                  selected === opt.value
-                    ? "bg-[#f5f3ff] text-[#8b5cf6]"
-                    : "text-[#374151] active:bg-[#f3f4f6]",
-                )}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div style={{ height: "max(env(safe-area-inset-bottom), 20px)" }} />
-      </div>
-    </div>,
-    document.body,
-  );
-}
-
 function RevenueChart() {
-  const [timeframe, setTimeframe] = useState<ChartTimeframeValue>("all_time");
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [isSheetOpen, setIsSheetOpen] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
+  /* The date picker every page in /app shares. All time by default, as before. */
+  const timeZone = useMemo(() => viewerTimeZone(), []);
+  const today = todayIn(timeZone, Date.now());
+  const [period, setPeriod] = useState<RangeValue>(() => resolveValue({ preset: "all_time" }, today, "all_time"));
+  const periodKey = `${period.preset}:${period.start}:${period.end}`;
   const [data, setData] = useState<ChartPoint[]>([]);
   const [total, setTotal] = useState(0);
   const [totalGross, setTotalGross] = useState(0);
@@ -492,35 +328,20 @@ function RevenueChart() {
   const [isHourly, setIsHourly] = useState(false); // true for today/yesterday (hourly buckets)
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const checkMobile = () => setIsMobile(window.innerWidth < 768);
-    checkMobile();
-    window.addEventListener("resize", checkMobile);
-    return () => window.removeEventListener("resize", checkMobile);
-  }, []);
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(e.target as Node)
-      ) {
-        setIsDropdownOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
-
-  const load = useCallback(async (tf: ChartTimeframeValue, silent = false) => {
+  const load = useCallback(async (p: RangeValue, silent = false) => {
     if (!silent) {
       setLoading(true);
       setError(null);
     }
     try {
-      const r = await fetch(`/api/stripe/revenue-chart?timeframe=${tf}`);
+      /* All time starts at the first sale, which only the server knows. */
+      const b = boundsOf(p, timeZone, Date.now());
+      const q =
+        p.preset === "all_time"
+          ? "timeframe=all_time"
+          : `start=${encodeURIComponent(new Date(b.start).toISOString())}&end=${encodeURIComponent(new Date(b.end).toISOString())}&tz=${encodeURIComponent(timeZone)}`;
+      const r = await fetch(`/api/stripe/revenue-chart?${q}`);
       const json = await r.json();
       if (json.error) throw new Error(json.error);
       setData(json.data || []);
@@ -534,16 +355,17 @@ function RevenueChart() {
     } finally {
       if (!silent) setLoading(false);
     }
-  }, []);
+  }, [timeZone]);
 
   useEffect(() => {
-    load(timeframe);
-  }, [timeframe, load]);
+    load(period);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [periodKey, load]);
 
   useEffect(() => {
     const tick = () => {
       if (document.visibilityState !== "visible") return;
-      load(timeframe, true);
+      load(period, true);
     };
     const id = window.setInterval(tick, 15000);
     const onVisible = () => tick();
@@ -554,7 +376,8 @@ function RevenueChart() {
       document.removeEventListener("visibilitychange", onVisible);
       window.removeEventListener("focus", onVisible);
     };
-  }, [timeframe, load]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [periodKey, load]);
 
   const numReady = !loading; // show amounts as soon as data is ready
   // Clamp each bucket to >= 0 for a clean chart; preserve refundsAbs as-is.
@@ -565,8 +388,6 @@ function RevenueChart() {
     revenue: Math.max(0, d.revenue),
   }));
   const hasData = chartData.some((d) => d.gross > 0 || d.refundsAbs > 0);
-  const selectedLabel =
-    CHART_TIMEFRAMES.find((t) => t.value === timeframe)?.label ?? "Last 7 days";
 
   // Converts a zero-padded hour string "00"–"23" to a human-readable label
   const fmtHour = (h: string) => {
@@ -634,45 +455,8 @@ function RevenueChart() {
           )}
         </div>
 
-        {/* Timeframe selector — dropdown on desktop, sheet on mobile */}
-        <div className="relative" ref={dropdownRef}>
-          <button
-            onClick={() => {
-              if (isMobile) setIsSheetOpen(true);
-              else setIsDropdownOpen((o) => !o);
-            }}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-[#e5e7eb] rounded-xl text-[13px] font-medium text-[#374151] hover:bg-[#f9fafb] transition-colors shadow-sm cursor-pointer"
-          >
-            {selectedLabel}
-            <ChevronDown
-              className={cn(
-                "h-4 w-4 text-[#9ca3af] transition-transform duration-200",
-                isDropdownOpen && "rotate-180",
-              )}
-            />
-          </button>
-          {isDropdownOpen && !isMobile && (
-            <div className="absolute right-0 top-full mt-2 w-48 bg-white border border-[#e5e7eb] rounded-xl shadow-lg z-50 py-1 animate-in fade-in-0 zoom-in-95 duration-100">
-              {CHART_TIMEFRAMES.map((opt) => (
-                <button
-                  key={opt.value}
-                  onClick={() => {
-                    setTimeframe(opt.value);
-                    setIsDropdownOpen(false);
-                  }}
-                  className={cn(
-                    "w-full text-left px-4 py-2.5 text-[13px] transition-colors",
-                    timeframe === opt.value
-                      ? "bg-[#f5f3ff] text-[#8b5cf6] font-medium"
-                      : "text-[#374151] hover:bg-[#f9fafb]",
-                  )}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+        {/* The period: the same picker as every page in /app. */}
+        <DateRangePicker value={period} onChange={setPeriod} today={today} align="end" />
       </div>
 
       {loading ? (
@@ -801,12 +585,7 @@ function RevenueChart() {
         </div>
       )}
 
-      <ChartTimeframeSheet
-        isOpen={isSheetOpen}
-        onClose={() => setIsSheetOpen(false)}
-        selected={timeframe}
-        onSelect={(v) => setTimeframe(v)}
-      />
+
     </div>
   );
 }

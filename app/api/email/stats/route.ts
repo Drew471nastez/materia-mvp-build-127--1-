@@ -53,6 +53,14 @@ export async function GET(request: NextRequest) {
       default:
         startDate = null
     }
+    /* A range from the shared date picker: ?start=&end=, both instants. */
+    let endDate: Date | null = null
+    const startParam = Date.parse(searchParams.get("start") ?? "")
+    const endParam = Date.parse(searchParams.get("end") ?? "")
+    if (Number.isFinite(startParam) && Number.isFinite(endParam) && endParam > startParam) {
+      startDate = new Date(startParam)
+      endDate = new Date(endParam)
+    }
 
     // Get all sent campaigns
     const { data: campaigns, error: campaignsError } = await adminSupabase
@@ -131,8 +139,9 @@ export async function GET(request: NextRequest) {
 
     // Calculate aggregate stats (filtered by time range)
     const campaignsInRange = campaigns.filter(c => {
-      if (!startDate) return true
       const sentDate = c.sent_at ? new Date(c.sent_at) : new Date(c.created_at)
+      if (endDate && sentDate >= endDate) return false
+      if (!startDate) return true
       return sentDate >= startDate
     })
 

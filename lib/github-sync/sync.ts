@@ -36,11 +36,16 @@ import {
   compareFiles,
   fileAt,
   installationToken,
+  listTree,
   setStatus,
   type GitHubConfig,
 } from "./github"
+import { recordEvent } from "./mirror"
 
 type Db = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
+
+/** Files one "Pull from GitHub" takes. The site holds more; a pull is not the way to move a whole theme. */
+const MAX_FILES_PER_PULL = 120
 
 const APP_URL = (process.env.NEXT_PUBLIC_APP_URL || "https://storelib.com").replace(/\/+$/, "")
 
@@ -56,6 +61,8 @@ export interface GitHubLink {
   last_synced_sha: string | null
   last_synced_at: string | null
   last_error: string | null
+  push_on_save?: boolean
+  pull_on_push?: boolean
 }
 
 export function editorUrl(installId: string) {
@@ -86,7 +93,93 @@ export async function exportSite(db: Db, cfg: GitHubConfig, link: GitHubLink, si
     .from("theme_github_links")
     .update({ last_synced_sha: sha ?? link.last_synced_sha, last_synced_at: new Date().toISOString(), last_error: null, updated_at: new Date().toISOString() })
     .eq("install_id", link.install_id)
+  await recordEvent(db, link.install_id, {
+    direction: "to_github",
+    ok: true,
+    summary: sha ? `Sent ${files.length - 2} sections to GitHub` : "Sent to GitHub; it already had everything",
+    commit_sha: sha,
+  })
   return sha
+}
+
+/**
+ * Take section files from the repository at `ref` into the site, as drafts.
+ * The one loop both a push and "Pull from GitHub" run: a file whose text the
+ * site already has is left alone, and a file that does not compile is
+ * reported with its first error and not saved.
+ */
+async function takeFiles(
+  db: Db,
+  token: string,
+  link: GitHubLink,
+  repo: string,
+  ref: string,
+  paths: string[],
+  who: string,
+): Promise<{ saved: string[]; unchanged: string[]; failed: { path: string; error: string }[] }> {
+  const out = { saved: [] as string[], unchanged: [] as string[], failed: [] as { path: string; error: string }[] }
+  for (const path of paths) {
+    const source = await fileAt(token, repo, `${link.root_path}${path}`, ref)
+    if (source === null) continue
+    const current = await readFile(db, link.install_id, path)
+    if (current.ok === true && current.value.source === source) {
+      out.unchanged.push(path)
+      continue
+    }
+    const saved = await saveThemeFile(db, link.install_id, path, source)
+    if (saved.ok === false) {
+      const first = saved.errors?.[0]
+      out.failed.push({ path, error: `${path}${first?.line ? ` line ${first.line}` : ""}: ${first?.message ?? saved.error}` })
+      continue
+    }
+    out.saved.push(path)
+    try {
+      await db.from("theme_agent_activity").insert({
+        install_id: link.install_id,
+        token_id: null,
+        agent_name: who,
+        path,
+        action: saved.created ? "created" : "updated",
+      })
+    } catch {
+      /* the builder hears about it on its next load instead */
+    }
+  }
+  return out
+}
+
+function sectionNames(paths: string[]): string {
+  const names = paths.map((p) => p.replace(/^sections\//, "").replace(/\.storelib$/, ""))
+  return names.length <= 3 ? names.join(", ") : `${names.slice(0, 3).join(", ")} and ${names.length - 3} more`
+}
+
+function takenSummary(r: { saved: string[]; failed: { error: string }[] }, how: string): string {
+  if (r.failed.length) return `${how}: ${r.saved.length} saved, ${r.failed.length} did not compile. ${r.failed[0].error}`
+  if (r.saved.length === 0) return `${how}: already up to date`
+  return `${how}: ${sectionNames(r.saved)}`
+}
+
+/** "Pull from GitHub": every section file on the linked branch, now. */
+export async function pullNow(db: Db, cfg: GitHubConfig, link: GitHubLink): Promise<{ saved: number; unchanged: number; failed: { path: string; error: string }[] }> {
+  if (!link.repo_full_name || !link.branch) throw new Error("Pick a repository first")
+  const token = await installationToken(cfg, link.installation_id)
+  const tree = await listTree(token, link.repo_full_name, link.branch)
+  const paths = tree.paths
+    .map((p) => (p.startsWith(link.root_path) ? p.slice(link.root_path.length) : null))
+    .filter((p): p is string => p !== null && SYNCED.test(p))
+  if (paths.length > MAX_FILES_PER_PULL) throw new Error(`${paths.length} section files; at most ${MAX_FILES_PER_PULL} are pulled at once`)
+  const r = await takeFiles(db, token, link, link.repo_full_name, tree.sha, paths, "GitHub")
+  await db
+    .from("theme_github_links")
+    .update({ last_synced_sha: tree.sha, last_synced_at: new Date().toISOString(), last_error: r.failed[0]?.error ?? null, updated_at: new Date().toISOString() })
+    .eq("install_id", link.install_id)
+  await recordEvent(db, link.install_id, {
+    direction: "from_github",
+    ok: r.failed.length === 0,
+    summary: takenSummary(r, "Pulled from GitHub"),
+    commit_sha: tree.sha,
+  })
+  return { saved: r.saved.length, unchanged: r.unchanged.length, failed: r.failed }
 }
 
 export interface PushOutcome {
@@ -108,7 +201,8 @@ export async function applyPush(db: Db, cfg: GitHubConfig, payload: PushPayload)
   if (isOwnPush(payload, cfg.slug)) return []
 
   const { data } = await db.from("theme_github_links").select("*").eq("repo_id", repoId).eq("branch", branch)
-  const links = (data ?? []) as GitHubLink[]
+  /* A site whose creator switched incoming changes off is left alone. */
+  const links = ((data ?? []) as GitHubLink[]).filter((l) => l.pull_on_push !== false)
   if (links.length === 0) return []
 
   const token = await installationToken(cfg, links[0].installation_id)
@@ -131,35 +225,21 @@ export async function applyPush(db: Db, cfg: GitHubConfig, payload: PushPayload)
     const out: PushOutcome = { site: link.install_id, saved: [], unchanged: [], failed: [], removed }
     if (changed.length > MAX_FILES_PER_PUSH) {
       out.skipped = `${changed.length} section files in one push; at most ${MAX_FILES_PER_PUSH} are synced at once`
+      await recordEvent(db, link.install_id, { direction: "from_github", ok: false, summary: `${who} pushed ${out.skipped}. Use Pull from GitHub.`, commit_sha: after })
       outcomes.push(out)
       continue
     }
-    for (const path of changed) {
-      const source = await fileAt(token, repo, `${link.root_path}${path}`, after)
-      if (source === null) continue
-      const current = await readFile(db, link.install_id, path)
-      if (current.ok === true && current.value.origin === "yours" && current.value.source === source) {
-        out.unchanged.push(path)
-        continue
-      }
-      const saved = await saveThemeFile(db, link.install_id, path, source)
-      if (saved.ok === false) {
-        const first = saved.errors?.[0]
-        out.failed.push({ path, error: `${path}${first?.line ? ` line ${first.line}` : ""}: ${first?.message ?? saved.error}` })
-        continue
-      }
-      out.saved.push(path)
-      try {
-        await db.from("theme_agent_activity").insert({
-          install_id: link.install_id,
-          token_id: null,
-          agent_name: who,
-          path,
-          action: saved.created ? "created" : "updated",
-        })
-      } catch {
-        /* the builder hears about it on its next load instead */
-      }
+    const r = await takeFiles(db, token, link, repo, after, changed, who)
+    out.saved = r.saved
+    out.unchanged = r.unchanged
+    out.failed = r.failed
+    if (r.saved.length || r.failed.length) {
+      await recordEvent(db, link.install_id, {
+        direction: "from_github",
+        ok: r.failed.length === 0,
+        summary: takenSummary(r, `${who} pushed`),
+        commit_sha: after,
+      })
     }
     await db
       .from("theme_github_links")

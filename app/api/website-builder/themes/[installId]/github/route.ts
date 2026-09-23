@@ -9,6 +9,9 @@
  *           { action: "export" }   write them again ("Send to GitHub")
  *           { action: "reuse", installationId }  use a GitHub account this
  *           creator already connected for another site
+ *           { action: "pull" }     take every section file on the branch now
+ *           { action: "settings", pushOnSave?, pullOnPush? }  the two switches
+ *           { action: "change-repo" }  back to the repository picker
  *   DELETE  unlink. The repository and its files are left as they are.
  *
  * Signed in, and only for a site that is this creator's. A repository is
@@ -19,7 +22,7 @@ import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { githubConfig, installationRepos, installationToken, GitHubError } from "@/lib/github-sync/github"
 import { normalizeRoot, validBranch, validRepoName } from "@/lib/github-sync/core"
-import { exportSite, type GitHubLink } from "@/lib/github-sync/sync"
+import { exportSite, pullNow, type GitHubLink } from "@/lib/github-sync/sync"
 import { linksNotSetUp, ownInstall } from "@/lib/github-sync/own-install"
 
 export const runtime = "nodejs"
@@ -28,7 +31,17 @@ export const maxDuration = 60
 
 type Params = { params: Promise<{ installId: string }> }
 
-const SELECT = "install_id, creator_id, installation_id, account_login, repo_id, repo_full_name, branch, root_path, last_synced_sha, last_synced_at, last_error"
+const BASE_SELECT = "install_id, creator_id, installation_id, account_login, repo_id, repo_full_name, branch, root_path, last_synced_sha, last_synced_at, last_error"
+const SELECT = `${BASE_SELECT}, push_on_save, pull_on_push`
+
+type Db = ReturnType<typeof createAdminClient>
+
+/** The link, read with the two switches, or without them on a database that ran the first SQL. */
+async function readLink(db: Db, installId: string) {
+  const full = await db.from("theme_github_links").select(SELECT).eq("install_id", installId).maybeSingle()
+  if (!full.error || !/push_on_save|pull_on_push/.test(full.error.message)) return full
+  return db.from("theme_github_links").select(BASE_SELECT).eq("install_id", installId).maybeSingle()
+}
 
 function publicLink(link: GitHubLink | null) {
   if (!link) return null
@@ -40,6 +53,8 @@ function publicLink(link: GitHubLink | null) {
     lastSyncedAt: link.last_synced_at,
     lastSyncedSha: link.last_synced_sha,
     lastError: link.last_error,
+    pushOnSave: link.push_on_save !== false,
+    pullOnPush: link.pull_on_push !== false,
   }
 }
 
@@ -59,9 +74,9 @@ export async function GET(_req: Request, { params }: Params) {
   if (!own) return NextResponse.json({ error: "Not found" }, { status: 404 })
   const cfg = githubConfig()
   const db = createAdminClient()
-  const { data, error } = await db.from("theme_github_links").select(SELECT).eq("install_id", own.installId).maybeSingle()
+  const { data, error } = await readLink(db, own.installId)
   if (error) {
-    return NextResponse.json({ configured: Boolean(cfg), ready: !linksNotSetUp(error.message), link: null, repos: [], accounts: [] })
+    return NextResponse.json({ configured: Boolean(cfg), ready: !linksNotSetUp(error.message), link: null, repos: [], accounts: [], events: [] })
   }
   const link = data as GitHubLink | null
 
@@ -84,7 +99,18 @@ export async function GET(_req: Request, { params }: Params) {
       reposError = explain(e)
     }
   }
-  return NextResponse.json({ configured: Boolean(cfg), ready: true, link: publicLink(link), repos, reposError, accounts })
+  /* What went each way lately, newest first. */
+  let events: { id: number; direction: string; ok: boolean; summary: string; commit_sha: string | null; created_at: string }[] = []
+  if (link?.repo_full_name) {
+    const { data: rows } = await db
+      .from("theme_github_events")
+      .select("id, direction, ok, summary, commit_sha, created_at")
+      .eq("install_id", own.installId)
+      .order("id", { ascending: false })
+      .limit(8)
+    events = (rows ?? []) as typeof events
+  }
+  return NextResponse.json({ configured: Boolean(cfg), ready: true, link: publicLink(link), repos, reposError, accounts, events })
 }
 
 export async function POST(req: Request, { params }: Params) {
@@ -96,7 +122,7 @@ export async function POST(req: Request, { params }: Params) {
 
   const body = (await req.json().catch(() => ({}))) as Record<string, unknown>
   const db = createAdminClient()
-  const { data, error } = await db.from("theme_github_links").select(SELECT).eq("install_id", own.installId).maybeSingle()
+  const { data, error } = await readLink(db, own.installId)
   if (error) {
     return NextResponse.json(
       { error: linksNotSetUp(error.message) ? "GitHub needs a database update first. Run supabase/sql/RUN_GITHUB_SYNC.sql." : "Could not read the link" },
@@ -134,6 +160,36 @@ export async function POST(req: Request, { params }: Params) {
   }
 
   if (!link) return NextResponse.json({ error: "Connect GitHub first" }, { status: 409 })
+
+  if (body.action === "settings") {
+    const patch: Record<string, unknown> = { updated_at: new Date().toISOString() }
+    if (typeof body.pushOnSave === "boolean") patch.push_on_save = body.pushOnSave
+    if (typeof body.pullOnPush === "boolean") patch.pull_on_push = body.pullOnPush
+    const { error: upErr } = await db.from("theme_github_links").update(patch).eq("install_id", own.installId)
+    if (upErr) {
+      const old = /push_on_save|pull_on_push/.test(upErr.message)
+      return NextResponse.json({ error: old ? "Run supabase/sql/RUN_GITHUB_SYNC.sql again to turn these on." : "Could not save" }, { status: old ? 503 : 500 })
+    }
+    return NextResponse.json({ ok: true })
+  }
+
+  if (body.action === "change-repo") {
+    await db
+      .from("theme_github_links")
+      .update({ repo_id: null, repo_full_name: null, branch: null, last_error: null, updated_at: new Date().toISOString() })
+      .eq("install_id", own.installId)
+    return NextResponse.json({ ok: true })
+  }
+
+  if (body.action === "pull") {
+    if (!link.repo_full_name) return NextResponse.json({ error: "Pick a repository first" }, { status: 409 })
+    try {
+      const r = await pullNow(db, cfg, link)
+      return NextResponse.json({ ok: true, ...r })
+    } catch (e) {
+      return NextResponse.json({ error: explain(e) }, { status: 502 })
+    }
+  }
 
   if (body.action === "select") {
     if (!validRepoName(body.repo)) return NextResponse.json({ error: "Pick a repository" }, { status: 400 })

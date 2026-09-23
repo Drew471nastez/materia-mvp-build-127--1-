@@ -313,3 +313,32 @@ export function exportPlan(
   out.push({ path: `${opts.root}CLAUDE.md`, content: CLAUDE_MD })
   return out
 }
+
+/* ── a change made in the builder, as the repository sees it ────────────── */
+
+export type BuilderChange =
+  | { kind: "save"; path: string; content: string }
+  | { kind: "delete"; path: string }
+  | { kind: "rename"; from: string; to: string; content: string }
+
+export type RepoChange = { path: string; content: string } | { path: string; delete: true }
+
+/** The changes, as the repository sees them. Only section files travel. */
+export function changesFor(root: string, change: BuilderChange): RepoChange[] {
+  const out: RepoChange[] = []
+  if (change.kind === "save" && SYNCED.test(change.path)) out.push({ path: repoPathFor(root, change.path), content: change.content })
+  if (change.kind === "delete" && SYNCED.test(change.path)) out.push({ path: repoPathFor(root, change.path), delete: true })
+  if (change.kind === "rename") {
+    if (SYNCED.test(change.from)) out.push({ path: repoPathFor(root, change.from), delete: true })
+    if (SYNCED.test(change.to)) out.push({ path: repoPathFor(root, change.to), content: change.content })
+  }
+  return out
+}
+
+export function describeChange(change: BuilderChange): string {
+  const name = (p: string) => p.replace(/^sections\//, "").replace(/\.storelib$/, "")
+  if (change.kind === "save") return `Saved ${name(change.path)} in the builder`
+  if (change.kind === "delete") return `Deleted ${name(change.path)} in the builder`
+  return `Renamed ${name(change.from)} to ${name(change.to)} in the builder`
+}
+

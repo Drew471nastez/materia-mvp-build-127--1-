@@ -1,5 +1,6 @@
 import { Shield } from "lucide-react"
 import { BackButton } from "@/components/back-button"
+import { CookieTable } from "@/components/legal/cookie-table"
 
 const TOC = [
   { id: "s1", label: "1. Introduction" },
@@ -333,35 +334,33 @@ export default function PrivacyPolicyPage() {
                 </p>
                 <p>Our native analytics system tracks:</p>
                 <Ul items={[
-                  "Product page views (deduplicated by IP address and product ID within a time window)",
+                  "Product page views. With your consent to analytics, a returning visitor is recognised by a cookie so a visit is counted once; without it, each page view is counted with no identifier stored",
                   "Traffic sources (direct, organic search, social media, email, referral, paid search)",
                   "UTM campaign parameters",
                   "Geographic/country-level data (derived from IP addresses)",
                   "Sales, revenue, and conversion rate metrics",
                 ]} />
                 <p>
-                  IP addresses used for view deduplication are not shared with Sellers. Sellers see only aggregated
-                  analytics data and cannot identify individual visitors.
+                  Sellers see only aggregated analytics data and cannot identify individual visitors. Where you have
+                  agreed to analytics, we also use Vercel Analytics, which measures traffic and page speed without
+                  setting cookies.
                 </p>
               </SubSection>
               <SubSection title="7.2 Cookies and Similar Technologies">
-                <p>Our website and applications use cookies and similar technologies for the following purposes:</p>
-                <Ul items={[
-                  "Essential Cookies: Necessary for the operation of our Services, such as maintaining your login session, remembering your authentication state, and ensuring security. These cookies cannot be disabled.",
-                  "Functional Cookies: Remember your preferences and settings to provide you with a personalized experience.",
-                  "Analytics Cookies: Help us understand how users interact with our Services so we can improve them.",
-                ]} />
+                <div id="cookies" className="scroll-mt-24" />
                 <p>
-                  We do not use advertising cookies or sell data collected through cookies to third parties. We do
-                  not engage in cross-site tracking for advertising purposes.
+                  Necessary cookies are always on. Everything else is off until you choose otherwise, and you can
+                  change your choice at any time with the button below or Cookie preferences at the bottom of any
+                  page. Your choice is kept for twelve months, then we ask again. We do not use advertising cookies
+                  or sell data collected through cookies.
                 </p>
+                <CookieTable />
               </SubSection>
               <SubSection title="7.3 Managing Cookies">
                 <p>
-                  You can control and manage cookies through your browser settings. If you block essential cookies,
-                  some features of our Services may not function properly. For our mobile applications, you can
-                  manage tracking permissions through your device's privacy settings (e.g., iOS App Tracking
-                  Transparency, Android advertising ID settings).
+                  Besides the choices above, you can block or delete cookies in your browser settings. If you block
+                  necessary cookies, signing in and checkout will not work. Our mobile apps set no analytics or
+                  advertising identifiers.
                 </p>
               </SubSection>
             </Section>

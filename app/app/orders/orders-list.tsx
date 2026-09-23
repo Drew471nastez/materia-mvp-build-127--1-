@@ -4,7 +4,6 @@ import * as React from "react"
 import Link from "next/link"
 import {
   ArrowUpDown,
-  CalendarDays,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -16,6 +15,8 @@ import {
 } from "lucide-react"
 import { Popover, PopoverTrigger } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
+import { ComparePicker, DateRangePicker } from "@/components/app/date-range-picker"
+import { presetRange, rangeLabel, type CompareValue, type RangeValue } from "@/lib/date-range/range"
 import {
   COLUMNS,
   SORTS,
@@ -29,8 +30,6 @@ import {
   type Order,
 } from "@/lib/orders/order-view"
 import { METRICS, type MetricReading } from "@/lib/orders/metrics"
-import { RANGE_PRESETS, comparisonLabel, rangeLabel, windowLabel, type Range, type RangeWindow } from "@/lib/orders/range"
-import { DateRangePickerModal } from "@/components/app/date-range-picker-modal"
 import { HelpLabel } from "@/components/app/help-label"
 import {
   Checkbox,
@@ -55,16 +54,22 @@ export interface OrdersListProps {
   onQuery: (next: Partial<ListQuery>) => void
   searchText: string
   onSearchText: (q: string) => void
-  dateRange: Range
-  span: RangeWindow
-  onDateRange: (r: Range) => void
+  period: RangeValue
+  onPeriod: (v: RangeValue) => void
+  compare: CompareValue
+  onCompare: (c: CompareValue) => void
+  today: string
+  /** The first order's day, where "All time" begins. */
+  firstDay?: string
+  /** There is a window to compare with, so the changes mean something. */
+  comparable: boolean
   metrics: MetricReading[]
   hidden: Set<ColumnKey>
   onToggleColumn: (key: ColumnKey) => void
   selected: Set<string>
   onSelect: (ids: string[], on: boolean) => void
   onOpen: (id: string) => void
-  onExport: (only?: Set<string>) => void
+  onExport: () => void
   products: Array<{ id: string; title: string }>
   stripeConnected: boolean
   now: number
@@ -97,87 +102,17 @@ export function OrdersList(props: OrdersListProps) {
         </div>
       ) : null}
 
-      <RangeRow dateRange={props.dateRange} span={props.span} onDateRange={props.onDateRange} timeZone={props.timeZone} />
+      {/* The same period and comparison picker every page in /app has. */}
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <DateRangePicker value={props.period} onChange={props.onPeriod} today={props.today} firstDay={props.firstDay} />
+        {props.period.preset !== "all_time" ? (
+          <ComparePicker value={props.compare} onChange={props.onCompare} range={props.period} today={props.today} />
+        ) : null}
+      </div>
 
-      <MetricsStrip metrics={props.metrics} comparable={props.span.previous !== null} />
+      <MetricsStrip metrics={props.metrics} comparable={props.comparable} />
 
       <OrdersTable {...props} />
-    </div>
-  )
-}
-
-/* ─── The date range ───────────────────────────────────────────────── */
-
-function isoDayLocal(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
-}
-
-function RangeRow({
-  dateRange,
-  span,
-  onDateRange,
-  timeZone,
-}: {
-  dateRange: Range
-  span: RangeWindow
-  onDateRange: (r: Range) => void
-  timeZone: string
-}) {
-  const [open, setOpen] = React.useState(false)
-  const [custom, setCustom] = React.useState(false)
-  const label = rangeLabel(dateRange, timeZone)
-  return (
-    <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1.5">
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <button type="button" className={cn(buttonSecondary, "gap-2 pl-2.5")} aria-label={`Date range: ${label}`}>
-            <CalendarDays className="h-4 w-4 text-[#4b5563]" />
-            {label}
-            <ChevronDown className="h-3.5 w-3.5 text-[#6b7280]" />
-          </button>
-        </PopoverTrigger>
-        <MenuSurface className="w-[240px]">
-          <div role="menu" aria-label="Date range">
-            {RANGE_PRESETS.map((p) => (
-              <MenuOption
-                key={p.key}
-                selected={dateRange.key === p.key}
-                onSelect={() => {
-                  onDateRange({ key: p.key })
-                  setOpen(false)
-                }}
-              >
-                {p.label}
-              </MenuOption>
-            ))}
-            <div className="my-1 border-t border-[#eef0f2]" />
-            <MenuOption
-              selected={dateRange.key === "custom"}
-              hint={dateRange.key === "custom" ? label : "Pick the first and last day"}
-              onSelect={() => {
-                setOpen(false)
-                setCustom(true)
-              }}
-            >
-              Custom range
-            </MenuOption>
-          </div>
-        </MenuSurface>
-      </Popover>
-      <span className="text-[13px] text-[#6b7280]">
-        {windowLabel(span, timeZone)}
-        {comparisonLabel(dateRange, span) ? <span className="hidden sm:inline">, {comparisonLabel(dateRange, span)}</span> : null}
-      </span>
-      <DateRangePickerModal
-        open={custom}
-        onOpenChange={setCustom}
-        initialStart={dateRange.key === "custom" && dateRange.from ? new Date(`${dateRange.from}T00:00:00`) : null}
-        initialEnd={dateRange.key === "custom" && dateRange.to ? new Date(`${dateRange.to}T00:00:00`) : null}
-        onApply={(start, end) => {
-          onDateRange({ key: "custom", from: isoDayLocal(start), to: isoDayLocal(end) })
-          setCustom(false)
-        }}
-      />
     </div>
   )
 }
@@ -338,13 +273,13 @@ function OrdersTable(props: OrdersListProps) {
         <EmptyState
           hasOrders={allOrders.length > 0}
           filtering={filtering || query.view !== "all"}
-          rangeName={props.dateRange.key === "all" ? null : rangeLabel(props.dateRange, props.timeZone)}
+          rangeName={props.period.preset === "all_time" ? null : rangeLabel(props.period)}
           onClear={() => {
             props.onSearchText("")
             onQuery({ view: "all", q: "", source: "any", product: "", page: 1 })
             setSearching(false)
           }}
-          onAllTime={() => props.onDateRange({ key: "all" })}
+          onAllTime={() => props.onPeriod({ preset: "all_time", ...presetRange("all_time", props.today, props.firstDay) })}
         />
       ) : (
         <div ref={scrollerRef} className="orders-scroller overflow-x-auto overscroll-x-contain" data-scrolled="false">
@@ -365,7 +300,7 @@ function OrdersTable(props: OrdersListProps) {
                   <th scope="col" colSpan={columns.length + 1} className="orders-sticky orders-edge left-10 bg-[#f7f7f8] px-2 font-normal">
                     <div className="flex items-center gap-3">
                       <span className="font-medium text-[#1a1a2e]">{selected.size} selected</span>
-                      <button type="button" className={cn(buttonSecondary, "h-7 px-2.5 text-[12px]")} onClick={() => props.onExport(selected)}>
+                      <button type="button" className={cn(buttonSecondary, "h-7 px-2.5 text-[12px]")} onClick={() => props.onExport()}>
                         Export selected
                       </button>
                       <button
@@ -682,12 +617,12 @@ function EmptyState({
 }) {
   /* Say which of the three it is: nothing sold yet, nothing in these dates,
      or nothing through these filters. Each has its own way out. */
-  const title = !hasOrders ? "No orders yet" : filtering ? "No orders match" : `No orders in ${rangeName ? rangeName.toLowerCase().replace(/^last/, "the last") : "this period"}`
+  const title = !hasOrders ? "No orders yet" : filtering ? "No orders match" : "No orders in this period"
   const body = !hasOrders
     ? "Orders from your Storelib page and your website show up here as soon as someone buys."
     : filtering
       ? "Try another search, or clear the filters."
-      : "Your earlier orders are still here. Choose a longer period to see them."
+      : `Nothing from ${rangeName ?? "these dates"}. Your earlier orders are still here.`
   return (
     <div className="flex flex-col items-center px-6 py-14 text-center">
       <p className="text-[15px] font-semibold text-[#1a1a2e]">{title}</p>

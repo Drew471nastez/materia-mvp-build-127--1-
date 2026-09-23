@@ -129,8 +129,14 @@ export default function RootLayout({
   // `lang` must match DEFAULT_LANGUAGE (components/locale-provider.tsx) and
   // DEFAULT_LOCALE (lib/i18n/server.ts). LocaleProvider rewrites the attribute
   // on the client once a stored or detected choice resolves.
+  /*
+   * suppressHydrationWarning, on this element only (it does not reach the
+   * children). The inline script below writes --vv-h, --vv-top, --kb-inset,
+   * data-feed-view and the capacitor class onto <html> before React loads,
+   * by design, so every page reported a hydration mismatch that was not one.
+   */
   return (
-    <html lang="en" className="light" style={{ colorScheme: "light" }}>
+    <html lang="en" className="light" style={{ colorScheme: "light" }} suppressHydrationWarning>
       <head>
         {/* Synchronous native-app intercept — runs before React hydrates.
             1. Add the "capacitor" class to <html> immediately so all
@@ -163,7 +169,7 @@ export default function RootLayout({
                Re-writing the cookie here repairs it for every later request. */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `try{var _ua=navigator.userAgent||'';if((window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform())||/StorelibApp|Capacitor/.test(_ua)){var h=document.documentElement;h.classList.add('capacitor');try{var _p=location.pathname;if(_p==='/'||/^\\/(pricing|features|faq|blog)(\\/|$)/.test(_p)){location.replace('/native-start')}}catch(e){}var _ow=window.open;window.open=function(u,t,f){if(u&&/stripe\\.com/.test(String(u)))return null;return _ow.apply(window,arguments)};}}catch(e){}try{var r=document.documentElement,vv=window.visualViewport;r.style.setProperty('--vv-h',Math.round(vv?vv.height:window.innerHeight)+'px');r.style.setProperty('--vv-top',Math.round(vv?vv.offsetTop:0)+'px');r.style.setProperty('--kb-inset',Math.max(0,Math.round(window.innerHeight-(vv?vv.offsetTop:0)-(vv?vv.height:window.innerHeight)))+'px')}catch(e){}try{var d=document.documentElement,v=localStorage.getItem('storelib_feed_view');if(v!=='reels'&&v!=='grid')v='grid';d.setAttribute('data-feed-view',v);d.style.setProperty('--feed-entry-bg',v==='reels'?'#000':'#fff');if(document.cookie.indexOf('storelib_feed_view='+v)<0){document.cookie='storelib_feed_view='+v+'; path=/; max-age=31536000; samesite=lax'}}catch(e){}`,
+            __html: `try{var _ua=navigator.userAgent||'';if((window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform())||/StorelibApp|Capacitor/.test(_ua)){var h=document.documentElement;h.classList.add('capacitor');try{var _p=location.pathname;if(_p==='/'||/^\\/(pricing|features|faq|blog)(\\/|$)/.test(_p)){location.replace('/native-start')}}catch(e){}var _ow=window.open;window.open=function(u,t,f){if(u&&/stripe\\.com/.test(String(u)))return null;return _ow.apply(window,arguments)};}}catch(e){}try{var r=document.documentElement,vv=window.visualViewport;r.style.setProperty('--vv-h',Math.round(vv?vv.height:window.innerHeight)+'px');r.style.setProperty('--vv-top',Math.round(vv?vv.offsetTop:0)+'px');r.style.setProperty('--kb-inset',Math.max(0,Math.round(window.innerHeight-(vv?vv.offsetTop:0)-(vv?vv.height:window.innerHeight)))+'px')}catch(e){}try{var d=document.documentElement,v=localStorage.getItem('storelib_feed_view');if(v!=='reels'&&v!=='grid')v='grid';d.setAttribute('data-feed-view',v);d.style.setProperty('--feed-entry-bg',v==='reels'?'#000':'#fff');if(/(^|;\\s*)storelib_consent=2\\.p1/.test(document.cookie)&&document.cookie.indexOf('storelib_feed_view='+v)<0){document.cookie='storelib_feed_view='+v+'; path=/; max-age=31536000; samesite=lax'}}catch(e){}`,
           }}
         />
         {/* ═══════════════════════════════════════════════════════════════════
