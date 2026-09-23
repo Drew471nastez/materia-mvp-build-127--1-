@@ -335,7 +335,7 @@ async function main() {
   console.log("\nThe docs say how")
 
   const ai = read("content/developers/ai.md")
-  check("the AI agents page explains connecting", /## Connect an agent directly/.test(ai) && /claude mcp add --transport http storelib/.test(ai) && /storelib_write_section/.test(ai))
+  check("the AI agents page explains connecting", /## Connect an agent directly/.test(ai) && /claude mcp add --transport http --scope user storelib/.test(ai) && /storelib_write_section/.test(ai))
   check("and no longer says it is not available", !/is not available yet/.test(ai))
 
   console.log(`\n${passed} passed, ${failed} failed`)
