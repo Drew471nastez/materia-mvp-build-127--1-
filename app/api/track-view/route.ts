@@ -86,25 +86,20 @@ function detectClientAppFromUA(uaRaw: string | null): string | null {
 function getCountryFromRequest(req: NextRequest): { code: string | null; name: string | null } {
   const countryCode = req.headers.get("x-vercel-ip-country") || req.geo?.country || null
 
-  const countryNames: Record<string, string> = {
-    US: "United States",
-    GB: "United Kingdom",
-    CA: "Canada",
-    AU: "Australia",
-    DE: "Germany",
-    FR: "France",
-    ES: "Spain",
-    IT: "Italy",
-    NL: "Netherlands",
-    BR: "Brazil",
-    MX: "Mexico",
-    IN: "India",
-    RO: "Romania",
+  /* Every country by its English name, not the thirteen that were typed out:
+     a visitor from Moldova was stored as "MD". */
+  let name: string | null = null
+  if (countryCode) {
+    try {
+      name = new Intl.DisplayNames(["en"], { type: "region" }).of(countryCode.toUpperCase()) || countryCode
+    } catch {
+      name = countryCode
+    }
   }
 
   return {
     code: countryCode,
-    name: countryCode ? countryNames[countryCode] || countryCode : null,
+    name,
   }
 }
 

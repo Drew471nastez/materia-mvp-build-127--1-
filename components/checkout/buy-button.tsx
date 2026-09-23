@@ -6,6 +6,7 @@ import { useEditorFrame } from "@/components/storefront/use-editor-frame"
 import { Button } from "@/components/ui/button"
 import { Loader2 } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { trackFunnelStep } from "@/lib/analytics-utils"
 
 interface BuyButtonProps {
   productId: string
@@ -56,15 +57,7 @@ export function BuyButton({
 
     if (creatorId) {
       try {
-        await fetch("/api/track-event", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            eventType: "buy_click",
-            creatorId,
-            productId,
-          }),
-        })
+        await trackFunnelStep("buy_click", creatorId, productId)
       } catch (e) {
         // Don't block checkout on tracking failure
       }

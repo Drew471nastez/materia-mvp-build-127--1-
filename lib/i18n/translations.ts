@@ -41,6 +41,10 @@ export const translations = {
 
     // Dashboard
     "dashboard.welcome": "Welcome back",
+    "dashboard.greeting.morning": "Good morning",
+    "dashboard.greeting.afternoon": "Good afternoon",
+    "dashboard.greeting.evening": "Good evening",
+    "dashboard.greeting.night": "Good night",
     "dashboard.subtitle": "Here's what's happening with your store",
     "dashboard.views": "Views",
     "dashboard.orders": "Orders",
@@ -305,6 +309,10 @@ export const translations = {
 
     // Dashboard
     "dashboard.welcome": "Welcome back",
+    "dashboard.greeting.morning": "Good morning",
+    "dashboard.greeting.afternoon": "Good afternoon",
+    "dashboard.greeting.evening": "Good evening",
+    "dashboard.greeting.night": "Good night",
     "dashboard.subtitle": "Here's what's happening with your store",
     "dashboard.views": "Views",
     "dashboard.orders": "Orders",
@@ -445,6 +453,10 @@ export const translations = {
 
     // Dashboard
     "dashboard.welcome": "Bienvenido de nuevo",
+    "dashboard.greeting.morning": "Buenos días",
+    "dashboard.greeting.afternoon": "Buenas tardes",
+    "dashboard.greeting.evening": "Buenas noches",
+    "dashboard.greeting.night": "Buenas noches",
     "dashboard.subtitle": "Esto es lo que está pasando con tu tienda",
     "dashboard.views": "Visitas",
     "dashboard.orders": "Pedidos",
@@ -839,6 +851,10 @@ export const translations = {
 
     // Dashboard
     "dashboard.welcome": "Bon retour",
+    "dashboard.greeting.morning": "Bonjour",
+    "dashboard.greeting.afternoon": "Bon après-midi",
+    "dashboard.greeting.evening": "Bonsoir",
+    "dashboard.greeting.night": "Bonne nuit",
     "dashboard.subtitle": "Voici ce qui se passe avec votre boutique",
     "dashboard.views": "Vues",
     "dashboard.orders": "Commandes",
@@ -1233,6 +1249,10 @@ export const translations = {
 
     // Dashboard
     "dashboard.welcome": "Willkommen zurück",
+    "dashboard.greeting.morning": "Guten Morgen",
+    "dashboard.greeting.afternoon": "Guten Tag",
+    "dashboard.greeting.evening": "Guten Abend",
+    "dashboard.greeting.night": "Gute Nacht",
     "dashboard.subtitle": "Das passiert gerade in deinem Shop",
     "dashboard.views": "Aufrufe",
     "dashboard.orders": "Bestellungen",

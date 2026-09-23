@@ -3,6 +3,9 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { DashboardClient } from "@/components/app/dashboard-client"
 import type { Metadata } from "next"
+import { cookies, headers } from "next/headers"
+import { dayPart, greetingZone } from "@/lib/greeting"
+import { TIME_ZONE_COOKIE } from "@/lib/orders/time-zone"
 
 export async function generateMetadata(): Promise<Metadata> {
   const supabase = await createClient()
@@ -199,11 +202,14 @@ export default async function AppDashboard() {
   ]
 
   const displayName = profile?.display_name || creator.display_name || "there"
+  const [jar, head] = await Promise.all([cookies(), headers()])
+  const greetingTimeZone = greetingZone(jar.get(TIME_ZONE_COOKIE)?.value, head.get("x-vercel-ip-timezone"))
 
   return (
     <DashboardClient
       creatorId={creator.id}
       displayName={displayName}
+      initialDayPart={dayPart(Date.now(), greetingTimeZone)}
       initialSetupSteps={setupSteps}
       productIds={productIds}
       initialOrders={allOrders}

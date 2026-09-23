@@ -7,6 +7,8 @@ import { PullToRefreshIndicator } from "./pull-to-refresh-indicator"
 import { useHideNativeSplash } from "@/hooks/use-hide-native-splash"
 import Link from "next/link"
 import Image from "next/image"
+import { dayPart, firstName, type DayPart } from "@/lib/greeting"
+import { rememberTimeZone, viewerTimeZone } from "@/lib/orders/time-zone"
 import { useRouter } from "next/navigation"
 import {
   Eye,
@@ -918,6 +920,8 @@ interface Order {
 interface DashboardClientProps {
   creatorId: string
   displayName: string
+  /** Worked out on the server from the creator's zone, so the first paint is already right. */
+  initialDayPart?: DayPart
   initialSetupSteps: SetupStep[]
   productIds: string[]
   initialOrders?: Order[]
@@ -1579,6 +1583,7 @@ function QuickAccessBottomSheet({
 export function DashboardClient({
   creatorId,
   displayName,
+  initialDayPart = "morning",
   initialSetupSteps,
   productIds,
   initialOrders = [],
@@ -1735,6 +1740,19 @@ export function DashboardClient({
 
   const [liveVisitors, setLiveVisitors] = useState(0)
   const { t } = useLanguage()
+  /* The greeting follows the creator's own clock: the server's guess first
+     (lib/greeting.ts), then the browser's zone once it runs, then every
+     minute, so a tab left open over lunch does not keep saying morning. */
+  const [greetingPart, setGreetingPart] = useState<DayPart>(initialDayPart)
+  useEffect(() => {
+    const zone = viewerTimeZone()
+    rememberTimeZone(zone)
+    const tick = () => setGreetingPart(dayPart(Date.now(), zone))
+    tick()
+    const id = window.setInterval(tick, 60_000)
+    return () => window.clearInterval(id)
+  }, [])
+  const greetingName = displayName === "there" ? "" : firstName(displayName)
   const { toast } = useToast()
   const [copiedTarget, setCopiedTarget] = useState<"onepage" | "store" | "website" | null>(null)
   const [copyNotice, setCopyNotice] = useState<string | null>(null)
@@ -2595,7 +2613,8 @@ export function DashboardClient({
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-[22px] sm:text-[26px] font-semibold text-[#1a1a2e] tracking-tight">
-                {t("dashboard.welcome")}, {displayName}
+                {t(`dashboard.greeting.${greetingPart}` as Parameters<typeof t>[0])}
+                {greetingName ? `, ${greetingName}` : ""}
               </h1>
               {creatorHandle && (
                 <div ref={profileAccessRef} className="relative">

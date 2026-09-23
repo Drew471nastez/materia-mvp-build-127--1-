@@ -27,6 +27,10 @@ export const dashboardDict: Record<"ro" | "en", Record<string, string>> = {
     "time.selectPeriod": "Selectează perioada",
     // Dashboard header + KPIs
     "dashboard.welcome": "Bine ai revenit",
+    "dashboard.greeting.morning": "Bună dimineața",
+    "dashboard.greeting.afternoon": "Bună ziua",
+    "dashboard.greeting.evening": "Bună seara",
+    "dashboard.greeting.night": "Noapte bună",
     "dashboard.subtitle": "Iată ce se întâmplă cu magazinul tău",
     "dashboard.views": "Vizualizări",
     "dashboard.orders": "Comenzi",
@@ -179,6 +183,10 @@ export const dashboardDict: Record<"ro" | "en", Record<string, string>> = {
     "time.selectPeriod": "Select time period",
     // Dashboard header + KPIs
     "dashboard.welcome": "Welcome back",
+    "dashboard.greeting.morning": "Good morning",
+    "dashboard.greeting.afternoon": "Good afternoon",
+    "dashboard.greeting.evening": "Good evening",
+    "dashboard.greeting.night": "Good night",
     "dashboard.subtitle": "Here's what's happening with your store",
     "dashboard.views": "Views",
     "dashboard.orders": "Orders",

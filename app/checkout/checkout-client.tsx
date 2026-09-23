@@ -86,6 +86,7 @@ import {
   Search,
 } from "lucide-react"
 import { ReturnLink } from "@/components/navigation/return-link"
+import { trackFunnelStep } from "@/lib/analytics-utils"
 
 // ---------- Types ----------
 interface SelectedVariant {
@@ -1070,20 +1071,7 @@ export default function CheckoutPageClient({
 
   // Track checkout start
   useEffect(() => {
-    const trackCheckoutStart = async () => {
-      try {
-        await fetch("/api/track-event", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            eventType: "checkout_start",
-            creatorId: creator.id,
-            productId: product.id,
-          }),
-        })
-      } catch { /* Silent fail */ }
-    }
-    trackCheckoutStart()
+    void trackFunnelStep("checkout_start", creator.id, product.id)
   }, [creator.id, product.id])
 
   // Price calculations

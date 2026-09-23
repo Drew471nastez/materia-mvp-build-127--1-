@@ -219,6 +219,17 @@ function main() {
     })(),
     "a page of plain cards is the one page that cannot show this, which is why it took four goes")
 
+  /*
+    A SHEET COVERS THE PILL. The page wrapper's fade-in filled forwards, which
+    kept every page a stacking context for good, so a bottom sheet inside a
+    page (Analytics' period picker, any page's own sheet) was drawn under the
+    navigation pill whatever its z-index. Measured in Chromium with the real
+    CSS: the pill won the point under it with \`both\`, the sheet with
+    \`backwards\`.
+  */
+  check("the page's fade-in does not hold on its last frame, so a sheet inside a page covers the pill",
+    /\.app-page-enter \{\s*animation: app-page-enter [^;]*backwards;/.test(css) && !/\.app-page-enter \{\s*animation: app-page-enter [^;]*(both|forwards);/.test(css))
+
   console.log("\n  the document itself never scrolls")
 
   /*
