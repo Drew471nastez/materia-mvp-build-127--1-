@@ -255,7 +255,7 @@ async function main() {
     check("what has not happened yet goes last, under Next", groups.at(-1)?.day === "Next" && groups.at(-1)?.events[0].tone === "upcoming")
     check("Stripe's steps the order already says are not repeated", !events.some((e) => e.id === "stripe-payment_completed"))
     check("paid is green, with the card", events.find((e) => e.id === "paid")?.tone === "success" && events.find((e) => e.id === "paid")?.detail === "Visa •••• 4242")
-    check("  and the total includes the tip", events.find((e) => e.id === "paid")?.text === "$12.00 paid")
+    check("  and the total is what was charged, the tip already inside it", events.find((e) => e.id === "paid")?.text === "$10.00 paid", events.find((e) => e.id === "paid")?.text)
     const refunded = groupOrders([row("r", "2025-04-01T10:00:00Z", { status: "refunded", refund_amount_cents: 500, refunded_at: "2025-04-02T10:00:00Z" })])[0]
     check("a refund is red", orderEvents(refunded).find((e) => e.glyph === "refund")?.tone === "critical")
     const pending = groupOrders([row("p", "2025-04-01T10:00:00Z", { status: "pending" })])[0]
@@ -294,7 +294,13 @@ async function main() {
     check("  violet, white, a step darker on hover, with a shadow", /bg-\[#8b5cf6\][^"]*text-white[^"]*hover:bg-\[#7c3aed\]/.test(read("app/app/orders/order-parts.tsx")) && /buttonAccent =[\s\S]{0,200}shadow-\[/.test(read("app/app/orders/order-parts.tsx")))
   }
 
-  console.log(`\n${passed} passed, ${failed} failed`)
+    {
+    const inv = readFileSync(join(process.cwd(), "app/api/invoice/route.ts"), "utf8")
+    check("the invoice never adds the tip on top of what was charged",
+      /const total = lines\.reduce\(\(n, l\) => n \+ \(l\.amount_cents \|\| 0\), 0\)/.test(inv) && !/subtotal \+ tip/.test(inv)
+        && /const whole = line\.amount_cents \|\| 0/.test(inv))
+  }
+console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) {
     console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`)
     process.exit(1)

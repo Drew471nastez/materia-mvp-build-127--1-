@@ -300,7 +300,8 @@ function FulfillmentCard({
       </div>
       <ul className="mx-4 mt-2 divide-y divide-[#f0f1f3] border-y border-[#f0f1f3]">
         {order.lines.map((line) => {
-          const cents = line.amount_cents || 0
+          /* The line's price: what was charged, less the tip inside it. */
+          const cents = Math.max(0, (line.amount_cents || 0) - (line.tip_cents || 0))
           const kind = line.product?.type ? line.product.type.replace(/^./, (c) => c.toUpperCase()) : null
           return (
             <li key={line.id} className="flex items-center gap-3 py-3">

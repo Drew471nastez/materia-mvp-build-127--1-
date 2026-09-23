@@ -160,7 +160,8 @@ function paymentMethod(lines: OwnedLine[], totalCents: number): string {
 
 function refundedOf(line: OwnedLine): number {
   if (line.status !== "refunded") return 0
-  const whole = (line.amount_cents || 0) + (line.tip_cents || 0)
+  /* amount_cents is what was charged, the tip already inside it. */
+  const whole = line.amount_cents || 0
   const recorded = line.refund_amount_cents
   return typeof recorded === "number" && recorded > 0 ? Math.min(recorded, whole) : whole
 }
@@ -190,9 +191,13 @@ async function drawInvoice({
   const day = (iso: string) => new Intl.DateTimeFormat("en-US", { timeZone: zone, year: "numeric", month: "long", day: "numeric" }).format(new Date(iso))
   const time = (iso: string) => new Intl.DateTimeFormat("en-US", { timeZone: zone, hour: "numeric", minute: "2-digit" }).format(new Date(iso))
 
-  const subtotal = lines.reduce((n, l) => n + (l.amount_cents || 0), 0)
+  /* amount_cents is what was charged, the tip already inside it (the
+     PaymentIntent's amount; lib/orders/order-view.ts reads it the same way),
+     so the tip is taken out of each line for the prices and never added. */
+  const priceOf = (l: OwnedLine) => Math.max(0, (l.amount_cents || 0) - (l.tip_cents || 0))
   const tip = lines.reduce((n, l) => n + (l.tip_cents || 0), 0)
-  const total = subtotal + tip
+  const total = lines.reduce((n, l) => n + (l.amount_cents || 0), 0)
+  const subtotal = lines.reduce((n, l) => n + priceOf(l), 0)
   const refunded = lines.reduce((n, l) => n + refundedOf(l), 0)
   const pending = lines.some((l) => l.status === "pending")
   const status = pending ? "PENDING" : refunded >= total && refunded > 0 ? "REFUNDED" : refunded > 0 ? "PARTLY REFUNDED" : "PAID"
@@ -277,7 +282,7 @@ async function drawInvoice({
     const titleHeight = doc.heightOfString(title, { width: 320 })
     doc.text(title, L, y, { width: 320 })
     doc.text("1", 380, y, { width: 40, align: "center" })
-    doc.text(money(line.amount_cents || 0), 430, y, { width: R - 430, align: "right" })
+    doc.text(money(priceOf(line)), 430, y, { width: R - 430, align: "right" })
     let rowBottom = y + titleHeight
     const notes = [line.variant_name, line.status === "refunded" ? `Refunded ${money(refundedOf(line))}` : null].filter(Boolean).join(", ")
     if (notes) {
