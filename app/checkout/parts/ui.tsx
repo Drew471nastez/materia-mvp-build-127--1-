@@ -103,7 +103,7 @@ export function CheckRow({
         <Check
           aria-hidden
           strokeWidth={3}
-          className={cn("pointer-events-none absolute h-3.5 w-3.5 text-white transition-[opacity,transform] duration-150", checked ? "scale-100 opacity-100" : "scale-75 opacity-0")}
+          className={cn("pointer-events-none absolute h-3.5 w-3.5 text-white transition-[opacity,scale] duration-150", checked ? "scale-100 opacity-100" : "scale-75 opacity-0")}
         />
       </span>
       <span className="min-w-0">{children}</span>
@@ -149,7 +149,7 @@ export function PayButton({
       onClick={onClick}
       disabled={disabled || busy}
       aria-busy={busy || undefined}
-      className="relative flex h-[52px] w-full items-center justify-center gap-2 rounded-[10px] bg-[#1a1a2e] text-[16px] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.10),0_1px_2px_rgba(17,24,39,0.25)] transition-[background-color,transform,opacity] duration-150 hover:bg-[#2a2a40] active:scale-[0.99] active:bg-[#111122] disabled:cursor-not-allowed disabled:opacity-55"
+      className="relative flex h-[52px] w-full items-center justify-center gap-2 rounded-[10px] bg-[#1a1a2e] text-[16px] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.10),0_1px_2px_rgba(17,24,39,0.25)] transition-[background-color,scale,opacity] duration-150 hover:bg-[#2a2a40] active:scale-[0.99] active:bg-[#111122] disabled:cursor-not-allowed disabled:opacity-55"
     >
       {busy ? <Spinner /> : null}
       {children}
