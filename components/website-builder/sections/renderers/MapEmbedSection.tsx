@@ -6,6 +6,7 @@
 
 import { MapPin, Phone, Mail, Clock } from "lucide-react"
 import { sectionColors, str, bool, SectionWrapper, type SectionProps } from "../_shared"
+import { useMemo } from "react"
 
 export function MapEmbedSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
   const s = section.settings
@@ -22,12 +23,15 @@ export function MapEmbedSection({ section, theme, isEditing, isSelected, onClick
   const showInfo = bool(s.show_info_panel, true)
 
   const embedCode = str(s.embed_code)
+  /* Its own object, kept while the code is unchanged: a new one each render
+     rewrote the embed and reloaded its iframe on every edit. See ../stable-html. */
+  const embedHtml = useMemo(() => ({ __html: embedCode }), [embedCode])
   const embedUrl = str(s.embed_url)
   const mapBlock = embedCode ? (
     <div
       className="w-full overflow-hidden"
       style={{ height, borderRadius: radius }}
-      dangerouslySetInnerHTML={{ __html: embedCode }}
+      dangerouslySetInnerHTML={embedHtml}
     />
   ) : embedUrl ? (
     <iframe

@@ -16,6 +16,7 @@
 // setting has to clean it, and tests/theme-sharing.test.ts is what checks.
 
 import { sectionColors, str, SectionWrapper, type SectionProps } from "../_shared"
+import { useMemo } from "react"
 
 export function CustomHtmlSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
   const s = section.settings
@@ -25,6 +26,8 @@ export function CustomHtmlSection({ section, theme, isEditing, isSelected, onCli
   const padTop = typeof s.padding_top === "number" ? s.padding_top : 40
   const padBottom = typeof s.padding_bottom === "number" ? s.padding_bottom : 40
   const html = str(s.html_content)
+  /* Kept while unchanged, or every render re-parses and re-runs it. See ../stable-html. */
+  const htmlProp = useMemo(() => ({ __html: html }), [html])
 
   return (
     <SectionWrapper bgColor={bg} isEditing={isEditing} isSelected={isSelected} onClick={onClick}>
@@ -33,7 +36,7 @@ export function CustomHtmlSection({ section, theme, isEditing, isSelected, onCli
         style={{ color, paddingTop: padTop, paddingBottom: padBottom }}
       >
         {html ? (
-          <div dangerouslySetInnerHTML={{ __html: html }} />
+          <div dangerouslySetInnerHTML={htmlProp} />
         ) : (
           <div className="text-center py-12 text-sm opacity-60 border-2 border-dashed border-current rounded">
             Add custom HTML, CSS or JavaScript in the settings panel.

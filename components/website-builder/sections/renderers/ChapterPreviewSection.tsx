@@ -5,6 +5,7 @@
 
 import { Lock, Clock, FileText } from "lucide-react"
 import { sectionColors, str, bool, SectionWrapper, type SectionProps } from "../_shared"
+import { stableHtml } from "../stable-html"
 
 export function ChapterPreviewSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
   const s = section.settings
@@ -50,7 +51,7 @@ export function ChapterPreviewSection({ section, theme, isEditing, isSelected, o
           <div
             className="prose max-w-none"
             style={{ fontFamily }}
-            dangerouslySetInnerHTML={{ __html: str(s.preview_text) }}
+            dangerouslySetInnerHTML={stableHtml(str(s.preview_text))}
           />
           {isLocked && (
             <div className="mt-8 pt-6 border-t text-center" style={{ borderColor }}>

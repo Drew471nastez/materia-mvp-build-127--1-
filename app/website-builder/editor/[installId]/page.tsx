@@ -38,6 +38,7 @@ import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/
 import { MobileEditorSheet } from "@/components/website-builder/mobile-editor-sheet"
 import { SliderNumberControl } from "@/components/website-builder/editor/slider-number-control"
 import { WbImagePicker } from "@/components/website-builder/editor/image-picker"
+import { useEchoedValue } from "@/components/website-builder/echo-field"
 import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
 import { hapticTap } from "@/lib/native-bridge"
 import { BuilderLoader, useDelayedFlag, useLinger } from "@/components/website-builder/builder-loader"
@@ -409,6 +410,24 @@ function fieldCarriesOwnLabel(field: SchemaField): boolean {
   return field.type === "color" || field.type === "header" || field.type === "paragraph"
 }
 
+/**
+ * A one-line text setting. It shows what is typed at once and hands it to the
+ * editor in a transition, so the whole editor re-rendering is no longer
+ * between a key and its letter. See components/website-builder/echo-field.
+ */
+function EchoTextInput({ value, onChange, placeholder }: { value: string; onChange: (v: unknown) => void; placeholder: string }) {
+  const [shown, set] = useEchoedValue(value, onChange)
+  return (
+    <input
+      type="text"
+      className="w-full h-9 px-3 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 transition-colors"
+      placeholder={placeholder}
+      value={shown}
+      onChange={e => set(e.target.value)}
+    />
+  )
+}
+
 // ── Field editor ─────────────────────────────────────────────
 function FieldEditor({
   field,
@@ -487,15 +506,7 @@ function FieldEditor({
   }
 
   if (kind === "text") {
-    return (
-      <input
-        type="text"
-        className="w-full h-9 px-3 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 transition-colors"
-        placeholder={field.placeholder ?? ""}
-        value={typeof raw === "string" ? raw : ""}
-        onChange={e => onChange(e.target.value)}
-      />
-    )
+    return <EchoTextInput value={typeof raw === "string" ? raw : ""} onChange={onChange} placeholder={field.placeholder ?? ""} />
   }
 
   /**
@@ -1043,6 +1054,14 @@ function SectionPreviewThumbnail({ type, presetIndex = 0, containerWidth = 220, 
     setMarkup(html)
   }, [markup, section, cacheKey])
 
+  /**
+   * The markup as a prop that stays the same object. React 19 compares the
+   * object, not the string, so `{{ __html: markup }}` inline rewrote every
+   * card's preview, images and all, whenever the library rendered, which was
+   * on every keystroke anywhere in the editor. See sections/stable-html.
+   */
+  const markupProp = useMemo(() => (markup === null ? null : { __html: markup }), [markup])
+
   if (!section) {
     return (
       <div className="w-full flex items-center justify-center bg-muted" style={{ height }}>
@@ -1098,7 +1117,7 @@ function SectionPreviewThumbnail({ type, presetIndex = 0, containerWidth = 220, 
           data-keep-transform
           style={inner}
           aria-hidden
-          dangerouslySetInnerHTML={{ __html: markup }}
+          dangerouslySetInnerHTML={markupProp ?? undefined}
         />
       )}
     </div>
@@ -1199,7 +1218,7 @@ interface LibraryEntry {
   haystack: string
 }
 
-function AddSectionModal({
+const AddSectionModal = memo(function AddSectionModal({
   open,
   onOpenChange,
   onAddSection,
@@ -1660,7 +1679,7 @@ function AddSectionModal({
       </DialogContent>
     </Dialog>
   )
-}
+})
 
 // ── Professional Image Picker ────────────────────────────────
 /*
@@ -5503,6 +5522,23 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   }, [selectedBlockId])
 
   const openAddSection = useCallback(() => setAddSectionOpen(true), [])
+  /**
+   * STABLE, SO THE LIBRARY STAYS PUT. The library is mounted for the life of
+   * the editor (its sheet keeps it, so opening it is instant), and it was
+   * handed a new `onOpenChange` and `addSection` on every render of the
+   * editor. Each card is memoised on `onAdd`, so every keystroke anywhere
+   * re-rendered thirty-eight cards and their previews.
+   */
+  const onAddSectionOpenChange = useCallback((o: boolean) => {
+    setAddSectionOpen(o)
+    if (!o) {
+      setPendingInsertIndex(null)
+      setCanvasInsertAt(null)
+    }
+  }, [])
+  const addSectionRef = useRef<(type: string, presetIndex?: number) => void>(() => {})
+  const addSectionStable = useCallback((type: string, presetIndex?: number) => addSectionRef.current(type, presetIndex), [])
+  addSectionRef.current = addSection
 
   /**
    * Everywhere on this site a link can point, for the link fields.
@@ -8472,14 +8508,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       {/* ── Add Section Modal ── */}
       <AddSectionModal
         open={addSectionOpen}
-        onOpenChange={(o) => {
-          setAddSectionOpen(o)
-          if (!o) {
-            setPendingInsertIndex(null)
-            setCanvasInsertAt(null)
-          }
-        }}
-        onAddSection={addSection}
+        onOpenChange={onAddSectionOpenChange}
+        onAddSection={addSectionStable}
         schemas={librarySchemas}
         addable={libraryAddable}
         ownTypes={ownSectionTypes}
@@ -9043,13 +9073,16 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
    * and SectionRenderer is memoised on its props.
    */
   const navigateFromChrome = useCallback((href: string) => onEditorNavigate(href, true), [onEditorNavigate])
+  /* One object per install. Inline, it was a new storefront context on every
+     canvas render, and every section reading it rendered again past its memo. */
+  const storefront = useMemo(() => ({ inEditor: true, installId }), [installId])
   return (
     <StorelibLiveProvider sources={sources} page={{ template: pageTemplate }} inEditor products={shopCards}>
     <ThemePage
       theme={theme}
       sections={sections}
       // Designing a page is not subscribing to it. See storefront-context.
-      storefront={{ inEditor: true, installId }}
+      storefront={storefront}
       /**
        * The strip you hover to add a section right there. Only with the
        * inspector on: with it off the canvas is a plain preview, and nothing

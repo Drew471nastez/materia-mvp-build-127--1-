@@ -25,6 +25,7 @@ import {
   SectionWrapper,
   type SectionProps,
 } from "../_shared"
+import { stableHtml } from "../stable-html"
 
 const ASPECT: Record<string, string> = {
   square: "1 / 1",
@@ -121,7 +122,7 @@ export function SplitContentSection({ section, theme, isEditing, isSelected, onC
               style={{ color: paraColor }}
               // The field is a `richtext` control, which is what the editor
               // writes into it. Rendering it as text showed the markup.
-              dangerouslySetInnerHTML={{ __html: str(s.body) }}
+              dangerouslySetInnerHTML={stableHtml(str(s.body))}
             />
           )}
           {!!s.button_text && (

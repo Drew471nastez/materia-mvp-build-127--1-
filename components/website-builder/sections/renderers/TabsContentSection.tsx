@@ -7,6 +7,7 @@
 import { cn } from "@/lib/utils"
 import { useState } from "react"
 import { sectionColors, str, SectionWrapper, type SectionProps, DynamicIcon } from "../_shared"
+import { stableHtml } from "../stable-html"
 
 export function TabsContentSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
   const s = section.settings
@@ -92,7 +93,7 @@ export function TabsContentSection({ section, theme, isEditing, isSelected, onCl
         <div>
           <div
             className="prose max-w-none"
-            dangerouslySetInnerHTML={{ __html: str(activeBlock.settings.content, "") }}
+            dangerouslySetInnerHTML={stableHtml(str(activeBlock.settings.content, ""))}
           />
           {!!activeBlock.settings.cta_text && (
             <a

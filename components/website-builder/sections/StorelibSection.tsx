@@ -117,6 +117,14 @@ export function StorelibSection({
    * document, the visitor's session or their cart; what comes back is a
    * short list of allowed changes. See ./section-sandbox.tsx.
    */
+  /**
+   * THE MARKUP AS PROPS THAT STAY PUT. React 19 compares these objects, not
+   * the strings in them, so building them inline rewrote this section's DOM
+   * and re-parsed its stylesheet on every render, changed or not. See
+   * ./stable-html.
+   */
+  const cssProp = useMemo(() => (out.ok === true && out.css ? { __html: out.css } : null), [out])
+  const htmlProp = useMemo(() => ({ __html: out.ok === true ? out.html : "" }), [out])
   const script = out.ok === true ? out.script ?? null : null
   useSectionScript(
     script
@@ -223,12 +231,12 @@ export function StorelibSection({
       canvasRoundedTopPx={canvasRoundedTopPx}
       canvasRoundedBottomPx={canvasRoundedBottomPx}
     >
-      {out.css ? <style dangerouslySetInnerHTML={{ __html: out.css }} /> : null}
+      {cssProp ? <style dangerouslySetInnerHTML={cssProp} /> : null}
       <div
         ref={setScriptRoot}
         onClickCapture={intercept}
         onSubmitCapture={onSubmit}
-        dangerouslySetInnerHTML={{ __html: out.html }}
+        dangerouslySetInnerHTML={htmlProp}
       />
     </SectionWrapper>
   )
