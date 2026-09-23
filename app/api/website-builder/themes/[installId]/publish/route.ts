@@ -4,6 +4,8 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { takeBackup } from "@/lib/website-builder/backups"
 import { promoteFileDrafts } from "@/lib/website-builder/theme-file-drafts"
 import { revalidatePublishedSite } from "@/lib/website-builder/published-site"
+import { sanitizeSections, sanitizeThemeSettings } from "@/lib/website-builder/sanitize-sections"
+import type { SectionInstance } from "@/lib/website-builder/types"
 
 type Params = { params: Promise<{ installId: string }> }
 
@@ -72,10 +74,27 @@ export async function POST(req: Request, { params }: Params) {
       .eq("install_id", installId)
       .maybeSingle()
 
+    /*
+      ======================================================================
+       PUBLISHING IS THE MOMENT IT STOPS BEING PRIVATE
+      ======================================================================
+      Every read is cleaned, so what a visitor is served is already safe.
+      Cleaning here as well is not the same work twice: this is the one
+      write in the system that changes who can see a row, from the creator
+      alone to everybody, so it is where the content should be made fit to
+      be seen rather than merely rendered carefully.
+
+      It also means the LIVE columns are clean on disk. Anything that reads
+      them in future, a feed, an export, a cache warmer, a migration, gets
+      safe content without having to know to ask for it.
+    */
     if (settingsRow?.draft_settings) {
       await admin
         .from("store_theme_settings")
-        .update({ settings: settingsRow.draft_settings, draft_settings: null })
+        .update({
+          settings: sanitizeThemeSettings(settingsRow.draft_settings as Record<string, unknown>),
+          draft_settings: null,
+        })
         .eq("install_id", installId)
     }
 
@@ -90,7 +109,10 @@ export async function POST(req: Request, { params }: Params) {
         if (page.draft_sections) {
           await admin
             .from("store_theme_pages")
-            .update({ sections: page.draft_sections, draft_sections: null })
+            .update({
+              sections: sanitizeSections(page.draft_sections as SectionInstance[]),
+              draft_sections: null,
+            })
             .eq("id", page.id)
         }
       }

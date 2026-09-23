@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { ensurePolicyPages, type PagesTable } from "@/lib/website-builder/ensure-policy-pages"
+import { sanitizeInstallRow } from "@/lib/website-builder/sanitize-sections"
 
 type Params = { params: Promise<{ installId: string }> }
 
@@ -85,7 +86,13 @@ export async function GET(_req: Request, { params }: Params) {
 
   const username = profile?.username || creatorData?.slug || ""
 
-  return NextResponse.json({ install: data, username })
+  /*
+    Cleaned on the way out, like the sections endpoint beside it. The editor
+    renders these settings with `dangerouslySetInnerHTML`, in a session that
+    is signed in, so a row written by an import or by hand must not reach it
+    as written. See lib/website-builder/sanitize-sections.ts.
+  */
+  return NextResponse.json({ install: sanitizeInstallRow(data), username })
 }
 
 // PATCH /api/website-builder/themes/[installId]
