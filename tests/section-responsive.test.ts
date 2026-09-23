@@ -1384,7 +1384,11 @@ check(
     /useState<string \| null>\(\(\) => PREVIEW_MARKUP\.get\(cacheKey\) \?\? null\)/.test(editor) &&
     /useLayoutEffect\(\(\) => \{\s*\n\s*if \(markup !== null \|\| !section\) return/.test(editor) &&
     /PREVIEW_MARKUP\.set\(cacheKey, html\)/.test(editor) &&
-    /dangerouslySetInnerHTML=\{\{ __html: markup \}\}/.test(editor),
+    /* The markup handed to React as the same object while it is the same
+       string: React 19 compares the object, so an inline one rewrote every
+       card's preview on every render of the library. */
+    /const markupProp = useMemo\(\(\) => \(markup === null \? null : \{ __html: markup \}\), \[markup\]\)/.test(editor) &&
+    /dangerouslySetInnerHTML=\{markupProp \?\? undefined\}/.test(editor),
 )
 
 check(
