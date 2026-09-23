@@ -1,0 +1,48 @@
+# Examples
+
+Six complete sections. Each is a real `.storelib` file that the test suite compiles, and runs through the same quality checks the builder applies to AI-written sections, on every change to the platform. If one of these stopped compiling, the change that broke it would not ship. Copy any of them into the code editor as `sections/<type>.storelib` and it works as shown.
+
+Every example follows the same conventions, which are the library's own:
+
+- The root reads the colour scheme with `data-scheme="{{ settings.color_scheme }}"`, and every colour comes from a `--scheme-*` variable.
+- Spacing is two `range` settings, passed to CSS as custom properties on the root.
+- `container-type: inline-size` on the root, a phone layout as the base, and `@container` for wider.
+- Ids are built from `{{ section.id }}`, so each section can appear on a page twice.
+- Anything that moves stops under `prefers-reduced-motion`.
+- Empty states sit behind `page.in_editor`.
+
+## Sign-up card
+
+A sign-up box that sends every address to the creator's Subscribers with no script and no setup. Shows the explicit `data-storelib-form="subscribe"`, a success message the creator can edit, a visually hidden label, and a form that stacks on a phone and sits in one row wider. See [Forms](/developers/javascript#forms).
+
+@[example:signup_card]
+
+## FAQ, one open at a time
+
+Blocks, a `richtext` answer printed with `raw`, and `<details>` elements sharing a `name` so opening one closes the others, all without script.
+
+@[example:faq_exclusive]
+
+## Logo strip
+
+Image blocks that fall back to a text name, a row that swipes on a phone with scroll snapping, and wraps into a centred row once there is room.
+
+@[example:logo_strip]
+
+## Video with text
+
+The `embed` capability and the `embed` filter: a creator pastes whatever link they have, and the frame only ever points at a known player. See [Embeds](/developers/javascript#embeds).
+
+@[example:video_feature]
+
+## Product cards
+
+The creator's own published products through `products`, in the same `{ id, type, settings }` shape as blocks. Prices arrive formatted, and a sale shows the old price struck through.
+
+@[example:product_cards]
+
+## Tabs
+
+Blocks as tabs, switched with radio inputs and `:checked`, keyboard reachable, with the first tab open. The same pattern works for any "one of these at a time" layout.
+
+@[example:tabs_panel]

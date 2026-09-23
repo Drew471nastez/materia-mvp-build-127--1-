@@ -1,0 +1,58 @@
+<template>
+<section class="pc" data-scheme="{{ settings.color_scheme }}" style="--pc-pt: {{ settings.padding_top }}px; --pc-pb: {{ settings.padding_bottom }}px; --pc-cols: {{ settings.columns }};">
+  <div class="pc__in">
+    {% if settings.heading != "" %}<h2 class="pc__h">{{ settings.heading }}</h2>{% endif %}
+    <div class="pc__grid">
+      {% for block in products %}
+        <a class="pc__card" href="{{ block.settings.url | url }}">
+          <span class="pc__media">
+            {% if block.settings.image != "" %}<img class="pc__img" src="{{ block.settings.image }}" alt="{{ block.settings.title }}" width="600" height="600" loading="lazy">{% endif %}
+            {% if block.settings.tag != "" %}<span class="pc__tag">{{ block.settings.tag }}</span>{% endif %}
+          </span>
+          <span class="pc__title">{{ block.settings.title }}</span>
+          <span class="pc__price">
+            {{ block.settings.price }}
+            {% if block.settings.compare_price != "" %}<s class="pc__was">{{ block.settings.compare_price }}</s>{% endif %}
+          </span>
+        </a>
+      {% else %}
+        {% if page.in_editor %}<p class="pc__empty">Your published products appear here.</p>{% endif %}
+      {% endfor %}
+    </div>
+  </div>
+</section>
+</template>
+
+<style>
+.pc { container-type: inline-size; background: var(--scheme-background); padding: var(--pc-pt) var(--theme-padding-x, 24px) var(--pc-pb); }
+.pc__in { max-width: var(--theme-page-width, 1280px); margin: 0 auto; }
+.pc__h { margin: 0 0 24px; color: var(--scheme-heading); font-size: var(--section-heading-size, 28px); line-height: var(--section-heading-line-height, 1.2); }
+.pc__grid { display: grid; gap: 20px 16px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.pc__card { display: flex; flex-direction: column; gap: 6px; min-width: 0; color: inherit; text-decoration: none; }
+.pc__media { position: relative; display: block; aspect-ratio: 1; overflow: hidden; border-radius: {{ theme.radius.medium }}px; background: var(--scheme-background-secondary); }
+.pc__img { display: block; width: 100%; height: 100%; object-fit: cover; transition: transform 300ms ease; }
+.pc__card:hover .pc__img { transform: scale(1.03); }
+.pc__tag { position: absolute; top: 10px; left: 10px; padding: 3px 8px; font-size: 12px; font-weight: 600; color: var(--scheme-button-primary-text); background: var(--scheme-button-primary); border-radius: 999px; }
+.pc__title { overflow-wrap: anywhere; color: var(--scheme-heading); font-weight: 600; }
+.pc__price { color: var(--scheme-text); font-size: 14px; }
+.pc__was { margin-left: 6px; color: var(--scheme-text-muted); }
+.pc__empty { color: var(--scheme-text-muted); }
+@container (min-width: 900px) { .pc__grid { grid-template-columns: repeat(var(--pc-cols), minmax(0, 1fr)); gap: 28px 20px; } }
+@media (prefers-reduced-motion: reduce) { .pc__img { transition: none; } .pc__card:hover .pc__img { transform: none; } }
+</style>
+
+<schema>
+{
+  "type": "product_cards",
+  "name": "Product cards",
+  "category": "Products",
+  "settings": [
+    { "type": "text", "id": "heading", "label": "Heading", "default": "New this week" },
+    { "type": "range", "id": "columns", "label": "Columns on desktop", "default": 4, "min": 2, "max": 5, "step": 1 },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "white" },
+    { "type": "range", "id": "padding_top", "label": "Top padding", "default": 64, "min": 0, "max": 200, "step": 4, "unit": "px" },
+    { "type": "range", "id": "padding_bottom", "label": "Bottom padding", "default": 64, "min": 0, "max": 200, "step": 4, "unit": "px" }
+  ],
+  "presets": [{ "name": "Product cards" }]
+}
+</schema>

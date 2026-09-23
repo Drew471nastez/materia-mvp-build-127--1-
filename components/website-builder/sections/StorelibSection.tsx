@@ -19,9 +19,47 @@
  * published page renders nothing, so a broken section is a gap and not a
  * broken storefront.
  */
-import { useMemo, type MouseEvent } from "react"
+import { useMemo, type FormEvent, type MouseEvent } from "react"
 import { SectionWrapper, type SectionProps } from "./_shared"
 import { useStorelibContext } from "./storelib-sources"
+import { useStorefront } from "../theme/storefront-context"
+import { formIntent } from "@/lib/website-builder/form-intent"
+import { subscribeToCreator } from "@/lib/website-builder/subscribe-client"
+
+/**
+ * A form's state, written onto the form so a section's own CSS can style it:
+ * `form[data-state="sending"]`, `[data-state="done"]`, `[data-state="error"]`.
+ *
+ * The message is plain text in a node this creates. Nothing a server or a
+ * visitor sent is ever written as markup.
+ */
+function settle(form: HTMLFormElement, state: "sending" | "done" | "error", message?: string) {
+  form.dataset.state = state
+  form.querySelectorAll<HTMLButtonElement | HTMLInputElement>('button, input[type="submit"]').forEach((b) => {
+    b.disabled = state === "sending"
+  })
+  form.querySelector("[data-storelib-message]")?.remove()
+  if (state === "sending") return
+
+  /* The section's own success line, if its author wrote one. */
+  const own = state === "done" ? form.querySelector<HTMLElement>("[data-storelib-success]") : null
+  if (own) {
+    Array.from(form.children).forEach((el) => { if (el !== own) (el as HTMLElement).hidden = true })
+    own.hidden = false
+    return
+  }
+  if (!message) return
+
+  if (state === "done") {
+    Array.from(form.children).forEach((el) => { (el as HTMLElement).hidden = true })
+  }
+  const note = document.createElement("p")
+  note.setAttribute("data-storelib-message", "")
+  note.setAttribute("role", state === "error" ? "alert" : "status")
+  note.textContent = message
+  note.style.cssText = "margin:12px 0 0;font-size:14px;line-height:1.5;"
+  form.append(note)
+}
 
 export function StorelibSection({
   section,
@@ -40,6 +78,7 @@ export function StorelibSection({
    * storelib-sources.tsx for why that matters to a visitor's browser.
    */
   const { prerendered, render } = useStorelibContext()
+  const { creatorId, inEditor } = useStorefront()
   const out = useMemo(() => {
     const ready = prerendered[section.id]
     if (ready) return { ok: true as const, html: ready.html, css: ready.css }
@@ -86,6 +125,52 @@ export function StorelibSection({
       }
     : undefined
 
+  /**
+   * ===========================================================================
+   *  AN EMAIL BOX IN A SECTION COLLECTS EMAILS FOR THIS SITE'S CREATOR
+   * ===========================================================================
+   * A section's `<script>` does not run yet, so a form it draws cannot submit
+   * itself. This does, following the rule in lib/website-builder/form-intent.ts:
+   * an email box with no address of its own goes to the creator's
+   * Subscribers, with no script and nothing for the section's author to wire.
+   *
+   * The builder's canvas never submits anything and never leaves the editor.
+   * It shows the success state with a line saying where sign-ups will go,
+   * because designing a page is not signing up to it.
+   */
+  const inCanvas = isEditing || insideEditor || inEditor
+  const onSubmit = async (e: FormEvent<HTMLDivElement>) => {
+    const form = e.target
+    if (!(form instanceof HTMLFormElement)) return
+    const intent = formIntent(form)
+
+    if (inCanvas) {
+      e.preventDefault()
+      if (intent === "subscribe") settle(form, "done", "Sign-ups go to Subscribers on your live site.")
+      return
+    }
+    if (intent === "native") return
+    e.preventDefault()
+    if (intent === "inert") return
+
+    const email = form.querySelector<HTMLInputElement>('input[type="email"]')?.value ?? ""
+    const name =
+      form.querySelector<HTMLInputElement>('input[name="name"], input[autocomplete="name"]')?.value ?? ""
+    if (!creatorId) {
+      settle(form, "error", "Sign-ups are not available on this page.")
+      return
+    }
+    settle(form, "sending")
+    const result = await subscribeToCreator({
+      creatorId,
+      email,
+      name,
+      placement: /newsletter/.test(section.type) ? "newsletter" : "section",
+    })
+    if (result.ok === false) settle(form, "error", result.error)
+    else settle(form, "done", "Thanks, you're on the list.")
+  }
+
   return (
     <SectionWrapper
       isEditing={isEditing}
@@ -96,7 +181,7 @@ export function StorelibSection({
       canvasRoundedBottomPx={canvasRoundedBottomPx}
     >
       {out.css ? <style dangerouslySetInnerHTML={{ __html: out.css }} /> : null}
-      <div onClickCapture={intercept} dangerouslySetInnerHTML={{ __html: out.html }} />
+      <div onClickCapture={intercept} onSubmitCapture={onSubmit} dangerouslySetInnerHTML={{ __html: out.html }} />
     </SectionWrapper>
   )
 }

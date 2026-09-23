@@ -1075,7 +1075,13 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
   }, [pathname])
   const isBlogRoute = pathname === "/blog" || pathname.startsWith('/blog/')
   const isFaqRoute = pathname === "/faq"
-  const isMarketingNavRoute = pathname === "/" || pathname === "/features" || pathname === "/pricing" || isBlogRoute || isFaqRoute
+  /*
+    The Storelib Developer Hub is read, like the blog, rather than shopped.
+    It takes the blog's header: the marketing links, no marketplace search
+    strip laid over its first lines on a phone, and the same curved edge.
+  */
+  const isDevelopersRoute = pathname === "/developers" || pathname.startsWith("/developers/")
+  const isMarketingNavRoute = pathname === "/" || pathname === "/features" || pathname === "/pricing" || isBlogRoute || isFaqRoute || isDevelopersRoute
 
   const canonicalBaseUrl = useMemo(() => getCanonicalSiteUrl(), [])
 
@@ -2352,7 +2358,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
         AND IT SAT TOO LOW, because that lead-in was twenty pixels of black
         above it. Without it the field starts directly under the header.
       */}
-      {searchInHeader && (pathname !== "/" && !pathname.startsWith("/features") && !pathname.startsWith("/blog") && !pathname.startsWith("/pricing") && !isFaqRoute && !isSellerOrProductPage) && (
+      {searchInHeader && (pathname !== "/" && !pathname.startsWith("/features") && !pathname.startsWith("/blog") && !pathname.startsWith("/pricing") && !isFaqRoute && !isDevelopersRoute && !isSellerOrProductPage) && (
         <div
           /*
             NO ENTRANCE ON THIS BAR. It faded in on mount, which replayed on
@@ -2540,7 +2546,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
       {/* Concave bottom edge — black background with rounded white overlay creates concave corners.
           Skipped on the FAQ page, whose hero is black too, and on any page that already
           renders the white strip above, to avoid two black bars. */}
-      {!isFaqRoute && (pathname === "/" || pathname.startsWith("/features") || pathname.startsWith("/blog") || pathname.startsWith("/pricing")) && (
+      {!isFaqRoute && (pathname === "/" || pathname.startsWith("/features") || pathname.startsWith("/blog") || pathname.startsWith("/pricing") || isDevelopersRoute) && (
         <div className="relative z-30 bg-black h-[20px] -mb-px">
           <div className="absolute inset-0 bg-white rounded-t-[20px]" />
         </div>

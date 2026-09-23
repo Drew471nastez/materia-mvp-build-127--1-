@@ -34,6 +34,9 @@ export const RESERVED_ROOT_SEGMENTS: readonly string[] = [
   "checkout",
   "creator-page",
   "dashboard",
+  // The Storelib Developer Hub. A creator called "developers" would have
+  // their page shadowed by it for ever.
+  "developers",
   "downloads",
   "editions",
   "explore",
@@ -43,6 +46,9 @@ export const RESERVED_ROOT_SEGMENTS: readonly string[] = [
   "l",
   "legal",
   "library",
+  // The machine-readable map of the Developer Hub, and its full text.
+  "llms-full.txt",
+  "llms.txt",
   "login",
   "native-start",
   "onboarding",

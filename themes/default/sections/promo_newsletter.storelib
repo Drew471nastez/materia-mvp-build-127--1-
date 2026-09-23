@@ -5,15 +5,17 @@
       {% if settings.eyebrow %}<p class="s__eyebrow">{{ settings.eyebrow }}</p>{% endif %}
       {% if settings.heading %}<h2 class="s__h">{{ settings.heading }}</h2>{% endif %}
       {% if settings.subheading %}<p class="s__sub">{{ settings.subheading }}</p>{% endif %}
-      {% if settings.action %}
-        <form class="nl" method="post" action="{{ settings.action | url }}" target="_blank">
+      {# An email box on a Storelib site collects emails for that site's creator.
+         With no form address set, data-storelib-form="subscribe" sends each
+         sign-up to Subscribers (lib/website-builder/form-intent.ts). With one, the
+         browser posts to that mailing list as written. #}
+        <form class="nl" method="post" action="{% if settings.action %}{{ settings.action | url }}{% endif %}" target="{% if settings.action %}_blank{% else %}_self{% endif %}" data-storelib-form="{% if settings.action %}native{% else %}subscribe{% endif %}">
           <label class="nl__label" for="nl-{{ section.id }}">{{ settings.field_label }}</label>
           <div class="nl__row">
             <input class="nl__input" id="nl-{{ section.id }}" type="email" name="{{ settings.field_name }}" placeholder="{{ settings.placeholder }}" required autocomplete="email">
             <button class="s__btn s__btn--primary nl__go" type="submit">{{ settings.button_text }}</button>
           </div>
         </form>
-      {% endif %}
       {% if settings.note %}<p class="s__note">{{ settings.note }}</p>{% endif %}
     </div>
   </div>
@@ -85,7 +87,7 @@
   "type": "promo_newsletter",
   "name": "Newsletter Signup",
   "category": "marketing",
-  "description": "An address box that posts straight to your mailing list, with no script. The box appears once you add the address.",
+  "description": "An email sign-up box. Every sign-up lands in your Subscribers, with nothing to set up.",
   "version": "1.0.0",
   "icon": "mail",
   "settings": [
@@ -154,16 +156,16 @@
     {
       "type": "url",
       "id": "action",
-      "label": "Form address",
+      "label": "Send to another mailing list",
       "default": "",
-      "info": "The address your mailing list gives you for its signup form. Mailchimp, Buttondown and Kit all show one. Until you add it the box stays hidden, so nothing half-working reaches your visitors."
+      "info": "Leave this empty and sign-ups go to Subscribers in your dashboard. Paste a Mailchimp, Buttondown or Kit form address only if you want them sent there instead."
     },
     {
       "type": "text",
       "id": "field_name",
       "label": "Address field name",
       "default": "email",
-      "info": "What your mailing list calls the email box. Usually email, sometimes EMAIL."
+      "info": "Only used with another mailing list. What that list calls the email box, usually email or EMAIL."
     },
     {
       "type": "text",

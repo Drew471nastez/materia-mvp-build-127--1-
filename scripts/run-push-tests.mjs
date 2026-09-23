@@ -130,6 +130,8 @@ const SUITES = [
   "tests/raw-html-surface.test.ts",
   "tests/admin-key-routes.test.ts",
   "tests/public-abuse.test.ts",
+  "tests/section-signups.test.ts",
+  "tests/developer-hub.test.ts",
   "tests/image-picker.test.ts",
   "tests/site-pages.test.ts",
   "tests/admin-auth.test.ts",

@@ -25,7 +25,7 @@
  */
 
 import { CONTROL_TYPES } from "@/lib/storelib-theme/controls/registry"
-import { FILTER_NAMES } from "@/lib/storelib-theme/storelib/template"
+import { EMBED_ALLOWED, FILTER_NAMES } from "@/lib/storelib-theme/storelib/template"
 import { CAPABILITIES } from "@/lib/storelib-theme/storelib/script"
 import { SCHEME_COLOR_KEYS } from "@/lib/storelib-theme/color-schemes"
 import { TYPE_STYLE_KEYS, FONT_ROLES } from "@/lib/storelib-theme/typography"
@@ -47,7 +47,7 @@ export interface Topic {
 export const CORE_FORMAT = `A Storelib section is ONE file with four blocks, each tag on its own line:
   <template> markup </template>
   <style> CSS </style>
-  <script> optional, sandboxed </script>
+  <script> optional; checked when saved, NOT RUN on the page yet </script>
   <schema> JSON </schema>
 
 THE TEMPLATE LANGUAGE IS NOT VUE, REACT OR JSX. v-if, @click, :class and JSX braces are refused by the compiler. It is:
@@ -94,10 +94,24 @@ const TOPICS: Topic[] = [
   },
   {
     id: "script",
-    triggers: /script|javascript|js|slider|carousel|autoplay|interval|timer|animate|animation|click|toggle|drag|scroll/i,
-    text: `A SECTION'S SCRIPT IS SANDBOXED. It is handed root (this instance's root element), settings, blocks, theme, page and storelib, and it cannot reach anything else. window, document, globalThis, fetch, localStorage, location, eval and Function are refused by the compiler, by name, before the file saves. That is also what makes a section safe to use twice on a page: query inside root, never in the document.
-  setTimeout, setInterval and requestAnimationFrame are NOT available unless the schema declares the "timers" capability. Capabilities: ${CAPABILITIES.join(", ")}.
-  PREFER NO SCRIPT. <details> and <summary> are an accordion with no script at all, and a CSS transition is an animation with no script at all. Reach for a script when the platform genuinely cannot do it.`,
+    triggers: /script|javascript|js|slider|carousel|autoplay|interval|timer|animate|animation|click|toggle|drag|scroll|tab|modal|popup|menu|open|close/i,
+    text: `A SECTION'S <script> DOES NOT RUN ON THE PAGE YET: it is checked and stored, never executed, so an interaction built in script does nothing for a visitor. USE HTML AND CSS:
+  accordion  <details><summary>; a shared name="{{ section.id }}-faq" keeps one open at a time
+  tabs       radios sharing a name; input:checked + label + .panel shows each panel
+  carousel   overflow-x: auto with scroll-snap-type: x mandatory
+  pop-up     <button popovertarget="{{ section.id }}-pop"> with <div popover id="{{ section.id }}-pop">
+  motion     CSS transitions and @keyframes, off under prefers-reduced-motion
+  A script kept for later may not name window, document, fetch, localStorage, eval or Function; timers need "timers". Capabilities: ${CAPABILITIES.join(", ")}.`,
+  },
+  {
+    id: "forms",
+    triggers: /form|e-?mail|sign ?up|subscri|newsletter|join|mailing|waitlist|lead|capture|contact|input|notify/i,
+    text: `AN EMAIL BOX COLLECTS EMAILS FOR THE SITE'S CREATOR. The page submits <form data-storelib-form="subscribe"> with <input type="email" name="email"> (and name="name" if asked) into the creator's Subscribers: no script, no action, and never ask the creator for a URL. It carries data-state="sending", "done" or "error" for the CSS, and an element marked data-storelib-success hidden replaces it on success. Give the input a <label>. For another mailing service, set its action and data-storelib-form="native".`,
+  },
+  {
+    id: "embed",
+    triggers: /video|youtube|vimeo|spotify|soundcloud|embed|iframe|player|podcast|music|playlist/i,
+    text: `AN <iframe> NEEDS PERMISSION AND AN ADDRESS FROM THE embed FILTER. Declare "capabilities": ["embed"] in the schema and write <iframe src="{{ settings.video_url | embed }}" title="…" loading="lazy" allowfullscreen></iframe>. Any other iframe, or an iframe whose src comes from anywhere else, is refused when the file is saved. The filter accepts ${EMBED_ALLOWED.join(", ")}, turns what people paste (a youtu.be link, a watch?v= link) into the player's address, and returns "" for everything else, so put the frame inside {% if settings.video_url != "" %}. Size it with aspect-ratio: 16 / 9 and width: 100% in the CSS.`,
   },
   {
     id: "animation",
@@ -177,6 +191,7 @@ export const AUTHORING_ESSENTIALS = topicsById([
   "editor-state",
   "multi-instance",
   "script",
+  "forms",
 ])
 
 /** Every topic, for tests and for the one surface that wants the lot. */

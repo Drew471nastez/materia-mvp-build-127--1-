@@ -236,9 +236,41 @@ function parseExpr(src: string, line: number): Expr {
 
 // ── Building the tree ───────────────────────────────────────────────────────
 
-const FORBIDDEN_MARKUP: [RegExp, string][] = [
-  [/<script\b/i, "a <script> tag inside <template>; put behaviour in the section's own <script> block"],
-  [/\son[a-z]+\s*=/i, "an on*= attribute; put behaviour in the section's own <script> block"],
+/**
+ * ===========================================================================
+ *  VUE, REFUSED BY NAME, WITH WHAT TO WRITE INSTEAD
+ * ===========================================================================
+ * Each entry is a piece of Vue syntax and the Storelib way to say it. Module
+ * level and exported so the Developer Hub's list of refusals is generated from
+ * this rather than retyped (lib/developers/directives.ts).
+ *
+ * `v-on:` and `@click` USED TO SAY "a <script> block, which receives the
+ * section's own root". Section scripts are checked and stored but not run,
+ * so that message sent every author who reached for a click handler to write
+ * code that would never execute, and the section published looking finished
+ * and doing nothing. It now names what does work.
+ */
+const NO_SCRIPT_YET = `HTML that does it without script: <details> for open and close, a radio input with :checked for tabs, popovertarget for a pop-up. Section scripts are not run yet`
+
+export const FOREIGN_SYNTAX: [RegExp, string][] = [
+  [/\sv-if\s*=/i, `{% if … %} … {% endif %}`],
+  [/\sv-else-if\s*=/i, `{% elsif … %}`],
+  [/\sv-else(\s|=|>)/i, `{% else %}`],
+  [/\sv-for\s*=/i, `{% for item in list %} … {% endfor %}`],
+  [/\sv-show\s*=/i, `{% if … %} … {% endif %}`],
+  [/\sv-bind:/i, `an attribute written out: href="{{ settings.link }}"`],
+  [/\sv-model\s*=/i, `a setting in the schema; a section does not hold state`],
+  [/\sv-html\s*=/i, `{{ settings.body | raw }}, for a richtext setting`],
+  [/\sv-text\s*=/i, `{{ settings.text }}`],
+  [/\sv-on:/i, NO_SCRIPT_YET],
+  [/\s@click\s*=/i, NO_SCRIPT_YET],
+  [/\s:key\s*=/i, `nothing: a {% for %} needs no key`],
+  [/\s:([a-z-]+)\s*=/i, `the attribute itself, with the value in it`],
+]
+
+export const FORBIDDEN_MARKUP: [RegExp, string][] = [
+  [/<script\b/i, "a <script> tag inside <template>. Section scripts are not run yet, so build it with HTML and CSS: <details>, a radio input with :checked, or popovertarget"],
+  [/\son[a-z]+\s*=/i, "an on*= attribute. Section scripts are not run yet, so build it with HTML and CSS: <details>, a radio input with :checked, or popovertarget"],
   [/javascript:/i, "a javascript: URL"],
   [/<object\b|<embed\b/i, "an <object> or <embed>"],
 ]
@@ -307,22 +339,7 @@ export function compileTemplate(src: string, opts: { file?: string; line?: numbe
    * refused by name, with the line and the thing to write instead, which is
    * the cheapest documentation there is: it arrives exactly when it is needed.
    */
-  const DIRECTIVES: [RegExp, string][] = [
-    [/\sv-if\s*=/i, `{% if … %} … {% endif %}`],
-    [/\sv-else-if\s*=/i, `{% elsif … %}`],
-    [/\sv-else(\s|=|>)/i, `{% else %}`],
-    [/\sv-for\s*=/i, `{% for item in list %} … {% endfor %}`],
-    [/\sv-show\s*=/i, `{% if … %} … {% endif %}`],
-    [/\sv-bind:/i, `an attribute written out: href="{{ settings.link }}"`],
-    [/\sv-model\s*=/i, `a setting in the schema; a section does not hold state`],
-    [/\sv-html\s*=/i, `{{ settings.body | raw }}, for a richtext setting`],
-    [/\sv-text\s*=/i, `{{ settings.text }}`],
-    [/\sv-on:/i, `a <script> block, which receives the section's own root`],
-    [/\s@click\s*=/i, `a <script> block, which receives the section's own root`],
-    [/\s:key\s*=/i, `nothing: a {% for %} needs no key`],
-    [/\s:([a-z-]+)\s*=/i, `the attribute itself, with the value in it`],
-  ]
-  for (const [re, instead] of DIRECTIVES) {
+  for (const [re, instead] of FOREIGN_SYNTAX) {
     const m = re.exec(src)
     if (!m) continue
     const found = m[0].trim().replace(/=$/, "").replace(/[>\s]$/, "")

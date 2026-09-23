@@ -4,6 +4,7 @@ import { STORELIB_CATEGORIES, categoryToSlug } from "@/lib/blog-categories"
 import { CATEGORIES } from "@/lib/marketplace/categories"
 import { deservesIndexing } from "@/lib/security/spam-signals"
 import { getProductShareUrl } from "@/lib/url-helpers"
+import { DEV_PAGES, devPath } from "@/lib/developers/pages"
 
 export const dynamic = "force-dynamic"
 
@@ -32,6 +33,17 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${BASE}/faq`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.6 },
     { url: `${BASE}/signup`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.7 },
     { url: `${BASE}/login`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.5 },
+    /*
+      The Storelib Developer Hub, from the same list its sidebar and
+      /llms.txt read, so a page added to the hub is in the sitemap without
+      anybody remembering to add it here.
+    */
+    ...DEV_PAGES.map((p) => ({
+      url: `${BASE}${devPath(p.slug)}`,
+      lastModified: new Date(),
+      changeFrequency: "weekly" as const,
+      priority: p.slug ? 0.7 : 0.8,
+    })),
   ]
 
   /**
