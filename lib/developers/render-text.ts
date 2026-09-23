@@ -40,6 +40,25 @@ export function nodesToText(nodes: DocNode[]): string {
       case "details":
         out.push(`${n.summary}:\n\n${nodesToText(n.children)}`)
         break
+      case "specimens":
+        out.push([
+          row(["Setting", "Control", "Default", "What it does"]),
+          row(["---", "---", "---", "---"]),
+          ...n.items.map((it) => row([
+            `${it.label} (\`${it.id}\`)`,
+            it.control + (it.min !== undefined || it.max !== undefined ? ` ${it.min ?? ""} to ${it.max ?? ""}${it.unit ?? ""}` : "") + (it.options?.length ? `: ${it.options.join(", ")}` : ""),
+            it.value === null || it.value === undefined || it.value === "" ? "" : String(it.value),
+            absolute(it.does),
+          ])),
+        ].join("\n"))
+        break
+      case "schemes":
+        out.push([
+          row(["Colour", ...n.schemes.map((sc) => `${sc.name} (\`${sc.key}\`)`)]),
+          row(["---", ...n.schemes.map(() => "---")]),
+          ...n.schemes[0].colors.map((c, i) => row([`${c.group}: ${c.label}`, ...n.schemes.map((sc) => sc.colors[i].value)])),
+        ].join("\n"))
+        break
       case "directive":
         break
     }

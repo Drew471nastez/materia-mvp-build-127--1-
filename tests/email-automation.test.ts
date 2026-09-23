@@ -195,6 +195,22 @@ async function main() {
   check("new_subscriber is still the trigger the engine listens for",
     /id: "new_subscriber"/.test(page) && /trigger_type", triggerType/.test(flows))
 
+
+  console.log("\nOff until the creator turns it on")
+
+  const saveFn = page.slice(page.indexOf("const handleSaveFlow"), page.indexOf("const handleSaveFlow") + 2500)
+  check("a new automation starts off", /name: `\$\{triggerInfo\?\.name \|\| 'New'\} Flow`,[\s\S]{0,120}status: "draft"/.test(page))
+  check("saving it does not turn it on",
+    !/status: "active"/.test(saveFn) && /status: editingFlow\.status/.test(saveFn))
+  check("and the save message says whether it is on or off", /It is off: turn it on when you want it to send/.test(saveFn))
+  check("the editor has an on/off switch",
+    /<Switch\s+checked=\{editingFlow\.status === "active"\}[\s\S]{0,120}handleToggleFlowStatus\(editingFlow\)/.test(page))
+  check("and so does every automation in the list, without opening it",
+    /onClick=\{\(e\) => e\.stopPropagation\(\)\}[\s\S]{0,200}<Switch\s+checked=\{flow\.status === "active"\}/.test(page))
+  check("turning it off says sign-ups are still collected", /No welcome email is sent\. Sign-ups are still collected\./.test(page))
+  check("and only an active automation ever sends",
+    /\.eq\("status", "active"\)/.test(flows))
+
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }
 }

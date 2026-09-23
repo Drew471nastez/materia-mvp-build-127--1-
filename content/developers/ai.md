@@ -81,11 +81,43 @@ sandbox against a copy of its own markup: prefer HTML and CSS.
 
 **ChatGPT, Claude.ai and others.** Give it the link, or download [llms-full.txt](/llms-full.txt) and attach it, and ask for "a Storelib section, as one .storelib file".
 
-## Connect an agent to a site
+## Two ways to connect
+
+| | Through GitHub | Direct connection |
+| --- | --- | --- |
+| What it is | The site's sections live in a repository you own. | A token that lets an agent on your computer read and save the site's sections. |
+| How a change arrives | The agent pushes to the branch. Storelib compiles every changed section and saves it. | The agent calls `storelib_write_section`. |
+| Best for | Claude Code or Codex working in a repository, a team, a history of every change. | One person and one agent, nothing to set up on GitHub. |
+| What you see | The change in the builder within seconds, and a Storelib check on the commit. | The change in the builder within seconds. |
+
+Both reach one site and nothing else, both save drafts that go live only when you publish, and both are under **Website settings › Connections** in the builder, which the GitHub button in the top bar opens.
+
+## Connect through GitHub
+
+1. In the builder, press the GitHub button in the top bar, or open **Website settings › Connections**.
+2. Press **Connect GitHub**. GitHub asks which repositories to give Storelib; pick one, or make an empty one first.
+3. Back in the builder, pick the repository, the branch (its default branch unless you say otherwise) and, if the site should live in a folder of a bigger repository, the folder. Press **Link and send sections**.
+
+Storelib writes one commit into the repository: every section file the site has, under `sections/`, and an `AGENTS.md` and a `CLAUDE.md` that tell an agent what the files are and how a push reaches the site. From then on:
+
+- **Push a change** to `sections/<type>.storelib` on that branch and it is compiled and saved to the site as a draft. An open builder shows it within a few seconds; a new section is placed on the page being edited.
+- **Every push gets a status** named Storelib on its commit: green with how many sections were saved, or red with the first error and its line. A file that does not compile is not saved, and nothing else in the push is held back by it.
+- **Only `sections/*.storelib` is read.** Everything else in the repository is yours and ignored. Deleting a section file on GitHub does not remove the section from the site, because a page may be using it.
+- **Send to GitHub**, in Connections, writes the site's current sections into the repository again, for instance after editing in the builder.
+- At most 30 section files are taken from one push. Storelib's own commits are recognised and not synced back.
+
+With Claude Code, the whole loop is a conversation: open the repository, ask for the section, and let it commit and push.
+
+```bash
+git clone https://github.com/you/your-site && cd your-site
+claude "Add a pricing section with three tiers to sections/, then commit and push"
+```
+
+## Connect an agent directly
 
 An agent can work on a site directly: list its files, read them, compile a section until it is clean, and save it. The creator connects it once, from the builder.
 
-1. Open the site in the website builder, then **Website settings › AI agents**.
+1. Open the site in the website builder, then **Website settings › Connections**, and scroll to **Direct connection**.
 2. Name the connection, for example "Claude Code", and press **Connect**.
 3. Copy the token it shows. It is shown once. Storelib keeps only its hash, so a lost token is disconnected and replaced, never recovered.
 

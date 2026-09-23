@@ -1,0 +1,84 @@
+/**
+ * POST  GitHub's webhook for the Storelib app.
+ *
+ *   push                          a linked branch changed: sync its section files
+ *   installation (deleted)        the app was removed: unlink every site it served
+ *   installation_repositories     a repository was taken away: unlink sites on it
+ *   ping                          GitHub checking the address works
+ *
+ * The signature is checked against the exact bytes GitHub sent, before the
+ * body is parsed, and a missing secret refuses everything. GitHub waits ten
+ * seconds for an answer, so the answer goes first and the work is done after
+ * it, in the same function (`after`), which a push of a few files finishes
+ * well inside. The outcome is reported on the commit itself as a status.
+ */
+import { NextResponse, after } from "next/server"
+import { createAdminClient } from "@/lib/supabase/admin"
+import { githubConfig } from "@/lib/github-sync/github"
+import { verifySignature, type PushPayload } from "@/lib/github-sync/core"
+import { applyPush } from "@/lib/github-sync/sync"
+
+export const runtime = "nodejs"
+export const dynamic = "force-dynamic"
+export const maxDuration = 60
+
+/** A push's JSON, generously. GitHub caps its own payloads at 25 MB; a push with no diff is small. */
+const MAX_BODY = 5_000_000
+
+export async function POST(req: Request) {
+  const cfg = githubConfig()
+  if (!cfg) return NextResponse.json({ error: "Not configured" }, { status: 503 })
+
+  const raw = await req.text()
+  if (raw.length > MAX_BODY) return NextResponse.json({ error: "Too large" }, { status: 413 })
+  if (!verifySignature(raw, req.headers.get("x-hub-signature-256"), cfg.webhookSecret)) {
+    return NextResponse.json({ error: "Bad signature" }, { status: 401 })
+  }
+
+  const event = req.headers.get("x-github-event") ?? ""
+  let body: Record<string, unknown>
+  try {
+    body = JSON.parse(raw) as Record<string, unknown>
+  } catch {
+    return NextResponse.json({ error: "Bad JSON" }, { status: 400 })
+  }
+
+  if (event === "ping") return NextResponse.json({ ok: true })
+
+  const db = createAdminClient()
+
+  if (event === "installation" && body.action === "deleted") {
+    const id = Number((body.installation as { id?: number } | undefined)?.id)
+    if (Number.isSafeInteger(id)) await db.from("theme_github_links").delete().eq("installation_id", id)
+    return NextResponse.json({ ok: true })
+  }
+
+  if (event === "installation_repositories" && body.action === "removed") {
+    const gone = ((body.repositories_removed as { id?: number }[] | undefined) ?? []).map((r) => Number(r.id)).filter(Number.isSafeInteger)
+    if (gone.length) {
+      await db
+        .from("theme_github_links")
+        .update({ repo_id: null, repo_full_name: null, branch: null, last_error: "Storelib can no longer reach this repository", updated_at: new Date().toISOString() })
+        .in("repo_id", gone)
+    }
+    return NextResponse.json({ ok: true })
+  }
+
+  if (event === "push") {
+    const payload = body as PushPayload
+    after(async () => {
+      try {
+        const outcomes = await applyPush(db, cfg, payload)
+        const saved = outcomes.reduce((n, o) => n + o.saved.length, 0)
+        const failed = outcomes.reduce((n, o) => n + o.failed.length, 0)
+        /* Counts only: no file text, no token, no address. */
+        if (outcomes.length) console.log(`[github/webhook] push to ${payload.repository?.full_name}: ${saved} saved, ${failed} refused`)
+      } catch (e) {
+        console.error("[github/webhook] push failed:", e instanceof Error ? e.message : "unknown")
+      }
+    })
+    return NextResponse.json({ ok: true }, { status: 202 })
+  }
+
+  return NextResponse.json({ ok: true, ignored: event })
+}

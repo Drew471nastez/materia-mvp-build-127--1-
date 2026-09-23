@@ -586,7 +586,29 @@ section("Leaving a page always ends, one way or the other")
     check("each card carries a stable hook to count by", /data-library-card=\{type\}/.test(editorSrc))
   }
 
-console.log(`\n${passed} passed, ${failed} failed`)
+{
+    console.log("\nTyping into a field in the canvas, with the inspector on")
+    const editor = readFileSync(join(process.cwd(), "app/website-builder/editor/[installId]/page.tsx"), "utf8")
+    /* Pressing an email box selected the section, and on a phone the section
+       sheet came up over the keyboard and took the focus: nothing could be
+       typed. A press in a field, or on its label, is left to the field. */
+    check("a press in a field or its label does not select the section",
+      /if \(isTypingTarget\(target as unknown as ClickTargetLike\) \|\| target\?\.closest\?\.\("label"\)\) return/.test(editor))
+  }
+
+  {
+    console.log("\nThe dashboard's announcement slides never overlap")
+    const dash = readFileSync(join(process.cwd(), "components/app/dashboard-client.tsx"), "utf8")
+    const effect = dash.slice(dash.indexOf("const [announceLeaving"), dash.indexOf("const announcementType"))
+    check("each cycle is exactly two timers, and both are cleared",
+      (effect.match(/setTimeout\(/g) ?? []).length === 2 && /clearTimeout\(leave\)/.test(effect) && /clearTimeout\(swap\)/.test(effect))
+    check("the next slide is picked only after the last has faded out", /DURATION \+ FADE_MS/.test(effect))
+    check("one slide is drawn at a time, picked by the counter", /const announcementType = slides\[announceCycle % slides\.length\]/.test(dash))
+    check("and its line restarts with it", /key=\{announceCycle\}/.test(dash) && /announce-progress/.test(dash))
+    check("the bar holds one line, so two slides can never stack", /whitespace-nowrap/.test(dash.slice(dash.indexOf("announcementType ==="), dash.indexOf("announcementType ===") + 4000)) || /h-7 md:h-8[^"]*whitespace-nowrap|whitespace-nowrap[^"]*h-7 md:h-8/.test(dash))
+  }
+
+  console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }
 }
 

@@ -4231,11 +4231,12 @@ html.pop-in-flight #platform-header-root {
    colour here is mixed from that page's text and background rather than
    picked for the editor: a dark site gets a dark placeholder.
 
-   Three motions, all of them stopped under reduced motion:
+   Four motions, all of them stopped under reduced motion:
      - it opens, by growing into its gap rather than appearing in it;
      - the Ask AI button's ring runs round its edge (`--wb-ai-angle`, declared
        with that button above), which is what says whose work this is;
-     - a sweep crosses the bones, which is what says it is still going.
+     - code is typed into a lane that fades out toward the top;
+     - a band of light crosses the lane, which is what says it is going.
 
    `.wb-section-arrive` is the finished section taking its place. */
 .wb-writing {
@@ -4272,102 +4273,75 @@ html.pop-in-flight #platform-header-root {
   animation: wb-ai-shimmer 2.6s linear infinite;
 }
 .wb-writing-inner {
+  position: relative;
+  overflow: hidden;
   max-width: 1080px;
   margin: 0 auto;
-  padding: clamp(28px, 7cqi, 64px) clamp(20px, 5cqi, 48px);
+  padding: clamp(24px, 5cqi, 48px) clamp(20px, 5cqi, 48px);
 }
-.wb-writing-label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0;
-  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 18px;
-  letter-spacing: 0;
-  color: var(--wb-ink);
-}
-.wb-writing-dot {
-  width: 7px;
-  height: 7px;
-  flex: none;
-  border-radius: 999px;
-  background: #8b5cf6;
-  animation: wb-writing-dot 1.4s ease-in-out infinite;
-}
-.wb-writing-prompt {
-  margin: 6px 0 0;
-  max-width: 560px;
-  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
-  font-size: 13px;
-  line-height: 19px;
-  color: color-mix(in srgb, var(--wb-ink) 66%, var(--wb-paper));
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  overflow-wrap: anywhere;
-}
-.wb-writing-bones {
+/* The lane of code. Anchored to the bottom, where new lines arrive, and
+   faded toward the top, where old ones leave: a mask, so the fade is the
+   page's own background whatever colour that is. */
+.wb-code {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  margin-top: 28px;
-}
-.wb-writing-row {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
-  margin-top: 16px;
-}
-@container (max-width: 520px) {
-  .wb-writing-row { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-  .wb-writing-row .wb-bone-card:nth-child(3) { display: none; }
-}
-.wb-bone {
-  position: relative;
-  display: block;
+  justify-content: flex-end;
+  height: calc(14 * 1.75em);
   overflow: hidden;
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--wb-ink) 8%, var(--wb-paper));
-  animation: wb-bone-in 480ms cubic-bezier(0.32, 0.72, 0, 1) both;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 12.5px;
+  line-height: 1.75;
+  color: color-mix(in srgb, var(--wb-ink) 52%, var(--wb-paper));
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 62%);
+  mask-image: linear-gradient(to bottom, transparent 0%, #000 62%);
 }
-.wb-bone-card {
-  aspect-ratio: 16 / 10;
-  border-radius: 12px;
+@container (min-width: 720px) {
+  .wb-code { font-size: 13.5px; }
 }
-.wb-writing-bones > .wb-bone:nth-child(2) { animation-delay: 90ms; }
-.wb-writing-bones > .wb-bone:nth-child(3) { animation-delay: 180ms; }
-.wb-writing-row > .wb-bone:nth-child(1) { animation-delay: 270ms; }
-.wb-writing-row > .wb-bone:nth-child(2) { animation-delay: 340ms; }
-.wb-writing-row > .wb-bone:nth-child(3) { animation-delay: 410ms; }
-.wb-bone::after {
+.wb-code-line {
+  white-space: pre;
+  overflow: hidden;
+  text-overflow: clip;
+}
+.wb-code-tag { color: color-mix(in srgb, #8b5cf6 70%, var(--wb-ink)); }
+.wb-code-liquid { color: color-mix(in srgb, #8b5cf6 45%, var(--wb-ink)); }
+.wb-code-str { color: color-mix(in srgb, var(--wb-ink) 72%, var(--wb-paper)); }
+.wb-code-caret {
+  display: inline-block;
+  width: 0.55em;
+  height: 1.15em;
+  margin-left: 1px;
+  vertical-align: -0.2em;
+  border-radius: 1px;
+  background: #8b5cf6;
+  animation: wb-code-caret 900ms steps(1) infinite;
+}
+@keyframes wb-code-caret {
+  50% { opacity: 0; }
+}
+/* A band of light across the lane, slow and wide, so the work reads as
+   alive between keystrokes. */
+.wb-writing-inner::after {
   content: "";
   position: absolute;
   inset: 0;
+  pointer-events: none;
   background: linear-gradient(
-    90deg,
-    transparent,
-    color-mix(in srgb, var(--wb-paper) 65%, transparent),
-    transparent
+    100deg,
+    transparent 30%,
+    color-mix(in srgb, #8b5cf6 9%, transparent) 45%,
+    color-mix(in srgb, var(--wb-paper) 35%, transparent) 50%,
+    color-mix(in srgb, #8b5cf6 9%, transparent) 55%,
+    transparent 70%
   );
   transform: translateX(-100%);
-  animation: wb-bone-sweep 1.6s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  animation: wb-lane-sweep 2.4s cubic-bezier(0.45, 0, 0.55, 1) infinite;
 }
 @keyframes wb-writing-open {
   from { opacity: 0; transform: translateY(8px) scale(0.99); }
   to { opacity: 1; transform: none; }
 }
-@keyframes wb-writing-dot {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.35; transform: scale(0.8); }
-}
-@keyframes wb-bone-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-@keyframes wb-bone-sweep {
+@keyframes wb-lane-sweep {
   to { transform: translateX(100%); }
 }
 .wb-section-arrive {
@@ -4380,11 +4354,52 @@ html.pop-in-flight #platform-header-root {
 @media (prefers-reduced-motion: reduce) {
   .wb-writing,
   .wb-writing::before,
-  .wb-writing-dot,
-  .wb-bone,
-  .wb-bone::after,
+  .wb-writing-inner::after,
+  .wb-code-caret,
   .wb-section-arrive { animation: none; }
-  .wb-bone::after { display: none; }
+  .wb-writing-inner::after { display: none; }
+}
+
+/* The dashboard announcement bar's line: how long until the next slide.
+   components/app/dashboard-client.tsx keys it to the cycle, so each slide
+   draws its own from nothing. A transform, not a width: it runs on the
+   compositor and costs the page no layout for fifteen seconds. */
+.announce-progress {
+  transform-origin: left center;
+  animation-name: announce-progress;
+  animation-timing-function: linear;
+  animation-fill-mode: both;
+}
+@keyframes announce-progress {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .announce-progress { animation: none; transform: scaleX(0); }
+}
+
+/*
+ * THE STORELIB.COM FOOTER. Black, but not a flat #000 or #0f0f0f slab: a
+ * blue-leaning near black, lit faintly from its top edge the way a surface
+ * under a light is, with a hairline where the light catches the edge. The
+ * light is white at a few percent, not a colour, so it reads as depth and
+ * not as a gradient. components/marketing/footer.tsx.
+ */
+.storelib-footer {
+  background-color: #0b0c10;
+  background-image:
+    radial-gradient(120% 70% at 50% 0%, rgba(255, 255, 255, 0.055) 0%, rgba(255, 255, 255, 0) 60%),
+    linear-gradient(to bottom, #111218 0%, #0b0c10 45%, #08090c 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07);
+}
+.storelib-footer::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.16) 50%, transparent);
+  pointer-events: none;
+  z-index: -1;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

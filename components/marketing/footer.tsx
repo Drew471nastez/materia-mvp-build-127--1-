@@ -3,8 +3,6 @@
 import Link from "next/link"
 import Image from "next/image"
 import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { COOKIE_PREFS_EVENT } from "@/components/cookie-consent-banner"
 import { isNativeApp } from "@/lib/platform-utils"
 import { STORELIB_LOGO } from "@/lib/brand/logo"
@@ -52,47 +50,88 @@ function YouTubeIcon({ className }: { className?: string }) {
   )
 }
 
-// Compliance badges
-function GDPRBadge() {
-  return (
-    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#003399] border-2 border-[#ffcc00]">
-      <span className="text-[8px] font-bold text-[#ffcc00]">GDPR</span>
-    </div>
-  )
-}
+/**
+ * WHAT THE FOOTER LINKS TO, in the groups a visitor looks for them under.
+ *
+ * Every entry is a page that exists. The old footer had an Affiliate Program
+ * link to a route that was never built, and a newsletter box that pretended
+ * to subscribe people (it waited half a second and said thanks). Both are
+ * gone rather than faked. Solutions open the part of /app that does the job;
+ * a visitor who is not signed in is sent to sign in and brought back.
+ */
+type FooterLink = { label: string; href: string; external?: boolean }
 
-function CPRABadge() {
-  return (
-    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#1a3a5c] border-2 border-gray-400">
-      <span className="text-[7px] font-bold text-white leading-tight text-center">CPRA</span>
-    </div>
-  )
-}
+const GROUPS: { title: string; links: FooterLink[] }[] = [
+  {
+    title: "Product",
+    links: [
+      { label: "Features", href: "/features" },
+      { label: "Pricing", href: "/pricing" },
+      { label: "Website builder", href: "/app/website-builder" },
+      { label: "Creator page", href: "/creator-page" },
+      { label: "Discover", href: "/explore" },
+    ],
+  },
+  {
+    title: "Solutions",
+    links: [
+      { label: "Digital products", href: "/app/products/new" },
+      { label: "Courses", href: "/app/courses" },
+      { label: "Email automations", href: "/app/emails" },
+      { label: "Discount codes", href: "/app/coupons" },
+      { label: "Link in bio", href: "/app/onepage" },
+    ],
+  },
+  {
+    title: "Resources",
+    links: [
+      { label: "Developers", href: "/developers" },
+      { label: "Builder guide", href: "/developers/website-builder" },
+      { label: "Connect Claude Code", href: "/developers/ai" },
+      { label: "Changelog", href: "/developers/changelog" },
+      { label: "llms.txt", href: "/llms.txt", external: true },
+    ],
+  },
+  {
+    title: "Support",
+    links: [
+      { label: "Help center", href: "/help" },
+      { label: "FAQ", href: "/faq" },
+      { label: "Email us", href: "mailto:team@storelib.com", external: true },
+      { label: "Delete account", href: "/account-deletion" },
+    ],
+  },
+  {
+    title: "Company",
+    links: [
+      { label: "Blog", href: "/blog" },
+      { label: "Terms", href: "/terms" },
+      { label: "Privacy", href: "/privacy" },
+      { label: "Sign in", href: "/login" },
+    ],
+  },
+]
+
+const SOCIAL = [
+  { label: "Instagram", href: "https://instagram.com", Icon: InstagramIcon },
+  { label: "TikTok", href: "https://tiktok.com", Icon: TikTokIcon },
+  { label: "X", href: "https://x.com", Icon: XIcon },
+  { label: "YouTube", href: "https://youtube.com", Icon: YouTubeIcon },
+  { label: "Facebook", href: "https://facebook.com", Icon: FacebookIcon },
+]
+
+const linkClass = "whitespace-nowrap text-[14px] leading-6 text-white/55 transition-colors duration-150 hover:text-white"
 
 export function MarketingFooter() {
-  const [email, setEmail] = useState("")
-  const [isSubscribing, setIsSubscribing] = useState(false)
-  const [subscribed, setSubscribed] = useState(false)
   const [logoHref, setLogoHref] = useState("/")
 
   useEffect(() => {
     if (isNativeApp()) setLogoHref("/explore")
   }, [])
 
-  const handleSubscribe = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!email.trim()) return
-
-    setIsSubscribing(true)
-    // Simulate subscription
-    await new Promise(resolve => setTimeout(resolve, 500))
-    setSubscribed(true)
-    setIsSubscribing(false)
-  }
-
   return (
     <footer
-      className="bg-[#0f0f0f] text-white"
+      className="storelib-footer relative isolate overflow-hidden text-white"
       style={{
         /* Extend dark bg into body's safe-area-inset-bottom padding so
            there is no white strip above the iOS home indicator */
@@ -100,181 +139,76 @@ export function MarketingFooter() {
         paddingBottom: 'env(safe-area-inset-bottom, 0px)',
       }}
     >
-      <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 pt-12 md:pt-16 pb-6 md:pb-8">
-        {/* Main Footer Content */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-8 lg:gap-12">
-          {/* Logo and Info Column */}
-          <div className="col-span-2 md:col-span-1 space-y-6">
-            {/* Logo with text */}
-            <Link href={logoHref} scroll={true} className="flex items-center gap-3 flex-wrap hover:opacity-80 transition-opacity">
+      <div className="relative mx-auto max-w-[1200px] px-4 pt-14 pb-8 sm:px-6 md:pt-20 lg:px-8">
+        <div>
+            <Link href={logoHref} scroll={true} className="inline-flex items-center gap-2.5 transition-opacity hover:opacity-80">
               <Image
                 src={LOGO_URL}
                 alt="Storelib"
-                width={40}
-                height={40}
-                className="h-10 w-10 rounded-[7px]"
+                width={32}
+                height={32}
+                className="h-8 w-8 rounded-[7px]"
               />
-              <span className="text-xl font-bold text-white">Storelib</span>
+              <span className="text-[17px] font-semibold tracking-[-0.01em] text-white">Storelib</span>
             </Link>
-
-            {/* Copyright and Email */}
-            <div className="space-y-2">
-              <p className="text-sm text-gray-400">
-                Copyright {new Date().getFullYear()} Storelib Inc. All rights reserved.
-              </p>
-              <a
-                href="mailto:team@storelib.com"
-                className="text-sm text-gray-400 hover:text-white transition-colors"
-              >
-                team@storelib.com
-              </a>
-            </div>
-
-            {/* Social Icons */}
-            <div className="flex items-center gap-4">
-              <a
-                href="https://facebook.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-white hover:text-gray-300 transition-colors"
-                aria-label="Facebook"
-              >
-                <FacebookIcon className="h-5 w-5" />
-              </a>
-              <a
-                href="https://instagram.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-white hover:text-gray-300 transition-colors"
-                aria-label="Instagram"
-              >
-                <InstagramIcon className="h-5 w-5" />
-              </a>
-              <a
-                href="https://x.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-white hover:text-gray-300 transition-colors"
-                aria-label="X (Twitter)"
-              >
-                <XIcon className="h-5 w-5" />
-              </a>
-              <a
-                href="https://tiktok.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-white hover:text-gray-300 transition-colors"
-                aria-label="TikTok"
-              >
-                <TikTokIcon className="h-5 w-5" />
-              </a>
-              <a
-                href="https://youtube.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-white hover:text-gray-300 transition-colors"
-                aria-label="YouTube"
-              >
-                <YouTubeIcon className="h-5 w-5" />
-              </a>
-            </div>
-          </div>
-
-          {/* Product Links */}
-          <div className="space-y-4">
-            <h4 className="text-sm font-semibold text-white">Product</h4>
-            <div className="space-y-3">
-              <Link href="/" className="block text-sm text-gray-400 hover:text-white transition-colors">
-                Home
-              </Link>
-              <Link href="/explore" className="block text-sm text-gray-400 hover:text-white transition-colors">
-                Discover
-              </Link>
-              <Link href="/blog" className="block text-sm text-gray-400 hover:text-white transition-colors">
-                Blog
-              </Link>
-              <Link href="/login" className="block text-sm text-gray-400 hover:text-white transition-colors">
-                Sign In
-              </Link>
-              <Link href="/pricing" className="block text-sm text-gray-400 hover:text-white transition-colors">
-                Pricing
-              </Link>
-              <Link href="/features" className="block text-sm text-gray-400 hover:text-white transition-colors">
-                Features
-              </Link>
-              {/* Was a second Blog link. The Developer Hub needs one from every page to be found. */}
-              <Link href="/developers" className="block text-sm text-gray-400 hover:text-white transition-colors">
-                Developers
-              </Link>
-            </div>
-          </div>
-
-          {/* Support Links */}
-          <div className="space-y-4">
-            <h4 className="text-sm font-semibold text-white">Support</h4>
-            <div className="space-y-3">
-              <Link href="/help" className="block text-sm text-gray-400 hover:text-white transition-colors">
-                Help
-              </Link>
-              <Link href="/affiliate" className="block text-sm text-gray-400 hover:text-white transition-colors">
-                Affiliate Program
-              </Link>
-              <a href="https://storelib.com/terms" className="block text-sm text-gray-400 hover:text-white transition-colors">
-                Terms of Service
-              </a>
-              <Link href="/privacy" className="block text-sm text-gray-400 hover:text-white transition-colors">
-                Privacy Policy
-              </Link>
-              <button
-                type="button"
-                onClick={() => window.dispatchEvent(new CustomEvent(COOKIE_PREFS_EVENT))}
-                className="block text-left text-sm text-gray-400 hover:text-white transition-colors"
-              >
-                Cookie Preferences
-              </button>
-            </div>
-          </div>
-
-          {/* Newsletter Column - spans 2 columns on desktop */}
-          <div className="col-span-2 space-y-4">
-            <h4 className="text-sm font-semibold text-white">Join Our Community!</h4>
-            <p className="text-sm text-gray-400">
-              Receive weekly assets and future templates for free by joining our community.
+            <p className="mt-3 max-w-[320px] text-[14px] leading-6 text-white/45">
+              Sell what you make, on a site that is yours.
             </p>
-
-            {subscribed ? (
-              <div className="flex items-center gap-2 text-green-400 text-sm">
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-                <span>Thanks for subscribing!</span>
-              </div>
-            ) : (
-              <form onSubmit={handleSubscribe} className="flex gap-2">
-                <Input
-                  type="email"
-                  placeholder="Enter your email..."
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="h-11 flex-1 rounded-lg bg-[#2a2a2a] border-[#3a3a3a] text-white placeholder:text-gray-500 focus:border-violet-500 focus:ring-violet-500"
-                />
-                <Button
-                  type="submit"
-                  disabled={isSubscribing}
-                  className="h-11 px-6 rounded-lg bg-violet-600 text-white font-semibold hover:bg-violet-700 transition-colors"
-                >
-                  {isSubscribing ? "..." : "Sign Up"}
-                </Button>
-              </form>
-            )}
-          </div>
         </div>
 
-        {/* Bottom Bar */}
-        <div className="mt-4 pt-2 border-t border-[#1a1a1a]">
-          <p className="text-center text-xs text-gray-500">
-            &copy; {new Date().getFullYear()} Storelib. All rights reserved.
-          </p>
+        {/* Six groups: two across on a phone, three on a tablet, one row from 1024px. */}
+        <div className="mt-12 grid grid-cols-2 gap-x-6 gap-y-10 sm:grid-cols-3 lg:grid-cols-6 lg:gap-x-8">
+          {GROUPS.map((group) => (
+            <nav key={group.title} aria-label={group.title}>
+              <h4 className="text-[13px] font-medium text-white/90">{group.title}</h4>
+              <ul className="mt-4 space-y-2.5">
+                {group.links.map((link) => (
+                  <li key={link.label}>
+                    {link.external ? (
+                      <a href={link.href} className={linkClass}>{link.label}</a>
+                    ) : (
+                      <Link href={link.href} className={linkClass}>{link.label}</Link>
+                    )}
+                  </li>
+                ))}
+                {group.title === "Support" && (
+                  <li>
+                    <button
+                      type="button"
+                      onClick={() => window.dispatchEvent(new CustomEvent(COOKIE_PREFS_EVENT))}
+                      className={`${linkClass} text-left`}
+                    >
+                      Cookie preferences
+                    </button>
+                  </li>
+                )}
+              </ul>
+            </nav>
+          ))}
+
+          <nav aria-label="Follow Storelib">
+            <h4 className="text-[13px] font-medium text-white/90">Follow</h4>
+            <ul className="mt-4 space-y-2.5">
+              {SOCIAL.map(({ label, href, Icon }) => (
+                <li key={label}>
+                  <a
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`${linkClass} inline-flex items-center gap-2.5`}
+                  >
+                    <Icon className="h-4 w-4 shrink-0" />
+                    {label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        </div>
+
+        <div className="mt-14 flex flex-col gap-3 border-t border-white/[0.07] pt-6 text-[13px] text-white/40 sm:flex-row sm:items-center sm:justify-between">
+          <p>&copy; {new Date().getFullYear()} Storelib Inc.</p>
+          <a href="mailto:team@storelib.com" className="transition-colors hover:text-white">team@storelib.com</a>
         </div>
       </div>
     </footer>

@@ -50,6 +50,14 @@ export const DEV_PAGES: readonly DevPage[] = [
     group: "Start",
   },
   {
+    slug: "website-builder",
+    title: "Using the website builder",
+    nav: "Using the builder",
+    description:
+      "Every part of the Storelib website builder: the top bar, the sidebar, each section setting and control, every theme setting with its default, the canvas, Ask AI, the code editor, Website settings and publishing.",
+    group: "Start",
+  },
+  {
     slug: "sections",
     title: "Sections",
     nav: "Sections",
@@ -102,7 +110,7 @@ export const DEV_PAGES: readonly DevPage[] = [
     title: "Building with AI agents",
     nav: "AI agents",
     description:
-      "Instructions for Claude Code, Codex, ChatGPT, Cursor and other AI agents writing Storelib sections, including the exact brief the builder's own AI is given.",
+      "Connecting Claude Code or Codex to a Storelib site through GitHub or directly, and instructions for any AI agent writing Storelib sections, including the exact brief the builder's own AI is given.",
     group: "Build",
   },
   {

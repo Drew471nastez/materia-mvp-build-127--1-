@@ -5,6 +5,7 @@
 import type { DocNode } from "@/lib/developers/markdown"
 import { CodeBlock } from "./code-block"
 import { Inline } from "./inline"
+import { SchemeSwatches, Specimens } from "./specimens"
 
 function Heading({ level, id, text }: { level: 1 | 2 | 3; id: string; text: string }) {
   if (level === 1) {
@@ -108,6 +109,10 @@ export function DocContent({ nodes }: { nodes: DocNode[] }) {
                 </div>
               </details>
             )
+          case "specimens":
+            return <Specimens key={i} items={n.items} />
+          case "schemes":
+            return <SchemeSwatches key={i} schemes={n.schemes} />
           default:
             return null
         }

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react"
 import { createClient } from "@/lib/supabase/client"
+import { Switch } from "@/components/ui/switch"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import {
@@ -866,10 +867,14 @@ export default function EmailsPage() {
 
     loadData()
     toast({
-      title: newStatus === "active" ? "Flow activated" : "Flow paused",
+      title: newStatus === "active" ? "On" : "Off",
       description: newStatus === "active"
-        ? "This flow will now send emails automatically"
-        : "This flow has been paused",
+        ? flow.trigger_type === "new_subscriber"
+          ? "Everyone who joins your list from now on gets this email."
+          : "This email now sends after every purchase."
+        : flow.trigger_type === "new_subscriber"
+          ? "No welcome email is sent. Sign-ups are still collected."
+          : "No email is sent after a purchase.",
     })
   }
 
@@ -889,7 +894,11 @@ export default function EmailsPage() {
           description: flowData.description,
           steps: flowData.steps,
           trigger_config: flowData.trigger_config,
-          status: "active",
+          /**
+           * NOT `status`. Saving used to switch an automation on, so writing
+           * a welcome email to look at later started sending it to every new
+           * subscriber. Whether it sends is the switch, and only the switch.
+           */
           updated_at: new Date().toISOString(),
         })
         .eq("id", editingFlow.id)
@@ -897,12 +906,16 @@ export default function EmailsPage() {
       if (error) throw error
 
       // Reset unsaved changes state after successful save
-      const updatedFlow = { ...editingFlow, ...flowData, status: "active" as const }
+      const updatedFlow = { ...editingFlow, ...flowData, status: editingFlow.status }
       setInitialFlowState(JSON.stringify(updatedFlow))
       setFlowHasUnsavedChanges(false)
 
       // Show smooth notification at top of screen
-      setFlowSaveNotificationMessage("Flow is active and running")
+      setFlowSaveNotificationMessage(
+        editingFlow.status === "active"
+          ? "Saved. It is on and sends automatically."
+          : "Saved. It is off: turn it on when you want it to send.",
+      )
       setShowFlowSaveNotification(true)
       setTimeout(() => setShowFlowSaveNotification(false), 5000)
 
@@ -1531,28 +1544,16 @@ export default function EmailsPage() {
                   <Mail className="h-4 w-4 mr-2" />
                   Send Test
                 </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => handleToggleFlowStatus(editingFlow)}
-                  className={cn(
-                    "h-10 px-4 rounded-xl cursor-pointer",
-                    editingFlow.status === "active"
-                      ? "bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200"
-                      : "border-gray-200 text-gray-600 hover:bg-gray-50"
-                  )}
-                >
-                  {editingFlow.status === "active" ? (
-                    <>
-                      <Pause className="h-4 w-4 mr-2" />
-                      Pause
-                    </>
-                  ) : (
-                    <>
-                      <Play className="h-4 w-4 mr-2" />
-                      Activate
-                    </>
-                  )}
-                </Button>
+                {/* Whether it sends. Off until the creator turns it on, and
+                    saving never changes it: see handleSaveFlow. */}
+                <label className="flex h-10 cursor-pointer items-center gap-2.5 rounded-xl border border-gray-200 bg-white px-3.5 text-[14px] text-gray-700">
+                  <Switch
+                    checked={editingFlow.status === "active"}
+                    onCheckedChange={() => handleToggleFlowStatus(editingFlow)}
+                    aria-label="Send automatically"
+                  />
+                  {editingFlow.status === "active" ? "On" : "Off"}
+                </label>
                 <Button onClick={() => handleSaveFlow(editingFlow)} disabled={isFlowSaving} className="h-10 px-5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
                   {isFlowSaving ? (
                     <>
@@ -1560,7 +1561,7 @@ export default function EmailsPage() {
                       Saving...
                     </>
                   ) : (
-                    "Save Flow"
+                    "Save"
                   )}
                 </Button>
               </div>
@@ -2872,8 +2873,8 @@ Tips:
                 </div>
                 <h3 className="font-semibold text-[#1a1a2e] mb-2">No automations yet</h3>
                 <p className="text-[13px] text-[#6b7280] max-w-sm mx-auto mb-6">
-                  A welcome email goes to everyone who joins your list, from any sign-up box on your site.
-                  Write it once and it sends on its own.
+                  Write a welcome email and turn it on, and it goes to everyone who joins your list. It is off
+                  until you do. Sign-ups are collected either way.
                 </p>
                 <Button
                   onClick={() => setShowCreateFlowDialog(true)}
@@ -2919,18 +2920,18 @@ Tips:
                             <DropdownMenuContent align="end" className="rounded-xl">
                               <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleEditFlow(flow); }}>
                                 <Settings className="h-4 w-4 mr-2" />
-                                Edit Flow
+                                Edit
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleToggleFlowStatus(flow); }}>
                                 {flow.status === "active" ? (
                                   <>
                                     <Pause className="h-4 w-4 mr-2" />
-                                    Pause
+                                    Turn off
                                   </>
                                 ) : (
                                   <>
                                     <Play className="h-4 w-4 mr-2" />
-                                    Activate
+                                    Turn on
                                   </>
                                 )}
                               </DropdownMenuItem>
@@ -2960,17 +2961,17 @@ Tips:
                             </>
                           )}
                         </div>
-                        <span className={cn(
-                          "inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[11px] font-medium",
-                          flow.status === "active"
-                            ? "bg-green-100 text-green-700"
-                            : flow.status === "paused"
-                              ? "bg-amber-100 text-amber-700"
-                              : "bg-gray-100 text-gray-600"
-                        )}>
-                          {flow.status === "active" && <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />}
-                          {flow.status.charAt(0).toUpperCase() + flow.status.slice(1)}
-                        </span>
+                        <label
+                          className="flex cursor-pointer items-center gap-2 text-[12px] font-medium text-[#1a1a2e]"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {flow.status === "active" ? "On" : "Off"}
+                          <Switch
+                            checked={flow.status === "active"}
+                            onCheckedChange={() => handleToggleFlowStatus(flow)}
+                            aria-label={`Send ${flow.name} automatically`}
+                          />
+                        </label>
                       </div>
                     </div>
                   )

@@ -1,0 +1,214 @@
+# Using the website builder
+
+Every part of the Storelib website builder: what each button, panel and setting is, what it changes, and where it lives. The settings on this page are drawn from the same lists the builder reads, with their defaults, so what you see here is what you see in the editor.
+
+The builder opens from **Websites** in your dashboard. Pick a website and press **Edit website**.
+
+## The screen
+
+| Part | Where | What it is for |
+| --- | --- | --- |
+| Top bar | Across the top | Leaving, switching page, desktop or phone preview, the inspector, Ask AI, and Publish. |
+| Sidebar | Left, on a computer. A sheet at the bottom, on a phone | The sections of the page, the pages of the site, and General Settings. |
+| Canvas | The middle | The page, drawn by the same renderer your visitors get. Click a section to edit it. |
+| Ask AI | Between the sidebar and the canvas, when open | Describe a change, or a new section, and it is made. |
+
+A window narrower than 768px is treated as a phone: the preview is the phone preview and the sidebar becomes a sheet with three tabs, **Sections**, **Pages** and **Settings**.
+
+## The top bar
+
+From left to right on a computer:
+
+| Control | What it does |
+| --- | --- |
+| Exit | Back to your websites. If a save is still going or a code file is unsaved, it asks first: **Stay here** or **Leave anyway**. |
+| Sections, Pages, General Settings | Switch what the sidebar shows. |
+| Website name and green dot | The dot means the website is published. |
+| **…** menu | View code, Theme settings, Website settings, GitHub and AI agents, Undo, Redo, View live site, Back to Dashboard. On a phone this is also how you reach Code and Website settings. |
+| Preview, Code, Website Settings | Three ways of looking at the project. Code opens the code editor over the canvas. |
+| Desktop or phone | One button that switches the canvas between the full width and a 390px phone. |
+| Page switcher | Which page you are editing. See [Pages](#pages). |
+| Open the live page | The page you are on, on the live site, in a new tab. |
+| Undo and Redo | 30 steps. Typing in a box counts as one step. Changing page starts a fresh history. |
+| Inspector | On: click a section in the canvas to select it. Off: the canvas is a plain preview you can click through. |
+| GitHub | Opens Website settings on Connections, where Claude Code, Codex and a GitHub repository connect. |
+| Ask AI | Opens and closes the AI panel. |
+| Publish, or Save | See [Saving and publishing](#saving-and-publishing). |
+
+Shortcuts: **⌘Z** or **Ctrl+Z** undoes, **⌘⇧Z**, **⌘Y** or **Ctrl+Y** redoes. In the code editor, **⌘S** or **Ctrl+S** saves.
+
+## The sidebar
+
+### Sections
+
+The page's sections, top to bottom.
+
+- **The header and footer** sit in their own boxes at the top and bottom. They are the same on every page: change them on one and every page changes. They can be hidden with the eye, but not moved, copied or deleted.
+- **Every other section** has a grip to drag it up or down (press and hold on a phone, or use the arrow keys), and a **…** menu with **Duplicate**, **Hide** or **Show**, and **Delete**. Right-clicking the row opens the same menu.
+- A hidden section is drawn faded in the list and is left out of the page. Delete takes effect at once; Undo brings it back.
+- A thin line between two rows shows a **+** under the pointer: press it to add a section at exactly that point.
+- **Add section**, at the end of the list on a computer and the start on a phone, adds a section above the footer.
+
+### Adding a section
+
+**Add section** opens the library: a search box, the categories down the side, and a card for each section drawn small with its real content. Sections you or Ask AI coded are under **Created by you**. Pick one and it is placed, selected and scrolled to.
+
+The library's categories are Hero, Products, Features, Content, Social Proof, CTA, Media, About, FAQ and Marketing.
+
+### Blocks
+
+Some sections hold repeated items: questions in an FAQ, columns in a footer, slides in a gallery. These are blocks, listed under the section's settings. Each block can be moved up or down, duplicated, deleted, and opened to edit its own settings. **Add** adds another until the section's limit, and clicking a block in the canvas opens it in the list.
+
+### Pages
+
+**Pages** lists the website's pages: Home, About, Contact, Shop and Search, the pages you made, and a product page for each product. The switcher in the top bar does the same with a search box, and **Create page** asks for a title and makes a page at an address taken from it. A new page starts with the header and footer and nothing between.
+
+Every website comes with a Refund Policy, a Privacy Policy and Terms of Service page. Edit them like any other page before you publish.
+
+## A section's settings
+
+Click a section, in the canvas or the list, and its settings open in the sidebar.
+
+- **Colour scheme** comes first: pick one of the website's schemes and every colour in the section follows it. **Advanced colors** overrides single colours (background, text, heading, accent, border, and the two buttons) for this section only. **Reset to scheme** undoes that.
+- **Text** picks the heading and body styles from General Settings, or **Custom** to set font, weight, size per screen, line height, letter spacing and case for this section.
+- **The section's own settings** follow, in the order its file declares them, each with its help text.
+- **Blocks**, if it has any.
+- **Hide**, **Duplicate** and **Delete** are pinned along the bottom.
+
+With the inspector on, a selected section also shows a small toolbar at its top right: Ask AI, Move up, Move down, Duplicate, Hide and Delete.
+
+### Every control a section can have
+
+A section declares its settings in its schema, and each type is drawn as one control. This is every type, drawn as the builder draws it. To write one, see [Schema](/developers/schema).
+
+@[builder-controls]
+
+### The header's own panel
+
+The header has a panel of its own, in three parts.
+
+- **Store Logo**: the logo, its height, a nudge left or right, and a separate logo and height for phones.
+- **Navigation Links**: up to eight links, each with a label, where it goes, and whether it opens in a new tab. Drag to reorder. Each link can hold one level of sub-links.
+- **Header Settings**: the layout on a computer (logo left, nav inline, nav centred, or logo centred) and on a phone; the colour scheme; how menu links react to the pointer; width and spacing; sticky and transparent behaviour; a bottom border and shadow; which icons show (search, account, wishlist, cart); and an optional button with its own text and link.
+
+## General Settings
+
+The settings that belong to the whole website. Open them with the gear in the top bar, or **Settings** on a phone.
+
+### Colors
+
+Every section picks one **colour scheme**. Change a scheme here and every section using it changes with it. A website starts with five:
+
+@[builder-schemes]
+
+Pick a scheme to edit it: its name, whether new sections start on it, and its seventeen colours in five groups (surface, text, primary button, secondary button, inputs). If a pair of colours is hard to read, it says so and by how much. A scheme can also lay a gradient over its background. **Add scheme** makes another; a scheme you made can be deleted, and the sections on it move to another.
+
+**Page colors**, under Colors, are the colours of the page itself, behind and between sections:
+
+@[theme-settings:colors]
+
+### Branding
+
+The store's name, logo and its height, an optional smaller logo for phones, the favicon and a tagline. The logo is kept in step with the header's Store Logo: change it in either place.
+
+@[theme-settings:branding]
+
+### Typography
+
+Three fonts, and nine text styles every section uses unless it sets its own.
+
+@[theme-settings:typography]
+
+The text styles, with their defaults. Each can be changed: font, weight, a size for desktop, tablet and phone, line height, letter spacing and case. A dot marks a style you changed, and **Reset style** puts it back.
+
+@[builder-type-styles]
+
+### Buttons
+
+@[theme-settings:buttons]
+
+### Layout
+
+@[theme-settings:layout]
+
+### Animations
+
+@[theme-settings:animations]
+
+### Announcement bar
+
+@[theme-settings:announcement]
+
+### Social links
+
+@[theme-settings:social]
+
+### Shipping
+
+@[theme-settings:cart]
+
+### SEO
+
+@[theme-settings:seo]
+
+### Cookie and privacy
+
+@[theme-settings:cookies]
+
+## The canvas
+
+The canvas is your page, drawn the way a visitor sees it.
+
+**With the inspector on**, a section shows a faint ring under the pointer and a solid one when selected. Clicking selects a section, or a block inside it. Clicking into a form field lets you type in it rather than selecting the section. Hovering the gap between two sections shows **Add a section here**.
+
+**With the inspector off**, the canvas is a plain preview: links inside the website open that page in the builder.
+
+Either way, the builder never leaves itself:
+
+- A link to a page of the website opens that page in the builder. A link to a page that does not exist yet offers **Create this page**.
+- Links to other websites, email links and phone links do nothing.
+- Forms do not submit, and nothing can be bought. A sign-up box in the canvas does not subscribe anyone.
+
+A section that fails to draw says so in its place, with the error and **Try again**. The rest of the page is unaffected.
+
+## Ask AI
+
+Ask AI has two modes.
+
+- **Change this page**: describe a change and it is made with the same sections, blocks and settings the panels use. It is one step of Undo, and nothing is saved until the builder saves. Select a section first and it can be limited to that one.
+- **Code a section**: describe a section the library does not have. It is written as a section file, compiled, and only kept if it compiles. While it is being written, the spot it will fill shows code being typed, and the finished section takes its place.
+
+You can attach up to four pictures (PNG, JPEG, WebP or GIF) of something you want built. Pressing Enter while it is working queues the next request.
+
+## The code editor
+
+**Code**, in the top bar, opens every file of the website's theme: the section files, the templates, the settings, the styles and the scripts. The list marks files you changed in blue and unsaved ones in amber.
+
+- **Save** (or ⌘S) compiles a section file first. If it does not compile, nothing is saved, and each error is listed with its line; press one to jump to it, or **Solve with AI**.
+- A save is a draft: the live website changes when you publish.
+- **History** lists every save of a file; open any of them to bring it back.
+- **Revert** puts a theme file back to how the theme shipped it. Your own files can be renamed, duplicated and deleted; the editor warns first if a page uses the section.
+- Unsaved edits are kept in the browser, and offered back when you return.
+
+The language section files are written in is the [Storelib Builder Framework](/developers/sections).
+
+## Website settings
+
+**Website Settings**, in the top bar, is a page of its own:
+
+| Page | What is there |
+| --- | --- |
+| General | The website's name. |
+| Domains & Hosting | The website's address, to copy or open. |
+| Policies | The refund, privacy and terms pages, each with **Edit**. |
+| Publishing | Whether the website is live, and when it was last published. |
+| Backups | A backup is kept every time you publish and every time Ask AI finishes. **Back up now** makes one, **Load** restores one (after saving the current draft as a backup first). The newest 30 are kept. |
+| Connections | GitHub, and a direct connection for Claude Code or Codex. See [Building with AI agents](/developers/ai). |
+
+## Saving and publishing
+
+- Every change is saved as a **draft** a moment after you make it. There is no save button to remember while editing.
+- The live website does not change until you **Publish**. On a website that is live, the button in the top bar says Publish, with a bright dot when the draft is ahead of the live site.
+- The Publish panel shows the website's address, when it was last published, and **Preview**, which makes a private link that shows the draft to anyone you send it to.
+- Publishing makes every page's draft, the theme settings and the saved code files live at once, and keeps a backup.
+- A website that has never been published has a **Save** button instead, since there is nothing live to update yet.

@@ -51,6 +51,11 @@ const PROOFS: [string, RegExp][] = [
   /* An agent connected to one site: its token, hashed, looked up, revocable.
      See lib/agent-access/tokens.ts. */
   ["a site connection token", /await authenticateAgent\(request\)/],
+  /* The signed-in creator's own site: lib/github-sync/own-install.ts reads
+     the session with auth.getUser() and the install by creator. */
+  ["the signed-in creator's own site", /await ownInstall\(/],
+  /* GitHub's HMAC over the exact body, checked before the body is parsed. */
+  ["GitHub's signature on the payload", /verifySignature\(raw, req\.headers\.get\("x-hub-signature-256"\)/],
 ]
 
 /**

@@ -309,6 +309,10 @@ export const translations = {
 
     // Dashboard
     "dashboard.welcome": "Welcome back",
+    "dashboard.greeting.morning": "Good morning",
+    "dashboard.greeting.afternoon": "Good afternoon",
+    "dashboard.greeting.evening": "Good evening",
+    "dashboard.greeting.night": "Good night",
     "dashboard.subtitle": "Here's what's happening with your store",
     "dashboard.views": "Views",
     "dashboard.orders": "Orders",

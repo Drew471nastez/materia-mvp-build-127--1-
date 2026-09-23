@@ -57,6 +57,7 @@ import { PageSwitcher } from "@/components/website-builder/page-switcher"
 import { PublishPanel } from "@/components/website-builder/publish-panel"
 import { PreviewModeSwitch, CodePane, type PreviewMode } from "@/components/website-builder/preview-mode-switch"
 import { ProjectSettings } from "@/components/website-builder/project-settings"
+import { GitHubMark } from "@/components/website-builder/github-sync-panel"
 import { createClient } from "@/lib/supabase/client"
 import { GradientEditor } from "@/components/website-builder/editor/gradient-editor"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
@@ -3448,6 +3449,34 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     if (v === "code" || v === "settings") setPreviewMode(v)
   }, [])
   const [projectSettingsOpen, setProjectSettingsOpen] = useState(false)
+  /** Website settings opened straight on Connections, and what GitHub said. */
+  const [settingsSection, setSettingsSection] = useState<"agents" | null>(null)
+  const [githubReturned, setGithubReturned] = useState<string | null>(null)
+  /**
+   * BACK FROM GITHUB. /api/github/setup sends the creator here with
+   * ?settings=connections&github=<result>. Open Connections so they can pick
+   * the repository, and take the two words off the address so a reload does
+   * not open it again.
+   */
+  useEffect(() => {
+    const url = new URL(window.location.href)
+    if (url.searchParams.get("settings") !== "connections") return
+    setGithubReturned(url.searchParams.get("github"))
+    setSettingsSection("agents")
+    setPreviewMode("settings")
+    setProjectSettingsOpen(true)
+    url.searchParams.delete("settings")
+    url.searchParams.delete("github")
+    window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  const openConnections = () => {
+    setSettingsSection("agents")
+    setPreviewMode("settings")
+    setProjectSettingsOpen(true)
+    setMobileSidebarOpen(false)
+    setAiOpen(false)
+  }
 
   /**
    * A backup after every task Storelib AI completes, labelled with what was
@@ -5595,7 +5624,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    *  SECTIONS A CONNECTED AGENT WRITES
    * =========================================================================
    * Claude Code, Codex or another agent connected under Website settings ›
-   * AI agents saves section files through app/api/mcp. It cannot place them
+   * Connections saves section files through app/api/mcp, or pushes them to a
+   * linked GitHub repository (app/api/github/webhook). Either way it cannot place them
    * on a page itself: the page's sections are this editor's, and a server
    * write under an open editor would be overwritten by its next autosave.
    *
@@ -7234,6 +7264,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 },
               },
               {
+                label: "GitHub and AI agents",
+                icon: <GitHubMark className="h-4 w-4" />,
+                onClick: openConnections,
+              },
+              {
                 label: "Undo",
                 icon: <Undo2 className="h-4 w-4" />,
                 onClick: handleUndo,
@@ -7413,6 +7448,22 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             </TooltipContent>
           </Tooltip>
 
+          {/* GitHub: where Claude Code, Codex and a repository connect. */}
+          {!isMobileView && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  className="h-8 w-8 flex items-center justify-center rounded-lg text-[var(--wb-chrome-fg-2)] hover:bg-[var(--wb-chrome-hover)] hover:text-[var(--wb-chrome-fg)] transition-colors shrink-0 active:scale-90"
+                  onClick={openConnections}
+                  aria-label="GitHub and AI agents"
+                >
+                  <GitHubMark className="h-4 w-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">GitHub and AI agents</TooltipContent>
+            </Tooltip>
+          )}
+
           {/* Ask AI */}
           <Tooltip>
             <TooltipTrigger asChild>
@@ -7517,8 +7568,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         open={projectSettingsOpen}
         onClose={() => {
           setProjectSettingsOpen(false)
+          setSettingsSection(null)
+          setGithubReturned(null)
           setPreviewMode("preview")
         }}
+        initialSection={settingsSection}
+        githubReturned={githubReturned}
         installId={installId}
         name={install?.name ?? ""}
         onRenamed={(name) => setInstall((cur) => (cur ? { ...cur, name } : cur))}
@@ -8996,6 +9051,18 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
            */
           onClick: inspectorEnabled
             ? (e: React.MouseEvent<HTMLElement>) => {
+                /**
+                 * A PRESS ON A FIELD IS FOR TYPING, NOT FOR SELECTING.
+                 *
+                 * An email box in a section could not be typed into with the
+                 * inspector on: the press focused it, and the click then
+                 * selected its section, which on a phone opens the settings
+                 * sheet over the canvas and takes the focus and the keyboard
+                 * with it. A field, or the label that points at one, now
+                 * keeps its press; anywhere else in the section selects it.
+                 */
+                const target = e.target as HTMLElement | null
+                if (isTypingTarget(target as unknown as ClickTargetLike) || target?.closest?.("label")) return
                 const hit = (e.target as HTMLElement | null)?.closest?.("[data-block-id]")
                 const id = hit?.getAttribute("data-block-id") ?? null
                 onSelectSection(section.id, id)

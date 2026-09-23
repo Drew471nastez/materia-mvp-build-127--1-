@@ -319,7 +319,11 @@ export function ProductSection({ section, theme, isEditing, isSelected, onClick 
               disabled={isEditing || !productId}
               onClick={e => {
                 e.stopPropagation()
-                if (isEditing || !productId) return
+                /* NOT IN THE BUILDER. With the inspector off the canvas is a
+                   preview you can click through, and this went straight to
+                   /checkout, out of the editor. Links and forms are caught by
+                   the canvas; a script navigation is not, so it is caught here. */
+                if (isEditing || storefront.inEditor === true || !productId) return
                 const slug = str((productData?.slug as unknown) ?? "", "")
                 const from = slug ? `&from=${encodeURIComponent(`/products/${slug}`)}` : ""
                 /* `src=website` is how the order ends up in the Orders
