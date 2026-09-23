@@ -99,6 +99,7 @@ const PUBLIC_BY_DESIGN: Record<string, string> = {
   "subscribe/route.ts": "a visitor subscribing to a creator from a public page",
   "subscribers/route.ts": "the same, from the storefront",
   "website-builder/subscribe/route.ts": "the same, from a built site",
+  "newsletter/route.ts": "a visitor asking Storelib itself for news from the storelib.com footer; rate limited, and it tells the caller nothing about the list",
   "onepage/email-capture/route.ts": "a visitor leaving their email on a public page",
   "track-view/route.ts": "increments a view counter",
   "track-event/route.ts": "records an anonymous event",

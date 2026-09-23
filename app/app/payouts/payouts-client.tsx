@@ -1073,7 +1073,7 @@ function WithdrawPanel({
 
       {/* Mobile Earnings Breakdown bottom sheet — rendered separately for smooth animation */}
       {breakdownVisible && (
-        <div className="fixed inset-0 z-[80] sm:hidden">
+        <div data-app-sheet="open" className="fixed inset-0 z-[80] sm:hidden">
           <div
             className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
             style={{
@@ -1313,7 +1313,7 @@ function WithdrawPanel({
 
       {/* Mobile See Details bottom sheet — rendered separately for smooth animation */}
       {detailsVisible && (
-        <div className="fixed inset-0 z-[90] sm:hidden">
+        <div data-app-sheet="open" className="fixed inset-0 z-[90] sm:hidden">
           <div
             className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
             style={{
@@ -2471,7 +2471,7 @@ function OrderDetailsModal({
       </div>
 
       {/* ── Mobile Bottom Sheet ── */}
-      <div className="fixed inset-0 z-50 sm:hidden">
+      <div data-app-sheet="open" className="fixed inset-0 z-[80] sm:hidden">
         <div
           className="absolute inset-0 bg-black/50 backdrop-blur-[2px]"
           style={{
@@ -2686,7 +2686,7 @@ function OrderDetailsModal({
 
       {/* Mobile refund bottom sheet — separate block for smooth slide animation */}
       {refundSheetVisible && (
-        <div className="fixed inset-0 z-[60] sm:hidden">
+        <div data-app-sheet="open" className="fixed inset-0 z-[80] sm:hidden">
           <div
             className="absolute inset-0 bg-black/50 backdrop-blur-[2px]"
             style={{

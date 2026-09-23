@@ -352,7 +352,7 @@ function MobileBottomSheet({
   if (!isVisible) return null
 
   return (
-    <div className="fixed inset-0 z-[100]" style={{ touchAction: "none" }}>
+    <div data-app-sheet="open" className="fixed inset-0 z-[100]" style={{ touchAction: "none" }}>
       <div
         ref={overlayRef}
         className={`absolute inset-0 bg-black/50 backdrop-blur-[2px] transition-opacity duration-400 ${
@@ -678,7 +678,7 @@ function ImageCropModal({
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-[100]">
+    <div data-app-sheet="open" className="fixed inset-0 z-[100]">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px]" onClick={onClose} />
       <div className="fixed inset-0 flex items-center justify-center p-4">
         <div className="relative bg-white rounded-2xl w-full max-w-md shadow-xl overflow-hidden">
@@ -809,7 +809,7 @@ function ImageUploadModal({
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-[100]">
+    <div data-app-sheet="open" className="fixed inset-0 z-[100]">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px]" onClick={onClose} />
       <div className="fixed inset-0 flex items-center justify-center p-4">
         <div className="relative bg-white rounded-2xl w-full max-w-md shadow-xl overflow-hidden">

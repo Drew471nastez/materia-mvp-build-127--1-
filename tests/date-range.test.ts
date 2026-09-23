@@ -198,6 +198,25 @@ function main() {
     /<PopoverContent/.test(picker) && /<BottomSheet/.test(picker) && /if \(inline\)/.test(picker))
   check("nothing changes on the page until Apply", /onApply=\{\(v\) => \{\s*setOpen\(false\)\s*onChange\(v\)/.test(picker))
   check("days can be walked with the arrow keys", /ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7/.test(picker))
+  check("the month arrows are raised keys, and the months slide in from the side they were asked for",
+    /const monthNav =/.test(picker) && /drp-slide-next/.test(picker) && /drp-slide-prev/.test(picker)
+      && /@keyframes drp-in-next/.test(read("app/globals.css")) && /prefers-reduced-motion: reduce\) \{\s*\.drp-slide-next/.test(read("app/globals.css")))
+  check("a sideways swipe across the days turns the month on a phone", /Math\.abs\(dx\) < 44 \|\| Math\.abs\(dx\) < Math\.abs\(dy\) \* 1\.5/.test(picker))
+  check("a picked day settles into place", /drp-day-edge/.test(picker) && /@keyframes drp-settle/.test(read("app/globals.css")))
+  {
+    const css = read("app/globals.css")
+    check("every sheet on a phone goes over the nav pill",
+      /html:has\(\[data-app-sheet="open"\]\) \[data-app-nav-pill\],\s*\n\s*html:has\(\[role="dialog"\]\[aria-modal="true"\]:not\(\[data-mobile-menu\]\)\) \[data-app-nav-pill\],\s*\n\s*html:has\(body\[data-scroll-locked\]\) \[data-app-nav-pill\] \{\s*\n\s*z-index: 0;/.test(css))
+    const sheets: [string, number][] = [
+      ["app/app/payouts/payouts-client.tsx", 4],
+      ["components/app/settings-form-new.tsx", 3],
+      ["components/app/billing/billing-page-client.tsx", 1],
+    ]
+    check("and the sheets pages draw for themselves say when they are open",
+      sheets.every(([f, n]) => (read(f).match(/data-app-sheet="open"/g) ?? []).length === n)
+        && /data-app-sheet=\{isVisible \? "open" : undefined\}/.test(read("components/app/dashboard-client.tsx"))
+        && /data-app-sheet=\{isVisible \? "open" : undefined\}/.test(read("components/app/notifications-modal.tsx")))
+  }
   check("the old one-off modal is gone", !/date-range-picker-modal/.test(read("app/app/analytics/analytics-client.tsx")))
   check("the revenue chart's 30 days is 30 days, not 365", /case "30": \{\s*\/\* This fell through to 365 days\. \*\/\s*const start = new Date\(now\)\s*start\.setUTCDate\(start\.getUTCDate\(\) - 30\)/.test(read("app/api/stripe/revenue-chart/route.ts")))
 

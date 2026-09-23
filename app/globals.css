@@ -2658,6 +2658,28 @@ html.capacitor .app-content-scroll {
     opacity: 0;
     pointer-events: none;
   }
+
+  /* ── A sheet goes OVER the pill, every sheet ────────────────────────────
+   *
+   * "All the mobile bottom sheets across /app should overlap the nav pill."
+   * The shared BottomSheet is portaled at z-200 and always did; the sheets a
+   * page draws for itself live inside the page, at whatever layer the page
+   * gave them, and several came up under the pill. Rather than a z-index
+   * race page by page, the pill steps down to layer 0 while anything modal
+   * is open. It is before <main> in the document, so at an equal layer every
+   * positioned thing in the page (a sheet, its scrim) paints over it, and it
+   * is still drawn over the page's ordinary content until the scrim arrives,
+   * so nothing blinks.
+   *
+   * What counts as open: a sheet that says so ([data-app-sheet="open"]), any
+   * fixed modal dialog except the pill's own menu page, and Radix's scroll
+   * lock on <body>, which every Dialog, AlertDialog and Sheet sets.
+   * ────────────────────────────────────────────────────────────────────── */
+  html:has([data-app-sheet="open"]) [data-app-nav-pill],
+  html:has([role="dialog"][aria-modal="true"]:not([data-mobile-menu])) [data-app-nav-pill],
+  html:has(body[data-scroll-locked]) [data-app-nav-pill] {
+    z-index: 0;
+  }
 }
 
 /* ── Prevent text selection & copy in /app dashboard and analytics ────────
@@ -4385,18 +4407,59 @@ html.pop-in-flight #platform-header-root {
  * whole top of the footer and read as a gradient; this is the edge only.
  * components/marketing/footer.tsx.
  */
+/* The storelib.com footer: near-black with depth. A lit top edge, a faint
+   light falling from above the middle, and a floor that goes darker still,
+   so it reads as a surface with a front edge rather than a flat block. The
+   field sits into it (inner shadow, lit bottom lip); the button sits on it. */
 .storelib-footer {
-  background-color: #09090b;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  background-color: #050506;
+  background-image:
+    radial-gradient(ellipse 70% 55% at 50% -10%, rgba(255, 255, 255, 0.075), transparent 70%),
+    radial-gradient(ellipse 40% 40% at 8% 0%, rgba(139, 92, 246, 0.08), transparent 70%),
+    linear-gradient(180deg, #0e0e11 0%, #070708 45%, #020203 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 24px 48px -32px rgba(255, 255, 255, 0.06);
 }
 .storelib-footer::before {
   content: "";
   position: absolute;
   inset: 0 0 auto 0;
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1) 50%, transparent);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.22) 50%, transparent);
   pointer-events: none;
   z-index: -1;
+}
+.storelib-footer-field {
+  background: linear-gradient(180deg, #0b0b0d 0%, #151518 100%);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow:
+    inset 0 2px 6px rgba(0, 0, 0, 0.75),
+    inset 0 1px 1px rgba(0, 0, 0, 0.6),
+    0 1px 0 rgba(255, 255, 255, 0.06);
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+.storelib-footer-field:focus {
+  border-color: rgba(167, 139, 250, 0.7);
+  box-shadow:
+    inset 0 2px 6px rgba(0, 0, 0, 0.75),
+    0 0 0 3px rgba(139, 92, 246, 0.22),
+    0 1px 0 rgba(255, 255, 255, 0.06);
+}
+.storelib-footer-cta {
+  background-color: #7c3aed;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.25),
+    0 8px 20px -8px rgba(124, 58, 237, 0.75),
+    0 1px 2px rgba(0, 0, 0, 0.5);
+  transition: background-color 150ms ease, transform 120ms ease;
+}
+.storelib-footer-cta:hover {
+  background-color: #6d28d9;
+}
+.storelib-footer-cta:active {
+  transform: translateY(1px);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -4618,4 +4681,26 @@ html.pop-in-flight #platform-header-root {
   .checkout-paid-text { animation: none; }
   .checkout-paid-ring,
   .checkout-paid-check { animation: none; stroke-dashoffset: 0; }
+
+/* ── The date picker's months and days (components/app/date-range-picker) ──
+   A month arrives from the side it was asked for; a picked day settles into
+   place. Transform and opacity only, so it runs on the compositor. */
+@keyframes drp-in-next {
+  from { opacity: 0; transform: translateX(18px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes drp-in-prev {
+  from { opacity: 0; transform: translateX(-18px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes drp-settle {
+  0% { transform: scale(0.86); }
+  60% { transform: scale(1.04); }
+  100% { transform: scale(1); }
+}
+.drp-slide-next { animation: drp-in-next 240ms cubic-bezier(0.22, 0.61, 0.36, 1) both; }
+.drp-slide-prev { animation: drp-in-prev 240ms cubic-bezier(0.22, 0.61, 0.36, 1) both; }
+.drp-day-edge { animation: drp-settle 220ms cubic-bezier(0.22, 0.61, 0.36, 1); }
+@media (prefers-reduced-motion: reduce) {
+  .drp-slide-next, .drp-slide-prev, .drp-day-edge { animation: none; }
 }

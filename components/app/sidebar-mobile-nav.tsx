@@ -613,16 +613,24 @@ const GLASS: React.CSSProperties = {
     more whitish" took it the last step from 90.
   */
   backgroundColor: "rgba(255,255,255,0.93)",
-  backdropFilter: "blur(24px) saturate(120%)",
-  WebkitBackdropFilter: "blur(24px) saturate(120%)",
+  /* 25px: 5% more than the 24 it was, asked for "just 5% more" around it. */
+  backdropFilter: "blur(25px) saturate(120%)",
+  WebkitBackdropFilter: "blur(25px) saturate(120%)",
   boxShadow:
     "0 1px 2px rgba(16,18,27,0.06), 0 4px 10px rgba(16,18,27,0.07), 0 14px 30px rgba(16,18,27,0.14)," +
     " inset 0 0 0 0.5px rgba(255,255,255,0.65), inset 0 0.5px 0 rgba(255,255,255,0.9)",
 }
 
-/** A little bigger again, as asked: 54 with 50px slots before this. */
-const BAR_H = 58
-const SLOT = 53
+/** A little bigger again, as asked: 58 with 53px slots before this, and 3% on top. */
+const BAR_H = 60
+const SLOT = 55
+/**
+ * The glyphs stay at 22 inside the bigger bar. At 23 the solid and the outline
+ * round to different device pixels and the icon measurably shrinks as it
+ * fills (scripts/check-app-mobile-nav.mjs: -2 x -1 at 2x); FILL_MATCH is
+ * measured at 22.
+ */
+const GLYPH = 22
 const PAD = 4
 /** The selector is a CIRCLE, so it is as wide as it is tall. */
 const DOT = BAR_H - PAD * 2
@@ -727,7 +735,7 @@ const GAP = 8
 const HALO_LAYERS = 12
 const HALO_STEP = 3
 /** The strongest layer's blur; the outermost carries this over HALO_LAYERS². */
-const HALO_BLUR = 0.45
+const HALO_BLUR = 0.47
 const haloBlur = (i: number) => Math.round(HALO_BLUR * ((i + 1) / HALO_LAYERS) ** 2 * 1000) / 1000
 /** How far the halo reaches: above the bar, past the bottom of the screen,
     and past each side of it. The display crops the last two. */
@@ -811,8 +819,27 @@ export const pillBelongsOn = (pathname: string): boolean =>
  * (`translate`, `scale`) so the lift can keep its own easing under the
  * finger while the position has none.
  */
-const FOLLOW = 0.6
-const SETTLE = `translate 420ms cubic-bezier(0.32, 1.24, 0.44, 1)`
+const FOLLOW = 0.72
+/**
+ * AND IT LANDS WHERE IT IS GOING. The spring used to carry it 24% past the
+ * slot and back, which is lively but reads as not quite knowing where the
+ * icon is: "landing accurately". A tenth over is enough to feel it arrive.
+ */
+const SETTLE = `translate 380ms cubic-bezier(0.3, 1.12, 0.42, 1)`
+/**
+ * LIQUID, AND DRAWN TOWARDS THE ICONS.
+ *
+ * Under a finger the lens is pulled a little towards the centre of the slot
+ * the finger is over (MAGNET of the way), so it always reads as being ON
+ * something rather than floating between two, and the slot it will land in
+ * is the one it is already leaning into. And it stretches along the way it
+ * is moving, by how fast it is moving, and rounds off as it slows: the glass
+ * behaving like a drop rather than a disc. Stretch is written as `transform`,
+ * which composes with `translate` and `scale` without touching either.
+ */
+const MAGNET = 0.22
+const STRETCH_MAX = 0.14
+const stretchFor = (delta: number) => Math.min(STRETCH_MAX, Math.abs(delta) / 70)
 /**
  * AND A PRESS DOES NOT TRAVEL.
  *
@@ -1035,9 +1062,12 @@ function useSlide(count: number, onPick: (index: number) => void) {
     return centre - DOT / 2
   }
 
-  const paint = () => {
+  const paint = (delta = 0) => {
     const dot = dotRef.current
-    if (dot && posRef.current != null) dot.style.translate = `${posRef.current}px 0`
+    if (!dot || posRef.current == null) return
+    dot.style.translate = `${posRef.current}px 0`
+    const k = stretchFor(delta)
+    dot.style.transform = k > 0.004 ? `scale(${1 + k}, ${1 - k * 0.45})` : ""
   }
   const step = () => {
     frameRef.current = 0
@@ -1049,7 +1079,7 @@ function useSlide(count: number, onPick: (index: number) => void) {
       return
     }
     posRef.current += gap * FOLLOW
-    paint()
+    paint(gap * FOLLOW)
     frameRef.current = requestAnimationFrame(step)
   }
   const wake = () => {
@@ -1100,8 +1130,10 @@ function useSlide(count: number, onPick: (index: number) => void) {
     }
     const next = slotAt(clientX)
     if (movedRef.current) {
-      /* Under the finger, every frame, with no transition to be a delay. */
-      targetRef.current = leftFor(clientX)
+      /* Under the finger, every frame, with no transition to be a delay,
+         leaning MAGNET of the way towards the slot the finger is over. */
+      const under = leftFor(clientX)
+      targetRef.current = under + (leftForSlot(next) - under) * MAGNET
       wake()
     }
     /* A press writes nothing here. `at` below moves the slot, and the effect
@@ -1145,6 +1177,8 @@ function useSlide(count: number, onPick: (index: number) => void) {
     if (frameRef.current) cancelAnimationFrame(frameRef.current)
     frameRef.current = 0
     posRef.current = null
+    /* Round again as it lets go; the transition in the render eases it. */
+    if (dotRef.current) dotRef.current.style.transform = ""
     setFollowing(false)
     setPressed(false)
     setAt(null)
@@ -1494,8 +1528,8 @@ export function MobileNavPill({
               /* Emptied instantly on the frame it changes slot, then filled
                  back over the ink's own curve — which outranks the press's
                  instant for as long as the filling lasts. */
-              transition: `${slide.bounce && !slide.following ? SETTLE : NO_TRAVEL}, ${LIFT_EASE}, opacity 220ms ease-out, ${arriving || (slide.pressed && !filling) ? PRESS_ON : `background-color ${INK_EASE}, box-shadow ${INK_EASE}`}`,
-              willChange: "translate, scale",
+              transition: `${slide.bounce && !slide.following ? SETTLE : NO_TRAVEL}, ${LIFT_EASE}, ${slide.following ? "transform 0s" : "transform 280ms cubic-bezier(0.32, 0.72, 0, 1)"}, opacity 220ms ease-out, ${arriving || (slide.pressed && !filling) ? PRESS_ON : `background-color ${INK_EASE}, box-shadow ${INK_EASE}`}`,
+              willChange: "translate, scale, transform",
             }}
           />
 
@@ -1541,7 +1575,7 @@ export function MobileNavPill({
                   transition: `color ${FILL_MS}ms ${FILL_CURVE}`,
                 }}
               >
-                <NavIcon icon={item.icon} active={on} color="currentColor" size={22} />
+                <NavIcon icon={item.icon} active={on} color="currentColor" size={GLYPH} />
               </Link>
             )
           })}
@@ -1586,7 +1620,7 @@ export function MobileNavPill({
             willChange: "transform",
           }}
         >
-          <NavIcon icon={icons.settings} active={false} color="currentColor" size={22} />
+          <NavIcon icon={icons.settings} active={false} color="currentColor" size={GLYPH} />
         </button>
 
         <button

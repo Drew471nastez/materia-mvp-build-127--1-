@@ -1008,7 +1008,7 @@ function MobileBottomSheet({ isOpen, onClose, title, children }: { isOpen: boole
   if (!isVisible) return null
 
   return (
-    <div className="fixed inset-0 z-[100]" onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
+    <div data-app-sheet="open" className="fixed inset-0 z-[100]" onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
       <div className={`absolute inset-0 bg-black/50 backdrop-blur-[2px] transition-opacity duration-400 ${isAnimating ? "opacity-100" : "opacity-0"}`} onClick={handleClose} />
       <div ref={sheetRef}
         className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl max-h-[85vh] overflow-hidden"

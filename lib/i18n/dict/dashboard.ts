@@ -142,8 +142,8 @@ export const dashboardDict: Record<"ro" | "en", Record<string, string>> = {
     // Promo banner
     "dashboard.trackRealtime": "Urmărește ce funcționează în timp real",
     "dashboard.optimizeSales": "Folosește panoul pentru a optimiza și a vinde mai mult.",
-    "dashboard.unlockGrowth": "Deblochează funcțiile Growth",
-    "dashboard.growthDesc": "Crește mai rapid cu instrumente avansate, limite mai mari și comisioane mai mici.",
+    "dashboard.unlockGrowth": "Planul Growth",
+    "dashboard.growthDesc": "Comision de 3% în loc de 6% și 25 GB de spațiu în loc de 1 GB.",
     "dashboard.features": "Funcții",
     "dashboard.addCustomDomain": "Adaugă domeniu personalizat",
     "dashboard.addCustomDomainDesc": "Conectează-ți propriul domeniu la magazin",
@@ -298,8 +298,8 @@ export const dashboardDict: Record<"ro" | "en", Record<string, string>> = {
     // Promo banner
     "dashboard.trackRealtime": "Track what's working in real time",
     "dashboard.optimizeSales": "Use your dashboard to optimize for more sales.",
-    "dashboard.unlockGrowth": "Unlock Growth features",
-    "dashboard.growthDesc": "Scale faster with advanced tools, higher limits, and lower fees.",
+    "dashboard.unlockGrowth": "Growth plan",
+    "dashboard.growthDesc": "3% fees instead of 6%, and 25 GB of storage instead of 1 GB.",
     "dashboard.features": "Features",
     "dashboard.addCustomDomain": "Add Custom Domain",
     "dashboard.addCustomDomainDesc": "Connect your own domain to your store",

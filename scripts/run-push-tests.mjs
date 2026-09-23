@@ -143,6 +143,7 @@ const SUITES = [
   "tests/github-sync.test.ts",
   "tests/date-range.test.ts",
   "tests/cookie-consent.test.ts",
+  "tests/marketing-footer.test.ts",
   "tests/image-picker.test.ts",
   "tests/site-pages.test.ts",
   "tests/admin-auth.test.ts",

@@ -1191,6 +1191,7 @@ function QuickAccessBottomSheet({
   return (
     <div
       data-dashboard-sheet
+      data-app-sheet={isVisible ? "open" : undefined}
       className="fixed inset-0 z-[110] md:hidden"
       style={{ pointerEvents: isVisible ? "auto" : "none", touchAction: "none" }}
     >
@@ -2713,9 +2714,9 @@ export function DashboardClient({
               ) : (
                 <>
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="text-[13px] sm:text-[15px] font-semibold text-white">Unlock Growth features</span>
+                    <span className="text-[13px] sm:text-[15px] font-semibold text-white">Growth plan</span>
                   </div>
-                  <p className="text-[14px] sm:text-[16px] text-white/90 mb-3 sm:mb-4">Scale faster with advanced tools, higher limits, and lower fees.</p>
+                  <p className="text-[14px] sm:text-[16px] text-white/90 mb-3 sm:mb-4">3% fees instead of 6%, and 25 GB of storage instead of 1 GB.</p>
                   <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                     <Link
                       href="/app/settings/billing/upgrade"
