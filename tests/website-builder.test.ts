@@ -444,7 +444,34 @@ section("The snapshot")
   const editor = stripComments(read("app/website-builder/editor/[installId]/page.tsx"))
   check("the editor's canvas ref is attached to the page wrapper", /<div ref=\{canvasRef\}/.test(editor))
   check("a snapshot is requested after a successful draft save and after a publish", (editor.match(/snapshotAfterSave\(\)/g) ?? []).length >= 2)
-  check("only the home page, at desktop width, in preview mode", /currentPage !== "home" \|\| device !== "desktop" \|\| previewMode !== "preview" \|\| isMobileView/.test(editor))
+  /*
+    THE HOME PAGE, IN PREVIEW MODE, FROM WHATEVER DEVICE.
+
+    This used to read "only the home page, AT DESKTOP WIDTH, in preview
+    mode", and the width was the bug. Opening the editor on a phone forces
+    `device` to "mobile" on purpose — a 1200-wide layout rendered into a
+    390px viewport is a squashed mess — so requiring `device === "desktop"`
+    and `!isMobileView` meant a save from a phone could never take a
+    snapshot. Not rarely: never, and by construction, because opening the
+    editor there is what made the condition false.
+
+    The cover therefore froze at whatever a creator's last desktop session
+    left behind, however many times they saved afterwards.
+
+    A phone-width cover is the right answer and not a concession: the canvas
+    renders through the same ThemePage the site publishes, so what is
+    captured is the website as it really is at the width its owner is
+    working at. captureNode scales it up to the cover's full width.
+  */
+  check("only the home page, in preview mode, from whatever device it is edited on",
+    /currentPage !== "home" \|\| previewMode !== "preview"/.test(editor))
+  check("and the guard does not turn itself off on a phone, which is where it turned itself off before",
+    !/device !== "desktop"/.test(editor.slice(editor.indexOf("const snapshotAfterSave"), editor.indexOf("const snapshotAfterSave") + 400))
+      && !/isMobileView/.test(editor.slice(editor.indexOf("const snapshotAfterSave"), editor.indexOf("const snapshotAfterSave") + 400)),
+    "opening the editor on a phone sets device to mobile, so a device test in here is a test that can only fail")
+  check("and a narrow canvas is scaled up to the cover's width rather than left soft",
+    /const scale = SNAPSHOT_WIDTH \/ width/.test(capture) && !/Math\.min\(1, SNAPSHOT_WIDTH/.test(capture),
+    "a 390px raster painted into a 1200px slot is the one soft picture on the page")
   check("a pending snapshot is cancelled when the editor unmounts", /cancelScheduledSnapshot\(\)/.test(editor))
   check("the editor opens on the pane the website page asked for", /get\("view"\)/.test(editor) && /v === "code" \|\| v === "settings"/.test(editor))
 }
