@@ -681,7 +681,7 @@ export function WebsiteBuilderClient({
             page's own two gutters. scripts/check-website-page.mjs reads them
             and compares the left inset to the right, which is the complaint
             that started this rewrite: things on this page did not line up. */}
-        <section aria-labelledby="live-heading" data-page-block className="space-y-3">
+        <section aria-labelledby="live-heading" className="space-y-3" data-page-block>
           {/* ── The strip ─────────────────────────────────────────────
               Its own bar above the cover, the way a host lays out a site's
               sections: one white bar cut into cells by hairlines. It is not

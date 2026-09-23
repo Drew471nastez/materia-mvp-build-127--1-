@@ -8,8 +8,9 @@
  * so nothing jumps when the data lands.
  *
  * Which means this file is only correct while it matches the page: the
- * title and address, the live card with its row of tabs and its list of
- * facts, and the library as a table with its heading row.
+ * title and address, the strip above the live card, the card with its
+ * rounded cover and its list of facts, and the library as a table with its
+ * heading row.
  */
 export default function WebsiteBuilderLoading() {
   return (
@@ -21,16 +22,22 @@ export default function WebsiteBuilderLoading() {
           <div className="mt-2.5 h-4 w-52 rounded bg-[#eef0f3]" />
         </div>
 
-        {/* The live website: its tabs, the cover, the facts, the buttons. */}
+        {/* The live website: the strip above it, then the card with the
+            cover set into it, the facts and the buttons. */}
+        <div className="space-y-3">
+        <div className="flex h-[50px] divide-x divide-[#eceef1] overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+          {[64, 40, 48, 28, 72, 56].map((w, i) => (
+            <div key={i} className="flex min-w-[104px] flex-1 shrink-0 items-center justify-center">
+              <div className="h-3 rounded bg-[#eef0f3]" style={{ width: w }} />
+            </div>
+          ))}
+        </div>
         <div className="overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-          <div className="flex h-11 items-center gap-6 border-b border-[#eceef1] px-5">
-            {[64, 40, 48, 28, 72, 56].map((w, i) => (
-              <div key={i} className="h-3 shrink-0 rounded bg-[#eef0f3]" style={{ width: w }} />
-            ))}
-          </div>
           <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
-            <div className="aspect-[16/10] bg-[#eef0f3]" />
-            <div className="flex flex-col p-5 sm:p-6">
+            <div className="p-4 pb-3 lg:pb-4 lg:pr-2">
+              <div className="aspect-[16/10] rounded-[12px] bg-[#eef0f3]" />
+            </div>
+            <div className="flex flex-col px-4 pb-4 pt-2 lg:p-6 lg:pl-4">
               <div className="h-3 w-10 rounded bg-[#e9ebee]" />
               <div className="mt-3 h-6 w-44 rounded-md bg-[#e9ebee]" />
               <div className="mt-4 divide-y divide-[#f0f1f3] border-y border-[#f0f1f3]">
@@ -51,6 +58,7 @@ export default function WebsiteBuilderLoading() {
               </div>
             </div>
           </div>
+        </div>
         </div>
 
         {/* The library. */}
