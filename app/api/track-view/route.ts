@@ -1,10 +1,13 @@
 // app/api/track-view/route.ts
 import { createAdminClient } from "@/lib/supabase/admin"
+import { isOwnVisit } from "@/lib/analytics/own-visit"
 import { type NextRequest, NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import { CONSENT_COOKIE, allows, parse } from "@/lib/consent/consent"
 import { ignoreError } from "@/lib/supabase/ignore-error"
-import { categorizeServerSource, detectClientAppFromUA } from "@/lib/analytics/sources"
+import { categorizeServerSource, detectClientAppFromUA, isInternalReferrer, referrerHost } from "@/lib/analytics/sources"
+import { isBotAgent, parseUserAgent } from "@/lib/analytics/user-agent"
+import { getMainDomain } from "@/lib/url-helpers"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -48,15 +51,30 @@ function normalizeStr(v?: string | null): string {
   return (v || "").trim()
 }
 
-function normalizeLower(v?: string | null): string {
-  return normalizeStr(v).toLowerCase()
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/** A short string or nothing: a payload is not a place to store a novel. */
+function short(v: unknown, max = 300): string | null {
+  return typeof v === "string" && v.trim() ? v.trim().slice(0, max) : null
 }
 
-function normalizeReferrerDomain(v?: string | null): string {
+/**
+ * THE REFERRER, AS A SOURCE. Storelib itself, the creator's own site on a
+ * Storelib subdomain and the payment page a buyer comes back from are where
+ * the visitor was a moment ago, not where the visit came from: they are
+ * Direct, and the browser keeps the visit's first source (lib/analytics-utils).
+ */
+function normalizeReferrerDomain(v: string | null | undefined, pageUrl: string | null): string {
   const s = normalizeStr(v)
-  if (!s) return "Direct"
-  if (s.toLowerCase() === "direct") return "Direct"
-  return s
+  if (!s || s.toLowerCase() === "direct") return "Direct"
+  const host = referrerHost(s) || s.toLowerCase()
+  let pageHost: string | null = null
+  try {
+    pageHost = pageUrl ? new URL(pageUrl).hostname : null
+  } catch {
+    pageHost = null
+  }
+  return isInternalReferrer(host, getMainDomain(), pageHost) ? "Direct" : host
 }
 
 /* -------------------------------------------
@@ -97,8 +115,42 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "Product view requires productId" }, { status: 400 })
     }
 
+    /* Ids are uuids; anything else is not a page on Storelib. */
+    if (!UUID.test(payload.creatorId) || (payload.productId && !UUID.test(payload.productId))) {
+      return NextResponse.json({ ok: false, error: "Unknown page" }, { status: 400 })
+    }
+
+    /**
+     * ---- NOT A PERSON: nothing is recorded. Answered ok, so a crawler has
+     * nothing to retry and nothing to learn.
+     */
+    const ua = req.headers.get("user-agent")
+    if (isBotAgent(ua)) {
+      return NextResponse.json({ ok: true, counted: false })
+    }
+
     const supabase = createAdminClient()
     const cookieStore = await cookies()
+
+    /* The page must be a real creator's, and a product must be theirs. */
+    const { data: owner } = await supabase.from("creators").select("id, user_id").eq("id", payload.creatorId).maybeSingle()
+    if (!owner) {
+      return NextResponse.json({ ok: false, error: "Unknown page" }, { status: 404 })
+    }
+    if (payload.type === "product" && payload.productId) {
+      const { data: product } = await supabase
+        .from("products")
+        .select("id")
+        .eq("id", payload.productId)
+        .eq("creator_id", payload.creatorId)
+        .maybeSingle()
+      if (!product) return NextResponse.json({ ok: false, error: "Unknown page" }, { status: 404 })
+    }
+
+    /* The creator on their own page is not a visitor (lib/analytics/own-visit). */
+    if (await isOwnVisit(req.cookies.getAll().map((c) => c.name), (owner as { user_id?: string | null }).user_id)) {
+      return NextResponse.json({ ok: true, counted: false, own: true })
+    }
 
     /**
      * ---- consent, read from the visitor's own record, not from the page.
@@ -109,33 +161,52 @@ export async function POST(req: NextRequest) {
     const consented = allows(parse(cookieStore.get(CONSENT_COOKIE)?.value, Date.now()), "analytics")
 
     // ---- visitor identity (ONE source of truth)
-    let visitorId = consented ? cookieStore.get("visitor_id")?.value || payload.visitorId : undefined
+    let visitorId = consented ? cookieStore.get("visitor_id")?.value || short(payload.visitorId, 80) || undefined : undefined
     if (!visitorId) visitorId = `${consented ? "v" : "anon"}_${crypto.randomUUID().replace(/-/g, "")}`
 
-    const sessionId = (consented && payload.sessionId) || `s_${crypto.randomUUID().replace(/-/g, "")}`
+    const sessionId = (consented && short(payload.sessionId, 80)) || `s_${crypto.randomUUID().replace(/-/g, "")}`
 
     // ---- geo
     const country = getCountryFromRequest(req)
     const city = consented ? req.headers.get("x-vercel-ip-city") || req.geo?.city || null : null
     const region = consented ? req.headers.get("x-vercel-ip-country-region") || req.geo?.region || null : null
 
+    /**
+     * ---- device, browser, system: from the request's own signature, by the
+     * rules the reports use. What the page sent is kept only where the
+     * signature cannot know, which is an iPad: it sends a Mac's signature,
+     * and only the page can see it has a touch screen.
+     */
+    const parsed = parseUserAgent(ua)
+    const iPad = parsed.os === "macOS" && payload.deviceType === "tablet" && payload.os === "iOS"
+    const deviceType = iPad ? "tablet" : parsed.device ?? short(payload.deviceType, 20)
+    const os = iPad ? "iOS" : parsed.os ?? short(payload.os, 40)
+    const browser = parsed.browser ?? short(payload.browser, 40)
+
     // ✅ UA-based app detection fallback (fixes IG/TikTok/FB/etc when referrer is blank)
-    const ua = req.headers.get("user-agent")
     const uaApp = detectClientAppFromUA(ua)
 
     // prefer payload.clientApp, else UA, else null
-    const clientApp = payload.clientApp || uaApp
+    const clientApp = short(payload.clientApp, 30) || uaApp
 
     // ---- source (SERVER decides)
-    const referrerDomain = normalizeReferrerDomain(payload.referrerDomain)
+    const pageUrl = short(payload.pageUrl, 1000)
+    const referrerDomain = normalizeReferrerDomain(payload.referrerDomain, pageUrl)
     const sourceCategory = categorizeServerSource(
       referrerDomain,
-      payload.utm_source || null,
-      payload.utm_medium || null,
+      short(payload.utm_source, 200),
+      short(payload.utm_medium, 200),
       clientApp || null,
     )
 
-    // ---- HARD DEDUPE (visitor + creator + same product/store) once per 30 minutes
+    /**
+     * ---- HARD DEDUPE (visitor + creator + same product/store) once per 30 minutes
+     *
+     * `.limit(1)`, not `.maybeSingle()`. maybeSingle answers an ERROR when two
+     * rows match, and the error branch below carried on and inserted: so the
+     * moment a visitor had two views in the window (a race between two tabs
+     * is enough) every later view was counted too, with no dedupe at all.
+     */
     const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString()
 
     let dedupeQuery = supabase
@@ -152,16 +223,17 @@ export async function POST(req: NextRequest) {
       dedupeQuery = dedupeQuery.is("product_id", null)
     }
 
-    const { data: existing, error: dedupeError } = await dedupeQuery.maybeSingle()
+    const { data: existing, error: dedupeError } = await dedupeQuery.limit(1)
     if (dedupeError) {
-      console.error("[track-view] dedupe error", dedupeError)
+      console.error("[track-view] dedupe error", dedupeError.message)
       // don't block tracking because of dedupe lookup error
-    } else if (existing) {
+    } else if (existing && existing.length > 0) {
       return NextResponse.json({ ok: true, duplicate: true, visitorId, sourceCategory })
     }
 
     // ---- INSERT EVENT
     // Full event with all extended columns
+    const now = new Date().toISOString()
     const fullEvent = {
       creator_id: payload.creatorId,
       product_id: payload.type === "product" ? payload.productId : null,
@@ -171,21 +243,21 @@ export async function POST(req: NextRequest) {
       session_id: sessionId,
 
       referrer_domain: referrerDomain,
-      referrer: payload.referrer || null,
-      page_url: payload.pageUrl || null,
+      referrer: short(payload.referrer, 1000),
+      page_url: pageUrl,
 
-      utm_source: payload.utm_source || null,
-      utm_medium: payload.utm_medium || null,
-      utm_campaign: payload.utm_campaign || null,
-      utm_term: payload.utm_term || null,
-      utm_content: payload.utm_content || null,
+      utm_source: short(payload.utm_source, 200),
+      utm_medium: short(payload.utm_medium, 200),
+      utm_campaign: short(payload.utm_campaign, 200),
+      utm_term: short(payload.utm_term, 200),
+      utm_content: short(payload.utm_content, 200),
 
-      device_type: payload.deviceType || null,
-      browser: payload.browser || null,
-      os: payload.os || null,
-      screen_width: payload.screenWidth || null,
-      screen_height: payload.screenHeight || null,
-      language: payload.language || null,
+      device_type: deviceType,
+      browser,
+      os,
+      screen_width: typeof payload.screenWidth === "number" ? payload.screenWidth : null,
+      screen_height: typeof payload.screenHeight === "number" ? payload.screenHeight : null,
+      language: short(payload.language, 20),
 
       country_code: country.code,
       country_name: country.name,
@@ -193,7 +265,7 @@ export async function POST(req: NextRequest) {
       region,
 
       source_category: sourceCategory,
-      created_at: new Date().toISOString(),
+      created_at: now,
     }
 
     // Try full insert first, fall back to core columns if extended columns don't exist yet
@@ -206,25 +278,25 @@ export async function POST(req: NextRequest) {
       if (errMsg.includes("column") || errMsg.includes("undefined") || errMsg.includes("400") || errMsg.includes("Could not find")) {
         console.warn("[track-view] Full insert failed (missing columns?), retrying with core fields:", errMsg)
         const coreEvent = {
-          creator_id: payload.creatorId,
-          product_id: payload.type === "product" ? payload.productId : null,
+          creator_id: fullEvent.creator_id,
+          product_id: fullEvent.product_id,
           event_type: "view",
           visitor_id: visitorId,
           session_id: sessionId,
           referrer_domain: referrerDomain,
-          referrer: payload.referrer || null,
-          page_url: payload.pageUrl || null,
-          utm_source: payload.utm_source || null,
-          utm_medium: payload.utm_medium || null,
-          utm_campaign: payload.utm_campaign || null,
-          device_type: payload.deviceType || null,
-          browser: payload.browser || null,
-          os: payload.os || null,
+          referrer: fullEvent.referrer,
+          page_url: pageUrl,
+          utm_source: fullEvent.utm_source,
+          utm_medium: fullEvent.utm_medium,
+          utm_campaign: fullEvent.utm_campaign,
+          device_type: deviceType,
+          browser,
+          os,
           country_code: country.code,
           country_name: country.name,
           city,
           region,
-          created_at: new Date().toISOString(),
+          created_at: now,
         }
         const { error: coreInsertError } = await supabase.from("analytics_events").insert([coreEvent])
         insertError = coreInsertError
@@ -234,8 +306,8 @@ export async function POST(req: NextRequest) {
     }
 
     if (insertError) {
-      console.error("[track-view] insert failed", insertError)
-      return NextResponse.json({ ok: false, error: insertError.message }, { status: 500 })
+      console.error("[track-view] insert failed", insertError.message)
+      return NextResponse.json({ ok: false, error: "Could not record the view" }, { status: 500 })
     }
 
     /**

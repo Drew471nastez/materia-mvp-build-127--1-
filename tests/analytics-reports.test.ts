@@ -24,8 +24,10 @@ import {
 import type { OrderRow } from "../lib/orders/order-view"
 import { dayPart, firstName, greetingZone } from "../lib/greeting"
 import { buildOnePageReports } from "../lib/analytics/reports"
-import { categorizeServerSource, detectClientAppFromUA, referrerHost } from "../lib/analytics/sources"
-import { parseUserAgent } from "../lib/analytics/user-agent"
+import { categorizeServerSource, detectClientAppFromUA, isInternalReferrer, referrerHost } from "../lib/analytics/sources"
+import { isBotAgent, parseUserAgent } from "../lib/analytics/user-agent"
+import { moneyOf, spansToRead } from "../lib/analytics/reports"
+import { axisWidth, compactCount, compactMoney, compactPercent, niceScale } from "../lib/analytics/chart-scale"
 
 let passed = 0
 let failed = 0
@@ -231,6 +233,133 @@ console.log("\nHome: the greeting")
   check("the heading greets by time of day", /dashboard\.greeting\.\$\{greetingPart\}/.test(client) && !/\{t\("dashboard\.welcome"\)\}, \{displayName\}/.test(client))
   check("  starting from the server's answer, so the first paint is right", /initialDayPart=\{dayPart\(Date\.now\(\), greetingTimeZone\)\}/.test(read("app/app/page.tsx")))
   for (const lang of ["de", "es", "fr"]) check(`  in ${lang} too`, /"dashboard\.greeting\.night":/.test(read(`lib/i18n/dict/${lang}.ts`)))
+}
+console.log("\nTracking: where a visit came from, by domain and not by substring")
+{
+  const src = (ref: string, s?: string | null, m?: string | null, app?: string | null) => categorizeServerSource(ref, s ?? null, m ?? null, app ?? null)
+  check("pinterest.com is Pinterest, not X (it contains \"t.co\")", src("pinterest.com") === "social_pinterest", src("pinterest.com"))
+  check("reddit.com is Reddit, not X", src("www.reddit.com") === "social_reddit", src("www.reddit.com"))
+  check("microsoft.com and dropbox.com are referrals, not X", src("microsoft.com") === "referral" && src("dropbox.com") === "referral")
+  check("t.co and x.com are X", src("t.co") === "social_x" && src("x.com") === "social_x")
+  check("l.instagram.com is Instagram, pinterest.co.uk is Pinterest", src("l.instagram.com") === "social_instagram" && src("pinterest.co.uk") === "social_pinterest")
+  check("youtu.be is YouTube, lnkd.in is LinkedIn", src("youtu.be") === "social_youtube" && src("lnkd.in") === "social_linkedin")
+  check("Gmail is email, Google is search", src("mail.google.com") === "email" && src("www.google.co.uk") === "organic_search")
+  check("DuckDuckGo, Bing and Ecosia are search", ["duckduckgo.com", "bing.com", "ecosia.org"].every((d) => src(d) === "organic_search"))
+  check("utm_source=google is search, not social", src("Direct", "google", "organic") === "organic_search" && src("Direct", "google") === "organic_search")
+  check("utm_source=google with cpc is paid search", src("Direct", "google", "cpc") === "paid_search")
+  check("utm_source=chatgpt.com is a referral, not social", src("Direct", "chatgpt.com") === "referral", src("Direct", "chatgpt.com"))
+  check("utm_source=ig is Instagram, utm_source=digital is not", src("Direct", "ig") === "social_instagram" && src("Direct", "digital") === "referral")
+  check("utm_medium=paid_social is paid", src("Direct", "facebook", "paid_social") === "paid")
+  check("a newsletter tool is email", src("Direct", "mailchimp") === "email")
+  check("an Instagram in-app view with no referrer is Instagram", src("Direct", null, null, detectClientAppFromUA("Mozilla/5.0 (iPhone) Instagram 300.0")) === "social_instagram")
+  check("no referrer and no app is direct", src("") === "direct" && src("Direct") === "direct")
+  check("Storelib itself, a creator's Storelib site and Stripe are not sources",
+    isInternalReferrer("storelib.com", "storelib.com") && isInternalReferrer("ana.storelib.com", "storelib.com") && isInternalReferrer("checkout.stripe.com", "storelib.com") && !isInternalReferrer("google.com", "storelib.com"))
+}
+
+console.log("\nTracking: robots and people")
+{
+  check("Googlebot is a robot", isBotAgent("Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"))
+  check("a headless browser is a robot", isBotAgent("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 HeadlessChrome/120.0 Safari/537.36"))
+  check("a link preview is a robot", isBotAgent("facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)"))
+  check("no signature at all is not a browser", isBotAgent("") && isBotAgent(null))
+  check("an iPhone is a person", !isBotAgent("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"))
+  check("a CUBOT phone is a person, whatever its name ends in", !isBotAgent("Mozilla/5.0 (Linux; Android 10; CUBOT X30) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Mobile Safari/537.36"))
+  check("Instagram's browser is a person", !isBotAgent("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) Mobile/15E148 Instagram 300.0"))
+  check("mobile Edge is Edge", parseUserAgent("Mozilla/5.0 (Linux; Android 10) Chrome/120 Mobile Safari/537.36 EdgA/120").browser === "Edge")
+
+  const utils = read("lib/analytics-utils.ts")
+  check("the browser reads device, browser and system by the server's rules (an iPhone was macOS)",
+    /parseUserAgent\(navigator\.userAgent\)/.test(utils) && !/if \(ua\.includes\("Mac OS"\)\) return "macOS"/.test(utils))
+  check("and its source hint is the server's own function", /return categorizeServerSource\(referrer, utmSource, utmMedium, clientApp\)/.test(utils))
+  check("an iPad, which says it is a Mac, is a tablet", /navigator\.maxTouchPoints \?\? 0\) > 1/.test(utils))
+
+  const view = read("app/api/track-view/route.ts")
+  check("the view tracker drops robots before anything is read", /if \(isBotAgent\(ua\)\) \{/.test(view))
+  check("and the creator's own visits", /if \(await isOwnVisit\(/.test(view) && /auth\.getUser\(\)/.test(read("lib/analytics/own-visit.ts")))
+  check("the half-hour dedupe survives two rows in the window (maybeSingle errored, and the error branch inserted)",
+    /await dedupeQuery\.limit\(1\)/.test(view) && !/dedupeQuery\.maybeSingle\(\)/.test(view))
+  check("device, browser and system come from the request's own signature", /const parsed = parseUserAgent\(ua\)/.test(view))
+  check("a referrer that is Storelib, the creator's site or Stripe is Direct", /isInternalReferrer\(host, getMainDomain\(\), pageHost\)/.test(view))
+  check("a page that is not a real creator's is not counted", /from\("creators"\)\.select\("id, user_id"\)\.eq\("id", payload\.creatorId\)/.test(view))
+  check("a scripted browser does not send a view", /if \(isAutomatedBrowser\(\)\) return/.test(read("components/analytics/track-view.tsx")))
+
+  const event = read("app/api/track-event/route.ts")
+  check("funnel steps read the consent cookie on the server, not the page",
+    /const consented = allows\(parse\(\(await cookies\(\)\)\.get\(CONSENT_COOKIE\)\?\.value, Date\.now\(\)\), "analytics"\)/.test(event)
+      && /const sessionId = consented &&/.test(event) && /const visitorId = consented &&/.test(event))
+  check("and only the steps the funnel knows are recorded", /\(EVENTS as readonly string\[\]\)\.includes\(payload\.eventType\)/.test(event) && /isBotAgent/.test(event))
+}
+
+console.log("\nReports: time zones, periods and comparisons")
+{
+  const K = "Asia/Kolkata"
+  const w = { start: Date.parse("2026-09-13T18:30:00Z"), end: Date.parse("2026-09-14T18:30:00Z") } // one day in India
+  const s = bucketStarts(w, "hour", K)
+  check("an hour in India starts on the hour in India, not at half past", s.length === 24 && new Date(s[1]).toISOString() === "2026-09-13T19:30:00.000Z", new Date(s[1]).toISOString())
+  check("the period and its comparison are read as one stretch when they touch", spansToRead({ start: 10, end: 20 }, { start: 0, end: 10 }).length === 1)
+  check("and as two when a year apart, not the whole year between", spansToRead({ start: 1000, end: 1100 }, { start: 0, end: 100 }).length === 2)
+
+  /* "Last 7 days" at 3pm: the period runs to now, the comparison to the same hour. */
+  const cur = { start: T0 + 7 * DAY, end: T0 + 13 * DAY + 15 * HOUR }
+  const prev = { start: T0, end: T0 + 6 * DAY + 15 * HOUR }
+  const views: ViewRow[] = [view("x", 7, {}, 1), view("y", 0, {}, 1), view("z", 13, {}, 1)]
+  const r = buildReports({ views, steps: [], orders: [], window: cur, previous: prev, timeZone: "UTC", mainDomain: "storelib.com", productTitles: {} })
+  check("the comparison's buckets are its own days, so day 1 sits beside day 1", r.sessions.series.previous[0] === 1 && r.sessions.series.current[0] === 1, r.sessions.series)
+  check("the chart's views add up to the figure on its tab", r.views.series.current.reduce((a, b) => a + b, 0) === r.views.value && r.views.value === 2)
+  const none = buildReports({ views, steps: [], orders: [], window: cur, previous: null, timeZone: "UTC", mainDomain: "storelib.com", productTitles: {} })
+  check("No comparison: nothing is compared, and nothing is shown as new", none.compared === false && none.sessions.change === null && none.sessions.series.previous.length === 0)
+}
+
+console.log("\nReports: money and channels")
+{
+  const w = { start: T0 + 7 * DAY, end: T0 + 14 * DAY }
+  const orders: OrderRow[] = [
+    order("t1", 8, { amount_cents: 1200, tip_cents: 200, source: "storelib" }),
+    order("f1", 9, { amount_cents: 0 }),
+    order("f2", 10, { amount_cents: 0, source: "website" }),
+    order("old", 11, { amount_cents: 500, source: null }),
+  ]
+  const r = buildReports({ views: [], steps: [], orders, window: w, timeZone: "UTC", mainDomain: "storelib.com", productTitles: {} })
+  check("a tip is counted once: amount_cents already includes it", r.sales.value === 1200 + 500, r.sales.value)
+  check("the sales line adds up to the sales figure", r.sales.series.current.reduce((a, b) => a + b, 0) === r.sales.value)
+  const ch = Object.fromEntries(r.salesByChannel.map((c) => [c.key, c]))
+  check("sales by channel is not empty when the orders are free", r.salesByChannel.length === 2 && ch.website?.extra?.orders === 1, r.salesByChannel)
+  check("an order from before the channel was recorded is a Storelib page sale", ch.storelib?.value === 1700 && ch.storelib?.extra?.orders === 3, ch.storelib)
+  const free = buildReports({ views: [], steps: [], orders: [order("a", 8, { amount_cents: 0 }), order("b", 9, { amount_cents: 0, source: "website" })], window: w, timeZone: "UTC", mainDomain: "storelib.com", productTitles: {} })
+  check("with no money at all, the ring is shared by orders", free.salesByChannel.every((c) => c.share === 0.5), free.salesByChannel)
+  check("moneyOf reads refunds per line", moneyOf({ lines: [{ id: "1", product_id: "p", amount_cents: 1000, status: "refunded", refund_amount_cents: 400, created_at: at(8) }] } as never).net === 600)
+}
+
+console.log("\nCharts: the scale")
+{
+  const one = niceScale(1, { integer: true, intervals: 2 })
+  check("a series of 0 and 1 is drawn on 0, 1, 2: the 1 in the middle, never on the edge", JSON.stringify(one.ticks) === "[0,1,2]", one.ticks)
+  const hundred = niceScale(100, { integer: true, intervals: 3 })
+  check("the top is always above the highest point", hundred.top > 100 && hundred.ticks[0] === 0, hundred.ticks)
+  check("counts step in whole numbers", niceScale(3, { integer: true }).ticks.every((t) => Number.isInteger(t)))
+  check("nothing at all still draws a quiet axis", niceScale(0, { integer: true }).ticks.length === 3)
+  check("labels are compact: 1.2k, $3k, $950, 40%", compactCount(1200) === "1.2k" && compactMoney(300000) === "$3k" && compactMoney(95000) === "$950" && compactPercent(0.4) === "40%")
+  check("the axis for 0 1 2 is narrow, not 40px", axisWidth(["0", "1", "2"], 11, 8) <= 16, axisWidth(["0", "1", "2"], 11, 8))
+  check("and wide enough for $1.2k", axisWidth(["$0", "$600", "$1.2k"], 11, 8) >= 34)
+}
+
+console.log("\nThe look: Storelib's violet, a grey comparison, real logos")
+{
+  const reports = read("app/app/analytics/analytics-reports.tsx")
+  const chart = read("components/app/analytics-chart.tsx")
+  check("no report is drawn in the old blue", !/#2a78d6/i.test(reports) && !/#2a78d6/i.test(chart))
+  check("the series is Storelib's violet and the comparison a grey dashed line",
+    /export const SERIES = "#8b5cf6"/.test(reports) && /compared: "#b8bcc6"/.test(chart) && /strokeDasharray="5 4"/.test(chart))
+  const icons = read("components/analytics/source-icon.tsx")
+  const marks = read("components/analytics/brand-marks.ts")
+  check("brand marks are inlined, not a runtime icon library", !/react-icons/.test(icons) && /export const BRAND_MARKS/.test(marks))
+  check("in their own colours", /instagram: \{[^}]*fill: null/.test(marks) && /youtube: \{[^}]*fill: "#FF0000"/.test(marks) && /facebook: \{[^}]*fill: "#0866FF"/.test(marks))
+  check("Google in four colours, TikTok in its offset, Instagram in its gradient",
+    /#FBBC05[\s\S]*#EA4335[\s\S]*#34A853[\s\S]*#4285F4/.test(icons) && /#25F4EE/.test(icons) && /radialGradient/.test(icons))
+  const page = read("app/app/analytics/analytics-client.tsx")
+  check("the product picker on a phone is the shared sheet, above the navigation pill", /<BottomSheet isOpen=\{isProductsSheetOpen\}/.test(page) && !/function AnalyticsProductsSheet/.test(page))
+  check("no order is spread across days it did not happen on", !/Distribute orders across existing dates/.test(page) && !/new Date\(a\.date \+ ", 2024"\)/.test(page))
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)

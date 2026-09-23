@@ -13,6 +13,7 @@ import {
   markViewAsTracked,
   getPageKey,
   getAttributionForTracking,
+  isAutomatedBrowser,
 } from "@/lib/analytics-utils"
 
 interface TrackViewProps {
@@ -80,6 +81,8 @@ export function TrackView({ type, creatorId, productId }: TrackViewProps) {
     const trackView = async () => {
       if (hasTracked.current) return
       hasTracked.current = true
+      /* A browser driven by a script is not a visitor. */
+      if (isAutomatedBrowser()) return
       try {
         const sessionId = getOrCreateSessionId()
         const visitorId = getOrCreateVisitorId()

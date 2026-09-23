@@ -109,12 +109,18 @@ for (const [name, vp] of [["desktop, 1440 wide", { width: 1440, height: 1000 }],
   }).length)
   expect(inner === 0, "no card has a scrolling area of its own", inner)
 
-  /* No purple left in the data. */
-  const purple = await p.evaluate(() => [...document.querySelectorAll("section svg path, section svg circle, section [style*='background']")].filter((el) => {
-    const c = (el.getAttribute("stroke") || "") + (el.getAttribute("fill") || "") + (el.getAttribute("style") || "")
-    return /8b5cf6|139,\s*92,\s*246/i.test(c)
-  }).length)
-  expect(purple === 0, "the data is drawn in the checked blue, not purple", purple)
+  /* The data is Storelib's violet, the accent every /app page uses. The
+     blue it was drawn in for a while was asked to go ("I don't like that
+     blue"), so none of it is left. */
+  const colours = await p.evaluate(() => {
+    const els = [...document.querySelectorAll("section svg path, section svg circle, section svg rect, section [style*='background']")]
+    const text = (el) => (el.getAttribute("stroke") || "") + (el.getAttribute("fill") || "") + (el.getAttribute("style") || "")
+    return {
+      violet: els.filter((el) => /8b5cf6|139,\s*92,\s*246/i.test(text(el))).length,
+      blue: els.filter((el) => /2a78d6|42,\s*120,\s*214/i.test(text(el))).length,
+    }
+  })
+  expect(colours.violet > 0 && colours.blue === 0, "the data is drawn in Storelib's violet, with none of the old blue left", colours)
 
   if (name.startsWith("desktop")) await p.screenshot({ path: join(shots, "desktop-tooltip.png"), clip: { x: r.x - 40, y: r.y - 140, width: r.width + 80, height: r.height + 200 } })
   if (!vp.hasTouch) {

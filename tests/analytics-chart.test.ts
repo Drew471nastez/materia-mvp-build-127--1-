@@ -67,6 +67,17 @@ const CHARTS: [string, string][] = [
   ["the dashboard KPI chart", DASHBOARD],
 ]
 
+/**
+ * THE RULES WRITTEN IN THE DASHBOARD'S OWN WORDS. The analytics chart no
+ * longer carries a private copy of the gesture: it reads the shared one in
+ * components/app/use-chart-scrub (with the report cards under it), and its
+ * marker is a layer of its own. The same rules are held for it in
+ * "The analytics chart reads the shared gesture" below.
+ */
+const DASHBOARD_ONLY: [string, string][] = [["the dashboard KPI chart", DASHBOARD]]
+const HOOK = stripComments(readFileSync(join(root, "components/app/use-chart-scrub.ts"), "utf8"))
+const REPORTS = stripComments(readFileSync(join(root, "app/app/analytics/analytics-reports.tsx"), "utf8"))
+
 // ===========================================================================
 section("Nothing is drawn that is not seen")
 // ===========================================================================
@@ -112,7 +123,7 @@ section("Nothing teleports")
     /className=\{props\.className\}/.test(GLIDE),
   )
 
-  for (const [name, src] of CHARTS) {
+  for (const [name, src] of DASHBOARD_ONLY) {
     check(
       `${name} uses them rather than recharts' defaults`,
       /cursor=\{<GlidingCursor \/>\}/.test(src) && /<GlidingActiveDot fill=/.test(src),
@@ -225,7 +236,7 @@ section("The chart keeps the horizontal axis and gives back the vertical one")
  * that the value is a constant pan-y, that nothing scrolls the page by hand
  * any more, and that a move is still cancelled the moment the scrub is ours.
  */
-for (const [name, src] of CHARTS) {
+for (const [name, src] of DASHBOARD_ONLY) {
   const line = src.match(/touchAction: [^\n]*/)?.[0] ?? "(no touchAction on the chart)"
   check(
     `${name}: touch-action is a constant pan-y`,
@@ -298,7 +309,7 @@ section("A hold the platform cannot take away")
  * landed one press on `path.recharts-curve`. Everything lands on the shield
  * now, which is one div, rendered unconditionally, never re-keyed.
  */
-for (const [name, src] of CHARTS) {
+for (const [name, src] of DASHBOARD_ONLY) {
   check(
     `${name}: touchstart is native and non-passive`,
     /el\.addEventListener\("touchstart", touchStartHandler, \{ passive: false \}\)/.test(src) &&
@@ -356,62 +367,56 @@ for (const [name, src] of CHARTS) {
 }
 
 // ===========================================================================
-section("The two charts read the same gesture, character for character")
+section("The analytics chart reads the shared gesture")
 // ===========================================================================
 /**
- * The property-by-property audit in tests/settings-flow.test.ts checks that
- * each chart HAS each thing. It cannot see a missing declaration, because a
- * declaration is not a property anyone thought to list — which is exactly how
- * the bug above got through an audit I wrote for this.
+ * This section used to compare the analytics chart's private copy of the
+ * gesture with the dashboard's, character for character, because two copies
+ * drift. The analytics chart has no copy now: it and the report cards under
+ * it read components/app/use-chart-scrub, so there is nothing to drift. What
+ * is held here is that it stays that way, and that the hook keeps every rule
+ * the two copies were compared on.
  *
- * So this compares the gesture itself, in two pieces that are meant to be
- * word for word identical: the state the scrub keeps, and the handlers that
- * drive it. Everything around them legitimately differs — the two charts
- * format different metrics and take their data under different names — so
- * neither piece reaches past what it is about. Any drift inside them, in
- * either direction, shows up here with the exact character it starts at.
+ * And the reason it moved: "the analytics still don't have the smoothness".
+ * The dots were drawn by a function of the active index, so every point a
+ * finger crossed re-ran recharts. The plot is its own memoised layer now,
+ * blind to the finger, and the marker over it moves by transform.
  */
-function between(src: string, from: string, to: string): string {
-  const a = src.indexOf(from)
-  if (a < 0) return ""
-  const b = src.indexOf(to, a)
-  if (b < 0) return ""
-  return src
-    .slice(a, b + to.length)
-    /* The one name that is meant to differ: the series prop. */
-    .replace(/displayChartData/g, "SERIES")
-    .replace(/chartDisplayData/g, "SERIES")
-    .replace(/\s+/g, " ")
-    .trim()
+{
+  check("the analytics chart and the report cards read one gesture",
+    /useChartScrub<HTMLDivElement>\(indexAt\)/.test(ANALYTICS) && /useChartScrub<HTMLDivElement>\(/.test(REPORTS))
+  check("and neither keeps a private copy of it",
+    !/addEventListener\("touch/.test(ANALYTICS) && !/addEventListener\("touch/.test(REPORTS))
+  check("the analytics chart: touch-action is a constant pan-y",
+    /touchAction: "pan-y"/.test(ANALYTICS) && !/touchAction: \w+ \?/.test(ANALYTICS))
+  check("the hook: a sideways drag engages sooner than a scroll gives up",
+    /const SLOP_X = 8/.test(HOOK) && /const SLOP_Y = 12/.test(HOOK) && /\(dx > SLOP_X \|\| dy > SLOP_Y\)/.test(HOOK))
+  check("the hook: vertical has to win clearly to be a scroll",
+    /\} else if \(dy > dx \* 1\.4\) \{/.test(HOOK))
+  check("the hook: a hold lands in a tenth of a second, where the finger is now",
+    /const HOLD_MS = 100/.test(HOOK) && /show\(lastX, true\)/.test(HOOK))
+  check("the hook: an active scrub cancels every move",
+    /if \(scrubbing\) \{[\s\S]{0,500}?if \(e\.cancelable\) e\.preventDefault\(\)/.test(HOOK))
+  check("the hook: unless the hold has turned into a scroll, read from movement",
+    /if \(dx > SLOP_X\) moved = true/.test(HOOK) && /if \(!moved && dy > SLOP_Y\) \{[\s\S]{0,120}scrubbing = false/.test(HOOK))
+  check("the hook: the touchstart is watched, never cancelled",
+    /addEventListener\("touchstart", onStart, \{ passive: true \}\)/.test(HOOK)
+      && /addEventListener\("touchmove", onMove, \{ passive: false \}\)/.test(HOOK))
+  check("the hook: one tick per point crossed",
+    /if \(i !== lastIndex\) \{[\s\S]{0,80}hapticTap/.test(HOOK))
+  check("the plot is memoised and blind to the finger",
+    /const Plot = memo\(function Plot\(/.test(ANALYTICS) && !/interface PlotProps \{[^}]*(activeIndex|scrub)/.test(ANALYTICS))
+  check("the marker moves by transform, and glides once it has been placed",
+    /const transition = shown && settled \? GLIDE : "none"/.test(ANALYTICS)
+      && /const GLIDE = "transform \d+ms/.test(ANALYTICS)
+      && /transform: `translate\(\$\{x\.toFixed\(1\)\}px, \$\{yOf\(/.test(ANALYTICS))
+  check("the touches land on one layer that never changes",
+    /data-chart-touch-shield/.test(ANALYTICS) && /pointerEvents: "auto"/.test(ANALYTICS))
+  check("the long press is refused in CSS",
+    /WebkitTouchCallout: "none"/.test(ANALYTICS) && /WebkitUserSelect: "none"/.test(ANALYTICS))
+  check("the readout is clamped to the card by its own width, with left static",
+    /left: 0,/.test(ANALYTICS) && /transform: shiftFor\(x, track\)/.test(ANALYTICS) && /translateX\(clamp\(/.test(ANALYTICS) && /translateZ\(0\)`$/m.test(ANALYTICS))
 }
-
-function compare(what: string, a: string, d: string, floor: number) {
-  check(`${what}: both charts were found`, a.length > floor && d.length > floor,
-    `analytics ${a.length} chars, dashboard ${d.length} chars, wanted more than ${floor}`)
-  let detail: string | undefined
-  if (a !== d) {
-    let i = 0
-    while (i < a.length && i < d.length && a[i] === d[i]) i++
-    detail = `they diverge at character ${i}:\n          analytics: ${JSON.stringify(a.slice(i, i + 90))}\n          dashboard: ${JSON.stringify(d.slice(i, i + 90))}`
-  }
-  check(`${what}: identical on both charts`, a === d, detail)
-}
-
-/* What the scrub remembers between events. The missing line was one of these. */
-compare(
-  "the scrub's state",
-  between(ANALYTICS, "const touchStartPosRef", "const lastTouchXRef = useRef(0)"),
-  between(DASHBOARD, "const touchStartPosRef", "const lastTouchXRef = useRef(0)"),
-  200,
-)
-
-/* And what it does with it: the slop, the hold, the lock, the frame, the lift. */
-compare(
-  "the scrub's handlers",
-  between(ANALYTICS, "const getIndexFromTouch", "setActiveIndex(null)\n  }, [])"),
-  between(DASHBOARD, "const getIndexFromTouch", "setActiveIndex(null)\n  }, [])"),
-  2000,
-)
 
 // ===========================================================================
 section("Switching Store and One page redraws once, not twice")
@@ -438,13 +443,19 @@ section("Switching Store and One page redraws once, not twice")
     "the chart is given the mode its data belongs to",
     /analyticsMode=\{trendMode\}/.test(page) && !/analyticsMode=\{analyticsMode\}/.test(page),
   )
+  /*
+    The mode and the series are now both read off the one answer from the
+    server, so they cannot be committed apart: the series is derived from
+    `answer`, and so is the mode it is drawn in.
+  */
   check(
-    "and that mode is set in the same commit as the data",
-    /setTrendData\(trendArray\)\s*\n\s*setTrendMode\(analyticsMode\)/.test(page),
+    "and that mode is the mode of the answer the series is drawn from",
+    /const trendMode: AnalyticsMode = answer\?\.mode \?\? analyticsMode/.test(page) &&
+      /const trendData = useMemo<TrendData\[\]>\(\(\) => \{\s*if \(!answer\) return \[\]/.test(page),
   )
   check(
     "the tabs still answer the tap immediately",
-    /analyticsMode === "store" \? "bg-white/.test(page),
+    /analyticsMode === mode \? "bg-white/.test(page),
   )
 }
 

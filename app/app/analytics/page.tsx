@@ -10,6 +10,12 @@ export const metadata = {
   title: "Analytics",
 }
 
+/**
+ * Who is asking and what they sell. Every figure on the page is counted by
+ * app/api/analytics/reports, so nothing else is read here: this used to load
+ * every order the creator ever had, for numbers the page now asks the
+ * server for.
+ */
 export default async function AnalyticsPage() {
   const supabase = await createClient()
   const adminSupabase = createAdminClient()
@@ -24,7 +30,7 @@ export default async function AnalyticsPage() {
 
   const { data: creator, error: creatorError } = await adminSupabase
     .from("creators")
-    .select("id, views")
+    .select("id")
     .eq("user_id", user.id)
     .single()
 
@@ -37,26 +43,5 @@ export default async function AnalyticsPage() {
     .select("id, title, thumbnail_url")
     .eq("creator_id", creator.id)
 
-  const products = productsData || []
-
-  // Fetch orders for this creator's products (like Sales page does)
-  let initialOrders: any[] = []
-  if (products.length > 0) {
-    const productIds = products.map((p: any) => p.id)
-    const { data: ordersData } = await adminSupabase
-      .from("orders")
-      .select("*")
-      .in("product_id", productIds)
-      .order("created_at", { ascending: false })
-
-    initialOrders = (ordersData || []).map((order: any) => {
-      const product = products.find((p: any) => p.id === order.product_id)
-      return {
-        ...order,
-        product: product ? { id: product.id, title: product.title } : null
-      }
-    })
-  }
-
-  return <AnalyticsClient creatorId={creator.id} userId={user.id} products={products} initialOrders={initialOrders} />
+  return <AnalyticsClient creatorId={creator.id} userId={user.id} products={productsData || []} />
 }

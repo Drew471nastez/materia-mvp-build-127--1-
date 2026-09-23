@@ -128,7 +128,7 @@ function main() {
     the page scrolling from this row in the first place.
   */
   check("both axes stay permitted in CSS, because the strip is what decides",
-    /touchAction: 'pan-x pan-y'/.test(home) && /touchAction: 'pan-x pan-y'/.test(analytics))
+    /touchAction: 'pan-x pan-y'/.test(home) && !/touchAction: 'pan-x'/.test(analytics))
 
   console.log("\nEvery tab in both strips is tagged, and both strips are wired")
 
@@ -148,27 +148,26 @@ function main() {
   check("with the ref on the row that actually scrolls",
     /<div ref=\{kpiStripRef\} className="relative flex overflow-x-auto/.test(home))
 
+  /*
+    THE ANALYTICS FIGURES ARE NOT A STRIP ANY MORE. On a phone they sat in a
+    row that scrolled sideways, with the fourth tab past the edge and a swipe
+    that had to be told apart from a scroll. They are a two by two grid now
+    and a row of four wider up: all four always in view, nothing to swipe to,
+    and so nothing for this hook to arbitrate. What is held for them is that
+    every button still carries its tab name, in the order it is drawn.
+  */
   const storeOrder = tabOrderIn(analytics, "setChartMetricFilter")
   const onepageOrder = tabOrderIn(analytics, "setOnePageChartFilter")
-  check("the analytics strip tags all eight of its tabs, across both modes",
-    JSON.stringify(taggedIn(analytics)) === JSON.stringify([...storeOrder, ...onepageOrder])
-      && storeOrder.length === 4 && onepageOrder.length === 4,
-    `tagged ${taggedIn(analytics).join(", ")}`)
-  check("the store order is the one its buttons are in",
-    /const STORE_TAB_ORDER = \["views", "revenue", "orders", "conversion"\] as const/.test(analytics)
-      && JSON.stringify(storeOrder) === JSON.stringify(["views", "revenue", "orders", "conversion"]),
-    `its buttons are drawn ${storeOrder.join(", ")}`)
-  check("and the OnePage order is its own, which is a different list",
-    /const ONEPAGE_TAB_ORDER = \["views", "clicks", "subscribers", "ctr"\] as const/.test(analytics)
+  const analyticsTabs = [...analytics.matchAll(/<MetricTab tab="([a-z]+)"/g)].map((m) => m[1])
+  check("the analytics figures tag all eight of their tabs, across both modes, in the order they are drawn",
+    JSON.stringify(analyticsTabs) === JSON.stringify([...storeOrder, ...onepageOrder])
+      && JSON.stringify(storeOrder) === JSON.stringify(["views", "revenue", "orders", "conversion"])
       && JSON.stringify(onepageOrder) === JSON.stringify(["views", "clicks", "subscribers", "ctr"]),
-    `its buttons are drawn ${onepageOrder.join(", ")}`)
-  /*
-    Both sets of tabs are drawn into the SAME scrolling row, so the reveal
-    follows whichever set is on screen rather than one of them.
-  */
-  check("one strip, following whichever set of tabs the mode is showing",
-    /const metricStripRef = useTabStrip<HTMLDivElement>\(\s*\n\s*analyticsMode === "onepage" \? onePageChartFilter : chartMetricFilter,\s*\n\s*analyticsMode === "onepage" \? ONEPAGE_TAB_ORDER : STORE_TAB_ORDER,/.test(analytics)
-      && /<div ref=\{metricStripRef\} className="relative flex overflow-x-auto/.test(analytics))
+    `tagged ${analyticsTabs.join(", ")}`)
+  check("and they are a grid that never scrolls, so no strip hook is needed",
+    /role="tablist" aria-label="Metric" className="grid grid-cols-2 gap-px bg-\[#eef0f2\] md:grid-cols-4"/.test(analytics)
+      && !/useTabStrip/.test(analytics)
+      && /data-tab=\{tab\}/.test(analytics))
 
   console.log("\nAnd the chart itself is left alone")
 

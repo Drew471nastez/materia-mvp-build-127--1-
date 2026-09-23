@@ -17,18 +17,22 @@
  *   from Instagram is one Instagram session, not five.
  *
  *   An order is one payment (lib/orders/order-view groups a basket's rows).
- *   Failed and pending payments are not orders. Money is what was paid less
- *   what was refunded.
+ *   Failed and pending payments are not orders. Money is what was charged
+ *   less what was refunded, read from the rows' own amounts (moneyOf).
  *
- *   Every figure is compared with the same length of time just before, and
- *   nothing is ever filled in: an empty day is zero, an unknown device is
- *   "Unknown", a country nobody recorded is not a country.
+ *   Every figure is compared with the period the comparison picker names,
+ *   bucket by bucket on its own calendar, and nothing is ever filled in: an
+ *   empty day is zero, an unknown device is "Unknown", a country nobody
+ *   recorded is not a country.
+ *
+ * The chart at the top of the page reads the same object, so the numbers
+ * on its tabs and the cards under it cannot disagree.
  */
 
 import { groupOrders, startOfDay, type OrderRow } from "../orders/order-view"
-import { bucketIndex, bucketLabel, bucketStarts, grainFor, previousWindow, type Grain, type Span } from "./buckets"
+import { bucketIndex, bucketLabel, bucketStarts, grainFor, previousWindow, spansToRead, type Grain, type Span } from "./buckets"
 
-export { bucketStarts, grainFor, previousWindow, type Grain, type Span }
+export { bucketStarts, grainFor, previousWindow, spansToRead, type Grain, type Span }
 
 export interface ViewRow {
   id?: string
@@ -81,11 +85,17 @@ export interface BreakdownRow {
 
 export interface Reports {
   grain: Grain
+  /** False when the picker says No comparison: every `previous` is then empty. */
+  compared: boolean
+  /** Page views: every page opened, one per page per visitor per half hour (app/api/track-view). */
+  views: Headline & { series: Series }
   sessions: Headline & { series: Series }
   conversion: Headline & { series: Series }
   aov: Headline & { series: Series }
-  sales: Headline
-  orders: Headline
+  sales: Headline & { series: Series }
+  orders: Headline & { series: Series }
+  /** Orders placed in each bucket that have since been refunded, in whole or part. */
+  refunds: { series: Series }
   salesByChannel: BreakdownRow[]
   salesByProduct: BreakdownRow[]
   funnel: Array<{ key: "sessions" | "buy" | "checkout" | "orders"; label: string; value: number; previous: number; rate: number }>
@@ -160,6 +170,10 @@ const SOCIAL_LABEL: Record<string, string> = {
   threads: "Threads",
   whatsapp: "WhatsApp",
   telegram: "Telegram",
+  discord: "Discord",
+  twitch: "Twitch",
+  bluesky: "Bluesky",
+  tumblr: "Tumblr",
 }
 
 export function sourceGroup(category: string | null | undefined): string {
@@ -317,21 +331,86 @@ function visitBreakdowns(now: Session[], before: Session[], mainDomain: string) 
 
 /* ─── Everything ──────────────────────────────────────────────────────── */
 
+/**
+ * THE TWO PERIODS AND THEIR BUCKETS.
+ *
+ * The period before is the one the comparison picker names, handed in by the
+ * page (lib/date-range/range compareBounds): the previous period, the same
+ * days a year earlier, a custom range, or none. It used to be fixed here as
+ * "the same length just before", whatever the picker said, and with a period
+ * that runs to now that length is not whole days: at 3pm on the seventh day
+ * of "Last 7 days" the period before started at 9am, so every dashed point
+ * was a day shifted by six hours.
+ *
+ * Bucket i of the comparison is bucket i of its own period, counted on its
+ * own calendar: the same hour of yesterday, the same day of last year.
+ */
+export function periodsOf(cur: Span, previous: Span | null | undefined, timeZone: string) {
+  const prev = previous === undefined ? previousWindow(cur) : previous
+  const grain = grainFor(cur)
+  const starts = bucketStarts(cur, grain, timeZone)
+  const labels = starts.map((s) => bucketLabel(s, grain, timeZone))
+  /* No comparison: an empty span, so everything before counts nothing. */
+  const before: Span = prev ?? { start: cur.start, end: cur.start }
+  const prevStarts = prev ? bucketStarts(prev, grain, timeZone) : []
+  return { grain, starts, labels, prev: before, prevStarts, compared: !!prev }
+}
+
+/**
+ * Counts per bucket. The comparison has as many buckets as the period,
+ * padded with nothing where it is shorter, and a longer one is cut at the
+ * period's length (its whole length still counts in the headline).
+ */
+function bucketCounts(items: Array<{ at: number; n?: number }>, starts: number[], w: Span, length: number): number[] {
+  const out = Array.from({ length }, () => 0)
+  if (starts.length === 0) return out
+  for (const item of items) {
+    if (!(item.at >= w.start && item.at < w.end)) continue
+    const i = bucketIndex(starts, item.at)
+    if (i >= 0 && i < length) out[i] += item.n ?? 1
+  }
+  return out
+}
+
+type Grouped = ReturnType<typeof groupOrders>[number]
+
+/**
+ * WHAT A PAYMENT BROUGHT IN, FROM ITS OWN LINES.
+ *
+ * A row's `amount_cents` is what Stripe charged, the tip included (it is
+ * the session's `amount_total`), and the tip is ALSO kept on its own in
+ * `tip_cents`. The order view adds the two, so every tip was counted twice
+ * in Sales and in the average order. Money here is the lines' amounts, less
+ * what was refunded on each, never below nothing.
+ */
+export function moneyOf(o: Grouped): { gross: number; refunded: number; net: number } {
+  let gross = 0
+  let refunded = 0
+  for (const line of o.lines) {
+    const amount = Math.max(0, line.amount_cents || 0)
+    gross += amount
+    if (line.status === "refunded") {
+      const recorded = line.refund_amount_cents
+      refunded += typeof recorded === "number" && recorded > 0 ? Math.min(recorded, amount) : amount
+    }
+  }
+  return { gross, refunded, net: Math.max(0, gross - refunded) }
+}
+
 export function buildReports(input: {
   views: ViewRow[]
   steps: StepRow[]
   orders: OrderRow[]
   window: Span
+  /** What the period is compared with: null for no comparison, left out for the period just before. */
+  previous?: Span | null
   timeZone: string
   mainDomain: string
   productTitles: Record<string, string>
 }): Reports {
   const { views, steps, window: cur, timeZone, mainDomain } = input
-  const prev = previousWindow(cur)
-  const grain = grainFor(cur)
-  const starts = bucketStarts(cur, grain, timeZone)
-  const prevStarts = starts.map((s) => s - (cur.start - prev.start))
-  const labels = starts.map((s) => bucketLabel(s, grain, timeZone))
+  const { grain, starts, labels, prev, prevStarts, compared } = periodsOf(cur, input.previous, timeZone)
+  const n = starts.length
 
   const sessionsNow = sessionsOf(views, cur, timeZone)
   const sessionsBefore = sessionsOf(views, prev, timeZone)
@@ -344,79 +423,93 @@ export function buildReports(input: {
   }
   const ordersNow = allOrders.filter((o) => inWindow(o, cur))
   const ordersBefore = allOrders.filter((o) => inWindow(o, prev))
-  const net = (o: (typeof allOrders)[number]) => Math.max(0, o.totalCents - o.refundedCents)
-  const paid = (list: typeof allOrders) => list.filter((o) => o.totalCents > 0)
+  const net = (o: Grouped) => moneyOf(o).net
+  const paid = (list: Grouped[]) => list.filter((o) => moneyOf(o).gross > 0)
 
-  const series = (fill: (starts: number[], w: Span) => number[]) => ({
+  /** A series from what happened, in the period and the one before. */
+  const series = (items: (w: Span) => Array<{ at: number; n?: number }>): Series => ({
     labels,
-    current: fill(starts, cur),
-    previous: fill(prevStarts, prev),
+    current: bucketCounts(items(cur), starts, cur, n),
+    previous: compared ? bucketCounts(items(prev), prevStarts, prev, n) : [],
   })
 
-  const countIn = (items: number[], bucketFrom: number[], w: Span) => {
-    const out = bucketFrom.map(() => 0)
-    for (const at of items) {
-      if (!(at >= w.start && at < w.end)) continue
-      const i = bucketIndex(bucketFrom, at)
-      if (i >= 0) out[i]++
-    }
-    return out
-  }
-
-  const sessionTimes = (list: Session[]) => list.map((s) => s.at)
-  const orderTimes = (list: typeof allOrders) => list.map((o) => Date.parse(o.createdAt))
-
-  const sessionSeries = series((b, w) => countIn(sessionTimes(w === cur ? sessionsNow : sessionsBefore), b, w))
-  const orderCounts = series((b, w) => countIn(orderTimes(w === cur ? ordersNow : ordersBefore), b, w))
+  const sessionSeries = series((w) => (w === cur ? sessionsNow : sessionsBefore).map((s) => ({ at: s.at })))
+  const viewsIn = (w: Span) =>
+    views.map((v) => ({ at: Date.parse(v.created_at) })).filter((v) => v.at >= w.start && v.at < w.end)
+  const viewSeries = series(viewsIn)
+  const orderTimes = (list: Grouped[]) => list.map((o) => ({ at: Date.parse(o.createdAt) }))
+  const orderSeries = series((w) => orderTimes(w === cur ? ordersNow : ordersBefore))
+  const salesSeries = series((w) => (w === cur ? ordersNow : ordersBefore).map((o) => ({ at: Date.parse(o.createdAt), n: net(o) })))
+  const refundSeries = series((w) =>
+    (w === cur ? ordersNow : ordersBefore).filter((o) => moneyOf(o).refunded > 0).map((o) => ({ at: Date.parse(o.createdAt) })),
+  )
+  const ratio = (a: number[], b: number[]) => a.map((o, i) => (b[i] ? o / b[i] : 0))
   const conversionSeries: Series = {
     labels,
-    current: orderCounts.current.map((o, i) => (sessionSeries.current[i] ? o / sessionSeries.current[i] : 0)),
-    previous: orderCounts.previous.map((o, i) => (sessionSeries.previous[i] ? o / sessionSeries.previous[i] : 0)),
+    current: ratio(orderSeries.current, sessionSeries.current),
+    previous: ratio(orderSeries.previous, sessionSeries.previous),
   }
-  const aovIn = (list: typeof allOrders, bucketFrom: number[], w: Span) => {
-    const sum = bucketFrom.map(() => 0)
-    const n = bucketFrom.map(() => 0)
-    for (const o of paid(list)) {
-      const at = Date.parse(o.createdAt)
-      if (!(at >= w.start && at < w.end)) continue
-      const i = bucketIndex(bucketFrom, at)
-      if (i < 0) continue
-      sum[i] += o.totalCents
-      n[i]++
-    }
-    return sum.map((s, i) => (n[i] ? s / n[i] : 0))
-  }
-  const aovSeries = series((b, w) => aovIn(w === cur ? ordersNow : ordersBefore, b, w))
-  const aov = (list: typeof allOrders) => {
+  const aovSeries: Series = (() => {
+    const sums = series((w) => paid(w === cur ? ordersNow : ordersBefore).map((o) => ({ at: Date.parse(o.createdAt), n: moneyOf(o).gross })))
+    const counts = series((w) => orderTimes(paid(w === cur ? ordersNow : ordersBefore)))
+    return { labels, current: ratio(sums.current, counts.current), previous: ratio(sums.previous, counts.previous) }
+  })()
+  const aov = (list: Grouped[]) => {
     const p = paid(list)
-    return p.length ? p.reduce((n, o) => n + o.totalCents, 0) / p.length : 0
+    return p.length ? p.reduce((sum, o) => sum + moneyOf(o).gross, 0) / p.length : 0
   }
 
   const rate = (o: number, s: number) => (s > 0 ? o / s : 0)
+  const head = (value: number, previous: number) => (compared ? headline(value, previous) : { value, previous: 0, change: null })
 
-  /* Sales by channel: where each payment came from. */
-  const channelRows = (() => {
-    const label = { website: "Website", storelib: "Storelib", unknown: "Not recorded" } as const
-    const sum = (list: typeof allOrders) => {
-      const m = new Map<keyof typeof label, number>()
+  /**
+   * SALES BY CHANNEL: where each payment was made, and every payment is in
+   * it. Two things emptied this card while orders were plainly there:
+   *
+   *   A channel whose money came to nothing was dropped, so a period of free
+   *   downloads, or of orders all refunded, showed "No sales" beside a
+   *   product list full of them. A channel is listed when it has orders.
+   *
+   *   An order from before the source was written down had no channel, and
+   *   was put under "Not recorded". The checkout calls a sale Storelib unless
+   *   a website's Buy button says otherwise (lib/orders/order-source), and a
+   *   basket is always a website's, which the order view already knows: an
+   *   order with nothing recorded is a Storelib sale by that same rule.
+   *
+   * The ring is shared out by money, or by orders when the money is nothing.
+   */
+  const channelRows: BreakdownRow[] = (() => {
+    const label = { website: "Website", storelib: "Storelib" } as const
+    const tally = (list: Grouped[]) => {
+      const m = new Map<keyof typeof label, { cents: number; orders: number }>()
       for (const o of list) {
-        const k = (o.source ?? "unknown") as keyof typeof label
-        m.set(k, (m.get(k) ?? 0) + net(o))
+        const k: keyof typeof label = o.source === "website" ? "website" : "storelib"
+        const row = m.get(k) ?? { cents: 0, orders: 0 }
+        row.cents += net(o)
+        row.orders += 1
+        m.set(k, row)
       }
       return m
     }
-    const now = sum(ordersNow)
-    const before = sum(ordersBefore)
-    const total = [...now.values()].reduce((n, v) => n + v, 0)
+    const now = tally(ordersNow)
+    const before = tally(ordersBefore)
+    const cents = [...now.values()].reduce((sum, v) => sum + v.cents, 0)
+    const count = [...now.values()].reduce((sum, v) => sum + v.orders, 0)
     return [...now.entries()]
-      .filter(([, v]) => v > 0)
-      .map(([k, v]) => ({ key: k, label: label[k], value: v, previous: before.get(k) ?? 0, share: total ? v / total : 0 }))
-      .sort((a, b) => b.value - a.value)
+      .map(([k, v]) => ({
+        key: k,
+        label: label[k],
+        value: v.cents,
+        previous: before.get(k)?.cents ?? 0,
+        share: cents > 0 ? v.cents / cents : count > 0 ? v.orders / count : 0,
+        extra: { orders: v.orders },
+      }))
+      .sort((a, b) => b.value - a.value || (b.extra.orders ?? 0) - (a.extra.orders ?? 0))
   })()
 
   /* Sales by product: each product's own line of each payment. */
   const productRows = (() => {
-    const tally = (list: typeof allOrders) => {
+    const tally = (list: Grouped[]) => {
       const m = new Map<string, { cents: number; units: number }>()
       for (const o of list) {
         for (const line of o.lines) {
@@ -435,7 +528,7 @@ export function buildReports(input: {
     }
     const now = tally(ordersNow)
     const before = tally(ordersBefore)
-    const total = [...now.values()].reduce((n, v) => n + v.cents, 0)
+    const total = [...now.values()].reduce((sum, v) => sum + v.cents, 0)
     return [...now.entries()]
       .map(([id, v]) => ({
         key: id,
@@ -491,15 +584,18 @@ export function buildReports(input: {
     return rows.sort((a, b) => b.value - a.value || (b.extra?.orders ?? 0) - (a.extra?.orders ?? 0)).slice(0, 25)
   })()
 
-  const refDomain = referrerKeyer(mainDomain)
+  const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0)
 
   return {
     grain,
-    sessions: { ...headline(sessionsNow.length, sessionsBefore.length), series: sessionSeries },
-    conversion: { ...headline(rate(ordersNow.length, sessionsNow.length), rate(ordersBefore.length, sessionsBefore.length)), series: conversionSeries },
-    aov: { ...headline(aov(ordersNow), aov(ordersBefore)), series: aovSeries },
-    sales: headline(ordersNow.reduce((n, o) => n + net(o), 0), ordersBefore.reduce((n, o) => n + net(o), 0)),
-    orders: headline(ordersNow.length, ordersBefore.length),
+    compared,
+    views: { ...head(viewsIn(cur).length, viewsIn(prev).length), series: viewSeries },
+    sessions: { ...head(sessionsNow.length, sessionsBefore.length), series: sessionSeries },
+    conversion: { ...head(rate(ordersNow.length, sessionsNow.length), rate(ordersBefore.length, sessionsBefore.length)), series: conversionSeries },
+    aov: { ...head(aov(ordersNow), aov(ordersBefore)), series: aovSeries },
+    sales: { ...head(sum(ordersNow.map(net)), sum(ordersBefore.map(net))), series: salesSeries },
+    orders: { ...head(ordersNow.length, ordersBefore.length), series: orderSeries },
+    refunds: { series: refundSeries },
     salesByChannel: channelRows,
     salesByProduct: productRows,
     funnel,
@@ -543,6 +639,7 @@ export interface OnePageLeadRow {
 
 export interface OnePageReports {
   grain: Grain
+  compared: boolean
   views: Headline & { series: Series }
   clicks: Headline & { series: Series }
   ctr: Headline & { series: Series }
@@ -562,6 +659,8 @@ export function buildOnePageReports(input: {
   clicks: OnePageClickRow[]
   leads: OnePageLeadRow[]
   window: Span
+  /** What the period is compared with: null for no comparison, left out for the period just before. */
+  previous?: Span | null
   timeZone: string
   mainDomain: string
   linkLabels: Record<string, string>
@@ -570,11 +669,8 @@ export function buildOnePageReports(input: {
   hostOf: (referrer: string | null | undefined) => string
 }): OnePageReports {
   const { window: cur, timeZone } = input
-  const prev = previousWindow(cur)
-  const grain = grainFor(cur)
-  const starts = bucketStarts(cur, grain, timeZone)
-  const prevStarts = starts.map((s) => s - (cur.start - prev.start))
-  const labels = starts.map((s) => bucketLabel(s, grain, timeZone))
+  const { grain, starts, labels, prev, prevStarts, compared } = periodsOf(cur, input.previous, timeZone)
+  const n = starts.length
 
   const asViews: ViewRow[] = input.views.map((v, i) => {
     const agent = input.parseAgent(v.user_agent)
@@ -597,33 +693,30 @@ export function buildOnePageReports(input: {
   const now = sessionsOf(asViews, cur, timeZone)
   const before = sessionsOf(asViews, prev, timeZone)
 
-  const times = (rows: Array<{ created_at: string }>) => rows.map((r) => Date.parse(r.created_at))
-  const countIn = (items: number[], from: number[], w: Span) => {
-    const out = from.map(() => 0)
-    for (const at of items) {
-      if (!(at >= w.start && at < w.end)) continue
-      const i = bucketIndex(from, at)
-      if (i >= 0) out[i]++
-    }
-    return out
-  }
+  const times = (rows: Array<{ created_at: string }>) => rows.map((r) => ({ at: Date.parse(r.created_at) }))
   const inSpan = (at: number, w: Span) => at >= w.start && at < w.end
-  const sum = (xs: number[]) => xs.reduce((n, x) => n + x, 0)
+  const sum = (xs: number[]) => xs.reduce((total, x) => total + x, 0)
+  const series = (items: Array<{ at: number }>): Series => ({
+    labels,
+    current: bucketCounts(items, starts, cur, n),
+    previous: compared ? bucketCounts(items, prevStarts, prev, n) : [],
+  })
 
-  const viewTimes = now.map((s) => s.at).concat(before.map((s) => s.at))
+  const viewTimes = now.concat(before).map((s) => ({ at: s.at }))
   const clickTimes = times(input.clicks)
   const leadTimes = times(input.leads)
-  const viewSeries = { labels, current: countIn(viewTimes, starts, cur), previous: countIn(viewTimes, prevStarts, prev) }
-  const clickSeries = { labels, current: countIn(clickTimes, starts, cur), previous: countIn(clickTimes, prevStarts, prev) }
-  const leadSeries = { labels, current: countIn(leadTimes, starts, cur), previous: countIn(leadTimes, prevStarts, prev) }
+  const viewSeries = series(viewTimes)
+  const clickSeries = series(clickTimes)
+  const leadSeries = series(leadTimes)
   const ctrSeries = {
     labels,
     current: clickSeries.current.map((c, i) => (viewSeries.current[i] ? c / viewSeries.current[i] : 0)),
     previous: clickSeries.previous.map((c, i) => (viewSeries.previous[i] ? c / viewSeries.previous[i] : 0)),
   }
-  const clicksNow = clickTimes.filter((t) => inSpan(t, cur)).length
-  const clicksBefore = clickTimes.filter((t) => inSpan(t, prev)).length
+  const clicksNow = clickTimes.filter((t) => inSpan(t.at, cur)).length
+  const clicksBefore = clickTimes.filter((t) => inSpan(t.at, prev)).length
   const ratio = (a: number, b: number) => (b > 0 ? a / b : 0)
+  const head = (value: number, previous: number) => (compared ? headline(value, previous) : { value, previous: 0, change: null })
 
   /* Links: clicks per block, named from the page's own blocks. */
   const linkRows = (() => {
@@ -651,11 +744,12 @@ export function buildOnePageReports(input: {
 
   return {
     grain,
-    views: { ...headline(now.length, before.length), series: viewSeries },
-    clicks: { ...headline(clicksNow, clicksBefore), series: clickSeries },
-    ctr: { ...headline(ratio(clicksNow, now.length), ratio(clicksBefore, before.length)), series: ctrSeries },
+    compared,
+    views: { ...head(now.length, before.length), series: viewSeries },
+    clicks: { ...head(clicksNow, clicksBefore), series: clickSeries },
+    ctr: { ...head(ratio(clicksNow, now.length), ratio(clicksBefore, before.length)), series: ctrSeries },
     subscribers: {
-      ...headline(leadTimes.filter((t) => inSpan(t, cur)).length, leadTimes.filter((t) => inSpan(t, prev)).length),
+      ...head(leadTimes.filter((t) => inSpan(t.at, cur)).length, leadTimes.filter((t) => inSpan(t.at, prev)).length),
       series: leadSeries,
     },
     links: linkRows,

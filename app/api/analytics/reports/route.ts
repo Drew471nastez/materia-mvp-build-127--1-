@@ -5,23 +5,27 @@ import { getMainDomain } from "@/lib/url-helpers"
 import {
   buildOnePageReports,
   buildReports,
+  moneyOf,
   previousWindow,
+  spansToRead,
   type OnePageClickRow,
   type OnePageLeadRow,
   type OnePageViewRow,
+  type Span,
   type StepRow,
   type ViewRow,
 } from "@/lib/analytics/reports"
 import { categorizeServerSource, detectClientAppFromUA, referrerHost } from "@/lib/analytics/sources"
 import { parseUserAgent } from "@/lib/analytics/user-agent"
 import { isTimeZone } from "@/lib/orders/time-zone"
-import type { OrderRow } from "@/lib/orders/order-view"
+import { groupOrders, type OrderRow } from "@/lib/orders/order-view"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
 
 /**
- * The reports under the Analytics chart, for the signed-in creator only.
+ * The reports under the Analytics chart, and the chart's own numbers, for
+ * the signed-in creator only.
  *
  * ON THE SERVER, AND EVERY ROW. The page used to read events from the
  * browser, where a query returns at most 1,000 rows: a busy week simply
@@ -31,6 +35,10 @@ export const runtime = "nodejs"
  *
  * WHO. The creator comes from the session, never from the request; a
  * product filter is honoured only for one of that creator's own products.
+ *
+ * WHAT IT IS COMPARED WITH comes from the page's comparison picker as
+ * `cstart` and `cend`, or `compare=none`. Without either it is the same
+ * length of time just before.
  */
 const PAGE = 1000
 const CEILING = 200_000
@@ -38,6 +46,7 @@ const MAX_SPAN_MS = 6 * 366 * 24 * 3_600_000
 
 const VIEW_COLUMNS =
   "id, session_id, visitor_id, product_id, created_at, source_category, referrer_domain, country_code, country_name, city, device_type, browser, os, page_url, utm_campaign"
+
 
 async function readAll<T>(page: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>) {
   const rows: T[] = []
@@ -48,6 +57,30 @@ async function readAll<T>(page: (from: number, to: number) => PromiseLike<{ data
     if (!data || data.length < PAGE) return { rows, truncated: false }
   }
   return { rows, truncated: true }
+}
+
+/** Every row of every stretch, in order. */
+async function readSpans<T>(spans: Span[], page: (from: string, to: string, a: number, b: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>) {
+  let truncated = false
+  const rows: T[] = []
+  for (const s of spans) {
+    const iso = [new Date(s.start).toISOString(), new Date(s.end).toISOString()]
+    const read = await readAll<T>((a, b) => page(iso[0], iso[1], a, b))
+    rows.push(...read.rows)
+    truncated ||= read.truncated
+  }
+  return { rows, truncated }
+}
+
+function comparisonOf(url: URL, span: Span): Span | null | "bad" {
+  if (url.searchParams.get("compare") === "none") return null
+  const cs = url.searchParams.get("cstart")
+  const ce = url.searchParams.get("cend")
+  if (!cs && !ce) return previousWindow(span)
+  const start = Date.parse(cs || "")
+  const end = Date.parse(ce || "")
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start || end - start > MAX_SPAN_MS) return "bad"
+  return { start, end }
 }
 
 export async function GET(request: Request) {
@@ -65,10 +98,13 @@ export async function GET(request: Request) {
   if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start || end - start > MAX_SPAN_MS) {
     return NextResponse.json({ error: "Bad period" }, { status: 400 })
   }
+  const span = { start, end }
+  const previous = comparisonOf(url, span)
+  if (previous === "bad") return NextResponse.json({ error: "Bad comparison" }, { status: 400 })
 
   const admin = createAdminClient()
 
-  if (url.searchParams.get("mode") === "onepage") return onePage(admin, user.id, { start, end }, timeZone)
+  if (url.searchParams.get("mode") === "onepage") return onePage(admin, user.id, span, previous, timeZone)
 
   const { data: creator } = await admin.from("creators").select("id").eq("user_id", user.id).single()
   if (!creator) return NextResponse.json({ error: "Creator not found" }, { status: 404 })
@@ -80,9 +116,7 @@ export async function GET(request: Request) {
   const wanted = url.searchParams.get("product")
   const product = wanted && wanted !== "all" && productTitles[wanted] ? wanted : null
 
-  const span = { start, end }
-  const from = new Date(previousWindow(span).start).toISOString()
-  const to = new Date(end).toISOString()
+  const spans = spansToRead(span, previous)
 
   try {
     /*
@@ -96,7 +130,7 @@ export async function GET(request: Request) {
       console.warn("[analytics/reports] falling back to every column:", probe.error.message)
       columns = "*"
     }
-    const views = await readAll<ViewRow>((a, b) => {
+    const views = await readSpans<ViewRow>(spans, (from, to, a, b) => {
       let q = admin
         .from("analytics_events")
         .select(columns)
@@ -110,7 +144,7 @@ export async function GET(request: Request) {
       return q as unknown as PromiseLike<{ data: ViewRow[] | null; error: { message: string } | null }>
     })
 
-    const steps = await readAll<StepRow>((a, b) => {
+    const steps = await readSpans<StepRow>(spans, (from, to, a, b) => {
       let q = admin
         .from("analytics_events")
         .select("event_type, session_id, visitor_id, product_id, created_at")
@@ -127,7 +161,7 @@ export async function GET(request: Request) {
     let orders: OrderRow[] = []
     const productIds = product ? [product] : products.map((p: { id: string }) => p.id)
     if (productIds.length > 0) {
-      const read = await readAll<OrderRow>((a, b) =>
+      const read = await readSpans<OrderRow>(spans, (from, to, a, b) =>
         admin
           .from("orders")
           .select("*")
@@ -145,13 +179,40 @@ export async function GET(request: Request) {
       steps: steps.rows,
       orders,
       window: span,
+      previous,
       timeZone,
       mainDomain: getMainDomain(),
       productTitles,
     })
 
+    /*
+      ALL TIME, under each figure on the chart's tabs. Counted here rather
+      than in the browser, where "all time" was the first thousand rows.
+    */
+    const allTime = await (async () => {
+      let viewsQuery = admin.from("analytics_events").select("id", { count: "exact", head: true }).eq("creator_id", creator.id).eq("event_type", "view")
+      if (product) viewsQuery = viewsQuery.eq("product_id", product)
+      const { count } = await viewsQuery
+      let orderCount = 0
+      let salesCents = 0
+      if (productIds.length > 0) {
+        const read = await readAll<OrderRow>((a, b) =>
+          admin
+            .from("orders")
+            .select("*")
+            .in("product_id", productIds)
+            .order("created_at", { ascending: true })
+            .range(a, b) as unknown as PromiseLike<{ data: OrderRow[] | null; error: { message: string } | null }>,
+        )
+        const counted = groupOrders(read.rows).filter((o) => o.payment !== "failed" && o.payment !== "pending")
+        orderCount = counted.length
+        salesCents = counted.reduce((sum, o) => sum + moneyOf(o).net, 0)
+      }
+      return { views: count ?? 0, orders: orderCount, salesCents }
+    })()
+
     return NextResponse.json(
-      { reports, truncated: views.truncated || steps.truncated },
+      { reports, allTime, truncated: views.truncated || steps.truncated },
       { headers: { "Cache-Control": "private, no-store" } },
     )
   } catch (error) {
@@ -177,7 +238,8 @@ function blockLabel(block: Block): string | null {
 async function onePage(
   admin: ReturnType<typeof createAdminClient>,
   userId: string,
-  span: { start: number; end: number },
+  span: Span,
+  previous: Span | null,
   timeZone: string,
 ) {
   /* The OnePage is found from the session's user, never from the request. */
@@ -187,10 +249,9 @@ async function onePage(
     .eq("owner_id", userId)
     .maybeSingle()
 
-  const from = new Date(previousWindow(span).start).toISOString()
-  const to = new Date(span.end).toISOString()
+  const spans = spansToRead(span, previous)
   const read = <T,>(table: string) =>
-    readAll<T>((a, b) =>
+    readSpans<T>(spans, (from, to, a, b) =>
       admin
         .from(table)
         .select("*")
@@ -200,11 +261,18 @@ async function onePage(
         .order("created_at", { ascending: true })
         .range(a, b) as unknown as PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
     )
+  const countAll = async (table: string) => {
+    const { count } = await admin.from(table).select("*", { count: "exact", head: true }).eq("onepage_id", page!.id)
+    return count ?? 0
+  }
 
   try {
     const [views, clicks, leads] = page?.id
       ? await Promise.all([read<OnePageViewRow>("onepage_views"), read<OnePageClickRow>("onepage_clicks"), read<OnePageLeadRow>("onepage_leads")])
       : [{ rows: [], truncated: false }, { rows: [], truncated: false }, { rows: [], truncated: false }]
+    const [allViews, allClicks, allLeads] = page?.id
+      ? await Promise.all([countAll("onepage_views"), countAll("onepage_clicks"), countAll("onepage_leads")])
+      : [0, 0, 0]
 
     const blocks = ((page?.published_blocks as Block[] | null) || (page?.draft_blocks as Block[] | null) || []) as Block[]
     const linkLabels: Record<string, string> = {}
@@ -218,6 +286,7 @@ async function onePage(
       clicks: clicks.rows,
       leads: leads.rows,
       window: span,
+      previous,
       timeZone,
       mainDomain: getMainDomain(),
       linkLabels,
@@ -226,7 +295,12 @@ async function onePage(
       hostOf: referrerHost,
     })
     return NextResponse.json(
-      { reports, truncated: views.truncated || clicks.truncated || leads.truncated, hasPage: !!page?.id },
+      {
+        reports,
+        allTime: { views: allViews, clicks: allClicks, subscribers: allLeads },
+        truncated: views.truncated || clicks.truncated || leads.truncated,
+        hasPage: !!page?.id,
+      },
       { headers: { "Cache-Control": "private, no-store" } },
     )
   } catch (error) {
