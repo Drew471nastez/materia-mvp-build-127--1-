@@ -1,4 +1,5 @@
 import { Suspense } from "react"
+import { fullyRefunded } from "@/lib/orders/refund-state"
 import { notFound, redirect } from "next/navigation"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
@@ -147,9 +148,12 @@ async function CheckoutReceiptContent({ searchParams }: CheckoutReceiptPageProps
   const requiresVerification = false
   const isOwner = !!(user && order.buyer_id === user.id)
 
-  // Fetch assets
+  // Fetch assets. A fully refunded order has none: its money went back.
+  const refunded = fullyRefunded(order)
   let assets: any[] = []
-  if (order.variant_id) {
+  if (refunded) {
+    assets = []
+  } else if (order.variant_id) {
     const { data: variantFiles } = await admin
       .from("product_variant_files")
       .select(`digital_asset_id, digital_assets (id, product_id, file_name, file_path, file_size, mime_type, created_at)`)
@@ -198,6 +202,8 @@ async function CheckoutReceiptContent({ searchParams }: CheckoutReceiptPageProps
       isOwner={isOwner}
       isLoggedIn={!!user}
       receiptToken={token}
+      paid={(order.amount_cents || 0) > 0 && !!order.stripe_payment_intent_id}
+      refunded={refunded}
       emailStatus={{
         buyerEmailSent,
         sellerEmailSent,

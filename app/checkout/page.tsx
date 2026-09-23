@@ -97,7 +97,7 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
   // Fetch all variants for this product (for variant selector)
   const { data: allVariants } = await supabase
     .from("product_variants")
-    .select("id, name, description, price_cents")
+    .select("id, name, description, price_cents, pay_what_you_want, pwyw_min_price_cents")
     .eq("product_id", productId)
     .order("price_cents", { ascending: true })
 
@@ -120,15 +120,19 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
   // Handle PWYW custom price
   // NOTE: use != null && !== "" check (NOT truthy) so that customPrice="0" ($0) is treated as valid
   let customPriceCents: number | null = null
+  /* Arriving without an amount means the minimum. `price_cents` is 0 on a
+     pay-what-you-want product, and showing it made the page offer the
+     product for free. */
+  if (isPwywActive && (customPrice == null || customPrice === "")) {
+    customPriceCents = pwywMinPriceCents
+    finalPriceCents = pwywMinPriceCents
+  }
   if (isPwywActive && customPrice != null && customPrice !== "") {
-    customPriceCents = parseInt(customPrice, 10)
-    if (!isNaN(customPriceCents) && customPriceCents >= pwywMinPriceCents) {
-      finalPriceCents = customPriceCents
-    } else if (!isNaN(customPriceCents) && customPriceCents < pwywMinPriceCents) {
-      // If custom price is below minimum, use the minimum
-      finalPriceCents = pwywMinPriceCents
-      customPriceCents = pwywMinPriceCents
-    }
+    const asked = parseInt(customPrice, 10)
+    /* Unreadable or below the minimum: the minimum. */
+    const chosen = Number.isFinite(asked) && asked >= pwywMinPriceCents ? asked : pwywMinPriceCents
+    customPriceCents = chosen
+    finalPriceCents = chosen
   }
 
   return (
@@ -163,7 +167,8 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
         id: v.id,
         name: v.name,
         description: v.description,
-        priceCents: v.price_cents,
+        /* What the server will charge for it: a pay-what-you-want option's minimum. */
+        priceCents: v.pay_what_you_want ? v.pwyw_min_price_cents || 0 : v.price_cents,
       }))}
     />
   )

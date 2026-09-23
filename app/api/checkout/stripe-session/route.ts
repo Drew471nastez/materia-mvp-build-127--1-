@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import type Stripe from "stripe"
 import { stripe } from "@/lib/stripe"
 import { getValidatedPlatformStatementDescriptor } from "@/lib/payments/platform-descriptor"
 import { createClient } from "@/lib/supabase/server"
@@ -9,162 +10,126 @@ import { generateReceiptToken } from "@/lib/security"
 import { collectOrderDeviceInfo } from "@/lib/device-info"
 import { calculatePlatformFee } from "@/lib/billing/fee-calculator"
 import { SOURCE_METADATA_KEY, orderSourceFromRequest } from "@/lib/orders/order-source"
+import { rateLimit, addressSubject, emailSubject, LIMITS } from "@/lib/api/rate-limit"
+import { MIN_CHARGE_CENTS, priceOrder } from "@/lib/checkout/pricing"
+import { businessToMetadata, checkBusiness } from "@/lib/checkout/business"
 
+/**
+ * POST /api/checkout/stripe-session
+ *
+ * Makes the PaymentIntent for one product, when the buyer presses Pay (the
+ * page draws Stripe's form beforehand, from the amount alone).
+ *
+ * Body: { productId, variantId?, customPriceCents?, tipCents?, couponCode?,
+ *         firstName, lastName, email, emailOptIn?, agreedToTerms,
+ *         business? }
+ * Answers { clientSecret, paymentIntentId, amountCents }.
+ *
+ * The amount is the server's (lib/checkout/pricing.ts): the product or
+ * variant from the database, a pay-what-you-want amount at or above its
+ * minimum, a whole-cent tip from $0 to $1,000, and a code checked here. The
+ * page's own figures are never read. Everything the order will need is put
+ * on the PaymentIntent, because the order is made from it
+ * (lib/checkout/fulfil-payment.ts), by this buyer's browser or by Stripe's
+ * webhook, whichever comes first.
+ */
 export async function POST(request: Request) {
-  const supabase = await createClient()
-  const admin = createAdminClient()
-  const body = await request.json()
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || request.headers.get("origin") || ""
-
-  const { productId, firstName, lastName, email, tipCents = 0, isGift = false, variantId, customPriceCents = null, emailOptIn = true } = body
-
-  if (!productId || !firstName || !lastName || !email) {
-    return NextResponse.json({ error: "All fields are required" }, { status: 400 })
+  let body: Record<string, unknown>
+  try {
+    body = await request.json()
+  } catch {
+    return NextResponse.json({ error: "Something was missing. Refresh the page and try again." }, { status: 400 })
   }
 
+  const firstName = clean(body.firstName, 60)
+  const lastName = clean(body.lastName, 60)
+  const email = clean(body.email, 254).toLowerCase()
+  /* A last name is not required: a wallet can bring a single name, and some people have one. */
+  if (!firstName) return NextResponse.json({ error: "Enter your name." }, { status: 400 })
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return NextResponse.json({ error: "Enter a valid email address." }, { status: 400 })
+  if (body.agreedToTerms !== true) return NextResponse.json({ error: "Agree to the Terms and Conditions to continue." }, { status: 400 })
+
+  /* A declined card is retried two or three times; a list of stolen cards
+     is retried hundreds. This is what makes the second one pointless. */
+  const limited = await rateLimit({
+    bucket: "payment",
+    subjects: [addressSubject(request), emailSubject(email)],
+    windows: LIMITS.payment,
+    message: "Too many payment attempts just now. Wait a few minutes and try again.",
+  })
+  if (limited) return limited
+
+  let business: ReturnType<typeof checkBusiness> | null = null
+  if (body.business !== undefined && body.business !== null) {
+    business = checkBusiness(body.business)
+    if (business.ok === false) return NextResponse.json({ error: business.error, field: business.field }, { status: 400 })
+  }
+
+  const supabase = await createClient()
+  const admin = createAdminClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
-  const { data: product, error: productError } = await admin
-    .from("products")
-    .select(
-      "*, pay_what_you_want, pwyw_min_price_cents, pwyw_suggested_price_cents, creator:creators(id, user_id, display_name, stripe_account_id, stripe_onboarding_status, charges_enabled, payouts_enabled, statement_descriptor)",
-    )
-    .eq("id", productId)
-    .eq("status", "published")
-    .single()
+  const priced = await priceOrder(
+    admin,
+    {
+      productId: body.productId,
+      variantId: body.variantId,
+      customPriceCents: body.customPriceCents,
+      tipCents: body.tipCents,
+      couponCode: body.couponCode,
+    },
+    "*, creator:creators(id, user_id, display_name, stripe_account_id, stripe_onboarding_status, charges_enabled, payouts_enabled, statement_descriptor)",
+  )
+  if (priced.ok === false) return NextResponse.json({ error: priced.error }, { status: priced.status })
 
-  if (productError || !product) {
-    console.error("[v0] Product fetch error:", productError)
-    return NextResponse.json({ error: "Product not found" }, { status: 404 })
+  const { product, variant, totals, coupon } = priced
+  const creator = product.creator as {
+    id: string
+    user_id: string
+    display_name: string | null
+    stripe_account_id: string | null
+    stripe_onboarding_status: string | null
+    charges_enabled: boolean | null
+    payouts_enabled: boolean | null
+    statement_descriptor: string | null
+  } | null
+  if (!creator) return NextResponse.json({ error: "This product is not available." }, { status: 404 })
+
+  if (totals.totalCents <= 0) {
+    return NextResponse.json({ error: "This order is free. Refresh the page to take it without paying." }, { status: 400 })
+  }
+  if (totals.totalCents < MIN_CHARGE_CENTS) {
+    return NextResponse.json({ error: "The smallest card payment is $0.50. Add a tip or remove the code." }, { status: 400 })
   }
 
-  // Fetch variant if specified (include PWYW fields)
-  let selectedVariant = null
-  let variantPriceCents = 0
-  if (variantId) {
-    const { data: variant } = await admin
-      .from("product_variants")
-      .select("id, name, price_cents, pay_what_you_want, pwyw_min_price_cents")
-      .eq("id", variantId)
-      .eq("product_id", productId)
-      .single()
-
-    if (variant) {
-      selectedVariant = variant
-      variantPriceCents = variant.price_cents || 0
-    }
+  /* The seller has to be able to take the money, or it would land on the platform with nowhere to go. */
+  const account = creator.stripe_account_id
+  if (!account || !account.startsWith("acct_")) {
+    return NextResponse.json({ error: "This seller cannot take payments yet." }, { status: 400 })
+  }
+  if (creator.charges_enabled === false || creator.payouts_enabled === false || creator.stripe_onboarding_status !== "connected") {
+    return NextResponse.json({ error: "This seller cannot take payments yet. Try again later." }, { status: 400 })
   }
 
-  // Check if PWYW is active for this purchase
-  const isVariantPwyw = selectedVariant && (selectedVariant as any).pay_what_you_want
-  const isProductPwyw = !selectedVariant && (product as any).pay_what_you_want
-  const isPwywActive = isVariantPwyw || isProductPwyw
-
-  // Get PWYW minimum for validation
-  const pwywMinCents = isVariantPwyw
-    ? ((selectedVariant as any).pwyw_min_price_cents || 0)
-    : ((product as any).pwyw_min_price_cents || 0)
-
-  // Calculate final price
-  let basePriceCents = selectedVariant ? variantPriceCents : (product.price_cents || 0)
-
-  // Handle PWYW custom price
-  if (isPwywActive && customPriceCents !== null && customPriceCents !== undefined) {
-    const parsedCustomPrice = parseInt(String(customPriceCents), 10)
-    if (!isNaN(parsedCustomPrice)) {
-      if (parsedCustomPrice < pwywMinCents) {
-        return NextResponse.json(
-          { error: `Minimum price is $${(pwywMinCents / 100).toFixed(2)}` },
-          { status: 400 }
-        )
-      }
-      basePriceCents = parsedCustomPrice
-    }
-  }
-
-  // Require Stripe when the total charge (including tips) is > 0
-  const totalCharge = basePriceCents + (tipCents || 0)
-  if (totalCharge > 0) {
-    if (!product.creator.stripe_account_id) {
-      console.error("[v0] Seller has not connected Stripe account")
-      return NextResponse.json(
-        { error: "Seller has not connected payment processing yet. Please contact the seller." },
-        { status: 400 },
-      )
-    }
-
-    if (!product.creator.stripe_account_id.startsWith("acct_")) {
-      console.error("[v0] Invalid Stripe account ID format:", product.creator.stripe_account_id)
-      return NextResponse.json(
-        { error: "Invalid seller payment configuration. Please contact the seller." },
-        { status: 400 },
-      )
-    }
-
-    if (product.creator.charges_enabled === false) {
-      console.error("[v0] Seller charges not enabled:", product.creator.stripe_account_id)
-      return NextResponse.json(
-        { error: "Seller cannot accept payments yet. Payment verification is pending. Please try again later." },
-        { status: 400 },
-      )
-    }
-
-    if (product.creator.payouts_enabled === false) {
-      console.error("[v0] Seller payouts not enabled:", product.creator.stripe_account_id)
-      return NextResponse.json(
-        { error: "Seller cannot receive payouts yet. Payment verification is pending. Please try again later." },
-        { status: 400 },
-      )
-    }
-
-    if (product.creator.stripe_onboarding_status !== "connected") {
-      console.error("[v0] Seller Stripe onboarding not enabled:", product.creator.stripe_onboarding_status)
-      return NextResponse.json(
-        { error: "Seller payment setup is incomplete. Please contact the seller." },
-        { status: 400 },
-      )
-    }
-
-    console.log("[v0] Seller payment validation passed:", {
-      accountId: product.creator.stripe_account_id,
-      chargesEnabled: product.creator.charges_enabled,
-      payoutsEnabled: product.creator.payouts_enabled,
-      status: product.creator.stripe_onboarding_status,
-    })
-  }
-
-  const { data: creatorProfile } = await admin
-    .from("profiles")
-    .select("display_name")
-    .eq("id", product.creator.user_id)
-    .single()
-
+  /* Owning this exact thing already: the same variant, or the product without one. */
   if (user) {
-    const { data: existingEntitlement } = await admin
-      .from("entitlements")
-      .select("id")
-      .eq("buyer_id", user.id)
-      .eq("product_id", productId)
-      .maybeSingle()
-
-    if (existingEntitlement) {
-      return NextResponse.json({ error: "You already own this product" }, { status: 400 })
-    }
+    let owned = admin.from("entitlements").select("id").eq("buyer_id", user.id).eq("product_id", product.id)
+    owned = variant ? owned.eq("variant_id", variant.id) : owned.is("variant_id", null)
+    const { data } = await owned.limit(1)
+    if (data && data.length > 0) return NextResponse.json({ error: "You already own this. It is in your library." }, { status: 400 })
   }
+
+  const { data: creatorProfile } = await admin.from("profiles").select("display_name").eq("id", creator.user_id).maybeSingle()
 
   const accessToken = nanoid(32)
   const sessionFingerprint = nanoid(32)
   const receiptToken = generateReceiptToken()
-
-  // Collect device and geo info
   const { deviceInfo, geoInfo } = collectOrderDeviceInfo(request)
 
-  // Get domain for cross-subdomain cookie support
   const mainDomain = process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"
   const isLocalhost = mainDomain.includes("localhost")
-
   const cookieStore = await cookies()
   cookieStore.set("materia_session", sessionFingerprint, {
     httpOnly: true,
@@ -175,174 +140,88 @@ export async function POST(request: Request) {
     domain: isLocalhost ? undefined : `.${mainDomain}`,
   })
 
-  const totalAmount = basePriceCents + (tipCents || 0)
+  const fee = await calculatePlatformFee(totals.totalCents, creator.id, admin)
 
-  if (totalAmount < 50) {
-    return NextResponse.json({ error: "Minimum payment amount is $0.50" }, { status: 400 })
+  /* Built once. The retry below used to rebuild it by hand and left out the
+     email opt-in, and a buyer who said no was then subscribed. */
+  const metadata: Record<string, string> = {
+    [SOURCE_METADATA_KEY]: orderSourceFromRequest(request),
+    product_id: product.id,
+    product_slug: String(product.slug || ""),
+    product_title: String(product.title || "").slice(0, 480),
+    product_type: String(product.type || ""),
+    creator_id: creator.id,
+    creator_name: creatorProfile?.display_name || creator.display_name || "Creator",
+    buyer_id: user?.id || "",
+    buyer_first_name: firstName,
+    buyer_last_name: lastName,
+    buyer_email: email,
+    base_price_cents: String(totals.baseCents),
+    discount_cents: String(totals.discountCents),
+    coupon_id: coupon?.id || "",
+    coupon_code: coupon?.code || "",
+    tip_cents: String(totals.tipCents),
+    access_token: user ? "" : accessToken,
+    session_fingerprint: sessionFingerprint,
+    receipt_token: receiptToken,
+    platform_fee_cents: String(fee.platformFeeCents),
+    fee_percent: String(fee.feePercent),
+    fee_fixed_cents: String(fee.feeFixedCents),
+    plan_used: fee.planId,
+    variant_id: variant?.id || "",
+    variant_name: variant?.name || "",
+    variant_price_cents: variant ? String(variant.price_cents ?? "") : "",
+    buyer_country: geoInfo.country || "",
+    buyer_country_code: geoInfo.countryCode || "",
+    buyer_device_type: deviceInfo.deviceType || "",
+    buyer_os: deviceInfo.os || "",
+    buyer_browser: deviceInfo.browser || "",
+    email_opt_in: body.emailOptIn === true ? "true" : "false",
+    agreed_to_terms: "true",
+    agreed_at: new Date().toISOString(),
+    ...(business?.ok ? businessToMetadata(business.value) : {}),
   }
 
-  // Calculate platform fee based on creator's subscription plan
-  const feeCalculation = await calculatePlatformFee(totalAmount, product.creator.id, admin)
-  const platformFee = feeCalculation.platformFeeCents
+  const params: Stripe.PaymentIntentCreateParams = {
+    amount: totals.totalCents,
+    currency: "usd",
+    automatic_payment_methods: { enabled: true },
+    metadata,
+    application_fee_amount: fee.platformFeeCents,
+    transfer_data: { destination: account },
+  }
 
-  console.log("[v0] Checkout fee breakdown:", {
-    totalAmount,
-    basePriceCents,
-    tipCents: tipCents || 0,
-    platformFee,
-    sellerReceives: totalAmount - platformFee,
-    stripeAccountId: product.creator.stripe_account_id,
-    creatorPlan: feeCalculation.planId,
-    planName: feeCalculation.planName,
-    feePercent: `${(feeCalculation.feePercent * 100).toFixed(2)}%`,
-    feeFixedCents: feeCalculation.feeFixedCents,
-    variantId: selectedVariant?.id || "none",
-    variantName: selectedVariant?.name || "none",
-  })
+  /* "SELLER NAME" after the platform's own descriptor on the statement.
+     Only the suffix: a full `statement_descriptor` is refused for cards. */
+  try {
+    getValidatedPlatformStatementDescriptor()
+    const suffix = (creator.statement_descriptor || creator.display_name || "")
+      .toUpperCase()
+      .replace(/[^A-Z0-9 ]/g, "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 22)
+    if (suffix.length >= 2) params.statement_descriptor_suffix = suffix
+  } catch {
+    /* no platform descriptor configured: Stripe's account default is used */
+  }
 
   try {
-    // Build PaymentIntent config
-    const intentConfig: any = {
-      amount: totalAmount,
-      currency: "usd",
-      automatic_payment_methods: {
-        enabled: true,
-      },
-      metadata: {
-        [SOURCE_METADATA_KEY]: orderSourceFromRequest(request),
-        product_id: product.id,
-        product_slug: product.slug,
-        product_title: product.title,
-        buyer_id: user?.id || "",
-        buyer_first_name: firstName.trim(),
-        buyer_last_name: lastName.trim(),
-        buyer_email: email,
-        creator_id: product.creator.id,
-        product_type: product.type,
-        tip_cents: tipCents.toString(),
-        base_price_cents: basePriceCents.toString(),
-        access_token: user ? "" : accessToken,
-        is_gift: isGift ? "true" : "false",
-        session_fingerprint: sessionFingerprint,
-        receipt_token: receiptToken,
-        platform_fee_cents: platformFee.toString(),
-        fee_percent: String(feeCalculation.feePercent),
-        fee_fixed_cents: String(feeCalculation.feeFixedCents),
-        plan_used: feeCalculation.planId,
-        variant_id: selectedVariant?.id || "",
-        variant_name: selectedVariant?.name || "",
-        variant_price_cents: selectedVariant?.price_cents?.toString() || "",
-        buyer_country: geoInfo.country,
-        buyer_country_code: geoInfo.countryCode,
-        buyer_device_type: deviceInfo.deviceType,
-        buyer_os: deviceInfo.os,
-        buyer_browser: deviceInfo.browser,
-        creator_name: creatorProfile?.display_name || "Creator",
-        email_opt_in: emailOptIn ? "true" : "false",
-      },
-    }
-
-    // Add Stripe Connect destination charge if seller has Stripe
-    if (product.creator.stripe_account_id) {
-      intentConfig.application_fee_amount = platformFee
-      intentConfig.transfer_data = {
-        destination: product.creator.stripe_account_id,
-      }
-      console.log("[v0] Added destination charge to:", product.creator.stripe_account_id, "fee:", platformFee)
-    }
-
-    // Configure statement descriptor for bank statements
-    // Format: "{seller_name} - STORELIB" (e.g., "JANES SHOP - STORELIB")
-    // Uses seller's custom descriptor, falls back to display_name, then "STORE"
+    let intent: Stripe.PaymentIntent
     try {
-      const platformName = getValidatedPlatformStatementDescriptor()
-      const sellerDescriptor = (product.creator.statement_descriptor || product.creator.display_name || "STORE")
-        .trim().toUpperCase().replace(/[^A-Z0-9\s]/g, "")
-      const suffix = ` - ${platformName}`
-      const maxSellerLen = 22 - suffix.length
-      const truncatedSeller = sellerDescriptor.slice(0, maxSellerLen)
-      intentConfig.statement_descriptor = `${truncatedSeller}${suffix}`
-      // Also set suffix for Connect (shows as "STORELIB* SELLER_NAME")
-      const suffixDescriptor = sellerDescriptor.slice(0, 22).replace(/\s+/g, " ").trim()
-      if (suffixDescriptor) {
-        intentConfig.statement_descriptor_suffix = suffixDescriptor
-      }
-      console.log("[v0] Statement descriptor configured:", intentConfig.statement_descriptor, "suffix:", suffixDescriptor)
-    } catch (descriptorError) {
-      console.error("[v0] Descriptor error, skipping:", descriptorError)
+      intent = await stripe.paymentIntents.create(params)
+    } catch (e) {
+      if (!params.statement_descriptor_suffix || !String((e as Error)?.message || "").toLowerCase().includes("statement_descriptor")) throw e
+      delete params.statement_descriptor_suffix
+      intent = await stripe.paymentIntents.create(params)
     }
-
-    const paymentIntent = await stripe.paymentIntents.create(intentConfig)
-
-    console.log("[v0] PaymentIntent created:", paymentIntent.id)
-    return NextResponse.json({
-      clientSecret: paymentIntent.client_secret,
-      paymentIntentId: paymentIntent.id,
-    })
-  } catch (error: any) {
-    console.error("[v0] PaymentIntent creation error:", error)
-
-    // If statement descriptor is the issue, retry without it
-    if (String(error?.message || "").toLowerCase().includes("statement_descriptor")) {
-      try {
-        const fallbackConfig: any = {
-          amount: totalAmount,
-          currency: "usd",
-          automatic_payment_methods: { enabled: true },
-          metadata: {
-            [SOURCE_METADATA_KEY]: orderSourceFromRequest(request),
-            product_id: product.id,
-            product_slug: product.slug,
-            product_title: product.title,
-            buyer_id: user?.id || "",
-            buyer_first_name: firstName.trim(),
-            buyer_last_name: lastName.trim(),
-            buyer_email: email,
-            creator_id: product.creator.id,
-            product_type: product.type,
-            tip_cents: tipCents.toString(),
-            base_price_cents: basePriceCents.toString(),
-            access_token: user ? "" : accessToken,
-            is_gift: isGift ? "true" : "false",
-            session_fingerprint: sessionFingerprint,
-            receipt_token: receiptToken,
-            platform_fee_cents: platformFee.toString(),
-            fee_percent: String(feeCalculation.feePercent),
-            fee_fixed_cents: String(feeCalculation.feeFixedCents),
-            plan_used: feeCalculation.planId,
-            variant_id: selectedVariant?.id || "",
-            variant_name: selectedVariant?.name || "",
-            variant_price_cents: selectedVariant?.price_cents?.toString() || "",
-            buyer_country: geoInfo.country,
-            buyer_country_code: geoInfo.countryCode,
-            buyer_device_type: deviceInfo.deviceType,
-            buyer_os: deviceInfo.os,
-            buyer_browser: deviceInfo.browser,
-            creator_name: creatorProfile?.display_name || "Creator",
-          },
-        }
-
-        if (product.creator.stripe_account_id) {
-          fallbackConfig.application_fee_amount = platformFee
-          fallbackConfig.transfer_data = { destination: product.creator.stripe_account_id }
-        }
-
-        const paymentIntent = await stripe.paymentIntents.create(fallbackConfig)
-        console.log("[v0] PaymentIntent created (fallback):", paymentIntent.id)
-        return NextResponse.json({
-          clientSecret: paymentIntent.client_secret,
-          paymentIntentId: paymentIntent.id,
-        })
-      } catch (fallbackError: any) {
-        console.error("[v0] Fallback PaymentIntent creation error:", fallbackError)
-        return NextResponse.json({ error: `Payment configuration error: ${fallbackError.message}` }, { status: 400 })
-      }
-    }
-
-    if (error.type === "StripeInvalidRequestError") {
-      return NextResponse.json({ error: `Payment configuration error: ${error.message}` }, { status: 400 })
-    }
-
-    return NextResponse.json({ error: "Failed to create checkout session" }, { status: 500 })
+    return NextResponse.json({ clientSecret: intent.client_secret, paymentIntentId: intent.id, amountCents: intent.amount })
+  } catch (error) {
+    console.error("[stripe-session] PaymentIntent failed:", error instanceof Error ? error.message : error)
+    return NextResponse.json({ error: "The payment could not be started. Nothing was charged. Try again." }, { status: 500 })
   }
+}
+
+function clean(value: unknown, max: number): string {
+  return typeof value === "string" ? value.replace(/[\u0000-\u001f\u007f<>]/g, "").trim().slice(0, max) : ""
 }

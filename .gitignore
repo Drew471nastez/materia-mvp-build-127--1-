@@ -98,3 +98,4 @@ tsconfig.*.generated.json
 .probe-cover-phone.webp
 .probe-cover-desktop.png
 .probe-cover-phone.png
+.checkout-probe/

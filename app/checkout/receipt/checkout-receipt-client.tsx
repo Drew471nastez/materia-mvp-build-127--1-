@@ -57,6 +57,9 @@ interface CheckoutReceiptClientProps {
   isOwner: boolean
   isLoggedIn: boolean
   receiptToken: string
+  /** A card payment, so there is an invoice to download. */
+  paid?: boolean
+  refunded?: boolean
   emailStatus: {
     buyerEmailSent: boolean
     sellerEmailSent: boolean
@@ -99,6 +102,8 @@ export default function CheckoutReceiptClient({
   isOwner,
   isLoggedIn,
   receiptToken,
+  paid = false,
+  refunded = false,
   emailStatus,
 }: CheckoutReceiptClientProps) {
   const searchParams = useSearchParams()
@@ -852,6 +857,19 @@ export default function CheckoutReceiptClient({
                   <p className="text-xs text-gray-400 mt-1">by {creatorName} · {formatPrice(order.total_cents)}</p>
                 </div>
               </div>
+              {refunded ? (
+                <p className="mt-4 border-t border-gray-100 pt-3 text-[13px] text-gray-500">This order was refunded, so its files are no longer available.</p>
+              ) : null}
+              {paid ? (
+                <a
+                  href={`/api/checkout/invoice?token=${encodeURIComponent(receiptToken)}`}
+                  download
+                  className="mt-4 flex h-10 items-center justify-center gap-2 rounded-xl border border-gray-200 text-[14px] font-medium text-gray-900 transition-colors hover:bg-gray-50"
+                >
+                  <FileText className="h-4 w-4 text-gray-500" />
+                  Download invoice (PDF)
+                </a>
+              ) : null}
             </div>
 
             {/* Download files */}

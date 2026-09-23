@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { baseFor } from "@/lib/checkout/pricing"
 import { stripe } from "@/lib/stripe"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -99,7 +100,7 @@ export async function POST(request: Request) {
 
   const { data: products, error: productsError } = await admin
     .from("products")
-    .select("id, title, slug, price_cents, thumbnail_url, type, status, creator_id")
+    .select("id, title, slug, price_cents, pay_what_you_want, pwyw_min_price_cents, thumbnail_url, type, status, creator_id")
     .in("id", productIds)
     .eq("status", "published")
 
@@ -155,6 +156,21 @@ export async function POST(request: Request) {
     owned = new Set((entitlements ?? []).map((e: any) => e.product_id))
   }
 
+  /* A line's option is the database's, checked against its product and
+     priced from itself. The client's variantId used to be kept as sent and
+     the line priced at the product's price: the cheapest option paid for
+     the dearest one, and an unknown id failed the order's foreign key after
+     the money was taken. */
+  const variantIds = [...new Set([...wanted.values()].map((w) => w.variantId).filter((v): v is string => !!v))]
+  const variantsById = new Map<string, any>()
+  if (variantIds.length > 0) {
+    const { data: variants } = await admin
+      .from("product_variants")
+      .select("id, product_id, name, price_cents, pay_what_you_want, pwyw_min_price_cents")
+      .in("id", variantIds)
+    for (const v of variants ?? []) variantsById.set(v.id, v)
+  }
+
   const byId = new Map(products.map((p: any) => [p.id, p]))
   const lines: Array<{ item: PackedItem; product: any }> = []
   const dropped: string[] = []
@@ -165,7 +181,11 @@ export async function POST(request: Request) {
     if (!product) { dropped.push(productId); continue }
     if (owned.has(productId)) { dropped.push(product.title); continue }
 
-    const priceCents = typeof product.price_cents === "number" ? product.price_cents : 0
+    const variant = want.variantId ? variantsById.get(want.variantId) : null
+    if (want.variantId && (!variant || variant.product_id !== productId)) { dropped.push(product.title); continue }
+    /* Pay what you want in a basket is its minimum: there is no amount box. */
+    const priced = baseFor(variant ?? product, undefined)
+    const priceCents = priced.ok ? priced.cents : 0
     /* A free product is a download, not a payment. It has no place in a
        basket that is going to a card form, and Stripe will not take a zero
        line anyway. */

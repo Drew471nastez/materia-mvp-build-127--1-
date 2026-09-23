@@ -165,7 +165,6 @@ check(
       "app/checkout/page.tsx",
       "app/checkout/checkout-client.tsx",
       "app/api/checkout/stripe-session/route.ts",
-      "app/api/checkout/route.ts",
       "app/api/checkout/process/route.ts",
     ]
     const POSTAGE = /shippingCents|quoteDelivery|quoteMatches|isShippable|MarketplaceCheckout|deliveryMode|awb/i

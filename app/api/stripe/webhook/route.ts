@@ -7,6 +7,7 @@ import { generateReceiptToken } from "@/lib/security"
 import { sendOrderEmails, triggerEmailFlows, sendPayoutStatusEmail, sendFirstPayoutEmail, sendBankUpdatedEmail, sendPayoutsPausedEmail, sendVerificationRequiredEmail, sendFirstSaleEmail, resolveSellerEmail, sendDisputeCreatedEmail, sendDisputeWonEmail, sendDisputeLostEmail, sendRefundEmails } from "@/lib/email"
 import { v4 as uuidv4 } from "uuid"
 import { orderSourceFrom, tagOrderSource } from "@/lib/orders/order-source"
+import { fulfilPaymentIntent, isCheckoutIntent } from "@/lib/checkout/fulfil-payment"
 
 export const runtime = "nodejs"
 
@@ -624,17 +625,23 @@ export async function POST(request: Request) {
   // ============================================================================
   // payment_intent.succeeded
   // ============================================================================
+  /*
+    The product checkout's payments become orders here as well as from the
+    buyer's browser (lib/checkout/fulfil-payment.ts). This used to check for
+    an order and stop: a buyer who closed the tab after paying had nothing.
+    Whichever of the two arrives first makes the order; the other finds it.
+    A failure answers 500 so Stripe retries the event.
+  */
   if (event.type === "payment_intent.succeeded") {
     const pi = event.data.object as Stripe.PaymentIntent
-
-    const { data: existingOrder } = await supabaseAdmin
-      .from("orders")
-      .select("id")
-      .eq("stripe_payment_intent_id", pi.id)
-      .maybeSingle()
-
-    if (existingOrder) {
-      return NextResponse.json({ received: true, message: "Already processed" })
+    if (isCheckoutIntent(pi)) {
+      const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || ""
+      const result = await fulfilPaymentIntent(supabaseAdmin, pi.id, { baseUrl })
+      if (result.ok === false) {
+        console.error("[Webhook] checkout fulfilment failed:", pi.id, result.error)
+        if (result.status >= 500) return NextResponse.json({ error: result.error }, { status: 500 })
+      }
+      return NextResponse.json({ received: true })
     }
   }
 
@@ -1074,6 +1081,31 @@ export async function POST(request: Request) {
           }
 
           console.log("[Webhook] Order", order.id, "marked as refunded via webhook")
+
+          /* The money went back, so the product leaves the buyer's library.
+             Only on a full refund: a partial one is a goodwill gesture on a
+             sale that stands. The receipt and its downloads already refuse
+             a refunded order (app/api/download, app/api/receipt). */
+          if (charge.refunded) {
+            try {
+              const { data: refundedOrder } = await supabaseAdmin
+                .from("orders")
+                .select("buyer_id, product_id, variant_id")
+                .eq("id", order.id)
+                .maybeSingle()
+              if (refundedOrder?.buyer_id && refundedOrder.product_id) {
+                let revoke = supabaseAdmin
+                  .from("entitlements")
+                  .delete()
+                  .eq("buyer_id", refundedOrder.buyer_id)
+                  .eq("product_id", refundedOrder.product_id)
+                revoke = refundedOrder.variant_id ? revoke.eq("variant_id", refundedOrder.variant_id) : revoke.is("variant_id", null)
+                await revoke
+              }
+            } catch (revokeErr) {
+              console.error("[Webhook] Entitlement revoke failed (non-fatal):", revokeErr)
+            }
+          }
 
           // ── Ledger: process refund bucket subtraction ───────────────────
           try {

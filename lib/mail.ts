@@ -18,6 +18,7 @@ import {
   EMAIL_FROM as MAILGUN_EMAIL_FROM,
   EMAIL_REPLY_TO as MAILGUN_EMAIL_REPLY_TO,
   PLATFORM_BRAND as MAILGUN_PLATFORM_BRAND,
+  type MailAttachment,
 } from "./mailgun"
 
 // Re-export for backward compatibility
@@ -42,6 +43,7 @@ export interface SendEmailOptions {
   replyTo?: string
   headers?: Record<string, string>
   tags?: Array<{ name: string; value: string }> // Legacy format, converted for Mailgun
+  attachments?: MailAttachment[]
 }
 
 // Email send result
@@ -94,6 +96,7 @@ export async function sendEmail(options: SendEmailOptions): Promise<SendEmailRes
     replyTo: options.replyTo,
     headers: options.headers,
     tags,
+    attachments: options.attachments,
   })
 
   if (result.success) {
