@@ -90,6 +90,7 @@ export function AxisLabels({
   height,
   width,
   gap = 8,
+  fontSize = 11,
 }: {
   /** Bottom first, as the ticks are. */
   labels: string[]
@@ -98,6 +99,7 @@ export function AxisLabels({
   height: number
   width: number
   gap?: number
+  fontSize?: number
 }) {
   const sig = labels.join("|")
   const [layers, setLayers] = React.useState<{ sig: string; labels: string[]; state: "still" | "in" | "out" }[]>(() => [
@@ -131,8 +133,8 @@ export function AxisLabels({
                 right: 0,
                 top: top + (n <= 1 ? height : (1 - i / (n - 1)) * height),
                 transform: "translateY(-50%)",
-                fontSize: 11,
-                lineHeight: "12px",
+                fontSize,
+                lineHeight: `${fontSize + 1}px`,
                 color: "#9ca3af",
                 whiteSpace: "nowrap",
               }}
@@ -170,4 +172,23 @@ export function useEndDotMotion(shown: boolean): { armed: boolean; transition: s
     }
   }, [shown])
   return { armed, transition: armed ? `transform ${MORPH_MS}ms ${MORPH_EASE}` : "none" }
+}
+
+/**
+ * MORPH_EASE as a function of time, for a chart drawn by hand (the report
+ * cards): the x of the curve solved for t by Newton's method, then its y.
+ */
+export function morphEase(t: number): number {
+  if (t <= 0) return 0
+  if (t >= 1) return 1
+  const [x1, y1, x2, y2] = [0.32, 0.72, 0, 1]
+  const bx = (u: number) => 3 * x1 * u * (1 - u) ** 2 + 3 * x2 * u ** 2 * (1 - u) + u ** 3
+  const dx = (u: number) => 3 * x1 * (1 - u) ** 2 + 6 * (x2 - x1) * u * (1 - u) + 3 * (1 - x2) * u ** 2
+  let u = t
+  for (let i = 0; i < 8; i++) {
+    const d = dx(u)
+    if (Math.abs(d) < 1e-6) break
+    u = Math.min(1, Math.max(0, u - (bx(u) - t) / d))
+  }
+  return 3 * y1 * u * (1 - u) ** 2 + 3 * y2 * u ** 2 * (1 - u) + u ** 3
 }
