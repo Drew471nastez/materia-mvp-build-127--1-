@@ -16,7 +16,6 @@ import { baseFor, priceOrder, totalsOf, wholeCents, MAX_TIP_CENTS } from "../lib
 import { checkCoupon, discountFor, escapeLike, normaliseCode, type CouponRow } from "../lib/checkout/coupons"
 import { businessFromMetadata, businessToMetadata, checkBusiness, EMPTY_BUSINESS } from "../lib/checkout/business"
 import { fullyRefunded } from "../lib/orders/refund-state"
-import { allocateRefunds } from "../lib/checkout/refund-allocation"
 import { cartFingerprint, cartReceiptToken } from "../lib/checkout/cart-tokens"
 
 let passed = 0
@@ -125,19 +124,6 @@ async function main() {
     check("a product with options cannot be bought without one", r.ok === false && /option/i.test((r as { error: string }).error))
   }
 
-  console.log("\nRefunds across a payment")
-  {
-    const lines = [{ id: "a", amount_cents: 1000 }, { id: "b", amount_cents: 500 }]
-    const full = allocateRefunds(lines, [{ amount: 1500, orderId: null }], true)
-    check("a full refund covers every line in full", full.get("a") === 1000 && full.get("b") === 500)
-    const named = allocateRefunds(lines, [{ amount: 300, orderId: "b" }], false)
-    check("a refund that names its line lands on that line", named.get("a") === 0 && named.get("b") === 300)
-    const unnamed = allocateRefunds(lines, [{ amount: 1200, orderId: null }], false)
-    check("a Dashboard refund is laid over the lines in order", unnamed.get("a") === 1000 && unnamed.get("b") === 200)
-    const capped = allocateRefunds(lines, [{ amount: 900, orderId: "b" }], false)
-    check("a line never shows more refunded than it was charged", capped.get("b") === 500)
-  }
-
   console.log("\nBaskets written once")
   {
     process.env.RECEIPT_TOKEN_SECRET = "test-secret"
@@ -155,8 +141,8 @@ async function main() {
   console.log("\nRefunds reach the seller")
   const refundRoute = read("app/api/stripe/refund/route.ts")
   check("a refund takes the money back from the seller", /reverse_transfer = true/.test(refundRoute))
-  check("the Refund button and the webhook record a refund the same way", /syncChargeRefunds\(/.test(refundRoute) && /syncChargeRefunds\(supabaseAdmin, charge\)/.test(read("app/api/stripe/webhook/route.ts")))
-  check("a refund's email amount is in cents, not divided twice", !/\/ 100/.test(read("lib/checkout/refunds.ts").split("refundAmount:")[1]?.split("\n")[0] ?? ""))
+  check("the Refund button and the webhook record a refund the same way", /syncChargeRefund\(admin, stripe, charge\)/.test(refundRoute) && /syncChargeRefund\(supabaseAdmin, stripe, charge\)/.test(read("app/api/stripe/webhook/route.ts")))
+  check("a partly refunded order can be refunded again, up to what is left", /maxRefundCents = Math\.max\(0, \(order\.amount_cents \|\| 0\) - alreadyRefunded\)/.test(refundRoute))
 
   console.log("\nThe routes")
   const session = read("app/api/checkout/stripe-session/route.ts")

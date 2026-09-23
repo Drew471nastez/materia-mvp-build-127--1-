@@ -34,7 +34,7 @@ export async function GET(request: Request) {
     // Find all unreleased sale events where hold has expired
     const { data: releasable, error: queryError } = await adminSupabase
       .from("ledger_events")
-      .select("id, creator_id, net_seller_cents")
+      .select("id, creator_id, net_seller_cents, order_id")
       .eq("event_type", "sale")
       .is("released_at", null)
       .lte("hold_until", now.toISOString())
@@ -48,11 +48,31 @@ export async function GET(request: Request) {
       return NextResponse.json({ released: 0, creators: 0 })
     }
 
+    /*
+      A SALE REFUNDED WHILE ON HOLD HAS ALREADY GIVEN BACK PART OF WHAT IS
+      PENDING. The refund took it out of pending (lib/stripe/refund-sync.ts),
+      so releasing the sale's whole net here would move money into available
+      that is no longer there. Each sale releases what its refunds left.
+    */
+    const orderIds = [...new Set(releasable.map((e: any) => e.order_id).filter(Boolean))] as string[]
+    const takenFromPending = new Map<string, number>()
+    if (orderIds.length > 0) {
+      const { data: refunds } = await adminSupabase
+        .from("ledger_events")
+        .select("order_id, pending_delta")
+        .eq("event_type", "refund")
+        .in("order_id", orderIds)
+      for (const r of (refunds ?? []) as Array<{ order_id: string; pending_delta: number | null }>) {
+        takenFromPending.set(r.order_id, (takenFromPending.get(r.order_id) ?? 0) + Math.max(0, -(r.pending_delta || 0)))
+      }
+    }
+
     // Group by creator for batch updates
     const byCreator = new Map<string, { total: number; eventIds: string[] }>()
     for (const event of releasable) {
       const existing = byCreator.get(event.creator_id) || { total: 0, eventIds: [] }
-      existing.total += event.net_seller_cents || 0
+      const refunded = event.order_id ? takenFromPending.get(event.order_id) ?? 0 : 0
+      existing.total += Math.max(0, (event.net_seller_cents || 0) - refunded)
       existing.eventIds.push(event.id)
       byCreator.set(event.creator_id, existing)
     }

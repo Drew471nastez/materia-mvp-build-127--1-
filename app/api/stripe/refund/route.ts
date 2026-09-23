@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { stripe } from "@/lib/stripe"
-import { syncChargeRefunds } from "@/lib/checkout/refunds"
+import { syncChargeRefund } from "@/lib/stripe/refund-sync"
 import { fullyRefunded } from "@/lib/orders/refund-state"
 
 function tryCreateAdminClient() {
@@ -107,32 +107,46 @@ export async function POST(request: Request) {
       what was transferred and Storelib's own balance paid the buyer.
       reverse_transfer takes the refunded share back from the seller, and
       refund_application_fee gives back the platform's share of its fee, which
-      is what the seller ledger (lib/checkout/refunds.ts) records.
+      is what the seller ledger (lib/stripe/refund-sync.ts) records.
     */
     refundParams.reverse_transfer = true
     refundParams.refund_application_fee = true
     const refund = await stripe.refunds.create(refundParams)
 
-    /* The order rows, the library and the ledger, recorded now so the page
-       is right at once; Stripe's charge.refunded runs the same idempotent
-       step again when it arrives. */
+    /* The row, at once, with the running total: the page reads it next. */
     const refundedAt = new Date().toISOString()
-    const admin = tryCreateAdminClient()
+    const refundedTotal = Math.min(order.amount_cents || 0, alreadyRefunded + refundAmountCents)
+    await dbClient.from("orders").update({ status: "refunded" }).eq("id", orderId)
     try {
-      const pi = await stripe.paymentIntents.retrieve(order.stripe_payment_intent_id, { expand: ["latest_charge"] })
-      const charge = pi.latest_charge && typeof pi.latest_charge === "object" ? (pi.latest_charge as import("stripe").Stripe.Charge) : null
-      if (charge && admin) await syncChargeRefunds(admin, charge)
-      else throw new Error("no charge to read")
-    } catch (syncErr) {
-      console.error("[Refund] recording failed, falling back to the order row:", syncErr instanceof Error ? syncErr.message : syncErr)
-      await dbClient.from("orders").update({ status: "refunded" }).eq("id", orderId)
+      await dbClient
+        .from("orders")
+        .update({ refunded_at: refundedAt, refund_reason: reason || "requested_by_customer", refund_amount_cents: refundedTotal, stripe_refund_id: refund.id })
+        .eq("id", orderId)
+    } catch {
+      /* Older databases have no refund columns; the status above is enough. */
+    }
+
+    /* The seller's balance and the buyer's library, now rather than when
+       charge.refunded arrives. Idempotent with the webhook: each refund is
+       applied to each row once (lib/stripe/refund-sync.ts). */
+    const admin = tryCreateAdminClient()
+    if (admin) {
       try {
-        await dbClient
-          .from("orders")
-          .update({ refunded_at: refundedAt, refund_reason: reason || "requested_by_customer", refund_amount_cents: alreadyRefunded + refundAmountCents, stripe_refund_id: refund.id })
-          .eq("id", orderId)
-      } catch {
-        /* status is recorded */
+        const pi = await stripe.paymentIntents.retrieve(order.stripe_payment_intent_id, { expand: ["latest_charge"] })
+        const charge = pi.latest_charge && typeof pi.latest_charge === "object" ? (pi.latest_charge as import("stripe").Stripe.Charge) : null
+        if (charge) await syncChargeRefund(admin, stripe, charge)
+      } catch (syncErr) {
+        console.error("[Refund] ledger now failed; charge.refunded will apply it:", syncErr instanceof Error ? syncErr.message : syncErr)
+      }
+      /* Refunded in full across several refunds from this page: the library
+         entry goes, which a single refund's share cannot see on its own. */
+      if (refundedTotal >= (order.amount_cents || 0) && order.buyer_id && order.product_id) {
+        let revoke = admin.from("entitlements").delete().eq("buyer_id", order.buyer_id).eq("product_id", order.product_id)
+        revoke = order.variant_id ? revoke.eq("variant_id", order.variant_id) : revoke.is("variant_id", null)
+        await revoke.then(
+          () => undefined,
+          () => undefined,
+        )
       }
     }
 

@@ -4,12 +4,12 @@ import type Stripe from "stripe"
 import { stripe } from "@/lib/stripe"
 import { createClient } from "@supabase/supabase-js"
 import { generateReceiptToken } from "@/lib/security"
-import { sendOrderEmails, triggerEmailFlows, sendPayoutStatusEmail, sendFirstPayoutEmail, sendBankUpdatedEmail, sendPayoutsPausedEmail, sendVerificationRequiredEmail, sendFirstSaleEmail, resolveSellerEmail, sendDisputeCreatedEmail, sendDisputeWonEmail, sendDisputeLostEmail, sendRefundEmails } from "@/lib/email"
+import { sendOrderEmails, triggerEmailFlows, sendPayoutStatusEmail, sendFirstPayoutEmail, sendBankUpdatedEmail, sendPayoutsPausedEmail, sendVerificationRequiredEmail, sendFirstSaleEmail, resolveSellerEmail, sendDisputeCreatedEmail, sendDisputeWonEmail, sendDisputeLostEmail } from "@/lib/email"
 import { v4 as uuidv4 } from "uuid"
 import { orderSourceFrom, tagOrderSource } from "@/lib/orders/order-source"
 import { fulfilPaymentIntent, isCheckoutIntent } from "@/lib/checkout/fulfil-payment"
 import { fulfilCartSession, isCartSession } from "@/lib/checkout/fulfil-cart-session"
-import { syncChargeRefunds } from "@/lib/checkout/refunds"
+import { syncChargeRefund } from "@/lib/stripe/refund-sync"
 
 export const runtime = "nodejs"
 
@@ -1063,20 +1063,17 @@ export async function POST(request: Request) {
   // REFUND EVENTS — sync refunds initiated from Stripe Dashboard
   // ============================================================================
 
-  /*
-    Every refund, wherever it was made (the Refund button, the Dashboard, a
-    dispute): lib/checkout/refunds.ts records it on the order rows, takes the
-    product back on a full refund, and debits the seller's ledger once per
-    Stripe refund. A failure answers 500 so Stripe retries; a retry repeats
-    nothing, because each step is keyed on what Stripe says.
-  */
   if (event.type === "charge.refunded") {
+    /* Every refund of the charge, split across the order rows it belongs to
+       and applied to each once: lib/stripe/refund-sync.ts has the why. */
     const charge = event.data.object as Stripe.Charge
     try {
-      await syncChargeRefunds(supabaseAdmin, charge)
+      const done = await syncChargeRefund(supabaseAdmin, stripe, charge)
+      console.log("[Webhook] charge.refunded", charge.id, "applied:", done.applied, "already applied:", done.skipped)
     } catch (error) {
-      console.error("[Webhook] charge.refunded failed:", charge.id, error instanceof Error ? error.message : error)
-      return NextResponse.json({ error: "Refund not recorded" }, { status: 500 })
+      console.error("[Webhook] Error processing charge.refunded:", error instanceof Error ? error.message : error)
+      /* A 500 makes Stripe retry, and a retry skips what was applied. */
+      return NextResponse.json({ error: "Refund not recorded yet" }, { status: 500 })
     }
     return NextResponse.json({ received: true })
   }
