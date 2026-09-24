@@ -271,8 +271,7 @@ export function OrdersClient(props: OrdersClientProps) {
   const listRef = React.useRef<HTMLDivElement>(null)
   const detailRef = React.useRef<HTMLDivElement>(null)
   /* Opened straight onto an order (a link, a reload): the page does not fade
-     in as a whole, so its bar is at full strength on the first frame, the
-     same as the skeleton's before it (./order-skeleton). */
+     in as a whole, so its bar is at full strength on the first frame. */
   const [openedOnOrder] = React.useState(() => shown !== null)
 
   /* Each order starts at its top, before it is drawn: after the paint, the

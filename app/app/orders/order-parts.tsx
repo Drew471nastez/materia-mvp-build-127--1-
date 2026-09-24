@@ -67,9 +67,7 @@ export function PaneBar({ width, className, children }: { width: string; classNa
 
 /**
  * An order's bar: back, the number and its statuses, the actions, and the
- * date under the number. The same frame draws the real order and the
- * skeleton a slow load shows (app/app/orders/order-skeleton.tsx), so the
- * bar is the same size on every frame from the first.
+ * date under the number, the same size on every frame from the first.
  */
 export function OrderBarFrame({
   back,

@@ -4,69 +4,92 @@
  * ===========================================================================
  *  A NAVIGATION BETWEEN /app PAGES, AND WHAT THE SHELL SHOWS WHILE IT RUNS
  * ===========================================================================
- * "When I click a page in the sidebar it should load and appear with the
- * content already there, with a smooth, subtle animation when landing on the
- * page, like Shopify does. Same when going back."
+ * "Once I click on something it loads like native. If it takes really long,
+ * show a smooth clean iOS style rotating spinner, light gray. There should be
+ * NO skeleton loading structure on mobile devices when switching pages."
  *
  * So the page you are on stays on screen until the next one is ready (the
- * router holds it: there is no route level loading boundary under /app any
- * more), and what the shell adds depends only on how long that takes. On a
- * computer:
+ * router holds it: there is no route level loading boundary under /app), the
+ * control you pressed shows its new state on the press itself (the pill, the
+ * menu and the rail all read `useShownPath` below), and what the shell adds
+ * depends only on how long the page takes. On a phone, and anywhere in the
+ * native apps:
+ *
+ *      under 500ms   nothing at all
+ *      500ms         the content area goes plain, with the spinner in the
+ *                    middle of it, fading in over 150ms
+ *
+ * Why 500. The four pages in the pill are fetched whole ahead of time, so a
+ * tap on one of them lands on the next frame; a page that was not, over a
+ * phone connection, typically takes 300 to 700ms. Anything shown before half
+ * a second would be on screen for a few frames on most taps and then go, a
+ * flicker that says "loading" about something that did not need saying. Past
+ * it, a screen that has not moved starts to read as a tap that missed, which
+ * is what the spinner is there to answer.
+ *
+ * On a computer, where a pointer has hover and the rows already answer it:
  *
  *      under 300ms   nothing at all
  *      300ms         a thin bar along the top of the header
- *      1000ms        the next page's outline over the content area
+ *      1000ms        the same plain surface and spinner over the content
  *
- * On a phone, and anywhere in the native apps: "when navigating in the app,
- * there should be a loading skeleton, smooth, simple, clean, only when
- * navigating, so it feels like more feedback." A tap has nothing under the
- * finger to answer it (no hover, no pointer), so a page that is not there
- * within NAV_PHONE_OUTLINE_AFTER_MS gets its outline straight away, on a
- * short fade, in place of the bar:
+ * No page draws an outline of itself any more, at any width: the per page
+ * skeletons were "too complicated", and a grey drawing of a page that then
+ * turns into the page is a second thing to look at on every slow click.
  *
- *      under 90ms    nothing at all
- *      90ms          the next page's outline, fading in over 120ms
+ * Never for the product editor or the plans page (`waitsWithSpinner`): they
+ * are drawn over the whole shell, and the page you were on stays until they
+ * are ready.
  *
- * Never for the product editor: "the whole page should not have a loading
- * skeleton when I click to edit a product." There the page you were on stays
- * until the editor is ready, at every width (`drawsOutline` below).
- *
- * and, when the new page commits, one short entrance: opacity from 0 and a
- * 5px rise, 180ms, one curve (components/app/app-stage.tsx).
+ * When the new page commits there is one short entrance: opacity from 0 and a
+ * 5px rise, 180ms, one curve (components/app/app-stage.tsx). If the spinner's
+ * surface was up, its fade out is the page's fade in, and the page only rises.
  *
  * This file is the one record of "a navigation is underway, to where, since
- * when" that the bar and the stage both read, so the two cannot disagree
- * about it. It is module state, which is right here: it describes this tab's
- * router and nothing else, and nothing on a server ever reads it.
+ * when" that the bar, the stage and the nav controls all read, so they cannot
+ * disagree about it. It is module state, which is right here: it describes
+ * this tab's router and nothing else, and nothing on a server ever reads it.
  */
 
 import { useSyncExternalStore } from "react"
+import { usePathname } from "next/navigation"
 
-/** Below this a navigation shows nothing: most are over before it. */
+/** On a computer, below this a navigation shows nothing: most are over before it. */
 export const NAV_BAR_AFTER_MS = 300
-/** Past this the next page's outline is drawn over the content. */
-export const NAV_SKELETON_AFTER_MS = 1000
-/** On a phone, or in the native apps, the outline comes this soon... */
-export const NAV_PHONE_OUTLINE_AFTER_MS = 90
-/** ...on an opacity fade this long. */
-export const NAV_PHONE_OUTLINE_FADE_MS = 120
+/** On a computer, past this the content area waits with the spinner. */
+export const NAV_SPINNER_AFTER_MS = 1000
+/** On a phone, or in the native apps, the spinner comes this soon (see above for why 500)... */
+export const NAV_PHONE_SPINNER_AFTER_MS = 500
+/** ...and at either width it arrives on an opacity fade this long. */
+export const NAV_SPINNER_FADE_MS = 150
 /** The landing: opacity and a rise, on one curve. */
 export const NAV_ENTER_MS = 180
 export const NAV_ENTER_RISE_PX = 5
 export const NAV_ENTER_EASE = "cubic-bezier(0.2, 0, 0, 1)"
+/**
+ * How long the router keeps a page it fetched: next.config.mjs
+ * `experimental.staleTimes.dynamic`, in ms (tests/app-shell-motion.test.ts
+ * holds the two equal). Past it a warmed page is cold again, so the pill warms
+ * its four again when the app comes back after longer than this.
+ */
+export const APP_PAGE_KEPT_MS = 300_000
 /** A navigation that never reports back (it failed, or went nowhere) is dropped after this. */
 const GIVE_UP_MS = 10000
 
+function pathOf(href: string): string {
+  return (href.split(/[?#]/)[0] || "").replace(/\/+$/, "") || "/"
+}
+
 /**
- * Whether an address ever gets an outline while it loads. Not the product
- * editor, new or saved: the page you were on stays until the editor is ready.
- * Not the plans page either: it is drawn over the whole shell
- * (components/app/page-layer.tsx), so an outline under the header would be
+ * Whether a slow navigation to this address waits with the spinner. Not the
+ * product editor, new or saved: the page you were on stays until the editor
+ * is ready. Not the plans page either: it is drawn over the whole shell
+ * (components/app/page-layer.tsx), so a surface under the header would be
  * the wrong shape in the wrong place.
  */
-export function drawsOutline(href: string | null): boolean {
+export function waitsWithSpinner(href: string | null): boolean {
   if (!href) return false
-  const path = (href.split(/[?#]/)[0] || "").replace(/\/+$/, "")
+  const path = pathOf(href)
   if (path !== "/app" && !path.startsWith("/app/")) return false
   if (/^\/app\/products\/[^/]+(\/|$)/.test(path)) return false
   if (path === "/app/settings/billing/upgrade") return false
@@ -84,10 +107,29 @@ export function isPhoneShell(): boolean {
   return !!window.matchMedia?.("(max-width: 767px)").matches
 }
 
-/** How long a navigation to `href` runs before its outline is drawn, or null for never. */
-export function outlineDelay(href: string | null, phone: boolean = isPhoneShell()): number | null {
-  if (!drawsOutline(href)) return null
-  return phone ? NAV_PHONE_OUTLINE_AFTER_MS : NAV_SKELETON_AFTER_MS
+/** How long a navigation to `href` runs before the spinner shows, or null for never. */
+export function spinnerDelay(href: string | null, phone: boolean = isPhoneShell()): number | null {
+  if (!waitsWithSpinner(href)) return null
+  return phone ? NAV_PHONE_SPINNER_AFTER_MS : NAV_SPINNER_AFTER_MS
+}
+
+/**
+ * Is `href` the address already showing? Pressing the page you are on starts
+ * no navigation: the router has nothing to commit, so a record started for it
+ * was never ended by a landing, and the bar and the outline sat over the page
+ * for the full ten seconds of GIVE_UP_MS. That was one of the "it bugs
+ * sometimes": tap the pill's lit icon, or the rail's lit row, and wait.
+ */
+export function isCurrentAddress(href: string | null): boolean {
+  if (!href || typeof window === "undefined" || !window.location) return false
+  try {
+    const url = new URL(href, window.location.href)
+    return url.origin === window.location.origin
+      && pathOf(url.pathname) === pathOf(window.location.pathname)
+      && url.search === window.location.search
+  } catch {
+    return false
+  }
 }
 
 export type AppNavigation = { href: string | null; startedAt: number }
@@ -100,9 +142,13 @@ const emit = () => { for (const f of [...listeners]) f() }
 /** A navigation has started, to `href` when the caller knows it. */
 export function beginAppNavigation(href: string | null = null) {
   if (typeof window === "undefined") return
-  current = { href, startedAt: performance.now() }
   if (giveUp) clearTimeout(giveUp)
   giveUp = setTimeout(endAppNavigation, GIVE_UP_MS)
+  /* One press is often reported twice (the link's own click, and the row's
+     handler saying where it goes). The second is the same navigation: keep
+     when it started, and do not wake every reader for nothing. */
+  if (current && href && current.href === href) return
+  current = { href, startedAt: performance.now() }
   emit()
 }
 
@@ -125,6 +171,26 @@ function subscribe(f: () => void) {
 
 export function useAppNavigation(): AppNavigation | null {
   return useSyncExternalStore(subscribe, getAppNavigation, () => null)
+}
+
+/** Where the navigation underway is going, as a path inside /app, or null. */
+export function pendingPath(nav: AppNavigation | null): string | null {
+  if (!nav?.href) return null
+  const path = pathOf(nav.href)
+  return path === "/app" || path.startsWith("/app/") ? path : null
+}
+
+/**
+ * THE PAGE THE NAV LIGHTS UP: the one being opened while it is on its way,
+ * the one showing otherwise. A native tab bar changes its selection on the
+ * tap and then waits for the screen; lighting the row only when the router
+ * committed made every press feel as slow as the server. The rail and the
+ * menu read this; the pill reads the same record for its circle.
+ */
+export function useShownPath(): string {
+  const pathname = usePathname()
+  const nav = useAppNavigation()
+  return pendingPath(nav) ?? pathname
 }
 
 /**

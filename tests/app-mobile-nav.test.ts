@@ -517,13 +517,23 @@ function main() {
     Driven in the probe, which never changes its path at all: 5px of travel
     with the pick remembered, 103px without.
   */
-  check("a pick is remembered until the route catches up with it",
-    /const marked = slide\.at \?\? pending \?\? current/.test(nav)
+  check("a pick is remembered until the route catches up with it, and a navigation from anywhere moves the circle on the press",
+    /const marked = slide\.at \?\? pending \?\? heading \?\? current/.test(nav)
+      && /const heading = toPath == null \? null : items\.findIndex\(\(i\) => isRouteActive\(toPath, i\.href\)\)/.test(nav)
       && /setPending\(index\)/.test(nav),
     "without this the circle springs back to the page you left and then comes again")
-  check("and it is let go of when the route arrives, or on a timer if it never does",
+  /*
+    The pick used to be dropped after 1500ms on a timer, which brought the
+    glitch back for every page slower than that: home at 1.5s, out again on
+    landing. It is held for as long as its navigation runs now.
+  */
+  check("and it is held while its navigation runs, let go of when the route arrives or the navigation ends or goes elsewhere",
     /if \(current === pending\) \{ setPending\(null\); return \}/.test(nav)
-      && /window\.setTimeout\(\(\) => setPending\(null\), 1500\)/.test(nav))
+      && /if \(heading === pending\) \{ answered\.current = true; return \}/.test(nav)
+      && /if \(nav \|\| answered\.current\) \{ setPending\(null\); return \}/.test(nav))
+  check("with the timer left only for a pick no navigation record ever answered",
+    /window\.setTimeout\(\(\) => setPending\(null\), 1500\)/.test(nav)
+      && /\}, \[pending, current, heading, nav\]\)/.test(nav))
   check("a circle with no slot to sit on fades where it stands",
     /const restRef = useRef\(0\)/.test(nav) && /if \(marked >= 0\) restRef\.current = marked/.test(nav),
     "reading its position as slot zero would send it flying home as it shrank")
@@ -842,7 +852,7 @@ function main() {
     follows the finger.
   */
   check("the glyphs follow the committed slot, not the finger",
-    /const shown = slide\.following \? \(pending \?\? current\) : marked/.test(nav)
+    /const shown = slide\.following \? \(pending \?\? heading \?\? current\) : marked/.test(nav)
       && /const on = i === shown/.test(nav))
 
   console.log("\n  and the menu changes nothing about the bar")

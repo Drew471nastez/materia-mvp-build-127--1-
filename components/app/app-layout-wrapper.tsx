@@ -162,7 +162,7 @@ export function AppLayoutWrapper({ children }: { children: React.ReactNode }) {
     <LanguageProvider>
       <Suspense fallback={null}>
         <NavigationLoadingBar />
-        {/* How a page arrives: the landing, the scroll, and the outline of a slow page. */}
+        {/* How a page arrives: the landing, the scroll, and the spinner for a slow page. */}
         <AppStage />
       </Suspense>
       <PurchaseSyncProvider />

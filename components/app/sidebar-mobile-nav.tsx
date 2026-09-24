@@ -32,11 +32,12 @@
  */
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
 
 import { cn } from "@/lib/utils"
 import { hapticTap } from "@/lib/native-bridge"
+import { APP_PAGE_KEPT_MS, pendingPath, prefetchAppPage, useAppNavigation, useShownPath } from "@/lib/ui/app-navigation"
 import {
   isRouteActive,
   type NavIconPair,
@@ -245,13 +246,18 @@ function NavIcon({ icon, active, color, size = 22 }: { icon: NavIconPair; active
  * sends. What a phone does send is touchstart and touchend, so the row
  * answers the press — within a frame, before the navigation has begun — and
  * that acknowledgement is the whole of "it feels responsive".
+ *
+ * `onPress` runs on the same pointerdown: the rows use it to start fetching
+ * their page, which gives the server the length of the tap (80 to 150ms of a
+ * finger on glass) as a head start. The router picks that fetch up when the
+ * click arrives instead of starting its own.
  */
-function usePressed() {
+function usePressed(onPress?: () => void) {
   const [pressed, setPressed] = useState(false)
   return {
     pressed,
     handlers: {
-      onPointerDown: () => setPressed(true),
+      onPointerDown: () => { setPressed(true); onPress?.() },
       onPointerUp: () => setPressed(false),
       onPointerCancel: () => setPressed(false),
       onPointerLeave: () => setPressed(false),
@@ -276,9 +282,9 @@ function MobileSubNavItem({
   onNavigate?: (href: string) => void
   onClose: () => void
 }) {
-  const pathname = usePathname()
-  const active = isRouteActive(pathname, child.href)
-  const { pressed, handlers } = usePressed()
+  const router = useRouter()
+  const active = isRouteActive(useShownPath(), child.href)
+  const { pressed, handlers } = usePressed(() => { if (!active) prefetchAppPage(router, child.href) })
   return (
     <Link
       href={child.href}
@@ -337,9 +343,10 @@ export function MobileNavItem({
   onForceNavigate?: (href: string) => void
   onClose: () => void
 }) {
-  const pathname = usePathname()
-  const active = isRouteActive(pathname, item.href)
-  const { pressed, handlers } = usePressed()
+  const router = useRouter()
+  const active = isRouteActive(useShownPath(), item.href)
+  /* A row that reloads the document (forceNavigation) has nothing to fetch ahead. */
+  const { pressed, handlers } = usePressed(() => { if (!active && !item.forceNavigation) prefetchAppPage(router, item.href) })
   const style = rowStyle(active, pressed)
   const tint = active ? ACTIVE_TEXT : REST_TEXT
 
@@ -982,7 +989,7 @@ type BarItem = {
  * this is 54px of the screen that has to be able to refuse a horizontal
  * gesture, because a horizontal gesture is what the bar is for.
  */
-function useSlide(count: number, onPick: (index: number) => void) {
+function useSlide(count: number, onPick: (index: number) => void, onPress?: (index: number) => void) {
   const [at, setAt] = useState<number | null>(null)
   /* Whether the gesture that just ended was a drag, which is what decides
      whether the circle bounces into the slot or lands on it. A route change
@@ -1213,6 +1220,7 @@ function useSlide(count: number, onPick: (index: number) => void) {
         movedRef.current = false
         downXRef.current = e.clientX
         move(e.clientX)
+        onPress?.(slotAt(e.clientX))
       },
       onPointerMove: (e: React.PointerEvent) => {
         if (!activeRef.current) return
@@ -1281,14 +1289,35 @@ export function MobileNavPill({
     mount (prefetchAppPage, lib/ui/app-navigation), so the first press on any
     of them finds the page waiting, and next.config's staleTimes is what
     keeps a page you have been on from being fetched again on the way back.
+
+    AND WARMED AGAIN when the app comes back after longer than the router
+    keeps a page (APP_PAGE_KEPT_MS, the same five minutes as next.config's
+    staleTimes). An app left in the background over lunch came back with all
+    four cold, and every first tap after that waited for the server. Date.now,
+    not performance.now: a phone that sleeps may stop the second clock.
   */
   useEffect(() => {
     if (!onPrefetch) return
-    for (const item of items) onPrefetch(item.href)
+    let warmedAt = 0
+    const warm = () => {
+      warmedAt = Date.now()
+      for (const item of items) onPrefetch(item.href)
+    }
+    warm()
+    const onVisible = () => {
+      if (document.visibilityState === "visible" && Date.now() - warmedAt > APP_PAGE_KEPT_MS) warm()
+    }
+    document.addEventListener("visibilitychange", onVisible)
+    return () => document.removeEventListener("visibilitychange", onVisible)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const current = items.findIndex((i) => isRouteActive(pathname, i.href))
+  /* Where the navigation underway is going, as a slot: null with none, -1
+     for a page of /app that has no slot (a menu row, a link in the page). */
+  const nav = useAppNavigation()
+  const toPath = pendingPath(nav)
+  const heading = toPath == null ? null : items.findIndex((i) => isRouteActive(toPath, i.href))
 
   /**
    * ═══════════════════════════════════════════════════════════════════════
@@ -1304,30 +1333,47 @@ export function MobileNavPill({
    * exactly right: how far it goes back and how long it stays there depend
    * on how quickly the route resolves, which is different every time.
    *
-   * So a pick is remembered until the route catches up with it. The timer is
-   * the safety net for a pick that never arrives — a failed navigation, or
-   * the one item here that does not change the route at all.
+   * So a pick is remembered until the route catches up with it, for as long
+   * as its navigation is underway, however long that is. It used to be let go
+   * of after 1500ms on a timer, which put the glitch back on every page that
+   * took longer than that: the circle went home at 1.5s and came out again
+   * when the page landed. Now it is let go of when the route arrives, when
+   * the navigation ends without arriving (it failed, or was sent somewhere
+   * else), or when another navigation replaces it. The timer is left only for
+   * a pick that no navigation record ever answered.
    */
   const [pending, setPending] = useState<number | null>(null)
+  const answered = useRef(false)
   useEffect(() => {
     if (pending == null) return
     if (current === pending) { setPending(null); return }
+    if (heading === pending) { answered.current = true; return }
+    if (nav || answered.current) { setPending(null); return }
     const t = window.setTimeout(() => setPending(null), 1500)
     return () => window.clearTimeout(t)
-  }, [pending, current])
+  }, [pending, current, heading, nav])
 
   const pick = (index: number) => {
     const item = items[index]
     if (!item) return
+    answered.current = false
     setPending(index)
     onNavigate(item.href)
     onCloseMenu()
   }
 
-  const slide = useSlide(items.length, pick)
+  /* The page under the finger starts coming the moment it lands, not when it
+     lifts: the length of the tap is a head start for the server, and a page
+     already warm is not fetched again (prefetchAppPage). */
+  const slide = useSlide(items.length, pick, (index) => {
+    const item = items[index]
+    if (item && index !== current) onPrefetch?.(item.href)
+  })
   /* Under the finger while one is down, then on the slot that was picked,
-     then on the page you are actually on. */
-  const marked = slide.at ?? pending ?? current
+     then on the page being opened, then on the page you are actually on. The
+     third is what answers a press anywhere else (a menu row, a link in the
+     page) on the press, rather than when the page arrives. */
+  const marked = slide.at ?? pending ?? heading ?? current
   /*
     THE GLYPHS DO NOT CHANGE UNDER A MOVING FINGER. The circle follows the
     finger; the fill and the ink colour follow only what has been COMMITTED.
@@ -1336,7 +1382,7 @@ export function MobileNavPill({
     to a filled one and back within a frame or two. The system bars this is
     modelled on do the same thing — the lens moves, the icons wait.
   */
-  const shown = slide.following ? (pending ?? current) : marked
+  const shown = slide.following ? (pending ?? heading ?? current) : marked
 
   /**
    * Where it FADES OUT, which is not where slot zero is.

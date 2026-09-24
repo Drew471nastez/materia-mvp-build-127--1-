@@ -7,7 +7,6 @@
  */
 import React from "react"
 import { OrdersClient } from "@/app/app/orders/orders-client"
-import OrdersLoading from "@/app/app/orders/sales/skeleton"
 import type { OrderRow } from "@/lib/orders/order-view"
 
 const g = globalThis as unknown as { __probeNow: number; __probeTz: string }
@@ -90,20 +89,6 @@ export function fixtureRows(now: number): OrderRow[] {
     }
   }
   return rows
-}
-
-/** The route's loading state in the same shell, for a link straight to an order. */
-export function SkeletonApp() {
-  return (
-    <div style={{ height: "100vh", display: "flex", flexDirection: "column" }}>
-      <div data-probe-header style={{ height: 58, flex: "none", background: "#131316" }} />
-      <div className="app-content-scroll" style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
-        {/* A link straight to an order, as the shell draws it for /app/orders/<id>.
-            A constant, not window.location: this renders on the server first. */}
-        <OrdersLoading order="pending" />
-      </div>
-    </div>
-  )
 }
 
 export function App() {

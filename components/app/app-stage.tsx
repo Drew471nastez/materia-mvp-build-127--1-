@@ -2,19 +2,17 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { usePathname, useSearchParams } from "next/navigation"
-import { RouteSkeleton } from "@/components/app/route-skeletons"
-import { cn } from "@/lib/utils"
+import { ActivitySpinner } from "@/components/ui/activity-spinner"
 import {
   endAppNavigation,
-  isPhoneShell,
   markLanded,
   NAV_ENTER_EASE,
   NAV_ENTER_MS,
   NAV_ENTER_RISE_PX,
-  NAV_PHONE_OUTLINE_FADE_MS,
-  outlineDelay,
+  NAV_SPINNER_FADE_MS,
   recalledScroll,
   rememberScroll,
+  spinnerDelay,
   takeTraversal,
   useAppNavigation,
 } from "@/lib/ui/app-navigation"
@@ -39,9 +37,11 @@ import {
  *   frame, so the page never paints at the top and then jumps.
  *
  *   THE SLOW PAGE. The old page stays until the new one is ready. Past
- *   NAV_SKELETON_AFTER_MS on a computer, or NAV_PHONE_OUTLINE_AFTER_MS on a
- *   phone, the next page's outline is laid over the content area, and it
- *   fades out as the page fades in. The product editor never gets one.
+ *   NAV_PHONE_SPINNER_AFTER_MS on a phone, or NAV_SPINNER_AFTER_MS on a
+ *   computer, the content area goes plain with the spinner in the middle,
+ *   and when the page lands that surface fades away over it. No outline of
+ *   any page, at any width. The product editor and the plans page never get
+ *   it (lib/ui/app-navigation waitsWithSpinner).
  */
 
 type Scrollers = { outer: HTMLElement; inner: HTMLElement | null }
@@ -75,21 +75,37 @@ function reducedMotion() {
   return !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
 }
 
-/** The landing, on every top level box of the page that is showing. */
-export function playEntrance(outer: HTMLElement) {
+/**
+ * The landing, on every top level box of the page that is showing.
+ *
+ * `fade: false` when the slow page's surface is up over it: that surface
+ * fading away IS the page appearing, and fading the page in underneath it as
+ * well would multiply the two, a reveal that crawls for half its length and
+ * then hurries. So under the surface the page only rises.
+ */
+export function playEntrance(outer: HTMLElement, { fade = true }: { fade?: boolean } = {}) {
   if (reducedMotion()) return
   for (const child of Array.from(outer.children) as HTMLElement[]) {
     if (typeof child.animate !== "function") continue
     const cs = getComputedStyle(child)
     if (cs.display === "none" || cs.visibility === "hidden" || Number(cs.opacity) === 0) continue
     const rise = !holdsVisibleFixed(child)
-    child.animate(
-      rise
-        ? [{ opacity: 0, translate: `0 ${NAV_ENTER_RISE_PX}px` }, { opacity: 1, translate: "0 0" }]
-        : [{ opacity: 0 }, { opacity: 1 }],
-      { duration: NAV_ENTER_MS, easing: NAV_ENTER_EASE },
-    )
+    if (!rise && !fade) continue
+    const from: Keyframe = { ...(fade ? { opacity: 0 } : {}), ...(rise ? { translate: `0 ${NAV_ENTER_RISE_PX}px` } : {}) }
+    const to: Keyframe = { ...(fade ? { opacity: 1 } : {}), ...(rise ? { translate: "0 0" } : {}) }
+    child.animate([from, to], { duration: NAV_ENTER_MS, easing: NAV_ENTER_EASE })
   }
+}
+
+/**
+ * The slow page's surface, when it is all the eye sees. Only then does the
+ * page skip its own fade: a page landing while the surface is still coming
+ * in (half up, say) would otherwise swap for the old one at half strength in
+ * a single frame. Measured at 0.38 before this said "all" rather than "half".
+ */
+function slowSurfaceIsUp() {
+  const el = document.querySelector<HTMLElement>("[data-app-slow-page]")
+  return !!el && Number(getComputedStyle(el).opacity) >= 0.95
 }
 
 export function AppStage() {
@@ -121,6 +137,8 @@ export function AppStage() {
     if (firstRef.current) { firstRef.current = false; return }
     const pageChanged = prevPathRef.current !== pathname
     prevPathRef.current = pathname
+    /* A change of query alone (a filter, a tab, an open order) is the same
+       page: no landing, and the scroll stays where the reader put it. */
     if (!pageChanged) return
     markLanded()
     const s = scrollers()
@@ -128,79 +146,84 @@ export function AppStage() {
     const saved = traversal ? recalledScroll(key) : null
     s.outer.scrollTop = saved?.outer ?? 0
     if (s.inner) s.inner.scrollTop = saved?.inner ?? 0
-    playEntrance(s.outer)
+    playEntrance(s.outer, { fade: !slowSurfaceIsUp() })
   }, [key, pathname])
 
-  return <SlowPageOutline />
+  return <SlowPage />
+}
+
+/** From wherever an element's opacity is now to `to`, dropping whatever was moving it. */
+function fadeTo(el: HTMLElement, to: number, duration: number, easing: string) {
+  const from = Number(getComputedStyle(el).opacity)
+  for (const a of el.getAnimations?.() ?? []) a.cancel()
+  return el.animate([{ opacity: from }, { opacity: to }], { duration, easing, fill: "forwards" })
 }
 
 /**
- * The outline of the page being opened, over the content area, once a
- * navigation has run long enough (lib/ui/app-navigation: a second on a
- * computer, 90ms on a phone, never for the product editor). Positioned by
- * the same numbers as <main> (the header above it, the sidebar beside it
- * from md), so it covers exactly the page and nothing else.
+ * The content area while a page is slow: plain, the page's own colour, with
+ * the spinner in the middle. Positioned by the same numbers as <main> (the
+ * header above it, the rail beside it from md, the rounded top on a phone),
+ * so it covers exactly the page and nothing else; the header and the pill
+ * stay over it and stay pressable.
  *
- * On a phone it arrives on a 120ms opacity fade and nothing else, over the
- * page you were on, so there is no frame with nothing on screen. When the
- * page lands the outline fades out from wherever its own fade had got to: a
- * page that arrives 10ms after its outline started must not flash it to full
- * and back.
+ * In on a 150ms opacity fade, over the page you were on, so there is never a
+ * frame with nothing on screen. It takes presses while it is up: what is
+ * under it is a page you can no longer see. When the page lands it fades out
+ * from wherever its own fade had got to (a page that arrives 20ms after the
+ * spinner started must not flash it to full and back) and stops taking
+ * presses at once, so the new page answers the first tap.
  */
-function SlowPageOutline() {
+function SlowPage() {
   const nav = useAppNavigation()
-  const [shownFor, setShownFor] = useState<string | null>(null)
-  const phoneRef = useRef(false)
+  const [shown, setShown] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
+  const leaving = useRef(false)
 
   useEffect(() => {
-    if (!nav) {
-      /* The page is here: the outline fades as the page rises under it. */
-      const el = ref.current
-      if (!shownFor || !el) return
-      if (typeof el.animate !== "function" || reducedMotion()) { setShownFor(null); return }
-      const from = Number(getComputedStyle(el).opacity)
-      for (const a of el.getAnimations?.() ?? []) a.cancel()
-      const out = el.animate([{ opacity: from }, { opacity: 0 }], { duration: NAV_ENTER_MS, easing: NAV_ENTER_EASE, fill: "forwards" })
-      out.onfinish = () => setShownFor(null)
-      return () => { out.onfinish = null }
+    const el = ref.current
+    const delay = nav ? spinnerDelay(nav.href) : null
+    if (nav && delay != null) {
+      if (shown) {
+        /* Another press while it is up, or while it was on its way out: it
+           stays, and comes back from wherever it had got to. */
+        if (el && leaving.current && typeof el.animate === "function") {
+          leaving.current = false
+          el.style.pointerEvents = ""
+          fadeTo(el, 1, NAV_SPINNER_FADE_MS, "ease-out")
+        }
+        return
+      }
+      /* Leaving a page drawn over the whole shell: that layer stays over
+         everything until the next page is here, so there is nothing to draw. */
+      if (document.querySelector("[data-page-layer]")) return
+      const wait = Math.max(0, delay - (performance.now() - nav.startedAt))
+      const t = window.setTimeout(() => setShown(true), wait)
+      return () => window.clearTimeout(t)
     }
-    const href = nav.href
-    if (!href || shownFor === href) return
-    const phone = isPhoneShell()
-    const delay = outlineDelay(href, phone)
-    if (delay == null) return
-    /* Leaving a page drawn over the whole shell: that layer stays over
-       everything until the next page is here, so there is nothing to draw. */
-    if (document.querySelector("[data-page-layer]")) return
-    const wait = Math.max(0, delay - (performance.now() - nav.startedAt))
-    const t = window.setTimeout(() => {
-      phoneRef.current = phone
-      setShownFor(href)
-    }, wait)
-    return () => window.clearTimeout(t)
-  }, [nav, shownFor])
+    /* Landed, or the navigation now underway is one that never waits with it. */
+    if (!shown || leaving.current) return
+    if (!el || typeof el.animate !== "function" || reducedMotion()) { setShown(false); return }
+    leaving.current = true
+    el.style.pointerEvents = "none"
+    const out = fadeTo(el, 0, NAV_ENTER_MS, NAV_ENTER_EASE)
+    out.onfinish = () => { if (leaving.current) { leaving.current = false; setShown(false) } }
+  }, [nav, shown])
 
-  /* A phone's outline: in on opacity alone, before it is first painted. */
+  /* In on opacity alone, before it is first painted. */
   useLayoutEffect(() => {
     const el = ref.current
-    if (!shownFor || !el || !phoneRef.current || reducedMotion() || typeof el.animate !== "function") return
-    el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: NAV_PHONE_OUTLINE_FADE_MS, easing: "ease-out" })
-  }, [shownFor])
+    if (!shown || !el || reducedMotion() || typeof el.animate !== "function") return
+    el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: NAV_SPINNER_FADE_MS, easing: "ease-out" })
+  }, [shown])
 
-  if (!shownFor) return null
+  if (!shown) return null
   return (
     <div
       ref={ref}
-      key={shownFor}
-      data-app-route-skeleton=""
-      aria-hidden="true"
-      className={cn(
-        "pointer-events-none fixed inset-x-0 bottom-0 top-[calc(68px+env(safe-area-inset-top,0px))] z-[38] overflow-hidden rounded-t-[20px] bg-[#f8f9fa] md:left-[240px] md:top-[calc(58px+env(safe-area-inset-top,0px))] md:rounded-none",
-        !phoneRef.current && "skeleton-fade",
-      )}
+      data-app-slow-page=""
+      className="fixed inset-x-0 bottom-0 top-[calc(68px+env(safe-area-inset-top,0px))] z-[38] flex items-center justify-center overflow-hidden rounded-t-[20px] bg-[#f8f9fa] md:left-[240px] md:top-[calc(58px+env(safe-area-inset-top,0px))] md:rounded-none"
     >
-      <RouteSkeleton href={shownFor} />
+      <ActivitySpinner />
     </div>
   )
 }

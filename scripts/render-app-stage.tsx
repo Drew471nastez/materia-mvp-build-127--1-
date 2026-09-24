@@ -1,27 +1,39 @@
 /**
  * The real shell pieces that decide how an /app page arrives (the top bar,
- * AppStage and its outline of a slow page) over a shell shaped like
+ * AppStage and its spinner for a slow page) over a shell shaped like
  * app/app/layout.tsx, with a router that is only what these components can
  * see of one: an address that changes when the new page commits, with the
  * new page, in the same render.
  *
  * `window.__delay` is how long the "server" takes. A click on a link starts
  * a navigation the way the real bar sees it (a click on an <a>), and the
- * router commits `__delay` ms later. Back and forward are the browser's own.
+ * router commits `__delay` ms later. A second click before that replaces the
+ * first, as the real router does: only the latest one commits. Back and
+ * forward are the browser's own. `__startNav` is the call a push makes
+ * (startNavigationLoading), for the press that goes nowhere.
  */
 import React, { Suspense } from "react"
 import { createRoot } from "react-dom/client"
 import { usePathname } from "next/navigation"
 
-import { NavigationLoadingBar } from "@/components/app/navigation-loading-bar"
+import { NavigationLoadingBar, startNavigationLoading } from "@/components/app/navigation-loading-bar"
 import { AppStage } from "@/components/app/app-stage"
 
-type W = Window & { __delay: number; __navigate: (href: string) => void; __commit: (href: string) => void }
+type W = Window & {
+  __delay: number
+  __navigate: (href: string) => void
+  __commit: (href: string) => void
+  __startNav: (href: string) => void
+}
 const w = window as unknown as W
 w.__delay = 80
+w.__startNav = startNavigationLoading
 
+let latest = 0
 w.__navigate = (href: string) => {
+  const mine = ++latest
   window.setTimeout(() => {
+    if (mine !== latest) return
     window.history.pushState(null, "", href)
     w.__commit(href)
   }, w.__delay)

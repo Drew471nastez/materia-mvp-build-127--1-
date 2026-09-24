@@ -35,7 +35,7 @@
  */
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { useShownPath } from "@/lib/ui/app-navigation"
 import { useEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 /*
@@ -380,6 +380,11 @@ function NavIcon({
  * FROM THE ROUTE, ALWAYS. There is no `selectedItem` state anywhere in here:
  * a second copy of "which page am I on" is a second thing that can be wrong,
  * and it is wrong for exactly as long as it takes to notice.
+ *
+ * The path the rows pass in is `useShownPath` (lib/ui/app-navigation): the
+ * page being opened while a navigation is underway, the page showing
+ * otherwise. So a clicked row is lit on the click, the row you left goes out
+ * at the same moment, and both come from the one navigation record.
  */
 export function isRouteActive(pathname: string, href: string): boolean {
   if (href === "/app") return pathname === "/app"
@@ -424,7 +429,7 @@ function SubNavItem({
   onClick?: () => void
   onNavigate?: (href: string) => void
 }) {
-  const pathname = usePathname()
+  const pathname = useShownPath()
   const active = isRouteActive(pathname, child.href)
   const { hovered, handlers } = useHover()
 
@@ -461,7 +466,7 @@ export function DesktopNavItem({
   onPrefetch?: (href: string) => void
   onItemClick?: () => void
 }) {
-  const pathname = usePathname()
+  const pathname = useShownPath()
   const active = isRouteActive(pathname, item.href)
   const { hovered, handlers } = useHover()
   const style = rowStyle(active, hovered)
@@ -652,7 +657,7 @@ export function DesktopSidebarContent({
   upgradeSubtitle: string
   storeUnpublishedNote?: string
 }) {
-  const pathname = usePathname()
+  const pathname = useShownPath()
   const settingsActive = isRouteActive(pathname, "/app/settings")
   const { hovered: settingsHovered, handlers: settingsHandlers } = useHover()
 
