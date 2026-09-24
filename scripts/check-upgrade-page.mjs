@@ -77,8 +77,8 @@ for (const [label, viewport] of [
   const read = () => page.evaluate(() => {
     const layer = document.querySelector("[data-page-layer]").getBoundingClientRect()
     const back = document.querySelector("[data-upgrade-back]").getBoundingClientRect()
-    const grid = document.querySelector("[data-plan-grid]").getBoundingClientRect()
-    const cards = [...document.querySelectorAll("[data-plan]")].map((c) => { const r = c.getBoundingClientRect(); return { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height) } })
+    const grid = document.querySelector("[data-plan-cards]").getBoundingClientRect()
+    const cards = [...document.querySelectorAll("[data-plan-card]")].map((c) => { const r = c.getBoundingClientRect(); return { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height) } })
     const W = innerWidth, H = innerHeight
     const hit = (x, y) => document.elementFromPoint(x, y)
     const pill = document.querySelector("[data-pill-tab]")
@@ -98,14 +98,14 @@ for (const [label, viewport] of [
   })
   /* Without history: Back is a link. */
   await page.goto(`${base}/`)
-  await page.waitForSelector("[data-plan]")
+  await page.waitForSelector("[data-plan-card]")
   const m = await read()
   if (process.env.UPGRADE_SHOTS) await page.screenshot({ path: join(process.env.UPGRADE_SHOTS, `upgrade-${label}.png`), fullPage: false })
   await page.click("[data-upgrade-back]")
   const cold = await page.evaluate(() => ({ back: window.__back || 0, pushed: window.__pushed || [] }))
   /* With an /app page behind it: Back is the browser's back. */
   await page.goto(`${base}/?history=1`)
-  await page.waitForSelector("[data-plan]")
+  await page.waitForSelector("[data-plan-card]")
   await page.click("[data-upgrade-back]")
   const warm = await page.evaluate(() => ({ back: window.__back || 0, pushed: window.__pushed || [] }))
   await page.close()
@@ -126,7 +126,7 @@ for (const [label, viewport] of [
     if (new Set(m.cards.map((c) => c.x)).size !== 1) problems.push(`${at} the cards are not one column`)
     if (m.cards.some((c) => c.w !== W - 32)) problems.push(`${at} a card is not the page width less 16px gutters: ${m.cards.map((c) => c.w).join(", ")}`)
   } else {
-    if (new Set(m.cards.map((c) => c.y)).size !== 1) problems.push(`${at} the three cards are not in one row`)
+    if (new Set(m.cards.map((c) => c.y)).size !== 1) problems.push(`${at} the plan cards are not in one row`)
     if (new Set(m.cards.map((c) => c.h)).size !== 1) problems.push(`${at} the cards are different heights: ${m.cards.map((c) => c.h).join(", ")}`)
     if (m.grid.w > 1080) problems.push(`${at} the row is ${m.grid.w}px wide`)
     if (Math.abs(m.grid.x + m.grid.w / 2 - W / 2) > 1) problems.push(`${at} the row is not centred`)
