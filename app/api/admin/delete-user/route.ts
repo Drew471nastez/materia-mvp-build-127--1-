@@ -2,8 +2,12 @@ import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { deleteAllUserData } from "@/app/api/auth/delete-account/route"
 import { requireBearerSecret } from "@/lib/api/require-secret"
+import { recordAdminAction } from "@/lib/admin/audit"
+import { maskEmail } from "@/lib/privacy/mask-email"
 
 export const runtime = "nodejs"
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 /**
  * POST /api/admin/delete-user
@@ -11,6 +15,9 @@ export const runtime = "nodejs"
  *
  * Body: { user_id?: string, email?: string }
  * Provide either user_id or email to identify the user.
+ *
+ * Called by a script with the secret, not by the admin console, so the gate
+ * is the bearer secret rather than the admin cookie.
  */
 export async function POST(request: Request) {
   try {
@@ -19,8 +26,9 @@ export async function POST(request: Request) {
     const denied = requireBearerSecret(request, "ADMIN_SECRET")
     if (denied) return denied
 
-    const body = await request.json()
-    const { user_id, email } = body
+    const body = await request.json().catch(() => ({}))
+    const user_id = typeof body.user_id === "string" ? body.user_id : ""
+    const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : ""
 
     if (!user_id && !email) {
       return NextResponse.json(
@@ -28,44 +36,51 @@ export async function POST(request: Request) {
         { status: 400 },
       )
     }
+    if (user_id && !UUID_RE.test(user_id)) {
+      return NextResponse.json({ error: "user_id is not an id" }, { status: 400 })
+    }
 
     const adminSupabase = createAdminClient()
 
-    // Resolve user ID from email if needed
+    /*
+      Resolved through profiles, which carries every account's address.
+      `auth.admin.listUsers()` answers the first fifty accounts only, so an
+      address beyond them read as "not found".
+    */
     let targetUserId = user_id
-
     if (!targetUserId && email) {
-      const { data: users, error: listError } = await adminSupabase.auth.admin.listUsers()
-      if (listError) {
-        return NextResponse.json({ error: `Failed to list users: ${listError.message}` }, { status: 500 })
+      const { data: profile, error: lookupError } = await adminSupabase.from("profiles").select("id").ilike("email", email).maybeSingle()
+      if (lookupError) {
+        console.error("[admin] delete-user lookup:", lookupError.code, lookupError.message)
+        return NextResponse.json({ error: "Could not look the address up." }, { status: 500 })
       }
-      const found = users.users.find(
-        (u: { email?: string }) => u.email?.toLowerCase() === email.toLowerCase(),
-      )
-      if (!found) {
-        return NextResponse.json({ error: `User not found with email: ${email}` }, { status: 404 })
+      if (!profile) {
+        return NextResponse.json({ error: `No account uses ${maskEmail(email)}` }, { status: 404 })
       }
-      targetUserId = found.id
+      targetUserId = profile.id
     }
 
     // Verify user exists
     const { data: targetUser, error: getUserError } = await adminSupabase.auth.admin.getUserById(targetUserId)
     if (getUserError || !targetUser?.user) {
-      return NextResponse.json({ error: `User not found: ${targetUserId}` }, { status: 404 })
+      return NextResponse.json({ error: "No account has that id" }, { status: 404 })
     }
 
     // Delete all user data and the auth user
     await deleteAllUserData(adminSupabase, targetUserId)
+    await recordAdminAction(adminSupabase, {
+      action: "delete_account",
+      targetType: "account",
+      targetId: targetUserId,
+      targetLabel: targetUser.user.email ? maskEmail(targetUser.user.email) : null,
+    })
 
     return NextResponse.json({
       success: true,
-      message: `User ${targetUser.user.email ?? targetUserId} deleted successfully`,
+      message: `Account ${targetUser.user.email ? maskEmail(targetUser.user.email) : targetUserId} deleted`,
     })
   } catch (error) {
-    console.error("Admin delete-user error:", error)
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Internal server error" },
-      { status: 500 },
-    )
+    console.error("[admin] delete-user:", error instanceof Error ? error.message : "unknown error")
+    return NextResponse.json({ error: "The account could not be deleted. The server log has the details." }, { status: 500 })
   }
 }
