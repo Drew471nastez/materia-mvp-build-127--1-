@@ -112,6 +112,7 @@ const SUITES = [
   "tests/app-sidebar.test.ts",
   "tests/analytics-chart.test.ts",
   "tests/website-builder.test.ts",
+  "tests/web-vitals.test.ts",
   "tests/storelib-theme.test.ts",
   "tests/storelib-package.test.ts",
   "tests/storelib-hardening.test.ts",

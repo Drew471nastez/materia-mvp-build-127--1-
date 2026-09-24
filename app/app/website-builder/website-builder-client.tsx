@@ -36,12 +36,16 @@ import {
   Download,
   ExternalLink,
   EyeOff,
+  FileText,
+  Globe,
   Layers,
   Loader2,
   MoreHorizontal,
   Pencil,
   Plus,
   Rocket,
+  Search,
+  Send,
   Settings2,
   Trash2,
   Upload,
@@ -89,6 +93,9 @@ import { relativeTime } from "@/lib/website-builder/relative-time"
 import { requestCover } from "@/lib/website-builder/cover-refresh"
 import { HelpLabel } from "@/components/app/help-label"
 import type { SettingsSection } from "@/components/website-builder/website-settings/types"
+import type { RangeValue } from "@/lib/date-range/range"
+import type { WebsitePerformance } from "@/lib/website-builder/site-performance"
+import { WebsiteStrip } from "./website-strip"
 
 export interface WebsiteSummary {
   id: string
@@ -138,96 +145,22 @@ export function editorHref(
 
 /**
  * ===========================================================================
- *  THE TABS ABOVE THE COVER
+ *  WHERE THE WEBSITE'S SETTINGS ARE
  * ===========================================================================
- * The places a creator goes for their live website, named the way a host
- * names them. Overview is this page. Every other tab opens the matching
- * page of Website Settings in the editor: there is one Domains page and one
- * SEO page in Storelib, and a tab is a door to it rather than a second copy.
+ * The pages of Website Settings a creator goes to for their live website,
+ * named the way a host names them. They were a row of tabs above the cover;
+ * that place is the performance bar now (./website-strip.tsx), and these
+ * are the first group of the More menu beside View site. Each opens the
+ * matching page of Website Settings in the editor: there is one Domains page
+ * and one SEO page in Storelib, and a row is a door to it, not a copy.
  */
-export const WEBSITE_TABS: { label: string; section: SettingsSection | null }[] = [
-  { label: "Overview", section: null },
-  { label: "Pages", section: "pages" },
-  { label: "Domain", section: "domains" },
-  { label: "SEO", section: "seo" },
-  { label: "Publishing", section: "publishing" },
-  { label: "Settings", section: "general" },
+export const WEBSITE_SETTINGS: { label: string; section: SettingsSection; icon: React.ReactNode }[] = [
+  { label: "Pages", section: "pages", icon: <FileText /> },
+  { label: "Domain", section: "domains", icon: <Globe /> },
+  { label: "SEO", section: "seo", icon: <Search /> },
+  { label: "Publishing", section: "publishing", icon: <Send /> },
+  { label: "Settings", section: "general", icon: <Settings2 /> },
 ]
-
-/**
- * ===========================================================================
- *  THE STRIP
- * ===========================================================================
- * One white bar in the page's own card style, cut into equal cells by
- * hairlines, each cell a button. The one you are on carries a 2px rule along
- * its foot and a faint fill. Pressing another moves the rule there at once,
- * so the press is answered before the editor has loaded.
- *
- * On a phone the six cells are wider than the screen. The bar keeps its
- * corners and the cells scroll sideways inside it with no scrollbar drawn,
- * and the active cell is scrolled into view whenever it changes.
- */
-export function WebsiteTabs({ onOpen }: { onOpen: (section: SettingsSection) => void }) {
-  const [pressed, setPressed] = React.useState<string | null>(null)
-  const active = pressed ?? WEBSITE_TABS[0].label
-  const scroller = React.useRef<HTMLDivElement>(null)
-
-  React.useEffect(() => {
-    const row = scroller.current
-    const cell = row?.querySelector<HTMLElement>("[data-active]")
-    if (!row || !cell) return
-    /* By hand, not scrollIntoView: that also scrolls the page vertically
-       to bring the bar to the top, which nobody asked for. */
-    const left = cell.offsetLeft
-    const right = left + cell.offsetWidth
-    if (left < row.scrollLeft) row.scrollTo({ left })
-    else if (right > row.scrollLeft + row.clientWidth) row.scrollTo({ left: right - row.clientWidth })
-  }, [active])
-
-  return (
-    <nav
-      aria-label="Website"
-      data-website-tabs=""
-      className="overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
-    >
-      <div
-        ref={scroller}
-        className="flex divide-x divide-[#eceef1] overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-      >
-        {WEBSITE_TABS.map((tab) => {
-          const on = tab.label === active
-          const here = tab.section === null
-          return (
-            <button
-              key={tab.label}
-              type="button"
-              aria-current={here ? "page" : undefined}
-              data-active={on ? "" : undefined}
-              onClick={
-                here
-                  ? undefined
-                  : () => {
-                      setPressed(tab.label)
-                      onOpen(tab.section as SettingsSection)
-                    }
-              }
-              className={cn(
-                "relative flex h-12 min-w-[104px] flex-1 shrink-0 items-center justify-center whitespace-nowrap px-4 text-[13.5px] font-medium outline-none transition-colors duration-150",
-                "focus-visible:bg-[#f3f4f6] focus-visible:text-[#1a1a2e]",
-                "after:absolute after:inset-x-4 after:bottom-0 after:h-[2px] after:rounded-t-full after:bg-[#1a1a2e] after:transition-[opacity,scale] after:duration-200 after:ease-out motion-reduce:after:transition-none",
-                on
-                  ? "bg-[#fafafb] text-[#1a1a2e] after:opacity-100"
-                  : "text-[#6b7280] after:scale-x-50 after:opacity-0 hover:bg-[#fafbfc] hover:text-[#1a1a2e]",
-              )}
-            >
-              {tab.label}
-            </button>
-          )
-        })}
-      </div>
-    </nav>
-  )
-}
 
 /**
  * The live cover's frame: 12px corners on all four sides, clipped on the
@@ -441,9 +374,12 @@ export function coverIsStale(i: Pick<WebsiteSummary, "snapshot_url" | "snapshot_
 export function WebsiteBuilderClient({
   installs: given,
   username,
+  performance,
 }: {
   installs: WebsiteSummary[]
   username: string
+  /** The bar above the live cover: its period now, its numbers when counted. */
+  performance?: { period: RangeValue; timeZone: string; figures: Promise<WebsitePerformance | null> } | null
 }) {
   /*
     ===========================================================================
@@ -631,20 +567,38 @@ export function WebsiteBuilderClient({
    * menu — which was the duplication the card was rewritten to remove, so
    * leaving the option in would have left the trap set.
    */
+  /**
+   * THE MORE MENU, in Shopify's action list shape: groups, a hairline
+   * between them, and what cannot be undone last and in red.
+   *
+   * The live site's menu opens with the pages of its Website Settings,
+   * which were the tabs above the cover. A draft's menu keeps one row for
+   * them, because a draft's domain and SEO are not live anywhere yet.
+   */
   const menuFor = (i: WebsiteSummary, opts: { publish?: boolean } = {}): ActionMenuItem[] => {
     const items: ActionMenuItem[] = []
-    if (opts.publish) items.push({ label: "Publish", icon: <Rocket className="h-4 w-4" />, onClick: () => setPublishing(i) })
+    if (i.status === "published") {
+      WEBSITE_SETTINGS.forEach((d, n) =>
+        items.push({
+          label: d.label,
+          icon: d.icon,
+          section: n === 0 ? "Website settings" : undefined,
+          onClick: () => go(editorHref(username, i.id, "settings", d.section)),
+        }),
+      )
+    }
+    if (opts.publish) items.push({ label: "Publish", icon: <Rocket />, onClick: () => setPublishing(i) })
     items.push(
-      { label: "Rename", icon: <Pencil className="h-4 w-4" />, onClick: () => setRenaming(i), separatorBefore: items.length > 0 },
-      { label: "Duplicate", icon: <Layers className="h-4 w-4" />, onClick: () => void duplicate(i) },
-      { label: "Edit code", icon: <Code2 className="h-4 w-4" />, onClick: () => go(editorHref(username, i.id, "code")) },
-      { label: "Website settings", icon: <Settings2 className="h-4 w-4" />, onClick: () => go(editorHref(username, i.id, "settings")) },
-      { label: "Export theme", icon: <Download className="h-4 w-4" />, onClick: () => void exportTheme(i) },
+      { label: "Edit code", icon: <Code2 />, onClick: () => go(editorHref(username, i.id, "code")), separatorBefore: items.length > 0 },
+      ...(i.status === "published" ? [] : [{ label: "Website settings", icon: <Settings2 />, onClick: () => go(editorHref(username, i.id, "settings")) }]),
+      { label: "Rename", icon: <Pencil />, onClick: () => setRenaming(i) },
+      { label: "Duplicate", icon: <Layers />, onClick: () => void duplicate(i) },
+      { label: "Export theme", icon: <Download />, onClick: () => void exportTheme(i) },
     )
     if (i.status === "published") {
-      items.push({ label: "Take offline", icon: <EyeOff className="h-4 w-4" />, onClick: () => setUnpublishing(i), variant: "warning", separatorBefore: true })
+      items.push({ label: "Take offline", icon: <EyeOff />, onClick: () => setUnpublishing(i), variant: "warning", separatorBefore: true })
     } else {
-      items.push({ label: "Remove", icon: <Trash2 className="h-4 w-4" />, onClick: () => setDeleting(i), variant: "destructive", separatorBefore: true })
+      items.push({ label: "Remove", icon: <Trash2 />, onClick: () => setDeleting(i), variant: "destructive", separatorBefore: true })
     }
     return items
   }
@@ -683,11 +637,14 @@ export function WebsiteBuilderClient({
             that started this rewrite: things on this page did not line up. */}
         <section aria-labelledby="live-heading" className="space-y-3" data-page-block>
           {/* ── The strip ─────────────────────────────────────────────
-              Its own bar above the cover, the way a host lays out a site's
-              sections: one white bar cut into cells by hairlines. It is not
-              glued into the card under it, so the card is the site and the
-              bar is where you go from it. */}
-          {live && <WebsiteTabs onOpen={(section) => go(editorHref(username, live.id, "settings", section))} />}
+              How the live site is doing, in its own bar above the cover,
+              the way Shopify's theme page shows a store's web performance:
+              the period, then visits, orders, conversion and the three
+              speed numbers Google ranks by. Not glued into the card under
+              it: the card is the site, the bar is how it is doing. */}
+          {live && performance && (
+            <WebsiteStrip initialPeriod={performance.period} timeZone={performance.timeZone} figures={performance.figures} />
+          )}
           <div className="overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
             {live ? (
               <>
@@ -766,7 +723,7 @@ export function WebsiteBuilderClient({
                           // menu row repeating the button beside it is the
                           // thing this block was rewritten to stop doing.
                           items={menuFor(live)}
-                          menuWidth="w-52"
+                          menuWidth="w-56"
                           trigger={
                             <button type="button" className={SECONDARY_ACTION}>
                               {busy?.startsWith(live.id) ? (

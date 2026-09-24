@@ -1,20 +1,26 @@
 "use client"
 
-import * as React from "react"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 /**
- * The phone container is the editor's own bottom sheet, not the generic
- * Sheet with a hand-rolled drag-to-close. The generic one moved on release,
- * not under the finger; this one has detents, velocity and real-time drag,
- * and a second implementation of any of that is a second set of bugs.
+ * ===========================================================================
+ *  THE ACTION LIST: A MENU ON A COMPUTER, A SHEET ON A PHONE
+ * ===========================================================================
+ * Shaped like Shopify's action list. On a computer, a small white popover
+ * anchored to the button: rows in groups, a hairline between the groups, a
+ * small grey icon at the start of each row, and anything destructive in red
+ * at the end. It opens and closes in 150ms, on transform and opacity only.
+ * On a phone, the same groups as big rows in the shared sheet
+ * (components/ui/bottom-sheet.tsx), so this sheet moves, drags and closes
+ * exactly like every other sheet in the app.
+ *
+ * Groups come from the items: `separatorBefore` starts a new one, and
+ * `section` names it. The order is the caller's, and the caller puts
+ * destructive rows last.
  */
-import { MobileEditorSheet } from "@/components/website-builder/mobile-editor-sheet"
+
+import * as React from "react"
+import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu"
+import { DropdownMenu, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { cn } from "@/lib/utils"
 
 export interface ActionMenuItem {
@@ -29,33 +35,77 @@ export interface ActionMenuItem {
   href?: string
   target?: "_blank"
   variant?: "default" | "destructive" | "warning"
+  /** Starts a new group, with a hairline above it. */
   separatorBefore?: boolean
+  /** Names the group this row starts. Implies `separatorBefore`. */
+  section?: string
 }
 
-/**
- * Shows a standard dropdown menu on desktop (≥640px) and an iOS-style
- * bottom sheet on mobile, with a drag handle and drag-to-close.
- */
+interface Group {
+  title?: string
+  items: ActionMenuItem[]
+}
+
+export function groupsOf(items: ActionMenuItem[]): Group[] {
+  const groups: Group[] = []
+  for (const item of items) {
+    const starts = groups.length === 0 || item.separatorBefore || item.section
+    if (starts) groups.push({ title: item.section, items: [item] })
+    else groups[groups.length - 1].items.push(item)
+  }
+  return groups
+}
+
+/* ── the look ───────────────────────────────────────────────────────────── */
+
+/** The same white surface as the date picker's popover. */
+const SURFACE =
+  "action-list z-[2147483640] max-h-(--radix-dropdown-menu-content-available-height) min-w-[12rem] overflow-y-auto overflow-x-hidden rounded-xl border border-[#e3e4e8] bg-white text-[#1a1a2e] shadow-[0_12px_40px_-8px_rgba(17,24,39,0.22),0_2px_6px_rgba(17,24,39,0.06)] outline-none"
+
+const TONE = {
+  default: {
+    row: "text-[#303036] hover:bg-[#f1f2f4] focus:bg-[#f1f2f4] data-[highlighted]:bg-[#f1f2f4] active:bg-[#e9eaed]",
+    icon: "text-[#6b7280]",
+    tap: "text-[#1a1a2e] active:bg-[#f1f2f4]",
+  },
+  destructive: {
+    row: "text-[#c4290c] hover:bg-[#fef1ee] focus:bg-[#fef1ee] data-[highlighted]:bg-[#fef1ee] active:bg-[#fde4df]",
+    icon: "text-[#c4290c]",
+    tap: "text-[#c4290c] active:bg-[#fef1ee]",
+  },
+  warning: {
+    row: "text-[#8a5a00] hover:bg-[#fff6e0] focus:bg-[#fff6e0] data-[highlighted]:bg-[#fff6e0] active:bg-[#ffefc7]",
+    icon: "text-[#b07800]",
+    tap: "text-[#8a5a00] active:bg-[#fff6e0]",
+  },
+} as const
+
+const toneOf = (item: ActionMenuItem) => TONE[item.variant ?? "default"]
+
+/* ── the component ─────────────────────────────────────────────────────── */
+
 export function ResponsiveActionMenu({
   trigger,
   items,
   title,
   align = "end",
-  menuWidth = "w-48",
+  menuWidth = "w-56",
 }: {
   trigger: React.ReactElement
   items: ActionMenuItem[]
+  /** Heads the phone sheet, and names it for a screen reader. */
   title?: string
   align?: "start" | "end" | "center"
   menuWidth?: string
 }) {
   const [isMobile, setIsMobile] = React.useState(false)
   const [sheetOpen, setSheetOpen] = React.useState(false)
+  const groups = groupsOf(items)
 
   React.useEffect(() => {
-    const check = () => setIsMobile(window.matchMedia("(max-width: 639px)").matches)
-    check()
     const mql = window.matchMedia("(max-width: 639px)")
+    const check = () => setIsMobile(mql.matches)
+    check()
     mql.addEventListener("change", check)
     return () => mql.removeEventListener("change", check)
   }, [])
@@ -78,79 +128,57 @@ export function ResponsiveActionMenu({
     return (
       <>
         {triggerWithHandler}
-        {/* `fit`: as tall as its rows and no taller. At half a screen a
-            six-row menu was clipped at the bottom — "Back to Dashboard"
-            under the browser's toolbar — and a three-row one floated over
-            empty space. */}
-        <MobileEditorSheet open={sheetOpen} onOpenChange={setSheetOpen} detents={[0.5, 0.92]} layer="raised" peekHeight={0} fit>
-          {title ? (
-            <div className="px-5 pt-0.5 pb-1.5 shrink-0">
-              <p className="truncate text-[12px] font-semibold uppercase tracking-[0.08em] text-neutral-400">{title}</p>
-            </div>
-          ) : null}
-
-          {/* Actions — scroll only if there really are more rows than screen. */}
-          <div data-sheet-scroll className="min-h-0 flex-1 overflow-y-auto px-3 pt-0.5 pb-[calc(0.75rem+env(safe-area-inset-bottom,_0px))]">
-            {/* The box the sheet measures: inside the scroller, so its height
-                is the rows' own and not the room they were given. */}
-            <div data-sheet-content>
-            {items.map((item, i) => (
-              <React.Fragment key={i}>
-                {item.separatorBefore && i !== 0 && (
-                  <div className="h-px bg-neutral-100 my-1.5 mx-2" />
+        <BottomSheet isOpen={sheetOpen} onClose={() => setSheetOpen(false)} title={title} label={title ?? "Actions"}>
+          <div data-action-sheet="" className="px-2 pb-1 pt-1.5">
+            {groups.map((group, gi) => (
+              <div key={gi} role="group" aria-label={group.title}>
+                {gi > 0 && <div aria-hidden className="mx-3 my-1.5 h-px bg-[#ebecef]" />}
+                {group.title && (
+                  <p className="px-3 pb-1 pt-1.5 text-[12.5px] font-medium text-[#6b7280]">{group.title}</p>
                 )}
-                {item.href ? (
-                  <a
-                    href={item.href}
-                    target={item.target}
-                    rel={item.target === "_blank" ? "noopener noreferrer" : undefined}
-                    onClick={() => setSheetOpen(false)}
-                    className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-[15px] font-medium text-neutral-900 transition-[background-color,scale] duration-150 hover:bg-neutral-50 active:scale-[0.98] active:bg-neutral-100"
-                  >
-                    {item.icon && <span className="flex shrink-0 items-center justify-center text-neutral-500">{item.icon}</span>}
-                    <span className="truncate">{item.label}</span>
-                  </a>
-                ) : (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSheetOpen(false)
-                    // Let the close begin before the action lands, so the
-                    // dismissal reads as a response rather than a freeze.
-                    setTimeout(() => item.onClick?.(), 140)
-                  }}
-                  className={cn(
-                    "w-full flex items-center gap-3 px-3 py-3 rounded-xl text-[15px] font-medium transition-[background-color,scale] duration-150 active:scale-[0.98] active:bg-neutral-100",
-                    item.variant === "destructive" &&
-                      "text-red-600 hover:bg-red-50 active:bg-red-100",
-                    item.variant === "warning" &&
-                      "text-amber-600 hover:bg-amber-50 active:bg-amber-100",
-                    (!item.variant || item.variant === "default") &&
-                      "text-neutral-900 hover:bg-neutral-50",
-                  )}
-                >
-                  {item.icon && (
-                    <span
-                      className={cn(
-                        "shrink-0 flex items-center justify-center",
-                        item.variant === "destructive"
-                          ? "text-red-600"
-                          : item.variant === "warning"
-                          ? "text-amber-600"
-                          : "text-neutral-500",
-                      )}
+                {group.items.map((item, i) => {
+                  const tone = toneOf(item)
+                  const row = cn(
+                    "flex min-h-[52px] w-full items-center gap-3.5 rounded-xl px-3 text-left text-[16px] font-medium outline-none transition-colors duration-150 [&_svg]:h-5 [&_svg]:w-5",
+                    tone.tap,
+                  )
+                  const body = (
+                    <>
+                      {item.icon && <span className={cn("flex shrink-0 items-center justify-center", tone.icon)}>{item.icon}</span>}
+                      <span className="truncate">{item.label}</span>
+                    </>
+                  )
+                  return item.href ? (
+                    <a
+                      key={i}
+                      href={item.href}
+                      target={item.target}
+                      rel={item.target === "_blank" ? "noopener noreferrer" : undefined}
+                      onClick={() => setSheetOpen(false)}
+                      className={row}
                     >
-                      {item.icon}
-                    </span>
-                  )}
-                  <span className="truncate">{item.label}</span>
-                </button>
-                )}
-              </React.Fragment>
+                      {body}
+                    </a>
+                  ) : (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => {
+                        setSheetOpen(false)
+                        // Let the close begin before the action lands, so the
+                        // dismissal reads as a response rather than a freeze.
+                        setTimeout(() => item.onClick?.(), 140)
+                      }}
+                      className={row}
+                    >
+                      {body}
+                    </button>
+                  )
+                })}
+              </div>
             ))}
-            </div>
           </div>
-        </MobileEditorSheet>
+        </BottomSheet>
       </>
     )
   }
@@ -165,43 +193,63 @@ export function ResponsiveActionMenu({
      */
     <DropdownMenu modal={false}>
       <DropdownMenuTrigger asChild>{trigger}</DropdownMenuTrigger>
-      <DropdownMenuContent align={align} className={menuWidth}>
-        {items.map((item, i) => (
-          <React.Fragment key={i}>
-            {item.separatorBefore && i !== 0 && <DropdownMenuSeparator />}
-            {item.href ? (
-              <DropdownMenuItem asChild>
-                <a href={item.href} target={item.target} rel={item.target === "_blank" ? "noopener noreferrer" : undefined}>
-                  {item.icon && <span className="mr-2 inline-flex">{item.icon}</span>}
-                  {item.label}
-                </a>
-              </DropdownMenuItem>
-            ) : (
-            <DropdownMenuItem
-              onClick={item.onClick}
-              /**
-               * Three ways of saying "the pointer is on this row", because
-               * only one of them was firing and the menu read as a list of
-               * labels rather than a list of buttons. Radix marks the row it
-               * has highlighted, focuses it on pointer move, and the plain
-               * hover covers the case where neither has happened yet.
-               */
-              className={cn(
-                "cursor-pointer transition-colors",
-                "hover:bg-neutral-100 focus:bg-neutral-100 data-[highlighted]:bg-neutral-100",
-                item.variant === "destructive" &&
-                  "text-red-600 hover:bg-red-50 focus:bg-red-50 data-[highlighted]:bg-red-50",
-                item.variant === "warning" &&
-                  "text-amber-600 hover:bg-amber-50 focus:bg-amber-50 data-[highlighted]:bg-amber-50",
-              )}
-            >
-              {item.icon && <span className="mr-2 inline-flex">{item.icon}</span>}
-              {item.label}
-            </DropdownMenuItem>
-            )}
-          </React.Fragment>
-        ))}
-      </DropdownMenuContent>
+      <DropdownMenuPrimitive.Portal>
+        <DropdownMenuPrimitive.Content
+          data-action-list=""
+          align={align}
+          sideOffset={6}
+          collisionPadding={12}
+          className={cn(SURFACE, menuWidth)}
+        >
+          {groups.map((group, gi) => (
+            <React.Fragment key={gi}>
+              {gi > 0 && <DropdownMenuPrimitive.Separator className="h-px bg-[#ebecef]" />}
+              <DropdownMenuPrimitive.Group className="p-1.5">
+                {group.title && (
+                  <DropdownMenuPrimitive.Label className="px-2 pb-1 pt-1 text-[12px] font-medium text-[#6b7280]">
+                    {group.title}
+                  </DropdownMenuPrimitive.Label>
+                )}
+                {group.items.map((item, i) => {
+                  const tone = toneOf(item)
+                  /**
+                   * Three ways of saying "the pointer is on this row", because
+                   * only one of them was firing and the menu read as a list of
+                   * labels rather than a list of buttons. Radix marks the row it
+                   * has highlighted, focuses it on pointer move, and the plain
+                   * hover covers the case where neither has happened yet.
+                   */
+                  const row = cn(
+                    "flex h-8 w-full cursor-pointer select-none items-center gap-2.5 rounded-lg px-2 text-[13px] font-medium outline-none transition-colors duration-100 [&_svg]:h-4 [&_svg]:w-4",
+                    tone.row,
+                  )
+                  const body = (
+                    <>
+                      {item.icon && <span className={cn("inline-flex shrink-0", tone.icon)}>{item.icon}</span>}
+                      <span className="truncate">{item.label}</span>
+                    </>
+                  )
+                  return item.href ? (
+                    <DropdownMenuPrimitive.Item key={i} asChild className={row}>
+                      <a
+                        href={item.href}
+                        target={item.target}
+                        rel={item.target === "_blank" ? "noopener noreferrer" : undefined}
+                      >
+                        {body}
+                      </a>
+                    </DropdownMenuPrimitive.Item>
+                  ) : (
+                    <DropdownMenuPrimitive.Item key={i} onSelect={() => item.onClick?.()} className={row}>
+                      {body}
+                    </DropdownMenuPrimitive.Item>
+                  )
+                })}
+              </DropdownMenuPrimitive.Group>
+            </React.Fragment>
+          ))}
+        </DropdownMenuPrimitive.Content>
+      </DropdownMenuPrimitive.Portal>
     </DropdownMenu>
   )
 }
