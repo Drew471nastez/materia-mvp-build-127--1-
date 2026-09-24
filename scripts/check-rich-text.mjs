@@ -1,0 +1,351 @@
+/**
+ * ===========================================================================
+ *  THE RICH TEXT FIELD, MEASURED AT 390 AND 1280
+ * ===========================================================================
+ * Mounts the real field (components/app/rich-text-editor.tsx), the Emails
+ * body that uses it, and the description renderer
+ * (scripts/render-rich-text-probe.tsx), and checks what they claim:
+ *
+ *   geometry     every toolbar control 44px square on a phone and 32px on a
+ *                desktop; the toolbar one row that scrolls inside itself on
+ *                a phone; nothing makes the page scroll sideways; the text
+ *                at 16px or more on a phone, so iOS does not zoom; focusing
+ *                the field does not move or resize anything; the field grows
+ *                with its text to a limit and then scrolls inside itself
+ *   editing      typing, bold and a list produce the HTML they should; the
+ *                toolbar shows what the caret is in; headings and quotes
+ *                toggle; a link refuses javascript: and accepts a web
+ *                address; undo undoes; a value from outside replaces the text
+ *   pasting      Google Docs markup arrives as headings, bold and a list,
+ *                with no styles, classes or fonts
+ *   rendering    a description the old editor saved draws without its
+ *                handlers, buttons or scripts, its YouTube embed at 16:9;
+ *                the server's markup hydrates with no mismatch and nothing
+ *                in the console
+ *
+ *   node scripts/check-rich-text.mjs            (SHOTS_DIR=... keeps screenshots)
+ *
+ * Runs without a build: the stylesheet comes from scripts/probe-css.mjs.
+ */
+import { execFileSync } from "node:child_process"
+import { createServer } from "node:http"
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
+import puppeteer from "puppeteer-core"
+import { appCss, interFaces } from "./probe-css.mjs"
+
+const root = process.cwd()
+const CHROMIUM = process.env.CHROMIUM_PATH || "/opt/pw-browsers/chromium"
+if (!existsSync(CHROMIUM)) {
+  console.error(`No browser at ${CHROMIUM}.`)
+  process.exit(1)
+}
+const dir = join(root, ".rich-text-probe")
+mkdirSync(dir, { recursive: true })
+const shots = process.env.SHOTS_DIR || join(mkdtempSync(join(tmpdir(), "storelib-rich-text-")), "shots")
+mkdirSync(shots, { recursive: true })
+
+let server
+let browser
+let broken = 0
+const expect = (ok, what, got) => {
+  console.log(`  ${ok ? "ok  " : "FAIL"}  ${what}${got === undefined ? "" : `   (${typeof got === "string" ? got : JSON.stringify(got)})`}`)
+  if (!ok) broken++
+}
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+
+const DOCS = `<meta charset='utf-8'><b style="font-weight:normal;" id="docs-internal-guid-1"><h2 dir="ltr" style="line-height:1.38"><span style="font-size:16pt;font-family:Arial;color:#000000;font-weight:400">What you get</span></h2><p dir="ltr"><span style="font-size:11pt;font-family:Arial;font-weight:700">Forty</span><span style="font-size:11pt;font-family:Arial;font-weight:400"> templates.</span></p><ul><li dir="ltr"><p dir="ltr"><span style="font-size:11pt">One</span></p></li><li dir="ltr"><p dir="ltr"><span style="font-size:11pt">Two</span></p></li></ul></b>`
+
+try {
+  const css = await appCss(root)
+  /* Inter from the build, served from here: a page on http cannot read file:// fonts. */
+  const fontDir = /url\(file:\/\/([^)]*\/media)\//.exec(interFaces(root))?.[1] ?? null
+  const faces = fontDir ? interFaces(root).split(`file://${fontDir}/`).join("/__font/") : ""
+  const bundle = join(dir, "probe.js")
+  execFileSync(
+    join(root, "node_modules/.bin/esbuild"),
+    [
+      join(root, "scripts/render-rich-text-probe.tsx"),
+      "--bundle", "--format=iife", "--platform=browser", "--jsx=automatic", "--log-level=error", `--outfile=${bundle}`,
+      '--banner:js=var process=globalThis.process||{env:{NODE_ENV:"production"},browser:true,versions:{},platform:"browser",cwd:function(){return "/"},nextTick:function(f){setTimeout(f,0)}};globalThis.process=process;',
+      '--define:process.env.NODE_ENV="production"',
+      `--alias:@=${root}`, "--loader:.css=empty",
+    ],
+    { cwd: root, stdio: ["ignore", "ignore", "inherit"] },
+  )
+  const js = readFileSync(bundle)
+  const html = `<!doctype html><html class="light"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${faces}</style><style>${css}</style><style>body{margin:0;font-family:Inter,system-ui,sans-serif}</style></head><body><div id="app"></div><script src="/probe.js"></script></body></html>`
+  server = createServer((req, res) => {
+    if (fontDir && req.url.startsWith("/__font/")) {
+      const file = join(fontDir, req.url.slice(8).replace(/[^\w.-]/g, ""))
+      if (existsSync(file)) {
+        res.writeHead(200, { "content-type": "font/woff2" })
+        return res.end(readFileSync(file))
+      }
+    }
+    if (req.url.startsWith("/probe.js")) {
+      res.writeHead(200, { "content-type": "text/javascript" })
+      return res.end(js)
+    }
+    res.writeHead(200, { "content-type": "text/html" })
+    res.end(html)
+  })
+  await new Promise((r) => server.listen(0, "127.0.0.1", r))
+  const origin = `http://127.0.0.1:${server.address().port}`
+  browser = await puppeteer.launch({
+    executablePath: CHROMIUM,
+    headless: true,
+    args: ["--no-sandbox", "--disable-gpu", "--hide-scrollbars", "--blink-settings=availableHoverTypes=2,primaryHoverType=2,availablePointerTypes=4,primaryPointerType=4"],
+  })
+
+  const open = async (vp, query) => {
+    const p = await browser.newPage()
+    const errors = []
+    p.on("console", (m) => {
+      if (m.type() === "error") errors.push(m.text())
+    })
+    p.on("pageerror", (e) => errors.push(String(e)))
+    /* Nothing leaves the machine: an embed's frame gets an empty page. */
+    await p.setRequestInterception(true)
+    p.on("request", (r) => (r.url().startsWith(origin) ? r.continue() : r.respond({ status: 200, contentType: "text/html", body: "" })))
+    await p.setViewport(vp)
+    await p.goto(`${origin}/?${query}`)
+    await p.waitForFunction(() => window.__ready === true)
+    await sleep(200)
+    return { p, errors }
+  }
+  const sideways = (p) => p.evaluate(() => document.scrollingElement.scrollWidth - window.innerWidth)
+  const value = (p) => p.evaluate(() => window.__value)
+  const tool = (p, label) => p.click(`[role=toolbar] button[aria-label="${label}"]`)
+  const pressed = (p, label) => p.$eval(`[role=toolbar] button[aria-label="${label}"]`, (b) => b.getAttribute("aria-pressed"))
+  const field = "[role=textbox][contenteditable=true]"
+  const box = (p, sel) => p.$eval(sel, (el) => { const r = el.getBoundingClientRect(); return { x: Math.round(r.left), y: Math.round(r.top), w: Math.round(r.width), h: Math.round(r.height) } })
+
+  const viewports = [
+    ["phone", { width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }],
+    ["desktop", { width: 1280, height: 900 }],
+  ]
+
+  for (const [label, vp] of viewports) {
+    const phone = label === "phone"
+    console.log(`\nThe field, ${label} (${vp.width}px)`)
+    const { p, errors } = await open(vp, "view=editor")
+
+    const buttons = await p.$$eval("[role=toolbar] button", (bs) => bs.map((b) => { const r = b.getBoundingClientRect(); return { l: b.getAttribute("aria-label"), w: Math.round(r.width), h: Math.round(r.height), top: Math.round(r.top) } }))
+    const want = phone ? 44 : 32
+    expect(buttons.length === 14, "fourteen controls: two headings, four marks, two lists, quote, link, divider, clear, undo, redo", buttons.length)
+    expect(buttons.every((b) => b.w === want && b.h === want), `every control is ${want}px square`, [...new Set(buttons.map((b) => `${b.w}x${b.h}`))])
+    const rows = new Set(buttons.map((b) => b.top)).size
+    const bar = await p.$eval("[role=toolbar]", (t) => ({ scroll: t.scrollWidth, client: t.clientWidth, overflowX: getComputedStyle(t).overflowX }))
+    if (phone) {
+      expect(rows === 1, "one row", rows)
+      expect(bar.scroll > bar.client && bar.overflowX === "auto", "that scrolls sideways inside itself", bar)
+    } else {
+      expect(rows === 1 && bar.scroll <= bar.client, "one row that fits without scrolling", { rows, ...bar })
+    }
+    expect((await sideways(p)) <= 0, "the page itself never scrolls sideways", await sideways(p))
+    const card = await box(p, "[data-card]")
+    const wrap = await box(p, ".rich-text-field")
+    expect(wrap.x >= card.x && wrap.x + wrap.w <= card.x + card.w, "the field stays inside its card", { card, wrap })
+    const look = await p.$eval(".rich-text-field", (el) => { const s = getComputedStyle(el); return { radius: s.borderTopLeftRadius, border: s.borderTopWidth, color: s.borderTopColor, bg: s.backgroundColor } })
+    expect(look.radius === "12px" && look.border === "1px" && look.bg === "rgb(255, 255, 255)", "a white field, a hairline border, 12px corners", look)
+    const fontSize = await p.$eval(field, (el) => parseFloat(getComputedStyle(el).fontSize))
+    expect(phone ? fontSize >= 16 : fontSize >= 14, phone ? "the text is 16px or more, so iOS does not zoom on focus" : "the text is 15px", fontSize)
+    const placeholderShown = await p.$eval(".rich-text-field p[aria-hidden]", (el) => el.textContent).catch(() => null)
+    expect(!!placeholderShown, "an empty field shows its placeholder", placeholderShown)
+
+    const before = await box(p, ".rich-text-field")
+    await p.click(field)
+    await sleep(150)
+    const after = await box(p, ".rich-text-field")
+    expect(before.h === after.h && before.y === after.y, "focusing it moves and resizes nothing", { before, after })
+    const ring = await p.$eval(".rich-text-field", (el) => getComputedStyle(el).boxShadow)
+    /* Tailwind's ring is the last of several stacked shadows; the others are transparent. */
+    const drawn = ring.split(/,(?![^(]*\))/).map((x) => x.trim()).find((x) => /\b3px$/.test(x) && !/rgba\([^)]*,\s*0\)/.test(x))
+    expect(!!drawn, "and draws a 3px ring, the one the other inputs draw", drawn ?? ring)
+
+    await p.keyboard.type("Hello ")
+    await tool(p, "Bold")
+    await p.keyboard.type("world")
+    expect((await pressed(p, "Bold")) === "true", "Bold shows as pressed while typing bold text")
+    await tool(p, "Bold")
+    expect((await pressed(p, "Bold")) === "false", "and pressing it again turns it off")
+    await p.keyboard.press("Enter")
+    await tool(p, "Bulleted list")
+    await p.keyboard.type("Item one")
+    await sleep(100)
+    const v1 = await value(p)
+    expect(/^<p>Hello <(b|strong)>world<\/(b|strong)><\/p><ul><li>Item one<\/li><\/ul>$/.test(v1), "typing, bold and a list make exactly that HTML", v1)
+    expect((await pressed(p, "Bulleted list")) === "true" && (await pressed(p, "Bold")) === "false", "in the list: Bulleted list pressed, Bold not", { list: await pressed(p, "Bulleted list"), bold: await pressed(p, "Bold") })
+    expect(!(await p.$(".rich-text-field p[aria-hidden]")), "the placeholder is gone once there is text")
+
+    await p.keyboard.press("Enter")
+    await p.keyboard.press("Enter")
+    await p.keyboard.type("A heading")
+    await tool(p, "Heading")
+    await sleep(80)
+    expect(/<h2>A heading<\/h2>$/.test(await value(p)) && (await pressed(p, "Heading")) === "true", "Heading turns the line into an h2, and shows it", await value(p))
+    await tool(p, "Heading")
+    await sleep(80)
+    expect(/<p>A heading<\/p>$/.test(await value(p)), "and pressing it again turns it back", await value(p))
+    await tool(p, "Quote")
+    await sleep(80)
+    expect(/<blockquote>A heading<\/blockquote>$/.test(await value(p)) && (await pressed(p, "Quote")) === "true", "Quote makes a blockquote", await value(p))
+    await tool(p, "Quote")
+    await sleep(80)
+    expect(/<p>A heading<\/p>$/.test(await value(p)), "and takes it away again", await value(p))
+
+    /* A link: refused, then accepted. */
+    await p.keyboard.down("Shift")
+    for (let k = 0; k < 7; k++) await p.keyboard.press("ArrowLeft")
+    await p.keyboard.up("Shift")
+    await tool(p, "Link")
+    await sleep(120)
+    await p.type("[aria-label='Link address']", "javascript:alert(1)")
+    await p.keyboard.press("Enter")
+    await sleep(80)
+    const refusal = await p.$eval("[role=alert]", (el) => el.textContent).catch(() => null)
+    expect(!!refusal && !/javascript/.test(await value(p)), "a javascript: address is refused, with a reason", refusal)
+    await p.$eval("[aria-label='Link address']", (el) => { el.select() })
+    await p.type("[aria-label='Link address']", "example.com/guide")
+    await p.keyboard.press("Enter")
+    await sleep(120)
+    expect(/<p>A <a href="https:\/\/example\.com\/guide" target="_blank" rel="noopener noreferrer nofollow">heading<\/a><\/p>$/.test(await value(p)), "a typed address becomes an https link on the selected words", await value(p))
+
+    await tool(p, "Undo")
+    await sleep(80)
+    expect(/<p>A heading<\/p>$/.test(await value(p)), "Undo takes the link off again and leaves the words", await value(p))
+    await tool(p, "Redo")
+    await sleep(80)
+    expect(/<a href="https:\/\/example\.com\/guide"[^>]*>heading<\/a><\/p>$/.test(await value(p)), "Redo puts it back", await value(p))
+
+    await p.keyboard.press("End")
+    await tool(p, "Divider")
+    await sleep(80)
+    expect(/heading<\/a><\/p><hr>/.test(await value(p)), "Divider adds a rule after the line", await value(p))
+    await p.screenshot({ path: join(shots, `field-${label}.png`), fullPage: true })
+
+    /* Paste from Google Docs. */
+    await p.click("[data-reset]")
+    await sleep(100)
+    expect((await p.$eval(field, (el) => el.innerHTML)) === "<p>Reset from outside</p>", "a value from outside replaces the text")
+    await p.click(field)
+    await p.evaluate((docs) => {
+      const el = document.querySelector("[role=textbox][contenteditable=true]")
+      const r = document.createRange()
+      r.selectNodeContents(el)
+      r.collapse(false)
+      const sel = getSelection()
+      sel.removeAllRanges()
+      sel.addRange(r)
+      const dt = new DataTransfer()
+      dt.setData("text/html", docs)
+      dt.setData("text/plain", "What you get\nForty templates.\nOne\nTwo")
+      el.dispatchEvent(new ClipboardEvent("paste", { clipboardData: dt, bubbles: true, cancelable: true }))
+    }, DOCS)
+    await sleep(120)
+    const pasted = await value(p)
+    expect(/<h2>What you get<\/h2><p><(b|strong)>Forty<\/(b|strong)> templates\.<\/p><ul><li>One<\/li><li>Two<\/li><\/ul>/.test(pasted), "a Docs paste arrives as a heading, bold and a list", pasted)
+    expect(!/style=|class=|font|dir=|docs-internal/.test(pasted), "with no styles, classes, fonts or Docs ids", pasted)
+
+    /* Grows, then scrolls inside itself. */
+    await p.evaluate(() => {
+      const el = document.querySelector("[role=textbox][contenteditable=true]")
+      el.focus()
+    })
+    for (let k = 0; k < 30; k++) {
+      await p.keyboard.type(`Line ${k}`)
+      await p.keyboard.press("Enter")
+    }
+    await sleep(100)
+    const grown = await p.$eval(field, (el) => ({ h: Math.round(el.getBoundingClientRect().height), scroll: el.scrollHeight, client: el.clientHeight, max: getComputedStyle(el).maxHeight }))
+    const limit = phone ? 320 : 480
+    expect(grown.h === limit && grown.scroll > grown.client, `it grows to ${limit}px, then scrolls inside itself`, grown)
+    expect((await sideways(p)) <= 0, "and the page still never scrolls sideways", await sideways(p))
+    expect(errors.length === 0, "nothing in the console", errors)
+    await p.close()
+  }
+
+  console.log("\nThe link form, phone")
+  {
+    const { p } = await open(viewports[0][1], "view=editor&value=" + encodeURIComponent("<p>Words</p>"))
+    await p.click(field)
+    await tool(p, "Link")
+    await sleep(120)
+    const inputs = await p.$$eval(".rich-text-field input", (xs) => xs.map((x) => ({ l: x.getAttribute("aria-label"), fs: parseFloat(getComputedStyle(x).fontSize), h: Math.round(x.getBoundingClientRect().height) })))
+    expect(inputs.length === 2 && inputs.every((i) => i.fs >= 16 && i.h >= 44), "with nothing selected it asks for the address and the words, 16px and 44px tall", inputs)
+    const focused = await p.evaluate(() => document.activeElement?.getAttribute("aria-label"))
+    expect(focused === "Link address", "and the address field has the focus", focused)
+    await p.screenshot({ path: join(shots, "link-phone-open.png") })
+    await p.type("[aria-label='Link address']", "hello@example.com")
+    await p.type("[aria-label='Text to show']", "Email me")
+    await p.keyboard.press("Enter")
+    await sleep(120)
+    expect(/<a href="mailto:hello@example\.com">Email me<\/a>/.test(await value(p)), "an email address becomes a mailto link with the words given", await value(p))
+    await p.screenshot({ path: join(shots, "link-phone.png") })
+    await p.close()
+  }
+
+  console.log("\nThe Emails body, phone")
+  {
+    const { p, errors } = await open(viewports[0][1], "view=email&value=" + encodeURIComponent("<p>Hi {{first_name}},</p>"))
+    const labels = await p.$$eval("[role=toolbar] button", (bs) => bs.map((b) => b.getAttribute("aria-label") || b.textContent.trim()))
+    expect(labels.join(",") === "Heading,Bold,Italic,Bulleted list,Link,Button,First name", "its own short toolbar, plus Button and First name", labels)
+    const sizes = await p.$$eval("[role=toolbar] button", (bs) => bs.map((b) => Math.round(b.getBoundingClientRect().height)))
+    expect(sizes.every((h) => h === 44), "all 44px tall", sizes)
+    await p.click(field)
+    await p.keyboard.press("End")
+    await p.keyboard.type(" thanks")
+    await p.click("[role=toolbar] button[aria-label=Button]")
+    await sleep(100)
+    await p.type("[aria-label='Button link']", "example.com/start")
+    await p.keyboard.press("Enter")
+    await sleep(120)
+    const v = await value(p)
+    expect(/^<p>Hi \{\{first_name\}\}, thanks<\/p><p><a href="https:\/\/example\.com\/start" style="display: ?inline-block;[^"]*background-color: ?(#1a1a2e|rgb\(26, 26, 46\))/.test(v), "the email keeps its token, and the button goes in on its own line after the caret, with its inline styles", v)
+    expect((await sideways(p)) <= 0 && errors.length === 0, "no sideways scroll, nothing in the console", { sideways: await sideways(p), errors })
+    await p.screenshot({ path: join(shots, "email-phone.png") })
+    await p.close()
+  }
+
+  console.log("\nA description the old editor saved, drawn for a visitor")
+  for (const [label, vp] of viewports) {
+    const { p, errors } = await open(vp, "view=render")
+    const drawn = await p.$eval("[data-rendered]", (el) => ({
+      handlers: [...el.querySelectorAll("*")].flatMap((n) => [...n.attributes].map((a) => a.name)).filter((n) => /^on/.test(n)),
+      buttons: el.querySelectorAll("button, svg, script").length,
+      h1: !!el.querySelector("h1"),
+      frame: (() => { const f = el.querySelector("[data-embed-type=youtube]"); if (!f) return null; const r = f.getBoundingClientRect(); return +(r.width / r.height).toFixed(3) })(),
+      buttonColour: el.querySelector("a[style*=background]") ? getComputedStyle(el.querySelector("a[style*=background]")).backgroundColor : null,
+      prose: el.firstElementChild?.className ?? "",
+    }))
+    await p.$$eval("[data-rendered] *", (els) => els.forEach((e) => e.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }))))
+    const ran = await p.evaluate(() => window.__ran ?? 0)
+    expect(drawn.handlers.length === 0 && drawn.buttons === 0 && ran === 0, `${label}: no handlers, no delete buttons, no scripts, and nothing ran`, { handlers: drawn.handlers, buttons: drawn.buttons, ran })
+    expect(drawn.h1 && drawn.frame === 1.778 && drawn.buttonColour === "rgb(22, 163, 74)", `${label}: its heading, its 16:9 video and its green button are still there`, drawn)
+    expect(/storelib-prose/.test(drawn.prose), `${label}: in the same prose styles as the editor`, drawn.prose)
+    expect((await sideways(p)) <= 0 && errors.length === 0, `${label}: no sideways scroll, nothing in the console`, { sideways: await sideways(p), errors })
+    await p.screenshot({ path: join(shots, `render-${label}.png`), fullPage: true })
+    await p.close()
+  }
+
+  console.log("\nThe server's markup, hydrated")
+  {
+    const { p, errors } = await open(viewports[1][1], "view=hydrate")
+    await sleep(300)
+    const hydrationErrors = await p.evaluate(() => window.__errors)
+    expect(hydrationErrors.length === 0 && errors.length === 0, "the field and the renderer hydrate with no mismatch and nothing in the console", { hydrationErrors, errors })
+    const filled = await p.$eval(field, (el) => el.innerHTML.length)
+    expect(filled > 100, "the field arrives filled from the server's markup", filled)
+    await p.close()
+  }
+
+  console.log(`\nScreenshots: ${shots}`)
+} finally {
+  await browser?.close()
+  server?.close()
+  rmSync(dir, { recursive: true, force: true })
+}
+console.log(broken ? `\n${broken} failed` : "\nall passed")
+process.exit(broken ? 1 : 0)

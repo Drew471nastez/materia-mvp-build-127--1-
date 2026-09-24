@@ -58,6 +58,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { verifiedBadgeLabels } from "@/lib/store-builder/defaults"
 import { getIconComponent } from "./section-icons"
 import { DescriptionEditWrapper, RichDescriptionContent } from "./description-rich-editor"
+import { plainSummary } from "@/lib/html-entities"
 import { SmartLink } from "@/components/smart-link"
 import { useRouter } from "next/navigation"
 import { isNativeApp } from "@/lib/platform-utils"
@@ -4633,7 +4634,7 @@ export function UnifiedProductsGrid({
                   {product.title}
                 </h3>
                 {settings.showDescription && product.description && (
-                  <p className="mt-1 text-xs text-muted-foreground line-clamp-2">{product.description}</p>
+                  <p className="mt-1 text-xs text-muted-foreground line-clamp-2">{plainSummary(product.description, 200)}</p>
                 )}
                 {settings.showPrice && (
                   <div className={cn("mt-2 flex items-center gap-2", isMobile ? "text-sm" : "text-base")}>

@@ -1169,6 +1169,42 @@ html.capacitor body {
   }
   .storelib-prose hr { border: 0; border-top: 1px solid currentColor; opacity: 0.2; margin: 1.4em 0; }
   .storelib-prose img { border-radius: 10px; max-width: 100%; height: auto; }
+  /*
+   * WHAT A PRODUCT DESCRIPTION ADDS. The description is written in
+   * components/app/rich-text-editor.tsx and drawn by RichDescriptionContent,
+   * both in this class, so it looks the same being written as it does on the
+   * page. Underline and strike are on the toolbar; the rest are shapes an
+   * older editor saved (a top level heading, YouTube and X embeds, pasted
+   * tables) that still have to read properly. Still no colour anywhere.
+   */
+  .storelib-prose h1 { font-size: 1.6em; font-weight: 600; line-height: 1.25; margin: 1.4em 0 0.5em; }
+  .storelib-prose b { font-weight: 600; }
+  .storelib-prose u { text-decoration: underline; text-underline-offset: 2px; }
+  .storelib-prose s { text-decoration: line-through; }
+  .storelib-prose li > p { margin: 0; }
+  .storelib-prose li > ul,
+  .storelib-prose li > ol { margin: 0.25em 0 0; }
+  .storelib-prose ul ul { list-style: circle; }
+  .storelib-prose table { display: block; max-width: 100%; overflow-x: auto; border-collapse: collapse; margin: 0 0 0.85em; }
+  .storelib-prose th,
+  .storelib-prose td { border: 1px solid color-mix(in srgb, currentColor 18%, transparent); padding: 0.35em 0.6em; text-align: left; vertical-align: top; }
+  .storelib-prose th { font-weight: 600; }
+  .storelib-prose iframe { max-width: 100%; border: 0; }
+  .storelib-prose [data-embed-type] { margin: 0 0 0.85em; }
+  .storelib-prose [data-embed-type="youtube"] { position: relative; aspect-ratio: 16 / 9; }
+  .storelib-prose [data-embed-type="youtube"] iframe { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 10px; }
+  .storelib-prose [data-embed-type="youtube-thumbnail"] > a { display: block; position: relative; text-decoration: none; }
+  .storelib-prose [data-embed-type="x-post"] { min-height: 200px; }
+  .storelib-prose .twitter-tweet { margin-left: auto; margin-right: auto; }
+
+  /*
+   * The rich text field's toolbar is one row that scrolls sideways on a
+   * phone, so it takes no scrollbar, and no double tap zoom on its buttons.
+   */
+  .rich-text-toolbar { scrollbar-width: none; touch-action: manipulation; }
+  .rich-text-toolbar::-webkit-scrollbar { display: none; }
+  .rich-text-content { caret-color: #1a1a2e; }
+  .rich-text-content [data-embed-type] { cursor: default; }
 
   /**
    * The bar across the top of the editor's canvas while the next page is

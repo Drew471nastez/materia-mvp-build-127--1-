@@ -54,7 +54,8 @@ import {
   MoreHorizontal,
 } from "lucide-react"
 import Link from "next/link"
-import { DescriptionRichEditor } from "@/components/store-builder/description-rich-editor"
+import { RichTextEditor } from "@/components/app/rich-text-editor"
+import { cleanDescription } from "./description-action"
 import { DirectUploader, type UploadStatus } from "@/lib/storage/chunked-upload"
 import {
   DndContext,
@@ -1486,12 +1487,15 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
         category: selectedCategory,
       })
 
+      // The description's HTML through the allow list on the server (lib/rich-text/sanitize.ts)
+      const savedDescription = await cleanDescription(description)
+
       const productData = {
         creator_id: creatorId,
         type: productType,
         title,
         slug: finalSlug,
-        description,
+        description: savedDescription,
         status: publish ? "published" : "draft",
         price_cents: Math.round(Number.parseFloat(price || "0") * 100),
         compare_at_cents: compareAtPrice ? Math.round(Number.parseFloat(compareAtPrice) * 100) : null,
@@ -1536,7 +1540,7 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
         }
 
         // Verify description was saved
-        if (description && updatedProduct.description !== description) {
+        if (savedDescription && updatedProduct.description !== savedDescription) {
           console.warn("Description may not have saved correctly")
         }
 
@@ -3068,12 +3072,11 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
                       Description
                     </Label>
                   </div>
-                  <DescriptionRichEditor
+                  <RichTextEditor
                     value={description}
                     onChange={setDescription}
-                    isMobile={isMobileViewport}
-                    className="min-h-[150px] sm:min-h-[180px] border border-gray-200 rounded-lg"
-                    disableAutoFocus={true}
+                    label="Description"
+                    placeholder="What it is, who it is for, and what they get"
                   />
                 </div>
               </div>
