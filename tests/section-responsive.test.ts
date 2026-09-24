@@ -585,10 +585,15 @@ check(
   "the AI button has depth and a shimmer, and no hairline border",
   /wb-ai-button h-8 w-8 flex/.test(editor) &&
     !/aiOpen\s*\?\s*"border-foreground bg-muted"/.test(editor) &&
-    /\.wb-ai-button::before \{[\s\S]{0,600}conic-gradient/.test(css) &&
-    /@keyframes wb-ai-shimmer/.test(css) &&
-    // Only for people who have not asked for less motion.
-    /prefers-reduced-motion: no-preference\) \{\s*\.wb-ai-button::before \{ animation: wb-ai-shimmer/.test(css),
+    /<span aria-hidden className="wb-ai-ring">\s*<span className="wb-ai-ring-spin" \/>/.test(editor) &&
+    /\.wb-ai-ring-spin \{[\s\S]{0,300}conic-gradient\(\s*from 0deg/.test(css) &&
+    // Turned by transform, which the compositor runs; the custom property
+    // it used to animate cost a style pass and a repaint every frame.
+    /@keyframes wb-ai-turn \{\s*to \{ transform: rotate\(360deg\); \}/.test(css) &&
+    !/\.wb-ai-button::before/.test(css) &&
+    // Only for people who have not asked for less motion, and never in a hidden tab.
+    /prefers-reduced-motion: no-preference\) \{\s*\.wb-ai-ring-spin \{ animation: wb-ai-turn/.test(css) &&
+    /html\[data-tab-hidden\] \.wb-ai-ring-spin \{ animation-play-state: paused; \}/.test(css),
 )
 
 check(

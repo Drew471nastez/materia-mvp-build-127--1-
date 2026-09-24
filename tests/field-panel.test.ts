@@ -49,7 +49,10 @@ function main() {
   )
   check(
     "both pickers ask before they focus",
-    /autoFocus=\{!phone\}/.test(link) && /autoFocus=\{!phone\}/.test(icon),
+    /if \(!phone && !focused\) \{[\s\S]{0,120}inputRef\.current\?\.focus\(\{ preventScroll: true \}\)/.test(link) &&
+      /if \(!phone\) setOpen\(true\)/.test(link) &&
+      !/autoFocus/.test(link) &&
+      /autoFocus=\{!phone\}/.test(icon),
     "an autofocus in a bottom sheet raises the keyboard over the list it just opened",
   )
   check(
@@ -90,8 +93,10 @@ function main() {
     "it forgets where it was dragged to on the same line now, which is the same rule",
   )
   check(
-    "and the panel scrolls itself into view",
-    /scrollIntoView\(\{ block: "nearest", behavior: "smooth" \}\)/.test(popover),
+    "and the panel scrolls itself into view, in its own scroller only",
+    /el\?\.closest\("\[data-sheet-scroll\], \[data-wb-sidebar-scroll\]"\)/.test(popover) &&
+      /scroller\.scrollBy\(\{ top: delta, behavior: "smooth" \}\)/.test(popover) &&
+      !/scrollIntoView\(/.test(popover.replace(/\/\*[\s\S]*?\*\//g, "")),
   )
 
   console.log("\nAnd the sheet is still a sheet")

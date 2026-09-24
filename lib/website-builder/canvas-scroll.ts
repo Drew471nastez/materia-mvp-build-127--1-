@@ -224,6 +224,32 @@ export function scrollWithin(
 
 /**
  * ===========================================================================
+ *  ONLY WHEN NONE OF IT CAN BE SEEN
+ * ===========================================================================
+ * A section picked from the layer list, added, duplicated or written by Ask
+ * AI used to be brought to the top of the canvas every time, which moved a
+ * page that was already showing it: the section the person was looking at
+ * slid up out of their eye line to become the thing at the top. Now the
+ * canvas moves only when not a single pixel of the section is on screen,
+ * because that is the one case where staying put leaves the person looking
+ * at nothing they asked for.
+ *
+ * Returns where it scrolled to, or null when it left the canvas alone.
+ */
+export function revealWithin(
+  scroller: { scrollTop: number; getBoundingClientRect(): { top: number; bottom: number }; scrollTo?: (opts: { top: number; behavior: "smooth" | "auto" }) => void },
+  target: { getBoundingClientRect(): { top: number; bottom: number } },
+  behavior: "smooth" | "auto" = "smooth",
+): number | null {
+  const box = scroller.getBoundingClientRect()
+  const r = target.getBoundingClientRect()
+  const seen = r.bottom > box.top + 1 && r.top < box.bottom - 1
+  if (seen) return null
+  return scrollWithin(scroller, target, behavior)
+}
+
+/**
+ * ===========================================================================
  *  SELECTING A SECTION CANNOT MOVE THE CANVAS. NOT BY A PIXEL.
  * ===========================================================================
  * A tap that selects has no business scrolling anything, and yet it kept

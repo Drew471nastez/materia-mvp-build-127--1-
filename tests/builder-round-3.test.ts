@@ -158,15 +158,22 @@ async function main() {
   {
     const editor = read("app/website-builder/editor/[installId]/page.tsx")
     const fn = editor.slice(editor.indexOf("const selectSectionFromCanvas"), editor.indexOf("const selectSectionFromCanvas") + 400)
-    check("selecting from the canvas scrolls nothing", !/scrollToSection/.test(fn))
+    check("selecting from the canvas scrolls nothing", !/scrollToSection|revealSection|scrollWithin/.test(fn))
     /**
-     * The five callers that stay, because each has something you cannot
-     * see: a section just added or duplicated is elsewhere on the page, and
-     * a row picked in the sidebar is a section you pointed at from a list.
+     * The callers that stay, because each can have something you cannot
+     * see: a section just added or duplicated from the layer list, and a row
+     * picked in the sidebar. Each now moves the canvas ONLY when none of the
+     * section is on screen (revealWithin); a section any part of which is
+     * showing stays where it is. Measured by scripts/check-canvas-click-scroll.mjs.
      */
-    check("adding a section still brings it into view", /scrollToSection\(newSection\.id\)/.test(editor))
-    check("so does duplicating one", /scrollToSection\(copy\.id\)/.test(editor))
-    check("and the three sidebar rows still do", (editor.match(/setSelectedPanel\(\{ type: "section", sectionId: \w+\.id \}\); scrollToSection\(\w+\.id\)/g) ?? []).length === 3)
+    const reveal = editor.slice(editor.indexOf("const revealSection = useCallback"), editor.indexOf("const revealSection = useCallback") + 300)
+    check("the one way a section is brought in only moves a canvas that shows none of it", /revealWithin\(scroller, el\)/.test(reveal) && !/scrollWithin/.test(reveal))
+    check("and revealWithin leaves a section with any part on screen alone", /if \(seen\) return null/.test(read("lib/website-builder/canvas-scroll.ts")))
+    check("adding a section still brings it into view", /revealSection\(newSection\.id\)/.test(editor))
+    check("so does duplicating one from the layer list", /if \(fromCanvas\) return[\s\S]{0,200}revealSection\(copy\.id\)/.test(editor))
+    check("but never the canvas toolbar's Duplicate, which is a press in the canvas", /onDuplicate=\{\(\) => selectedSectionId && duplicateSection\(selectedSectionId, true\)\}/.test(editor))
+    check("and the three sidebar rows still do", (editor.match(/setSelectedPanel\(\{ type: "section", sectionId: \w+\.id \}\); revealSection\(\w+\.id\)/g) ?? []).length === 3)
+    check("nothing still scrolls a section to the top unconditionally", !/scrollToSection\(/.test(editor))
     /**
      * `scrollIntoView` walks EVERY scrollable ancestor, so bringing a
      * sidebar row into view could bring the canvas with it on a phone,

@@ -126,6 +126,8 @@ const SUITES = [
   "tests/published-site.test.ts",
   "tests/shop-products.test.ts",
   "tests/canvas-scroll.test.ts",
+  "tests/link-address.test.ts",
+  "tests/connection-mark.test.ts",
   "tests/editor-fixes.test.ts",
   "tests/builder-round-3.test.ts",
   "tests/contrast.test.ts",

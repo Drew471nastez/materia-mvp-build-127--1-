@@ -15,17 +15,16 @@
  *   pnpm build && node scripts/check-field-panel.mjs
  */
 import { execFileSync } from "node:child_process"
-import { existsSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs"
+import { existsSync, mkdtempSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { probeCss } from "./probe-css.mjs"
 
 const CHROMIUM = process.env.CHROMIUM ?? "/opt/pw-browsers/chromium"
 const root = process.cwd()
 const fail = (m) => { console.error(`\n${m}\n`); process.exit(1) }
 if (!existsSync(CHROMIUM)) fail(`No browser at ${CHROMIUM}.`)
-const cssDir = join(root, ".next/static/chunks")
-if (!existsSync(cssDir)) fail("No production build found. Run `pnpm build` first.")
-const css = readdirSync(cssDir).filter((f) => f.endsWith(".css")).map((f) => readFileSync(join(cssDir, f), "utf8")).join("\n")
+const css = await probeCss(root)
 
 const out = mkdtempSync(join(tmpdir(), "storelib-fieldpanel-"))
 execFileSync("npx", ["--no-install", "esbuild", join(root, "scripts/render-field-panel.tsx"),
@@ -70,8 +69,9 @@ setTimeout(function () {
     document.head.append(kill)
     void document.body.offsetHeight
     const panel = document.querySelector(".wb-field-panel")
-    const rows = panel ? [...panel.querySelectorAll("[data-sheet-scroll] button")] : []
-    const field = panel ? panel.querySelector("input") : null
+    const rows = panel ? [...panel.querySelectorAll('[data-sheet-scroll] [role="option"]')] : []
+    /* The field is the address box itself now; the list has no box of its own. */
+    const field = document.querySelector('#panel input[role="combobox"]')
     const result = {
       before,
       sheet: boxOf(surface),
