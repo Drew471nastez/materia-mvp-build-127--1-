@@ -47,10 +47,16 @@ export const VITAL_LABEL: Record<VitalName, string> = {
 
 export const VITAL_SHORT: Record<VitalName, string> = { lcp: "LCP", inp: "INP", cls: "CLS" }
 
+export const VITAL_NAME: Record<VitalName, string> = {
+  lcp: "Largest Contentful Paint",
+  inp: "Interaction to Next Paint",
+  cls: "Cumulative Layout Shift",
+}
+
 export const VITAL_DEFINITION: Record<VitalName, string> = {
-  lcp: "Largest Contentful Paint. How long until the biggest picture or block of text on the first screen has been drawn.",
-  inp: "Interaction to Next Paint. How long the page takes to show a response after a visitor taps, clicks or types.",
-  cls: "Cumulative Layout Shift. How much the page moves under the visitor while it loads. 0 is perfectly still.",
+  lcp: "How long until the biggest picture or block of text on the first screen has been drawn.",
+  inp: "How long the page takes to show a response after a visitor taps, clicks or types.",
+  cls: "How much the page moves under the visitor while it loads. 0 is perfectly still.",
 }
 
 export const RATING_LABEL: Record<Rating, string> = {

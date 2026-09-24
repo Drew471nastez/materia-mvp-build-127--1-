@@ -46,6 +46,8 @@ import {
   MIN_SAMPLES,
   RATING_LABEL,
   VITAL_DEFINITION,
+  VITAL_NAME,
+  VITAL_SHORT,
   VITAL_THRESHOLDS,
   formatThreshold,
   formatVital,
@@ -80,12 +82,6 @@ const VITAL_TITLE: Record<VitalName, string> = {
   cls: "Layout shift (CLS)",
 }
 
-const VITAL_NAME: Record<VitalName, string> = {
-  lcp: "Largest Contentful Paint",
-  inp: "Interaction to Next Paint",
-  cls: "Cumulative Layout Shift",
-}
-
 /** What the 75th percentile promises, per metric, in plain words. */
 const VITAL_FOOT: Record<VitalName, string> = {
   lcp: "Three in four page loads were at least this fast",
@@ -97,18 +93,26 @@ const VITAL_FOOT: Record<VitalName, string> = {
 
 const CARD = "overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
 
-/** Every number cell: the same width floor, the same padding, the same rule. */
+/**
+ * Every number cell: three lines (the title, the number, then the change or
+ * the verdict), never wrapped. A cell is at least as wide as what is in it
+ * and the cells share what is left, so a long verdict widens its own cell
+ * instead of breaking a number in two; when they all cannot fit, the bar
+ * scrolls.
+ */
 const CELL =
-  "group/cell relative flex min-w-[150px] flex-1 shrink-0 flex-col justify-center gap-1 px-4 py-3 transition-colors duration-150 hover:bg-[#fafbfc] after:pointer-events-none after:absolute after:inset-x-4 after:bottom-0 after:h-[2px] after:rounded-t-full after:bg-[#8b5cf6] after:opacity-0 after:transition-opacity after:duration-150 data-[active]:bg-[#fafafb] data-[active]:after:opacity-100"
+  "group/cell relative flex min-w-[132px] flex-[1_0_auto] flex-col justify-center gap-0.5 whitespace-nowrap px-4 py-3 transition-colors duration-150 hover:bg-[#fafbfc] after:pointer-events-none after:absolute after:inset-x-4 after:bottom-0 after:h-[2px] after:rounded-t-full after:bg-[#8b5cf6] after:opacity-0 after:transition-opacity after:duration-150 data-[active]:bg-[#fafafb] data-[active]:after:opacity-100"
 
 const TITLE = "relative z-10 text-[12.5px] font-medium leading-[18px] text-[#4b5563]"
 
 /** The whole cell answers the press; the title sits above it for its own card. */
 const STRETCH =
-  "text-left outline-none after:absolute after:inset-0 after:content-[''] focus-visible:after:rounded-lg focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-[#8b5cf6]/40"
+  "flex flex-col items-start gap-0.5 text-left outline-none after:absolute after:inset-0 after:content-[''] focus-visible:after:rounded-lg focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-[#8b5cf6]/40"
 
-const VALUE = "text-[17px] font-semibold leading-6 tracking-tight tabular-nums text-[#1a1a2e]"
-const MUTED = "text-[13px] font-medium leading-6 text-[#9ca3af]"
+const VALUE = "block text-[17px] font-semibold leading-6 tracking-tight tabular-nums text-[#1a1a2e]"
+const MUTED = "block text-[13px] font-medium leading-6 text-[#9ca3af]"
+/** The third line, held open even when there is nothing to put on it. */
+const META = "flex h-5 items-center gap-1.5 text-[12px] tabular-nums text-[#9ca3af]"
 
 const BADGE: Record<Rating, string> = {
   good: "bg-[#e4f5ea] text-[#0c5132]",
@@ -139,7 +143,7 @@ function Delta({ change }: { change: number | null }) {
   const pct = Math.round(Math.abs(change) * 100)
   const Arrow = pct === 0 ? null : change > 0 ? ArrowUpRight : ArrowDownRight
   return (
-    <span className="inline-flex items-center gap-0.5 text-[12px] font-medium tabular-nums text-[#6b7280]">
+    <span className="inline-flex items-center gap-0.5 font-medium text-[#6b7280]">
       {Arrow && <Arrow className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />}
       <span className="sr-only">{change > 0 ? "up" : change < 0 ? "down" : "no change"}</span>
       {pct > 999 ? "999+%" : `${pct}%`}
@@ -149,7 +153,7 @@ function Delta({ change }: { change: number | null }) {
 
 export function RatingBadge({ rating }: { rating: Rating }) {
   return (
-    <span className={cn("inline-flex h-5 shrink-0 items-center gap-1 whitespace-nowrap rounded-[6px] px-1.5 text-[11.5px] font-medium", BADGE[rating])}>
+    <span className={cn("inline-flex h-[19px] shrink-0 items-center gap-1 whitespace-nowrap rounded-[6px] px-1.5 text-[11.5px] font-medium", BADGE[rating])}>
       {rating === "good" ? (
         <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-[#29845a]" />
       ) : rating === "poor" ? (
@@ -162,9 +166,14 @@ export function RatingBadge({ rating }: { rating: Rating }) {
   )
 }
 
-/** A value that has not arrived yet: the line it will take, held open. */
+/** A value that has not arrived yet: the lines it will take, held open. */
 function Waiting() {
-  return <span aria-hidden className="my-[7px] block h-2.5 w-16 rounded-full bg-[#eef0f3]" />
+  return (
+    <>
+      <span aria-hidden className="my-[7px] block h-2.5 w-16 rounded-full bg-[#eef0f3]" />
+      <span aria-hidden className={META} />
+    </>
+  )
 }
 
 /* ── the cells ─────────────────────────────────────────────────────────── */
@@ -192,15 +201,20 @@ function TrafficCell({
   return (
     <div className={CELL} data-cell={kind}>
       <HelpLabel label={words.title} description={words.description} className={TITLE} />
-      <Link href={href} className={cn(STRETCH, "flex items-center gap-2 transition-opacity duration-200", dim && "opacity-50")} aria-label={`${words.title}${text ? `, ${text}` : ""}. Open Analytics`}>
+      <Link href={href} className={cn(STRETCH, "transition-opacity duration-200", dim && "opacity-50")} aria-label={`${words.title}${text ? `, ${text}` : ""}. Open Analytics`}>
         {data === undefined ? (
           <Waiting />
         ) : text === null ? (
-          <span className={MUTED}>Not available</span>
+          <>
+            <span className={MUTED}>Not available</span>
+            <span className={META} />
+          </>
         ) : (
           <>
             <span className={VALUE}>{text}</span>
-            <Delta change={figure?.change ?? null} />
+            <span className={META}>
+              <Delta change={figure?.change ?? null} />
+            </span>
           </>
         )}
       </Link>
@@ -230,21 +244,29 @@ function VitalValue({ name, shown }: { name: VitalName; shown: VitalShown }) {
     case "waiting":
       return <Waiting />
     case "failed":
-      return <span className={MUTED}>Not available</span>
     case "collecting":
-      return <span className={MUTED}>Collecting data</span>
+      return (
+        <>
+          <span className={MUTED}>{shown.kind === "failed" ? "Not available" : "Collecting data"}</span>
+          <span className={META} />
+        </>
+      )
     case "few":
       return (
-        <span className="flex items-baseline gap-1.5">
+        <>
           <span className={cn(MUTED, "text-[#6b7280]")}>Too few visits</span>
-          <span className="text-[12px] tabular-nums text-[#9ca3af]">{count(shown.samples)} of {MIN_SAMPLES}</span>
-        </span>
+          <span className={META}>
+            {count(shown.samples)} of {MIN_SAMPLES} page loads
+          </span>
+        </>
       )
     case "value":
       return (
         <>
           <span className={VALUE}>{formatVital(name, shown.value)}</span>
-          <RatingBadge rating={shown.rating} />
+          <span className={META}>
+            <RatingBadge rating={shown.rating} />
+          </span>
         </>
       )
   }
@@ -278,7 +300,7 @@ function VitalDetail({ name, data, period }: { name: VitalName; data: Data; peri
                 ) : shown.kind === "few" ? (
                   <span className="text-[#9ca3af]">Too few visits ({count(shown.samples)})</span>
                 ) : shown.kind === "waiting" ? (
-                  <Waiting />
+                  <span aria-hidden className="block h-2.5 w-12 rounded-full bg-[#eef0f3]" />
                 ) : (
                   <span className="text-[#9ca3af]">{shown.kind === "failed" ? "Not available" : "No visits measured"}</span>
                 )}
@@ -321,14 +343,14 @@ function VitalCell({
       onClick={phone ? () => onOpen(true) : undefined}
       aria-expanded={open}
       aria-label={`${title}${shown.kind === "value" ? `, ${formatVital(name, shown.value)}, ${RATING_LABEL[shown.rating]}` : ""}`}
-      className={cn(STRETCH, "flex items-center gap-2 transition-opacity duration-200", dim && "opacity-50")}
+      className={cn(STRETCH, "transition-opacity duration-200", dim && "opacity-50")}
     >
       <VitalValue name={name} shown={shown} />
     </button>
   )
   const cell = (
     <div className={CELL} data-cell={name} data-active={open ? "" : undefined}>
-      <HelpLabel label={title} description={VITAL_DEFINITION[name]} className={TITLE} />
+      <HelpLabel label={title} title={`${VITAL_NAME[name]} (${VITAL_SHORT[name]})`} description={VITAL_DEFINITION[name]} className={TITLE} />
       {phone ? trigger : <PopoverPrimitive.Trigger asChild>{trigger}</PopoverPrimitive.Trigger>}
     </div>
   )

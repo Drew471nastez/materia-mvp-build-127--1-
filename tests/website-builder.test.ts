@@ -322,11 +322,11 @@ section("The page")
     check("  the numbers stream in after the page, and a new period is asked for, never guessed",
       /React\.use\(figures\)/.test(strip) && /<React\.Suspense fallback=/.test(strip) && /\/api\/website-builder\/performance\?/.test(strip))
     check("  on a phone it scrolls sideways inside itself with no scrollbar",
-      /overflow-x-auto/.test(strip) && /\[scrollbar-width:none\]/.test(strip) && /\[&::-webkit-scrollbar\]:hidden/.test(strip) && /min-w-\[150px\]/.test(strip))
+      /overflow-x-auto/.test(strip) && /\[scrollbar-width:none\]/.test(strip) && /\[&::-webkit-scrollbar\]:hidden/.test(strip) && /min-w-\[132px\]/.test(strip) && /whitespace-nowrap/.test(strip))
     check("the old tab destinations are the More menu's first group",
       ['section: "pages"', 'section: "domains"', 'section: "seo"', 'section: "publishing"', 'section: "general"'].every((s) => client.includes(s)) &&
         /editorHref\(username, i\.id, "settings", d\.section\)/.test(client) && /section: n === 0 \? "Website settings" : undefined/.test(client))
-    check("the loading state draws the bar's new shape", /min-w-\[150px\] flex-1 shrink-0 flex-col/.test(loading) && /h-8 w-\[132px\] rounded-lg/.test(loading))
+    check("the loading state draws the bar's new shape", /min-w-\[132px\] flex-\[1_0_auto\] flex-col/.test(loading) && /h-8 w-\[132px\] rounded-lg/.test(loading))
     const frame = /const COVER_FRAME =\s*"([^"]+)"/.exec(client)?.[1] ?? ""
     check("the cover is clipped to 12px corners on all four sides",
       /\brounded-\[12px\]/.test(frame) && /\boverflow-hidden\b/.test(frame) && /className=\{COVER_FRAME\}/.test(live))

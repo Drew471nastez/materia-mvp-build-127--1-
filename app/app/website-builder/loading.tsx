@@ -30,10 +30,13 @@ export default function WebsiteBuilderLoading() {
           <div className="flex shrink-0 items-center px-3 sm:px-4">
             <div className="h-8 w-[132px] rounded-lg border border-[#e3e4e8] bg-white" />
           </div>
+          {/* Three lines a cell, like the bar: the title, the number, and
+              the change or the verdict under it. */}
           {[40, 44, 64, 84, 116, 104].map((w, i) => (
-            <div key={i} className="flex min-w-[150px] flex-1 shrink-0 flex-col justify-center gap-1 px-4 py-3">
+            <div key={i} className="flex min-w-[132px] flex-[1_0_auto] flex-col justify-center gap-0.5 px-4 py-3">
               <div className="my-[4px] h-2.5 rounded bg-[#eef0f3]" style={{ width: w }} />
               <div className="my-[7px] h-2.5 w-16 rounded-full bg-[#e9ebee]" />
+              <div className="my-[5px] h-2.5 w-10 rounded-full bg-[#f1f2f4]" />
             </div>
           ))}
         </div>
