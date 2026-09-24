@@ -151,52 +151,73 @@ const browser = await puppeteer.launch({
   args: ["--no-sandbox", "--disable-gpu", "--hide-scrollbars", "--disable-dev-shm-usage"],
 })
 try {
-  /* ── A desktop, previewing the desktop site ─────────────────────────── */
+  /* ── The layer list, on a fresh editor ──────────────────────────────── */
   {
     const { page, errors } = await open({ width: 1440, height: 900 })
-    await clickSpots(page, false, "desktop editor, desktop preview (1440 x 900)")
-
-    /* The sidebar. A section already on screen is selected and the canvas stays. */
-    const sidebar = await page.evaluate(() => {
-      const sc = document.getElementById("wb-preview-root")
-      sc.scrollTop = 0
-      return true
-    })
-    await sleep(300)
+    /**
+     * The row for a section: the layer list follows the page, header first
+     * and footer last, which is the document order of the canvas's
+     * `wb-section-` wrappers.
+     */
     const pickRow = async (type) => {
       await page.evaluate(() => window.__watch())
       const ok = await page.evaluate((t) => {
-        const box = document.querySelector(`#wb-preview-root [data-section-type="${t}"]`)
-        const id = box?.closest("[id^='wb-section-']")?.id?.replace("wb-section-", "")
-        const name = id ? null : null
-        void name
-        /* The row is the one whose click selects this section: find it by the
-           order of the layer list, which follows the page. */
-        const rows = [...document.querySelectorAll("[data-wb-sidebar-scroll] .group.cursor-pointer")]
-        const boxes = [...document.querySelectorAll("#wb-preview-root [data-section-type]")].map((b) => b.getAttribute("data-section-type"))
-        const idx = boxes.indexOf(t)
-        const row = rows[idx]
-        if (!row) return false
-        row.click()
+        const ids = [...document.querySelectorAll("#wb-preview-root [id^='wb-section-']")].map((el) => el.id)
+        const idx = ids.findIndex((id) => id.startsWith(`wb-section-${t}-`))
+        const rows = [...document.querySelectorAll("[data-wb-sidebar-scroll] .group.cursor-pointer")].filter((r) => r.textContent.trim())
+        if (idx < 0 || !rows[idx]) return false
+        rows[idx].click()
         return true
       }, type)
       await sleep(1200)
       const seen = await page.evaluate(() => window.__unwatch())
-      const visible = await page.evaluate((t) => {
-        const sc = document.getElementById("wb-preview-root").getBoundingClientRect()
-        const r = document.querySelector(`#wb-preview-root [data-section-type="${t}"]`).getBoundingClientRect()
-        return r.bottom > sc.top && r.top < sc.bottom
+      const where = await page.evaluate((t) => {
+        const root = document.getElementById("wb-preview-root")
+        const sc = root.getBoundingClientRect()
+        const r = document.querySelector(`#wb-preview-root [id^='wb-section-${t}-']`).getBoundingClientRect()
+        return { visible: r.bottom > sc.top && r.top < sc.bottom, top: Math.round(r.top - sc.top), height: Math.round(r.height), scrollTop: root.scrollTop, room: root.scrollHeight - root.clientHeight }
       }, type)
-      return { ok, ...seen, visible }
+      return { ok, ...seen, ...where }
     }
-    void sidebar
-    const onScreen = await pickRow("hero_centered")
     console.log("\ndesktop editor, the layer list")
+    const onScreen = await pickRow("hero_centered")
     expect(onScreen.ok, "a row for the hero was found and clicked")
     expect(onScreen.worst === 0, "picking a section that is on screen does not move the canvas", onScreen)
+    /* Back to the list, the way a person does: the panel's own Back. */
+    await page.evaluate(() => document.querySelector('[data-wb-sidebar-scroll] button[aria-label="Back"]')?.click())
+    await sleep(500)
     const offScreen = await pickRow("promo_newsletter")
     expect(offScreen.ok, "a row for the newsletter was found and clicked")
     expect(offScreen.visible && offScreen.end > offScreen.start, "picking a section that is off screen brings it into view", offScreen)
+
+    /* The toolbar over the canvas: Duplicate is a press in the canvas too. */
+    console.log("\ndesktop editor, the section toolbar")
+    /* The testimonials, a tall section, pressed in its middle with half of it on screen. */
+    const at = await page.evaluate(() => {
+      const sc = document.getElementById("wb-preview-root")
+      const el = document.querySelector("#wb-preview-root [id^='wb-section-proof_testimonials-']")
+      sc.scrollTop += el.getBoundingClientRect().top - sc.getBoundingClientRect().top - 200
+      const r = el.getBoundingClientRect()
+      return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + Math.min(r.height / 2, 300)) }
+    })
+    await sleep(300)
+    await page.mouse.click(at.x, at.y)
+    await sleep(600)
+    await page.evaluate(() => window.__watch())
+    const dup = await page.$('.wb-section-toolbar button[aria-label="Duplicate"]')
+    if (dup) await dup.click()
+    await sleep(1200)
+    const afterDup = await page.evaluate(() => window.__unwatch())
+    expect(!!dup, "the selected section has a toolbar with Duplicate")
+    expect(afterDup.worst === 0, "Duplicate on the canvas toolbar does not move the canvas", afterDup)
+    expect(errors.length === 0, "no page errors", errors.slice(0, 3))
+    await page.close()
+  }
+
+  /* ── A desktop, previewing the desktop site ─────────────────────────── */
+  {
+    const { page, errors } = await open({ width: 1440, height: 900 })
+    await clickSpots(page, false, "desktop editor, desktop preview (1440 x 900)")
     expect(errors.length === 0, "no page errors", errors.slice(0, 3))
     await page.close()
   }
