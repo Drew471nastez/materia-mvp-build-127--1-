@@ -68,7 +68,7 @@ import {
 /* ── the look ───────────────────────────────────────────────────────────── */
 
 export const pickerButton =
-  "inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-lg border border-[#e3e4e8] bg-white px-2.5 text-[13px] font-medium text-[#1a1a2e] shadow-[0_1px_0_rgba(17,24,39,0.05)] transition-colors duration-100 hover:bg-[#f7f7f8] active:bg-[#f1f2f4] data-[state=open]:bg-[#ececef] data-[state=open]:shadow-[inset_0_1px_2px_rgba(17,24,39,0.12)] cursor-pointer select-none"
+  "inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-lg border border-[#e3e4e8] bg-white px-2.5 text-[13px] font-medium text-[#1a1a2e] shadow-[0_1px_0_rgba(17,24,39,0.05)] transition-colors duration-100 hover:bg-[#f7f7f8] active:bg-[#f1f2f4] data-[state=open]:bg-[#ececef] data-[state=open]:shadow-[inset_0_1px_2px_rgba(17,24,39,0.12)] cursor-pointer select-none outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 focus-visible:ring-offset-1"
 
 export const pickerSurface =
   "overflow-hidden rounded-xl border border-[#e3e4e8] bg-white p-0 text-[#1a1a2e] shadow-[0_12px_40px_-8px_rgba(17,24,39,0.22),0_2px_6px_rgba(17,24,39,0.06)]"
