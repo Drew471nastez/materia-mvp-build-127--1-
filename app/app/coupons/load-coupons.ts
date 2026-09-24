@@ -1,7 +1,7 @@
 import "server-only"
 
 import { createClient } from "@/lib/supabase/server"
-import { currentUserForRequest } from "@/lib/auth/request-scope"
+import { creatorForRequest, currentUserForRequest } from "@/lib/auth/request-scope"
 
 /**
  * The signed in creator, their published products (what a code can be
@@ -12,9 +12,11 @@ import { currentUserForRequest } from "@/lib/auth/request-scope"
 export async function loadCouponArea(couponId: string | null) {
   const { user } = await currentUserForRequest()
   if (!user) return { state: "signed-out" as const }
-  const supabase = await createClient()
-  const { data: creator } = await supabase.from("creators").select("id").eq("user_id", user.id).maybeSingle()
+  /* The creator row the /app layout read with this same client, once per
+     request (lib/auth/request-scope.ts). */
+  const creator = await creatorForRequest(user.id)
   if (!creator) return { state: "no-creator" as const }
+  const supabase = await createClient()
 
   const [products, coupons] = await Promise.all([
     supabase

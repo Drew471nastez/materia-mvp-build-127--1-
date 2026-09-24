@@ -5,6 +5,7 @@ import { usePathname, useSearchParams } from "next/navigation"
 import { ActivitySpinner } from "@/components/ui/activity-spinner"
 import {
   endAppNavigation,
+  markCommitted,
   markLanded,
   NAV_ENTER_EASE,
   NAV_ENTER_MS,
@@ -132,6 +133,7 @@ export function AppStage() {
   /* The commit: before it is painted. */
   useLayoutEffect(() => {
     keyRef.current = key
+    markCommitted(pathname, search)
     const traversal = takeTraversal()
     endAppNavigation()
     if (firstRef.current) { firstRef.current = false; return }
@@ -147,7 +149,7 @@ export function AppStage() {
     s.outer.scrollTop = saved?.outer ?? 0
     if (s.inner) s.inner.scrollTop = saved?.inner ?? 0
     playEntrance(s.outer, { fade: !slowSurfaceIsUp() })
-  }, [key, pathname])
+  }, [key, pathname, search])
 
   return <SlowPage />
 }
@@ -165,6 +167,14 @@ function fadeTo(el: HTMLElement, to: number, duration: number, easing: string) {
  * header above it, the rail beside it from md, the rounded top on a phone),
  * so it covers exactly the page and nothing else; the header and the pill
  * stay over it and stay pressable.
+ *
+ * THE CORNERS ARE THE HEADER'S COLOUR. On a phone the surface's top is
+ * rounded, and a rounded box fixed over the page shows the page through its
+ * corners. Home's top is the violet announcement bar, so leaving Home slowly
+ * put two violet corners under the header: "the purple things in the
+ * corners". So the fixed box itself is the header's #111111 and the rounded
+ * surface sits inside it; the corners show the header, whatever page is
+ * underneath. From md the surface is square and the box is transparent.
  *
  * In on a 150ms opacity fade, over the page you were on, so there is never a
  * frame with nothing on screen. It takes presses while it is up: what is
@@ -221,9 +231,11 @@ function SlowPage() {
     <div
       ref={ref}
       data-app-slow-page=""
-      className="fixed inset-x-0 bottom-0 top-[calc(68px+env(safe-area-inset-top,0px))] z-[38] flex items-center justify-center overflow-hidden rounded-t-[20px] bg-[#f8f9fa] md:left-[240px] md:top-[calc(58px+env(safe-area-inset-top,0px))] md:rounded-none"
+      className="fixed inset-x-0 bottom-0 top-[calc(68px+env(safe-area-inset-top,0px))] z-[38] bg-[#111111] md:left-[240px] md:top-[calc(58px+env(safe-area-inset-top,0px))] md:bg-transparent"
     >
-      <ActivitySpinner />
+      <div data-app-slow-surface="" className="flex h-full items-center justify-center overflow-hidden rounded-t-[20px] bg-[#f8f9fa] md:rounded-none">
+        <ActivitySpinner />
+      </div>
     </div>
   )
 }

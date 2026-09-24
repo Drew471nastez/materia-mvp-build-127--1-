@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation"
-import { createClient } from "@/lib/supabase/server"
+import { cache } from "react"
+import { currentUserForRequest } from "@/lib/auth/request-scope"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { DashboardClient } from "@/components/app/dashboard-client"
 import type { Metadata } from "next"
@@ -7,11 +8,35 @@ import { cookies, headers } from "next/headers"
 import { dayPart, greetingZone } from "@/lib/greeting"
 import { TIME_ZONE_COOKIE } from "@/lib/orders/time-zone"
 
+/*
+  WHO IS ASKING, AND THEIR TWO ROWS, ONCE PER REQUEST. The title and the page
+  both need the user, the profile and the creator row. They used to ask for
+  each on their own: two auth round trips (three on a full load, with the
+  layout's) and the same two rows read twice. The user comes through the
+  per-request cache the layout uses (lib/auth/request-scope.ts); the two rows
+  through the cached readers below, on the service role exactly as both of
+  these read them before, always filtered by the signed in user's own id.
+*/
+const homeProfile = cache(async (userId: string) => {
+  const { data } = await createAdminClient()
+    .from("profiles")
+    .select("username, display_name, avatar_url")
+    .eq("id", userId)
+    .maybeSingle()
+  return data
+})
+
+const homeCreator = cache(async (userId: string) => {
+  const { data } = await createAdminClient()
+    .from("creators")
+    .select("id, user_id, slug, username, display_name, avatar_url, bio, onboarding_completed, payouts_enabled, stripe_onboarding_status, stripe_account_id, store_published, subscription_plan_id")
+    .eq("user_id", userId)
+    .maybeSingle()
+  return data
+})
+
 export async function generateMetadata(): Promise<Metadata> {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const { user } = await currentUserForRequest()
 
   if (!user) {
     // Use an absolute title to bypass the root "%s | Storelib" template so the
@@ -19,19 +44,7 @@ export async function generateMetadata(): Promise<Metadata> {
     return { title: { absolute: "Storelib" } }
   }
 
-  const adminSupabase = createAdminClient()
-  const [{ data: profile }, { data: creator }] = await Promise.all([
-    adminSupabase
-      .from("profiles")
-      .select("username")
-      .eq("id", user.id)
-      .maybeSingle(),
-    adminSupabase
-      .from("creators")
-      .select("username, slug")
-      .eq("user_id", user.id)
-      .maybeSingle(),
-  ])
+  const [profile, creator] = await Promise.all([homeProfile(user.id), homeCreator(user.id)])
 
   const username =
     profile?.username || creator?.username || creator?.slug || null
@@ -47,48 +60,46 @@ export async function generateMetadata(): Promise<Metadata> {
 export const dynamic = "force-dynamic"
 
 export default async function AppDashboard() {
-  const supabase = await createClient()
   const adminSupabase = createAdminClient()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const { user } = await currentUserForRequest()
 
   if (!user) redirect("/login")
 
-  // Fetch creator first (needed for redirect decisions)
-  const { data: creator } = await adminSupabase
-    .from("creators")
-    .select("id, user_id, slug, username, display_name, avatar_url, bio, onboarding_completed, payouts_enabled, stripe_onboarding_status, stripe_account_id, store_published, subscription_plan_id")
-    .eq("user_id", user.id)
-    .single()
-
-  if (!creator) redirect("/onboarding")
-
-  if (!creator.onboarding_completed) redirect("/onboarding")
-
-  // Fire all independent queries in parallel — cuts total DB round-trips from ~6 sequential to 1 parallel batch
-  const [
-    { data: profile },
-    { data: products },
-    { data: onepage },
-    { data: activeDomain },
-    { data: publishedSite },
-  ] = await Promise.all([
-    adminSupabase
-      .from("profiles")
-      .select("username, display_name, avatar_url")
-      .eq("id", user.id)
-      .single(),
-    adminSupabase
-      .from("products")
-      .select("id, status")
-      .eq("creator_id", creator.id),
+  /*
+    THREE TRIPS, WHERE THERE WERE FOUR. The creator row, the profile and the
+    OnePage need only the user, so they go together. Everything else needs
+    the creator's id and goes together after it, the orders included: they
+    are read by their product's creator (`products!inner`, the relationship
+    the Customers page and the checkout already use) rather than by a list
+    of product ids that had to come back first. Same rows: an order of a
+    product this creator owns. All on the service role, as before, and every
+    filter is the signed in user's id or the creator row found by it.
+  */
+  const [creator, profile, { data: onepage }] = await Promise.all([
+    homeCreator(user.id),
+    homeProfile(user.id),
     adminSupabase
       .from("onepages")
       .select("id, status, draft_blocks, bio, avatar_url, title")
       .eq("owner_id", user.id)
       .maybeSingle(),
+  ])
+
+  if (!creator) redirect("/onboarding")
+
+  if (!creator.onboarding_completed) redirect("/onboarding")
+
+  const [
+    { data: products },
+    { data: activeDomain },
+    { data: publishedSite },
+    { data: ordersData },
+  ] = await Promise.all([
+    adminSupabase
+      .from("products")
+      .select("id")
+      .eq("creator_id", creator.id),
     adminSupabase
       .from("custom_domains")
       .select("domain")
@@ -112,6 +123,11 @@ export default async function AppDashboard() {
       .not("published_at", "is", null)
       .limit(1)
       .maybeSingle(),
+    adminSupabase
+      .from("orders")
+      .select("id, product_id, amount_cents, status, created_at, products!inner(creator_id)")
+      .eq("products.creator_id", creator.id)
+      .order("created_at", { ascending: false }),
   ])
 
   const productIds = products?.map((p: any) => p.id) || []
@@ -123,17 +139,9 @@ export default async function AppDashboard() {
   // Check for Stripe connection — read from creators table (source of truth)
   const hasPayoutsSetup = creator.payouts_enabled === true || creator.stripe_onboarding_status === "connected"
 
-  // Fetch orders (depends on productIds from above)
-  let allOrders: any[] = []
-  if (productIds.length > 0) {
-    const { data: ordersData } = await adminSupabase
-      .from("orders")
-      .select("id, product_id, amount_cents, status, created_at")
-      .in("product_id", productIds)
-      .order("created_at", { ascending: false })
-
-    allOrders = ordersData || []
-  }
+  /* The rows the client is handed are the columns it was always handed: the
+     embedded product was only the filter. */
+  const allOrders: any[] = (ordersData || []).map(({ products: _owner, ...order }: any) => order)
 
   // Calculate totals — totalOrders includes completed + refunded
   const completedOrders = allOrders.filter(o => o.status === "completed")

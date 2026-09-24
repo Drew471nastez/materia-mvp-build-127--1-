@@ -119,6 +119,12 @@ export function spinnerDelay(href: string | null, phone: boolean = isPhoneShell(
  * was never ended by a landing, and the bar and the outline sat over the page
  * for the full ten seconds of GIVE_UP_MS. That was one of the "it bugs
  * sometimes": tap the pill's lit icon, or the rail's lit row, and wait.
+ *
+ * And a press on it while another page is on its way ENDS that record: the
+ * router drops a pending navigation when a new one starts (Next's action
+ * queue marks it discarded), so the page on its way never commits and the
+ * one showing stays. Tapping Orders and then Home again before Orders came
+ * left the spinner over Home, and Orders lit in the pill, for ten seconds.
  */
 export function isCurrentAddress(href: string | null): boolean {
   if (!href || typeof window === "undefined" || !window.location) return false
@@ -130,6 +136,31 @@ export function isCurrentAddress(href: string | null): boolean {
   } catch {
     return false
   }
+}
+
+/**
+ * The address the stage last committed, as `pathname?search`. A back or
+ * forward to it commits nothing: the email editor and the OnePage editor
+ * push a guard entry at their own address so Back can ask about unsaved
+ * work, and the OnePage tabs push `#tab`. Popping one of those used to start
+ * a record that no commit ever ended, so the spinner came up at 500ms over
+ * the editor and its "unsaved changes" dialog, and stayed for GIVE_UP_MS.
+ */
+let committed: string | null = null
+
+function addressKey(pathname: string, search: string): string {
+  const q = new URLSearchParams(search).toString()
+  return q ? `${pathOf(pathname)}?${q}` : pathOf(pathname)
+}
+
+/** The stage has committed this page (AppStage, before it is painted). */
+export function markCommitted(pathname: string, search: string) {
+  committed = addressKey(pathname, search)
+}
+
+/** Is the address the window now shows the page already committed? */
+export function isCommittedAddress(pathname: string, search: string): boolean {
+  return committed != null && committed === addressKey(pathname, search)
 }
 
 export type AppNavigation = { href: string | null; startedAt: number }

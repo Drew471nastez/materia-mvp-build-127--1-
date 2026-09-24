@@ -46,6 +46,9 @@ window.addEventListener("popstate", () => {
 function Page({ id }: { id: string }) {
   return (
     <div data-page={id} className="page-scroll h-full overflow-y-auto bg-[#f8f9fa]">
+      {/* Home's top is the violet announcement bar (components/app/dashboard-client.tsx):
+          the spinner's rounded corners must never show it. */}
+      {id === "home" && <div data-violet-bar="" className="h-[40px] bg-[#8b5cf6]" />}
       <div className="mx-auto max-w-[1200px] px-4 py-6 sm:px-6 lg:px-8">
         <h1 className="text-[24px] font-bold text-[#1a1a2e] sm:text-[28px]">{id}</h1>
         {Array.from({ length: 30 }, (_, i) => (

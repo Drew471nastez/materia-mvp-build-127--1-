@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation"
 import { CreateCouponClient, type CouponRecord } from "../new/create-coupon-client"
-import CouponFormLoading from "../new/skeleton"
 import { loadCouponArea } from "../load-coupons"
 
 export const dynamic = "force-dynamic"
@@ -24,7 +23,7 @@ export default async function CouponEditPage({ params }: CouponEditPageProps) {
   const { id } = await params
   if (!UUID.test(id)) redirect("/app/coupons")
   const load = await loadCouponArea(id)
-  if (load.state === "signed-out") return <CouponFormLoading />
+  if (load.state === "signed-out") return null
   if (load.state === "no-creator") redirect("/signup/success")
   const coupon = load.coupons[0] as CouponRecord | undefined
   if (!coupon) redirect("/app/coupons")

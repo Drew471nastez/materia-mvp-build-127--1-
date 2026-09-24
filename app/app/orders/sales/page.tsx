@@ -1,7 +1,7 @@
 import { after } from "next/server"
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
-import { createClient } from "@/lib/supabase/server"
+import { currentUserForRequest } from "@/lib/auth/request-scope"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { stripe } from "@/lib/stripe"
 import { COLUMNS_COOKIE, hiddenColumnsFrom, type OrderRow } from "@/lib/orders/order-view"
@@ -83,12 +83,11 @@ async function catchMissedRefunds(rows: OrderRow[]) {
 }
 
 export default async function OrdersPage() {
-  const supabase = await createClient()
   const admin = createAdminClient()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  /* The same answer the /app layout got, through the per-request cache
+     (lib/auth/request-scope.ts): no second auth round trip on a full load. */
+  const { user } = await currentUserForRequest()
   if (!user) redirect("/login")
 
   const { data: creator } = await admin

@@ -1,36 +1,57 @@
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
+import { currentUserForRequest } from "@/lib/auth/request-scope"
 
 export type SettingsTab = "general" | "security" | "privacy" | "billing" | "payments" | "stores"
 
+/**
+ * THREE TRIPS, WHERE THERE WERE SIX. The user; then the profile, the creator
+ * row and the OnePage together, which need only the user; then the store's
+ * header and whether a website is published together, which need the
+ * creator's id. They were asked one after another. Each is the query it was,
+ * on the caller's own client, so row-level security answers as before. The
+ * user is the /app layout's answer, through the per-request cache
+ * (lib/auth/request-scope.ts).
+ */
 export async function loadSettingsData() {
   const supabase = await createClient()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const { user } = await currentUserForRequest()
 
   if (!user) redirect("/login")
 
-  const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle()
-  const { data: creator } = await supabase.from("creators").select("*").eq("user_id", user.id).maybeSingle()
+  const [{ data: profile }, { data: creator }, { data: onepage }] = await Promise.all([
+    supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
+    supabase.from("creators").select("*").eq("user_id", user.id).maybeSingle(),
+    supabase
+      .from("onepages")
+      .select("avatar_url")
+      .eq("owner_id", user.id)
+      .maybeSingle(),
+  ])
 
   if (!creator) redirect("/onboarding")
 
-  const { data: onepage } = await supabase
-    .from("onepages")
-    .select("avatar_url")
-    .eq("owner_id", user.id)
-    .maybeSingle()
-
-  const { data: storeConfig } = creator
-    ? await supabase
-        .from("store_builder_configs")
-        .select("published_config, draft_config")
-        .eq("creator_id", creator.id)
-        .eq("page_type", "shop")
-        .maybeSingle()
-    : { data: null }
+  const [{ data: storeConfig }, { data: publishedSite }] = await Promise.all([
+    supabase
+      .from("store_builder_configs")
+      .select("published_config, draft_config")
+      .eq("creator_id", creator.id)
+      .eq("page_type", "shop")
+      .maybeSingle(),
+    /**
+     * PUBLISHED, not "has an install". Every account is seeded with theme
+     * installs the first time it opens the website builder, so existence would
+     * put an address in Quick access for a site nobody has made.
+     */
+    supabase
+      .from("store_theme_installs")
+      .select("id")
+      .eq("creator_id", creator.id)
+      .not("published_at", "is", null)
+      .limit(1)
+      .maybeSingle(),
+  ])
 
   // Check published_config first, then fall back to draft_config for avatar
   const publishedHeader = (storeConfig?.published_config as Record<string, unknown>)?.headerSettings as Record<string, unknown> | undefined
@@ -65,19 +86,6 @@ export async function loadSettingsData() {
     role: "user" as const,
     created_at: new Date().toISOString(),
   }
-
-  /**
-   * PUBLISHED, not "has an install". Every account is seeded with theme
-   * installs the first time it opens the website builder, so existence would
-   * put an address in Quick access for a site nobody has made.
-   */
-  const { data: publishedSite } = await supabase
-    .from("store_theme_installs")
-    .select("id")
-    .eq("creator_id", creator.id)
-    .not("published_at", "is", null)
-    .limit(1)
-    .maybeSingle()
 
   return {
     profile: safeProfile,

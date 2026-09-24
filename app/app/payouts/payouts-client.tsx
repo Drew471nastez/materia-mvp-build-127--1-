@@ -54,6 +54,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
+import { WaitingArea } from "@/components/ui/activity-spinner";
 import { DateRangePicker } from "@/components/app/date-range-picker";
 import { viewerTimeZone } from "@/lib/orders/time-zone";
 import { boundsOf, resolveValue, todayIn, type RangeValue } from "@/lib/date-range/range";
@@ -461,7 +462,7 @@ function RevenueChart() {
       </div>
 
       {loading ? (
-        <div className="h-48 w-full rounded-lg bg-gray-100 animate-pulse" />
+        <WaitingArea className="h-48 w-full" />
       ) : error ? (
         <div className="h-48 flex items-center justify-center">
           <p className="text-[13px] text-rose-500">{error}</p>
@@ -1354,17 +1355,7 @@ function OrderTimeline({
         No payout timeline for free orders.
       </p>
     );
-  if (loading)
-    return (
-      <div className="space-y-2">
-        {[1, 2, 3].map((i) => (
-          <div
-            key={i}
-            className="h-10 w-full rounded-lg bg-gray-100 animate-pulse"
-          />
-        ))}
-      </div>
-    );
+  if (loading) return <WaitingArea className="h-[136px]" />;
   if (error) return <p className="text-[12px] text-rose-500">{error}</p>;
   if (!timeline.length)
     return (
@@ -3602,7 +3593,7 @@ function PayoutsHistoryList({
   const hasLoadedOnce = useRef(false);
 
   const load = useCallback(async () => {
-    // Only show skeleton on first load — subsequent refreshes are silent
+    // Only the first load waits visibly; later refreshes are silent
     if (!hasLoadedOnce.current) setLoading(true);
     setError(null);
     try {
@@ -3635,16 +3626,7 @@ function PayoutsHistoryList({
   if (loading) {
     return (
       <div className={cn("overflow-hidden", !flat && "bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)]")}>
-        {[1, 2, 3].map((i) => (
-          <div
-            key={i}
-            className="px-5 py-4 border-b border-[#e5e7eb] flex items-center gap-4"
-          >
-            <div className="h-4 w-24 rounded bg-gray-100 animate-pulse" />
-            <div className="h-4 w-20 rounded bg-gray-100 animate-pulse" />
-            <div className="h-5 w-16 rounded-full bg-gray-100 animate-pulse" />
-          </div>
-        ))}
+        <WaitingArea className="h-[168px]" />
       </div>
     );
   }

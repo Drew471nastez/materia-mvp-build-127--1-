@@ -294,6 +294,32 @@ for (const [label, viewport] of [
   const editor = await go("/app/products/abc", phone ? 700 : 1600); all.push(editor)
   const editorSpinner = spinnerOf(editor, "analytics", "abc")
 
+  /* J: a slow page on its way, then a press on the page still showing. The
+     router drops the first navigation, so nothing will ever commit: the
+     record has to end on the press, or the spinner (and the wrong lit tab)
+     sits there until the ten second give up. */
+  const beforeReturn = await page.evaluate(() => location.pathname)
+  await page.evaluate(() => { window.__delay = 1600 })
+  t1 = await now()
+  await page.evaluate(() => document.querySelector('a[data-to="/app/orders"]').click())
+  await wait(200)
+  await page.evaluate((p) => document.querySelector(`a[data-to="${p}"]`).click(), beforeReturn)
+  await wait(1900)
+  const returned = await since(t1); returned.t0 = t1; all.push(returned)
+  const returnedSpinner = returned.rec.filter((r) => r.slow).length
+  const returnedBar = returned.rec.filter((r) => r.bar && r.t - t1 > 400).length
+
+  /* K: Back onto the page already showing (the email and OnePage editors push
+     a guard entry at their own address): nothing commits, so nothing shows. */
+  await page.evaluate(() => { window.__delay = 40; history.pushState(null, "", location.href) })
+  await wait(100)
+  t1 = await now()
+  await page.evaluate(() => history.back())
+  await wait(1500)
+  const guard = await since(t1); guard.t0 = t1; all.push(guard)
+  const guardSpinner = guard.rec.filter((r) => r.slow).length
+  const guardBar = guard.rec.filter((r) => r.bar).length
+
   const shift = Math.round(((await page.evaluate(() => window.__shift)) - shiftBefore) * 1000) / 1000
   const longs = all.flatMap((n) => n.long)
   const outlines = all.reduce((n, nav) => n + outlineFrames(nav), 0)
@@ -310,6 +336,8 @@ for (const [label, viewport] of [
     samePage: { barFrames: sameBar, spinnerFrames: sameSpinner },
     secondClick: { spinner: twiceSpinner, landedOn: twiceLanded, framesOfTheReplacedPage: twiceStrayOrders },
     editor: { ms: phone ? 700 : 1600, spinner: editorSpinner, barAtMs: barAt(editor) },
+    backToTheShowingPage: { spinnerFrames: returnedSpinner, barFramesAfter400ms: returnedBar },
+    backOntoAGuardEntry: { spinnerFrames: guardSpinner, barFrames: guardBar },
     layoutShift: shift,
     longTasks: longs.length,
     errors,
@@ -365,6 +393,8 @@ for (const [label, viewport] of [
   if (editorSpinner.frames) problems.push(`${at} opening the product editor drew the spinner for ${editorSpinner.frames} frames`)
   if (editorSpinner.blankFrames) problems.push(`${at} ${editorSpinner.blankFrames} frames before the editor came showed something other than the old page`)
   if (r.editor.barAtMs == null || r.editor.barAtMs < 290) problems.push(`${at} opening a slow editor should still show the bar after 300ms (at ${r.editor.barAtMs})`)
+  if (returnedSpinner || returnedBar) problems.push(`${at} pressing the showing page while another was on its way left the spinner for ${returnedSpinner} frames and the bar for ${returnedBar}`)
+  if (guardSpinner || guardBar) problems.push(`${at} Back onto a guard entry at the same address drew the spinner for ${guardSpinner} frames and the bar for ${guardBar}`)
   if (shift > 0) problems.push(`${at} layout shift ${shift}`)
   if (longs.length) problems.push(`${at} ${longs.length} long tasks`)
 }
@@ -380,7 +410,7 @@ for (const [label, viewport] of [
   await wait(900)
   const spin = await page.evaluate(async () => {
     const svg = document.querySelector("[data-activity-spinner]")
-    const surface = document.querySelector("[data-app-slow-page]")
+    const surface = document.querySelector("[data-app-slow-surface]")
     /* Its layout box, not the turned drawing's bounds (28px across at 45 degrees). */
     const box = svg.parentElement.getBoundingClientRect()
     const area = surface.getBoundingClientRect()
@@ -405,8 +435,32 @@ for (const [label, viewport] of [
     }
   })
   if (process.env.STAGE_SHOTS) await page.screenshot({ path: join(process.env.STAGE_SHOTS, "spinner-390.png") })
+  /* THE CORNERS, AS PIXELS. Leaving Home, whose top is the violet bar, the
+     two rounded corners of the surface must show the header's #111111, not
+     the page under them. Read 3px in from each side, 3px below the header. */
+  const corners = await (async () => {
+    const png = await page.screenshot({ clip: { x: 0, y: 68, width: 390, height: 12 }, encoding: "base64" })
+    return page.evaluate(async (b64) => {
+      const img = new Image()
+      img.src = `data:image/png;base64,${b64}`
+      await img.decode()
+      const c = document.createElement("canvas")
+      c.width = img.width
+      c.height = img.height
+      const g = c.getContext("2d")
+      g.drawImage(img, 0, 0)
+      const at = (x, y) => Array.from(g.getImageData(x, y, 1, 1).data.slice(0, 3))
+      /* deviceScaleFactor 3: 3 css px in is 9 device px. */
+      return { left: at(9, 9), right: at(c.width - 10, 9), middle: at(Math.round(c.width / 2), 9), violetOnPage: !!document.querySelector("[data-violet-bar]") }
+    }, png)
+  })()
   await page.close()
   report.spinner = spin
+  report.corners = corners
+  const isHeader = (p) => p.every((v, k) => Math.abs(v - [17, 17, 17][k]) <= 3)
+  if (!corners.violetOnPage) problems.push("the corner check ran with no violet bar on the page under the surface: it proves nothing")
+  if (!isHeader(corners.left) || !isHeader(corners.right)) problems.push(`the surface's corners show ${JSON.stringify([corners.left, corners.right])}, not the header's #111111: the page under them shows through`)
+  if (isHeader(corners.middle)) problems.push(`the surface's top middle is the header colour ${JSON.stringify(corners.middle)}: the surface is not there`)
   if (spin.spokes !== 8) problems.push(`the spinner has ${spin.spokes} spokes, not 8`)
   if (spin.colour !== "rgb(156, 163, 175)") problems.push(`the spinner is ${spin.colour}, not the light gray #9ca3af`)
   if (spin.size[0] !== 20 || spin.size[1] !== 20) problems.push(`the spinner is ${spin.size.join("x")}, not 20x20`)
