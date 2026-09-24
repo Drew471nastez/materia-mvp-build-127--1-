@@ -40,7 +40,13 @@ const loaded: LoadedProduct = {
     thumbnail_url: pic(260),
     gallery_urls: [pic(260), pic(20), pic(160)],
     whats_included: ["40 presets", "Before and after files", "Lifetime updates"],
-    faqs: [{ question: "Which apps?", answer: "Lightroom Classic, Lightroom and Capture One." }],
+    /* Four questions, so the probe can hold one and move it past the others. */
+    faqs: [
+      { question: "Which apps?", answer: "Lightroom Classic, Lightroom and Capture One." },
+      { question: "Do they work on RAW files?", answer: "Yes, and on JPEGs." },
+      { question: "Can I use them for clients?", answer: "Yes, on any paid work." },
+      { question: "How do I install them?", answer: "Unzip and import the folder." },
+    ],
   },
   assets: [
     { id: "a1", file_name: "portrait-presets-lightroom.zip", file_path: "c1/p/a1.zip", file_size: 48_000_000, mime_type: "application/zip" },
