@@ -10,6 +10,7 @@ import {
   isPhoneShell,
   markTraversal,
   NAV_BAR_AFTER_MS,
+  routerStartCount,
   spinnerDelay,
   takeTraversal,
   useAppNavigation,
@@ -49,11 +50,24 @@ export function NavigationLoadingBar() {
 
   /* Where a navigation starts: a link click, a push that says so, back and forward. */
   useEffect(() => {
+    /* The router's count of navigations as the click begins, before any of
+       the page's handlers (the window's capture phase comes first). */
+    let startsAtClick: number | null = null
+    const onClickStart = () => { startsAtClick = routerStartCount() }
     const onClick = (e: MouseEvent) => {
       if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
       const anchor = (e.target as HTMLElement | null)?.closest?.("a[href]") as HTMLAnchorElement | null
       if (!anchor || anchor.hasAttribute("download")) return
       if (anchor.target && anchor.target !== "_self") return
+      /* A link the page handled itself: its default prevented and the router
+         started nothing (lib/ui/router-starts.ts). Explore in the native
+         app, a row that opens a sheet. Nothing is on its way, so nothing
+         begins. A Link prevents its default too, but the router has counted
+         it by now. */
+      if (e.defaultPrevented) {
+        const now = routerStartCount()
+        if (now !== null && now === startsAtClick) return
+      }
       try {
         const url = new URL(anchor.href)
         if (url.origin !== window.location.origin) return
@@ -87,10 +101,12 @@ export function NavigationLoadingBar() {
       markTraversal()
       beginAppNavigation(window.location.pathname + window.location.search)
     }
+    window.addEventListener("click", onClickStart, true)
     document.addEventListener("click", onClick)
     window.addEventListener("nav-loading-start", onProgrammatic)
     window.addEventListener("popstate", onPop)
     return () => {
+      window.removeEventListener("click", onClickStart, true)
       document.removeEventListener("click", onClick)
       window.removeEventListener("nav-loading-start", onProgrammatic)
       window.removeEventListener("popstate", onPop)

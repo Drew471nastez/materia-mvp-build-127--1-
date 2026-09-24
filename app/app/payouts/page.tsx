@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Sparkles } from "lucide-react";
@@ -7,6 +8,7 @@ import { stripe } from "@/lib/stripe";
 import { PayoutsClient } from "./payouts-client";
 import { AnnouncementBarMobile } from "@/components/app/announcement-bar-mobile";
 import { getMarketExchangeRate } from "@/lib/exchange-rate";
+import { WaitingArea } from "@/components/ui/activity-spinner";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -35,6 +37,65 @@ export default async function PayoutsPage() {
   if (creatorError || !creator) {
     redirect("/onboarding");
   }
+
+  return (
+    <div className="h-full overflow-y-auto page-scroll bg-[#fafafa] app-page-enter">
+      {/* Announcement Bar — fixed above black header on mobile */}
+      <AnnouncementBarMobile>
+        <div className="max-w-[1200px] mx-auto flex items-center justify-center gap-2 md:gap-3 text-center">
+          <span className="text-[12px] md:text-[14px] text-white/90">
+            <span className="font-semibold text-white">Try Pro</span>
+            <span className="hidden md:inline">
+              {" "}
+              — our most popular plan for content creators and businesses.
+            </span>
+          </span>
+          <Link
+            href="/upgrade"
+            className="relative inline-flex items-center gap-1 md:gap-1.5 px-2.5 md:px-3 py-0.5 md:py-1 bg-gradient-to-r from-gray-900 to-black text-white text-[11px] md:text-[13px] font-medium rounded-full transition-all shrink-0 overflow-hidden group"
+          >
+            <span className="absolute inset-0 rounded-full border border-white/30 group-hover:border-white/50 transition-colors" />
+            <Sparkles className="h-3 w-3 md:h-3.5 md:w-3.5 relative z-10" />
+            <span className="relative z-10">Upgrade</span>
+          </Link>
+        </div>
+      </AnnouncementBarMobile>
+
+      <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-[1200px] mx-auto space-y-6">
+        <div>
+          <h1 className="text-[24px] sm:text-[28px] font-bold text-[#1a1a2e]">
+            Payouts
+          </h1>
+          <p className="text-[14px] text-[#6b7280] mt-1">
+            Manage your earnings and withdraw funds to your bank
+          </p>
+        </div>
+
+        {/* The heading and the frame arrive at once; Stripe's answers
+            stream in behind them (PayoutsBody). */}
+        <Suspense fallback={<WaitingArea className="h-[420px]" />}>
+          {/* Called, not written as an element: this project's JSX types do not take
+              an async component, and a promise is a child React waits on. */}
+          {PayoutsBody({ creator })}
+        </Suspense>
+      </div>
+    </div>
+  );
+}
+
+/*
+  STRIPE DOES NOT STAND BETWEEN THE PRESS AND THE PAGE. Everything below
+  waits on Stripe (the balance, the account, the recent transactions, a
+  dashboard link) and on a market rate from outside, which on a slow day is
+  well over a second. It used to be awaited before anything was sent, so a
+  press on Payouts sat on the page you were on, then under the spinner. Now
+  the page's heading and frame are sent as soon as the creator row is read,
+  the navigation lands on them, and this part streams in behind a
+  WaitingArea: nothing for half a second, then the spinner, in the room the
+  figures will take. Every read is the one it was.
+*/
+async function PayoutsBody({ creator }: { creator: any }) {
+  const adminSupabase = createAdminClient();
 
   /*
     FOUR TRIPS, WHERE THERE WERE UP TO ELEVEN. This page asked its questions
@@ -296,56 +357,22 @@ export default async function PayoutsPage() {
   const totalDisputedAmount = disputed.reduce((s, o) => s + (o.amount_cents || 0), 0);
 
   return (
-    <div className="h-full overflow-y-auto page-scroll bg-[#fafafa] app-page-enter">
-      {/* Announcement Bar — fixed above black header on mobile */}
-      <AnnouncementBarMobile>
-        <div className="max-w-[1200px] mx-auto flex items-center justify-center gap-2 md:gap-3 text-center">
-          <span className="text-[12px] md:text-[14px] text-white/90">
-            <span className="font-semibold text-white">Try Pro</span>
-            <span className="hidden md:inline">
-              {" "}
-              — our most popular plan for content creators and businesses.
-            </span>
-          </span>
-          <Link
-            href="/upgrade"
-            className="relative inline-flex items-center gap-1 md:gap-1.5 px-2.5 md:px-3 py-0.5 md:py-1 bg-gradient-to-r from-gray-900 to-black text-white text-[11px] md:text-[13px] font-medium rounded-full transition-all shrink-0 overflow-hidden group"
-          >
-            <span className="absolute inset-0 rounded-full border border-white/30 group-hover:border-white/50 transition-colors" />
-            <Sparkles className="h-3 w-3 md:h-3.5 md:w-3.5 relative z-10" />
-            <span className="relative z-10">Upgrade</span>
-          </Link>
-        </div>
-      </AnnouncementBarMobile>
-
-      <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-[1200px] mx-auto space-y-6">
-        <div>
-          <h1 className="text-[24px] sm:text-[28px] font-bold text-[#1a1a2e]">
-            Payouts
-          </h1>
-          <p className="text-[14px] text-[#6b7280] mt-1">
-            Manage your earnings and withdraw funds to your bank
-          </p>
-        </div>
-
-        <PayoutsClient
-          creator={{ ...creator, default_currency: detectedCurrency }}
-          initialData={{
-            totalEarnings,
-            totalFees,
-            netEarnings,
-            pendingAmount: stripePendingBalance,
-            availableBalance: stripeAvailableBalance,
-            paidOut,
-            exchangeRate: stripeExchangeRate,
-            negativeBalance,
-            activeDisputeCount,
-            totalDisputedAmount,
-            taxData,
-          }}
-          initialOrders={allOrders}
-        />
-      </div>
-    </div>
+    <PayoutsClient
+      creator={{ ...creator, default_currency: detectedCurrency }}
+      initialData={{
+        totalEarnings,
+        totalFees,
+        netEarnings,
+        pendingAmount: stripePendingBalance,
+        availableBalance: stripeAvailableBalance,
+        paidOut,
+        exchangeRate: stripeExchangeRate,
+        negativeBalance,
+        activeDisputeCount,
+        totalDisputedAmount,
+        taxData,
+      }}
+      initialOrders={allOrders}
+    />
   );
 }

@@ -34,6 +34,7 @@ import {
   NAV_SPINNER_AFTER_MS,
   NAV_PHONE_SPINNER_AFTER_MS,
   NAV_SPINNER_FADE_MS,
+  NAV_SPINNER_CAP_MS,
   APP_PAGE_KEPT_MS,
   isCommittedAddress,
   isCurrentAddress,
@@ -156,12 +157,35 @@ section("A slow page: no outline, a spinner")
     /<ActivitySpinner \/>/.test(stage) && !/RouteSkeleton|data-app-route-skeleton/.test(stage)
       && /const delay = nav \? spinnerDelay\(nav\.href\) : null/.test(stage)
       && /el\.animate\(\[\{ opacity: 0 \}, \{ opacity: 1 \}\], \{ duration: NAV_SPINNER_FADE_MS/.test(stage))
-  check("it fades out from where it got to, and lets go of presses the moment the page lands",
-    /const from = Number\(getComputedStyle\(el\)\.opacity\)/.test(stage) && /el\.style\.pointerEvents = "none"\s*const out = fadeTo\(el, 0, NAV_ENTER_MS, NAV_ENTER_EASE\)/.test(stage))
+  check("it fades out from where it got to, and a fade that never finishes still leaves",
+    /const from = Number\(getComputedStyle\(el\)\.opacity\)/.test(stage) && /const out = fadeTo\(el, 0, NAV_ENTER_MS, NAV_ENTER_EASE\)/.test(stage)
+      && /out\.onfinish = done\s*window\.setTimeout\(done, NAV_ENTER_MS \+ 120\)/.test(stage) && /leaves\.current === id/.test(stage))
+  /* "Make sure it never blocks, fully." scripts/check-app-stage.mjs presses
+     through it, lets a navigation hang past the cap, and ends navigations
+     every way the router can: a query, a redirect, a redirect back to the
+     page showing, a page that throws, the not-found page, the page showing
+     throwing. Gone within 205ms of each, at both widths. */
+  check("it never takes a press: the header, the pill, the rail and the page under it all answer",
+    /data-app-slow-page=""\s*className="pointer-events-none fixed/.test(stage) && !/el\.style\.pointerEvents/.test(stage))
+  check("it gives way 8 seconds after the press whether the page came or not, and says so",
+    NAV_SPINNER_CAP_MS === 8000 && /capped\.current = nav\s*console\.warn\(/.test(stage)
+      && /NAV_SPINNER_CAP_MS - \(performance\.now\(\) - nav\.startedAt\)/.test(stage) && /if \(nav && delay != null && capped\.current !== nav\)/.test(stage))
+  check("a commit at the address already showing ends the navigation (a redirect back to it)",
+    /useEffect\(\(\) => \{ watchRouterCommits\(\) \}, \[\]\)/.test(stage)
+      && /\(data as \{ __NA\?: unknown \}\)\.__NA/.test(code("lib/ui/app-navigation.ts"))
+      && /if \(current === nav && isCommittedAddress\(window\.location\.pathname, window\.location\.search\)\) endAppNavigation\(\)/.test(code("lib/ui/app-navigation.ts")))
+  check("the error boundary and the not-found page end it too",
+    /export function PageLanded\(\) \{\s*useLayoutEffect\(\(\) => \{ endAppNavigation\(\) \}, \[\]\)/.test(stage)
+      && /<PageLanded \/>/.test(code("app/app/error.tsx")) && /<PageLanded \/>/.test(code("app/app/not-found.tsx")))
+  const barCode = code("components/app/navigation-loading-bar.tsx")
+  check("a link the page handles itself (its default prevented, the router started nothing) starts no record",
+    /window\.addEventListener\("click", onClickStart, true\)/.test(barCode)
+      && /if \(e\.defaultPrevented\) \{\s*const now = routerStartCount\(\)\s*if \(now !== null && now === startsAtClick\) return\s*\}/.test(barCode)
+      && /export function onRouterTransitionStart\(\) \{\s*noteRouterStart\(\)/.test(code("instrumentation-client.ts")))
   check("under it the page only rises: its fade out is the page's fade in, not a second fade multiplied by it",
     /playEntrance\(s\.outer, \{ fade: !slowSurfaceIsUp\(\) \}\)/.test(stage) && /if \(!rise && !fade\) continue/.test(stage))
   check("it covers the content area by main's own numbers: under the header and the pill, rounded on a phone",
-    /fixed inset-x-0 bottom-0 top-\[calc\(68px\+env\(safe-area-inset-top,0px\)\)\] z-\[38\] bg-\[#111111\] md:left-\[240px\] md:top-\[calc\(58px\+env\(safe-area-inset-top,0px\)\)\] md:bg-transparent/.test(stage)
+    /pointer-events-none fixed inset-x-0 bottom-0 top-\[calc\(68px\+env\(safe-area-inset-top,0px\)\)\] z-\[38\] bg-\[#111111\] md:left-\[240px\] md:top-\[calc\(58px\+env\(safe-area-inset-top,0px\)\)\] md:bg-transparent/.test(stage)
       && /data-app-slow-surface="" className="flex h-full items-center justify-center overflow-hidden rounded-t-\[20px\] bg-\[#f8f9fa\] md:rounded-none"/.test(stage)
       && /pt-\[calc\(68px_\+_env\(safe-area-inset-top,_0px\)\)\] md:pt-\[calc\(58px\+env\(safe-area-inset-top,_0px\)\)\] md:pl-\[240px\]/.test(read("app/app/layout.tsx")))
   /* Regression: "the purple things in the corners". The rounded surface was
@@ -169,7 +193,7 @@ section("A slow page: no outline, a spinner")
      top is the violet announcement bar. scripts/check-app-stage.mjs reads the
      corner pixels: [139,92,246] before, the header's [17,17,17] now. */
   check("its rounded corners are backed by the header's #111111, never by the page under them",
-    /data-app-slow-page=""\s*className="fixed[^"]*bg-\[#111111\]/.test(stage) && !/data-app-slow-page=""\s*className="[^"]*rounded-t-/.test(stage))
+    /data-app-slow-page=""\s*className="pointer-events-none fixed[^"]*bg-\[#111111\]/.test(stage) && !/data-app-slow-page=""\s*className="[^"]*rounded-t-/.test(stage))
   const bar = code("components/app/navigation-loading-bar.tsx")
   check("a phone shows the spinner in place of the bar, keeps the bar where there is no spinner, and drops a bar still finishing",
     /if \(isPhoneShell\(\) && spinnerDelay\(nav\.href, true\) !== null\) \{\s*setShown\(false\)\s*return\s*\}/.test(bar))
@@ -177,14 +201,20 @@ section("A slow page: no outline, a spinner")
     SPINNER_WAIT_MS === NAV_PHONE_SPINNER_AFTER_MS)
   const spinner = code("components/ui/activity-spinner.tsx")
   const css = read("app/globals.css")
-  check("the spinner is the iOS one: eight tapered spokes, light gray, stepped opacity, turned in eighths",
+  /* "Bigger, just a little bit, more smooth, clean, only smooth." It turned
+     in eighths (steps(8)), which on a phone read as a judder. The probe reads
+     120 frames: 6.01 degrees each at 60Hz, none repeated, none jumping. */
+  check("the spinner is the iOS one, a little bigger: eight tapered spokes, light gray, stepped shading, 26px",
     /const SPOKES = 8/.test(spinner) && /text-\[#9ca3af\]/.test(spinner) && /fill="currentColor"/.test(spinner)
       && /opacity=\{\(1 - \(\(SPOKES - i\) % SPOKES\)/.test(spinner) && /role="status"/.test(spinner)
-      && /\.activity-spinner \{\s*display: block;\s*animation: activity-spin 800ms steps\(8\) infinite;/.test(css))
-  check("it turns on transform alone, keeps that transform inside a .group on a touch screen, and slows rather than stops for reduced motion",
+      && /export const SPINNER_SIZE = 26/.test(spinner) && /size = SPINNER_SIZE/.test(spinner) && /viewBox="0 0 20 20"/.test(spinner))
+  check("it turns continuously, one turn a second on a linear curve, never in steps",
+    /\.activity-spinner \{\s*display: block;\s*animation: activity-spin 1000ms linear infinite;\s*will-change: transform;/.test(css)
+      && !/animation: activity-spin[^;]*steps\(/.test(css))
+  check("on an HTML box around the drawing, transform alone, kept inside a .group on a touch screen, and slower rather than stopped for reduced motion",
     /@keyframes activity-spin \{\s*from \{ transform: rotate\(0deg\) \}\s*to \{ transform: rotate\(360deg\) \}\s*\}/.test(css)
-      && /data-keep-transform=""/.test(spinner)
-      && /@media \(prefers-reduced-motion: reduce\) \{[\s\S]{0,160}\.activity-spinner \{\s*animation-duration: 2400ms;/.test(css))
+      && /<span\s+data-activity-spinner=""[\s\S]{0,300}data-keep-transform=""\s*className="activity-spinner"/.test(spinner)
+      && /@media \(prefers-reduced-motion: reduce\) \{[\s\S]{0,160}\.activity-spinner \{\s*animation-duration: 3000ms;/.test(css))
   check("the outline's leftover rule is gone from the stylesheet", !/data-app-route-skeleton/.test(css))
 }
 
@@ -205,7 +235,19 @@ section("No page draws a picture of itself while it loads, inside or out")
   check("Analytics' cards wait with the spinner, in the room their figures take", /<WaitingArea className=\{lines \? "h-\[144px\]" : "h-\[100px\]"\} \/>/.test(code("app/app/analytics/analytics-reports.tsx")) && !/animate-pulse/.test(code("app/app/analytics/analytics-reports.tsx")))
   const payouts = code("app/app/payouts/payouts-client.tsx")
   check("Payouts' chart, timeline and payout list wait with the spinner, not rows of grey",
-    (payouts.match(/<WaitingArea /g) ?? []).length === 3 && !/\[1, 2, 3\]\.map/.test(payouts))
+    (payouts.match(/<WaitingArea className="h-[^"]*" \/>/g) ?? []).length === 3 && !/\[1, 2, 3\]\.map/.test(payouts))
+  /* The grey bars that stood in for a figure, a bank name or a list of
+     holds while the browser asked Stripe: each is its own room now, empty
+     for half a second and then a small spinner. */
+  check("and so do its figures, its bank line and its holds: no grey bar pulses anywhere in Payouts or Settings",
+    !/animate-pulse/.test(payouts) && (payouts.match(/<WaitingArea className="[^"]*justify-(start|end)" size=\{1[68]\} \/>/g) ?? []).length === 6
+      && !/animate-pulse/.test(code("components/app/settings-form-new.tsx")) && /<WaitingArea className="mb-3 h-5 w-48 justify-start" size=\{16\} \/>/.test(code("components/app/settings-form-new.tsx")))
+  const payoutsPage = code("app/app/payouts/page.tsx")
+  check("Payouts' heading lands on the press; Stripe streams in behind it, in a waiting room rather than an outline",
+    /<Suspense fallback=\{<WaitingArea className="h-\[420px\]" \/>\}>\s*(\{\}\s*)?\{PayoutsBody\(\{ creator \}\)\}\s*<\/Suspense>/.test(payoutsPage)
+      && /async function PayoutsBody\(/.test(payoutsPage)
+      && !/stripe\./.test(payoutsPage.slice(payoutsPage.indexOf("export default async function PayoutsPage"), payoutsPage.indexOf("async function PayoutsBody")))
+      && /stripe\.balance\.retrieve/.test(payoutsPage.slice(payoutsPage.indexOf("async function PayoutsBody"))))
   check("Emails' table waits with the spinner", /function Loading\(\) \{\s*return <WaitingArea className="h-\[288px\]" \/>/.test(code("app/app/emails/emails-home.tsx")))
   check("the coupon pages draw nothing under the gate rather than an outline",
     !existsSync(join(root, "app/app/coupons/skeleton.tsx")) && !existsSync(join(root, "app/app/coupons/new/skeleton.tsx"))
@@ -235,6 +277,10 @@ section("The press answers on the press")
   check("the pill fetches the page under the finger on the pointerdown, and warms its four again after the router's keep time",
     /onPress\?\.\(slotAt\(e\.clientX\)\)/.test(mobile) && /if \(item && index !== current\) onPrefetch\?\.\(item\.href\)/.test(mobile)
       && /document\.visibilityState === "visible" && Date\.now\(\) - warmedAt > APP_PAGE_KEPT_MS/.test(mobile))
+  const sidebarCode = code("components/app/sidebar.tsx")
+  check("the desktop account menu fetches Settings and Billing whole under the pointer, like the rail",
+    /const warmAccountPage = \(href: string\) => \{\s*if \(href\.startsWith\("\/app\/"\)\) prefetchAppPage\(router, href\)/.test(sidebarCode)
+      && (sidebarCode.match(/onMouseEnter=\{\(\) => warmAccountPage\(item\.href\)\}/g) ?? []).length === 2)
   const config = read("next.config.mjs")
   const stale = /staleTimes:\s*\{\s*dynamic:\s*(\d+)/.exec(config)
   check("and that keep time is next.config's staleTimes, one number in two places held equal",

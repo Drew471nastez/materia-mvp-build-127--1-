@@ -10,6 +10,7 @@
  */
 
 import { ErrorScreen } from "@/components/platform/error-screen"
+import { PageLanded } from "@/components/app/app-stage"
 
 export default function AppError({
   error,
@@ -18,5 +19,12 @@ export default function AppError({
   error: Error & { digest?: string }
   reset: () => void
 }) {
-  return <ErrorScreen error={error} reset={reset} home="/app" homeLabel="Back to dashboard" />
+  /* A page that threw is still where the navigation ended: the slow page's
+     spinner goes (components/app/app-stage.tsx PageLanded). */
+  return (
+    <>
+      <PageLanded />
+      <ErrorScreen error={error} reset={reset} home="/app" homeLabel="Back to dashboard" />
+    </>
+  )
 }

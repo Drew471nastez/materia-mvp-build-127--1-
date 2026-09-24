@@ -39,6 +39,25 @@
  *   THE PRODUCT EDITOR                    no spinner at any width
  *   NO LONG TASK, NO LAYOUT SHIFT
  *
+ * "Make sure it never blocks, fully":
+ *
+ *   PRESSES GO THROUGH IT                 the surface takes none: the point
+ *                                         under its middle is the page, a
+ *                                         tap there reaches the page, the
+ *                                         header's links stay on top, and a
+ *                                         second tab replaces the navigation
+ *   IT GIVES WAY                          a navigation that never answers
+ *                                         loses the surface at 8s, logged
+ *   IT NEVER OUTSTAYS THE PAGE            gone within a fade of: a new query
+ *                                         on the same page, a redirect, a
+ *                                         redirect back to the page showing,
+ *                                         a page that throws, the not-found
+ *                                         page, the page showing throwing
+ *   A LINK THE PAGE HANDLES ITSELF        starts nothing: no bar, no spinner
+ *
+ * And the spinner itself: 26px, turning continuously (no frame repeated,
+ * none jumping), slower but still turning under reduced motion.
+ *
  * The real NavigationLoadingBar and AppStage, over a shell shaped like
  * app/app/layout.tsx (scripts/render-app-stage.tsx), served over http so the
  * history is the browser's own.
@@ -75,10 +94,13 @@ export const useParams = () => ({})
 export const redirect = () => {}
 export const notFound = () => {}
 `)
+writeFileSync(join(dir, "link.js"), `import { createElement } from "react"
+export default function Link({ href, prefetch, replace, scroll, ...rest }) { return createElement("a", { href, ...rest }) }
+`)
 try {
   execFileSync("npx", ["--no-install", "esbuild", join(root, "scripts/render-app-stage.tsx"),
     "--bundle", "--format=iife", "--platform=browser", "--jsx=automatic", "--log-level=error", `--outfile=${join(dir, "probe.js")}`,
-    '--define:process.env.NODE_ENV="production"', `--alias:next/navigation=${join(dir, "navigation.js")}`,
+    '--define:process.env.NODE_ENV="production"', `--alias:next/navigation=${join(dir, "navigation.js")}`, `--alias:next/link=${join(dir, "link.js")}`,
     `--alias:@=${root}`, "--loader:.css=empty", "--loader:.svg=dataurl"],
     { stdio: ["ignore", "ignore", "inherit"] })
 } catch { rmSync(dir, { recursive: true, force: true }); fail("the probe did not bundle") }
@@ -105,7 +127,9 @@ for (const [label, viewport] of [
   const page = await browser.newPage()
   await page.setViewport(viewport)
   const errors = []
+  const warnings = []
   page.on("pageerror", (e) => errors.push(String(e)))
+  page.on("console", (m) => { if (m.type() === "warn" || m.type() === "warning") warnings.push(m.text()) })
   await page.goto(`${base}/app`)
   await wait(400)
   await page.evaluate(() => {
@@ -135,6 +159,9 @@ for (const [label, viewport] of [
         dy: p && s ? Math.round((p.getBoundingClientRect().top - s.getBoundingClientRect().top) * 10) / 10 : null,
         inner: p ? p.scrollTop : null,
         outline: !!outline,
+        search: location.search,
+        path: location.pathname,
+        landedElsewhere: !p && !!document.querySelector(".app-content-scroll > *"),
         slow: slowOpacity > 0.01,
         slowOpacity,
         slowTransform: slow ? getComputedStyle(slow).transform + " " + getComputedStyle(slow).translate : null,
@@ -320,6 +347,118 @@ for (const [label, viewport] of [
   const guardSpinner = guard.rec.filter((r) => r.slow).length
   const guardBar = guard.rec.filter((r) => r.bar).length
 
+  /* ── Never blocks ─────────────────────────────────────────────────────── */
+
+  /** Frames since `t0` until the surface is gone for good, after the moment `endAt` (ms from t0). */
+  const goneAfter = (nav, endAt) => {
+    const after = nav.rec.filter((r) => r.t - nav.t0 >= endAt)
+    const lastUp = [...after].reverse().find((r) => r.slow)
+    return {
+      shownFrames: nav.rec.filter((r) => r.slow).length,
+      upAtEndMs: (() => { const r = nav.rec.find((x) => x.t - nav.t0 >= endAt - 20); return r ? r.slow : null })(),
+      goneMsAfterEnd: lastUp ? Math.round(lastUp.t - nav.t0 - endAt) + 17 : 0,
+      barFramesAfterEnd: after.filter((r) => r.bar && r.t - nav.t0 > endAt + 450).length,
+    }
+  }
+  /* Onto a fresh Orders page (by way of Home, so a page that threw is left
+     behind), with nothing on its way. */
+  const settle = async () => {
+    await page.evaluate(() => { window.__delay = 40 })
+    await page.evaluate(() => document.querySelector('a[data-to="/app"]').click())
+    await wait(400)
+    await page.evaluate(() => document.querySelector('a[data-to="/app/orders"]').click())
+    await wait(600)
+  }
+  const slowAt = phone ? 700 : 1200
+
+  /* M: presses go through it, and a second tab replaces the navigation. */
+  await settle()
+  await page.evaluate(() => { window.__delay = 3000; window.__pagePresses = 0 })
+  let t2 = await now()
+  await page.evaluate(() => document.querySelector('a[data-to="/app/hang"]').click())
+  await wait(slowAt)
+  const through = await page.evaluate(() => {
+    const slow = document.querySelector("[data-app-slow-page]")
+    const surface = document.querySelector("[data-app-slow-surface]").getBoundingClientRect()
+    const hit = document.elementFromPoint(surface.left + surface.width / 2, surface.top + surface.height / 2)
+    const link = document.querySelector('a[data-to="/app/analytics"]').getBoundingClientRect()
+    const linkHit = document.elementFromPoint(link.left + link.width / 2, link.top + link.height / 2)
+    const button = document.querySelector("[data-page-button]").getBoundingClientRect()
+    return {
+      up: !!slow && Number(getComputedStyle(slow).opacity) > 0.99,
+      pointerEvents: slow ? getComputedStyle(slow).pointerEvents : null,
+      surfacePointerEvents: slow ? getComputedStyle(slow.firstElementChild).pointerEvents : null,
+      middleIsThePage: !!hit?.closest("[data-page]"),
+      linkIsTheLink: linkHit?.getAttribute("data-to") === "/app/analytics",
+      button: { x: button.left + button.width / 2, y: button.top + button.height / 2 },
+    }
+  })
+  if (phone) await page.touchscreen.tap(through.button.x, through.button.y)
+  else await page.mouse.click(through.button.x, through.button.y)
+  await wait(60)
+  through.pressReachedThePage = (await page.evaluate(() => window.__pagePresses)) === 1
+  await page.evaluate(() => { window.__delay = 300 })
+  const secondAt = Math.round((await now()) - t2)
+  await page.evaluate(() => document.querySelector('a[data-to="/app/analytics"]').click())
+  await wait(300 + 520)
+  const second = await since(t2); second.t0 = t2; all.push(second)
+  const secondLanded = second.rec[second.rec.length - 1]?.page
+  const secondGone = goneAfter(second, secondAt + 300)
+
+  /* N: every way a navigation can end, each with the surface up first. */
+  const ends = {}
+  for (const [name, href] of [
+    ["sameQuery", "/app/orders?view=open"],
+    ["redirect", "/app/redirect"],
+    ["redirectBack", "/app/same"],
+    ["pageThrew", "/app/boom"],
+    ["notFound", "/app/missing"],
+  ]) {
+    await settle()
+    await page.evaluate(() => { window.__delay = 1600 })
+    const t = await now()
+    await page.evaluate((href) => document.querySelector(`a[data-to="${href}"]`).click(), href)
+    await wait(1600 + 700)
+    const nav = await since(t); nav.t0 = t; all.push(nav)
+    ends[name] = { ...goneAfter(nav, 1600), landedOn: nav.rec[nav.rec.length - 1]?.path + nav.rec[nav.rec.length - 1]?.search }
+  }
+  /* The page showing throws while a navigation that will never answer is on its way. */
+  await settle()
+  await page.evaluate(() => { window.__delay = 1600 })
+  let t3 = await now()
+  await page.evaluate(() => document.querySelector('a[data-to="/app/hang"]').click())
+  await wait(1200)
+  const throwAt = Math.round((await now()) - t3)
+  await page.evaluate(() => window.__throwHere())
+  await wait(900)
+  const threw = await since(t3); threw.t0 = t3; all.push(threw)
+  ends.pageShowingThrew = goneAfter(threw, throwAt)
+
+  /* O: a navigation that never answers: the surface gives way at 8s. */
+  await settle()
+  const warnsBefore = warnings.length
+  t3 = await now()
+  await page.evaluate(() => document.querySelector('a[data-to="/app/hang"]').click())
+  await wait(8800)
+  const hung = await since(t3); hung.t0 = t3; all.push(hung)
+  const capGone = goneAfter(hung, 8000)
+  const firstUp = hung.rec.find((r) => r.slow)
+  const cap = {
+    upAtMs: firstUp ? Math.round(firstUp.t - t3) : null,
+    upAt7900: !!hung.rec.find((r) => r.t - t3 >= 7880)?.slow,
+    goneMsAfter8s: capGone.goneMsAfterEnd,
+    pageUnder: hung.rec[hung.rec.length - 1]?.page,
+    logged: warnings.slice(warnsBefore).some((w) => /has not arrived after 8000ms/.test(w)),
+  }
+
+  /* P: a link the page handles itself starts nothing. */
+  await settle()
+  t3 = await now()
+  await page.evaluate(() => document.querySelector("a[data-handled]").click())
+  await wait(1600)
+  const handled = await since(t3); handled.t0 = t3; all.push(handled)
+  const handledFrames = { bar: handled.rec.filter((r) => r.bar).length, spinner: handled.rec.filter((r) => r.slow).length }
+
   const shift = Math.round(((await page.evaluate(() => window.__shift)) - shiftBefore) * 1000) / 1000
   const longs = all.flatMap((n) => n.long)
   const outlines = all.reduce((n, nav) => n + outlineFrames(nav), 0)
@@ -338,6 +477,10 @@ for (const [label, viewport] of [
     editor: { ms: phone ? 700 : 1600, spinner: editorSpinner, barAtMs: barAt(editor) },
     backToTheShowingPage: { spinnerFrames: returnedSpinner, barFramesAfter400ms: returnedBar },
     backOntoAGuardEntry: { spinnerFrames: guardSpinner, barFrames: guardBar },
+    pressesGoThrough: { ...through, button: undefined, secondTabLandedOn: secondLanded, goneAfterSecondTab: secondGone },
+    endings: ends,
+    cap,
+    handledLink: handledFrames,
     layoutShift: shift,
     longTasks: longs.length,
     errors,
@@ -395,45 +538,95 @@ for (const [label, viewport] of [
   if (r.editor.barAtMs == null || r.editor.barAtMs < 290) problems.push(`${at} opening a slow editor should still show the bar after 300ms (at ${r.editor.barAtMs})`)
   if (returnedSpinner || returnedBar) problems.push(`${at} pressing the showing page while another was on its way left the spinner for ${returnedSpinner} frames and the bar for ${returnedBar}`)
   if (guardSpinner || guardBar) problems.push(`${at} Back onto a guard entry at the same address drew the spinner for ${guardSpinner} frames and the bar for ${guardBar}`)
+  if (!through.up) problems.push(`${at} the surface was not up for the press-through check`)
+  if (through.pointerEvents !== "none") problems.push(`${at} the surface takes presses (pointer-events ${through.pointerEvents})`)
+  if (!through.middleIsThePage) problems.push(`${at} the point under the surface's middle is not the page`)
+  if (!through.linkIsTheLink) problems.push(`${at} the header's link is not what is under the finger while the surface is up`)
+  if (!through.pressReachedThePage) problems.push(`${at} a tap on the surface did not reach the page under it`)
+  if (secondLanded !== "analytics") problems.push(`${at} a second tab while the surface was up landed on ${secondLanded}`)
+  if (secondGone.goneMsAfterEnd > 260) problems.push(`${at} after the second tab's page came the surface stayed ${secondGone.goneMsAfterEnd}ms`)
+  for (const [name, e] of Object.entries(ends)) {
+    if (!e.shownFrames) problems.push(`${at} ${name}: the surface never came up, so its going proves nothing`)
+    if (e.goneMsAfterEnd > 260) problems.push(`${at} ${name}: the surface stayed ${e.goneMsAfterEnd}ms after the navigation ended`)
+    if (e.barFramesAfterEnd) problems.push(`${at} ${name}: the bar stayed ${e.barFramesAfterEnd} frames after the navigation ended`)
+  }
+  if (ends.sameQuery && ends.sameQuery.landedOn !== "/app/orders?view=open") problems.push(`${at} the query change landed on ${ends.sameQuery.landedOn}`)
+  if (ends.redirect && ends.redirect.landedOn !== "/app/analytics") problems.push(`${at} the redirect landed on ${ends.redirect.landedOn}`)
+  if (!cap.upAt7900) problems.push(`${at} a navigation that never answered lost its spinner before 8s`)
+  if (cap.goneMsAfter8s > 260) problems.push(`${at} the surface stayed ${cap.goneMsAfter8s}ms past the 8s cap`)
+  if (!cap.logged) problems.push(`${at} the cap did not log`)
+  if (handledFrames.bar || handledFrames.spinner) problems.push(`${at} a link the page handled itself drew the bar for ${handledFrames.bar} frames and the spinner for ${handledFrames.spinner}`)
   if (shift > 0) problems.push(`${at} layout shift ${shift}`)
   if (longs.length) problems.push(`${at} ${longs.length} long tasks`)
 }
 
-/* The spinner itself: eight spokes, light gray, turned in eighths every 100ms. */
+/* The spinner itself: eight spokes, light gray, 26px, turning continuously. */
 {
   const page = await browser.newPage()
   await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 3, isMobile: true, hasTouch: true })
   await page.goto(`${base}/app`)
   await wait(300)
-  await page.evaluate(() => { window.__delay = 2400 })
+  await page.evaluate(() => { window.__delay = 4000 })
   await page.evaluate(() => document.querySelector('a[data-to="/app/orders"]').click())
   await wait(900)
-  const spin = await page.evaluate(async () => {
-    const svg = document.querySelector("[data-activity-spinner]")
-    const surface = document.querySelector("[data-app-slow-surface]")
-    /* Its layout box, not the turned drawing's bounds (28px across at 45 degrees). */
-    const box = svg.parentElement.getBoundingClientRect()
-    const area = surface.getBoundingClientRect()
+  /* Every frame for two seconds: the angle, and how far it moved since the last. */
+  const readTurn = () => page.evaluate(async () => {
+    const box = document.querySelector("[data-activity-spinner]")
     const angles = []
-    for (let i = 0; i < 24; i++) {
+    let last = performance.now()
+    const gaps = []
+    for (let i = 0; i < 120; i++) {
       await new Promise((r) => requestAnimationFrame(r))
-      const m = new DOMMatrix(getComputedStyle(svg).transform)
-      angles.push(Math.round(((Math.atan2(m.b, m.a) * 180) / Math.PI + 360) % 360))
+      const t = performance.now()
+      gaps.push(t - last)
+      last = t
+      const m = new DOMMatrix(getComputedStyle(box).transform)
+      angles.push(((Math.atan2(m.b, m.a) * 180) / Math.PI + 360) % 360)
     }
+    return { angles, gaps }
+  })
+  const turn = await readTurn()
+  const deltas = turn.angles.slice(1).map((a, k) => (a - turn.angles[k] + 360) % 360)
+  const sorted = [...deltas].sort((x, y) => x - y)
+  const median = sorted[Math.floor(sorted.length / 2)]
+  const frameMs = [...turn.gaps.slice(1)].sort((x, y) => x - y)[Math.floor(turn.gaps.length / 2)]
+  const smooth = {
+    frames: turn.angles.length,
+    medianFrameMs: Math.round(frameMs * 10) / 10,
+    medianStepDeg: Math.round(median * 100) / 100,
+    maxStepDeg: Math.round(sorted[sorted.length - 1] * 100) / 100,
+    degPerSecond: Math.round((median / frameMs) * 1000),
+    repeatedFrames: deltas.filter((d) => d < 0.01).length,
+    /* A step more than twice what one frame of this frame rate should turn:
+       the drawing jumped. Frames the browser itself dropped are counted apart. */
+    jumps: deltas.filter((d, k) => d > 2 * (360 / 1000) * Math.max(frameMs, 1) && turn.gaps[k + 1] < 1.5 * frameMs).length,
+    droppedFrames: turn.gaps.slice(1).filter((g) => g > 1.5 * frameMs).length,
+  }
+  const spin = await page.evaluate(async () => {
+    const box = document.querySelector("[data-activity-spinner]")
+    const svg = box.querySelector("svg")
+    const surface = document.querySelector("[data-app-slow-surface]")
+    const r = box.getBoundingClientRect()
+    /* Its layout box, not the turned drawing's bounds. */
+    const size = [box.offsetWidth, box.offsetHeight]
+    const area = surface.getBoundingClientRect()
     return {
       spokes: svg.querySelectorAll("rect").length,
-      opacities: [...svg.querySelectorAll("rect")].map((r) => Number(r.getAttribute("opacity"))),
+      opacities: [...svg.querySelectorAll("rect")].map((x) => Number(x.getAttribute("opacity"))),
       colour: getComputedStyle(svg).color,
-      size: [Math.round(box.width), Math.round(box.height)],
+      size,
+      drawn: [svg.width.baseVal.value, svg.height.baseVal.value],
       centredIn: {
-        dx: Math.round(box.left + box.width / 2 - (area.left + area.width / 2)),
-        dy: Math.round(box.top + box.height / 2 - (area.top + area.height / 2)),
+        dx: Math.round(r.left + r.width / 2 - (area.left + area.width / 2)),
+        dy: Math.round(r.top + r.height / 2 - (area.top + area.height / 2)),
       },
       surface: { top: Math.round(area.top), background: getComputedStyle(surface).backgroundColor, radius: getComputedStyle(surface).borderTopLeftRadius },
-      animation: getComputedStyle(svg).animationName + " " + getComputedStyle(svg).animationDuration + " " + getComputedStyle(svg).animationTimingFunction,
-      distinctAngles: [...new Set(angles)].sort((a, b) => a - b),
+      animation: getComputedStyle(box).animationName + " " + getComputedStyle(box).animationDuration + " " + getComputedStyle(box).animationTimingFunction,
+      willChange: getComputedStyle(box).willChange,
+      tag: box.tagName,
     }
   })
+  spin.smooth = smooth
   if (process.env.STAGE_SHOTS) await page.screenshot({ path: join(process.env.STAGE_SHOTS, "spinner-390.png") })
   /* THE CORNERS, AS PIXELS. Leaving Home, whose top is the violet bar, the
      two rounded corners of the surface must show the header's #111111, not
@@ -454,6 +647,16 @@ for (const [label, viewport] of [
       return { left: at(9, 9), right: at(c.width - 10, 9), middle: at(Math.round(c.width / 2), 9), violetOnPage: !!document.querySelector("[data-violet-bar]") }
     }, png)
   })()
+  /* Reduced motion: slower, still turning. */
+  await page.emulateMediaFeatures([{ name: "prefers-reduced-motion", value: "reduce" }])
+  spin.reduced = await page.evaluate(async () => {
+    const box = document.querySelector("[data-activity-spinner]")
+    const angle = () => { const m = new DOMMatrix(getComputedStyle(box).transform); return ((Math.atan2(m.b, m.a) * 180) / Math.PI + 360) % 360 }
+    const a = angle()
+    await new Promise((r) => setTimeout(r, 250))
+    const b = angle()
+    return { name: getComputedStyle(box).animationName, duration: getComputedStyle(box).animationDuration, moved: Math.round(((b - a + 360) % 360) * 10) / 10 }
+  })
   await page.close()
   report.spinner = spin
   report.corners = corners
@@ -463,15 +666,19 @@ for (const [label, viewport] of [
   if (isHeader(corners.middle)) problems.push(`the surface's top middle is the header colour ${JSON.stringify(corners.middle)}: the surface is not there`)
   if (spin.spokes !== 8) problems.push(`the spinner has ${spin.spokes} spokes, not 8`)
   if (spin.colour !== "rgb(156, 163, 175)") problems.push(`the spinner is ${spin.colour}, not the light gray #9ca3af`)
-  if (spin.size[0] !== 20 || spin.size[1] !== 20) problems.push(`the spinner is ${spin.size.join("x")}, not 20x20`)
+  if (spin.size[0] !== 26 || spin.size[1] !== 26 || spin.drawn[0] !== 26) problems.push(`the spinner is ${spin.size.join("x")} (drawn ${spin.drawn.join("x")}), not 26x26`)
   if (Math.abs(spin.centredIn.dx) > 1 || Math.abs(spin.centredIn.dy) > 1) problems.push(`the spinner is ${spin.centredIn.dx}, ${spin.centredIn.dy} off the content area's centre`)
   if (spin.surface.top !== 68 || spin.surface.background !== "rgb(248, 249, 250)" || spin.surface.radius !== "20px") problems.push(`the surface is not the content area: ${JSON.stringify(spin.surface)}`)
-  if (!/activity-spin 0\.8s steps\(8/.test(spin.animation)) problems.push(`the spinner turns on ${spin.animation}, not 800ms in eighths`)
-  if (spin.distinctAngles.some((a) => a % 45 !== 0)) problems.push(`the spinner was caught between eighths: ${spin.distinctAngles.join(", ")}`)
+  if (!/^activity-spin 1s linear$/.test(spin.animation)) problems.push(`the spinner turns on ${spin.animation}, not one turn a second, linear`)
+  if (spin.tag !== "SPAN" || spin.willChange !== "transform") problems.push(`the turn is on a ${spin.tag} with will-change ${spin.willChange}, not an HTML box on its own layer`)
+  if (smooth.repeatedFrames > 2) problems.push(`the spinner held still for ${smooth.repeatedFrames} of ${smooth.frames} frames`)
+  if (smooth.jumps > 2) problems.push(`the spinner jumped ${smooth.jumps} times in ${smooth.frames} frames`)
+  if (Math.abs(smooth.degPerSecond - 360) > 40) problems.push(`the spinner turns ${smooth.degPerSecond} degrees a second, not 360`)
+  if (spin.reduced.duration !== "3s" || spin.reduced.name !== "activity-spin" || spin.reduced.moved < 20) problems.push(`under reduced motion the spinner is ${JSON.stringify(spin.reduced)}: it should turn at a third of the speed, never stop`)
 }
 
 await browser.close()
 server.close()
 console.log(JSON.stringify(report, null, 1))
 if (problems.length) fail(problems.join("\n"))
-console.log("ok: no outline anywhere; a phone waits 500ms and a computer a second before the spinner; one fade in, one fade out; back keeps its place")
+console.log("ok: no outline anywhere; a phone waits 500ms and a computer a second before the spinner; one fade in, one fade out; back keeps its place; presses go through it, it gives way at 8s and never outstays the page; the spinner is 26px and turns without a repeated or jumping frame")
