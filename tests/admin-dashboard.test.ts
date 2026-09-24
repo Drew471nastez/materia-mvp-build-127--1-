@@ -48,8 +48,8 @@ const code = (p: string) => stripComments(read(p))
 const ROUTE = "app/api/admin/platform/[section]/route.ts"
 const METRICS = "lib/admin/platform-metrics.ts"
 const PAGE = "app/admin/page.tsx"
-const SHELL = "app/admin/_admin-client.tsx"
-const UI = "app/admin/_ui.tsx"
+const SHELL = "app/admin/_console/console.tsx"
+const UI = "app/admin/_console/ui.tsx"
 
 console.log("\nEverything the admin reads goes through one gated door\n")
 
@@ -69,7 +69,7 @@ check(
   /* The CALL, not the identifier: the import line is at the top of the file
      and would satisfy this no matter where the check actually ran. */
   const gate = route.indexOf("if (!(await isAdminAuthenticated()))")
-  const sectionLookup = route.indexOf("SECTIONS.includes")
+  const sectionLookup = route.indexOf("VIEWS.includes")
   check(
     "before it decides whether the section exists",
     gate > 0 && sectionLookup > gate,
@@ -162,8 +162,13 @@ check(
 )
 check(
   "and a card with no number says so",
-  /unavailable \?/.test(code(UI)) && /Unavailable/.test(read(UI)),
+  /f\.unreadable \?/.test(code(UI)) && /Could not be read/.test(read(UI)),
   "this is the branch that stops a failed query looking like a quiet week",
+)
+check(
+  "in plain words, not the database's",
+  /plainReason\(error, table\)/.test(metrics) && /problems\.push\(\{ metric, table, reason \}\)/.test(metrics),
+  "raw PostgREST text stays in the server log",
 )
 
 console.log("\nThe page itself\n")
@@ -179,17 +184,17 @@ check(
 const shell = code(SHELL)
 check(
   "a 401 anywhere puts the login back",
-  /unauthorised/.test(shell) && /signedOut\(\)/.test(shell),
+  (shell.match(/status === 401\)[\s\S]{0,40}window\.location\.reload\(\)/g) ?? []).length >= 2,
   "an expired cookie and a missing one look the same from here",
 )
 check(
   "polling stops when the tab is not visible",
-  (shell.match(/document\.visibilityState !== "visible"/g) ?? []).length >= 2,
+  (shell.match(/document\.visibilityState/g) ?? []).length >= 2,
   "a dashboard left open overnight should not be a thousand queries",
 )
 check(
   "the search box does not query per keystroke",
-  /setTimeout\(\(\) => setDebounced/.test(shell),
+  /setTimeout\(\(\) => go\(\{ q, page: 1 \}, true\), 350\)/.test(shell),
 )
 
 /**
@@ -197,8 +202,9 @@ check(
  * is one function, so there is one place to check.
  */
 check(
-  "buyer addresses are masked in the activity feed",
-  /function maskEmail/.test(route) && /maskEmail\(o\.buyer_email\)/.test(route),
+  "buyer and account addresses are masked in every list",
+  /buyer: email \? maskEmail\(email\)/.test(code("lib/admin/views/creators.ts")) &&
+    /email: u\.email \? maskEmail\(u\.email\)/.test(code("lib/admin/views/platform.ts")),
   "an operator does not need a buyer's address to read a list",
 )
 

@@ -121,10 +121,14 @@ async function resolve(selection: Selection): Promise<string[]> {
 async function describe(ids: string[]): Promise<Target[]> {
   const admin = createAdminClient()
 
-  let { data: creators, error } = await admin.from("creators").select("id, user_id, username, banned_at").in("id", ids)
+  const first = await admin.from("creators").select("id, user_id, username, banned_at").in("id", ids)
+  let creators = first.data as unknown[] | null
+  let error = first.error
   if (error && /banned_at/.test(error.message ?? "")) {
     /* Before RUN_ADMIN_CONSOLE.sql there is no ban column to read; the preview still works. */
-    ;({ data: creators, error } = await admin.from("creators").select("id, user_id, username").in("id", ids))
+    const second = await admin.from("creators").select("id, user_id, username").in("id", ids)
+    creators = second.data as unknown[] | null
+    error = second.error
   }
   if (error) throw new ReadFailed(plainReason(error, "creators"))
 
