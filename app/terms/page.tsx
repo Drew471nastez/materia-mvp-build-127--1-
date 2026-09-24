@@ -239,9 +239,12 @@ export default function TermsOfServicePage() {
                 </p>
                 <Ul items={[
                   "Free Plan: 6% + $0.25 per transaction",
-                  "Growth Plan: 3% + $0.25 per transaction",
-                  "Professional Plan: 1.5% + $0.25 per transaction",
+                  "Pro Plan: 3% + $0.25 per transaction",
                 ]} />
+                <p>
+                  Sellers who subscribed to a plan that is no longer offered keep that plan&apos;s transaction fee
+                  rate for as long as that subscription remains active.
+                </p>
                 <p>
                   Transaction fees are automatically deducted from each sale via Stripe Connect&apos;s application fee
                   mechanism before the remaining amount is deposited into the Seller&apos;s connected Stripe account.

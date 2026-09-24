@@ -1342,7 +1342,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe }: Crea
                       Choose your plan
                     </h1>
                     <p className="text-gray-500 text-xs sm:text-base mt-1.5">
-                      Start free or unlock more. You can upgrade anytime.
+                      Start free and upgrade when you need to.
                     </p>
                   </div>
 
@@ -1352,13 +1352,12 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe }: Crea
                     onboardingCallbacks={{
                       onPlanSelect: (planId) => {
                         if (planId === "free") handleSelectFree()
-                        else handleSelectPaid(planId as "growth" | "pro")
+                        else handleSelectPaid(planId)
                       },
                       loadingPlan: planCheckoutLoading,
                       ctaLabels: {
-                        free: "Start Free",
-                        growth: "Get Growth",
-                        pro: "Get Professional",
+                        free: "Start free",
+                        growth: "Get Pro",
                       },
                     }}
                   />

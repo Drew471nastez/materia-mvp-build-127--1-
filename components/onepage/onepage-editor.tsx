@@ -298,9 +298,9 @@ function ProUpgradeDialog({
         )}
 
         <div className="p-6 text-center">
-          <h2 className="text-lg font-semibold mb-2">Upgrade to Growth?</h2>
+          <h2 className="text-lg font-semibold mb-2">Upgrade to Pro?</h2>
           <p className="text-sm text-muted-foreground leading-relaxed">
-            Some of the customizations you're previewing are exclusive to Storelib paid plans. Let's get you upgraded so you can save them!
+            The verified badge and hiding Storelib branding are part of Pro. Upgrade to save these changes.
           </p>
         </div>
 
@@ -1129,7 +1129,7 @@ function EditorLayout() {
                     <div className="absolute z-30 bottom-full right-0 mb-2 px-2.5 py-1.5 bg-gray-900 text-white text-[11px] leading-tight rounded-lg whitespace-nowrap opacity-0 group-hover/badge:opacity-100 transition-opacity duration-200 pointer-events-none shadow-lg">
                       {userPlan === "growth" || userPlan === "pro"
                         ? "Included in your plan"
-                        : "Upgrade to unlock custom domains"}
+                        : "Custom domains are part of Pro"}
                       <div className="absolute top-full right-3 border-4 border-transparent border-t-gray-900" />
                     </div>
 

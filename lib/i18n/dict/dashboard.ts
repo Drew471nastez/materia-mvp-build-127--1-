@@ -142,7 +142,7 @@ export const dashboardDict: Record<"ro" | "en", Record<string, string>> = {
     // Promo banner
     "dashboard.trackRealtime": "Urmărește ce funcționează în timp real",
     "dashboard.optimizeSales": "Folosește panoul pentru a optimiza și a vinde mai mult.",
-    "dashboard.unlockGrowth": "Planul Growth",
+    "dashboard.unlockGrowth": "Planul Pro",
     "dashboard.growthDesc": "Comision de 3% în loc de 6% și 25 GB de spațiu în loc de 1 GB.",
     "dashboard.features": "Funcții",
     "dashboard.addCustomDomain": "Adaugă domeniu personalizat",
@@ -298,7 +298,7 @@ export const dashboardDict: Record<"ro" | "en", Record<string, string>> = {
     // Promo banner
     "dashboard.trackRealtime": "Track what's working in real time",
     "dashboard.optimizeSales": "Use your dashboard to optimize for more sales.",
-    "dashboard.unlockGrowth": "Growth plan",
+    "dashboard.unlockGrowth": "Pro plan",
     "dashboard.growthDesc": "3% fees instead of 6%, and 25 GB of storage instead of 1 GB.",
     "dashboard.features": "Features",
     "dashboard.addCustomDomain": "Add Custom Domain",
