@@ -227,7 +227,7 @@ export function CookieConsentBanner() {
 
       {bannerOpen && !quiet && !prefsOpen && (
         /* Positions the card; the card itself takes the clicks. */
-        <div className="pointer-events-none fixed bottom-0 left-0 right-0 z-[9999] flex justify-center px-3 pb-[max(12px,env(safe-area-inset-bottom))] sm:justify-start sm:px-5 sm:pb-5">
+        <div data-cookie-banner="" className="pointer-events-none fixed bottom-0 left-0 right-0 z-[9999] flex justify-center px-3 pb-[max(12px,env(safe-area-inset-bottom))] sm:justify-start sm:px-5 sm:pb-5">
           <section
             role="region"
             aria-label="Cookies"

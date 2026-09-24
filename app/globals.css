@@ -4837,3 +4837,14 @@ html.pop-in-flight #platform-header-root {
 @media (prefers-reduced-motion: reduce) {
   .wb-cover-in { animation: none; }
 }
+
+/*
+ * THE COOKIE BANNER STEPS ASIDE FOR A SHEET OR A DIALOG. It sits above the
+ * page at z 9999 so nothing on a page can hide it, which also put it over
+ * the phone menu's sheet on a first visit. While a sheet or a modal dialog
+ * is open it is hidden (not removed: the choice is still owed), and it is
+ * back the moment that closes.
+ */
+html:has([data-app-sheet="open"], [role="dialog"][aria-modal="true"], [role="dialog"][data-state="open"]) [data-cookie-banner] {
+  visibility: hidden;
+}

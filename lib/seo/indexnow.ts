@@ -18,9 +18,19 @@ import "server-only"
  *
  * NEVER IN THE WAY OF A SAVE. Called from `after()`, so the request that
  * saved the page has already answered; every failure is caught and logged
- * once; and one address is not sent twice within ten minutes from the same
- * server, so a creator pressing Save five times is one notice.
+ * once; and one address is not sent twice within ten minutes, so a creator
+ * pressing Save five times is one notice.
+ *
+ * THE TEN MINUTES ARE COUNTED IN POSTGRES, in the table lib/api/rate-limit
+ * keeps (rate_limit_hits), because the serverless functions do not share
+ * memory: two saves landing on two instances would each think they were
+ * first. A website's publish can name hundreds of pages, so they are
+ * checked and recorded in batches rather than a round trip each. The map
+ * below only spares this instance the query for an address it has just
+ * sent itself.
  */
+
+import { createAdminClient } from "@/lib/supabase/admin"
 
 const ENDPOINT = "https://api.indexnow.org/indexnow"
 const QUIET_MS = 10 * 60_000
@@ -66,6 +76,41 @@ export function byHost(urls: string[]): Map<string, string[]> {
   return out
 }
 
+const BUCKET = "indexnow"
+/** Addresses per query: they travel in the query string. */
+const CHECK_CHUNK = 50
+
+/**
+ * The addresses no instance has sent in the last ten minutes, recorded as
+ * sent in the same pass. It fails open: a missing table or an unreachable
+ * database means a duplicate notice now and then, never a missing one.
+ */
+async function notSentElsewhere(urls: string[], now: number): Promise<string[]> {
+  try {
+    const admin = createAdminClient()
+    const since = new Date(now - QUIET_MS).toISOString()
+    const seen = new Set<string>()
+    for (let i = 0; i < urls.length; i += CHECK_CHUNK) {
+      const subjects = urls.slice(i, i + CHECK_CHUNK).map((u) => `url:${u}`)
+      const { data, error } = await admin
+        .from("rate_limit_hits")
+        .select("subject")
+        .eq("bucket", BUCKET)
+        .in("subject", subjects)
+        .gte("created_at", since)
+      if (error) return urls
+      for (const row of (data ?? []) as { subject: string }[]) seen.add(row.subject)
+    }
+    const fresh = urls.filter((u) => !seen.has(`url:${u}`))
+    if (fresh.length > 0) {
+      await admin.from("rate_limit_hits").insert(fresh.map((u) => ({ bucket: BUCKET, subject: `url:${u}` })))
+    }
+    return fresh
+  } catch {
+    return urls
+  }
+}
+
 /**
  * Send the addresses. Resolves when done and never rejects. Call it inside
  * `after()` so nobody waits for it.
@@ -74,9 +119,11 @@ export async function submitToIndexNow(urls: string[]): Promise<void> {
   const key = indexNowKey()
   if (!key) return
   const now = Date.now()
-  const fresh = worthSending(urls, now)
+  const local = worthSending(urls, now)
+  if (local.length === 0) return
+  const fresh = await notSentElsewhere(local, now)
+  for (const u of local) recent.set(u, now)
   if (fresh.length === 0) return
-  for (const u of fresh) recent.set(u, now)
   if (recent.size > 20_000) {
     for (const [u, at] of recent) if (now - at >= QUIET_MS) recent.delete(u)
   }

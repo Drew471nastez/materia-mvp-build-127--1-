@@ -91,6 +91,13 @@ console.log("\nA long AI edit ends before the platform ends it")
   check("and says it ran out of time rather than failing silently", /deadline\.aborted && !request\.signal\.aborted/.test(route))
 }
 
+console.log("\nNo dedupe lives only in one function's memory")
+{
+  const indexnow = strip(read("lib/seo/indexnow.ts"))
+  check("IndexNow's ten minutes are counted in Postgres, in batches",
+    /\.from\("rate_limit_hits"\)[\s\S]*?\.in\("subject", subjects\)/.test(indexnow) && /const fresh = await notSentElsewhere\(local, now\)/.test(indexnow))
+}
+
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed) {
   console.log("\nFailed:")
