@@ -1,7 +1,6 @@
 import type { Metadata } from "next"
 import { redirect } from "next/navigation"
 import { loadProductEditor } from "../load-editor"
-import { EditorSkeleton } from "./editor-skeleton"
 import { ProductEditor } from "./product-editor"
 
 export const metadata: Metadata = {
@@ -22,9 +21,10 @@ export default async function NewProductPage({ searchParams }: NewProductPagePro
   if (edit) redirect(`/app/products/${encodeURIComponent(edit)}`)
 
   const load = await loadProductEditor(null)
-  /* No session yet: the app shell's gate restores it (the native apps keep it
-     outside cookies) and asks again. Until then, the form's outline. */
-  if (load.state === "signed-out") return <EditorSkeleton editing={false} />
+  /* No session yet: the app shell's gate (NativeAuthGate) holds the screen
+     while it restores one (the native apps keep it outside cookies) and asks
+     again, so nothing drawn here is seen. Nothing, then, not an outline. */
+  if (load.state === "signed-out") return null
   if (load.state === "no-creator") redirect("/onboarding")
   if (load.state !== "ready") redirect("/app/products")
   return <ProductEditor creator={load.creator} loaded={null} />

@@ -41,6 +41,7 @@ export const probeCss = (root = process.cwd()) => appCss(root)
  * probe then measures the fallback and says so.
  */
 export function interFaces(root = process.cwd()) {
+  if (process.env.PROBE_FONT === "fallback") return ""
   const candidates = [join(root, ".next")]
   try {
     candidates.push(join(dirname(realpathSync(join(root, "node_modules"))), ".next"))

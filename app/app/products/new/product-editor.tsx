@@ -488,7 +488,7 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
   const creatorId = loadedCreator.id
   const creator = loadedCreator
   const [productId, setProductId] = useState<string | null>(initial.productId)
-  /* The name in the bar is the saved one, so it does not follow every key. */
+  /* The saved name, for the more menu's sheet. The bar itself names no product: the title field does. */
   const [savedTitle, setSavedTitle] = useState(initial.title)
 
   // Product status tracking
@@ -496,6 +496,17 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
   const [showNotification, setShowNotification] = useState(() => carriedNotice !== null)
   const [notificationMessage, setNotificationMessage] = useState(() => carriedNotice ?? "")
   const [justSaved, setJustSaved] = useState(!!initial.productId) // A saved product opens saved
+  /* "Saved" in the bar for a moment after a save, then back to Live or Draft. */
+  const [savedFlash, setSavedFlash] = useState(false)
+  const savedFlashTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const flashSaved = () => {
+    if (savedFlashTimer.current) clearTimeout(savedFlashTimer.current)
+    setSavedFlash(true)
+    savedFlashTimer.current = setTimeout(() => setSavedFlash(false), 2500)
+  }
+  useEffect(() => () => {
+    if (savedFlashTimer.current) clearTimeout(savedFlashTimer.current)
+  }, [])
   const savedValuesRef = useRef<string>(initial.productId ? snapshotOfForm(initial) : "") // What "unsaved" is measured against
 
   // Unsaved changes tracking
@@ -2795,6 +2806,7 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
       setJustSaved(true)
       setHasUnsavedChanges(false)
       setSavedTitle(title)
+      flashSaved()
 
       // Store current values as saved state for change detection
       savedValuesRef.current = snapshotOf({
@@ -2975,7 +2987,7 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
   }, [])
 
   return (
-    <div ref={contentRef} data-product-editor="" className="page-scroll h-full overflow-y-auto overflow-x-hidden bg-[#f8f9fa]">
+    <div ref={contentRef} data-product-editor="" className="page-scroll h-full overflow-y-auto overflow-x-hidden bg-[#f8f9fa] [[data-page-layer]_&]:pb-[calc(32px+env(safe-area-inset-bottom))]">
       {/* Success Notification - Modern black toast */}
       {showNotification && (
         <div
@@ -3020,89 +3032,111 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
       )}
 
       {/*
-        THE BAR: WHERE YOU ARE, WHAT STATE IT IS IN, AND SAVE.
+        THE BAR: CANCEL, WHAT STATE IT IS IN, AND SAVE.
         It used to be two bars, a title row that folded away on scroll over a
         row of section pills, and a Cancel and Save strip across the foot of
         the screen, which on a phone sat under the navigation pill. Now it is
-        one bar at the top that never changes size: Cancel, the product's name
-        with its state under it (Unsaved changes, Live, Draft), and Save. On a
-        computer the sections are a row of tabs under it. It sits on the pane
-        that scrolls, like the Orders bar, with a hairline once something is
-        under it, and Cmd or Ctrl and S saves from anywhere on the page.
+        one bar at the top that never changes size: Cancel, the state as one
+        line of small text (Unsaved changes, Saved, Live, Draft), the more
+        menu, and Save. It names no product: the name is in the title field
+        right under it, and a second copy in the bar was the first thing the
+        owner asked to go.
+
+        On a phone it is three columns, the outer two of equal width, so the
+        state sits in the middle of the screen and a longer or shorter state
+        never moves Cancel or Save. On a computer the sections are a row of
+        tabs under it. It sits on the pane that scrolls, like the Orders bar,
+        with a hairline once something is under it, and Cmd or Ctrl and S
+        saves from anywhere on the page.
+
+        When the editor is the first thing on the screen, a full screen layer
+        over the app's header (`data-page-layer`, as the plans page does), the
+        bar starts below the status bar: env(safe-area-inset-top), which is 0
+        in a browser. Under the app's header it adds nothing, the header has
+        already taken the inset.
       */}
       <div
         ref={barRef}
         data-editor-bar=""
         className={cn(
-          "sticky top-0 z-30 bg-[#f8f9fa] transition-shadow duration-150",
+          "sticky top-0 z-30 bg-[#f8f9fa] transition-shadow duration-150 [[data-page-layer]_&]:pt-[env(safe-area-inset-top)]",
           isScrolled ? "shadow-[0_1px_0_#e3e5e8,0_4px_12px_-8px_rgba(17,24,39,0.12)]" : "",
         )}
       >
-        <div className="mx-auto flex h-14 max-w-[760px] items-center gap-1.5 px-2 sm:h-16 sm:gap-2 sm:px-6">
-          <button
-            type="button"
-            onClick={handleCancel}
-            className="inline-flex h-11 shrink-0 items-center rounded-[10px] px-2.5 text-[16px] text-[#1a1a2e] active:bg-[#eceef1] sm:hidden"
-          >
-            Cancel
-          </button>
-          <Link
-            href="/app/products"
-            onClick={handleBackClick}
-            aria-label="Back to products"
-            className={cn(iconButton, "-ml-2 hidden h-9 w-9 sm:inline-flex")}
-          >
-            <ChevronLeft className="h-5 w-5" />
-          </Link>
-          <div className="min-w-0 flex-1 px-1 sm:px-0">
-            <h1 className="truncate text-[16px] font-semibold leading-5 text-[#1a1a2e] sm:text-[20px] sm:leading-6">
-              {productId ? savedTitle.trim() || "Untitled product" : "New product"}
-            </h1>
-            <p aria-live="polite" className="mt-0.5 flex h-4 items-center gap-1.5 text-[12px] leading-4 text-[#6b7280] sm:h-5 sm:text-[13px] sm:leading-5">
-              {isLoading ? (
-                "Saving"
-              ) : hasUnsavedChanges && !justSaved ? (
-                <>
-                  <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-[#d97706]" />
-                  Unsaved changes
-                </>
-              ) : productId ? (
-                <>
-                  <span aria-hidden className={cn("h-1.5 w-1.5 rounded-full", isPublished ? "bg-[#16a34a]" : "bg-[#9ca3af]")} />
-                  {isPublished ? "Live" : "Draft"}
-                </>
-              ) : (
-                "Not saved yet"
-              )}
-            </p>
+        <h1 className="sr-only">{productId ? "Edit product" : "New product"}</h1>
+        <div className="mx-auto grid h-14 max-w-[760px] grid-cols-[1fr_auto_1fr] items-center gap-1 px-2 sm:flex sm:h-16 sm:gap-2 sm:px-6">
+          <div className="flex min-w-0 items-center sm:contents">
+            <button
+              type="button"
+              onClick={handleCancel}
+              className="inline-flex h-11 shrink-0 items-center rounded-[10px] px-2.5 text-[16px] text-[#1a1a2e] active:bg-[#eceef1] sm:hidden"
+            >
+              Cancel
+            </button>
+            <Link
+              href="/app/products"
+              onClick={handleBackClick}
+              aria-label="Back to products"
+              className={cn(iconButton, "-ml-2 hidden h-9 w-9 sm:inline-flex")}
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </Link>
           </div>
-          {productId ? (
-            <ResponsiveActionMenu
-              title={savedTitle.trim() || "Product"}
-              align="end"
-              trigger={
-                <button type="button" aria-label="More actions" className={cn(iconButton, "h-10 w-10 shrink-0 rounded-[10px] sm:h-8 sm:w-8 sm:rounded-lg")}>
-                  <MoreHorizontal className="h-5 w-5 sm:h-4 sm:w-4" />
-                </button>
-              }
-              items={[
-                ...(isPublished && slug ? [{ label: "View on your page", onClick: handleRedirectToProduct }] : []),
-                { label: isPublished ? "Unpublish" : "Publish", onClick: handleTogglePublish },
-              ]}
-            />
-          ) : null}
-          <button type="button" onClick={handleCancel} className={cn(buttonSecondary, "hidden sm:inline-flex")}>
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={() => void handleSaveChanges()}
-            disabled={!canSave}
-            aria-keyshortcuts="Meta+S Control+S"
-            className={cn(buttonAccent, "h-10 min-w-[68px] shrink-0 rounded-[10px] px-4 text-[15px] sm:h-8 sm:min-w-[60px] sm:rounded-lg sm:px-3 sm:text-[13px]")}
+          <p
+            data-editor-state=""
+            aria-live="polite"
+            className="flex h-5 min-w-0 items-center justify-center gap-1.5 overflow-hidden whitespace-nowrap text-[13px] leading-5 text-[#6b7280] sm:flex-1 sm:justify-start"
           >
-            {isLoading ? <Loader2 className="h-4 w-4 animate-spin" aria-label="Saving" /> : "Save"}
-          </button>
+            {isLoading ? (
+              "Saving"
+            ) : hasUnsavedChanges && !justSaved ? (
+              <>
+                <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#d97706]" />
+                Unsaved changes
+              </>
+            ) : savedFlash ? (
+              <>
+                <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#16a34a]" />
+                Saved
+              </>
+            ) : productId ? (
+              <>
+                <span aria-hidden className={cn("h-1.5 w-1.5 shrink-0 rounded-full", isPublished ? "bg-[#16a34a]" : "bg-[#9ca3af]")} />
+                {isPublished ? "Live" : "Draft"}
+              </>
+            ) : (
+              "New product"
+            )}
+          </p>
+          <div className="flex min-w-0 items-center justify-end gap-1 sm:contents">
+            {productId ? (
+              <ResponsiveActionMenu
+                title={savedTitle.trim() || "Product"}
+                align="end"
+                trigger={
+                  <button type="button" aria-label="More actions" className={cn(iconButton, "h-10 w-10 shrink-0 rounded-[10px] sm:h-8 sm:w-8 sm:rounded-lg")}>
+                    <MoreHorizontal className="h-5 w-5 sm:h-4 sm:w-4" />
+                  </button>
+                }
+                items={[
+                  ...(isPublished && slug ? [{ label: "View on your page", onClick: handleRedirectToProduct }] : []),
+                  { label: isPublished ? "Unpublish" : "Publish", onClick: handleTogglePublish },
+                ]}
+              />
+            ) : null}
+            <button type="button" onClick={handleCancel} className={cn(buttonSecondary, "hidden sm:inline-flex")}>
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleSaveChanges()}
+              disabled={!canSave}
+              aria-keyshortcuts="Meta+S Control+S"
+              className={cn(buttonAccent, "h-10 min-w-[60px] shrink-0 rounded-[10px] px-3 text-[15px] sm:h-8 sm:min-w-[60px] sm:rounded-lg sm:px-3 sm:text-[13px]")}
+            >
+              {isLoading ? <Loader2 className="h-4 w-4 animate-spin" aria-label="Saving" /> : "Save"}
+            </button>
+          </div>
         </div>
         <div className="mx-auto hidden h-11 max-w-[760px] items-start px-6 sm:flex">
           <div
@@ -3256,7 +3290,7 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
                   </DndContext>
                 )}
 
-                {/* Upload Zone with skeleton loading */}
+                {/* The upload zone, and its state while a file uploads */}
                 <div
                   className={`
                     border-2 border-dashed rounded-xl

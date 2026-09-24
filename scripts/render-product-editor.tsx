@@ -50,14 +50,22 @@ const loaded: LoadedProduct = {
 }
 
 const isNew = location.search.includes("new")
+/* `layer`: the editor as a full screen layer over the app's header, the way
+   the plans page is drawn (app/app/settings/billing/upgrade/layout.tsx). */
+const isLayer = location.search.includes("layer")
+const editor = <ProductEditor creator={{ id: "c1", slug: "astrid", username: "astrid" }} loaded={isNew ? null : loaded} />
 
 createRoot(document.getElementById("app")!).render(
   <div style={{ position: "fixed", inset: 0 }}>
-    <main className="h-full pt-[68px] md:pt-[58px] bg-[#f8f9fa] overflow-hidden">
-      <div className="h-[calc(100svh-68px)] md:h-[calc(100svh-58px)] overflow-y-auto app-content-scroll">
-        <ProductEditor creator={{ id: "c1", slug: "astrid", username: "astrid" }} loaded={isNew ? null : loaded} />
+    {isLayer ? (
+      <div data-page-layer="" className="fixed inset-0 z-[60] overflow-y-auto overscroll-contain bg-[#f8f9fa]">
+        {editor}
       </div>
-    </main>
+    ) : (
+      <main className="h-full pt-[68px] md:pt-[58px] bg-[#f8f9fa] overflow-hidden">
+        <div className="h-[calc(100svh-68px)] md:h-[calc(100svh-58px)] overflow-y-auto app-content-scroll">{editor}</div>
+      </main>
+    )}
     <div
       data-app-nav-pill=""
       className="pointer-events-none fixed inset-x-0 bottom-0 z-[55] flex items-end justify-center md:hidden"

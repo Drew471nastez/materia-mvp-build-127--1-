@@ -93,12 +93,24 @@ check("and only hands over a product that is the creator's", /product\.creator_i
 check("opening a product has the editor's own loading outline, drawn by the shell and not a loading boundary",
   !existsSync("app/app/products/[id]/loading.tsx") && /if \(path\.startsWith\("\/app\/products\/"\)\) return <EditorSkeleton editing \/>/.test(read("components/app/route-skeletons.tsx")))
 check("a save drops the router's kept pages", /router\.refresh\(\)/.test(editor))
+/* Opening a product from the list shows the editor with its data, and nothing before it from app/app/products. */
+const newPage = code("app/app/products/new/page.tsx")
+check("no page or loading boundary under app/app/products draws an outline of the editor",
+  !existsSync("app/app/products/loading.tsx") && !existsSync("app/app/products/new/loading.tsx") && !existsSync("app/app/products/[id]/loading.tsx") &&
+  !/EditorSkeleton|editor-skeleton/.test(idPage + newPage) &&
+  /if \(load\.state === "signed-out"\) return null/.test(idPage) && /if \(load\.state === "signed-out"\) return null/.test(newPage))
+check("and the list still prefetches the editor, data and all, when a row is hovered or touched", /router\.prefetch\(`\/app\/products\/\$\{id\}`, FULL_PREFETCH\)/.test(code("app/app/products/products-client.tsx")))
 
 console.log("\nOne bar, at the top")
 
 check("no Save and Cancel strip at the foot of the screen", !/fixed bottom-0 left-0 right-0/.test(editor) && !/Bottom Action Bar/.test(read("app/app/products/new/product-editor.tsx")))
 check("the bar is sticky at the top and holds Cancel and Save", /data-editor-bar=""/.test(editor) && /"sticky top-0 z-30/.test(editor) && /: "Save"\}/.test(editor) && /onClick=\{handleCancel\}/.test(editor))
 check("Cmd or Ctrl and S saves", /e\.metaKey \|\| e\.ctrlKey/.test(editor) && /key\.toLowerCase\(\) !== "s"/.test(editor))
+const barSource = editor.slice(editor.indexOf('data-editor-bar=""'), editor.indexOf('aria-label="Sections"'))
+check("the bar names no product: the name is in the title field", !/savedTitle|\{title\}|"Untitled product"/.test(barSource.replace(/title=\{savedTitle\.trim\(\) \|\| "Product"\}/, "")) && /<h1 className="sr-only">\{productId \? "Edit product" : "New product"\}<\/h1>/.test(barSource))
+check("its state is one line of small text: Unsaved changes, Saved, Live or Draft", /data-editor-state=""/.test(barSource) && /text-\[13px\]/.test(barSource) && /Unsaved changes/.test(barSource) && /\bSaved\n/.test(barSource) && /isPublished \? "Live" : "Draft"/.test(barSource) && /flashSaved\(\)/.test(editor))
+check("in the middle of two equal columns on a phone, so a state change moves neither Cancel nor Save", /grid h-14 max-w-\[760px\] grid-cols-\[1fr_auto_1fr\]/.test(barSource))
+check("first on the screen, as a layer over the app's header, it starts below the status bar", /\[\[data-page-layer\]_&\]:pt-\[env\(safe-area-inset-top\)\]/.test(barSource) && /\[\[data-page-layer\]_&\]:pb-\[calc\(32px\+env\(safe-area-inset-bottom\)\)\]/.test(editor))
 check("the editor scrolls as a page-scroll pane, so the pill's room is the shared 104px and nothing else", /className="page-scroll h-full overflow-y-auto/.test(editor) && !/pb-24 sm:pb-8/.test(editor))
 check("prices bring up the decimal keypad", (editor.match(/inputMode="decimal"/g) ?? []).length >= 4)
 
