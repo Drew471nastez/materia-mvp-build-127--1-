@@ -277,6 +277,38 @@ export const FORBIDDEN_MARKUP: [RegExp, string][] = [
 
 /**
  * ===========================================================================
+ *  TAGS THAT BELONG TO THE WHOLE DOCUMENT, NOT TO A SECTION
+ * ===========================================================================
+ * A section's markup is drawn into a page it shares with every other section,
+ * and in the builder into the editor's own document. These four tags act on
+ * that whole document wherever they sit: a `<style>` here is not scoped and
+ * restyles the editor and every other section, a `<link>` fetches a sheet
+ * that does the same, a `<base>` moves every relative address on the page
+ * (the editor's included), and a `<meta http-equiv>` can send the page
+ * somewhere else.
+ *
+ * A save refuses them, so an author or an agent is told where the thing goes
+ * instead. A section that was saved before this rule existed still compiles
+ * (the runtime passes `lenient`) and `stripDocumentMarkup` removes the tags
+ * from what it draws, so a live page loses the stray tag, not the section.
+ */
+export const DOCUMENT_MARKUP: [RegExp, string][] = [
+  [/<style\b/i, "a <style> tag inside <template>. A section's CSS goes in its <style> block, beside <template>, where it is scoped to this section"],
+  [/<link\b/i, "a <link> tag. A stylesheet or a font is added in the theme's layout, not in a section"],
+  [/<base\b/i, "a <base> tag, which would change every address on the page"],
+  [/<meta\b/i, "a <meta> tag. A page's title, description and sharing picture are set in Website Settings"],
+]
+
+export function stripDocumentMarkup(html: string): string {
+  if (!/<(?:style|link|base|meta)\b/i.test(html)) return html
+  return html
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style\s*>/gi, "")
+    .replace(/<style\b[^>]*>[\s\S]*$/i, "")
+    .replace(/<\/?(?:link|base|meta)\b[^>]*>/gi, "")
+}
+
+/**
+ * ===========================================================================
  *  THE ONE FRAME A SECTION MAY OPEN
  * ===========================================================================
  * An `<iframe>` hands part of the page to somebody else's code, so a section
@@ -315,7 +347,7 @@ export function embedUrl(raw: unknown): string {
   return ""
 }
 
-export function compileTemplate(src: string, opts: { file?: string; line?: number; capabilities?: string[] } = {}): Result<CompiledTemplate> {
+export function compileTemplate(src: string, opts: { file?: string; line?: number; capabilities?: string[]; lenient?: boolean } = {}): Result<CompiledTemplate> {
   const base = (opts.line ?? 1) - 1
   const err = (message: string, line?: number): Result<CompiledTemplate> => ({
     ok: false,
@@ -362,7 +394,7 @@ export function compileTemplate(src: string, opts: { file?: string; line?: numbe
     }
   }
 
-  for (const [re, what] of FORBIDDEN_MARKUP) {
+  for (const [re, what] of opts.lenient ? FORBIDDEN_MARKUP : [...FORBIDDEN_MARKUP, ...DOCUMENT_MARKUP]) {
     const m = src.match(re)
     if (m && m.index !== undefined) {
       const line = lineAt(m.index)

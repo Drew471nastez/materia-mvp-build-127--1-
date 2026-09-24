@@ -28,7 +28,21 @@ the compiler emits
 - `html`, `body` and `:root` are rewritten to mean the section's root. A rule written against them does not do what it looks like it does, so do not write them.
 - `@keyframes` names are prefixed with the section type, and every `animation` that uses one is rewritten to match.
 - `@import` is refused. A stylesheet cannot fetch anything.
+- A `<style>`, `<link>`, `<base>` or `<meta>` tag inside `<template>` is refused on save. Each acts on the whole page, not on the section; a section's CSS goes in its `<style>` block.
 - Global rules, such as resets and font faces, belong only in `layout/theme.storelib`.
+
+## The page a section sees
+
+In the builder, a section is drawn in a canvas inside the editor. The canvas is the section's window:
+
+- `position: fixed` is fixed to the canvas. A full-screen menu covers the page it is on, like a phone screen, and never the editor.
+- `100vh` and `100vw` are rewritten to the canvas's height and width. On a live site they are the window's.
+- A `@media` query that asks only about width is rewritten to the same `@container` query, so the phone preview draws the phone layout. A query about anything else, such as motion or hover, stays a media query.
+- A `popover`, or a `<dialog>` opened with `command="show-modal"`, opens inside the canvas rather than above the whole screen. `:popover-open` and `:modal` still match it.
+
+Nothing a section draws can reach outside the canvas, whatever its `z-index`.
+
+A section clips sideways and not downwards, so a dropdown can hang below a header. The section someone is pointing at, typing in, or has a menu open in (a pop-up, or a button with `aria-expanded="true"`) is lifted above the sections after it, so the dropdown opens over them. Set `aria-expanded` on a menu's button when a script opens it.
 
 ## Settings in CSS
 
@@ -52,7 +66,7 @@ For anything that differs per instance, prefer a custom property set in the mark
 
 ## Responsive
 
-**Use container queries, not media queries.** A section is as wide as the column it sits in, and in the builder's phone preview that is not the width of the window. `@media (max-width: 640px)` asks about the window, so a section built on it looks right on a phone and wrong in the preview, or the other way round. A container query asks about the section itself, and is right in both.
+**Use container queries, not media queries.** A section is as wide as the column it sits in, and in the builder's phone preview that is not the width of the window. A width-only `@media` query is rewritten to a container query for you, so the preview is right, but a container query on your own element says what you mean and can ask about the element rather than the page.
 
 Put `container-type: inline-size` on the outermost element, write the phone layout as the base rules, then widen:
 

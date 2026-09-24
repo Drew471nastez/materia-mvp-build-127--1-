@@ -278,7 +278,53 @@ function DraftBadge() {
  * WebP, sized once at capture — there is nothing for an optimiser to do and
  * nothing to pay per view.
  */
-function WebsiteCover({
+/**
+ * ===========================================================================
+ *  A NEW COVER CROSSFADES IN, IT DOES NOT CUT
+ * ===========================================================================
+ * A cover older than the site is retaken while the page is open (below), and
+ * the new picture used to replace the old one in a single frame: a drawn
+ * stand-in turning into a screenshot, or yesterday's screenshot into
+ * today's, a moment after landing. That cut is the flash on arriving here.
+ *
+ * So the cover on screen stays underneath, and the new one fades in over it,
+ * then the old one is let go. The first cover a card shows is not faded: the
+ * page itself already arrives on its own fade (`app-page-enter`).
+ */
+function WebsiteCover(props: { install: WebsiteSummary; eager?: boolean; phone?: boolean; className?: string }) {
+  const id = props.install.snapshot_url ?? `drawn:${props.install.theme_id}:${props.install.name}`
+  const [shownId, setShownId] = React.useState(id)
+  const [previous, setPrevious] = React.useState<{ id: string; props: typeof props } | null>(null)
+  /* What the cover on screen was drawn from, as of the last commit. */
+  const committed = React.useRef(props)
+  React.useEffect(() => {
+    committed.current = props
+  })
+  if (shownId !== id) {
+    setPrevious({ id: shownId, props: committed.current })
+    setShownId(id)
+  }
+  React.useEffect(() => {
+    if (!previous) return
+    const t = window.setTimeout(() => setPrevious(null), COVER_FADE_MS + 60)
+    return () => window.clearTimeout(t)
+  }, [previous])
+  return (
+    <span className="relative block h-full w-full">
+      {previous && (
+        <span key={previous.id} aria-hidden className="absolute inset-0">
+          <CoverPicture {...previous.props} />
+        </span>
+      )}
+      <span key={id} className={cn("relative block h-full w-full", previous && "wb-cover-in")}>
+        <CoverPicture {...props} />
+      </span>
+    </span>
+  )
+}
+const COVER_FADE_MS = 420
+
+function CoverPicture({
   install,
   eager = false,
   phone = false,

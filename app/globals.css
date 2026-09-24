@@ -4208,7 +4208,18 @@ html.pop-in-flight #platform-header-root {
   position: absolute;
   inset: 0;
   background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.78), transparent);
-  animation: wb-image-sweep 1.15s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  /* The sweep waits 300ms, holding its start (off the box) until then. A
+     picture that arrives sooner fades in over a quiet tone; a sweep that
+     starts and is cut off a moment later is the flash that was reported on
+     the favicon every time Website Settings opened. */
+  animation: wb-image-sweep 1.15s cubic-bezier(0.4, 0, 0.6, 1) 300ms infinite backwards;
+}
+/* Website Settings is a dark panel. A light box waiting in it is a flash. */
+.dark .wb-image-skeleton {
+  background: rgba(255, 255, 255, 0.07);
+}
+.dark .wb-image-skeleton::after {
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08), transparent);
 }
 @keyframes wb-image-sweep {
   from { transform: translateX(-100%); }
@@ -4304,7 +4315,7 @@ html.pop-in-flight #platform-header-root {
 /* The lane of code. Anchored to the bottom, where new lines arrive, and
    faded toward the top, where old ones leave: a mask, so the fade is the
    page's own background whatever colour that is. */
-.wb-code {
+.wb-writing-code {
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
@@ -4318,17 +4329,17 @@ html.pop-in-flight #platform-header-root {
   mask-image: linear-gradient(to bottom, transparent 0%, #000 62%);
 }
 @container (min-width: 720px) {
-  .wb-code { font-size: 13.5px; }
+  .wb-writing-code { font-size: 13.5px; }
 }
-.wb-code-line {
+.wb-writing-line {
   white-space: pre;
   overflow: hidden;
   text-overflow: clip;
 }
-.wb-code-tag { color: color-mix(in srgb, #8b5cf6 70%, var(--wb-ink)); }
-.wb-code-liquid { color: color-mix(in srgb, #8b5cf6 45%, var(--wb-ink)); }
-.wb-code-str { color: color-mix(in srgb, var(--wb-ink) 72%, var(--wb-paper)); }
-.wb-code-caret {
+.wb-writing-tag { color: color-mix(in srgb, #8b5cf6 70%, var(--wb-ink)); }
+.wb-writing-liquid { color: color-mix(in srgb, #8b5cf6 45%, var(--wb-ink)); }
+.wb-writing-str { color: color-mix(in srgb, var(--wb-ink) 72%, var(--wb-paper)); }
+.wb-writing-caret {
   display: inline-block;
   width: 0.55em;
   height: 1.15em;
@@ -4336,9 +4347,9 @@ html.pop-in-flight #platform-header-root {
   vertical-align: -0.2em;
   border-radius: 1px;
   background: #8b5cf6;
-  animation: wb-code-caret 900ms steps(1) infinite;
+  animation: wb-writing-caret 900ms steps(1) infinite;
 }
-@keyframes wb-code-caret {
+@keyframes wb-writing-caret {
   50% { opacity: 0; }
 }
 /* A band of light across the lane, slow and wide, so the work reads as
@@ -4377,7 +4388,7 @@ html.pop-in-flight #platform-header-root {
   .wb-writing,
   .wb-writing::before,
   .wb-writing-inner::after,
-  .wb-code-caret,
+  .wb-writing-caret,
   .wb-section-arrive { animation: none; }
   .wb-writing-inner::after { display: none; }
 }
@@ -4764,4 +4775,72 @@ html.pop-in-flight #platform-header-root {
 @media (prefers-reduced-motion: reduce) {
   .drp-frame { transition: none; }
   .drp-in-next, .drp-in-back, .drp-out-next, .drp-out-back, .drp-month-next, .drp-month-back { animation: none; }
+}
+
+/* ─── The canvas is the page's window ──────────────────────────────────
+   The builder draws a website inside the editor's own document, so without
+   a boundary a section's `position: fixed` menu was fixed to the EDITOR and
+   covered its bars and panels (an agent-written header did exactly that).
+
+   `contain: layout` makes this card the containing block for every fixed
+   and absolute descendant (a size container alone no longer does, Chromium
+   dropped that), and `paint` clips whatever a section draws to it: a menu
+   now covers the canvas, like the phone screen it stands for, and stops at
+   its edge. `isolation` keeps any z-index a section sets inside this card,
+   so no number is high enough to reach the editor's chrome. `--sl-vh` and
+   `--sl-vw` are the canvas's 1% (lib/storelib-theme/storelib/css.ts turns a
+   section's vh and vw into them; on a live site nothing sets them and they
+   are the window's). */
+.wb-canvas-frame {
+  container: wb-canvas / size;
+  contain: layout paint;
+  isolation: isolate;
+  --sl-vh: 1cqh;
+  --sl-vw: 1cqw;
+}
+
+/* A popover or dialog a section opens, opened in place rather than in the
+   browser's top layer (components/website-builder/canvas-top-layer.tsx).
+   The browser's own popover rules still apply, fixed and centred, so here it
+   is only shown, and put above the rest of its section. `:where` leaves every
+   one of these to the section's own CSS. */
+:where(.wb-canvas-frame [popover][data-sl-open]) {
+  display: block;
+  z-index: 2147483000;
+}
+:where(.wb-canvas-frame dialog[data-sl-open]) {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  max-width: calc(100% - 38px);
+  max-height: calc(100% - 38px);
+  z-index: 2147483000;
+}
+
+/* ─── A section's menu opens over the sections after it ─────────────────
+   Every section is its own stacking context (SectionWrapper, `isolate`), so
+   the section after a header painted over the header's dropdown whatever
+   z-index the dropdown had. The section somebody is pointing at, typing in,
+   or has a pop-up open in is lifted one step, on the live site and in the
+   canvas alike. `:where` keeps it below any z-index a section sets itself,
+   the sticky header's included. */
+:where([data-section]:hover, [data-section]:focus-within) {
+  z-index: 1;
+}
+:where([data-section]:has([data-sl-open], [aria-expanded="true"]), [data-section]:has(:popover-open), [data-section]:has(:modal)) {
+  z-index: 2;
+}
+
+/* A retaken website cover fading in over the one it replaces
+   (app/app/website-builder/website-builder-client.tsx, WebsiteCover).
+   Backwards, not both: nothing is left in effect once it has arrived. */
+@keyframes wb-cover-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.wb-cover-in {
+  animation: wb-cover-in 420ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .wb-cover-in { animation: none; }
 }

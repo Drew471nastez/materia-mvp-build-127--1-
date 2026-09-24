@@ -108,6 +108,13 @@ export function scopeCss(css: string, opts: ScopeOptions): Result<string> {
       keyframes.set(original, renamed)
       at.params = renamed
     }
+    if (name === "media") {
+      const container = widthQueryAsContainer(at.params)
+      if (container) {
+        at.name = "container"
+        at.params = container
+      }
+    }
     if (name === "import") {
       errors.push({ stage: "css", file: opts.file, line: at.source?.start ? base + at.source.start.line : undefined, message: "@import is not allowed in a section stylesheet" })
     }
@@ -123,8 +130,8 @@ export function scopeCss(css: string, opts: ScopeOptions): Result<string> {
       if (ROOT_LIKE.test(s)) return scope
       // `html .x` / `body .x` — drop the root and scope the rest.
       const stripped = s.replace(/^(html|body|:root)\s+/i, "")
-      if (stripped.startsWith("&")) return stripped.replace(/^&/, scope)
-      return `${scope} ${stripped}`
+      const scoped = stripped.startsWith("&") ? stripped.replace(/^&/, scope) : `${scope} ${stripped}`
+      return canvasSafeSelector(scoped)
     })
   })
 
@@ -185,6 +192,10 @@ export function scopeCss(css: string, opts: ScopeOptions): Result<string> {
     }
   })
 
+  root.walkDecls((decl) => {
+    decl.value = canvasSafeUnits(decl.value)
+  })
+
   if (keyframes.size) {
     root.walkDecls(/^(animation|animation-name)$/i, (decl) => {
       for (const [from, to] of keyframes) {
@@ -195,6 +206,75 @@ export function scopeCss(css: string, opts: ScopeOptions): Result<string> {
 
   if (errors.length) return { ok: false, errors }
   return { ok: true, value: unmaskExpressions(root.toString(), exprs) }
+}
+
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ *  THE WINDOW A SECTION SEES IS THE PAGE IT IS ON, NOT THE EDITOR
+ * ═══════════════════════════════════════════════════════════════════════════
+ * In the builder a section is drawn inside the canvas, in the editor's own
+ * document. Two things in a stylesheet ask about the WINDOW rather than the
+ * page, and in the builder the window is the editor:
+ *
+ *   `100vh`, `100vw`   a hero at 100vw was the editor's width in a 390px phone
+ *                      preview, so the section ran off the canvas;
+ *   `@media (max-width: 767px)`
+ *                      the editor is 1400px wide, so the phone preview drew the
+ *                      desktop layout.
+ *
+ * Both are rewritten here, the same for the builder and the live site:
+ *
+ *   `100vh` becomes `calc(100 * var(--sl-vh, 1vh))`. The canvas sets `--sl-vh`
+ *   to 1% of its own height (app/globals.css, `.wb-canvas-frame`); on the live
+ *   site nothing sets it, and it is the real `1vh`. Widths likewise.
+ *
+ *   A media query that asks ONLY about width becomes the same container
+ *   query. Every section sits in a container as wide as the page
+ *   (SectionRenderer), so on the live site the answer is the window's, and in
+ *   the phone preview it is the phone's. A query about anything else (motion,
+ *   hover, print, orientation) is about the visitor and stays a media query.
+ *
+ * `position: fixed` needs nothing here: the canvas frame contains it
+ * (`contain: layout`), so a menu an agent fixes to the window covers the page
+ * it is on and never the editor.
+ *
+ * A popover, and a dialog opened as a modal, go further than fixed: the
+ * browser draws them in its top layer, above the whole document, and no
+ * ancestor can contain or clip that. In the canvas they are opened without
+ * the top layer (components/website-builder/canvas-top-layer.tsx marks them
+ * `data-sl-open`), so `:popover-open` and `:modal` are widened here to match
+ * that mark as well. On the live site nothing sets it, and they are the
+ * browser's own.
+ */
+export function canvasSafeSelector(selector: string): string {
+  if (!/:(?:popover-open|modal)(?![\w-])/i.test(selector)) return selector
+  return selector
+    .replace(/(?<!:):popover-open(?![\w-])/gi, ":is(:popover-open, [data-sl-open])")
+    .replace(/(?<!:):modal(?![\w-])/gi, ":is(:modal, [data-sl-open])")
+}
+
+const VIEWPORT_UNIT = /(^|[^\w.-])(-?\d*\.?\d+)(dvh|svh|lvh|vh|dvw|svw|lvw|vw|vmin|vmax)(?![\w-])/gi
+
+export function canvasSafeUnits(value: string): string {
+  if (!/\d(dvh|svh|lvh|vh|dvw|svw|lvw|vw|vmin|vmax)/i.test(value)) return value
+  return value.replace(VIEWPORT_UNIT, (_m, lead: string, n: string, unit: string) => {
+    const u = unit.toLowerCase()
+    const vh = `var(--sl-vh, 1${u.endsWith("h") ? u : "vh"})`
+    const vw = `var(--sl-vw, 1${u.endsWith("w") ? u : "vw"})`
+    const one = u === "vmin" ? `min(${vw}, ${vh})` : u === "vmax" ? `max(${vw}, ${vh})` : u.endsWith("h") ? vh : vw
+    return `${lead}calc(${n} * ${one})`
+  })
+}
+
+const WIDTH_FEATURE = /^\(\s*(?:(?:min-|max-)?width\s*:\s*[^()]+|[^()]*\bwidth\b\s*(?:<=|>=|<|>|=)\s*[^()]+|[^()]+(?:<=|>=|<|>)\s*width\b[^()]*)\)$/i
+
+/** The container query a width-only media query means, or null when it asks about more than width. */
+export function widthQueryAsContainer(params: string): string | null {
+  if (params.includes(",")) return null
+  const rest = params.trim().replace(/^(only\s+)?(screen|all)\s+and\s+/i, "").trim()
+  if (!rest || /^(only\s+)?(screen|all|print)$/i.test(rest)) return null
+  const conditions = rest.split(/\s+and\s+/i).map((c) => c.trim())
+  return conditions.every((c) => WIDTH_FEATURE.test(c)) ? conditions.join(" and ") : null
 }
 
 /** Fill the placeholder for one instance. */

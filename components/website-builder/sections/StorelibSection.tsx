@@ -227,7 +227,9 @@ export function StorelibSection({
       isEditing={isEditing}
       isSelected={isSelected}
       onClick={onClick}
-      className="relative overflow-hidden"
+      /* Clipped sideways only: a hero at 100vw must not widen the page, and
+         a header's dropdown must still hang below the header. */
+      className="relative overflow-x-clip"
       canvasRoundedTopPx={canvasRoundedTopPx}
       canvasRoundedBottomPx={canvasRoundedBottomPx}
     >
