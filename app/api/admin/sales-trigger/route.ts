@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { adminFailure } from "@/lib/admin/gate"
 import { isAdminAuthenticated } from "@/lib/admin-blog-auth"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { generateReceiptToken } from "@/lib/security"
@@ -32,7 +33,7 @@ export async function GET(request: Request) {
     }
 
     const { data, error } = await query
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (error) return adminFailure("sales trigger", error)
     return NextResponse.json({ products: data || [] })
   }
 
@@ -49,7 +50,7 @@ export async function GET(request: Request) {
     }
 
     const { data, error } = await query
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (error) return adminFailure("sales trigger", error)
     return NextResponse.json({ users: data || [] })
   }
 
@@ -151,7 +152,7 @@ export async function POST(request: Request) {
         .single()
 
       if (orderError2 || !order2) {
-        return NextResponse.json({ error: "Failed to create order", details: (orderError2 || orderError)?.message }, { status: 500 })
+        return adminFailure("sales trigger order", orderError2 || orderError, "The test order could not be created.")
       }
 
       // Continue with minimal order
@@ -161,7 +162,7 @@ export async function POST(request: Request) {
     return await processPostOrder(admin, order, product, creator, buyerId, buyerEmail, buyerFirstName, buyerLastName, receiptToken)
   } catch (error) {
     console.error("[sales-trigger] Error:", error)
-    return NextResponse.json({ error: "Failed", details: error instanceof Error ? error.message : "Unknown" }, { status: 500 })
+    return adminFailure("sales trigger", error, "The test sale did not go through.")
   }
 }
 

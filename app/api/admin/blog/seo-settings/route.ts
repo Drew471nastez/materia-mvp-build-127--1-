@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { adminFailure } from "@/lib/admin/gate"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { isAdminAuthenticated } from "@/lib/admin-blog-auth"
 
@@ -57,7 +58,7 @@ export async function PATCH(req: NextRequest) {
     .single()
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return adminFailure("seo settings", error)
   }
 
   return NextResponse.json({

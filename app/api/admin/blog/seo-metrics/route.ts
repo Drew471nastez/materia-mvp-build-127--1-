@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
+import { adminFailure } from "@/lib/admin/gate"
+import { recordAdminAction } from "@/lib/admin/audit"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { isAdminAuthenticated } from "@/lib/admin-blog-auth"
 
@@ -10,6 +12,23 @@ export async function DELETE(req: NextRequest) {
   if (!productId) return NextResponse.json({ error: "Missing productId" }, { status: 400 })
 
   const supabase = createAdminClient()
+
+  /*
+    A product somebody bought is not deleted from here. The loop below
+    deletes its ORDERS, which are buyers' receipts and the rows the seller's
+    ledger points at, and nothing brings them back. Unpublishing, from the
+    admin's Products view, takes it off sale and keeps the records. A count
+    that cannot be read refuses too: it is not "no orders".
+  */
+  const { data: productRow, error: productError } = await supabase.from("products").select("title").eq("id", productId).maybeSingle()
+  const { count: orderCount, error: countError } = await supabase.from("orders").select("id", { count: "exact", head: true }).eq("product_id", productId)
+  if (productError || countError) return adminFailure("seo metrics delete check", productError || countError, "Could not check this product's orders. Nothing was deleted.")
+  if ((orderCount ?? 0) > 0) {
+    return NextResponse.json(
+      { error: `This product has ${orderCount} order${orderCount === 1 ? "" : "s"}. Deleting it would delete buyers' receipts. Unpublish it from Products in the admin instead.` },
+      { status: 409 },
+    )
+  }
 
   // Delete all child tables that reference product_id (order matters for FK constraints)
   const childTables = [
@@ -41,8 +60,9 @@ export async function DELETE(req: NextRequest) {
   const { error } = await supabase.from("products").delete().eq("id", productId)
   if (error) {
     console.error("Failed to delete product:", error.message)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return adminFailure("seo metrics", error)
   }
+  await recordAdminAction(supabase, { action: "delete_product", targetType: "product", targetId: productId, targetLabel: productRow?.title ?? null })
   return NextResponse.json({ ok: true })
 }
 
