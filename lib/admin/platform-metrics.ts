@@ -163,7 +163,9 @@ export class Reader {
     let columns = select
     const optional = [...(options.optional ?? [])]
     try {
-      for (let attempt = 0; attempt <= optional.length; attempt++) {
+      /* Fixed before the loop: `optional` shrinks as columns are dropped. */
+      const attempts = optional.length + 1
+      for (let attempt = 0; attempt < attempts; attempt++) {
         const base = counted ? this.db.from(table).select(columns, { count: "exact" }) : this.db.from(table).select(columns)
         const { data, error, count } = await shape(base)
         if (!error) return { rows: (data ?? []) as T[], total: typeof count === "number" ? count : null }

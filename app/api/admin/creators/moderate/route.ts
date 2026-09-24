@@ -85,7 +85,11 @@ export interface Selection {
 }
 
 /** A read that failed, kept apart from a read that found nothing. */
-class ReadFailed extends Error {}
+class ReadFailed extends Error {
+  constructor(readonly plain: string) {
+    super(plain)
+  }
+}
 
 async function resolve(selection: Selection): Promise<string[]> {
   if (selection.ids && selection.ids.length > 0) return selection.ids.filter((id) => UUID_RE.test(id))
@@ -165,7 +169,7 @@ async function describe(ids: string[]): Promise<Target[]> {
 
 /** A read that failed answers in plain words; anything else stays in the log. */
 function failure(where: string, thrown: unknown) {
-  if (thrown instanceof ReadFailed) return NextResponse.json({ error: `${thrown.message} Nothing was changed.` }, { status: 500 })
+  if (thrown instanceof ReadFailed) return NextResponse.json({ error: `${thrown.plain} Nothing was changed.` }, { status: 500 })
   return adminFailure(where, thrown)
 }
 

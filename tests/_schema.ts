@@ -30,7 +30,7 @@ export type Schema = {
   functions: Set<string>
 }
 
-export const SQL_DIRS = ["supabase/migrations", "supabase/sql", "scripts"]
+export const SQL_DIRS = ["supabase/migrations", "supabase/sql", "sql", "scripts"]
 
 function sqlFiles(root: string): string[] {
   const out: string[] = []

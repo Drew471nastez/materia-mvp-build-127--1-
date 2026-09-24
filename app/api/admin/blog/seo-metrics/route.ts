@@ -100,38 +100,56 @@ export async function GET(req: NextRequest) {
     { count: totalBlogPosts },
     { count: publishedBlogPosts },
     { count: totalSellers },
-    { data: creatorProfiles },
-    { data: productCounts },
-    { data: creatorsTable },
+    { data: creatorProfiles, error: profilesError },
     { data: blogPosts },
-    { data: onepages },
   ] = await Promise.all([
     supabase.from("products").select("*", { count: "exact", head: true }),
     supabase.from("products").select("*", { count: "exact", head: true }).eq("status", "published"),
     supabase.from("blog_posts").select("*", { count: "exact", head: true }),
     supabase.from("blog_posts").select("*", { count: "exact", head: true }).eq("is_published", true),
     supabase.from("profiles").select("*", { count: "exact", head: true }).not("username", "is", null),
+    /*
+      `country` was in this list. profiles has no such column, so the whole
+      read failed, the error was not looked at, and this dashboard listed no
+      creators at all, which also left the moderation tools below it with
+      nobody to act on.
+    */
     supabase
       .from("profiles")
-      .select("id, username, display_name, avatar_url, created_at, country")
+      .select("id, username, display_name, avatar_url, created_at")
       .not("username", "is", null)
       .order("created_at", { ascending: false })
       .limit(500),
-    supabase
-      .from("products")
-      .select("creator_id, status"),
-    supabase
-      .from("creators")
-      .select("id, user_id"),
     supabase
       .from("blog_posts")
       .select("id, slug, title, seo_title, seo_description, is_published, published_at, views")
       .order("published_at", { ascending: false })
       .limit(50),
-    supabase
-      .from("onepages")
-      .select("owner_id, slug, title"),
   ])
+  if (profilesError) return adminFailure("seo metrics creators", profilesError, "The creator list could not be read.")
+
+  /*
+    Only for the creators listed, in batches an address can carry. These
+    three used to read their tables whole, which PostgREST caps at a
+    thousand rows: past that, product counts were quietly short.
+  */
+  const profileIds = (creatorProfiles ?? []).map((p) => p.id as string)
+  const batches = (ids: string[], size = 100) => Array.from({ length: Math.ceil(ids.length / size) }, (_, i) => ids.slice(i * size, i * size + size))
+  const creatorsTable: { id: string; user_id: string }[] = []
+  const onepages: { owner_id: string; slug: string; title: string | null }[] = []
+  for (const batch of batches(profileIds)) {
+    const [{ data: cs }, { data: ops }] = await Promise.all([
+      supabase.from("creators").select("id, user_id").in("user_id", batch),
+      supabase.from("onepages").select("owner_id, slug, title").in("owner_id", batch),
+    ])
+    creatorsTable.push(...((cs ?? []) as { id: string; user_id: string }[]))
+    onepages.push(...((ops ?? []) as { owner_id: string; slug: string; title: string | null }[]))
+  }
+  const productCounts: { creator_id: string }[] = []
+  for (const batch of batches(creatorsTable.map((c) => c.id), 25)) {
+    const { data } = await supabase.from("products").select("creator_id").in("creator_id", batch).limit(1000)
+    productCounts.push(...((data ?? []) as { creator_id: string }[]))
+  }
 
   // Map creator_id → product count (ALL products, not just published)
   const countByCreatorId: Record<string, number> = {}
@@ -167,7 +185,7 @@ export async function GET(req: NextRequest) {
       display_name: profile.display_name,
       avatar_url: profile.avatar_url,
       joined_at: profile.created_at,
-      country: (profile as Record<string, unknown>).country as string | null ?? null,
+      country: null as string | null,
       product_count: productCount,
       has_published_products: productCount > 0,
       onepage_slug: op?.slug ?? null,
