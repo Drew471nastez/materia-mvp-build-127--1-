@@ -72,7 +72,7 @@ import { BUTTON_COLOR_GROUPS, ButtonColorGroup, ColorsPanel, SectionDesignPanel,
 import { remapScheme, themeColorSchemes } from "@/lib/storelib-theme/color-schemes"
 import { sameSettingValue } from "@/lib/website-builder/same-setting"
 import { PAGE_META } from "@/lib/website-builder/types"
-import { BUILT_IN_PAGE_KEYS, pageKeyFromSegment, pageTitleFromKey } from "@/lib/website-builder/site-pages"
+import { BUILT_IN_PAGE_KEYS, pageKeyFromSegment, pageTitleFromKey, templateForPage } from "@/lib/website-builder/site-pages"
 import { resolveEditorHref } from "@/lib/website-builder/editor-navigation"
 import { headerIconOn } from "@/lib/website-builder/header-icons"
 import { headerGap, headerPad } from "@/lib/website-builder/header-spacing"
@@ -2264,7 +2264,10 @@ function HeaderSectionSettings({
                 max={120}
                 step={2}
                 unit="px"
-                defaultValue={40}
+                /* What the header draws when none is set (HeaderSection),
+                   so the slider never shows one height while the logo is
+                   another. It said 40 over a 64px logo. */
+                defaultValue={64}
               />
             )}
 
@@ -2476,6 +2479,20 @@ function HeaderSectionSettings({
                 </div>
                 <div className="h-3 w-8 bg-gray-700 rounded-sm" />
                 <div className="h-2 w-2 bg-gray-700 rounded-full" />
+              </div>
+            ),
+          },
+          {
+            id: "logo_center_nav_below",
+            label: "Logo centered · Nav below",
+            preview: (
+              <div className="flex flex-col items-center justify-center gap-1 w-full h-full px-3">
+                <div className="h-3 w-10 bg-gray-700 rounded-sm" />
+                <div className="flex items-center gap-1.5">
+                  <div className="h-1.5 w-4 bg-gray-500 rounded-full" />
+                  <div className="h-1.5 w-4 bg-gray-500 rounded-full" />
+                  <div className="h-1.5 w-4 bg-gray-500 rounded-full" />
+                </div>
               </div>
             ),
           },
@@ -2955,6 +2972,8 @@ function HeaderSectionSettings({
       { id: "logo_left_nav_inline",  label: "Logo left · Nav inline · Icons right" },
       { id: "logo_left_nav_center",  label: "Logo left · Nav centered · Icons right" },
       { id: "nav_left_logo_center",  label: "Nav left · Logo centered · Icons right" },
+      /* The header has always drawn this one; the picker never offered it. */
+      { id: "logo_center_nav_below", label: "Logo centered · Nav below" },
     ]
     const currentLayout = (typeof s.header_layout === "string" ? s.header_layout : "logo_left_nav_right")
     const renderPreview = (id: string) => {
@@ -3005,6 +3024,17 @@ function HeaderSectionSettings({
               </div>
               <div className="h-3 w-10 bg-gray-800 rounded-sm" />
               <div className="h-2 w-2 bg-gray-800 rounded-full" />
+            </div>
+          )
+        case "logo_center_nav_below":
+          return (
+            <div className="flex flex-col items-center justify-center gap-1.5 w-full h-full px-4">
+              <div className="h-3 w-12 bg-gray-800 rounded-sm" />
+              <div className="flex items-center gap-2">
+                <div className="h-1.5 w-5 bg-gray-500 rounded-full" />
+                <div className="h-1.5 w-5 bg-gray-500 rounded-full" />
+                <div className="h-1.5 w-5 bg-gray-500 rounded-full" />
+              </div>
             </div>
           )
       }
@@ -8302,7 +8332,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               <EditorCanvasPage
                 theme={canvasThemeSettings}
                 sources={storelibSources}
-                pageTemplate={currentPage === "home" ? "index" : currentPage}
+                pageTemplate={templateForPage(currentPage)}
                 sections={canvasSections}
                 arrivedId={arrivedId}
                 inspectorEnabled={inspectorEnabled}
@@ -9059,19 +9089,24 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
           )
         }
 
+        /*
+          NO WRAPPER OF THE EDITOR'S OWN. Each body section sat in a div of
+          the editor's, which made the sections' boxes cousins instead of the
+          siblings they are on the live page, so the theme's section gap (a
+          rule between sibling boxes) applied on the live site and never in
+          the canvas. The id and the arrival animation go on the box itself,
+          which is the same element the live page draws.
+        */
         return (
-          <div
+          <SectionRenderer
             key={section.id}
-            id={`wb-section-${section.id}`}
-            className={section.id === arrivedId ? "wb-section-arrive" : undefined}
-          >
-            <SectionRenderer
-              {...shared}
-              canvasRoundedBottomPx={
-                role === "footer" && device !== "desktop" ? 16 : undefined
-              }
-            />
-          </div>
+            {...shared}
+            wrapperId={`wb-section-${section.id}`}
+            boxClassName={section.id === arrivedId ? "wb-section-arrive" : undefined}
+            canvasRoundedBottomPx={
+              role === "footer" && device !== "desktop" ? 16 : undefined
+            }
+          />
         )
       }}
     >

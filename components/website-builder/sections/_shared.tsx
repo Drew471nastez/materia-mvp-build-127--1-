@@ -54,6 +54,9 @@ export interface SectionProps {
    *  to `scrollIntoView` without needing a separate wrapping <div> which
    *  would constrain sticky's containing block. */
   wrapperId?: string
+  /** Editor-only: a class for the section's box, the element that has the
+   *  page's other sections as siblings (the arrival animation). */
+  boxClassName?: string
   /** Editor-only: intercept nav link / CTA clicks inside sections so clicking
    *  a link in the header navigates WITHIN the editor canvas to the matching
    *  page instead of doing a full browser navigation. */

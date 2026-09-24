@@ -292,7 +292,18 @@ export function themeStylesheet(theme: ThemeSettingsValues): string {
        * slides it away on scroll, so the two were fighting over the same
        * property. Chrome appears with the page; only content enters.
        */
-      `${root} [data-section]:not([data-chrome]){animation:storelibSectionIn var(--theme-animation-duration) cubic-bezier(0.22,1,0.36,1) both;}`,
+      /**
+       * NOT THE FIRST SECTION EITHER. It is the one right under the header,
+       * on screen the moment the page is, and animating it in from
+       * transparent and 16px low left the page's background showing between
+       * the header and it for the length of the animation: on every load of
+       * the live site, a band under the header the canvas never showed,
+       * because there the animation plays once, under the loader. The first
+       * section appears with the page, like the header; the ones after it
+       * come in. `~` from the first body box selects every body box after it,
+       * in the editor too, where the insert strips sit between them.
+       */
+      `${root} [data-section-box]:not([data-chrome]) ~ [data-section-box]:not([data-chrome]) [data-section]{animation:storelibSectionIn var(--theme-animation-duration) cubic-bezier(0.22,1,0.36,1) both;}`,
       // Each section a little after the one above it, capped so the tenth
       // section is not still waiting a second after the page has settled.
       ...Array.from({ length: 8 }, (_, i) =>

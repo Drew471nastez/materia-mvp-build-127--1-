@@ -133,7 +133,7 @@ export function renderSection(props: SectionProps) {
   const chrome = props.section.type === "header" || props.section.type === "footer"
   return (
     <div
-      className="@container"
+      className={props.boxClassName ? `@container ${props.boxClassName}` : "@container"}
       id={props.wrapperId}
       data-section-box=""
       /**
@@ -172,6 +172,7 @@ export default memo(SectionRendererInner, (prev, next) => {
     prev.deviceMode === next.deviceMode &&
     prev.insideEditor === next.insideEditor &&
     (prev as any).wrapperId === (next as any).wrapperId &&
+    prev.boxClassName === next.boxClassName &&
     (prev as any).canvasRoundedTopPx === (next as any).canvasRoundedTopPx &&
     (prev as any).canvasRoundedBottomPx === (next as any).canvasRoundedBottomPx
   )

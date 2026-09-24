@@ -379,6 +379,14 @@ export function ThemePage({
    * every keystroke in the builder. See ../sections/stable-html.
    */
   const themeCss = useMemo(() => ({ __html: themeStylesheet(theme) }), [theme])
+  const pageColor = typeof (theme as Record<string, unknown>).background_color === "string" ? String((theme as Record<string, unknown>).background_color).trim() : ""
+  const documentBackground = useMemo(
+    () =>
+      storefront?.inEditor !== true && /^(#[0-9a-f]{3,8}|(rgb|hsl)a?\([0-9.,%\s]+\)|[a-z]+)$/i.test(pageColor)
+        ? { __html: `html,body{background-color:${pageColor};}` }
+        : null,
+    [storefront?.inEditor, pageColor],
+  )
 
   return (
     <StorefrontProvider value={storefront ?? {}}>
@@ -404,7 +412,16 @@ export function ThemePage({
       lang={siteLanguage(theme as Record<string, unknown>)}
       dir={siteDirection(theme as Record<string, unknown>)}
       className={className}
-      style={{ ...(themeVars(theme) as CSSProperties), ...pageFill(storefront?.inEditor === true), ...style }}
+      /*
+        A WIDTH CONTAINER, on the live page and in the canvas alike. The
+        theme's tablet and phone sizes are container queries, and every body
+        section has a box of its own to answer them; the header has none,
+        because a box around it would stop it sticking. So in the canvas the
+        header answered to the canvas frame, and on the live site to nothing
+        at all: a phone preview showed the header's phone sizes, and a phone
+        never did. It answers to the page now, on both.
+      */
+      style={{ ...(themeVars(theme) as CSSProperties), containerType: "inline-size", ...pageFill(storefront?.inEditor === true), ...style }}
     >
       {/*
         The theme's own rules, scoped to this root. Inline rather than in a
@@ -413,6 +430,13 @@ export function ThemePage({
         rule would leak from one to the other.
       */}
       <style dangerouslySetInnerHTML={themeCss} />
+      {/*
+        THE DOCUMENT IS THE PAGE'S COLOUR TOO, on the live site. Only the
+        theme root was painted; <html> and <body> stayed white, so a phone's
+        overscroll bounce and its safe areas showed white around a dark site.
+        Not in the canvas, whose document is the editor's.
+      */}
+      {documentBackground ? <style dangerouslySetInnerHTML={documentBackground} /> : null}
       {/* The families the stylesheet above names. Without this they were
           names only: see lib/website-builder/font-link.ts. */}
       {fontHref && <link rel="stylesheet" href={fontHref} />}

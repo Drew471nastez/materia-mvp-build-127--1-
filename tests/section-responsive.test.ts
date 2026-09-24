@@ -106,7 +106,7 @@ const dispatcher = readFileSync(
 
 check(
   "the dispatcher wraps sections in a container",
-  /className="@container"/.test(dispatcher),
+  /className=\{props\.boxClassName \? `@container \$\{props\.boxClassName\}` : "@container"\}/.test(dispatcher),
 )
 
 check(

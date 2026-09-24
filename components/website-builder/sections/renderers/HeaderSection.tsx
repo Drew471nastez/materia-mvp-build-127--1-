@@ -37,6 +37,7 @@ import {
   buttonRadiusStyle,
   SectionWrapper,
 } from "../_shared"
+import { useStorelibPage } from "../storelib-sources"
 
 // ── Header color schemes ─────────────────────────────────────
 type HeaderColorScheme = ColorSchemeKey
@@ -618,7 +619,7 @@ function HeaderSearchPanel({
                 <p className="px-4 py-4 text-[14px] opacity-60">No results for &ldquo;{asked}&rdquo;</p>
               ) : (
                 <>
-                  <ul className="site-slim-scroll max-h-[min(56vh,420px)] overflow-y-auto overscroll-contain py-1">
+                  <ul className="site-slim-scroll max-h-[min(calc(var(--sl-vh,1vh)*56),420px)] overflow-y-auto overscroll-contain py-1">
                     {hits.map((h) => (
                       <li key={h.id}>
                         <a
@@ -1365,6 +1366,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
   // to pass `insideEditor` explicitly. The website-builder editor is the
   // ONLY consumer that ever sets `onEditorNavigate`.
   const renderingInsideEditor = insideEditor ?? !!onEditorNavigate
+  const { template: pageTemplate } = useStorelibPage()
   const s = section.settings
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
 
@@ -2528,10 +2530,15 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
   // at render time via the pathname because the header doesn't know which
   // page it's on otherwise. Inside the editor we treat every page as
   // "home" for visibility purposes so the setting is easy to preview.
-  const pathname = typeof window !== "undefined" ? window.location.pathname : ""
-  const isHomePage = renderingInsideEditor
-    ? true
-    : (pathname === "/" || /^\/(w|c)\/[^/]+\/?$/.test(pathname) || /^\/[^/]+\/?$/.test(pathname))
+  /*
+    FROM THE PAGE BEING DRAWN, NOT THE ADDRESS BAR. This read
+    `window.location` while rendering, so the server (no window) and the
+    browser disagreed about the border and React threw the server's header
+    away; and it counted any one-segment path as home, so "home page only"
+    also drew the border on /about. The page's template is in context on
+    the live page and in the canvas alike: "index" is the front page.
+  */
+  const isHomePage = renderingInsideEditor ? true : pageTemplate === "index"
   const shouldShowBorder = borderEnabled && (
     borderVisibility === "all"
       ? true

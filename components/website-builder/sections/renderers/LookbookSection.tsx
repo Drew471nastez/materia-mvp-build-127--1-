@@ -55,7 +55,7 @@ export function LookbookSection({ section, theme, isEditing, isSelected, onClick
 
   return (
     <SectionWrapper bgColor={bg} isEditing={isEditing} isSelected={isSelected} onClick={onClick}>
-      <div className="relative w-full overflow-hidden" style={{ minHeight: "80vh", paddingTop: padTop, paddingBottom: padBottom }}>
+      <div className="relative w-full overflow-hidden" style={{ minHeight: "calc(var(--sl-vh, 1vh) * 80)", paddingTop: padTop, paddingBottom: padBottom }}>
         {heroImage ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={heroImage} alt={str(s.collection_name)} className="absolute inset-0 w-full h-full object-cover" style={{ objectPosition: imgObjectPos }} />
@@ -65,7 +65,7 @@ export function LookbookSection({ section, theme, isEditing, isSelected, onClick
         {overlayStyle !== "none" && (
           <div className="absolute inset-0" style={{ background: hexToRgba(overlayColor, overlayOp / 100) }} />
         )}
-        <div className={`relative flex flex-col h-full min-h-[80vh] p-10 @[768px]:p-16 ${posCls}`} style={{ color: textColor }}>
+        <div className={`relative flex flex-col h-full min-h-[calc(var(--sl-vh,1vh)*80)] p-10 @[768px]:p-16 ${posCls}`} style={{ color: textColor }}>
           <div className="max-w-xl">
             {!!s.season_text && (
               <p className="text-xs uppercase tracking-[0.25em] mb-4 opacity-90" style={{ color: accent }}>
