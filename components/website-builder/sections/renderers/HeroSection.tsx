@@ -223,7 +223,7 @@ export function HeroSection({ section, theme, isEditing, isSelected, onClick }: 
       <div
         className={cn(
           "relative z-10 mx-auto flex w-full px-8",
-          fullHeight ? "min-h-[80vh] items-center" : "items-center",
+          fullHeight ? "min-h-[calc(var(--sl-vh,1vh)*80)] items-center" : "items-center",
           split ? "flex-col gap-10 @[820px]:flex-row @[820px]:items-center" : "flex-col justify-center",
         )}
         style={{ maxWidth: maxWidth(s.max_width), ...sectionPadding(s, 60) }}

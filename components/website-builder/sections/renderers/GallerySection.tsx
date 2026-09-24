@@ -190,7 +190,7 @@ export function GallerySection({ section, theme, isEditing, isSelected, onClick 
             <img
               src={str(opened.settings.image)}
               alt={str(opened.settings.alt)}
-              className="max-h-[80vh] w-auto rounded-lg object-contain"
+              className="max-h-[calc(var(--sl-vh,1vh)*80)] w-auto rounded-lg object-contain"
             />
             {!!opened.settings.caption && (
               <figcaption className="mt-3 text-center text-sm text-white/80">

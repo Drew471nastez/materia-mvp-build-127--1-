@@ -601,7 +601,7 @@ section("The page a section is on is the page it is on")
       && /<StorelibSourcesProvider prerendered=\{prerendered\}/.test(creator),
   )
   check("and a section reads it instead of assuming index", /useStorelibContext\(\)/.test(sectionSrc) && !/template: "index"/.test(sectionSrc))
-  check("the editor hands it the page being edited", /pageTemplate=\{currentPage === "home" \? "index" : currentPage\}/.test(editor) && /page=\{\{ template: pageTemplate \}\}/.test(editor))
+  check("the editor hands it the page being edited", /pageTemplate=\{templateForPage\(currentPage\)\}/.test(editor) && /page=\{\{ template: pageTemplate \}\}/.test(editor))
 }
 
 // ===========================================================================

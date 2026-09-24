@@ -550,8 +550,12 @@ section("The header, the announcement bar, and the space between them")
      * header's own `transform` is what slides it away on scroll, so the two
      * were fighting over one property.
      */
-    /\[data-section\]:not\(\[data-chrome\]\)\{animation:storelibSectionIn/.test(css) &&
-      !/\[data-section\]\{animation:storelibSectionIn/.test(css),
+    /\[data-section-box\]:not\(\[data-chrome\]\) ~ \[data-section-box\]:not\(\[data-chrome\]\) \[data-section\]\{animation:storelibSectionIn/.test(css) &&
+      !/\[data-storelib-theme\] \[data-section\]\{animation:storelibSectionIn/.test(css),
+  )
+  check(
+    "and the first section under the header appears with the page, so no band of background shows between them on load",
+    !/ \[data-section\]:not\(\[data-chrome\]\)\{animation:/.test(css),
   )
   check(
     "which means the header and the footer have to say they are chrome",

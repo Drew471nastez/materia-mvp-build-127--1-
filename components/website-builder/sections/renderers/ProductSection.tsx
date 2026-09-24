@@ -446,7 +446,7 @@ export function ProductSection({ section, theme, isEditing, isSelected, onClick 
           <img
             src={allImages[lightbox]}
             alt={title}
-            className={cn("max-h-[85vh] w-auto object-contain", clickAction === "zoom" && "scale-110")}
+            className={cn("max-h-[calc(var(--sl-vh,1vh)*85)] w-auto object-contain", clickAction === "zoom" && "scale-110")}
           />
         </div>
       )}

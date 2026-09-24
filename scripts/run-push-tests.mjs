@@ -29,6 +29,7 @@ const SUITES = [
   "tests/section-flash.test.ts",
   "tests/site-focus.test.ts",
   "tests/button-colors.test.ts",
+  "tests/canvas-parity.test.ts",
   "tests/emails-page.test.ts",
   "tests/orders-view.test.ts",
   "tests/orders-detail.test.ts",
