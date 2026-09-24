@@ -776,23 +776,16 @@ export async function proxy(request: NextRequest) {
         return NextResponse.redirect(apex, { status: 307 })
       }
 
-      /**
-       * THE SITE'S OWN ROBOTS.TXT AND SITEMAP. They look like files, so they
-       * used to go to /site like an asset, which answered a website-builder
-       * site's /robots.txt with a redirect to storelib.com/<name>/robots.txt:
-       * Google, which treats every host as its own site, found no sitemap on
-       * any of them. A website-builder site answers from its own routes now;
-       * a live AI site keeps serving (or generating) its own.
-       */
-      if ((pathname === "/robots.txt" || pathname === "/sitemap.xml") && !(await hasLiveAiSite(subdomain))) {
-        const own = request.nextUrl.clone()
-        own.pathname = `/w/${subdomain}${pathname}`
-        return NextResponse.rewrite(own)
-      }
-
       const looksLikeFile = /\.[a-z0-9]{1,8}$/i.test(pathname)
-      /* robots.txt and sitemap.xml were answered just above. */
-      const isWebsite = !looksLikeFile && !(await hasLiveAiSite(subdomain))
+      /**
+       * A SITE'S OWN robots.txt AND sitemap.xml. They look like files, so
+       * they went to the file handler and answered 404, and a creator's site
+       * had no sitemap at all. The website answers them itself
+       * (app/(site)/w/[username]/robots.txt, sitemap.xml); a live AI site
+       * keeps serving (or generating) its own.
+       */
+      const seoFile = pathname === "/robots.txt" || pathname === "/sitemap.xml"
+      const isWebsite = (!looksLikeFile || seoFile) && !(await hasLiveAiSite(subdomain))
 
       /**
        * ═══════════════════════════════════════════════════════════════════

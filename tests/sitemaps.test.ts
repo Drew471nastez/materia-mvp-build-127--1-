@@ -129,7 +129,7 @@ section("Every host answers its own robots.txt and sitemap")
 {
   const proxy = code("proxy.ts")
   check("a website-builder subdomain's robots.txt and sitemap go to its own routes, an AI site keeps its own",
-    /\(pathname === "\/robots\.txt" \|\| pathname === "\/sitemap\.xml"\) && !\(await hasLiveAiSite\(subdomain\)\)/.test(proxy) && /own\.pathname = `\/w\/\$\{subdomain\}\$\{pathname\}`/.test(proxy))
+    /const isWebsite = \(!looksLikeFile \|\| seoFile\) && !\(await hasLiveAiSite\(subdomain\)\)/.test(proxy))
   check("a connected domain's too, instead of storelib.com's, answered once",
     /username &&\s*isCustomDomain &&\s*\(pathname === "\/robots\.txt" \|\| pathname === "\/sitemap\.xml"\)/.test(proxy) && /seoUrl\.pathname = `\/w\/\$\{username\}\$\{pathname\}`/.test(proxy)
       && (proxy.match(/isCustomDomain &&\s*\(pathname === "\/robots\.txt"/g) ?? []).length === 1)
