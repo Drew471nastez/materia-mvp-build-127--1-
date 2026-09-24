@@ -26,6 +26,11 @@ function stubFetch() {
   window.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input)
     calls.push(`${init?.method ?? "GET"} ${url}`)
+    if (url === "/api/domains" && init?.method === "POST") {
+      const { domain } = JSON.parse(String(init.body ?? "{}")) as { domain: string }
+      return json({ domain: { id: "d2", domain, status: "pending", verification_token: "storelib-verify-3f9c2a71d04b8e56a1c7f02e9d4b6a8c" } })
+    }
+    if (url === "/api/domains/verify") return json({ verified: false })
     if (url.startsWith("/api/domains")) {
       return json({ domains: [{ id: "d1", domain: "astridstudio.com", status: "active", ssl_status: "active", verified_at: "2026-09-01T10:00:00Z" }] })
     }

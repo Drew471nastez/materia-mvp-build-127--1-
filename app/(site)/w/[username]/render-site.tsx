@@ -28,6 +28,7 @@ import { chromeOf, withUniversalChrome, type Chrome } from "@/lib/website-builde
 import { getMainDomain } from "@/lib/url-helpers"
 import { themeMetadata } from "@/lib/website-builder/theme-metadata"
 import { jsonLdScript, pageUrl, websiteJsonLd } from "@/lib/website-builder/site-seo"
+import { pageSeoOf } from "@/lib/website-builder/page-seo"
 import { siteOrigin } from "@/lib/website-builder/site-seo-data"
 import { pageTitleFromKey, templateForPage } from "@/lib/website-builder/site-pages"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
@@ -118,10 +119,13 @@ export async function siteMetadata(
    * title for the whole site, and using it unchanged on five pages gives a
    * visitor five identical tabs and a search engine five identical results.
    */
-  const rawTitle = pageKey === "home" ? siteTitle : `${pageTitleFromKey(pageKey)} | ${brand}`
-  const description = typeof settings.seo_description === "string" && settings.seo_description
+  /* A page's own title and description, when its creator gave it one in
+     Pages & Navigation: lib/website-builder/page-seo.ts. */
+  const own = pageSeoOf(settings as Record<string, unknown>, pageKey)
+  const rawTitle = own.title ?? (pageKey === "home" ? siteTitle : `${pageTitleFromKey(pageKey)} | ${brand}`)
+  const description = own.description ?? (typeof settings.seo_description === "string" && settings.seo_description
     ? settings.seo_description
-    : `Visit ${brand}'s website on Storelib`
+    : `Visit ${brand}'s website on Storelib`)
   const favicon = typeof settings.favicon_url === "string" && settings.favicon_url
     ? settings.favicon_url
     : undefined
@@ -148,6 +152,8 @@ export async function siteMetadata(
     // page may be indexed at all. All three were in the panel and read by
     // nothing, so "noindex" was a setting somebody trusted and did not have.
     ...themeMetadata(settings, { title: rawTitle, description, url }),
+    /* A page kept out of search on its own, whatever the site's setting. */
+    ...(own.hidden ? { robots: { index: false, follow: true } } : {}),
   }
 }
 
