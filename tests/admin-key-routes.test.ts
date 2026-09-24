@@ -102,6 +102,7 @@ const PUBLIC_BY_DESIGN: Record<string, string> = {
   "track-view/route.ts": "increments a view counter",
   "track-event/route.ts": "records an anonymous event",
   "blog/track/route.ts": "records a blog page view",
+  "public/vitals/route.ts": "a published site's speed numbers from its visitors, for a published site only, validated, capped per site a day and limited per address",
 
   // Reads of things that are already public.
   "reviews/stats/route.ts": "the rating shown on a public product page",

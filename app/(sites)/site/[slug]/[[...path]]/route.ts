@@ -222,7 +222,7 @@ export async function GET(
       const origin = `https://${slug.toLowerCase()}.${SITES_HOST}`
       if (requested === "robots.txt") {
         return new NextResponse(robotsTxt({ sitemaps: [`${origin}/sitemap.xml`] }), {
-          headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "public, s-maxage=600" },
+          headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "public, s-maxage=10, stale-while-revalidate=30" },
         })
       }
       const { data: live } = await admin
@@ -232,7 +232,8 @@ export async function GET(
         .eq("slug", slug.toLowerCase())
         .maybeSingle()
       return new NextResponse(urlsetXml([{ url: `${origin}/`, lastModified: (live as { created_at?: string } | null)?.created_at ?? null }]), {
-        headers: { "Content-Type": "application/xml; charset=utf-8", "Cache-Control": "public, s-maxage=600" },
+        /* Held no longer than the page: a publish changes its date. */
+        headers: { "Content-Type": "application/xml; charset=utf-8", "Cache-Control": "public, s-maxage=10, stale-while-revalidate=30" },
       })
     }
     return notFound()

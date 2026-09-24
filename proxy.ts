@@ -547,7 +547,7 @@ const FRAME_RESERVED_FIRST_SEGMENT = new Set([
   "checkout", "cover-render", "creator-page", "dashboard", "developers", "downloads", "editions", "explore",
   "faq", "features", "help", "l", "legal", "library", "llms-full.txt", "llms.txt", "login", "native-start",
   "onboarding", "p", "pricing", "privacy", "products", "purchase", "receipt",
-  "register", "request", "reset-password", "signup", "site", "sites", "store",
+  "register", "request", "reset-password", "signup", "site", "sitemap", "sitemap.xml", "sites", "store",
   "store-builder", "terms", "u", "unsubscribe", "upgrade", "verify-email",
   "w", "website-builder", "welcome", "wishlist",
 ])
