@@ -2838,16 +2838,24 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
         before the save. A refresh drops every kept page; the one on screen is
         re-read on the server and its new props are ignored, because the form
         only reads its props once.
-      */
-      router.refresh()
 
+        A NEW PRODUCT MOVES TO ITS OWN ADDRESS, where a reload finds it. The
+        address changes first and the refresh then reads that page, which
+        replaces this one with the same product read back from the database.
+        A refresh keeps this page on screen until that is ready, where a
+        navigation would have put up the loading outline in between; the
+        "Product is live" it earned is carried across.
+      */
       const message = typeof window !== "undefined" && window.innerWidth < 640 ? "Product is live" : "Product is live and saved"
       if (created) {
-        /* A new product moves to its own address, where a reload finds it. */
         carriedNotice = message
-        router.replace(`/app/products/${savedProductId}`, { scroll: false })
+        /* Only for the page this refresh draws, never a later one. */
+        setTimeout(() => { if (carriedNotice === message) carriedNotice = null }, 8000)
+        window.history.replaceState({}, "", `/app/products/${savedProductId}`)
+        router.refresh()
         return true
       }
+      router.refresh()
 
       // Smooth scroll to top
       contentRef.current?.scrollTo({ top: 0, behavior: "smooth" })

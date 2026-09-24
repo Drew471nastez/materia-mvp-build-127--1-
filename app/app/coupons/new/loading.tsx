@@ -1,71 +1,33 @@
-export default function CreateCouponLoading() {
+/**
+ * The coupon form's stand-in, for a slow load only (`skeleton-deferred`):
+ * the same bar as create-coupon-client.tsx (56px, 64px from 640px) and its
+ * first cards in the 640px column.
+ */
+const CARD = "mb-3 space-y-3 rounded-2xl border border-[#e5e7eb]/60 bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:mb-4 sm:space-y-4 sm:p-6"
+
+export default function CouponFormLoading() {
   return (
-    <div className="h-full flex flex-col bg-gray-50/40 skeleton-deferred">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-100 shrink-0">
-        <div className="max-w-2xl mx-auto px-4 sm:px-6 h-14 flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-gray-100 animate-pulse shrink-0" />
-          <div className="h-5 w-36 rounded-md bg-gray-200 animate-pulse" />
+    <div aria-hidden className="page-scroll h-full overflow-hidden bg-[#f8f9fa] skeleton-deferred">
+      <div className="mx-auto flex h-14 max-w-[640px] items-center gap-1.5 px-2 sm:h-16 sm:gap-2 sm:px-6">
+        <div className="h-11 w-[66px] shrink-0 sm:hidden" />
+        <div className="-ml-2 hidden h-9 w-9 sm:block" />
+        <div className="min-w-0 flex-1 px-1 sm:px-0">
+          <div className="h-4 w-28 rounded-md bg-[#eceef1] sm:h-5" />
+          <div className="mt-1.5 h-2.5 w-16 rounded-md bg-[#f1f2f4]" />
         </div>
+        <div className="hidden h-8 w-[66px] rounded-lg border border-[#e3e4e8] bg-white sm:block" />
+        <div className="h-10 w-[68px] shrink-0 rounded-[10px] bg-[#e4dcfb] sm:h-8 sm:w-[60px] sm:rounded-lg" />
       </div>
-
-      {/* Scrollable form area */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="max-w-2xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
-          <div className="bg-white rounded-2xl border border-gray-100 divide-y divide-gray-100">
-            {/* Code */}
-            <div className="px-5 sm:px-6 py-5 space-y-2">
-              <div className="h-4 w-24 rounded bg-gray-200 animate-pulse" />
-              <div className="h-11 w-full rounded-xl bg-gray-100 animate-pulse" />
-            </div>
-            {/* Discount */}
-            <div className="px-5 sm:px-6 py-5 space-y-2">
-              <div className="h-4 w-20 rounded bg-gray-200 animate-pulse" />
-              <div className="flex gap-2">
-                <div className="h-11 w-36 sm:w-40 rounded-xl bg-gray-100 animate-pulse shrink-0" />
-                <div className="h-11 flex-1 rounded-xl bg-gray-100 animate-pulse" />
-              </div>
-            </div>
-            {/* Applies to */}
-            <div className="px-5 sm:px-6 py-5 space-y-2">
-              <div className="h-4 w-20 rounded bg-gray-200 animate-pulse" />
-              <div className="flex gap-2">
-                <div className="h-10 flex-1 rounded-xl bg-gray-100 animate-pulse" />
-                <div className="h-10 flex-1 rounded-xl bg-gray-100 animate-pulse" />
-              </div>
-            </div>
-            {/* Usage limit */}
-            <div className="px-5 sm:px-6 py-5 space-y-2">
-              <div className="h-4 w-24 rounded bg-gray-200 animate-pulse" />
-              <div className="h-11 w-full rounded-xl bg-gray-100 animate-pulse" />
-            </div>
-            {/* Option rows */}
-            <div className="px-5 sm:px-6 py-4">
-              <div className="h-5 w-48 rounded bg-gray-100 animate-pulse" />
-            </div>
-            <div className="px-5 sm:px-6 py-4">
-              <div className="h-5 w-40 rounded bg-gray-100 animate-pulse" />
-            </div>
-            <div className="px-5 sm:px-6 py-4">
-              <div className="h-5 w-44 rounded bg-gray-100 animate-pulse" />
-            </div>
-            {/* Active */}
-            <div className="px-5 sm:px-6 py-4 flex items-center justify-between">
-              <div className="space-y-1.5">
-                <div className="h-4 w-12 rounded bg-gray-200 animate-pulse" />
-                <div className="h-3 w-40 rounded bg-gray-100 animate-pulse" />
-              </div>
-              <div className="w-11 h-6 rounded-full bg-gray-200 animate-pulse shrink-0" />
-            </div>
-          </div>
+      <div className="mx-auto w-full max-w-[640px] px-4 pt-3 sm:px-6 sm:pt-4">
+        <div className={CARD}>
+          <div className="h-4 w-12 rounded-md bg-[#eceef1]" />
+          <div className="h-11 rounded-[10px] border border-[#e5e7eb] bg-white sm:h-10" />
+          <div className="h-3 w-64 max-w-full rounded-md bg-[#f1f2f4]" />
         </div>
-      </div>
-
-      {/* Sticky bottom bar */}
-      <div className="shrink-0 bg-white border-t border-gray-100 px-4 sm:px-6 py-3">
-        <div className="max-w-2xl mx-auto flex gap-3">
-          <div className="h-11 flex-1 rounded-xl bg-gray-100 animate-pulse" />
-          <div className="h-11 flex-1 rounded-xl bg-gray-200 animate-pulse" />
+        <div className={CARD}>
+          <div className="h-4 w-20 rounded-md bg-[#eceef1]" />
+          <div className="h-11 rounded-[10px] bg-[#eceef1] sm:h-9" />
+          <div className="h-11 rounded-[10px] border border-[#e5e7eb] bg-white sm:h-10" />
         </div>
       </div>
     </div>

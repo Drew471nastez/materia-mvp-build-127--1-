@@ -1,85 +1,63 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { readCouponInput, type CouponValues } from "@/lib/checkout/coupons"
+import { TAKEN, codeTaken, productsAreTheirs, signedInCreator, writeCoupon } from "../write"
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 /**
  * PUT /api/coupons/[id]
- * Update an existing coupon (must belong to authenticated creator).
+ * An edit, which may be the whole form or one field (turning a code off from
+ * the list sends only `is_active`). It is laid over the saved row and the
+ * result checked as a whole, so an edit cannot leave an end before a start.
  */
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  if (!UUID.test(id)) return NextResponse.json({ error: "That coupon is gone." }, { status: 404 })
+  const who = await signedInCreator()
+  if (!who.ok) return who.response
 
-  const { data: creator } = await supabase
-    .from("creators")
-    .select("id")
-    .eq("user_id", user.id)
-    .maybeSingle()
-
-  if (!creator) return NextResponse.json({ error: "Creator not found" }, { status: 404 })
-
-  const body = await request.json()
-  const { code, discount_type, discount_value, product_ids, usage_limit, starts_at, expires_at, min_purchase_cents, is_active } = body
-
-  if (discount_type && !["percentage", "fixed"].includes(discount_type)) {
-    return NextResponse.json({ error: "discount_type must be 'percentage' or 'fixed'" }, { status: 400 })
+  let body: unknown
+  try {
+    body = await request.json()
+  } catch {
+    return NextResponse.json({ error: "Nothing to save." }, { status: 400 })
   }
 
-  const updates: Record<string, unknown> = {}
-  if (code !== undefined) updates.code = code.trim().toUpperCase()
-  if (discount_type !== undefined) updates.discount_type = discount_type
-  if (discount_value !== undefined) updates.discount_value = discount_value
-  if (product_ids !== undefined) updates.product_ids = product_ids?.length ? product_ids : null
-  if (usage_limit !== undefined) updates.usage_limit = usage_limit || null
-  if (starts_at !== undefined) updates.starts_at = starts_at || null
-  if (expires_at !== undefined) updates.expires_at = expires_at || null
-  if (min_purchase_cents !== undefined) updates.min_purchase_cents = min_purchase_cents || null
-  if (is_active !== undefined) updates.is_active = is_active
-
-  const { data, error } = await supabase
+  const { data: saved } = await who.supabase
     .from("coupons")
-    .update(updates)
+    .select("*")
     .eq("id", id)
-    .eq("creator_id", creator.id)
-    .select()
-    .single()
+    .eq("creator_id", who.creatorId)
+    .maybeSingle()
+  if (!saved) return NextResponse.json({ error: "That coupon is gone." }, { status: 404 })
 
-  if (error) {
-    if (error.code === "23505") {
-      return NextResponse.json({ error: "A coupon with this code already exists" }, { status: 409 })
-    }
-    return NextResponse.json({ error: error.message }, { status: 500 })
+  const input = readCouponInput(body, saved as Partial<CouponValues>)
+  if (!input.ok) return NextResponse.json({ error: input.error }, { status: 400 })
+
+  if (!(await productsAreTheirs(who.supabase, who.creatorId, input.values.product_ids))) {
+    return NextResponse.json({ error: "Some of those products could not be found." }, { status: 400 })
   }
-  if (!data) return NextResponse.json({ error: "Coupon not found" }, { status: 404 })
+  if (input.values.code !== String(saved.code).toUpperCase() && (await codeTaken(who.supabase, who.creatorId, input.values.code, id))) {
+    return TAKEN()
+  }
 
-  return NextResponse.json({ coupon: data })
+  return writeCoupon(who.supabase, who.creatorId, input.values, id)
 }
 
 /**
  * DELETE /api/coupons/[id]
- * Delete a coupon (must belong to authenticated creator).
+ * Removes a code. Orders already placed with it keep their discount.
  */
-export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  if (!UUID.test(id)) return NextResponse.json({ error: "That coupon is gone." }, { status: 404 })
+  const who = await signedInCreator()
+  if (!who.ok) return who.response
 
-  const { data: creator } = await supabase
-    .from("creators")
-    .select("id")
-    .eq("user_id", user.id)
-    .maybeSingle()
-
-  if (!creator) return NextResponse.json({ error: "Creator not found" }, { status: 404 })
-
-  const { error } = await supabase
-    .from("coupons")
-    .delete()
-    .eq("id", id)
-    .eq("creator_id", creator.id)
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  const { error } = await who.supabase.from("coupons").delete().eq("id", id).eq("creator_id", who.creatorId)
+  if (error) {
+    console.error("[coupons] delete failed", error.code)
+    return NextResponse.json({ error: "The coupon could not be deleted. Try again." }, { status: 500 })
+  }
   return NextResponse.json({ ok: true })
 }

@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation"
-import { createClient } from "@/lib/supabase/server"
-import { createAdminClient } from "@/lib/supabase/admin"
 import { CouponsClient } from "./coupons-client"
+import CouponsLoading from "./loading"
+import { loadCouponArea } from "./load-coupons"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -11,40 +11,9 @@ export const metadata = {
 }
 
 export default async function CouponsPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect("/login")
-
-  const admin = createAdminClient()
-
-  const { data: creator } = await admin
-    .from("creators")
-    .select("id")
-    .eq("user_id", user.id)
-    .maybeSingle()
-
-  if (!creator) redirect("/signup/success")
-
-  // Fetch creator's products for the "applies to" selector
-  const { data: products } = await admin
-    .from("products")
-    .select("id, title, price_cents, thumbnail_url, status")
-    .eq("creator_id", creator.id)
-    .eq("status", "published")
-    .order("title")
-
-  // Fetch existing coupons
-  const { data: coupons } = await admin
-    .from("coupons")
-    .select("*")
-    .eq("creator_id", creator.id)
-    .order("created_at", { ascending: false })
-
-  return (
-    <CouponsClient
-      creatorId={creator.id}
-      initialCoupons={coupons || []}
-      products={products || []}
-    />
-  )
+  const load = await loadCouponArea(null)
+  /* No session yet: the app shell's gate restores it and asks again. */
+  if (load.state === "signed-out") return <CouponsLoading />
+  if (load.state === "no-creator") redirect("/signup/success")
+  return <CouponsClient creatorId={load.creatorId} initialCoupons={load.coupons} products={load.products} />
 }

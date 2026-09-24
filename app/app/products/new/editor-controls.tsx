@@ -80,3 +80,58 @@ export function SwitchRow({
 
 /** The group a SwitchRow sits in: one rounded block, a hairline between rows. */
 export const SWITCH_GROUP = "divide-y divide-[#eef0f2] overflow-hidden rounded-xl border border-[#e5e7eb]"
+
+/**
+ * Two or three choices of which exactly one is on, side by side in one
+ * track, the chosen one lifted onto white. A radio group underneath, so the
+ * arrow keys move it and a screen reader reads it as one.
+ */
+export function Segmented<T extends string>({
+  value,
+  options,
+  onChange,
+  label,
+}: {
+  value: T
+  options: { value: T; label: string }[]
+  onChange: (next: T) => void
+  label: string
+}) {
+  return (
+    <div
+      role="radiogroup"
+      aria-label={label}
+      className="grid rounded-[10px] bg-[#eceef1] p-0.5"
+      style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}
+      onKeyDown={(e) => {
+        if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return
+        e.preventDefault()
+        const i = options.findIndex((o) => o.value === value)
+        const next = options[(i + (e.key === "ArrowRight" ? 1 : options.length - 1)) % options.length]
+        onChange(next.value)
+        ;(e.currentTarget.querySelector(`[data-value="${next.value}"]`) as HTMLElement | null)?.focus()
+      }}
+    >
+      {options.map((o) => {
+        const on = o.value === value
+        return (
+          <button
+            key={o.value}
+            type="button"
+            role="radio"
+            aria-checked={on}
+            data-value={o.value}
+            tabIndex={on ? 0 : -1}
+            onClick={() => onChange(o.value)}
+            className={cn(
+              "h-10 truncate rounded-lg px-3 text-[15px] font-medium outline-none transition-[background-color,box-shadow,color] duration-150 focus-visible:ring-2 focus-visible:ring-[#8b5cf6] sm:h-8 sm:rounded-md sm:text-[13px]",
+              on ? "bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(17,24,39,0.12),0_0_0_0.5px_rgba(17,24,39,0.06)]" : "text-[#4b5563] hover:text-[#1a1a2e]",
+            )}
+          >
+            {o.label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
