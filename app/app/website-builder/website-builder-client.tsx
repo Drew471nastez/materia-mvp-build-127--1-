@@ -34,18 +34,13 @@ import {
   Code2,
   Copy,
   Download,
-  ExternalLink,
   EyeOff,
-  FileText,
-  Globe,
   Layers,
   Loader2,
   MoreHorizontal,
   Pencil,
   Plus,
   Rocket,
-  Search,
-  Send,
   Settings2,
   Trash2,
   Upload,
@@ -69,7 +64,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import { useToast } from "@/hooks/use-toast"
 import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
@@ -77,8 +71,8 @@ import { getWebsiteShareUrl, getWebsiteUrlDisplay } from "@/lib/url-helpers"
 import { cn } from "@/lib/utils"
 import type { ThemeSettingsValues, ThemeStatus } from "@/lib/website-builder/types"
 import {
+  BROWSABLE_THEMES,
   THEME_INSTALL_LIMIT,
-  THEME_REGISTRY,
   getIndustry,
   getThemeDefinition,
   type ThemeDefinition,
@@ -93,7 +87,8 @@ import { relativeTime } from "@/lib/website-builder/relative-time"
 import { latestCover, requestCover, savedAt } from "@/lib/website-builder/cover-refresh"
 import { HelpLabel } from "@/components/app/help-label"
 import type { SettingsSection } from "@/components/website-builder/website-settings/types"
-import { SettingsStrip, settingsDoors } from "./settings-strip"
+import { SiteControls } from "./site-controls"
+import { LibraryFullDialog, type LibraryAction } from "./library-full-dialog"
 
 export interface WebsiteSummary {
   id: string
@@ -141,24 +136,6 @@ export function editorHref(
   return `${base}?${params.toString()}`
 }
 
-/**
- * ===========================================================================
- *  WHERE THE WEBSITE'S SETTINGS ARE
- * ===========================================================================
- * The pages of Website Settings a creator goes to for their live website,
- * named the way a host names them. They were a row of tabs above the cover;
- * that place is the settings bar now (./settings-strip.tsx), and these
- * are the first group of the More menu beside View site. Each opens the
- * matching page of Website Settings in the editor: there is one Domains page
- * and one SEO page in Storelib, and a row is a door to it, not a copy.
- */
-export const WEBSITE_SETTINGS: { label: string; section: SettingsSection; icon: React.ReactNode }[] = [
-  { label: "Pages", section: "pages", icon: <FileText /> },
-  { label: "Domain", section: "domains", icon: <Globe /> },
-  { label: "SEO", section: "seo", icon: <Search /> },
-  { label: "Publishing", section: "publishing", icon: <Send /> },
-  { label: "Settings", section: "general", icon: <Settings2 /> },
-]
 
 /**
  * The live cover's frame: 12px corners on all four sides, clipped on the
@@ -168,7 +145,7 @@ export const WEBSITE_SETTINGS: { label: string; section: SettingsSection; icon: 
  * and one wide.
  */
 const COVER_FRAME =
-  "group relative block w-full overflow-hidden rounded-[12px] bg-[#eef0f3] text-left isolate outline-none [transform:translateZ(0)] shadow-[0_1px_2px_rgba(15,23,42,0.06),0_10px_28px_-14px_rgba(15,23,42,0.22)] after:pointer-events-none after:absolute after:inset-0 after:z-10 after:rounded-[inherit] after:shadow-[inset_0_0_0_1px_rgba(15,23,42,0.08)] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/25 focus-visible:ring-offset-2"
+  "group relative block w-full select-none overflow-hidden rounded-[12px] bg-[#eef0f3] text-left isolate outline-none [&_img]:[-webkit-user-drag:none] [transform:translateZ(0)] shadow-[0_1px_2px_rgba(15,23,42,0.06),0_10px_28px_-14px_rgba(15,23,42,0.22)] after:pointer-events-none after:absolute after:inset-0 after:z-10 after:rounded-[inherit] after:shadow-[inset_0_0_0_1px_rgba(15,23,42,0.08)] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/25 focus-visible:ring-offset-2"
 
 /** "2 days ago" without the "ago", for a meta line that already reads as time. */
 function since(iso: string | null | undefined): string | null {
@@ -517,9 +494,13 @@ export function WebsiteBuilderClient({
   const [deleting, setDeleting] = React.useState<WebsiteSummary | null>(null)
   const [publishing, setPublishing] = React.useState<WebsiteSummary | null>(null)
   const [unpublishing, setUnpublishing] = React.useState<WebsiteSummary | null>(null)
+  /** Which way into a full library was just tried. See ./library-full-dialog. */
+  const [full, setFull] = React.useState<LibraryAction | null>(null)
   const fileInput = React.useRef<HTMLInputElement>(null)
 
   const live = installs.find((i) => i.status === "published") ?? null
+  /** A site that was live and was taken offline: the status menu can put it back. */
+  const offline = live ? null : (installs.find((i) => i.status === "unpublished") ?? null)
   const library = installs.filter((i) => i.status !== "published")
   const installedThemeIds = React.useMemo(() => new Set(installs.map((i) => i.theme_id)), [installs])
   const slotsUsed = installs.length
@@ -569,8 +550,6 @@ export function WebsiteBuilderClient({
     body: body === undefined ? undefined : JSON.stringify(body),
   })
 
-  const fullMessage = `Your library holds ${THEME_INSTALL_LIMIT}. Remove one first.`
-
   const publish = (i: WebsiteSummary) =>
     run(`${i.id}:publish`, () => fetch(`/api/website-builder/themes/${i.id}/publish`, json("POST", { action: "publish" })), `${i.name} is live`, "Could not publish")
 
@@ -579,7 +558,7 @@ export function WebsiteBuilderClient({
 
   const duplicate = (i: WebsiteSummary) => {
     if (slotsLeft === 0) {
-      toast({ title: fullMessage, variant: "destructive" })
+      setFull("duplicate")
       return
     }
     return run(`${i.id}:duplicate`, () => fetch(`/api/website-builder/themes/${i.id}/duplicate`, json("POST", {})), `Copied ${i.name}`, "Could not duplicate")
@@ -593,7 +572,7 @@ export function WebsiteBuilderClient({
 
   const addTheme = (def: ThemeDefinition) => {
     if (slotsLeft === 0) {
-      toast({ title: fullMessage, variant: "destructive" })
+      setFull("add")
       return
     }
     return run(`${def.id}:add`, () => fetch("/api/website-builder/themes/add", json("POST", { theme_id: def.id })), `${def.name} added`, "Could not add theme")
@@ -628,7 +607,7 @@ export function WebsiteBuilderClient({
 
   const importZip = async (file: File) => {
     if (slotsLeft === 0) {
-      toast({ title: fullMessage, variant: "destructive" })
+      setFull("import")
       return
     }
     const fd = new FormData()
@@ -653,19 +632,10 @@ export function WebsiteBuilderClient({
    */
   const menuFor = (i: WebsiteSummary, opts: { publish?: boolean } = {}): ActionMenuItem[] => {
     const items: ActionMenuItem[] = []
-    if (i.status === "published") {
-      WEBSITE_SETTINGS.forEach((d, n) =>
-        items.push({
-          label: d.label,
-          icon: d.icon,
-          section: n === 0 ? "Website settings" : undefined,
-          onClick: () => go(editorHref(username, i.id, "settings", d.section)),
-        }),
-      )
-    }
     if (opts.publish) items.push({ label: "Publish", icon: <Rocket />, onClick: () => setPublishing(i) })
     items.push(
       { label: "Edit code", icon: <Code2 />, onClick: () => go(editorHref(username, i.id, "code")), separatorBefore: items.length > 0 },
+      /* The live site's settings are the Settings control in the page header; a draft's are here. */
       ...(i.status === "published" ? [] : [{ label: "Website settings", icon: <Settings2 />, onClick: () => go(editorHref(username, i.id, "settings")) }]),
       { label: "Rename", icon: <Pencil />, onClick: () => setRenaming(i) },
       { label: "Duplicate", icon: <Layers />, onClick: () => void duplicate(i) },
@@ -679,13 +649,8 @@ export function WebsiteBuilderClient({
     return items
   }
 
-  // Four themes the creator has not got yet, featured first, then by registry order.
-  const explore = React.useMemo(() => {
-    const notMine = THEME_REGISTRY.filter((t) => !installedThemeIds.has(t.id))
-    const featured = notMine.filter((t) => t.featured)
-    const rest = notMine.filter((t) => !t.featured)
-    return [...featured, ...rest].slice(0, 4)
-  }, [installedThemeIds])
+  /* The themes Browse themes offers (one, for now), whether or not they are in the library already. */
+  const explore = BROWSABLE_THEMES
 
   return (
     <div className="h-full overflow-y-auto page-scroll bg-[#f8f9fa]">
@@ -701,9 +666,24 @@ export function WebsiteBuilderClient({
             wore a plus, which is the mark for adding rather than browsing.
             The page's own first action is Edit website, immediately beneath
             this, and it does not need company. */}
-        <div className="min-w-0">
-          <h1 className="text-[24px] font-bold tracking-tight text-[#1a1a2e] sm:text-[28px]">Website</h1>
-          {siteUrl && <SiteAddress url={siteUrl} display={siteDisplay} />}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div className="min-w-0">
+            <h1 className="text-[24px] font-bold tracking-tight text-[#1a1a2e] sm:text-[28px]">Website</h1>
+            {siteUrl && <SiteAddress url={siteUrl} display={siteDisplay} />}
+          </div>
+          {/* View website, Public, Settings: see ./site-controls. They replace
+              the bar of six settings doors that sat above the cover. */}
+          {installs.length > 0 && (
+            <SiteControls
+              siteUrl={live ? siteUrl : ""}
+              isPublic={!!live}
+              offlineName={offline?.name ?? null}
+              busy={!!busy && (busy.endsWith(":publish") || busy.endsWith(":unpublish"))}
+              onTakeOffline={() => live && setUnpublishing(live)}
+              onPublishAgain={() => offline && setPublishing(offline)}
+              onSettings={() => go(editorHref(username, (live ?? offline ?? installs[0]).id, "settings"))}
+            />
+          )}
         </div>
 
         {/* ── Live website ─────────────────────────────────────────
@@ -712,14 +692,6 @@ export function WebsiteBuilderClient({
             and compares the left inset to the right, which is the complaint
             that started this rewrite: things on this page did not line up. */}
         <section aria-labelledby="live-heading" className="space-y-3" data-page-block>
-          {/* ── The bar above the cover ───────────────────────────────
-              A door to each page of Website Settings the live site runs on,
-              in the white bar the page's figures used to fill. Not glued
-              into the card under it: the card is the site, the bar is where
-              its settings are. See ./settings-strip. */}
-          {live && (
-            <SettingsStrip doors={settingsDoors(siteDisplay)} onOpen={(section) => go(editorHref(username, live.id, "settings", section))} />
-          )}
           <div className="overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
             {live ? (
               <>
@@ -771,46 +743,28 @@ export function WebsiteBuilderClient({
                         </div>
                       )}
                     </dl>
-                    <div className="mt-auto space-y-2 pt-5">
+                    {/* Edit website, and everything else behind More. View website is in the page header now. */}
+                    <div className="mt-auto flex gap-2 pt-5">
                       <Button
                         onClick={() => go(editorHref(username, live.id))}
-                        className="h-11 w-full rounded-xl bg-[#1a1a2e] text-[14px] font-semibold text-white hover:bg-[#2d2d44]"
+                        className="h-11 min-w-0 flex-1 rounded-xl bg-[#1a1a2e] text-[14px] font-semibold text-white hover:bg-[#2d2d44]"
                       >
                         Edit website
                       </Button>
-                      <div className="grid grid-cols-2 gap-2">
-                        {siteUrl ? (
-                          <a
-                            href={siteUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className={SECONDARY_ACTION}
-                          >
-                            <ExternalLink className="h-4 w-4 text-[#6b7280]" strokeWidth={1.9} />
-                            View site
-                          </a>
-                        ) : (
-                          <span />
-                        )}
-                        <ResponsiveActionMenu
-                          title={live.name}
-                          // No `preview`: View site is its own button, and a
-                          // menu row repeating the button beside it is the
-                          // thing this block was rewritten to stop doing.
-                          items={menuFor(live)}
-                          menuWidth="w-56"
-                          trigger={
-                            <button type="button" className={SECONDARY_ACTION}>
-                              {busy?.startsWith(live.id) ? (
-                                <Loader2 className="h-4 w-4 animate-spin text-[#6b7280]" />
-                              ) : (
-                                <MoreHorizontal className="h-4 w-4 text-[#6b7280]" strokeWidth={1.9} />
-                              )}
-                              More
-                            </button>
-                          }
-                        />
-                      </div>
+                      <ResponsiveActionMenu
+                        title={live.name}
+                        items={menuFor(live)}
+                        menuWidth="w-56"
+                        trigger={
+                          <button type="button" aria-label={`More actions for ${live.name}`} className={cn(SECONDARY_ACTION, "w-11 shrink-0 px-0")}>
+                            {busy?.startsWith(live.id) ? (
+                              <Loader2 className="h-4 w-4 animate-spin text-[#6b7280]" />
+                            ) : (
+                              <MoreHorizontal className="h-4 w-4 text-[#4b5563]" strokeWidth={1.9} />
+                            )}
+                          </button>
+                        }
+                      />
                     </div>
                   </div>
                 </div>
@@ -864,8 +818,10 @@ export function WebsiteBuilderClient({
             {/* 44px, like every other button on the page. */}
             <Button
               variant="ghost"
-              onClick={() => fileInput.current?.click()}
-              disabled={busy === "import" || slotsLeft === 0}
+              /* Never dead: with the library full it says why, instead of doing nothing. */
+              onClick={() => (slotsLeft === 0 ? setFull("import") : fileInput.current?.click())}
+              disabled={busy === "import"}
+              aria-haspopup={slotsLeft === 0 ? "dialog" : undefined}
               className="h-11 rounded-xl px-3 text-[13px] font-medium text-[#4b5563] hover:bg-[#eef0f3] hover:text-[#1a1a2e]"
             >
               {busy === "import" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
@@ -876,7 +832,17 @@ export function WebsiteBuilderClient({
               variant="outline"
               className="h-11 rounded-xl border-[#e5e7eb] bg-white px-3.5 text-[13px] font-semibold text-[#1a1a2e] shadow-[0_1px_2px_rgba(0,0,0,0.03)] hover:bg-[#f8f9fa]"
             >
-              <Link href="/app/website-builder/themes" onClick={() => startNavigationLoading()}>
+              <Link
+                href="/app/website-builder/themes"
+                onClick={(e) => {
+                  if (slotsLeft === 0) {
+                    e.preventDefault()
+                    setFull("add")
+                    return
+                  }
+                  startNavigationLoading()
+                }}
+              >
                 <Plus className="h-4 w-4" />
                 Add theme
               </Link>
@@ -992,35 +958,26 @@ export function WebsiteBuilderClient({
             <Link
               href="/app/website-builder/themes"
               onClick={() => startNavigationLoading()}
-              className="inline-flex items-center gap-1 text-[13px] font-medium text-[#6b7280] transition-colors hover:text-[#1a1a2e]"
+              className="inline-flex h-9 items-center gap-1 rounded-lg px-2 text-[13px] font-medium text-[#6b7280] transition-colors duration-150 hover:bg-[#eef0f3] hover:text-[#1a1a2e]"
             >
-              See all
+              Browse
               <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           </SectionHeading>
           <h2 id="explore-heading" className="sr-only">Browse themes</h2>
-          {/* A row you can flick through on a phone; a grid where there is room. */}
-          {/* `scroll-px-4` matters as much as `px-4` here. A snap container's
-              snapport starts at its PADDING BOX, so a `snap-start` card is
-              aligned to the screen edge and the row's own padding is scrolled
-              straight past — which is why these cards sat flush against both
-              edges while every other block on the page was inset. Scroll
-              padding moves the snap line in to meet the padding. */}
-          <div className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-1 scroll-px-4 [scrollbar-width:none] sm:mx-0 sm:grid sm:grid-cols-2 sm:gap-4 sm:overflow-visible sm:px-0 sm:scroll-px-0 lg:grid-cols-4 [&::-webkit-scrollbar]:hidden">
+          <div className="space-y-3">
             {explore.map((t) => (
-              <ExploreCard
+              <ExploreRow
                 key={t.id}
                 def={t}
+                inLibrary={installedThemeIds.has(t.id)}
                 busy={busy === `${t.id}:add`}
-                disabled={slotsLeft === 0}
                 onAdd={() => void addTheme(t)}
-                onOpen={() => go(`/app/website-builder/themes?theme=${t.slug}`)}
+                onOpen={() => go("/app/website-builder/themes")}
               />
             ))}
           </div>
-          {slotsLeft === 0 && (
-            <p className="text-[12.5px] text-[#9ca3af]">Your library is full. Remove a theme to add another.</p>
-          )}
+
         </section>
       </div>
 
@@ -1083,6 +1040,17 @@ export function WebsiteBuilderClient({
         </AlertDialogContent>
       </AlertDialog>
 
+      <LibraryFullDialog
+        action={full}
+        entries={installs.map((i) => ({ id: i.id, name: i.name, live: i.status === "published" }))}
+        onClose={() => setFull(null)}
+        onRemove={(id) => {
+          const target = installs.find((i) => i.id === id)
+          setFull(null)
+          if (target) setDeleting(target)
+        }}
+      />
+
       <AlertDialog open={!!deleting} onOpenChange={(o) => !o && setDeleting(null)}>
         <AlertDialogContent className="rounded-2xl">
           <AlertDialogHeader>
@@ -1129,49 +1097,51 @@ export function WebsiteBuilderClient({
  * `motion-reduce:transition-none` rather than `transform-none`, for the same
  * reason: `transform-none` was switching off a property that was not in use.
  */
-function ExploreCard({
+/**
+ * A theme Browse themes offers, as one row: a drawn cover, what it is, and
+ * Add (or that it is in the library already). Nothing moves on hover, only
+ * the row's tint: the cards used to rise 2px, which read as a bump.
+ */
+function ExploreRow({
   def,
+  inLibrary,
   busy,
-  disabled,
   onAdd,
   onOpen,
 }: {
   def: ThemeDefinition
+  inLibrary: boolean
   busy: boolean
-  disabled: boolean
   onAdd: () => void
   onOpen: () => void
 }) {
   return (
-    <div className="group w-[78%] shrink-0 snap-start overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] transition-[box-shadow,translate] duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[0_12px_28px_-16px_rgba(15,23,42,0.25)] motion-reduce:transition-none sm:w-auto">
-      <button
-        type="button"
-        onClick={onOpen}
-        className="relative block aspect-[16/10] w-full overflow-hidden bg-[#f3f4f6]"
-        aria-label={`Preview ${def.name}`}
-      >
-        <ThemeCoverPair spec={coverSpecFromDefinition(def)} />
+    <div
+      data-explore-row=""
+      className="flex items-center gap-3 overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white p-3 shadow-[0_1px_3px_rgba(0,0,0,0.04)] transition-colors duration-150 hover:bg-[#fcfcfd] sm:gap-4"
+    >
+      <button type="button" onClick={onOpen} aria-label={`Preview ${def.name}`} className="flex min-w-0 flex-1 items-center gap-3 rounded-lg text-left outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 sm:gap-4">
+        <span className="relative block w-24 shrink-0 overflow-hidden rounded-lg border border-[#e5e7eb] bg-[#f3f4f6] sm:w-32">
+          <span className="block aspect-[16/10]">
+            <ThemeCoverPair spec={coverSpecFromDefinition(def)} />
+          </span>
+        </span>
+        <span className="min-w-0">
+          <span className="block truncate text-[14px] font-semibold text-[#1a1a2e]">{def.name}</span>
+          <span className="mt-0.5 line-clamp-2 text-[12.5px] leading-snug text-[#6b7280]">{def.tagline}</span>
+        </span>
       </button>
-      <div className="flex items-center gap-3 p-3.5">
-        <button type="button" onClick={onOpen} className="min-w-0 flex-1 text-left">
-          <p className="truncate text-[14px] font-semibold text-[#1a1a2e]">{def.name}</p>
-          <p className="mt-0.5 truncate text-[12px] text-[#6b7280]">{getIndustry(def.industry).label}</p>
-        </button>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              type="button"
-              onClick={onAdd}
-              disabled={busy || disabled}
-              aria-label={`Add ${def.name}`}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#1a1a2e] text-white transition-[background-color,scale] duration-150 hover:bg-[#2d2d44] active:scale-95 disabled:opacity-40"
-            >
-              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-            </button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom" className="text-[12px]">Add to library</TooltipContent>
-        </Tooltip>
-      </div>
+      {inLibrary ? (
+        <span className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-[#f1f2f4] px-3 text-[12.5px] font-medium text-[#3f3f46]">
+          <Check className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">In library</span>
+        </span>
+      ) : (
+        <Button onClick={onAdd} disabled={busy} className="h-9 shrink-0 rounded-lg bg-[#1a1a2e] px-3 text-[13px] font-semibold text-white hover:bg-[#2d2d44]">
+          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+          Add
+        </Button>
+      )}
     </div>
   )
 }

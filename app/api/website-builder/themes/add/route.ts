@@ -8,6 +8,7 @@ import {
   getThemeDefinition,
   isThemeId,
   themeCatalogRow,
+  BROWSABLE_THEME_IDS,
 } from "@/lib/website-builder/theme-registry"
 
 /**
@@ -41,6 +42,8 @@ export async function POST(req: Request) {
 
   const def = getThemeDefinition(themeId)
   if (!def) return NextResponse.json({ error: "Theme not found in catalog" }, { status: 404 })
+  /* Only what Browse themes offers can be added; the others stay for the websites already made from them. */
+  if (!BROWSABLE_THEME_IDS.includes(def.id)) return NextResponse.json({ error: "That theme is not offered any more." }, { status: 400 })
 
   const slotsLeft = await librarySlotsLeft(supabase, creator.id)
   if (slotsLeft === 0) {

@@ -340,6 +340,15 @@ export function isThemeId(value: unknown): value is string {
   return typeof value === "string" && UUID_RE.test(value)
 }
 
+/**
+ * WHAT BROWSE THEMES OFFERS. The registry's other themes are the same
+ * sections in other palettes; offering all of them was ten choices that did
+ * not differ. They stay defined, because websites already made from them
+ * read their definition for covers and names, but only these can be added.
+ */
+export const BROWSABLE_THEME_IDS: readonly string[] = [STORELIB_DEFAULT_ID]
+export const BROWSABLE_THEMES: ThemeDefinition[] = THEME_REGISTRY.filter((t) => BROWSABLE_THEME_IDS.includes(t.id))
+
 export function getThemeDefinition(themeId: string): ThemeDefinition | null {
   return THEME_REGISTRY.find((t) => t.id === themeId) ?? null
 }
