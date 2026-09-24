@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Get country from request headers
-    const countryCode = req.headers.get("x-vercel-ip-country") || req.geo?.country || null
+    const countryCode = req.headers.get("x-vercel-ip-country") || null
 
     /**
      * THE VISITOR'S OWN RECORD DECIDES, not the page. The browser leaves the
