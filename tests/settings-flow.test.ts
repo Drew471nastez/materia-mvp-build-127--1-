@@ -189,19 +189,26 @@ section("Upgrade opens and closes")
 {
   const upgrade = code("components/app/billing/upgrade-page-client.tsx")
   check(
-    "closing animates instead of showing a spinner for four hundred milliseconds",
+    "closing does not show a spinner, or wait on a timer before it leaves",
     !/Show spinner briefly/.test(read("components/app/billing/upgrade-page-client.tsx")) &&
-      /upgrade-leaving/.test(upgrade) &&
-      /}, 180\)/.test(upgrade),
+      !/setTimeout\(\(\) => \{\s*router\.push/.test(upgrade),
+  )
+  /* Back is the browser's back when there is an /app page behind this one,
+     and otherwise a real link to the tab, not to the route that only
+     redirects. */
+  check(
+    "Back goes back when there is somewhere in the app to go back to, and is a link to the Billing tab otherwise",
+    /<Link\s+href="\/app\/settings\?tab=billing"\s+onClick=\{goBack\}/.test(upgrade) &&
+      /if \(!hasInAppHistory\(\)\) return\s+e\.preventDefault\(\)\s+router\.back\(\)/.test(upgrade),
   )
   check(
-    "and it returns to the tab, not to the route that no longer renders anything",
-    /router\.push\("\/app\/settings\?tab=billing"\)/.test(upgrade),
+    "it is its own page: a layer over the whole shell, with the pill stepping aside under it",
+    /data-page-layer="" className="fixed inset-0 z-\[60\]/.test(read("app/app/settings/billing/upgrade/layout.tsx")) &&
+      /html:has\(\[data-page-layer\]\) \[data-app-nav-pill\] \{\s*visibility: hidden;/.test(css),
   )
-  check("it arrives with a transition too", /upgrade-arriving/.test(upgrade))
   check(
-    "the exit is dead to the pointer while it plays",
-    /\.upgrade-leaving[\s\S]{0,160}pointer-events: none/.test(css),
+    "and it arrives and leaves on the shell's landing, not animations of its own",
+    !/upgrade-arriving|upgrade-leaving/.test(upgrade) && !/\.upgrade-(arriving|leaving)/.test(css),
   )
   check(
     "and its 69-line skeleton is gone, so the previous screen simply stays until this one is ready",

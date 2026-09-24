@@ -1,8 +1,11 @@
 "use client"
 
+import type React from "react"
 import { useState, useEffect } from "react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { X, ArrowLeft, Check, Loader2, ArrowRight } from "lucide-react"
+import { ArrowLeft, Check, Loader2 } from "lucide-react"
+import { hasInAppHistory } from "@/lib/ui/app-navigation"
 import { isNativeApp } from "@/lib/native-bridge"
 import { STORELIB_LOGO } from "@/lib/brand/logo"
 
@@ -26,7 +29,6 @@ export function UpgradePageClient({
   const router = useRouter()
   const [loading, setLoading] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [closing, setClosing] = useState(false)
 
   // Listen for in-app browser tab closing (native Capacitor)
   // When user finishes Stripe checkout and the tab closes,
@@ -48,23 +50,24 @@ export function UpgradePageClient({
     return () => { cleanup?.() }
   }, [router])
 
-  const goBack = () => {
-    if (closing) return
-    /**
-     * LEAVES, RATHER THAN SHOWING A SPINNER WHILE IT LEAVES.
-     *
-     * This used to set a flag that drew a full-screen spinner and then
-     * navigated 400ms later. Nothing was loading during those 400ms — the
-     * spinner was there to fill a pause invented to make the spinner
-     * visible, and it is the reason closing this felt worse than opening it.
-     *
-     * Now the panel animates out and the navigation happens as it finishes,
-     * so the 180ms is the movement rather than a wait in front of it.
-     */
-    setClosing(true)
-    setTimeout(() => {
-      router.push("/app/settings?tab=billing")
-    }, 180)
+  /**
+   * BACK IS BACK.
+   *
+   * It used to fade this page out and then push Billing 180ms later, which
+   * put a new entry on the history: Back from Billing then came here again,
+   * and the phone's back gesture and this button went to different places.
+   *
+   * Now, when the page before this one is an /app page, Back is the
+   * browser's back: the same entry, where you were on it, with no wait in
+   * front of it, and the page it returns to lands on the shell's usual
+   * entrance. Opened any other way (a bookmark, a Stripe cancel link, an
+   * email) there is nothing in the app to go back to, and the link does
+   * what it says instead, to the Billing tab.
+   */
+  const goBack = (e: React.MouseEvent) => {
+    if (!hasInAppHistory()) return
+    e.preventDefault()
+    router.back()
   }
 
   const handleUpgrade = async (planId: string) => {
@@ -143,9 +146,9 @@ export function UpgradePageClient({
   }
 
   const descriptions: Record<string, string> = {
-    free: "Perfect for getting started.",
-    growth: "For creators ready to scale and pay lower fees.",
-    pro: "For serious creators who want the lowest fees and priority support.",
+    free: "Start selling with no monthly cost.",
+    growth: "A smaller fee on every sale, and your own domain.",
+    pro: "The smallest fee, and support that answers first.",
   }
 
   const featureLists: Record<string, string[]> = {
@@ -154,74 +157,72 @@ export function UpgradePageClient({
     pro: ["1.5% + $0.25 per transaction", "Unlimited digital products", "Premium OnePage features", "Custom domain", "Verified badge", "5,000 emails / month", "Priority support"],
   }
 
+  const currentPlan = plans.find((p: any) => p.id === currentPlanId)
+
   return (
-    <div
-      className={`relative bg-white min-h-full ${closing ? "upgrade-leaving" : "upgrade-arriving"}`}
-    >
-      {/* The close overlay that used to live here is gone: see `goBack`. */}
-      {/* Top bar — sticky within the app layout's overflow-y-auto scroll container */}
-      <div className="sticky top-0 z-30 bg-white border-b border-[#e5e7eb]">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 flex items-center justify-between h-14 sm:h-16">
-          <button
+    <div data-upgrade-page="" className="min-h-full">
+      {/*
+        ONE BAR, ONE WAY BACK. It used to carry a Back on the left and an X
+        on the right that did the same thing. The bar sticks to the top of
+        this page's own scroller and clears the status bar on a phone.
+      */}
+      <div className="sticky top-0 z-10 border-b border-[#e5e7eb]/60 bg-white/95 pt-[env(safe-area-inset-top)] backdrop-blur-sm">
+        <div className="relative flex h-14 items-center px-4 sm:h-16 sm:px-6">
+          <Link
+            href="/app/settings?tab=billing"
             onClick={goBack}
-            className="flex items-center gap-1.5 text-[13px] sm:text-[14px] font-medium text-[#7c3aed] hover:text-[#6d28d9] transition-colors cursor-pointer relative z-10"
+            data-upgrade-back=""
+            className="-ml-2 inline-flex h-11 items-center gap-1.5 rounded-lg px-2 text-[14px] font-medium text-[#1a1a2e] transition-colors hover:bg-[#f3f4f6]"
           >
             <ArrowLeft className="h-4 w-4" />
-            <span className="hidden sm:inline">Back to billing</span>
             <span className="sm:hidden">Back</span>
-          </button>
-
+            <span className="hidden sm:inline">Back to billing</span>
+          </Link>
           <img
             src={STORELIB_LOGO_URL}
             alt="Storelib"
-            className="h-6 sm:h-7 absolute left-1/2 -translate-x-1/2 pointer-events-none rounded-[7px]"
+            width={28}
+            height={28}
+            className="pointer-events-none absolute left-1/2 h-6 -translate-x-1/2 rounded-[7px] sm:h-7"
           />
-
-          <button
-            onClick={goBack}
-            className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-[#f3f4f6] transition-colors cursor-pointer relative z-10"
-          >
-            <X className="h-5 w-5 text-[#6b7280]" />
-          </button>
         </div>
       </div>
 
-      {/* Content */}
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-10 sm:py-16">
-        {/* Title */}
-        <div className="text-center mb-10">
-          <h1 className="text-[28px] sm:text-[36px] font-bold text-[#1a1a2e]">Choose Your Plan</h1>
-          <p className="text-[15px] text-[#6b7280] mt-2">Scale your business with the right plan for you</p>
+      <div className="mx-auto max-w-[1080px] px-4 pb-16 pt-8 sm:px-6 sm:pt-12 lg:px-8">
+        <div className="mb-8 sm:mb-10 sm:text-center">
+          <h1 className="text-[24px] font-bold text-[#1a1a2e] sm:text-[28px]">Choose a plan</h1>
+          <p className="mt-1.5 text-[14px] text-[#6b7280]">Every plan sells without limits. A higher plan takes a smaller fee from each sale.</p>
         </div>
 
-        {/* Error */}
         {error && (
-          <div className="max-w-xl mx-auto mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-[13px] text-red-900">
+          <div role="alert" className="mx-auto mb-6 max-w-xl rounded-xl border border-red-200 bg-red-50 p-4 text-[13px] text-red-900">
             {error}
           </div>
         )}
 
-        {/* Plan Cards — same visual style as /pricing page */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-[18px] md:gap-4 max-w-[960px] mx-auto md:items-stretch">
+        {/*
+          One column on a phone, three from md, and never wider than three
+          cards need: at 1920 the row is the same 1080px as at 1440, centred,
+          rather than three cards stretched to read like a table.
+        */}
+        <div data-plan-grid="" className="grid grid-cols-1 gap-4 md:grid-cols-3 md:items-stretch">
           {plans.map((plan: any) => {
             const isCurrentPlan = plan.id === currentPlanId
             const isPendingPlan = plan.id === pendingPlanId
             const isFree = plan.id === "free"
             const isGrowth = plan.id === "growth"
-            const currentPlan = plans.find((p: any) => p.id === currentPlanId)
             const isDowngrade = currentPlan ? plan.price_cents < currentPlan.price_cents : false
             const isUpgrade = currentPlan ? plan.price_cents > currentPlan.price_cents : false
             const monthlyPrice = plan.price_cents / 100
+            const settled = isCurrentPlan || (cancelAtPeriodEnd && isFree) || isPendingPlan
             const isDisabled = isCurrentPlan || (cancelAtPeriodEnd && isFree) || (isPendingPlan && !isUpgrade) || loading !== null
 
-            const badge = isGrowth ? "Most Popular" : plan.id === "pro" ? "Recommended" : null
-
             let buttonLabel: string
-            if (loading === plan.id) buttonLabel = "Processing..."
-            else if (isCurrentPlan) buttonLabel = "Current Plan"
-            else if (isPendingPlan) buttonLabel = "Downgrade Scheduled"
-            else if (cancelAtPeriodEnd && isFree) buttonLabel = "Cancel Scheduled"
-            else if (cancelAtPeriodEnd) buttonLabel = "Upgrade Again"
+            if (loading === plan.id) buttonLabel = "Processing"
+            else if (isCurrentPlan) buttonLabel = "Current plan"
+            else if (isPendingPlan) buttonLabel = "Downgrade scheduled"
+            else if (cancelAtPeriodEnd && isFree) buttonLabel = "Cancel scheduled"
+            else if (cancelAtPeriodEnd) buttonLabel = "Upgrade again"
             else if (isDowngrade) buttonLabel = `Downgrade to ${plan.name}`
             else if (hasActiveSubscription) buttonLabel = `Upgrade to ${plan.name}`
             else buttonLabel = `Get ${plan.name}`
@@ -229,59 +230,46 @@ export function UpgradePageClient({
             return (
               <div
                 key={plan.id}
-                className={`bg-white rounded-3xl relative flex flex-col transition-all duration-300 hover:-translate-y-1 hover:shadow-md ${
+                data-plan={plan.id}
+                className={`relative flex flex-col rounded-2xl bg-white p-6 lg:p-7 ${
                   isGrowth
-                    ? "p-9 md:py-12 border-[1.5px] border-violet-600 shadow-[0_0_0_1px_#7c3aed] shadow-md"
-                    : "p-9 border-[1.5px] border-neutral-200"
+                    ? "border border-[#8b5cf6] shadow-[0_0_0_1px_#8b5cf6,0_8px_24px_-12px_rgba(139,92,246,0.35)]"
+                    : "border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
                 }`}
               >
-                {badge && (
-                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-violet-600 text-white text-xs font-semibold px-3.5 py-1 rounded-full whitespace-nowrap">
-                    {badge}
-                  </span>
-                )}
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-[16px] font-semibold text-[#1a1a2e]">{plan.name}</p>
+                  {isCurrentPlan && <span className="text-[12px] font-medium text-[#6b7280]">Your plan</span>}
+                </div>
 
-                <div className="font-semibold text-lg mb-1.5">{plan.name}</div>
-
-                <div className="flex items-baseline gap-1 mb-1">
-                  <span className="text-[42px] font-bold tracking-tight leading-none">
+                <div className="mt-3 flex items-baseline gap-1">
+                  <span className="text-[36px] font-bold leading-none tracking-tight text-[#1a1a2e]">
                     {isFree ? "$0" : `$${monthlyPrice % 1 === 0 ? monthlyPrice.toFixed(0) : monthlyPrice.toFixed(2)}`}
                   </span>
-                  {!isFree && <span className="text-sm text-neutral-400">/mo</span>}
+                  <span className="text-[14px] text-[#6b7280]">{isFree ? "forever" : "/ month"}</span>
                 </div>
-                {isFree && <p className="text-[13px] text-neutral-400 mb-1">Free forever</p>}
-
-                <p className="text-[13px] text-neutral-400 mb-5 leading-relaxed">{descriptions[plan.id] || ""}</p>
+                <p className="mt-2 text-[14px] md:min-h-[40px] leading-snug text-[#6b7280]">{descriptions[plan.id] || ""}</p>
 
                 <button
+                  type="button"
                   onClick={() => handleUpgrade(plan.id)}
                   disabled={isDisabled}
-                  className={`relative w-full inline-flex items-center justify-center gap-2 text-[15px] font-semibold py-3.5 px-8 rounded-lg transition-all duration-300 overflow-hidden mb-7 ${
-                    isCurrentPlan || (cancelAtPeriodEnd && isFree) || isPendingPlan
-                      ? "bg-[#f3f4f6] text-[#9ca3af] cursor-default"
+                  className={`mt-5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl text-[14px] font-semibold transition-colors disabled:cursor-not-allowed ${
+                    settled
+                      ? "bg-[#f3f4f6] text-[#9ca3af]"
                       : isGrowth
-                        ? "bg-violet-600 text-white hover:bg-violet-700 hover:-translate-y-0.5"
-                        : "bg-white text-neutral-900 border-[1.5px] border-neutral-200 hover:border-neutral-400 hover:-translate-y-0.5"
-                  } disabled:cursor-not-allowed`}
+                        ? "bg-[#8b5cf6] text-white hover:bg-[#7c3aed]"
+                        : "border border-[#e5e7eb] bg-white text-[#1a1a2e] hover:border-[#d1d5db] hover:bg-[#f9fafb]"
+                  }`}
                 >
-                  {isGrowth && !isCurrentPlan && !isPendingPlan && !(cancelAtPeriodEnd && isFree) && (
-                    <span className="btn-shine-effect" aria-hidden="true" />
-                  )}
-                  <span className="relative z-[1] flex items-center gap-2">
-                    {loading === plan.id ? (
-                      <><Loader2 className="h-4 w-4 animate-spin" />Processing...</>
-                    ) : (
-                      <>{buttonLabel}{!isCurrentPlan && !isPendingPlan && !(cancelAtPeriodEnd && isFree) && <ArrowRight className="h-4 w-4" />}</>
-                    )}
-                  </span>
+                  {loading === plan.id && <Loader2 className="h-4 w-4 animate-spin" />}
+                  {buttonLabel}
                 </button>
 
-                <ul className="flex flex-col gap-2.5 flex-1">
-                  {(featureLists[plan.id] || []).map((feature: string, idx: number) => (
-                    <li key={idx} className="flex items-start gap-2.5 text-sm text-neutral-500">
-                      <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${isGrowth ? "bg-violet-600" : "bg-violet-50"}`}>
-                        <Check className={`h-3 w-3 ${isGrowth ? "text-white" : "text-violet-600"}`} strokeWidth={3} />
-                      </div>
+                <ul className="mt-6 flex flex-1 flex-col gap-2.5 border-t border-[#f0f1f3] pt-5">
+                  {(featureLists[plan.id] || []).map((feature: string) => (
+                    <li key={feature} className="flex items-start gap-2.5 text-[14px] text-[#4b5563]">
+                      <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#8b5cf6]" strokeWidth={2.5} />
                       {feature}
                     </li>
                   ))}
@@ -291,11 +279,7 @@ export function UpgradePageClient({
           })}
         </div>
 
-        <div className="text-center mt-10">
-          <p className="text-[13px] text-[#9ca3af]">
-            All plans include core features. Upgrade or downgrade anytime.
-          </p>
-        </div>
+        <p className="mt-8 text-[13px] text-[#9ca3af] sm:text-center">You can change or cancel your plan at any time.</p>
       </div>
     </div>
   )

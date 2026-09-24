@@ -1066,34 +1066,6 @@ html.capacitor body {
    * enough to read as one thing replacing another, short enough that the
    * fourth switch in a row does not make you wait for it.
    */
-  /**
-   * THE UPGRADE PANEL, ARRIVING AND LEAVING.
-   *
-   * It had a 69-line skeleton mirroring its own content on the way in, and a
-   * full-screen spinner held for 400ms on the way out. Neither was waiting
-   * for anything: the page is server-rendered, and the spinner was filling a
-   * pause invented to make the spinner visible. Without the skeleton the
-   * previous screen simply stays until this one is ready, which is what
-   * "smooth" actually looks like.
-   */
-  .upgrade-arriving {
-    animation: upgrade-in 200ms cubic-bezier(0.32, 0.72, 0, 1) both;
-  }
-  .upgrade-leaving {
-    animation: upgrade-out 180ms cubic-bezier(0.4, 0, 1, 1) both;
-    pointer-events: none;
-  }
-  @keyframes upgrade-in {
-    from { opacity: 0; translate: 0 10px; scale: 0.994; }
-    to { opacity: 1; translate: none; scale: 1; }
-  }
-  @keyframes upgrade-out {
-    from { opacity: 1; translate: none; scale: 1; }
-    to { opacity: 0; translate: 0 8px; scale: 0.996; }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .upgrade-arriving, .upgrade-leaving { animation: none; }
-  }
 
   /*
     THE BUMP WAS THIS RULE. The panel used to rise 4px as it faded in, and
@@ -2801,6 +2773,14 @@ html.capacitor .app-content-scroll {
     transform: translateY(calc(100% + 16px));
     opacity: 0;
     pointer-events: none;
+  }
+
+  /* A page drawn as a layer over the whole shell (the plans page,
+     app/app/settings/billing/upgrade/layout.tsx) covers the pill; it is not
+     painted or reachable underneath it. A page, not a sheet: the sheet rule
+     below keeps the pill. */
+  html:has([data-page-layer]) [data-app-nav-pill] {
+    visibility: hidden;
   }
 
   /* ── A sheet goes OVER the pill, and the pill stays ─────────────────────
