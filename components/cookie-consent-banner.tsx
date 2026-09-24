@@ -212,7 +212,9 @@ export function CookieConsentBanner() {
   const inSitesEditor = pathname?.startsWith("/sites/") ?? false
   const inBuilder = pathname?.startsWith("/website-builder/") ?? false
   const inApp = pathname === "/app" || (pathname?.startsWith("/app/") ?? false) || (pathname?.startsWith("/admin") ?? false)
-  const quiet = inSitesEditor || inBuilder || inApp || embedded
+  /* A creator can switch the banner off for their site; then it asks nothing
+     and, with no yes, nothing optional loads for their visitors. */
+  const quiet = inSitesEditor || inBuilder || inApp || embedded || site?.hidden === true
 
   /* Storelib's own look unless the site set its banner colours itself. */
   const bg = site?.background || "#ffffff"

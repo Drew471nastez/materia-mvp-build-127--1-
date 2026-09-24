@@ -27,6 +27,7 @@
  * that knows about it.
  */
 
+import { SITE_COOKIE_TEXT } from "@/lib/consent/copy"
 import { setSiteConsentTheme } from "@/lib/consent/site-theme"
 import { StorefrontProvider, type Storefront } from "./storefront-context"
 import { SectionSandboxProvider } from "../sections/section-sandbox"
@@ -260,31 +261,31 @@ function FreeShippingBar({ theme }: { theme: ThemeSettingsValues }) {
  */
 function SiteCookieStyle({ theme }: { theme: ThemeSettingsValues }) {
   const t = theme as Record<string, unknown>
-  const on = Boolean(t.cookie_banner_enabled)
+  /* On unless the creator switched it off: Website Settings › Policies. */
+  const hidden = t.cookie_banner_show === false
+  /* The site's own words always, its own starting sentence when it has none. */
   const text = str(t.cookie_banner_text, "")
   const accept = str(t.cookie_accept_text, "")
   const decline = str(t.cookie_decline_text, "")
-  /* Only colours the creator set: an unset one is Storelib's own banner, not
-     a navy panel the creator never chose. */
-  const bg = str(t.cookie_bg, "")
-  const color = str(t.cookie_text_color, "")
+  /* Colours only when "Use my own colours" is on: an unset one is Storelib's
+     own banner, not a navy panel the creator never chose. */
+  const ownColours = Boolean(t.cookie_banner_enabled)
+  const bg = ownColours ? str(t.cookie_bg, "") : ""
+  const color = ownColours ? str(t.cookie_text_color, "") : ""
   const accent = str(t.primary_color, "#6366f1")
   useEffect(() => {
-    if (!on) {
-      setSiteConsentTheme(null)
-      return
-    }
     setSiteConsentTheme({
+      hidden,
       /* Rich text in the setting; the banner shows it as words. */
-      text: text.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim() || undefined,
+      text: text.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim() || SITE_COOKIE_TEXT,
       acceptText: accept || undefined,
       declineText: decline || undefined,
       background: bg || undefined,
       color: bg ? color || undefined : undefined,
-      accent,
+      accent: ownColours ? accent : undefined,
     })
     return () => setSiteConsentTheme(null)
-  }, [on, text, accept, decline, bg, color, accent])
+  }, [hidden, text, accept, decline, bg, color, accent, ownColours])
   return null
 }
 
