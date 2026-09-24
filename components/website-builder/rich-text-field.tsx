@@ -112,7 +112,7 @@ export function RichTextField({
   const run = (command: string, argument?: string) => {
     const el = ref.current
     if (!el) return
-    el.focus()
+    el.focus({ preventScroll: true })
     try {
       document.execCommand(command, false, argument)
     } catch {

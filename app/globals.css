@@ -833,19 +833,27 @@ html.capacitor body {
       0 1px 2px rgba(0, 0, 0, 0.5),
       0 4px 10px -4px rgba(0, 0, 0, 0.6);
   }
-  .wb-ai-button::before {
-    content: "";
+  /* THE RING, TURNED RATHER THAN REDRAWN.
+     It was one layer whose conic gradient started at a registered custom
+     property, animated from 0 to 360 degrees. A custom property is not
+     something the compositor can animate, so every frame of every second
+     the editor was open ran a style recalculation and repainted the
+     gradient on the main thread: about 70ms of each idle second at a 4x
+     slower CPU, for a 34px ring.
+
+     Now the same gradient is drawn ONCE on a square larger than the button
+     and turned with `transform`, inside a ring-shaped mask that is also
+     drawn once. A turning layer is the compositor's job, so the main thread
+     does nothing per frame. The look is the same stop for stop: a conic
+     gradient turned about its centre is the gradient started at a new angle.
+     It stops while the tab is hidden (`data-tab-hidden`, set by the editor)
+     and for anybody who asked for less motion. */
+  .wb-ai-ring {
     position: absolute;
     inset: -1px;
     border-radius: inherit;
     padding: 1px;
-    background: conic-gradient(
-      from var(--wb-ai-angle, 0deg),
-      rgba(255, 255, 255, 0) 0deg,
-      rgba(167, 139, 250, 0.55) 60deg,
-      rgba(255, 255, 255, 0) 120deg,
-      rgba(255, 255, 255, 0) 360deg
-    );
+    overflow: hidden;
     -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
     mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
     -webkit-mask-composite: xor;
@@ -854,12 +862,25 @@ html.capacitor body {
     pointer-events: none;
     z-index: -1;
   }
+  .wb-ai-ring-spin {
+    position: absolute;
+    inset: -25%;
+    background: conic-gradient(
+      from 0deg,
+      rgba(255, 255, 255, 0) 0deg,
+      rgba(167, 139, 250, 0.55) 60deg,
+      rgba(255, 255, 255, 0) 120deg,
+      rgba(255, 255, 255, 0) 360deg
+    );
+  }
   .wb-ai-button-open {
     background: #333333;
     box-shadow:
       0 0 0 1px rgba(167, 139, 250, 0.45),
       0 1px 2px rgba(0, 0, 0, 0.5);
   }
+  /* Still used by the section Ask AI is writing (`.wb-writing`), which is on
+     screen only while it writes. */
   @property --wb-ai-angle {
     syntax: "<angle>";
     inherits: false;
@@ -868,8 +889,71 @@ html.capacitor body {
   @keyframes wb-ai-shimmer {
     to { --wb-ai-angle: 360deg; }
   }
+  @keyframes wb-ai-turn {
+    to { transform: rotate(360deg); }
+  }
   @media (prefers-reduced-motion: no-preference) {
-    .wb-ai-button::before { animation: wb-ai-shimmer 4s linear infinite; }
+    .wb-ai-ring-spin { animation: wb-ai-turn 4s linear infinite; will-change: transform; }
+  }
+  html[data-tab-hidden] .wb-ai-ring-spin { animation-play-state: paused; }
+
+  /* ── The connection mark's dot, and the notice that hangs from it ──────
+     The dot is the green the GitHub mark always had. While the connection
+     is working it breathes: a ring that grows and fades, by transform and
+     opacity only, so it costs the main thread nothing. */
+  .wb-live-dot {
+    position: absolute;
+    right: 5px;
+    top: 5px;
+    width: 7px;
+    height: 7px;
+    border-radius: 9999px;
+    background: #10b981;
+    box-shadow: 0 0 0 2px var(--wb-chrome-bg);
+  }
+  .wb-live-dot::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: #10b981;
+    opacity: 0;
+  }
+  @keyframes wb-live-breathe {
+    0% { transform: scale(1); opacity: 0.55; }
+    70%, 100% { transform: scale(2.6); opacity: 0; }
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .wb-live-dot[data-pulse]::after { animation: wb-live-breathe 2.2s cubic-bezier(0.2, 0.6, 0.3, 1) infinite; }
+  }
+  html[data-tab-hidden] .wb-live-dot::after { animation-play-state: paused; }
+
+  .wb-live-notice {
+    animation: wb-live-in 180ms cubic-bezier(0.32, 0.72, 0, 1) backwards;
+    transition: opacity 200ms ease-out, transform 200ms ease-out;
+  }
+  .wb-live-notice-leaving {
+    opacity: 0;
+    transform: translateY(-4px);
+    pointer-events: none;
+  }
+  @keyframes wb-live-in {
+    from { opacity: 0; transform: translateY(-6px) scale(0.98); }
+  }
+  .wb-live-progress { background: rgba(255, 255, 255, 0.06); }
+  .wb-live-progress-bar {
+    background: linear-gradient(90deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0));
+    transform: translateX(-100%);
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .wb-live-progress-bar { animation: wb-live-sweep 1.4s cubic-bezier(0.45, 0, 0.55, 1) infinite; }
+  }
+  @keyframes wb-live-sweep {
+    to { transform: translateX(300%); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .wb-live-notice { animation: none; }
+    .wb-live-progress-bar { transform: none; width: 100%; opacity: 0.35; }
   }
 
   /* Depth for the bar's icon buttons: the same recipe as the AI button

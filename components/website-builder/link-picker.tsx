@@ -1,25 +1,34 @@
 "use client"
 
 import * as React from "react"
-import { Check, ChevronDown, ExternalLink, FileText, Link2, Package, Search } from "lucide-react"
+import { Check, ChevronDown, ExternalLink, FileText, Link2, Mail, Package, Phone } from "lucide-react"
 
 import { cn } from "@/lib/utils"
-import { FieldPopover, FIELD_TRIGGER, usePhoneLayout } from "@/components/website-builder/field-popover"
+import { FieldPopover, usePhoneLayout } from "@/components/website-builder/field-popover"
+import { linkKind, normalizeLinkAddress } from "@/lib/website-builder/link-address"
 
 /**
  * ===========================================================================
- *  CHOOSING WHERE A LINK GOES
+ *  WHERE A LINK GOES: TYPE IT, OR PICK IT
  * ===========================================================================
- * A link field was a bare text box, so pointing a button at your own shop
- * meant knowing that the answer is the string "/shop", and pointing one at a
- * product meant knowing it is "/products/" and then the slug — which is not
- * written down anywhere the person filling the field can see. The result is
- * either a guess or a "#".
+ * The field IS the address. Type or paste one and that is the link: it is
+ * tidied when you press Enter or leave the field (https:// added, an email
+ * made a mailto:), and refused with a reason if it cannot be a link at all,
+ * `javascript:` included. See lib/website-builder/link-address.ts.
  *
- * The site's own pages and its products are listed here,
- * because the editor already has all three: it loads them for the page
- * browser. Anything else is still typeable, and an address that is not one of
- * these is shown as what it is rather than silently not matching.
+ * The chevron, or putting the cursor in the field, opens the site's own pages
+ * and products, because pointing a button at your own shop should not mean
+ * knowing the answer is "/products". Typing narrows that list; arrows move
+ * through it, Enter picks, Escape closes. There is no "custom address" row in
+ * it: the field above it already is one.
+ *
+ * A picked page is stored exactly as it always was, as its path. At rest the
+ * field shows the page's NAME ("Shop") rather than the path, and the path
+ * comes back the moment you put the cursor in it to edit.
+ *
+ * ON A PHONE the cursor does not open the list: the keyboard would come up
+ * over it (the "I cannot select anything" report). The chevron opens it
+ * without the keyboard, in the flow of the sheet, and typing opens it too.
  */
 
 export interface LinkTarget {
@@ -27,6 +36,21 @@ export interface LinkTarget {
   href: string
   label: string
   kind: "page" | "product"
+}
+
+const GROUPS: { kind: LinkTarget["kind"]; label: string }[] = [
+  { kind: "page", label: "Pages" },
+  { kind: "product", label: "Products" },
+]
+
+function KindMark({ href, known }: { href: string; known: LinkTarget | null }) {
+  const cls = "h-3.5 w-3.5"
+  if (known) return known.kind === "product" ? <Package className={cls} strokeWidth={1.75} /> : <FileText className={cls} strokeWidth={1.75} />
+  const kind = linkKind(href)
+  if (kind === "web") return <ExternalLink className={cls} strokeWidth={1.75} />
+  if (kind === "email") return <Mail className={cls} strokeWidth={1.75} />
+  if (kind === "phone") return <Phone className={cls} strokeWidth={1.75} />
+  return <Link2 className={cls} strokeWidth={1.75} />
 }
 
 export function LinkPicker({
@@ -40,139 +64,253 @@ export function LinkPicker({
   targets: LinkTarget[]
   placeholder?: string
 }) {
-  const [open, setOpen] = React.useState(false)
   const phone = usePhoneLayout()
-  const [query, setQuery] = React.useState("")
-  /** The custom box starts holding whatever is there, so it can be edited. */
-  const [custom, setCustom] = React.useState(value)
-  React.useEffect(() => setCustom(value), [value])
+  const listId = React.useId()
+  const inputRef = React.useRef<HTMLInputElement>(null)
+  const listRef = React.useRef<HTMLDivElement>(null)
+
+  const [open, setOpen] = React.useState(false)
+  const [focused, setFocused] = React.useState(false)
+  /** What is in the box while the cursor is in it. */
+  const [draft, setDraft] = React.useState(value)
+  /** Typed since the cursor arrived. Until then the list is the whole list. */
+  const [typed, setTyped] = React.useState(false)
+  const [active, setActive] = React.useState(-1)
+  const [error, setError] = React.useState<string | null>(null)
 
   const known = React.useMemo(() => targets.find((t) => t.href === value) ?? null, [targets, value])
 
-  const matches = React.useMemo(() => {
-    const q = query.trim().toLowerCase()
-    if (!q) return targets
-    return targets.filter((t) => t.label.toLowerCase().includes(q) || t.href.toLowerCase().includes(q))
-  }, [targets, query])
+  const rows = React.useMemo(() => {
+    const q = typed ? draft.trim().toLowerCase() : ""
+    const matched = q ? targets.filter((t) => t.label.toLowerCase().includes(q) || t.href.toLowerCase().includes(q)) : targets
+    /* In the order they are drawn, so the arrows walk the list as it reads. */
+    return GROUPS.flatMap((g) => matched.filter((t) => t.kind === g.kind))
+  }, [targets, typed, draft])
 
-  const groups: { kind: LinkTarget["kind"]; label: string; icon: React.ReactNode }[] = [
-    { kind: "page", label: "Pages", icon: <FileText className="h-3.5 w-3.5" strokeWidth={1.75} /> },
-    { kind: "product", label: "Products", icon: <Package className="h-3.5 w-3.5" strokeWidth={1.75} /> },
-  ]
+  const showList = open && rows.length > 0
 
-  const pick = (href: string) => {
-    onChange(href)
+  const close = React.useCallback(() => {
     setOpen(false)
-    setQuery("")
+    setActive(-1)
+  }, [])
+
+  /** A picked page or product. Stored as its path, exactly as before. */
+  const pick = (t: LinkTarget) => {
+    setError(null)
+    setDraft(t.href)
+    setTyped(false)
+    close()
+    if (t.href !== value) onChange(t.href)
+    /* At a thumb, done means the keyboard goes; at a keyboard, the cursor stays. */
+    if (phone) inputRef.current?.blur()
   }
 
-  const external = /^(https?:|mailto:|tel:)/i.test(value)
+  /** Whatever was typed, tidied and checked. A refusal keeps the old link. */
+  const commit = () => {
+    if (!typed) return
+    const text = draft.trim()
+    const named = text ? targets.find((t) => t.label.toLowerCase() === text.toLowerCase()) : undefined
+    if (named) return pick(named)
+    const r = normalizeLinkAddress(text)
+    if (r.ok === false) {
+      setError(r.reason)
+      setDraft(value)
+      setTyped(false)
+      return
+    }
+    setError(null)
+    setDraft(r.href)
+    setTyped(false)
+    if (r.href !== value) onChange(r.href)
+  }
+
+  /* The active row, kept in view inside the list and nowhere else. */
+  React.useEffect(() => {
+    if (active < 0) return
+    const list = listRef.current
+    const row = list?.querySelector<HTMLElement>(`[data-row="${active}"]`)
+    if (!list || !row) return
+    const top = row.offsetTop
+    const bottom = top + row.offsetHeight
+    if (top < list.scrollTop) list.scrollTop = top - 4
+    else if (bottom > list.scrollTop + list.clientHeight) list.scrollTop = bottom - list.clientHeight + 4
+  }, [active])
+
+  const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault()
+      if (!open) {
+        setOpen(true)
+        setActive(e.key === "ArrowDown" ? 0 : rows.length - 1)
+        return
+      }
+      if (rows.length === 0) return
+      setActive((i) => (e.key === "ArrowDown" ? (i + 1) % rows.length : i <= 0 ? rows.length - 1 : i - 1))
+      return
+    }
+    if (e.key === "Enter") {
+      e.preventDefault()
+      if (showList && active >= 0 && rows[active]) pick(rows[active])
+      /* Words that are not an address, with the list showing what they match: the first match. */
+      else if (showList && typed && rows.length > 0 && !normalizeLinkAddress(draft).ok) pick(rows[0])
+      else {
+        commit()
+        close()
+      }
+      return
+    }
+    if (e.key === "Escape" && !open && typed) {
+      /* The list is already shut (FieldPopover took the first Escape): this one puts the link back. */
+      e.preventDefault()
+      setDraft(value)
+      setTyped(false)
+      setError(null)
+    }
+  }
+
+  /** What the box shows: the address while editing, the page's name at rest. */
+  const shown = focused ? draft : known ? known.label : value
 
   return (
-    <FieldPopover
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next)
-        if (!next) setQuery("")
-      }}
-      trigger={
-        <button type="button" className={FIELD_TRIGGER} onClick={() => setOpen((o) => !o)} aria-expanded={open}>
-          <span className="shrink-0 text-muted-foreground">
-            {external ? <ExternalLink className="h-3.5 w-3.5" strokeWidth={1.75} /> : <Link2 className="h-3.5 w-3.5" strokeWidth={1.75} />}
-          </span>
-          <span className={cn("min-w-0 flex-1 truncate", value ? "text-foreground" : "text-muted-foreground")}>
-            {known ? known.label : value || placeholder || "Nothing linked"}
-          </span>
-          <ChevronDown className={cn("h-3.5 w-3.5 shrink-0 text-muted-foreground transition-[rotate] duration-150", open && "rotate-180")} />
-        </button>
-      }
-    >
-      <div className="flex items-center gap-2 border-b border-border px-2.5 py-2">
-        <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-        <input
-          /* Not at a thumb: the keyboard would cover the list this panel
-             just opened. Tapping the box still brings it up. */
-          autoFocus={!phone}
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search pages and products"
-          className="h-6 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-        />
-      </div>
-
-      <div data-sheet-scroll className="wb-slim-scroll max-h-[240px] overflow-y-auto overscroll-contain p-1.5">
-        {groups.map((group) => {
-          const rows = matches.filter((t) => t.kind === group.kind)
-          if (rows.length === 0) return null
-          return (
-            <div key={group.kind} className="mb-2 last:mb-0">
-              <p className="mb-1 flex items-center gap-1.5 px-2 pt-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                {group.icon}
-                {group.label}
-              </p>
-              {rows.map((t) => (
-                <button
-                  key={`${t.kind}:${t.href}`}
-                  type="button"
-                  onClick={() => pick(t.href)}
-                  className={cn(
-                    "flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-muted",
-                    value === t.href && "bg-muted",
-                  )}
-                >
-                  {/**
-                    * THE NAME, NOT THE ADDRESS.
-                    *
-                    * Every row printed its own href beside it, so choosing a
-                    * product meant reading past
-                    * "/products/geanta-guess-reptila-2g7yyk" to find the
-                    * name, and a long slug squeezed the name down to "F." or
-                    * "Gea…". Nobody picks a link by its slug: they pick the
-                    * page, and the address is what this control is FOR
-                    * producing. It is still there for anyone who wants it,
-                    * as the row's title.
-                    */}
-                  <span className="min-w-0 flex-1 truncate text-[13px] text-foreground" title={t.href}>
-                    {t.label}
-                  </span>
-                  {value === t.href && <Check className="h-3.5 w-3.5 shrink-0 text-foreground/70" strokeWidth={2.2} />}
-                </button>
-              ))}
-            </div>
-          )
-        })}
-
-        {matches.length === 0 && (
-          <p className="px-2 py-5 text-center text-[13px] text-muted-foreground">
-            Nothing here matches. Use the box below for any other address.
-          </p>
-        )}
-      </div>
-
-      {/* Anything at all: another site, an email, a phone number. Applied on
-          Enter or on blur rather than per keystroke, so a half-typed address
-          is never briefly the answer. */}
-      <div className="border-t border-border p-2">
-        <label className="mb-1 block px-0.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-          Or any address
-        </label>
-        <input
-          value={custom}
-          onChange={(e) => setCustom(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key !== "Enter") return
-            e.preventDefault()
-            pick(custom.trim())
-          }}
-          onBlur={() => {
-            const next = custom.trim()
-            if (next !== value) onChange(next)
-          }}
-          placeholder="https://example.com, /about, mailto:hi@…"
-          className="h-8 w-full rounded-lg border border-border bg-background px-2 text-[13px] outline-none transition-colors focus:border-neutral-400"
-        />
-      </div>
-    </FieldPopover>
+    <div data-link-picker="">
+      <FieldPopover
+        open={showList}
+        onOpenChange={(next) => {
+          if (!next) close()
+        }}
+        trigger={
+          <div
+            className={cn(
+              "flex h-9 w-full items-center rounded-lg border bg-background text-sm transition-colors",
+              error ? "border-red-400" : "border-border hover:border-neutral-400",
+              "focus-within:border-neutral-400 focus-within:ring-2 focus-within:ring-neutral-900/10",
+            )}
+          >
+            <span className="flex h-full shrink-0 items-center pl-2.5 pr-2 text-muted-foreground" aria-hidden>
+              <KindMark href={focused ? draft : value} known={focused ? null : known} />
+            </span>
+            <input
+              ref={inputRef}
+              type="text"
+              inputMode="url"
+              autoComplete="off"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              role="combobox"
+              aria-expanded={showList}
+              aria-controls={listId}
+              aria-autocomplete="list"
+              aria-activedescendant={showList && active >= 0 ? `${listId}-${active}` : undefined}
+              aria-invalid={error ? true : undefined}
+              title={known && !focused ? known.href : undefined}
+              value={shown}
+              placeholder={placeholder || "Type an address or pick a page"}
+              onFocus={(e) => {
+                setFocused(true)
+                setDraft(value)
+                setTyped(false)
+                /* The whole address, selected: typing replaces it, which is
+                   also how a search starts from a filled field. */
+                const el = e.currentTarget
+                requestAnimationFrame(() => el.select())
+                if (!phone) setOpen(true)
+              }}
+              onBlur={(e) => {
+                /* Moving to the chevron or the list is not leaving. */
+                if (e.relatedTarget instanceof Node && e.currentTarget.closest("[data-link-picker]")?.contains(e.relatedTarget)) return
+                setFocused(false)
+                commit()
+                close()
+              }}
+              onChange={(e) => {
+                setDraft(e.target.value)
+                setTyped(true)
+                setError(null)
+                setActive(-1)
+                setOpen(true)
+              }}
+              onKeyDown={onKeyDown}
+              className="h-full min-w-0 flex-1 bg-transparent text-[13px] text-foreground outline-none placeholder:text-muted-foreground"
+            />
+            <button
+              type="button"
+              tabIndex={-1}
+              aria-label="Pages and products"
+              aria-expanded={showList}
+              /* Keeps the cursor where it is; a press here is not a blur. */
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => {
+                if (showList) return close()
+                setTyped(false)
+                setActive(-1)
+                setOpen(true)
+                if (!phone) inputRef.current?.focus({ preventScroll: true })
+              }}
+              className="flex h-full shrink-0 items-center rounded-r-lg px-2.5 text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <ChevronDown className={cn("h-3.5 w-3.5 transition-[rotate] duration-150", showList && "rotate-180")} />
+            </button>
+          </div>
+        }
+      >
+        <div
+          ref={listRef}
+          id={listId}
+          role="listbox"
+          aria-label="Pages and products"
+          data-sheet-scroll
+          className="wb-slim-scroll max-h-[240px] overflow-y-auto overscroll-contain p-1.5"
+        >
+          {GROUPS.map((group) => {
+            const inGroup = rows.filter((t) => t.kind === group.kind)
+            if (inGroup.length === 0) return null
+            return (
+              <div key={group.kind} role="group" aria-label={group.label} className="mb-1.5 last:mb-0">
+                <p className="px-2 pb-1 pt-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{group.label}</p>
+                {inGroup.map((t) => {
+                  const i = rows.indexOf(t)
+                  const current = value === t.href
+                  return (
+                    <div
+                      key={`${t.kind}:${t.href}`}
+                      id={`${listId}-${i}`}
+                      data-row={i}
+                      role="option"
+                      aria-selected={i === active}
+                      /* Keeps the cursor in the field, so picking is not first a blur that saves what was typed. */
+                      onMouseDown={(e) => e.preventDefault()}
+                      onMouseMove={() => {
+                        if (active !== i) setActive(i)
+                      }}
+                      onClick={() => pick(t)}
+                      className={cn(
+                        "flex w-full cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-left",
+                        i === active ? "bg-muted" : current ? "bg-muted/60" : "",
+                      )}
+                    >
+                      {/**
+                        * THE NAME, NOT THE ADDRESS. Nobody picks a link by its
+                        * slug; the address is still there as the row's title.
+                        */}
+                      <span className="min-w-0 flex-1 truncate text-[13px] text-foreground" title={t.href}>
+                        {t.label}
+                      </span>
+                      {current && <Check className="h-3.5 w-3.5 shrink-0 text-foreground/70" strokeWidth={2.2} aria-label="Linked now" />}
+                    </div>
+                  )
+                })}
+              </div>
+            )
+          })}
+        </div>
+      </FieldPopover>
+      {error && (
+        <p role="alert" className="mt-1.5 text-[12px] leading-snug text-red-600">
+          {error}
+        </p>
+      )}
+    </div>
   )
 }
 
@@ -183,9 +321,9 @@ export function LinkPicker({
  * A context rather than a prop threaded through eight call sites and two
  * levels of renderer: the list is the same for every field on the page, it
  * changes only when the editor loads it, and a field that forgets to pass it
- * on would silently be a plain text box again — which is the bug this
- * replaces. The default is empty, so a FieldEditor used outside the editor
- * still renders, with the custom-address box and nothing to pick from.
+ * on would silently be a plain text box again. The default is empty, so a
+ * FieldEditor used outside the editor still renders, as the address box with
+ * nothing to pick from.
  */
 const LinkTargetsContext = React.createContext<LinkTarget[]>([])
 

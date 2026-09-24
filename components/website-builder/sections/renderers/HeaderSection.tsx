@@ -248,7 +248,7 @@ function HeaderSearchPanel({
     /* After the frame the panel becomes interactive on, or the focus lands
        on an element that is still `pointer-events: none` and iOS declines
        to raise the keyboard for it. */
-    const id = window.setTimeout(() => inputRef.current?.focus(), 60)
+    const id = window.setTimeout(() => inputRef.current?.focus({ preventScroll: true }), 60)
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose() }
     window.addEventListener("keydown", onKey)
 
