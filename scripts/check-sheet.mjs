@@ -216,6 +216,17 @@ writeFileSync(join(out, "index.html"), `<!doctype html><html><head><meta charset
   window.requestAnimationFrame = function (fn) { q.push([++id, fn]); return id }
   window.cancelAnimationFrame = function (i) { for (var k = 0; k < q.length; k++) if (q[k][0] === i) { q.splice(k, 1); return } }
   setInterval(function () { var run = q; q = []; for (var k = 0; k < run.length; k++) { fired++; try { run[k][1](performance.now()) } catch (e) {} } window.__frames = fired }, 8)
+  /* Web Animations do not advance under virtual time either: the document
+     timeline never ticks, so an animation sits on its first keyframe and
+     never finishes. The sheet sets its resting transform before it animates,
+     so a stand-in that just reports "finished" after the duration leaves the
+     end state in place, the same as the transition rule above. */
+  Element.prototype.animate = function (_frames, timing) {
+    var ms = typeof timing === "number" ? timing : (timing && timing.duration) || 0
+    var anim = { cancelled: false, onfinish: null, cancel: function () { anim.cancelled = true } }
+    setTimeout(function () { if (!anim.cancelled && anim.onfinish) anim.onfinish() }, ms)
+    return anim
+  }
 })()
 </script>
 <script src="probe.js"></script>${DRIVE}</body></html>`)

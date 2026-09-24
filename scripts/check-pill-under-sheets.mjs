@@ -12,7 +12,10 @@
  * positioned card over the bottom of the screen, and each kind of sheet the
  * app has (the shared BottomSheet's marker, a Radix Sheet, a Radix
  * AlertDialog, and a modal a page draws at the old layer 50):
- *   • the pill's layer is the same with a sheet open as without one;
+ *   • the pill stays where it is, and its layer stays above the page's own
+ *     content (it steps from 55 to 39 under the shared sheet so a tap on the
+ *     sheet can never reach it, but never below the page, which is what made
+ *     it vanish before the sheet had covered it);
  *   • with a sheet open, what is on top where the pill is, is the sheet;
  *   • nothing of the page's own ever covers the pill.
  *
@@ -76,7 +79,8 @@ for (const kind of ["bottom", "radix", "alert", "page"]) {
   console.log(`\n${kind} sheet open`)
   await p.evaluate((k) => { document.getElementById("sheets").innerHTML = window.sheets[k] }, kind)
   const open = await state()
-  expect(open.z === closed.z && open.y === closed.y, "the pill keeps its layer and its place", `${closed.z} → ${open.z}, ${closed.y} → ${open.y}`)
+  const cardZ = await p.evaluate(() => Number(getComputedStyle(document.getElementById("card")).zIndex))
+  expect(Number(open.z) >= 39 && Number(open.z) > cardZ && open.y === closed.y, "the pill keeps its place, above the page's own content", `${closed.z} → ${open.z} (page card ${cardZ}), ${closed.y} → ${open.y}`)
   expect(open.top === "sheet", "and the sheet is over it, never the page", open.top)
   await p.evaluate(() => { document.getElementById("sheets").innerHTML = "" })
   const after = await state()
