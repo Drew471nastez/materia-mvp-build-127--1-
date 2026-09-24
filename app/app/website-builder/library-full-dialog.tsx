@@ -45,6 +45,8 @@ export interface LibraryEntry {
   id: string
   name: string
   live: boolean
+  /** The website that was live, when nothing is now. */
+  offline?: boolean
 }
 
 /** The same breakpoint the action menus use, and the one the sheet hides itself from. */
@@ -63,15 +65,15 @@ function usePhone(): boolean {
 }
 
 /** A Polaris tone badge: a word on a tint, 20px high. */
-function StatusBadge({ live }: { live: boolean }) {
+function StatusBadge({ live, offline }: { live: boolean; offline?: boolean }) {
   return (
     <span
       className={cn(
         "inline-flex h-5 shrink-0 items-center rounded-md px-1.5 text-[12px] font-medium",
-        live ? "bg-[#cdfee1] text-[#0c5132]" : "bg-[#f1f2f4] text-[#3f3f46]",
+        live ? "bg-[#cdfee1] text-[#0c5132]" : offline ? "bg-[#ffef9d] text-[#4f4700]" : "bg-[#f1f2f4] text-[#3f3f46]",
       )}
     >
-      {live ? "Live" : "Draft"}
+      {live ? "Live" : offline ? "Offline" : "Draft"}
     </span>
   )
 }
@@ -83,7 +85,7 @@ function EntryList({ entries, onRemove }: { entries: LibraryEntry[]; onRemove?: 
         <li key={e.id} className="flex min-h-[52px] items-center gap-3 px-5 py-1.5 sm:min-h-[44px] sm:py-1">
           <span className="flex min-w-0 flex-1 items-center gap-2">
             <span className="truncate text-[14px] font-medium text-[#1a1a2e]">{e.name}</span>
-            <StatusBadge live={e.live} />
+            <StatusBadge live={e.live} offline={e.offline} />
           </span>
           {!e.live && onRemove ? (
             <button

@@ -370,6 +370,70 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
     await p.screenshot({ path: join(shots, "phone-390-empty.png") })
     await p.close()
   }
+  /*
+    ARCHIVE AND RESTORE, AGAINST A FAKE DATABASE. The page's requests to the
+    database are answered here, as the REST API would, from a table kept in
+    this script, so what is measured is the request the page sends and what
+    the list does with the answer. `#legacy` saves the last product with
+    status "archived" and the flag off: the row Restore used to leave
+    archived however often it was pressed.
+  */
+  {
+    console.log("\narchive and restore (1280)")
+    const table = new Map([["p13", { status: "archived", archived: false }], ["p0", { status: "published", archived: false }]])
+    const sent = []
+    const p = await browser.newPage()
+    await p.setViewport({ width: 1280, height: 800 })
+    await p.setRequestInterception(true)
+    const cors = { "access-control-allow-origin": "*", "access-control-allow-headers": "*", "access-control-allow-methods": "GET,POST,PATCH,DELETE,OPTIONS" }
+    p.on("request", (req) => {
+      const url = req.url()
+      if (!url.startsWith("https://placeholder.supabase.co")) return req.continue()
+      if (req.method() === "OPTIONS") return req.respond({ status: 204, headers: cors })
+      const u = new URL(url)
+      if (req.method() !== "PATCH" || !u.pathname.endsWith("/rest/v1/products")) return req.respond({ status: 200, headers: { ...cors, "content-type": "application/json" }, body: "[]" })
+      const patch = JSON.parse(req.postData() || "{}")
+      const id = (u.searchParams.get("id") || "").replace(/^eq\./, "")
+      const onlyStatus = u.searchParams.get("status")?.replace(/^eq\./, "")
+      sent.push({ id, patch, where: onlyStatus ? `status=${onlyStatus}` : "" })
+      const row = table.get(id)
+      const hit = row && (!onlyStatus || row.status === onlyStatus) ? [row] : []
+      for (const r of hit) Object.assign(r, patch)
+      const body = u.searchParams.has("select") ? JSON.stringify(hit.map((r) => ({ status: r.status, archived: r.archived }))) : ""
+      return req.respond({ status: body ? 200 : 204, headers: { ...cors, "content-type": "application/json" }, body })
+    })
+    await p.goto(`file://${join(stubs, "index.html")}#legacy`)
+    await p.evaluate(() => document.fonts.ready)
+    await wait(300)
+    const tabs = () => p.$$eval("[role=tab]", (t) => t.map((x) => x.textContent.trim()))
+    const view = async (name) => { await p.evaluate((name) => [...document.querySelectorAll("[role=tab]")].find((t) => t.textContent.trim() === name).click(), name); await wait(80) }
+    const names = () => p.$$eval("section[aria-label=Products] table tbody tr", (r) => r.map((tr) => tr.querySelector("td a").textContent.trim()))
+    const act = async (title, label) => {
+      await p.click(`table button[aria-label='Actions for ${title}']`)
+      await wait(250)
+      await p.evaluate((label) => [...document.querySelectorAll("[role=menuitem]")].find((m) => m.textContent.trim() === label).click(), label)
+      await wait(400)
+    }
+    await view("Archived")
+    const before = await names()
+    expect(before.includes("Product 14"), "a product saved as archived is in Archived", before)
+    await act("Product 14", "Restore")
+    const afterRestore = await names()
+    expect(!afterRestore.includes("Product 14"), "Restore takes it out of Archived", afterRestore)
+    expect(sent.length === 2 && sent[0].where === "status=archived" && sent[0].patch.status === "draft" && sent[1].patch.archived === false,
+      "  by setting an archived status back to draft, then clearing the flag", sent)
+    await view("Draft")
+    const drafts = await names()
+    expect(drafts.includes("Product 14") && table.get("p13").status === "draft", "  and it is a draft again, in the list and in the table", { drafts, row: table.get("p13") })
+    await view("All")
+    await act("Product 1", "Archive")
+    const all = await names()
+    expect(!all.includes("Product 1") && table.get("p0").status === "archived" && table.get("p0").archived === true,
+      "Archive takes a live product off: its status is archived, and it leaves All", { row: table.get("p0"), sent: sent.slice(2) })
+    await view("Archived")
+    expect((await names()).includes("Product 1"), "  and it is in Archived", await tabs())
+    await p.close()
+  }
   await browser.close()
 } finally {
   if (!process.env.KEEP) rmSync(stubs, { recursive: true, force: true })

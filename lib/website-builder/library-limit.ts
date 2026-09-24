@@ -34,6 +34,49 @@ export const LIBRARY_FULL_MESSAGE = `${LIBRARY_RULE} Remove one to add another.`
 /** Sent with a refusal, so the page can open the full library sheet rather than show a toast. */
 export const LIBRARY_FULL_CODE = "library_full"
 
+/**
+ * ===========================================================================
+ *  TWO AT ONCE STILL MAKE FIVE
+ * ===========================================================================
+ * librarySlotsLeft, below, counts before the insert. Two requests at the same
+ * moment (an import and a duplicate, two tabs, a double tap) both read 4 and
+ * both insert, and the library holds 6. Two guards close that:
+ *
+ *   1. The database refuses the insert itself once a creator has
+ *      THEME_INSTALL_LIMIT websites (supabase/sql/RUN_THEME_LIBRARY_LIMIT.sql).
+ *      Its trigger takes a lock per creator, so concurrent inserts for one
+ *      creator are counted one after the other. The refusal's message is
+ *      LIBRARY_FULL_CODE, which isLibraryFullError reads.
+ *   2. Until that file has been run on a database, every route counts again
+ *      right after its insert (keptWithinLimit) and removes its own row if
+ *      the library went past the limit. Each request counts after its own
+ *      insert has committed, so the later of two always sees both and backs
+ *      out. At worst both back out and the person tries again; the library
+ *      never ends up over.
+ */
+
+/** The database's own refusal (RUN_THEME_LIBRARY_LIMIT.sql), read as a full library. */
+export function isLibraryFullError(error: { message?: unknown } | null | undefined): boolean {
+  return !!error && typeof error.message === "string" && error.message.includes(LIBRARY_FULL_CODE)
+}
+
+/**
+ * After an insert: is this creator still within the limit? If not, the new
+ * website is removed again and the answer is false, which the route sends as
+ * a full library. A count that cannot be read keeps the website: the check
+ * before the insert passed, and removing a real website on a failed read is
+ * the worse mistake.
+ */
+export async function keptWithinLimit(admin: SupabaseClient, creatorId: string, installId: string): Promise<boolean> {
+  const { count, error } = await admin
+    .from("store_theme_installs")
+    .select("id", { count: "exact", head: true })
+    .eq("creator_id", creatorId)
+  if (error || count === null || count <= THEME_INSTALL_LIMIT) return true
+  await admin.from("store_theme_installs").delete().eq("id", installId).eq("creator_id", creatorId)
+  return false
+}
+
 /** How many more websites this creator may add. Never negative. */
 export async function librarySlotsLeft(supabase: SupabaseClient, creatorId: string): Promise<number> {
   const { count, error } = await supabase

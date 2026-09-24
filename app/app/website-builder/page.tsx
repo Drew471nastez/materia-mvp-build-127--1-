@@ -33,8 +33,8 @@ export const metadata: Metadata = {
  * Now the server reads the installs once (settings only, no pages: the cover
  * is a picture, not a render), initialises a first-time creator in the same
  * request, and hands the client component a small, flat list. There is no
- * loading state inside the page; `loading.tsx` covers the server render and
- * only appears if that takes longer than the skeleton's deferral.
+ * loading state inside the page and no route skeleton: a slow server render
+ * is the app's stage to cover, the same way on every page in /app.
  */
 
 type InstallRow = {

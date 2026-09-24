@@ -1,7 +1,7 @@
 import { NextResponse, after } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { LIBRARY_FULL_CODE, LIBRARY_FULL_MESSAGE, librarySlotsLeft, nextSortOrder } from "@/lib/website-builder/library-limit"
+import { LIBRARY_FULL_CODE, LIBRARY_FULL_MESSAGE, isLibraryFullError, keptWithinLimit, librarySlotsLeft, nextSortOrder } from "@/lib/website-builder/library-limit"
 import { copyCover, coverAfterCreate, renderOrigin } from "@/lib/website-builder/cover-take"
 
 export const runtime = "nodejs"
@@ -38,8 +38,10 @@ export async function POST(req: Request, { params }: Params) {
     return NextResponse.json({ error: LIBRARY_FULL_MESSAGE, code: LIBRARY_FULL_CODE }, { status: 400 })
   }
 
+  /* A name the page may send, as text of the length Rename allows; anything else is the usual one. */
   const body = await req.json().catch(() => ({}))
-  const newName: string = body?.name ?? `${source.name} (copy)`
+  const asked = typeof body?.name === "string" ? body.name.trim().slice(0, 80) : ""
+  const newName = asked || `${source.name} (copy)`.slice(0, 80)
 
   // After every website already there, where the page draws it arriving.
   const sortOrder = await nextSortOrder(admin, creator.id)
@@ -59,8 +61,19 @@ export async function POST(req: Request, { params }: Params) {
     .select()
     .single()
 
+  if (isLibraryFullError(installErr)) {
+    return NextResponse.json({ error: LIBRARY_FULL_MESSAGE, code: LIBRARY_FULL_CODE }, { status: 400 })
+  }
   if (installErr || !newInstall) {
     return NextResponse.json({ error: installErr?.message ?? "Failed to duplicate" }, { status: 500 })
+  }
+  if (!(await keptWithinLimit(admin, creator.id, newInstall.id as string))) {
+    return NextResponse.json({ error: LIBRARY_FULL_MESSAGE, code: LIBRARY_FULL_CODE }, { status: 400 })
+  }
+  /* The whole copy or none of it: a copy missing its pages opens to an empty editor, which reads as loss. */
+  const undo = async () => {
+    await admin.from("store_theme_installs").delete().eq("id", newInstall.id)
+    return NextResponse.json({ error: "Could not copy this website. Try again." }, { status: 500 })
   }
 
   /*
@@ -74,17 +87,18 @@ export async function POST(req: Request, { params }: Params) {
   const { data: srcSettings } = await supabase
     .from("store_theme_settings").select("settings, draft_settings").eq("install_id", installId).maybeSingle()
 
-  await admin.from("store_theme_settings").insert({
+  const { error: settingsErr } = await admin.from("store_theme_settings").insert({
     install_id: newInstall.id,
     settings: srcSettings?.settings ?? {},
     draft_settings: srcSettings?.draft_settings ?? null,
   })
+  if (settingsErr) return undo()
 
   const { data: srcPages } = await supabase
     .from("store_theme_pages").select("page_key, sections, draft_sections").eq("install_id", installId)
 
   if (srcPages?.length) {
-    await admin.from("store_theme_pages").insert(
+    const { error: pagesErr } = await admin.from("store_theme_pages").insert(
       srcPages.map((p: { page_key: string; sections: unknown; draft_sections: unknown }) => ({
         install_id: newInstall.id,
         page_key: p.page_key,
@@ -92,6 +106,7 @@ export async function POST(req: Request, { params }: Params) {
         draft_sections: p.draft_sections ?? null,
       }))
     )
+    if (pagesErr) return undo()
   }
 
   /* The creator's own section files, with their drafts where the database keeps drafts. */
@@ -100,13 +115,14 @@ export async function POST(req: Request, { params }: Params) {
     ? ((await admin.from("store_theme_custom_files").select("path, content").eq("install_id", installId)).data ?? [])
     : (withDrafts.data ?? [])
   if (files.length) {
-    await admin.from("store_theme_custom_files").insert(
+    const { error: filesErr } = await admin.from("store_theme_custom_files").insert(
       (files as { path: string; content: string; draft_content?: string | null }[]).map((f) =>
         withDrafts.error
           ? { install_id: newInstall.id, path: f.path, content: f.content }
           : { install_id: newInstall.id, path: f.path, content: f.content, draft_content: f.draft_content ?? null },
       ),
     )
+    if (filesErr) return undo()
   }
 
   /*

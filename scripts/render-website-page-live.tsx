@@ -35,11 +35,18 @@ function site(id: string, name: string, status: WebsiteSummary["status"], minute
   }
 }
 
-const full = new URLSearchParams(location.search).get("scenario") === "full"
+const params = new URLSearchParams(location.search)
+const scenario = params.get("scenario")
+const full = scenario === "full"
+/* `?drafts=N` sets how many drafts sit beside the live website: 0 is a library of one, 3 makes the import the fifth. */
+const drafts = params.has("drafts") ? Number(params.get("drafts")) : full ? THEME_INSTALL_LIMIT - 1 : 2
 const names = ["Studio", "Atelier", "Coach", "Chair", "Loft", "Mill"]
 let installs: WebsiteSummary[] = [
-  site("live-1", "Storelib Default", "published", 4),
-  ...Array.from({ length: full ? THEME_INSTALL_LIMIT - 1 : 2 }, (_, i) => site(`lib-${i}`, names[i], "draft", 60 * (i + 2))),
+  /* `?scenario=offline`: the website that was live has been taken offline, and nothing is live. */
+  scenario === "offline"
+    ? { ...site("live-1", "Storelib Default", "unpublished", 4), published_at: ago(90) }
+    : site("live-1", "Storelib Default", "published", 4),
+  ...Array.from({ length: drafts }, (_, i) => site(`lib-${i}`, names[i], "draft", 60 * (i + 2))),
 ]
 
 type ProbeWindow = Window & { __probe?: { refresh: () => void }; __probeNext?: { id: string; name: string } | null }

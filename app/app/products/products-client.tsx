@@ -13,6 +13,7 @@ import { GUTTER, LIST_BAR, LIST_WIDTH, PaneBar, RowMenuButton, StatusBadge, butt
 import { createClient } from "@/lib/supabase/client"
 import { useLanguage } from "@/lib/i18n"
 import { STORELIB_LOGO } from "@/lib/brand/logo"
+import { archiveProduct, isArchivedProduct as isArchived, restoreProduct } from "@/lib/products/archive"
 
 interface Product {
   id: string
@@ -79,6 +80,14 @@ interface ProductsClientProps {
   creatorUsername: string
 }
 
+/**
+ * Text into the report's markup. The report is written into a window this
+ * page opens, which is this origin, so a title with markup in it would have
+ * run there as script.
+ */
+const escapeHtml = (value: unknown) =>
+  String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] as string)
+
 // StoreLib branded PDF Export function
 const generateProductsPDF = (products: Product[], formatPrice: (cents: number) => string) => {
   const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
@@ -132,15 +141,15 @@ const generateProductsPDF = (products: Product[], formatPrice: (cents: number) =
         </div>
         <div class="summary-card">
           <div class="label">Published</div>
-          <div class="value">${products.filter(p => p.status === 'published' && !p.archived).length}</div>
+          <div class="value">${products.filter(p => p.status === 'published' && !isArchived(p)).length}</div>
         </div>
         <div class="summary-card">
           <div class="label">Drafts</div>
-          <div class="value">${products.filter(p => p.status === 'draft' && !p.archived).length}</div>
+          <div class="value">${products.filter(p => p.status !== 'published' && !isArchived(p)).length}</div>
         </div>
         <div class="summary-card">
           <div class="label">Archived</div>
-          <div class="value">${products.filter(p => p.archived).length}</div>
+          <div class="value">${products.filter(isArchived).length}</div>
         </div>
       </div>
 
@@ -157,10 +166,10 @@ const generateProductsPDF = (products: Product[], formatPrice: (cents: number) =
         <tbody>
           ${products.map(product => `
             <tr>
-              <td class="product-title">${product.title}</td>
-              <td>${product.type}</td>
-              <td class="price">${formatPrice(product.price_cents)}</td>
-              <td><span class="status status-${product.archived ? 'archived' : product.status}">${product.archived ? 'Archived' : product.status}</span></td>
+              <td class="product-title">${escapeHtml(product.title)}</td>
+              <td>${escapeHtml(product.type)}</td>
+              <td class="price">${escapeHtml(formatPrice(product.price_cents))}</td>
+              <td><span class="status status-${isArchived(product) ? 'archived' : product.status === 'published' ? 'published' : 'draft'}">${isArchived(product) ? 'Archived' : escapeHtml(product.status)}</span></td>
               <td>${new Date(product.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}</td>
             </tr>
           `).join('')}
@@ -196,7 +205,7 @@ const generateProductsCSV = (products: Product[], formatPrice: (cents: number) =
     `"${product.title.replace(/"/g, '""')}"`,
     product.type,
     formatPrice(product.price_cents),
-    product.archived ? 'Archived' : product.status,
+    isArchived(product) ? 'Archived' : product.status,
     product.slug,
     new Date(product.created_at).toISOString(),
     `"${(product.description || '').replace(/"/g, '""')}"`
@@ -228,8 +237,6 @@ const SORTS: Array<{ value: Sort; label: string }> = [
   { value: "price_asc", label: "Price low to high" },
   { value: "sales", label: "Best selling" },
 ]
-
-const isArchived = (p: Product) => !!p.archived || p.status === "archived"
 
 /** Which view a product is in besides All: All is everything that is not archived. */
 function inView(p: Product, view: View): boolean {
@@ -301,9 +308,15 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
     }
   }, [isSearchOpen])
 
+  /* One timer: a second notice restarts it, rather than the first one's timer hiding the second early. */
+  const notificationTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => {
+    if (notificationTimer.current) clearTimeout(notificationTimer.current)
+  }, [])
   const showNotification = (message: string, type: "success" | "error" = "success") => {
     setNotification({ message, visible: true, type })
-    setTimeout(() => setNotification({ message: "", visible: false, type: "success" }), 4000)
+    if (notificationTimer.current) clearTimeout(notificationTimer.current)
+    notificationTimer.current = setTimeout(() => setNotification({ message: "", visible: false, type: "success" }), 4000)
   }
 
   const filteredProducts = useMemo(() => {
@@ -315,29 +328,32 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
 
   const pages = Math.max(1, Math.ceil(filteredProducts.length / PAGE_SIZE))
   const pageNow = Math.min(page, pages)
+  /* A delete that empties the last page shows the page before it, and the
+     page is set there too: left at 2, the next product added would jump the
+     list back to a page nobody asked for. */
+  useEffect(() => {
+    if (page > pages) setPage(pages)
+  }, [page, pages])
   const from = (pageNow - 1) * PAGE_SIZE
   const pageProducts = filteredProducts.slice(from, from + PAGE_SIZE)
 
+  /**
+   * Archive takes a product off every page; Restore brings it back as a
+   * draft (lib/products/archive.ts). Which one is decided by what the row
+   * shows now, and the row the database answers with replaces the page's
+   * copy, so the list and the database cannot disagree afterwards.
+   */
   const handleArchive = async (product: Product) => {
+    const restoring = isArchived(product)
     try {
       const supabase = createClient()
-      const newArchivedState = !product.archived
-
-      const { error } = await supabase
-        .from("products")
-        .update({ archived: newArchivedState })
-        .eq("id", product.id)
-
-      if (error) throw error
+      const row = restoring ? await restoreProduct(supabase, product.id) : await archiveProduct(supabase, product.id)
       announceChange({ product: product.id })
-
-      setProducts(prev => prev.map(p =>
-        p.id === product.id ? { ...p, archived: newArchivedState } : p
-      ))
-      showNotification(newArchivedState ? "Product archived" : "Product restored")
+      setProducts((prev) => prev.map((p) => (p.id === product.id ? { ...p, ...row } : p)))
+      showNotification(restoring ? (row.status === "published" ? "Product restored" : "Product restored as a draft") : "Product archived")
     } catch (error) {
       console.error("Error archiving product:", error)
-      showNotification("Failed to archive product", "error")
+      showNotification(restoring ? "Could not restore the product" : "Could not archive the product", "error")
     }
   }
 
@@ -381,6 +397,37 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
     setProductToDelete(product)
     setDeleteModalOpen(true)
   }
+  const closeDelete = () => {
+    setDeleteModalOpen(false)
+    setProductToDelete(null)
+  }
+
+  /*
+    THE QUESTION HAS THE KEYBOARD. Cancel, the safe answer, takes focus once
+    the menu that opened it has let go (a tick later), Escape closes it
+    unless a delete is running, and focus goes back where it was.
+  */
+  const deleteCancel = useRef<HTMLButtonElement>(null)
+  useEffect(() => {
+    if (!deleteModalOpen) return
+    let opener: HTMLElement | null = null
+    const t = setTimeout(() => {
+      opener = document.activeElement as HTMLElement | null
+      deleteCancel.current?.focus({ preventScroll: true })
+    }, 0)
+    return () => {
+      clearTimeout(t)
+      if (opener && opener.isConnected && opener !== document.body) opener.focus({ preventScroll: true })
+    }
+  }, [deleteModalOpen])
+  useEffect(() => {
+    if (!deleteModalOpen || isDeleting) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeDelete()
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [deleteModalOpen, isDeleting])
 
   const handleShare = async (product: Product) => {
     const url = getProductUrl(creatorUsername, product.slug)
@@ -400,17 +447,19 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
     try {
       const supabase = createClient()
 
-      const { error } = await supabase
+      /* With the row back, so a delete row level security refused is not reported as done. */
+      const { data: gone, error } = await supabase
         .from("products")
         .delete()
         .eq("id", productToDelete.id)
+        .select("id")
 
       if (error) throw error
+      if (!gone?.length) throw new Error("Nothing was deleted")
 
       setProducts(prev => prev.filter(p => p.id !== productToDelete.id))
       showNotification("Product deleted successfully")
-      setDeleteModalOpen(false)
-      setProductToDelete(null)
+      closeDelete()
     } catch (error) {
       console.error("Error deleting product:", error)
       showNotification("Failed to delete product", "error")
@@ -759,10 +808,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
           <div
             className="absolute inset-0 bg-black/40 animate-in fade-in-0 duration-200"
             onClick={() => {
-              if (!isDeleting) {
-                setDeleteModalOpen(false)
-                setProductToDelete(null)
-              }
+              if (!isDeleting) closeDelete()
             }}
           />
           <div role="alertdialog" aria-modal="true" aria-labelledby="delete-product-title" className="relative w-full max-w-[400px] rounded-2xl bg-white shadow-[0_20px_50px_-12px_rgba(17,24,39,0.3)] animate-in fade-in-0 zoom-in-95 duration-200">
@@ -774,11 +820,9 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
             </div>
             <div className="flex justify-end gap-2 border-t border-[#eef0f2] px-5 py-3 max-md:gap-3">
               <button
+                ref={deleteCancel}
                 type="button"
-                onClick={() => {
-                  setDeleteModalOpen(false)
-                  setProductToDelete(null)
-                }}
+                onClick={closeDelete}
                 disabled={isDeleting}
                 className={cn(buttonSecondary, "max-md:h-11 max-md:flex-1 max-md:text-[15px]")}
               >

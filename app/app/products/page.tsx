@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { ProductsClient } from "./products-client"
 import type { Metadata } from "next"
@@ -12,22 +13,22 @@ export default async function ProductsPage() {
   const {
     data: { user },
   } = await supabase.auth.getUser()
+  /* Signed out, or signed in without a creator yet: sent where that is sorted
+     out, like the Website page, rather than a crash on a missing row. */
+  if (!user) redirect("/login")
 
-  const { data: creator } = await supabase.from("creators").select("id, slug").eq("user_id", user!.id).single()
+  const [{ data: creator }, { data: profile }] = await Promise.all([
+    supabase.from("creators").select("id, slug").eq("user_id", user.id).maybeSingle(),
+    supabase.from("profiles").select("username").eq("id", user.id).maybeSingle(),
+  ])
+  if (!creator) redirect("/app")
 
-  // Fetch creator's profile for username
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("username")
-    .eq("id", user!.id)
-    .single()
-
-  const creatorUsername = profile?.username || creator?.slug || ""
+  const creatorUsername = profile?.username || creator.slug || ""
 
   const { data: products } = await supabase
     .from("products")
     .select("*")
-    .eq("creator_id", creator!.id)
+    .eq("creator_id", creator.id)
     .order("created_at", { ascending: false })
 
   return (

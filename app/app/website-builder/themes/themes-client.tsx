@@ -30,6 +30,7 @@ import { cn } from "@/lib/utils"
 import { BROWSABLE_THEMES, THEME_INSTALL_LIMIT, type ThemeDefinition } from "@/lib/website-builder/theme-registry"
 import { SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
 import { ThemeCover, ThemePhoneCover, coverSpecFromDefinition } from "@/components/website-builder/theme-cover"
+import { LIBRARY_FULL_CODE } from "@/lib/website-builder/library-limit"
 import { LibraryFullDialog, type LibraryAction } from "../library-full-dialog"
 
 export function ThemeMarketplaceClient({
@@ -51,12 +52,15 @@ export function ThemeMarketplaceClient({
   const used = slotsUsed + (added.size - new Set(installedThemeIds).size)
   const slotsLeft = Math.max(0, THEME_INSTALL_LIMIT - used)
 
+  /* Held by a ref: two taps in one frame both read the state from before the first. */
+  const inFlight = React.useRef(false)
   const add = async (def: ThemeDefinition) => {
-    if (added.has(def.id)) return
+    if (added.has(def.id) || inFlight.current) return
     if (slotsLeft === 0) {
       setFull("add")
       return
     }
+    inFlight.current = true
     setAdding(def.id)
     try {
       const res = await fetch("/api/website-builder/themes/add", {
@@ -66,6 +70,12 @@ export function ThemeMarketplaceClient({
       })
       if (!res.ok) {
         const d = await res.json().catch(() => ({}))
+        /* Full by the server's count (another tab, say): the same sheet the button opens, not a toast. */
+        if (d.code === LIBRARY_FULL_CODE) {
+          setFull("add")
+          router.refresh()
+          return
+        }
         toast({ title: d.error ?? "Could not add theme", variant: "destructive" })
         return
       }
@@ -75,6 +85,7 @@ export function ThemeMarketplaceClient({
     } catch {
       toast({ title: "Could not add theme", variant: "destructive" })
     } finally {
+      inFlight.current = false
       setAdding(null)
     }
   }
@@ -96,7 +107,8 @@ export function ThemeMarketplaceClient({
             <h1 className="truncate text-[24px] font-bold tracking-tight text-[#1a1a2e] sm:text-[28px]">Themes</h1>
           </div>
           <span className="shrink-0 rounded-md bg-white px-2 py-1 text-[12px] font-semibold tabular-nums text-[#4b5563] ring-1 ring-inset ring-[#e5e7eb]">
-            {used} of {THEME_INSTALL_LIMIT} in library
+            {/* A library from before the limit can hold more than it allows, and "7 of 5" reads as broken. */}
+            {used > THEME_INSTALL_LIMIT ? `${used} in library` : `${used} of ${THEME_INSTALL_LIMIT} in library`}
           </span>
         </div>
 
