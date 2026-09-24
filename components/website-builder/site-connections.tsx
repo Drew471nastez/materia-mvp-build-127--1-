@@ -98,7 +98,8 @@ export function useSiteActivity({
     async function tick() {
       timer = null
       /* Hidden: stop here. Coming back into view starts it again. */
-      if (stopped || busy || document.visibilityState !== "visible" || cursor.current === null) return
+      if (stopped || busy || document.visibilityState !== "visible") return
+      if (cursor.current === null) return schedule(delay)
       busy = true
       let arrived = false
       try {
@@ -304,10 +305,15 @@ export function LiveChangeNotice({
   const working = phase === "working"
   const shown = batch.changes.slice(-MAX_ROWS)
   const hidden = batch.changes.length - shown.length
-  const who = isGitHubName(batch.who) ? batch.who.replace(/\s*·\s*/, ", ") : batch.who
-  const title = working
-    ? `${who} is editing`
-    : `Done, ${batch.count} ${batch.count === 1 ? "change" : "changes"}`
+  /* A push arrives whole, from a person: said as a push, by whom when GitHub says. */
+  const pusher = isGitHubName(batch.who) ? batch.who.split("·")[1]?.trim() ?? "" : null
+  const title = !working
+    ? `Done, ${batch.count} ${batch.count === 1 ? "change" : "changes"}`
+    : pusher === null
+      ? `${batch.who} is editing`
+      : pusher
+        ? `${pusher} pushed to GitHub`
+        : "A push from GitHub"
 
   const body = (
     <div

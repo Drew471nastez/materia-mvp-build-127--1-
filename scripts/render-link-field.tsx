@@ -66,7 +66,7 @@ function Panel() {
 const phone = window.innerWidth < 640
 createRoot(document.getElementById("root")!).render(
   phone
-    ? createElement(MobileEditorSheet, { open: true, onOpenChange: () => {} }, createElement(Panel))
+    ? createElement(MobileEditorSheet, { open: true, onOpenChange: () => {}, children: createElement(Panel) })
     : createElement(
         "div",
         { "data-wb-sidebar-scroll": "", className: "h-screen w-[320px] overflow-y-auto border-r border-border bg-white p-4" },

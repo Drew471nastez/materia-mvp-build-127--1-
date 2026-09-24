@@ -33,7 +33,7 @@ let failed = 0
 const failures: string[] = []
 function check(label: string, ok: boolean, detail?: string) {
   if (ok) { passed++; console.log(`  ok    ${label}`) }
-  else { failed++; failures.push(label + (detail ? ` — ${detail}` : "")); console.log(`  FAIL  ${label}${detail ? ` — ${detail}` : ""}`) }
+  else { failed++; failures.push(label + (detail ? `: ${detail}` : "")); console.log(`  FAIL  ${label}${detail ? `: ${detail}` : ""}`) }
 }
 const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
 const ago = (s: number) => new Date(Date.now() - s * 1000).toISOString()

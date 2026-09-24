@@ -4,7 +4,7 @@ import { useEffect, useState, useLayoutEffect, useCallback, useDeferredValue, us
 import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
 import {
-  ArrowLeft, Plug, Monitor, Smartphone, Loader2, Code2, ChevronDown, Plus, Eye, EyeOff, GripVertical, Trash2, Copy, Settings, Check, Layers, X, RotateCcw, Layout, AlignLeft, Image, ShoppingBag, MessageSquare, HelpCircle, Megaphone, BarChart2, Grid, Award, LayoutGrid, DollarSign, LayoutTemplate, Video, Users, MapPin, Mail, Clock, BookOpen, Shirt, Columns, Play, Star, Timer, Shield, Rss, SlidersHorizontal, Code, Bell, ChevronRight, Package, Undo2, Redo2, ExternalLink, Search, FileText, ArrowRight, FolderOpen, MoreHorizontal, Upload, Info, Crop, CheckCircle, Type, Square, Rows3, Grid3x3, MousePointerClick, MoveHorizontal, Hash, Columns2, LayoutDashboard, Badge as BadgeIcon, PanelTop, PanelBottom, ArrowUp, ArrowDown,
+  ArrowLeft, Plug, Monitor, Smartphone, Loader2, Code2, ChevronDown, Plus, Eye, EyeOff, GripVertical, Trash2, Copy, Settings, Check, Layers, X, RotateCcw, Layout, AlignLeft, Image, MessageSquare, HelpCircle, Megaphone, BarChart2, Grid, Award, LayoutGrid, DollarSign, LayoutTemplate, Video, Users, MapPin, Mail, Clock, BookOpen, Shirt, Columns, Play, Star, Timer, Shield, Rss, SlidersHorizontal, Code, Bell, ChevronRight, Package, Undo2, Redo2, ExternalLink, Search, FileText, ArrowRight, FolderOpen, MoreHorizontal, Upload, Info, Crop, CheckCircle, Type, Square, Rows3, Grid3x3, MousePointerClick, MoveHorizontal, Hash, Columns2, LayoutDashboard, Badge as BadgeIcon, PanelTop, PanelBottom, ArrowUp, ArrowDown,
 } from "lucide-react"
 import {
   DndContext,
@@ -1985,8 +1985,6 @@ function SortableNavLink({
   blockSchema,
   onUpdateBlockSetting,
   onRemoveBlock,
-  products,
-  customPages,
   children,
   isChild = false,
   onAddChild,
@@ -1996,8 +1994,6 @@ function SortableNavLink({
   blockSchema: any
   onUpdateBlockSetting: (blockId: string, key: string, value: unknown) => void
   onRemoveBlock: (blockId: string) => void
-  products: { id: string; title: string; slug: string }[]
-  customPages: { name: string; key: string }[]
   children?: React.ReactNode
   isChild?: boolean
   onAddChild?: () => void
@@ -2197,8 +2193,6 @@ function HeaderSectionSettings({
   onAddBlock,
   onRemoveBlock,
   onReorderBlocks,
-  products,
-  customPages,
   theme,
   onEditScheme,
 }: {
@@ -2210,8 +2204,6 @@ function HeaderSectionSettings({
   onAddBlock: (type: string, initialSettings?: Record<string, unknown>) => void
   onRemoveBlock: (blockId: string) => void
   onReorderBlocks: (blocks: { id: string; type: string; settings: Record<string, unknown> }[]) => void
-  products: { id: string; title: string; slug: string }[]
-  customPages: { name: string; key: string }[]
   theme: ThemeSettingsValues
   onEditScheme: (schemeKey?: string) => void
 }) {
@@ -2365,8 +2357,6 @@ function HeaderSectionSettings({
                       blockSchema={blockSchema}
                       onUpdateBlockSetting={onUpdateBlockSetting}
                       onRemoveBlock={onRemoveBlock}
-                      products={products}
-                      customPages={customPages}
                       onAddChild={() => onAddBlock("nav_link", { parent_id: block.id, label: "New link", url: "#", link_type: "custom" })}
                     >
                       {kids.length > 0 && (
@@ -2394,8 +2384,6 @@ function HeaderSectionSettings({
                                   blockSchema={blockSchema}
                                   onUpdateBlockSetting={onUpdateBlockSetting}
                                   onRemoveBlock={onRemoveBlock}
-                                  products={products}
-                                  customPages={customPages}
                                   isChild
                                 />
                               ))}
@@ -5397,6 +5385,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       { href: "/products", label: "Shop", kind: "page" },
       { href: "/about", label: "About", kind: "page" },
       { href: "/contact", label: "Contact", kind: "page" },
+      /* The page browser lists it, and the header's links used to offer it. */
+      { href: "/search", label: "Search", kind: "page" },
       ...customPages.map((p) => ({ href: `/${p.key}`, label: p.name, kind: "page" as const })),
       ...products.map((p) => ({ href: `/products/${p.slug}`, label: p.title, kind: "product" as const })),
       /**
@@ -6175,15 +6165,6 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             onAddBlock={(type, initialSettings) => addBlock(section.id, type, initialSettings)}
             onRemoveBlock={(blockId) => removeBlock(section.id, blockId)}
             onReorderBlocks={(blocks) => reorderBlocks(section.id, blocks)}
-            products={products}
-            customPages={[
-              { name: "Home", key: "home" },
-              { name: "About", key: "about" },
-              { name: "Contact", key: "contact" },
-              { name: "Shop", key: "products" },
-              { name: "Search", key: "search" },
-              ...customPages.map(p => ({ name: p.name, key: p.key as string })),
-            ]}
             theme={settingsDraft}
             onEditScheme={(schemeKey) => {
               if (schemeKey) setEditSchemeKey(schemeKey)
