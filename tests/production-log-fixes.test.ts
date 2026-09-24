@@ -1,0 +1,81 @@
+/**
+ * ===========================================================================
+ *  WHAT THE PRODUCTION LOG SAID, AND WHAT STOPS IT SAYING IT AGAIN
+ * ===========================================================================
+ * Each check here is one error group from the live runtime log:
+ *
+ *   "Country 'United States' is unknown"      the payout signup sent a name
+ *   analytics_events_event_type_check          funnel steps were refused
+ *   email_logs_email_type_check                receipt logs were refused
+ *   "Cannot find module 'sharp'"               every invoice lost its mark
+ *
+ * and two things the same lines showed that should not have been there: a
+ * buyer's address in a log line, and a database message in a public answer.
+ */
+import { readFileSync } from "node:fs"
+import { join } from "node:path"
+import { countryCode } from "../lib/checkout/countries"
+
+let passed = 0
+let failed = 0
+const failures: string[] = []
+function check(label: string, ok: boolean, detail?: unknown) {
+  if (ok) { passed++; console.log(`  ok    ${label}`) }
+  else { failed++; failures.push(label); console.log(`  FAIL  ${label}${detail !== undefined ? ` — ${JSON.stringify(detail)}` : ""}`) }
+}
+const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const strip = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")
+
+console.log("\nA country is a code by the time it reaches Stripe")
+for (const [given, want] of [
+  ["US", "US"], ["us", "US"], [" ro ", "RO"], ["United States", "US"], ["united states of america", "US"],
+  ["USA", "US"], ["UK", "GB"], ["United Kingdom", "GB"], ["Romania", "RO"], ["Germany", "DE"],
+  ["Narnia", null], ["", null], [null, null], ["ZZ", null],
+] as const) {
+  check(`${JSON.stringify(given)} is ${JSON.stringify(want)}`, countryCode(given) === want, countryCode(given))
+}
+{
+  const route = strip(read("app/api/stripe/connect/start/route.ts"))
+  check("the payout signup sends the code", /country: countryCode\(\(profile as any\)\?\.country\) \?\? "RO"/.test(route))
+}
+
+console.log("\nThe database accepts every event and email type the app writes")
+{
+  const sql = read("supabase/sql/RUN_EVENT_AND_EMAIL_TYPES.sql")
+  const migration = read("supabase/migrations/20260924_event_and_email_types.sql")
+  check("the migration is the same file the owner runs", sql === migration)
+  const events = /const EVENTS = \[([^\]]+)\]/.exec(read("app/api/track-event/route.ts"))?.[1] ?? ""
+  const tracked = [...events.matchAll(/"([a-z_]+)"/g)].map((m) => m[1])
+  const written = [...read("app/api/track-view/route.ts").matchAll(/event_type: "([a-z_]+)"/g)].map((m) => m[1])
+  const allowed = /analytics_events_event_type_check\s+check \(event_type in \(([\s\S]*?)\)\) not valid/.exec(sql)?.[1] ?? ""
+  const missing = [...new Set([...tracked, ...written, "purchase"])].filter((t) => !allowed.includes(`'${t}'`))
+  check("every funnel step and view type is allowed", tracked.length >= 4 && missing.length === 0, missing)
+  const types = /emailType: ([^\n]+)/.exec(read("lib/email.tsx"))?.[1] ?? ""
+  const emailTypes = [...types.matchAll(/"([a-z_]+)"/g)].map((m) => m[1])
+  const emailAllowed = /email_logs_email_type_check\s+check \(email_type in \(([^)]*)\)\) not valid/.exec(sql)?.[1] ?? ""
+  check("every email type is allowed", emailTypes.length >= 3 && emailTypes.every((t) => emailAllowed.includes(`'${t}'`)), emailTypes)
+  check("old rows are left alone (NOT VALID)", (sql.match(/not valid;/g) ?? []).length === 2)
+}
+
+console.log("\nLogs and answers carry no private data")
+{
+  const email = strip(read("lib/email.tsx"))
+  check("a failed email log writes the code and message, not the row with the address in it",
+    /Failed to log email attempt:", error\.code, error\.message\)/.test(email) && !/Failed to log email attempt:", error\)/.test(email))
+  const track = strip(read("app/api/track-event/route.ts"))
+  check("a failed event says so without the database's words", /error: "Not recorded"/.test(track) && !/error: error\.message/.test(track))
+}
+
+console.log("\nThe invoice keeps its mark")
+{
+  const invoice = strip(read("app/api/invoice/route.ts"))
+  check("no sharp, which the serverless bundle does not have", !/import\("sharp"\)/.test(invoice))
+  check("a PNG the PDF library draws as it is, checked by its signature", /LOGO_PATH = "\/apple-icon\.png"/.test(invoice) && /0x89, 0x50, 0x4e, 0x47/.test(invoice))
+}
+
+console.log(`\n${passed} passed, ${failed} failed`)
+if (failed) {
+  console.log("\nFailed:")
+  for (const f of failures) console.log(`  - ${f}`)
+  process.exit(1)
+}

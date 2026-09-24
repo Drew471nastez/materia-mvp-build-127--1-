@@ -170,7 +170,9 @@ export async function logEmailAttempt(admin: any, data: EmailLogData): Promise<s
       .single()
 
     if (error) {
-      console.error("[email] Failed to log email attempt:", error)
+      /* Code and message only: the details repeat the whole row, the
+         recipient's address included, and that does not belong in a log. */
+      console.error("[email] Failed to log email attempt:", error.code, error.message)
       return null
     }
     return log?.id || null

@@ -35,3 +35,48 @@ export function countryName(code: string): string {
 export const COUNTRIES: { code: string; name: string }[] = [...COUNTRY_CODES]
   .map((code) => ({ code, name: countryName(code) }))
   .sort((a, b) => a.name.localeCompare(b.name))
+
+/** Names people type that are not the platform's own name for the country. */
+const ALIASES: Record<string, string> = {
+  usa: "US",
+  "u.s.": "US",
+  "u.s.a.": "US",
+  "united states of america": "US",
+  america: "US",
+  uk: "GB",
+  "u.k.": "GB",
+  "great britain": "GB",
+  england: "GB",
+  scotland: "GB",
+  wales: "GB",
+  "northern ireland": "GB",
+  holland: "NL",
+  "the netherlands": "NL",
+  "south korea": "KR",
+  "korea, republic of": "KR",
+  russia: "RU",
+  "czech republic": "CZ",
+  turkey: "TR",
+  "ivory coast": "CI",
+  uae: "AE",
+}
+
+let byName: Map<string, string> | null = null
+
+/**
+ * The ISO code for what a profile holds, which may be a code ("US", "us")
+ * or a name ("United States"). Stripe takes only the code: a name made the
+ * payout signup fail with "Country 'United States' is unknown". Null when
+ * it is neither.
+ */
+export function countryCode(value: unknown): string | null {
+  if (typeof value !== "string") return null
+  const text = value.trim()
+  if (!text) return null
+  const upper = text.toUpperCase()
+  if (upper.length === 2 && COUNTRY_CODES.has(upper)) return upper
+  const key = text.toLowerCase().replace(/\s+/g, " ")
+  if (ALIASES[key]) return ALIASES[key]
+  if (!byName) byName = new Map(COUNTRIES.map((c) => [c.name.toLowerCase(), c.code]))
+  return byName.get(key) ?? null
+}

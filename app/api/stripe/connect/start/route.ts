@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { stripe } from "@/lib/stripe"
+import { countryCode } from "@/lib/checkout/countries"
 
 function tryCreateAdminClient() {
   try {
@@ -41,7 +42,8 @@ export async function POST() {
     if (!accountId) {
       const account = await stripe.accounts.create({
         type: "express",
-        country: (profile as any)?.country || "RO",
+        /* The profile may hold a name ("United States"); Stripe takes the code. */
+        country: countryCode((profile as any)?.country) ?? "RO",
         email: profile?.email || user.email || undefined,
         capabilities: {
           card_payments: { requested: true },
