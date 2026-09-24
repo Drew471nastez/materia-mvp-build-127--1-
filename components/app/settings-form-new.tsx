@@ -31,6 +31,7 @@ import { isNativeApp } from "@/lib/platform-utils"
 import { openExternal } from "@/lib/native-bridge"
 import { useLanguage, LANGUAGES } from "@/lib/i18n"
 import { BillingPageClient } from "@/components/app/billing/billing-page-client"
+import { AppAvatar } from "@/components/app/app-avatar"
 import { STORELIB_LOGO } from "@/lib/brand/logo"
 
 function ChainLinkIcon({ className = "w-3 h-3", stroke = "#ffffff" }: { className?: string; stroke?: string }) {
@@ -2261,20 +2262,15 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                     href="/creator-page"
                     className="relative group cursor-pointer"
                   >
-                    {avatarUrl ? (
-                      <img
-                        src={avatarUrl}
-                        alt="Profile"
-                        className="w-16 h-16 sm:w-[72px] sm:h-[72px] rounded-full object-cover bg-[#f3f4f6]"
-                        onError={(e) => {
-                          e.currentTarget.style.display = "none"
-                          e.currentTarget.nextElementSibling?.classList.remove("hidden")
-                        }}
-                      />
-                    ) : null}
-                    <div className={`w-16 h-16 sm:w-[72px] sm:h-[72px] rounded-full bg-gradient-to-br from-[#8b5cf6] to-[#a78bfa] flex items-center justify-center text-white text-xl sm:text-2xl font-bold ${avatarUrl ? "hidden" : ""}`}>
-                      {firstName?.[0]?.toUpperCase() || "U"}
-                    </div>
+                    {/* The shell's one avatar (components/app/app-avatar): a quiet circle
+                        while the photo comes, the photo fading in, initials only without one. */}
+                    <AppAvatar
+                      src={avatarUrl || null}
+                      name={`${firstName} ${lastName}`.trim() || username || "You"}
+                      size={72}
+                      sizedByClass
+                      className="h-16 w-16 sm:h-[72px] sm:w-[72px]"
+                    />
                   </a>
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-[#1a1a2e] text-[15px]">Profile Photo</p>
