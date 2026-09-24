@@ -134,7 +134,7 @@ section("Products: the creator and the profile together")
   check("both rows in one batch, through the request cache the layout filled",
     /Promise\.all\(\[creatorForRequest\(user\.id\), profileForRequest\(user\.id\)\]\)/.test(src))
   check("the products on the caller's own client, by the creator's id", /\.from\("products"\)\s*\.select\("\*"\)\s*\.eq\("creator_id", creator\.id\)/.test(src) && !/createAdminClient/.test(src))
-  check("no user or no creator draws nothing, rather than reading an id off nothing", /if \(!user\) return null/.test(src) && /if \(!creator\) return null/.test(src) && !/!\.id/.test(src))
+  check("no user or no creator is sent where that is sorted out, rather than reading an id off nothing", /if \(!user\) redirect\("\/login"\)/.test(src) && /if \(!creator\) redirect\("\/app"\)/.test(src) && !/!\.id/.test(src))
 }
 
 section("Settings: six trips to three")

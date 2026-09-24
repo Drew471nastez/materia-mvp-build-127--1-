@@ -196,6 +196,7 @@ const SUITES = [
   "tests/scrim-blur.test.ts",
   "tests/app-shell-motion.test.ts",
   "tests/app-page-reads.test.ts",
+  "tests/storage-upload-routes.test.ts",
   "tests/pricing-plans.test.ts",
 ]
 
