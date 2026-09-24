@@ -141,7 +141,7 @@ section("Every number in the manual is the number in the code")
   check("sections per template", row("Sections per template") === String(LIMITS.sectionsPerTemplate), row("Sections per template"))
   check("blocks per section", row("Blocks per section") === String(LIMITS.blocksPerSection), row("Blocks per section"))
   check("settings per schema", row("Settings per schema") === String(LIMITS.settingsPerSchema), row("Settings per schema"))
-  check(`seventeen is the number of values in a scheme`, SCHEME_COLOR_KEYS.length === 17 && manual.includes("seventeen semantic values"))
+  check(`twenty-one is the number of values in a scheme`, SCHEME_COLOR_KEYS.length === 21 && manual.includes("twenty-one semantic values"))
 }
 
 // ===========================================================================

@@ -3,7 +3,7 @@
 // Video hero — full-width hero with a background video (self-hosted or
 // poster image fallback) and an overlay text/CTA block on top.
 
-import { sectionColors, str, bool, SectionWrapper, hexToRgba, type SectionProps } from "../_shared"
+import { sectionColors, str, bool, SectionWrapper, hexToRgba, type SectionProps, schemeButton } from "../_shared"
 
 export function VideoHeroSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
   const s = section.settings
@@ -33,7 +33,7 @@ export function VideoHeroSection({ section, theme, isEditing, isSelected, onClic
   const btnRadius = typeof s.button_border_radius === "number" ? s.button_border_radius : 8
 
   const alignClass = alignment === "left" ? "items-start text-left" : alignment === "right" ? "items-end text-right" : "items-center text-center"
-  const heightStyle = fullHeight ? { minHeight: "100vh" } : {}
+  const heightStyle = fullHeight ? { minHeight: "calc(var(--sl-vh, 1vh) * 100)" } : {}
 
   return (
     <SectionWrapper bgColor={bg} isEditing={isEditing} isSelected={isSelected} onClick={onClick}>
@@ -54,7 +54,7 @@ export function VideoHeroSection({ section, theme, isEditing, isSelected, onClic
           <img src={poster} alt="" className="absolute inset-0 w-full h-full object-cover" />
         ) : null}
         <div className="absolute inset-0" style={{ background: hexToRgba(overlayColor, overlayOp / 100) }} />
-        <div className={`relative flex flex-col ${alignClass} justify-center px-6 py-16 ${mw} mx-auto`} style={{ color: textColor, minHeight: fullHeight ? "100vh" : undefined }}>
+        <div className={`relative flex flex-col ${alignClass} justify-center px-6 py-16 ${mw} mx-auto`} style={{ color: textColor, minHeight: fullHeight ? "calc(var(--sl-vh, 1vh) * 100)" : undefined }}>
           {!!s.heading && (
             <h1 className="font-bold mb-4 leading-tight" style={{ fontSize: headingSize }}>
               {str(s.heading)}
@@ -67,9 +67,10 @@ export function VideoHeroSection({ section, theme, isEditing, isSelected, onClic
             <a
               href={str(s.button_url, "#")}
               className="inline-block px-7 py-3 font-semibold"
+              data-sl-button={btnStyle === "filled" ? "primary" : undefined}
               style={
                 btnStyle === "filled"
-                  ? { background: btnColor, color: btnText, borderRadius: btnRadius }
+                  ? { ...schemeButton(c, "primary", { background: str(s.button_color), text: str(s.button_text_color) }).style, borderRadius: btnRadius }
                   : btnStyle === "ghost"
                     ? { color: btnText, borderRadius: btnRadius }
                     : { border: `2px solid ${btnColor}`, color: btnText, borderRadius: btnRadius }

@@ -2189,6 +2189,23 @@ html.capacitor body {
   }
 }
 
+/* ── A BUTTON A REACT SECTION DREW, IN ITS SCHEME'S COLOURS ─────────────────────
+   components/website-builder/sections/_shared.tsx `schemeButton` hands the
+   colours over as custom properties, because an inline background can never
+   be given a hover colour. Same rule in the editor and on the live site.
+   ──────────────────────────────────────────────────────────────────────────── */
+[data-sl-button] {
+  background: var(--sl-btn-bg);
+  color: var(--sl-btn-fg);
+  border: 1px solid var(--sl-btn-border, var(--sl-btn-bg));
+  transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease;
+}
+[data-sl-button]:hover {
+  background: var(--sl-btn-hover-bg, var(--sl-btn-bg));
+  color: var(--sl-btn-hover-fg, var(--sl-btn-fg));
+  border-color: var(--sl-btn-hover-bg, var(--sl-btn-border));
+}
+
 /* ── A FIELD ON A WEBSITE IS NEVER BROUGHT UP UNDER ITS STICKY HEADER ────────
    When the browser scrolls to a focused field on a published website, it
    brings it just into view, which with a sticky header on top can be just
@@ -2772,26 +2789,23 @@ html.capacitor .app-content-scroll {
     pointer-events: none;
   }
 
-  /* ── A sheet goes OVER the pill, every sheet ────────────────────────────
+  /* ── A sheet goes OVER the pill, every sheet, and the pill stays put ─────
    *
    * "All the mobile bottom sheets across /app should overlap the nav pill."
-   * The shared BottomSheet is portaled at z-200 and always did; the sheets a
-   * page draws for itself live inside the page, at whatever layer the page
-   * gave them, and several came up under the pill. Rather than a z-index
-   * race page by page, the pill steps down to layer 0 while anything modal
-   * is open. It is before <main> in the document, so at an equal layer every
-   * positioned thing in the page (a sheet, its scrim) paints over it, and it
-   * is still drawn over the page's ordinary content until the scrim arrives,
-   * so nothing blinks.
+   * This used to drop the pill to layer 0 while anything modal was open. At
+   * layer 0 it went BEHIND the page's own content the instant a sheet
+   * started to open, before the sheet had covered it, and came back to layer
+   * 55 the instant the sheet started to close, over the sheet still sliding
+   * away: the pill vanishing on open and glitching back on close.
    *
-   * What counts as open: a sheet that says so ([data-app-sheet="open"]), any
-   * fixed modal dialog except the pill's own menu page, and Radix's scroll
-   * lock on <body>, which every Dialog, AlertDialog and Sheet sets.
+   * The pill no longer moves. Every sheet and modal is on a layer above it
+   * instead: the shared BottomSheet at 200, the settings sheets at 100, a
+   * Radix dialog near the top of the range, and the three that sat at 50,
+   * raised here and in their pages. So opening a sheet puts it over a pill
+   * that is exactly where it was, and closing it shows that pill underneath.
    * ────────────────────────────────────────────────────────────────────── */
-  html:has([data-app-sheet="open"]) [data-app-nav-pill],
-  html:has([role="dialog"][aria-modal="true"]:not([data-mobile-menu])) [data-app-nav-pill],
-  html:has(body[data-scroll-locked]) [data-app-nav-pill] {
-    z-index: 0;
+  :is([data-slot="sheet-overlay"], [data-slot="sheet-content"], [data-slot="alert-dialog-overlay"], [data-slot="alert-dialog-content"]) {
+    z-index: 60;
   }
 }
 

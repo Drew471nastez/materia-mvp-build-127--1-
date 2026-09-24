@@ -101,7 +101,7 @@ Every section picks one **colour scheme**. Change a scheme here and every sectio
 
 @[builder-schemes]
 
-Pick a scheme to edit it: its name, whether new sections start on it, and its seventeen colours in five groups (surface, text, primary button, secondary button, inputs). If a pair of colours is hard to read, it says so and by how much. A scheme can also lay a gradient over its background. **Add scheme** makes another; a scheme you made can be deleted, and the sections on it move to another.
+Pick a scheme to edit it: its name, whether new sections start on it, and its twenty-one colours in five groups (surface, text, primary button, secondary button, inputs). Each button has a colour on hover, worked out from the button until you set one. If a pair of colours is hard to read, it says so and by how much. A scheme can also lay a gradient over its background. **Add scheme** makes another; a scheme you made can be deleted, and the sections on it move to another.
 
 **Page colors**, under Colors, are the colours of the page itself, behind and between sections:
 
@@ -215,7 +215,7 @@ Every website has its own settings. Anything marked below as part of the draft i
 - With search engines switched off, pages say `noindex` and the sitemap is not offered. Crawlers are still let in, so they read the `noindex` and drop the pages.
 | Pages & Navigation | Every page with **Edit**, which opens it in the builder, and **Add page**. **Search** opens the page's own search result: its title, its description, and **Show in search engines**. Off gives the page `noindex` and leaves it out of the sitemap. These are stored in the theme settings as `page_seo`, keyed by page, so they are saved with the draft and go live on publish. The home page's search result is the site's own, in SEO & Social. **Edit menu** selects the header, where the menu is. |
 | Commerce | How many published products the website can show, and **Manage products**. Checkout is Storelib's, paid by card or Google Pay through Stripe, in US dollars. **Payments settings** is where payouts go. |
-| Policies | The refund, privacy and terms pages, each with **Edit**. The cookie banner, its message and its two buttons (part of the draft). |
+| Policies | The refund, privacy and terms pages, each with **Edit**. The cookie banner: **Show the cookie banner** (off means no banner, and nothing optional is stored for visitors), its message and its two buttons, which start with the site's default words, and **Use my own colours**. All part of the draft, and the same settings as the builder's Cookie & privacy. |
 | Publishing | Live or draft, the published address, when it was last published, **Publish**, and **Take offline**, which asks first and deletes nothing. |
 | Backups & Versions | A backup is kept every time you publish and every time Ask AI finishes. **Back up now** makes one; **Restore** puts one back (after saving the current draft as a backup first). The newest 30 are kept. **Duplicate** makes a draft copy, if the library has room. |
 | Connections | Under Code, apart from the website's own settings. **Connect Claude Code, Codex or ChatGPT**: directly with a token and one line in a terminal, or through a GitHub repository. Whatever they write is a draft until you publish, and they never change a built-in section. **Edit code**, and the developer docs. See [Building with AI agents](/developers/ai) and [Rules before you ship](/developers/rules). |

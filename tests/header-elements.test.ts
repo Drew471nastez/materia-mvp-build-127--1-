@@ -338,8 +338,12 @@ function main() {
   check("the drawer is given one", /cta=\{/.test(header) && /interface DrawerCta/.test(header))
   check("gated by the same toggle the desktop button uses",
     /s\.show_cta_button !== false && str\(s\.cta_text/.test(header))
-  check("in the theme's own button colours",
-    /background: str\(s\.cta_color\) \|\| theme\.primary_color/.test(header))
+  check("in the same colours as the desktop button: the header's scheme, its own Advanced colors, hover included",
+    /style: ctaButton\.style/.test(header) && /data-sl-button="primary"\s*data-button=""\s*style=\{cta\.style\}/.test(header))
+  check("the desktop button reads the header's scheme after its overrides, never an unrelated theme colour",
+    /const scheme = sectionColors\(\{ \.\.\.section, settings: \{ \.\.\.s, color_scheme: schemeKey \} \}, theme\)/.test(header)
+      && /const ctaButton = schemeButton\(scheme, "primary", \{ background: str\(s\.cta_color\), text: str\(s\.cta_text_color\) \}\)/.test(header)
+      && !/theme\.primary_color \|\| "#6366f1"/.test(header))
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }

@@ -29,13 +29,15 @@ import { getMainDomain } from "@/lib/url-helpers"
 import type { ColorSchemeKey, ColorSchemeValues } from "@/lib/website-builder/types"
 import {
   type SectionProps,
-  resolveScheme,
+  sectionColors,
+  schemeButton,
   str,
   bool,
   hexToRgba,
   buttonRadiusStyle,
   SectionWrapper,
 } from "../_shared"
+import { useStorelibPage } from "../storelib-sources"
 
 // ── Header color schemes ─────────────────────────────────────
 type HeaderColorScheme = ColorSchemeKey
@@ -55,9 +57,8 @@ const CLOSE_MS = DRAWER_CLOSE_MS
 interface DrawerCta {
   text: string
   url: string
-  background: string
-  color: string
-  radius: CSSProperties
+  /** The scheme button's colours as custom properties: see schemeButton. */
+  style: CSSProperties
 }
 
 function HeaderMobileNavDrawer({
@@ -618,7 +619,7 @@ function HeaderSearchPanel({
                 <p className="px-4 py-4 text-[14px] opacity-60">No results for &ldquo;{asked}&rdquo;</p>
               ) : (
                 <>
-                  <ul className="site-slim-scroll max-h-[min(56vh,420px)] overflow-y-auto overscroll-contain py-1">
+                  <ul className="site-slim-scroll max-h-[min(calc(var(--sl-vh,1vh)*56),420px)] overflow-y-auto overscroll-contain py-1">
                     {hits.map((h) => (
                       <li key={h.id}>
                         <a
@@ -1232,7 +1233,9 @@ function MobileDrawerInner({
               href={cta.url}
               onClick={handleLinkClick(cta.url)}
               className="flex h-12 w-full items-center justify-center px-4 text-[15px] font-semibold"
-              style={{ background: cta.background, color: cta.color, ...cta.radius }}
+              data-sl-button="primary"
+              data-button=""
+              style={cta.style}
             >
               <span className="truncate">{cta.text}</span>
             </a>
@@ -1363,12 +1366,23 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
   // to pass `insideEditor` explicitly. The website-builder editor is the
   // ONLY consumer that ever sets `onEditorNavigate`.
   const renderingInsideEditor = insideEditor ?? !!onEditorNavigate
+  const { template: pageTemplate } = useStorelibPage()
   const s = section.settings
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
 
   // Resolve color scheme (falls back to explicit bg/text colors if still set)
   const schemeKey = (str(s.color_scheme, "white") as HeaderColorScheme)
-  const scheme = resolveScheme(theme, schemeKey)
+  /*
+    WITH THE HEADER'S OWN ADVANCED COLORS. This was `resolveScheme`, which
+    reads the scheme alone, so every colour a creator set on the header in
+    Advanced colors (its background, its text, its button) changed the panel
+    and never the header. Setting the button's colour there also blanked the
+    old CTA field, so the button fell back to an unrelated theme colour: the
+    "I changed the button colour and nothing happened" report.
+  */
+  const scheme = sectionColors({ ...section, settings: { ...s, color_scheme: schemeKey } }, theme)
+  /** The call to action, painted by the header's scheme and its own colours, hover included. */
+  const ctaButton = schemeButton(scheme, "primary", { background: str(s.cta_color), text: str(s.cta_text_color) })
   /**
    * `header_transparent` is the control the panel offers; `transparent_on_hero`
    * is what it used to be called. Headers saved under the old name are still
@@ -2142,11 +2156,9 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
            * text. Both pickers are read now; both default to what was being
            * painted, so no header that already exists changes.
            */
-          style={{
-            background: str(s.cta_color) || theme.primary_color || "#6366f1",
-            color: str(s.cta_text_color) || scheme.primary_btn_text,
-            ...buttonRadiusStyle(theme),
-          }}
+          data-sl-button={ctaButton["data-sl-button"]}
+          data-button=""
+          style={ctaButton.style}
           onClick={e => {
             if (onEditorNavigate) {
               e.preventDefault()
@@ -2518,10 +2530,15 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
   // at render time via the pathname because the header doesn't know which
   // page it's on otherwise. Inside the editor we treat every page as
   // "home" for visibility purposes so the setting is easy to preview.
-  const pathname = typeof window !== "undefined" ? window.location.pathname : ""
-  const isHomePage = renderingInsideEditor
-    ? true
-    : (pathname === "/" || /^\/(w|c)\/[^/]+\/?$/.test(pathname) || /^\/[^/]+\/?$/.test(pathname))
+  /*
+    FROM THE PAGE BEING DRAWN, NOT THE ADDRESS BAR. This read
+    `window.location` while rendering, so the server (no window) and the
+    browser disagreed about the border and React threw the server's header
+    away; and it counted any one-segment path as home, so "home page only"
+    also drew the border on /about. The page's template is in context on
+    the live page and in the canvas alike: "index" is the front page.
+  */
+  const isHomePage = renderingInsideEditor ? true : pageTemplate === "index"
   const shouldShowBorder = borderEnabled && (
     borderVisibility === "all"
       ? true
@@ -2687,9 +2704,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
           ? {
               text: str(s.cta_text, "Shop Now"),
               url: str(s.cta_url, "/"),
-              background: str(s.cta_color) || theme.primary_color || "#6366f1",
-              color: str(s.cta_text_color) || scheme.primary_btn_text,
-              radius: buttonRadiusStyle(theme),
+              style: ctaButton.style,
             }
           : null
       }

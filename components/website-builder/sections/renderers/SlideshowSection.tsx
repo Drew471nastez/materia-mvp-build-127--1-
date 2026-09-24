@@ -30,8 +30,7 @@ import {
   sectionPadding,
   str,
   SectionWrapper,
-  type SectionProps,
-} from "../_shared"
+  type SectionProps, schemeButton } from "../_shared"
 
 export function SlideshowSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
   const s = section.settings
@@ -148,11 +147,10 @@ export function SlideshowSection({ section, theme, isEditing, isSelected, onClic
                   {!!b.cta_text && (
                     <a
                       href={str(b.cta_url, "#")}
-                      className="mt-2 inline-block px-8 py-3 text-sm font-semibold transition-opacity hover:opacity-90"
+                      className="mt-2 inline-block px-8 py-3 text-sm font-semibold"
+                      data-sl-button="primary"
                       style={{
-                        background: c.primary_btn_bg,
-                        color: c.primary_btn_text,
-                        border: `1px solid ${c.primary_btn_border}`,
+                        ...schemeButton(c, "primary").style,
                         ...buttonRadiusStyle(theme),
                       }}
                     >

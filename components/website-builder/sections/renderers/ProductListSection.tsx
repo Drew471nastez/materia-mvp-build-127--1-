@@ -29,8 +29,7 @@ import {
   sectionPadding,
   str,
   SectionWrapper,
-  type SectionProps,
-} from "../_shared"
+  type SectionProps, schemeButton } from "../_shared"
 
 const COLUMNS: Record<string, string> = {
   "2": "grid-cols-1 @[520px]:grid-cols-2",
@@ -181,10 +180,9 @@ export function ProductListSection({ section, theme, isEditing, isSelected, onCl
                 {bool(s.show_quick_add, true) && (
                   <button
                     className="mt-3 w-full py-1.5 text-[13px] font-semibold"
+                    data-sl-button="primary"
                     style={{
-                      background: c.primary_btn_bg,
-                      color: c.primary_btn_text,
-                      border: `1px solid ${c.primary_btn_border}`,
+                      ...schemeButton(c, "primary").style,
                       ...buttonRadiusStyle(theme),
                     }}
                   >

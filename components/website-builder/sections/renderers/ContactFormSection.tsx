@@ -6,7 +6,7 @@
 // Subscribers, and nothing else does.
 
 import { useState } from "react"
-import { sectionColors, str, bool, SectionWrapper, type SectionProps } from "../_shared"
+import { sectionColors, str, bool, SectionWrapper, type SectionProps, schemeButton } from "../_shared"
 import { useStorefront } from "../../theme/storefront-context"
 import { subscribeToCreator } from "@/lib/website-builder/subscribe-client"
 
@@ -20,8 +20,6 @@ export function ContactFormSection({ section, theme, isEditing, isSelected, onCl
   const color = str(s.text_color) || c.text
   const inputBg = str(s.input_bg_color) || c.input_background
   const inputBorder = str(s.input_border_color) || c.input_border
-  const btnBg = str(s.button_color) || c.primary_btn_bg
-  const btnText = str(s.button_text_color) || c.primary_btn_text
   const layout = str(s.layout, "centered")
   const splitImage = str(s.split_image)
   const padTop = typeof s.padding_top === "number" ? s.padding_top : 80
@@ -112,7 +110,12 @@ export function ContactFormSection({ section, theme, isEditing, isSelected, onCl
               Keep me updated
             </label>
           )}
-          <button type="submit" className="px-5 py-3 rounded text-sm font-semibold" style={{ background: btnBg, color: btnText }}>
+          <button
+            type="submit"
+            className="px-5 py-3 rounded text-sm font-semibold"
+            data-sl-button="primary"
+            style={schemeButton(c, "primary", { background: str(s.button_color), text: str(s.button_text_color) }).style}
+          >
             {str(s.submit_button_text, "Send Message")}
           </button>
         </>

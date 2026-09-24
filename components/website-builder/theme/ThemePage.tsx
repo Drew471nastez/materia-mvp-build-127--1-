@@ -27,6 +27,7 @@
  * that knows about it.
  */
 
+import { SITE_COOKIE_TEXT } from "@/lib/consent/copy"
 import { setSiteConsentTheme } from "@/lib/consent/site-theme"
 import { StorefrontProvider, type Storefront } from "./storefront-context"
 import { SectionSandboxProvider } from "../sections/section-sandbox"
@@ -260,31 +261,31 @@ function FreeShippingBar({ theme }: { theme: ThemeSettingsValues }) {
  */
 function SiteCookieStyle({ theme }: { theme: ThemeSettingsValues }) {
   const t = theme as Record<string, unknown>
-  const on = Boolean(t.cookie_banner_enabled)
+  /* On unless the creator switched it off: Website Settings › Policies. */
+  const hidden = t.cookie_banner_show === false
+  /* The site's own words always, its own starting sentence when it has none. */
   const text = str(t.cookie_banner_text, "")
   const accept = str(t.cookie_accept_text, "")
   const decline = str(t.cookie_decline_text, "")
-  /* Only colours the creator set: an unset one is Storelib's own banner, not
-     a navy panel the creator never chose. */
-  const bg = str(t.cookie_bg, "")
-  const color = str(t.cookie_text_color, "")
+  /* Colours only when "Use my own colours" is on: an unset one is Storelib's
+     own banner, not a navy panel the creator never chose. */
+  const ownColours = Boolean(t.cookie_banner_enabled)
+  const bg = ownColours ? str(t.cookie_bg, "") : ""
+  const color = ownColours ? str(t.cookie_text_color, "") : ""
   const accent = str(t.primary_color, "#6366f1")
   useEffect(() => {
-    if (!on) {
-      setSiteConsentTheme(null)
-      return
-    }
     setSiteConsentTheme({
+      hidden,
       /* Rich text in the setting; the banner shows it as words. */
-      text: text.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim() || undefined,
+      text: text.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim() || SITE_COOKIE_TEXT,
       acceptText: accept || undefined,
       declineText: decline || undefined,
       background: bg || undefined,
       color: bg ? color || undefined : undefined,
-      accent,
+      accent: ownColours ? accent : undefined,
     })
     return () => setSiteConsentTheme(null)
-  }, [on, text, accept, decline, bg, color, accent])
+  }, [hidden, text, accept, decline, bg, color, accent, ownColours])
   return null
 }
 
@@ -379,6 +380,14 @@ export function ThemePage({
    * every keystroke in the builder. See ../sections/stable-html.
    */
   const themeCss = useMemo(() => ({ __html: themeStylesheet(theme) }), [theme])
+  const pageColor = typeof (theme as Record<string, unknown>).background_color === "string" ? String((theme as Record<string, unknown>).background_color).trim() : ""
+  const documentBackground = useMemo(
+    () =>
+      storefront?.inEditor !== true && /^(#[0-9a-f]{3,8}|(rgb|hsl)a?\([0-9.,%\s]+\)|[a-z]+)$/i.test(pageColor)
+        ? { __html: `html,body{background-color:${pageColor};}` }
+        : null,
+    [storefront?.inEditor, pageColor],
+  )
 
   return (
     <StorefrontProvider value={storefront ?? {}}>
@@ -404,7 +413,16 @@ export function ThemePage({
       lang={siteLanguage(theme as Record<string, unknown>)}
       dir={siteDirection(theme as Record<string, unknown>)}
       className={className}
-      style={{ ...(themeVars(theme) as CSSProperties), ...pageFill(storefront?.inEditor === true), ...style }}
+      /*
+        A WIDTH CONTAINER, on the live page and in the canvas alike. The
+        theme's tablet and phone sizes are container queries, and every body
+        section has a box of its own to answer them; the header has none,
+        because a box around it would stop it sticking. So in the canvas the
+        header answered to the canvas frame, and on the live site to nothing
+        at all: a phone preview showed the header's phone sizes, and a phone
+        never did. It answers to the page now, on both.
+      */
+      style={{ ...(themeVars(theme) as CSSProperties), containerType: "inline-size", ...pageFill(storefront?.inEditor === true), ...style }}
     >
       {/*
         The theme's own rules, scoped to this root. Inline rather than in a
@@ -413,6 +431,13 @@ export function ThemePage({
         rule would leak from one to the other.
       */}
       <style dangerouslySetInnerHTML={themeCss} />
+      {/*
+        THE DOCUMENT IS THE PAGE'S COLOUR TOO, on the live site. Only the
+        theme root was painted; <html> and <body> stayed white, so a phone's
+        overscroll bounce and its safe areas showed white around a dark site.
+        Not in the canvas, whose document is the editor's.
+      */}
+      {documentBackground ? <style dangerouslySetInnerHTML={documentBackground} /> : null}
       {/* The families the stylesheet above names. Without this they were
           names only: see lib/website-builder/font-link.ts. */}
       {fontHref && <link rel="stylesheet" href={fontHref} />}

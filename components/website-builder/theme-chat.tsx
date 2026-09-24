@@ -252,6 +252,7 @@ export function ThemeChat({
   selectedSectionId,
   onRunStart,
   onRunEnd,
+  onBusyChange,
   onOp,
   onClose,
   onOpenCodeEditor,
@@ -298,6 +299,8 @@ export function ThemeChat({
    * header" is a thing somebody can do.
    */
   onRunEnd?: (prompt: string) => void
+  /** Whether a request is running, so the editor can say so with the panel closed. */
+  onBusyChange?: (busy: boolean) => void
   onOp: (op: ThemeOp) => void
   onClose: () => void
 }) {
@@ -329,6 +332,9 @@ export function ThemeChat({
     { thinking: { after: 4500, label: "Writing the section…" }, fixing: { after: 4500, label: "Writing it again…" } },
   )
   const [busy, setBusy] = React.useState(false)
+  React.useEffect(() => {
+    onBusyChange?.(busy)
+  }, [busy, onBusyChange])
   /**
    * THE NEXT THING TO ASK, WHILE THE LAST ONE IS STILL GOING.
    *

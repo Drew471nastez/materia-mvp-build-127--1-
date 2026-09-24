@@ -1,10 +1,6 @@
 import type { Metadata } from "next"
 import { redirect } from "next/navigation"
-import { cookies } from "next/headers"
 import { createClient } from "@/lib/supabase/server"
-import { TIME_ZONE_COOKIE, readTimeZone } from "@/lib/orders/time-zone"
-import { periodFromParams } from "@/lib/website-builder/site-period"
-import { websitePerformanceFor } from "@/lib/website-builder/site-performance-read"
 import { createAdminClient } from "@/lib/supabase/admin"
 import type { ThemeSettingsValues, ThemeStatus } from "@/lib/website-builder/types"
 import { WebsiteBuilderClient, type WebsiteSummary } from "./website-builder-client"
@@ -102,11 +98,7 @@ function toSummary(row: InstallRow): WebsiteSummary {
   }
 }
 
-export default async function WebsiteBuilderPage({
-  searchParams,
-}: {
-  searchParams: Promise<Record<string, string | string[] | undefined>>
-}) {
+export default async function WebsiteBuilderPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect("/login")
@@ -118,25 +110,6 @@ export default async function WebsiteBuilderPage({
   if (!creator) redirect("/app")
 
   const username = profile?.username || creator.slug || ""
-
-  /*
-    THE BAR ABOVE THE COVER, STARTED NOW AND NOT WAITED FOR. Its period is
-    in the address (?range=, like Analytics), on the creator's clock (the
-    zone cookie the app writes). The numbers are counted alongside the
-    installs below and streamed to the bar when they are ready, so the page
-    itself is never held up by a busy month of visits.
-  */
-  const sp = await searchParams
-  const params = new URLSearchParams()
-  for (const [k, v] of Object.entries(sp ?? {})) if (typeof v === "string") params.set(k, v)
-  const timeZone = readTimeZone((await cookies()).get(TIME_ZONE_COOKIE)?.value)
-  const { period } = periodFromParams(params, timeZone, Date.now())
-  const figures = websitePerformanceFor({ admin: createAdminClient(), user: supabase, creatorId: creator.id, params, timeZone })
-    .then((a) => a?.figures ?? null)
-    .catch((e: Error) => {
-      console.warn("[website] performance not read:", e.message)
-      return null
-    })
 
   const load = () =>
     supabase
@@ -160,7 +133,7 @@ export default async function WebsiteBuilderPage({
     user.id,
   )
 
-  return <WebsiteBuilderClient installs={installs} username={username} performance={{ period, timeZone, figures }} />
+  return <WebsiteBuilderClient installs={installs} username={username} />
 }
 
 /**

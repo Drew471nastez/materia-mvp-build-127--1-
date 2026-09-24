@@ -30,8 +30,7 @@ import {
   str,
   useCountdown,
   SectionWrapper,
-  type SectionProps,
-} from "../_shared"
+  type SectionProps, schemeButton } from "../_shared"
 
 export function CtaSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
   const s = section.settings
@@ -70,11 +69,10 @@ export function CtaSection({ section, theme, isEditing, isSelected, onClick }: S
       {!!s.btn_primary_text && (
         <a
           href={str(s.btn_primary_url, "#")}
-          className="inline-block px-8 py-3 text-[15px] font-semibold transition-opacity hover:opacity-90"
+          className="inline-block px-8 py-3 text-[15px] font-semibold"
+          data-sl-button="primary"
           style={{
-            background: c.primary_btn_bg,
-            color: c.primary_btn_text,
-            border: `1px solid ${c.primary_btn_border}`,
+            ...schemeButton(c, "primary").style,
             borderRadius: `${num(theme.button_border_radius, 8)}px`,
           }}
         >

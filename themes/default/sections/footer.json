@@ -157,7 +157,7 @@
       "id": "accent_color",
       "label": "Accent / link hover color",
       "type": "color",
-      "default": "#6366f1"
+      "default": ""
     },
     {
       "id": "divider_color",

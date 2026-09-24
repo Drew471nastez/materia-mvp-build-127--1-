@@ -214,6 +214,18 @@ console.log("\ndesktop, 1280 wide")
   await sleep(250)
   expect(!/shipping/i.test(await p.evaluate(() => document.querySelector("main").textContent)), "Commerce no longer asks about shipping")
 
+  /* Policies: the cookie banner, on or off, with its words there to edit from the start. */
+  await clickText(p, "nav[aria-label='Website settings'] button", "Policies")
+  await sleep(250)
+  const words = await p.evaluate(() => ({ text: document.getElementById("wb-cookie-text")?.value ?? null, accept: document.getElementById("wb-cookie-accept")?.value ?? null }))
+  expect(/^We use necessary cookies/.test(words.text ?? "") && words.accept === "Accept all", "the banner's words are there to edit, starting with the site's default sentence", JSON.stringify(words))
+  await p.click("input[aria-label='Show the cookie banner']")
+  await sleep(200)
+  const off = await p.evaluate(() => ({ stored: window.__settings?.cookie_banner_show, fields: !!document.getElementById("wb-cookie-text") }))
+  expect(off.stored === false && !off.fields, "switching it off stores that and takes the fields away", JSON.stringify(off))
+  await p.click("input[aria-label='Show the cookie banner']")
+  await sleep(150)
+
   /* Domains: a new one is added here, and replacing the one there is asked first. */
   await clickText(p, "nav[aria-label='Website settings'] button", "Domains")
   await sleep(300)

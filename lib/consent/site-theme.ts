@@ -11,6 +11,11 @@
 import { useSyncExternalStore } from "react"
 
 export interface SiteConsentTheme {
+  /**
+   * The creator switched the banner off for their site. Nothing is asked, and
+   * so nothing optional is stored: every optional kind waits for a yes.
+   */
+  hidden?: boolean
   text?: string
   acceptText?: string
   declineText?: string

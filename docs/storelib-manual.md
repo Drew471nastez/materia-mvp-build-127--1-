@@ -742,7 +742,7 @@ and Accent. A merchant can rename them, add more, and delete the ones they
 added. The keys never change, which is why a section saved years ago still
 resolves.
 
-A scheme is seventeen semantic values and an optional gradient. Each is
+A scheme is twenty-one semantic values and an optional gradient. Each is
 published as a custom property on the section's root.
 
 | Value | Custom property |
@@ -764,7 +764,19 @@ published as a custom property on the section's root.
 | `input_background` | `--scheme-input` |
 | `input_text` | `--scheme-input-text` |
 | `input_border` | `--scheme-input-border` |
+| `primary_button_hover_background` | `--scheme-button-primary-hover` |
+| `primary_button_hover_text` | `--scheme-button-primary-hover-text` |
+| `secondary_button_hover_background` | `--scheme-button-secondary-hover` |
+| `secondary_button_hover_text` | `--scheme-button-secondary-hover-text` |
 | `gradient` | `--scheme-gradient`, which is the background when there is none |
+
+The four hover values are automatic until someone sets one: the primary
+button's background a step darker (a step lighter when it is already near
+black), the secondary
+button's (or the section's, when it is transparent) moved 8% towards its
+text, and each button's own text colour. A scheme or a section that changes
+a button's colour and not its hover gets a hover worked out from the new
+colour. `automaticHover()` in `lib/storelib-theme/color-schemes.ts`.
 
 In a template the same values are `scheme.background`, `scheme.heading`,
 `scheme.primary_button_background` and so on. Older names still read:
@@ -1434,7 +1446,7 @@ Presentational, holding no value: `header`, `paragraph`, `divider`.
 **Instance** one use of a section on one page.
 **Block** a repeatable child of an instance.
 **Template** a page: which instances it has, in order.
-**Scheme** a named set of seventeen colours the whole theme shares.
+**Scheme** a named set of twenty-one colours the whole theme shares.
 **Token** a value the theme owns and a section reads.
 **Preset** what Add Section produces.
 **Draft** what is being worked on. **Published** what visitors get.

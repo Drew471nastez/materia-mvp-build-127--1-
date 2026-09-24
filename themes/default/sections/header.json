@@ -493,7 +493,7 @@
       "id": "cta_color",
       "label": "Button color",
       "type": "color",
-      "default": "#6366f1"
+      "default": ""
     },
     {
       "id": "cta_text_color",

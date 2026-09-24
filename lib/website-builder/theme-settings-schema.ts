@@ -2,6 +2,7 @@
 // Website Builder: Theme-settings schema groups
 // Drives the "Theme settings" panel in the Store Editor
 // ============================================================
+import { COOKIE_ACCEPT_TEXT, COOKIE_DECLINE_TEXT, SITE_COOKIE_TEXT } from "@/lib/consent/copy"
 import type { ThemeSettingsGroup } from "./types"
 
 export const THEME_SETTINGS_GROUPS: ThemeSettingsGroup[] = [
@@ -303,10 +304,12 @@ export const THEME_SETTINGS_GROUPS: ThemeSettingsGroup[] = [
     label: "Cookie & privacy",
     icon: "shield",
     fields: [
-      { id: "cookie_banner_enabled", label: "Use my own words and colours", type: "toggle", default: false },
-      { id: "cookie_banner_text", label: "Banner text", type: "textarea", placeholder: "We use cookies to improve your experience..." },
-      { id: "cookie_accept_text", label: "Accept button text", type: "text", placeholder: "Accept all" },
-      { id: "cookie_decline_text", label: "Decline button text", type: "text", placeholder: "Decline" },
+      /* The same settings as Website Settings › Policies › Cookie banner. */
+      { id: "cookie_banner_show", label: "Show the cookie banner", type: "toggle", default: true },
+      { id: "cookie_banner_text", label: "Banner text", type: "textarea", placeholder: SITE_COOKIE_TEXT },
+      { id: "cookie_accept_text", label: "Accept button text", type: "text", placeholder: COOKIE_ACCEPT_TEXT },
+      { id: "cookie_decline_text", label: "Reject button text", type: "text", placeholder: COOKIE_DECLINE_TEXT },
+      { id: "cookie_banner_enabled", label: "Use my own colours", type: "toggle", default: false },
       { id: "cookie_bg", label: "Banner background", type: "color", default: "#0f172a" },
       { id: "cookie_text_color", label: "Text color", type: "color", default: "#ffffff" },
     ],

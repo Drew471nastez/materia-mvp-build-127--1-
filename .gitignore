@@ -100,3 +100,5 @@ tsconfig.*.generated.json
 .probe-cover-phone.png
 .checkout-probe/
 .focus-probe/
+.button-probe/
+.parity-probe/
