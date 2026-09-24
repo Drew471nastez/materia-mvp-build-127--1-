@@ -149,7 +149,7 @@ check(
   THEME_INDUSTRIES.every((i) => THEME_REGISTRY.some((t) => t.industry === i.key)),
   THEME_INDUSTRIES.filter((i) => !THEME_REGISTRY.some((t) => t.industry === i.key)).map((i) => i.key).join(", "),
 )
-check("the limit is three websites, as asked", THEME_INSTALL_LIMIT === 3)
+check("the limit is five websites, as asked", THEME_INSTALL_LIMIT === 5)
 check(
   "the old non-UUID theme ids are gone from the app",
   !/ebook-author-theme-001|course-creator-theme-001|designer-portfolio-theme-001/.test(
@@ -289,27 +289,37 @@ section("The page")
   check("the primary action is Storelib dark, not a purple button", /Edit website/.test(client) && !/bg-\[#8b5cf6\]/.test(client))
   {
     /*
-      THE HEADER CONTROLS. A bar of six labelled settings doors sat above the
-      cover and read as a second navigation. The owner asked for three
-      compact controls instead, to the right of the page title: View website,
-      Public or Unpublished, and Settings. See ./site-controls.tsx.
+      THE TITLE ROW. A bar of six labelled settings doors sat above the cover
+      and read as a second navigation; then three controls beside the title
+      (View website, Public, Settings) wrapped under it on a phone. The owner
+      asked for Settings alone, on the title's own line. Nothing it replaced
+      is lost: View website and Take offline are in the live website's More
+      menu, and an offline website's row says Publish again.
     */
     const live = client.slice(client.indexOf('<section aria-labelledby="live-heading"'), client.indexOf("{/* ── Library"))
-    const controls = stripComments(read("app/app/website-builder/site-controls.tsx"))
+    const header = client.slice(client.indexOf("data-title-row") - 80, client.indexOf('<section aria-labelledby="live-heading"'))
     check("the bar of settings doors is gone", !existsSync(join(process.cwd(), "app/app/website-builder/settings-strip.tsx")) && !/SettingsStrip/.test(client))
-    check("three controls sit beside the title: View website, the status, Settings",
-      /<SiteControls/.test(client) && client.indexOf("<SiteControls") < client.indexOf('<section aria-labelledby="live-heading"')
-        && /View website/.test(controls) && /"Public"/.test(controls) && /"Unpublished"/.test(controls) && /Settings/.test(controls))
-    check("  View website is a real anchor to a new tab", /href=\{siteUrl\} target="_blank" rel="noopener noreferrer"/.test(controls))
-    check("  the status menu takes the site offline, or puts an offline one back, through the page's own questions",
-      /onTakeOffline=\{\(\) => live && setUnpublishing\(live\)\}/.test(client) && /onPublishAgain=\{\(\) => offline && setPublishing\(offline\)\}/.test(client))
-    check("  Settings opens Website Settings in the editor", /onSettings=\{\(\) => go\(editorHref\(username, \(live \?\? offline \?\? installs\[0\]\)\.id, "settings"\)\)\}/.test(client))
-    check("  one control shape with a hairline: 44px on a phone, 36px from a tablet up", /const CONTROL =\s*"inline-flex h-11 [^"]*sm:h-9/.test(read("app/app/website-builder/site-controls.tsx")) && /border border-\[#e5e7eb\]/.test(controls))
-    check("  on a phone the row scrolls sideways with no scrollbar", /overflow-x-auto/.test(controls) && /\[scrollbar-width:none\]/.test(controls))
+    check("the three header controls are gone, and their file with them",
+      !existsSync(join(process.cwd(), "app/app/website-builder/site-controls.tsx")) && !/SiteControls/.test(client) && !/"Unpublished"/.test(client))
+    check("the title row holds the heading and one control, Settings, on one line at every width",
+      /<div className="flex items-center justify-between gap-3" data-title-row="">/.test(header) &&
+        (header.match(/data-control=/g) ?? []).length === 1 && /data-control="settings"/.test(header) &&
+        /<h1 className="min-w-0 truncate/.test(header) && !/sm:flex-row/.test(header))
+    check("  Settings opens Website Settings in the editor, for the live site or the one that was",
+      /const settingsFor = live \?\? offline \?\? installs\[0\] \?\? null/.test(client) && /onClick=\{\(\) => go\(editorHref\(username, settingsFor\.id, "settings"\)\)\}/.test(header))
+    check("  44px on a phone, 36px from a tablet up, overhanging the title line rather than growing it",
+      /const SETTINGS_BUTTON =\s*"-my-1 inline-flex h-11 [^"]*sm:my-0 sm:h-9"/.test(read("app/app/website-builder/website-builder-client.tsx")) && /border border-\[#e5e7eb\]/.test(header + client))
+    check("View website is the first row of the live site's More menu, a real anchor to a new tab",
+      /if \(i\.status === "published" && siteUrl\) items\.push\(\{ label: "View website", icon: <SquareArrowOutUpRight \/>, href: siteUrl, target: "_blank" \}\)/.test(client))
+    check("Take offline stays in the live site's More menu, through the page's own question",
+      /items\.push\(\{ label: "Take offline", icon: <EyeOff \/>, onClick: \(\) => setUnpublishing\(i\)/.test(client))
+    check("an offline website's row says Publish again, through the page's own question",
+      /label: i\.published_at \? "Publish again" : "Publish", icon: <Rocket \/>, onClick: \(\) => setPublishing\(i\)/.test(client))
     check("the live site's More menu no longer carries Website settings", !/WEBSITE_SETTINGS/.test(client) && !/section: n === 0 \? "Website settings"/.test(client))
     check("the card's buttons are Edit website and a square More", /<div className="mt-auto flex gap-2 pt-5">/.test(live) && /"w-11 shrink-0 px-0"/.test(live) && !/View site/.test(live))
-    check("the loading state draws the header controls and the card's row",
-      /\[124, 92, 96\]\.map/.test(loading) && /h-11 flex-1 rounded-xl/.test(loading) && !/min-w-\[132px\]/.test(loading))
+    check("the loading state draws the title with its one control, and the card's row",
+      (loading.match(/data-skeleton-control=""/g) ?? []).length === 1 && !/\[124, 92, 96\]\.map/.test(loading) &&
+        /h-11 flex-1 rounded-xl/.test(loading) && !/min-w-\[132px\]/.test(loading))
     check("  no numbers are counted for it any more", !/websitePerformanceFor/.test(read("app/app/website-builder/page.tsx")))
     const frame = /const COVER_FRAME =\s*"([^"]+)"/.exec(client)?.[1] ?? ""
     check("the cover is clipped to 12px corners on all four sides",
@@ -326,7 +336,10 @@ section("The page")
    * the menu beside it; it is one labelled button now, so the shape it is
    * checked in changed while the rule did not.
    */
-  check("the live link is a real anchor that opens a new tab", /href=\{siteUrl\} target="_blank" rel="noopener noreferrer"/.test(read("app/app/website-builder/site-controls.tsx")) && !/window\.open\(siteUrl/.test(client))
+  check("the live link is a real anchor that opens a new tab",
+    /href: siteUrl, target: "_blank"/.test(client) &&
+      /rel=\{item\.target === "_blank" \? "noopener noreferrer" : undefined\}/.test(read("components/ui/responsive-action-menu.tsx")) &&
+      !/window\.open\(siteUrl/.test(client))
   check("covers show the theme on a desktop and a phone", /ThemeCoverPair/.test(client) && /phone/.test(client))
   check("publishing over a live website asks first and says what happens to the old one", /Publish “\{publishing\?\.name\}”\?/.test(client) && /It replaces “\{live\.name\}”/.test(client))
   check("every install action is still here: rename, duplicate, code, settings, export, publish, unpublish, delete, import, add", [
@@ -335,12 +348,61 @@ section("The page")
     "Rename", "Duplicate", "Edit code", "Website settings", "Export theme", "Take offline", "Remove", "Import theme", "themes/add", "action: \"publish\"", "action: \"unpublish\"", "themes/import",
   ].every((s) => client.includes(s)))
   {
-    /* THE FULL LIBRARY. Import was disabled at 3 of 3, so a click did nothing and its message could never show. */
+    /*
+      THE FULL LIBRARY. Import was disabled when the library was full, so a
+      click did nothing and its message could never show. Then it was a
+      centred modal on a phone with a boxed list and bordered red buttons.
+      Now: the shared bottom sheet on a phone, a compact modal from 640px,
+      the Polaris shape in both, and every number from the limit.
+    */
     const fullDialog = stripComments(read("app/app/website-builder/library-full-dialog.tsx"))
-    check("the library is capped at the limit and says so, in a dialog", /THEME_INSTALL_LIMIT/.test(client) && /Your library is full/.test(fullDialog) && /<LibraryFullDialog/.test(client))
-    check("  Import is never dead: full, it opens the dialog", /onClick=\{\(\) => \(slotsLeft === 0 \? setFull\("import"\) : fileInput\.current\?\.click\(\)\)\}/.test(client) && !/disabled=\{busy === "import" \|\| slotsLeft === 0\}/.test(client))
+    check("the library is capped at the limit and says so", /THEME_INSTALL_LIMIT/.test(client) && /"Your library is full"/.test(fullDialog) && /<LibraryFullDialog/.test(client))
+    check("  a bottom sheet on a phone, the app's shared one, wrapped rather than edited",
+      /import \{ BottomSheet \} from "@\/components\/ui\/bottom-sheet"/.test(fullDialog) && /const PHONE = "\(max-width: 639px\)"/.test(fullDialog) &&
+        /if \(phone\) \{\s*return \(\s*<BottomSheet/.test(fullDialog) && /data-surface="sheet"/.test(fullDialog))
+    check("  a compact modal from 640px up", /<AlertDialogContent[\s\S]*?data-surface="modal"[\s\S]*?sm:max-w-\[440px\]/.test(fullDialog))
+    check("  one sentence, computed from the limit, never a number written out",
+      /DRAFT_LIMIT/.test(fullDialog) && !/\b[0-9] drafts\b|two drafts|three websites/.test(fullDialog))
+    check("  a status badge on each website, and Remove as a plain red word on each draft",
+      /function StatusBadge/.test(fullDialog) && /bg-\[#cdfee1\] text-\[#0c5132\]/.test(fullDialog) &&
+        /!e\.live && onRemove/.test(fullDialog) && /text-\[#c4290c\]/.test(fullDialog) && !/Trash2/.test(fullDialog) && !/border border-\[#e5e7eb\] bg-white px-2\.5 text-\[12\.5px\] font-medium text-\[#b42318\]/.test(fullDialog))
+    check("  a single Close, and no card inside the card",
+      (fullDialog.match(/>\s*Close\s*</g) ?? []).length === 2 && !/rounded-xl border border-\[#e5e7eb\] bg-\[#fafbfb\]/.test(fullDialog))
+    check("  Import is never dead: full, it opens the sheet before any file is picked", /onClick=\{\(\) => \(slotsLeft === 0 \? setFull\("import"\) : fileInput\.current\?\.click\(\)\)\}/.test(client) && !/disabled=\{busy === "import" \|\| slotsLeft === 0\}/.test(client))
     check("  and Add theme, Duplicate and every Add do the same", /setFull\("add"\)/.test(client) && /setFull\("duplicate"\)/.test(client) && /setFull\("add"\)/.test(read("app/app/website-builder/themes/themes-client.tsx")))
-    check("  it lists what takes the room, with Remove on each draft, through the usual question", /Remove/.test(fullDialog) && /!e\.live && onRemove/.test(fullDialog) && /if \(target\) setDeleting\(target\)/.test(client))
+    check("  it lists what takes the room, with Remove on each draft, through the usual question", /Remove/.test(fullDialog) && /if \(target\) setDeleting\(target\)/.test(client))
+    check("  a refusal from the server opens it too, rather than a toast", /if \(data\.code === LIBRARY_FULL_CODE\) \{\s*setIncoming\(null\)\s*setFull\(kind\)/.test(client))
+  }
+  {
+    /*
+      A WEBSITE ON ITS WAY IN. Import was a spinner in the button and a row
+      that appeared somewhere nobody was looking. Now its row is drawn at
+      once where it will land, the upload reports real progress, the real
+      row replaces it in the same frame, and the page scrolls to it.
+    */
+    const incoming = stripComments(read("app/app/website-builder/incoming.tsx"))
+    const css = read("app/globals.css")
+    check("the upload goes by XMLHttpRequest and reports its progress", /new XMLHttpRequest\(\)/.test(incoming) && /xhr\.upload\.onprogress/.test(incoming) && /xhr\.upload\.onload/.test(incoming))
+    check("  the button says Uploading with a percentage, then Importing", /`Uploading \$\{Math\.round\(incoming\.progress \* 100\)\}%`/.test(client) && /: "Importing"\) : "Import theme"/.test(client))
+    check("  the placeholder row is drawn after the library's rows, where the server puts a new website",
+      client.indexOf("<IncomingRow") > client.indexOf("{library.map((i) => {") && /showingIncoming && incoming && \(/.test(client))
+    check("  every route puts a new website after the others", ["app/api/website-builder/themes/add/route.ts", "app/api/website-builder/themes/[installId]/duplicate/route.ts", "app/api/website-builder/themes/import/route.ts"].every((p) => /nextSortOrder\(admin, creator\.id\)/.test(read(p))) &&
+      /\.order\("sort_order", \{ ascending: false \}\)/.test(read("lib/website-builder/library-limit.ts")))
+    check("  the real row replaces it in the same render, by id", /const landed = !!incoming\?\.installId && installs\.some\(\(i\) => i\.id === incoming\.installId\)/.test(client) && /const showingIncoming = !!incoming && !landed/.test(client))
+    check("  then it is scrolled to the middle of the element that scrolls, not the window",
+      /scrollToRow\(row, "center"\)/.test(client) && /export function scrollerOf/.test(incoming) && /scroller\.scrollTo\(\{ top: target, behavior: smooth \? "smooth" : "auto" \}\)/.test(incoming) && !/scrollIntoView/.test(incoming))
+    check("  and ringed once for 1.2s, on opacity only, and still under reduced motion",
+      /export const ARRIVAL_MS = 1200/.test(incoming) && /\.wb-arrived \{[^}]*opacity: 0;[^}]*animation: wb-arrived/.test(css) &&
+        /@keyframes wb-arrived \{[^}]*opacity[^}]*\}/.test(css) && /\.wb-arrived \{ animation: none; opacity: 1; \}/.test(css))
+    check("  the ring is a layer over the card at the row's place, never a pseudo element on the table row",
+      /data-arrival-ring=""/.test(client) && !/\.wb-arrived::after/.test(css) && !/"wb-arrived"\)/.test(client))
+    check("  the placeholder has the real row's four cells, so a phone's table keeps its columns",
+      !/colSpan/.test(incoming) && /<td className="hidden px-3 sm:table-cell" \/>/.test(incoming) && /<td className="hidden px-3 md:table-cell" \/>/.test(incoming) && /<td className="w-\[52px\] pr-3 sm:w-auto sm:px-4">/.test(incoming))
+    check("  the placeholder breathes on opacity and sweeps on transform, and stops under reduced motion",
+      /@keyframes wb-incoming-pulse \{\s*0%, 100% \{ opacity: 0\.35; \}/.test(css) && /@keyframes wb-incoming-sweep \{\s*from \{ transform:/.test(css) &&
+        /\.wb-incoming-pulse,\s*\.wb-incoming-sweep \{ animation: none; \}/.test(css))
+    check("  a failure stays on the row with Try again, and a toast", /Try again/.test(incoming) && /phase: "error", error: message/.test(client) && /toast\(\{ title: message, variant: "destructive" \}\)/.test(client))
+    check("  Duplicate and Add theme take the same path", /make\(\s*"duplicate"/.test(client) && /make\(\s*"add"/.test(client) && /make\(\s*"import"/.test(client))
   }
   check("the marketplace route the old page linked to now exists", existsSync(join(process.cwd(), "app/app/website-builder/themes/page.tsx")))
   const market = stripComments(read("app/app/website-builder/themes/themes-client.tsx"))
@@ -496,7 +558,8 @@ section("The add route")
   {
     const lim = read("lib/website-builder/library-limit.ts")
     check("an unreadable count is treated as full, not as room", /if \(error\) return 0/.test(lim))
-    check("the message names one live and the drafts", /one live and/.test(lim))
+    check("the message names one live and the drafts, from the limit", /one live and \$\{DRAFT_LIMIT\}/.test(lim) && !/two drafts/.test(lim))
+    check("  and a refusal carries a code the page can act on", /code: LIBRARY_FULL_CODE/.test(stripComments(add)))
   }
   check("inserts the catalogue row itself when the database has not heard of a registry theme", /themeCatalogRow/.test(add) && /upsert/.test(add))
   check("a half-built install is rolled back rather than left as an empty website", /\.delete\(\)\.eq\("id", newInstall\.id\)/.test(add))

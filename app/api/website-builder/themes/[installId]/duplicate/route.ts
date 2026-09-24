@@ -1,7 +1,7 @@
 import { NextResponse, after } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { LIBRARY_FULL_MESSAGE, librarySlotsLeft } from "@/lib/website-builder/library-limit"
+import { LIBRARY_FULL_CODE, LIBRARY_FULL_MESSAGE, librarySlotsLeft, nextSortOrder } from "@/lib/website-builder/library-limit"
 import { copyCover, coverAfterCreate, renderOrigin } from "@/lib/website-builder/cover-take"
 
 export const runtime = "nodejs"
@@ -35,17 +35,14 @@ export async function POST(req: Request, { params }: Params) {
 
   // A copy is a website like any other, and counts towards the same limit.
   if ((await librarySlotsLeft(supabase, creator.id)) === 0) {
-    return NextResponse.json({ error: LIBRARY_FULL_MESSAGE }, { status: 400 })
+    return NextResponse.json({ error: LIBRARY_FULL_MESSAGE, code: LIBRARY_FULL_CODE }, { status: 400 })
   }
 
   const body = await req.json().catch(() => ({}))
   const newName: string = body?.name ?? `${source.name} (copy)`
 
-  // Count installs for sort_order
-  const { count } = await supabase
-    .from("store_theme_installs")
-    .select("id", { count: "exact", head: true })
-    .eq("creator_id", creator.id)
+  // After every website already there, where the page draws it arriving.
+  const sortOrder = await nextSortOrder(admin, creator.id)
 
   // Create new install
   const { data: newInstall, error: installErr } = await admin
@@ -57,7 +54,7 @@ export async function POST(req: Request, { params }: Params) {
       status: "draft",
       is_custom: true,
       parent_install_id: installId,
-      sort_order: (count ?? 0) + 1,
+      sort_order: sortOrder,
     })
     .select()
     .single()

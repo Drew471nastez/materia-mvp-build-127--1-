@@ -1,9 +1,8 @@
 import { NextResponse, after } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { LIBRARY_FULL_MESSAGE, librarySlotsLeft } from "@/lib/website-builder/library-limit"
+import { LIBRARY_FULL_CODE, LIBRARY_FULL_MESSAGE, librarySlotsLeft, nextSortOrder } from "@/lib/website-builder/library-limit"
 import {
-  THEME_INSTALL_LIMIT,
   buildThemePreset,
   getThemeDefinition,
   isThemeId,
@@ -52,7 +51,7 @@ export async function POST(req: Request) {
 
   const slotsLeft = await librarySlotsLeft(supabase, creator.id)
   if (slotsLeft === 0) {
-    return NextResponse.json({ error: LIBRARY_FULL_MESSAGE }, { status: 400 })
+    return NextResponse.json({ error: LIBRARY_FULL_MESSAGE, code: LIBRARY_FULL_CODE }, { status: 400 })
   }
 
   const { data: existing } = await supabase
@@ -78,6 +77,7 @@ export async function POST(req: Request) {
   }
 
   const preset = buildThemePreset(def)
+  const sortOrder = await nextSortOrder(admin, creator.id)
 
   const { data: newInstall, error: installErr } = await admin
     .from("store_theme_installs")
@@ -88,7 +88,7 @@ export async function POST(req: Request) {
       status: "draft",
       is_custom: false,
       // After the websites already there.
-      sort_order: THEME_INSTALL_LIMIT - slotsLeft + 1,
+      sort_order: sortOrder,
     })
     .select()
     .single()

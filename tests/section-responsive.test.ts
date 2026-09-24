@@ -3070,7 +3070,7 @@ check(
    * ever named them, which on a phone is nothing at all.
    */
   /Edit website\s*\n\s*<\/Button>/.test(wbPage) &&
-    /View website/.test(readFileSync(join(root, "app/app/website-builder/site-controls.tsx"), "utf8")) &&
+    /label: "View website"/.test(wbPage) &&
     /aria-label=\{`More actions for \$\{live\.name\}`\}/.test(wbPage) &&
     // the icon-square component is gone, not merely unused
     !/function IconAction\(/.test(wbPage) &&
@@ -3094,7 +3094,7 @@ check(
   /* A count of websites against the limit, with the rule behind it, and
      never "5 of 3" for a library from before the limit. */
   /slotsUsed > THEME_INSTALL_LIMIT \? `\$\{slotsUsed\} websites` : `\$\{slotsUsed\} of \$\{THEME_INSTALL_LIMIT\} websites`/.test(wbPage) &&
-    /One live website and two drafts/.test(wbPage) &&
+    /title=\{LIBRARY_RULE_TITLE\}/.test(wbPage) && !/two drafts/.test(wbPage) &&
     !/\{slotsUsed\}\/\{THEME_INSTALL_LIMIT\}/.test(wbPage),
 )
 

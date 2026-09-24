@@ -13,7 +13,7 @@ import { coverAfterCreate, isPackagedCover, renderOrigin, storeCover } from "@/l
 import { MAX_BYTES as SNAPSHOT_MAX_BYTES } from "@/lib/website-builder/snapshot"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { LIBRARY_FULL_MESSAGE, librarySlotsLeft } from "@/lib/website-builder/library-limit"
+import { LIBRARY_FULL_CODE, LIBRARY_FULL_MESSAGE, librarySlotsLeft, nextSortOrder } from "@/lib/website-builder/library-limit"
 import JSZip from "jszip"
 import {
   parseThemePackageManifest,
@@ -72,7 +72,7 @@ export async function POST(req: Request) {
   /* Asked before the upload is read: a full library refuses a 50 MB zip
      without unpacking it first. */
   if ((await librarySlotsLeft(supabase, creator.id)) === 0) {
-    return NextResponse.json({ error: LIBRARY_FULL_MESSAGE }, { status: 400 })
+    return NextResponse.json({ error: LIBRARY_FULL_MESSAGE, code: LIBRARY_FULL_CODE }, { status: 400 })
   }
 
   // Parse multipart form
@@ -198,13 +198,7 @@ export async function POST(req: Request) {
       })
     }
 
-    const { data: maxRow } = await admin
-      .from("store_theme_installs")
-      .select("sort_order")
-      .eq("creator_id", creator.id)
-      .order("sort_order", { ascending: false })
-      .limit(1)
-      .maybeSingle()
+    const sortOrder = await nextSortOrder(admin, creator.id)
     const installName = String(pkg.theme.name ?? "Imported theme").slice(0, 80)
     /**
      * `store_theme_installs.theme_id` is NOT NULL and a foreign key into
@@ -236,7 +230,7 @@ export async function POST(req: Request) {
         name: installName,
         /* A draft: "unpublished" means a site that was live and was taken offline, and this one never was. */
         status: "draft",
-        sort_order: ((maxRow?.sort_order ?? -1) as number) + 1,
+        sort_order: sortOrder,
         is_custom: true,
       })
       .select("id")
@@ -366,14 +360,7 @@ export async function POST(req: Request) {
   }
 
   // Create a new install (a draft, sorted to the end)
-  const { data: maxRow } = await admin
-    .from("store_theme_installs")
-    .select("sort_order")
-    .eq("creator_id", creator.id)
-    .order("sort_order", { ascending: false })
-    .limit(1)
-    .maybeSingle()
-  const nextOrder = ((maxRow?.sort_order ?? -1) as number) + 1
+  const nextOrder = await nextSortOrder(admin, creator.id)
 
   const installName = (manifest.install?.name ?? "Imported Theme").slice(0, 80)
 
