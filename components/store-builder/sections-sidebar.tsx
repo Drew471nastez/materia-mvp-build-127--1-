@@ -19,6 +19,7 @@ import { ImageUpload } from "@/components/app/image-upload"
 import { CoverImageEditor } from "./cover-image-editor"
 import { OnepageAvatarPicker } from "@/components/shared/onepage-avatar-picker"
 import { CoverImageLibraryModal } from "./cover-image-library-modal"
+import { coverCropStyle, cropFromSettings } from "@/lib/images/cover-crop"
 import {
   GripVertical,
   Eye,
@@ -2177,14 +2178,13 @@ function ShopHeaderSettingsForm({
               className="relative aspect-[3/1] rounded-lg overflow-hidden border border-border cursor-pointer group"
               onClick={() => setCoverEditorOpen(true)}
             >
+              {/* The crop the page draws, zoom included (lib/images/cover-crop):
+                  a cover pinched closer in the profile sheet shows closer here. */}
               <img
                 src={settings.coverImageUrl || "/placeholder.svg"}
                 alt="Cover"
-                className="w-full h-full object-cover"
                 style={{
-                  objectPosition: settings.coverFocalPoint
-                    ? `${settings.coverFocalPoint.x}% ${settings.coverFocalPoint.y}%`
-                    : "center",
+                  ...coverCropStyle(cropFromSettings(settings.coverFocalPoint, settings.coverZoom)),
                   filter: `brightness(${settings.coverBrightness ?? 1.0})`,
                 }}
               />

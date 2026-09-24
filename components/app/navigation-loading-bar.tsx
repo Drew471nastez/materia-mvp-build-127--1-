@@ -2,7 +2,18 @@
 
 import { useEffect, useRef, useState } from "react"
 import { usePathname } from "next/navigation"
-import { beginAppNavigation, isCurrentAddress, isPhoneShell, markTraversal, NAV_BAR_AFTER_MS, spinnerDelay, takeTraversal, useAppNavigation } from "@/lib/ui/app-navigation"
+import {
+  beginAppNavigation,
+  endAppNavigation,
+  isCommittedAddress,
+  isCurrentAddress,
+  isPhoneShell,
+  markTraversal,
+  NAV_BAR_AFTER_MS,
+  spinnerDelay,
+  takeTraversal,
+  useAppNavigation,
+} from "@/lib/ui/app-navigation"
 
 /**
  * Fire this inside any onClick that calls router.push(), with the address,
@@ -46,7 +57,9 @@ export function NavigationLoadingBar() {
       try {
         const url = new URL(anchor.href)
         if (url.origin !== window.location.origin) return
-        if (isCurrentAddress(url.href)) return
+        /* The page showing: nothing to begin, and whatever was on its way
+           has just been dropped by the router (isCurrentAddress). */
+        if (isCurrentAddress(url.href)) { endAppNavigation(); return }
         /* A back whose page never committed (a hash, a sheet closing on
            Back) must not make this click restore an old scroll. */
         takeTraversal()
@@ -59,11 +72,18 @@ export function NavigationLoadingBar() {
       const href = (e as CustomEvent<{ href?: string | null }>).detail?.href ?? null
       /* A push to the page already showing commits nothing, so nothing would
          ever end the record (isCurrentAddress, lib/ui/app-navigation). */
-      if (isCurrentAddress(href)) return
+      if (isCurrentAddress(href)) { endAppNavigation(); return }
       takeTraversal()
       beginAppNavigation(href)
     }
     const onPop = () => {
+      /* Back to the page already committed (an editor's guard entry, a
+         #tab): the router has nothing to bring (isCommittedAddress). */
+      if (isCommittedAddress(window.location.pathname, window.location.search)) {
+        takeTraversal()
+        endAppNavigation()
+        return
+      }
       markTraversal()
       beginAppNavigation(window.location.pathname + window.location.search)
     }
@@ -84,7 +104,12 @@ export function NavigationLoadingBar() {
      gets the bar. */
   useEffect(() => {
     if (!nav) return
-    if (isPhoneShell() && spinnerDelay(nav.href, true) !== null) return
+    if (isPhoneShell() && spinnerDelay(nav.href, true) !== null) {
+      /* A bar still finishing the last navigation (the editor's, say) goes
+         now rather than running again under the spinner. */
+      setShown(false)
+      return
+    }
     const wait = Math.max(0, NAV_BAR_AFTER_MS - (performance.now() - nav.startedAt))
     const t = window.setTimeout(() => setShown(true), wait)
     return () => window.clearTimeout(t)

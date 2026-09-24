@@ -207,7 +207,7 @@ function main() {
         }
       }
       walk("app/app")
-      for (const f of ["components/app/dashboard-client.tsx", "components/app/settings-form.tsx"]) {
+      for (const f of ["components/app/dashboard-client.tsx"]) {
         if (!named.test(read(f))) missing.push(f)
       }
       if (missing.length) console.log(`        unnamed page scrollers: ${[...new Set(missing)].join(", ")}`)

@@ -35,7 +35,9 @@ import {
   NAV_PHONE_SPINNER_AFTER_MS,
   NAV_SPINNER_FADE_MS,
   APP_PAGE_KEPT_MS,
+  isCommittedAddress,
   isCurrentAddress,
+  markCommitted,
   pendingPath,
   waitsWithSpinner,
   spinnerDelay,
@@ -44,6 +46,7 @@ import {
   takeTraversal,
 } from "@/lib/ui/app-navigation"
 import { SHEET_CLOSE_EASE, SHEET_CLOSE_MS, SHEET_EASE, SHEET_OPEN_MS } from "@/components/ui/bottom-sheet"
+import { SPINNER_WAIT_MS } from "@/components/ui/activity-spinner"
 
 const root = process.cwd()
 const read = (p: string) => readFileSync(join(root, p), "utf8")
@@ -106,7 +109,31 @@ section("Pressing the page you are on")
   w.location = had
   const bar = code("components/app/navigation-loading-bar.tsx")
   check("and starts no record, from a link or from a push: nothing would ever end it, and the bar and spinner sat for ten seconds",
-    /if \(isCurrentAddress\(url\.href\)\) return/.test(bar) && /if \(isCurrentAddress\(href\)\) return\s*takeTraversal\(\)\s*beginAppNavigation\(href\)/.test(bar))
+    /if \(isCurrentAddress\(url\.href\)\) \{ endAppNavigation\(\); return \}/.test(bar) && /if \(isCurrentAddress\(href\)\) \{ endAppNavigation\(\); return \}\s*takeTraversal\(\)\s*beginAppNavigation\(href\)/.test(bar))
+  /* Regression: Orders on its way, then Home (showing) pressed again. The
+     router drops the Orders navigation, nothing commits, and the record used
+     to stay: the spinner over Home and Orders lit in the pill for ten seconds
+     (scripts/check-app-stage.mjs, "backToTheShowingPage": 94 frames before). */
+  check("and a press on it while another page is on its way ends that navigation's record: the router has dropped it",
+    (bar.match(/if \(isCurrentAddress\([^)]*\)\) \{ endAppNavigation\(\); return \}/g) ?? []).length === 2)
+}
+
+section("Back onto the page already showing")
+{
+  /* Regression: the email and OnePage editors push a guard entry at their own
+     address, the OnePage tabs push #tab. Back onto one of those commits
+     nothing, and the record it started kept the spinner up over the editor
+     for ten seconds. */
+  markCommitted("/app/emails/edit/7", "")
+  check("the committed address is the stage's, by path and query, trailing slash and query order aside",
+    isCommittedAddress("/app/emails/edit/7", "") && isCommittedAddress("/app/emails/edit/7/", "")
+      && !isCommittedAddress("/app/emails", "") && !isCommittedAddress("/app/emails/edit/7", "?tab=x"))
+  markCommitted("/app/orders", "?b=2&a=1")
+  check("a query is compared as parameters, not as a string", isCommittedAddress("/app/orders", "?b=2&a=1") && !isCommittedAddress("/app/orders", "?b=3&a=1"))
+  const bar = code("components/app/navigation-loading-bar.tsx")
+  check("a popstate onto it starts no record, ends any underway, and leaves no back to restore",
+    /const onPop = \(\) => \{\s*if \(isCommittedAddress\(window\.location\.pathname, window\.location\.search\)\) \{\s*takeTraversal\(\)\s*endAppNavigation\(\)\s*return\s*\}\s*markTraversal\(\)/.test(bar))
+  check("the stage records every commit, before the paint", /keyRef\.current = key\s*markCommitted\(pathname, search\)/.test(code("components/app/app-stage.tsx")))
 }
 
 section("A slow page: no outline, a spinner")
@@ -134,11 +161,20 @@ section("A slow page: no outline, a spinner")
   check("under it the page only rises: its fade out is the page's fade in, not a second fade multiplied by it",
     /playEntrance\(s\.outer, \{ fade: !slowSurfaceIsUp\(\) \}\)/.test(stage) && /if \(!rise && !fade\) continue/.test(stage))
   check("it covers the content area by main's own numbers: under the header and the pill, rounded on a phone",
-    /fixed inset-x-0 bottom-0 top-\[calc\(68px\+env\(safe-area-inset-top,0px\)\)\] z-\[38\][^"]*rounded-t-\[20px\] bg-\[#f8f9fa\] md:left-\[240px\] md:top-\[calc\(58px\+env\(safe-area-inset-top,0px\)\)\] md:rounded-none/.test(stage)
+    /fixed inset-x-0 bottom-0 top-\[calc\(68px\+env\(safe-area-inset-top,0px\)\)\] z-\[38\] bg-\[#111111\] md:left-\[240px\] md:top-\[calc\(58px\+env\(safe-area-inset-top,0px\)\)\] md:bg-transparent/.test(stage)
+      && /data-app-slow-surface="" className="flex h-full items-center justify-center overflow-hidden rounded-t-\[20px\] bg-\[#f8f9fa\] md:rounded-none"/.test(stage)
       && /pt-\[calc\(68px_\+_env\(safe-area-inset-top,_0px\)\)\] md:pt-\[calc\(58px\+env\(safe-area-inset-top,_0px\)\)\] md:pl-\[240px\]/.test(read("app/app/layout.tsx")))
+  /* Regression: "the purple things in the corners". The rounded surface was
+     the fixed box itself, so its corners showed the page under it, and Home's
+     top is the violet announcement bar. scripts/check-app-stage.mjs reads the
+     corner pixels: [139,92,246] before, the header's [17,17,17] now. */
+  check("its rounded corners are backed by the header's #111111, never by the page under them",
+    /data-app-slow-page=""\s*className="fixed[^"]*bg-\[#111111\]/.test(stage) && !/data-app-slow-page=""\s*className="[^"]*rounded-t-/.test(stage))
   const bar = code("components/app/navigation-loading-bar.tsx")
-  check("a phone shows the spinner in place of the bar, and keeps the bar where there is no spinner",
-    /if \(isPhoneShell\(\) && spinnerDelay\(nav\.href, true\) !== null\) return/.test(bar))
+  check("a phone shows the spinner in place of the bar, keeps the bar where there is no spinner, and drops a bar still finishing",
+    /if \(isPhoneShell\(\) && spinnerDelay\(nav\.href, true\) !== null\) \{\s*setShown\(false\)\s*return\s*\}/.test(bar))
+  check("a part of a page that is still coming waits the same half second as a slow page, then shows the same spinner",
+    SPINNER_WAIT_MS === NAV_PHONE_SPINNER_AFTER_MS)
   const spinner = code("components/ui/activity-spinner.tsx")
   const css = read("app/globals.css")
   check("the spinner is the iOS one: eight tapered spokes, light gray, stepped opacity, turned in eighths",
@@ -150,6 +186,37 @@ section("A slow page: no outline, a spinner")
       && /data-keep-transform=""/.test(spinner)
       && /@media \(prefers-reduced-motion: reduce\) \{[\s\S]{0,160}\.activity-spinner \{\s*animation-duration: 2400ms;/.test(css))
   check("the outline's leftover rule is gone from the stylesheet", !/data-app-route-skeleton/.test(css))
+}
+
+section("No page draws a picture of itself while it loads, inside or out")
+{
+  /* The owner still saw grey drawings of pages on a phone: the route outlines
+     are gone, and these were the ones left inside the pages and the shell. */
+  const cold = code("app/app/cold-start.tsx")
+  check("a native cold start is the shell's frame and the spinner: the header's colour, the rounded content area, no violet bar, no drawing",
+    !existsSync(join(root, "app/app/dashboard-skeleton.tsx"))
+      && /fixed inset-0 bg-\[#111111\] md:bg-\[#131316\]/.test(cold) && /rounded-t-\[20px\] bg-\[#f8f9fa\]/.test(cold)
+      && /<ActivitySpinner \/>/.test(cold) && !/8b5cf6|animate-pulse|bg-gray-/.test(cold))
+  const layout = code("app/app/layout.tsx")
+  check("and both of the layout's gates use it", (layout.match(/loadingFallback=\{<AppColdStart \/>\}/g) ?? []).length === 2)
+  const dash = code("components/app/dashboard-client.tsx")
+  check("Home has no full page skeleton, and its chart waits with the spinner, not grey bars",
+    !/showLoadingSkeleton|isLoading && |Full Page Skeleton|skeleton-bar/.test(dash) && /<WaitingArea className="h-\[200px\]" \/>/.test(dash) && !/animate-pulse/.test(dash))
+  check("Analytics' cards wait with the spinner, in the room their figures take", /<WaitingArea className=\{lines \? "h-\[144px\]" : "h-\[100px\]"\} \/>/.test(code("app/app/analytics/analytics-reports.tsx")) && !/animate-pulse/.test(code("app/app/analytics/analytics-reports.tsx")))
+  const payouts = code("app/app/payouts/payouts-client.tsx")
+  check("Payouts' chart, timeline and payout list wait with the spinner, not rows of grey",
+    (payouts.match(/<WaitingArea /g) ?? []).length === 3 && !/\[1, 2, 3\]\.map/.test(payouts))
+  check("Emails' table waits with the spinner", /function Loading\(\) \{\s*return <WaitingArea className="h-\[288px\]" \/>/.test(code("app/app/emails/emails-home.tsx")))
+  check("the coupon pages draw nothing under the gate rather than an outline",
+    !existsSync(join(root, "app/app/coupons/skeleton.tsx")) && !existsSync(join(root, "app/app/coupons/new/skeleton.tsx"))
+      && ["app/app/coupons/page.tsx", "app/app/coupons/new/page.tsx", "app/app/coupons/[id]/page.tsx"].every((f) => /if \(load\.state === "signed-out"\) return null/.test(code(f))))
+  check("the unused skeleton helpers and the old settings form are gone",
+    !existsSync(join(root, "components/app/page-transition.tsx")) && !existsSync(join(root, "components/app/settings-form.tsx")))
+  const spinner = code("components/ui/activity-spinner.tsx")
+  check("the waiting area shows nothing for half a second, then fades the spinner in on opacity",
+    /export const SPINNER_WAIT_MS = 500/.test(spinner) && /animation: `skeleton-reveal 150ms ease-out \$\{SPINNER_WAIT_MS\}ms forwards`/.test(spinner) && /className="inline-flex opacity-0"/.test(spinner))
+  const css = read("app/globals.css")
+  check("the late and fade skeleton classes nothing uses are gone from the stylesheet", !/\.skeleton-late\s*\{/.test(css) && !/\.skeleton-fade\s*\{/.test(css) && /@keyframes skeleton-reveal/.test(css))
 }
 
 section("The press answers on the press")

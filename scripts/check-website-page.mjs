@@ -24,7 +24,11 @@
  *     opacity and transform only, the real row replaces it in one frame at
  *     the same place, the page scrolls it to the middle of its own scroller,
  *     and a ring fades on it once for 1.2s
+ *   • it lands on the right row with a library of one website and when it
+ *     makes the fifth
  *   • a failed import keeps its row, says why, offers Try again, and toasts
+ *   • with nothing live, the website taken offline says so, on its row and
+ *     in the card, with Publish again
  *
  *   node scripts/check-website-page.mjs            both widths
  *   WIDTH=390 node scripts/check-website-page.mjs  one
@@ -242,26 +246,44 @@ HTMLInputElement.prototype.click = function () {
 }
 window.__xhrMode = "ok"
 window.__xhrSent = 0
+window.__requests = []
+/* The file goes to storage by XMLHttpRequest: four progress steps over 800ms, then stored. */
 window.XMLHttpRequest = class {
   constructor() { this.upload = {}; this.status = 0; this.responseText = "" }
-  open() {}
+  open(method, url) { this.method = method; this.url = url }
+  setRequestHeader() {}
+  abort() { this.onabort && this.onabort() }
   send() {
     window.__xhrSent++
+    window.__requests.push(this.method + " " + this.url)
     const steps = [0.2, 0.45, 0.7, 1]
     steps.forEach((f, i) => setTimeout(() => this.upload.onprogress && this.upload.onprogress({ lengthComputable: true, loaded: f * 1000, total: 1000 }), 200 * (i + 1)))
     setTimeout(() => this.upload.onload && this.upload.onload(), 200 * steps.length + 50)
     setTimeout(() => {
-      if (window.__xhrMode === "ok") {
-        this.status = 200
-        this.responseText = JSON.stringify({ ok: true, install_id: "new-1", name: "Summer shop", media: "nothing" })
-        window.__probeNext = { id: "new-1", name: "Summer shop" }
-      } else {
-        this.status = 400
-        this.responseText = JSON.stringify({ error: "Invalid zip file" })
-      }
+      this.status = 200
+      this.responseText = JSON.stringify({ Key: "stored" })
       this.onload && this.onload()
-    }, 200 * steps.length + 700)
+    }, 200 * steps.length + 80)
   }
+}
+/* The place to put it, and the import that reads it: the import answers 700ms after the file is stored. */
+const realFetch = window.fetch.bind(window)
+window.fetch = (input, init) => {
+  const url = typeof input === "string" ? input : input.url
+  const json = (status, body, ms) => new Promise((r) => setTimeout(() => r(new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } })), ms))
+  if (url === "/api/website-builder/themes/import/upload") {
+    window.__requests.push("POST " + url)
+    return json(200, { url: "/storage/upload/sign/x?token=t", path: "0f8fad5b-d9cb-469f-a165-70867728950e/theme-imports/1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed.zip" }, 40)
+  }
+  if (url === "/api/website-builder/themes/import") {
+    window.__requests.push("POST " + url + " " + (init && init.body))
+    if (window.__xhrMode === "ok") {
+      window.__probeNext = { id: "new-1", name: "Summer shop" }
+      return json(200, { ok: true, install_id: "new-1", name: "Summer shop", media: "nothing" }, 700)
+    }
+    return json(400, { error: "Invalid zip file" }, 700)
+  }
+  return realFetch(input, init)
 }
 window.__timeline = []
 window.__landed = null
@@ -325,7 +347,7 @@ const origin = `http://127.0.0.1:${server.address().port}`
 const browser = await puppeteer.launch({ executablePath: CHROMIUM, headless: true, args: ["--no-sandbox", "--disable-gpu", "--hide-scrollbars"] })
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
-async function open(W, scenario) {
+async function open(W, scenario, extra = "") {
   const p = await browser.newPage()
   const phone = W <= 640
   await p.setViewport({ width: W, height: phone ? 844 : 900, deviceScaleFactor: 1, isMobile: phone, hasTouch: phone })
@@ -333,7 +355,7 @@ async function open(W, scenario) {
   const errors = []
   p.on("pageerror", (e) => errors.push(String(e.message || e)))
   await p.evaluateOnNewDocument(INSTRUMENT)
-  await p.goto(`${origin}/?scenario=${scenario}`, { waitUntil: "load" })
+  await p.goto(`${origin}/?scenario=${scenario}${extra}`, { waitUntil: "load" })
   await sleep(700)
   return { p, errors, phone }
 }
@@ -417,9 +439,11 @@ async function livePage(W) {
     await p.close()
   }
 
-  // ── An import, from file to arrival ──────────────────────────────────
-  {
-    const { p, errors } = await open(W, "room")
+  // ── An import, from file to arrival, into libraries of three sizes ────
+  for (const drafts of [2, 0, 3]) {
+    const websites = drafts + 1
+    if (drafts !== 2) console.log(`\n  with ${websites} website${websites === 1 ? "" : "s"} before it, so it lands as number ${websites + 1}\n`)
+    const { p, errors } = await open(W, "room", `&drafts=${drafts}`)
     const input = await p.$('input[type="file"]')
     await input.uploadFile(zip)
     await sleep(320)
@@ -501,7 +525,15 @@ async function livePage(W) {
     expect(Math.abs(end.rowMid - end.scMid) <= 2 || clamped,
       `the page scrolls it to the middle of its own scroller: row at ${end.rowMid}px, middle ${end.scMid}px, scrolled ${end.scrollTop} of ${end.maxScroll}px${clamped ? " (the end of the page)" : ""}`)
     expect(end.rowTop >= 0 && end.rowBottom <= end.scHeight, `  and the whole row is in view: ${end.rowTop}..${end.rowBottom}px of ${end.scHeight}px`)
-    expect(end.scrollTop > 0 && end.windowScrolled === 0, `  the page's scroller moved (${end.scrollTop}px), the window did not (${end.windowScrolled}px)`)
+    expect((end.maxScroll <= 0 ? end.scrollTop === 0 : end.scrollTop > 0 || Math.abs(end.rowMid - end.scMid) <= 2) && end.windowScrolled === 0,
+      end.maxScroll <= 0
+        ? `  nothing to scroll on a page this short (${end.maxScroll}px), and the window did not move (${end.windowScrolled}px)`
+        : `  the page's scroller moved (${end.scrollTop}px), the window did not (${end.windowScrolled}px)`)
+    const reqs = await p.evaluate(() => window.__requests)
+    expect(reqs.length === 3 && /^POST \/api\/website-builder\/themes\/import\/upload$/.test(reqs[0]) && /^PUT \/storage\/upload\/sign\//.test(reqs[1]) && /^POST \/api\/website-builder\/themes\/import \{"path":"[^"]+\.zip"\}$/.test(reqs[2]),
+      `  a place, the file straight to storage, then the import by its path: ${reqs.map((r) => r.split(" ").slice(0, 2).join(" ")).join(" > ")}`)
+    const rows = await p.evaluate(() => document.querySelectorAll("[data-install-row]").length)
+    expect(rows === drafts + 1, `  the library shows ${rows} row${rows === 1 ? "" : "s"}, the new one once, with no placeholder beside it`)
     const arrived = ring.anim?.list.find((a) => a.name === "wb-arrived")
     expect(ring.ringed && !!arrived && arrived.duration === 1200 && ring.anim.props.every((p) => p === "opacity"),
       `a ring fades on it once: ${arrived ? `${arrived.duration}ms, ${ring.anim.props.join(", ")}` : "none"}`)
@@ -536,6 +568,33 @@ async function livePage(W) {
     await sleep(2800)
     const again = await p.evaluate(() => ({ sent: window.__xhrSent, landed: !!document.querySelector('[data-install-row="new-1"]'), placeholder: !!document.querySelector("[data-incoming]") }))
     expect(again.sent === 2 && again.landed && !again.placeholder, `  Try again uploads the same file again and lands (${again.sent} uploads)`)
+    expect(errors.length === 0, "no errors on the page", errors.slice(0, 2).join(" / "))
+    await p.close()
+  }
+
+  // ── Nothing live: the website taken offline says so ──────────────────
+  {
+    const { p, errors, phone } = await open(W, "offline")
+    const o = await p.evaluate(() => {
+      const card = document.querySelector("[data-live-empty]")
+      const again = card ? [...card.querySelectorAll("button")].find((b) => b.textContent.trim() === "Publish again") : null
+      const row = document.querySelector('[data-install-row="live-1"]')
+      const said = row ? [...row.querySelectorAll("span")].filter((s) => s.getBoundingClientRect().width > 0).map((s) => s.textContent.trim()) : []
+      return {
+        state: card?.getAttribute("data-live-empty") ?? null,
+        heading: card?.querySelector("h2")?.textContent.trim() ?? null,
+        again: again ? Math.round(again.getBoundingClientRect().height) : 0,
+        offlineOnRow: said.some((t) => t === "Offline" || /^Offline · Edited/.test(t)),
+        draftOnRow: said.some((t) => t === "Draft" || /^Draft · Edited/.test(t)),
+      }
+    })
+    expect(o.state === "offline" && o.heading === "Your website is offline", `the card says the website is offline ("${o.heading}")`)
+    expect(o.again >= (phone ? 44 : 40), `  with Publish again, ${o.again}px tall`)
+    expect(o.offlineOnRow && !o.draftOnRow, "  and its row says Offline, not Draft")
+    await p.evaluate(() => [...document.querySelectorAll("[data-live-empty] button")].find((b) => b.textContent.trim() === "Publish again").click())
+    await sleep(500)
+    const asked = await p.evaluate(() => document.querySelector('[role="alertdialog"]')?.textContent || "")
+    expect(/Publish “Storelib Default”\?/.test(asked), "  Publish again asks first, like every publish")
     expect(errors.length === 0, "no errors on the page", errors.slice(0, 2).join(" / "))
     await p.close()
   }

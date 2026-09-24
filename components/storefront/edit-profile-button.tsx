@@ -218,7 +218,7 @@ export function EditProfileButton({
        * nothing saved at all.
        */
       if (data.storefront === false) {
-        setError("Saved, but your storefront has not been set up yet — open the store builder once and publish, then this will show on your page.")
+        setError("Saved, but your storefront has not been set up yet. Open the store builder once and publish, then this will show on your page.")
         return
       }
       setOpen(false)
@@ -454,7 +454,7 @@ export function EditProfileButton({
                 ))}
               </div>
               <p className="text-xs text-muted-foreground">
-                Anything with nothing behind it stays hidden either way — no rating shows until
+                Anything with nothing behind it stays hidden either way. No rating shows until
                 somebody reviews you.
               </p>
             </div>

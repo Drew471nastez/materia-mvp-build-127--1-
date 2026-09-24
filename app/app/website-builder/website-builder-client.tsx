@@ -20,8 +20,8 @@
  *   • A fetch on mount. The server hands over everything; mutations call the
  *     API and then `router.refresh()`, so the page is never in a state the
  *     server did not produce.
- *   • A loading skeleton inside the component. The route's `loading.tsx`
- *     covers the server round-trip, deferred so a fast load never flashes.
+ *   • A loading skeleton. The server hands the page over whole, and the
+ *     app's stage covers a slow round trip; nothing here stands in for it.
  *   • Explanatory copy. A card with a picture, a name and a status does not
  *     need a sentence under it saying so.
  */
@@ -98,8 +98,8 @@ import { LibraryFullDialog, type LibraryAction } from "./library-full-dialog"
 import {
   ARRIVAL_MS,
   IncomingRow,
+  importThemeFile,
   nameFromFile,
-  postWithProgress,
   scrollToRow,
   type Incoming,
   type IncomingKind,
@@ -186,11 +186,20 @@ function StatusDot({ status, label = true }: { status: ThemeStatus; label?: bool
   )
 }
 
-/** A draft, as the Orders table draws a status: a word on a tint. */
-function DraftBadge() {
+/**
+ * A library row's status, as the Orders table draws one: a word on a tint.
+ * Draft, or Offline for the website that was live when nothing is now, on
+ * Polaris's attention tint, so a site that is down does not read as a draft.
+ */
+function DraftBadge({ offline = false }: { offline?: boolean }) {
   return (
-    <span className="inline-flex h-[22px] items-center whitespace-nowrap rounded-[7px] bg-[#f1f2f4] px-2 text-[12px] font-medium text-[#3f3f46]">
-      Draft
+    <span
+      className={cn(
+        "inline-flex h-[22px] items-center whitespace-nowrap rounded-[7px] px-2 text-[12px] font-medium",
+        offline ? "bg-[#ffef9d] text-[#4f4700]" : "bg-[#f1f2f4] text-[#3f3f46]",
+      )}
+    >
+      {offline ? "Offline" : "Draft"}
     </span>
   )
 }
@@ -594,8 +603,17 @@ export function WebsiteBuilderClient({
   const libraryCard = React.useRef<HTMLDivElement>(null)
 
   const live = installs.find((i) => i.status === "published") ?? null
-  /** A site that was live and was taken offline: its row says Publish again. */
-  const offline = live ? null : (installs.find((i) => i.status === "unpublished" && !!i.published_at) ?? null)
+  /**
+   * With nothing live, the website that was: the one taken offline most
+   * recently. "unpublished" only ever means a website that was live (a new
+   * one is a draft), so that status is enough; published_at orders them when
+   * there are several and is missing on a database without the column.
+   */
+  const offline = live
+    ? null
+    : ([...installs]
+        .filter((i) => i.status === "unpublished")
+        .sort((a, b) => (Date.parse(b.published_at ?? "") || 0) - (Date.parse(a.published_at ?? "") || 0))[0] ?? null)
   /** Whose Website Settings the button beside the title opens: the live site's, else the one that was. */
   const settingsFor = live ?? offline ?? installs[0] ?? null
   const library = installs.filter((i) => i.status !== "published")
@@ -616,6 +634,15 @@ export function WebsiteBuilderClient({
     },
     [router],
   )
+
+  /* Whether the page is still here when a request it started comes back. */
+  const mounted = React.useRef(true)
+  React.useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+    }
+  }, [])
 
   /** One API call with a busy key, a toast on each outcome and a refresh on success. */
   const run = React.useCallback(
@@ -668,7 +695,14 @@ export function WebsiteBuilderClient({
    * id), which is then scrolled to. On a failure the row stays with the
    * reason and Try again, and a toast says it too. A library the server says
    * is full opens the full library sheet instead.
+   *
+   * One at a time, held by a ref rather than by state: two taps in the same
+   * frame both saw the state from before the first, and sent two requests.
+   * A page left while a request runs lets it finish (the website is made
+   * either way, and the toast says so) but does not refresh or open anything
+   * on the page it is no longer on.
    */
+  const inFlight = React.useRef(false)
   const make = React.useCallback(
     async (
       kind: IncomingKind,
@@ -678,6 +712,8 @@ export function WebsiteBuilderClient({
       fail: string,
       again: () => void,
     ) => {
+      if (inFlight.current) return
+      inFlight.current = true
       retryRef.current = again
       setIncoming({ kind, name, phase: kind === "import" ? "uploading" : "working", progress: 0 })
       let result: { ok: boolean; data: Record<string, unknown> }
@@ -688,18 +724,23 @@ export function WebsiteBuilderClient({
         )
       } catch {
         result = { ok: false, data: {} }
+      } finally {
+        inFlight.current = false
       }
       const { ok, data } = result
       const install = data.install as { id?: string } | undefined
       const id = (typeof data.install_id === "string" ? data.install_id : install?.id) ?? null
       if (ok && id) {
         toast({ title: done(data) })
+        if (!mounted.current) return
         setIncoming((c) => (c ? { ...c, phase: "working", installId: id } : c))
         refresh()
         return
       }
       if (data.code === LIBRARY_FULL_CODE) {
+        if (!mounted.current) return
         setIncoming(null)
+        retryRef.current = null
         setFull(kind)
         refresh()
         return
@@ -743,13 +784,6 @@ export function WebsiteBuilderClient({
   }, [showingIncoming, incomingFailed])
 
   /* The new website, to the middle of the screen, then its ring. */
-  const mounted = React.useRef(true)
-  React.useEffect(() => {
-    mounted.current = true
-    return () => {
-      mounted.current = false
-    }
-  }, [])
   React.useEffect(() => {
     if (!arrived) return
     const id = arrived
@@ -846,9 +880,10 @@ export function WebsiteBuilderClient({
   }
 
   /**
-   * The file goes up by XMLHttpRequest so the row can say how much of it has
-   * gone (see postWithProgress). A full library never starts an upload: it
-   * opens the sheet first, here and on the button.
+   * The file goes straight to storage by XMLHttpRequest, so the row can say
+   * how much of it has gone, and then the server makes the website from it
+   * (see importThemeFile). A full library never starts an upload: it opens
+   * the sheet first, here and on the button.
    */
   const importZip = async (file: File): Promise<void> => {
     if (fileInput.current) fileInput.current.value = ""
@@ -857,12 +892,10 @@ export function WebsiteBuilderClient({
       return
     }
     if (making) return
-    const fd = new FormData()
-    fd.append("file", file)
     await make(
       "import",
       nameFromFile(file),
-      (progress, sent) => postWithProgress("/api/website-builder/themes/import", fd, { progress, sent }),
+      (progress, sent) => importThemeFile(file, { progress, sent }),
       (data) => `Imported ${typeof data.name === "string" ? data.name : nameFromFile(file)}${typeof data.media === "string" && data.media && data.media !== "nothing" ? ` with ${data.media}` : ""}`,
       "Could not import that file",
       () => void importZip(file),
@@ -888,7 +921,7 @@ export function WebsiteBuilderClient({
     /* The live site, in a new tab from a real anchor: it was a button beside the page title. */
     if (i.status === "published" && siteUrl) items.push({ label: "View website", icon: <SquareArrowOutUpRight />, href: siteUrl, target: "_blank" })
     /* A site that was live and was taken offline goes back up from its own row. */
-    if (opts.publish) items.push({ label: i.published_at ? "Publish again" : "Publish", icon: <Rocket />, onClick: () => setPublishing(i) })
+    if (opts.publish) items.push({ label: i.status === "unpublished" ? "Publish again" : "Publish", icon: <Rocket />, onClick: () => setPublishing(i) })
     items.push(
       { label: "Edit code", icon: <Code2 />, onClick: () => go(editorHref(username, i.id, "code")), separatorBefore: items.length > 0 },
       /* The live site's settings are the Settings button beside the page title; a draft's are here. */
@@ -1023,12 +1056,29 @@ export function WebsiteBuilderClient({
                 </div>
               </>
             ) : (
-              <div className="flex flex-col items-center gap-2 px-6 py-12 text-center">
+              /* Nothing live. When a website was, the card says which and puts it back
+                 in one press: the header's Public control used to be the only
+                 place that said the site was down. */
+              <div className="flex flex-col items-center gap-2 px-6 py-12 text-center" data-live-empty={offline ? "offline" : "none"}>
                 <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#f3f4f6] text-[#6b7280]">
-                  <Rocket className="h-4.5 w-4.5" />
+                  {offline ? <EyeOff className="h-4.5 w-4.5" /> : <Rocket className="h-4.5 w-4.5" />}
                 </span>
-                <h2 id="live-heading" className="text-[15px] font-semibold text-[#1a1a2e]">Nothing is live</h2>
-                <p className="text-[13px] text-[#6b7280]">Publish a website from your library.</p>
+                <h2 id="live-heading" className="text-[15px] font-semibold text-[#1a1a2e]">
+                  {offline ? "Your website is offline" : "Nothing is live"}
+                </h2>
+                <p className="max-w-[320px] text-[13px] text-[#6b7280]">
+                  {offline ? <>Visitors see a placeholder. {offline.name} was the last one live.</> : "Publish a website from your library."}
+                </p>
+                {offline && (
+                  <Button
+                    onClick={() => setPublishing(offline)}
+                    disabled={busy === `${offline.id}:publish`}
+                    className="mt-2 h-11 rounded-xl bg-[#1a1a2e] px-4 text-[14px] font-semibold text-white hover:bg-[#2d2d44] sm:h-10"
+                  >
+                    {busy === `${offline.id}:publish` && <Loader2 className="h-4 w-4 animate-spin" />}
+                    Publish again
+                  </Button>
+                )}
               </div>
             )}
           </div>
@@ -1167,13 +1217,13 @@ export function WebsiteBuilderClient({
                                 {/* On a phone the columns fold in here, and the
                                     edit time is the fact worth the room. */}
                                 <span className="hidden sm:inline">{def ? getIndustry(def.industry).label : i.theme?.name ?? "Theme"}</span>
-                                <span className="sm:hidden">Draft · Edited {since(i.saved_at)}</span>
+                                <span className="sm:hidden">{i.id === offline?.id ? "Offline" : "Draft"} · Edited {since(i.saved_at)}</span>
                               </span>
                             </span>
                           </button>
                         </td>
                         <td className="hidden px-3 sm:table-cell">
-                          <DraftBadge />
+                          <DraftBadge offline={i.id === offline?.id} />
                         </td>
                         <td className="hidden px-3 text-[13px] text-[#4b5563] md:table-cell">{since(i.saved_at)}</td>
                         <td className="w-[52px] pr-3 sm:w-auto sm:px-4">
@@ -1323,7 +1373,7 @@ export function WebsiteBuilderClient({
 
       <LibraryFullDialog
         action={full}
-        entries={installs.map((i) => ({ id: i.id, name: i.name, live: i.status === "published" }))}
+        entries={installs.map((i) => ({ id: i.id, name: i.name, live: i.status === "published", offline: i.id === offline?.id }))}
         onClose={() => setFull(null)}
         onRemove={(id) => {
           const target = installs.find((i) => i.id === id)

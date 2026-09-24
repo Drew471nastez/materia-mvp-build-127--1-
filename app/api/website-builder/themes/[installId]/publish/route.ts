@@ -37,7 +37,8 @@ export async function POST(req: Request, { params }: Params) {
 
   if (!install) return NextResponse.json({ error: "Theme not found" }, { status: 404 })
 
-  const body = await req.json()
+  /* A body that is not JSON falls through to "Invalid action", a 400, not a 500. */
+  const body = await req.json().catch(() => null)
   const action = body?.action as "publish" | "unpublish" | "save_draft"
 
   if (action === "publish") {

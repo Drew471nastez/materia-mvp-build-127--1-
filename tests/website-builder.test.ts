@@ -59,6 +59,9 @@ import { ThemeCover, ThemePhoneCover, coverSpecFromDefinition, coverSpecFromSett
 import { editorHref } from "@/app/app/website-builder/website-builder-client"
 import { CUSTOM_SECTION_CATEGORY, STORELIB_SCHEMAS, STORELIB_SECTION_TYPES, addableSections, customAddableSections, customSectionSchemas, schemaFromStorelib } from "@/lib/website-builder/storelib-schemas"
 import { ADDABLE_SECTIONS, RETIRED_SECTIONS, SECTION_CATEGORIES, SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
+import { LIBRARY_FULL_CODE, isLibraryFullError, keptWithinLimit } from "@/lib/website-builder/library-limit"
+import { IMPORT_MAX_BYTES, IMPORT_TOO_LARGE, importPathFor, importSizeProblem, isOwnImportPath, looksLikeZip } from "@/lib/website-builder/theme-import"
+import { STALL_MS, sendWithProgress } from "@/app/app/website-builder/incoming"
 
 let passed = 0
 let failed = 0
@@ -259,7 +262,6 @@ section("The page")
 {
   const page = read("app/app/website-builder/page.tsx")
   const client = stripComments(read("app/app/website-builder/website-builder-client.tsx"))
-  const loading = read("app/app/website-builder/skeleton.tsx")
   check("the route is a server component", !/^\s*"use client"/m.test(page) && /export default async function/.test(page))
   check("the server reads installs itself and seeds a first-time creator in the same request", /store_theme_installs/.test(page) && /initialize_creator_themes/.test(page))
   /*
@@ -282,8 +284,16 @@ section("The page")
   check("the snapshot is a plain <img>, not an optimiser round-trip", /<img/.test(client) && !/from "next\/image"/.test(client))
   check("the live cover loads eagerly with high priority; library thumbnails lazily", /fetchPriority=\{eager \? "high"/.test(client) && /loading=\{eager \? "eager" : "lazy"\}/.test(client))
   check("there is no skeleton inside the component", !/animate-pulse|skeleton/.test(client))
-  check("the route's loading state waits half a second before it shows at all", /animationDelay: "500ms"/.test(loading) && !/animate-pulse/.test(loading))
-  check("the route's loading state is deferred so a fast load never flashes it", /skeleton-deferred/.test(loading))
+  /*
+    NO SKELETON, NOT A DEFERRED ONE. The route's skeleton.tsx was left behind
+    when the route skeletons were removed: nothing imported it, and a test
+    here read it as if it still drew the slow load. The owner asked for no
+    skeleton on a phone when switching pages; a slow server render is the
+    app stage's spinner, the same on every page.
+  */
+  check("no route skeleton is left for the page, rendered or not",
+    !existsSync(join(process.cwd(), "app/app/website-builder/skeleton.tsx")) && !existsSync(join(process.cwd(), "app/app/website-builder/loading.tsx")) &&
+      !/skeleton|loading\.tsx/i.test(stripComments(page)))
   check("mutations refresh the server's view rather than patching a client copy", /router\.refresh\(\)/.test(client) && /useTransition/.test(client))
   check("the page uses the shared action menu, dialogs and buttons", /ResponsiveActionMenu/.test(client) && /AlertDialog/.test(client) && /from "@\/components\/ui\/button"/.test(client))
   check("the primary action is Storelib dark, not a purple button", /Edit website/.test(client) && !/bg-\[#8b5cf6\]/.test(client))
@@ -314,12 +324,23 @@ section("The page")
     check("Take offline stays in the live site's More menu, through the page's own question",
       /items\.push\(\{ label: "Take offline", icon: <EyeOff \/>, onClick: \(\) => setUnpublishing\(i\)/.test(client))
     check("an offline website's row says Publish again, through the page's own question",
-      /label: i\.published_at \? "Publish again" : "Publish", icon: <Rocket \/>, onClick: \(\) => setPublishing\(i\)/.test(client))
+      /label: i\.status === "unpublished" \? "Publish again" : "Publish", icon: <Rocket \/>, onClick: \(\) => setPublishing\(i\)/.test(client))
+    /*
+      NOTHING LIVE IS SAID, NOT HIDDEN. The header's Public control was the
+      one place that said the site was down; with it gone, the offline
+      website's row called it a Draft and the card said only "Nothing is
+      live". It is found by status alone ("unpublished" only ever means a
+      site that was live), since published_at is missing on a database
+      without that column, which made the site vanish from every label.
+    */
+    check("  the website taken offline is found by its status, newest first, not only when published_at exists",
+      /\.filter\(\(i\) => i\.status === "unpublished"\)/.test(client) && !/i\.status === "unpublished" && !!i\.published_at/.test(client))
+    check("  its row says Offline, on the attention tint, and the card says the website is offline with Publish again",
+      /<DraftBadge offline=\{i\.id === offline\?\.id\} \/>/.test(client) && /bg-\[#ffef9d\] text-\[#4f4700\]/.test(client) &&
+        /"Your website is offline"/.test(client) && /onClick=\{\(\) => setPublishing\(offline\)\}/.test(live) &&
+        /\{i\.id === offline\?\.id \? "Offline" : "Draft"\} · Edited/.test(client))
     check("the live site's More menu no longer carries Website settings", !/WEBSITE_SETTINGS/.test(client) && !/section: n === 0 \? "Website settings"/.test(client))
     check("the card's buttons are Edit website and a square More", /<div className="mt-auto flex gap-2 pt-5">/.test(live) && /"w-11 shrink-0 px-0"/.test(live) && !/View site/.test(live))
-    check("the loading state draws the title with its one control, and the card's row",
-      (loading.match(/data-skeleton-control=""/g) ?? []).length === 1 && !/\[124, 92, 96\]\.map/.test(loading) &&
-        /h-11 flex-1 rounded-xl/.test(loading) && !/min-w-\[132px\]/.test(loading))
     check("  no numbers are counted for it any more", !/websitePerformanceFor/.test(read("app/app/website-builder/page.tsx")))
     const frame = /const COVER_FRAME =\s*"([^"]+)"/.exec(client)?.[1] ?? ""
     check("the cover is clipped to 12px corners on all four sides",
@@ -346,7 +367,8 @@ section("The page")
     // The file is a .storelib-theme package now, so the two labels name the
     // thing rather than the container; the actions are the same ones.
     "Rename", "Duplicate", "Edit code", "Website settings", "Export theme", "Take offline", "Remove", "Import theme", "themes/add", "action: \"publish\"", "action: \"unpublish\"", "themes/import",
-  ].every((s) => client.includes(s)))
+    // The import itself lives beside the page now (incoming.tsx importThemeFile), which the page calls.
+  ].every((s) => (client + read("app/app/website-builder/incoming.tsx")).includes(s)) && /importThemeFile\(file, \{ progress, sent \}\)/.test(client))
   {
     /*
       THE FULL LIBRARY. Import was disabled when the library was full, so a
@@ -371,7 +393,11 @@ section("The page")
     check("  Import is never dead: full, it opens the sheet before any file is picked", /onClick=\{\(\) => \(slotsLeft === 0 \? setFull\("import"\) : fileInput\.current\?\.click\(\)\)\}/.test(client) && !/disabled=\{busy === "import" \|\| slotsLeft === 0\}/.test(client))
     check("  and Add theme, Duplicate and every Add do the same", /setFull\("add"\)/.test(client) && /setFull\("duplicate"\)/.test(client) && /setFull\("add"\)/.test(read("app/app/website-builder/themes/themes-client.tsx")))
     check("  it lists what takes the room, with Remove on each draft, through the usual question", /Remove/.test(fullDialog) && /if \(target\) setDeleting\(target\)/.test(client))
-    check("  a refusal from the server opens it too, rather than a toast", /if \(data\.code === LIBRARY_FULL_CODE\) \{\s*setIncoming\(null\)\s*setFull\(kind\)/.test(client))
+    check("  a refusal from the server opens it too, rather than a toast, and the placeholder goes",
+      /if \(data\.code === LIBRARY_FULL_CODE\) \{\s*if \(!mounted\.current\) return\s*setIncoming\(null\)\s*retryRef\.current = null\s*setFull\(kind\)/.test(client))
+    check("  Browse themes opens the same sheet on the server's refusal, not a toast",
+      /if \(d\.code === LIBRARY_FULL_CODE\) \{\s*setFull\("add"\)/.test(read("app/app/website-builder/themes/themes-client.tsx")))
+    check("  each website in it says Live, Offline or Draft", /live \? "Live" : offline \? "Offline" : "Draft"/.test(fullDialog) && /offline: i\.id === offline\?\.id/.test(client))
   }
   {
     /*
@@ -1171,8 +1197,8 @@ section("A form that says it worked, did")
 {
   console.log("\n  Storelib AI does not lose half of itself after one message")
   const chat = read("components/website-builder/theme-chat.tsx")
-  const empty = chat.slice(chat.indexOf("exchanges.length === 0 ? ("), chat.indexOf('<div className="shrink-0 border-t border-border p-2.5">'))
-  const composer = chat.slice(chat.indexOf('<div className="shrink-0 border-t border-border p-2.5">'))
+  const empty = chat.slice(chat.indexOf("exchanges.length === 0 ? ("), chat.indexOf('<div className="min-w-0 shrink-0 border-t border-border p-2.5 [overflow-wrap:anywhere]">'))
+  const composer = chat.slice(chat.indexOf('<div className="min-w-0 shrink-0 border-t border-border p-2.5 [overflow-wrap:anywhere]">'))
 
   check("the mode row is with the box you type into", /\["change", "Change this page"\]/.test(composer))
   check("and not only in the empty state", !/\["change", "Change this page"\]/.test(empty))
@@ -1215,6 +1241,170 @@ section("A form that says it worked, did")
     !/\[data-section-box\]:not\(\[data-chrome\]\)\+/.test(css),
   )
   check("nothing is added above the first section or below the last", /never above the first or below the last/.test(css))
+}
+
+// ── A library of five, under concurrency, and an import that can fail ────
+section("Two at once still make five, and an import that says what went wrong")
+{
+  /*
+    THE COUNT-THEN-INSERT RACE. Every route counted, then inserted. Two at
+    the same moment both counted 4 and the library held 6. The database now
+    refuses the sixth under a per creator lock, and until that SQL has run,
+    each route counts again after its insert and backs its own row out.
+  */
+  const sql = read("supabase/sql/RUN_THEME_LIBRARY_LIMIT.sql")
+  const limitInSql = Number(/if kept >= (\d+) then/.exec(sql)?.[1])
+  check("the database's limit is THEME_INSTALL_LIMIT, written once in SQL and pinned to the constant", limitInSql === THEME_INSTALL_LIMIT, String(limitInSql))
+  check("  a before insert trigger, one creator's inserts serialised by an advisory lock, then counted",
+    /before insert on public\.store_theme_installs/.test(sql) && /pg_advisory_xact_lock\(hashtextextended\('store_theme_installs:' \|\| new\.creator_id::text, 0\)\)/.test(sql) &&
+      sql.indexOf("pg_advisory_xact_lock") < sql.indexOf("select count(*) into kept"))
+  check("  its refusal is the code the page opens the sheet for", /raise exception 'library_full'/.test(sql) && LIBRARY_FULL_CODE === "library_full")
+  check("  the migration is the same file", read("supabase/migrations/20260928_theme_library_limit.sql") === sql)
+  check("isLibraryFullError reads the database's refusal and nothing else",
+    isLibraryFullError({ message: "library_full" }) && !isLibraryFullError({ message: "duplicate key" }) && !isLibraryFullError(null) && !isLibraryFullError({}))
+
+  /* A fake admin client: a count, and a record of what was deleted. */
+  const fake = (count: number | null, error: unknown = null) => {
+    const deleted: unknown[][] = []
+    const client = {
+      from: () => ({
+        select: () => ({ eq: async () => ({ count, error }) }),
+        delete: () => ({ eq: (_k: string, id: unknown) => ({ eq: async (_k2: string, creator: unknown) => { deleted.push([id, creator]); return { error: null } } }) }),
+      }),
+    }
+    return { client: client as never, deleted }
+  }
+  const over = fake(THEME_INSTALL_LIMIT + 1)
+  const atLimit = fake(THEME_INSTALL_LIMIT)
+  const unread = fake(null, { message: "timeout" })
+  const [overKept, atKept, unreadKept] = await Promise.all([
+    keptWithinLimit(over.client, "creator-1", "new-1"),
+    keptWithinLimit(atLimit.client, "creator-1", "new-2"),
+    keptWithinLimit(unread.client, "creator-1", "new-3"),
+  ])
+  check("  the recount backs out the insert that took the library past the limit, scoped to its creator",
+    overKept === false && JSON.stringify(over.deleted) === JSON.stringify([["new-1", "creator-1"]]))
+  check("  and keeps the one that filled it exactly, and keeps a website when the count cannot be read",
+    atKept === true && atLimit.deleted.length === 0 && unreadKept === true && unread.deleted.length === 0)
+
+  const routes = {
+    add: read("app/api/website-builder/themes/add/route.ts"),
+    duplicate: read("app/api/website-builder/themes/[installId]/duplicate/route.ts"),
+    import: read("app/api/website-builder/themes/import/route.ts"),
+  }
+  for (const [name, src] of Object.entries(routes)) {
+    const insertAt = src.indexOf('.from("store_theme_installs")\n    .insert(') >= 0 ? src.indexOf('.from("store_theme_installs")\n    .insert(') : src.indexOf('.from("store_theme_installs")\n      .insert(')
+    check(`  ${name}: the refusal and the recount both answer as a full library`,
+      /isLibraryFullError\((installErr|error)\)/.test(src) && /keptWithinLimit\(admin, (creator\.id|creatorId), (newInstall\.id as string|data\.id as string)\)/.test(src) &&
+        (src.match(/code: LIBRARY_FULL_CODE/g) ?? []).length >= 3 && insertAt >= 0)
+  }
+  const nextSort = read("lib/website-builder/library-limit.ts").slice(read("lib/website-builder/library-limit.ts").indexOf("export async function nextSortOrder"))
+  check("nextSortOrder is the creator's own highest place plus one", /\.eq\("creator_id", creatorId\)/.test(nextSort) && /top \+ 1/.test(nextSort))
+  check("a copy or an import that cannot write its pages removes itself rather than leaving an empty website",
+    /if \(settingsErr\) return undo\(\)/.test(routes.duplicate) && /if \(pagesErr\) return undo\(\)/.test(routes.duplicate) && /if \(filesErr\) return undo\(\)/.test(routes.duplicate) &&
+      /async function fillInstall/.test(routes.import) && /await admin\.from\("store_theme_installs"\)\.delete\(\)\.eq\("id", installId\)/.test(routes.import))
+  check("an import from the older manifest no longer writes a null theme into a NOT NULL column",
+    !/theme_id: manifest\.install\?\.theme_id \?\? null/.test(routes.import) && /catalogThemeId\(admin, manifest\.install\?\.theme_id\)/.test(routes.import) && !/function extToMime/.test(routes.import))
+  check("a duplicate's name is text of at most 80 characters", /typeof body\?\.name === "string" \? body\.name\.trim\(\)\.slice\(0, 80\)/.test(routes.duplicate))
+  check("the add route's already-in-library check sees a theme that has been duplicated",
+    /\.eq\("theme_id", themeId\)\s*\.limit\(1\)/.test(routes.add) && /existing && existing\.length > 0/.test(routes.add))
+  const install = read("app/api/website-builder/themes/[installId]/route.ts")
+  check("rename takes text only, trimmed, at most 80, and bad JSON is a 400",
+    /await req\.json\(\)\.catch\(\(\) => null\)/.test(install) && /typeof body\?\.name === "string"/.test(install) && /name\.length > 80/.test(install))
+  check("publish reads a bad body as an invalid action, not a crash", /const body = await req\.json\(\)\.catch\(\(\) => null\)/.test(read("app/api/website-builder/themes/[installId]/publish/route.ts")))
+  check("every route the page calls asks who is signed in and whether the website is theirs",
+    [routes.duplicate, install, read("app/api/website-builder/themes/[installId]/publish/route.ts")].every((src) => /auth\.getUser\(\)/.test(src) && /\.eq\("creator_id", creator\.id\)/.test(src)) &&
+      [routes.add, routes.import, read("app/api/website-builder/themes/import/upload/route.ts")].every((src) => /auth\.getUser\(\)/.test(src) && /Unauthorized/.test(src)))
+
+  /*
+    THE PACKAGE GOES TO STORAGE, NOT THROUGH A FUNCTION. A function refuses
+    a body over 4.5 MB before our code runs, so a form upload failed for
+    every package with real photographs in it while the route said 50 MB.
+  */
+  const uid = "0f8fad5b-d9cb-469f-a165-70867728950e"
+  const other = "7c9e6679-7425-40de-944b-e07fc1f90ae7"
+  const mine = importPathFor(uid, "1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed")
+  check("an import may read only a path this person was handed",
+    isOwnImportPath(mine, uid) && !isOwnImportPath(mine, other) && !isOwnImportPath(`${uid}/theme-imports/../x.zip`, uid) &&
+      !isOwnImportPath(`${uid}/theme-imports/`, uid) && !isOwnImportPath(`${uid}/other/1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed.zip`, uid) &&
+      !isOwnImportPath(42, uid) && !isOwnImportPath(mine, ".*"))
+  check("  a size is checked before a byte is sent: nothing, too much, or fine",
+    importSizeProblem(0) !== null && importSizeProblem("12") !== null && importSizeProblem(IMPORT_MAX_BYTES + 1) === IMPORT_TOO_LARGE && importSizeProblem(IMPORT_MAX_BYTES) === null)
+  check("  and a zip is known by its first four bytes",
+    looksLikeZip(new Uint8Array([0x50, 0x4b, 0x03, 0x04, 0])) && !looksLikeZip(new Uint8Array([0x89, 0x50, 0x4e, 0x47])) && !looksLikeZip(new Uint8Array([0x50, 0x4b])))
+  const upload = read("app/api/website-builder/themes/import/upload/route.ts")
+  check("  the upload route names the path itself, under the signed in user, after the size and the library are checked",
+    /importPathFor\(user\.id, randomUUID\(\)\)/.test(upload) && /createSignedUploadUrl\(path\)/.test(upload) &&
+      upload.indexOf("importSizeProblem(") < upload.indexOf("createSignedUploadUrl") && upload.indexOf("librarySlotsLeft(") < upload.indexOf("createSignedUploadUrl"))
+  const imp = routes.import
+  check("  the import route checks the path is theirs, the size from storage, then the first bytes, before unzipping",
+    /!isOwnImportPath\(stored, user\.id\)/.test(imp) && imp.indexOf("bucket.list(") < imp.indexOf("bucket.download(") &&
+      imp.indexOf("looksLikeZip(buf)") < imp.indexOf("JSZip.loadAsync(buf)") && /recorded > IMPORT_MAX_BYTES/.test(imp))
+  check("  and removes the stored file whatever the answer, a full library included",
+    /\} finally \{\s*await discard\(\)\s*\}/.test(imp) && /if \(\(await librarySlotsLeft\(supabase, creator\.id\)\) === 0\) \{\s*await discard\(\)/.test(imp))
+  check("  a form from an older page is size checked by its declared length before it is read, and a bad form is a 400",
+    /req\.headers\.get\("content-length"\)/.test(imp) && imp.indexOf('req.headers.get("content-length")') < imp.indexOf("req.formData()") && /try \{\s*form = await req\.formData\(\)\s*\} catch/.test(imp))
+
+  const incoming = stripComments(read("app/app/website-builder/incoming.tsx"))
+  check("the page: a place, the file straight to storage with its progress, then the import",
+    /fetchAnswer\("\/api\/website-builder\/themes\/import\/upload"/.test(incoming) && /sendWithProgress\("PUT", url, file, on/.test(incoming) &&
+      /fetchAnswer\("\/api\/website-builder\/themes\/import", \{ path \}, ANSWER_MS\)/.test(incoming) &&
+      incoming.indexOf("importSizeProblem(file.size)") < incoming.indexOf('fetchAnswer("/api/website-builder/themes/import/upload"'))
+  check("  every server request gives up in time rather than leaving the row spinning", /new AbortController\(\)/.test(incoming) && /setTimeout\(\(\) => ctl\.abort\(\), ms\)/.test(incoming))
+  const wb = stripComments(read("app/app/website-builder/website-builder-client.tsx"))
+  check("  one request at a time, held by a ref, so two taps in a frame make one website", /if \(inFlight\.current\) return\s*inFlight\.current = true/.test(wb) && /\} finally \{\s*inFlight\.current = false/.test(wb))
+  check("  a page that was left does not refresh or open anything when the answer comes", /toast\(\{ title: done\(data\) \}\)\s*if \(!mounted\.current\) return/.test(wb))
+  check("  the upload bar holds still under reduced motion", /transition-transform duration-200 ease-out motion-reduce:transition-none/.test(incoming))
+
+  /* The upload itself, against a fake XMLHttpRequest, with timers that fire at once. */
+  type Fake = { upload: Record<string, (e?: unknown) => void>; onload?: () => void; onerror?: () => void; onabort?: () => void; status: number; responseText: string; aborted: boolean }
+  const g = globalThis as unknown as { XMLHttpRequest: unknown; setTimeout: typeof setTimeout; clearTimeout: typeof clearTimeout }
+  const realXhr = g.XMLHttpRequest
+  const realSet = g.setTimeout
+  const realClear = g.clearTimeout
+  const run = async (script: (x: Fake) => void, fastTimers: boolean) => {
+    let made: Fake | null = null
+    g.XMLHttpRequest = class {
+      upload: Record<string, (e?: unknown) => void> = {}
+      status = 0
+      responseText = ""
+      aborted = false
+      onload?: () => void
+      onerror?: () => void
+      onabort?: () => void
+      open() {}
+      setRequestHeader() {}
+      abort() { this.aborted = true; this.onabort?.() }
+      send() { made = this as unknown as Fake; script(made) }
+    }
+    const armed: number[] = []
+    if (fastTimers) {
+      g.setTimeout = ((fn: () => void, ms: number) => { armed.push(ms); return realSet(fn, 0) }) as typeof setTimeout
+    }
+    const steps: string[] = []
+    try {
+      const answer = await sendWithProgress("PUT", "/x", "body" as never, { progress: (f) => steps.push(`p${f}`), sent: () => steps.push("sent") })
+      return { answer, steps, armed, xhr: made as Fake | null }
+    } finally {
+      g.XMLHttpRequest = realXhr
+      g.setTimeout = realSet
+      g.clearTimeout = realClear
+    }
+  }
+  const stalled = await run(() => { /* nothing ever moves */ }, true)
+  check("an upload that stops moving is aborted and says so, after STALL_MS",
+    stalled.answer.ok === false && stalled.answer.failure === "timeout" && !!stalled.xhr?.aborted && stalled.armed[0] === STALL_MS)
+  const dropped = await run((x) => realSet(() => x.onerror?.(), 0), false)
+  check("  a dropped connection answers once, as a network failure", dropped.answer.ok === false && dropped.answer.failure === "network")
+  const fine = await run((x) => {
+    x.upload.onprogress?.({ lengthComputable: true, loaded: 5, total: 10 })
+    x.upload.onload?.()
+    x.status = 200
+    x.responseText = JSON.stringify({ ok: true })
+    realSet(() => x.onload?.(), 0)
+  }, false)
+  check("  and one that lands reports its progress, then that it was sent, then the answer",
+    fine.answer.ok === true && fine.steps.join(",") === "p0.5,p1,sent" && fine.answer.failure === undefined)
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)

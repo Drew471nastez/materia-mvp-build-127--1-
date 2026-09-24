@@ -37,6 +37,7 @@
 import * as React from "react"
 import { Globe } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { WaitingArea } from "@/components/ui/activity-spinner"
 import type { BreakdownRow, Headline, OnePageReports, Reports, Series } from "@/lib/analytics/reports"
 import { axisWidth, compactCount, compactMoney, compactPercent } from "@/lib/analytics/chart-scale"
 import { AxisLabels, MORPH_MS, fixedScale, morphEase } from "@/components/app/chart-morph"
@@ -529,17 +530,13 @@ function Funnel({ steps }: { steps: Reports["funnel"] }) {
 
 /* ─── Loading ─────────────────────────────────────────────────────────── */
 
-function Skeleton({ lines = false }: { lines?: boolean }) {
-  return (
-    <div className="animate-pulse" aria-hidden>
-      {lines ? <div className="h-7 w-28 rounded-md bg-[#f1f2f4]" /> : null}
-      <div className={cn("space-y-4", lines ? "mt-5" : "mt-1")}>
-        {[0, 1, 2, 3].map((i) => (
-          <div key={i} className="h-3 rounded bg-[#f3f4f6]" style={{ width: `${88 - i * 14}%` }} />
-        ))}
-      </div>
-    </div>
-  )
+/**
+ * A card whose figures are still on their way: the room they take (the grey
+ * lines this used to draw measured 144px with a headline and 100px without)
+ * and, only past half a second, the spinner. No drawing of rows.
+ */
+function Waiting({ lines = false }: { lines?: boolean }) {
+  return <WaitingArea className={lines ? "h-[144px]" : "h-[100px]"} />
 }
 
 /* ─── The grids ───────────────────────────────────────────────────────── */
@@ -584,7 +581,7 @@ function VisitCards({ b, blank, noun }: { b: Breakdowns | null; blank: boolean; 
       >
         <div className={BODY}>
           {blank || !b ? (
-            <Skeleton />
+            <Waiting />
           ) : (
             <BarList
               key={sourceTab}
@@ -606,7 +603,7 @@ function VisitCards({ b, blank, noun }: { b: Breakdowns | null; blank: boolean; 
       >
         <div className={BODY}>
           {blank || !b ? (
-            <Skeleton />
+            <Waiting />
           ) : (
             <BarList
               key={placeTab}
@@ -632,7 +629,7 @@ function VisitCards({ b, blank, noun }: { b: Breakdowns | null; blank: boolean; 
       >
         <div className={BODY}>
           {blank || !b ? (
-            <Skeleton />
+            <Waiting />
           ) : (
             <BarList
               key={deviceTab}
@@ -660,7 +657,7 @@ function StoreGrid({ r }: { r: Reports | null }) {
     <>
       <Card title="Total sales by channel" help="Money taken in the period, less refunds, split by where the order was placed: your Storelib page or your website. Orders from before the channel was recorded count as your Storelib page.">
         <div className={BODY}>
-          {blank ? <Skeleton /> : r!.salesByChannel.length === 0 ? <Empty>No orders in this period</Empty> : (
+          {blank ? <Waiting /> : r!.salesByChannel.length === 0 ? <Empty>No orders in this period</Empty> : (
             <Donut rows={r!.salesByChannel} total={fmtMoneyShort(r!.sales.value)} format={fmtMoneyShort} sub={orders} />
           )}
         </div>
@@ -668,7 +665,7 @@ function StoreGrid({ r }: { r: Reports | null }) {
 
       <Card title="Average order value over time" help="What a paying buyer spent in one order, on average. Free orders are left out.">
         <div className={BODY}>
-          {blank ? <Skeleton lines /> : (
+          {blank ? <Waiting lines /> : (
             <>
               <Figure value={fmtMoney(r!.aov.value)} h={r!.aov} />
               <LineChart series={r!.aov.series} format={fmtMoney} kind="money" />
@@ -679,7 +676,7 @@ function StoreGrid({ r }: { r: Reports | null }) {
 
       <Card title="Total sales by product" help="Each product's share of the money taken, less refunds, and how many were sold.">
         <div className={BODY}>
-          {blank ? <Skeleton /> : (
+          {blank ? <Waiting /> : (
             <BarList
               title="Total sales by product"
               rows={r!.salesByProduct}
@@ -693,7 +690,7 @@ function StoreGrid({ r }: { r: Reports | null }) {
 
       <Card title="Sessions over time" help="Visits to your Storelib page and your website. A visit ends after 30 minutes without opening a page. Your own visits and search engine robots are not counted.">
         <div className={BODY}>
-          {blank ? <Skeleton lines /> : (
+          {blank ? <Waiting lines /> : (
             <>
               <Figure value={fmtCount(r!.sessions.value)} h={r!.sessions} />
               <LineChart series={r!.sessions.series} format={fmtCount} kind="count" />
@@ -704,7 +701,7 @@ function StoreGrid({ r }: { r: Reports | null }) {
 
       <Card title="Conversion rate over time" help="Orders divided by visits: how many visits ended in an order.">
         <div className={BODY}>
-          {blank ? <Skeleton lines /> : (
+          {blank ? <Waiting lines /> : (
             <>
               <Figure value={fmtPct(r!.conversion.value)} h={r!.conversion} />
               <LineChart series={r!.conversion.series} format={fmtPct} kind="percent" />
@@ -715,7 +712,7 @@ function StoreGrid({ r }: { r: Reports | null }) {
 
       <Card title="Conversion rate breakdown" help="Of the visits in the period, how many pressed Buy, how many reached the checkout, and how many ordered.">
         <div className={BODY}>
-          {blank ? <Skeleton /> : (
+          {blank ? <Waiting /> : (
             <>
               <Figure value={fmtPct(r!.conversion.value)} h={r!.conversion} />
               <Funnel steps={r!.funnel} />
@@ -728,7 +725,7 @@ function StoreGrid({ r }: { r: Reports | null }) {
 
       <Card title="Sessions by landing page" help="The page each visit started on." className="md:col-span-2">
         <div className={BODY}>
-          {blank ? <Skeleton /> : (
+          {blank ? <Waiting /> : (
             <BarList
               title="Sessions by landing page"
               rows={r!.breakdowns.landing}
@@ -742,7 +739,7 @@ function StoreGrid({ r }: { r: Reports | null }) {
 
       <Card title="Sessions by channel" help="Visits to your Storelib page, and visits to the website you built.">
         <div className={BODY}>
-          {blank ? <Skeleton /> : r!.sessions.value === 0 ? <Empty>No visits in this period</Empty> : (
+          {blank ? <Waiting /> : r!.sessions.value === 0 ? <Empty>No visits in this period</Empty> : (
             <Donut rows={r!.breakdowns.channel} total={fmtCount(r!.sessions.value)} format={fmtCount} />
           )}
         </div>
@@ -764,7 +761,7 @@ function OnePageGrid({ r, hasPage }: { r: OnePageReports | null; hasPage: boolea
     <>
       <Card title="Views over time" help="Visits to your OnePage. One person counts once a day, however many times they reload it.">
         <div className={BODY}>
-          {blank ? <Skeleton lines /> : (
+          {blank ? <Waiting lines /> : (
             <>
               <Figure value={fmtCount(r!.views.value)} h={r!.views} />
               <LineChart series={r!.views.series} format={fmtCount} kind="count" />
@@ -775,7 +772,7 @@ function OnePageGrid({ r, hasPage }: { r: OnePageReports | null; hasPage: boolea
 
       <Card title="Link clicks over time" help="Taps on the links and buttons of your OnePage. One person's taps on the same link count once a day.">
         <div className={BODY}>
-          {blank ? <Skeleton lines /> : (
+          {blank ? <Waiting lines /> : (
             <>
               <Figure value={fmtCount(r!.clicks.value)} h={r!.clicks} />
               <LineChart series={r!.clicks.series} format={fmtCount} kind="count" />
@@ -786,7 +783,7 @@ function OnePageGrid({ r, hasPage }: { r: OnePageReports | null; hasPage: boolea
 
       <Card title="Click-through rate" help="Link clicks divided by views: how often a visit led somewhere.">
         <div className={BODY}>
-          {blank ? <Skeleton lines /> : (
+          {blank ? <Waiting lines /> : (
             <>
               <Figure value={fmtPct(r!.ctr.value)} h={r!.ctr} />
               <LineChart series={r!.ctr.series} format={fmtPct} kind="percent" />
@@ -797,7 +794,7 @@ function OnePageGrid({ r, hasPage }: { r: OnePageReports | null; hasPage: boolea
 
       <Card title="Top links" help="Which links and buttons were tapped most, by the name they have on your OnePage." className="md:col-span-2">
         <div className={BODY}>
-          {blank ? <Skeleton /> : (
+          {blank ? <Waiting /> : (
             <BarList
               title="Top links"
               rows={r!.links}
@@ -811,7 +808,7 @@ function OnePageGrid({ r, hasPage }: { r: OnePageReports | null; hasPage: boolea
 
       <Card title="Subscribers over time" help="People who left their email on your OnePage.">
         <div className={BODY}>
-          {blank ? <Skeleton lines /> : (
+          {blank ? <Waiting lines /> : (
             <>
               <Figure value={fmtCount(r!.subscribers.value)} h={r!.subscribers} />
               <LineChart series={r!.subscribers.series} format={fmtCount} kind="count" />

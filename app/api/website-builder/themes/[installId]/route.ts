@@ -105,14 +105,17 @@ export async function PATCH(req: Request, { params }: Params) {
   const { error, status, supabase } = await getCreatorAndInstall(installId)
   if (error) return NextResponse.json({ error }, { status })
 
-  const body = await req.json()
-  const { name } = body as { name?: string }
+  /* Text, trimmed, at most the 80 characters Rename allows. A body that is
+     not JSON, or a name that is not text, is a 400 rather than a 500. */
+  const body = (await req.json().catch(() => null)) as { name?: unknown } | null
+  const name = typeof body?.name === "string" ? body.name.trim() : ""
 
-  if (!name?.trim()) return NextResponse.json({ error: "Name is required" }, { status: 400 })
+  if (!name) return NextResponse.json({ error: "Name is required" }, { status: 400 })
+  if (name.length > 80) return NextResponse.json({ error: "Keep the name to 80 characters." }, { status: 400 })
 
   const { data, error: updateError } = await supabase!
     .from("store_theme_installs")
-    .update({ name: name.trim() })
+    .update({ name })
     .eq("id", installId)
     .select()
     .single()

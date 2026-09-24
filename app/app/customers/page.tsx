@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation"
-import { createClient } from "@/lib/supabase/server"
+import { creatorForRequest, currentUserForRequest } from "@/lib/auth/request-scope"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -11,42 +11,48 @@ export const metadata = {
 }
 
 export default async function CustomersPage() {
-  const supabase = await createClient()
   const admin = createAdminClient()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  /* The /app layout's own answers, through the per-request cache
+     (lib/auth/request-scope.ts): the user, and the creator row on the
+     caller's own client, as this page read it before. */
+  const { user } = await currentUserForRequest()
 
   if (!user) {
     redirect("/login")
   }
 
-  const { data: creator } = await supabase.from("creators").select("id").eq("user_id", user.id).single()
+  const creator = await creatorForRequest(user.id)
 
   if (!creator) {
     redirect("/onboarding")
   }
 
-  // Fetch customers
-  const { data: customers } = await admin
-    .from("customers")
-    .select("*")
-    .eq("creator_id", creator.id)
-    .order("created_at", { ascending: false })
-
-  // Fetch orders with product info for each customer
-  const { data: allOrders } = await admin
-    .from("orders")
-    .select(`
+  /*
+    FOUR TRIPS, WHERE THERE WERE FIVE. The customers and the orders both
+    need only the creator's id, so the customers are read while the product
+    ids for the orders are: they were asked one after the other. The same
+    queries, on the service role as before, scoped by this creator.
+  */
+  const readOrders = async () => {
+    const { data: products } = await admin.from("products").select("id").eq("creator_id", creator.id)
+    return admin
+      .from("orders")
+      .select(`
       *,
       product:products(id, title, type)
     `)
-    .in(
-      "product_id",
-      (await admin.from("products").select("id").eq("creator_id", creator.id)).data?.map((p) => p.id) || [],
-    )
-    .order("created_at", { ascending: false })
+      .in("product_id", products?.map((p) => p.id) || [])
+      .order("created_at", { ascending: false })
+  }
+  const [{ data: customers }, { data: allOrders }] = await Promise.all([
+    admin
+      .from("customers")
+      .select("*")
+      .eq("creator_id", creator.id)
+      .order("created_at", { ascending: false }),
+    readOrders(),
+  ])
 
   const formatPrice = (cents: number) => {
     return new Intl.NumberFormat("en-US", {

@@ -13,7 +13,8 @@ import { coverAfterCreate, isPackagedCover, renderOrigin, storeCover } from "@/l
 import { MAX_BYTES as SNAPSHOT_MAX_BYTES } from "@/lib/website-builder/snapshot"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { LIBRARY_FULL_CODE, LIBRARY_FULL_MESSAGE, librarySlotsLeft, nextSortOrder } from "@/lib/website-builder/library-limit"
+import { LIBRARY_FULL_CODE, LIBRARY_FULL_MESSAGE, isLibraryFullError, keptWithinLimit, librarySlotsLeft, nextSortOrder } from "@/lib/website-builder/library-limit"
+import { IMPORT_BUCKET, IMPORT_MAX_BYTES, IMPORT_NOT_A_PACKAGE, IMPORT_TOO_LARGE, isOwnImportPath, looksLikeZip } from "@/lib/website-builder/theme-import"
 import JSZip from "jszip"
 import {
   parseThemePackageManifest,
@@ -69,29 +70,81 @@ export async function POST(req: Request) {
     .maybeSingle()
   if (!creator) return NextResponse.json({ error: "Creator not found" }, { status: 404 })
 
-  /* Asked before the upload is read: a full library refuses a 50 MB zip
-     without unpacking it first. */
+  /*
+    THE PACKAGE, FROM STORAGE OR FROM A FORM. The page puts the file in
+    storage first and sends its path (lib/website-builder/theme-import.ts);
+    a page from before that change still posts a form, which only a small
+    file ever gets through. A stored file is removed once this request is
+    done with it, whatever the answer.
+  */
+  const stored = (req.headers.get("content-type") ?? "").includes("application/json")
+    ? ((await req.json().catch(() => null)) as { path?: unknown } | null)?.path
+    : undefined
+  if (stored !== undefined && !isOwnImportPath(stored, user.id)) {
+    return NextResponse.json({ error: "No file uploaded" }, { status: 400 })
+  }
+  const bucket = admin.storage.from(IMPORT_BUCKET)
+  const discard = () => (typeof stored === "string" ? bucket.remove([stored]).then(() => undefined, () => undefined) : Promise.resolve())
+
+  /* Asked before the package is read: a full library refuses a 50 MB zip
+     without downloading or unpacking it. */
   if ((await librarySlotsLeft(supabase, creator.id)) === 0) {
+    await discard()
     return NextResponse.json({ error: LIBRARY_FULL_MESSAGE, code: LIBRARY_FULL_CODE }, { status: 400 })
   }
 
-  // Parse multipart form
-  const form = await req.formData()
-  const file = form.get("file")
-  if (!(file instanceof Blob)) {
-    return NextResponse.json({ error: "No file uploaded" }, { status: 400 })
+  let buf: Buffer
+  if (typeof stored === "string") {
+    try {
+      /* The size from storage's own record, before a byte is downloaded. */
+      const slash = stored.lastIndexOf("/")
+      const name = stored.slice(slash + 1)
+      const { data: listed } = await bucket.list(stored.slice(0, slash), { search: name, limit: 1 })
+      const entry = listed?.find((f) => f.name === name)
+      if (!entry) return NextResponse.json({ error: "The upload did not arrive. Try again." }, { status: 400 })
+      const recorded = Number((entry.metadata as { size?: unknown } | null)?.size)
+      if (Number.isFinite(recorded) && recorded > IMPORT_MAX_BYTES) {
+        return NextResponse.json({ error: IMPORT_TOO_LARGE }, { status: 413 })
+      }
+      const { data: blob, error: downloadErr } = await bucket.download(stored)
+      if (downloadErr || !blob) return NextResponse.json({ error: "The upload did not arrive. Try again." }, { status: 400 })
+      if (blob.size > IMPORT_MAX_BYTES) return NextResponse.json({ error: IMPORT_TOO_LARGE }, { status: 413 })
+      buf = Buffer.from(await blob.arrayBuffer())
+    } finally {
+      await discard()
+    }
+  } else {
+    /* A declared length over the limit is refused before the body is read. */
+    if (Number(req.headers.get("content-length") ?? 0) > IMPORT_MAX_BYTES + 64 * 1024) {
+      return NextResponse.json({ error: IMPORT_TOO_LARGE }, { status: 413 })
+    }
+    let form: FormData
+    try {
+      form = await req.formData()
+    } catch {
+      return NextResponse.json({ error: "No file uploaded" }, { status: 400 })
+    }
+    const file = form.get("file")
+    if (!(file instanceof Blob)) {
+      return NextResponse.json({ error: "No file uploaded" }, { status: 400 })
+    }
+    if (file.size > IMPORT_MAX_BYTES) {
+      return NextResponse.json({ error: IMPORT_TOO_LARGE }, { status: 413 })
+    }
+    buf = Buffer.from(await file.arrayBuffer())
   }
-  if (file.size > 50 * 1024 * 1024) {
-    return NextResponse.json({ error: "File too large (max 50 MB)" }, { status: 413 })
+
+  /* Its first four bytes, before the unzipper sees the rest. */
+  if (!looksLikeZip(buf)) {
+    return NextResponse.json({ error: IMPORT_NOT_A_PACKAGE }, { status: 400 })
   }
 
   // Load the zip
-  const buf = Buffer.from(await file.arrayBuffer())
   let zip: JSZip
   try {
     zip = await JSZip.loadAsync(buf)
   } catch {
-    return NextResponse.json({ error: "Invalid zip file" }, { status: 400 })
+    return NextResponse.json({ error: IMPORT_NOT_A_PACKAGE }, { status: 400 })
   }
 
   /**
@@ -200,49 +253,14 @@ export async function POST(req: Request) {
 
     const sortOrder = await nextSortOrder(admin, creator.id)
     const installName = String(pkg.theme.name ?? "Imported theme").slice(0, 80)
-    /**
-     * `store_theme_installs.theme_id` is NOT NULL and a foreign key into
-     * `themes`. A package carries the id of the theme it came from, and that
-     * id means nothing in an account whose catalogue never had it — which is
-     * the ordinary case for a package from somebody else. Writing it
-     * unchecked fails the insert and the import dies with a 500 the person
-     * can do nothing about, so the id is used only when the row is really
-     * there, and the default theme stands in when it is not.
-     */
-    const claimed = typeof pkg.theme.source_theme_id === "string" ? pkg.theme.source_theme_id : null
-    let themeId = STORELIB_DEFAULT_ID
-    if (claimed && UUID.test(claimed)) {
-      const { data: known } = await admin.from("themes").select("id").eq("id", claimed).maybeSingle()
-      if (known) themeId = claimed
-    }
-    if (themeId === STORELIB_DEFAULT_ID) {
-      const { data: haveDefault } = await admin.from("themes").select("id").eq("id", STORELIB_DEFAULT_ID).maybeSingle()
-      if (!haveDefault) {
-        const def = THEME_REGISTRY.find(t => t.id === STORELIB_DEFAULT_ID)
-        if (def) await admin.from("themes").upsert(themeCatalogRow(def), { onConflict: "id" })
-      }
-    }
-    const { data: created, error: createErr } = await admin
-      .from("store_theme_installs")
-      .insert({
-        creator_id: creator.id,
-        theme_id: themeId,
-        name: installName,
-        /* A draft: "unpublished" means a site that was live and was taken offline, and this one never was. */
-        status: "draft",
-        sort_order: sortOrder,
-        is_custom: true,
-      })
-      .select("id")
-      .single()
-    if (createErr || !created) {
-      return NextResponse.json({ error: createErr?.message ?? "Failed to create install" }, { status: 500 })
-    }
+    const made = await createInstall(admin, creator.id, {
+      theme_id: await catalogThemeId(admin, pkg.theme.source_theme_id),
+      name: installName,
+      sort_order: sortOrder,
+    })
+    if (made instanceof NextResponse) return made
+    const created = made
 
-    await admin.from("store_theme_settings").insert({ install_id: created.id, settings, draft_settings: settings })
-    if (pages.length > 0) {
-      await admin.from("store_theme_pages").insert(pages.map(p => ({ install_id: created.id, page_key: p.page_key, sections: p.sections })))
-    }
     /**
      * The theme's own source files. Only those that differ from what this
      * build ships are stored: a package that carries the same hero as the
@@ -253,7 +271,8 @@ export async function POST(req: Request) {
       .filter(([path]) => path.endsWith(".storelib"))
       .filter(([path, content]) => DEFAULT_THEME_SOURCES[path] !== content)
       .map(([path, content]) => ({ install_id: created.id, path, content }))
-    if (rows.length > 0) await admin.from("store_theme_custom_files").insert(rows)
+    const filled = await fillInstall(admin, created.id, settings, pages, rows)
+    if (filled) return filled
 
     /*
       ITS COVER FROM THE START. The picture the package carried, straight
@@ -364,41 +383,17 @@ export async function POST(req: Request) {
 
   const installName = (manifest.install?.name ?? "Imported Theme").slice(0, 80)
 
-  const { data: newInstall, error: insertErr } = await admin
-    .from("store_theme_installs")
-    .insert({
-      creator_id: creator.id,
-      theme_id: manifest.install?.theme_id ?? null,
-      name: installName,
-      status: "draft",
-      sort_order: nextOrder,
-      is_custom: true,
-    })
-    .select("id")
-    .single()
-  if (insertErr || !newInstall) {
-    return NextResponse.json({ error: insertErr?.message ?? "Failed to create install" }, { status: 500 })
-  }
+  const made = await createInstall(admin, creator.id, {
+    theme_id: await catalogThemeId(admin, manifest.install?.theme_id),
+    name: installName,
+    sort_order: nextOrder,
+  })
+  if (made instanceof NextResponse) return made
+  const newInstall = made
 
-  // Insert settings (as draft so the user can review before publishing)
-  await admin
-    .from("store_theme_settings")
-    .insert({
-      install_id: newInstall.id,
-      settings: importedSettings,
-      draft_settings: importedSettings,
-    })
-
-  // Insert pages
-  if (importedPages.length > 0) {
-    await admin
-      .from("store_theme_pages")
-      .insert(importedPages.map(p => ({
-        install_id: newInstall.id,
-        page_key: p.page_key,
-        sections: p.sections,
-      })))
-  }
+  /* Settings as a draft too, so the person can look before publishing. */
+  const filled = await fillInstall(admin, newInstall.id, importedSettings, importedPages, [])
+  if (filled) return filled
 
   /* Photographed from the start, like every other way a website is made. */
   after(() => coverAfterCreate({ installId: newInstall.id as string, userId: user.id, creatorId: creator.id as string }, renderOrigin(req.url), "import"))
@@ -406,15 +401,83 @@ export async function POST(req: Request) {
   return NextResponse.json({ ok: true, install_id: newInstall.id, name: installName })
 }
 
-function extToMime(ext: string): string {
-  switch (ext) {
-    case "jpg":
-    case "jpeg": return "image/jpeg"
-    case "png":  return "image/png"
-    case "gif":  return "image/gif"
-    case "webp": return "image/webp"
-    case "svg":  return "image/svg+xml"
-    case "avif": return "image/avif"
-    default:     return "application/octet-stream"
+type Admin = ReturnType<typeof createAdminClient>
+
+/**
+ * The catalogue theme a new install points at.
+ *
+ * `store_theme_installs.theme_id` is NOT NULL and a foreign key into
+ * `themes`. A package carries the id of the theme it came from, and that id
+ * means nothing in an account whose catalogue never had it, which is the
+ * ordinary case for a package from somebody else. Written unchecked, the
+ * insert failed and the import died with a 500 the person could do nothing
+ * about (the older manifest format wrote null, which failed every time). So
+ * the id is used only when the row is really there, and the default theme
+ * stands in when it is not, registered first if this database lacks it.
+ */
+async function catalogThemeId(admin: Admin, claimed: unknown): Promise<string> {
+  if (typeof claimed === "string" && UUID.test(claimed)) {
+    const { data: known } = await admin.from("themes").select("id").eq("id", claimed).maybeSingle()
+    if (known) return claimed
   }
+  const { data: haveDefault } = await admin.from("themes").select("id").eq("id", STORELIB_DEFAULT_ID).maybeSingle()
+  if (!haveDefault) {
+    const def = THEME_REGISTRY.find((t) => t.id === STORELIB_DEFAULT_ID)
+    if (def) await admin.from("themes").upsert(themeCatalogRow(def), { onConflict: "id" })
+  }
+  return STORELIB_DEFAULT_ID
+}
+
+/**
+ * The new install's row: a draft ("unpublished" means a site that was live
+ * and was taken offline, and this one never was), after every website
+ * already there. Two imports at once cannot make a sixth: the database
+ * refuses, or the recount backs this one out (lib/website-builder/library-limit.ts).
+ */
+async function createInstall(
+  admin: Admin,
+  creatorId: string,
+  fields: { theme_id: string; name: string; sort_order: number },
+): Promise<{ id: string } | NextResponse> {
+  const { data, error } = await admin
+    .from("store_theme_installs")
+    .insert({ creator_id: creatorId, ...fields, status: "draft", is_custom: true })
+    .select("id")
+    .single()
+  if (isLibraryFullError(error)) {
+    return NextResponse.json({ error: LIBRARY_FULL_MESSAGE, code: LIBRARY_FULL_CODE }, { status: 400 })
+  }
+  if (error || !data) {
+    return NextResponse.json({ error: error?.message ?? "Failed to create install" }, { status: 500 })
+  }
+  if (!(await keptWithinLimit(admin, creatorId, data.id as string))) {
+    return NextResponse.json({ error: LIBRARY_FULL_MESSAGE, code: LIBRARY_FULL_CODE }, { status: 400 })
+  }
+  return { id: data.id as string }
+}
+
+/**
+ * Its settings, pages and files, or nothing: a website missing its pages
+ * opens to an empty editor, which reads as loss. Any write that fails
+ * removes the install again (its rows go with it) and says so. Null when
+ * everything landed.
+ */
+async function fillInstall(
+  admin: Admin,
+  installId: string,
+  settings: Record<string, unknown>,
+  pages: { page_key: string; sections: unknown }[],
+  files: { install_id: string; path: string; content: string }[],
+): Promise<NextResponse | null> {
+  const writes = [
+    admin.from("store_theme_settings").insert({ install_id: installId, settings, draft_settings: settings }),
+    pages.length > 0
+      ? admin.from("store_theme_pages").insert(pages.map((p) => ({ install_id: installId, page_key: p.page_key, sections: p.sections })))
+      : Promise.resolve({ error: null }),
+    files.length > 0 ? admin.from("store_theme_custom_files").insert(files) : Promise.resolve({ error: null }),
+  ]
+  const failed = (await Promise.all(writes)).find((r) => r.error)
+  if (!failed) return null
+  await admin.from("store_theme_installs").delete().eq("id", installId)
+  return NextResponse.json({ error: "Could not import this theme. Try again." }, { status: 500 })
 }

@@ -21,6 +21,37 @@ import { cn } from "@/lib/utils"
  * speed instead of stopping it: a still spinner reads as a frozen screen.
  */
 
+/**
+ * How long a part of a page waits before it shows the spinner: the same half
+ * second a phone waits for a slow page (NAV_PHONE_SPINNER_AFTER_MS in
+ * lib/ui/app-navigation.ts; tests/app-shell-motion.test.ts holds the two
+ * equal). This file has no "use client", so it keeps its own copy: a server
+ * component importing a value from a client module gets a reference, not
+ * the number.
+ */
+export const SPINNER_WAIT_MS = 500
+
+/**
+ * A PART OF A PAGE THAT IS STILL COMING: the room it will take, empty, and
+ * the spinner in the middle of it only once SPINNER_WAIT_MS has passed. What
+ * this replaced were grey drawings of rows and bars ("no skeleton loading
+ * structure"), which flashed on every quick answer; most answers land before
+ * the half second and this shows nothing at all. The delay is CSS, so a
+ * server render needs no effect to start it.
+ */
+export function WaitingArea({ className, label = "Loading" }: { className?: string; label?: string }) {
+  return (
+    <div data-waiting-area="" className={cn("flex items-center justify-center", className)}>
+      <span
+        className="inline-flex opacity-0"
+        style={{ animation: `skeleton-reveal 150ms ease-out ${SPINNER_WAIT_MS}ms forwards` }}
+      >
+        <ActivitySpinner label={label} />
+      </span>
+    </div>
+  )
+}
+
 const SPOKES = 8
 /** The leading spoke is full strength; the one just ahead of it, the last in line, is this. */
 const TAIL = 0.28

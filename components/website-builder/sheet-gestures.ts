@@ -297,8 +297,16 @@ export function offsetsFor(input: {
 }): { height: number; offsets: number[] } {
   const stops = [...input.detents].sort((a, b) => a - b)
   const tallest = stops[stops.length - 1] ?? 0.92
-  const wanted = input.viewport - Math.round(input.viewport * tallest)
-  const height = input.viewport - clearOfBar(wanted, input.safeTop ?? 0, input.barBottom ?? 0)
+  const viewport = Number.isFinite(input.viewport) ? Math.max(0, input.viewport) : 0
+  const wanted = viewport - Math.round(viewport * tallest)
+  /*
+    Never below zero. The screen is measured in one effect and the bar in
+    another, so for a commit the bar can be known on a screen that is not
+    (0 tall), and on a window shorter than the bar the clearance is taller
+    than the window. A negative height is not a smaller sheet, it is an
+    invalid CSS length the browser drops, which leaves the last one standing.
+  */
+  const height = Math.max(0, viewport - clearOfBar(wanted, input.safeTop ?? 0, input.barBottom ?? 0))
 
   /**
    * SORTED, which is the whole correctness of the thing. A larger fraction is
@@ -307,7 +315,7 @@ export function offsetsFor(input: {
    * is not monotonic, and the snap below moves by index assuming it is.
    */
   const list = stops
-    .map((f) => Math.max(0, Math.round(height - input.viewport * f)))
+    .map((f) => Math.max(0, Math.round(height - viewport * f)))
     .sort((a, b) => a - b)
 
   return { height, offsets: [...list, Math.max(height - input.peekHeight, 0)] }
@@ -416,14 +424,47 @@ export function visibleKeyboard(input: {
   vvHeight: number
   vvTop: number
   scale?: number
-}): { inset: number; top: number; reported: boolean } {
+}): { inset: number; top: number; reported: boolean; zoomed: boolean } {
   const { layoutHeight, vvHeight } = input
   const zoomed = Math.abs((input.scale ?? 1) - 1) > 0.01
   const shrunk = layoutHeight - vvHeight
   const covered = Math.max(0, Math.round(layoutHeight - vvHeight - Math.max(0, input.vvTop)))
-  if (zoomed || shrunk <= REPORTED_KEYBOARD_MIN_PX) return { inset: covered, top: 0, reported: false }
+  if (zoomed || shrunk <= REPORTED_KEYBOARD_MIN_PX) return { inset: covered, top: 0, reported: false, zoomed }
   const top = Math.max(0, Math.min(Math.round(input.vvTop), Math.round(shrunk)))
-  return { inset: covered, top, reported: true }
+  return { inset: covered, top, reported: true, zoomed }
+}
+
+/**
+ * ===========================================================================
+ *  THE KEYBOARD THE SHEET MAKES ROOM FOR
+ * ===========================================================================
+ * What `visibleKeyboard` saw, and what ViewportVars published on <html>
+ * (`--kb-inset`), come to one number here.
+ *
+ *   reported   the covered strip, zero included: the platform spoke.
+ *   zoomed     nothing. A pinch shrinks the visual viewport by as much as a
+ *              keyboard does, and a sheet that padded itself by it would
+ *              leave half a screen of white under a list somebody was only
+ *              looking at closely.
+ *   otherwise  the published number, only when it is a keyboard's worth.
+ *
+ * The last line is the one that was wrong. When nothing is reported, what
+ * is left between the fixed box and the visible area is a browser toolbar
+ * drawn over the page (see `browserChromeGap` in mobile-editor-sheet.tsx),
+ * never more than REPORTED_KEYBOARD_MIN_PX, and ViewportVars publishes that
+ * same strip. Taken as a keyboard it grew the sheet, never measured the
+ * toolbar as a toolbar, and with focus on any button inside the sheet sent
+ * it to its tallest stop "for the keyboard". What is over that line when
+ * nothing was reported is the half screen estimate for a web view that
+ * reports nothing, or iOS shrinking `innerHeight` for a real keyboard.
+ */
+export function keyboardFor(
+  seen: { inset: number; reported: boolean; zoomed: boolean },
+  published: number,
+): number {
+  if (seen.reported) return Math.max(0, seen.inset)
+  if (seen.zoomed) return 0
+  return published > REPORTED_KEYBOARD_MIN_PX ? Math.round(published) : 0
 }
 
 /**
@@ -489,8 +530,42 @@ export function tapTarget(offsets: number[], current: number): number {
   return 0
 }
 
-export function isTap(input: { distance: number; ms: number }): boolean {
+export function isTap(input: { distance: number; ms: number; cancelled?: boolean }): boolean {
+  /*
+    A touch the system took away (touchcancel: a notification pulled down, a
+    call, the app switcher) or that a second finger turned into a pinch was
+    not a tap, however short and still it was. Counted as one, it stepped
+    the sheet to full under a finger that never let go of the glass.
+  */
+  if (input.cancelled) return false
   return input.distance < DRAG_THRESHOLD_PX && input.ms <= TAP_MAX_MS
+}
+
+/**
+ * ===========================================================================
+ *  THE MOUSE EVENTS A BROWSER MAKES UP AFTER A TAP ARE NOT A MOUSE
+ * ===========================================================================
+ * After a tap a browser sends mousedown, mouseup and click for the same
+ * spot, and the grab bar's mousedown would take them for a mouse starting a
+ * drag of its own. They are ignored; a real mouse never is.
+ *
+ * Where the browser says which is which (`sourceCapabilities.firesTouchEvents`,
+ * Chromium) that answer is final. Elsewhere a mousedown is the copy of a
+ * touch only if it comes soon after one AND where it was: the copies carry
+ * the touch's own coordinates. Time alone swallowed a real click on a
+ * laptop with a touchscreen for most of a second after any touch anywhere.
+ */
+export const TOUCH_MOUSE_GAP_MS = 800
+export const TOUCH_MOUSE_SLOP_PX = 24
+
+export function isCompatibilityMouse(input: {
+  /** `sourceCapabilities.firesTouchEvents`, undefined where there is none. */
+  firesTouchEvents?: boolean
+  msSinceTouch: number
+  distanceFromTouch: number
+}): boolean {
+  if (typeof input.firesTouchEvents === "boolean") return input.firesTouchEvents
+  return input.msSinceTouch < TOUCH_MOUSE_GAP_MS && input.distanceFromTouch <= TOUCH_MOUSE_SLOP_PX
 }
 
 /**

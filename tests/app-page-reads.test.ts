@@ -1,0 +1,186 @@
+/**
+ * ===========================================================================
+ *  WHAT AN /app PAGE WAITS FOR ON THE SERVER
+ * ===========================================================================
+ * "It takes too much." The client half is the stage and the spinner
+ * (tests/app-shell-motion.test.ts). This is the server half: a page is on
+ * screen only when its last read has answered, so what matters is how many
+ * reads it makes ONE AFTER ANOTHER. Every page asked the auth service who was
+ * signed in (a network round trip) and then asked its questions in a line,
+ * each waiting for the one before even when it needed nothing from it.
+ *
+ * Held here, per page, in round trips before and after (auth counts as one):
+ *
+ *   Home        4 -> 3   and its title no longer asks for the user and two
+ *                        rows a second time (3 more reads, now shared)
+ *   Products    4 -> 3   user, then creator and profile together, then products
+ *   Settings    6 -> 3   (4 with the first visit's profile upsert)
+ *   Payouts    ~10 -> 4  (5 outside USD, for the market rate)
+ *   Customers   5 -> 4
+ *   the layout  5 -> 4   on a full load; its user, profile and creator are
+ *                        the pages' own answers through the request cache
+ *
+ * And what must not change while doing it: every read keeps its client (the
+ * caller's own, under row-level security, or the service role where it was
+ * already), and its filters. Nothing that read as the user reads as the
+ * service role now.
+ *
+ * Run with:  npm run test:push
+ */
+
+import { readFileSync } from "node:fs"
+import { join } from "node:path"
+
+const root = process.cwd()
+const read = (p: string) => readFileSync(join(root, p), "utf8")
+const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")
+const flat = (s: string) => s.replace(/\s+/g, " ")
+
+let passed = 0
+let failed = 0
+const failures: string[] = []
+function check(name: string, ok: boolean) {
+  if (ok) {
+    passed++
+    console.log(`  ok    ${name}`)
+  } else {
+    failed++
+    failures.push(name)
+    console.log(`  FAIL  ${name}`)
+  }
+}
+function section(title: string) {
+  console.log(`\n${title}`)
+}
+
+/** The source of the first `Promise.all([` ... `])` after `from`, flattened. */
+function batchAfter(src: string, from: RegExp): string {
+  const at = src.search(from)
+  if (at < 0) return ""
+  const start = src.indexOf("Promise.all([", at)
+  if (start < 0) return ""
+  let depth = 0
+  for (let i = start + "Promise.all(".length; i < src.length; i++) {
+    if (src[i] === "[" || src[i] === "(") depth++
+    else if (src[i] === "]" || src[i] === ")") {
+      depth--
+      if (depth === 0) return flat(src.slice(start, i + 1))
+    }
+  }
+  return ""
+}
+
+/* The main destinations, and the one call none of them makes any more. */
+const PAGES = [
+  "app/app/page.tsx",
+  "app/app/products/page.tsx",
+  "app/app/orders/sales/page.tsx",
+  "app/app/analytics/page.tsx",
+  "app/app/payouts/page.tsx",
+  "app/app/settings/_server.ts",
+  "app/app/customers/page.tsx",
+  "app/app/coupons/load-coupons.ts",
+  "app/app/layout.tsx",
+]
+
+section("Who is signed in: asked once per request")
+{
+  for (const f of PAGES) {
+    const src = code(f)
+    check(`${f} asks through the request cache, not straight off the auth client`, /currentUserForRequest\(\)/.test(src) && !/auth\.getUser\(\)/.test(src))
+  }
+  const scope = code("lib/auth/request-scope.ts")
+  check("the cache is React's, per request", /export const currentUserForRequest = cache\(/.test(scope) && /export const creatorForRequest = cache\(/.test(scope) && /export const profileForRequest = cache\(/.test(scope))
+  check("the creator row it shares is read on the caller's own client, by their own user id, never on the service role",
+    /creatorForRequest = cache\(async \(userId: string\)[\s\S]{0,200}const supabase = await createClient\(\)[\s\S]{0,200}\.from\("creators"\)\.select\(SHELL_CREATOR_COLUMNS\)\.eq\("user_id", userId\)/.test(scope)
+      && !/createAdminClient|service_role|SERVICE_ROLE/.test(scope))
+}
+
+section("The layout: everything that needs only the user, together")
+{
+  const layout = code("app/app/layout.tsx")
+  const first = batchAfter(layout, /const \[gateCheck, creator/)
+  check("the gates, the creator row, the OnePage and the store header are one batch",
+    /profileForRequest\(user\.id\)/.test(first) && /creatorForRequest\(user\.id\)/.test(first) && /\.from\("onepages"\)/.test(first) && /\.from\("store_builder_configs"\)/.test(first))
+  check("and the redirects are still decided in their order: verified, then role, then creator",
+    /if \(!gateCheck\?\.email_verified\)[\s\S]*if \(!roleSelected\)[\s\S]*if \(!creator \|\| creator\.onboarding_completed !== true\)/.test(layout))
+  check("on the caller's own client only", !/createAdminClient/.test(layout))
+}
+
+section("Home: three trips, and its title shares them")
+{
+  const home = code("app/app/page.tsx")
+  check("the profile and creator rows are per request (React cache), on the service role as both reads were, by the user's id",
+    /const homeProfile = cache\(async \(userId: string\)/.test(home) && /const homeCreator = cache\(async \(userId: string\)/.test(home)
+      && /\.from\("profiles"\)[\s\S]{0,120}\.eq\("id", userId\)/.test(home) && /\.from\("creators"\)[\s\S]{0,400}\.eq\("user_id", userId\)/.test(home))
+  const meta = home.slice(home.indexOf("export async function generateMetadata"), home.indexOf("export const dynamic"))
+  check("the title reads the same cached answers, and nothing of its own", /Promise\.all\(\[homeProfile\(user\.id\), homeCreator\(user\.id\)\]\)/.test(meta) && !/\.from\(/.test(meta))
+  const body = home.slice(home.indexOf("export default async function AppDashboard"))
+  const first = batchAfter(body, /currentUserForRequest/)
+  check("the creator row, the profile and the OnePage go together", /homeCreator\(user\.id\)/.test(first) && /homeProfile\(user\.id\)/.test(first) && /\.from\("onepages"\)/.test(first))
+  const second = batchAfter(body, /onboarding_completed/)
+  check("then the products, the domain, the live website and the orders go together",
+    /\.from\("products"\)/.test(second) && /\.from\("custom_domains"\)/.test(second) && /\.from\("store_theme_installs"\)/.test(second) && /\.from\("orders"\)/.test(second))
+  check("the orders are the creator's by their product's creator, not by a list of ids that had to come back first",
+    /\.select\("id, product_id, amount_cents, status, created_at, products!inner\(creator_id\)"\)\s*\.eq\("products\.creator_id", creator\.id\)/.test(body)
+      && !/\.in\("product_id"/.test(body))
+  check("and the client is handed the columns it always was", /\(ordersData \|\| \[\]\)\.map\(\(\{ products: _owner, \.\.\.order \}: any\) => order\)/.test(body))
+  check("still on the service role, as before, never the caller's client swapped in or out", /createAdminClient\(\)/.test(body) && !/createClient\(\)/.test(home))
+}
+
+section("Products: the creator and the profile together")
+{
+  const src = code("app/app/products/page.tsx")
+  check("both rows in one batch, through the request cache the layout filled",
+    /Promise\.all\(\[creatorForRequest\(user\.id\), profileForRequest\(user\.id\)\]\)/.test(src))
+  check("the products on the caller's own client, by the creator's id", /\.from\("products"\)\s*\.select\("\*"\)\s*\.eq\("creator_id", creator\.id\)/.test(src) && !/createAdminClient/.test(src))
+  check("no user or no creator is sent where that is sorted out, rather than reading an id off nothing", /if \(!user\) redirect\("\/login"\)/.test(src) && /if \(!creator\) redirect\("\/app"\)/.test(src) && !/!\.id/.test(src))
+}
+
+section("Settings: six trips to three")
+{
+  const src = code("app/app/settings/_server.ts")
+  const first = batchAfter(src, /currentUserForRequest/)
+  check("the profile, the creator row and the OnePage together", /\.from\("profiles"\)/.test(first) && /\.from\("creators"\)/.test(first) && /\.from\("onepages"\)/.test(first))
+  const second = batchAfter(src, /redirect\("\/onboarding"\)/)
+  check("then the store header and the published website together, by the creator's id",
+    /\.from\("store_builder_configs"\)[\s\S]*\.eq\("creator_id", creator\.id\)/.test(second) && /\.from\("store_theme_installs"\)[\s\S]*\.eq\("creator_id", creator\.id\)/.test(second))
+  check("on the caller's own client only", !/createAdminClient/.test(src))
+}
+
+section("Payouts: its questions asked together")
+{
+  const src = code("app/app/payouts/page.tsx")
+  const first = batchAfter(src, /const stripeAccount/)
+  check("with the creator: the products, Stripe, the dashboard link and the ledger row",
+    /\.from\("products"\)/.test(first) && /stripe\.balance\.retrieve/.test(first) && /stripe\.accounts\.retrieve/.test(first)
+      && /stripe\.balanceTransactions\.list/.test(first) && /stripe\.accounts\.createLoginLink/.test(first) && /\.from\("seller_ledger"\)/.test(first))
+  check("the ledger row is read once, with every column the page uses",
+    (src.match(/\.from\("seller_ledger"\)/g) ?? []).length === 1 && /\.select\("available_amount, pending_amount, negative_balance"\)/.test(src))
+  const second = batchAfter(src, /const productIds = /)
+  check("with the products: the orders, the tax year's orders and the disputed orders",
+    (second.match(/\.from\("orders"\)/g) ?? []).length === 3 && /\.gte\("created_at"/.test(second) && /\.eq\("status", "disputed"\)/.test(second))
+  check("a Stripe failure still falls back to the orders' own figures", /if \(!stripeRead\.ok\) throw stripeRead\.error/.test(src) && /catch \(err\) \{\s*console\.error\("\[Payouts\] Failed to fetch Stripe balances:", err\);\s*stripePendingBalance = Math\.round\(orderPendingUsd/.test(src))
+  check("and a failed link, tax or ledger read is nothing, not a failed page",
+    /createLoginLink\(stripeAccount\)\.then\(\s*\(link\) => link\.url as string \| null,\s*\(\) => null/.test(src) && (src.match(/\.then\(\(r\) => r, \(\) => nothing\)/g) ?? []).length === 2)
+  check("scoped as before: the creator by the user's id, everything else by that creator or its products, on the service role",
+    /\.from\("creators"\)\s*\.select\("\*"\)\s*\.eq\("user_id", user\.id\)/.test(src) && (src.match(/\.in\("product_id", productIds\)/g) ?? []).length === 3 && !/createClient\(\)/.test(src))
+}
+
+section("Customers, Coupons, Analytics, Orders")
+{
+  const customers = code("app/app/customers/page.tsx")
+  const batch = batchAfter(customers, /const readOrders/)
+  check("Customers reads its customers while the orders' product ids come back", /\.from\("customers"\)/.test(batch) && /readOrders\(\)/.test(batch))
+  check("its creator row is the layout's, on the caller's own client, as it was", /const creator = await creatorForRequest\(user\.id\)/.test(customers))
+  check("Coupons' creator row is the layout's too", /const creator = await creatorForRequest\(user\.id\)/.test(code("app/app/coupons/load-coupons.ts")))
+  for (const f of ["app/app/analytics/page.tsx", "app/app/orders/sales/page.tsx"]) {
+    check(`${f} keeps its service role reads by the creator found from the user`, /\.from\("creators"\)[\s\S]{0,80}\.eq\("user_id", user\.id\)/.test(code(f)))
+  }
+}
+
+console.log(`\n${passed} passed, ${failed} failed\n`)
+if (failed > 0) {
+  console.log("Failing:", failures.join(", "))
+  process.exit(1)
+}
