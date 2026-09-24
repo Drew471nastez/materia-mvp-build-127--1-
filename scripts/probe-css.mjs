@@ -20,12 +20,7 @@ export async function appCss(root = process.cwd(), stylesheet = null) {
   const built = join(root, ".next/static/chunks")
   if (!stylesheet && process.env.PROBE_CSS !== "source" && existsSync(built)) {
     const files = readdirSync(built).filter((f) => f.endsWith(".css"))
-    /* The build writes its fonts as url(../media/...), relative to the CSS
-       file. A probe inlines the CSS into a page somewhere else, where that
-       path finds nothing: the face fails, and `document.fonts.load` rejects
-       with "NetworkError: A network error occurred." Pointed at the files. */
-    const media = `url(file://${join(root, ".next/static/media")}/`
-    if (files.length) return files.map((f) => readFileSync(join(built, f), "utf8").replace(/url\(\.\.\/media\//g, media)).join("\n")
+    if (files.length) return files.map((f) => readFileSync(join(built, f), "utf8")).join("\n")
   }
   const { default: postcss } = await import("postcss")
   const { default: tailwind } = await import("@tailwindcss/postcss")
