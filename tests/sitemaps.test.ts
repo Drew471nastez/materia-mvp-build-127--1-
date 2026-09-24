@@ -134,6 +134,8 @@ section("Every host answers its own robots.txt and sitemap")
     /username && isCustomDomain && \(pathname === "\/robots\.txt" \|\| pathname === "\/sitemap\.xml"\)/.test(proxy) && /own\.pathname = `\/w\/\$\{username\}\$\{pathname\}`/.test(proxy))
   const siteRobots = code("app/(site)/w/[username]/robots.txt/route.ts")
   const siteMap = code("app/(site)/w/[username]/sitemap.xml/route.ts")
+  check("an unknown site's robots.txt is a 404, which allows everything, never a refusal a failed lookup could cache for a day",
+    /if \(!found\) return new Response\("Not found", \{ status: 404/.test(siteRobots) && !/closed: true/.test(siteRobots))
   check("the site routes exist and use the site's canonical origin", /siteSitemap\(username\)/.test(siteRobots) && /\$\{found\.origin\}\/sitemap\.xml/.test(siteRobots) && /urlsetXml\(found\.entries\)/.test(siteMap))
   check("a subdomain whose site is canonical at a connected domain sends its sitemap there", /NextResponse\.redirect\(`\$\{found\.origin\}\/sitemap\.xml`, 301\)/.test(siteMap))
   const aiSite = code("app/(sites)/site/[slug]/[[...path]]/route.ts")

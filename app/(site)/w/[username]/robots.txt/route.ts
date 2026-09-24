@@ -17,9 +17,14 @@ export const runtime = "nodejs"
 export async function GET(_request: Request, context: { params: Promise<{ username: string }> }) {
   const { username } = await context.params
   const found = await siteSitemap(username)
-  const body = found
-    ? robotsTxt({ disallow: SITE_DISALLOW, sitemaps: [`${found.origin}/sitemap.xml`] })
-    : robotsTxt({ closed: true, sitemaps: [] })
+  /**
+   * No such site is a 404, never "Disallow: /". A lookup that failed for a
+   * moment reads the same as a site that is not there, and Google keeps a
+   * robots.txt for a day: a refusal served during a hiccup would close a
+   * real site to it. A 404 robots.txt means "nothing is off limits".
+   */
+  if (!found) return new Response("Not found", { status: 404, headers: { "Cache-Control": "no-store" } })
+  const body = robotsTxt({ disallow: SITE_DISALLOW, sitemaps: [`${found.origin}/sitemap.xml`] })
   return new Response(body, {
     headers: {
       "Content-Type": "text/plain; charset=utf-8",
