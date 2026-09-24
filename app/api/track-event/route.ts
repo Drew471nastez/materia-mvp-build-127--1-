@@ -107,8 +107,9 @@ export async function POST(req: NextRequest) {
     const { error } = await supabase.from("analytics_events").insert([eventData])
 
     if (error) {
-      console.error("[v0] track-event: INSERT ERROR", error.message)
-      return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
+      console.error("[track-event] insert failed:", error.code, error.message)
+      /* The database's own words stay in the log, not in a public answer. */
+      return NextResponse.json({ ok: false, error: "Not recorded" }, { status: 500 })
     }
 
     // Update daily rollup for buy_clicks

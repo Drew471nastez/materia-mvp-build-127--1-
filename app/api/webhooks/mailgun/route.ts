@@ -6,7 +6,14 @@ import { ignoreError } from "@/lib/supabase/ignore-error"
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
-const MAILGUN_SIGNING_KEY = process.env.MAILGUN_WEBHOOK_SIGNING_KEY || process.env.MAILGUN_API_KEY || ""
+/**
+ * The keys a delivery may be signed with: the webhook signing key Mailgun
+ * shows under Sending > Webhooks, and, for accounts old enough to sign with
+ * it, the API key. Both are secrets, so accepting either admits nobody new.
+ */
+const SIGNING_KEYS = [process.env.MAILGUN_WEBHOOK_SIGNING_KEY, process.env.MAILGUN_API_KEY].filter(
+  (k): k is string => typeof k === "string" && k.length > 0,
+)
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -14,22 +21,28 @@ const supabaseAdmin = createClient(
 )
 
 /**
- * Verify Mailgun webhook signature to ensure the request is authentic
+ * A DELIVERY WITHOUT A VALID SIGNATURE IS REFUSED, including one with no
+ * signature at all. This used to check a signature only when the request
+ * carried one, so a POST without it was trusted: anybody could unsubscribe
+ * or suppress any address on every creator's list.
  */
-function verifyWebhookSignature(
-  signingKey: string,
-  timestamp: string,
-  token: string,
-  signature: string
-): boolean {
-  if (!signingKey || !timestamp || !token || !signature) return false
+function verifyWebhookSignature(signature: unknown): boolean {
+  if (!signature || typeof signature !== "object") return false
+  const { timestamp, token, signature: given } = signature as Record<string, unknown>
+  if (timestamp == null || typeof token !== "string" || typeof given !== "string" || !token || !given) return false
+  const expectedLength = 64
+  if (given.length !== expectedLength) return false
+  const presented = Buffer.from(given, "utf8")
+  return SIGNING_KEYS.some((key) => {
+    const digest = crypto.createHmac("sha256", key).update(String(timestamp) + token).digest("hex")
+    return crypto.timingSafeEqual(Buffer.from(digest, "utf8"), presented)
+  })
+}
 
-  const encodedToken = crypto
-    .createHmac("sha256", signingKey)
-    .update(timestamp.concat(token))
-    .digest("hex")
-
-  return encodedToken === signature
+/** "a***@example.com": enough to recognise in a log, not enough to be the address. */
+function masked(email: string): string {
+  const at = email.indexOf("@")
+  return at > 0 ? `${email[0]}***${email.slice(at)}` : "***"
 }
 
 /**
@@ -41,23 +54,21 @@ function verifyWebhookSignature(
  */
 export async function POST(request: Request) {
   try {
-    const body = await request.json()
+    let body: any
+    try {
+      body = await request.json()
+    } catch {
+      return NextResponse.json({ error: "Send JSON" }, { status: 400 })
+    }
     const eventData = body?.["event-data"] || body
 
-    // Verify webhook signature
-    const signature = body?.signature
-    if (signature && MAILGUN_SIGNING_KEY) {
-      const isValid = verifyWebhookSignature(
-        MAILGUN_SIGNING_KEY,
-        signature.timestamp,
-        signature.token,
-        signature.signature
-      )
-
-      if (!isValid) {
-        console.error("[mailgun-webhook] Invalid webhook signature")
-        return NextResponse.json({ error: "Invalid signature" }, { status: 401 })
-      }
+    if (SIGNING_KEYS.length === 0) {
+      console.error("[mailgun-webhook] MAILGUN_WEBHOOK_SIGNING_KEY is not configured; refusing the request")
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+    if (!verifyWebhookSignature(body?.signature)) {
+      console.error("[mailgun-webhook] Invalid webhook signature")
+      return NextResponse.json({ error: "Invalid signature" }, { status: 401 })
     }
 
     const event = eventData?.event || ""
@@ -68,14 +79,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ received: true })
     }
 
-    console.log(`[mailgun-webhook] Event: ${event}, recipient: ${recipient}, severity: ${severity}`)
+    console.log(`[mailgun-webhook] Event: ${event}, recipient: ${masked(recipient)}, severity: ${severity}`)
 
     // Handle different event types
     switch (event) {
       case "failed": {
         if (severity === "permanent") {
           // Hard bounce — suppress this address
-          console.log(`[mailgun-webhook] Hard bounce for: ${recipient}`)
+          console.log(`[mailgun-webhook] Hard bounce for: ${masked(recipient)}`)
           await suppressEmail(recipient, "bounced", eventData?.["delivery-status"]?.message || "Hard bounce")
         }
         break
@@ -83,7 +94,7 @@ export async function POST(request: Request) {
 
       case "complained": {
         // Spam complaint — suppress and unsubscribe
-        console.log(`[mailgun-webhook] Spam complaint from: ${recipient}`)
+        console.log(`[mailgun-webhook] Spam complaint from: ${masked(recipient)}`)
         await suppressEmail(recipient, "complained", "Spam complaint received")
         await unsubscribeEmail(recipient)
         break
@@ -91,7 +102,7 @@ export async function POST(request: Request) {
 
       case "unsubscribed": {
         // One-click unsubscribe via List-Unsubscribe header
-        console.log(`[mailgun-webhook] Unsubscribe via header: ${recipient}`)
+        console.log(`[mailgun-webhook] Unsubscribe via header: ${masked(recipient)}`)
         await unsubscribeEmail(recipient)
         break
       }
@@ -120,7 +131,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ received: true })
   } catch (error) {
-    console.error("[mailgun-webhook] Error processing webhook:", error)
+    console.error("[mailgun-webhook] Error processing webhook:", error instanceof Error ? error.message : "unknown error")
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
@@ -141,12 +152,12 @@ async function suppressEmail(email: string, reason: string, message: string) {
       .in("status", ["subscribed", "pending"])
 
     if (error) {
-      console.error(`[mailgun-webhook] Failed to suppress ${email}:`, error)
+      console.error(`[mailgun-webhook] Failed to suppress ${masked(email)}:`, error.code, error.message)
     } else {
-      console.log(`[mailgun-webhook] Suppressed ${email}: ${reason} - ${message}`)
+      console.log(`[mailgun-webhook] Suppressed ${masked(email)}: ${reason} - ${message}`)
     }
   } catch (err) {
-    console.error(`[mailgun-webhook] Error suppressing ${email}:`, err)
+    console.error(`[mailgun-webhook] Error suppressing ${masked(email)}:`, err instanceof Error ? err.message : "unknown error")
   }
 }
 
@@ -166,11 +177,11 @@ async function unsubscribeEmail(email: string) {
       .eq("status", "subscribed")
 
     if (error) {
-      console.error(`[mailgun-webhook] Failed to unsubscribe ${email}:`, error)
+      console.error(`[mailgun-webhook] Failed to unsubscribe ${masked(email)}:`, error.code, error.message)
     } else {
-      console.log(`[mailgun-webhook] Unsubscribed ${email}`)
+      console.log(`[mailgun-webhook] Unsubscribed ${masked(email)}`)
     }
   } catch (err) {
-    console.error(`[mailgun-webhook] Error unsubscribing ${email}:`, err)
+    console.error(`[mailgun-webhook] Error unsubscribing ${masked(email)}:`, err instanceof Error ? err.message : "unknown error")
   }
 }

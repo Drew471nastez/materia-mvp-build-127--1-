@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { sendEmail, isSmtpConfigured } from "@/lib/mail"
+import { maskEmail } from "@/lib/privacy/mask-email"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -198,7 +199,7 @@ export async function POST(request: NextRequest) {
 
         sentCount++
       } catch (error) {
-        console.error(`[email/send] Failed to send to ${subscriber.email}:`, error)
+        console.error(`[email/send] Failed to send to ${maskEmail(subscriber.email)}:`, error instanceof Error ? error.message : error)
 
         await adminSupabase
           .from("campaign_recipients")

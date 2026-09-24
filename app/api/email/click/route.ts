@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { maskEmail } from "@/lib/privacy/mask-email"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -118,7 +119,7 @@ async function trackClick(
       metadata: { clicked_at: now, url: url },
     })
 
-    console.log("[track/click] Recorded click for:", recipient.email, "url:", url.substring(0, 50))
+    console.log("[track/click] Recorded click for:", maskEmail(recipient.email), "url:", url.substring(0, 50))
 
   } catch (error) {
     console.error("[track/click] Error:", error)

@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { maskEmail } from "@/lib/privacy/mask-email"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -83,7 +84,7 @@ async function trackOpen(
         .from("campaign_recipients")
         .update({ open_count: (recipient as { open_count?: number }).open_count || 1 + 1 })
         .eq("id", recipient.id)
-      console.log("[track/open] Already opened, incrementing count for:", recipient.email)
+      console.log("[track/open] Already opened, incrementing count for:", maskEmail(recipient.email))
       return
     }
 
@@ -105,7 +106,7 @@ async function trackOpen(
       metadata: { opened_at: now },
     })
 
-    console.log("[track/open] Recorded open for:", recipient.email, "campaign:", recipient.campaign_id)
+    console.log("[track/open] Recorded open for:", maskEmail(recipient.email), "campaign:", recipient.campaign_id)
 
   } catch (error) {
     console.error("[track/open] Error:", error)

@@ -129,18 +129,29 @@ export async function GET(request: Request) {
 
 /* ─── The drawing ─────────────────────────────────────────────────────── */
 
-const LOGO_URL =
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/bimi-svg-tiny-12-ps%20(1).svg"
+/**
+ * The Storelib mark as a PNG, which the PDF library draws as it is. It used
+ * to be an SVG turned into a PNG by `sharp`, and `sharp` is not in the
+ * serverless bundle: every invoice logged "Cannot find module 'sharp'" and
+ * went out without its mark.
+ */
+const LOGO_PATH = "/apple-icon.png"
+const LOGO_ORIGIN = process.env.NEXT_PUBLIC_APP_URL || "https://storelib.com"
+
+/* Kept for the life of the instance: the mark does not change between invoices. */
+let logoCache: Buffer | null = null
 
 /** The mark beside the store's name. A slow or missing logo never holds up the invoice. */
 async function storelibLogo(): Promise<Buffer | null> {
+  if (logoCache) return logoCache
   try {
-    const res = await fetch(LOGO_URL, { signal: AbortSignal.timeout(2500) })
+    const res = await fetch(new URL(LOGO_PATH, LOGO_ORIGIN), { signal: AbortSignal.timeout(2500) })
     if (!res.ok) return null
-    // @ts-ignore - sharp arrives with Next.js as an optional dependency, without types here
-    const sharpMod: any = await import("sharp")
-    const sharp = sharpMod.default || sharpMod
-    return await sharp(Buffer.from(await res.arrayBuffer())).resize(80, 80, { fit: "inside" }).png().toBuffer()
+    const bytes = Buffer.from(await res.arrayBuffer())
+    /* A PNG starts with these eight bytes; anything else would break the PDF. */
+    if (!bytes.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) return null
+    logoCache = bytes
+    return bytes
   } catch {
     return null
   }

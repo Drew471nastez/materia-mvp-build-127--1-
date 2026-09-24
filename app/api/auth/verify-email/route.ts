@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { sendEmail, isSmtpConfigured } from "@/lib/mail"
 import { generateVerificationCode, VERIFICATION_CODE_EXPIRY_MINUTES } from "@/lib/security"
+import { maskEmail } from "@/lib/privacy/mask-email"
 
 export const runtime = "nodejs"
 
@@ -14,7 +15,7 @@ export async function POST(request: Request) {
     const userId = typeof userIdRaw === "string" ? userIdRaw.trim() : ""
     const email = typeof emailRaw === "string" ? emailRaw.trim().toLowerCase() : ""
 
-    console.log("[verify-email] API called with:", { userId: userId.slice(0, 8) + "...", email })
+    console.log("[verify-email] API called with:", { userId: userId.slice(0, 8) + "...", email: maskEmail(email) })
 
     if (!userId || !email) {
       console.log("[verify-email] Missing userId or email")
@@ -201,7 +202,7 @@ Sent by Storelib`,
         }, { status: 500 })
       }
 
-      console.log("[verify-email] Verification email sent successfully to:", email, "ID:", result.messageId)
+      console.log("[verify-email] Verification email sent successfully to:", maskEmail(email), "ID:", result.messageId)
 
       return NextResponse.json({
         success: true,

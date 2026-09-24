@@ -45,6 +45,19 @@ export const runtime = "nodejs"
 /** A handful of section edits and a sentence. No build, so no minutes. */
 export const maxDuration = 120
 
+/** Aborts when either does: the reader leaving, or the deadline. */
+function eitherSignal(a: AbortSignal, b: AbortSignal): AbortSignal {
+  const both = new AbortController()
+  if (a.aborted || b.aborted) {
+    both.abort()
+    return both.signal
+  }
+  const stop = () => both.abort()
+  a.addEventListener("abort", stop, { once: true })
+  b.addEventListener("abort", stop, { once: true })
+  return both.signal
+}
+
 const MAX_PROMPT = 2_000
 
 const BlockSchema = z.object({
@@ -310,6 +323,15 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
             }
           : undefined
 
+        /**
+         * STOP BEFORE THE PLATFORM STOPS US. At maxDuration the function is
+         * killed mid-stream: no closing message, nothing written to the
+         * transcript, and a creator watching a spinner that never resolves
+         * (the production log shows it). Ending the loop fifteen seconds
+         * early lets it finish the way a cancel does: work already applied
+         * is kept and summarised, and the answer arrives.
+         */
+        const deadline = AbortSignal.timeout((maxDuration - 15) * 1000)
         const loop = themeAgent({
           provider: resolved.provider,
           sources: agentSources,
@@ -384,7 +406,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
           // Groups this theme's requests for the provider's prompt cache. A
           // theme id, never anything about the person.
           cacheKey: `theme:${installId}`,
-          signal: request.signal,
+          signal: eitherSignal(request.signal, deadline),
         })
 
         let step = await loop.next()
@@ -401,7 +423,13 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
          */
         if (result.wroteCode) send({ type: "sources-changed" })
         if (result.status === "failed") {
-          send({ type: "error", message: result.error ?? "The edit failed." })
+          send({
+            type: "error",
+            message:
+              deadline.aborted && !request.signal.aborted
+                ? "This edit ran out of time before it changed anything. Try asking for one part of it."
+                : result.error ?? "The edit failed.",
+          })
         } else {
           send({ type: "message", text: result.message || "Done." })
         }

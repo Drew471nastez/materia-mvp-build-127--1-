@@ -88,7 +88,8 @@ export async function GET(request: NextRequest) {
     if (hasProducts) {
       const [
         { data: allOrders },
-        { data: recentOrders },
+        /* A head:true count query has no rows: the number is in `count`. */
+        { count: recentOrders },
       ] = await Promise.all([
         admin
           .from("orders")

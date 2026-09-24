@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 import { sendEmail, isSmtpConfigured } from "@/lib/mail"
 import { generateVerificationCode, VERIFICATION_CODE_EXPIRY_MINUTES } from "@/lib/security"
+import { maskEmail } from "@/lib/privacy/mask-email"
 
 export const runtime = "nodejs"
 
@@ -80,7 +81,7 @@ export async function POST(request: Request) {
     const buyerEmail = (order.buyer_email || "").toString().trim().toLowerCase()
 
     if (!buyerEmail || buyerEmail !== email) {
-      console.error("[verify-email] Email mismatch. Expected:", buyerEmail, "Got:", email)
+      console.error("[verify-email] Email mismatch. Expected:", maskEmail(buyerEmail), "Got:", maskEmail(email))
       return NextResponse.json({ error: "Email does not match order" }, { status: 403 })
     }
 
@@ -243,7 +244,7 @@ export async function POST(request: Request) {
     const productTitle = (order as any).products?.title || "your purchase"
 
     try {
-      console.log("[verify-email] Sending verification email to:", email)
+      console.log("[verify-email] Sending verification email to:", maskEmail(email))
 
       const result = await sendEmail({
         from: "Storelib Security <noreply@storelib.com>",
@@ -289,7 +290,7 @@ If you didn't request this code, someone may have your download link. Your purch
         }, { status: 500 })
       }
 
-      console.log("[verify-email] ✅ Verification code email sent successfully to:", email)
+      console.log("[verify-email] ✅ Verification code email sent successfully to:", maskEmail(email))
     } catch (emailError: any) {
       console.error("[verify-email] Error sending verification email:", {
         message: emailError?.message || emailError,
