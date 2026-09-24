@@ -134,6 +134,8 @@ for (const which of (process.env.PAGES || "plans,new,edit").split(",")) {
     await p.goto(`${base}/${engine}${query}`)
     await p.waitForSelector("[data-page-layer]")
     await wait(500)
+    /* LAYER_SHOTS=<dir>: a picture of each run, for the eye. */
+    if (process.env.LAYER_SHOTS) await p.screenshot({ path: join(process.env.LAYER_SHOTS, `${label.replace(/ /g, "-")}.png`) })
     const m = await p.evaluate((which) => {
       const W = innerWidth, H = innerHeight
       const layer = document.querySelector("[data-page-layer]")
