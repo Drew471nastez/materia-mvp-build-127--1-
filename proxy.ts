@@ -1,3 +1,4 @@
+import { MCP_HOST_LABEL, mcpHostRoute } from "@/lib/agent-access/mcp-host"
 import { createServerClient } from "@supabase/ssr"
 import { readCurrentUser, shouldSendToLogin } from "@/lib/auth/current-user"
 import { createClient } from "@supabase/supabase-js"
@@ -24,7 +25,7 @@ const MAIN_DOMAIN = process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"
 const SITES_DOMAIN = process.env.NEXT_PUBLIC_SITES_HOST || MAIN_DOMAIN
 
 // Domains that should NOT be treated as seller subdomains
-const EXCLUDED_SUBDOMAINS = ["www", "app", "api", "admin", "dashboard", "localhost"]
+const EXCLUDED_SUBDOMAINS = ["www", "app", "api", "admin", "dashboard", "localhost", MCP_HOST_LABEL]
 
 /**
  * Platform flows that belong to the apex, wherever they are asked for. These
@@ -557,6 +558,13 @@ export async function proxy(request: NextRequest) {
   const host = request.headers.get("host") || ""
 
   const bareHost = host.split(":")[0].toLowerCase()
+
+  /* mcp.storelib.com is the MCP server, before any rule about sites or redirects. See lib/agent-access/mcp-host.ts. */
+  const mcp = mcpHostRoute(bareHost, pathname, MAIN_DOMAIN)
+  if (mcp?.kind === "rewrite") return NextResponse.rewrite(new URL(`${mcp.path}${search}`, request.url))
+  if (mcp?.kind === "not-found") {
+    return NextResponse.json({ error: "This is Storelib's MCP server. Connect to https://mcp.storelib.com" }, { status: 404 })
+  }
 
   /**
    * ── The IndexNow key, on every host ──────────────────────────────────────

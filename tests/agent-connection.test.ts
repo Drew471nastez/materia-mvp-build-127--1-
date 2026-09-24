@@ -148,20 +148,20 @@ async function main() {
   const newer = await handleMcp({ jsonrpc: "2.0", id: 2, method: "initialize", params: { protocolVersion: "2099-01-01" } }, fake)
   check("and in its newest when it does not know the client's",
     (newer as { result?: { protocolVersion?: string } })?.result?.protocolVersion === PROTOCOL_VERSIONS[0])
-  check("it says it has tools, and who it is", JSON.stringify(initResult.capabilities) === JSON.stringify({ tools: { listChanged: false } })
+  check("it says it has tools, prompts and resources, and who it is", JSON.stringify(initResult.capabilities) === JSON.stringify({ tools: { listChanged: false }, prompts: { listChanged: false }, resources: { listChanged: false } })
     && (initResult.serverInfo as { name?: string })?.name === "storelib")
   check("and tells the agent where it is and what to read first",
-    /Astrid Studio/.test(String(initResult.instructions)) && /storelib_guide/.test(String(initResult.instructions)))
+    /Astrid Studio/.test(String(initResult.instructions)) && /storelib_rules/.test(String(initResult.instructions)))
   check("a notification gets no answer at all",
     (await handleMcp({ jsonrpc: "2.0", method: "notifications/initialized" }, fake)) === null)
   check("ping is answered", JSON.stringify((await handleMcp({ jsonrpc: "2.0", id: 3, method: "ping" }, fake)) as object).includes('"result":{}'))
-  const unknown = await handleMcp({ jsonrpc: "2.0", id: 4, method: "resources/list" }, fake)
+  const unknown = await handleMcp({ jsonrpc: "2.0", id: 4, method: "sampling/createMessage" }, fake)
   check("an unknown method is -32601", (unknown as { error?: { code: number } })?.error?.code === -32601)
   check("a malformed message is -32600", ((await handleMcp({ id: 5, method: "ping" }, fake)) as { error?: { code: number } })?.error?.code === -32600)
 
   const list = await handleMcp({ jsonrpc: "2.0", id: 6, method: "tools/list" }, fake)
   const names = ((list as { result?: { tools?: { name: string }[] } })?.result?.tools ?? []).map((t) => t.name)
-  check("it offers exactly seven tools, the rules first", JSON.stringify(names) === JSON.stringify(["storelib_rules", "storelib_guide", "storelib_site", "storelib_list_files", "storelib_read_file", "storelib_compile", "storelib_write_section"]))
+  check("it offers the seven file tools, the rules first, then the skills; the project tools only when bound", JSON.stringify(names) === JSON.stringify(["storelib_rules", "storelib_guide", "storelib_site", "storelib_list_files", "storelib_read_file", "storelib_compile", "storelib_write_section", "storelib_skills"]))
   check("each with a JSON schema that allows nothing extra",
     TOOLS.every((t) => t.inputSchema.type === "object" && t.inputSchema.additionalProperties === false))
   check("and nothing named delete, publish or rename", !names.some((n) => /delete|publish|rename|remove/.test(n)))
@@ -170,7 +170,7 @@ async function main() {
     handleMcp({ jsonrpc: "2.0", id: 7, method: "tools/call", params: { name, arguments: args } }, fake)
   check("the guide is the framework's own text", textOf(await call("storelib_guide")) === "THE GUIDE")
   check("the site is described, so a section fits it", /"Astrid"/.test(textOf(await call("storelib_site"))) && calls.includes("site"))
-  check("and the agent is told to read it first", /storelib_site/.test(String(initResult.instructions)))
+  check("and the agent is told to read the project first", /storelib_read_project/.test(String(initResult.instructions)))
 
   console.log("\nWhat the site brief holds, and what it never does")
   {
@@ -257,7 +257,7 @@ async function main() {
   const T = "slb_TESTTOKEN"
   const claude = setupCommands("claude", "mac", T)
   check("Claude Code is added at user scope, so it works from every folder",
-    claude.length === 1 && claude[0].value === `claude mcp add --transport http --scope user storelib https://storelib.com/api/mcp --header "Authorization: Bearer ${T}"`)
+    claude.length === 1 && claude[0].value === `claude mcp add --transport http --scope user storelib https://mcp.storelib.com --header "Authorization: Bearer ${T}"`)
   check("  and the line is the same on Windows and Linux",
     setupCommands("claude", "windows", T)[0].value === claude[0].value && setupCommands("claude", "linux", T)[0].value === claude[0].value)
   const mac = setupCommands("codex", "mac", T).map((c) => c.value)
@@ -332,7 +332,7 @@ async function main() {
     /placeWrittenSection\(previous, writingAnchor\(previous\), instanceFromSchema\(id, type, schema\)\)/.test(editor)
       && /setArrivedId\(id\)/.test(editor) && /describeChange\(ev,/.test(editor) && /addToBatch\(b, by, lines, Date\.now\(\)\)/.test(editor))
   check("and the canvas is not scrolled to it", (() => {
-    const handler = editor.slice(editor.indexOf("const handleAgentEvents = async"), editor.indexOf("const { brief: connectionsBrief }"))
+    const handler = editor.slice(editor.indexOf("const handleAgentEvents = async"), editor.indexOf("} = useSiteActivity({"))
     return handler.length > 0 && !/revealSection|scrollWithin|scrollToSection/.test(handler)
   })())
   check("never twice", /!sectionsRef\.current\.some\(\(sec\) => sec\.type === type\)/.test(editor))

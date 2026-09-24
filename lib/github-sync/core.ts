@@ -274,6 +274,22 @@ Storelib site. The short version:
   at 375px wide with 44px targets, and stop moving under reduced motion.
 - No generic AI styling and no AI-sounding copy.
 
+## How to work
+
+Every task, in this order. Storelib AI and agents connected over MCP work the
+same way.
+
+1. **Inspect.** Read the section files here and the site at
+   https://mcp.storelib.com if you are connected to it (storelib_read_project,
+   storelib_search_components). If a section already does the job, use it.
+2. **Plan.** Say in a few lines what will change and where.
+3. **Implement.** The smallest change that does it. Change only the lines the
+   task needs, and keep every setting id so the creator's content stays.
+4. **Test.** The commit status named "Storelib" is the compile check. Over MCP,
+   storelib_run_tests runs compile, quality, settings and contrast.
+5. **Repair.** Fix exactly what a check names, at the line it names, and test
+   again. After three rounds on the same failure, stop and say what is wrong.
+
 ## Writing a section
 
 The full reference is at https://storelib.com/developers, and all of it as one

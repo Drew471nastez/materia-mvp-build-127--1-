@@ -54,7 +54,9 @@ import {
 import { describeHouseStyle, readHouseStyle } from "./house-style"
 import { describeFindings, reviewSections } from "./review"
 import { nameOf as typeName, schemaMapFor, schemaOf, type SchemaMap } from "./schemas"
-import { checkSectionQuality, describeQuality, knowledgeBlock, pageAgentRules, qualityErrors } from "@/lib/storelib-ai"
+import { checkSectionQuality, describeQuality, pageAgentRules, qualityErrors } from "@/lib/storelib-ai"
+import { builderAgentRules } from "@/lib/agent-rules"
+import { skillContext } from "@/lib/agent-skills"
 import type {
   AgentProvider,
   AgentTurn,
@@ -158,7 +160,9 @@ Rules:
 - THE SOURCE IS REACHED WITH TOOLS, LIKE ANYTHING ELSE HERE. When the change is not something a control covers: read_section_code on that section's type, change the markup, the CSS, the script or the schema, then write_section_code with the whole file. A refused write did not happen; the compiler says what is wrong, so fix that and write again rather than reporting a change you did not save.
 - When you are done, reply with one plain sentence saying what you changed. No preamble, no markdown, no lists.
 
-${pageAgentRules()}`
+${pageAgentRules()}
+
+${builderAgentRules()}`
 
 function toolSpecs(addable: string[], schemas?: SchemaMap, code?: boolean): ToolSpec<string>[] {
   return [
@@ -705,7 +709,7 @@ export async function* themeAgent(
          * prefix that changes per request is a prefix neither provider
          * caches, and the cached prefix is most of what a run costs.
          */
-        knowledgeBlock(prompt),
+        skillContext(prompt),
         `REQUEST\n${prompt}`,
       ]
         .filter(Boolean)

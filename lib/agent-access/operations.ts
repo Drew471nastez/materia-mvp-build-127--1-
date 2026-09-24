@@ -172,6 +172,8 @@ export async function writeSection(
   path: string,
   source: string,
   baseUpdatedAt?: string,
+  /** placed: the agent put it on a page itself, so an open builder must not place it again. */
+  log: { placed?: boolean } = {},
 ): Promise<OpResult<{ path: string; type: string; created: boolean; drafted: boolean; updated_at: string | null }>> {
   const allowed = agentMayWrite(path)
   if (allowed.ok === false) return { ok: false, status: allowed.status, error: allowed.error }
@@ -181,13 +183,16 @@ export async function writeSection(
   /* The log is how an open builder hears about it. Never allowed to fail the
      write it records: the file is saved either way. */
   try {
-    await db.from("theme_agent_activity").insert({
+    const row = {
       install_id: who.installId,
       token_id: who.tokenId,
       agent_name: who.name,
       path,
       action: saved.created ? "created" : "updated",
-    })
+    }
+    /* `detail` arrived with RUN_AGENT_MCP.sql; without it the row is written as it always was. */
+    const first = log.placed ? await db.from("theme_agent_activity").insert({ ...row, detail: { placed: true } }) : await db.from("theme_agent_activity").insert(row)
+    if (first?.error && log.placed) await db.from("theme_agent_activity").insert(row)
   } catch {
     /* the table may not exist yet; the save stands */
   }

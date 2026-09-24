@@ -61,7 +61,7 @@ import { ProjectSettings } from "@/components/website-builder/project-settings"
 import { settingsSectionFrom, type ConnectVia, type SettingsSection } from "@/components/website-builder/website-settings/types"
 import { ConnectionButton, LiveChangeNotice, addToBatch, useSiteActivity, type LiveBatch, type LiveChange } from "@/components/website-builder/site-connections"
 import { ConnectionMarkIcon } from "@/components/website-builder/connection-marks"
-import { describeChange, pickConnection, sectionTypeOf, type ActivityEvent } from "@/lib/agent-access/connection-mark"
+import { describeChange, pageEventPlan, pickConnection, sectionTypeOf, type ActivityEvent } from "@/lib/agent-access/connection-mark"
 import { createClient } from "@/lib/supabase/client"
 import { GradientEditor } from "@/components/website-builder/editor/gradient-editor"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
@@ -5669,9 +5669,33 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         flush()
         who = ev.agent_name
       }
+      /**
+       * A PAGE CHANGE is already in the draft. This copy of the page would be
+       * saved over it on the next autosave, so the same operations are
+       * replayed here, through the same applier the assistant's go through
+       * (applyAiOp: undo, unsaved, the header's logo kept in step). An add of
+       * the creator's own section type takes the schemas just loaded, which
+       * the applier's may not have yet. See pageEventPlan.
+       */
+      const plan = pageEventPlan(ev, currentPageRef.current)
+      for (const op of [...plan.themeOps, ...plan.pageOps]) {
+        if (op.kind === "add_section" && custom[op.sectionType]) {
+          pushUndo()
+          setSections((previous) => applyOp({ sections: previous, settings: {} }, op, { ...librarySchemas, ...custom }).sections)
+          setIsDirty(true)
+          setArrivedId(op.id)
+        } else {
+          applyAiOp(op)
+        }
+      }
+      if (plan.newPage && !customPages.some((p) => p.key === plan.newPage) && !BUILT_IN_PAGE_KEYS.has(plan.newPage)) {
+        const key = plan.newPage as PageKey
+        setCustomPages((prev) => (prev.some((p) => p.key === key) ? prev : [...prev, { id: key, name: pageTitleFromKey(key), key }]))
+      }
       const type = sectionTypeOf(ev.path)
       const schema = type ? custom[type] : undefined
-      if (type && ev.action === "created" && schema && !sectionsRef.current.some((sec) => sec.type === type)) {
+      /* Placed by the agent itself: the page change that follows puts it where it asked. */
+      if (type && ev.action === "created" && schema && !ev.detail?.placed && !sectionsRef.current.some((sec) => sec.type === type)) {
         const id = `${type}-${Date.now()}`
         pushUndo()
         setSections((previous) => placeWrittenSection(previous, writingAnchor(previous), instanceFromSchema(id, type, schema)))
@@ -5682,11 +5706,38 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     }
     flush()
   }
-  const { brief: connectionsBrief } = useSiteActivity({
+  const { brief: connectionsBrief, following: agentConnected } = useSiteActivity({
     installId,
     recheck: projectSettingsOpen,
     onEvents: handleAgentEvents,
   })
+  /**
+   * WHAT IS OPEN, for a connected agent's storelib_read_selected_section.
+   * Only while an agent is connected, only when it changes, and a moment
+   * after it settles, so clicking down a page is one request, not ten.
+   */
+  const focusKey = [
+    currentPage,
+    selectedPanel.type === "section" ? selectedPanel.sectionId : "",
+    selectedPanel.type === "section" ? selectedBlockId ?? "" : "",
+  ].join("|")
+  const sentFocus = useRef("")
+  useEffect(() => {
+    if (!agentConnected || focusKey === sentFocus.current) return
+    const t = setTimeout(() => {
+      const [page_key, section_id, block_id] = focusKey.split("|")
+      sentFocus.current = focusKey
+      fetch(`/api/website-builder/themes/${encodeURIComponent(installId)}/focus`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ page_key, section_id: section_id || null, block_id: block_id || null }),
+        keepalive: true,
+      }).catch(() => {
+        sentFocus.current = ""
+      })
+    }, 700)
+    return () => clearTimeout(t)
+  }, [agentConnected, focusKey, installId])
   const connection = useMemo(() => pickConnection(connectionsBrief), [connectionsBrief])
   const connectionButtonRef = useRef<HTMLButtonElement>(null)
   /** A line in the notice is only a way in when its section is on the open page. */
