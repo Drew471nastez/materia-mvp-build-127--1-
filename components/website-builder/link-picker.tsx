@@ -89,6 +89,22 @@ export function LinkPicker({
 
   const showList = open && rows.length > 0
 
+  /**
+   * A LINKED PAGE IS SELECTED WHOLE when the cursor arrives, so typing
+   * replaces it: what was on screen was "Shop", and a caret dropped into the
+   * "/products" that replaces it would have typing land in the middle of a
+   * path nobody was looking at. An address is left as a normal text box, with
+   * the caret where it was put, because editing part of one is the point.
+   * Selected after the render that swaps the name for the path, since
+   * setting a field's value moves its caret to the end.
+   */
+  const selectAll = React.useRef(false)
+  React.useLayoutEffect(() => {
+    if (!focused || !selectAll.current) return
+    selectAll.current = false
+    inputRef.current?.select()
+  }, [focused])
+
   const close = React.useCallback(() => {
     setOpen(false)
     setActive(-1)
@@ -206,14 +222,19 @@ export function LinkPicker({
               title={known && !focused ? known.href : undefined}
               value={shown}
               placeholder={placeholder || "Type an address or pick a page"}
-              onFocus={(e) => {
+              onMouseDown={(e) => {
+                /* A press would drop a caret into the name that is about to
+                   become a path. Focus it here instead, and select it whole. */
+                if (focused || !known) return
+                e.preventDefault()
+                selectAll.current = true
+                e.currentTarget.focus({ preventScroll: true })
+              }}
+              onFocus={() => {
+                if (known) selectAll.current = true
                 setFocused(true)
                 setDraft(value)
                 setTyped(false)
-                /* The whole address, selected: typing replaces it, which is
-                   also how a search starts from a filled field. */
-                const el = e.currentTarget
-                requestAnimationFrame(() => el.select())
                 if (!phone) setOpen(true)
               }}
               onBlur={(e) => {
@@ -245,7 +266,12 @@ export function LinkPicker({
                 setTyped(false)
                 setActive(-1)
                 setOpen(true)
-                if (!phone) inputRef.current?.focus({ preventScroll: true })
+                /* At a keyboard the cursor goes to the field, selected, so
+                   typing searches; at a thumb nothing takes the keyboard. */
+                if (!phone && !focused) {
+                  selectAll.current = true
+                  inputRef.current?.focus({ preventScroll: true })
+                }
               }}
               className="flex h-full shrink-0 items-center rounded-r-lg px-2.5 text-muted-foreground transition-colors hover:text-foreground"
             >
