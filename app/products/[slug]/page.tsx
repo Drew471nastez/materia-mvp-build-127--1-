@@ -9,7 +9,8 @@ interface PageProps {
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params
-  return productMetadata(slug)
+  /* Canonical at storelib.com/<handle>/<slug>, the address every link uses. */
+  return productMetadata(slug, { platform: true })
 }
 
 /**

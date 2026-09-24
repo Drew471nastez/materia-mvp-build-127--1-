@@ -547,7 +547,7 @@ const FRAME_RESERVED_FIRST_SEGMENT = new Set([
   "checkout", "cover-render", "creator-page", "dashboard", "developers", "downloads", "editions", "explore",
   "faq", "features", "help", "l", "legal", "library", "llms-full.txt", "llms.txt", "login", "native-start",
   "onboarding", "p", "pricing", "privacy", "products", "purchase", "receipt",
-  "register", "request", "reset-password", "signup", "site", "sites", "store",
+  "register", "request", "reset-password", "signup", "site", "sitemap", "sitemap.xml", "sites", "store",
   "store-builder", "terms", "u", "unsubscribe", "upgrade", "verify-email",
   "w", "website-builder", "welcome", "wishlist",
 ])
@@ -557,6 +557,21 @@ export async function proxy(request: NextRequest) {
   const host = request.headers.get("host") || ""
 
   const bareHost = host.split(":")[0].toLowerCase()
+
+  /**
+   * ── The IndexNow key, on every host ──────────────────────────────────────
+   * IndexNow (lib/seo/indexnow.ts) proves a site is ours by a text file at
+   * the root of each host whose pages it announces, holding the key. The key
+   * is public by design. Answered here, before any other rule, so the same
+   * one line serves storelib.com, every <name>.storelib.com and every
+   * connected domain. Nothing is served while INDEXNOW_KEY is unset.
+   */
+  const indexNowKey = process.env.INDEXNOW_KEY
+  if (indexNowKey && /^[A-Za-z0-9-]{8,128}$/.test(indexNowKey) && pathname === `/${indexNowKey}.txt`) {
+    return new NextResponse(indexNowKey, {
+      headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "public, max-age=3600" },
+    })
+  }
 
   /**
    * ═══════════════════════════════════════════════════════════════════════════
@@ -766,7 +781,8 @@ export async function proxy(request: NextRequest) {
        * A SITE'S OWN robots.txt AND sitemap.xml. They look like files, so
        * they went to the file handler and answered 404, and a creator's site
        * had no sitemap at all. The website answers them itself
-       * (app/(site)/w/[username]/robots.txt, sitemap.xml).
+       * (app/(site)/w/[username]/robots.txt, sitemap.xml); a live AI site
+       * keeps serving (or generating) its own.
        */
       const seoFile = pathname === "/robots.txt" || pathname === "/sitemap.xml"
       const isWebsite = (!looksLikeFile || seoFile) && !(await hasLiveAiSite(subdomain))

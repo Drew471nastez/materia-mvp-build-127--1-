@@ -8,7 +8,11 @@
 // `/website-builder/editor/[installId]` routes render the exact same UI
 // and share all the editor state logic.
 // ============================================================
+import type { Metadata } from "next"
 import EditorClient from "@/app/website-builder/editor/[installId]/page"
+
+/* The editor is one person's own screen, never a page to index. */
+export const metadata: Metadata = { robots: { index: false, follow: false } }
 
 type PageProps = {
   params: Promise<{ creatorSlug: string; installId: string }>

@@ -102,7 +102,20 @@ export function FieldPopover({
   React.useEffect(() => {
     if (!open) return
     const id = requestAnimationFrame(() => {
-      panel.current?.scrollIntoView({ block: "nearest", behavior: "smooth" })
+      /**
+       * THE PANEL'S OWN SCROLLER, AND NOTHING ABOVE IT. `scrollIntoView`
+       * walks every scrollable ancestor, clipped ones and the window
+       * included, and leaves each wherever it went. The one container the
+       * field lives in is scrolled by hand, by the least that shows the panel.
+       */
+      const el = panel.current
+      const scroller = el?.closest("[data-sheet-scroll], [data-wb-sidebar-scroll]") as HTMLElement | null
+      if (!el || !scroller) return
+      const r = el.getBoundingClientRect()
+      const box = scroller.getBoundingClientRect()
+      if (r.bottom <= box.bottom && r.top >= box.top) return
+      const delta = r.bottom > box.bottom ? Math.min(r.bottom - box.bottom, r.top - box.top) : r.top - box.top
+      scroller.scrollBy({ top: delta, behavior: "smooth" })
     })
     return () => cancelAnimationFrame(id)
   }, [open])

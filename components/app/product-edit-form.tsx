@@ -1,5 +1,6 @@
 "use client"
 
+import { announceChange } from "@/lib/seo/announce-client"
 import type React from "react"
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
@@ -228,7 +229,8 @@ export function ProductEditForm({ product, assets: initialAssets, creatorId, cre
     setStatus(newStatus)
 
     const supabase = createClient()
-    await supabase.from("products").update({ status: newStatus }).eq("id", product.id)
+    const { error: statusError } = await supabase.from("products").update({ status: newStatus }).eq("id", product.id)
+    if (!statusError) announceChange({ product: product.id })
 
     // When publishing, ensure bundle is ready so first buyer gets instant ZIP download
     if (newStatus === "published") {

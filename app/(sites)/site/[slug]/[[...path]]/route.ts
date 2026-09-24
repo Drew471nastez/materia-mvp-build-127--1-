@@ -21,6 +21,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { SITES_HOST } from "@/lib/sites/public-host"
 import { contentTypeFor } from "@/lib/sites/content-type"
 import { DEPLOYMENT_BUCKET } from "@/lib/sites/publish"
+import { robotsTxt, urlsetXml } from "@/lib/seo/indexing"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -209,7 +210,34 @@ export async function GET(
   }
 
   const { data, error } = await admin.storage.from(DEPLOYMENT_BUCKET).download(objectPath)
-  if (error || !data) return notFound()
+  if (error || !data) {
+    /**
+     * A SITE WITHOUT ITS OWN ROBOTS.TXT OR SITEMAP GETS ONE. Google treats
+     * every host as its own site and looks for both at the root; a built
+     * site is one page app at its own address, so the sitemap is that
+     * address, dated by the live deployment. A site that ships its own
+     * files keeps them: this only answers what would have been a 404.
+     */
+    if (!wantsVendor && (requested === "robots.txt" || requested === "sitemap.xml")) {
+      const origin = `https://${slug.toLowerCase()}.${SITES_HOST}`
+      if (requested === "robots.txt") {
+        return new NextResponse(robotsTxt({ sitemaps: [`${origin}/sitemap.xml`] }), {
+          headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "public, s-maxage=10, stale-while-revalidate=30" },
+        })
+      }
+      const { data: live } = await admin
+        .from("site_deployments")
+        .select("created_at")
+        .eq("is_live", true)
+        .eq("slug", slug.toLowerCase())
+        .maybeSingle()
+      return new NextResponse(urlsetXml([{ url: `${origin}/`, lastModified: (live as { created_at?: string } | null)?.created_at ?? null }]), {
+        /* Held no longer than the page: a publish changes its date. */
+        headers: { "Content-Type": "application/xml; charset=utf-8", "Cache-Control": "public, s-maxage=10, stale-while-revalidate=30" },
+      })
+    }
+    return notFound()
+  }
 
   const isHtml = objectPath.endsWith(".html")
 

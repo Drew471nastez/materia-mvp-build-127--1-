@@ -294,16 +294,39 @@ section("The page")
     */
     const live = client.slice(client.indexOf('<section aria-labelledby="live-heading"'), client.indexOf("{/* ── Library"))
     check("the strip is its own bar above the card, not tabs inside it",
-      live.indexOf("<WebsiteTabs") > 0 && live.indexOf("<WebsiteTabs") < live.indexOf('className="overflow-hidden rounded-2xl border') &&
+      live.indexOf("<WebsiteStrip") > 0 && live.indexOf("<WebsiteStrip") < live.indexOf('className="overflow-hidden rounded-2xl border') &&
         !/<nav/.test(live))
-    const strip = client.slice(client.indexOf("export function WebsiteTabs"), client.indexOf("const COVER_FRAME"))
+    /*
+      THE STRIP IS SHOPIFY'S WEB PERFORMANCE BAR, NOT A ROW OF TABS. Six
+      text tabs that opened editor settings were what the owner asked to have
+      fixed. It is the period, then numbers, each from something measured.
+    */
+    const strip = stripComments(read("app/app/website-builder/website-strip.tsx"))
     check("  one white bar in the card style, cut into cells by hairlines",
       /rounded-2xl border border-\[#e5e7eb\]\/60 bg-white shadow-\[0_1px_3px_rgba\(0,0,0,0\.04\)\]/.test(strip) && /divide-x divide-\[#eceef1\]/.test(strip))
-    check("  each cell a button, the active one marked by a rule along its foot and a faint fill",
-      /<button/.test(strip) && /after:h-\[2px\]/.test(strip) && /bg-\[#fafafb\] text-\[#1a1a2e\] after:opacity-100/.test(strip) && /aria-current=\{here \? "page" : undefined\}/.test(strip))
-    check("  on a phone it scrolls sideways with no scrollbar, keeping the active cell in view",
-      /overflow-x-auto/.test(strip) && /\[scrollbar-width:none\]/.test(strip) && /\[&::-webkit-scrollbar\]:hidden/.test(strip) &&
-        /row\.scrollTo\(\{ left \}\)/.test(strip) && !/scrollIntoView\(/.test(strip.replace(/\/\*[\s\S]*?\*\//g, "")))
+    check("  the first cell is the shared period picker, with a calendar mark",
+      /<DateRangePicker value=\{period\} onChange=\{choose\}/.test(strip) && /<CalendarDays/.test(strip) && /from "@\/components\/app\/date-range-picker"/.test(strip))
+    check("  then visits, orders, conversion and Google's three speed numbers",
+      ['kind="visits"', 'kind="orders"', 'kind="conversion"'].every((k) => strip.includes(k)) && /\(\["lcp", "inp", "cls"\] as const\)/.test(strip))
+    check("  each titled with a dotted underline that explains it",
+      (strip.match(/<HelpLabel label=/g) ?? []).length === 2 && /VITAL_DEFINITION\[name\]/.test(strip))
+    check("  traffic opens Analytics for the same period; a speed cell opens its definition and the device split",
+      /<Link href=\{href\}/.test(strip) && /analyticsHref\(period\)/.test(strip) &&
+        /<VitalDetail name=\{name\}/.test(strip) && /\(\["mobile", "desktop"\] as const\)/.test(strip) &&
+        /<BottomSheet isOpen=\{open\}/.test(strip) && /PopoverPrimitive\.Content/.test(strip))
+    check("  the open cell carries a violet rule along its foot",
+      /after:h-\[2px\]/.test(strip) && /after:bg-\[#8b5cf6\]/.test(strip) && /data-\[active\]:after:opacity-100/.test(strip) && /data-active=\{open \? "" : undefined\}/.test(strip))
+    check("  nothing is filled in: collecting, too few and unreadable each say so",
+      /Collecting data/.test(strip) && /Too few visits/.test(strip) && /Not available/.test(strip) && /MIN_SAMPLES/.test(strip) &&
+        !/Math\.random|sample(Data|Figures)/.test(strip))
+    check("  the numbers stream in after the page, and a new period is asked for, never guessed",
+      /React\.use\(figures\)/.test(strip) && /<React\.Suspense fallback=/.test(strip) && /\/api\/website-builder\/performance\?/.test(strip))
+    check("  on a phone it scrolls sideways inside itself with no scrollbar",
+      /overflow-x-auto/.test(strip) && /\[scrollbar-width:none\]/.test(strip) && /\[&::-webkit-scrollbar\]:hidden/.test(strip) && /min-w-\[132px\]/.test(strip) && /whitespace-nowrap/.test(strip))
+    check("the old tab destinations are the More menu's first group",
+      ['section: "pages"', 'section: "domains"', 'section: "seo"', 'section: "publishing"', 'section: "general"'].every((s) => client.includes(s)) &&
+        /editorHref\(username, i\.id, "settings", d\.section\)/.test(client) && /section: n === 0 \? "Website settings" : undefined/.test(client))
+    check("the loading state draws the bar's new shape", /min-w-\[132px\] flex-\[1_0_auto\] flex-col/.test(loading) && /h-8 w-\[132px\] rounded-lg/.test(loading))
     const frame = /const COVER_FRAME =\s*"([^"]+)"/.exec(client)?.[1] ?? ""
     check("the cover is clipped to 12px corners on all four sides",
       /\brounded-\[12px\]/.test(frame) && /\boverflow-hidden\b/.test(frame) && /className=\{COVER_FRAME\}/.test(live))
@@ -428,7 +451,18 @@ section("Choosing an icon, and choosing where a link goes")
   check("and not collections, which do not exist", !/kind: "collection"/.test(linkPicker) && !/Collections/.test(linkPicker))
   check("the nav link cannot be pointed at one", !/collections\//.test(read("components/website-builder/sections/renderers/HeaderSection.tsx").replace(/\/\/.*$/gm, "")))
   check("and Shop in the picker is the address the shop is at", /\{ href: "\/products", label: "Shop", kind: "page" \}/.test(editorSrc) && !/href: "\/shop"/.test(editorSrc))
-  check("and still takes any address at all", /Or any address/.test(linkPicker) && /mailto:/.test(linkPicker))
+  /**
+   * THE FIELD IS THE ADDRESS. The list used to end in an "Or any address"
+   * box, a second place to type a link under the first. Now the field takes
+   * any address itself, checked and tidied on Enter or blur, and the list is
+   * the site's pages and products and nothing else.
+   */
+  check(
+    "and still takes any address at all, typed into the field itself",
+    /role="combobox"/.test(linkPicker) && /normalizeLinkAddress\(text\)/.test(linkPicker) && /mailto/.test(read("lib/website-builder/link-address.ts")),
+  )
+  check("with no custom address row in the list", !/Or any address/.test(linkPicker) && !/custom/i.test(linkPicker.replace(/\/\*[\s\S]*?\*\//g, "")))
+  check("and the nav and call to action links use the same field", !/function NavLinkPicker/.test(editorSrc) && (editorSrc.match(/<LinkFieldEditor/g) ?? []).length >= 3)
   check(
     "the targets come from the same lists the page browser shows, so the two cannot disagree",
     /const linkTargets = useMemo<LinkTarget\[\]>/.test(editorSrc) &&
@@ -625,6 +659,21 @@ section("The cover")
   const client = read("app/app/website-builder/website-builder-client.tsx")
   check("the website page retakes a cover that is older than the site",
     /export function coverIsStale/.test(client) && /await requestCover\(i\.id\)/.test(client))
+  /*
+    THE COVER WAS STALE AFTER EDITING ON A PHONE. The app keeps a page it
+    has shown for five minutes, so Back from the editor handed the Website
+    page its list from before the edit, whose cover looked current. The tab
+    remembers its own saves and the covers that arrived, the page checks its
+    copy against them, and one cover request per site is shared.
+  */
+  check("the tab remembers when it saved each site, and the newest cover each one got",
+    /saves\.set\(installId, Date\.now\(\)\)/.test(refresh) && /export function savedAt/.test(refresh) && /export function latestCover/.test(refresh) && /covers\.set\(installId, cover\)/.test(refresh))
+  check("  one cover request per site at a time: the editor's and the page's share one browser launch",
+    /const running = inflight\.get\(installId\)\s*\n\s*if \(running\) return running/.test(refresh) && /inflight\.delete\(installId\)/.test(refresh))
+  check("  a copy of the page older than this tab's save asks the server again, once per save",
+    /savedAt\(i\.id\) > Date\.parse\(i\.saved_at\) \+ 2000/.test(client) && /REFRESHED\.add/.test(client) && /router\.refresh\(\)/.test(client))
+  check("  a cover that arrived while the page was away is drawn without being taken again",
+    /\[fresh\[i\.id\], latestCover\(i\.id\)\]/.test(client) && /Math\.max\(Date\.parse\(i\.saved_at\), savedAt\(i\.id\)\)/.test(client))
   check("  missing is stale", coverIsStale({ snapshot_url: null, snapshot_updated_at: null, saved_at: "2026-09-23T00:00:00Z" }))
   check("  older than the last save is stale", coverIsStale({ snapshot_url: "x", snapshot_updated_at: "2026-09-23T00:00:00Z", saved_at: "2026-09-23T00:01:00Z" }))
   check("  taken after it is not", !coverIsStale({ snapshot_url: "x", snapshot_updated_at: "2026-09-23T00:01:00Z", saved_at: "2026-09-23T00:00:00Z" }))

@@ -134,10 +134,18 @@ function main() {
 
   console.log("\n  the link picker on a phone")
 
+  /**
+   * The nav's own picker (a fixed popover on a desktop, a list in the flow on
+   * a phone) is gone: nav links and the call to action use the one link
+   * field every other link uses, whose list is ALWAYS in the flow
+   * (FieldPopover), so there is nothing to measure against a viewport that
+   * iOS has scrolled under the keyboard, at any width.
+   */
+  const linkField = read("components/website-builder/link-picker.tsx")
   check("the list is in the flow rather than floated",
-    /const \[inline, setInline\] = useState\(false\)/.test(editor) && /\{inlineList\}/.test(editor))
+    !/function NavLinkPicker/.test(editor) && /<FieldPopover/.test(linkField) && !/position: ?"?fixed|createPortal/.test(linkField))
   check("and the popover is not measured at all there",
-    /if \(!open \|\| inline\) \{ setPos\(null\); return \}/.test(editor))
+    !/getBoundingClientRect/.test(linkField) && !/nav-link-picker-popup/.test(editor))
 
   console.log("\n  the page behind a drawer")
 

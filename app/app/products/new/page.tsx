@@ -1,5 +1,6 @@
 "use client"
 
+import { announceChange } from "@/lib/seo/announce-client"
 import { sheetAboveKeyboard } from "@/lib/ui/keyboard-safe-sheet"
 import React, { useState, useEffect, useCallback, useRef, useLayoutEffect, memo } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
@@ -2331,6 +2332,9 @@ export default function NewProductPage() {
         }).catch(() => { /* Non-critical: bundle can be regenerated on next save */ })
       }
 
+      /* Saved: search engines that take IndexNow hear about it now. */
+      if (finalProductId) announceChange({ product: finalProductId })
+
       return { productId: finalProductId, slug: finalSlug }
     } catch (err: any) {
       console.error("Error saving product:", err)
@@ -3209,6 +3213,7 @@ export default function NewProductPage() {
 
       if (updateError) throw updateError
 
+      announceChange({ product: productId })
       setIsPublished(!isPublished)
       setNotificationMessage(isPublished ? "Product unpublished" : "Product is live!")
       setShowNotification(true)

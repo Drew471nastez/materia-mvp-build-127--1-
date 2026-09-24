@@ -1,5 +1,6 @@
 "use client"
 
+import { announceChange } from "@/lib/seo/announce-client"
 import { useState, useRef, useEffect, useMemo } from "react"
 import Link from "next/link"
 import Image from "next/image"
@@ -249,6 +250,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
         .eq("id", product.id)
 
       if (error) throw error
+      announceChange({ product: product.id })
 
       setProducts(prev => prev.map(p =>
         p.id === product.id ? { ...p, archived: newArchivedState } : p

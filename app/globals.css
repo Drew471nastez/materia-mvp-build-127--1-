@@ -833,19 +833,27 @@ html.capacitor body {
       0 1px 2px rgba(0, 0, 0, 0.5),
       0 4px 10px -4px rgba(0, 0, 0, 0.6);
   }
-  .wb-ai-button::before {
-    content: "";
+  /* THE RING, TURNED RATHER THAN REDRAWN.
+     It was one layer whose conic gradient started at a registered custom
+     property, animated from 0 to 360 degrees. A custom property is not
+     something the compositor can animate, so every frame of every second
+     the editor was open ran a style recalculation and repainted the
+     gradient on the main thread: about 70ms of each idle second at a 4x
+     slower CPU, for a 34px ring.
+
+     Now the same gradient is drawn ONCE on a square larger than the button
+     and turned with `transform`, inside a ring-shaped mask that is also
+     drawn once. A turning layer is the compositor's job, so the main thread
+     does nothing per frame. The look is the same stop for stop: a conic
+     gradient turned about its centre is the gradient started at a new angle.
+     It stops while the tab is hidden (`data-tab-hidden`, set by the editor)
+     and for anybody who asked for less motion. */
+  .wb-ai-ring {
     position: absolute;
     inset: -1px;
     border-radius: inherit;
     padding: 1px;
-    background: conic-gradient(
-      from var(--wb-ai-angle, 0deg),
-      rgba(255, 255, 255, 0) 0deg,
-      rgba(167, 139, 250, 0.55) 60deg,
-      rgba(255, 255, 255, 0) 120deg,
-      rgba(255, 255, 255, 0) 360deg
-    );
+    overflow: hidden;
     -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
     mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
     -webkit-mask-composite: xor;
@@ -854,12 +862,25 @@ html.capacitor body {
     pointer-events: none;
     z-index: -1;
   }
+  .wb-ai-ring-spin {
+    position: absolute;
+    inset: -25%;
+    background: conic-gradient(
+      from 0deg,
+      rgba(255, 255, 255, 0) 0deg,
+      rgba(167, 139, 250, 0.55) 60deg,
+      rgba(255, 255, 255, 0) 120deg,
+      rgba(255, 255, 255, 0) 360deg
+    );
+  }
   .wb-ai-button-open {
     background: #333333;
     box-shadow:
       0 0 0 1px rgba(167, 139, 250, 0.45),
       0 1px 2px rgba(0, 0, 0, 0.5);
   }
+  /* Still used by the section Ask AI is writing (`.wb-writing`), which is on
+     screen only while it writes. */
   @property --wb-ai-angle {
     syntax: "<angle>";
     inherits: false;
@@ -868,8 +889,77 @@ html.capacitor body {
   @keyframes wb-ai-shimmer {
     to { --wb-ai-angle: 360deg; }
   }
+  @keyframes wb-ai-turn {
+    to { transform: rotate(360deg); }
+  }
   @media (prefers-reduced-motion: no-preference) {
-    .wb-ai-button::before { animation: wb-ai-shimmer 4s linear infinite; }
+    .wb-ai-ring-spin { animation: wb-ai-turn 4s linear infinite; will-change: transform; }
+  }
+  html[data-tab-hidden] .wb-ai-ring-spin { animation-play-state: paused; }
+
+  /* ── The connection mark's dot, and the notice that hangs from it ──────
+     The dot is the green the GitHub mark always had. While the connection
+     is working it breathes: a ring that grows and fades, by transform and
+     opacity only, so it costs the main thread nothing. */
+  .wb-live-dot {
+    position: absolute;
+    right: 5px;
+    top: 5px;
+    width: 7px;
+    height: 7px;
+    border-radius: 9999px;
+    background: #10b981;
+    box-shadow: 0 0 0 2px var(--wb-chrome-bg);
+  }
+  .wb-live-dot::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: #10b981;
+    opacity: 0;
+  }
+  @keyframes wb-live-breathe {
+    0% { transform: scale(1); opacity: 0.55; }
+    70%, 100% { transform: scale(2.6); opacity: 0; }
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .wb-live-dot[data-pulse]::after { animation: wb-live-breathe 2.2s cubic-bezier(0.2, 0.6, 0.3, 1) infinite; }
+  }
+  html[data-tab-hidden] .wb-live-dot::after { animation-play-state: paused; }
+
+  /* It arrives by transform alone. An entrance that also faded opacity was
+     measured, in Chromium, leaving the notice composited at part opacity
+     after the animation had ended: a grey panel with the page showing
+     through. It leaves by fading, which cannot stick: it is removed the
+     moment the fade ends. */
+  .wb-live-notice {
+    animation: wb-live-in 180ms cubic-bezier(0.32, 0.72, 0, 1) backwards;
+  }
+  .wb-live-notice-leaving {
+    animation: wb-live-out 200ms ease-out forwards;
+    pointer-events: none;
+  }
+  @keyframes wb-live-in {
+    from { transform: translateY(-6px) scale(0.98); }
+  }
+  @keyframes wb-live-out {
+    to { opacity: 0; transform: translateY(-4px); }
+  }
+  .wb-live-progress { background: rgba(255, 255, 255, 0.06); }
+  .wb-live-progress-bar {
+    background: linear-gradient(90deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0));
+    transform: translateX(-100%);
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .wb-live-progress-bar { animation: wb-live-sweep 1.4s cubic-bezier(0.45, 0, 0.55, 1) infinite; }
+  }
+  @keyframes wb-live-sweep {
+    to { transform: translateX(300%); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .wb-live-notice, .wb-live-notice-leaving { animation: none; }
+    .wb-live-progress-bar { transform: none; width: 100%; opacity: 0.35; }
   }
 
   /* Depth for the bar's icon buttons: the same recipe as the AI button
@@ -4585,6 +4675,28 @@ html.pop-in-flight #platform-header-root {
   .help-card[data-state="open"] { animation: none; }
 }
 
+/* The action list (components/ui/responsive-action-menu.tsx): 150ms in and
+   150ms out, from the edge nearest the button, on transform and opacity
+   only. An animation, not a transition, because Radix waits for the close
+   animation to end before it takes the menu away. */
+@keyframes action-list-in {
+  from { opacity: 0; transform: translateY(var(--action-list-from, -4px)) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes action-list-out {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to { opacity: 0; transform: translateY(var(--action-list-from, -4px)) scale(0.98); }
+}
+.action-list {
+  transform-origin: var(--radix-dropdown-menu-content-transform-origin);
+}
+.action-list[data-side="top"] { --action-list-from: 4px; }
+.action-list[data-state="open"] { animation: action-list-in 150ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.action-list[data-state="closed"] { animation: action-list-out 150ms cubic-bezier(0.4, 0, 1, 1) both; }
+@media (prefers-reduced-motion: reduce) {
+  .action-list[data-state] { animation-duration: 1ms; }
+}
+
 /* Storelib AI's status line (components/website-builder/ai-status.tsx): a
    slow sweep of light across the words, a soft pulse beside them, and a
    short fade when the words change. */
@@ -4814,4 +4926,15 @@ html.pop-in-flight #platform-header-root {
 }
 @media (prefers-reduced-motion: reduce) {
   .wb-cover-in { animation: none; }
+}
+
+/*
+ * THE COOKIE BANNER STEPS ASIDE FOR A SHEET OR A DIALOG. It sits above the
+ * page at z 9999 so nothing on a page can hide it, which also put it over
+ * the phone menu's sheet on a first visit. While a sheet or a modal dialog
+ * is open it is hidden (not removed: the choice is still owed), and it is
+ * back the moment that closes.
+ */
+html:has([data-app-sheet="open"], [role="dialog"][aria-modal="true"], [role="dialog"][data-state="open"]) [data-cookie-banner] {
+  visibility: hidden;
 }

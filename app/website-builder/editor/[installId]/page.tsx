@@ -4,7 +4,7 @@ import { useEffect, useState, useLayoutEffect, useCallback, useDeferredValue, us
 import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
 import {
-  ArrowLeft, Plug, Monitor, Smartphone, Loader2, Code2, ChevronDown, Plus, Eye, EyeOff, GripVertical, Trash2, Copy, Settings, Check, Layers, X, RotateCcw, Layout, AlignLeft, Image, ShoppingBag, MessageSquare, HelpCircle, Megaphone, BarChart2, Grid, Award, LayoutGrid, DollarSign, LayoutTemplate, Video, Users, MapPin, Mail, Clock, BookOpen, Shirt, Columns, Play, Star, Timer, Shield, Rss, SlidersHorizontal, Code, Bell, ChevronRight, Package, Undo2, Redo2, ExternalLink, Search, FileText, ArrowRight, FolderOpen, MoreHorizontal, Upload, Info, Crop, CheckCircle, Type, Square, Rows3, Grid3x3, MousePointerClick, MoveHorizontal, Hash, Columns2, LayoutDashboard, Badge as BadgeIcon, PanelTop, PanelBottom, ArrowUp, ArrowDown,
+  ArrowLeft, Plug, Monitor, Smartphone, Loader2, Code2, ChevronDown, Plus, Eye, EyeOff, GripVertical, Trash2, Copy, Settings, Check, Layers, X, RotateCcw, Layout, AlignLeft, Image, MessageSquare, HelpCircle, Megaphone, BarChart2, Grid, Award, LayoutGrid, DollarSign, LayoutTemplate, Video, Users, MapPin, Mail, Clock, BookOpen, Shirt, Columns, Play, Star, Timer, Shield, Rss, SlidersHorizontal, Code, Bell, ChevronRight, Package, Undo2, Redo2, ExternalLink, Search, FileText, ArrowRight, FolderOpen, MoreHorizontal, Upload, Info, Crop, CheckCircle, Type, Square, Rows3, Grid3x3, MousePointerClick, MoveHorizontal, Hash, Columns2, LayoutDashboard, Badge as BadgeIcon, PanelTop, PanelBottom, ArrowUp, ArrowDown,
 } from "lucide-react"
 import {
   DndContext,
@@ -59,8 +59,9 @@ import { PublishPanel } from "@/components/website-builder/publish-panel"
 import { PreviewModeSwitch, CodePane, type PreviewMode } from "@/components/website-builder/preview-mode-switch"
 import { ProjectSettings } from "@/components/website-builder/project-settings"
 import { settingsSectionFrom, type ConnectVia, type SettingsSection } from "@/components/website-builder/website-settings/types"
-import { GitHubTopBarButton } from "@/components/website-builder/github-button"
-import { GitHubMark } from "@/components/website-builder/github-sync-panel"
+import { ConnectionButton, LiveChangeNotice, addToBatch, useSiteActivity, type LiveBatch, type LiveChange } from "@/components/website-builder/site-connections"
+import { ConnectionMarkIcon } from "@/components/website-builder/connection-marks"
+import { describeChange, pickConnection, sectionTypeOf, type ActivityEvent } from "@/lib/agent-access/connection-mark"
 import { createClient } from "@/lib/supabase/client"
 import { GradientEditor } from "@/components/website-builder/editor/gradient-editor"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
@@ -84,7 +85,7 @@ import { controlFor, resolveControlType } from "@/lib/storelib-theme/controls/re
 import { fillResponsive } from "@/lib/storelib-theme/resolve"
 import { toCard, type ProductCard } from "@/lib/website-builder/shop-products"
 import { sectionDisplayName } from "@/lib/website-builder/section-name"
-import { PIN_AFTER_SELECT_MS, PIN_WHILE_OPENING_MS, pinScroll, resetClippedAncestors, reviveScroller, scrollWithin } from "@/lib/website-builder/canvas-scroll"
+import { PIN_AFTER_SELECT_MS, PIN_WHILE_OPENING_MS, pinScroll, resetClippedAncestors, revealWithin, reviveScroller, scrollWithin } from "@/lib/website-builder/canvas-scroll"
 import { LEAVING_SEEN_MS, navigateWithCeiling } from "@/lib/website-builder/navigate-ceiling"
 import { isCanvasNavigationLink, isTypingTarget, leavesThePage, type ClickTargetLike } from "@/lib/website-builder/canvas-intercept"
 
@@ -1974,202 +1975,6 @@ function WbRadioSegment({
   )
 }
 
-// ── Smart Link Picker for Nav URLs ───────────────────────────
-function NavLinkPicker({
-  value,
-  onChange,
-  products,
-  customPages,
-}: {
-  value: string
-  onChange: (v: string) => void
-  products: { id: string; title: string; slug: string }[]
-  customPages: { name: string; key: string }[]
-}) {
-  const [open, setOpen] = useState(false)
-  const [search, setSearch] = useState("")
-  const inputRef = useRef<HTMLInputElement>(null)
-  const wrapRef = useRef<HTMLDivElement>(null)
-  const [pos, setPos] = useState<{ top: number; left: number; width: number; maxHeight: number } | null>(null)
-
-  /*
-    ═══════════════════════════════════════════════════════════════════════
-     ON A PHONE THE LIST IS IN THE FLOW, NOT FLOATED
-    ═══════════════════════════════════════════════════════════════════════
-    The list was a `position: fixed` popover placed from the trigger's
-    rectangle. Inside the editor's bottom sheet on a phone, with the
-    keyboard up, that rectangle is measured against a layout viewport iOS
-    has scrolled to keep the field in view, and a fixed element is placed
-    against the same scrolled viewport — so the popover landed at the top
-    of the screen, over the status bar, nowhere near the field. It is the
-    misaligned list in the report.
-
-    A list rendered in the flow, directly under the field, cannot be
-    anywhere but under the field: it scrolls with the sheet, the keyboard
-    pushes it the same way it pushes everything else, and there is nothing
-    to measure. The popover stays for a desktop, where it is right.
-  */
-  const [inline, setInline] = useState(false)
-  useEffect(() => {
-    if (!open) return
-    setInline(window.matchMedia("(max-width: 768px)").matches)
-  }, [open])
-
-  // Measure trigger position for the portaled dropdown
-  useEffect(() => {
-    if (!open || inline) { setPos(null); return }
-    const update = () => {
-      const el = wrapRef.current
-      if (!el) return
-      const r = el.getBoundingClientRect()
-      const vh = window.innerHeight
-      const spaceBelow = vh - r.bottom - 16
-      const spaceAbove = r.top - 16
-      const maxH = Math.min(320, Math.max(spaceBelow, spaceAbove))
-      const openUp = spaceBelow < 220 && spaceAbove > spaceBelow
-      setPos({
-        top: openUp ? Math.max(8, r.top - maxH - 6) : r.bottom + 6,
-        left: r.left,
-        width: r.width,
-        maxHeight: maxH,
-      })
-    }
-    update()
-    const onScroll = () => update()
-    window.addEventListener("scroll", onScroll, true)
-    window.addEventListener("resize", update)
-    return () => {
-      window.removeEventListener("scroll", onScroll, true)
-      window.removeEventListener("resize", update)
-    }
-  }, [open, inline])
-
-  // Close on click outside (both trigger and portaled popup)
-  useEffect(() => {
-    if (!open) return
-    const handler = (e: MouseEvent) => {
-      const t = e.target as Node
-      if (wrapRef.current?.contains(t)) return
-      const pop = document.getElementById("nav-link-picker-popup")
-      if (pop?.contains(t)) return
-      setOpen(false)
-    }
-    document.addEventListener("mousedown", handler)
-    return () => document.removeEventListener("mousedown", handler)
-  }, [open])
-
-  const builtInPages = [
-    { label: "Home", url: "/" },
-    { label: "Shop", url: "/shop" },
-    { label: "About", url: "/about" },
-    { label: "Contact", url: "/contact" },
-    { label: "FAQ", url: "/faq" },
-  ]
-  const allPages = [
-    ...builtInPages,
-    ...customPages.map(p => ({ label: p.name, url: `/${p.key}` })),
-  ]
-
-  const q = search.toLowerCase()
-  const filteredPages = allPages.filter(p => p.label.toLowerCase().includes(q))
-  const filteredProducts = products.filter(p => p.title.toLowerCase().includes(q))
-  const hasResults = filteredPages.length > 0 || filteredProducts.length > 0
-
-  const listBody = (
-      <div className="overflow-y-auto overscroll-contain wb-slim-scroll">
-        {!hasResults && search && (
-          <div className="px-3 py-6 text-sm text-muted-foreground text-center">No results found</div>
-        )}
-        {!hasResults && !search && (
-          <div className="px-3 py-4 text-[12px] text-muted-foreground text-center">Type to search or paste a URL</div>
-        )}
-
-        {filteredPages.length > 0 && (
-          <div className="py-1">
-            <div className="px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Pages</div>
-            {filteredPages.map(p => (
-              <button
-                key={p.url}
-                type="button"
-                className="w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-muted text-left transition-colors"
-                onMouseDown={e => { e.preventDefault(); onChange(p.url); setOpen(false) }}
-              >
-                <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                <span className="truncate flex-1">{p.label}</span>
-                <span className="ml-2 text-[11px] text-muted-foreground/60 shrink-0 truncate max-w-[40%]">{p.url}</span>
-              </button>
-            ))}
-          </div>
-        )}
-
-        {filteredProducts.length > 0 && (
-          <div className="py-1 border-t border-border">
-            <div className="px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Products</div>
-            {filteredProducts.slice(0, 20).map(p => (
-              <button
-                key={p.id}
-                type="button"
-                className="w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-muted text-left transition-colors"
-                onMouseDown={e => { e.preventDefault(); onChange(`/products/${p.slug}`); setOpen(false) }}
-              >
-                <ShoppingBag className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                <span className="truncate">{p.title}</span>
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-  )
-
-  const popup = open && !inline && pos && typeof document !== "undefined" ? createPortal(
-    <div
-      id="nav-link-picker-popup"
-      className="fixed z-[300] bg-white border border-border rounded-lg shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-100"
-      style={{ top: pos.top, left: pos.left, width: pos.width, maxHeight: pos.maxHeight }}
-    >
-      {listBody}
-    </div>,
-    document.body,
-  ) : null
-
-  const inlineList = open && inline ? (
-    <div
-      id="nav-link-picker-popup"
-      className="mt-1.5 max-h-[240px] overflow-hidden rounded-lg border border-border bg-white flex flex-col"
-    >
-      {listBody}
-    </div>
-  ) : null
-
-  return (
-    <div ref={wrapRef} className="relative">
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-        <input
-          ref={inputRef}
-          type="text"
-          className="w-full h-9 pl-9 pr-3 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 transition-colors"
-          placeholder="Paste your link (or type to search)"
-          value={open ? search : (value || "")}
-          onFocus={() => { setOpen(true); setSearch(value || "") }}
-          onChange={e => {
-            const v = e.target.value
-            setSearch(v)
-            if (v.startsWith("/") || v.startsWith("http") || v.startsWith("#")) {
-              onChange(v)
-            }
-          }}
-          onKeyDown={e => {
-            if (e.key === "Escape") { setOpen(false); inputRef.current?.blur() }
-          }}
-        />
-      </div>
-      {popup}
-      {inlineList}
-    </div>
-  )
-}
-
 // ── Sortable Nav Link Item ───────────────────────────────────
 // Supports 1-level nested submenus via `settings.parent_id` pointing to
 // the parent nav_link's id. Root items show an "Add Link to {label}"
@@ -2181,8 +1986,6 @@ function SortableNavLink({
   blockSchema,
   onUpdateBlockSetting,
   onRemoveBlock,
-  products,
-  customPages,
   children,
   isChild = false,
   onAddChild,
@@ -2192,8 +1995,6 @@ function SortableNavLink({
   blockSchema: any
   onUpdateBlockSetting: (blockId: string, key: string, value: unknown) => void
   onRemoveBlock: (blockId: string) => void
-  products: { id: string; title: string; slug: string }[]
-  customPages: { name: string; key: string }[]
   children?: React.ReactNode
   isChild?: boolean
   onAddChild?: () => void
@@ -2305,11 +2106,9 @@ function SortableNavLink({
                 <label className="text-xs font-medium text-muted-foreground mb-1.5 block">{field.label}</label>
               )}
               {field.id === "url" ? (
-                <NavLinkPicker
+                <LinkFieldEditor
                   value={typeof block.settings.url === "string" ? block.settings.url : ""}
                   onChange={val => onUpdateBlockSetting(block.id, "url", val)}
-                  products={products}
-                  customPages={customPages}
                 />
               ) : (
                 <input
@@ -2395,8 +2194,6 @@ function HeaderSectionSettings({
   onAddBlock,
   onRemoveBlock,
   onReorderBlocks,
-  products,
-  customPages,
   theme,
   onEditScheme,
 }: {
@@ -2408,8 +2205,6 @@ function HeaderSectionSettings({
   onAddBlock: (type: string, initialSettings?: Record<string, unknown>) => void
   onRemoveBlock: (blockId: string) => void
   onReorderBlocks: (blocks: { id: string; type: string; settings: Record<string, unknown> }[]) => void
-  products: { id: string; title: string; slug: string }[]
-  customPages: { name: string; key: string }[]
   theme: ThemeSettingsValues
   onEditScheme: (schemeKey?: string) => void
 }) {
@@ -2563,8 +2358,6 @@ function HeaderSectionSettings({
                       blockSchema={blockSchema}
                       onUpdateBlockSetting={onUpdateBlockSetting}
                       onRemoveBlock={onRemoveBlock}
-                      products={products}
-                      customPages={customPages}
                       onAddChild={() => onAddBlock("nav_link", { parent_id: block.id, label: "New link", url: "#", link_type: "custom" })}
                     >
                       {kids.length > 0 && (
@@ -2592,8 +2385,6 @@ function HeaderSectionSettings({
                                   blockSchema={blockSchema}
                                   onUpdateBlockSetting={onUpdateBlockSetting}
                                   onRemoveBlock={onRemoveBlock}
-                                  products={products}
-                                  customPages={customPages}
                                   isChild
                                 />
                               ))}
@@ -3059,11 +2850,9 @@ function HeaderSectionSettings({
                   </div>
                   <div className="space-y-1.5">
                     <p className="text-sm font-medium text-foreground">Button URL</p>
-                    <NavLinkPicker
+                    <LinkFieldEditor
                       value={typeof s.cta_url === "string" ? s.cta_url : ""}
                       onChange={val => onUpdateSetting("cta_url", val)}
-                      products={products}
-                      customPages={customPages}
                     />
                   </div>
                   <p className="text-[11px] text-muted-foreground leading-snug flex items-start gap-1.5">
@@ -4006,18 +3795,24 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   }, [])
 
   /**
-   * Scroll the CANVAS to a section, and nothing else. `scrollIntoView` was
-   * the call here, and it scrolls every ancestor it needs to: the clipped
-   * wrapper around the card and, on iOS, the window itself, `overflow:
-   * hidden` or not. Each is left wherever it went, with no touch that can
-   * bring it back, and the card sits displaced with a scroller that no
-   * longer lines up with the finger. One container, scrolled by hand.
+   * Bring a section into the CANVAS, and only when none of it is on screen.
+   *
+   * `scrollIntoView` was the call here once, and it scrolls every ancestor
+   * it needs to: the clipped wrapper around the card and, on iOS, the window
+   * itself. One container, scrolled by hand (see revealWithin).
+   *
+   * And it used to bring the section to the top EVERY time, which is the
+   * "I click something and it scrolls to it" in the report: a row picked in
+   * the layer list, a section just added at a gap you were looking at, a
+   * duplicate, each slid the page up under the eye to put a section that was
+   * already showing at the top. Now a section any part of which is on
+   * screen stays exactly where it is.
    */
-  const scrollToSection = useCallback((sectionId: string) => {
+  const revealSection = useCallback((sectionId: string) => {
     setTimeout(() => {
       const el = document.getElementById(`wb-section-${sectionId}`)
       const scroller = document.getElementById("wb-preview-root")
-      if (el && scroller) scrollWithin(scroller, el)
+      if (el && scroller) revealWithin(scroller, el)
     }, 80)
   }, [])
 
@@ -4332,6 +4127,23 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     checkMobile()
     window.addEventListener("resize", checkMobile)
     return () => window.removeEventListener("resize", checkMobile)
+  }, [])
+
+  /**
+   * The editor's idle motions (the AI button's ring, the connection dot)
+   * stop while the tab is hidden. An attribute on <html>, written straight
+   * to the DOM: a state here would render all of the editor on every tab
+   * switch to change one CSS rule.
+   */
+  useEffect(() => {
+    const root = document.documentElement
+    const sync = () => root.toggleAttribute("data-tab-hidden", document.visibilityState === "hidden")
+    sync()
+    document.addEventListener("visibilitychange", sync)
+    return () => {
+      document.removeEventListener("visibilitychange", sync)
+      root.removeAttribute("data-tab-hidden")
+    }
   }, [])
 
   // Warn about unsaved changes
@@ -4959,7 +4771,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     setIsDirty(true)
   }
 
-  const duplicateSection = (sectionId: string) => {
+  /**
+   * `fromCanvas` is the toolbar over the canvas. A press there never moves
+   * the canvas: the copy lands directly under the section that was pressed,
+   * and the person is looking at the place it lands. From the layer list it
+   * is revealed, and only if none of it is on screen.
+   */
+  const duplicateSection = (sectionId: string, fromCanvas = false) => {
     pushUndo()
     const idx = sections.findIndex(s => s.id === sectionId)
     if (idx === -1) return
@@ -4981,10 +4799,10 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     next.splice(idx + 1, 0, copy)
     setSections(next)
     setIsDirty(true)
-    // Smoothly reveal the newly-duplicated section in the canvas.
-    // Two rAF ticks: one for React commit, one for layout post-paint.
+    if (fromCanvas) return
+    // Two frames: one for React's commit, one for the layout after it.
     requestAnimationFrame(() => {
-      requestAnimationFrame(() => scrollToSection(copy.id))
+      requestAnimationFrame(() => revealSection(copy.id))
     })
   }
 
@@ -5030,7 +4848,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     setSections(next)
     setSelectedPanel({ type: "section", sectionId: newSection.id })
     setIsDirty(true)
-    scrollToSection(newSection.id)
+    revealSection(newSection.id)
   }
 
   // Add custom page
@@ -5568,6 +5386,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       { href: "/products", label: "Shop", kind: "page" },
       { href: "/about", label: "About", kind: "page" },
       { href: "/contact", label: "Contact", kind: "page" },
+      /* The page browser lists it, and the header's links used to offer it. */
+      { href: "/search", label: "Search", kind: "page" },
       ...customPages.map((p) => ({ href: `/${p.key}`, label: p.name, kind: "page" as const })),
       ...products.map((p) => ({ href: `/products/${p.slug}`, label: p.title, kind: "product" as const })),
       /**
@@ -5623,9 +5443,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       setAiWriting(next)
       /* On a phone the chat covers the canvas, and the canvas is the point. */
       if (isMobileView) setAiOpen(false)
-      scrollToSection(WRITING_SECTION_ID)
+      revealSection(WRITING_SECTION_ID)
     },
-    [canvasInsertAt, pendingInsertIndex, selectedSectionId, isMobileView, scrollToSection],
+    [canvasInsertAt, pendingInsertIndex, selectedSectionId, isMobileView, revealSection],
   )
 
   /**
@@ -5653,10 +5473,10 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       setSelectedPanel({ type: "section", sectionId: id })
       setIsDirty(true)
       setArrivedId(id)
-      scrollToSection(id)
+      revealSection(id)
       return true
     },
-    [loadStorelibSources, pushUndo, scrollToSection],
+    [loadStorelibSources, pushUndo, revealSection],
   )
 
   /**
@@ -5691,66 +5511,82 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * on a page itself: the page's sections are this editor's, and a server
    * write under an open editor would be overwritten by its next autosave.
    *
-   * So the editor listens. Every few seconds while the tab is showing, it
-   * asks what agents wrote since it last asked; a NEW section is put on the
-   * page that is open, above the footer, the way Add Section would, and
-   * arrives with the same animation Ask AI's sections do. A change to an
-   * existing one redraws it. Either way it says who did it.
+   * So the editor listens (useSiteActivity: quick while changes arrive,
+   * slower while nothing happens, never while the tab is hidden, not at all
+   * while nothing is connected). A NEW section is put on the page that is
+   * open, above the footer, the way Add Section would, and arrives with the
+   * same animation Ask AI's sections do. A change to an existing one redraws
+   * it. Every change is a line in the notice under the connection's mark.
+   *
+   * The canvas is NOT scrolled to a new section. The person may be working
+   * somewhere else on the page while an agent writes, and a page that moves
+   * by itself is the "it autoscrolls" report. The notice's line for it
+   * selects it and brings it into view when they want it.
    *
    * Nothing is replayed: the first answer is only a cursor, so opening the
    * builder does not add everything agents wrote last week.
    */
-  type AgentEvent = { id: number; agent_name: string; path: string; action: "created" | "updated" }
-  const agentCursorRef = useRef<number | null>(null)
-  const handleAgentEventsRef = useRef<(events: AgentEvent[]) => Promise<void>>(async () => {})
-  handleAgentEventsRef.current = async (events: AgentEvent[]) => {
+  const [liveBatch, setLiveBatch] = useState<LiveBatch | null>(null)
+  const handleAgentEvents = async (events: ActivityEvent[]) => {
     const files = await loadStorelibSources()
-    if (!files) return
-    const custom = customSectionSchemas(files)
+    const custom = files ? customSectionSchemas(files) : {}
+    /* One poll can hold two writers; each gets its own run of lines. */
+    let who = events[0]?.agent_name ?? ""
+    let changes: LiveChange[] = []
+    const flush = () => {
+      if (!changes.length) return
+      const lines = changes
+      const by = who
+      setLiveBatch((b) => addToBatch(b, by, lines, Date.now()))
+      changes = []
+    }
     for (const ev of events) {
-      const type = /^sections\/([a-z0-9_-]+)\.storelib$/.exec(ev.path)?.[1]
-      if (!type) continue
-      const schema = custom[type]
-      const label = schema?.name ?? type
-      if (ev.action === "created" && schema && !sectionsRef.current.some((sec) => sec.type === type)) {
+      if (ev.agent_name !== who) {
+        flush()
+        who = ev.agent_name
+      }
+      const type = sectionTypeOf(ev.path)
+      const schema = type ? custom[type] : undefined
+      if (type && ev.action === "created" && schema && !sectionsRef.current.some((sec) => sec.type === type)) {
         const id = `${type}-${Date.now()}`
         pushUndo()
         setSections((previous) => placeWrittenSection(previous, writingAnchor(previous), instanceFromSchema(id, type, schema)))
         setIsDirty(true)
         setArrivedId(id)
-        scrollToSection(id)
-        showNotification(`${ev.agent_name} added ${label}`)
-      } else {
-        showNotification(`${ev.agent_name} updated ${label}`)
       }
+      changes.push({ key: ev.path, text: describeChange(ev, (t) => custom[t]?.name ?? SECTION_SCHEMAS[t]?.name), sectionType: type })
     }
+    flush()
   }
-  useEffect(() => {
-    let stopped = false
-    let timer: ReturnType<typeof setTimeout> | null = null
-    const tick = async () => {
-      if (stopped) return
-      if (document.visibilityState === "visible") {
-        try {
-          const after = agentCursorRef.current === null ? "" : `?after=${agentCursorRef.current}`
-          const res = await fetch(`/api/website-builder/themes/${installId}/agent-activity${after}`)
-          const d = (await res.json().catch(() => ({}))) as { ready?: boolean; cursor?: number; events?: AgentEvent[] }
-          /* Not set up on this database: stop asking until the next load. */
-          if (!res.ok || d.ready === false) return
-          if (typeof d.cursor === "number") agentCursorRef.current = d.cursor
-          if (d.events?.length) await handleAgentEventsRef.current(d.events)
-        } catch {
-          /* offline for a moment; the next tick asks again */
-        }
-      }
-      if (!stopped) timer = setTimeout(tick, 5_000)
-    }
-    void tick()
-    return () => {
-      stopped = true
-      if (timer) clearTimeout(timer)
-    }
-  }, [installId])
+  const { brief: connectionsBrief } = useSiteActivity({
+    installId,
+    recheck: projectSettingsOpen,
+    onEvents: handleAgentEvents,
+  })
+  const connection = useMemo(() => pickConnection(connectionsBrief), [connectionsBrief])
+  const connectionButtonRef = useRef<HTMLButtonElement>(null)
+  /** A line in the notice is only a way in when its section is on the open page. */
+  const liveShown = useMemo<LiveBatch | null>(
+    () =>
+      liveBatch && {
+        ...liveBatch,
+        changes: liveBatch.changes.map((c) =>
+          c.sectionType && sections.some((sec) => sec.type === c.sectionType) ? c : { ...c, sectionType: null },
+        ),
+      },
+    [liveBatch, sections],
+  )
+  const selectFromNotice = (type: string) => {
+    const target = sectionsRef.current.find((sec) => sec.type === type)
+    if (!target) return
+    setSidebarMode("sections")
+    setPageBrowserOpen(false)
+    setSelectedPanel({ type: "section", sectionId: target.id })
+    revealSection(target.id)
+    if (isMobileView) setMobileSidebarOpen(true)
+  }
+  /** The mark opens the path its connection lives on. */
+  const openConnection = () => (connection.online && connection.kind !== "github" ? openConnections() : openGitHub())
 
   // ── Sidebar panel rendering ─────────────────────────────────
 
@@ -6179,7 +6015,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                     section={header}
                     displayName={sectionDisplayName(header, librarySchemas)}
                     isSelected={selectedSectionId === header.id}
-                    onSelect={() => { setSelectedPanel({ type: "section", sectionId: header.id }); scrollToSection(header.id) }}
+                    onSelect={() => { setSelectedPanel({ type: "section", sectionId: header.id }); revealSection(header.id) }}
                     onToggleHide={() => toggleSectionHidden(header.id)}
                     onDuplicate={() => duplicateSection(header.id)}
                     onRemove={() => removeSection(header.id)}
@@ -6231,7 +6067,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                               section={section}
                               displayName={sectionDisplayName(section, librarySchemas)}
                               isSelected={selectedSectionId === section.id}
-                              onSelect={() => { setSelectedPanel({ type: "section", sectionId: section.id }); scrollToSection(section.id) }}
+                              onSelect={() => { setSelectedPanel({ type: "section", sectionId: section.id }); revealSection(section.id) }}
                               onToggleHide={() => toggleSectionHidden(section.id)}
                               onDuplicate={() => duplicateSection(section.id)}
                               onRemove={() => removeSection(section.id)}
@@ -6297,7 +6133,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                     section={footer}
                     displayName={sectionDisplayName(footer, librarySchemas)}
                     isSelected={selectedSectionId === footer.id}
-                    onSelect={() => { setSelectedPanel({ type: "section", sectionId: footer.id }); scrollToSection(footer.id) }}
+                    onSelect={() => { setSelectedPanel({ type: "section", sectionId: footer.id }); revealSection(footer.id) }}
                     onToggleHide={() => toggleSectionHidden(footer.id)}
                     onDuplicate={() => duplicateSection(footer.id)}
                     onRemove={() => removeSection(footer.id)}
@@ -6330,15 +6166,6 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             onAddBlock={(type, initialSettings) => addBlock(section.id, type, initialSettings)}
             onRemoveBlock={(blockId) => removeBlock(section.id, blockId)}
             onReorderBlocks={(blocks) => reorderBlocks(section.id, blocks)}
-            products={products}
-            customPages={[
-              { name: "Home", key: "home" },
-              { name: "About", key: "about" },
-              { name: "Contact", key: "contact" },
-              { name: "Shop", key: "products" },
-              { name: "Search", key: "search" },
-              ...customPages.map(p => ({ name: p.name, key: p.key as string })),
-            ]}
             theme={settingsDraft}
             onEditScheme={(schemeKey) => {
               if (schemeKey) setEditSchemeKey(schemeKey)
@@ -7331,9 +7158,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 icon: <Plug className="h-4 w-4" />,
                 onClick: openConnections,
               },
-              /* The bar's GitHub button, for a phone, whose bar has no room. */
+              /* The bar's connection mark, for a phone, whose bar has no room. */
               ...(isMobileView
-                ? [{ label: "GitHub", icon: <GitHubMark className="h-4 w-4" />, onClick: openGitHub }]
+                ? [{
+                    label: connection.online ? connection.label : "GitHub",
+                    icon: <ConnectionMarkIcon kind={connection.kind} className="h-4 w-4" />,
+                    onClick: openConnection,
+                  }]
                 : []),
               {
                 label: "Undo",
@@ -7515,14 +7346,27 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             </TooltipContent>
           </Tooltip>
 
-          {/* GitHub, by its own mark, with a green dot when this site is
-              linked to a repository. It opens Connections on the GitHub
-              path; connecting Claude Code or Codex directly is the other
-              path on the same page, and in the menu. A phone reaches it
-              from the menu too. */}
+          {/* What this site is connected to, by that company's own mark:
+              Claude's, OpenAI's, or GitHub's, which is also the mark when
+              nothing is connected yet. A green dot while the connection is
+              live, pulsing while it is working. It opens Connections on the
+              path that connection lives on. A phone reaches it from the menu.
+              The notice of what is changing hangs from it. */}
           {!isMobileView && (
-            <GitHubTopBarButton installId={installId} onOpen={openGitHub} recheck={projectSettingsOpen} />
+            <ConnectionButton
+              mark={connection}
+              working={!!liveBatch}
+              onOpen={openConnection}
+              buttonRef={connectionButtonRef}
+            />
           )}
+          <LiveChangeNotice
+            batch={liveShown}
+            phone={isMobileView}
+            anchorRef={connectionButtonRef}
+            onPick={selectFromNotice}
+            onGone={() => setLiveBatch(null)}
+          />
 
           {/* Ask AI */}
           <Tooltip>
@@ -7549,6 +7393,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 aria-label="Ask Storelib"
                 aria-pressed={aiOpen}
               >
+                {/* The ring round its edge: a gradient drawn once and turned,
+                    inside a mask drawn once. See `.wb-ai-ring` in globals.css. */}
+                <span aria-hidden className="wb-ai-ring">
+                  <span className="wb-ai-ring-spin" />
+                </span>
                 <StorelibMark className={cn("h-[18px] w-[18px] rounded-[5px] transition-opacity", aiOpen ? "opacity-100" : "opacity-80")} />
               </button>
             </TooltipTrigger>
@@ -7671,7 +7520,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           setPageBrowserOpen(false)
           if (header) {
             setSelectedPanel({ type: "section", sectionId: header.id })
-            scrollToSection(header.id)
+            revealSection(header.id)
           }
           if (isMobileView) setMobileSidebarOpen(true)
         }}
@@ -8503,7 +8352,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 canMoveDown={idx > -1 && idx < body.length - 1}
                 onMoveUp={() => selectedSectionId && moveSectionBy(selectedSectionId, -1)}
                 onMoveDown={() => selectedSectionId && moveSectionBy(selectedSectionId, 1)}
-                onDuplicate={() => selectedSectionId && duplicateSection(selectedSectionId)}
+                onDuplicate={() => selectedSectionId && duplicateSection(selectedSectionId, true)}
                 onAskAi={() => {
                   setAiOpen(true)
                   if (isMobileView) setMobileSidebarOpen(false)

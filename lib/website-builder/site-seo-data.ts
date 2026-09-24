@@ -8,6 +8,7 @@ import "server-only"
 import { unstable_cache } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { getMainDomain } from "@/lib/url-helpers"
+import { deservesIndexing } from "@/lib/security/spam-signals"
 import { creatorShopTag, publishedShopByName } from "./published-site"
 import {
   imagesOnPage,
@@ -45,7 +46,11 @@ export async function siteOrigin(creatorId: string, name: string): Promise<strin
     ["site-origin", creatorId],
     { revalidate: 300 },
   )()
-  const host = domain ? domain.toLowerCase().replace(/^www\./, "") : `${name.toLowerCase()}.${getMainDomain()}`
+  /* The proxy sends a bare connected domain to its www. host (a 301), so
+     that is the address a canonical must name: one that answers, not one
+     that redirects. */
+  const bare = domain ? domain.trim().toLowerCase().replace(/\.$/, "") : null
+  const host = bare ? (bare.startsWith("www.") ? bare : `www.${bare}`) : `${name.toLowerCase()}.${getMainDomain()}`
   const protocol = host.includes("localhost") ? "http" : "https"
   return `${protocol}://${host}`
 }
@@ -99,7 +104,10 @@ export async function siteSeo(name: string): Promise<SiteSeo> {
   if (found.kind !== "site") return { kind: "none" }
   const { site } = found
   const origin = await siteOrigin(site.creatorId, name)
-  const indexable = siteIsIndexable(site.themeSettings as Record<string, unknown>)
+  /* The creator's switch, and the same spam rule storelib.com's own
+     sitemap applies to a handle (lib/security/spam-signals). */
+  const indexable =
+    siteIsIndexable(site.themeSettings as Record<string, unknown>) && deservesIndexing({ publishedProducts: 1, handle: name })
 
   const entries: SitemapEntry[] = []
   if (indexable) {

@@ -241,7 +241,7 @@ export async function generateMetadata({ params }: StorefrontPageProps) {
      * indexed the moment they publish, on the next crawl, with no action from
      * anybody — the page is force-dynamic and this is recomputed per request.
      *
-     * app/sitemap.ts applies the identical rule via the same `deservesIndexing`
+     * lib/seo/sitemaps.ts applies the identical rule via the same `deservesIndexing`
      * helper. If these two ever disagree, the sitemap is advertising a page
      * that tells crawlers to go away, which is worse than either alone.
      */

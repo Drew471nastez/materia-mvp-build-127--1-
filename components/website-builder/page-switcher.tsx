@@ -143,7 +143,7 @@ export function PageSwitcher({
     if (open) {
       setQuery(pages.find((p) => p.key === current)?.path ?? "")
       const id = window.setTimeout(() => {
-        searchRef.current?.focus()
+        searchRef.current?.focus({ preventScroll: true })
         searchRef.current?.select()
       }, 40)
       return () => window.clearTimeout(id)

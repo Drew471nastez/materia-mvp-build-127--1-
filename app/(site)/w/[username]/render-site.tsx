@@ -32,6 +32,7 @@ import { siteOrigin } from "@/lib/website-builder/site-seo-data"
 import { pageTitleFromKey, templateForPage } from "@/lib/website-builder/site-pages"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 import { TrackView } from "@/components/analytics/track-view"
+import { SiteVitals } from "@/components/website-builder/site-vitals"
 
 export type SiteSearchParams = Record<string, string | string[] | undefined>
 
@@ -133,6 +134,11 @@ export async function siteMetadata(
    */
   const url = pageUrl(await siteOrigin(creator.id, username), pageKey)
 
+  /* Nothing published: the page says so, and is not a page to index. */
+  if (!install) {
+    return { title: { absolute: `${defaultHandle} | Storelib` }, robots: { index: false, follow: true } }
+  }
+
   return {
     title: { absolute: rawTitle },
     description,
@@ -206,6 +212,9 @@ export async function renderSite(
       {/* A visit to the published site counts in Analytics like a visit to the
           creator page does. Previews and cover renders never reach this line. */}
       <TrackView type="store" creatorId={site.creatorId} />
+      {/* How fast the page was for this visitor: LCP, INP and CLS, once, as
+          they leave. Published pages only, like the line above. */}
+      <SiteVitals installId={site.installId} />
     </StorelibSourcesProvider>
   )
 }

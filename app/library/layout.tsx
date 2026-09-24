@@ -1,4 +1,5 @@
 import type React from "react"
+import type { Metadata } from "next"
 import { redirect } from "next/navigation"
 import { Suspense } from "react"
 import { headers } from "next/headers"
@@ -11,6 +12,13 @@ import { PurchaseSyncProvider } from "@/components/checkout/purchase-sync-provid
 import { NativeAuthGate } from "@/components/native-auth-gate"
 import LibraryLoading from "./loading"
 import { LibraryBgFix } from "./library-bg-fix"
+
+/**
+ * One signed in person's own screens: never in a search index. robots.txt
+ * keeps crawlers out too (lib/seo/indexing.ts PLATFORM_DISALLOW); this is
+ * for the page somebody links to anyway.
+ */
+export const metadata: Metadata = { robots: { index: false, follow: false } }
 
 /**
  * Detect Capacitor WebView from the User-Agent header.

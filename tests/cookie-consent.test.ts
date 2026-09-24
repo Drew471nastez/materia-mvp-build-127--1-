@@ -94,6 +94,8 @@ function main() {
   check("Vercel Analytics loads only with analytics consent", /consent\?\.analytics === true && !inSitesEditor && !embedded && <Analytics \/>/.test(banner))
   check("it is not drawn in the dashboard or the admin", /pathname === "\/app"/.test(banner) && /pathname\?\.startsWith\("\/app\/"\)/.test(banner) && /pathname\?\.startsWith\("\/admin"\)/.test(banner) && /const quiet = [^\n]*inApp/.test(banner))
   check("it is not drawn inside a preview frame", /window\.self !== window\.top/.test(banner) && /const quiet = [^\n]*embedded/.test(banner))
+  check("it steps aside while a sheet or a modal dialog is open",
+    /data-cookie-banner=""/.test(banner) && /html:has\(\[data-app-sheet="open"\], \[role="dialog"\]\[aria-modal="true"\][^)]*\) \[data-cookie-banner\] \{\s*visibility: hidden;/.test(read("app/globals.css")))
   check("the accept button's text reads on the site's accent", /function readableOn\(/.test(banner) && /color: onAccent/.test(banner))
   check("the preferences start with everything optional off", /preferences: c\?\.preferences \?\? false, analytics: c\?\.analytics \?\? false/.test(banner))
   check("the switch cannot draw outside its track: placed with left, moved by the exact travel",

@@ -585,15 +585,27 @@ check(
   "the AI button has depth and a shimmer, and no hairline border",
   /wb-ai-button h-8 w-8 flex/.test(editor) &&
     !/aiOpen\s*\?\s*"border-foreground bg-muted"/.test(editor) &&
-    /\.wb-ai-button::before \{[\s\S]{0,600}conic-gradient/.test(css) &&
-    /@keyframes wb-ai-shimmer/.test(css) &&
-    // Only for people who have not asked for less motion.
-    /prefers-reduced-motion: no-preference\) \{\s*\.wb-ai-button::before \{ animation: wb-ai-shimmer/.test(css),
+    /<span aria-hidden className="wb-ai-ring">\s*<span className="wb-ai-ring-spin" \/>/.test(editor) &&
+    /\.wb-ai-ring-spin \{[\s\S]{0,300}conic-gradient\(\s*from 0deg/.test(css) &&
+    // Turned by transform, which the compositor runs; the custom property
+    // it used to animate cost a style pass and a repaint every frame.
+    /@keyframes wb-ai-turn \{\s*to \{ transform: rotate\(360deg\); \}/.test(css) &&
+    !/\.wb-ai-button::before/.test(css) &&
+    // Only for people who have not asked for less motion, and never in a hidden tab.
+    /prefers-reduced-motion: no-preference\) \{\s*\.wb-ai-ring-spin \{ animation: wb-ai-turn/.test(css) &&
+    /html\[data-tab-hidden\] \.wb-ai-ring-spin \{ animation-play-state: paused; \}/.test(css),
 )
 
 check(
-  "the three-dots phone menu rides the editor's own sheet, with its drag physics",
-  /<MobileEditorSheet open=\{sheetOpen\} onOpenChange=\{setSheetOpen\}/.test(menu) &&
+  "the three-dots phone menu rides the app's shared sheet, with its drag physics",
+  /**
+   * It rode the editor's own sheet; it is the shared sheet now
+   * (components/ui/bottom-sheet.tsx), which every other phone sheet in the
+   * app already uses, so the menu opens, drags and closes like them. Still
+   * one implementation of the drag, never a hand-rolled second one.
+   */
+  /<BottomSheet isOpen=\{sheetOpen\} onClose=\{\(\) => setSheetOpen\(false\)\}/.test(menu) &&
+    /from "@\/components\/ui\/bottom-sheet"/.test(menu) &&
     !/enableDragToClose/.test(menu) &&
     !/data-drag-handle/.test(menu),
 )
@@ -830,7 +842,7 @@ check(
   "every row of the actions menu answers the pointer",
   // Only one of Radix's three highlight mechanisms was firing, so the menu
   // read as a list of labels rather than a list of buttons.
-  /hover:bg-neutral-100 focus:bg-neutral-100 data-\[highlighted\]:bg-neutral-100/.test(menu),
+  /hover:bg-\[#f1f2f4\] focus:bg-\[#f1f2f4\] data-\[highlighted\]:bg-\[#f1f2f4\]/.test(menu),
 )
 
 check(
@@ -1550,7 +1562,10 @@ check(
   // with another of the same specificity and lose on source order.
   /zIndex: layer === "raised" \? 80 : 50/.test(sheetSrc) &&
     /zIndex: layer === "raised" \? 70 : 40/.test(sheetSrc) &&
-    /layer="raised" peekHeight=\{0\}/.test(menu) &&
+    // The menu is the shared sheet, which is portalled to the body at 200:
+    // above the raised layer, whatever the order in the tree.
+    /<BottomSheet isOpen=\{sheetOpen\}/.test(menu) &&
+    /"fixed inset-0 z-\[200\]"/.test(readFileSync(join(root, "components/ui/bottom-sheet.tsx"), "utf8")) &&
     /layer="raised"\s*\n\s*peekHeight=\{0\}/.test(publish) &&
     /<MobileEditorSheet open=\{aiOpen\}[\s\S]{0,120}layer="raised" peekHeight=\{0\}/.test(editor),
 )
@@ -1580,7 +1595,10 @@ check(
    * too now, capped at 88% so it can never become a page, with the actions
    * still pinned under a body that scrolls if a small screen makes it.
    */
-  /peekHeight=\{0\} fit>/.test(menu) &&
+  // The menu is the shared sheet, which has no fixed height: it is its rows,
+  // capped at min(86dvh, 720px), and scrolls past that.
+  /<BottomSheet isOpen=\{sheetOpen\}(?![^>]*height=)[^>]*>/.test(menu) &&
+    /maxHeight = "min\(86dvh, 720px\)"/.test(readFileSync(join(root, "components/ui/bottom-sheet.tsx"), "utf8")) &&
     /fit\s*\n\s*detents=\{\[0\.88\]\}/.test(publish) &&
     !/detents=\{\[0\.4\]\}/.test(publish) &&
     /<Body \{\.\.\.props\} pinActions active=\{open\} \/>/.test(publish) &&
@@ -2535,9 +2553,9 @@ check(
     // and it is taken again when the sheet opens: a ResizeObserver reports a
     // box that CHANGED, and content laid out once presents nothing to report
     /\}, \[fit, mounted, chromeGap, open\]\)/.test(sheetSrc) &&
-    // both sheets that use it mark the box to measure
-    /data-sheet-content/.test(publishPanel) &&
-    /data-sheet-content/.test(menu),
+    // the sheet that uses it marks the box to measure (the action menu moved
+    // to the shared sheet, which sizes to its content without measuring)
+    /data-sheet-content/.test(publishPanel),
 )
 
 check(

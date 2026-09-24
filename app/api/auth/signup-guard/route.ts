@@ -36,7 +36,7 @@ import { scoreSignup, isDisposableEmail, emailDomain } from "@/lib/security/spam
  *
  * What actually removes the incentive is the containment half — no sitemap
  * entry, no index, no structured data until an account publishes a product. See
- * app/sitemap.ts. This route raises the cost; that one removes the prize. Only
+ * lib/seo/sitemaps.ts. This route raises the cost; that one removes the prize. Only
  * the second is not an arms race, so nothing here is load-bearing.
  *
  * ---------------------------------------------------------------------------

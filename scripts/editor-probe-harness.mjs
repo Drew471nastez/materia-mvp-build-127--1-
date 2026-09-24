@@ -12,9 +12,10 @@
  * different ideas of what "the editor" is.
  */
 import { execFileSync, spawn } from "node:child_process"
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { probeCss } from "./probe-css.mjs"
 
 const CHROMIUM = process.env.CHROMIUM ?? "/opt/pw-browsers/chromium"
 const root = process.cwd()
@@ -99,9 +100,8 @@ if (!existsSync(bundle)) {
     `--alias:@=${root}`, "--loader:.css=empty", "--loader:.svg=dataurl", "--loader:.png=dataurl"],
     { stdio: ["ignore", "ignore", "inherit"] })
 }
-const cssDir = join(root, ".next/static/chunks")
-if (!existsSync(cssDir)) fail("No production build found. Run `pnpm build` first.")
-const css = readdirSync(cssDir).filter((f) => f.endsWith(".css")).map((f) => readFileSync(join(cssDir, f), "utf8")).join("\n")
+/* The build's stylesheet, or globals.css compiled on the spot: see probe-css.mjs. */
+const css = await probeCss(root)
 const out = mkdtempSync(join(tmpdir(), "storelib-editor-"))
 
 

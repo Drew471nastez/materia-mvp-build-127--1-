@@ -26,6 +26,10 @@ import { prerenderStorelibSections } from "@/lib/website-builder/storefront-rend
 import { mayPreview, pageSections, themeSettings as themeSettingsOf } from "@/lib/website-builder/preview-link"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 import { TrackView } from "@/components/analytics/track-view"
+import { SiteVitals } from "@/components/website-builder/site-vitals"
+import { plainSummary } from "@/lib/html-entities"
+import { getProductShareUrl } from "@/lib/url-helpers"
+import { productIndexable } from "@/lib/seo/indexing"
 import { jsonLdScript, productJsonLd } from "@/lib/website-builder/site-seo"
 
 type ProductRow = {
@@ -75,30 +79,53 @@ const fetchProductBySlug = cache(async function fetchProductBySlug(slug: string)
 })
 
 /**
- * A product page's metadata. On a creator's website (`site` given) it also
- * names its canonical address on the site's own domain, says whose shop it
- * is in the title, and keeps the product out of search when the creator has
- * hidden the whole site: lib/website-builder/site-seo.ts.
+ * A product page's metadata, and which address it is canonical at.
+ *
+ *   on a creator's website (`url`, `brand`, `indexable`): the site's own
+ *     /products/<slug> on its own domain, the shop named in the title, and
+ *     kept out of search when the creator hid the whole site
+ *     (lib/website-builder/site-seo.ts)
+ *   at storelib.com/products/<slug> (`platform`): the address every link
+ *     uses, storelib.com/<handle>/<slug>, so the two spellings do not
+ *     compete, and out of search for a handle the spam rules hold back
+ *
+ * The description is plain text: it is stored as rich text, and a meta
+ * description printed verbatim is a snippet full of markup and entities.
  */
 export async function productMetadata(
   slug: string,
-  site?: { url: string; brand: string; indexable: boolean },
+  where?: { url: string; brand: string; indexable: boolean } | { platform: true },
 ): Promise<Metadata> {
   const product = await fetchProductBySlug(slug)
   if (!product) return { title: "Product Not Found", robots: { index: false, follow: false } }
 
   const ogImage = (product.gallery_urls?.[0]) || product.thumbnail_url || undefined
   const name = product.title ?? "Product"
-  const description = product.description ? product.description.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(0, 300) : undefined
+  const description = plainSummary(product.description) || undefined
+  const site = where && "url" in where ? where : null
+  let canonical: string | undefined = site?.url
+  let index = site ? site.indexable : true
+  if (where && "platform" in where && product.creator_id && product.slug) {
+    const admin = createAdminClient()
+    const { data: creator } = await admin.from("creators").select("user_id").eq("id", product.creator_id).maybeSingle()
+    const userId = (creator as { user_id?: string } | null)?.user_id
+    const { data: profile } = userId
+      ? await admin.from("profiles").select("username").eq("id", userId).maybeSingle()
+      : { data: null }
+    const handle = (profile as { username?: string } | null)?.username ?? ""
+    if (handle) canonical = getProductShareUrl(handle, product.slug)
+    index = productIndexable(product, handle || null)
+  }
   return {
     title: site ? { absolute: `${name} | ${site.brand}` } : name,
     description,
-    ...(site ? { alternates: { canonical: site.url } } : {}),
-    ...(site && !site.indexable ? { robots: { index: false, follow: false } } : {}),
+    ...(canonical ? { alternates: { canonical } } : {}),
+    ...(index ? {} : { robots: { index: false, follow: false } }),
     openGraph: {
       title: name,
       description,
-      ...(site ? { url: site.url, siteName: site.brand } : {}),
+      ...(canonical ? { url: canonical } : {}),
+      ...(site ? { siteName: site.brand } : {}),
       ...(ogImage && { images: [{ url: ogImage }] }),
     },
     twitter: {
@@ -273,6 +300,7 @@ export async function renderProduct(
         className="min-h-screen"
       />
       {previewToken ? null : <TrackView type="product" creatorId={product.creator_id} productId={product.id} />}
+      {previewToken ? null : <SiteVitals installId={install.id} />}
     </StorelibSourcesProvider>
   )
 }

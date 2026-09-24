@@ -8,7 +8,7 @@
  * so nothing jumps when the data lands.
  *
  * Which means this file is only correct while it matches the page: the
- * title and address, the strip above the live card, the card with its
+ * title and address, the performance bar above the live card, the card with its
  * rounded cover and its list of facts, and the library as a table with its
  * heading row.
  */
@@ -22,13 +22,21 @@ export default function WebsiteBuilderLoading() {
           <div className="mt-2.5 h-4 w-52 rounded bg-[#eef0f3]" />
         </div>
 
-        {/* The live website: the strip above it, then the card with the
+        {/* The live website: the performance bar above it (the period, then
+            six cells of a title over a number), then the card with the
             cover set into it, the facts and the buttons. */}
         <div className="space-y-3">
-        <div className="flex h-[50px] divide-x divide-[#eceef1] overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-          {[64, 40, 48, 28, 72, 56].map((w, i) => (
-            <div key={i} className="flex min-w-[104px] flex-1 shrink-0 items-center justify-center">
-              <div className="h-3 rounded bg-[#eef0f3]" style={{ width: w }} />
+        <div className="flex divide-x divide-[#eceef1] overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+          <div className="flex shrink-0 items-center px-3 sm:px-4">
+            <div className="h-8 w-[132px] rounded-lg border border-[#e3e4e8] bg-white" />
+          </div>
+          {/* Three lines a cell, like the bar: the title, the number, and
+              the change or the verdict under it. */}
+          {[40, 44, 64, 84, 116, 104].map((w, i) => (
+            <div key={i} className="flex min-w-[132px] flex-[1_0_auto] flex-col justify-center gap-0.5 px-4 py-3">
+              <div className="my-[4px] h-2.5 rounded bg-[#eef0f3]" style={{ width: w }} />
+              <div className="my-[7px] h-2.5 w-16 rounded-full bg-[#e9ebee]" />
+              <div className="my-[5px] h-2.5 w-10 rounded-full bg-[#f1f2f4]" />
             </div>
           ))}
         </div>
