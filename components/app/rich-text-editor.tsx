@@ -7,9 +7,11 @@
  * One editor for the product description, the creator page's inline
  * description and the body of an automated email. It writes paragraphs, two
  * heading levels, bold, italic, underline, strike, two kinds of list, a
- * quote, links and a divider, and nothing else, because that is what a
- * description is made of and every extra control is one more thing to
- * explain.
+ * quote, links, a divider and, where the field can upload them (the product
+ * description, not an email), pictures; nothing else, because that is what
+ * a description is made of and every extra control is one more thing to
+ * explain. A picture is uploaded to storage and the text holds its address,
+ * never its bytes.
  *
  * WHY contentEditable AND execCommand. They are what every browser still
  * implements for exactly this, including the parts that are hard to get
@@ -45,6 +47,7 @@ import {
   Bold,
   Heading2,
   Heading3,
+  ImagePlus,
   Italic,
   Link2,
   List,
@@ -66,7 +69,7 @@ export type RichTextTool =
   | "h2" | "h3"
   | "bold" | "italic" | "underline" | "strike"
   | "bulletList" | "numberedList" | "quote"
-  | "link" | "rule"
+  | "link" | "image" | "rule"
   | "clear"
   | "undo" | "redo"
 
@@ -75,7 +78,7 @@ const GROUPS: RichTextTool[][] = [
   ["h2", "h3"],
   ["bold", "italic", "underline", "strike"],
   ["bulletList", "numberedList", "quote"],
-  ["link", "rule"],
+  ["link", "image", "rule"],
   ["clear"],
   ["undo", "redo"],
 ]
@@ -93,6 +96,7 @@ const TOOL: Record<RichTextTool, { label: string; icon: LucideIcon }> = {
   numberedList: { label: "Numbered list", icon: ListOrdered },
   quote: { label: "Quote", icon: Quote },
   link: { label: "Link", icon: Link2 },
+  image: { label: "Picture", icon: ImagePlus },
   rule: { label: "Divider", icon: Minus },
   clear: { label: "Clear formatting", icon: RemoveFormatting },
   undo: { label: "Undo", icon: Undo2 },
@@ -155,6 +159,14 @@ export interface RichTextEditorProps {
    * Emails body keeps inline button styles) passes its own.
    */
   cleanOutput?: (html: string) => string
+  /**
+   * Puts a picture somewhere and says where. With it, the toolbar has a
+   * Picture control; without it (the Emails body) there is none. The field
+   * never holds a picture's bytes, only the address this returns.
+   */
+  uploadImage?: (file: File) => Promise<{ url: string; width?: number; height?: number }>
+  /** Says why the HTML cannot be saved as it is (too long); shown under the text. */
+  checkSize?: (html: string) => string | null
   /** Height of the text area before it starts to grow, in px. */
   minHeight?: number
   className?: string
@@ -197,6 +209,8 @@ export function RichTextEditor({
   panel,
   linkShortcuts,
   cleanOutput = cleanDescriptionHtml,
+  uploadImage,
+  checkSize,
   minHeight = 168,
   className,
   id,
@@ -219,12 +233,20 @@ export function RichTextEditor({
   const [active, setActive] = React.useState<Active>(NONE)
   const [link, setLink] = React.useState<LinkDraft | null>(null)
   const linkId = React.useId()
+  const fileRef = React.useRef<HTMLInputElement>(null)
+  /** The picture whose alt text and Remove are showing. */
+  const [picture, setPicture] = React.useState<{ el: HTMLImageElement; alt: string } | null>(null)
+  const [uploads, setUploads] = React.useState(0)
+  const [notice, setNotice] = React.useState("")
+  const [sizeProblem, setSizeProblem] = React.useState<string | null>(null)
+  const checkSizeRef = React.useRef(checkSize)
 
   const onChangeRef = React.useRef(onChange)
   const cleanRef = React.useRef(cleanOutput)
   React.useEffect(() => {
     onChangeRef.current = onChange
     cleanRef.current = cleanOutput
+    checkSizeRef.current = checkSize
   })
 
   React.useLayoutEffect(() => {
@@ -258,6 +280,7 @@ export function RichTextEditor({
     if (out !== shown.current) {
       shown.current = out
       onChangeRef.current(out)
+      setSizeProblem(checkSizeRef.current ? checkSizeRef.current(out) : null)
     }
   }, [])
 
@@ -490,6 +513,15 @@ export function RichTextEditor({
         if (link) closeLink(true)
         else openLink()
         return
+      case "image":
+        /* Straight from the tap, so the picker opens: iOS, and WKWebView in
+           the app, only open a file picker from inside the gesture. It offers
+           the photo library, the camera and files. */
+        if (fileRef.current) {
+          fileRef.current.value = ""
+          fileRef.current.click()
+        }
+        return
     }
     ensureBlock()
     commit()
@@ -597,6 +629,100 @@ export function RichTextEditor({
     buttons[next].focus()
   }
 
+  /**
+   * A picture goes in at the caret straight away, as the file itself (a
+   * blob: address, dimmed), while it uploads. A blob: address is not on the
+   * allow list, so if the field is saved meanwhile the picture is simply not
+   * in it yet; it can never be saved as the bytes. When the upload is done
+   * the same element gets its real address and its size.
+   */
+  const addPicture = async (file: File) => {
+    if (!uploadImage) return
+    setNotice("")
+    if (!file.type.startsWith("image/") || /svg/i.test(file.type)) {
+      setNotice("Choose a photo: a JPEG, PNG, WebP or GIF.")
+      return
+    }
+    const id = Math.random().toString(36).slice(2)
+    const preview = URL.createObjectURL(file)
+    focusField()
+    const root = rootRef.current
+    const sel = document.getSelection()
+    const block = root && sel?.anchorNode ? closestIn(sel.anchorNode, "p,h1,h2,h3,h4,li,blockquote,div", root) : null
+    if (block?.textContent?.trim()) exec("insertParagraph")
+    exec("insertHTML", `<img src="${escapeAttr(preview)}" alt="" data-uploading="${id}">`)
+    setUploads((n) => n + 1)
+    try {
+      const done = await uploadImage(file)
+      const el = rootRef.current?.querySelector<HTMLImageElement>(`img[data-uploading="${id}"]`)
+      if (el) {
+        el.src = done.url
+        if (done.width && done.height) {
+          el.setAttribute("width", String(done.width))
+          el.setAttribute("height", String(done.height))
+        }
+        el.removeAttribute("data-uploading")
+        commit()
+        setPicture({ el, alt: "" })
+      }
+    } catch (err) {
+      rootRef.current?.querySelector(`img[data-uploading="${id}"]`)?.remove()
+      commit()
+      setNotice(err instanceof Error && err.message ? err.message : "The picture did not upload. Try again.")
+    } finally {
+      URL.revokeObjectURL(preview)
+      setUploads((n) => n - 1)
+    }
+  }
+
+  /** The whole of an old editor's picture block, or the picture itself. */
+  const pictureNode = (el: HTMLImageElement) => {
+    const root = rootRef.current
+    return (root && closestIn(el, "[data-embed-type]", root)) || el
+  }
+
+  const removePicture = () => {
+    const root = rootRef.current
+    const el = picture?.el
+    setPicture(null)
+    if (!root || !el || !root.contains(el)) return
+    const node = pictureNode(el)
+    focusField()
+    const sel = document.getSelection()
+    if (sel) {
+      const r = document.createRange()
+      r.selectNode(node)
+      sel.removeAllRanges()
+      sel.addRange(r)
+      try {
+        document.execCommand("delete")
+      } catch {
+        /* removed below */
+      }
+    }
+    if (root.contains(node)) node.remove()
+    ensureBlock()
+    commit()
+  }
+
+  /* The picture being described is outlined, so it is clear which one. */
+  React.useEffect(() => {
+    const el = picture?.el
+    if (!el) return
+    el.setAttribute("data-picked", "")
+    return () => el.removeAttribute("data-picked")
+  }, [picture?.el])
+
+  const onFieldClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement
+    if (target.tagName === "IMG" && !target.hasAttribute("data-uploading") && uploadImage) {
+      const img = target as HTMLImageElement
+      setPicture({ el: img, alt: img.getAttribute("alt") ?? "" })
+    } else if (picture) {
+      setPicture(null)
+    }
+  }
+
   const api: RichTextApi = {
     keepSelection: () => {
       const root = rootRef.current
@@ -622,7 +748,7 @@ export function RichTextEditor({
     if (apiRef) apiRef.current = api
   })
 
-  const visible = GROUPS.map((group) => group.filter((t) => tools.includes(t))).filter((group) => group.length)
+  const visible = GROUPS.map((group) => group.filter((t) => tools.includes(t) && (t !== "image" || !!uploadImage))).filter((group) => group.length)
   /* One stop for Tab: the first control. Arrow keys do the rest. */
   const firstTool = visible[0]?.[0]
 
@@ -650,7 +776,7 @@ export function RichTextEditor({
             {group.map((tool) => {
               const { label: name, icon: Icon } = TOOL[tool]
               const on = pressed(tool)
-              const toggle = tool !== "rule" && tool !== "clear" && tool !== "undo" && tool !== "redo"
+              const toggle = tool !== "rule" && tool !== "image" && tool !== "clear" && tool !== "undo" && tool !== "redo"
               return (
                 <button
                   key={tool}
@@ -778,6 +904,47 @@ export function RichTextEditor({
         </div>
       ) : null}
 
+      {picture ? (
+        <div role="group" aria-label="Picture" className="border-b border-[#eef0f2] px-3 py-2.5">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <input
+              value={picture.alt}
+              onChange={(e) => {
+                const alt = e.target.value.slice(0, 300)
+                picture.el.setAttribute("alt", alt)
+                setPicture({ ...picture, alt })
+                commit()
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === "Escape") {
+                  e.preventDefault()
+                  setPicture(null)
+                }
+              }}
+              placeholder="Describe the picture for people who cannot see it"
+              aria-label="Picture description"
+              className="h-11 w-full min-w-0 rounded-lg border border-[#e5e7eb] bg-white px-3 text-[16px] text-[#1a1a2e] outline-none placeholder:text-[#9ca3af] focus:border-ring focus:ring-[3px] focus:ring-ring/50 sm:h-9 sm:w-auto sm:flex-1 sm:text-[14px]"
+            />
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={removePicture}
+                className="h-11 rounded-lg px-3 text-[14px] font-medium text-[#b42318] hover:bg-[#fef3f2] sm:h-9 sm:text-[13px]"
+              >
+                Remove picture
+              </button>
+              <button
+                type="button"
+                onClick={() => setPicture(null)}
+                className="ml-auto h-11 rounded-lg bg-[#1a1a2e] px-4 text-[14px] font-medium text-white hover:bg-[#2a2a40] sm:ml-0 sm:h-9 sm:text-[13px]"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {panel}
 
       <div className="relative">
@@ -808,6 +975,7 @@ export function RichTextEditor({
           onKeyDown={onKeyDown}
           onPaste={onPaste}
           onDrop={onDrop}
+          onClick={onFieldClick}
           className={cn(
             "rich-text-content storelib-prose overflow-y-auto overscroll-contain px-3.5 py-3 text-[16px] leading-[1.6] text-[#1a1a2e] outline-none sm:text-[15px]",
             /* Tall enough to write in; short enough that on a phone the
@@ -818,6 +986,29 @@ export function RichTextEditor({
           style={{ minHeight }}
         />
       </div>
+
+      {uploads > 0 || notice || sizeProblem ? (
+        <div role="status" aria-live="polite" className="space-y-0.5 border-t border-[#eef0f2] px-3.5 py-2 text-[13px] leading-5">
+          {uploads > 0 ? <p className="text-[#6b7280]">{uploads === 1 ? "Uploading the picture" : `Uploading ${uploads} pictures`}</p> : null}
+          {notice ? <p className="text-[#b42318]">{notice}</p> : null}
+          {sizeProblem ? <p className="text-[#b42318]">{sizeProblem}</p> : null}
+        </div>
+      ) : null}
+
+      {uploadImage ? (
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/*"
+          tabIndex={-1}
+          aria-hidden
+          className="sr-only"
+          onChange={(e) => {
+            const file = e.target.files?.[0]
+            if (file) void addPicture(file)
+          }}
+        />
+      ) : null}
     </div>
   )
 }

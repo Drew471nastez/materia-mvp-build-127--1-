@@ -359,11 +359,16 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
 
     descriptionUpdateTimeoutRef.current = setTimeout(async () => {
       try {
+        /* Through the same allow list as the product editor's save. */
+        const cleaned = await cleanDescription(newDescription)
+        if (!cleaned.ok) {
+          console.error("Description not saved:", cleaned.error)
+          return
+        }
         const supabase = createClient()
         const { error } = await supabase
           .from("products")
-          /* Through the same allow list as the product editor's save. */
-          .update({ description: await cleanDescription(newDescription) })
+          .update({ description: cleaned.html })
           .eq("id", selectedProduct.id)
 
         if (error) {

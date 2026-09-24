@@ -37,7 +37,7 @@ import {
   plainTextToHtml,
   toEditorHtml,
 } from "@/lib/rich-text/html"
-import { normaliseTypedHref, safeHref } from "@/lib/rich-text/policy"
+import { MAX_DESCRIPTION_BYTES, descriptionTooLong, normaliseTypedHref, safeHref } from "@/lib/rich-text/policy"
 
 let passed = 0
 let failed = 0
@@ -152,7 +152,8 @@ const KEEP: Array<[string, string, RegExp]> = [
   ["a link to a page on the same site", `<a href="/p/other-product">other</a>`, /<a href="\/p\/other-product">other<\/a>/],
   ["a paragraph's alignment", `<p style="text-align: center;">c</p>`, /<p style="text-align: ?center;?">c<\/p>/],
   ["a YouTube embed the old editor saved", `<div data-embed-type="youtube" style="position:relative;padding-bottom:56.25%"><iframe src="https://www.youtube.com/embed/abc" allowfullscreen></iframe></div>`, /<div data-embed-type="youtube"><iframe src="https:\/\/www\.youtube\.com\/embed\/abc" allowfullscreen(="")?><\/iframe><\/div>/],
-  ["an image the old editor stored inline", `<img src="data:image/png;base64,iVBORw0KGgo=">`, /<img src="data:image\/png;base64,iVBORw0KGgo=" ?\/?>/],
+  ["an image the old editor stored inline, in its wrapper", `<div data-embed-type="image"><img src="data:image/png;base64,iVBORw0KGgo="></div>`, /<div data-embed-type="image"><img src="data:image\/png;base64,iVBORw0KGgo=" loading="lazy" ?\/?><\/div>/],
+  ["an image the old editor linked, in its wrapper", `<div data-embed-type="image"><img src="https://cdn.example.com/a.jpg" alt="Old"></div>`, /<img src="https:\/\/cdn\.example\.com\/a\.jpg" alt="Old" loading="lazy" ?\/?>/],
   ["an old coloured button", `<div style="text-align: center; margin: 8px 0;"><a href="https://example.com" style="display: inline-block; padding: 12px 24px; font-weight: 500; text-decoration: none; background-color: #16a34a; color: #ffffff; border-radius: 8px;">Buy</a></div>`, /background-color: ?#16a34a[\s\S]*>Buy<\/a>/],
 ]
 for (const [engine, clean] of ENGINES) {
@@ -166,6 +167,72 @@ for (const [engine, clean] of ENGINES) {
   check(`${engine}: a colour on ordinary text is the editor's, and goes`, !/style=/.test(out) && /link<\/a> (<span>)?grey/.test(out), out)
   const classes = clean(`<p class="fixed inset-0 z-50">x</p><div class="embed-container evil">y</div>`)
   check(`${engine}: classes go, except the embed wrappers' own`, !/fixed|inset|evil/.test(classes) && /embed-container/.test(classes), classes)
+}
+
+// ===========================================================================
+section("Pictures: only from this project's own storage")
+// ===========================================================================
+{
+  const OWN = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/product-images/c1/p1/1_description_ab.webp"
+  for (const [engine, clean] of ENGINES) {
+    const kept = clean(`<p><img src="${OWN}" alt="A mug on a desk" width="1200" height="800" title="t" style="position:fixed;inset:0" class="x" onerror="alert(1)" loading="eager" decoding="async"></p>`)
+    check(`${engine}: an uploaded picture keeps its address, alt text and size, and is lazy`,
+      new RegExp(`^<p><img src="${OWN.replace(/[./?]/g, "\\$&")}" alt="A mug on a desk" width="1200" height="800" loading="lazy" ?/?></p>$`).test(kept), kept)
+    const refused: Array<[string, string]> = [
+      ["from another site", `<p><img src="https://evil.example.com/pixel.png"></p>`],
+      ["from another Supabase project", `<p><img src="https://other.supabase.co/storage/v1/object/public/x/a.png"></p>`],
+      ["from our storage but not a public object", `<p><img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/sign/product-files/a.png?token=x"></p>`],
+      ["over plain http", `<p><img src="http://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/product-images/a.png"></p>`],
+      ["protocol relative", `<p><img src="//skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/product-images/a.png"></p>`],
+      ["as a data: URL outside the old wrapper", `<p><img src="data:image/png;base64,iVBORw0KGgo="></p>`],
+      ["as a javascript: URL", `<p><img src="javascript:alert(1)"></p>`],
+      ["as a blob: preview left by an upload", `<p><img src="blob:https://storelib.com/5d1c" data-uploading="a1"></p>`],
+      ["as an SVG data URL, even in the old wrapper", `<div data-embed-type="image"><img src="data:image/svg+xml;base64,PHN2Zz48L3N2Zz4="></div>`],
+      ["as a javascript: URL, even in the old wrapper", `<div data-embed-type="image"><img src="javascript:alert(1)"></div>`],
+    ]
+    for (const [label, html] of refused) {
+      const out = clean(html)
+      check(`${engine}: a picture ${label} is dropped`, !/<img/.test(out), out)
+    }
+  }
+  check("the editor saves nothing for a picture still uploading",
+    cleanStoredHtml(`<p><img src="blob:https://storelib.com/5d1c" alt="" data-uploading="a1"></p>`, { blocks: true }) === "")
+  const upload = read("lib/rich-text/upload-image.ts")
+  check("a picture is compressed and put in the product images bucket, like the product's photos",
+    /compressImage\(file, COMPRESS_PROFILES\["product-images"\]\)/.test(upload) && /storage\.from\("product-images"\)\.upload\(/.test(upload))
+  check("and never written into the HTML as its bytes", !/readAsDataURL|base64/.test(upload))
+  check("an SVG is refused before it is uploaded", /svg/.test(upload) && /imageFileProblem/.test(upload))
+  const rte = read("components/app/rich-text-editor.tsx")
+  check("the picker opens from the tap itself, offering the library and the camera", /fileRef\.current\.click\(\)/.test(rte) && /accept="image\/\*"/.test(rte) && !/capture=/.test(rte))
+  check("and is not display:none, which some WebViews will not open", /className="sr-only"/.test(rte))
+  check("the Picture control only exists where a field can upload", /t !== "image" \|\| !!uploadImage/.test(rte))
+  check("the Emails body cannot upload pictures", !/uploadImage/.test(read("app/app/emails/flow/body-editor.tsx")))
+  check("the product description can", /uploadImage=\{\(file\) => uploadDescriptionImage\(file, \{ creatorId, productId \}\)\}/.test(read("app/app/products/new/product-editor.tsx")))
+}
+
+// ===========================================================================
+section("A save is capped, and only for somebody signed in")
+// ===========================================================================
+{
+  check("the limit is 200 KB", MAX_DESCRIPTION_BYTES === 200 * 1024)
+  check("a description at the limit is fine", descriptionTooLong(`<p>${"a".repeat(MAX_DESCRIPTION_BYTES - 7)}</p>`) === null)
+  const over = descriptionTooLong(`<p>${"a".repeat(MAX_DESCRIPTION_BYTES)}</p>`)
+  check("one over it is refused, in words the editor shows", !!over && /over the 200 KB limit/.test(over), over ?? "")
+  const inline = descriptionTooLong(`<div data-embed-type="image"><img src="data:image/png;base64,${"A".repeat(MAX_DESCRIPTION_BYTES)}"></div>`)
+  check("and when old inline pictures are why, it says so and what to do", !!inline && /photo button/.test(inline), inline ?? "")
+  check("the limit counts bytes, not characters", descriptionTooLong(`<p>${"\u00e9".repeat(MAX_DESCRIPTION_BYTES / 2)}</p>`) !== null)
+  const action = read("app/app/products/new/description-action.ts")
+  const body = action.slice(action.indexOf("export async function cleanDescription"))
+  check("the server action refuses too much before it parses anything",
+    /const tooLong = descriptionTooLong\(html\)\s*\n\s*if \(tooLong\) return \{ ok: false, error: tooLong \}/.test(body) && body.indexOf("descriptionTooLong(") < body.indexOf("sanitizeDescription("))
+  check("and refuses anybody not signed in",
+    /auth\.getUser\(\)/.test(body) && /if \(!user\) return \{ ok: false/.test(body) && body.indexOf("!user") < body.indexOf("sanitizeDescription("))
+  check("it answers rather than throws, so the editor can show why", /Promise<CleanedDescription>/.test(action))
+  const save = read("app/app/products/new/description-save.ts")
+  check("the save shows a refusal's own words", /if \(!result\.ok\) throw new Error\(result\.error\)/.test(save))
+  check("and an unchanged description is not sent again, so an old long one never blocks a save", /if \(stored !== null && current === stored\) return current/.test(save))
+  check("the field shows the same limit while typing", /checkSize=\{descriptionTooLong\}/.test(read("app/app/products/new/product-editor.tsx")))
+  check("the creator page's inline editor saves nothing it was refused", /if \(!cleaned\.ok\)/.test(read("components/store-builder/preview-canvas.tsx")))
 }
 
 // ===========================================================================
@@ -265,7 +332,7 @@ section("The wiring")
   check("the product editor writes the description in the shared editor",
     /import \{ RichTextEditor \} from "@\/components\/app\/rich-text-editor"/.test(editor) && /<RichTextEditor[\s\S]{0,200}value=\{description\}/.test(editor))
   check("and saves it through the server",
-    /const savedDescription = await cleanDescription\(description\)/.test(editor) && /description: savedDescription,/.test(editor))
+    /const savedDescription = await descriptionForSave\(description, storedDescriptionRef\.current\)/.test(editor) && /description: savedDescription,/.test(editor))
   const action = read("app/app/products/new/description-action.ts")
   check("which is a server action that runs the allow list", /^"use server"/.test(action) && /sanitizeDescription\(/.test(action))
   check("the creator page's inline editor saves through it too",

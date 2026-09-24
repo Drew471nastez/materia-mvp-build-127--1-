@@ -11,11 +11,32 @@
  * it again on read (lib/commerce/product-page-data.ts), for rows written any
  * other way.
  *
- * It holds nothing and reads nothing, so it needs no session: anybody can
- * ask it to clean some HTML, and all they get back is cleaner HTML.
+ * A server action is a public endpoint, so it asks two things first:
+ *
+ *   WHO. Only somebody signed in; the editors that call this are only ever
+ *   open to a signed-in creator. It reads the session and nothing else.
+ *
+ *   HOW MUCH. At most MAX_DESCRIPTION_BYTES of HTML, so nobody can hand it
+ *   megabytes to parse over and over. The editor shows the same limit, in
+ *   the same words, before anybody presses Save.
+ *
+ * An answer rather than a throw: Next replaces a thrown error's message in
+ * production, and the editor has to be able to say what was wrong.
  */
+import { createClient } from "@/lib/supabase/server"
+import { descriptionTooLong } from "@/lib/rich-text/policy"
 import { sanitizeDescription } from "@/lib/rich-text/sanitize"
 
-export async function cleanDescription(html: string): Promise<string> {
-  return sanitizeDescription(html)
+export type CleanedDescription = { ok: true; html: string } | { ok: false; error: string }
+
+export async function cleanDescription(html: string): Promise<CleanedDescription> {
+  if (typeof html !== "string") return { ok: false, error: "The description could not be read." }
+  const tooLong = descriptionTooLong(html)
+  if (tooLong) return { ok: false, error: tooLong }
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: "Sign in again to save the description." }
+  return { ok: true, html: sanitizeDescription(html) }
 }

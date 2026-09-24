@@ -34,6 +34,7 @@ import {
   IFRAME_HOSTNAMES,
   STORED_ATTRIBUTES,
   STORED_CLASSES,
+  LEGACY_IMAGE_WRAPPERS,
   STORED_TAGS,
   STYLE_RULES,
   TAG_ALIASES,
@@ -63,7 +64,7 @@ const OPTIONS: sanitizeHtml.IOptions = {
     Object.entries(STYLE_RULES).map(([tag, rules]) => [tag, Object.fromEntries(Object.entries(rules).map(([prop, re]) => [prop, [re]]))]),
   ),
   allowedSchemes: ["http", "https", "mailto", "tel"],
-  allowedSchemesByTag: { img: ["http", "https", "data"], iframe: ["https"] },
+  allowedSchemesByTag: { img: ["https", "data"], iframe: ["https"] },
   allowedSchemesAppliedToAttributes: ["href", "src"],
   allowProtocolRelative: false,
   allowedIframeHostnames: IFRAME_HOSTNAMES,
@@ -95,13 +96,10 @@ const OPTIONS: sanitizeHtml.IOptions = {
       if (out.style && !isButtonShaped(out.style)) delete out.style
       return { tagName, attribs: out }
     },
-    img: (tagName, attribs) => {
-      const out: Record<string, string> = { ...attribs }
-      const src = safeImageSrc(attribs.src)
-      if (src) out.src = src
-      else delete out.src
-      return { tagName, attribs: out }
-    },
+    /* The picture's own rules are applied per call by sanitizeDescription,
+       which knows whether it is inside one of the old editor's wrappers;
+       this entry is here so the vocabulary check below wraps it. */
+    img: (tagName, attribs) => ({ tagName, attribs }),
     iframe: (tagName, attribs) => {
       const out: Record<string, string> = { ...attribs }
       const src = safeIframeSrc(attribs.src)
@@ -131,10 +129,44 @@ for (const tag of STORED_TAGS) {
   }
 }
 
+/**
+ * A picture: its address checked (own storage anywhere, the old editor's
+ * shapes only inside its wrappers), lazy, and styled only if it is old.
+ */
+function imageAttributes(tagName: string, attribs: sanitizeHtml.Attributes, legacy: boolean) {
+  const out: Record<string, string> = { ...attribs }
+  const src = safeImageSrc(attribs.src, legacy)
+  if (src) out.src = src
+  else delete out.src
+  if (!legacy) delete out.style
+  out.loading = "lazy"
+  return { tagName, attribs: out }
+}
+
 /** A description as it may be stored and shown. Plain text is returned as it was. */
 export function sanitizeDescription(value: unknown): string {
   if (typeof value !== "string" || !value) return ""
   const input = value.slice(0, MAX_DESCRIPTION)
   if (!/<[a-z][\s\S]*>/i.test(input)) return input
-  return sanitizeHtml(input, OPTIONS).trim()
+  /* sanitize-html tells a transform nothing about the tag's parents, so the
+     open tags are followed here: one stack per call. */
+  const open: boolean[] = []
+  const inLegacy = () => open.includes(true)
+  const imgTransform = OPTIONS.transformTags!.img as sanitizeHtml.Transformer
+  return sanitizeHtml(input, {
+    ...OPTIONS,
+    onOpenTag: (name, attribs) => {
+      open.push(name === "div" && LEGACY_IMAGE_WRAPPERS.has(attribs["data-embed-type"] ?? ""))
+    },
+    onCloseTag: () => {
+      open.pop()
+    },
+    transformTags: {
+      ...OPTIONS.transformTags,
+      img: (tagName, attribs) => {
+        const base = typeof imgTransform === "function" ? imgTransform(tagName, attribs) : { tagName, attribs }
+        return imageAttributes(base.tagName, base.attribs, inLegacy())
+      },
+    },
+  }).trim()
 }

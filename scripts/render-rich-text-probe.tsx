@@ -10,11 +10,17 @@
  *
  * `&value=` sets the starting value. Every value the field hands up is kept
  * in window.__values, the last one in window.__value.
+ *
+ * The product description's picture upload is stubbed: it waits
+ * `&uploadMs=` (default 600), then answers with an address in this
+ * project's storage, or with `&upload=fail` refuses the way a dropped
+ * connection does. scripts/check-rich-text.mjs serves that address.
  */
 import React from "react"
 import { createRoot, hydrateRoot } from "react-dom/client"
 import { renderToString } from "react-dom/server"
 import { RichTextEditor } from "@/components/app/rich-text-editor"
+import { descriptionTooLong } from "@/lib/rich-text/policy"
 import { RichDescriptionContent } from "@/components/store-builder/description-rich-editor"
 import { BodyEditor } from "@/app/app/emails/flow/body-editor"
 
@@ -27,6 +33,16 @@ w.__value = ""
 const params = new URLSearchParams(location.search)
 const view = params.get("view") ?? "editor"
 const initial = params.get("value") ?? ""
+export const STORED_PICTURE = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/product-images/creator-1/product-1/1_description_probe.webp"
+
+async function stubUpload(file: File): Promise<{ url: string; width: number; height: number }> {
+  await new Promise((r) => setTimeout(r, Number(params.get("uploadMs") ?? 600)))
+  if (params.get("upload") === "fail") throw new Error("The picture did not upload. Check the connection and try again.")
+  const bitmap = await createImageBitmap(file)
+  const size = { width: bitmap.width, height: bitmap.height }
+  bitmap.close()
+  return { url: STORED_PICTURE, ...size }
+}
 
 export const LEGACY = [
   `<h1>Header</h1><p>Plain <b>bold</b> and <a href="https://example.com" style="color: #7c3aed; text-decoration: underline;">a link</a>.</p>`,
@@ -54,6 +70,8 @@ function Field({ start }: { start: string }) {
               }}
               label="Description"
               placeholder="What it is, who it is for, and what they get"
+              uploadImage={stubUpload}
+              checkSize={descriptionTooLong}
             />
           </div>
           <button type="button" data-reset onClick={() => setValue("<p>Reset from outside</p>")} className="mt-3 text-[13px] text-[#6b7280]">
