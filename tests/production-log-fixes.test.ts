@@ -73,6 +73,16 @@ console.log("\nThe invoice keeps its mark")
   check("a PNG the PDF library draws as it is, checked by its signature", /LOGO_PATH = "\/apple-icon\.png"/.test(invoice) && /0x89, 0x50, 0x4e, 0x47/.test(invoice))
 }
 
+console.log("\nThe Mailgun webhook trusts only a signed delivery")
+{
+  const hook = strip(read("app/api/webhooks/mailgun/route.ts"))
+  check("no signature is no entry (it used to skip the check when the field was missing)",
+    /if \(!verifyWebhookSignature\(body\?\.signature\)\)/.test(hook) && !/if \(signature && MAILGUN_SIGNING_KEY\)/.test(hook))
+  check("no key configured refuses everybody", /if \(SIGNING_KEYS\.length === 0\)[\s\S]{0,200}status: 401/.test(hook))
+  check("the comparison is timing safe", /crypto\.timingSafeEqual\(/.test(hook) && !/encodedToken === signature/.test(hook))
+  check("no address is written to the log in full", !/\$\{(recipient|email)\}/.test(hook))
+}
+
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed) {
   console.log("\nFailed:")
