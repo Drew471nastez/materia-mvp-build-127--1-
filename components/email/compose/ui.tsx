@@ -145,11 +145,11 @@ export function ComposeDialog({
   if (phone) {
     return (
       <BottomSheet isOpen={open} onClose={onClose} title={title} label={title} aboveKeyboard hideFrom="sm">
-        <div className="px-4 pb-2">
+        <div className="px-5 pb-2 pt-2">
           {description ? <p className="sr-only">{description}</p> : null}
           {children}
         </div>
-        {footer ? <div className="flex flex-col-reverse gap-2 border-t border-[#eef0f2] px-4 pb-[max(12px,env(safe-area-inset-bottom))] pt-3 [&>button]:h-11 [&>button]:w-full [&>button]:text-[15px]">{footer}</div> : null}
+        {footer ? <div className="flex flex-col-reverse gap-2 border-t border-[#eef0f2] px-5 pb-[max(12px,env(safe-area-inset-bottom))] pt-3 [&>button]:h-11 [&>button]:w-full [&>button]:text-[15px]">{footer}</div> : null}
       </BottomSheet>
     )
   }

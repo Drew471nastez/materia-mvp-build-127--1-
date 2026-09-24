@@ -166,10 +166,20 @@ export function BlockEditor({ doc, creatorId, username, issues, showIssues, onUp
     }
   })
 
+  /**
+   * Always after the render the change causes: a block whose style changed
+   * is a new element (a <p> that became an <h2>), and the one in the map
+   * right now is about to go. When nothing re-renders (the arrows), the
+   * next frame does it instead.
+   */
   const focus = (key: string, at: Focus["at"]) => {
-    const h = refs.current.get(key)
-    if (h) h.focus(at)
-    else focusNext.current = { key, at }
+    focusNext.current = { key, at }
+    requestAnimationFrame(() => {
+      const f = focusNext.current
+      if (!f || f.key !== key) return
+      focusNext.current = null
+      refs.current.get(key)?.focus(at)
+    })
   }
 
   /* Which marks the caret is inside, for the toolbar. */
@@ -284,6 +294,7 @@ export function BlockEditor({ doc, creatorId, username, issues, showIssues, onUp
     if (b.style !== "p" && i >= 0) {
       /* A heading or quote first turns back into a paragraph, like every editor. */
       patch(b.id, { style: "p" })
+      focus(b.id, "start")
       return
     }
     const prev = blocks[i - 1]
@@ -325,6 +336,7 @@ export function BlockEditor({ doc, creatorId, username, issues, showIssues, onUp
     const style: TextStyle | null = marker === "#" ? "h1" : marker === "##" ? "h2" : marker === "###" ? "h3" : marker === ">" ? "quote" : null
     if (style) {
       patch(b.id, { style, html: "" })
+      focus(b.id, "start")
       return true
     }
     if (marker === "-" || marker === "*" || marker === "1.") {
@@ -396,7 +408,11 @@ export function BlockEditor({ doc, creatorId, username, issues, showIssues, onUp
 
   const setStyle = (style: TextStyle) => {
     if (!current) return
-    if (current.type === "text") patch(current.id, { style })
+    if (current.type === "text") {
+      if (current.style === style) return
+      patch(current.id, { style })
+      focus(current.id, "end")
+    }
     else if (current.type === "list") {
       const paras = current.items.map((html) => newBlock("text", { html, style } as Partial<Block>))
       set((prev) => {
@@ -632,9 +648,11 @@ export function BlockEditor({ doc, creatorId, username, issues, showIssues, onUp
       <div
         role="toolbar"
         aria-label="Formatting"
-        className="orders-strip sticky z-[6] flex h-12 items-center gap-0.5 overflow-x-auto rounded-t-2xl border-b border-[#eef0f2] bg-white/95 px-2 backdrop-blur-[2px] supports-[backdrop-filter]:bg-white/90"
+        className="sticky z-[6] flex h-12 items-center rounded-t-2xl border-b border-[#eef0f2] bg-white px-1.5 sm:px-2"
         style={{ top: "var(--compose-bar, 0px)" }}
       >
+        {/* The formatting scrolls sideways on a narrow screen; Add and the block's menu never move. */}
+        <div data-toolbar-strip="" className="orders-strip flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto max-lg:[mask-image:linear-gradient(to_right,#000_calc(100%-20px),transparent)]">
         <button type="button" className={tool(false)} aria-label="Undo" title="Undo" disabled={!doc.canUndo} onMouseDown={keep} onClick={doc.undo}>
           <Undo2 className="h-4 w-4" />
         </button>
@@ -774,7 +792,8 @@ export function BlockEditor({ doc, creatorId, username, issues, showIssues, onUp
           ]}
         />
 
-        <div className="ml-auto flex shrink-0 items-center gap-0.5 pl-1">
+        </div>
+        <div className="ml-1 flex shrink-0 items-center gap-0.5 border-l border-[#eef0f2] pl-1.5">
           <Popover open={insertOpen} onOpenChange={setInsertOpen}>
             <PopoverTrigger asChild>
               <button type="button" className={cn(buttonSecondary, "h-9 sm:h-8")} onMouseDown={keep}>

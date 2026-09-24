@@ -106,7 +106,8 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
   const [fieldError, setFieldError] = React.useState<Partial<Record<Problem["field"], string>>>({})
   const [showIssues, setShowIssues] = React.useState(false)
   const [tab, setTab] = React.useState<"write" | "preview">("write")
-  const [previewMode, setPreviewMode] = React.useState<PreviewMode>("desktop")
+  /* A phone at life size reads at the width of the preview column; a computer is shown scaled. */
+  const [previewMode, setPreviewMode] = React.useState<PreviewMode>("mobile")
   const [dialog, setDialog] = React.useState<null | "send" | "schedule" | "test" | "leave">(null)
 
   const paneRef = React.useRef<HTMLDivElement>(null)
@@ -204,7 +205,13 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
 
   /* ─── What would be saved, and what would be sent ─── */
 
-  const clean = React.useMemo(() => cleanBlocks(doc.blocks), [doc.blocks])
+  /* Empty paragraphs at the end are where the caret waits, not part of the email. */
+  const clean = React.useMemo(() => {
+    const all = cleanBlocks(doc.blocks)
+    let end = all.length
+    while (end > 1 && all[end - 1].type === "text" && !hasRealContent([all[end - 1]])) end--
+    return all.slice(0, end)
+  }, [doc.blocks])
   const bodyHtml = React.useMemo(() => renderBlocks(clean), [clean])
   const issues = React.useMemo(() => blockIssues(clean), [clean])
 
@@ -238,8 +245,8 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
 
   const lastSaved = React.useRef<string | null>(null)
   const inFlight = React.useRef<Promise<boolean> | null>(null)
-  const latest = React.useRef({ subject, previewText, audience, bodyHtml, loaded })
-  latest.current = { subject, previewText, audience, bodyHtml, loaded }
+  const latest = React.useRef({ subject, previewText, audience, bodyHtml, loaded, clean })
+  latest.current = { subject, previewText, audience, bodyHtml, loaded, clean }
 
   const snapshot = () => JSON.stringify([latest.current.subject, latest.current.previewText, latest.current.audience, latest.current.bodyHtml])
 
@@ -251,7 +258,7 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
       const snap = snapshot()
       const l = latest.current
       if (!force && snap === lastSaved.current) return true
-      const meaningful = l.subject.trim() || hasRealContent(cleanBlocks(doc.blocks))
+      const meaningful = l.subject.trim() || hasRealContent(l.clean)
       if (!l.loaded && !meaningful && !force) return true
 
       const run = (async () => {
@@ -283,7 +290,10 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
           setFieldError((f) => ({ ...f, audience: undefined }))
           setSave(snapshot() === snap ? "saved" : "pending")
           if (!campaignId && typeof window !== "undefined" && !window.location.pathname.endsWith(String(c.id))) {
-            window.history.replaceState(window.history.state, "", `/app/emails/edit/${c.id}`)
+            /* So a reload opens this draft. Only a nicety: never worth failing a save over. */
+            try {
+              window.history.replaceState(window.history.state, "", `/app/emails/edit/${c.id}`)
+            } catch {}
           }
           return true
         }
@@ -317,6 +327,8 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
   React.useEffect(() => {
     if (!ready.current || !editable || loading) return
     if (snapshot() === lastSaved.current) return
+    /* A new email with nothing in it yet is not "unsaved". */
+    if (!latest.current.loaded && !subject.trim() && !hasRealContent(clean)) return
     if (save !== "conflict") setSave("pending")
     const t = window.setTimeout(() => {
       if (save !== "conflict") void saveNow()
@@ -852,15 +864,14 @@ function Row({
 }) {
   return (
     <div className="px-4 py-1.5 transition-colors duration-100 focus-within:bg-[#fafbfb] first:rounded-t-2xl last:rounded-b-2xl sm:px-5">
-      <div className="grid grid-cols-1 items-center gap-x-3 sm:grid-cols-[72px_minmax(0,1fr)_auto]">
-        <label htmlFor={htmlFor} className="pt-2 text-[12px] font-medium text-[#6b7280] sm:pt-0 sm:text-[13px]">
+      <div className="grid grid-cols-[60px_minmax(0,1fr)_auto] items-center gap-x-2 sm:grid-cols-[72px_minmax(0,1fr)_auto] sm:gap-x-3">
+        <label htmlFor={htmlFor} className="text-[13px] font-medium text-[#6b7280]">
           {label}
         </label>
         <div className="min-w-0">{children}</div>
-        {counter ? <span className="hidden text-[12px] tabular-nums text-[#6b7280] sm:block">{counter}</span> : null}
+        {counter ? <span className="text-[12px] tabular-nums text-[#6b7280]">{counter}</span> : null}
       </div>
-      {error ? <p className={cn(errorClass, "pb-1 sm:pl-[84px]")}>{error}</p> : hint ? <p className={cn(helpClass, "pb-1 sm:pl-[84px]")}>{hint}</p> : null}
-      {counter ? <p className="pb-1 text-right text-[12px] tabular-nums text-[#6b7280] sm:hidden">{counter}</p> : null}
+      {error ? <p className={cn(errorClass, "pb-1 pl-[68px] sm:pl-[84px]")}>{error}</p> : hint ? <p className={cn(helpClass, "pb-1 pl-[68px] sm:pl-[84px]")}>{hint}</p> : null}
     </div>
   )
 }

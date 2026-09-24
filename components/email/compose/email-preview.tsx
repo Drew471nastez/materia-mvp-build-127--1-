@@ -69,6 +69,10 @@ export function EmailPreview({
     measure()
     const d = frameRef.current?.contentDocument
     d?.querySelectorAll("img").forEach((img) => img.addEventListener("load", measure, { once: true }))
+    /* A link in the preview goes nowhere: following it would replace the preview with that page. */
+    d?.addEventListener("click", (e) => {
+      if ((e.target as Element | null)?.closest?.("a")) e.preventDefault()
+    })
   }
 
   React.useEffect(() => {
@@ -81,7 +85,10 @@ export function EmailPreview({
   return (
     <div className={cn("min-w-0", className)}>
       <div className="flex items-center justify-between gap-3 border-b border-[#eef0f2] px-4 py-2.5">
-        <p className="text-[13px] font-medium text-[#1a1a2e]">Preview</p>
+        <p className="text-[13px] font-medium text-[#1a1a2e]">
+          <span className="hidden lg:inline">Preview</span>
+          <span className="lg:hidden">As it arrives</span>
+        </p>
         <Segmented
           label="Preview size"
           value={mode}
