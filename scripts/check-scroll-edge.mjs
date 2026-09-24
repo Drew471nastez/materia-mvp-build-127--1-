@@ -301,8 +301,18 @@ for (const [label, viewport] of [
       await wait(40)
       const h = await page.evaluate((sel, n) => {
         const tr = document.querySelector(sel).querySelector(`tbody tr:nth-child(${n})`)
-        const other = getComputedStyle(tr.children[tr.children.length - 2]).backgroundColor
-        return { frozen: getComputedStyle(tr.querySelector("[data-scroll-edge]")).backgroundColor, row: other !== "rgba(0, 0, 0, 0)" ? other : getComputedStyle(tr).backgroundColor }
+        /* What the row actually shows: the first painted background from a
+           plain cell up. A phone has no hover (Tailwind's hover: is behind
+           @media (hover: hover)), so there the row is see-through over the
+           card's white, and the frozen cell must be that white. */
+        const painted = (el) => {
+          for (let n = el; n; n = n.parentElement) {
+            const bg = getComputedStyle(n).backgroundColor
+            if (bg !== "rgba(0, 0, 0, 0)" && bg !== "transparent") return bg
+          }
+          return "rgb(255, 255, 255)"
+        }
+        return { frozen: getComputedStyle(tr.querySelector("[data-scroll-edge]")).backgroundColor, row: painted(tr.children[tr.children.length - 2]) }
       }, sel, n)
       await cdp.send("CSS.forcePseudoState", { nodeId, forcedPseudoClasses: [] })
       report.hover[`${table} row ${n}`] = h
