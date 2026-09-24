@@ -648,6 +648,21 @@ section("The cover")
   const client = read("app/app/website-builder/website-builder-client.tsx")
   check("the website page retakes a cover that is older than the site",
     /export function coverIsStale/.test(client) && /await requestCover\(i\.id\)/.test(client))
+  /*
+    THE COVER WAS STALE AFTER EDITING ON A PHONE. The app keeps a page it
+    has shown for five minutes, so Back from the editor handed the Website
+    page its list from before the edit, whose cover looked current. The tab
+    remembers its own saves and the covers that arrived, the page checks its
+    copy against them, and one cover request per site is shared.
+  */
+  check("the tab remembers when it saved each site, and the newest cover each one got",
+    /saves\.set\(installId, Date\.now\(\)\)/.test(refresh) && /export function savedAt/.test(refresh) && /export function latestCover/.test(refresh) && /covers\.set\(installId, cover\)/.test(refresh))
+  check("  one cover request per site at a time: the editor's and the page's share one browser launch",
+    /const running = inflight\.get\(installId\)\s*\n\s*if \(running\) return running/.test(refresh) && /inflight\.delete\(installId\)/.test(refresh))
+  check("  a copy of the page older than this tab's save asks the server again, once per save",
+    /savedAt\(i\.id\) > Date\.parse\(i\.saved_at\) \+ 2000/.test(client) && /REFRESHED\.add/.test(client) && /router\.refresh\(\)/.test(client))
+  check("  a cover that arrived while the page was away is drawn without being taken again",
+    /\[fresh\[i\.id\], latestCover\(i\.id\)\]/.test(client) && /Math\.max\(Date\.parse\(i\.saved_at\), savedAt\(i\.id\)\)/.test(client))
   check("  missing is stale", coverIsStale({ snapshot_url: null, snapshot_updated_at: null, saved_at: "2026-09-23T00:00:00Z" }))
   check("  older than the last save is stale", coverIsStale({ snapshot_url: "x", snapshot_updated_at: "2026-09-23T00:00:00Z", saved_at: "2026-09-23T00:01:00Z" }))
   check("  taken after it is not", !coverIsStale({ snapshot_url: "x", snapshot_updated_at: "2026-09-23T00:01:00Z", saved_at: "2026-09-23T00:00:00Z" }))

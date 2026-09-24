@@ -90,7 +90,7 @@ import {
   coverSpecFromSettings,
 } from "@/components/website-builder/theme-cover"
 import { relativeTime } from "@/lib/website-builder/relative-time"
-import { requestCover } from "@/lib/website-builder/cover-refresh"
+import { latestCover, requestCover, savedAt } from "@/lib/website-builder/cover-refresh"
 import { HelpLabel } from "@/components/app/help-label"
 import type { SettingsSection } from "@/components/website-builder/website-settings/types"
 import type { RangeValue } from "@/lib/date-range/range"
@@ -366,6 +366,9 @@ async function decodedFirst(urls: (string | null)[]): Promise<void> {
  * does one taken before the last save by more than the few seconds a save
  * and its cover can straddle.
  */
+/** Saves this tab has already fetched the page again for. */
+const REFRESHED = new Set<string>()
+
 export function coverIsStale(i: Pick<WebsiteSummary, "snapshot_url" | "snapshot_updated_at" | "saved_at">): boolean {
   if (!i.snapshot_url || !i.snapshot_updated_at) return true
   return Date.parse(i.saved_at) > Date.parse(i.snapshot_updated_at) + 5000
@@ -396,20 +399,49 @@ export function WebsiteBuilderClient({
     is no reason to start five at once. Each site is asked about once per
     visit. A cover that cannot be taken leaves the card as it was.
   */
+  const router = useRouter()
   const [fresh, setFresh] = React.useState<Record<string, { url: string; mobile_url: string | null; updated_at: string }>>({})
   const asked = React.useRef(new Set<string>())
   const installs = React.useMemo(
     () =>
       given.map((i) => {
-        const f = fresh[i.id]
-        return f ? { ...i, snapshot_url: f.url, snapshot_mobile_url: f.mobile_url, snapshot_updated_at: f.updated_at } : i
+        /* The newest of three: what the server said, what arrived while this
+           page was open, and what arrived while it was not (cover-refresh
+           remembers those for the tab). */
+        const f = [fresh[i.id], latestCover(i.id)]
+          .filter((c): c is NonNullable<typeof c> => !!c)
+          .sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at))[0]
+        const newer = f && (!i.snapshot_updated_at || Date.parse(f.updated_at) > Date.parse(i.snapshot_updated_at))
+        return newer ? { ...i, snapshot_url: f.url, snapshot_mobile_url: f.mobile_url, snapshot_updated_at: f.updated_at } : i
       }),
     [given, fresh],
   )
+  /*
+    A COPY OF THIS PAGE OLDER THAN A SAVE MADE IN THIS TAB. The app keeps
+    pages it has shown for five minutes, so coming back from the editor can
+    hand this page the list from before the edit. When this tab saved a
+    site after the copy was made, the server is asked for the page again,
+    once per save.
+  */
+  React.useEffect(() => {
+    const behind = given.filter((i) => savedAt(i.id) > Date.parse(i.saved_at) + 2000 && !REFRESHED.has(`${i.id}:${savedAt(i.id)}`))
+    if (behind.length === 0) return
+    for (const i of behind) REFRESHED.add(`${i.id}:${savedAt(i.id)}`)
+    router.refresh()
+  }, [given, router])
   React.useEffect(() => {
     const queue = [...given]
       .sort((a, b) => (a.status === "published" ? -1 : 0) - (b.status === "published" ? -1 : 0))
-      .filter((i) => coverIsStale(i) && !asked.current.has(i.id))
+      /* Stale against the server's last save or this tab's, whichever is
+         later, and against the newest cover this tab has seen. */
+      .filter((i) => {
+        const known = latestCover(i.id)
+        const shown = known && (!i.snapshot_updated_at || Date.parse(known.updated_at) > Date.parse(i.snapshot_updated_at))
+          ? { ...i, snapshot_url: known.url, snapshot_updated_at: known.updated_at }
+          : i
+        const saved = new Date(Math.max(Date.parse(i.saved_at), savedAt(i.id))).toISOString()
+        return coverIsStale({ ...shown, saved_at: saved }) && !asked.current.has(i.id)
+      })
     if (queue.length === 0) return
     let cancelled = false
     ;(async () => {
@@ -434,7 +466,6 @@ export function WebsiteBuilderClient({
     }
   }, [given])
 
-  const router = useRouter()
   const { toast } = useToast()
   const [isRefreshing, startRefresh] = React.useTransition()
   const [busy, setBusy] = React.useState<string | null>(null)
