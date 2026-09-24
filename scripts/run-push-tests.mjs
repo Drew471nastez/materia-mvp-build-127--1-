@@ -22,6 +22,7 @@ import { join, basename } from "node:path"
 
 const SUITES = [
   "tests/merge-markers.test.ts",
+  "tests/imports-resolve.test.ts",
   "tests/canvas-containment.test.ts",
   "tests/agent-rules.test.ts",
   "tests/agent-mcp.test.ts",
@@ -162,6 +163,7 @@ const SUITES = [
   "tests/developer-hub.test.ts",
   "tests/ai-section-placement.test.ts",
   "tests/email-automation.test.ts",
+  "tests/automation-engine.test.ts",
   "tests/section-sandbox.test.ts",
   "tests/agent-connection.test.ts",
   "tests/github-sync.test.ts",
@@ -192,6 +194,7 @@ const SUITES = [
   "tests/analytics-chart-skeleton.test.ts",
   "tests/tab-strip.test.ts",
   "tests/scrim-blur.test.ts",
+  "tests/app-shell-motion.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))

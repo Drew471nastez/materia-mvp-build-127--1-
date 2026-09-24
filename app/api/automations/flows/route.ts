@@ -1,0 +1,62 @@
+import { NextResponse } from "next/server"
+import { signedInCreator } from "@/lib/automations/flow-io"
+import { BLANK_TEMPLATE, templateById } from "@/lib/automations/templates"
+import { blankStep, defaultEntry, isTriggerType, serializeSteps } from "@/lib/automations/flow-model"
+
+export const runtime = "nodejs"
+
+/**
+ * A new flow, from a template or blank, always OFF. Choosing a template you
+ * already made opens that one instead of making a second copy of it: two
+ * "Thank you" flows would send two thank-you emails for every order.
+ */
+export async function POST(request: Request) {
+  const me = await signedInCreator()
+  if (!me) return NextResponse.json({ error: "Sign in again." }, { status: 401 })
+
+  let body: { template?: unknown; trigger?: unknown }
+  try {
+    body = await request.json()
+  } catch {
+    return NextResponse.json({ error: "Bad request" }, { status: 400 })
+  }
+
+  const templateId = typeof body.template === "string" ? body.template : BLANK_TEMPLATE
+  const template = templateId === BLANK_TEMPLATE ? null : templateById(templateId)
+  if (templateId !== BLANK_TEMPLATE && !template) return NextResponse.json({ error: "Unknown template" }, { status: 400 })
+
+  if (template) {
+    const { data: existing } = await me.supabase
+      .from("email_flows")
+      .select("id, trigger_config")
+      .eq("creator_id", me.creatorId)
+      .eq("trigger_type", template.trigger)
+    /* A flow from before templates were named is the welcome or the thank
+       you, as the chooser reads it (app/app/emails/flow/new/page.tsx). */
+    const legacy = template.trigger === "new_subscriber" ? "welcome" : "thank_you"
+    const same = (existing ?? []).find(
+      (f: { trigger_config?: { template?: string } | null }) => (f.trigger_config?.template ?? legacy) === template.id,
+    )
+    if (same) return NextResponse.json({ id: same.id, existing: true })
+  }
+
+  const trigger = template?.trigger ?? (isTriggerType(body.trigger) ? body.trigger : "new_subscriber")
+  const { data, error } = await me.supabase
+    .from("email_flows")
+    .insert({
+      creator_id: me.creatorId,
+      name: template?.name ?? "Untitled flow",
+      trigger_type: trigger,
+      trigger_config: { template: template?.id ?? BLANK_TEMPLATE, entry: template?.entry ?? defaultEntry(trigger) },
+      status: "draft",
+      steps: serializeSteps(template?.steps ?? [blankStep("email")]),
+    })
+    .select("id")
+    .single()
+
+  if (error || !data) {
+    console.error("[automations] could not create a flow:", error?.code)
+    return NextResponse.json({ error: "Could not create the flow. Try again." }, { status: 500 })
+  }
+  return NextResponse.json({ id: data.id, existing: false })
+}

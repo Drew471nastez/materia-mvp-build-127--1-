@@ -259,7 +259,7 @@ section("The page")
 {
   const page = read("app/app/website-builder/page.tsx")
   const client = stripComments(read("app/app/website-builder/website-builder-client.tsx"))
-  const loading = read("app/app/website-builder/loading.tsx")
+  const loading = read("app/app/website-builder/skeleton.tsx")
   check("the route is a server component", !/^\s*"use client"/m.test(page) && /export default async function/.test(page))
   check("the server reads installs itself and seeds a first-time creator in the same request", /store_theme_installs/.test(page) && /initialize_creator_themes/.test(page))
   /*

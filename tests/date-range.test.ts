@@ -274,10 +274,18 @@ function main() {
       && /@keyframes drp-month-next/.test(css) && /prefers-reduced-motion: reduce\) \{\s*\.drp-frame \{ transition: none; \}\s*\.drp-in-next/.test(css))
   check("a sideways swipe across the days turns the month on a phone", /Math\.abs\(dx\) < 44 \|\| Math\.abs\(dx\) < Math\.abs\(dy\) \* 1\.5/.test(picker))
   {
+    /* Over the pill, but the pill stays: it steps under the lowest overlay
+       layer (40) rather than to 0, where the page's own positioned boxes
+       painted over it and it disappeared. It is never hidden or faded for a
+       sheet, and while one is open the scrim, not the pill, takes the tap. */
+    check("every sheet on a phone goes over the nav pill, and the pill stays visible under it",
+      /html:has\(\[data-app-sheet\]\) \[data-app-nav-pill\],\s*\n\s*html:has\(\[role="dialog"\]\[aria-modal="true"\]:not\(\[data-mobile-menu\]\)\) \[data-app-nav-pill\],\s*\n\s*html:has\(body\[data-scroll-locked\]\) \[data-app-nav-pill\] \{\s*\n\s*z-index: 39;/.test(css)
+        && /html:has\(\[data-app-sheet="open"\]\) \[data-app-nav-pill\] \*,[\s\S]{0,200}pointer-events: none !important;/.test(css)
+        && !/data-app-sheet[^{]*\[data-app-nav-pill\][^{]*\{[^}]*(opacity: 0|visibility: hidden|display: none|z-index: 0;)/.test(css))
     /* The pill used to step down to layer 0 while a sheet was open, which
        hid it behind the page before the sheet arrived and brought it back
        over the sheet as it left. It stays put now; the sheets are above it. */
-    check("every sheet on a phone goes over the nav pill, and the pill itself never moves layer",
+    check("the overlays that sat at 50 are raised above the pill, the coupon confirm too",
       !/\[data-app-nav-pill\] \{\s*\n\s*z-index: 0;/.test(css)
         && /:is\(\[data-slot="sheet-overlay"\], \[data-slot="sheet-content"\], \[data-slot="alert-dialog-overlay"\], \[data-slot="alert-dialog-content"\]\) \{\s*z-index: 60;/.test(css)
         /* The coupon delete confirm draws its own layer, and it is above the pill (60 or more). */

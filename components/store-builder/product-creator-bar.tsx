@@ -19,6 +19,7 @@ import { SmartLink } from "@/components/smart-link"
 import { hapticTap } from "@/lib/native-bridge"
 import { optimizedImageUrl } from "@/lib/images/optimized-url"
 import { setProductTopBarRendered } from "@/lib/store-builder/product-top-bar"
+import { pageOrigin } from "@/lib/orders/checkout-origin-browser"
 
 // Button style presets (same as subscribe bar)
 export const creatorBarButtonPresets: Record<string, { default: string; subscribed: string }> = {
@@ -317,7 +318,7 @@ export function ProductCreatorBar({
         await fetch("/api/subscribers", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: norm, creatorId }),
+          body: JSON.stringify({ email: norm, creatorId, origin: pageOrigin() }),
         })
       }
       setSubscribedEmail(norm)
@@ -1188,7 +1189,7 @@ export function LiveProductCreatorBar({
         await fetch("/api/subscribers", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: norm, creatorId }),
+          body: JSON.stringify({ email: norm, creatorId, origin: pageOrigin() }),
         })
       }
       setSubscribedEmail(norm)

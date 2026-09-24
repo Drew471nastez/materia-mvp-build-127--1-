@@ -1,0 +1,155 @@
+/**
+ * The automation chooser, the builder and the Subscribers view with sources,
+ * mounted with fixture data for scripts/check-automations.mjs to measure.
+ * `?view=chooser|builder|broken|subscribers`. Every request the pages make is
+ * answered here and written to window.__calls.
+ */
+import React from "react"
+import { createRoot } from "react-dom/client"
+import { FlowChooser } from "@/app/app/emails/flow/new/chooser"
+import { FlowBuilder, type BuilderData } from "@/app/app/emails/flow/[id]/builder"
+import { EmailsHome, type EmailsTab } from "@/app/app/emails/emails-home"
+import { Toaster } from "@/components/ui/toaster"
+import { resolveValue, todayIn } from "@/lib/date-range/range"
+import { TEMPLATES } from "@/lib/automations/templates"
+
+type W = Window & { __calls: Array<[string, string]> }
+const w = window as unknown as W
+w.__calls = []
+const realFetch = window.fetch.bind(window)
+window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+  const url = String(input)
+  w.__calls.push([init?.method ?? "GET", url])
+  const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } })
+  if (url.endsWith("/status")) return json({ status: JSON.parse(String(init?.body ?? "{}")).on ? "active" : "paused", stopped: 3 })
+  if (url.includes("/api/automations/flows/") && init?.method === "PATCH") {
+    const body = JSON.parse(String(init.body))
+    return json({ flow: { name: body.name, trigger_type: body.trigger_type, trigger_config: body.trigger_config, steps: body.steps, status: "draft", updated_at: new Date().toISOString() } })
+  }
+  if (url.endsWith("/api/automations/flows")) return json({ id: "new-flow" })
+  if (url.includes("/test")) return json({ ok: true, to: "astrid@example.com" })
+  return realFetch(input, init)
+}
+
+const view = new URLSearchParams(location.search).get("view") ?? "chooser"
+const welcome = TEMPLATES.find((t) => t.id === "welcome")!
+const winBack = TEMPLATES.find((t) => t.id === "win_back")!
+
+function builderData(broken: boolean): BuilderData {
+  const steps = broken
+    ? [{ id: "e1", type: "email", config: { subject: "", body: "<p></p>" } }, { id: "w", type: "wait", config: { amount: 2, unit: "days" } }]
+    : [...welcome.steps, winBack.steps[1], { id: "e3", type: "email", config: { subject: "The presets most people start with, and a note on the new autumn pack", body: "<p>Hi {{first_name}},</p><p>Three to try first.</p>" } }]
+  const sources = [
+    { surface: "website", site: "andrewrullz.storelib.com", form: "footer", from: "instagram" },
+    { surface: "profile", form: "bar" },
+    { surface: "onepage", form: "lead_magnet", from: "tiktok" },
+    null,
+    { surface: "website", site: "shop.astridlens.com", form: "newsletter", from: "google" },
+  ]
+  const statuses = ["active", "completed", "exited", "failed", "active", "cancelled"]
+  return {
+    flow: { id: "f1", name: "Welcome series", trigger_type: "new_subscriber", trigger_config: { template: "welcome", entry: { mode: "after", days: 30 } }, status: broken ? "draft" : "active", steps, updated_at: "2026-09-20T10:00:00Z" },
+    products: [
+      { id: "11111111-1111-1111-1111-111111111111", title: "Autumn presets" },
+      { id: "22222222-2222-2222-2222-222222222222", title: "Lightroom course, the long version with every lesson" },
+    ],
+    stats: broken ? {} : { welcome_1: { sent: 412, opened: 251, clicked: 49, failed: 2 }, welcome_2: { sent: 380, opened: 190, clicked: 31, failed: 0 } },
+    runs: broken
+      ? []
+      : Array.from({ length: 12 }, (_, i) => ({
+          id: `r${i}`,
+          email: i === 2 ? "a-very-long-address-that-keeps-going@studio-with-a-long-domain.com" : `person${i}@example.com`,
+          name: null,
+          status: statuses[i % statuses.length],
+          exit_reason: statuses[i % statuses.length] === "failed" ? "Mailgun 500" : statuses[i % statuses.length] === "exited" ? "Unsubscribed." : statuses[i % statuses.length] === "cancelled" ? "The flow was turned off." : null,
+          started_at: new Date(Date.parse("2026-09-20") - i * 86400000).toISOString(),
+          finished_at: null,
+          current_step_id: i % 2 ? "welcome_wait" : "welcome_2",
+          source_detail: sources[i % sources.length],
+          trigger_type: "new_subscriber",
+        })),
+    counts: broken ? { active: 0, finished: 0, left: 0, failed: 0 } : { active: 14, finished: 380, left: 21, failed: 2 },
+    failedJobs: broken ? 0 : 2,
+    tracking: true,
+    accountEmail: "astrid@example.com",
+  }
+}
+
+const today = todayIn("UTC", Date.parse("2026-09-24T12:00:00Z"))
+const subscribers = Array.from({ length: 64 }, (_, i) => {
+  const kinds = [
+    { source: "website_builder_newsletter", source_detail: { surface: "website", site: "andrewrullz.storelib.com", form: "footer", from: "instagram", utm_campaign: "autumn" } },
+    { source: "creator_page", source_detail: { surface: "product", form: "bar", from: "google" } },
+    { source: "onepage", source_detail: null },
+    { source: "direct", source_detail: null },
+    { source: "checkout", source_detail: { surface: "checkout", site: "shop.astridlens.com" } },
+    { source: "website_builder_newsletter", source_detail: { surface: "website", site: "shop.astridlens.com", form: "newsletter" } },
+  ]
+  const k = kinds[i % kinds.length]
+  return {
+    id: `s${i}`,
+    email: `person${i}@example.com`,
+    name: i % 3 ? `Person ${i}` : "",
+    status: i % 11 === 0 ? "unsubscribed" : "subscribed",
+    subscribed_at: new Date(Date.parse("2026-09-01") - i * 86400000).toISOString(),
+    unsubscribed_at: null,
+    consent_text: "Subscribed via the sign-up box in the footer of this creator's website",
+    ...k,
+  }
+})
+
+function Subscribers() {
+  const [tab, setTab] = React.useState<EmailsTab>("subscribers")
+  const [search, setSearch] = React.useState("")
+  const [period, setPeriod] = React.useState(() => resolveValue({ preset: "last_30_days" }, today, "last_30_days"))
+  return (
+    <div className="orders-pane h-full overflow-y-auto overflow-x-hidden page-scroll bg-[#f8f9fa]">
+      <EmailsHome
+        tab={tab}
+        onTab={setTab}
+        loading={false}
+        onNewEmail={() => {}}
+        subscribers={subscribers}
+        checkoutBuyersCount={3}
+        search={search}
+        onSearch={setSearch}
+        onExportSubscribers={() => {}}
+        onCopyEmail={() => {}}
+        onRemoveSubscriber={() => {}}
+        flows={[
+          { id: "f1", name: "Welcome series", trigger_type: "new_subscriber", status: "active", steps: welcome.steps, totals: { sent: 792, opened: 441, clicked: 80, failed: 2, in_progress: 14 } },
+          { id: "f2", name: "Bring buyers back", trigger_type: "purchase", status: "paused", steps: winBack.steps, totals: null },
+        ]}
+        onCreateFlow={() => {}}
+        onEditFlow={() => {}}
+        onToggleFlow={() => {}}
+        onDeleteFlow={() => {}}
+        campaigns={[]}
+        onOpenCampaign={() => {}}
+        onViewStats={() => {}}
+        onResend={() => {}}
+        onEditCampaign={() => {}}
+        onDeleteCampaign={() => {}}
+        isSending={false}
+        overview={null}
+        usage={{ sent: 0, limit: 3000 }}
+        period={period}
+        onPeriod={setPeriod}
+        today={today}
+      />
+    </div>
+  )
+}
+
+function App() {
+  return (
+    <div id="shell" style={{ position: "fixed", inset: 0 }}>
+      {view === "chooser" ? <FlowChooser existing={{ thank_you: "f9" }} /> : null}
+      {view === "builder" ? <FlowBuilder data={builderData(false)} /> : null}
+      {view === "broken" ? <FlowBuilder data={builderData(true)} /> : null}
+      {view === "subscribers" ? <Subscribers /> : null}
+      <Toaster />
+    </div>
+  )
+}
+createRoot(document.getElementById("app")!).render(<App />)

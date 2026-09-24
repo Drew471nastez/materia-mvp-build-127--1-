@@ -3,6 +3,7 @@ import { triggerEmailFlows } from "@/lib/email"
 import { NextResponse } from "next/server"
 import { randomUUID } from "node:crypto"
 import { rateLimit, addressSubject, emailSubject, LIMITS } from "@/lib/api/rate-limit"
+import { contactSourceFrom, recordContactSource } from "@/lib/contacts/contact-source"
 
 /** Deliberately plain. A clever pattern refuses addresses that work. */
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
@@ -11,7 +12,7 @@ export const runtime = "nodejs"
 
 export async function POST(request: Request) {
   try {
-    const { email, creatorId, name } = await request.json()
+    const { email, creatorId, name, origin } = await request.json()
 
     if (!email || !creatorId) {
       return NextResponse.json({ error: "Email and creator ID are required" }, { status: 400 })
@@ -108,6 +109,11 @@ export async function POST(request: Request) {
       }
     }
 
+    /* The bar on a profile or on a product page, told apart by the page it
+       was on; on a creator's own domain, that website. */
+    const source = contactSourceFrom({ request, surface: "profile", form: "bar", sent: origin })
+    await recordContactSource(adminSupabase, creator.id, address, source)
+
     if (welcome) {
       try {
         await triggerEmailFlows(adminSupabase, {
@@ -115,6 +121,7 @@ export async function POST(request: Request) {
           creatorId: creator.id,
           recipientEmail: address,
           recipientName: name || undefined,
+          source,
         })
       } catch (flowErr) {
         console.error("[subscribers] Email flow trigger error (non-fatal):", flowErr)

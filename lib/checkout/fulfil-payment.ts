@@ -31,7 +31,8 @@ import "server-only"
 import type Stripe from "stripe"
 import { v4 as uuidv4 } from "uuid"
 import { stripe } from "@/lib/stripe"
-import { sendOrderEmails } from "@/lib/email"
+import { sendOrderEmails, triggerEmailFlows } from "@/lib/email"
+import { contactSourceOfOrder, recordContactSource } from "@/lib/contacts/contact-source"
 import { orderOriginFrom, orderSourceFrom, tagOrderSource } from "@/lib/orders/order-source"
 import { recordCouponUse } from "./coupons"
 import { businessFromMetadata } from "./business"
@@ -209,7 +210,8 @@ export async function fulfilPaymentIntent(
     return { ok: false, status: 500, error: "The order could not be saved. The payment is safe; refresh this page in a moment." }
   }
 
-  await tagOrderSource(admin, order.id, orderSourceFrom(m, opts.request), orderOriginFrom(m, opts.request))
+  const origin = orderOriginFrom(m, opts.request)
+  await tagOrderSource(admin, order.id, orderSourceFrom(m, opts.request), origin)
 
   /* Everything after the order is recorded is allowed to fail on its own:
      the buyer paid and the order exists, whatever an email server says. */
@@ -222,7 +224,10 @@ export async function fulfilPaymentIntent(
   }
 
   await step("customer", () => recordCustomer(admin, { creatorId, email: buyerEmail, first: m.buyer_first_name, last: m.buyer_last_name, total }))
-  if (m.email_opt_in === "true") await step("subscriber", () => subscribe(admin, { creatorId, email: buyerEmail, orderId: order.id, name: `${m.buyer_first_name || ""} ${m.buyer_last_name || ""}`.trim() }))
+  if (m.email_opt_in === "true") {
+    await step("subscriber", () => subscribe(admin, { creatorId, email: buyerEmail, orderId: order.id, name: `${m.buyer_first_name || ""} ${m.buyer_last_name || ""}`.trim() }))
+    await step("subscriber source", () => recordContactSource(admin, creatorId, buyerEmail, contactSourceOfOrder(origin)))
+  }
   await step("entitlement", () => grant(admin, { buyerId, email: buyerEmail, orderId: order.id, creatorId, productId, variantId }))
   await step("sales count", async () => {
     await admin.rpc("increment_product_sales", { p_product_id: productId })
@@ -280,6 +285,23 @@ export async function fulfilPaymentIntent(
       attachments,
     })
   })
+
+  /* The creator's purchase automations. Only the caller that made the order
+     gets here, and the engine enters each flow once per order in any case. */
+  if (buyerEmail) {
+    await step("email flows", () =>
+      triggerEmailFlows(admin, {
+        triggerType: "purchase",
+        creatorId,
+        recipientEmail: buyerEmail,
+        recipientName: m.buyer_first_name || undefined,
+        productTitle: m.product_title || undefined,
+        productId,
+        orderId: order.id,
+        source: contactSourceOfOrder(origin),
+      }),
+    )
+  }
 
   await step("push", async () => {
     const { data: creator } = await admin.from("creators").select("user_id").eq("id", creatorId).maybeSingle()

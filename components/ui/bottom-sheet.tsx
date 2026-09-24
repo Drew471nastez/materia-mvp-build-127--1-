@@ -37,6 +37,22 @@
  *   close, so it shrank to a handle as it went. The last children are kept
  *   until the sheet is gone.
  *
+ *   A SHEET THAT IS TAKEN AWAY STILL LEAVES. When the parent itself goes (a
+ *   row deleted from its own action sheet, a page navigated away from with a
+ *   sheet open) React removes the sheet in the same commit, and it used to
+ *   vanish on that frame. Now a copy of what was on screen is left on the
+ *   body, inert, and slides out from exactly where the sheet was
+ *   (`leaveBehind` below). Nothing reads it and nothing can touch it; it
+ *   removes itself when the slide ends.
+ *
+ *   A LEAVING SHEET TAKES NO TAPS. From the moment it starts to close the
+ *   layer is `pointer-events: none`, so the page and the nav pill under it
+ *   answer the next tap instead of a scrim that is already fading.
+ *
+ *   THE PILL STAYS. The nav pill is not hidden, faded or moved while a sheet
+ *   is up. The sheet's layer is above it, so the scrim dims it like the rest
+ *   of the page and takes the tap that lands on it (app/globals.css).
+ *
  * `will-change` is set only while something is moving, so a sheet at rest
  * does not hold a layer it does not need.
  */
@@ -74,6 +90,51 @@ function readY(el: HTMLElement): number {
 
 function reducedMotion() {
   return typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+}
+
+/**
+ * The exit for a sheet whose parent has gone. `root` is the sheet's own layer,
+ * still in the document when this runs (React calls it before it removes the
+ * nodes). A copy goes on the body and finishes the close the sheet would have
+ * made: from where it is, down by the distance left, with the scrim fading
+ * out beside it.
+ */
+function leaveBehind(root: HTMLElement, fromY: number, height: number, scrimOpacity: number) {
+  if (typeof document === "undefined" || !root.isConnected) return
+  const h = Math.max(1, height)
+  if (fromY >= h - 1) return
+  const ghost = root.cloneNode(true) as HTMLElement
+  ghost.setAttribute("data-app-sheet", "closing")
+  ghost.setAttribute("data-sheet-ghost", "")
+  ghost.setAttribute("aria-hidden", "true")
+  ghost.removeAttribute("role")
+  ghost.removeAttribute("aria-modal")
+  ghost.setAttribute("inert", "")
+  ghost.style.pointerEvents = "none"
+  const panel = ghost.querySelector<HTMLElement>("[data-sheet-panel]")
+  const scrim = ghost.firstElementChild as HTMLElement | null
+  if (!panel) return
+  /* What was scrolled stays scrolled, so the content does not jump to its top as it goes. */
+  const from = root.querySelectorAll<HTMLElement>("[data-sheet-panel] *")
+  const to = panel.querySelectorAll<HTMLElement>("*")
+  const scrolled: [number, number][] = []
+  from.forEach((el, i) => { if (el.scrollTop > 0) scrolled.push([i, el.scrollTop]) })
+  panel.style.transform = translate(h)
+  panel.style.willChange = "transform"
+  if (scrim) scrim.style.opacity = "0"
+  document.body.appendChild(ghost)
+  for (const [i, top] of scrolled) if (to[i]) to[i].scrollTop = top
+  let gone = false
+  const done = () => { if (!gone) { gone = true; ghost.remove() } }
+  const ms = reducedMotion() ? 1 : Math.max(160, CLOSE_MS * Math.min(1, (h - fromY) / h))
+  if (typeof panel.animate !== "function") { done(); return }
+  const timing: KeyframeAnimationOptions = { duration: ms, easing: EASE }
+  const a = panel.animate([{ transform: translate(fromY) }, { transform: translate(h) }], timing)
+  scrim?.animate([{ opacity: scrimOpacity }, { opacity: 0 }], timing)
+  a.onfinish = done
+  a.oncancel = done
+  /* However the animation ends, or if it never runs (a hidden tab), the copy goes. */
+  window.setTimeout(done, ms + 400)
 }
 
 /** The nearest thing between the finger and the sheet that scrolls vertically. */
@@ -148,6 +209,7 @@ export function BottomSheet({
   const shownRef = useRef<React.ReactNode>(children)
   if (isOpen) shownRef.current = children
 
+  const rootRef = useRef<HTMLDivElement>(null)
   const sheetRef = useRef<HTMLDivElement>(null)
   const scrimRef = useRef<HTMLDivElement>(null)
   const bodyRef = useRef<HTMLDivElement>(null)
@@ -278,6 +340,26 @@ export function BottomSheet({
   }, [isOpen, present, mounted, glide, currentY])
 
   useEffect(() => () => stopMotion(), [stopMotion])
+
+  /**
+   * TAKEN AWAY WHILE ON SCREEN. This cleanup runs when the sheet itself is
+   * unmounted, before React removes its nodes, so the layer is still there to
+   * copy and the running animation still says where the panel is.
+   */
+  const leaveRef = useRef<() => void>(() => {})
+  useLayoutEffect(() => {
+    leaveRef.current = () => {
+      const root = rootRef.current
+      const sheet = sheetRef.current
+      if (!root || !sheet) return
+      const scrim = scrimRef.current
+      leaveBehind(root, currentY(), heightRef.current || sheet.offsetHeight, scrim ? Number(getComputedStyle(scrim).opacity) || 0 : 0)
+    }
+  })
+  useLayoutEffect(() => {
+    const leave = leaveRef
+    return () => leave.current()
+  }, [])
 
   /** Out of the way, then gone: the parent is told, and its answer closes it. */
   const dismiss = useCallback((velocity = 0) => {
@@ -445,8 +527,10 @@ export function BottomSheet({
 
   return createPortal(
     <div
+      ref={rootRef}
       data-app-sheet={isOpen ? "open" : "closing"}
       className={cn("fixed inset-0 z-[200]", hideFrom === "sm" && "sm:hidden", hideFrom === "md" && "md:hidden")}
+      style={isOpen ? undefined : { pointerEvents: "none" }}
       role="dialog"
       aria-modal="true"
       aria-label={label ?? title}

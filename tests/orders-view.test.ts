@@ -297,7 +297,7 @@ async function main() {
     const insertFirst: Array<[string, RegExp]> = [
       ["app/api/checkout/process/route.ts", /Order created successfully:", order\.id\)\n\s*const origin = originOf\(body\.origin, request\)\n\s*await tagOrderSource\(admin, order\.id, channelOf\(origin, orderSourceFromRequest\(request\)\), origin\)/],
       ["app/api/checkout/quick-free/route.ts", /const origin = originOf\(body\.origin, request\)\n\s*await tagOrderSource\(admin, order\.id, channelOf\(origin, orderSourceFromRequest\(request\)\), origin\)/],
-      ["lib/checkout/fulfil-payment.ts", /await tagOrderSource\(admin, order\.id, orderSourceFrom\(m, opts\.request\), orderOriginFrom\(m, opts\.request\)\)/],
+      ["lib/checkout/fulfil-payment.ts", /const origin = orderOriginFrom\(m, opts\.request\)\n\s*await tagOrderSource\(admin, order\.id, orderSourceFrom\(m, opts\.request\), origin\)/],
       ["app/api/stripe/webhook/route.ts", /await tagOrderSource\(supabaseAdmin, order\.id, orderSourceFrom\(metadata\), orderOriginFrom\(metadata\)\)/],
       ["lib/checkout/fulfil-cart-item.ts", /await tagOrderSource\(ctx\.admin, order\.id, "website", ctx\.origin\)/],
       ["app/api/admin/sales-trigger/route.ts", /await tagOrderSource\(admin, order\.id, "storelib", \{ surface: "admin" \}\)/],

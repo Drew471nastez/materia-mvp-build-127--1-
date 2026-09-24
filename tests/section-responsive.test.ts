@@ -3026,7 +3026,7 @@ check(
 section("The Website page: one address, one primary action, labelled buttons")
 // ===========================================================================
 
-const wbLoading = readFileSync(join(root, "app/app/website-builder/loading.tsx"), "utf8")
+const wbLoading = readFileSync(join(root, "app/app/website-builder/skeleton.tsx"), "utf8")
 
 check(
   "the site's address is a link under the title, not a box you cannot type into",

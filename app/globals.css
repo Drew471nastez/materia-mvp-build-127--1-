@@ -397,6 +397,28 @@ html.capacitor body {
     }
   }
 
+  /*
+    ONE LANDING PER PAGE, AND THE SHELL PLAYS IT. Inside /app a page arrives
+    on the stage's entrance (components/app/app-stage.tsx: opacity and a 5px
+    rise, 180ms), started before the new page is painted. A page that still
+    carries .app-page-enter would fade a second time on top of it, from 0
+    over 380ms, so inside the shell's scroller the class does nothing.
+  */
+  html.app-layout .app-content-scroll .app-page-enter {
+    animation: none;
+  }
+
+  /*
+    The outline of a slow page is drawn by the shell only after a second
+    (NAV_SKELETON_AFTER_MS) and fades in on its own, so the delay the old
+    loading files built in would only add to that.
+  */
+  [data-app-route-skeleton] .skeleton-deferred,
+  [data-app-route-skeleton] .skeleton-late {
+    animation: none;
+    opacity: 1;
+  }
+
 
 
 
@@ -1040,45 +1062,26 @@ html.capacitor body {
    * in the browser. A fake loading state makes a change of tab look slower
    * AND cheaper than simply doing it.
    *
-   * 120ms, opacity and 4px. Short because this is a tab, not a page — long
+   * 140ms, opacity only. Short because this is a tab, not a page — long
    * enough to read as one thing replacing another, short enough that the
    * fourth switch in a row does not make you wait for it.
    */
-  /**
-   * THE UPGRADE PANEL, ARRIVING AND LEAVING.
-   *
-   * It had a 69-line skeleton mirroring its own content on the way in, and a
-   * full-screen spinner held for 400ms on the way out. Neither was waiting
-   * for anything: the page is server-rendered, and the spinner was filling a
-   * pause invented to make the spinner visible. Without the skeleton the
-   * previous screen simply stays until this one is ready, which is what
-   * "smooth" actually looks like.
-   */
-  .upgrade-arriving {
-    animation: upgrade-in 200ms cubic-bezier(0.32, 0.72, 0, 1) both;
-  }
-  .upgrade-leaving {
-    animation: upgrade-out 180ms cubic-bezier(0.4, 0, 1, 1) both;
-    pointer-events: none;
-  }
-  @keyframes upgrade-in {
-    from { opacity: 0; translate: 0 10px; scale: 0.994; }
-    to { opacity: 1; translate: none; scale: 1; }
-  }
-  @keyframes upgrade-out {
-    from { opacity: 1; translate: none; scale: 1; }
-    to { opacity: 0; translate: 0 8px; scale: 0.996; }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .upgrade-arriving, .upgrade-leaving { animation: none; }
-  }
 
+  /*
+    THE BUMP WAS THIS RULE. The panel used to rise 4px as it faded in, and
+    scripts/check-settings-tabs measured exactly that on every switch at 390
+    and 1440: the new tab's first card drawn 4px low and then moving up. A
+    content switch under a tab bar that does not move is read as the page
+    jolting, not as an entrance. Opacity only now, and from 0.4 rather than
+    0, so there is never a frame with nothing under the tabs: the new tab is
+    there at once, in its final place, and only settles in tone.
+  */
   .settings-panel {
-    animation: settings-panel-in 120ms cubic-bezier(0.32, 0.72, 0, 1) both;
+    animation: settings-panel-in 140ms cubic-bezier(0.2, 0, 0, 1) backwards;
   }
   @keyframes settings-panel-in {
-    from { opacity: 0; translate: 0 4px; }
-    to { opacity: 1; translate: none; }
+    from { opacity: 0.4; }
+    to { opacity: 1; }
   }
   @media (prefers-reduced-motion: reduce) {
     .settings-panel { animation: none; }
@@ -2789,7 +2792,56 @@ html.capacitor .app-content-scroll {
     pointer-events: none;
   }
 
-  /* ── A sheet goes OVER the pill, every sheet, and the pill stays put ─────
+  /* A page drawn as a layer over the whole shell (the plans page,
+     app/app/settings/billing/upgrade/layout.tsx) covers the pill; it is not
+     painted or reachable underneath it. A page, not a sheet: the sheet rule
+     below keeps the pill. */
+  html:has([data-page-layer]) [data-app-nav-pill] {
+    visibility: hidden;
+  }
+
+  /* ── A sheet goes OVER the pill, and the pill stays ─────────────────────
+   *
+   * "When a bottom sheet opens, the pill shaped navigation bar should NOT
+   * disappear. The sheet should simply appear over it."
+   *
+   * The pill used to step down to layer 0 while anything modal was open, so
+   * that sheets drawn inside a page would cover it. Layer 0 is also where
+   * every positioned box in the page lives, and they come after the pill in
+   * the document: the dashboard's scroller and the orders stage are both
+   * `relative`, so the moment a sheet opened the page itself painted over
+   * the pill and it vanished, before the scrim had even arrived.
+   *
+   * Now it steps down only as far as it has to: under every overlay in /app
+   * (the lowest modal layer in use is 40; the shared sheet is 200) and still
+   * over everything the page draws in its own flow. It keeps its place and
+   * its opacity, the scrim dims it like the rest of the page, and the scrim,
+   * not the pill, takes a tap that lands on it. The pointer rule is the
+   * second lock on that door, for an overlay that is not full screen.
+   *
+   * What counts as open: a sheet that says so ([data-app-sheet="open"]), any
+   * fixed modal dialog except the pill's own menu page, and Radix's scroll
+   * lock on <body>, which every Dialog, AlertDialog and Sheet sets. A sheet
+   * on its way out ("closing") keeps the pill under it until it is gone, so
+   * the pill does not pop out of the fading scrim, but gives the tap back
+   * at once.
+   * ────────────────────────────────────────────────────────────────────── */
+  html:has([data-app-sheet]) [data-app-nav-pill],
+  html:has([role="dialog"][aria-modal="true"]:not([data-mobile-menu])) [data-app-nav-pill],
+  html:has(body[data-scroll-locked]) [data-app-nav-pill] {
+    z-index: 39;
+  }
+  html:has([data-app-sheet="open"]) [data-app-nav-pill] *,
+  html:has([role="dialog"][aria-modal="true"]:not([data-mobile-menu])) [data-app-nav-pill] *,
+  html:has(body[data-scroll-locked]) [data-app-nav-pill] * {
+    pointer-events: none !important;
+  }
+
+  /* ── And every overlay sits above the pill ───────────────────────────────
+   * Both halves: the pill steps down to 39 (above), and the overlays that
+   * sat at 50 are raised to 60 (here), so no overlay can land under it.
+   *
+   * The earlier note on this rule, kept for its reasoning:
    *
    * "All the mobile bottom sheets across /app should overlap the nav pill."
    * This used to drop the pill to layer 0 while anything modal was open. At

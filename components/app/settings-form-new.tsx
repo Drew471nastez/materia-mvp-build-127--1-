@@ -31,6 +31,7 @@ import { isNativeApp } from "@/lib/platform-utils"
 import { openExternal } from "@/lib/native-bridge"
 import { useLanguage, LANGUAGES } from "@/lib/i18n"
 import { BillingPageClient } from "@/components/app/billing/billing-page-client"
+import { AppAvatar } from "@/components/app/app-avatar"
 import { STORELIB_LOGO } from "@/lib/brand/logo"
 
 function ChainLinkIcon({ className = "w-3 h-3", stroke = "#ffffff" }: { className?: string; stroke?: string }) {
@@ -902,6 +903,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
     if (activeTab === "billing") void loadBilling()
   }, [activeTab, loadBilling])
   const tabNavRef = useRef<HTMLDivElement>(null)
+  const formRef = useRef<HTMLFormElement>(null)
   const activeTabRef = useRef<HTMLButtonElement>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [success, setSuccess] = useState(false)
@@ -1051,12 +1053,21 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
   }, [activeTab, loadStripeBankInfo])
 
   // Fetch domains - defined here (before the URL params useEffect) to avoid TDZ in production builds
+  /*
+    A REFRESH KEEPS THE LIST ON SCREEN. The list is fetched once on mount and
+    again each time the Domains tab is opened; the second fetch used to swap
+    the list for a spinner and back, a box changing height under the tab
+    for no new information. Only the first load, with nothing to show yet,
+    shows the spinner now.
+  */
+  const domainsLoadedRef = useRef(false)
   const fetchDomains = useCallback(async () => {
-    setDomainsLoading(true)
+    if (!domainsLoadedRef.current) setDomainsLoading(true)
     try {
       const res = await fetch("/api/domains")
       const data = await res.json()
       if (data.domains) setDomains(data.domains)
+      domainsLoadedRef.current = true
     } catch (err) {
       console.error("Failed to fetch domains:", err)
     } finally {
@@ -1540,6 +1551,24 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
      * Domains is the one tab with a real fetch, and it renders its own list
      * state rather than blanking the page.
      */
+    /**
+     * THE TAB BAR STAYS WHERE YOUR FINGER LEFT IT.
+     *
+     * Part way down General, a press on Security used to swap in a panel a
+     * few hundred pixels shorter; the scroller could no longer be scrolled
+     * that far, the browser pulled it back, and the whole page, tab bar
+     * included, jumped 160 to 270px under the finger (measured by
+     * scripts/check-settings-tabs). So before the swap the form is told to
+     * be at least as tall as it needs to be for the scroll to stay where it
+     * is. The new tab appears directly under the bar, and anything short of
+     * the screen's foot is left as page.
+     */
+    const scroller = formRef.current?.closest(".app-content-scroll") as HTMLElement | null
+    const form = formRef.current
+    if (scroller && form) {
+      const formTop = form.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop
+      form.style.minHeight = `${Math.max(0, Math.ceil(scroller.scrollTop + scroller.clientHeight - formTop))}px`
+    }
     setActiveTab(newTab)
     if (newTab === "domains") fetchDomains()
     // Persist tab in URL so refresh stays on the same tab
@@ -2111,7 +2140,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
         </MobileBottomSheet>
 
         {/* Pill-shaped Tab Navigation - Hidden scrollbar, fixed height to prevent layout shift */}
-        <div ref={tabNavRef} className="mb-6 sm:mb-8 overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+        <div ref={tabNavRef} data-settings-tabs="" className="mb-6 sm:mb-8 overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
           <div className="flex gap-1 p-1 w-fit h-[44px] sm:h-[48px] items-center">
             {TABS.map((tab) => {
               const Icon = tab.icon
@@ -2142,7 +2171,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
         </div>
 
         {/* Tab Content */}
-        <form onSubmit={handleSubmit}>
+        <form ref={formRef} onSubmit={handleSubmit}>
           {/*
             ONE KEYED WRAPPER, so React replaces the panel rather than
             reconciling one tab's fields into another's and keeping the DOM
@@ -2153,7 +2182,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
             a page: anything long enough to admire is long enough to be in
             the way the fourth time you use it.
           */}
-          <div key={activeTab} className="settings-panel">
+          <div key={activeTab} data-settings-panel={activeTab} className="settings-panel">
           {/*
             NO SKELETON BETWEEN TABS.
             There used to be one here: forty-five lines of shimmering grey
@@ -2245,20 +2274,15 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                     href="/creator-page"
                     className="relative group cursor-pointer"
                   >
-                    {avatarUrl ? (
-                      <img
-                        src={avatarUrl}
-                        alt="Profile"
-                        className="w-16 h-16 sm:w-[72px] sm:h-[72px] rounded-full object-cover bg-[#f3f4f6]"
-                        onError={(e) => {
-                          e.currentTarget.style.display = "none"
-                          e.currentTarget.nextElementSibling?.classList.remove("hidden")
-                        }}
-                      />
-                    ) : null}
-                    <div className={`w-16 h-16 sm:w-[72px] sm:h-[72px] rounded-full bg-gradient-to-br from-[#8b5cf6] to-[#a78bfa] flex items-center justify-center text-white text-xl sm:text-2xl font-bold ${avatarUrl ? "hidden" : ""}`}>
-                      {firstName?.[0]?.toUpperCase() || "U"}
-                    </div>
+                    {/* The shell's one avatar (components/app/app-avatar): a quiet circle
+                        while the photo comes, the photo fading in, initials only without one. */}
+                    <AppAvatar
+                      src={avatarUrl || null}
+                      name={`${firstName} ${lastName}`.trim() || username || "You"}
+                      size={72}
+                      sizedByClass
+                      className="h-16 w-16 sm:h-[72px] sm:w-[72px]"
+                    />
                   </a>
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-[#1a1a2e] text-[15px]">Profile Photo</p>
@@ -3314,12 +3338,13 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
               <div className={`bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb] transition-[filter,opacity] duration-700 ease-in-out ${(userPlan === "free" || userPlan === null) && !planLoading ? "blur-[1.5px] opacity-80 pointer-events-none select-none" : ""}`}>
                 <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-4">Your Domains</h3>
 
+                {/* The spinner and the empty list are the same height, so the first load does not move what is under it. */}
                 {domainsLoading ? (
-                  <div className="flex items-center justify-center py-8">
+                  <div className="flex min-h-[156px] items-center justify-center">
                     <Loader2 className="h-5 w-5 animate-spin text-[#7c3aed]" />
                   </div>
                 ) : domains.length === 0 ? (
-                  <div className="text-center py-8">
+                  <div className="flex min-h-[156px] flex-col items-center justify-center text-center">
                     <Globe className="h-10 w-10 text-[#d1d5db] mx-auto mb-3" />
                     <p className="text-[13px] text-[#6b7280] mb-1">No domains connected yet</p>
                     <p className="text-[12px] text-[#9ca3af]">Add a custom domain above to get started</p>

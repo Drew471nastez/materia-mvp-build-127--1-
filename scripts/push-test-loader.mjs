@@ -79,6 +79,26 @@ export const revalidatePath = () => {}
 export const revalidateTag = () => {}
 export const unstable_noStore = () => {}
 `,
+  /**
+   * next/server: enough for a module that builds responses or schedules work
+   * after the answer to load. `after` drops its task: there is no response
+   * here to run it after, and a suite that needs the task runs it itself.
+   */
+  "next/server": `export class NextResponse extends Response {
+  static json(body, init) {
+    const headers = new Headers(init?.headers)
+    if (!headers.has("content-type")) headers.set("content-type", "application/json")
+    return new NextResponse(JSON.stringify(body), { ...init, headers })
+  }
+  static redirect(url, init) {
+    const status = typeof init === "number" ? init : init?.status ?? 307
+    return new NextResponse(null, { status, headers: { location: String(url) } })
+  }
+  static next() { return new NextResponse(null) }
+}
+export class NextRequest extends Request {}
+export const after = () => {}
+`,
   "next/navigation": `export const usePathname = () => globalThis.__PUSH_TEST_PATHNAME__ ?? "/"
 export const useRouter = () => ({ push() {}, replace() {}, prefetch() {}, back() {} })
 export const useSearchParams = () => new URLSearchParams()

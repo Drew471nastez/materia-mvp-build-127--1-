@@ -91,9 +91,12 @@ function main() {
   check("the router keeps a visited page rather than refetching it on every press",
     /staleTimes: \{\s*\n\s*dynamic: 300,\s*\n\s*static: 300,/.test(read("next.config.mjs")),
     "with staleTimes.dynamic at 0, every tab press shows the skeleton again")
-  check("and the shell warms the bar's routes",
-    /onPrefetch=\{\(href\) => \{[\s\S]{0,120}?router\.prefetch\(href\)/.test(shell)
-      && /for \(const item of items\) onPrefetch\(item\.href\)/.test(nav))
+  /* Whole pages, not their frames: with no loading boundary under /app an
+     ordinary prefetch of a dynamic page brings back almost nothing. */
+  check("and the shell warms the bar's routes, whole",
+    /onPrefetch=\{\(href\) => \{[\s\S]{0,120}?prefetchAppPage\(router, href\)/.test(shell)
+      && /for \(const item of items\) onPrefetch\(item\.href\)/.test(nav)
+      && /router\.prefetch\(href, \{ kind: "full" \}/.test(read("lib/ui/app-navigation.ts")))
   check("and it draws no glyph from a second icon library",
     !/from "lucide-react"/.test(nav),
     "one glyph from a different library at 22px beside three Solar ones reads as heavier than all of them")

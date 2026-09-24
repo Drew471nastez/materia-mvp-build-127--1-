@@ -1,15 +1,14 @@
 "use client"
 
 import { Suspense, useEffect } from "react"
-import { usePathname } from "next/navigation"
 import { NavigationLoadingBar } from "./navigation-loading-bar"
+import { AppStage } from "./app-stage"
 import { LanguageProvider } from "@/lib/i18n"
 import { PurchaseSyncProvider } from "@/components/checkout/purchase-sync-provider"
 import { DocumentScrollGuard } from "@/components/app/document-scroll-guard"
 import { keyboardInsetOrFloor } from "@/lib/ui/keyboard-safe-sheet"
 
 export function AppLayoutWrapper({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname()
 
   // Register for push notifications once the authenticated app shell mounts
   // useEffect(() => {
@@ -26,16 +25,10 @@ export function AppLayoutWrapper({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
-  // Reset the shared scroll container to the top on every navigation.
-  // Without this, navigating from a scrolled page (e.g. dashboard) to a new
-  // page (e.g. Upgrade to Pro) leaves the scroll position mid-way, making
-  // elements appear to overlap under the fixed header.
-  useEffect(() => {
-    const scrollEl = document.querySelector(".app-content-scroll") as HTMLElement | null
-    if (scrollEl) {
-      scrollEl.scrollTop = 0
-    }
-  }, [pathname])
+  // The scroll position on a navigation (the top for a new page, where you
+  // were for back and forward) is set by <AppStage>, before the new page is
+  // painted. It used to be reset here in an effect, which runs after the
+  // paint: one frame of the new page at the old page's scroll, then a jump.
 
   // Set --sat/--sab CSS custom properties for safe-area insets in Capacitor.
   // The CSS rule `html.capacitor { --sat: env(...) }` handles this declaratively,
@@ -169,6 +162,8 @@ export function AppLayoutWrapper({ children }: { children: React.ReactNode }) {
     <LanguageProvider>
       <Suspense fallback={null}>
         <NavigationLoadingBar />
+        {/* How a page arrives: the landing, the scroll, and the outline of a slow page. */}
+        <AppStage />
       </Suspense>
       <PurchaseSyncProvider />
       {/* The document is never scrolled on /app; see the file. */}

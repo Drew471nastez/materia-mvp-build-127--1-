@@ -20,6 +20,7 @@ import { useState } from "react"
 import { sectionColors, str, bool, SectionWrapper, type SectionProps } from "../_shared"
 import { hexToRgba } from "../_shared"
 import { useStorefront } from "../../theme/storefront-context"
+import { pageOrigin } from "@/lib/orders/checkout-origin-browser"
 
 export function NewsletterSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
   const s = section.settings
@@ -50,7 +51,7 @@ export function NewsletterSection({ section, theme, isEditing, isSelected, onCli
       const res = await fetch("/api/website-builder/subscribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ creator_id: creatorId, email, name: name || undefined }),
+        body: JSON.stringify({ creator_id: creatorId, email, name: name || undefined, placement: "newsletter", origin: pageOrigin() }),
       })
       const out = (await res.json().catch(() => ({}))) as { error?: string }
       if (!res.ok) {

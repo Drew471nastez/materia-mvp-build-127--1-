@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { AppAvatar } from "@/components/app/app-avatar"
 import { Card, CardContent } from "@/components/ui/card"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Pin, MoreHorizontal, Trash2, Users } from "lucide-react"
@@ -130,10 +130,7 @@ export function CommunityFeed({ creatorId, userId, posts: initialPosts, isCreato
                 <CardContent className="pt-6">
                   <div className="flex items-start justify-between">
                     <div className="flex gap-3">
-                      <Avatar>
-                        <AvatarImage src={post.author?.avatar_url || undefined} />
-                        <AvatarFallback>{initials || "?"}</AvatarFallback>
-                      </Avatar>
+                      <AppAvatar src={post.author?.avatar_url} name={post.author?.display_name || initials || "?"} size={32} />
                       <div>
                         <div className="flex items-center gap-2">
                           <span className="font-medium">{post.author?.display_name || "User"}</span>

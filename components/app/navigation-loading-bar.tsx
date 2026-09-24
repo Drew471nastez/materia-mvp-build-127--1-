@@ -1,208 +1,121 @@
 "use client"
 
-import { useEffect, useState, useRef } from "react"
-import { usePathname, useSearchParams } from "next/navigation"
+import { useEffect, useRef, useState } from "react"
+import { usePathname } from "next/navigation"
+import { beginAppNavigation, markTraversal, NAV_BAR_AFTER_MS, useAppNavigation } from "@/lib/ui/app-navigation"
 
 /**
- * Fire this immediately inside any onClick that calls router.push() so the
- * loading bar appears at tap-time rather than waiting for the pathname to
- * change (~1–2 s later on slow connections).
+ * Fire this inside any onClick that calls router.push(), with the address,
+ * so the shell knows a navigation is underway and where to: a link click is
+ * seen on its own, a push is not.
  *
- * Usage:
- *   onClick={() => { startNavigationLoading(); router.push("/target") }}
+ *   onClick={() => { startNavigationLoading("/app/orders"); router.push("/app/orders") }}
  */
-export function startNavigationLoading() {
+export function startNavigationLoading(href?: string) {
   if (typeof window === "undefined") return
-  window.dispatchEvent(new CustomEvent("nav-loading-start"))
+  window.dispatchEvent(new CustomEvent("nav-loading-start", { detail: { href: href ?? null } }))
 }
 
+/**
+ * ===========================================================================
+ *  THE BAR ALONG THE TOP, ONLY WHEN A PAGE IS SLOW
+ * ===========================================================================
+ * It used to appear on every click, for at least 250ms, even when the page
+ * was already in the router's cache and landed on the next frame: a flash of
+ * progress for something that took no time. Now it waits NAV_BAR_AFTER_MS
+ * (lib/ui/app-navigation) and most navigations are over before it would
+ * have shown. When it does show it is 2px, runs on an easing that slows as it
+ * goes, and finishes and fades when the page commits.
+ *
+ * Width and opacity are written straight to the node, never through React.
+ */
 export function NavigationLoadingBar() {
   const pathname = usePathname()
-  const searchParams = useSearchParams()
-  const [isVisible, setIsVisible] = useState(false)
-  const [isComplete, setIsComplete] = useState(false)
+  const nav = useAppNavigation()
+  const [shown, setShown] = useState(false)
   const barRef = useRef<HTMLDivElement | null>(null)
-  const hideTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const safetyRef = useRef<NodeJS.Timeout | null>(null)
   const rafRef = useRef<number | null>(null)
-  const startTsRef = useRef<number>(0)
-  const activeRef = useRef(false)
-  const prevPathRef = useRef(pathname)
-  const prevSearchRef = useRef(searchParams.toString())
 
-  const cancelRaf = () => {
-    if (rafRef.current !== null) {
-      cancelAnimationFrame(rafRef.current)
-      rafRef.current = null
-    }
-  }
-
-  const clearAllTimers = () => {
-    if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current)
-    if (safetyRef.current) clearTimeout(safetyRef.current)
-    cancelRaf()
-  }
-
-  // Write the current progress straight to the DOM — avoids a React
-  // re-render on every animation frame.
-  const setBarWidth = (pct: number) => {
-    const el = barRef.current
-    if (el) el.style.width = `${pct}%`
-  }
-
-  const doComplete = () => {
-    cancelRaf()
-    activeRef.current = false
-    setBarWidth(100)
-    setIsComplete(true)
-    hideTimeoutRef.current = setTimeout(() => {
-      setIsVisible(false)
-      setIsComplete(false)
-      setBarWidth(0)
-    }, 380)
-  }
-
-  const completeLoading = () => {
-    if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current)
-    if (safetyRef.current) clearTimeout(safetyRef.current)
-    // Enforce a 250 ms minimum so the bar never flashes and disappears instantly
-    const elapsed = performance.now() - startTsRef.current
-    const remaining = Math.max(0, 250 - elapsed)
-    if (remaining > 0) {
-      hideTimeoutRef.current = setTimeout(doComplete, remaining)
-    } else {
-      doComplete()
-    }
-  }
-
-  // Start the animated loading bar immediately (called from outside via event or click)
-  const startLoading = () => {
-    clearAllTimers()
-    startTsRef.current = performance.now()
-    activeRef.current = true
-    setIsComplete(false)
-    setIsVisible(true)
-    // Paint at 0 % first so the transform from the previous run (if any)
-    // doesn't flash. The RAF loop immediately drives it upward from here.
-    setBarWidth(0)
-
-    // Smooth continuous animation using requestAnimationFrame.
-    // Asymptotic curve — approaches but never exceeds 90 % until the real
-    // navigation completes. This produces the silky "nprogress" feel rather
-    // than the stuttery stepped progress from the old setTimeout loop.
-    //
-    //   p(t) = 90 * (1 - e^(-t / TAU))
-    //
-    // TAU controls how quickly we approach the ceiling. 1800 ms puts us at
-    // ~40 % after 900 ms, ~63 % at 1.8 s, ~86 % at 3.6 s — matching the
-    // pacing of real page loads on 3G/4G.
-    const TAU = 1800
-    const tick = (now: number) => {
-      if (!activeRef.current) return
-      const t = now - startTsRef.current
-      const p = 90 * (1 - Math.exp(-t / TAU))
-      setBarWidth(p)
-      rafRef.current = requestAnimationFrame(tick)
-    }
-    rafRef.current = requestAnimationFrame(tick)
-
-    // Safety timeout: auto-dismiss after 8 seconds to prevent stuck bar
-    safetyRef.current = setTimeout(() => { completeLoading() }, 8000)
-  }
-
-  // Detect navigation start — both <a> clicks and programmatic router.push()
-  // calls (the latter dispatch 'nav-loading-start' via startNavigationLoading())
+  /* Where a navigation starts: a link click, a push that says so, back and forward. */
   useEffect(() => {
-    const mainDomain = process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"
-
-    const handleClick = (e: MouseEvent) => {
-      const target = e.target as HTMLElement
-      const anchor = target.closest('a')
-      if (!anchor || !anchor.href) return
+    const onClick = (e: MouseEvent) => {
+      if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
+      const anchor = (e.target as HTMLElement | null)?.closest?.("a[href]") as HTMLAnchorElement | null
+      if (!anchor || anchor.hasAttribute("download")) return
+      if (anchor.target && anchor.target !== "_self") return
       try {
         const url = new URL(anchor.href)
-        // Match same origin OR canonical domain/subdomains.
-        // In Capacitor the WebView origin is capacitor://localhost but links may
-        // resolve to https://storelib.com — both should trigger the loading bar.
-        const isSameOrigin = url.origin === window.location.origin
-        const isOurDomain = url.hostname === mainDomain || url.hostname.endsWith(`.${mainDomain}`)
-        if ((isSameOrigin || isOurDomain) && (url.pathname !== pathname || url.search !== searchParams.toString())) {
-          startLoading()
-        }
+        if (url.origin !== window.location.origin) return
+        if (url.pathname === window.location.pathname && url.search === window.location.search) return
+        beginAppNavigation(url.pathname + url.search)
       } catch {
-        // ignore unparseable hrefs
+        /* an href that is not a URL starts nothing */
       }
     }
-
-    const handleProgrammatic = () => startLoading()
-
-    document.addEventListener('click', handleClick)
-    window.addEventListener('nav-loading-start', handleProgrammatic)
+    const onProgrammatic = (e: Event) => {
+      const href = (e as CustomEvent<{ href?: string | null }>).detail?.href ?? null
+      beginAppNavigation(href)
+    }
+    const onPop = () => {
+      markTraversal()
+      beginAppNavigation(window.location.pathname + window.location.search)
+    }
+    document.addEventListener("click", onClick)
+    window.addEventListener("nav-loading-start", onProgrammatic)
+    window.addEventListener("popstate", onPop)
     return () => {
-      document.removeEventListener('click', handleClick)
-      window.removeEventListener('nav-loading-start', handleProgrammatic)
+      document.removeEventListener("click", onClick)
+      window.removeEventListener("nav-loading-start", onProgrammatic)
+      window.removeEventListener("popstate", onPop)
     }
-  }, [pathname, searchParams])
+  }, [])
 
-  // Detect navigation end (pathname or search params change)
+  /* Shown only once the navigation has lasted long enough to be worth showing. */
   useEffect(() => {
-    const currentSearch = searchParams.toString()
-    if (prevPathRef.current !== pathname || prevSearchRef.current !== currentSearch) {
-      if (activeRef.current) {
-        completeLoading()
+    if (!nav) return
+    const wait = Math.max(0, NAV_BAR_AFTER_MS - (performance.now() - nav.startedAt))
+    const t = window.setTimeout(() => setShown(true), wait)
+    return () => window.clearTimeout(t)
+  }, [nav])
+
+  /* Running: approaches 90% and never reaches it until the page commits. */
+  useEffect(() => {
+    const el = barRef.current
+    if (!shown || !el) return
+    if (nav) {
+      const from = nav.startedAt + NAV_BAR_AFTER_MS
+      el.style.transition = "none"
+      el.style.opacity = "1"
+      const tick = (now: number) => {
+        el.style.transform = `scaleX(${(0.9 * (1 - Math.exp(-Math.max(0, now - from) / 1400))).toFixed(4)})`
+        rafRef.current = requestAnimationFrame(tick)
       }
-      prevPathRef.current = pathname
-      prevSearchRef.current = currentSearch
+      rafRef.current = requestAnimationFrame(tick)
+      return () => { if (rafRef.current != null) cancelAnimationFrame(rafRef.current) }
     }
+    /* Landed: run to the end and fade, then go. */
+    el.style.transition = "transform 200ms cubic-bezier(0.2, 0, 0, 1), opacity 240ms ease-out 120ms"
+    el.style.transform = "scaleX(1)"
+    el.style.opacity = "0"
+    const t = window.setTimeout(() => setShown(false), 380)
+    return () => window.clearTimeout(t)
+  }, [shown, nav])
 
-    return () => clearAllTimers()
-  }, [pathname, searchParams])
+  /* A page that commits with no pending record (a redirect, say) clears the bar too. */
+  useEffect(() => {
+    if (!nav && shown && barRef.current) barRef.current.style.opacity = "0"
+  }, [pathname, nav, shown])
 
-  if (!isVisible) return null
+  if (!shown) return null
 
   return (
-    <div className="fixed top-0 left-0 right-0 z-[9999] pointer-events-none">
-      {/* 3px tall — more visible than 2px on high-DPI mobile screens */}
-      <div className="h-[3px] w-full bg-transparent">
-        <div
-          ref={barRef}
-          className="h-full relative"
-          style={{
-            // Width is updated every RAF frame by the asymptotic curve, so
-            // the bar advances at a true 60 fps without the visible stair-
-            // stepping that the old setTimeout loop produced. The CSS
-            // transition is only enabled on completion, where it drives the
-            // final jump to 100 % and the fade-out.
-            width: '0%',
-            transition: isComplete
-              ? 'width 320ms cubic-bezier(0.22, 1, 0.36, 1), opacity 360ms ease-out'
-              : 'none',
-            opacity: isComplete ? 0 : 1,
-            background: 'linear-gradient(90deg, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0.65) 70%, rgba(255,255,255,0.95) 100%)',
-            willChange: 'width, opacity',
-            backfaceVisibility: 'hidden',
-          }}
-        >
-          <div
-            className="absolute right-0 top-1/2 -translate-y-1/2 w-16 h-[5px]"
-            style={{
-              background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.35) 60%, rgba(255,255,255,0.75) 100%)',
-              filter: 'blur(2px)',
-              opacity: isComplete ? 0 : 0.85,
-              transition: 'opacity 320ms ease-out',
-            }}
-          />
-          <div
-            className="absolute right-0 top-1/2 -translate-y-1/2 w-6 h-[3px]"
-            style={{
-              background: 'rgba(255,255,255,0.98)',
-              boxShadow: '0 0 6px rgba(255,255,255,0.6), 0 0 12px rgba(255,255,255,0.35)',
-              opacity: isComplete ? 0 : 1,
-              transition: 'opacity 320ms ease-out',
-            }}
-          />
-        </div>
-      </div>
+    <div className="pointer-events-none fixed inset-x-0 top-0 z-[9999] h-[2px]" aria-hidden="true">
+      <div
+        ref={barRef}
+        data-app-nav-progress=""
+        className="h-full w-full origin-left bg-[#8b5cf6]"
+        style={{ transform: "scaleX(0)", willChange: "transform, opacity" }}
+      />
     </div>
   )
 }

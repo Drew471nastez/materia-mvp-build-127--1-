@@ -7,7 +7,7 @@
  */
 import React from "react"
 import { OrdersClient } from "@/app/app/orders/orders-client"
-import OrdersLoading from "@/app/app/orders/sales/loading"
+import OrdersLoading from "@/app/app/orders/sales/skeleton"
 import type { OrderRow } from "@/lib/orders/order-view"
 
 const g = globalThis as unknown as { __probeNow: number; __probeTz: string }
@@ -31,7 +31,10 @@ export function fixtureRows(now: number): OrderRow[] {
   const rows: OrderRow[] = []
   const HOUR = 3_600_000
   for (let i = 0; i < 130; i++) {
-    const at = new Date(now - i * 7.3 * HOUR - (i % 5) * 11 * 60_000).toISOString()
+    /* Every order a little before the page's own instant, as a real list is:
+       an order stamped exactly `now` sits on the window's exclusive end, is left
+       out by the server and put back by the browser a second later. */
+    const at = new Date(now - 3 * 60_000 - i * 7.3 * HOUR - (i % 5) * 11 * 60_000).toISOString()
     const [first, last] = NAMES[i % NAMES.length]
     const product = PRODUCTS[i % PRODUCTS.length]
     const free = i % 11 === 4
@@ -95,7 +98,9 @@ export function SkeletonApp() {
     <div style={{ height: "100vh", display: "flex", flexDirection: "column" }}>
       <div data-probe-header style={{ height: 58, flex: "none", background: "#131316" }} />
       <div className="app-content-scroll" style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
-        <OrdersLoading />
+        {/* A link straight to an order, as the shell draws it for /app/orders/<id>.
+            A constant, not window.location: this renders on the server first. */}
+        <OrdersLoading order="pending" />
       </div>
     </div>
   )

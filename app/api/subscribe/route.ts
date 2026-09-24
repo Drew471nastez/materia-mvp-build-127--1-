@@ -3,11 +3,13 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { rateLimit, addressSubject, emailSubject, LIMITS } from "@/lib/api/rate-limit"
 import { triggerEmailFlows } from "@/lib/email"
 import { randomUUID } from "node:crypto"
+import { contactSourceFrom, recordContactSource } from "@/lib/contacts/contact-source"
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     const { email, name, source, source_id, creator_id } = body
+    const origin = contactSourceFrom({ request, surface: source === "onepage" ? "onepage" : "profile", form: "popup", sent: body.origin })
 
     // Validate email
     if (!email) {
@@ -163,6 +165,8 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "Failed to resubscribe" }, { status: 500 })
       }
 
+      await recordContactSource(adminSupabase, resolvedCreatorId, normalizedEmail, origin)
+
       /* Joining again is joining: the welcome goes, as it did the first time. */
       try {
         await triggerEmailFlows(adminSupabase, {
@@ -170,6 +174,7 @@ export async function POST(request: NextRequest) {
           creatorId: resolvedCreatorId,
           recipientEmail: normalizedEmail,
           recipientName: name || undefined,
+          source: origin,
         })
       } catch (flowErr) {
         console.error("[subscribe] Email flow trigger error (non-fatal):", flowErr)
@@ -217,6 +222,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Failed to subscribe" }, { status: 500 })
     }
 
+    await recordContactSource(adminSupabase, resolvedCreatorId, normalizedEmail, origin)
+
     /**
      * THE CREATOR'S WELCOME EMAIL. This route wrote the subscriber and
      * stopped, so a person who joined here got nothing while the same
@@ -230,6 +237,7 @@ export async function POST(request: NextRequest) {
         creatorId: resolvedCreatorId,
         recipientEmail: normalizedEmail,
         recipientName: name || undefined,
+        source: origin,
       })
     } catch (flowErr) {
       console.error("[subscribe] Email flow trigger error (non-fatal):", flowErr)
