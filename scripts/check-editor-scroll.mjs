@@ -97,6 +97,9 @@ if (!existsSync(bundle)) {
     `--alias:@=${root}`, "--loader:.css=empty", "--loader:.svg=dataurl", "--loader:.png=dataurl"],
     { stdio: ["ignore", "ignore", "inherit"] })
 }
+/* Other probes that need the real editor (scripts/check-sheet-reach.mjs)
+   build it through here, so the stubs live in one place. */
+if (process.env.EDITOR_BUNDLE_ONLY === "1") process.exit(0)
 const cssDir = join(root, ".next/static/chunks")
 if (!existsSync(cssDir)) fail("No production build found. Run `pnpm build` first.")
 const css = readdirSync(cssDir).filter((f) => f.endsWith(".css")).map((f) => readFileSync(join(cssDir, f), "utf8")).join("\n")

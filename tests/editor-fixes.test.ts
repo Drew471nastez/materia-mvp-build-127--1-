@@ -151,12 +151,22 @@ function main() {
       const body = sheet.slice(i, sheet.indexOf("\n  }", i))
       return !body.includes("--wb-sheet-hidden")
     })())
-    check("a snap under a finger brings it up to date", (() => {
+    /**
+     * AND NOT IN THE FRAME THE SNAP STARTS. These two pinned the write to
+     * `applyTransformNow`, which is the call that STARTS a snap, so the first
+     * frame of every release carried a layout of the scroller before the
+     * compositor could begin the move. The write now waits for the move to
+     * finish: a release writes it when its settle finishes, and a move with
+     * no finger schedules it for when that move ends. Pinned both ways.
+     */
+    check("a snap under a finger brings it up to date once it has arrived", (() => {
       const i = sheet.indexOf("const applyTransformNow")
-      const j = sheet.indexOf("layoutHiddenRoom(", i)
-      return i > 0 && j > i && j - i < 400
+      const body = sheet.slice(i, sheet.indexOf("\n  }", i))
+      const finish = sheet.slice(sheet.indexOf("const finishSettle"), sheet.indexOf("const beginSettle"))
+      return i > 0 && !body.includes("layoutHiddenRoom(") && /layoutHiddenRoom\(targetY\)/.test(finish)
     })())
-    check("and so does coming to rest with no finger on it", /React\.useEffect\(\(\) => \{\s*if \(drag\.current\.active\) return\s*layoutHiddenRoom\(open \? settledY : closedY\)/.test(sheet))
+    check("and so does coming to rest with no finger on it", /React\.useEffect\(\(\) => \{\s*if \(drag\.current\.active \|\| settle\.current\.active\) return\s*scheduleRoom\(open \? settledY : closedY\)/.test(sheet) &&
+      /const wait = motionUntil\.current - performance\.now\(\)/.test(sheet))
   }
 
   // ═══════════════════════════════════════════════════════════════════════

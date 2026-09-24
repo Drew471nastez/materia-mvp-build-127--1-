@@ -79,13 +79,23 @@ function main() {
     /restIndex !== null && restIndex < offsets\.length\s*\n\s*\? offsets\[restIndex\]/.test(sheet),
     "the offsets are rebuilt whenever the window is, which on a phone is every keyboard",
   )
+  /**
+   * `held` rather than `dragging`, and `settleTick` in the effect's list.
+   * A release now tells the page where the sheet went once the snap has
+   * arrived rather than in the frame it starts (see "THE PAGE HEARS ABOUT A
+   * RELEASE WHEN THE SHEET HAS ARRIVED" in the sheet), so for those few
+   * hundred milliseconds the ref is the truth exactly as it is mid-drag, and
+   * the effect runs once more when the settle finishes. What these pin is
+   * unchanged: at rest the render and the effect both read `settledY`.
+   */
   check(
     "the render draws the settled stop",
-    /const renderY = dragging \? drag\.current\.currentY : open \? settledY : closedY/.test(sheet),
+    /const held = dragging \|\| settle\.current\.active/.test(sheet) &&
+      /const renderY = held \? drag\.current\.currentY : open \? settledY : closedY/.test(sheet),
   )
   check(
     "and the effect that moves the sheet reads the same answer",
-    /const target = open \? settledY : closedY/.test(sheet) && /\}, \[open, settledY, closedY\]\)/.test(sheet),
+    /const target = open \? settledY : closedY/.test(sheet) && /\}, \[open, settledY, closedY, settleTick\]\)/.test(sheet),
     "reading openY there is what moved a sheet back to half when a field took focus",
   )
   check(

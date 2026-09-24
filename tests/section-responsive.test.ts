@@ -2501,7 +2501,9 @@ check(
      * back there is what made it "become half at random". See
      * tests/sheet-rest.test.ts for that half.
      */
-    /const renderY = dragging \? drag\.current\.currentY : open \? settledY : closedY/.test(sheetSrc) &&
+    /* `held` is `dragging` or a release still settling; see tests/sheet-rest.test.ts. */
+    /const held = dragging \|\| settle\.current\.active/.test(sheetSrc) &&
+    /const renderY = held \? drag\.current\.currentY : open \? settledY : closedY/.test(sheetSrc) &&
     /*
       The invariant is the `dragging ? "none"` half: while a finger is on the
       sheet there is no transition at all, so the imperative per-frame write
@@ -2517,8 +2519,11 @@ check(
     /transition: motion,/.test(sheetSrc) &&
     /opacity: renderOpacity,/.test(sheetSrc) &&
     /transition: fade,/.test(sheetSrc) &&
-    // and the imperative path still owns the frame-by-frame write
-    /const value = on \? `transform \$\{ms\}ms \$\{SNAP_EASING\}` : "none"/.test(sheetSrc) &&
+    // and the imperative path still owns the frame-by-frame write. The
+    // curve is a parameter now, defaulting to the house one, because a
+    // release picks its own so the sheet leaves at the finger's speed.
+    /const value = on \? `transform \$\{ms\}ms \$\{easing\}` : "none"/.test(sheetSrc) &&
+    /easing: string = SNAP_EASING/.test(sheetSrc) &&
     /rafId\.current = requestAnimationFrame/.test(sheetSrc),
 )
 
