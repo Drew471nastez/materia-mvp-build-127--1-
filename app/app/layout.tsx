@@ -10,7 +10,7 @@ import { Toaster } from "@/components/ui/toaster"
 import { NativeAuthGate } from "@/components/native-auth-gate"
 import { OfflineGuard } from "@/components/app/offline-guard"
 import { NativeBackHandler } from "@/components/app/native-back-handler"
-import AppDashboardLoading from "./loading"
+import AppDashboardLoading from "./dashboard-skeleton"
 
 /**
  * One signed in person's own screens: never in a search index. robots.txt

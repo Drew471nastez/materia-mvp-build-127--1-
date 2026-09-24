@@ -1275,10 +1275,11 @@ export function MobileNavPill({
   ]
 
   /*
-    WARMED ONCE. A page pressed for the first time streams from the server
-    and shows its skeleton; a page the router has already fetched does not.
-    Prefetching the four on mount means the first press on any of them finds
-    at least the route's shell waiting, and next.config's staleTimes is what
+    WARMED ONCE. A page pressed for the first time waits for the server,
+    with the page you are on still showing; a page the router already has
+    lands on the next frame. The shell prefetches the four whole pages on
+    mount (prefetchAppPage, lib/ui/app-navigation), so the first press on any
+    of them finds the page waiting, and next.config's staleTimes is what
     keeps a page you have been on from being fetched again on the way back.
   */
   useEffect(() => {

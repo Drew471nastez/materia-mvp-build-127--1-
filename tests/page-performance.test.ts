@@ -173,6 +173,41 @@ check(
   })(),
 )
 
+/**
+ * NO LOADING BOUNDARY BETWEEN /app PAGES. A loading.tsx under /app is a
+ * Suspense boundary Next.js swaps in on the first frame of a navigation, so
+ * the page you were on disappeared into a blank or a skeleton even when the
+ * next one was a moment away. "Skeleton loading is not needed on normal
+ * navigation; only if a page takes extremely long." Without one the router
+ * holds the old page until the new one is ready, and the shell draws the
+ * outline itself after a second (components/app/app-stage.tsx). Products is
+ * looked after with that page and keeps its own for now.
+ */
+check(
+  "no /app page has a route loading boundary, so the page you are on stays while the next one loads",
+  (() => {
+    const offenders = loadingFiles("app/app").filter((f) => !f.startsWith("app/app/products/"))
+    if (offenders.length) console.log("        " + offenders.join("\n        "))
+    return offenders.length === 0
+  })(),
+)
+
+check(
+  "and the outline of a slow page comes from the shell, after a second, for every page that had one",
+  (() => {
+    const stage = read("components/app/app-stage.tsx")
+    const nav = read("lib/ui/app-navigation.ts")
+    const skeletons = read("components/app/route-skeletons.tsx")
+    return (
+      /export const NAV_SKELETON_AFTER_MS = 1000/.test(nav) &&
+      /export const NAV_BAR_AFTER_MS = 300/.test(nav) &&
+      /<RouteSkeleton href=\{shownFor\} \/>/.test(stage) &&
+      ["dashboard-skeleton", "analytics/skeleton", "coupons/skeleton", "coupons/new/skeleton", "orders/sales/skeleton", "payouts/skeleton", "settings/skeleton", "website-builder/skeleton"]
+        .every((s) => skeletons.includes(`@/app/app/${s}"`))
+    )
+  })(),
+)
+
 check(
   "the deferral is actually defined, and respects reduced motion",
   (() => {

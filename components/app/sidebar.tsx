@@ -35,7 +35,7 @@ import { createClient, isNativePlatform } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 import { forwardRef, memo, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react"
 // Sheet removed — mobile sidebar now uses pure CSS transitions for reliable close animation
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { AppAvatar } from "@/components/app/app-avatar"
 import { DesktopSidebarContent, NAV_ICONS, NAV_ICONS_EXTRA } from "@/components/app/sidebar-desktop-nav"
 import type { NavIconPair } from "@/components/app/sidebar-desktop-nav"
 import { MobileMenuPage, MobileNavPill, pillBelongsOn, useLockAppScroll } from "@/components/app/sidebar-mobile-nav"
@@ -48,6 +48,7 @@ import { LanguageModal } from "@/components/platform/language-modal"
 import { toOriginalImageUrl } from "@/lib/storage/image-url"
 import { isNativeApp, nativeLogOut, openExternal } from "@/lib/native-bridge"
 import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
+import { prefetchAppPage } from "@/lib/ui/app-navigation"
 import { STORELIB_LOGO } from "@/lib/brand/logo"
 
 const EXPLORE_FULL_URL = `https://${process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"}/explore`
@@ -172,34 +173,7 @@ const MobileAccountMenu = memo(function MobileAccountMenu({
           mobileProfileDropdownOpen ? "bg-white/15" : "hover:bg-white/10"
         )}
       >
-        <div
-          className="relative h-6 w-6 shrink-0 rounded-full ring-1 ring-white/20 overflow-hidden"
-          style={{
-            transform: 'translateZ(0)',
-            willChange: 'contents',
-            contain: 'layout paint',
-            isolation: 'isolate',
-          }}
-        >
-          {/* Always render fallback behind */}
-          <div className="absolute inset-0 bg-neutral-700 flex items-center justify-center text-white text-[10px] font-medium">
-            {userInitials}
-          </div>
-          {/* Image on top when available */}
-          {avatarUrl && (
-            <img
-              src={avatarSrc}
-              alt={userDisplayName}
-              width={24}
-              height={24}
-              className="absolute inset-0 w-full h-full object-cover"
-              loading="eager"
-              decoding="async"
-              style={{ backfaceVisibility: 'hidden' }}
-              onError={(e) => { e.currentTarget.style.display = 'none' }}
-            />
-          )}
-        </div>
+        <AppAvatar src={avatarSrc} name={userDisplayName} size={24} tone="dark" className="ring-1 ring-white/20" />
         <span className="text-[13px] font-medium text-white/90 max-w-[120px] truncate">
           {userDisplayName}
         </span>
@@ -233,14 +207,7 @@ const MobileAccountMenu = memo(function MobileAccountMenu({
     >
       <div className="px-3 pb-3">
         <div className="flex items-center gap-3 px-2 pb-3 pt-1">
-          <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full ring-1 ring-neutral-200">
-            <div className="absolute inset-0 flex items-center justify-center bg-neutral-100 text-[13px] font-medium text-neutral-500">
-              {userInitials}
-            </div>
-            {avatarUrl && (
-              <img src={avatarSrc} alt={userDisplayName} width={40} height={40} className="absolute inset-0 h-full w-full object-cover" loading="eager" decoding="sync" />
-            )}
-          </div>
+          <AppAvatar src={avatarSrc} name={userDisplayName} size={40} className="ring-1 ring-neutral-200" />
           <span className="truncate text-[15px] font-semibold text-neutral-900">{userDisplayName}</span>
         </div>
 
@@ -559,34 +526,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
           profileDropdownOpen ? "bg-neutral-100/80" : "hover:bg-neutral-100/70 active:bg-neutral-200/60",
         )}
       >
-        <div
-          className="relative h-10 w-10 shrink-0 rounded-full overflow-hidden"
-          style={{
-            transform: 'translateZ(0)',
-            willChange: 'contents',
-            contain: 'layout paint',
-            isolation: 'isolate',
-          }}
-        >
-          {/* Always render fallback behind */}
-          <div className="absolute inset-0 bg-neutral-200 flex items-center justify-center text-neutral-600 text-sm font-medium">
-            {userInitials}
-          </div>
-          {/* Image on top when available */}
-          {avatarUrl && (
-            <img
-              src={avatarSrc}
-              alt={userDisplayName}
-              width={40}
-              height={40}
-              className="absolute inset-0 w-full h-full object-cover"
-              loading="eager"
-              decoding="async"
-              style={{ backfaceVisibility: 'hidden' }}
-              onError={(e) => { e.currentTarget.style.display = 'none' }}
-            />
-          )}
-        </div>
+        <AppAvatar src={avatarSrc} name={userDisplayName} size={40} />
         <span className="flex-1 text-[14px] font-medium text-neutral-900 truncate">{userDisplayName}</span>
         <ChevronDown
           className={cn(
@@ -846,32 +786,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
                 headerProfileOpen ? "bg-white/15" : "hover:bg-white/10"
               )}
             >
-              <div
-                className="relative h-7 w-7 shrink-0 rounded-full ring-1 ring-white/20 overflow-hidden"
-                style={{
-                  transform: 'translateZ(0)',
-                  willChange: 'contents',
-                  contain: 'layout paint',
-                  isolation: 'isolate',
-                }}
-              >
-                <div className="absolute inset-0 bg-neutral-700 flex items-center justify-center text-white text-[10px] font-medium">
-                  {userInitials}
-                </div>
-                {avatarUrl && (
-                  <img
-                    src={avatarSrc}
-                    alt={userDisplayName}
-                    width={28}
-                    height={28}
-                    className="absolute inset-0 w-full h-full object-cover"
-                    loading="eager"
-                    decoding="async"
-                    style={{ backfaceVisibility: 'hidden' }}
-                    onError={(e) => { e.currentTarget.style.display = 'none' }}
-                  />
-                )}
-              </div>
+              <AppAvatar src={avatarSrc} name={userDisplayName} size={28} tone="dark" className="ring-1 ring-white/20" />
               <span className="text-[13px] font-medium text-white/90 max-w-[140px] truncate">
                 {userDisplayName}
               </span>
@@ -1238,11 +1153,11 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         onToggle={toggleGroup}
         onNavigate={(href) => {
           setPendingHref(href)
-          startNavigationLoading()
+          startNavigationLoading(href)
         }}
         onForceNavigate={(href) => {
           setPendingHref(href)
-          startNavigationLoading()
+          startNavigationLoading(href)
           /* Leaves the /app router tree. In Capacitor a full reload would
              lose the session, which lives in Preferences, not in a cookie. */
           if (isNativePlatform()) router.push(href)
@@ -1296,11 +1211,11 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         onCloseMenu={() => setMobileMenuOpen(false)}
         onNavigate={(href) => {
           setPendingHref(href)
-          startNavigationLoading()
+          startNavigationLoading(href)
           router.push(href)
         }}
         onPrefetch={(href) => {
-          try { router.prefetch(href) } catch {}
+          prefetchAppPage(router, href)
         }}
         icons={{
           home: NAV_ICONS.dashboard,
@@ -1340,11 +1255,11 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
             // blinks off mid-navigation. Which page is active is still
             // decided by the pathname, in isRouteActive.
             setPendingHref(href)
-            startNavigationLoading()
+            startNavigationLoading(href)
           }}
           onForceNavigate={(href) => {
             setPendingHref(href)
-            startNavigationLoading()
+            startNavigationLoading(href)
             // These leave the /app router tree. In Capacitor a full reload
             // would lose the session, which lives in Preferences rather than
             // in a cookie.
@@ -1352,7 +1267,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
             else window.location.href = href
           }}
           onPrefetch={(href) => {
-            try { router.prefetch(href) } catch {}
+            prefetchAppPage(router, href)
           }}
           settingsLabel={t("nav.settings")}
           upgradeTitle={t("nav.upgradeToPro")}

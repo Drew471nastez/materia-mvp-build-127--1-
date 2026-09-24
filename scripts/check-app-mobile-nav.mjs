@@ -36,6 +36,7 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFil
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { inflateSync } from "node:zlib"
+import { appCss } from "./probe-css.mjs"
 
 /**
  * ===========================================================================
@@ -125,9 +126,8 @@ const root = process.cwd()
 const fail = (m) => { console.error(`\n${m}\n`); process.exit(1) }
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 if (!existsSync(CHROMIUM)) fail(`No browser at ${CHROMIUM}.`)
-const cssDir = join(root, ".next/static/chunks")
-if (!existsSync(cssDir)) fail("No production build found. Run `pnpm build` first.")
-const css = readdirSync(cssDir).filter((f) => f.endsWith(".css")).map((f) => readFileSync(join(cssDir, f), "utf8")).join("\n")
+/* A build's stylesheet when there is one, else the same globals.css compiled from source. */
+const css = await appCss(root)
 
 const VIEW_W = 390
 const VIEW_H = 844
@@ -1311,6 +1311,56 @@ const SHARE = `(async () => {
 })()`
 const share = await ev(SHARE)
 
+/* ── and a sheet goes over it, and the pill stays ────────────────────────── */
+/*
+ * "When a bottom sheet opens, the pill shaped navigation bar should NOT
+ * disappear. The sheet should simply appear over it." Set up the way the
+ * shell really is, because the harness is not: in /app the pill comes BEFORE
+ * <main> in the document and the page under it is positioned (the dashboard's
+ * scroller, the orders stage). That order is what let the page paint over a
+ * pill that had been dropped to layer 0.
+ */
+const SHEET = `(async () => {
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms))
+  /* The menu page is not a sheet: shut it, so only the sheet is over the pill. */
+  window.__menu.close()
+  await wait(450)
+  const pill = document.querySelector("[data-app-nav-pill]")
+  const nav = pill.querySelector("nav")
+  const main = document.querySelector("main")
+  const home = pill.parentNode, after = pill.nextSibling
+  main.parentNode.insertBefore(pill, main)
+  const scroller = document.querySelector(".app-content-scroll")
+  scroller.style.position = "relative"
+  const centre = () => { const r = nav.getBoundingClientRect(); return { x: Math.round((r.left + r.right) / 2), y: Math.round((r.top + r.bottom) / 2), top: Math.round(r.top) } }
+  const before = centre()
+  const sheet = document.createElement("div")
+  sheet.setAttribute("data-app-sheet", "open")
+  sheet.style.cssText = "position:fixed;inset:0;z-index:200"
+  sheet.innerHTML = '<div style="position:absolute;inset:0;background:rgba(0,0,0,0.4)"></div>'
+  document.body.appendChild(sheet)
+  await wait(320)
+  const during = centre()
+  let opacity = 1
+  for (let el = nav; el; el = el.parentElement) opacity *= Number(getComputedStyle(el).opacity)
+  const hit = document.elementFromPoint(during.x, during.y)
+  const tapIsTheScrims = !!hit && sheet.contains(hit)
+  /* What is painted there under the sheet: the pill, or the page over it. */
+  sheet.style.visibility = "hidden"
+  const look = document.createElement("style")
+  look.textContent = ':is(#__none, [data-app-nav-pill] nav), :is(#__none, [data-app-nav-pill] nav) * { pointer-events: auto !important }'
+  document.head.appendChild(look)
+  const under = document.elementFromPoint(during.x, during.y)
+  const painted = !!under && pill.contains(under)
+  look.remove()
+  sheet.remove()
+  scroller.style.position = ""
+  home.insertBefore(pill, after)
+  await wait(50)
+  return { before, during, opacity, tapIsTheScrims, painted, under: under ? under.tagName + "." + String(under.className).slice(0, 80) : null, z: getComputedStyle(pill).zIndex, visibility: getComputedStyle(nav).visibility }
+})()`
+const sheetOver = await ev(SHEET)
+
 /* ── and it is not on every route ────────────────────────────────────────── */
 /*
  * OnePage is an editor with its own controls along the foot of the screen,
@@ -1826,6 +1876,15 @@ must(!share.reachable, "and nothing can be pressed on it while it is gone",
 must(share.after === share.before, "it comes back when the bar goes",
   `it returned to y=${share.after} instead of y=${share.before}`)
 must(share.moves, "and it moves rather than blinking", "the pill has no transform transition")
+
+console.log("")
+must(sheetOver.opacity > 0.9 && sheetOver.visibility === "visible" && sheetOver.painted,
+  "a sheet opens over the pill and the pill stays visible under it, over the page",
+  `opacity ${sheetOver.opacity}, ${sheetOver.visibility}, ${sheetOver.painted ? "painted" : "covered by the page"} (${sheetOver.under}, pill z ${sheetOver.z}): the pill disappears under a sheet`)
+must(sheetOver.during.top === sheetOver.before.top, "and in its place",
+  `the pill moved from y=${sheetOver.before.top} to y=${sheetOver.during.top} while a sheet was open`)
+must(sheetOver.tapIsTheScrims, "and a tap on it is the scrim's, not the pill's",
+  "the pill took a tap through an open sheet")
 
 console.log(`\n  pictures in .nav-probe/closed.png and .nav-probe/open.png\n`)
 if (problems.length) {
