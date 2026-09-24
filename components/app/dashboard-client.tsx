@@ -320,7 +320,7 @@ const DashboardFrame = memo(function DashboardFrame({
           {/*
             ROOM FOR THE DOTS, now that there is no y axis reserving any.
             The axis used to take 40px on the left, and removing it left
-            `left: 0` — so the first point's active dot, six pixels of
+            `left: 0`, so the first point's active dot, six pixels of
             radius plus a two pixel white ring, was drawn half outside the
             card. That clipped stub at the top left of the chart was the
             dot, not a spike in the data.

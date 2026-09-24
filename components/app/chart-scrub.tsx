@@ -227,7 +227,9 @@ function ChartScrubLayer({
   }
 
   const setGlide = (on: boolean) => {
-    const t = on ? SCRUB_GLIDE : "none"
+    /* Asked for less motion: the marks cut from point to point; the readout still only fades. */
+    const calm = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+    const t = on && !calm ? SCRUB_GLIDE : "none"
     if (crossRef.current) crossRef.current.style.transition = t
     dotRefs.current.forEach((d) => d && (d.style.transition = t))
   }

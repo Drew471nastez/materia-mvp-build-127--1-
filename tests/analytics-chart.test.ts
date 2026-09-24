@@ -17,7 +17,7 @@
  *     readout behind the pointer   17 to 19px (mouse), 6px (Analytics finger)  →  0
  *     markup rewritten per move    2.8 (home, finger)                           →  0
  *     readout on leaving           gone in one frame                            →  a 120ms fade
- *     jump when a tab is tapped mid move   38 to 39px                            →  under 3px
+ *     jump when a tab is tapped mid move   30 to 38px                            →  under 3px
  *
  * scripts/check-analytics-page.mjs does the same for the whole page. What is
  * checked here is the source-level shape that produced those numbers.
@@ -205,7 +205,7 @@ check(
   "both charts settle in well under a second",
   /**
    * 1100ms of ease-in-out, staggered out to 180ms across four series, is
-   * nearly a second and a half before the chart stops moving — long enough
+   * nearly a second and a half before the chart stops moving, long enough
    * to read as the page being slow rather than as an animation. One move,
    * MORPH_MS long, for both charts, from components/app/morph-lines.
    */
