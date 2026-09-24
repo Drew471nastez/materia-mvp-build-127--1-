@@ -31,7 +31,7 @@ From left to right on a computer:
 | Open the live page | The page you are on, on the live site, in a new tab. |
 | Undo and Redo | 30 steps. Typing in a box counts as one step. Changing page starts a fresh history. |
 | Inspector | On: click a section in the canvas to select it. Off: the canvas is a plain preview you can click through. |
-| Plug | **Connect Claude Code, Codex or ChatGPT.** Opens Website Settings › Advanced, where they connect. |
+| Plug | **Connect Claude Code, Codex or ChatGPT.** Opens Website Settings › Connections, where they connect. |
 | Ask AI | Opens and closes the AI panel. |
 | Publish, or Save | See [Saving and publishing](#saving-and-publishing). |
 
@@ -196,7 +196,7 @@ The language section files are written in is the [Storelib Builder Framework](/d
 
 ## Website settings
 
-**Website Settings**, in the top bar, is a page of its own, with nine subjects down the left. On a phone they are a list, and each opens with its own Back. The tabs above the live website's cover on the Website page (Pages, Domain, SEO, Publishing, Settings) open the matching one.
+**Website Settings**, in the top bar, is a page of its own, with eight subjects about the website down the left and Connections under its own heading, Code. On a phone they are a list, and each opens with its own Back. The tabs above the live website's cover on the Website page (Pages, Domain, SEO, Publishing, Settings) open the matching one.
 
 Every website has its own settings. Anything marked below as part of the draft is saved with the website's other changes, can be undone, and reaches visitors when you publish.
 
@@ -205,12 +205,20 @@ Every website has its own settings. Anything marked below as part of the draft i
 | General | The website's name, which only you see. Its address, set by your username. Whether it is live. Its favicon and its language (both part of the draft); the language sets the page's `lang` and the share card's locale. |
 | Domains | The Storelib address, and a custom domain if one is connected, with its status: waiting for DNS, securing, or connected. The `www.` address is the main one and the bare domain redirects to it. HTTPS is set up for both. **Connect a domain** opens Settings › Domains. |
 | SEO & Social | A preview of the search result. Site title, meta description, social image, share card size, and whether search engines may list the website (all part of the draft). |
+
+**How a published website is found.** Every published website answers for itself, at its Storelib address and on a connected domain:
+
+- `/sitemap.xml` lists every published page and product, when each product last changed, and every picture on them, so pictures are indexed along with pages.
+- `/robots.txt` lets crawlers in and names that sitemap. It keeps previews, the basket and search results out.
+- Every page names its **canonical** address, which is the connected domain when there is one, so the two addresses count as one page.
+- The home page carries structured data naming the website and its owner. A product page carries the product with its price, which is what lets a search result show the price and picture.
+- With search engines switched off, pages say `noindex` and the sitemap is not offered. Crawlers are still let in, so they read the `noindex` and drop the pages.
 | Pages & Navigation | Every page with **Edit**, which opens it in the builder, and **Add page**. **Edit menu** selects the header, where the menu is. |
 | Commerce | How many published products the website can show, and **Manage products**. Checkout is Storelib's, paid by card or Google Pay through Stripe, in US dollars. **Payments settings** is where payouts go. Free shipping from an amount, and the free shipping bar (part of the draft). |
 | Policies | The refund, privacy and terms pages, each with **Edit**. The cookie banner, its message and its two buttons (part of the draft). |
 | Publishing | Live or draft, the published address, when it was last published, **Publish**, and **Take offline**, which asks first and deletes nothing. |
 | Backups & Versions | A backup is kept every time you publish and every time Ask AI finishes. **Back up now** makes one; **Restore** puts one back (after saving the current draft as a backup first). The newest 30 are kept. **Duplicate** makes a draft copy, if the library has room. |
-| Advanced | **Connect Claude Code, Codex or ChatGPT**: pick the tool and follow its steps. Claude Code and Codex connect directly with a token or through GitHub; ChatGPT connects through GitHub. **Edit code**, and the developer docs. See [Building with AI agents](/developers/ai). |
+| Connections | Under Code, apart from the website's own settings. **Connect Claude Code, Codex or ChatGPT**: directly with a token and one line in a terminal, or through a GitHub repository. Whatever they write is a draft until you publish, and they never change a built-in section. **Edit code**, and the developer docs. See [Building with AI agents](/developers/ai) and [Rules before you ship](/developers/rules). |
 
 A creator keeps up to three websites: one live and two drafts. Add theme, Duplicate and Import all refuse a fourth, on the server.
 

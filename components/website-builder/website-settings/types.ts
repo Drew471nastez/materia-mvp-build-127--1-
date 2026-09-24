@@ -1,20 +1,25 @@
 import type { ThemeSettingsValues } from "@/lib/website-builder/types"
 
 /**
- * The nine pages of Website Settings, in the order they are listed. The ids
- * are also the `?settings=` values the editor opens on, which is how the
- * tabs above the cover on /app/website-builder land on the right one.
+ * The pages of Website Settings, in the order they are listed. The ids are
+ * also the `?settings=` values the editor opens on, which is how the tabs
+ * above the cover on /app/website-builder land on the right one.
+ *
+ * Two groups. The website's own settings, then Connections on its own: it is
+ * not a setting of the site but how Claude Code, Codex, ChatGPT or a GitHub
+ * repository write its code, and filed as "Advanced" under the site's
+ * settings it was a page nobody went looking for.
  */
 export const SETTINGS_SECTIONS = [
-  { id: "general", label: "General" },
-  { id: "domains", label: "Domains" },
-  { id: "seo", label: "SEO & Social" },
-  { id: "pages", label: "Pages & Navigation" },
-  { id: "commerce", label: "Commerce" },
-  { id: "policies", label: "Policies" },
-  { id: "publishing", label: "Publishing" },
-  { id: "backups", label: "Backups & Versions" },
-  { id: "advanced", label: "Advanced" },
+  { id: "general", label: "General", group: "site" },
+  { id: "domains", label: "Domains", group: "site" },
+  { id: "seo", label: "SEO & Social", group: "site" },
+  { id: "pages", label: "Pages & Navigation", group: "site" },
+  { id: "commerce", label: "Commerce", group: "site" },
+  { id: "policies", label: "Policies", group: "site" },
+  { id: "publishing", label: "Publishing", group: "site" },
+  { id: "backups", label: "Backups & Versions", group: "site" },
+  { id: "connections", label: "Connections", group: "code" },
 ] as const
 
 export type SettingsSection = (typeof SETTINGS_SECTIONS)[number]["id"]
@@ -23,15 +28,16 @@ const IDS = new Set<string>(SETTINGS_SECTIONS.map((s) => s.id))
 
 /**
  * A `?settings=` value to the page it names. `connections` is what GitHub
- * sends a creator back with, from before Connections moved into Advanced.
+ * sends a creator back with; `advanced` and `agents` are older links to the
+ * same page.
  */
 export function settingsSectionFrom(value: string | null | undefined): SettingsSection | null {
   if (!value) return null
-  if (value === "connections" || value === "agents") return "advanced"
+  if (value === "advanced" || value === "agents") return "connections"
   return IDS.has(value) ? (value as SettingsSection) : null
 }
 
-/** The two ways an AI coding tool reaches a site, on Advanced › Connections. */
+/** The two ways an AI coding tool reaches a site, on Connections. */
 export type ConnectVia = "direct" | "github"
 
 export interface SitePage {

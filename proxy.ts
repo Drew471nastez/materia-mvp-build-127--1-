@@ -791,6 +791,7 @@ export async function proxy(request: NextRequest) {
       }
 
       const looksLikeFile = /\.[a-z0-9]{1,8}$/i.test(pathname)
+      /* robots.txt and sitemap.xml were answered just above. */
       const isWebsite = !looksLikeFile && !(await hasLiveAiSite(subdomain))
 
       /**
@@ -1023,19 +1024,27 @@ export async function proxy(request: NextRequest) {
     }
   }
 
+  /**
+   * A CONNECTED DOMAIN'S robots.txt AND sitemap.xml are its website's, not
+   * Storelib's. Both are reserved paths below, so a creator's domain handed
+   * out storelib.com's robots file and pointed Google at storelib.com's
+   * sitemap. A domain whose creator has published a website answers them
+   * from that website, the same way its subdomain does.
+   */
+  if (
+    username &&
+    isCustomDomain &&
+    (pathname === "/robots.txt" || pathname === "/sitemap.xml") &&
+    !(await hasLiveAiSite(username)) &&
+    (await hasPublishedWebsite(username))
+  ) {
+    const seoUrl = request.nextUrl.clone()
+    seoUrl.pathname = `/w/${username}${pathname}`
+    return NextResponse.rewrite(seoUrl)
+  }
+
   // Handle subdomain or custom domain routing
   let supabaseResponse: NextResponse
-
-  /**
-   * A connected domain's robots.txt and sitemap are the site's own, not
-   * storelib.com's: the reserved-path rule below would hand it Storelib's,
-   * which names storelib.com's sitemap from somebody else's domain.
-   */
-  if (username && isCustomDomain && (pathname === "/robots.txt" || pathname === "/sitemap.xml")) {
-    const own = request.nextUrl.clone()
-    own.pathname = `/w/${username}${pathname}`
-    return NextResponse.rewrite(own)
-  }
 
   // If we have a username (from subdomain or custom domain) and it's not a reserved path
   if (username && !isReservedPath(pathname)) {

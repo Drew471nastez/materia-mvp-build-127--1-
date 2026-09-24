@@ -1,37 +1,21 @@
-import { NextResponse } from "next/server"
-import { siteSitemap } from "@/lib/seo/sitemaps"
-import { urlsetXml } from "@/lib/seo/indexing"
-
-export const dynamic = "force-dynamic"
-export const runtime = "nodejs"
-
 /**
- * ===========================================================================
- *  A BUILT SITE'S OWN SITEMAP
- * ===========================================================================
- * `<name>.storelib.com/sitemap.xml` and `www.<their-domain>/sitemap.xml`
- * arrive here through the proxy. Google treats every host as its own site,
- * so each lists its own pages: the published pages, the shop and each
- * product, at the site's canonical origin (lib/seo/sitemaps.ts siteSitemap).
- *
- * A site with a connected domain is canonical there, so its subdomain's
- * sitemap is a redirect to the domain's: a sitemap may only list addresses
- * on the host that serves it.
+ * A published website's own sitemap: every published page and product, with
+ * the pictures on each. The proxy sends `/sitemap.xml` on a site's own host
+ * here. See lib/website-builder/site-seo.ts.
  */
-export async function GET(request: Request, context: { params: Promise<{ username: string }> }) {
-  const { username } = await context.params
-  const found = await siteSitemap(username)
-  if (!found) return new Response("Not found", { status: 404 })
-  const host = (request.headers.get("host") || "").split(":")[0].toLowerCase()
-  const canonicalHost = new URL(found.origin).host
-  const local = host === "localhost" || host.startsWith("127.") || host.endsWith(".localhost")
-  if (!local && host && host !== canonicalHost) {
-    return NextResponse.redirect(`${found.origin}/sitemap.xml`, 301)
-  }
-  return new Response(urlsetXml(found.entries), {
+import { sitemapXml } from "@/lib/website-builder/site-seo"
+import { siteSeo } from "@/lib/website-builder/site-seo-data"
+
+export const revalidate = 300
+
+export async function GET(_request: Request, { params }: { params: Promise<{ username: string }> }) {
+  const { username } = await params
+  const seo = await siteSeo(username)
+  if (seo.kind !== "site") return new Response("Not found", { status: 404 })
+  return new Response(sitemapXml(seo.entries), {
     headers: {
       "Content-Type": "application/xml; charset=utf-8",
-      "Cache-Control": "public, s-maxage=600, stale-while-revalidate=3600",
+      "Cache-Control": "public, max-age=300, s-maxage=300, stale-while-revalidate=3600",
     },
   })
 }

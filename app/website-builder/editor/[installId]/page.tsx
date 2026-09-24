@@ -3303,7 +3303,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   }
   const openConnections = () => {
     setConnectVia(null)
-    setSettingsSection("advanced")
+    setSettingsSection("connections")
     setPreviewMode("settings")
     setProjectSettingsOpen(true)
     setMobileSidebarOpen(false)

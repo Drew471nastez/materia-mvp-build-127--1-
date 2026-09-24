@@ -176,16 +176,3 @@ export function siteOrigin(input: { handle: string; customDomain?: string | null
   return `https://${input.handle.toLowerCase()}.${input.mainDomain}`
 }
 
-/** The page keys a published site answers on, as addresses. */
-const NOT_A_PAGE = new Set(["home", "product", "search", "cart", "404", "index", "collection"])
-
-export function sitePagePaths(pageKeys: string[], hasProducts: boolean): string[] {
-  const paths = ["/"]
-  for (const key of pageKeys) {
-    if (NOT_A_PAGE.has(key) || !/^[a-z0-9][a-z0-9-]{0,62}$/.test(key)) continue
-    paths.push(`/${key}`)
-  }
-  /* The shop index is drawn whether or not it was saved as a page. */
-  if (hasProducts && !paths.includes("/products")) paths.push("/products")
-  return paths
-}

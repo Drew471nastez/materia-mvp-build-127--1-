@@ -1,11 +1,11 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { Fragment, useEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { ArrowLeft, ChevronRight } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { ThemeSettingsValues } from "@/lib/website-builder/types"
-import { AdvancedSettings } from "@/components/website-builder/website-settings/advanced"
+import { ConnectionsSettings } from "@/components/website-builder/website-settings/connections"
 import { BackupSettings } from "@/components/website-builder/website-settings/backups"
 import { CommerceSettings } from "@/components/website-builder/website-settings/commerce"
 import { DomainSettings } from "@/components/website-builder/website-settings/domains"
@@ -224,11 +224,17 @@ export function ProjectSettings({
         </div>
         <p className="px-5 pb-2 pt-6 text-[12px] font-medium uppercase tracking-wider text-white/40 md:px-6">Website Settings</p>
         <nav aria-label="Website settings" className="flex flex-col px-3 pb-6">
-          {SETTINGS_SECTIONS.map(({ id, label }) => {
+          {SETTINGS_SECTIONS.map(({ id, label, group }, i) => {
             const active = section === id
+            /* Connections is how code reaches the site, not a setting of it,
+               so it stands under its own heading after the site's pages. */
+            const startsGroup = group === "code" && SETTINGS_SECTIONS[i - 1]?.group !== "code"
             return (
+              <Fragment key={id}>
+              {startsGroup && (
+                <p className="mt-4 border-t border-white/10 px-3 pb-2 pt-5 text-[12px] font-medium uppercase tracking-wider text-white/40">Code</p>
+              )}
               <button
-                key={id}
                 type="button"
                 onClick={() => go(id)}
                 aria-current={active ? "page" : undefined}
@@ -242,6 +248,7 @@ export function ProjectSettings({
                 <span>{label}</span>
                 <ChevronRight className="h-4 w-4 text-white/30 md:hidden" />
               </button>
+              </Fragment>
             )
           })}
         </nav>
@@ -269,7 +276,7 @@ export function ProjectSettings({
           {section === "policies" && <PolicySettings ctx={ctx} />}
           {section === "publishing" && <PublishingSettings ctx={ctx} />}
           {section === "backups" && <BackupSettings ctx={ctx} />}
-          {section === "advanced" && <AdvancedSettings ctx={ctx} />}
+          {section === "connections" && <ConnectionsSettings ctx={ctx} />}
         </div>
       </main>
     </div>,

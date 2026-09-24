@@ -30,12 +30,12 @@ import "server-only"
  */
 
 import { unstable_cache } from "next/cache"
+import { siteSeo } from "@/lib/website-builder/site-seo-data"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { STORELIB_CATEGORIES, categoryToSlug } from "@/lib/blog-categories"
 import { CATEGORIES } from "@/lib/marketplace/categories"
 import { getLinksShareUrl, getMainDomain, getProductShareUrl } from "@/lib/url-helpers"
 import { DEV_PAGES, devPath } from "@/lib/developers/pages"
-import { publishedShopByName } from "@/lib/website-builder/published-site"
 import {
   SITEMAP_CHUNK,
   creatorIndexable,
@@ -43,7 +43,6 @@ import {
   newestOf,
   productIndexable,
   siteOrigin,
-  sitePagePaths,
   websiteIndexable,
   type SitemapEntry,
 } from "./indexing"
@@ -390,25 +389,6 @@ export async function websitesSitemap(chunk: number): Promise<SitemapEntry[]> {
 
 /* ── One built site, on its own host ───────────────────────────────────── */
 
-/** The connected domain a creator's site is canonical at, if any. Held for five minutes. */
-export async function customDomainOf(creatorId: string): Promise<string | null> {
-  return unstable_cache(
-    async () => {
-      const { data } = await createAdminClient()
-        .from("custom_domains")
-        .select("domain")
-        .eq("creator_id", creatorId)
-        .eq("status", "active")
-        .order("created_at", { ascending: true })
-        .limit(1)
-        .maybeSingle()
-      return (data as { domain?: string } | null)?.domain ?? null
-    },
-    ["site-custom-domain", creatorId],
-    { revalidate: 300 },
-  )()
-}
-
 export interface SiteSitemap {
   /** Where the site is canonical: its connected domain, or its subdomain. */
   origin: string
@@ -416,50 +396,16 @@ export interface SiteSitemap {
 }
 
 /**
- * A built site's own sitemap: its published pages, its shop and its
- * products, all at the site's canonical origin, each dated by the last
- * publish (a page's content changes when it is published and at no other
- * time) or, for a product, by the product's own updated_at.
- *
- * Empty, but still a valid sitemap, when nothing is published or the owner
- * switched search indexing off.
+ * A built site's pages, as its own /sitemap.xml lists them. There is one
+ * list: lib/website-builder/site-seo-data.ts reads it for the site's
+ * sitemap, and this hands the same addresses to IndexNow, so the two can
+ * never disagree about what a site has. Null when nothing is published.
  */
 export async function siteSitemap(handle: string): Promise<SiteSitemap | null> {
-  const found = await publishedShopByName(handle)
-  if (found.kind === "missing" || found.kind === "renamed") return null
-  const main = getMainDomain()
-  if (found.kind === "unpublished") return { origin: siteOrigin({ handle, mainDomain: main }), entries: [] }
-
-  const { site } = found
-  const origin = siteOrigin({ handle, customDomain: await customDomainOf(site.creatorId), mainDomain: main })
-  if (!websiteIndexable(site.themeSettings as Record<string, unknown>)) return { origin, entries: [] }
-
-  const admin = createAdminClient()
-  const [{ data: install }, products] = await Promise.all([
-    admin.from("store_theme_installs").select("*").eq("id", site.installId).maybeSingle(),
-    readRange<{ slug: string; status: string; updated_at: string | null }>(
-      (a, b) =>
-        admin
-          .from("products")
-          .select("slug, status, updated_at")
-          .eq("creator_id", site.creatorId)
-          .eq("status", "published")
-          .order("id", { ascending: true })
-          .range(a, b),
-      0,
-      SITEMAP_CHUNK,
-      "site products",
-    ),
-  ])
-  const row = (install ?? {}) as { published_at?: string | null; updated_at?: string | null }
-  const publishedAt = newestOf(row.published_at, row.updated_at)
-  const entries: SitemapEntry[] = sitePagePaths(Object.keys(site.pages), products.length > 0).map((path) => ({
-    url: `${origin}${path}`,
-    lastModified: publishedAt,
-  }))
-  for (const p of products) {
-    if (!productIndexable(p, handle)) continue
-    entries.push({ url: `${origin}/products/${encodeURIComponent(p.slug)}`, lastModified: lastmodOf(p.updated_at) })
+  const seo = await siteSeo(handle)
+  if (seo.kind !== "site") return null
+  return {
+    origin: seo.origin,
+    entries: seo.entries.map((e) => ({ url: e.loc, lastModified: e.lastmod ?? null })),
   }
-  return { origin, entries }
 }

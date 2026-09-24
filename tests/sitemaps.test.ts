@@ -23,7 +23,6 @@ import {
   productIndexable,
   robotsTxt,
   siteOrigin,
-  sitePagePaths,
   sitemapIndexXml,
   urlsetXml,
   websiteIndexable,
@@ -120,9 +119,10 @@ section("A built site is canonical at one origin")
   check("its connected domain, at the www host the proxy sends it to", siteOrigin({ handle: "mara", customDomain: "marashop.com", mainDomain: "storelib.com" }) === "https://www.marashop.com")
   check("a www domain is left as it is", siteOrigin({ handle: "mara", customDomain: "www.marashop.com", mainDomain: "storelib.com" }) === "https://www.marashop.com")
   check("otherwise its subdomain", siteOrigin({ handle: "Mara", mainDomain: "storelib.com" }) === "https://mara.storelib.com")
-  check("its pages: the front page, its own pages and the shop; not search, not the product template",
-    JSON.stringify(sitePagePaths(["home", "about", "product", "search", "terms-of-service"], true)) === JSON.stringify(["/", "/about", "/terms-of-service", "/products"]))
-  check("no shop without products", !sitePagePaths(["home"], false).includes("/products"))
+  const seoData = code("lib/website-builder/site-seo-data.ts")
+  check("the site's own sitemap and canonicals name the www host the proxy answers on, not the bare domain it redirects",
+    /bare\.startsWith\("www\."\) \? bare : `www\.\$\{bare\}`/.test(seoData) && !/replace\(\/\^www\\\.\/, ""\) : `\$\{name/.test(seoData))
+  check("a site under a handle the spam rules hold back is not listed", /deservesIndexing\(\{ publishedProducts: 1, handle: name \}\)/.test(seoData))
 }
 
 section("Every host answers its own robots.txt and sitemap")
@@ -130,14 +130,15 @@ section("Every host answers its own robots.txt and sitemap")
   const proxy = code("proxy.ts")
   check("a website-builder subdomain's robots.txt and sitemap go to its own routes, an AI site keeps its own",
     /\(pathname === "\/robots\.txt" \|\| pathname === "\/sitemap\.xml"\) && !\(await hasLiveAiSite\(subdomain\)\)/.test(proxy) && /own\.pathname = `\/w\/\$\{subdomain\}\$\{pathname\}`/.test(proxy))
-  check("a connected domain's too, instead of storelib.com's",
-    /username && isCustomDomain && \(pathname === "\/robots\.txt" \|\| pathname === "\/sitemap\.xml"\)/.test(proxy) && /own\.pathname = `\/w\/\$\{username\}\$\{pathname\}`/.test(proxy))
+  check("a connected domain's too, instead of storelib.com's, answered once",
+    /username &&\s*isCustomDomain &&\s*\(pathname === "\/robots\.txt" \|\| pathname === "\/sitemap\.xml"\)/.test(proxy) && /seoUrl\.pathname = `\/w\/\$\{username\}\$\{pathname\}`/.test(proxy)
+      && (proxy.match(/isCustomDomain &&\s*\(pathname === "\/robots\.txt"/g) ?? []).length === 1)
   const siteRobots = code("app/(site)/w/[username]/robots.txt/route.ts")
   const siteMap = code("app/(site)/w/[username]/sitemap.xml/route.ts")
-  check("an unknown site's robots.txt is a 404, which allows everything, never a refusal a failed lookup could cache for a day",
-    /if \(!found\) return new Response\("Not found", \{ status: 404/.test(siteRobots) && !/closed: true/.test(siteRobots))
-  check("the site routes exist and use the site's canonical origin", /siteSitemap\(username\)/.test(siteRobots) && /\$\{found\.origin\}\/sitemap\.xml/.test(siteRobots) && /urlsetXml\(found\.entries\)/.test(siteMap))
-  check("a subdomain whose site is canonical at a connected domain sends its sitemap there", /NextResponse\.redirect\(`\$\{found\.origin\}\/sitemap\.xml`, 301\)/.test(siteMap))
+  check("an unknown site's robots.txt allows everything, never a refusal a failed lookup could cache for a day",
+    /"User-agent: \*\\nAllow: \/\\n"/.test(siteRobots) && !/Disallow: \/\\n/.test(siteRobots))
+  check("the site routes exist and read the site's one list", /siteSeo\(username\)/.test(siteRobots) && /robotsTxt\(seo\.origin, seo\.indexable\)/.test(siteRobots) && /sitemapXml\(seo\.entries\)/.test(siteMap))
+  check("IndexNow announces the same addresses the site's sitemap lists", /const seo = await siteSeo\(handle\)/.test(code("lib/seo/sitemaps.ts")))
   const aiSite = code("app/(sites)/site/[slug]/[[...path]]/route.ts")
   check("an AI site without its own robots.txt or sitemap is given both", /requested === "robots\.txt" \|\| requested === "sitemap\.xml"/.test(aiSite) && /urlsetXml\(\[/.test(aiSite))
   check("storelib.com's sitemap is an index of chunks", /sitemapIndexXml\(await sitemapIndex\(\)\)/.test(code("app/sitemap.xml/route.ts")) && /parseSitemapName\(name\)/.test(code("app/sitemap/[name]/route.ts")))
@@ -151,7 +152,7 @@ section("Every host answers its own robots.txt and sitemap")
 section("Pages a visitor can reach but no index should hold carry noindex")
 {
   const site = code("app/(site)/w/[username]/render-site.tsx")
-  check("a site page names its absolute canonical at the site's origin", /alternates: \{ canonical: url \}/.test(site) && /siteOrigin\(\{ handle: username, customDomain: await customDomainOf\(creator\.id\)/.test(site))
+  check("a site page names its absolute canonical at the site's origin", /alternates: \{ canonical: url \}/.test(site) && /const url = pageUrl\(await siteOrigin\(creator\.id, username\), pageKey\)/.test(site))
   check("a site with nothing published is noindex", /if \(!install\) \{\s*return \{ title: \{ absolute: [^\n]*robots: \{ index: false, follow: true \} \}/.test(site))
   check("a preview is noindex", /return \{ title: "Preview", robots: \{ index: false, follow: false \} \}/.test(site))
   for (const layout of ["app/app/layout.tsx", "app/website-builder/layout.tsx", "app/library/layout.tsx", "app/creator-page/layout.tsx", "app/dashboard/layout.tsx", "app/store/[creatorSlug]/themes/[installId]/editor/page.tsx"]) {
@@ -161,7 +162,8 @@ section("Pages a visitor can reach but no index should hold carry noindex")
   check("a product page's robots tag is the sitemap's rule", /index: productIndexable\(product, sellerHandle \?\? null\)/.test(product))
   const themeProduct = code("components/website-builder/theme/render-product.tsx")
   check("a site's product page is canonical on the site, the platform's copy at storelib.com/<handle>/<slug>",
-    /\/products\/\$\{encodeURIComponent\(product\.slug\)\}/.test(themeProduct) && /canonical = getProductShareUrl\(handle, product\.slug\)/.test(themeProduct) && /plainSummary\(product\.description\)/.test(themeProduct))
+    /let canonical: string \| undefined = site\?\.url/.test(themeProduct) && /productUrl\(origin, slug\)/.test(code("app/(site)/w/[username]/products/[slug]/page.tsx"))
+      && /if \(handle\) canonical = getProductShareUrl\(handle, product\.slug\)/.test(themeProduct) && /plainSummary\(product\.description\)/.test(themeProduct))
 }
 
 section("IndexNow: off without a key, never in the way of a save, one notice per change")

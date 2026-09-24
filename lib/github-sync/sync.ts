@@ -18,6 +18,7 @@
 import "server-only"
 import { saveThemeFile } from "@/lib/website-builder/save-theme-file"
 import { publicError, sectionSources } from "@/lib/agent-access/operations"
+import { agentMayWrite } from "@/lib/agent-access/protected"
 import {
   COMMIT_MARKER,
   MAX_FILES_PER_PUSH,
@@ -140,6 +141,13 @@ async function takeFiles(
       out.unchanged.push(path)
       continue
     }
+    /* A built-in section in the repository is there to read. A change to one
+       is refused and said so on the commit, and the site keeps its own. */
+    const allowed = agentMayWrite(path)
+    if (allowed.ok === false) {
+      out.failed.push({ path, error: allowed.error })
+      continue
+    }
     const saved = await saveThemeFile(db, link.install_id, path, source)
     if (saved.ok === false) {
       const first = saved.errors?.[0]
@@ -170,7 +178,7 @@ function sectionNames(paths: string[]): string {
 }
 
 function takenSummary(r: { saved: string[]; failed: { error: string }[] }, how: string): string {
-  if (r.failed.length) return `${how}: ${r.saved.length} saved, ${r.failed.length} did not compile. ${r.failed[0].error}`
+  if (r.failed.length) return `${how}: ${r.saved.length} saved, ${r.failed.length} not saved. ${r.failed[0].error}`
   if (r.saved.length === 0) return `${how}: already up to date`
   return `${how}: ${sectionNames(r.saved)}`
 }

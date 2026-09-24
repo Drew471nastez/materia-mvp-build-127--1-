@@ -15,6 +15,7 @@
  * thing, which is whether the address claims an owner.
  */
 import { sanitizeSections } from "@/lib/website-builder/sanitize-sections"
+import { cache } from "react"
 import { notFound } from "next/navigation"
 import type { Metadata } from "next"
 import { createClient } from "@/lib/supabase/server"
@@ -27,9 +28,9 @@ import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder
 import { TrackView } from "@/components/analytics/track-view"
 import { SiteVitals } from "@/components/website-builder/site-vitals"
 import { plainSummary } from "@/lib/html-entities"
-import { getMainDomain, getProductShareUrl } from "@/lib/url-helpers"
-import { productIndexable, siteOrigin, websiteIndexable } from "@/lib/seo/indexing"
-import { customDomainOf } from "@/lib/seo/sitemaps"
+import { getProductShareUrl } from "@/lib/url-helpers"
+import { productIndexable } from "@/lib/seo/indexing"
+import { jsonLdScript, productJsonLd } from "@/lib/website-builder/site-seo"
 
 type ProductRow = {
   id: string
@@ -45,7 +46,8 @@ type ProductRow = {
   creator_id: string | null
 }
 
-async function fetchProductBySlug(slug: string): Promise<ProductRow | null> {
+/* One read per request, shared by the metadata, the page and its structured data. */
+const fetchProductBySlug = cache(async function fetchProductBySlug(slug: string): Promise<ProductRow | null> {
   const supabase = await createClient()
 
   // Try current slug first
@@ -74,73 +76,83 @@ async function fetchProductBySlug(slug: string): Promise<ProductRow | null> {
   const p: any = history?.products
   if (p && p.status === "published") return p as ProductRow
   return null
-}
+})
 
 /**
- * The product's metadata, and which address it is canonical at.
+ * A product page's metadata, and which address it is canonical at.
  *
- *   on a site (`site`): the site's own `/products/<slug>`, at the site's
- *     canonical origin (its connected domain when it has one), indexed
- *     unless the site's owner switched search indexing off
+ *   on a creator's website (`url`, `brand`, `indexable`): the site's own
+ *     /products/<slug> on its own domain, the shop named in the title, and
+ *     kept out of search when the creator hid the whole site
+ *     (lib/website-builder/site-seo.ts)
  *   at storelib.com/products/<slug> (`platform`): the address every link
  *     uses, storelib.com/<handle>/<slug>, so the two spellings do not
- *     compete
+ *     compete, and out of search for a handle the spam rules hold back
  *
  * The description is plain text: it is stored as rich text, and a meta
- * description printed verbatim is a snippet full of markup.
+ * description printed verbatim is a snippet full of markup and entities.
  */
 export async function productMetadata(
   slug: string,
-  where: { site: string } | { platform: true } | null = null,
+  where?: { url: string; brand: string; indexable: boolean } | { platform: true },
 ): Promise<Metadata> {
   const product = await fetchProductBySlug(slug)
   if (!product) return { title: "Product Not Found", robots: { index: false, follow: false } }
 
   const ogImage = (product.gallery_urls?.[0]) || product.thumbnail_url || undefined
+  const name = product.title ?? "Product"
   const description = plainSummary(product.description) || undefined
-  let canonical: string | undefined
-  let index = true
-  if (where && product.creator_id && product.slug) {
+  const site = where && "url" in where ? where : null
+  let canonical: string | undefined = site?.url
+  let index = site ? site.indexable : true
+  if (where && "platform" in where && product.creator_id && product.slug) {
     const admin = createAdminClient()
-    if ("site" in where) {
-      const [domain, { data: install }] = await Promise.all([
-        customDomainOf(product.creator_id),
-        admin
-          .from("store_theme_installs")
-          .select("store_theme_settings ( settings )")
-          .eq("creator_id", product.creator_id)
-          .eq("status", "published")
-          .order("sort_order", { ascending: true })
-          .limit(1)
-          .maybeSingle(),
-      ])
-      const s = (install as { store_theme_settings?: unknown } | null)?.store_theme_settings
-      const settings = ((Array.isArray(s) ? s[0] : s) as { settings?: Record<string, unknown> } | null)?.settings ?? null
-      index = !!install && websiteIndexable(settings)
-      canonical = `${siteOrigin({ handle: where.site, customDomain: domain, mainDomain: getMainDomain() })}/products/${encodeURIComponent(product.slug)}`
-    } else {
-      const { data: creator } = await admin.from("creators").select("user_id").eq("id", product.creator_id).maybeSingle()
-      const userId = (creator as { user_id?: string } | null)?.user_id
-      const { data: profile } = userId
-        ? await admin.from("profiles").select("username").eq("id", userId).maybeSingle()
-        : { data: null }
-      const handle = (profile as { username?: string } | null)?.username ?? ""
-      canonical = getProductShareUrl(handle, product.slug)
-      index = productIndexable(product, handle || null)
-    }
+    const { data: creator } = await admin.from("creators").select("user_id").eq("id", product.creator_id).maybeSingle()
+    const userId = (creator as { user_id?: string } | null)?.user_id
+    const { data: profile } = userId
+      ? await admin.from("profiles").select("username").eq("id", userId).maybeSingle()
+      : { data: null }
+    const handle = (profile as { username?: string } | null)?.username ?? ""
+    if (handle) canonical = getProductShareUrl(handle, product.slug)
+    index = productIndexable(product, handle || null)
   }
   return {
-    title: product.title ?? "Product",
+    title: site ? { absolute: `${name} | ${site.brand}` } : name,
     description,
     ...(canonical ? { alternates: { canonical } } : {}),
-    robots: { index, follow: true },
+    ...(index ? {} : { robots: { index: false, follow: false } }),
     openGraph: {
-      title: product.title ?? "Product",
+      title: name,
       description,
       ...(canonical ? { url: canonical } : {}),
+      ...(site ? { siteName: site.brand } : {}),
       ...(ogImage && { images: [{ url: ogImage }] }),
     },
+    twitter: {
+      card: ogImage ? "summary_large_image" : "summary",
+      title: name,
+      description,
+      ...(ogImage ? { images: [ogImage] } : {}),
+    },
   }
+}
+
+/** A product's structured data on a creator's website, as a script body, or null. */
+export async function productStructuredData(slug: string, site: { url: string; seller: string }): Promise<string | null> {
+  const product = await fetchProductBySlug(slug)
+  if (!product) return null
+  const images = [product.thumbnail_url, ...(product.gallery_urls ?? [])].filter((u): u is string => typeof u === "string" && /^https?:\/\//.test(u))
+  return jsonLdScript(
+    productJsonLd({
+      url: site.url,
+      name: product.title ?? "Product",
+      description: product.description,
+      images: [...new Set(images)],
+      priceCents: product.price_cents,
+      inStock: true,
+      seller: site.seller,
+    }),
+  )
 }
 
 /**

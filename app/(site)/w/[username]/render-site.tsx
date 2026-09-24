@@ -27,12 +27,12 @@ import { shopProducts } from "@/lib/website-builder/shop-products"
 import { chromeOf, withUniversalChrome, type Chrome } from "@/lib/website-builder/universal-chrome"
 import { getMainDomain } from "@/lib/url-helpers"
 import { themeMetadata } from "@/lib/website-builder/theme-metadata"
+import { jsonLdScript, pageUrl, websiteJsonLd } from "@/lib/website-builder/site-seo"
+import { siteOrigin } from "@/lib/website-builder/site-seo-data"
 import { pageTitleFromKey, templateForPage } from "@/lib/website-builder/site-pages"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 import { TrackView } from "@/components/analytics/track-view"
 import { SiteVitals } from "@/components/website-builder/site-vitals"
-import { siteOrigin } from "@/lib/seo/indexing"
-import { customDomainOf } from "@/lib/seo/sitemaps"
 
 export type SiteSearchParams = Record<string, string | string[] | undefined>
 
@@ -127,15 +127,12 @@ export async function siteMetadata(
     : undefined
 
   /**
-   * THE ONE ADDRESS THIS PAGE IS AT. A site answers on its storelib.com
-   * subdomain and, once one is connected, on its own domain: two hosts with
-   * the same pages. The canonical names the connected domain when there is
-   * one (lib/seo/indexing siteOrigin), so the two do not compete, and it is
-   * absolute, because the root layout's metadataBase is storelib.com and a
-   * relative one would name a page that does not exist there.
+   * ONE ADDRESS PER PAGE. The same page answers at `<name>.storelib.com` and
+   * at a connected domain, and a search engine that finds both splits what
+   * it knows between them. The canonical names the one the creator gives
+   * out: lib/website-builder/site-seo-data.ts.
    */
-  const origin = siteOrigin({ handle: username, customDomain: await customDomainOf(creator.id), mainDomain: getMainDomain() })
-  const url = `${origin}${sitePath(pageKey)}`
+  const url = pageUrl(await siteOrigin(creator.id, username), pageKey)
 
   /* Nothing published: the page says so, and is not a page to index. */
   if (!install) {
@@ -145,18 +142,13 @@ export async function siteMetadata(
   return {
     title: { absolute: rawTitle },
     description,
-    icons: favicon ? { icon: favicon, shortcut: favicon, apple: favicon } : undefined,
     alternates: { canonical: url },
+    icons: favicon ? { icon: favicon, shortcut: favicon, apple: favicon } : undefined,
     // The share image, the card type and — the one that matters — whether the
     // page may be indexed at all. All three were in the panel and read by
     // nothing, so "noindex" was a setting somebody trusted and did not have.
     ...themeMetadata(settings, { title: rawTitle, description, url }),
   }
-}
-
-/** A page key as the address it is served at. */
-function sitePath(pageKey: string): string {
-  return pageKey === "home" ? "/" : `/${pageKey}`
 }
 
 /**
@@ -205,8 +197,11 @@ export async function renderSite(
 
   const { site } = found
   const template = templateForPage(pageKey)
+  /* The website and whose it is, once, on the front page. */
+  const structured = pageKey === "home" ? await homeStructuredData(site, username) : null
   return (
     <StorelibSourcesProvider prerendered={site.prerendered} page={{ template }}>
+      {structured && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: structured }} />}
       <ThemePage
         theme={site.themeSettings}
         sections={site.sections}
@@ -382,5 +377,21 @@ export async function coverPage(installId: string) {
         />
       </StorelibSourcesProvider>
     </div>
+  )
+}
+
+async function homeStructuredData(
+  site: { creatorId: string; displayName: string; themeSettings: ThemeSettingsValues },
+  username: string,
+): Promise<string> {
+  const t = site.themeSettings as Record<string, unknown>
+  const str = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : undefined)
+  return jsonLdScript(
+    websiteJsonLd({
+      origin: await siteOrigin(site.creatorId, username),
+      name: str(t.brand_name) ?? site.displayName,
+      description: str(t.seo_description),
+      logo: str(t.logo_url) ?? str(t.favicon_url),
+    }),
   )
 }
