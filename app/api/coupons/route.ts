@@ -1,96 +1,52 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { readCouponInput } from "@/lib/checkout/coupons"
+import { TAKEN, codeTaken, productsAreTheirs, signedInCreator, writeCoupon } from "./write"
 
 /**
  * GET /api/coupons
- * List all coupons for the authenticated creator.
+ * The signed in creator's codes, newest first.
  */
 export async function GET() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-
-  const { data: creator } = await supabase
-    .from("creators")
-    .select("id")
-    .eq("user_id", user.id)
-    .maybeSingle()
-
-  if (!creator) return NextResponse.json({ error: "Creator not found" }, { status: 404 })
-
-  const { data, error } = await supabase
+  const who = await signedInCreator()
+  if (!who.ok) return who.response
+  const { data, error } = await who.supabase
     .from("coupons")
     .select("*")
-    .eq("creator_id", creator.id)
+    .eq("creator_id", who.creatorId)
     .order("created_at", { ascending: false })
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    console.error("[coupons] list failed", error.code)
+    return NextResponse.json({ error: "Your coupons could not be loaded." }, { status: 500 })
+  }
   return NextResponse.json({ coupons: data })
 }
 
 /**
  * POST /api/coupons
- * Create a new coupon for the authenticated creator.
+ * A new code. Checked by readCouponInput (lib/checkout/coupons.ts), then:
+ * one code per creator whatever its case, and only their own products.
  *
- * Body:
- *   code: string
- *   discount_type: "percentage" | "fixed"
- *   discount_value: number
- *   product_ids?: string[] | null   (null = all products)
- *   usage_limit?: number | null
- *   starts_at?: string | null
- *   expires_at?: string | null
- *   is_active?: boolean
+ * Body: { code, discount_type: "percentage" | "fixed", discount_value,
+ *         product_ids?, usage_limit?, starts_at?, expires_at?,
+ *         min_purchase_cents?, is_active? }
  */
 export async function POST(request: NextRequest) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const who = await signedInCreator()
+  if (!who.ok) return who.response
 
-  const { data: creator } = await supabase
-    .from("creators")
-    .select("id")
-    .eq("user_id", user.id)
-    .maybeSingle()
-
-  if (!creator) return NextResponse.json({ error: "Creator not found" }, { status: 404 })
-
-  const body = await request.json()
-  const { code, discount_type, discount_value, product_ids, usage_limit, starts_at, expires_at, min_purchase_cents, is_active } = body
-
-  if (!code || !discount_type || discount_value == null) {
-    return NextResponse.json({ error: "code, discount_type, and discount_value are required" }, { status: 400 })
+  let body: unknown
+  try {
+    body = await request.json()
+  } catch {
+    return NextResponse.json({ error: "Nothing to save." }, { status: 400 })
   }
-  if (!["percentage", "fixed"].includes(discount_type)) {
-    return NextResponse.json({ error: "discount_type must be 'percentage' or 'fixed'" }, { status: 400 })
-  }
-  if (discount_type === "percentage" && (discount_value <= 0 || discount_value > 100)) {
-    return NextResponse.json({ error: "Percentage discount must be between 1 and 100" }, { status: 400 })
-  }
+  const input = readCouponInput(body)
+  if (!input.ok) return NextResponse.json({ error: input.error }, { status: 400 })
 
-  const { data, error } = await supabase
-    .from("coupons")
-    .insert({
-      creator_id: creator.id,
-      code: code.trim().toUpperCase(),
-      discount_type,
-      discount_value,
-      product_ids: product_ids?.length ? product_ids : null,
-      usage_limit: usage_limit || null,
-      starts_at: starts_at || null,
-      expires_at: expires_at || null,
-      min_purchase_cents: min_purchase_cents || null,
-      is_active: is_active !== false,
-    })
-    .select()
-    .single()
-
-  if (error) {
-    if (error.code === "23505") {
-      return NextResponse.json({ error: "A coupon with this code already exists" }, { status: 409 })
-    }
-    return NextResponse.json({ error: error.message }, { status: 500 })
+  if (!(await productsAreTheirs(who.supabase, who.creatorId, input.values.product_ids))) {
+    return NextResponse.json({ error: "Some of those products could not be found." }, { status: 400 })
   }
+  if (await codeTaken(who.supabase, who.creatorId, input.values.code, null)) return TAKEN()
 
-  return NextResponse.json({ coupon: data }, { status: 201 })
+  return writeCoupon(who.supabase, who.creatorId, input.values, null)
 }

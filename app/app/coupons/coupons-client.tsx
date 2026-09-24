@@ -1,16 +1,18 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
-import { createPortal } from "react-dom"
-import { useSearchParams, useRouter } from "next/navigation"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
-import { Plus, TicketPercent, Copy, Check, Pencil, Trash2 } from "lucide-react"
+import { Plus } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { useToast } from "@/hooks/use-toast"
+import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
+import { COUPON_STATE_LABEL, couponState, type CouponState } from "@/lib/checkout/coupons"
+import { GUTTER, LIST_BAR, LIST_WIDTH, PaneBar, RowMenuButton, StatusBadge, buttonAccent, buttonSecondary, card } from "../orders/order-parts"
+import { ProductsSubnav } from "../products/products-subnav"
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
-interface Coupon {
+export interface Coupon {
   id: string
   creator_id: string
   code: string
@@ -21,7 +23,7 @@ interface Coupon {
   usage_count: number
   starts_at: string | null
   expires_at: string | null
-  min_purchase_cents: number | null
+  min_purchase_cents?: number | null
   is_active: boolean
   created_at: string
 }
@@ -40,327 +42,337 @@ interface CouponsClientProps {
   products: Product[]
 }
 
+type View = "all" | "active" | "scheduled" | "ended"
+
+const VIEWS: { value: View; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "active", label: "Active" },
+  { value: "scheduled", label: "Scheduled" },
+  { value: "ended", label: "Ended" },
+]
+
+/** Which view a code is listed under. Ended is expired, used up or turned off. */
+const viewOf = (state: CouponState): Exclude<View, "all"> =>
+  state === "active" ? "active" : state === "scheduled" ? "scheduled" : "ended"
+
+const TONE: Record<CouponState, "success" | "neutral" | "attention"> = {
+  active: "success",
+  scheduled: "neutral",
+  expired: "neutral",
+  used_up: "neutral",
+  off: "neutral",
+}
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function formatDiscount(coupon: Coupon) {
-  if (coupon.discount_type === "percentage") return `${coupon.discount_value}% off`
-  return `$${Number(coupon.discount_value).toFixed(2)} off`
+const money = (dollars: number) => `$${Number(dollars).toFixed(Number.isInteger(Number(dollars)) ? 0 : 2)}`
+
+function discountText(c: Coupon) {
+  return c.discount_type === "percentage" ? `${Number(c.discount_value)}% off` : `${money(c.discount_value)} off`
 }
 
-function isExpired(coupon: Coupon) {
-  if (!coupon.expires_at) return false
-  return new Date(coupon.expires_at) < new Date()
+const shortDate = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+
+/** The line of dates a code has, if it has any: when it starts or ends. */
+function datesText(c: Coupon, state: CouponState) {
+  if (state === "scheduled" && c.starts_at) return `Starts ${shortDate(c.starts_at)}`
+  if (c.expires_at) return `${state === "expired" ? "Ended" : "Ends"} ${shortDate(c.expires_at)}`
+  return null
 }
 
-function isScheduled(coupon: Coupon) {
-  if (!coupon.starts_at) return false
-  return new Date(coupon.starts_at) > new Date()
-}
+const usedText = (c: Coupon) => (c.usage_limit !== null ? `${c.usage_count} of ${c.usage_limit} used` : `${c.usage_count} used`)
 
-function couponStatus(coupon: Coupon): { label: string; color: string } {
-  if (!coupon.is_active) return { label: "Inactive", color: "bg-gray-100 text-gray-500" }
-  if (isExpired(coupon)) return { label: "Expired", color: "bg-red-50 text-red-600" }
-  if (isScheduled(coupon)) return { label: "Scheduled", color: "bg-blue-50 text-blue-600" }
-  if (coupon.usage_limit !== null && coupon.usage_count >= coupon.usage_limit) return { label: "Maxed out", color: "bg-orange-50 text-orange-600" }
-  return { label: "Active", color: "bg-green-50 text-green-700" }
-}
+/** A thumb's size on a phone, the Orders size from 768px. */
+const NEW_BUTTON = "max-md:h-11 max-md:rounded-xl max-md:px-4 max-md:text-[15px]"
 
-// ─── Top Pill Notification ────────────────────────────────────────────────────
-// Renders a centered pill at the top of the viewport via createPortal.
-// Slides down from above the header, stays 4 s, then fades out.
+// ─── Main ────────────────────────────────────────────────────────────────────
 
-function TopPill({ message, onDone }: { message: string; onDone: () => void }) {
-  const [visible, setVisible] = useState(false)
-
-  useEffect(() => {
-    // Double-rAF ensures the initial (hidden) paint has committed before we animate in
-    const raf = requestAnimationFrame(() => requestAnimationFrame(() => setVisible(true)))
-    const outTimer  = setTimeout(() => setVisible(false),  4000)
-    const doneTimer = setTimeout(() => onDone(),           4380)
-    return () => {
-      cancelAnimationFrame(raf)
-      clearTimeout(outTimer)
-      clearTimeout(doneTimer)
-    }
-  }, [onDone])
-
-  if (typeof document === "undefined") return null
-
-  return createPortal(
-    <div
-      aria-live="polite"
-      style={{
-        position: "fixed",
-        top: visible ? "74px" : "-8px",
-        left: "50%",
-        transform: "translateX(-50%)",
-        opacity: visible ? 1 : 0,
-        transition: "top 340ms cubic-bezier(0.32,0.72,0,1), opacity 300ms ease",
-        zIndex: 99999,
-        pointerEvents: "none",
-      }}
-    >
-      <div className="flex items-center gap-2 px-5 py-2.5 bg-neutral-900 text-white text-[13px] font-medium rounded-full shadow-xl whitespace-nowrap">
-        <svg viewBox="0 0 16 16" fill="none" className="w-3.5 h-3.5 shrink-0">
-          <path d="M3.5 8.5l3 3 6-6" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-        {message}
-      </div>
-    </div>,
-    document.body
-  )
-}
-
-// ─── Coupon Row ───────────────────────────────────────────────────────────────
-
-function CouponRow({
-  coupon,
-  products,
-  onDelete,
-  onToggle,
-}: {
-  coupon: Coupon
-  products: Product[]
-  onDelete: () => void
-  onToggle: () => void
-}) {
-  const [copied, setCopied] = useState(false)
-  const { toast } = useToast()
-  const status = couponStatus(coupon)
-
-  const copyCode = async () => {
-    try {
-      await navigator.clipboard.writeText(coupon.code)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 1500)
-    } catch {
-      toast({ title: "Could not copy" })
-    }
-  }
-
-  const appliesTo = coupon.product_ids?.length
-    ? products.filter(p => coupon.product_ids!.includes(p.id)).map(p => p.title).join(", ") || "Specific products"
-    : "All products"
-
-  return (
-    <div className={cn(
-      "rounded-2xl bg-white border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-4 sm:p-5 transition-opacity",
-      !coupon.is_active && "opacity-60"
-    )}>
-      <div className="flex items-start gap-3">
-        {/* Icon */}
-        <div className="w-10 h-10 rounded-full bg-purple-50 flex items-center justify-center shrink-0">
-          <TicketPercent className="w-5 h-5 text-purple-600" />
-        </div>
-
-        <div className="flex-1 min-w-0">
-          {/* Top row */}
-          <div className="flex items-center gap-2 flex-wrap mb-0.5">
-            <span className="font-mono font-semibold text-gray-900 text-sm tracking-wide">{coupon.code}</span>
-            <button
-              type="button"
-              onClick={copyCode}
-              className="p-1 rounded hover:bg-gray-100 transition-colors cursor-pointer"
-              title="Copy code"
-            >
-              {copied ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Copy className="w-3.5 h-3.5 text-gray-400" />}
-            </button>
-            <span className={cn("text-xs px-2 py-0.5 rounded-full font-medium", status.color)}>
-              {status.label}
-            </span>
-          </div>
-
-          {/* Details */}
-          <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-gray-500">
-            <span className="font-medium text-gray-700">{formatDiscount(coupon)}</span>
-            <span>{appliesTo}</span>
-            {coupon.usage_limit !== null ? (
-              <span>{coupon.usage_count}/{coupon.usage_limit} used</span>
-            ) : (
-              <span>{coupon.usage_count} used</span>
-            )}
-            {coupon.expires_at && (
-              <span>Expires {new Date(coupon.expires_at).toLocaleDateString()}</span>
-            )}
-          </div>
-        </div>
-
-        {/* Actions */}
-        <div className="flex items-center gap-1 shrink-0">
-          {/* Active toggle */}
-          <button
-            type="button"
-            onClick={onToggle}
-            title={coupon.is_active ? "Deactivate" : "Activate"}
-            className={cn(
-              "relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors",
-              coupon.is_active ? "bg-gray-900" : "bg-gray-200"
-            )}
-          >
-            <span
-              className={cn(
-                "inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform",
-                coupon.is_active ? "translate-x-4" : "translate-x-0"
-              )}
-            />
-          </button>
-          <Link
-            href={`/app/coupons/${coupon.id}`}
-            className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
-            title="Edit"
-          >
-            <Pencil className="w-3.5 h-3.5 text-gray-500" />
-          </Link>
-          <button
-            type="button"
-            onClick={onDelete}
-            className="p-1.5 rounded-lg hover:bg-red-50 transition-colors cursor-pointer"
-            title="Delete"
-          >
-            <Trash2 className="w-3.5 h-3.5 text-red-400" />
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ─── Main Client Component ────────────────────────────────────────────────────
-
-export function CouponsClient({ creatorId, initialCoupons, products }: CouponsClientProps) {
+/**
+ * ===========================================================================
+ *  COUPONS, IN THE PRODUCTS AREA'S LANGUAGE
+ * ===========================================================================
+ * The Products page's frame: the pane's bar with New coupon, the area's tabs,
+ * then one card whose toolbar holds the views. A computer gets a table; a
+ * phone gets a list with the code, what it takes off and how often it has
+ * been used, each row one press into the code's own page. Where a code
+ * stands (active, scheduled, expired, used up, off) is worked out by the
+ * same rule the checkout's (lib/checkout/coupons.ts).
+ */
+export function CouponsClient({ initialCoupons, products }: CouponsClientProps) {
   const [coupons, setCoupons] = useState<Coupon[]>(initialCoupons)
-  const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
-  const [pill, setPill] = useState<{ message: string; id: number } | null>(null)
-  const { toast } = useToast()
+  const [view, setView] = useState<View>("all")
+  const [confirmDelete, setConfirmDelete] = useState<Coupon | null>(null)
+  const [deleting, setDeleting] = useState(false)
+  const [notice, setNotice] = useState<{ message: string; tone: "ok" | "error" } | null>(null)
+  const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const searchParams = useSearchParams()
   const router = useRouter()
 
-  const showPill = useCallback((msg: string) => setPill({ message: msg, id: Date.now() }), [])
+  const say = useCallback((message: string, tone: "ok" | "error" = "ok") => {
+    setNotice({ message, tone })
+    if (noticeTimer.current) clearTimeout(noticeTimer.current)
+    noticeTimer.current = setTimeout(() => setNotice(null), 3500)
+  }, [])
 
-  // Show pill when returning from the create or edit subpage
+  // Returning from the create or edit page
   useEffect(() => {
     const created = searchParams.get("created")
     const updated = searchParams.get("updated")
-    const msg = created
-      ? `${created} — Coupon created`
-      : updated
-        ? `${updated} — Coupon updated`
-        : null
-    if (msg) {
-      showPill(msg)
-      const url = new URL(window.location.href)
-      url.searchParams.delete("created")
-      url.searchParams.delete("updated")
-      router.replace(url.pathname, { scroll: false })
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (!created && !updated) return
+    say(created ? `${created} created` : `${updated} saved`)
+    router.replace("/app/coupons", { scroll: false })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // ── Toggle active ───────────────────────────────────────────────────────────
+  /* One clock for the render, so a code does not change view between two rows. */
+  const [now] = useState(() => new Date())
+  const rows = useMemo(
+    () => coupons.map((c) => ({ coupon: c, state: couponState(c, now) })),
+    [coupons, now],
+  )
+  const counts = useMemo(() => {
+    const out: Record<View, number> = { all: rows.length, active: 0, scheduled: 0, ended: 0 }
+    for (const r of rows) out[viewOf(r.state)]++
+    return out
+  }, [rows])
+  const shown = view === "all" ? rows : rows.filter((r) => viewOf(r.state) === view)
 
-  const handleToggle = async (coupon: Coupon) => {
+  const productTitle = useMemo(() => new Map(products.map((p) => [p.id, p.title])), [products])
+  const appliesText = (c: Coupon) => {
+    if (!c.product_ids?.length) return "All products"
+    if (c.product_ids.length === 1) return productTitle.get(c.product_ids[0]) ?? "1 product"
+    return `${c.product_ids.length} products`
+  }
+
+  const warm = (id: string) => router.prefetch(`/app/coupons/${id}`)
+
+  // ── Actions ─────────────────────────────────────────────────────────────
+
+  const setActive = async (coupon: Coupon, isActive: boolean) => {
     const res = await fetch(`/api/coupons/${coupon.id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ is_active: !coupon.is_active }),
+      body: JSON.stringify({ is_active: isActive }),
     })
-    const data = await res.json()
-    if (!res.ok) { toast({ title: "Failed to update coupon" }); return }
-    setCoupons(prev => prev.map(c => c.id === coupon.id ? data.coupon : c))
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) return say(data.error || "The coupon could not be changed.", "error")
+    setCoupons((prev) => prev.map((c) => (c.id === coupon.id ? data.coupon : c)))
+    say(isActive ? `${coupon.code} is on` : `${coupon.code} is off`)
+    router.refresh()
   }
 
-  // ── Delete ──────────────────────────────────────────────────────────────────
+  const copyCode = async (coupon: Coupon) => {
+    try {
+      await navigator.clipboard.writeText(coupon.code)
+      say(`${coupon.code} copied`)
+    } catch {
+      say("The code could not be copied.", "error")
+    }
+  }
 
-  const handleDelete = async (id: string) => {
-    const res = await fetch(`/api/coupons/${id}`, { method: "DELETE" })
-    if (!res.ok) { toast({ title: "Failed to delete coupon" }); return }
-    setCoupons(prev => prev.filter(c => c.id !== id))
+  const handleDelete = async () => {
+    if (!confirmDelete) return
+    setDeleting(true)
+    const res = await fetch(`/api/coupons/${confirmDelete.id}`, { method: "DELETE" })
+    setDeleting(false)
+    if (!res.ok) return say("The coupon could not be deleted.", "error")
+    setCoupons((prev) => prev.filter((c) => c.id !== confirmDelete.id))
+    say(`${confirmDelete.code} deleted`)
     setConfirmDelete(null)
-    showPill("Coupon deleted")
+    router.refresh()
   }
 
-  // ─── Render ─────────────────────────────────────────────────────────────────
+  const actionsFor = (c: Coupon) => [
+    { label: "Copy code", onClick: () => copyCode(c) },
+    { label: "Edit", href: `/app/coupons/${c.id}` },
+    { label: c.is_active ? "Turn off" : "Turn on", onClick: () => setActive(c, !c.is_active), separatorBefore: true },
+    { label: "Delete", variant: "destructive" as const, separatorBefore: true, onClick: () => setConfirmDelete(c) },
+  ]
+
+  // ── Render ──────────────────────────────────────────────────────────────
 
   return (
-    <div className="h-full overflow-y-auto page-scroll bg-[#f8f9fa] app-page-enter">
-      <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-[1200px] mx-auto space-y-6">
-        {/* Header — matches Products */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-[22px] sm:text-[26px] font-bold text-gray-900 leading-tight">Coupons</h1>
-            <p className="text-sm text-gray-500 mt-1">Create discount codes for your buyers.</p>
+    <div className="orders-pane h-full overflow-y-auto overflow-x-hidden page-scroll bg-[#f8f9fa] app-page-enter">
+      {notice && (
+        <div role="status" className="fixed left-1/2 top-[calc(68px+env(safe-area-inset-top)+12px)] z-[100] -translate-x-1/2 animate-in fade-in-0 slide-in-from-top-2 duration-300 md:top-4">
+          <div className={cn("max-w-[calc(100vw-2rem)] truncate rounded-xl px-4 py-3 text-[13px] font-medium text-white shadow-lg", notice.tone === "error" ? "bg-rose-600" : "bg-[#1a1a2e]")}>
+            {notice.message}
           </div>
-          <Link
-            href="/app/coupons/new"
-            className="group w-full sm:w-auto inline-flex items-center justify-center gap-2 min-h-[44px] px-4 bg-[#8b5cf6] hover:bg-[#7c3aed] text-white text-sm font-medium rounded-xl transition-colors shrink-0"
-          >
-            <Plus className="h-4 w-4 transition-transform duration-300 ease-out group-hover:rotate-90" />
-            New coupon
-          </Link>
         </div>
+      )}
 
-        {/* List */}
-        {coupons.length === 0 ? (
-          <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-10 text-center">
-            <div className="w-14 h-14 rounded-2xl bg-violet-50 flex items-center justify-center mx-auto mb-4">
-              <TicketPercent className="w-7 h-7 text-violet-500" />
+      <PaneBar width={LIST_WIDTH} className={LIST_BAR}>
+        <h1 className="text-[24px] font-bold text-[#1a1a2e] sm:text-[28px]">Coupons</h1>
+        <Link href="/app/coupons/new" className={cn(buttonAccent, NEW_BUTTON)}>
+          <Plus className="h-[18px] w-[18px] md:h-4 md:w-4" />
+          New coupon
+        </Link>
+      </PaneBar>
+
+      <div className={cn("mx-auto pb-24 md:pb-8", LIST_WIDTH, GUTTER)}>
+        <ProductsSubnav active="coupons" />
+        <section aria-label="Coupons" className={cn(card, "mt-4 overflow-hidden")}>
+          <div className="flex h-[52px] items-center border-b border-[#eef0f2] px-2 md:h-12">
+            <div role="tablist" aria-label="Views" className="orders-strip -my-2 flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto py-2">
+              {VIEWS.map((option) => {
+                const selected = view === option.value
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    role="tab"
+                    aria-selected={selected}
+                    onClick={() => setView(option.value)}
+                    className={cn(
+                      "inline-flex h-9 shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-[10px] px-3 text-[14px] font-medium transition-colors duration-100 md:h-8 md:rounded-lg md:text-[13px]",
+                      selected ? "bg-[#eceef1] text-[#1a1a2e]" : "text-[#4b5563] hover:bg-[#f4f5f7]",
+                    )}
+                  >
+                    {option.label}
+                    <span className="tabular-nums text-[#9ca3af]">{counts[option.value]}</span>
+                  </button>
+                )
+              })}
             </div>
-            <h3 className="text-[16px] font-semibold text-gray-900 mb-1">No coupons yet</h3>
-            <p className="text-sm text-gray-500 mb-5 max-w-xs mx-auto">
-              Create your first discount code to share with your audience.
-            </p>
-            <Link
-              href="/app/coupons/new"
-              className="group inline-flex items-center gap-2 min-h-[44px] px-5 bg-[#8b5cf6] text-white text-sm font-medium rounded-xl hover:bg-[#7c3aed] transition-colors"
-            >
-              <Plus className="h-4 w-4 transition-transform duration-300 ease-out group-hover:rotate-90" />
-              Create coupon
-            </Link>
           </div>
-        ) : (
-          <div className="space-y-3">
-            {coupons.map(coupon => (
-              <CouponRow
-                key={coupon.id}
-                coupon={coupon}
-                products={products}
-                onDelete={() => setConfirmDelete(coupon.id)}
-                onToggle={() => handleToggle(coupon)}
-              />
-            ))}
-          </div>
-        )}
-      </div>
 
-      {/* Top pill notification */}
-      {pill && <TopPill key={pill.id} message={pill.message} onDone={() => setPill(null)} />}
+          {shown.length > 0 ? (
+            <>
+              {/* A PHONE: one row per code, the whole row a press. */}
+              <ul aria-label="Coupons" className="divide-y divide-[#f1f2f4] md:hidden">
+                {shown.map(({ coupon, state }) => {
+                  const dates = datesText(coupon, state)
+                  return (
+                    <li key={coupon.id} className="relative flex min-h-[76px] items-center gap-3 py-3 pl-4 pr-1.5 has-[a:active]:bg-[#f6f7f8]">
+                      <Link
+                        href={`/app/coupons/${coupon.id}`}
+                        aria-label={`${coupon.code}, ${discountText(coupon)}`}
+                        onTouchStart={() => warm(coupon.id)}
+                        className="absolute inset-0 z-0 outline-none focus-visible:shadow-[inset_0_0_0_2px_#8b5cf6]"
+                      />
+                      <span className="pointer-events-none min-w-0 flex-1">
+                        <span className="flex items-center gap-2">
+                          <span className="truncate font-mono text-[15px] font-semibold tracking-wide text-[#1a1a2e]">{coupon.code}</span>
+                          <StatusBadge tone={TONE[state]}>{COUPON_STATE_LABEL[state]}</StatusBadge>
+                        </span>
+                        <span className="mt-1 block truncate text-[13px] leading-5 text-[#6b7280]">
+                          <span className="text-[#1a1a2e]">{discountText(coupon)}</span>
+                          {" · "}
+                          {usedText(coupon)}
+                          {dates ? ` · ${dates}` : ""}
+                        </span>
+                      </span>
+                      <ResponsiveActionMenu
+                        title={coupon.code}
+                        align="end"
+                        trigger={<RowMenuButton label={`Actions for ${coupon.code}`} className="relative z-[1] h-11 w-11 rounded-xl" />}
+                        items={actionsFor(coupon)}
+                      />
+                    </li>
+                  )
+                })}
+              </ul>
+
+              {/* A COMPUTER: the table. */}
+              <table className="hidden w-full border-collapse md:table">
+                <thead className="border-b border-[#eef0f2] bg-[#fafbfb]">
+                  <tr>
+                    <th className="h-9 px-3 text-left text-[12px] font-medium text-[#4b5563]">Code</th>
+                    <th className="h-9 px-3 text-left text-[12px] font-medium text-[#4b5563]">Status</th>
+                    <th className="h-9 px-3 text-left text-[12px] font-medium text-[#4b5563]">Discount</th>
+                    <th className="h-9 px-3 text-left text-[12px] font-medium text-[#4b5563]">Applies to</th>
+                    <th className="h-9 px-3 text-right text-[12px] font-medium text-[#4b5563]">Used</th>
+                    <th className="h-9 px-3 text-left text-[12px] font-medium text-[#4b5563]">Dates</th>
+                    <th className="h-9 w-[112px] px-3" aria-label="Actions" />
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#f1f2f4]">
+                  {shown.map(({ coupon, state }) => (
+                    <tr key={coupon.id} className="group hover:bg-[#fafbfb]" onMouseEnter={() => warm(coupon.id)}>
+                      <td className="h-14 px-3">
+                        <Link href={`/app/coupons/${coupon.id}`} className="font-mono text-[13px] font-semibold tracking-wide text-[#1a1a2e] hover:underline">
+                          {coupon.code}
+                        </Link>
+                      </td>
+                      <td className="h-14 whitespace-nowrap px-3">
+                        <StatusBadge tone={TONE[state]}>{COUPON_STATE_LABEL[state]}</StatusBadge>
+                      </td>
+                      <td className="h-14 whitespace-nowrap px-3 text-[13px] text-[#1a1a2e]">
+                        {discountText(coupon)}
+                        {coupon.min_purchase_cents ? (
+                          <span className="text-[#6b7280]"> over {money(coupon.min_purchase_cents / 100)}</span>
+                        ) : null}
+                      </td>
+                      <td className="h-14 max-w-[220px] truncate px-3 text-[13px] text-[#4b5563]">{appliesText(coupon)}</td>
+                      <td className="h-14 whitespace-nowrap px-3 text-right text-[13px] tabular-nums text-[#1a1a2e]">
+                        {coupon.usage_count}
+                        {coupon.usage_limit !== null ? <span className="text-[#9ca3af]"> / {coupon.usage_limit}</span> : null}
+                      </td>
+                      <td className="h-14 whitespace-nowrap px-3 text-[13px] text-[#6b7280]">{datesText(coupon, state) ?? "No end date"}</td>
+                      <td className="h-14 whitespace-nowrap px-2 text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <Link href={`/app/coupons/${coupon.id}`} className={buttonSecondary}>
+                            Edit
+                          </Link>
+                          <ResponsiveActionMenu
+                            title={coupon.code}
+                            align="end"
+                            trigger={<RowMenuButton label={`Actions for ${coupon.code}`} />}
+                            items={actionsFor(coupon)}
+                          />
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </>
+          ) : (
+            <div className="flex flex-col items-center px-6 py-14 text-center">
+              <p className="text-[15px] font-semibold text-[#1a1a2e]">
+                {coupons.length === 0 ? "No coupons yet" : `No ${VIEWS.find((v) => v.value === view)?.label.toLowerCase()} coupons`}
+              </p>
+              <p className="mt-1 max-w-[340px] text-[14px] text-[#6b7280] md:text-[13px]">
+                {coupons.length === 0
+                  ? "A code a buyer types at checkout for money off, on everything or on the products you pick."
+                  : "Codes move here on their own as their dates and limits come round."}
+              </p>
+              {coupons.length === 0 ? (
+                <Link href="/app/coupons/new" className={cn(buttonAccent, NEW_BUTTON, "mt-4")}>
+                  <Plus className="h-[18px] w-[18px] md:h-4 md:w-4" />
+                  Create coupon
+                </Link>
+              ) : null}
+            </div>
+          )}
+        </section>
+      </div>
 
       {/* Delete confirm */}
       {confirmDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setConfirmDelete(null)} />
-          <div className="relative bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full mx-4">
-            <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
-              <Trash2 className="w-5 h-5 text-gray-600" />
-            </div>
-            <h3 className="text-base font-semibold text-gray-900 text-center mb-1">Delete coupon?</h3>
-            <p className="text-sm text-gray-500 text-center mb-5">
-              This action cannot be undone. Buyers will no longer be able to use this code.
+        <div className="fixed inset-0 z-[100] flex items-end justify-center p-4 sm:items-center" role="dialog" aria-modal="true" aria-labelledby="delete-coupon-title">
+          <div className="absolute inset-0 bg-black/40" onClick={() => !deleting && setConfirmDelete(null)} />
+          <div className="relative w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl">
+            <h3 id="delete-coupon-title" className="text-[17px] font-semibold text-[#1a1a2e]">Delete {confirmDelete.code}?</h3>
+            <p className="mt-1.5 text-[14px] text-[#6b7280]">
+              Buyers can no longer use it. Orders already placed with it keep their discount. To stop it for now instead, turn it off.
             </p>
-            <div className="flex gap-3">
+            <div className="mt-5 flex gap-2">
               <button
                 type="button"
                 onClick={() => setConfirmDelete(null)}
-                className="flex-1 h-11 rounded-xl border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
+                disabled={deleting}
+                className={cn(buttonSecondary, "h-11 flex-1 rounded-xl text-[15px] sm:h-10 sm:text-[14px]")}
               >
                 Cancel
               </button>
               <button
                 type="button"
-                onClick={() => handleDelete(confirmDelete)}
-                className="flex-1 h-11 rounded-xl bg-neutral-900 text-white text-sm font-medium hover:bg-neutral-800 transition-colors cursor-pointer"
+                onClick={handleDelete}
+                disabled={deleting}
+                className="inline-flex h-11 flex-1 cursor-pointer items-center justify-center rounded-xl bg-[#c4290c] text-[15px] font-medium text-white transition-colors hover:bg-[#a82309] disabled:opacity-50 sm:h-10 sm:text-[14px]"
               >
-                Delete
+                {deleting ? "Deleting" : "Delete"}
               </button>
             </div>
           </div>

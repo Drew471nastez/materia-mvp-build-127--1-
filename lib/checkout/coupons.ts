@@ -134,3 +134,134 @@ export async function recordCouponUse(db: Db, couponId: string | null | undefine
     /* the order stands */
   }
 }
+
+/* ===========================================================================
+ *  WHAT A CREATOR MAY SAVE AS A CODE
+ * ===========================================================================
+ * The same rules for a new code and an edited one, run on the server before
+ * anything is written. The form checks a few of them too, to answer sooner;
+ * these are the ones that count.
+ */
+
+/** A code as a buyer types it: letters, digits, - and _, 3 to 32 of them. */
+export const CODE_PATTERN = /^[A-Z0-9_-]{3,32}$/
+
+export interface CouponValues {
+  code: string
+  discount_type: "percentage" | "fixed"
+  discount_value: number
+  product_ids: string[] | null
+  usage_limit: number | null
+  starts_at: string | null
+  expires_at: string | null
+  min_purchase_cents: number | null
+  is_active: boolean
+}
+
+export type CouponInput = { ok: true; values: CouponValues } | { ok: false; error: string }
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+const nothing = (v: unknown) => v === undefined || v === null || v === ""
+
+function whole(v: unknown, min: number, max: number): number | null | undefined {
+  if (nothing(v)) return null
+  const n = typeof v === "string" ? Number(v) : v
+  if (typeof n !== "number" || !Number.isInteger(n) || n < min || n > max) return undefined
+  return n
+}
+
+function instant(v: unknown): string | null | undefined {
+  if (nothing(v)) return null
+  if (typeof v !== "string") return undefined
+  const t = Date.parse(v)
+  return Number.isNaN(t) ? undefined : new Date(t).toISOString()
+}
+
+/**
+ * The body of a create, or an edit laid over the row it edits (`base`), as
+ * the values to write, or the first thing wrong with it in words a creator
+ * can act on.
+ */
+export function readCouponInput(body: unknown, base?: Partial<CouponValues> | null): CouponInput {
+  if (!body || typeof body !== "object" || Array.isArray(body)) return { ok: false, error: "Nothing to save." }
+  const b = { ...(base ?? {}), ...(body as Record<string, unknown>) } as Record<string, unknown>
+
+  const code = typeof b.code === "string" ? b.code.trim().toUpperCase() : ""
+  /* A code saved before these rules is kept as it is: turning it off, or
+     changing its dates, does not make its owner rename it. */
+  const kept = !!base?.code && code === base.code.trim().toUpperCase() && normaliseCode(code) !== null
+  if (!kept && !CODE_PATTERN.test(code)) return { ok: false, error: "A code is 3 to 32 letters, numbers, - or _." }
+
+  const type = b.discount_type
+  if (type !== "percentage" && type !== "fixed") return { ok: false, error: "Choose a percentage or a fixed amount." }
+
+  const value = typeof b.discount_value === "string" ? Number(b.discount_value) : b.discount_value
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) return { ok: false, error: "The discount has to be more than 0." }
+  if (Math.abs(Math.round(value * 100) - value * 100) > 1e-6) return { ok: false, error: "The discount can have at most two decimals." }
+  if (type === "percentage" && value > 100) return { ok: false, error: "A percentage discount is at most 100%." }
+  if (type === "fixed" && value > 100_000) return { ok: false, error: "A fixed discount is at most $100,000." }
+
+  let productIds: string[] | null = null
+  if (!nothing(b.product_ids)) {
+    if (!Array.isArray(b.product_ids) || b.product_ids.length > 500 || !b.product_ids.every((id) => typeof id === "string" && UUID_RE.test(id))) {
+      return { ok: false, error: "Those products could not be read." }
+    }
+    productIds = b.product_ids.length ? [...new Set(b.product_ids as string[])] : null
+  }
+
+  const usageLimit = whole(b.usage_limit, 1, 1_000_000)
+  if (usageLimit === undefined) return { ok: false, error: "A use limit is a whole number from 1." }
+
+  const minPurchase = whole(b.min_purchase_cents, 1, 100_000_000)
+  if (minPurchase === undefined) return { ok: false, error: "A minimum order is an amount above $0." }
+
+  const startsAt = instant(b.starts_at)
+  const expiresAt = instant(b.expires_at)
+  if (startsAt === undefined || expiresAt === undefined) return { ok: false, error: "That date could not be read." }
+  if (startsAt && expiresAt && Date.parse(expiresAt) <= Date.parse(startsAt)) return { ok: false, error: "The end has to be after the start." }
+
+  return {
+    ok: true,
+    values: {
+      code,
+      discount_type: type,
+      discount_value: Math.round(value * 100) / 100,
+      product_ids: productIds,
+      usage_limit: usageLimit,
+      starts_at: startsAt,
+      expires_at: expiresAt,
+      min_purchase_cents: minPurchase,
+      is_active: b.is_active !== false,
+    },
+  }
+}
+
+export type CouponState = "active" | "scheduled" | "expired" | "used_up" | "off"
+
+/** Where a code stands right now, in the order a buyer would meet it. */
+export function couponState(
+  c: Pick<CouponRow, "is_active" | "starts_at" | "expires_at" | "usage_limit" | "usage_count">,
+  now: Date = new Date(),
+): CouponState {
+  if (!c.is_active) return "off"
+  const t = now.getTime()
+  if (c.expires_at && Date.parse(c.expires_at) < t) return "expired"
+  if (c.usage_limit !== null && c.usage_limit !== undefined && (c.usage_count ?? 0) >= c.usage_limit) return "used_up"
+  if (c.starts_at && Date.parse(c.starts_at) > t) return "scheduled"
+  return "active"
+}
+
+export const COUPON_STATE_LABEL: Record<CouponState, string> = {
+  active: "Active",
+  scheduled: "Scheduled",
+  expired: "Expired",
+  used_up: "Used up",
+  off: "Off",
+}
+
+/** A Postgres or PostgREST error saying a column the query named is not there yet. */
+export function isMissingColumn(error: { code?: string; message?: string } | null | undefined, column: string): boolean {
+  if (!error) return false
+  return (error.code === "PGRST204" || error.code === "42703") && (error.message ?? "").includes(column)
+}

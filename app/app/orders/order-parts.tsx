@@ -21,6 +21,13 @@ export const ORDER_WIDTH = "max-w-[1040px]"
 export const GUTTER = "px-4 sm:px-6 lg:px-8"
 
 /**
+ * The list's bar, on Orders and on Products: the title and the page's one
+ * action. 14px above them rather than 8, so Export and New product do not sit
+ * against the bar above the page; the bar is 6px taller for it, not moved.
+ */
+export const LIST_BAR = "flex min-h-[66px] items-center justify-between gap-3 pb-2 pt-[14px]"
+
+/**
  * ===========================================================================
  *  THE TOP BAR OF THE LIST AND OF AN ORDER
  * ===========================================================================

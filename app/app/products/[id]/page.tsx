@@ -1,11 +1,35 @@
+import type { Metadata } from "next"
 import { redirect } from "next/navigation"
+import { loadProductEditor } from "../load-editor"
+import { EditorSkeleton } from "../new/editor-skeleton"
+import { ProductEditor } from "../new/product-editor"
+
+export const metadata: Metadata = {
+  title: "Edit product",
+}
 
 interface ProductEditPageProps {
   params: Promise<{ id: string }>
 }
 
+/**
+ * ===========================================================================
+ *  A PRODUCT'S EDITOR, WITH THE PRODUCT IN IT
+ * ===========================================================================
+ * This address used to redirect to /app/products/new?edit=<id>, a client
+ * page that drew an empty form, waited, and then fetched the creator, the
+ * product, its files and its variants one after another. Now the product is
+ * read here, in one parallel round (../load-editor.ts), and the editor's
+ * first frame is the product itself. The Products list prefetches this page
+ * in full when a row is hovered or touched, so the press usually finds it
+ * already here.
+ */
 export default async function ProductEditPage({ params }: ProductEditPageProps) {
   const { id } = await params
-  // Redirect to the new product page with edit query param
-  redirect(`/app/products/new?edit=${id}`)
+  const load = await loadProductEditor(id)
+  if (load.state === "signed-out") return <EditorSkeleton editing />
+  if (load.state === "no-creator") redirect("/onboarding")
+  /* Not theirs, or gone: back to the list rather than an empty form. */
+  if (load.state === "missing") redirect("/app/products")
+  return <ProductEditor key={id} creator={load.creator} loaded={load.loaded} />
 }
