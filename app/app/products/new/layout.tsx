@@ -8,5 +8,5 @@ import { PageLayer } from "@/components/app/page-layer"
  * owner asked, and the editor keeps room for it at the foot.
  */
 export default function NewProductLayout({ children }: { children: React.ReactNode }) {
-  return <PageLayer pill>{children}</PageLayer>
+  return <PageLayer pill inset="bar">{children}</PageLayer>
 }

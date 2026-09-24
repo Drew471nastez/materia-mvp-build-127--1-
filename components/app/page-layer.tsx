@@ -56,8 +56,14 @@ export function PageLayer({
   children: React.ReactNode
   /** Keep the phone's nav pill over this page. */
   pill?: boolean
-  /** The colour of the strip under the status bar: the page's own bar colour. */
-  inset?: "page" | "white"
+  /**
+   * Who clears the status bar. "page" and "white": the layer pads its top by
+   * the inset and paints that strip in the page's colour or in white. "bar":
+   * the page's own sticky bar pads itself (the product editor's does, inside
+   * any [data-page-layer]), so the layer adds nothing and the bar's colour
+   * runs up under the clock as the page scrolls beneath it.
+   */
+  inset?: "page" | "white" | "bar"
   className?: string
 }) {
   useLayoutEffect(() => {
@@ -70,7 +76,8 @@ export function PageLayer({
     <div
       data-page-layer={pill ? "pill" : ""}
       className={cn(
-        "fixed inset-0 z-[52] flex flex-col bg-[#f8f9fa] pt-[env(safe-area-inset-top,0px)]",
+        "fixed inset-0 z-[52] flex flex-col bg-[#f8f9fa]",
+        inset !== "bar" && "pt-[env(safe-area-inset-top,0px)]",
         inset === "white" && "bg-white",
         className,
       )}

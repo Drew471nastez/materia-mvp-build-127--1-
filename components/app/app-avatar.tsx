@@ -49,6 +49,36 @@ export function initialsOf(name: string | null | undefined) {
   return (words.length > 1 ? words[0][0] + words[words.length - 1][0] : words[0].slice(0, 2)).toUpperCase()
 }
 
+/**
+ * FETCH AND DECODE A PHOTO BEFORE IT IS NEEDED, at the size it will be drawn.
+ * The account sheet shows the avatar at 40px, a different file from the
+ * header's 24px one, so the first open used to fetch and decode it while the
+ * sheet was sliding up, and fade it in half way. Asked for here with the
+ * same `srcset` and `sizes` as <AppAvatar> would give it, so the browser picks
+ * the same file, and marked shown once it has decoded, so the sheet draws it
+ * on its first frame with no fade.
+ */
+const preloaded = new Set<string>()
+export function preloadAvatar(src: string | null | undefined, size: number) {
+  if (typeof window === "undefined" || typeof Image === "undefined") return
+  const url = src && !src.includes("placeholder.svg") ? toOriginalImageUrl(src) || null : null
+  if (!url) return
+  const key = `${url} ${size}`
+  if (preloaded.has(key)) return
+  preloaded.add(key)
+  const img = new Image()
+  if (isOptimizableImage(url)) {
+    const set = optimizedSrcSet(url, [...new Set([sizeStep(size), sizeStep(size * 2)])])
+    if (set) { img.sizes = `${size}px`; img.srcset = set }
+    img.src = optimizedImageUrl(url, size)
+  } else {
+    img.src = url
+  }
+  const done = () => shown.add(url)
+  if (typeof img.decode === "function") img.decode().then(done, () => { preloaded.delete(key) })
+  else img.onload = done
+}
+
 export function AppAvatar({
   src,
   name,

@@ -148,8 +148,20 @@ for (const which of (process.env.PAGES || "plans,new,edit").split(",")) {
         }
       }
       const bar = which === "plans" ? document.querySelector("[data-upgrade-page] > div") : document.querySelector("[data-editor-bar]")
+      /* The editor's bar clears the status bar itself inside a layer (a class
+         the products branch adds to product-editor.tsx). Where this tree does
+         not have it yet, the same padding is put on the bar here, and said. */
+      let simulated = false
+      if (which !== "plans" && !/data-page-layer/.test(bar.className)) {
+        bar.style.paddingTop = "env(safe-area-inset-top, 0px)"
+        simulated = true
+      }
       const br = bar.getBoundingClientRect()
-      const barHit = document.elementFromPoint(W / 2, br.top + br.height / 2)
+      const controls = [...bar.querySelectorAll("a, button")].map((c) => c.getBoundingClientRect()).filter((r) => r.width > 0 && r.height > 0)
+      const controlsTop = Math.min(...controls.map((r) => r.top))
+      const controlsBottom = Math.max(...controls.map((r) => r.bottom))
+      const first = controls.find((r) => r.top === controlsTop)
+      const barHit = document.elementFromPoint(first.x + first.width / 2, first.y + first.height / 2)
       const probe = document.createElement("div")
       probe.style.cssText = "position:fixed;top:0;height:env(safe-area-inset-top,0px)"
       document.body.appendChild(probe)
@@ -163,7 +175,7 @@ for (const which of (process.env.PAGES || "plans,new,edit").split(",")) {
         layer: { x: lr.x, y: lr.y, w: lr.width, h: lr.height },
         points, chromeHits: chrome, outsideLayer: outside,
         headerVisibility: [...document.querySelectorAll("[data-shell-chrome]")].map((h) => getComputedStyle(h).visibility),
-        bar: { top: Math.round(br.top * 10) / 10, bottom: Math.round(br.bottom * 10) / 10 },
+        bar: { top: Math.round(br.top * 10) / 10, bottom: Math.round(br.bottom * 10) / 10, controlsTop: Math.round(controlsTop * 10) / 10, controlsBottom: Math.round(controlsBottom * 10) / 10, simulated },
         barReached: !!barHit && bar.contains(barHit),
         shield: getComputedStyle(document.documentElement, "::before").display,
         pillVisible: getComputedStyle(pill).visibility === "visible" && pr.width > 0,
@@ -195,9 +207,13 @@ for (const which of (process.env.PAGES || "plans,new,edit").split(",")) {
     if (m.layer.x !== 0 || m.layer.y !== 0 || m.layer.w !== m.W || m.layer.h !== m.H) problems.push(`${at} the layer is not the window: ${JSON.stringify(m.layer)}`)
     if (m.chromeHits) problems.push(`${at} ${m.chromeHits} of ${m.points} points in the top 120px landed on the shell's header`)
     if (m.outsideLayer) problems.push(`${at} ${m.outsideLayer} of ${m.points} points in the top 120px landed outside the layer`)
-    if (Math.abs(m.bar.top - wantTop) > 0.5) problems.push(`${at} the page's bar starts at ${m.bar.top}px, not at the inset (${wantTop})`)
-    if (m.bar.bottom > m.H || m.bar.bottom - m.bar.top < 44) problems.push(`${at} the page's bar is not whole inside the window: ${JSON.stringify(m.bar)}`)
-    if (!m.barReached) problems.push(`${at} a tap on the middle of the page's bar does not reach it`)
+    /* The plans page: the layer pads, so its bar starts at the inset. The
+       editor: its bar pads itself, so the bar starts at 0 and paints the strip. */
+    const wantBarTop = which === "plans" ? wantTop : 0
+    if (Math.abs(m.bar.top - wantBarTop) > 0.5) problems.push(`${at} the page's bar starts at ${m.bar.top}px, not at ${wantBarTop}`)
+    if (m.bar.controlsTop < wantTop - 0.5) problems.push(`${at} the bar's controls start at ${m.bar.controlsTop}px, under the status bar (${wantTop})`)
+    if (m.bar.controlsBottom > m.H || m.bar.bottom - m.bar.top < 44) problems.push(`${at} the page's bar is not whole inside the window: ${JSON.stringify(m.bar)}`)
+    if (!m.barReached) problems.push(`${at} a tap on the first control in the page's bar does not reach it`)
     if (native && m.shield !== "none") problems.push(`${at} the native black shield is still drawn over the status bar strip (${m.shield})`)
     if (which === "plans") {
       if (width === 390 && (m.pillVisible || m.pillReached)) problems.push(`${at} the nav pill shows over the plans page`)

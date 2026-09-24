@@ -62,14 +62,32 @@ import { createPortal } from "react-dom"
 import { cn } from "@/lib/utils"
 import { bottomAboveKeyboard } from "@/lib/ui/keyboard-safe-sheet"
 
-/** Long enough to read as a movement, short enough not to be a wait. */
-export const SHEET_OPEN_MS = 380
-export const SHEET_CLOSE_MS = 260
-/** iOS's own sheet curve: leaves fast, arrives slow, never overshoots. */
+/**
+ * THE TIMING. "Not smooth when it closes and when it opens: too direct, not
+ * so fast, not direct." The open is 440ms on iOS's own presentation curve
+ * (it leaves fast and settles slowly into place, never past it). A close by
+ * a tap outside, Escape or the page is 340ms on an ease in and out: it
+ * starts gently and ends gently. The presentation curve on a close is what
+ * read as a jump: it covers a quarter of the way in its first two frames, so
+ * the sheet seemed to vanish from under the finger rather than go down.
+ *
+ * A flick is different: the sheet is already moving at the finger's speed,
+ * so it keeps that speed and slows to a stop, on the presentation curve,
+ * over a time worked out from the velocity.
+ *
+ * The scrim fades on the same timing and the same curve as the sheet moves,
+ * so the two arrive and leave together.
+ */
+export const SHEET_OPEN_MS = 440
+export const SHEET_CLOSE_MS = 340
+/** iOS's own sheet curve: leaves fast, arrives slow, never overshoots. For an open, and for a flick. */
 export const SHEET_EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
+/** A close nobody is dragging: in gently, out gently. */
+export const SHEET_CLOSE_EASE = "cubic-bezier(0.4, 0, 0.2, 1)"
 const OPEN_MS = SHEET_OPEN_MS
 const CLOSE_MS = SHEET_CLOSE_MS
 const EASE = SHEET_EASE
+const CLOSE_EASE = SHEET_CLOSE_EASE
 /** Past this, a release closes on distance alone. */
 const DISMISS_PX = 96
 /** Past this, a release closes however short the drag was. */
@@ -126,9 +144,9 @@ function leaveBehind(root: HTMLElement, fromY: number, height: number, scrimOpac
   for (const [i, top] of scrolled) if (to[i]) to[i].scrollTop = top
   let gone = false
   const done = () => { if (!gone) { gone = true; ghost.remove() } }
-  const ms = reducedMotion() ? 1 : Math.max(160, CLOSE_MS * Math.min(1, (h - fromY) / h))
+  const ms = reducedMotion() ? 1 : Math.max(200, CLOSE_MS * Math.min(1, (h - fromY) / h))
   if (typeof panel.animate !== "function") { done(); return }
-  const timing: KeyframeAnimationOptions = { duration: ms, easing: EASE }
+  const timing: KeyframeAnimationOptions = { duration: ms, easing: CLOSE_EASE }
   const a = panel.animate([{ transform: translate(fromY) }, { transform: translate(h) }], timing)
   scrim?.animate([{ opacity: scrimOpacity }, { opacity: 0 }], timing)
   a.onfinish = done
@@ -267,7 +285,7 @@ export function BottomSheet({
    * so when the animation ends there is nothing to hand back: the node is
    * already where the animation left it.
    */
-  const glide = useCallback((from: number, to: number, ms: number, then?: () => void) => {
+  const glide = useCallback((from: number, to: number, ms: number, then?: () => void, easing: string = EASE) => {
     const sheet = sheetRef.current
     const scrim = scrimRef.current
     if (!sheet) { then?.(); return }
@@ -284,7 +302,7 @@ export function BottomSheet({
       then?.()
       return
     }
-    const timing: KeyframeAnimationOptions = { duration, easing: EASE }
+    const timing: KeyframeAnimationOptions = { duration, easing }
     const a = sheet.animate([{ transform: translate(from) }, { transform: translate(to) }], timing)
     const anims = [a]
     if (scrim) anims.push(scrim.animate([{ opacity: opacity(from) }, { opacity: opacity(to) }], timing))
@@ -329,14 +347,15 @@ export function BottomSheet({
     const travel = Math.max(1, heightRef.current - from)
     const v = flickRef.current
     flickRef.current = 0
-    /* A hard flick has less left to do and should take less time doing it. */
+    /* A hard flick has less left to do and should take less time doing it,
+       and keeps the finger's speed at the start; anything else eases out. */
     const ms = v > 0
       ? Math.max(140, Math.min(CLOSE_MS, travel / (v * 2.2)))
-      : Math.max(160, CLOSE_MS * Math.min(1, travel / heightRef.current))
+      : Math.max(200, CLOSE_MS * Math.min(1, travel / heightRef.current))
     glide(from, heightRef.current, ms, () => {
       closingRef.current = false
       setPresent(false)
-    })
+    }, v > 0 ? EASE : CLOSE_EASE)
   }, [isOpen, present, mounted, glide, currentY])
 
   useEffect(() => () => stopMotion(), [stopMotion])
@@ -369,14 +388,18 @@ export function BottomSheet({
     const h = heightRef.current || sheet?.offsetHeight || 600
     const from = currentY()
     const travel = Math.max(1, h - from)
-    const ms = Math.max(140, Math.min(CLOSE_MS, velocity > 0 ? travel / (velocity * 2.2) : CLOSE_MS))
+    const ms = velocity > 0
+      ? Math.max(140, Math.min(CLOSE_MS, travel / (velocity * 2.2)))
+      : Math.max(200, CLOSE_MS * Math.min(1, travel / h))
     glide(from, h, ms, () => {
       closingRef.current = false
       /* The parent said no (a refund still in flight, say): come back up
          rather than leave a sheet it still thinks is open. */
       if (isOpenRef.current) { glide(h, 0, OPEN_MS); return }
       setPresent(false)
-    })
+    }, velocity > 0 ? EASE : CLOSE_EASE)
+    /* The parent hears about it after the slide has started, so whatever it
+       renders in answer lands on a frame the compositor is already moving. */
     onCloseRef.current()
   }, [currentY, glide])
 
@@ -506,13 +529,25 @@ export function BottomSheet({
    * tabs straight past. The panel takes focus when it opens, without
    * scrolling anything, and the control that opened it gets it back after.
    */
+  /* Both moves wait for the slide to finish: a focus change restyles the
+     control that gains it and the one that loses it, and neither belongs in
+     the first frames of a movement. */
   useEffect(() => {
     if (!isOpen || !mounted) return
     const opener = document.activeElement as HTMLElement | null
-    const panel = sheetRef.current
-    if (panel && !panel.contains(document.activeElement)) panel.focus({ preventScroll: true })
+    const into = window.setTimeout(() => {
+      const panel = sheetRef.current
+      if (panel && isOpenRef.current && !panel.contains(document.activeElement)) panel.focus({ preventScroll: true })
+    }, reducedMotion() ? 0 : OPEN_MS)
     return () => {
-      if (opener && opener.isConnected && typeof opener.focus === "function") opener.focus({ preventScroll: true })
+      window.clearTimeout(into)
+      window.setTimeout(() => {
+        /* Only if focus has not gone somewhere of its own since (a sheet
+           opened again, a field tapped). */
+        const now = document.activeElement
+        if (now && now !== document.body && !rootRef.current?.contains(now)) return
+        if (opener && opener.isConnected && typeof opener.focus === "function") opener.focus({ preventScroll: true })
+      }, reducedMotion() ? 0 : CLOSE_MS)
     }
   }, [isOpen, mounted])
 
@@ -547,7 +582,7 @@ export function BottomSheet({
         ref={sheetRef}
         data-sheet-panel=""
         tabIndex={-1}
-        className={cn("absolute inset-x-0 bottom-0 rounded-t-[20px] bg-white outline-none shadow-[0_-8px_40px_rgba(0,0,0,0.18)]", className)}
+        className={cn("absolute inset-x-0 bottom-0 rounded-t-[20px] bg-white outline-none", className)}
         style={{
           transform: "translate3d(0, 100%, 0)",
           /* The sheet owns every touch on it: the browser must not decide
@@ -559,7 +594,14 @@ export function BottomSheet({
           height,
           display: "flex",
           flexDirection: "column",
+          /* Layout and style stop at the panel. Paint cannot: the skirt
+             below is painted outside it on purpose. The content inside gets
+             paint containment as well (the body below). */
           contain: "layout style",
+          /* A short soft edge along the top. It was a 40px blur at 18%:
+             under a 40% scrim it could not be seen, and it was the largest
+             thing to raster on the first frame of every open. */
+          boxShadow: "0 -2px 16px rgba(0, 0, 0, 0.08)",
         }}
       >
         <div data-sheet-handle className="shrink-0 pt-2.5 pb-1">
@@ -570,25 +612,14 @@ export function BottomSheet({
           {header}
         </div>
         {fill ? (
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden" style={{ touchAction: "pan-x pan-y" }}>
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden" style={{ touchAction: "pan-x pan-y", contain: "layout paint" }}>
             {shownRef.current}
           </div>
         ) : (
-          <div ref={bodyRef} data-sheet-scroll="" className="min-h-0 flex-1 overflow-y-auto overscroll-contain" style={{ touchAction: "pan-y" }}>
+          <div ref={bodyRef} data-sheet-scroll="" className="min-h-0 flex-1 overflow-y-auto overscroll-contain" style={{ touchAction: "pan-y", contain: "layout paint" }}>
             {shownRef.current}
           </div>
         )}
-        {/*
-          THE SKIRT. The sheet's own colour, carried on below where the sheet
-          ends. Nothing here is ever meant to be seen: it is what is there
-          instead of the scrim when the sheet is lifted by a pull, by a
-          keyboard, or by a phone deciding its safe area is bigger than it
-          said. Out of the layout, so it changes nothing above it.
-        */}
-        <div
-          aria-hidden
-          style={{ position: "absolute", left: 0, right: 0, top: "100%", height: 160, background: "inherit" }}
-        />
       </div>
     </div>,
     document.body,

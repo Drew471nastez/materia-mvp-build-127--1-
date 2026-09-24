@@ -2840,14 +2840,27 @@ html.capacitor .app-content-scroll {
    * the pill does not pop out of the fading scrim, but gives the tap back
    * at once.
    * ────────────────────────────────────────────────────────────────────── */
+  /*
+   * NOT `*`. The second rule used to end in `[data-app-nav-pill] *`, and a
+   * rule whose last part is `*` cannot say which elements a change to it
+   * touches, so every time a sheet opened or closed (the moment `:has()` on
+   * <html> flipped) the browser worked out the style of the whole document
+   * again. Measured with the account sheet over a dashboard sized page on a
+   * CPU slowed four times (scripts/check-sheet-motion.mjs): 80 to 130ms of
+   * style work in the first 100ms after the tap, on the open and again on
+   * the close, which are the first frames of both. Naming what can take a
+   * tap (the pill's `pointer-events-auto` parts, and any link or button)
+   * gives the same result for a few elements. Radix's lock is an attribute
+   * on <body> itself and needs no :has() at all.
+   */
   html:has([data-app-sheet]) [data-app-nav-pill],
   html:has([role="dialog"][aria-modal="true"]:not([data-mobile-menu])) [data-app-nav-pill],
-  html:has(body[data-scroll-locked]) [data-app-nav-pill] {
+  body[data-scroll-locked] [data-app-nav-pill] {
     z-index: 39;
   }
-  html:has([data-app-sheet="open"]) [data-app-nav-pill] *,
-  html:has([role="dialog"][aria-modal="true"]:not([data-mobile-menu])) [data-app-nav-pill] *,
-  html:has(body[data-scroll-locked]) [data-app-nav-pill] * {
+  html:has([data-app-sheet="open"]) [data-app-nav-pill] :is(a, button, .pointer-events-auto),
+  html:has([role="dialog"][aria-modal="true"]:not([data-mobile-menu])) [data-app-nav-pill] :is(a, button, .pointer-events-auto),
+  body[data-scroll-locked] [data-app-nav-pill] :is(a, button, .pointer-events-auto) {
     pointer-events: none !important;
   }
 

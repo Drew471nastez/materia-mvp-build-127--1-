@@ -112,8 +112,8 @@ section("Pages drawn over the whole shell")
   const upgrade = code("app/app/settings/billing/upgrade/layout.tsx")
   const newLayout = code("app/app/products/new/layout.tsx")
   const idLayout = code("app/app/products/[id]/layout.tsx")
-  check("the plans page and both editor addresses use the one shared layer; the editor keeps the pill",
-    /<PageLayer inset="white">/.test(upgrade) && /<PageLayer pill>/.test(newLayout) && /<PageLayer pill>/.test(idLayout))
+  check("the plans page and both editor addresses use the one shared layer; the editor keeps the pill and its bar clears the status bar itself",
+    /<PageLayer inset="white">/.test(upgrade) && /<PageLayer pill inset="bar">/.test(newLayout) && /<PageLayer pill inset="bar">/.test(idLayout))
   const layer = code("components/app/page-layer.tsx")
   check("the layer is the whole window, between the header and the pill, and pads itself under the status bar",
     /fixed inset-0 z-\[52\]/.test(layer) && /pt-\[env\(safe-area-inset-top,0px\)\]/.test(layer) && /classList\.add\("has-page-layer"\)/.test(layer))
@@ -195,7 +195,8 @@ section("Avatars")
   check("a photo already shown in this tab is drawn at once", /useState\(\(\) => !!url && shown\.has\(url\)\)/.test(avatar))
   check("it is asked for at its drawn size, never through a storage transform",
     /optimizedSrcSet\(url,/.test(avatar) && /toOriginalImageUrl\(src\)/.test(avatar) && !/render\/image/.test(avatar))
-  const sidebar = code("components/app/sidebar.tsx")
+  /* The phone's account trigger and sheet live in their own file now (components/app/mobile-account-menu.tsx). */
+  const sidebar = code("components/app/sidebar.tsx") + code("components/app/mobile-account-menu.tsx")
   check("the header, the account sheet and the sidebar all use it, and none draws initials under a photo",
     (sidebar.match(/<AppAvatar /g) ?? []).length === 4 && !/>\s*\{userInitials\}\s*</.test(sidebar))
   const settings = code("components/app/settings-form-new.tsx")
