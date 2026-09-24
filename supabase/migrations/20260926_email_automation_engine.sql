@@ -4,7 +4,7 @@
    The same statements as supabase/sql/RUN_EMAIL_AUTOMATIONS.sql, for a
    database built from migrations. Safe to
    run more than once: every piece checks before it acts. It adds one column
-   to `subscribers`, three tables, and four functions. Nothing is deleted or
+   to `subscribers`, three tables, and six functions. Nothing is deleted or
    rewritten.
 
    ONE STATEMENT PER LINE, on purpose. Let the editor wrap the long ones and
@@ -83,9 +83,12 @@ GRANT EXECUTE ON FUNCTION public.email_flow_health() TO service_role;
 CREATE OR REPLACE FUNCTION public.email_flow_step_stats(p_flow_id uuid) RETURNS TABLE (step_id text, sent bigint, opened bigint, clicked bigint, failed bigint) LANGUAGE sql STABLE SECURITY INVOKER SET search_path = public AS $$ SELECT s.step_id, count(*) FILTER (WHERE s.status = 'sent'), count(*) FILTER (WHERE s.opened_at IS NOT NULL), count(*) FILTER (WHERE s.clicked_at IS NOT NULL), count(*) FILTER (WHERE s.status IN ('failed', 'interrupted')) FROM public.email_flow_sends s WHERE s.flow_id = p_flow_id GROUP BY s.step_id; $$;
 REVOKE ALL ON FUNCTION public.email_flow_step_stats(uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.email_flow_step_stats(uuid) TO authenticated, service_role;
+CREATE OR REPLACE FUNCTION public.email_flow_totals() RETURNS TABLE (flow_id uuid, sent bigint, opened bigint, clicked bigint, failed bigint, in_progress bigint) LANGUAGE sql STABLE SECURITY INVOKER SET search_path = public AS $$ SELECT f.id, (SELECT count(*) FROM public.email_flow_sends s WHERE s.flow_id = f.id AND s.status = 'sent'), (SELECT count(*) FROM public.email_flow_sends s WHERE s.flow_id = f.id AND s.opened_at IS NOT NULL), (SELECT count(*) FROM public.email_flow_sends s WHERE s.flow_id = f.id AND s.clicked_at IS NOT NULL), (SELECT count(*) FROM public.email_flow_jobs j WHERE j.flow_id = f.id AND j.state = 'failed'), (SELECT count(*) FROM public.email_flow_runs r WHERE r.flow_id = f.id AND r.status = 'active') FROM public.email_flows f; $$;
+REVOKE ALL ON FUNCTION public.email_flow_totals() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.email_flow_totals() TO authenticated, service_role;
 
 /* PostgREST answers from its own cached schema; without this the API keeps saying the new tables and functions do not exist. */
 NOTIFY pgrst, 'reload schema';
 
 /* Did it work? Every number should read 1. */
-SELECT (SELECT count(*) FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'subscribers' AND column_name = 'source_detail') AS subscriber_source, (SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'email_flow_runs') AS runs, (SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'email_flow_jobs') AS jobs, (SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'email_flow_sends') AS sends, (SELECT count(*) FROM pg_proc WHERE proname = 'enroll_email_flow') AS enroll, (SELECT count(*) FROM pg_proc WHERE proname = 'claim_email_flow_jobs') AS claim, (SELECT count(*) FROM pg_proc WHERE proname = 'email_flow_step_stats') AS step_stats;
+SELECT (SELECT count(*) FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'subscribers' AND column_name = 'source_detail') AS subscriber_source, (SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'email_flow_runs') AS runs, (SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'email_flow_jobs') AS jobs, (SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'email_flow_sends') AS sends, (SELECT count(*) FROM pg_proc WHERE proname = 'enroll_email_flow') AS enroll, (SELECT count(*) FROM pg_proc WHERE proname = 'claim_email_flow_jobs') AS claim, (SELECT count(*) FROM pg_proc WHERE proname = 'email_flow_step_stats') AS step_stats, (SELECT count(*) FROM pg_proc WHERE proname = 'email_flow_totals') AS totals;

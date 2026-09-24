@@ -78,11 +78,12 @@ export function isTriggerType(v: unknown): v is TriggerType {
   return v === "new_subscriber" || v === "purchase"
 }
 
-export const CONDITIONS: Record<ConditionCheck, { label: string; needsEmailBefore: boolean; triggers: TriggerType[] }> = {
-  no_purchase_since_entry: { label: "Has not bought anything since entering", needsEmailBefore: false, triggers: ["new_subscriber", "purchase"] },
-  purchased_since_entry: { label: "Has bought something since entering", needsEmailBefore: false, triggers: ["new_subscriber", "purchase"] },
-  opened_previous_email: { label: "Opened the email before this", needsEmailBefore: true, triggers: ["new_subscriber", "purchase"] },
-  not_opened_previous_email: { label: "Did not open the email before this", needsEmailBefore: true, triggers: ["new_subscriber", "purchase"] },
+/** `phrase` finishes "Continue only if ...". */
+export const CONDITIONS: Record<ConditionCheck, { label: string; phrase: string; needsEmailBefore: boolean }> = {
+  no_purchase_since_entry: { label: "Has not bought anything since entering", phrase: "they have not bought anything since entering", needsEmailBefore: false },
+  purchased_since_entry: { label: "Has bought something since entering", phrase: "they have bought something since entering", needsEmailBefore: false },
+  opened_previous_email: { label: "Opened the email before this", phrase: "they opened the email before this", needsEmailBefore: true },
+  not_opened_previous_email: { label: "Did not open the email before this", phrase: "they did not open the email before this", needsEmailBefore: true },
 }
 
 export function isConditionCheck(v: unknown): v is ConditionCheck {
@@ -308,7 +309,7 @@ export function timeline(steps: FlowStep[]): Array<{ stepId: string; when: strin
     }
     const when = elapsed === 0 ? "Right away" : `After ${durationText(elapsed)}`
     if (s.type === "email") out.push({ stepId: s.id, when, what: `Email: ${s.config.subject.trim() || "No subject yet"}` })
-    else out.push({ stepId: s.id, when, what: `Only if: ${CONDITIONS[s.config.check].label.toLowerCase()}` })
+    else out.push({ stepId: s.id, when, what: `Only if ${CONDITIONS[s.config.check].phrase}` })
   }
   return out
 }

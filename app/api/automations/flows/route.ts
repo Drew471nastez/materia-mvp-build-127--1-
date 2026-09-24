@@ -31,7 +31,12 @@ export async function POST(request: Request) {
       .select("id, trigger_config")
       .eq("creator_id", me.creatorId)
       .eq("trigger_type", template.trigger)
-    const same = (existing ?? []).find((f: { trigger_config?: { template?: string } | null }) => f.trigger_config?.template === template.id)
+    /* A flow from before templates were named is the welcome or the thank
+       you, as the chooser reads it (app/app/emails/flow/new/page.tsx). */
+    const legacy = template.trigger === "new_subscriber" ? "welcome" : "thank_you"
+    const same = (existing ?? []).find(
+      (f: { trigger_config?: { template?: string } | null }) => (f.trigger_config?.template ?? legacy) === template.id,
+    )
     if (same) return NextResponse.json({ id: same.id, existing: true })
   }
 

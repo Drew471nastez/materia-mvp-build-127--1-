@@ -17,14 +17,18 @@
  * which also draws the editors this screen opens.
  */
 import * as React from "react"
-import { Download, Plus, Search, X } from "lucide-react"
+import { ChevronDown, Download, Plus, Search, X } from "lucide-react"
 import { Switch } from "@/components/ui/switch"
 import { DateRangePicker } from "@/components/app/date-range-picker"
 import { HelpLabel } from "@/components/app/help-label"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
+import { Popover, PopoverTrigger } from "@/components/ui/popover"
+import { NOT_RECORDED, sourceView } from "@/lib/contacts/contact-source"
+import { TRIGGERS, isTriggerType, normalizeSteps, stepSummary } from "@/lib/automations/flow-model"
+import { ContactDetail } from "./contact-detail"
 import type { RangeValue } from "@/lib/date-range/range"
 import { cn } from "@/lib/utils"
-import { GUTTER, LIST_WIDTH, PaneBar, RowMenuButton, StatusBadge, buttonAccent, buttonSecondary, card, iconButton } from "../orders/order-parts"
+import { GUTTER, LIST_WIDTH, MenuOption, MenuSurface, PaneBar, RowMenuButton, StatusBadge, buttonAccent, buttonSecondary, card, iconButton } from "../orders/order-parts"
 
 export type EmailsTab = "subscribers" | "flows" | "published" | "scheduled" | "drafts"
 
@@ -36,15 +40,28 @@ export interface SubscriberRow {
   status: string
   subscribed_at: string
   unsubscribed_at?: string | null
+  /** Where they joined (lib/contacts/contact-source). Missing before its SQL has run. */
+  source_detail?: unknown
+  consent_text?: string | null
+}
+
+/** What a flow has done, from its send records (email_flow_totals). */
+export interface FlowTotals {
+  sent: number
+  opened: number
+  clicked: number
+  failed: number
+  in_progress: number
 }
 
 export interface FlowRow {
   id: string
   name: string
   trigger_type: string
+  trigger_config?: unknown
   status: string
-  steps?: unknown[]
-  stats?: { emails_sent: number; open_rate: number } | null
+  steps?: unknown
+  totals?: FlowTotals | null
 }
 
 export interface CampaignRow {
@@ -84,7 +101,6 @@ export interface EmailsHomeProps {
   onRemoveSubscriber: (id: string) => void
 
   flows: FlowRow[]
-  trigger: (type: string) => { name: string; description: string }
   onCreateFlow: () => void
   onEditFlow: (flow: FlowRow) => void
   onToggleFlow: (flow: FlowRow) => void
@@ -244,22 +260,29 @@ function readingsFor(p: EmailsHomeProps): Reading[] {
   const n = (v: number) => Math.round(v).toLocaleString("en-US")
   if (p.tab === "subscribers") {
     const on = p.subscribers.filter((s) => s.status === "subscribed")
-    const fromPage = on.filter((s) => s.source === "onepage").length
+    const surface = (s: SubscriberRow) => {
+      const v = sourceView(s.source_detail, s.source)
+      return v.key.startsWith("site:") ? "website" : v.key
+    }
+    const fromSites = on.filter((s) => surface(s) === "website").length
+    const fromStorelib = on.filter((s) => ["profile", "product", "onepage"].includes(surface(s))).length
+    const fromCheckout = on.filter((s) => surface(s) === "checkout").length
     return [
       { label: "Subscribers", help: "Everyone who gets your emails: people who signed up, and buyers.", value: n(on.length + p.checkoutBuyersCount) },
-      { label: "From your OnePage", help: "People who signed up on your OnePage.", value: n(fromPage) },
-      { label: "From your store", help: "People who signed up on your website, and buyers who are not on the list yet.", value: n(on.length - fromPage + p.checkoutBuyersCount) },
+      { label: "From your website", help: "People who signed up on a website you built with Storelib.", value: n(fromSites) },
+      { label: "From Storelib", help: "People who signed up on your Storelib profile, a product page or your OnePage.", value: n(fromStorelib) },
+      { label: "At checkout", help: "Buyers who asked to hear from you when they paid.", value: n(fromCheckout) },
       { label: "Unsubscribed", help: "People who asked to stop getting your emails. They are never sent another.", value: n(p.subscribers.filter((s) => s.status === "unsubscribed").length) },
     ]
   }
   if (p.tab === "flows") {
-    const sent = p.flows.reduce((sum, f) => sum + (f.stats?.emails_sent ?? 0), 0)
-    const withStats = p.flows.filter((f) => (f.stats?.emails_sent ?? 0) > 0)
-    const opens = withStats.length ? withStats.reduce((sum, f) => sum + (f.stats?.open_rate ?? 0) * (f.stats?.emails_sent ?? 0), 0) / sent : null
+    const sum = (k: keyof FlowTotals) => p.flows.reduce((total, f) => total + (f.totals?.[k] ?? 0), 0)
+    const sent = sum("sent")
     return [
       { label: "On", help: "Automations that are sending.", value: `${p.flows.filter((f) => f.status === "active").length} of ${p.flows.length}` },
+      { label: "In progress", help: "People partway through an automation right now.", value: n(sum("in_progress")) },
       { label: "Emails sent", help: "Every email your automations have sent.", value: n(sent) },
-      { label: "Open rate", help: "Of the emails your automations sent, how many were opened.", value: opens === null ? "–" : `${Math.round(opens * 10) / 10}%` },
+      { label: "Open rate", help: "Of the emails your automations sent, how many were opened. Some mail apps hide opens, so this is a floor.", value: sent ? `${Math.round((sum("opened") / sent) * 1000) / 10}%` : "–" },
     ]
   }
   if (p.tab === "published" && p.overview) {
@@ -334,17 +357,97 @@ function SubscriberStatus({ s }: { s: SubscriberRow }) {
   return <StatusBadge tone="neutral">Unsubscribed</StatusBadge>
 }
 
+/** A filter as a chip in the table's toolbar, the way Orders draws its own. */
+function FilterChip({
+  label,
+  value,
+  options,
+  selected,
+  onSelect,
+}: {
+  label: string
+  value: string | null
+  options: Array<{ value: string; label: string; hint?: string }>
+  selected: string
+  onSelect: (value: string) => void
+}) {
+  const [open, setOpen] = React.useState(false)
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <div
+        className={cn(
+          "flex h-7 shrink-0 items-center rounded-lg border text-[12px] font-medium",
+          value ? "border-[#1a1a2e]/15 bg-[#f1f2f4] text-[#1a1a2e]" : "border-dashed border-[#c9ccd3] text-[#4b5563]",
+        )}
+      >
+        <PopoverTrigger asChild>
+          <button type="button" className="flex h-full max-w-[220px] cursor-pointer items-center gap-1 px-2.5">
+            <span className="truncate">{value ? `${label}: ${value}` : label}</span>
+            {value ? null : <ChevronDown className="h-3.5 w-3.5 shrink-0" />}
+          </button>
+        </PopoverTrigger>
+        {value ? (
+          <button type="button" aria-label={`Clear ${label}`} className="flex h-full cursor-pointer items-center pr-2 text-[#6b7280] hover:text-[#1a1a2e]" onClick={() => onSelect("")}>
+            <X className="h-3.5 w-3.5" />
+          </button>
+        ) : null}
+      </div>
+      <MenuSurface className="max-h-[320px] w-[280px] overflow-y-auto">
+        <div role="menu" aria-label={label}>
+          {options.map((o) => (
+            <MenuOption
+              key={o.value}
+              selected={o.value === selected}
+              hint={o.hint}
+              onSelect={() => {
+                onSelect(o.value)
+                setOpen(false)
+              }}
+            >
+              {o.label}
+            </MenuOption>
+          ))}
+        </div>
+      </MenuSurface>
+    </Popover>
+  )
+}
+
 function SubscribersTable(props: EmailsHomeProps) {
   const [searching, setSearching] = React.useState(props.search !== "")
   const [page, setPage] = React.useState(1)
+  const [source, setSource] = React.useState("")
+  const [open, setOpen] = React.useState<SubscriberRow | null>(null)
   const q = props.search.trim().toLowerCase()
+
+  /* Every contact's source, read once: the column, the filter and its counts. */
+  const views = React.useMemo(() => new Map(props.subscribers.map((s) => [s.id, sourceView(s.source_detail, s.source)])), [props.subscribers])
+  const sources = React.useMemo(() => {
+    const count = new Map<string, { label: string; n: number }>()
+    for (const v of views.values()) {
+      const c = count.get(v.key)
+      if (c) c.n++
+      else count.set(v.key, { label: v.label, n: 1 })
+    }
+    /* Websites first, by size; then Storelib's own pages; Not recorded last. */
+    return [...count.entries()]
+      .sort(([ak, a], [bk, b]) => Number(ak === "none") - Number(bk === "none") || Number(!ak.startsWith("site:")) - Number(!bk.startsWith("site:")) || b.n - a.n)
+      .map(([key, c]) => ({ value: key, label: c.label, hint: `${c.n.toLocaleString("en-US")} ${c.n === 1 ? "contact" : "contacts"}` }))
+  }, [views])
+
   const rows = React.useMemo(
-    () => (q ? props.subscribers.filter((s) => s.email.toLowerCase().includes(q) || (s.name ?? "").toLowerCase().includes(q)) : props.subscribers),
-    [props.subscribers, q],
+    () =>
+      props.subscribers.filter(
+        (s) =>
+          (!q || s.email.toLowerCase().includes(q) || (s.name ?? "").toLowerCase().includes(q)) &&
+          (!source || views.get(s.id)?.key === source),
+      ),
+    [props.subscribers, q, source, views],
   )
-  React.useEffect(() => setPage(1), [q])
+  React.useEffect(() => setPage(1), [q, source])
   const pages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE))
   const shown = rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+  const sourceName = source ? sources.find((o) => o.value === source)?.label ?? null : null
 
   return (
     <>
@@ -388,17 +491,23 @@ function SubscribersTable(props: EmailsHomeProps) {
         </Toolbar>
       )}
 
+      {props.subscribers.length > 0 ? (
+        <div className="orders-strip flex items-center gap-2 overflow-x-auto border-b border-[#eef0f2] px-3 py-2">
+          <FilterChip label="Source" value={sourceName} options={[{ value: "", label: "Any source" }, ...sources]} selected={source} onSelect={setSource} />
+        </div>
+      ) : null}
+
       {props.loading ? (
         <Loading />
       ) : rows.length === 0 ? (
-        q ? (
-          <Empty title="No subscribers match" body="Try another email or name." />
+        q || source ? (
+          <Empty title="No subscribers match" body="Try another email or name, or another source." />
         ) : (
-          <Empty title="No subscribers yet" body="People who sign up on your OnePage or your website show up here, and so do your buyers." />
+          <Empty title="No subscribers yet" body="People who sign up on your website, your Storelib profile or your OnePage show up here, and so do buyers who ask to hear from you." />
         )
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[640px] border-collapse">
+          <table className="w-full min-w-[720px] border-collapse">
             <thead className="border-b border-[#eef0f2] bg-[#fafbfb]">
               <tr>
                 <th className={cn(th, "sticky left-0 z-[1] bg-[#fafbfb]")}>Email</th>
@@ -410,35 +519,43 @@ function SubscribersTable(props: EmailsHomeProps) {
               </tr>
             </thead>
             <tbody className="divide-y divide-[#f1f2f4]">
-              {shown.map((s) => (
-                <tr key={s.id} className="group hover:bg-[#fafbfb]">
-                  <td className={cn(td, sticky, "font-medium")}><span className="block max-w-[180px] truncate sm:max-w-[260px]">{s.email}</span></td>
-                  <td className={cn(td, "text-[#4b5563]")}><span className="block max-w-[200px] truncate">{s.name || "–"}</span></td>
-                  <td className={td}>
-                    <StatusBadge tone="neutral">{s.source === "onepage" ? "OnePage" : "Website"}</StatusBadge>
-                  </td>
-                  <td className={td}>
-                    <SubscriberStatus s={s} />
-                  </td>
-                  <td className={cn(td, "tabular-nums text-[#4b5563]")}>{formatDay(s.subscribed_at)}</td>
-                  <td className={cn(td, "w-12 px-2 text-right")}>
-                    <ResponsiveActionMenu
-                      title={s.email}
-                      align="end"
-                      trigger={<RowMenuButton label={`Actions for ${s.email}`} />}
-                      items={[
-                        { label: "Copy email", onClick: () => props.onCopyEmail(s.email) },
-                        { label: "Remove", variant: "destructive", separatorBefore: true, onClick: () => props.onRemoveSubscriber(s.id) },
-                      ]}
-                    />
-                  </td>
-                </tr>
-              ))}
+              {shown.map((s) => {
+                const v = views.get(s.id)
+                return (
+                  <tr key={s.id} className="group cursor-pointer hover:bg-[#fafbfb]" onClick={() => setOpen(s)}>
+                    <td className={cn(td, sticky, "font-medium")}><span className="block max-w-[180px] truncate sm:max-w-[260px]">{s.email}</span></td>
+                    <td className={cn(td, "text-[#4b5563]")}><span className="block max-w-[180px] truncate">{s.name || "–"}</span></td>
+                    <td className={td} title={v ? [v.label, v.detail].filter(Boolean).join(" · ") : undefined}>
+                      <span className="flex max-w-[300px] items-baseline gap-1.5 truncate">
+                        <span className={cn("truncate", v?.label === NOT_RECORDED ? "text-[#9ca3af]" : "text-[#1a1a2e]")}>{v?.label ?? NOT_RECORDED}</span>
+                        {v?.detail ? <span className="truncate text-[12px] text-[#6b7280]">{v.detail}</span> : null}
+                      </span>
+                    </td>
+                    <td className={td}>
+                      <SubscriberStatus s={s} />
+                    </td>
+                    <td className={cn(td, "tabular-nums text-[#4b5563]")}>{formatDay(s.subscribed_at)}</td>
+                    <td className={cn(td, "w-12 px-2 text-right")} onClick={(e) => e.stopPropagation()}>
+                      <ResponsiveActionMenu
+                        title={s.email}
+                        align="end"
+                        trigger={<RowMenuButton label={`Actions for ${s.email}`} />}
+                        items={[
+                          { label: "Details", onClick: () => setOpen(s) },
+                          { label: "Copy email", onClick: () => props.onCopyEmail(s.email) },
+                          { label: "Remove", variant: "destructive", separatorBefore: true, onClick: () => props.onRemoveSubscriber(s.id) },
+                        ]}
+                      />
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>
       )}
       <Pager page={page} pages={pages} total={rows.length} onPage={setPage} />
+      <ContactDetail contact={open} onClose={() => setOpen(null)} />
     </>
   )
 }
@@ -452,7 +569,7 @@ function FlowsTable(props: EmailsHomeProps) {
       ) : props.flows.length === 0 ? (
         <Empty
           title="No automations yet"
-          body="Write a welcome email and turn it on, and it goes to everyone who joins your list. Sign-ups are collected either way."
+          body="Start from a welcome series, a thank you after a purchase, or your own. Each one is off until you turn it on."
           action={
             <button type="button" className={buttonAccent} onClick={props.onCreateFlow}>
               <Plus className="h-4 w-4" />
@@ -462,12 +579,13 @@ function FlowsTable(props: EmailsHomeProps) {
         />
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[640px] border-collapse">
+          <table className="w-full min-w-[720px] border-collapse">
             <thead className="border-b border-[#eef0f2] bg-[#fafbfb]">
               <tr>
                 <th className={cn(th, "sticky left-0 z-[1] bg-[#fafbfb]")}>Automation</th>
-                <th className={th}>Sends when</th>
-                <th className={cn(th, "text-right")}>Emails</th>
+                <th className={th}>Starts when</th>
+                <th className={th}>Steps</th>
+                <th className={cn(th, "text-right")}>In progress</th>
                 <th className={cn(th, "text-right")}>Sent</th>
                 <th className={cn(th, "text-right")}>Opened</th>
                 <th className={th}>On</th>
@@ -476,16 +594,22 @@ function FlowsTable(props: EmailsHomeProps) {
             </thead>
             <tbody className="divide-y divide-[#f1f2f4]">
               {props.flows.map((f) => {
-                const trigger = props.trigger(f.trigger_type)
-                const emails = (f.steps ?? []).length
+                const trigger = isTriggerType(f.trigger_type) ? TRIGGERS[f.trigger_type].sentence : "Not set"
                 const on = f.status === "active"
+                const t = f.totals
                 return (
                   <tr key={f.id} className="group cursor-pointer hover:bg-[#fafbfb]" onClick={() => props.onEditFlow(f)}>
-                    <td className={cn(td, sticky, "font-medium")}><span className="block max-w-[160px] truncate sm:max-w-[240px]">{f.name}</span></td>
-                    <td className={cn(td, "text-[#4b5563]")}><span className="block max-w-[280px] truncate">{trigger.description}</span></td>
-                    <td className={cn(td, "text-right tabular-nums")}>{emails}</td>
-                    <td className={cn(td, "text-right tabular-nums")}>{(f.stats?.emails_sent ?? 0).toLocaleString("en-US")}</td>
-                    <td className={cn(td, "text-right tabular-nums")}>{f.stats && f.stats.emails_sent > 0 ? `${f.stats.open_rate}%` : "–"}</td>
+                    <td className={cn(td, sticky, "font-medium")}>
+                      <span className="flex max-w-[180px] items-center gap-2 sm:max-w-[260px]">
+                        <span className="truncate">{f.name}</span>
+                        {t && t.failed > 0 ? <StatusBadge tone="critical">{t.failed} failed</StatusBadge> : null}
+                      </span>
+                    </td>
+                    <td className={cn(td, "text-[#4b5563]")}><span className="block max-w-[240px] truncate">{trigger}</span></td>
+                    <td className={cn(td, "text-[#4b5563]")}>{stepSummary(normalizeSteps(f.steps))}</td>
+                    <td className={cn(td, "text-right tabular-nums")}>{t ? t.in_progress.toLocaleString("en-US") : "–"}</td>
+                    <td className={cn(td, "text-right tabular-nums")}>{t ? t.sent.toLocaleString("en-US") : "–"}</td>
+                    <td className={cn(td, "text-right tabular-nums")}>{t && t.sent > 0 ? rate(t.opened, t.sent) : "–"}</td>
                     <td className={td} onClick={(e) => e.stopPropagation()}>
                       <Switch checked={on} onCheckedChange={() => props.onToggleFlow(f)} aria-label={`Send ${f.name} automatically`} />
                     </td>
