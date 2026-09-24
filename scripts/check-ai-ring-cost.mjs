@@ -55,9 +55,26 @@ ${variant === "before" ? `<style>${BEFORE_CSS}</style>` : ""}
   </header>
 </div></body></html>`
 
+/**
+ * And the whole editor, idle, the same two ways: the real page with its real
+ * bar, and the old rules put back (with the new ring hidden) as the control.
+ * This is the number a creator's laptop pays while they read the page.
+ */
+const { bundle } = await import("./editor-probe-harness.mjs")
+const { readFileSync } = await import("node:fs")
+const editorJs = readFileSync(bundle)
+const editorPage = (variant) => `<!doctype html><html><head><meta charset="utf-8"><style>${css}</style>
+${variant === "before" ? `<style>${BEFORE_CSS} .wb-ai-ring { display: none }</style>` : ""}
+</head><body><div id="app"></div><script>window.PROBE_SHORT=false</script><script src="/editor-probe.js"></script></body></html>`
+
 const server = createServer((req, res) => {
+  if (req.url.startsWith("/editor-probe.js")) {
+    res.writeHead(200, { "content-type": "text/javascript" })
+    return res.end(editorJs)
+  }
   res.writeHead(200, { "content-type": "text/html" })
-  res.end(page(req.url.includes("before") ? "before" : "after"))
+  const variant = req.url.includes("before") ? "before" : "after"
+  res.end(req.url.startsWith("/editor") ? editorPage(variant) : page(variant))
 })
 await new Promise((r) => server.listen(0, "127.0.0.1", r))
 const origin = `http://127.0.0.1:${server.address().port}`
@@ -72,10 +89,15 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const WATCHED = ["UpdateLayoutTree", "RecalculateStyles", "Layout", "PrePaint", "Paint", "PaintImage", "Layerize", "UpdateLayer", "CompositeLayers", "Commit"]
 
 const browser = await puppeteer.launch({ executablePath: CHROMIUM, args: ["--no-sandbox", "--disable-dev-shm-usage"] })
-async function measure(variant) {
+async function measure(variant, whole = false) {
   const p = await browser.newPage()
-  await p.setViewport({ width: 480, height: 120 })
-  await p.goto(`${origin}/${variant}`, { waitUntil: "load" })
+  await p.setViewport(whole ? { width: 1440, height: 900 } : { width: 480, height: 120 })
+  await p.goto(`${origin}/${whole ? "editor-" : ""}${variant}`, { waitUntil: "load" })
+  if (whole) {
+    await p.waitForFunction(() => document.querySelectorAll("#wb-preview-root [data-section-box]").length >= 8, { timeout: 60_000 })
+    /* The entrance and the fonts settle, and the pointer is nowhere. */
+    await sleep(3000)
+  }
   await sleep(800)
   const cdp = await p.createCDPSession()
   await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 })
@@ -99,7 +121,9 @@ async function measure(variant) {
   }
   /* Still turning? The ring's angle at two moments. */
   const turning = await p.evaluate(async () => {
-    const el = document.querySelector(".wb-ai-ring-spin") ?? document.getElementById("ai")
+    const el = document.querySelector(".wb-ai-ring-spin:not([style*=none])") && getComputedStyle(document.querySelector(".wb-ai-ring")).display !== "none"
+      ? document.querySelector(".wb-ai-ring-spin")
+      : document.querySelector(".wb-ai-button")
     const read = () => getComputedStyle(el).transform + "|" + getComputedStyle(el, "::before").getPropertyValue("--wb-ai-angle")
     const a = read()
     await new Promise((r) => setTimeout(r, 300))
@@ -155,6 +179,14 @@ try {
   expect(before.turning && after.turning, "both rings are turning while measured", { before: before.turning, after: after.turning })
   expect(before.perSecond > 10, "the control costs what was reported (it must, or this measures nothing)", before.perSecond)
   expect(after.perSecond < 2, "the ring now costs the main thread next to nothing", after.perSecond)
+
+  console.log("\nthe whole editor, idle, CPU slowed 4x (main thread ms per second)")
+  const editorBefore = await measure("before", true)
+  const editorAfter = await measure("after", true)
+  console.log(`  before  ${editorBefore.perSecond} ms/s  ${JSON.stringify(editorBefore.by)}`)
+  console.log(`  after   ${editorAfter.perSecond} ms/s  ${JSON.stringify(editorAfter.by)}`)
+  expect(editorBefore.turning && editorAfter.turning, "the ring is turning in both", { before: editorBefore.turning, after: editorAfter.turning })
+  expect(editorAfter.perSecond < editorBefore.perSecond / 4, "an idle editor spends a quarter of what it did, or less", { before: editorBefore.perSecond, after: editorAfter.perSecond })
 
   console.log("\nthe look")
   for (const deg of [0, 97, 211]) {
