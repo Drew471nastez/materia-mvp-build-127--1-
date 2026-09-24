@@ -28,6 +28,7 @@
  */
 import { cache } from "react"
 import { createClient } from "@/lib/supabase/server"
+import { sanitizeDescription } from "@/lib/rich-text/sanitize"
 import {
   cachedCreator,
   cachedCreatorProfile,
@@ -61,6 +62,18 @@ export interface ProductLookup {
   viaHistory: boolean
 }
 
+/**
+ * THE DESCRIPTION, CLEANED ON THE WAY OUT. Every caller of the loader puts
+ * it on the page one way or another, and the rows already in the database
+ * were saved before anything sanitised them, some with the old editor's
+ * inline event handlers in them. lib/rich-text/sanitize.ts. A copy, because
+ * the shared row is the cache's.
+ */
+function withSafeDescription(product: any): any {
+  if (!product || typeof product.description !== "string") return product
+  return { ...product, description: sanitizeDescription(product.description) }
+}
+
 export const loadProductBySlug = cache(async (slug: string): Promise<ProductLookup> => {
   /*
     THE SHARED COPY FIRST. A published product is the same row for every
@@ -69,7 +82,7 @@ export const loadProductBySlug = cache(async (slug: string): Promise<ProductLook
     fallback below is not optional.
   */
   const shared = await cachedProductBySlug(slug)
-  if (shared) return { product: shared, viaHistory: false }
+  if (shared) return { product: withSafeDescription(shared), viaHistory: false }
 
   const supabase = await createClient()
 
@@ -80,7 +93,7 @@ export const loadProductBySlug = cache(async (slug: string): Promise<ProductLook
     .eq("status", "published")
     .maybeSingle()
 
-  if (current) return { product: current, viaHistory: false }
+  if (current) return { product: withSafeDescription(current), viaHistory: false }
 
   /*
     THE RENAMED-PRODUCT PATH, and it is deliberately two queries rather than
@@ -108,7 +121,7 @@ export const loadProductBySlug = cache(async (slug: string): Promise<ProductLook
     .eq("status", "published")
     .maybeSingle()
 
-  return { product: renamed ?? null, viaHistory: !!renamed }
+  return { product: withSafeDescription(renamed ?? null), viaHistory: !!renamed }
 })
 
 export const loadCreator = cache(async (creatorId: string) => {
