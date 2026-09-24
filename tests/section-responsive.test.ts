@@ -2767,7 +2767,7 @@ check(
   // The window between the two strings holds the wrapper's class list and
   // the paragraph explaining why the fade is desktop-only; it was 700 and
   // that paragraph is what pushed it past.
-  /"relative overflow-hidden transition-all duration-300",[\s\S]{0,1600}?\? "rounded-t-\[20px\] w-full"/.test(editor) &&
+  /"(?:wb-canvas-frame )?relative overflow-hidden transition-all duration-300",[\s\S]{0,1600}?\? "rounded-t-\[20px\] w-full"/.test(editor) &&
     // ...and the scroller inside it is square and fills it, so nothing it
     // paints can reach a corner.
     /"relative isolate bg-white flex flex-col overflow-y-auto overflow-x-hidden border-0 rounded-none w-full h-full"/.test(

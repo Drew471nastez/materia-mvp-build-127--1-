@@ -109,6 +109,11 @@ function main() {
   check("over a background that is not the box's own colour",
     /\.wb-image-skeleton \{\s*\n\s*background: #f1f2f4;/.test(css),
     "a skeleton the same colour as the box it sits in is an empty box")
+  check("the sweep waits before it starts, so a quick picture never flashes one",
+    /animation: wb-image-sweep 1\.15s cubic-bezier\(0\.4, 0, 0\.6, 1\) 300ms infinite backwards;/.test(css),
+    "a sweep that starts and is cut off a moment later is the favicon flash in Website Settings")
+  check("and in a dark panel it waits on a dark tone, not a light block",
+    /\.dark \.wb-image-skeleton \{\s*\n\s*background: rgba\(255, 255, 255, 0\.07\);/.test(css))
   check("the fade is a transition on opacity", /\.wb-image-fade \{\s*\n\s*transition: opacity 260ms/.test(css))
   check("and both stop for reduced motion",
     /@media \(prefers-reduced-motion: reduce\) \{\s*\n\s*\.wb-image-skeleton::after \{ animation: none; \}\s*\n\s*\.wb-image-fade \{ transition: none; \}/.test(css))

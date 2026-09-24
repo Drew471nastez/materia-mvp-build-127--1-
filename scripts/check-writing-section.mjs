@@ -89,9 +89,9 @@ function lum(c) {
 }
 function look(id) {
   var box = document.querySelector("#" + id + " [data-writing-section]");
-  var code = box.querySelector(".wb-code");
+  var code = box.querySelector(".wb-writing-code");
   var visibleText = Array.prototype.filter.call(box.querySelectorAll("p, span, h1, h2, h3, div"), function (el) {
-    return !el.closest(".wb-code") && !el.classList.contains("sr-only") && el.childNodes.length && Array.prototype.some.call(el.childNodes, function (n) { return n.nodeType === 3 && n.textContent.trim() });
+    return !el.closest(".wb-writing-code") && !el.classList.contains("sr-only") && el.childNodes.length && Array.prototype.some.call(el.childNodes, function (n) { return n.nodeType === 3 && n.textContent.trim() });
   }).map(function (el) { return el.textContent.trim() });
   var cs = getComputedStyle(code);
   var r = box.getBoundingClientRect(), s = document.getElementById(id).getBoundingClientRect();
@@ -99,9 +99,9 @@ function look(id) {
     chars: code.textContent.length,
     typed: Number(code.dataset.typed || 0),
     codeText: code.textContent,
-    lines: code.querySelectorAll(".wb-code-line").length,
-    caret: !!code.querySelector(".wb-code-caret"),
-    caretAnim: code.querySelector(".wb-code-caret") ? getComputedStyle(code.querySelector(".wb-code-caret")).animationName : "none",
+    lines: code.querySelectorAll(".wb-writing-line").length,
+    caret: !!code.querySelector(".wb-writing-caret"),
+    caretAnim: code.querySelector(".wb-writing-caret") ? getComputedStyle(code.querySelector(".wb-writing-caret")).animationName : "none",
     mask: cs.webkitMaskImage || cs.maskImage,
     visibleText: visibleText,
     status: (box.querySelector("[role=status]") || {}).textContent || "",
@@ -175,12 +175,12 @@ ws.close(); chrome.kill(); process.exit(0)
     const perSecond = Math.round((b.typed - a.typed) / ((moving.second.at - moving.first.at) / 1000))
     console.log(`\n${tone === "light" ? "Light site, desktop canvas" : "Dark site, phone"}: ${b.height}px tall, ${b.lines} lines, about ${perSecond} characters a second\n`)
     expect(b.visibleText.length === 0, "no words are drawn, only code", b.visibleText)
-    expect(!/wb-code-/.test(b.codeText), "and the colouring never shows up as text in the lane", b.codeText.slice(0, 120))
+    expect(!/wb-writing-(tag|liquid|str)/.test(b.codeText), "and the colouring never shows up as text in the lane", b.codeText.slice(0, 120))
     expect(/Writing a section/.test(b.status), "a screen reader still hears what is happening", b.status)
     expect(b.codeText !== a.codeText, "it is writing: the lane changes between two looks", [a.chars, b.chars])
     expect(perSecond >= 150 && perSecond <= 260, "at the speed it claims, about 200 characters a second", perSecond)
     expect(b.lines >= 13, "and the lane is full from the start, not filling from empty", b.lines)
-    expect(b.caret && b.caretAnim === "wb-code-caret", "with a caret at the end of the line being written", b.caretAnim)
+    expect(b.caret && b.caretAnim === "wb-writing-caret", "with a caret at the end of the line being written", b.caretAnim)
     expect(/linear-gradient\((to bottom, )?(transparent|rgba\(0, 0, 0, 0\)) 0%, [^)]*\) 62%\)|rgb\(0, 0, 0\) 62%/.test(b.mask), "faded from clear at the top to solid at the bottom", b.mask)
     expect(b.ring === "wb-ai-shimmer" && b.sweep === "wb-lane-sweep", "the Ask AI ring runs round it and light crosses the lane", [b.ring, b.sweep])
     expect(b.inside && !b.overflowX, "nothing spills out sideways", [b.inside, b.overflowX])

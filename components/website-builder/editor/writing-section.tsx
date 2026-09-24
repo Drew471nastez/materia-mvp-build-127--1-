@@ -82,7 +82,7 @@ function tint(line: string): string {
   const esc = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
   /**
    * ONE PASS over the raw line. Three replaces in a row coloured the markup
-   * the one before had inserted, and `class="wb-code-tag"` was drawn in the
+   * the one before had inserted, and `class="wb-writing-tag"` was drawn in the
    * lane as code.
    */
   const token = /(\{\{[^}]*\}\}|\{%[^%]*%\})|(<\/?[a-z][a-z0-9-]*)|("[^"]*")/g
@@ -90,7 +90,7 @@ function tint(line: string): string {
   let last = 0
   for (let m = token.exec(line); m; m = token.exec(line)) {
     out += esc(line.slice(last, m.index))
-    const kind = m[1] ? "wb-code-liquid" : m[2] ? "wb-code-tag" : "wb-code-str"
+    const kind = m[1] ? "wb-writing-liquid" : m[2] ? "wb-writing-tag" : "wb-writing-str"
     out += `<span class="${kind}">${esc(m[0])}</span>`
     last = m.index + m[0].length
   }
@@ -108,7 +108,7 @@ export function WritingSection({ prompt }: { prompt: string }) {
 
     /* Still, for anyone who asked for less motion: the opening lines, drawn once. */
     if (reduced) {
-      el.innerHTML = lines.slice(0, VISIBLE_LINES).map((l) => `<div class="wb-code-line">${tint(l) || "&nbsp;"}</div>`).join("")
+      el.innerHTML = lines.slice(0, VISIBLE_LINES).map((l) => `<div class="wb-writing-line">${tint(l) || "&nbsp;"}</div>`).join("")
       return
     }
 
@@ -129,8 +129,8 @@ export function WritingSection({ prompt }: { prompt: string }) {
       const current = written.pop() ?? ""
       const shown = written.slice(-(VISIBLE_LINES - 1))
       el.innerHTML =
-        shown.map((l) => `<div class="wb-code-line">${tint(l) || "&nbsp;"}</div>`).join("") +
-        `<div class="wb-code-line">${tint(current)}<span class="wb-code-caret"></span></div>`
+        shown.map((l) => `<div class="wb-writing-line">${tint(l) || "&nbsp;"}</div>`).join("") +
+        `<div class="wb-writing-line">${tint(current)}<span class="wb-writing-caret"></span></div>`
       raf = requestAnimationFrame(draw)
     }
     raf = requestAnimationFrame(draw)
@@ -144,7 +144,7 @@ export function WritingSection({ prompt }: { prompt: string }) {
         Writing a section{prompt ? `: ${prompt}` : ""}
       </p>
       <div className="wb-writing-inner" aria-hidden="true">
-        <div ref={codeRef} className="wb-code" />
+        <div ref={codeRef} className="wb-writing-code" />
       </div>
     </div>
   )

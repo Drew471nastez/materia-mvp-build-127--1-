@@ -952,6 +952,18 @@ section("The code editor on a phone")
     /\.wb-code \{\s*touch-action: manipulation;/.test(css),
   )
   /**
+   * THE EDITOR AT HALF HEIGHT. The Ask AI "writing" lane once took the class
+   * `.wb-code` for itself, with a fixed 14-line height and a mask fading its
+   * top. The code editor's root carries the same class, so the whole editor
+   * became 306px tall inside a full-height frame, its file list cut off and
+   * its header faded. `.wb-code` is the code editor's; no rule for it may
+   * size it or mask it.
+   */
+  check(
+    "no rule for .wb-code sets a height or a mask, so the editor fills its frame",
+    (css.match(/(?:^|[,}\s])\.wb-code\s*\{[^}]*\}/g) ?? []).every((rule) => !/(?:^|[;\s{])(?:height|max-height|mask-image|-webkit-mask-image)\s*:/.test(rule)),
+  )
+  /**
    * THE FREEZE ON THE WAY BACK. The editor is an iframe with a text field in
    * it, and closing the pane hides the frame without blurring what is focused
    * inside it. iOS keeps the keyboard's offset on its own scroll view, over a
