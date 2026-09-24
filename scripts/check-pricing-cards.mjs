@@ -85,7 +85,23 @@ execFileSync("node", [bundle], { env: { ...process.env, OUT_DIR: out }, stdio: [
 
 const PROBE = (W) => `<script>
   const box = (el) => el.getBoundingClientRect()
-  const parse = (c) => (c.match(/[\\d.]+/g) || []).map(Number)
+  /* rgb() gives 0 to 255. A colour with an alpha can come back as
+     oklab(L a b / A) or color(srgb r g b / A); both are converted to
+     0 to 255 here, or a translucent white reads as black. */
+  const parse = (c) => {
+    const n = (c.match(/-?[\\d.]+(?:e-?\\d+)?/g) || []).map(Number)
+    if (c.startsWith("color(srgb")) return [n[0] * 255, n[1] * 255, n[2] * 255, ...(n.length > 3 ? [n[3]] : [])]
+    if (c.startsWith("oklab(")) {
+      const [L, A, B] = n
+      const l = (L + 0.3963377774 * A + 0.2158037573 * B) ** 3
+      const m = (L - 0.1055613458 * A - 0.0638541728 * B) ** 3
+      const s = (L - 0.0894841775 * A - 1.291485548 * B) ** 3
+      const lin = [4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s, -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s, -0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s]
+      const enc = (v) => 255 * Math.min(1, Math.max(0, v <= 0.0031308 ? 12.92 * v : 1.055 * Math.pow(v, 1 / 2.4) - 0.055))
+      return [...lin.map(enc), ...(n.length > 3 ? [n[3]] : [])]
+    }
+    return n
+  }
   const lum = ([r, g, b]) => {
     const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4) }
     return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b)
