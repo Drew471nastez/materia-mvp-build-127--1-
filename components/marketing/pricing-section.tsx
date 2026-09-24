@@ -1,77 +1,25 @@
 "use client"
 
 import Link from "next/link"
-import { Check, ArrowRight, Loader2 } from "lucide-react"
 import { AnimateOnScroll } from "./bento-grid"
+import { PlanCards, type PlanCardAction } from "@/components/billing/plan-cards"
+import { PLAN_FOOTNOTE, PRO_CHECKOUT_PLAN_ID, type OfferedPlanId } from "@/lib/billing/plans"
 
+/**
+ * Free and Pro. Pro is the internal plan id `growth` (see lib/billing/plans.ts),
+ * so every callback here receives "growth" when Pro is chosen.
+ */
 export interface PricingOnboardingCallbacks {
-  onPlanSelect: (planId: "free" | "growth" | "pro") => void
-  loadingPlan: "free" | "growth" | "pro" | null
-  ctaLabels: { free: string; growth: string; pro: string }
+  onPlanSelect: (planId: OfferedPlanId) => void
+  /** Whichever plan is being set up, so every button waits while one is. */
+  loadingPlan: string | null
+  ctaLabels: Record<OfferedPlanId, string>
 }
 
-const PLANS = [
-  {
-    id: "free" as const,
-    name: "Free",
-    price: "$0",
-    period: "",
-    periodLabel: "Free forever",
-    desc: "Perfect for getting started.",
-    features: [
-      "6% + $0.25 per transaction",
-      "Unlimited digital products",
-      "Basic OnePage features",
-      "500 emails / month",
-      "Community support",
-    ],
-    cta: "Start Free",
-    href: "/signup",
-    popular: false,
-    badge: null as string | null,
-  },
-  {
-    id: "growth" as const,
-    name: "Growth",
-    price: "$29",
-    period: "/mo",
-    periodLabel: null as string | null,
-    desc: "For creators ready to scale and get pro features.",
-    features: [
-      "3% + $0.25 per transaction",
-      "Unlimited digital products",
-      "Premium OnePage features",
-      "Custom domain",
-      "Verified badge",
-      "2,000 emails / month",
-      "Priority chat support",
-    ],
-    cta: "Choose Growth",
-    href: "/signup",
-    popular: true,
-    badge: "Most Popular",
-  },
-  {
-    id: "pro" as const,
-    name: "Professional",
-    price: "$99",
-    period: "/mo",
-    periodLabel: null as string | null,
-    desc: "For serious creators who want the lowest fees, pro features and grow the most.",
-    features: [
-      "1.5% + $0.25 per transaction",
-      "Unlimited digital products",
-      "Premium OnePage features",
-      "Custom domain",
-      "Verified badge",
-      "5,000 emails / month",
-    ],
-    cta: "Go Professional",
-    href: "/signup",
-    popular: false,
-    badge: "Recommended",
-  },
-]
+const DEFAULT_CTA: Record<OfferedPlanId, string> = {
+  free: "Start free",
+  growth: "Get Pro",
+}
 
 export function PricingSection({
   hideDetailsLink,
@@ -82,176 +30,85 @@ export function PricingSection({
   upgradeCallbacks,
 }: {
   hideDetailsLink?: boolean
-  /** Compact mode: removes section padding and scroll animations — used inside the onboarding modal */
+  /** Compact mode: removes section padding and scroll animations. Used inside the onboarding modal. */
   compact?: boolean
   onboardingCallbacks?: PricingOnboardingCallbacks
   headingOverride?: string
   subtitleOverride?: string
-  /** When provided, Growth/Pro buttons trigger Stripe checkout directly instead of linking to /signup */
+  /** When provided, the Pro button starts Stripe checkout directly instead of linking to /signup */
   upgradeCallbacks?: {
-    onPlanSelect: (planId: "growth" | "pro") => void
-    loadingPlan: "growth" | "pro" | null
+    onPlanSelect: (planId: typeof PRO_CHECKOUT_PLAN_ID) => void
+    loadingPlan: typeof PRO_CHECKOUT_PLAN_ID | null
   }
 } = {}) {
-  const isAnyLoading = !!(onboardingCallbacks?.loadingPlan)
+  const actionFor = (id: OfferedPlanId): PlanCardAction => {
+    if (onboardingCallbacks) {
+      const busy = !!onboardingCallbacks.loadingPlan
+      return {
+        label: onboardingCallbacks.ctaLabels[id] || DEFAULT_CTA[id],
+        onClick: () => !busy && onboardingCallbacks.onPlanSelect(id),
+        disabled: busy,
+        loading: onboardingCallbacks.loadingPlan === id,
+      }
+    }
+    if (upgradeCallbacks && id === PRO_CHECKOUT_PLAN_ID) {
+      return {
+        label: DEFAULT_CTA[id],
+        onClick: () => !upgradeCallbacks.loadingPlan && upgradeCallbacks.onPlanSelect(PRO_CHECKOUT_PLAN_ID),
+        disabled: !!upgradeCallbacks.loadingPlan,
+        loading: upgradeCallbacks.loadingPlan === id,
+      }
+    }
+    return { label: DEFAULT_CTA[id], href: "/signup" }
+  }
 
-  const header = (
-    <div className="text-center max-w-[640px] mx-auto mb-14">
-      <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold uppercase tracking-wider text-violet-600 bg-violet-50 px-4 py-1.5 rounded-full mb-4">
-        💰 Pricing
-      </span>
-      <h2 className="text-[clamp(30px,4vw,44px)] font-semibold leading-[1.15] tracking-tight mb-3.5">
-        {headingOverride || "Start free, upgrade when you\u2019re ready"}
-      </h2>
-      <p className="text-base text-neutral-500 leading-relaxed">
-        {subtitleOverride || "Simple, transparent pricing that grows with you. No hidden fees, no surprises."}
-      </p>
-    </div>
+  const actions: Record<OfferedPlanId, PlanCardAction> = {
+    free: actionFor("free"),
+    growth: actionFor("growth"),
+  }
+
+  const footnote = (
+    <p className={`text-center text-[13px] leading-[1.5] text-[#6b7280] ${compact ? "mt-3" : "mt-6"}`}>{PLAN_FOOTNOTE}</p>
   )
 
-  const grid = (
-    <div className={`grid grid-cols-1 md:grid-cols-3 ${compact ? "gap-3" : "gap-[18px] md:gap-4 max-w-[960px] mx-auto"} md:items-center`}>
-      {PLANS.map((plan) => (
-        <div
-          key={plan.name}
-          className={`bg-white rounded-3xl relative flex flex-col transition-all duration-300 hover:-translate-y-1 hover:shadow-md ${
-            plan.popular
-              ? `${compact ? "p-5 md:py-7" : "p-9 md:py-12"} border-[1.5px] border-violet-600 shadow-[0_0_0_1px_#7c3aed] shadow-md`
-              : `${compact ? "p-5" : "p-9"} border-[1.5px] border-neutral-200`
-          }`}
-        >
-          {plan.badge && (
-            <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-violet-600 text-white text-xs font-semibold px-3.5 py-1 rounded-full whitespace-nowrap">
-              {plan.badge}
-            </span>
-          )}
-          <div className={`font-semibold mb-1.5 ${compact ? "text-base" : "text-lg"}`}>{plan.name}</div>
-          <div className="flex items-baseline gap-1 mb-1">
-            <span className={`font-bold tracking-tight ${compact ? "text-[36px]" : "text-[42px]"}`}>{plan.price}</span>
-            {plan.period && <span className="text-sm text-neutral-400">{plan.period}</span>}
-          </div>
-          {plan.periodLabel && (
-            <p className="text-[13px] text-neutral-400 mb-1">{plan.periodLabel}</p>
-          )}
-          <p className={`text-neutral-400 ${compact ? "text-xs mb-4" : "text-[13px] mb-5"}`}>{plan.desc}</p>
-
-          {/* CTA button */}
-          {onboardingCallbacks ? (
-            <button
-              type="button"
-              onClick={() => !isAnyLoading && onboardingCallbacks.onPlanSelect(plan.id)}
-              disabled={isAnyLoading}
-              className={`relative w-full inline-flex items-center justify-center gap-2 text-[15px] font-semibold py-3.5 px-8 rounded-lg transition-all duration-300 overflow-hidden mb-5 ${
-                plan.popular
-                  ? "bg-violet-600 text-white hover:bg-violet-700"
-                  : "bg-white text-neutral-900 border-[1.5px] border-neutral-200 hover:border-neutral-400"
-              } disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:translate-y-0 ${
-                !isAnyLoading ? "hover:-translate-y-0.5" : ""
-              }`}
-            >
-              {plan.popular && (
-                <span className="btn-shine-effect" aria-hidden="true" />
-              )}
-              {onboardingCallbacks.loadingPlan === plan.id ? (
-                <span className="relative z-10 flex items-center gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Processing...
-                </span>
-              ) : (
-                <span className="relative z-10 flex items-center gap-2">
-                  {onboardingCallbacks.ctaLabels[plan.id] || plan.cta}
-                  <ArrowRight className="h-4 w-4" />
-                </span>
-              )}
-            </button>
-          ) : upgradeCallbacks && plan.id !== "free" ? (
-            // Upgrade mode: paid plans go straight to Stripe checkout
-            <button
-              type="button"
-              onClick={() => !upgradeCallbacks.loadingPlan && upgradeCallbacks.onPlanSelect(plan.id as "growth" | "pro")}
-              disabled={!!upgradeCallbacks.loadingPlan}
-              className={`relative w-full inline-flex items-center justify-center gap-2 text-[15px] font-semibold py-3.5 px-8 rounded-lg transition-all duration-300 overflow-hidden mb-7 ${
-                plan.popular
-                  ? "bg-violet-600 text-white hover:bg-violet-700"
-                  : "bg-white text-neutral-900 border-[1.5px] border-neutral-200 hover:border-neutral-400"
-              } disabled:opacity-70 disabled:cursor-not-allowed ${
-                !upgradeCallbacks.loadingPlan ? "hover:-translate-y-0.5" : ""
-              }`}
-            >
-              {plan.popular && <span className="btn-shine-effect" aria-hidden="true" />}
-              <span className="relative z-10 flex items-center gap-2">
-                {upgradeCallbacks.loadingPlan === plan.id ? (
-                  <><Loader2 className="h-4 w-4 animate-spin" />Processing...</>
-                ) : (
-                  <>{plan.cta}<ArrowRight className="h-4 w-4" /></>
-                )}
-              </span>
-            </button>
-          ) : (
-            <Link
-              href={plan.href}
-              className={`relative w-full inline-flex items-center justify-center gap-2 text-[15px] font-semibold py-3.5 px-8 rounded-lg transition-all duration-300 hover:-translate-y-0.5 overflow-hidden mb-7 ${
-                plan.popular
-                  ? "bg-violet-600 text-white hover:bg-violet-700"
-                  : "bg-white text-neutral-900 border-[1.5px] border-neutral-200 hover:border-neutral-400"
-              }`}
-            >
-              {plan.popular && (
-                <span className="btn-shine-effect" aria-hidden="true" />
-              )}
-              <span className="relative z-10 flex items-center gap-2">
-                {plan.cta}
-                <ArrowRight className="h-4 w-4" />
-              </span>
-            </Link>
-          )}
-
-          {/* Features list */}
-          <ul className="flex flex-col gap-2.5 flex-1">
-            {plan.features.map((f) => (
-              <li key={f} className="flex items-start gap-2.5 text-sm text-neutral-500">
-                <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${plan.popular ? "bg-violet-600" : "bg-violet-50"}`}>
-                  <Check className={`h-3 w-3 ${plan.popular ? "text-white" : "text-violet-600"}`} strokeWidth={3} />
-                </div>
-                {f}
-              </li>
-            ))}
-          </ul>
-        </div>
-      ))}
-    </div>
-  )
-
-  // ─── Compact (onboarding) layout — no outer padding, no scroll animations ───
+  // Compact (onboarding) layout: no outer padding, no scroll animations.
   if (compact) {
     return (
       <div>
-        {grid}
+        <PlanCards compact actions={actions} />
+        {footnote}
       </div>
     )
   }
 
-  // ─── Full marketing page layout ───────────────────────────────────────────
   return (
-    <section className="py-20 sm:py-24 bg-white" id="pricing">
-      <div className="max-w-[1200px] mx-auto px-6">
+    <section className="py-20 sm:py-24 bg-[#f8f9fa] border-y border-[#eef0f2]" id="pricing">
+      <div className="max-w-[1200px] mx-auto px-4 sm:px-6">
         <AnimateOnScroll variant="blur-in">
-          {header}
+          <div className="text-center max-w-[600px] mx-auto mb-10 sm:mb-12">
+            <h2 className="text-[clamp(28px,4vw,40px)] font-semibold leading-[1.15] tracking-tight text-[#1a1a2e]">
+              {headingOverride || "Start free. Upgrade when you sell more."}
+            </h2>
+            <p className="mt-3 text-[16px] leading-relaxed text-[#6b7280] text-balance">
+              {subtitleOverride || "Two plans. Pro is $29 a month and lowers the fee on every sale from 6% to 3%."}
+            </p>
+          </div>
         </AnimateOnScroll>
 
-        <AnimateOnScroll variant="fade-up-scale" delay={120}>
-          {grid}
+        <AnimateOnScroll variant="fade-up" delay={120}>
+          <PlanCards actions={actions} className="max-w-[820px] mx-auto" />
+          {footnote}
         </AnimateOnScroll>
 
         {!hideDetailsLink && (
-          <AnimateOnScroll variant="fade-up" delay={250} className="text-center mt-8">
+          <div className="text-center mt-8">
             <Link
               href="/pricing"
-              className="inline-flex items-center gap-2 text-[15px] font-semibold py-3.5 px-8 rounded-full bg-white text-neutral-900 border-[1.5px] border-neutral-200 hover:border-neutral-400 transition-all duration-300 hover:-translate-y-0.5"
+              className="inline-flex items-center h-11 px-5 rounded-[10px] text-[14px] font-semibold text-[#1a1a2e] bg-white border border-[#d4d7dc] shadow-[0_1px_0_rgba(16,24,40,0.04)] hover:bg-[#f9fafb] transition-colors"
             >
-              See full pricing details →
+              See full pricing
             </Link>
-          </AnimateOnScroll>
+          </div>
         )}
       </div>
     </section>

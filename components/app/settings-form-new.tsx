@@ -3215,7 +3215,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                     <Globe className="h-5 w-5 text-white shrink-0" />
                     <p className="text-[13px] sm:text-[14px] font-medium text-white truncate">
                       <span className="sm:hidden">Upgrade for custom domains</span>
-                      <span className="hidden sm:inline">Custom domains are available on Growth &amp; Pro plans.</span>
+                      <span className="hidden sm:inline">Custom domains are available on the Pro plan.</span>
                     </p>
                   </div>
                   <a

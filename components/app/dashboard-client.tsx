@@ -2085,7 +2085,7 @@ export function DashboardClient({
             <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-black/30" />
             <div className="relative z-10 px-5 py-5 sm:px-8 sm:py-6">
               {subscriptionPlanId === "growth" || subscriptionPlanId === "pro" ? (
-                /* Growth / Pro plan banner */
+                /* Pro plan banner (internal ids "growth" and the earlier "pro") */
                 <>
                   <p className="text-[16px] sm:text-[20px] font-medium text-white mb-1">Track what&apos;s working in real time</p>
                   <p className="text-[13px] sm:text-[14px] text-white/80 mb-3 sm:mb-4">Use your dashboard to optimize for more sales.</p>
@@ -2102,7 +2102,7 @@ export function DashboardClient({
               ) : (
                 <>
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="text-[13px] sm:text-[15px] font-semibold text-white">Growth plan</span>
+                    <span className="text-[13px] sm:text-[15px] font-semibold text-white">Pro plan</span>
                   </div>
                   <p className="text-[14px] sm:text-[16px] text-white/90 mb-3 sm:mb-4">3% fees instead of 6%, and 25 GB of storage instead of 1 GB.</p>
                   <div className="flex flex-wrap items-center gap-2 sm:gap-3">
