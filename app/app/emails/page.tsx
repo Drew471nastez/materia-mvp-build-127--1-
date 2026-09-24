@@ -48,6 +48,7 @@ import Link from "next/link"
 import { AnnouncementBarMobile } from "@/components/app/announcement-bar-mobile"
 import { EmailsHome, type FlowRow, type FlowTotals } from "./emails-home"
 import { useRouter } from "next/navigation"
+import { sourceView } from "@/lib/contacts/contact-source"
 import { EmailEditor } from "@/components/email/email-editor"
 import {
   DropdownMenu,
@@ -86,7 +87,10 @@ interface Subscriber {
   id: string
   email: string
   name?: string
-  source: "onepage" | "store_builder"
+  source: string
+  /** Where they joined (lib/contacts/contact-source). */
+  source_detail?: unknown
+  consent_text?: string | null
   source_id?: string
   subscribed_at: string
   status: string
@@ -621,11 +625,12 @@ export default function EmailsPage() {
       toast({ title: "No subscribers", description: "There are no subscribers to export", variant: "destructive" })
       return
     }
-    const headers = ["Email", "Name", "Source", "Status", "Subscribed Date"]
+    const headers = ["Email", "Name", "Source", "Source detail", "Status", "Subscribed Date"]
     const rows = activeSubscribers.map((s) => [
       s.email,
       s.name || "",
-      s.source === "onepage" ? "OnePage" : "Website",
+      sourceView(s.source_detail, s.source).label,
+      sourceView(s.source_detail, s.source).detail,
       s.status === "subscribed" && s.unsubscribed_at ? "resubscribed" : s.status,
       s.subscribed_at ? new Date(s.subscribed_at).toLocaleDateString() : "",
     ])

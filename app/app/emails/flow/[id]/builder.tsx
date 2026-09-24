@@ -338,6 +338,7 @@ export function FlowBuilder({ data }: { data: BuilderData }) {
           problems={problems}
           counts={data.counts}
           tracking={data.tracking}
+          hasCheck={draft.steps.some((s) => s.type === "condition")}
           onTurnOn={() => void setOn(true)}
           onTurnOff={() => (data.counts.active > 0 ? setConfirmOff(true) : void setOn(false))}
           onShowProblem={(p) => {
@@ -429,6 +430,8 @@ function StateBanner(props: {
   problems: Problem[]
   counts: BuilderData["counts"]
   tracking: boolean
+  /** Before the engine's SQL has run, a check cannot be evaluated, so such a flow does not send at all. */
+  hasCheck: boolean
   onTurnOn: () => void
   onTurnOff: () => void
   onShowProblem: (p: Problem) => void
@@ -438,13 +441,13 @@ function StateBanner(props: {
     <section
       aria-label="Whether this automation is sending"
       className={cn(
-        "mt-4 flex flex-col gap-3 rounded-2xl border px-4 py-3.5 sm:flex-row sm:items-center",
+        "mt-4 flex flex-col gap-3 rounded-2xl border px-4 py-3.5 sm:flex-row sm:items-start",
         on
           ? "border-[#bfe5cc] bg-[#f2fbf5] shadow-[0_1px_3px_rgba(20,83,45,0.06)]"
           : "border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]",
       )}
     >
-      <span aria-hidden className={cn("hidden h-2.5 w-2.5 shrink-0 rounded-full sm:block", on ? "bg-[#1f9d55] shadow-[0_0_0_4px_rgba(31,157,85,0.15)]" : "bg-[#b5b5bd]")} />
+      <span aria-hidden className={cn("mt-[6px] hidden h-2.5 w-2.5 shrink-0 rounded-full sm:block", on ? "bg-[#1f9d55] shadow-[0_0_0_4px_rgba(31,157,85,0.15)]" : "bg-[#b5b5bd]")} />
       <div className="min-w-0 flex-1">
         <p className="text-[14px] font-semibold text-[#1a1a2e]">{on ? "On and sending" : "Off"}</p>
         <p className="text-[13px] text-[#4b5563]">
@@ -456,6 +459,9 @@ function StateBanner(props: {
               ? `${problems.length} ${problems.length === 1 ? "thing" : "things"} to finish before it can go on.`
               : "Nothing is sent. Turn it on and it starts for people who trigger it from then on."}
         </p>
+        {!props.tracking && props.hasCheck ? (
+          <p className="mt-1.5 text-[13px] text-[#5c4300]">Checks are not running yet on your account, so a flow with a check sends nothing for now. Remove the check to send without it.</p>
+        ) : null}
         {!on && problems.length > 0 ? (
           <ul className="mt-2 space-y-1">
             {problems.slice(0, 4).map((p, i) => (
