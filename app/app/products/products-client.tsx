@@ -1,13 +1,13 @@
 "use client"
 
-import React, { useState, useRef, useEffect, useMemo } from "react"
+import { useState, useRef, useEffect, useMemo } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { Plus, MoreHorizontal, Package, Search, X, Archive, Copy, Trash2, AlertTriangle, Pencil, Eye, Share2, RotateCcw, Download, FileText, Table } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
+import { Plus, Package, Search, X, Trash2, AlertTriangle, Download } from "lucide-react"
 import { getProductUrl } from "@/lib/url-helpers"
-import { SmartLink } from "@/components/smart-link"
+import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
+import { cn } from "@/lib/utils"
+import { GUTTER, LIST_WIDTH, PaneBar, RowMenuButton, StatusBadge, buttonAccent, buttonSecondary, card, iconButton } from "../orders/order-parts"
 import { createClient } from "@/lib/supabase/client"
 import { useLanguage } from "@/lib/i18n"
 import { STORELIB_LOGO } from "@/lib/brand/logo"
@@ -72,7 +72,7 @@ const generateProductsPDF = (products: Product[], formatPrice: (cents: number) =
     <body>
       <div class="header">
         <div class="logo">
-          <img src={STORELIB_LOGO} alt="StoreLib" />
+          <img src="${STORELIB_LOGO}" alt="Storelib" />
         </div>
         <h1>Products Report</h1>
         <p>Generated on ${today}</p>
@@ -122,7 +122,7 @@ const generateProductsPDF = (products: Product[], formatPrice: (cents: number) =
 
       <div class="footer">
         <div class="branding">
-          <img src={STORELIB_LOGO} alt="StoreLib" />
+          <img src="${STORELIB_LOGO}" alt="Storelib" />
         </div>
         <p>This report contains ${products.length} product(s) • Powered by StoreLib</p>
       </div>
@@ -181,34 +181,15 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
   const [productToDelete, setProductToDelete] = useState<Product | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
   const [notification, setNotification] = useState<{ message: string; visible: boolean; type: "success" | "error" }>({ message: "", visible: false, type: "success" })
-  const [exportMenuOpen, setExportMenuOpen] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
-  const exportMenuRef = useRef<HTMLDivElement>(null)
 
-  // Close export menu when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (exportMenuRef.current && !exportMenuRef.current.contains(event.target as Node)) {
-        setExportMenuOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
 
-  const handleExportPDF = (e: React.MouseEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
+  const exportPDF = () => {
     generateProductsPDF(products, formatPrice)
-    setExportMenuOpen(false)
     showNotification("PDF report generated")
   }
-
-  const handleExportCSV = (e: React.MouseEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
+  const exportCSV = () => {
     generateProductsCSV(products, formatPrice)
-    setExportMenuOpen(false)
     showNotification("CSV file downloaded")
   }
 
@@ -357,18 +338,6 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
     }
   }
 
-  const handleSearchClick = (e: React.MouseEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setIsSearchOpen(!isSearchOpen)
-  }
-
-  const handleExportToggle = (e: React.MouseEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setExportMenuOpen(!exportMenuOpen)
-  }
-
   const tabCounts = {
     // Active: Only published products (not archived)
     active: products.filter(p => !p.archived && p.status !== "archived" && p.status === "published").length,
@@ -379,7 +348,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
   }
 
   return (
-    <div className="h-full overflow-y-auto page-scroll bg-[#f8f9fa] app-page-enter">
+    <div className="orders-pane h-full overflow-y-auto overflow-x-hidden page-scroll bg-[#f8f9fa] app-page-enter">
       {/* Notification Toast */}
       {notification.visible && (
         <div className="fixed top-[calc(68px+env(safe-area-inset-top)+12px)] md:top-4 left-1/2 -translate-x-1/2 z-[100] animate-in fade-in-0 slide-in-from-top-2 duration-300">
@@ -389,426 +358,184 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
         </div>
       )}
 
-      <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-[1200px] mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-[24px] sm:text-[28px] font-bold text-[#1a1a2e]">{t("products.title")}</h1>
-            <p className="text-[14px] text-[#6b7280] mt-1">{t("products.subtitle")}</p>
-          </div>
-          <Button
-            asChild
-            className="w-full sm:w-auto min-h-[44px] bg-[#8b5cf6] hover:bg-[#7c3aed] text-white rounded-xl group"
-          >
-            <Link href="/app/products/new">
-              <Plus className="mr-2 h-4 w-4 transition-transform duration-300 ease-out group-hover:rotate-90" />
-              {t("products.newProduct")}
-            </Link>
-          </Button>
-        </div>
+      {/*
+        THE ORDERS PAGE'S LANGUAGE (app/app/orders/order-parts.tsx): the pane's
+        bar with the page's one action, then one card whose toolbar holds the
+        views, search and export, over a dense table. One table for every
+        width: on a phone it scrolls sideways under a Product column that
+        stays put, where it used to be a second, different list of cards.
+      */}
+      <PaneBar width={LIST_WIDTH} className="flex min-h-[60px] items-center justify-between gap-3 py-2">
+        <h1 className="text-[24px] font-bold text-[#1a1a2e] sm:text-[28px]">{t("products.title")}</h1>
+        <Link href="/app/products/new" className={buttonAccent}>
+          <Plus className="h-4 w-4" />
+          {t("products.newProduct")}
+        </Link>
+      </PaneBar>
 
-        {/* Tab Pills & Search */}
-        <div className="flex flex-col gap-3">
-          <div className="flex items-center justify-between gap-3">
-            {/* Horizontal Tab Pills */}
-            <div className="flex items-center gap-2">
-              {tabOptions.map((option) => {
-                // Active tab keeps the original white/border/shadow style
-                // All and Archived tabs use pill style like Sales page
-                const isActiveTab = option.value === "active"
-                const isSelected = activeTab === option.value
-
-                return (
-                  <button
-                    key={option.value}
-                    onClick={() => setActiveTab(option.value)}
-                    className={`inline-flex items-center gap-1.5 text-[13px] font-medium transition-colors cursor-pointer ${
-                      isActiveTab
-                        ? `px-4 py-2 rounded-xl ${
-                            isSelected
-                              ? "bg-white border border-[#e5e7eb] text-[#374151] shadow-sm"
-                              : "bg-[#f3f4f6] text-[#6b7280] hover:bg-[#e5e7eb]"
-                          }`
-                        : `px-3 sm:px-4 py-1.5 rounded-full ${
-                            isSelected
-                              ? "bg-[#e5e7eb] text-[#374151]"
-                              : "text-[#6b7280] hover:bg-[#f3f4f6]"
-                          }`
-                    }`}
-                  >
-                    {option.label}
-                    <span className="text-[11px] text-[#9ca3af]">
-                      {tabCounts[option.value]}
-                    </span>
-                  </button>
-                )
-              })}
-            </div>
-
-            {/* Search & Export Buttons */}
-            <div className="flex items-center gap-2">
-              {/* Search Button - Clickable */}
-              <button
-                type="button"
-                onClick={handleSearchClick}
-                className={`p-2 rounded-lg transition-colors flex-shrink-0 cursor-pointer select-none ${
-                  isSearchOpen
-                    ? "bg-[#8b5cf6] text-white"
-                    : "bg-white border border-[#e5e7eb] text-[#6b7280] hover:bg-[#f9fafb] hover:text-[#374151]"
-                } shadow-sm`}
-                title="Search products"
-                aria-label="Search products"
-              >
-                <Search className="h-4 w-4 pointer-events-none" />
-              </button>
-
-              {/* Export Button - Clickable */}
-              <div className="relative" ref={exportMenuRef}>
+      <div className={cn("mx-auto pb-24 md:pb-8", LIST_WIDTH, GUTTER)}>
+        <section aria-label="Products" className={cn(card, "mt-4 overflow-hidden")}>
+          <div className="flex h-12 items-center gap-2 border-b border-[#eef0f2] px-2">
+            {isSearchOpen ? (
+              <>
+                <label className="flex h-8 min-w-0 flex-1 items-center gap-2 rounded-lg border border-[#d5d7dd] bg-white px-2.5 focus-within:border-[#1a1a2e] focus-within:shadow-[0_0_0_1px_#1a1a2e]">
+                  <Search className="h-4 w-4 shrink-0 text-[#6b7280]" />
+                  <input
+                    ref={searchInputRef}
+                    type="search"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search products"
+                    className="min-w-0 flex-1 bg-transparent text-[16px] text-[#1a1a2e] outline-none placeholder:text-[#9ca3af] sm:text-[13px] [&::-webkit-search-cancel-button]:hidden"
+                  />
+                  {searchQuery ? (
+                    <button type="button" aria-label="Clear search" className="text-[#9ca3af] hover:text-[#4b5563]" onClick={() => setSearchQuery("")}>
+                      <X className="h-4 w-4" />
+                    </button>
+                  ) : null}
+                </label>
                 <button
                   type="button"
-                  onClick={handleExportToggle}
-                  className={`p-2 rounded-lg transition-colors flex-shrink-0 cursor-pointer select-none ${
-                    exportMenuOpen
-                      ? "bg-[#8b5cf6] text-white"
-                      : "bg-white border border-[#e5e7eb] text-[#6b7280] hover:bg-[#f9fafb] hover:text-[#374151]"
-                  } shadow-sm`}
-                  title="Export products"
-                  aria-label="Export products"
-                  aria-expanded={exportMenuOpen}
-                  aria-haspopup="true"
+                  className="h-8 shrink-0 rounded-lg px-2.5 text-[13px] font-medium text-[#1a1a2e] hover:bg-[#f1f2f4]"
+                  onClick={() => {
+                    setSearchQuery("")
+                    setIsSearchOpen(false)
+                  }}
                 >
-                  <Download className="h-4 w-4 pointer-events-none" />
+                  Cancel
                 </button>
-
-                {/* Export Dropdown Menu */}
-                {exportMenuOpen && (
-                  <div className="absolute right-0 mt-2 w-52 bg-white rounded-xl border border-[#e5e7eb] shadow-lg z-50 overflow-hidden animate-in fade-in-0 slide-in-from-top-2 duration-200">
-                    <button
-                      type="button"
-                      onClick={handleExportPDF}
-                      className="w-full px-4 py-3 text-left text-[14px] text-[#374151] hover:bg-[#f9fafb] active:bg-[#f3f4f6] transition-colors flex items-center gap-3 cursor-pointer"
-                    >
-                      <div className="w-8 h-8 rounded-lg bg-[#fef2f2] flex items-center justify-center">
-                        <FileText className="h-4 w-4 text-[#ef4444]" />
-                      </div>
-                      <div>
-                        <p className="font-medium">Export as PDF</p>
-                        <p className="text-[11px] text-[#9ca3af]">Printable report</p>
-                      </div>
+              </>
+            ) : (
+              <>
+                <div role="tablist" aria-label="Views" className="orders-strip -my-2 flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto py-2">
+                  {tabOptions.map((option) => {
+                    const selected = activeTab === option.value
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        role="tab"
+                        aria-selected={selected}
+                        onClick={() => setActiveTab(option.value)}
+                        className={cn(
+                          "inline-flex h-8 shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-lg px-3 text-[13px] font-medium transition-colors duration-100",
+                          selected ? "bg-[#eceef1] text-[#1a1a2e]" : "text-[#4b5563] hover:bg-[#f4f5f7]",
+                        )}
+                      >
+                        {option.label}
+                        <span className="tabular-nums text-[#9ca3af]">{tabCounts[option.value]}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+                <button type="button" aria-label="Search products" className={iconButton} onClick={() => setIsSearchOpen(true)}>
+                  <Search className="h-4 w-4" />
+                </button>
+                <ResponsiveActionMenu
+                  title="Export"
+                  align="end"
+                  trigger={
+                    <button type="button" aria-label="Export products" className={iconButton}>
+                      <Download className="h-4 w-4" />
                     </button>
-                    <button
-                      type="button"
-                      onClick={handleExportCSV}
-                      className="w-full px-4 py-3 text-left text-[14px] text-[#374151] hover:bg-[#f9fafb] active:bg-[#f3f4f6] transition-colors flex items-center gap-3 border-t border-[#e5e7eb] cursor-pointer"
-                    >
-                      <div className="w-8 h-8 rounded-lg bg-[#f0fdf4] flex items-center justify-center">
-                        <Table className="h-4 w-4 text-[#22c55e]" />
-                      </div>
-                      <div>
-                        <p className="font-medium">Export as CSV</p>
-                        <p className="text-[11px] text-[#9ca3af]">Spreadsheet data</p>
-                      </div>
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
+                  }
+                  items={[
+                    { label: "Export as CSV", onClick: exportCSV },
+                    { label: "Export as PDF", onClick: exportPDF },
+                  ]}
+                />
+              </>
+            )}
           </div>
 
-          {/* Search Bar */}
-          {isSearchOpen && (
-            <div className="animate-in fade-in-0 slide-in-from-top-2 duration-200">
-              <div className="flex items-center gap-2 bg-white border border-[#e5e7eb] rounded-xl px-3 py-2 shadow-sm">
-                <Search className="h-4 w-4 text-[#9ca3af] flex-shrink-0" />
-                <input
-                  ref={searchInputRef}
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search products..."
-                  className="flex-1 text-[14px] bg-transparent outline-none placeholder:text-[#9ca3af]"
-                />
-                {searchQuery && (
-                  <button
-                    type="button"
-                    onClick={() => setSearchQuery("")}
-                    className="p-1 text-[#9ca3af] hover:text-[#6b7280] flex-shrink-0 cursor-pointer"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {filteredProducts.length > 0 ? (
-          <>
-            {/* Mobile view */}
-            <div className="grid gap-4 sm:hidden">
-              {filteredProducts.map((product) => (
-                <div key={product.id} className="bg-white rounded-2xl border border-[#e5e7eb]/60 p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-                  <div className="flex gap-3">
-                    {/* Clickable product area */}
-                    <Link
-                      href={`/app/products/${product.id}`}
-                      className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-[#f3f4f6] cursor-pointer hover:ring-2 hover:ring-[#8b5cf6]/20 transition-all"
-                    >
-                      {product.thumbnail_url ? (
-                        <Image
-                          src={product.thumbnail_url || "/placeholder.svg"}
-                          alt={product.title}
-                          fill
-                          className="object-cover"
-                        />
-                      ) : (
-                        <div className="flex h-full items-center justify-center">
-                          <Package className="h-6 w-6 text-[#9ca3af]" />
-                        </div>
-                      )}
-                    </Link>
-                    <Link href={`/app/products/${product.id}`} className="flex-1 min-w-0 text-left cursor-pointer">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[14px] font-medium text-[#1a1a2e] hover:text-[#8b5cf6] line-clamp-1 transition-colors">
-                          {product.title}
-                        </span>
-                      </div>
-                      {/* Show status badge only for non-published products on mobile */}
-                      {(product.status !== "published" || product.archived) && (
-                        <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                          <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full capitalize ${
-                            product.archived
-                              ? "text-[#6b7280] bg-[#f3f4f6]"
-                              : "text-[#6b7280] bg-[#f3f4f6]"
-                          }`}>
-                            {product.archived ? "Archived" : product.status}
-                          </span>
-                        </div>
-                      )}
-                      <p className="mt-1.5 text-[13px] font-semibold text-[#1a1a2e]">{formatPrice(product.price_cents)}</p>
-                    </Link>
-                    {/* Action Buttons */}
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      {/* Edit Button - Light gray */}
-                      <Link
-                        href={`/app/products/${product.id}`}
-                        className="inline-flex items-center justify-center h-8 px-2.5 bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#1f2937] text-[11px] font-medium rounded-lg transition-colors"
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Link>
-                      {/* View Button - Light gray with black text */}
-                      <SmartLink
-                        href={getProductUrl(creatorUsername, product.slug)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center justify-center h-8 px-2.5 bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#1f2937] text-[11px] font-medium rounded-lg transition-colors"
-                      >
-                        <Eye className="h-3.5 w-3.5" />
-                      </SmartLink>
-                      {/* Restore Button - Only for archived products (light gray) */}
-                      {(product.archived || product.status === "archived") && (
-                        <button
-                          type="button"
-                          onClick={() => handleArchive(product)}
-                          className="inline-flex items-center justify-center h-8 px-2.5 bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#1f2937] text-[11px] font-medium rounded-lg transition-colors"
-                        >
-                          <RotateCcw className="h-3.5 w-3.5" />
-                        </button>
-                      )}
-                      {/* More Actions Dropdown - includes Share on mobile */}
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="shrink-0 h-8 w-8 rounded-lg hover:bg-[#f3f4f6]">
-                            <MoreHorizontal className="h-4 w-4 text-[#9ca3af]" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="rounded-xl w-48">
-                          {/* Share option in dropdown on mobile */}
-                          <DropdownMenuItem onClick={() => handleShare(product)} className="cursor-pointer">
-                            <Share2 className="h-4 w-4 mr-2" />
-                            Share
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem onClick={() => handleArchive(product)} className="cursor-pointer">
-                            <Archive className="h-4 w-4 mr-2" />
-                            {product.archived ? t("products.restore") : t("products.archive")}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleDuplicate(product)} className="cursor-pointer">
-                            <Copy className="h-4 w-4 mr-2" />
-                            {t("products.duplicate")}
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            onClick={() => handleDeleteClick(product)}
-                            className="cursor-pointer text-rose-600 focus:text-rose-600 focus:bg-rose-50"
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Desktop view */}
-            <div className="hidden sm:block bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
-              <div className="table-scroll">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-[#e5e7eb]">
-                      <th className="px-5 py-4 text-left text-[13px] font-medium text-[#6b7280]">Product</th>
-                      <th className="px-5 py-4 text-left text-[13px] font-medium text-[#6b7280]">Price</th>
-                      <th className="px-5 py-4 text-left text-[13px] font-medium text-[#6b7280]">Status</th>
-                      <th className="px-5 py-4 text-right text-[13px] font-medium text-[#6b7280]">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredProducts.map((product) => (
-                      <tr key={product.id} className="border-b border-[#e5e7eb]/60 last:border-0 hover:bg-[#f9fafb] transition-colors">
-                        <td className="px-5 py-4">
-                          <div className="flex items-center gap-3">
-                            <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-[#f3f4f6]">
+          {filteredProducts.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[500px] border-collapse">
+                <thead className="border-b border-[#eef0f2] bg-[#fafbfb]">
+                  <tr>
+                    <th className="sticky left-0 z-[1] h-9 bg-[#fafbfb] px-3 text-left text-[12px] font-medium text-[#4b5563]">Product</th>
+                    <th className="h-9 px-3 text-left text-[12px] font-medium text-[#4b5563]">Status</th>
+                    <th className="h-9 px-3 text-right text-[12px] font-medium text-[#4b5563]">Price</th>
+                    <th className="h-9 w-[132px] px-3" aria-label="Actions" />
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#f1f2f4]">
+                  {filteredProducts.map((product) => {
+                    const archived = product.archived || product.status === "archived"
+                    return (
+                      <tr key={product.id} className="group hover:bg-[#fafbfb]">
+                        <td className="sticky left-0 z-[1] h-14 bg-white px-3 group-hover:bg-[#fafbfb]">
+                          {/* The limit is on the link: a table cell's own max-width is ignored.
+                              Narrow on a phone, so the columns scrolling under it still show. */}
+                          <Link href={`/app/products/${product.id}`} className="flex min-w-0 max-w-[170px] items-center gap-3 sm:max-w-[320px]">
+                            <span className="relative h-10 w-10 shrink-0 overflow-hidden rounded-lg border border-[#eef0f2] bg-[#f3f4f6]">
                               {product.thumbnail_url ? (
-                                <Image
-                                  src={product.thumbnail_url || "/placeholder.svg"}
-                                  alt={product.title}
-                                  fill
-                                  className="object-cover"
-                                />
+                                <Image src={product.thumbnail_url} alt="" fill sizes="40px" className="object-cover" />
                               ) : (
-                                <div className="flex h-full items-center justify-center">
-                                  <Package className="h-5 w-5 text-[#9ca3af]" />
-                                </div>
+                                <span className="flex h-full items-center justify-center">
+                                  <Package className="h-4 w-4 text-[#9ca3af]" />
+                                </span>
                               )}
-                            </div>
-                            <span className="text-[14px] font-medium text-[#1a1a2e] hover:text-[#8b5cf6] transition-colors">
-                              {product.title}
                             </span>
-                          </div>
+                            <span className="truncate text-[13px] font-medium text-[#1a1a2e]">{product.title}</span>
+                          </Link>
                         </td>
-                        <td className="px-5 py-4 text-[14px] font-semibold text-[#1a1a2e]">{formatPrice(product.price_cents)}</td>
-                        <td className="px-5 py-4">
-                          <span className={`text-[12px] font-medium px-2.5 py-1 rounded-full capitalize ${
-                            product.status === "published"
-                              ? "text-[#8b5cf6] bg-[#f5f3ff]"
-                              : product.archived
-                              ? "text-[#6b7280] bg-[#f3f4f6]"
-                              : "text-[#6b7280] bg-[#f3f4f6]"
-                          }`}>
-                            {product.archived ? "Archived" : product.status}
-                          </span>
+                        <td className="h-14 whitespace-nowrap px-3">
+                          {archived ? (
+                            <StatusBadge tone="neutral">Archived</StatusBadge>
+                          ) : product.status === "published" ? (
+                            <StatusBadge tone="success">Active</StatusBadge>
+                          ) : (
+                            <StatusBadge tone="neutral">Draft</StatusBadge>
+                          )}
                         </td>
-                        <td className="px-5 py-4 text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            {/* Edit Button - Light gray */}
-                            <Link
-                              href={`/app/products/${product.id}`}
-                              className="inline-flex items-center gap-1.5 h-8 px-3 bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#1f2937] text-[12px] font-medium rounded-lg transition-colors"
-                            >
-                              <Pencil className="h-3.5 w-3.5" />
+                        <td className="h-14 whitespace-nowrap px-3 text-right text-[13px] tabular-nums text-[#1a1a2e]">{formatPrice(product.price_cents)}</td>
+                        <td className="h-14 whitespace-nowrap px-2 text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <Link href={`/app/products/${product.id}`} className={buttonSecondary}>
                               {t("products.edit")}
                             </Link>
-                            {/* View Button - Light gray with black text */}
-                            <SmartLink
-                              href={getProductUrl(creatorUsername, product.slug)}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1.5 h-8 px-3 bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#1f2937] text-[12px] font-medium rounded-lg transition-colors"
-                            >
-                              <Eye className="h-3.5 w-3.5" />
-                              {t("common.view")}
-                            </SmartLink>
-                            {/* Conditional: Share Button for active products, Restore for archived */}
-                            {product.archived || product.status === "archived" ? (
-                              <button
-                                type="button"
-                                onClick={() => handleArchive(product)}
-                                className="inline-flex items-center gap-1.5 h-8 px-3 bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#1f2937] text-[12px] font-medium rounded-lg transition-colors"
-                              >
-                                <RotateCcw className="h-3.5 w-3.5" />
-                                {t("products.restore")}
-                              </button>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => handleShare(product)}
-                                className="inline-flex items-center gap-1.5 h-8 px-3 bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#1f2937] text-[12px] font-medium rounded-lg transition-colors"
-                              >
-                                <Share2 className="h-3.5 w-3.5" />
-                                {t("products.share")}
-                              </button>
-                            )}
-                            {/* More Actions Dropdown */}
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" className="rounded-lg hover:bg-[#f3f4f6] h-8 w-8">
-                                  <MoreHorizontal className="h-4 w-4 text-[#9ca3af]" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" className="rounded-xl w-48">
-                                {/* Share option for archived products in dropdown */}
-                                {(product.archived || product.status === "archived") && (
-                                  <>
-                                    <DropdownMenuItem onClick={() => handleShare(product)} className="cursor-pointer">
-                                      <Share2 className="h-4 w-4 mr-2" />
-                                      {t("products.share")}
-                                    </DropdownMenuItem>
-                                    <DropdownMenuSeparator />
-                                  </>
-                                )}
-                                <DropdownMenuItem onClick={() => handleArchive(product)} className="cursor-pointer">
-                                  <Archive className="h-4 w-4 mr-2" />
-                                  {product.archived ? t("products.restore") : t("products.archive")}
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleDuplicate(product)} className="cursor-pointer">
-                                  <Copy className="h-4 w-4 mr-2" />
-                                  {t("products.duplicate")}
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem
-                                  onClick={() => handleDeleteClick(product)}
-                                  className="cursor-pointer text-rose-600 focus:text-rose-600 focus:bg-rose-50"
-                                >
-                                  <Trash2 className="h-4 w-4 mr-2" />
-                                  Delete
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
+                            <ResponsiveActionMenu
+                              title={product.title}
+                              align="end"
+                              trigger={<RowMenuButton label={`Actions for ${product.title}`} />}
+                              items={[
+                                { label: t("common.view"), href: getProductUrl(creatorUsername, product.slug), target: "_blank" },
+                                { label: t("products.share"), onClick: () => handleShare(product) },
+                                { label: archived ? t("products.restore") : t("products.archive"), onClick: () => handleArchive(product), separatorBefore: true },
+                                { label: t("products.duplicate"), onClick: () => handleDuplicate(product) },
+                                { label: "Delete", variant: "destructive", separatorBefore: true, onClick: () => handleDeleteClick(product) },
+                              ]}
+                            />
                           </div>
                         </td>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    )
+                  })}
+                </tbody>
+              </table>
             </div>
-          </>
-        ) : (
-          <div className="bg-white rounded-2xl border border-dashed border-[#e5e7eb] p-8 sm:p-12 text-center shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-            <Package className="mx-auto h-12 w-12 text-[#d1d5db]" />
-            <h3 className="mt-4 text-[15px] font-semibold text-[#1a1a2e]">
-              {searchQuery ? "No products found" : activeTab === "archived" ? "No archived products" : "No products yet"}
-            </h3>
-            <p className="mt-1 text-[13px] text-[#6b7280]">
-              {searchQuery
-                ? "Try adjusting your search query."
-                : activeTab === "archived"
-                ? "Archived products will appear here."
-                : "Create your first product to start selling."}
-            </p>
-            {!searchQuery && activeTab !== "archived" && (
-              <Button className="mt-4 min-h-[44px] bg-[#8b5cf6] hover:bg-[#7c3aed] text-white rounded-xl group" asChild>
-                <Link href="/app/products/new">
-                  <Plus className="mr-2 h-4 w-4 transition-transform duration-300 ease-out group-hover:rotate-90" />
+          ) : (
+            <div className="flex flex-col items-center px-6 py-14 text-center">
+              <p className="text-[15px] font-semibold text-[#1a1a2e]">
+                {searchQuery ? "No products match" : activeTab === "archived" ? "No archived products" : "No products yet"}
+              </p>
+              <p className="mt-1 max-w-[340px] text-[13px] text-[#6b7280]">
+                {searchQuery
+                  ? "Try another name."
+                  : activeTab === "archived"
+                    ? "A product you archive is kept here, off your page, until you restore it."
+                    : "Create a product and it can be sold on your page and your website."}
+              </p>
+              {!searchQuery && activeTab !== "archived" ? (
+                <Link href="/app/products/new" className={cn(buttonAccent, "mt-4")}>
+                  <Plus className="h-4 w-4" />
                   Create product
                 </Link>
-              </Button>
-            )}
-          </div>
-        )}
+              ) : null}
+            </div>
+          )}
+        </section>
       </div>
 
       {/* Delete Confirmation Modal */}

@@ -7,7 +7,7 @@
  */
 
 import * as React from "react"
-import { Check, Minus } from "lucide-react"
+import { Check, Minus, MoreHorizontal } from "lucide-react"
 import { PopoverContent } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
 import type { DeliveryStatus, FulfillmentStatus, PaymentStatus } from "@/lib/orders/order-view"
@@ -301,3 +301,31 @@ export const card = "rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1
  */
 export const buttonAccent =
   "inline-flex h-8 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-[#8b5cf6] px-3 text-[13px] font-medium text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_1px_2px_rgba(76,29,149,0.28),0_3px_8px_-3px_rgba(139,92,246,0.55)] transition-[background-color,box-shadow] duration-100 hover:bg-[#7c3aed] active:bg-[#6d28d9] active:shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_1px_1px_rgba(76,29,149,0.3)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#8b5cf6] disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none cursor-pointer select-none"
+
+/**
+ * A row's "more" button, for ResponsiveActionMenu. The menu hands its trigger
+ * its own handlers and ARIA (Radix's `asChild` on a desktop, a cloned onClick
+ * on a phone), so this takes a ref and spreads what it is given: a button
+ * that kept only its label never opened the menu on a desktop. It stops the
+ * click there, so a row that opens on click is not opened as well.
+ */
+export const RowMenuButton = React.forwardRef<HTMLButtonElement, React.ButtonHTMLAttributes<HTMLButtonElement> & { label: string }>(
+  function RowMenuButton({ label, onClick, className, ...rest }, ref) {
+    return (
+      <button
+        ref={ref}
+        type="button"
+        aria-label={label}
+        className={cn(iconButton, className)}
+        {...rest}
+        onClick={(e) => {
+          e.stopPropagation()
+          onClick?.(e)
+        }}
+      >
+        <MoreHorizontal className="h-4 w-4" />
+      </button>
+    )
+  },
+)
+

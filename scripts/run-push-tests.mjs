@@ -25,6 +25,7 @@ const SUITES = [
   "tests/canvas-containment.test.ts",
   "tests/agent-rules.test.ts",
   "tests/site-seo.test.ts",
+  "tests/emails-page.test.ts",
   "tests/orders-view.test.ts",
   "tests/orders-detail.test.ts",
   "tests/analytics-reports.test.ts",

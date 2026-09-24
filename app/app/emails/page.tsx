@@ -3,42 +3,27 @@
 import { useMemo, useState, useEffect, useRef, useCallback } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { Switch } from "@/components/ui/switch"
-import { DateRangePicker } from "@/components/app/date-range-picker"
 import { viewerTimeZone } from "@/lib/orders/time-zone"
 import { boundsOf, resolveValue, todayIn, type RangeValue } from "@/lib/date-range/range"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import {
-  Plus,
   Send,
-  Clock,
-  FileText,
   Users,
   Mail,
-  Calendar,
   Eye,
   Trash2,
-  MoreHorizontal,
   Search,
   Link2,
-  Store,
   Loader2,
   ArrowLeft,
-  BarChart3,
   MousePointerClick,
   Check,
   X,
-  Copy,
-  RefreshCw,
-  Download,
   Zap,
-  Play,
-  Pause,
   ShoppingCart,
   UserPlus,
   ChevronRight,
-  Settings,
-  MailPlus,
   Timer,
   Sparkles,
   Type,
@@ -61,13 +46,13 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { AnnouncementBarMobile } from "@/components/app/announcement-bar-mobile"
+import { EmailsHome } from "./emails-home"
 import { EmailEditor } from "@/components/email/email-editor"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
@@ -163,14 +148,6 @@ interface FlowStep {
     condition_value?: any
   }
 }
-
-const tabs = [
-  { id: "subscribers" as const, label: "Subscribers", icon: Users },
-  { id: "flows" as const, label: "Flows", icon: Zap },
-  { id: "published" as const, label: "Sent", icon: Send },
-  { id: "scheduled" as const, label: "Scheduled", icon: Clock },
-  { id: "drafts" as const, label: "Drafts", icon: FileText },
-]
 
 const FLOW_TRIGGERS = [
   {
@@ -887,19 +864,32 @@ export default function EmailsPage() {
     setView("analytics")
   }
 
-  const filteredSubscribers = subscribers.filter(
-    (s) =>
-      s.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      s.source.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (s.name && s.name.toLowerCase().includes(searchQuery.toLowerCase())),
-  )
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    })
+  /** Every subscribed address as a CSV, named for today. */
+  const exportSubscribers = () => {
+    const activeSubscribers = subscribers.filter((s) => s.status === "subscribed")
+    if (activeSubscribers.length === 0) {
+      toast({ title: "No subscribers", description: "There are no subscribers to export", variant: "destructive" })
+      return
+    }
+    const headers = ["Email", "Name", "Source", "Status", "Subscribed Date"]
+    const rows = activeSubscribers.map((s) => [
+      s.email,
+      s.name || "",
+      s.source === "onepage" ? "OnePage" : "Website",
+      s.status === "subscribed" && s.unsubscribed_at ? "resubscribed" : s.status,
+      s.subscribed_at ? new Date(s.subscribed_at).toLocaleDateString() : "",
+    ])
+    const csvContent = [headers, ...rows].map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\n")
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement("a")
+    link.href = url
+    link.download = `subscribers-${new Date().toISOString().split("T")[0]}.csv`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+    toast({ title: "Export complete", description: `Exported ${activeSubscribers.length} subscribers to CSV` })
   }
 
   const formatDateTime = (dateString: string) => {
@@ -2444,7 +2434,7 @@ Tips:
 
   // List View
   return (
-    <div className="h-full overflow-y-auto page-scroll bg-[#fafafa] app-page-enter">
+    <div className="orders-pane h-full overflow-y-auto overflow-x-hidden page-scroll bg-[#f8f9fa] app-page-enter">
       {showSuccessToast && (
         <div className="hidden md:block fixed left-1/2 -translate-x-1/2 z-[220] top-4 w-auto animate-in fade-in slide-in-from-top-2 duration-300 px-1 pointer-events-none">
           <div className="bg-black text-white px-4 py-3 rounded-xl shadow-2xl text-sm font-medium text-center whitespace-nowrap">
@@ -2487,588 +2477,52 @@ Tips:
         </div>
       </AnnouncementBarMobile>
 
-      {/* Header */}
-      <div className="bg-white border-b sticky top-0 z-10">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-xl font-semibold text-gray-900">Emails</h1>
-              <p className="text-sm text-gray-500 mt-0.5">Send updates and manage your subscribers</p>
-            </div>
-            <Button onClick={handleNewEmail} className="bg-violet-600 hover:bg-violet-700 text-white h-9 px-4 rounded-lg group cursor-pointer">
-              <Plus className="h-4 w-4 mr-2 transition-transform duration-300 group-hover:rotate-90" />
-              New email
-            </Button>
-          </div>
-
-          {/* Tabs - Pill Style */}
-          <div className="flex gap-1 mt-4 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-            {tabs.map((tab) => {
-              const Icon = tab.icon
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={cn(
-                    "flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-full transition-all whitespace-nowrap cursor-pointer",
-                    activeTab === tab.id
-                      ? "bg-[#f3f4f6] text-[#1a1a2e]"
-                      : "text-[#6b7280] hover:text-[#1a1a2e] hover:bg-[#f9fafb]",
-                  )}
-                >
-                  <Icon className="h-4 w-4" />
-                  {tab.label}
-                </button>
-              )
-            })}
-          </div>
-        </div>
-      </div>
-
-
-      {/* Content */}
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6">
-        {activeTab === "subscribers" && (
-          <div className="space-y-4">
-            {/* Stats Summary */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              <div className="bg-white rounded-xl border p-4">
-                <p className="text-sm text-gray-500">Total</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {subscribers.filter((s) => s.status === "subscribed").length + checkoutBuyersCount}
-                </p>
-              </div>
-              <div className="bg-white rounded-xl border p-4">
-                <p className="text-sm text-gray-500">OnePage</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {subscribers.filter((s) => s.source === "onepage" && s.status === "subscribed").length}
-                </p>
-              </div>
-              <div className="bg-white rounded-xl border p-4">
-                <p className="text-sm text-gray-500">Store</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {subscribers.filter((s) => s.source !== "onepage" && s.status === "subscribed").length + checkoutBuyersCount}
-                </p>
-              </div>
-              <div className="bg-white rounded-xl border p-4">
-                <p className="text-sm text-gray-500">Unsubscribed</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {subscribers.filter((s) => s.status === "unsubscribed").length}
-                </p>
-              </div>
-            </div>
-
-            {/* Search and Export */}
-            <div className="flex items-center gap-3">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input
-                  placeholder="Search subscribers..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 h-10 rounded-lg"
-                />
-              </div>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  const activeSubscribers = subscribers.filter(s => s.status === "subscribed")
-                  if (activeSubscribers.length === 0) {
-                    toast({ title: "No subscribers", description: "There are no subscribers to export", variant: "destructive" })
-                    return
-                  }
-                  const headers = ["Email", "Name", "Source", "Status", "Subscribed Date"]
-                  const rows = activeSubscribers.map(s => [
-                    s.email,
-                    s.name || "",
-                    s.source === "onepage" ? "OnePage" : "Store Builder",
-                    s.status === "subscribed" && s.unsubscribed_at ? "resubscribed" : s.status,
-                    s.subscribed_at ? new Date(s.subscribed_at).toLocaleDateString() : ""
-                  ])
-                  const csvContent = [headers, ...rows].map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\n")
-                  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
-                  const url = URL.createObjectURL(blob)
-                  const link = document.createElement("a")
-                  link.href = url
-                  link.download = `subscribers-${new Date().toISOString().split("T")[0]}.csv`
-                  document.body.appendChild(link)
-                  link.click()
-                  document.body.removeChild(link)
-                  URL.revokeObjectURL(url)
-                  toast({ title: "Export complete", description: `Exported ${activeSubscribers.length} subscribers to CSV` })
-                }}
-                className="h-10 px-4 rounded-lg cursor-pointer hover:bg-gray-50"
-              >
-                <Download className="h-4 w-4 mr-2" />
-                Export CSV
-              </Button>
-            </div>
-
-            {/* Subscribers List */}
-            <div className="bg-white rounded-xl border overflow-hidden">
-              {loading ? (
-                <div className="flex items-center justify-center py-12">
-                  <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
-                </div>
-              ) : filteredSubscribers.length === 0 ? (
-                <div className="text-center py-12">
-                  <Users className="h-12 w-12 mx-auto text-gray-300 mb-3" />
-                  <p className="text-gray-500 text-sm">No subscribers yet</p>
-                  <p className="text-gray-400 text-xs mt-1">Subscribers from your OnePage and Store will appear here</p>
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="table-fixed sm:table-auto min-w-[130vw] sm:min-w-full">
-                    <thead>
-                      <tr className="bg-gray-50 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        <th className="px-3 sm:px-4 py-3 text-left">Email</th>
-                        <th className="px-4 py-3 text-left hidden sm:table-cell">Name</th>
-                        <th className="px-2 sm:px-4 py-3 text-left">Source</th>
-                        <th className="px-4 py-3 text-left hidden md:table-cell">Status</th>
-                        <th className="px-4 py-3 text-left hidden lg:table-cell">Date</th>
-                        <th className="px-2 sm:px-4 py-3 text-right w-[44px]"></th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y">
-                      {filteredSubscribers.map((subscriber) => (
-                        <tr key={subscriber.id} className="hover:bg-gray-50">
-                          <td className="px-3 sm:px-4 py-3">
-                            <div className="flex items-center gap-2 min-w-0">
-                              <Mail className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                              <span className="text-sm text-gray-900 truncate max-w-[210px] sm:max-w-[260px]">{subscriber.email}</span>
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 hidden sm:table-cell">
-                            <span className="text-sm text-gray-600">{subscriber.name || "-"}</span>
-                          </td>
-                          <td className="px-2 sm:px-4 py-3">
-                            <span
-                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-[#f3f4f6] text-[#6b7280]"
-                            >
-                              {subscriber.source === "onepage" ? (
-                                <Link2 className="h-3 w-3 text-violet-500" />
-                              ) : (
-                                <Store className="h-3 w-3 text-violet-500" />
-                              )}
-                              <span className="hidden sm:inline">
-                                {subscriber.source === "onepage" ? "OnePage" : "Store"}
-                              </span>
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 hidden md:table-cell">
-                            {(() => {
-                              const isResubscribed = subscriber.status === "subscribed" && subscriber.unsubscribed_at
-                              return (
-                                <span
-                                  className={cn(
-                                    "inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium",
-                                    isResubscribed
-                                      ? "bg-amber-50 text-amber-700"
-                                      : subscriber.status === "subscribed"
-                                        ? "bg-green-50 text-green-700"
-                                        : "bg-gray-100 text-gray-500",
-                                  )}
-                                >
-                                  {isResubscribed ? (
-                                    <RefreshCw className="h-3 w-3" />
-                                  ) : subscriber.status === "subscribed" ? (
-                                    <Check className="h-3 w-3" />
-                                  ) : (
-                                    <X className="h-3 w-3" />
-                                  )}
-                                  {isResubscribed ? "resubscribed" : subscriber.status}
-                                </span>
-                              )
-                            })()}
-                          </td>
-                          <td className="px-4 py-3 hidden lg:table-cell">
-                            <span className="text-xs text-gray-500">{formatDate(subscriber.subscribed_at)}</span>
-                          </td>
-                          <td className="px-2 sm:px-4 py-3 text-right">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-8 w-8">
-                                  <MoreHorizontal className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem
-                                  onClick={() => {
-                                    navigator.clipboard.writeText(subscriber.email)
-                                    toast({ title: "Copied", description: "Email copied to clipboard" })
-                                  }}
-                                >
-                                  <Copy className="h-4 w-4 mr-2" />
-                                  Copy email
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem
-                                  className="text-red-600"
-                                  onClick={() => {
-                                    setDeleteTarget({ type: "subscriber", id: subscriber.id })
-                                    setShowDeleteDialog(true)
-                                  }}
-                                >
-                                  <Trash2 className="h-4 w-4 mr-2" />
-                                  Remove
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {activeTab === "flows" && (
-          <div className="space-y-6">
-            {/* Header */}
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-[15px] font-semibold text-[#1a1a2e]">Automations</h2>
-                <p className="text-[13px] text-[#6b7280]">Emails Storelib sends for you when someone joins your list or buys something</p>
-              </div>
-              <Button
-                onClick={() => setShowCreateFlowDialog(true)}
-                className="hidden sm:inline-flex rounded-[8px] bg-violet-600 hover:bg-violet-700 cursor-pointer group"
-              >
-                <Plus className="h-4 w-4 mr-2 transition-transform duration-300 group-hover:rotate-90" />
-                Create Flow
-              </Button>
-            </div>
-
-            {/* Flows List */}
-            {loading ? (
-              <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 p-12 text-center">
-                <Loader2 className="h-6 w-6 animate-spin text-gray-400 mx-auto" />
-              </div>
-            ) : flows.length === 0 ? (
-              <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-12 text-center">
-                <div className="w-16 h-16 rounded-2xl bg-violet-100 flex items-center justify-center mx-auto mb-4">
-                  <Zap className="h-8 w-8 text-violet-600" />
-                </div>
-                <h3 className="font-semibold text-[#1a1a2e] mb-2">No automations yet</h3>
-                <p className="text-[13px] text-[#6b7280] max-w-sm mx-auto mb-6">
-                  Write a welcome email and turn it on, and it goes to everyone who joins your list. It is off
-                  until you do. Sign-ups are collected either way.
-                </p>
-                <Button
-                  onClick={() => setShowCreateFlowDialog(true)}
-                  className="rounded-[8px] bg-violet-600 hover:bg-violet-700 cursor-pointer group"
-                >
-                  <Plus className="h-4 w-4 mr-2 transition-transform duration-300 group-hover:rotate-90" />
-                  Create your first flow
-                </Button>
-              </div>
-            ) : (
-              <div className="grid gap-4 sm:grid-cols-2">
-                {flows.map((flow) => {
-                  const triggerInfo = getTriggerInfo(flow.trigger_type)
-                  const TriggerIcon = triggerInfo.icon
-                  return (
-                    <div
-                      key={flow.id}
-                      className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
-                      onClick={() => handleEditFlow(flow)}
-                    >
-                      <div className="p-5">
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex items-start gap-3">
-                            <div className={cn("p-2.5 rounded-xl", triggerInfo.color)}>
-                              <TriggerIcon className="h-5 w-5" />
-                            </div>
-                            <div>
-                              <h3 className="font-semibold text-[#1a1a2e]">{flow.name}</h3>
-                              <p className="text-[13px] text-[#6b7280] mt-0.5">{triggerInfo.description}</p>
-                            </div>
-                          </div>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="rounded-xl">
-                              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleEditFlow(flow); }}>
-                                <Settings className="h-4 w-4 mr-2" />
-                                Edit
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleToggleFlowStatus(flow); }}>
-                                {flow.status === "active" ? (
-                                  <>
-                                    <Pause className="h-4 w-4 mr-2" />
-                                    Turn off
-                                  </>
-                                ) : (
-                                  <>
-                                    <Play className="h-4 w-4 mr-2" />
-                                    Turn on
-                                  </>
-                                )}
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                className="text-red-600"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  setDeleteTarget({ type: "flow", id: flow.id })
-                                  setShowDeleteDialog(true)
-                                }}
-                              >
-                                <Trash2 className="h-4 w-4 mr-2" />
-                                Delete
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
-                      </div>
-                      <div className="px-5 py-3 bg-[#f9fafb] border-t border-[#e5e7eb]/60 flex items-center justify-between">
-                        <div className="flex items-center gap-4 text-[12px] text-[#6b7280]">
-                          <span>{(flow.steps || []).length} step{(flow.steps || []).length !== 1 ? "s" : ""}</span>
-                          {flow.stats && (
-                            <>
-                              <span>{flow.stats.emails_sent} emails sent</span>
-                              <span>{flow.stats.open_rate}% opens</span>
-                            </>
-                          )}
-                        </div>
-                        <label
-                          className="flex cursor-pointer items-center gap-2 text-[12px] font-medium text-[#1a1a2e]"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          {flow.status === "active" ? "On" : "Off"}
-                          <Switch
-                            checked={flow.status === "active"}
-                            onCheckedChange={() => handleToggleFlowStatus(flow)}
-                            aria-label={`Send ${flow.name} automatically`}
-                          />
-                        </label>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-        )}
-
-        {(activeTab === "published" || activeTab === "scheduled" || activeTab === "drafts") && (
-          <div className="space-y-4">
-            {/* Analytics Overview for Sent Tab */}
-            {activeTab === "published" && overviewStats && (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-sm font-medium text-gray-700">Overview</h2>
-                  <DateRangePicker value={statsPeriod} onChange={setStatsPeriod} today={statsToday} align="end" />
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
-                  <div className="bg-white rounded-xl border p-4">
-                    <div className="flex items-center gap-2 text-gray-500 mb-1">
-                      <Send className="h-4 w-4" />
-                      <span className="text-xs font-medium">Total Sent</span>
-                    </div>
-                    <p className="text-2xl font-bold text-gray-900">{overviewStats.total_sent}</p>
-                  </div>
-                  <div className="bg-white rounded-xl border p-4">
-                    <div className="flex items-center gap-2 text-gray-500 mb-1">
-                      <Eye className="h-4 w-4" />
-                      <span className="text-xs font-medium">Opens</span>
-                    </div>
-                    <p className="text-2xl font-bold text-gray-900">{overviewStats.total_opened}</p>
-                    <p className="text-xs text-green-600 font-medium">{overviewStats.open_rate}% rate</p>
-                  </div>
-                  <div className="bg-white rounded-xl border p-4">
-                    <div className="flex items-center gap-2 text-gray-500 mb-1">
-                      <MousePointerClick className="h-4 w-4" />
-                      <span className="text-xs font-medium">Clicks</span>
-                    </div>
-                    <p className="text-2xl font-bold text-gray-900">{overviewStats.total_clicked}</p>
-                    <p className="text-xs text-blue-600 font-medium">{overviewStats.click_rate}% rate</p>
-                  </div>
-                  <div className="bg-white rounded-xl border p-4">
-                    <div className="flex items-center gap-2 text-gray-500 mb-1">
-                      <X className="h-4 w-4" />
-                      <span className="text-xs font-medium">Unsubscribed</span>
-                    </div>
-                    <p className="text-2xl font-bold text-gray-900">{overviewStats.total_unsubscribed}</p>
-                  </div>
-                  {/* Email Limit Progress */}
-                  <div className="bg-white rounded-xl border p-4">
-                    <div className="flex items-center gap-2 text-gray-500 mb-2">
-                      <Mail className="h-4 w-4" />
-                      <span className="text-xs font-medium">Monthly Limit</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className="relative w-12 h-12">
-                        <svg className="w-12 h-12 -rotate-90" viewBox="0 0 36 36">
-                          <path
-                            className="text-gray-100"
-                            stroke="currentColor"
-                            strokeWidth="3"
-                            fill="none"
-                            d="M18 2.0845
-                              a 15.9155 15.9155 0 0 1 0 31.831
-                              a 15.9155 15.9155 0 0 1 0 -31.831"
-                          />
-                          <path
-                            className={cn(
-                              (emailUsage.sent / emailUsage.limit) > 0.9 ? "text-red-500" :
-                              (emailUsage.sent / emailUsage.limit) > 0.7 ? "text-amber-500" : "text-violet-500"
-                            )}
-                            stroke="currentColor"
-                            strokeWidth="3"
-                            strokeLinecap="round"
-                            fill="none"
-                            strokeDasharray={`${Math.min((emailUsage.sent / emailUsage.limit) * 100, 100)}, 100`}
-                            d="M18 2.0845
-                              a 15.9155 15.9155 0 0 1 0 31.831
-                              a 15.9155 15.9155 0 0 1 0 -31.831"
-                          />
-                        </svg>
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <span className="text-[10px] font-bold text-gray-700">{Math.round((emailUsage.sent / emailUsage.limit) * 100)}%</span>
-                        </div>
-                      </div>
-                      <div>
-                        <p className="text-sm font-bold text-gray-900">{emailUsage.sent.toLocaleString()}</p>
-                        <p className="text-[10px] text-gray-500">of {emailUsage.limit.toLocaleString()}</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {loading ? (
-              <div className="bg-white rounded-xl border p-12 text-center">
-                <Loader2 className="h-6 w-6 animate-spin text-gray-400 mx-auto" />
-              </div>
-            ) : campaigns.length === 0 ? (
-              <div className="bg-white rounded-xl border p-12 text-center">
-                <Mail className="h-12 w-12 mx-auto text-gray-300 mb-3" />
-                <p className="text-gray-500 text-sm">
-                  {activeTab === "published" && "No emails sent yet"}
-                  {activeTab === "scheduled" && "No scheduled emails"}
-                  {activeTab === "drafts" && "No draft emails"}
-                </p>
-                <Button variant="outline" className="mt-4 bg-transparent" onClick={handleNewEmail}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create your first email
-                </Button>
-              </div>
-            ) : (
-              <div className="bg-white rounded-xl border overflow-hidden divide-y">
-                {campaigns.map((campaign) => (
-                  <div
-                    key={campaign.id}
-                    className="p-4 hover:bg-gray-50 transition-colors cursor-pointer"
-                    onClick={() => activeTab === "published" ? handleViewStats(campaign) : handleEditCampaign(campaign)}
-                  >
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-medium text-gray-900 truncate">
-                          {campaign.subject}
-                          {campaign.subject?.includes("(Resend)") && (
-                            <span className="ml-2 text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">Resent</span>
-                          )}
-                        </h3>
-                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-sm text-gray-500">
-                          {campaign.sent_at && (
-                            <span className="flex items-center gap-1">
-                              <Calendar className="h-3.5 w-3.5" />
-                              Sent {formatDate(campaign.sent_at)}
-                            </span>
-                          )}
-                          {campaign.scheduled_at && (
-                            <span className="flex items-center gap-1">
-                              <Clock className="h-3.5 w-3.5" />
-                              {formatDateTime(campaign.scheduled_at)}
-                            </span>
-                          )}
-                          {(campaign.recipient_count || campaign.audience_count) > 0 && (
-                            <span className="flex items-center gap-1">
-                              <Users className="h-3.5 w-3.5" />
-                              {campaign.recipient_count || campaign.audience_count} recipients
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 flex-shrink-0"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          {activeTab === "published" && (
-                            <>
-                              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleViewStats(campaign); }}>
-                                <BarChart3 className="h-4 w-4 mr-2" />
-                                View Analytics
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleResend(campaign); }} disabled={isSending}>
-                                <RefreshCw className="h-4 w-4 mr-2" />
-                                Resend
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                className="text-red-600"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  setDeleteTarget({ type: "campaign", id: campaign.id })
-                                  setShowDeleteDialog(true)
-                                }}
-                              >
-                                <Trash2 className="h-4 w-4 mr-2" />
-                                Delete
-                              </DropdownMenuItem>
-                            </>
-                          )}
-                          {activeTab !== "published" && (
-                            <>
-                              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleEditCampaign(campaign); }}>
-                                <Eye className="h-4 w-4 mr-2" />
-                                Edit
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                className="text-red-600"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  setDeleteTarget({ type: "campaign", id: campaign.id })
-                                  setShowDeleteDialog(true)
-                                }}
-                              >
-                                <Trash2 className="h-4 w-4 mr-2" />
-                                Delete
-                              </DropdownMenuItem>
-                            </>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+      <EmailsHome
+        tab={activeTab}
+        onTab={setActiveTab}
+        loading={loading}
+        onNewEmail={handleNewEmail}
+        subscribers={subscribers}
+        checkoutBuyersCount={checkoutBuyersCount}
+        search={searchQuery}
+        onSearch={setSearchQuery}
+        onExportSubscribers={exportSubscribers}
+        onCopyEmail={(email) => {
+          navigator.clipboard.writeText(email)
+          toast({ title: "Copied", description: "Email copied to clipboard" })
+        }}
+        onRemoveSubscriber={(id) => {
+          setDeleteTarget({ type: "subscriber", id })
+          setShowDeleteDialog(true)
+        }}
+        flows={flows}
+        trigger={(type) => {
+          const t = getTriggerInfo(type)
+          return { name: t.name, description: t.description }
+        }}
+        onCreateFlow={() => setShowCreateFlowDialog(true)}
+        onEditFlow={(flow) => handleEditFlow(flow as EmailFlow)}
+        onToggleFlow={(flow) => handleToggleFlowStatus(flow as EmailFlow)}
+        onDeleteFlow={(id) => {
+          setDeleteTarget({ type: "flow", id })
+          setShowDeleteDialog(true)
+        }}
+        campaigns={campaigns}
+        onOpenCampaign={(c) => (activeTab === "published" ? handleViewStats(c as EmailCampaign) : handleEditCampaign(c as EmailCampaign))}
+        onViewStats={(c) => handleViewStats(c as EmailCampaign)}
+        onResend={(c) => handleResend(c as EmailCampaign)}
+        onEditCampaign={(c) => handleEditCampaign(c as EmailCampaign)}
+        onDeleteCampaign={(id) => {
+          setDeleteTarget({ type: "campaign", id })
+          setShowDeleteDialog(true)
+        }}
+        isSending={isSending}
+        overview={overviewStats}
+        usage={emailUsage}
+        period={statsPeriod}
+        onPeriod={setStatsPeriod}
+        today={statsToday}
+      />
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>

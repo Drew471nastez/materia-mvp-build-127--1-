@@ -188,8 +188,9 @@ async function main() {
   check("pressing the button for an automation you have opens it",
     /const existingFlow = flows\.find[\s\S]{0,400}handleEditFlow\(existingFlow\)/.test(page)
       && !/Already have a \$\{flowTypeName\} flow added/.test(page))
+  const home = read("app/app/emails/emails-home.tsx")
   check("the page says what an automation does, in words",
-    /when someone joins your list or buys something/.test(page))
+    /Sends when/.test(home) && /\{trigger\.description\}/.test(home) && /it goes to everyone who joins your list/.test(home))
   check("and the preset welcome does not sign off as \\[Your name\\]",
     !/\[Your name\]/.test(page))
   check("new_subscriber is still the trigger the engine listens for",
@@ -206,7 +207,7 @@ async function main() {
   check("the editor has an on/off switch",
     /<Switch\s+checked=\{editingFlow\.status === "active"\}[\s\S]{0,120}handleToggleFlowStatus\(editingFlow\)/.test(page))
   check("and so does every automation in the list, without opening it",
-    /onClick=\{\(e\) => e\.stopPropagation\(\)\}[\s\S]{0,200}<Switch\s+checked=\{flow\.status === "active"\}/.test(page))
+    /onClick=\{\(e\) => e\.stopPropagation\(\)\}>\s*<Switch checked=\{on\} onCheckedChange=\{\(\) => props\.onToggleFlow\(f\)\}/.test(read("app/app/emails/emails-home.tsx")))
   check("turning it off says sign-ups are still collected", /No welcome email is sent\. Sign-ups are still collected\./.test(page))
   check("and only an active automation ever sends",
     /\.eq\("status", "active"\)/.test(flows))
