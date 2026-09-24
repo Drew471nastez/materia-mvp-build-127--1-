@@ -7,10 +7,11 @@
  *    pinned here, and so is the absence of the old client-side load.
  * 2. A coupon is checked on the server by readCouponInput and placed in a
  *    view by couponState (lib/checkout/coupons.ts). Both are pure.
- * 3. The shape of the pages: the Products list as Shopify's index in the
- *    Orders page's parts (a phone list beside the desktop table, one toolbar,
- *    52px rows), one bar at the top of the editor and none at its foot, and
- *    SQL that pastes. scripts/check-products-page.mjs measures the list.
+ * 3. The shape of the pages: the Products list as a shelf of pictures on a
+ *    phone (72px rows, a 56px picture, a search field and one segmented
+ *    control, no card) beside a light table from 768px, one bar at the top
+ *    of the editor and none at its foot, and SQL that pastes.
+ *    scripts/check-products-page.mjs measures the list.
  */
 import { readFileSync, existsSync } from "node:fs"
 import { initialForm, snapshotOf, snapshotOfForm, DEFAULT_FAQS, DEFAULT_WHATS_INCLUDED, type LoadedProduct } from "@/app/app/products/new/editor-form"
@@ -120,10 +121,10 @@ check("first on the screen, as a layer over the app's header, it starts below th
 check("the editor scrolls as a page-scroll pane, so the pill's room is the shared 104px and nothing else", /className="page-scroll h-full overflow-y-auto/.test(editor) && !/pb-24 sm:pb-8/.test(editor))
 check("prices bring up the decimal keypad", (editor.match(/inputMode="decimal"/g) ?? []).length >= 4)
 
-console.log("\nThe Products list: Shopify's index in the Orders page's parts")
+console.log("\nThe Products list: a shelf of pictures on a phone, a light table from 768px")
 
 const list = code("app/app/products/products-client.tsx")
-check("a list under 768px and the table from it", /<ul aria-label="Products" className="md:hidden">/.test(list) && /className="hidden w-full table-fixed border-separate border-spacing-0 text-\[13px\] md:table"/.test(list))
+check("a list under 768px and the table from it", /<ul aria-label="Products" data-list="" className="-mx-4 sm:-mx-6 md:hidden">/.test(list) && /className="hidden w-full table-fixed border-separate border-spacing-0 text-\[13px\] md:table"/.test(list))
 check("no table forced sideways on a phone", !/min-w-\[500px\]/.test(list) && !/min-w-max/.test(list) && !/sticky left-0/.test(list))
 check("a hover or a finger prefetches the editor in full", /onTouchStart=\{\(\) => warm\(product\.id\)\}/.test(list) && /kind: "full"/.test(list))
 const couponsList = code("app/app/coupons/coupons-client.tsx")
@@ -131,18 +132,36 @@ check("no Products and Coupons tabs: Coupons is a page of its own again", !exist
 check("with its own title", /<h1[^>]*>Coupons<\/h1>/.test(couponsList))
 const sidebar = code("components/app/sidebar.tsx")
 check("and its own place in the menu, under Products, where it was", /href: "\/app\/products",[\s\S]{0,160}children: \[\{ href: "\/app\/coupons", label: "Coupons" \}\]/.test(sidebar))
-check("the Orders bar and parts, not a parallel set", /<PaneBar width=\{LIST_WIDTH\} className=\{LIST_BAR\}>/.test(list) && /from "\.\.\/orders\/order-parts"/.test(list) && /<StatusBadge tone="success">/.test(list))
-check("the bar: Export as the quiet action, New product as the one loud one, both at Orders' 32px with no icon on New product",
-  /aria-label="Export products"/.test(list) && /<Link href="\/app\/products\/new" className=\{cn\(buttonAccent, PRESS\)\}>\s*\{t\("products\.newProduct"\)\}\s*<\/Link>/.test(list) && !/NEW_BUTTON|PHONE_FIELD/.test(list))
+check("the Orders bar, gutter and width, not a parallel set", /<PaneBar width=\{LIST_WIDTH\} className=\{LIST_BAR\}>/.test(list) && /from "\.\.\/orders\/order-parts"/.test(list))
+check("New product is the one dark button (buttonPrimary, not the violet accent), with no icon, and a 44px press on a phone",
+  /<Link href="\/app\/products\/new" data-new-product="" className=\{cn\(buttonPrimary, PRESS\)\}>\s*\{t\("products\.newProduct"\)\}\s*<\/Link>/.test(list) && !/buttonAccent/.test(list) && /max-md:after:-inset-1\.5/.test(list))
+check("Export is a plain icon on a phone and the word on a computer, and neither it nor New product is in the bar of an empty shop",
+  /aria-label="Export products" look=\{EXPORT_LOOK\}/.test(list) && /max-md:border-transparent max-md:bg-transparent/.test(list) && /\{products\.length > 0 \? \(\s*<div className="flex shrink-0 items-center gap-1 md:gap-2">\s*<ResponsiveActionMenu/.test(list))
+check("nothing floats: no fixed New product over the list or the navigation pill", !/fixed[^"]*bottom-/.test(list.slice(list.indexOf("<PaneBar"), list.indexOf("deleteModalOpen && productToDelete"))))
+check("search is a real field that is always there once there are products, not a button that opens one",
+  /<label data-search="" className="flex h-11 min-w-0 flex-1 cursor-text items-center md:h-8/.test(list) && /placeholder="Search products"/.test(list) && !/isSearchOpen|setIsSearchOpen/.test(list) && /text-\[16px\][^"]*md:text-\[13px\]/.test(list))
+check("Escape clears the field, and so does its clear button", /e\.key === "Escape" && searchQuery/.test(list) && /aria-label="Clear search"[\s\S]{0,400}onClick=\{clearSearch\}/.test(list))
+check("the field and Sort stack over the views until the column is 700px wide, by container query, not the window",
+  /"@container mx-auto pb-2 md:pb-8"/.test(list) && /@min-\[700px\]:flex-row-reverse/.test(list))
 check("the views are All, Active, Draft and Archived, All open first, with no counts", /useState<View>\("all"\)/.test(list) && /value: "all"[\s\S]{0,80}value: "active"[\s\S]{0,80}value: "draft"[\s\S]{0,80}value: "archived"/.test(list) && !/tabCounts/.test(list))
-check("one toolbar at every width: views, search and sort, 52px on a phone and 48px from 768px", /data-toolbar="" className="flex h-\[52px\] items-center border-b border-\[#eef0f2\] px-1 md:h-12/.test(list) && /aria-label="Search products" title="Search"/.test(list) && /aria-label="Sort" title="Sort"/.test(list) && !/className="mt-1 md:hidden"/.test(list))
+check("as one segmented control whose white segment slides on transform alone, drawn only when there is more than one view",
+  /\{views\.length > 1 \? \(\s*<div\s+role="tablist"/.test(list) && /data-segment=""/.test(list) && /transition-transform duration-200/.test(list) && /motion-reduce:transition-none/.test(list) && /transform: `translateX\(\$\{viewIndex \* 100\}%\)`/.test(list))
 check("sort by newest, oldest, title, price and sales", ["newest", "oldest", "title_asc", "title_desc", "price_desc", "price_asc", "sales"].every((s) => list.includes(`value: "${s}"`)) && /\.sort\(compare\(sort\)\)/.test(list))
-check("phone rows are 64px with a 40px picture and the name on one 15px line", /className="relative flex h-16 items-center gap-3 pl-3 pr-1/.test(list) && /block truncate text-\[15px\] font-medium leading-5/.test(list) && /h-10 w-10 shrink-0 overflow-hidden rounded-lg border border-\[#e3e5e8\]/.test(list) && !/aspect-square w-16/.test(list))
-check("table rows are 52px, the whole row opens the product, and nothing from a menu's portal does", /className="group h-\[52px\] cursor-pointer"/.test(list) && /router\.push\(`\/app\/products\/\$\{product\.id\}`\)/.test(list) && /!e\.currentTarget\.contains\(target\)/.test(list) && !/\{t\("products\.edit"\)\}/.test(list))
-check("numbers right aligned in figures of one width, Sales from 1024px", /text-right font-medium tabular-nums text-\[#1a1a2e\]/.test(list) && /hidden w-\[96px\] bg-\[#f7f7f8\] px-3 text-right font-medium lg:table-cell">Sales/.test(list))
-check("fifty to a page, with the footer's count and arrows", /const PAGE_SIZE = 50/.test(list) && /data-footer=""/.test(list) && /aria-label="Next page"/.test(list))
+check("phone rows are 72px with a 56px picture, straight on the page with no card, the name on one 15px line",
+  /className="relative flex h-\[72px\] items-center gap-3 pl-4/.test(list) && /size === 56 \? "h-14 w-14 rounded-\[12px\]"/.test(list) && /block truncate text-\[15px\] font-medium leading-5/.test(list) && /aria-label="Products"\s+className="mt-1 md:mt-3 md:overflow-hidden md:rounded-2xl/.test(list))
+check("price and sales are quiet grey text under the name, and a free product says Free", /data-meta="" className="[^"]*text-\[13px\][^"]*text-\[#6b7280\]"/.test(list) && /cents > 0 \? formatMoney\(cents\) : "Free"/.test(list) && /\{product\.sales_count \? \(/.test(list))
+check("a phone row names its status only when it is not on sale, as a dot and a word, not a badge",
+  /view === "all" && status !== "live"/.test(list) && /function StatusMark/.test(list) && !/StatusBadge/.test(list) && /bg-\[#e0a100\]/.test(list))
+check("a product with no picture shows its first letter, not a box icon", /Array\.from\(title\.trim\(\)\)\[0\]/.test(list) && !/<Package/.test(list))
+check("table rows are 64px, the whole row opens the product, and nothing from a menu's portal does", /className="group h-16 cursor-pointer/.test(list) && /router\.push\(`\/app\/products\/\$\{product\.id\}`\)/.test(list) && /!e\.currentTarget\.contains\(target\)/.test(list) && !/\{t\("products\.edit"\)\}/.test(list))
+check("no grey heading band in the table", !/bg-\[#f7f7f8\] pl-4/.test(list) && /<th scope="col" className="border-b border-\[#eef0f2\] pl-4 pr-3 font-medium">Product<\/th>/.test(list))
+check("numbers right aligned in figures of one width, Sales from 1024px", /text-right font-medium tabular-nums text-\[#1a1a2e\]/.test(list) && /hidden w-\[96px\] border-b border-\[#eef0f2\] px-3 text-right font-medium lg:table-cell">Sales/.test(list))
+check("fifty to a page, with the footer's count and arrows, the count left off a phone with one page", /const PAGE_SIZE = 50/.test(list) && /data-footer=""/.test(list) && /aria-label="Next page"/.test(list) && /pages === 1 && "max-md:hidden"/.test(list))
 check("every phone press is 44px however small it is drawn", /max-md:min-h-11 max-md:min-w-11/.test(list) && /max-md:after:-inset-1\.5/.test(list) && /trigger=\{<RowMenuButton label=\{`Actions for \$\{product\.title\}`\} className="relative z-\[1\] h-11 w-11/.test(list))
 check("the product actions are all still there: view, share, archive or restore, duplicate, delete", /t\("common\.view"\)/.test(list) && /handleShare\(product\)/.test(list) && /handleArchive\(product\)/.test(list) && /handleDuplicate\(product\)/.test(list) && /handleDeleteClick\(product\)/.test(list) && /generateProductsCSV/.test(list) && /generateProductsPDF/.test(list))
+check("the phone pane leaves the pill's room to the shared page-scroll rule, not a second padding of its own", /className="orders-pane h-full overflow-y-auto overflow-x-hidden page-scroll/.test(list) && !/pb-24 md:pb-8/.test(list))
+const probe = read("scripts/check-products-page.mjs")
+check("the probe reads the pill's box from its source and measures 360, 390, 430, 768 and 1280", /num\("BAR_H"\)/.test(probe) && /num\("SLOT"\)/.test(probe) && ["phone-360", "phone-390", "phone-430", "tablet-768", "desktop-1280"].every((w) => probe.includes(`"${w}"`)))
 /*
   NO SKELETON LEFT BEHIND. The route's skeleton.tsx outlived the route
   skeletons: nothing imported it, and this test measured its shapes as if a

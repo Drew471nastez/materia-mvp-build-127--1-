@@ -4,12 +4,12 @@ import { announceChange } from "@/lib/seo/announce-client"
 import { forwardRef, useState, useRef, useEffect, useMemo, type ButtonHTMLAttributes } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { ArrowUpDown, Check, ChevronLeft, ChevronRight, Download, Package, Search, X } from "lucide-react"
+import { ArrowUpDown, Check, ChevronLeft, ChevronRight, Download, Search, X } from "lucide-react"
 import { getProductUrl } from "@/lib/url-helpers"
 import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
 import { cn } from "@/lib/utils"
 import { useRouter } from "next/navigation"
-import { GUTTER, LIST_BAR, LIST_WIDTH, PaneBar, RowMenuButton, StatusBadge, buttonAccent, buttonSecondary, card, formatMoney } from "../orders/order-parts"
+import { GUTTER, LIST_BAR, LIST_WIDTH, PaneBar, RowMenuButton, buttonPrimary, buttonSecondary, formatMoney } from "../orders/order-parts"
 import { createClient } from "@/lib/supabase/client"
 import { useLanguage } from "@/lib/i18n"
 import { STORELIB_LOGO } from "@/lib/brand/logo"
@@ -44,9 +44,21 @@ const PRESS = "relative max-md:after:absolute max-md:after:-inset-1.5 max-md:aft
 const SECONDARY_LOOK =
   "inline-flex h-8 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-[#e3e4e8] bg-white px-3 text-[13px] font-medium text-[#1a1a2e] shadow-[0_1px_0_rgba(17,24,39,0.05)] transition-colors duration-100 group-hover/press:bg-[#f7f7f8] group-active/press:bg-[#f1f2f4] group-disabled/press:opacity-50 select-none"
 
-/** order-parts' iconButton, the same way. */
-const ICON_LOOK =
-  "inline-flex h-8 w-8 items-center justify-center rounded-lg text-[#4b5563] transition-colors duration-100 group-hover/press:bg-[#f1f2f4] group-active/press:bg-[#e8e9ec]"
+/**
+ * Export in the bar: the secondary button with its word on a computer, and
+ * on a phone only its icon, with no box drawn round it, so the one thing in
+ * the bar that looks like a button is New product.
+ */
+const EXPORT_LOOK = cn(
+  SECONDARY_LOOK,
+  "max-md:w-8 max-md:border-transparent max-md:bg-transparent max-md:px-0 max-md:text-[#4b5563] max-md:shadow-none",
+)
+
+/** Sort beside the search field: the field's own white box and hairline, 40px on a phone and 32 from 768px. */
+const SORT_LOOK =
+  "inline-flex h-10 w-10 items-center justify-center rounded-[10px] border border-[#e3e5e8] bg-white text-[#4b5563] transition-colors duration-100 group-hover/press:bg-[#f7f7f8] group-active/press:bg-[#f1f2f4] md:h-8 md:w-8 md:rounded-lg"
+/** And when an order other than Newest is on. */
+const SORT_ON = "border-transparent bg-[#eceef1] text-[#1a1a2e] group-hover/press:bg-[#e5e7eb]"
 
 /**
  * A button that is its drawing on a computer and a 44px press around the
@@ -273,7 +285,6 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
   const [view, setView] = useState<View>("all")
   const [sort, setSort] = useState<Sort>("newest")
   const [page, setPage] = useState(1)
-  const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [productToDelete, setProductToDelete] = useState<Product | null>(null)
@@ -294,19 +305,13 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
     { label: "Export as PDF", onClick: exportPDF },
   ]
 
-  /* Polaris's order, and as on Orders only the views with something in them, plus the open one. */
+  /* Polaris's order, and as on Orders only the views with something in them, plus the open one. One view alone is not drawn. */
   const views = ([
     { value: "all", label: t("products.all") },
     { value: "active", label: t("products.active") },
     { value: "draft", label: t("products.draft") },
     { value: "archived", label: t("products.archived") },
   ] as Array<{ value: View; label: string }>).filter((v) => v.value === "all" || v.value === view || products.some((p) => inView(p, v.value)))
-
-  useEffect(() => {
-    if (isSearchOpen && searchInputRef.current) {
-      searchInputRef.current.focus()
-    }
-  }, [isSearchOpen])
 
   /* One timer: a second notice restarts it, rather than the first one's timer hiding the second early. */
   const notificationTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -481,9 +486,9 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
     setSearchQuery(q)
     setPage(1)
   }
-  const closeSearch = () => {
+  const clearSearch = () => {
     search("")
-    setIsSearchOpen(false)
+    searchInputRef.current?.focus({ preventScroll: true })
   }
 
   /*
@@ -512,14 +517,13 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
     },
   })
 
-  const statusOf = (product: Product) =>
-    isArchived(product) ? (
-      <StatusBadge tone="neutral">{t("products.archived")}</StatusBadge>
-    ) : product.status === "published" ? (
-      <StatusBadge tone="success">{t("products.active")}</StatusBadge>
-    ) : (
-      <StatusBadge tone="neutral">{t("products.draft")}</StatusBadge>
-    )
+  const statusOf = (product: Product): Status =>
+    isArchived(product) ? "archived" : product.status === "published" ? "live" : "draft"
+  const statusLabel: Record<Status, string> = {
+    live: t("products.active"),
+    draft: t("products.draft"),
+    archived: t("products.archived"),
+  }
 
   const actionsFor = (product: Product) => [
     { label: t("common.view"), href: getProductUrl(creatorUsername, product.slug), target: "_blank" as const },
@@ -541,6 +545,8 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
             ? "No active products"
             : "Every product is archived"
 
+  const viewIndex = Math.max(0, views.findIndex((v) => v.value === view))
+
   return (
     <div className="orders-pane h-full overflow-y-auto overflow-x-hidden page-scroll bg-[#f8f9fa] app-page-enter">
       {notification.visible && (
@@ -552,239 +558,298 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
       )}
 
       {/*
-        SHOPIFY'S PRODUCTS INDEX, IN THE ORDERS PAGE'S PARTS
-        (app/app/orders/order-parts.tsx). The same bar as Orders: the title,
-        Export as the quiet action and New product as the one loud one, both
-        at Orders' 32px. Then one card: the views and the search and sort
-        buttons in one 48px toolbar, and under it a dense table on a
-        computer, or on a phone a list of 64px rows with a 40px picture, the
-        name, and the price under it. A footer counts what is shown and
-        pages through it fifty at a time.
+        A CREATOR'S SHELF, NOT A DATABASE TABLE. On a phone the products sit
+        straight on the page, the way the Shopify and App Store Connect apps
+        list them: no card around the list, a 56px picture doing the work, the
+        name, and under it the price and how many sold in quiet grey. A row
+        only says its status when it is not on sale. Above the list, a real
+        search field and one segmented control for the views; the bar keeps
+        the title, Export as a plain icon and New product as the one dark
+        button, top right, where Shopify and Apple put the add action, so
+        nothing floats over the list or the navigation pill at the bottom.
+        From 768px the same parts become a light table in one card.
       */}
       <PaneBar width={LIST_WIDTH} className={LIST_BAR}>
         <h1 className="min-w-0 truncate text-[24px] font-bold leading-[30px] text-[#1a1a2e] sm:text-[28px] sm:leading-9">{t("products.title")}</h1>
-        <div className="flex shrink-0 items-center gap-3 md:gap-2">
-          <ResponsiveActionMenu
-            title="Export"
-            align="end"
-            trigger={
-              <Press aria-label="Export products" className="max-sm:-mx-1.5" look={cn(SECONDARY_LOOK, "max-sm:w-8 max-sm:px-0")}>
-                <Download className="h-4 w-4 sm:hidden" />
-                <span className="max-sm:hidden">Export</span>
-              </Press>
-            }
-            items={exportItems}
-          />
-          <Link href="/app/products/new" className={cn(buttonAccent, PRESS)}>
-            {t("products.newProduct")}
-          </Link>
-        </div>
-      </PaneBar>
-
-      <div className={cn("mx-auto pb-24 md:pb-8", LIST_WIDTH, GUTTER)}>
-        <section aria-label="Products" className={cn(card, "mt-2 overflow-hidden md:mt-3")}>
-          {/*
-            The toolbar: one row, the same height searching or not. On a
-            phone each view, search and sort are a 44px press around a 32px
-            drawing, so the row is 52px there rather than 48.
-          */}
-          <div data-toolbar="" className="flex h-[52px] items-center border-b border-[#eef0f2] px-1 md:h-12 md:gap-2 md:px-2">
-            {isSearchOpen ? (
-              <>
-                <label className="flex h-11 min-w-0 flex-1 cursor-text items-center md:h-8">
-                  <span className="flex h-9 min-w-0 flex-1 items-center gap-2 rounded-lg border border-[#d5d7dd] bg-white px-2.5 focus-within:border-[#1a1a2e] focus-within:shadow-[0_0_0_1px_#1a1a2e] md:h-8">
-                    <Search className="h-4 w-4 shrink-0 text-[#6b7280]" aria-hidden />
-                    <input
-                      ref={searchInputRef}
-                      type="search"
-                      enterKeyHint="search"
-                      aria-label="Search products"
-                      value={searchQuery}
-                      onChange={(e) => search(e.target.value)}
-                      placeholder="Search products"
-                      className="min-w-0 flex-1 bg-transparent text-[16px] text-[#1a1a2e] outline-none placeholder:text-[#9ca3af] md:text-[13px] [&::-webkit-search-cancel-button]:hidden"
-                    />
-                    {searchQuery ? (
-                      <button type="button" aria-label="Clear search" className="-mr-1 flex h-6 w-6 shrink-0 items-center justify-center text-[#9ca3af] hover:text-[#4b5563] max-md:-mr-2.5 max-md:h-11 max-md:w-11" onClick={() => search("")}>
-                        <X className="h-4 w-4" />
-                      </button>
-                    ) : null}
-                  </span>
-                </label>
-                <button type="button" className="h-11 shrink-0 rounded-lg px-2.5 text-[13px] font-medium text-[#1a1a2e] hover:bg-[#f1f2f4] md:h-8" onClick={closeSearch}>
-                  Cancel
-                </button>
-              </>
-            ) : (
-              <>
-                <div role="tablist" aria-label="Views" className="orders-strip flex min-w-0 flex-1 items-center overflow-x-auto md:gap-0.5">
-                  {views.map((option) => {
-                    const selected = view === option.value
-                    return (
-                      <button
-                        key={option.value}
-                        type="button"
-                        role="tab"
-                        aria-selected={selected}
-                        onClick={() => showView(option.value)}
-                        className="group flex h-11 shrink-0 cursor-pointer items-center md:h-8"
-                      >
-                        <span
-                          className={cn(
-                            "flex h-8 items-center whitespace-nowrap rounded-lg px-2 text-[13px] font-medium transition-colors duration-100 md:px-3",
-                            selected ? "bg-[#eceef1] text-[#1a1a2e]" : "text-[#4b5563] group-hover:bg-[#f4f5f7] group-active:bg-[#eceef1]",
-                          )}
-                        >
-                          {option.label}
-                        </span>
-                      </button>
-                    )
-                  })}
-                </div>
-                <Press aria-label="Search products" title="Search" look={ICON_LOOK} onClick={() => setIsSearchOpen(true)}>
-                  <Search className="h-4 w-4" />
-                </Press>
-              </>
-            )}
+        {/* An empty shop has nothing to export, and its one way forward is the button in the middle of the page. */}
+        {products.length > 0 ? (
+          <div className="flex shrink-0 items-center gap-1 md:gap-2">
             <ResponsiveActionMenu
-              title="Sort by"
+              title="Export"
               align="end"
-              menuWidth="w-52"
               trigger={
-                <Press aria-label="Sort" title="Sort" look={cn(ICON_LOOK, sort !== "newest" && "bg-[#eceef1] text-[#1a1a2e]")}>
-                  <ArrowUpDown className="h-4 w-4" />
+                <Press aria-label="Export products" look={EXPORT_LOOK}>
+                  <Download className="h-[18px] w-[18px] md:hidden" />
+                  <span className="max-md:hidden">Export</span>
                 </Press>
               }
-              items={SORTS.map((o) => ({
-                label: o.label,
-                icon: <Check className={o.value === sort ? "opacity-100" : "opacity-0"} />,
-                onClick: () => sortBy(o.value),
-              }))}
+              items={exportItems}
             />
+            <Link href="/app/products/new" data-new-product="" className={cn(buttonPrimary, PRESS)}>
+              {t("products.newProduct")}
+            </Link>
           </div>
+        ) : null}
+      </PaneBar>
 
+      <div className={cn("@container mx-auto pb-2 md:pb-8", LIST_WIDTH, GUTTER)}>
+        {/*
+          Stacked (the field, then the views) until the column is 700px
+          wide, then one row with the views on the left and the field on
+          the right. By the column's own width, not the window's: at 768px
+          the sidebar leaves the page 528px, and one row did not fit.
+        */}
+        {products.length > 0 ? (
+          <div data-controls="" className="flex flex-col gap-1 md:gap-2 md:pt-1 @min-[700px]:flex-row-reverse @min-[700px]:items-center @min-[700px]:justify-between @min-[700px]:gap-4">
+            <div className="flex min-w-0 items-center gap-1 md:gap-2">
+              <label data-search="" className="flex h-11 min-w-0 flex-1 cursor-text items-center md:h-8 @min-[700px]:w-[260px] @min-[700px]:flex-none">
+                <span className="flex h-10 min-w-0 flex-1 items-center gap-2 rounded-[10px] border border-[#e3e5e8] bg-white px-3 transition-[border-color,box-shadow] duration-100 focus-within:border-[#1a1a2e] focus-within:shadow-[0_0_0_1px_#1a1a2e] md:h-8 md:rounded-lg md:px-2.5">
+                  <Search className="h-4 w-4 shrink-0 text-[#9ca3af]" aria-hidden />
+                  <input
+                    ref={searchInputRef}
+                    type="search"
+                    enterKeyHint="search"
+                    aria-label="Search products"
+                    value={searchQuery}
+                    onChange={(e) => search(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Escape" && searchQuery) {
+                        e.preventDefault()
+                        search("")
+                      }
+                    }}
+                    placeholder="Search products"
+                    className="min-w-0 flex-1 bg-transparent text-[16px] text-[#1a1a2e] outline-none placeholder:text-[#9ca3af] md:text-[13px] [&::-webkit-search-cancel-button]:hidden"
+                  />
+                  {searchQuery ? (
+                    <button type="button" aria-label="Clear search" className="-mr-1.5 flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-full text-[#9ca3af] hover:text-[#4b5563] max-md:-mr-3 max-md:h-10 max-md:w-10" onClick={clearSearch}>
+                      <X className="h-4 w-4" />
+                    </button>
+                  ) : null}
+                </span>
+              </label>
+              <ResponsiveActionMenu
+                title="Sort by"
+                align="end"
+                menuWidth="w-52"
+                trigger={
+                  <Press aria-label="Sort" title="Sort" className="max-md:-mr-0.5" look={cn(SORT_LOOK, sort !== "newest" && SORT_ON)}>
+                    <ArrowUpDown className="h-4 w-4" />
+                  </Press>
+                }
+                items={SORTS.map((o) => ({
+                  label: o.label,
+                  icon: <Check className={o.value === sort ? "opacity-100" : "opacity-0"} />,
+                  onClick: () => sortBy(o.value),
+                }))}
+              />
+            </div>
+
+            {/*
+              THE VIEWS, AS ONE SEGMENTED CONTROL. A grey track and a white
+              segment that slides to the open view on transform alone. Equal
+              columns, so the segment is one column wide and moves by whole
+              widths of itself. Only when there is more than one view to be
+              in: a shop with nothing drafted or archived has nothing to
+              switch between. 36px drawn in a 44px press on a phone.
+            */}
+            {views.length > 1 ? (
+              <div
+                role="tablist"
+                aria-label="Views"
+                data-views=""
+                className="relative grid h-11 w-full shrink-0 md:h-9 md:w-[calc(var(--views)*92px)]"
+                style={{ gridTemplateColumns: `repeat(${views.length}, minmax(0, 1fr))`, ["--views" as string]: views.length }}
+              >
+                <span aria-hidden className="pointer-events-none absolute inset-x-0 inset-y-1 rounded-[10px] bg-[#eceef1] md:inset-y-0" />
+                <span
+                  aria-hidden
+                  data-segment=""
+                  className="pointer-events-none absolute left-[2px] top-[6px] bottom-[6px] rounded-[8px] bg-white shadow-[0_1px_2px_rgba(17,24,39,0.08),0_0_0_0.5px_rgba(17,24,39,0.06)] transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none md:top-[2px] md:bottom-[2px]"
+                  style={{ width: `calc((100% - 4px) / ${views.length})`, transform: `translateX(${viewIndex * 100}%)` }}
+                />
+                {views.map((option) => {
+                  const selected = view === option.value
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      role="tab"
+                      aria-selected={selected}
+                      onClick={() => showView(option.value)}
+                      className={cn(
+                        "relative min-w-0 cursor-pointer truncate rounded-[8px] px-2 text-[13px] font-medium outline-none transition-colors duration-100 focus-visible:shadow-[inset_0_0_0_2px_#1a1a2e]",
+                        selected ? "text-[#1a1a2e]" : "text-[#6b7280] hover:text-[#1a1a2e]",
+                      )}
+                    >
+                      {option.label}
+                    </button>
+                  )
+                })}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
+        <section
+          aria-label="Products"
+          className="mt-1 md:mt-3 md:overflow-hidden md:rounded-2xl md:border md:border-[#e5e7eb]/60 md:bg-white md:shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
+        >
           {pageProducts.length > 0 ? (
             <>
               {/*
-                A PHONE: one 64px row per product, the whole row the press. A
-                40px picture, the name on one line, and under it the price and
-                how many sold. In All, where live and draft products are mixed,
-                each row says which it is; in the other views the tab says it
-                once. The hairline between rows starts where the text does.
+                A PHONE: one 72px row per product, the whole row the press,
+                running to both edges of the screen so a press tints the full
+                width. The picture at 56px, the name on one line, and under
+                it the price and sales in grey. A Draft says so with a small
+                amber dot in All, where live and draft products are mixed;
+                in its own view the control above already says it. The
+                hairline between rows starts where the text does.
               */}
-              <ul aria-label="Products" className="md:hidden">
-                {pageProducts.map((product) => (
-                  <li
-                    key={product.id}
-                    className="relative flex h-16 items-center gap-3 pl-3 pr-1 has-[a:active]:bg-[#f6f7f8] [&+li]:before:absolute [&+li]:before:left-[64px] [&+li]:before:right-0 [&+li]:before:top-0 [&+li]:before:h-px [&+li]:before:bg-[#f0f1f3]"
-                  >
-                    <Link
-                      href={`/app/products/${product.id}`}
-                      aria-label={product.title}
-                      onTouchStart={() => warm(product.id)}
-                      {...hover(product.id)}
-                      className="absolute inset-0 z-0 outline-none focus-visible:shadow-[inset_0_0_0_2px_#8b5cf6]"
-                    />
-                    <Thumb src={product.thumbnail_url} />
-                    <span className="pointer-events-none min-w-0 flex-1">
-                      <span data-name="" className="block truncate text-[15px] font-medium leading-5 text-[#1a1a2e]">{product.title}</span>
-                      <span data-meta="" className="mt-0.5 flex h-[22px] items-center gap-2 overflow-hidden whitespace-nowrap text-[13px] text-[#6b7280]">
-                        {view === "all" ? statusOf(product) : null}
-                        <span className="font-medium tabular-nums text-[#1a1a2e]">{formatMoney(product.price_cents)}</span>
-                        {product.sales_count ? <span className="tabular-nums">{product.sales_count} sold</span> : null}
+              <ul aria-label="Products" data-list="" className="-mx-4 sm:-mx-6 md:hidden">
+                {pageProducts.map((product) => {
+                  const status = statusOf(product)
+                  return (
+                    <li
+                      key={product.id}
+                      className="relative flex h-[72px] items-center gap-3 pl-4 pr-1.5 has-[a:active]:bg-[#eef0f2] sm:pl-6 sm:pr-3.5 [&+li]:before:absolute [&+li]:before:left-[84px] [&+li]:before:right-0 [&+li]:before:top-0 [&+li]:before:h-px [&+li]:before:bg-[#eceef1] sm:[&+li]:before:left-[92px]"
+                    >
+                      <Link
+                        href={`/app/products/${product.id}`}
+                        aria-label={product.title}
+                        onTouchStart={() => warm(product.id)}
+                        {...hover(product.id)}
+                        className="absolute inset-0 z-0 outline-none focus-visible:shadow-[inset_0_0_0_2px_#1a1a2e]"
+                      />
+                      <Thumb src={product.thumbnail_url} title={product.title} size={56} />
+                      <span className="pointer-events-none min-w-0 flex-1">
+                        <span data-name="" className="block truncate text-[15px] font-medium leading-5 tracking-[-0.01em] text-[#1a1a2e]">{product.title}</span>
+                        <span data-meta="" className="mt-1 flex h-[18px] items-center gap-1.5 overflow-hidden whitespace-nowrap text-[13px] leading-[18px] text-[#6b7280]">
+                          {view === "all" && status !== "live" ? (
+                            <>
+                              <StatusMark status={status} label={statusLabel[status]} />
+                              <Sep />
+                            </>
+                          ) : null}
+                          <span data-price="" className="tabular-nums">{priceOf(product.price_cents)}</span>
+                          {product.sales_count ? (
+                            <>
+                              <Sep />
+                              <span className="tabular-nums">{product.sales_count.toLocaleString("en-US")} sold</span>
+                            </>
+                          ) : null}
+                        </span>
                       </span>
-                    </span>
-                    <ResponsiveActionMenu
-                      title={product.title}
-                      align="end"
-                      trigger={<RowMenuButton label={`Actions for ${product.title}`} className="relative z-[1] h-11 w-11 shrink-0 rounded-xl" />}
-                      items={actionsFor(product)}
-                    />
-                  </li>
-                ))}
+                      <ResponsiveActionMenu
+                        title={product.title}
+                        align="end"
+                        trigger={<RowMenuButton label={`Actions for ${product.title}`} className="relative z-[1] h-11 w-11 shrink-0 rounded-full text-[#9ca3af]" />}
+                        items={actionsFor(product)}
+                      />
+                    </li>
+                  )
+                })}
               </ul>
 
               {/*
-                A COMPUTER: Polaris's index table at Orders' type scale. 13px,
-                52px rows, a 40px picture, numbers right aligned in figures of
-                one width, and the whole row opens the product. Sales joins
+                A COMPUTER: the same parts as a light table. 64px rows with a
+                44px picture, 14px names, the status as a dot and a word
+                rather than a tinted badge, numbers right aligned in figures
+                of one width, and the whole row opens the product. No grey
+                heading band and no line above the first row. Sales joins
                 from 1024px, where the sidebar leaves room for it.
               */}
               <table className="hidden w-full table-fixed border-separate border-spacing-0 text-[13px] md:table">
                 <thead>
-                  <tr className="h-9 text-left text-[12px] font-medium text-[#4b5563]">
-                    <th scope="col" className="bg-[#f7f7f8] pl-4 pr-3 font-medium">Product</th>
-                    <th scope="col" className="w-[112px] bg-[#f7f7f8] px-3 font-medium">Status</th>
-                    <th scope="col" className="hidden w-[96px] bg-[#f7f7f8] px-3 text-right font-medium lg:table-cell">Sales</th>
-                    <th scope="col" className="w-[112px] bg-[#f7f7f8] px-3 text-right font-medium">Price</th>
-                    <th scope="col" className="w-12 bg-[#f7f7f8]" aria-label="Actions" />
+                  <tr className="h-10 text-left text-[12px] text-[#6b7280]">
+                    <th scope="col" className="border-b border-[#eef0f2] pl-4 pr-3 font-medium">Product</th>
+                    <th scope="col" className="w-[112px] border-b border-[#eef0f2] px-3 font-medium">Status</th>
+                    <th scope="col" className="hidden w-[96px] border-b border-[#eef0f2] px-3 text-right font-medium lg:table-cell">Sales</th>
+                    <th scope="col" className="w-[112px] border-b border-[#eef0f2] px-3 text-right font-medium">Price</th>
+                    <th scope="col" className="w-14 border-b border-[#eef0f2]" aria-label="Actions" />
                   </tr>
                 </thead>
                 <tbody>
-                  {pageProducts.map((product) => (
-                    <tr
-                      key={product.id}
-                      className="group h-[52px] cursor-pointer"
-                      {...hover(product.id)}
-                      onClick={(e) => {
-                        /* Not a press inside the row's own controls, nor one that bubbled up from its menu's portal. */
-                        const target = e.target as HTMLElement
-                        if (!e.currentTarget.contains(target) || target.closest("a,button,input,label")) return
-                        router.push(`/app/products/${product.id}`)
-                      }}
-                    >
-                      <td className="border-t border-[#f0f1f3] bg-white pl-4 pr-3 group-hover:bg-[#fafafb]">
-                        <div className="flex min-w-0 items-center gap-3">
-                          <Thumb src={product.thumbnail_url} />
-                          <Link href={`/app/products/${product.id}`} className="min-w-0 truncate font-semibold text-[#1a1a2e] outline-none hover:underline focus-visible:underline">
-                            {product.title}
-                          </Link>
-                        </div>
-                      </td>
-                      <td className="whitespace-nowrap border-t border-[#f0f1f3] bg-white px-3 group-hover:bg-[#fafafb]">{statusOf(product)}</td>
-                      <td className="hidden whitespace-nowrap border-t border-[#f0f1f3] bg-white px-3 text-right tabular-nums text-[#303036] group-hover:bg-[#fafafb] lg:table-cell">
-                        {product.sales_count ? product.sales_count.toLocaleString("en-US") : <span className="text-[#9ca3af]">0</span>}
-                      </td>
-                      <td className="whitespace-nowrap border-t border-[#f0f1f3] bg-white px-3 text-right font-medium tabular-nums text-[#1a1a2e] group-hover:bg-[#fafafb]">{formatMoney(product.price_cents)}</td>
-                      <td className="border-t border-[#f0f1f3] bg-white pr-2 text-right group-hover:bg-[#fafafb]">
-                        <ResponsiveActionMenu
-                          title={product.title}
-                          align="end"
-                          trigger={<RowMenuButton label={`Actions for ${product.title}`} />}
-                          items={actionsFor(product)}
-                        />
-                      </td>
-                    </tr>
-                  ))}
+                  {pageProducts.map((product) => {
+                    const status = statusOf(product)
+                    return (
+                      <tr
+                        key={product.id}
+                        className="group h-16 cursor-pointer [&+tr>td]:border-t [&+tr>td]:border-[#f1f2f4]"
+                        {...hover(product.id)}
+                        onClick={(e) => {
+                          /* Not a press inside the row's own controls, nor one that bubbled up from its menu's portal. */
+                          const target = e.target as HTMLElement
+                          if (!e.currentTarget.contains(target) || target.closest("a,button,input,label")) return
+                          router.push(`/app/products/${product.id}`)
+                        }}
+                      >
+                        <td className="bg-white pl-4 pr-3 group-hover:bg-[#fafafb]">
+                          <div className="flex min-w-0 items-center gap-3">
+                            <Thumb src={product.thumbnail_url} title={product.title} size={44} />
+                            <Link href={`/app/products/${product.id}`} className="min-w-0 truncate text-[14px] font-medium text-[#1a1a2e] outline-none hover:underline focus-visible:underline">
+                              {product.title}
+                            </Link>
+                          </div>
+                        </td>
+                        <td className="whitespace-nowrap bg-white px-3 group-hover:bg-[#fafafb]">
+                          <StatusMark status={status} label={statusLabel[status]} strong={status === "live"} />
+                        </td>
+                        <td className="hidden whitespace-nowrap bg-white px-3 text-right tabular-nums text-[#4b5563] group-hover:bg-[#fafafb] lg:table-cell">
+                          {product.sales_count ? product.sales_count.toLocaleString("en-US") : <span className="text-[#b6bac1]">0</span>}
+                        </td>
+                        <td className="whitespace-nowrap bg-white px-3 text-right font-medium tabular-nums text-[#1a1a2e] group-hover:bg-[#fafafb]">{priceOf(product.price_cents)}</td>
+                        <td className="bg-white pr-2 text-right group-hover:bg-[#fafafb]">
+                          <ResponsiveActionMenu
+                            title={product.title}
+                            align="end"
+                            trigger={<RowMenuButton label={`Actions for ${product.title}`} className="text-[#9ca3af] hover:text-[#1a1a2e]" />}
+                            items={actionsFor(product)}
+                          />
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </>
           ) : (
-            <div className="flex flex-col items-center px-6 py-12 text-center">
-              <p className="text-[15px] font-semibold text-[#1a1a2e]">{emptyTitle}</p>
-              <p className="mt-1 max-w-[340px] text-[13px] text-[#6b7280]">
+            <div data-empty="" className="flex flex-col items-center px-6 py-16 text-center md:py-14">
+              <p className="text-[16px] font-semibold text-[#1a1a2e] md:text-[15px]">{emptyTitle}</p>
+              <p className="mt-1 max-w-[320px] text-[14px] leading-5 text-[#6b7280] md:text-[13px]">
                 {searchQuery
                   ? "Try another name, or clear the search."
                   : products.length === 0
-                    ? "Create a product and it can be sold on your page and your website."
+                    ? "Add something to sell, like a preset pack, a course or an ebook. It goes on your page and your website."
                     : view === "archived"
                       ? "A product you archive is kept here, off your page, until you restore it."
                       : "Nothing in this view right now."}
               </p>
               {searchQuery ? (
-                <Press className="mt-4 max-md:mt-2.5" look={SECONDARY_LOOK} onClick={closeSearch}>
+                <Press className="mt-4 max-md:mt-2.5" look={SECONDARY_LOOK} onClick={clearSearch}>
                   Clear search
                 </Press>
               ) : products.length === 0 ? (
-                <Link href="/app/products/new" className={cn(buttonAccent, PRESS, "mt-4")}>
+                <Link href="/app/products/new" className={cn(buttonPrimary, PRESS, "mt-5 max-md:h-10 max-md:px-4 max-md:text-[14px]")}>
                   Create product
                 </Link>
               ) : null}
             </div>
           )}
 
+          {/*
+            THE FOOTER. On a computer it counts what is shown, as Orders'
+            does. On a phone a count of the rows you can see is noise, so it
+            is drawn only when there is a second page to go to.
+          */}
           {filteredProducts.length > 0 ? (
-            <div data-footer="" className="flex h-11 items-center justify-between gap-3 border-t border-[#eef0f2] bg-[#fafafb] px-3">
+            <div
+              data-footer=""
+              className={cn(
+                "flex h-11 items-center justify-between gap-3 md:border-t md:border-[#eef0f2] md:px-4",
+                pages === 1 && "max-md:hidden",
+              )}
+            >
               <span className="text-[12px] tabular-nums text-[#6b7280]">
                 {from + 1}&ndash;{from + pageProducts.length} of {filteredProducts.length.toLocaleString("en-US")}
               </span>
@@ -851,15 +916,63 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
   )
 }
 
-/** A product's picture in a row: 40px, 8px round, one hairline, a box drawn when there is none. */
-function Thumb({ src }: { src: string | null }) {
+type Status = "live" | "draft" | "archived"
+
+/** A free product says Free rather than $0.00, on the list and in the table. */
+function priceOf(cents: number) {
+  return cents > 0 ? formatMoney(cents) : "Free"
+}
+
+/** The middle dot between the parts of a phone row's second line. */
+function Sep() {
   return (
-    <span data-thumb="" className="pointer-events-none relative h-10 w-10 shrink-0 overflow-hidden rounded-lg border border-[#e3e5e8] bg-[#f3f4f6]">
+    <span aria-hidden className="text-[#c4c8ce]">
+      &middot;
+    </span>
+  )
+}
+
+/**
+ * A status as a small dot and a word, instead of a tinted badge. Amber for a
+ * draft (it is not on sale), grey for archived, green for live, which only
+ * the table's Status column draws: a phone row that is on sale says nothing.
+ */
+function StatusMark({ status, label, strong = false }: { status: Status; label: string; strong?: boolean }) {
+  return (
+    <span data-status={status} className={cn("inline-flex items-center gap-1.5", strong ? "text-[#303036]" : "text-[#6b7280]")}>
+      <span
+        aria-hidden
+        className={cn(
+          "h-1.5 w-1.5 shrink-0 rounded-full",
+          status === "live" ? "bg-[#22a06b]" : status === "draft" ? "bg-[#e0a100]" : "bg-[#b6bac1]",
+        )}
+      />
+      {label}
+    </span>
+  )
+}
+
+/**
+ * A product's picture: 56px on a phone and 44px in the table, rounded in
+ * proportion, with a hairline drawn inside it so a white cover still has an
+ * edge. With no picture, the name's first letter on grey rather than a
+ * stock box icon, so two products without covers can still be told apart.
+ */
+function Thumb({ src, title, size }: { src: string | null; title: string; size: 56 | 44 }) {
+  const letter = (Array.from(title.trim())[0] || "").toUpperCase()
+  return (
+    <span
+      data-thumb=""
+      className={cn(
+        "pointer-events-none relative shrink-0 overflow-hidden bg-[#eceef1] after:pointer-events-none after:absolute after:inset-0 after:rounded-[inherit] after:shadow-[inset_0_0_0_1px_rgba(17,24,39,0.06)] after:content-['']",
+        size === 56 ? "h-14 w-14 rounded-[12px]" : "h-11 w-11 rounded-[10px]",
+      )}
+    >
       {src ? (
-        <Image src={src} alt="" fill sizes="40px" className="object-cover" />
+        <Image src={src} alt="" fill sizes={`${size}px`} className="object-cover" />
       ) : (
-        <span className="flex h-full items-center justify-center">
-          <Package className="h-4 w-4 text-[#9ca3af]" />
+        <span aria-hidden className={cn("flex h-full items-center justify-center font-semibold text-[#9ca3af]", size === 56 ? "text-[20px]" : "text-[16px]")}>
+          {letter}
         </span>
       )}
     </span>
