@@ -1,6 +1,7 @@
 "use client"
 
 import { useTabStrip } from "@/components/app/use-tab-strip"
+import { MetricTab } from "@/components/app/metric-tab"
 import { memo, useState, useEffect, useMemo, useRef, useCallback, type ReactNode } from "react"
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh"
 import { PullToRefreshIndicator } from "./pull-to-refresh-indicator"
@@ -1370,7 +1371,6 @@ const DASH_LEGACY_TIMEFRAME: Partial<Record<RangeValue["preset"], string>> = {
   last_30_days: "last_30_days",
   month_to_date: "this_month",
   last_90_days: "last_90_days",
-  last_365_days: "last_365_days",
   all_time: "all_time",
 }
 
@@ -1972,7 +1972,6 @@ export function DashboardClient({
     const isHourly = tf === "today" || tf === "yesterday"
     const is48h = tf === "last_48_hours"
     const isAllTime = tf === "all_time"
-    const isYear = tf === "last_year" || tf === "last_365_days"
     const is90Days = tf === "last_90_days"
     const isMonth = tf === "last_30_days" || tf === "this_month"
 
@@ -2005,18 +2004,6 @@ export function DashboardClient({
           start: new Date(year, 0, 1),
           end: new Date(year, 11, 31, 23, 59, 59, 999),
           label: year.toString(),
-        })
-      }
-    } else if (isYear) {
-      for (let i = 11; i >= 0; i--) {
-        const md = new Date(end)
-        md.setMonth(md.getMonth() - i)
-        const mStart = new Date(md.getFullYear(), md.getMonth(), 1)
-        const mEnd = new Date(md.getFullYear(), md.getMonth() + 1, 0, 23, 59, 59, 999)
-        buckets.push({
-          start: mStart,
-          end: mEnd,
-          label: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][mStart.getMonth()],
         })
       }
     } else if (is90Days) {
@@ -2619,7 +2606,7 @@ export function DashboardClient({
           {/* KPI Metric Tabs - horizontally scrollable on mobile.
               The strip follows the chosen tab and arbitrates its own
               gestures; see components/app/use-tab-strip. */}
-          <div ref={kpiStripRef} className="relative flex overflow-x-auto scrollbar-hide md:grid md:grid-cols-4 divide-x divide-[#e5e7eb]/60" style={{
+          <div ref={kpiStripRef} role="tablist" aria-label="Metric" className="relative flex overflow-x-auto scrollbar-hide md:grid md:grid-cols-4 divide-x divide-[#e5e7eb]/60" style={{
               /*
                 BOTH AXES. This was `pan-x`, which does not mean "prefer
                 horizontal" — it means vertical panning is not allowed here at
@@ -2635,73 +2622,55 @@ export function DashboardClient({
               touchAction: 'pan-x pan-y',
               WebkitOverflowScrolling: 'touch',
             }}>
-            {/* Views */}
-            <button
-              className={`text-left px-3 py-3 sm:px-4 sm:py-3.5 transition-all duration-200 cursor-pointer relative flex-shrink-0 min-w-[130px] md:min-w-0 ${
-                openKPIModal === "views" ? "md:bg-[#f9fafb]" : "hover:bg-[#fafafa]"
-              }`}
-              data-tab="views"
-              onClick={() => { setOpenKPIModal("views"); setChartExpanded(true) }}
-            >
-              {openKPIModal === "views" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
-              <span className={`text-[11px] sm:text-[12px] font-medium ${openKPIModal === "views" ? "text-[#374151]" : "text-[#6b7280]"}`}>{t("dashboard.views")}</span>
-              <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className={`text-[18px] sm:text-[22px] font-semibold tracking-tight transition-[filter,color,opacity] duration-[700ms] ease-[cubic-bezier(0.32,0.72,0,1)] ${showSampleData && !hasRealData ? "text-[#1a1a2e]/50" : "text-[#1a1a2e]"} ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(displayAnalytics.periodViews)}</span>
-                <PercentChangeIndicator current={displayAnalytics.periodViews} previous={displayAnalytics.prevPeriodViews} />
-              </div>
-              <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-[filter,opacity] duration-[700ms] ease-[cubic-bezier(0.32,0.72,0,1)] ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(displayAnalytics.totalViews)} {t("dashboard.allTime")}</p>
-            </button>
-
-            {/* Revenue */}
-            <button
-              className={`text-left px-3 py-3 sm:px-4 sm:py-3.5 transition-all duration-200 cursor-pointer relative flex-shrink-0 min-w-[130px] md:min-w-0 ${
-                openKPIModal === "revenue" ? "md:bg-[#f9fafb]" : "hover:bg-[#fafafa]"
-              }`}
-              data-tab="revenue"
-              onClick={() => { setOpenKPIModal("revenue"); setChartExpanded(true) }}
-            >
-              {openKPIModal === "revenue" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
-              <span className={`text-[11px] sm:text-[12px] font-medium ${openKPIModal === "revenue" ? "text-[#374151]" : "text-[#6b7280]"}`}>{t("dashboard.revenue")}</span>
-              <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className={`text-[18px] sm:text-[22px] font-semibold tracking-tight transition-[filter,color,opacity] duration-[700ms] ease-[cubic-bezier(0.32,0.72,0,1)] ${showSampleData && !hasRealData ? "text-[#1a1a2e]/50" : "text-[#1a1a2e]"} ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{formatCurrency(displayAnalytics.periodRevenue)}</span>
-                <PercentChangeIndicator current={displayAnalytics.periodRevenue} previous={displayAnalytics.prevPeriodRevenue} />
-              </div>
-              <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-[filter,opacity] duration-[700ms] ease-[cubic-bezier(0.32,0.72,0,1)] ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{formatCurrency(displayAnalytics.totalRevenue)} {t("dashboard.allTime")}</p>
-            </button>
-
-            {/* Orders */}
-            <button
-              className={`text-left px-3 py-3 sm:px-4 sm:py-3.5 transition-all duration-200 cursor-pointer relative flex-shrink-0 min-w-[130px] md:min-w-0 ${
-                openKPIModal === "orders" ? "md:bg-[#f9fafb]" : "hover:bg-[#fafafa]"
-              }`}
-              data-tab="orders"
-              onClick={() => { setOpenKPIModal("orders"); setChartExpanded(true) }}
-            >
-              {openKPIModal === "orders" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
-              <span className={`text-[11px] sm:text-[12px] font-medium ${openKPIModal === "orders" ? "text-[#374151]" : "text-[#6b7280]"}`}>{t("dashboard.orders")}</span>
-              <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className={`text-[18px] sm:text-[22px] font-semibold tracking-tight transition-[filter,color,opacity] duration-[700ms] ease-[cubic-bezier(0.32,0.72,0,1)] ${showSampleData && !hasRealData ? "text-[#1a1a2e]/50" : "text-[#1a1a2e]"} ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(displayAnalytics.periodOrders)}</span>
-                <PercentChangeIndicator current={displayAnalytics.periodOrders} previous={displayAnalytics.prevPeriodOrders} />
-              </div>
-              <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-[filter,opacity] duration-[700ms] ease-[cubic-bezier(0.32,0.72,0,1)] ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(displayAnalytics.totalOrders)} {t("dashboard.allTime")}</p>
-            </button>
-
-            {/* Conversion Rate - clickable */}
-            <button
-              className={`text-left px-3 py-3 sm:px-4 sm:py-3.5 transition-all duration-200 cursor-pointer relative flex-shrink-0 min-w-[130px] md:min-w-0 ${
-                openKPIModal === "conversion" ? "md:bg-[#f9fafb]" : "hover:bg-[#fafafa]"
-              }`}
-              data-tab="conversion"
-              onClick={() => { setOpenKPIModal("conversion"); setChartExpanded(true) }}
-            >
-              {openKPIModal === "conversion" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
-              <span className={`text-[11px] sm:text-[12px] font-medium ${openKPIModal === "conversion" ? "text-[#374151]" : "text-[#6b7280]"}`}>{t("dashboard.conversionRate")}</span>
-              <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className={`text-[18px] sm:text-[22px] font-semibold tracking-tight transition-[filter,color,opacity] duration-[700ms] ease-[cubic-bezier(0.32,0.72,0,1)] ${showSampleData && !hasRealData ? "text-[#1a1a2e]/50" : "text-[#1a1a2e]"} ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{Math.round(displayAnalytics.conversionRate)}%</span>
-                <PercentChangeIndicator current={displayAnalytics.conversionRate} previous={displayAnalytics.prevConversionRate} />
-              </div>
-              <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-[filter,opacity] duration-[700ms] ease-[cubic-bezier(0.32,0.72,0,1)] ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{t("dashboard.viewsToOrders")}</p>
-            </button>
+            {/* The four figures: components/app/metric-tab, the same tab Analytics draws. */}
+            <MetricTab
+              tab="views"
+              className="flex-shrink-0 min-w-[130px] md:min-w-0"
+              selected={openKPIModal === "views"}
+              soft={isRefreshing}
+              sample={showSampleData && !hasRealData}
+              label={t("dashboard.views")}
+              value={formatCompactNumber(displayAnalytics.periodViews)}
+              change={<PercentChangeIndicator current={displayAnalytics.periodViews} previous={displayAnalytics.prevPeriodViews} />}
+              foot={`${formatCompactNumber(displayAnalytics.totalViews)} ${t("dashboard.allTime")}`}
+              onSelect={() => { setOpenKPIModal("views"); setChartExpanded(true) }}
+            />
+            <MetricTab
+              tab="revenue"
+              className="flex-shrink-0 min-w-[130px] md:min-w-0"
+              selected={openKPIModal === "revenue"}
+              soft={isRefreshing}
+              sample={showSampleData && !hasRealData}
+              label={t("dashboard.revenue")}
+              value={formatCurrency(displayAnalytics.periodRevenue)}
+              change={<PercentChangeIndicator current={displayAnalytics.periodRevenue} previous={displayAnalytics.prevPeriodRevenue} />}
+              foot={`${formatCurrency(displayAnalytics.totalRevenue)} ${t("dashboard.allTime")}`}
+              onSelect={() => { setOpenKPIModal("revenue"); setChartExpanded(true) }}
+            />
+            <MetricTab
+              tab="orders"
+              className="flex-shrink-0 min-w-[130px] md:min-w-0"
+              selected={openKPIModal === "orders"}
+              soft={isRefreshing}
+              sample={showSampleData && !hasRealData}
+              label={t("dashboard.orders")}
+              value={formatCompactNumber(displayAnalytics.periodOrders)}
+              change={<PercentChangeIndicator current={displayAnalytics.periodOrders} previous={displayAnalytics.prevPeriodOrders} />}
+              foot={`${formatCompactNumber(displayAnalytics.totalOrders)} ${t("dashboard.allTime")}`}
+              onSelect={() => { setOpenKPIModal("orders"); setChartExpanded(true) }}
+            />
+            <MetricTab
+              tab="conversion"
+              className="flex-shrink-0 min-w-[130px] md:min-w-0"
+              selected={openKPIModal === "conversion"}
+              soft={isRefreshing}
+              sample={showSampleData && !hasRealData}
+              label={t("dashboard.conversionRate")}
+              value={`${Math.round(displayAnalytics.conversionRate)}%`}
+              change={<PercentChangeIndicator current={displayAnalytics.conversionRate} previous={displayAnalytics.prevConversionRate} />}
+              foot={t("dashboard.viewsToOrders")}
+              onSelect={() => { setOpenKPIModal("conversion"); setChartExpanded(true) }}
+            />
 
             {/* Toggle arrow - sticky right on mobile, positioned in conversion rate area on desktop */}
             <div className="sticky right-0 flex items-center md:absolute md:right-2 md:top-2 z-10 bg-white md:bg-transparent pl-1 pr-2 md:p-0">

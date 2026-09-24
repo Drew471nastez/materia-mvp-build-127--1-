@@ -143,8 +143,10 @@ async function main() {
     check("  compared with yesterday up to the same time", today.previous!.start === today.start - DAY && today.previous!.end === now - DAY)
     const month = rangeWindow(preset("last_30_days"), prev, now, "UTC")
     check("Last 30 days is thirty days including today", month.start === Date.parse("2025-03-10T00:00:00Z"), new Date(month.start).toISOString())
-    const ytd = rangeWindow(preset("year_to_date"), prev, now, "Europe/Bucharest")
-    check("This year starts at New Year's midnight where the creator is", new Date(ytd.start).toISOString() === "2024-12-31T22:00:00.000Z", new Date(ytd.start).toISOString())
+    const mtd = rangeWindow(preset("month_to_date"), prev, now, "Europe/Bucharest")
+    check("Month to date starts at the first's midnight where the creator is, on summer time", new Date(mtd.start).toISOString() === "2025-03-31T21:00:00.000Z", new Date(mtd.start).toISOString())
+    const newYear = rangeWindow({ preset: "custom", start: "2025-01-01", end: day }, prev, now, "Europe/Bucharest")
+    check("  and a range from New Year starts at that midnight, on winter time", new Date(newYear.start).toISOString() === "2024-12-31T22:00:00.000Z", new Date(newYear.start).toISOString())
     const all = rangeWindow(preset("all_time", "2023-06-02"), prev, now, "UTC")
     check("All time reaches the first order, with nothing to compare it with", all.start === Date.parse("2023-06-02T00:00:00Z") && all.previous === null)
     const custom = readOrdersPeriod(new URLSearchParams(), "custom:2025-02-01:2025-02-10", day).period

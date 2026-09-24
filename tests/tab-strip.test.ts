@@ -31,15 +31,20 @@ const strip = (src: string) => src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s
 function tabOrderIn(src: string, setter: string): string[] {
   return [...src.matchAll(new RegExp(`${setter}\\("([a-z]+)"\\)`, "g"))].map((m) => m[1])
 }
-/** And the tabs it has actually tagged for the reveal to find. */
+/**
+ * And the tabs it has actually tagged for the reveal to find: a literal
+ * data-tab, or the shared <MetricTab tab="…">, which writes its data-tab
+ * (components/app/metric-tab, held below).
+ */
 function taggedIn(src: string): string[] {
-  return [...src.matchAll(/data-tab="([a-z]+)"/g)].map((m) => m[1])
+  return [...src.matchAll(/(?:data-tab="|<MetricTab\s+tab=")([a-z]+)"/g)].map((m) => m[1])
 }
 
 function main() {
   const hook = read("components/app/use-tab-strip.ts")
   const home = read("components/app/dashboard-client.tsx")
   const analytics = read("app/app/analytics/analytics-client.tsx")
+  const tabSrc = read("components/app/metric-tab.tsx")
   const probe = read("scripts/check-tab-strip.mjs")
 
   console.log("\nThe strip scrolls to the tab, and shows the edge of the next one")
@@ -146,7 +151,7 @@ function main() {
       && JSON.stringify(homeOrder) === JSON.stringify(["views", "revenue", "orders", "conversion"])
       && /const kpiStripRef = useTabStrip<HTMLDivElement>\(openKPIModal \?\? "views", KPI_TAB_ORDER\)/.test(home))
   check("with the ref on the row that actually scrolls",
-    /<div ref=\{kpiStripRef\} className="relative flex overflow-x-auto/.test(home))
+    /<div ref=\{kpiStripRef\}[^>]*? className="relative flex overflow-x-auto/.test(home))
 
   /*
     THE ANALYTICS FIGURES ARE NOT A STRIP ANY MORE. On a phone they sat in a
@@ -167,7 +172,24 @@ function main() {
   check("and they are a grid that never scrolls, so no strip hook is needed",
     /role="tablist" aria-label="Metric" className="grid grid-cols-2 gap-px bg-\[#eef0f2\] md:grid-cols-4"/.test(analytics)
       && !/useTabStrip/.test(analytics)
-      && /data-tab=\{tab\}/.test(analytics))
+      && /data-tab=\{tab\}/.test(tabSrc))
+
+  console.log("\nBoth rows draw one tab, with the home page's grey line")
+
+  /*
+    "The line under each chart tab button doesn't need to be purple, it needs
+    to be light gray, like on the homepage." The two rows had their own
+    buttons, and the analytics one had drifted to a violet line and a violet
+    tint. They draw one component now, so the line cannot differ again.
+  */
+  check("the home page and Analytics both draw components/app/metric-tab, and neither keeps its own",
+    /import \{ MetricTab \} from "@\/components\/app\/metric-tab"/.test(home)
+      && /import \{ MetricTab \} from "@\/components\/app\/metric-tab"/.test(analytics)
+      && !/function MetricTab\(/.test(analytics) && !/function MetricTab\(/.test(home)
+      && (home.match(/<MetricTab\b/g) ?? []).length === 4)
+  check("the line under the chosen tab is light grey, 1.5px, and nothing violet is left on it",
+    /export const METRIC_TAB_LINE = "#d1d5db"/.test(tabSrc) && /h-\[1\.5px\]/.test(tabSrc)
+      && !/#8b5cf6|#fcfbff|violet|purple/i.test(strip(tabSrc)))
 
   console.log("\nAnd the chart itself is left alone")
 

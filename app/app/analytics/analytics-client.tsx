@@ -46,6 +46,7 @@ import { boundsOf, compareBounds, compareRange, rangeLabel, type CompareValue, t
 import { bucketLabel, bucketStarts, grainFor, type Span } from "@/lib/analytics/buckets"
 import { AnalyticsReports, useAnalyticsReports } from "./analytics-reports"
 import { AnalyticsChartWithTooltip, CHART_COLORS } from "@/components/app/analytics-chart"
+import { MetricTab } from "@/components/app/metric-tab"
 
 interface Product {
   id: string
@@ -187,58 +188,14 @@ function ChartLegend({ range, compare }: { range: DateRange; compare: DateRange 
 }
 
 /**
- * One figure above the chart, and the button that shows it. Four of them
- * in a two by two grid on a phone and a row on anything wider: every figure
- * is on screen at once, so there is nothing to swipe to and nothing hidden
- * past the edge.
+ * The figures above the chart are the home page's tabs
+ * (components/app/metric-tab): four of them in a two by two grid on a phone
+ * and a row on anything wider, every figure on screen at once, with nothing
+ * to swipe to and nothing hidden past the edge. This is the change beside
+ * each value.
  */
-function MetricTab({
-  tab,
-  label,
-  value,
-  figure,
-  selected,
-  soft,
-  sample,
-  foot,
-  onSelect,
-}: {
-  tab: string
-  label: string
-  value: string
-  figure: Figure
-  selected: boolean
-  soft: boolean
-  sample: boolean
-  foot: string
-  onSelect: () => void
-}) {
-  return (
-    <button
-      type="button"
-      role="tab"
-      aria-selected={selected}
-      data-tab={tab}
-      onClick={onSelect}
-      className={`relative min-w-0 cursor-pointer bg-white px-4 py-3 text-left transition-colors duration-150 active:bg-[#f7f7f8] sm:py-3.5 ${
-        selected ? "bg-[#fcfbff]" : "hover:bg-[#fafafa]"
-      }`}
-    >
-      <span className={`block truncate text-[12px] font-medium ${selected ? "text-[#1a1a2e]" : "text-[#6b7280]"}`}>{label}</span>
-      <span className="mt-0.5 flex min-w-0 items-baseline gap-1.5">
-        <span
-          className={`truncate text-[20px] font-semibold tabular-nums tracking-tight transition-[filter,color] duration-500 sm:text-[22px] ${
-            sample ? "text-[#1a1a2e]/50" : "text-[#1a1a2e]"
-          } ${soft ? "blur-[2px]" : "blur-0"}`}
-        >
-          {value}
-        </span>
-        <PercentChangeIndicator current={figure.value} previous={figure.previous} />
-      </span>
-      <span className={`block truncate text-[11px] text-[#9ca3af] transition-[filter] duration-500 ${soft ? "blur-[1px]" : "blur-0"}`}>{foot}</span>
-      {selected && <span aria-hidden className="absolute inset-x-0 bottom-0 h-[2px] bg-[#8b5cf6]" />}
-    </button>
-  )
+function changeOf(f: Figure) {
+  return <PercentChangeIndicator current={f.value} previous={f.previous} />
 }
 
 export function AnalyticsClient({ products }: AnalyticsClientProps) {
@@ -550,17 +507,17 @@ export function AnalyticsClient({ products }: AnalyticsClientProps) {
           <div role="tablist" aria-label="Metric" className="grid grid-cols-2 gap-px bg-[#eef0f2] md:grid-cols-4">
             {analyticsMode === "store" ? (
               <>
-                <MetricTab tab="views" label={t("analytics.totalViews")} value={formatCompactNumber(storeFigures.views.value)} figure={storeFigures.views} selected={chartMetricFilter === "views"} soft={soft} sample={sample} foot={allTime(storeFigures.views, formatCompactNumber, "Pages opened")} onSelect={() => setChartMetricFilter("views")} />
-                <MetricTab tab="revenue" label={t("analytics.totalRevenue")} value={formatPrice(storeFigures.revenue.value)} figure={storeFigures.revenue} selected={chartMetricFilter === "revenue"} soft={soft} sample={sample} foot={allTime(storeFigures.revenue, formatPrice, "Less refunds")} onSelect={() => setChartMetricFilter("revenue")} />
-                <MetricTab tab="orders" label={t("analytics.totalOrders")} value={formatCompactNumber(storeFigures.orders.value)} figure={storeFigures.orders} selected={chartMetricFilter === "orders"} soft={soft} sample={sample} foot={allTime(storeFigures.orders, formatCompactNumber, "Paid and free")} onSelect={() => setChartMetricFilter("orders")} />
-                <MetricTab tab="conversion" label={t("analytics.conversionRate")} value={formatRate(storeFigures.conversion.value)} figure={storeFigures.conversion} selected={chartMetricFilter === "conversion"} soft={soft} sample={sample} foot="Visits that ordered" onSelect={() => setChartMetricFilter("conversion")} />
+                <MetricTab tab="views" label={t("analytics.totalViews")} value={formatCompactNumber(storeFigures.views.value)} change={changeOf(storeFigures.views)} selected={chartMetricFilter === "views"} soft={soft} sample={sample} foot={allTime(storeFigures.views, formatCompactNumber, "Pages opened")} onSelect={() => setChartMetricFilter("views")} />
+                <MetricTab tab="revenue" label={t("analytics.totalRevenue")} value={formatPrice(storeFigures.revenue.value)} change={changeOf(storeFigures.revenue)} selected={chartMetricFilter === "revenue"} soft={soft} sample={sample} foot={allTime(storeFigures.revenue, formatPrice, "Less refunds")} onSelect={() => setChartMetricFilter("revenue")} />
+                <MetricTab tab="orders" label={t("analytics.totalOrders")} value={formatCompactNumber(storeFigures.orders.value)} change={changeOf(storeFigures.orders)} selected={chartMetricFilter === "orders"} soft={soft} sample={sample} foot={allTime(storeFigures.orders, formatCompactNumber, "Paid and free")} onSelect={() => setChartMetricFilter("orders")} />
+                <MetricTab tab="conversion" label={t("analytics.conversionRate")} value={formatRate(storeFigures.conversion.value)} change={changeOf(storeFigures.conversion)} selected={chartMetricFilter === "conversion"} soft={soft} sample={sample} foot="Visits that ordered" onSelect={() => setChartMetricFilter("conversion")} />
               </>
             ) : (
               <>
-                <MetricTab tab="views" label={t("dashboard.views")} value={formatCompactNumber(onePageFigures.views.value)} figure={onePageFigures.views} selected={onePageChartFilter === "views"} soft={soft} sample={sample} foot={allTime(onePageFigures.views, formatCompactNumber, "Visits")} onSelect={() => setOnePageChartFilter("views")} />
-                <MetricTab tab="clicks" label={t("analytics.clicks")} value={formatCompactNumber(onePageFigures.clicks.value)} figure={onePageFigures.clicks} selected={onePageChartFilter === "clicks"} soft={soft} sample={sample} foot={allTime(onePageFigures.clicks, formatCompactNumber, "Link taps")} onSelect={() => setOnePageChartFilter("clicks")} />
-                <MetricTab tab="subscribers" label={t("analytics.subscribers")} value={formatCompactNumber(onePageFigures.subscribers.value)} figure={onePageFigures.subscribers} selected={onePageChartFilter === "subscribers"} soft={soft} sample={sample} foot={allTime(onePageFigures.subscribers, formatCompactNumber, "Emails left")} onSelect={() => setOnePageChartFilter("subscribers")} />
-                <MetricTab tab="ctr" label="CTR" value={formatRate(onePageFigures.ctr.value)} figure={onePageFigures.ctr} selected={onePageChartFilter === "ctr"} soft={soft} sample={sample} foot={t("analytics.clicksToViews")} onSelect={() => setOnePageChartFilter("ctr")} />
+                <MetricTab tab="views" label={t("dashboard.views")} value={formatCompactNumber(onePageFigures.views.value)} change={changeOf(onePageFigures.views)} selected={onePageChartFilter === "views"} soft={soft} sample={sample} foot={allTime(onePageFigures.views, formatCompactNumber, "Visits")} onSelect={() => setOnePageChartFilter("views")} />
+                <MetricTab tab="clicks" label={t("analytics.clicks")} value={formatCompactNumber(onePageFigures.clicks.value)} change={changeOf(onePageFigures.clicks)} selected={onePageChartFilter === "clicks"} soft={soft} sample={sample} foot={allTime(onePageFigures.clicks, formatCompactNumber, "Link taps")} onSelect={() => setOnePageChartFilter("clicks")} />
+                <MetricTab tab="subscribers" label={t("analytics.subscribers")} value={formatCompactNumber(onePageFigures.subscribers.value)} change={changeOf(onePageFigures.subscribers)} selected={onePageChartFilter === "subscribers"} soft={soft} sample={sample} foot={allTime(onePageFigures.subscribers, formatCompactNumber, "Emails left")} onSelect={() => setOnePageChartFilter("subscribers")} />
+                <MetricTab tab="ctr" label="CTR" value={formatRate(onePageFigures.ctr.value)} change={changeOf(onePageFigures.ctr)} selected={onePageChartFilter === "ctr"} soft={soft} sample={sample} foot={t("analytics.clicksToViews")} onSelect={() => setOnePageChartFilter("ctr")} />
               </>
             )}
           </div>

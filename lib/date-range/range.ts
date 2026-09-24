@@ -26,12 +26,22 @@ export interface DateRange {
 
 export type PresetId =
   | "today" | "yesterday"
-  | "last_7_days" | "last_30_days" | "last_90_days" | "last_365_days" | "last_12_months"
-  | "last_week" | "last_month" | "last_quarter" | "last_year"
-  | "week_to_date" | "month_to_date" | "quarter_to_date" | "year_to_date"
-  | "bfcm" | "bfcm_last_year"
-  | "q1" | "q2" | "q3" | "q4"
+  | "last_7_days" | "last_30_days" | "last_90_days" | "last_12_months"
+  | "month_to_date"
   | "all_time"
+
+/**
+ * Periods the picker offered once and does not any more: the quarters, Black
+ * Friday Cyber Monday, the "More periods" list and Year to date. A link, a
+ * cookie or a saved choice that still names one opens on the last 30 days
+ * (resolveValue), never on an error and never on a period nobody can pick.
+ */
+export const RETIRED_PRESETS: readonly string[] = [
+  "year_to_date", "quarter_to_date", "week_to_date",
+  "last_week", "last_month", "last_quarter", "last_year", "last_365_days",
+  "bfcm", "bfcm_last_year",
+  "q1", "q2", "q3", "q4",
+]
 
 export interface RangeValue extends DateRange {
   /** Which preset made it, or "custom". Kept so "Today" stays today tomorrow. */
@@ -139,52 +149,17 @@ export function boundsOf(r: DateRange, timeZone: string, now?: number): { start:
 
 /* ── presets ───────────────────────────────────────────────────────────── */
 
-function quarterOf(m: number) {
-  return Math.floor(m / 3)
-}
-
-/** The Friday after the fourth Thursday of November, through the Monday. */
-function bfcmOf(year: number): DateRange {
-  const first = new Date(Date.UTC(year, 10, 1)).getUTCDay()
-  const thanksgiving = 1 + ((4 - first + 7) % 7) + 21
-  return { start: ymdOf(year, 10, thanksgiving + 1), end: ymdOf(year, 10, thanksgiving + 4) }
-}
-
 /** A preset as days, on the day `today`. Never reaches past today. */
 export function presetRange(id: PresetId, today: Ymd, firstDay: Ymd = "2020-01-01"): DateRange {
   const { y, m } = parts(today)
-  const cap = (r: DateRange): DateRange => ({ start: r.start, end: r.end > today ? today : r.end })
-  const weekday = new Date(Date.UTC(y, m, parts(today).d)).getUTCDay()
   switch (id) {
     case "today": return { start: today, end: today }
     case "yesterday": { const d = addDays(today, -1); return { start: d, end: d } }
     case "last_7_days": return { start: addDays(today, -6), end: today }
     case "last_30_days": return { start: addDays(today, -29), end: today }
     case "last_90_days": return { start: addDays(today, -89), end: today }
-    case "last_365_days": return { start: addDays(today, -364), end: today }
     case "last_12_months": return { start: ymdOf(y - 1, m + 1, 1), end: today }
-    case "last_week": { const sun = addDays(today, -weekday - 7); return { start: sun, end: addDays(sun, 6) } }
-    case "last_month": return { start: ymdOf(y, m - 1, 1), end: ymdOf(y, m, 0) }
-    case "last_quarter": { const q = quarterOf(m); return { start: ymdOf(y, q * 3 - 3, 1), end: ymdOf(y, q * 3, 0) } }
-    case "last_year": return { start: ymdOf(y - 1, 0, 1), end: ymdOf(y - 1, 11, 31) }
-    case "week_to_date": return { start: addDays(today, -weekday), end: today }
     case "month_to_date": return { start: ymdOf(y, m, 1), end: today }
-    case "quarter_to_date": return { start: ymdOf(y, quarterOf(m) * 3, 1), end: today }
-    case "year_to_date": return { start: ymdOf(y, 0, 1), end: today }
-    case "bfcm": {
-      const thisYear = bfcmOf(y)
-      return thisYear.start <= today ? cap(thisYear) : bfcmOf(y - 1)
-    }
-    case "bfcm_last_year": {
-      const thisYear = bfcmOf(y)
-      return thisYear.start <= today ? bfcmOf(y - 1) : bfcmOf(y - 2)
-    }
-    case "q1": case "q2": case "q3": case "q4": {
-      const q = Number(id[1]) - 1
-      /* This year's quarter once it has begun, otherwise last year's. */
-      const year = ymdOf(y, q * 3, 1) <= today ? y : y - 1
-      return cap({ start: ymdOf(year, q * 3, 1), end: ymdOf(year, q * 3 + 3, 0) })
-    }
     case "all_time": return { start: firstDay < today ? firstDay : today, end: today }
   }
 }
@@ -195,35 +170,17 @@ export const PRESET_LABEL: Record<PresetId, string> = {
   last_7_days: "Last 7 days",
   last_30_days: "Last 30 days",
   last_90_days: "Last 90 days",
-  last_365_days: "Last 365 days",
   last_12_months: "Last 12 months",
-  last_week: "Last week",
-  last_month: "Last month",
-  last_quarter: "Last quarter",
-  last_year: "Last year",
-  week_to_date: "Week to date",
   month_to_date: "Month to date",
-  quarter_to_date: "Quarter to date",
-  year_to_date: "Year to date",
-  bfcm: "Black Friday Cyber Monday",
-  bfcm_last_year: "Black Friday Cyber Monday, last year",
-  q1: "Q1",
-  q2: "Q2",
-  q3: "Q3",
-  q4: "Q4",
   all_time: "All time",
 }
 
 /**
- * The list the picker opens to. The periods people choose most are rows of
- * their own, one tap and done; the rarer ones sit behind a row that opens
- * its own list; and a range of one's own is the last row, a second step with
- * the calendar in it.
+ * The list the picker opens to. Every period is a row of its own, one tap
+ * and done, and a range of one's own is the last row, a second step with the
+ * calendar in it. No row opens a list of its own.
  */
-export type PresetGroup =
-  | { kind: "item"; id: PresetId }
-  | { kind: "group"; label: string; children: PresetId[] }
-  | { kind: "custom" }
+export type PresetGroup = { kind: "item"; id: PresetId } | { kind: "custom" }
 
 export const PRESET_MENU: PresetGroup[][] = [
   [{ kind: "item", id: "today" }, { kind: "item", id: "yesterday" }],
@@ -233,31 +190,31 @@ export const PRESET_MENU: PresetGroup[][] = [
     { kind: "item", id: "last_90_days" },
     { kind: "item", id: "last_12_months" },
   ],
-  [{ kind: "item", id: "month_to_date" }, { kind: "item", id: "year_to_date" }, { kind: "item", id: "all_time" }],
-  [
-    { kind: "group", label: "Quarters", children: ["q1", "q2", "q3", "q4"] },
-    { kind: "group", label: "Black Friday Cyber Monday", children: ["bfcm", "bfcm_last_year"] },
-    {
-      kind: "group",
-      label: "More periods",
-      children: ["last_week", "last_month", "last_quarter", "last_year", "week_to_date", "quarter_to_date", "last_365_days"],
-    },
-  ],
+  [{ kind: "item", id: "month_to_date" }, { kind: "item", id: "all_time" }],
   [{ kind: "custom" }],
 ]
 
+/** Own keys only: "toString" is in every object and is not a period. */
 export function isPreset(v: unknown): v is PresetId {
-  return typeof v === "string" && v in PRESET_LABEL
+  return typeof v === "string" && Object.prototype.hasOwnProperty.call(PRESET_LABEL, v)
 }
 
-/** A saved or linked value, re-read against today: a preset moves with the calendar. */
+/** Where a period the picker no longer offers opens instead. */
+export const RETIRED_FALLBACK: PresetId = "last_30_days"
+
+/**
+ * A saved or linked value, re-read against today: a preset moves with the
+ * calendar. A retired period (RETIRED_PRESETS) opens on the last 30 days;
+ * anything else that cannot be read opens on the page's own default.
+ */
 export function resolveValue(v: Partial<RangeValue> | null | undefined, today: Ymd, fallback: PresetId = "last_30_days", firstDay?: Ymd): RangeValue {
   if (v && isPreset(v.preset)) return { preset: v.preset, ...presetRange(v.preset, today, firstDay) }
   if (v && v.preset === "custom" && isYmd(v.start) && isYmd(v.end)) {
     const r = ordered(v.start, v.end)
     return { preset: "custom", start: r.start, end: r.end > today ? today : r.end }
   }
-  return { preset: fallback, ...presetRange(fallback, today, firstDay) }
+  const to = v && typeof v.preset === "string" && RETIRED_PRESETS.includes(v.preset) ? RETIRED_FALLBACK : fallback
+  return { preset: to, ...presetRange(to, today, firstDay) }
 }
 
 /* ── comparison ────────────────────────────────────────────────────────── */
