@@ -481,15 +481,17 @@ console.log("\nphone, 390 wide, touch")
     window.__sheets = []
     const t0 = performance.now()
     const tick = () => {
-      const menu = document.querySelector("[data-mobile-bottom-sheet]")
-      const sheet = document.querySelector("[data-sheet-panel]")
+      /* Both are the shared sheet now: the menu is the one holding the action list. */
+      const panels = [...document.querySelectorAll("[data-sheet-panel]")]
+      const menu = panels.find((el) => el.querySelector("[data-action-sheet]")) ?? null
+      const sheet = panels.find((el) => el !== menu) ?? null
       const vis = (el) => { if (!el) return null; const r = el.getBoundingClientRect(); return getComputedStyle(el).visibility === "hidden" ? null : Math.round(r.top) }
       window.__sheets.push({ t: Math.round(performance.now() - t0), menu: vis(menu), sheet: vis(sheet) })
       if (performance.now() - t0 < 1400) requestAnimationFrame(tick)
     }
     requestAnimationFrame(tick)
   })
-  await p.evaluate(() => [...document.querySelectorAll("[data-mobile-bottom-sheet] button")].find((b) => /Change customer email/.test(b.textContent)).click())
+  await p.evaluate(() => [...document.querySelectorAll("[data-action-sheet] button")].find((b) => /Change customer email/.test(b.textContent)).click())
   await sleep(1500)
   const frames = await p.evaluate(() => window.__sheets)
   const H = 844
