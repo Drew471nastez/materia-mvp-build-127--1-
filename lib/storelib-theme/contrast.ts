@@ -2,7 +2,7 @@
  * ===========================================================================
  *  IS THIS READABLE
  * ===========================================================================
- * A colour scheme is seventeen values somebody can set to anything, and one
+ * A colour scheme is twenty-one values somebody can set to anything, and one
  * of the easy mistakes is a pair that looks fine on the designer's screen at
  * midnight and disappears in daylight on a phone. WCAG puts a number on it:
  * the ratio between the lightness of the text and the lightness of what is
@@ -90,7 +90,7 @@ export interface ContrastPair {
 }
 
 /**
- * The pairs a visitor actually reads. Not every combination of seventeen
+ * The pairs a visitor actually reads. Not every combination of twenty-one
  * values: `border` on `background` is a line, not a word, and warning about
  * a subtle divider is how a warning gets ignored.
  *

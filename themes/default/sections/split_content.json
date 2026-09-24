@@ -125,7 +125,7 @@
       "id": "button_color",
       "label": "Button color",
       "type": "color",
-      "default": "#6366f1"
+      "default": ""
     },
     {
       "id": "button_text_color",

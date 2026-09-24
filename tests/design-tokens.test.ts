@@ -105,11 +105,11 @@ section("Both renderer families resolve colours through one function")
 }
 
 // ===========================================================================
-section("A scheme is seventeen values, and the old eighty still read")
+section("A scheme is twenty-one values, and the old eighty still read")
 // ===========================================================================
 
 {
-  check("seventeen semantic values", SCHEME_COLOR_KEYS.length === 17)
+  check("twenty-one semantic values", SCHEME_COLOR_KEYS.length === 21)
   const legacy = normalizeScheme({ bg: "#123456", paragraph: "#222222", text: "#333333", primary_btn_bg: "#ABCDEF" }, DEFAULT_COLOR_SCHEMES.white)
   check(
     "a scheme saved in the old shape fills the semantic values",
@@ -143,7 +143,7 @@ section("Global changes reach every section; local overrides survive them")
   check("a global scheme change reaches a section on it", before.scheme.background === "#ffffff" && after.scheme.background === "#000000")
   check("and the section's own override is still there afterwards", after.scheme.heading === "#ff0000" && after.overrides.heading === "#ff0000")
   check("overrides are stored apart from the scheme", after.base.heading === DEFAULT_COLOR_SCHEMES.white.heading)
-  check("only the slots a section may override are read", SECTION_OVERRIDE_KEYS.length === 9 && !resolveSectionColors({}, { color_overrides: { input_border: "#ff0000" } }).overrides.input_border)
+  check("only the slots a section may override are read", SECTION_OVERRIDE_KEYS.length === 13 && !resolveSectionColors({}, { color_overrides: { input_border: "#ff0000" } }).overrides.input_border)
 
   const grad = resolveSectionColors({ color_schemes: { dark: { gradient: "linear-gradient(135deg, #000 0%, #333 100%)" } } }, { color_scheme: "dark" })
   check("a gradient is published as --scheme-gradient and as the legacy bg", grad.vars["--scheme-gradient"].startsWith("linear-gradient") && grad.legacy.bg.startsWith("linear-gradient"))
@@ -192,7 +192,7 @@ section("A schema says what the panel may change")
 {
   const withScheme = { fields: [{ id: "color_scheme", type: "color_scheme" }] }
   const s1 = designSupport(withScheme)
-  check("a section with a colour scheme gets the picker, the overrides and the text styles", s1.colorScheme && s1.colorOverrides.length === 9 && s1.typography)
+  check("a section with a colour scheme gets the picker, the overrides and the text styles", s1.colorScheme && s1.colorOverrides.length === 13 && s1.typography)
   const s2 = designSupport({ ...withScheme, supports_color_overrides: ["background"] })
   check("a section may allow only some overrides", s2.colorOverrides.length === 1 && s2.colorOverrides[0] === "background")
   const s3 = designSupport({ ...withScheme, supportsColorOverrides: false, supportsTypographyOverrides: false })

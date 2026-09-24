@@ -179,7 +179,7 @@ function readableColor(section: SectionInstance, id: string, theme: Record<strin
   return null
 }
 
-/** Which of the scheme's seventeen a section field falls back to. */
+/** Which of the scheme's twenty-one a section field falls back to. */
 const SCHEME_FALLBACK: Record<string, SchemeColorKey> = {
   bg_color: "background",
   content_bg_color: "background",

@@ -293,40 +293,29 @@ section("The page")
       12px corners on all four sides, with depth.
     */
     const live = client.slice(client.indexOf('<section aria-labelledby="live-heading"'), client.indexOf("{/* ── Library"))
-    check("the strip is its own bar above the card, not tabs inside it",
-      live.indexOf("<WebsiteStrip") > 0 && live.indexOf("<WebsiteStrip") < live.indexOf('className="overflow-hidden rounded-2xl border') &&
-        !/<nav/.test(live))
+    check("the bar above the cover is its own bar, above the card",
+      live.indexOf("<SettingsStrip") > 0 && live.indexOf("<SettingsStrip") < live.indexOf('className="overflow-hidden rounded-2xl border'))
     /*
-      THE STRIP IS SHOPIFY'S WEB PERFORMANCE BAR, NOT A ROW OF TABS. Six
-      text tabs that opened editor settings were what the owner asked to have
-      fixed. It is the period, then numbers, each from something measured.
+      THE BAR IS A ROW OF DOORS TO WEBSITE SETTINGS. It was Shopify's web
+      performance bar for a while; the owner asked for the numbers to go and
+      for the same bar to take them to the settings that matter instead.
     */
-    const strip = stripComments(read("app/app/website-builder/website-strip.tsx"))
+    const strip = stripComments(read("app/app/website-builder/settings-strip.tsx"))
     check("  one white bar in the card style, cut into cells by hairlines",
       /rounded-2xl border border-\[#e5e7eb\]\/60 bg-white shadow-\[0_1px_3px_rgba\(0,0,0,0\.04\)\]/.test(strip) && /divide-x divide-\[#eceef1\]/.test(strip))
-    check("  the first cell is the shared period picker, with a calendar mark",
-      /<DateRangePicker value=\{period\} onChange=\{choose\}/.test(strip) && /<CalendarDays/.test(strip) && /from "@\/components\/app\/date-range-picker"/.test(strip))
-    check("  then visits, orders, conversion and Google's three speed numbers",
-      ['kind="visits"', 'kind="orders"', 'kind="conversion"'].every((k) => strip.includes(k)) && /\(\["lcp", "inp", "cls"\] as const\)/.test(strip))
-    check("  each titled with a dotted underline that explains it",
-      (strip.match(/<HelpLabel label=/g) ?? []).length === 2 && /VITAL_DEFINITION\[name\]/.test(strip))
-    check("  traffic opens Analytics for the same period; a speed cell opens its definition and the device split",
-      /<Link href=\{href\}/.test(strip) && /analyticsHref\(period\)/.test(strip) &&
-        /<VitalDetail name=\{name\}/.test(strip) && /\(\["mobile", "desktop"\] as const\)/.test(strip) &&
-        /<BottomSheet isOpen=\{open\}/.test(strip) && /PopoverPrimitive\.Content/.test(strip))
-    check("  the open cell carries a violet rule along its foot",
-      /after:h-\[2px\]/.test(strip) && /after:bg-\[#8b5cf6\]/.test(strip) && /data-\[active\]:after:opacity-100/.test(strip) && /data-active=\{open \? "" : undefined\}/.test(strip))
-    check("  nothing is filled in: collecting, too few and unreadable each say so",
-      /Collecting data/.test(strip) && /Too few visits/.test(strip) && /Not available/.test(strip) && /MIN_SAMPLES/.test(strip) &&
-        !/Math\.random|sample(Data|Figures)/.test(strip))
-    check("  the numbers stream in after the page, and a new period is asked for, never guessed",
-      /React\.use\(figures\)/.test(strip) && /<React\.Suspense fallback=/.test(strip) && /\/api\/website-builder\/performance\?/.test(strip))
-    check("  on a phone it scrolls sideways inside itself with no scrollbar",
+    check("  each cell opens its page of Website Settings in the editor",
+      /onClick=\{\(\) => onOpen\(d\.section\)\}/.test(strip) && /onOpen=\{\(section\) => go\(editorHref\(username, live\.id, "settings", section\)\)\}/.test(client)
+        && ['"domains"', '"seo"', '"pages"', '"policies"', '"backups"', '"connections"'].every((k) => strip.includes(`section: ${k}`)))
+    check("  and says only what is true: the address under Domain, nothing made up",
+      /\{ section: "domains", label: "Domain", fact: siteDisplay \|\| undefined \}/.test(strip) && !/Math\.random|visits|conversion/i.test(strip))
+    check("  no numbers are counted for it any more",
+      !/websitePerformanceFor/.test(read("app/app/website-builder/page.tsx")) && !/WebsiteStrip|website-strip"/.test(client))
+    check("  on a phone it is one row that scrolls sideways inside itself with no scrollbar",
       /overflow-x-auto/.test(strip) && /\[scrollbar-width:none\]/.test(strip) && /\[&::-webkit-scrollbar\]:hidden/.test(strip) && /min-w-\[132px\]/.test(strip) && /whitespace-nowrap/.test(strip))
     check("the old tab destinations are the More menu's first group",
       ['section: "pages"', 'section: "domains"', 'section: "seo"', 'section: "publishing"', 'section: "general"'].every((s) => client.includes(s)) &&
         /editorHref\(username, i\.id, "settings", d\.section\)/.test(client) && /section: n === 0 \? "Website settings" : undefined/.test(client))
-    check("the loading state draws the bar's new shape", /min-w-\[132px\] flex-\[1_0_auto\] flex-col/.test(loading) && /h-8 w-\[132px\] rounded-lg/.test(loading))
+    check("the loading state draws the bar's shape", /min-w-\[132px\] flex-\[1_0_auto\] items-center justify-between/.test(loading))
     const frame = /const COVER_FRAME =\s*"([^"]+)"/.exec(client)?.[1] ?? ""
     check("the cover is clipped to 12px corners on all four sides",
       /\brounded-\[12px\]/.test(frame) && /\boverflow-hidden\b/.test(frame) && /className=\{COVER_FRAME\}/.test(live))

@@ -68,7 +68,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import type {
   ThemeInstall, SectionInstance, ThemeSettingsValues,
   PageKey, EditorPanel, SchemaField, SectionSchema } from "@/lib/website-builder/types"
-import { ColorsPanel, SectionDesignPanel, TypographyPanel } from "@/components/website-builder/editor/design-panels"
+import { BUTTON_COLOR_GROUPS, ButtonColorGroup, ColorsPanel, SectionDesignPanel, TypographyPanel } from "@/components/website-builder/editor/design-panels"
 import { remapScheme, themeColorSchemes } from "@/lib/storelib-theme/color-schemes"
 import { sameSettingValue } from "@/lib/website-builder/same-setting"
 import { PAGE_META } from "@/lib/website-builder/types"
@@ -2856,9 +2856,29 @@ function HeaderSectionSettings({
                       onChange={val => onUpdateSetting("cta_url", val)}
                     />
                   </div>
+                  {/*
+                    THE BUTTON'S COLOURS, HERE, WHERE THE BUTTON IS. This said
+                    the colours were "inherited from your theme's global button
+                    settings", which was not true, and the only place they could
+                    be changed was two unlabelled dots under Advanced colors.
+                    These are the same colours, the header's own overrides of
+                    its scheme, written through the same setOverride.
+                  */}
+                  <div className="rounded-lg border border-border p-3">
+                    <ButtonColorGroup
+                      group={BUTTON_COLOR_GROUPS[0]}
+                      settings={s}
+                      theme={theme}
+                      onApply={(next) => {
+                        for (const key of new Set([...Object.keys(s), ...Object.keys(next)])) {
+                          if (JSON.stringify(s[key]) !== JSON.stringify(next[key])) onUpdateSetting(key, next[key])
+                        }
+                      }}
+                    />
+                  </div>
                   <p className="text-[11px] text-muted-foreground leading-snug flex items-start gap-1.5">
                     <Info className="h-3 w-3 shrink-0 mt-0.5" />
-                    Button style, radius and colors are inherited from your theme&apos;s global button settings.
+                    Shape, corner radius and weight come from Theme settings, Buttons.
                   </p>
                 </>
               )}
@@ -4654,6 +4674,49 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
   /* One function for the life of the editor, so the memoised canvas is not
      drawn again by every change anywhere else in the editor. */
+  /** Sections, Pages and Theme: one segmented control, for the desktop sidebar and the phone sheet. */
+  const renderSidebarTabs = (after?: () => void) => {
+    const tab = (active: boolean) =>
+      cn(
+        "flex-1 flex items-center justify-center gap-1.5 h-8 rounded-md text-[13px] font-medium transition-colors",
+        active ? "bg-white text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+      )
+    return (
+      <div role="tablist" aria-label="Sidebar" className="flex items-center gap-1 p-0.5 bg-neutral-100 rounded-lg">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={sidebarMode === "sections" && !pageBrowserOpen}
+          className={tab(sidebarMode === "sections" && !pageBrowserOpen)}
+          onClick={() => { setSidebarMode("sections"); setPageBrowserOpen(false); setSelectedPanel({ type: "pages" }); after?.() }}
+        >
+          <Layers className="h-3.5 w-3.5" />
+          Sections
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={pageBrowserOpen}
+          className={tab(pageBrowserOpen)}
+          onClick={() => { setPageBrowserOpen(true); setSelectedPanel({ type: "pages" }); after?.() }}
+        >
+          <FileText className="h-3.5 w-3.5" />
+          Pages
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={sidebarMode === "settings" && !pageBrowserOpen}
+          className={tab(sidebarMode === "settings" && !pageBrowserOpen)}
+          onClick={() => { setSidebarMode("settings"); setPageBrowserOpen(false); setSelectedPanel({ type: "theme_settings" }); after?.() }}
+        >
+          <Settings className="h-3.5 w-3.5" />
+          Theme
+        </button>
+      </div>
+    )
+  }
+
   const createMissingPage = useCallback((path: string) => {
     setNewPageTitle(pageTitleFromKey(path.replace(/^\//, "").replace(/\/$/, "")))
     setAddPageOpen(true)
@@ -7065,49 +7128,6 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             <TooltipContent side="bottom">Exit</TooltipContent>
           </Tooltip>
 
-          {/* Desktop: sidebar mode toggles (Pages / Sections / General Settings)
-              Moved up from the old vertical rail so the sidebar gets the full
-              horizontal space for its panel content. */}
-          {!isMobileView && (
-            <div className="flex items-center gap-0.5 ml-1.5 pl-1.5 border-l border-[var(--wb-chrome-line)]">
-              <button
-                className={cn(
-                  "h-8 w-8 flex items-center justify-center rounded-lg transition-colors",
-                  sidebarMode === "sections" && !pageBrowserOpen
-                    ? "bg-[var(--wb-chrome-active)] text-[var(--wb-chrome-fg)]"
-                    : "text-[var(--wb-chrome-fg-3)] hover:bg-[var(--wb-chrome-hover)] hover:text-[var(--wb-chrome-fg)]",
-                )}
-                onClick={() => { setSidebarMode("sections"); setPageBrowserOpen(false); setSelectedPanel({ type: "pages" }) }}
-                title="Sections"
-              >
-                <Layers className="h-4 w-4" strokeWidth={1.75} />
-              </button>
-              <button
-                className={cn(
-                  "h-8 w-8 flex items-center justify-center rounded-lg transition-colors",
-                  pageBrowserOpen
-                    ? "bg-[var(--wb-chrome-active)] text-[var(--wb-chrome-fg)]"
-                    : "text-[var(--wb-chrome-fg-3)] hover:bg-[var(--wb-chrome-hover)] hover:text-[var(--wb-chrome-fg)]",
-                )}
-                onClick={() => { setPageBrowserOpen(true); setSelectedPanel({ type: "pages" }) }}
-                title="Pages"
-              >
-                <FileText className="h-4 w-4" strokeWidth={1.75} />
-              </button>
-              <button
-                className={cn(
-                  "h-8 w-8 flex items-center justify-center rounded-lg transition-colors",
-                  sidebarMode === "settings" && !pageBrowserOpen
-                    ? "bg-[var(--wb-chrome-active)] text-[var(--wb-chrome-fg)]"
-                    : "text-[var(--wb-chrome-fg-3)] hover:bg-[var(--wb-chrome-hover)] hover:text-[var(--wb-chrome-fg)]",
-                )}
-                onClick={() => { setSidebarMode("settings"); setPageBrowserOpen(false); setSelectedPanel({ type: "theme_settings" }) }}
-                title="General Settings"
-              >
-                <Settings className="h-4 w-4" strokeWidth={1.75} />
-              </button>
-            </div>
-          )}
 <div className="flex items-center gap-1.5 min-w-0">
           <span className="text-sm font-medium text-[var(--wb-chrome-fg)] truncate hidden md:block max-w-[180px]">{install?.name}</span>
           {/*
@@ -7661,6 +7681,15 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               className="flex-1 flex flex-col min-h-0 overflow-hidden bg-white rounded-t-[20px]"
               style={{ width: sidebarWidth, minWidth: SIDEBAR_MIN, maxWidth: SIDEBAR_MAX }}
             >
+              {/*
+                SECTIONS, PAGES AND THEME, AT THE TOP OF THE SIDEBAR THEY SWITCH.
+                They were three icons in the black top bar, away from the panel
+                they change, in the bar's chrome rather than the sidebar's. The
+                phone sheet always had them here, as this same control.
+              */}
+              <div className="shrink-0 px-3 pt-3 pb-2" data-wb-sidebar-tabs="">
+                {renderSidebarTabs()}
+              </div>
               <div data-wb-sidebar-scroll className="flex-1 min-h-0 overflow-y-auto wb-slim-scroll overflow-x-hidden">
                 <LinkTargetsProvider targets={linkTargets}>
                   <div
@@ -7720,49 +7749,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
              * section was reported to cause.
              */
           >
-            {/* Segmented tabs — Sections / Pages / Settings */}
+            {/* Segmented tabs — Sections / Pages / Theme, the same control the desktop sidebar has */}
             <div className="px-3 pt-1 pb-2 shrink-0 bg-background">
-              <div className="flex items-center gap-1 p-0.5 bg-neutral-100 rounded-lg">
-                <button
-                  type="button"
-                  className={cn(
-                    "flex-1 flex items-center justify-center gap-1.5 h-8 rounded-md text-[13px] font-medium transition-all",
-                    sidebarMode === "sections" && !pageBrowserOpen
-                      ? "bg-white text-foreground shadow-sm"
-                      : "text-muted-foreground",
-                  )}
-                  onClick={() => { setSidebarMode("sections"); setPageBrowserOpen(false); setSelectedPanel({ type: "pages" }); setMobileSidebarOpen(true) }}
-                >
-                  <Layers className="h-3.5 w-3.5" />
-                  Sections
-                </button>
-                <button
-                  type="button"
-                  className={cn(
-                    "flex-1 flex items-center justify-center gap-1.5 h-8 rounded-md text-[13px] font-medium transition-all",
-                    pageBrowserOpen
-                      ? "bg-white text-foreground shadow-sm"
-                      : "text-muted-foreground",
-                  )}
-                  onClick={() => { setPageBrowserOpen(true); setSelectedPanel({ type: "pages" }); setMobileSidebarOpen(true) }}
-                >
-                  <FileText className="h-3.5 w-3.5" />
-                  Pages
-                </button>
-                <button
-                  type="button"
-                  className={cn(
-                    "flex-1 flex items-center justify-center gap-1.5 h-8 rounded-md text-[13px] font-medium transition-all",
-                    sidebarMode === "settings" && !pageBrowserOpen
-                      ? "bg-white text-foreground shadow-sm"
-                      : "text-muted-foreground",
-                  )}
-                  onClick={() => { setSidebarMode("settings"); setPageBrowserOpen(false); setSelectedPanel({ type: "theme_settings" }); setMobileSidebarOpen(true) }}
-                >
-                  <Settings className="h-3.5 w-3.5" />
-                  Settings
-                </button>
-              </div>
+              {renderSidebarTabs(() => setMobileSidebarOpen(true))}
             </div>
 
             <div data-wb-sidebar-scroll className="flex-1 min-h-0 overflow-y-auto wb-slim-scroll overflow-x-hidden bg-background">

@@ -274,8 +274,13 @@ function main() {
       && /@keyframes drp-month-next/.test(css) && /prefers-reduced-motion: reduce\) \{\s*\.drp-frame \{ transition: none; \}\s*\.drp-in-next/.test(css))
   check("a sideways swipe across the days turns the month on a phone", /Math\.abs\(dx\) < 44 \|\| Math\.abs\(dx\) < Math\.abs\(dy\) \* 1\.5/.test(picker))
   {
-    check("every sheet on a phone goes over the nav pill",
-      /html:has\(\[data-app-sheet="open"\]\) \[data-app-nav-pill\],\s*\n\s*html:has\(\[role="dialog"\]\[aria-modal="true"\]:not\(\[data-mobile-menu\]\)\) \[data-app-nav-pill\],\s*\n\s*html:has\(body\[data-scroll-locked\]\) \[data-app-nav-pill\] \{\s*\n\s*z-index: 0;/.test(css))
+    /* The pill used to step down to layer 0 while a sheet was open, which
+       hid it behind the page before the sheet arrived and brought it back
+       over the sheet as it left. It stays put now; the sheets are above it. */
+    check("every sheet on a phone goes over the nav pill, and the pill itself never moves layer",
+      !/\[data-app-nav-pill\] \{\s*\n\s*z-index: 0;/.test(css)
+        && /:is\(\[data-slot="sheet-overlay"\], \[data-slot="sheet-content"\], \[data-slot="alert-dialog-overlay"\], \[data-slot="alert-dialog-content"\]\) \{\s*z-index: 60;/.test(css)
+        && /fixed inset-0 z-\[60\] flex items-center justify-center">/.test(read("app/app/coupons/coupons-client.tsx")))
     /* The phone sheets in these pages are the shared one now, which says it
        is open itself; what is left drawing its own layer is a centred modal
        that still has to say so. */

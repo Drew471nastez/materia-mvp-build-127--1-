@@ -20,7 +20,7 @@ canvas and the live site cannot disagree.
 
 ## Colour schemes
 
-A scheme is seventeen semantic values and an optional gradient:
+A scheme is twenty-one semantic values and an optional gradient:
 
 | Value | Custom property |
 | --- | --- |
@@ -41,7 +41,19 @@ A scheme is seventeen semantic values and an optional gradient:
 | `input_background` | `--scheme-input` |
 | `input_text` | `--scheme-input-text` |
 | `input_border` | `--scheme-input-border` |
+| `primary_button_hover_background` | `--scheme-button-primary-hover` |
+| `primary_button_hover_text` | `--scheme-button-primary-hover-text` |
+| `secondary_button_hover_background` | `--scheme-button-secondary-hover` |
+| `secondary_button_hover_text` | `--scheme-button-secondary-hover-text` |
 | `gradient` | `--scheme-gradient` (the background when there is none) |
+
+The four hover values are automatic until someone sets one: the primary
+button's background a step darker (a step lighter when it is already near
+black), the secondary
+button's (or the section's, when it is transparent) moved 8% towards its
+text, and each button's own text colour. A scheme or a section that changes
+a button's colour and not its hover gets a hover worked out from the new
+colour. `automaticHover()` in `lib/storelib-theme/color-schemes.ts`.
 
 The properties are set on the section's root, so a section's CSS reads
 `var(--scheme-heading)` and never a literal. In a `.storelib` template the

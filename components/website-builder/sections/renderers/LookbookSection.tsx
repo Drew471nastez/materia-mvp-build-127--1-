@@ -4,7 +4,7 @@
 // an optional mood / overlay treatment.
 
 import { cn } from "@/lib/utils"
-import { sectionColors, str, SectionWrapper, hexToRgba, type SectionProps } from "../_shared"
+import { sectionColors, str, SectionWrapper, hexToRgba, type SectionProps, schemeButton } from "../_shared"
 
 /**
  * The six moods, as typography. A lookbook's mood is carried by how the
@@ -43,7 +43,6 @@ export function LookbookSection({ section, theme, isEditing, isSelected, onClick
   const ctaStyle = str(s.cta_style, "outline")
   const mood = str(s.mood_style, "minimal")
   const ctaColor = str(s.cta_color) || c.primary_btn_bg
-  const ctaTextColor = str(s.cta_text_color) || c.primary_btn_text
 
   const posMap: Record<string, string> = {
     "top-left": "items-start justify-start text-left",
@@ -87,9 +86,10 @@ export function LookbookSection({ section, theme, isEditing, isSelected, onClick
               <a
                 href={str(s.cta_url, "#")}
                 className="inline-block px-7 py-3 text-sm font-semibold tracking-wide uppercase"
+                data-sl-button={ctaStyle === "filled" ? "primary" : undefined}
                 style={
                   ctaStyle === "filled"
-                    ? { background: ctaColor, color: ctaTextColor }
+                    ? schemeButton(c, "primary", { background: str(s.cta_color), text: str(s.cta_text_color) }).style
                     : ctaStyle === "ghost"
                       ? { color: textColor }
                       : { border: `1px solid ${ctaColor}`, color: ctaColor }

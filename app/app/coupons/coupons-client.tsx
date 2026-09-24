@@ -337,7 +337,7 @@ export function CouponsClient({ creatorId, initialCoupons, products }: CouponsCl
 
       {/* Delete confirm */}
       {confirmDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center">
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setConfirmDelete(null)} />
           <div className="relative bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full mx-4">
             <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">

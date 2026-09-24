@@ -149,7 +149,7 @@
       "id": "icon_color",
       "label": "Icon color",
       "type": "color",
-      "default": "#6366f1"
+      "default": ""
     },
     {
       "id": "card_bg_color",

@@ -196,12 +196,14 @@ section("The ingest route keeps the site, the numbers, the device and the day")
   check("the migration says the same thing", /create table if not exists public\.site_web_vitals/.test(read("supabase/migrations/20260925_site_vitals.sql")))
 }
 
-section("The page is not held up by the numbers")
+section("The page above the cover counts nothing")
 {
+  /* The bar above the cover was the site's numbers; the owner asked for the
+     settings instead (app/app/website-builder/settings-strip.tsx), so the
+     page no longer asks for them. The reading below is still what the
+     performance route uses. */
   const page = code("app/app/website-builder/page.tsx")
-  check("the figures are started, not awaited, and handed over as a promise",
-    /const figures = websitePerformanceFor\(/.test(page) && !/await websitePerformanceFor/.test(page) && /performance=\{\{ period, timeZone, figures \}\}/.test(page))
-  check("  and a failure is a null, never a thrown page", /\.catch\(\(e: Error\) => \{[\s\S]{0,120}return null/.test(page))
+  check("the Website page does not count visits or speed on every load", !/websitePerformanceFor/.test(page) && !/performance=/.test(page))
   const read_ = code("lib/website-builder/site-performance-read.ts")
   check("speed is read with the signed in user's client, so the policy decides", /user\.rpc\("site_vitals_summary"/.test(read_))
   check("only the website's views are read, and a page at a time", /\.not\("page_url", "ilike"/.test(read_) && /\.range\(a, b\)/.test(read_) && /CEILING/.test(read_))

@@ -101,7 +101,7 @@ Every section picks one **colour scheme**. Change a scheme here and every sectio
 
 @[builder-schemes]
 
-Pick a scheme to edit it: its name, whether new sections start on it, and its seventeen colours in five groups (surface, text, primary button, secondary button, inputs). If a pair of colours is hard to read, it says so and by how much. A scheme can also lay a gradient over its background. **Add scheme** makes another; a scheme you made can be deleted, and the sections on it move to another.
+Pick a scheme to edit it: its name, whether new sections start on it, and its twenty-one colours in five groups (surface, text, primary button, secondary button, inputs). Each button has a colour on hover, worked out from the button until you set one. If a pair of colours is hard to read, it says so and by how much. A scheme can also lay a gradient over its background. **Add scheme** makes another; a scheme you made can be deleted, and the sections on it move to another.
 
 **Page colors**, under Colors, are the colours of the page itself, behind and between sections:
 

@@ -199,7 +199,7 @@ export type ColorSchemes = Record<ColorSchemeKey, ColorSchemeValues>
 
 /**
  * THE LEGACY VIEW OF THE ENGINE'S SCHEMES. The five built-in schemes live in
- * lib/storelib-theme/color-schemes.ts as seventeen semantic values each;
+ * lib/storelib-theme/color-schemes.ts as twenty-one semantic values each;
  * this is those same schemes spelled out under the eighty slot names the
  * React renderers were written against. Derived, never copied, so the two
  * renderer families cannot disagree about a default.

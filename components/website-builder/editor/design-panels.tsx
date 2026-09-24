@@ -30,6 +30,7 @@ import {
   SCHEME_COLOR_GROUPS,
   SCHEME_COLOR_LABELS,
   SECTION_OVERRIDE_KEYS,
+  HOVER_KEYS,
   defaultSchemeKey,
   isBuiltInScheme,
   newSchemeFrom,
@@ -283,9 +284,102 @@ const OVERRIDE_ROWS: { label: string; keys: SchemeColorKey[] }[] = [
   { label: "Heading", keys: ["heading"] },
   { label: "Accent", keys: ["accent"] },
   { label: "Border", keys: ["border"] },
-  { label: "Primary button", keys: ["primary_button_background", "primary_button_text"] },
-  { label: "Secondary button", keys: ["secondary_button_background", "secondary_button_text"] },
 ]
+
+/**
+ * ===========================================================================
+ *  A BUTTON'S COLOURS, EACH ONE NAMED
+ * ===========================================================================
+ * "Primary button" was a row with two unlabelled dots, one the fill and one
+ * the text, and nothing said which was which or that there was no hover at
+ * all. The owner tried to recolour the header's button and could not tell
+ * how. Each colour now says what it is, and the two hover colours say Auto
+ * until someone picks one: see automaticHover in the colour schemes.
+ */
+export const BUTTON_COLOR_GROUPS: { label: string; parts: { key: SchemeColorKey; label: string }[] }[] = [
+  {
+    label: "Primary button",
+    parts: [
+      { key: "primary_button_background", label: "Fill" },
+      { key: "primary_button_text", label: "Text" },
+      { key: "primary_button_hover_background", label: "Hover fill" },
+      { key: "primary_button_hover_text", label: "Hover text" },
+    ],
+  },
+  {
+    label: "Secondary button",
+    parts: [
+      { key: "secondary_button_background", label: "Fill" },
+      { key: "secondary_button_text", label: "Text" },
+      { key: "secondary_button_hover_background", label: "Hover fill" },
+      { key: "secondary_button_hover_text", label: "Hover text" },
+    ],
+  },
+]
+
+const isHoverKey = (k: SchemeColorKey) => (HOVER_KEYS as readonly string[]).includes(k)
+
+/**
+ * One button's four colours as labelled swatches, with "Use scheme" when any
+ * is the section's own. Shared by every section's Advanced colors and by the
+ * header's Button panel, so the two cannot describe one button differently.
+ */
+export function ButtonColorGroup({
+  group,
+  settings,
+  theme,
+  onApply,
+  allowed,
+}: {
+  group: (typeof BUTTON_COLOR_GROUPS)[number]
+  settings: Record<string, unknown>
+  theme: Theme
+  onApply: (next: Record<string, unknown>) => void
+  /** The keys this section lets be overridden; all four when omitted. */
+  allowed?: SchemeColorKey[]
+}) {
+  const colors = resolveSectionColors(asRecord(theme), settings)
+  const parts = group.parts.filter((p) => !allowed || allowed.includes(p.key))
+  if (parts.length === 0) return null
+  const anySet = parts.some((p) => effectiveOverride(settings, p.key) !== "")
+  return (
+    <div data-button-colors={group.label}>
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-[13px] font-medium text-foreground">{group.label}</span>
+        {anySet ? (
+          <button
+            type="button"
+            onClick={() => { let next = settings; for (const p of parts) next = setOverride(next, p.key, ""); onApply(next) }}
+            className="text-[11px] font-medium text-muted-foreground hover:text-foreground"
+          >
+            Use scheme
+          </button>
+        ) : (
+          <span className="text-[11px] text-muted-foreground">Scheme</span>
+        )}
+      </div>
+      <div className="mt-2 grid grid-cols-4 gap-1.5">
+        {parts.map((p) => {
+          const own = effectiveOverride(settings, p.key)
+          /* A hover shows what it will be: worked out from this section's button. */
+          const shown = own || (isHoverKey(p.key) ? colors.scheme[p.key] : colors.base[p.key])
+          const auto = !own && isHoverKey(p.key)
+          return (
+            <div key={p.key} className="flex flex-col items-center gap-1" title={SCHEME_COLOR_LABELS[p.key]}>
+              <span className={cn("inline-flex", !own && "opacity-70")}>
+                <ColorChip value={shown === "transparent" ? "" : shown} onChange={(c) => onApply(setOverride(settings, p.key, c))} existing={[]} />
+              </span>
+              <span className="text-[10.5px] leading-tight text-muted-foreground text-center">
+                {p.label}
+                {auto ? <span className="block text-[10px] text-muted-foreground/70">Auto</span> : null}
+              </span>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
 
 const HEADING_STYLE_OPTIONS = [
   { label: "Theme default", value: "" },
@@ -486,6 +580,11 @@ export function SectionDesignPanel({
                       </div>
                     )
                   })}
+                  {BUTTON_COLOR_GROUPS.map((group) => (
+                    <div key={group.label} className="border-t border-border/60 py-2.5">
+                      <ButtonColorGroup group={group} settings={s} theme={theme} onApply={applySettings} allowed={support.colorOverrides} />
+                    </div>
+                  ))}
                   <div className="flex items-center justify-between pt-2 border-t border-border/60">
                     <span className="text-[11px] text-muted-foreground">A global scheme change still reaches every color left on the scheme.</span>
                     {overridden > 0 && (

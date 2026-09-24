@@ -18,7 +18,7 @@ import { checkoutHrefWithOrigin } from "@/lib/orders/checkout-origin"
 import { pageOrigin } from "@/lib/orders/checkout-origin-browser"
 import {
   type SectionProps,
-  resolveScheme,
+  sectionColors,
   str,
   bool,
   buttonRadiusStyle,
@@ -86,7 +86,8 @@ export function ProductSection({ section, theme, isEditing, isSelected, onClick 
 
   // Resolve the full global color scheme so the product section tracks
   // whatever the creator configured in General Settings → Color Schemes.
-  const resolved = resolveScheme(theme, colorScheme)
+  /* With the section's own Advanced colors, which resolveScheme left out. */
+  const resolved = sectionColors({ ...section, settings: { ...s, color_scheme: colorScheme } }, theme)
   const scheme = {
     bg: resolved.bg,
     text: resolved.paragraph,

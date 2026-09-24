@@ -102,7 +102,9 @@ for (let i = 0; i < CYCLES; i++) {
     const hit = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)
     return { z: getComputedStyle(p).zIndex, onTop: !!hit?.closest("#pill") }
   })
-  if (pill.z !== "0" || pill.onTop) pillOver++
+  /* The pill keeps its own layer (it used to step down to 0, which hid it
+     behind the page before the sheet arrived); the sheet is simply above it. */
+  if (pill.z !== "55" || pill.onTop) pillOver++
   await page.touchscreen.tap(195, 120)
   await wait(500)
   const t2 = await now()
