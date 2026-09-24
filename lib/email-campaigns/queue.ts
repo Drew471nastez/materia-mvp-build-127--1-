@@ -925,7 +925,7 @@ export interface QueueRun {
  * gone quiet is picked up, until the deadline. Never throws: the flows the
  * same cron sends must not be held up by a campaign.
  */
-export async function runCampaignQueue(db: Db, deadline: number): Promise<QueueRun> {
+export async function runCampaignQueue(db: Db, deadline: number, inject: Pick<ProcessOptions, "send" | "sleep"> = {}): Promise<QueueRun> {
   const run: QueueRun = { started: 0, failedToStart: 0, processed: 0, sent: 0 }
   try {
     const modern = await isModernSchema(db)
@@ -961,7 +961,7 @@ export async function runCampaignQueue(db: Db, deadline: number): Promise<QueueR
     const list = [...mine, ...(active ?? []).map((a: { id: string }) => ({ id: a.id, leaseFrom: null as string | null }))]
     for (const c of list) {
       if (Date.now() > deadline - 30_000) break
-      const r = await processCampaign(db, c.id, { deadline, leaseFrom: c.leaseFrom })
+      const r = await processCampaign(db, c.id, { deadline, leaseFrom: c.leaseFrom, ...inject })
       if (r.outcome !== "busy") run.processed++
       run.sent += r.sent
     }
