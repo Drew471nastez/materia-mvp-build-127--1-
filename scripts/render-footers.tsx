@@ -5,6 +5,7 @@
  * measured by scripts/check-footers.mjs.
  */
 import { createRoot } from "react-dom/client"
+import type React from "react"
 import type { ReactNode } from "react"
 
 import { SellerFooter } from "@/components/storefront/seller-footer"
@@ -46,7 +47,7 @@ const mount = (id: string, node: ReactNode) => {
   if (el) createRoot(el).render(node)
 }
 
-const Site = FooterSection as unknown as (p: Record<string, unknown>) => ReactNode
+const Site = FooterSection as unknown as (p: Record<string, unknown>) => React.JSX.Element
 
 mount("seller-live", <SellerFooter />)
 mount("seller-desktop-preview", <SellerFooter isMobile={false} />)
