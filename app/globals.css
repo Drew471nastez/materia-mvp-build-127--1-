@@ -4055,6 +4055,20 @@ picture {
   flex: none;
   height: var(--wb-sheet-hidden, 0px);
 }
+/* THE ROOM GOES ON THE SCROLLER THAT SCROLLS. The Sections list, the pages,
+   a section's settings and the theme settings are panels that scroll inside
+   themselves, inside the sheet's own scroller, and each marks its scroller
+   `data-sheet-scroll` too. At the half stop the list scrolls under the
+   finger (sheet-gestures.ts, dragIntent), and the finger scrolls the INNER
+   one: with the room only on the outer one, the last rows sat below the
+   screen until a second gesture chained out to it. The inner one gets the
+   room. The outer one keeps its room only while something sits BELOW the
+   inner scroller (a section's Hide / Duplicate / Delete row), which only
+   scrolling the outer one brings up; with nothing there it gets none, so a
+   second push past the end cannot scroll blank sheet into view. */
+[data-mobile-bottom-sheet] [data-sheet-scroll]:has([data-sheet-scroll]:last-child)::after {
+  height: 0;
+}
 
 html.wb-fullscreen,
 html.wb-fullscreen body {

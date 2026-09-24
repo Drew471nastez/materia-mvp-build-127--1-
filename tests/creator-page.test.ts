@@ -1751,8 +1751,8 @@ function main() {
       on screen.
     */
     check(
-      "a keyboard grows the sheet rather than crushing it",
-      mobileSheet.includes("sheetHeightWithKeyboard(detentHeight, keyboardInset, viewport)"),
+      "a keyboard grows the sheet rather than crushing it, up to a ceiling below the status bar",
+      mobileSheet.includes("sheetHeightWithKeyboard(detentHeight, keyboardInset, ceiling)"),
     )
     check(
       "and the field being typed into is scrolled into the sheet's own scroller",
@@ -1824,7 +1824,8 @@ function main() {
     check("the sheet measures the keyboard from the window that has one", mobileSheet.includes("function keyboardWindow()") && mobileSheet.includes("const kb = keyboardWindow()"))
     check("guarded for a cross-origin parent", /window\.top[\s\S]{0,120}location\.origin === window\.location\.origin/.test(mobileSheet))
     check("and listens to that window's viewport too", mobileSheet.includes('kbvv.addEventListener("resize", update)'))
-    check("the sheet's own height still comes from its own window", mobileSheet.includes("setViewport(Math.round(window.innerHeight"))
+    /* Its own fixed box, which is its own window's; the keyboard is the parent's. */
+    check("the sheet's own height still comes from its own window", mobileSheet.includes("setViewport(Math.round(fixedBoxHeight() || window.innerHeight"))
     /** And the outer document is told, twice, that it does not scroll. */
     check("the workspace locks its document", workspace.includes('root.style.overflow = "hidden"') && workspace.includes('body.style.overflow = "hidden"'))
     check("and puts a keyboard scroll back where it was", workspace.includes("window.scrollTo(0, 0)") && workspace.includes('vv?.addEventListener("resize", onViewport)'))

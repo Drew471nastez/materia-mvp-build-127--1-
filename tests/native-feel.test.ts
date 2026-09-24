@@ -146,8 +146,14 @@ section("The keyboard does not resize the sheet")
 // ---------------------------------------------------------------------------
 
 check(
-  "the sheet is sized to the layout viewport, which a keyboard does not move",
-  /setViewport\(Math\.round\(window\.innerHeight \|\| vv\?\.height \|\| 0\)\)/.test(sheet),
+  "the sheet is sized to the fixed box, which a keyboard does not move",
+  /**
+   * The fixed box, read off a fixed probe, first; innerHeight only where
+   * there is no probe. innerHeight agrees everywhere except the iOS
+   * versions that shrink it with the keyboard while the box stays put.
+   */
+  /setViewport\(Math\.round\(fixedBoxHeight\(\) \|\| window\.innerHeight \|\| vv\?\.height \|\| 0\)\)/.test(sheet) &&
+    /insetCache\.box = Math\.round\(probes\(\)\.gap\.getBoundingClientRect\(\)\.top\)/.test(sheet),
 )
 check(
   "it is NOT sized to visualViewport, which is the one a keyboard shrinks",
@@ -163,7 +169,13 @@ check(
    * old expression measured zero and iOS scrolled the outer page instead.
    * `keyboardWindow()` is the sheet's own window everywhere else.
    */
-  /kb\.innerHeight - kvv\.height - kvv\.offsetTop/.test(sheet) && /const kb = keyboardWindow\(\)/.test(sheet),
+  /**
+   * The three terms are in `visibleKeyboard` now (sheet-gestures.ts), with
+   * the pan kept as a number of its own: see the section on it below.
+   */
+  /visibleKeyboard\(\{ layoutHeight: box, vvHeight: kvv\.height, vvTop: kvv\.offsetTop, scale: kvv\.scale \}\)/.test(sheet) &&
+    /const box = kb === window \? fixedBoxHeight\(\) : kb\.innerHeight/.test(sheet) &&
+    /const kb = keyboardWindow\(\)/.test(sheet),
 )
 check(
   /*
@@ -174,12 +186,18 @@ check(
    * tests/keyboard-safe-sheet.test.ts owns the rule itself.
    */
   "a sub-pixel is not treated as a keyboard, and neither is a platform that says nothing",
-  /keyboardInsetOrFloor\(covered\)/.test(sheet)
+  /**
+   * The floor is for a platform that said NOTHING. One that shrank the
+   * visual viewport and panned it reported a keyboard, even when the strip
+   * it covers at the bottom comes out at zero after the pan; giving that
+   * the floor padded half a screen of white over a real keyboard.
+   */
+  /const keyboard = seen\.reported \? seen\.inset : keyboardInsetOrFloor\(seen\.inset\)/.test(sheet)
     && /from "@\/lib\/ui\/keyboard-safe-sheet"/.test(sheet),
 )
 check(
   "and it is padded into the content, so the field being typed into is reachable",
-  /paddingBottom: sheetBottomReserve\(chromeGap, keyboardInset\)/.test(sheet),
+  /paddingBottom: sheetBottomReserve\(chromeGap, keyboardInset, visibleTop > 0\)/.test(sheet),
 )
 check(
   /**
@@ -212,11 +230,11 @@ check(
  */
 check(
   "the chrome gap is not re-measured while a keyboard is up, or the keyboard is counted twice",
-  /if \(!keyboard\) setChromeGap\(browserChromeGap\(\)\)/.test(sheet),
+  /if \(!keyboard && !panned\) setChromeGap\(browserChromeGap\(\)\)/.test(sheet),
 )
 check(
   "and the keyboard is read once into a name both uses share",
-  /const keyboard = keyboardInsetOrFloor\(covered\)/.test(sheet) && /setKeyboardInset\(keyboard\)/.test(sheet),
+  /const keyboard = seen\.reported/.test(sheet) && /setKeyboardInset\(keyboard\)/.test(sheet) && /setVisibleTop\(panned\)/.test(sheet),
 )
 
 

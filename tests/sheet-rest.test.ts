@@ -104,7 +104,7 @@ function main() {
   )
   check(
     "a control asking for the full height still outranks it",
-    /expanders\.length > 0\s*\n\s*\? openY/.test(sheet),
+    /const lifted = expanders\.length > 0 \|\| keyboardHere/.test(sheet) && /lifted\s*\n\s*\? openY/.test(sheet),
     "it is asking because what it opened does not fit",
   )
 

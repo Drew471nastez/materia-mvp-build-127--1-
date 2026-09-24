@@ -214,6 +214,7 @@ export function ViewportVars() {
             layoutHeightNow: layoutHeight(),
             coarsePointer: window.matchMedia?.("(hover: none) and (pointer: coarse)").matches ?? false,
             viewportWidth: window.innerWidth,
+            visibleHeightNow: Math.round(vv?.height ?? window.innerHeight),
           })
         ) return
         estimate = estimatedKeyboardInset(layoutHeight())

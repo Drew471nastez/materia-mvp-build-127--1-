@@ -168,8 +168,18 @@ export function needsKeyboardEstimate(state: {
   layoutHeightNow: number
   coarsePointer: boolean
   viewportWidth: number
+  /**
+   * visualViewport.height now. A visible area shorter than the fixed box by
+   * more than a toolbar IS the platform reporting a keyboard, even when
+   * `measuredInset` is zero: iOS panned the page down to show the field, so
+   * nothing is left covered below the visible area. The floor on top of that
+   * padded a sheet by half a screen of white over a real keyboard, the band
+   * under Ask Storelib's composer.
+   */
+  visibleHeightNow?: number
 }): boolean {
   if (state.measuredInset > 0) return false
+  if (state.visibleHeightNow !== undefined && state.layoutHeightNow - state.visibleHeightNow > 80) return false
   if (!state.coarsePointer) return false
   /* The width the sheets themselves switch to their phone layout at. */
   if (state.viewportWidth >= 768) return false
