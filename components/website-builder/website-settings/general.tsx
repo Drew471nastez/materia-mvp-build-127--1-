@@ -69,9 +69,8 @@ export function GeneralSettings({ ctx }: { ctx: SettingsContext }) {
           label="Address"
           hint={
             <>
-              Set by your username.{" "}
-              <button type="button" onClick={() => ctx.onNavigate("/app/settings")} className="text-white/75 underline underline-offset-2 hover:text-white">
-                Change username
+              <button type="button" onClick={() => ctx.go("domains")} className="text-white/75 underline underline-offset-2 hover:text-white">
+                Change address
               </button>
             </>
           }

@@ -75,4 +75,6 @@ export interface SettingsContext {
   onUnpublished: () => void
   /** Leaves the builder for another part of Storelib, asking first if a draft is unsaved. */
   onNavigate: (href: string) => void
+  /** The website's name on Storelib was changed (Domains), so its address is new. */
+  onAddressChanged: (handle: string) => void
 }

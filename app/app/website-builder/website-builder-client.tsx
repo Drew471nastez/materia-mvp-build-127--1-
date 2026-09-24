@@ -421,9 +421,12 @@ export function coverIsStale(i: Pick<WebsiteSummary, "snapshot_url" | "snapshot_
 export function WebsiteBuilderClient({
   installs: given,
   username,
+  siteHandle = null,
 }: {
   installs: WebsiteSummary[]
   username: string
+  /** The website's own name on Storelib, when it has one apart from the username. */
+  siteHandle?: string | null
 }) {
   /*
     ===========================================================================
@@ -522,8 +525,9 @@ export function WebsiteBuilderClient({
   const slotsUsed = installs.length
   const slotsLeft = Math.max(0, THEME_INSTALL_LIMIT - slotsUsed)
 
-  const siteUrl = username ? getWebsiteShareUrl(username) : ""
-  const siteDisplay = username ? getWebsiteUrlDisplay(username) : ""
+  const siteName = siteHandle || username
+  const siteUrl = siteName ? getWebsiteShareUrl(siteName) : ""
+  const siteDisplay = siteName ? getWebsiteUrlDisplay(siteName) : ""
 
   const refresh = React.useCallback(() => startRefresh(() => router.refresh()), [router])
 

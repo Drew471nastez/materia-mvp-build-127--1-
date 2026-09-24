@@ -226,6 +226,27 @@ console.log("\ndesktop, 1280 wide")
   await p.click("input[aria-label='Show the cookie banner']")
   await sleep(150)
 
+  /* Domains: the website's own name on Storelib, changed without touching the username. */
+  await clickText(p, "nav[aria-label='Website settings'] button", "Domains")
+  await sleep(250)
+  await clickText(p, "main button", "Change address")
+  await sleep(150)
+  const field = "#wb-site-handle"
+  await p.$eval(field, (el) => el.select())
+  await p.type(field, "ab")
+  await sleep(80)
+  const short = await p.evaluate(() => document.querySelector("[data-address-editor] p").textContent)
+  expect(/At least 3/.test(short), "a name that is too short says so as it is typed", short)
+  await p.$eval(field, (el) => el.select())
+  await p.type(field, "Astrid Studio")
+  await sleep(80)
+  const hint = await p.evaluate(() => document.querySelector("[data-address-editor] p").textContent)
+  expect(/Will be astrid-studio\.storelib\.com/.test(hint), "and one with spaces or capitals says the name it will be", hint)
+  await clickText(p, "[data-address-editor] button", "Save")
+  await sleep(300)
+  const renamed = await p.evaluate(() => ({ text: document.querySelector("main").textContent, posted: window.__calls.includes("POST /api/website-address") }))
+  expect(renamed.posted && /astrid-studio\.storelib\.com/.test(renamed.text), "saved, the new address is the one shown", renamed.posted)
+
   /* Domains: a new one is added here, and replacing the one there is asked first. */
   await clickText(p, "nav[aria-label='Website settings'] button", "Domains")
   await sleep(300)
