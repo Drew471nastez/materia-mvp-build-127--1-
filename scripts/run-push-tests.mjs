@@ -50,6 +50,7 @@ const SUITES = [
   "tests/return-to.test.ts",
   "tests/no-image-transforms.test.ts",
   "tests/page-performance.test.ts",
+  "tests/products-area.test.ts",
   "tests/sql-aggregate.test.ts",
   "tests/spam-defence.test.ts",
   "tests/digital-platform.test.ts",

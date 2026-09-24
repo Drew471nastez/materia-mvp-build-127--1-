@@ -132,9 +132,11 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
       expect(rows.length === 11 && rows.every((h) => h === 56), "the table: one 56px row per active product", { count: rows.length, heights: [...new Set(rows)] })
       const list = await p.$eval("section[aria-label=Products] ul", (u) => getComputedStyle(u).display)
       expect(list === "none", "and the phone list is not drawn", list)
+      await p.hover("section[aria-label=Products] tbody tr:nth-child(4)")
       await p.hover("section[aria-label=Products] tbody tr:nth-child(2)")
+      await new Promise((r) => setTimeout(r, 150))
       const pre = await p.evaluate(() => window.__prefetched || [])
-      expect(pre.some(([h, k]) => h === "/app/products/p1" && k === "full"), "a hover prefetches that product's editor in full", pre)
+      expect(pre.length === 1 && pre[0][0] === "/app/products/p1" && pre[0][1] === "full", "a pointer resting on a row prefetches that product's editor in full, one passing over does not", pre)
     }
     await p.screenshot({ path: join(shots, `${label}-products.png`) })
 

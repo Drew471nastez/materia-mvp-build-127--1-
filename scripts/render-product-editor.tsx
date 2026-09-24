@@ -23,7 +23,7 @@ const loaded: LoadedProduct = {
     id: "8f0c2b1e-3a4d-4c5e-9f60-718293a4b5c6",
     creator_id: "c1",
     title: "Portrait retouching presets, the complete set for Lightroom and Capture One",
-    description: "<p>Forty presets made on real client sessions, with before and after files for each one.</p>",
+    description: "<p>Forty presets made on real client sessions, with before and after files for each one.</p>" + "<p>Each preset was built on a real session and tested on skin tones from very fair to very deep, in daylight, tungsten and mixed light, so it holds up on the photos you actually take.</p>".repeat(5),
     price_cents: 2900,
     compare_at_cents: 3900,
     slug: "portrait-presets",

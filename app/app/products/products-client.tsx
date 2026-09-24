@@ -364,7 +364,8 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
     reads the product, its files and its variants; a full prefetch fetches
     that whole payload when the pointer arrives (a hover on a computer, the
     finger going down on a phone), so the press itself has nothing left to
-    wait for. Once per product per visit.
+    wait for. Once per product per visit, and a pointer only passing over
+    a row on its way somewhere else does not count: it has to rest on it.
   */
   const router = useRouter()
   const warmed = useRef(new Set<string>())
@@ -373,6 +374,16 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
     warmed.current.add(id)
     router.prefetch(`/app/products/${id}`, FULL_PREFETCH)
   }
+  const resting = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const hover = (id: string) => ({
+    onMouseEnter: () => {
+      if (resting.current) clearTimeout(resting.current)
+      resting.current = setTimeout(() => warm(id), 80)
+    },
+    onMouseLeave: () => {
+      if (resting.current) clearTimeout(resting.current)
+    },
+  })
 
   const statusOf = (product: Product) => {
     const archived = product.archived || product.status === "archived"
@@ -511,7 +522,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                       href={`/app/products/${product.id}`}
                       aria-label={product.title}
                       onTouchStart={() => warm(product.id)}
-                      onMouseEnter={() => warm(product.id)}
+                      {...hover(product.id)}
                       className="absolute inset-0 z-0 outline-none focus-visible:shadow-[inset_0_0_0_2px_#8b5cf6]"
                     />
                     <span className="pointer-events-none relative h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-[#eef0f2] bg-[#f3f4f6]">
@@ -553,7 +564,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                 </thead>
                 <tbody className="divide-y divide-[#f1f2f4]">
                   {filteredProducts.map((product) => (
-                    <tr key={product.id} className="group hover:bg-[#fafbfb]" onMouseEnter={() => warm(product.id)}>
+                    <tr key={product.id} className="group hover:bg-[#fafbfb]" {...hover(product.id)}>
                       <td className="h-14 px-3">
                         {/* The limit is on the link: a table cell's own max-width is ignored. */}
                         <Link href={`/app/products/${product.id}`} className="flex min-w-0 max-w-[320px] items-center gap-3">
