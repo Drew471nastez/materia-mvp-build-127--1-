@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { sendLeadMagnetEmail, triggerEmailFlows } from "@/lib/email"
+import { contactSourceFrom, recordContactSource } from "@/lib/contacts/contact-source"
+import { fromOfHost } from "@/lib/orders/order-source"
 import { v4 as uuidv4 } from "uuid"
 import { rateLimit, addressSubject, emailSubject, LIMITS } from "@/lib/api/rate-limit"
 
@@ -36,6 +38,14 @@ export async function POST(request: Request) {
       utm_campaign,
       digital_product_id,
     } = body
+    /* A OnePage form: where the visit came from is what the page sent, as a host and the utm words. */
+    let referrerHost: string | null = null
+    try {
+      referrerHost = typeof referrer === "string" && referrer ? new URL(referrer).host : null
+    } catch {
+      referrerHost = null
+    }
+    const leadSource = contactSourceFrom({ request, surface: "onepage", form: "lead_magnet", sent: { from: fromOfHost(referrerHost) ?? undefined, utm_source, utm_campaign } })
 
     if (!onepage_id || !email) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
@@ -271,12 +281,14 @@ export async function POST(request: Request) {
 
         // Trigger new_subscriber email flows if insert was successful
         if (!subscriberInsertError) {
+          await recordContactSource(adminSupabase, onepage.seller_id, normalizedEmail, leadSource)
           try {
             await triggerEmailFlows(adminSupabase, {
               triggerType: "new_subscriber",
               creatorId: onepage.seller_id,
               recipientEmail: normalizedEmail,
               recipientName: name || undefined,
+              source: leadSource,
             })
           } catch (flowErr) {
             console.error("[email-capture] Email flow trigger error (non-fatal):", flowErr)
@@ -295,12 +307,14 @@ export async function POST(request: Request) {
 
         /* Joining again is joining, so the welcome goes, as it does above. */
         if (!resubError) {
+          await recordContactSource(adminSupabase, onepage.seller_id, normalizedEmail, leadSource)
           try {
             await triggerEmailFlows(adminSupabase, {
               triggerType: "new_subscriber",
               creatorId: onepage.seller_id,
               recipientEmail: normalizedEmail,
               recipientName: name || undefined,
+              source: leadSource,
             })
           } catch (flowErr) {
             console.error("[email-capture] Email flow trigger error (non-fatal):", flowErr)

@@ -27,6 +27,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { triggerEmailFlows } from "@/lib/email"
 import { randomUUID } from "node:crypto"
 import { rateLimit, addressSubject, emailSubject, LIMITS } from "@/lib/api/rate-limit"
+import { contactSourceFrom, recordContactSource, type ContactForm } from "@/lib/contacts/contact-source"
 
 /** Deliberately plain. A clever pattern refuses addresses that work. */
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
@@ -54,7 +55,7 @@ function consentFor(placement: unknown): string {
 }
 
 export async function POST(req: NextRequest) {
-  let body: { creator_id?: unknown; email?: unknown; name?: unknown; source?: unknown; placement?: unknown }
+  let body: { creator_id?: unknown; email?: unknown; name?: unknown; source?: unknown; placement?: unknown; origin?: unknown }
   try {
     body = await req.json()
   } catch {
@@ -126,6 +127,15 @@ export async function POST(req: NextRequest) {
   }
 
   /**
+   * WHICH WEBSITE, AND FROM WHERE. The address is this request's own page
+   * (a site's forms post to their own origin), never one the page claims;
+   * what the page adds is where its visit came from. lib/contacts/contact-source.
+   */
+  const placement: ContactForm = typeof body.placement === "string" && body.placement in CONSENT ? (body.placement as ContactForm) : "newsletter"
+  const source = contactSourceFrom({ request: req, surface: "website", form: placement, sent: body.origin })
+  await recordContactSource(db, creatorId, email, source)
+
+  /**
    * The creator's own welcome automation, the same one every other capture
    * path fires. A failure here is not the visitor's problem: they are
    * subscribed either way.
@@ -136,6 +146,7 @@ export async function POST(req: NextRequest) {
       creatorId,
       recipientEmail: email,
       recipientName: name || undefined,
+      source,
     })
   } catch (err) {
     console.error("[subscribe] email flow failed:", err instanceof Error ? err.message : err)

@@ -299,6 +299,7 @@ function NotificationBell({
           source: "onepage",
           source_id: onepageId,
           creator_id: sellerId,
+          origin: pageOrigin(),
         }),
       })
 

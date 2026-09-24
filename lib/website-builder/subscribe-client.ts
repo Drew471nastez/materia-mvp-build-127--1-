@@ -12,6 +12,8 @@
  * wording and one rate limit, and all land in the creator's Subscribers.
  */
 
+import { pageOrigin } from "@/lib/orders/checkout-origin-browser"
+
 /** Where on the page the address was given, for the consent record. */
 export type SignupPlacement = "newsletter" | "footer" | "contact" | "section"
 
@@ -38,6 +40,9 @@ export async function subscribeToCreator(input: {
         email,
         name: input.name?.trim() || undefined,
         placement: input.placement,
+        /* Where the visit came from, for the creator's Subscribers. The
+           server takes the website's address from the request itself. */
+        origin: pageOrigin(),
       }),
     })
     if (res.ok) return { ok: true }

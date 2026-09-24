@@ -33,7 +33,8 @@ import "server-only"
 
 import type Stripe from "stripe"
 import { stripe } from "@/lib/stripe"
-import { sendBuyerDownloadEmail, sendSellerNotificationEmail, resolveSellerEmail } from "@/lib/email"
+import { sendBuyerDownloadEmail, sendSellerNotificationEmail, resolveSellerEmail, triggerEmailFlows } from "@/lib/email"
+import { contactSourceOfOrder, recordContactSource } from "@/lib/contacts/contact-source"
 import { unpackItems, packedTotalCents, apportionFee } from "./cart-items"
 import { fulfilCartLine, recordCartCustomer, type FulfilContext, type FulfilledLine } from "./fulfil-cart-item"
 import { orderOriginFrom } from "@/lib/orders/order-source"
@@ -180,6 +181,27 @@ async function sideEffects(
 
   if (s.ownsBasket) {
     await step("customer", () => recordCartCustomer(ctx, s.paidTotal, s.firstOrderId))
+    if (ctx.buyerEmail) {
+      const buyerEmail = ctx.buyerEmail
+      const source = contactSourceOfOrder(ctx.origin)
+      await step("subscriber source", () => recordContactSource(admin, ctx.creatorId, buyerEmail, source))
+      /* One basket is one purchase to the creator's automations: one thank
+         you, not one per product. Keyed by the basket's first order. */
+      const names = [...new Set(s.created.map((l) => titles.get(l.productId)).filter((t): t is string => Boolean(t)))]
+      await step("email flows", () =>
+        triggerEmailFlows(admin, {
+          triggerType: "purchase",
+          creatorId: ctx.creatorId,
+          recipientEmail: buyerEmail,
+          recipientName: ctx.buyerFirstName ?? undefined,
+          productTitle: names.length > 1 ? `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}` : names[0],
+          productId: s.created[0].productId,
+          productIds: s.created.map((l) => l.productId),
+          orderId: s.firstOrderId,
+          source,
+        }),
+      )
+    }
     /* The seller's balance, once for the one payment, against the first line. */
     await step("ledger", () =>
       recordSale(admin, { creatorId: ctx.creatorId, orderId: s.firstOrderId, total: s.paidTotal, fee: s.feeTotal, destinationPaymentId: s.destinationPaymentId }),

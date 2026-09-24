@@ -19,8 +19,8 @@ const subscribers = Array.from({ length: 73 }, (_, i) => ({
   unsubscribed_at: i % 13 === 0 ? "2026-08-01T00:00:00Z" : null,
 }))
 const flows = [
-  { id: "f1", name: "Welcome", trigger_type: "new_subscriber", status: "active", steps: [1, 2], stats: { emails_sent: 412, open_rate: 61.2 } },
-  { id: "f2", name: "Thank you for buying", trigger_type: "purchase", status: "paused", steps: [1], stats: { emails_sent: 0, open_rate: 0 } },
+  { id: "f1", name: "Welcome", trigger_type: "new_subscriber", status: "active", steps: [1, 2], totals: { sent: 412, opened: 252, clicked: 40, failed: 0, in_progress: 6 } },
+  { id: "f2", name: "Thank you for buying", trigger_type: "purchase", status: "paused", steps: [1], totals: null },
 ]
 const campaigns = Array.from({ length: 12 }, (_, i) => ({
   id: `c${i}`,
@@ -55,7 +55,6 @@ function App() {
           onCopyEmail={(e) => log(`copy ${e}`)}
           onRemoveSubscriber={(id) => log(`remove ${id}`)}
           flows={flows}
-          trigger={(t) => ({ name: t, description: t === "purchase" ? "When a customer buys a product" : "When someone joins your list" })}
           onCreateFlow={() => log("create flow")}
           onEditFlow={(f) => log(`edit flow ${f.id}`)}
           onToggleFlow={(f) => log(`toggle ${f.id}`)}

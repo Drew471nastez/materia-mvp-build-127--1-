@@ -3,6 +3,8 @@ import { headers } from "next/headers"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { triggerEmailFlows } from "@/lib/email"
+import { contactSourceFrom, recordContactSource } from "@/lib/contacts/contact-source"
+import { fromOfHost } from "@/lib/orders/order-source"
 import { v4 as uuidv4 } from "uuid"
 
 export const runtime = "nodejs"
@@ -50,6 +52,14 @@ export async function POST(request: Request) {
       digital_product_file_url,
       digital_product_title,
     } = body
+    /* A OnePage form: where the visit came from is what the page sent, as a host and the utm words. */
+    let referrerHost: string | null = null
+    try {
+      referrerHost = typeof referrer === "string" && referrer ? new URL(referrer).host : null
+    } catch {
+      referrerHost = null
+    }
+    const leadSource = contactSourceFrom({ request, surface: "onepage", form: "lead_magnet", sent: { from: fromOfHost(referrerHost) ?? undefined, utm_source, utm_campaign } })
 
     const subscriberEmail = (email || "").toLowerCase().trim()
 
@@ -170,12 +180,14 @@ export async function POST(request: Request) {
 
         // Trigger new_subscriber email flows if insert was successful
         if (!subscriberInsertError) {
+          await recordContactSource(adminSupabase, creatorId, subscriberEmail, leadSource)
           try {
             await triggerEmailFlows(adminSupabase, {
               triggerType: "new_subscriber",
               creatorId,
               recipientEmail: subscriberEmail,
               recipientName: name || undefined,
+              source: leadSource,
             })
             console.log("[leads] Triggered new_subscriber email flows")
           } catch (flowErr) {
@@ -196,12 +208,14 @@ export async function POST(request: Request) {
 
         /* Joining again is joining, so the welcome goes, as it does above. */
         if (!resubError) {
+          await recordContactSource(adminSupabase, creatorId, subscriberEmail, leadSource)
           try {
             await triggerEmailFlows(adminSupabase, {
               triggerType: "new_subscriber",
               creatorId,
               recipientEmail: subscriberEmail,
               recipientName: name || undefined,
+              source: leadSource,
             })
           } catch (flowErr) {
             console.error("[leads] Email flow trigger error (non-fatal):", flowErr)

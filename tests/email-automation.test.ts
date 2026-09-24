@@ -106,7 +106,7 @@ async function main() {
   console.log("\nThe sending paths use it")
 
   const flows = read("lib/email.tsx")
-  const trigger = flows.slice(flows.indexOf("export async function triggerEmailFlows("), flows.indexOf("function calculateDelayMs("))
+  const trigger = flows.slice(flows.indexOf("export async function legacyTriggerEmailFlows("), flows.indexOf("// Refund Confirmation Emails"))
   check("an immediate send checks the person first",
     trigger.indexOf("await standingOf(") < trigger.indexOf("await sendEmail(") && /if \(standing\.suppressed\)/.test(trigger))
   check("and builds the email through the one module",
@@ -184,33 +184,49 @@ async function main() {
 
   console.log("\nSetting one up on the Emails page")
 
+  /* The flow editor left page.tsx for its own pages: the chooser at
+     app/app/emails/flow/new and the builder at app/app/emails/flow/[id], both
+     writing through app/api/automations. The same promises, pinned there. */
   const page = read("app/app/emails/page.tsx")
-  check("pressing the button for an automation you have opens it",
-    /const existingFlow = flows\.find[\s\S]{0,400}handleEditFlow\(existingFlow\)/.test(page)
-      && !/Already have a \$\{flowTypeName\} flow added/.test(page))
+  const createRoute = read("app/api/automations/flows/route.ts")
+  const chooser = read("app/app/emails/flow/new/chooser.tsx")
+  check("choosing an automation you have opens it, rather than making a second that would also send",
+    /if \(same\) return NextResponse\.json\(\{ id: same\.id, existing: true \}\)/.test(createRoute)
+      && /const mine = existing\[body\.template\][\s\S]{0,120}router\.push\(`\/app\/emails\/flow\/\$\{mine\}`\)/.test(chooser))
+  check("and a welcome made before templates had names counts as the welcome",
+    /f\.trigger_type === "new_subscriber" \? "welcome"/.test(read("app/app/emails/flow/new/page.tsx")))
   const home = read("app/app/emails/emails-home.tsx")
-  check("the page says what an automation does, in words",
-    /Sends when/.test(home) && /\{trigger\.description\}/.test(home) && /it goes to everyone who joins your list/.test(home))
-  check("and the preset welcome does not sign off as \\[Your name\\]",
-    !/\[Your name\]/.test(page))
+  check("the list says what starts each automation, in words",
+    /Starts when/.test(home) && /TRIGGERS\[f\.trigger_type\]\.sentence/.test(home))
+  check("and no preset signs off as \\[Your name\\]",
+    !/\[Your name\]/.test(page) && !/\[Your name\]/.test(read("lib/automations/templates.ts")))
   check("new_subscriber is still the trigger the engine listens for",
-    /id: "new_subscriber"/.test(page) && /trigger_type", triggerType/.test(flows))
+    /new_subscriber: \{ name:/.test(read("lib/automations/flow-model.ts"))
+      && /\.eq\("trigger_type", trigger\)/.test(read("lib/automations/supabase-store.ts"))
+      && /trigger_type", triggerType/.test(flows))
 
 
   console.log("\nOff until the creator turns it on")
 
-  const saveFn = page.slice(page.indexOf("const handleSaveFlow"), page.indexOf("const handleSaveFlow") + 2500)
-  check("a new automation starts off", /name: `\$\{triggerInfo\?\.name \|\| 'New'\} Flow`,[\s\S]{0,120}status: "draft"/.test(page))
-  check("saving it does not turn it on",
-    !/status: "active"/.test(saveFn) && /status: editingFlow\.status/.test(saveFn))
-  check("and the save message says whether it is on or off", /It is off: turn it on when you want it to send/.test(saveFn))
-  check("the editor has an on/off switch",
-    /<Switch\s+checked=\{editingFlow\.status === "active"\}[\s\S]{0,120}handleToggleFlowStatus\(editingFlow\)/.test(page))
+  const patchRoute = read("app/api/automations/flows/[id]/route.ts")
+  const patch = patchRoute.slice(patchRoute.indexOf("const patch = {"), patchRoute.indexOf("updated_at: new Date().toISOString(),", patchRoute.indexOf("const patch = {")))
+  const builder = read("app/app/emails/flow/[id]/builder.tsx")
+  const statusRoute = read("app/api/automations/flows/[id]/status/route.ts")
+  check("a new automation starts off", /status: "draft",\s*steps: serializeSteps/.test(createRoute))
+  check("saving it does not turn it on or off", patch.length > 100 && !/status/.test(patch))
+  check("the builder says plainly whether it is on", /"On and sending" : "Off"/.test(builder))
+  check("turning it on is refused until it is complete, on the server and on the page",
+    /const problems = problemsOf\(flow\.trigger_type, normalizeSteps\(flow\.steps\)\)[\s\S]{0,120}status: 422/.test(statusRoute)
+      && /if \(next && problems\.length > 0\)/.test(builder))
   check("and so does every automation in the list, without opening it",
-    /onClick=\{\(e\) => e\.stopPropagation\(\)\}>\s*<Switch checked=\{on\} onCheckedChange=\{\(\) => props\.onToggleFlow\(f\)\}/.test(read("app/app/emails/emails-home.tsx")))
-  check("turning it off says sign-ups are still collected", /No welcome email is sent\. Sign-ups are still collected\./.test(page))
+    /onClick=\{\(e\) => e\.stopPropagation\(\)\}>\s*<Switch checked=\{on\} onCheckedChange=\{\(\) => props\.onToggleFlow\(f\)\}/.test(home))
+  check("the list's switch goes through the same server check",
+    /fetch\(`\/api\/automations\/flows\/\$\{flow\.id\}\/status`/.test(page))
+  check("turning it off says sign-ups are still collected", /Sign-ups and orders are still recorded\./.test(page))
+  check("and turning it off stops the people partway through, said before it happens",
+    /await stopFlowRuns\(id, "The flow was turned off\."\)/.test(statusRoute) && /partway through\. Turning it off stops them where they are/.test(builder))
   check("and only an active automation ever sends",
-    /\.eq\("status", "active"\)/.test(flows))
+    /\.eq\("status", "active"\)/.test(flows) && /\.eq\("status", "active"\)/.test(read("lib/automations/supabase-store.ts")))
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }

@@ -4,7 +4,8 @@ import { createClient } from "@/lib/supabase/server"
 import { nanoid } from "nanoid"
 import { cookies } from "next/headers"
 import { generateReceiptToken } from "@/lib/security"
-import { sendOrderEmails } from "@/lib/email"
+import { sendOrderEmails, triggerEmailFlows } from "@/lib/email"
+import { contactSourceOfOrder, recordContactSource } from "@/lib/contacts/contact-source"
 import { v4 as uuidv4 } from "uuid"
 import { channelOf, orderSourceFromRequest, originOf, tagOrderSource } from "@/lib/orders/order-source"
 import { rateLimit, addressSubject, emailSubject, LIMITS } from "@/lib/api/rate-limit"
@@ -243,6 +244,8 @@ export async function POST(request: Request) {
         .eq("id", existingSubscriber.id)
     }
 
+    await recordContactSource(admin, product.creator.id, normalizedEmail, contactSourceOfOrder(origin))
+
     // Create entitlement for logged-in users
     if (user) {
       const { error: entitlementError } = await admin.from("entitlements").insert({
@@ -295,6 +298,22 @@ export async function POST(request: Request) {
     })
 
     console.log("[quick-free] Email results:", emailResults)
+
+    /* The creator's purchase automations: a free product is a purchase too. */
+    try {
+      await triggerEmailFlows(admin, {
+        triggerType: "purchase",
+        creatorId: product.creator.id,
+        recipientEmail: normalizedEmail,
+        recipientName: first_name.trim() || undefined,
+        productTitle: product.title,
+        productId: product.id,
+        orderId: order.id,
+        source: contactSourceOfOrder(origin),
+      })
+    } catch (flowErr) {
+      console.error("[quick-free] Email flow trigger error (non-fatal):", flowErr instanceof Error ? flowErr.message : flowErr)
+    }
 
     console.log("[quick-free] ✅ Quick checkout complete")
 
