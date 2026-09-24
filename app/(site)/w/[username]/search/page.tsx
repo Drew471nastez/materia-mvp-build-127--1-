@@ -7,6 +7,7 @@ import { publishedShopByName } from "@/lib/website-builder/published-site"
 import { getMainDomain } from "@/lib/url-helpers"
 import { productMatchesQuery, searchSections } from "@/lib/website-builder/shop-page"
 import { siteMetadata } from "../render-site"
+import { SiteVitals } from "@/components/website-builder/site-vitals"
 
 /**
  * ===========================================================================
@@ -75,6 +76,7 @@ export default async function SiteSearchPage({ params, searchParams }: PageProps
         storefront={{ creatorId: site.creatorId, installId: site.installId }}
         emptyDetail={query ? `Nothing matched "${query}".` : "Type what you are looking for."}
       />
+      <SiteVitals installId={site.installId} />
     </StorelibSourcesProvider>
   )
 }

@@ -25,6 +25,7 @@ import { prerenderStorelibSections } from "@/lib/website-builder/storefront-rend
 import { mayPreview, pageSections, themeSettings as themeSettingsOf } from "@/lib/website-builder/preview-link"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 import { TrackView } from "@/components/analytics/track-view"
+import { SiteVitals } from "@/components/website-builder/site-vitals"
 
 type ProductRow = {
   id: string
@@ -232,6 +233,7 @@ export async function renderProduct(
         className="min-h-screen"
       />
       {previewToken ? null : <TrackView type="product" creatorId={product.creator_id} productId={product.id} />}
+      {previewToken ? null : <SiteVitals installId={install.id} />}
     </StorelibSourcesProvider>
   )
 }

@@ -30,6 +30,7 @@ import { themeMetadata } from "@/lib/website-builder/theme-metadata"
 import { pageTitleFromKey, templateForPage } from "@/lib/website-builder/site-pages"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 import { TrackView } from "@/components/analytics/track-view"
+import { SiteVitals } from "@/components/website-builder/site-vitals"
 
 export type SiteSearchParams = Record<string, string | string[] | undefined>
 
@@ -192,6 +193,9 @@ export async function renderSite(
       {/* A visit to the published site counts in Analytics like a visit to the
           creator page does. Previews and cover renders never reach this line. */}
       <TrackView type="store" creatorId={site.creatorId} />
+      {/* How fast the page was for this visitor: LCP, INP and CLS, once, as
+          they leave. Published pages only, like the line above. */}
+      <SiteVitals installId={site.installId} />
     </StorelibSourcesProvider>
   )
 }
