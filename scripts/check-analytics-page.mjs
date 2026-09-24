@@ -376,10 +376,107 @@ try {
       }
     }
 
+    /*
+      8. THE TWO PICKERS. The period: the rows it offers and nothing that
+      opens a list of its own. The product: the same button and the same
+      rows, a popover on a computer and the shared sheet on a phone, and a
+      search only for a creator with more than eight products.
+    */
+    {
+      const shots = process.env.SHOTS
+      const openPicker = (label) => p.evaluate((re) => [...document.querySelectorAll("button[aria-haspopup=dialog]")].find((b) => new RegExp(re).test(b.textContent))?.click(), label)
+      const rows = () => p.evaluate(() => [...document.querySelectorAll("[data-row]")].filter((r) => r.offsetParent !== null).map((r) => r.getAttribute("data-row")))
+      await p.evaluate(() => window.scrollTo(0, 0))
+      await openPicker("Last 30 days")
+      await sleep(500)
+      const periodRows = await rows()
+      if (shots) { mkdirSync(shots, { recursive: true }); await p.screenshot({ path: join(shots, `period-${vp.hasTouch ? "phone" : "desktop"}.png`) }) }
+      expect(periodRows.join() === "today,yesterday,last_7_days,last_30_days,last_90_days,last_12_months,month_to_date,all_time,custom",
+        "the period picker lists the eight periods and Custom range, and nothing else", periodRows)
+      await p.keyboard.press("Escape")
+      await sleep(500)
+
+      const trigger = await p.evaluate(() => {
+        const b = [...document.querySelectorAll("button[aria-haspopup=dialog]")].find((x) => /All products/.test(x.textContent))
+        const d = [...document.querySelectorAll("button[aria-haspopup=dialog]")].find((x) => /Last 30 days/.test(x.textContent))
+        if (!b || !d) return null
+        const icon = b.querySelector("svg:first-child") && b.firstElementChild.tagName.toLowerCase() === "svg"
+        const cs = getComputedStyle(b), ds = getComputedStyle(d)
+        return { height: b.offsetHeight, dateHeight: d.offsetHeight, radius: cs.borderRadius, dateRadius: ds.borderRadius, font: cs.fontSize, dateFont: ds.fontSize, leadingIcon: !!icon }
+      })
+      expect(trigger && trigger.height === trigger.dateHeight && trigger.radius === trigger.dateRadius && trigger.font === trigger.dateFont && !trigger.leadingIcon,
+        "the product button is the date button: same height, corners and type, no icon in front", trigger)
+      await openPicker("All products")
+      await sleep(500)
+      const productRows = await rows()
+      const where = await p.evaluate(() => ({
+        sheet: !!document.querySelector('[data-app-sheet="open"] [data-product-picker], [data-app-sheet="open"][data-product-picker]'),
+        popover: !!document.querySelector('[data-slot="popover-content"][data-product-picker]'),
+        search: !!document.querySelector("[data-product-search]"),
+        checked: [...document.querySelectorAll("[data-row][data-checked]")].map((r) => r.getAttribute("data-row")),
+      }))
+      if (shots) await p.screenshot({ path: join(shots, `product-${vp.hasTouch ? "phone" : "desktop"}.png`) })
+      expect(productRows.join() === "all,p1,p2,p3,p4", "the product list is All products and each product", productRows)
+      expect(where.checked.join() === "all", "with a check on the one showing", where.checked)
+      expect(vp.hasTouch ? where.sheet && !where.popover : where.popover && !where.sheet, vp.hasTouch ? "in the shared sheet on a phone" : "in the date picker's popover on a computer", where)
+      expect(!where.search, "no search field for four products", where.search)
+      if (vp.hasTouch) {
+        /* The nav pill goes under an open sheet (app/globals.css, data-app-sheet / aria-modal). */
+        const pill = await p.evaluate(() => {
+          const s = document.createElement("div")
+          s.setAttribute("data-app-nav-pill", "")
+          /* The pill sets its layer in a stylesheet, as the real one does in a class: inline would outrank the rule under test. */
+          const rule = document.createElement("style")
+          rule.textContent = ".probe-pill { position: fixed; bottom: 16px; left: 16px; width: 100px; height: 40px; z-index: 55 }"
+          document.head.append(rule)
+          s.className = "probe-pill"
+          document.body.append(s)
+          const z = getComputedStyle(s).zIndex
+          s.remove()
+          return z
+        })
+        expect(pill === "0", "and an open sheet puts the nav pill under it", pill)
+      }
+      const before = await state(p)
+      await p.evaluate(() => document.querySelector('[data-row="p2"]').click())
+      await sleep(1200)
+      const d = delta(before, await state(p))
+      const label = await p.evaluate(() => [...document.querySelectorAll("button[aria-haspopup=dialog]")].map((b) => b.textContent.trim()).join(" | "))
+      console.log("  product chosen:", JSON.stringify(d), label)
+      expect(/Brush set for Procreate/.test(label), "a row applies and closes, and the button says the product", label)
+      expect(d.requests === 1 && d.router === 0 && d.svgMounts === 0 && d.placeholders === 0 && d.skeletons === 0, "one read, no remount, no placeholder, no skeleton", d)
+      const still = await p.evaluate(() => !!document.querySelector("[data-product-picker]") && !!document.querySelector('[data-app-sheet="open"], [data-slot="popover-content"][data-state="open"]'))
+      expect(!still, "and the picker is closed", still)
+    }
+
+    expect(errors.length === 0, "no errors in the page", errors.slice(0, 3))
+
     if (process.env.SHOTS) {
       mkdirSync(process.env.SHOTS, { recursive: true })
       await p.screenshot({ path: join(process.env.SHOTS, `analytics-${name.split(",")[0]}.png`) })
     }
+    await p.close()
+  }
+
+  /* 9. A creator with fourteen products gets a search, and it narrows the list. */
+  for (const [name, vp] of [["desktop", { width: 1280, height: 900 }], ["phone", { width: 390, height: 844, deviceScaleFactor: 3, isMobile: true, hasTouch: true }]]) {
+    const p = await browser.newPage()
+    await p.setViewport(vp)
+    await p.goto(`${origin}/?products=many`, { waitUntil: "load" })
+    await p.waitForSelector("[data-chart-loading='false'] .recharts-surface", { timeout: 15000 })
+    await sleep(600)
+    await p.evaluate(() => [...document.querySelectorAll("button[aria-haspopup=dialog]")].find((b) => /All products/.test(b.textContent)).click())
+    await sleep(500)
+    const first = await p.evaluate(() => ({ search: !!document.querySelector("[data-product-search]"), focused: document.activeElement?.hasAttribute("data-product-search") ?? false, rows: document.querySelectorAll("[data-product-picker] [data-row]").length }))
+    await p.focus("[data-product-search]")
+    await p.keyboard.type("course")
+    await sleep(200)
+    const narrowed = await p.evaluate(() => [...document.querySelectorAll("[data-product-picker] [data-row]")].map((r) => r.textContent.trim()))
+    if (process.env.SHOTS) await p.screenshot({ path: join(process.env.SHOTS, `product-search-${name}.png`) })
+    console.log(`\n${name}, fourteen products:`, JSON.stringify({ ...first, narrowed }))
+    expect(first.search && first.rows === 15, `${name}: a search field above All products and the fourteen`, first)
+    expect(vp.hasTouch ? !first.focused : first.focused, vp.hasTouch ? `${name}: the search is not focused, so the keyboard does not cover the list` : `${name}: the search has focus, so typing narrows at once`, first.focused)
+    expect(narrowed.length > 0 && narrowed.every((t) => /course/i.test(t)), `${name}: typing narrows the list to the products that match`, narrowed)
     await p.close()
   }
 } finally {
