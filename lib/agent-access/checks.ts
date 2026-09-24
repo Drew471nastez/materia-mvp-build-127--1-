@@ -47,7 +47,8 @@ export const ALL_CHECKS: CheckId[] = ["compile", "quality", "page-types", "page-
 /** compile and quality for one section file. */
 export function checkSectionFile(path: string, source: string, wanted: CheckId[] = ALL_CHECKS): CheckResult[] {
   const type = /^sections\/([a-z0-9_-]+)\.storelib$/.exec(path)?.[1]
-  const v = validateSection(source, { path, expectType: type })
+  /* The same gate the write tools apply, so a file that tests clean is a file an agent can save. */
+  const v = validateSection(source, { path, expectType: type, strict: true })
   const out: CheckResult[] = []
   if (wanted.includes("compile")) {
     out.push({

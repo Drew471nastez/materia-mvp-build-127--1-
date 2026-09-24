@@ -16,7 +16,6 @@ import {
   Image as ImageIcon,
   CreditCard,
   FileText,
-  Sparkles,
   X,
   Loader2,
   Bell,
@@ -34,6 +33,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { getLinksUrl, getLinksUrlDisplay } from "@/lib/url-helpers"
+import { PRO_CHECKOUT_PLAN_ID, offeredPlan, planDisplayName, planHighlights, type PlanId } from "@/lib/billing/plans"
 
 // Toggle component using theme-checkbox (same as Links tab)
 function Toggle({ checked, onCheckedChange }: { checked: boolean; onCheckedChange: (checked: boolean) => void }) {
@@ -1025,14 +1025,15 @@ export const SettingsTab = forwardRef<SettingsTabRef>(function SettingsTab(_, re
     )
   }
 
-  const planDetails: Record<string, { name: string; price: string; description: string; fee: string }> = {
-    free: { name: "Free", price: "$0", description: "Basic features", fee: "6% + $0.25 per sale" },
-    growth: { name: "Growth", price: "$29.90/mo", description: "Lower fees, custom domain", fee: "3% + $0.25 per sale" },
-    pro: { name: "Professional", price: "$99/mo", description: "Lowest fees, priority support", fee: "1.5% + $0.25 per sale" },
+  // Internal "growth" is sold as Pro; the earlier "pro" plan is also Pro.
+  // Each plan is described by its fee, from the same table that charges it.
+  const currentPlanKey: PlanId = userPlan === "growth" || userPlan === "pro" ? userPlan : "free"
+  const currentPlanInfo = {
+    name: planDisplayName(currentPlanKey),
+    description: planHighlights(currentPlanKey)[0],
   }
-
-  const currentPlanInfo = planDetails[userPlan || "free"]
   const isPaid = userPlan === "growth" || userPlan === "pro"
+  const proOffer = offeredPlan(PRO_CHECKOUT_PLAN_ID)
 
   const renderBilling = () => (
     <div className="space-y-6">
@@ -1057,23 +1058,15 @@ export const SettingsTab = forwardRef<SettingsTabRef>(function SettingsTab(_, re
         )}
       </div>
 
-      {/* Upgrade Card — only show if not on Pro */}
-      {userPlan !== "pro" && (
+      {/* Pro offer: only for Free. Pro is the top plan on sale. */}
+      {!isPaid && (
         <div className="border border-gray-200 rounded-lg p-4">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-8 h-8 rounded-full bg-violet-100 flex items-center justify-center">
-              <Sparkles className="h-4 w-4 text-violet-600" />
-            </div>
-            <div>
-              <p className="font-medium text-sm text-gray-900">{userPlan === "free" ? "Growth Plan" : "Professional Plan"}</p>
-              <p className="text-xs text-gray-500">{userPlan === "free" ? "$29.90/month" : "$99/month"}</p>
-            </div>
+          <div className="flex items-baseline justify-between gap-3 mb-3">
+            <p className="font-medium text-sm text-gray-900">{proOffer.name} plan</p>
+            <p className="text-sm text-gray-600">{proOffer.price}{proOffer.period}</p>
           </div>
           <ul className="space-y-2 mb-4">
-            {(userPlan === "free"
-              ? ["Lower fees (3%)", "Custom domain", "Verified badge", "2,000 emails/month"]
-              : ["Lowest fees (1.5%)", "Priority support", "White-label", "5,000 emails/month"]
-            ).map((feature) => (
+            {proOffer.features.slice(0, 4).map((feature) => (
               <li key={feature} className="flex items-center gap-2 text-sm text-gray-600">
                 <Check className="h-3.5 w-3.5 text-violet-500" />
                 {feature}
@@ -1084,7 +1077,7 @@ export const SettingsTab = forwardRef<SettingsTabRef>(function SettingsTab(_, re
             className="w-full h-10 bg-violet-500 hover:bg-violet-600 rounded-lg text-sm text-white cursor-pointer"
             onClick={() => router.push("/app/settings/billing/upgrade")}
           >
-            {userPlan === "free" ? "Upgrade Plan" : "Upgrade to Pro"}
+            Upgrade to {proOffer.name}
           </Button>
         </div>
       )}

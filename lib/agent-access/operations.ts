@@ -26,6 +26,7 @@
  *     the published cards a visitor sees.
  */
 import { compileSection } from "@/lib/storelib-theme"
+import { validateSection } from "@/lib/storelib-ai/validate"
 import { ENGINE_VERSION, SECTION_SCHEMA_VERSION, type ThemeError } from "@/lib/storelib-theme/types"
 import { editorContent } from "@/lib/website-builder/theme-file-drafts"
 import { safeThemePath, saveThemeFile } from "@/lib/website-builder/save-theme-file"
@@ -177,6 +178,11 @@ export async function writeSection(
 ): Promise<OpResult<{ path: string; type: string; created: boolean; drafted: boolean; updated_at: string | null }>> {
   const allowed = agentMayWrite(path)
   if (allowed.ok === false) return { ok: false, status: allowed.status, error: allowed.error }
+  /* Every agent write, over MCP or HTTP, meets the same gate: it compiles,
+     passes the quality checks, and plugs into the theme like a native section
+     (lib/storelib-ai/integration.ts). A file that fails is not saved. */
+  const checked = validateSection(source, { path, expectType: path.replace(/^sections\//, "").replace(/\.storelib$/, ""), strict: true })
+  if (checked.ok === false && checked.reason === "quality") return { ok: false, status: 422, error: `${path} was not saved.\n${checked.feedback}` }
   const saved = await saveThemeFile(db, who.installId, path, source, { baseUpdatedAt })
   if (saved.ok === false) return { ok: false, status: saved.status, error: publicError(saved.status, saved.error), errors: saved.errors }
 

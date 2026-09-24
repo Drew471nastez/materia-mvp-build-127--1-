@@ -24,6 +24,7 @@
  *
  * Run with:  npm run test:push
  */
+import { isPackagedCover } from "@/lib/website-builder/cover-take"
 import { bodyGapToListIndex } from "@/lib/website-builder/section-order"
 import { readFileSync, readdirSync, existsSync } from "node:fs"
 import { DEFAULT_THEME_SOURCES } from "@/themes/default/sources.generated"
@@ -34,6 +35,7 @@ import {
   THEME_INDUSTRIES,
   THEME_INSTALL_LIMIT,
   THEME_REGISTRY,
+  BROWSABLE_THEMES,
   buildThemePreset,
   isThemeId,
 } from "@/lib/website-builder/theme-registry"
@@ -287,35 +289,28 @@ section("The page")
   check("the primary action is Storelib dark, not a purple button", /Edit website/.test(client) && !/bg-\[#8b5cf6\]/.test(client))
   {
     /*
-      THE STRIP AND THE COVER. The tabs were glued into the top of the card
-      and the cover was cut flush with the card's edge, square on two sides.
-      Now the strip is its own bar above the card, and the cover has its own
-      12px corners on all four sides, with depth.
+      THE HEADER CONTROLS. A bar of six labelled settings doors sat above the
+      cover and read as a second navigation. The owner asked for three
+      compact controls instead, to the right of the page title: View website,
+      Public or Unpublished, and Settings. See ./site-controls.tsx.
     */
     const live = client.slice(client.indexOf('<section aria-labelledby="live-heading"'), client.indexOf("{/* ── Library"))
-    check("the bar above the cover is its own bar, above the card",
-      live.indexOf("<SettingsStrip") > 0 && live.indexOf("<SettingsStrip") < live.indexOf('className="overflow-hidden rounded-2xl border'))
-    /*
-      THE BAR IS A ROW OF DOORS TO WEBSITE SETTINGS. It was Shopify's web
-      performance bar for a while; the owner asked for the numbers to go and
-      for the same bar to take them to the settings that matter instead.
-    */
-    const strip = stripComments(read("app/app/website-builder/settings-strip.tsx"))
-    check("  one white bar in the card style, cut into cells by hairlines",
-      /rounded-2xl border border-\[#e5e7eb\]\/60 bg-white shadow-\[0_1px_3px_rgba\(0,0,0,0\.04\)\]/.test(strip) && /divide-x divide-\[#eceef1\]/.test(strip))
-    check("  each cell opens its page of Website Settings in the editor",
-      /onClick=\{\(\) => onOpen\(d\.section\)\}/.test(strip) && /onOpen=\{\(section\) => go\(editorHref\(username, live\.id, "settings", section\)\)\}/.test(client)
-        && ['"domains"', '"seo"', '"pages"', '"policies"', '"backups"', '"connections"'].every((k) => strip.includes(`section: ${k}`)))
-    check("  and says only what is true: the address under Domain, nothing made up",
-      /\{ section: "domains", label: "Domain", fact: siteDisplay \|\| undefined \}/.test(strip) && !/Math\.random|visits|conversion/i.test(strip))
-    check("  no numbers are counted for it any more",
-      !/websitePerformanceFor/.test(read("app/app/website-builder/page.tsx")) && !/WebsiteStrip|website-strip"/.test(client))
-    check("  on a phone it is one row that scrolls sideways inside itself with no scrollbar",
-      /overflow-x-auto/.test(strip) && /\[scrollbar-width:none\]/.test(strip) && /\[&::-webkit-scrollbar\]:hidden/.test(strip) && /min-w-\[132px\]/.test(strip) && /whitespace-nowrap/.test(strip))
-    check("the old tab destinations are the More menu's first group",
-      ['section: "pages"', 'section: "domains"', 'section: "seo"', 'section: "publishing"', 'section: "general"'].every((s) => client.includes(s)) &&
-        /editorHref\(username, i\.id, "settings", d\.section\)/.test(client) && /section: n === 0 \? "Website settings" : undefined/.test(client))
-    check("the loading state draws the bar's shape", /min-w-\[132px\] flex-\[1_0_auto\] items-center justify-between/.test(loading))
+    const controls = stripComments(read("app/app/website-builder/site-controls.tsx"))
+    check("the bar of settings doors is gone", !existsSync(join(process.cwd(), "app/app/website-builder/settings-strip.tsx")) && !/SettingsStrip/.test(client))
+    check("three controls sit beside the title: View website, the status, Settings",
+      /<SiteControls/.test(client) && client.indexOf("<SiteControls") < client.indexOf('<section aria-labelledby="live-heading"')
+        && /View website/.test(controls) && /"Public"/.test(controls) && /"Unpublished"/.test(controls) && /Settings/.test(controls))
+    check("  View website is a real anchor to a new tab", /href=\{siteUrl\} target="_blank" rel="noopener noreferrer"/.test(controls))
+    check("  the status menu takes the site offline, or puts an offline one back, through the page's own questions",
+      /onTakeOffline=\{\(\) => live && setUnpublishing\(live\)\}/.test(client) && /onPublishAgain=\{\(\) => offline && setPublishing\(offline\)\}/.test(client))
+    check("  Settings opens Website Settings in the editor", /onSettings=\{\(\) => go\(editorHref\(username, \(live \?\? offline \?\? installs\[0\]\)\.id, "settings"\)\)\}/.test(client))
+    check("  one control shape with a hairline: 44px on a phone, 36px from a tablet up", /const CONTROL =\s*"inline-flex h-11 [^"]*sm:h-9/.test(read("app/app/website-builder/site-controls.tsx")) && /border border-\[#e5e7eb\]/.test(controls))
+    check("  on a phone the row scrolls sideways with no scrollbar", /overflow-x-auto/.test(controls) && /\[scrollbar-width:none\]/.test(controls))
+    check("the live site's More menu no longer carries Website settings", !/WEBSITE_SETTINGS/.test(client) && !/section: n === 0 \? "Website settings"/.test(client))
+    check("the card's buttons are Edit website and a square More", /<div className="mt-auto flex gap-2 pt-5">/.test(live) && /"w-11 shrink-0 px-0"/.test(live) && !/View site/.test(live))
+    check("the loading state draws the header controls and the card's row",
+      /\[124, 92, 96\]\.map/.test(loading) && /h-11 flex-1 rounded-xl/.test(loading) && !/min-w-\[132px\]/.test(loading))
+    check("  no numbers are counted for it any more", !/websitePerformanceFor/.test(read("app/app/website-builder/page.tsx")))
     const frame = /const COVER_FRAME =\s*"([^"]+)"/.exec(client)?.[1] ?? ""
     check("the cover is clipped to 12px corners on all four sides",
       /\brounded-\[12px\]/.test(frame) && /\boverflow-hidden\b/.test(frame) && /className=\{COVER_FRAME\}/.test(live))
@@ -331,7 +326,7 @@ section("The page")
    * the menu beside it; it is one labelled button now, so the shape it is
    * checked in changed while the rule did not.
    */
-  check("the live link is a real anchor that opens a new tab", /href=\{siteUrl\}\s*\n\s*target="_blank"\s*\n\s*rel="noopener noreferrer"/.test(client) && !/window\.open\(siteUrl/.test(client))
+  check("the live link is a real anchor that opens a new tab", /href=\{siteUrl\} target="_blank" rel="noopener noreferrer"/.test(read("app/app/website-builder/site-controls.tsx")) && !/window\.open\(siteUrl/.test(client))
   check("covers show the theme on a desktop and a phone", /ThemeCoverPair/.test(client) && /phone/.test(client))
   check("publishing over a live website asks first and says what happens to the old one", /Publish “\{publishing\?\.name\}”\?/.test(client) && /It replaces “\{live\.name\}”/.test(client))
   check("every install action is still here: rename, duplicate, code, settings, export, publish, unpublish, delete, import, add", [
@@ -339,11 +334,20 @@ section("The page")
     // thing rather than the container; the actions are the same ones.
     "Rename", "Duplicate", "Edit code", "Website settings", "Export theme", "Take offline", "Remove", "Import theme", "themes/add", "action: \"publish\"", "action: \"unpublish\"", "themes/import",
   ].every((s) => client.includes(s)))
-  check("the library is capped at the limit and says so", /THEME_INSTALL_LIMIT/.test(client) && /Your library is full/.test(client))
+  {
+    /* THE FULL LIBRARY. Import was disabled at 3 of 3, so a click did nothing and its message could never show. */
+    const fullDialog = stripComments(read("app/app/website-builder/library-full-dialog.tsx"))
+    check("the library is capped at the limit and says so, in a dialog", /THEME_INSTALL_LIMIT/.test(client) && /Your library is full/.test(fullDialog) && /<LibraryFullDialog/.test(client))
+    check("  Import is never dead: full, it opens the dialog", /onClick=\{\(\) => \(slotsLeft === 0 \? setFull\("import"\) : fileInput\.current\?\.click\(\)\)\}/.test(client) && !/disabled=\{busy === "import" \|\| slotsLeft === 0\}/.test(client))
+    check("  and Add theme, Duplicate and every Add do the same", /setFull\("add"\)/.test(client) && /setFull\("duplicate"\)/.test(client) && /setFull\("add"\)/.test(read("app/app/website-builder/themes/themes-client.tsx")))
+    check("  it lists what takes the room, with Remove on each draft, through the usual question", /Remove/.test(fullDialog) && /!e\.live && onRemove/.test(fullDialog) && /if \(target\) setDeleting\(target\)/.test(client))
+  }
   check("the marketplace route the old page linked to now exists", existsSync(join(process.cwd(), "app/app/website-builder/themes/page.tsx")))
   const market = stripComments(read("app/app/website-builder/themes/themes-client.tsx"))
-  check("the marketplace filters by industry, searches, previews and adds", /THEME_INDUSTRIES\.map/.test(market) && /Search themes/.test(market) && /ThemeDetailDialog/.test(market) && /themes\/add/.test(market))
-  check("the marketplace draws covers too — no storefront is mounted there either", !/SectionRenderer|ThemePage/.test(market) && /ThemeCoverPair/.test(market) && /ThemePhoneCover/.test(market))
+  check("Browse themes offers one theme, shown whole, and adds it", /BROWSABLE_THEMES\.map/.test(market) && /ThemeShowcase/.test(market) && /themes\/add/.test(market) && BROWSABLE_THEMES.length === 1)
+  check("  the others stay defined for the websites made from them, and cannot be added", THEME_REGISTRY.length > BROWSABLE_THEMES.length && /BROWSABLE_THEME_IDS\.includes\(def\.id\)/.test(read("app/api/website-builder/themes/add/route.ts")))
+  check("  nothing on either page rises under the pointer", !/hover:-translate-y/.test(market) && !/hover:-translate-y/.test(client) && !/active:scale-95/.test(market))
+  check("the marketplace draws covers too, no storefront is mounted there either", !/SectionRenderer|ThemePage/.test(market) && /ThemeCover\b/.test(market) && /ThemePhoneCover/.test(market))
   check("the marketplace has a real back button and no paragraph of explanation", /ChevronLeft/.test(market) && !/Every theme is free/.test(market))
 }
 
@@ -518,11 +522,13 @@ section("The add route")
 section("The cover")
 {
   const route = stripComments(read("app/api/website-builder/themes/[installId]/cover/route.ts"))
+  /* The photographing moved to one helper every route that makes a website calls. */
+  const take = stripComments(read("lib/website-builder/cover-take.ts"))
   check("the install must belong to the caller's creator", /\.eq\("creator_id", \(creator as \{ id: string \}\)\.id\)/.test(route))
   check("the install id is validated as a UUID before it becomes part of a path", /isThemeId\(installId\)/.test(route))
   check("the storage path is built from the user id and the install id only",
     snapshotFolder("u1", "i1") === "u1/theme-snapshots/i1" &&
-      /const folder = snapshotFolder\(user\.id, installId\)/.test(route) &&
+      /const folder = snapshotFolder\(owner\.userId, owner\.installId\)/.test(take) && /userId: user\.id/.test(route) &&
       snapshotName("abc", "webp") === `abc.v${SNAPSHOT_VERSION}.webp` &&
       snapshotName("abc", "webp", true) === `abc.v${SNAPSHOT_VERSION}.m.webp`)
   /*
@@ -532,14 +538,39 @@ section("The cover")
     this is where a browser holding a pass is about to go.
   */
   check("the browser is sent to this server's own render page, not to a host the request names",
-    /function renderOrigin\(req: Request\)/.test(route) && /return `https:\/\/\$\{main\}`/.test(route) &&
-      /\/cover-render\/\$\{encodeURIComponent\(pass\)\}/.test(route))
+    /function renderOrigin\(requestUrl: string\)/.test(take) && /return `https:\/\/\$\{main\}`/.test(take) &&
+      /\/cover-render\/\$\{encodeURIComponent\(pass\)\}/.test(take) && /renderOrigin\(req\.url\)/.test(route))
   check("a cover taken moments ago is handed back rather than taken again",
-    /const MIN_GAP_MS = \d+/.test(route) && /Date\.now\(\) - newestAt < MIN_GAP_MS/.test(route))
+    /const MIN_GAP_MS = \d+/.test(take) && /Date\.now\(\) - newestAt < MIN_GAP_MS/.test(take))
   check("a cover that cannot be taken is said out loud and keeps the last one",
     /console\.error\("\[cover\]/.test(route) && /status: 502/.test(route))
   check("the folder is kept to the newest few covers, after the response",
-    SNAPSHOTS_KEPT >= 2 && /after\(async \(\) =>/.test(route) && /staleSnapshots\(/.test(route))
+    SNAPSHOTS_KEPT >= 2 && /await prune\(folder\)/.test(take) && /staleSnapshots\(/.test(take))
+  /*
+    A WEBSITE IS PHOTOGRAPHED WHEN IT IS MADE, not after its first save: a
+    theme just added, imported or copied used to sit under a drawing of the
+    theme's sample shop until somebody opened it and saved.
+  */
+  for (const [label, file] of [
+    ["added", "app/api/website-builder/themes/add/route.ts"],
+    ["imported", "app/api/website-builder/themes/import/route.ts"],
+    ["copied", "app/api/website-builder/themes/[installId]/duplicate/route.ts"],
+  ] as const) {
+    const src = stripComments(read(file))
+    check(`a website ${label} is photographed as soon as it exists, after the answer`, /after\(\(\) => coverAfterCreate\(/.test(src) && /export const maxDuration = \d+/.test(src))
+  }
+  check("  a copy starts from its source's picture", /await copyCover\(user\.id, installId, owner\)/.test(stripComments(read("app/api/website-builder/themes/[installId]/duplicate/route.ts"))))
+  check("  a copy is the whole website: drafts, live values and section files",
+    /draft_settings: srcSettings\?\.draft_settings/.test(read("app/api/website-builder/themes/[installId]/duplicate/route.ts")) &&
+      /draft_sections: p\.draft_sections/.test(read("app/api/website-builder/themes/[installId]/duplicate/route.ts")) &&
+      /store_theme_custom_files"\)\.insert/.test(read("app/api/website-builder/themes/[installId]/duplicate/route.ts")))
+  check("  an export carries the cover, and an import shows it at once without adding it to the media library",
+    /cover: cover\.ref/.test(read("app/api/website-builder/themes/[installId]/export/route.ts")) &&
+      /if \(coverHashes\.has\(hash\)\) continue/.test(read("app/api/website-builder/themes/import/route.ts")) &&
+      /await storeCover\(owner/.test(read("app/api/website-builder/themes/import/route.ts")))
+  check("  a picture from a package is a WebP by its bytes and no bigger than a cover", isPackagedCover(new Uint8Array([82,73,70,70,0,0,0,0,87,69,66,80,0,0,0,0]), 1024) && !isPackagedCover(new TextEncoder().encode("<svg onload=alert(1)>......"), 1024))
+  check("  an error page is never kept as a cover", /if \(status >= 400\) throw/.test(read("lib/website-builder/cover-shot.ts")))
+  check("  an import is a draft, not a site taken offline", !/status: "unpublished"/.test(read("app/api/website-builder/themes/import/route.ts")))
   check("the route has the time a cold browser needs", /export const maxDuration = \d+/.test(route) && /runtime = "nodejs"/.test(route))
 
   /*

@@ -7,11 +7,13 @@ import { isNativeApp, openExternal } from "@/lib/native-bridge"
 import {
   Settings, Shield, ToggleLeft, Wallet, Store, CreditCard,
   Check, Loader2, Download, FileText, Clock, CheckCircle, XCircle, AlertCircle,
-  Lock, Pencil, ExternalLink, X, ArrowUpRight, ChevronDown, Globe,
+  Lock, Pencil, ExternalLink, X, ChevronDown, Globe,
 } from "lucide-react"
 import Link from "next/link"
 import { useLanguage } from "@/lib/i18n"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
+import { PlanCards, type PlanCardAction } from "@/components/billing/plan-cards"
+import { PLAN_FOOTNOTE, formatPlanPrice, offeredPlan, planHighlights, withPlanLabel, type OfferedPlanId, type PlanId } from "@/lib/billing/plans"
 
 const TABS = [
   { id: "general", label: "General", icon: Settings },
@@ -270,31 +272,23 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
     }
   }
 
-  // Use live state (updated by client-side actions)
-  const currentPlan = liveCurrentPlan
+  // Use live state (updated by client-side actions). Named for people, not by
+  // id: internal "growth" is sold as Pro, and the earlier "pro" is also Pro.
+  const currentPlan = withPlanLabel(liveCurrentPlan)
   const subscription = liveSubscription
   const isSubscribed = subscription && (subscription.status === "active" || subscription.status === "trialing" || subscription.status === "past_due")
-  const planPrice = currentPlan.price_cents > 0 ? `$${(currentPlan.price_cents / 100).toFixed(currentPlan.price_cents % 100 === 0 ? 0 : 2)}` : "$0"
+  const planPrice = formatPlanPrice(currentPlan.price_cents || 0)
   const feeDisplay = `${(currentPlan.fee_percent * 100).toFixed(currentPlan.fee_percent >= 0.01 ? 1 : 2)}% + $${(currentPlan.fee_fixed_cents / 100).toFixed(2)} per transaction`
 
   // Detect pending downgrade (scheduled plan change)
   const pendingPlanId = subscription?.pending_plan_id || null
-  const plans = initialData.plans
+  const plans = initialData.plans.map(withPlanLabel)
   const pendingPlan = pendingPlanId && pendingPlanId !== currentPlan.id ? plans.find((p: any) => p.id === pendingPlanId) : null
 
-  // Plan benefits for Current Plan card
-  const planBenefits: Record<string, string[]> = {
-    free: ["6% + $0.25 per transaction", "Basic OnePage features", "Unlimited Digital Products", "500 emails / month"],
-    growth: ["3% + $0.25 per transaction", "Unlimited digital products", "Premium OnePage features", "Custom domain"],
-    pro: ["1.5% + $0.25 per transaction", "Unlimited digital products", "Premium OnePage features", "Custom domain"],
-  }
-
-  // Determine the next upgrade target
-  const nextUpgradePlan = currentPlan.id === "growth"
-    ? plans.find((p: any) => p.id === "pro")
-    : currentPlan.id === "free"
-      ? null // Free shows generic "Upgrade" link
-      : null // Pro has no upgrade
+  // What the current plan includes, read from the same tables that enforce it.
+  // The first four lines: the fee, then what matters most after it.
+  const currentPlanId: PlanId = currentPlan.id === "growth" || currentPlan.id === "pro" ? currentPlan.id : "free"
+  const currentBenefits = planHighlights(currentPlanId).slice(0, 4)
 
   return (
     <div className="h-full overflow-y-scroll overflow-x-hidden page-scroll bg-[#fafafa]" style={{ scrollbarGutter: "stable" }}>
@@ -361,7 +355,7 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
                 {/* Pending downgrade info */}
                 {pendingPlan && subscription?.current_period_end && (
                   <p className="text-[12px] text-[#6b7280] mb-3">
-                    Switching to {pendingPlan.name} on {formatDate(subscription.current_period_end)} &middot; ${(pendingPlan.price_cents / 100).toFixed(2)}/mo
+                    Switching to {pendingPlan.name} on {formatDate(subscription.current_period_end)} &middot; {formatPlanPrice(pendingPlan.price_cents)}/month
                   </p>
                 )}
 
@@ -373,7 +367,7 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
                 </div>
 
                 <ul className="space-y-2 mb-5">
-                  {(planBenefits[currentPlan.id] || planBenefits.free).map((benefit: string, idx: number) => (
+                  {currentBenefits.map((benefit: string, idx: number) => (
                     <li key={idx} className="flex items-center gap-2.5 text-[13px] text-[#374151]">
                       <div className="w-4 h-4 rounded-full bg-purple-50 flex items-center justify-center shrink-0">
                         <Check className="h-2.5 w-2.5 text-[#8b5cf6]" strokeWidth={3} />
@@ -398,15 +392,7 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
                       Upgrade
                     </Link>
                   )}
-                  {/* Growth plan -> Upgrade to Pro */}
-                  {currentPlan.id === "growth" && nextUpgradePlan && (
-                    <button
-                      onClick={() => openUpgradeModal(nextUpgradePlan.id, nextUpgradePlan.name, nextUpgradePlan.price_cents)}
-                      className="h-10 px-5 text-[13px] font-semibold text-white bg-[#7c3aed] rounded-xl hover:bg-[#6d28d9] active:bg-[#5b21b6] transition-all duration-200 shadow-sm hover:shadow-md flex items-center gap-2 cursor-pointer"
-                    >
-                      Upgrade to {nextUpgradePlan.name}
-                    </button>
-                  )}
+                  {/* Pro (id "growth") is the top plan on sale, so there is nothing to upgrade to from it. */}
                   {/* If cancel_at_period_end, show upgrade option to reactivate */}
                   {isSubscribed && subscription.cancel_at_period_end && (
                     <Link href="/app/settings/billing/upgrade" className="h-10 px-5 text-[13px] font-semibold text-white bg-[#7c3aed] rounded-xl hover:bg-[#6d28d9] active:bg-[#5b21b6] transition-all duration-200 shadow-sm hover:shadow-md flex items-center gap-2 no-underline cursor-pointer">
@@ -529,7 +515,7 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
                 </p>
                 {pendingPlan && (
                   <p className="text-[13px] text-[#6b7280]">
-                    Your plan will change to <span className="font-medium text-[#374151]">{pendingPlan.name}</span> (${(pendingPlan.price_cents / 100).toFixed(2)}/month).
+                    Your plan will change to <span className="font-medium text-[#374151]">{pendingPlan.name}</span> ({formatPlanPrice(pendingPlan.price_cents)}/month).
                   </p>
                 )}
               </div>
@@ -643,7 +629,7 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
 
           {/* ---- SECTION 3: Pricing Tiers ---- */}
           <PricingTiers
-            plans={initialData.plans}
+            plans={plans}
             currentPlan={currentPlan}
             subscription={subscription}
             loading={loading}
@@ -942,7 +928,7 @@ function UpgradeConfirmModal({ planId, planName, priceCents, currentPlan, subscr
           {isReUpgrade && isSubscribed && (
             <div className="bg-[#f5f3ff] border border-[#ede9fe] rounded-xl p-4 mb-4 space-y-2">
               <p className="text-[13px] text-[#374151]">
-                Your cancellation will be reversed and you&apos;ll continue on the <span className="font-semibold text-[#7c3aed]">{planName}</span> plan at <span className="font-semibold text-[#7c3aed]">${(priceCents / 100).toFixed(2)}/month</span>.
+                Your cancellation will be reversed and you&apos;ll continue on the <span className="font-semibold text-[#7c3aed]">{planName}</span> plan at <span className="font-semibold text-[#7c3aed]">{formatPlanPrice(priceCents)}/month</span>.
               </p>
             </div>
           )}
@@ -964,7 +950,7 @@ function UpgradeConfirmModal({ planId, planName, priceCents, currentPlan, subscr
 
           {!isSubscribed && (
             <div className="bg-[#f5f3ff] border border-[#ede9fe] rounded-xl p-4 mb-4">
-              <p className="text-[13px] text-[#374151]">You&apos;ll be redirected to Stripe to complete your subscription of <span className="font-semibold text-[#7c3aed]">${(priceCents / 100).toFixed(2)}/month</span>.</p>
+              <p className="text-[13px] text-[#374151]">You&apos;ll be redirected to Stripe to complete your subscription of <span className="font-semibold text-[#7c3aed]">{formatPlanPrice(priceCents)}/month</span>.</p>
             </div>
           )}
 
@@ -991,125 +977,46 @@ function PricingTiers({ plans, currentPlan, subscription, loading, setLoading, s
   onUpgradeClick: (planId: string, planName: string, priceCents: number) => void
   pendingPlanId?: string | null
 }) {
-  const isSubscribed = subscription && (subscription.status === "active" || subscription.status === "trialing" || subscription.status === "past_due")
-
-  const handlePlanAction = (planId: string) => {
-    // Navigate directly to the upgrade page for all plan actions
+  const handlePlanAction = () => {
+    // Every plan change happens on the upgrade page, which knows how to
+    // check out, switch or cancel.
     router.push("/app/settings/billing/upgrade")
   }
 
-  const descriptions: Record<string, string> = {
-    free: "Perfect for getting started.",
-    growth: "For creators ready to scale and pay lower fees.",
-    pro: "For serious creators who want the lowest fees and priority support.",
-  }
+  const isCanceling = subscription?.cancel_at_period_end === true
+  const isLegacyPro = currentPlan.id === "pro"
 
-  const featureLists: Record<string, string[]> = {
-    free: ["6% + $0.25 per transaction", "Unlimited digital products", "Basic OnePage features", "500 emails / month"],
-    growth: ["3% + $0.25 per transaction", "Unlimited digital products", "Premium OnePage features", "Custom domain", "Verified badge", "2,000 emails / month"],
-    pro: ["1.5% + $0.25 per transaction", "Unlimited digital products", "Premium OnePage features", "Custom domain", "Verified badge", "5,000 emails / month", "Priority support"],
+  const actionFor = (id: OfferedPlanId): PlanCardAction => {
+    const offered = offeredPlan(id)
+    const priceCents = plans.find((p: any) => p.id === id)?.price_cents ?? offered.priceCents
+    const isCurrentPlan = id === currentPlan.id
+    const isPendingPlan = id === pendingPlanId
+    const isFree = id === "free"
+    const isDowngrade = priceCents < currentPlan.price_cents
+    const isUpgrade = priceCents > currentPlan.price_cents
+
+    let label = `Upgrade to ${offered.name}`
+    if (isCurrentPlan) label = "Current plan"
+    else if (isPendingPlan) label = isFree ? "Downgrade scheduled" : "Switch scheduled"
+    else if (isCanceling && isFree) label = "Cancellation scheduled"
+    else if (isLegacyPro && !isFree) label = `Switch to ${offered.name} at ${offered.price}`
+    else if (isFree) label = "Downgrade to Free"
+    else if (isDowngrade) label = `Downgrade to ${offered.name}`
+
+    return {
+      label,
+      onClick: handlePlanAction,
+      settled: isCurrentPlan || (isCanceling && isFree) || (isPendingPlan && !isUpgrade),
+      disabled: loading !== null,
+      loading: loading === id,
+    }
   }
 
   return (
     <div>
-      <h2 className="text-[17px] font-bold text-[#1a1a2e] mb-5">Plans & Pricing</h2>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:items-stretch">
-        {plans.map((plan: any) => {
-          const isCurrentPlan = plan.id === currentPlan.id
-          const isPendingPlan = plan.id === pendingPlanId
-          const isFree = plan.id === "free"
-          const isPro = plan.id === "pro"
-          const isGrowth = plan.id === "growth"
-          const isDowngrade = plan.price_cents < currentPlan.price_cents
-          const monthlyPrice = plan.price_cents / 100
-          const isUpgrade = plan.price_cents > currentPlan.price_cents
-          const isCanceling = subscription?.cancel_at_period_end === true
-
-          let buttonLabel = `Upgrade to ${plan.name}`
-          if (isCurrentPlan && isCanceling) buttonLabel = "Current Plan"
-          else if (isCurrentPlan) buttonLabel = "Current Plan"
-          else if (isPendingPlan) buttonLabel = "Downgrade Scheduled"
-          else if (isCanceling && isFree) buttonLabel = "Cancel Scheduled"
-          else if (isCanceling) buttonLabel = "Upgrade Again"
-          else if (isFree) buttonLabel = "Downgrade to Free"
-          else if (isDowngrade) buttonLabel = `Downgrade to ${plan.name}`
-
-          const isDisabled = isCurrentPlan || (isCanceling && isFree) || (isPendingPlan && !isUpgrade) || loading !== null
-
-          return (
-            <div
-              key={plan.id}
-              className={`bg-white rounded-3xl relative flex flex-col transition-all duration-300 hover:-translate-y-1 hover:shadow-md ${
-                isGrowth
-                  ? "p-7 border-[1.5px] border-violet-600 shadow-[0_0_0_1px_#7c3aed] shadow-md"
-                  : "p-7 border-[1.5px] border-neutral-200"
-              }`}
-            >
-              {/* Top badge */}
-              {isGrowth && (
-                <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-violet-600 text-white text-[11px] font-semibold px-3.5 py-1 rounded-full whitespace-nowrap shadow-sm">
-                  Most Popular
-                </span>
-              )}
-              {isPro && (
-                <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#1a1a2e] text-white text-[11px] font-semibold px-3.5 py-1 rounded-full whitespace-nowrap shadow-sm">
-                  Recommended
-                </span>
-              )}
-
-              {/* Plan name */}
-              <div className="font-semibold text-[17px] mb-1.5 text-[#1a1a2e]">{plan.name}</div>
-
-              {/* Price */}
-              <div className="flex items-baseline gap-1 mb-1">
-                <span className="text-[40px] font-bold tracking-tight leading-none text-[#1a1a2e]">
-                  {isFree ? "$0" : `$${monthlyPrice % 1 === 0 ? monthlyPrice.toFixed(0) : monthlyPrice.toFixed(2)}`}
-                </span>
-                {!isFree && <span className="text-sm text-neutral-400">/mo</span>}
-              </div>
-              {isFree && <p className="text-[13px] text-neutral-400 mb-1">Free forever</p>}
-
-              {/* Description */}
-              <p className="text-[13px] text-neutral-400 mb-5 leading-relaxed">{descriptions[plan.id] || ""}</p>
-
-              {/* CTA Button */}
-              <button
-                onClick={() => handlePlanAction(plan.id)}
-                disabled={isDisabled}
-                className={`relative w-full h-11 text-[14px] font-semibold rounded-xl transition-all duration-200 flex items-center justify-center gap-2 mb-6 cursor-pointer overflow-hidden ${
-                  isCurrentPlan
-                    ? "bg-[#f3f4f6] text-[#9ca3af] cursor-default"
-                    : (isCanceling && isFree) || isPendingPlan
-                      ? "bg-[#f3f4f6] text-[#6b7280] cursor-default"
-                      : isGrowth
-                        ? "bg-violet-600 hover:bg-violet-700 text-white"
-                        : "bg-white text-[#1a1a2e] border-[1.5px] border-neutral-200 hover:border-neutral-400"
-                }`}
-              >
-                {loading === plan.id ? <><Loader2 className="h-4 w-4 animate-spin" />Processing...</> : buttonLabel}
-              </button>
-
-              {/* Features */}
-              <ul className="flex flex-col gap-2.5 flex-1">
-                {(featureLists[plan.id] || []).map((feature: string, idx: number) => (
-                  <li key={idx} className="flex items-start gap-2.5 text-sm text-neutral-500">
-                    <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${isGrowth ? "bg-violet-600" : "bg-violet-50"}`}>
-                      <Check className={`h-3 w-3 ${isGrowth ? "text-white" : "text-violet-600"}`} strokeWidth={3} />
-                    </div>
-                    {feature}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )
-        })}
-      </div>
-      <div className="mt-5 text-center">
-        <Link href="/app/settings/billing/upgrade" className="inline-flex items-center gap-1.5 px-4 py-2 text-[13px] font-medium text-[#6b7280] hover:text-[#374151] bg-[#f9fafb] hover:bg-[#f3f4f6] border border-[#e5e7eb] rounded-lg transition-colors">
-          More Pricing
-          <ArrowUpRight className="h-3.5 w-3.5" />
-        </Link>
-      </div>
+      <h2 className="text-[17px] font-bold text-[#1a1a2e] mb-4">Plans</h2>
+      <PlanCards actions={{ free: actionFor("free"), growth: actionFor("growth") }} />
+      <p className="mt-4 text-[13px] leading-[1.5] text-[#6b7280]">{PLAN_FOOTNOTE}</p>
     </div>
   )
 }

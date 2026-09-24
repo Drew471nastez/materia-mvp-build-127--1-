@@ -1,6 +1,6 @@
 // ============================================================
 // Theme import — accepts a .storelib-export zip and creates a
-// new install (unpublished) for the current creator.
+// new install (a draft) for the current creator.
 // ------------------------------------------------------------
 // • parses manifest.json
 // • re-uploads every bundled image to the creator's storage bucket
@@ -8,7 +8,9 @@
 //   the newly uploaded URLs
 // • creates a fresh store_theme_installs row + settings + pages
 // ============================================================
-import { NextResponse } from "next/server"
+import { NextResponse, after } from "next/server"
+import { coverAfterCreate, isPackagedCover, renderOrigin, storeCover } from "@/lib/website-builder/cover-take"
+import { MAX_BYTES as SNAPSHOT_MAX_BYTES } from "@/lib/website-builder/snapshot"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { LIBRARY_FULL_MESSAGE, librarySlotsLeft } from "@/lib/website-builder/library-limit"
@@ -50,6 +52,9 @@ function rewriteUrls(node: unknown, urlMap: Record<string, string>): unknown {
 
 // POST /api/website-builder/themes/import
 // multipart/form-data with `file` field containing the zip
+/** A package is read and written at once; the new website's photograph is taken after, which needs a browser launch. */
+export const maxDuration = 60
+
 export async function POST(req: Request) {
   const supabase = await createClient()
   const admin = createAdminClient()
@@ -128,7 +133,11 @@ export async function POST(req: Request) {
      * several videos, and holding all of them in memory at once on a
      * serverless function is how an import of a real site fails.
      */
+    /* The cover the package carries is the card's picture, not a file for the creator's media. */
+    const coverRef = (pkg.theme.cover && typeof pkg.theme.cover === "object" ? pkg.theme.cover : {}) as { desktop?: unknown; phone?: unknown }
+    const coverHashes = new Set([coverRef.desktop, coverRef.phone].filter((h): h is string => typeof h === "string"))
     for (const [hash, asset] of Object.entries(pkg.assets)) {
+      if (coverHashes.has(hash)) continue
       /**
        * A reference that does not end up with a URL is CLEARED, not left
        * as `asset://<hash>` — a dangling reference reaches the renderer and
@@ -225,7 +234,8 @@ export async function POST(req: Request) {
         creator_id: creator.id,
         theme_id: themeId,
         name: installName,
-        status: "unpublished",
+        /* A draft: "unpublished" means a site that was live and was taken offline, and this one never was. */
+        status: "draft",
         sort_order: ((maxRow?.sort_order ?? -1) as number) + 1,
         is_custom: true,
       })
@@ -250,6 +260,23 @@ export async function POST(req: Request) {
       .filter(([path, content]) => DEFAULT_THEME_SOURCES[path] !== content)
       .map(([path, content]) => ({ install_id: created.id, path, content }))
     if (rows.length > 0) await admin.from("store_theme_custom_files").insert(rows)
+
+    /*
+      ITS COVER FROM THE START. The picture the package carried, straight
+      away, so the card shows this website and not a drawing of a theme's
+      sample shop; then a photograph of the imported website itself.
+    */
+    const owner = { installId: created.id as string, userId: user.id, creatorId: creator.id as string }
+    const desktop = typeof coverRef.desktop === "string" ? pkg.assets[coverRef.desktop]?.bytes : undefined
+    const phone = typeof coverRef.phone === "string" ? pkg.assets[coverRef.phone]?.bytes : undefined
+    if (desktop && isPackagedCover(desktop, SNAPSHOT_MAX_BYTES)) {
+      try {
+        await storeCover(owner, Buffer.from(desktop), phone && isPackagedCover(phone, SNAPSHOT_MAX_BYTES) ? Buffer.from(phone) : null)
+      } catch {
+        /* the photograph below still comes */
+      }
+    }
+    after(() => coverAfterCreate(owner, renderOrigin(req.url), "import"))
 
     return NextResponse.json({
       ok: true,
@@ -338,7 +365,7 @@ export async function POST(req: Request) {
     importedSettings._theme_pack = manifest.theme_pack
   }
 
-  // Create a new install (unpublished, sorted to the end)
+  // Create a new install (a draft, sorted to the end)
   const { data: maxRow } = await admin
     .from("store_theme_installs")
     .select("sort_order")
@@ -356,7 +383,7 @@ export async function POST(req: Request) {
       creator_id: creator.id,
       theme_id: manifest.install?.theme_id ?? null,
       name: installName,
-      status: "unpublished",
+      status: "draft",
       sort_order: nextOrder,
       is_custom: true,
     })
@@ -385,6 +412,9 @@ export async function POST(req: Request) {
         sections: p.sections,
       })))
   }
+
+  /* Photographed from the start, like every other way a website is made. */
+  after(() => coverAfterCreate({ installId: newInstall.id as string, userId: user.id, creatorId: creator.id as string }, renderOrigin(req.url), "import"))
 
   return NextResponse.json({ ok: true, install_id: newInstall.id, name: installName })
 }

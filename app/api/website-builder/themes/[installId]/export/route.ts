@@ -7,6 +7,7 @@
 //                        and section blocks, downloaded once
 //   manifest.json image_map field maps original_url -> images/<sha>.<ext>
 // ============================================================
+import { createAdminClient } from "@/lib/supabase/admin"
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import JSZip from "jszip"
@@ -28,6 +29,8 @@ import {
   type MediaKind,
 } from "@/lib/storelib-theme/media"
 import { THEME_FORMAT, THEME_FORMAT_VERSION } from "@/lib/storelib-theme/types"
+import { MAX_BYTES as SNAPSHOT_MAX_BYTES, SNAPSHOT_BUCKET, mobilePartner, snapshotFolder, snapshotsNewestFirst } from "@/lib/website-builder/snapshot"
+import { isPackagedCover } from "@/lib/website-builder/cover-take"
 
 type Params = { params: Promise<{ installId: string }> }
 
@@ -38,6 +41,38 @@ type Params = { params: Promise<{ installId: string }> }
 
 function safeFilename(name: string): string {
   return name.replace(/[^a-zA-Z0-9-_]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60) || "theme"
+}
+
+/** The install's newest cover pair as package assets, or nothing when it has none yet. */
+async function packagedCover(userId: string, installId: string): Promise<{ ref: { desktop: string; phone?: string } | null; assets: { hash: string; asset: PackageAsset }[] }> {
+  try {
+    const bucket = createAdminClient().storage.from(SNAPSHOT_BUCKET)
+    const folder = snapshotFolder(userId, installId)
+    const { data } = await bucket.list(folder, { limit: 100 })
+    const names = (data ?? []).map((f) => f.name)
+    const newest = snapshotsNewestFirst(names)[0]
+    if (!newest) return { ref: null, assets: [] }
+    const phone = mobilePartner(newest, names)
+    const read = async (name: string) => {
+      const { data: blob } = await bucket.download(`${folder}/${name}`)
+      return blob ? new Uint8Array(await blob.arrayBuffer()) : null
+    }
+    const out: { hash: string; asset: PackageAsset }[] = []
+    const desktop = await read(newest)
+    if (!desktop || !isPackagedCover(desktop, SNAPSHOT_MAX_BYTES)) return { ref: null, assets: [] }
+    const dHash = sha256(desktop)
+    out.push({ hash: dHash, asset: { bytes: desktop, filename: "cover-desktop.webp", mime_type: "image/webp" } })
+    let pHash: string | undefined
+    const mobile = phone ? await read(phone) : null
+    if (mobile && isPackagedCover(mobile, SNAPSHOT_MAX_BYTES)) {
+      pHash = sha256(mobile)
+      out.push({ hash: pHash, asset: { bytes: mobile, filename: "cover-phone.webp", mime_type: "image/webp" } })
+    }
+    return { ref: { desktop: dHash, ...(pHash ? { phone: pHash } : {}) }, assets: out }
+  } catch {
+    /* a package without a cover is still a whole theme */
+    return { ref: null, assets: [] }
+  }
 }
 
 // GET /api/website-builder/themes/[installId]/export
@@ -234,6 +269,17 @@ export async function GET(_req: Request, { params }: Params) {
   for (const [path, content] of Object.entries(DEFAULT_THEME_SOURCES)) files[path] = saved.get(path) ?? content
   for (const [path, content] of saved) if (path.endsWith(".storelib") && !(path in files)) files[path] = content
 
+  /*
+    THE COVER TRAVELS WITH THE THEME. The newest photograph of this website,
+    desktop and phone, goes in as two package assets and theme.json names
+    them, so whoever imports it (the creator again, or somebody else) sees
+    this website on the card from the first moment, not a drawing of a
+    theme's sample shop. The import photographs the new website as well, so
+    this picture is only ever the first one.
+  */
+  const cover = await packagedCover(user.id, installId)
+  for (const c of cover.assets) assets[c.hash] = c.asset
+
   const pkg = await buildPackage({
     theme: {
       format: THEME_FORMAT,
@@ -242,6 +288,7 @@ export async function GET(_req: Request, { params }: Params) {
       version: "1.0.0",
       engine: { min: 1 },
       source_theme_id: install.theme_id ?? undefined,
+      ...(cover.ref ? { cover: cover.ref } : {}),
     },
     files,
     assets,

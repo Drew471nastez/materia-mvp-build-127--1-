@@ -177,7 +177,7 @@ export const settingsDict: Record<"ro" | "en", Record<string, string>> = {
 
     // Domains tab
     "settings.upgradeForDomains": "Fă upgrade pentru domenii personalizate",
-    "settings.customDomainsPlans": "Domeniile personalizate sunt disponibile în planurile Growth și Pro.",
+    "settings.customDomainsPlans": "Domeniile personalizate sunt disponibile în planul Pro.",
     "settings.upgrade": "Fă upgrade",
     "settings.connectOwnDomain": "Conectează-ți propriul domeniu",
     "settings.connectDomainDescA": "Conectează un domeniu personalizat la magazinul și OnePage-ul tău. Magazinul tău va fi la",
@@ -662,7 +662,7 @@ export const settingsDict: Record<"ro" | "en", Record<string, string>> = {
 
     // Domains tab
     "settings.upgradeForDomains": "Upgrade for custom domains",
-    "settings.customDomainsPlans": "Custom domains are available on Growth & Pro plans.",
+    "settings.customDomainsPlans": "Custom domains are available on the Pro plan.",
     "settings.upgrade": "Upgrade",
     "settings.connectOwnDomain": "Connect your own domain",
     "settings.connectDomainDescA": "Connect a custom domain to your store and OnePage. Your store will be at",

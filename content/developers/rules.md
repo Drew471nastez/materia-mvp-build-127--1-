@@ -30,6 +30,19 @@ The creator edits a section in the builder's sidebar, as they would in Shopify. 
 
 The [navigation bar example](#a-header-done-properly) below does all of this.
 
+## Native, not pasted in
+
+A section an agent writes is checked before it is saved, and refused with the fix if it does not plug into the theme the way the built-in sections do. The same check runs for Storelib AI, Claude Code and Codex over MCP, the agent API, and a push from GitHub:
+
+- **Colour scheme.** A `color_scheme` setting, `data-scheme="{{ settings.color_scheme }}"` on the outermost element, and colours read from the scheme. No fixed colours, except white or black over a picture.
+- **Type.** No font names. Headings take `var(--section-heading-size)`, `var(--section-heading-weight)` and the theme's heading font.
+- **Buttons.** Painted from the scheme's button keys, with a `:hover` from its hover keys, so Theme settings › Buttons and the section's scheme apply.
+- **Spacing.** `padding_top` and `padding_bottom` range settings, used for the section's padding.
+- **Words, links and pictures.** Every one a setting or a block. Prompts inside `{% if page.in_editor %}` are fine.
+- **Phones.** Nothing wider than a phone without a `@container` rule that changes it.
+
+`storelib_run_tests` runs the same check, so a file that tests clean is a file that saves.
+
 ## 4. Copying a page from a screenshot
 
 When you are given a screenshot or a URL to copy:

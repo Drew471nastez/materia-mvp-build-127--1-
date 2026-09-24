@@ -35,12 +35,20 @@ import { sheetBottomReserve } from "@/lib/website-builder/sheet-reserve"
 import { cn } from "@/lib/utils"
 import { hapticTap } from "@/lib/native-bridge"
 import {
-  DRAG_THRESHOLD_PX,
+  COAST_STOP_SPEED,
+  HORIZONTAL_BIAS,
+  coastDistance,
+  coastVelocity,
+  curveCss,
   dragIntent,
+  dragPosition,
+  expandCarry,
+  handOffToSheet,
   offsetsFor,
   sheetHeightWithKeyboard,
+  sheetVelocityAt,
   releaseVelocity,
-  snapDuration,
+  snapMotion,
   snapTarget,
   type DragIntent,
   type Sample,
@@ -86,15 +94,55 @@ function keyboardWindow(): Window {
   return window
 }
 
+/**
+ * ===========================================================================
+ *  TWO PROBES FOR THE WHOLE PAGE, READ ONCE PER CHANGE
+ * ===========================================================================
+ * Both measurements below used to create an element, append it to the body,
+ * read its box and remove it, every time they were asked. Appending dirties
+ * the layout of the whole document, so each read was a full synchronous
+ * layout of the editor, and they were asked a lot: from a resize handler
+ * that was not coalesced into a frame, on every callback of the content-fit
+ * observer, and by each of the four sheets the editor mounts. Four sheets
+ * answering one rotation was four forced layouts before the first paint.
+ *
+ * Now there is one pair of hidden probes for the page, appended once and
+ * left in place, and the numbers are cached until something that can change
+ * them happens: a resize, a rotation, the visual viewport moving. Any number
+ * of sheets can ask in the same frame and the box is read at most once.
+ */
+const insetCache: { safe: number | null; gap: number | null } = { safe: null, gap: null }
+let insetProbes: { safe: HTMLElement; gap: HTMLElement } | null = null
+
+function probes(): { safe: HTMLElement; gap: HTMLElement } {
+  if (insetProbes && insetProbes.safe.isConnected && insetProbes.gap.isConnected) return insetProbes
+  const make = (css: string) => {
+    const el = document.createElement("div")
+    el.setAttribute("aria-hidden", "true")
+    el.style.cssText = css
+    document.body.appendChild(el)
+    return el
+  }
+  insetProbes = {
+    safe: make("position:fixed;left:0;bottom:0;width:0;height:env(safe-area-inset-bottom,0px);visibility:hidden;pointer-events:none"),
+    gap: make("position:fixed;left:0;bottom:0;width:0;height:0;visibility:hidden;pointer-events:none"),
+  }
+  const forget = () => {
+    insetCache.safe = null
+    insetCache.gap = null
+  }
+  window.addEventListener("resize", forget)
+  window.addEventListener("orientationchange", forget)
+  window.visualViewport?.addEventListener("resize", forget)
+  window.visualViewport?.addEventListener("scroll", forget)
+  return insetProbes
+}
+
 /** The home-indicator inset, as a number, for sizing a content-fit sheet. */
 function safeAreaBottom(): number {
   if (typeof document === "undefined") return 0
-  const probe = document.createElement("div")
-  probe.style.cssText = "position:fixed;bottom:0;height:env(safe-area-inset-bottom,0px);visibility:hidden;pointer-events:none"
-  document.body.appendChild(probe)
-  const h = probe.getBoundingClientRect().height
-  probe.remove()
-  return h
+  if (insetCache.safe === null) insetCache.safe = probes().safe.getBoundingClientRect().height
+  return insetCache.safe
 }
 /**
  * How much of a bottom-anchored fixed element the browser's own bar covers.
@@ -109,16 +157,77 @@ function safeAreaBottom(): number {
  */
 function browserChromeGap(): number {
   if (typeof document === "undefined") return 0
-  const probe = document.createElement("div")
-  probe.style.cssText = "position:fixed;left:0;bottom:0;width:0;height:0;visibility:hidden;pointer-events:none"
-  document.body.appendChild(probe)
-  const containingBlockBottom = probe.getBoundingClientRect().top
-  probe.remove()
-  const visible = window.visualViewport?.height ?? window.innerHeight
-  return Math.max(0, Math.round(containingBlockBottom - visible))
+  if (insetCache.gap === null) {
+    const probe = probes().gap
+    const containingBlockBottom = probe.getBoundingClientRect().top
+    const visible = window.visualViewport?.height ?? window.innerHeight
+    insetCache.gap = Math.max(0, Math.round(containingBlockBottom - visible))
+  }
+  return insetCache.gap
+}
+
+/** Where the sheet actually is right now, a running transition included. */
+function paintedY(el: HTMLElement): number | null {
+  try {
+    const t = getComputedStyle(el).transform
+    if (!t || t === "none") return 0
+    return new DOMMatrixReadOnly(t).m42
+  } catch {
+    return null
+  }
+}
+
+function prefersReducedMotion(): boolean {
+  try {
+    return window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  } catch {
+    return false
+  }
+}
+
+/**
+ * The time an event happened, which is not the time its handler runs. A
+ * handler can run a frame late behind a busy main thread, and timing the
+ * finger by when the handler ran makes a steady drag look jerky and a late
+ * frame look like a flick. Old engines stamped events with the epoch rather
+ * than the page clock; those fall back to now.
+ */
+function eventTime(e: { timeStamp?: number } | null | undefined): number {
+  const t = e?.timeStamp
+  const now = performance.now()
+  if (typeof t !== "number" || !(t > 0) || t > now + 1000) return now
+  return t
+}
+
+/**
+ * Every scrollable box between the finger and the sheet, nearest first.
+ *
+ * "Scrollable" means it can actually scroll: `overflow-y-auto` on a box whose
+ * content fits is not something a person can scroll, and treating it as one
+ * would leave that part of the sheet undraggable for no reason.
+ */
+function scrollersUnder(target: EventTarget | null, sheet: HTMLElement | null): HTMLElement[] {
+  const out: HTMLElement[] = []
+  let node = target instanceof HTMLElement ? target : null
+  while (node && node !== sheet) {
+    const style = window.getComputedStyle(node)
+    const scrolls = /(auto|scroll|overlay)/.test(style.overflowY)
+    if (scrolls && node.scrollHeight > node.clientHeight + 1) out.push(node)
+    node = node.parentElement
+  }
+  return out
+}
+
+/** How far the content under the finger is from its top, all of it. */
+function chainScrollTop(chain: HTMLElement[]): number {
+  let sum = 0
+  for (const el of chain) sum += Math.max(0, el.scrollTop)
+  return sum
 }
 
 const SNAP_DURATION_MS = 360
+/** A sheet that moves for somebody who asked for less motion moves briefly. */
+const REDUCED_MOTION_MS = 180
 /**
  * iOS animates its keyboard in about a quarter of a second, and Android is
  * close enough. The sheet resizes over the same time so the two move
@@ -528,13 +637,24 @@ export function MobileEditorSheet({
     }
   }, [])
 
-  // The home indicator, on the only two events that can change it.
+  // The home indicator, on the only two events that can change it. Read in a
+  // frame rather than in the event: a rotation fires both, and the probe's
+  // cache is only forgotten by the listeners that run alongside this one.
   React.useEffect(() => {
-    const measure = () => setPeekInset(safeAreaBottom())
-    measure()
+    let frame = 0
+    const read = () => setPeekInset(safeAreaBottom())
+    const measure = () => {
+      if (frame) return
+      frame = requestAnimationFrame(() => {
+        frame = 0
+        read()
+      })
+    }
+    read()
     window.addEventListener("resize", measure)
     window.addEventListener("orientationchange", measure)
     return () => {
+      if (frame) cancelAnimationFrame(frame)
       window.removeEventListener("resize", measure)
       window.removeEventListener("orientationchange", measure)
     }
@@ -672,6 +792,9 @@ export function MobileEditorSheet({
   offsetsRef.current = offsets
   const onOpenChangeRef = React.useRef(onOpenChange)
   onOpenChangeRef.current = onOpenChange
+  /** Where the sheet belongs with nobody touching it, for resuming a caught move. */
+  const restYRef = React.useRef(0)
+  restYRef.current = open ? settledY : closedY
 
   const drag = React.useRef({
     startY: 0,
@@ -682,6 +805,8 @@ export function MobileEditorSheet({
     active: false,
     baseY: 0,
     currentY: 0,
+    /** Where the finger would put the sheet, before any resistance. */
+    rawY: 0,
     /**
      * Decided ONCE, on the first movement past the threshold, and kept for the
      * rest of the gesture. Re-deciding mid-drag is how a sheet snatches itself
@@ -690,27 +815,24 @@ export function MobileEditorSheet({
     intent: "undecided" as DragIntent,
     /** The scrollable thing under the finger, if there is one. */
     scroller: null as HTMLElement | null,
+    /** It and every scrollable box around it, nearest first. */
+    chain: [] as HTMLElement[],
+    /** The gesture was decided as sideways, so it stays the scroller's. */
+    horizontal: false,
+    /**
+     * The sheet is past a point where the list, not the sheet, takes the
+     * finger: the tallest stop when the sheet grew out of a list, or the
+     * place a scroll handed over to it. Beyond `base` the list is scrolled by
+     * hand from `from`, unless the browser already owns the scroll
+     * (`byHand` false), in which case the sheet simply stops at `base`. Null
+     * when there is no such point.
+     */
+    carry: null as null | { base: number; from: number; byHand: boolean },
+    /** The finger landed on a sheet that was still moving and stopped it. */
+    caught: false,
     /** Recent positions, for the release speed. */
     samples: [] as Sample[],
   })
-
-  /**
-   * The nearest scrollable ancestor between the touch and the sheet.
-   *
-   * "Scrollable" means it can actually scroll — `overflow-y-auto` on a box
-   * whose content fits is not something a person can scroll, and treating it
-   * as one would leave that part of the sheet undraggable for no reason.
-   */
-  const scrollerUnder = (target: EventTarget | null): HTMLElement | null => {
-    let node = target instanceof HTMLElement ? target : null
-    while (node && node !== sheetRef.current) {
-      const style = window.getComputedStyle(node)
-      const scrolls = /(auto|scroll|overlay)/.test(style.overflowY)
-      if (scrolls && node.scrollHeight > node.clientHeight + 1) return node
-      node = node.parentElement
-    }
-    return null
-  }
 
   /**
    * ONE WRITE PER FRAME.
@@ -792,28 +914,43 @@ export function MobileEditorSheet({
   }, [fit])
 
   /**
+   * ═══════════════════════════════════════════════════════════════════════════
+   *  AND NOT IN THE FRAME THE SHEET STARTS MOVING, EITHER
+   * ═══════════════════════════════════════════════════════════════════════════
+   * Taking the room out of the drag was half of it. The snap still wrote it,
+   * in the same breath as the transform that starts the snap, so the first
+   * frame of every release carried a layout of the scroller's whole content
+   * before the compositor could begin the move. On a phone that frame is the
+   * one a person watches most closely: it is where the sheet leaves the
+   * finger.
+   *
+   * So the room is written once the move has finished. Nothing is lost by
+   * waiting: during the move the sheet is going somewhere, and the room is
+   * only for somebody scrolling a sheet that has arrived. `motionUntil` is
+   * when the current move ends; a write asked for before then waits for it.
+   */
+  const motionUntil = React.useRef(0)
+  const roomTimer = React.useRef(0)
+  const scheduleRoom = React.useCallback((y: number) => {
+    window.clearTimeout(roomTimer.current)
+    const wait = motionUntil.current - performance.now()
+    if (wait <= 0) {
+      layoutHiddenRoom(y)
+      return
+    }
+    roomTimer.current = window.setTimeout(() => {
+      // A finger that has since taken the sheet will settle it again, and
+      // that settle writes the room for wherever it ends up.
+      if (drag.current.active && drag.current.intent === "sheet") return
+      layoutHiddenRoom(y)
+    }, wait + 34)
+  }, [layoutHiddenRoom])
+
+  /**
    * The snap has to land exactly, so it writes straight through: a queued rAF
    * carrying the last DRAG position would fire after the transition had been
    * turned on and animate the sheet back to where the finger was.
    */
-  /*
-    The sheet also comes to rest without a finger — opening, closing, the
-    keyboard arriving, a stop being re-measured on rotate — and none of those
-    go through the snap. This is the other half of `layoutHiddenRoom`: while a
-    finger is down it stays out of the way, and the moment there is none the
-    room under the content is brought up to date.
-
-    IT LIVES UP HERE, ABOVE `if (!mounted) return null`, and that is not
-    tidiness. Put below it, this hook runs on every render after the first and
-    on none before, which is a different number of hooks between two renders —
-    React error #310, the whole sheet gone, and it is invisible in a diff. The
-    probe caught it as a sheet that never mounted.
-  */
-  React.useEffect(() => {
-    if (drag.current.active) return
-    layoutHiddenRoom(open ? settledY : closedY)
-  }, [open, settledY, closedY, layoutHiddenRoom])
-
   const applyTransformNow = (y: number) => {
     if (rafId.current) {
       cancelAnimationFrame(rafId.current)
@@ -821,12 +958,39 @@ export function MobileEditorSheet({
     }
     pendingY.current = null
     writeTransform(y)
-    /* Landed, so the room under the content is the room it will keep. */
-    layoutHiddenRoom(y)
+  }
+
+  /**
+   * ═══════════════════════════════════════════════════════════════════════════
+   *  A KEYBOARD RESIZE IS A MOVE, SO IT IS ANIMATED AS ONE
+   * ═══════════════════════════════════════════════════════════════════════════
+   * The sheet grows by the keyboard's height and shrinks back when it goes
+   * (see sheetHeightWithKeyboard), and a content-fit sheet grows when its
+   * content does. Both used to be a CSS transition on `height` and
+   * `padding-bottom`, which is a layout of the sheet and everything in it on
+   * every frame of the change, on the phones least able to afford it.
+   *
+   * The same move, done the way a transform-only animation does it: the new
+   * height is laid out ONCE, and in the same frame the sheet is put back where
+   * its top edge was by a translate of the difference. Then that translate is
+   * animated away on the compositor. The top edge travels exactly as it did
+   * when the height was being animated, and the content box, which is height
+   * minus padding and changes by neither, is never laid out again.
+   *
+   * Not while a finger is on the sheet, which owns the transform, and not
+   * while another move is running, which it would cut short.
+   */
+  const lastHeight = React.useRef<number | null>(null)
+  const resizeMove = React.useRef<Animation | null>(null)
+  const stopResizeMove = () => {
+    resizeMove.current?.cancel()
+    resizeMove.current = null
   }
 
   React.useEffect(() => () => {
     if (rafId.current) cancelAnimationFrame(rafId.current)
+    window.clearTimeout(roomTimer.current)
+    stopResizeMove()
   }, [])
 
   /**
@@ -861,10 +1025,10 @@ export function MobileEditorSheet({
     overlay.style.pointerEvents = nowOpen ? "auto" : "none"
   }
 
-  const setTransition = (on: boolean, ms: number = SNAP_DURATION_MS) => {
+  const setTransition = (on: boolean, ms: number = SNAP_DURATION_MS, easing: string = SNAP_EASING) => {
     const sheet = sheetRef.current
     const overlay = overlayRef.current
-    const value = on ? `transform ${ms}ms ${SNAP_EASING}` : "none"
+    const value = on ? `transform ${ms}ms ${easing}` : "none"
     const overlayValue = on ? `opacity ${fadeMs(ms)}ms ${FADE_EASING}` : "none"
     if (sheet) sheet.style.transition = value
     if (overlay) overlay.style.transition = overlayValue
@@ -887,12 +1051,121 @@ export function MobileEditorSheet({
       return
     }
     hideTimer.current = window.setTimeout(() => {
-      if (!openRef.current && !drag.current.active && sheetRef.current) {
+      // A drag that closed the sheet has not told the page yet (see
+      // `beginSettle`), so what the settle is heading for is the answer.
+      const staysOpen = settle.current.active ? settle.current.nowOpen : openRef.current
+      if (!staysOpen && !drag.current.active && sheetRef.current) {
         sheetRef.current.style.visibility = "hidden"
       }
     }, afterMs + 20)
   }
   React.useEffect(() => () => window.clearTimeout(hideTimer.current), [])
+
+  /** Short, and on the house curve, for somebody who asked for less motion. */
+  const motionMs = (ms: number) => (prefersReducedMotion() ? Math.min(ms, REDUCED_MOTION_MS) : ms)
+
+  /**
+   * ═══════════════════════════════════════════════════════════════════════════
+   *  THE PAGE HEARS ABOUT A RELEASE WHEN THE SHEET HAS ARRIVED
+   * ═══════════════════════════════════════════════════════════════════════════
+   * A release used to do three things in the handler that started the snap:
+   * store the stop it was heading for (a render of the sheet), tell the page
+   * whether it was now open (a render of the page, which for the Sections
+   * sheet is the whole nine-thousand-line editor), and write the room under
+   * the content (a layout). React flushes an update made inside a touch
+   * handler before the browser gets to paint, so all of that ran between the
+   * finger lifting and the first frame of the snap. On a slow phone that is
+   * the hitch at the exact moment the sheet should be carrying on at the
+   * finger's speed.
+   *
+   * None of it changes what is on screen. The transform and the backdrop are
+   * written by hand and the compositor runs the move by itself, so the rest
+   * waits until the move has finished: `transitionend` for the sheet's own
+   * transform, with a timer behind it, because a transition that does not
+   * run (a release exactly on a stop, a tab in the background) never ends.
+   *
+   * Until then, `settle` is what the sheet is doing, and the render and the
+   * effects below read it instead of props that have not caught up yet.
+   */
+  const settle = React.useRef({
+    active: false,
+    targetY: 0,
+    index: 0,
+    nowOpen: false,
+    /** What the page said when the release began; a different answer since is the page's own. */
+    openAtStart: false,
+    stop: null as null | (() => void),
+  })
+  /** Bumped when a settle finishes, so the sync below runs with what the page decided. */
+  const [settleTick, setSettleTick] = React.useState(0)
+
+  const finishSettle = (tellPage = true) => {
+    const s = settle.current
+    if (!s.active) return
+    s.stop?.()
+    s.stop = null
+    s.active = false
+    const { index, nowOpen, targetY } = s
+    /* Arrived, so the room under the content is the room it will keep. */
+    layoutHiddenRoom(targetY)
+    if (!tellPage) return
+    /* Where it came to rest, so the next render draws it there. */
+    setRestIndex(nowOpen ? index : null)
+    if (nowOpen !== openRef.current) onOpenChangeRef.current(nowOpen)
+    setSettleTick((n) => n + 1)
+  }
+
+  const beginSettle = (targetY: number, index: number, nowOpen: boolean, ms: number, openAtStart = openRef.current) => {
+    settle.current.stop?.()
+    const sheet = sheetRef.current
+    const onEnd = (e: TransitionEvent) => {
+      if (e.target === sheet && e.propertyName === "transform") finishSettle()
+    }
+    sheet?.addEventListener("transitionend", onEnd)
+    const timer = window.setTimeout(() => finishSettle(), ms + 60)
+    settle.current = {
+      active: true,
+      targetY,
+      index,
+      nowOpen,
+      openAtStart,
+      stop: () => {
+        sheet?.removeEventListener("transitionend", onEnd)
+        window.clearTimeout(timer)
+      },
+    }
+  }
+  React.useEffect(() => () => settle.current.stop?.(), [])
+
+  /**
+   * A LIST LET GO WHILE THE SHEET WAS FEEDING IT KEEPS GOING.
+   *
+   * When the sheet grows out of a list and the finger carries on into it, the
+   * list is scrolled by hand (the browser was told the gesture is the
+   * sheet's), so on release nothing gives it the glide a native scroll would
+   * have. This does, with the same deceleration: see `coastDistance`.
+   */
+  const coastFrame = React.useRef(0)
+  const stopCoast = () => {
+    if (coastFrame.current) cancelAnimationFrame(coastFrame.current)
+    coastFrame.current = 0
+  }
+  const coast = (el: HTMLElement, speed: number) => {
+    stopCoast()
+    if (Math.abs(speed) < COAST_STOP_SPEED) return
+    const from = el.scrollTop
+    const max = el.scrollHeight - el.clientHeight
+    const t0 = performance.now()
+    const tick = (now: number) => {
+      const ms = Math.max(0, now - t0)
+      const want = from + coastDistance(speed, ms)
+      el.scrollTop = want
+      const done = Math.abs(coastVelocity(speed, ms)) < COAST_STOP_SPEED || want <= 0 || want >= max
+      coastFrame.current = done ? 0 : requestAnimationFrame(tick)
+    }
+    coastFrame.current = requestAnimationFrame(tick)
+  }
+  React.useEffect(() => () => stopCoast(), [])
 
   /**
    * ===========================================================================
@@ -962,21 +1235,124 @@ export function MobileEditorSheet({
    * The early return is for the frame after a drag lands: `endDrag` has
    * already animated the sheet to exactly this offset on its own duration,
    * and re-applying it here would overwrite that with the default one.
+   *
+   * While a release is settling the page has not been told yet, so `open`
+   * and `settledY` still describe where the sheet WAS; moving to them would
+   * drag it back mid-flight. The settle bumps `settleTick` when it finishes
+   * and this runs again with the page's answer, which is also how a page that
+   * refuses to let the sheet close gets it back. The one thing that cuts a
+   * settle short is the page changing `open` by itself in the meantime: a
+   * tab or a button outranks a sheet that is still coasting.
    */
   React.useEffect(() => {
     if (drag.current.active) return
+    if (settle.current.active) {
+      if (open === settle.current.openAtStart) return
+      finishSettle(false)
+    }
     const target = open ? settledY : closedY
     if (drag.current.currentY === target) return
-    setTransition(true)
+    stopResizeMove()
+    const ms = motionMs(SNAP_DURATION_MS)
+    setTransition(true, ms)
     drag.current.currentY = target
-    settleVisibility(open)
+    motionUntil.current = performance.now() + ms
+    settleVisibility(open, ms)
     applyTransformNow(target)
     settleOverlay(open)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, settledY, closedY])
+  }, [open, settledY, closedY, settleTick])
 
-  const startDrag = (clientY: number, clientX = 0, target: EventTarget | null = null, immediate = false) => {
-    const now = performance.now()
+  /*
+    The sheet also comes to rest without a finger — opening, closing, the
+    keyboard arriving, a stop being re-measured on rotate — and none of those
+    go through the snap. This is the other half of `layoutHiddenRoom`: while a
+    finger is down it stays out of the way, and the moment there is none the
+    room under the content is brought up to date, once the move above has
+    finished (see `scheduleRoom`). After that effect, so the move it may just
+    have started is the one this waits for.
+
+    IT LIVES UP HERE, ABOVE `if (!mounted) return null`, and that is not
+    tidiness. Put below it, this hook runs on every render after the first and
+    on none before, which is a different number of hooks between two renders —
+    React error #310, the whole sheet gone, and it is invisible in a diff. The
+    probe caught it as a sheet that never mounted.
+  */
+  React.useEffect(() => {
+    if (drag.current.active || settle.current.active) return
+    scheduleRoom(open ? settledY : closedY)
+  }, [open, settledY, closedY, scheduleRoom])
+
+  /* The resize move described above `lastHeight`. Before paint, so the frame
+     with the new height is also the frame with the compensating translate. */
+  React.useLayoutEffect(() => {
+    const sheet = sheetRef.current
+    const prev = lastHeight.current
+    lastHeight.current = height
+    // No real previous height is a first layout, not a resize.
+    if (!sheet || prev === null || prev <= 0 || prev === height) return
+    if (drag.current.active || settle.current.active || !openRef.current) return
+    if (performance.now() < motionUntil.current || typeof sheet.animate !== "function") return
+    const y = drag.current.currentY
+    const ms = motionMs(KEYBOARD_MS)
+    stopResizeMove()
+    resizeMove.current = sheet.animate(
+      [{ transform: `translateY(${y + height - prev}px)` }, { transform: `translateY(${y}px)` }],
+      { duration: ms, easing: SNAP_EASING },
+    )
+    motionUntil.current = performance.now() + ms
+  }, [height])
+
+  /*
+    THE SKIRT. Two things can leave a strip of screen under the sheet's bottom
+    edge for a moment: the rubber band past the tallest stop lifts it, and a
+    keyboard closing shrinks it a frame before the keyboard has gone. The
+    sheet's own shadow list carries a solid copy of it, one sheet-height
+    below, in its own background colour, so what shows in that strip is more
+    sheet. It is read from the element because Publish paints its sheet a
+    different colour from the rest.
+  */
+  React.useLayoutEffect(() => {
+    const sheet = sheetRef.current
+    if (!sheet) return
+    sheet.style.setProperty("--wb-sheet-skirt", getComputedStyle(sheet).backgroundColor)
+  }, [mounted, className])
+
+  const startDrag = (
+    clientY: number,
+    clientX = 0,
+    target: EventTarget | null = null,
+    immediate = false,
+    now: number = performance.now(),
+  ) => {
+    stopCoast()
+    const sheet = sheetRef.current
+    /**
+     * ===================================================================
+     *  A SHEET CAUGHT MID-MOVE STAYS UNDER THE FINGER
+     * ===================================================================
+     * Turning the transition off below, while a snap or an open is still
+     * running, ends it on the spot: the sheet jumps to wherever it was
+     * heading, out from under the finger that just landed on it. A native
+     * sheet can be caught in flight, so this one reads where the move has
+     * actually got to and holds it there. One style read, only while a move
+     * is running.
+     */
+    let caught = false
+    if (sheet && performance.now() < motionUntil.current) {
+      const y = paintedY(sheet)
+      if (y !== null) {
+        caught = true
+        drag.current.currentY = y
+      }
+    }
+    motionUntil.current = 0
+    stopResizeMove()
+    /* A settle in progress is paused, not dropped: `endDrag` either replaces
+       it with a new one or picks it back up. */
+    settle.current.stop?.()
+    settle.current.stop = null
+
     drag.current.startY = clientY
     drag.current.startX = clientX
     drag.current.lastY = clientY
@@ -989,7 +1365,11 @@ export function MobileEditorSheet({
      * itself first.
      */
     drag.current.intent = immediate ? "sheet" : "undecided"
-    drag.current.scroller = immediate ? null : scrollerUnder(target)
+    drag.current.chain = immediate ? [] : scrollersUnder(target, sheet)
+    drag.current.scroller = drag.current.chain[0] ?? null
+    drag.current.horizontal = false
+    drag.current.carry = null
+    drag.current.caught = caught
     drag.current.active = true
     /**
      * Measured from where the sheet ACTUALLY IS, not from whether it is
@@ -997,32 +1377,50 @@ export function MobileEditorSheet({
      * dragged to full is open, and so is one sitting at half.
      */
     drag.current.baseY = drag.current.currentY
+    drag.current.rawY = drag.current.currentY
     setTransition(false)
+    if (caught) applyTransformNow(drag.current.currentY)
     settleVisibility(true)
     const overlay = overlayRef.current
     if (overlay) overlay.style.pointerEvents = "none"
   }
 
-  const moveDrag = (clientY: number, clientX = drag.current.startX) => {
+  const moveDrag = (
+    clientY: number,
+    clientX = drag.current.startX,
+    now: number = performance.now(),
+    cancelable = true,
+  ) => {
     if (!drag.current.active) return
 
-    const now = performance.now()
+    const stepY = clientY - drag.current.lastY
     drag.current.samples.push({ y: clientY, t: now })
     // Enough for a 100ms window at any sane touch rate, and bounded so a long
     // drag does not grow an array for ever.
     if (drag.current.samples.length > 12) drag.current.samples.shift()
+
+    const list = offsetsRef.current
+    const top = list[0] ?? 0
+    const cY = list[list.length - 1]
 
     /**
      * ONE DECISION PER GESTURE. Until it is made, nothing moves — which is
      * what stops a tap on a button inside the sheet nudging it a pixel.
      */
     if (drag.current.intent === "undecided") {
+      const deltaX = clientX - drag.current.startX
+      const deltaY = clientY - drag.current.startY
       drag.current.intent = dragIntent({
-        deltaX: clientX - drag.current.startX,
-        deltaY: clientY - drag.current.startY,
-        scrollTop: drag.current.scroller?.scrollTop ?? 0,
+        deltaX,
+        deltaY,
+        scrollTop: chainScrollTop(drag.current.chain),
         hasScroller: !!drag.current.scroller,
+        /* Growing out of a list only while the browser still lets the sheet
+           have the gesture; a move it has already started scrolling cannot
+           be taken back, and the two would move at once. */
+        canExpand: cancelable && drag.current.currentY > top + 1,
       })
+      drag.current.horizontal = Math.abs(deltaX) > Math.abs(deltaY) * HORIZONTAL_BIAS
       /**
        * The drag starts from where the finger is NOW, not from where it
        * touched down: the threshold has already been travelled, and counting
@@ -1031,30 +1429,81 @@ export function MobileEditorSheet({
       if (drag.current.intent === "sheet") {
         drag.current.startY = clientY
         drag.current.startX = clientX
+        /* Grown out of a list: past the tallest stop the same finger scrolls it. */
+        if (drag.current.scroller && deltaY < 0) {
+          drag.current.carry = { base: top, from: drag.current.scroller.scrollTop, byHand: true }
+        }
       }
+    } else if (
+      drag.current.intent === "scroll" &&
+      drag.current.scroller &&
+      handOffToSheet({ scrollTop: chainScrollTop(drag.current.chain), stepY, horizontal: drag.current.horizontal })
+    ) {
+      /**
+       * The list has run out going this way and the finger has not. From
+       * here the sheet follows it, starting where the sheet is, so nothing
+       * jumps. If the finger turns back up past this point the list takes it
+       * again, by hand where the browser has let the sheet have the gesture;
+       * where it has not, the browser is still scrolling the list itself.
+       */
+      drag.current.intent = "sheet"
+      drag.current.startY = clientY
+      drag.current.startX = clientX
+      drag.current.baseY = drag.current.currentY
+      drag.current.carry = { base: drag.current.currentY, from: 0, byHand: cancelable }
     }
+    drag.current.lastY = clientY
+    drag.current.lastTime = now
     if (drag.current.intent !== "sheet") return
 
-    const list = offsetsRef.current
-    const cY = list[list.length - 1]
-    let nextY = drag.current.baseY + (clientY - drag.current.startY)
-    // Rubber-banding past either end, so the sheet feels attached to a finger
-    // rather than to a clamp.
-    if (nextY < 0) nextY = nextY / 3
-    if (nextY > cY) nextY = cY + (nextY - cY) / 3
-    drag.current.lastY = clientY
-    drag.current.lastTime = performance.now()
+    const raw = drag.current.baseY + (clientY - drag.current.startY)
+    drag.current.rawY = raw
+    let nextY: number
+    const carry = drag.current.carry
+    if (carry && drag.current.scroller) {
+      const { sheetY, scrollBy } = expandCarry(raw, carry.base)
+      nextY = Math.min(sheetY, cY)
+      if (carry.byHand) drag.current.scroller.scrollTop = carry.from + scrollBy
+    } else {
+      /* Resisting past the tallest stop, the same number the render reads. */
+      nextY = dragPosition(raw, top, cY)
+    }
     drag.current.currentY = nextY
-    applyTransform(Math.max(0, Math.min(nextY, cY)))
+    applyTransform(nextY)
   }
 
-  const endDrag = () => {
+  /**
+   * Picks up a move the finger interrupted and then turned out not to want:
+   * a tap, or a scroll, on a sheet that was still on its way somewhere.
+   */
+  const resumeMove = () => {
+    const s = settle.current
+    const target = s.active ? s.targetY : restYRef.current
+    const willBeOpen = s.active ? s.nowOpen : openRef.current
+    const ms = motionMs(snapMotion(target - drag.current.currentY, 0).ms)
+    setTransition(true, ms)
+    drag.current.currentY = target
+    applyTransformNow(target)
+    motionUntil.current = performance.now() + ms
+    settleVisibility(willBeOpen, ms)
+    settleOverlay(willBeOpen)
+    if (s.active) beginSettle(s.targetY, s.index, s.nowOpen, ms, s.openAtStart)
+    else scheduleRoom(target)
+  }
+
+  const endDrag = (now: number = performance.now()) => {
     if (!drag.current.active) return
     drag.current.active = false
 
     const wasDragging = drag.current.intent === "sheet"
+    const caught = drag.current.caught
+    const carry = drag.current.carry
+    const scroller = drag.current.scroller
     drag.current.intent = "undecided"
     drag.current.scroller = null
+    drag.current.chain = []
+    drag.current.carry = null
+    drag.current.caught = false
     /**
      * A gesture the sheet never took over is the scroller's business, and
      * snapping on it would move the sheet somebody was only reading in.
@@ -1067,14 +1516,25 @@ export function MobileEditorSheet({
     if (!wasDragging) {
       setTransition(true)
       settleOverlay(openRef.current)
+      if (caught) resumeMove()
+      else if (settle.current.active) finishSettle()
       return
     }
 
     const list = offsetsRef.current
-    const cY = list[list.length - 1]
+    const top = list[0] ?? 0
     const totalDelta = drag.current.lastY - drag.current.startY
-    const velocity = releaseVelocity(drag.current.samples)
-    const current = Math.max(0, Math.min(drag.current.currentY, cY))
+    const fingerVelocity = releaseVelocity(drag.current.samples, now)
+    /* Where the sheet is DRAWN, a rubber band included, so the snap starts
+       from the pixel the finger left it on. */
+    const current = drag.current.currentY
+    /**
+     * Fed into a list: the sheet is sitting on its stop and the finger was
+     * moving the list, so the list gets the speed and the sheet stays put.
+     */
+    const intoList = !!carry && carry.byHand && !!scroller && drag.current.rawY < carry.base
+    if (intoList && scroller) coast(scroller, -fingerVelocity)
+    const velocity = intoList ? 0 : fingerVelocity
 
     /**
      * Nearest stop, then one further if it was a flick.
@@ -1087,22 +1547,23 @@ export function MobileEditorSheet({
     const index = snapTarget({ offsets: list, current, velocity, totalDelta })
     const targetY = list[index]
     /**
-     * Timed by how far it has to go and how fast it was already going. A fixed
-     * duration made closing from the peek — seventy pixels — take exactly as
-     * long as opening from shut, and turned a fast flick into a slow crawl the
-     * moment the finger lifted.
+     * Timed and curved so the sheet leaves at the speed it was moving: the
+     * finger's, or a fraction of it past the tallest stop where the sheet was
+     * only following at a rubber band's rate. See `snapMotion`.
      */
-    const ms = snapDuration(targetY - current, velocity)
-    setTransition(true, ms)
+    const motion = snapMotion(targetY - current, sheetVelocityAt(drag.current.rawY, top, velocity))
+    const reduce = prefersReducedMotion()
+    const ms = reduce ? Math.min(motion.ms, REDUCED_MOTION_MS) : motion.ms
+    setTransition(true, ms, reduce ? SNAP_EASING : curveCss(motion.curve))
     drag.current.currentY = targetY
     applyTransformNow(targetY)
+    motionUntil.current = performance.now() + ms
 
     const nowOpen = index < list.length - 1
-    /* Where it came to rest, so the next render draws it there. */
-    setRestIndex(nowOpen ? index : null)
     settleVisibility(nowOpen, ms)
     settleOverlay(nowOpen)
-    if (nowOpen !== openRef.current) onOpenChangeRef.current(nowOpen)
+    /* The rest of what a release means is told once the sheet has arrived. */
+    beginSettle(targetY, index, nowOpen, ms)
   }
 
   /**
@@ -1128,7 +1589,7 @@ export function MobileEditorSheet({
       // A pinch is not a drag. Anything already in flight is abandoned rather
       // than left half-owned by a finger that has stopped reporting.
       if (e.touches.length !== 1) {
-        if (drag.current.active) endDrag()
+        if (drag.current.active) endDrag(eventTime(e))
         return
       }
       /**
@@ -1153,13 +1614,14 @@ export function MobileEditorSheet({
       if ((e.target as HTMLElement | null)?.closest?.("[data-sheet-no-drag]")) return
       const touch = e.touches[0]
       const onHandle = !!handleRef.current?.contains(e.target as Node)
-      startDrag(touch.clientY, touch.clientX, e.target, onHandle)
+      startDrag(touch.clientY, touch.clientX, e.target, onHandle, eventTime(e))
     }
 
     const onMove = (e: TouchEvent) => {
       if (!drag.current.active || e.touches.length !== 1) return
       const touch = e.touches[0]
-      moveDrag(touch.clientY, touch.clientX)
+      /* Timed by when the finger was there, not when this ran; see eventTime. */
+      moveDrag(touch.clientY, touch.clientX, eventTime(e), e.cancelable)
       /**
        * Only once the sheet owns the gesture. Calling this on an undecided or
        * scrolling touch would kill scrolling inside the sheet entirely, which
@@ -1168,8 +1630,8 @@ export function MobileEditorSheet({
       if (drag.current.intent === "sheet" && e.cancelable) e.preventDefault()
     }
 
-    const onEnd = () => {
-      if (drag.current.active) endDrag()
+    const onEnd = (e: TouchEvent) => {
+      if (drag.current.active) endDrag(eventTime(e))
     }
 
     sheet.addEventListener("touchstart", onStart, { passive: true })
@@ -1217,10 +1679,10 @@ export function MobileEditorSheet({
   // Global mouse listeners, so a mouseup outside the handle still ends a drag.
   React.useEffect(() => {
     const onMove = (e: MouseEvent) => {
-      if (drag.current.active) moveDrag(e.clientY)
+      if (drag.current.active) moveDrag(e.clientY, drag.current.startX, eventTime(e))
     }
-    const onUp = () => {
-      if (drag.current.active) endDrag()
+    const onUp = (e: MouseEvent) => {
+      if (drag.current.active) endDrag(eventTime(e))
     }
     window.addEventListener("mousemove", onMove)
     window.addEventListener("mouseup", onUp)
@@ -1266,16 +1728,22 @@ export function MobileEditorSheet({
    * Mid-gesture React writes exactly what the imperative path already wrote,
    * which is a no-op; at rest it writes the state's position with the
    * transition back on, which is how a sheet opens and closes.
+   *
+   * A release that is still settling counts as held, for the same reason:
+   * the page has not been told where the sheet went, so the state it renders
+   * from still describes where it was.
    */
   const dragging = drag.current.active
+  const held = dragging || settle.current.active
+  const renderOpen = settle.current.active ? settle.current.nowOpen : open
   const closedOffset = offsets[offsets.length - 1] ?? 0
-  const renderY = dragging ? drag.current.currentY : open ? settledY : closedY
+  const renderY = held ? drag.current.currentY : open ? settledY : closedY
 
   const renderOpacity = dragging
     ? closedOffset > 0
       ? Math.max(0, Math.min(1, 1 - renderY / closedOffset))
       : 0
-    : open
+    : renderOpen
       ? 1
       : 0
   /**
@@ -1288,19 +1756,13 @@ export function MobileEditorSheet({
    * its own 250ms slide, and for a quarter of a second there was a sheet
    * sitting above a keyboard that was still there.
    *
-   * `height` is a layout property and animating it is not free — it is a
-   * layout per frame on this one element, where `transform` is a composited
-   * move on none. It is worth it here and only here: a sheet is a single box
-   * with a scroller in it, the change is 250ms at the end of a gesture
-   * nobody is making, and the alternative is the snap. The drag itself is
-   * still pure transform, which is the part that has to hold 60 and does.
-   *
-   * KEYBOARD_MS matches the platform's own keyboard animation rather than
-   * the sheet's snap, because what this is keeping time with is the keyboard.
+   * It then moved by transitioning `height` and `padding-bottom`, which is a
+   * layout of the sheet and its contents on every frame of the keyboard.
+   * It still moves, over KEYBOARD_MS to keep time with the keyboard, but as
+   * a transform: see the resize move above `lastHeight`. The only property
+   * this transitions is the one the compositor can run on its own.
    */
-  const motion = dragging
-    ? "none"
-    : `transform ${SNAP_DURATION_MS}ms ${SNAP_EASING}, height ${KEYBOARD_MS}ms ${SNAP_EASING}, padding-bottom ${KEYBOARD_MS}ms ${SNAP_EASING}`
+  const motion = dragging ? "none" : `transform ${SNAP_DURATION_MS}ms ${SNAP_EASING}`
   const fade = dragging ? "none" : `opacity ${FADE_MS}ms ${FADE_EASING}`
 
   return createPortal(
@@ -1327,7 +1789,7 @@ export function MobileEditorSheet({
            * see closes the sheet when tapped, as before; one you cannot see
            * is not there at all.
            */
-          pointerEvents: open && renderOpacity > 0.01 ? "auto" : "none",
+          pointerEvents: renderOpen && renderOpacity > 0.01 ? "auto" : "none",
           transition: fade,
           // Its own layer, so fading it is a compositor job and not a repaint
           // of everything under it on every frame.
@@ -1346,7 +1808,7 @@ export function MobileEditorSheet({
          */
         data-mobile-bottom-sheet=""
         className={cn(
-          "fixed left-0 right-0 bottom-0 flex flex-col overflow-hidden rounded-t-[20px] bg-background shadow-[0_-12px_40px_-12px_rgba(17,24,39,0.22)]",
+          "fixed left-0 right-0 bottom-0 flex flex-col overflow-hidden rounded-t-[20px] bg-background",
           className,
         )}
         style={{
@@ -1361,6 +1823,14 @@ export function MobileEditorSheet({
           transform: `translateY(${renderY}px)`,
           transition: motion,
           willChange: "transform",
+          /**
+           * The soft shadow the sheet always had, and under it the skirt
+           * (see `--wb-sheet-skirt` above): a solid copy of the sheet one
+           * sheet-height down, so a strip opened under it by a rubber band
+           * or a closing keyboard is more sheet and not the canvas. Inline
+           * so it lives with the height it depends on.
+           */
+          boxShadow: `0 -12px 40px -12px rgba(17,24,39,0.22), 0 ${height}px 0 0 var(--wb-sheet-skirt, transparent)`,
           /**
            * Painted on its own, so moving it never repaints the canvas under
            * it, and nothing under it is repainted when its contents change.
@@ -1383,18 +1853,25 @@ export function MobileEditorSheet({
            * native scrolling inside the sheet — smooth, momentum-carrying,
            * compositor-driven scrolling that no JS reimplementation matches.
            * The arbitration only takes the gestures that are the sheet's.
+           * The grab bar is the exception, below.
            */
           touchAction: "pan-y",
         }}
       >
+        {/* THE GRAB BAR PANS NOTHING. A touch here is a drag and nothing
+            else, so the browser is told not to start a pan of its own from
+            it. With `pan-y` inherited, Android's Chrome could begin one
+            before the first move reached the sheet, and from then on every
+            move arrives uncancellable and the page underneath gets to
+            rubber-band while the sheet is dragged. */}
         <div
           ref={handleRef}
-          className="flex shrink-0 cursor-grab select-none justify-center bg-inherit pb-1.5 pt-2.5 active:cursor-grabbing"
+          className="flex shrink-0 cursor-grab touch-none select-none justify-center bg-inherit pb-1.5 pt-2.5 active:cursor-grabbing"
           onMouseDown={(e) => {
             e.preventDefault()
             // A mouse is unambiguous — there is no scroll gesture to confuse
             // it with — so it drags immediately, as it always did.
-            startDrag(e.clientY, e.clientX, e.target, true)
+            startDrag(e.clientY, e.clientX, e.target, true, eventTime(e))
           }}
         >
           <div className="h-1 w-10 rounded-full bg-muted-foreground/30" />

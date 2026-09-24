@@ -16,8 +16,9 @@ const FREE_PLAN = {
 
 const GROWTH_PLAN = {
   id: "growth",
-  name: "Growth",
-  price_cents: 2990,
+  // Sold as "Pro". The id stays "growth": it is the $29 Stripe price.
+  name: "Pro",
+  price_cents: 2900,
   billing_period: "month",
   fee_percent: 0.03,
   fee_fixed_cents: 25,
@@ -27,6 +28,7 @@ const GROWTH_PLAN = {
 
 const PRO_PLAN = {
   id: "pro",
+  // The earlier $99 plan. No longer offered; kept so its subscribers still resolve.
   name: "Pro",
   price_cents: 9900,
   billing_period: "month",

@@ -25,6 +25,7 @@ import { DESIGN_RULES, DESIGN_RULES_BRIEF } from "./design"
 import { FOLLOW_UP_RULES, INTENT_RULES } from "./intent"
 import { AUTHORING_ESSENTIALS, CORE_FORMAT } from "./knowledge"
 import { MINIMAL_EDIT_RULES, SOURCE_EDITING_RULES } from "./source-editing"
+import { INTEGRATION_CONTRACT } from "./integration"
 
 export { DESIGN_RULES, DESIGN_RULES_BRIEF, DESIGN_SYSTEM_RULES, RESPONSIVE_RULES, SETTINGS_RULES } from "./design"
 export { FOLLOW_UP_RULES, INTENT_RULES } from "./intent"
@@ -33,6 +34,7 @@ export { checkSectionQuality, describeQuality, qualityErrors, type QualityFindin
 export { MINIMAL_EDIT_RULES, SOURCE_EDITING_RULES } from "./source-editing"
 export { describeThemeForAuthoring, type ThemeContextInput } from "./theme-context"
 export { MAX_REPAIR_ATTEMPTS, validateSection, type Validation } from "./validate"
+export { INTEGRATION_CONTRACT, checkSectionIntegration } from "./integration"
 
 /**
  * THE QUALITY CONTRACT, as the model is told it.
@@ -64,7 +66,7 @@ export function writeSectionRules(): string {
 
 /** Changing a section file that already exists, including a repair. */
 export function editSectionRules(): string {
-  return [CORE_FORMAT, INTENT_RULES, MINIMAL_EDIT_RULES, SECTION_CONTRACT].join("\n\n")
+  return [CORE_FORMAT, INTENT_RULES, MINIMAL_EDIT_RULES, SECTION_CONTRACT, INTEGRATION_CONTRACT].join("\n\n")
 }
 
 /**

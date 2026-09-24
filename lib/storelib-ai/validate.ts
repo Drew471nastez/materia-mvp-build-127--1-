@@ -21,6 +21,7 @@
 import { compileSection } from "@/lib/storelib-theme/storelib/compile"
 import type { ThemeError } from "@/lib/storelib-theme/types"
 import { checkSectionQuality, describeQuality, qualityErrors, type QualityFinding } from "./quality"
+import { checkSectionIntegration } from "./integration"
 
 /** How many times a model may be asked to fix its own output before we stop. */
 export const MAX_REPAIR_ATTEMPTS = 3
@@ -41,7 +42,15 @@ const say = (errors: ThemeError[]) =>
  * along on a passing result so a caller can log them, and a file is not held
  * back from somebody because a heuristic over text had an opinion.
  */
-export function validateSection(source: string, opts: { path?: string; expectType?: string } = {}): Validation {
+/**
+ * `strict` is for a file an AGENT wrote: Storelib AI, Claude Code or Codex
+ * over MCP, the agent API, a push from a linked repository. It adds the
+ * integration rules (./integration.ts), which say a section takes its
+ * colours, type, buttons, spacing, words and links from the theme and the
+ * creator, the way the built-in ones do. A person saving in the code editor
+ * is not held to them.
+ */
+export function validateSection(source: string, opts: { path?: string; expectType?: string; strict?: boolean } = {}): Validation {
   const compiled = compileSection(source, { file: opts.path, expectType: opts.expectType })
   if (compiled.ok === false) {
     return {
@@ -52,7 +61,7 @@ export function validateSection(source: string, opts: { path?: string; expectTyp
     }
   }
 
-  const findings = checkSectionQuality(source)
+  const findings = opts.strict ? [...checkSectionQuality(source), ...checkSectionIntegration(source)] : checkSectionQuality(source)
   const errors = qualityErrors(findings)
   if (errors.length) {
     return {

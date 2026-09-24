@@ -8,6 +8,10 @@ import { SplitFeaturesSection } from "@/components/marketing/split-features-sect
 import { ToolStackSection } from "@/components/marketing/tool-stack-section"
 import { FaqSection } from "@/components/marketing/faq-section"
 import { CtaSection } from "@/components/marketing/cta-section"
+import { PRO_CHECKOUT_PLAN_ID } from "@/lib/billing/plans"
+
+/** Pro checkout sends the internal plan id "growth": the $29 Stripe price. */
+type CheckoutPlanId = typeof PRO_CHECKOUT_PLAN_ID
 
 export function PricingPageClient({
   source,
@@ -19,11 +23,11 @@ export function PricingPageClient({
   isLoggedIn?: boolean
 }) {
   const isUpgradeMode = source === "upgrade"
-  const [loadingPlan, setLoadingPlan] = useState<"growth" | "pro" | null>(null)
+  const [loadingPlan, setLoadingPlan] = useState<CheckoutPlanId | null>(null)
   const [checkoutError, setCheckoutError] = useState<string | null>(null)
 
   // Shared checkout handler — destination varies by mode
-  const handleCheckout = async (planId: "growth" | "pro", destination: string, cancelDestination: string) => {
+  const handleCheckout = async (planId: CheckoutPlanId, destination: string, cancelDestination: string) => {
     if (loadingPlan) return
     setCheckoutError(null)
     setLoadingPlan(planId)
@@ -55,7 +59,7 @@ export function PricingPageClient({
     dest.includes("?") ? `${dest}&plan_activated=1` : `${dest}?plan_activated=1`
 
   // Upgrade mode (coming from /app/onepage editor): return to the original page after checkout
-  const handleUpgradePlanSelect = (planId: "growth" | "pro") => {
+  const handleUpgradePlanSelect = (planId: CheckoutPlanId) => {
     const destination = returnTo || "/app"
     handleCheckout(
       planId,
@@ -65,7 +69,7 @@ export function PricingPageClient({
   }
 
   // Logged-in user on normal pricing page: go to /app after checkout
-  const handleLoggedInPlanSelect = (planId: "growth" | "pro") => {
+  const handleLoggedInPlanSelect = (planId: CheckoutPlanId) => {
     handleCheckout(planId, "/app?plan_activated=1", "/pricing")
   }
 
@@ -89,8 +93,8 @@ export function PricingPageClient({
       {/* PRICING */}
       <PricingSection
         hideDetailsLink
-        headingOverride={isUpgradeMode ? "Find the plan for you" : undefined}
-        subtitleOverride={isUpgradeMode ? "Simple, transparent pricing. You can cancel at any time." : undefined}
+        headingOverride={isUpgradeMode ? "Choose a plan" : undefined}
+        subtitleOverride={isUpgradeMode ? "Pro is $29 a month. Cancel at any time from Billing." : undefined}
         upgradeCallbacks={upgradeCallbacks}
       />
 

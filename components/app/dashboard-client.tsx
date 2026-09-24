@@ -668,7 +668,7 @@ function QuickAccessBottomSheet({
             if (url) openExternal(url)
             onClose()
           }}
-          icon={<div className="w-8 h-8 rounded-full bg-black flex items-center justify-center overflow-hidden"><img src={STORELIB_LOGO} alt="" width={20} height={20} className="w-5 h-5" loading="eager" decoding="async" /></div>}
+          icon={<img src={STORELIB_LOGO} alt="" width={32} height={32} className="w-8 h-8 shrink-0 object-contain" loading="eager" decoding="async" />}
         />
       </div>
     </BottomSheet>
@@ -1832,7 +1832,7 @@ export function DashboardClient({
                         onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { openExternal(publicStoreUrl || navStoreUrl); setIsProfileAccessOpen(false) } }}
                         className="w-full text-left rounded-xl p-3 hover:bg-[#f9fafb] transition-colors cursor-pointer group"
                       >
-                        <div className="flex items-center gap-2 text-[13px] font-semibold text-[#111827]"><span className="w-5 h-5 rounded-full bg-black flex items-center justify-center overflow-hidden"><img src={STORELIB_LOGO} alt="Storelib" width={14} height={14} className="w-3.5 h-3.5 object-contain" loading="eager" decoding="async" /></span>Creator page</div>
+                        <div className="flex items-center gap-2 text-[13px] font-semibold text-[#111827]"><img src={STORELIB_LOGO} alt="Storelib" width={20} height={20} className="w-5 h-5 shrink-0 object-contain" loading="eager" decoding="async" />Creator page</div>
                         <div className="mt-1 flex items-center justify-between gap-2"><p className="text-[11px] text-[#6b7280] truncate">{publicStoreUrl}</p><button type="button" onClick={(e) => { e.stopPropagation(); copyQuickAccessUrl("store") }} className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] transition-all ${copiedTarget === "store" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-[#e5e7eb] text-[#6b7280] bg-white"}`}>{copiedTarget === "store" ? <Check className="h-3 w-3" /> : <CopyLinkIcon className="h-3 w-3" />}{copiedTarget === "store" ? "Copied" : "Copy"}</button></div>
                       </div>
                       {/*
@@ -2085,7 +2085,7 @@ export function DashboardClient({
             <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-black/30" />
             <div className="relative z-10 px-5 py-5 sm:px-8 sm:py-6">
               {subscriptionPlanId === "growth" || subscriptionPlanId === "pro" ? (
-                /* Growth / Pro plan banner */
+                /* Pro plan banner (internal ids "growth" and the earlier "pro") */
                 <>
                   <p className="text-[16px] sm:text-[20px] font-medium text-white mb-1">Track what&apos;s working in real time</p>
                   <p className="text-[13px] sm:text-[14px] text-white/80 mb-3 sm:mb-4">Use your dashboard to optimize for more sales.</p>
@@ -2102,7 +2102,7 @@ export function DashboardClient({
               ) : (
                 <>
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="text-[13px] sm:text-[15px] font-semibold text-white">Growth plan</span>
+                    <span className="text-[13px] sm:text-[15px] font-semibold text-white">Pro plan</span>
                   </div>
                   <p className="text-[14px] sm:text-[16px] text-white/90 mb-3 sm:mb-4">3% fees instead of 6%, and 25 GB of storage instead of 1 GB.</p>
                   <div className="flex flex-wrap items-center gap-2 sm:gap-3">

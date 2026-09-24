@@ -275,11 +275,10 @@ export const HELP_ARTICLES: HelpArticle[] = [
       { type: "p", text: "Storelib takes a fee from each sale. The percentage depends on your plan, and $0.25 is added to every order of $3.00 or more." },
       { type: "table", head: ["Plan", "Per sale"], rows: [
         ["Free", "6% + $0.25"],
-        ["Growth", "3% + $0.25"],
-        ["Professional", "1.5% + $0.25"],
+        ["Pro", "3% + $0.25"],
       ] },
       { type: "p", text: "Orders under $3.00 pay the percentage only. For example, a $10 sale on the Free plan is a fee of $0.85, and a $1 sale is $0.06." },
-      { type: "p", text: "The paid plan's rate applies while its subscription is active. The Payouts page shows the fees taken in any period under Platform Fees. See [Plans](/help/account-and-billing/plans)." },
+      { type: "p", text: "The Pro rate applies while its subscription is active. If you subscribed to an earlier plan, you keep that plan's rate while it stays active. The Payouts page shows the fees taken in any period under Platform Fees. See [Plans](/help/account-and-billing/plans)." },
     ],
   },
   {
@@ -382,10 +381,10 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: "custom-domain",
     category: "website-builder",
     title: "Connect your own domain",
-    summary: "Point a domain you own at your Storelib website. Growth and Professional plans.",
+    summary: "Point a domain you own at your Storelib website. Part of the Pro plan.",
     keywords: ["domain", "custom domain", "dns", "cname", "a record", "ssl", "https", "www"],
     body: [
-      { type: "p", text: "Custom domains are part of the Growth and Professional plans." },
+      { type: "p", text: "Custom domains are part of the Pro plan." },
       { type: "steps", items: [
         "Open Settings from the menu under your profile picture, then the Domains tab.",
         "Add your domain, for example yourname.com.",
@@ -484,16 +483,20 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: "plans",
     category: "account-and-billing",
     title: "Plans",
-    summary: "Free, Growth and Professional, and what changes between them.",
+    summary: "Free and Pro, and what changes between them.",
     keywords: ["plan", "plans", "pricing", "free", "growth", "professional", "pro", "upgrade", "subscription", "price"],
     body: [
-      { type: "table", head: ["", "Free", "Growth", "Professional"], rows: [
-        ["Price", "$0", "$29 a month", "$99 a month"],
-        ["Fee per sale", "6% + $0.25", "3% + $0.25", "1.5% + $0.25"],
-        ["Custom domain", "No", "Yes", "Yes"],
-        ["Verified badge", "No", "Yes", "Yes"],
+      { type: "table", head: ["", "Free", "Pro"], rows: [
+        ["Price", "$0", "$29 a month"],
+        ["Fee per sale", "6% + $0.25", "3% + $0.25"],
+        ["Custom domain", "No", "Yes"],
+        ["Storelib branding", "Shown", "Can be removed"],
+        ["Verified badge", "No", "Yes"],
+        ["Websites", "2, with 5 pages each", "3, with 20 pages each"],
+        ["File storage", "1 GB", "25 GB"],
       ] },
-      { type: "p", text: "All plans can sell as many products as they like. The $0.25 applies to orders of $3.00 or more. See [What Storelib charges per sale](/help/orders-and-payouts/fees) and the [pricing page](/pricing) for the full list." },
+      { type: "p", text: "Both plans can sell as many products as they like. The $0.25 applies to orders of $3.00 or more. See [What Storelib charges per sale](/help/orders-and-payouts/fees) and the [pricing page](/pricing) for the full list." },
+      { type: "p", text: "If you subscribed to an earlier plan, it keeps working as it did until you change or cancel it." },
     ],
   },
   {
