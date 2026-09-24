@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import { usePathname } from "next/navigation"
-import { beginAppNavigation, markTraversal, NAV_BAR_AFTER_MS, useAppNavigation } from "@/lib/ui/app-navigation"
+import { beginAppNavigation, isPhoneShell, markTraversal, NAV_BAR_AFTER_MS, outlineDelay, useAppNavigation } from "@/lib/ui/app-navigation"
 
 /**
  * Fire this inside any onClick that calls router.push(), with the address,
@@ -70,9 +70,12 @@ export function NavigationLoadingBar() {
     }
   }, [])
 
-  /* Shown only once the navigation has lasted long enough to be worth showing. */
+  /* Shown only once the navigation has lasted long enough to be worth showing.
+     Not on a phone when the next page's outline is coming: the outline is the
+     answer there, and at 90ms it is already up (lib/ui/app-navigation). */
   useEffect(() => {
     if (!nav) return
+    if (isPhoneShell() && outlineDelay(nav.href, true) !== null) return
     const wait = Math.max(0, NAV_BAR_AFTER_MS - (performance.now() - nav.startedAt))
     const t = window.setTimeout(() => setShown(true), wait)
     return () => window.clearTimeout(t)

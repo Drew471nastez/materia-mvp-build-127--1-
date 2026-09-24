@@ -4,7 +4,6 @@ import AppDashboardLoading from "@/app/app/dashboard-skeleton"
 import AnalyticsLoading from "@/app/app/analytics/skeleton"
 import CouponsLoading from "@/app/app/coupons/skeleton"
 import ProductsLoading from "@/app/app/products/skeleton"
-import { EditorSkeleton } from "@/app/app/products/new/editor-skeleton"
 import FlowLoading from "@/app/app/emails/flow/flow-skeleton"
 import CreateCouponLoading from "@/app/app/coupons/new/skeleton"
 import OrdersLoading from "@/app/app/orders/sales/skeleton"
@@ -23,9 +22,11 @@ import WebsiteBuilderLoading from "@/app/app/website-builder/skeleton"
  * That is the skeleton on normal navigation the owner asked to be rid of.
  *
  * Now the page you were on stays until the next one is ready, and these are
- * drawn over it by the shell only when that has taken more than a second
- * (components/app/app-stage.tsx). Same shapes at the same sizes as before, so
- * the real page still lands where its outline was.
+ * drawn over it by the shell only when that has taken a while: a second on
+ * a computer, 90ms on a phone (components/app/app-stage.tsx, the timings in
+ * lib/ui/app-navigation.ts). Same shapes at the same sizes as before, so
+ * the real page still lands where its outline was. The product editor has
+ * none: opening a product keeps the list on screen until the editor is here.
  *
  * No route under /app has a loading.tsx any more, Products and the flow
  * builder included: every outline is picked here, by address.
@@ -38,8 +39,9 @@ export function RouteSkeleton({ href }: { href: string }) {
   if (path.startsWith("/app/orders/")) return <OrdersLoading order="pending" />
   if (path.startsWith("/app/analytics")) return <AnalyticsLoading />
   if (path === "/app/products") return <ProductsLoading />
-  if (path === "/app/products/new") return <EditorSkeleton editing={false} />
-  if (path.startsWith("/app/products/")) return <EditorSkeleton editing />
+  /* The product editor has no outline here, new or saved: the page you were
+     on stays until the editor is ready (drawsOutline, lib/ui/app-navigation). */
+  if (path.startsWith("/app/products/")) return null
   if (path.startsWith("/app/emails/flow/") && path !== "/app/emails/flow/new") return <FlowLoading />
   if (path === "/app/coupons/new" || /^\/app\/coupons\/[^/]+$/.test(path)) return <CreateCouponLoading />
   if (path.startsWith("/app/coupons")) return <CouponsLoading />

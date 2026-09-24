@@ -119,7 +119,7 @@ const RUNS = [
   [1440, "chromium", false, null],
 ]
 
-for (const which of ["plans", "new", "edit"]) {
+for (const which of (process.env.PAGES || "plans,new,edit").split(",")) {
   for (const [width, engine, native, inset] of RUNS) {
     const label = `${which} ${width} ${engine}${native ? " native" : ""}${inset ? " inset" : ""}`
     const p = await browser.newPage()

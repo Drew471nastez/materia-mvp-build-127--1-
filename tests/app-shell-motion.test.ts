@@ -32,6 +32,10 @@ import {
   NAV_ENTER_MS,
   NAV_ENTER_RISE_PX,
   NAV_SKELETON_AFTER_MS,
+  NAV_PHONE_OUTLINE_AFTER_MS,
+  NAV_PHONE_OUTLINE_FADE_MS,
+  drawsOutline,
+  outlineDelay,
   recalledScroll,
   rememberScroll,
   takeTraversal,
@@ -78,6 +82,53 @@ section("A navigation, from start to landing")
     "the thresholds are the ones asked for: nothing under 300ms, an outline only past a second, a 180ms landing with a 4 to 6px rise",
     NAV_BAR_AFTER_MS === 300 && NAV_SKELETON_AFTER_MS === 1000 && NAV_ENTER_MS >= 160 && NAV_ENTER_MS <= 200 && NAV_ENTER_RISE_PX >= 4 && NAV_ENTER_RISE_PX <= 6,
   )
+}
+
+section("The outline of a page on its way")
+{
+  check("a phone's outline comes at 90ms on a 120ms fade; a computer's after a second",
+    NAV_PHONE_OUTLINE_AFTER_MS === 90 && NAV_PHONE_OUTLINE_FADE_MS === 120
+      && outlineDelay("/app/orders", true) === 90 && outlineDelay("/app/orders", false) === 1000
+      && outlineDelay("/app", true) === 90 && outlineDelay("/app/products?tab=all", true) === 90)
+  check("never for the product editor, new or saved, at any width",
+    ["/app/products/new", "/app/products/8f0c2b1e-3a4d-4c5e-9f60-718293a4b5c6", "/app/products/abc/", "/app/products/new?from=x"]
+      .every((h) => !drawsOutline(h) && outlineDelay(h, true) === null && outlineDelay(h, false) === null))
+  check("nor for a page drawn over the whole shell, nor outside /app, nor an unknown address",
+    !drawsOutline("/app/settings/billing/upgrade") && !drawsOutline("/explore") && !drawsOutline("/application") && !drawsOutline(null))
+  const route = code("components/app/route-skeletons.tsx")
+  check("and the outlines have no editor in them to draw", !/EditorSkeleton/.test(route) && /if \(path\.startsWith\("\/app\/products\/"\)\) return null/.test(route))
+  const stage = code("components/app/app-stage.tsx")
+  check("the stage asks for the delay by address, fades a phone's outline on opacity alone, and fades it out from where it got to",
+    /outlineDelay\(href, phone\)/.test(stage)
+      && /el\.animate\(\[\{ opacity: 0 \}, \{ opacity: 1 \}\], \{ duration: NAV_PHONE_OUTLINE_FADE_MS/.test(stage)
+      && /const from = Number\(getComputedStyle\(el\)\.opacity\)/.test(stage))
+  const bar = code("components/app/navigation-loading-bar.tsx")
+  check("a phone shows the outline in place of the bar, and keeps the bar where there is no outline",
+    /if \(isPhoneShell\(\) && outlineDelay\(nav\.href, true\) !== null\) return/.test(bar))
+}
+
+section("Pages drawn over the whole shell")
+{
+  const upgrade = code("app/app/settings/billing/upgrade/layout.tsx")
+  const newLayout = code("app/app/products/new/layout.tsx")
+  const idLayout = code("app/app/products/[id]/layout.tsx")
+  check("the plans page and both editor addresses use the one shared layer; the editor keeps the pill",
+    /<PageLayer inset="white">/.test(upgrade) && /<PageLayer pill>/.test(newLayout) && /<PageLayer pill>/.test(idLayout))
+  const layer = code("components/app/page-layer.tsx")
+  check("the layer is the whole window, between the header and the pill, and pads itself under the status bar",
+    /fixed inset-0 z-\[52\]/.test(layer) && /pt-\[env\(safe-area-inset-top,0px\)\]/.test(layer) && /classList\.add\("has-page-layer"\)/.test(layer))
+  const css = read("app/globals.css")
+  check("while a layer is up the shell's chrome is not painted, the scroller is no stacking context on iOS, and the black shield stands down, each by :has() and by class",
+    /html:has\(\[data-page-layer\]\) \[data-shell-chrome\] \{\s*visibility: hidden;/.test(css)
+      && /html\.has-page-layer \[data-shell-chrome\] \{\s*visibility: hidden;/.test(css)
+      && /html:has\(\[data-page-layer\]\) \.app-content-scroll \{\s*-webkit-overflow-scrolling: auto;/.test(css)
+      && /html\.capacitor:has\(\[data-page-layer\]\)::before \{\s*display: none;/.test(css)
+      && /html\.capacitor\.has-page-layer::before \{\s*display: none;/.test(css))
+  check("the pill steps aside only for a layer that does not keep it, and a layer that does gives the scroller room for it",
+    /html:has\(\[data-page-layer=""\]\) \[data-app-nav-pill\] \{\s*visibility: hidden;/.test(css)
+      && /\[data-page-layer="pill"\] \[data-page-layer-scroll\] > \.page-scroll \{\s*padding-bottom: calc\(104px \+ env\(safe-area-inset-bottom, 0px\)\);/.test(css))
+  const sidebar = read("components/app/sidebar.tsx")
+  check("both headers and the rail say they are the shell's chrome", (sidebar.match(/data-shell-chrome=""/g) || []).length >= 3)
 }
 
 section("The way back")

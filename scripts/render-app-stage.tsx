@@ -53,7 +53,7 @@ function Shell() {
     <div className="h-svh overflow-hidden bg-[#111111] md:bg-[#131316]">
       <header className="fixed inset-x-0 top-0 z-50 h-[68px] bg-[#111111] md:h-[58px]">
         <nav className="flex h-full items-center gap-4 px-4 text-[13px] text-white/90">
-          {["/app", "/app/orders", "/app/analytics", "/app/fixed"].map((href) => (
+          {["/app", "/app/orders", "/app/analytics", "/app/fixed", "/app/products/abc", "/app/products"].map((href) => (
             <a
               key={href}
               href={href}
