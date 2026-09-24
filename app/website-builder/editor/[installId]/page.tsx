@@ -5563,7 +5563,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         setIsDirty(true)
         setArrivedId(id)
       }
-      changes.push({ key: ev.path, text: describeChange(ev, (t) => custom[t]?.name), sectionType: type })
+      changes.push({ key: ev.path, text: describeChange(ev, (t) => custom[t]?.name ?? SECTION_SCHEMAS[t]?.name), sectionType: type })
     }
     flush()
   }
