@@ -71,7 +71,7 @@ class MemoryStore implements Store {
   suppressed = new Set<string>()
   failComplete = 0
 
-  async activeFlows(creatorId: string, trigger: string) {
+  async activeFlows(creatorId: string, trigger: string): Promise<FlowRow[] | null> {
     return [...this.flows.values()].filter((f) => f.creator_id === creatorId && f.trigger_type === trigger && f.status === "active")
   }
   /** enroll_email_flow, including its lock: nothing awaits between the checks and the writes. */

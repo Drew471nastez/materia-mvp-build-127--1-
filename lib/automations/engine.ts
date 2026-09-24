@@ -220,6 +220,8 @@ export interface TriggerInput {
   email: string
   name?: string | null
   productId?: string | null
+  /** A basket: every product in it. A flow for one product enters when any of them is it. */
+  productIds?: string[] | null
   productTitle?: string | null
   orderId?: string | null
   /** For "each": the event this entry is for, when it is not an order. */
@@ -255,7 +257,8 @@ export async function enroll(store: Store, input: TriggerInput, now: number): Pr
       continue
     }
     const products = Array.isArray(flow.trigger_config?.product_ids) ? flow.trigger_config!.product_ids!.filter((p) => typeof p === "string") : []
-    if (input.triggerType === "purchase" && products.length > 0 && (!input.productId || !products.includes(input.productId))) {
+    const bought = [...(input.productIds ?? []), ...(input.productId ? [input.productId] : [])]
+    if (input.triggerType === "purchase" && products.length > 0 && !bought.some((p) => products.includes(p))) {
       out.skipped.push({ flowId: flow.id, why: "another product" })
       continue
     }

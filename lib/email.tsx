@@ -1697,6 +1697,8 @@ export interface TriggerEmailFlowParams {
   recipientName?: string
   productTitle?: string
   productId?: string
+  /** A basket: every product in it. */
+  productIds?: string[]
   orderId?: string
   /** Where the person came from (lib/contacts/contact-source), kept on the run for its history. */
   source?: ContactSource | null
@@ -1730,6 +1732,7 @@ export async function triggerEmailFlows(
       email: params.recipientEmail,
       name: params.recipientName ?? null,
       productId: params.productId ?? null,
+      productIds: params.productIds ?? null,
       productTitle: params.productTitle ?? null,
       orderId: params.orderId ?? null,
       source: params.source ?? null,
@@ -1807,7 +1810,8 @@ export async function legacyTriggerEmailFlows(
           continue
         }
         const products = Array.isArray((flow as any).trigger_config?.product_ids) ? (flow as any).trigger_config.product_ids : []
-        if (triggerType === "purchase" && products.length > 0 && (!productId || !products.includes(productId))) continue
+        const bought = [...(params.productIds ?? []), ...(productId ? [productId] : [])]
+        if (triggerType === "purchase" && products.length > 0 && !bought.some((p: string) => products.includes(p))) continue
 
         let delayMs = 0
         for (const step of steps) {

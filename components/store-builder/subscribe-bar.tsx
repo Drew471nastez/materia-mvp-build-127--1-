@@ -17,6 +17,7 @@ export { buttonStylePresets, getButtonText, getDisplayText } from "@/lib/store-b
 
 import type { ButtonStylePreset, SubscribeBarSettings } from "@/lib/store-builder/subscribe-text"
 import { buttonStylePresets, getButtonText, getDisplayText } from "@/lib/store-builder/subscribe-text"
+import { pageOrigin } from "@/lib/orders/checkout-origin-browser"
 
 interface SubscribeBarProps {
   settings: SubscribeBarSettings
@@ -372,7 +373,7 @@ export function SubscribeBar({ settings, creatorId, onSubmit, ownerAction }: Sub
         await fetch("/api/subscribers", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, creatorId }),
+          body: JSON.stringify({ email, creatorId, origin: pageOrigin() }),
         })
       }
 

@@ -5,6 +5,7 @@ import { nanoid } from "nanoid"
 import { cookies } from "next/headers"
 import { generateReceiptToken } from "@/lib/security"
 import { sendOrderEmails, triggerEmailFlows } from "@/lib/email"
+import { contactSourceOfOrder, recordContactSource } from "@/lib/contacts/contact-source"
 import { v4 as uuidv4 } from "uuid"
 import { channelOf, orderSourceFromRequest, originOf, tagOrderSource } from "@/lib/orders/order-source"
 import { rateLimit, addressSubject, emailSubject, LIMITS } from "@/lib/api/rate-limit"
@@ -202,6 +203,7 @@ export async function POST(request: Request) {
           await admin.from("subscribers").update({ status: "subscribed", is_active: true, subscribed_at: now, unsubscribed_at: null }).eq("id", existing.id)
         }
       })
+      await step("subscriber source", () => recordContactSource(admin, creator.id, email, contactSourceOfOrder(origin)))
     }
 
     if (user && !alreadyOwned) {
@@ -258,6 +260,7 @@ export async function POST(request: Request) {
         productTitle: product.title,
         productId: product.id,
         orderId: order.id,
+        source: contactSourceOfOrder(origin),
       }),
     )
 

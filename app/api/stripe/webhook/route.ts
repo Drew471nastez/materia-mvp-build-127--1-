@@ -8,6 +8,7 @@ import { sendOrderEmails, triggerEmailFlows, sendPayoutStatusEmail, sendFirstPay
 import { v4 as uuidv4 } from "uuid"
 import { orderOriginFrom, orderSourceFrom, tagOrderSource } from "@/lib/orders/order-source"
 import { fulfilPaymentIntent, isCheckoutIntent } from "@/lib/checkout/fulfil-payment"
+import { recordContactSource } from "@/lib/contacts/contact-source"
 import { fulfilCartSession, isCartSession } from "@/lib/checkout/fulfil-cart-session"
 import { syncChargeRefund } from "@/lib/stripe/refund-sync"
 import { maskEmail } from "@/lib/privacy/mask-email"
@@ -506,6 +507,7 @@ export async function POST(request: Request) {
           consent_timestamp: new Date().toISOString(),
           unsubscribe_token: unsubscribeToken,
         })
+        await recordContactSource(supabaseAdmin, creatorId, normalizedEmail, { surface: "checkout" })
       } else if (existingSubscriber.status === "unsubscribed") {
         await supabaseAdmin
           .from("subscribers")
@@ -584,6 +586,7 @@ export async function POST(request: Request) {
           productTitle,
           productId,
           orderId: order.id,
+          source: { surface: "checkout" },
         })
       } catch (flowErr) {
         console.error("[Webhook] Email flow trigger error (non-fatal):", flowErr)
