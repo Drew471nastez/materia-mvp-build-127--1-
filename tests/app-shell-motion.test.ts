@@ -229,6 +229,25 @@ section("Sheets")
   check("focus moves after the slide, not on its first frames", /window\.setTimeout\(\(\) => \{\s*const panel = sheetRef\.current/.test(sheet))
   check("what is inside a sheet is laid out and painted on its own, and the big blurred shadow is gone",
     (sheet.match(/contain: "layout paint"/g) || []).length === 2 && !/0_-8px_40px/.test(sheet))
+  /*
+    A control that owns its finger keeps it: the cover being pinched in the
+    profile sheet, the colour picker's box and hue strip, a reorder grip.
+    The creator page's editors moved onto this sheet, and those controls
+    carry `data-sheet-no-drag`, which the builder's sheet honoured and this
+    one now does too, at touchdown.
+  */
+  check("a control marked data-sheet-no-drag keeps its touches from the sheet",
+    /if \(target\?\.closest\?\.\("\[data-sheet-no-drag\]"\)\) \{\s*pendingRef\.current = false/.test(sheet))
+  check("a release velocity is read over the last 80ms, not one noisy pair of events",
+    /const VELOCITY_WINDOW_MS = 80/.test(sheet) && /velocityRef\.current = \(y - first\.y\) \/ span/.test(sheet))
+  check("a sheet that edits the page behind it can leave that page undimmed, and still close on a tap",
+    /scrim === "clear" \? "bg-transparent" : "bg-black\/40"/.test(sheet) && /onClick=\{requestClose\}/.test(sheet))
+  check("a fresh open can wait for its pictures to decode, never longer than 120ms",
+    /const IMAGE_WAIT_MS = 120/.test(sheet) && /img\.decode\(\)\.catch/.test(sheet) && /openTokenRef\.current !== token/.test(sheet))
+  check("the parent is told when the sheet is actually gone, on both ways out",
+    (sheet.match(/setPresent\(false\)\s*onClosedRef\.current\?\.\(\)/g) || []).length === 2)
+  check("a keyboard lifts the sheet over the keyboard's own time, not in one frame",
+    /const KEYBOARD_MOVE = "bottom 250ms/.test(sheet) && /aboveKeyboard \? \{ transition: KEYBOARD_MOVE \}/.test(sheet))
   const menu = code("components/app/mobile-account-menu.tsx")
   check("the account sheet decodes its photo ahead, and its links do not prefetch as they slide in",
     /preloadAvatar\(avatarSrc, 40\)/.test(menu) && /prefetch=\{false\}/.test(menu) && /SHEET_OPEN_MS \+ 60/.test(menu))

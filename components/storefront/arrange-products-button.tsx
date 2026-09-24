@@ -321,7 +321,7 @@ export function ArrangeProductsButton({
                  * read a downward drag from the top of the list as "pull the
                  * sheet down" — so reordering a product dismissed the editor.
                  * `data-sheet-no-drag` is the sheet's own opt-out, checked at
-                 * touchdown; see mobile-editor-sheet.
+                 * touchdown; see components/ui/bottom-sheet.
                  */
                 data-sheet-no-drag
                 className="cursor-grab touch-none rounded p-1 text-muted-foreground active:cursor-grabbing"

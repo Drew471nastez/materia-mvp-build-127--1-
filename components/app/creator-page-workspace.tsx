@@ -67,9 +67,6 @@ export function CreatorPageWorkspace({
   published: boolean
 }) {
   const router = useRouter()
-  /** An editor sheet is open inside the frame, so this bar dims with it. */
-  const [sheetOpen, setSheetOpen] = useState(false)
-
   /**
    * =======================================================================
    *  LEAVING THE EDITOR LOOKS LIKE LEAVING THE OTHER ONE
@@ -272,15 +269,9 @@ export function CreatorPageWorkspace({
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
       if (event.origin !== window.location.origin) return
-      const data = event.data as { channel?: string; kind?: string; open?: boolean } | null
+      const data = event.data as { channel?: string; kind?: string } | null
       if (!data || data.channel !== CREATOR_EDITOR_CHANNEL) return
       if (data.kind === "saved") reframe()
-      /*
-        An editor opened or closed inside the frame. The sheet dims the page
-        behind it, and the page is only the part below this bar — so without
-        this the dim ended at a hard line with a lit bar above it.
-      */
-      if (data.kind === "sheet") setSheetOpen(!!(data as { open?: boolean }).open)
     }
     window.addEventListener("message", onMessage)
     return () => window.removeEventListener("message", onMessage)
@@ -347,20 +338,6 @@ export function CreatorPageWorkspace({
         className="relative flex shrink-0 items-center gap-1.5 bg-white px-3 pb-[5px] shadow-[inset_0_-1px_0_#e5e7eb] sm:gap-2 sm:px-4"
         style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 5px)" }}
       >
-        {/*
-          The same 30% black the sheet lays over the page, over this bar, for
-          the same length of time — so the two read as one dim rather than as
-          a dimmed page under a lit strip.
-
-          It does not take the taps. The controls under it are the way out of
-          the editor, and a creator who wants to leave with a sheet open
-          should not have to close the sheet first to reach them.
-        */}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 z-10 bg-black/30 transition-opacity duration-[360ms] ease-[cubic-bezier(0.32,0.72,0,1)]"
-          style={{ opacity: sheetOpen ? 1 : 0 }}
-        />
         <button
           type="button"
           onClick={leave}

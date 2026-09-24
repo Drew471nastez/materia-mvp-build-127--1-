@@ -41,7 +41,7 @@ export function OwnerMenu({ embedded = false }: { embedded?: boolean }) {
     <DropdownMenu>
       <DropdownMenuTrigger
         aria-label="Creator options"
-        className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/95 text-gray-900 shadow-md backdrop-blur transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+        className="relative flex h-9 w-9 items-center justify-center rounded-lg bg-white/95 before:absolute before:-inset-1 before:content-[''] text-gray-900 shadow-md backdrop-blur transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
       >
         <MoreHorizontal className="h-4 w-4" />
       </DropdownMenuTrigger>

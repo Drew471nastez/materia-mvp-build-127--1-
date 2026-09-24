@@ -5,10 +5,11 @@ import { useState, useRef, useCallback } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
-import { X, ImageIcon, AlertCircle, Video, Move, Pencil } from "lucide-react"
+import { X, ImageIcon, AlertCircle, Video, Pencil } from "lucide-react"
 import Image from "next/image"
 import { COMPRESS_PROFILES, compressImage } from "@/lib/images/compress"
-import { CENTRE, useFocalDrag, type FocalPoint } from "@/lib/images/use-focal-drag"
+import { DEFAULT_COVER_CROP, coverEditorSrc, isDefaultCrop, type CoverCrop } from "@/lib/images/cover-crop"
+import { CoverCropFrame } from "@/components/app/cover-crop-frame"
 
 interface ImageUploadProps {
   bucket: "product-images" | "avatars" | "covers" | "store-builder-images"
@@ -56,10 +57,17 @@ interface ImageUploadProps {
    *
    * Replace-only mode with a value, which is what a cover is. Absent, the
    * frame behaves exactly as it did.
+   *
+   * The crop is the position AND the zoom (lib/images/cover-crop): one
+   * finger moves, two pinch. `editable: false` still draws the saved crop,
+   * so the frame shows what the page shows, and a press replaces the
+   * picture instead.
    */
   reposition?: {
-    value: FocalPoint | null | undefined
-    onChange: (next: FocalPoint) => void
+    value: CoverCrop | null | undefined
+    onChange: (next: CoverCrop) => void
+    /** Whether a finger moves the picture. Off, the frame shows the crop and a press replaces it. */
+    editable?: boolean
     /**
      * The shape of the band this picture will really be drawn into, measured
      * from the page rather than assumed. A crop depends only on the ratio of
@@ -354,14 +362,6 @@ export function ImageUpload({
   )
 
   /**
-   * Called unconditionally and before every early return below, because the
-   * branches here are exactly the sort of condition that flips between two
-   * renders. A hook under one of them is React error #310, which is a blank
-   * page rather than a misplaced control. See tests/hook-order.
-   */
-  const focal = useFocalDrag(reposition?.value, reposition?.onChange ?? (() => {}))
-
-  /**
    * ===========================================================================
    *  THE FRAME IS THE REPOSITIONER
    * ===========================================================================
@@ -376,108 +376,73 @@ export function ImageUpload({
    * frame itself no longer answers a tap.
    */
   if (value && replaceOnly && reposition) {
+    const crop = reposition.value ?? DEFAULT_COVER_CROP
+    const editable = reposition.editable !== false
+    /* 44px to a thumb, 32px to the eye: the disc is small, its target is not. */
+    const disc =
+      "relative flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white transition-colors before:absolute before:-inset-1.5 before:content-[''] pointer-fine:hover:bg-black/75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
     return (
-      <div
-        ref={focal.boxRef}
-        tabIndex={0}
-        role="group"
-        aria-label={`${replaceLabel}. Drag the image, or use the arrow keys, to choose which part shows.`}
-        {...focal.handlers}
-        /**
-         * touch-none stops the BROWSER scrolling the page under the finger,
-         * without which the control does nothing at all where it matters most.
-         *
-         * It does nothing about a bottom sheet, which listens for touchmove on
-         * itself: a downward drag with the form scrolled to its top read as
-         * "pull the sheet down", so placing a cover dismissed the editor.
-         * `data-sheet-no-drag` is the sheet's own opt-out, checked at
-         * touchdown; see components/website-builder/mobile-editor-sheet.
-         */
-        data-sheet-no-drag
-        className={`group relative touch-none select-none overflow-hidden rounded-lg border border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 ${
-          reposition.aspect ? "w-full" : aspectClasses[aspectRatio]
-        }`}
-        style={{
-          cursor: focal.dragging ? "grabbing" : "grab",
-          /* The measured shape wins over the class, so this frame and the
-             band on the page crop the picture identically. */
-          ...(reposition.aspect ? { aspectRatio: String(reposition.aspect) } : null),
-        }}
-      >
-        <Image
-          src={value || "/placeholder.svg"}
-          alt=""
-          fill
-          draggable={false}
-          className="pointer-events-none object-cover"
-          style={{ objectPosition: focal.objectPosition }}
-        />
-
-        {/* The affordance, and it gets out of the way while you use it. */}
-        <span
-          aria-hidden
-          className="pointer-events-none absolute inset-0 flex items-center justify-center transition-opacity duration-150"
-          style={{ opacity: focal.dragging ? 0 : 1 }}
+      <div className="space-y-2">
+        <CoverCropFrame
+          src={coverEditorSrc(value)}
+          crop={crop}
+          onChange={editable && !uploading ? reposition.onChange : undefined}
+          onActivate={editable ? undefined : () => !uploading && inputRef.current?.click()}
+          aspect={reposition.aspect ?? 3}
+          label={replaceLabel}
         >
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-black/55 px-2.5 py-1 text-[11px] font-medium text-white backdrop-blur-sm">
-            <Move className="h-3.5 w-3.5" />
-            Drag to position
-          </span>
-        </span>
-
-        {/*
-          Only once it has been moved. A reset offered on a picture that is
-          already centred is a control with nothing to do, and it would be on
-          screen permanently for the creators who never touch the drag.
-        */}
-        {!focal.centred && !uploading && (
-          <button
-            type="button"
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={() => reposition.onChange(CENTRE)}
-            className="absolute bottom-2 left-2 rounded-full bg-black/55 px-2.5 py-1 text-[11px] font-medium text-white backdrop-blur-sm transition-colors hover:bg-black/75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
-          >
-            Centre
-          </button>
-        )}
-
-        <div className="absolute right-2 top-2 flex items-center gap-1.5">
-          <button
-            type="button"
-            aria-label={replaceLabel}
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={() => !uploading && inputRef.current?.click()}
-            className="flex h-7 w-7 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm transition-colors hover:bg-black/75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
-          >
-            <Pencil className="h-3.5 w-3.5" strokeWidth={2.25} />
-          </button>
-          {allowRemove && !uploading && (
+          {/*
+            Only once it has been moved. A reset on a picture that is already
+            where it started is a control with nothing to do.
+          */}
+          {editable && !isDefaultCrop(crop) && !uploading && (
             <button
               type="button"
-              aria-label="Remove image"
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={() => void handleRemove()}
-              className="flex h-7 w-7 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm transition-colors hover:bg-black/75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+              onClick={() => reposition.onChange(DEFAULT_COVER_CROP)}
+              className="absolute bottom-2 left-2 h-8 rounded-full bg-black/60 px-3 text-[12px] font-medium text-white transition-colors pointer-fine:hover:bg-black/75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
             >
-              <X className="h-3.5 w-3.5" strokeWidth={2.25} />
+              Reset
             </button>
           )}
-        </div>
 
-        {/* Uploading: the old picture stays put under a dim wash and a bar,
-            rather than the frame emptying out and jumping back. */}
-        {uploading && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/55 backdrop-blur-[1px]">
-            <div className="h-1 w-2/3 overflow-hidden rounded-full bg-white/25">
+          <div className="absolute right-2 top-2 flex items-center gap-2">
+            <button
+              type="button"
+              aria-label={replaceLabel}
+              onClick={() => !uploading && inputRef.current?.click()}
+              className={disc}
+            >
+              <Pencil className="h-3.5 w-3.5" strokeWidth={2.25} />
+            </button>
+            {allowRemove && !uploading && (
+              <button type="button" aria-label="Remove image" onClick={() => void handleRemove()} className={disc}>
+                <X className="h-3.5 w-3.5" strokeWidth={2.25} />
+              </button>
+            )}
+          </div>
+
+          {/*
+            UPLOADING, WITHOUT A WASH. The picture that is there stays exactly
+            as it is, clean, and a thin bar along its bottom edge says how far
+            the new one has got. A dark veil over the whole frame was the
+            loudest thing on the sheet for the length of every upload.
+          */}
+          {uploading && (
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[3px] bg-black/15" role="progressbar" aria-label="Uploading" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100}>
               <div
-                className="h-full rounded-full bg-white transition-[width] duration-200 ease-out"
-                style={{ width: `${Math.max(progress, 8)}%` }}
+                className="h-full origin-left bg-white transition-transform duration-200 ease-out"
+                data-keep-transform=""
+                style={{ transform: `scaleX(${Math.max(progress, 8) / 100})` }}
               />
             </div>
-            <span className="text-xs font-medium text-white/90">Uploading…</span>
+          )}
+        </CoverCropFrame>
+        {error && (
+          <div className="flex items-center gap-2 text-sm text-destructive">
+            <AlertCircle className="h-4 w-4" />
+            {error}
           </div>
         )}
-
         <input ref={inputRef} type="file" accept={accept} className="hidden" onChange={handleFileSelect} />
       </div>
     )
@@ -509,12 +474,23 @@ export function ImageUpload({
           dragOver ? "border-blue-500" : "border-border"
         } ${aspectClasses[aspectRatio]}`}
       >
-        <Image src={value || "/placeholder.svg"} alt="" fill className="object-cover" />
+        {/* Eager: this is a preview inside a sheet that starts below the
+            screen, and a lazy image there loads as the sheet arrives. Sized
+            for the frame, not for the whole window. */}
+        <Image
+          src={value || "/placeholder.svg"}
+          alt=""
+          fill
+          loading="eager"
+          sizes={aspectRatio === "square" ? "(max-width: 640px) 40vw, 240px" : "(max-width: 640px) 100vw, 520px"}
+          className="object-cover"
+        />
 
-        {/* The whole image is the button; the label only appears on hover so it
-            does not sit on top of the picture the rest of the time. */}
+        {/* The whole image is the button; the label only appears under a
+            mouse. A finger has no hover, and on a phone that answers "yes" to
+            hover anyway the wash stuck to the picture after the tap. */}
         <div
-          className={`absolute inset-0 flex items-center justify-center bg-black/0 text-sm font-medium text-white opacity-0 transition-all duration-200 group-hover:bg-black/45 group-hover:opacity-100 group-focus-visible:bg-black/45 group-focus-visible:opacity-100 ${
+          className={`absolute inset-0 flex items-center justify-center bg-black/0 text-sm font-medium text-white opacity-0 transition-all duration-200 pointer-fine:group-hover:bg-black/45 pointer-fine:group-hover:opacity-100 group-focus-visible:bg-black/45 group-focus-visible:opacity-100 ${
             dragOver ? "bg-black/45 opacity-100" : ""
           }`}
         >
