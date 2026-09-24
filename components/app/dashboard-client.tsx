@@ -48,22 +48,23 @@ import dynamic from "next/dynamic"
 // Dynamic import keeps it out of the initial JS bundle for faster dashboard load.
 const LazyAreaChart = dynamic(
   () => import("recharts").then(m => {
-    const { AreaChart, Area, XAxis, YAxis, CartesianGrid, ResponsiveContainer } = m
+    const { AreaChart, XAxis, YAxis, CartesianGrid, ResponsiveContainer } = m
     // Return a wrapper component that passes all recharts components via render prop
     return {
       default: ({ data, children }: { data: any[]; children: (components: {
-        AreaChart: typeof AreaChart; Area: typeof Area; XAxis: typeof XAxis;
+        AreaChart: typeof AreaChart; XAxis: typeof XAxis;
         YAxis: typeof YAxis; CartesianGrid: typeof CartesianGrid;
         ResponsiveContainer: typeof ResponsiveContainer;
       }) => ReactNode }) =>
-        <>{children({ AreaChart, Area, XAxis, YAxis, CartesianGrid, ResponsiveContainer })}</>,
+        <>{children({ AreaChart, XAxis, YAxis, CartesianGrid, ResponsiveContainer })}</>,
     }
   }),
   /*
     NOTHING WHILE IT LOADS. This drew a grey box pulsing for the moment
-    recharts took to arrive, over a card whose axis numbers and end dot were
+    recharts took to arrive, over a card whose axis numbers and line were
     already on screen: a flash on every first visit. The card holds its
-    height without it, and the line simply arrives.
+    height without it; recharts only lays out the grid and the dates, which
+    arrive under a line that is already there.
   */
   { ssr: false, loading: () => null },
 )
@@ -72,8 +73,8 @@ import { useLanguage } from "@/lib/i18n"
 import { getLinksShareUrl, getLinksUrl, getStoreShareUrl, getStoreUrl, getWebsiteUrl } from "@/lib/url-helpers"
 import { isNativeApp } from "@/lib/platform-utils"
 import { openExternal } from "@/lib/native-bridge"
-import { CHART_ANIM_MS } from "@/lib/chart-motion"
-import { AxisLabels, MORPH_EASE, MORPH_MS, fixedScale, useEndDotMotion } from "@/components/app/chart-morph"
+import { AxisLabels, fixedScale } from "@/components/app/chart-morph"
+import { MorphLines } from "@/components/app/morph-lines"
 import { useToast } from "@/hooks/use-toast"
 import { ChartScrub, type ScrubRow, type ScrubSeries } from "@/components/app/chart-scrub"
 import { STORELIB_LOGO } from "@/lib/brand/logo"
@@ -169,9 +170,16 @@ const PLOT_TOP = 10
  * ===========================================================================
  *  THE HOME PAGE'S TREND CHART
  * ===========================================================================
- * The plot is recharts, loaded lazily. Reading it, with a mouse or a finger,
- * is components/app/chart-scrub: the same layer, and so the same feel, as
- * the Analytics chart and the report cards.
+ * Three layers, the same three the Analytics chart draws, so the two feel
+ * the same because they are the same:
+ *
+ *   the frame, the grid and the dates, which recharts lays out (loaded
+ *   lazily, and memoised on the dates and the scale);
+ *   the line and the dot at its end, components/app/morph-lines, which move
+ *   from where they are drawn to the next metric's numbers, even when a
+ *   second tab is tapped mid move;
+ *   the marker, components/app/chart-scrub: the crosshair, the dot and the
+ *   readout, for a mouse and a finger alike.
  *
  * This chart used to read a pointer its own way: recharts' Tooltip, cursor
  * and active dot for a mouse, and for a finger a gesture of its own that
@@ -193,8 +201,6 @@ export function DashboardTrendChart({
   widthFrom: Partial<Record<Metric, ChartDataPoint[]>>
   t: (key: string) => string
 }) {
-  const containerRef = useRef<HTMLDivElement>(null)
-
   /**
    * The axis labels, and therefore how wide the axis has to be. One
    * formatter, used to draw the ticks and to measure them, so the gutter can
@@ -216,51 +222,18 @@ export function DashboardTrendChart({
     return Math.max(plotLeftFor(axisLabels), ...widths)
   }, [widthFrom, axisLabels])
 
-  // Animation state — true means "play the animation now"
-  const [shouldAnimate, setShouldAnimate] = useState(true)
-
-  /**
-   * ONE ANIMATION PER SWITCH, WHEN THE DATA FOR IT ARRIVES.
-   *
-   * `openKPIModal` used to be a dependency here alongside the data, and that
-   * is the double refresh: tapping Revenue fired this once immediately — so
-   * the chart redrew itself with the OLD numbers still in it — and then
-   * again a moment later when the fetch came back with the new ones. Two
-   * draws, the first of them of the wrong thing, which is exactly what a
-   * double reload looks like.
-   *
-   * The data is the only honest trigger. The metric changing is a request
-   * for data, not the arrival of any.
-   */
   /*
-    AND IT IS RAISED BY THE RENDER THAT RECEIVES THE DATA. An effect runs
-    after that render has been painted with the flag still down, so the
-    first frame of every switch was the new line, cut in, and only then the
-    morph, from a line that had already arrived. Setting state during this
-    render re-runs it before anything is committed.
+    ONE MOVE PER SWITCH, AND ONLY WHEN THE NUMBERS CHANGE. A tab used to fire
+    the animation once with the old numbers still in the chart and again when
+    the new ones came, the double refresh; then the flag that started it was
+    raised a render late, so the first frame was the new line cut in. The
+    lines move whenever their numbers differ from what is drawn, from what is
+    drawn, and at no other time (components/app/morph-lines).
   */
-  const seenSeriesRef = useRef(displayChartData)
-  if (seenSeriesRef.current !== displayChartData) {
-    seenSeriesRef.current = displayChartData
-    if (!shouldAnimate) setShouldAnimate(true)
-  }
-  useEffect(() => {
-    if (!shouldAnimate) return
-    const timer = setTimeout(() => setShouldAnimate(false), CHART_ANIM_MS)
-    return () => clearTimeout(timer)
-  }, [shouldAnimate, displayChartData])
-
-  /* The card's width, for the dot at the end of the line. */
-  const [track, setTrack] = useState(0)
-  useEffect(() => {
-    const el = containerRef.current
-    if (!el) return
-    const measure = () => setTrack(el.offsetWidth)
-    measure()
-    const ro = new ResizeObserver(measure)
-    ro.observe(el)
-    return () => ro.disconnect()
-  }, [])
+  const lines = useMemo(() => [displayChartData.map((d) => d.value ?? 0)], [displayChartData])
+  /* The dates, the same array for as long as they are the same dates, so a tab never redraws the frame. */
+  const datesKey = displayChartData.map((d) => d.label).join("\u0000")
+  const frameData = useMemo(() => (datesKey ? datesKey.split("\u0000").map((label) => ({ label })) : []), [datesKey])
 
   const formatValue = useCallback((val: number) => {
     if (openKPIModal === "revenue") return `$${val.toFixed(2)}`
@@ -292,89 +265,19 @@ export function DashboardTrendChart({
   )
   const scrubTitle = useCallback((i: number) => displayChartData[i]?.label ?? "", [displayChartData])
 
-  /* The end of the line: a dot that moves with the morph instead of vanishing for it. */
-  const lastPoint = displayChartData.length > 1 ? displayChartData[displayChartData.length - 1] : null
-  const end = useEndDotMotion(lastPoint !== null && track > 0)
-  const endY = PLOT_TOP + (1 - Math.max(0, end.armed && lastPoint ? lastPoint.value : 0) / scale.top) * plotHeight
-
   return (
-    <div ref={containerRef} style={{ position: "relative", height: CHART_H }}>
-      <LazyAreaChart data={displayChartData}>
-        {({ AreaChart, Area, XAxis, YAxis, CartesianGrid, ResponsiveContainer }) => (
-          <ResponsiveContainer width="100%" height={CHART_H}>
-            {/*
-              ROOM FOR THE DOTS, now that there is no y axis reserving any.
-              The axis used to take 40px on the left, and removing it left
-              `left: 0` — so the first point's active dot, six pixels of
-              radius plus a two pixel white ring, was drawn half outside the
-              card. That clipped stub at the top left of the chart was the
-              dot, not a spike in the data.
-            */}
-            <AreaChart data={displayChartData} margin={{ top: PLOT_TOP, right: PLOT_RIGHT, left: 0, bottom: 0 }}>
-              <defs>
-                <linearGradient id="kpiGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.15} />
-                  <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              {/* At the ticks, placed by us: the same four heights on every tab. */}
-              <CartesianGrid
-                strokeDasharray="3 3"
-                stroke="#f3f4f6"
-                vertical={false}
-                horizontalPoints={scale.ticks.map((v) => PLOT_TOP + (1 - v / scale.top) * plotHeight)}
-              />
-              <XAxis
-                dataKey="label"
-                height={XAXIS_H}
-                tick={{ fontSize: 11, fill: "#9ca3af" }}
-                tickLine={false}
-                axisLine={false}
-                interval="preserveStartEnd"
-              />
-              {/* The numbers are AxisLabels, over the plot, so they cross-fade. */}
-              <YAxis
-                tick={false}
-                tickLine={false}
-                axisLine={false}
-                domain={[0, scale.top]}
-                ticks={scale.ticks}
-                interval={0}
-                width={plotLeft}
-              />
-              <Area
-                type="monotone"
-                dataKey="value"
-                stroke="#8b5cf6"
-                strokeWidth={2}
-                fill="url(#kpiGrad)"
-                dot={false}
-                activeDot={false}
-                isAnimationActive={shouldAnimate}
-                animationDuration={MORPH_MS}
-                animationEasing={MORPH_EASE as React.ComponentProps<typeof Area>["animationEasing"]}
-                animationBegin={0}
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        )}
-      </LazyAreaChart>
-
+    <div style={{ position: "relative", height: CHART_H }}>
+      <DashboardFrame data={frameData} top={scale.top} ticks={scale.ticks} plotLeft={plotLeft} />
       <AxisLabels labels={axisLabels} top={PLOT_TOP} height={plotHeight} width={plotLeft} />
-      {lastPoint && track > 0 ? (
-        <svg aria-hidden width="100%" height={CHART_H} style={{ position: "absolute", inset: 0, overflow: "visible", pointerEvents: "none" }}>
-          <circle
-            data-chart-end-dot
-            r={4}
-            cx={0}
-            cy={0}
-            fill="#8b5cf6"
-            stroke="#fff"
-            strokeWidth={2}
-            style={{ transform: `translate(${(track - PLOT_RIGHT).toFixed(1)}px, ${endY.toFixed(1)}px)`, transition: end.transition }}
-          />
-        </svg>
-      ) : null}
+      <MorphLines
+        lines={lines}
+        top={scale.top}
+        left={plotLeft}
+        right={PLOT_RIGHT}
+        plotTop={PLOT_TOP}
+        plotHeight={plotHeight}
+        color="#8b5cf6"
+      />
 
       {/* The crosshair, the dot and the readout: the layer the Analytics chart draws. */}
       <ChartScrub
@@ -391,6 +294,69 @@ export function DashboardTrendChart({
     </div>
   )
 }
+
+/**
+ * THE GRID AND THE DATES, laid out by recharts, which loads lazily. Memoised
+ * on the dates, the scale and the gutter, so a tab that changes only the
+ * numbers never reaches it; the line is drawn over it by MorphLines, and
+ * arrives before recharts does.
+ */
+const DashboardFrame = memo(function DashboardFrame({
+  data,
+  top,
+  ticks,
+  plotLeft,
+}: {
+  data: { label: string }[]
+  top: number
+  ticks: number[]
+  plotLeft: number
+}) {
+  const plotHeight = CHART_H - PLOT_TOP - XAXIS_H
+  return (
+    <LazyAreaChart data={data}>
+      {({ AreaChart, XAxis, YAxis, CartesianGrid, ResponsiveContainer }) => (
+        <ResponsiveContainer width="100%" height={CHART_H}>
+          {/*
+            ROOM FOR THE DOTS, now that there is no y axis reserving any.
+            The axis used to take 40px on the left, and removing it left
+            `left: 0` — so the first point's active dot, six pixels of
+            radius plus a two pixel white ring, was drawn half outside the
+            card. That clipped stub at the top left of the chart was the
+            dot, not a spike in the data.
+          */}
+          <AreaChart data={data} margin={{ top: PLOT_TOP, right: PLOT_RIGHT, left: 0, bottom: 0 }}>
+            {/* At the ticks, placed by us: the same four heights on every tab. */}
+            <CartesianGrid
+              strokeDasharray="3 3"
+              stroke="#f3f4f6"
+              vertical={false}
+              horizontalPoints={ticks.map((v) => PLOT_TOP + (1 - v / top) * plotHeight)}
+            />
+            <XAxis
+              dataKey="label"
+              height={XAXIS_H}
+              tick={{ fontSize: 11, fill: "#9ca3af" }}
+              tickLine={false}
+              axisLine={false}
+              interval="preserveStartEnd"
+            />
+            {/* The numbers are AxisLabels, over the plot, so they cross-fade. */}
+            <YAxis
+              tick={false}
+              tickLine={false}
+              axisLine={false}
+              domain={[0, top]}
+              ticks={ticks}
+              interval={0}
+              width={plotLeft}
+            />
+          </AreaChart>
+        </ResponsiveContainer>
+      )}
+    </LazyAreaChart>
+  )
+})
 
 // ── Sample data shown when the creator has zero real activity ──────────────
 const SAMPLE_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]

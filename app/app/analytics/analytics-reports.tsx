@@ -846,6 +846,13 @@ export interface ReportsState {
   data: ReportsAnswer | null
   loading: boolean
   failed: boolean
+  /**
+   * The figures on screen answer another question than the one being asked:
+   * a new period, product or mode is on its way. Only then does anything go
+   * soft. The page's minute refresh asks the same question again, and that
+   * is never stale: the figures stay as they are until the new ones land.
+   */
+  stale: boolean
 }
 
 /**
@@ -877,12 +884,18 @@ export function useAnalyticsReports({
   mode: "store" | "onepage"
   refresh?: number
 }): ReportsState {
-  const [state, setState] = React.useState<ReportsState>({ data: null, loading: true, failed: false })
+  const [state, setState] = React.useState<{ data: ReportsAnswer | null; loading: boolean; failed: boolean; asking: string }>({
+    data: null,
+    loading: true,
+    failed: false,
+    asking: "",
+  })
+  /* The last answer's text, so an answer that says nothing new changes nothing on screen. */
+  const lastText = React.useRef("")
   const cs = compare?.start ?? null
   const ce = compare?.end ?? null
   React.useEffect(() => {
     const ctrl = new AbortController()
-    setState((s) => ({ ...s, loading: true, failed: false }))
     const q = new URLSearchParams({
       start: new Date(start).toISOString(),
       end: new Date(end).toISOString(),
@@ -898,13 +911,26 @@ export function useAnalyticsReports({
     }
     const key = q.toString()
     const question = questionOf(key)
+    /* Same question, same state: a refresh does not even re-render the page until it has something to say. */
+    setState((s) => (s.loading && !s.failed && s.asking === question ? s : { ...s, loading: true, failed: false, asking: question }))
     fetch(`/api/analytics/reports?${q}`, { signal: ctrl.signal, cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
-      .then((json) => {
-        setState({
-          data: { ...json, allTime: json.allTime ?? null, truncated: !!json.truncated, mode, key } as ReportsAnswer,
-          loading: false,
-          failed: false,
+      .then((r) => (r.ok ? r.text() : Promise.reject(new Error(String(r.status)))))
+      .then((text) => {
+        setState((s) => {
+          /*
+            NOTHING NEW, NOTHING DRAWN. The minute refresh usually brings the
+            same numbers; handing the page a new object anyway re-rendered
+            the chart and the cards for nothing. Keep the one on screen.
+          */
+          if (s.data && questionOf(s.data.key) === question && text === lastText.current) return { ...s, loading: false, failed: false }
+          lastText.current = text
+          const json = JSON.parse(text)
+          return {
+            data: { ...json, allTime: json.allTime ?? null, truncated: !!json.truncated, mode, key } as ReportsAnswer,
+            loading: false,
+            failed: false,
+            asking: question,
+          }
         })
       })
       .catch((e) => {
@@ -913,11 +939,15 @@ export function useAnalyticsReports({
            figures for a different question (another period, product or
            mode) would read as this one's, so those go. The end of a running
            period moves every minute, so it is not part of the question. */
-        setState((s) => ({ data: s.data && questionOf(s.data.key) === question ? s.data : null, loading: false, failed: true }))
+        setState((s) => ({ ...s, data: s.data && questionOf(s.data.key) === question ? s.data : null, loading: false, failed: true }))
       })
     return () => ctrl.abort()
   }, [start, end, cs, ce, product, mode, refresh])
-  return state
+  const stale = state.loading && !!state.data && questionOf(state.data.key) !== state.asking
+  return React.useMemo(
+    () => ({ data: state.data, loading: state.loading, failed: state.failed, stale }),
+    [state.data, state.loading, state.failed, stale],
+  )
 }
 
 /**
@@ -951,11 +981,19 @@ function SelfLoading({ start, end, product, mode }: { start: number; end: number
   return <ReportsView state={state} mode={mode} />
 }
 
-function ReportsView({ state, mode }: { state: ReportsState; mode: "store" | "onepage" }) {
-  const { data, loading, failed } = state
-  /* Reports for the other mode are not these reports: draw the frames. */
-  const current = data && data.mode === mode ? data : null
-  const soft = loading && !!current
+function ReportsView({ state, mode: asked }: { state: ReportsState; mode: "store" | "onepage" }) {
+  const { data, loading, failed, stale } = state
+  /*
+    THE CARDS OF THE ANSWER ON SCREEN. A switch to the other mode used to
+    put that mode's eight or eleven cards up as skeletons at once, and the
+    answer, which is usually quick, replaced them a moment later: a flash of
+    grey blocks on every switch. The cards on screen stay now, softened,
+    until the other mode's answer lands, and then the grid changes once. The
+    chart above does the same (analytics-client, trendMode).
+  */
+  const mode = data?.mode ?? asked
+  const current = data
+  const soft = stale
 
   return (
     <ComparedContext.Provider value={current ? current.reports.compared !== false : true}>

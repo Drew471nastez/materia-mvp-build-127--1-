@@ -70,7 +70,7 @@ import {
 export const pickerButton =
   "inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-lg border border-[#e3e4e8] bg-white px-2.5 text-[13px] font-medium text-[#1a1a2e] shadow-[0_1px_0_rgba(17,24,39,0.05)] transition-colors duration-100 hover:bg-[#f7f7f8] active:bg-[#f1f2f4] data-[state=open]:bg-[#ececef] data-[state=open]:shadow-[inset_0_1px_2px_rgba(17,24,39,0.12)] cursor-pointer select-none"
 
-const surface =
+export const pickerSurface =
   "overflow-hidden rounded-xl border border-[#e3e4e8] bg-white p-0 text-[#1a1a2e] shadow-[0_12px_40px_-8px_rgba(17,24,39,0.22),0_2px_6px_rgba(17,24,39,0.06)]"
 
 /** The month arrows: a small raised key, not a bare glyph, so they read as something to press. */
@@ -85,7 +85,7 @@ const primaryBtn =
 export const STEP_MS = 240
 
 /** True below 640px, where panels become sheets, as everywhere else in /app. */
-function usePhone(): boolean {
+export function usePhone(): boolean {
   const [phone, setPhone] = React.useState(false)
   React.useEffect(() => {
     const mq = window.matchMedia("(max-width: 639px)")
@@ -174,7 +174,7 @@ function StepFrame({
 
 /* ── the list ───────────────────────────────────────────────────────────── */
 
-function Row({
+export function PickerRow({
   compact,
   checked,
   drill = false,
@@ -224,7 +224,7 @@ function Row({
 }
 
 /** Up and down move between rows, as in any menu. */
-function onRowsKey(e: React.KeyboardEvent<HTMLElement>) {
+export function onRowsKey(e: React.KeyboardEvent<HTMLElement>) {
   const step = { ArrowDown: 1, ArrowUp: -1 }[e.key]
   const edge = e.key === "Home" ? 0 : e.key === "End" ? -1 : null
   if (step === undefined && edge === null) return
@@ -236,7 +236,7 @@ function onRowsKey(e: React.KeyboardEvent<HTMLElement>) {
   rows[next].focus()
 }
 
-function Divider({ compact }: { compact: boolean }) {
+export function PickerDivider({ compact }: { compact: boolean }) {
   return <div aria-hidden className={cn("h-px bg-[#eef0f2]", compact ? "mx-3 my-1" : "mx-2 my-1")} />
 }
 
@@ -259,10 +259,10 @@ function PresetList({
     <div role="menu" aria-label="Date range" onKeyDown={onRowsKey} className={compact ? "px-2 pb-2 pt-1" : "p-1.5"}>
       {PRESET_MENU.map((section, i) => (
         <React.Fragment key={i}>
-          {i > 0 ? <Divider compact={compact} /> : null}
+          {i > 0 ? <PickerDivider compact={compact} /> : null}
           {section.map((g) =>
             g.kind === "item" ? (
-              <Row
+              <PickerRow
                 key={g.id}
                 rowKey={g.id}
                 compact={compact}
@@ -271,9 +271,9 @@ function PresetList({
                 onClick={() => onPreset(g.id)}
               >
                 {PRESET_LABEL[g.id]}
-              </Row>
+              </PickerRow>
             ) : (
-              <Row
+              <PickerRow
                 key="custom"
                 rowKey="custom"
                 compact={compact}
@@ -283,7 +283,7 @@ function PresetList({
                 onClick={() => onOpen("custom")}
               >
                 Custom range
-              </Row>
+              </PickerRow>
             ),
           )}
         </React.Fragment>
@@ -807,7 +807,7 @@ export function DateRangePicker({ value, onChange, today, firstDay, align = "sta
       <PopoverContent
         align={align}
         sideOffset={6}
-        className={cn(surface, "w-auto max-w-[calc(100vw-24px)]")}
+        className={cn(pickerSurface, "w-auto max-w-[calc(100vw-24px)]")}
         onOpenAutoFocus={(e) => {
           /* Onto the period that is showing, not the first row. */
           e.preventDefault()

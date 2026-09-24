@@ -324,23 +324,24 @@ html.capacitor body {
 
      The stroke transition is on both states, not just the loading one: it is
      what turns the moment the data lands from a colour swap into a fade,
-     while the line itself grows on Recharts' own animation.
+     while the line itself grows out of the floor it was lying on
+     (components/app/morph-lines, whose line carries .trend-line).
      ──────────────────────────────────────────────────────────────────── */
   @keyframes chart-skeleton-breath {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.45; }
   }
-  [data-chart-loading] .recharts-area-curve {
+  [data-chart-loading] .trend-line {
     transition: stroke 420ms cubic-bezier(0.32, 0.72, 0, 1);
   }
-  [data-chart-loading="true"] .recharts-area-curve,
+  [data-chart-loading="true"] .trend-line,
   [data-chart-loading="true"] .recharts-cartesian-grid line,
   [data-chart-loading="true"] .recharts-cartesian-axis-tick text {
     animation: chart-skeleton-breath 1.7s cubic-bezier(0.4, 0, 0.6, 1) infinite;
   }
 
   @media (prefers-reduced-motion: reduce) {
-    [data-chart-loading="true"] .recharts-area-curve,
+    [data-chart-loading="true"] .trend-line,
     [data-chart-loading="true"] .recharts-cartesian-grid line,
     [data-chart-loading="true"] .recharts-cartesian-axis-tick text {
       animation: none;
