@@ -2772,26 +2772,41 @@ html.capacitor .app-content-scroll {
     pointer-events: none;
   }
 
-  /* ── A sheet goes OVER the pill, every sheet ────────────────────────────
+  /* ── A sheet goes OVER the pill, and the pill stays ─────────────────────
    *
-   * "All the mobile bottom sheets across /app should overlap the nav pill."
-   * The shared BottomSheet is portaled at z-200 and always did; the sheets a
-   * page draws for itself live inside the page, at whatever layer the page
-   * gave them, and several came up under the pill. Rather than a z-index
-   * race page by page, the pill steps down to layer 0 while anything modal
-   * is open. It is before <main> in the document, so at an equal layer every
-   * positioned thing in the page (a sheet, its scrim) paints over it, and it
-   * is still drawn over the page's ordinary content until the scrim arrives,
-   * so nothing blinks.
+   * "When a bottom sheet opens, the pill shaped navigation bar should NOT
+   * disappear. The sheet should simply appear over it."
+   *
+   * The pill used to step down to layer 0 while anything modal was open, so
+   * that sheets drawn inside a page would cover it. Layer 0 is also where
+   * every positioned box in the page lives, and they come after the pill in
+   * the document: the dashboard's scroller and the orders stage are both
+   * `relative`, so the moment a sheet opened the page itself painted over
+   * the pill and it vanished, before the scrim had even arrived.
+   *
+   * Now it steps down only as far as it has to: under every overlay in /app
+   * (the lowest modal layer in use is 40; the shared sheet is 200) and still
+   * over everything the page draws in its own flow. It keeps its place and
+   * its opacity, the scrim dims it like the rest of the page, and the scrim,
+   * not the pill, takes a tap that lands on it. The pointer rule is the
+   * second lock on that door, for an overlay that is not full screen.
    *
    * What counts as open: a sheet that says so ([data-app-sheet="open"]), any
    * fixed modal dialog except the pill's own menu page, and Radix's scroll
-   * lock on <body>, which every Dialog, AlertDialog and Sheet sets.
+   * lock on <body>, which every Dialog, AlertDialog and Sheet sets. A sheet
+   * on its way out ("closing") keeps the pill under it until it is gone, so
+   * the pill does not pop out of the fading scrim, but gives the tap back
+   * at once.
    * ────────────────────────────────────────────────────────────────────── */
-  html:has([data-app-sheet="open"]) [data-app-nav-pill],
+  html:has([data-app-sheet]) [data-app-nav-pill],
   html:has([role="dialog"][aria-modal="true"]:not([data-mobile-menu])) [data-app-nav-pill],
   html:has(body[data-scroll-locked]) [data-app-nav-pill] {
-    z-index: 0;
+    z-index: 39;
+  }
+  html:has([data-app-sheet="open"]) [data-app-nav-pill] *,
+  html:has([role="dialog"][aria-modal="true"]:not([data-mobile-menu])) [data-app-nav-pill] *,
+  html:has(body[data-scroll-locked]) [data-app-nav-pill] * {
+    pointer-events: none !important;
   }
 }
 

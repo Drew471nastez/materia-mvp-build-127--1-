@@ -274,8 +274,14 @@ function main() {
       && /@keyframes drp-month-next/.test(css) && /prefers-reduced-motion: reduce\) \{\s*\.drp-frame \{ transition: none; \}\s*\.drp-in-next/.test(css))
   check("a sideways swipe across the days turns the month on a phone", /Math\.abs\(dx\) < 44 \|\| Math\.abs\(dx\) < Math\.abs\(dy\) \* 1\.5/.test(picker))
   {
-    check("every sheet on a phone goes over the nav pill",
-      /html:has\(\[data-app-sheet="open"\]\) \[data-app-nav-pill\],\s*\n\s*html:has\(\[role="dialog"\]\[aria-modal="true"\]:not\(\[data-mobile-menu\]\)\) \[data-app-nav-pill\],\s*\n\s*html:has\(body\[data-scroll-locked\]\) \[data-app-nav-pill\] \{\s*\n\s*z-index: 0;/.test(css))
+    /* Over the pill, but the pill stays: it steps under the lowest overlay
+       layer (40) rather than to 0, where the page's own positioned boxes
+       painted over it and it disappeared. It is never hidden or faded for a
+       sheet, and while one is open the scrim, not the pill, takes the tap. */
+    check("every sheet on a phone goes over the nav pill, and the pill stays visible under it",
+      /html:has\(\[data-app-sheet\]\) \[data-app-nav-pill\],\s*\n\s*html:has\(\[role="dialog"\]\[aria-modal="true"\]:not\(\[data-mobile-menu\]\)\) \[data-app-nav-pill\],\s*\n\s*html:has\(body\[data-scroll-locked\]\) \[data-app-nav-pill\] \{\s*\n\s*z-index: 39;/.test(css)
+        && /html:has\(\[data-app-sheet="open"\]\) \[data-app-nav-pill\] \*,[\s\S]{0,200}pointer-events: none !important;/.test(css)
+        && !/data-app-sheet[^{]*\[data-app-nav-pill\][^{]*\{[^}]*(opacity: 0|visibility: hidden|display: none|z-index: 0;)/.test(css))
     /* The phone sheets in these pages are the shared one now, which says it
        is open itself; what is left drawing its own layer is a centred modal
        that still has to say so. */
