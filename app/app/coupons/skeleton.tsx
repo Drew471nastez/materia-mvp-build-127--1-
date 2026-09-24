@@ -2,11 +2,10 @@
 
 /* A client module: the bar and gutter sizes come from order-parts, which is one. */
 import { GUTTER, LIST_BAR, LIST_WIDTH } from "../orders/order-parts"
-import { ProductsSubnav } from "../products/products-subnav"
 
 /**
  * The Coupons page's stand-in, for a slow load only (`skeleton-deferred`):
- * the bar with New coupon, the area's tabs, and the card with its views and
+ * the bar with New coupon, and the card with its views and
  * either the phone's 76px rows or the table's 56px ones, at the sizes
  * coupons-client.tsx draws them.
  */
@@ -20,8 +19,7 @@ export default function CouponsLoading() {
           <div className="h-[28px] w-28 rounded-md bg-[#e9ebee] sm:h-[32px]" />
           <div className="h-11 w-[138px] rounded-xl bg-[#e4dcfb] md:h-8 md:w-[116px] md:rounded-lg" />
         </div>
-        <ProductsSubnav active="coupons" />
-        <div className="mt-4 overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+        <div className="mt-3 overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
           <div className="flex h-[52px] items-center gap-0.5 border-b border-[#eef0f2] px-2 md:h-12">
             <div className="h-9 w-[64px] rounded-[10px] bg-[#eceef1] md:h-8 md:rounded-lg" />
           </div>

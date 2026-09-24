@@ -21,13 +21,15 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import puppeteer from "puppeteer-core"
-import { appCss } from "./probe-css.mjs"
+import { appCss, interFaces } from "./probe-css.mjs"
 
 const root = process.cwd()
 const CHROMIUM = process.env.CHROMIUM_PATH || "/opt/pw-browsers/chromium"
 const fail = (m) => { console.error(`\n${m}\n`); process.exit(1) }
 if (!existsSync(CHROMIUM)) fail(`No browser at ${CHROMIUM}.`)
 const css = await appCss(root)
+const inter = interFaces(root)
+if (!inter) console.log("(no build to take Inter from: text is measured in the fallback face, which is wider)")
 const stubs = join(root, ".product-editor-probe")
 mkdirSync(stubs, { recursive: true })
 const shots = process.env.SHOTS_DIR || join(mkdtempSync(join(tmpdir(), "storelib-editor-")), "shots")
@@ -75,7 +77,12 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
     })
     mo.observe(document, { subtree: true, childList: true })
   </script>`
-  writeFileSync(join(stubs, "index.html"), `<!doctype html><html class="app-layout"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>${css}</style><style>body{margin:0;font-family:Inter,system-ui,sans-serif}</style>${watch}</head><body><div id="app"></div><script>window.__t.script = +performance.now().toFixed(1)</script><script>${js.replace(/<\/script/gi, "<\\/script")}</script></body></html>`)
+  /* With Inter, the bundle runs once the face has loaded: the app preloads
+     it, and a swap the harness caused is not a shift the editor made. */
+  const run = inter
+    ? `<script type="text/plain" id="bundle">${js.replace(/<\/script/gi, "<\\/script")}</script><script>document.fonts.load("16px Inter").finally(function () { window.__t.script = +performance.now().toFixed(1); var s = document.createElement("script"); s.textContent = document.getElementById("bundle").textContent; document.body.appendChild(s) })</script>`
+    : `<script>window.__t.script = +performance.now().toFixed(1)</script><script>${js.replace(/<\/script/gi, "<\\/script")}</script>`
+  writeFileSync(join(stubs, "index.html"), `<!doctype html><html class="app-layout"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>${inter}</style><style>${css}</style><style>body{margin:0;font-family:Inter,system-ui,sans-serif}</style>${watch}</head><body><div id="app"></div>${run}</body></html>`)
 
   const browser = await puppeteer.launch({ executablePath: CHROMIUM, args: ["--no-sandbox", "--disable-gpu"] })
   const phone = (width) => ({ width, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 2 })
@@ -84,13 +91,16 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
     ["phone-360", phone(360), ""],
     ["phone-430", phone(430), ""],
     ["phone-390-new", phone(390), "?new"],
+    ["phone-390-layer", phone(390), "?layer"],
+    ["phone-360-new-layer", phone(360), "?new&layer"],
     ["desktop-1440", { width: 1440, height: 900 }, ""],
     ["desktop-1440-new", { width: 1440, height: 900 }, "?new"],
     ["wide-1920", { width: 1920, height: 1080 }, ""],
   ]
   for (const [label, vp, query] of runs) {
     const isPhone = label.startsWith("phone")
-    const isNew = query === "?new"
+    const isNew = query.includes("new")
+    const isLayer = query.includes("layer")
     console.log(`\n${label}`)
     const p = await browser.newPage()
     const errors = []
@@ -104,6 +114,20 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
       r.abort()
     })
     await p.setViewport(vp)
+    /* An iPhone's status bar: 47px of safe area at the top. A browser has none;
+       Chromium can pretend, where the protocol has the call. */
+    let inset = 0
+    let insetBottom = 0
+    if (isPhone) {
+      try {
+        const cdp = await p.createCDPSession()
+        await cdp.send("Emulation.setSafeAreaInsetsOverride", { insets: { top: 47, bottom: 34 } })
+        inset = 47
+        insetBottom = 34
+      } catch {
+        console.log("        (this Chromium cannot pretend to have a safe area: measured with none)")
+      }
+    }
     await p.goto(`file://${join(stubs, "index.html")}${query}`)
     await sleep(900)
     if (errors.length) fail(`The page threw: ${errors[0]}`)
@@ -135,17 +159,29 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
         h: Math.round(b.getBoundingClientRect().height),
         save: save ? { h: Math.round(save.getBoundingClientRect().height), disabled: save.disabled, right: Math.round(window.innerWidth - save.getBoundingClientRect().right) } : null,
         cancel: cancel ? Math.round(cancel.getBoundingClientRect().height) : null,
-        title: b.querySelector("h1").textContent,
-        status: b.querySelector("p").textContent,
+        heading: b.querySelector("h1").textContent,
+        headingShown: b.querySelector("h1").getBoundingClientRect().width > 1,
+        named: /Portrait retouching/.test(b.innerText),
+        status: b.querySelector("[data-editor-state]").textContent,
+        statusSize: getComputedStyle(b.querySelector("[data-editor-state]")).fontSize,
+        statusCenter: Math.round(b.querySelector("[data-editor-state]").getBoundingClientRect().left + b.querySelector("[data-editor-state]").getBoundingClientRect().width / 2),
+        padTop: Math.round(parseFloat(getComputedStyle(b).paddingTop)),
       }
     })
     expect(bar.top === 0, "the bar is at the top of the page", bar.top)
-    expect(bar.h === (isPhone ? 56 : 108), `and is ${isPhone ? "56px" : "64px, with a 44px row of section tabs,"}`, bar.h)
+    expect(bar.h === (isPhone ? 56 + bar.padTop : 108), `and is ${isPhone ? "56px under any safe area" : "64px, with a 44px row of section tabs,"}`, bar.h)
     expect(!!bar.save && !!bar.cancel, "with Cancel and Save in it", { save: bar.save, cancel: bar.cancel })
     expect(isPhone ? bar.save?.h === 40 && bar.cancel === 44 : bar.save?.h === 32, `Save is ${isPhone ? "40px, Cancel a 44px target" : "32px"}`, { save: bar.save?.h, cancel: bar.cancel })
     expect(bar.save?.disabled === true, "Save is greyed out while there is nothing to save", bar.status)
-    expect(isNew ? bar.title === "New product" : /^Portrait retouching/.test(bar.title), "the bar names the product", bar.title)
-    expect(isNew ? bar.status === "Not saved yet" : bar.status === "Live", "and says what state it is in", bar.status)
+    expect(!bar.named && !bar.headingShown, "the bar shows no product name: it is in the title field", { named: bar.named, heading: bar.heading })
+    expect(bar.heading === (isNew ? "New product" : "Edit product"), "a screen reader still hears which page this is", bar.heading)
+    expect(isNew ? bar.status === "New product" : bar.status === "Live", "the bar says what state it is in, in small text", { status: bar.status, size: bar.statusSize })
+    expect(bar.statusSize === "13px", "13px", bar.statusSize)
+    if (isPhone) expect(Math.abs(bar.statusCenter - vp.width / 2) <= 1, "centred on the screen, between Cancel and Save", { center: bar.statusCenter, screen: vp.width / 2 })
+    if (isPhone) {
+      const want = isLayer ? inset : 0
+      expect(bar.padTop === want, isLayer ? `first on the screen, it starts below the status bar (${inset}px of safe area)` : "under the app's header it adds no safe area of its own", { padTop: bar.padTop, inset })
+    }
     const footBars = await p.evaluate(() => [...document.querySelectorAll("[data-product-editor] *")].filter((el) => {
       const cs = getComputedStyle(el)
       const r = el.getBoundingClientRect()
@@ -160,18 +196,25 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
     })
     expect(room.sideways === 0, "nothing scrolls sideways", room.sideways)
     if (isPhone) {
-      expect(room.pb === "104px", "the page keeps 104px at its foot for the pill, and nothing more", room.pb)
+      if (isLayer) {
+        expect(room.pb === `${32 + insetBottom}px`, "a layer has no pill under it: 32px at its foot, over the home indicator's safe area", room.pb)
+      } else {
+        expect(room.pb === `${104 + insetBottom}px`, "the page keeps 104px at its foot for the pill (over the safe area), and nothing more", room.pb)
+      }
       await p.$eval("[data-product-editor]", (el) => { el.scrollTop = el.scrollHeight })
       await sleep(250)
       const clear = await p.evaluate(() => {
         const cards = [...document.querySelectorAll("[data-product-editor] .rounded-2xl")]
         const last = cards[cards.length - 1].getBoundingClientRect()
-        const pill = document.getElementById("pill").getBoundingClientRect()
-        return { lastBottom: Math.round(last.bottom), pillTop: Math.round(pill.top), gap: Math.round(pill.top - last.bottom) }
+        const pill = document.getElementById("pill")
+        const pillShown = getComputedStyle(pill.parentElement).visibility !== "hidden"
+        const edge = pillShown ? pill.getBoundingClientRect().top : window.innerHeight
+        return { lastBottom: Math.round(last.bottom), pillShown, edge: Math.round(edge), gap: Math.round(edge - last.bottom) }
       })
-      expect(clear.gap >= 16, "scrolled to the end, the last section clears the pill", clear)
+      expect(clear.pillShown === !isLayer, isLayer ? "the pill is hidden under the layer" : "the pill is there", clear.pillShown)
+      expect(clear.gap >= 16 + (isLayer ? insetBottom : 0), isLayer ? "scrolled to the end, the last section clears the home indicator" : "scrolled to the end, the last section clears the pill", clear)
       const barAfter = await p.$eval("[data-editor-bar]", (b) => ({ top: Math.round(b.getBoundingClientRect().top), h: Math.round(b.getBoundingClientRect().height) }))
-      expect(barAfter.top === 68 && barAfter.h === bar.h, "and the bar is still at the top, the same size", barAfter)
+      expect(barAfter.top === (isLayer ? 0 : 68) && barAfter.h === bar.h, "and the bar is still at the top, the same size", barAfter)
       await p.screenshot({ path: join(shots, `${label}-end.png`) })
       await p.$eval("[data-product-editor]", (el) => { el.scrollTop = 0 })
       await sleep(150)
@@ -195,18 +238,49 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
     }
     await p.screenshot({ path: join(shots, `${label}-top.png`) })
 
+    /* Where everything in the bar is, to see that a change of state moves none of it. */
+    const geometry = () => p.evaluate(() => {
+      const b = document.querySelector("[data-editor-bar]")
+      const parts = [...b.querySelectorAll("button, a")].filter((x) => x.getBoundingClientRect().width > 0).map((x) => {
+        const r = x.getBoundingClientRect()
+        return `${x.textContent.trim() || x.getAttribute("aria-label")}@${Math.round(r.left)}+${Math.round(r.width)}x${Math.round(r.height)}`
+      })
+      return [...parts, `bar ${Math.round(b.getBoundingClientRect().height)}`].join(" ")
+    })
+    const resting = await geometry()
+
     /* Save */
+    if (isNew) {
+      await p.click("#title", { clickCount: 1 })
+      await p.keyboard.type("Film presets")
+      await sleep(150)
+      const typed = await p.evaluate(() => document.querySelector("[data-editor-state]").textContent)
+      const moved = await geometry()
+      expect(typed === "Unsaved changes" && !/Film presets/.test(await p.$eval("[data-editor-bar]", (b) => b.innerText)), "typing a name says Unsaved changes, and the name stays out of the bar", typed)
+      expect(moved === resting, "and nothing in the bar moves or changes size", { resting, moved })
+      await p.screenshot({ path: join(shots, `${label}-typed.png`) })
+    }
     if (!isNew) {
       await p.click("#title", { clickCount: 1 })
       await p.keyboard.press("End")
       await p.keyboard.type("!")
       await sleep(150)
-      const dirty = await p.evaluate(() => ({ status: document.querySelector("[data-editor-bar] p").textContent, disabled: [...document.querySelectorAll("[data-editor-bar] button")].find((b) => b.textContent.trim() === "Save").disabled }))
+      const dirty = await p.evaluate(() => ({ status: document.querySelector("[data-editor-state]").textContent, disabled: [...document.querySelectorAll("[data-editor-bar] button")].find((b) => b.textContent.trim() === "Save").disabled }))
       expect(dirty.status === "Unsaved changes" && dirty.disabled === false, "a change says Unsaved changes and Save lights up", dirty)
+      const moved = await geometry()
+      expect(moved === resting, "and nothing in the bar moves or changes size", { resting, moved })
+      if (isPhone) {
+        const state = await p.$eval("[data-editor-state]", (s) => {
+          const r = s.getBoundingClientRect()
+          const more = document.querySelector("[data-editor-bar] button[aria-label='More actions'] svg").getBoundingClientRect()
+          return { center: Math.round(r.left + r.width / 2), gapToMore: Math.round(more.left - r.right), cut: s.scrollWidth > s.clientWidth }
+        })
+        expect(Math.abs(state.center - vp.width / 2) <= 1 && state.gapToMore >= 16 && !state.cut, "the longest state, Unsaved changes, is still centred, whole, and 16px or more from the more button's dots", state)
+      }
       await p.screenshot({ path: join(shots, `${label}-dirty.png`) })
       await p.keyboard.press("Backspace")
       await sleep(150)
-      const clean = await p.evaluate(() => ({ status: document.querySelector("[data-editor-bar] p").textContent, disabled: [...document.querySelectorAll("[data-editor-bar] button")].find((b) => b.textContent.trim() === "Save").disabled }))
+      const clean = await p.evaluate(() => ({ status: document.querySelector("[data-editor-state]").textContent, disabled: [...document.querySelectorAll("[data-editor-bar] button")].find((b) => b.textContent.trim() === "Save").disabled }))
       expect(clean.status === "Live" && clean.disabled === true, "undone, it is saved again", clean)
       await p.keyboard.type("!")
       const before = requests.length

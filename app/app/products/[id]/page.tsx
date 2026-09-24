@@ -1,7 +1,6 @@
 import type { Metadata } from "next"
 import { redirect } from "next/navigation"
 import { loadProductEditor } from "../load-editor"
-import { EditorSkeleton } from "../new/editor-skeleton"
 import { ProductEditor } from "../new/product-editor"
 
 export const metadata: Metadata = {
@@ -27,7 +26,10 @@ interface ProductEditPageProps {
 export default async function ProductEditPage({ params }: ProductEditPageProps) {
   const { id } = await params
   const load = await loadProductEditor(id)
-  if (load.state === "signed-out") return <EditorSkeleton editing />
+  /* No session on this request: the app shell's gate (NativeAuthGate) holds
+     the screen while it restores one and reloads, so nothing drawn here is
+     seen. Nothing, then, rather than an outline of the editor. */
+  if (load.state === "signed-out") return null
   if (load.state === "no-creator") redirect("/onboarding")
   /* Not theirs, or gone: back to the list rather than an empty form. */
   if (load.state === "missing") redirect("/app/products")

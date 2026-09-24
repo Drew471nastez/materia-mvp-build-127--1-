@@ -8,7 +8,6 @@ import { cn } from "@/lib/utils"
 import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
 import { COUPON_STATE_LABEL, couponState, type CouponState } from "@/lib/checkout/coupons"
 import { GUTTER, LIST_BAR, LIST_WIDTH, PaneBar, RowMenuButton, StatusBadge, buttonAccent, buttonSecondary, card } from "../orders/order-parts"
-import { ProductsSubnav } from "../products/products-subnav"
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -89,10 +88,11 @@ const NEW_BUTTON = "max-md:h-11 max-md:rounded-xl max-md:px-4 max-md:text-[15px]
 
 /**
  * ===========================================================================
- *  COUPONS, IN THE PRODUCTS AREA'S LANGUAGE
+ *  COUPONS, A PAGE OF THEIR OWN
  * ===========================================================================
- * The Products page's frame: the pane's bar with New coupon, the area's tabs,
- * then one card whose toolbar holds the views. A computer gets a table; a
+ * Coupons has its own place in the app's menu (under Products) and its own
+ * title. The frame is the Products and Orders one: the pane's bar with New
+ * coupon, then one card whose toolbar holds the views. A computer gets a table; a
  * phone gets a list with the code, what it takes off and how often it has
  * been used, each row one press into the code's own page. Where a code
  * stands (active, scheduled, expired, used up, off) is worked out by the
@@ -210,8 +210,7 @@ export function CouponsClient({ initialCoupons, products }: CouponsClientProps) 
       </PaneBar>
 
       <div className={cn("mx-auto pb-24 md:pb-8", LIST_WIDTH, GUTTER)}>
-        <ProductsSubnav active="coupons" />
-        <section aria-label="Coupons" className={cn(card, "mt-4 overflow-hidden")}>
+        <section aria-label="Coupons" className={cn(card, "mt-3 overflow-hidden")}>
           <div className="flex h-[52px] items-center border-b border-[#eef0f2] px-2 md:h-12">
             <div role="tablist" aria-label="Views" className="orders-strip -my-2 flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto py-2">
               {VIEWS.map((option) => {
