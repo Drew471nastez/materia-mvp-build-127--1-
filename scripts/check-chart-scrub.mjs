@@ -25,6 +25,7 @@
  */
 import { execFileSync } from "node:child_process"
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs"
+import { appCss } from "./probe-css.mjs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 
@@ -32,9 +33,8 @@ const CHROMIUM = process.env.CHROMIUM ?? "/opt/pw-browsers/chromium"
 const root = process.cwd()
 const fail = (m) => { console.error(`\n${m}\n`); process.exit(1) }
 if (!existsSync(CHROMIUM)) fail(`No browser at ${CHROMIUM}.`)
-const cssDir = join(root, ".next/static/chunks")
-if (!existsSync(cssDir)) fail("No production build found. Run `pnpm build` first.")
-const css = readdirSync(cssDir).filter((f) => f.endsWith(".css")).map((f) => readFileSync(join(cssDir, f), "utf8")).join("\n")
+/* The build's stylesheet, or the same one compiled from app/globals.css when there is no build. */
+const css = await appCss(root)
 
 const stubs = join(root, ".wb-probe")
 mkdirSync(stubs, { recursive: true })
@@ -130,12 +130,17 @@ const DRIVE = `
 
   /* ---- what the chart is saying --------------------------------------- */
   function chart() { return document.querySelector("#app div[style*='user-select']") }
+  /*
+   * The readout, when it is showing. It is components/app/chart-scrub's now,
+   * which keeps the node and fades it (opacity 0 when it is not showing), so
+   * being in the document is not the same as being up.
+   */
   function tooltip() {
     var host = chart(); if (!host) return null
     var kids = host.children
     for (var i = 0; i < kids.length; i++) {
       var s = kids[i].getAttribute && kids[i].getAttribute("style")
-      if (s && s.indexOf("position: absolute") >= 0 && s.indexOf("z-index: 10") >= 0) return kids[i]
+      if (s && s.indexOf("position: absolute") >= 0 && s.indexOf("z-index: 10") >= 0) return Number(getComputedStyle(kids[i]).opacity) > 0.5 ? kids[i] : null
     }
     return null
   }

@@ -2108,7 +2108,10 @@ export function DashboardClient({
           <div className={`overflow-hidden transition-all duration-500 ease-out ${chartExpanded && openKPIModal ? "max-h-[300px] opacity-100" : "max-h-0 opacity-0"}`}>
             <div className="border-t border-[#e5e7eb]/60 px-2 py-3 sm:px-4 sm:py-4">
               {isChartLoading && displayChartData.length === 0 ? (
-                <div className="h-[200px] flex items-end gap-1.5 px-6 pb-6 pt-4">
+                /* LATE, like the Analytics skeleton (app/globals.css .skeleton-late):
+                   a first read that answers quickly never shows these bars at
+                   all, so the chart does not flash grey blocks before its line. */
+                <div className="h-[200px] flex items-end gap-1.5 px-6 pb-6 pt-4 skeleton-late">
                   {Array.from({ length: 10 }).map((_, i) => (
                     <div
                       key={i}

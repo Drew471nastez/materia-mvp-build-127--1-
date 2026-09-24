@@ -2,20 +2,25 @@
  * ===========================================================================
  *  THE TWO TREND CHARTS
  * ===========================================================================
- * The analytics trend chart and the dashboard's KPI chart are the same chart
- * written twice, and they had the same four faults.
+ * The analytics trend chart and the dashboard's KPI chart were the same
+ * chart written twice, and they had the same faults. They are one chart in
+ * three shared layers now: recharts for the grid and the dates, the lines
+ * (components/app/morph-lines) and the marker (components/app/chart-scrub).
  *
- * How smoothly they MOVE is measured in a real browser — scripts/check-chart.mjs
- * bundles the analytics one, mounts it in Chromium, drives real mouse events
- * across the plot and counts nodes and DOM mutations. Two numbers from that
- * run are worth carrying here as context for what the source rules below are
- * protecting:
+ * How they MOVE is measured in a real browser, on both charts, with a mouse
+ * and a finger: scripts/check-chart-feel.mjs sweeps each one move a frame
+ * through the DevTools protocol and reports main thread time per move, markup
+ * rewritten per move, how far the readout trails the pointer and how it
+ * leaves, and taps a tab mid move. Measured before and after the layers were
+ * shared (medians of three runs, 30 points):
  *
- *     241 svg nodes  →  125
- *     crosshair, active dot and tooltip box teleporting  →  all three glide
+ *     readout behind the pointer   17 to 19px (mouse), 6px (Analytics finger)  →  0
+ *     markup rewritten per move    2.8 (home, finger)                           →  0
+ *     readout on leaving           gone in one frame                            →  a 120ms fade
+ *     jump when a tab is tapped mid move   38 to 39px                            →  under 3px
  *
- * What is checked here is the source-level shape that produced those numbers,
- * on BOTH charts — the browser probe only ever sees one of them.
+ * scripts/check-analytics-page.mjs does the same for the whole page. What is
+ * checked here is the source-level shape that produced those numbers.
  *
  * Run with:  npm run test:push
  */
