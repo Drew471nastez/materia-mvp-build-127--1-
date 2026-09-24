@@ -34,7 +34,7 @@ function main() {
     check("and is shown that way", getWebsiteUrlDisplay("andrewrullz") === "andrewrullz.storelib.com")
 
     const proxy = read("proxy.ts")
-    check("a subdomain page with no AI site goes to the website route", /const isWebsite = !looksLikeFile && !\(await hasLiveAiSite\(subdomain\)\)/.test(proxy) && /`\/w\/\$\{subdomain\}/.test(proxy))
+    check("a subdomain page with no AI site goes to the website route", /const isWebsite = \(!looksLikeFile \|\| seoFile\) && !\(await hasLiveAiSite\(subdomain\)\)/.test(proxy) && /`\/w\/\$\{subdomain\}/.test(proxy))
     check("but an asset request never pays that lookup", /const looksLikeFile = \/\\\.\[a-z0-9\]\{1,8\}\$\/i\.test\(pathname\)/.test(proxy))
     check("and a lookup that fails reads as no AI site, not as an error page", /async function hasLiveAiSite[\s\S]*?catch \{\s*return false/.test(proxy))
 

@@ -1,7 +1,9 @@
 import { notFound } from "next/navigation"
 import type { Metadata } from "next"
-import { productMetadata, renderProduct } from "@/components/website-builder/theme/render-product"
-import { creatorByName } from "@/lib/website-builder/published-site"
+import { productMetadata, productStructuredData, renderProduct } from "@/components/website-builder/theme/render-product"
+import { creatorByName, publishedShopByName } from "@/lib/website-builder/published-site"
+import { productUrl, siteIsIndexable } from "@/lib/website-builder/site-seo"
+import { siteOrigin } from "@/lib/website-builder/site-seo-data"
 
 /**
  * RENDERED PER REQUEST, unlike the pages of the site around it.
@@ -19,8 +21,13 @@ interface PageProps {
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const { slug } = await params
-  return productMetadata(slug)
+  const { username, slug } = await params
+  const creator = await creatorByName(username)
+  if (!creator) return productMetadata(slug)
+  const [origin, found] = await Promise.all([siteOrigin(creator.creatorId, username), publishedShopByName(username)])
+  const settings = found.kind === "site" ? (found.site.themeSettings as Record<string, unknown>) : {}
+  const brand = typeof settings.brand_name === "string" && settings.brand_name.trim() ? settings.brand_name.trim() : creator.displayName
+  return productMetadata(slug, { url: productUrl(origin, slug), brand, indexable: siteIsIndexable(settings) })
 }
 
 /**
@@ -41,5 +48,16 @@ export default async function SiteProductPage({ params }: PageProps) {
   const { username, slug } = await params
   const creator = await creatorByName(username)
   if (!creator) notFound()
-  return renderProduct(slug, { creatorId: creator.creatorId })
+  const origin = await siteOrigin(creator.creatorId, username)
+  const [page, structured] = await Promise.all([
+    renderProduct(slug, { creatorId: creator.creatorId }),
+    productStructuredData(slug, { url: productUrl(origin, slug), seller: creator.displayName }),
+  ])
+  return (
+    <>
+      {/* What puts the price and the picture in a search result. */}
+      {structured && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: structured }} />}
+      {page}
+    </>
+  )
 }

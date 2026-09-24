@@ -110,7 +110,15 @@ export const DEV_PAGES: readonly DevPage[] = [
     title: "Examples",
     nav: "Examples",
     description:
-      "Complete, working Storelib sections, each compiled and quality checked by the test suite on every change: a sign-up card, an FAQ, a logo strip, a video, product cards and tabs.",
+      "Complete, working Storelib sections, each compiled and quality checked by the test suite on every change: a sign-up card, an FAQ, a logo strip, a video, product cards, tabs and a navigation bar.",
+    group: "Build",
+  },
+  {
+    slug: "rules",
+    title: "Rules before you ship",
+    nav: "Rules for agents",
+    description:
+      "What every AI agent must follow before writing code on a Storelib site: what it may change, editable links and menus, copying a page from a screenshot, menus and sheets, motion, phones and iOS, and the checks before calling it done.",
     group: "Build",
   },
   {

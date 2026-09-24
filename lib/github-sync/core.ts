@@ -252,9 +252,27 @@ section of the site, written in the Storelib Builder Framework.
    not saved; fix it and push again.
 5. Nothing is live until the creator presses Publish in the builder.
 
-Only \`sections/*.storelib\` is read. Other files in this repository are yours
-and Storelib ignores them. Deleting a section file here does not remove the
+Only \`sections/*.storelib\` is read, and a built-in section is never changed
+from here. Other files in this repository are yours and Storelib ignores them. Deleting a section file here does not remove the
 section from the site, because a page may be using it.
+
+## Read the rules before you write anything
+
+https://storelib.com/developers/rules is what every agent follows on a
+Storelib site. The short version:
+
+- You write \`sections/<type>.storelib\` files only. The built-in sections
+  Storelib ships are in this repository to read; a change to one is refused on
+  the commit. To change how one works, add a NEW section beside it with its
+  own name, and the creator puts it on the page.
+- Every word, picture, link and button a visitor sees is a setting or a block
+  in the schema, so the creator can edit it: a \`url\` setting for every link
+  and button, one block per menu link, an \`image_picker\` for every picture.
+- A page copied from a screenshot is split into one section per part of it
+  (header, hero, features, footer...), each with its full schema.
+- Menus, sheets and dialogs open with HTML (\`popover\`, \`<details>\`), work
+  at 375px wide with 44px targets, and stop moving under reduced motion.
+- No generic AI styling and no AI-sounding copy.
 
 ## Writing a section
 
@@ -293,7 +311,8 @@ The whole of that is at https://storelib.com/developers/selling.
 export const CLAUDE_MD = `# Instructions for Claude Code
 
 Read AGENTS.md: it says what this repository is and how a push reaches the
-Storelib site.
+Storelib site. Follow https://storelib.com/developers/rules before you change
+anything.
 
 @AGENTS.md
 `

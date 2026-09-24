@@ -34,14 +34,14 @@ const PATHS: { id: ConnectVia; title: string; tools: string; note?: string }[] =
  * Whatever arrives either way is a draft of this one website until it is
  * published.
  */
-export function AdvancedSettings({ ctx }: { ctx: SettingsContext }) {
+export function ConnectionsSettings({ ctx }: { ctx: SettingsContext }) {
   /* Back from GitHub's install page, or sent by the top bar's GitHub button:
      the GitHub path. Otherwise the recommended one. */
   const [via, setVia] = useState<ConnectVia>(ctx.connectVia ?? (ctx.githubReturned ? "github" : "direct"))
 
   return (
     <>
-      <PageTitle>Advanced</PageTitle>
+      <PageTitle>Connections</PageTitle>
 
       <section className="mt-6">
         <h2 className="text-[17px] font-medium">Connect Claude Code, Codex or ChatGPT</h2>

@@ -3772,7 +3772,7 @@ check(
     const proxy = strip(read("proxy.ts"))
     // The rewrite is a ternary now: a page with no AI site goes to /w, the
     // rest to /site. The header rule sits below it and applies to both.
-    const at = proxy.indexOf("const isWebsite = !looksLikeFile")
+    const at = proxy.indexOf("const isWebsite = (!looksLikeFile || seoFile)")
     const body = proxy.slice(at, proxy.indexOf("return rewritten", at) + 20)
     const route = read("app/(site)/w/[username]/page.tsx")
     const seconds = /export const revalidate = (\d+)/.exec(route)?.[1]

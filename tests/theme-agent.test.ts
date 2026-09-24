@@ -3325,8 +3325,8 @@ section("A setting is one way to make a change, not the limit of what is possibl
       /A refused write did not happen/.test(loop),
   )
   check(
-    "a write goes to the same table the code editor saves to, draft cleared",
-    /\.from\("store_theme_custom_files"\)\s*\n\s*\.update\(\{ content: source, draft_content: null/.test(route),
+    "a write goes through the code editor's own save: a draft with a version, never the live site",
+    /await saveThemeFile\(supabase, installId, path, source\)/.test(route) && !/\.update\(\{ content: source, draft_content: null/.test(route),
   )
   check(
     "the next turn reads what was just written",

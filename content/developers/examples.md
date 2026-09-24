@@ -1,6 +1,6 @@
 # Examples
 
-Six complete sections. Each is a real `.storelib` file that the test suite compiles, and runs through the same quality checks the builder applies to AI-written sections, on every change to the platform. If one of these stopped compiling, the change that broke it would not ship. Copy any of them into the code editor as `sections/<type>.storelib` and it works as shown.
+Seven complete sections. Each is a real `.storelib` file that the test suite compiles, and runs through the same quality checks the builder applies to AI-written sections, on every change to the platform. If one of these stopped compiling, the change that broke it would not ship. Copy any of them into the code editor as `sections/<type>.storelib` and it works as shown.
 
 Every example follows the same conventions, which are the library's own:
 
@@ -46,3 +46,9 @@ The creator's own published products through `products`, in the same `{ id, type
 Blocks as tabs, switched with radio inputs and `:checked`, keyboard reachable, with the first tab open. The same pattern works for any "one of these at a time" layout.
 
 @[example:tabs_panel]
+
+## Navigation bar
+
+A header whose every link is editable: menu links as blocks with a label and a `url` each, a logo from an `image_picker`, a button with its own link, and on a phone a menu that opens as a sheet with `popover`, with no script. See [Rules before you ship](/developers/rules).
+
+@[example:nav_bar]

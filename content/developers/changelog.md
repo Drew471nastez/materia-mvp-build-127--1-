@@ -12,6 +12,21 @@ A file written for a newer version is **refused, not misread**: a schema declari
 
 Every change since 1.0 has been additive. Nothing a section could do on 11 September 2026 has stopped working since, which is why every version above is still 1.
 
+## 24 September 2026
+
+**Added**
+
+- [Rules before you ship](/developers/rules): what every agent follows before writing code on a Storelib site, and the `storelib_rules` tool that returns them. `storelib_guide` now starts with them.
+- A navigation bar [example](/developers/examples#navigation-bar), with menu links as blocks and a phone menu that opens with `popover`.
+
+**Changed**
+
+- An agent can no longer change a built-in section. A write to one over MCP, the agent API or a GitHub push is refused, and `storelib_list_files` marks each file `writable`. A different version is written as a new section.
+- The builder's AI saves a section it rewrites as a draft with a version, like the code editor, instead of writing it straight to the live site.
+- Connections has its own place in Website Settings, under Code, instead of inside Advanced. Links to `?settings=advanced` still open it.
+- In the builder, `position: fixed`, `100vh` and `100vw` answer to the canvas, width-only media queries become container queries, and a `popover` or command-opened `<dialog>` opens inside the canvas. See [The page a section sees](/developers/styling#the-page-a-section-sees).
+- A `<style>`, `<link>`, `<base>` or `<meta>` tag inside `<template>` is refused on save and removed from sections saved before.
+
 ## 23 September 2026
 
 **Added**

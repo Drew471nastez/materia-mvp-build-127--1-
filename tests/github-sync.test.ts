@@ -197,8 +197,8 @@ function main() {
 
   const panel = read("components/website-builder/github-sync-panel.tsx")
   {
-    const advanced = read("components/website-builder/website-settings/advanced.tsx")
-    check("Website settings › Advanced has the GitHub path, as one of two answers to one question",
+    const advanced = read("components/website-builder/website-settings/connections.tsx")
+    check("Website settings › Connections has the GitHub path, as one of two answers to one question",
       /<GitHubSyncPanel installId=\{ctx\.installId\}/.test(advanced) && (advanced.match(/<GitHubSyncPanel /g) ?? []).length === 1 &&
         /via === "github" \?/.test(advanced))
     check("and ChatGPT is sent to GitHub, the route that works for it",
@@ -224,7 +224,7 @@ function main() {
   check("  and a phone reaches it from the menu", /isMobileView\s*\?\s*\[\{ label: "GitHub", icon: <GitHubMark/.test(editor))
   check("and coming back from GitHub opens Connections, then clears the address",
     /settingsSectionFrom\(url\.searchParams\.get\("settings"\)\)/.test(editor) && /history\.replaceState/.test(editor) &&
-      /if \(value === "connections" \|\| value === "agents"\) return "advanced"/.test(read("components/website-builder/website-settings/types.ts")))
+      /if \(value === "advanced" \|\| value === "agents"\) return "connections"/.test(read("components/website-builder/website-settings/types.ts")))
 
   console.log("\nBoth ways: the builder's saves reach the repository")
 

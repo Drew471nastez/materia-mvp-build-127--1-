@@ -6,7 +6,7 @@ import "server-only"
 import { after } from "next/server"
 import { mirrorToGitHub } from "@/lib/github-sync/mirror"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { hubText } from "@/lib/developers/render-text"
+import { agentGuideText, pageText } from "@/lib/developers/render-text"
 import { compileOnly, listFiles, readFile, writeSection } from "./operations"
 import { siteBrief } from "./site-brief"
 import type { BoundOps } from "./mcp"
@@ -38,7 +38,8 @@ export async function bindOps(who: AgentIdentity): Promise<BoundOps> {
       if (r.ok === true) after(() => mirrorToGitHub(who.installId, { kind: "save", path, content: source }))
       return r
     },
-    guide: () => hubText(),
+    guide: () => agentGuideText(),
+    rules: () => pageText("rules"),
     site: () => siteBrief(db, who),
   }
 }

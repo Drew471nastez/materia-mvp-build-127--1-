@@ -1527,7 +1527,7 @@ check(
   (() => {
     const types = settingsFiles[0]
     const list = types.slice(types.indexOf("SETTINGS_SECTIONS = ["), types.indexOf("] as const"))
-    return !/Analytics|Knowledge|Skills/.test(list) && /\{ id: "backups", label: "Backups & Versions" \}/.test(list) &&
+    return !/Analytics|Knowledge|Skills/.test(list) && /\{ id: "backups", label: "Backups & Versions", group: "site" \}/.test(list) &&
       (list.match(/\{ id: "/g) ?? []).length === 9
   })(),
 )

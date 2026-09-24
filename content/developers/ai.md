@@ -101,13 +101,13 @@ sandbox against a copy of its own markup: prefer HTML and CSS.
 | Best for | Claude Code or Codex working in a repository, a team, a history of every change. | One person and one agent, nothing to set up on GitHub. |
 | What you see | The change in the builder within seconds, and a Storelib check on the commit. | The change in the builder within seconds. |
 
-Both reach one site and nothing else, both save drafts that go live only when you publish, and both are under **Website Settings › Advanced** in the builder, which the plug button in the top bar (**Connect Claude Code, Codex or ChatGPT**) opens. Pick your tool there and it shows only the steps for it.
+Both reach one site and nothing else, both save drafts that go live only when you publish, and both are under **Website Settings › Connections** in the builder, which the plug button in the top bar (**Connect Claude Code, Codex or ChatGPT**) opens. Pick your tool there and it shows only the steps for it.
 
 **ChatGPT** works through GitHub. Codex in ChatGPT edits a GitHub repository, so link one below, ask Codex for the change, and merge it into the linked branch: it reaches the site like any other push.
 
 ## Connect through GitHub
 
-1. In the builder, press the plug button in the top bar, or open **Website Settings › Advanced**.
+1. In the builder, press the plug button in the top bar, or open **Website Settings › Connections**.
 2. Press **Connect GitHub**. GitHub asks which repositories to give Storelib; pick one, or make an empty one first.
 3. Back in the builder, pick the repository, the branch (its default branch unless you say otherwise) and, if the site should live in a folder of a bigger repository, the folder. Press **Link and send sections**.
 
@@ -130,7 +130,7 @@ claude "Add a pricing section with three tiers to sections/, then commit and pus
 
 An agent can work on a site directly: list its files, read them, compile a section until it is clean, and save it. The creator connects it once, from the builder.
 
-1. Open the site in the website builder, then **Website Settings › Advanced**, and pick **Claude Code** or **Codex**.
+1. Open the site in the website builder, then **Website Settings › Connections**, and pick **Claude Code** or **Codex**.
 2. Name the connection, for example "Claude Code", and press **Connect**.
 3. Copy the token it shows. It is shown once. Storelib keeps only its hash, so a lost token is disconnected and replaced, never recovered.
 
@@ -154,7 +154,8 @@ bearer_token_env_var = "STORELIB_TOKEN"
 
 | Tool | What it does |
 | --- | --- |
-| `storelib_guide` | This framework, in full. Read it before writing a section. |
+| `storelib_rules` | [Rules before you ship](/developers/rules). Read them first. |
+| `storelib_guide` | This framework, in full, starting with the rules. Read it before writing a section. |
 | `storelib_site` | What this website is: its name and address, brand, title and description, fonts and colour schemes, the sections on each page, and its published products with their prices and ids. Read it before writing, so the section fits this site. |
 | `storelib_list_files` | Every file of the site's theme, marked `yours` or `theme`. |
 | `storelib_read_file` | One file, the saved draft where there is one, with its `updated_at`. |
@@ -167,6 +168,7 @@ The loop that works: read the guide and the site, write the file, compile it unt
 
 - It reaches **one site**. Not the creator's other sites, orders, buyers, subscribers or account. It sees the site's published products only as a visitor does: title, price, picture and address.
 - It writes **section files only**: `sections/<type>.storelib`, lower case, digits, `_` and `-`. Templates, settings and layout are the creator's.
+- It **never changes a built-in section**. The sections Storelib ships can be read, and a write to one is refused; a different version is written as a new section. The same holds for a push from GitHub and for the builder's own AI.
 - **Every save is a draft**, held to exactly the rules a save in the code editor is: it must compile, and its name must be free. Nothing reaches visitors until the creator publishes.
 - It cannot delete, rename or publish anything.
 - **A new section appears on the page the creator has open** in the builder, above the footer, labelled with the connection's name. If the builder is closed it waits in Add Section, under Created by you.
@@ -187,7 +189,7 @@ Every request carries `Authorization: Bearer slb_...`.
 ```bash
 curl -X PUT https://storelib.com/api/agent/v1/files \
   -H "Authorization: Bearer slb_..." -H "Content-Type: application/json" \
-  -d '{"path":"sections/pricing.storelib","source":"<template>..."}'
+  -d '{"path":"sections/price_table.storelib","source":"<template>..."}'
 ```
 
 ## Without a connection

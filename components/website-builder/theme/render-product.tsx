@@ -15,6 +15,7 @@
  * thing, which is whether the address claims an owner.
  */
 import { sanitizeSections } from "@/lib/website-builder/sanitize-sections"
+import { cache } from "react"
 import { notFound } from "next/navigation"
 import type { Metadata } from "next"
 import { createClient } from "@/lib/supabase/server"
@@ -25,6 +26,7 @@ import { prerenderStorelibSections } from "@/lib/website-builder/storefront-rend
 import { mayPreview, pageSections, themeSettings as themeSettingsOf } from "@/lib/website-builder/preview-link"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 import { TrackView } from "@/components/analytics/track-view"
+import { jsonLdScript, productJsonLd } from "@/lib/website-builder/site-seo"
 
 type ProductRow = {
   id: string
@@ -40,7 +42,8 @@ type ProductRow = {
   creator_id: string | null
 }
 
-async function fetchProductBySlug(slug: string): Promise<ProductRow | null> {
+/* One read per request, shared by the metadata, the page and its structured data. */
+const fetchProductBySlug = cache(async function fetchProductBySlug(slug: string): Promise<ProductRow | null> {
   const supabase = await createClient()
 
   // Try current slug first
@@ -69,22 +72,60 @@ async function fetchProductBySlug(slug: string): Promise<ProductRow | null> {
   const p: any = history?.products
   if (p && p.status === "published") return p as ProductRow
   return null
-}
+})
 
-export async function productMetadata(slug: string): Promise<Metadata> {
+/**
+ * A product page's metadata. On a creator's website (`site` given) it also
+ * names its canonical address on the site's own domain, says whose shop it
+ * is in the title, and keeps the product out of search when the creator has
+ * hidden the whole site: lib/website-builder/site-seo.ts.
+ */
+export async function productMetadata(
+  slug: string,
+  site?: { url: string; brand: string; indexable: boolean },
+): Promise<Metadata> {
   const product = await fetchProductBySlug(slug)
-  if (!product) return { title: "Product Not Found" }
+  if (!product) return { title: "Product Not Found", robots: { index: false, follow: false } }
 
   const ogImage = (product.gallery_urls?.[0]) || product.thumbnail_url || undefined
+  const name = product.title ?? "Product"
+  const description = product.description ? product.description.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(0, 300) : undefined
   return {
-    title: product.title ?? "Product",
-    description: product.description ?? undefined,
+    title: site ? { absolute: `${name} | ${site.brand}` } : name,
+    description,
+    ...(site ? { alternates: { canonical: site.url } } : {}),
+    ...(site && !site.indexable ? { robots: { index: false, follow: false } } : {}),
     openGraph: {
-      title: product.title ?? "Product",
-      description: product.description ?? undefined,
+      title: name,
+      description,
+      ...(site ? { url: site.url, siteName: site.brand } : {}),
       ...(ogImage && { images: [{ url: ogImage }] }),
     },
+    twitter: {
+      card: ogImage ? "summary_large_image" : "summary",
+      title: name,
+      description,
+      ...(ogImage ? { images: [ogImage] } : {}),
+    },
   }
+}
+
+/** A product's structured data on a creator's website, as a script body, or null. */
+export async function productStructuredData(slug: string, site: { url: string; seller: string }): Promise<string | null> {
+  const product = await fetchProductBySlug(slug)
+  if (!product) return null
+  const images = [product.thumbnail_url, ...(product.gallery_urls ?? [])].filter((u): u is string => typeof u === "string" && /^https?:\/\//.test(u))
+  return jsonLdScript(
+    productJsonLd({
+      url: site.url,
+      name: product.title ?? "Product",
+      description: product.description,
+      images: [...new Set(images)],
+      priceCents: product.price_cents,
+      inStock: true,
+      seller: site.seller,
+    }),
+  )
 }
 
 /**
