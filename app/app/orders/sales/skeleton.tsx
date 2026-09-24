@@ -1,12 +1,15 @@
 "use client"
 
-import { useSearchParams } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { GUTTER, LIST_WIDTH, PaneBar } from "../order-parts"
 import { OrderSkeleton } from "../order-skeleton"
 
 /**
- * Orders, while the server is still reading them.
+ * Orders, while the server is still reading them. Not a route loading file
+ * any more: the shell draws it over the page you are leaving when a
+ * navigation here has taken over a second (components/app/app-stage.tsx),
+ * and until then the page you were on stays. `order` is the address's
+ * `?order=`, handed in because the address in the bar is still the old one.
  *
  * AN ORDER'S ADDRESS GETS THE ORDER'S OUTLINE. `?order=` is an order opened
  * over the list (../orders-client.tsx), and a link to one used to show the
@@ -20,8 +23,7 @@ import { OrderSkeleton } from "../order-skeleton"
  * and nothing more, in the page's own boxes, so the real page lands in the
  * same places.
  */
-export default function OrdersLoading() {
-  const order = useSearchParams().get("order")
+export default function OrdersLoading({ order = null }: { order?: string | null }) {
   const bone = "rounded-md bg-[#eef0f2]"
   if (order) {
     return (

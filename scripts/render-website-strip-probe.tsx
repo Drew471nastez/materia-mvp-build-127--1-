@@ -12,7 +12,7 @@
 import * as React from "react"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { WebsiteBuilderClient, type WebsiteSummary } from "@/app/app/website-builder/website-builder-client"
-import WebsiteBuilderLoading from "@/app/app/website-builder/loading"
+import WebsiteBuilderLoading from "@/app/app/website-builder/skeleton"
 import type { WebsitePerformance } from "@/lib/website-builder/site-performance"
 import type { VitalReport } from "@/lib/website-builder/web-vitals"
 

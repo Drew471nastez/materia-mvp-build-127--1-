@@ -397,6 +397,28 @@ html.capacitor body {
     }
   }
 
+  /*
+    ONE LANDING PER PAGE, AND THE SHELL PLAYS IT. Inside /app a page arrives
+    on the stage's entrance (components/app/app-stage.tsx: opacity and a 5px
+    rise, 180ms), started before the new page is painted. A page that still
+    carries .app-page-enter would fade a second time on top of it, from 0
+    over 380ms, so inside the shell's scroller the class does nothing.
+  */
+  html.app-layout .app-content-scroll .app-page-enter {
+    animation: none;
+  }
+
+  /*
+    The outline of a slow page is drawn by the shell only after a second
+    (NAV_SKELETON_AFTER_MS) and fades in on its own, so the delay the old
+    loading files built in would only add to that.
+  */
+  [data-app-route-skeleton] .skeleton-deferred,
+  [data-app-route-skeleton] .skeleton-late {
+    animation: none;
+    opacity: 1;
+  }
+
 
 
 

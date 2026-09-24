@@ -48,6 +48,7 @@ import { LanguageModal } from "@/components/platform/language-modal"
 import { toOriginalImageUrl } from "@/lib/storage/image-url"
 import { isNativeApp, nativeLogOut, openExternal } from "@/lib/native-bridge"
 import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
+import { prefetchAppPage } from "@/lib/ui/app-navigation"
 import { STORELIB_LOGO } from "@/lib/brand/logo"
 
 const EXPLORE_FULL_URL = `https://${process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"}/explore`
@@ -1238,11 +1239,11 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         onToggle={toggleGroup}
         onNavigate={(href) => {
           setPendingHref(href)
-          startNavigationLoading()
+          startNavigationLoading(href)
         }}
         onForceNavigate={(href) => {
           setPendingHref(href)
-          startNavigationLoading()
+          startNavigationLoading(href)
           /* Leaves the /app router tree. In Capacitor a full reload would
              lose the session, which lives in Preferences, not in a cookie. */
           if (isNativePlatform()) router.push(href)
@@ -1296,11 +1297,11 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         onCloseMenu={() => setMobileMenuOpen(false)}
         onNavigate={(href) => {
           setPendingHref(href)
-          startNavigationLoading()
+          startNavigationLoading(href)
           router.push(href)
         }}
         onPrefetch={(href) => {
-          try { router.prefetch(href) } catch {}
+          prefetchAppPage(router, href)
         }}
         icons={{
           home: NAV_ICONS.dashboard,
@@ -1340,11 +1341,11 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
             // blinks off mid-navigation. Which page is active is still
             // decided by the pathname, in isRouteActive.
             setPendingHref(href)
-            startNavigationLoading()
+            startNavigationLoading(href)
           }}
           onForceNavigate={(href) => {
             setPendingHref(href)
-            startNavigationLoading()
+            startNavigationLoading(href)
             // These leave the /app router tree. In Capacitor a full reload
             // would lose the session, which lives in Preferences rather than
             // in a cookie.
@@ -1352,7 +1353,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
             else window.location.href = href
           }}
           onPrefetch={(href) => {
-            try { router.prefetch(href) } catch {}
+            prefetchAppPage(router, href)
           }}
           settingsLabel={t("nav.settings")}
           upgradeTitle={t("nav.upgradeToPro")}

@@ -7,7 +7,7 @@
  */
 import React from "react"
 import { OrdersClient } from "@/app/app/orders/orders-client"
-import OrdersLoading from "@/app/app/orders/sales/loading"
+import OrdersLoading from "@/app/app/orders/sales/skeleton"
 import type { OrderRow } from "@/lib/orders/order-view"
 
 const g = globalThis as unknown as { __probeNow: number; __probeTz: string }
@@ -95,7 +95,7 @@ export function SkeletonApp() {
     <div style={{ height: "100vh", display: "flex", flexDirection: "column" }}>
       <div data-probe-header style={{ height: 58, flex: "none", background: "#131316" }} />
       <div className="app-content-scroll" style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
-        <OrdersLoading />
+        <OrdersLoading order={new URLSearchParams(window.location.search).get("order")} />
       </div>
     </div>
   )
