@@ -93,9 +93,7 @@ import { relativeTime } from "@/lib/website-builder/relative-time"
 import { latestCover, requestCover, savedAt } from "@/lib/website-builder/cover-refresh"
 import { HelpLabel } from "@/components/app/help-label"
 import type { SettingsSection } from "@/components/website-builder/website-settings/types"
-import type { RangeValue } from "@/lib/date-range/range"
-import type { WebsitePerformance } from "@/lib/website-builder/site-performance"
-import { WebsiteStrip } from "./website-strip"
+import { SettingsStrip, settingsDoors } from "./settings-strip"
 
 export interface WebsiteSummary {
   id: string
@@ -149,7 +147,7 @@ export function editorHref(
  * ===========================================================================
  * The pages of Website Settings a creator goes to for their live website,
  * named the way a host names them. They were a row of tabs above the cover;
- * that place is the performance bar now (./website-strip.tsx), and these
+ * that place is the settings bar now (./settings-strip.tsx), and these
  * are the first group of the More menu beside View site. Each opens the
  * matching page of Website Settings in the editor: there is one Domains page
  * and one SEO page in Storelib, and a row is a door to it, not a copy.
@@ -423,12 +421,9 @@ export function coverIsStale(i: Pick<WebsiteSummary, "snapshot_url" | "snapshot_
 export function WebsiteBuilderClient({
   installs: given,
   username,
-  performance,
 }: {
   installs: WebsiteSummary[]
   username: string
-  /** The bar above the live cover: its period now, its numbers when counted. */
-  performance?: { period: RangeValue; timeZone: string; figures: Promise<WebsitePerformance | null> } | null
 }) {
   /*
     ===========================================================================
@@ -713,14 +708,13 @@ export function WebsiteBuilderClient({
             and compares the left inset to the right, which is the complaint
             that started this rewrite: things on this page did not line up. */}
         <section aria-labelledby="live-heading" className="space-y-3" data-page-block>
-          {/* ── The strip ─────────────────────────────────────────────
-              How the live site is doing, in its own bar above the cover,
-              the way Shopify's theme page shows a store's web performance:
-              the period, then visits, orders, conversion and the three
-              speed numbers Google ranks by. Not glued into the card under
-              it: the card is the site, the bar is how it is doing. */}
-          {live && performance && (
-            <WebsiteStrip initialPeriod={performance.period} timeZone={performance.timeZone} figures={performance.figures} />
+          {/* ── The bar above the cover ───────────────────────────────
+              A door to each page of Website Settings the live site runs on,
+              in the white bar the page's figures used to fill. Not glued
+              into the card under it: the card is the site, the bar is where
+              its settings are. See ./settings-strip. */}
+          {live && (
+            <SettingsStrip doors={settingsDoors(siteDisplay)} onOpen={(section) => go(editorHref(username, live.id, "settings", section))} />
           )}
           <div className="overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
             {live ? (

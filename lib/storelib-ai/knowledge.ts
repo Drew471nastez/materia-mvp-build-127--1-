@@ -75,7 +75,7 @@ const TOPICS: Topic[] = [
   {
     id: "color-scheme",
     triggers: /colou?r|scheme|background|dark|light|contrast|palette|brand|theme/i,
-    text: `COLOUR COMES FROM THE SCHEME. Declare a color_scheme setting and read the scheme in the template and CSS. The keys are: ${SCHEME_COLOR_KEYS.join(", ")}. Older themes also read the shorter aliases bg, paragraph, primary_btn_bg and primary_btn_text, which still resolve. The built-in schemes are white, light, dark, black and highlight, shown in the editor as Light, Soft, Dark, Brand and Accent, and a creator can add more. Never hardcode a hex value for something the scheme already answers: a hardcoded colour stops responding to the creator's theme.`,
+    text: `COLOUR COMES FROM THE SCHEME. Declare a color_scheme setting and read the scheme in the template and CSS. Its keys: ${SCHEME_COLOR_KEYS.join(", ")}. The aliases bg, paragraph, primary_btn_bg and primary_btn_text still resolve. Paint a button's hover from its hover keys, never with opacity. Built-in schemes: white, light, dark, black and highlight (Light, Soft, Dark, Brand, Accent); a creator can add more. Never hardcode a hex value the scheme answers: it stops responding to the creator's theme.`,
   },
   {
     id: "typography",

@@ -3,7 +3,7 @@
 // Video hero — full-width hero with a background video (self-hosted or
 // poster image fallback) and an overlay text/CTA block on top.
 
-import { sectionColors, str, bool, SectionWrapper, hexToRgba, type SectionProps } from "../_shared"
+import { sectionColors, str, bool, SectionWrapper, hexToRgba, type SectionProps, schemeButton } from "../_shared"
 
 export function VideoHeroSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
   const s = section.settings
@@ -67,9 +67,10 @@ export function VideoHeroSection({ section, theme, isEditing, isSelected, onClic
             <a
               href={str(s.button_url, "#")}
               className="inline-block px-7 py-3 font-semibold"
+              data-sl-button={btnStyle === "filled" ? "primary" : undefined}
               style={
                 btnStyle === "filled"
-                  ? { background: btnColor, color: btnText, borderRadius: btnRadius }
+                  ? { ...schemeButton(c, "primary", { background: str(s.button_color), text: str(s.button_text_color) }).style, borderRadius: btnRadius }
                   : btnStyle === "ghost"
                     ? { color: btnText, borderRadius: btnRadius }
                     : { border: `2px solid ${btnColor}`, color: btnText, borderRadius: btnRadius }

@@ -110,6 +110,21 @@ Declare a `color_scheme` setting, then read the scheme. In CSS, read the custom 
 .button { background: var(--scheme-button-primary); color: var(--scheme-button-primary-text); }
 ```
 
+### Buttons, and their hover
+
+A button reads four colours from its scheme: its fill and text, and its fill and text on hover. The two hover colours are automatic until the creator picks them, worked out from the button's own colours, so a creator who recolours a button never has to recolour its hover too. Paint hover from the scheme, not with `opacity` or a colour of your own:
+
+```css
+.s__btn--primary { background: var(--scheme-button-primary); color: var(--scheme-button-primary-text); border: 1px solid var(--scheme-button-primary-border); }
+.s__btn--primary:hover { background: var(--scheme-button-primary-hover); color: var(--scheme-button-primary-hover-text); }
+.s__btn--secondary { background: var(--scheme-button-secondary); color: var(--scheme-button-secondary-text); border: 1px solid var(--scheme-button-secondary-border); }
+.s__btn--secondary:hover { background: var(--scheme-button-secondary-hover); color: var(--scheme-button-secondary-hover-text); }
+```
+
+In a template the same four are `scheme.primary_btn_hover_bg`, `scheme.primary_btn_hover_text`, `scheme.secondary_btn_hover_bg` and `scheme.secondary_btn_hover_text`.
+
+Give every button the class `s__btn`, or `data-button` when it has to be something else. That is what puts it under the theme's **Buttons** settings: its shape, corner radius, weight, shadow and hover motion. A link that is not a button gets neither, and stays a link.
+
 Five schemes are built in. Their keys are `white`, `light`, `dark`, `black` and `highlight`, shown to the creator as Light, Soft, Dark, Brand and Accent; a creator can rename them and add more. Renaming changes the name, never the key.
 
 **Never hard-code a hex value the scheme already answers.** A hard-coded colour stops responding to the creator's theme, and on a dark scheme it is usually unreadable. Before publishing a new section, switch it between a light and a dark scheme in the builder and read it on both. The builder's AI reviews contrast in what it writes; the code editor does not do it for you.

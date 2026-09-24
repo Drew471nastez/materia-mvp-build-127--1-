@@ -27,16 +27,14 @@ export default function WebsiteBuilderLoading() {
             cover set into it, the facts and the buttons. */}
         <div className="space-y-3">
         <div className="flex divide-x divide-[#eceef1] overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-          <div className="flex shrink-0 items-center px-3 sm:px-4">
-            <div className="h-8 w-[132px] rounded-lg border border-[#e3e4e8] bg-white" />
-          </div>
-          {/* Three lines a cell, like the bar: the title, the number, and
-              the change or the verdict under it. */}
-          {[40, 44, 64, 84, 116, 104].map((w, i) => (
-            <div key={i} className="flex min-w-[132px] flex-[1_0_auto] flex-col justify-center gap-0.5 px-4 py-3">
-              <div className="my-[4px] h-2.5 rounded bg-[#eef0f3]" style={{ width: w }} />
-              <div className="my-[7px] h-2.5 w-16 rounded-full bg-[#e9ebee]" />
-              <div className="my-[5px] h-2.5 w-10 rounded-full bg-[#f1f2f4]" />
+          {/* The settings bar's cells: a name, and the address under the first. */}
+          {[56, 88, 92, 56, 58, 84].map((w, i) => (
+            <div key={i} className="flex min-w-[132px] flex-[1_0_auto] items-center justify-between gap-3 px-4 py-3">
+              <div>
+                <div className="my-[4px] h-3 rounded bg-[#eef0f3]" style={{ width: w }} />
+                {i === 0 ? <div className="mt-1 h-2.5 w-28 rounded-full bg-[#f1f2f4]" /> : null}
+              </div>
+              <div className="h-3 w-2 rounded-sm bg-[#f1f2f4]" />
             </div>
           ))}
         </div>

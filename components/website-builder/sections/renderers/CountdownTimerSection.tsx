@@ -2,13 +2,14 @@
 
 import { useEffect, useState } from "react"
 import { cn } from "@/lib/utils"
-import { resolveScheme, str, bool, parseInZone, SectionWrapper, type SectionProps } from "../_shared"
+import { sectionColors, str, bool, parseInZone, SectionWrapper, type SectionProps } from "../_shared"
 
 // ── Countdown timer ──────────────────────────────────────────
 export function CountdownTimerSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
   const s = section.settings
   const schemeKey = str(s.color_scheme, "dark")
-  const c = resolveScheme(theme, schemeKey)
+  /* With the section's own Advanced colors, which resolveScheme left out. */
+  const c = sectionColors({ ...section, settings: { ...s, color_scheme: schemeKey } }, theme)
   const endStr = str(s.end_date)
   const style = str(s.style, "boxes")
   const alignment = str(s.alignment, "center")

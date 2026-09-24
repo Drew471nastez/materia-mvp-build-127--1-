@@ -1,7 +1,7 @@
 "use client"
 
 import { cn } from "@/lib/utils"
-import { sectionColors, str, buttonRadiusStyle, SectionWrapper, type SectionProps } from "../_shared"
+import { sectionColors, str, buttonRadiusStyle, SectionWrapper, type SectionProps, schemeButton } from "../_shared"
 
 // ── Promotion banner — image + text with CTA ─────────────────
 export function PromotionBannerSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
@@ -33,7 +33,7 @@ export function PromotionBannerSection({ section, theme, isEditing, isSelected, 
     if (type === "outline") {
       return <a href={link || "#"} className={base} style={{ border: `1px solid ${c.image_overlay_text}`, color: c.image_overlay_text, ...buttonRadiusStyle(theme) }}>{label}</a>
     }
-    return <a href={link || "#"} className={base} style={{ background: c.primary_btn_bg, color: c.primary_btn_text, ...buttonRadiusStyle(theme) }}>{label}</a>
+    return <a href={link || "#"} className={base} data-sl-button="primary" style={{ ...schemeButton(c, "primary").style, ...buttonRadiusStyle(theme) }}>{label}</a>
   }
 
   return (

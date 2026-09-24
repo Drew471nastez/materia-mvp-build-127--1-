@@ -23,8 +23,7 @@ import {
   sectionPadding,
   str,
   SectionWrapper,
-  type SectionProps,
-} from "../_shared"
+  type SectionProps, schemeButton } from "../_shared"
 import { stableHtml } from "../stable-html"
 
 const ASPECT: Record<string, string> = {
@@ -47,14 +46,16 @@ export function SplitContentSection({ section, theme, isEditing, isSelected, onC
 
   const buttonStyle = str(s.button_style, "filled")
   const buttonColor = str(s.button_color) || c.primary_btn_bg
-  const buttonLabel = str(s.button_text_color) || c.primary_btn_text
   const radius = { borderRadius: `${num(s.button_border_radius, 8)}px` }
   const button: CSSProperties =
     buttonStyle === "outline"
       ? { background: "transparent", color: buttonColor, border: `2px solid ${buttonColor}`, ...radius }
       : buttonStyle === "ghost"
         ? { background: "transparent", color: buttonColor, border: "1px solid transparent", ...radius }
-        : { background: buttonColor, color: buttonLabel, border: `1px solid ${buttonColor}`, ...radius }
+        : { ...schemeButton(c, "primary", { background: str(s.button_color), text: str(s.button_text_color) }).style, ...radius }
+  /* A filled button is painted by the shared rule, so it has a hover colour:
+     the scheme's, or one worked out from a colour typed into this section. */
+  const filled = buttonStyle !== "outline" && buttonStyle !== "ghost"
 
   return (
     <SectionWrapper bgColor={bg} isEditing={isEditing} isSelected={isSelected} onClick={onClick}>
@@ -129,7 +130,8 @@ export function SplitContentSection({ section, theme, isEditing, isSelected, onC
             <a
               href={str(s.button_url, "#")}
               className="inline-block px-6 py-3 text-sm font-semibold transition-opacity hover:opacity-90"
-              style={button}
+              data-sl-button={filled ? "primary" : undefined}
+            style={button}
             >
               {str(s.button_text)}
             </a>

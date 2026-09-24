@@ -58,6 +58,10 @@ export const SCHEME_COLOR_KEYS = [
   "input_background",
   "input_text",
   "input_border",
+  "primary_button_hover_background",
+  "primary_button_hover_text",
+  "secondary_button_hover_background",
+  "secondary_button_hover_text",
 ] as const
 
 export type SchemeColorKey = (typeof SCHEME_COLOR_KEYS)[number]
@@ -87,19 +91,23 @@ export const SCHEME_COLOR_LABELS: Record<SchemeColorKey, string> = {
   input_background: "Input",
   input_text: "Input text",
   input_border: "Input border",
+  primary_button_hover_background: "Primary button on hover",
+  primary_button_hover_text: "Primary button text on hover",
+  secondary_button_hover_background: "Secondary button on hover",
+  secondary_button_hover_text: "Secondary button text on hover",
 }
 
-/** How the scheme editor groups the seventeen. */
+/** How the scheme editor groups the twenty-one. */
 export const SCHEME_COLOR_GROUPS: { label: string; keys: SchemeColorKey[] }[] = [
   { label: "Surface", keys: ["background", "background_secondary", "border"] },
   { label: "Text", keys: ["heading", "text", "text_muted", "link", "accent"] },
-  { label: "Primary button", keys: ["primary_button_background", "primary_button_text", "primary_button_border"] },
-  { label: "Secondary button", keys: ["secondary_button_background", "secondary_button_text", "secondary_button_border"] },
+  { label: "Primary button", keys: ["primary_button_background", "primary_button_text", "primary_button_border", "primary_button_hover_background", "primary_button_hover_text"] },
+  { label: "Secondary button", keys: ["secondary_button_background", "secondary_button_text", "secondary_button_border", "secondary_button_hover_background", "secondary_button_hover_text"] },
   { label: "Inputs", keys: ["input_background", "input_text", "input_border"] },
 ]
 
 /**
- * What a section may override on its own. Not the seventeen: a section
+ * What a section may override on its own. Not the twenty-one: a section
  * that needs its own input border colour is a section that needs its own
  * scheme. Buttons are offered as a pair in the panel and stored as two.
  */
@@ -113,6 +121,10 @@ export const SECTION_OVERRIDE_KEYS: SchemeColorKey[] = [
   "primary_button_text",
   "secondary_button_background",
   "secondary_button_text",
+  "primary_button_hover_background",
+  "primary_button_hover_text",
+  "secondary_button_hover_background",
+  "secondary_button_hover_text",
 ]
 
 /** The custom property each value is published as on the section's root. */
@@ -134,6 +146,104 @@ export const SCHEME_CSS_VARS: Record<SchemeColorKey, string> = {
   input_background: "--scheme-input",
   input_text: "--scheme-input-text",
   input_border: "--scheme-input-border",
+  primary_button_hover_background: "--scheme-button-primary-hover",
+  primary_button_hover_text: "--scheme-button-primary-hover-text",
+  secondary_button_hover_background: "--scheme-button-secondary-hover",
+  secondary_button_hover_text: "--scheme-button-secondary-hover-text",
+}
+
+/**
+ * ===========================================================================
+ *  A BUTTON'S HOVER COLOURS, WHICH NOBODY HAD TO CHOOSE
+ * ===========================================================================
+ * There was no hover colour anywhere: a button went to 88% opacity whatever
+ * it was, and "button hover colour" was a setting a creator looked for and
+ * could not find. Now a scheme has four, and each is AUTOMATIC until
+ * somebody sets it: worked out from the button's own colours, so a creator
+ * who changes a button's colour gets a hover that belongs to it without
+ * being asked, and one who sets a hover colour gets exactly that.
+ *
+ *   primary     its background a step darker (12% towards black), or for a
+ *               button that is already near black a step lighter (14%
+ *               towards white), so its text never loses contrast
+ *   secondary   its background (the section's, when it is transparent)
+ *               moved 8% towards its text: a tint, so an outline button
+ *               answers without turning into a solid one
+ *   text        the button's own text colour
+ *
+ * A hover key a saved scheme, or a section's overrides, does not set is
+ * worked out again from what they do set, which is what keeps "automatic"
+ * automatic: see normalizeScheme, resolveSectionColors, stripSchemeDefaults.
+ */
+export const HOVER_KEYS = [
+  "primary_button_hover_background",
+  "primary_button_hover_text",
+  "secondary_button_hover_background",
+  "secondary_button_hover_text",
+] as const satisfies readonly SchemeColorKey[]
+export type HoverKey = (typeof HOVER_KEYS)[number]
+
+/** Which colours each hover colour is worked out from. */
+export const HOVER_SOURCES: Record<HoverKey, SchemeColorKey[]> = {
+  primary_button_hover_background: ["primary_button_background", "primary_button_text"],
+  primary_button_hover_text: ["primary_button_text"],
+  secondary_button_hover_background: ["secondary_button_background", "secondary_button_text", "background"],
+  secondary_button_hover_text: ["secondary_button_text"],
+}
+
+function hex6(v: string): [number, number, number] | null {
+  const t = v.trim().toLowerCase()
+  const m3 = /^#([0-9a-f])([0-9a-f])([0-9a-f])$/.exec(t)
+  if (m3) return [parseInt(m3[1] + m3[1], 16), parseInt(m3[2] + m3[2], 16), parseInt(m3[3] + m3[3], 16)]
+  const m6 = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})(?:[0-9a-f]{2})?$/.exec(t)
+  return m6 ? [parseInt(m6[1], 16), parseInt(m6[2], 16), parseInt(m6[3], 16)] : null
+}
+
+/** `from` moved `amount` of the way towards `to`, as #rrggbb; `from` itself when either is not a hex colour. */
+export function mixColor(from: string, to: string, amount: number): string {
+  const a = hex6(from)
+  const b = hex6(to)
+  if (!a || !b) return from
+  const c = a.map((x, i) => Math.round(x + (b[i] - x) * amount))
+  return `#${c.map((x) => x.toString(16).padStart(2, "0")).join("")}`
+}
+
+function opaque(v: string): boolean {
+  const t = v.trim().toLowerCase()
+  return t !== "" && t !== "transparent" && !/^rgba\([^)]*,\s*0(?:\.0+)?\s*\)$/.test(t)
+}
+
+/** WCAG relative luminance of a hex colour; null when it is not one. */
+function luminance(v: string): number | null {
+  const c = hex6(v)
+  if (!c) return null
+  const [r, g, b] = c.map((x) => {
+    const u = x / 255
+    return u <= 0.03928 ? u / 12.92 : ((u + 0.055) / 1.055) ** 2.4
+  })
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b
+}
+
+/**
+ * A filled button's hover fill: a step darker, or for a button already near
+ * black, a step lighter. Never towards its text by default, which is what
+ * took a pink button with white text from readable to not (4.1 : 1).
+ */
+export function hoverFill(background: string): string {
+  const l = luminance(background)
+  if (l === null) return background
+  return l < 0.04 ? mixColor(background, "#ffffff", 0.14) : mixColor(background, "#000000", 0.12)
+}
+
+/** The four hover colours a scheme gets when it does not choose them. */
+export function automaticHover(s: Record<SchemeColorKey, string>): Record<HoverKey, string> {
+  const secondaryBase = opaque(s.secondary_button_background) ? s.secondary_button_background : s.background
+  return {
+    primary_button_hover_background: hoverFill(s.primary_button_background),
+    primary_button_hover_text: s.primary_button_text,
+    secondary_button_hover_background: mixColor(secondaryBase, s.secondary_button_text, 0.08),
+    secondary_button_hover_text: s.secondary_button_text,
+  }
 }
 
 /** `--scheme-gradient` is the gradient when there is one, else the background. */
@@ -147,8 +257,9 @@ export const SCHEME_GRADIENT_VAR = "--scheme-gradient"
 export const BUILT_IN_SCHEME_KEYS = ["white", "light", "dark", "black", "highlight"] as const
 export type BuiltInSchemeKey = (typeof BUILT_IN_SCHEME_KEYS)[number]
 
-function scheme(name: string, v: Record<SchemeColorKey, string>, gradient = ""): ColorScheme {
-  return { name, gradient, ...v }
+function scheme(name: string, v: Omit<Record<SchemeColorKey, string>, HoverKey>, gradient = ""): ColorScheme {
+  const full = v as Record<SchemeColorKey, string>
+  return { name, gradient, ...full, ...automaticHover(full) }
 }
 
 /**
@@ -217,15 +328,15 @@ export const LEGACY_TO_SEMANTIC: Record<string, SchemeColorKey> = {
   primary_btn_bg: "primary_button_background",
   primary_btn_text: "primary_button_text",
   primary_btn_border: "primary_button_border",
-  primary_btn_hover_bg: "accent",
-  primary_btn_hover_text: "primary_button_text",
-  primary_btn_hover_border: "accent",
+  primary_btn_hover_bg: "primary_button_hover_background",
+  primary_btn_hover_text: "primary_button_hover_text",
+  primary_btn_hover_border: "primary_button_hover_background",
   secondary_btn_bg: "secondary_button_background",
   secondary_btn_text: "secondary_button_text",
   secondary_btn_border: "secondary_button_border",
-  secondary_btn_hover_bg: "secondary_button_text",
-  secondary_btn_hover_text: "secondary_button_background",
-  secondary_btn_hover_border: "secondary_button_text",
+  secondary_btn_hover_bg: "secondary_button_hover_background",
+  secondary_btn_hover_text: "secondary_button_hover_text",
+  secondary_btn_hover_border: "secondary_button_border",
   store_title: "heading",
   nav_link: "text",
   footer_link: "link",
@@ -376,6 +487,11 @@ export function normalizeScheme(raw: unknown, base: ColorScheme): ColorScheme {
     const v = raw[slot]
     if (isColor(v)) { out[key] = color(v); filled.add(key) }
   }
+  /* A hover colour the scheme does not set is its own, worked out from the
+     colours it does set: not the base scheme's, which belongs to a button
+     of a different colour. */
+  const auto = automaticHover(out)
+  for (const key of HOVER_KEYS) if (!filled.has(key)) out[key] = auto[key]
   return out
 }
 
@@ -470,6 +586,13 @@ export function resolveSectionColors(
   const base = schemes[key]
   const overrides = sectionOverrides(settings)
   const scheme: ColorScheme = { ...base, ...overrides }
+  /* A section that changes its button's colour and not its hover gets the
+     hover of the button it now has, not of the scheme's. */
+  const auto = automaticHover(scheme)
+  for (const key of HOVER_KEYS) {
+    if (overrides[key] !== undefined) continue
+    if (HOVER_SOURCES[key].some((src) => overrides[src] !== undefined)) scheme[key] = auto[key]
+  }
   // An overridden background is a solid colour; the scheme's gradient was
   // designed for the scheme's background, not for this one.
   if (overrides.background !== undefined) scheme.gradient = ""
@@ -519,6 +642,13 @@ export function stripSchemeDefaults(s: ColorScheme, base: ColorScheme): Record<s
   const out: Record<string, string> = {}
   if (s.name !== base.name) out.name = s.name
   if (s.gradient !== base.gradient) out.gradient = s.gradient
-  for (const key of SCHEME_COLOR_KEYS) if (s[key] !== base[key]) out[key] = s[key]
+  /* A hover colour is stored only when it is not what it would be worked out
+     to, so one nobody chose stays automatic when the button changes. */
+  const auto = automaticHover(s)
+  for (const key of SCHEME_COLOR_KEYS) {
+    if ((HOVER_KEYS as readonly string[]).includes(key)) {
+      if (s[key] !== auto[key as HoverKey]) out[key] = s[key]
+    } else if (s[key] !== base[key]) out[key] = s[key]
+  }
   return out
 }

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { sectionColors, str, bool, buttonRadiusStyle, SectionWrapper, type SectionProps } from "../_shared"
+import { sectionColors, str, bool, buttonRadiusStyle, SectionWrapper, type SectionProps, schemeButton } from "../_shared"
 
 // ── Image comparison (before/after slider) ───────────────────
 export function ImageComparisonSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
@@ -57,6 +57,7 @@ export function ImageComparisonSection({ section, theme, isEditing, isSelected, 
         <a
           href={str(buttonBlock.settings.first_button_link, "#")}
           className="inline-flex items-center justify-center px-6 py-2.5 text-sm font-semibold self-start"
+          data-sl-button={str(buttonBlock.settings.first_button_type, "primary") === "primary" ? "primary" : undefined}
           /* The Button type control offered Primary, Outline and Link and
              every button was the filled primary. */
           style={{
@@ -65,11 +66,7 @@ export function ImageComparisonSection({ section, theme, isEditing, isSelected, 
               ? { background: "transparent", color: c.primary_btn_bg, border: `2px solid ${c.primary_btn_bg}` }
               : str(buttonBlock.settings.first_button_type, "primary") === "link"
                 ? { background: "transparent", color: c.link, border: "none", padding: 0, textDecoration: "underline" }
-                : {
-                    background: c.primary_btn_bg,
-                    color: c.primary_btn_text,
-                    border: `1px solid ${c.primary_btn_border}`,
-                  }),
+                : schemeButton(c, "primary").style),
           }}
         >
           {str(buttonBlock.settings.first_button_label)}

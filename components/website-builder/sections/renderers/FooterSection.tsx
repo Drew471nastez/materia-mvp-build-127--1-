@@ -25,7 +25,7 @@ import { ThemeSocials } from "../../theme/ThemeSocials"
 import {
   bool,
   maxWidth,
-  resolveScheme,
+  sectionColors,
   sectionPadding,
   str,
   SectionWrapper,
@@ -155,7 +155,8 @@ export function FooterSection({
   const s = section.settings
   // Footers default to the "dark" scheme when no scheme is explicitly set.
   const schemeKey = typeof s.color_scheme === "string" ? s.color_scheme : "dark"
-  const c = resolveScheme(theme, schemeKey)
+  /* With the footer's own Advanced colors, which resolveScheme left out. */
+  const c = sectionColors({ ...section, settings: { ...s, color_scheme: schemeKey } }, theme)
 
   const bg = str(s.bg_color) || c.bg
   const headingColor = str(s.heading_color) || c.heading

@@ -14,7 +14,7 @@
 // ============================================================
 
 import type { SectionInstance, ThemeSettingsValues, ColorSchemeValues } from "@/lib/website-builder/types"
-import { resolveSectionColors, type ColorScheme } from "@/lib/storelib-theme/color-schemes"
+import { hoverFill, resolveSectionColors, type ColorScheme } from "@/lib/storelib-theme/color-schemes"
 import { sectionTypography } from "@/lib/storelib-theme/typography"
 // `Zap` alone, and only as the fallback for a name no theme should be using.
 import { Zap } from "lucide-react"
@@ -92,7 +92,7 @@ export interface SectionProps {
  * `resolveSectionColors()`, the same function `render.ts` calls for a
  * .storelib section, and hand back the eighty legacy slot names the
  * renderers were written against (`c.bg`, `c.heading`, `c.primary_btn_bg`),
- * every one derived from the scheme's seventeen semantic values. A section's
+ * every one derived from the scheme's twenty-one semantic values. A section's
  * own `color_overrides` are already applied, so a renderer reading `c.bg`
  * gets the override without knowing there is one.
  */
@@ -348,6 +348,52 @@ export function hexToRgba(hex: string, alpha: number): string {
 export function DynamicIcon({ name, className }: { name: string; className?: string }) {
   const Icon = ICON_MAP[name] ?? Zap
   return <Icon className={className} strokeWidth={1.5} />
+}
+
+// ── A button painted by its section's scheme, hover included ──
+
+/**
+ * ===========================================================================
+ *  ONE WAY FOR A REACT SECTION TO DRAW A BUTTON
+ * ===========================================================================
+ * A button drawn with an inline `background` cannot have a hover colour: no
+ * stylesheet rule without !important beats an inline style. So a React
+ * section hands its button's colours over as custom properties, and one
+ * rule (app/globals.css, `[data-sl-button]`) paints them, hover included.
+ *
+ * The colours are the section's scheme after its own Advanced colors,
+ * which is where a creator changes a button. A section's older literal field
+ * (the header's `cta_color`, a `button_color`) still wins when it is set, as
+ * it always did; its hover is then worked out from that colour, the same way
+ * a scheme's is. `data-button` puts the button under the theme's Buttons
+ * settings: shape, radius, weight, shadow and the hover motion.
+ */
+export function schemeButton(
+  c: SectionPalette,
+  variant: "primary" | "secondary" = "primary",
+  own: { background?: string; text?: string } = {},
+): { "data-sl-button": string; "data-button": string; style: CSSProperties } {
+  const primary = variant === "primary"
+  const bg = own.background || (primary ? c.primary_button_background : c.secondary_button_background)
+  const fg = own.text || (primary ? c.primary_button_text : c.secondary_button_text)
+  /* A filled button's edge is its fill, as it is in every .storelib section,
+     so a section that recolours the fill does not keep the scheme's edge. */
+  const border = primary ? bg : own.background || c.secondary_button_border
+  const hoverBg = own.background
+    ? hoverFill(own.background)
+    : primary ? c.primary_button_hover_background : c.secondary_button_hover_background
+  const hoverFg = own.text || (primary ? c.primary_button_hover_text : c.secondary_button_hover_text)
+  return {
+    "data-sl-button": variant,
+    "data-button": "",
+    style: {
+      "--sl-btn-bg": bg,
+      "--sl-btn-fg": fg,
+      "--sl-btn-border": border,
+      "--sl-btn-hover-bg": hoverBg,
+      "--sl-btn-hover-fg": hoverFg,
+    } as CSSProperties,
+  }
 }
 
 // ── Button radius derived from theme-level button_style ─────
