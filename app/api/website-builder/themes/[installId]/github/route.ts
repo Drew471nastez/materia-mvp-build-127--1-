@@ -72,27 +72,12 @@ function explain(e: unknown): string {
   return "Something went wrong talking to GitHub. Try again."
 }
 
-export async function GET(req: Request, { params }: Params) {
+export async function GET(_req: Request, { params }: Params) {
   const { installId } = await params
   const own = await ownInstall(installId)
   if (!own) return NextResponse.json({ error: "Not found" }, { status: 404 })
   const cfg = githubConfig()
   const db = createAdminClient()
-
-  /*
-    ?brief=1 is the editor's top bar asking one thing: is this site linked?
-    One indexed read of one row, and never a call to GitHub, because the
-    bar asks every time the editor opens.
-  */
-  if (new URL(req.url).searchParams.get("brief") === "1") {
-    const { data: row, error: briefError } = await db
-      .from("theme_github_links")
-      .select("repo_full_name")
-      .eq("install_id", own.installId)
-      .maybeSingle()
-    const repo = !briefError && typeof row?.repo_full_name === "string" ? row.repo_full_name : null
-    return NextResponse.json({ configured: Boolean(cfg), linked: Boolean(repo), repo }, { headers: { "Cache-Control": "no-store" } })
-  }
 
   const { data, error } = await readLink(db, own.installId)
   if (error) {
