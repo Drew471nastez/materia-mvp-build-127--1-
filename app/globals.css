@@ -408,16 +408,6 @@ html.capacitor body {
     animation: none;
   }
 
-  /*
-    The outline of a slow page is drawn by the shell only after a second
-    (NAV_SKELETON_AFTER_MS) and fades in on its own, so the delay the old
-    loading files built in would only add to that.
-  */
-  [data-app-route-skeleton] .skeleton-deferred,
-  [data-app-route-skeleton] .skeleton-late {
-    animation: none;
-    opacity: 1;
-  }
 
 
 
@@ -2547,6 +2537,29 @@ html.keyboard-open [data-page="library"] main {
   .bar-control-spinner {
     animation: none;
     border-color: color-mix(in srgb, currentColor 38%, transparent);
+  }
+}
+
+/* ── The iOS spinner (components/ui/activity-spinner.tsx) ────────────────────
+ *
+ * Eight spokes, turned an eighth at a time: `steps(8)` holds each position
+ * for 100ms and then jumps, which is how the system indicator moves. A linear
+ * turn would smear the spokes into a blur of grey. Transform only, so it runs
+ * on the compositor while the page it is waiting for is being put together.
+ */
+.activity-spinner {
+  display: block;
+  animation: activity-spin 800ms steps(8) infinite;
+  will-change: transform;
+}
+@keyframes activity-spin {
+  from { transform: rotate(0deg) }
+  to { transform: rotate(360deg) }
+}
+@media (prefers-reduced-motion: reduce) {
+  /* Slower, never still: a spinner that has stopped reads as a frozen screen. */
+  .activity-spinner {
+    animation-duration: 2400ms;
   }
 }
 

@@ -164,10 +164,11 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
   const notificationsRef = useRef<NotificationsHandle>(null)
   const openNotifications = useCallback(() => notificationsRef.current?.open(), [])
   const [dismissedNotifications, setDismissedNotifications] = useState<string[]>([])
-  // Optimistic active-link state: the clicked href lights up immediately, even
-  // before the new page finishes loading. Cleared as soon as pathname catches
-  // up. Makes sidebar clicks feel instant instead of waiting on the route.
-  const [pendingHref, setPendingHref] = useState<string | null>(null)
+  /* The row a click lights before its page arrives is not state here: this
+     held a `pendingHref` that nothing ever read, and setting it re-rendered
+     this whole shell on every click, at the moment the click should be
+     answered. The rows read the navigation record themselves
+     (useShownPath, lib/ui/app-navigation). */
   const dropdownRef = useRef<HTMLDivElement>(null)
   /* Stable, so the memoised account menu is not re-rendered by them. */
   const closeMobileMenu = useCallback(() => setMobileMenuOpen(false), [])
@@ -178,8 +179,6 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     setProfileDropdownOpen(false)
     setHeaderProfileOpen(false)
     setSearchOpen(false)
-    // Pathname changed — the optimistic active state has served its purpose.
-    setPendingHref(null)
   }, [pathname])
 
   // Load dismissed notifications from localStorage
@@ -997,11 +996,9 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         expandedGroups={expandedGroups}
         onToggle={toggleGroup}
         onNavigate={(href) => {
-          setPendingHref(href)
           startNavigationLoading(href)
         }}
         onForceNavigate={(href) => {
-          setPendingHref(href)
           startNavigationLoading(href)
           /* Leaves the /app router tree. In Capacitor a full reload would
              lose the session, which lives in Preferences, not in a cookie. */
@@ -1055,7 +1052,6 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         }}
         onCloseMenu={() => setMobileMenuOpen(false)}
         onNavigate={(href) => {
-          setPendingHref(href)
           startNavigationLoading(href)
           router.push(href)
         }}
@@ -1096,15 +1092,11 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
           expandedGroups={expandedGroups}
           onToggle={toggleGroup}
           onNavigate={(href) => {
-            // Optimistic only — it ADDS a highlight the moment a row is
-            // clicked and never takes one away, so the active state never
-            // blinks off mid-navigation. Which page is active is still
-            // decided by the pathname, in isRouteActive.
-            setPendingHref(href)
+            /* The record this starts is what lights the clicked row at once
+               (useShownPath, lib/ui/app-navigation). */
             startNavigationLoading(href)
           }}
           onForceNavigate={(href) => {
-            setPendingHref(href)
             startNavigationLoading(href)
             // These leave the /app router tree. In Capacitor a full reload
             // would lose the session, which lives in Preferences rather than

@@ -93,10 +93,10 @@ check("the server reads the five things together", /Promise\.all\(\[/.test(loade
 check("and only hands over a product that is the creator's", /product\.creator_id !== creator\.id/.test(loader))
 /* No loading.tsx under /app, and no outline for the editor: "the whole page should not have a loading
    skeleton when I click to edit a product". The page you were on stays until the editor is ready. */
-check("opening a product draws no outline and no loading boundary: the old page stays until the editor is here",
+check("opening a product draws no outline, no spinner and no loading boundary: the old page stays until the editor is here",
   !existsSync("app/app/products/[id]/loading.tsx") && !existsSync("app/app/products/new/loading.tsx")
-    && /if \(path\.startsWith\("\/app\/products\/"\)\) return null/.test(read("components/app/route-skeletons.tsx"))
-    && !/EditorSkeleton/.test(code("components/app/route-skeletons.tsx")))
+    && !existsSync("components/app/route-skeletons.tsx")
+    && read("lib/ui/app-navigation.ts").includes('if (/^\\/app\\/products\\/[^/]+(\\/|$)/.test(path)) return false'))
 check("a save drops the router's kept pages", /router\.refresh\(\)/.test(editor))
 /* Opening a product from the list shows the editor with its data, and nothing before it from app/app/products. */
 const newPage = code("app/app/products/new/page.tsx")

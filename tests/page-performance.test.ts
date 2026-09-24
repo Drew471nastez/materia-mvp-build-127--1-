@@ -130,18 +130,6 @@ const INSTANT_BY_DESIGN = new Set([
   "app/(auth)/welcome/loading.tsx",
 ])
 
-/**
- * An order's address draws the order's bar at once, on the owner's word:
- * "the top bar appears on the very first frame". The bar is the real bar's
- * frame, not a placeholder that flashes; what is a skeleton, the cards under
- * it, is held back by `skeleton-late` in the shared outline these draw.
- */
-const BAR_FIRST = new Set(["app/app/orders/[id]/loading.tsx", "app/app/orders/sales/loading.tsx"])
-const barFirstDeferred = () => {
-  const outline = read("app/app/orders/order-skeleton.tsx")
-  return /className=\{cn\("skeleton-late /.test(outline) && /<OrderBarFrame/.test(outline)
-}
-
 function loadingFiles(dir: string): string[] {
   let out: string[] = []
   for (const entry of readdirSync(join(root, dir))) {
@@ -158,7 +146,6 @@ check(
   (() => {
     const offenders = loadingFiles("app").filter((f) => {
       if (INSTANT_BY_DESIGN.has(f)) return false
-      if (BAR_FIRST.has(f)) return !barFirstDeferred()
       const src = read(f)
       // A file that renders no skeleton has nothing to defer.
       if (!/Skeleton|animate-pulse/.test(src)) return false
@@ -179,8 +166,8 @@ check(
  * the page you were on disappeared into a blank or a skeleton even when the
  * next one was a moment away. "Skeleton loading is not needed on normal
  * navigation; only if a page takes extremely long." Without one the router
- * holds the old page until the new one is ready, and the shell draws the
- * outline itself after a second (components/app/app-stage.tsx). Products is
+ * holds the old page until the new one is ready, and the shell shows its
+ * spinner only if that takes a while (components/app/app-stage.tsx). Products is
  * looked after with that page and keeps its own for now.
  */
 check(
@@ -193,17 +180,17 @@ check(
 )
 
 check(
-  "and the outline of a slow page comes from the shell, after a second, for every page that had one",
+  "and a slow page waits on the shell's spinner, not on an outline of itself: past a second on a computer, half a second on a phone",
   (() => {
     const stage = read("components/app/app-stage.tsx")
     const nav = read("lib/ui/app-navigation.ts")
-    const skeletons = read("components/app/route-skeletons.tsx")
     return (
-      /export const NAV_SKELETON_AFTER_MS = 1000/.test(nav) &&
+      /export const NAV_SPINNER_AFTER_MS = 1000/.test(nav) &&
+      /export const NAV_PHONE_SPINNER_AFTER_MS = 500/.test(nav) &&
       /export const NAV_BAR_AFTER_MS = 300/.test(nav) &&
-      /<RouteSkeleton href=\{shownFor\} \/>/.test(stage) &&
-      ["dashboard-skeleton", "analytics/skeleton", "coupons/skeleton", "coupons/new/skeleton", "orders/sales/skeleton", "payouts/skeleton", "settings/skeleton", "website-builder/skeleton"]
-        .every((s) => skeletons.includes(`@/app/app/${s}"`))
+      /<ActivitySpinner \/>/.test(stage) &&
+      !/RouteSkeleton/.test(stage) &&
+      !existsSync(join(root, "components/app/route-skeletons.tsx"))
     )
   })(),
 )

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import { usePathname } from "next/navigation"
-import { beginAppNavigation, isPhoneShell, markTraversal, NAV_BAR_AFTER_MS, outlineDelay, useAppNavigation } from "@/lib/ui/app-navigation"
+import { beginAppNavigation, isCurrentAddress, isPhoneShell, markTraversal, NAV_BAR_AFTER_MS, spinnerDelay, takeTraversal, useAppNavigation } from "@/lib/ui/app-navigation"
 
 /**
  * Fire this inside any onClick that calls router.push(), with the address,
@@ -46,7 +46,10 @@ export function NavigationLoadingBar() {
       try {
         const url = new URL(anchor.href)
         if (url.origin !== window.location.origin) return
-        if (url.pathname === window.location.pathname && url.search === window.location.search) return
+        if (isCurrentAddress(url.href)) return
+        /* A back whose page never committed (a hash, a sheet closing on
+           Back) must not make this click restore an old scroll. */
+        takeTraversal()
         beginAppNavigation(url.pathname + url.search)
       } catch {
         /* an href that is not a URL starts nothing */
@@ -54,6 +57,10 @@ export function NavigationLoadingBar() {
     }
     const onProgrammatic = (e: Event) => {
       const href = (e as CustomEvent<{ href?: string | null }>).detail?.href ?? null
+      /* A push to the page already showing commits nothing, so nothing would
+         ever end the record (isCurrentAddress, lib/ui/app-navigation). */
+      if (isCurrentAddress(href)) return
+      takeTraversal()
       beginAppNavigation(href)
     }
     const onPop = () => {
@@ -71,11 +78,13 @@ export function NavigationLoadingBar() {
   }, [])
 
   /* Shown only once the navigation has lasted long enough to be worth showing.
-     Not on a phone when the next page's outline is coming: the outline is the
-     answer there, and at 90ms it is already up (lib/ui/app-navigation). */
+     Not on a phone when the spinner is coming: one quiet answer is enough
+     there, and a violet line under the clock is not a quiet one
+     (lib/ui/app-navigation). The product editor, which has no spinner, still
+     gets the bar. */
   useEffect(() => {
     if (!nav) return
-    if (isPhoneShell() && outlineDelay(nav.href, true) !== null) return
+    if (isPhoneShell() && spinnerDelay(nav.href, true) !== null) return
     const wait = Math.max(0, NAV_BAR_AFTER_MS - (performance.now() - nav.startedAt))
     const t = window.setTimeout(() => setShown(true), wait)
     return () => window.clearTimeout(t)
