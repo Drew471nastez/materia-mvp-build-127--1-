@@ -79,6 +79,7 @@ import { useToast } from "@/hooks/use-toast"
 import { ChartScrub, type ScrubRow, type ScrubSeries } from "@/components/app/chart-scrub"
 import { STORELIB_LOGO } from "@/lib/brand/logo"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
+import { WaitingArea } from "@/components/ui/activity-spinner"
 import { DateRangePicker } from "@/components/app/date-range-picker"
 import { boundsOf, resolveValue, todayIn, type RangeValue } from "@/lib/date-range/range"
 
@@ -911,21 +912,11 @@ export function DashboardClient({
   // Internal-path URLs for in-app navigation (preserves auth in Capacitor)
   const navStoreUrl = connectedDomain ? `https://${connectedDomain}` : (creatorHandle ? getStoreUrl(creatorHandle) : "")
   const navOnePageUrl = connectedDomain ? `https://${connectedDomain}/links` : (creatorHandle ? getLinksUrl(creatorHandle) : "")
-  // loading.tsx already renders the streaming skeleton. On first mount we
-  // render the shell immediately with a subtle blur on data-bound fields so
-  // there's no second full-page skeleton flash ("double load"). isLoading
-  // stays behind as a safety net for rare edge cases where data is missing.
-  const [isLoading, setIsLoading] = useState(false)
+  /* The page arrives with its data (app/app/page.tsx), so it is drawn at once;
+     the figures the browser reads for itself soften while they refresh. There
+     is no drawing of the page before it: a full page skeleton used to sit
+     here behind an `isLoading` that nothing ever set. */
   const [isRefreshing, setIsRefreshing] = useState(true)
-  const [showLoadingSkeleton, setShowLoadingSkeleton] = useState(false)
-  useEffect(() => {
-    if (!isLoading) {
-      setShowLoadingSkeleton(false)
-      return
-    }
-    const timer = setTimeout(() => setShowLoadingSkeleton(true), 200)
-    return () => clearTimeout(timer)
-  }, [isLoading])
   const [expandedStep, setExpandedStep] = useState<string | null>(null)
   const [openKPIModal, setOpenKPIModal] = useState<KPIType>("views")
   /* Follows the chosen tab, and keeps a sideways swipe off the page. */
@@ -1107,9 +1098,8 @@ export function DashboardClient({
 
   const isFirstLoadRef = useRef(true)
   const fetchAnalytics = async (selectedTimeframe: string) => {
-    // First load: isRefreshing is already true (seeded in useState). Using
-    // a full skeleton here would stack with loading.tsx and cause the
-    // "double load" flash. Blur handles the brief refresh visually.
+    // First load: isRefreshing is already true (seeded in useState), and the
+    // soft blur on the figures is the only sign of the read.
     setIsRefreshing(true)
     const supabase = createClient()
 
@@ -1232,7 +1222,6 @@ export function DashboardClient({
     } catch (error) {
       console.error("Error fetching analytics:", error)
     } finally {
-      setIsLoading(false)
       // Delay removing the refresh blur so KPI numbers and charts
       // settle before the CSS transition fades them back in cleanly
       if (!isFirstLoadRef.current) {
@@ -1440,9 +1429,8 @@ export function DashboardClient({
 
   useEffect(() => {
     // Safety net: if analytics queries hang (slow network, Supabase latency),
-    // stop showing the skeleton after 5s so the page is usable with cached data.
+    // let live order updates recalculate after 5s rather than wait forever.
     const safetyTimer = window.setTimeout(() => {
-      setIsLoading(false)
       isFirstLoadRef.current = false
     }, 5000)
     fetchAnalytics(timeframe).finally(() => window.clearTimeout(safetyTimer))
@@ -1656,87 +1644,6 @@ export function DashboardClient({
           </div>
         )}
 
-        {isLoading && showLoadingSkeleton ? (
-          /* ── Full Page Skeleton ── */
-          <div className="animate-pulse skeleton-fade">
-            {/* Header skeleton */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
-              <div>
-                <div className="h-7 w-56 bg-gray-100 rounded-lg mb-2" />
-                <div className="h-4 w-40 bg-gray-50 rounded" />
-              </div>
-              <div className="hidden md:flex items-center gap-3">
-                <div className="h-10 w-36 bg-gray-100 rounded-xl" />
-                <div className="h-10 w-32 bg-gray-50 rounded-lg" />
-              </div>
-              <div className="md:hidden flex items-center gap-2">
-                <div className="h-[38px] w-24 bg-gray-50 rounded-xl" />
-                <div className="h-[38px] w-32 bg-gray-100 rounded-xl" />
-              </div>
-            </div>
-
-            {/* KPI + Chart skeleton */}
-            <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] mb-8 overflow-hidden">
-              <div className="flex overflow-hidden md:grid md:grid-cols-4 divide-x divide-[#e5e7eb]/60">
-                {[0, 1, 2, 3].map((i) => (
-                  <div key={i} className="px-3 py-3 sm:px-4 sm:py-3.5 flex-shrink-0 min-w-[130px] md:min-w-0">
-                    <div className="h-3 w-16 bg-gray-100 rounded mb-2" />
-                    <div className="h-6 w-20 bg-gray-100 rounded mb-1.5" />
-                    <div className="h-2.5 w-24 bg-gray-50 rounded" />
-                  </div>
-                ))}
-              </div>
-              <div className="border-t border-[#e5e7eb]/60 px-4 py-4">
-                <div className="h-[200px] flex items-end gap-2 px-2">
-                  {[40, 55, 30, 65, 45, 60, 35, 50, 70, 42].map((h, i) => (
-                    <div key={i} className="flex-1 bg-gray-50 rounded-t" style={{ height: `${h}%` }} />
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Promotional banner skeleton */}
-            <div className="mb-8">
-              <div className="h-[140px] sm:h-[160px] bg-gray-100 rounded-2xl" />
-            </div>
-
-            {/* Grid skeleton: Setup checklist + Quick actions */}
-            <div className="grid gap-6 lg:grid-cols-[370px_1fr]">
-              {/* Setup checklist skeleton */}
-              <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-                <div className="flex items-center justify-between mb-5">
-                  <div className="h-4 w-28 bg-gray-100 rounded" />
-                  <div className="h-6 w-12 bg-gray-50 rounded-full" />
-                </div>
-                <div className="h-1.5 w-full bg-gray-50 rounded-full mb-5" />
-                <div className="space-y-2">
-                  {[0, 1, 2, 3, 4, 5].map((i) => (
-                    <div key={i} className="flex items-center gap-3 p-3">
-                      <div className="w-8 h-8 rounded-full bg-gray-100 shrink-0" />
-                      <div className="flex-1">
-                        <div className="h-3.5 w-28 bg-gray-100 rounded mb-1.5" />
-                        <div className="h-2.5 w-40 bg-gray-50 rounded" />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              {/* Quick actions skeleton */}
-              <div className="space-y-4">
-                {[0, 1, 2, 3].map((i) => (
-                  <div key={i} className="flex items-center gap-5 bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-                    <div className="h-16 w-16 rounded-xl bg-gray-100 shrink-0" />
-                    <div className="flex-1">
-                      <div className="h-4 w-36 bg-gray-100 rounded mb-2" />
-                      <div className="h-3 w-52 bg-gray-50 rounded" />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        ) : (
-        <>
         {/* Header Section */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
           <div>
@@ -2004,18 +1911,10 @@ export function DashboardClient({
           <div className={`overflow-hidden transition-all duration-500 ease-out ${chartExpanded && openKPIModal ? "max-h-[300px] opacity-100" : "max-h-0 opacity-0"}`}>
             <div className="border-t border-[#e5e7eb]/60 px-2 py-3 sm:px-4 sm:py-4">
               {isChartLoading && displayChartData.length === 0 ? (
-                /* LATE, like the Analytics skeleton (app/globals.css .skeleton-late):
-                   a first read that answers quickly never shows these bars at
-                   all, so the chart does not flash grey blocks before its line. */
-                <div className="h-[200px] flex items-end gap-1.5 px-6 pb-6 pt-4 skeleton-late">
-                  {Array.from({ length: 10 }).map((_, i) => (
-                    <div
-                      key={i}
-                      className="flex-1 bg-gradient-to-t from-gray-100 to-gray-50 rounded-t animate-pulse"
-                      style={{ height: `${25 + ((i * 37) % 60)}%`, animationDelay: `${i * 80}ms` }}
-                    />
-                  ))}
-                </div>
+                /* The chart's room, empty, and the spinner only past half a
+                   second: a first read that answers quickly shows nothing
+                   before its line. These were ten grey bars. */
+                <WaitingArea className="h-[200px]" />
               ) : (
                 <div className="relative">
                   {/*
@@ -2029,9 +1928,9 @@ export function DashboardClient({
                     loading — one tap, three animations, none of which was
                     telling you anything you did not already know.
 
-                    A first load with no data at all still gets the skeleton
-                    above; it is the only moment there is genuinely nothing to
-                    look at. From then on the old line simply becomes the new
+                    A first load with no data at all gets the waiting area
+                    above (the spinner, past half a second); it is the only
+                    moment there is genuinely nothing to look at. From then on the old line simply becomes the new
                     one, which is what recharts does well and what the eye
                     reads as a change rather than a reload.
 
@@ -2322,8 +2221,6 @@ export function DashboardClient({
           </div>
         </div>
 
-        </>
-        )}
       </div>
 
       {/* Dashboard Scrollbar Styles */}
@@ -2341,23 +2238,6 @@ export function DashboardClient({
             opacity: 0.7;
             box-shadow: 0 0 12px rgba(16, 185, 129, 0.8);
           }
-        }
-        @keyframes skeleton-shimmer {
-          0% {
-            background-position: -200% 0;
-          }
-          100% {
-            background-position: 200% 0;
-          }
-        }
-        @keyframes skeleton-pulse {
-          0%, 100% { opacity: 0.4; }
-          50% { opacity: 0.7; }
-        }
-        .skeleton-bar {
-          background: linear-gradient(90deg, rgba(139, 92, 246, 0.2) 0%, rgba(139, 92, 246, 0.4) 50%, rgba(139, 92, 246, 0.2) 100%);
-          background-size: 200% 100%;
-          animation: skeleton-shimmer 2s ease-in-out infinite, skeleton-pulse 2.5s ease-in-out infinite;
         }
         .dashboard-scroll-container {
           scrollbar-width: thin;

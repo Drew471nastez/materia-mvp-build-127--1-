@@ -28,6 +28,7 @@ import { TRIGGERS, isTriggerType, normalizeSteps, stepSummary } from "@/lib/auto
 import { ContactDetail } from "./contact-detail"
 import type { RangeValue } from "@/lib/date-range/range"
 import { cn } from "@/lib/utils"
+import { WaitingArea } from "@/components/ui/activity-spinner"
 import { GUTTER, LIST_WIDTH, MenuOption, MenuSurface, PaneBar, RowMenuButton, StatusBadge, buttonAccent, buttonSecondary, card, iconButton } from "../orders/order-parts"
 
 export type EmailsTab = "subscribers" | "flows" | "published" | "scheduled" | "drafts"
@@ -316,18 +317,9 @@ function Empty({ title, body, action }: { title: string; body: string; action?: 
   )
 }
 
+/** The table's room (six 48px rows) and, past half a second, the spinner. */
 function Loading() {
-  return (
-    <div aria-busy="true" aria-label="Loading" className="skeleton-deferred divide-y divide-[#f1f2f4]">
-      {Array.from({ length: 6 }, (_, i) => (
-        <div key={i} className="flex h-12 items-center gap-4 px-3">
-          <div className="h-3 w-48 rounded bg-[#eef0f3]" />
-          <div className="h-3 w-24 rounded bg-[#f1f2f4]" />
-          <div className="ml-auto h-3 w-16 rounded bg-[#f1f2f4]" />
-        </div>
-      ))}
-    </div>
-  )
+  return <WaitingArea className="h-[288px]" />
 }
 
 function Pager({ page, pages, total, onPage }: { page: number; pages: number; total: number; onPage: (p: number) => void }) {

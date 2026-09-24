@@ -3,14 +3,14 @@ import type { Metadata } from "next"
 import { redirect } from "next/navigation"
 import { headers } from "next/headers"
 import { createClient } from "@/lib/supabase/server"
-import { readCurrentUser } from "@/lib/auth/current-user"
+import { creatorForRequest, currentUserForRequest, profileForRequest } from "@/lib/auth/request-scope"
 import { AppSidebar } from "@/components/app/sidebar"
 import { AppLayoutWrapper } from "@/components/app/app-layout-wrapper"
 import { Toaster } from "@/components/ui/toaster"
 import { NativeAuthGate } from "@/components/native-auth-gate"
 import { OfflineGuard } from "@/components/app/offline-guard"
 import { NativeBackHandler } from "@/components/app/native-back-handler"
-import AppDashboardLoading from "./dashboard-skeleton"
+import AppColdStart from "./cold-start"
 
 /**
  * One signed in person's own screens: never in a search index. robots.txt
@@ -43,8 +43,12 @@ export default async function AppLayout({
    * A BLIP IS NOT A SIGN-OUT. See lib/auth/current-user.ts: `getUser()`
    * returning no user can mean "nobody is signed in" or "Supabase did not
    * answer", and this guard used to treat both as the first one.
+   *
+   * Asked through the per-request cache (lib/auth/request-scope.ts, which
+   * calls readCurrentUser), so the page under this layout and its metadata
+   * get this same answer instead of a second auth round trip each.
    */
-  const current = await readCurrentUser(supabase)
+  const current = await currentUserForRequest()
   const user = current.user
 
   if (!user) {
@@ -64,10 +68,10 @@ export default async function AppLayout({
       // A full-page reload won't have a server-side session yet —
       // the client will restore it asynchronously from Preferences.
       // Skip the redirect and let NativeAuthGate handle it.
-      // Show the dashboard skeleton instead of a blank white screen while
+      // The shell frame and the spinner (./cold-start) instead of a blank screen while
       // NativeAuthGate restores the Supabase session from Capacitor Preferences.
       return (
-        <NativeAuthGate requireAuth loadingFallback={<AppDashboardLoading />}>
+        <NativeAuthGate requireAuth loadingFallback={<AppColdStart />}>
           {children}
         </NativeAuthGate>
       )
@@ -76,11 +80,32 @@ export default async function AppLayout({
   }
 
   // ── Access gates ───────────────────────────────────────────────────────
-  const { data: gateCheck } = await supabase
-    .from("profiles")
-    .select("email_verified, is_creator, welcome_completed")
-    .eq("id", user.id)
-    .maybeSingle()
+  /*
+    ONE TRIP FOR EVERYTHING THAT NEEDS ONLY THE USER. The gates, the creator
+    row, the OnePage and the store's header used to be asked for one after
+    another, five round trips before the shell could draw. They depend on
+    nothing but `user.id`, so they go together; the redirects below are still
+    decided in the same order, from the same answers. The profile and the
+    creator row come through the per-request cache (lib/auth/request-scope.ts),
+    so a page that reads them too with its own client is not a second trip.
+    All of it on the caller's own client: row-level security as before.
+  */
+  const [gateCheck, creator, { data: onepage }, { data: storeConfig }] = await Promise.all([
+    profileForRequest(user.id),
+    creatorForRequest(user.id),
+    supabase
+      .from("onepages")
+      .select("id, avatar_url, published, draft_blocks, bio")
+      .eq("owner_id", user.id)
+      .maybeSingle(),
+    supabase
+      .from("store_builder_configs")
+      .select("published_config")
+      .eq("creator_id", user.id)
+      .eq("page_type", "shop")
+      .maybeSingle(),
+  ])
+  const profile = gateCheck
 
   // Gate 1: email must be verified
   if (!gateCheck?.email_verified) {
@@ -93,43 +118,14 @@ export default async function AppLayout({
     redirect("/signup/success")
   }
 
-  // Fetch creator first (needed for redirect decision and as FK for later queries)
-  const { data: creator } = await supabase
-    .from("creators")
-    .select("id, user_id, slug, username, display_name, avatar_url, bio, onboarding_completed, payouts_enabled, stripe_onboarding_status, stripe_account_id, store_published")
-    .eq("user_id", user.id)
-    .maybeSingle()
-
   // No creator record or onboarding not completed - redirect to welcome selection
   if (!creator || creator.onboarding_completed !== true) {
     redirect("/signup/success")
   }
 
-  // Fire all independent queries in parallel
-  const [
-    { data: profile },
-    { data: onepage },
-    { data: storeConfig },
-    { data: products },
-  ] = await Promise.all([
-    supabase
-      .from("profiles")
-      .select("display_name, avatar_url, username")
-      .eq("id", user.id)
-      .maybeSingle(),
-    supabase
-      .from("onepages")
-      .select("id, avatar_url, published, draft_blocks, bio")
-      .eq("owner_id", user.id)
-      .maybeSingle(),
-    supabase
-      .from("store_builder_configs")
-      .select("published_config")
-      .eq("creator_id", user.id)
-      .eq("page_type", "shop")
-      .maybeSingle(),
-    supabase.from("products").select("id").eq("creator_id", creator.id),
-  ])
+  /* The creator's products need the creator's id, and whether any has sold
+     needs the products: the two trips that have to wait. */
+  const { data: products } = await supabase.from("products").select("id").eq("creator_id", creator.id)
 
   const storeBuilderAvatar = (storeConfig?.published_config as Record<string, unknown>)?.headerSettings
     ? ((storeConfig?.published_config as Record<string, unknown>)?.headerSettings as Record<string, unknown>)?.avatarUrl as string | null
@@ -184,15 +180,15 @@ export default async function AppLayout({
   const totalSteps = setupSteps.length
 
   return (
-    <NativeAuthGate>
+    <NativeAuthGate loadingFallback={<AppColdStart />}>
     <OfflineGuard>
     <NativeBackHandler />
     <AppLayoutWrapper>
       <div className="h-svh overflow-hidden bg-[#111111] md:bg-[#131316] app-no-scrollbar">
         <AppSidebar
-          creatorSlug={creator.slug}
-          username={profile?.username || creator.slug}
-          storePublished={creator.store_published}
+          creatorSlug={creator.slug ?? undefined}
+          username={profile?.username || creator.slug || undefined}
+          storePublished={creator.store_published ?? undefined}
           avatarUrl={avatarUrl}
           displayName={displayName}
           stripeConnected={!!creator.stripe_account_id}

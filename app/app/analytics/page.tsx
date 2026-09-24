@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation"
-import { createClient } from "@/lib/supabase/server"
+import { currentUserForRequest } from "@/lib/auth/request-scope"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { AnalyticsClient } from "./analytics-client"
 
@@ -17,12 +17,11 @@ export const metadata = {
  * server for.
  */
 export default async function AnalyticsPage() {
-  const supabase = await createClient()
   const adminSupabase = createAdminClient()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  /* The same answer the /app layout got, through the per-request cache
+     (lib/auth/request-scope.ts): no second auth round trip on a full load. */
+  const { user } = await currentUserForRequest()
 
   if (!user) {
     redirect("/login")

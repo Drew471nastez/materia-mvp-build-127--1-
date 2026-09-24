@@ -55,3 +55,38 @@ export const profileForRequest = cache(async (userId: string): Promise<RequestPr
     .maybeSingle()
   return (data as RequestProfile | null) ?? null
 })
+
+/**
+ * The columns of the creator row the /app shell reads (app/app/layout.tsx),
+ * which cover what the pages that read it with their own client need too.
+ */
+const SHELL_CREATOR_COLUMNS =
+  "id, user_id, slug, username, display_name, avatar_url, bio, onboarding_completed, payouts_enabled, stripe_onboarding_status, stripe_account_id, store_published"
+
+export interface RequestCreator {
+  id: string
+  user_id: string
+  slug: string | null
+  username: string | null
+  display_name: string | null
+  avatar_url: string | null
+  bio: string | null
+  onboarding_completed: boolean | null
+  payouts_enabled: boolean | null
+  stripe_onboarding_status: string | null
+  stripe_account_id: string | null
+  store_published: boolean | null
+}
+
+/**
+ * The signed in person's creator row, once per request. The /app layout and
+ * the pages under it that read it with the caller's own client (Products,
+ * Customers, Coupons) asked for it separately on every full load. Same
+ * client, same `user_id` filter, same row-level security: this only stops
+ * the second copy of the question. The service role never reads it here.
+ */
+export const creatorForRequest = cache(async (userId: string): Promise<RequestCreator | null> => {
+  const supabase = await createClient()
+  const { data } = await supabase.from("creators").select(SHELL_CREATOR_COLUMNS).eq("user_id", userId).maybeSingle()
+  return (data as RequestCreator | null) ?? null
+})
