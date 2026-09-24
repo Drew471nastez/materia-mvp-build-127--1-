@@ -58,6 +58,7 @@ import {
   dragPosition,
   expandCarry,
   handOffToSheet,
+  isCompatibilityMouse,
   offsetsFor,
   releaseVelocity,
   rubberBand,
@@ -1775,11 +1776,52 @@ section("What a touch on the sheet is FOR")
       isTap({ distance: 3, ms: 120 }) && !isTap({ distance: 9, ms: 120 }) && !isTap({ distance: 2, ms: 600 }),
     )
     check(
+      "a touch the system cancelled, or a second finger joined, is never a tap",
+      !isTap({ distance: 0, ms: 40, cancelled: true }) && isTap({ distance: 0, ms: 40, cancelled: false }),
+    )
+    check(
       "the component answers a grab bar tap with that step, and cancels the browser's mouse copy of it",
-      /const tapped = drag\.current\.onHandle && isTap\(/.test(sheet) &&
+      /const tapped = drag\.current\.onHandle && isTap\(\{ distance: drag\.current\.travel, ms: now - drag\.current\.downTime, cancelled \}\)/.test(sheet) &&
         /tapped \? tapTarget\(list, tapFrom\)/.test(sheet) &&
-        /if \(endDrag\(eventTime\(e\)\) && e\.cancelable\) e\.preventDefault\(\)/.test(sheet) &&
-        /performance\.now\(\) - lastTouchAt\.current < TOUCH_MOUSE_GAP_MS/.test(sheet),
+        /if \(endDrag\(eventTime\(e\), e\.type === "touchcancel"\) && e\.cancelable\) e\.preventDefault\(\)/.test(sheet) &&
+        /window\.addEventListener\("touchcancel", onEnd\)/.test(sheet),
+    )
+    check(
+      "a second finger ends a drag as cancelled, not as a tap",
+      /if \(e\.touches\.length !== 1\) \{\s*if \(drag\.current\.active\) endDrag\(eventTime\(e\), true\)/.test(sheet),
+    )
+    /**
+     * THE BROWSER'S MOUSE COPY OF A TAP IS IGNORED, A REAL MOUSE NEVER IS.
+     * It was every mousedown within 800ms of any touch anywhere, which on a
+     * laptop with a touchscreen swallowed a real click on the grab bar.
+     */
+    check(
+      "a mouse press is the copy of a touch only where the browser says so, or soon after it and where it was",
+      isCompatibilityMouse({ firesTouchEvents: true, msSinceTouch: 5000, distanceFromTouch: 300 }) &&
+        !isCompatibilityMouse({ firesTouchEvents: false, msSinceTouch: 10, distanceFromTouch: 0 }) &&
+        isCompatibilityMouse({ msSinceTouch: 30, distanceFromTouch: 2 }) &&
+        !isCompatibilityMouse({ msSinceTouch: 150, distanceFromTouch: 300 }) &&
+        !isCompatibilityMouse({ msSinceTouch: 900, distanceFromTouch: 0 }),
+    )
+    check(
+      "the grab bar's mousedown asks that, and takes the primary button only",
+      /if \(e\.button !== 0\) return/.test(sheet) &&
+        /isCompatibilityMouse\(\{\s*firesTouchEvents: source\?\.firesTouchEvents,/.test(sheet) &&
+        !/lastTouchAt/.test(sheet),
+    )
+    /**
+     * A CONTROL THAT HANDLES ITS OWN TOUCH KEEPS IT. The section rows' reorder
+     * grip is `touch-none` and was not marked, so a long press and a pull
+     * down reordered a row inside a sheet that was closing under it.
+     */
+    check(
+      "a touch on data-sheet-no-drag, a range input, a role=slider or anything touch-action: none never arms the sheet",
+      /if \(ownsItsTouch\(e\.target, sheet, handleRef\.current\)\) return/.test(sheet) &&
+        /node\.hasAttribute\("data-sheet-no-drag"\)/.test(sheet) &&
+        /node instanceof HTMLInputElement && node\.type === "range"/.test(sheet) &&
+        /node\.getAttribute\("role"\) === "slider"/.test(sheet) &&
+        /getComputedStyle\(node\)\.touchAction === "none"/.test(sheet) &&
+        /if \(node === handle\) return false/.test(sheet),
     )
   }
   /**
@@ -2024,7 +2066,43 @@ section("Ask Storelib on a phone: the keyboard, and nothing sideways")
 
   check(
     "a new message scrolls the thread itself, never scrollIntoView, which also moved the sheet and the document",
-    !/scrollIntoView\(/.test(strip(chat)) && /thread\.scrollTo\(\{ top: thread\.scrollHeight, behavior: "smooth" \}\)/.test(chat),
+    !/scrollIntoView\(/.test(strip(chat)) && /thread\.scrollTo\(\{ top: end, behavior: "smooth" \}\)/.test(chat),
+  )
+  /**
+   * A RUN STREAMING IN DOES NOT PULL A READER DOWN. Every streamed line is a
+   * new `exchanges` and each one scrolled to the end; somebody reading an
+   * earlier answer was dragged back on every step. The thread follows only
+   * while pinned to its end, and a new exchange (a message sent) pins it.
+   * Measured by scripts/check-chat-keyboard.mjs (STREAMING).
+   */
+  check(
+    "the thread follows a run only while its reader is at the end",
+    /pinned\.current = thread\.scrollHeight - thread\.scrollTop - thread\.clientHeight <= PIN_SLACK_PX/.test(chat) &&
+      /if \(added\) pinned\.current = true\s*\n\s*if \(!pinned\.current\) return/.test(chat) &&
+      /\}, \[exchanges, queued\]\)/.test(chat),
+  )
+  check(
+    "a smooth scroll of its own does not unpin it, unless a finger or a wheel takes over",
+    /if \(performance\.now\(\) < autoScrollUntil\.current\) return/.test(chat) &&
+      /thread\.addEventListener\("touchstart", onReader/.test(chat) &&
+      /thread\.addEventListener\("wheel", onReader/.test(chat),
+  )
+  check(
+    "and every listener and the observer it adds, it removes",
+    /thread\.removeEventListener\("scroll", onScroll\)/.test(chat) &&
+      /thread\.removeEventListener\("touchstart", onReader\)/.test(chat) &&
+      /thread\.removeEventListener\("wheel", onReader\)/.test(chat) &&
+      /thread\.removeEventListener\("pointerdown", onReader\)/.test(chat) &&
+      /ro\.disconnect\(\)/.test(chat),
+  )
+  check(
+    "the composer wraps a long path or URL instead of running past the clipped edge",
+    /<div className="min-w-0 shrink-0 border-t border-border p-2\.5 \[overflow-wrap:anywhere\]">/.test(chat),
+  )
+  check(
+    "the composer's and the header's 28px buttons answer a 44px thumb",
+    (chat.match(/after:absolute after:-inset-x-\[3px\] after:-bottom-3 after:-top-1 after:content-\[''\]/g) ?? []).length === 3 &&
+      (chat.match(/after:absolute after:-inset-x-1 after:-inset-y-2 after:content-\[''\]/g) ?? []).length === 2,
   )
   check(
     "the thread scrolls up and down only: x hidden, long words broken, a vertical pan",

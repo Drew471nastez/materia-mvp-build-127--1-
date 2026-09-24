@@ -28,7 +28,7 @@
  * on a browser that has no on-screen keyboard anyway.
  */
 
-import { keyboardInsetOrFloor } from "@/lib/ui/keyboard-safe-sheet"
+import { readPublishedKeyboardInset } from "@/lib/ui/keyboard-safe-sheet"
 import * as React from "react"
 import { createPortal } from "react-dom"
 import { sheetBottomReserve } from "@/lib/website-builder/sheet-reserve"
@@ -44,8 +44,10 @@ import {
   dragPosition,
   expandCarry,
   handOffToSheet,
+  isCompatibilityMouse,
   isTap,
   keyboardCeiling,
+  keyboardFor,
   offsetsFor,
   sheetHeightWithKeyboard,
   sheetVelocityAt,
@@ -123,6 +125,9 @@ const insetCache: { safe: number | null; gap: number | null; top: number | null;
   bar: null,
 }
 let insetProbes: { safe: HTMLElement; gap: HTMLElement; top: HTMLElement } | null = null
+/* The listeners that forget the numbers, added once for the page however
+   many times the probes have to be put back. */
+let forgetting = false
 
 function probes(): { safe: HTMLElement; gap: HTMLElement; top: HTMLElement } {
   if (insetProbes && insetProbes.safe.isConnected && insetProbes.gap.isConnected && insetProbes.top.isConnected) return insetProbes
@@ -138,18 +143,24 @@ function probes(): { safe: HTMLElement; gap: HTMLElement; top: HTMLElement } {
     gap: make("position:fixed;left:0;bottom:0;width:0;height:0;visibility:hidden;pointer-events:none"),
     top: make("position:fixed;left:0;top:0;width:0;height:env(safe-area-inset-top,0px);visibility:hidden;pointer-events:none"),
   }
-  const forget = () => {
-    insetCache.safe = null
-    insetCache.gap = null
-    insetCache.top = null
-    insetCache.box = null
-    insetCache.bar = null
+  /* New probes are new boxes: nothing read off the old ones stands. */
+  forgetInsets()
+  if (!forgetting) {
+    forgetting = true
+    window.addEventListener("resize", forgetInsets)
+    window.addEventListener("orientationchange", forgetInsets)
+    window.visualViewport?.addEventListener("resize", forgetInsets)
+    window.visualViewport?.addEventListener("scroll", forgetInsets)
   }
-  window.addEventListener("resize", forget)
-  window.addEventListener("orientationchange", forget)
-  window.visualViewport?.addEventListener("resize", forget)
-  window.visualViewport?.addEventListener("scroll", forget)
   return insetProbes
+}
+
+function forgetInsets() {
+  insetCache.safe = null
+  insetCache.gap = null
+  insetCache.top = null
+  insetCache.box = null
+  insetCache.bar = null
 }
 
 /**
@@ -275,6 +286,36 @@ function scrollersUnder(target: EventTarget | null, sheet: HTMLElement | null): 
   return out
 }
 
+/**
+ * ===========================================================================
+ *  A CONTROL THAT HANDLES ITS OWN TOUCH SAYS SO, ONE WAY OR ANOTHER
+ * ===========================================================================
+ * `data-sheet-no-drag` was the only way to say it, and only the controls
+ * that were written knowing about this sheet said it. The grip on every
+ * section row did not: it is `touch-action: none` and reorders on a long
+ * press, so a press, a pause and a pull down with the list at its top was a
+ * reorder AND a pull on the sheet at once, the row following the finger
+ * inside a sheet that was sliding shut under it.
+ *
+ * `touch-action: none` is the platform's own way for an element to say that
+ * every move of a finger on it is its business, and a range input or a
+ * `role="slider"` is a control whose drag is its value. Any of them between
+ * the finger and the sheet keeps the sheet out of the gesture. The grab bar
+ * is `touch-none` for the opposite reason, and is the sheet's own.
+ */
+function ownsItsTouch(target: EventTarget | null, sheet: HTMLElement, handle: HTMLElement | null): boolean {
+  let node = target instanceof Element ? target : null
+  while (node && node !== sheet) {
+    if (node === handle) return false
+    if (node.hasAttribute("data-sheet-no-drag")) return true
+    if (node instanceof HTMLInputElement && node.type === "range") return true
+    if (node.getAttribute("role") === "slider") return true
+    if (getComputedStyle(node).touchAction === "none") return true
+    node = node.parentElement
+  }
+  return false
+}
+
 /** How far the content under the finger is from its top, all of it. */
 function chainScrollTop(chain: HTMLElement[]): number {
   let sum = 0
@@ -283,12 +324,6 @@ function chainScrollTop(chain: HTMLElement[]): number {
 }
 
 const SNAP_DURATION_MS = 360
-/**
- * How long after a touch a mousedown is taken to be the browser's copy of it.
- * Compatibility mouse events follow a tap within a frame or two; 800ms is
- * comfortably past that and shorter than any real switch to a mouse.
- */
-const TOUCH_MOUSE_GAP_MS = 800
 /** A sheet that moves for somebody who asked for less motion moves briefly. */
 const REDUCED_MOTION_MS = 180
 /**
@@ -517,7 +552,6 @@ export function MobileEditorSheet({
   }, [open])
 
   const stops = React.useMemo(() => [...detents].sort((a, b) => a - b), [detents])
-  const tallest = stops[stops.length - 1] ?? 0.92
   /** What the content wants, when `fit` is on. Handle included, measured live. */
   const contentRef = React.useRef<HTMLDivElement>(null)
   const [contentHeight, setContentHeight] = React.useState(0)
@@ -668,9 +702,10 @@ export function MobileEditorSheet({
       const box = kb === window ? fixedBoxHeight() : kb.innerHeight
       const seen = kvv
         ? visibleKeyboard({ layoutHeight: box, vvHeight: kvv.height, vvTop: kvv.offsetTop, scale: kvv.scale })
-        : { inset: 0, top: 0, reported: false }
-      /* The published floor only where the platform said nothing at all. */
-      const keyboard = seen.reported ? seen.inset : keyboardInsetOrFloor(seen.inset)
+        : { inset: 0, top: 0, reported: false, zoomed: false }
+      /* The published floor only where the platform said nothing at all, and
+         never a toolbar or a pinch taken for a keyboard: see `keyboardFor`. */
+      const keyboard = keyboardFor(seen, readPublishedKeyboardInset())
       const panned = seen.top
       setKeyboardInset(keyboard)
       setVisibleTop(panned)
@@ -940,14 +975,13 @@ export function MobileEditorSheet({
     /** The gesture was decided as sideways, so it stays the scroller's. */
     horizontal: false,
     /**
-     * The sheet is past a point where the list, not the sheet, takes the
-     * finger: the tallest stop when the sheet grew out of a list, or the
-     * place a scroll handed over to it. Beyond `base` the list is scrolled by
-     * hand from `from`, unless the browser already owns the scroll
-     * (`byHand` false), in which case the sheet simply stops at `base`. Null
-     * when there is no such point.
+     * Where a scroll that ran out of list handed the finger to the sheet
+     * (`handOffToSheet`). If the finger turns back up past `base`, the list
+     * takes it again: scrolled by hand from its top, or by the browser where
+     * the browser already owns the scroll (`byHand` false), and the sheet
+     * stays at `base` either way. Null for any other gesture.
      */
-    carry: null as null | { base: number; from: number; byHand: boolean },
+    carry: null as null | { base: number; byHand: boolean },
     /** The finger landed on a sheet that was still moving and stopped it. */
     caught: false,
     /**
@@ -978,8 +1012,8 @@ export function MobileEditorSheet({
    */
   const pendingY = React.useRef<number | null>(null)
   const rafId = React.useRef(0)
-  /** When a finger last touched or left the sheet; see the grab bar's mousedown. */
-  const lastTouchAt = React.useRef(-Infinity)
+  /** When and where a finger last touched or left the page; see the grab bar's mousedown. */
+  const lastTouch = React.useRef({ at: -Infinity, x: 0, y: 0 })
 
   const writeTransform = (y: number) => {
     const sheet = sheetRef.current
@@ -1273,7 +1307,7 @@ export function MobileEditorSheet({
   /**
    * A LIST LET GO WHILE THE SHEET WAS FEEDING IT KEEPS GOING.
    *
-   * When the sheet grows out of a list and the finger carries on into it, the
+   * When a hand-off turns back and the finger carries on into the list, the
    * list is scrolled by hand (the browser was told the gesture is the
    * sheet's), so on release nothing gives it the glide a native scroll would
    * have. This does, with the same deceleration: see `coastDistance`.
@@ -1606,7 +1640,7 @@ export function MobileEditorSheet({
       drag.current.startY = clientY
       drag.current.startX = clientX
       drag.current.baseY = drag.current.currentY
-      drag.current.carry = { base: drag.current.currentY, from: 0, byHand: cancelable }
+      drag.current.carry = { base: drag.current.currentY, byHand: cancelable }
     }
     drag.current.lastY = clientY
     drag.current.lastTime = now
@@ -1619,7 +1653,8 @@ export function MobileEditorSheet({
     if (carry && drag.current.scroller) {
       const { sheetY, scrollBy } = expandCarry(raw, carry.base)
       nextY = Math.min(sheetY, cY)
-      if (carry.byHand) drag.current.scroller.scrollTop = carry.from + scrollBy
+      /* The list was at its top when it handed over, so its top is where it resumes. */
+      if (carry.byHand) drag.current.scroller.scrollTop = scrollBy
     } else {
       /* Resisting past the tallest stop, the same number the render reads. */
       nextY = dragPosition(raw, top, cY)
@@ -1647,13 +1682,19 @@ export function MobileEditorSheet({
     else scheduleRoom(target)
   }
 
-  /** Returns true when the gesture was a tap on the grab bar, which it has answered. */
-  const endDrag = (now: number = performance.now()): boolean => {
+  /**
+   * Returns true when the gesture was a tap on the grab bar, which it has
+   * answered. `cancelled` is a gesture that did not end with a finger
+   * lifting: the system took the touch (touchcancel) or a second finger
+   * made it a pinch. It is never a tap, and never a flick: the sheet goes
+   * to the stop nearest where it was left.
+   */
+  const endDrag = (now: number = performance.now(), cancelled = false): boolean => {
     if (!drag.current.active) return false
     drag.current.active = false
 
     const wasDragging = drag.current.intent === "sheet"
-    const tapped = drag.current.onHandle && isTap({ distance: drag.current.travel, ms: now - drag.current.downTime })
+    const tapped = drag.current.onHandle && isTap({ distance: drag.current.travel, ms: now - drag.current.downTime, cancelled })
     drag.current.onHandle = false
     const caught = drag.current.caught
     const carry = drag.current.carry
@@ -1694,7 +1735,7 @@ export function MobileEditorSheet({
     const tapFrom = caught && settle.current.active ? settle.current.targetY : current
     /* From touchdown, not from where the sheet took over: see FLICK_MIN_DISTANCE. */
     const totalDelta = tapped ? 0 : drag.current.lastY - drag.current.downY
-    const fingerVelocity = tapped ? 0 : releaseVelocity(drag.current.samples, now)
+    const fingerVelocity = tapped || cancelled ? 0 : releaseVelocity(drag.current.samples, now)
     /**
      * Fed into a list: the sheet is sitting on its stop and the finger was
      * moving the list, so the list gets the speed and the sheet stays put.
@@ -1766,11 +1807,18 @@ export function MobileEditorSheet({
     const sheet = sheetRef.current
     if (!sheet) return
 
+    const noteTouch = (e: TouchEvent) => {
+      const t = e.changedTouches[0] ?? e.touches[0]
+      lastTouch.current = { at: performance.now(), x: t?.clientX ?? 0, y: t?.clientY ?? 0 }
+    }
+
     const onStart = (e: TouchEvent) => {
+      noteTouch(e)
       // A pinch is not a drag. Anything already in flight is abandoned rather
-      // than left half-owned by a finger that has stopped reporting.
+      // than left half-owned by a finger that has stopped reporting, and it
+      // was not a tap on the grab bar, however quickly the second finger came.
       if (e.touches.length !== 1) {
-        if (drag.current.active) endDrag(eventTime(e))
+        if (drag.current.active) endDrag(eventTime(e), true)
         return
       }
       /**
@@ -1792,8 +1840,7 @@ export function MobileEditorSheet({
        * drag never starts, so `moveDrag` returns immediately and nothing
        * about the sheet moves for the length of the gesture.
        */
-      if ((e.target as HTMLElement | null)?.closest?.("[data-sheet-no-drag]")) return
-      lastTouchAt.current = performance.now()
+      if (ownsItsTouch(e.target, sheet, handleRef.current)) return
       const touch = e.touches[0]
       const onHandle = !!handleRef.current?.contains(e.target as Node)
       startDrag(touch.clientY, touch.clientX, e.target, onHandle, eventTime(e))
@@ -1813,7 +1860,7 @@ export function MobileEditorSheet({
     }
 
     const onEnd = (e: TouchEvent) => {
-      lastTouchAt.current = performance.now()
+      noteTouch(e)
       if (!drag.current.active) return
       /**
        * A tap on the grab bar has been answered, so the mouse events a
@@ -1821,7 +1868,7 @@ export function MobileEditorSheet({
        * would otherwise catch the sheet a few milliseconds into the step it
        * just started and snap it back to the nearest stop.
        */
-      if (endDrag(eventTime(e)) && e.cancelable) e.preventDefault()
+      if (endDrag(eventTime(e), e.type === "touchcancel") && e.cancelable) e.preventDefault()
     }
 
     sheet.addEventListener("touchstart", onStart, { passive: true })
@@ -2068,9 +2115,21 @@ export function MobileEditorSheet({
           ref={handleRef}
           className="flex shrink-0 cursor-grab touch-none select-none justify-center bg-inherit pb-1.5 pt-2.5 active:cursor-grabbing"
           onMouseDown={(e) => {
+            /* The primary button only: a right press is a context menu, and
+               its mouseup would otherwise land as a tap that steps the sheet. */
+            if (e.button !== 0) return
             /* The mouse events a browser makes up after a touch are that
-               touch, which the touch listeners have already handled. */
-            if (performance.now() - lastTouchAt.current < TOUCH_MOUSE_GAP_MS) return
+               touch, which the touch listeners have already handled. A real
+               mouse is never refused: see isCompatibilityMouse. */
+            const last = lastTouch.current
+            const source = (e.nativeEvent as MouseEvent & { sourceCapabilities?: { firesTouchEvents?: boolean } | null }).sourceCapabilities
+            if (
+              isCompatibilityMouse({
+                firesTouchEvents: source?.firesTouchEvents,
+                msSinceTouch: performance.now() - last.at,
+                distanceFromTouch: Math.hypot(e.clientX - last.x, e.clientY - last.y),
+              })
+            ) return
             e.preventDefault()
             // A mouse is unambiguous — there is no scroll gesture to confuse
             // it with — so it drags immediately, as it always did.

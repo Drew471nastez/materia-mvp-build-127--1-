@@ -192,7 +192,7 @@ check(
    * it covers at the bottom comes out at zero after the pan; giving that
    * the floor padded half a screen of white over a real keyboard.
    */
-  /const keyboard = seen\.reported \? seen\.inset : keyboardInsetOrFloor\(seen\.inset\)/.test(sheet)
+  /const keyboard = keyboardFor\(seen, readPublishedKeyboardInset\(\)\)/.test(sheet)
     && /from "@\/lib\/ui\/keyboard-safe-sheet"/.test(sheet),
 )
 check(
@@ -234,7 +234,7 @@ check(
 )
 check(
   "and the keyboard is read once into a name both uses share",
-  /const keyboard = seen\.reported/.test(sheet) && /setKeyboardInset\(keyboard\)/.test(sheet) && /setVisibleTop\(panned\)/.test(sheet),
+  /const keyboard = keyboardFor\(seen, /.test(sheet) && /setKeyboardInset\(keyboard\)/.test(sheet) && /setVisibleTop\(panned\)/.test(sheet),
 )
 
 

@@ -16,6 +16,7 @@
 import { sheetBottomReserve } from "@/lib/website-builder/sheet-reserve"
 import {
   keyboardCeiling,
+  keyboardFor,
   offsetsFor,
   sheetHeightWithKeyboard,
   visibleKeyboard,
@@ -170,6 +171,27 @@ function main() {
   check("a toolbar's worth is not a keyboard", !visibleKeyboard({ layoutHeight: SCREEN, vvHeight: SCREEN - 60, vvTop: 0 }).reported)
   /* Pinch zoom shrinks the visual viewport too, and is not a keyboard. */
   check("pinch zoom is not a keyboard and has no pan", !visibleKeyboard({ layoutHeight: SCREEN, vvHeight: 400, vvTop: 200, scale: 2 }).reported)
+
+  /*
+    WHAT THE SHEET PADS BY, from what it saw and what ViewportVars published.
+    A toolbar over the page left a 56px strip between the fixed box and the
+    visible area; that strip was taken as a keyboard, the sheet grew by it and
+    with a button focused went to its tallest stop. ViewportVars publishes the
+    same strip, so neither reading of it may count.
+  */
+  const toolbar = visibleKeyboard({ layoutHeight: SCREEN, vvHeight: SCREEN - 56, vvTop: 0 })
+  check("a toolbar over the page is not a keyboard, from either reading", keyboardFor(toolbar, 56) === 0 && keyboardFor(toolbar, 0) === 0)
+  const pinch = visibleKeyboard({ layoutHeight: SCREEN, vvHeight: 400, vvTop: 100, scale: 2 })
+  check("nor is a pinch, whatever it leaves uncovered", pinch.inset > 0 && keyboardFor(pinch, pinch.inset) === 0)
+  check("a platform that reported gets what it reported, zero included", keyboardFor(seen, 0) === KEYS - PAN && keyboardFor(all, 422) === 0)
+  check("one that said nothing gets the published floor", keyboardFor(silent, 422) === 422)
+
+  /* A bar known before the screen is: never a negative height. */
+  const early = offsetsFor({ viewport: 0, detents: [0.5, 0.92], peekHeight: 72, safeTop: 59, barBottom: 107 })
+  check("a screen not measured yet gives a sheet of 0, not a negative one", early.height === 0 && early.offsets.every((o) => o === 0))
+  const short = offsetsFor({ viewport: 100, detents: [0.5, 0.92], peekHeight: 72, safeTop: 0, barBottom: 107 })
+  check("a window shorter than the bar gives 0 too", short.height === 0 && short.offsets.every((o) => Number.isFinite(o) && o >= 0))
+  check("NaN in is not NaN out", offsetsFor({ viewport: Number.NaN, detents: [0.5, 0.92], peekHeight: 72 }).height === 0)
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) {

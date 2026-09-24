@@ -144,6 +144,23 @@ type EngineId = (typeof ENGINES)[number]["id"]
 const ENGINE_KEY = "storelib.theme-chat.engine"
 
 /**
+ * How near the end of the thread still counts as reading the newest message.
+ * About three lines: a reader resting a thumb a line short of the end is
+ * still following the run, and one who has scrolled up a screen is not.
+ */
+const PIN_SLACK_PX = 64
+/** Long enough for a smooth scroll to the end to finish. */
+const AUTO_SCROLL_MS = 700
+
+function prefersReducedMotion(): boolean {
+  try {
+    return window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  } catch {
+    return false
+  }
+}
+
+/**
  * One picture in the composer. `data` is what goes to the model; `url` is the
  * same bytes as a data URL, purely so the thumbnail can be drawn without a
  * second read.
@@ -443,11 +460,75 @@ export function ThemeChat({
    * sideways with every message cut off on the left. The thread's own
    * `scrollTop` touches nothing but the thread.
    */
+  /*
+    ─────────────────────────────────────────────────────────────────────────
+     AND IT FOLLOWS A RUN ONLY FOR SOMEBODY WHO IS FOLLOWING IT
+    ─────────────────────────────────────────────────────────────────────────
+    Every line a run streams in (a step, a plan, a note) is a new `exchanges`,
+    and each one scrolled the thread to its end. Somebody who had scrolled up
+    to read what the last run did was pulled back down on every step, for as
+    long as the run went on.
+
+    So the thread is PINNED while its reader is at the end, and only a pinned
+    thread follows. Scrolling up unpins it, scrolling back to the end pins it
+    again. A new exchange pins it whatever the reader was doing, because a
+    new exchange is the message they just sent. That one arrives with a
+    smooth scroll; the run's own lines, which come many a second, land
+    without one, as a chat's growing last message does.
+
+    The scroll a smooth scroll makes is not the reader's, so for its length
+    it does not unpin anything, unless a finger or a wheel takes over.
+  */
+  const pinned = React.useRef(true)
+  const autoScrollUntil = React.useRef(0)
+  const seenExchanges = React.useRef(0)
   React.useEffect(() => {
     const thread = threadRef.current
     if (!thread) return
-    thread.scrollTo({ top: thread.scrollHeight, behavior: "smooth" })
-  }, [exchanges])
+    const onScroll = () => {
+      if (performance.now() < autoScrollUntil.current) return
+      pinned.current = thread.scrollHeight - thread.scrollTop - thread.clientHeight <= PIN_SLACK_PX
+    }
+    const onReader = () => {
+      autoScrollUntil.current = 0
+    }
+    /* The thread shrinks when a keyboard comes up under the composer; a
+       pinned reader keeps the newest line in view rather than losing it. */
+    const ro = new ResizeObserver(() => {
+      if (pinned.current) thread.scrollTop = thread.scrollHeight
+    })
+    thread.addEventListener("scroll", onScroll, { passive: true })
+    thread.addEventListener("touchstart", onReader, { passive: true })
+    thread.addEventListener("wheel", onReader, { passive: true })
+    thread.addEventListener("pointerdown", onReader, { passive: true })
+    ro.observe(thread)
+    return () => {
+      thread.removeEventListener("scroll", onScroll)
+      thread.removeEventListener("touchstart", onReader)
+      thread.removeEventListener("wheel", onReader)
+      thread.removeEventListener("pointerdown", onReader)
+      ro.disconnect()
+    }
+  }, [])
+  React.useEffect(() => {
+    const thread = threadRef.current
+    if (!thread) return
+    const restored = seenExchanges.current === 0
+    const added = exchanges.length > seenExchanges.current
+    seenExchanges.current = exchanges.length
+    if (added) pinned.current = true
+    if (!pinned.current) return
+    const end = Math.max(0, thread.scrollHeight - thread.clientHeight)
+    const gliding = performance.now() < autoScrollUntil.current
+    if ((added && !restored) || gliding) {
+      if (!prefersReducedMotion()) {
+        if (added) autoScrollUntil.current = performance.now() + AUTO_SCROLL_MS
+        thread.scrollTo({ top: end, behavior: "smooth" })
+        return
+      }
+    }
+    thread.scrollTop = end
+  }, [exchanges, queued])
 
   /**
    * THE CONVERSATION SURVIVES A REFRESH.
@@ -778,7 +859,18 @@ export function ThemeChat({
             newline = buffer.indexOf("\n")
             if (!line) continue
 
-            let event: { type: string; op?: ThemeOp; label?: string; text?: string; message?: string }
+            let event: {
+              type: string
+              op?: ThemeOp
+              label?: string
+              text?: string
+              message?: string
+              /* A step's id and state, and a written file's path and source. */
+              id?: string
+              state?: string
+              path?: string
+              source?: string
+            }
             try {
               event = JSON.parse(line)
             } catch {
@@ -1094,7 +1186,7 @@ export function ThemeChat({
             onClick={() => setEngineOpen((open) => !open)}
             aria-haspopup="listbox"
             aria-expanded={engineOpen}
-            className="flex h-7 items-center gap-1 rounded-md px-1.5 text-[11.5px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            className="relative flex h-7 items-center gap-1 rounded-md px-1.5 text-[11.5px] text-muted-foreground transition-colors after:absolute after:-inset-x-1 after:-inset-y-2 after:content-[''] hover:bg-muted hover:text-foreground"
             title="Which model answers"
           >
             <span className="max-w-[92px] truncate">{chosenEngine.label}</span>
@@ -1148,7 +1240,7 @@ export function ThemeChat({
           type="button"
           onClick={onClose}
           aria-label="Close AI panel"
-          className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          className="relative flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors after:absolute after:-inset-x-1 after:-inset-y-2 after:content-[''] hover:bg-muted hover:text-foreground"
         >
           <X className="h-4 w-4" strokeWidth={1.75} />
         </button>
@@ -1316,7 +1408,10 @@ export function ThemeChat({
         )}
       </div>
 
-      <div className="shrink-0 border-t border-border p-2.5">
+      {/* Wraps like the thread: a long path in "is saved as", or a URL in a
+          reply to the writer, breaks where it has to rather than running
+          out of the panel under the clipped x axis. */}
+      <div className="min-w-0 shrink-0 border-t border-border p-2.5 [overflow-wrap:anywhere]">
         {/*
           ═════════════════════════════════════════════════════════════════════
            THE TWO THINGS IT DOES, ALWAYS REACHABLE
@@ -1546,7 +1641,7 @@ export function ThemeChat({
                 disabled={attached.length >= MAX_IMAGES}
                 aria-label="Attach a picture"
                 title={attached.length >= MAX_IMAGES ? `${MAX_IMAGES} images is the limit` : "Attach a picture of what you want"}
-                className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:text-foreground disabled:opacity-40"
+                className="relative flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-colors after:absolute after:-inset-x-[3px] after:-bottom-3 after:-top-1 after:content-[''] hover:text-foreground disabled:opacity-40"
               >
                 <ImagePlus className="h-3.5 w-3.5" strokeWidth={2} />
               </button>
@@ -1556,7 +1651,7 @@ export function ThemeChat({
                   onClick={() => abortRef.current?.abort()}
                   aria-label="Stop"
                   title="Stop"
-                  className="flex h-7 w-7 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:text-foreground"
+                  className="relative flex h-7 w-7 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors after:absolute after:-inset-x-[3px] after:-bottom-3 after:-top-1 after:content-[''] hover:text-foreground"
                 >
                   <Square className="h-2.5 w-2.5 fill-current" />
                 </button>
@@ -1567,7 +1662,7 @@ export function ThemeChat({
                 disabled={draft.trim().length === 0 && attached.length === 0}
                 aria-label={busy ? "Queue" : "Send"}
                 className={cn(
-                  "flex h-7 w-7 items-center justify-center rounded-lg transition-opacity",
+                  "relative flex h-7 w-7 items-center justify-center rounded-lg transition-opacity after:absolute after:-inset-x-[3px] after:-bottom-3 after:-top-1 after:content-['']",
                   draft.trim().length === 0 && attached.length === 0
                     ? "bg-muted text-muted-foreground/50"
                     : "bg-foreground text-background",
