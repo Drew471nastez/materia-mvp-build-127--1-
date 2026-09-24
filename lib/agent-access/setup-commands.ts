@@ -24,7 +24,7 @@
 export type Os = "mac" | "windows" | "linux"
 export type AgentTool = "claude" | "codex" | "other"
 
-export const MCP_URL = "https://storelib.com/api/mcp"
+export const MCP_URL = "https://mcp.storelib.com"
 export const TOKEN_ENV = "STORELIB_TOKEN"
 
 export const OS_LABEL: Record<Os, string> = { mac: "Mac", windows: "Windows", linux: "Linux" }

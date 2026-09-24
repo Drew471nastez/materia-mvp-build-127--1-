@@ -79,6 +79,7 @@ export function ProjectSettings({
   onPublish = () => {},
   onUnpublished = () => {},
   onNavigate = (href) => window.location.assign(href),
+  onAddressChanged = () => {},
 }: {
   open: boolean
   onClose: () => void
@@ -107,6 +108,7 @@ export function ProjectSettings({
   onEditMenu?: () => void
   onOpenCode?: () => void
   onPublish?: () => void
+  onAddressChanged?: (handle: string) => void
   onUnpublished?: () => void
   onNavigate?: (href: string) => void
 }) {
@@ -181,6 +183,7 @@ export function ProjectSettings({
     onPublish: thenClose(onPublish),
     onUnpublished,
     onNavigate,
+    onAddressChanged,
   }
 
   const current = SETTINGS_SECTIONS.find((s) => s.id === section)

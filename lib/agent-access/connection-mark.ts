@@ -20,6 +20,7 @@
  * Pure and client safe, so the bar and tests/connection-mark.test.ts read the
  * same rules.
  */
+import type { ThemeOp } from "@/lib/website-builder/agent/operations"
 
 export type ConnectionKind = "github" | "claude" | "openai" | "agent"
 
@@ -188,9 +189,36 @@ export function nextPollDelay(previous: number, changesArrived: boolean): number
 export interface ActivityEvent {
   id: number
   agent_name: string
+  /** sections/<type>.storelib for a file, pages/<key> for a page change. */
   path: string
-  action: "created" | "updated"
+  action: "created" | "updated" | "page" | "page_created"
   created_at?: string
+  /**
+   * A page change carries its operations, the same ones Storelib AI streams
+   * (lib/website-builder/agent/operations.ts). A new file an agent already
+   * placed on a page carries placed, so the builder does not place it twice.
+   */
+  detail?: { placed?: boolean; page?: string; ops?: ThemeOp[] } | null
+}
+
+/**
+ * What an open builder does with an agent's page change.
+ *
+ * The change is already saved to the draft. The builder is holding its own
+ * copy of the page and would save that copy over it on its next autosave,
+ * so it replays the same operations into what it holds: on the page it is
+ * showing, all of them; on any other page, only the theme's, because that
+ * page is read fresh from the draft when it is opened. A new page is added
+ * to the page list.
+ */
+export function pageEventPlan(ev: ActivityEvent, currentPage: string): { pageOps: ThemeOp[]; themeOps: ThemeOp[]; newPage: string | null } {
+  const none = { pageOps: [] as ThemeOp[], themeOps: [] as ThemeOp[], newPage: null as string | null }
+  if (ev.action !== "page" && ev.action !== "page_created") return none
+  const page = ev.detail?.page ?? /^pages\/([a-z0-9-]+)$/.exec(ev.path)?.[1] ?? null
+  const ops = Array.isArray(ev.detail?.ops) ? (ev.detail!.ops as ThemeOp[]) : []
+  const themeOps = ops.filter((o) => o?.kind === "update_theme")
+  const pageOps = page === currentPage ? ops.filter((o) => o && o.kind !== "update_theme") : []
+  return { pageOps, themeOps, newPage: ev.action === "page_created" ? page : null }
 }
 
 export function sectionTypeOf(path: string): string | null {
@@ -204,6 +232,12 @@ function titleFromType(type: string): string {
 
 export function describeChange(event: ActivityEvent, nameOf: (type: string) => string | undefined): string {
   const type = sectionTypeOf(event.path)
+  const page = /^pages\/([a-z0-9-]+)$/.exec(event.path)?.[1]
+  if (page) {
+    if (event.action === "page_created") return `New page: ${titleFromType(page)}`
+    const n = event.detail?.ops?.length ?? 0
+    return `${page === "home" ? "Home page" : titleFromType(page)} changed${n > 1 ? `, ${n} edits` : ""}`
+  }
   if (!type) {
     if (/settings/i.test(event.path)) return "Theme settings changed"
     return `${event.path} changed`

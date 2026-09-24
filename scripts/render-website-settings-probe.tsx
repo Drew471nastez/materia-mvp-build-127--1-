@@ -31,6 +31,10 @@ function stubFetch() {
       return json({ domain: { id: "d2", domain, status: "pending", verification_token: "storelib-verify-3f9c2a71d04b8e56a1c7f02e9d4b6a8c" } })
     }
     if (url === "/api/domains/verify") return json({ verified: false })
+    if (url === "/api/website-address" && init?.method === "POST") {
+      const { handle } = JSON.parse(String(init.body ?? "{}")) as { handle: string }
+      return json({ handle, username: "astrid", own: handle !== "astrid" })
+    }
     if (url.startsWith("/api/domains")) {
       return json({ domains: [{ id: "d1", domain: "astridstudio.com", status: "active", ssl_status: "active", verified_at: "2026-09-01T10:00:00Z" }] })
     }
@@ -53,6 +57,7 @@ function stubFetch() {
 export function App() {
   const [open, setOpen] = React.useState(true)
   const [live, setLive] = React.useState(true)
+  const [handle, setHandle] = React.useState("astrid")
   const [settings, setSettings] = React.useState<ThemeSettingsValues>({
     brand_name: "Astrid",
     seo_title: "",
@@ -70,8 +75,9 @@ export function App() {
       installId="install-1"
       name="Astrid Studio"
       onRenamed={() => {}}
-      websiteUrl="https://astrid.storelib.com"
-      websiteUrlDisplay="astrid.storelib.com"
+      websiteUrl={`https://${handle}.storelib.com`}
+      websiteUrlDisplay={`${handle}.storelib.com`}
+      onAddressChanged={setHandle}
       live={live}
       publishedAt="2026-09-22T09:30:00Z"
       initialSection={window.__section ?? null}

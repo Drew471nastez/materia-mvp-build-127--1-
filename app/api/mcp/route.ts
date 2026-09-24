@@ -3,12 +3,12 @@
  *  storelib.com/api/mcp: A SITE'S SECTION FILES, AS MCP TOOLS
  * ===========================================================================
  * Claude Code, available from every folder (user scope):
- *   claude mcp add --transport http --scope user storelib https://storelib.com/api/mcp \
+ *   claude mcp add --transport http --scope user storelib https://mcp.storelib.com \
  *     --header "Authorization: Bearer slb_..."
  *
  * Codex, in ~/.codex/config.toml:
  *   [mcp_servers.storelib]
- *   url = "https://storelib.com/api/mcp"
+ *   url = "https://mcp.storelib.com"
  *   bearer_token_env_var = "STORELIB_TOKEN"
  *
  * The token is made in the builder, under Website settings, and reaches one
