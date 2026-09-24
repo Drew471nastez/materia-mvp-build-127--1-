@@ -63,7 +63,8 @@ export const VOID_TAGS = new Set(["area", "base", "br", "col", "embed", "hr", "i
 /** Attributes per tag. `style` is filtered declaration by declaration below. */
 export const STORED_ATTRIBUTES: Record<string, string[]> = {
   a: ["href", "title", "style"],
-  img: ["src", "alt", "title", "width", "height", "loading", "style"],
+  /* `style` survives only on an old editor's picture; see safeImageSrc. */
+  img: ["src", "alt", "width", "height", "loading", "style"],
   iframe: ["src", "title", "allow", "allowfullscreen", "loading", "frameborder", "width", "height"],
   div: ["data-embed-type", "data-image-size", "data-x-url", "class", "style", "dir"],
   span: ["style"],
@@ -271,21 +272,103 @@ export function safeIframeSrc(raw: string | null | undefined): string | null {
   }
 }
 
+/**
+ * ---------------------------------------------------------------------------
+ *  PICTURES
+ * ---------------------------------------------------------------------------
+ * A picture in a description is uploaded by the editor's photo button to
+ * this project's own storage (lib/rich-text/upload-image.ts) and nothing
+ * else is accepted: not a picture hot linked from another site, which can be
+ * swapped for anything after it is approved or used to track who opened the
+ * page, and not one written into the HTML as a data: URL, which is how the
+ * old editor made rows megabytes long.
+ *
+ * THE ONE EXCEPTION IS WHAT IS ALREADY SAVED. The old editor wrote its
+ * pictures inside `<div data-embed-type="image">` (and a video's thumbnail
+ * inside `data-embed-type="youtube-thumbnail"`), as data: URLs or as any
+ * https address somebody pasted. Inside those wrappers, and only there, those
+ * still render as they did, with the sizing styles the old editor gave them.
+ * Nothing the new editor or a paste produces can make one.
+ */
+
+/** This project's Supabase host, plus the one named in next.config's image patterns. */
+const OWN_STORAGE_HOSTS = new Set(
+  [
+    (() => {
+      try {
+        return new URL(process.env.NEXT_PUBLIC_SUPABASE_URL ?? "").hostname
+      } catch {
+        return ""
+      }
+    })(),
+    "skgtqglupjcnfhfscink.supabase.co",
+  ].filter(Boolean),
+)
+
+/** Where an uploaded picture lives: a public object in this project's storage. */
+export function ownStorageImageSrc(raw: string | null | undefined): string | null {
+  if (typeof raw !== "string") return null
+  const value = raw.trim()
+  try {
+    const url = new URL(value)
+    if (url.protocol !== "https:" || !OWN_STORAGE_HOSTS.has(url.hostname)) return null
+    if (url.username || url.password || url.port) return null
+    return url.pathname.startsWith("/storage/v1/object/public/") ? value : null
+  } catch {
+    return null
+  }
+}
+
 /** Raster images the old editor stored inline. SVG is not one of them. */
 const DATA_IMAGE = /^data:image\/(png|jpe?g|gif|webp);base64,[a-z0-9+/=\s]+$/i
 
-/** An image address: http(s), or an inline raster the old editor wrote. */
-export function safeImageSrc(raw: string | null | undefined): string | null {
-  if (typeof raw !== "string") return null
+/** The old editor's wrappers, inside which its own pictures are still allowed. */
+export const LEGACY_IMAGE_WRAPPERS = new Set(["image", "youtube-thumbnail"])
+
+/**
+ * A picture's address. Anywhere: this project's storage. Inside an old
+ * picture wrapper as well: an inline raster, or an https address.
+ */
+export function safeImageSrc(raw: string | null | undefined, legacy = false): string | null {
+  const own = ownStorageImageSrc(raw)
+  if (own) return own
+  if (!legacy || typeof raw !== "string") return null
   const value = raw.trim()
   if (DATA_IMAGE.test(value)) return value
   const probe = value.replace(INVISIBLE, "").toLowerCase()
-  if (!/^https?:/.test(probe)) return null
+  if (!/^https:/.test(probe)) return null
   try {
     return new URL(value).hostname ? value : null
   } catch {
     return null
   }
+}
+
+// ---------------------------------------------------------------------------
+//  HOW MUCH A SAVE MAY SEND
+// ---------------------------------------------------------------------------
+
+/**
+ * The most HTML one save may hand the server to clean: far more than any
+ * description anybody writes, far less than a request that costs the server
+ * real time. An uploaded picture is a URL, so pictures hardly count; the old
+ * editor's inline ones are the only way a real description gets near it.
+ */
+export const MAX_DESCRIPTION_BYTES = 200 * 1024
+
+export function byteLength(value: string): number {
+  return typeof TextEncoder === "undefined" ? value.length : new TextEncoder().encode(value).length
+}
+
+/** Why a description cannot be saved as it is, in words the editor shows; null when it can. */
+export function descriptionTooLong(html: string): string | null {
+  const bytes = byteLength(html)
+  if (bytes <= MAX_DESCRIPTION_BYTES) return null
+  const kb = (n: number) => `${Math.ceil(n / 1024)} KB`
+  const inline = /<img[^>]+src="data:/i.test(html)
+  return inline
+    ? `The description is ${kb(bytes)}, over the ${kb(MAX_DESCRIPTION_BYTES)} limit. Pictures saved inside the text by the old editor count toward it: remove them and add them again with the photo button.`
+    : `The description is ${kb(bytes)}, over the ${kb(MAX_DESCRIPTION_BYTES)} limit. Shorten it, or remove formatting that came with a paste.`
 }
 
 /** An absolute web link, which opens in a new tab and passes nothing on. */

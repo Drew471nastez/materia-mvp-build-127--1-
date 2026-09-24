@@ -36,6 +36,7 @@ import {
   EXTERNAL_REL,
   STORED_ATTRIBUTES,
   STORED_CLASSES,
+  LEGACY_IMAGE_WRAPPERS,
   STORED_TAGS,
   TAG_ALIASES,
   VOID_TAGS,
@@ -276,7 +277,7 @@ function canonical(name: string): string {
 }
 
 /** The attributes `tag` keeps, in a stable order, as ` name="value"` pairs. */
-function storedAttributes(tag: string, attrs: Record<string, string>): string | null {
+function storedAttributes(tag: string, attrs: Record<string, string>, legacyImage = false): string | null {
   const allowed = STORED_ATTRIBUTES[tag]
   const out: Array<[string, string]> = []
   if (tag === "a") {
@@ -290,7 +291,7 @@ function storedAttributes(tag: string, attrs: Record<string, string>): string | 
     }
   }
   if (tag === "img") {
-    const src = safeImageSrc(attrs.src)
+    const src = safeImageSrc(attrs.src, legacyImage)
     if (!src) return null
     out.push(["src", src])
   }
@@ -301,6 +302,8 @@ function storedAttributes(tag: string, attrs: Record<string, string>): string | 
   }
   for (const name of allowed ?? []) {
     if (name === "href" || name === "src") continue
+    /* A picture is lazy, always; its styles are only the old editor's. */
+    if (tag === "img" && (name === "loading" || (name === "style" && !legacyImage))) continue
     const raw = attrs[name]
     if (raw === undefined) continue
     if (name === "style") {
@@ -321,13 +324,16 @@ function storedAttributes(tag: string, attrs: Record<string, string>): string | 
     if (rule && !rule.test(raw.trim())) continue
     out.push([name, raw.trim()])
   }
+  if (tag === "img") out.push(["loading", "lazy"])
   return out.map(([k, v]) => ` ${k}="${escapeAttr(v)}"`).join("")
 }
 
 /** Written only when they hold something: an empty one is a gap with no line in it. */
 const DROP_WHEN_EMPTY = new Set(["p", "h1", "h2", "h3", "h4", "blockquote", "li", "strong", "b", "em", "i", "u", "s", "span", "a", "sub", "sup", "small", "mark", "code"])
 
-function writeStored(nodes: HNode[], ctx: { inLink: boolean; tidy: boolean }): string {
+type StoredContext = { inLink: boolean; tidy: boolean; legacyImage?: boolean }
+
+function writeStored(nodes: HNode[], ctx: StoredContext): string {
   let out = ""
   for (const node of nodes) {
     if (node.type === "text") {
@@ -340,7 +346,7 @@ function writeStored(nodes: HNode[], ctx: { inLink: boolean; tidy: boolean }): s
       out += writeStored(node.children, ctx)
       continue
     }
-    const attrs = storedAttributes(name, node.attrs)
+    const attrs = storedAttributes(name, node.attrs, !!ctx.legacyImage)
     if (attrs === null) continue
     /* A span that kept nothing, or a link whose address was refused, is
        only its text. */
@@ -356,7 +362,11 @@ function writeStored(nodes: HNode[], ctx: { inLink: boolean; tidy: boolean }): s
       out += `<iframe${attrs}></iframe>`
       continue
     }
-    const inner = writeStored(node.children, { inLink: ctx.inLink || name === "a", tidy: ctx.tidy })
+    const inner = writeStored(node.children, {
+      inLink: ctx.inLink || name === "a",
+      tidy: ctx.tidy,
+      legacyImage: ctx.legacyImage || (name === "div" && LEGACY_IMAGE_WRAPPERS.has(node.attrs["data-embed-type"] ?? "")),
+    })
     /* The editor's own output only: Chrome leaves `<p></p>` and `<b></b>`
        behind when a list or a format takes the line they were on. A stored
        description is drawn as it was saved. */

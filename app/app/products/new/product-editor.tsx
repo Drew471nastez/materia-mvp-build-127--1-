@@ -55,7 +55,9 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { RichTextEditor } from "@/components/app/rich-text-editor"
-import { cleanDescription } from "./description-action"
+import { descriptionForSave } from "./description-save"
+import { descriptionTooLong } from "@/lib/rich-text/policy"
+import { uploadDescriptionImage } from "@/lib/rich-text/upload-image"
 import { DirectUploader, type UploadStatus } from "@/lib/storage/chunked-upload"
 import {
   DndContext,
@@ -293,6 +295,7 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
   const creatorId = loadedCreator.id
   const creator = loadedCreator
   const [productId, setProductId] = useState<string | null>(initial.productId)
+  const storedDescriptionRef = useRef<string | null>(initial.productId ? initial.description : null) // The description as the row holds it
   /* The saved name, for the more menu's sheet. The bar itself names no product: the title field does. */
   const [savedTitle, setSavedTitle] = useState(initial.title)
 
@@ -1488,7 +1491,7 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
       })
 
       // The description's HTML through the allow list on the server (lib/rich-text/sanitize.ts)
-      const savedDescription = await cleanDescription(description)
+      const savedDescription = await descriptionForSave(description, storedDescriptionRef.current)
 
       const productData = {
         creator_id: creatorId,
@@ -1737,6 +1740,7 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
       /* Saved: search engines that take IndexNow hear about it now. */
       if (finalProductId) announceChange({ product: finalProductId })
 
+      storedDescriptionRef.current = savedDescription
       return { productId: finalProductId, slug: finalSlug }
     } catch (err: any) {
       console.error("Error saving product:", err)
@@ -3077,6 +3081,8 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
                     onChange={setDescription}
                     label="Description"
                     placeholder="What it is, who it is for, and what they get"
+                    uploadImage={(file) => uploadDescriptionImage(file, { creatorId, productId })}
+                    checkSize={descriptionTooLong}
                   />
                 </div>
               </div>

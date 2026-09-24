@@ -1205,6 +1205,17 @@ html.capacitor body {
   .rich-text-toolbar::-webkit-scrollbar { display: none; }
   .rich-text-content { caret-color: #1a1a2e; }
   .rich-text-content [data-embed-type] { cursor: default; }
+  /*
+   * A picture in a description is a block of its own, the width of the
+   * text at most, its height following its width, in the editor and on the
+   * page alike. Dimmed while it uploads; outlined while its description is
+   * being written.
+   */
+  .storelib-description img,
+  .rich-text-content img { display: block; margin: 0.25em 0; }
+  .rich-text-content img { cursor: pointer; }
+  .rich-text-content img[data-uploading] { opacity: 0.55; }
+  .rich-text-content img[data-picked] { outline: 2px solid #1a1a2e; outline-offset: 2px; }
 
   /**
    * The bar across the top of the editor's canvas while the next page is

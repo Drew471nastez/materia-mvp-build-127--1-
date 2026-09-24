@@ -18,6 +18,13 @@
  *                address; undo undoes; a value from outside replaces the text
  *   pasting      Google Docs markup arrives as headings, bold and a list,
  *                with no styles, classes or fonts
+ *   pictures     the Picture control opens the file picker; the photo shows
+ *                at once, dimmed, while a stubbed upload runs, and nothing
+ *                of it is saved until it has its storage address; then it is
+ *                saved with its size, alt text is written in place, and it
+ *                can be removed; a failed upload says so and leaves nothing;
+ *                it is never wider than the text, in the editor or the page
+ *   limits       a description over 200 KB says so while it is typed
  *   rendering    a description the old editor saved draws without its
  *                handlers, buttons or scripts, its YouTube embed at 16:9;
  *                the server's markup hydrates with no mismatch and nothing
@@ -108,7 +115,12 @@ try {
     p.on("pageerror", (e) => errors.push(String(e)))
     /* Nothing leaves the machine: an embed's frame gets an empty page. */
     await p.setRequestInterception(true)
-    p.on("request", (r) => (r.url().startsWith(origin) ? r.continue() : r.respond({ status: 200, contentType: "text/html", body: "" })))
+    p.on("request", (r) => {
+      if (r.url().startsWith(origin)) return r.continue()
+      /* The stubbed upload's address in this project's storage. */
+      if (r.url().includes("supabase.co/storage/")) return r.respond({ status: 200, contentType: "image/png", body: photo })
+      return r.respond({ status: 200, contentType: "text/html", body: "" })
+    })
     await p.setViewport(vp)
     await p.goto(`${origin}/?${query}`)
     await p.waitForFunction(() => window.__ready === true)
@@ -122,6 +134,27 @@ try {
   const field = "[role=textbox][contenteditable=true]"
   const box = (p, sel) => p.$eval(sel, (el) => { const r = el.getBoundingClientRect(); return { x: Math.round(r.left), y: Math.round(r.top), w: Math.round(r.width), h: Math.round(r.height) } })
 
+  /* A 1600 by 900 photo to upload, drawn by the browser itself. */
+  let photo
+  const photoPath = join(dir, "photo.png")
+  {
+    const p = await browser.newPage()
+    const b64 = await p.evaluate(() => {
+      const c = document.createElement("canvas")
+      c.width = 1600
+      c.height = 900
+      const g = c.getContext("2d")
+      g.fillStyle = "#d9cbb4"
+      g.fillRect(0, 0, 1600, 900)
+      g.fillStyle = "#1a1a2e"
+      g.fillRect(600, 250, 400, 400)
+      return c.toDataURL("image/png").split(",")[1]
+    })
+    photo = Buffer.from(b64, "base64")
+    writeFileSync(photoPath, photo)
+    await p.close()
+  }
+
   const viewports = [
     ["phone", { width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }],
     ["desktop", { width: 1280, height: 900 }],
@@ -134,7 +167,7 @@ try {
 
     const buttons = await p.$$eval("[role=toolbar] button", (bs) => bs.map((b) => { const r = b.getBoundingClientRect(); return { l: b.getAttribute("aria-label"), w: Math.round(r.width), h: Math.round(r.height), top: Math.round(r.top) } }))
     const want = phone ? 44 : 32
-    expect(buttons.length === 14, "fourteen controls: two headings, four marks, two lists, quote, link, divider, clear, undo, redo", buttons.length)
+    expect(buttons.length === 15, "fifteen controls: two headings, four marks, two lists, quote, link, picture, divider, clear, undo, redo", buttons.length)
     expect(buttons.every((b) => b.w === want && b.h === want), `every control is ${want}px square`, [...new Set(buttons.map((b) => `${b.w}x${b.h}`))])
     const rows = new Set(buttons.map((b) => b.top)).size
     const bar = await p.$eval("[role=toolbar]", (t) => ({ scroll: t.scrollWidth, client: t.clientWidth, overflowX: getComputedStyle(t).overflowX }))
@@ -267,13 +300,102 @@ try {
     await p.close()
   }
 
+  const OWN = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/product-images/creator-1/product-1/1_description_probe.webp"
+  const esc = (x) => x.replace(/[./?]/g, "\\$&")
+  const status = (p) => p.$eval(".rich-text-field [role=status]", (el) => el.textContent).catch(() => "")
+
+  for (const [label, vp] of viewports) {
+    const phone = label === "phone"
+    console.log(`\nA picture, ${label} (${vp.width}px)`)
+    const { p, errors } = await open(vp, "view=editor&uploadMs=900&value=" + encodeURIComponent("<p>Before the picture.</p>"))
+    const control = await box(p, '[role=toolbar] button[aria-label="Picture"]')
+    expect(control.w === (phone ? 44 : 32) && control.h === (phone ? 44 : 32), `the Picture control is ${phone ? 44 : 32}px square`, control)
+    await p.click(field)
+    await p.keyboard.press("End")
+    const [chooser] = await Promise.all([p.waitForFileChooser({ timeout: 3000 }), tool(p, "Picture")])
+    expect(!!chooser && !chooser.isMultiple(), "it opens the file picker from the tap, one photo at a time")
+    await chooser.accept([photoPath])
+    await sleep(200)
+    const during = await p.evaluate(() => {
+      const img = document.querySelector("[role=textbox] img[data-uploading]")
+      return img ? { opacity: getComputedStyle(img).opacity, scheme: img.getAttribute("src").split(":")[0] } : null
+    })
+    expect(!!during && during.opacity === "0.55" && during.scheme === "blob", "the photo shows at once, dimmed, from the file itself", during)
+    expect(/Uploading the picture/.test(await status(p)), "and the field says it is uploading", await status(p))
+    expect(!/<img/.test(await value(p)), "nothing of it is saved while it uploads", await value(p))
+    await sleep(1100)
+    const v = await value(p)
+    expect(new RegExp(`^<p>Before the picture\\.</p><p><img src="${esc(OWN)}" alt="" width="1600" height="900" loading="lazy">(<br>)?</p>$`).test(v),
+      "then it is saved with its storage address and its size, in a paragraph of its own", v)
+    const shown = await p.$eval("[role=textbox] img", (img) => {
+      const r = img.getBoundingClientRect()
+      const box = img.closest("[role=textbox]")
+      const pad = parseFloat(getComputedStyle(box).paddingLeft) + parseFloat(getComputedStyle(box).paddingRight)
+      return { w: Math.round(r.width), h: Math.round(r.height), room: Math.round(box.clientWidth - pad), radius: getComputedStyle(img).borderTopLeftRadius, loaded: img.complete && img.naturalWidth === 1600 }
+    })
+    expect(shown.loaded && shown.w <= shown.room && Math.abs(shown.w / shown.h - 16 / 9) < 0.02 && shown.radius === "10px",
+      "it fills the width of the text at most, keeps its shape, and has the page's rounded corners", shown)
+    expect((await sideways(p)) <= 0, "the page does not scroll sideways", await sideways(p))
+    const altBox = await p.$eval("[aria-label='Picture description']", (el) => ({ fs: parseFloat(getComputedStyle(el).fontSize), h: Math.round(el.getBoundingClientRect().height) }))
+    expect(altBox.fs >= (phone ? 16 : 14) && altBox.h >= (phone ? 44 : 36), "its description field opens under the toolbar", altBox)
+    await p.type("[aria-label='Picture description']", "A mug on a desk")
+    await sleep(80)
+    expect(/<img [^>]*alt="A mug on a desk"/.test(await value(p)), "the description is saved as its alt text", await value(p))
+    await p.screenshot({ path: join(shots, `picture-${label}.png`), fullPage: true })
+    await p.evaluate(() => [...document.querySelectorAll(".rich-text-field button")].find((b) => b.textContent.trim() === "Remove picture").click())
+    await sleep(120)
+    expect(!/<img/.test(await value(p)) && !(await p.$("[role=textbox] img")), "Remove picture takes it out", await value(p))
+    expect(errors.length === 0, "nothing in the console", errors)
+    await p.close()
+  }
+
+  console.log("\nA picture that does not upload, phone")
+  {
+    const { p, errors } = await open(viewports[0][1], "view=editor&upload=fail&uploadMs=300&value=" + encodeURIComponent("<p>Words</p>"))
+    await p.click(field)
+    const [chooser] = await Promise.all([p.waitForFileChooser({ timeout: 3000 }), tool(p, "Picture")])
+    await chooser.accept([photoPath])
+    await sleep(700)
+    expect(!(await p.$("[role=textbox] img")) && !/<img/.test(await value(p)), "leaves no picture behind", await value(p))
+    expect(/did not upload/.test(await status(p)), "and says what happened", await status(p))
+    expect(errors.length === 0, "nothing in the console", errors)
+    await p.close()
+  }
+
+  console.log("\nThe size limit, desktop")
+  {
+    const { p } = await open(viewports[1][1], "view=editor")
+    await p.click(field)
+    await p.evaluate(() => {
+      const el = document.querySelector("[role=textbox][contenteditable=true]")
+      const dt = new DataTransfer()
+      dt.setData("text/plain", "word ".repeat(42000))
+      el.dispatchEvent(new ClipboardEvent("paste", { clipboardData: dt, bubbles: true, cancelable: true }))
+    })
+    await sleep(200)
+    expect(/over the 200 KB limit/.test(await status(p)), "a description over 200 KB says so under the text", await status(p))
+    await p.close()
+  }
+
+  console.log("\nA picture on the page")
+  for (const [label, vp] of viewports) {
+    const { p, errors } = await open(vp, "view=render&value=" + encodeURIComponent(`<p>Look.</p><p><img src="${OWN}" alt="A mug" width="1600" height="900"></p><p><img src="https://evil.example.com/pixel.png"></p>`))
+    await sleep(200)
+    const drawn = await p.$$eval("[data-rendered] img", (imgs) => imgs.map((img) => { const r = img.getBoundingClientRect(); return { src: img.getAttribute("src"), lazy: img.getAttribute("loading"), w: Math.round(r.width), h: Math.round(r.height), room: Math.round(img.closest("[data-rendered]").clientWidth - 32), radius: getComputedStyle(img).borderTopLeftRadius } }))
+    expect(drawn.length === 1 && drawn[0].src === OWN && drawn[0].lazy === "lazy", `${label}: our picture is drawn, lazily, and the other site's is not`, drawn.map((d) => d.src))
+    expect(drawn[0] && drawn[0].w === drawn[0].room && Math.abs(drawn[0].w / drawn[0].h - 16 / 9) < 0.02 && drawn[0].radius === "10px", `${label}: the width of the text, its own shape, rounded`, drawn[0])
+    expect((await sideways(p)) <= 0 && errors.length === 0, `${label}: no sideways scroll, nothing in the console`, { sideways: await sideways(p), errors })
+    await p.screenshot({ path: join(shots, `render-picture-${label}.png`), fullPage: true })
+    await p.close()
+  }
+
   console.log("\nThe link form, phone")
   {
     const { p } = await open(viewports[0][1], "view=editor&value=" + encodeURIComponent("<p>Words</p>"))
     await p.click(field)
     await tool(p, "Link")
     await sleep(120)
-    const inputs = await p.$$eval(".rich-text-field input", (xs) => xs.map((x) => ({ l: x.getAttribute("aria-label"), fs: parseFloat(getComputedStyle(x).fontSize), h: Math.round(x.getBoundingClientRect().height) })))
+    const inputs = await p.$$eval(".rich-text-field [role=group][aria-label=Link] input", (xs) => xs.map((x) => ({ l: x.getAttribute("aria-label"), fs: parseFloat(getComputedStyle(x).fontSize), h: Math.round(x.getBoundingClientRect().height) })))
     expect(inputs.length === 2 && inputs.every((i) => i.fs >= 16 && i.h >= 44), "with nothing selected it asks for the address and the words, 16px and 44px tall", inputs)
     const focused = await p.evaluate(() => document.activeElement?.getAttribute("aria-label"))
     expect(focused === "Link address", "and the address field has the focus", focused)
