@@ -322,15 +322,21 @@ async function main() {
   console.log("\nA section an agent writes appears on the open page")
 
   const editor = read("app/website-builder/editor/[installId]/page.tsx")
-  check("the builder asks what agents wrote, only while it is showing",
-    /agent-activity\$\{after\}/.test(editor) && /document\.visibilityState === "visible"/.test(editor))
+  const follow = read("components/website-builder/site-connections.tsx")
+  check("the builder asks what agents wrote, only while it is showing, and only while something is connected",
+    /useSiteActivity\(\{/.test(editor) && /agent-activity\?after=\$\{cursor\.current\}/.test(follow) &&
+      /document\.visibilityState !== "visible"/.test(follow) && /if \(!connected\) return/.test(follow))
   check("the first answer is a cursor, so nothing old is replayed",
     /if \(after === null\)/.test(read("app/api/website-builder/themes/[installId]/agent-activity/route.ts")))
   check("a new section is placed above the footer, undoably, with the arrival animation, and named",
     /placeWrittenSection\(previous, writingAnchor\(previous\), instanceFromSchema\(id, type, schema\)\)/.test(editor)
-      && /setArrivedId\(id\)/.test(editor) && /\$\{ev\.agent_name\} added \$\{label\}/.test(editor))
+      && /setArrivedId\(id\)/.test(editor) && /describeChange\(ev,/.test(editor) && /addToBatch\(b, by, lines, Date\.now\(\)\)/.test(editor))
+  check("and the canvas is not scrolled to it", (() => {
+    const handler = editor.slice(editor.indexOf("const handleAgentEvents = async"), editor.indexOf("const { brief: connectionsBrief }"))
+    return handler.length > 0 && !/revealSection|scrollWithin|scrollToSection/.test(handler)
+  })())
   check("never twice", /!sectionsRef\.current\.some\(\(sec\) => sec\.type === type\)/.test(editor))
-  check("and it stops asking on a database without the tables", /d\.ready === false\) return/.test(editor))
+  check("and it stops asking on a database without the tables", /if \(!res\.ok \|\| d\.ready === false\) \{\s*stopped = true/.test(follow))
 
   console.log("\nThe docs say how")
 

@@ -209,19 +209,23 @@ function main() {
   check("it says how it works in three steps", /Connect a repository/.test(panel) && /Ask your agent for a change/.test(panel) && /It appears here/.test(panel))
   check("and says so plainly when GitHub is not set up on the server", /GitHub is not switched on for this Storelib yet/.test(panel))
   const editor = read("app/website-builder/editor/[installId]/page.tsx")
-  const ghButton = read("components/website-builder/github-button.tsx")
-  check("the top bar keeps GitHub's mark, labelled GitHub, opening the GitHub path",
-    /<GitHubTopBarButton installId=\{installId\} onOpen=\{openGitHub\}/.test(editor) && /aria-label="GitHub"/.test(ghButton) &&
-      /<GitHubMark className="h-4 w-4" \/>/.test(ghButton) && /const openGitHub = \(\) => \{\s*openConnections\(\)\s*setConnectVia\("github"\)/.test(editor))
-  check("  with a green dot when the site is linked, and nothing when it is not",
-    /\{repo && \(\s*<span[\s\S]{0,200}bg-emerald-500/.test(ghButton) && /setRepo\(d\?\.linked && d\.repo \? d\.repo : null\)/.test(ghButton))
-  check("  asked with one small read that never calls GitHub, and asked again when settings close",
-    /\?brief=1/.test(ghButton) && /recheck=\{projectSettingsOpen\}/.test(editor) &&
+  const button = read("components/website-builder/site-connections.tsx")
+  const marks = read("components/website-builder/connection-marks.tsx")
+  const rules = read("lib/agent-access/connection-mark.ts")
+  check("the top bar shows the connection's own mark, GitHub's when nothing is connected, and opens its path",
+    /<ConnectionButton\s+mark=\{connection\}/.test(editor) && /<ConnectionMarkIcon kind=\{mark\.kind\}/.test(button) &&
+      /return <GitHubMark className=\{className\} \/>/.test(marks) && /kind: "github",\s*online: false/.test(rules) &&
+      /const openGitHub = \(\) => \{\s*openConnections\(\)\s*setConnectVia\("github"\)/.test(editor) &&
+      /connection\.kind !== "github" \? openConnections\(\) : openGitHub\(\)/.test(editor))
+  check("  with a green dot while it is live, and nothing when nothing is connected",
+    /\{mark\.online && <span aria-hidden className="wb-live-dot"/.test(button) && /\.wb-live-dot \{[\s\S]{0,200}background: #10b981/.test(read("app/globals.css")))
+  check("  asked with small reads that never call GitHub, and asked again when settings close",
+    /recheck: projectSettingsOpen/.test(editor) &&
       (() => {
-        const brief = read("app/api/website-builder/themes/[installId]/github/route.ts").split('get("brief") === "1"')[1]?.split("return NextResponse.json")[0] ?? ""
-        return brief.length > 0 && !/installationToken|installationRepos/.test(brief)
+        const route = read("app/api/website-builder/themes/[installId]/agent-activity/route.ts")
+        return /from\("theme_github_links"\)\.select\("repo_full_name"\)/.test(route) && !/installationToken|installationRepos|github-sync\/github/.test(route)
       })())
-  check("  and a phone reaches it from the menu", /isMobileView\s*\?\s*\[\{ label: "GitHub", icon: <GitHubMark/.test(editor))
+  check("  and a phone reaches it from the menu, by the same mark", /isMobileView\s*\?\s*\[\{\s*label: connection\.online \? connection\.label : "GitHub",\s*icon: <ConnectionMarkIcon kind=\{connection\.kind\}/.test(editor))
   check("and coming back from GitHub opens Connections, then clears the address",
     /settingsSectionFrom\(url\.searchParams\.get\("settings"\)\)/.test(editor) && /history\.replaceState/.test(editor) &&
       /if \(value === "connections" \|\| value === "agents"\) return "advanced"/.test(read("components/website-builder/website-settings/types.ts")))

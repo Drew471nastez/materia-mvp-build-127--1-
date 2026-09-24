@@ -428,7 +428,18 @@ section("Choosing an icon, and choosing where a link goes")
   check("and not collections, which do not exist", !/kind: "collection"/.test(linkPicker) && !/Collections/.test(linkPicker))
   check("the nav link cannot be pointed at one", !/collections\//.test(read("components/website-builder/sections/renderers/HeaderSection.tsx").replace(/\/\/.*$/gm, "")))
   check("and Shop in the picker is the address the shop is at", /\{ href: "\/products", label: "Shop", kind: "page" \}/.test(editorSrc) && !/href: "\/shop"/.test(editorSrc))
-  check("and still takes any address at all", /Or any address/.test(linkPicker) && /mailto:/.test(linkPicker))
+  /**
+   * THE FIELD IS THE ADDRESS. The list used to end in an "Or any address"
+   * box, a second place to type a link under the first. Now the field takes
+   * any address itself, checked and tidied on Enter or blur, and the list is
+   * the site's pages and products and nothing else.
+   */
+  check(
+    "and still takes any address at all, typed into the field itself",
+    /role="combobox"/.test(linkPicker) && /normalizeLinkAddress\(text\)/.test(linkPicker) && /mailto/.test(read("lib/website-builder/link-address.ts")),
+  )
+  check("with no custom address row in the list", !/Or any address/.test(linkPicker) && !/custom/i.test(linkPicker.replace(/\/\*[\s\S]*?\*\//g, "")))
+  check("and the nav and call to action links use the same field", !/function NavLinkPicker/.test(editorSrc) && (editorSrc.match(/<LinkFieldEditor/g) ?? []).length >= 3)
   check(
     "the targets come from the same lists the page browser shows, so the two cannot disagree",
     /const linkTargets = useMemo<LinkTarget\[\]>/.test(editorSrc) &&
