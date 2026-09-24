@@ -4847,7 +4847,8 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
                   <div className="flex items-center gap-0">
                     <div className="h-11 px-3 bg-gray-100 border border-r-0 border-gray-200 rounded-l-lg flex items-center">
                       <span className="text-xs sm:text-sm text-gray-500 whitespace-nowrap">
-                        https://{creator?.username || creator?.slug || "yourstore"}.storelib.com/p/
+                        {/* The address every link uses: storelib.com/<handle>/<slug> (lib/url-helpers getProductShareUrl). */}
+                        storelib.com/{(creator?.username || creator?.slug || "yourstore").toLowerCase()}/
                       </span>
                     </div>
                     <Input
@@ -4880,7 +4881,7 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
                       {seoTitle || title || "Product title"}
                     </p>
                     <p className="text-green-700 text-xs sm:text-sm truncate">
-                      {creator?.username || creator?.slug || "yourstore"}.storelib.com/p/{slug || "product-url"}
+                      storelib.com/{(creator?.username || creator?.slug || "yourstore").toLowerCase()}/{slug || "product-url"}
                     </p>
                     <p className="text-gray-600 text-xs sm:text-sm line-clamp-2 mt-0.5">
                       {plainSearchPreviewDescription || "Product description will appear here..."}
