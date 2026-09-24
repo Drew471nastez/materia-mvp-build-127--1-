@@ -26,6 +26,7 @@
  *   node scripts/check-chart-skeleton.mjs
  */
 import { execFileSync } from "node:child_process"
+import puppeteer from "puppeteer-core"
 import { writeFileSync, rmSync, existsSync, mkdirSync } from "node:fs"
 import { join, dirname } from "node:path"
 import { fileURLToPath } from "node:url"
@@ -36,7 +37,7 @@ const CHROMIUM = process.env.CHROMIUM ?? "/opt/pw-browsers/chromium"
 const fail = (m) => { console.error(`\n${m}\n`); process.exit(1) }
 if (!existsSync(CHROMIUM)) fail(`No browser at ${CHROMIUM}. Set CHROMIUM=/path/to/chromium.`)
 
-/* The grey the placeholder line is drawn in, from analytics-chart.tsx. */
+/* The grey the placeholder line is drawn in, from components/app/morph-lines.tsx. */
 const SKELETON_STROKE = "rgb(229, 231, 235)"
 
 const work = join(root, ".chart-skeleton-probe")
@@ -64,8 +65,8 @@ try {
   /* The two rules the product ships for this, copied from app/globals.css.
      tests/analytics-chart-skeleton.test.ts asserts they are still there. */
   @keyframes chart-skeleton-breath { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
-  [data-chart-loading] .recharts-area-curve { transition: stroke 420ms cubic-bezier(0.32, 0.72, 0, 1); }
-  [data-chart-loading="true"] .recharts-area-curve,
+  [data-chart-loading] .trend-line { transition: stroke 420ms cubic-bezier(0.32, 0.72, 0, 1); }
+  [data-chart-loading="true"] .trend-line,
   [data-chart-loading="true"] .recharts-cartesian-grid line,
   [data-chart-loading="true"] .recharts-cartesian-axis-tick text {
     animation: chart-skeleton-breath 1.7s cubic-bezier(0.4, 0, 0.6, 1) infinite;
@@ -77,25 +78,27 @@ try {
 <script>
 const tick = () => new Promise((r) => setTimeout(r, 16))
 
+/* The line is components/app/morph-lines now: a path that is drawn when it has a "d". */
+const drawn = (el) => !!(el && (el.getAttribute("d") || "").length > 0)
 const look = (id) => {
   const scope = document.getElementById(id)
-  const curve = scope.querySelector(".recharts-area-curve")
+  const curve = [...scope.querySelectorAll("[data-trend-line]")].find(drawn) || null
   const style = curve ? getComputedStyle(curve) : null
+  const area = [...scope.querySelectorAll(".trend-area")].find(drawn)
   return {
     svgNodes: scope.querySelectorAll("svg *").length,
     gridLines: scope.querySelectorAll(".recharts-cartesian-grid line").length,
     axisTicks: scope.querySelectorAll(".recharts-cartesian-axis-tick text").length,
-    curves: scope.querySelectorAll(".recharts-area-curve").length,
-    /* The dots are a custom renderer, so they are plain <circle>s inside the
-       area's own layer rather than anything recharts has named. */
-    dots: scope.querySelectorAll(".recharts-layer.recharts-area circle").length,
-    /* An area's fill under the line: "none" while it is a placeholder. */
-    areaFill: curve ? (scope.querySelector(".recharts-area-area")?.getAttribute("fill") ?? "none") : "none",
+    curves: [...scope.querySelectorAll("[data-trend-line]")].filter(drawn).length,
+    /* The only point drawn on a resting line is the dot at its end. */
+    dots: [...scope.querySelectorAll("[data-chart-end-dot]")].filter((d) => d.getAttribute("visibility") !== "hidden").length,
+    /* The fill under the line: "none" while it is a placeholder. */
+    areaFill: area ? area.getAttribute("fill") : "none",
     stroke: style ? style.stroke : null,
     strokeTransition: style ? style.transitionProperty + " " + style.transitionDuration : null,
     breathes: style ? style.animationName : null,
-    /* Whether a finger or pointer can reach it at all. */
-    hittable: getComputedStyle(scope.querySelector("[data-chart-loading]")).pointerEvents !== "none",
+    /* Whether a finger or pointer can reach it at all: the layer a touch lands on. */
+    hittable: getComputedStyle(scope.querySelector("[data-chart-touch-shield]")).pointerEvents !== "none",
   }
 }
 
@@ -111,22 +114,17 @@ async function measure() {
   /*
     WHAT THIS CAN AND CANNOT SEE.
 
-    The line's growth is a sequence of shapes, and this harness cannot count
-    them. --virtual-time-budget fast-forwards the clock, so sampling on a
-    timer steps straight over a 600ms animation; and requestAnimationFrame,
-    which would catch every frame however fast the clock runs, is starved in
-    this headless mode — a rAF loop here never resolves at all, which is also
-    why the animation itself does not really play.
+    It used to see only the two ends. It ran under --virtual-time-budget,
+    which fast-forwards the clock and starves requestAnimationFrame, so the
+    growth between the ends was never sampled and never really played.
 
-    So what is asserted is the two ends: the curve starts on the flat
-    placeholder it was already resting on, and finishes somewhere else. That
-    the growth between them is ANIMATED is a property of the props recharts
-    is handed, and tests/analytics-chart-skeleton.test.ts asserts those —
-    including the part that was actually broken, which is that the flag is
-    decided by the render receiving the data rather than by an effect after
-    it.
+    It runs in Puppeteer's headless Chromium now, on a real clock, and the
+    line is moved by requestAnimationFrame (components/app/morph-lines), so
+    the shapes it passes through on the way up are counted: a growth is many
+    of them, a cut is one. What it still cannot see is how smooth each frame
+    is; scripts/check-analytics-page.mjs measures that on the whole page.
   */
-  const pathNow = () => document.querySelector("#live .recharts-area-curve")?.getAttribute("d") ?? null
+  const pathNow = () => document.querySelector("#live [data-trend-line]")?.getAttribute("d") ?? null
   const flat = pathNow()
   window.__arrive()
   const shapes = []
@@ -148,14 +146,25 @@ async function measure() {
 addEventListener("load", () => setTimeout(measure, 1200))
 </script>`)
 
-  const dom = execFileSync(CHROMIUM, [
-    "--headless=new", "--no-sandbox", "--disable-gpu", "--window-size=900,700",
-    "--virtual-time-budget=12000", "--dump-dom", `file://${page}`,
-  ], { encoding: "utf8", maxBuffer: 64 * 1024 * 1024, stdio: ["ignore", "pipe", "ignore"] })
-
-  const match = dom.match(/<pre id="out">([^<]*)</)
-  if (!match || match[1] === "pending") fail("The chart never reported a measurement.")
-  const m = JSON.parse(match[1].replace(/&quot;/g, '"').replace(/&amp;/g, "&"))
+  /*
+    A REAL CLOCK. This ran under --virtual-time-budget, which starves
+    requestAnimationFrame, and the line is moved by requestAnimationFrame now
+    (components/app/morph-lines): under a starved clock it would never leave
+    the floor. Puppeteer's headless Chromium runs frames as a browser does.
+  */
+  const browser = await puppeteer.launch({ executablePath: CHROMIUM, headless: true, args: ["--no-sandbox", "--disable-gpu", "--window-size=900,700"] })
+  let raw = "pending"
+  try {
+    const tab = await browser.newPage()
+    await tab.setViewport({ width: 900, height: 700 })
+    await tab.goto(`file://${page}`, { waitUntil: "load" })
+    await tab.waitForFunction(() => document.getElementById("out")?.textContent !== "pending", { timeout: 20000 })
+    raw = await tab.evaluate(() => document.getElementById("out").textContent)
+  } finally {
+    await browser.close()
+  }
+  if (raw === "pending") fail("The chart never reported a measurement.")
+  const m = JSON.parse(raw)
   if (m.error) fail(m.error)
 
   let broken = 0
@@ -195,8 +204,9 @@ addEventListener("load", () => setTimeout(measure, 1200))
   expect(/chart-skeleton-breath/.test(m.loading.breathes ?? ""), "and it breathes, so the frame reads as waiting", m.loading.breathes)
 
   /* ── DOES THE LINE GROW ──────────────────────────────────────────────── */
-  console.log(`  the curve took ${m.steps} distinct shapes, which is the two ends; see the note in this file\n`)
+  console.log(`  the curve took ${m.steps} distinct shapes on its way up\n`)
   expect(m.startedFlat, "the line starts on the flat placeholder it was already resting on", "it jumped somewhere else first")
+  expect(m.steps >= 8, "and grows through the shapes between, rather than being cut to the numbers", m.steps)
   expect(m.endedElsewhere, "and ends on the numbers", "it never left the baseline")
   expect(m.loaded.stroke !== SKELETON_STROKE, "the stroke takes the metric's colour", m.loaded.stroke)
   expect(

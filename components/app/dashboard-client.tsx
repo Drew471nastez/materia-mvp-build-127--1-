@@ -1,6 +1,7 @@
 "use client"
 
 import { useTabStrip } from "@/components/app/use-tab-strip"
+import { MetricTab } from "@/components/app/metric-tab"
 import { memo, useState, useEffect, useMemo, useRef, useCallback, type ReactNode } from "react"
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh"
 import { PullToRefreshIndicator } from "./pull-to-refresh-indicator"
@@ -47,29 +48,35 @@ import dynamic from "next/dynamic"
 // Dynamic import keeps it out of the initial JS bundle for faster dashboard load.
 const LazyAreaChart = dynamic(
   () => import("recharts").then(m => {
-    const { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } = m
+    const { AreaChart, XAxis, YAxis, CartesianGrid, ResponsiveContainer } = m
     // Return a wrapper component that passes all recharts components via render prop
     return {
       default: ({ data, children }: { data: any[]; children: (components: {
-        AreaChart: typeof AreaChart; Area: typeof Area; XAxis: typeof XAxis;
+        AreaChart: typeof AreaChart; XAxis: typeof XAxis;
         YAxis: typeof YAxis; CartesianGrid: typeof CartesianGrid;
-        Tooltip: typeof Tooltip; ResponsiveContainer: typeof ResponsiveContainer;
-        ReferenceLine: typeof ReferenceLine;
+        ResponsiveContainer: typeof ResponsiveContainer;
       }) => ReactNode }) =>
-        <>{children({ AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine })}</>,
+        <>{children({ AreaChart, XAxis, YAxis, CartesianGrid, ResponsiveContainer })}</>,
     }
   }),
-  { ssr: false, loading: () => <div className="w-full h-[200px] bg-neutral-50 animate-pulse rounded-xl" /> },
+  /*
+    NOTHING WHILE IT LOADS. This drew a grey box pulsing for the moment
+    recharts took to arrive, over a card whose axis numbers and line were
+    already on screen: a flash on every first visit. The card holds its
+    height without it; recharts only lays out the grid and the dates, which
+    arrive under a line that is already there.
+  */
+  { ssr: false, loading: () => null },
 )
 import { createClient } from "@/lib/supabase/client"
 import { useLanguage } from "@/lib/i18n"
 import { getLinksShareUrl, getLinksUrl, getStoreShareUrl, getStoreUrl, getWebsiteUrl } from "@/lib/url-helpers"
 import { isNativeApp } from "@/lib/platform-utils"
-import { openExternal, hapticTap } from "@/lib/native-bridge"
-import { CHART_ANIM_MS } from "@/lib/chart-motion"
-import { AxisLabels, MORPH_EASE, MORPH_MS, fixedScale, useEndDotMotion } from "@/components/app/chart-morph"
+import { openExternal } from "@/lib/native-bridge"
+import { AxisLabels, fixedScale } from "@/components/app/chart-morph"
+import { MorphLines } from "@/components/app/morph-lines"
 import { useToast } from "@/hooks/use-toast"
-import { GlidingActiveDot, GlidingCursor } from "@/components/app/chart-glide"
+import { ChartScrub, type ScrubRow, type ScrubSeries } from "@/components/app/chart-scrub"
 import { STORELIB_LOGO } from "@/lib/brand/logo"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { DateRangePicker } from "@/components/app/date-range-picker"
@@ -157,29 +164,33 @@ function scaleOf(metric: KPIType, series: ChartDataPoint[]) {
 
 
 
-/**
- * WHERE A BOX OF UNKNOWN WIDTH GOES, given where it wants to be.
- *
- * The percentages resolve against the BOX'S own border box — `50%` is half
- * of it, `100%` all of it — so the browser does the arithmetic that would
- * otherwise need a measurement taken at a moment when the element does not
- * exist yet. `track` is the card, which is measured and stable.
- */
-function shiftFor(x: number, track: number): string {
-  return `translateX(clamp(8px, calc(${x.toFixed(1)}px - 50%), calc(${track}px - 100% - 8px))) translateZ(0)`
-}
 /** Room above for the active dot: six pixels of radius plus its white ring. */
 const PLOT_TOP = 10
 
 /**
- * Chart wrapper with smooth long-press tooltip for mobile.
- * - 250ms long-press to activate
- * - Custom tooltip positioned inside chart area at fixed top
- * - requestAnimationFrame-driven updates for 120fps smoothness
- * - Smooth animation when switching between KPI modals
- * - Desktop hover works normally via Recharts default
+ * ===========================================================================
+ *  THE HOME PAGE'S TREND CHART
+ * ===========================================================================
+ * Three layers, the same three the Analytics chart draws, so the two feel
+ * the same because they are the same:
+ *
+ *   the frame, the grid and the dates, which recharts lays out (loaded
+ *   lazily, and memoised on the dates and the scale);
+ *   the line and the dot at its end, components/app/morph-lines, which move
+ *   from where they are drawn to the next metric's numbers, even when a
+ *   second tab is tapped mid move;
+ *   the marker, components/app/chart-scrub: the crosshair, the dot and the
+ *   readout, for a mouse and a finger alike.
+ *
+ * This chart used to read a pointer its own way: recharts' Tooltip, cursor
+ * and active dot for a mouse, and for a finger a gesture of its own that
+ * moved the readout by hand and re-ran recharts at every point crossed, for
+ * the dot on the line and the crosshair. The gesture's rules (a sideways
+ * drag or a hold of 100ms scrubs, a drag down the page scrolls it, a hold
+ * that turns into a scroll lets go) moved into chart-scrub with it, and
+ * tests/analytics-chart.test.ts holds them there.
  */
-function ChartWithLongPressTooltip({
+export function DashboardTrendChart({
   displayChartData,
   openKPIModal,
   widthFrom,
@@ -191,9 +202,6 @@ function ChartWithLongPressTooltip({
   widthFrom: Partial<Record<Metric, ChartDataPoint[]>>
   t: (key: string) => string
 }) {
-  const containerRef = useRef<HTMLDivElement>(null)
-  const tooltipRef = useRef<HTMLDivElement>(null)
-
   /**
    * The axis labels, and therefore how wide the axis has to be. One
    * formatter, used to draw the ticks and to measure them, so the gutter can
@@ -214,733 +222,142 @@ function ChartWithLongPressTooltip({
     )
     return Math.max(plotLeftFor(axisLabels), ...widths)
   }, [widthFrom, axisLabels])
-  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const tooltipActiveRef = useRef(false)
-  const [tooltipActive, setTooltipActive] = useState(false)
-  const [isTouchDevice, setIsTouchDevice] = useState(false)
-  const touchStartPosRef = useRef<{ x: number; y: number } | null>(null)
-  const directionLockRef = useRef<"horizontal" | "vertical" | null>(null)
-  /** Whether this gesture has actually gone sideways, rather than intending to. */
-  const scrubbedRef = useRef(false)
-  const [activeIndex, setActiveIndex] = useState<number | null>(null)
-  const rafRef = useRef<number | null>(null)
-  /** The last point a tick was fired for, so one is fired per point, not per frame. */
-  const lastHapticIndexRef = useRef<number | null>(null)
-  /** Where the finger is now, which for a drifting thumb is not where it landed. */
-  const lastTouchXRef = useRef(0)
-  // Animation state — true means "play the animation now"
-  const [shouldAnimate, setShouldAnimate] = useState(true)
 
-  useEffect(() => {
-    setIsTouchDevice("ontouchstart" in window || navigator.maxTouchPoints > 0)
-    return () => {
-      if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current)
-      if (rafRef.current) cancelAnimationFrame(rafRef.current)
-    }
-  }, [])
-
-  /**
-   * ONE ANIMATION PER SWITCH, WHEN THE DATA FOR IT ARRIVES.
-   *
-   * `openKPIModal` used to be a dependency here alongside the data, and that
-   * is the double refresh: tapping Revenue fired this once immediately — so
-   * the chart redrew itself with the OLD numbers still in it — and then
-   * again a moment later when the fetch came back with the new ones. Two
-   * draws, the first of them of the wrong thing, which is exactly what a
-   * double reload looks like.
-   *
-   * The data is the only honest trigger. The metric changing is a request
-   * for data, not the arrival of any.
-   */
   /*
-    AND IT IS RAISED BY THE RENDER THAT RECEIVES THE DATA. An effect runs
-    after that render has been painted with the flag still down, so the
-    first frame of every switch was the new line, cut in, and only then the
-    morph, from a line that had already arrived. Setting state during this
-    render re-runs it before anything is committed.
+    ONE MOVE PER SWITCH, AND ONLY WHEN THE NUMBERS CHANGE. A tab used to fire
+    the animation once with the old numbers still in the chart and again when
+    the new ones came, the double refresh; then the flag that started it was
+    raised a render late, so the first frame was the new line cut in. The
+    lines move whenever their numbers differ from what is drawn, from what is
+    drawn, and at no other time (components/app/morph-lines).
   */
-  const seenSeriesRef = useRef(displayChartData)
-  if (seenSeriesRef.current !== displayChartData) {
-    seenSeriesRef.current = displayChartData
-    if (!shouldAnimate) setShouldAnimate(true)
-  }
-  useEffect(() => {
-    if (!shouldAnimate) return
-    const timer = setTimeout(() => setShouldAnimate(false), CHART_ANIM_MS)
-    return () => clearTimeout(timer)
-  }, [shouldAnimate, displayChartData])
+  const lines = useMemo(() => [displayChartData.map((d) => d.value ?? 0)], [displayChartData])
+  /* The dates, the same array for as long as they are the same dates, so a tab never redraws the frame. */
+  const datesKey = displayChartData.map((d) => d.label).join("\u0000")
+  const frameData = useMemo(() => (datesKey ? datesKey.split("\u0000").map((label) => ({ label })) : []), [datesKey])
 
-  /* The card's width, for the dot at the end of the line. */
-  const [track, setTrack] = useState(0)
-  useEffect(() => {
-    const el = containerRef.current
-    if (!el) return
-    const measure = () => setTrack(el.offsetWidth)
-    measure()
-    const ro = new ResizeObserver(measure)
-    ro.observe(el)
-    return () => ro.disconnect()
-  }, [])
-
-  const getIndexFromTouch = useCallback((clientX: number) => {
-    const el = containerRef.current
-    if (!el || !displayChartData.length) return null
-    const rect = el.getBoundingClientRect()
-    const chartLeft = rect.left + plotLeft
-    const chartRight = rect.right - PLOT_RIGHT
-    const chartWidth = chartRight - chartLeft
-    const x = clientX - chartLeft
-    const ratio = Math.max(0, Math.min(1, x / chartWidth))
-    return Math.round(ratio * (displayChartData.length - 1))
-  }, [displayChartData.length])
-
-/**
- * Horizontal engages sooner than vertical gives up.
- *
- * One threshold for both meant a deliberate sideways drag had to travel as
- * far as a scroll before anything happened, which is the "hard to get into
- * it". Eight pixels is past a resting thumb's tremor and well short of a
- * gesture; vertical keeps twelve, because cancelling a hold by mistake costs
- * more than starting a scroll a few pixels late.
- *
- * At module scope because two branches of touchMoveHandler read them now:
- * the one that decides what a gesture IS, and the one that decides a hold
- * has turned into a scroll after all.
- */
-const SLOP_X = 8
-const SLOP_Y = 12
-
-  /**
-   * =========================================================================
-   *  THE PRESS IS OURS TO WATCH, NOT OURS TO CANCEL
-   * =========================================================================
-   * This opened with e.preventDefault(), to refuse the platform's own long
-   * press recogniser for selection and the callout.
-   *
-   * Cancelling a touchstart also refuses the browser's scrolling for the
-   * whole gesture, which is the reason this chart had to scroll the page by
-   * hand. The callout is a CSS matter: -webkit-touch-callout: none and
-   * user-select: none on the container, both already there, are what stop
-   * it, and they stop it without taking the scroll as well.
-   *
-   * The listener stays native and non-passive, because touchMoveHandler
-   * still has to be able to cancel a move once the scrub is ours, and React
-   * registers touch listeners passively on its root.
-   */
-  const touchStartHandler = useCallback((e: TouchEvent) => {
-    const touch = e.touches[0]
-    touchStartPosRef.current = { x: touch.clientX, y: touch.clientY }
-    scrubbedRef.current = false
-    lastTouchXRef.current = touch.clientX
-    directionLockRef.current = null
-    longPressTimerRef.current = setTimeout(() => {
-      /**
-       * A HOLD IS A HOLD EVEN THOUGH A THUMB IS NEVER STILL.
-       *
-       * This used to bail unless nothing had been decided yet, and what
-       * decided it was `totalMove > 5` with `dx > dy` — so a resting finger's
-       * own tremor, which is a few pixels and very often more vertical than
-       * horizontal, locked the gesture to "vertical" within about fifty
-       * milliseconds and cancelled this timer. The hold was then lost for
-       * good: moving left or right afterwards did nothing, because the lock
-       * was already set. That is the "I hold and it just loses it".
-       *
-       * Only a decisive vertical pull cancels a hold now — see SLOP below —
-       * and the point is read from where the finger IS rather than from
-       * where it landed, which for a drifting thumb is not the same place.
-       */
-      if (directionLockRef.current === "vertical") return
-      directionLockRef.current = "horizontal"
-      tooltipActiveRef.current = true
-      setTooltipActive(true)
-      const idx = getIndexFromTouch(lastTouchXRef.current)
-      lastHapticIndexRef.current = idx
-      setActiveIndex(idx)
-      hapticTap("medium")
-    }, 100)
-  }, [getIndexFromTouch])
-
-
-  // Use a native event listener for touchmove with { passive: false }
-  // so preventDefault() actually works and swiping doesn't get stuck
-  const touchMoveHandler = useCallback((e: TouchEvent) => {
-    if (!touchStartPosRef.current) return
-    const touch = e.touches[0]
-
-    if (tooltipActiveRef.current) {
-      /**
-       * =====================================================================
-       *  A HOLD THAT TURNS INTO A SCROLL IS A SCROLL
-       * =====================================================================
-       * The hold fires 100ms after a finger lands, whether or not that finger
-       * is going anywhere. A thumb that starts down the screen SLOWLY — under
-       * twelve pixels in that first tenth of a second — had the tooltip open
-       * under it before it had travelled far enough to be called a scroll,
-       * and from that moment every move was cancelled here and the page did
-       * not move at all.
-       *
-       * It is the other side of the change that gave this band its scrolling
-       * back: nothing cancels a touchstart any more, so the browser WOULD
-       * pan, and this was the one thing still stopping it.
-       *
-       * So the tooltip lets go when the finger has travelled past the
-       * vertical slop and has NEVER gone meaningfully sideways. Nothing is
-       * cancelled on the way out, so the browser has not been refused and can
-       * still take the gesture.
-       *
-       * IT CANNOT ASK THE DIRECTION LOCK, which was the first attempt. The
-       * hold timer sets the lock to "horizontal" the moment it fires, before
-       * a finger has moved at all, so after any hold the lock says horizontal
-       * whether or not anything was scrubbed — and a guard reading it never
-       * ran. `scrubbedRef` is the honest version of that question: it is set
-       * by movement, not by intent.
-       */
-      const outX = Math.abs(touch.clientX - touchStartPosRef.current.x)
-      const outY = Math.abs(touch.clientY - touchStartPosRef.current.y)
-      if (outX > SLOP_X) scrubbedRef.current = true
-      if (!scrubbedRef.current && outY > SLOP_Y) {
-        directionLockRef.current = "vertical"
-        tooltipActiveRef.current = false
-        lastHapticIndexRef.current = null
-        setTooltipActive(false)
-        setActiveIndex(null)
-        return
-      }
-      // Already in scrub mode — prevent scroll and update position
-      e.preventDefault()
-      e.stopPropagation()
-      const clientX = touch.clientX
-      lastTouchXRef.current = clientX
-      if (rafRef.current) cancelAnimationFrame(rafRef.current)
-      rafRef.current = requestAnimationFrame(() => {
-        /**
-         * =================================================================
-         *  THE BOX FOLLOWS THE FINGER. THE NUMBERS SNAP TO THE POINT.
-         * =================================================================
-         * It used to be positioned from the active INDEX, so it sat still
-         * until the finger crossed into the next column and then jumped the
-         * whole way — forty pixels at a time on a week of data. A glide
-         * softened the jump and could not remove it, because the thing being
-         * animated was still a series of steps.
-         *
-         * Written here, straight to the node, it moves with the thumb on
-         * every frame it gets. React is not involved: `setActiveIndex` below
-         * still runs, but it only ever changes when a point is crossed, so
-         * there is no render per frame and nothing to be late.
-         *
-         * What stays snapped is what should: the values in the box and the
-         * dot on the line mark a data point, and a data point is a fact.
-         */
-        const el = containerRef.current
-        const box = tooltipRef.current
-        if (el && box) {
-          const rect = el.getBoundingClientRect()
-          const left = plotLeft
-          const right = rect.width - PLOT_RIGHT
-          const x = Math.max(left, Math.min(right, clientX - rect.left))
-          box.style.transform = shiftFor(x, rect.width)
-        }
-        const idx = getIndexFromTouch(clientX)
-        /**
-         * ONE TICK PER POINT CROSSED.
-         *
-         * Fired on the CHANGE rather than on the frame, which is what keeps
-         * it to one per column instead of sixty a second — a finger crossing
-         * a point is the event, and holding still is not. It is what makes a
-         * scrub feel like it is passing over something rather than sliding
-         * on glass.
-         */
-        if (idx !== null && idx !== lastHapticIndexRef.current) {
-          lastHapticIndexRef.current = idx
-          hapticTap("light")
-        }
-        setActiveIndex(idx)
-      })
-      return
-    }
-
-    /**
-     * DIRECTION, DECIDED ONLY WHEN THE FINGER HAS ACTUALLY SAID SOMETHING.
-     *
-     * The old test was `dx + dy > 5`, then `dx > dy` for horizontal and
-     * everything else for vertical. Summing the axes means five pixels of
-     * tremor counts as movement, and "everything else" means a one pixel
-     * vertical bias is a scroll. Between them, a hold was cancelled before it
-     * could start.
-     *
-     * SLOP is per axis and large enough that a thumb resting on glass cannot
-     * cross it. Horizontal wins on its own; vertical has to win clearly,
-     * because getting that one wrong steals a hold and getting it wrong the
-     * other way only delays a scroll by a few pixels.
-     */
-    const dx = Math.abs(touch.clientX - touchStartPosRef.current.x)
-    const dy = Math.abs(touch.clientY - touchStartPosRef.current.y)
-    /**
-     * Horizontal engages sooner than vertical gives up.
-     *
-     * One threshold for both meant a deliberate sideways drag had to travel
-     * as far as a scroll before anything happened, which is the "hard to get
-     * into it". Eight pixels is past a resting thumb's tremor and well short
-     * of a gesture; vertical keeps twelve, because cancelling a hold by
-     * mistake costs more than starting a scroll a few pixels late.
-     */
-    if (directionLockRef.current === null && (dx > SLOP_X || dy > SLOP_Y)) {
-      if (dx > dy) {
-        // Horizontal intent → activate scrub immediately (no long press needed)
-        directionLockRef.current = "horizontal"
-        if (longPressTimerRef.current) { clearTimeout(longPressTimerRef.current); longPressTimerRef.current = null }
-        tooltipActiveRef.current = true
-        setTooltipActive(true)
-        hapticTap("light")
-        e.preventDefault()
-        e.stopPropagation()
-        const idx = getIndexFromTouch(touch.clientX)
-        setActiveIndex(idx)
-      } else if (dy > dx * 1.4) {
-        /*
-         * Decisively vertical: a scroll, and the browser is already doing
-         * it. touch-action is pan-y and no move in this gesture has been
-         * cancelled, so the page is moving on the compositor. All that is
-         * left here is to record the lock, so the hold timer does not fire
-         * into a gesture that has become a scroll.
-         */
-        directionLockRef.current = "vertical"
-        if (longPressTimerRef.current) { clearTimeout(longPressTimerRef.current); longPressTimerRef.current = null }
-      }
-      /* Ambiguous: decide nothing, and let the hold timer have its chance. */
-    } else if (directionLockRef.current === "horizontal") {
-      e.preventDefault()
-      e.stopPropagation()
-    }
-  }, [getIndexFromTouch])
-
-  // Attach non-passive touchmove listener
-  useEffect(() => {
-    const el = containerRef.current
-    if (!el) return
-    el.addEventListener("touchstart", touchStartHandler, { passive: false })
-    el.addEventListener("touchmove", touchMoveHandler, { passive: false })
-    return () => {
-      el.removeEventListener("touchstart", touchStartHandler)
-      el.removeEventListener("touchmove", touchMoveHandler)
-    }
-  }, [touchStartHandler, touchMoveHandler])
-
-  const handleTouchEnd = useCallback(() => {
-    if (longPressTimerRef.current) {
-      clearTimeout(longPressTimerRef.current)
-      longPressTimerRef.current = null
-    }
-    if (rafRef.current) {
-      cancelAnimationFrame(rafRef.current)
-      rafRef.current = null
-    }
-    touchStartPosRef.current = null
-    directionLockRef.current = null
-    tooltipActiveRef.current = false
-    lastHapticIndexRef.current = null
-    setTooltipActive(false)
-    setActiveIndex(null)
-  }, [])
-
-  const activePoint = activeIndex != null && activeIndex >= 0 && activeIndex < displayChartData.length
-    ? displayChartData[activeIndex] : null
-
-  const formatValue = (val: number) => {
+  const formatValue = useCallback((val: number) => {
     if (openKPIModal === "revenue") return `$${val.toFixed(2)}`
     if (openKPIModal === "conversion") return `${val}%`
     return val.toLocaleString()
-  }
+  }, [openKPIModal])
 
   const metricLabel = openKPIModal === "views" ? t("dashboard.views")
     : openKPIModal === "orders" ? t("dashboard.orders")
     : openKPIModal === "revenue" ? t("dashboard.revenue")
     : t("dashboard.conversionRate")
 
-  /**
-   * WHERE THE POINT ACTUALLY IS, in pixels from the card's left edge.
-   *
-   * This was a percentage of the whole card: index 0 became 0%, so the
-   * tooltip sat at the very left while its data point sat `plotLeft` pixels
-   * further in. Every point was off by the width of the axis, worst at the
-   * ends. The plot area is what the points are spread across, so that is
-   * what they are measured against.
-   */
-  const tooltipX = (): number => {
-    const track = containerRef.current?.offsetWidth ?? 0
-    if (!track || activeIndex == null || displayChartData.length < 2) return track / 2
-    const plotWidth = track - plotLeft - PLOT_RIGHT
-    return plotLeft + (activeIndex / (displayChartData.length - 1)) * plotWidth
-  }
-
-  /*
-    CLAMPED IN PIXELS, because the tooltip is positioned with a transform.
-
-    `left: <n>%` is a layout property: every value a dragging finger produced
-    made the browser lay the element out again and repaint it, on the main
-    thread, at touch frequency, while that same thread was handing recharts a
-    new active index. The clamp maths is unchanged; only its unit is.
-  */
-  /**
-   * =========================================================================
-   *  THE TOOLTIP FLIPS AT THE EDGES INSTEAD OF BEING CENTRED AND CLIPPED
-   * =========================================================================
-   * The old version clamped by half the tooltip's own width, read with
-   * `tooltipRef.current?.offsetWidth ?? 0`. That ref is null on the render
-   * that first shows the tooltip — the element does not exist yet — so the
-   * width came back 0, the clamp became a no-op, and `translateX(-50%)` then
-   * pushed half the box off the left edge of the card. Which is exactly what
-   * the first point on the chart looked like: "p 6" and "ews: 3".
-   *
-   * Measuring it properly would mean a layout read every time the active
-   * point changes, and this thing is driven by a dragging finger.
-   *
-   * So it does not measure at all. Near an edge the box ANCHORS to that edge
-   * rather than centring on the point, which is what a tooltip should do
-   * anyway — the same flip a menu does near the side of a screen. Three
-   * cases, no measurement, and no width can overflow because the box is
-   * never centred on a point that has less than half a box beside it.
-   */
-  /**
-   * =========================================================================
-   *  CSS RESOLVES THE BOX'S OWN WIDTH. WE NEVER MEASURE IT.
-   * =========================================================================
-   * Two earlier attempts at this were wrong in the same way — both needed
-   * the tooltip's width and could not have it in time.
-   *
-   *   1. `Math.min(containerWidth - half, ...)` read `tooltipRef.offsetWidth`
-   *      during the render that first CREATES the tooltip. The ref is null
-   *      then, so half was 0, the clamp did nothing, and translateX(-50%)
-   *      pushed half the box off the card. That is the "p 6 / ews: 3" in the
-   *      screenshot.
-   *   2. Anchoring to the edge inside a fixed 18% zone. Whether centring is
-   *      safe depends on how wide the box is relative to the card, so a fixed
-   *      zone cannot be right: check-chart-tooltip found a 264px box centred
-   *      at 19% of a 320px card hanging 71px past the left edge.
-   *
-   * The way out is that a percentage inside `translateX` resolves against the
-   * ELEMENT'S OWN border box. So `50%` is half the tooltip and `100%` is all
-   * of it, computed by the browser at paint time, for a width nothing in
-   * JavaScript ever has to know.
-   *
-   * What JavaScript does supply is the TRACK — the container's width — which
-   * is stable, changes on resize rather than on every frame of a drag, and is
-   * already being measured for other reasons.
-   *
-   *   left edge:   8px
-   *   centred:     x - 50%          (half the box left of the point)
-   *   right edge:  track - 100% - 8px
-   *
-   * clamp() picks the middle one unless it would cross a bound. And where the
-   * box cannot fit at all, clamp() returns its minimum, which pins it left —
-   * with `max-width: calc(100% - 16px)` making sure that case is only ever a
-   * rounding away.
-   */
-  const tooltipShift = (): string => {
-    const track = containerRef.current?.offsetWidth ?? 0
-    const x = tooltipX()
-    if (!track) return "translateX(-50%)"
-    /**
-     * `translateZ(0)` keeps the layer promotion the old `translate3d` gave
-     * for free. The movement is still entirely in the transform — `left` is
-     * a static 0 — so a dragging finger never lays this element out, which
-     * is the rule tests/analytics-chart.test.ts holds.
-     */
-    return shiftFor(x, track)
-  }
-
-  /* The end of the line: a dot that moves with the morph instead of vanishing for it. */
   const plotHeight = CHART_H - PLOT_TOP - XAXIS_H
-  const lastPoint = displayChartData.length > 1 ? displayChartData[displayChartData.length - 1] : null
-  const end = useEndDotMotion(lastPoint !== null && track > 0)
-  const endY = PLOT_TOP + (1 - Math.max(0, end.armed && lastPoint ? lastPoint.value : 0) / scale.top) * plotHeight
+  const yOf = useCallback((v: number) => PLOT_TOP + (1 - Math.max(0, v) / scale.top) * plotHeight, [scale.top, plotHeight])
+
+  /* The marker: one dot on the line, and what the readout says at each point. */
+  const scrubSeries = useMemo<ScrubSeries[]>(
+    () => [{ ys: displayChartData.map((d) => yOf(d.value ?? 0)), color: "#8b5cf6" }],
+    [displayChartData, yOf],
+  )
+  const scrubRows = useMemo<ScrubRow[]>(
+    () => [
+      { label: metricLabel, value: (i) => formatValue(displayChartData[i]?.value ?? 0), mark: "line", tone: "value", color: "#8b5cf6" },
+      ...(openKPIModal === "orders"
+        ? [{ value: (i: number) => { const r = displayChartData[i]?.refunds ?? 0; return r > 0 ? `${r} refunded` : null }, mark: null, tone: "note" } as ScrubRow]
+        : []),
+    ],
+    [displayChartData, metricLabel, formatValue, openKPIModal],
+  )
+  const scrubTitle = useCallback((i: number) => displayChartData[i]?.label ?? "", [displayChartData])
 
   return (
-    <div
-      ref={containerRef}
-      onTouchEnd={handleTouchEnd}
-      onTouchCancel={handleTouchEnd}
-      style={{
-        /**
-         * =====================================================================
-         *  THE VERTICAL AXIS BELONGS TO THE BROWSER
-         * =====================================================================
-         * This was "none", and everything under it followed from that: the
-         * touchstart was cancelled, the vertical branch of touchMoveHandler
-         * moved the page by writing scrollTop, and a flick was carried on by
-         * a requestAnimationFrame loop in a lib/chart-scroll that no longer
-         * needs to exist.
-         *
-         * It worked and it never felt like the rest of the page. A scroll
-         * written in JavaScript runs on the main thread, begins only after
-         * twelve pixels of slop, has no momentum the system recognises and
-         * no rubber band at the ends. So a thumb travelling down the page met
-         * a 200px band where the scrolling suddenly stiffened, reported as
-         * "at some touch scroll it becomes very rigid and hard".
-         *
-         * "pan-y" gives that axis back. The browser scrolls this card the
-         * same way it scrolls the cards above and below it, on the
-         * compositor, and the chart keeps the horizontal axis, which is the
-         * one a scrub actually uses.
-         *
-         * AND THE HOLD STILL WORKS, although touch-action is latched at
-         * touchstart and cannot be changed mid gesture. A pan does not begin
-         * when a finger lands; it begins once the browser has seen enough
-         * movement in a direction it owns. Cancelling a touchmove before
-         * that point takes the whole gesture, for good:
-         *
-         *   hold        the finger is still, no pan has begun, and the first
-         *               move after the tooltip opens cancels it, so it is
-         *               ours including whatever it does next
-         *   sideways    dx clears 8px while dy is still nothing, cancelled,
-         *               so it is ours
-         *   downwards   dy clears the browser's own slop first and nothing
-         *               cancels it, so it is the browser's and it scrolls
-         *
-         * The touchstart is not cancelled any more, because cancelling it is
-         * the one thing that would refuse all three at once. It was there to
-         * refuse the platform's long press; the two lines below are what
-         * actually refuse that, and they do it without taking the scroll.
-         */
-        touchAction: "pan-y",
-        userSelect: "none",
-        WebkitUserSelect: "none",
-        WebkitTouchCallout: "none",
-        position: "relative",
-      } as React.CSSProperties}
-    >
-      <LazyAreaChart data={displayChartData}>
-        {({ AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine }) => (
-          <ResponsiveContainer width="100%" height={CHART_H}>
-            {/*
-              ROOM FOR THE DOTS, now that there is no y axis reserving any.
-              The axis used to take 40px on the left, and removing it left
-              `left: 0` — so the first point's active dot, six pixels of
-              radius plus a two pixel white ring, was drawn half outside the
-              card. That clipped stub at the top left of the chart was the
-              dot, not a spike in the data.
-            */}
-            <AreaChart data={displayChartData} margin={{ top: PLOT_TOP, right: PLOT_RIGHT, left: 0, bottom: 0 }}>
-              <defs>
-                <linearGradient id="kpiGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.15} />
-                  <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              {/* At the ticks, placed by us: the same four heights on every tab. */}
-              <CartesianGrid
-                strokeDasharray="3 3"
-                stroke="#f3f4f6"
-                vertical={false}
-                horizontalPoints={scale.ticks.map((v) => PLOT_TOP + (1 - v / scale.top) * plotHeight)}
-              />
-              <XAxis
-                dataKey="label"
-                height={XAXIS_H}
-                tick={{ fontSize: 11, fill: "#9ca3af" }}
-                tickLine={false}
-                axisLine={false}
-                interval="preserveStartEnd"
-              />
-              {/*
-                THE NUMBERS ARE BACK, and this is the width the touch maths
-                reads. PLOT_LEFT is the one place it is written down — the
-                thirty pixel drift between the axis and the finger came from
-                there being two.
-              */}
-              {/* The numbers are AxisLabels, over the plot, so they cross-fade. */}
-              <YAxis
-                tick={false}
-                tickLine={false}
-                axisLine={false}
-                domain={[0, scale.top]}
-                ticks={scale.ticks}
-                interval={0}
-                width={plotLeft}
-              />
-              {/* Desktop-only Recharts tooltip */}
-              {!isTouchDevice && (
-                <Tooltip
-                  /*
-                    The crosshair and the tooltip box GLIDE to the next point
-                    rather than teleporting to it — components/app/chart-glide
-                    has the why. `isAnimationActive={false}` is what made the
-                    box jump: with it off, recharts leaves no transition on
-                    the wrapper's transform.
-                  */
-                  cursor={<GlidingCursor />}
-                  isAnimationActive
-                  animationDuration={120}
-                  animationEasing="ease-out"
-                  content={({ active, payload, label }) => {
-                    if (!active || !payload?.length) return null
-                    const point = payload[0]?.payload as ChartDataPoint
-                    const val = point?.value ?? 0
-                    return (
-                      <div style={{ background: "#1a1a2e", border: "none", borderRadius: "8px", fontSize: "12px", color: "#fff", padding: "8px 12px", pointerEvents: "none" }}>
-                        <p style={{ fontSize: "11px", color: "#9ca3af", marginBottom: "2px" }}>{label}</p>
-                        <p style={{ fontWeight: 500 }}>{metricLabel}: {formatValue(val)}</p>
-                        {openKPIModal === "orders" && point?.refunds != null && point.refunds > 0 && (
-                          <p style={{ fontSize: "10px", color: "#f59e0b", marginTop: "2px" }}>{point.refunds} refunded</p>
-                        )}
-                      </div>
-                    )
-                  }}
-                />
-              )}
-              {/* Vertical crosshair line at active touch point */}
-              {tooltipActive && activePoint && (
-                <ReferenceLine
-                  x={activePoint.label}
-                  stroke="#c4b5fd"
-                  strokeWidth={1}
-                  strokeDasharray="4 3"
-                  ifOverflow="extendDomain"
-                />
-              )}
-              <Area
-                type="monotone"
-                dataKey="value"
-                stroke="#8b5cf6"
-                strokeWidth={2}
-                fill="url(#kpiGrad)"
-                dot={((props: any) => {
-                  const isActive = tooltipActive && props.index === activeIndex
-                  if (isActive) {
-                    // Large active dot on the line while swiping
-                    return (
-                      <circle
-                        key={`dot-${props.index}`}
-                        cx={props.cx}
-                        cy={props.cy}
-                        r={6}
-                        fill="#8b5cf6"
-                        stroke="#fff"
-                        strokeWidth={2.5}
-                        style={{ filter: "drop-shadow(0 1px 3px rgba(139,92,246,0.4))" }}
-                      />
-                    )
-                  }
-                  /*
-                    NOTHING, rather than an invisible circle. This returned a
-                    `<circle r={0}>` for every point that is not drawn — one
-                    per day, all reconciled on every render. Measured on the
-                    analytics chart, which carried the same line: 241 svg
-                    nodes became 125.
-
-                    The cast is because recharts types a function `dot` as
-                    returning a ReactElement. React renders null as nothing
-                    and recharts passes it straight through, which is the
-                    point; the only null-ish thing its types allow is an empty
-                    <g />, which is the same node count under another name.
-                  */
-                  return null
-                }) as unknown as React.ComponentProps<typeof Area>["dot"]}
-                activeDot={!isTouchDevice ? <GlidingActiveDot fill="#8b5cf6" /> : false}
-                isAnimationActive={shouldAnimate}
-                animationDuration={MORPH_MS}
-                animationEasing={MORPH_EASE as React.ComponentProps<typeof Area>["animationEasing"]}
-                animationBegin={0}
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        )}
-      </LazyAreaChart>
-
+    <div style={{ position: "relative", height: CHART_H }}>
+      <DashboardFrame data={frameData} top={scale.top} ticks={scale.ticks} plotLeft={plotLeft} />
       <AxisLabels labels={axisLabels} top={PLOT_TOP} height={plotHeight} width={plotLeft} />
-      {lastPoint && track > 0 && !tooltipActive ? (
-        <svg aria-hidden width="100%" height={CHART_H} style={{ position: "absolute", inset: 0, overflow: "visible", pointerEvents: "none" }}>
-          <circle
-            data-chart-end-dot
-            r={4}
-            cx={0}
-            cy={0}
-            fill="#8b5cf6"
-            stroke="#fff"
-            strokeWidth={2}
-            style={{ transform: `translate(${(track - PLOT_RIGHT).toFixed(1)}px, ${endY.toFixed(1)}px)`, transition: end.transition }}
-          />
-        </svg>
-      ) : null}
-
-      {/*
-        ONE STABLE THING FOR A FINGER TO LAND ON.
-
-        A touch belongs to the node it started on for the whole gesture, and
-        it keeps going to that node even after the node leaves the document —
-        where the events reach nothing, because there is no longer a path up
-        to the listener. Without this, a finger lands on whatever recharts
-        happened to draw at that pixel: check-chart-scrub landed one press on
-        `path.recharts-curve`, which is a node recharts redraws.
-
-        So the touches land here instead, on one div that is rendered
-        unconditionally and never re-keyed. It is invisible and it is only in
-        the way on a touch screen — a mouse passes straight through, because
-        the hover tooltip below belongs to recharts and needs the real marks.
-      */}
-      <div
-        aria-hidden
-        data-chart-touch-shield
-        style={{
-          position: "absolute",
-          inset: 0,
-          zIndex: 5,
-          pointerEvents: isTouchDevice ? "auto" : "none",
-        }}
+      <MorphLines
+        lines={lines}
+        top={scale.top}
+        left={plotLeft}
+        right={PLOT_RIGHT}
+        plotTop={PLOT_TOP}
+        plotHeight={plotHeight}
+        color="#8b5cf6"
       />
 
-      {/* Custom tooltip for touch — inside the chart area, at fixed top position */}
-      {tooltipActive && activePoint && (
-        <div
-          ref={tooltipRef}
-          style={{
-            position: "absolute",
-            top: 8,
-            /* Pinned left; the whole position is in the transform. See tooltipShift. */
-            left: 0,
-            transform: tooltipShift(),
-            /**
-             * IT SLIDES BETWEEN POINTS RATHER THAN TELEPORTING.
-             *
-             * A finger moves continuously and the data does not: the active
-             * index steps from one column to the next, so without this the
-             * box jumps in discrete hops while the thumb slides smoothly,
-             * which is most of what "clunky" was. 90ms is under the
-             * threshold where a following object reads as lag, and it is a
-             * transform so it runs on the compositor.
-             */
-            /**
-             * NO TRANSITION. The box is moved imperatively on every frame
-             * now, so it is already continuous — a transition in front of
-             * that is not smoothing, it is lag, and the two fight over the
-             * same property. It was needed when the position came from the
-             * active index and arrived in jumps.
-             */
-            transition: "none",
-            /* And it can never be wider than the card it sits in. */
-            maxWidth: "calc(100% - 16px)",
-            background: "#1a1a2e",
-            borderRadius: "8px",
-            fontSize: "12px",
-            color: "#fff",
-            padding: "6px 12px",
-            pointerEvents: "none",
-            zIndex: 10,
-            whiteSpace: "nowrap",
-            boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-            willChange: "transform",
-          }}
-        >
-          <p style={{ fontSize: "11px", color: "#9ca3af", margin: 0, marginBottom: "2px" }}>{activePoint.label}</p>
-          <p style={{ fontWeight: 600, margin: 0 }}>{metricLabel}: {formatValue(activePoint.value)}</p>
-          {openKPIModal === "orders" && activePoint.refunds != null && activePoint.refunds > 0 && (
-            <p style={{ fontSize: "10px", color: "#f59e0b", margin: 0, marginTop: "2px" }}>{activePoint.refunds} refunded</p>
-          )}
-        </div>
-      )}
+      {/* The crosshair, the dot and the readout: the layer the Analytics chart draws. */}
+      <ChartScrub
+        count={displayChartData.length}
+        left={plotLeft}
+        right={PLOT_RIGHT}
+        top={PLOT_TOP}
+        bottom={PLOT_TOP + plotHeight}
+        series={scrubSeries}
+        title={scrubTitle}
+        rows={scrubRows}
+        disabled={displayChartData.length === 0}
+      />
     </div>
   )
 }
+
+/**
+ * THE GRID AND THE DATES, laid out by recharts, which loads lazily. Memoised
+ * on the dates, the scale and the gutter, so a tab that changes only the
+ * numbers never reaches it; the line is drawn over it by MorphLines, and
+ * arrives before recharts does.
+ */
+const DashboardFrame = memo(function DashboardFrame({
+  data,
+  top,
+  ticks,
+  plotLeft,
+}: {
+  data: { label: string }[]
+  top: number
+  ticks: number[]
+  plotLeft: number
+}) {
+  const plotHeight = CHART_H - PLOT_TOP - XAXIS_H
+  return (
+    <LazyAreaChart data={data}>
+      {({ AreaChart, XAxis, YAxis, CartesianGrid, ResponsiveContainer }) => (
+        <ResponsiveContainer width="100%" height={CHART_H}>
+          {/*
+            ROOM FOR THE DOTS, now that there is no y axis reserving any.
+            The axis used to take 40px on the left, and removing it left
+            `left: 0`, so the first point's active dot, six pixels of
+            radius plus a two pixel white ring, was drawn half outside the
+            card. That clipped stub at the top left of the chart was the
+            dot, not a spike in the data.
+          */}
+          <AreaChart data={data} margin={{ top: PLOT_TOP, right: PLOT_RIGHT, left: 0, bottom: 0 }}>
+            {/* At the ticks, placed by us: the same four heights on every tab. */}
+            <CartesianGrid
+              strokeDasharray="3 3"
+              stroke="#f3f4f6"
+              vertical={false}
+              horizontalPoints={ticks.map((v) => PLOT_TOP + (1 - v / top) * plotHeight)}
+            />
+            <XAxis
+              dataKey="label"
+              height={XAXIS_H}
+              tick={{ fontSize: 11, fill: "#9ca3af" }}
+              tickLine={false}
+              axisLine={false}
+              interval="preserveStartEnd"
+            />
+            {/* The numbers are AxisLabels, over the plot, so they cross-fade. */}
+            <YAxis
+              tick={false}
+              tickLine={false}
+              axisLine={false}
+              domain={[0, top]}
+              ticks={ticks}
+              interval={0}
+              width={plotLeft}
+            />
+          </AreaChart>
+        </ResponsiveContainer>
+      )}
+    </LazyAreaChart>
+  )
+})
 
 // ── Sample data shown when the creator has zero real activity ──────────────
 const SAMPLE_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
@@ -1266,7 +683,6 @@ const DASH_LEGACY_TIMEFRAME: Partial<Record<RangeValue["preset"], string>> = {
   last_30_days: "last_30_days",
   month_to_date: "this_month",
   last_90_days: "last_90_days",
-  last_365_days: "last_365_days",
   all_time: "all_time",
 }
 
@@ -1868,7 +1284,6 @@ export function DashboardClient({
     const isHourly = tf === "today" || tf === "yesterday"
     const is48h = tf === "last_48_hours"
     const isAllTime = tf === "all_time"
-    const isYear = tf === "last_year" || tf === "last_365_days"
     const is90Days = tf === "last_90_days"
     const isMonth = tf === "last_30_days" || tf === "this_month"
 
@@ -1901,18 +1316,6 @@ export function DashboardClient({
           start: new Date(year, 0, 1),
           end: new Date(year, 11, 31, 23, 59, 59, 999),
           label: year.toString(),
-        })
-      }
-    } else if (isYear) {
-      for (let i = 11; i >= 0; i--) {
-        const md = new Date(end)
-        md.setMonth(md.getMonth() - i)
-        const mStart = new Date(md.getFullYear(), md.getMonth(), 1)
-        const mEnd = new Date(md.getFullYear(), md.getMonth() + 1, 0, 23, 59, 59, 999)
-        buckets.push({
-          start: mStart,
-          end: mEnd,
-          label: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][mStart.getMonth()],
         })
       }
     } else if (is90Days) {
@@ -2515,7 +1918,7 @@ export function DashboardClient({
           {/* KPI Metric Tabs - horizontally scrollable on mobile.
               The strip follows the chosen tab and arbitrates its own
               gestures; see components/app/use-tab-strip. */}
-          <div ref={kpiStripRef} className="relative flex overflow-x-auto scrollbar-hide md:grid md:grid-cols-4 divide-x divide-[#e5e7eb]/60" style={{
+          <div ref={kpiStripRef} role="tablist" aria-label="Metric" className="relative flex overflow-x-auto scrollbar-hide md:grid md:grid-cols-4 divide-x divide-[#e5e7eb]/60" style={{
               /*
                 BOTH AXES. This was `pan-x`, which does not mean "prefer
                 horizontal" — it means vertical panning is not allowed here at
@@ -2531,73 +1934,55 @@ export function DashboardClient({
               touchAction: 'pan-x pan-y',
               WebkitOverflowScrolling: 'touch',
             }}>
-            {/* Views */}
-            <button
-              className={`text-left px-3 py-3 sm:px-4 sm:py-3.5 transition-all duration-200 cursor-pointer relative flex-shrink-0 min-w-[130px] md:min-w-0 ${
-                openKPIModal === "views" ? "md:bg-[#f9fafb]" : "hover:bg-[#fafafa]"
-              }`}
-              data-tab="views"
-              onClick={() => { setOpenKPIModal("views"); setChartExpanded(true) }}
-            >
-              {openKPIModal === "views" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
-              <span className={`text-[11px] sm:text-[12px] font-medium ${openKPIModal === "views" ? "text-[#374151]" : "text-[#6b7280]"}`}>{t("dashboard.views")}</span>
-              <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className={`text-[18px] sm:text-[22px] font-semibold tracking-tight transition-[filter,color,opacity] duration-[700ms] ease-[cubic-bezier(0.32,0.72,0,1)] ${showSampleData && !hasRealData ? "text-[#1a1a2e]/50" : "text-[#1a1a2e]"} ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(displayAnalytics.periodViews)}</span>
-                <PercentChangeIndicator current={displayAnalytics.periodViews} previous={displayAnalytics.prevPeriodViews} />
-              </div>
-              <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-[filter,opacity] duration-[700ms] ease-[cubic-bezier(0.32,0.72,0,1)] ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(displayAnalytics.totalViews)} {t("dashboard.allTime")}</p>
-            </button>
-
-            {/* Revenue */}
-            <button
-              className={`text-left px-3 py-3 sm:px-4 sm:py-3.5 transition-all duration-200 cursor-pointer relative flex-shrink-0 min-w-[130px] md:min-w-0 ${
-                openKPIModal === "revenue" ? "md:bg-[#f9fafb]" : "hover:bg-[#fafafa]"
-              }`}
-              data-tab="revenue"
-              onClick={() => { setOpenKPIModal("revenue"); setChartExpanded(true) }}
-            >
-              {openKPIModal === "revenue" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
-              <span className={`text-[11px] sm:text-[12px] font-medium ${openKPIModal === "revenue" ? "text-[#374151]" : "text-[#6b7280]"}`}>{t("dashboard.revenue")}</span>
-              <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className={`text-[18px] sm:text-[22px] font-semibold tracking-tight transition-[filter,color,opacity] duration-[700ms] ease-[cubic-bezier(0.32,0.72,0,1)] ${showSampleData && !hasRealData ? "text-[#1a1a2e]/50" : "text-[#1a1a2e]"} ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{formatCurrency(displayAnalytics.periodRevenue)}</span>
-                <PercentChangeIndicator current={displayAnalytics.periodRevenue} previous={displayAnalytics.prevPeriodRevenue} />
-              </div>
-              <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-[filter,opacity] duration-[700ms] ease-[cubic-bezier(0.32,0.72,0,1)] ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{formatCurrency(displayAnalytics.totalRevenue)} {t("dashboard.allTime")}</p>
-            </button>
-
-            {/* Orders */}
-            <button
-              className={`text-left px-3 py-3 sm:px-4 sm:py-3.5 transition-all duration-200 cursor-pointer relative flex-shrink-0 min-w-[130px] md:min-w-0 ${
-                openKPIModal === "orders" ? "md:bg-[#f9fafb]" : "hover:bg-[#fafafa]"
-              }`}
-              data-tab="orders"
-              onClick={() => { setOpenKPIModal("orders"); setChartExpanded(true) }}
-            >
-              {openKPIModal === "orders" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
-              <span className={`text-[11px] sm:text-[12px] font-medium ${openKPIModal === "orders" ? "text-[#374151]" : "text-[#6b7280]"}`}>{t("dashboard.orders")}</span>
-              <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className={`text-[18px] sm:text-[22px] font-semibold tracking-tight transition-[filter,color,opacity] duration-[700ms] ease-[cubic-bezier(0.32,0.72,0,1)] ${showSampleData && !hasRealData ? "text-[#1a1a2e]/50" : "text-[#1a1a2e]"} ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(displayAnalytics.periodOrders)}</span>
-                <PercentChangeIndicator current={displayAnalytics.periodOrders} previous={displayAnalytics.prevPeriodOrders} />
-              </div>
-              <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-[filter,opacity] duration-[700ms] ease-[cubic-bezier(0.32,0.72,0,1)] ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(displayAnalytics.totalOrders)} {t("dashboard.allTime")}</p>
-            </button>
-
-            {/* Conversion Rate - clickable */}
-            <button
-              className={`text-left px-3 py-3 sm:px-4 sm:py-3.5 transition-all duration-200 cursor-pointer relative flex-shrink-0 min-w-[130px] md:min-w-0 ${
-                openKPIModal === "conversion" ? "md:bg-[#f9fafb]" : "hover:bg-[#fafafa]"
-              }`}
-              data-tab="conversion"
-              onClick={() => { setOpenKPIModal("conversion"); setChartExpanded(true) }}
-            >
-              {openKPIModal === "conversion" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
-              <span className={`text-[11px] sm:text-[12px] font-medium ${openKPIModal === "conversion" ? "text-[#374151]" : "text-[#6b7280]"}`}>{t("dashboard.conversionRate")}</span>
-              <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className={`text-[18px] sm:text-[22px] font-semibold tracking-tight transition-[filter,color,opacity] duration-[700ms] ease-[cubic-bezier(0.32,0.72,0,1)] ${showSampleData && !hasRealData ? "text-[#1a1a2e]/50" : "text-[#1a1a2e]"} ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{Math.round(displayAnalytics.conversionRate)}%</span>
-                <PercentChangeIndicator current={displayAnalytics.conversionRate} previous={displayAnalytics.prevConversionRate} />
-              </div>
-              <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-[filter,opacity] duration-[700ms] ease-[cubic-bezier(0.32,0.72,0,1)] ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{t("dashboard.viewsToOrders")}</p>
-            </button>
+            {/* The four figures: components/app/metric-tab, the same tab Analytics draws. */}
+            <MetricTab
+              tab="views"
+              className="flex-shrink-0 min-w-[130px] md:min-w-0"
+              selected={openKPIModal === "views"}
+              soft={isRefreshing}
+              sample={showSampleData && !hasRealData}
+              label={t("dashboard.views")}
+              value={formatCompactNumber(displayAnalytics.periodViews)}
+              change={<PercentChangeIndicator current={displayAnalytics.periodViews} previous={displayAnalytics.prevPeriodViews} />}
+              foot={`${formatCompactNumber(displayAnalytics.totalViews)} ${t("dashboard.allTime")}`}
+              onSelect={() => { setOpenKPIModal("views"); setChartExpanded(true) }}
+            />
+            <MetricTab
+              tab="revenue"
+              className="flex-shrink-0 min-w-[130px] md:min-w-0"
+              selected={openKPIModal === "revenue"}
+              soft={isRefreshing}
+              sample={showSampleData && !hasRealData}
+              label={t("dashboard.revenue")}
+              value={formatCurrency(displayAnalytics.periodRevenue)}
+              change={<PercentChangeIndicator current={displayAnalytics.periodRevenue} previous={displayAnalytics.prevPeriodRevenue} />}
+              foot={`${formatCurrency(displayAnalytics.totalRevenue)} ${t("dashboard.allTime")}`}
+              onSelect={() => { setOpenKPIModal("revenue"); setChartExpanded(true) }}
+            />
+            <MetricTab
+              tab="orders"
+              className="flex-shrink-0 min-w-[130px] md:min-w-0"
+              selected={openKPIModal === "orders"}
+              soft={isRefreshing}
+              sample={showSampleData && !hasRealData}
+              label={t("dashboard.orders")}
+              value={formatCompactNumber(displayAnalytics.periodOrders)}
+              change={<PercentChangeIndicator current={displayAnalytics.periodOrders} previous={displayAnalytics.prevPeriodOrders} />}
+              foot={`${formatCompactNumber(displayAnalytics.totalOrders)} ${t("dashboard.allTime")}`}
+              onSelect={() => { setOpenKPIModal("orders"); setChartExpanded(true) }}
+            />
+            <MetricTab
+              tab="conversion"
+              className="flex-shrink-0 min-w-[130px] md:min-w-0"
+              selected={openKPIModal === "conversion"}
+              soft={isRefreshing}
+              sample={showSampleData && !hasRealData}
+              label={t("dashboard.conversionRate")}
+              value={`${Math.round(displayAnalytics.conversionRate)}%`}
+              change={<PercentChangeIndicator current={displayAnalytics.conversionRate} previous={displayAnalytics.prevConversionRate} />}
+              foot={t("dashboard.viewsToOrders")}
+              onSelect={() => { setOpenKPIModal("conversion"); setChartExpanded(true) }}
+            />
 
             {/* Toggle arrow - sticky right on mobile, positioned in conversion rate area on desktop */}
             <div className="sticky right-0 flex items-center md:absolute md:right-2 md:top-2 z-10 bg-white md:bg-transparent pl-1 pr-2 md:p-0">
@@ -2619,7 +2004,10 @@ export function DashboardClient({
           <div className={`overflow-hidden transition-all duration-500 ease-out ${chartExpanded && openKPIModal ? "max-h-[300px] opacity-100" : "max-h-0 opacity-0"}`}>
             <div className="border-t border-[#e5e7eb]/60 px-2 py-3 sm:px-4 sm:py-4">
               {isChartLoading && displayChartData.length === 0 ? (
-                <div className="h-[200px] flex items-end gap-1.5 px-6 pb-6 pt-4">
+                /* LATE, like the Analytics skeleton (app/globals.css .skeleton-late):
+                   a first read that answers quickly never shows these bars at
+                   all, so the chart does not flash grey blocks before its line. */
+                <div className="h-[200px] flex items-end gap-1.5 px-6 pb-6 pt-4 skeleton-late">
                   {Array.from({ length: 10 }).map((_, i) => (
                     <div
                       key={i}
@@ -2651,7 +2039,7 @@ export function DashboardClient({
                     loading state — it says these numbers are not yours.
                   */}
                   <div className={`transition-opacity duration-300 ease-out ${showSampleData && !hasRealData ? "opacity-50" : "opacity-100"}`}>
-                  <ChartWithLongPressTooltip displayChartData={displayChartData} openKPIModal={openKPIModal} widthFrom={showSampleData && !hasRealData ? SAMPLE_CHART : chartSeries ?? {}} t={t} />
+                  <DashboardTrendChart displayChartData={displayChartData} openKPIModal={openKPIModal} widthFrom={showSampleData && !hasRealData ? SAMPLE_CHART : chartSeries ?? {}} t={t} />
                   </div>
                   {!hasRealData && (
                     <div className="absolute top-2 right-2 flex items-center gap-1.5 z-10">

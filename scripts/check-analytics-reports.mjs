@@ -15,12 +15,12 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync } from "n
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import puppeteer from "puppeteer-core"
+import { appCss } from "./probe-css.mjs"
 
 const root = process.cwd()
 const CHROMIUM = process.env.CHROMIUM_PATH || "/opt/pw-browsers/chromium"
-const cssDir = join(root, ".next/static/chunks")
-if (!existsSync(cssDir)) { console.error("Run `pnpm build` first."); process.exit(1) }
-const css = readdirSync(cssDir).filter((f) => f.endsWith(".css")).map((f) => readFileSync(join(cssDir, f), "utf8")).join("\n")
+
+const css = await appCss(root)
 const out = mkdtempSync(join(tmpdir(), "storelib-reports-"))
 const shots = process.env.SHOTS_DIR || join(out, "shots")
 mkdirSync(shots, { recursive: true })
@@ -91,14 +91,14 @@ for (const [name, vp] of [["desktop, 1440 wide", { width: 1440, height: 1000 }],
       await sleep(16)
     }
     await sleep(120)
-    tip = await p.evaluate(() => [...document.querySelectorAll("section")].find((s) => s.querySelector("h3").textContent === "Sessions over time").querySelector(".pointer-events-none.absolute:not([data-chart-axis])")?.textContent || "")
+    tip = await p.evaluate(() => [...document.querySelectorAll("section")].find((s) => s.querySelector("h3").textContent === "Sessions over time").querySelector("[data-chart-tooltip]")?.textContent || "")
     const top1 = await p.evaluate(() => window.scrollY)
     await p.touchscreen.touchEnd()
     expect(Math.abs(top1 - top0) < 2, "scrubbing the chart does not move the page", `${top0} -> ${top1}`)
   } else {
     await p.mouse.move(r.x + r.width * 0.6, r.y + r.height / 2)
     await sleep(300)
-    tip = await p.evaluate(() => [...document.querySelectorAll("section")].find((s) => s.querySelector("h3").textContent === "Sessions over time").querySelector(".pointer-events-none.absolute:not([data-chart-axis])")?.textContent || "")
+    tip = await p.evaluate(() => [...document.querySelectorAll("section")].find((s) => s.querySelector("h3").textContent === "Sessions over time").querySelector("[data-chart-tooltip]")?.textContent || "")
   }
   expect(/Thisperiod[\d.,$%]+Before[\d.,$%]+/.test(tip.replace(/\s/g, "")), vp.hasTouch ? "a sideways drag scrubs the chart and shows that day" : "the chart shows that day's figures under the pointer", tip)
 

@@ -8,51 +8,49 @@
  * and behind React.memo, so a state change anywhere else on the page does
  * not reach recharts.
  *
- * TWO LAYERS, AND ONLY ONE OF THEM MOVES.
+ * THREE LAYERS, EACH DRAWN ONCE AND MOVED BY ITS OWN HAND.
  *
- *   The PLOT is recharts: grid, axes, the line and the dashed comparison.
- *   It is memoised on the series alone, so it is drawn when data arrives and
- *   at no other time.
+ *   The FRAME is recharts: the grid and the dates. It is memoised on the
+ *   dates and the scale, so a tab that changes only the numbers never
+ *   reaches it.
  *
- *   The MARKER is ours: a crosshair, a dot on each line and the readout,
- *   absolutely placed over the plot and moved with CSS transforms. A finger
- *   or a pointer moving along the chart changes the marker and nothing else.
+ *   The LINES are components/app/morph-lines: the metric, the dashed period
+ *   it is compared with and the dot at the end. A tab, a period or the first
+ *   answer moves every point from where it is drawn to where it goes, and a
+ *   tab tapped mid move carries on from that frame. Recharts restarted from
+ *   where the last move was going, so a quick second tap made the whole
+ *   line jump.
  *
- * It used to be one layer. Every point a finger crossed set React state that
- * the plot read (the dots were drawn by a function of the active index), so
- * each step of a scrub re-ran recharts over every path and every dot, on the
- * same thread that was handling the finger. That is the lack of smoothness:
- * on a phone the marker arrived a frame or two behind the thumb, and then
- * jumped. Now a step is a transform on four nodes, and between two points the
- * marker glides for 140ms and stops exactly on the day it reports.
+ *   The MARKER is components/app/chart-scrub: a crosshair, a dot on each
+ *   line and the readout, moved by transforms written straight to the
+ *   nodes. A finger or a pointer changes the marker and nothing else, and
+ *   renders nothing.
  *
- * ONE WAY TO READ A CHART. The finger and the pointer go through
- * components/app/use-chart-scrub, the same gesture the report cards under
- * this chart use: a sideways drag or a short hold scrubs, a finger going
- * down the page scrolls it, and each new point is a light tick.
+ * The home page's chart draws the same lines and the same marker, so the
+ * two feel the same because they are the same. The marker used to be this
+ * chart's own: it snapped the readout to each point and glided it there over
+ * 140ms, so it trailed a moving finger by 6px and a mouse by 17px, and every
+ * point crossed was a React render.
  *
  * THE SCALE IS OURS TOO (components/app/chart-morph fixedScale). A top
  * with headroom above the highest point, whole-number ticks for counts, and
  * always three intervals, so the grid is the same drawing on every tab.
  *
- * A METRIC TAB MOVES THE LINE, IT DOES NOT REPLACE IT. The series sits in
- * one slot, `s0`, whatever the metric, and the slot keeps its key; a tab
- * hands it other numbers and recharts animates each point from where it was
- * to where it now goes, on the iOS curve. The axis is as wide as the widest
- * label of every metric the tabs can show, so the plot never moves sideways,
- * and its numbers cross-fade (chart-morph AxisLabels). The dot at the end of
- * the line is ours, and travels with it. A tab never asks the server for
- * anything: every metric is already in the series the page holds.
+ * A METRIC TAB MOVES THE LINE, IT DOES NOT REPLACE IT. The metric sits in
+ * the first slot whatever it is, and a tab hands that slot other numbers.
+ * The axis is as wide as the widest label of every metric the tabs can
+ * show, so the plot never moves sideways, and its numbers cross-fade
+ * (chart-morph AxisLabels). A tab never asks the server for anything: every
+ * metric is already in the series the page holds.
  */
 
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
-import type { ComponentProps } from "react"
-import { XAxis, YAxis, CartesianGrid, ResponsiveContainer, AreaChart, Area } from "recharts"
+import { memo, useCallback, useMemo } from "react"
+import { XAxis, YAxis, CartesianGrid, ResponsiveContainer, AreaChart } from "recharts"
 
-import { CHART_ANIM_MS } from "@/lib/chart-motion"
 import { axisWidth, compactCount, compactMoney, compactPercent } from "@/lib/analytics/chart-scale"
-import { useChartScrub } from "@/components/app/use-chart-scrub"
-import { AxisLabels, MORPH_EASE, MORPH_MS, fixedScale, useEndDotMotion } from "@/components/app/chart-morph"
+import { ChartScrub, type ScrubRow, type ScrubSeries } from "@/components/app/chart-scrub"
+import { AxisLabels, fixedScale } from "@/components/app/chart-morph"
+import { MorphLines } from "@/components/app/morph-lines"
 
 /** How tall the chart is, and the band under the plot that holds the dates. */
 const CHART_H = 200
@@ -61,8 +59,6 @@ const XAXIS_H = 24
 const PLOT_RIGHT = 10
 /** Room above for the active dot: six pixels of radius plus its white ring. */
 const PLOT_TOP = 10
-/** A marker moving from one point to the next: short, and slowing into place. */
-const GLIDE = "transform 140ms cubic-bezier(0.2, 0.8, 0.2, 1)"
 
 /** Storelib's accent for the line, and a quiet grey for what it is compared with. */
 export const CHART_COLORS = {
@@ -136,83 +132,28 @@ function visibleKeysFor(mode: "store" | "onepage", metric: string, onePage: stri
   return k
 }
 
-/* ─── The plot: recharts, drawn when the series changes ─────────────────── */
+/* ─── The frame: recharts lays out the grid and the dates, and nothing else ── */
 
-/** What the plot is given: the dates, the metric in its slot, and what it is compared with. */
-interface PlotPoint {
-  date: string
-  s0?: number
-  s1?: number
-  s2?: number
-  p?: number
-}
-
-/** The slots, in order. One while a single metric shows, which is always, from the tabs. */
-const SLOTS = ["s0", "s1", "s2"] as const
-
-interface PlotProps {
-  data: PlotPoint[]
-  slots: number
-  isLoading: boolean
-  compared: boolean
+interface FrameProps {
+  /** The dates along the bottom, one per point. */
+  dates: string[]
   top: number
   ticks: number[]
   plotLeft: number
 }
 
-type Easing = ComponentProps<typeof Area>["animationEasing"]
-
-const Plot = memo(function Plot({ data: chartDisplayData, slots, isLoading, compared, top, ticks, plotLeft }: PlotProps) {
-  const [shouldAnimate, setShouldAnimate] = useState(true)
-
-  /**
-   * THE MORPH IS DECIDED BY THE RENDER THAT RECEIVES THE DATA. An effect
-   * runs after the render it belongs to, so recharts would draw the new
-   * series with the old flag still down, a cut to the new line, and only
-   * then be told to animate, with nothing left to play. Setting state
-   * during this render re-runs it before anything is committed. A tab is
-   * new data here: the page hands a new series for the metric chosen.
-   */
-  const seenSeriesRef = useRef(chartDisplayData)
-  if (seenSeriesRef.current !== chartDisplayData) {
-    seenSeriesRef.current = chartDisplayData
-    if (!shouldAnimate) setShouldAnimate(true)
-  }
-
-  /* Play it once, then switch it off so nothing re-animates. The flag has to
-     outlast the morph (MORPH_MS): pulled early, recharts cuts to the end. */
-  useEffect(() => {
-    if (!shouldAnimate) return
-    const timer = setTimeout(() => setShouldAnimate(false), CHART_ANIM_MS)
-    return () => clearTimeout(timer)
-  }, [shouldAnimate, chartDisplayData])
-
-  /*
-    ── WHAT A PLACEHOLDER LINE LOOKS LIKE ──────────────────────────────────
-    The shape of the card is right from the first frame, and nothing in it
-    claims to be a number. Grey, no fill under it, no dots on it. The stroke
-    transitions in CSS, so the change from this to the real colour is a fade.
-  */
-  const SKELETON_STROKE = "#e5e7eb"
-  const lineStroke = (colour: string) => (isLoading ? SKELETON_STROKE : colour)
-  const lineFill = (gradient: string) => (isLoading ? "none" : gradient)
-  /* The dot at the end of the line is drawn over the plot (see below), so
-     recharts draws none: its own vanish for the length of every animation. */
-  const lineDot = false as const
-  /* Nothing to draw in while it is flat; the draw-in belongs to the arrival. */
-  const lineAnimates = isLoading ? false : shouldAnimate
-
-  const grad = (id: string) => `url(#${id})`
-
+/**
+ * THE GRID AND THE DATES, which recharts lays out well: the dates thinned so
+ * they never collide, the grid at the four heights of the scale. It is
+ * memoised on the dates, the scale and the gutter, so a tab that changes
+ * only the numbers never reaches it. The lines are components/app/morph-lines,
+ * drawn over it.
+ */
+const Frame = memo(function Frame({ dates, top, ticks, plotLeft }: FrameProps) {
+  const data = useMemo(() => dates.map((date) => ({ date })), [dates])
   return (
     <ResponsiveContainer width="100%" height={CHART_H}>
-      <AreaChart data={chartDisplayData} margin={{ top: PLOT_TOP, right: PLOT_RIGHT, left: 0, bottom: 0 }}>
-        <defs>
-          <linearGradient id="gradViolet" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={CHART_COLORS.views} stopOpacity={0.16} />
-            <stop offset="100%" stopColor={CHART_COLORS.views} stopOpacity={0} />
-          </linearGradient>
-        </defs>
+      <AreaChart data={data} margin={{ top: PLOT_TOP, right: PLOT_RIGHT, left: 0, bottom: 0 }}>
         {/* The grid lines at the ticks, placed by us: with the axis drawing no
             text, recharts would keep only the top and the floor. The same
             four heights on every tab. */}
@@ -245,47 +186,6 @@ const Plot = memo(function Plot({ data: chartDisplayData, slots, isLoading, comp
           interval={0}
           width={plotLeft}
         />
-        {/* The comparison, dashed and quieter, under the line it is compared with.
-            An Area with no fill, not a Line: an AreaChart draws only its areas.
-            Its own slot too, so it morphs with the line. */}
-        {compared && !isLoading && (
-          <Area
-            key="p"
-            type="monotone"
-            dataKey="p"
-            stroke={CHART_COLORS.compared}
-            strokeWidth={1.5}
-            strokeDasharray="5 4"
-            strokeLinecap="round"
-            fill="none"
-            dot={false}
-            activeDot={false}
-            isAnimationActive={lineAnimates}
-            animationDuration={MORPH_MS}
-            animationEasing={MORPH_EASE as Easing}
-            animationBegin={0}
-            name="compared"
-          />
-        )}
-        {/* The series, one slot per metric showing, each keeping its key across tabs. */}
-        {SLOTS.slice(0, slots).map((slot) => (
-          <Area
-            key={slot}
-            type="monotone"
-            dataKey={slot}
-            stroke={lineStroke(CHART_COLORS.views)}
-            strokeWidth={2}
-            fill={lineFill(grad("gradViolet"))}
-            dot={lineDot}
-            activeDot={false}
-            name={slot}
-            connectNulls
-            isAnimationActive={lineAnimates}
-            animationDuration={MORPH_MS}
-            animationEasing={MORPH_EASE as Easing}
-            animationBegin={0}
-          />
-        ))}
       </AreaChart>
     </ResponsiveContainer>
   )
@@ -319,11 +219,6 @@ function maxOf(data: AnalyticsChartData[], keys: Key[]): number {
 }
 
 /* ─── The chart: the plot, and the marker over it ───────────────────────── */
-
-/** See the note at the top: the box's own width resolves the clamp, never JavaScript. */
-function shiftFor(x: number, track: number): string {
-  return `translateX(clamp(8px, calc(${x.toFixed(1)}px - 50%), calc(${track}px - 100% - 8px))) translateZ(0)`
-}
 
 function AnalyticsChartWithTooltipInner({
   chartDisplayData,
@@ -383,225 +278,103 @@ function AnalyticsChartWithTooltipInner({
     return Math.max(axisWidth(axisLabels, 11, 8), ...widths)
   }, [analyticsMode, chartDisplayData, axisLabels])
 
-  /* The plot's own series: the chosen metric in the first slot, whatever it is. */
-  const plotData = useMemo<PlotPoint[]>(
-    () =>
-      chartDisplayData.map((d) => {
-        const point: PlotPoint = { date: d.date }
-        visibleKeys.forEach((k, i) => {
-          point[SLOTS[i]] = typeof d[k] === "number" ? (d[k] as number) : 0
-        })
-        if (compareKey) point.p = typeof d[compareKey] === "number" ? (d[compareKey] as number) : undefined
-        return point
-      }),
-    [chartDisplayData, visibleKeys, compareKey],
+  /*
+    THE LINES: the chosen metric in the first slot whatever it is, so a tab
+    moves the line rather than replacing it, and what it is compared with.
+    A number the series does not have is drawn at nothing.
+  */
+  const lines = useMemo(
+    () => visibleKeys.map((k) => chartDisplayData.map((d) => (typeof d[k] === "number" ? (d[k] as number) : 0))),
+    [chartDisplayData, visibleKeys],
   )
+  const comparedLine = useMemo(
+    () => (compareKey && !isLoading ? chartDisplayData.map((d) => (typeof d[compareKey] === "number" ? (d[compareKey] as number) : 0)) : null),
+    [chartDisplayData, compareKey, isLoading],
+  )
+  /* The dates, the same array for as long as they are the same dates: a tab or a refresh does not redraw the frame. */
+  const datesKey = chartDisplayData.map((d) => d.date).join("\u0000")
+  const dates = useMemo(() => (datesKey ? datesKey.split("\u0000") : []), [datesKey])
 
-  /* ── The marker ──────────────────────────────────────────────────────── */
+  /* ── The marker: components/app/chart-scrub, the same layer the home page's chart draws ── */
   const n = chartDisplayData.length
-  const indexAt = useCallback(
-    (clientX: number): number | null => {
-      const el = scrub.ref.current
-      if (!el || n === 0 || isLoading) return null
-      const rect = el.getBoundingClientRect()
-      const chartLeft = rect.left + plotLeft
-      const chartWidth = rect.right - PLOT_RIGHT - chartLeft
-      if (n === 1) return 0
-      const ratio = Math.max(0, Math.min(1, (clientX - chartLeft) / chartWidth))
-      return Math.round(ratio * (n - 1))
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [n, plotLeft, isLoading],
-  )
-  const scrub = useChartScrub<HTMLDivElement>(indexAt)
-  const activeIndex = scrub.index !== null && scrub.index < n ? scrub.index : null
-  const activePoint = activeIndex !== null ? chartDisplayData[activeIndex] : null
-
-  /* The width of the card, measured once and on resize, for the marker's maths. */
-  const [track, setTrack] = useState(0)
-  useEffect(() => {
-    const el = scrub.ref.current
-    if (!el) return
-    const measure = () => setTrack(el.getBoundingClientRect().width)
-    measure()
-    const ro = new ResizeObserver(measure)
-    ro.observe(el)
-    return () => ro.disconnect()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  /* First placement is a cut; every move after it glides. */
-  const [settled, setSettled] = useState(false)
-  const shown = activePoint !== null
-  useEffect(() => {
-    if (!shown) {
-      setSettled(false)
-      return
-    }
-    const id = requestAnimationFrame(() => setSettled(true))
-    return () => cancelAnimationFrame(id)
-  }, [shown])
-  const transition = shown && settled ? GLIDE : "none"
-
-  const plotWidth = Math.max(0, track - plotLeft - PLOT_RIGHT)
   const plotHeight = CHART_H - PLOT_TOP - XAXIS_H
-  const xOf = (i: number) => (n <= 1 ? plotLeft + plotWidth / 2 : plotLeft + (i / (n - 1)) * plotWidth)
-  const yOf = (v: number) => PLOT_TOP + (1 - Math.max(0, v) / scale.top) * plotHeight
+  const yOf = useCallback((v: number) => PLOT_TOP + (1 - Math.max(0, v) / scale.top) * plotHeight, [scale.top, plotHeight])
 
-  const format = (key: string, val: number) => {
-    const base = key.replace("prev_", "")
-    if (base === "revenue") return formatPrice(val)
-    if (base === "conversion" || base === "ctr") return `${Number(val.toFixed(2))}%`
-    return Math.round(val).toLocaleString("en-US")
-  }
+  const format = useCallback(
+    (key: string, val: number) => {
+      const base = key.replace("prev_", "")
+      if (base === "revenue") return formatPrice(val)
+      if (base === "conversion" || base === "ctr") return `${Number(val.toFixed(2))}%`
+      return Math.round(val).toLocaleString("en-US")
+    },
+    [formatPrice],
+  )
 
-  const x = activeIndex !== null ? xOf(activeIndex) : 0
+  /* Where each dot of the marker sits at every point: the comparison first, under the line. */
+  const scrubSeries = useMemo<ScrubSeries[]>(() => {
+    const num = (d: AnalyticsChartData, k: Key) => (typeof d[k] === "number" ? (d[k] as number) : null)
+    return [
+      ...(compareKey ? [{ ys: chartDisplayData.map((d) => { const v = num(d, compareKey); return v === null ? null : yOf(v) }), color: CHART_COLORS.compared, hollow: true }] : []),
+      ...visibleKeys.map((k) => ({ ys: chartDisplayData.map((d) => yOf(num(d, k) ?? 0)), color: CHART_COLORS.views })),
+    ]
+  }, [chartDisplayData, visibleKeys, compareKey, yOf])
 
-  /* The end of the line: on the floor first, then with the line wherever it goes. */
-  const last = n > 1 && !isLoading ? chartDisplayData[n - 1] : null
-  const end = useEndDotMotion(last !== null && track > 0)
+  /* What the readout says at a point: this period's number, and what it is compared with. */
+  const scrubRows = useMemo<ScrubRow[]>(() => {
+    const at = (i: number, k: Key) => {
+      const v = chartDisplayData[i]?.[k]
+      return typeof v === "number" ? v : null
+    }
+    return [
+      ...visibleKeys.map((k): ScrubRow => ({ label: LABELS[k] ?? k, value: (i) => format(k, at(i, k) ?? 0), mark: "line", tone: "value", color: CHART_COLORS.views })),
+      ...(compareKey
+        ? [{ label: "Compared", value: (i: number) => { const v = at(i, compareKey); return v === null ? null : format(compareKey, v) }, mark: "dashed", tone: "compared", color: CHART_COLORS.compared } as ScrubRow]
+        : []),
+    ]
+  }, [chartDisplayData, visibleKeys, compareKey, format])
+  const scrubTitle = useCallback((i: number) => chartDisplayData[i]?.date ?? "", [chartDisplayData])
 
   return (
-    <div
-      ref={scrub.ref}
-      data-chart-loading={isLoading ? "true" : "false"}
-      onPointerMove={scrub.onPointerMove}
-      onPointerLeave={scrub.onPointerLeave}
-      style={{
-        /*
-          THE VERTICAL AXIS BELONGS TO THE BROWSER. The page scrolls from
-          here the way it scrolls from the cards above and below, on the
-          compositor; the chart keeps the horizontal axis, which is the one
-          a scrub is made of (components/app/use-chart-scrub).
-        */
-        touchAction: "pan-y",
-        /* A placeholder has nothing to scrub, and letting a finger press it
-           would raise a readout of zero for a number nobody has. */
-        pointerEvents: isLoading ? "none" : undefined,
-        userSelect: "none",
-        WebkitUserSelect: "none",
-        WebkitTouchCallout: "none",
-        position: "relative",
-        height: CHART_H,
-      } as React.CSSProperties}
-    >
-      <Plot
-        data={plotData}
-        slots={Math.min(SLOTS.length, visibleKeys.length)}
-        isLoading={isLoading}
-        compared={!!compareKey}
-        top={scale.top}
-        ticks={scale.ticks}
-        plotLeft={plotLeft}
-      />
+    <div data-chart-loading={isLoading ? "true" : "false"} style={{ position: "relative", height: CHART_H }}>
+      <Frame dates={dates} top={scale.top} ticks={scale.ticks} plotLeft={plotLeft} />
       <AxisLabels labels={axisLabels} top={PLOT_TOP} height={plotHeight} width={plotLeft} />
 
       {/*
-        ONE STABLE THING FOR A FINGER TO LAND ON. A touch belongs to the node
-        it started on for the whole gesture, so it lands here, on one layer
-        that is rendered unconditionally and never re-keyed, and never on a
-        node recharts might replace. The marker is drawn inside it.
+        THE LINE, WHAT IT IS COMPARED WITH, AND THE DOT AT ITS END:
+        components/app/morph-lines, which the home page's chart draws too. A
+        tab, a period or the first answer moves every point from where it is
+        drawn to where it goes; a placeholder lies on the floor in grey.
       */}
-      <svg
-        aria-hidden
-        data-chart-touch-shield
-        width="100%"
-        height={CHART_H}
-        style={{ position: "absolute", inset: 0, zIndex: 5, overflow: "visible", pointerEvents: "auto" }}
-      >
-        {last && track > 0
-          ? visibleKeys.map((k) => (
-              <circle
-                key={`end-${k}`}
-                data-chart-end-dot
-                r={3.5}
-                cx={0}
-                cy={0}
-                fill={CHART_COLORS.views}
-                stroke="#fff"
-                strokeWidth={2}
-                style={{
-                  transform: `translate(${xOf(n - 1).toFixed(1)}px, ${yOf(end.armed && typeof last[k] === "number" ? (last[k] as number) : 0).toFixed(1)}px)`,
-                  transition: end.transition,
-                }}
-              />
-            ))
-          : null}
-        {activePoint ? (
-          <g data-chart-marker style={{ transform: `translateX(${x.toFixed(1)}px)`, transition, willChange: "transform" }}>
-            <line x1={0} x2={0} y1={PLOT_TOP} y2={PLOT_TOP + plotHeight} stroke="#c4b5fd" strokeWidth={1} strokeDasharray="4 3" />
-          </g>
-        ) : null}
-        {activePoint && compareKey && typeof activePoint[compareKey] === "number" ? (
-          <circle
-            r={3.5}
-            cx={0}
-            cy={0}
-            fill="#fff"
-            stroke={CHART_COLORS.compared}
-            strokeWidth={1.5}
-            style={{ transform: `translate(${x.toFixed(1)}px, ${yOf(activePoint[compareKey] as number).toFixed(1)}px)`, transition }}
-          />
-        ) : null}
-        {activePoint
-          ? visibleKeys.map((k) => (
-              <circle
-                key={k}
-                data-chart-active-dot
-                r={5.5}
-                cx={0}
-                cy={0}
-                fill={CHART_COLORS.views}
-                stroke="#fff"
-                strokeWidth={2.5}
-                style={{
-                  transform: `translate(${x.toFixed(1)}px, ${yOf(typeof activePoint[k] === "number" ? (activePoint[k] as number) : 0).toFixed(1)}px)`,
-                  transition,
-                  filter: "drop-shadow(0 1px 3px rgba(139,92,246,0.4))",
-                }}
-              />
-            ))
-          : null}
-      </svg>
+      <MorphLines
+        lines={lines}
+        compared={comparedLine}
+        top={scale.top}
+        left={plotLeft}
+        right={PLOT_RIGHT}
+        plotTop={PLOT_TOP}
+        plotHeight={plotHeight}
+        loading={isLoading}
+        color={CHART_COLORS.views}
+        comparedColor={CHART_COLORS.compared}
+      />
 
-      {/* The readout, over its own point, never wider than the card. */}
-      {activePoint && (
-        <div
-          data-chart-tooltip
-          style={{
-            position: "absolute",
-            top: -4,
-            left: 0,
-            transform: shiftFor(x, track),
-            transition,
-            maxWidth: "calc(100% - 16px)",
-            background: "#1a1a2e",
-            borderRadius: "8px",
-            fontSize: "12px",
-            color: "#fff",
-            padding: "6px 10px",
-            pointerEvents: "none",
-            zIndex: 10,
-            whiteSpace: "nowrap",
-            boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-            willChange: "transform",
-          }}
-        >
-          <p style={{ fontSize: "11px", color: "#9ca3af", margin: 0, marginBottom: "2px" }}>{activePoint.date}</p>
-          {visibleKeys.map((k) => (
-            <p key={k} style={{ fontWeight: 600, margin: 0, display: "flex", alignItems: "center", gap: 6 }}>
-              <span style={{ width: 8, height: 2, borderRadius: 1, background: CHART_COLORS.views, display: "inline-block" }} />
-              {LABELS[k] ?? k}: {format(k, typeof activePoint[k] === "number" ? (activePoint[k] as number) : 0)}
-            </p>
-          ))}
-          {compareKey && typeof activePoint[compareKey] === "number" ? (
-            <p style={{ margin: 0, color: "#c9ccd3", display: "flex", alignItems: "center", gap: 6 }}>
-              <span style={{ width: 8, height: 0, borderTop: `2px dashed ${CHART_COLORS.compared}`, display: "inline-block" }} />
-              Compared: {format(compareKey, activePoint[compareKey] as number)}
-            </p>
-          ) : null}
-        </div>
-      )}
+      {/*
+        THE CROSSHAIR, THE DOTS AND THE READOUT: components/app/chart-scrub,
+        the one layer both trend charts and the report cards draw. A
+        placeholder has nothing to read, so it takes no touches and raises
+        no readout of zero for a number nobody has.
+      */}
+      <ChartScrub
+        count={n}
+        left={plotLeft}
+        right={PLOT_RIGHT}
+        top={PLOT_TOP}
+        bottom={PLOT_TOP + plotHeight}
+        series={scrubSeries}
+        title={scrubTitle}
+        rows={scrubRows}
+        disabled={isLoading || n === 0}
+      />
     </div>
   )
 }
