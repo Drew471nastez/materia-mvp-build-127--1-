@@ -228,14 +228,14 @@ check(
   "a second 3:1 box showing the same photograph",
 )
 /**
- * Placing a cover is part of ADDING one, the owner's rule. The frame always
- * draws the saved crop, so it shows what the page shows, but a finger moves
- * it only for a picture chosen in this session.
+ * The owner asked for pinch and drag on the banner that is there, not only a
+ * new one. The frame always draws the saved crop, so it shows what the page
+ * shows, and a finger places any cover; nothing is kept until Save.
  */
 check(
-  "the gesture reaches the frame only for a cover chosen in this session",
-  /editable: !!cover && cover !== coverUrl/.test(editor),
-  "a banner that moves under any finger that grazes it while the form is scrolled",
+  "any cover can be placed, not only one chosen in this session",
+  /editable: !!cover \}\}/.test(editor),
+  "an existing banner that cannot be zoomed or moved",
 )
 check("a new picture starts from the middle at its own size", /setCover\(url\); setCrop\(DEFAULT_COVER_CROP\)/.test(editor))
 check(

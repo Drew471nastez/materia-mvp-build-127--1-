@@ -315,7 +315,7 @@ export function EditProfileButton({
               <div className="flex items-baseline justify-between gap-3">
                 <Label>Cover</Label>
                 {/* What the frame does, said once, in place of a pill over the picture. */}
-                {cover && cover !== coverUrl ? (
+                {cover ? (
                   <span className="text-right text-xs text-muted-foreground">
                     <span className="pointer-fine:hidden">Drag to move, pinch to zoom</span>
                     <span className="hidden pointer-fine:inline">Drag to move, pinch or ctrl + scroll to zoom</span>
@@ -343,29 +343,17 @@ export function EditProfileButton({
                 replaceOnly
                 allowRemove
                 replaceLabel="Change banner"
-                /**
-                 * ONLY FOR A PICTURE CHOSEN IN THIS SESSION.
-                 *
-                 * The frame was draggable whenever there was a cover at all,
-                 * which means every time the drawer is opened for any reason
-                 * — to change a name, to pick a scheme — the banner is a live
-                 * drag surface. On a phone that is a 3:1 strip near the top of
-                 * a sheet that is itself dragged, and a finger that grazes it
-                 * moves the creator's banner with nothing to say it did.
-                 *
-                 * Placing a cover is part of ADDING one. `cover !== coverUrl`
-                 * is exactly "this is not the picture the page is showing",
-                 * which is true from the moment an upload finishes and false
-                 * again after a save. An existing cover is a picture, not a
-                 * control; to move it, replace it.
-                 */
                 /*
-                  The frame always draws the saved crop, so it shows what the
-                  page shows; `editable` is the rule above. Position and zoom
-                  come back from the frame once per gesture, when the finger
-                  lifts, never once per move.
+                  ANY COVER CAN BE PLACED. The owner asked for pinch and drag
+                  to work on the banner that is there, not only on a new one.
+                  A graze no longer costs anything: the frame is the only
+                  surface with touch-action none and data-sheet-no-drag, so a
+                  finger on it never drags the sheet, and nothing is kept until
+                  Save. The frame always draws the saved crop, so it shows
+                  what the page shows. Position and zoom come back from the
+                  frame once per gesture, when the finger lifts.
                 */
-                reposition={{ value: crop, onChange: setCrop, aspect: coverAspect, editable: !!cover && cover !== coverUrl }}
+                reposition={{ value: crop, onChange: setCrop, aspect: coverAspect, editable: !!cover }}
               />
             </div>
 
