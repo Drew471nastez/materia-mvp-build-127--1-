@@ -33,9 +33,10 @@ import { Button } from "@/components/ui/button"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { createClient, isNativePlatform } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
-import { forwardRef, memo, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react"
+import { forwardRef, memo, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react"
 // Sheet removed — mobile sidebar now uses pure CSS transitions for reliable close animation
 import { AppAvatar } from "@/components/app/app-avatar"
+import { MobileAccountMenu } from "@/components/app/mobile-account-menu"
 import { DesktopSidebarContent, NAV_ICONS, NAV_ICONS_EXTRA } from "@/components/app/sidebar-desktop-nav"
 import type { NavIconPair } from "@/components/app/sidebar-desktop-nav"
 import { MobileMenuPage, MobileNavPill, pillBelongsOn, useLockAppScroll } from "@/components/app/sidebar-mobile-nav"
@@ -110,161 +111,6 @@ function getDismissedNotifications(): string[] {
     return []
   }
 }
-
-/**
- * ===========================================================================
- *  THE ACCOUNT TRIGGER AND ITS SHEET, ON THEIR OWN
- * ===========================================================================
- * The open state used to live in AppSidebar, so every open and every close
- * re-rendered the whole sidebar: the desktop nav, the header, the pill, the
- * menu page, the notifications. Traced on a phone profile that was a 60 to
- * 90ms task on the tap that opens the sheet, in the same frame the sheet has
- * to start moving in. Here the state is local and the component is memoised,
- * so a tap re-renders a button and a sheet.
- */
-const MobileAccountMenu = memo(function MobileAccountMenu({
-  avatarUrl,
-  avatarSrc,
-  userDisplayName,
-  userInitials,
-  settingsLabel,
-  billingLabel,
-  languageLabel,
-  onOpening,
-  onLanguage,
-  onSignOut,
-}: {
-  avatarUrl?: string
-  avatarSrc: string | undefined
-  userDisplayName: string
-  userInitials: string
-  settingsLabel: string
-  billingLabel: string
-  languageLabel: string
-  onOpening: () => void
-  onLanguage: () => void
-  onSignOut: () => void
-}) {
-  const [mobileProfileDropdownOpen, setMobileProfileDropdownOpen] = useState(false)
-  const closeMobileProfile = useCallback(() => setMobileProfileDropdownOpen(false), [])
-  const pathname = usePathname()
-  /* A page change closes it, as it closed everything else in the sidebar. */
-  useEffect(() => { setMobileProfileDropdownOpen(false) }, [pathname])
-  const items = useMemo(() => [
-    { href: "/app/settings", label: settingsLabel, icon: Settings },
-    { href: "/app/settings/billing", label: billingLabel, icon: CreditCard },
-    { href: "/help", label: "Help", icon: HelpCircle, target: "_blank" as const },
-    { href: "/explore", label: "Explore", icon: Compass, target: "_blank" as const },
-    { href: "/library", label: "Library", icon: Library },
-  ], [settingsLabel, billingLabel])
-
-  return (
-    <>
-    <div className="relative flex-1 z-[60]">
-      <button
-        onClick={() => {
-          onOpening()
-          setMobileProfileDropdownOpen((v) => !v)
-        }}
-        aria-haspopup="dialog"
-        aria-expanded={mobileProfileDropdownOpen}
-        className={cn(
-          "flex items-center gap-2 w-fit justify-start rounded-xl px-2 py-1.5 transition-colors duration-200 ease-out",
-          mobileProfileDropdownOpen ? "bg-white/15" : "hover:bg-white/10"
-        )}
-      >
-        <AppAvatar src={avatarSrc} name={userDisplayName} size={24} tone="dark" className="ring-1 ring-white/20" />
-        <span className="text-[13px] font-medium text-white/90 max-w-[120px] truncate">
-          {userDisplayName}
-        </span>
-        <ChevronDown
-          className={cn(
-            "h-3.5 w-3.5 text-white/50 transition-transform duration-200 ease-out",
-            mobileProfileDropdownOpen && "rotate-180"
-          )}
-        />
-      </button>
-
-      {/*
-        THE ACCOUNT MENU IS A SHEET, NOT A DROPDOWN.
-
-        A 200px card hanging off the avatar is a desktop shape: on a
-        phone it opens under the thumb that pressed it, covers the page
-        it belongs to, and has nothing to grab. A sheet comes from the
-        bottom, where the hand is, and can be pushed back down.
-
-        The drag is in components/ui/bottom-sheet — the sheet follows
-        the finger every frame, a flick closes it, and the listeners are
-        native because React registers touchmove passively and a sheet
-        that cannot refuse the page's scroll slides against it.
-      */}
-    </div>
-    <BottomSheet
-      isOpen={mobileProfileDropdownOpen}
-      onClose={closeMobileProfile}
-      label="Account"
-      hideFrom="md"
-    >
-      <div className="px-3 pb-3">
-        <div className="flex items-center gap-3 px-2 pb-3 pt-1">
-          <AppAvatar src={avatarSrc} name={userDisplayName} size={40} className="ring-1 ring-neutral-200" />
-          <span className="truncate text-[15px] font-semibold text-neutral-900">{userDisplayName}</span>
-        </div>
-
-        {items.map((item) => {
-          const Icon = item.icon
-          const isExplore = item.href === "/explore"
-          const isHelp = item.href === "/help"
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              {...("target" in item ? { target: item.target, rel: "noopener noreferrer" } : {})}
-              onClick={(e) => {
-                if (isHelp && isNativeApp()) {
-                  e.preventDefault()
-                  openExternal(HELP_FULL_URL)
-                } else if (isExplore && isNativeApp()) {
-                  e.preventDefault()
-                  openExternal(EXPLORE_FULL_URL)
-                }
-                setMobileProfileDropdownOpen(false)
-              }}
-              className="flex items-center gap-3 rounded-xl px-3 py-3 text-[15px] font-medium text-neutral-800 active:bg-neutral-100"
-            >
-              <Icon className="h-[18px] w-[18px] shrink-0 text-neutral-400" strokeWidth={1.75} />
-              <span>{item.label}</span>
-            </Link>
-          )
-        })}
-        <button
-          onClick={() => {
-            setMobileProfileDropdownOpen(false)
-            onLanguage()
-          }}
-          className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-[15px] font-medium text-neutral-800 active:bg-neutral-100"
-        >
-          <Globe className="h-[18px] w-[18px] shrink-0 text-neutral-400" strokeWidth={1.75} />
-          <span>{languageLabel}</span>
-        </button>
-
-        <div className="my-1.5 h-px bg-neutral-100" />
-
-        <button
-          onClick={() => {
-            setMobileProfileDropdownOpen(false)
-            onSignOut()
-          }}
-          className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-[15px] font-medium text-red-600 active:bg-red-50"
-        >
-          <LogOut className="h-[18px] w-[18px] shrink-0" strokeWidth={1.75} />
-          <span>Logout</span>
-        </button>
-      </div>
-    </BottomSheet>
-    </>
-  )
-})
 
 type NotificationsHandle = { open: () => void }
 
@@ -504,7 +350,6 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
 
   const storeUrl = username || creatorSlug
   const userDisplayName = displayName || username || creatorSlug || "User"
-  const userInitials = userDisplayName.slice(0, 2).toUpperCase()
 
   /*
     SubNavItem, NavItem and the imperative Collapsible used to be here.
@@ -777,7 +622,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
           pt-[env(safe-area-inset-top)] pushes the 58 px content row below
           the iOS/iPadOS status bar in Capacitor. In a browser env() = 0
           so the header stays exactly 58 px — no visual change. */}
-      <header className="fixed top-0 left-0 right-0 z-50 hidden md:block pt-[env(safe-area-inset-top,_0px)]" style={{ touchAction: 'none', overscrollBehavior: 'none' }}>
+      <header data-shell-chrome="" className="fixed top-0 left-0 right-0 z-50 hidden md:block pt-[env(safe-area-inset-top,_0px)]" style={{ touchAction: 'none', overscrollBehavior: 'none' }}>
         <div className="relative h-[58px] bg-[#131316] flex items-center px-5">
           {/* Left side: Profile dropdown */}
           <div ref={headerProfileRef} className="relative shrink-0">
@@ -1063,7 +908,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
       {/* Mobile Header - Dark background, content below has outward rounded top corners.
           Header total height = 68px + safe-area-inset-top (same as main's pt offset).
           Padding inside the flex row so content sits flush below the status bar. */}
-      <header className="fixed top-0 left-0 right-0 z-50 md:hidden bg-[#111111]"
+      <header data-shell-chrome="" className="fixed top-0 left-0 right-0 z-50 md:hidden bg-[#111111]"
         style={{ height: 'calc(68px + env(safe-area-inset-top, 0px))', touchAction: 'none', overscrollBehavior: 'none', willChange: 'transform', WebkitTransform: 'translateZ(0)', transform: 'translateZ(0)', WebkitBackfaceVisibility: 'hidden', backfaceVisibility: 'hidden' }}>
         <div className="flex h-[68px] items-center justify-between px-4 py-[10px]"
           style={{ marginTop: 'env(safe-area-inset-top, 0px)' }}>
@@ -1080,10 +925,8 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
               its own open state, so opening the account sheet re-renders the
               trigger and the sheet and nothing else in this sidebar. */}
           <MobileAccountMenu
-            avatarUrl={avatarUrl}
             avatarSrc={avatarSrc}
             userDisplayName={userDisplayName}
-            userInitials={userInitials}
             settingsLabel={t("nav.settings")}
             billingLabel={t("settings.billing")}
             languageLabel={t("settings.language")}
@@ -1233,6 +1076,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
           env(safe-area-inset-top) padding. In a browser env() = 0 so
           this is identical to the previous top-[58px] / calc(100svh-58px). */}
       <aside
+        data-shell-chrome=""
         className="fixed left-0 z-40 hidden w-[240px] flex-col border-r border-neutral-200/60 bg-white md:flex"
         style={{
           top: 'calc(58px + env(safe-area-inset-top, 0px))',
@@ -1301,6 +1145,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
               }, 100)
             }
           }}
+          data-shell-chrome=""
           className={cn(
             // bottom-[calc(...)] keeps the button above the home-indicator on iPad.
           // In a browser env(safe-area-inset-bottom) = 0, so this equals bottom-6.

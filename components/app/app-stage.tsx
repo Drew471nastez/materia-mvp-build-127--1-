@@ -3,13 +3,16 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { usePathname, useSearchParams } from "next/navigation"
 import { RouteSkeleton } from "@/components/app/route-skeletons"
+import { cn } from "@/lib/utils"
 import {
   endAppNavigation,
+  isPhoneShell,
   markLanded,
   NAV_ENTER_EASE,
   NAV_ENTER_MS,
   NAV_ENTER_RISE_PX,
-  NAV_SKELETON_AFTER_MS,
+  NAV_PHONE_OUTLINE_FADE_MS,
+  outlineDelay,
   recalledScroll,
   rememberScroll,
   takeTraversal,
@@ -36,8 +39,9 @@ import {
  *   frame, so the page never paints at the top and then jumps.
  *
  *   THE SLOW PAGE. The old page stays until the new one is ready. Past
- *   NAV_SKELETON_AFTER_MS the next page's outline is laid over the content
- *   area, and it fades out as the page fades in.
+ *   NAV_SKELETON_AFTER_MS on a computer, or NAV_PHONE_OUTLINE_AFTER_MS on a
+ *   phone, the next page's outline is laid over the content area, and it
+ *   fades out as the page fades in. The product editor never gets one.
  */
 
 type Scrollers = { outer: HTMLElement; inner: HTMLElement | null }
@@ -132,13 +136,21 @@ export function AppStage() {
 
 /**
  * The outline of the page being opened, over the content area, once a
- * navigation has taken NAV_SKELETON_AFTER_MS. Positioned by the same numbers
- * as <main> (the header above it, the sidebar beside it from md), so it
- * covers exactly the page and nothing else.
+ * navigation has run long enough (lib/ui/app-navigation: a second on a
+ * computer, 90ms on a phone, never for the product editor). Positioned by
+ * the same numbers as <main> (the header above it, the sidebar beside it
+ * from md), so it covers exactly the page and nothing else.
+ *
+ * On a phone it arrives on a 120ms opacity fade and nothing else, over the
+ * page you were on, so there is no frame with nothing on screen. When the
+ * page lands the outline fades out from wherever its own fade had got to: a
+ * page that arrives 10ms after its outline started must not flash it to full
+ * and back.
  */
 function SlowPageOutline() {
   const nav = useAppNavigation()
   const [shownFor, setShownFor] = useState<string | null>(null)
+  const phoneRef = useRef(false)
   const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -146,20 +158,35 @@ function SlowPageOutline() {
       /* The page is here: the outline fades as the page rises under it. */
       const el = ref.current
       if (!shownFor || !el) return
-      const out = typeof el.animate === "function" && !reducedMotion()
-        ? el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: NAV_ENTER_MS, easing: NAV_ENTER_EASE, fill: "forwards" })
-        : null
-      if (!out) { setShownFor(null); return }
+      if (typeof el.animate !== "function" || reducedMotion()) { setShownFor(null); return }
+      const from = Number(getComputedStyle(el).opacity)
+      for (const a of el.getAnimations?.() ?? []) a.cancel()
+      const out = el.animate([{ opacity: from }, { opacity: 0 }], { duration: NAV_ENTER_MS, easing: NAV_ENTER_EASE, fill: "forwards" })
       out.onfinish = () => setShownFor(null)
       return () => { out.onfinish = null }
     }
-    /* Only for pages inside the shell: anywhere else brings its own. */
     const href = nav.href
-    if (!href || !href.startsWith("/app")) return
-    const wait = Math.max(0, NAV_SKELETON_AFTER_MS - (performance.now() - nav.startedAt))
-    const t = window.setTimeout(() => setShownFor(href), wait)
+    if (!href || shownFor === href) return
+    const phone = isPhoneShell()
+    const delay = outlineDelay(href, phone)
+    if (delay == null) return
+    /* Leaving a page drawn over the whole shell: that layer stays over
+       everything until the next page is here, so there is nothing to draw. */
+    if (document.querySelector("[data-page-layer]")) return
+    const wait = Math.max(0, delay - (performance.now() - nav.startedAt))
+    const t = window.setTimeout(() => {
+      phoneRef.current = phone
+      setShownFor(href)
+    }, wait)
     return () => window.clearTimeout(t)
   }, [nav, shownFor])
+
+  /* A phone's outline: in on opacity alone, before it is first painted. */
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!shownFor || !el || !phoneRef.current || reducedMotion() || typeof el.animate !== "function") return
+    el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: NAV_PHONE_OUTLINE_FADE_MS, easing: "ease-out" })
+  }, [shownFor])
 
   if (!shownFor) return null
   return (
@@ -168,7 +195,10 @@ function SlowPageOutline() {
       key={shownFor}
       data-app-route-skeleton=""
       aria-hidden="true"
-      className="skeleton-fade pointer-events-none fixed inset-x-0 bottom-0 top-[calc(68px+env(safe-area-inset-top,0px))] z-[38] overflow-hidden rounded-t-[20px] bg-[#f8f9fa] md:left-[240px] md:top-[calc(58px+env(safe-area-inset-top,0px))] md:rounded-none"
+      className={cn(
+        "pointer-events-none fixed inset-x-0 bottom-0 top-[calc(68px+env(safe-area-inset-top,0px))] z-[38] overflow-hidden rounded-t-[20px] bg-[#f8f9fa] md:left-[240px] md:top-[calc(58px+env(safe-area-inset-top,0px))] md:rounded-none",
+        !phoneRef.current && "skeleton-fade",
+      )}
     >
       <RouteSkeleton href={shownFor} />
     </div>

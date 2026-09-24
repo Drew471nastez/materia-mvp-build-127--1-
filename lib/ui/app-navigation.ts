@@ -10,11 +10,26 @@
  *
  * So the page you are on stays on screen until the next one is ready (the
  * router holds it: there is no route level loading boundary under /app any
- * more), and what the shell adds depends only on how long that takes:
+ * more), and what the shell adds depends only on how long that takes. On a
+ * computer:
  *
  *      under 300ms   nothing at all
  *      300ms         a thin bar along the top of the header
  *      1000ms        the next page's outline over the content area
+ *
+ * On a phone, and anywhere in the native apps: "when navigating in the app,
+ * there should be a loading skeleton, smooth, simple, clean, only when
+ * navigating, so it feels like more feedback." A tap has nothing under the
+ * finger to answer it (no hover, no pointer), so a page that is not there
+ * within NAV_PHONE_OUTLINE_AFTER_MS gets its outline straight away, on a
+ * short fade, in place of the bar:
+ *
+ *      under 90ms    nothing at all
+ *      90ms          the next page's outline, fading in over 120ms
+ *
+ * Never for the product editor: "the whole page should not have a loading
+ * skeleton when I click to edit a product." There the page you were on stays
+ * until the editor is ready, at every width (`drawsOutline` below).
  *
  * and, when the new page commits, one short entrance: opacity from 0 and a
  * 5px rise, 180ms, one curve (components/app/app-stage.tsx).
@@ -31,12 +46,49 @@ import { useSyncExternalStore } from "react"
 export const NAV_BAR_AFTER_MS = 300
 /** Past this the next page's outline is drawn over the content. */
 export const NAV_SKELETON_AFTER_MS = 1000
+/** On a phone, or in the native apps, the outline comes this soon... */
+export const NAV_PHONE_OUTLINE_AFTER_MS = 90
+/** ...on an opacity fade this long. */
+export const NAV_PHONE_OUTLINE_FADE_MS = 120
 /** The landing: opacity and a rise, on one curve. */
 export const NAV_ENTER_MS = 180
 export const NAV_ENTER_RISE_PX = 5
 export const NAV_ENTER_EASE = "cubic-bezier(0.2, 0, 0, 1)"
 /** A navigation that never reports back (it failed, or went nowhere) is dropped after this. */
 const GIVE_UP_MS = 10000
+
+/**
+ * Whether an address ever gets an outline while it loads. Not the product
+ * editor, new or saved: the page you were on stays until the editor is ready.
+ * Not the plans page either: it is drawn over the whole shell
+ * (components/app/page-layer.tsx), so an outline under the header would be
+ * the wrong shape in the wrong place.
+ */
+export function drawsOutline(href: string | null): boolean {
+  if (!href) return false
+  const path = (href.split(/[?#]/)[0] || "").replace(/\/+$/, "")
+  if (path !== "/app" && !path.startsWith("/app/")) return false
+  if (/^\/app\/products\/[^/]+(\/|$)/.test(path)) return false
+  if (path === "/app/settings/billing/upgrade") return false
+  return true
+}
+
+/**
+ * A phone, by width (the nav pill's breakpoint), or the native apps at any
+ * width. The class is the one the native shell puts on <html> before the
+ * first paint; nothing here reads a user agent.
+ */
+export function isPhoneShell(): boolean {
+  if (typeof window === "undefined" || typeof document === "undefined") return false
+  if (document.documentElement.classList.contains("capacitor")) return true
+  return !!window.matchMedia?.("(max-width: 767px)").matches
+}
+
+/** How long a navigation to `href` runs before its outline is drawn, or null for never. */
+export function outlineDelay(href: string | null, phone: boolean = isPhoneShell()): number | null {
+  if (!drawsOutline(href)) return null
+  return phone ? NAV_PHONE_OUTLINE_AFTER_MS : NAV_SKELETON_AFTER_MS
+}
 
 export type AppNavigation = { href: string | null; startedAt: number }
 

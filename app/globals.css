@@ -2795,9 +2795,23 @@ html.capacitor .app-content-scroll {
   /* A page drawn as a layer over the whole shell (the plans page,
      app/app/settings/billing/upgrade/layout.tsx) covers the pill; it is not
      painted or reachable underneath it. A page, not a sheet: the sheet rule
-     below keeps the pill. */
-  html:has([data-page-layer]) [data-app-nav-pill] {
+     below keeps the pill. A layer that asks for the pill
+     (data-page-layer="pill", the product editor) keeps it, over the layer. */
+  html:has([data-page-layer=""]) [data-app-nav-pill] {
     visibility: hidden;
+  }
+
+  /* The pill's room at the foot of a layer that keeps it, on whichever box
+     actually scrolls: the layer's own scroller, or a page that scrolls in a
+     container of its own filling it (the editor's .page-scroll). Padding the
+     outer one as well would leave the inner one short of the bottom edge, the
+     empty strip under the pill described above. Two rules, not a list: an
+     engine without :has() would drop the whole list, the second rule too. */
+  [data-page-layer="pill"] [data-page-layer-scroll]:not(:has(> .page-scroll)) {
+    padding-bottom: calc(104px + env(safe-area-inset-bottom, 0px));
+  }
+  [data-page-layer="pill"] [data-page-layer-scroll] > .page-scroll {
+    padding-bottom: calc(104px + env(safe-area-inset-bottom, 0px));
   }
 
   /* ── A sheet goes OVER the pill, and the pill stays ─────────────────────
@@ -2826,14 +2840,27 @@ html.capacitor .app-content-scroll {
    * the pill does not pop out of the fading scrim, but gives the tap back
    * at once.
    * ────────────────────────────────────────────────────────────────────── */
+  /*
+   * NOT `*`. The second rule used to end in `[data-app-nav-pill] *`, and a
+   * rule whose last part is `*` cannot say which elements a change to it
+   * touches, so every time a sheet opened or closed (the moment `:has()` on
+   * <html> flipped) the browser worked out the style of the whole document
+   * again. Measured with the account sheet over a dashboard sized page on a
+   * CPU slowed four times (scripts/check-sheet-motion.mjs): 80 to 130ms of
+   * style work in the first 100ms after the tap, on the open and again on
+   * the close, which are the first frames of both. Naming what can take a
+   * tap (the pill's `pointer-events-auto` parts, and any link or button)
+   * gives the same result for a few elements. Radix's lock is an attribute
+   * on <body> itself and needs no :has() at all.
+   */
   html:has([data-app-sheet]) [data-app-nav-pill],
   html:has([role="dialog"][aria-modal="true"]:not([data-mobile-menu])) [data-app-nav-pill],
-  html:has(body[data-scroll-locked]) [data-app-nav-pill] {
+  body[data-scroll-locked] [data-app-nav-pill] {
     z-index: 39;
   }
-  html:has([data-app-sheet="open"]) [data-app-nav-pill] *,
-  html:has([role="dialog"][aria-modal="true"]:not([data-mobile-menu])) [data-app-nav-pill] *,
-  html:has(body[data-scroll-locked]) [data-app-nav-pill] * {
+  html:has([data-app-sheet="open"]) [data-app-nav-pill] :is(a, button, .pointer-events-auto),
+  html:has([role="dialog"][aria-modal="true"]:not([data-mobile-menu])) [data-app-nav-pill] :is(a, button, .pointer-events-auto),
+  body[data-scroll-locked] [data-app-nav-pill] :is(a, button, .pointer-events-auto) {
     pointer-events: none !important;
   }
 
@@ -3041,6 +3068,53 @@ html.capacitor.cp-fullscreen::before {
 html.capacitor:has(.cp-editor)::before {
   display: none;
 }
+/* ── A page drawn as a layer over the shell ───────────────────────────────
+   The plans page and the product editor (components/app/page-layer.tsx).
+   "The top black bar must not be visible", on iOS, Android, a browser and a
+   computer alike, so while a layer is up:
+
+   THE SHELL'S CHROME IS NOT PAINTED. The header (both of them) and the rail
+   carry [data-shell-chrome]. Hidden rather than covered, so no engine with
+   its own idea of stacking can show them over the layer, and nothing of
+   them takes a tap.
+
+   THE SCROLLER IS NOT A STACKING CONTEXT. On iOS `-webkit-overflow-scrolling:
+   touch` still makes .app-content-scroll one, which put the layer (rendered
+   inside it) under the header whatever its z-index: the plans page's Back
+   row under the black bar in the owner's screenshot. `auto` gives the layer
+   its own z-index back.
+
+   THE STATUS BAR STRIP IS THE LAYER'S. The black shield above stands down,
+   exactly as it does for the two editors above, and the layer paints the
+   strip in its own colour by padding its top by the inset.
+
+   Pairs of rules, not selector lists, for the reason given above: the class
+   is set by the layer for an engine without :has(). */
+html:has([data-page-layer]) [data-shell-chrome] {
+  visibility: hidden;
+}
+html.has-page-layer [data-shell-chrome] {
+  visibility: hidden;
+}
+html:has([data-page-layer]) .app-content-scroll {
+  -webkit-overflow-scrolling: auto;
+}
+html.has-page-layer .app-content-scroll {
+  -webkit-overflow-scrolling: auto;
+}
+html.capacitor:has([data-page-layer])::before {
+  display: none;
+}
+html.capacitor.has-page-layer::before {
+  display: none;
+}
+html.capacitor:has([data-page-layer]) {
+  background-color: #f8f9fa;
+}
+html.capacitor.has-page-layer {
+  background-color: #f8f9fa;
+}
+
 html.capacitor.cp-fullscreen {
   background-color: #ffffff;
 }

@@ -89,9 +89,12 @@ check("/app/products/<id> draws the editor with the product, not a redirect", /l
 const loader = code("app/app/products/load-editor.ts")
 check("the server reads the five things together", /Promise\.all\(\[/.test(loader) && /product_variants/.test(loader) && /digital_assets/.test(loader) && /profiles/.test(loader))
 check("and only hands over a product that is the creator's", /product\.creator_id !== creator\.id/.test(loader))
-/* No loading.tsx under /app: the shell draws an outline, by address, only after a second (components/app/route-skeletons.tsx). */
-check("opening a product has the editor's own loading outline, drawn by the shell and not a loading boundary",
-  !existsSync("app/app/products/[id]/loading.tsx") && /if \(path\.startsWith\("\/app\/products\/"\)\) return <EditorSkeleton editing \/>/.test(read("components/app/route-skeletons.tsx")))
+/* No loading.tsx under /app, and no outline for the editor: "the whole page should not have a loading
+   skeleton when I click to edit a product". The page you were on stays until the editor is ready. */
+check("opening a product draws no outline and no loading boundary: the old page stays until the editor is here",
+  !existsSync("app/app/products/[id]/loading.tsx") && !existsSync("app/app/products/new/loading.tsx")
+    && /if \(path\.startsWith\("\/app\/products\/"\)\) return null/.test(read("components/app/route-skeletons.tsx"))
+    && !/EditorSkeleton/.test(code("components/app/route-skeletons.tsx")))
 check("a save drops the router's kept pages", /router\.refresh\(\)/.test(editor))
 /* Opening a product from the list shows the editor with its data, and nothing before it from app/app/products. */
 const newPage = code("app/app/products/new/page.tsx")

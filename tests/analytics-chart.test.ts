@@ -551,9 +551,12 @@ section("One bottom sheet, and the finger moves it")
     /DISMISS_VELOCITY/.test(sheet) && /performance\.now\(\) - lastAtRef\.current > 80 \? 0 : velocityRef\.current/.test(sheet),
   )
   const sidebar = readFileSync(join(root, "components/app/sidebar.tsx"), "utf8")
+  /* The phone's account trigger and its sheet are their own file, mounted by the sidebar. */
+  const accountMenu = readFileSync(join(root, "components/app/mobile-account-menu.tsx"), "utf8")
   check(
     "and the account menu uses it instead of a dropdown",
-    /<BottomSheet\n\s*isOpen=\{mobileProfileDropdownOpen\}/.test(sidebar) &&
+    /<BottomSheet\n\s*isOpen=\{mobileProfileDropdownOpen\}/.test(accountMenu) &&
+      /<MobileAccountMenu\b/.test(sidebar) &&
       !/Mobile Profile Dropdown Menu/.test(sidebar),
   )
 }

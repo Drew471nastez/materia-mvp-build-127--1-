@@ -54,11 +54,23 @@ const fail = (m) => { console.error(`\n${m}\n`); process.exit(1) }
 if (!existsSync(CHROMIUM)) fail(`No browser at ${CHROMIUM}.`)
 
 const out = mkdtempSync(join(tmpdir(), "storelib-sheet-motion-"))
+/* The account sheet's links and its close on a page change, as far as it can see a router. */
+writeFileSync(join(out, "navigation.js"), `export const usePathname = () => "/app"
+export const useRouter = () => ({ push() {}, replace() {}, prefetch() { (window.__prefetched = window.__prefetched || []).push([...arguments][0]) }, refresh() {}, back() {} })
+export const useSearchParams = () => new URLSearchParams()
+`)
+writeFileSync(join(out, "link.jsx"), `import React from "react"
+export default React.forwardRef(function Link({ href, children, prefetch, ...rest }, ref) {
+  if (prefetch !== false) (window.__linkPrefetch = window.__linkPrefetch || []).push(href)
+  return React.createElement("a", { href, ref, ...rest, onClick: (e) => { e.preventDefault(); rest.onClick && rest.onClick(e) } }, children)
+})
+`)
 execFileSync("npx", ["--no-install", "esbuild", join(root, "scripts/render-sheet-motion.tsx"),
   "--bundle", "--format=iife", "--platform=browser", "--jsx=automatic", "--log-level=error", `--outfile=${join(out, "probe.js")}`,
-  '--define:process.env.NODE_ENV="production"',
+  '--define:process.env.NODE_ENV="production"', "--define:process.env.NEXT_PUBLIC_MAIN_DOMAIN=undefined",
+  `--alias:next/navigation=${join(out, "navigation.js")}`, `--alias:next/link=${join(out, "link.jsx")}`, "--loader:.jsx=jsx",
   `--alias:@=${root}`, "--loader:.css=empty"],
-  { stdio: ["ignore", "ignore", "inherit"] })
+  { stdio: ["ignore", "ignore", "inherit"], env: { ...process.env, NODE_PATH: join(root, "node_modules") } })
 const file = join(out, "index.html")
 writeFileSync(file, `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">` +
   `<style>[data-app-nav-pill]{z-index:55}</style><style>${await appCss(root, process.env.SHEET_CSS || null)}</style><style>body{margin:0;background:#f8f9fa}</style>` +
@@ -216,6 +228,124 @@ if (slow !== 0) problems.push(`a slow 60px drag should spring back to rest, ende
 if (slow !== "closed") { await page.touchscreen.tap(195, 120); await wait(500) }
 const flick = await drag(80, 0, 4)
 if (flick !== "closed") problems.push(`a fast 80px flick should close the sheet, it rests at ${flick}`)
+
+/**
+ * ===========================================================================
+ *  THE FEEL, ON A PHONE'S CPU: THE REAL ACCOUNT SHEET, 4x SLOWER
+ * ===========================================================================
+ * "The user mobile bottom sheet is not smooth when it closes and when it
+ * opens: too direct, glitchy." Over a page the size of the dashboard, with
+ * the CPU throttled to a quarter (Chromium's own throttle), the real account
+ * sheet (components/app/mobile-account-menu.tsx) opened by a tap on its
+ * trigger and closed by a tap on the scrim, FEEL_CYCLES times. For each:
+ *
+ *   FIRST MOVE    ms from the finger landing to the first frame the sheet is
+ *                 on screen and moving (open), or has left rest (close)
+ *   BUSY          main thread time in the first 100ms after the tap
+ *                 (Performance.getMetrics TaskDuration, before and after)
+ *   FRAMES        frames per second while it moves, the longest gap between
+ *                 two frames, and how many gaps are over 20ms
+ *   DURATION      first move to rest (open) or to gone (close)
+ *   RENDERS       how many times the sidebar's parent and the dashboard drew
+ *                 on an open and a close (the answer should be none)
+ *   PREFETCH      whether the sheet's own links ask the router for their
+ *                 pages as they appear, in the frames the sheet is moving
+ */
+const FEEL_CYCLES = Number(process.env.FEEL_CYCLES ?? 6)
+const feel = await browser.newPage()
+await feel.emulate({ viewport: { width: 390, height: 844, deviceScaleFactor: 3, isMobile: true, hasTouch: true }, userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148" })
+await feel.goto("file://" + file + "?account")
+await wait(800)
+const fcdp = await feel.createCDPSession()
+await fcdp.send("Performance.enable")
+await fcdp.send("Emulation.setCPUThrottlingRate", { rate: 4 })
+await feel.evaluate(() => {
+  window.__frames = []
+  window.__taps = []
+  window.addEventListener("touchstart", (e) => window.__taps.push(e.timeStamp), { capture: true, passive: true })
+  const tick = (t) => {
+    const el = document.querySelector("[data-sheet-panel]")
+    window.__frames.push(el ? { t, y: new DOMMatrixReadOnly(getComputedStyle(el).transform).m42, h: el.offsetHeight } : { t, y: null, h: 0 })
+    requestAnimationFrame(tick)
+  }
+  requestAnimationFrame(tick)
+})
+await wait(400)
+const METRICS = ["TaskDuration", "ScriptDuration", "RecalcStyleDuration", "LayoutDuration"]
+const busy = async () => { const m = (await fcdp.send("Performance.getMetrics")).metrics; return Object.fromEntries(METRICS.map((k) => [k, m.find((x) => x.name === k).value * 1000])) }
+async function measure(kind, act) {
+  const r0 = await feel.evaluate(() => ({ ...window.__renders }))
+  const b0 = await busy()
+  const at0 = Date.now()
+  await act()
+  const left = 100 - (Date.now() - at0)
+  if (left > 0) await wait(left)
+  const b1 = await busy()
+  await wait(kind === "open" ? 1100 : 900)
+  const r1 = await feel.evaluate(() => ({ ...window.__renders }))
+  const { frames, tap } = await feel.evaluate(() => ({ frames: window.__frames.slice(-400), tap: window.__taps[window.__taps.length - 1] }))
+  const after = frames.filter((f) => f.t >= tap)
+  const movingAt = after.findIndex((f) => f.y !== null && (kind === "open" ? f.y < f.h - 0.5 : f.y > 0.5))
+  const endAt = kind === "open"
+    ? after.findIndex((f, k) => k > movingAt && f.y !== null && Math.abs(f.y) <= 0.05)
+    : after.findIndex((f, k) => k > movingAt && f.y === null)
+  const moving = movingAt < 0 || endAt < 0 ? [] : after.slice(movingAt, endAt + 1)
+  const gaps = moving.slice(1).map((f, k) => f.t - moving[k].t)
+  const span = moving.length > 1 ? moving[moving.length - 1].t - moving[0].t : 0
+  return {
+    firstMoveMs: movingAt < 0 ? null : Math.round(after[movingAt].t - tap),
+    busyFirst100Ms: Math.round(b1.TaskDuration - b0.TaskDuration),
+    first100: { script: Math.round(b1.ScriptDuration - b0.ScriptDuration), style: Math.round(b1.RecalcStyleDuration - b0.RecalcStyleDuration), layout: Math.round(b1.LayoutDuration - b0.LayoutDuration) },
+    fps: span ? Math.round(((moving.length - 1) / span) * 1000) : null,
+    maxGapMs: gaps.length ? Math.round(Math.max(...gaps) * 10) / 10 : null,
+    gapsOver20: gaps.filter((g) => g > 20.5).length,
+    durationMs: Math.round(span),
+    /* How much of the whole way the first two moving frames cover: a close
+       that covers a quarter of it at once reads as a jump, not a slide. */
+    firstTwoFramesPct: moving.length > 2 ? Math.round((kind === "open" ? (moving[1].h - moving[1].y) / moving[1].h : moving[1].y / moving[1].h) * 100) : null,
+    renders: { sidebar: r1.sidebar - r0.sidebar, dashboard: r1.dashboard - r0.dashboard },
+  }
+}
+const tapAt = async (sel) => {
+  const box = await feel.evaluate((sel) => { const r = document.querySelector(sel).getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 } }, sel)
+  await feel.touchscreen.tap(box.x, box.y)
+}
+const feelRuns = { open: [], close: [] }
+for (let i = 0; i < FEEL_CYCLES; i++) {
+  feelRuns.open.push(await measure("open", () => tapAt("#account-trigger")))
+  feelRuns.close.push(await measure("close", () => feel.touchscreen.tap(195, 120)))
+}
+const linkPrefetch = await feel.evaluate(() => (window.__linkPrefetch || []).length)
+await fcdp.send("Emulation.setCPUThrottlingRate", { rate: 1 })
+await feel.close()
+const summary = (runs) => {
+  const med = (k) => { const v = runs.map((r) => r[k]).filter((x) => x != null).sort((a, b) => a - b); return v.length ? v[Math.floor(v.length / 2)] : null }
+  const max = (k) => Math.max(...runs.map((r) => r[k] ?? 0))
+  return {
+    firstMoveMs: { median: med("firstMoveMs"), max: max("firstMoveMs") },
+    busyFirst100Ms: { median: med("busyFirst100Ms"), max: max("busyFirst100Ms") },
+    first100Median: Object.fromEntries(["script", "style", "layout"].map((k) => [k, runs.map((r) => r.first100[k]).sort((a, b) => a - b)[Math.floor(runs.length / 2)]])),
+    fps: { median: med("fps"), min: Math.min(...runs.map((r) => r.fps ?? 0)) },
+    maxGapMs: max("maxGapMs"),
+    gapsOver20: runs.reduce((n, r) => n + r.gapsOver20, 0),
+    durationMs: { median: med("durationMs") },
+    firstTwoFramesPct: { median: med("firstTwoFramesPct") },
+    renders: runs.reduce((n, r) => ({ sidebar: n.sidebar + r.renders.sidebar, dashboard: n.dashboard + r.renders.dashboard }), { sidebar: 0, dashboard: 0 }),
+  }
+}
+const feelReport = { cpu: "4x slower", cycles: FEEL_CYCLES, open: summary(feelRuns.open), close: summary(feelRuns.close), linksPrefetchingOnOpen: linkPrefetch }
+console.log(JSON.stringify({ feel: feelReport }))
+if (process.env.SHEET_DEBUG) console.log(JSON.stringify(feelRuns))
+for (const kind of ["open", "close"]) {
+  const s = feelReport[kind]
+  if (s.renders.sidebar || s.renders.dashboard) problems.push(`the ${kind} re-rendered the sidebar ${s.renders.sidebar} and the dashboard ${s.renders.dashboard} times`)
+  if (s.gapsOver20) problems.push(`the ${kind} had ${s.gapsOver20} frame gaps over 20ms at 4x (the longest ${s.maxGapMs}ms)`)
+  if (s.fps.median != null && s.fps.median < 55) problems.push(`the ${kind} ran at ${s.fps.median} frames a second at 4x`)
+}
+if (feelReport.open.durationMs.median < 400 || feelReport.open.durationMs.median > 480) problems.push(`an open took ${feelReport.open.durationMs.median}ms, not 420 to 460`)
+if (feelReport.close.durationMs.median < 300 || feelReport.close.durationMs.median > 380) problems.push(`a tap outside closed in ${feelReport.close.durationMs.median}ms, not 320 to 360`)
+if (feelReport.close.firstTwoFramesPct.median > 10) problems.push(`a tap outside moved the sheet ${feelReport.close.firstTwoFramesPct.median}% of the way in its first two frames: a jump, not a slide`)
+if (linkPrefetch) problems.push(`the account sheet's links asked for ${linkPrefetch} prefetches as they appeared`)
 
 await browser.close()
 

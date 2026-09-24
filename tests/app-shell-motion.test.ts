@@ -32,10 +32,15 @@ import {
   NAV_ENTER_MS,
   NAV_ENTER_RISE_PX,
   NAV_SKELETON_AFTER_MS,
+  NAV_PHONE_OUTLINE_AFTER_MS,
+  NAV_PHONE_OUTLINE_FADE_MS,
+  drawsOutline,
+  outlineDelay,
   recalledScroll,
   rememberScroll,
   takeTraversal,
 } from "@/lib/ui/app-navigation"
+import { SHEET_CLOSE_EASE, SHEET_CLOSE_MS, SHEET_EASE, SHEET_OPEN_MS } from "@/components/ui/bottom-sheet"
 
 const root = process.cwd()
 const read = (p: string) => readFileSync(join(root, p), "utf8")
@@ -80,6 +85,53 @@ section("A navigation, from start to landing")
   )
 }
 
+section("The outline of a page on its way")
+{
+  check("a phone's outline comes at 90ms on a 120ms fade; a computer's after a second",
+    NAV_PHONE_OUTLINE_AFTER_MS === 90 && NAV_PHONE_OUTLINE_FADE_MS === 120
+      && outlineDelay("/app/orders", true) === 90 && outlineDelay("/app/orders", false) === 1000
+      && outlineDelay("/app", true) === 90 && outlineDelay("/app/products?tab=all", true) === 90)
+  check("never for the product editor, new or saved, at any width",
+    ["/app/products/new", "/app/products/8f0c2b1e-3a4d-4c5e-9f60-718293a4b5c6", "/app/products/abc/", "/app/products/new?from=x"]
+      .every((h) => !drawsOutline(h) && outlineDelay(h, true) === null && outlineDelay(h, false) === null))
+  check("nor for a page drawn over the whole shell, nor outside /app, nor an unknown address",
+    !drawsOutline("/app/settings/billing/upgrade") && !drawsOutline("/explore") && !drawsOutline("/application") && !drawsOutline(null))
+  const route = code("components/app/route-skeletons.tsx")
+  check("and the outlines have no editor in them to draw", !/EditorSkeleton/.test(route) && /if \(path\.startsWith\("\/app\/products\/"\)\) return null/.test(route))
+  const stage = code("components/app/app-stage.tsx")
+  check("the stage asks for the delay by address, fades a phone's outline on opacity alone, and fades it out from where it got to",
+    /outlineDelay\(href, phone\)/.test(stage)
+      && /el\.animate\(\[\{ opacity: 0 \}, \{ opacity: 1 \}\], \{ duration: NAV_PHONE_OUTLINE_FADE_MS/.test(stage)
+      && /const from = Number\(getComputedStyle\(el\)\.opacity\)/.test(stage))
+  const bar = code("components/app/navigation-loading-bar.tsx")
+  check("a phone shows the outline in place of the bar, and keeps the bar where there is no outline",
+    /if \(isPhoneShell\(\) && outlineDelay\(nav\.href, true\) !== null\) return/.test(bar))
+}
+
+section("Pages drawn over the whole shell")
+{
+  const upgrade = code("app/app/settings/billing/upgrade/layout.tsx")
+  const newLayout = code("app/app/products/new/layout.tsx")
+  const idLayout = code("app/app/products/[id]/layout.tsx")
+  check("the plans page and both editor addresses use the one shared layer; the editor keeps the pill and its bar clears the status bar itself",
+    /<PageLayer inset="white">/.test(upgrade) && /<PageLayer pill inset="bar">/.test(newLayout) && /<PageLayer pill inset="bar">/.test(idLayout))
+  const layer = code("components/app/page-layer.tsx")
+  check("the layer is the whole window, between the header and the pill, and pads itself under the status bar",
+    /fixed inset-0 z-\[52\]/.test(layer) && /pt-\[env\(safe-area-inset-top,0px\)\]/.test(layer) && /classList\.add\("has-page-layer"\)/.test(layer))
+  const css = read("app/globals.css")
+  check("while a layer is up the shell's chrome is not painted, the scroller is no stacking context on iOS, and the black shield stands down, each by :has() and by class",
+    /html:has\(\[data-page-layer\]\) \[data-shell-chrome\] \{\s*visibility: hidden;/.test(css)
+      && /html\.has-page-layer \[data-shell-chrome\] \{\s*visibility: hidden;/.test(css)
+      && /html:has\(\[data-page-layer\]\) \.app-content-scroll \{\s*-webkit-overflow-scrolling: auto;/.test(css)
+      && /html\.capacitor:has\(\[data-page-layer\]\)::before \{\s*display: none;/.test(css)
+      && /html\.capacitor\.has-page-layer::before \{\s*display: none;/.test(css))
+  check("the pill steps aside only for a layer that does not keep it, and a layer that does gives the scroller room for it",
+    /html:has\(\[data-page-layer=""\]\) \[data-app-nav-pill\] \{\s*visibility: hidden;/.test(css)
+      && /\[data-page-layer="pill"\] \[data-page-layer-scroll\] > \.page-scroll \{\s*padding-bottom: calc\(104px \+ env\(safe-area-inset-bottom, 0px\)\);/.test(css))
+  const sidebar = read("components/app/sidebar.tsx")
+  check("both headers and the rail say they are the shell's chrome", (sidebar.match(/data-shell-chrome=""/g) || []).length >= 3)
+}
+
 section("The way back")
 {
   check("a back or forward is told apart from a new visit, once", (() => {
@@ -105,6 +157,18 @@ section("Sheets")
       && /useLayoutEffect\(\(\) => \{\s*const leave = leaveRef\s*return \(\) => leave\.current\(\)\s*\}, \[\]\)/.test(sheet)
       && /ghost\.setAttribute\("inert", ""\)/.test(sheet) && /a\.onfinish = done/.test(sheet))
   check("a closing sheet gives the tap back at once", /style=\{isOpen \? undefined : \{ pointerEvents: "none" \}\}/.test(sheet))
+  check("it opens over 440ms on the iOS curve and closes over 340ms on an ease in and out; a flick keeps the iOS curve",
+    SHEET_OPEN_MS === 440 && SHEET_CLOSE_MS === 340 && SHEET_EASE === "cubic-bezier(0.32, 0.72, 0, 1)" && SHEET_CLOSE_EASE === "cubic-bezier(0.4, 0, 0.2, 1)"
+      && /\}, v > 0 \? EASE : CLOSE_EASE\)/.test(sheet) && /\}, velocity > 0 \? EASE : CLOSE_EASE\)/.test(sheet))
+  check("focus moves after the slide, not on its first frames", /window\.setTimeout\(\(\) => \{\s*const panel = sheetRef\.current/.test(sheet))
+  check("what is inside a sheet is laid out and painted on its own, and the big blurred shadow is gone",
+    (sheet.match(/contain: "layout paint"/g) || []).length === 2 && !/0_-8px_40px/.test(sheet))
+  const menu = code("components/app/mobile-account-menu.tsx")
+  check("the account sheet decodes its photo ahead, and its links do not prefetch as they slide in",
+    /preloadAvatar\(avatarSrc, 40\)/.test(menu) && /prefetch=\{false\}/.test(menu) && /SHEET_OPEN_MS \+ 60/.test(menu))
+  const sheetCss = read("app/globals.css")
+  check("no sheet rule ends in a bare `*`, which restyled the whole document on every open and close",
+    !/html:has\([^{]*\) \[data-app-nav-pill\] \*/.test(sheetCss) && /\[data-app-nav-pill\] :is\(a, button, \.pointer-events-auto\)/.test(sheetCss))
   const css = read("app/globals.css")
   check("the pill is never hidden, faded or dropped under the page for a sheet",
     /html:has\(\[data-app-sheet\]\) \[data-app-nav-pill\],[\s\S]{0,200}z-index: 39;/.test(css)
@@ -144,7 +208,8 @@ section("Avatars")
   check("a photo already shown in this tab is drawn at once", /useState\(\(\) => !!url && shown\.has\(url\)\)/.test(avatar))
   check("it is asked for at its drawn size, never through a storage transform",
     /optimizedSrcSet\(url,/.test(avatar) && /toOriginalImageUrl\(src\)/.test(avatar) && !/render\/image/.test(avatar))
-  const sidebar = code("components/app/sidebar.tsx")
+  /* The phone's account trigger and sheet live in their own file now (components/app/mobile-account-menu.tsx). */
+  const sidebar = code("components/app/sidebar.tsx") + code("components/app/mobile-account-menu.tsx")
   check("the header, the account sheet and the sidebar all use it, and none draws initials under a photo",
     (sidebar.match(/<AppAvatar /g) ?? []).length === 4 && !/>\s*\{userInitials\}\s*</.test(sidebar))
   const settings = code("components/app/settings-form-new.tsx")

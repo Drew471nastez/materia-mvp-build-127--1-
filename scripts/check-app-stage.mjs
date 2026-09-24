@@ -114,6 +114,8 @@ for (const [label, viewport] of [
         dy: p && s ? Math.round((p.getBoundingClientRect().top - s.getBoundingClientRect().top) * 10) / 10 : null,
         inner: p ? p.scrollTop : null,
         skeleton: !!sk && Number(getComputedStyle(sk).opacity) > 0.01,
+        skeletonOpacity: sk ? Number(getComputedStyle(sk).opacity) : 0,
+        skeletonTransform: sk ? getComputedStyle(sk).transform + " " + getComputedStyle(sk).translate : null,
         bar: !!bar && Number(getComputedStyle(bar).opacity) > 0.01,
         fixedTop: fixed ? Math.round(fixed.getBoundingClientRect().top) : null,
       })
@@ -128,7 +130,7 @@ for (const [label, viewport] of [
   async function go(to, delay, settle = 520, shot = null) {
     await page.evaluate((d) => { window.__delay = d }, delay)
     const t0 = await now()
-    await page.click(`a[data-to="${to}"]`)
+    await page.evaluate((to) => document.querySelector(`a[data-to="${to}"]`).click(), to)
     if (shot && process.env.STAGE_SHOTS) { await wait(shot.at); await page.screenshot({ path: join(process.env.STAGE_SHOTS, `${label}-${shot.name}.png`) }); await wait(delay + settle - shot.at) } else await wait(delay + settle)
     return { t0, ...(await since(t0)) }
   }
@@ -154,9 +156,32 @@ for (const [label, viewport] of [
     }
   }
 
+  /**
+   * The outline through one navigation from `oldId` to `newId`: when it is
+   * first visible, how long its fade in takes, whether it stays up until the
+   * page commits, and whether any frame before the commit showed anything
+   * but the old page (under the outline or not): a blank frame.
+   */
+  function outlineOf(nav, oldId, newId) {
+    const commit = nav.rec.findIndex((r) => r.page === newId)
+    const before = nav.rec.slice(0, commit < 0 ? nav.rec.length : commit)
+    const first = before.findIndex((r) => r.skeleton)
+    const full = first < 0 ? -1 : before.findIndex((r, k) => k >= first && r.skeletonOpacity >= 0.99)
+    const moved = nav.rec.filter((r) => r.skeletonTransform && !/^none (none|0px 0px|0px)$/.test(r.skeletonTransform)).length
+    return {
+      frames: nav.rec.filter((r) => r.skeleton).length,
+      atMs: first < 0 ? null : Math.round(before[first].t - nav.t0),
+      fadeInMs: full < 0 || first < 0 ? null : Math.round(before[full].t - before[first].t),
+      continuous: first < 0 ? null : before.slice(first).every((r) => r.skeleton),
+      blankFrames: before.filter((r) => r.page !== oldId).length,
+      movedFrames: moved,
+    }
+  }
+
+  const phone = label === "390"
   const shiftBefore = await page.evaluate(() => window.__shift)
-  /* A: fast */
-  const fast = await go("/app/orders", 80)
+  /* A: fast. A phone's outline waits 90ms, so its fast case is 40. */
+  const fast = await go("/app/orders", phone ? 40 : 80)
   const fastLanding = landing(fast.rec, "orders")
   const fastSkeleton = fast.rec.filter((r) => r.skeleton).length
   const fastBar = fast.rec.filter((r) => r.bar).length
@@ -167,10 +192,12 @@ for (const [label, viewport] of [
   await page.evaluate(() => { document.querySelector("[data-page]").scrollTop = 900 })
   await wait(120)
 
-  /* B: medium */
-  const medium = await go("/app/analytics", 600)
+  /* B: medium. 400ms on a phone, which is the case asked about; 600 on a computer. */
+  const mediumMs = phone ? 400 : 600
+  const medium = await go("/app/analytics", mediumMs, 520, { at: phone ? 250 : 450, name: "medium" })
   const mediumBarAt = medium.rec.find((r) => r.bar)
-  const mediumSkeleton = medium.rec.filter((r) => r.skeleton).length
+  const mediumOutline = outlineOf(medium, "orders", "analytics")
+  const mediumLanding = landing(medium.rec, "analytics")
 
   /* C: slow */
   const slow = await go("/app", 1600, 520, { at: 1350, name: "slow-outline" })
@@ -178,6 +205,7 @@ for (const [label, viewport] of [
   const slowCommit = slow.rec.findIndex((r) => r.page === "home")
   const underOutline = slow.rec.slice(0, Math.max(0, slowCommit)).every((r) => r.page === "analytics")
   const slowLanding = landing(slow.rec, "home")
+  const slowOutline = outlineOf(slow, "analytics", "home")
 
   /* D: back twice, to orders, which was scrolled to 900 */
   await page.evaluate(() => { window.__delay = 40 })
@@ -201,16 +229,22 @@ for (const [label, viewport] of [
   const fixedLanding = landing(fixed.rec, "fixed")
   const fixedTops = [...new Set(fixed.rec.filter((r) => r.fixedTop != null).map((r) => r.fixedTop))]
 
+  /* F: the product editor, slow: no outline at any width, the old page stays. */
+  const editor = await go("/app/products/abc", phone ? 600 : 1600)
+  const editorOutline = outlineOf(editor, "fixed", "abc")
+  const editorBarAt = editor.rec.find((r) => r.bar)
+
   const shift = Math.round(((await page.evaluate(() => window.__shift)) - shiftBefore) * 1000) / 1000
-  const longs = [...fast.long, ...medium.long, ...slow.long, ...back.long, ...fixed.long]
+  const longs = [...fast.long, ...medium.long, ...slow.long, ...back.long, ...fixed.long, ...editor.long]
   await page.close()
 
   const r = {
-    fast: { skeletonFrames: fastSkeleton, barFrames: fastBar, framesNotOldBeforeCommit: blankBefore, landing: fastLanding },
-    medium: { barAtMs: mediumBarAt ? Math.round(mediumBarAt.t - medium.t0) : null, skeletonFrames: mediumSkeleton },
-    slow: { skeletonAtMs: slowSkeletonAt ? Math.round(slowSkeletonAt.t - slow.t0) : null, oldPageUnderOutline: underOutline, landing: slowLanding },
+    fast: { ms: phone ? 40 : 80, skeletonFrames: fastSkeleton, barFrames: fastBar, framesNotOldBeforeCommit: blankBefore, landing: fastLanding },
+    medium: { ms: mediumMs, barAtMs: mediumBarAt ? Math.round(mediumBarAt.t - medium.t0) : null, outline: mediumOutline, landing: mediumLanding },
+    slow: { skeletonAtMs: slowSkeletonAt ? Math.round(slowSkeletonAt.t - slow.t0) : null, oldPageUnderOutline: underOutline, outline: slowOutline, landing: slowLanding },
     back: { firstInnerScroll: backFirst?.inner ?? null, skeletonFrames: backSkeleton, landing: backLanding },
     fixedPage: { landing: fixedLanding, fixedBarTops: fixedTops },
+    editor: { ms: phone ? 600 : 1600, outline: editorOutline, barAtMs: editorBarAt ? Math.round(editorBarAt.t - editor.t0) : null },
     layoutShift: shift,
     longTasks: longs.length,
     errors,
@@ -221,24 +255,42 @@ for (const [label, viewport] of [
   if (fastSkeleton) problems.push(`${at} a fast navigation showed the outline for ${fastSkeleton} frames`)
   if (fastBar) problems.push(`${at} a fast navigation showed the bar for ${fastBar} frames`)
   if (blankBefore) problems.push(`${at} ${blankBefore} frames before the commit showed something other than the old page`)
-  for (const [name, l] of [["fast", fastLanding], ["slow", slowLanding], ["back", backLanding]]) {
+  for (const [name, l] of [["fast", fastLanding], ["medium", mediumLanding], ["slow", slowLanding], ["back", backLanding]]) {
     if (!l) { problems.push(`${at} the ${name} navigation never landed`); continue }
     if (l.firstOpacity > 0.35) problems.push(`${at} the ${name} landing started at opacity ${l.firstOpacity}: the page was painted before it faded`)
     if (l.rise < 3 || l.rise > 6) problems.push(`${at} the ${name} landing rose ${l.rise}px, not 4 to 6`)
     if (l.ms == null || l.ms < 120 || l.ms > 260) problems.push(`${at} the ${name} landing took ${l.ms}ms, not about 180`)
     if (l.back) problems.push(`${at} the ${name} landing went backwards ${l.back} times`)
   }
-  if (!mediumBarAt || mediumBarAt.t - medium.t0 < 290) problems.push(`${at} the bar on a 600ms navigation came at ${r.medium.barAtMs}ms, it should wait 300`)
-  if (mediumSkeleton) problems.push(`${at} a 600ms navigation showed the outline`)
-  if (!slowSkeletonAt || slowSkeletonAt.t - slow.t0 < 990) problems.push(`${at} a 1600ms navigation's outline came at ${r.slow.skeletonAtMs}ms, it should wait 1000`)
+  for (const [name, o, oldId] of [["medium", mediumOutline, "orders"], ["slow", slowOutline, "analytics"]]) {
+    if (o.blankFrames) problems.push(`${at} ${o.blankFrames} frames of the ${name} navigation showed something other than ${oldId} before the commit`)
+    if (o.frames && !o.continuous) problems.push(`${at} the ${name} navigation's outline went away before the page came`)
+    if (o.movedFrames) problems.push(`${at} the ${name} navigation's outline moved: it should fade on opacity alone`)
+  }
+  if (phone) {
+    /* The phone: the outline straight away, on a short fade, in place of the bar. */
+    for (const [name, o] of [["400ms", mediumOutline], ["1600ms", slowOutline]]) {
+      if (o.atMs == null || o.atMs < 85 || o.atMs > 135) problems.push(`${at} a ${name} navigation's outline came at ${o.atMs}ms, not 90 to 130`)
+      if (o.fadeInMs == null || o.fadeInMs < 80 || o.fadeInMs > 170) problems.push(`${at} a ${name} navigation's outline faded in over ${o.fadeInMs}ms, not about 120`)
+    }
+    if (mediumBarAt) problems.push(`${at} the bar showed as well as the outline on a phone`)
+  } else {
+    if (!mediumBarAt || mediumBarAt.t - medium.t0 < 290) problems.push(`${at} the bar on a 600ms navigation came at ${r.medium.barAtMs}ms, it should wait 300`)
+    if (mediumOutline.frames) problems.push(`${at} a 600ms navigation showed the outline`)
+    if (!slowSkeletonAt || slowSkeletonAt.t - slow.t0 < 990) problems.push(`${at} a 1600ms navigation's outline came at ${r.slow.skeletonAtMs}ms, it should wait 1000`)
+  }
   if (!underOutline) problems.push(`${at} the old page left before the new one committed`)
   if (!backFirst || Math.abs(backFirst.inner - 900) > 1) problems.push(`${at} back landed at scroll ${backFirst?.inner}, it was 900`)
   if (backSkeleton) problems.push(`${at} back showed the outline`)
   if (!fixedLanding || fixedLanding.rise !== 0) problems.push(`${at} a page with a fixed bar rose ${fixedLanding?.rise}px: the bar travelled with it`)
   if (fixedTops.length > 1) problems.push(`${at} the fixed bar moved during the landing: ${fixedTops.join(", ")}`)
+  if (editorOutline.frames) problems.push(`${at} opening the product editor drew an outline for ${editorOutline.frames} frames`)
+  if (editorOutline.blankFrames) problems.push(`${at} ${editorOutline.blankFrames} frames before the editor came showed something other than the old page`)
+  if (!editorBarAt || editorBarAt.t - editor.t0 < 290) problems.push(`${at} opening a slow editor should still show the bar after 300ms (at ${r.editor.barAtMs})`)
   if (shift > 0) problems.push(`${at} layout shift ${shift}`)
   if (longs.length) problems.push(`${at} ${longs.length} long tasks`)
 }
+
 
 await browser.close()
 server.close()
