@@ -310,7 +310,7 @@ export default function PrivacyPolicyPage() {
               <SubSection title="6.3 Platform Fees">
                 <p>
                   Storelib collects a platform transaction fee on each sale, which varies based on the Seller's
-                  subscription plan (Free, Growth, or Professional). These fees are collected automatically via
+                  subscription plan (Free or Pro). These fees are collected automatically via
                   Stripe Connect's application fee mechanism.
                 </p>
               </SubSection>
@@ -391,7 +391,8 @@ export default function PrivacyPolicyPage() {
               <SubSection title="8.4 Email Limits by Plan">
                 <p>
                   The number of emails a Seller can send per month depends on their subscription plan: Free plan:
-                  500 emails/month; Growth plan: 2,000 emails/month; Professional plan: 5,000 emails/month.
+                  500 emails/month; Pro plan: 2,000 emails/month. Sellers on a plan that is no longer offered keep
+                  that plan&apos;s limit while the subscription remains active.
                 </p>
               </SubSection>
             </Section>

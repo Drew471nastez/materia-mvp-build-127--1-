@@ -14,6 +14,7 @@
  * quoted back at it, because a second failure is usually the same failure and
  * a creator waiting on a third round trip has been waiting too long.
  */
+import { INTEGRATION_CONTRACT } from "@/lib/storelib-ai/integration"
 import {
   MAX_REPAIR_ATTEMPTS,
   describeThemeForAuthoring,
@@ -39,6 +40,8 @@ export function writeSectionSystem(existingNames: string[], existingTypes: strin
     "You write one Storelib section and nothing else.",
     "",
     writeSectionRules(),
+    "",
+    INTEGRATION_CONTRACT,
     "",
     "PADDING AND SPACING ARE SETTINGS (a range, in px), not fixed numbers in the CSS.",
     "",
@@ -221,7 +224,7 @@ export async function writeSection(opts: {
      * breaks the moment somebody adds it twice, or animates at somebody who
      * asked for no animation. See lib/storelib-ai/quality.ts.
      */
-    const checked = validateSection(text, { path, expectType: type })
+    const checked = validateSection(text, { path, expectType: type, strict: true })
     if (checked.ok === false) {
       if (last) {
         return checked.reason === "compile"

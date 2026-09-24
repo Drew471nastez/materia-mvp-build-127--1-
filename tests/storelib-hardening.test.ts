@@ -163,11 +163,11 @@ function main() {
 
     check(
       "what comes back is compiled AND checked before it is kept",
-      /validateSection\(text, \{ path, expectType: type \}\)/.test(writer),
+      /validateSection\(text, \{ path, expectType: type(, strict: true)? \}\)/.test(writer),
     )
     check(
       "it gets three attempts with the errors quoted back, not one",
-      /validateSection\(text, \{ path, expectType: type \}\)/.test(writer) && /attempt < MAX_REPAIR_ATTEMPTS/.test(writer),
+      /validateSection\(text, \{ path, expectType: type(, strict: true)? \}\)/.test(writer) && /attempt < MAX_REPAIR_ATTEMPTS/.test(writer),
     )
     check("a type that is already here is refused", /is already a section here/.test(writer))
     check("and so is a name that is already here", /Another section is already called/.test(writer))

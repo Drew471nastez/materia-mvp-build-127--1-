@@ -379,6 +379,22 @@
               "value": "twitter"
             },
             {
+              "label": "Facebook",
+              "value": "facebook"
+            },
+            {
+              "label": "Instagram",
+              "value": "instagram"
+            },
+            {
+              "label": "Yelp",
+              "value": "yelp"
+            },
+            {
+              "label": "Verified purchase",
+              "value": "site"
+            },
+            {
               "label": "None",
               "value": "none"
             }

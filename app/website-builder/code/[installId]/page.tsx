@@ -1303,6 +1303,20 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
   const isOwnFile = (path: string) => !flattenTree(buildThemeFileTree([])).includes(path)
 
   /**
+   * THE THEME'S OWN SOURCE STAYS IN STORELIB. A file the theme ships with can
+   * be read and changed here, but its text is not copied, cut or dragged out
+   * of the editor. Typing, deleting and replacing a selection still work, so
+   * editing is untouched; exporting the theme is the deliberate way to take
+   * a copy. A file the creator made is theirs, and copies like any text.
+   */
+  const protectedSource = !!selectedFile && !isOwnFile(selectedFile.path)
+  const refuseCopy = (e: React.ClipboardEvent | React.DragEvent) => {
+    if (!protectedSource) return
+    e.preventDefault()
+    toast("The theme's own code cannot be copied from the editor. Export the theme to keep a copy.", { id: "protected-source" })
+  }
+
+  /**
    * ⌘S / Ctrl+S.
    *
    * `preventDefault` first: without it the browser opens its own Save-page
@@ -2109,6 +2123,10 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
                   setCompleteOpen(true)
                 }}
                 onKeyDown={onEditorKeyDown}
+                onCopy={refuseCopy}
+                onCut={refuseCopy}
+                onDragStart={refuseCopy}
+                data-protected-source={protectedSource ? "" : undefined}
                 onKeyUp={e => syncCaret(e.currentTarget)}
                 onClick={e => { syncCaret(e.currentTarget); setCompleteOpen(false) }}
                 onBlur={() => setCompleteOpen(false)}
@@ -2165,7 +2183,7 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
               )}
 
               {/* Visual display with line numbers */}
-              <div ref={displayRef} className="absolute inset-0 overflow-hidden pointer-events-none">
+              <div ref={displayRef} className="absolute inset-0 overflow-hidden pointer-events-none select-none">
                 <div className="py-2 min-h-full">
                   {lines.map((line, i) => (
                     <CodeLine key={i} line={line} lineNumber={i + 1} hasError={errorLines.has(i + 1)} hasWarning={warningLines.has(i + 1)} />

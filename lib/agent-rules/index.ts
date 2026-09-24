@@ -102,6 +102,7 @@ export const AGENT_RULE_GROUPS: RuleGroup[] = [
       "Every word, picture, link and button a visitor sees is a setting or a block so the creator can edit it. Every href goes through | url.",
       "No literal id=\"...\": build ids from {{ section.id }}. A section works when it is on a page twice. Scripts query inside root only.",
       "Prefer HTML and CSS (details, popover, :checked, scroll-snap) to script. A script cannot fetch, read storage or reach window or document.",
+      "A section plugs into the theme like a native one or it is refused: data-scheme=\"{{ settings.color_scheme }}\" on the root with colours from the scheme, no fixed colours or fonts, headings from var(--section-heading-size), buttons painted from the scheme's button and hover keys, padding_top and padding_bottom settings, every word, link and picture a setting. (lib/storelib-ai/integration.ts)",
     ],
   },
   {

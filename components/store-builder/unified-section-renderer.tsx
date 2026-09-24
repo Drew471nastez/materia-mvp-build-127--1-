@@ -2913,8 +2913,13 @@ export function UnifiedShopHeader({
         enough to read as a mistake rather than as spacing. The top padding is
         still dropped entirely under a cover, so the avatar can straddle it.
       */}
+      {/*
+        Without a cover the avatar sat a little tight under the bar above it,
+        so it gets a touch more room: 36px on a phone, 40px and 56px wider up.
+        With a cover the inline style below still takes the top padding away.
+      */}
       <SectionContainer
-        className={cn(isMobile ? "pt-6 pb-5" : "pt-8 pb-6 sm:pt-12 sm:pb-8")}
+        className={cn(isMobile ? "pt-9 pb-5" : "pt-10 pb-6 sm:pt-14 sm:pb-8")}
         style={coverImageUrl ? { paddingTop: 0 } : undefined}
         isMobile={isMobile}
       >

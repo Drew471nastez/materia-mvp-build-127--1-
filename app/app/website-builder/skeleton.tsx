@@ -16,28 +16,22 @@ export default function WebsiteBuilderLoading() {
   return (
     <div className="h-full overflow-y-auto page-scroll bg-[#f8f9fa] skeleton-deferred" style={{ animationDelay: "500ms" }}>
       <div className="mx-auto max-w-[1200px] space-y-7 px-4 py-6 sm:px-6 lg:px-8">
-        {/* Title, and the site's address under it. */}
-        <div>
-          <div className="h-[28px] w-28 rounded-md bg-[#e9ebee] sm:h-[32px]" />
-          <div className="mt-2.5 h-4 w-52 rounded bg-[#eef0f3]" />
+        {/* The title and address, and the three header controls beside them. */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <div className="h-[28px] w-28 rounded-md bg-[#e9ebee] sm:h-[32px]" />
+            <div className="mt-2.5 h-4 w-52 rounded bg-[#eef0f3]" />
+          </div>
+          <div className="flex gap-2">
+            {[124, 92, 96].map((w, i) => (
+              <div key={i} className="h-11 rounded-lg border border-[#e5e7eb] bg-white sm:h-9" style={{ width: w }} />
+            ))}
+          </div>
         </div>
 
-        {/* The live website: the performance bar above it (the period, then
-            six cells of a title over a number), then the card with the
-            cover set into it, the facts and the buttons. */}
+        {/* The live website: the card with the cover set into it, the facts
+            and its two buttons. */}
         <div className="space-y-3">
-        <div className="flex divide-x divide-[#eceef1] overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-          {/* The settings bar's cells: a name, and the address under the first. */}
-          {[56, 88, 92, 56, 58, 84].map((w, i) => (
-            <div key={i} className="flex min-w-[132px] flex-[1_0_auto] items-center justify-between gap-3 px-4 py-3">
-              <div>
-                <div className="my-[4px] h-3 rounded bg-[#eef0f3]" style={{ width: w }} />
-                {i === 0 ? <div className="mt-1 h-2.5 w-28 rounded-full bg-[#f1f2f4]" /> : null}
-              </div>
-              <div className="h-3 w-2 rounded-sm bg-[#f1f2f4]" />
-            </div>
-          ))}
-        </div>
         <div className="overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
           <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
             <div className="p-4 pb-3 lg:pb-4 lg:pr-2">
@@ -54,13 +48,10 @@ export default function WebsiteBuilderLoading() {
                   </div>
                 ))}
               </div>
-              {/* One primary, then two beside each other: the real block. */}
-              <div className="mt-auto space-y-2 pt-5">
-                <div className="h-11 rounded-xl bg-[#e9ebee]" />
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="h-11 rounded-xl border border-[#e5e7eb] bg-white" />
-                  <div className="h-11 rounded-xl border border-[#e5e7eb] bg-white" />
-                </div>
+              {/* Edit website, and the square More beside it: the real row. */}
+              <div className="mt-auto flex gap-2 pt-5">
+                <div className="h-11 flex-1 rounded-xl bg-[#e9ebee]" />
+                <div className="h-11 w-11 rounded-xl border border-[#e5e7eb] bg-white" />
               </div>
             </div>
           </div>

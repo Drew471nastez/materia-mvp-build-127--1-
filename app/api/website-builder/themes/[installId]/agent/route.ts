@@ -21,6 +21,7 @@
  * section (lib/agent-access/protected.ts).
  */
 
+import { validateSection } from "@/lib/storelib-ai/validate"
 import { type NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 
@@ -321,6 +322,9 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
                     .join("\n")
                   return { ok: false, error: `${path} did not compile.\n${lines}` }
                 }
+                /* Held to what every agent's section is held to: it plugs into the theme like a native one. */
+                const checked = validateSection(source, { path, expectType: sectionType, strict: true })
+                if (checked.ok === false) return { ok: false, error: `${path} was not saved.\n${checked.feedback}` }
                 /*
                   SAVED AS A DRAFT, like the code editor's own save. This used
                   to write `content` and clear the draft, which put the

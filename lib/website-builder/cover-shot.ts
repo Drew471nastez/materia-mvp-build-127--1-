@@ -74,7 +74,11 @@ export async function takeCoverShots(url: string, timeoutMs = 25000): Promise<Co
         fetched for half a second: the photographs, the theme's fonts, the
         stylesheets. A picture taken at `load` catches images still arriving.
       */
-      await page.goto(url, { waitUntil: "networkidle0", timeout: timeoutMs })
+      const response = await page.goto(url, { waitUntil: "networkidle0", timeout: timeoutMs })
+      /* An error page photographed is an error page on the card. A pass that
+         expired, a render that threw: refuse, and the last cover stays. */
+      const status = response?.status() ?? 0
+      if (status >= 400) throw new Error(`the render page answered ${status}`)
       await page.evaluate(async () => {
         await document.fonts?.ready
         /* A lazy picture below the fold is never fetched unless something

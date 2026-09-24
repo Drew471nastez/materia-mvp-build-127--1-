@@ -4,10 +4,12 @@ import type React from "react"
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Check, Loader2 } from "lucide-react"
+import { ArrowLeft } from "lucide-react"
 import { hasInAppHistory } from "@/lib/ui/app-navigation"
 import { isNativeApp } from "@/lib/native-bridge"
 import { STORELIB_LOGO } from "@/lib/brand/logo"
+import { PlanCards, type PlanCardAction } from "@/components/billing/plan-cards"
+import { PLAN_FOOTNOTE, formatPlanPrice, offeredPlan, planHighlights, type OfferedPlanId } from "@/lib/billing/plans"
 
 const STORELIB_LOGO_URL = STORELIB_LOGO
 
@@ -145,19 +147,42 @@ export function UpgradePageClient({
     }
   }
 
-  const descriptions: Record<string, string> = {
-    free: "Start selling with no monthly cost.",
-    growth: "A smaller fee on every sale, and your own domain.",
-    pro: "The smallest fee, and support that answers first.",
-  }
-
-  const featureLists: Record<string, string[]> = {
-    free: ["6% + $0.25 per transaction", "Unlimited digital products", "Basic OnePage features", "500 emails / month"],
-    growth: ["3% + $0.25 per transaction", "Unlimited digital products", "Premium OnePage features", "Custom domain", "Verified badge", "2,000 emails / month"],
-    pro: ["1.5% + $0.25 per transaction", "Unlimited digital products", "Premium OnePage features", "Custom domain", "Verified badge", "5,000 emails / month", "Priority support"],
-  }
-
+  /**
+   * Two plans are offered: Free and Pro (internal id "growth"). The $99 "pro"
+   * plan is not for sale, but somebody already on it still lands here, so it
+   * is found in the full list to decide which way a change goes.
+   */
   const currentPlan = plans.find((p: any) => p.id === currentPlanId)
+  const currentPriceCents = currentPlan?.price_cents ?? (currentPlanId === "free" ? 0 : null)
+  const isLegacyPro = currentPlanId === "pro"
+
+  const actionFor = (id: OfferedPlanId): PlanCardAction => {
+    const offered = offeredPlan(id)
+    const priceCents = plans.find((p: any) => p.id === id)?.price_cents ?? offered.priceCents
+    const isCurrentPlan = id === currentPlanId
+    const isPendingPlan = id === pendingPlanId
+    const isFree = id === "free"
+    const isDowngrade = currentPriceCents !== null && priceCents < currentPriceCents
+    const isUpgrade = currentPriceCents !== null && priceCents > currentPriceCents
+
+    let label: string
+    if (isCurrentPlan) label = "Current plan"
+    else if (isPendingPlan) label = isFree ? "Downgrade scheduled" : "Switch scheduled"
+    else if (cancelAtPeriodEnd && isFree) label = "Cancellation scheduled"
+    else if (isLegacyPro && !isFree) label = `Switch to ${offered.name} at ${offered.price}`
+    else if (isDowngrade) label = `Downgrade to ${offered.name}`
+    else if (hasActiveSubscription) label = `Upgrade to ${offered.name}`
+    else label = `Get ${offered.name}`
+
+    const settled = isCurrentPlan || (cancelAtPeriodEnd && isFree) || (isPendingPlan && !isUpgrade)
+    return {
+      label,
+      onClick: () => handleUpgrade(id),
+      settled,
+      disabled: loading !== null,
+      loading: loading === id,
+    }
+  }
 
   return (
     <div data-upgrade-page="" className="min-h-full">
@@ -191,7 +216,7 @@ export function UpgradePageClient({
       <div className="mx-auto max-w-[1080px] px-4 pb-16 pt-8 sm:px-6 sm:pt-12 lg:px-8">
         <div className="mb-8 sm:mb-10 sm:text-center">
           <h1 className="text-[24px] font-bold text-[#1a1a2e] sm:text-[28px]">Choose a plan</h1>
-          <p className="mt-1.5 text-[14px] text-[#6b7280]">Every plan sells without limits. A higher plan takes a smaller fee from each sale.</p>
+          <p className="mt-1.5 text-[14px] text-[#6b7280]">Pro is $29 a month. Change or cancel it from Billing at any time.</p>
         </div>
 
         {error && (
@@ -200,86 +225,18 @@ export function UpgradePageClient({
           </div>
         )}
 
-        {/*
-          One column on a phone, three from md, and never wider than three
-          cards need: at 1920 the row is the same 1080px as at 1440, centred,
-          rather than three cards stretched to read like a table.
-        */}
-        <div data-plan-grid="" className="grid grid-cols-1 gap-4 md:grid-cols-3 md:items-stretch">
-          {plans.map((plan: any) => {
-            const isCurrentPlan = plan.id === currentPlanId
-            const isPendingPlan = plan.id === pendingPlanId
-            const isFree = plan.id === "free"
-            const isGrowth = plan.id === "growth"
-            const isDowngrade = currentPlan ? plan.price_cents < currentPlan.price_cents : false
-            const isUpgrade = currentPlan ? plan.price_cents > currentPlan.price_cents : false
-            const monthlyPrice = plan.price_cents / 100
-            const settled = isCurrentPlan || (cancelAtPeriodEnd && isFree) || isPendingPlan
-            const isDisabled = isCurrentPlan || (cancelAtPeriodEnd && isFree) || (isPendingPlan && !isUpgrade) || loading !== null
+        {isLegacyPro && currentPlan && (
+          <p className="max-w-[820px] mx-auto mb-5 rounded-xl border border-[#e5e7eb] bg-white px-4 py-3 text-[14px] leading-[1.5] text-[#374151]">
+            You are on an earlier Pro plan at {formatPlanPrice(currentPlan.price_cents)} a month, with a fee of {planHighlights("pro")[0]}. It stays as it is unless you change it.
+          </p>
+        )}
 
-            let buttonLabel: string
-            if (loading === plan.id) buttonLabel = "Processing"
-            else if (isCurrentPlan) buttonLabel = "Current plan"
-            else if (isPendingPlan) buttonLabel = "Downgrade scheduled"
-            else if (cancelAtPeriodEnd && isFree) buttonLabel = "Cancel scheduled"
-            else if (cancelAtPeriodEnd) buttonLabel = "Upgrade again"
-            else if (isDowngrade) buttonLabel = `Downgrade to ${plan.name}`
-            else if (hasActiveSubscription) buttonLabel = `Upgrade to ${plan.name}`
-            else buttonLabel = `Get ${plan.name}`
+        <PlanCards
+          actions={{ free: actionFor("free"), growth: actionFor("growth") }}
+          className="max-w-[820px] mx-auto"
+        />
 
-            return (
-              <div
-                key={plan.id}
-                data-plan={plan.id}
-                className={`relative flex flex-col rounded-2xl bg-white p-6 lg:p-7 ${
-                  isGrowth
-                    ? "border border-[#8b5cf6] shadow-[0_0_0_1px_#8b5cf6,0_8px_24px_-12px_rgba(139,92,246,0.35)]"
-                    : "border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
-                }`}
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-[16px] font-semibold text-[#1a1a2e]">{plan.name}</p>
-                  {isCurrentPlan && <span className="text-[12px] font-medium text-[#6b7280]">Your plan</span>}
-                </div>
-
-                <div className="mt-3 flex items-baseline gap-1">
-                  <span className="text-[36px] font-bold leading-none tracking-tight text-[#1a1a2e]">
-                    {isFree ? "$0" : `$${monthlyPrice % 1 === 0 ? monthlyPrice.toFixed(0) : monthlyPrice.toFixed(2)}`}
-                  </span>
-                  <span className="text-[14px] text-[#6b7280]">{isFree ? "forever" : "/ month"}</span>
-                </div>
-                <p className="mt-2 text-[14px] md:min-h-[40px] leading-snug text-[#6b7280]">{descriptions[plan.id] || ""}</p>
-
-                <button
-                  type="button"
-                  onClick={() => handleUpgrade(plan.id)}
-                  disabled={isDisabled}
-                  className={`mt-5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl text-[14px] font-semibold transition-colors disabled:cursor-not-allowed ${
-                    settled
-                      ? "bg-[#f3f4f6] text-[#9ca3af]"
-                      : isGrowth
-                        ? "bg-[#8b5cf6] text-white hover:bg-[#7c3aed]"
-                        : "border border-[#e5e7eb] bg-white text-[#1a1a2e] hover:border-[#d1d5db] hover:bg-[#f9fafb]"
-                  }`}
-                >
-                  {loading === plan.id && <Loader2 className="h-4 w-4 animate-spin" />}
-                  {buttonLabel}
-                </button>
-
-                <ul className="mt-6 flex flex-1 flex-col gap-2.5 border-t border-[#f0f1f3] pt-5">
-                  {(featureLists[plan.id] || []).map((feature: string) => (
-                    <li key={feature} className="flex items-start gap-2.5 text-[14px] text-[#4b5563]">
-                      <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#8b5cf6]" strokeWidth={2.5} />
-                      {feature}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )
-          })}
-        </div>
-
-        <p className="mt-8 text-[13px] text-[#9ca3af] sm:text-center">You can change or cancel your plan at any time.</p>
+        <p className="mt-6 text-center text-[13px] leading-[1.5] text-[#6b7280]">{PLAN_FOOTNOTE}</p>
       </div>
     </div>
   )

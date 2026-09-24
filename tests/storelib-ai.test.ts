@@ -68,7 +68,7 @@ const read = (p: string) => readFileSync(join(root, p), "utf8")
 
 /** A section that is correct, as the baseline every bad one is a variant of. */
 const GOOD = `<template>
-  <div class="wrap" data-wrap>
+  <div class="wrap" data-wrap data-scheme="{{ settings.scheme }}" style="--pt: {{ settings.padding_top }}px; --pb: {{ settings.padding_bottom }}px;">
     <h2>{{ settings.heading }}</h2>
     {% for block in blocks %}
       <details data-block-id="{{ block.id }}">
@@ -81,6 +81,8 @@ const GOOD = `<template>
 <style>
   .wrap { container-type: inline-size; background: {{ scheme.bg }}; color: {{ scheme.text }}; }
   .a { transition: opacity 200ms ease; }
+  .inner-pad { padding: var(--pt) 20px var(--pb); }
+  h2 { font-size: var(--section-heading-size, 32px); }
   @container (min-width: 640px) { .wrap { padding: 40px; } }
   @media (prefers-reduced-motion: reduce) { .a { transition: none; } }
 </style>
@@ -90,7 +92,9 @@ const GOOD = `<template>
   "type": "questions",
   "settings": [
     { "id": "scheme", "type": "color_scheme", "label": "Colour scheme", "default": "white" },
-    { "id": "heading", "type": "text", "label": "Heading", "default": "Questions" }
+    { "id": "heading", "type": "text", "label": "Heading", "default": "Questions" },
+    { "id": "padding_top", "type": "range", "label": "Top padding", "default": 60, "min": 0, "max": 160, "step": 4, "unit": "px" },
+    { "id": "padding_bottom", "type": "range", "label": "Bottom padding", "default": 60, "min": 0, "max": 160, "step": 4, "unit": "px" }
   ],
   "blocks": [
     { "type": "item", "name": "Question", "settings": [

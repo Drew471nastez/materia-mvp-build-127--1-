@@ -348,7 +348,7 @@ export async function createPage(db: Db, who: AgentIdentity, args: { title?: unk
 /** The quality gate the write tools share: compile, then the checks. A file that fails is not saved. */
 function gate(path: string, source: string): OpResult<null> {
   const type = /^sections\/([a-z0-9_-]+)\.storelib$/.exec(path)?.[1]
-  const v = validateSection(source, { path, expectType: type })
+  const v = validateSection(source, { path, expectType: type, strict: true })
   if (v.ok === true) return { ok: true, value: null }
   return { ok: false, status: 422, error: `${path} was not saved.\n${v.feedback}` }
 }

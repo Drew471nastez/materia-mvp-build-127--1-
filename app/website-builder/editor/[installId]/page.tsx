@@ -7852,7 +7852,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               {renderSidebarTabs(() => setMobileSidebarOpen(true))}
             </div>
 
-            <div data-wb-sidebar-scroll className="flex-1 min-h-0 overflow-y-auto wb-slim-scroll overflow-x-hidden bg-background">
+            {/* data-sheet-scroll as well as the sidebar's own marker. It is
+                what the stylesheet hangs the room after the content on
+                (--wb-sheet-hidden), and without it the bottom of this list
+                sat below the screen at the half stop with no way to scroll
+                it into view. scripts/check-sheet-reach.mjs measures it. */}
+            <div data-wb-sidebar-scroll data-sheet-scroll className="flex-1 min-h-0 overflow-y-auto wb-slim-scroll overflow-x-hidden bg-background">
               <LinkTargetsProvider targets={linkTargets}>
                   <div
                     key={sidebarPanelKey}

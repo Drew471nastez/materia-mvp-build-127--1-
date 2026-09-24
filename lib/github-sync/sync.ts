@@ -15,6 +15,7 @@
  * skipped, so GitHub redelivering a webhook changes nothing. No in-memory
  * dedupe, which a serverless function could not keep anyway.
  */
+import { validateSection } from "@/lib/storelib-ai/validate"
 import "server-only"
 import { saveThemeFile } from "@/lib/website-builder/save-theme-file"
 import { publicError, sectionSources } from "@/lib/agent-access/operations"
@@ -146,6 +147,13 @@ async function takeFiles(
     const allowed = agentMayWrite(path)
     if (allowed.ok === false) {
       out.failed.push({ path, error: allowed.error })
+      continue
+    }
+    /* A push is an agent's write like any other: it has to plug into the theme like a native section. */
+    const checked = validateSection(source, { path, expectType: path.replace(/^sections\//, "").replace(/\.storelib$/, ""), strict: true })
+    if (checked.ok === false && checked.reason === "quality") {
+      const firstProblem = checked.findings.find((f) => f.severity === "error")
+      out.failed.push({ path, error: `${path}: ${firstProblem?.message ?? "does not meet the Storelib section rules"}` })
       continue
     }
     const saved = await saveThemeFile(db, link.install_id, path, source)

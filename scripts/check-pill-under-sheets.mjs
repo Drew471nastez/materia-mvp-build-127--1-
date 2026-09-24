@@ -76,7 +76,8 @@ for (const kind of ["bottom", "radix", "alert", "page"]) {
   console.log(`\n${kind} sheet open`)
   await p.evaluate((k) => { document.getElementById("sheets").innerHTML = window.sheets[k] }, kind)
   const open = await state()
-  expect(open.z === closed.z && open.y === closed.y, "the pill keeps its layer and its place", `${closed.z} → ${open.z}, ${closed.y} → ${open.y}`)
+  /* It steps under the overlay (app/globals.css, "the pill stays visible under a sheet") and keeps its place: nothing jumps, nothing vanishes. */
+  expect(open.y === closed.y && Number(open.z) > 0, "the pill keeps its place, under the sheet", `${closed.z} → ${open.z}, ${closed.y} → ${open.y}`)
   expect(open.top === "sheet", "and the sheet is over it, never the page", open.top)
   await p.evaluate(() => { document.getElementById("sheets").innerHTML = "" })
   const after = await state()

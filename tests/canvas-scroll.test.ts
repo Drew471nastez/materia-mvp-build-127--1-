@@ -289,7 +289,10 @@ function main() {
 
     check(
       "React gates them on each other too, so a render cannot produce it either",
-      sheet.includes('pointerEvents: open && renderOpacity > 0.01 ? "auto" : "none"'),
+      /* `renderOpen` is `open`, or where a release that is still settling is
+         heading before the page has been told. The gate is the same. */
+      sheet.includes('pointerEvents: renderOpen && renderOpacity > 0.01 ? "auto" : "none"') &&
+        sheet.includes("const renderOpen = settle.current.active ? settle.current.nowOpen : open"),
     )
     /**
      * And the gesture has to be able to END. A touch event is delivered to the
