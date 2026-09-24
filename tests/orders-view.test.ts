@@ -430,7 +430,7 @@ async function main() {
     check("the list stays mounted under an open order", /inert=\{listCovered\}/.test(client) && !/listCovered \?\s*null/.test(client))
     check("opening an order does not ask the server", !/router\.push\(/.test(client))
     const list = read("app/app/orders/orders-list.tsx")
-    check("the checkbox and Order columns are frozen", (list.match(/orders-sticky left-0/g) ?? []).length >= 2 && (list.match(/orders-sticky orders-edge left-10/g) ?? []).length >= 2)
+    check("the checkbox and Order columns are frozen, and the Order column is the edge that casts the shadow", (list.match(/orders-sticky left-0/g) ?? []).length >= 2 && (list.match(/data-scroll-edge="" className=[^>]*orders-sticky left-10/g) ?? []).length >= 2)
     const parts = read("app/app/orders/order-parts.tsx")
     check("the metric lines are Storelib violet, the comparison grey and dashed",
       /stroke="#8b5cf6"/.test(parts) && !/#2a78d6/i.test(parts) && /stroke="#b6bcc6"[\s\S]{0,80}strokeDasharray="3 3"/.test(parts))

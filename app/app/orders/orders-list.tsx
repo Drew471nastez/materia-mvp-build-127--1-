@@ -32,6 +32,7 @@ import {
 import { METRICS, type MetricReading } from "@/lib/orders/metrics"
 import { fromLabel, sourceText } from "@/lib/orders/order-source"
 import { HelpLabel } from "@/components/app/help-label"
+import { ScrollEdge } from "@/components/app/scroll-edge"
 import {
   Checkbox,
   DeliveryBadge,
@@ -200,27 +201,6 @@ function OrdersTable(props: OrdersListProps) {
   const selectedOnPage = pageIds.filter((id) => selected.has(id)).length
   const allOnPage = pageIds.length > 0 && selectedOnPage === pageIds.length
 
-  /* The shadow on the Order column's edge says there is more to the left.
-     Written straight to the element: a scroll handler that sets state would
-     re-render fifty rows on every frame of a swipe. */
-  const scrollerRef = React.useRef<HTMLDivElement>(null)
-  React.useEffect(() => {
-    const el = scrollerRef.current
-    if (!el) return
-    const mark = () => {
-      el.dataset.scrolled = el.scrollLeft > 1 ? "true" : "false"
-      el.dataset.overflow = el.scrollWidth > el.clientWidth + 1 ? "true" : "false"
-    }
-    mark()
-    el.addEventListener("scroll", mark, { passive: true })
-    const ro = new ResizeObserver(mark)
-    ro.observe(el)
-    return () => {
-      el.removeEventListener("scroll", mark)
-      ro.disconnect()
-    }
-  }, [pageOrders.length === 0])
-
   return (
     <section aria-label="Orders" className={cn(card, "mt-4 overflow-hidden")}>
       {/* Toolbar: one row, the same height whether searching or not. */}
@@ -290,7 +270,9 @@ function OrdersTable(props: OrdersListProps) {
           onAllTime={() => props.onPeriod({ preset: "all_time", ...presetRange("all_time", props.today, props.firstDay) })}
         />
       ) : (
-        <div ref={scrollerRef} className="orders-scroller overflow-x-auto overscroll-x-contain" data-scrolled="false">
+        /* The Order column's edge casts a shadow once rows have gone under it
+           (components/app/scroll-edge.tsx). */
+        <ScrollEdge className="orders-scroller">
           <table className="w-full min-w-max border-separate border-spacing-0 text-[13px]">
             <thead>
               <tr className="h-9 text-left text-[12px] font-medium text-[#4b5563]">
@@ -305,7 +287,7 @@ function OrdersTable(props: OrdersListProps) {
                   </label>
                 </th>
                 {selected.size > 0 ? (
-                  <th scope="col" colSpan={columns.length + 1} className="orders-sticky orders-edge left-10 bg-[#f7f7f8] px-2 font-normal">
+                  <th scope="col" colSpan={columns.length + 1} className="orders-sticky left-10 bg-[#f7f7f8] px-2 font-normal">
                     <div className="flex items-center gap-3">
                       <span className="font-medium text-[#1a1a2e]">{selected.size} selected</span>
                       <button type="button" className={cn(buttonSecondary, "h-7 px-2.5 text-[12px]")} onClick={() => props.onExport()}>
@@ -322,7 +304,7 @@ function OrdersTable(props: OrdersListProps) {
                   </th>
                 ) : (
                   <>
-                    <th scope="col" className="orders-sticky orders-edge left-10 bg-[#f7f7f8] pl-2 pr-4">
+                    <th scope="col" data-scroll-edge="" className="orders-sticky left-10 bg-[#f7f7f8] pl-2 pr-4">
                       Order
                     </th>
                     {columns.map((c) => (
@@ -360,7 +342,7 @@ function OrdersTable(props: OrdersListProps) {
                         />
                       </label>
                     </td>
-                    <td className={cn("orders-sticky orders-edge left-10 border-t border-[#f0f1f3] pl-2 pr-4", rowBg)}>
+                    <td data-scroll-edge="" className={cn("orders-sticky left-10 border-t border-[#f0f1f3] pl-2 pr-4", rowBg)}>
                       <a
                         href={`?order=${encodeURIComponent(order.id)}`}
                         onClick={(e) => {
@@ -390,7 +372,7 @@ function OrdersTable(props: OrdersListProps) {
               })}
             </tbody>
           </table>
-        </div>
+        </ScrollEdge>
       )}
 
       {allOrders.length > 0 ? (

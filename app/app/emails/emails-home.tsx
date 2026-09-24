@@ -29,6 +29,7 @@ import { ContactDetail } from "./contact-detail"
 import type { RangeValue } from "@/lib/date-range/range"
 import { cn } from "@/lib/utils"
 import { WaitingArea } from "@/components/ui/activity-spinner"
+import { ScrollEdge } from "@/components/app/scroll-edge"
 import { GUTTER, LIST_WIDTH, MenuOption, MenuSurface, PaneBar, RowMenuButton, StatusBadge, buttonAccent, buttonSecondary, card, iconButton } from "../orders/order-parts"
 
 export type EmailsTab = "subscribers" | "flows" | "published" | "scheduled" | "drafts"
@@ -304,8 +305,14 @@ function readingsFor(p: EmailsHomeProps): Reading[] {
 
 const th = "h-9 whitespace-nowrap px-3 text-left text-[12px] font-medium text-[#4b5563]"
 const td = "h-12 whitespace-nowrap px-3 text-[13px] text-[#1a1a2e]"
-/** The first column holds still while the rest scrolls under it, on a phone. */
+/**
+ * The first column holds still while the rest scrolls under it, on a phone,
+ * on the row's own opaque colour (hover included) so nothing shows through
+ * it. Its cells carry `data-scroll-edge`: the table's frame draws the shadow
+ * at their right side once the rows have moved (components/app/scroll-edge).
+ */
 const sticky = "sticky left-0 z-[1] bg-white group-hover:bg-[#fafbfb]"
+const stickyHead = "sticky left-0 z-[1] bg-[#fafbfb]"
 
 function Empty({ title, body, action }: { title: string; body: string; action?: React.ReactNode }) {
   return (
@@ -498,11 +505,11 @@ function SubscribersTable(props: EmailsHomeProps) {
           <Empty title="No subscribers yet" body="People who sign up on your website, your Storelib profile or your OnePage show up here, and so do buyers who ask to hear from you." />
         )
       ) : (
-        <div className="overflow-x-auto">
+        <ScrollEdge>
           <table className="w-full min-w-[720px] border-collapse">
             <thead className="border-b border-[#eef0f2] bg-[#fafbfb]">
               <tr>
-                <th className={cn(th, "sticky left-0 z-[1] bg-[#fafbfb]")}>Email</th>
+                <th data-scroll-edge="" className={cn(th, stickyHead)}>Email</th>
                 <th className={th}>Name</th>
                 <th className={th}>Source</th>
                 <th className={th}>Status</th>
@@ -515,7 +522,7 @@ function SubscribersTable(props: EmailsHomeProps) {
                 const v = views.get(s.id)
                 return (
                   <tr key={s.id} className="group cursor-pointer hover:bg-[#fafbfb]" onClick={() => setOpen(s)}>
-                    <td className={cn(td, sticky, "font-medium")}><span className="block max-w-[180px] truncate sm:max-w-[260px]">{s.email}</span></td>
+                    <td data-scroll-edge="" className={cn(td, sticky, "font-medium")}><span className="block max-w-[180px] truncate sm:max-w-[260px]">{s.email}</span></td>
                     <td className={cn(td, "text-[#4b5563]")}><span className="block max-w-[180px] truncate">{s.name || "–"}</span></td>
                     <td className={td} title={v ? [v.label, v.detail].filter(Boolean).join(" · ") : undefined}>
                       {/* The website's address is the part that matters: it keeps its
@@ -546,7 +553,7 @@ function SubscribersTable(props: EmailsHomeProps) {
               })}
             </tbody>
           </table>
-        </div>
+        </ScrollEdge>
       )}
       <Pager page={page} pages={pages} total={rows.length} onPage={setPage} />
       <ContactDetail contact={open} onClose={() => setOpen(null)} />
@@ -572,11 +579,11 @@ function FlowsTable(props: EmailsHomeProps) {
           }
         />
       ) : (
-        <div className="overflow-x-auto">
+        <ScrollEdge>
           <table className="w-full min-w-[720px] border-collapse">
             <thead className="border-b border-[#eef0f2] bg-[#fafbfb]">
               <tr>
-                <th className={cn(th, "sticky left-0 z-[1] bg-[#fafbfb]")}>Automation</th>
+                <th data-scroll-edge="" className={cn(th, stickyHead)}>Automation</th>
                 <th className={th}>Starts when</th>
                 <th className={th}>Steps</th>
                 <th className={cn(th, "text-right")}>In progress</th>
@@ -593,7 +600,7 @@ function FlowsTable(props: EmailsHomeProps) {
                 const t = f.totals
                 return (
                   <tr key={f.id} className="group cursor-pointer hover:bg-[#fafbfb]" onClick={() => props.onEditFlow(f)}>
-                    <td className={cn(td, sticky, "font-medium")}>
+                    <td data-scroll-edge="" className={cn(td, sticky, "font-medium")}>
                       <span className="flex max-w-[180px] items-center gap-2 sm:max-w-[260px]">
                         <span className="truncate">{f.name}</span>
                         {t && t.failed > 0 ? <StatusBadge tone="critical">{t.failed} failed</StatusBadge> : null}
@@ -624,7 +631,7 @@ function FlowsTable(props: EmailsHomeProps) {
               })}
             </tbody>
           </table>
-        </div>
+        </ScrollEdge>
       )}
     </>
   )
@@ -660,11 +667,11 @@ function CampaignsTable(props: EmailsHomeProps) {
           }
         />
       ) : (
-        <div className="overflow-x-auto">
+        <ScrollEdge>
           <table className="w-full min-w-[640px] border-collapse">
             <thead className="border-b border-[#eef0f2] bg-[#fafbfb]">
               <tr>
-                <th className={cn(th, "sticky left-0 z-[1] bg-[#fafbfb]")}>Subject</th>
+                <th data-scroll-edge="" className={cn(th, stickyHead)}>Subject</th>
                 <th className={th}>{sent ? "Sent" : tab === "scheduled" ? "Goes out" : "Started"}</th>
                 <th className={cn(th, "text-right")}>Recipients</th>
                 {sent ? <th className={cn(th, "text-right")}>Opened</th> : null}
@@ -688,7 +695,7 @@ function CampaignsTable(props: EmailsHomeProps) {
                     ]
                 return (
                   <tr key={c.id} className="group cursor-pointer hover:bg-[#fafbfb]" onClick={() => props.onOpenCampaign(c)}>
-                    <td className={cn(td, sticky)}>
+                    <td data-scroll-edge="" className={cn(td, sticky)}>
                       {/* The limit is on the span: a table cell's own max-width is ignored.
                           Narrow on a phone, so the columns scrolling under it still show. */}
                       <span className="flex min-w-0 max-w-[180px] items-center gap-2 sm:max-w-[320px]">
@@ -710,7 +717,7 @@ function CampaignsTable(props: EmailsHomeProps) {
               })}
             </tbody>
           </table>
-        </div>
+        </ScrollEdge>
       )}
       <Pager page={page} pages={pages} total={props.campaigns.length} onPage={setPage} />
     </>

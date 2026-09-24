@@ -396,15 +396,17 @@ console.log("\nphone, 390 wide, touch")
     const s = document.querySelector(".orders-scroller")
     const row = s.querySelector("tbody tr:nth-child(4)")
     const pane = document.querySelector(".orders-pane")
+    /* The shared frame around the scroller (components/app/scroll-edge.tsx). */
+    const frame = s.closest("[data-scroll-edge-frame]")
     return {
       scrollLeft: s.scrollLeft,
-      overflow: s.dataset.overflow,
-      scrolled: s.dataset.scrolled,
+      overflow: frame.dataset.end,
+      scrolled: frame.dataset.start,
       box: row.children[0].getBoundingClientRect().left,
       order: row.children[1].getBoundingClientRect().left,
       date: row.children[2].getBoundingClientRect().left,
       paneTop: pane.scrollTop,
-      edge: getComputedStyle(row.children[1]).boxShadow,
+      edge: Number(getComputedStyle(frame, "::before").opacity),
     }
   })
   await p.evaluate(() => document.querySelector(".orders-scroller tbody tr:nth-child(4)").scrollIntoView({ block: "center" }))
@@ -431,7 +433,7 @@ console.log("\nphone, 390 wide, touch")
   expect(Math.abs(g1.paneTop - g0.paneTop) < 2, "and not the page up or down", `${g0.paneTop} -> ${g1.paneTop}`)
   expect(Math.abs(g1.box - g0.box) < 0.5 && Math.abs(g1.order - g0.order) < 0.5, "the checkbox and Order columns stay where they were", { before: [g0.box, g0.order], after: [g1.box, g1.order] })
   expect(g0.date - g1.date > 150, "while the rest moves under them", `${g0.date} -> ${g1.date}`)
-  expect(g1.scrolled === "true" && /rgba/.test(g1.edge), "and a shadow marks the edge", g1.edge)
+  expect(g1.scrolled === "true" && g1.edge === 1, "and a shadow marks the edge", g1.edge)
   expect(!(await p.$(".orders-detail")), "a swipe is a swipe, not a tap on the row")
   await p.screenshot({ path: join(shots, "phone-list-swiped.png") })
 

@@ -33,6 +33,7 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
+import { ScrollEdge } from "@/components/app/scroll-edge"
 import {
   CONDITIONS,
   MAX_STEPS,
@@ -988,11 +989,11 @@ function Activity({ data, on, steps }: { data: BuilderData; on: boolean; steps: 
           {on ? "Nobody has gone through it yet. The first person shows up here with where they joined." : "Nobody has gone through it yet."}
         </p>
       ) : (
-        <div className="overflow-x-auto">
+        <ScrollEdge>
           <table className="w-full min-w-[640px] border-collapse">
             <thead className="border-b border-[#eef0f2] bg-[#fafbfb]">
               <tr>
-                <th className="sticky left-0 z-[1] h-9 bg-[#fafbfb] px-3 text-left text-[12px] font-medium text-[#4b5563]">Contact</th>
+                <th data-scroll-edge="" className="sticky left-0 z-[1] h-9 bg-[#fafbfb] px-3 text-left text-[12px] font-medium text-[#4b5563]">Contact</th>
                 <th className="h-9 px-3 text-left text-[12px] font-medium text-[#4b5563]">From</th>
                 <th className="h-9 px-3 text-left text-[12px] font-medium text-[#4b5563]">Started</th>
                 <th className="h-9 px-3 text-left text-[12px] font-medium text-[#4b5563]">Where they are</th>
@@ -1003,7 +1004,7 @@ function Activity({ data, on, steps }: { data: BuilderData; on: boolean; steps: 
                 const st = RUN_STATUS[r.status] ?? RUN_STATUS.cancelled
                 return (
                   <tr key={r.id} className="group hover:bg-[#fafbfb]">
-                    <td className="sticky left-0 z-[1] h-12 bg-white px-3 text-[13px] font-medium text-[#1a1a2e] group-hover:bg-[#fafbfb]">
+                    <td data-scroll-edge="" className="sticky left-0 z-[1] h-12 bg-white px-3 text-[13px] font-medium text-[#1a1a2e] group-hover:bg-[#fafbfb]">
                       <span className="block max-w-[170px] truncate sm:max-w-[240px]">{r.email}</span>
                     </td>
                     <td className="h-12 px-3 text-[13px] text-[#4b5563]">
@@ -1023,7 +1024,7 @@ function Activity({ data, on, steps }: { data: BuilderData; on: boolean; steps: 
               })}
             </tbody>
           </table>
-        </div>
+        </ScrollEdge>
       )}
     </section>
   )
