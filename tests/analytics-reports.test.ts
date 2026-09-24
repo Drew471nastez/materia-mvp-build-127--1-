@@ -350,7 +350,8 @@ console.log("\nThe look: Storelib's violet, a grey comparison, real logos")
   const chart = read("components/app/analytics-chart.tsx")
   check("no report is drawn in the old blue", !/#2a78d6/i.test(reports) && !/#2a78d6/i.test(chart))
   check("the series is Storelib's violet and the comparison a grey dashed line",
-    /export const SERIES = "#8b5cf6"/.test(reports) && /compared: "#b8bcc6"/.test(chart) && /strokeDasharray="5 4"/.test(chart))
+    /export const SERIES = "#8b5cf6"/.test(reports) && /compared: "#b8bcc6"/.test(chart) && /comparedColor=\{CHART_COLORS\.compared\}/.test(chart)
+      && /strokeDasharray="5 4"/.test(read("components/app/morph-lines.tsx")))
   const icons = read("components/analytics/source-icon.tsx")
   const marks = read("components/analytics/brand-marks.ts")
   check("brand marks are inlined, not a runtime icon library", !/react-icons/.test(icons) && /export const BRAND_MARKS/.test(marks))
@@ -358,7 +359,22 @@ console.log("\nThe look: Storelib's violet, a grey comparison, real logos")
   check("Google in four colours, TikTok in its offset, Instagram in its gradient",
     /#FBBC05[\s\S]*#EA4335[\s\S]*#34A853[\s\S]*#4285F4/.test(icons) && /#25F4EE/.test(icons) && /radialGradient/.test(icons))
   const page = read("app/app/analytics/analytics-client.tsx")
-  check("the product picker on a phone is the shared sheet, above the navigation pill", /<BottomSheet isOpen=\{isProductsSheetOpen\}/.test(page) && !/function AnalyticsProductsSheet/.test(page))
+  /*
+    "The All products selector in analytics should be the same UI as the
+    timeframe selector, and on mobile a smooth, clean bottom sheet." It is
+    components/app/product-picker: the date picker's button and rows, and the
+    shared sheet on a phone.
+  */
+  const productPicker = read("components/app/product-picker.tsx")
+  check("the product picker on a phone is the shared sheet, above the navigation pill",
+    /<ProductPicker products=\{products\}/.test(page) && /<BottomSheet isOpen=\{open\} onClose=\{\(\) => setOpen\(false\)\} title="Product">/.test(productPicker)
+      && !/function AnalyticsProductsSheet|isProductsSheetOpen|products-dropdown/.test(page))
+  check("and it is the date picker's button, rows and popover, with nothing in front of the label",
+    /import \{ PickerDivider, PickerRow, onRowsKey, pickerButton, pickerSurface, usePhone \} from "@\/components\/app\/date-range-picker"/.test(productPicker)
+      && /className=\{cn\(pickerButton,/.test(productPicker) && /<PopoverContent/.test(productPicker) && /className=\{cn\(pickerSurface,/.test(productPicker)
+      && !/ShoppingBag|<img\b|thumbnail/.test(productPicker))
+  check("a search field only for a creator with more than eight products",
+    /export const SEARCH_FROM = 9/.test(productPicker) && /const searchable = products\.length >= SEARCH_FROM/.test(productPicker))
   check("no order is spread across days it did not happen on", !/Distribute orders across existing dates/.test(page) && !/new Date\(a\.date \+ ", 2024"\)/.test(page))
 }
 

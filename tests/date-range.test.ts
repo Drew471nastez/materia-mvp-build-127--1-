@@ -36,6 +36,7 @@ import {
   valueLabel,
   PRESET_LABEL,
   PRESET_MENU,
+  RETIRED_PRESETS,
 } from "@/lib/date-range/range"
 import { readPeriod, writePeriod } from "@/lib/date-range/params"
 import { rangeWindow, readOrdersPeriod, serializePeriod } from "@/lib/orders/range"
@@ -65,28 +66,46 @@ function main() {
   console.log("\nPresets are whole days, and the last day counts")
   check("today and yesterday", eq(presetRange("today", today), { start: today, end: today }) && eq(presetRange("yesterday", today), { start: "2026-09-22", end: "2026-09-22" }))
   check("last 7 days is seven days, today included", lengthOf(presetRange("last_7_days", today)) === 7 && presetRange("last_7_days", today).end === today)
-  check("last 30, 90 and 365 days", lengthOf(presetRange("last_30_days", today)) === 30 && lengthOf(presetRange("last_90_days", today)) === 90 && lengthOf(presetRange("last_365_days", today)) === 365)
-  check("last week is the whole Sunday to Saturday before this one", eq(presetRange("last_week", today), { start: "2026-09-13", end: "2026-09-19" }))
-  check("last month is all of August", eq(presetRange("last_month", today), { start: "2026-08-01", end: "2026-08-31" }))
-  check("last quarter is April to June", eq(presetRange("last_quarter", today), { start: "2026-04-01", end: "2026-06-30" }))
-  check("last quarter from January is last year's fourth", eq(presetRange("last_quarter", "2026-01-10"), { start: "2025-10-01", end: "2025-12-31" }))
-  check("last year is 2025", eq(presetRange("last_year", today), { start: "2025-01-01", end: "2025-12-31" }))
-  check("week, month, quarter and year to date", presetRange("week_to_date", today).start === "2026-09-20" && presetRange("month_to_date", today).start === "2026-09-01"
-    && presetRange("quarter_to_date", today).start === "2026-07-01" && presetRange("year_to_date", today).start === "2026-01-01")
-  check("Black Friday to Cyber Monday: last year's, before this year's has begun", eq(presetRange("bfcm", today), { start: "2025-11-28", end: "2025-12-01" }))
-  check("and this year's once it has", eq(presetRange("bfcm", "2026-12-15"), { start: "2026-11-27", end: "2026-11-30" }))
-  check("a quarter still to come is last year's", eq(presetRange("q4", today), { start: "2025-10-01", end: "2025-12-31" }))
-  check("the quarter under way stops at today", eq(presetRange("q3", today), { start: "2026-07-01", end: today }))
+  check("last 30 and 90 days", lengthOf(presetRange("last_30_days", today)) === 30 && lengthOf(presetRange("last_90_days", today)) === 90)
+  check("last 12 months starts on the first of the month a year back", eq(presetRange("last_12_months", today), { start: "2025-10-01", end: today }))
+  check("month to date starts on the first", eq(presetRange("month_to_date", today), { start: "2026-09-01", end: today }))
+  check("all time starts at the first day there is", eq(presetRange("all_time", today, "2024-03-01"), { start: "2024-03-01", end: today }))
   const all = (Object.keys(PRESET_LABEL) as (keyof typeof PRESET_LABEL)[]).map((id) => presetRange(id, today))
   check("no preset reaches past today", all.every((r) => r.end <= today && r.start <= r.end))
   check("every preset is in the picker's menu", (Object.keys(PRESET_LABEL) as string[]).every((id) =>
-    PRESET_MENU.flat().some((g) => (g.kind === "item" && g.id === id) || (g.kind === "group" && (g.children as string[]).includes(id)))))
+    PRESET_MENU.flat().some((g) => g.kind === "item" && g.id === id)))
+  /*
+    THE LIST, on the owner's word: "get rid of the Quarters, Black Friday
+    Cyber Monday, More periods things, Year to date". Every page draws this
+    one menu, so this is every timeframe popover and sheet in /app.
+  */
+  check("the picker offers these periods and no others, in this order",
+    PRESET_MENU.flat().map((g) => (g.kind === "item" ? g.id : g.kind)).join() ===
+      "today,yesterday,last_7_days,last_30_days,last_90_days,last_12_months,month_to_date,all_time,custom")
+  check("no row opens a list of its own", PRESET_MENU.flat().every((g) => g.kind === "item" || g.kind === "custom"))
+  check("the removed periods are not presets any more",
+    ["year_to_date", "q1", "q4", "bfcm", "bfcm_last_year", "last_week", "last_month", "last_quarter", "last_year", "week_to_date", "quarter_to_date", "last_365_days"]
+      .every((id) => !(id in PRESET_LABEL) && RETIRED_PRESETS.includes(id)))
 
   console.log("\nA saved or linked period is read against today")
   check("a preset moves with the calendar", eq(resolveValue({ preset: "last_7_days", start: "2020-01-01", end: "2020-01-07" }, today), { preset: "last_7_days", ...presetRange("last_7_days", today) }))
   check("a custom range stays, ends put in order", eq(resolveValue({ preset: "custom", start: "2025-12-31", end: "2025-01-01" }, today), { preset: "custom", start: "2025-01-01", end: "2025-12-31" }))
   check("a custom range cannot end in the future", resolveValue({ preset: "custom", start: "2026-09-01", end: "2027-01-01" }, today).end === today)
   check("rubbish falls back to the page's default", resolveValue({ preset: "nonsense" as never }, today, "today").preset === "today")
+  check("and so does a name every object has", resolveValue({ preset: "toString" as never }, today, "today").preset === "today")
+  /*
+    A LINK, A COOKIE OR A SAVED CHOICE THAT NAMES A REMOVED PERIOD opens on the
+    last 30 days, whatever the page's own default is, and never throws.
+  */
+  check("a removed period in a saved choice opens on the last 30 days",
+    ["year_to_date", "q2", "bfcm", "last_month", "last_365_days"].every((id) => {
+      const v = resolveValue({ preset: id as never, start: "2026-01-01", end: "2026-03-31" }, today, "last_7_days")
+      return v.preset === "last_30_days" && eq({ start: v.start, end: v.end }, presetRange("last_30_days", today))
+    }))
+  check("a removed period in an address opens on the last 30 days, the page's default aside",
+    readPeriod(new URLSearchParams("range=year_to_date"), today, "last_7_days").period.preset === "last_30_days"
+      && readPeriod(new URLSearchParams("range=q3&compare=previous_year"), today, "today").period.preset === "last_30_days"
+      && readPeriod(new URLSearchParams("range=bfcm_last_year"), today, "last_7_days").period.preset === "last_30_days")
   const params = new URLSearchParams("range=custom&from=2025-01-01&to=2025-12-31&compare=previous_year")
   const readBack = readPeriod(params, today, "last_30_days")
   check("the address holds the period and the comparison", readBack.period.start === "2025-01-01" && readBack.period.end === "2025-12-31" && readBack.compare.mode === "previous_year")
@@ -126,7 +145,7 @@ function main() {
     && parseTyped("2025-01-01") === "2025-01-01" && parseTyped("1/31/2025") === "2025-01-31" && parseTyped("2025/1/5") === "2025-01-05")
   check("and a date that is not one is not", parseTyped("February 30, 2025") === null && parseTyped("soon") === null && parseTyped("") === null)
   check("a chart's buckets suit the length", grainOf({ start: today, end: today }) === "hour" && grainOf(presetRange("last_30_days", today)) === "day"
-    && grainOf(presetRange("last_365_days", today)) === "week" && grainOf({ start: "2020-01-01", end: today }) === "month")
+    && grainOf(presetRange("last_12_months", today)) === "week" && grainOf({ start: "2020-01-01", end: today }) === "month")
 
   console.log("\nOrders: any range, any comparison")
   const now = Date.parse("2026-09-23T15:00:00Z")
@@ -152,8 +171,12 @@ function main() {
   check("older links and cookies still open what they meant",
     readOrdersPeriod(q("range=30d"), null, today).period.preset === "last_30_days"
       && readOrdersPeriod(q("period=7d"), null, today).period.preset === "last_7_days"
-      && readOrdersPeriod(q(""), "ytd", today).period.preset === "year_to_date"
       && readOrdersPeriod(q(""), encodeURIComponent("custom:2025-02-10:2025-02-01"), today).period.start === "2025-02-01")
+  check("and a cookie or link for a removed period opens on the last 30 days",
+    readOrdersPeriod(q(""), "ytd", today).period.preset === "last_30_days"
+      && readOrdersPeriod(q(""), "range=year_to_date&compare=previous_year", today).period.preset === "last_30_days"
+      && readOrdersPeriod(q(""), "range=year_to_date&compare=previous_year", today).compare.mode === "previous_year"
+      && readOrdersPeriod(q("range=last_quarter"), "range=today", today).period.preset === "last_30_days")
   check("the last 30 days when nothing says otherwise, and junk is nothing",
     readOrdersPeriod(q(""), null, today).period.preset === "last_30_days" && readOrdersPeriod(q("range=forever"), "%E0%A4%A", today).period.preset === "last_30_days")
   check("the default is stored as nothing", serializePeriod({ preset: "last_30_days", ...presetRange("last_30_days", today) }, { mode: "previous_period" }) === "")
@@ -202,7 +225,9 @@ function main() {
       && /const PREVIOUS_PERIOD: CompareValue = \{ mode: "previous_period" \}/.test(read("app/app/orders/orders-client.tsx")))
   check("analytics hides percentages with No comparison, and names what they compare with",
     /against === null\) return null/.test(read("app/app/analytics/analytics-client.tsx")) && /compared with \$\{against\}/.test(read("app/app/analytics/analytics-client.tsx")))
-  check("and draws the comparison as a dashed line under the chart's own", /strokeDasharray="5 4"/.test(read("components/app/analytics-chart.tsx")))
+  /* The line and its comparison are drawn by components/app/morph-lines, which the chart hands the period before. */
+  check("and draws the comparison as a dashed line under the chart's own",
+    /strokeDasharray="5 4"/.test(read("components/app/morph-lines.tsx")) && /compared=\{comparedLine\}/.test(read("components/app/analytics-chart.tsx")))
   const picker = read("components/app/date-range-picker.tsx")
   check("the picker is a popover on a computer, a sheet on a phone, and in place inside a dialog",
     /<PopoverContent/.test(picker) && /<BottomSheet/.test(picker) && /if \(inline\)/.test(picker))
@@ -224,8 +249,11 @@ function main() {
     JSON.stringify(PRESET_MENU[PRESET_MENU.length - 1]) === JSON.stringify([{ kind: "custom" }])
       && /onOpen\("custom"\)/.test(picker) && /if \(key === "custom"\) \{\s*return \(\s*<RangePanel/.test(picker)
       && />\s*Back\s*</.test(picker) && />\s*Apply\s*</.test(picker))
-  check("the rarer periods sit behind a row of their own",
-    PRESET_MENU.flat().filter((g) => g.kind === "group").map((g) => (g as { label: string }).label).join() === "Quarters,Black Friday Cyber Monday,More periods")
+  check("the picker draws no list inside the list: no group rows, no GroupList",
+    !/GroupList|group:|groupDetail|Quarters|Black Friday|More periods|Year to date/.test(picker.replace(/\/\*[\s\S]*?\*\//g, ""))
+      && !/"year_to_date"|"bfcm"|"q1"/.test(read("lib/date-range/range.ts").replace(/export const RETIRED_PRESETS[^=]*=\s*\[[\s\S]*?\]/, "")))
+  check("the address hook keeps the period only: nothing on any page sets a comparison",
+    !/setCompare|compare,/.test(read("components/app/use-period-params.ts")) && !/setCompare/.test(read("app/app/analytics/analytics-client.tsx")))
   check("a step moves by transform on the iOS curve, and the frame follows the arriving step's measured size",
     /@keyframes drp-in-next \{\s*from \{ opacity: 0; transform: translate3d/.test(css)
       && /\.drp-frame \{\s*transition:\s*width 240ms cubic-bezier\(0\.32, 0\.72, 0, 1\),\s*height 240ms cubic-bezier\(0\.32, 0\.72, 0, 1\);/.test(css)

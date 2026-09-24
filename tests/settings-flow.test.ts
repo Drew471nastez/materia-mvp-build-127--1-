@@ -265,14 +265,21 @@ check(
 )
 check(
   "and the measured width is what the axis, the margin and the finger all read",
+  /*
+    The finger's half is components/app/chart-scrub now, the layer both
+    charts draw: it is handed the same plotLeft the axis is given, and turns
+    a pointer into a point with it.
+  */
   ["components/app/analytics-chart.tsx", "components/app/dashboard-client.tsx"].every((f) => {
     const src = code(f)
     return (
       /width=\{plotLeft\}/.test(src) &&
-      /rect\.left \+ plotLeft/.test(src) &&
+      /left=\{plotLeft\}/.test(src) &&
       !/rect\.left \+ 40/.test(src)
     )
-  }),
+  }) &&
+    /const x = Math\.max\(l, Math\.min\(width - rr, r\.clientX - box\.left\)\)/.test(code("components/app/chart-scrub.tsx")) &&
+    /Math\.round\(\(\(x - l\) \/ plot\) \* \(n - 1\)\)/.test(code("components/app/chart-scrub.tsx")),
 )
 check(
   "the grid lines stay, so the shape still has something to read against",
@@ -386,25 +393,31 @@ section("The chart tooltip stays in its card")
     "components/app/analytics-chart.tsx",
   ]
 
+  /*
+    Both charts' readout is components/app/chart-scrub's, so the clamp and
+    the width are held there, once, and each chart is held to drawing it.
+  */
+  const layer = code("components/app/chart-scrub.tsx")
+  check(
+    "chart-scrub.tsx: the position is a clamp whose bounds are the card, not a guess",
+    /translateX\(clamp\(8px, calc\(\$\{x\.toFixed\(1\)\}px - 50%\), calc\(\$\{width\.toFixed\(1\)\}px - 100% - 8px\)\)\)/.test(layer),
+  )
+  check(
+    "chart-scrub.tsx: it can never be wider than the card either",
+    /maxWidth: "calc\(100% - 16px\)"/.test(layer),
+  )
   for (const path of charts) {
     const src = code(path)
     const name = path.split("/").pop()
 
-    check(
-      `${name}: the position is a clamp whose bounds are the card, not a guess`,
-      /translateX\(clamp\(8px, calc\(\$\{x\.toFixed\(1\)\}px - 50%\), calc\(\$\{track\}px - 100% - 8px\)\)\)/.test(src),
-    )
+    check(`${name}: its readout is the shared one`, /<ChartScrub\b/.test(src))
     check(
       `${name}: nothing reads the tooltip's own width any more`,
-      !/tooltipRef\.current\?\.offsetWidth/.test(src),
+      !/tooltipRef\.current\?\.offsetWidth/.test(src) && !/offsetWidth/.test(layer),
     )
     check(
       `${name}: and there is no fixed edge zone deciding when centring is safe`,
-      !/EDGE_ZONE/.test(src),
-    )
-    check(
-      `${name}: it can never be wider than the card either`,
-      /maxWidth: "calc\(100% - 16px\)"/.test(src),
+      !/EDGE_ZONE/.test(src) && !/EDGE_ZONE/.test(layer),
     )
     check(
       `${name}: the chart's margin comes from the same constants, not from literals`,
@@ -439,12 +452,17 @@ check(
      *
      * Then the flag was raised by an effect on the data, which runs after the
      * new line has been painted: one frame of the new line cut in, then the
-     * morph. It is raised during the render now, and a tab does not fetch at
-     * all: the chart's events are read once per period.
+     * morph. There is no flag now: the line is components/app/morph-lines,
+     * handed the numbers alone, and it starts a move in a layout effect, before
+     * paint, only when those numbers differ from what it has. A tab does not
+     * fetch at all: the chart's events are read once per period.
      */
     const src = code("components/app/dashboard-client.tsx")
-    return /if \(seenSeriesRef\.current !== displayChartData\) \{\s*seenSeriesRef\.current = displayChartData\s*if \(!shouldAnimate\) setShouldAnimate\(true\)/.test(src)
-      && !/useEffect\(\(\) => \{\s*setShouldAnimate\(true\)/.test(src)
+    const lines = code("components/app/morph-lines.tsx")
+    return /const lines = useMemo\(\(\) => \[displayChartData\.map\(\(d\) => d\.value \?\? 0\)\], \[displayChartData\]\)/.test(src)
+      && /<MorphLines\s+lines=\{lines\}/.test(src)
+      && !/setShouldAnimate/.test(src)
+      && /React\.useLayoutEffect\(\(\) => \{\s*const s = st\.current\s*if \(s\.sig === sig\) return/.test(lines)
       && /\}, \[periodKey, creatorId\]\)/.test(src) && !/\}, \[openKPIModal, periodKey, creatorId\]\)/.test(src)
   })(),
 )
@@ -454,14 +472,20 @@ check(
 section("The scrub, on a phone")
 // ---------------------------------------------------------------------------
 
-for (const f of ["components/app/dashboard-client.tsx"]) {
-  const src = code(f)
-  const name = f.split("/").pop()
+/*
+  THE SCRUB IS ONE LAYER NOW, components/app/chart-scrub, drawn by the home
+  page's chart, the Analytics chart and the report cards. These rules were
+  held on the home page's chart, which had them first; they are held on the
+  layer every chart draws, so no chart can lose one.
+*/
+{
+  const src = code("components/app/chart-scrub.tsx")
+  const name = "chart-scrub.tsx"
 
   check(
-    `${name}: the tooltip is placed over its own point, in the plot area`,
-    /const plotWidth = track - plotLeft - PLOT_RIGHT/.test(src) &&
-      /plotLeft \+ \(activeIndex \/ \([a-zA-Z]+\.length - 1\)\) \* plotWidth/.test(src),
+    `${name}: the marks are placed over their own point, in the plot area`,
+    /const plot = Math\.max\(0, width - l - r\)/.test(src) &&
+      /n <= 1 \? l \+ plot \/ 2 : l \+ \(i \/ \(n - 1\)\) \* plot/.test(src),
   )
   check(
     `${name}: not as a percentage of the whole card, which ignored the axis`,
@@ -469,20 +493,20 @@ for (const f of ["components/app/dashboard-client.tsx"]) {
   )
   check(
     `${name}: one haptic per point crossed, fired on the change and not the frame`,
-    /idx !== lastHapticIndexRef\.current/.test(src) && /hapticTap\("light"\)/.test(src),
+    /if \(i !== r\.index\) \{\s*if \(r\.input === "touch"\) hapticTap\(r\.index < 0 \? "medium" : "light"\)/.test(src),
   )
   check(
     `${name}: and it is forgotten when the finger lifts, so the next scrub ticks again`,
-    /lastHapticIndexRef\.current = null/.test(src),
+    /r\.index = -1/.test(src),
   )
   check(
     `${name}: a hold produces the tooltip in about a tenth of a second`,
-    /\}, 100\)/.test(src) && !/\}, 250\)/.test(src),
+    /const HOLD_MS = 100/.test(src) && /\}, HOLD_MS\)/.test(src),
   )
   check(
     /**
      * THE LOST HOLD. `dx + dy > 5` counts tremor as movement, and a bare
-     * `else` makes a one pixel vertical bias into a scroll — so a resting
+     * `else` makes a one pixel vertical bias into a scroll, so a resting
      * thumb locked the gesture vertical within about fifty milliseconds and
      * the hold was gone for good. Slop is per axis, and vertical has to win
      * clearly, because getting that wrong steals a hold while getting it
@@ -496,19 +520,19 @@ for (const f of ["components/app/dashboard-client.tsx"]) {
   )
   check(
     `${name}: and the hold reads the finger's current position, not where it landed`,
-    /getIndexFromTouch\(lastTouchXRef\.current\)/.test(src),
+    /lastX = t\.clientX/.test(src) && /move\(lastX, "touch"\)/.test(src),
   )
   check(
     `${name}: the box follows the finger every frame, written straight to the node`,
-    /box\.style\.transform = shiftFor\(x, rect\.width\)/.test(src),
+    /tip\.style\.transform = `translateX\(clamp\(/.test(src) && /if \(!r\.frame\) r\.frame = requestAnimationFrame\(paint\)/.test(src),
   )
   check(
-    `${name}: with no transition in front of it, which would only be lag`,
-    /transition: "none"/.test(src) && !/transform 90ms/.test(src),
+    `${name}: with no transition on its position, which would only be lag; only its opacity fades`,
+    /const t = `opacity \$\{ms\}ms \$\{SCRUB_FADE_EASE\}`/.test(src) && !/tip\.style\.transition = .*transform/.test(src) && !/transform 90ms/.test(src),
   )
   check(
     `${name}: and no React state carries the position, so there is no render per frame`,
-    !/setTooltipLeft|setTooltipX/.test(src),
+    !/useState|setTooltipLeft|setTooltipX/.test(src),
   )
 }
 
@@ -532,88 +556,74 @@ check(
   (() => {
     /**
      * A patch script applied six changes to one chart and four to the other,
-     * and the build passed either way — a half-updated gesture is still valid
-     * TypeScript. This compares the two files on the parts that have to
-     * match, so the next partial application fails here rather than on a
-     * phone.
+     * and the build passed either way: a half-updated gesture is still valid
+     * TypeScript. There is one copy now, components/app/chart-scrub, so a
+     * partial application is not possible; what is held is that both charts
+     * draw it and that it has every part.
      */
-    const a = code("components/app/dashboard-client.tsx")
+    const layer = code("components/app/chart-scrub.tsx")
     const parts = [
       /const SLOP_X = 8/,
       /const SLOP_Y = 12/,
       /\} else if \(dy > dx \* 1\.4\) \{/,
-      /function shiftFor\(x: number, track: number\): string/,
-      /box\.style\.transform = shiftFor\(x, rect\.width\)/,
-      /transition: "none"/,
-      /lastTouchXRef/,
-      /idx !== lastHapticIndexRef\.current/,
-      /function plotLeftFor\(labels: string\[\]\): number/,
-      /<AxisLabels labels=\{axisLabels\}/,
-      /\}, 100\)/,
-    ]
-    /*
-      The analytics chart reads the shared gesture now
-      (components/app/use-chart-scrub), so its half of the pair is that hook
-      plus the chart: the same slop, the same bias, the same hold.
-    */
-    const b = code("components/app/analytics-chart.tsx") + code("components/app/use-chart-scrub.ts")
-    const shared = [
-      /const SLOP_X = 8/,
-      /const SLOP_Y = 12/,
-      /\} else if \(dy > dx \* 1\.4\) \{/,
-      /function shiftFor\(x: number, track: number\): string/,
-      /<AxisLabels labels=\{axisLabels\}/,
+      /translateX\(clamp\(8px, calc\(/,
+      /tip\.style\.transform = /,
       /const HOLD_MS = 100/,
+      /move\(lastX, "touch"\)/,
+      /if \(i !== r\.index\) \{/,
     ]
-    return parts.every((re) => re.test(a)) && shared.every((re) => re.test(b))
+    const home = code("components/app/dashboard-client.tsx")
+    const analytics = code("components/app/analytics-chart.tsx")
+    return parts.every((re) => re.test(layer))
+      && [home, analytics].every((src) => /<ChartScrub\b/.test(src) && /<AxisLabels labels=\{axisLabels\}/.test(src))
+      && /function plotLeftFor\(labels: string\[\]\): number/.test(home)
   })(),
 )
 
 // ---------------------------------------------------------------------------
-section("The analytics chart: a marker that glides and stops on the day")
+section("The analytics chart: the same marker as the home page's")
 // ---------------------------------------------------------------------------
 /*
   "The analytics still don't have the smoothness of the charts." Each point a
   finger crossed used to re-render recharts, because the dots were drawn by a
-  function of the active index. The plot and the marker are two layers now,
-  and only the marker moves.
+  function of the active index. Then it had a marker of its own that snapped
+  and glided, and still felt different from the home page's. It draws the
+  home page's now: components/app/chart-scrub.
 */
 {
   const chart = code("components/app/analytics-chart.tsx")
-  const hook = code("components/app/use-chart-scrub.ts")
+  const layer = code("components/app/chart-scrub.tsx")
   check(
-    "the analytics chart reads the shared gesture, not a copy of it",
-    /useChartScrub<HTMLDivElement>\(indexAt\)/.test(chart) && !/addEventListener\("touchstart"/.test(chart),
+    "the analytics chart draws the shared layer, not a copy of it",
+    /<ChartScrub\b/.test(chart) && !/addEventListener\("touchstart"/.test(chart),
   )
   check(
-    "the plot is memoised, and nothing about the finger is among its props",
-    /const Plot = memo\(function Plot\(/.test(chart) && !/interface PlotProps \{[^}]*activeIndex/.test(chart),
+    "the frame is memoised, and nothing about the finger or the numbers is among its props",
+    /const Frame = memo\(function Frame\(/.test(chart) && !/interface FrameProps \{[^}]*(activeIndex|lines|values)/.test(chart),
   )
   check(
-    "the marker sits over its own point, in the plot area",
-    /const plotWidth = Math\.max\(0, track - plotLeft - PLOT_RIGHT\)/.test(chart) &&
-      /plotLeft \+ \(i \/ \(n - 1\)\) \* plotWidth/.test(chart) &&
-      /const chartLeft = rect\.left \+ plotLeft/.test(chart),
+    "the marker sits over its own point, in the plot area the axis leaves",
+    /left=\{plotLeft\}/.test(chart) && /right=\{PLOT_RIGHT\}/.test(chart) &&
+      /l \+ \(i \/ \(n - 1\)\) \* plot/.test(layer),
   )
   check(
-    "it moves by transform and glides, except where it first appears",
-    /const transition = shown && settled \? GLIDE : "none"/.test(chart) &&
-      /transform: shiftFor\(x, track\)/.test(chart) &&
-      /transform: `translateX\(\$\{x\.toFixed\(1\)\}px\)`/.test(chart),
+    "it moves by transform, glides under a mouse, and cuts where it first appears",
+    /cross\.style\.transform = `translateX\(/.test(layer) && /if \(arriving\) setGlide\(false\)/.test(layer)
+      && /if \(r\.input === "mouse"\) r\.glide = requestAnimationFrame\(\(\) => setGlide\(true\)\)/.test(layer),
   )
   check(
     "one haptic per point crossed, and it is forgotten when the finger lifts",
-    /if \(i !== lastIndex\) \{[\s\S]{0,80}hapticTap/.test(hook) && /lastIndex = null/.test(hook),
+    /if \(i !== r\.index\) \{\s*if \(r\.input === "touch"\) hapticTap/.test(layer) && /r\.index = -1/.test(layer),
   )
   check(
     "a hold scrubs from where the finger is now, in a tenth of a second",
-    /show\(lastX, true\)/.test(hook) && /const HOLD_MS = 100/.test(hook),
+    /move\(lastX, "touch"\)/.test(layer) && /const HOLD_MS = 100/.test(layer),
   )
   check(
     "a hold that turns into a scroll lets go, and nothing cancels a touchstart",
-    /if \(!moved && dy > SLOP_Y\) \{/.test(hook) &&
-      /addEventListener\("touchstart", onStart, \{ passive: true \}\)/.test(hook) &&
-      /addEventListener\("touchmove", onMove, \{ passive: false \}\)/.test(hook),
+    /if \(!moved && dy > SLOP_Y\) \{/.test(layer) &&
+      /addEventListener\("touchstart", onStart, \{ passive: true \}\)/.test(layer) &&
+      /addEventListener\("touchmove", onMove, \{ passive: false \}\)/.test(layer),
   )
 }
 
@@ -630,11 +640,15 @@ section("THE AUDIT: every chart request, on both charts")
  * analytics chart still redrew twice on a metric switch, and the analytics
  * PAGE had two more rows that forbade vertical panning. Both were the same
  * bugs as the dashboard's, in the file nobody had screenshotted.
+ *
+ * Each chart is read together with components/app/chart-scrub, the layer it
+ * draws for the crosshair, the dots, the readout and the gesture.
  */
 {
+  const layer = code("components/app/chart-scrub.tsx")
   const charts: Array<[string, string]> = [
-    ["home", code("components/app/dashboard-client.tsx")],
-    ["analytics", code("components/app/analytics-chart.tsx") + code("components/app/use-chart-scrub.ts")],
+    ["home", code("components/app/dashboard-client.tsx") + layer],
+    ["analytics", code("components/app/analytics-chart.tsx") + layer],
   ]
 
   const required: Array<[string, RegExp]> = [
@@ -643,19 +657,19 @@ section("THE AUDIT: every chart request, on both charts")
     ["the numbers are on the axis", /<YAxis/],
     ["the axis is measured from its own labels", /function plotLeftFor\(labels: string\[\]\): number/],
     ["one formatter draws and measures the ticks", /const axisLabels = useMemo\(\(\) => scale\.ticks\.map\(axisTick\)[\s\S]*<AxisLabels labels=\{axisLabels\}/],
-    ["the axis width is what the finger reads", /rect\.left \+ plotLeft/],
+    ["the axis width is what the finger reads", /left=\{plotLeft\}/],
     ["room above for the active dot", /const PLOT_TOP = \d+/],
-    ["the tooltip sits over its own point, in the plot area", /plotLeft \+ \(activeIndex/],
+    ["the tooltip sits over its own point, in the plot area", /l \+ \(i \/ \(n - 1\)\) \* plot/],
     ["a resting thumb cannot cancel the hold", /const SLOP_Y = 12/],
     ["a deliberate sideways drag engages sooner than a scroll gives up", /const SLOP_X = 8/],
-    ["one animation length, shared by both charts", /CHART_ANIM_MS/],
+    ["one morph, the same length and curve, shared by both charts", /<MorphLines\b/],
     ["vertical has to win clearly to be a scroll", /\} else if \(dy > dx \* 1\.4\) \{/],
-    ["the hold reads where the finger is now", /getIndexFromTouch\(lastTouchXRef\.current\)/],
-    ["a hold lands in about a tenth of a second", /\}, 100\)/],
-    ["the box follows the finger every frame", /box\.style\.transform = shiftFor\(x, rect\.width\)/],
-    ["no transition fights that follow", /transition: "none"/],
-    ["one haptic per point crossed", /idx !== lastHapticIndexRef\.current/],
-    ["the haptic resets when the finger lifts", /lastHapticIndexRef\.current = null/],
+    ["the hold reads where the finger is now", /move\(lastX, "touch"\)/],
+    ["a hold lands in about a tenth of a second", /const HOLD_MS = 100/],
+    ["the box follows the finger every frame", /tip\.style\.transform = `translateX\(clamp\(/],
+    ["no transition fights that follow: only the readout's opacity fades", /const t = `opacity \$\{ms\}ms \$\{SCRUB_FADE_EASE\}`/],
+    ["one haptic per point crossed", /if \(i !== r\.index\) \{/],
+    ["the haptic resets when the finger lifts", /r\.index = -1/],
     /*
       The dependency list is the data, and nothing that merely ASKS for data:
       a metric filter in here fired the effect once with the old numbers
@@ -664,24 +678,16 @@ section("THE AUDIT: every chart request, on both charts")
       is now raised during the render that receives the series rather than by
       this effect; see tests/analytics-chart-skeleton.test.ts.
     */
-    ["one redraw per metric switch, on the data", /\}, \[(?:shouldAnimate, )?(displayChartData|chartDisplayData)\]\)/],
+    ["one redraw per metric switch, on the data", /const lines = useMemo\([\s\S]{0,200}?\[(?:chartDisplayData, visibleKeys|displayChartData)\],?\s*\)/],
   ]
 
   /*
-    THE ANALYTICS CHART'S FORM OF EACH RULE. It reads the shared gesture
-    (components/app/use-chart-scrub) and draws a marker that glides between
-    points and stops on each, so a few rules are held in the words that
-    express them there. Every rule still has to hold on both charts.
+    THE ANALYTICS CHART'S FORM OF A RULE: it measures its gutter in the font
+    the labels are drawn in rather than estimating it. Every rule still has
+    to hold on both charts.
   */
   const ANALYTICS_FORM: Record<string, RegExp> = {
     "the axis is measured from its own labels": /axisWidth\(axisLabels, 11, 8\)/,
-    "the tooltip sits over its own point, in the plot area": /plotLeft \+ \(i \/ \(n - 1\)\) \* plotWidth/,
-    "the hold reads where the finger is now": /show\(lastX, true\)/,
-    "a hold lands in about a tenth of a second": /const HOLD_MS = 100/,
-    "the box follows the finger every frame": /transform: shiftFor\(x, track\)/,
-    "no transition fights that follow": /shown && settled \? GLIDE : "none"/,
-    "one haptic per point crossed": /if \(i !== lastIndex\) \{/,
-    "the haptic resets when the finger lifts": /lastIndex = null/,
   }
   for (const [label, re] of required) {
     const missing = charts.filter(([name, src]) => !((name === "analytics" && ANALYTICS_FORM[label]) || re).test(src)).map(([name]) => name)

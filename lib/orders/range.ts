@@ -19,7 +19,12 @@ import { boundsOf, compareBounds, todayIn, type CompareValue, type PresetId, typ
 export const RANGE_COOKIE = "storelib_orders_range"
 export const DEFAULT_PRESET: PresetId = "last_30_days"
 
-const LEGACY: Record<string, PresetId> = {
+/**
+ * The older spellings. "ytd" names Year to date, which the picker no longer
+ * offers, so it reads as that retired period and opens on the last 30 days
+ * (lib/date-range/range resolveValue), the same as ?range=year_to_date.
+ */
+const LEGACY: Record<string, string> = {
   "7d": "last_7_days",
   "30d": "last_30_days",
   "90d": "last_90_days",

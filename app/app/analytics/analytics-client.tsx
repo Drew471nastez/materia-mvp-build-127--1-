@@ -34,18 +34,20 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
-import { useRouter, useSearchParams } from "next/navigation"
-import { ChevronDown, Link2, ShoppingBag, Sparkles, TrendingDown, TrendingUp, Check } from "lucide-react"
+import { useSearchParams } from "next/navigation"
+import { Link2, ShoppingBag, Sparkles, TrendingDown, TrendingUp } from "lucide-react"
 import { useLanguage } from "@/lib/i18n"
 import { AnnouncementBarMobile } from "@/components/app/announcement-bar-mobile"
 import { DateRangePicker } from "@/components/app/date-range-picker"
 import { usePeriodParams } from "@/components/app/use-period-params"
-import { BottomSheet } from "@/components/ui/bottom-sheet"
+import { ProductPicker } from "@/components/app/product-picker"
 import { viewerTimeZone } from "@/lib/orders/time-zone"
 import { boundsOf, compareBounds, compareRange, rangeLabel, type CompareValue, type DateRange } from "@/lib/date-range/range"
 import { bucketLabel, bucketStarts, grainFor, type Span } from "@/lib/analytics/buckets"
 import { AnalyticsReports, useAnalyticsReports } from "./analytics-reports"
 import { AnalyticsChartWithTooltip, CHART_COLORS } from "@/components/app/analytics-chart"
+import { MetricTab } from "@/components/app/metric-tab"
+import { HoverNote } from "@/components/app/help-label"
 
 interface Product {
   id: string
@@ -129,19 +131,24 @@ function PercentChangeIndicator({ current, previous }: { current: number; previo
   if (against === null) return null
   if (previous === 0) {
     /* Nothing before is not "+100%": it is new, or it is still nothing. */
-    return current > 0 ? <span className="text-[11px] font-medium text-[#9ca3af]" title={`None in ${against}`}>New</span> : null
+    return current > 0 ? (
+      <HoverNote className="text-[11px] font-medium text-[#9ca3af]" note={`None in ${against}`}>
+        New
+      </HoverNote>
+    ) : null
   }
   const change = ((current - previous) / previous) * 100
   if (Math.round(change) === 0) return null
   const up = change > 0
+  /* What it is measured against, in the card every hover note uses (components/app/help-label). */
   return (
-    <span
+    <HoverNote
       className={`inline-flex items-center gap-0.5 text-[11px] font-medium tabular-nums ${up ? "text-emerald-600" : "text-[#9ca3af]"}`}
-      title={`${up ? "+" : "-"}${Math.round(Math.abs(change))}% compared with ${against}`}
+      note={`${up ? "+" : "-"}${Math.round(Math.abs(change))}% compared with ${against}`}
     >
       {up ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
       {Math.round(Math.abs(change))}%
-    </span>
+    </HoverNote>
   )
 }
 
@@ -168,8 +175,13 @@ function trendLabelsFor(span: Span, timeZone: string): string[] {
  */
 const TREND_SKELETON_MAX = 90
 
-/** Which line is which: the period in violet, what it is compared with in grey, dashed. */
-function ChartLegend({ range, compare }: { range: DateRange; compare: DateRange | null }) {
+/**
+ * Which line is which: the period in violet, what it is compared with in grey,
+ * dashed. One page draws no dashed line, so there the second entry keeps its
+ * place without showing: the legend is the same size in both modes and
+ * nothing centred in it, or under it, moves when the mode changes.
+ */
+function ChartLegend({ range, compare, compareShown = true }: { range: DateRange; compare: DateRange | null; compareShown?: boolean }) {
   return (
     <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-1 text-[12px] text-[#6b7280]">
       <span className="inline-flex items-center gap-1.5 tabular-nums">
@@ -177,7 +189,7 @@ function ChartLegend({ range, compare }: { range: DateRange; compare: DateRange 
         {rangeLabel(range)}
       </span>
       {compare && (
-        <span className="inline-flex items-center gap-1.5 tabular-nums">
+        <span className="inline-flex items-center gap-1.5 tabular-nums" style={{ visibility: compareShown ? undefined : "hidden" }} aria-hidden={compareShown ? undefined : true}>
           <span className="h-0 w-4 border-t-2 border-dashed" style={{ borderColor: CHART_COLORS.compared }} aria-hidden />
           {rangeLabel(compare)}
         </span>
@@ -187,62 +199,17 @@ function ChartLegend({ range, compare }: { range: DateRange; compare: DateRange 
 }
 
 /**
- * One figure above the chart, and the button that shows it. Four of them
- * in a two by two grid on a phone and a row on anything wider: every figure
- * is on screen at once, so there is nothing to swipe to and nothing hidden
- * past the edge.
+ * The figures above the chart are the home page's tabs
+ * (components/app/metric-tab): four of them in a two by two grid on a phone
+ * and a row on anything wider, every figure on screen at once, with nothing
+ * to swipe to and nothing hidden past the edge. This is the change beside
+ * each value.
  */
-function MetricTab({
-  tab,
-  label,
-  value,
-  figure,
-  selected,
-  soft,
-  sample,
-  foot,
-  onSelect,
-}: {
-  tab: string
-  label: string
-  value: string
-  figure: Figure
-  selected: boolean
-  soft: boolean
-  sample: boolean
-  foot: string
-  onSelect: () => void
-}) {
-  return (
-    <button
-      type="button"
-      role="tab"
-      aria-selected={selected}
-      data-tab={tab}
-      onClick={onSelect}
-      className={`relative min-w-0 cursor-pointer bg-white px-4 py-3 text-left transition-colors duration-150 active:bg-[#f7f7f8] sm:py-3.5 ${
-        selected ? "bg-[#fcfbff]" : "hover:bg-[#fafafa]"
-      }`}
-    >
-      <span className={`block truncate text-[12px] font-medium ${selected ? "text-[#1a1a2e]" : "text-[#6b7280]"}`}>{label}</span>
-      <span className="mt-0.5 flex min-w-0 items-baseline gap-1.5">
-        <span
-          className={`truncate text-[20px] font-semibold tabular-nums tracking-tight transition-[filter,color] duration-500 sm:text-[22px] ${
-            sample ? "text-[#1a1a2e]/50" : "text-[#1a1a2e]"
-          } ${soft ? "blur-[2px]" : "blur-0"}`}
-        >
-          {value}
-        </span>
-        <PercentChangeIndicator current={figure.value} previous={figure.previous} />
-      </span>
-      <span className={`block truncate text-[11px] text-[#9ca3af] transition-[filter] duration-500 ${soft ? "blur-[1px]" : "blur-0"}`}>{foot}</span>
-      {selected && <span aria-hidden className="absolute inset-x-0 bottom-0 h-[2px] bg-[#8b5cf6]" />}
-    </button>
-  )
+function changeOf(f: Figure) {
+  return <PercentChangeIndicator current={f.value} previous={f.previous} />
 }
 
 export function AnalyticsClient({ products }: AnalyticsClientProps) {
-  const router = useRouter()
   const searchParams = useSearchParams()
   const { t } = useLanguage()
 
@@ -259,31 +226,28 @@ export function AnalyticsClient({ products }: AnalyticsClientProps) {
   const comparedRange = isAllTime ? null : compareRange(period, compare)
   const compareLabel = comparedRange ? rangeLabel(comparedRange) : null
 
-  const initialMode = searchParams.get("mode") as AnalyticsMode | null
-  const [analyticsMode, setAnalyticsModeState] = useState<AnalyticsMode>(initialMode === "onepage" ? "onepage" : "store")
-  const setAnalyticsMode = useCallback(
-    (mode: AnalyticsMode) => {
-      setAnalyticsModeState(mode)
-      const params = new URLSearchParams(searchParams.toString())
-      params.set("mode", mode)
-      router.replace(`?${params.toString()}`, { scroll: false })
-    },
-    [router, searchParams],
-  )
+  const [analyticsMode, setAnalyticsModeState] = useState<AnalyticsMode>(() => (searchParams.get("mode") === "onepage" ? "onepage" : "store"))
+  /*
+    THE MODE IS KEPT IN THE ADDRESS THE WAY THE PERIOD IS: history.replaceState,
+    not the router. `router.replace` is a navigation. It asked the server for
+    the page again and, because the address was a new one, Next put the page
+    back under its loading skeleton and mounted it afresh: every Store / One
+    page tap was the whole page going blank, the chart starting again from
+    its placeholder and every figure read again. That was the reload.
+  */
+  const setAnalyticsMode = useCallback((mode: AnalyticsMode) => {
+    setAnalyticsModeState(mode)
+    try {
+      const url = new URL(window.location.href)
+      url.searchParams.set("mode", mode)
+      window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash)
+    } catch {
+      /* the address is a convenience; the page works without it */
+    }
+  }, [])
   const [chartMetricFilter, setChartMetricFilter] = useState<ChartMetricFilter>("views")
   const [onePageChartFilter, setOnePageChartFilter] = useState<OnePageChartFilter>("views")
   const [selectedProduct, setSelectedProduct] = useState("all")
-  const [isProductsOpen, setIsProductsOpen] = useState(false)
-  const [isProductsSheetOpen, setIsProductsSheetOpen] = useState(false)
-  /* The shared sheet is the phone's (below 640px); wider than that, the menu. */
-  const [isPhone, setIsPhone] = useState(false)
-  useEffect(() => {
-    const mq = window.matchMedia("(max-width: 639px)")
-    const read = () => setIsPhone(mq.matches)
-    read()
-    mq.addEventListener("change", read)
-    return () => mq.removeEventListener("change", read)
-  }, [])
 
   /* Sample data toggle — session only, resets on page refresh */
   const [showSampleData, setShowSampleData] = useState(false)
@@ -317,7 +281,15 @@ export function AnalyticsClient({ products }: AnalyticsClientProps) {
     refresh: tick,
   })
   const answer = reportsState.data
-  const isRefreshing = reportsState.loading && !!answer
+  /*
+    SOFT ONLY WHILE THE FIGURES ARE THE WRONG ONES: a new period, product or
+    mode is on its way. The minute refresh asks the same question again, and
+    it used to blur the chart, the four figures and every card for the
+    length of the request, once a minute, for numbers that were almost
+    always unchanged. It is silent now, and an answer that brings nothing
+    new changes nothing on screen (analytics-reports useAnalyticsReports).
+  */
+  const isRefreshing = reportsState.stale
 
   /**
    * THE CHART CHANGES MODE WHEN THE DATA FOR THAT MODE ARRIVES. The tabs
@@ -404,7 +376,8 @@ export function AnalyticsClient({ products }: AnalyticsClientProps) {
   const zero: Figure = { value: 0, previous: 0, allTime: null }
   const storeFigures = sample ? SAMPLE_STORE : store ?? { views: zero, revenue: zero, orders: zero, conversion: zero }
   const onePageFigures = sample ? SAMPLE_ONEPAGE : onePage ?? { views: zero, clicks: zero, subscribers: zero, ctr: zero }
-  const figuresLoading = !sample && (analyticsMode === "store" ? !store : !onePage)
+  /* Nothing has come back yet. The figures on screen are the mode of the answer (trendMode), so a switch never shows zeros. */
+  const figuresLoading = !sample && !answer
   const soft = isRefreshing || figuresLoading
 
   /*
@@ -428,18 +401,6 @@ export function AnalyticsClient({ products }: AnalyticsClientProps) {
     [sample, rawChartData],
   )
 
-  const productLabel = selectedProduct === "all" ? "All products" : products.find((p) => p.id === selectedProduct)?.title || "All products"
-
-  useEffect(() => {
-    if (!isProductsOpen) return
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as HTMLElement
-      if (!target.closest(".products-dropdown")) setIsProductsOpen(false)
-    }
-    document.addEventListener("mousedown", handleClickOutside)
-    return () => document.removeEventListener("mousedown", handleClickOutside)
-  }, [isProductsOpen])
-
   const modeButton = (mode: AnalyticsMode, size: "sm" | "md") => (
     <button
       key={mode}
@@ -450,28 +411,6 @@ export function AnalyticsClient({ products }: AnalyticsClientProps) {
     >
       {mode === "store" ? <ShoppingBag className="h-3.5 w-3.5" /> : <Link2 className="h-3.5 w-3.5" />}
       {mode === "store" ? t("analytics.store") : t("nav.onepage")}
-    </button>
-  )
-
-  const productRow = (id: string, title: string, thumb?: string | null) => (
-    <button
-      key={id}
-      type="button"
-      onClick={() => {
-        setSelectedProduct(id)
-        setIsProductsSheetOpen(false)
-      }}
-      className="flex w-full min-h-[52px] cursor-pointer items-center gap-3 px-5 py-2 text-left text-[15px] text-[#1a1a2e] active:bg-[#f7f7f8]"
-    >
-      {thumb ? (
-        <img src={thumb} alt="" className="h-9 w-9 shrink-0 rounded-lg object-cover" />
-      ) : (
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#f3f4f6] text-[#9ca3af]">
-          <ShoppingBag className="h-4 w-4" />
-        </span>
-      )}
-      <span className="min-w-0 flex-1 truncate">{title}</span>
-      {selectedProduct === id ? <Check className="h-4 w-4 shrink-0 text-[#8b5cf6]" /> : null}
     </button>
   )
 
@@ -516,51 +455,35 @@ export function AnalyticsClient({ products }: AnalyticsClientProps) {
             </div>
           </div>
 
+          {/* Which product: the date picker's button, list and sheet (components/app/product-picker). */}
           {analyticsMode === "store" && (
-            <div className="relative products-dropdown">
-              <button
-                type="button"
-                onClick={() => (isPhone ? setIsProductsSheetOpen(true) : setIsProductsOpen(!isProductsOpen))}
-                className="inline-flex h-10 max-w-[200px] cursor-pointer items-center gap-2 rounded-xl border border-[#e5e7eb] bg-white px-4 text-[13px] font-medium text-[#374151] shadow-sm transition-colors hover:bg-[#f9fafb] sm:max-w-[260px]"
-              >
-                <span className="truncate">{productLabel}</span>
-                <ChevronDown className={`h-4 w-4 shrink-0 text-[#9ca3af] transition-transform duration-200 ${isProductsOpen ? "rotate-180" : ""}`} />
-              </button>
-              {isProductsOpen && !isPhone && (
-                <div className="absolute right-0 top-full z-50 mt-1 max-h-[300px] w-56 overflow-y-auto rounded-xl border border-[#e5e7eb] bg-white py-1 shadow-lg">
-                  {[{ id: "all", title: "All products" }, ...products].map((p) => (
-                    <button
-                      key={p.id}
-                      onClick={() => { setSelectedProduct(p.id); setIsProductsOpen(false) }}
-                      className={`w-full truncate px-4 py-2.5 text-left text-[13px] transition-colors ${
-                        selectedProduct === p.id ? "bg-[#f5f3ff] font-medium text-[#8b5cf6]" : "text-[#374151] hover:bg-[#f9fafb]"
-                      }`}
-                    >
-                      {p.title}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+            <ProductPicker products={products} value={selectedProduct} onChange={setSelectedProduct} align="end" />
           )}
         </div>
 
         {/* The four figures and the chart of the one chosen */}
         <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
+          {/*
+            THE FIGURES OF THE ANSWER ON SCREEN, like the chart under them. A
+            switch to One page used to put its four tabs up at once reading
+            zero, softened, until its numbers came: four zeros flashing on
+            every switch. The Store figures stay, softened, until the One page
+            ones are here, and then the row changes once.
+          */}
           <div role="tablist" aria-label="Metric" className="grid grid-cols-2 gap-px bg-[#eef0f2] md:grid-cols-4">
-            {analyticsMode === "store" ? (
+            {trendMode === "store" ? (
               <>
-                <MetricTab tab="views" label={t("analytics.totalViews")} value={formatCompactNumber(storeFigures.views.value)} figure={storeFigures.views} selected={chartMetricFilter === "views"} soft={soft} sample={sample} foot={allTime(storeFigures.views, formatCompactNumber, "Pages opened")} onSelect={() => setChartMetricFilter("views")} />
-                <MetricTab tab="revenue" label={t("analytics.totalRevenue")} value={formatPrice(storeFigures.revenue.value)} figure={storeFigures.revenue} selected={chartMetricFilter === "revenue"} soft={soft} sample={sample} foot={allTime(storeFigures.revenue, formatPrice, "Less refunds")} onSelect={() => setChartMetricFilter("revenue")} />
-                <MetricTab tab="orders" label={t("analytics.totalOrders")} value={formatCompactNumber(storeFigures.orders.value)} figure={storeFigures.orders} selected={chartMetricFilter === "orders"} soft={soft} sample={sample} foot={allTime(storeFigures.orders, formatCompactNumber, "Paid and free")} onSelect={() => setChartMetricFilter("orders")} />
-                <MetricTab tab="conversion" label={t("analytics.conversionRate")} value={formatRate(storeFigures.conversion.value)} figure={storeFigures.conversion} selected={chartMetricFilter === "conversion"} soft={soft} sample={sample} foot="Visits that ordered" onSelect={() => setChartMetricFilter("conversion")} />
+                <MetricTab tab="views" label={t("analytics.totalViews")} value={formatCompactNumber(storeFigures.views.value)} change={changeOf(storeFigures.views)} selected={chartMetricFilter === "views"} soft={soft} sample={sample} foot={allTime(storeFigures.views, formatCompactNumber, "Pages opened")} onSelect={() => setChartMetricFilter("views")} />
+                <MetricTab tab="revenue" label={t("analytics.totalRevenue")} value={formatPrice(storeFigures.revenue.value)} change={changeOf(storeFigures.revenue)} selected={chartMetricFilter === "revenue"} soft={soft} sample={sample} foot={allTime(storeFigures.revenue, formatPrice, "Less refunds")} onSelect={() => setChartMetricFilter("revenue")} />
+                <MetricTab tab="orders" label={t("analytics.totalOrders")} value={formatCompactNumber(storeFigures.orders.value)} change={changeOf(storeFigures.orders)} selected={chartMetricFilter === "orders"} soft={soft} sample={sample} foot={allTime(storeFigures.orders, formatCompactNumber, "Paid and free")} onSelect={() => setChartMetricFilter("orders")} />
+                <MetricTab tab="conversion" label={t("analytics.conversionRate")} value={formatRate(storeFigures.conversion.value)} change={changeOf(storeFigures.conversion)} selected={chartMetricFilter === "conversion"} soft={soft} sample={sample} foot="Visits that ordered" onSelect={() => setChartMetricFilter("conversion")} />
               </>
             ) : (
               <>
-                <MetricTab tab="views" label={t("dashboard.views")} value={formatCompactNumber(onePageFigures.views.value)} figure={onePageFigures.views} selected={onePageChartFilter === "views"} soft={soft} sample={sample} foot={allTime(onePageFigures.views, formatCompactNumber, "Visits")} onSelect={() => setOnePageChartFilter("views")} />
-                <MetricTab tab="clicks" label={t("analytics.clicks")} value={formatCompactNumber(onePageFigures.clicks.value)} figure={onePageFigures.clicks} selected={onePageChartFilter === "clicks"} soft={soft} sample={sample} foot={allTime(onePageFigures.clicks, formatCompactNumber, "Link taps")} onSelect={() => setOnePageChartFilter("clicks")} />
-                <MetricTab tab="subscribers" label={t("analytics.subscribers")} value={formatCompactNumber(onePageFigures.subscribers.value)} figure={onePageFigures.subscribers} selected={onePageChartFilter === "subscribers"} soft={soft} sample={sample} foot={allTime(onePageFigures.subscribers, formatCompactNumber, "Emails left")} onSelect={() => setOnePageChartFilter("subscribers")} />
-                <MetricTab tab="ctr" label="CTR" value={formatRate(onePageFigures.ctr.value)} figure={onePageFigures.ctr} selected={onePageChartFilter === "ctr"} soft={soft} sample={sample} foot={t("analytics.clicksToViews")} onSelect={() => setOnePageChartFilter("ctr")} />
+                <MetricTab tab="views" label={t("dashboard.views")} value={formatCompactNumber(onePageFigures.views.value)} change={changeOf(onePageFigures.views)} selected={onePageChartFilter === "views"} soft={soft} sample={sample} foot={allTime(onePageFigures.views, formatCompactNumber, "Visits")} onSelect={() => setOnePageChartFilter("views")} />
+                <MetricTab tab="clicks" label={t("analytics.clicks")} value={formatCompactNumber(onePageFigures.clicks.value)} change={changeOf(onePageFigures.clicks)} selected={onePageChartFilter === "clicks"} soft={soft} sample={sample} foot={allTime(onePageFigures.clicks, formatCompactNumber, "Link taps")} onSelect={() => setOnePageChartFilter("clicks")} />
+                <MetricTab tab="subscribers" label={t("analytics.subscribers")} value={formatCompactNumber(onePageFigures.subscribers.value)} change={changeOf(onePageFigures.subscribers)} selected={onePageChartFilter === "subscribers"} soft={soft} sample={sample} foot={allTime(onePageFigures.subscribers, formatCompactNumber, "Emails left")} onSelect={() => setOnePageChartFilter("subscribers")} />
+                <MetricTab tab="ctr" label="CTR" value={formatRate(onePageFigures.ctr.value)} change={changeOf(onePageFigures.ctr)} selected={onePageChartFilter === "ctr"} soft={soft} sample={sample} foot={t("analytics.clicksToViews")} onSelect={() => setOnePageChartFilter("ctr")} />
               </>
             )}
           </div>
@@ -591,11 +514,16 @@ export function AnalyticsClient({ products }: AnalyticsClientProps) {
                   formatPrice={formatPrice}
                   compareLabel={sample ? null : compareLabel}
                 />
-                {trendMode === "store" && !chartIsLoading && !sample && (
-                  <div className="mt-2">
-                    <ChartLegend range={period} compare={comparedRange} />
-                  </div>
-                )}
+                {/*
+                  ALWAYS THERE, so nothing under it moves. It came and went
+                  with the answer and with the mode (One page has no dashed
+                  line), and every card below it jumped by its height when it
+                  did. Its words are the period's, known before any number is;
+                  over sample numbers it keeps its place and says nothing.
+                */}
+                <div className="mt-2" style={{ visibility: sample ? "hidden" : undefined }}>
+                  <ChartLegend range={period} compare={comparedRange} compareShown={trendMode === "store"} />
+                </div>
               </div>
               {!hasRealData && !chartIsLoading && (
                 <div className="absolute -top-6 right-2 flex items-center gap-1.5 z-10">
@@ -623,17 +551,6 @@ export function AnalyticsClient({ products }: AnalyticsClientProps) {
         />
       </div>
 
-      {/*
-        THE PRODUCT PICKER ON A PHONE is the shared sheet: drawn into the body
-        above the navigation pill, from the bottom edge, and moved by the
-        finger (components/ui/bottom-sheet).
-      */}
-      <BottomSheet isOpen={isProductsSheetOpen} onClose={() => setIsProductsSheetOpen(false)} title="Product">
-        <div className="pb-2 pt-1">
-          {productRow("all", "All products")}
-          {products.map((p) => productRow(p.id, p.title, p.thumbnail_url))}
-        </div>
-      </BottomSheet>
     </div>
     </CompareContext.Provider>
   )

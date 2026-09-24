@@ -8,14 +8,17 @@
  *
  *   Today, Yesterday
  *   Last 7 days, Last 30 days, Last 90 days, Last 12 months
- *   Month to date, Year to date, All time
- *   Quarters ›, Black Friday Cyber Monday ›, More periods ›
+ *   Month to date, All time
  *   Custom range ›
  *
- * A row is the answer: it applies and closes. A › slides to that row's own
- * list, and Custom range slides to a second step with the calendar, the two
- * date boxes, Back and Apply. That step is the only place anything waits for
- * a button.
+ * A row is the answer: it applies and closes. Custom range slides to a
+ * second step with the calendar, the two date boxes, Back and Apply. That
+ * step is the only place anything waits for a button.
+ *
+ * The quarters, Black Friday Cyber Monday, "More periods" and Year to date
+ * were rows here too, three of them opening lists of their own. The owner
+ * asked for them gone, from every page. A link or a cookie that still names
+ * one opens on the last 30 days (lib/date-range/range RETIRED_PRESETS).
  *
  * The same two steps everywhere: a popover on a computer (two months), the
  * shared sheet on a phone (one month), and in place inside a dialog.
@@ -57,7 +60,6 @@ import {
   rangeLabel,
   valueLabel,
   ymdOf,
-  type PresetGroup,
   type PresetId,
   type RangeValue,
   type Ymd,
@@ -68,7 +70,7 @@ import {
 export const pickerButton =
   "inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-lg border border-[#e3e4e8] bg-white px-2.5 text-[13px] font-medium text-[#1a1a2e] shadow-[0_1px_0_rgba(17,24,39,0.05)] transition-colors duration-100 hover:bg-[#f7f7f8] active:bg-[#f1f2f4] data-[state=open]:bg-[#ececef] data-[state=open]:shadow-[inset_0_1px_2px_rgba(17,24,39,0.12)] cursor-pointer select-none"
 
-const surface =
+export const pickerSurface =
   "overflow-hidden rounded-xl border border-[#e3e4e8] bg-white p-0 text-[#1a1a2e] shadow-[0_12px_40px_-8px_rgba(17,24,39,0.22),0_2px_6px_rgba(17,24,39,0.06)]"
 
 /** The month arrows: a small raised key, not a bare glyph, so they read as something to press. */
@@ -83,7 +85,7 @@ const primaryBtn =
 export const STEP_MS = 240
 
 /** True below 640px, where panels become sheets, as everywhere else in /app. */
-function usePhone(): boolean {
+export function usePhone(): boolean {
   const [phone, setPhone] = React.useState(false)
   React.useEffect(() => {
     const mq = window.matchMedia("(max-width: 639px)")
@@ -172,7 +174,7 @@ function StepFrame({
 
 /* ── the list ───────────────────────────────────────────────────────────── */
 
-function Row({
+export function PickerRow({
   compact,
   checked,
   drill = false,
@@ -222,7 +224,7 @@ function Row({
 }
 
 /** Up and down move between rows, as in any menu. */
-function onRowsKey(e: React.KeyboardEvent<HTMLElement>) {
+export function onRowsKey(e: React.KeyboardEvent<HTMLElement>) {
   const step = { ArrowDown: 1, ArrowUp: -1 }[e.key]
   const edge = e.key === "Home" ? 0 : e.key === "End" ? -1 : null
   if (step === undefined && edge === null) return
@@ -234,16 +236,8 @@ function onRowsKey(e: React.KeyboardEvent<HTMLElement>) {
   rows[next].focus()
 }
 
-function Divider({ compact }: { compact: boolean }) {
+export function PickerDivider({ compact }: { compact: boolean }) {
   return <div aria-hidden className={cn("h-px bg-[#eef0f2]", compact ? "mx-3 my-1" : "mx-2 my-1")} />
-}
-
-/** What a group's row says on its right when one of its periods is showing. */
-function groupDetail(g: Extract<PresetGroup, { kind: "group" }>, value: RangeValue, today: Ymd): string | null {
-  if (value.preset === "custom" || !g.children.includes(value.preset)) return null
-  const id = value.preset
-  if (id.startsWith("bfcm")) return String(parts(presetRange(id, today).start).y)
-  return PRESET_LABEL[id]
 }
 
 function PresetList({
@@ -259,16 +253,16 @@ function PresetList({
   firstDay?: Ymd
   compact: boolean
   onPreset: (id: PresetId) => void
-  onOpen: (step: string) => void
+  onOpen: (step: "custom") => void
 }) {
   return (
     <div role="menu" aria-label="Date range" onKeyDown={onRowsKey} className={compact ? "px-2 pb-2 pt-1" : "p-1.5"}>
       {PRESET_MENU.map((section, i) => (
         <React.Fragment key={i}>
-          {i > 0 ? <Divider compact={compact} /> : null}
+          {i > 0 ? <PickerDivider compact={compact} /> : null}
           {section.map((g) =>
             g.kind === "item" ? (
-              <Row
+              <PickerRow
                 key={g.id}
                 rowKey={g.id}
                 compact={compact}
@@ -277,21 +271,9 @@ function PresetList({
                 onClick={() => onPreset(g.id)}
               >
                 {PRESET_LABEL[g.id]}
-              </Row>
-            ) : g.kind === "group" ? (
-              <Row
-                key={g.label}
-                rowKey={`group:${g.label}`}
-                compact={compact}
-                drill
-                checked={value.preset !== "custom" && g.children.includes(value.preset)}
-                detail={groupDetail(g, value, today)}
-                onClick={() => onOpen(`group:${g.label}`)}
-              >
-                {g.label}
-              </Row>
+              </PickerRow>
             ) : (
-              <Row
+              <PickerRow
                 key="custom"
                 rowKey="custom"
                 compact={compact}
@@ -301,61 +283,11 @@ function PresetList({
                 onClick={() => onOpen("custom")}
               >
                 Custom range
-              </Row>
+              </PickerRow>
             ),
           )}
         </React.Fragment>
       ))}
-    </div>
-  )
-}
-
-function GroupList({
-  group,
-  value,
-  today,
-  compact,
-  onPreset,
-  onBack,
-}: {
-  group: Extract<PresetGroup, { kind: "group" }>
-  value: RangeValue
-  today: Ymd
-  compact: boolean
-  onPreset: (id: PresetId) => void
-  onBack: () => void
-}) {
-  return (
-    <div role="menu" aria-label={group.label} onKeyDown={onRowsKey} className={cn(compact ? "px-2 pb-2 pt-1" : "p-1.5", !compact && "w-[288px]")}>
-      <button
-        type="button"
-        data-row="back"
-        onClick={onBack}
-        className={cn(
-          "flex w-full cursor-pointer items-center gap-1 rounded-lg font-semibold text-[#1a1a2e] outline-none transition-colors duration-100 focus-visible:bg-[#f1f1f4]",
-          compact ? "min-h-[44px] px-2 text-[15px] active:bg-[#f1f1f4]" : "min-h-[34px] px-1.5 text-[13px] hover:bg-[#f4f4f6]",
-        )}
-      >
-        <ChevronLeft className="h-4 w-4 shrink-0" strokeWidth={2.25} aria-hidden />
-        {group.label}
-      </button>
-      <Divider compact={compact} />
-      {group.children.map((id) => {
-        const r = presetRange(id, today)
-        const quarter = /^q\d$/.test(id)
-        return (
-          <Row
-            key={id}
-            rowKey={id}
-            compact={compact}
-            checked={value.preset === id}
-            detail={quarter || value.preset === id ? rangeLabel(r) : null}
-            onClick={() => onPreset(id)}
-          >
-            {id.startsWith("bfcm") ? String(parts(r.start).y) : PRESET_LABEL[id]}
-          </Row>
-        )
-      })}
     </div>
   )
 }
@@ -779,22 +711,6 @@ function PickerPanel({
         />
       )
     }
-    if (key.startsWith("group:")) {
-      const label = key.slice("group:".length)
-      const group = PRESET_MENU.flat().find((g): g is Extract<PresetGroup, { kind: "group" }> => g.kind === "group" && g.label === label)
-      if (group) {
-        return (
-          <GroupList
-            group={group}
-            value={value}
-            today={today}
-            compact={compact}
-            onPreset={preset}
-            onBack={() => go("list", -1, `[data-row="${CSS.escape(key)}"]`)}
-          />
-        )
-      }
-    }
     return (
       <div className={compact ? undefined : "w-[288px]"}>
         <PresetList
@@ -803,7 +719,7 @@ function PickerPanel({
           firstDay={firstDay}
           compact={compact}
           onPreset={preset}
-          onOpen={(next) => go(next, 1, next === "custom" ? `[data-day][tabindex="0"]` : `[data-row]:not([data-row="back"])`)}
+          onOpen={(next) => go(next, 1, `[data-day][tabindex="0"]`)}
         />
       </div>
     )
@@ -891,7 +807,7 @@ export function DateRangePicker({ value, onChange, today, firstDay, align = "sta
       <PopoverContent
         align={align}
         sideOffset={6}
-        className={cn(surface, "w-auto max-w-[calc(100vw-24px)]")}
+        className={cn(pickerSurface, "w-auto max-w-[calc(100vw-24px)]")}
         onOpenAutoFocus={(e) => {
           /* Onto the period that is showing, not the first row. */
           e.preventDefault()

@@ -324,23 +324,24 @@ html.capacitor body {
 
      The stroke transition is on both states, not just the loading one: it is
      what turns the moment the data lands from a colour swap into a fade,
-     while the line itself grows on Recharts' own animation.
+     while the line itself grows out of the floor it was lying on
+     (components/app/morph-lines, whose line carries .trend-line).
      ──────────────────────────────────────────────────────────────────── */
   @keyframes chart-skeleton-breath {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.45; }
   }
-  [data-chart-loading] .recharts-area-curve {
+  [data-chart-loading] .trend-line {
     transition: stroke 420ms cubic-bezier(0.32, 0.72, 0, 1);
   }
-  [data-chart-loading="true"] .recharts-area-curve,
+  [data-chart-loading="true"] .trend-line,
   [data-chart-loading="true"] .recharts-cartesian-grid line,
   [data-chart-loading="true"] .recharts-cartesian-axis-tick text {
     animation: chart-skeleton-breath 1.7s cubic-bezier(0.4, 0, 0.6, 1) infinite;
   }
 
   @media (prefers-reduced-motion: reduce) {
-    [data-chart-loading="true"] .recharts-area-curve,
+    [data-chart-loading="true"] .trend-line,
     [data-chart-loading="true"] .recharts-cartesian-grid line,
     [data-chart-loading="true"] .recharts-cartesian-axis-tick text {
       animation: none;
@@ -4661,18 +4662,31 @@ html.pop-in-flight #platform-header-root {
   scrollbar-color: rgba(156, 163, 175, 0.45) transparent;
 }
 
-/* The explanation behind a dotted underline (components/app/help-label.tsx):
-   a short fade and lift, from the side it opens on. */
+/* The explanation behind a dotted underline, and the note behind a change
+   figure (components/app/help-label.tsx): a short fade and lift in, from the
+   side it opens on, and a shorter fade out on the same curve. It used to
+   have no way out at all, so it blinked away the moment the pointer left.
+   The chart readout fades on the same curve (components/app/chart-scrub). */
 @keyframes help-card-in {
   from { opacity: 0; transform: translateY(-4px) scale(0.98); }
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
-.help-card[data-state="open"] {
-  animation: help-card-in 160ms cubic-bezier(0.2, 0.8, 0.2, 1);
+@keyframes help-card-out {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to { opacity: 0; transform: translateY(-2px) scale(0.98); }
+}
+.help-card {
   transform-origin: var(--radix-popover-content-transform-origin);
 }
+.help-card[data-state="open"] {
+  animation: help-card-in 160ms cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+.help-card[data-state="closed"] {
+  animation: help-card-out 120ms cubic-bezier(0.4, 0, 0.2, 1) both;
+}
 @media (prefers-reduced-motion: reduce) {
-  .help-card[data-state="open"] { animation: none; }
+  .help-card[data-state="open"],
+  .help-card[data-state="closed"] { animation: none; }
 }
 
 /* The action list (components/ui/responsive-action-menu.tsx): 150ms in and

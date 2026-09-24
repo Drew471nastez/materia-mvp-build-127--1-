@@ -22,23 +22,23 @@
  *   THE GRID JUMPED UP AND DOWN. The scale chose three or four intervals
  *   per metric, so the lines themselves moved between tabs.
  *
- * So: one series slot that keeps its key and is given the next metric's
- * numbers (recharts then animates every point from where it was to where it
- * goes), a scale with a fixed number of intervals (the grid never moves,
- * only the numbers on it), an axis as wide as the widest label of EVERY
- * metric the tabs can show, and those numbers cross-faded rather than
- * swapped.
+ * So: one line slot that is given the next metric's numbers and moves every
+ * point from where it is drawn to where it goes (components/app/morph-lines,
+ * which took this over from recharts because recharts restarted a move from
+ * where the last one was going), a scale with a fixed number of intervals
+ * (the grid never moves, only the numbers on it), an axis as wide as the
+ * widest label of EVERY metric the tabs can show, and those numbers
+ * cross-faded rather than swapped.
  */
 import * as React from "react"
 import type { Scale } from "@/lib/analytics/chart-scale"
 
-/** How long a line takes to become the next one. Under the 650ms the flag stays up for (CHART_ANIM_MS). */
+/** How long a line takes to become the next one. */
 export const MORPH_MS = 600
 /**
  * The iOS sheet curve: most of the way in the first third, then a long
  * settle. What makes a morph read as a physical thing arriving rather than a
- * tween. Recharts' animation reads a cubic-bezier string; its types only
- * name the keywords, hence the cast at the call sites.
+ * tween. morphEase below is the same curve as a function of time.
  */
 export const MORPH_EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
 
@@ -149,34 +149,9 @@ export function AxisLabels({
 }
 
 /**
- * The end of the line, a dot that travels with it. Recharts hides its own
- * dots for the length of every animation and brings them back at the end,
- * which on a tab switch was a dot vanishing and reappearing somewhere else.
- * This one never leaves: it starts on the floor the line grows from, then
- * moves on the morph's own curve and time to wherever the line now ends.
- */
-export function useEndDotMotion(shown: boolean): { armed: boolean; transition: string } {
-  const [armed, setArmed] = React.useState(false)
-  React.useEffect(() => {
-    if (!shown) {
-      setArmed(false)
-      return
-    }
-    let inner = 0
-    const outer = requestAnimationFrame(() => {
-      inner = requestAnimationFrame(() => setArmed(true))
-    })
-    return () => {
-      cancelAnimationFrame(outer)
-      cancelAnimationFrame(inner)
-    }
-  }, [shown])
-  return { armed, transition: armed ? `transform ${MORPH_MS}ms ${MORPH_EASE}` : "none" }
-}
-
-/**
- * MORPH_EASE as a function of time, for a chart drawn by hand (the report
- * cards): the x of the curve solved for t by Newton's method, then its y.
+ * MORPH_EASE as a function of time, for the lines drawn by hand (both trend
+ * charts, components/app/morph-lines, and the report cards): the x of the
+ * curve solved for t by Newton's method, then its y.
  */
 export function morphEase(t: number): number {
   if (t <= 0) return 0
