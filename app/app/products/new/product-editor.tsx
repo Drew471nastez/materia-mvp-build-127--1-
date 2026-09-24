@@ -5,7 +5,7 @@ import { sheetAboveKeyboard } from "@/lib/ui/keyboard-safe-sheet"
 import React, { useState, useEffect, useCallback, useRef, useLayoutEffect, memo } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
-import { getProductUrl, getProductShareUrl } from "@/lib/url-helpers"
+import { getProductShareUrl } from "@/lib/url-helpers"
 import { isNativeApp } from "@/lib/platform-utils"
 import { openExternal } from "@/lib/native-bridge"
 import { Button } from "@/components/ui/button"
@@ -13,7 +13,6 @@ import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Switch } from "@/components/ui/switch"
 // Native <select> used instead of Radix Select for reliable dropdown behavior
 import {
   Tooltip,
@@ -27,7 +26,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogFooter,
 } from "@/components/ui/dialog"
 import {
   Popover,
@@ -40,7 +38,6 @@ import {
   X,
   Loader2,
   FileText,
-  GripVertical,
   Info,
   Play,
   Pencil,
@@ -48,7 +45,6 @@ import {
   ChevronUp,
   ChevronDown,
   Layers,
-  ExternalLink,
   CheckCircle,
   AlertCircle,
   MoreHorizontal,
@@ -59,33 +55,12 @@ import { descriptionForSave } from "./description-save"
 import { descriptionTooLong } from "@/lib/rich-text/policy"
 import { uploadDescriptionImage } from "@/lib/rich-text/upload-image"
 import { DirectUploader, type UploadStatus } from "@/lib/storage/chunked-upload"
-import {
-  DndContext,
-  DragOverlay,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  TouchSensor,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-  type DragStartEvent,
-} from "@dnd-kit/core"
-import {
-  arrayMove,
-  SortableContext,
-  sortableKeyboardCoordinates,
-  useSortable,
-  verticalListSortingStrategy,
-  rectSortingStrategy,
-} from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
 import { avoidReservedProductSlug } from "@/lib/commerce/reserved-slugs"
 import { SWITCH_GROUP, SwitchRow } from "./editor-controls"
 import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
 import { cn } from "@/lib/utils"
 import {
-  DEFAULT_FAQS,
   DEFAULT_WHATS_INCLUDED,
   initialForm,
   parseYouTubeUrl,
@@ -1589,7 +1564,7 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
           .select("id")
           .eq("product_id", finalProductId)
 
-        const existingDbIds = new Set((existingDbVariants || []).map(v => v.id))
+        const existingDbIds = new Set<string>((existingDbVariants || []).map((v: { id: string }) => v.id))
         const uiVariantIds = new Set(variants.filter(v => v.id).map(v => v.id))
 
         // Step 2: Find variants to delete (in DB but not in UI)
@@ -1689,7 +1664,7 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
                 .in("id", variant.assignedFiles)
 
               if (assets && assets.length > 0) {
-                const variantFilesData = assets.map(asset => ({
+                const variantFilesData = assets.map((asset: { id: string }) => ({
                   variant_id: savedVariant.id,
                   digital_asset_id: asset.id,
                 }))
