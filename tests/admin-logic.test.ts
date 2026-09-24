@@ -58,7 +58,7 @@ async function main() {
     const ok = planRefund(paid, 2500)
     check("a paid order refunds its whole amount when that amount is echoed", ok.ok && ok.amount === 2500 && ok.total === 2500)
     check("with the creator route's idempotency key", ok.ok && ok.idempotencyKey === "storelib-refund:o1:0:2500")
-    check("a different echo is refused with nothing done", (() => { const p = planRefund(paid, 2400); return !p.ok && p.status === 409 })())
+    check("a different echo is refused with nothing done", (() => { const p = planRefund(paid, 2400); return !p.ok && "status" in p && p.status === 409 })())
     check("a missing echo is refused too", !planRefund(paid, undefined).ok && !planRefund(paid, "2500").ok)
     const partly = { ...paid, status: "refunded", refund_amount_cents: 1000 }
     const rest = planRefund(partly, 1500)
@@ -68,7 +68,7 @@ async function main() {
     check("a pending order refuses", !planRefund({ ...paid, status: "pending" }, 2500).ok)
     check("a disputed order refuses", !planRefund({ ...paid, status: "disputed" }, 2500).ok)
     check("a free order with no payment refuses", !planRefund({ ...paid, stripe_payment_intent_id: null }, 2500).ok)
-    check("no order refuses with a 404", (() => { const p = planRefund(null, 0); return !p.ok && p.status === 404 })())
+    check("no order refuses with a 404", (() => { const p = planRefund(null, 0); return !p.ok && "status" in p && p.status === 404 })())
   }
 
   console.log("\nSpam signals flag products, not ordinary ones\n")

@@ -45,7 +45,8 @@ const PROOFS: [string, RegExp][] = [
   ["a signed-in session", /auth\.getUser\(\)/],
   ["the creator behind the session", /currentCreatorId\(\)/],
   ["a helper that leaves the decision to RLS", /\b(resolveSite|getSite)\(/],
-  ["the admin password", /isAdminAuthenticated/],
+  /* requireAdmin() in lib/admin/gate.ts is isAdminAuthenticated with the 401 attached. */
+  ["the admin password", /isAdminAuthenticated|await requireAdmin\(\)/],
   ["a shared secret, failing closed", /requireBearerSecret\(/],
   ["a signature on the payload", /constructEvent|HOOK_SECRET/],
   /* An agent connected to one site: its token, hashed, looked up, revocable.
