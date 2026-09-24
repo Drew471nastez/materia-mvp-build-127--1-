@@ -264,6 +264,10 @@ function main() {
         && shared.every((f) => /<BottomSheet\b/.test(read(f)) && !/translateY\(100%\)|translate3d\(0, ?100%, ?0\)/.test(read(f)))
         && /data-app-sheet=\{isVisible \? "open" : undefined\}/.test(read("components/app/dashboard-client.tsx")))
   }
+  check("a sheet takes focus when it opens and hands it back when it closes, without scrolling",
+    /panel\.focus\(\{ preventScroll: true \}\)/.test(read("components/ui/bottom-sheet.tsx"))
+      && /opener\.focus\(\{ preventScroll: true \}\)/.test(read("components/ui/bottom-sheet.tsx"))
+      && /tabIndex=\{-1\}/.test(read("components/ui/bottom-sheet.tsx")))
   check("the old one-off modal is gone", !/date-range-picker-modal/.test(read("app/app/analytics/analytics-client.tsx")))
   check("the revenue chart's 30 days is 30 days, not 365", /case "30": \{\s*\/\* This fell through to 365 days\. \*\/\s*const start = new Date\(now\)\s*start\.setUTCDate\(start\.getUTCDate\(\) - 30\)/.test(read("app/api/stripe/revenue-chart/route.ts")))
 

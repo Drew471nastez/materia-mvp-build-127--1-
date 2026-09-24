@@ -401,6 +401,22 @@ export function BottomSheet({
     return () => scrim.removeEventListener("touchmove", refuse)
   }, [mounted, present])
 
+  /**
+   * FOCUS GOES IN, AND COMES BACK. A modal dialog that leaves focus on the
+   * page behind it is one a screen reader never enters, and one a keyboard
+   * tabs straight past. The panel takes focus when it opens, without
+   * scrolling anything, and the control that opened it gets it back after.
+   */
+  useEffect(() => {
+    if (!isOpen || !mounted) return
+    const opener = document.activeElement as HTMLElement | null
+    const panel = sheetRef.current
+    if (panel && !panel.contains(document.activeElement)) panel.focus({ preventScroll: true })
+    return () => {
+      if (opener && opener.isConnected && typeof opener.focus === "function") opener.focus({ preventScroll: true })
+    }
+  }, [isOpen, mounted])
+
   useEffect(() => {
     if (!isOpen) return
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") requestClose() }
@@ -429,7 +445,8 @@ export function BottomSheet({
       <div
         ref={sheetRef}
         data-sheet-panel=""
-        className={cn("absolute inset-x-0 bottom-0 rounded-t-[20px] bg-white shadow-[0_-8px_40px_rgba(0,0,0,0.18)]", className)}
+        tabIndex={-1}
+        className={cn("absolute inset-x-0 bottom-0 rounded-t-[20px] bg-white outline-none shadow-[0_-8px_40px_rgba(0,0,0,0.18)]", className)}
         style={{
           transform: "translate3d(0, 100%, 0)",
           /* The sheet owns every touch on it: the browser must not decide
