@@ -118,8 +118,15 @@ function main() {
   check("the series goes through them, in the one slot every metric shares",
     /SLOTS\.slice\(0, slots\)\.map\(\(slot\) => \(\s*<Area[\s\S]{0,160}stroke=\{lineStroke\(CHART_COLORS\.views\)\}[\s\S]{0,60}fill=\{lineFill\(grad\("gradViolet"\)\)\}\s*dot=\{lineDot\}/.test(chart),
     "each metric its own <Area> is what made a tab a replacement instead of a move")
+  /*
+    The layer a finger lands on is components/app/chart-scrub now: the chart
+    hands it `disabled` while it is a placeholder, and the layer then takes
+    no pointer and raises no readout.
+  */
   check("nothing in a placeholder can be pressed",
-    /pointerEvents: isLoading \? "none" : undefined/.test(chart),
+    /disabled=\{isLoading \|\| n === 0\}/.test(chart)
+      && /pointerEvents: disabled \? "none" : "auto"/.test(read("components/app/chart-scrub.tsx"))
+      && /if \(live\.current\.disabled\) return/.test(read("components/app/chart-scrub.tsx")),
     "a finger on it would raise a tooltip reading zero for a number nobody has")
   check("and the breath is in the stylesheet, with reduced motion respected",
     /@keyframes chart-skeleton-breath/.test(css)
