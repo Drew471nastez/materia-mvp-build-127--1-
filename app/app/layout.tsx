@@ -1,4 +1,5 @@
 import type React from "react"
+import type { Metadata } from "next"
 import { redirect } from "next/navigation"
 import { headers } from "next/headers"
 import { createClient } from "@/lib/supabase/server"
@@ -10,6 +11,13 @@ import { NativeAuthGate } from "@/components/native-auth-gate"
 import { OfflineGuard } from "@/components/app/offline-guard"
 import { NativeBackHandler } from "@/components/app/native-back-handler"
 import AppDashboardLoading from "./loading"
+
+/**
+ * One signed in person's own screens: never in a search index. robots.txt
+ * keeps crawlers out too (lib/seo/indexing.ts PLATFORM_DISALLOW); this is
+ * for the page somebody links to anyway.
+ */
+export const metadata: Metadata = { robots: { index: false, follow: false } }
 
 /**
  * Detect Capacitor WebView from the User-Agent header.

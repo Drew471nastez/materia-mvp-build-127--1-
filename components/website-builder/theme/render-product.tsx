@@ -26,6 +26,10 @@ import { mayPreview, pageSections, themeSettings as themeSettingsOf } from "@/li
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 import { TrackView } from "@/components/analytics/track-view"
 import { SiteVitals } from "@/components/website-builder/site-vitals"
+import { plainSummary } from "@/lib/html-entities"
+import { getMainDomain, getProductShareUrl } from "@/lib/url-helpers"
+import { productIndexable, siteOrigin, websiteIndexable } from "@/lib/seo/indexing"
+import { customDomainOf } from "@/lib/seo/sitemaps"
 
 type ProductRow = {
   id: string
@@ -72,17 +76,68 @@ async function fetchProductBySlug(slug: string): Promise<ProductRow | null> {
   return null
 }
 
-export async function productMetadata(slug: string): Promise<Metadata> {
+/**
+ * The product's metadata, and which address it is canonical at.
+ *
+ *   on a site (`site`): the site's own `/products/<slug>`, at the site's
+ *     canonical origin (its connected domain when it has one), indexed
+ *     unless the site's owner switched search indexing off
+ *   at storelib.com/products/<slug> (`platform`): the address every link
+ *     uses, storelib.com/<handle>/<slug>, so the two spellings do not
+ *     compete
+ *
+ * The description is plain text: it is stored as rich text, and a meta
+ * description printed verbatim is a snippet full of markup.
+ */
+export async function productMetadata(
+  slug: string,
+  where: { site: string } | { platform: true } | null = null,
+): Promise<Metadata> {
   const product = await fetchProductBySlug(slug)
-  if (!product) return { title: "Product Not Found" }
+  if (!product) return { title: "Product Not Found", robots: { index: false, follow: false } }
 
   const ogImage = (product.gallery_urls?.[0]) || product.thumbnail_url || undefined
+  const description = plainSummary(product.description) || undefined
+  let canonical: string | undefined
+  let index = true
+  if (where && product.creator_id && product.slug) {
+    const admin = createAdminClient()
+    if ("site" in where) {
+      const [domain, { data: install }] = await Promise.all([
+        customDomainOf(product.creator_id),
+        admin
+          .from("store_theme_installs")
+          .select("store_theme_settings ( settings )")
+          .eq("creator_id", product.creator_id)
+          .eq("status", "published")
+          .order("sort_order", { ascending: true })
+          .limit(1)
+          .maybeSingle(),
+      ])
+      const s = (install as { store_theme_settings?: unknown } | null)?.store_theme_settings
+      const settings = ((Array.isArray(s) ? s[0] : s) as { settings?: Record<string, unknown> } | null)?.settings ?? null
+      index = !!install && websiteIndexable(settings)
+      canonical = `${siteOrigin({ handle: where.site, customDomain: domain, mainDomain: getMainDomain() })}/products/${encodeURIComponent(product.slug)}`
+    } else {
+      const { data: creator } = await admin.from("creators").select("user_id").eq("id", product.creator_id).maybeSingle()
+      const userId = (creator as { user_id?: string } | null)?.user_id
+      const { data: profile } = userId
+        ? await admin.from("profiles").select("username").eq("id", userId).maybeSingle()
+        : { data: null }
+      const handle = (profile as { username?: string } | null)?.username ?? ""
+      canonical = getProductShareUrl(handle, product.slug)
+      index = productIndexable(product, handle || null)
+    }
+  }
   return {
     title: product.title ?? "Product",
-    description: product.description ?? undefined,
+    description,
+    ...(canonical ? { alternates: { canonical } } : {}),
+    robots: { index, follow: true },
     openGraph: {
       title: product.title ?? "Product",
-      description: product.description ?? undefined,
+      description,
+      ...(canonical ? { url: canonical } : {}),
       ...(ogImage && { images: [{ url: ogImage }] }),
     },
   }

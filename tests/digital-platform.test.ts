@@ -136,7 +136,7 @@ check(
     // A dangling import is a build failure, so this is really a guard against
     // somebody restoring one file and not the rest.
     const FILES = [
-      "app/sitemap.ts",
+      "lib/seo/sitemaps.ts",
       "app/checkout/page.tsx",
       "app/api/checkout/stripe-session/route.ts",
       "components/platform/platform-header-client.tsx",
@@ -278,7 +278,7 @@ check(
 check(
   "the sitemap advertises the digital taxonomy and nothing fashion",
   (() => {
-    const src = code("app/sitemap.ts")
+    const src = code("lib/seo/sitemaps.ts")
     return (
       /for \(const category of CATEGORIES\)/.test(src) &&
       !/DEPARTMENT_NAV|categoryPath\(dept/.test(src) &&
@@ -312,7 +312,7 @@ check(
 check(
   "and the sitemap advertises them",
   (() => {
-    const src = code("app/sitemap.ts")
+    const src = code("lib/seo/sitemaps.ts")
     return ["/pricing", "/features", "/faq", "/explore"].every((r) => src.includes(`${"${BASE}"}${r}\`"`.slice(0, -1)) || src.includes(r))
   })(),
 )

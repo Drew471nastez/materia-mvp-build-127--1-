@@ -71,7 +71,7 @@ const LINKERS = [
   "components/smart-link.tsx",
   "app/(marketing)/p/[slug]/page.tsx",
   "app/(marketing)/c/[slug]/page.tsx",
-  "app/sitemap.ts",
+  "lib/seo/sitemaps.ts",
 ]
 /**
  * `startsWith("/u/")` is route DETECTION and is stripped before the check —
@@ -93,7 +93,7 @@ check(
 )
 check(
   "the sitemap lists it",
-  /url: `\$\{BASE\}\/\$\{profile\.username\}`/.test(code("app/sitemap.ts")),
+  /url: `\$\{BASE\}\/\$\{profile\.username\}`/.test(code("lib/seo/sitemaps.ts")),
   "the sellers block now reads the same map the products block built",
 )
 /**
@@ -101,7 +101,7 @@ check(
  * is how it listed zero creator pages for an unknown length of time without
  * anyone finding out.
  */
-const sitemapSrc = code("app/sitemap.ts")
+const sitemapSrc = code("lib/seo/sitemaps.ts")
 check(
   "a sitemap query that fails says so",
   /console\.error\("\[sitemap\]/.test(sitemapSrc) && !/\} catch \{\}\s*$/.test(sitemapSrc.slice(sitemapSrc.indexOf("product block"))),
@@ -200,7 +200,7 @@ check(
 
 check(
   "the sitemap lists products under their creator",
-  /url: getProductShareUrl\(username \|\| "", row\.slug\)/.test(code("app/sitemap.ts")),
+  /url: getProductShareUrl\(username \|\| "", row\.slug\)/.test(code("lib/seo/sitemaps.ts")),
   "a sitemap entry that redirects spends crawl budget to be sent somewhere else",
 )
 

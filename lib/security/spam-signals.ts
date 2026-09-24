@@ -40,7 +40,7 @@
  * So this module exists, but it is deliberately the SECOND line of defence.
  * Scoring handles is an arms race — they can rename. Withholding the indexable
  * surface until an account has actually published something is not an arms
- * race, because there is nothing left to win. See app/sitemap.ts and
+ * race, because there is nothing left to win. See lib/seo/sitemaps.ts and
  * app/(marketing)/u/[username]/page.tsx for the half of this fix that removes
  * the incentive; this file is the half that raises the cost.
  *

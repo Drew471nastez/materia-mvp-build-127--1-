@@ -36,7 +36,8 @@ interface PageProps {
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { username } = await params
   const base = await siteMetadata(username, undefined, "products")
-  return { ...base, robots: { index: false, follow: true } }
+  /* Search results are not a page to index, and so name no canonical. */
+  return { ...base, alternates: undefined, robots: { index: false, follow: true } }
 }
 
 export default async function SiteSearchPage({ params, searchParams }: PageProps) {

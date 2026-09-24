@@ -1,5 +1,6 @@
 "use client"
 
+import { announceChange } from "@/lib/seo/announce-client"
 import type React from "react"
 import { BottomSheet, SHEET_CLOSE_MS, SHEET_EASE, SHEET_OPEN_MS } from "@/components/ui/bottom-sheet"
 import { useState, useRef, useEffect, useCallback } from "react"
@@ -1670,6 +1671,9 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
         setSuccess(true)
       }
       setShowSaveToast(true)
+      /* The creator page and the OnePage may have moved or changed: tell
+         the search engines that take IndexNow. */
+      announceChange({ profile: true })
 
       // Check if language was changed
       const languageChanged = selectedLanguage !== initialLanguage.current

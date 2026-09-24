@@ -1,5 +1,6 @@
 "use client"
 
+import { announceChange } from "@/lib/seo/announce-client"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
@@ -139,7 +140,8 @@ export function CourseBuilder({ product, course, modules: initialModules }: Cour
   const togglePublish = async () => {
     const newStatus = product.status === "published" ? "draft" : "published"
     const supabase = createClient()
-    await supabase.from("products").update({ status: newStatus }).eq("id", product.id)
+    const { error } = await supabase.from("products").update({ status: newStatus }).eq("id", product.id)
+    if (!error) announceChange({ product: product.id })
     router.refresh()
   }
 

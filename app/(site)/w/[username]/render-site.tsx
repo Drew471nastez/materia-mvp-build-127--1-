@@ -31,6 +31,8 @@ import { pageTitleFromKey, templateForPage } from "@/lib/website-builder/site-pa
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 import { TrackView } from "@/components/analytics/track-view"
 import { SiteVitals } from "@/components/website-builder/site-vitals"
+import { siteOrigin } from "@/lib/seo/indexing"
+import { customDomainOf } from "@/lib/seo/sitemaps"
 
 export type SiteSearchParams = Record<string, string | string[] | undefined>
 
@@ -124,15 +126,37 @@ export async function siteMetadata(
     ? settings.favicon_url
     : undefined
 
+  /**
+   * THE ONE ADDRESS THIS PAGE IS AT. A site answers on its storelib.com
+   * subdomain and, once one is connected, on its own domain: two hosts with
+   * the same pages. The canonical names the connected domain when there is
+   * one (lib/seo/indexing siteOrigin), so the two do not compete, and it is
+   * absolute, because the root layout's metadataBase is storelib.com and a
+   * relative one would name a page that does not exist there.
+   */
+  const origin = siteOrigin({ handle: username, customDomain: await customDomainOf(creator.id), mainDomain: getMainDomain() })
+  const url = `${origin}${sitePath(pageKey)}`
+
+  /* Nothing published: the page says so, and is not a page to index. */
+  if (!install) {
+    return { title: { absolute: `${defaultHandle} | Storelib` }, robots: { index: false, follow: true } }
+  }
+
   return {
     title: { absolute: rawTitle },
     description,
     icons: favicon ? { icon: favicon, shortcut: favicon, apple: favicon } : undefined,
+    alternates: { canonical: url },
     // The share image, the card type and — the one that matters — whether the
     // page may be indexed at all. All three were in the panel and read by
     // nothing, so "noindex" was a setting somebody trusted and did not have.
-    ...themeMetadata(settings, { title: rawTitle, description }),
+    ...themeMetadata(settings, { title: rawTitle, description, url }),
   }
+}
+
+/** A page key as the address it is served at. */
+function sitePath(pageKey: string): string {
+  return pageKey === "home" ? "/" : `/${pageKey}`
 }
 
 /**
