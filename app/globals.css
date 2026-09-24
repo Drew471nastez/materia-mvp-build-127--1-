@@ -1169,6 +1169,53 @@ html.capacitor body {
   }
   .storelib-prose hr { border: 0; border-top: 1px solid currentColor; opacity: 0.2; margin: 1.4em 0; }
   .storelib-prose img { border-radius: 10px; max-width: 100%; height: auto; }
+  /*
+   * WHAT A PRODUCT DESCRIPTION ADDS. The description is written in
+   * components/app/rich-text-editor.tsx and drawn by RichDescriptionContent,
+   * both in this class, so it looks the same being written as it does on the
+   * page. Underline and strike are on the toolbar; the rest are shapes an
+   * older editor saved (a top level heading, YouTube and X embeds, pasted
+   * tables) that still have to read properly. Still no colour anywhere.
+   */
+  .storelib-prose h1 { font-size: 1.6em; font-weight: 600; line-height: 1.25; margin: 1.4em 0 0.5em; }
+  .storelib-prose b { font-weight: 600; }
+  .storelib-prose u { text-decoration: underline; text-underline-offset: 2px; }
+  .storelib-prose s { text-decoration: line-through; }
+  .storelib-prose li > p { margin: 0; }
+  .storelib-prose li > ul,
+  .storelib-prose li > ol { margin: 0.25em 0 0; }
+  .storelib-prose ul ul { list-style: circle; }
+  .storelib-prose table { display: block; max-width: 100%; overflow-x: auto; border-collapse: collapse; margin: 0 0 0.85em; }
+  .storelib-prose th,
+  .storelib-prose td { border: 1px solid color-mix(in srgb, currentColor 18%, transparent); padding: 0.35em 0.6em; text-align: left; vertical-align: top; }
+  .storelib-prose th { font-weight: 600; }
+  .storelib-prose iframe { max-width: 100%; border: 0; }
+  .storelib-prose [data-embed-type] { margin: 0 0 0.85em; }
+  .storelib-prose [data-embed-type="youtube"] { position: relative; aspect-ratio: 16 / 9; }
+  .storelib-prose [data-embed-type="youtube"] iframe { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 10px; }
+  .storelib-prose [data-embed-type="youtube-thumbnail"] > a { display: block; position: relative; text-decoration: none; }
+  .storelib-prose [data-embed-type="x-post"] { min-height: 200px; }
+  .storelib-prose .twitter-tweet { margin-left: auto; margin-right: auto; }
+
+  /*
+   * The rich text field's toolbar is one row that scrolls sideways on a
+   * phone, so it takes no scrollbar, and no double tap zoom on its buttons.
+   */
+  .rich-text-toolbar { scrollbar-width: none; touch-action: manipulation; }
+  .rich-text-toolbar::-webkit-scrollbar { display: none; }
+  .rich-text-content { caret-color: #1a1a2e; }
+  .rich-text-content [data-embed-type] { cursor: default; }
+  /*
+   * A picture in a description is a block of its own, the width of the
+   * text at most, its height following its width, in the editor and on the
+   * page alike. Dimmed while it uploads; outlined while its description is
+   * being written.
+   */
+  .storelib-description img,
+  .rich-text-content img { display: block; margin: 0.25em 0; }
+  .rich-text-content img { cursor: pointer; }
+  .rich-text-content img[data-uploading] { opacity: 0.55; }
+  .rich-text-content img[data-picked] { outline: 2px solid #1a1a2e; outline-offset: 2px; }
 
   /**
    * The bar across the top of the editor's canvas while the next page is
@@ -2532,14 +2579,15 @@ html.keyboard-open [data-page="library"] main {
 
 /* ── The iOS spinner (components/ui/activity-spinner.tsx) ────────────────────
  *
- * Eight spokes, turned an eighth at a time: `steps(8)` holds each position
- * for 100ms and then jumps, which is how the system indicator moves. A linear
- * turn would smear the spokes into a blur of grey. Transform only, so it runs
- * on the compositor while the page it is waiting for is being put together.
+ * Eight spokes with stepped shading, turned continuously: one turn a second
+ * on a linear curve, so every frame moves it by the same small angle. It used
+ * to jump an eighth every 100ms (`steps(8)`), and on a phone that read as a
+ * judder rather than as motion. Transform only, on an HTML box, so it runs on
+ * the compositor while the page it is waiting for is being put together.
  */
 .activity-spinner {
   display: block;
-  animation: activity-spin 800ms steps(8) infinite;
+  animation: activity-spin 1000ms linear infinite;
   will-change: transform;
 }
 @keyframes activity-spin {
@@ -2549,7 +2597,7 @@ html.keyboard-open [data-page="library"] main {
 @media (prefers-reduced-motion: reduce) {
   /* Slower, never still: a spinner that has stopped reads as a frozen screen. */
   .activity-spinner {
-    animation-duration: 2400ms;
+    animation-duration: 3000ms;
   }
 }
 
@@ -4776,26 +4824,12 @@ html.pop-in-flight #platform-header-root {
  *  ORDERS (app/app/orders)
  * ═══════════════════════════════════════════════════════════════════════════ */
 
-/* The table swipes sideways under a finger and keeps its first two columns.
-   `overscroll-behavior-x: contain` stops a swipe that reaches the end from
-   turning into the browser's back gesture. */
-.orders-scroller {
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior-x: contain;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(156, 163, 175, 0.45) transparent;
-}
+/* The table swipes sideways under a finger and keeps its first two columns
+   (the scroller and the shadow at their edge are the shared .scroll-edge,
+   below). */
 .orders-sticky {
   position: sticky;
   z-index: 1;
-}
-/* A hairline where the frozen columns end, once there is anything to the
-   right of them, and a soft shadow once something has gone under them. */
-.orders-scroller[data-overflow="true"] .orders-edge {
-  box-shadow: inset -1px 0 0 #eceef1;
-}
-.orders-scroller[data-scrolled="true"] .orders-edge {
-  box-shadow: inset -1px 0 0 #e3e5e9, 8px 0 10px -8px rgba(17, 24, 39, 0.18);
 }
 .orders-strip {
   scrollbar-width: none;
@@ -4832,6 +4866,63 @@ html.pop-in-flight #platform-header-root {
 }
 .orders-bar[data-scrolled="true"] {
   box-shadow: 0 1px 0 rgba(17, 24, 39, 0.07), 0 4px 10px -8px rgba(17, 24, 39, 0.16);
+}
+
+/* ── A table that scrolls sideways under a frozen first column ──────────────
+ * (components/app/scroll-edge.tsx: Emails, the automation runs, Orders)
+ *
+ * Polaris' IndexTable depth at the cut: once the rows have moved, a hairline
+ * and a short soft shadow down the frozen column's right edge, header to last
+ * row as one line; while there is more to the right, a faint shade along the
+ * table's right edge. Both are pseudo elements of the frame, positioned from
+ * the one measured number (--scroll-edge-x), faded on opacity alone.
+ * `overscroll-behavior-x: contain` stops a swipe that reaches the end from
+ * turning into the browser's back gesture.
+ */
+.scroll-edge {
+  position: relative;
+  isolation: isolate;
+}
+.scroll-edge-scroller {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(156, 163, 175, 0.45) transparent;
+}
+.scroll-edge::before,
+.scroll-edge::after {
+  content: "";
+  position: absolute;
+  z-index: 2;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 160ms ease-out;
+}
+.scroll-edge::before {
+  left: var(--scroll-edge-x, 0px);
+  top: var(--scroll-edge-top, 0px);
+  height: var(--scroll-edge-h, 100%);
+  width: 12px;
+  background: linear-gradient(to right, rgba(17, 24, 39, 0.1), rgba(17, 24, 39, 0.035) 45%, rgba(17, 24, 39, 0));
+  box-shadow: inset 1px 0 0 rgba(17, 24, 39, 0.08);
+}
+.scroll-edge::after {
+  right: 0;
+  top: 0;
+  height: var(--scroll-edge-view-h, 100%);
+  width: 16px;
+  background: linear-gradient(to left, rgba(17, 24, 39, 0.07), rgba(17, 24, 39, 0));
+}
+.scroll-edge[data-start="true"]::before,
+.scroll-edge[data-end="true"]::after {
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .scroll-edge::before,
+  .scroll-edge::after {
+    transition: none;
+  }
 }
 
 /* A report card's list scrolls inside the card, which keeps every card the

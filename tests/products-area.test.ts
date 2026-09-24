@@ -7,10 +7,11 @@
  *    pinned here, and so is the absence of the old client-side load.
  * 2. A coupon is checked on the server by readCouponInput and placed in a
  *    view by couponState (lib/checkout/coupons.ts). Both are pure.
- * 3. The shape of the pages: the Products list as Shopify's index in the
- *    Orders page's parts (a phone list beside the desktop table, one toolbar,
- *    52px rows), one bar at the top of the editor and none at its foot, and
- *    SQL that pastes. scripts/check-products-page.mjs measures the list.
+ * 3. The shape of the pages: the Products list as a shelf of pictures on a
+ *    phone (72px rows, a 56px picture, a search field and one segmented
+ *    control, no card) beside a light table from 768px, one bar at the top
+ *    of the editor and none at its foot, and SQL that pastes.
+ *    scripts/check-products-page.mjs measures the list.
  */
 import { readFileSync, existsSync } from "node:fs"
 import { initialForm, snapshotOf, snapshotOfForm, DEFAULT_FAQS, DEFAULT_WHATS_INCLUDED, type LoadedProduct } from "@/app/app/products/new/editor-form"
@@ -110,20 +111,83 @@ check("and the list still prefetches the editor, data and all, when a row is hov
 console.log("\nOne bar, at the top")
 
 check("no Save and Cancel strip at the foot of the screen", !/fixed bottom-0 left-0 right-0/.test(editor) && !/Bottom Action Bar/.test(read("app/app/products/new/product-editor.tsx")))
-check("the bar is sticky at the top and holds Cancel and Save", /data-editor-bar=""/.test(editor) && /"sticky top-0 z-30/.test(editor) && /: "Save"\}/.test(editor) && /onClick=\{handleCancel\}/.test(editor))
+check("the bar is sticky at the top and holds Cancel and Save", /data-editor-bar=""/.test(editor) && /"sticky top-0 z-30/.test(editor) && /<SaveButton phase=\{savePhase\}/.test(editor) && /onClick=\{\(\) => void handleCancel\(\)\}/.test(editor))
 check("Cmd or Ctrl and S saves", /e\.metaKey \|\| e\.ctrlKey/.test(editor) && /key\.toLowerCase\(\) !== "s"/.test(editor))
 const barSource = editor.slice(editor.indexOf('data-editor-bar=""'), editor.indexOf('aria-label="Sections"'))
 check("the bar names no product: the name is in the title field", !/savedTitle|\{title\}|"Untitled product"/.test(barSource.replace(/title=\{savedTitle\.trim\(\) \|\| "Product"\}/, "")) && /<h1 className="sr-only">\{productId \? "Edit product" : "New product"\}<\/h1>/.test(barSource))
-check("its state is one line of small text: Unsaved changes, Saved, Live or Draft", /data-editor-state=""/.test(barSource) && /text-\[13px\]/.test(barSource) && /Unsaved changes/.test(barSource) && /\bSaved\n/.test(barSource) && /isPublished \? "Live" : "Draft"/.test(barSource) && /flashSaved\(\)/.test(editor))
-check("in the middle of two equal columns on a phone, so a state change moves neither Cancel nor Save", /grid h-14 max-w-\[760px\] grid-cols-\[1fr_auto_1fr\]/.test(barSource))
+/* "Get rid of the Unsaved and the Live badge or New product thing in the bar." */
+check("nothing is written in the middle of the bar: no Unsaved changes, Saved, Live, Draft or New product", !/data-editor-state/.test(editor) && !/Unsaved changes|"Live"|"Draft"/.test(barSource) && !/grid-cols-\[1fr_auto_1fr\]/.test(barSource))
+check("a screen reader still hears Saving and Saved, from a hidden polite line", /<p data-editor-announce="" className="sr-only" aria-live="polite"/.test(barSource) && /savePhase === "saving" \? "Saving" : savePhase === "saved" \? "Saved"/.test(barSource))
+check("Cancel at the start, the more button and Save at the end", /flex h-14 max-w-\[760px\] items-center justify-between/.test(barSource) && barSource.indexOf("handleCancel") < barSource.indexOf("More actions") && barSource.indexOf("More actions") < barSource.indexOf("<SaveButton"))
+check("whether the product is live or a draft heads the more menu", /section: isPublished \? "Live on your page" : "Draft, hidden from your page"/.test(barSource))
+check("the unsaved tracking still drives the leave question", /if \(hasUnsavedChanges\) \{\s*const leave = await ask\(/.test(editor) && /title: "Discard changes\?"/.test(editor) && /confirm: "Discard", cancel: "Keep editing"/.test(editor))
+
+console.log("\nThe bar's buttons (app/app/products/new/editor-buttons.tsx)")
+
+const buttons = code("app/app/products/new/editor-buttons.tsx")
+check("Cancel and more are white with a hairline and a shade at their foot, flat when pressed",
+  /border border-\[#d9dbe0\] bg-white/.test(buttons) && /shadow-\[inset_0_-1px_0_rgba\(0,0,0,0\.08\),0_1px_0_rgba\(0,0,0,0\.05\)\]/.test(buttons) && /active:shadow-\[inset_0_1px_1px_rgba\(0,0,0,0\.1\)\]/.test(buttons))
+check("the more button is square and Save's height: 40px on a phone, 32px from 640px",
+  /barIconButton = cn\(secondaryDepth, PRESS_AREA_BORDERED, "h-10 w-10 [^"]*sm:h-8 sm:w-8/.test(buttons) && /"inline-flex h-10 min-w-\[64px\][^"]*sm:h-8/.test(buttons))
+check("Save keeps its word in the layout while busy, so its width never changes", /<span className=\{cn\(busy && "opacity-0"\)\}>Save<\/span>/.test(buttons) && /absolute inset-0 flex items-center justify-center/.test(buttons))
+check("busy is aria-busy and not disabled, and a press while busy does nothing", /aria-busy=\{phase === "saving" \|\| undefined\}/.test(buttons) && /disabled=\{!busy && disabled\}/.test(buttons) && /if \(!busy\) onSave\(\)/.test(buttons))
+check("a check for SAVED_CHECK_MS after a save", /export const SAVED_CHECK_MS = 900/.test(buttons) && /data-save-check=""/.test(buttons) && /setTimeout\(\(\) => setSavedFlash\(false\), SAVED_CHECK_MS\)/.test(editor))
+check("disabled is Polaris grey with no depth", /disabled:bg-\[#ebebef\] disabled:text-\[#a1a1aa\] disabled:shadow-none/.test(buttons))
+check("one save at a time: a ref guards it, not only the state", /if \(isLoading \|\| saveInFlight\.current\) return false/.test(editor) && /saveInFlight\.current = true/.test(editor) && /finally \{[\s\S]{0,120}saveInFlight\.current = false/.test(editor))
+
+console.log("\nEvery question the editor asks (app/app/products/new/confirm-sheet.tsx)")
+
+const confirmSheet = code("app/app/products/new/confirm-sheet.tsx")
+check("on a phone it is the shared bottom sheet", /import \{ BottomSheet \} from "@\/components\/ui\/bottom-sheet"/.test(confirmSheet) && /<BottomSheet\s/.test(confirmSheet) && /data-surface="sheet"/.test(confirmSheet))
+check("from 640px a compact modal in the middle", /AlertDialogPrimitive\.Content/.test(confirmSheet) && /data-surface="modal"/.test(confirmSheet) && /max-w-\[420px\]/.test(confirmSheet))
+check("two buttons: the safe one with the bar's depth, the one that does it in red", /cn\(secondaryDepth, "h-12/.test(confirmSheet) && /criticalDepth/.test(confirmSheet) && /bg-\[#c4290c\]/.test(buttons))
+check("the old forced dialog sheet and its swipe code are gone from the editor", !/showExitDialog|handleSaveAndExit|"unsaved"/.test(editor) && /\{confirmSheet\}/.test(editor))
+check("no window.confirm left in the editor: a big upload and deleting a file ask in the sheet", !/\bconfirm\(`/.test(editor) && /title: "Upload this much\?"/.test(editor) && /title: "Delete this file\?"/.test(editor))
+
+console.log("\nHold to drag: one set of sensors (app/app/products/new/hold-to-drag.ts)")
+
+const hold = code("app/app/products/new/hold-to-drag.ts")
+check("a mouse and a held finger, not PointerSensor, which took every touch after 12px with no hold",
+  /useSensor\(MouseSensor, \{ activationConstraint: \{ distance: MOUSE_DISTANCE_PX \} \}\)/.test(hold) && /useSensor\(TouchSensor, \{ activationConstraint: \{ delay: HOLD_MS, tolerance: HOLD_TOLERANCE_PX \} \}\)/.test(hold) && !/PointerSensor/.test(hold))
+check("the hold is 300ms within 8px", /export const HOLD_MS = 300/.test(hold) && /export const HOLD_TOLERANCE_PX = 8/.test(hold))
+check("and the keyboard", /useSensor\(KeyboardSensor, \{ coordinateGetter: sortableKeyboardCoordinates \}\)/.test(hold))
+check("a handle lets a swipe scroll the page (touch-action: manipulation), and a hold opens no callout", /HANDLE_TOUCH = "cursor-grab select-none touch-manipulation \[-webkit-touch-callout:none\]/.test(hold))
+check("a tick when a finger lifts, through the app's haptic", /hapticTap\("soft"\)/.test(hold) && /event instanceof TouchEvent/.test(hold))
+check("the pane scrolls near its edges, gently", /AUTO_SCROLL = \{ threshold: \{ x: 0, y: 0\.15 \}, acceleration: 6 \}/.test(hold))
+
+console.log("\nThe questions (app/app/products/new/faq-list.tsx)")
+
+const faq = code("app/app/products/new/faq-list.tsx")
+check("they use the shared sensors, handle and autoscroll", /const sensors = useHoldToDragSensors\(\)/.test(faq) && /HANDLE_TOUCH,/.test(faq) && /autoScroll=\{AUTO_SCROLL\}/.test(faq) && !/PointerSensor|touch-none/.test(faq))
+check("the keyboard moves a question too, in words", /onDragStart: \(\{ active \}\) => `Picked up question/.test(faq))
+check("the held card follows the finger with no transition of its own; it lifts on an inner layer", /transition: isDragging \? undefined : transition/.test(faq) && /scale-\[1\.02\]/.test(faq) && /transition-\[scale,box-shadow,border-color\]/.test(faq))
+check("only a drop commits; a cancel changes nothing", /onDragCancel=\{\(\) => setActiveId\(null\)\}/.test(faq) && /arrayMove\(prev, from, to\)/.test(faq))
+check("the editor draws the list from the form's own faqs", /<FaqList faqs=\{faqs\} onChange=\{setFaqs\} \/>/.test(editor) && !/SortableFAQItem|faqSensors/.test(editor))
+
+console.log("\nThe photos and videos (app/app/products/new/media-grid.tsx)")
+
+const media = code("app/app/products/new/media-grid.tsx")
+check("the same sensors, handle and autoscroll as the questions", /const sensors = useHoldToDragSensors\(\)/.test(media) && /HANDLE_TOUCH,/.test(media) && /autoScroll=\{AUTO_SCROLL\}/.test(media) && !/PointerSensor|touch-none/.test(media))
+check("the held tile stays in the grid and follows by transform, both ways, with no transition of its own",
+  /translate3d\(\$\{Math\.round\(transform\.x\)\}px, \$\{Math\.round\(transform\.y\)\}px, 0\)/.test(media) && /transition: isDragging \? undefined : transition/.test(media) && !/DragOverlay|opacity: isDragging \? 0/.test(media))
+check("it lifts on an inner layer: 3% and a shadow", /scale-\[1\.03\]/.test(media) && /transition-\[scale,box-shadow,border-color\]/.test(media))
+check("a named group, so the touch rule that strips transforms inside .group leaves the lift alone", /group\/tile/.test(media) && !/["\s]group["\s]/.test(media))
+check("the remove button is its own button above the handle; the labels take no taps", /data-media-remove=""/.test(media) && /onRemove\(item\.id\)/.test(media) && (media.match(/pointer-events-none absolute/g) ?? []).length >= 3)
+check("positions are read out, and position 1 is named the thumbnail", /`Picked up \$\{name\(active\.id\)\.toLowerCase\(\)\} of \$\{count\}\.`/.test(media) && /n === 1 \? ", the thumbnail" : ""/.test(media))
+check("only a drop commits; a cancel changes nothing", /onDragCancel=\{\(\) => setActiveId\(null\)\}/.test(media) && /arrayMove\(prev, from, to\)/.test(media))
+check("the editor draws the grid from the form's own media; the old sensors, overlay and dead touch handlers are gone",
+  /<MediaGrid items=\{mediaItems\} onChange=\{setMediaItems\} onRemove=\{removeMedia\} \/>/.test(editor) && !/SortableMediaItem|mediaSensors|activeDragItem|<DragOverlay|handleTouchStart|touchDragIndex|longPressTimerRef/.test(editor))
+
+console.log("\nThe editor's page")
+
 check("first on the screen, as a layer over the app's header, it starts below the status bar", /\[\[data-page-layer\]_&\]:pt-\[env\(safe-area-inset-top\)\]/.test(barSource) && /\[\[data-page-layer\]_&\]:pb-\[calc\(32px\+env\(safe-area-inset-bottom\)\)\]/.test(editor))
 check("the editor scrolls as a page-scroll pane, so the pill's room is the shared 104px and nothing else", /className="page-scroll h-full overflow-y-auto/.test(editor) && !/pb-24 sm:pb-8/.test(editor))
 check("prices bring up the decimal keypad", (editor.match(/inputMode="decimal"/g) ?? []).length >= 4)
 
-console.log("\nThe Products list: Shopify's index in the Orders page's parts")
+console.log("\nThe Products list: a shelf of pictures on a phone, a light table from 768px")
 
 const list = code("app/app/products/products-client.tsx")
-check("a list under 768px and the table from it", /<ul aria-label="Products" className="md:hidden">/.test(list) && /className="hidden w-full table-fixed border-separate border-spacing-0 text-\[13px\] md:table"/.test(list))
+check("a list under 768px and the table from it", /<ul aria-label="Products" data-list="" className="-mx-4 sm:-mx-6 md:hidden">/.test(list) && /className="hidden w-full table-fixed border-separate border-spacing-0 text-\[13px\] md:table"/.test(list))
 check("no table forced sideways on a phone", !/min-w-\[500px\]/.test(list) && !/min-w-max/.test(list) && !/sticky left-0/.test(list))
 check("a hover or a finger prefetches the editor in full", /onTouchStart=\{\(\) => warm\(product\.id\)\}/.test(list) && /kind: "full"/.test(list))
 const couponsList = code("app/app/coupons/coupons-client.tsx")
@@ -131,18 +195,36 @@ check("no Products and Coupons tabs: Coupons is a page of its own again", !exist
 check("with its own title", /<h1[^>]*>Coupons<\/h1>/.test(couponsList))
 const sidebar = code("components/app/sidebar.tsx")
 check("and its own place in the menu, under Products, where it was", /href: "\/app\/products",[\s\S]{0,160}children: \[\{ href: "\/app\/coupons", label: "Coupons" \}\]/.test(sidebar))
-check("the Orders bar and parts, not a parallel set", /<PaneBar width=\{LIST_WIDTH\} className=\{LIST_BAR\}>/.test(list) && /from "\.\.\/orders\/order-parts"/.test(list) && /<StatusBadge tone="success">/.test(list))
-check("the bar: Export as the quiet action, New product as the one loud one, both at Orders' 32px with no icon on New product",
-  /aria-label="Export products"/.test(list) && /<Link href="\/app\/products\/new" className=\{cn\(buttonAccent, PRESS\)\}>\s*\{t\("products\.newProduct"\)\}\s*<\/Link>/.test(list) && !/NEW_BUTTON|PHONE_FIELD/.test(list))
+check("the Orders bar, gutter and width, not a parallel set", /<PaneBar width=\{LIST_WIDTH\} className=\{LIST_BAR\}>/.test(list) && /from "\.\.\/orders\/order-parts"/.test(list))
+check("New product is the one dark button (buttonPrimary, not the violet accent), with no icon, and a 44px press on a phone",
+  /<Link href="\/app\/products\/new" data-new-product="" className=\{cn\(buttonPrimary, PRESS\)\}>\s*\{t\("products\.newProduct"\)\}\s*<\/Link>/.test(list) && !/buttonAccent/.test(list) && /max-md:after:-inset-1\.5/.test(list))
+check("Export is a plain icon on a phone and the word on a computer, and neither it nor New product is in the bar of an empty shop",
+  /aria-label="Export products" look=\{EXPORT_LOOK\}/.test(list) && /max-md:border-transparent max-md:bg-transparent/.test(list) && /\{products\.length > 0 \? \(\s*<div className="flex shrink-0 items-center gap-1 md:gap-2">\s*<ResponsiveActionMenu/.test(list))
+check("nothing floats: no fixed New product over the list or the navigation pill", !/fixed[^"]*bottom-/.test(list.slice(list.indexOf("<PaneBar"), list.indexOf("deleteModalOpen && productToDelete"))))
+check("search is a real field that is always there once there are products, not a button that opens one",
+  /<label data-search="" className="flex h-11 min-w-0 flex-1 cursor-text items-center md:h-8/.test(list) && /placeholder="Search products"/.test(list) && !/isSearchOpen|setIsSearchOpen/.test(list) && /text-\[16px\][^"]*md:text-\[13px\]/.test(list))
+check("Escape clears the field, and so does its clear button", /e\.key === "Escape" && searchQuery/.test(list) && /aria-label="Clear search"[\s\S]{0,400}onClick=\{clearSearch\}/.test(list))
+check("the field and Sort stack over the views until the column is 700px wide, by container query, not the window",
+  /"@container mx-auto pb-2 md:pb-8"/.test(list) && /@min-\[700px\]:flex-row-reverse/.test(list))
 check("the views are All, Active, Draft and Archived, All open first, with no counts", /useState<View>\("all"\)/.test(list) && /value: "all"[\s\S]{0,80}value: "active"[\s\S]{0,80}value: "draft"[\s\S]{0,80}value: "archived"/.test(list) && !/tabCounts/.test(list))
-check("one toolbar at every width: views, search and sort, 52px on a phone and 48px from 768px", /data-toolbar="" className="flex h-\[52px\] items-center border-b border-\[#eef0f2\] px-1 md:h-12/.test(list) && /aria-label="Search products" title="Search"/.test(list) && /aria-label="Sort" title="Sort"/.test(list) && !/className="mt-1 md:hidden"/.test(list))
+check("as one segmented control whose white segment slides on transform alone, drawn only when there is more than one view",
+  /\{views\.length > 1 \? \(\s*<div\s+role="tablist"/.test(list) && /data-segment=""/.test(list) && /transition-transform duration-200/.test(list) && /motion-reduce:transition-none/.test(list) && /transform: `translateX\(\$\{viewIndex \* 100\}%\)`/.test(list))
 check("sort by newest, oldest, title, price and sales", ["newest", "oldest", "title_asc", "title_desc", "price_desc", "price_asc", "sales"].every((s) => list.includes(`value: "${s}"`)) && /\.sort\(compare\(sort\)\)/.test(list))
-check("phone rows are 64px with a 40px picture and the name on one 15px line", /className="relative flex h-16 items-center gap-3 pl-3 pr-1/.test(list) && /block truncate text-\[15px\] font-medium leading-5/.test(list) && /h-10 w-10 shrink-0 overflow-hidden rounded-lg border border-\[#e3e5e8\]/.test(list) && !/aspect-square w-16/.test(list))
-check("table rows are 52px, the whole row opens the product, and nothing from a menu's portal does", /className="group h-\[52px\] cursor-pointer"/.test(list) && /router\.push\(`\/app\/products\/\$\{product\.id\}`\)/.test(list) && /!e\.currentTarget\.contains\(target\)/.test(list) && !/\{t\("products\.edit"\)\}/.test(list))
-check("numbers right aligned in figures of one width, Sales from 1024px", /text-right font-medium tabular-nums text-\[#1a1a2e\]/.test(list) && /hidden w-\[96px\] bg-\[#f7f7f8\] px-3 text-right font-medium lg:table-cell">Sales/.test(list))
-check("fifty to a page, with the footer's count and arrows", /const PAGE_SIZE = 50/.test(list) && /data-footer=""/.test(list) && /aria-label="Next page"/.test(list))
+check("phone rows are 72px with a 56px picture, straight on the page with no card, the name on one 15px line",
+  /className="relative flex h-\[72px\] items-center gap-3 pl-4/.test(list) && /size === 56 \? "h-14 w-14 rounded-\[12px\]"/.test(list) && /block truncate text-\[15px\] font-medium leading-5/.test(list) && /aria-label="Products"\s+className="mt-1 md:mt-3 md:overflow-hidden md:rounded-2xl/.test(list))
+check("price and sales are quiet grey text under the name, and a free product says Free", /data-meta="" className="[^"]*text-\[13px\][^"]*text-\[#6b7280\]"/.test(list) && /cents > 0 \? formatMoney\(cents\) : "Free"/.test(list) && /\{product\.sales_count \? \(/.test(list))
+check("a phone row names its status only when it is not on sale, as a dot and a word, not a badge",
+  /view === "all" && status !== "live"/.test(list) && /function StatusMark/.test(list) && !/StatusBadge/.test(list) && /bg-\[#e0a100\]/.test(list))
+check("a product with no picture shows its first letter, not a box icon", /Array\.from\(title\.trim\(\)\)\[0\]/.test(list) && !/<Package/.test(list))
+check("table rows are 64px, the whole row opens the product, and nothing from a menu's portal does", /className="group h-16 cursor-pointer/.test(list) && /router\.push\(`\/app\/products\/\$\{product\.id\}`\)/.test(list) && /!e\.currentTarget\.contains\(target\)/.test(list) && !/\{t\("products\.edit"\)\}/.test(list))
+check("no grey heading band in the table", !/bg-\[#f7f7f8\] pl-4/.test(list) && /<th scope="col" className="border-b border-\[#eef0f2\] pl-4 pr-3 font-medium">Product<\/th>/.test(list))
+check("numbers right aligned in figures of one width, Sales from 1024px", /text-right font-medium tabular-nums text-\[#1a1a2e\]/.test(list) && /hidden w-\[96px\] border-b border-\[#eef0f2\] px-3 text-right font-medium lg:table-cell">Sales/.test(list))
+check("fifty to a page, with the footer's count and arrows, the count left off a phone with one page", /const PAGE_SIZE = 50/.test(list) && /data-footer=""/.test(list) && /aria-label="Next page"/.test(list) && /pages === 1 && "max-md:hidden"/.test(list))
 check("every phone press is 44px however small it is drawn", /max-md:min-h-11 max-md:min-w-11/.test(list) && /max-md:after:-inset-1\.5/.test(list) && /trigger=\{<RowMenuButton label=\{`Actions for \$\{product\.title\}`\} className="relative z-\[1\] h-11 w-11/.test(list))
 check("the product actions are all still there: view, share, archive or restore, duplicate, delete", /t\("common\.view"\)/.test(list) && /handleShare\(product\)/.test(list) && /handleArchive\(product\)/.test(list) && /handleDuplicate\(product\)/.test(list) && /handleDeleteClick\(product\)/.test(list) && /generateProductsCSV/.test(list) && /generateProductsPDF/.test(list))
+check("the phone pane leaves the pill's room to the shared page-scroll rule, not a second padding of its own", /className="orders-pane h-full overflow-y-auto overflow-x-hidden page-scroll/.test(list) && !/pb-24 md:pb-8/.test(list))
+const probe = read("scripts/check-products-page.mjs")
+check("the probe reads the pill's box from its source and measures 360, 390, 430, 768 and 1280", /num\("BAR_H"\)/.test(probe) && /num\("SLOT"\)/.test(probe) && ["phone-360", "phone-390", "phone-430", "tablet-768", "desktop-1280"].every((w) => probe.includes(`"${w}"`)))
 /*
   NO SKELETON LEFT BEHIND. The route's skeleton.tsx outlived the route
   skeletons: nothing imported it, and this test measured its shapes as if a

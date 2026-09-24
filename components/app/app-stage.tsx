@@ -10,12 +10,15 @@ import {
   NAV_ENTER_EASE,
   NAV_ENTER_MS,
   NAV_ENTER_RISE_PX,
+  NAV_SPINNER_CAP_MS,
   NAV_SPINNER_FADE_MS,
   recalledScroll,
   rememberScroll,
   spinnerDelay,
   takeTraversal,
   useAppNavigation,
+  watchRouterCommits,
+  type AppNavigation,
 } from "@/lib/ui/app-navigation"
 
 /**
@@ -42,7 +45,9 @@ import {
  *   computer, the content area goes plain with the spinner in the middle,
  *   and when the page lands that surface fades away over it. No outline of
  *   any page, at any width. The product editor and the plans page never get
- *   it (lib/ui/app-navigation waitsWithSpinner).
+ *   it (lib/ui/app-navigation waitsWithSpinner). It never blocks: it takes
+ *   no presses, it gives way after NAV_SPINNER_CAP_MS whatever happens, and
+ *   every way a navigation can end takes it down (see SlowPage).
  */
 
 type Scrollers = { outer: HTMLElement; inner: HTMLElement | null }
@@ -117,6 +122,10 @@ export function AppStage() {
   const firstRef = useRef(true)
   const prevPathRef = useRef(pathname)
 
+  /* A commit at the address already showing ends the navigation too
+     (lib/ui/app-navigation watchRouterCommits). Once, for the tab. */
+  useEffect(() => { watchRouterCommits() }, [])
+
   /* Where the reader is, recorded as they scroll, for the way back. */
   useEffect(() => {
     const onScroll = (e: Event) => {
@@ -154,6 +163,19 @@ export function AppStage() {
   return <SlowPage />
 }
 
+/**
+ * THE PAGE HAS LANDED, WHATEVER THE ADDRESS SAYS. Mounted by the /app error
+ * boundary and the not-found page (app/app/error.tsx, app/app/not-found.tsx):
+ * a page that threw, or was not there, is still the navigation's answer, and
+ * the spinner must not stay over it. The stage sees most of these already,
+ * as a change of address; this is for the ones it cannot see (an error
+ * thrown where you already were, a not-found at the same address).
+ */
+export function PageLanded() {
+  useLayoutEffect(() => { endAppNavigation() }, [])
+  return null
+}
+
 /** From wherever an element's opacity is now to `to`, dropping whatever was moving it. */
 function fadeTo(el: HTMLElement, to: number, duration: number, easing: string) {
   const from = Number(getComputedStyle(el).opacity)
@@ -177,47 +199,77 @@ function fadeTo(el: HTMLElement, to: number, duration: number, easing: string) {
  * underneath. From md the surface is square and the box is transparent.
  *
  * In on a 150ms opacity fade, over the page you were on, so there is never a
- * frame with nothing on screen. It takes presses while it is up: what is
- * under it is a page you can no longer see. When the page lands it fades out
- * from wherever its own fade had got to (a page that arrives 20ms after the
- * spinner started must not flash it to full and back) and stops taking
- * presses at once, so the new page answers the first tap.
+ * frame with nothing on screen. When the page lands it fades out from
+ * wherever its own fade had got to (a page that arrives 20ms after the
+ * spinner started must not flash it to full and back).
+ *
+ * IT NEVER BLOCKS. "Make sure it never blocks, fully."
+ *
+ *   It takes no presses (`pointer-events: none`), ever: a press goes to
+ *   whatever is under it, the header, the pill and the rail above all, so a
+ *   second tab replaces the navigation and the surface follows the new one.
+ *
+ *   It gives way after NAV_SPINNER_CAP_MS from the press, whether or not the
+ *   page came: the page you were on is back, and the delay is logged.
+ *
+ *   Every end of the navigation takes it down: a new address (a new page, a
+ *   query of the same page, a redirect somewhere else), a commit at the
+ *   address already showing (watchRouterCommits), the error boundary and the
+ *   not-found page (PageLanded), a press on the page already showing, and
+ *   the record's own give up. If the fade out is ever interrupted, a timer
+ *   takes it off the screen anyway.
  */
 function SlowPage() {
   const nav = useAppNavigation()
   const [shown, setShown] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   const leaving = useRef(false)
+  /* Which way out is the current one: a timer left from an earlier one does nothing. */
+  const leaves = useRef(0)
+  /* The navigation the cap has already run out on: it is not shown again. */
+  const capped = useRef<AppNavigation | null>(null)
+  const [capTick, setCapTick] = useState(0)
 
   useEffect(() => {
     const el = ref.current
     const delay = nav ? spinnerDelay(nav.href) : null
-    if (nav && delay != null) {
+    if (nav && delay != null && capped.current !== nav) {
+      const timers: number[] = []
+      /* The cap, from the press. */
+      timers.push(window.setTimeout(() => {
+        capped.current = nav
+        console.warn(`[app-stage] ${nav.href ?? "a page"} has not arrived after ${NAV_SPINNER_CAP_MS}ms: showing the page you were on`)
+        setCapTick((n) => n + 1)
+      }, Math.max(0, NAV_SPINNER_CAP_MS - (performance.now() - nav.startedAt))))
+      const clear = () => { for (const t of timers) window.clearTimeout(t) }
       if (shown) {
         /* Another press while it is up, or while it was on its way out: it
            stays, and comes back from wherever it had got to. */
         if (el && leaving.current && typeof el.animate === "function") {
           leaving.current = false
-          el.style.pointerEvents = ""
           fadeTo(el, 1, NAV_SPINNER_FADE_MS, "ease-out")
         }
-        return
+        return clear
       }
       /* Leaving a page drawn over the whole shell: that layer stays over
          everything until the next page is here, so there is nothing to draw. */
-      if (document.querySelector("[data-page-layer]")) return
+      if (document.querySelector("[data-page-layer]")) return clear
       const wait = Math.max(0, delay - (performance.now() - nav.startedAt))
-      const t = window.setTimeout(() => setShown(true), wait)
-      return () => window.clearTimeout(t)
+      timers.push(window.setTimeout(() => setShown(true), wait))
+      return clear
     }
-    /* Landed, or the navigation now underway is one that never waits with it. */
+    /* Landed, capped, or the navigation now underway is one that never waits with it. */
     if (!shown || leaving.current) return
     if (!el || typeof el.animate !== "function" || reducedMotion()) { setShown(false); return }
     leaving.current = true
-    el.style.pointerEvents = "none"
+    const id = ++leaves.current
     const out = fadeTo(el, 0, NAV_ENTER_MS, NAV_ENTER_EASE)
-    out.onfinish = () => { if (leaving.current) { leaving.current = false; setShown(false) } }
-  }, [nav, shown])
+    const done = () => { if (leaving.current && leaves.current === id) { leaving.current = false; setShown(false) } }
+    out.onfinish = done
+    /* A fade that never finishes (cancelled, or a tab in the background)
+       still leaves. */
+    window.setTimeout(done, NAV_ENTER_MS + 120)
+  }, [nav, shown, capTick])
 
   /* In on opacity alone, before it is first painted. */
   useLayoutEffect(() => {
@@ -231,7 +283,7 @@ function SlowPage() {
     <div
       ref={ref}
       data-app-slow-page=""
-      className="fixed inset-x-0 bottom-0 top-[calc(68px+env(safe-area-inset-top,0px))] z-[38] bg-[#111111] md:left-[240px] md:top-[calc(58px+env(safe-area-inset-top,0px))] md:bg-transparent"
+      className="pointer-events-none fixed inset-x-0 bottom-0 top-[calc(68px+env(safe-area-inset-top,0px))] z-[38] bg-[#111111] md:left-[240px] md:top-[calc(58px+env(safe-area-inset-top,0px))] md:bg-transparent"
     >
       <div data-app-slow-surface="" className="flex h-full items-center justify-center overflow-hidden rounded-t-[20px] bg-[#f8f9fa] md:rounded-none">
         <ActivitySpinner />

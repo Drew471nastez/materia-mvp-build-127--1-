@@ -449,7 +449,7 @@ function RevenueChart() {
             </div>
           </div>
           {!numReady ? (
-            <div className="h-7 w-32 mt-1 rounded-lg bg-gray-200 animate-pulse" />
+            <WaitingArea className="mt-1 h-[34px] w-32 justify-start" size={18} />
           ) : (
             <p className="text-[24px] sm:text-[28px] font-semibold tracking-tight text-[#1a1a2e]">
               {fmt(Math.max(0, totalGross), currency)}
@@ -779,7 +779,7 @@ function WithdrawPanel({
                 {isNegative ? `-${fmt(Math.abs(effectiveBalance), currency)}` : fmt(effectiveBalance, currency)}
               </p>
             ) : (
-              <div className="h-8 w-24 mt-2 rounded-lg bg-gray-200 animate-pulse" />
+              <WaitingArea className="mt-2 h-8 w-24 justify-start" size={18} />
             )}
           </div>
           <div className="text-right">
@@ -791,7 +791,7 @@ function WithdrawPanel({
                 {fmt(pendingBalance, currency)}
               </p>
             ) : (
-              <div className="h-7 w-20 mt-2 rounded-lg bg-gray-200 animate-pulse ml-auto" />
+              <WaitingArea className="mt-2 ml-auto h-7 w-20 justify-end" size={18} />
             )}
             <button
               onClick={async () => {
@@ -955,11 +955,7 @@ function WithdrawPanel({
                   </div>
                   {/* Per-transaction hold dates */}
                   {holdItemsLoading ? (
-                    <div className="mt-3 space-y-1.5">
-                      {[1, 2].map((i) => (
-                        <div key={i} className="h-6 rounded bg-gray-100 animate-pulse" />
-                      ))}
-                    </div>
+                    <WaitingArea className="mt-3 h-[54px]" size={18} />
                   ) : holdItems.length > 0 ? (
                     <div className="mt-3 space-y-1 border-t border-[#e5e7eb] pt-3">
                       {holdItems.map((item) => (
@@ -1060,11 +1056,7 @@ function WithdrawPanel({
                 <span className="text-[14px] font-semibold text-[#1a1a2e]">{fmt(pendingBalance, currency)}</span>
               </div>
               {holdItemsLoading ? (
-                <div className="mt-2.5 space-y-1.5">
-                  {[1, 2].map((i) => (
-                    <div key={i} className="h-5 rounded bg-gray-100 animate-pulse" />
-                  ))}
-                </div>
+                <WaitingArea className="mt-2.5 h-[46px]" size={18} />
               ) : holdItems.length > 0 ? (
                 <div className="mt-2.5 space-y-1 border-t border-[#e5e7eb] pt-2.5">
                   {holdItems.map((item) => (
@@ -1212,7 +1204,7 @@ function WithdrawPanel({
 
               <div className="mt-4 pt-4 border-t border-[#f3f4f6]">
                 {detailsLoading ? (
-                  <div className="h-4 w-48 bg-gray-100 rounded animate-pulse" />
+                  <WaitingArea className="h-4 w-48 justify-start" size={16} />
                 ) : detailsBank ? (
                   <p className="text-[12px] text-[#9ca3af] leading-relaxed">
                     Your funds are manually paid out to{" "}
@@ -1281,7 +1273,7 @@ function WithdrawPanel({
           </button>
           <div className="mt-4 pt-4 border-t border-[#f3f4f6]">
             {detailsLoading ? (
-              <div className="h-4 w-48 bg-gray-100 rounded animate-pulse" />
+              <WaitingArea className="h-4 w-48 justify-start" size={16} />
             ) : detailsBank ? (
               <p className="text-[12px] text-[#9ca3af] leading-relaxed">
                 Your funds are manually paid out to{" "}
@@ -3495,10 +3487,7 @@ function PayoutMethodCard() {
                 Payout account
               </p>
               {loading ? (
-                <div className="flex items-center gap-2">
-                  <div className="h-3.5 w-32 bg-gray-100 rounded animate-pulse" />
-                  <div className="h-3.5 w-16 bg-gray-100 rounded animate-pulse" />
-                </div>
+                <WaitingArea className="h-5 w-48 justify-start" size={16} />
               ) : bank ? (
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
                   <span className="text-[14px] font-semibold text-[#1a1a2e]">

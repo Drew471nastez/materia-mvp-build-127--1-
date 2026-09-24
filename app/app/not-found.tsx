@@ -1,9 +1,12 @@
 import Link from "next/link"
 import { Home, ArrowLeft } from "lucide-react"
+import { PageLanded } from "@/components/app/app-stage"
 
 export default function AppNotFound() {
   return (
     <div className="h-full overflow-y-auto bg-[#f8f9fa] flex items-center justify-center p-8">
+      {/* Not there is still where the navigation ended: the spinner goes. */}
+      <PageLanded />
       <div className="text-center max-w-sm mx-auto">
         {/* Big 404 */}
         <p className="text-[96px] font-black text-[#e5e7eb] leading-none tracking-tight mb-1 select-none">

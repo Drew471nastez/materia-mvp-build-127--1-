@@ -32,6 +32,7 @@ import { openExternal } from "@/lib/native-bridge"
 import { useLanguage, LANGUAGES } from "@/lib/i18n"
 import { BillingPageClient } from "@/components/app/billing/billing-page-client"
 import { AppAvatar } from "@/components/app/app-avatar"
+import { WaitingArea } from "@/components/ui/activity-spinner"
 import { STORELIB_LOGO } from "@/lib/brand/logo"
 
 function ChainLinkIcon({ className = "w-3 h-3", stroke = "#ffffff" }: { className?: string; stroke?: string }) {
@@ -2997,10 +2998,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                   <div className="-mt-2 rounded-2xl border border-[#e5e7eb] bg-[#fafafa] p-4 sm:p-5">
                     {/* Bank account info */}
                     {stripeBankLoading ? (
-                      <div className="flex items-center gap-3 mb-3">
-                        <div className="h-4 w-32 bg-gray-100 rounded animate-pulse" />
-                        <div className="h-4 w-16 bg-gray-100 rounded animate-pulse" />
-                      </div>
+                      <WaitingArea className="mb-3 h-5 w-48 justify-start" size={16} />
                     ) : stripeBankInfo ? (
                       <div className="flex items-center gap-2 mb-3 flex-wrap">
                         <Landmark className="h-3.5 w-3.5 text-[#6b7280] shrink-0" />

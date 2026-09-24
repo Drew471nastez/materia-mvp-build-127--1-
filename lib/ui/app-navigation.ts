@@ -75,6 +75,16 @@ export const NAV_ENTER_EASE = "cubic-bezier(0.2, 0, 0, 1)"
 export const APP_PAGE_KEPT_MS = 300_000
 /** A navigation that never reports back (it failed, or went nowhere) is dropped after this. */
 const GIVE_UP_MS = 10000
+/**
+ * THE SPINNER NEVER HOLDS THE SCREEN LONGER THAN THIS. "Make sure it never
+ * blocks, fully." A page that has not arrived 8 seconds after the press is
+ * a page with a problem (a server that hung, a navigation the router
+ * dropped without saying), and a plain surface with a spinner on it is then
+ * the worst thing to be looking at: the surface fades away and the page you
+ * were on is back, working. The navigation itself is not cancelled; if the
+ * page does come, it lands as any other. Logged, so it can be found.
+ */
+export const NAV_SPINNER_CAP_MS = 8000
 
 function pathOf(href: string): string {
   return (href.split(/[?#]/)[0] || "").replace(/\/+$/, "") || "/"
@@ -194,6 +204,44 @@ export function endAppNavigation() {
 export function getAppNavigation() {
   return current
 }
+
+/**
+ * A COMMIT THAT CHANGED NOTHING THE STAGE CAN SEE. The stage ends the record
+ * when the address it shows changes (components/app/app-stage.tsx). A
+ * navigation can also land on the address already showing: a redirect back
+ * to it, a page that sends you where you are. Nothing the stage reads moves,
+ * so the record stayed, and with it the spinner, until GIVE_UP_MS.
+ *
+ * The router writes every commit into the history with its own marker
+ * (`__NA` in the state, Next's HistoryUpdater), in the same commit and
+ * before the layout effects. So: when it does, look again once the commit is
+ * over, and if the record is still the same one and the window is on the
+ * address the stage committed, the navigation has landed where it started.
+ * Installed once, for the life of the tab.
+ */
+let watchingCommits = false
+export function watchRouterCommits() {
+  if (watchingCommits || typeof window === "undefined" || !window.history) return
+  watchingCommits = true
+  const h = window.history
+  for (const name of ["pushState", "replaceState"] as const) {
+    const original = h[name]
+    h[name] = function (this: History, data: unknown, unused: string, url?: string | URL | null) {
+      const result = original.call(this, data, unused, url)
+      const nav = current
+      if (nav && data && typeof data === "object" && (data as { __NA?: unknown }).__NA) {
+        window.setTimeout(() => {
+          if (current === nav && isCommittedAddress(window.location.pathname, window.location.search)) endAppNavigation()
+        }, 0)
+      }
+      return result
+    }
+  }
+}
+
+/* Whether the router started anything on a press: lib/ui/router-starts.ts,
+   on its own so instrumentation-client.ts can count without this module. */
+export { noteRouterStart, routerStartCount, watchRouterStarts } from "./router-starts"
 
 function subscribe(f: () => void) {
   listeners.add(f)

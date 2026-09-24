@@ -27,6 +27,7 @@ import {
 } from "@/lib/store-builder/defaults"
 import { SellerFooter } from "@/components/storefront/seller-footer"
 import { CoverImageEditor } from "./cover-image-editor"
+import { cleanDescription } from "@/app/app/products/new/description-action"
 
 interface PreviewCanvasProps {
   creatorId: string
@@ -358,10 +359,16 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
 
     descriptionUpdateTimeoutRef.current = setTimeout(async () => {
       try {
+        /* Through the same allow list as the product editor's save. */
+        const cleaned = await cleanDescription(newDescription)
+        if (!cleaned.ok) {
+          console.error("Description not saved:", cleaned.error)
+          return
+        }
         const supabase = createClient()
         const { error } = await supabase
           .from("products")
-          .update({ description: newDescription })
+          .update({ description: cleaned.html })
           .eq("id", selectedProduct.id)
 
         if (error) {

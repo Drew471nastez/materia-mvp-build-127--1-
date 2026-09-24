@@ -5,7 +5,7 @@ import { sheetAboveKeyboard } from "@/lib/ui/keyboard-safe-sheet"
 import React, { useState, useEffect, useCallback, useRef, useLayoutEffect, memo } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
-import { getProductUrl, getProductShareUrl } from "@/lib/url-helpers"
+import { getProductShareUrl } from "@/lib/url-helpers"
 import { isNativeApp } from "@/lib/platform-utils"
 import { openExternal } from "@/lib/native-bridge"
 import { Button } from "@/components/ui/button"
@@ -13,7 +13,6 @@ import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Switch } from "@/components/ui/switch"
 // Native <select> used instead of Radix Select for reliable dropdown behavior
 import {
   Tooltip,
@@ -27,7 +26,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogFooter,
 } from "@/components/ui/dialog"
 import {
   Popover,
@@ -35,13 +33,11 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import {
-  ChevronLeft,
   Check,
   Plus,
   X,
   Loader2,
   FileText,
-  GripVertical,
   Info,
   Play,
   Pencil,
@@ -49,42 +45,22 @@ import {
   ChevronUp,
   ChevronDown,
   Layers,
-  ExternalLink,
   CheckCircle,
   AlertCircle,
   MoreHorizontal,
 } from "lucide-react"
 import Link from "next/link"
-import { DescriptionRichEditor } from "@/components/store-builder/description-rich-editor"
+import { RichTextEditor } from "@/components/app/rich-text-editor"
+import { descriptionForSave } from "./description-save"
+import { descriptionTooLong } from "@/lib/rich-text/policy"
+import { uploadDescriptionImage } from "@/lib/rich-text/upload-image"
 import { DirectUploader, type UploadStatus } from "@/lib/storage/chunked-upload"
-import {
-  DndContext,
-  DragOverlay,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  TouchSensor,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-  type DragStartEvent,
-} from "@dnd-kit/core"
-import {
-  arrayMove,
-  SortableContext,
-  sortableKeyboardCoordinates,
-  useSortable,
-  verticalListSortingStrategy,
-  rectSortingStrategy,
-} from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
 import { avoidReservedProductSlug } from "@/lib/commerce/reserved-slugs"
 import { SWITCH_GROUP, SwitchRow } from "./editor-controls"
 import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
 import { cn } from "@/lib/utils"
-import { buttonAccent, buttonSecondary, iconButton } from "../../orders/order-parts"
 import {
-  DEFAULT_FAQS,
   DEFAULT_WHATS_INCLUDED,
   initialForm,
   parseYouTubeUrl,
@@ -97,6 +73,10 @@ import {
   type ProductVariant,
   type UploadedFile,
 } from "./editor-form"
+import { SAVED_CHECK_MS, SaveButton, barButton, barIconButton, secondaryDepth, type SavePhase } from "./editor-buttons"
+import { useConfirm } from "./confirm-sheet"
+import { FaqList } from "./faq-list"
+import { MediaGrid } from "./media-grid"
 
 // Section definitions - internal refs for all sections
 const SECTIONS = [
@@ -187,18 +167,6 @@ const getYouTubeThumbnailUrl = (videoUrl: string): string | null => {
   return videoId ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg` : null
 }
 
-// Sortable FAQ Item component for drag-and-drop reordering
-interface SortableFAQItemProps {
-  faq: {
-    id: string
-    question: string
-    answer: string
-    isDefault: boolean
-  }
-  onUpdate: (id: string, updates: { question?: string; answer?: string }) => void
-  onRemove: (id: string) => void
-}
-
 // Memoized checkbox component for variant file assignment - prevents re-render issues
 interface VariantFileCheckboxProps {
   fileId: string
@@ -256,192 +224,6 @@ const VariantFileCheckbox = React.memo(function VariantFileCheckbox({
   )
 })
 
-function SortableFAQItem({ faq, onUpdate, onRemove }: SortableFAQItemProps) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: faq.id })
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    zIndex: isDragging ? 50 : undefined,
-    opacity: isDragging ? 0.6 : 1,
-  }
-
-  return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      data-faq-id={faq.id}
-      className={`rounded-xl overflow-hidden bg-white border transition-all ${
-        isDragging ? "shadow-xl border-violet-300 scale-[1.02]" : "border-gray-200 hover:border-gray-300"
-      }`}
-    >
-      {/* Mobile: dedicated drag handle button to prevent accidental activation while scrolling */}
-      <div className="sm:hidden flex items-center justify-center py-2.5 px-3 bg-gray-50 border-b border-gray-100">
-        <button
-          type="button"
-          {...attributes}
-          {...listeners}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full cursor-grab active:cursor-grabbing active:bg-violet-50 touch-none select-none transition-colors"
-          aria-label="Hold and drag to reorder FAQ"
-        >
-          <GripVertical className="h-4 w-4 text-gray-400" />
-          <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wide">Hold to drag</span>
-        </button>
-      </div>
-
-      <div className="p-3 sm:p-4">
-        <div className="flex items-start gap-2 sm:gap-3">
-          {/* Drag handle - desktop only, hidden on mobile */}
-          <button
-            {...attributes}
-            {...listeners}
-            className="hidden sm:flex p-1.5 text-gray-300 hover:text-gray-500 hover:bg-gray-100 rounded-lg cursor-grab active:cursor-grabbing touch-none flex-shrink-0 mt-1"
-            title="Drag to reorder"
-          >
-            <GripVertical className="h-4 w-4" />
-          </button>
-
-          <div className="flex-1 space-y-2.5 sm:space-y-3 min-w-0">
-            {/* Question field */}
-            <div className="space-y-1">
-              <label className="text-[10px] font-medium text-gray-400 uppercase tracking-wide">Question</label>
-              <Input
-                value={faq.question}
-                onChange={(e) => onUpdate(faq.id, { question: e.target.value })}
-                className="h-10 text-sm font-medium border-gray-200 rounded-lg bg-gray-50 focus:bg-white transition-colors"
-                placeholder="Enter your question..."
-              />
-            </div>
-            {/* Answer field */}
-            <div className="space-y-1">
-              <label className="text-[10px] font-medium text-gray-400 uppercase tracking-wide">Answer</label>
-              <Textarea
-                value={faq.answer}
-                onChange={(e) => onUpdate(faq.id, { answer: e.target.value })}
-                className="text-sm border-gray-200 min-h-[60px] sm:min-h-[70px] rounded-lg bg-gray-50 focus:bg-white transition-colors resize-none"
-                placeholder="Enter your answer..."
-              />
-            </div>
-          </div>
-
-          {!faq.isDefault && (
-            <button
-              type="button"
-              onClick={() => onRemove(faq.id)}
-              className="p-2 sm:p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0"
-              title="Remove FAQ"
-            >
-              <Trash2 className="h-4 w-4" />
-            </button>
-          )}
-        </div>
-        {faq.isDefault && (
-          <div className="mt-2.5 sm:mt-3 sm:ml-9">
-            <span className="text-[10px] text-violet-500 font-medium px-2 py-0.5 bg-violet-50 rounded-full">Default FAQ</span>
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
-
-// Sortable Media Item component for @dnd-kit grid reordering
-interface SortableMediaItemProps {
-  item: MediaItem
-  index: number
-  onRemove: (id: string) => void
-}
-
-function SortableMediaItem({ item, index, onRemove }: SortableMediaItemProps) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: item.id })
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0 : 1,
-  }
-
-  return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      className={`relative aspect-video rounded-lg overflow-hidden border group select-none ${
-        isDragging ? "border-dashed border-violet-300 bg-violet-50/40" : "border-gray-200 hover:border-gray-300 transition-shadow"
-      }`}
-    >
-      {item.type === "image" && (
-        <img src={item.url} alt="" className="w-full h-full object-cover" draggable={false} />
-      )}
-      {item.type === "youtube" && (
-        <div className="relative w-full h-full">
-          <img
-            src={`https://img.youtube.com/vi/${parseYouTubeUrl(item.url)}/hqdefault.jpg`}
-            alt="YouTube video thumbnail"
-            className="w-full h-full object-cover"
-            draggable={false}
-          />
-          <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-red-600 flex items-center justify-center">
-              <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5 text-white ml-0.5" fill="currentColor">
-                <path d="M8 5v14l11-7z"/>
-              </svg>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Full-area drag handle */}
-      <div
-        {...attributes}
-        {...listeners}
-        className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/20 transition-colors cursor-grab active:cursor-grabbing touch-none"
-      >
-        <GripVertical className="h-5 w-5 sm:h-6 sm:w-6 text-white opacity-40 sm:opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-md" />
-      </div>
-
-      {/* Remove button */}
-      <button
-        type="button"
-        onClick={(e) => { e.stopPropagation(); onRemove(item.id) }}
-        className="absolute top-1 right-1 sm:top-1.5 sm:right-1.5 p-1.5 sm:p-1 bg-white/90 rounded-full shadow-sm opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity z-10"
-      >
-        <X className="h-3 w-3 text-gray-600" />
-      </button>
-
-      {/* Position indicator */}
-      <div className="absolute left-1 top-1 sm:left-1.5 sm:top-1.5 flex h-5 w-5 items-center justify-center rounded-md bg-black/50 text-[10px] font-medium text-white backdrop-blur-sm">
-        {index + 1}
-      </div>
-
-      {/* Type label */}
-      {index === 0 && item.type === "image" && (
-        <span className="absolute bottom-1 left-1 sm:bottom-1.5 sm:left-1.5 px-1.5 py-0.5 bg-black/70 text-white text-[9px] sm:text-[10px] rounded backdrop-blur-sm">
-          Thumbnail
-        </span>
-      )}
-      {item.type === "youtube" && (
-        <span className="absolute bottom-1 left-1 sm:bottom-1.5 sm:left-1.5 px-1.5 py-0.5 bg-red-600 text-white text-[9px] sm:text-[10px] rounded">
-          YouTube
-        </span>
-      )}
-    </div>
-  )
-}
-
 /**
  * The product form's phone sheets (the category, the call to action, the
  * refund policy) are the shared sheet, components/ui/bottom-sheet: the same
@@ -488,6 +270,7 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
   const creatorId = loadedCreator.id
   const creator = loadedCreator
   const [productId, setProductId] = useState<string | null>(initial.productId)
+  const storedDescriptionRef = useRef<string | null>(initial.productId ? initial.description : null) // The description as the row holds it
   /* The saved name, for the more menu's sheet. The bar itself names no product: the title field does. */
   const [savedTitle, setSavedTitle] = useState(initial.title)
 
@@ -496,14 +279,19 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
   const [showNotification, setShowNotification] = useState(() => carriedNotice !== null)
   const [notificationMessage, setNotificationMessage] = useState(() => carriedNotice ?? "")
   const [justSaved, setJustSaved] = useState(!!initial.productId) // A saved product opens saved
-  /* "Saved" in the bar for a moment after a save, then back to Live or Draft. */
+  /* A check on Save for a moment after a save (./editor-buttons, SAVED_CHECK_MS). */
   const [savedFlash, setSavedFlash] = useState(false)
   const savedFlashTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const flashSaved = () => {
     if (savedFlashTimer.current) clearTimeout(savedFlashTimer.current)
     setSavedFlash(true)
-    savedFlashTimer.current = setTimeout(() => setSavedFlash(false), 2500)
+    savedFlashTimer.current = setTimeout(() => setSavedFlash(false), SAVED_CHECK_MS)
   }
+  /* The bar's Save, from the press to the answer. Its own flag, not isLoading,
+     which Publish in the more menu sets too: that is not Save saving. The ref
+     is the guard, because two presses in one frame both read the old state. */
+  const [saveBusy, setSaveBusy] = useState(false)
+  const saveInFlight = useRef(false)
   useEffect(() => () => {
     if (savedFlashTimer.current) clearTimeout(savedFlashTimer.current)
   }, [])
@@ -511,8 +299,8 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
 
   // Unsaved changes tracking
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
-  const [showExitDialog, setShowExitDialog] = useState(false)
-  const [pendingNavigation, setPendingNavigation] = useState<string | null>(null)
+  /* Every question the editor asks (leave, delete a file, a very large upload). */
+  const [ask, confirmSheet] = useConfirm()
 
   // YouTube inline input (bottom sheet on mobile)
   const [showYoutubeInput, setShowYoutubeInput] = useState(false)
@@ -671,7 +459,6 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
 
   // Media section fields - unified draggable media
   const [mediaItems, setMediaItems] = useState<MediaItem[]>(initial.mediaItems)
-  const [activeDragItem, setActiveDragItem] = useState<MediaItem | null>(null)
   const [uploadingMedia, setUploadingMedia] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
 
@@ -698,21 +485,6 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
   const [seoTitle, setSeoTitle] = useState(initial.seoTitle)
   const [seoDescription, setSeoDescription] = useState(initial.seoDescription)
   const seoManuallyEditedRef = useRef(initial.seoEdited) // A saved SEO description is not rewritten from the description
-
-  // Drag state for media
-  const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
-  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
-
-  // Touch drag state for mobile - long press to initiate
-  const [touchDragIndex, setTouchDragIndex] = useState<number | null>(null)
-  const [touchStartPos, setTouchStartPos] = useState<{ x: number; y: number } | null>(null)
-  const [touchCurrentPos, setTouchCurrentPos] = useState<{ x: number; y: number } | null>(null)
-  const [isTouchDragging, setIsTouchDragging] = useState(false)
-  const [touchLongPressReady, setTouchLongPressReady] = useState(false)
-  const touchDragRef = useRef<HTMLDivElement>(null)
-  const mediaGridRef = useRef<HTMLDivElement>(null)
-  const longPressTimerRef = useRef<NodeJS.Timeout | null>(null)
-  const touchPendingIndexRef = useRef<number | null>(null)
 
   // External file drag state for media picker
   const [isExternalDragOver, setIsExternalDragOver] = useState(false)
@@ -788,71 +560,6 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
 
   // AI suggestion states
   const [suggestedCategory, setSuggestedCategory] = useState<string | null>(null)
-
-  // DnD sensors for FAQ reorder (higher thresholds to prevent accidental drag on scroll)
-  const faqSensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 12,
-      },
-    }),
-    useSensor(TouchSensor, {
-      activationConstraint: {
-        delay: 380,
-        tolerance: 14,
-      },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  )
-
-  // DnD sensors for media grid reorder (higher thresholds to prevent accidental drag on scroll)
-  const mediaSensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 12,
-      },
-    }),
-    useSensor(TouchSensor, {
-      activationConstraint: {
-        delay: 300,
-        tolerance: 12,
-      },
-    })
-  )
-
-  // Handle FAQ drag end - reorder FAQs
-  const handleFaqDragEnd = useCallback((event: DragEndEvent) => {
-    const { active, over } = event
-
-    if (over && active.id !== over.id) {
-      setFaqs((prevFaqs) => {
-        const oldIndex = prevFaqs.findIndex((faq) => faq.id === active.id)
-        const newIndex = prevFaqs.findIndex((faq) => faq.id === over.id)
-        return arrayMove(prevFaqs, oldIndex, newIndex)
-      })
-    }
-  }, [])
-
-  // Handle media drag start - track which item is being dragged (for DragOverlay)
-  const handleMediaDragStart = useCallback((event: DragStartEvent) => {
-    const item = mediaItems.find((i) => i.id === event.active.id)
-    setActiveDragItem(item || null)
-  }, [mediaItems])
-
-  // Handle media drag end - reorder media items and clear overlay
-  const handleMediaDragEnd = useCallback((event: DragEndEvent) => {
-    setActiveDragItem(null)
-    const { active, over } = event
-    if (over && active.id !== over.id) {
-      setMediaItems((prev) => {
-        const oldIndex = prev.findIndex((item) => item.id === active.id)
-        const newIndex = prev.findIndex((item) => item.id === over.id)
-        return arrayMove(prev, oldIndex, newIndex)
-      })
-    }
-  }, [])
 
   // Stable handler for toggling variant assigned files - defined at component level to avoid closure issues
   const handleToggleVariantFile = useCallback((variantId: string, fileId: string) => {
@@ -1758,12 +1465,15 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
         category: selectedCategory,
       })
 
+      // The description's HTML through the allow list on the server (lib/rich-text/sanitize.ts)
+      const savedDescription = await descriptionForSave(description, storedDescriptionRef.current)
+
       const productData = {
         creator_id: creatorId,
         type: productType,
         title,
         slug: finalSlug,
-        description,
+        description: savedDescription,
         status: publish ? "published" : "draft",
         price_cents: Math.round(Number.parseFloat(price || "0") * 100),
         compare_at_cents: compareAtPrice ? Math.round(Number.parseFloat(compareAtPrice) * 100) : null,
@@ -1808,7 +1518,7 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
         }
 
         // Verify description was saved
-        if (description && updatedProduct.description !== description) {
+        if (savedDescription && updatedProduct.description !== savedDescription) {
           console.warn("Description may not have saved correctly")
         }
 
@@ -1854,7 +1564,7 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
           .select("id")
           .eq("product_id", finalProductId)
 
-        const existingDbIds = new Set((existingDbVariants || []).map(v => v.id))
+        const existingDbIds = new Set<string>((existingDbVariants || []).map((v: { id: string }) => v.id))
         const uiVariantIds = new Set(variants.filter(v => v.id).map(v => v.id))
 
         // Step 2: Find variants to delete (in DB but not in UI)
@@ -1954,7 +1664,7 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
                 .in("id", variant.assignedFiles)
 
               if (assets && assets.length > 0) {
-                const variantFilesData = assets.map(asset => ({
+                const variantFilesData = assets.map((asset: { id: string }) => ({
                   variant_id: savedVariant.id,
                   digital_asset_id: asset.id,
                 }))
@@ -2005,6 +1715,7 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
       /* Saved: search engines that take IndexNow hear about it now. */
       if (finalProductId) announceChange({ product: finalProductId })
 
+      storedDescriptionRef.current = savedDescription
       return { productId: finalProductId, slug: finalSlug }
     } catch (err: any) {
       console.error("Error saving product:", err)
@@ -2335,123 +2046,6 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
     setMediaItems(prev => prev.filter(m => m.id !== id))
   }
 
-  // Desktop drag and drop handlers
-  const handleDragStart = (e: React.DragEvent, index: number) => {
-    setDraggedIndex(index)
-    e.dataTransfer.effectAllowed = "move"
-  }
-
-  const handleDragOver = (e: React.DragEvent, index: number) => {
-    e.preventDefault()
-    e.dataTransfer.dropEffect = "move"
-    setDragOverIndex(index)
-  }
-
-  const handleDragLeave = () => {
-    setDragOverIndex(null)
-  }
-
-  const handleDrop = (e: React.DragEvent, dropIndex: number) => {
-    e.preventDefault()
-    if (draggedIndex === null || draggedIndex === dropIndex) {
-      setDraggedIndex(null)
-      setDragOverIndex(null)
-      return
-    }
-
-    const newItems = [...mediaItems]
-    const [draggedItem] = newItems.splice(draggedIndex, 1)
-    newItems.splice(dropIndex, 0, draggedItem)
-    setMediaItems(newItems)
-
-    setDraggedIndex(null)
-    setDragOverIndex(null)
-  }
-
-  const handleDragEnd = () => {
-    setDraggedIndex(null)
-    setDragOverIndex(null)
-  }
-
-  // Mobile touch drag handlers - long press (300ms) to initiate drag
-  const cancelLongPress = useCallback(() => {
-    if (longPressTimerRef.current) {
-      clearTimeout(longPressTimerRef.current)
-      longPressTimerRef.current = null
-    }
-    touchPendingIndexRef.current = null
-    setTouchLongPressReady(false)
-  }, [])
-
-  const handleTouchStart = useCallback((e: React.TouchEvent, index: number) => {
-    const touch = e.touches[0]
-    const startPos = { x: touch.clientX, y: touch.clientY }
-    touchPendingIndexRef.current = index
-    setTouchStartPos(startPos)
-    setTouchCurrentPos(startPos)
-
-    // Start long-press timer (300ms)
-    longPressTimerRef.current = setTimeout(() => {
-      setTouchDragIndex(index)
-      setTouchLongPressReady(true)
-      setIsTouchDragging(true)
-      touchPendingIndexRef.current = null
-    }, 300)
-  }, [])
-
-  const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    const touch = e.touches[0]
-    const currentPos = { x: touch.clientX, y: touch.clientY }
-
-    // If long press hasn't fired yet, check if user moved too much (scrolling)
-    if (touchPendingIndexRef.current !== null && touchStartPos) {
-      const deltaX = Math.abs(touch.clientX - touchStartPos.x)
-      const deltaY = Math.abs(touch.clientY - touchStartPos.y)
-      if (deltaX > 8 || deltaY > 8) {
-        // User is scrolling, cancel the long press
-        cancelLongPress()
-        return
-      }
-    }
-
-    // If actively dragging, update position and find drop target
-    if (isTouchDragging && touchDragIndex !== null) {
-      e.preventDefault()
-      setTouchCurrentPos(currentPos)
-
-      // Find which element we're over
-      const elements = document.elementsFromPoint(touch.clientX, touch.clientY)
-      const dropTarget = elements.find(el => el.getAttribute("data-media-index"))
-
-      if (dropTarget) {
-        const targetIndex = parseInt(dropTarget.getAttribute("data-media-index") || "-1")
-        if (targetIndex !== -1 && targetIndex !== touchDragIndex) {
-          setDragOverIndex(targetIndex)
-        }
-      } else {
-        setDragOverIndex(null)
-      }
-    }
-  }, [isTouchDragging, touchDragIndex, touchStartPos, cancelLongPress])
-
-  const handleTouchEnd = useCallback(() => {
-    cancelLongPress()
-
-    if (touchDragIndex !== null && dragOverIndex !== null && touchDragIndex !== dragOverIndex) {
-      const newItems = [...mediaItems]
-      const [draggedItem] = newItems.splice(touchDragIndex, 1)
-      newItems.splice(dragOverIndex, 0, draggedItem)
-      setMediaItems(newItems)
-    }
-
-    setTouchDragIndex(null)
-    setTouchStartPos(null)
-    setTouchCurrentPos(null)
-    setIsTouchDragging(false)
-    setTouchLongPressReady(false)
-    setDragOverIndex(null)
-  }, [touchDragIndex, dragOverIndex, mediaItems, cancelLongPress])
-
   // Handle file upload for digital assets using admin API with progress
   // Helper: get upload status label
   const getUploadStatusLabel = (status: UploadStatus): string => {
@@ -2547,7 +2141,13 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
     const existingSize = digitalFiles.reduce((sum, f) => sum + f.file_size, 0)
     const combinedSize = totalSize + existingSize
     if (combinedSize > 20 * 1024 * 1024 * 1024) { // 20GB warning
-      const confirmed = confirm(`Total file size will be ${formatFileSize(combinedSize)}. This may take a while to upload. Continue?`)
+      const confirmed = await ask({
+        title: "Upload this much?",
+        body: `That makes ${formatFileSize(combinedSize)} of files, which can take a long time to upload.`,
+        confirm: "Upload",
+        cancel: "Not now",
+        tone: "default",
+      })
       if (!confirmed) return
     }
 
@@ -2695,6 +2295,14 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
 
   const handleDeleteFile = async (file: UploadedFile) => {
     if (!file.id) return
+    /* This one is not undone by Cancel: the file leaves storage now, not on Save. */
+    const sure = await ask({
+      title: "Delete this file?",
+      body: `${file.file_name} is deleted from storage right away, not when you save.`,
+      confirm: "Delete",
+      cancel: "Keep file",
+    })
+    if (!sure) return
 
     try {
       // Use admin API route to bypass RLS
@@ -2724,45 +2332,29 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
     return `${Number.parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`
   }
 
-  // Navigation handlers with unsaved changes check
-  const handleCancel = () => {
+  /*
+    CANCEL. Straight back to Products when there is nothing to lose. With
+    unsaved changes it asks first, as a sheet on a phone: Discard goes, Keep
+    editing stays. Saving is the bar's Save, so the question does not offer a
+    third way out. The unsaved tracking above still drives it; only the words
+    in the bar went.
+  */
+  const handleCancel = async () => {
     if (hasUnsavedChanges) {
-      setPendingNavigation("/app/products")
-      setShowExitDialog(true)
-    } else {
-      router.push("/app/products")
+      const leave = await ask(
+        productId
+          ? { title: "Discard changes?", body: "Your edits since the last save will be lost.", confirm: "Discard", cancel: "Keep editing" }
+          : { title: "Discard this product?", body: "It has not been saved yet, so nothing you added will be kept.", confirm: "Discard", cancel: "Keep editing" },
+      )
+      if (!leave) return
+      setHasUnsavedChanges(false)
     }
-  }
-
-  const handleBackClick = (e: React.MouseEvent) => {
-    if (hasUnsavedChanges) {
-      e.preventDefault()
-      setPendingNavigation("/app/products")
-      setShowExitDialog(true)
-    }
-  }
-
-  const handleConfirmExit = () => {
-    setShowExitDialog(false)
-    setHasUnsavedChanges(false)
-    if (pendingNavigation) {
-      router.push(pendingNavigation)
-    }
-  }
-
-  /* The same save as the bar's, checks and all, and then on to where they were going. */
-  const handleSaveAndExit = async () => {
-    setShowExitDialog(false)
-    const destination = pendingNavigation ?? "/app/products"
-    if (await handleSaveChanges()) {
-      carriedNotice = null
-      router.push(destination)
-    }
+    router.push("/app/products")
   }
 
   /** Saves and publishes. True when it saved. */
   const handleSaveChanges = async (): Promise<boolean> => {
-    if (isLoading) return false
+    if (isLoading || saveInFlight.current) return false
     // Validation 1: Title is required
     if (!title.trim()) {
       showToast("Please add a product title")
@@ -2803,9 +2395,17 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
     }
 
     setIsLoading(true)
+    saveInFlight.current = true
+    setSaveBusy(true)
     // Always publish when saving
-    const result = await saveProduct(true)
-    setIsLoading(false)
+    let result: Awaited<ReturnType<typeof saveProduct>> = null
+    try {
+      result = await saveProduct(true)
+    } finally {
+      setIsLoading(false)
+      saveInFlight.current = false
+      setSaveBusy(false)
+    }
 
     if (result) {
       const { productId: savedProductId, slug: savedSlug } = result
@@ -2977,6 +2577,7 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
 
   /* Save is there to press when there is something to save and a name to save it under. */
   const canSave = !isLoading && !!title.trim() && !justSaved
+  const savePhase: SavePhase = saveBusy ? "saving" : savedFlash ? "saved" : "idle"
 
   /* Cmd or Ctrl and S, from anywhere on the page, instead of the browser's own Save. */
   const saveShortcut = useRef<() => void>(() => {})
@@ -3041,19 +2642,26 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
       )}
 
       {/*
-        THE BAR: CANCEL, WHAT STATE IT IS IN, AND SAVE.
+        THE BAR: CANCEL, AND SAVE.
         It used to be two bars, a title row that folded away on scroll over a
         row of section pills, and a Cancel and Save strip across the foot of
         the screen, which on a phone sat under the navigation pill. Now it is
-        one bar at the top that never changes size: Cancel, the state as one
-        line of small text (Unsaved changes, Saved, Live, Draft), the more
-        menu, and Save. It names no product: the name is in the title field
-        right under it, and a second copy in the bar was the first thing the
-        owner asked to go.
+        one bar at the top that never changes size: Cancel at the start, the
+        more menu and Save at the end. It names no product: the name is in
+        the title field right under it.
 
-        On a phone it is three columns, the outer two of equal width, so the
-        state sits in the middle of the screen and a longer or shorter state
-        never moves Cancel or Save. On a computer the sections are a row of
+        It says nothing in the middle. It used to carry the state in small
+        text (Unsaved changes, Saved, Live, Draft, New product), and the owner
+        asked for it to go. What it said is still said where it belongs: Save
+        is grey until there is something to save, spins while it saves and
+        shows a check when it has (./editor-buttons); a screen reader hears
+        Saving and Saved from the line below; whether the product is live or a
+        draft heads the more menu, above the Publish or Unpublish that changes
+        it; and Cancel still asks before unsaved changes are thrown away.
+
+        The three buttons have Polaris depth: white with a hairline and a soft
+        foot for Cancel and more, solid violet for Save, all flat when pressed,
+        one height on each screen. On a computer the sections are a row of
         tabs under it. It sits on the pane that scrolls, like the Orders bar,
         with a hairline once something is under it, and Cmd or Ctrl and S
         saves from anywhere on the page.
@@ -3073,78 +2681,30 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
         )}
       >
         <h1 className="sr-only">{productId ? "Edit product" : "New product"}</h1>
-        <div className="mx-auto grid h-14 max-w-[760px] grid-cols-[1fr_auto_1fr] items-center gap-1 px-2 sm:flex sm:h-16 sm:gap-2 sm:px-6">
-          <div className="flex min-w-0 items-center sm:contents">
-            <button
-              type="button"
-              onClick={handleCancel}
-              className="inline-flex h-11 shrink-0 items-center rounded-[10px] px-2.5 text-[16px] text-[#1a1a2e] active:bg-[#eceef1] sm:hidden"
-            >
-              Cancel
-            </button>
-            <Link
-              href="/app/products"
-              onClick={handleBackClick}
-              aria-label="Back to products"
-              className={cn(iconButton, "-ml-2 hidden h-9 w-9 sm:inline-flex")}
-            >
-              <ChevronLeft className="h-5 w-5" />
-            </Link>
-          </div>
-          <p
-            data-editor-state=""
-            aria-live="polite"
-            className="flex h-5 min-w-0 items-center justify-center gap-1.5 overflow-hidden whitespace-nowrap text-[13px] leading-5 text-[#6b7280] sm:flex-1 sm:justify-start"
-          >
-            {isLoading ? (
-              "Saving"
-            ) : hasUnsavedChanges && !justSaved ? (
-              <>
-                <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#d97706]" />
-                Unsaved changes
-              </>
-            ) : savedFlash ? (
-              <>
-                <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#16a34a]" />
-                Saved
-              </>
-            ) : productId ? (
-              <>
-                <span aria-hidden className={cn("h-1.5 w-1.5 shrink-0 rounded-full", isPublished ? "bg-[#16a34a]" : "bg-[#9ca3af]")} />
-                {isPublished ? "Live" : "Draft"}
-              </>
-            ) : (
-              "New product"
-            )}
-          </p>
-          <div className="flex min-w-0 items-center justify-end gap-1 sm:contents">
+        <p data-editor-announce="" className="sr-only" aria-live="polite" aria-atomic="true">
+          {savePhase === "saving" ? "Saving" : savePhase === "saved" ? "Saved" : ""}
+        </p>
+        <div className="mx-auto flex h-14 max-w-[760px] items-center justify-between gap-2 px-4 sm:h-16 sm:px-6">
+          <button type="button" onClick={() => void handleCancel()} className={barButton}>
+            Cancel
+          </button>
+          <div className="flex items-center gap-2">
             {productId ? (
               <ResponsiveActionMenu
                 title={savedTitle.trim() || "Product"}
                 align="end"
                 trigger={
-                  <button type="button" aria-label="More actions" className={cn(iconButton, "h-10 w-10 shrink-0 rounded-[10px] sm:h-8 sm:w-8 sm:rounded-lg")}>
+                  <button type="button" aria-label="More actions" className={barIconButton}>
                     <MoreHorizontal className="h-5 w-5 sm:h-4 sm:w-4" />
                   </button>
                 }
                 items={[
                   ...(isPublished && slug ? [{ label: "View on your page", onClick: handleRedirectToProduct }] : []),
                   { label: isPublished ? "Unpublish" : "Publish", onClick: handleTogglePublish },
-                ]}
+                ].map((item, i) => (i === 0 ? { ...item, section: isPublished ? "Live on your page" : "Draft, hidden from your page" } : item))}
               />
             ) : null}
-            <button type="button" onClick={handleCancel} className={cn(buttonSecondary, "hidden sm:inline-flex")}>
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={() => void handleSaveChanges()}
-              disabled={!canSave}
-              aria-keyshortcuts="Meta+S Control+S"
-              className={cn(buttonAccent, "h-10 min-w-[60px] shrink-0 rounded-[10px] px-3 text-[15px] sm:h-8 sm:min-w-[60px] sm:rounded-lg sm:px-3 sm:text-[13px]")}
-            >
-              {isLoading ? <Loader2 className="h-4 w-4 animate-spin" aria-label="Saving" /> : "Save"}
-            </button>
+            <SaveButton phase={savePhase} disabled={!canSave} onSave={() => void handleSaveChanges()} />
           </div>
         </div>
         <div className="mx-auto hidden h-11 max-w-[760px] items-start px-6 sm:flex">
@@ -3242,61 +2802,13 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
                     />
                   </div>
                   <p className="text-[13px] leading-5 text-[#6b7280] sm:text-[14px]">
-                    Add up to {MAX_PHOTOS} photos and {MAX_YOUTUBE_VIDEOS} video{MAX_YOUTUBE_VIDEOS > 1 ? 's' : ''}.
+                    Add up to {MAX_PHOTOS} photos and {MAX_YOUTUBE_VIDEOS} video{MAX_YOUTUBE_VIDEOS > 1 ? 's' : ''}.{mediaItems.length > 1 ? " Hold and drag to reorder." : ""}
                   </p>
                 </div>
 
-                {/* Draggable Media Grid - @dnd-kit powered, 2 per row */}
+                {/* The grid, two a row, held to reorder (./media-grid.tsx). */}
                 {mediaItems.length > 0 && (
-                  <DndContext
-                    sensors={mediaSensors}
-                    collisionDetection={closestCenter}
-                    onDragStart={handleMediaDragStart}
-                    onDragEnd={handleMediaDragEnd}
-                  >
-                    <SortableContext
-                      items={mediaItems.map(item => item.id)}
-                      strategy={rectSortingStrategy}
-                    >
-                      <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                        {mediaItems.map((item, index) => (
-                          <SortableMediaItem
-                            key={item.id}
-                            item={item}
-                            index={index}
-                            onRemove={removeMedia}
-                          />
-                        ))}
-                      </div>
-                    </SortableContext>
-                    {/* DragOverlay renders via portal at document.body — floats freely above all containers */}
-                    <DragOverlay dropAnimation={{ duration: 180, easing: "ease" }}>
-                      {activeDragItem ? (
-                        <div className="aspect-video rounded-lg overflow-hidden shadow-2xl ring-2 ring-violet-500 rotate-1 scale-105 cursor-grabbing">
-                          {activeDragItem.type === "image" && (
-                            <img src={activeDragItem.url} alt="" className="w-full h-full object-cover" draggable={false} />
-                          )}
-                          {activeDragItem.type === "youtube" && (
-                            <div className="relative w-full h-full">
-                              <img
-                                src={`https://img.youtube.com/vi/${parseYouTubeUrl(activeDragItem.url)}/hqdefault.jpg`}
-                                alt=""
-                                className="w-full h-full object-cover"
-                                draggable={false}
-                              />
-                              <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-red-600 flex items-center justify-center">
-                                  <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5 text-white ml-0.5" fill="currentColor">
-                                    <path d="M8 5v14l11-7z"/>
-                                  </svg>
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      ) : null}
-                    </DragOverlay>
-                  </DndContext>
+                  <MediaGrid items={mediaItems} onChange={setMediaItems} onRemove={removeMedia} />
                 )}
 
                 {/* The upload zone, and its state while a file uploads */}
@@ -3539,12 +3051,13 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
                       Description
                     </Label>
                   </div>
-                  <DescriptionRichEditor
+                  <RichTextEditor
                     value={description}
                     onChange={setDescription}
-                    isMobile={isMobileViewport}
-                    className="min-h-[150px] sm:min-h-[180px] border border-gray-200 rounded-lg"
-                    disableAutoFocus={true}
+                    label="Description"
+                    placeholder="What it is, who it is for, and what they get"
+                    uploadImage={(file) => uploadDescriptionImage(file, { creatorId, productId })}
+                    checkSize={descriptionTooLong}
                   />
                 </div>
               </div>
@@ -4642,13 +4155,11 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
                       />
                     </div>
                     <p className="text-[13px] leading-5 text-[#6b7280] sm:text-[14px]">
-                      Answer common questions. Drag to reorder.
+                      Answer common questions. Hold and drag to reorder.
                     </p>
                   </div>
-                  <Button
+                  <button
                     type="button"
-                    variant="outline"
-                    size="sm"
                     onClick={() => {
                       const faqId = `custom-${Date.now()}`
                       setFaqs(prev => [...prev, {
@@ -4664,40 +4175,14 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
                         }, 50)
                       })
                     }}
-                    className="text-gray-600 border-gray-200 h-8 text-xs rounded-lg hover:bg-gray-50"
+                    className={cn(secondaryDepth, "h-10 rounded-[10px] px-3 text-[14px] sm:h-8 sm:rounded-lg sm:text-[13px]")}
                   >
-                    <Plus className="h-3.5 w-3.5 mr-1" />
+                    <Plus className="h-4 w-4 text-[#6b7280]" />
                     Add FAQ
-                  </Button>
+                  </button>
                 </div>
 
-                <DndContext
-                  sensors={faqSensors}
-                  collisionDetection={closestCenter}
-                  onDragEnd={handleFaqDragEnd}
-                >
-                  <SortableContext
-                    items={faqs.map(faq => faq.id)}
-                    strategy={verticalListSortingStrategy}
-                  >
-                    <div className="space-y-3">
-                      {faqs.map((faq) => (
-                        <SortableFAQItem
-                          key={faq.id}
-                          faq={faq}
-                          onUpdate={(id, updates) => {
-                            setFaqs(prev => prev.map(f =>
-                              f.id === id ? { ...f, ...updates } : f
-                            ))
-                          }}
-                          onRemove={(id) => {
-                            setFaqs(prev => prev.filter(f => f.id !== id))
-                          }}
-                        />
-                      ))}
-                    </div>
-                  </SortableContext>
-                </DndContext>
+                <FaqList faqs={faqs} onChange={setFaqs} />
               </div>
 
               {/* Settings Section */}
@@ -4985,66 +4470,8 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
         </div>
       </MobileSheet>
 
-      {/* Unsaved Changes Dialog */}
-      <Dialog open={showExitDialog} onOpenChange={(open) => {
-        if (!open && isMobileViewport) closeSheet("unsaved", () => setShowExitDialog(false))
-        else setShowExitDialog(open)
-      }}>
-        <DialogContent
-          disableDefaultAnimations={isMobileViewport}
-          showCloseButton={!isMobileViewport}
-          onOpenAutoFocus={(e) => {
-            if (isMobileViewport) e.preventDefault()
-          }}
-          overlayClassName={isMobileViewport ? `bg-black/40 transition-opacity duration-400 ${dismissingSheet === "unsaved" ? "opacity-0" : "opacity-100"}` : undefined}
-          className={isMobileViewport
-            ? `fixed !top-auto !left-0 !right-0 !translate-x-0 !translate-y-0 w-full !max-w-none rounded-t-2xl rounded-b-none border-x-0 border-b-0 p-0 max-h-[70vh] overflow-hidden flex flex-col ${dismissingSheet === "unsaved" && !swipeCloseRef.current ? "animate-bottom-sheet-out" : (!dismissingSheet ? "animate-bottom-sheet-in" : "")}`
-            : "sm:max-w-md mx-4"}
-          style={isMobileViewport ? { willChange: 'transform', backfaceVisibility: 'hidden', ...sheetAboveKeyboard(0.7) } : undefined}
-          onTouchStart={(e) => isMobileViewport && handleSheetTouchStart(e, e.currentTarget as HTMLDivElement)}
-          onTouchMove={(e) => isMobileViewport && handleSheetTouchMove(e)}
-          onTouchEnd={() => isMobileViewport && handleSheetTouchEnd("unsaved", () => setShowExitDialog(false))}
-          onTouchCancel={() => isMobileViewport && handleSheetTouchEnd("unsaved", () => setShowExitDialog(false))}
-        >
-          {isMobileViewport && (
-            <div className="pt-3 pb-1 flex justify-center cursor-grab active:cursor-grabbing touch-none" data-drag-handle>
-              <div className="h-[5px] w-10 rounded-full bg-gray-300" />
-            </div>
-          )}
-          <DialogHeader className={isMobileViewport ? "px-5 pt-1 pb-3 text-left" : undefined}>
-            <DialogTitle className="text-base sm:text-lg">Unsaved changes</DialogTitle>
-            <DialogDescription className="text-xs sm:text-sm">
-              You have unsaved changes. Would you like to save them before leaving?
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className={isMobileViewport ? "px-5 pb-5 grid grid-cols-1 gap-2" : "flex-col-reverse sm:flex-row gap-2"}>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleConfirmExit}
-              className="w-full sm:w-auto text-xs sm:text-sm"
-            >
-              Discard
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setShowExitDialog(false)}
-              className="w-full sm:w-auto text-xs sm:text-sm"
-            >
-              Keep editing
-            </Button>
-            <Button
-              type="button"
-              onClick={handleSaveAndExit}
-              disabled={!title.trim()}
-              className="w-full sm:w-auto bg-violet-600 hover:bg-violet-700 text-white text-xs sm:text-sm"
-            >
-              Save changes
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Leave without saving, delete a file, a very large upload: one question, a sheet on a phone (./confirm-sheet). */}
+      {confirmSheet}
     </div>
   )
 }
