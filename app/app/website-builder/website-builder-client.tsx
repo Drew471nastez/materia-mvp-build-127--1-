@@ -7,8 +7,10 @@
  * Three things, in the order a store owner cares about them:
  *
  *   1. The live website — one card, one picture, one button: Edit website.
- *   2. The library — the other themes you are keeping (up to three in all),
- *      each with Publish, Edit and the long tail in a menu.
+ *   2. The library: the other themes you are keeping (THEME_INSTALL_LIMIT
+ *      in all), each with Publish, Edit and the long tail in a menu. A
+ *      website being imported, added or copied has its row there from the
+ *      first moment (./incoming.tsx), and the page scrolls to it when it lands.
  *   3. Explore — a few themes from the registry, and the door to all of them.
  *
  * What is deliberately NOT here:
@@ -42,6 +44,7 @@ import {
   Plus,
   Rocket,
   Settings2,
+  SquareArrowOutUpRight,
   Trash2,
   Upload,
 } from "lucide-react"
@@ -90,8 +93,17 @@ import { relativeTime } from "@/lib/website-builder/relative-time"
 import { latestCover, requestCover, savedAt } from "@/lib/website-builder/cover-refresh"
 import { HelpLabel } from "@/components/app/help-label"
 import type { SettingsSection } from "@/components/website-builder/website-settings/types"
-import { SiteControls } from "./site-controls"
+import { LIBRARY_FULL_CODE, LIBRARY_RULE, LIBRARY_RULE_TITLE } from "@/lib/website-builder/library-limit"
 import { LibraryFullDialog, type LibraryAction } from "./library-full-dialog"
+import {
+  ARRIVAL_MS,
+  IncomingRow,
+  nameFromFile,
+  postWithProgress,
+  scrollToRow,
+  type Incoming,
+  type IncomingKind,
+} from "./incoming"
 
 export interface WebsiteSummary {
   id: string
@@ -393,6 +405,15 @@ function SiteAddress({ url, display }: { url: string; display: string }) {
  * The second rank of button: same height and shape as the primary above it,
  * white instead of near-black. 44px, because it is the size a thumb hits.
  */
+/**
+ * Settings, beside the page title: 44px on a phone, 36px from a tablet up,
+ * with a hairline. On a phone it overhangs the title's line by 4px above and
+ * below rather than making the line taller, so the address under it stays
+ * where it was.
+ */
+const SETTINGS_BUTTON =
+  "-my-1 inline-flex h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border border-[#e5e7eb] bg-white px-3.5 text-[13px] font-medium text-[#1a1a2e] shadow-[0_1px_2px_rgba(0,0,0,0.04)] outline-none transition-colors duration-150 hover:bg-[#f8f9fa] active:bg-[#f3f4f6] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 sm:my-0 sm:h-9"
+
 const SECONDARY_ACTION =
   "inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-[#e5e7eb] bg-white text-[13.5px] font-semibold text-[#1a1a2e] shadow-[0_1px_2px_rgba(0,0,0,0.03)] transition-colors duration-150 hover:bg-[#f8f9fa] active:bg-[#f3f4f6]"
 
@@ -557,10 +578,26 @@ export function WebsiteBuilderClient({
   /** Which way into a full library was just tried. See ./library-full-dialog. */
   const [full, setFull] = React.useState<LibraryAction | null>(null)
   const fileInput = React.useRef<HTMLInputElement>(null)
+  /** The website being imported, added or copied: its row is drawn before it exists. See ./incoming. */
+  const [incoming, setIncoming] = React.useState<Incoming | null>(null)
+  /** How to make it again, for Try again. Kept beside the row rather than in it. */
+  const retryRef = React.useRef<(() => void) | null>(null)
+  /** The website that has just landed: scrolled to and ringed once. */
+  const [arrived, setArrived] = React.useState<string | null>(null)
+  /**
+   * Its ring: a layer over the library card at the row's place, measured
+   * once when it starts. Not a pseudo element on the row itself: a table
+   * row is not a box a positioned child can rely on, and in Chromium the
+   * ring on the row gave the table a fifth column.
+   */
+  const [ringed, setRinged] = React.useState<{ top: number; height: number } | null>(null)
+  const libraryCard = React.useRef<HTMLDivElement>(null)
 
   const live = installs.find((i) => i.status === "published") ?? null
-  /** A site that was live and was taken offline: the status menu can put it back. */
+  /** A site that was live and was taken offline: its row says Publish again. */
   const offline = live ? null : (installs.find((i) => i.status === "unpublished" && !!i.published_at) ?? null)
+  /** Whose Website Settings the button beside the title opens: the live site's, else the one that was. */
+  const settingsFor = live ?? offline ?? installs[0] ?? null
   const library = installs.filter((i) => i.status !== "published")
   const installedThemeIds = React.useMemo(() => new Set(installs.map((i) => i.theme_id)), [installs])
   const slotsUsed = installs.length
@@ -616,12 +653,144 @@ export function WebsiteBuilderClient({
   const unpublish = (i: WebsiteSummary) =>
     run(`${i.id}:unpublish`, () => fetch(`/api/website-builder/themes/${i.id}/publish`, json("POST", { action: "unpublish" })), `${i.name} is offline`, "Could not unpublish")
 
-  const duplicate = (i: WebsiteSummary) => {
+  /** Something is on its way in: a second one waits for it. */
+  const making = !!incoming && incoming.phase !== "error"
+  const importing = making && incoming?.kind === "import"
+
+  /**
+   * ===========================================================================
+   *  MAKING A WEBSITE: ITS ROW FIRST, THEN THE WEBSITE
+   * ===========================================================================
+   * One path for Import, Add theme and Duplicate. The placeholder row goes in
+   * at once, where the new website will land; the request runs; on success
+   * the page is refreshed and the row is replaced by the real one (the render
+   * below drops the placeholder the moment the refreshed list has the new
+   * id), which is then scrolled to. On a failure the row stays with the
+   * reason and Try again, and a toast says it too. A library the server says
+   * is full opens the full library sheet instead.
+   */
+  const make = React.useCallback(
+    async (
+      kind: IncomingKind,
+      name: string,
+      request: (progress: (fraction: number) => void, sent: () => void) => Promise<{ ok: boolean; data: Record<string, unknown> }>,
+      done: (data: Record<string, unknown>) => string,
+      fail: string,
+      again: () => void,
+    ) => {
+      retryRef.current = again
+      setIncoming({ kind, name, phase: kind === "import" ? "uploading" : "working", progress: 0 })
+      let result: { ok: boolean; data: Record<string, unknown> }
+      try {
+        result = await request(
+          (progress) => setIncoming((c) => (c && c.phase === "uploading" ? { ...c, progress } : c)),
+          () => setIncoming((c) => (c && c.phase === "uploading" ? { ...c, phase: "working", progress: 1 } : c)),
+        )
+      } catch {
+        result = { ok: false, data: {} }
+      }
+      const { ok, data } = result
+      const install = data.install as { id?: string } | undefined
+      const id = (typeof data.install_id === "string" ? data.install_id : install?.id) ?? null
+      if (ok && id) {
+        toast({ title: done(data) })
+        setIncoming((c) => (c ? { ...c, phase: "working", installId: id } : c))
+        refresh()
+        return
+      }
+      if (data.code === LIBRARY_FULL_CODE) {
+        setIncoming(null)
+        setFull(kind)
+        refresh()
+        return
+      }
+      const message = typeof data.error === "string" ? data.error : fail
+      toast({ title: message, variant: "destructive" })
+      setIncoming((c) => (c ? { ...c, phase: "error", error: message } : c))
+    },
+    [refresh, toast],
+  )
+
+  /*
+    THE REAL ROW REPLACES THE PLACEHOLDER. Worked out during render, so the
+    frame that first draws the new website is the frame that stops drawing
+    its stand-in: nothing below them moves.
+  */
+  const landed = !!incoming?.installId && installs.some((i) => i.id === incoming.installId)
+  React.useEffect(() => {
+    if (!landed || !incoming?.installId) return
+    setArrived(incoming.installId)
+    setIncoming(null)
+    retryRef.current = null
+  }, [landed, incoming])
+  /* A refresh that never brings it (a stale copy of the page, say) does not leave the placeholder forever. */
+  React.useEffect(() => {
+    if (!incoming?.installId) return
+    const t = window.setTimeout(() => {
+      setIncoming(null)
+      refresh()
+    }, 12_000)
+    return () => window.clearTimeout(t)
+  }, [incoming?.installId, refresh])
+
+  /* The placeholder is shown where it is, if that is off the screen: when it
+     appears, and again when a failure makes it taller. */
+  const incomingRow = React.useRef<HTMLTableRowElement>(null)
+  const showingIncoming = !!incoming && !landed
+  const incomingFailed = incoming?.phase === "error"
+  React.useEffect(() => {
+    if (showingIncoming && incomingRow.current) void scrollToRow(incomingRow.current, "nearest")
+  }, [showingIncoming, incomingFailed])
+
+  /* The new website, to the middle of the screen, then its ring. */
+  const mounted = React.useRef(true)
+  React.useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+    }
+  }, [])
+  React.useEffect(() => {
+    if (!arrived) return
+    const id = arrived
+    /* Cleared at once so a later refresh does not scroll to it again. The
+       scroll that follows is not cancelled by that change, only by leaving
+       the page. */
+    setArrived(null)
+    const row = document.querySelector<HTMLElement>(`[data-install-row="${CSS.escape(id)}"]`)
+    if (!row) return
+    void scrollToRow(row, "center").then(() => {
+      const card = libraryCard.current
+      if (!mounted.current || !card || !row.isConnected) return
+      const at = row.getBoundingClientRect()
+      const top = at.top - card.getBoundingClientRect().top - card.clientTop
+      setRinged({ top: Math.round(top), height: Math.round(at.height) })
+    })
+  }, [arrived])
+  React.useEffect(() => {
+    if (!ringed) return
+    const t = window.setTimeout(() => setRinged(null), ARRIVAL_MS + 50)
+    return () => window.clearTimeout(t)
+  }, [ringed])
+
+  const duplicate = (i: WebsiteSummary): Promise<void> | undefined => {
     if (slotsLeft === 0) {
       setFull("duplicate")
       return
     }
-    return run(`${i.id}:duplicate`, () => fetch(`/api/website-builder/themes/${i.id}/duplicate`, json("POST", {})), `Copied ${i.name}`, "Could not duplicate")
+    if (making) return
+    const again = () => void duplicate(i)
+    return make(
+      "duplicate",
+      `${i.name} (copy)`,
+      async () => {
+        const res = await fetch(`/api/website-builder/themes/${i.id}/duplicate`, json("POST", {}))
+        return { ok: res.ok, data: await res.json().catch(() => ({})) }
+      },
+      () => `Copied ${i.name}`,
+      "Could not duplicate",
+      again,
+    )
   }
 
   const rename = (i: WebsiteSummary, name: string) =>
@@ -630,12 +799,23 @@ export function WebsiteBuilderClient({
   const remove = (i: WebsiteSummary) =>
     run(`${i.id}:delete`, () => fetch(`/api/website-builder/themes/${i.id}`, { method: "DELETE" }), `Removed ${i.name}`, "Could not remove")
 
-  const addTheme = (def: ThemeDefinition) => {
+  const addTheme = (def: ThemeDefinition): Promise<void> | undefined => {
     if (slotsLeft === 0) {
       setFull("add")
       return
     }
-    return run(`${def.id}:add`, () => fetch("/api/website-builder/themes/add", json("POST", { theme_id: def.id })), `${def.name} added`, "Could not add theme")
+    if (making) return
+    return make(
+      "add",
+      def.name,
+      async () => {
+        const res = await fetch("/api/website-builder/themes/add", json("POST", { theme_id: def.id }))
+        return { ok: res.ok, data: await res.json().catch(() => ({})) }
+      },
+      () => `${def.name} added`,
+      "Could not add theme",
+      () => void addTheme(def),
+    )
   }
 
   const exportTheme = async (i: WebsiteSummary) => {
@@ -665,15 +845,28 @@ export function WebsiteBuilderClient({
     }
   }
 
-  const importZip = async (file: File) => {
+  /**
+   * The file goes up by XMLHttpRequest so the row can say how much of it has
+   * gone (see postWithProgress). A full library never starts an upload: it
+   * opens the sheet first, here and on the button.
+   */
+  const importZip = async (file: File): Promise<void> => {
+    if (fileInput.current) fileInput.current.value = ""
     if (slotsLeft === 0) {
       setFull("import")
       return
     }
+    if (making) return
     const fd = new FormData()
     fd.append("file", file)
-    await run("import", () => fetch("/api/website-builder/themes/import", { method: "POST", body: fd }), `Imported ${file.name.replace(/(\.storelib-theme)?\.zip$/i, "").replace(/\.storelib-theme$/i, "")}`, "Could not import that file")
-    if (fileInput.current) fileInput.current.value = ""
+    await make(
+      "import",
+      nameFromFile(file),
+      (progress, sent) => postWithProgress("/api/website-builder/themes/import", fd, { progress, sent }),
+      (data) => `Imported ${typeof data.name === "string" ? data.name : nameFromFile(file)}${typeof data.media === "string" && data.media && data.media !== "nothing" ? ` with ${data.media}` : ""}`,
+      "Could not import that file",
+      () => void importZip(file),
+    )
   }
 
   /**
@@ -692,10 +885,13 @@ export function WebsiteBuilderClient({
    */
   const menuFor = (i: WebsiteSummary, opts: { publish?: boolean } = {}): ActionMenuItem[] => {
     const items: ActionMenuItem[] = []
-    if (opts.publish) items.push({ label: "Publish", icon: <Rocket />, onClick: () => setPublishing(i) })
+    /* The live site, in a new tab from a real anchor: it was a button beside the page title. */
+    if (i.status === "published" && siteUrl) items.push({ label: "View website", icon: <SquareArrowOutUpRight />, href: siteUrl, target: "_blank" })
+    /* A site that was live and was taken offline goes back up from its own row. */
+    if (opts.publish) items.push({ label: i.published_at ? "Publish again" : "Publish", icon: <Rocket />, onClick: () => setPublishing(i) })
     items.push(
       { label: "Edit code", icon: <Code2 />, onClick: () => go(editorHref(username, i.id, "code")), separatorBefore: items.length > 0 },
-      /* The live site's settings are the Settings control in the page header; a draft's are here. */
+      /* The live site's settings are the Settings button beside the page title; a draft's are here. */
       ...(i.status === "published" ? [] : [{ label: "Website settings", icon: <Settings2 />, onClick: () => go(editorHref(username, i.id, "settings")) }]),
       { label: "Rename", icon: <Pencil />, onClick: () => setRenaming(i) },
       { label: "Duplicate", icon: <Layers />, onClick: () => void duplicate(i) },
@@ -716,34 +912,31 @@ export function WebsiteBuilderClient({
     <div className="h-full overflow-y-auto page-scroll bg-[#f8f9fa]">
       <div className="app-page-enter mx-auto max-w-[1200px] space-y-7 px-4 py-6 sm:px-6 lg:px-8">
         {/* ── Header ─────────────────────────────────────────────────
-            A title and the address under it, which is the shape every other
-            page in /app already uses and the shape a host uses: the first
-            thing you want here is where your site lives.
+            The title with one button on its line, Settings, and the address
+            under them: the shape every other page in /app uses, and the
+            first thing you want here is where your site lives.
 
-            There is no button on this row any more. It held "Browse themes",
-            which went to exactly the same page as "Add theme" in the Library
-            heading below — two buttons, two labels, one destination — and it
-            wore a plus, which is the mark for adding rather than browsing.
-            The page's own first action is Edit website, immediately beneath
-            this, and it does not need company. */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div className="min-w-0">
-            <h1 className="text-[24px] font-bold tracking-tight text-[#1a1a2e] sm:text-[28px]">Website</h1>
-            {siteUrl && <SiteAddress url={siteUrl} display={siteDisplay} />}
+            The row held three controls (View website, Public, Settings) and
+            on a phone they wrapped under the title as a sideways scroller.
+            Each of the other two is where the thing it acts on is: View
+            website and Take offline in the live website's More menu, and
+            Publish again on the offline website's own row. */}
+        <div>
+          <div className="flex items-center justify-between gap-3" data-title-row="">
+            <h1 className="min-w-0 truncate text-[24px] font-bold tracking-tight text-[#1a1a2e] sm:text-[28px]">Website</h1>
+            {settingsFor && (
+              <button
+                type="button"
+                data-control="settings"
+                onClick={() => go(editorHref(username, settingsFor.id, "settings"))}
+                className={SETTINGS_BUTTON}
+              >
+                <Settings2 className="h-[15px] w-[15px] text-[#6b7280]" strokeWidth={1.9} />
+                Settings
+              </button>
+            )}
           </div>
-          {/* View website, Public, Settings: see ./site-controls. They replace
-              the bar of six settings doors that sat above the cover. */}
-          {installs.length > 0 && (
-            <SiteControls
-              siteUrl={live ? siteUrl : ""}
-              isPublic={!!live}
-              offlineName={offline?.name ?? null}
-              busy={!!busy && (busy.endsWith(":publish") || busy.endsWith(":unpublish"))}
-              onTakeOffline={() => live && setUnpublishing(live)}
-              onPublishAgain={() => offline && setPublishing(offline)}
-              onSettings={() => go(editorHref(username, (live ?? offline ?? installs[0]).id, "settings"))}
-            />
-          )}
+          {siteUrl && <SiteAddress url={siteUrl} display={siteDisplay} />}
         </div>
 
         {/* ── Live website ─────────────────────────────────────────
@@ -803,7 +996,7 @@ export function WebsiteBuilderClient({
                         </div>
                       )}
                     </dl>
-                    {/* Edit website, and everything else behind More. View website is in the page header now. */}
+                    {/* Edit website, and everything else behind More: View website first, Take offline last. */}
                     <div className="mt-auto flex gap-2 pt-5">
                       <Button
                         onClick={() => go(editorHref(username, live.id))}
@@ -847,7 +1040,7 @@ export function WebsiteBuilderClient({
             title="Library"
             /**
              * How full it is, as a count of websites, with the rule behind a
-             * dotted underline: one live and two drafts. "2 left" answered
+             * dotted underline: one live and the rest drafts (LIBRARY_RULE). "2 left" answered
              * whether there was room without saying what the room was for,
              * and the limit was only ever written in a toast.
              */
@@ -860,8 +1053,8 @@ export function WebsiteBuilderClient({
                     {slotsUsed > THEME_INSTALL_LIMIT ? `${slotsUsed} websites` : `${slotsUsed} of ${THEME_INSTALL_LIMIT} websites`}
                   </span>
                 }
-                title="One live website and two drafts"
-                description={`You can keep ${THEME_INSTALL_LIMIT} websites. One is live at a time, and the others are drafts you can edit and publish in its place. Remove one to add another.`}
+                title={LIBRARY_RULE_TITLE}
+                description={`${LIBRARY_RULE} One is live at a time, and the others are drafts you can edit and publish in its place. Remove one to add another.`}
               />
             }
           >
@@ -875,17 +1068,21 @@ export function WebsiteBuilderClient({
                 if (f) void importZip(f)
               }}
             />
-            {/* 44px, like every other button on the page. */}
+            {/* 44px, like every other button on the page. While a file is
+                on its way it says how far, then that the server has it; the
+                row it will become is already in the list below. */}
             <Button
               variant="ghost"
               /* Never dead: with the library full it says why, instead of doing nothing. */
               onClick={() => (slotsLeft === 0 ? setFull("import") : fileInput.current?.click())}
-              disabled={busy === "import"}
+              disabled={importing}
               aria-haspopup={slotsLeft === 0 ? "dialog" : undefined}
-              className="h-11 rounded-xl px-3 text-[13px] font-medium text-[#4b5563] hover:bg-[#eef0f3] hover:text-[#1a1a2e]"
+              data-import-button={importing ? incoming?.phase : "idle"}
+              /* As wide as "Uploading 100%", so Add theme beside it does not move while it counts. */
+              className="h-11 min-w-[140px] rounded-xl px-3 text-[13px] font-medium tabular-nums text-[#4b5563] hover:bg-[#eef0f3] hover:text-[#1a1a2e] disabled:opacity-100"
             >
-              {busy === "import" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-              Import theme
+              {importing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+              {importing && incoming ? (incoming.phase === "uploading" ? `Uploading ${Math.round(incoming.progress * 100)}%` : "Importing") : "Import theme"}
             </Button>
             <Button
               asChild
@@ -915,8 +1112,16 @@ export function WebsiteBuilderClient({
               them: the name where the eye starts, then the facts in columns
               that line up down the page, then what you can do. A phone has
               no room for columns, so the facts fold under the name. */}
-          <div className="overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-            {library.length === 0 ? (
+          <div ref={libraryCard} className="relative overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+            {ringed && (
+              <div
+                aria-hidden
+                data-arrival-ring=""
+                className="wb-arrived pointer-events-none absolute inset-x-0 z-10"
+                style={{ top: ringed.top, height: ringed.height, "--wb-arrived-ms": `${ARRIVAL_MS}ms` } as React.CSSProperties}
+              />
+            )}
+            {library.length === 0 && !showingIncoming ? (
               <div className="px-6 py-9 text-center text-[13px] text-[#6b7280]">
                 No drafts. Add a theme to start another website.
               </div>
@@ -937,7 +1142,11 @@ export function WebsiteBuilderClient({
                     const def = getThemeDefinition(i.theme_id)
                     const isBusy = busy?.startsWith(i.id) ?? false
                     return (
-                      <tr key={i.id} className="transition-colors duration-150 hover:bg-[#fafbfc]">
+                      <tr
+                        key={i.id}
+                        data-install-row={i.id}
+                        className="transition-colors duration-150 hover:bg-[#fafbfc]"
+                      >
                         <td className="p-3 sm:px-4">
                           {/* The whole cell opens the editor: on a phone it is
                               the only Edit there is. */}
@@ -1003,6 +1212,18 @@ export function WebsiteBuilderClient({
                       </tr>
                     )
                   })}
+                  {/* Where the website being made will land: after the others. */}
+                  {showingIncoming && incoming && (
+                    <IncomingRow
+                      ref={incomingRow}
+                      incoming={incoming}
+                      onRetry={() => retryRef.current?.()}
+                      onDismiss={() => {
+                        setIncoming(null)
+                        retryRef.current = null
+                      }}
+                    />
+                  )}
                 </tbody>
               </table>
             )}
@@ -1031,7 +1252,7 @@ export function WebsiteBuilderClient({
                 key={t.id}
                 def={t}
                 inLibrary={installedThemeIds.has(t.id)}
-                busy={busy === `${t.id}:add`}
+                busy={making && incoming?.kind === "add" && incoming.name === t.name}
                 onAdd={() => void addTheme(t)}
                 onOpen={() => go("/app/website-builder/themes")}
               />

@@ -196,7 +196,7 @@ The language section files are written in is the [Storelib Builder Framework](/d
 
 ## Website settings
 
-**Website Settings**, in the top bar, is a page of its own, with eight subjects about the website down the left and Connections under its own heading, Code. On a phone they are a list, and each opens with its own Back. The tabs above the live website's cover on the Website page (Pages, Domain, SEO, Publishing, Settings) open the matching one.
+**Website Settings**, in the top bar, is a page of its own, with eight subjects about the website down the left and Connections under its own heading, Code. On a phone they are a list, and each opens with its own Back. On the Website page, **Settings** beside the title opens it for the live website, and a draft's own is in its **More** menu. The live website's **More** menu also has **View website** and **Take offline**, and a website that was taken offline has **Publish again**.
 
 Every website has its own settings. Anything marked below as part of the draft is saved with the website's other changes, can be undone, and reaches visitors when you publish.
 
@@ -220,7 +220,7 @@ Every website has its own settings. Anything marked below as part of the draft i
 | Backups & Versions | A backup is kept every time you publish and every time Ask AI finishes. **Back up now** makes one; **Restore** puts one back (after saving the current draft as a backup first). The newest 30 are kept. **Duplicate** makes a draft copy, if the library has room. |
 | Connections | Under Code, apart from the website's own settings. **Connect Claude Code, Codex or ChatGPT**: directly with a token and one line in a terminal, or through a GitHub repository. Whatever they write is a draft until you publish, and they never change a built-in section. **Edit code**, and the developer docs. See [Building with AI agents](/developers/ai) and [Rules before you ship](/developers/rules). |
 
-A creator keeps up to three websites: one live and two drafts. Add theme, Duplicate and Import all refuse a fourth, on the server.
+A creator keeps up to five websites: one live and four drafts. Add theme, Duplicate and Import all refuse a sixth, on the server, and the page shows which websites are taking the room with **Remove** beside each draft.
 
 ## Saving and publishing
 
