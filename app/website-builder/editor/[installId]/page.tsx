@@ -3617,6 +3617,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const [isMobileView, setIsMobileView] = useState(false)
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
   const [username, setUsername] = useState("")
+  /** The website's own name on Storelib, when it has one apart from the username. */
+  const [siteHandle, setSiteHandle] = useState<string | null>(null)
   const [hasPublished, setHasPublished] = useState(false)
   /* Leaving the editor: a save still waiting on its cover asks for it now
      rather than never. See lib/website-builder/cover-refresh.ts. */
@@ -4039,6 +4041,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     const inst: ThemeInstall = data.install
     setInstall(inst)
     if (data.username) setUsername(data.username)
+    setSiteHandle(typeof data.siteHandle === "string" && data.siteHandle ? data.siteHandle : null)
 
     /**
      * ═════════════════════════════════════════════════════════════════════
@@ -6678,8 +6681,10 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   // ── Loading state — no separate screen, render the shell with skeleton ──
 
   // ── Website URL display ────────────────────────────────────
-  const websiteUrl = username ? getWebsiteShareUrl(username) : ""
-  const websiteUrlDisplay = username ? getWebsiteUrlDisplay(username) : ""
+  /* The website's own name when it has one, else the creator's username. */
+  const siteName = siteHandle || username
+  const websiteUrl = siteName ? getWebsiteShareUrl(siteName) : ""
+  const websiteUrlDisplay = siteName ? getWebsiteUrlDisplay(siteName) : ""
 
   /**
    * Undo and redo, as one pair. On a desktop they sit on the right beside the
@@ -7572,6 +7577,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         onEditPage={(pageKey) => handlePageChange(pageKey as PageKey)}
         websiteUrl={websiteUrl}
         websiteUrlDisplay={websiteUrlDisplay}
+        /* A new name on Storelib is a new address for the site, shown at once. */
+        onAddressChanged={(handle) => setSiteHandle(handle && handle !== username.toLowerCase() ? handle : null)}
         live={install?.status === "published"}
         publishedAt={install?.published_at ?? null}
         // The draft on the server has just been replaced. The editor's own

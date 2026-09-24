@@ -42,6 +42,7 @@ import { pageWithLiveLinks } from "@/lib/website-builder/live-links"
 import { applyUniversalChrome } from "@/lib/website-builder/universal-chrome"
 import { unstable_cache, revalidateTag, revalidatePath } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { creatorIdByHandle } from "@/lib/website-builder/site-address-data"
 import { renderWithSources, sectionSources } from "@/lib/website-builder/storefront-render"
 import { shopProducts, type ProductCard } from "@/lib/website-builder/shop-products"
 import { pageSections, themeSettings as themeSettingsOf } from "@/lib/website-builder/preview-link"
@@ -147,6 +148,22 @@ async function lookUpName(name: string): Promise<NameMatch | null> {
   if (bySlug) {
     const c = bySlug as { id: string; slug?: string | null; display_name?: string | null }
     return { creatorId: c.id, displayName: c.display_name || c.slug || name }
+  }
+
+  /*
+    A NAME THE WEBSITE WAS GIVEN, apart from its creator's username
+    (Website Settings › Domains, lib/website-builder/site-address). Asked
+    last, so a username always answers for its own creator; the name was
+    checked free of usernames when it was chosen. A name the website used to
+    have still answers, so links already given out arrive.
+  */
+  const byHandle = await creatorIdByHandle(lower, admin)
+  if (byHandle) {
+    const { data: creator } = await admin.from("creators").select("id, slug, display_name").eq("id", byHandle).maybeSingle()
+    if (creator) {
+      const c = creator as { id: string; slug?: string | null; display_name?: string | null }
+      return { creatorId: c.id, displayName: c.display_name || c.slug || name }
+    }
   }
   return null
 }

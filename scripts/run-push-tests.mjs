@@ -32,6 +32,7 @@ const SUITES = [
   "tests/canvas-parity.test.ts",
   "tests/cookie-banner.test.ts",
   "tests/ai-keeps-working.test.ts",
+  "tests/site-address.test.ts",
   "tests/emails-page.test.ts",
   "tests/orders-view.test.ts",
   "tests/orders-detail.test.ts",

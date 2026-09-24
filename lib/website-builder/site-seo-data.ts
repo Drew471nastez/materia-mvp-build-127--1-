@@ -9,7 +9,8 @@ import { unstable_cache } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { getMainDomain } from "@/lib/url-helpers"
 import { deservesIndexing } from "@/lib/security/spam-signals"
-import { creatorShopTag, publishedShopByName } from "./published-site"
+import { creatorShopTag, creatorSiteTag, publishedShopByName } from "./published-site"
+import { websiteHandleOf } from "./site-address-data"
 import {
   imagesOnPage,
   listedPageKeys,
@@ -51,7 +52,11 @@ export async function siteOrigin(creatorId: string, name: string): Promise<strin
      that is the address a canonical must name: one that answers, not one
      that redirects. */
   const bare = domain ? domain.trim().toLowerCase().replace(/\.$/, "") : null
-  const host = bare ? (bare.startsWith("www.") ? bare : `www.${bare}`) : `${name.toLowerCase()}.${getMainDomain()}`
+  /* Without a domain, the name the website was given, else the one it was reached by. */
+  const handle = bare
+    ? null
+    : await unstable_cache(() => websiteHandleOf(creatorId), ["site-handle", creatorId], { tags: [creatorSiteTag(creatorId)], revalidate: 300 })()
+  const host = bare ? (bare.startsWith("www.") ? bare : `www.${bare}`) : `${(handle ?? name).toLowerCase()}.${getMainDomain()}`
   const protocol = host.includes("localhost") ? "http" : "https"
   return `${protocol}://${host}`
 }

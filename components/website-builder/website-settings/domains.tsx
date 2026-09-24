@@ -4,6 +4,8 @@ import { Fragment, useEffect, useState } from "react"
 import { Check, Copy, Loader2 } from "lucide-react"
 import { AddressValue, Badge, Card, ErrorNote, Lead, PageTitle, Row, buttonClass, inputClass, primaryButtonClass } from "./parts"
 import type { SettingsContext } from "./types"
+import { cn } from "@/lib/utils"
+import { handleProblem, normalizeHandle } from "@/lib/website-builder/site-address"
 
 interface DomainRow {
   id: string
@@ -142,9 +144,7 @@ export function DomainSettings({ ctx }: { ctx: SettingsContext }) {
       <Lead>Every address here shows your live website.</Lead>
 
       <Card title="Storelib address">
-        <Row label="Address">
-          <AddressValue url={ctx.websiteUrl} display={ctx.websiteUrlDisplay} />
-        </Row>
+        <StorelibAddress ctx={ctx} />
         <Row label="HTTPS">
           <Badge tone="live">Secured</Badge>
         </Row>
@@ -262,3 +262,115 @@ function DnsRecord({ type, name, value }: { type: string; name: string; value: s
     </div>
   )
 }
+
+/**
+ * ===========================================================================
+ *  THE WEBSITE'S NAME ON STORELIB, CHANGED HERE, USERNAME UNTOUCHED
+ * ===========================================================================
+ * The address was the username and nothing else, so renaming the website
+ * meant renaming the creator. It has a name of its own now, starting as the
+ * username (lib/website-builder/site-address). Checked as it is typed, and
+ * again by app/api/website-address before it is saved; the old address
+ * keeps answering for the site, so nothing already shared breaks.
+ */
+function StorelibAddress({ ctx }: { ctx: SettingsContext }) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState("")
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const suffix = ctx.websiteUrlDisplay.includes(".") ? ctx.websiteUrlDisplay.slice(ctx.websiteUrlDisplay.indexOf(".")) : ".storelib.com"
+  const current = ctx.websiteUrlDisplay.split(".")[0] ?? ""
+  const wanted = normalizeHandle(draft)
+  const problem = draft ? handleProblem(wanted) : null
+
+  const save = async () => {
+    if (!wanted || problem) return
+    if (wanted === current) {
+      setEditing(false)
+      return
+    }
+    setSaving(true)
+    setError(null)
+    try {
+      const res = await fetch("/api/website-address", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ handle: wanted }),
+      })
+      const d = (await res.json().catch(() => ({}))) as { handle?: string; error?: string }
+      if (!res.ok || !d.handle) throw new Error(d.error || "Could not change the address")
+      ctx.onAddressChanged(d.handle)
+      setEditing(false)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not change the address")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (!editing) {
+    return (
+      <Row
+        label="Address"
+        hint={
+          <button
+            type="button"
+            onClick={() => {
+              setDraft(current)
+              setError(null)
+              setEditing(true)
+            }}
+            className="text-white/75 underline underline-offset-2 hover:text-white"
+          >
+            Change address
+          </button>
+        }
+      >
+        <AddressValue url={ctx.websiteUrl} display={ctx.websiteUrlDisplay} />
+      </Row>
+    )
+  }
+
+  return (
+    <div className="space-y-3 px-5 py-4 md:px-6" data-address-editor="">
+      <label htmlFor="wb-site-handle" className="block text-[14.5px] font-medium text-white">
+        Website address
+      </label>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <div className="flex min-w-0 flex-1 items-center rounded-lg border border-white/12 bg-[#171717] focus-within:border-white/35">
+          <input
+            id="wb-site-handle"
+            value={draft}
+            onChange={(e) => {
+              setDraft(e.target.value)
+              setError(null)
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") void save()
+              if (e.key === "Escape") setEditing(false)
+            }}
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            autoFocus
+            className="h-11 min-w-0 flex-1 bg-transparent pl-3.5 text-[16px] text-white outline-none md:text-[14.5px]"
+          />
+          <span className="shrink-0 pr-3.5 text-[14.5px] text-white/45">{suffix}</span>
+        </div>
+        <div className="flex gap-2">
+          <button type="button" onClick={() => setEditing(false)} className={buttonClass}>
+            Cancel
+          </button>
+          <button type="button" onClick={() => void save()} disabled={!wanted || !!problem || saving} className={primaryButtonClass}>
+            {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+            Save
+          </button>
+        </div>
+      </div>
+      <p className={cn("text-[13px] leading-snug", problem || error ? "text-[#f87171]" : "text-white/45")}>
+        {problem || error || (wanted && wanted !== draft.trim().toLowerCase() ? `Will be ${wanted}${suffix}. Your username stays the same.` : "Your username stays the same. The old address keeps working.")}
+      </p>
+    </div>
+  )
+}
+

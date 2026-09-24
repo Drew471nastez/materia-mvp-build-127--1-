@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { websiteHandleOf } from "@/lib/website-builder/site-address-data"
 import type { ThemeSettingsValues, ThemeStatus } from "@/lib/website-builder/types"
 import { WebsiteBuilderClient, type WebsiteSummary } from "./website-builder-client"
 import {
@@ -133,7 +134,9 @@ export default async function WebsiteBuilderPage() {
     user.id,
   )
 
-  return <WebsiteBuilderClient installs={installs} username={username} />
+  /* The website's own name on Storelib, when its creator gave it one. */
+  const siteHandle = await websiteHandleOf(creator.id)
+  return <WebsiteBuilderClient installs={installs} username={username} siteHandle={siteHandle} />
 }
 
 /**

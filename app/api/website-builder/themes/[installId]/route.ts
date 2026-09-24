@@ -1,3 +1,4 @@
+import { websiteHandleOf } from "@/lib/website-builder/site-address-data"
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { ensurePolicyPages, type PagesTable } from "@/lib/website-builder/ensure-policy-pages"
@@ -92,7 +93,9 @@ export async function GET(_req: Request, { params }: Params) {
     is signed in, so a row written by an import or by hand must not reach it
     as written. See lib/website-builder/sanitize-sections.ts.
   */
-  return NextResponse.json({ install: sanitizeInstallRow(data), username })
+  /* The name the website is at, when its creator gave it one of its own. */
+  const siteHandle = await websiteHandleOf(creator!.id)
+  return NextResponse.json({ install: sanitizeInstallRow(data), username, siteHandle })
 }
 
 // PATCH /api/website-builder/themes/[installId]

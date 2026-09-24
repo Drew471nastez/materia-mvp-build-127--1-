@@ -1586,6 +1586,18 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
         return
       }
 
+      /* Nor another website's address (Website Settings › Domains), which is
+         a name of the same kind: <name>.storelib.com. Until the address table
+         exists the question fails, and the username goes ahead as before. */
+      if (cleanUsername !== profile.username) {
+        const { data: handleTaken } = await supabase.rpc("website_handle_taken", { p_handle: cleanUsername })
+        if (handleTaken === true) {
+          setError("A website already uses this name")
+          setIsLoading(false)
+          return
+        }
+      }
+
       // Track old username for redirects (only if actually changing)
       const oldUsername = profile.username
       const renamed = !!oldUsername && oldUsername !== cleanUsername
