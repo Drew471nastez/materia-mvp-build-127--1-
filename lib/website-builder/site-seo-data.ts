@@ -19,6 +19,7 @@ import {
   type SitemapEntry,
 } from "./site-seo"
 import type { ThemeSettingsValues } from "./types"
+import { hiddenPages } from "./page-seo"
 
 /**
  * THE SITE'S OWN ADDRESS. A connected, active domain when there is one,
@@ -111,7 +112,9 @@ export async function siteSeo(name: string): Promise<SiteSeo> {
 
   const entries: SitemapEntry[] = []
   if (indexable) {
-    for (const key of listedPageKeys(Object.keys(site.pages))) {
+    /* Not a page its creator kept out of search (Pages & Navigation). */
+    const hidden = hiddenPages(site.themeSettings as Record<string, unknown>)
+    for (const key of listedPageKeys(Object.keys(site.pages)).filter((k) => !hidden.has(k))) {
       entries.push({ loc: pageUrl(origin, key), images: imagesOnPage(site.pages[key] ?? []) })
     }
     const products = await listedProducts(site.creatorId)

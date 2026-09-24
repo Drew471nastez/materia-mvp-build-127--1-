@@ -203,7 +203,7 @@ Every website has its own settings. Anything marked below as part of the draft i
 | Page | What is there |
 | --- | --- |
 | General | The website's name, which only you see. Its address, set by your username. Whether it is live. Its favicon and its language (both part of the draft); the language sets the page's `lang` and the share card's locale. |
-| Domains | The Storelib address, and a custom domain if one is connected, with its status: waiting for DNS, securing, or connected. The `www.` address is the main one and the bare domain redirects to it. HTTPS is set up for both. **Connect a domain** opens Settings › Domains. |
+| Domains | The Storelib address, and a custom domain if one is connected, with its status: waiting for DNS, securing, or connected. The `www.` address is the main one and the bare domain redirects to it. HTTPS is set up for both. A domain is added right here. Until it is connected, the three DNS records to set are listed, each with a copy button, and **Check DNS** looks them up. A site has one domain. Adding another asks first, then the old one sends its visitors to the new one for 30 days. Removing a domain is in Settings › Domains. |
 | SEO & Social | A preview of the search result. Site title, meta description, social image, share card size, and whether search engines may list the website (all part of the draft). |
 
 **How a published website is found.** Every published website answers for itself, at its Storelib address and on a connected domain:
@@ -213,7 +213,7 @@ Every website has its own settings. Anything marked below as part of the draft i
 - Every page names its **canonical** address, which is the connected domain when there is one, so the two addresses count as one page.
 - The home page carries structured data naming the website and its owner. A product page carries the product with its price, which is what lets a search result show the price and picture.
 - With search engines switched off, pages say `noindex` and the sitemap is not offered. Crawlers are still let in, so they read the `noindex` and drop the pages.
-| Pages & Navigation | Every page with **Edit**, which opens it in the builder, and **Add page**. **Edit menu** selects the header, where the menu is. |
+| Pages & Navigation | Every page with **Edit**, which opens it in the builder, and **Add page**. **Search** opens the page's own search result: its title, its description, and **Show in search engines**. Off gives the page `noindex` and leaves it out of the sitemap. These are stored in the theme settings as `page_seo`, keyed by page, so they are saved with the draft and go live on publish. The home page's search result is the site's own, in SEO & Social. **Edit menu** selects the header, where the menu is. |
 | Commerce | How many published products the website can show, and **Manage products**. Checkout is Storelib's, paid by card or Google Pay through Stripe, in US dollars. **Payments settings** is where payouts go. Free shipping from an amount, and the free shipping bar (part of the draft). |
 | Policies | The refund, privacy and terms pages, each with **Edit**. The cookie banner, its message and its two buttons (part of the draft). |
 | Publishing | Live or draft, the published address, when it was last published, **Publish**, and **Take offline**, which asks first and deletes nothing. |
