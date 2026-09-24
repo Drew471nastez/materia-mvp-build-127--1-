@@ -98,6 +98,7 @@ import {
 import { SAVED_CHECK_MS, SaveButton, barButton, barIconButton, secondaryDepth, type SavePhase } from "./editor-buttons"
 import { useConfirm } from "./confirm-sheet"
 import { FaqList } from "./faq-list"
+import { MediaGrid } from "./media-grid"
 
 // Section definitions - internal refs for all sections
 const SECTIONS = [
@@ -244,96 +245,6 @@ const VariantFileCheckbox = React.memo(function VariantFileCheckbox({
     </div>
   )
 })
-
-// Sortable Media Item component for @dnd-kit grid reordering
-interface SortableMediaItemProps {
-  item: MediaItem
-  index: number
-  onRemove: (id: string) => void
-}
-
-function SortableMediaItem({ item, index, onRemove }: SortableMediaItemProps) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: item.id })
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0 : 1,
-  }
-
-  return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      className={`relative aspect-video rounded-lg overflow-hidden border group select-none ${
-        isDragging ? "border-dashed border-violet-300 bg-violet-50/40" : "border-gray-200 hover:border-gray-300 transition-shadow"
-      }`}
-    >
-      {item.type === "image" && (
-        <img src={item.url} alt="" className="w-full h-full object-cover" draggable={false} />
-      )}
-      {item.type === "youtube" && (
-        <div className="relative w-full h-full">
-          <img
-            src={`https://img.youtube.com/vi/${parseYouTubeUrl(item.url)}/hqdefault.jpg`}
-            alt="YouTube video thumbnail"
-            className="w-full h-full object-cover"
-            draggable={false}
-          />
-          <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-red-600 flex items-center justify-center">
-              <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5 text-white ml-0.5" fill="currentColor">
-                <path d="M8 5v14l11-7z"/>
-              </svg>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Full-area drag handle */}
-      <div
-        {...attributes}
-        {...listeners}
-        className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/20 transition-colors cursor-grab active:cursor-grabbing touch-none"
-      >
-        <GripVertical className="h-5 w-5 sm:h-6 sm:w-6 text-white opacity-40 sm:opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-md" />
-      </div>
-
-      {/* Remove button */}
-      <button
-        type="button"
-        onClick={(e) => { e.stopPropagation(); onRemove(item.id) }}
-        className="absolute top-1 right-1 sm:top-1.5 sm:right-1.5 p-1.5 sm:p-1 bg-white/90 rounded-full shadow-sm opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity z-10"
-      >
-        <X className="h-3 w-3 text-gray-600" />
-      </button>
-
-      {/* Position indicator */}
-      <div className="absolute left-1 top-1 sm:left-1.5 sm:top-1.5 flex h-5 w-5 items-center justify-center rounded-md bg-black/50 text-[10px] font-medium text-white backdrop-blur-sm">
-        {index + 1}
-      </div>
-
-      {/* Type label */}
-      {index === 0 && item.type === "image" && (
-        <span className="absolute bottom-1 left-1 sm:bottom-1.5 sm:left-1.5 px-1.5 py-0.5 bg-black/70 text-white text-[9px] sm:text-[10px] rounded backdrop-blur-sm">
-          Thumbnail
-        </span>
-      )}
-      {item.type === "youtube" && (
-        <span className="absolute bottom-1 left-1 sm:bottom-1.5 sm:left-1.5 px-1.5 py-0.5 bg-red-600 text-white text-[9px] sm:text-[10px] rounded">
-          YouTube
-        </span>
-      )}
-    </div>
-  )
-}
 
 /**
  * The product form's phone sheets (the category, the call to action, the
@@ -569,7 +480,6 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
 
   // Media section fields - unified draggable media
   const [mediaItems, setMediaItems] = useState<MediaItem[]>(initial.mediaItems)
-  const [activeDragItem, setActiveDragItem] = useState<MediaItem | null>(null)
   const [uploadingMedia, setUploadingMedia] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
 
@@ -596,21 +506,6 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
   const [seoTitle, setSeoTitle] = useState(initial.seoTitle)
   const [seoDescription, setSeoDescription] = useState(initial.seoDescription)
   const seoManuallyEditedRef = useRef(initial.seoEdited) // A saved SEO description is not rewritten from the description
-
-  // Drag state for media
-  const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
-  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
-
-  // Touch drag state for mobile - long press to initiate
-  const [touchDragIndex, setTouchDragIndex] = useState<number | null>(null)
-  const [touchStartPos, setTouchStartPos] = useState<{ x: number; y: number } | null>(null)
-  const [touchCurrentPos, setTouchCurrentPos] = useState<{ x: number; y: number } | null>(null)
-  const [isTouchDragging, setIsTouchDragging] = useState(false)
-  const [touchLongPressReady, setTouchLongPressReady] = useState(false)
-  const touchDragRef = useRef<HTMLDivElement>(null)
-  const mediaGridRef = useRef<HTMLDivElement>(null)
-  const longPressTimerRef = useRef<NodeJS.Timeout | null>(null)
-  const touchPendingIndexRef = useRef<number | null>(null)
 
   // External file drag state for media picker
   const [isExternalDragOver, setIsExternalDragOver] = useState(false)
@@ -686,40 +581,6 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
 
   // AI suggestion states
   const [suggestedCategory, setSuggestedCategory] = useState<string | null>(null)
-
-  // DnD sensors for media grid reorder (higher thresholds to prevent accidental drag on scroll)
-  const mediaSensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 12,
-      },
-    }),
-    useSensor(TouchSensor, {
-      activationConstraint: {
-        delay: 300,
-        tolerance: 12,
-      },
-    })
-  )
-
-  // Handle media drag start - track which item is being dragged (for DragOverlay)
-  const handleMediaDragStart = useCallback((event: DragStartEvent) => {
-    const item = mediaItems.find((i) => i.id === event.active.id)
-    setActiveDragItem(item || null)
-  }, [mediaItems])
-
-  // Handle media drag end - reorder media items and clear overlay
-  const handleMediaDragEnd = useCallback((event: DragEndEvent) => {
-    setActiveDragItem(null)
-    const { active, over } = event
-    if (over && active.id !== over.id) {
-      setMediaItems((prev) => {
-        const oldIndex = prev.findIndex((item) => item.id === active.id)
-        const newIndex = prev.findIndex((item) => item.id === over.id)
-        return arrayMove(prev, oldIndex, newIndex)
-      })
-    }
-  }, [])
 
   // Stable handler for toggling variant assigned files - defined at component level to avoid closure issues
   const handleToggleVariantFile = useCallback((variantId: string, fileId: string) => {
@@ -2202,123 +2063,6 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
     setMediaItems(prev => prev.filter(m => m.id !== id))
   }
 
-  // Desktop drag and drop handlers
-  const handleDragStart = (e: React.DragEvent, index: number) => {
-    setDraggedIndex(index)
-    e.dataTransfer.effectAllowed = "move"
-  }
-
-  const handleDragOver = (e: React.DragEvent, index: number) => {
-    e.preventDefault()
-    e.dataTransfer.dropEffect = "move"
-    setDragOverIndex(index)
-  }
-
-  const handleDragLeave = () => {
-    setDragOverIndex(null)
-  }
-
-  const handleDrop = (e: React.DragEvent, dropIndex: number) => {
-    e.preventDefault()
-    if (draggedIndex === null || draggedIndex === dropIndex) {
-      setDraggedIndex(null)
-      setDragOverIndex(null)
-      return
-    }
-
-    const newItems = [...mediaItems]
-    const [draggedItem] = newItems.splice(draggedIndex, 1)
-    newItems.splice(dropIndex, 0, draggedItem)
-    setMediaItems(newItems)
-
-    setDraggedIndex(null)
-    setDragOverIndex(null)
-  }
-
-  const handleDragEnd = () => {
-    setDraggedIndex(null)
-    setDragOverIndex(null)
-  }
-
-  // Mobile touch drag handlers - long press (300ms) to initiate drag
-  const cancelLongPress = useCallback(() => {
-    if (longPressTimerRef.current) {
-      clearTimeout(longPressTimerRef.current)
-      longPressTimerRef.current = null
-    }
-    touchPendingIndexRef.current = null
-    setTouchLongPressReady(false)
-  }, [])
-
-  const handleTouchStart = useCallback((e: React.TouchEvent, index: number) => {
-    const touch = e.touches[0]
-    const startPos = { x: touch.clientX, y: touch.clientY }
-    touchPendingIndexRef.current = index
-    setTouchStartPos(startPos)
-    setTouchCurrentPos(startPos)
-
-    // Start long-press timer (300ms)
-    longPressTimerRef.current = setTimeout(() => {
-      setTouchDragIndex(index)
-      setTouchLongPressReady(true)
-      setIsTouchDragging(true)
-      touchPendingIndexRef.current = null
-    }, 300)
-  }, [])
-
-  const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    const touch = e.touches[0]
-    const currentPos = { x: touch.clientX, y: touch.clientY }
-
-    // If long press hasn't fired yet, check if user moved too much (scrolling)
-    if (touchPendingIndexRef.current !== null && touchStartPos) {
-      const deltaX = Math.abs(touch.clientX - touchStartPos.x)
-      const deltaY = Math.abs(touch.clientY - touchStartPos.y)
-      if (deltaX > 8 || deltaY > 8) {
-        // User is scrolling, cancel the long press
-        cancelLongPress()
-        return
-      }
-    }
-
-    // If actively dragging, update position and find drop target
-    if (isTouchDragging && touchDragIndex !== null) {
-      e.preventDefault()
-      setTouchCurrentPos(currentPos)
-
-      // Find which element we're over
-      const elements = document.elementsFromPoint(touch.clientX, touch.clientY)
-      const dropTarget = elements.find(el => el.getAttribute("data-media-index"))
-
-      if (dropTarget) {
-        const targetIndex = parseInt(dropTarget.getAttribute("data-media-index") || "-1")
-        if (targetIndex !== -1 && targetIndex !== touchDragIndex) {
-          setDragOverIndex(targetIndex)
-        }
-      } else {
-        setDragOverIndex(null)
-      }
-    }
-  }, [isTouchDragging, touchDragIndex, touchStartPos, cancelLongPress])
-
-  const handleTouchEnd = useCallback(() => {
-    cancelLongPress()
-
-    if (touchDragIndex !== null && dragOverIndex !== null && touchDragIndex !== dragOverIndex) {
-      const newItems = [...mediaItems]
-      const [draggedItem] = newItems.splice(touchDragIndex, 1)
-      newItems.splice(dragOverIndex, 0, draggedItem)
-      setMediaItems(newItems)
-    }
-
-    setTouchDragIndex(null)
-    setTouchStartPos(null)
-    setTouchCurrentPos(null)
-    setIsTouchDragging(false)
-    setTouchLongPressReady(false)
-    setDragOverIndex(null)
-  }, [touchDragIndex, dragOverIndex, mediaItems, cancelLongPress])
-
   // Handle file upload for digital assets using admin API with progress
   // Helper: get upload status label
   const getUploadStatusLabel = (status: UploadStatus): string => {
@@ -3075,61 +2819,13 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
                     />
                   </div>
                   <p className="text-[13px] leading-5 text-[#6b7280] sm:text-[14px]">
-                    Add up to {MAX_PHOTOS} photos and {MAX_YOUTUBE_VIDEOS} video{MAX_YOUTUBE_VIDEOS > 1 ? 's' : ''}.
+                    Add up to {MAX_PHOTOS} photos and {MAX_YOUTUBE_VIDEOS} video{MAX_YOUTUBE_VIDEOS > 1 ? 's' : ''}.{mediaItems.length > 1 ? " Hold and drag to reorder." : ""}
                   </p>
                 </div>
 
-                {/* Draggable Media Grid - @dnd-kit powered, 2 per row */}
+                {/* The grid, two a row, held to reorder (./media-grid.tsx). */}
                 {mediaItems.length > 0 && (
-                  <DndContext
-                    sensors={mediaSensors}
-                    collisionDetection={closestCenter}
-                    onDragStart={handleMediaDragStart}
-                    onDragEnd={handleMediaDragEnd}
-                  >
-                    <SortableContext
-                      items={mediaItems.map(item => item.id)}
-                      strategy={rectSortingStrategy}
-                    >
-                      <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                        {mediaItems.map((item, index) => (
-                          <SortableMediaItem
-                            key={item.id}
-                            item={item}
-                            index={index}
-                            onRemove={removeMedia}
-                          />
-                        ))}
-                      </div>
-                    </SortableContext>
-                    {/* DragOverlay renders via portal at document.body — floats freely above all containers */}
-                    <DragOverlay dropAnimation={{ duration: 180, easing: "ease" }}>
-                      {activeDragItem ? (
-                        <div className="aspect-video rounded-lg overflow-hidden shadow-2xl ring-2 ring-violet-500 rotate-1 scale-105 cursor-grabbing">
-                          {activeDragItem.type === "image" && (
-                            <img src={activeDragItem.url} alt="" className="w-full h-full object-cover" draggable={false} />
-                          )}
-                          {activeDragItem.type === "youtube" && (
-                            <div className="relative w-full h-full">
-                              <img
-                                src={`https://img.youtube.com/vi/${parseYouTubeUrl(activeDragItem.url)}/hqdefault.jpg`}
-                                alt=""
-                                className="w-full h-full object-cover"
-                                draggable={false}
-                              />
-                              <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-red-600 flex items-center justify-center">
-                                  <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5 text-white ml-0.5" fill="currentColor">
-                                    <path d="M8 5v14l11-7z"/>
-                                  </svg>
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      ) : null}
-                    </DragOverlay>
-                  </DndContext>
+                  <MediaGrid items={mediaItems} onChange={setMediaItems} onRemove={removeMedia} />
                 )}
 
                 {/* The upload zone, and its state while a file uploads */}

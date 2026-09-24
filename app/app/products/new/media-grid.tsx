@@ -1,0 +1,197 @@
+"use client"
+
+/**
+ * ===========================================================================
+ *  THE PHOTOS AND VIDEOS, IN THE ORDER A BUYER SEES THEM
+ * ===========================================================================
+ * Two to a row, 16:9 each. The first is the product's thumbnail. The order
+ * changes by holding a tile and moving it; the rules for mouse, finger and
+ * keyboard are ./hold-to-drag.ts, the same as the questions'.
+ *
+ * WHAT WAS WRONG. A PointerSensor (12px) sat beside the TouchSensor, and it
+ * took every touch as a pointer, so a tile moved after 12px with no hold.
+ * And each tile was covered by a `touch-action: none` handle, so a swipe
+ * over the pictures could never scroll the page: with two tiles a row, most
+ * of the section's width. Now the tile is `touch-action: manipulation`: a
+ * swipe scrolls, a 300ms hold lifts.
+ *
+ * THE TILE UNDER THE FINGER stays in the grid and moves by transform only,
+ * one to one with the finger, with no transition of its own while it is held.
+ * It used to vanish and leave a dashed hole while a portalled copy (tilted,
+ * ringed in violet) followed the finger. It lifts on an inner layer, a 3%
+ * scale and a shadow, and the others slide out of its way.
+ *
+ * A TAP DOES WHAT IT DID: the remove button sits above the handle and is its
+ * own button, so a tap on it removes and never starts a drag; a tap on the
+ * picture does nothing. The pane scrolls by itself near its edges. A
+ * touchcancel or Escape puts the order back; only a drop commits, into the
+ * form's media, whose order is what the save writes (the first is the cover).
+ *
+ * `group/tile`, not `group`: app/globals.css strips every transform and
+ * transition inside a `.group` on a touch screen, and the lift is both.
+ */
+
+import * as React from "react"
+import { DndContext, closestCenter, type Announcements, type DragEndEvent, type DragStartEvent, type UniqueIdentifier } from "@dnd-kit/core"
+import { SortableContext, arrayMove, rectSortingStrategy, useSortable } from "@dnd-kit/sortable"
+import { GripVertical, X } from "lucide-react"
+import { cn } from "@/lib/utils"
+import { parseYouTubeUrl, type MediaItem } from "./editor-form"
+import { AUTO_SCROLL, HANDLE_TOUCH, liftTick, useHoldToDragSensors } from "./hold-to-drag"
+
+const kindOf = (item: MediaItem | undefined) => (item?.type === "youtube" ? "video" : "photo")
+
+export function MediaGrid({
+  items,
+  onChange,
+  onRemove,
+}: {
+  items: MediaItem[]
+  onChange: (update: (prev: MediaItem[]) => MediaItem[]) => void
+  onRemove: (id: string) => void
+}) {
+  const sensors = useHoldToDragSensors()
+  const [activeId, setActiveId] = React.useState<UniqueIdentifier | null>(null)
+
+  const itemsRef = React.useRef(items)
+  itemsRef.current = items
+  const place = (id: UniqueIdentifier | undefined) => (id == null ? 0 : itemsRef.current.findIndex((m) => m.id === id) + 1)
+  const name = (id: UniqueIdentifier) => {
+    const kind = kindOf(itemsRef.current.find((m) => m.id === id))
+    return `${kind[0].toUpperCase()}${kind.slice(1)} ${place(id)}`
+  }
+  const count = items.length
+  const at = (n: number) => `position ${n} of ${count}${n === 1 ? ", the thumbnail" : ""}`
+  const announcements: Announcements = {
+    onDragStart: ({ active }) => `Picked up ${name(active.id).toLowerCase()} of ${count}.`,
+    onDragOver: ({ active, over }) => (over ? `${name(active.id)} is now at ${at(place(over.id))}.` : undefined),
+    onDragEnd: ({ active, over }) => (over ? `${name(active.id)} dropped at ${at(place(over.id))}.` : "Dropped where it was."),
+    onDragCancel: ({ active }) => `Cancelled. ${name(active.id)} is back where it was.`,
+  }
+
+  const onDragStart = (e: DragStartEvent) => {
+    setActiveId(e.active.id)
+    liftTick(e.activatorEvent)
+  }
+  const onDragEnd = ({ active, over }: DragEndEvent) => {
+    setActiveId(null)
+    if (!over || active.id === over.id) return
+    onChange((prev) => {
+      const from = prev.findIndex((m) => m.id === active.id)
+      const to = prev.findIndex((m) => m.id === over.id)
+      return from < 0 || to < 0 ? prev : arrayMove(prev, from, to)
+    })
+  }
+
+  return (
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      autoScroll={AUTO_SCROLL}
+      accessibility={{
+        announcements,
+        screenReaderInstructions: {
+          draggable:
+            "To move a photo or video, press Space or Enter on it, then the arrow keys. Press Space or Enter again to drop it, or Escape to put it back. The first is the thumbnail.",
+        },
+      }}
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
+      onDragCancel={() => setActiveId(null)}
+    >
+      <SortableContext items={items.map((m) => m.id)} strategy={rectSortingStrategy}>
+        <div data-media-grid="" data-dragging={activeId != null ? "" : undefined} className="grid grid-cols-2 gap-3 sm:gap-4">
+          {items.map((item, index) => (
+            <MediaTile key={item.id} item={item} index={index} onRemove={onRemove} />
+          ))}
+        </div>
+      </SortableContext>
+    </DndContext>
+  )
+}
+
+function MediaTile({ item, index, onRemove }: { item: MediaItem; index: number; onRemove: (id: string) => void }) {
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id: item.id })
+  const kind = kindOf(item)
+  const src = item.type === "youtube" ? `https://img.youtube.com/vi/${parseYouTubeUrl(item.url)}/hqdefault.jpg` : item.url
+
+  return (
+    <div
+      ref={setNodeRef}
+      data-media-id={item.id}
+      data-lifted={isDragging ? "" : undefined}
+      className="relative"
+      style={{
+        /* Whole pixels, both ways: the grid moves a tile sideways as well as up and down. */
+        transform: transform ? `translate3d(${Math.round(transform.x)}px, ${Math.round(transform.y)}px, 0)` : undefined,
+        transition: isDragging ? undefined : transition,
+        zIndex: isDragging ? 20 : undefined,
+      }}
+    >
+      <div
+        data-media-tile=""
+        className={cn(
+          "group/tile relative aspect-video overflow-hidden rounded-lg border bg-[#f3f4f6] select-none [-webkit-touch-callout:none]",
+          "transition-[scale,box-shadow,border-color] duration-150 ease-out motion-reduce:transition-none",
+          isDragging
+            ? "scale-[1.03] border-[#d9dbe0] shadow-[0_14px_30px_-10px_rgba(17,24,39,0.35),0_2px_6px_rgba(17,24,39,0.1)]"
+            : "border-gray-200 hover:border-gray-300",
+        )}
+      >
+        <img src={src} alt="" className="h-full w-full object-cover" draggable={false} />
+        {item.type === "youtube" && (
+          <div aria-hidden className="absolute inset-0 flex items-center justify-center bg-black/30">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-red-600 sm:h-10 sm:w-10">
+              <svg viewBox="0 0 24 24" className="ml-0.5 h-4 w-4 text-white sm:h-5 sm:w-5" fill="currentColor">
+                <path d="M8 5v14l11-7z" />
+              </svg>
+            </div>
+          </div>
+        )}
+
+        {/* The whole tile is the handle: held on a phone, dragged with a mouse, Space from a keyboard. */}
+        <div
+          ref={setActivatorNodeRef}
+          data-media-handle=""
+          {...attributes}
+          {...listeners}
+          aria-label={`Move ${kind} ${index + 1}${index === 0 ? ", the thumbnail" : ""}`}
+          className={cn(
+            "absolute inset-0 flex items-center justify-center bg-black/0 outline-none transition-colors group-hover/tile:bg-black/20",
+            "focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#8b5cf6]",
+            HANDLE_TOUCH,
+          )}
+        >
+          <GripVertical className="h-5 w-5 text-white opacity-40 drop-shadow-md transition-opacity group-hover/tile:opacity-100 sm:h-6 sm:w-6 sm:opacity-0" />
+        </div>
+
+        <button
+          type="button"
+          data-media-remove=""
+          aria-label={`Remove ${kind} ${index + 1}`}
+          onClick={(e) => {
+            e.stopPropagation()
+            onRemove(item.id)
+          }}
+          className="absolute right-1 top-1 z-10 rounded-full bg-white/90 p-1.5 opacity-100 shadow-sm transition-opacity sm:right-1.5 sm:top-1.5 sm:p-1 sm:opacity-0 sm:group-hover/tile:opacity-100 sm:focus-visible:opacity-100"
+        >
+          <X className="h-3 w-3 text-gray-600" />
+        </button>
+
+        <div aria-hidden className="pointer-events-none absolute left-1 top-1 flex h-5 w-5 items-center justify-center rounded-md bg-black/50 text-[10px] font-medium text-white sm:left-1.5 sm:top-1.5">
+          {index + 1}
+        </div>
+        {index === 0 && item.type === "image" && (
+          <span className="pointer-events-none absolute bottom-1 left-1 rounded bg-black/70 px-1.5 py-0.5 text-[9px] text-white sm:bottom-1.5 sm:left-1.5 sm:text-[10px]">
+            Thumbnail
+          </span>
+        )}
+        {item.type === "youtube" && (
+          <span className="pointer-events-none absolute bottom-1 left-1 rounded bg-red-600 px-1.5 py-0.5 text-[9px] text-white sm:bottom-1.5 sm:left-1.5 sm:text-[10px]">
+            YouTube
+          </span>
+        )}
+      </div>
+    </div>
+  )
+}

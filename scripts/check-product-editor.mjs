@@ -21,7 +21,10 @@
  *   phone and a modal in the middle of the computer. The questions reorder
  *   by a held finger (real touch events: a swipe scrolls instead, a
  *   touchcancel puts them back, the bottom edge scrolls the pane), by a
- *   mouse and by the keyboard, and the save writes the new order.
+ *   mouse and by the keyboard, and the save writes the new order. So do the
+ *   photos and videos: a swipe over the tiles scrolls, a hold lifts one
+ *   where it is, a touchcancel restores, the remove button still removes,
+ *   and the save writes the gallery and the cover in the new order.
  *
  *   node scripts/check-product-editor.mjs
  */
@@ -341,6 +344,188 @@ async function reorder(p, label, vp, isPhone) {
     const live = await p.evaluate(() => [...document.querySelectorAll("[aria-live]")].map((e) => e.textContent).find((t) => /Question/.test(t)) ?? "")
     expect(/position 3 of 4/.test(live), "in words a screen reader can use", live)
   }
+}
+
+/* The media grid's order, as the hue of each test picture (render-product-editor: 260, 20, 160). */
+const mediaOrder = (p) => p.$$eval("[data-media-grid] > [data-media-id]", (els) => els.map((e) => {
+  const src = decodeURIComponent(e.querySelector("img").getAttribute("src"))
+  return (src.match(/hsl\((\d+)/) || [])[1] || "?"
+}))
+const gridAt = (p, y) => p.evaluate((y) => {
+  const pane = document.querySelector("[data-product-editor]")
+  const grid = document.querySelector("[data-media-grid]")
+  pane.scrollTop += grid.getBoundingClientRect().top - y
+}, y)
+const tiles = (p) => p.$$eval("[data-media-grid] > [data-media-id]", (els) => els.map((e) => {
+  const r = e.getBoundingClientRect()
+  return { id: e.dataset.mediaId, x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2), w: r.width, h: r.height }
+}))
+
+/**
+ * THE PHOTOS AND VIDEOS, REORDERED. On a phone with real touch events: a
+ * quick swipe over the tiles scrolls the page; a 300ms hold lifts a tile,
+ * which follows the finger one to one in both directions; the drop commits;
+ * a touchcancel puts it back; a tap on the remove button still removes. On a
+ * computer, a mouse drag and the keyboard. Then the save writes the order.
+ */
+async function mediaReorder(p, label, vp, isPhone, ctx) {
+  console.log(`  -- The photos and videos, reordered`)
+  const start = await mediaOrder(p)
+  expect(same(start, ["260", "20", "160"]), "three pictures to move", start)
+  let want
+  if (isPhone) {
+    const cdp = await p.createCDPSession()
+    const touch = (type, x, y) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: type === "touchEnd" || type === "touchCancel" ? [] : [{ x, y, radiusX: 4, radiusY: 4, force: 1, id: 1 }] })
+    const ta = await p.$eval("[data-media-handle]", (h) => getComputedStyle(h).touchAction)
+    expect(ta === "manipulation", "a tile leaves vertical swipes to the browser (touch-action: manipulation, was none)", ta)
+
+    /* A swipe up over the pictures, no hold. */
+    await gridAt(p, 420)
+    await sleep(100)
+    let t = await tiles(p)
+    const s0 = await paneTop(p)
+    await touch("touchStart", t[1].x, t[1].y)
+    let liftedBySwipe = false
+    for (let k = 1; k <= 10; k++) {
+      await sleep(16)
+      await touch("touchMove", t[1].x, t[1].y - k * 24)
+      liftedBySwipe ||= !!(await p.$("[data-media-grid] [data-lifted]"))
+    }
+    await touch("touchEnd")
+    await sleep(700)
+    const s1 = await paneTop(p)
+    expect(s1 - s0 >= 100 && !liftedBySwipe && same(await mediaOrder(p), start), "a quick swipe over the tiles scrolls the page and moves no picture", { scrolled: s1 - s0, lifted: liftedBySwipe })
+
+    /* A hold on the first, then to where the third is: down a row. */
+    await gridAt(p, 220)
+    await sleep(100)
+    t = await tiles(p)
+    const sA = await paneTop(p)
+    const dx = t[2].x - t[0].x
+    const dy = t[2].y - t[0].y
+    await touch("touchStart", t[0].x, t[0].y)
+    await sleep(150)
+    const early = !!(await p.$("[data-media-grid] [data-lifted]"))
+    await sleep(250)
+    const lifted = await p.evaluate(() => {
+      const el = document.querySelector("[data-media-grid] [data-lifted]")
+      return el ? el.dataset.mediaId : null
+    })
+    expect(!early && lifted === t[0].id, "not lifted at 150ms, lifted by 400ms", { at150: early, at400: lifted })
+    await sleep(200)
+    const look = await p.$eval("[data-media-grid] [data-lifted] [data-media-tile]", (e) => ({ scale: getComputedStyle(e).scale, shadow: /rgba\(17, 24, 39, 0\.35\)/.test(getComputedStyle(e).boxShadow), opacity: getComputedStyle(e.parentElement).opacity }))
+    expect(look.scale === "1.03" && look.shadow && look.opacity === "1", "it lifts where it is: 3% larger, a shadow, fully visible (it used to leave a dashed hole)", look)
+    const steps = 16
+    const samples = []
+    for (let k = 1; k <= steps; k++) {
+      const fx = Math.round((dx * k) / steps)
+      const fy = Math.round((dy * k) / steps)
+      await touch("touchMove", t[0].x + fx, t[0].y + fy)
+      await sleep(16)
+      if (k % 4 === 0) {
+        samples.push(await p.evaluate((fx, fy) => {
+          const m = new DOMMatrix(getComputedStyle(document.querySelector("[data-media-grid] [data-lifted]")).transform)
+          return { fx, fy, tx: Math.round(m.m41), ty: Math.round(m.m42), scroll: Math.round(document.querySelector("[data-product-editor]").scrollTop) }
+        }, fx, fy))
+      }
+    }
+    await sleep(250)
+    await p.screenshot({ path: join(shots, `${label}-media-dragging.png`) })
+    const worst = Math.max(...samples.map((s) => Math.max(Math.abs(s.tx - s.fx), Math.abs(s.ty - (s.fy + s.scroll - sA)))))
+    expect(worst <= 1, "the tile follows the finger one to one", { worstPx: worst, samples: samples.slice(-2) })
+    expect(samples.every((s) => s.scroll === sA), "and the page does not scroll under it", { from: sA, to: samples.map((s) => s.scroll) })
+    await touch("touchEnd")
+    await sleep(500)
+    want = [start[1], start[2], start[0]]
+    expect(same(await mediaOrder(p), want), "dropped, the first picture is third and the second is the thumbnail", await mediaOrder(p))
+    const thumb = await p.evaluate(() => [...document.querySelectorAll("[data-media-grid] > [data-media-id]")].findIndex((e) => /Thumbnail/.test(e.textContent)))
+    expect(thumb === 0, "the Thumbnail label stays on the first tile", thumb)
+
+    /* A touchcancel mid drag. */
+    await gridAt(p, 220)
+    await sleep(100)
+    t = await tiles(p)
+    await touch("touchStart", t[0].x, t[0].y)
+    await sleep(400)
+    for (let k = 1; k <= 10; k++) {
+      await touch("touchMove", t[0].x + k * 10, t[0].y + k * 12)
+      await sleep(16)
+    }
+    await touch("touchCancel")
+    await sleep(500)
+    expect(same(await mediaOrder(p), want) && !(await p.$("[data-media-grid] [data-lifted]")), "a touchcancel puts the pictures back as they were", await mediaOrder(p))
+
+    /* A tap on a picture does nothing; a tap on its remove button removes it. */
+    await gridAt(p, 220)
+    await sleep(100)
+    t = await tiles(p)
+    await touch("touchStart", t[1].x, t[1].y)
+    await sleep(60)
+    await touch("touchEnd")
+    await sleep(300)
+    expect(same(await mediaOrder(p), want), "a tap on a picture moves nothing", await mediaOrder(p))
+    const x = await p.$$eval("[data-media-grid] [data-media-remove]", (bs) => {
+      const r = bs[2].getBoundingClientRect()
+      return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) }
+    })
+    await touch("touchStart", x.x, x.y)
+    await sleep(60)
+    await touch("touchEnd")
+    await sleep(400)
+    want = want.slice(0, 2)
+    expect(same(await mediaOrder(p), want), "a tap on the remove button still removes that picture", await mediaOrder(p))
+  } else {
+    await gridAt(p, 220)
+    await sleep(100)
+    const t = await tiles(p)
+    await p.mouse.click(t[0].x, t[0].y)
+    await sleep(200)
+    expect(same(await mediaOrder(p), start) && !(await p.$("[data-media-grid] [data-lifted]")), "a click on a picture moves nothing")
+    await p.mouse.move(t[0].x, t[0].y)
+    await p.mouse.down()
+    for (let k = 1; k <= 12; k++) {
+      await p.mouse.move(t[0].x + Math.round(((t[1].x - t[0].x) * k) / 12), t[0].y)
+      await sleep(16)
+    }
+    await sleep(250)
+    const scale = await p.evaluate(() => {
+      const e = document.querySelector("[data-media-grid] [data-lifted] [data-media-tile]")
+      return e ? getComputedStyle(e).scale : null
+    })
+    await p.screenshot({ path: join(shots, `${label}-media-dragging.png`) })
+    await p.mouse.up()
+    await sleep(500)
+    const m1 = await mediaOrder(p)
+    expect(scale === "1.03" && same(m1, [start[1], start[0], start[2]]), "a mouse drags a picture across, lifted, and drops it second", { scale, order: m1 })
+    await p.focus("[data-media-grid] [data-media-handle]")
+    await p.keyboard.press("Space")
+    await sleep(300)
+    await p.keyboard.press("ArrowDown")
+    await sleep(350)
+    await p.keyboard.press("Space")
+    await sleep(500)
+    want = await mediaOrder(p)
+    expect(same(want, [m1[1], m1[2], m1[0]]), "and the keyboard moves one down a row: Space, Down, Space", want)
+    const live = await p.evaluate(() => [...document.querySelectorAll("[aria-live]")].map((e) => e.textContent).find((x) => /Photo/.test(x)) ?? "")
+    expect(/position 3 of 3/.test(live), "in words a screen reader can use", live)
+  }
+
+  /* The save writes that order: the gallery, and the first as the cover. */
+  ctx.fakeDb = true
+  ctx.writes.length = 0
+  await p.$eval(saveButton, (b) => b.click())
+  let patch = null
+  for (let i = 0; i < 60 && !patch; i++) {
+    await sleep(50)
+    patch = ctx.writes.find((w) => w.method === "PATCH" && /\/rest\/v1\/products$/.test(w.url))
+  }
+  ctx.fakeDb = false
+  let body = {}
+  try { body = JSON.parse(patch?.body ?? "{}") } catch {}
+  const hue = (u) => (decodeURIComponent(u || "").match(/hsl\((\d+)/) || [])[1] || "?"
+  const gallery = (body.gallery_urls ?? []).map(hue)
+  expect(same(gallery, want) && hue(body.thumbnail_url) === want[0], "the save writes the pictures in that order, the first as the cover", { gallery, cover: hue(body.thumbnail_url), want })
+  await sleep(1500)
 }
 
 /** The save writes the questions in the order on screen. */
@@ -721,6 +906,9 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
       await reorder(p, label, vp, isPhone, ctx)
       const faqWrites = await savedOrder(p, ctx)
       expect(faqWrites.ok, "the new order is what the save writes", faqWrites)
+      await p.reload({ waitUntil: "domcontentloaded" })
+      await sleep(900)
+      await mediaReorder(p, label, vp, isPhone, ctx)
     }
     await p.close()
   }
