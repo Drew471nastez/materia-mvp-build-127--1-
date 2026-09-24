@@ -25,6 +25,9 @@
  *   photos and videos: a swipe over the tiles scrolls, a hold lifts one
  *   where it is, a touchcancel restores, the remove button still removes,
  *   and the save writes the gallery and the cover in the new order.
+ *   THE DESCRIPTION. A title change saves it untouched; typing in it lights
+ *   Save, and the save sends it through the clean once and writes the result.
+ *   The clean is a server action; here it is a stand-in that counts calls.
  *
  *   node scripts/check-product-editor.mjs
  */
@@ -528,6 +531,68 @@ async function mediaReorder(p, label, vp, isPhone, ctx) {
   await sleep(1500)
 }
 
+/**
+ * THE DESCRIPTION (components/app/rich-text-editor.tsx). Saving with only the
+ * title changed sends the stored description back untouched, with no trip to
+ * the clean. Typing in the description marks the form changed, and the save
+ * sends it through cleanDescription (stood in for by the harness, which
+ * counts its calls) and writes what comes back.
+ */
+async function describe(p, ctx) {
+  console.log(`  -- The description`)
+  const box = '[data-product-editor] [role="textbox"][contenteditable]'
+  const cleans = () => p.evaluate(() => window.__descriptionCleans || 0)
+  const saveOnce = async () => {
+    ctx.fakeDb = true
+    ctx.writes.length = 0
+    await p.$eval(saveButton, (b) => b.click())
+    let patch = null
+    for (let i = 0; i < 80 && !patch; i++) {
+      await sleep(50)
+      patch = ctx.writes.find((w) => w.method === "PATCH" && /\/rest\/v1\/products$/.test(w.url))
+    }
+    for (let i = 0; i < 100 && (await p.$eval(saveButton, (b) => b.dataset.phase)) !== "idle"; i++) await sleep(50)
+    ctx.fakeDb = false
+    try { return JSON.parse(patch?.body ?? "null") } catch { return null }
+  }
+
+  const stored = await p.$eval(box, (e) => e.innerText.trim().slice(0, 80))
+  expect(/^Forty presets made on real client sessions/.test(stored), "the saved description is in the editor", stored)
+
+  /* Only the title changed: the stored description goes back as it is. */
+  await p.click("#title", { clickCount: 1 })
+  await p.keyboard.press("End")
+  await p.keyboard.type("!")
+  await sleep(150)
+  const before = await cleans()
+  const titleOnly = await saveOnce()
+  expect(!!titleOnly && (await cleans()) === before && /Forty presets made on real client sessions/.test(titleOnly.description), "a title change saves the description untouched, without cleaning it again", { cleans: (await cleans()) - before })
+
+  /* Typing in the description. */
+  await p.$eval(box, (e) => e.scrollIntoView({ block: "center" }))
+  await sleep(150)
+  const clean0 = await p.$eval(saveButton, (b) => b.disabled)
+  await p.focus(box)
+  await p.evaluate((sel) => {
+    const e = document.querySelector(sel)
+    const r = document.createRange()
+    r.selectNodeContents(e)
+    r.collapse(false)
+    const s = getSelection()
+    s.removeAllRanges()
+    s.addRange(r)
+  }, box)
+  await p.keyboard.type(" Tested on film scans too.")
+  await sleep(250)
+  const dirty = await p.$eval(saveButton, (b) => b.disabled)
+  expect(clean0 === true && dirty === false, "typing in the description marks the form changed: Save lights up", { before: clean0, after: dirty })
+  const c0 = await cleans()
+  const saved = await saveOnce()
+  const sent = saved?.description ?? ""
+  expect((await cleans()) === c0 + 1, "Save sends the description through the clean once", { cleans: (await cleans()) - c0 })
+  expect(/Tested on film scans too\./.test(sent) && /^<p>/.test(sent) && !/contenteditable|<div|style=/.test(sent), "and writes the cleaned HTML, with the new words in it", sent.slice(-120))
+}
+
 /** The save writes the questions in the order on screen. */
 async function savedOrder(p, ctx) {
   const expected = await order(p)
@@ -561,14 +626,42 @@ export default React.forwardRef(function Link({ href, children, prefetch, ...res
   writeFileSync(join(stubs, "image.jsx"), `import React from "react"
 export default function Image({ src, alt, fill, sizes, priority, ...rest }) { return React.createElement("img", { src, alt, style: fill ? { position: "absolute", inset: 0, width: "100%", height: "100%" } : undefined, ...rest }) }
 `)
-  execFileSync("npx", [
-    "esbuild", "scripts/render-product-editor.tsx", "--bundle", "--format=iife", "--jsx=automatic",
-    '--define:process.env.NODE_ENV="production"', "--alias:@=.",
-    "--banner:js=var process={env:{NODE_ENV:'production',NEXT_PUBLIC_SUPABASE_URL:'https://placeholder.supabase.co',NEXT_PUBLIC_SUPABASE_ANON_KEY:'placeholder'}};",
-    "--alias:next/navigation=./.product-editor-probe/navigation.js", "--alias:next/link=./.product-editor-probe/link.jsx", "--alias:next/image=./.product-editor-probe/image.jsx",
-    "--loader:.css=empty",
-    `--outfile=${join(stubs, "app.js")}`, "--log-level=error",
-  ], { cwd: root, stdio: "inherit", env: { ...process.env, NODE_PATH: join(root, "node_modules") } })
+  /*
+    The description is cleaned by a server action (description-action.ts,
+    "use server"), which in the real app is a network call. Bundled for the
+    browser as it is, it pulls in server-only code and throws. Here it is
+    stood in for by what the action answers for a signed-in owner: the HTML
+    back, cleaned by the same display cleaner the page uses.
+  */
+  writeFileSync(join(stubs, "description-action.js"), `import { cleanStoredHtml } from "${join(root, "lib/rich-text/html.ts").replace(/\\/g, "/")}"
+export async function cleanDescription(html) { window.__descriptionCleans = (window.__descriptionCleans || 0) + 1; return { ok: true, html: cleanStoredHtml(String(html ?? "")) } }
+`)
+  const { build } = await import("esbuild")
+  await build({
+    entryPoints: [join(root, "scripts/render-product-editor.tsx")],
+    bundle: true,
+    format: "iife",
+    jsx: "automatic",
+    define: { "process.env.NODE_ENV": '"production"' },
+    alias: {
+      "@": ".",
+      "next/navigation": "./.product-editor-probe/navigation.js",
+      "next/link": "./.product-editor-probe/link.jsx",
+      "next/image": "./.product-editor-probe/image.jsx",
+    },
+    banner: { js: "var process={env:{NODE_ENV:'production',NEXT_PUBLIC_SUPABASE_URL:'https://placeholder.supabase.co',NEXT_PUBLIC_SUPABASE_ANON_KEY:'placeholder'}};" },
+    loader: { ".css": "empty" },
+    outfile: join(stubs, "app.js"),
+    logLevel: "error",
+    absWorkingDir: root,
+    nodePaths: [join(root, "node_modules")],
+    plugins: [{
+      name: "server-action-stub",
+      setup(b) {
+        b.onResolve({ filter: /description-action$/ }, () => ({ path: join(stubs, "description-action.js") }))
+      },
+    }],
+  })
   const js = readFileSync(join(stubs, "app.js"), "utf8")
   /* Watches from before the bundle runs: when the form's name field first
      holds the product's name, when every picture has decoded, and every
@@ -585,7 +678,7 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
   /* With Inter, the bundle runs once the face has loaded: the app preloads
      it, and a swap the harness caused is not a shift the editor made. */
   const run = inter
-    ? `<script type="text/plain" id="bundle">${js.replace(/<\/script/gi, "<\\/script")}</script><script>document.fonts.load("16px Inter").finally(function () { window.__t.script = +performance.now().toFixed(1); var s = document.createElement("script"); s.textContent = document.getElementById("bundle").textContent; document.body.appendChild(s) })</script>`
+    ? `<script type="text/plain" id="bundle">${js.replace(/<\/script/gi, "<\\/script")}</script><script>document.fonts.load("16px Inter").catch(function () {}).finally(function () { window.__t.script = +performance.now().toFixed(1); var s = document.createElement("script"); s.textContent = document.getElementById("bundle").textContent; document.body.appendChild(s) })</script>`
     : `<script>window.__t.script = +performance.now().toFixed(1)</script><script>${js.replace(/<\/script/gi, "<\\/script")}</script>`
   writeFileSync(join(stubs, "index.html"), `<!doctype html><html class="app-layout"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>${inter}</style><style>${css}</style><style>body{margin:0;font-family:Inter,system-ui,sans-serif}</style>${watch}</head><body><div id="app"></div>${run}</body></html>`)
 
@@ -909,6 +1002,9 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
       await p.reload({ waitUntil: "domcontentloaded" })
       await sleep(900)
       await mediaReorder(p, label, vp, isPhone, ctx)
+      await p.reload({ waitUntil: "domcontentloaded" })
+      await sleep(900)
+      await describe(p, ctx)
     }
     await p.close()
   }
