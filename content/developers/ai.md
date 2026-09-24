@@ -128,7 +128,7 @@ claude "Add a pricing section with three tiers to sections/, then commit and pus
 
 ## Connect an agent directly
 
-An agent can work on a site directly: list its files, read them, compile a section until it is clean, and save it. The creator connects it once, from the builder.
+An agent can work on a site directly: read the project and the section the creator has selected, change settings and pages, write sections, run the checks and preview the drafts. The creator connects it once, from the builder.
 
 1. Open the site in the website builder, then **Website Settings › Connections**, and pick **Claude Code** or **Codex**.
 2. Name the connection, for example "Claude Code", and press **Connect**.
@@ -137,41 +137,54 @@ An agent can work on a site directly: list its files, read them, compile a secti
 **Claude Code.** Run this in a terminal, with the token in place of `slb_...`:
 
 ```bash
-claude mcp add --transport http --scope user storelib https://storelib.com/api/mcp --header "Authorization: Bearer slb_..."
+claude mcp add --transport http --scope user storelib https://mcp.storelib.com --header "Authorization: Bearer slb_..."
 ```
 
 **Codex.** Add this to `~/.codex/config.toml`, and set the environment variable `STORELIB_TOKEN` to the token (`export STORELIB_TOKEN="slb_..."` in the terminal you start Codex from):
 
 ```toml
 [mcp_servers.storelib]
-url = "https://storelib.com/api/mcp"
+url = "https://mcp.storelib.com"
 bearer_token_env_var = "STORELIB_TOKEN"
 ```
 
 **Anything else** that speaks MCP over HTTP takes the same address and header. An agent or script that does not speak MCP can use the same token with plain HTTP, below.
 
+### What arrives with the connection
+
+When Claude Code or Codex connects, the server's instructions put the [agent rules](/developers/rules) in the model's context: the workflow (inspect, plan, implement, test, repair) and the edges of what it may change. Nobody has to paste them. The same rules are the `storelib-rules` prompt, the `storelib://rules` resource and the `storelib_rules` tool, and Storelib AI in the builder works by them too.
+
+For the task itself, `storelib_skills` with the task in the agent's own words returns only the skills it needs: the steps, the tools, the part of the framework involved, what goes wrong, and the checks that say it is done. The `storelib-task` prompt gives the rules and those skills together.
+
 ### The tools
 
 | Tool | What it does |
 | --- | --- |
-| `storelib_rules` | [Rules before you ship](/developers/rules). Read them first. |
-| `storelib_guide` | This framework, in full, starting with the rules. Read it before writing a section. |
-| `storelib_site` | What this website is: its name and address, brand, title and description, fonts and colour schemes, the sections on each page, and its published products with their prices and ids. Read it before writing, so the section fits this site. |
-| `storelib_list_files` | Every file of the site's theme, marked `yours` or `theme`. |
-| `storelib_read_file` | One file, the saved draft where there is one, with its `updated_at`. |
-| `storelib_compile` | Compiles a section without saving it, and answers `file:line message` for every error. |
-| `storelib_write_section` | Saves a section as a draft. It is compiled first and refused with its errors if it does not compile. |
+| `storelib_rules` | The agent rules, then [Rules before you ship](/developers/rules) in full. |
+| `storelib_skills` | The skills for a task: pass `task` in plain words, or `id` for one. |
+| `storelib_read_project` | The site brief, every page, the creator's own section types, and what is open in the builder. |
+| `storelib_read_page` | One page's sections in order, with ids, settings and blocks. Defaults to the page open in the builder. |
+| `storelib_read_selected_section` | The section selected in the builder, or one by id: every control it has, its values and blocks, and whether its file can be changed. |
+| `storelib_search_components` | The sections this site can use, built in and the creator's own, ranked for what you are looking for. |
+| `storelib_create_section` | Saves a new section file and, with `page`, places it there. Refused with what to fix unless it compiles and passes the quality checks. |
+| `storelib_edit_section` | Saves a change to a section file the creator has, with `base_updated_at`. The previous version is kept. |
+| `storelib_update_styles` | Settings on a section, a block or the theme: colour scheme, button colours and hover, spacing, alignment, type. Checked against what the section declares. |
+| `storelib_create_page` | A new page with the site's header and footer and the sections listed. |
+| `storelib_create_safe_patch` | Several page operations as one change. All are checked first; if one is refused, nothing is written. A restore point is taken before it is applied. |
+| `storelib_run_tests` | Compile and quality for a file; section types, settings, contrast and limits for a page. |
+| `storelib_run_preview` | A link to the page as the drafts make it, the builder link, and the page checks. |
+| `storelib_guide`, `storelib_site`, `storelib_list_files`, `storelib_read_file`, `storelib_compile`, `storelib_write_section` | The framework, the site brief, and the section files, as before. |
 
-The loop that works: read the guide and the site, write the file, compile it until it is clean, then save it. When changing a file that exists, pass the `updated_at` you read as `base_updated_at`, and a save made elsewhere in the meantime is refused rather than overwritten.
+The loop that works: read the project and the selected section, get the skills for the task, change settings where a setting does it and write a file only where it does not, run the tests, and preview. When changing a file that exists, pass the `updated_at` you read as `base_updated_at`, and a save made elsewhere in the meantime is refused rather than overwritten.
 
 ### What a connection can and cannot do
 
-- It reaches **one site**. Not the creator's other sites, orders, buyers, subscribers or account. It sees the site's published products only as a visitor does: title, price, picture and address.
-- It writes **section files only**: `sections/<type>.storelib`, lower case, digits, `_` and `-`. Templates, settings and layout are the creator's.
-- It **never changes a built-in section**. The sections Storelib ships can be read, and a write to one is refused; a different version is written as a new section. The same holds for a push from GitHub and for the builder's own AI.
-- **Every save is a draft**, held to exactly the rules a save in the code editor is: it must compile, and its name must be free. Nothing reaches visitors until the creator publishes.
-- It cannot delete, rename or publish anything.
-- **A new section appears on the page the creator has open** in the builder, above the footer, labelled with the connection's name. If the builder is closed it waits in Add Section, under Created by you.
+- It reaches **one site**. Not the creator's other sites, orders, buyers, subscribers or account. It sees the site's published products only as a visitor does: title, price, picture and address. No argument to any tool names a site; the token decides it.
+- It writes **section files** as `sections/<type>.storelib`, lower case, digits, `_` and `-`, and **never changes a built-in section**: a different version is written as a new section. Paths with `../`, a leading `/` or another folder are refused.
+- It changes **pages and settings only through the page tools**, which refuse a setting a section does not declare or a value its control cannot take. Before every page or theme change a restore point of the whole site is taken, listed in Website Settings › Backups.
+- **Every change is a draft**. Nothing reaches visitors until the creator publishes. It cannot publish, and it cannot delete a page or a section file.
+- **The builder follows along.** A change to a page appears in a builder that is open, in place, without a reload; a new section file without a page appears on the page the creator has open. Page changes need `RUN_AGENT_MCP.sql` to have been run on the database.
+- `storelib_run_tests` runs checks over the site's rows. It runs no command and reaches nothing on the server.
 - The creator can disconnect it at any time; the token stops working on its next request.
 
 ### Over plain HTTP

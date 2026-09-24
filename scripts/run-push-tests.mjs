@@ -24,6 +24,7 @@ const SUITES = [
   "tests/merge-markers.test.ts",
   "tests/canvas-containment.test.ts",
   "tests/agent-rules.test.ts",
+  "tests/agent-mcp.test.ts",
   "tests/site-seo.test.ts",
   "tests/page-seo.test.ts",
   "tests/section-flash.test.ts",

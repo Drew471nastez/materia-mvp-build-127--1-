@@ -92,9 +92,11 @@ async function main() {
     rules: () => "THE RULES",
   }
   const init = (await handleMcp({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-03-26" } }, fake)) as { result?: { instructions?: string } }
-  check("and its instructions say to read them before anything else", /Before anything else, call storelib_rules/.test(init?.result?.instructions ?? ""))
+  const instructions = init?.result?.instructions ?? ""
+  check("and its instructions carry the workflow and the edges, without being asked", /WORKFLOW/.test(instructions) && /Inspect/.test(instructions) && /Repair/.test(instructions) && /one website only/i.test(instructions) && /storelib_rules/.test(instructions))
   const called = (await handleMcp({ jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: "storelib_rules", arguments: {} } }, fake)) as { result?: { content?: { text: string }[] } }
-  check("storelib_rules answers with them", called?.result?.content?.[0]?.text === "THE RULES")
+  const rulesText = called?.result?.content?.[0]?.text ?? ""
+  check("storelib_rules answers with the universal rules, then the page", rulesText.startsWith("# Storelib agent rules") && rulesText.endsWith("THE RULES"))
   const agents = agentsGuide({ siteName: "Astrid", branch: "main", root: "" })
   check("a linked repository's AGENTS.md sends an agent to them before anything else", /## Read the rules before you write anything/.test(agents) && agents.indexOf("developers/rules") < agents.indexOf("## Writing a section"))
   check("and CLAUDE.md does too", /developers\/rules/.test(CLAUDE_MD))

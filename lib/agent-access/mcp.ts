@@ -18,6 +18,9 @@
 import type { ThemeError } from "@/lib/storelib-theme/types"
 import type { FileEntry, OpResult } from "./operations"
 import type { SiteBrief } from "./site-brief"
+import { PAGE_OP_NAMES } from "./page-ops"
+import { agentRulesBrief, agentRulesText } from "@/lib/agent-rules"
+import { skillById, skillIndex, skillText, skillsForRequest } from "@/lib/agent-skills"
 
 /** The protocol versions this server can speak, newest first. */
 export const PROTOCOL_VERSIONS = ["2025-06-18", "2025-03-26", "2024-11-05"] as const
@@ -34,6 +37,26 @@ export interface BoundOps {
   rules?: () => string
   /** What the website is: see ./site-brief.ts. Optional so older test doubles still bind. */
   site?: () => Promise<OpResult<SiteBrief>>
+  /**
+   * The project tools (./project.ts): pages, settings, tests and preview.
+   * Each answers text for the agent. Optional so older test doubles bind.
+   */
+  project?: ProjectOps
+}
+
+type Args = Record<string, unknown>
+export interface ProjectOps {
+  readProject: () => Promise<OpResult<string>>
+  readPage: (args: Args) => Promise<OpResult<string>>
+  readSelectedSection: (args: Args) => Promise<OpResult<string>>
+  searchComponents: (args: Args) => Promise<OpResult<string>>
+  createSection: (args: Args) => Promise<OpResult<string>>
+  editSection: (args: Args) => Promise<OpResult<string>>
+  updateStyles: (args: Args) => Promise<OpResult<string>>
+  createPage: (args: Args) => Promise<OpResult<string>>
+  createSafePatch: (args: Args) => Promise<OpResult<string>>
+  runTests: (args: Args) => Promise<OpResult<string>>
+  runPreview: (args: Args) => Promise<OpResult<string>>
 }
 
 type Json = Record<string, unknown>
@@ -98,6 +121,127 @@ export const TOOLS = [
   },
 ] as const
 
+const NONE = { type: "object", properties: {}, additionalProperties: false } as const
+const PAGE = { type: "string", description: 'A page key from storelib_read_project, such as "home" or "about". Leave it out for the page open in the builder, else home.' }
+const SETTINGS = { type: "object", description: "Setting id to value, using only ids the section, block or theme declares. Unknown ids and values a control cannot take are refused with the list of what it takes.", additionalProperties: true }
+const OP = {
+  type: "object",
+  description: "One page operation. add_section: section_type, index?, settings?. update_section: section_id, settings. move_section: section_id, index. remove_section / set_section_visibility (hidden) / rename_section (name): section_id. add_block: section_id, block_type, index?, settings?. update_block / move_block / remove_block: section_id, block_id. update_theme: settings.",
+  properties: {
+    op: { type: "string", enum: PAGE_OP_NAMES },
+    section_id: { type: "string" },
+    section_type: { type: "string" },
+    block_id: { type: "string" },
+    block_type: { type: "string" },
+    index: { type: "number" },
+    hidden: { type: "boolean" },
+    name: { type: "string" },
+    settings: SETTINGS,
+  },
+  required: ["op"],
+  additionalProperties: false,
+} as const
+
+/**
+ * THE PROJECT TOOLS, the eleven on the mcp.storelib.com diagram plus the
+ * skills. Named for what they do, in the order an agent reaches for them.
+ */
+export const PROJECT_TOOLS = [
+  {
+    name: "storelib_skills",
+    description:
+      "The skills for a task: steps, tools, the part of the framework it touches, what goes wrong and the checks that say it is done. Pass `task` in your own words (\"make the FAQ buttons darker\") to get only the skills it needs, or `id` for one. With neither, the list.",
+    inputSchema: { type: "object", properties: { task: { type: "string" }, id: { type: "string" } }, additionalProperties: false },
+  },
+  {
+    name: "storelib_read_project",
+    description: "The whole project in one read: the site brief, every page, the creator's own section types, and what is open in the builder right now.",
+    inputSchema: NONE,
+  },
+  {
+    name: "storelib_read_page",
+    description: "One page's sections in order, with ids, types, settings and blocks. Defaults to the page open in the builder.",
+    inputSchema: { type: "object", properties: { page: PAGE }, additionalProperties: false },
+  },
+  {
+    name: "storelib_read_selected_section",
+    description: "The section the creator has selected in the builder (or the one named by section_id): every control it has with its type and range, its current settings and blocks, and whether its file can be changed.",
+    inputSchema: { type: "object", properties: { page: PAGE, section_id: { type: "string" } }, additionalProperties: false },
+  },
+  {
+    name: "storelib_search_components",
+    description: "Search the sections this site can use, the built-in library and the creator's own, by what they are for (\"testimonials slider\", \"pricing\"). Use it before writing a new section.",
+    inputSchema: { type: "object", properties: { query: { type: "string" }, limit: { type: "number" } }, required: ["query"], additionalProperties: false },
+  },
+  {
+    name: "storelib_create_section",
+    description: "Save a NEW section file (sections/<type>.storelib) as a draft and, with `page`, place it on that page. It must compile and pass the quality checks, or it is refused with what to fix and nothing is saved.",
+    inputSchema: { type: "object", properties: { path: PATH, source: SOURCE, page: PAGE, index: { type: "number" } }, required: ["path", "source"], additionalProperties: false },
+  },
+  {
+    name: "storelib_edit_section",
+    description: "Save a change to a section file the creator already has. Send base_updated_at from storelib_read_file. Built-in sections cannot be changed. Compile and quality are checked first; the previous version is kept.",
+    inputSchema: { type: "object", properties: { path: PATH, source: SOURCE, base_updated_at: { type: "string" } }, required: ["path", "source"], additionalProperties: false },
+  },
+  {
+    name: "storelib_update_styles",
+    description: "Change settings: colours, colour scheme, button colours and hover, spacing, alignment, type, backgrounds. scope \"section\" (section_id), \"block\" (section_id, block_id) or \"theme\" for the whole site. Checked against what the section declares. A restore point is taken first.",
+    inputSchema: {
+      type: "object",
+      properties: { scope: { type: "string", enum: ["section", "block", "theme"] }, page: PAGE, section_id: { type: "string" }, block_id: { type: "string" }, settings: SETTINGS },
+      required: ["settings"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "storelib_create_page",
+    description: "Make a new page with the site's header and footer and the section types listed, each filled from its preset. Its address comes from the title.",
+    inputSchema: { type: "object", properties: { title: { type: "string" }, sections: { type: "array", items: { type: "string" } } }, required: ["title"], additionalProperties: false },
+  },
+  {
+    name: "storelib_create_safe_patch",
+    description: "Several page operations as ONE change: every operation is checked first, and if any is refused nothing is written. A restore point of the whole site is taken before it is applied, and the page checks run after.",
+    inputSchema: { type: "object", properties: { page: PAGE, label: { type: "string" }, ops: { type: "array", items: OP } }, required: ["ops"], additionalProperties: false },
+  },
+  {
+    name: "storelib_run_tests",
+    description: "Run the checks: compile and quality for a section file (path), and page-types, page-settings, contrast and limits for a page. Pass `request` to run the checks your task's skills name, or `checks` to choose.",
+    inputSchema: {
+      type: "object",
+      properties: { path: PATH, page: PAGE, request: { type: "string" }, checks: { type: "array", items: { type: "string", enum: ["compile", "quality", "page-types", "page-settings", "contrast", "limits"] } } },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "storelib_run_preview",
+    description: "A link to the page as the drafts make it, to open at phone and desktop width, the builder link, and the page checks.",
+    inputSchema: { type: "object", properties: { page: PAGE }, additionalProperties: false },
+  },
+] as const
+
+/** Prompts: the rules, and the rules with a task's skills. Clients show them as slash commands. */
+export const PROMPTS = [
+  { name: "storelib-rules", title: "Storelib agent rules", description: "The rules and workflow every agent follows on a Storelib site." },
+  {
+    name: "storelib-task",
+    title: "Work on this Storelib site",
+    description: "The rules, and the skills for the task you describe.",
+    arguments: [{ name: "task", description: "What you are about to do, in your own words.", required: true }],
+  },
+] as const
+
+export const RESOURCES = [
+  { uri: "storelib://rules", name: "rules", title: "Storelib agent rules", mimeType: "text/markdown" },
+  { uri: "storelib://guide", name: "guide", title: "Storelib Builder Framework", mimeType: "text/markdown" },
+  { uri: "storelib://skills", name: "skills", title: "Storelib skills", mimeType: "text/plain" },
+] as const
+
+/** Every rule an agent reads: the universal ones, then the detailed page. */
+function rulesFor(ops: BoundOps): string {
+  const page = ops.rules ? ops.rules() : ""
+  return page ? `${agentRulesText()}\n\n---\n\n${page}` : agentRulesText()
+}
+
 function text(value: string, isError = false) {
   return { content: [{ type: "text", text: value }], ...(isError ? { isError: true } : {}) }
 }
@@ -121,6 +265,21 @@ function str(params: Json | undefined, key: string): string {
   return typeof v === "string" ? v : ""
 }
 
+/** Each project tool, to the bound operation that answers it. */
+const PROJECT_CALLS: Record<string, (p: ProjectOps, args: Json) => Promise<OpResult<string>>> = {
+  storelib_read_project: (p) => p.readProject(),
+  storelib_read_page: (p, a) => p.readPage(a),
+  storelib_read_selected_section: (p, a) => p.readSelectedSection(a),
+  storelib_search_components: (p, a) => p.searchComponents(a),
+  storelib_create_section: (p, a) => p.createSection(a),
+  storelib_edit_section: (p, a) => p.editSection(a),
+  storelib_update_styles: (p, a) => p.updateStyles(a),
+  storelib_create_page: (p, a) => p.createPage(a),
+  storelib_create_safe_patch: (p, a) => p.createSafePatch(a),
+  storelib_run_tests: (p, a) => p.runTests(a),
+  storelib_run_preview: (p, a) => p.runPreview(a),
+}
+
 /**
  * One JSON-RPC message in, its answer out, or null for a notification
  * (which, by the protocol, gets no answer).
@@ -142,24 +301,56 @@ export async function handleMcp(msg: RpcRequest, ops: BoundOps): Promise<RpcResp
       const version = (PROTOCOL_VERSIONS as readonly string[]).includes(asked) ? asked : PROTOCOL_VERSIONS[0]
       return ok({
         protocolVersion: version,
-        capabilities: { tools: { listChanged: false } },
-        serverInfo: { name: "storelib", title: "Storelib", version: "1.0.0" },
-        instructions:
-          `Connected to the Storelib site "${ops.siteName}" as "${ops.agentName}". ` +
-          "Before anything else, call storelib_rules and follow every rule in it. Then storelib_site and storelib_guide before writing a section. Compile with storelib_compile until it is clean, then save with storelib_write_section. " +
-          "You write section files only and never change a built-in section. Every save is a draft; the creator publishes.",
+        capabilities: { tools: { listChanged: false }, prompts: { listChanged: false }, resources: { listChanged: false } },
+        serverInfo: { name: "storelib", title: "Storelib", version: "2.0.0" },
+        /* Clients put this in the model's context on connect: the rules arrive without being asked for. */
+        instructions: agentRulesBrief({ siteName: ops.siteName, agentName: ops.agentName }),
       })
     }
     case "ping":
       return ok({})
     case "tools/list":
-      return ok({ tools: TOOLS })
+      return ok({ tools: ops.project ? [...TOOLS, ...PROJECT_TOOLS] : [...TOOLS, PROJECT_TOOLS[0]] })
+    case "prompts/list":
+      return ok({ prompts: PROMPTS })
+    case "prompts/get": {
+      const name = str(msg.params, "name")
+      const promptArgs = (msg.params?.arguments && typeof msg.params.arguments === "object" ? msg.params.arguments : {}) as Json
+      if (name === "storelib-rules") {
+        return ok({ description: PROMPTS[0].description, messages: [{ role: "user", content: { type: "text", text: rulesFor(ops) } }] })
+      }
+      if (name === "storelib-task") {
+        const task = str(promptArgs, "task").slice(0, 4_000)
+        if (!task) return fail(-32602, "The storelib-task prompt needs a task.")
+        const body = [agentRulesText(), skillsForRequest(task), `TASK\n${task}`].join("\n\n")
+        return ok({ description: PROMPTS[1].description, messages: [{ role: "user", content: { type: "text", text: body } }] })
+      }
+      return fail(-32602, `Unknown prompt: ${name}`)
+    }
+    case "resources/list":
+      return ok({ resources: RESOURCES })
+    case "resources/read": {
+      const uri = str(msg.params, "uri")
+      const body = uri === "storelib://rules" ? rulesFor(ops) : uri === "storelib://guide" ? ops.guide() : uri === "storelib://skills" ? skillIndex() : null
+      if (body === null) return fail(-32602, `Unknown resource: ${uri}`)
+      return ok({ contents: [{ uri, mimeType: uri === "storelib://skills" ? "text/plain" : "text/markdown", text: body }] })
+    }
     case "tools/call": {
       const name = str(msg.params, "name")
       const args = (msg.params?.arguments && typeof msg.params.arguments === "object" ? msg.params.arguments : {}) as Json
       switch (name) {
         case "storelib_rules":
-          return ok(text(ops.rules ? ops.rules() : ops.guide()))
+          return ok(text(rulesFor(ops)))
+        case "storelib_skills": {
+          const id = str(args, "id")
+          const task = str(args, "task")
+          if (id) {
+            const skill = skillById(id)
+            return ok(skill ? text(skillText(skill)) : text(`There is no skill "${id}". The skills:\n${skillIndex()}`, true))
+          }
+          if (task) return ok(text(skillsForRequest(task)))
+          return ok(text(`Pass task (what you are about to do) for the skills it needs, or id for one:\n${skillIndex()}`))
+        }
         case "storelib_guide":
           return ok(text(ops.guide()))
         case "storelib_site": {
@@ -197,8 +388,12 @@ export async function handleMcp(msg: RpcRequest, ops: BoundOps): Promise<RpcResp
             ),
           )
         }
-        default:
-          return fail(-32602, `Unknown tool: ${name}`)
+        default: {
+          const project = ops.project ? PROJECT_CALLS[name] : undefined
+          if (!project || !ops.project) return fail(-32602, `Unknown tool: ${name}`)
+          const r = await project(ops.project, args)
+          return ok(refusal(r) ?? text(r.ok === true ? r.value : ""))
+        }
       }
     }
     default:

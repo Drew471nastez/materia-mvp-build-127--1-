@@ -251,7 +251,7 @@ function pairIsEstablished(
   })
 }
 
-function contrastFindings(
+export function contrastFindings(
   section: SectionInstance,
   theme: Record<string, unknown>,
   written: Set<string>,
@@ -562,7 +562,7 @@ export function reviewSections(input: ReviewInput): Finding[] {
     const written = new Set(input.written?.[id] ?? [])
 
     findings.push(
-      ...contrastFindings(section, state.settings, written, state, new Set(touched)),
+      ...contrastFindings(section, state.settings, written, state, new Set(touched), schemas),
     )
     findings.push(...houseStyleFindings({ section, written, style }))
     findings.push(...emptyFindings(section, written))
