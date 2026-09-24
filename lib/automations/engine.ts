@@ -392,7 +392,7 @@ async function sendStep(ctx: Ctx, flow: FlowRow, run: RunRow, step: EmailStep, s
   const { store, mailer } = ctx
   const identity = await store.identity(run.creator_id)
   const begin = await store.beginSend({ runId: run.id, flowId: flow.id, creatorId: run.creator_id, stepId: step.id, email: run.email, subject: step.config.subject })
-  if (!begin.go) return begin.why === "sent" ? "skipped" : "interrupted"
+  if (!begin.go) return "why" in begin && begin.why === "sent" ? "skipped" : "interrupted"
   const mail = mailer.compose({ step, run, identity, standing, token: begin.token })
   let result: { success: boolean; messageId?: string; error?: string }
   try {

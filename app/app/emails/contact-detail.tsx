@@ -89,7 +89,7 @@ export function ContactDetail({ contact, onClose }: { contact: SubscriberRow | n
         aria-modal="true"
         aria-label={shown.email}
         className={cn(
-          "absolute inset-y-2 right-2 flex w-[420px] flex-col overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_24px_60px_-12px_rgba(17,24,39,0.28),0_2px_8px_rgba(17,24,39,0.06)] transition-[transform,opacity] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)]",
+          "absolute inset-y-2 right-2 flex w-[420px] flex-col overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_24px_60px_-12px_rgba(17,24,39,0.28),0_2px_8px_rgba(17,24,39,0.06)] transition-[translate,opacity] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)]",
           open ? "translate-x-0 opacity-100" : "translate-x-6 opacity-0",
         )}
       >

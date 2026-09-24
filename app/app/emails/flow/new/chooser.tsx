@@ -26,7 +26,7 @@ import { GUTTER, LIST_WIDTH, PaneBar, StatusBadge, iconButton } from "../../../o
 import { FlowShape, StepMark } from "../flow-parts"
 
 const lift =
-  "transition-[transform,box-shadow,border-color] duration-150 ease-out hover:-translate-y-0.5 hover:border-[#d5d7dd] hover:shadow-[0_1px_0_rgba(17,24,39,0.03),0_14px_30px_-14px_rgba(17,24,39,0.24)] active:translate-y-0 active:shadow-[0_1px_0_rgba(17,24,39,0.03),0_2px_6px_-2px_rgba(17,24,39,0.12)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#8b5cf6]"
+  "transition-[translate,box-shadow,border-color] duration-150 ease-out hover:-translate-y-0.5 hover:border-[#d5d7dd] hover:shadow-[0_1px_0_rgba(17,24,39,0.03),0_14px_30px_-14px_rgba(17,24,39,0.24)] active:translate-y-0 active:shadow-[0_1px_0_rgba(17,24,39,0.03),0_2px_6px_-2px_rgba(17,24,39,0.12)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#8b5cf6]"
 
 export function FlowChooser({ existing }: { existing: Record<string, string> }) {
   const router = useRouter()
@@ -129,7 +129,7 @@ function TemplateCard({ template, mine, busy, disabled, onPick }: { template: Fl
         </span>
         <span className="inline-flex shrink-0 items-center gap-1 font-medium text-[#1a1a2e]">
           {busy ? "Setting up" : mine ? "Open yours" : "Use this"}
-          <ArrowRight className="h-3.5 w-3.5 transition-transform duration-150 group-hover:translate-x-0.5" />
+          <ArrowRight className="h-3.5 w-3.5 transition-[translate] duration-150 group-hover:translate-x-0.5" />
         </span>
       </span>
     </button>

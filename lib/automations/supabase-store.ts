@@ -191,7 +191,7 @@ export function supabaseStore(db: Db): Store {
       const now = new Date().toISOString()
       const patch = result.ok
         ? { status: "sent", provider_id: result.providerId, sent_at: now, error: null, updated_at: now }
-        : { status: "failed", error: result.error, updated_at: now }
+        : { status: "failed", error: "error" in result ? result.error : "Send failed", updated_at: now }
       const { error } = await db.from("email_flow_sends").update(patch).eq("run_id", runId).eq("step_id", stepId).eq("status", "sending")
       if (error) fail("record the send", error)
     },

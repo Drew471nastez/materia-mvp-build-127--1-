@@ -486,7 +486,7 @@ function StateBanner(props: {
 /* ─── The column of steps ────────────────────────────────────────────── */
 
 const node =
-  "group relative flex w-full cursor-pointer items-start gap-3 rounded-2xl border bg-white px-3.5 py-3 text-left transition-[box-shadow,border-color,transform] duration-150 ease-out"
+  "group relative flex w-full cursor-pointer items-start gap-3 rounded-2xl border bg-white px-3.5 py-3 text-left transition-[translate,box-shadow,border-color] duration-150 ease-out"
 const nodeRest = "border-[#e5e7eb]/80 shadow-[0_1px_0_rgba(17,24,39,0.03),0_1px_3px_rgba(17,24,39,0.06)] hover:-translate-y-px hover:border-[#d5d7dd] hover:shadow-[0_1px_0_rgba(17,24,39,0.03),0_6px_16px_-6px_rgba(17,24,39,0.16)]"
 const nodeOn = "border-[#8b5cf6] shadow-[0_0_0_3px_rgba(139,92,246,0.16),0_6px_16px_-6px_rgba(76,29,149,0.22)]"
 
@@ -567,7 +567,7 @@ const AddButton = React.forwardRef<HTMLButtonElement, React.ButtonHTMLAttributes
       type="button"
       aria-label="Add a step here"
       {...props}
-      className="relative z-[1] inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border border-[#d5d7dd] bg-white text-[#4b5563] shadow-[0_1px_2px_rgba(17,24,39,0.06)] transition-[transform,background-color,color] duration-100 hover:scale-105 hover:bg-[#1a1a2e] hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#8b5cf6]"
+      className="relative z-[1] inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border border-[#d5d7dd] bg-white text-[#4b5563] shadow-[0_1px_2px_rgba(17,24,39,0.06)] transition-[scale,background-color,color] duration-100 hover:scale-105 hover:bg-[#1a1a2e] hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#8b5cf6]"
     >
       <Plus className="h-3.5 w-3.5" strokeWidth={2.4} />
     </button>
