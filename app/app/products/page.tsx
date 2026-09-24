@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { creatorForRequest, currentUserForRequest, profileForRequest } from "@/lib/auth/request-scope"
 import { ProductsClient } from "./products-client"
@@ -17,14 +18,13 @@ export const metadata: Metadata = {
  */
 export default async function ProductsPage() {
   const { user } = await currentUserForRequest()
-  /* The layout decides what a request with no user sees; this draws nothing
-     rather than reading `user.id` off nothing. */
-  if (!user) return null
+  /* Signed out, or signed in without a creator yet: sent where that is sorted
+     out, like the Website page, rather than a crash on a missing row. */
+  if (!user) redirect("/login")
 
   const [creator, profile] = await Promise.all([creatorForRequest(user.id), profileForRequest(user.id)])
 
-  /* The layout sends a person with no creator row to sign up first. */
-  if (!creator) return null
+  if (!creator) redirect("/app")
   const creatorUsername = profile?.username || creator.slug || ""
 
   const supabase = await createClient()

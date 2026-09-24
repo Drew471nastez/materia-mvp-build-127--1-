@@ -26,6 +26,8 @@
 import * as React from "react"
 import { RotateCcw, X } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { IMPORT_TOO_LARGE, importSizeProblem } from "@/lib/website-builder/theme-import"
+import { LIBRARY_FULL_CODE } from "@/lib/website-builder/library-limit"
 
 export type IncomingKind = "import" | "add" | "duplicate"
 
@@ -63,28 +65,73 @@ export function nameFromFile(file: { name: string }): string {
   return base.trim() || "Imported theme"
 }
 
+/** What a request came back with. `failure` when there was no answer at all. */
+export interface Answer {
+  ok: boolean
+  status: number
+  data: Record<string, unknown>
+  failure?: "network" | "timeout"
+}
+
+/**
+ * How long an upload may go without a byte leaving before it is given up
+ * on. A phone that loses its signal mid upload does not always say so: the
+ * request just stops moving, and the row said "Uploading 43%" for ever.
+ */
+export const STALL_MS = 30_000
+
+/** After the last byte, how long the far end has to answer. The import route may run for 60s. */
+export const ANSWER_MS = 90_000
+
 /**
  * ===========================================================================
  *  AN UPLOAD THAT SAYS HOW FAR IT HAS GOT
  * ===========================================================================
  * `fetch` cannot report upload progress, so the file goes by XMLHttpRequest,
- * whose `upload.onprogress` fires as the bytes leave. `onSent` is called when
+ * whose `upload.onprogress` fires as the bytes leave. `sent` is called when
  * the last byte has gone, which is when the page switches from a percentage
  * to "Importing": from there on the wait is the server's.
+ *
+ * Every way it can end resolves, once: an answer, a dropped connection, or
+ * a stall (STALL_MS without progress, or ANSWER_MS without an answer), which
+ * aborts the request so nothing is left running behind the row.
  */
-export function postWithProgress(
+export function sendWithProgress(
+  method: "POST" | "PUT",
   url: string,
-  body: FormData,
+  body: XMLHttpRequestBodyInit,
   on: { progress: (fraction: number) => void; sent: () => void },
-): Promise<{ ok: boolean; status: number; data: Record<string, unknown> }> {
+  headers: Record<string, string> = {},
+): Promise<Answer> {
   return new Promise((resolve) => {
     const xhr = new XMLHttpRequest()
-    xhr.open("POST", url)
+    let timer: ReturnType<typeof setTimeout> | undefined
+    let stalled = false
+    let settled = false
+    const settle = (answer: Answer) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      resolve(answer)
+    }
+    const arm = (ms: number) => {
+      clearTimeout(timer)
+      timer = setTimeout(() => {
+        stalled = true
+        xhr.abort()
+        /* Resolved here as well: a browser that does not fire abort after a send still lets the row go. */
+        settle({ ok: false, status: 0, data: {}, failure: "timeout" })
+      }, ms)
+    }
+    xhr.open(method, url)
     xhr.responseType = "text"
+    for (const [k, v] of Object.entries(headers)) xhr.setRequestHeader(k, v)
     xhr.upload.onprogress = (e) => {
+      arm(STALL_MS)
       if (e.lengthComputable && e.total > 0) on.progress(Math.min(1, e.loaded / e.total))
     }
     xhr.upload.onload = () => {
+      arm(ANSWER_MS)
       on.progress(1)
       on.sent()
     }
@@ -95,13 +142,99 @@ export function postWithProgress(
       } catch {
         /* not JSON: a proxy's error page, say */
       }
-      resolve({ ok: xhr.status >= 200 && xhr.status < 300, status: xhr.status, data })
+      settle({ ok: xhr.status >= 200 && xhr.status < 300, status: xhr.status, data })
     }
-    xhr.onerror = () => resolve({ ok: false, status: 0, data: {} })
-    xhr.onabort = () => resolve({ ok: false, status: 0, data: {} })
+    xhr.onerror = () => settle({ ok: false, status: 0, data: {}, failure: "network" })
+    xhr.onabort = () => settle({ ok: false, status: 0, data: {}, failure: stalled ? "timeout" : "network" })
+    arm(STALL_MS)
     xhr.send(body)
   })
 }
+
+/** A JSON request that gives up after `ms`, answered in the same shape. */
+export async function fetchAnswer(url: string, body: unknown, ms: number): Promise<Answer> {
+  const ctl = new AbortController()
+  const timer = setTimeout(() => ctl.abort(), ms)
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal: ctl.signal,
+    })
+    const data = (await res.json().catch(() => ({}))) as Record<string, unknown>
+    return { ok: res.ok, status: res.status, data }
+  } catch {
+    return { ok: false, status: 0, data: {}, failure: ctl.signal.aborted ? "timeout" : "network" }
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+const OFFLINE = "The connection dropped. Try again."
+const STALLED = "The upload stopped moving. Try again."
+const SLOW = "The import took too long. Try again."
+
+/** The answer with a reason a person can read in `data.error`, for the row and the toast. */
+function said(a: Answer, otherwise: string, timeout = SLOW): Answer {
+  if (a.ok) return a
+  const error =
+    a.failure === "timeout" ? timeout
+    : a.failure === "network" ? OFFLINE
+    : a.status === 413 ? IMPORT_TOO_LARGE
+    : typeof a.data.error === "string" && a.data.error ? a.data.error
+    : otherwise
+  return { ...a, data: { ...a.data, error } }
+}
+
+/**
+ * ===========================================================================
+ *  AN IMPORT: A PLACE, THE FILE, THEN THE WEBSITE
+ * ===========================================================================
+ * The file goes straight into storage, never through a function, whose body
+ * limit refused every real package (lib/website-builder/theme-import.ts):
+ *
+ *   1. import/upload answers with a signed place for it, or refuses a full
+ *      library or a file over the limit before a byte is sent;
+ *   2. the file is put there with its progress on the row;
+ *   3. the import route reads it from there and makes the website.
+ *
+ * A file over the limit is refused here first, so nobody waits through an
+ * upload that ends in "too large". Try again runs all three again with the
+ * same file.
+ */
+export async function importThemeFile(
+  file: File,
+  on: { progress: (fraction: number) => void; sent: () => void },
+): Promise<Answer> {
+  const problem = importSizeProblem(file.size)
+  if (problem) return { ok: false, status: 400, data: { error: problem } }
+  const place = said(await fetchAnswer("/api/website-builder/themes/import/upload", { size: file.size }, 20_000), "Could not start the upload. Try again.", OFFLINE)
+  /* A full library is an answer, not a failure of the way in. */
+  if (!place.ok && place.data.code === LIBRARY_FULL_CODE) return place
+  const url = place.data.url
+  const path = place.data.path
+  if (place.ok && typeof url === "string" && typeof path === "string") {
+    const put = await sendWithProgress("PUT", url, file, on, { "Content-Type": file.type || "application/zip", "x-upsert": "true" })
+    if (put.ok) return said(await fetchAnswer("/api/website-builder/themes/import", { path }, ANSWER_MS), "Could not import that file")
+    /* Storage's own error text is not for people: only the size is said as it is. */
+    if (file.size > FORM_IMPORT_MAX_BYTES) return said({ ...put, data: {} }, "Could not upload that file. Try again.", STALLED)
+  } else if (file.size > FORM_IMPORT_MAX_BYTES) {
+    return place.ok ? said({ ok: false, status: 500, data: {} }, "Could not start the upload. Try again.") : place
+  }
+  /*
+    THE SECOND WAY IN. A package small enough for a function's request body
+    goes to the import route as a form when storage could not take it, so an
+    import that worked before storage uploads existed still works if they
+    ever fail.
+  */
+  const form = new FormData()
+  form.append("file", file)
+  return said(await sendWithProgress("POST", "/api/website-builder/themes/import", form, on), "Could not import that file", STALLED)
+}
+
+/** Under the 4.5 MB a function accepts as a request body, with room for the form around the file. */
+const FORM_IMPORT_MAX_BYTES = 4 * 1024 * 1024
 
 /**
  * ===========================================================================
@@ -125,7 +258,7 @@ export function scrollerOf(el: HTMLElement): HTMLElement {
   return (document.scrollingElement as HTMLElement | null) ?? document.documentElement
 }
 
-export function reducedMotion(): boolean {
+function reducedMotion(): boolean {
   return typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
 }
 
@@ -235,7 +368,7 @@ export function IncomingRow({
                   {incoming.phase === "uploading" ? (
                     <span
                       data-incoming-bar="progress"
-                      className="absolute inset-0 origin-left rounded-full bg-[#1a1a2e] transition-transform duration-200 ease-out"
+                      className="absolute inset-0 origin-left rounded-full bg-[#1a1a2e] transition-transform duration-200 ease-out motion-reduce:transition-none"
                       style={{ transform: `scaleX(${Math.max(0.04, incoming.progress)})` }}
                     />
                   ) : (

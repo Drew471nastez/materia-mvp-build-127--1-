@@ -1,7 +1,7 @@
 import { NextResponse, after } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { LIBRARY_FULL_CODE, LIBRARY_FULL_MESSAGE, librarySlotsLeft, nextSortOrder } from "@/lib/website-builder/library-limit"
+import { LIBRARY_FULL_CODE, LIBRARY_FULL_MESSAGE, isLibraryFullError, keptWithinLimit, librarySlotsLeft, nextSortOrder } from "@/lib/website-builder/library-limit"
 import {
   buildThemePreset,
   getThemeDefinition,
@@ -54,14 +54,16 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: LIBRARY_FULL_MESSAGE, code: LIBRARY_FULL_CODE }, { status: 400 })
   }
 
+  /* A limit of one, not maybeSingle: a duplicate shares its source's theme,
+     and two rows made maybeSingle answer nothing, which read as "not added". */
   const { data: existing } = await supabase
     .from("store_theme_installs")
     .select("id")
     .eq("creator_id", creator.id)
     .eq("theme_id", themeId)
-    .maybeSingle()
+    .limit(1)
 
-  if (existing) {
+  if (existing && existing.length > 0) {
     return NextResponse.json({ error: "This theme is already in your library" }, { status: 400 })
   }
 
@@ -93,8 +95,15 @@ export async function POST(req: Request) {
     .select()
     .single()
 
+  /* Two adds at once: the database refuses the second, or the recount backs it out. See library-limit.ts. */
+  if (isLibraryFullError(installErr)) {
+    return NextResponse.json({ error: LIBRARY_FULL_MESSAGE, code: LIBRARY_FULL_CODE }, { status: 400 })
+  }
   if (installErr || !newInstall) {
     return NextResponse.json({ error: installErr?.message ?? "Failed to add theme" }, { status: 500 })
+  }
+  if (!(await keptWithinLimit(admin, creator.id, newInstall.id as string))) {
+    return NextResponse.json({ error: LIBRARY_FULL_MESSAGE, code: LIBRARY_FULL_CODE }, { status: 400 })
   }
 
   // Settings and pages, or nothing: a half-built install is a website that

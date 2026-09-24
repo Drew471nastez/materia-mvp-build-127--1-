@@ -5,6 +5,25 @@ import { createAdminClient } from "@/lib/supabase/admin"
 // Default bucket for product videos - can also use product-images with video support
 const BUCKET_NAME = "product-videos"
 
+/*
+  ONE BUCKET, ONE FOLDER SHAPE. The caller used to name the bucket, and this
+  route creates a missing bucket as public with the service role, so any
+  signed in person could make public buckets or write into another one. The
+  only caller (components/app/image-upload.tsx) uses product-videos, so that
+  is the only bucket, and a folder is plain name segments under the user's
+  own id: no "..", no leading slash, nothing that leaves their prefix.
+*/
+function targetBucketOf(asked: unknown): string | null {
+  return asked === undefined || asked === null || asked === "" || asked === BUCKET_NAME ? BUCKET_NAME : null
+}
+
+function folderOf(asked: unknown): string | null {
+  if (asked === undefined || asked === null || asked === "") return ""
+  if (typeof asked !== "string" || asked.length > 120) return null
+  const parts = asked.split("/").filter(Boolean)
+  return parts.every((p) => /^[A-Za-z0-9_-]+$/.test(p)) ? parts.join("/") : null
+}
+
 // Allowed video MIME types - be more permissive
 const ALLOWED_VIDEO_TYPES = [
   "video/mp4",
@@ -71,9 +90,14 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { filename, contentType, folder = "", bucket = BUCKET_NAME } = body
+    const { filename, contentType } = body
+    const bucket = targetBucketOf(body.bucket)
+    const folder = folderOf(body.folder)
+    if (!bucket || folder === null) {
+      return NextResponse.json({ error: "Invalid upload location" }, { status: 400 })
+    }
 
-    if (!filename || !contentType) {
+    if (typeof filename !== "string" || typeof contentType !== "string" || !filename || !contentType) {
       return NextResponse.json({ error: "Missing filename or contentType" }, { status: 400 })
     }
 
@@ -82,13 +106,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Only video files are allowed" }, { status: 400 })
     }
 
-    // Use the specified bucket or default
-    const targetBucket = bucket || BUCKET_NAME
+    const targetBucket = bucket
 
     // Generate unique path with user folder
     const timestamp = Date.now()
     const randomId = Math.random().toString(36).slice(2, 10)
-    const ext = filename.split(".").pop()?.toLowerCase() || "mp4"
+    const ext = (filename.split(".").pop()?.toLowerCase() || "mp4").replace(/[^a-z0-9]/g, "").slice(0, 8) || "mp4"
     const safeName = `${timestamp}_${randomId}.${ext}`
     const filePath = folder ? `${user.id}/${folder}/${safeName}` : `${user.id}/${safeName}`
 
@@ -139,8 +162,11 @@ export async function PUT(request: NextRequest) {
 
     const formData = await request.formData()
     const file = formData.get("file") as File | null
-    const folder = formData.get("folder") as string || ""
-    const bucket = formData.get("bucket") as string || BUCKET_NAME
+    const folder = folderOf(formData.get("folder"))
+    const bucket = targetBucketOf(formData.get("bucket"))
+    if (!bucket || folder === null) {
+      return NextResponse.json({ error: "Invalid upload location" }, { status: 400 })
+    }
 
     if (!file) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 })
@@ -157,7 +183,7 @@ export async function PUT(request: NextRequest) {
     // Generate unique path
     const timestamp = Date.now()
     const randomId = Math.random().toString(36).slice(2, 10)
-    const ext = file.name.split(".").pop()?.toLowerCase() || "mp4"
+    const ext = (file.name.split(".").pop()?.toLowerCase() || "mp4").replace(/[^a-z0-9]/g, "").slice(0, 8) || "mp4"
     const safeName = `${timestamp}_${randomId}.${ext}`
     const filePath = folder ? `${user.id}/${folder}/${safeName}` : `${user.id}/${safeName}`
 

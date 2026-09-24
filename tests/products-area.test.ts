@@ -15,6 +15,7 @@
 import { readFileSync, existsSync } from "node:fs"
 import { initialForm, snapshotOf, snapshotOfForm, DEFAULT_FAQS, DEFAULT_WHATS_INCLUDED, type LoadedProduct } from "@/app/app/products/new/editor-form"
 import { couponState, readCouponInput, CODE_PATTERN } from "@/lib/checkout/coupons"
+import { archiveProduct, isArchivedProduct, restoreProduct } from "@/lib/products/archive"
 import { stripComments } from "./_source"
 
 let passed = 0
@@ -126,7 +127,7 @@ check("a list under 768px and the table from it", /<ul aria-label="Products" cla
 check("no table forced sideways on a phone", !/min-w-\[500px\]/.test(list) && !/min-w-max/.test(list) && !/sticky left-0/.test(list))
 check("a hover or a finger prefetches the editor in full", /onTouchStart=\{\(\) => warm\(product\.id\)\}/.test(list) && /kind: "full"/.test(list))
 const couponsList = code("app/app/coupons/coupons-client.tsx")
-check("no Products and Coupons tabs: Coupons is a page of its own again", !existsSync("app/app/products/products-subnav.tsx") && !/ProductsSubnav|products-subnav/.test(list + couponsList + code("app/app/products/skeleton.tsx")))
+check("no Products and Coupons tabs: Coupons is a page of its own again", !existsSync("app/app/products/products-subnav.tsx") && !/ProductsSubnav|products-subnav/.test(list + couponsList))
 check("with its own title", /<h1[^>]*>Coupons<\/h1>/.test(couponsList))
 const sidebar = code("components/app/sidebar.tsx")
 check("and its own place in the menu, under Products, where it was", /href: "\/app\/products",[\s\S]{0,160}children: \[\{ href: "\/app\/coupons", label: "Coupons" \}\]/.test(sidebar))
@@ -142,8 +143,100 @@ check("numbers right aligned in figures of one width, Sales from 1024px", /text-
 check("fifty to a page, with the footer's count and arrows", /const PAGE_SIZE = 50/.test(list) && /data-footer=""/.test(list) && /aria-label="Next page"/.test(list))
 check("every phone press is 44px however small it is drawn", /max-md:min-h-11 max-md:min-w-11/.test(list) && /max-md:after:-inset-1\.5/.test(list) && /trigger=\{<RowMenuButton label=\{`Actions for \$\{product\.title\}`\} className="relative z-\[1\] h-11 w-11/.test(list))
 check("the product actions are all still there: view, share, archive or restore, duplicate, delete", /t\("common\.view"\)/.test(list) && /handleShare\(product\)/.test(list) && /handleArchive\(product\)/.test(list) && /handleDuplicate\(product\)/.test(list) && /handleDeleteClick\(product\)/.test(list) && /generateProductsCSV/.test(list) && /generateProductsPDF/.test(list))
-const skeleton = code("app/app/products/skeleton.tsx")
-check("the slow-load outline has the same shapes", /flex h-16 items-center gap-3 pl-3 pr-1/.test(skeleton) && /flex h-\[52px\] items-center gap-3 border-t/.test(skeleton) && /h-\[52px\] items-center border-b border-\[#eef0f2\] px-1 md:h-12/.test(skeleton))
+/*
+  NO SKELETON LEFT BEHIND. The route's skeleton.tsx outlived the route
+  skeletons: nothing imported it, and this test measured its shapes as if a
+  slow load still drew it. A slow load is the app stage's spinner now.
+*/
+check("the Products page has no route skeleton, rendered or orphaned", !existsSync("app/app/products/skeleton.tsx") && !existsSync("app/app/products/loading.tsx"))
+
+console.log("\nArchive and Restore: the status decides, as in Shopify")
+
+/*
+  A fake of the one table, with row level security: rows of another creator
+  are simply not there. It records every update so the test can say what
+  was written, and answers `.select()` with the rows changed.
+*/
+type Row = { id: string; status: string; archived: boolean | null; mine: boolean }
+function productsTable(rows: Row[], opts: { refuseArchivedStatus?: boolean } = {}) {
+  const writes: Array<Record<string, unknown>> = []
+  const client = {
+    from: () => ({
+      update: (patch: Record<string, unknown>) => {
+        const filters: Array<[string, unknown]> = []
+        const run = () => {
+          if (opts.refuseArchivedStatus && patch.status === "archived") return { data: null, error: { code: "23514", message: "violates check constraint" } }
+          const hit = rows.filter((r) => r.mine && filters.every(([k, v]) => (r as unknown as Record<string, unknown>)[k] === v))
+          for (const r of hit) Object.assign(r, patch)
+          if (hit.length > 0) writes.push(patch)
+          return { data: hit.map((r) => ({ status: r.status, archived: r.archived })), error: null }
+        }
+        const chain = {
+          eq(k: string, v: unknown) { filters.push([k, v]); return chain },
+          select: async () => run(),
+          then: (ok: (v: unknown) => unknown, bad?: (e: unknown) => unknown) => Promise.resolve(run()).then(ok, bad),
+        }
+        return chain
+      },
+    }),
+  }
+  return { client: client as never, writes }
+}
+
+{
+  const t = productsTable([{ id: "p1", status: "published", archived: false, mine: true }])
+  const row = await archiveProduct(t.client, "p1")
+  check("archiving a live product takes it off every page: its status is archived, and the flag says so too",
+    row.status === "archived" && row.archived === true && isArchivedProduct(row), row)
+}
+{
+  /* The bug: status "archived" with the flag false showed Restore, and Restore wrote archived: true. */
+  const t = productsTable([{ id: "p2", status: "archived", archived: false, mine: true }])
+  const row = await restoreProduct(t.client, "p2")
+  check("restoring a product saved with status archived brings it back, as a draft",
+    row.status === "draft" && row.archived === false && !isArchivedProduct(row), row)
+}
+{
+  const t = productsTable([{ id: "p3", status: "archived", archived: true, mine: true }])
+  const archived = await archiveProduct(t.client, "p3")
+  const restored = await restoreProduct(t.client, "p3")
+  const again = await archiveProduct(t.client, "p3")
+  check("archive, restore, archive: each press does what it says", archived.status === "archived" && restored.status === "draft" && !isArchivedProduct(restored) && isArchivedProduct(again))
+}
+{
+  const t = productsTable([{ id: "p4", status: "published", archived: true, mine: true }])
+  const row = await restoreProduct(t.client, "p4")
+  check("a product archived by the old flag alone keeps its status when restored", row.status === "published" && row.archived === false && t.writes.length === 1, t.writes)
+}
+{
+  const t = productsTable([{ id: "p5", status: "published", archived: false, mine: true }], { refuseArchivedStatus: true })
+  const row = await archiveProduct(t.client, "p5")
+  check("on a database whose status check predates archived, it is archived as a hidden draft", row.status === "draft" && row.archived === true && isArchivedProduct(row), row)
+}
+{
+  const t = productsTable([{ id: "p6", status: "published", archived: false, mine: false }])
+  let threw = false
+  try {
+    await archiveProduct(t.client, "p6")
+  } catch {
+    threw = true
+  }
+  check("an update that changed nothing (not yours, or gone) is an error, not a success", threw)
+}
+check("the list uses these and updates from the row the database answered with",
+  /restoreProduct\(supabase, product\.id\)/.test(list) && /archiveProduct\(supabase, product\.id\)/.test(list) && /\{ \.\.\.p, \.\.\.row \}/.test(list) &&
+    !/update\(\{ archived: newArchivedState \}\)/.test(list) && !/const isArchived = /.test(list))
+check("a delete row level security refused is not reported as done", /\.delete\(\)\s*\.eq\("id", productToDelete\.id\)\s*\.select\("id"\)/.test(list) && /if \(!gone\?\.length\)/.test(list))
+check("the PDF report escapes what a creator typed before it is written into a window of this origin",
+  /\$\{escapeHtml\(product\.title\)\}/.test(list) && !/<td class="product-title">\$\{product\.title\}<\/td>/.test(list))
+check("the delete question takes focus, closes on Escape unless a delete is running, and gives focus back",
+  /ref=\{deleteCancel\}/.test(list) && /if \(e\.key === "Escape"\) closeDelete\(\)/.test(list) && /if \(!deleteModalOpen \|\| isDeleting\) return/.test(list) && /opener\.focus\(\{ preventScroll: true \}\)/.test(list))
+check("one notice timer, restarted by the next notice", /if \(notificationTimer\.current\) clearTimeout\(notificationTimer\.current\)/.test(list))
+check("the page past the last one after a delete shows the last page there is, and is set there",
+  /const pageNow = Math\.min\(page, pages\)/.test(list) && /const pages = Math\.max\(1, /.test(list) && /if \(page > pages\) setPage\(pages\)/.test(list))
+const sqlFix = code("supabase/sql/RUN_PRODUCT_ARCHIVE_STATUS.sql")
+check("products archived by the old flag while live are taken off the page by a paste, and it is the migration too",
+  /update public\.products\s+set status = 'archived'\s+where archived is true and status = 'published'/.test(sqlFix) && code("supabase/migrations/20260928_product_archive_status.sql") === sqlFix)
 
 console.log("\nA coupon's rules, on the server")
 

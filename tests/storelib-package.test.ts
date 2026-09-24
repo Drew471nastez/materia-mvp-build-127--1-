@@ -208,7 +208,12 @@ async function main() {
     check("the older zip is still written on request", /searchParams\.get\("legacy"\) === "1"/.test(exportRoute) && /storelib-export\.zip/.test(exportRoute))
 
     check("import reads a package as a whole and refuses it with the list", /readPackage\(new Uint8Array\(buf\)/.test(importRoute) && /errors: read\.errors/.test(importRoute))
-    check("and writes nothing when it refuses", importRoute.indexOf("errors: read.errors") < importRoute.indexOf('.from("store_theme_installs")\n      .insert'))
+    /* The install is written in one place, createInstall, and the package path calls it only after the refusal. */
+    check("and writes nothing when it refuses",
+      importRoute.indexOf("errors: read.errors") > 0 &&
+        importRoute.indexOf("errors: read.errors") < importRoute.indexOf("await createInstall(admin, creator.id") &&
+        (importRoute.match(/\.from\("store_theme_installs"\)\s*\.insert\(/g) ?? []).length === 1 &&
+        importRoute.indexOf("async function createInstall") < importRoute.search(/\.from\("store_theme_installs"\)\s*\.insert\(/))
     check("a section that matches this build's own file stores no row", /DEFAULT_THEME_SOURCES\[path\] !== content/.test(importRoute))
     check("the builder's earlier zips still import", /parseThemePackageManifest\(manifestRaw\)/.test(importRoute) && /const imagesFolder = zip\.folder\("images"\)/.test(importRoute))
 

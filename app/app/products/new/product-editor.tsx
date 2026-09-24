@@ -1811,6 +1811,15 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
         if (description && updatedProduct.description !== description) {
           console.warn("Description may not have saved correctly")
         }
+
+        /* Publishing is the way out of the archive. Without this the old
+           archived flag stayed set and the Products list kept showing a live
+           product as Archived (lib/products/archive.ts). Its own request, only
+           for a row that has the flag, so a save never depends on it. */
+        if (publish && updatedProduct.archived === true) {
+          const { error: unarchiveError } = await supabase.from("products").update({ archived: false }).eq("id", productId)
+          if (unarchiveError) console.warn("Could not clear the archived flag:", unarchiveError.message)
+        }
       } else {
         const { data: product, error: createError } = await supabase
           .from("products")

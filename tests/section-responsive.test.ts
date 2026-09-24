@@ -23,7 +23,7 @@
  * Run with:  npm run test:push
  */
 
-import { readFileSync, readdirSync } from "node:fs"
+import { existsSync, readFileSync, readdirSync } from "node:fs"
 import { join } from "node:path"
 
 const root = process.cwd()
@@ -3032,7 +3032,6 @@ check(
 section("The Website page: one address, one primary action, labelled buttons")
 // ===========================================================================
 
-const wbLoading = readFileSync(join(root, "app/app/website-builder/skeleton.tsx"), "utf8")
 
 check(
   "the site's address is a link under the title, not a box you cannot type into",
@@ -3100,25 +3099,25 @@ check(
 )
 
 check(
-  "the page's blocks are marked so their gutters can be measured, and the skeleton is the page's real shape",
+  "the page's blocks are marked so their gutters can be measured, and no skeleton stands in for them",
   /**
    * Geometry claims are measured, not asserted: scripts/check-website-page.mjs
    * renders this page at 390 and at 1280 and checks that nothing scrolls
    * sideways, that all three blocks sit on the same two gutters, and that
    * every button is a 44px touch target at touch widths.
    *
-   * The skeleton has to match, or a slow load shows one layout and then
-   * jumps to another. It was still drawing two buttons beside the title and
-   * five little squares under the primary action.
+   * The route's skeleton had to match the page, or a slow load showed one
+   * layout and then jumped to another. The owner asked for no skeleton on
+   * a phone at all, and nothing rendered it any more, so it is gone: the
+   * server hands over the page whole and the app's stage covers a slow one.
    */
   // Matched where it is USED, closing bracket and all. Counting the bare
   // word found four: the three sections, and the comment above them naming
   // the attribute. An assertion that reads its own documentation is an
   // assertion that passes when the code is deleted and the comment stays.
   (wbPage.match(/data-page-block>/g) ?? []).length === 3 &&
-    /h-11 flex-1 rounded-xl bg-\[#e9ebee\]/.test(wbLoading) &&
-    /h-11 w-11 rounded-xl/.test(wbLoading) &&
-    !/\[0, 1, 2, 3, 4\]\.map/.test(wbLoading),
+    !existsSync(join(root, "app/app/website-builder/skeleton.tsx")) &&
+    !existsSync(join(root, "app/app/website-builder/loading.tsx")),
 )
 
 console.log(`\n${passed} passed, ${failed} failed\n`)
