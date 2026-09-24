@@ -1,6 +1,6 @@
 "use client"
 
-import { sheetAboveKeyboard, keyboardInsetOrFloor } from "@/lib/ui/keyboard-safe-sheet"
+import { sheetAboveKeyboard } from "@/lib/ui/keyboard-safe-sheet"
 import React, { useState, useEffect, useCallback, useRef, useLayoutEffect, memo } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
@@ -8,6 +8,7 @@ import { getProductUrl, getProductShareUrl } from "@/lib/url-helpers"
 import { isNativeApp } from "@/lib/platform-utils"
 import { openExternal } from "@/lib/native-bridge"
 import { Button } from "@/components/ui/button"
+import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
@@ -450,197 +451,29 @@ function SortableMediaItem({ item, index, onRemove }: SortableMediaItemProps) {
   )
 }
 
-// Smooth GPU-accelerated Mobile Bottom Sheet with drag-to-dismiss (same pattern as TimeframeBottomSheet)
+/**
+ * The product form's phone sheets (the category, the call to action, the
+ * refund policy) are the shared sheet, components/ui/bottom-sheet: the same
+ * opening, drag and close as every sheet in /app, above the navigation
+ * pill. This was a sheet of its own, on a CSS transition started a paint
+ * late from an effect and a React-rendered drag. It still sits on the
+ * keyboard when the category search is typed into.
+ */
 function MobileSheet({
   isOpen,
   onClose,
   children,
   maxHeight,
-  zIndex = 50,
 }: {
   isOpen: boolean
   onClose: () => void
   children: React.ReactNode
   maxHeight?: string
-  zIndex?: number
 }) {
-  const [isVisible, setIsVisible] = useState(false)
-  const [isAnimating, setIsAnimating] = useState(false)
-  const [dragY, setDragY] = useState(0)
-  const [isDragging, setIsDragging] = useState(false)
-  const startYRef = useRef(0)
-  const lastYRef = useRef(0)
-  const lastTimeRef = useRef(0)
-  const velocityRef = useRef(0)
-  const sheetRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (isOpen && !isVisible) {
-      setIsVisible(true)
-      document.body.style.overflow = "hidden"
-      document.documentElement.style.overscrollBehavior = 'none'
-      document.body.style.overscrollBehavior = 'none'
-      // Blur any focused element to prevent keyboard from opening
-      if (document.activeElement instanceof HTMLElement) {
-        document.activeElement.blur()
-      }
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          setIsAnimating(true)
-        })
-      })
-    } else if (!isOpen && isVisible) {
-      setIsAnimating(false)
-      document.body.style.overflow = ""
-      document.documentElement.style.overscrollBehavior = ''
-      document.body.style.overscrollBehavior = ''
-      const timer = setTimeout(() => {
-        setIsVisible(false)
-        setDragY(0)
-      }, 400)
-      return () => clearTimeout(timer)
-    }
-    return () => {
-      document.body.style.overflow = ""
-      document.documentElement.style.overscrollBehavior = ''
-      document.body.style.overscrollBehavior = ''
-    }
-  }, [isOpen, isVisible])
-
-  // Reposition sheet when mobile keyboard opens/closes via visualViewport
-  useEffect(() => {
-    if (!isVisible) return
-    const vv = window.visualViewport
-    if (!vv) return
-
-    const repositionSheet = () => {
-      if (!sheetRef.current) return
-      const keyboardHeight = keyboardInsetOrFloor(window.innerHeight - vv.height - vv.offsetTop)
-      if (keyboardHeight > 100) {
-        // Keyboard is open — move sheet above it
-        sheetRef.current.style.bottom = `${keyboardHeight}px`
-        sheetRef.current.style.maxHeight = `${Math.min(vv.height - 40, 400)}px`
-      } else {
-        // Keyboard is closed — restore
-        sheetRef.current.style.bottom = '0'
-        sheetRef.current.style.maxHeight = maxHeight || '85dvh'
-      }
-    }
-
-    vv.addEventListener('resize', repositionSheet)
-    vv.addEventListener('scroll', repositionSheet)
-    return () => {
-      vv.removeEventListener('resize', repositionSheet)
-      vv.removeEventListener('scroll', repositionSheet)
-    }
-  }, [isVisible, maxHeight])
-
-  const handleClose = useCallback(() => {
-    setIsAnimating(false)
-    setIsDragging(false)
-    setDragY(0)
-    velocityRef.current = 0
-    setTimeout(() => {
-      onClose()
-    }, 400)
-  }, [onClose])
-
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    const touch = e.touches[0]
-    const sheetElement = sheetRef.current
-    if (!sheetElement) return
-    const sheetRect = sheetElement.getBoundingClientRect()
-    const touchYInSheet = touch.clientY - sheetRect.top
-    // Allow drag from backdrop (above sheet) or handle/header area (top 120px)
-    if (touchYInSheet <= 0 || touchYInSheet <= 120) {
-      startYRef.current = touch.clientY
-      lastYRef.current = touch.clientY
-      lastTimeRef.current = Date.now()
-      velocityRef.current = 0
-      setIsDragging(true)
-      // Prevent any scroll on the sheet content while dragging
-      if (sheetElement) {
-        sheetElement.style.overflow = 'hidden'
-      }
-    }
-  }, [])
-
-  const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (!isDragging) return
-    const currentY = e.touches[0].clientY
-    const diff = currentY - startYRef.current
-    if (diff > 0) {
-      e.preventDefault()
-      const now = Date.now()
-      const dt = Math.max(1, now - lastTimeRef.current)
-      velocityRef.current = (currentY - lastYRef.current) / dt
-      lastYRef.current = currentY
-      lastTimeRef.current = now
-      // Smooth elastic resistance curve for natural feel
-      const resisted = diff <= 180 ? diff * 0.95 : 171 + (diff - 180) * 0.35
-      setDragY(resisted)
-    }
-  }, [isDragging])
-
-  const handleTouchEnd = useCallback(() => {
-    if (!isDragging) return
-    const sheetElement = sheetRef.current
-    if (sheetElement) {
-      sheetElement.style.overflow = ''
-    }
-    setIsDragging(false)
-    // Close if dragged more than 100px or has strong downward velocity
-    if (dragY > 100 || velocityRef.current > 0.6) {
-      handleClose()
-    } else {
-      setDragY(0)
-    }
-  }, [isDragging, dragY, handleClose])
-
-  if (!isVisible) return null
-
   return (
-    <div
-      className="fixed inset-0"
-      style={{ zIndex }}
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-    >
-      {/* Backdrop with smooth fade + blur */}
-      <div
-        className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
-        style={{
-          opacity: isAnimating ? Math.max(0, 1 - dragY / 300) : 0,
-          transition: isDragging ? 'none' : 'opacity 400ms cubic-bezier(0.32, 0.72, 0, 1)',
-        }}
-        onClick={handleClose}
-      />
-      {/* Bottom Sheet - GPU accelerated with smooth dragging */}
-      <div
-        ref={sheetRef}
-        className="absolute left-0 right-0 bg-white rounded-t-[24px] shadow-2xl overflow-auto"
-        style={{
-          bottom: 0,
-          maxHeight: maxHeight || '85dvh',
-          transform: isAnimating ? `translate3d(0, ${dragY}px, 0)` : 'translate3d(0, 100%, 0)',
-          transition: isDragging ? 'none' : 'transform 350ms cubic-bezier(0.25, 0.46, 0.45, 0.94)',
-          willChange: isDragging ? 'transform' : 'auto',
-          backfaceVisibility: 'hidden',
-          WebkitBackfaceVisibility: 'hidden' as any,
-          touchAction: 'pan-y',
-          paddingBottom: 'env(safe-area-inset-bottom)',
-        }}
-      >
-        {/* Handle bar - increased hit area */}
-        <div className="pt-4 pb-2 flex justify-center sticky top-0 bg-white z-10 cursor-grab active:cursor-grabbing touch-none" data-drag-handle>
-          <div className="h-1 w-12 rounded-full bg-gray-300/80" />
-        </div>
-        {children}
-        {/* Safe area padding for iOS */}
-        <div className="h-[env(safe-area-inset-bottom)]" />
-      </div>
-    </div>
+    <BottomSheet isOpen={isOpen} onClose={onClose} maxHeight={maxHeight ?? "85dvh"} aboveKeyboard>
+      {children}
+    </BottomSheet>
   )
 }
 
@@ -5181,7 +5014,6 @@ export default function NewProductPage() {
                     isOpen={showCategoryModal}
                     onClose={() => { setShowCategoryModal(false); setCategorySearch("") }}
                     maxHeight="64vh"
-                    zIndex={100}
                   >
                     {/* Title row */}
                     <div className="px-5 pb-2">

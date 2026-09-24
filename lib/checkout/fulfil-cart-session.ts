@@ -36,6 +36,7 @@ import { stripe } from "@/lib/stripe"
 import { sendBuyerDownloadEmail, sendSellerNotificationEmail, resolveSellerEmail } from "@/lib/email"
 import { unpackItems, packedTotalCents, apportionFee } from "./cart-items"
 import { fulfilCartLine, recordCartCustomer, type FulfilContext, type FulfilledLine } from "./fulfil-cart-item"
+import { orderOriginFrom } from "@/lib/orders/order-source"
 import { paymentFacts, recordSale } from "./fulfil-payment"
 import { cartFingerprint, cartReceiptToken } from "./cart-tokens"
 
@@ -121,6 +122,7 @@ export async function fulfilCartSession(
     cardBrand: facts?.cardBrand ?? null,
     cardLast4: facts?.cardLast4 ?? null,
     device,
+    origin: orderOriginFrom(metadata),
   }
 
   /* The fee, apportioned once for the whole basket, so the parts provably

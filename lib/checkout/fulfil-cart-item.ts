@@ -22,7 +22,7 @@ import "server-only"
  * missing.
  */
 import { v4 as uuidv4 } from "uuid"
-import { tagOrderSource } from "@/lib/orders/order-source"
+import { tagOrderSource, type OrderOrigin } from "@/lib/orders/order-source"
 import { recordCustomer } from "./fulfil-payment"
 
 export interface FulfilLineInput {
@@ -55,6 +55,8 @@ export interface FulfilContext {
     os: string | null
     browser: string | null
   }
+  /** Which website, and where its visit came from (lib/orders/order-source). */
+  origin?: OrderOrigin | null
 }
 
 export interface FulfilledLine {
@@ -109,7 +111,7 @@ export async function fulfilCartLine(ctx: FulfilContext, line: FulfilLineInput, 
     return { status: "failed" }
   }
   /* A basket is only ever filled on a creator's website. */
-  await tagOrderSource(ctx.admin, order.id, "website")
+  await tagOrderSource(ctx.admin, order.id, "website", ctx.origin)
 
   if (ctx.buyerId) {
     let q = ctx.admin

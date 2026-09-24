@@ -6,7 +6,7 @@ import { createClient } from "@supabase/supabase-js"
 import { generateReceiptToken } from "@/lib/security"
 import { sendOrderEmails, triggerEmailFlows, sendPayoutStatusEmail, sendFirstPayoutEmail, sendBankUpdatedEmail, sendPayoutsPausedEmail, sendVerificationRequiredEmail, sendFirstSaleEmail, resolveSellerEmail, sendDisputeCreatedEmail, sendDisputeWonEmail, sendDisputeLostEmail } from "@/lib/email"
 import { v4 as uuidv4 } from "uuid"
-import { orderSourceFrom, tagOrderSource } from "@/lib/orders/order-source"
+import { orderOriginFrom, orderSourceFrom, tagOrderSource } from "@/lib/orders/order-source"
 import { fulfilPaymentIntent, isCheckoutIntent } from "@/lib/checkout/fulfil-payment"
 import { fulfilCartSession, isCartSession } from "@/lib/checkout/fulfil-cart-session"
 import { syncChargeRefund } from "@/lib/stripe/refund-sync"
@@ -372,7 +372,7 @@ export async function POST(request: Request) {
     }
 
     console.log("[Webhook] Order created:", order.id)
-    await tagOrderSource(supabaseAdmin, order.id, orderSourceFrom(metadata))
+    await tagOrderSource(supabaseAdmin, order.id, orderSourceFrom(metadata), orderOriginFrom(metadata))
 
     // ── Ledger: record sale earnings ──────────────────────────────────────
     if (creatorId && totalAmount > 0) {

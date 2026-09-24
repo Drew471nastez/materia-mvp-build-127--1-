@@ -13,7 +13,7 @@
  * with three items, which is what the buyer did.
  */
 
-import type { OrderSource } from "./order-source"
+import { cleanOrigin, type OrderOrigin, type OrderSource } from "./order-source"
 
 export interface OrderRow {
   id: string
@@ -45,6 +45,8 @@ export interface OrderRow {
   buyer_email_last_error?: string | null
   variant_name?: string | null
   source?: string | null
+  /** Where the checkout began (lib/orders/order-source), as the row holds it. */
+  source_detail?: unknown
   product?: {
     id: string
     title: string
@@ -66,6 +68,8 @@ export interface Order {
   customerName: string | null
   customerEmail: string | null
   source: OrderSource | null
+  /** Which page and where the visit came from; null when nothing was recorded. */
+  sourceDetail: OrderOrigin | null
   subtotalCents: number
   tipCents: number
   totalCents: number
@@ -104,6 +108,14 @@ function sourceOf(rows: OrderRow[]): OrderSource | null {
   /* A basket is only filled on a website, whether or not the column exists
      yet to say so. */
   if (rows.length > 1) return "website"
+  return null
+}
+
+function sourceDetailOf(rows: OrderRow[]): OrderOrigin | null {
+  for (const row of rows) {
+    const detail = cleanOrigin(row.source_detail ?? null)
+    if (detail) return detail
+  }
   return null
 }
 
@@ -152,6 +164,7 @@ export function groupOrders(rows: OrderRow[]): Order[] {
       customerName: lines.map(nameOf).find(Boolean) ?? null,
       customerEmail: lines.map((r) => (r.buyer_email || "").trim()).find(Boolean) || null,
       source: sourceOf(lines),
+      sourceDetail: sourceDetailOf(lines),
       subtotalCents,
       tipCents,
       totalCents,

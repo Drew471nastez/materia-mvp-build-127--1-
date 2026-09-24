@@ -5,6 +5,7 @@ import { generateReceiptToken } from "@/lib/security"
 // Email sending is intentionally skipped in simulation mode
 import { notifySale } from "@/lib/push/notifications"
 import { v4 as uuidv4 } from "uuid"
+import { tagOrderSource } from "@/lib/orders/order-source"
 
 export const runtime = "nodejs"
 
@@ -176,6 +177,10 @@ async function processPostOrder(
   receiptToken: string,
 ) {
   const results: string[] = [`Order ${order.id} created`]
+
+  /* Made here, by an admin, not by a buyer on any page: recorded as that,
+     so the seller's Orders say "Test sale" rather than "Not recorded". */
+  await tagOrderSource(admin, order.id, "storelib", { surface: "admin" })
 
   // 1. Upsert customer
   try {

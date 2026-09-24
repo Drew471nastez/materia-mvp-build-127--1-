@@ -281,14 +281,27 @@ async function main() {
     const detail = code("app/app/orders/order-detail.tsx")
     check("copying goes through the helper that falls back when the clipboard is missing", /copyText\(text\)/.test(detail) && !/navigator\.clipboard/.test(detail))
     check("previous and next say what they do, whatever the list is sorted by", /aria-label="Previous order"/.test(detail) && /aria-label="Next order"/.test(detail) && !/Newer order|Older order/.test(detail))
-    check("changing the email is always offered, not only with a receipt", /label: "Change customer email", icon: <Mail className="h-4 w-4" \/>, onClick: \(\) => setDialog\("email"\)/.test(detail))
+    check("changing the email is always offered, not only with a receipt", /label: "Change customer email", icon: <Mail className="h-4 w-4" \/>, onClick: \(\) => fromMenu\("email"\)/.test(detail))
     check("a second tap while one action runs does nothing", /if \(busy\) return false/.test(detail))
     const client = code("app/app/orders/orders-client.tsx")
-    check("the slide moves on when the animation ends, with a net", /onAnimationEnd=\{onSlideEnd\}/.test(client) && /SLIDE_NET_MS/.test(client))
-    check("reduced motion opens and closes at once", (client.match(/if \(prefersReducedMotion\(\)\)/g) ?? []).length === 2)
+    const css = read("app/globals.css")
+    /* "Too smooth and flowy", and a bar that arrived late: no slide. The
+       order and its bar are drawn on the first frame; only the cards under
+       the bar fade, 120ms, opacity alone, and back is immediate. */
+    check("an order opens with no slide and no stage to wait on", !/onAnimationEnd|SLIDE_NET_MS|data-stage|orders-push-in|orders-fade-in/.test(client + css))
+    check("  only the cards fade in, 120ms, opacity alone, never held after", /\.orders-body \{\s*animation: orders-body-in 120ms ease-out backwards;/.test(css) && /@keyframes orders-body-in \{\s*from \{ opacity: 0; \}\s*to \{ opacity: 1; \}\s*\}/.test(css))
+    check("  and reduced motion stills that too", /@media \(prefers-reduced-motion: reduce\) \{\s*\.orders-body \{\s*animation: none;/.test(css))
     check("the next order starts at its top before it is drawn", /React\.useLayoutEffect\(\(\) => \{\s*detailRef\.current\?\.scrollTo\(\{ top: 0 \}\)\s*\}, \[shown\?\.id\]\)/.test(client))
-    check("a step plays a short step in, from the side it came from", /data-dir=\{step\?\.id === shown\.id \? step\.dir : undefined\}/.test(client) && /\.orders-step\[data-dir="next"\]/.test(read("app/globals.css")))
-    check("  and reduced motion stills that too", /\.orders-detail\[data-stage\],\s*\n\s*\.orders-step\[data-dir\] \{\s*\n\s*animation: none;/.test(read("app/globals.css")))
+    check("a step draws the next order's cards fresh, the bar staying put", /<div key=\{order\.id\} className=\{cn\("orders-body /.test(detail) && detail.indexOf("<OrderBarFrame") < detail.indexOf("key={order.id}"))
+    check("opened straight onto an order, the page does not fade in as a whole", /!openedOnOrder && "app-page-enter"/.test(client))
+    const parts = code("app/app/orders/order-parts.tsx")
+    check("the bar is on the pane, its full width, and the date is inside it",
+      /data-orders-bar="" data-scrolled="false" className="orders-bar sticky top-0 z-10 bg-\[#f8f9fa\]"/.test(parts) && /<OrderBarFrame[\s\S]*subtitle=\{/.test(detail))
+    check("  with depth only once something is under it", /\.orders-bar\[data-scrolled="true"\] \{/.test(css) && /pane\.addEventListener\("scroll", read, \{ passive: true \}\)/.test(parts))
+    check("the refund and the email change are the shared sheet on a phone and a centred dialog wider", /<BottomSheet isOpen=\{open\}/.test(detail) && /<Dialog open=\{open\}/.test(detail) && (detail.match(/<DialogShell$/gm) ?? []).length === 2)
+    check("  and from the menu on a phone they wait for its sheet to leave", /later\.current = window\.setTimeout\(\(\) => setDialogNow\(next\), MENU_SHEET_LEFT_MS\)/.test(detail))
+    check("the cards: items, payment, then the customer and details beside them, the timeline under",
+      /lg:grid-cols-\[minmax\(0,2fr\)_minmax\(0,1fr\)\] lg:grid-rows-\[auto_auto_auto_1fr\]/.test(detail) && /lg:col-start-2 lg:row-span-4 lg:row-start-1/.test(detail))
     check("an action updates the rows from the server's answer, without reloading every order", !/router\.refresh\(\)/.test(client) && /applyDelivery\(data\?\.lines\)/.test(client))
     const list = code("app/app/orders/orders-list.tsx")
     check("Export is the violet action, and off with no orders", /className=\{buttonAccent\}\s*onClick=\{\(\) => props\.onExport\(\)\}\s*disabled=\{allOrders\.length === 0\}/.test(list))

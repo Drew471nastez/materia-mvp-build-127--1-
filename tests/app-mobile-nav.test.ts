@@ -172,7 +172,7 @@ function main() {
     (() => {
       const client = read("app/app/orders/orders-client.tsx")
       const panes = client.match(/className="orders-pane [^"]*overflow-y-auto/g) ?? []
-      return /className="orders-stage [^"]*h-full overflow-hidden/.test(client) && panes.length === 2
+      return /className=(?:"|\{cn\(")orders-stage [^"]*h-full overflow-hidden/.test(client) && panes.length === 2
     })())
   /*
     AND EVERY PAGE THAT NESTS ONE IS FOUND, not listed. The list used to be

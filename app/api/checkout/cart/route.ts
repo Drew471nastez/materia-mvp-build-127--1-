@@ -9,6 +9,7 @@ import { getMainDomain } from "@/lib/url-helpers"
 import { resolveCustomDomain } from "@/lib/domains"
 import { packItems, type PackedItem } from "@/lib/checkout/cart-items"
 import { MAX_LINES, MAX_QUANTITY } from "@/lib/website-builder/cart"
+import { ORIGIN_METADATA_KEY, cleanHost, cleanOrigin, encodeOrigin } from "@/lib/orders/order-source"
 
 export const runtime = "nodejs"
 
@@ -75,7 +76,7 @@ export async function POST(request: Request) {
   const supabase = await createClient()
   const admin = createAdminClient()
 
-  let body: { items?: IncomingItem[]; returnPath?: unknown }
+  let body: { items?: IncomingItem[]; returnPath?: unknown; origin?: unknown }
   try {
     body = await request.json()
   } catch {
@@ -223,6 +224,13 @@ export async function POST(request: Request) {
   const siteOrigin = (await safeReturnOrigin(request.headers.get("origin"), creatorId)) ?? platformOrigin
   const returnPath = typeof body.returnPath === "string" && body.returnPath.startsWith("/") ? body.returnPath : "/cart"
 
+  /* A basket is a website's. Which website is the one the request came
+     from, checked above as this creator's; the page adds where its visit
+     came from, every field checked (lib/orders/order-source). */
+  const sent = cleanOrigin(body.origin)
+  const site = siteOrigin !== platformOrigin ? cleanHost(new URL(siteOrigin).host) : sent?.site
+  const origin = encodeOrigin({ ...sent, surface: "website", site })
+
   try {
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
@@ -252,6 +260,7 @@ export async function POST(request: Request) {
         buyer_id: user?.id ?? "",
         platform_fee_cents: String(fee.platformFeeCents),
         plan_used: fee.planId,
+        ...(origin ? { [ORIGIN_METADATA_KEY]: origin } : {}),
         ...packItems(lines.map((l) => l.item)),
       },
     })
