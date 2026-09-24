@@ -179,7 +179,7 @@ function main() {
     ["the dashboard", "components/app/dashboard-client.tsx"],
     ["orders", "app/app/orders/orders-list.tsx"],
     ["payouts", "app/app/payouts/payouts-client.tsx"],
-    ["emails", "app/app/emails/page.tsx"],
+    ["emails", "app/app/emails/emails-home.tsx"],
     ["OnePage stats", "components/onepage/tabs/links-tab.tsx"],
   ]
   for (const [name, file] of pages) {
