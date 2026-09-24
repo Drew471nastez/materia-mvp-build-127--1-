@@ -476,9 +476,9 @@ function main() {
     ["components/onepage/tabs/links-tab.tsx", 5],
     ["components/onepage/tabs/products-tab.tsx", 1],
     ["components/onepage/onepage-editor.tsx", 2],
-    /* The category picker is typed into; the exit dialog is not, but it is
-       the same sheet and the scan above is strict about !bottom-0. */
-    ["app/app/products/new/product-editor.tsx", 2],
+    /* The category picker is typed into. The exit dialog that was the second
+       is now the shared sheet (./confirm-sheet.tsx), which has nothing typed into it. */
+    ["app/app/products/new/product-editor.tsx", 1],
   ] as const) {
     const src = read(file)
     const used = (src.match(/\.\.\.sheetAboveKeyboard\(/g) ?? []).length

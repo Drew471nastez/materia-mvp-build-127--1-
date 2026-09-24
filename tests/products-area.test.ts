@@ -111,12 +111,51 @@ check("and the list still prefetches the editor, data and all, when a row is hov
 console.log("\nOne bar, at the top")
 
 check("no Save and Cancel strip at the foot of the screen", !/fixed bottom-0 left-0 right-0/.test(editor) && !/Bottom Action Bar/.test(read("app/app/products/new/product-editor.tsx")))
-check("the bar is sticky at the top and holds Cancel and Save", /data-editor-bar=""/.test(editor) && /"sticky top-0 z-30/.test(editor) && /: "Save"\}/.test(editor) && /onClick=\{handleCancel\}/.test(editor))
+check("the bar is sticky at the top and holds Cancel and Save", /data-editor-bar=""/.test(editor) && /"sticky top-0 z-30/.test(editor) && /<SaveButton phase=\{savePhase\}/.test(editor) && /onClick=\{\(\) => void handleCancel\(\)\}/.test(editor))
 check("Cmd or Ctrl and S saves", /e\.metaKey \|\| e\.ctrlKey/.test(editor) && /key\.toLowerCase\(\) !== "s"/.test(editor))
 const barSource = editor.slice(editor.indexOf('data-editor-bar=""'), editor.indexOf('aria-label="Sections"'))
 check("the bar names no product: the name is in the title field", !/savedTitle|\{title\}|"Untitled product"/.test(barSource.replace(/title=\{savedTitle\.trim\(\) \|\| "Product"\}/, "")) && /<h1 className="sr-only">\{productId \? "Edit product" : "New product"\}<\/h1>/.test(barSource))
-check("its state is one line of small text: Unsaved changes, Saved, Live or Draft", /data-editor-state=""/.test(barSource) && /text-\[13px\]/.test(barSource) && /Unsaved changes/.test(barSource) && /\bSaved\n/.test(barSource) && /isPublished \? "Live" : "Draft"/.test(barSource) && /flashSaved\(\)/.test(editor))
-check("in the middle of two equal columns on a phone, so a state change moves neither Cancel nor Save", /grid h-14 max-w-\[760px\] grid-cols-\[1fr_auto_1fr\]/.test(barSource))
+/* "Get rid of the Unsaved and the Live badge or New product thing in the bar." */
+check("nothing is written in the middle of the bar: no Unsaved changes, Saved, Live, Draft or New product", !/data-editor-state/.test(editor) && !/Unsaved changes|"Live"|"Draft"/.test(barSource) && !/grid-cols-\[1fr_auto_1fr\]/.test(barSource))
+check("a screen reader still hears Saving and Saved, from a hidden polite line", /<p data-editor-announce="" className="sr-only" aria-live="polite"/.test(barSource) && /savePhase === "saving" \? "Saving" : savePhase === "saved" \? "Saved"/.test(barSource))
+check("Cancel at the start, the more button and Save at the end", /flex h-14 max-w-\[760px\] items-center justify-between/.test(barSource) && barSource.indexOf("handleCancel") < barSource.indexOf("More actions") && barSource.indexOf("More actions") < barSource.indexOf("<SaveButton"))
+check("whether the product is live or a draft heads the more menu", /section: isPublished \? "Live on your page" : "Draft, hidden from your page"/.test(barSource))
+check("the unsaved tracking still drives the leave question", /if \(hasUnsavedChanges\) \{\s*const leave = await ask\(/.test(editor) && /title: "Discard changes\?"/.test(editor) && /confirm: "Discard", cancel: "Keep editing"/.test(editor))
+
+console.log("\nThe bar's buttons (app/app/products/new/editor-buttons.tsx)")
+
+const buttons = code("app/app/products/new/editor-buttons.tsx")
+check("Cancel and more are white with a hairline and a shade at their foot, flat when pressed",
+  /border border-\[#d9dbe0\] bg-white/.test(buttons) && /shadow-\[inset_0_-1px_0_rgba\(0,0,0,0\.08\),0_1px_0_rgba\(0,0,0,0\.05\)\]/.test(buttons) && /active:shadow-\[inset_0_1px_1px_rgba\(0,0,0,0\.1\)\]/.test(buttons))
+check("the more button is square and Save's height: 40px on a phone, 32px from 640px",
+  /barIconButton = cn\(secondaryDepth, PRESS_AREA_BORDERED, "h-10 w-10 [^"]*sm:h-8 sm:w-8/.test(buttons) && /"inline-flex h-10 min-w-\[64px\][^"]*sm:h-8/.test(buttons))
+check("Save keeps its word in the layout while busy, so its width never changes", /<span className=\{cn\(busy && "opacity-0"\)\}>Save<\/span>/.test(buttons) && /absolute inset-0 flex items-center justify-center/.test(buttons))
+check("busy is aria-busy and not disabled, and a press while busy does nothing", /aria-busy=\{phase === "saving" \|\| undefined\}/.test(buttons) && /disabled=\{!busy && disabled\}/.test(buttons) && /if \(!busy\) onSave\(\)/.test(buttons))
+check("a check for SAVED_CHECK_MS after a save", /export const SAVED_CHECK_MS = 900/.test(buttons) && /data-save-check=""/.test(buttons) && /setTimeout\(\(\) => setSavedFlash\(false\), SAVED_CHECK_MS\)/.test(editor))
+check("disabled is Polaris grey with no depth", /disabled:bg-\[#ebebef\] disabled:text-\[#a1a1aa\] disabled:shadow-none/.test(buttons))
+check("one save at a time: a ref guards it, not only the state", /if \(isLoading \|\| saveInFlight\.current\) return false/.test(editor) && /saveInFlight\.current = true/.test(editor) && /finally \{[\s\S]{0,120}saveInFlight\.current = false/.test(editor))
+
+console.log("\nEvery question the editor asks (app/app/products/new/confirm-sheet.tsx)")
+
+const confirmSheet = code("app/app/products/new/confirm-sheet.tsx")
+check("on a phone it is the shared bottom sheet", /import \{ BottomSheet \} from "@\/components\/ui\/bottom-sheet"/.test(confirmSheet) && /<BottomSheet\s/.test(confirmSheet) && /data-surface="sheet"/.test(confirmSheet))
+check("from 640px a compact modal in the middle", /AlertDialogPrimitive\.Content/.test(confirmSheet) && /data-surface="modal"/.test(confirmSheet) && /max-w-\[420px\]/.test(confirmSheet))
+check("two buttons: the safe one with the bar's depth, the one that does it in red", /cn\(secondaryDepth, "h-12/.test(confirmSheet) && /criticalDepth/.test(confirmSheet) && /bg-\[#c4290c\]/.test(buttons))
+check("the old forced dialog sheet and its swipe code are gone from the editor", !/showExitDialog|handleSaveAndExit|"unsaved"/.test(editor) && /\{confirmSheet\}/.test(editor))
+check("no window.confirm left in the editor: a big upload and deleting a file ask in the sheet", !/\bconfirm\(`/.test(editor) && /title: "Upload this much\?"/.test(editor) && /title: "Delete this file\?"/.test(editor))
+
+console.log("\nHold to drag the questions (app/app/products/new/faq-list.tsx)")
+
+const faq = code("app/app/products/new/faq-list.tsx")
+check("a mouse and a held finger, not PointerSensor, which took every touch after 12px with no hold",
+  /useSensor\(MouseSensor, \{ activationConstraint: \{ distance: MOUSE_DISTANCE_PX \} \}\)/.test(faq) && /useSensor\(TouchSensor, \{ activationConstraint: \{ delay: HOLD_MS, tolerance: HOLD_TOLERANCE_PX \} \}\)/.test(faq) && !/PointerSensor/.test(faq))
+check("the hold is 300ms within 8px", /export const HOLD_MS = 300/.test(faq) && /export const HOLD_TOLERANCE_PX = 8/.test(faq))
+check("the handle lets a swipe scroll the page (touch-action: manipulation, not none)", /touch-manipulation/.test(faq) && !/touch-none/.test(faq))
+check("the keyboard moves a question too, in words", /useSensor\(KeyboardSensor, \{ coordinateGetter: sortableKeyboardCoordinates \}\)/.test(faq) && /onDragStart: \(\{ active \}\) => `Picked up question/.test(faq))
+check("the held card follows the finger with no transition of its own; it lifts on an inner layer", /transition: isDragging \? undefined : transition/.test(faq) && /scale-\[1\.02\]/.test(faq) && /transition-\[scale,box-shadow,border-color\]/.test(faq))
+check("a tick when a finger lifts it, through the app's haptic", /hapticTap\("soft"\)/.test(faq) && /event instanceof TouchEvent/.test(faq))
+check("only a drop commits; a cancel changes nothing", /onDragCancel=\{\(\) => setActiveId\(null\)\}/.test(faq) && /arrayMove\(prev, from, to\)/.test(faq))
+check("the editor draws the list from the form's own faqs", /<FaqList faqs=\{faqs\} onChange=\{setFaqs\} \/>/.test(editor) && !/SortableFAQItem|faqSensors/.test(editor))
 check("first on the screen, as a layer over the app's header, it starts below the status bar", /\[\[data-page-layer\]_&\]:pt-\[env\(safe-area-inset-top\)\]/.test(barSource) && /\[\[data-page-layer\]_&\]:pb-\[calc\(32px\+env\(safe-area-inset-bottom\)\)\]/.test(editor))
 check("the editor scrolls as a page-scroll pane, so the pill's room is the shared 104px and nothing else", /className="page-scroll h-full overflow-y-auto/.test(editor) && !/pb-24 sm:pb-8/.test(editor))
 check("prices bring up the decimal keypad", (editor.match(/inputMode="decimal"/g) ?? []).length >= 4)
