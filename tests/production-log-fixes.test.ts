@@ -83,6 +83,14 @@ console.log("\nThe Mailgun webhook trusts only a signed delivery")
   check("no address is written to the log in full", !/\$\{(recipient|email)\}/.test(hook))
 }
 
+console.log("\nA long AI edit ends before the platform ends it")
+{
+  const route = strip(read("app/api/website-builder/themes/[installId]/agent/route.ts"))
+  check("the loop stops fifteen seconds before maxDuration, keeping what it did",
+    /const deadline = AbortSignal\.timeout\(\(maxDuration - 15\) \* 1000\)/.test(route) && /signal: eitherSignal\(request\.signal, deadline\)/.test(route))
+  check("and says it ran out of time rather than failing silently", /deadline\.aborted && !request\.signal\.aborted/.test(route))
+}
+
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed) {
   console.log("\nFailed:")
