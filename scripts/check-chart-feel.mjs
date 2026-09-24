@@ -332,6 +332,77 @@ try {
       await p.close()
     }
   }
+  /*
+    A METRIC TAB, AND A SECOND ONE TAPPED MID MOVE, on both charts. The line
+    is read every frame; a tab should move it over many frames, and a tap
+    while it is still moving should carry on from where it is: the frame
+    after the second tap may not jump further than an ordinary frame of the
+    move does.
+  */
+  const switches = []
+  for (const which of charts) {
+    const p = await browser.newPage()
+    await p.setViewport({ width: 1280, height: 900 })
+    await p.goto(`${origin}/?chart=${which}`, { waitUntil: "load" })
+    await p.waitForSelector("#card .recharts-surface", { timeout: 15000 })
+    await sleep(1000)
+    await p.evaluate(() => {
+      const w = window
+      w.__line = () => {
+        const path = document.querySelector("#card [data-trend-line]") || document.querySelector("#card path.recharts-area-curve:not([stroke-dasharray])")
+        if (!path) return null
+        const d = path.getAttribute("d") || ""
+        const pts = []
+        const re = /([MLC])([^MLCZ]*)/g
+        let m
+        while ((m = re.exec(d))) {
+          const n = (m[2].match(/-?\d*\.?\d+(?:e-?\d+)?/g) || []).map(Number)
+          if (m[1] === "C") for (let i = 0; i + 5 < n.length; i += 6) pts.push([n[i + 4], n[i + 5]])
+          else for (let i = 0; i + 1 < n.length; i += 2) pts.push([n[i], n[i + 1]])
+        }
+        return pts
+      }
+      let run = 0
+      w.__sample = (on) => {
+        run++
+        const mine = run
+        if (!on) return w.__frames
+        w.__frames = []
+        const tick = () => { if (mine !== run) return; w.__frames.push({ t: performance.now(), pts: w.__line() }); requestAnimationFrame(tick) }
+        requestAnimationFrame(tick)
+      }
+    })
+    const stepOf = (a, b) => {
+      if (!a || !b || a.length !== b.length) return null
+      let s = 0
+      for (let k = 0; k < a.length; k++) s = Math.max(s, Math.abs(a[k][1] - b[k][1]))
+      return s
+    }
+    /* One tab. */
+    await p.evaluate(() => window.__sample(true))
+    await p.evaluate(() => window.__metric("revenue"))
+    await sleep(900)
+    let frames = await p.evaluate(() => window.__sample(false))
+    const moving = frames.slice(1).filter((f, i) => (stepOf(frames[i].pts, f.pts) ?? 1) > 0.05).length
+    /* And one tapped mid move. */
+    await p.evaluate(() => window.__metric("views"))
+    await sleep(900)
+    await p.evaluate(() => window.__sample(true))
+    await p.evaluate(() => window.__metric("revenue"))
+    await sleep(200)
+    const at = await p.evaluate(() => performance.now())
+    await p.evaluate(() => window.__metric("orders"))
+    await sleep(900)
+    frames = await p.evaluate(() => window.__sample(false))
+    const steps = frames.slice(1).map((f, i) => ({ t: f.t, step: stepOf(frames[i].pts, f.pts) }))
+    const after = steps.find((s) => s.t > at)
+    const ordinary = Math.max(...steps.filter((s) => s.t <= at && s.step !== null).map((s) => s.step))
+    const row = { chart: which, tabFramesMoving: moving, jumpAtRetap: after?.step == null ? null : +after.step.toFixed(1), largestOrdinaryStep: +ordinary.toFixed(1) }
+    switches.push(row)
+    console.log(JSON.stringify(row))
+    await p.close()
+  }
+  results.push({ switches })
   writeFileSync(join(dir, "result.json"), JSON.stringify(results, null, 2))
 
   if (process.env.EXPECT === "same") {
@@ -346,6 +417,10 @@ try {
       expect(Math.abs(h.markerPx - a.markerPx) < 1.5, `${input}: the crosshair keeps the same distance from its point on both`, [h.markerPx, a.markerPx])
       expect(h.leaveOpacity[0] > 0 && a.leaveOpacity[0] > 0 && h.leaveOpacity[3] < h.leaveOpacity[0] && a.leaveOpacity[3] < a.leaveOpacity[0], `${input}: the readout fades on leaving, on both`, [h.leaveOpacity, a.leaveOpacity])
       expect(h.longTasks === 0 && a.longTasks === 0, `${input}: no task over a frame during the sweep`, [h.longTasks, a.longTasks])
+    }
+    for (const s of switches) {
+      expect(s.tabFramesMoving >= 20, `${s.chart}: a tab moves the line over many frames, not one`, s.tabFramesMoving)
+      expect(s.jumpAtRetap !== null && s.jumpAtRetap <= s.largestOrdinaryStep * 1.25 + 1, `${s.chart}: a tab tapped mid move carries on from where the line is`, { jump: s.jumpAtRetap, ordinary: s.largestOrdinaryStep })
     }
     if (bad) process.exitCode = 1
   }

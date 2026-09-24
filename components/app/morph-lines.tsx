@@ -240,6 +240,7 @@ export function MorphLines({
             ref={(el) => {
               areaRefs.current[k] = el
             }}
+            className="trend-area"
             fill={`url(#${gradient})`}
             stroke="none"
           />

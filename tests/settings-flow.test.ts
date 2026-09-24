@@ -452,12 +452,17 @@ check(
      *
      * Then the flag was raised by an effect on the data, which runs after the
      * new line has been painted: one frame of the new line cut in, then the
-     * morph. It is raised during the render now, and a tab does not fetch at
-     * all: the chart's events are read once per period.
+     * morph. There is no flag now: the line is components/app/morph-lines,
+     * handed the numbers alone, and it starts a move in a layout effect, before
+     * paint, only when those numbers differ from what it has. A tab does not
+     * fetch at all: the chart's events are read once per period.
      */
     const src = code("components/app/dashboard-client.tsx")
-    return /if \(seenSeriesRef\.current !== displayChartData\) \{\s*seenSeriesRef\.current = displayChartData\s*if \(!shouldAnimate\) setShouldAnimate\(true\)/.test(src)
-      && !/useEffect\(\(\) => \{\s*setShouldAnimate\(true\)/.test(src)
+    const lines = code("components/app/morph-lines.tsx")
+    return /const lines = useMemo\(\(\) => \[displayChartData\.map\(\(d\) => d\.value \?\? 0\)\], \[displayChartData\]\)/.test(src)
+      && /<MorphLines\s+lines=\{lines\}/.test(src)
+      && !/setShouldAnimate/.test(src)
+      && /React\.useLayoutEffect\(\(\) => \{\s*const s = st\.current\s*if \(s\.sig === sig\) return/.test(lines)
       && /\}, \[periodKey, creatorId\]\)/.test(src) && !/\}, \[openKPIModal, periodKey, creatorId\]\)/.test(src)
   })(),
 )
@@ -593,8 +598,8 @@ section("The analytics chart: the same marker as the home page's")
     /<ChartScrub\b/.test(chart) && !/addEventListener\("touchstart"/.test(chart),
   )
   check(
-    "the plot is memoised, and nothing about the finger is among its props",
-    /const Plot = memo\(function Plot\(/.test(chart) && !/interface PlotProps \{[^}]*activeIndex/.test(chart),
+    "the frame is memoised, and nothing about the finger or the numbers is among its props",
+    /const Frame = memo\(function Frame\(/.test(chart) && !/interface FrameProps \{[^}]*(activeIndex|lines|values)/.test(chart),
   )
   check(
     "the marker sits over its own point, in the plot area the axis leaves",
@@ -657,7 +662,7 @@ section("THE AUDIT: every chart request, on both charts")
     ["the tooltip sits over its own point, in the plot area", /l \+ \(i \/ \(n - 1\)\) \* plot/],
     ["a resting thumb cannot cancel the hold", /const SLOP_Y = 12/],
     ["a deliberate sideways drag engages sooner than a scroll gives up", /const SLOP_X = 8/],
-    ["one animation length, shared by both charts", /CHART_ANIM_MS/],
+    ["one morph, the same length and curve, shared by both charts", /<MorphLines\b/],
     ["vertical has to win clearly to be a scroll", /\} else if \(dy > dx \* 1\.4\) \{/],
     ["the hold reads where the finger is now", /move\(lastX, "touch"\)/],
     ["a hold lands in about a tenth of a second", /const HOLD_MS = 100/],
@@ -673,7 +678,7 @@ section("THE AUDIT: every chart request, on both charts")
       is now raised during the render that receives the series rather than by
       this effect; see tests/analytics-chart-skeleton.test.ts.
     */
-    ["one redraw per metric switch, on the data", /\}, \[(?:shouldAnimate, )?(displayChartData|chartDisplayData)\]\)/],
+    ["one redraw per metric switch, on the data", /const lines = useMemo\([\s\S]{0,200}?\[(?:chartDisplayData, visibleKeys|displayChartData)\],?\s*\)/],
   ]
 
   /*

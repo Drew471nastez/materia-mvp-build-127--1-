@@ -24,9 +24,9 @@
  * the line never animated at all.
  *
  * scripts/check-chart-skeleton.mjs drives the real component through both
- * states. What it cannot see is the growth itself: virtual time steps over
- * the animation and rAF is starved in that headless mode. The shape of the
- * props that make it animate is source, and source is what this file is for.
+ * states, on a real clock, and counts the shapes the line grows through. The
+ * shape of the code that makes it grow is source, and source is what this
+ * file is for. The line is components/app/morph-lines now, for both charts.
  */
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
@@ -107,17 +107,21 @@ function main() {
 
   console.log("\nAnd it reads as waiting rather than as a chart of nothing")
 
+  /*
+    The line is components/app/morph-lines now, for both trend charts: it
+    moves from where it is drawn, which recharts could not do when a tab was
+    tapped mid move. The placeholder rules are held there.
+  */
+  const lines = read("components/app/morph-lines.tsx")
   check("a placeholder line is grey, with no fill and no points",
-    /const SKELETON_STROKE = "#e5e7eb"/.test(chart)
-      && /const lineStroke = \(colour: string\) => \(isLoading \? SKELETON_STROKE : colour\)/.test(chart)
-      && /const lineFill = \(gradient: string\) => \(isLoading \? "none" : gradient\)/.test(chart)
-      /* Recharts draws no dots at all now; the one at the end of the line is
-         drawn over the plot, and never on a placeholder. */
-      && /const lineDot = false as const/.test(chart)
-      && /const last = n > 1 && !isLoading \? chartDisplayData\[n - 1\] : null/.test(chart))
+    /export const PLACEHOLDER_STROKE = "#e5e7eb"/.test(lines)
+      && /stroke=\{loading \? PLACEHOLDER_STROKE : color\}/.test(lines)
+      && /area\.setAttribute\("d", ys\.length > 1 && !geo\.loading \?/.test(lines)
+      && /const shown = ys\.length > 1 && !geo\.loading/.test(lines)
+      && /loading=\{isLoading\}/.test(chart))
   check("the series goes through them, in the one slot every metric shares",
-    /SLOTS\.slice\(0, slots\)\.map\(\(slot\) => \(\s*<Area[\s\S]{0,160}stroke=\{lineStroke\(CHART_COLORS\.views\)\}[\s\S]{0,60}fill=\{lineFill\(grad\("gradViolet"\)\)\}\s*dot=\{lineDot\}/.test(chart),
-    "each metric its own <Area> is what made a tab a replacement instead of a move")
+    /lines=\{lines\}/.test(chart) && /\{lines\.map\(\(_, k\) => \(\s*<g key=\{k\}>/.test(lines) && /data-trend-line/.test(lines),
+    "each metric its own series is what made a tab a replacement instead of a move")
   /*
     The layer a finger lands on is components/app/chart-scrub now: the chart
     hands it `disabled` while it is a placeholder, and the layer then takes
@@ -130,34 +134,34 @@ function main() {
     "a finger on it would raise a tooltip reading zero for a number nobody has")
   check("and the breath is in the stylesheet, with reduced motion respected",
     /@keyframes chart-skeleton-breath/.test(css)
-      && /\[data-chart-loading="true"\] \.recharts-area-curve/.test(css)
-      && /prefers-reduced-motion: reduce[\s\S]{0,400}chart-skeleton-breath 1\.7s|chart-skeleton-breath[\s\S]{0,600}prefers-reduced-motion/.test(css))
+      && /\[data-chart-loading="true"\] \.trend-line/.test(css)
+      && /prefers-reduced-motion: reduce[\s\S]{0,400}chart-skeleton-breath 1\.7s|chart-skeleton-breath[\s\S]{0,600}prefers-reduced-motion/.test(css)
+      && /className="trend-line"/.test(lines))
   check("the stroke fades to the metric's colour rather than switching",
-    /\[data-chart-loading\] \.recharts-area-curve \{\s*\n\s*transition: stroke 420ms/.test(css))
+    /\[data-chart-loading\] \.trend-line \{\s*\n\s*transition: stroke 420ms/.test(css))
 
-  console.log("\nThe draw-in is decided by the render that receives the data")
+  console.log("\nThe draw-in is decided before the frame that shows the data")
 
   /*
-    THE PART THAT WAS ACTUALLY BROKEN. `setShouldAnimate(true)` in an effect
-    runs after the render it belongs to, so the render recharts uses to draw
-    the new series still carries the old flag — false, once the mount's own
-    window has expired. Setting state during a render of the same component
-    is React's escape hatch for exactly this: it re-runs the component before
-    anything is committed.
+    THE PART THAT WAS ACTUALLY BROKEN, twice. Recharts was told to animate by
+    a flag an effect raised, which ran after the render that drew the new
+    series: the first frame was the new line cut in. The flag was then raised
+    during the render, and a timer lowered it again after the move, which a
+    second tab inside that time restarted from where the last move was going.
+    There is no flag now: a change of numbers starts the move in a layout
+    effect, which runs before the browser paints, and draws its first frame
+    there, from where the line is.
   */
-  check("the flag is raised during the render, against the series it just received",
-    /const seenSeriesRef = useRef\(chartDisplayData\)/.test(chart)
-      && /if \(seenSeriesRef\.current !== chartDisplayData\) \{\s*\n\s*seenSeriesRef\.current = chartDisplayData\s*\n\s*if \(!shouldAnimate\) setShouldAnimate\(true\)/.test(chart),
-    "an effect raises it one render too late, which is why a slow load never animated")
-  check("and not by an effect that only reacts to the data",
-    !/useEffect\(\(\) => \{\s*\n\s*setShouldAnimate\(true\)/.test(strip(chart)))
-  check("the timer that ends it outlasts the longest series",
-    /const timer = setTimeout\(\(\) => setShouldAnimate\(false\), CHART_ANIM_MS\)/.test(chart)
-      && /\}, \[shouldAnimate, chartDisplayData\]\)/.test(chart))
-  check("a flat placeholder does not animate, because there is nothing to draw in",
-    /const lineAnimates = isLoading \? false : shouldAnimate/.test(chart)
-      /* The series slot and the dashed comparison line. */
-      && (chart.match(/isAnimationActive=\{lineAnimates\}/g) ?? []).length === 2)
+  check("the move starts before paint, against the numbers just received",
+    /React\.useLayoutEffect\(\(\) => \{\s*\n\s*const s = st\.current\s*\n\s*if \(s\.sig === sig\) return/.test(lines)
+      && /\n\s*step\(\)\n/.test(lines),
+    "an effect starts it one frame too late, which is what a cut to the new line looks like")
+  check("and nothing but new numbers starts one: not a tab that changes nothing, not a refresh that brings the same",
+    /const sig = JSON\.stringify\(\[target\.lines, target\.compared, left, right\]\)/.test(lines))
+  check("it ends when the line arrives, not on a timer",
+    /if \(k < 1\) s\.raf = requestAnimationFrame\(step\)/.test(lines) && !/setTimeout/.test(strip(lines)))
+  check("a flat placeholder does not animate, because there is nothing to draw in: it lies on the floor at once, and the answer grows out of it",
+    /if \(still \|\| \(loading && !was\)\) \{/.test(lines) && /lines: to\.lines\.map\(\(ys, k\) => fit\(was\?\.lines\[k\] \?\? \[\], ys\.length, floor\)\)/.test(lines))
 
   console.log("\nAnd the whole of it is driven in a browser")
 
@@ -167,8 +171,15 @@ function main() {
   check("with an empty series beside it, which is what was reported",
     /an empty series draws no dates and no line/.test(probe))
   check("and it says plainly what it cannot see",
-    /WHAT THIS CAN AND CANNOT SEE/.test(probe) && /requestAnimationFrame,\s*\n\s*which would catch every frame[\s\S]{0,60}starved/.test(probe),
+    /WHAT THIS CAN AND CANNOT SEE/.test(probe) && /What it still cannot see is how smooth each frame\s*\n\s*is;/.test(probe),
     "a probe that quietly asserts less than it claims is worse than one that says so")
+  /*
+    It sees the growth now: it runs on a real clock (Puppeteer, not
+    --virtual-time-budget, which starved requestAnimationFrame) and counts
+    the shapes the line passes through, so a cut to the numbers fails.
+  */
+  check("on a real clock, counting the shapes the line grows through",
+    /puppeteer\.launch\(/.test(probe) && !/--virtual-time-budget=\d/.test(probe) && /expect\(m\.steps >= 8,/.test(probe))
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }

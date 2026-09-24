@@ -21,6 +21,7 @@
  */
 
 import { existsSync, readFileSync } from "node:fs"
+import { monotonePath } from "@/components/app/morph-lines"
 import { join } from "node:path"
 
 const root = process.cwd()
@@ -61,6 +62,8 @@ const DASHBOARD = stripComments(readFileSync(join(root, "components/app/dashboar
 const PAGE = stripComments(readFileSync(join(root, "app/app/analytics/analytics-client.tsx"), "utf8"))
 /** The one layer every trend chart is read through: the crosshair, the dots, the readout and the gesture. */
 const SCRUB = stripComments(readFileSync(join(root, "components/app/chart-scrub.tsx"), "utf8"))
+/** The lines of both trend charts, and how one becomes the next. */
+const LINES = stripComments(readFileSync(join(root, "components/app/morph-lines.tsx"), "utf8"))
 const MORPH = stripComments(readFileSync(join(root, "components/app/chart-morph.tsx"), "utf8"))
 const CSS = readFileSync(join(root, "app/globals.css"), "utf8")
 
@@ -93,12 +96,14 @@ for (const [name, src] of CHARTS) {
      * Both returned `<circle r={0} cx={0} cy={0} fill="none" stroke="none" />`
      * for every point that is neither active nor last — one element per day,
      * per series, painting nothing and reconciled on every render. On the
-     * analytics chart that was 120 of its 241 nodes. Recharts draws no dot on
-     * either line now; the marker's dots are the layer's.
+     * analytics chart that was 120 of its 241 nodes. Neither chart asks
+     * recharts for a series at all now: the line and its end dot are
+     * components/app/morph-lines, the marker's dots the layer's.
      */
-    !/r=\{0\}/.test(src) && /dot=\{(?:false|lineDot)\}/.test(src) && /activeDot=\{false\}/.test(src),
+    !/r=\{0\}/.test(src) && !/<Area\b/.test(src) && /<MorphLines\b/.test(src),
   )
 }
+check("the lines draw one dot, at the end, per line", (LINES.match(/<circle\b/g) ?? []).length === 1 && /data-chart-end-dot/.test(LINES) && !/r=\{0\}/.test(LINES))
 
 // ===========================================================================
 section("Nothing teleports, and nothing trails")
@@ -191,41 +196,70 @@ section("The page cannot re-render the chart for free")
 section("The draw-in does not outstay its welcome")
 // ===========================================================================
 
-for (const [name, src] of CHARTS) {
-  check(
-    `${name} settles in well under a second`,
-    /**
-     * 1100ms of ease-in-out, staggered out to 180ms across four series, is
-     * nearly a second and a half before the chart stops moving — long enough
-     * to read as the page being slow rather than as an animation.
-     */
-    !/animationDuration=\{(?:900|1100)\}/.test(src) && /animationDuration=\{MORPH_MS\}/.test(src)
-      && Number(MORPH.match(/export const MORPH_MS = (\d+)/)?.[1] ?? 9999) <= 600,
-  )
-}
+check(
+  "both charts settle in well under a second",
+  /**
+   * 1100ms of ease-in-out, staggered out to 180ms across four series, is
+   * nearly a second and a half before the chart stops moving — long enough
+   * to read as the page being slow rather than as an animation. One move,
+   * MORPH_MS long, for both charts, from components/app/morph-lines.
+   */
+  CHARTS.every(([, src]) => !/animationDuration=\{(?:900|1100)\}/.test(src) && /<MorphLines\b/.test(src))
+    && /morphEase\(Math\.min\(1, \(performance\.now\(\) - t0\) \/ MORPH_MS\)\)/.test(LINES)
+    && Number(MORPH.match(/export const MORPH_MS = (\d+)/)?.[1] ?? 9999) <= 600,
+)
 
 // ===========================================================================
 section("A metric tab moves the line, and nothing else moves")
 // ===========================================================================
 /**
  * "When changing tabs there is no lag, no glitches in the lines, no layout
- * shifts." Measured in Chromium on both charts, every frame of a tab switch:
- * a line on screen in every frame, 35 or more distinct positions of its
- * first point on the way (a morph, not a cut), the plot's left edge and the
- * four grid rows identical before, during and after, and no layout shift.
- * What is held here is the shape that produced those numbers.
+ * shifts." Measured in Chromium on the Analytics page every frame of a tab
+ * switch (scripts/check-analytics-page.mjs): the line on screen in every
+ * frame and moving over thirty of them, no remount, no request, no shift.
+ * And a tab tapped while the last move is still running: recharts started
+ * the new move from where the last one was GOING, so the frame after the tap
+ * jumped 23 to 30px against the 9px of an ordinary frame. The line is drawn
+ * by components/app/morph-lines now and carries on from where it is: 2px.
  */
 for (const [name, src] of CHARTS) {
-  check(`${name}: the series keeps its place, so recharts moves it rather than replacing it`,
+  check(`${name}: the metric keeps its place in the first line, so a tab moves it rather than replacing it`,
     name === "the analytics trend chart"
-      ? /SLOTS\.slice\(0, slots\)\.map\(\(slot\) => \(\s*<Area\s*key=\{slot\}/.test(src) && !/chartMetricFilter === "orders"\) && \(\s*<Area/.test(src)
-      : /dataKey="value"/.test(src))
-  check(`${name}: on the iOS curve`, /animationEasing=\{MORPH_EASE as /.test(src))
+      ? /const lines = useMemo\(\s*\(\) => visibleKeys\.map\(\(k\) => chartDisplayData\.map\(/.test(src) && /lines=\{lines\}/.test(src)
+      : /const lines = useMemo\(\(\) => \[displayChartData\.map\(\(d\) => d\.value \?\? 0\)\], \[displayChartData\]\)/.test(src) && /lines=\{lines\}/.test(src))
   check(`${name}: the grid is three intervals on every tab, placed by us`,
     /fixedScale\(/.test(src) && /horizontalPoints=\{/.test(src))
   check(`${name}: the axis numbers cross-fade instead of being swapped`, /<AxisLabels labels=\{axisLabels\}/.test(src) && /tick=\{false\}/.test(src))
-  check(`${name}: the dot at the end travels with the line instead of vanishing for the animation`,
-    /data-chart-end-dot/.test(src) && /useEndDotMotion\(/.test(src))
+  check(`${name}: the frame (grid and dates) is memoised on the dates, so a tab never redraws it`,
+    /const datesKey = displayChartData\.map\(\(d\) => d\.label\)\.join|const datesKey = chartDisplayData\.map\(\(d\) => d\.date\)\.join/.test(src)
+      && /= memo\(function (?:Frame|DashboardFrame)\(/.test(src))
+}
+check("the lines move from where they are drawn, so a change mid move carries on instead of jumping",
+  /const was = s\.drawn/.test(LINES) && /fit\(was\?\.lines\[k\] \?\? \[\], ys\.length, floor\)/.test(LINES)
+    && /cancelAnimationFrame\(s\.raf\)/.test(LINES) && /if \(s\.sig === sig\) return/.test(LINES))
+check("on the iOS curve, the same one the axis numbers and the report cards use",
+  /const \[x1, y1, x2, y2\] = \[0\.32, 0\.72, 0, 1\]/.test(MORPH) && /export const MORPH_EASE = "cubic-bezier\(0\.32, 0\.72, 0, 1\)"/.test(MORPH))
+check("a morph renders nothing in React: the paths and the end dot are written to the DOM once a frame",
+  /lineRefs\.current\[k\]\?\.setAttribute\("d", line\)/.test(LINES) && /dot\.setAttribute\("transform"/.test(LINES) && !/useState/.test(LINES))
+check("the dot at the end travels with the line, in the same frame, instead of vanishing for the animation",
+  /data-chart-end-dot/.test(LINES) && /dot\.setAttribute\("transform", `translate\(\$\{xs\[xs\.length - 1\]\.toFixed\(1\)\} \$\{ys\[ys\.length - 1\]\.toFixed\(1\)\}\)`\)/.test(LINES))
+{
+  /*
+    THE CURVE IS MONOTONE, as recharts' `type="monotone"` was: between two
+    points it never goes above the higher or below the lower, so a day with
+    nothing never dips under the axis. Checked on the numbers, not the text.
+  */
+  const xs = [0, 10, 20, 30, 40, 50, 60]
+  const ys = [100, 100, 20, 100, 100, 0, 100]
+  const nums = (monotonePath(xs, ys).match(/-?\d+(?:\.\d+)?/g) ?? []).map(Number)
+  let within = nums.length > 0
+  for (let i = 2; i + 5 < nums.length; i += 6) {
+    const seg = Math.floor(i / 6)
+    const lo = Math.min(ys[seg], ys[seg + 1]) - 0.05
+    const hi = Math.max(ys[seg], ys[seg + 1]) + 0.05
+    if (nums[i + 1] < lo || nums[i + 1] > hi || nums[i + 3] < lo || nums[i + 3] > hi) within = false
+  }
+  check("the curve never overshoots a point, so it never dips under the axis", within && monotonePath(xs, ys).startsWith("M0,100C"))
 }
 check("the scale never changes its number of intervals", /export const INTERVALS = 3/.test(MORPH) && /Array\.from\(\{ length: INTERVALS \+ 1 \}/.test(MORPH))
 check("the axis numbers fade in and out in the stylesheet, with reduced motion respected",
@@ -408,7 +442,7 @@ section("Every chart reads one layer")
   check("the old hook and the old glide are gone, so nothing can read a pointer the old way",
     !existsSync(join(root, "components/app/use-chart-scrub.ts")) && !existsSync(join(root, "components/app/chart-glide.tsx")))
   check("the plot is memoised and blind to the finger",
-    /const Plot = memo\(function Plot\(/.test(ANALYTICS) && !/interface PlotProps \{[^}]*(activeIndex|scrub)/.test(ANALYTICS))
+    /const Frame = memo\(function Frame\(/.test(ANALYTICS) && !/interface FrameProps \{[^}]*(activeIndex|scrub|values|lines)/.test(ANALYTICS))
   check("the layer is memoised, and both trend charts hand it memoised series, rows and title",
     /export const ChartScrub = React\.memo\(ChartScrubLayer\)/.test(SCRUB)
       && [ANALYTICS, DASHBOARD].every((src) => /const scrubSeries = useMemo<ScrubSeries\[\]>/.test(src) && /const scrubRows = useMemo<ScrubRow\[\]>/.test(src) && /const scrubTitle = useCallback\(/.test(src)))

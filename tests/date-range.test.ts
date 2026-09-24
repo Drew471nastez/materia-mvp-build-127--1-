@@ -225,7 +225,9 @@ function main() {
       && /const PREVIOUS_PERIOD: CompareValue = \{ mode: "previous_period" \}/.test(read("app/app/orders/orders-client.tsx")))
   check("analytics hides percentages with No comparison, and names what they compare with",
     /against === null\) return null/.test(read("app/app/analytics/analytics-client.tsx")) && /compared with \$\{against\}/.test(read("app/app/analytics/analytics-client.tsx")))
-  check("and draws the comparison as a dashed line under the chart's own", /strokeDasharray="5 4"/.test(read("components/app/analytics-chart.tsx")))
+  /* The line and its comparison are drawn by components/app/morph-lines, which the chart hands the period before. */
+  check("and draws the comparison as a dashed line under the chart's own",
+    /strokeDasharray="5 4"/.test(read("components/app/morph-lines.tsx")) && /compared=\{comparedLine\}/.test(read("components/app/analytics-chart.tsx")))
   const picker = read("components/app/date-range-picker.tsx")
   check("the picker is a popover on a computer, a sheet on a phone, and in place inside a dialog",
     /<PopoverContent/.test(picker) && /<BottomSheet/.test(picker) && /if \(inline\)/.test(picker))
