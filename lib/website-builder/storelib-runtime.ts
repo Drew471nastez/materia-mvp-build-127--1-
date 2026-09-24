@@ -68,7 +68,8 @@ export function compiledSection(type: string, overrides?: Record<string, string>
   if (hit) return hit
   // No `expectType`: the path IS the type here, so the schema's own line
   // adds nothing but a second place to keep in step. See the files route.
-  const r = compileSection(source, { file: sectionSourcePath(type) })
+  // `lenient`: this is a saved file being drawn, not a save; see compile.ts.
+  const r = compileSection(source, { file: sectionSourcePath(type), lenient: true })
   const out: Compiled = r.ok === true ? { ok: true, value: r.value } : { ok: false, errors: r.errors }
   compiled.set(source, out)
   return out

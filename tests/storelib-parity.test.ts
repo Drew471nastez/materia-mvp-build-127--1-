@@ -124,7 +124,7 @@ async function main() {
     check("a section that exists only in the creator's files renders on the published page", !!live)
     check("and byte for byte the same as the editor draws it", inEditor.ok === true && !!live && live.html === inEditor.html && live.css === inEditor.css)
     check("its blocks arrive in order, with their own settings, on both", !!live && live.html.indexOf("First") < live.html.indexOf("Second"))
-    check("and its media query is scoped the same way on both", !!live && inEditor.ok === true && /@media \(max-width: 749px\) \{ \[data-section-id="mine-1"\]/.test(live.css) && live.css === inEditor.css)
+    check("and its media query is scoped the same way on both", !!live && inEditor.ok === true && /@container \(max-width: 749px\) \{ \[data-section-id="mine-1"\]/.test(live.css) && live.css === inEditor.css)
 
     // A file that overrides one the theme ships must win on both surfaces.
     const OVERRIDE = readFileSync(join(process.cwd(), "themes/default/sections/faq_accordion.storelib"), "utf8")

@@ -527,7 +527,9 @@ section("A section written the way people write sections")
     check("every rule is scoped to this instance and no other", (out.css.match(/\[data-section-id="sec-1"\]/g) ?? []).length >= 4)
     check("a pseudo-element survives, with its content string", out.css.includes('.faq__q::after { content: "+"'))
     check("an attribute selector survives", out.css.includes('.faq__item[open]'))
-    check("a media query survives, with its rules scoped inside it", /@media \(max-width: 749px\) \{ \[data-section-id="sec-1"\] \.faq \{/.test(out.css))
+    // A width-only media query asks about the window, which in the builder is
+    // the editor; it becomes the same container query (storelib/css.ts).
+    check("a width media query survives as a container query, with its rules scoped inside it", /@container \(max-width: 749px\) \{ \[data-section-id="sec-1"\] \.faq \{/.test(out.css))
     check("a keyframe survives, renamed so two sections cannot collide", out.css.includes("@keyframes sl-faqsection-faq-in") && out.css.includes("animation: sl-faqsection-faq-in"))
     check("and nothing in the stylesheet is left global", !/^\s*\.faq/m.test(out.css))
   }

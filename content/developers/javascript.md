@@ -95,7 +95,7 @@ A row that scrolls sideways and snaps to each slide. It swipes on a phone, scrol
 
 ### Pop-up
 
-The `popover` attribute gives a panel the browser opens, closes and dismisses, with Escape and a tap outside, and no script.
+The `popover` attribute gives a panel the browser opens, closes and dismisses, with Escape and a tap outside, and no script. In the builder it opens inside the canvas, with the same Escape and tap outside; style its open state with `:popover-open`.
 
 ```storelib
 <button class="more" popovertarget="{{ section.id }}-details">Size guide</button>

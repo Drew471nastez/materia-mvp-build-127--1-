@@ -199,7 +199,7 @@ function main() {
   /* What is drawn is code and nothing else: no label, no prompt, no bones. */
   const drawn = component.slice(component.indexOf("return (\n    <div className=\"wb-writing\""))
   check("nothing but the code lane is drawn",
-    /<div className="wb-writing-inner" aria-hidden="true">\s*<div ref=\{codeRef\} className="wb-code" \/>/.test(drawn)
+    /<div className="wb-writing-inner" aria-hidden="true">\s*<div ref=\{codeRef\} className="wb-writing-code" \/>/.test(drawn)
       && !/wb-writing-label|wb-writing-prompt|wb-bone/.test(component))
   check("and it claims no progress it does not have",
     !/%|Styling|Compiling|Almost|step \d|line \d/i.test(drawn.replace(/\{prompt[^}]*\}/g, "")))
@@ -213,7 +213,7 @@ function main() {
   check("faded from clear at the top to solid at the bottom",
     /mask-image: linear-gradient\(to bottom, transparent 0%, #000 62%\)/.test(block))
   check("every motion stops under reduced motion",
-    /@media \(prefers-reduced-motion: reduce\) \{\s*\.wb-writing,\s*\.wb-writing::before,\s*\.wb-writing-inner::after,\s*\.wb-code-caret,\s*\.wb-section-arrive \{ animation: none; \}/.test(block)
+    /@media \(prefers-reduced-motion: reduce\) \{\s*\.wb-writing,\s*\.wb-writing::before,\s*\.wb-writing-inner::after,\s*\.wb-writing-caret,\s*\.wb-section-arrive \{ animation: none; \}/.test(block)
       && /prefers-reduced-motion: reduce\)"\)\.matches === true/.test(component))
   check("no em dash in anything a creator reads",
     ![component.replace(/\/\*\*[\s\S]*?\*\//g, ""), chat.match(/"Describe a section the library does not have[^"]*"/)?.[0] ?? ""].some((t) => /—|–/.test(t)))

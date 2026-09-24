@@ -471,6 +471,10 @@ export function SectionPreview({
           zoom: scale,
           pointerEvents: "none",
           userSelect: "none",
+          /* A preview is a picture of the section: whatever it fixes or
+             lifts stays in this box (see .wb-canvas-frame in globals.css). */
+          contain: "layout paint",
+          isolation: "isolate",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -498,6 +502,8 @@ export function SectionPreview({
         zoom: scale,
         pointerEvents: "none",
         userSelect: "none",
+        contain: "layout paint",
+        isolation: "isolate",
       }}
     >
       <UnifiedSectionRenderer

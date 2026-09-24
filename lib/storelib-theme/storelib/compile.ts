@@ -39,6 +39,13 @@ export interface CompileOptions {
   file?: string
   /** When set, the schema's `type` must match the file's name. */
   expectType?: string
+  /**
+   * Compile a file that was already saved. Tags a save refuses because they
+   * act on the whole document (template.ts, DOCUMENT_MARKUP) are let through
+   * here and stripped when the section is drawn, so a section saved before
+   * that rule keeps rendering. Only the runtime passes this.
+   */
+  lenient?: boolean
 }
 
 /**
@@ -144,7 +151,7 @@ export function compileSection(source: string, opts: CompileOptions = {}): Resul
     })
   }
 
-  const template = compileTemplate(src.template.text, { file, line: src.template.line, capabilities: schema.value.capabilities })
+  const template = compileTemplate(src.template.text, { file, line: src.template.line, capabilities: schema.value.capabilities, lenient: opts.lenient })
   if (template.ok === false) errors.push(...template.errors)
   else errors.push(...checkReferences(template.value, schema.value, file, src.template.line))
 

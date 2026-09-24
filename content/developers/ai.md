@@ -27,7 +27,7 @@ These are the mistakes that produce a file which looks right and is not. Check e
 3. **Every name must be declared.** `{{ settings.subtitle }}` does not compile unless the schema declares `subtitle`. Check every path your template and CSS read against your schema.
 4. **Repeated content is blocks.** Never `feature_1`, `feature_2`, `feature_3`.
 5. **Colour comes from the scheme.** Declare a `color_scheme` setting and read `var(--scheme-*)`. A hex code for anything the scheme answers stops responding to the creator's theme.
-6. **Container queries, not media queries.** The builder's phone preview is not the width of the window.
+6. **Container queries, not media queries.** The builder's phone preview is not the width of the window. A width-only media query is rewritten for you, but say what you mean.
 
 ## Know the website before you write for it
 

@@ -111,6 +111,7 @@ import SectionRenderer from "@/components/website-builder/sections/SectionRender
 import { ThemePage } from "@/components/website-builder/theme/ThemePage"
 import { scheduleCoverRefresh, flushCoverRefresh } from "@/lib/website-builder/cover-refresh"
 import { FullScreenLock } from "@/components/website-builder/full-screen-lock"
+import { CanvasTopLayerGuard } from "@/components/website-builder/canvas-top-layer"
 import { StorelibMark } from "@/components/storelib-mark"
 import { toast } from "sonner"
 import { getWebsiteShareUrl, getWebsiteUrlDisplay } from "@/lib/url-helpers"
@@ -7191,6 +7192,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       )}
     >
       <FullScreenLock tone={chromeTone} />
+      <CanvasTopLayerGuard />
       {/* ── Top bar ── */}
       {/* Dark, like the reference: the bar is chrome, and chrome that is the
           same colour as the page it frames is chrome you keep mistaking for
@@ -8077,7 +8079,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               simply 100% of it. See scripts/check-canvas-corner.mjs. */}
           <div
             className={cn(
-              "relative overflow-hidden transition-all duration-300",
+              /* wb-canvas-frame: the window every section on the page sees.
+                 A section's `position: fixed` menu, its 100vh and its width
+                 queries all answer to this card, never to the editor around
+                 it (app/globals.css, lib/storelib-theme/storelib/css.ts). */
+              "wb-canvas-frame relative overflow-hidden transition-all duration-300",
               // Fading the whole card, not just the scroller, so the corner
               // clip goes with it.
               //

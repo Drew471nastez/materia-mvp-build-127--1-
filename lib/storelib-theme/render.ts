@@ -16,7 +16,7 @@ import { resolveSectionColors, styleAttr } from "./color-schemes"
 import { resolveInstance, themeTokens } from "./resolve"
 import { sectionTypography } from "./typography"
 import { cssForInstance } from "./storelib/css"
-import { renderTemplate, type CompiledTemplate } from "./storelib/template"
+import { renderTemplate, stripDocumentMarkup, type CompiledTemplate } from "./storelib/template"
 import type { CompiledSection, RenderContext, SectionInstanceData } from "./types"
 
 export interface RenderInput {
@@ -69,7 +69,9 @@ export function renderSection(input: RenderInput): Rendered {
     section: { id, type: compiled.type },
     assets,
   }
-  const inner = renderTemplate(compiled.template as CompiledTemplate, ctx)
+  /* No tag here acts on the whole document, whatever the file or a richtext
+     setting held: storelib/template.ts, DOCUMENT_MARKUP. */
+  const inner = stripDocumentMarkup(renderTemplate(compiled.template as CompiledTemplate, ctx))
   const typo = sectionTypography(settings)
   const attrs = [
     `data-section-id="${escapeAttr(id)}"`,
