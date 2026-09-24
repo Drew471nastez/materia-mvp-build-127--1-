@@ -19,7 +19,7 @@
  */
 
 import { readFileSync, readdirSync, statSync, existsSync } from "node:fs"
-import { join } from "node:path"
+import { dirname, join } from "node:path"
 import { parseVideoUrl } from "@/lib/social/video"
 import { OFFERED_SOCIAL_PLATFORM_KEYS, resolveSocialInput } from "@/lib/social/platforms"
 import { toPublicHttpUrl } from "@/lib/url/public-url"
@@ -162,7 +162,11 @@ check(
       const src = read(f)
       // A file that renders no skeleton has nothing to defer.
       if (!/Skeleton|animate-pulse/.test(src)) return false
-      return !src.includes("skeleton-deferred")
+      if (src.includes("skeleton-deferred")) return false
+      /* A loading file that draws a shared outline (the product editor's is
+         drawn by both of its addresses) is deferred when that outline is. */
+      const shared = [...src.matchAll(/from "(\.{1,2}\/[^"]+)"/g)].map((m) => join(dirname(f), m[1]) + ".tsx")
+      return !shared.some((file) => existsSync(join(root, file)) && read(file).includes("skeleton-deferred"))
     })
     if (offenders.length) console.log("        " + offenders.join("\n        "))
     return offenders.length === 0

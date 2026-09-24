@@ -202,7 +202,7 @@ section("IndexNow: off without a key, never in the way of a save, one notice per
   const client = code("lib/seo/announce-client.ts")
   check("the screens that save call it only after the save succeeded, and never wait for it",
     /keepalive: true/.test(client) && /\.catch\(\(\) => \{\}\)/.test(client) &&
-      /if \(finalProductId\) announceChange\(\{ product: finalProductId \}\)/.test(code("app/app/products/new/page.tsx")) &&
+      /if \(finalProductId\) announceChange\(\{ product: finalProductId \}\)/.test(code("app/app/products/new/product-editor.tsx")) &&
       /if \(!statusError\) announceChange\(\{ product: product\.id \}\)/.test(code("components/app/product-edit-form.tsx")) &&
       /announceChange\(\{ profile: true \}\)/.test(code("components/app/settings-form-new.tsx")))
 }

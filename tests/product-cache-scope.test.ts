@@ -141,8 +141,8 @@ check(
  */
 check(
   "the product editor sends the product id when it asks for a revalidation",
-  /productId: savedProductId/.test(readFileSync("app/app/products/new/page.tsx", "utf8")),
-  "app/app/products/new/page.tsx",
+  /productId: savedProductId/.test(readFileSync("app/app/products/new/product-editor.tsx", "utf8")),
+  "app/app/products/new/product-editor.tsx",
 )
 
 console.log(`\n${passed} passed, ${failed} failed`)

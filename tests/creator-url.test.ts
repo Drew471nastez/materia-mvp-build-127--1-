@@ -359,7 +359,7 @@ check(
 )
 check(
   "and the product form applies it",
-  /avoidReservedProductSlug\(finalSlug, suffix\)/.test(code("app/app/products/new/page.tsx")),
+  /avoidReservedProductSlug\(finalSlug, suffix\)/.test(code("app/app/products/new/product-editor.tsx")),
   "the rule is worth nothing if the one place that writes a slug does not use it",
 )
 
