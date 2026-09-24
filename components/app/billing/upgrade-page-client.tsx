@@ -164,9 +164,10 @@ export function UpgradePageClient({
       {/*
         ONE BAR, ONE WAY BACK. It used to carry a Back on the left and an X
         on the right that did the same thing. The bar sticks to the top of
-        this page's own scroller and clears the status bar on a phone.
+        this page's own scroller. The status bar's strip above it is the
+        layer's (components/app/page-layer.tsx), so it is not padded here too.
       */}
-      <div className="sticky top-0 z-10 border-b border-[#e5e7eb]/60 bg-white/95 pt-[env(safe-area-inset-top)] backdrop-blur-sm">
+      <div className="sticky top-0 z-10 border-b border-[#e5e7eb]/60 bg-white/95 backdrop-blur-sm">
         <div className="relative flex h-14 items-center px-4 sm:h-16 sm:px-6">
           <Link
             href="/app/settings?tab=billing"

@@ -777,7 +777,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
           pt-[env(safe-area-inset-top)] pushes the 58 px content row below
           the iOS/iPadOS status bar in Capacitor. In a browser env() = 0
           so the header stays exactly 58 px — no visual change. */}
-      <header className="fixed top-0 left-0 right-0 z-50 hidden md:block pt-[env(safe-area-inset-top,_0px)]" style={{ touchAction: 'none', overscrollBehavior: 'none' }}>
+      <header data-shell-chrome="" className="fixed top-0 left-0 right-0 z-50 hidden md:block pt-[env(safe-area-inset-top,_0px)]" style={{ touchAction: 'none', overscrollBehavior: 'none' }}>
         <div className="relative h-[58px] bg-[#131316] flex items-center px-5">
           {/* Left side: Profile dropdown */}
           <div ref={headerProfileRef} className="relative shrink-0">
@@ -1063,7 +1063,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
       {/* Mobile Header - Dark background, content below has outward rounded top corners.
           Header total height = 68px + safe-area-inset-top (same as main's pt offset).
           Padding inside the flex row so content sits flush below the status bar. */}
-      <header className="fixed top-0 left-0 right-0 z-50 md:hidden bg-[#111111]"
+      <header data-shell-chrome="" className="fixed top-0 left-0 right-0 z-50 md:hidden bg-[#111111]"
         style={{ height: 'calc(68px + env(safe-area-inset-top, 0px))', touchAction: 'none', overscrollBehavior: 'none', willChange: 'transform', WebkitTransform: 'translateZ(0)', transform: 'translateZ(0)', WebkitBackfaceVisibility: 'hidden', backfaceVisibility: 'hidden' }}>
         <div className="flex h-[68px] items-center justify-between px-4 py-[10px]"
           style={{ marginTop: 'env(safe-area-inset-top, 0px)' }}>
@@ -1233,6 +1233,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
           env(safe-area-inset-top) padding. In a browser env() = 0 so
           this is identical to the previous top-[58px] / calc(100svh-58px). */}
       <aside
+        data-shell-chrome=""
         className="fixed left-0 z-40 hidden w-[240px] flex-col border-r border-neutral-200/60 bg-white md:flex"
         style={{
           top: 'calc(58px + env(safe-area-inset-top, 0px))',
@@ -1301,6 +1302,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
               }, 100)
             }
           }}
+          data-shell-chrome=""
           className={cn(
             // bottom-[calc(...)] keeps the button above the home-indicator on iPad.
           // In a browser env(safe-area-inset-bottom) = 0, so this equals bottom-6.

@@ -1,4 +1,5 @@
 import type React from "react"
+import { PageLayer } from "@/components/app/page-layer"
 
 /**
  * ===========================================================================
@@ -7,24 +8,16 @@ import type React from "react"
  * "Make sure the upgrade page behaves like a real full page, its own page
  * rather than awkwardly inserted into Settings."
  *
- * It was drawn inside the shell's content area: the dark header, the sidebar
- * and the phone's nav pill all still around it, and a second bar of its own
- * under the header with a Back and an X that did the same thing. Now it is a
- * layer over the whole window, with one bar across the top that has the way
- * back in it, and the shell's own chrome is under it rather than beside it.
+ * A layer over the whole window (components/app/page-layer.tsx), with one bar
+ * across the top that has the way back in it. The shell's header, rail and
+ * nav pill are under it and not painted, on a phone, in the native apps and
+ * on a computer alike. The strip under the status bar is white, the colour of
+ * the page's own bar.
  *
  * It is still a route under /app, so the session checks, the router and the
  * shell's landing (components/app/app-stage.tsx) are the same as everywhere
- * else: it arrives on the same 180ms fade and rise as any other page, and
- * leaves the same way the page it returns to arrives.
- *
- * `data-page-layer` is how the nav pill knows it is covered and steps aside
- * (app/globals.css), so there is nothing to tap through under this page.
+ * else.
  */
 export default function UpgradeLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <div data-page-layer="" className="fixed inset-0 z-[60] overflow-y-auto overscroll-contain bg-[#f8f9fa]">
-      {children}
-    </div>
-  )
+  return <PageLayer inset="white">{children}</PageLayer>
 }
