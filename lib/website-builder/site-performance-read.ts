@@ -44,6 +44,16 @@ async function readAll<T>(page: (from: number, to: number) => Query): Promise<{ 
   return { rows, truncated: true }
 }
 
+/** A read that failed is null, and says so in the log. Never a zero. */
+async function orNull<T>(what: string, read: () => Promise<T>): Promise<T | null> {
+  try {
+    return await read()
+  } catch (e) {
+    console.warn(`[website performance] ${what} not read:`, (e as Error).message)
+    return null
+  }
+}
+
 export async function readWebsitePerformance(input: {
   admin: Client
   user: Client
@@ -59,7 +69,7 @@ export async function readWebsitePerformance(input: {
   const from = new Date(previous ? Math.min(previous.start, span.start) : span.start).toISOString()
   const to = new Date(span.end).toISOString()
 
-  const viewsRead = readAll<ViewRow>((a, b) =>
+  const viewsRead = orNull("visits", () => readAll<ViewRow>((a, b) =>
     admin
       .from("analytics_events")
       .select("id, session_id, visitor_id, created_at, page_url")
@@ -73,12 +83,9 @@ export async function readWebsitePerformance(input: {
       .not("page_url", "ilike", `%//www.${main}/%`)
       .order("created_at", { ascending: true })
       .range(a, b),
-  ).catch((e: Error) => {
-    console.warn("[website performance] visits not read:", e.message)
-    return null
-  })
+  ))
 
-  const ordersRead = (async () => {
+  const ordersRead = orNull("orders", async () => {
     const { data: products, error } = await admin.from("products").select("id").eq("creator_id", creatorId)
     if (error) throw new Error(error.message)
     const ids = ((products ?? []) as { id: string }[]).map((p) => p.id)
@@ -100,9 +107,6 @@ export async function readWebsitePerformance(input: {
       truncated ||= read.truncated
     }
     return { rows, truncated }
-  })().catch((e: Error) => {
-    console.warn("[website performance] orders not read:", e.message)
-    return null
   })
 
   const vitalsRead = readVitals(user, installId, input.period, timeZone)
