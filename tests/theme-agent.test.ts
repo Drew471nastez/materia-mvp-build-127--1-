@@ -43,10 +43,23 @@ import { pageAgentRules } from "@/lib/storelib-ai"
 import { contrastRatio, parseColor, reviewSections } from "@/lib/website-builder/agent/review"
 import { SECTION_SCHEMAS, ADDABLE_SECTIONS } from "@/lib/website-builder/section-schemas"
 import {
+  RUBBER_BAND_LIMIT_PX,
+  SNAP_CURVE,
+  coastDistance,
+  coastVelocity,
+  curveSlopes,
   dragIntent,
+  dragPosition,
+  expandCarry,
+  handOffToSheet,
   offsetsFor,
   releaseVelocity,
+  rubberBand,
+  rubberBandSlope,
+  sheetVelocityAt,
   snapDuration,
+  snapMotion,
+  snapStartSpeed,
   snapTarget,
 } from "@/components/website-builder/sheet-gestures"
 import type { AgentProvider, ProviderTurn, ToolCall } from "@/lib/sites/agent/types"
@@ -1483,6 +1496,150 @@ section("The mobile sheet snaps where it should")
     JSON.stringify([snapDuration(2, 5), snapDuration(2000, 0.01)]),
   )
 
+  /**
+   * THE SHEET LEAVES AT THE FINGER'S SPEED.
+   *
+   * The snap's curve leaves at 2.25 times its mean speed, and its duration
+   * was distance / speed, so a sheet let go at 1 px/ms left at 2.25: a kick
+   * the moment the finger came up. `snapMotion` picks the duration and the
+   * first control point together so the opening slope IS the release speed,
+   * across the range a thumb produces, and without ever overshooting.
+   */
+  {
+    const cases: [number, number][] = [
+      [-160, -1.0], // half-way up, released at a steady push
+      [300, 1.2], // a firm pull towards the peek
+      [60, 3], // a hard flick with little left, where the duration clamps short
+      [400, 0.5], // a slow release far from the stop, where it clamps long
+      [-40, -0.2], // barely moving
+    ]
+    const worst = Math.max(
+      ...cases.map(([d, v]) => Math.abs(snapStartSpeed(d, snapMotion(d, v)) - Math.abs(v)) / Math.abs(v)),
+    )
+    check(
+      "a release is carried on at the speed it was let go, within 1%",
+      worst < 0.01,
+      JSON.stringify(cases.map(([d, v]) => [d, v, snapMotion(d, v)])),
+    )
+    const oldKick = (() => {
+      // The old pairing: the house curve over distance / speed.
+      const d = 160, v = 1.0
+      const ms = Math.max(130, Math.min(460, d / Math.max(v, 0.35)))
+      return (d / ms) * (SNAP_CURVE[1] / SNAP_CURVE[0])
+    })()
+    check(
+      "which the old duration did not: it left at 2.25 times the finger",
+      Math.abs(oldKick - 2.25) < 0.01,
+      String(oldKick),
+    )
+    check(
+      "the curve never passes its end, so a sheet can never overshoot its stop",
+      cases.every(([d, v]) => {
+        const [x1, y1, x2, y2] = snapMotion(d, v).curve
+        return x1 > 0 && x1 <= 1 && y1 >= 0 && y1 <= 1 && x2 >= 0 && x2 <= 1 && y2 === 1
+      }),
+    )
+    check(
+      "a finger that had stopped starts the sheet from rest, not with a lurch",
+      snapMotion(200, 0).curve[1] === 0 && snapMotion(200, -0.8).curve[1] === 0,
+      JSON.stringify([snapMotion(200, 0), snapMotion(200, -0.8)]),
+    )
+    /**
+     * AND ONLY SLOWS FROM THERE. The house curve does not: its second
+     * control point sits behind its first, and it speeds up to nearly twice
+     * its opening slope a third of the way in. Handed a finger's speed at
+     * the start, it pulled away from the finger two frames later, which the
+     * feel probe measured before this was fixed.
+     */
+    const house = curveSlopes(SNAP_CURVE)
+    check(
+      "the house curve speeds up after it starts, which is why a release does not use it",
+      Math.max(...house) > house[0] * 1.5,
+      `${house[0].toFixed(2)} at the start, ${Math.max(...house).toFixed(2)} at most`,
+    )
+    const decelerates = (d: number, v: number) => {
+      const p = curveSlopes(snapMotion(d, v).curve)
+      return p.every((x, i) => i === 0 || x <= p[i - 1] + 1e-3)
+    }
+    check(
+      "a release that starts at the finger's speed only slows from there",
+      decelerates(-160, -1.0) && decelerates(300, 1.2) && decelerates(60, 3) && decelerates(120, 0.6),
+      JSON.stringify([snapMotion(-160, -1.0), snapMotion(300, 1.2), snapMotion(60, 3), snapMotion(120, 0.6)]),
+    )
+  }
+
+  /**
+   * PAST THE TALLEST STOP IT GIVES, IT DOES NOT STOP DEAD.
+   *
+   * The old drag worked out a third of the overshoot and then clamped it
+   * away, so the top stop was a wall. The band follows the finger at a
+   * falling rate, never passes its limit, and says how fast the sheet itself
+   * is moving so the spring back leaves at that speed.
+   */
+  check(
+    "pulled past the top stop, the sheet follows at a falling rate",
+    dragPosition(-40, 0, 664) < 0 &&
+      dragPosition(-40, 0, 664) > -40 &&
+      dragPosition(-200, 0, 664) < dragPosition(-40, 0, 664) &&
+      dragPosition(-100000, 0, 664) > -RUBBER_BAND_LIMIT_PX,
+    JSON.stringify([dragPosition(-40, 0, 664), dragPosition(-200, 0, 664), dragPosition(-100000, 0, 664)]),
+  )
+  check(
+    "between the stops it is exactly the finger",
+    dragPosition(123, 0, 664) === 123 && dragPosition(0, 0, 664) === 0,
+  )
+  check(
+    "and below the closed position it stops, so the canvas's reserve never shows",
+    dragPosition(700, 0, 664) === 664,
+  )
+  check(
+    "the band is continuous at the stop and its slope is the finger's share",
+    rubberBand(0) === 0 &&
+      Math.abs(rubberBandSlope(1e-6) - 0.55) < 1e-6 &&
+      Math.abs((rubberBand(1e-3) - rubberBand(0)) / 1e-3 - 0.55) < 1e-3 &&
+      rubberBandSlope(200) < rubberBandSlope(20),
+  )
+  check(
+    "a release in the band leaves at the sheet's speed, not the finger's",
+    sheetVelocityAt(-100, 0, -2) > -2 && sheetVelocityAt(-100, 0, -2) < 0 && sheetVelocityAt(50, 0, -2) === -2,
+  )
+
+  /**
+   * HOLD STILL, THEN LIFT: NOT A FLICK.
+   *
+   * Browsers send no touchmove for a finger that is not moving, so the last
+   * samples before a pause are the fast ones. The release time says the
+   * pause happened; a lift straight off a moving finger is left alone.
+   */
+  {
+    const fast = [
+      { y: 400, t: 0 },
+      { y: 380, t: 16 },
+      { y: 360, t: 32 },
+      { y: 340, t: 48 },
+    ]
+    check(
+      "a quick drag held still for half a second before lifting is not a flick",
+      Math.abs(releaseVelocity(fast)) > 1 && Math.abs(releaseVelocity(fast, 548)) < 0.4,
+      JSON.stringify([releaseVelocity(fast), releaseVelocity(fast, 548)]),
+    )
+    check(
+      "and a lift a frame after the last move keeps its speed",
+      releaseVelocity(fast, 56) === releaseVelocity(fast),
+    )
+  }
+
+  /** The coast a list gets when the sheet was feeding it by hand. */
+  check(
+    "a list let go mid-push glides and slows, the way a scroll view does",
+    coastVelocity(2, 0) === 2 &&
+      coastVelocity(2, 500) < 2 * 0.4 &&
+      coastDistance(2, 16) > 30 &&
+      coastDistance(2, 16) < 32 &&
+      coastDistance(2, 3000) < 2 / -Math.log(0.998) + 1e-6,
+    JSON.stringify([coastVelocity(2, 500), coastDistance(2, 16), coastDistance(2, 3000)]),
+  )
+
   const single = offsetsFor({ viewport: 800, detents: [0.5], peekHeight: 72 })
   check(
     "one detent still behaves like the old two-position sheet",
@@ -1562,6 +1719,35 @@ section("What a touch on the sheet is FOR")
   check(
     "and pushing up in a list scrolls even at the top",
     dragIntent({ deltaX: 0, deltaY: -30, scrollTop: 0, hasScroller: true }) === "scroll",
+  )
+  check(
+    "unless the sheet is below its tallest stop: then the push grows the sheet first",
+    /**
+     * What an iOS sheet does. A list read through half a screen is a list
+     * somebody wants more of, and the same push that would have scrolled it
+     * brings the rest of the sheet up; at the tallest stop it scrolls again.
+     */
+    dragIntent({ deltaX: 0, deltaY: -30, scrollTop: 0, hasScroller: true, canExpand: true }) === "sheet" &&
+      dragIntent({ deltaX: 0, deltaY: -30, scrollTop: 220, hasScroller: true, canExpand: true }) === "sheet" &&
+      dragIntent({ deltaX: 0, deltaY: 30, scrollTop: 220, hasScroller: true, canExpand: true }) === "scroll" &&
+      dragIntent({ deltaX: 40, deltaY: -10, scrollTop: 0, hasScroller: true, canExpand: true }) === "scroll",
+  )
+  check(
+    "once the sheet reaches its tallest stop the rest of the push scrolls the list",
+    JSON.stringify(expandCarry(40, 0)) === JSON.stringify({ sheetY: 40, scrollBy: 0 }) &&
+      JSON.stringify(expandCarry(-25, 0)) === JSON.stringify({ sheetY: 0, scrollBy: 25 }),
+  )
+  check(
+    "a scroll that runs out of list going down hands the finger to the sheet",
+    /**
+     * Decided once is right for most of a gesture and wrong for this one: a
+     * finger scrolling a list back to its top and carrying on. The list has
+     * nothing left, so the sheet takes the rest of the same gesture.
+     */
+    handOffToSheet({ scrollTop: 0, stepY: 4, horizontal: false }) &&
+      !handOffToSheet({ scrollTop: 12, stepY: 4, horizontal: false }) &&
+      !handOffToSheet({ scrollTop: 0, stepY: -4, horizontal: false }) &&
+      !handOffToSheet({ scrollTop: 0, stepY: 4, horizontal: true }),
   )
 
   /**
@@ -1665,6 +1851,20 @@ section("What a touch on the sheet is FOR")
   check(
     "touch-action is pan-y, so children still scroll on the compositor",
     /touchAction: "pan-y"/.test(sheet) && !/touchAction: "none"/.test(sheet),
+  )
+  check(
+    "except on the grab bar, where a touch can only mean the sheet",
+    /**
+     * With `pan-y` inherited, a browser could start a pan of its own from
+     * the handle before the first move reached the sheet, and every move
+     * after that arrives uncancellable.
+     */
+    /ref=\{handleRef\}\s*\n\s*className="[^"]*\btouch-none\b/.test(sheet),
+  )
+  check(
+    "a finger is timed by when it moved, not by when the handler ran",
+    /moveDrag\(touch\.clientY, touch\.clientX, eventTime\(e\), e\.cancelable\)/.test(sheet) &&
+      /endDrag\(eventTime\(e\)\)/.test(sheet),
   )
   check(
     "the decision is made once and kept for the rest of the gesture",

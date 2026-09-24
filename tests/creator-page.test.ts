@@ -2089,7 +2089,21 @@ function main() {
      * in the transition, so the shrink happened in one frame while the
      * keyboard was still sliding away.
      */
-    check("the keyboard resize is a move, not a snap", /height \$\{KEYBOARD_MS\}ms/.test(sheet) && /padding-bottom \$\{KEYBOARD_MS\}ms/.test(sheet))
+    /**
+     * It is still a move, over KEYBOARD_MS, but no longer a transition on
+     * `height` and `padding-bottom`, which laid the sheet out on every frame
+     * of the keyboard. The new height is laid out once and the move is a
+     * transform animated away on the compositor. Pinned both ways: the move
+     * exists, and the layout transition is gone.
+     */
+    check(
+      "the keyboard resize is a move, not a snap",
+      /resizeMove\.current = sheet\.animate\(/.test(sheet) &&
+        /translateY\(\$\{y \+ height - prev\}px\)/.test(sheet) &&
+        /const ms = motionMs\(KEYBOARD_MS\)/.test(sheet) &&
+        !/height \$\{KEYBOARD_MS\}ms/.test(sheet) &&
+        !/padding-bottom \$\{KEYBOARD_MS\}ms/.test(sheet),
+    )
     check("and the drag itself still has no transition at all", /const motion = dragging/.test(sheet) && /\? "none"/.test(sheet))
   }
 
