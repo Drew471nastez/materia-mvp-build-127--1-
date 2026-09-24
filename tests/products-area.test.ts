@@ -143,18 +143,42 @@ check("two buttons: the safe one with the bar's depth, the one that does it in r
 check("the old forced dialog sheet and its swipe code are gone from the editor", !/showExitDialog|handleSaveAndExit|"unsaved"/.test(editor) && /\{confirmSheet\}/.test(editor))
 check("no window.confirm left in the editor: a big upload and deleting a file ask in the sheet", !/\bconfirm\(`/.test(editor) && /title: "Upload this much\?"/.test(editor) && /title: "Delete this file\?"/.test(editor))
 
-console.log("\nHold to drag the questions (app/app/products/new/faq-list.tsx)")
+console.log("\nHold to drag: one set of sensors (app/app/products/new/hold-to-drag.ts)")
+
+const hold = code("app/app/products/new/hold-to-drag.ts")
+check("a mouse and a held finger, not PointerSensor, which took every touch after 12px with no hold",
+  /useSensor\(MouseSensor, \{ activationConstraint: \{ distance: MOUSE_DISTANCE_PX \} \}\)/.test(hold) && /useSensor\(TouchSensor, \{ activationConstraint: \{ delay: HOLD_MS, tolerance: HOLD_TOLERANCE_PX \} \}\)/.test(hold) && !/PointerSensor/.test(hold))
+check("the hold is 300ms within 8px", /export const HOLD_MS = 300/.test(hold) && /export const HOLD_TOLERANCE_PX = 8/.test(hold))
+check("and the keyboard", /useSensor\(KeyboardSensor, \{ coordinateGetter: sortableKeyboardCoordinates \}\)/.test(hold))
+check("a handle lets a swipe scroll the page (touch-action: manipulation), and a hold opens no callout", /HANDLE_TOUCH = "cursor-grab select-none touch-manipulation \[-webkit-touch-callout:none\]/.test(hold))
+check("a tick when a finger lifts, through the app's haptic", /hapticTap\("soft"\)/.test(hold) && /event instanceof TouchEvent/.test(hold))
+check("the pane scrolls near its edges, gently", /AUTO_SCROLL = \{ threshold: \{ x: 0, y: 0\.15 \}, acceleration: 6 \}/.test(hold))
+
+console.log("\nThe questions (app/app/products/new/faq-list.tsx)")
 
 const faq = code("app/app/products/new/faq-list.tsx")
-check("a mouse and a held finger, not PointerSensor, which took every touch after 12px with no hold",
-  /useSensor\(MouseSensor, \{ activationConstraint: \{ distance: MOUSE_DISTANCE_PX \} \}\)/.test(faq) && /useSensor\(TouchSensor, \{ activationConstraint: \{ delay: HOLD_MS, tolerance: HOLD_TOLERANCE_PX \} \}\)/.test(faq) && !/PointerSensor/.test(faq))
-check("the hold is 300ms within 8px", /export const HOLD_MS = 300/.test(faq) && /export const HOLD_TOLERANCE_PX = 8/.test(faq))
-check("the handle lets a swipe scroll the page (touch-action: manipulation, not none)", /touch-manipulation/.test(faq) && !/touch-none/.test(faq))
-check("the keyboard moves a question too, in words", /useSensor\(KeyboardSensor, \{ coordinateGetter: sortableKeyboardCoordinates \}\)/.test(faq) && /onDragStart: \(\{ active \}\) => `Picked up question/.test(faq))
+check("they use the shared sensors, handle and autoscroll", /const sensors = useHoldToDragSensors\(\)/.test(faq) && /HANDLE_TOUCH,/.test(faq) && /autoScroll=\{AUTO_SCROLL\}/.test(faq) && !/PointerSensor|touch-none/.test(faq))
+check("the keyboard moves a question too, in words", /onDragStart: \(\{ active \}\) => `Picked up question/.test(faq))
 check("the held card follows the finger with no transition of its own; it lifts on an inner layer", /transition: isDragging \? undefined : transition/.test(faq) && /scale-\[1\.02\]/.test(faq) && /transition-\[scale,box-shadow,border-color\]/.test(faq))
-check("a tick when a finger lifts it, through the app's haptic", /hapticTap\("soft"\)/.test(faq) && /event instanceof TouchEvent/.test(faq))
 check("only a drop commits; a cancel changes nothing", /onDragCancel=\{\(\) => setActiveId\(null\)\}/.test(faq) && /arrayMove\(prev, from, to\)/.test(faq))
 check("the editor draws the list from the form's own faqs", /<FaqList faqs=\{faqs\} onChange=\{setFaqs\} \/>/.test(editor) && !/SortableFAQItem|faqSensors/.test(editor))
+
+console.log("\nThe photos and videos (app/app/products/new/media-grid.tsx)")
+
+const media = code("app/app/products/new/media-grid.tsx")
+check("the same sensors, handle and autoscroll as the questions", /const sensors = useHoldToDragSensors\(\)/.test(media) && /HANDLE_TOUCH,/.test(media) && /autoScroll=\{AUTO_SCROLL\}/.test(media) && !/PointerSensor|touch-none/.test(media))
+check("the held tile stays in the grid and follows by transform, both ways, with no transition of its own",
+  /translate3d\(\$\{Math\.round\(transform\.x\)\}px, \$\{Math\.round\(transform\.y\)\}px, 0\)/.test(media) && /transition: isDragging \? undefined : transition/.test(media) && !/DragOverlay|opacity: isDragging \? 0/.test(media))
+check("it lifts on an inner layer: 3% and a shadow", /scale-\[1\.03\]/.test(media) && /transition-\[scale,box-shadow,border-color\]/.test(media))
+check("a named group, so the touch rule that strips transforms inside .group leaves the lift alone", /group\/tile/.test(media) && !/["\s]group["\s]/.test(media))
+check("the remove button is its own button above the handle; the labels take no taps", /data-media-remove=""/.test(media) && /onRemove\(item\.id\)/.test(media) && (media.match(/pointer-events-none absolute/g) ?? []).length >= 3)
+check("positions are read out, and position 1 is named the thumbnail", /`Picked up \$\{name\(active\.id\)\.toLowerCase\(\)\} of \$\{count\}\.`/.test(media) && /n === 1 \? ", the thumbnail" : ""/.test(media))
+check("only a drop commits; a cancel changes nothing", /onDragCancel=\{\(\) => setActiveId\(null\)\}/.test(media) && /arrayMove\(prev, from, to\)/.test(media))
+check("the editor draws the grid from the form's own media; the old sensors, overlay and dead touch handlers are gone",
+  /<MediaGrid items=\{mediaItems\} onChange=\{setMediaItems\} onRemove=\{removeMedia\} \/>/.test(editor) && !/SortableMediaItem|mediaSensors|activeDragItem|<DragOverlay|handleTouchStart|touchDragIndex|longPressTimerRef/.test(editor))
+
+console.log("\nThe editor's page")
+
 check("first on the screen, as a layer over the app's header, it starts below the status bar", /\[\[data-page-layer\]_&\]:pt-\[env\(safe-area-inset-top\)\]/.test(barSource) && /\[\[data-page-layer\]_&\]:pb-\[calc\(32px\+env\(safe-area-inset-bottom\)\)\]/.test(editor))
 check("the editor scrolls as a page-scroll pane, so the pill's room is the shared 104px and nothing else", /className="page-scroll h-full overflow-y-auto/.test(editor) && !/pb-24 sm:pb-8/.test(editor))
 check("prices bring up the decimal keypad", (editor.match(/inputMode="decimal"/g) ?? []).length >= 4)

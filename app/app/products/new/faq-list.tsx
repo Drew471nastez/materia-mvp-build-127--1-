@@ -8,32 +8,18 @@
  * by holding the handle and moving it; nothing else on the card starts a
  * drag, so the fields are typed into as usual.
  *
- * HOW A FINGER MOVES ONE. It was PointerSensor and TouchSensor together.
- * A finger raises pointer events as well as touch events, so the pointer
- * sensor took every touch on the handle and started a drag after 12px of
- * movement, long before the 380ms hold the touch sensor waited for: there
- * was no hold at all. And the handle was `touch-action: none`, so a swipe
- * that began on it could not scroll the page. Now:
- *
- *   A mouse (MouseSensor) drags after 4px, on a computer.
- *   A finger (TouchSensor) drags after HOLD_MS held within HOLD_TOLERANCE_PX.
- *     Moving further before then is a scroll: the handle is
- *     `touch-action: manipulation`, so the browser scrolls the page as it
- *     would anywhere else, and the sensor lets go. Once the hold has fired,
- *     the sensor cancels every touchmove, so the page stays where it is and
- *     the card follows the finger instead.
- *   A keyboard (KeyboardSensor) lifts with Space or Enter on the handle,
- *     moves with the arrow keys and drops with Space or Enter; Escape puts
- *     it back. What happens is read out in words, not ids.
+ * HOW A FINGER MOVES ONE is ./hold-to-drag.ts, shared with the media grid:
+ * a mouse after 4px, a finger after a 300ms hold (a swipe before then
+ * scrolls the page), the keyboard with Space, the arrows and Space. It was
+ * PointerSensor, which took every touch after 12px with no hold, and a
+ * `touch-action: none` handle that could not be swiped to scroll. What
+ * happens is read out in words, not ids.
  *
  * THE CARD UNDER THE FINGER moves by transform only, one to one with it: no
  * transition on its own transform while it is held (a `transition-all` on
  * the card used to make it trail the finger). It lifts on an inner layer,
  * a 2% scale and a soft shadow, so the lift can ease in without the card
  * lagging. The others slide out of its way on dnd-kit's 200ms transition.
- *
- * Near the top or bottom edge of the editor's scrolling pane the pane
- * scrolls by itself (dnd-kit's autoScroll, from the pane it finds).
  *
  * A touchcancel (a call coming in, the system taking the gesture), Escape,
  * or losing the page ends it as a cancel: the order is what it was before
@@ -44,49 +30,23 @@
 import * as React from "react"
 import {
   DndContext,
-  KeyboardSensor,
-  MouseSensor,
-  TouchSensor,
   closestCenter,
-  useSensor,
-  useSensors,
   type Announcements,
   type DragEndEvent,
   type DragStartEvent,
   type Modifier,
   type UniqueIdentifier,
 } from "@dnd-kit/core"
-import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable"
+import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import { GripVertical, Trash2 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { hapticTap } from "@/lib/native-bridge"
 import { cn } from "@/lib/utils"
 import type { FAQItem } from "./editor-form"
-
-/** How long a finger holds the handle before the card lifts. */
-export const HOLD_MS = 300
-/** How far it may wander in that time and still be a hold rather than a scroll. */
-export const HOLD_TOLERANCE_PX = 8
-/** From a computer, a press that moves this far is a drag, and less is a click. */
-export const MOUSE_DISTANCE_PX = 4
+import { AUTO_SCROLL, HANDLE_TOUCH, liftTick, useHoldToDragSensors } from "./hold-to-drag"
 
 /** Up and down only: a question never goes sideways. */
 const vertical: Modifier = ({ transform }) => ({ ...transform, x: 0 })
-
-/**
- * A short tick when a finger lifts the card: the app's own haptic
- * (lib/native-bridge), the Taptic Engine inside the iOS app and `vibrate`
- * where a browser has it. A mouse or a key gets none.
- */
-function tick(event: Event) {
-  if (typeof TouchEvent === "undefined" || !(event instanceof TouchEvent)) return
-  try {
-    hapticTap("soft")
-  } catch {
-    /* A browser that refuses it (no user activation yet) says nothing. */
-  }
-}
 
 export function FaqList({
   faqs,
@@ -95,11 +55,7 @@ export function FaqList({
   faqs: FAQItem[]
   onChange: (update: (prev: FAQItem[]) => FAQItem[]) => void
 }) {
-  const sensors = useSensors(
-    useSensor(MouseSensor, { activationConstraint: { distance: MOUSE_DISTANCE_PX } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: HOLD_MS, tolerance: HOLD_TOLERANCE_PX } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
-  )
+  const sensors = useHoldToDragSensors()
 
   const [activeId, setActiveId] = React.useState<UniqueIdentifier | null>(null)
 
@@ -119,7 +75,7 @@ export function FaqList({
 
   const onDragStart = (e: DragStartEvent) => {
     setActiveId(e.active.id)
-    tick(e.activatorEvent)
+    liftTick(e.activatorEvent)
   }
   const onDragEnd = ({ active, over }: DragEndEvent) => {
     setActiveId(null)
@@ -136,7 +92,7 @@ export function FaqList({
       sensors={sensors}
       collisionDetection={closestCenter}
       modifiers={[vertical]}
-      autoScroll={{ threshold: { x: 0, y: 0.15 }, acceleration: 6 }}
+      autoScroll={AUTO_SCROLL}
       accessibility={{
         announcements,
         screenReaderInstructions: {
@@ -211,7 +167,7 @@ function FaqCard({
             aria-label={`Move question ${position}`}
             className={cn(
               "flex h-11 min-w-0 flex-1 items-center gap-2 pl-3 pr-2 text-left outline-none sm:h-10",
-              "cursor-grab select-none touch-manipulation [-webkit-touch-callout:none] [-webkit-tap-highlight-color:transparent] active:cursor-grabbing",
+              HANDLE_TOUCH,
               "focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#8b5cf6]",
             )}
           >
