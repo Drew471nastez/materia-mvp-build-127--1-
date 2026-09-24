@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, type CSSProperties } from "react"
 import { cn } from "@/lib/utils"
 import { openCookiePreferences } from "@/lib/consent/client"
 import { isNativeApp } from "@/lib/platform-utils"
@@ -21,26 +21,49 @@ interface SellerFooterProps {
    *
    * It was `bg-white` with grey links, whatever the creator's page was doing,
    * so a page on a dark scheme ended in a white band with "Powered by
-   * Storelib" in it — the one surface on the page that had not heard about
-   * the scheme, sitting at the bottom where it is the last thing anybody
-   * sees. The colours come from the scheme now; the classes remain as the
-   * fallback for the builder canvas and the product pages, which render this
-   * without a surface.
+   * Storelib" in it. The colours come from the scheme now; the classes remain
+   * as the fallback for the builder canvas and the product pages, which
+   * render this without a surface.
    */
   surface?: SellerFooterSurface
 }
 
 /**
- * SellerFooter - Footer component for seller storefronts
+ * How the footer is laid out. `stack` is the phone: "Powered by" centred on
+ * top and the links centred under it. `row` is the desktop: "Powered by" on
+ * the left and the links on the right. `responsive` is the live page, which
+ * is `stack` below the `sm` breakpoint and `row` from it.
  *
- * Modes:
- * - isMobile=true: Mobile preview in editor (375px canvas on desktop)
- * - isMobile=false: Desktop preview in editor
- * - isMobile=undefined: Live pages (uses CSS responsive breakpoints)
- *
- * IMPORTANT: When editing from a real mobile device, the footer will show
- * the mobile layout regardless of the preview toggle state (uses CSS breakpoints).
+ * isMobile=true is the editor's phone preview, isMobile=false its desktop
+ * preview (still the phone layout on a real phone, where the row does not
+ * fit), and no isMobile is a live page.
  */
+type Layout = "stack" | "row" | "responsive"
+
+/**
+ * ===========================================================================
+ *  THE LINKS ARE ONE GROUP
+ * ===========================================================================
+ * "Cookie preferences" used to be a second block under the footer's row,
+ * centred on its own line in its own size, so on a desktop the footer read as
+ * a bar with a stray link hanging under the middle of it. It is the third
+ * link of the same group now: same size, same colour, same gap, on the same
+ * line as Privacy Policy and Terms & Conditions. On a phone the three wrap
+ * together, centred, under "Powered by".
+ *
+ * The classes live here once, so the three cannot drift apart again.
+ */
+const LINK_TYPE: Record<Layout, string> = {
+  stack: "text-[12px] leading-5",
+  row: "text-sm leading-5",
+  responsive: "text-[12px] leading-5 sm:text-sm",
+}
+const LINKS_ROW: Record<Layout, string> = {
+  stack: "flex w-full flex-wrap items-baseline justify-center gap-x-4 gap-y-1",
+  row: "flex flex-wrap items-baseline justify-end gap-x-6 gap-y-1",
+  responsive: "flex w-full flex-wrap items-baseline justify-center gap-x-4 gap-y-1 sm:w-auto sm:justify-end sm:gap-x-6",
+}
+
 export function SellerFooter({ isMobile, surface }: SellerFooterProps = {}) {
   /**
    * An inline colour only when there is one, so an unthemed footer keeps
@@ -59,137 +82,79 @@ export function SellerFooter({ isMobile, surface }: SellerFooterProps = {}) {
     }
   }
 
-  // Determine layout mode
-  const useMobileLayout = isMobile === true
-  const useDesktopLayout = isMobile === false
-  const useResponsiveLayout = isMobile === undefined
-
-  // Mobile layout content - "Powered by" + Storelib centered at top, links below with separator
-  const MobileContent = () => (
-    <>
-      {/* Powered by centered at top */}
-      <div className="flex items-center justify-center gap-1.5 w-full">
-        <span className="text-[11px] text-gray-400 whitespace-nowrap" style={muted}>Powered by</span>
-        <a
-          href={storelibHref}
-          onClick={handleStorelibClick}
-          className="inline-flex items-center gap-1 shrink-0"
-          aria-label="Explore Storelib"
+  /* Render functions rather than components declared in here, so a re-render
+     does not unmount and remount the footer's contents. */
+  const poweredBy = (layout: Layout) => (
+    <div
+      className={cn(
+        "flex items-center gap-1.5",
+        layout === "stack" && "w-full justify-center",
+        layout === "responsive" && "w-full justify-center sm:w-auto sm:justify-start",
+      )}
+    >
+      <span
+        className={cn(
+          "whitespace-nowrap",
+          layout === "stack" && "text-[12px] text-gray-400",
+          layout === "row" && "text-sm text-gray-500",
+          layout === "responsive" && "text-[12px] text-gray-400 sm:text-sm sm:text-gray-500",
+        )}
+        style={muted}
+      >
+        Powered by
+      </span>
+      <a
+        href={storelibHref}
+        onClick={handleStorelibClick}
+        className={cn("inline-flex shrink-0 items-center", layout === "row" ? "gap-1.5" : "gap-1 sm:gap-1.5")}
+        aria-label="Explore Storelib"
+      >
+        <img
+          src={STORELIB_LOGO}
+          alt="Storelib"
+          className={cn(
+            "w-auto rounded-[4px]",
+            layout === "stack" && "h-[15px]",
+            layout === "row" && "h-[18px]",
+            layout === "responsive" && "h-[15px] sm:h-[18px]",
+          )}
+        />
+        <span
+          className={cn(
+            "font-semibold leading-none tracking-tight text-gray-700",
+            layout === "stack" && "text-[12px]",
+            layout === "row" && "text-sm",
+            layout === "responsive" && "text-[12px] sm:text-sm",
+          )}
+          style={text}
         >
-          <img
-            src={STORELIB_LOGO}
-            alt="Storelib"
-            className="h-[15px] w-auto rounded-[4px]"
-          />
-          <span className="text-[12px] font-semibold text-gray-700 tracking-tight leading-none" style={text}>Storelib</span>
-        </a>
-      </div>
-      {/* Privacy and Terms centered below with separator */}
-      <div className="flex items-center justify-center gap-2.5 w-full">
-        <a
-          href="/privacy"
-          className="text-[11px] text-gray-500 hover:text-gray-700 transition-colors whitespace-nowrap"
-          style={muted}
-        >
-          Privacy Policy
-        </a>
-        <span className="text-[11px] text-gray-300" style={muted ? { color: surface?.borderColor || surface?.mutedColor } : undefined}>|</span>
-        <a
-          href="/terms"
-          className="text-[11px] text-gray-500 hover:text-gray-700 transition-colors whitespace-nowrap"
-          style={muted}
-        >
-          Terms & Conditions
-        </a>
-      </div>
-    </>
+          Storelib
+        </span>
+      </a>
+    </div>
   )
 
-  // Desktop layout content - Row with space-between
-  const DesktopContent = () => (
-    <>
-      {/* Powered by on left */}
-      <div className="flex items-center gap-1.5">
-        <span className="text-sm text-gray-500 whitespace-nowrap" style={muted}>Powered by</span>
-        <a
-          href={storelibHref}
-          onClick={handleStorelibClick}
-          className="inline-flex items-center gap-1.5 shrink-0"
-          aria-label="Explore Storelib"
-        >
-          <img
-            src={STORELIB_LOGO}
-            alt="Storelib"
-            className="h-[18px] w-auto rounded-[4px]"
-          />
-          <span className="text-sm font-semibold text-gray-700 tracking-tight leading-none" style={text}>Storelib</span>
-        </a>
-      </div>
-      {/* Links on right */}
-      <div className="flex items-center gap-6">
-        <a
-          href="/privacy"
-          className="text-sm text-gray-500 hover:text-gray-700 transition-colors whitespace-nowrap"
-          style={muted}
-        >
+  const links = (layout: Layout) => {
+    const link = cn(LINK_TYPE[layout], "whitespace-nowrap text-gray-500 transition-colors hover:text-gray-700")
+    return (
+      <nav aria-label="Legal" className={LINKS_ROW[layout]} data-footer-links>
+        <a href="/privacy" className={link} style={muted}>
           Privacy Policy
         </a>
-        <a
-          href="/terms"
-          className="text-sm text-gray-500 hover:text-gray-700 transition-colors whitespace-nowrap"
-          style={muted}
-        >
+        <a href="/terms" className={link} style={muted}>
           Terms & Conditions
         </a>
-      </div>
-    </>
-  )
+        {/* How a visitor changes their cookie choice later: as easy as making it. */}
+        <CookiePreferencesLink className={link} style={muted} />
+      </nav>
+    )
+  }
 
-  // Responsive content - uses CSS breakpoints for actual viewport size
-  const ResponsiveContent = () => (
-    <>
-      {/* Powered by - top on mobile, left on desktop */}
-      <div className={cn(
-        "flex items-center justify-center gap-1.5 w-full",
-        "sm:w-auto sm:justify-start"
-      )}>
-        <span className="text-[11px] sm:text-sm text-gray-400 sm:text-gray-500 whitespace-nowrap" style={muted}>Powered by</span>
-        <a
-          href={storelibHref}
-          onClick={handleStorelibClick}
-          className="inline-flex items-center gap-1 sm:gap-1.5 shrink-0"
-          aria-label="Explore Storelib"
-        >
-          <img
-            src={STORELIB_LOGO}
-            alt="Storelib"
-            className="h-[15px] sm:h-[18px] w-auto rounded-[4px]"
-          />
-          <span className="text-[12px] sm:text-sm font-semibold text-gray-700 tracking-tight leading-none" style={text}>Storelib</span>
-        </a>
-      </div>
-      {/* Links - bottom on mobile (centered with separator), right on desktop */}
-      <div className={cn(
-        "flex items-center justify-center gap-2.5 w-full",
-        "sm:w-auto sm:justify-end sm:gap-6"
-      )}>
-        <a
-          href="/privacy"
-          className="text-[11px] sm:text-sm text-gray-500 hover:text-gray-700 transition-colors whitespace-nowrap"
-          style={muted}
-        >
-          Privacy Policy
-        </a>
-        <span className="text-[11px] text-gray-300 sm:hidden" style={muted ? { color: surface?.borderColor || surface?.mutedColor } : undefined}>|</span>
-        <a
-          href="/terms"
-          className="text-[11px] sm:text-sm text-gray-500 hover:text-gray-700 transition-colors whitespace-nowrap"
-          style={muted}
-        >
-          Terms & Conditions
-        </a>
-      </div>
-    </>
+  const stack = (
+    <div className="mx-auto flex w-full max-w-6xl flex-col items-center justify-center gap-3 px-4 py-5">
+      {poweredBy("stack")}
+      {links("stack")}
+    </div>
   )
 
   return (
@@ -202,70 +167,53 @@ export function SellerFooter({ isMobile, surface }: SellerFooterProps = {}) {
           : undefined
       }
     >
-      {useMobileLayout ? (
-        // Mobile preview toggle in editor (375px canvas on desktop)
-        // But if actual viewport is small (real phone editing), show mobile layout via CSS
+      {isMobile === true ? (
+        stack
+      ) : isMobile === false ? (
         <>
-          {/* On actual small screens (real phone), show mobile layout */}
-          <div className="block sm:hidden">
-            <div className="flex flex-col items-center justify-center gap-3 py-5 px-4 w-full max-w-6xl mx-auto">
-              <MobileContent />
-            </div>
-          </div>
-          {/* On actual large screens (desktop with mobile preview toggle), show mobile layout */}
+          <div className="block sm:hidden">{stack}</div>
           <div className="hidden sm:block">
-            <div className="flex flex-col items-center justify-center gap-3 py-5 px-4 w-full max-w-6xl mx-auto">
-              <MobileContent />
-            </div>
-          </div>
-        </>
-      ) : useDesktopLayout ? (
-        // Desktop preview toggle in editor
-        // But if actual viewport is small (real phone editing desktop view), show mobile layout via CSS
-        <>
-          {/* On actual small screens (real phone editing), ALWAYS show mobile layout for proper fit */}
-          <div className="block sm:hidden">
-            <div className="flex flex-col items-center justify-center gap-3 py-5 px-4 w-full max-w-6xl mx-auto">
-              <MobileContent />
-            </div>
-          </div>
-          {/* On actual large screens (desktop with desktop preview), show desktop layout */}
-          <div className="hidden sm:block">
-            <div className="flex flex-row items-center justify-between py-4 px-6 w-full max-w-6xl mx-auto">
-              <DesktopContent />
+            <div className="mx-auto flex w-full max-w-6xl flex-row items-center justify-between gap-6 px-6 py-4">
+              {poweredBy("row")}
+              {links("row")}
             </div>
           </div>
         </>
       ) : (
-        // Responsive layout for live pages - uses actual viewport breakpoints
-        <div className={cn(
-          "flex items-center w-full max-w-6xl mx-auto",
-          "flex-col gap-3 py-5 px-4 sm:flex-row sm:justify-between sm:py-4 sm:px-6"
-        )}>
-          <ResponsiveContent />
+        <div className="mx-auto flex w-full max-w-6xl flex-col items-center gap-3 px-4 py-5 sm:flex-row sm:justify-between sm:gap-6 sm:px-6 sm:py-4">
+          {poweredBy("responsive")}
+          {links("responsive")}
         </div>
       )}
-      {/* How a visitor changes their cookie choice later: as easy as making it. */}
-      <CookiePreferencesLink color={surface?.mutedColor} />
     </footer>
   )
 }
 
-function CookiePreferencesLink({ color }: { color?: string }) {
-  /* The app has no banner, so nothing to reopen there. */
-  const [show, setShow] = useState(false)
-  useEffect(() => setShow(!isNativeApp()), [])
-  if (!show) return null
+/**
+ * A button, because it opens a dialog rather than going anywhere, drawn with
+ * exactly the classes of the links beside it. The preflight already gives a
+ * button the page's font; `p-0`, `border-0` and `bg-transparent` say so again
+ * for a stylesheet that does not, so it sits on the same baseline at the same
+ * size.
+ *
+ * NOT IN THE APP. The app has no banner, so there is nothing to reopen.
+ * `html.capacitor` is set before the first paint, so the CSS rule hides it
+ * there without the row moving; the effect covers the Android webview the
+ * class does not catch.
+ */
+function CookiePreferencesLink({ className, style }: { className: string; style?: CSSProperties }) {
+  const [native, setNative] = useState(false)
+  useEffect(() => setNative(isNativeApp()), [])
+  if (native) return null
   return (
-    <div className="pb-4 text-center">
-      <button
-        type="button"
-        onClick={() => openCookiePreferences()}
-        className="text-[12px] text-gray-500 underline-offset-2 hover:underline"
-        style={color ? { color } : undefined}
-      >
-        Cookie preferences
-      </button>
-    </div>
+    <button
+      type="button"
+      onClick={() => openCookiePreferences()}
+      className={cn(className, "cursor-pointer border-0 bg-transparent p-0 text-left in-[.capacitor]:hidden")}
+      style={style}
+      data-cookie-preferences
+    >
+      Cookie preferences
+    </button>
   )
 }

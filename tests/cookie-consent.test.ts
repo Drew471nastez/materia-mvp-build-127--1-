@@ -113,6 +113,24 @@ function main() {
   ]) {
     check(`the choice can be changed from ${where}`, /openCookiePreferences\(\)/.test(read(file)))
   }
+  /*
+    AND THE LINK SITS WITH THE OTHER LINKS. On a creator page it was a block
+    of its own under the footer's row, centred on nothing, in its own size.
+    Measured in a browser by scripts/check-footers.mjs; these keep the markup
+    that the measurement depends on.
+  */
+  const seller = read("components/storefront/seller-footer.tsx")
+  check("a creator page footer draws Cookie preferences inside the links group, with the links' own classes",
+    /<nav aria-label="Legal" className=\{LINKS_ROW\[layout\]\} data-footer-links>[\s\S]*?href="\/privacy" className=\{link\}[\s\S]*?href="\/terms" className=\{link\}[\s\S]*?<CookiePreferencesLink className=\{link\}[\s\S]*?<\/nav>/.test(seller))
+  check("and nowhere else: no second line under the footer's row",
+    (seller.match(/<CookiePreferencesLink/g) ?? []).length === 1 && !/pb-4 text-center/.test(seller))
+  check("on a phone the group wraps centred",
+    /stack: "flex w-full flex-wrap items-baseline justify-center/.test(seller) && /responsive: "flex w-full flex-wrap items-baseline justify-center[^"]*sm:justify-end/.test(seller))
+  const siteFooter = read("components/website-builder/sections/renderers/FooterSection.tsx")
+  check("a built site's footer puts it on the copyright's line as an equal, not a fainter afterthought",
+    /className="mt-8 flex flex-wrap items-baseline justify-between[^"]*"[\s\S]{0,200}data-footer-bottom[\s\S]*?<span>\{str\(s\.copyright[\s\S]*?Cookie preferences/.test(siteFooter) && !/ml-3 underline-offset-2 opacity-80/.test(siteFooter))
+  check("storelib.com's footer draws it with the Support links' class",
+    /className=\{`\$\{linkClass\} cursor-pointer p-0`\} data-cookie-preferences/.test(read("components/marketing/footer.tsx")))
   check("the privacy policy lists every cookie from the same list, and can change the choice",
     /<CookieTable \/>/.test(read("app/privacy/page.tsx")) && /STORED\.filter/.test(read("components/legal/cookie-table.tsx")) && /id="cookies"/.test(read("app/privacy/page.tsx")))
 
