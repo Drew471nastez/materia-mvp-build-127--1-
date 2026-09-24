@@ -89,7 +89,9 @@ check("/app/products/<id> draws the editor with the product, not a redirect", /l
 const loader = code("app/app/products/load-editor.ts")
 check("the server reads the five things together", /Promise\.all\(\[/.test(loader) && /product_variants/.test(loader) && /digital_assets/.test(loader) && /profiles/.test(loader))
 check("and only hands over a product that is the creator's", /product\.creator_id !== creator\.id/.test(loader))
-check("opening a product has the editor's own loading outline", existsSync("app/app/products/[id]/loading.tsx") && /EditorSkeleton/.test(read("app/app/products/[id]/loading.tsx")))
+/* No loading.tsx under /app: the shell draws an outline, by address, only after a second (components/app/route-skeletons.tsx). */
+check("opening a product has the editor's own loading outline, drawn by the shell and not a loading boundary",
+  !existsSync("app/app/products/[id]/loading.tsx") && /if \(path\.startsWith\("\/app\/products\/"\)\) return <EditorSkeleton editing \/>/.test(read("components/app/route-skeletons.tsx")))
 check("a save drops the router's kept pages", /router\.refresh\(\)/.test(editor))
 
 console.log("\nOne bar, at the top")

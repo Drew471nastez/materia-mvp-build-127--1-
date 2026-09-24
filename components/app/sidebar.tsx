@@ -706,14 +706,16 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [])
 
-  // Check if we should show setup widget (hide on store-builder, onepage, and new product page)
+  // The setup widget stays off the editors: store-builder, onepage, and the
+  // product editor, whether it is a new product or /app/products/<id>.
+  const inProductEditor = /^\/app\/products\/[^/]+/.test(pathname)
   const showSetupWidget = setupProgress &&
     setupProgress.completed < setupProgress.total &&
     !pathname.startsWith("/creator-page") &&
     !pathname.startsWith("/app/creator-page") &&
     !pathname.startsWith("/store-builder") &&
     !pathname.startsWith("/app/onepage") &&
-    !pathname.startsWith("/app/products/new")
+    !inProductEditor
 
   const setupProgressPercent = setupProgress ? Math.round((setupProgress.completed / setupProgress.total) * 100) : 0
 

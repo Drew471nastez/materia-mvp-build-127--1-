@@ -3,6 +3,9 @@
 import AppDashboardLoading from "@/app/app/dashboard-skeleton"
 import AnalyticsLoading from "@/app/app/analytics/skeleton"
 import CouponsLoading from "@/app/app/coupons/skeleton"
+import ProductsLoading from "@/app/app/products/skeleton"
+import { EditorSkeleton } from "@/app/app/products/new/editor-skeleton"
+import FlowLoading from "@/app/app/emails/flow/flow-skeleton"
 import CreateCouponLoading from "@/app/app/coupons/new/skeleton"
 import OrdersLoading from "@/app/app/orders/sales/skeleton"
 import PayoutsLoading from "@/app/app/payouts/skeleton"
@@ -24,7 +27,8 @@ import WebsiteBuilderLoading from "@/app/app/website-builder/skeleton"
  * (components/app/app-stage.tsx). Same shapes at the same sizes as before, so
  * the real page still lands where its outline was.
  *
- * Products keeps its own loading.tsx, which is looked after with that page.
+ * No route under /app has a loading.tsx any more, Products and the flow
+ * builder included: every outline is picked here, by address.
  */
 export function RouteSkeleton({ href }: { href: string }) {
   const url = new URL(href, "https://storelib.invalid")
@@ -33,7 +37,11 @@ export function RouteSkeleton({ href }: { href: string }) {
   if (path === "/app/orders" || path === "/app/orders/sales") return <OrdersLoading order={url.searchParams.get("order")} />
   if (path.startsWith("/app/orders/")) return <OrdersLoading order="pending" />
   if (path.startsWith("/app/analytics")) return <AnalyticsLoading />
-  if (path === "/app/coupons/new") return <CreateCouponLoading />
+  if (path === "/app/products") return <ProductsLoading />
+  if (path === "/app/products/new") return <EditorSkeleton editing={false} />
+  if (path.startsWith("/app/products/")) return <EditorSkeleton editing />
+  if (path.startsWith("/app/emails/flow/") && path !== "/app/emails/flow/new") return <FlowLoading />
+  if (path === "/app/coupons/new" || /^\/app\/coupons\/[^/]+$/.test(path)) return <CreateCouponLoading />
   if (path.startsWith("/app/coupons")) return <CouponsLoading />
   if (path.startsWith("/app/payouts")) return <PayoutsLoading />
   if (path === "/app/settings" || path === "/app/settings/payments") return <SettingsLoading />
