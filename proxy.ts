@@ -762,7 +762,14 @@ export async function proxy(request: NextRequest) {
       }
 
       const looksLikeFile = /\.[a-z0-9]{1,8}$/i.test(pathname)
-      const isWebsite = !looksLikeFile && !(await hasLiveAiSite(subdomain))
+      /**
+       * A SITE'S OWN robots.txt AND sitemap.xml. They look like files, so
+       * they went to the file handler and answered 404, and a creator's site
+       * had no sitemap at all. The website answers them itself
+       * (app/(site)/w/[username]/robots.txt, sitemap.xml).
+       */
+      const seoFile = pathname === "/robots.txt" || pathname === "/sitemap.xml"
+      const isWebsite = (!looksLikeFile || seoFile) && !(await hasLiveAiSite(subdomain))
 
       /**
        * ═══════════════════════════════════════════════════════════════════
@@ -992,6 +999,25 @@ export async function proxy(request: NextRequest) {
       fallbackUrl.search = search
       return NextResponse.redirect(fallbackUrl, { status: 302 })
     }
+  }
+
+  /**
+   * A CONNECTED DOMAIN'S robots.txt AND sitemap.xml are its website's, not
+   * Storelib's. Both are reserved paths below, so a creator's domain handed
+   * out storelib.com's robots file and pointed Google at storelib.com's
+   * sitemap. A domain whose creator has published a website answers them
+   * from that website, the same way its subdomain does.
+   */
+  if (
+    username &&
+    isCustomDomain &&
+    (pathname === "/robots.txt" || pathname === "/sitemap.xml") &&
+    !(await hasLiveAiSite(username)) &&
+    (await hasPublishedWebsite(username))
+  ) {
+    const seoUrl = request.nextUrl.clone()
+    seoUrl.pathname = `/w/${username}${pathname}`
+    return NextResponse.rewrite(seoUrl)
   }
 
   // Handle subdomain or custom domain routing

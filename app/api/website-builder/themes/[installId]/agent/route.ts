@@ -9,11 +9,16 @@
  * point is that the page changes WHILE the model works, so each operation has
  * to reach the browser the moment it is made.
  *
- * NOTHING HERE WRITES TO THE DATABASE. The editor holds unsaved work — a
- * draft, an undo stack, a dirty flag — and an endpoint that wrote sections
- * behind it would diverge from what the person is looking at. It edits the
- * state the browser sent and streams back operations; Save stays the Save
- * button. See lib/website-builder/agent/loop.ts.
+ * THE PAGE IS NOT WRITTEN HERE. The editor holds unsaved work — a draft,
+ * an undo stack, a dirty flag — and an endpoint that wrote sections behind
+ * it would diverge from what the person is looking at. It edits the state
+ * the browser sent and streams back operations; Save stays the Save button.
+ * See lib/website-builder/agent/loop.ts.
+ *
+ * The one thing it does store is a section FILE the assistant rewrote
+ * (`code.write` below), and that is saved the way the code editor saves: as
+ * a draft with a version, never onto the live site, and never a built-in
+ * section (lib/agent-access/protected.ts).
  */
 
 import { type NextRequest, NextResponse } from "next/server"
@@ -22,6 +27,8 @@ import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
 import { sourceMap } from "@/lib/website-builder/theme-file-drafts"
 import { compileSection } from "@/lib/storelib-theme"
+import { agentMayWrite } from "@/lib/agent-access/protected"
+import { saveThemeFile } from "@/lib/website-builder/save-theme-file"
 import { customAddableSections, customSectionSchemas } from "@/lib/website-builder/storelib-schemas"
 // `MissingKeyError` only: the provider itself now comes from the resolver.
 import { MissingKeyError } from "@/lib/sites/agent/openai-provider"
@@ -300,6 +307,10 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
               },
               async write(sectionType: string, source: string): Promise<{ ok: true } | { ok: false; error: string }> {
                 const path = `sections/${sectionType}.storelib`
+                /* The same rule every agent is held to: a section file, and
+                   never one of Storelib's built-in sections. */
+                const allowed = agentMayWrite(path)
+                if (allowed.ok === false) return { ok: false, error: allowed.error }
                 if (!agentSources || !(path in agentSources)) {
                   return { ok: false, error: `There is no ${path} in this theme to replace.` }
                 }
@@ -310,12 +321,18 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
                     .join("\n")
                   return { ok: false, error: `${path} did not compile.\n${lines}` }
                 }
-                const { error } = await supabase
-                  .from("store_theme_custom_files")
-                  .update({ content: source, draft_content: null, updated_at: new Date().toISOString() })
-                  .eq("install_id", installId)
-                  .eq("path", path)
-                if (error) return { ok: false, error: `The file could not be saved: ${error.message}` }
+                /*
+                  SAVED AS A DRAFT, like the code editor's own save. This used
+                  to write `content` and clear the draft, which put the
+                  assistant's rewrite on the LIVE site the moment it was made,
+                  with no version to go back to: the one write in the builder
+                  that skipped Publish.
+                */
+                const saved = await saveThemeFile(supabase, installId, path, source)
+                if (saved.ok === false) {
+                  const first = saved.errors?.[0]
+                  return { ok: false, error: `${path} was not saved: ${first?.message ?? saved.error}` }
+                }
                 // The next turn reads what was just written, not what was there.
                 agentSources[path] = source
                 return { ok: true }

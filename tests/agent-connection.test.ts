@@ -41,7 +41,7 @@ function fakeOps() {
   const ops: BoundOps = {
     siteName: "Astrid Studio",
     agentName: "Claude Code",
-    list: async () => ({ ok: true, value: { framework: { engine: 1, schema: 1 }, docs: "d", writable: "sections/<type>.storelib", files: [{ path: "sections/hero.storelib", origin: "theme", unpublished: false }] } }),
+    list: async () => ({ ok: true, value: { framework: { engine: 1, schema: 1 }, docs: "d", writable: "sections/<type>.storelib", files: [{ path: "sections/hero.storelib", origin: "theme", writable: false, unpublished: false }] } }),
     read: async (path) => {
       calls.push(`read ${path}`)
       return path === "sections/missing.storelib"
@@ -103,7 +103,7 @@ async function main() {
 
   console.log("\nWhat an agent may write")
 
-  for (const ok of ["sections/pricing.storelib", "sections/faq_v2.storelib", "sections/hero-split.storelib"]) {
+  for (const ok of ["sections/price_table.storelib", "sections/faq_v2.storelib", "sections/hero-split.storelib"]) {
     check(`may write ${ok}`, canWrite(ok))
   }
   for (const no of [
@@ -161,7 +161,7 @@ async function main() {
 
   const list = await handleMcp({ jsonrpc: "2.0", id: 6, method: "tools/list" }, fake)
   const names = ((list as { result?: { tools?: { name: string }[] } })?.result?.tools ?? []).map((t) => t.name)
-  check("it offers exactly six tools", JSON.stringify(names) === JSON.stringify(["storelib_guide", "storelib_site", "storelib_list_files", "storelib_read_file", "storelib_compile", "storelib_write_section"]))
+  check("it offers exactly seven tools, the rules first", JSON.stringify(names) === JSON.stringify(["storelib_rules", "storelib_guide", "storelib_site", "storelib_list_files", "storelib_read_file", "storelib_compile", "storelib_write_section"]))
   check("each with a JSON schema that allows nothing extra",
     TOOLS.every((t) => t.inputSchema.type === "object" && t.inputSchema.additionalProperties === false))
   check("and nothing named delete, publish or rename", !names.some((n) => /delete|publish|rename|remove/.test(n)))
@@ -236,9 +236,9 @@ async function main() {
   check("a site holds a bounded number", /MAX_CONNECTIONS = 10/.test(manage))
 
   const panel = read("components/website-builder/agent-connections-panel.tsx")
-  const advanced = read("components/website-builder/website-settings/advanced.tsx")
-  check("Website settings has a Connections page, under Advanced",
-    /id: "advanced", label: "Advanced"/.test(read("components/website-builder/website-settings/types.ts")) &&
+  const advanced = read("components/website-builder/website-settings/connections.tsx")
+  check("Website settings has a Connections page of its own, under Code",
+    /id: "connections", label: "Connections", group: "code"/.test(read("components/website-builder/website-settings/types.ts")) &&
       /<AgentConnectionsPanel installId=\{ctx\.installId\} \/>/.test(advanced))
   check("which starts with one choice: directly, or through GitHub",
     /role="radiogroup" aria-label="How to connect"/.test(advanced) &&

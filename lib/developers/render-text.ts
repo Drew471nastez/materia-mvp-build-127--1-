@@ -77,3 +77,16 @@ export function pageText(slug: string): string {
 export function hubText(): string {
   return DEV_PAGES.map((p) => `<!-- ${SITE_ORIGIN}${devPath(p.slug)} -->\n\n${pageText(p.slug)}`).join("\n\n---\n\n")
 }
+
+/**
+ * What an agent reads before it writes anything: the rules first, then the
+ * rest of the hub. The rules are short and are what gets code refused or a
+ * site broken, so they are not left to be found halfway through.
+ */
+export function agentGuideText(): string {
+  const rest = DEV_PAGES.filter((p) => p.slug !== "rules")
+  return [
+    `<!-- ${SITE_ORIGIN}${devPath("rules")} -->\n\n${pageText("rules")}`,
+    ...rest.map((p) => `<!-- ${SITE_ORIGIN}${devPath(p.slug)} -->\n\n${pageText(p.slug)}`),
+  ].join("\n\n---\n\n")
+}

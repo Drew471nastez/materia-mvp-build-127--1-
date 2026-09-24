@@ -15,6 +15,9 @@
  * WHAT IT CANNOT DO, on purpose:
  *   - write anywhere but `sections/<type>.storelib`. Templates, config and
  *     layout decide what every page is and are the creator's to change;
+ *   - change a built-in section. Those are the library every Storelib site
+ *     stands on; an agent writes its own version as a new section instead
+ *     (./protected.ts);
  *   - delete or rename anything;
  *   - publish. Every write is a draft, exactly as a save in the code editor
  *     is, and nothing reaches a visitor until the creator presses Publish;
@@ -28,17 +31,18 @@ import { editorContent } from "@/lib/website-builder/theme-file-drafts"
 import { safeThemePath, saveThemeFile } from "@/lib/website-builder/save-theme-file"
 import { DEFAULT_THEME_SOURCES } from "../../themes/default/sources.generated"
 import type { AgentIdentity } from "./tokens"
+import { AGENT_WRITABLE, agentMayWrite } from "./protected"
 
 type Db = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 
 export const DOCS_URL = "https://storelib.com/developers/ai"
 export const FULL_TEXT_URL = "https://storelib.com/llms-full.txt"
 
-/** The one kind of file an agent may write. */
-export const WRITABLE = /^sections\/[a-z0-9_-]{1,64}\.storelib$/
+/** The shape of a section file. Which ones an agent may write is ./protected.ts. */
+export const WRITABLE = AGENT_WRITABLE
 
 export function canWrite(path: string): boolean {
-  return safeThemePath(path) && WRITABLE.test(path)
+  return agentMayWrite(path).ok
 }
 
 export type OpResult<T> = { ok: true; value: T } | { ok: false; status: number; error: string; errors?: ThemeError[] }
@@ -47,6 +51,8 @@ export interface FileEntry {
   path: string
   /** "yours" when the creator (or an agent) saved it; "theme" when it is the shipped file. */
   origin: "yours" | "theme"
+  /** Whether an agent may write it. Built-in sections are read-only to agents. */
+  writable: boolean
   /** Saved and not yet published. */
   unpublished: boolean
 }
@@ -64,13 +70,14 @@ export async function listFiles(db: Db, installId: string): Promise<OpResult<{
   if (error) return { ok: false, status: 500, error: "Could not read the theme's files" }
 
   const files = new Map<string, FileEntry>()
-  for (const path of Object.keys(DEFAULT_THEME_SOURCES)) files.set(path, { path, origin: "theme", unpublished: false })
+  for (const path of Object.keys(DEFAULT_THEME_SOURCES)) files.set(path, { path, origin: "theme", writable: false, unpublished: false })
   for (const row of (data ?? []) as { path: string; content: string; draft_content?: string | null }[]) {
     const source = editorContent(row)
     if (typeof source !== "string" || source.trim() === "") continue
     files.set(row.path, {
       path: row.path,
       origin: "yours",
+      writable: agentMayWrite(row.path).ok,
       unpublished: typeof row.draft_content === "string" && row.draft_content !== row.content,
     })
   }
@@ -79,7 +86,7 @@ export async function listFiles(db: Db, installId: string): Promise<OpResult<{
     value: {
       framework: { engine: ENGINE_VERSION, schema: SECTION_SCHEMA_VERSION },
       docs: DOCS_URL,
-      writable: "sections/<type>.storelib",
+      writable: "sections/<type>.storelib, except the built-in sections (writable: false); write a new section instead",
       files: [...files.values()].sort((a, b) => a.path.localeCompare(b.path)),
     },
   }
@@ -147,7 +154,7 @@ export async function sectionSources(db: Db, installId: string, paths?: string[]
 /** Compile without saving: what the code editor's save would say, and nothing stored. */
 export function compileOnly(path: string, source: string): OpResult<{ path: string; warnings: ThemeError[] }> {
   if (!safeThemePath(path) || !path.endsWith(".storelib")) {
-    return { ok: false, status: 400, error: "Compile takes a .storelib path, such as sections/pricing.storelib" }
+    return { ok: false, status: 400, error: "Compile takes a .storelib path, such as sections/price_table.storelib" }
   }
   const r = compileSection(source, { file: path })
   if (r.ok === false) return { ok: false, status: 422, error: `${path} did not compile`, errors: r.errors }
@@ -166,13 +173,8 @@ export async function writeSection(
   source: string,
   baseUpdatedAt?: string,
 ): Promise<OpResult<{ path: string; type: string; created: boolean; drafted: boolean; updated_at: string | null }>> {
-  if (!canWrite(path)) {
-    return {
-      ok: false,
-      status: 403,
-      error: "A connected agent writes section files only: sections/<type>.storelib, lower case, digits, _ and -.",
-    }
-  }
+  const allowed = agentMayWrite(path)
+  if (allowed.ok === false) return { ok: false, status: allowed.status, error: allowed.error }
   const saved = await saveThemeFile(db, who.installId, path, source, { baseUpdatedAt })
   if (saved.ok === false) return { ok: false, status: saved.status, error: publicError(saved.status, saved.error), errors: saved.errors }
 

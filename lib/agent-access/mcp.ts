@@ -30,6 +30,8 @@ export interface BoundOps {
   compile: (path: string, source: string) => OpResult<{ path: string; warnings: ThemeError[] }>
   write: (path: string, source: string, baseUpdatedAt?: string) => Promise<OpResult<{ path: string; type: string; created: boolean; drafted: boolean; updated_at: string | null }>>
   guide: () => string
+  /** The rules every agent follows before shipping code. Optional so older test doubles still bind. */
+  rules?: () => string
   /** What the website is: see ./site-brief.ts. Optional so older test doubles still bind. */
   site?: () => Promise<OpResult<SiteBrief>>
 }
@@ -40,10 +42,16 @@ export type RpcResponse =
   | { jsonrpc: "2.0"; id: string | number | null; result: unknown }
   | { jsonrpc: "2.0"; id: string | number | null; error: { code: number; message: string } }
 
-const PATH = { type: "string", description: 'A theme path, such as "sections/pricing.storelib".' }
+const PATH = { type: "string", description: 'A theme path, such as "sections/price_table.storelib".' }
 const SOURCE = { type: "string", description: "The WHOLE .storelib file: <template>, optional <style> and <script>, and <schema>." }
 
 export const TOOLS = [
+  {
+    name: "storelib_rules",
+    description:
+      "The rules every agent follows on a Storelib site. Read them FIRST, before any other call: what you may change (section files only, never a built-in section), how every link, button and menu is made editable, how to split a screenshot into sections, menus and sheets, motion, phones and iOS, and the checks before you say it is done.",
+    inputSchema: { type: "object", properties: {}, additionalProperties: false },
+  },
   {
     name: "storelib_guide",
     description:
@@ -59,7 +67,7 @@ export const TOOLS = [
   {
     name: "storelib_list_files",
     description:
-      "Every file of this site's theme. origin is \"yours\" for files the creator (or an agent) saved and \"theme\" for the shipped ones. Only sections/<type>.storelib files can be written.",
+      "Every file of this site's theme. origin is \"yours\" for files the creator (or an agent) saved and \"theme\" for the shipped ones. writable says whether you may write it: only sections/<type>.storelib, and never a built-in section. To change a built-in one, write a new section beside it.",
     inputSchema: { type: "object", properties: {}, additionalProperties: false },
   },
   {
@@ -138,8 +146,8 @@ export async function handleMcp(msg: RpcRequest, ops: BoundOps): Promise<RpcResp
         serverInfo: { name: "storelib", title: "Storelib", version: "1.0.0" },
         instructions:
           `Connected to the Storelib site "${ops.siteName}" as "${ops.agentName}". ` +
-          "Call storelib_guide and storelib_site before writing a section. Compile with storelib_compile until it is clean, then save with storelib_write_section. " +
-          "Every save is a draft; the creator publishes.",
+          "Before anything else, call storelib_rules and follow every rule in it. Then storelib_site and storelib_guide before writing a section. Compile with storelib_compile until it is clean, then save with storelib_write_section. " +
+          "You write section files only and never change a built-in section. Every save is a draft; the creator publishes.",
       })
     }
     case "ping":
@@ -150,6 +158,8 @@ export async function handleMcp(msg: RpcRequest, ops: BoundOps): Promise<RpcResp
       const name = str(msg.params, "name")
       const args = (msg.params?.arguments && typeof msg.params.arguments === "object" ? msg.params.arguments : {}) as Json
       switch (name) {
+        case "storelib_rules":
+          return ok(text(ops.rules ? ops.rules() : ops.guide()))
         case "storelib_guide":
           return ok(text(ops.guide()))
         case "storelib_site": {
