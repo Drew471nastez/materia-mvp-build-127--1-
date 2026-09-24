@@ -221,9 +221,11 @@ check(
   /Math\.min\(MAX, Math\.max\(MIN/.test(aspect),
   "a band that has not been laid out would reshape the editor into a sliver",
 )
+/* The frame is components/app/cover-crop-frame now; image-upload hands it the measured shape. */
 check(
   "and the frame uses it",
-  /aspectRatio: String\(reposition\.aspect\)/.test(read("components/app/image-upload.tsx")),
+  /aspect=\{reposition\.aspect \?\? 3\}/.test(read("components/app/image-upload.tsx")) &&
+    /aspectRatio: String\(aspect\)/.test(read("components/app/cover-crop-frame.tsx")),
 )
 
 console.log(`\n${passed} passed, ${failed} failed`)

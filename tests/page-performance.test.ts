@@ -2320,7 +2320,9 @@ check(
 
     if (!/src=\{coverImageUrl\}\s*\n\s*alt=\{`\$\{profile\?\.display_name \|\| "Creator"\} cover`\}\s*\n\s*fill/.test(header))
       missing.push("the cover is not rendered through next/image any more")
-    if (!/sizes="100vw"\s*\n\s*quality=\{PORTRAIT_QUALITY\}\s*\n\s*priority/.test(header))
+    /* `sizes` follows the zoom now (lib/images/cover-crop coverSizes): 100vw at
+       zoom 1, more for a zoomed cover. Still resized, still preloaded. */
+    if (!/sizes=\{coverSizes\(crop\.zoom\)\}\s*\n\s*quality=\{PORTRAIT_QUALITY\}\s*\n\s*priority/.test(header))
       missing.push("the cover lost its sizes/quality/priority — it will not be preloaded or resized")
     if (/el\.style\.opacity = "0"/.test(header))
       missing.push("the cover hides itself until JavaScript runs again")

@@ -413,6 +413,12 @@ export interface ShopHeaderSettings {
   contactEmail?: string
   coverImageUrl?: string
   coverFocalPoint?: FocalPointConfig
+  /**
+   * How much bigger than "just covers the band" the cover is drawn, 1 to 4.
+   * Absent is 1, which is every cover saved before it existed. Pinched into
+   * place in the profile sheet; see lib/images/cover-crop.
+   */
+  coverZoom?: number
   coverBrightness?: number // Added cover image brightness control (0.7-1.3 range)
   avatarUrl?: string // Avatar image URL, empty string means show initials placeholder
   avatarSize: number // desktop size in px (legacy, kept for backwards compat)

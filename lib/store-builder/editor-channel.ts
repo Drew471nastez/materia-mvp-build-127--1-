@@ -17,11 +17,9 @@
  *            repaints on the keystroke instead of after a round trip.
  *            "ready" is the frame asking for that draft again after a reload.
  *
- *   "sheet"  an editor is open, or is not. The editors are bottom sheets
- *            INSIDE the frame, and a sheet dims the page behind it — but the
- *            frame is not the whole screen, so the workspace's own bar above
- *            it stayed lit and the dim stopped at a hard edge two thirds of
- *            the way up. The workspace dims its bar to match.
+ *   There was a third, "sheet", so the workspace could dim its bar along
+ *   with a sheet that dimmed the page. The editors do not dim the page any
+ *   more (components/storefront/editor-sheet), so there is nothing to match.
  *
  * Everything here is cheap on purpose: no shared state, no acknowledgement,
  * nothing that has to stay in step. A message that does not arrive costs a
@@ -41,23 +39,6 @@ export function notifyEditorSaved(): void {
   if (window.parent === window) return
   try {
     window.parent.postMessage({ channel: CREATOR_EDITOR_CHANNEL, kind: "saved" }, window.location.origin)
-  } catch {
-    /* A parent on another origin cannot be posted to, and does not need to be. */
-  }
-}
-
-/**
- * Tell the workspace an editor opened or closed, so its bar can dim with the
- * page. A no-op when the page is not framed, like everything else here.
- */
-export function notifyEditorSheet(open: boolean): void {
-  if (typeof window === "undefined") return
-  if (window.parent === window) return
-  try {
-    window.parent.postMessage(
-      { channel: CREATOR_EDITOR_CHANNEL, kind: "sheet", open },
-      window.location.origin,
-    )
   } catch {
     /* A parent on another origin cannot be posted to, and does not need to be. */
   }
