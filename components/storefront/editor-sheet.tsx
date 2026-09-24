@@ -14,9 +14,24 @@
  *  A SHEET ON A PHONE, A DRAWER ON A DESKTOP
  * ---------------------------------------------------------------------------
  * A centred dialog on a phone is a box in the middle of a small screen with
- * the keyboard covering half of it. The website builder solved that once,
- * with a bottom sheet that has detents, drag physics, a keyboard inset and a
- * measured viewport, and MobileEditorSheet IS that component.
+ * the keyboard covering half of it. On a phone these are the app's own
+ * bottom sheet (components/ui/bottom-sheet), the one every other phone sheet
+ * in /app is: open and close on the compositor on the iOS curve, a drag that
+ * follows the finger and leaves at its speed, pictures decoded before the
+ * slide, and the footer riding on the keyboard.
+ *
+ * It was the website builder's MobileEditorSheet at one 78% stop. Two
+ * things about that were wrong here. A fixed 78% put the sheet's top edge
+ * across the middle of the cover on the page behind, so whatever was drawn
+ * there (a logo on the creator's banner, in the report) sat on the sheet's
+ * edge like a tab stuck to it. And it dimmed the page, which on a phone was
+ * a dark fade over the cover the creator was in the middle of changing.
+ *
+ * NO DIM ON A PHONE EITHER, for the reason the drawer has none (below):
+ * these edit the page behind them. The layer is still there, invisible, and
+ * a tap on it still closes. The sheet sizes to its form, up to nearly the
+ * whole screen, so a long form is not a short window with a scrollbar and a
+ * short one is not a tall empty sheet.
  *
  * ON A DESKTOP IT IS A DRAWER AT THE RIGHT EDGE, not a centred dialog over a
  * dimmed page. A centred dialog with the lights off says "stop and answer
@@ -45,12 +60,12 @@ import * as React from "react"
 import { Loader2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { MobileEditorSheet } from "@/components/website-builder/mobile-editor-sheet"
+import { BottomSheet } from "@/components/ui/bottom-sheet"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { useIsPhone } from "@/components/storefront/use-is-phone"
 import { useRouter } from "next/navigation"
 
-import { notifyEditorSaved, notifyEditorSheet } from "@/lib/store-builder/editor-channel"
+import { notifyEditorSaved } from "@/lib/store-builder/editor-channel"
 import { cn } from "@/lib/utils"
 
 export function EditorField({
@@ -120,10 +135,15 @@ export function EditorSelect({
   )
 }
 
-/** The phone sheet's own snap, from MobileEditorSheet. */
-export const SHEET_EXIT_MS_PHONE = 360
-/** The drawer's Radix exit, the `duration-200` in components/ui/dialog. */
+/** The drawer's Radix exit, the `duration-200` in components/ui/dialog. The
+    phone sheet says when it has gone itself (BottomSheet `onClosed`). */
 export const SHEET_EXIT_MS_DESKTOP = 200
+
+/**
+ * How tall a phone editor may get: the whole screen less the status bar and
+ * a strip of the page, so it still reads as a sheet over something.
+ */
+export const PHONE_EDITOR_MAX_HEIGHT = "calc(100dvh - env(safe-area-inset-top, 0px) - 48px)"
 
 /**
  * ===========================================================================
@@ -212,29 +232,12 @@ export function EditorSheet({
   React.useEffect(() => {
     const leaving = wasOpen.current && !open
     wasOpen.current = open
-    if (!leaving) return
+    /* The phone sheet reports its own exit, to the frame. */
+    if (!leaving || phone) return
     const fn = closedRef.current
     if (!fn) return
-    const timer = setTimeout(fn, phone ? SHEET_EXIT_MS_PHONE : SHEET_EXIT_MS_DESKTOP)
+    const timer = setTimeout(fn, SHEET_EXIT_MS_DESKTOP)
     return () => clearTimeout(timer)
-  }, [open, phone])
-
-  /**
-   * THE DIM HAS TO REACH THE BAR ABOVE THE FRAME.
-   *
-   * These editors run inside the workspace's iframe, and a sheet dims the
-   * page behind it — but "the page" is the frame, and the workspace's bar is
-   * above it in the other document. So the dim stopped at a hard horizontal
-   * edge with a lit bar over it. The workspace dims its bar when this says
-   * so; outside the frame this is a no-op and nothing changes.
-   *
-   * Closed on unmount as well as on close, because a creator navigating the
-   * canvas away with an editor open would otherwise leave the bar dark.
-   */
-  React.useEffect(() => {
-    if (!phone) return
-    notifyEditorSheet(open)
-    return () => notifyEditorSheet(false)
   }, [open, phone])
 
   const footer = (
@@ -309,41 +312,38 @@ export function EditorSheet({
 
   if (phone) {
     return (
-      <MobileEditorSheet
-        open={open}
-        onOpenChange={(next) => { if (!next) onClose() }}
-        peekHeight={0}
-        layer="raised"
-        /*
-          ONE STOP. Two stops made the height a thing a creator had to
-          manage: the sheet could be left at any of them, a drag meant to
-          scroll the form resized it instead, and nothing in it needs the
-          whole screen. One stop is a fixed sheet with a scroller in it — the
-          drag is only ever "close".
-
-          78%, up from 60%. At 60% a form with four fields in it was a
-          three-field window with a scrollbar, and the thing being edited is
-          visible above the sheet either way — a strip of cover photo says
-          which page this is, and a creator does not need half the screen of
-          it to know that. A keyboard grows this further, by its own height,
-          so the panel above it stays this size: see sheet-gestures.ts.
-        */
-        detents={[0.78]}
-      >
-        <div className="flex min-h-0 flex-1 flex-col">
-          <div className="shrink-0 border-b border-border px-5 pb-3 pt-1">
+      <BottomSheet
+        isOpen={open}
+        onClose={onClose}
+        onClosed={() => closedRef.current?.()}
+        label={title}
+        /* useIsPhone decides; the sheet must not hide itself between 640 and 767. */
+        hideFrom={null}
+        /* ONE STOP, and the drag is only ever "close". The column below lays
+           itself out: a fixed title, the form scrolling, the footer pinned. */
+        fill
+        maxHeight={PHONE_EDITOR_MAX_HEIGHT}
+        /* Cancel and Save sit on the keyboard, never under it. */
+        aboveKeyboard
+        scrim="clear"
+        waitForImages
+        /* The title drags the sheet like the handle does. */
+        header={
+          <div className="border-b border-border px-5 pb-3 pt-2">
             <h2 className="text-[17px] font-semibold text-foreground">{title}</h2>
           </div>
-          {/* data-sheet-scroll is what the sheet's drag arbitration reads:
-              a finger on a scroller that can still scroll scrolls it, one at
-              its top edge pulls the sheet. */}
-          <div data-sheet-scroll className="wb-slim-scroll min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-5">
+        }
+      >
+        <div className="flex min-h-0 flex-1 flex-col">
+          {/* The sheet's drag reads the scroller under the finger: one that
+              can still scroll scrolls, one at its top edge pulls the sheet. */}
+          <div data-sheet-scroll className="wb-slim-scroll min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-5 py-5">
             {children}
             {error && <p className="text-sm text-destructive">{error}</p>}
           </div>
           {footer}
         </div>
-      </MobileEditorSheet>
+      </BottomSheet>
     )
   }
 

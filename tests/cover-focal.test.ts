@@ -1,31 +1,44 @@
 /**
  * ===========================================================================
- *  POSITIONING THE COVER, IN THE FRAME THAT SHOWS IT
+ *  POSITIONING AND ZOOMING THE COVER, IN THE FRAME THAT SHOWS IT
  * ===========================================================================
  * "There should be no slider thing there in the modal. The dragging and
  *  arranging should be only when I upload a cover, that's it only, and it
  *  should be in the same container there, compact and minimal."
  *
+ * And later: "the cover banner image is glitching sometimes. Zoom in / zoom
+ * out should work on phones, by touch fingers, no sliders."
+ *
  * Two halves, checked two ways.
  *
- * THE MATHS, which is what a drag actually is, runs here as real functions:
- * the inversion, the clamp at both ends, and the fact that a drag is measured
- * from where it STARTED. That last one is not a detail — deriving each move
- * from the previous one accumulates a rounding error per pointermove, and a
- * slow drag across a 600px box ends up somewhere the finger never went.
+ * THE MATHS, which is what a gesture actually is, runs here as real
+ * functions from lib/images/cover-crop: the inversion (the picture follows
+ * the finger), the clamp that keeps the photograph over the whole frame at
+ * every step, the pinch that keeps the point under the fingers where it is,
+ * and the fact that a gesture is measured from where it STARTED.
  *
  * THE SHAPE of the control is read from the source, because "one box, no
- * slider" is a statement about what exists. A second 3:1 frame, or an
- * `<input type="range">` reappearing under it, is exactly the thing being
- * removed and exactly the thing a future edit would put back.
+ * slider, no render per move" is a statement about what exists.
  *
- * The size of the open profile picture is geometry rather than structure, so
- * it is measured in a browser instead: scripts/check-avatar-lightbox.
+ * The geometry in a real browser, fingers included, is
+ * scripts/check-cover-crop.mjs.
  */
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 
-import { CENTRE, focalFromDrag, nudge } from "../lib/images/use-focal-drag"
+import {
+  COVER_ZOOM_MAX,
+  DEFAULT_COVER_CROP,
+  coverCropStyle,
+  cropFromGesture,
+  cropFromSettings,
+  imageRect,
+  isDefaultCrop,
+  roundCrop,
+  transformBetween,
+  zoomAbout,
+  type CoverCrop,
+} from "../lib/images/cover-crop"
 
 let passed = 0
 let failed = 0
@@ -42,65 +55,152 @@ function check(name: string, ok: boolean, detail?: string) {
   }
 }
 
-console.log("\nPositioning the cover\n")
+console.log("\nPositioning and zooming the cover\n")
 
-const FRAME = { width: 600, height: 200 }
+/* A 2:1 band (a phone, 390 by 192ish) holding a 4:3 photograph. */
+const FRAME = { w: 400, h: 200 }
+const PHOTO = { w: 1600, h: 1200 }
+const C = DEFAULT_COVER_CROP
 
-/**
- * THE PICTURE MOVES THE OPPOSITE WAY TO THE FINGER. Dragging down asks to see
- * what is above, which is a SMALLER y. Getting this backwards is the single
- * most likely way to break the control, and it still looks like it works.
- */
-check(
-  "dragging down brings what is above into view",
-  focalFromDrag(CENTRE, 0, 40, FRAME).y < CENTRE.y,
-  `got y ${focalFromDrag(CENTRE, 0, 40, FRAME).y} from 50`,
-)
-check(
-  "dragging right brings what is left of it into view",
-  focalFromDrag(CENTRE, 60, 0, FRAME).x < CENTRE.x,
-  `got x ${focalFromDrag(CENTRE, 60, 0, FRAME).x} from 50`,
-)
+const drag = (from: CoverCrop, dx: number, dy: number) =>
+  cropFromGesture(FRAME, PHOTO, from, { mid: { x: 200, y: 100 }, dist: 0 }, { mid: { x: 200 + dx, y: 100 + dy }, dist: 0 })
+const pinch = (from: CoverCrop, at: { x: number; y: number }, scale: number) =>
+  cropFromGesture(FRAME, PHOTO, from, { mid: at, dist: 100 }, { mid: at, dist: 100 * scale })
 
-/** A drag of half the frame is 50 percentage points, in both axes. */
-check("half a frame across is half the range", focalFromDrag(CENTRE, -300, 0, FRAME).x === 100)
-check("half a frame down is half the range", focalFromDrag(CENTRE, -100, 0, { width: 200, height: 200 }).x === 100)
-
-check("it stops at the top", focalFromDrag(CENTRE, 0, 9999, FRAME).y === 0)
-check("it stops at the bottom", focalFromDrag(CENTRE, 0, -9999, FRAME).y === 100)
-check("it stops at the left", focalFromDrag(CENTRE, 9999, 0, FRAME).x === 0)
-check("it stops at the right", focalFromDrag(CENTRE, -9999, 0, FRAME).x === 100)
-
-/**
- * A FRAME WITH NO SIZE. It happens: the drawer is still opening, or the box
- * has not been laid out. A division by zero here is `Infinity`, which clamps
- * to 0 or 100 and throws the cover to a corner on the first pointermove.
- */
-{
-  const out = focalFromDrag({ x: 30, y: 70 }, 25, 25, { width: 0, height: 0 })
-  check("an unlaid-out frame leaves the point where it was", out.x === 30 && out.y === 70, JSON.stringify(out))
+/** Does the photograph cover the frame, to a hundredth of a pixel? */
+const covers = (c: CoverCrop) => {
+  const r = imageRect(FRAME, PHOTO, c)
+  return r.left <= 0.01 && r.top <= 0.01 && r.left + r.width >= FRAME.w - 0.01 && r.top + r.height >= FRAME.h - 0.01
 }
 
 /**
- * MEASURED FROM THE START OF THE DRAG. Fifty moves of 6px must land in the
- * same place as one move of 300px, or a slow drag and a fast one over the
- * same distance give different answers.
+ * THE PICTURE FOLLOWS THE FINGER. Dragging down brings what is above into
+ * view, which is a SMALLER y. Getting this backwards is the single most
+ * likely way to break the control, and it still looks like it works.
+ */
+check("dragging down brings what is above into view", drag(C, 0, 40).y < 50, `got y ${drag(C, 0, 40).y}`)
+{
+  const zoomed = { ...C, zoom: 2 }
+  check("dragging right brings what is left of it into view", drag(zoomed, 60, 0).x < 50, `got x ${drag(zoomed, 60, 0).x}`)
+}
+/** 1:1: the photograph moves exactly as far as the finger. */
+{
+  const zoomed = { ...C, zoom: 2 }
+  const before = imageRect(FRAME, PHOTO, zoomed)
+  const after = imageRect(FRAME, PHOTO, drag(zoomed, 37, -21))
+  check(
+    "the picture moves exactly as far as the finger",
+    Math.abs(after.left - before.left - 37) < 0.01 && Math.abs(after.top - before.top + 21) < 0.01,
+    `moved ${after.left - before.left}, ${after.top - before.top}`,
+  )
+}
+
+/* At zoom 1 a 4:3 photo in a 2:1 band has nothing to crop sideways. */
+check("an axis with nothing to crop keeps its position", drag(C, 80, 0).x === 50)
+
+check("it stops at the top", drag(C, 0, 9999).y === 0)
+check("it stops at the bottom", drag(C, 0, -9999).y === 100)
+{
+  const z = { ...C, zoom: 3 }
+  check("it stops at the left", drag(z, 9999, 0).x === 0)
+  check("it stops at the right", drag(z, -9999, 0).x === 100)
+}
+
+/**
+ * THE PHOTOGRAPH ALWAYS COVERS THE FRAME. Four hundred random gestures, each
+ * a drag and a pinch together, from random starting crops: not one of them
+ * may uncover a pixel of the frame, and none may leave the zoom range.
  */
 {
-  const inOneGo = focalFromDrag(CENTRE, -300, 0, FRAME)
-  let step = CENTRE
-  for (let i = 1; i <= 50; i += 1) step = focalFromDrag(CENTRE, -6 * i, 0, FRAME)
+  let seed = 7
+  const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647)
+  let worst = ""
+  let ok = true
+  for (let i = 0; i < 400; i++) {
+    const start = { x: rnd() * 100, y: rnd() * 100, zoom: 1 + rnd() * 3 }
+    const from = { mid: { x: rnd() * 400, y: rnd() * 200 }, dist: 20 + rnd() * 200 }
+    const now = { mid: { x: rnd() * 1200 - 400, y: rnd() * 600 - 200 }, dist: 5 + rnd() * 600 }
+    const out = cropFromGesture(FRAME, PHOTO, start, from, now)
+    if (!covers(out) || out.zoom < 1 || out.zoom > COVER_ZOOM_MAX || out.x < 0 || out.x > 100 || out.y < 0 || out.y > 100) {
+      ok = false
+      worst = JSON.stringify({ start, from, now, out })
+      break
+    }
+  }
+  check("no gesture ever uncovers the frame or leaves the zoom range", ok, worst)
+}
+
+/** A pinch keeps the point between the fingers where it is. */
+{
+  const at = { x: 120, y: 70 }
+  const before = imageRect(FRAME, PHOTO, C)
+  const u = (at.x - before.left) / before.width
+  const v = (at.y - before.top) / before.height
+  const out = pinch(C, at, 1.8)
+  const after = imageRect(FRAME, PHOTO, out)
+  const ax = after.left + u * after.width
+  const ay = after.top + v * after.height
+  check("pinching zooms by the change in finger distance", Math.abs(out.zoom - 1.8) < 1e-9, `zoom ${out.zoom}`)
+  check("and the point between the fingers stays under them", Math.abs(ax - at.x) < 0.01 && Math.abs(ay - at.y) < 0.01, `${ax}, ${ay}`)
+}
+check("pinching in past 1 stops at 1", pinch(C, { x: 200, y: 100 }, 0.3).zoom === 1)
+check("pinching out stops at the maximum", pinch(C, { x: 200, y: 100 }, 40).zoom === COVER_ZOOM_MAX)
+
+/**
+ * MEASURED FROM THE START OF THE GESTURE. Fifty moves of 6px must land where
+ * one move of 300px does, or a slow drag and a fast one over the same
+ * distance give different answers.
+ */
+{
+  const z = { ...C, zoom: 3 }
+  const inOneGo = drag(z, -300, 0)
+  let step = z
+  for (let i = 1; i <= 50; i += 1) step = drag(z, -6 * i, 0)
   check("a slow drag lands where a fast one does", step.x === inOneGo.x && step.y === inOneGo.y, `${step.x} vs ${inOneGo.x}`)
 }
 
-/** The keyboard path, which is what let the slider go. */
-check("arrow up moves it up", nudge(CENTRE, "ArrowUp").y < 50)
-check("arrow down moves it down", nudge(CENTRE, "ArrowDown").y > 50)
-check("arrow left moves it left", nudge(CENTRE, "ArrowLeft").x < 50)
-check("arrow right moves it right", nudge(CENTRE, "ArrowRight").x > 50)
-check("the arrow keys clamp too", nudge({ x: 0, y: 0 }, "ArrowUp").y === 0 && nudge({ x: 100, y: 100 }, "ArrowRight").x === 100)
-check("a key this control does not own is left alone", nudge(CENTRE, "Enter") === null)
-check("Tab is not swallowed", nudge(CENTRE, "Tab") === null)
+/**
+ * THE TRANSFORM UNDER THE FINGER IS EXACT. What the frame shows mid gesture
+ * is the rest layout moved by `transformBetween`; it must put the picture
+ * precisely where the committed crop will, or the picture jumps on release.
+ */
+{
+  const rest = { x: 30, y: 60, zoom: 1.5 }
+  const live = pinch(drag(rest, 25, -10), { x: 300, y: 50 }, 1.4)
+  const a = imageRect(FRAME, PHOTO, rest)
+  const b = imageRect(FRAME, PHOTO, live)
+  const m = transformBetween(FRAME, PHOTO, rest, live).match(/translate3d\(([-\d.]+)px, ([-\d.]+)px, 0\) scale\(([\d.]+)\)/)
+  const [tx, ty, k] = m ? [Number(m[1]), Number(m[2]), Number(m[3])] : [NaN, NaN, NaN]
+  check(
+    "the moving picture lands where the committed one is drawn",
+    Math.abs(a.left + tx - b.left) < 0.02 && Math.abs(a.top + ty - b.top) < 0.02 && Math.abs(a.width * k - b.width) < 0.05,
+    `left ${a.left + tx} vs ${b.left}, width ${a.width * k} vs ${b.width}`,
+  )
+}
+
+/**
+ * THE PAGE DRAWS THE SAME CROP. `coverCropStyle` is what the band renders
+ * with. At zoom 1 it must be exactly the old object-fit: cover at its
+ * object-position, so no cover saved before zoom existed moves by a pixel.
+ */
+{
+  const s = coverCropStyle({ x: 20, y: 80, zoom: 1 })
+  check(
+    "zoom 1 is plain object-fit cover, as every saved cover was",
+    s.left === "0%" && s.top === "0%" && s.width === "100%" && s.height === "100%" && s.objectFit === "cover" && s.objectPosition === "20% 80%",
+    JSON.stringify(s),
+  )
+  /* The band's box, zoom 2, focal 25/75: 200% square of the band, offset so its 25% point is the band's 25% point. */
+  const z = coverCropStyle({ x: 25, y: 75, zoom: 2 })
+  check("a zoomed crop is a bigger box, placed, not a transform", z.width === "200%" && z.left === "-25%" && z.top === "-75%" && !("transform" in z), JSON.stringify(z))
+  check("and it overrides the image's max-width, or it cannot be bigger", z.maxWidth === "none")
+}
+
+check("a crop nobody touched is the default", isDefaultCrop(cropFromSettings(null, undefined)))
+check("a stored point with no zoom is zoom 1", cropFromSettings({ x: 10, y: 90 }, undefined).zoom === 1)
+check("a zoom out of range from storage is clamped", cropFromSettings({ x: 10, y: 90 }, 99).zoom === COVER_ZOOM_MAX && cropFromSettings(null, -3).zoom === 1)
+check("stored precision is two decimals and three", JSON.stringify(roundCrop({ x: 33.33333, y: 66.66666, zoom: 1.23456 })) === '{"x":33.33,"y":66.67,"zoom":1.235}')
+check("the frame's own zoom step clamps too", zoomAbout(FRAME, PHOTO, C, 0.5).zoom === 1)
 
 /**
  * ---------------------------------------------------------------------------
@@ -108,12 +208,18 @@ check("Tab is not swallowed", nudge(CENTRE, "Tab") === null)
  * ---------------------------------------------------------------------------
  */
 const root = process.cwd()
+const strip = (src: string) =>
+  src.replace(/\{\/\*[\s\S]*?\*\/\}/g, "").replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")
 const editor = readFileSync(join(root, "components/storefront/edit-profile-button.tsx"), "utf8")
 const upload = readFileSync(join(root, "components/app/image-upload.tsx"), "utf8")
+const frameSrc = readFileSync(join(root, "components/app/cover-crop-frame.tsx"), "utf8")
+const frame = strip(frameSrc)
+const route = readFileSync(join(root, "app/api/creator-profile/route.ts"), "utf8")
+const band = readFileSync(join(root, "components/store-builder/unified-section-renderer.tsx"), "utf8")
 
 check(
   "no slider under the cover",
-  !/type="range"/.test(editor) && !/type="range"/.test(upload),
+  !/type="range"/.test(editor) && !/type="range"/.test(upload) && !/type="range"/.test(frameSrc),
   "an <input type=range> is back under the picture",
 )
 check(
@@ -122,48 +228,58 @@ check(
   "a second 3:1 box showing the same photograph",
 )
 /**
- * It was `cover ?` — any cover at all. That made the banner a live drag
- * surface every time the drawer was opened for any reason, and on a phone a
- * finger that grazes a 3:1 strip inside a sheet moves the creator's banner
- * with nothing to say it did. Placing a cover is part of ADDING one.
+ * The owner asked for pinch and drag on the banner that is there, not only a
+ * new one. The frame always draws the saved crop, so it shows what the page
+ * shows, and a finger places any cover; nothing is kept until Save.
  */
 check(
-  "the drag reaches the frame only for a cover chosen in this session",
-  /reposition=\{\s*cover && cover !== coverUrl/.test(editor),
-  'an empty box saying "drag to position" is a control for a thing that does not exist',
+  "any cover can be placed, not only one chosen in this session",
+  /editable: !!cover \}\}/.test(editor),
+  "an existing banner that cannot be zoomed or moved",
 )
+check("a new picture starts from the middle at its own size", /setCover\(url\); setCrop\(DEFAULT_COVER_CROP\)/.test(editor))
 check(
-  "the frame carries the focal point through to the image",
-  /objectPosition: focal\.objectPosition/.test(upload),
-  "the box would drag without the picture moving",
-)
-check(
-  "the drag surface does not scroll the sheet instead",
-  /touch-none/.test(upload),
-  "without touch-none the phone scrolls and the control does nothing where it matters most",
-)
-check(
-  "the frame answers the keyboard",
-  /tabIndex=\{0\}/.test(upload) && /onKeyDown/.test(readFileSync(join(root, "lib/images/use-focal-drag.ts"), "utf8")),
-  "with the slider gone this is the only way in without a pointer",
+  "position and zoom are saved together, and nothing is stored for an untouched cover",
+  /coverFocalPoint: isDefaultCrop\(crop\) \? null/.test(editor) && /coverZoom: crop\.zoom > 1 \? crop\.zoom : null/.test(editor),
 )
 
 /**
- * THE HOOK IS CALLED ABOVE EVERY EARLY RETURN. `ImageUpload` returns from four
- * different branches depending on `value`, `replaceOnly` and `reposition`, and
- * a hook under one of them is React error #310 — a blank page, not a misplaced
- * control. tests/hook-order covers the class; this covers this file, because
- * this is the file that just grew a fifth branch.
+ * NO RENDER PER MOVE. The old drag called the parent's setState on every
+ * pointermove, which re-rendered the whole profile form under the finger:
+ * the "glitching". A move writes a transform in a frame callback; React is
+ * told when the last finger lifts.
  */
 {
-  const hookAt = upload.indexOf("useFocalDrag(")
-  const firstReturn = upload.search(/\n  if \([^)]*\) \{\n    return \(/)
-  check(
-    "useFocalDrag is called before the first early return",
-    hookAt > 0 && firstReturn > 0 && hookAt < firstReturn,
-    `hook at ${hookAt}, first conditional return at ${firstReturn}`,
-  )
+  const move = frame.slice(frame.indexOf("const onPointerMove"), frame.indexOf("const onPointerEnd"))
+  check("a move writes a transform in a frame callback, not React state", /schedule\(\)/.test(move) && !/onChange|setMoving\(|setNatural\(/.test(move.replace(/startMoving\(\)/g, "")))
+  check("the parent hears once, on release", /commit\(liveRef\.current\)/.test(frame) && /onChangeRef\.current\?\.\(rounded\)/.test(frame))
+  check("and the paint is transform only", /img\.style\.transform = transformBetween/.test(frame))
 }
+check("two fingers pinch", /pts\.length > 1 \? Math\.hypot/.test(frame))
+check("a trackpad pinch (ctrl + wheel) zooms, a plain wheel scrolls the form", /if \(!e\.ctrlKey && !e\.metaKey\) return/.test(frame) && /addEventListener\("wheel", onWheel, \{ passive: false \}\)/.test(frame))
+check("Safari's trackpad gesture events zoom too", /addEventListener\("gesturechange"/.test(frame))
+check("a double tap zooms in and back out", /DOUBLE_TAP_ZOOM/.test(frame))
+check("the keyboard can do all of it", /case "ArrowLeft"/.test(frame) && /case "\+"/.test(frame) && /case "-"/.test(frame))
+check(
+  "the frame keeps its touches: touch-action none, and the sheet's own opt-out",
+  /touchAction: editable \? "none"/.test(frame) && /data-sheet-no-drag=\{editable/.test(frame),
+  "without both, a pinch scrolls the form or pulls the sheet down",
+)
+check(
+  "the frame is not a .group, whose transforms globals.css strips on a phone",
+  !/className=\{?`?[^`"]*\bgroup\b/.test(frame.slice(frame.indexOf("return (\n    <div"))),
+)
+check("one eager <img> at one URL, not a lazy next/image", /loading="eager"/.test(frame) && !/from "next\/image"/.test(frameSrc) && /coverEditorSrc\(value\)/.test(upload))
+check("uploading is a thin bar, not a dark wash over the picture", !/bg-black\/55 backdrop-blur-\[1px\]/.test(upload.slice(upload.indexOf("if (value && replaceOnly && reposition)"), upload.indexOf("if (value && replaceOnly) {"))))
+check("the corner controls are 44px to a thumb", /before:-inset-1\.5/.test(upload))
+
+/** THE SERVER CLAMPS WHAT A PUBLIC PAGE WILL DRAW. */
+check("the route clamps the zoom it stores", /clampZoom\(raw\)/.test(route) && /next\.coverZoom = coverZoom \?\? undefined/.test(route))
+check("and keeps two decimals of position", /Math\.round\(clampPercent\(n\) \* 100\) \/ 100/.test(route))
+
+/** THE PAGE DRAWS WHAT THE FRAME DREW. */
+check("the band draws the crop from the same function", /coverCropStyle\(crop\)/.test(band) && /cropFromSettings\(settings\.coverFocalPoint, settings\.coverZoom\)/.test(band))
+check("and asks for pixels in proportion to the zoom", /sizes=\{coverSizes\(crop\.zoom\)\}/.test(band))
 
 /**
  * ===========================================================================

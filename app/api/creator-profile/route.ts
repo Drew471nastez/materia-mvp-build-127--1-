@@ -32,6 +32,7 @@ import { toPublicHttpUrl } from "@/lib/url/public-url"
 import { canonicalVideoUrl } from "@/lib/social/video"
 import { themePresets } from "@/lib/store-builder/defaults"
 import { sanitizeRichText } from "@/lib/website-builder/sanitize"
+import { clampPercent, clampZoom } from "@/lib/images/cover-crop"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -331,6 +332,10 @@ export async function PATCH(request: NextRequest) {
    * they go straight into `object-position` on a public page — so they are
    * clamped to 0..100 here rather than trusted. `null` is a real value
    * meaning "back to the middle".
+   *
+   * Two decimals, not whole numbers: with the cover zoomed four times on a
+   * laptop band, one percent is forty pixels, and a creator who placed it
+   * with a finger would see it land somewhere else after a save.
    */
   const coverFocalPoint = (() => {
     if (!("coverFocalPoint" in body)) return undefined
@@ -339,11 +344,27 @@ export async function PATCH(request: NextRequest) {
     if (!raw || typeof raw !== "object") return undefined
     const value = raw as Record<string, unknown>
     const clamp = (n: unknown) =>
-      typeof n === "number" && Number.isFinite(n) ? Math.min(100, Math.max(0, Math.round(n))) : null
+      typeof n === "number" && Number.isFinite(n) ? Math.round(clampPercent(n) * 100) / 100 : null
     const x = clamp(value.x)
     const y = clamp(value.y)
     if (x === null || y === null) return undefined
     return { x, y }
+  })()
+
+  /**
+   * HOW CLOSE THE COVER IS DRAWN, 1 to COVER_ZOOM_MAX. It sizes an image box
+   * on a public page, so it is clamped here as well as in the editor: a
+   * zoom of a thousand would be a request for a picture a thousand times
+   * the screen. `null` means back to 1, and 1 itself is not stored, so a
+   * page that never zoomed keeps the settings it had.
+   */
+  const coverZoom = (() => {
+    if (!("coverZoom" in body)) return undefined
+    const raw = body.coverZoom
+    if (raw === null) return null
+    if (typeof raw !== "number" || !Number.isFinite(raw)) return undefined
+    const z = Math.round(clampZoom(raw) * 1000) / 1000
+    return z <= 1 ? null : z
   })()
 
   if (displayName !== undefined && displayName.length === 0) {
@@ -448,6 +469,7 @@ export async function PATCH(request: NextRequest) {
     */
     if (productsOrder !== undefined) next.productsOrder = productsOrder
     if (coverFocalPoint !== undefined) next.coverFocalPoint = coverFocalPoint ?? undefined
+    if (coverZoom !== undefined) next.coverZoom = coverZoom ?? undefined
     if (subscribeBar) {
       const existing = (header.subscribeBar || {}) as Record<string, unknown>
       /**

@@ -15,6 +15,11 @@
  * bottom of the screen. Then the same for a section's settings panel and the
  * Hide / Duplicate / Delete row at its foot.
  *
+ * AND WITH A FINGER, on the real editor, at the half stop: a push up inside
+ * the list scrolls the list and leaves the sheet's translate where it was (it
+ * used to grow the sheet first); the same push on the grab bar moves the
+ * sheet; and a tap on the grab bar steps half to full and back.
+ *
  *   pnpm build && node scripts/check-sheet-reach.mjs
  *
  * The editor bundle is built by scripts/check-editor-scroll.mjs, which owns
@@ -84,6 +89,13 @@ await call("Page.enable", {})
 await call("Runtime.enable", {})
 await call("Emulation.setDeviceMetricsOverride", { width: W, height: H, deviceScaleFactor: 1, mobile: true, screenOrientation: { angle: 0, type: "portraitPrimary" } })
 await call("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 1 })
+/* SAFE_TOP=59 is a notched iPhone's status bar; 0 (the default) a browser. */
+const SAFE_TOP = Number(process.env.SAFE_TOP ?? 0)
+if (SAFE_TOP) {
+  await call("Emulation.setSafeAreaInsetsOverride", {
+    insets: { top: SAFE_TOP, topMax: SAFE_TOP, bottom: 34, bottomMax: 34, left: 0, leftMax: 0, right: 0, rightMax: 0 },
+  })
+}
 await call("Page.navigate", { url: "file://" + file })
 const js = async (expression) => {
   const r = await call("Runtime.evaluate", { expression, awaitPromise: true, returnByValue: true })
@@ -143,6 +155,97 @@ await js(HELPERS)
 /* The Sections tab opens the sheet to its middle stop. */
 await js(`(() => { const b = window.__btn("Sections"); if (b) window.__click(b); return !!b })()`)
 await sleep(1200)
+
+/* ── A finger at the half stop ────────────────────────────────────────── */
+const touch = (type, x, y) => call("Input.dispatchTouchEvent", { type, touchPoints: type === "touchEnd" ? [] : [{ x, y }] })
+const SHEET_STATE = `JSON.stringify((() => {
+  const sheet = document.querySelector("[data-mobile-bottom-sheet][aria-modal=true]")
+  const list = sheet.querySelector("[data-wb-sidebar-scroll]")
+  /* The list and the panel scroller inside it: the Sections rows scroll in
+     the inner one, and the outer one carries the room for the hidden part. */
+  const scrollers = [list, ...list.querySelectorAll("*")].filter((el) => /(auto|scroll)/.test(getComputedStyle(el).overflowY))
+  const scroll = scrollers.reduce((sum, el) => sum + el.scrollTop, 0)
+  const room = scrollers.reduce((sum, el) => sum + Math.max(0, el.scrollHeight - el.clientHeight), 0)
+  /* The one a finger in the list scrolls: the innermost, holding the rows. */
+  const inner = scrollers[scrollers.length - 1]
+  return { top: sheet.getBoundingClientRect().top, ty: new DOMMatrixReadOnly(getComputedStyle(sheet).transform).m42, scroll, room, outerRoom: list.scrollHeight - list.clientHeight, innerRoom: inner.scrollHeight - inner.clientHeight }
+})())`
+const state = async () => JSON.parse(await js(SHEET_STATE))
+const finger = {}
+{
+  const before = await state()
+  const x = Math.round(W / 2)
+  const y0 = Math.round(before.top) + 170
+  await touch("touchStart", x, y0)
+  let at = y0
+  for (let i = 1; i <= 12; i++) { at = y0 - 12 * i; await touch("touchMove", x, at); await sleep(16) }
+  const mid = await state()
+  await touch("touchEnd", x, at)
+  await sleep(900)
+  const after = await state()
+  finger.listPush = { travel: y0 - at, tyBefore: Math.round(before.ty), tyMoved: Math.round(mid.ty - before.ty), scrolled: Math.round(mid.scroll - before.scroll), room: before.room, outerRoom: before.outerRoom, innerRoom: before.innerRoom, topAfter: Math.round(after.top) }
+  /* The inner scroller alone, to its end: does the last row come on screen? */
+  finger.innerEnd = JSON.parse(await js(`(() => {
+    const l = document.querySelector("[data-mobile-bottom-sheet][aria-modal=true] [data-wb-sidebar-scroll]")
+    const s = [...l.querySelectorAll("*")].filter((el) => /(auto|scroll)/.test(getComputedStyle(el).overflowY)).pop()
+    s.scrollTop = s.scrollHeight
+    const rows = [...s.querySelectorAll("button[aria-label^='Options for']")]
+    return JSON.stringify({ lastRowBottom: Math.round(rows[rows.length - 1].getBoundingClientRect().bottom), screen: window.innerHeight })
+  })()`))
+  await js(`(() => { const l = document.querySelector("[data-mobile-bottom-sheet][aria-modal=true] [data-wb-sidebar-scroll]"); for (const el of [l, ...l.querySelectorAll("*")]) el.scrollTop = 0 })()`)
+  await sleep(200)
+}
+{
+  const before = await state()
+  const x = Math.round(W / 2)
+  const y0 = Math.round(before.top) + 10
+  await touch("touchStart", x, y0)
+  let at = y0
+  for (let i = 1; i <= 6; i++) { at = y0 - 10 * i; await touch("touchMove", x, at); await sleep(16) }
+  const mid = await state()
+  finger.barPush = { tyMoved: Math.round(before.ty - mid.ty), scrolled: Math.round(mid.scroll - before.scroll) }
+  await sleep(300)
+  await touch("touchEnd", x, at)
+  await sleep(900)
+}
+{
+  const tap = async () => {
+    const s = await state()
+    const y = Math.round(s.top) + 10
+    await touch("touchStart", Math.round(W / 2), y)
+    await sleep(40)
+    await touch("touchEnd", Math.round(W / 2), y)
+    await sleep(900)
+    return Math.round((await state()).top)
+  }
+  finger.tapFrom = Math.round((await state()).top)
+  finger.tap1 = await tap()
+  finger.tap2 = await tap()
+
+  /*
+    THE TALLEST STOP AGAINST THE EDITOR'S BAR. Every button in the bar is
+    either wholly above the sheet's top edge or wholly under the sheet: a
+    button crossing the edge is the violet sliver at the sheet's corners.
+  */
+  const BAR = `JSON.stringify((() => {
+    const bar = document.querySelector("[data-sheet-clear]").getBoundingClientRect()
+    const sheets = [...document.querySelectorAll("[data-mobile-bottom-sheet][aria-modal=true]")]
+    const sheet = sheets[sheets.length - 1]
+    const top = sheet.getBoundingClientRect().top
+    const buttons = [...document.querySelectorAll("[data-sheet-clear] button")].map((b) => b.getBoundingClientRect()).filter((r) => r.width > 0 && r.height > 0)
+    const crossing = buttons.filter((r) => r.top < top && r.bottom > top).length
+    return { top: Math.round(top), barBottom: Math.round(bar.bottom), buttonsTop: Math.round(Math.min(...buttons.map((r) => r.top))), buttonsBottom: Math.round(Math.max(...buttons.map((r) => r.bottom))), crossing, buttons: buttons.length }
+  })())`
+  await tap()
+  finger.full = JSON.parse(await js(BAR))
+  await tap()
+  /* Add section: its own sheet, opened over this one at its tallest stop. */
+  await js(`(() => { const b = [...document.querySelectorAll("[data-mobile-bottom-sheet] button")].find((x) => x.textContent.trim() === "Add section"); if (b) window.__click(b); return !!b })()`)
+  await sleep(1200)
+  finger.add = JSON.parse(await js(BAR))
+  await js(`(() => { const o = [...document.querySelectorAll("[data-wb-sheet-overlay]")].pop(); o && o.click() })()`)
+  await sleep(900)
+}
 const sections = JSON.parse(await js(`(async () => {
   const sheet = document.querySelector("[data-mobile-bottom-sheet][aria-modal=true]")
   if (!sheet) return JSON.stringify({ open: false })
@@ -197,6 +300,13 @@ console.log(`  list scroller     ${sections.markers}`)
 console.log(`                    ${sections.rows} section rows, room to scroll ${sections.scrollRoom}px, spacer ${sections.spacer}, scrolled to ${sections.scrollTop}`)
 console.log(`  end of the list   ${sections.lastBottom}px, screen ends at ${sections.screen}: ${sections.lastBottom <= sections.screen + 1 ? "on screen" : `${sections.lastBottom - sections.screen}px BELOW THE SCREEN`} (${sections.lastWho})`)
 console.log(`  section settings  sheet top ${settings.sheetTop}; Delete ends at ${settings.deleteBottomAtTop} before scrolling, ${settings.deleteBottomAtEnd} with everything scrolled to the end`)
+console.log(`  finger on list    ${finger.listPush.travel}px up at half (translate ${finger.listPush.tyBefore}px): translate moved ${finger.listPush.tyMoved}px, list scrolled ${finger.listPush.scrolled}px (of ${finger.listPush.room} across its scrollers); sheet top after the lift ${finger.listPush.topAfter}`)
+console.log(`                    room: ${finger.listPush.innerRoom}px in the rows' own scroller, ${finger.listPush.outerRoom}px in the sheet's; that scroller alone at its end puts the last row at ${finger.innerEnd.lastRowBottom} of ${finger.innerEnd.screen}`)
+console.log(`  finger on bar     60px up: translate moved ${finger.barPush.tyMoved}px, list scrolled ${finger.barPush.scrolled}px`)
+console.log(`  taps on the bar   ${finger.tapFrom} -> ${finger.tap1} -> ${finger.tap2}`)
+console.log(`  safe area top ${SAFE_TOP}: editor bar ends at ${finger.full.barBottom}, its ${finger.full.buttons} buttons span ${finger.full.buttonsTop}..${finger.full.buttonsBottom}`)
+console.log(`                    Sections at full: top ${finger.full.top}, buttons crossing its edge ${finger.full.crossing}`)
+console.log(`                    Add section: top ${finger.add.top}, buttons crossing its edge ${finger.add.crossing}`)
 console.log("")
 
 let bad = 0
@@ -204,6 +314,15 @@ const expect = (ok, what) => { console.log(`${ok ? "  ok" : "FAIL"}  ${what}`); 
 expect(Math.abs(sections.sheetTop - Math.round(H - H * 0.5)) <= 2, "the sheet is at its half stop")
 expect(sections.lastBottom <= sections.screen + 1, "scrolled to its end, the list ends on the screen")
 expect(settings.deleteFound && settings.deleteBottomAtEnd <= settings.screen + 1, "and a section's Delete can be scrolled onto the screen")
+expect(Math.abs(finger.listPush.tyMoved) <= 1 && finger.listPush.scrolled >= finger.listPush.travel - 20, "a finger pushing up on the list at half scrolls the list by the finger's travel (less the browser's 15px slop), and the sheet's translate stays put")
+expect(finger.innerEnd.lastRowBottom <= finger.innerEnd.screen && finger.listPush.outerRoom === 0, "and the rows' own scroller reaches the last row, with no blank room left in the sheet's scroller to push into")
+expect(Math.abs(finger.listPush.topAfter - sections.sheetTop) <= 1, "and the sheet is still at half after the lift")
+expect(Math.abs(finger.barPush.tyMoved - 60) <= 2 && finger.barPush.scrolled === 0, "the same push on the grab bar moves the sheet with the finger")
+/* Where a 92% stop belongs: at 68, unless that is inside the bar, then 8px under it. */
+const want92 = (bar) => { const t = H - Math.round(H * 0.92); return t <= SAFE_TOP ? SAFE_TOP : t < bar + 8 ? bar + 8 : t }
+expect(Math.abs(finger.tap1 - want92(finger.full.barBottom)) <= 1 && Math.abs(finger.tap2 - finger.tapFrom) <= 1, "a tap on the grab bar goes half to full, and the next one back to half")
+expect(finger.full.crossing === 0 && (finger.full.top >= finger.full.barBottom || finger.full.top <= finger.full.buttonsTop), "the Sections sheet at full cuts across none of the bar's buttons")
+expect(finger.add.crossing === 0 && (finger.add.top >= finger.add.barBottom || finger.add.top <= finger.add.buttonsTop), "nor does Add section")
 console.log("")
 if (bad) fail(`${bad} measurement${bad === 1 ? "" : "s"} failed.`)
 console.log("At the half stop, everything in the Sections sheet can be scrolled onto the screen.\n")

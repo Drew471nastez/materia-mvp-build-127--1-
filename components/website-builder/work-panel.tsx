@@ -176,7 +176,9 @@ function CodeBlock({ file, onOpenCode }: { file: WorkCode; onOpenCode?: (path: s
           </button>
         )}
       </div>
-      <pre className="max-h-56 overflow-auto px-2 py-1.5 text-[11px] leading-[1.45]">
+      {/* The one thing in a thread that scrolls sideways, inside itself: a
+          line of code is not broken, and the thread around it never moves. */}
+      <pre data-code-scroll="" className="max-h-56 overflow-auto max-w-full overscroll-contain px-2 py-1.5 text-[11px] leading-[1.45] [overflow-wrap:normal] [touch-action:pan-x_pan-y]">
         <code className="font-mono text-foreground/80">{file.source}</code>
       </pre>
     </div>

@@ -25,8 +25,8 @@
  *   one dialog at a time                      a centred dialog on a laptop;
  *                                              on a phone the menu's sheet is
  *                                              gone before the refund's rises
- *   a link straight to an order               the skeleton's bar has the real
- *                                              bar's size and is not delayed
+ *   a link straight to an order               the page does not fade in as a
+ *                                              whole
  *
  * and writes screenshots of each state, desktop and phone, to look at.
  *
@@ -91,18 +91,18 @@ export default function Link({ href, children, prefetch, ...rest }) { return Rea
 `)
 writeFileSync(join(stubs, "browser.tsx"), `import React from "react"
 import { hydrateRoot } from "react-dom/client"
-import { App, SkeletonApp } from "${join(root, "scripts/render-orders-probe.tsx")}"
+import { App } from "${join(root, "scripts/render-orders-probe.tsx")}"
 window.__errors = []
 const origError = console.error
 console.error = (...a) => { window.__errors.push(a.map(String).join(" ")); origError(...a) }
-hydrateRoot(document.getElementById("app"), React.createElement(location.pathname === "/skeleton" ? SkeletonApp : App), {
+hydrateRoot(document.getElementById("app"), React.createElement(App), {
   onRecoverableError: (e) => window.__errors.push("recoverable: " + (e && e.message)),
 })
 `)
 writeFileSync(join(stubs, "server.tsx"), `import React from "react"
 import { renderToString } from "react-dom/server"
-import { App, SkeletonApp } from "${join(root, "scripts/render-orders-probe.tsx")}"
-export function ssr(which) { return renderToString(React.createElement(which === "skeleton" ? SkeletonApp : App)) }
+import { App } from "${join(root, "scripts/render-orders-probe.tsx")}"
+export function ssr() { return renderToString(React.createElement(App)) }
 `)
 const common = [
   `--alias:next/link=${join(stubs, "link.jsx")}`,
@@ -122,7 +122,6 @@ const { ssr } = createRequire(import.meta.url)(join(out, "server.cjs"))
 globalThis.__probeSearch = ""
 const markup = ssr("app")
 globalThis.__probeSearch = "?order=ord-0005"
-const skeletonMarkup = ssr("skeleton")
 /* A link straight to an order: the server renders it open, as Next does
    with the request's own search params. */
 const orderMarkup = ssr("app")
@@ -139,13 +138,12 @@ const page = (html) =>
   `window.__cls=0;window.__shifts=[];new PerformanceObserver(l=>{for(const e of l.getEntries()){if(!e.hadRecentInput){window.__cls+=e.value;window.__shifts.push({t:e.startTime,v:e.value})}}}).observe({type:"layout-shift",buffered:true});</script>` +
   `<script src="/probe.js"></script></body></html>`
 const html = page(markup)
-const skeletonHtml = page(skeletonMarkup)
 const orderHtml = page(orderMarkup)
 
 const server = createServer((req, res) => {
   if (req.url.startsWith("/probe.js")) { res.writeHead(200, { "content-type": "text/javascript" }); return res.end(bundle) }
   res.writeHead(200, { "content-type": "text/html" })
-  res.end(req.url.startsWith("/skeleton") ? skeletonHtml : req.url.includes("order=ord-0005") ? orderHtml : html)
+  res.end(req.url.includes("order=ord-0005") ? orderHtml : html)
 })
 await new Promise((r) => server.listen(0, "127.0.0.1", r))
 const origin = `http://127.0.0.1:${server.address().port}`
@@ -372,28 +370,15 @@ console.log("\ndesktop, 1280 wide")
   await p.close()
 }
 
-/* ── A link straight to an order: the skeleton's bar, then the order's ── */
-console.log("\na link straight to an order, while it loads")
+/* ── A link straight to an order ─────────────────────────────────────────
+   There is no outline of an order any more: a slow one waits on the shell's
+   spinner (components/app/app-stage.tsx, scripts/check-app-stage.mjs). */
+console.log("\na link straight to an order")
 for (const viewport of [{ width: 1280, height: 860 }, { width: 390, height: 844, deviceScaleFactor: 2, isMobile: true, hasTouch: true }]) {
-  const s = await open(viewport, "/skeleton?order=ord-0005")
-  const sk = await s.evaluate(() => {
-    const bar = document.querySelector("[data-orders-bar]")
-    const r = bar.getBoundingClientRect()
-    let o = 1
-    for (let n = bar; n && n !== document.body; n = n.parentElement) o *= Number(getComputedStyle(n).opacity)
-    return { left: r.left, top: r.top, width: r.width, height: r.height, opacity: o, back: !!bar.querySelector("a[aria-label='Back to orders']") }
-  })
-  await s.screenshot({ path: join(shots, `skeleton-${viewport.width}.png`) })
-  await s.close()
   const p = await open(viewport, `/app/orders?order=ord-0005`)
   await sleep(200)
-  const real = await p.evaluate(() => {
-    const r = document.querySelector(".orders-detail [data-orders-bar]").getBoundingClientRect()
-    return { left: r.left, top: r.top, width: r.width, height: r.height, stage: document.querySelector(".orders-stage").className }
-  })
+  const real = await p.evaluate(() => ({ stage: document.querySelector(".orders-stage").className }))
   await p.close()
-  expect(sk.opacity === 1 && sk.back, `${viewport.width} wide: the skeleton's bar is drawn at once, with a working back arrow`, sk)
-  expect(near(sk.left, real.left) && near(sk.top, real.top) && near(sk.width, real.width) && near(sk.height, real.height), `${viewport.width} wide: the same size and place as the order's own bar`, { skeleton: [sk.left, sk.top, sk.width, sk.height], order: [real.left, real.top, real.width, real.height] })
   expect(!/app-page-enter/.test(real.stage), `${viewport.width} wide: an order opened by its link does not fade in as a whole`, real.stage)
 }
 

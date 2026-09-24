@@ -4,30 +4,26 @@
  * ===========================================================================
  *  THE LIBRARY IS FULL: SAY SO, AND SAY WHAT TO DO
  * ===========================================================================
- * With three websites in the library, Import did nothing at all: the button
- * was disabled, and a disabled button takes no click, so the one message
- * written for this case (a toast) could never be shown. Add and Duplicate
- * showed that toast, which appears for four seconds in a corner and names a
- * rule without a way out.
+ * Every way into a full library (Import, Add theme, Duplicate) opens this,
+ * with the same words: the rule, which websites are taking the room, and a
+ * Remove beside each draft. The live one is not offered; take it offline
+ * first. Removing goes through the page's own confirmation, so nothing is
+ * deleted from here without the usual question.
  *
- * Every way into the library now opens this instead, with the same words:
- * what the rule is, which websites are taking the room, and a Remove beside
- * each draft (the live one is not offered; take it offline first). Removing
- * goes through the page's own confirmation, so nothing is deleted from here
- * without the usual question.
+ * On a phone it is the app's shared bottom sheet, so it rises, drags and
+ * closes like every other sheet; from 640px up it is a compact modal. Both
+ * draw the same content in the Polaris shape: a title, one sentence, the
+ * websites as a plain list with a small status badge, and one Close.
+ *
+ * It was a centred modal on a phone, with the list boxed inside the box and
+ * each Remove a bordered red button with an icon. Remove is a plain red word
+ * now, which is how Polaris draws a destructive action in a list.
  */
 import * as React from "react"
-import { Trash2 } from "lucide-react"
-import {
-  AlertDialog,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
-import { THEME_INSTALL_LIMIT } from "@/lib/website-builder/theme-registry"
+import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogTitle } from "@/components/ui/alert-dialog"
+import { BottomSheet } from "@/components/ui/bottom-sheet"
+import { DRAFT_LIMIT } from "@/lib/website-builder/library-limit"
+import { cn } from "@/lib/utils"
 
 export type LibraryAction = "import" | "add" | "duplicate"
 
@@ -37,10 +33,72 @@ const VERB: Record<LibraryAction, string> = {
   duplicate: "make a copy",
 }
 
+export const LIBRARY_FULL_TITLE = "Your library is full"
+
+/** The one sentence under the title, from the limit rather than written out. */
+export function libraryFullSentence(action: LibraryAction | null): string {
+  const drafts = `${DRAFT_LIMIT} ${DRAFT_LIMIT === 1 ? "draft" : "drafts"}`
+  return `You can keep one live website and ${drafts}, so remove a draft to ${action ? VERB[action] : "add another"}.`
+}
+
 export interface LibraryEntry {
   id: string
   name: string
   live: boolean
+}
+
+/** The same breakpoint the action menus use, and the one the sheet hides itself from. */
+const PHONE = "(max-width: 639px)"
+
+function usePhone(): boolean {
+  const [phone, setPhone] = React.useState(false)
+  React.useEffect(() => {
+    const mql = window.matchMedia(PHONE)
+    const check = () => setPhone(mql.matches)
+    check()
+    mql.addEventListener("change", check)
+    return () => mql.removeEventListener("change", check)
+  }, [])
+  return phone
+}
+
+/** A Polaris tone badge: a word on a tint, 20px high. */
+function StatusBadge({ live }: { live: boolean }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex h-5 shrink-0 items-center rounded-md px-1.5 text-[12px] font-medium",
+        live ? "bg-[#cdfee1] text-[#0c5132]" : "bg-[#f1f2f4] text-[#3f3f46]",
+      )}
+    >
+      {live ? "Live" : "Draft"}
+    </span>
+  )
+}
+
+function EntryList({ entries, onRemove }: { entries: LibraryEntry[]; onRemove?: (id: string) => void }) {
+  return (
+    <ul data-library-list="" className="divide-y divide-[#eceef1] border-y border-[#eceef1]">
+      {entries.map((e) => (
+        <li key={e.id} className="flex min-h-[52px] items-center gap-3 px-5 py-1.5 sm:min-h-[44px] sm:py-1">
+          <span className="flex min-w-0 flex-1 items-center gap-2">
+            <span className="truncate text-[14px] font-medium text-[#1a1a2e]">{e.name}</span>
+            <StatusBadge live={e.live} />
+          </span>
+          {!e.live && onRemove ? (
+            <button
+              type="button"
+              onClick={() => onRemove(e.id)}
+              aria-label={`Remove ${e.name}`}
+              className="-mr-2 inline-flex h-11 shrink-0 items-center rounded-lg px-2 text-[14px] font-medium text-[#c4290c] outline-none transition-colors duration-150 hover:bg-[#fef1ee] focus-visible:ring-2 focus-visible:ring-[#c4290c]/25 active:bg-[#fde4df] sm:h-8 sm:text-[13px]"
+            >
+              Remove
+            </button>
+          ) : null}
+        </li>
+      ))}
+    </ul>
+  )
 }
 
 export function LibraryFullDialog({
@@ -56,38 +114,59 @@ export function LibraryFullDialog({
   /** Absent where removing is not possible from this page. */
   onRemove?: (id: string) => void
 }) {
+  const phone = usePhone()
+  const open = action !== null
+  /* The words stay as they were while it closes, rather than changing under the fade. */
+  const [shown, setShown] = React.useState<LibraryAction | null>(action)
+  if (action !== null && action !== shown) setShown(action)
+  const sentence = libraryFullSentence(action ?? shown)
+
+  if (phone) {
+    return (
+      <BottomSheet
+        isOpen={open}
+        onClose={onClose}
+        label={LIBRARY_FULL_TITLE}
+        header={
+          <div className="px-5 pb-4 pt-3">
+            <h2 className="text-[17px] font-semibold text-[#1a1a2e]">{LIBRARY_FULL_TITLE}</h2>
+            <p className="mt-1 text-[14px] leading-[1.45] text-[#6b7280]">{sentence}</p>
+          </div>
+        }
+      >
+        <div data-library-full="" data-surface="sheet">
+          <EntryList entries={entries} onRemove={onRemove} />
+          <div className="px-5 pb-1 pt-4">
+            <button
+              type="button"
+              onClick={onClose}
+              className="inline-flex h-12 w-full items-center justify-center rounded-xl border border-[#e5e7eb] bg-white text-[15px] font-semibold text-[#1a1a2e] shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-colors duration-150 active:bg-[#f3f4f6]"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </BottomSheet>
+    )
+  }
+
   return (
-    <AlertDialog open={action !== null} onOpenChange={(o) => !o && onClose()}>
-      <AlertDialogContent className="max-w-[440px] gap-0 overflow-hidden rounded-2xl p-0" data-library-full="">
-        <AlertDialogHeader className="space-y-1.5 px-5 pb-4 pt-5 text-left">
-          <AlertDialogTitle className="text-[17px] font-semibold text-[#1a1a2e]">Your library is full</AlertDialogTitle>
-          <AlertDialogDescription className="text-[13.5px] leading-relaxed text-[#6b7280]">
-            You can keep {THEME_INSTALL_LIMIT} websites: one live and {THEME_INSTALL_LIMIT - 1} drafts. Remove a draft to {action ? VERB[action] : "add another"}.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <ul className="mx-5 mb-5 divide-y divide-[#eceef1] overflow-hidden rounded-xl border border-[#e5e7eb] bg-[#fafbfb]">
-          {entries.map((e) => (
-            <li key={e.id} className="flex min-h-[48px] items-center justify-between gap-3 px-3.5 py-2">
-              <span className="min-w-0">
-                <span className="block truncate text-[13.5px] font-medium text-[#1a1a2e]">{e.name}</span>
-                <span className="block text-[12px] text-[#6b7280]">{e.live ? "Live" : "Draft"}</span>
-              </span>
-              {!e.live && onRemove ? (
-                <button
-                  type="button"
-                  onClick={() => onRemove(e.id)}
-                  className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-[#e5e7eb] bg-white px-2.5 text-[12.5px] font-medium text-[#b42318] shadow-[0_1px_2px_rgba(0,0,0,0.03)] transition-colors hover:bg-[#fef3f2]"
-                >
-                  <Trash2 className="h-3.5 w-3.5" strokeWidth={1.9} />
-                  Remove
-                </button>
-              ) : null}
-            </li>
-          ))}
-        </ul>
-        <AlertDialogFooter className="border-t border-[#eceef1] bg-[#fafbfb] px-5 py-3">
-          <AlertDialogCancel className="h-9 rounded-lg">Close</AlertDialogCancel>
-        </AlertDialogFooter>
+    <AlertDialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <AlertDialogContent
+        data-library-full=""
+        data-surface="modal"
+        className="block max-w-[calc(100%-2rem)] gap-0 overflow-hidden rounded-2xl border-[#e5e7eb] p-0 shadow-[0_20px_48px_-16px_rgba(17,24,39,0.28),0_2px_6px_rgba(17,24,39,0.06)] sm:max-w-[440px]"
+      >
+        <div className="px-5 pb-4 pt-5">
+          <AlertDialogTitle className="text-[16px] font-semibold text-[#1a1a2e]">{LIBRARY_FULL_TITLE}</AlertDialogTitle>
+          <AlertDialogDescription className="mt-1 text-[13.5px] leading-[1.5] text-[#6b7280]">{sentence}</AlertDialogDescription>
+        </div>
+        <EntryList entries={entries} onRemove={onRemove} />
+        <div className="flex justify-end px-5 py-3">
+          <AlertDialogCancel className="mt-0 h-9 rounded-lg border-[#e5e7eb] px-3.5 text-[13px] font-semibold text-[#1a1a2e] shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+            Close
+          </AlertDialogCancel>
+        </div>
       </AlertDialogContent>
     </AlertDialog>
   )

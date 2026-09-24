@@ -101,7 +101,8 @@ export interface ThemeDefinition {
   version: string
 }
 
-export const THEME_INSTALL_LIMIT = 3
+/** How many websites a creator keeps: one live and the rest drafts. Every count, message and check reads this. */
+export const THEME_INSTALL_LIMIT = 5
 
 export const STORELIB_DEFAULT_ID = "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
 const CREATOR_MINIMAL_ID = "b2c3d4e5-f6a7-8901-bcde-f12345678901"

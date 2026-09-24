@@ -1802,7 +1802,7 @@ check(
     !/viewportTop/.test(sheetSrc) &&
     /function browserChromeGap\(\): number/.test(sheetSrc) &&
     /probe\.getBoundingClientRect\(\)\.top/.test(sheetSrc) &&
-    /paddingBottom: sheetBottomReserve\(chromeGap, keyboardInset\)/.test(sheetSrc) &&
+    /paddingBottom: sheetBottomReserve\(chromeGap, keyboardInset, visibleTop > 0\)/.test(sheetSrc) &&
     // and the height grows by it too, or padding just pushes content out again
     /const safe = safeAreaBottom\(\) \+ browserChromeGap\(\)/.test(sheetSrc),
 )
@@ -1829,8 +1829,9 @@ check(
    * 170px left for a header, a form and two buttons, and the field being
    * typed into was not on screen at all.
    */
-  "a sheet grows by the keyboard, so the panel above it stays the size the detent asked for",
-  /const height = sheetHeightWithKeyboard\(detentHeight, keyboardInset, viewport\)/.test(sheetSrc),
+  "a sheet grows by the keyboard, up to a ceiling that keeps its top edge out from under the status bar",
+  /const ceiling = keyboardCeiling\(\{ viewport, tallestHeight: natural, safeTop, visibleTop, barBottom: barEdge \}\)/.test(sheetSrc) &&
+    /const height = sheetHeightWithKeyboard\(detentHeight, keyboardInset, ceiling\)/.test(sheetSrc),
 )
 
 check(
@@ -1962,7 +1963,7 @@ check(
     // indicator cannot change mid-scroll, so it does not belong on that path.
     /window\.addEventListener\("orientationchange", measure\)/.test(sheetSrc) &&
     !/setChromeGap\(browserChromeGap\(\)\)\s*\n\s*setPeekInset/.test(sheetSrc) &&
-    /offsetsFor\(\{ viewport, detents: stops, peekHeight: peek \}\)/.test(sheetSrc),
+    /offsetsFor\(\{ viewport, detents: stops, peekHeight: peek, safeTop, barBottom: barEdge \}\)/.test(sheetSrc),
 )
 
 check(
@@ -3070,7 +3071,7 @@ check(
    * ever named them, which on a phone is nothing at all.
    */
   /Edit website\s*\n\s*<\/Button>/.test(wbPage) &&
-    /View website/.test(readFileSync(join(root, "app/app/website-builder/site-controls.tsx"), "utf8")) &&
+    /label: "View website"/.test(wbPage) &&
     /aria-label=\{`More actions for \$\{live\.name\}`\}/.test(wbPage) &&
     // the icon-square component is gone, not merely unused
     !/function IconAction\(/.test(wbPage) &&
@@ -3094,7 +3095,7 @@ check(
   /* A count of websites against the limit, with the rule behind it, and
      never "5 of 3" for a library from before the limit. */
   /slotsUsed > THEME_INSTALL_LIMIT \? `\$\{slotsUsed\} websites` : `\$\{slotsUsed\} of \$\{THEME_INSTALL_LIMIT\} websites`/.test(wbPage) &&
-    /One live website and two drafts/.test(wbPage) &&
+    /title=\{LIBRARY_RULE_TITLE\}/.test(wbPage) && !/two drafts/.test(wbPage) &&
     !/\{slotsUsed\}\/\{THEME_INSTALL_LIMIT\}/.test(wbPage),
 )
 

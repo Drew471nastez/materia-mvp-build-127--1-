@@ -50,6 +50,7 @@ import { avatarSizeMap } from "@/lib/store-builder/defaults"
 import { cardAccents, isInheritedBlack } from "@/lib/store-builder/storefront-chrome"
 import { isInheritedWhite } from "@/lib/store-builder/page-surface"
 import { isOptimizableImage, optimizedImageUrl, PORTRAIT_QUALITY } from "@/lib/images/optimized-url"
+import { coverCropStyle, coverSizes, cropFromSettings } from "@/lib/images/cover-crop"
 import { videoEmbedUrl } from "@/lib/social/video"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ReviewsList } from "@/components/reviews/reviews-list"
@@ -2780,10 +2781,18 @@ export function UnifiedShopHeader({
             paint, and the picture replaces it whenever it is ready.
           */}
           {(() => {
+            /*
+              THE CROP IS POSITION AND ZOOM, from lib/images/cover-crop, the
+              same function the editor's frame draws with, so what was pinched
+              into place in the sheet is what this band shows at every width.
+              It is layout, not a transform: this band is a `.group`, and
+              app/globals.css strips transforms inside one on a touch screen.
+              A cover saved before zoom existed is zoom 1, which is plain
+              object-fit: cover at its object-position, exactly as before.
+            */
+            const crop = cropFromSettings(settings.coverFocalPoint, settings.coverZoom)
             const coverStyle = {
-              objectPosition: settings.coverFocalPoint
-                ? `${settings.coverFocalPoint.x}% ${settings.coverFocalPoint.y}%`
-                : undefined,
+              ...coverCropStyle(crop),
               filter: `brightness(${settings.coverBrightness ?? 1.0})`,
             }
             /**
@@ -2811,10 +2820,9 @@ export function UnifiedShopHeader({
                 src={coverImageUrl}
                 alt={`${profile?.display_name || "Creator"} cover`}
                 fill
-                sizes="100vw"
+                sizes={coverSizes(crop.zoom)}
                 quality={PORTRAIT_QUALITY}
                 priority
-                className="object-cover"
                 style={coverStyle}
               />
             ) : (
@@ -2822,7 +2830,6 @@ export function UnifiedShopHeader({
               <img
                 src={coverImageUrl}
                 alt={`${profile?.display_name || "Creator"} cover`}
-                className="absolute inset-0 h-full w-full object-cover"
                 style={coverStyle}
               />
             )
@@ -2872,9 +2879,15 @@ export function UnifiedShopHeader({
             </div>
           )}
 
+          {/*
+            THE BUILDER'S HOVER WASH, UNDER A MOUSE ONLY. On a phone there is
+            no hover, and on the phones that claim one anyway (Android web
+            views) a tap left the cover under a 30% black fade until the next
+            tap somewhere else. pointer-fine is globals.css's own variant.
+          */}
           {!isPreviewMode && onSelect && (
-            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center cursor-pointer">
-              <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-white rounded-full p-2 shadow-lg">
+            <div className="absolute inset-0 bg-black/0 pointer-fine:group-hover:bg-black/30 transition-all flex items-center justify-center cursor-pointer">
+              <div className="opacity-0 pointer-fine:group-hover:opacity-100 transition-opacity bg-white rounded-full p-2 shadow-lg">
                 <svg className="h-5 w-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path
                     strokeLinecap="round"

@@ -49,6 +49,12 @@ import {
   coastVelocity,
   curveSlopes,
   dragIntent,
+  isTap,
+  tapTarget,
+  VELOCITY_THRESHOLD,
+  FLICK_MIN_DISTANCE,
+  BAR_GAP_PX,
+  keyboardCeiling,
   dragPosition,
   expandCarry,
   handOffToSheet,
@@ -1655,7 +1661,7 @@ section("The mobile sheet snaps where it should")
      * above drives `offsetsFor` directly. What is worth pinning now is that
      * the component has not gone back to computing its own.
      */
-    /offsetsFor\(\{ viewport, detents: stops, peekHeight: peek \}\)\.offsets/.test(sheet) &&
+    /offsetsFor\(\{ viewport, detents: stops, peekHeight: peek, safeTop, barBottom: barEdge \}\)\.offsets/.test(sheet) &&
       !/const list = stops$/m.test(sheet),
   )
 
@@ -1721,22 +1727,87 @@ section("What a touch on the sheet is FOR")
     dragIntent({ deltaX: 0, deltaY: -30, scrollTop: 0, hasScroller: true }) === "scroll",
   )
   check(
-    "unless the sheet is below its tallest stop: then the push grows the sheet first",
+    "at the half stop too: a push up inside the list scrolls the list, it does not grow the sheet first",
     /**
-     * What an iOS sheet does. A list read through half a screen is a list
-     * somebody wants more of, and the same push that would have scrolled it
-     * brings the rest of the sheet up; at the tallest stop it scrolls again.
+     * The rule this replaced grew the sheet to full before a single row
+     * scrolled. The owner reads the Sections list at half with the canvas
+     * above it, so the list scrolls at every stop now, the iOS medium detent
+     * whose content scrolls (prefersScrollingExpandsWhenScrolledToEdge =
+     * false). The sheet moves from what does not scroll: the grab bar, the
+     * tabs, a pull down at the top of the list.
      */
-    dragIntent({ deltaX: 0, deltaY: -30, scrollTop: 0, hasScroller: true, canExpand: true }) === "sheet" &&
-      dragIntent({ deltaX: 0, deltaY: -30, scrollTop: 220, hasScroller: true, canExpand: true }) === "sheet" &&
-      dragIntent({ deltaX: 0, deltaY: 30, scrollTop: 220, hasScroller: true, canExpand: true }) === "scroll" &&
-      dragIntent({ deltaX: 40, deltaY: -10, scrollTop: 0, hasScroller: true, canExpand: true }) === "scroll",
+    dragIntent({ deltaX: 0, deltaY: -30, scrollTop: 0, hasScroller: true }) === "scroll" &&
+      dragIntent({ deltaX: 0, deltaY: -30, scrollTop: 220, hasScroller: true }) === "scroll" &&
+      dragIntent({ deltaX: 0, deltaY: 30, scrollTop: 220, hasScroller: true }) === "scroll" &&
+      dragIntent({ deltaX: 40, deltaY: -10, scrollTop: 0, hasScroller: true }) === "scroll",
   )
   check(
-    "once the sheet reaches its tallest stop the rest of the push scrolls the list",
+    "and the component no longer asks whether the sheet could grow",
+    !/canExpand/.test(sheet) && !/canExpand/.test(readFileSync(join(root, "components/website-builder/sheet-gestures.ts"), "utf8")),
+  )
+  check(
+    "a hand-off that turns back up gives the rest of the push to the list, and the sheet keeps its place",
     JSON.stringify(expandCarry(40, 0)) === JSON.stringify({ sheetY: 40, scrollBy: 0 }) &&
       JSON.stringify(expandCarry(-25, 0)) === JSON.stringify({ sheetY: 0, scrollBy: 25 }),
   )
+  /**
+   * A TAP ON THE GRAB BAR STEPS THE SHEET. Closed to half, half to full,
+   * full to half, so full is one tap away and never a gesture to discover.
+   */
+  {
+    const { offsets: stops } = offsetsFor({ viewport: 844, detents: [0.5, 0.92], peekHeight: 72 })
+    const [full, half, closed] = stops
+    check(
+      "a tap on the grab bar: closed opens to half, half goes to full, full comes back to half",
+      tapTarget(stops, closed) === 1 && tapTarget(stops, half) === 0 && tapTarget(stops, full) === 1,
+      JSON.stringify(stops),
+    )
+    check(
+      "caught between stops it steps from the nearest one",
+      tapTarget(stops, half - 20) === 0 && tapTarget(stops, closed - 30) === 1,
+    )
+    check(
+      "a content-fit sheet, open, has nowhere to step and stays",
+      tapTarget([0, 500], 0) === 0 && tapTarget([0, 500], 500) === 0,
+    )
+    check(
+      "a tap is short and still; a press or a drag is not",
+      isTap({ distance: 3, ms: 120 }) && !isTap({ distance: 9, ms: 120 }) && !isTap({ distance: 2, ms: 600 }),
+    )
+    check(
+      "the component answers a grab bar tap with that step, and cancels the browser's mouse copy of it",
+      /const tapped = drag\.current\.onHandle && isTap\(/.test(sheet) &&
+        /tapped \? tapTarget\(list, tapFrom\)/.test(sheet) &&
+        /if \(endDrag\(eventTime\(e\)\) && e\.cancelable\) e\.preventDefault\(\)/.test(sheet) &&
+        /performance\.now\(\) - lastTouchAt\.current < TOUCH_MOUSE_GAP_MS/.test(sheet),
+    )
+  }
+  /**
+   * EASIER TO FLICK. 0.25 px/ms over more than 8px from touchdown (it was
+   * 0.4 over 8px from where the sheet took the gesture, 14px and more): a
+   * short deliberate nudge leaves at 0.35 to 0.5 px/ms, a placed release
+   * under 0.15.
+   */
+  {
+    const { offsets: stops } = offsetsFor({ viewport: 844, detents: [0.5, 0.92], peekHeight: 72 })
+    check(
+      "a short flick up from half, 0.35 px/ms over 10px, reaches full",
+      snapTarget({ offsets: stops, current: stops[1] - 10, velocity: -0.35, totalDelta: -10 }) === 0,
+    )
+    check(
+      "the same from closed opens to half, not straight past it",
+      snapTarget({ offsets: stops, current: stops[2] - 10, velocity: -0.35, totalDelta: -10 }) === 1,
+    )
+    check(
+      "a placed release, 0.12 px/ms, stays where it was put",
+      snapTarget({ offsets: stops, current: stops[1] - 60, velocity: -0.12, totalDelta: -60 }) === 1,
+    )
+    check("the thresholds are the ones argued for", VELOCITY_THRESHOLD === 0.25 && FLICK_MIN_DISTANCE === 8)
+    check(
+      "and the distance is the finger's from touchdown, so a flick the browser held back its first moves of still counts",
+      /const totalDelta = tapped \? 0 : drag\.current\.lastY - drag\.current\.downY/.test(sheet),
+    )
+  }
   check(
     "a scroll that runs out of list going down hands the finger to the sheet",
     /**
@@ -1930,6 +2001,109 @@ section("What a touch on the sheet is FOR")
     "the maths is imported by the component, not copied into it",
     /from "\.\/sheet-gestures"/.test(sheet) &&
       /snapTarget\(\{ offsets: list, current, velocity, totalDelta \}\)/.test(sheet),
+  )
+}
+
+// ===========================================================================
+section("Ask Storelib on a phone: the keyboard, and nothing sideways")
+// ===========================================================================
+/**
+ * Two iPhone screenshots: with the keyboard up the header sat under the
+ * clock and a band of white sat between the composer and the keys; and the
+ * thread scrolled sideways with every message cut off on the left.
+ * scripts/check-chat-keyboard.mjs measures both on the real components; this
+ * pins the source that the measurement depends on.
+ */
+{
+  const strip = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")
+  const chat = readFileSync(join(root, "components/website-builder/theme-chat.tsx"), "utf8")
+  const panel = readFileSync(join(root, "components/website-builder/work-panel.tsx"), "utf8")
+  const sheet = readFileSync(join(root, "components/website-builder/mobile-editor-sheet.tsx"), "utf8")
+  const editor = readFileSync(join(root, "app/website-builder/editor/[installId]/page.tsx"), "utf8")
+  const css = readFileSync(join(root, "app/globals.css"), "utf8")
+
+  check(
+    "a new message scrolls the thread itself, never scrollIntoView, which also moved the sheet and the document",
+    !/scrollIntoView\(/.test(strip(chat)) && /thread\.scrollTo\(\{ top: thread\.scrollHeight, behavior: "smooth" \}\)/.test(chat),
+  )
+  check(
+    "the thread scrolls up and down only: x hidden, long words broken, a vertical pan",
+    /data-chat-thread=""\s*\n\s*className="[^"]*\boverflow-x-hidden\b[^"]*\[overflow-wrap:anywhere\][^"]*\[touch-action:pan-y\]/.test(chat),
+  )
+  check(
+    "the chat column is never wider than the panel, and fills the sheet above its padding",
+    /className="relative flex h-full min-h-0 w-full min-w-0 flex-1 flex-col bg-background \[overflow-x:clip\]"/.test(chat),
+  )
+  check(
+    "the scope chip and the whole-page button truncate instead of pushing the row wider",
+    /inline-flex min-w-0 max-w-full items-center[\s\S]{0,400}<span className="truncate">Editing the whole page\. Limit to/.test(chat),
+  )
+  check(
+    "a code block scrolls sideways inside itself, and only it",
+    /<pre data-code-scroll="" className="max-h-56 overflow-auto max-w-full[^"]*\[touch-action:pan-x_pan-y\]/.test(panel),
+  )
+  check(
+    "the sheet clips rather than hides, so no script can scroll its content out of place",
+    /overflow: "clip",/.test(sheet),
+  )
+  check(
+    "a sheet opened over the page puts back a document the browser scrolled to show a field",
+    /window\.addEventListener\("scroll", onScroll, \{ passive: true \}\)/.test(sheet) && /if \(window\.scrollY !== y\) window\.scrollTo\(0, y\)/.test(sheet),
+  )
+  check(
+    "a field typed into inside the sheet stands it at its tallest stop until the keyboard goes",
+    /const lifted = expanders\.length > 0 \|\| keyboardHere/.test(sheet) &&
+      /setKeyboardHere\(/.test(sheet) &&
+      /sheetRef\.current\?\.contains\(active\)/.test(sheet),
+  )
+  check(
+    "the AI sheet's tallest stop is the whole screen below the status bar",
+    /const AI_SHEET_DETENTS = \[0\.5, 1\]/.test(editor) &&
+      /<MobileEditorSheet open=\{aiOpen\}[\s\S]{0,200}?detents=\{AI_SHEET_DETENTS\}>/.test(editor) &&
+      /offsetsFor\(\{ viewport, detents: stops, peekHeight: peek, safeTop, barBottom: barEdge \}\)/.test(sheet),
+  )
+  /**
+   * THE TALLEST STOP COVERS THE BAR OR CLEARS IT. At 92% of 844 the top edge
+   * is 68px, and with a 59px status bar the editor's bar runs to 107 with its
+   * buttons from 67: one violet pixel row of Ask AI at the sheet's corners.
+   */
+  {
+    const at = (detents: number[], safeTop: number, barBottom: number) =>
+      844 - offsetsFor({ viewport: 844, detents, peekHeight: 72, safeTop, barBottom }).height
+    check(
+      "a 92% stop on a notched phone clears the whole bar with a gap, instead of cutting across its buttons",
+      at([0.5, 0.92], 59, 107) === 107 + BAR_GAP_PX,
+      String(at([0.5, 0.92], 59, 107)),
+    )
+    check(
+      "in a browser, where the bar ends at 48, the 92% stop is already clear and stays at 68",
+      at([0.5, 0.92], 0, 48) === 68,
+    )
+    check("a stop of 1 still covers the bar, at the status bar", at([0.5, 1], 59, 107) === 59 && at([0.5, 1], 0, 48) === 0)
+    check("with no bar marked the stops are what they were", at([0.5, 0.92], 59, 0) === 68 && at([0.92], 0, 0) === 68)
+    check(
+      "the half stop does not move",
+      [[59, 107], [0, 48], [59, 0]].every(([s, b]) => {
+        const g = offsetsFor({ viewport: 844, detents: [0.5, 0.92], peekHeight: 72, safeTop: s, barBottom: b })
+        return 844 - g.height + g.offsets[1] === 422
+      }),
+    )
+    check(
+      "and a keyboard does not lift a 92% sheet into the bar either",
+      844 - keyboardCeiling({ viewport: 844, tallestHeight: 844 - at([0.5, 0.92], 59, 107), safeTop: 59, visibleTop: 0, barBottom: 107 }) === 107 + BAR_GAP_PX &&
+        844 - keyboardCeiling({ viewport: 844, tallestHeight: Math.round(844 * 0.78), safeTop: 59, visibleTop: 0, barBottom: 107 }) === 107 + BAR_GAP_PX,
+    )
+    check(
+      "the editor's bar is what is marked, and the sheet measures it off the element",
+      /<header className="wb-editor-topbar[^"]*" data-sheet-clear="">/.test(editor) &&
+        /document\.querySelectorAll<HTMLElement>\("\[data-sheet-clear\]"\)/.test(sheet) &&
+        /keyboardCeiling\(\{ viewport, tallestHeight: natural, safeTop, visibleTop, barBottom: barEdge \}\)/.test(sheet),
+    )
+  }
+  check(
+    "the panels that scroll inside the Sections sheet carry the room themselves",
+    (editor.match(/<div data-sheet-scroll className="flex-1 overflow-y-auto wb-slim-scroll/g) || []).length >= 6 &&
+      /\[data-mobile-bottom-sheet\] \[data-sheet-scroll\]:has\(\[data-sheet-scroll\]:last-child\)::after \{\s*height: 0;/.test(css),
   )
 }
 

@@ -6,7 +6,7 @@
  *
  *   scripts/check-sheet-motion.mjs     every way a sheet closes slides out; the pill stays under it
  *   scripts/check-app-mobile-nav.mjs   the real pill under an open sheet: visible, in place, not tappable
- *   scripts/check-app-stage.mjs        a fast page shows no outline or bar; the landing; back keeps scroll
+ *   scripts/check-app-stage.mjs        no outline ever; the spinner only past its wait; the landing; back keeps scroll
  *   scripts/check-settings-tabs.mjs    the tab bar and the new tab hold still through every switch
  *   scripts/check-upgrade-page.mjs     the plans page covers the shell; Back goes back
  *   scripts/check-app-avatar.mjs       no initials before a photo; one fade; none on the way back
@@ -31,11 +31,14 @@ import {
   NAV_BAR_AFTER_MS,
   NAV_ENTER_MS,
   NAV_ENTER_RISE_PX,
-  NAV_SKELETON_AFTER_MS,
-  NAV_PHONE_OUTLINE_AFTER_MS,
-  NAV_PHONE_OUTLINE_FADE_MS,
-  drawsOutline,
-  outlineDelay,
+  NAV_SPINNER_AFTER_MS,
+  NAV_PHONE_SPINNER_AFTER_MS,
+  NAV_SPINNER_FADE_MS,
+  APP_PAGE_KEPT_MS,
+  isCurrentAddress,
+  pendingPath,
+  waitsWithSpinner,
+  spinnerDelay,
   recalledScroll,
   rememberScroll,
   takeTraversal,
@@ -73,39 +76,102 @@ section("A navigation, from start to landing")
   beginAppNavigation("/app/orders")
   const nav = getAppNavigation()
   check("a click records where it is going, and when", nav?.href === "/app/orders" && typeof nav?.startedAt === "number")
+  const firstStart = getAppNavigation()?.startedAt
+  beginAppNavigation("/app/orders")
+  check("the same press reported twice is one navigation: it keeps when it started",
+    getAppNavigation()?.href === "/app/orders" && getAppNavigation()?.startedAt === firstStart)
   beginAppNavigation("/app/analytics")
   check("a second click replaces the first", getAppNavigation()?.href === "/app/analytics")
+  check("and the nav lights the page being opened, by path, only inside /app",
+    pendingPath(getAppNavigation()) === "/app/analytics" && pendingPath({ href: "/app/orders/?order=1", startedAt: 0 }) === "/app/orders"
+      && pendingPath({ href: "/explore", startedAt: 0 }) === null && pendingPath({ href: null, startedAt: 0 }) === null && pendingPath(null) === null)
   endAppNavigation()
   check("the commit clears it", getAppNavigation() === null)
   endAppNavigation()
   check("and clearing twice is harmless", getAppNavigation() === null)
   check(
-    "the thresholds are the ones asked for: nothing under 300ms, an outline only past a second, a 180ms landing with a 4 to 6px rise",
-    NAV_BAR_AFTER_MS === 300 && NAV_SKELETON_AFTER_MS === 1000 && NAV_ENTER_MS >= 160 && NAV_ENTER_MS <= 200 && NAV_ENTER_RISE_PX >= 4 && NAV_ENTER_RISE_PX <= 6,
+    "the thresholds are the ones asked for: a computer's bar at 300ms, a 180ms landing with a 4 to 6px rise",
+    NAV_BAR_AFTER_MS === 300 && NAV_ENTER_MS >= 160 && NAV_ENTER_MS <= 200 && NAV_ENTER_RISE_PX >= 4 && NAV_ENTER_RISE_PX <= 6,
   )
 }
 
-section("The outline of a page on its way")
+section("Pressing the page you are on")
 {
-  check("a phone's outline comes at 90ms on a 120ms fade; a computer's after a second",
-    NAV_PHONE_OUTLINE_AFTER_MS === 90 && NAV_PHONE_OUTLINE_FADE_MS === 120
-      && outlineDelay("/app/orders", true) === 90 && outlineDelay("/app/orders", false) === 1000
-      && outlineDelay("/app", true) === 90 && outlineDelay("/app/products?tab=all", true) === 90)
+  const w = globalThis as unknown as { location?: unknown }
+  const had = w.location
+  w.location = { href: "https://storelib.com/app/orders?order=7", origin: "https://storelib.com", pathname: "/app/orders", search: "?order=7" }
+  check("is told apart from a navigation, by path and query, with or without a trailing slash",
+    isCurrentAddress("/app/orders?order=7") && isCurrentAddress("/app/orders/?order=7") && isCurrentAddress("https://storelib.com/app/orders?order=7")
+      && !isCurrentAddress("/app/orders") && !isCurrentAddress("/app/analytics") && !isCurrentAddress("https://elsewhere.com/app/orders?order=7") && !isCurrentAddress(null))
+  w.location = had
+  const bar = code("components/app/navigation-loading-bar.tsx")
+  check("and starts no record, from a link or from a push: nothing would ever end it, and the bar and spinner sat for ten seconds",
+    /if \(isCurrentAddress\(url\.href\)\) return/.test(bar) && /if \(isCurrentAddress\(href\)\) return\s*takeTraversal\(\)\s*beginAppNavigation\(href\)/.test(bar))
+}
+
+section("A slow page: no outline, a spinner")
+{
+  check("a phone waits 500ms, a computer a second, and either fades it in over 150ms",
+    NAV_PHONE_SPINNER_AFTER_MS === 500 && NAV_SPINNER_AFTER_MS === 1000 && NAV_SPINNER_FADE_MS === 150
+      && spinnerDelay("/app/orders", true) === 500 && spinnerDelay("/app/orders", false) === 1000
+      && spinnerDelay("/app", true) === 500 && spinnerDelay("/app/products?tab=all", true) === 500)
   check("never for the product editor, new or saved, at any width",
     ["/app/products/new", "/app/products/8f0c2b1e-3a4d-4c5e-9f60-718293a4b5c6", "/app/products/abc/", "/app/products/new?from=x"]
-      .every((h) => !drawsOutline(h) && outlineDelay(h, true) === null && outlineDelay(h, false) === null))
+      .every((h) => !waitsWithSpinner(h) && spinnerDelay(h, true) === null && spinnerDelay(h, false) === null))
   check("nor for a page drawn over the whole shell, nor outside /app, nor an unknown address",
-    !drawsOutline("/app/settings/billing/upgrade") && !drawsOutline("/explore") && !drawsOutline("/application") && !drawsOutline(null))
-  const route = code("components/app/route-skeletons.tsx")
-  check("and the outlines have no editor in them to draw", !/EditorSkeleton/.test(route) && /if \(path\.startsWith\("\/app\/products\/"\)\) return null/.test(route))
+    !waitsWithSpinner("/app/settings/billing/upgrade") && !waitsWithSpinner("/explore") && !waitsWithSpinner("/application") && !waitsWithSpinner(null))
+  check("no page draws an outline of itself on the way: the route outlines are gone",
+    !existsSync(join(root, "components/app/route-skeletons.tsx"))
+      && ["app/app/analytics/skeleton.tsx", "app/app/payouts/skeleton.tsx", "app/app/settings/skeleton.tsx", "app/app/orders/sales/skeleton.tsx", "app/app/orders/order-skeleton.tsx", "app/app/emails/flow/flow-skeleton.tsx"]
+        .every((f) => !existsSync(join(root, f))))
   const stage = code("components/app/app-stage.tsx")
-  check("the stage asks for the delay by address, fades a phone's outline on opacity alone, and fades it out from where it got to",
-    /outlineDelay\(href, phone\)/.test(stage)
-      && /el\.animate\(\[\{ opacity: 0 \}, \{ opacity: 1 \}\], \{ duration: NAV_PHONE_OUTLINE_FADE_MS/.test(stage)
-      && /const from = Number\(getComputedStyle\(el\)\.opacity\)/.test(stage))
+  check("the stage draws the spinner and nothing shaped like a page, asks for the wait by address, and fades in on opacity alone",
+    /<ActivitySpinner \/>/.test(stage) && !/RouteSkeleton|data-app-route-skeleton/.test(stage)
+      && /const delay = nav \? spinnerDelay\(nav\.href\) : null/.test(stage)
+      && /el\.animate\(\[\{ opacity: 0 \}, \{ opacity: 1 \}\], \{ duration: NAV_SPINNER_FADE_MS/.test(stage))
+  check("it fades out from where it got to, and lets go of presses the moment the page lands",
+    /const from = Number\(getComputedStyle\(el\)\.opacity\)/.test(stage) && /el\.style\.pointerEvents = "none"\s*const out = fadeTo\(el, 0, NAV_ENTER_MS, NAV_ENTER_EASE\)/.test(stage))
+  check("under it the page only rises: its fade out is the page's fade in, not a second fade multiplied by it",
+    /playEntrance\(s\.outer, \{ fade: !slowSurfaceIsUp\(\) \}\)/.test(stage) && /if \(!rise && !fade\) continue/.test(stage))
+  check("it covers the content area by main's own numbers: under the header and the pill, rounded on a phone",
+    /fixed inset-x-0 bottom-0 top-\[calc\(68px\+env\(safe-area-inset-top,0px\)\)\] z-\[38\][^"]*rounded-t-\[20px\] bg-\[#f8f9fa\] md:left-\[240px\] md:top-\[calc\(58px\+env\(safe-area-inset-top,0px\)\)\] md:rounded-none/.test(stage)
+      && /pt-\[calc\(68px_\+_env\(safe-area-inset-top,_0px\)\)\] md:pt-\[calc\(58px\+env\(safe-area-inset-top,_0px\)\)\] md:pl-\[240px\]/.test(read("app/app/layout.tsx")))
   const bar = code("components/app/navigation-loading-bar.tsx")
-  check("a phone shows the outline in place of the bar, and keeps the bar where there is no outline",
-    /if \(isPhoneShell\(\) && outlineDelay\(nav\.href, true\) !== null\) return/.test(bar))
+  check("a phone shows the spinner in place of the bar, and keeps the bar where there is no spinner",
+    /if \(isPhoneShell\(\) && spinnerDelay\(nav\.href, true\) !== null\) return/.test(bar))
+  const spinner = code("components/ui/activity-spinner.tsx")
+  const css = read("app/globals.css")
+  check("the spinner is the iOS one: eight tapered spokes, light gray, stepped opacity, turned in eighths",
+    /const SPOKES = 8/.test(spinner) && /text-\[#9ca3af\]/.test(spinner) && /fill="currentColor"/.test(spinner)
+      && /opacity=\{\(1 - \(\(SPOKES - i\) % SPOKES\)/.test(spinner) && /role="status"/.test(spinner)
+      && /\.activity-spinner \{\s*display: block;\s*animation: activity-spin 800ms steps\(8\) infinite;/.test(css))
+  check("it turns on transform alone, keeps that transform inside a .group on a touch screen, and slows rather than stops for reduced motion",
+    /@keyframes activity-spin \{\s*from \{ transform: rotate\(0deg\) \}\s*to \{ transform: rotate\(360deg\) \}\s*\}/.test(css)
+      && /data-keep-transform=""/.test(spinner)
+      && /@media \(prefers-reduced-motion: reduce\) \{[\s\S]{0,160}\.activity-spinner \{\s*animation-duration: 2400ms;/.test(css))
+  check("the outline's leftover rule is gone from the stylesheet", !/data-app-route-skeleton/.test(css))
+}
+
+section("The press answers on the press")
+{
+  const desktop = code("components/app/sidebar-desktop-nav.tsx")
+  const mobile = code("components/app/sidebar-mobile-nav.tsx")
+  check("the rail's rows and the menu's rows light the page being opened, from the navigation record",
+    (desktop.match(/const pathname = useShownPath\(\)/g) || []).length === 3 && !/usePathname/.test(desktop)
+      && (mobile.match(/isRouteActive\(useShownPath\(\), /g) || []).length === 2)
+  check("the shell no longer keeps a pendingHref nothing read, re-rendering itself on every click",
+    !/pendingHref|setPendingHref/.test(code("components/app/sidebar.tsx")))
+  check("the menu's rows start fetching their page on the pointerdown",
+    /onPointerDown: \(\) => \{ setPressed\(true\); onPress\?\.\(\) \}/.test(mobile)
+      && /usePressed\(\(\) => \{ if \(!active\) prefetchAppPage\(router, child\.href\) \}\)/.test(mobile)
+      && /usePressed\(\(\) => \{ if \(!active && !item\.forceNavigation\) prefetchAppPage\(router, item\.href\) \}\)/.test(mobile))
+  check("the pill fetches the page under the finger on the pointerdown, and warms its four again after the router's keep time",
+    /onPress\?\.\(slotAt\(e\.clientX\)\)/.test(mobile) && /if \(item && index !== current\) onPrefetch\?\.\(item\.href\)/.test(mobile)
+      && /document\.visibilityState === "visible" && Date\.now\(\) - warmedAt > APP_PAGE_KEPT_MS/.test(mobile))
+  const config = read("next.config.mjs")
+  const stale = /staleTimes:\s*\{\s*dynamic:\s*(\d+)/.exec(config)
+  check("and that keep time is next.config's staleTimes, one number in two places held equal",
+    !!stale && Number(stale[1]) * 1000 === APP_PAGE_KEPT_MS, stale?.[1])
 }
 
 section("Pages drawn over the whole shell")
@@ -163,6 +229,25 @@ section("Sheets")
   check("focus moves after the slide, not on its first frames", /window\.setTimeout\(\(\) => \{\s*const panel = sheetRef\.current/.test(sheet))
   check("what is inside a sheet is laid out and painted on its own, and the big blurred shadow is gone",
     (sheet.match(/contain: "layout paint"/g) || []).length === 2 && !/0_-8px_40px/.test(sheet))
+  /*
+    A control that owns its finger keeps it: the cover being pinched in the
+    profile sheet, the colour picker's box and hue strip, a reorder grip.
+    The creator page's editors moved onto this sheet, and those controls
+    carry `data-sheet-no-drag`, which the builder's sheet honoured and this
+    one now does too, at touchdown.
+  */
+  check("a control marked data-sheet-no-drag keeps its touches from the sheet",
+    /if \(target\?\.closest\?\.\("\[data-sheet-no-drag\]"\)\) \{\s*pendingRef\.current = false/.test(sheet))
+  check("a release velocity is read over the last 80ms, not one noisy pair of events",
+    /const VELOCITY_WINDOW_MS = 80/.test(sheet) && /velocityRef\.current = \(y - first\.y\) \/ span/.test(sheet))
+  check("a sheet that edits the page behind it can leave that page undimmed, and still close on a tap",
+    /scrim === "clear" \? "bg-transparent" : "bg-black\/40"/.test(sheet) && /onClick=\{requestClose\}/.test(sheet))
+  check("a fresh open can wait for its pictures to decode, never longer than 120ms",
+    /const IMAGE_WAIT_MS = 120/.test(sheet) && /img\.decode\(\)\.catch/.test(sheet) && /openTokenRef\.current !== token/.test(sheet))
+  check("the parent is told when the sheet is actually gone, on both ways out",
+    (sheet.match(/setPresent\(false\)\s*onClosedRef\.current\?\.\(\)/g) || []).length === 2)
+  check("a keyboard lifts the sheet over the keyboard's own time, not in one frame",
+    /const KEYBOARD_MOVE = "bottom 250ms/.test(sheet) && /aboveKeyboard \? \{ transition: KEYBOARD_MOVE \}/.test(sheet))
   const menu = code("components/app/mobile-account-menu.tsx")
   check("the account sheet decodes its photo ahead, and its links do not prefetch as they slide in",
     /preloadAvatar\(avatarSrc, 40\)/.test(menu) && /prefetch=\{false\}/.test(menu) && /SHEET_OPEN_MS \+ 60/.test(menu))
@@ -181,9 +266,11 @@ section("Navigation")
   check("no /app page swaps itself for a loading boundary on the first frame of a navigation", offenders.length === 0, offenders.join(", "))
   const stage = code("components/app/app-stage.tsx")
   check("the landing starts before the new page is painted, and moves only transform and opacity",
-    /useLayoutEffect\(\(\) => \{[\s\S]*playEntrance\(s\.outer\)/.test(stage)
-      && /\[\{ opacity: 0, translate: `0 \$\{NAV_ENTER_RISE_PX\}px` \}, \{ opacity: 1, translate: "0 0" \}\]/.test(stage)
-      && !/fill: "(forwards|both)"[\s\S]{0,40}NAV_ENTER_EASE \}\s*,?\s*\)\s*\}\s*\}\s*export function AppStage/.test(stage))
+    /useLayoutEffect\(\(\) => \{[\s\S]*playEntrance\(s\.outer, \{ fade: /.test(stage)
+      && /const from: Keyframe = \{ \.\.\.\(fade \? \{ opacity: 0 \} : \{\}\), \.\.\.\(rise \? \{ translate: `0 \$\{NAV_ENTER_RISE_PX\}px` \} : \{\}\) \}/.test(stage)
+      && /const to: Keyframe = \{ \.\.\.\(fade \? \{ opacity: 1 \} : \{\}\), \.\.\.\(rise \? \{ translate: "0 0" \} : \{\}\) \}/.test(stage)
+      /* No fill: nothing is left on the page's boxes when the landing ends. */
+      && /child\.animate\(\[from, to\], \{ duration: NAV_ENTER_MS, easing: NAV_ENTER_EASE \}\)/.test(stage))
   check("a page with something fixed showing gets the fade without the rise", /const rise = !holdsVisibleFixed\(child\)/.test(stage))
   check("reduced motion means no landing at all", /if \(reducedMotion\(\)\) return/.test(stage))
   check("the scroll is set in the same frame, and a back puts it where it was",

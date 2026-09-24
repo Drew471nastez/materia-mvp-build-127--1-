@@ -53,6 +53,19 @@
  *   is up. The sheet's layer is above it, so the scrim dims it like the rest
  *   of the page and takes the tap that lands on it (app/globals.css).
  *
+ *   A CONTROL THAT OWNS ITS FINGER KEEPS IT. Anything marked
+ *   `data-sheet-no-drag` (a cover being pinched, a slider) is left alone
+ *   from touchdown: the sheet neither drags nor decides anything about it.
+ *
+ *   A FLICK IS READ OVER THE LAST FEW FRAMES, not the last one. A single
+ *   pair of touch events 4ms apart can say 3 px/ms for a finger doing 1, so
+ *   the release velocity is the travel over the last 80ms of samples.
+ *
+ *   PICTURES ARE DECODED BEFORE IT MOVES, when asked (`waitForImages`): a
+ *   sheet whose first frames include decoding a photograph drops exactly
+ *   those frames. It waits for them, never longer than IMAGE_WAIT_MS, and
+ *   only for a fresh open.
+ *
  * `will-change` is set only while something is moving, so a sheet at rest
  * does not hold a layer it does not need.
  */
@@ -96,6 +109,12 @@ const DISMISS_VELOCITY = 0.5
 const PULL_CAP = 28
 /** A finger has to travel this far before the sheet decides what it is. */
 const SLOP_PX = 6
+/** The window a release velocity is measured over. */
+const VELOCITY_WINDOW_MS = 80
+/** The longest an open will wait for its pictures to decode. */
+const IMAGE_WAIT_MS = 120
+/** The keyboard's own slide, near enough, so the sheet rides up with it. */
+const KEYBOARD_MOVE = "bottom 250ms cubic-bezier(0.32, 0.72, 0, 1)"
 
 const translate = (y: number) => `translate3d(0, ${y.toFixed(1)}px, 0)`
 
@@ -182,6 +201,9 @@ export function BottomSheet({
   aboveKeyboard = false,
   className,
   scrollKey,
+  scrim = "dim",
+  waitForImages = false,
+  onClosed,
 }: {
   isOpen: boolean
   onClose: () => void
@@ -209,6 +231,16 @@ export function BottomSheet({
   /** When this changes the content scrolls back to the top: a list that
       swaps for a sub-list, say, would otherwise open part way down. */
   scrollKey?: string | number | null
+  /**
+   * "clear" leaves the page behind undimmed: for a sheet that edits that
+   * page, where dimming the thing being changed works against seeing it
+   * change. The layer is still there and a tap on it still closes.
+   */
+  scrim?: "dim" | "clear"
+  /** Hold a fresh open until the pictures inside have decoded (at most IMAGE_WAIT_MS). */
+  waitForImages?: boolean
+  /** Runs once the sheet has finished leaving and is out of the document. */
+  onClosed?: () => void
 }) {
   const [mounted, setMounted] = useState(false)
   /**
@@ -251,8 +283,14 @@ export function BottomSheet({
   const animsRef = useRef<Animation[]>([])
   const closingRef = useRef(false)
   const flickRef = useRef(0)
+  /* The last few finger positions, for a release velocity that is not one noisy pair. */
+  const samplesRef = useRef<{ t: number; y: number }[]>([])
+  /* Bumped by every open, so a wait for pictures that outlives its open does nothing. */
+  const openTokenRef = useRef(0)
   const onCloseRef = useRef(onClose)
-  useEffect(() => { onCloseRef.current = onClose })
+  const onClosedRef = useRef(onClosed)
+  const waitRef = useRef(waitForImages)
+  useEffect(() => { onCloseRef.current = onClose; onClosedRef.current = onClosed; waitRef.current = waitForImages })
   const isOpenRef = useRef(isOpen)
   useLayoutEffect(() => { isOpenRef.current = isOpen }, [isOpen])
 
@@ -331,9 +369,28 @@ export function BottomSheet({
     heightRef.current = sheet.offsetHeight || 600
     if (isOpen) {
       closingRef.current = false
+      const token = ++openTokenRef.current
       /* Fresh: from below the screen. Reopened mid-close: from where it is. */
-      const from = animsRef.current.length ? readY(sheet) : heightRef.current
-      glide(from, 0, OPEN_MS)
+      const fresh = !animsRef.current.length
+      const from = fresh ? heightRef.current : readY(sheet)
+      const pictures = waitRef.current && fresh
+        ? Array.from(sheet.querySelectorAll("img")).filter((img) => img.loading !== "lazy" && typeof img.decode === "function")
+        : []
+      if (!pictures.length) {
+        glide(from, 0, OPEN_MS)
+        return
+      }
+      /* Parked below the screen, invisible, until the pictures are ready. */
+      offsetRef.current = from
+      sheet.style.transform = translate(from)
+      Promise.race([
+        Promise.all(pictures.map((img) => img.decode().catch(() => undefined))),
+        new Promise((resolve) => window.setTimeout(resolve, IMAGE_WAIT_MS)),
+      ]).then(() => {
+        if (openTokenRef.current !== token || !isOpenRef.current || closingRef.current) return
+        if (draggingRef.current || animsRef.current.length) return
+        glide(offsetRef.current, 0, OPEN_MS)
+      })
       return
     }
     /**
@@ -355,6 +412,7 @@ export function BottomSheet({
     glide(from, heightRef.current, ms, () => {
       closingRef.current = false
       setPresent(false)
+      onClosedRef.current?.()
     }, v > 0 ? EASE : CLOSE_EASE)
   }, [isOpen, present, mounted, glide, currentY])
 
@@ -397,6 +455,7 @@ export function BottomSheet({
          rather than leave a sheet it still thinks is open. */
       if (isOpenRef.current) { glide(h, 0, OPEN_MS); return }
       setPresent(false)
+      onClosedRef.current?.()
     }, velocity > 0 ? EASE : CLOSE_EASE)
     /* The parent hears about it after the slide has started, so whatever it
        renders in answer lands on a frame the compositor is already moving. */
@@ -414,6 +473,12 @@ export function BottomSheet({
     const onStart = (e: TouchEvent) => {
       if (closingRef.current || e.touches.length > 1) return
       const target = e.target as HTMLElement | null
+      /* The control under the finger has asked for it: a pinch, a slider. */
+      if (target?.closest?.("[data-sheet-no-drag]")) {
+        pendingRef.current = false
+        draggingRef.current = false
+        return
+      }
       fromHandleRef.current = !!target?.closest?.("[data-sheet-handle]")
       scrollerRef.current = fromHandleRef.current ? null : scrollerAt(target, sheet)
       /* Mid-animation: take the sheet from exactly where it is. */
@@ -432,6 +497,7 @@ export function BottomSheet({
       lastYRef.current = e.touches[0].clientY
       lastAtRef.current = performance.now()
       velocityRef.current = 0
+      samplesRef.current = [{ t: lastAtRef.current, y: lastYRef.current }]
     }
 
     const onMove = (e: TouchEvent) => {
@@ -469,8 +535,13 @@ export function BottomSheet({
       /* Native and non-passive, so this actually refuses the page's scroll. */
       if (e.cancelable) e.preventDefault()
       const now = performance.now()
-      const dt = now - lastAtRef.current
-      if (dt > 0) velocityRef.current = (y - lastYRef.current) / dt
+      const samples = samplesRef.current
+      samples.push({ t: now, y })
+      while (samples.length > 2 && now - samples[0].t > VELOCITY_WINDOW_MS) samples.shift()
+      const first = samples[0]
+      const span = now - first.t
+      if (span >= 12) velocityRef.current = (y - first.y) / span
+      else if (now - lastAtRef.current > 0) velocityRef.current = (y - lastYRef.current) / (now - lastAtRef.current)
       lastYRef.current = y
       lastAtRef.current = now
       offsetRef.current = next
@@ -573,7 +644,7 @@ export function BottomSheet({
       <div
         ref={scrimRef}
         onClick={requestClose}
-        className="absolute inset-0 bg-black/40"
+        className={cn("absolute inset-0", scrim === "clear" ? "bg-transparent" : "bg-black/40")}
         /* Below the screen and invisible on the very first paint, before any
            script has run: there is no frame in which the sheet is at rest. */
         style={{ opacity: 0, touchAction: "none" }}
@@ -590,6 +661,8 @@ export function BottomSheet({
           touchAction: "none",
           paddingBottom: "max(env(safe-area-inset-bottom), 12px)",
           ...(aboveKeyboard ? bottomAboveKeyboard() : {}),
+          /* A keyboard arriving lifts the sheet with it rather than in one frame. */
+          ...(aboveKeyboard ? { transition: KEYBOARD_MOVE } : {}),
           maxHeight: aboveKeyboard ? `min(${maxHeight}, calc(var(--vv-h, 100dvh) - 24px))` : maxHeight,
           height,
           display: "flex",

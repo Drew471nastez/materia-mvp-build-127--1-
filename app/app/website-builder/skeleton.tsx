@@ -16,17 +16,13 @@ export default function WebsiteBuilderLoading() {
   return (
     <div className="h-full overflow-y-auto page-scroll bg-[#f8f9fa] skeleton-deferred" style={{ animationDelay: "500ms" }}>
       <div className="mx-auto max-w-[1200px] space-y-7 px-4 py-6 sm:px-6 lg:px-8">
-        {/* The title and address, and the three header controls beside them. */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div>
+        {/* The title with Settings on its line, and the address under them. */}
+        <div>
+          <div className="flex items-center justify-between gap-3">
             <div className="h-[28px] w-28 rounded-md bg-[#e9ebee] sm:h-[32px]" />
-            <div className="mt-2.5 h-4 w-52 rounded bg-[#eef0f3]" />
+            <div data-skeleton-control="" className="-my-1 h-11 w-[98px] shrink-0 rounded-lg border border-[#e5e7eb] bg-white sm:my-0 sm:h-9" />
           </div>
-          <div className="flex gap-2">
-            {[124, 92, 96].map((w, i) => (
-              <div key={i} className="h-11 rounded-lg border border-[#e5e7eb] bg-white sm:h-9" style={{ width: w }} />
-            ))}
-          </div>
+          <div className="mt-2.5 h-4 w-52 rounded bg-[#eef0f3]" />
         </div>
 
         {/* The live website: the card with the cover set into it, the facts

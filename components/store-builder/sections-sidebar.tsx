@@ -2096,15 +2096,15 @@ function ShopHeaderSettingsForm({
   const [coverLibraryOpen, setCoverLibraryOpen] = useState(false)
 
   const handleCoverSave = (imageUrl: string, focalPoint: { x: number; y: number }) => {
-    onChange({ coverImageUrl: imageUrl, coverFocalPoint: focalPoint })
+    onChange({ coverImageUrl: imageUrl, coverFocalPoint: focalPoint, coverZoom: undefined })
   }
 
   const handleLibrarySelect = (imageUrl: string) => {
-    onChange({ coverImageUrl: imageUrl, coverFocalPoint: { x: 50, y: 50 } })
+    onChange({ coverImageUrl: imageUrl, coverFocalPoint: { x: 50, y: 50 }, coverZoom: undefined })
   }
 
   const handleRemoveCover = () => {
-    onChange({ coverImageUrl: undefined, coverFocalPoint: { x: 50, y: 50 } })
+    onChange({ coverImageUrl: undefined, coverFocalPoint: { x: 50, y: 50 }, coverZoom: undefined })
   }
 
   const handleRemoveAvatar = () => {

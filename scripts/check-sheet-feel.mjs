@@ -16,9 +16,16 @@
  *                it comes back
  *   SCROLL, THEN SHEET  a finger scrolling the list back to its top and
  *                carrying on: does the sheet take over from there
- *   GROW FIRST   a finger pushing up on the list at the half stop: does the
- *                sheet grow before the list scrolls, and does the list take
- *                the rest once the sheet is at full
+ *   SCROLL AT HALF  a finger pushing up on the list at the half stop: the
+ *                list scrolls and the sheet's translate does not move. The
+ *                rule before this one grew the sheet first; the owner asked
+ *                for the list to scroll at half
+ *   GRAB BAR     the same push on the grab bar at half moves the sheet and
+ *                leaves the list alone
+ *   TAP          taps on the grab bar: closed to half, half to full, full
+ *                to half
+ *   FLICK        a short flick up on the tabs at half (about 0.35 px/ms over
+ *                a dozen pixels) reaches full; a slow placed push does not
  *   PACING       the frame gaps across all of the above, p95
  *
  * Real touches over CDP (Input.dispatchTouchEvent), so the browser's own
@@ -120,6 +127,8 @@ const INSTRUMENT = `(() => {
   }
   requestAnimationFrame(tick)
   window.__top = () => sheet.getBoundingClientRect().top
+  /* The sheet's own translate, which is what a drag writes. */
+  window.__ty = () => new DOMMatrixReadOnly(getComputedStyle(sheet).transform).m42
   window.__settle = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(() => {
     const seen = window.__fingers.filter((f) => f.y !== null)
     r(JSON.stringify({ top: sheet.getBoundingClientRect().top, scroll: list.scrollTop, height: sheet.getBoundingClientRect().height, finger: seen.length ? seen[seen.length - 1].y : null }))
@@ -182,7 +191,10 @@ const js = async (expression) => {
 const inst = JSON.parse(await js(INSTRUMENT))
 if (!inst.ok) fail("The sheet never mounted: " + (await js("JSON.stringify(window.__err)")))
 const settled = async () => JSON.parse(await js("window.__settle()"))
-const touch = (type, x, y) => call("Input.dispatchTouchEvent", { type, touchPoints: type === "touchEnd" ? [] : [{ x, y }] })
+/* `timestamp` (seconds since the epoch) stamps the event itself, so a finger
+   can move at a known speed however long each dispatch takes to arrive. */
+const touch = (type, x, y, timestamp) =>
+  call("Input.dispatchTouchEvent", { type, touchPoints: type === "touchEnd" ? [] : [{ x, y }], ...(timestamp ? { timestamp } : {}) })
 /** A steady finger: `steps` moves of `dy` each, `every` ms apart. */
 async function stroke(x, y, dy, steps, every, { release = true, readEach = false, beforeRelease = null } = {}) {
   await touch("touchStart", x, y)
@@ -337,33 +349,102 @@ await reset()
   await sleep(800)
 }
 
-// ── GROW FIRST, then the list takes the rest ────────────────────────────
+// ── SCROLL AT HALF: a push up inside the list scrolls the list ──────────
 await reset()
 {
   const start = await settled()
+  const ty0 = await js("window.__ty()")
   const y0 = Math.round(start.top) + 160
   await touch("touchStart", HANDLE_X, y0)
   let at = y0
   for (let i = 1; i <= 15; i++) { at = y0 - 12 * i; await touch("touchMove", HANDLE_X, at); await sleep(16) }
   const mid = await settled()
-  r.growSheetMoved = Math.round(start.top - mid.top)
-  r.growListScrolled = Math.round(mid.scroll)
-  for (let i = 1; i <= 30; i++) { at -= 12; await touch("touchMove", HANDLE_X, at); await sleep(16) }
-  const late = await settled()
-  r.growReachedFull = Math.round(late.top) === r.fullTop
-  r.growThenScrolled = Math.round(late.scroll)
-  /* Then a quick push and a lift straight off it, so the list is let go
-     moving; the read above was a pause, and a pause is not a flick. */
-  for (let i = 1; i <= 4; i++) { at -= 30; await touch("touchMove", HANDLE_X, at) }
-  /* Read without waiting for a frame: a lift more than a couple of frames
-     after the last move is, correctly, a finger that had stopped. */
-  const pushed = { scroll: await js("document.getElementById('list').scrollTop") }
+  r.halfTy = Math.round(ty0)
+  r.halfSheetMoved = Math.round((await js("window.__ty()")) - ty0)
+  r.halfListScrolled = Math.round(mid.scroll)
+  r.halfFingerTravel = y0 - at
   await touch("touchEnd", HANDLE_X, at)
-  r.growFingerTravel = y0 - at
   await sleep(900)
   const after = await settled()
-  r.growCoasted = Math.round(after.scroll - pushed.scroll)
+  r.halfStillHalf = Math.round(after.top) === r.halfTop
+  /* And back down: the list scrolls back to its top, then the sheet takes
+     the rest of the same finger (the hand-off), still at half. */
 }
+
+// ── GRAB BAR at half: the same push moves the sheet, not the list ───────
+await reset()
+{
+  const start = await settled()
+  const ty0 = await js("window.__ty()")
+  const y0 = Math.round(start.top) + 12
+  await touch("touchStart", HANDLE_X, y0)
+  let at = y0
+  for (let i = 1; i <= 8; i++) { at = y0 - 10 * i; await touch("touchMove", HANDLE_X, at); await sleep(16) }
+  const mid = await settled()
+  r.barSheetMoved = Math.round(ty0 - (await js("window.__ty()")))
+  r.barFinger = y0 - (mid.finger ?? at)
+  r.barListScrolled = Math.round(mid.scroll)
+  /* Held still before the lift, so it is a placement and settles at the nearest stop. */
+  await sleep(300)
+  await touch("touchEnd", HANDLE_X, at)
+  await sleep(800)
+}
+
+// ── TAP on the grab bar: closed -> half -> full -> half ─────────────────
+{
+  await js("window.__setOpen(false)")
+  await sleep(900)
+  const tap = async () => {
+    const top = (await settled()).top
+    const y = Math.round(top) + 10
+    await touch("touchStart", HANDLE_X, y)
+    await sleep(40)
+    await touch("touchEnd", HANDLE_X, y)
+    await sleep(800)
+    return Math.round((await settled()).top)
+  }
+  r.closedTop = Math.round((await settled()).top)
+  r.tap1 = await tap()
+  r.tap2 = await tap()
+  r.tap3 = await tap()
+}
+
+// ── FLICK thresholds, on the tabs (nothing there scrolls) ───────────────
+/* A finger with a known clock: each event is stamped `every` ms after the
+   last, so its speed is `step / every` px/ms whatever the dispatch costs.
+   Chromium withholds moves inside its 15px touch slop, so the first one or
+   two never reach a script, which is what a real phone's browser does too. */
+async function flickOnTabs(step, moves, every, holdBeforeLift = 0) {
+  await reset()
+  const start = await settled()
+  const tabs = JSON.parse(await js("JSON.stringify(document.getElementById('tabs').getBoundingClientRect())"))
+  const y0 = Math.round(tabs.top + tabs.height / 2)
+  const fmark = await js("window.__fingers.length")
+  const t0 = Date.now() / 1000
+  await touch("touchStart", HANDLE_X, y0, t0)
+  let at = y0
+  for (let i = 1; i <= moves; i++) { at = y0 - step * i; await touch("touchMove", HANDLE_X, at, t0 + (i * every) / 1000) }
+  const liftAt = t0 + (moves * every + 8 + holdBeforeLift) / 1000
+  while (Date.now() / 1000 < liftAt) await sleep(5)
+  await touch("touchEnd", HANDLE_X, at, liftAt)
+  await sleep(900)
+  const all = JSON.parse(await js(`JSON.stringify(window.__fingers.slice(${fmark}))`))
+  /* The touchstart counts as a sample: the browser may deliver only one move. */
+  const fingers = all.filter((f) => f.type !== "touchend")
+  const last = fingers[fingers.length - 1], first = fingers.find((f) => f.t >= last.t - 100) || fingers[0]
+  return {
+    travel: y0 - at,
+    speed: last && first && last.t > first.t ? (first.y - last.y) / (last.t - first.t) : null,
+    from: Math.round(start.top),
+    to: Math.round((await settled()).top),
+  }
+}
+/* 18px in 48ms, 0.375 px/ms: a short nudge of a thumb. */
+r.flickShort = await flickOnTabs(6, 3, 16)
+/* 36px at 0.1 px/ms and then held a quarter second: placing, not throwing. */
+r.flickPlaced = await flickOnTabs(3, 12, 30, 250)
+/* Just under the speed threshold: 18px at 0.2 px/ms, lifted straight off. */
+r.flickSlow = await flickOnTabs(4, 5, 20)
 
 const frames = JSON.parse(await js("JSON.stringify(window.__frames)")).sort((a, b) => a - b)
 r.frames = frames.length
@@ -388,8 +469,12 @@ console.log(`                    ${r.releaseLayouts} layout${r.releaseLayouts ==
 console.log(`  rubber band       pulled ${r.bandPull}px past full: sheet gave ${r.bandLift}px; back at full after release: ${r.bandBack}`)
 console.log(`                    bottom pixel rgb(${r.bandBottomPixel.join(",")}), sheet rgb(${r.bandSheetPixel.join(",")}): ${r.bandBottomIsSheet ? "the sheet" : "NOT THE SHEET"}`)
 console.log(`  scroll, then sheet  list ${r.handScrollStart}px down, finger 240px down: list ended at ${r.handScrollEnd}, sheet moved ${r.handSheetMoved}px`)
-console.log(`  grow first        finger 180px up on the list at half: sheet rose ${r.growSheetMoved}px, list scrolled ${r.growListScrolled}px`)
-console.log(`                    and ${r.growFingerTravel}px in all: sheet at full ${r.growReachedFull}, list scrolled ${r.growThenScrolled}px, then coasted ${r.growCoasted}px`)
+console.log(`  scroll at half    finger ${r.halfFingerTravel}px up on the list at half (translate ${r.halfTy}px): translate moved ${r.halfSheetMoved}px, list scrolled ${r.halfListScrolled}px; still at half after the lift: ${r.halfStillHalf}`)
+console.log(`  grab bar at half  finger ${r.barFinger}px up on the bar: translate moved ${r.barSheetMoved}px, list scrolled ${r.barListScrolled}px`)
+console.log(`  tap on the bar    closed ${r.closedTop} -> ${r.tap1} -> ${r.tap2} -> ${r.tap3}   (half ${r.halfTop}, full ${r.fullTop})`)
+console.log(`  flick on tabs     short: ${r.flickShort.travel}px at ${n(r.flickShort.speed)} px/ms, ${r.flickShort.from} -> ${r.flickShort.to}`)
+console.log(`                    placed: ${r.flickPlaced.travel}px at ${n(r.flickPlaced.speed)} px/ms then held 250ms, ${r.flickPlaced.from} -> ${r.flickPlaced.to}`)
+console.log(`                    slow: ${r.flickSlow.travel}px at ${n(r.flickSlow.speed)} px/ms, lifted at once, ${r.flickSlow.from} -> ${r.flickSlow.to}`)
 console.log(`  pacing            ${r.frames} frames, p95 ${r.frameP95}ms, worst ${r.frameWorst}ms`)
 console.log(`  preventDefault on an uncancellable move: ${r.preventedUncancelable}`)
 if (r.errors.length) console.log(`  page errors: ${r.errors.join(" | ")}`)
@@ -407,12 +492,16 @@ expect(r.bandLift > 5 && r.bandLift < r.bandPull * 0.6, "past the tallest stop i
 expect(r.bandBottomIsSheet, "what shows under it while it is lifted is the sheet")
 expect(r.bandBack, "and it comes back when let go")
 expect(r.handScrollEnd === 0 && r.handSheetMoved > 60, "a scroll that runs out of list hands the rest of the finger to the sheet")
-expect(r.growSheetMoved > 120 && r.growListScrolled === 0, "pushing up on the list at half grows the sheet first")
-expect(r.growReachedFull && r.growThenScrolled > 20, "and once at full, the same push scrolls the list")
-expect(r.growCoasted > 20, "and a list let go moving keeps going")
+expect(Math.abs(r.halfSheetMoved) <= 1 && r.halfListScrolled > 100, "at half, a push up inside the list scrolls the list and leaves the sheet's translate alone")
+expect(r.halfStillHalf, "and the sheet is still at half after the lift")
+expect(Math.abs(r.barSheetMoved - r.barFinger) <= 2 && r.barListScrolled === 0, "at half, the same push on the grab bar moves the sheet with the finger and scrolls nothing")
+expect(Math.abs(r.tap1 - r.halfTop) <= 1 && Math.abs(r.tap2 - r.fullTop) <= 1 && Math.abs(r.tap3 - r.halfTop) <= 1, "taps on the grab bar step closed to half, half to full, full to half")
+expect(Math.abs(r.flickShort.to - r.fullTop) <= 1 && r.flickShort.travel <= 20, "a short flick up from half, under 20px of finger, reaches full")
+expect(Math.abs(r.flickPlaced.to - r.halfTop) <= 1, "a slow push that is held before the lift stays at half")
+expect(Math.abs(r.flickSlow.to - r.halfTop) <= 1, "and a push under 0.25 px/ms is not a flick")
 expect(r.frameP95 <= 34, "frame pacing p95 inside two frames")
 expect(r.preventedUncancelable === 0, "never cancels a move the browser said it could not")
 expect(r.errors.length === 0, "no page errors")
 console.log("")
 if (bad) fail(`${bad} measurement${bad === 1 ? "" : "s"} failed.`)
-console.log("The sheet tracks the finger, carries its speed, gives at the top, and shares a gesture with its list.\n")
+console.log("The sheet tracks the finger, carries its speed, gives at the top, lets its list scroll at half, and steps on a tap.\n")

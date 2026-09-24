@@ -121,6 +121,9 @@ import { ThemeChat } from "@/components/website-builder/theme-chat"
 import { ColorField } from "@/components/storefront/color-field"
 import { applyOp, type ThemeOp } from "@/lib/website-builder/agent/operations"
 
+/** Ask Storelib on a phone: half, and the whole screen below the status bar. A constant so the sheet's memo holds. */
+const AI_SHEET_DETENTS = [0.5, 1]
+
 // ── Custom back-with-bar icon (topbar) ──────────────────────
 function BackWithBarIcon({ className }: { className?: string }) {
   return (
@@ -5808,7 +5811,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto wb-slim-scroll px-3 pb-4">
+        <div data-sheet-scroll className="flex-1 overflow-y-auto wb-slim-scroll px-3 pb-4">
 
           {/* Custom Pages */}
           {allCustomPages.length > 0 && (
@@ -5983,7 +5986,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               <p className="text-sm font-semibold">General Settings</p>
               <p className="text-xs text-muted-foreground mt-0.5">Colors, fonts, buttons, spacing</p>
             </div>
-            <div className="flex-1 overflow-y-auto wb-slim-scroll p-2">
+            <div data-sheet-scroll className="flex-1 overflow-y-auto wb-slim-scroll p-2">
               {THEME_SETTINGS_GROUPS.filter(group => group.id !== "colors").map(group => (
                 <div key={group.id} className="mb-0.5">
                   <button
@@ -6154,13 +6157,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             * wonder where their sections went.
             */}
           {sectionsLoading || loading ? (
-            <div className="flex-1 overflow-y-auto wb-slim-scroll p-3 space-y-2">
+            <div data-sheet-scroll className="flex-1 overflow-y-auto wb-slim-scroll p-3 space-y-2">
               {[1, 2, 3, 4, 5].map(i => (
                 <div key={i} className="h-12 rounded-lg bg-muted/60 animate-pulse" style={{ animationDelay: `${i * 80}ms` }} />
               ))}
             </div>
           ) : (
-            <div className="flex-1 overflow-y-auto wb-slim-scroll p-3 space-y-0.5">
+            <div data-sheet-scroll className="flex-1 overflow-y-auto wb-slim-scroll p-3 space-y-0.5">
               {/* ── Add section, ABOVE everything on a phone ──
                   At the bottom of the list it is below the header, every body
                   section and every insert slot: on a phone that is a scroll
@@ -6392,7 +6395,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto wb-slim-scroll">
+          <div data-sheet-scroll className="flex-1 overflow-y-auto wb-slim-scroll">
             {/* The section's design: its scheme, Customize, heading and body style */}
             <SectionDesignPanel
               section={section}
@@ -6631,7 +6634,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             </button>
             <span className="text-sm font-semibold">Theme settings</span>
           </div>
-          <div className="flex-1 overflow-y-auto wb-slim-scroll p-3">
+          <div data-sheet-scroll className="flex-1 overflow-y-auto wb-slim-scroll p-3">
             {THEME_SETTINGS_GROUPS.map(group => (
               <div key={group.id} className="mb-1">
                 <button
@@ -7201,7 +7204,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       {/* Dark, like the reference: the bar is chrome, and chrome that is the
           same colour as the page it frames is chrome you keep mistaking for
           the page. Everything on it is white-on-dark from here down. */}
-      <header className="wb-editor-topbar relative bg-[var(--wb-chrome-bg)] text-[var(--wb-chrome-fg)] border-b border-[var(--wb-chrome-line)] flex items-center px-3 md:px-4 gap-2 shrink-0 z-50">
+      {/* data-sheet-clear: the phone sheets' tallest stop covers this bar or
+          clears it, never cuts across its buttons (sheet-gestures, clearOfBar). */}
+      <header className="wb-editor-topbar relative bg-[var(--wb-chrome-bg)] text-[var(--wb-chrome-fg)] border-b border-[var(--wb-chrome-line)] flex items-center px-3 md:px-4 gap-2 shrink-0 z-50" data-sheet-clear="">
         {/* LEFT: Exit + sidebar mode toggles (desktop only) */}
         <div className="flex items-center gap-1.5 min-w-0">
           {/* Exit button — X on mobile (Shopify-style editor close), back arrow on desktop */}
@@ -7884,9 +7889,16 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             is most likely to want to describe a change rather than hunt for a
             control had no way to. It opens straight to the tallest stop,
             because a conversation is the case that needs the room and starting
-            at half only ever has one answer. */}
+            at half only ever has one answer.
+
+            ITS TALLEST STOP IS THE WHOLE SCREEN BELOW THE STATUS BAR, not
+            92% of it. At 92% its top edge landed 9px under the safe area,
+            inside the editor bar, and the top pixel of the bar's buttons
+            showed above the sheet as violet slivers at its corners. At 1 the
+            sheet starts where the bar's buttons are not, and what shows
+            around its corners is the bar's own dark strip. */}
         {isMobileView && aiMounted && (
-          <MobileEditorSheet open={aiOpen} onOpenChange={(next) => setAiOpen(next)} openFull layer="raised" peekHeight={0}>
+          <MobileEditorSheet open={aiOpen} onOpenChange={(next) => setAiOpen(next)} openFull layer="raised" peekHeight={0} detents={AI_SHEET_DETENTS}>
             <ThemeChat
               installId={installId}
               page={currentPage}

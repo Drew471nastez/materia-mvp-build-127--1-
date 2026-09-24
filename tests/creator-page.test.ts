@@ -192,7 +192,13 @@ function main() {
     check("it slides both ways", sheet.includes("data-[state=closed]:slide-out-to-right") && sheet.includes("data-[state=open]:slide-in-from-right"))
     /** The base content class zooms from the centre and would fight the slide. */
     check("and the dialog's own zoom is off, not merged over", sheet.includes("disableDefaultAnimations"))
-    check("and on the builder's sheet on a phone", sheet.includes("<MobileEditorSheet") && sheet.includes("useIsPhone()"))
+    /*
+      On a phone it is the app's own bottom sheet now, the one every other
+      /app phone sheet is (components/ui/bottom-sheet), not the website
+      builder's: open and close on the compositor, a drag that leaves at the
+      finger's speed, pictures decoded before the slide.
+    */
+    check("and on the app's bottom sheet on a phone", sheet.includes("<BottomSheet") && sheet.includes("useIsPhone()") && !sheet.includes("<MobileEditorSheet"))
     for (const [name, file] of [["the bar", "edit-cta-button"], ["the profile", "edit-profile-button"], ["About", "edit-about-button"]] as const) {
       const src = read(`components/storefront/${file}.tsx`)
       check(`${name} editor uses that shell`, src.includes("<EditorSheet") && !src.includes("<Dialog "))
@@ -206,8 +212,9 @@ function main() {
      */
     /* Comment-stripped: the shell's own note quotes the prop it is checked for. */
     const sheetCode = code("components/storefront/editor-sheet.tsx")
-    check("closed sheets are off screen, not peeking", sheetCode.includes("peekHeight={0}") && code("components/app/creator-page-share.tsx").includes("peekHeight={0}"))
-    check("and raised above the page", sheetCode.includes('layer="raised"'))
+    /* BottomSheet has no peek at all: closed is out of the document. */
+    check("closed sheets are off screen, not peeking", !sheetCode.includes("peekHeight") && code("components/app/creator-page-share.tsx").includes("peekHeight={0}"))
+    check("and the sheet decides nothing about the breakpoint useIsPhone already decided", sheetCode.includes("hideFrom={null}"))
 
     /** Six sentences as pills were six things competing for the eye. */
     check("the presets are a select, not a row of pills", bar.includes("<EditorSelect") && !bar.includes("SchemeSwatchRow"))
@@ -1740,40 +1747,43 @@ function main() {
       window with a scrollbar, and what is visible above the sheet either way
       is a strip of the page saying which page this is.
     */
-    check("editors open to one stop and stay there", sheet.includes("detents={[0.78]}") && !sheet.includes("openFull"))
+    /*
+      ONE STOP, sized to the form. A fixed 78% put the sheet's top edge across
+      the cover on the page behind, and whatever was drawn there (the logo on
+      the owner's banner) sat on the edge like a tab stuck to the sheet. It
+      is as tall as its form now, up to nearly the whole screen, and the drag
+      is only ever "close".
+    */
+    check("editors open to one stop and stay there", sheet.includes("fill") && sheet.includes("maxHeight={PHONE_EDITOR_MAX_HEIGHT}") && !sheet.includes("detents=") && !sheet.includes("openFull"))
     check("and the body is the sheet's own scroller", sheet.includes("data-sheet-scroll"))
 
     /*
-      AND THE KEYBOARD DOES NOT TAKE IT BACK. The sheet pads itself by the
-      keyboard's height out of its own height, so a fixed stop meant the
-      panel shrank by the whole keyboard: at 60% that left 170px for a
-      header, a form and two buttons, and the field being typed into was not
-      on screen.
+      AND THE KEYBOARD DOES NOT COVER SAVE. The sheet stands on the keyboard
+      (--kb-inset, published from visualViewport by ViewportVars, with a
+      floor for a web view that reports nothing) and is never taller than
+      the room it leaves, so the footer with Cancel and Save is always on it.
     */
+    check("Cancel and Save ride on the keyboard", sheet.includes("aboveKeyboard"))
     check(
-      "a keyboard grows the sheet rather than crushing it",
-      mobileSheet.includes("sheetHeightWithKeyboard(detentHeight, keyboardInset, viewport)"),
-    )
-    check(
-      "and the field being typed into is scrolled into the sheet's own scroller",
-      /closest<HTMLElement>\("\[data-sheet-scroll\]"\)/.test(mobileSheet),
+      "and the sheet reads the published keyboard, not a model of it",
+      code("components/ui/bottom-sheet.tsx").includes("bottomAboveKeyboard()") &&
+        code("components/ui/bottom-sheet.tsx").includes("calc(var(--vv-h, 100dvh) - 24px)"),
     )
 
     /*
-      THE DIM REACHES THE BAR ABOVE THE FRAME. These editors run inside the
-      workspace's iframe, so the sheet's overlay covered the page and stopped
-      at a hard line with the workspace's own bar lit above it.
+      NO DIM, SO NOTHING TO MATCH. The phone editors do not darken the page
+      any more, for the reason the desktop drawer never did: they edit the
+      page behind them, and a dark fade over the cover a creator is changing
+      was the thing reported. So the workspace's bar has no dim to follow.
     */
-    check("the editor tells the workspace it is open", sheet.includes("notifyEditorSheet(open)"))
-    check("and closes that when it goes", sheet.includes("notifyEditorSheet(false)"))
-    check("the workspace dims its bar to match", workspace.includes('data.kind === "sheet"'))
+    check("the phone editor leaves the page behind undimmed", sheet.includes('scrim="clear"'))
+    check("and tells the workspace nothing about it", !sheet.includes("notifyEditorSheet"))
+    check("so the workspace has no dim of its own to keep in step", !workspace.includes('data.kind === "sheet"') && !/bg-black\/30 transition-opacity/.test(workspace))
     /**
-     * AND IT REACHES THE BAR'S LAST PIXEL. `absolute inset-0` resolves
-     * against the PADDING box, so a `border-b` is outside it: the dim
-     * covered the whole bar except the 1px line at the bottom of it, which
-     * read as a lit hairline straight across a dimmed screen. An inset
-     * shadow is painted inside the padding box and goes under the dim with
-     * everything else. scripts/check-editor-dim.mjs measures the two rects.
+     * The bar's hairline stays an inset shadow. It became one so a dim could
+     * reach it (`absolute inset-0` stops at the padding box, a border is
+     * outside it); the dim has gone, and a border back here would only add a
+     * pixel to the bar's height.
      */
     check("the bar's hairline is an inset shadow, not a border", /shadow-\[inset_0_-1px_0_#e5e7eb\]/.test(workspace))
     check("so no border is left for the dim to miss", !/border-b border-\[#e5e7eb\] bg-white px-3 pb-2/.test(workspace))
@@ -1824,7 +1834,8 @@ function main() {
     check("the sheet measures the keyboard from the window that has one", mobileSheet.includes("function keyboardWindow()") && mobileSheet.includes("const kb = keyboardWindow()"))
     check("guarded for a cross-origin parent", /window\.top[\s\S]{0,120}location\.origin === window\.location\.origin/.test(mobileSheet))
     check("and listens to that window's viewport too", mobileSheet.includes('kbvv.addEventListener("resize", update)'))
-    check("the sheet's own height still comes from its own window", mobileSheet.includes("setViewport(Math.round(window.innerHeight"))
+    /* Its own fixed box, which is its own window's; the keyboard is the parent's. */
+    check("the sheet's own height still comes from its own window", mobileSheet.includes("setViewport(Math.round(fixedBoxHeight() || window.innerHeight"))
     /** And the outer document is told, twice, that it does not scroll. */
     check("the workspace locks its document", workspace.includes('root.style.overflow = "hidden"') && workspace.includes('body.style.overflow = "hidden"'))
     check("and puts a keyboard scroll back where it was", workspace.includes("window.scrollTo(0, 0)") && workspace.includes('vv?.addEventListener("resize", onViewport)'))

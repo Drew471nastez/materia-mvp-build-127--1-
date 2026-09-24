@@ -23,7 +23,8 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
 import { EditorSheet, useSaveThenRefresh } from "@/components/storefront/editor-sheet"
-import type { FocalPoint } from "@/lib/images/use-focal-drag"
+import type { FocalPointConfig as FocalPoint } from "@/lib/store-builder/types"
+import { DEFAULT_COVER_CROP, coverEditorSrc, cropFromSettings, isDefaultCrop, type CoverCrop } from "@/lib/images/cover-crop"
 import { useCoverAspect } from "@/components/storefront/use-cover-aspect"
 import { useSavedValues } from "@/lib/store-builder/use-saved-values"
 import { ImageUpload } from "@/components/app/image-upload"
@@ -44,6 +45,8 @@ export interface EditProfileButtonProps {
   bio: string
   /** Where the cover sits in its band, if the creator has moved it. */
   coverFocalPoint?: FocalPoint | null
+  /** How close it is drawn, if the creator has zoomed it. Absent is 1. */
+  coverZoom?: number | null
   username?: string | null
   avatarUrl?: string | null
   coverUrl?: string | null
@@ -75,6 +78,7 @@ export function EditProfileButton({
   displayName,
   bio,
   coverFocalPoint,
+  coverZoom,
   username,
   avatarUrl,
   coverUrl,
@@ -106,7 +110,8 @@ export function EditProfileButton({
   const [about, setAbout] = React.useState(bio)
   const [avatar, setAvatar] = React.useState<string | null>(avatarUrl ?? null)
   const [cover, setCover] = React.useState<string | null>(coverUrl ?? null)
-  const [focal, setFocal] = React.useState<FocalPoint | null>(coverFocalPoint ?? null)
+  /* Position and zoom together, as the page draws them (lib/images/cover-crop). */
+  const [crop, setCrop] = React.useState<CoverCrop>(() => cropFromSettings(coverFocalPoint, coverZoom))
   const [links, setLinks] = React.useState<Record<string, string>>(() => ({ ...socialLinks }))
   const [shown, setShown] = React.useState<Record<string, boolean>>(() => ({
     showReviews: display?.showReviews ?? true,
@@ -137,6 +142,7 @@ export function EditProfileButton({
       avatarUrl: avatarUrl ?? null,
       coverUrl: coverUrl ?? null,
       coverFocalPoint: coverFocalPoint ?? null,
+      coverZoom: coverZoom ?? null,
       socialLinks,
       display,
       themePreset,
@@ -146,7 +152,7 @@ export function EditProfileButton({
       setAbout(saved.bio)
       setAvatar(saved.avatarUrl)
       setCover(saved.coverUrl)
-      setFocal(saved.coverFocalPoint)
+      setCrop(cropFromSettings(saved.coverFocalPoint, saved.coverZoom))
       setLinks({ ...saved.socialLinks })
       setShown({
         showReviews: saved.display?.showReviews ?? true,
@@ -158,6 +164,21 @@ export function EditProfileButton({
       setError(null)
     },
   )
+
+  /**
+   * THE COVER IS DECODED BEFORE THE SHEET MOVES. The press starts it, at the
+   * exact URL the frame will ask for (coverEditorSrc), so by the time the
+   * sheet is sliding the picture is a decoded bitmap and not a download and a
+   * decode landing in the middle of the slide. The sheet also waits a moment
+   * for anything still decoding (BottomSheet `waitForImages`).
+   */
+  const warmCover = React.useCallback(() => {
+    if (!cover || typeof window === "undefined") return
+    const img = new window.Image()
+    img.decoding = "async"
+    img.src = coverEditorSrc(cover)
+    img.decode?.().catch(() => {})
+  }, [cover])
 
   const save = async () => {
     setSaving(true)
@@ -171,7 +192,10 @@ export function EditProfileButton({
           bio: about,
           avatarUrl: avatar,
           coverUrl: cover,
-          coverFocalPoint: focal,
+          /* Nothing stored for a cover nobody moved, so the settings stay as
+             they were for every page that never touched this. */
+          coverFocalPoint: isDefaultCrop(crop) ? null : { x: crop.x, y: crop.y },
+          coverZoom: crop.zoom > 1 ? crop.zoom : null,
           socialLinks: links,
           display: shown,
           themePreset: scheme,
@@ -250,12 +274,15 @@ export function EditProfileButton({
         */}
         <button
           type="button"
+          onPointerDown={warmCover}
+          onFocus={warmCover}
           onClick={() => setOpen(true)}
           aria-label="Edit profile"
           // rounded-lg (8px), not a pill. A fully rounded control reads as a
           // chip or a tag; this is a button, and it sits beside a card grid whose
           // corners are the same 8px.
-          className="inline-flex h-9 items-center gap-2 rounded-lg bg-white/95 px-3 text-sm font-medium text-gray-900 shadow-md backdrop-blur transition-colors hover:bg-white sm:px-4"
+          /* 36px to the eye over the cover, 44px to a thumb (the ::before). */
+          className="relative inline-flex h-9 items-center gap-2 rounded-lg bg-white/95 px-3 text-sm font-medium text-gray-900 shadow-md backdrop-blur transition-colors before:absolute before:-inset-1 before:content-[''] hover:bg-white sm:px-4"
         >
           <Pencil className="h-3.5 w-3.5" />
           {/* The word on a desktop; on a phone the cover is 128px tall and a
@@ -285,9 +312,17 @@ export function EditProfileButton({
               like what you will get.
             */}
             <div className="space-y-2">
-              <div className="flex items-baseline justify-between">
+              <div className="flex items-baseline justify-between gap-3">
                 <Label>Cover</Label>
-                <span className="text-xs text-muted-foreground">Recommended ratio 3:1</span>
+                {/* What the frame does, said once, in place of a pill over the picture. */}
+                {cover ? (
+                  <span className="text-right text-xs text-muted-foreground">
+                    <span className="pointer-fine:hidden">Drag to move, pinch to zoom</span>
+                    <span className="hidden pointer-fine:inline">Drag to move, pinch or ctrl + scroll to zoom</span>
+                  </span>
+                ) : (
+                  <span className="text-xs text-muted-foreground">Recommended ratio 3:1</span>
+                )}
               </div>
               {/*
                 ONE BOX. The cover and the control that positions it were two
@@ -303,31 +338,22 @@ export function EditProfileButton({
                 bucket="covers"
                 aspectRatio="cover"
                 value={cover || undefined}
-                onChange={(url) => setCover(url)}
+                /* A new picture starts from the middle, at its own size. */
+                onChange={(url) => { setCover(url); setCrop(DEFAULT_COVER_CROP) }}
                 replaceOnly
                 allowRemove
                 replaceLabel="Change banner"
-                /**
-                 * ONLY FOR A PICTURE CHOSEN IN THIS SESSION.
-                 *
-                 * The frame was draggable whenever there was a cover at all,
-                 * which means every time the drawer is opened for any reason
-                 * — to change a name, to pick a scheme — the banner is a live
-                 * drag surface. On a phone that is a 3:1 strip near the top of
-                 * a sheet that is itself dragged, and a finger that grazes it
-                 * moves the creator's banner with nothing to say it did.
-                 *
-                 * Placing a cover is part of ADDING one. `cover !== coverUrl`
-                 * is exactly "this is not the picture the page is showing",
-                 * which is true from the moment an upload finishes and false
-                 * again after a save. An existing cover is a picture, not a
-                 * control; to move it, replace it.
-                 */
-                reposition={
-                  cover && cover !== coverUrl
-                    ? { value: focal, onChange: setFocal, aspect: coverAspect }
-                    : undefined
-                }
+                /*
+                  ANY COVER CAN BE PLACED. The owner asked for pinch and drag
+                  to work on the banner that is there, not only on a new one.
+                  A graze no longer costs anything: the frame is the only
+                  surface with touch-action none and data-sheet-no-drag, so a
+                  finger on it never drags the sheet, and nothing is kept until
+                  Save. The frame always draws the saved crop, so it shows
+                  what the page shows. Position and zoom come back from the
+                  frame once per gesture, when the finger lifts.
+                */
+                reposition={{ value: crop, onChange: setCrop, aspect: coverAspect, editable: !!cover }}
               />
             </div>
 

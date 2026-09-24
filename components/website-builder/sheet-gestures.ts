@@ -50,23 +50,19 @@ export function dragIntent(input: {
   scrollTop: number
   /** False when the touch began somewhere that does not scroll at all. */
   hasScroller: boolean
-  /**
-   * The sheet is below its tallest stop, so there is somewhere to grow to.
-   * Optional so a caller that never passes it gets the old answer.
-   */
-  canExpand?: boolean
 }): DragIntent {
-  const { deltaX, deltaY, scrollTop, hasScroller, canExpand = false } = input
+  const { deltaX, deltaY, scrollTop, hasScroller } = input
 
   if (Math.abs(deltaX) < DRAG_THRESHOLD_PX && Math.abs(deltaY) < DRAG_THRESHOLD_PX) {
     return "undecided"
   }
 
-  // A sideways swipe belongs to whatever is underneath — a tab strip, a
+  // A sideways swipe belongs to whatever is underneath, a tab strip or a
   // carousel. The sheet does not compete for it.
   if (isHorizontal(deltaX, deltaY)) return "scroll"
 
-  // Nothing to scroll: every vertical drag is the sheet's.
+  // Nothing to scroll: every vertical drag is the sheet's. The grab bar and
+  // the tab row above the list are this case, at every stop.
   if (!hasScroller) return "sheet"
 
   /**
@@ -77,17 +73,24 @@ export function dragIntent(input: {
   if (scrollTop <= 0 && deltaY > 0) return "sheet"
 
   /**
-   * PUSHING UP ON A LIST AT A LOWER STOP GROWS THE SHEET FIRST.
+   * ===========================================================================
+   *  AT HALF, THE LIST SCROLLS
+   * ===========================================================================
+   * This used to grow the sheet first: a push up on the list at the half stop
+   * moved the sheet to full before a single row scrolled. That is one of the
+   * two ways iOS does it, and it was the wrong one here. The Sections list is
+   * read at half, with the canvas still in view above it, and a list you
+   * cannot scroll until you have given up the canvas is a list you fight.
    *
-   * That is what an iOS sheet does, and the reason is room: a list read
-   * through half a screen is a list somebody is about to want more of. The
-   * sheet takes the finger until it reaches its tallest stop, and from there
-   * the same finger carries on into the list (see `expandCarry`), so one
-   * continuous push does both. At the tallest stop there is nothing to grow
-   * and the list scrolls as it always did.
+   * So this is the other iOS sheet: a medium detent whose content scrolls
+   * (UISheetPresentationController with
+   * prefersScrollingExpandsWhenScrolledToEdge = false, Maps' place card).
+   * Inside the content a push up scrolls it at every stop. The sheet moves
+   * from the grab bar and the tabs, which do not scroll, from a pull down
+   * with the list at its top, and from a scroll that runs out of list going
+   * down (`handOffToSheet`). A tap on the grab bar steps half, full, half
+   * (`tapTarget`), so full is one tap away and not a gesture to discover.
    */
-  if (canExpand && deltaY < 0) return "sheet"
-
   return "scroll"
 }
 
@@ -123,11 +126,12 @@ export function handOffToSheet(input: {
 }
 
 /**
- * The other half of growing the sheet from a list: once the sheet reaches its
- * tallest stop, whatever the finger travels beyond it scrolls the list
- * instead of pulling the sheet off its stop. `raw` is where the finger would
- * put the sheet; `top` is the tallest stop. The sheet stops at the stop and
- * the list takes the overflow.
+ * The way back from a hand-off. A scroll that ran out of list became a drag
+ * of the sheet at `top` (where the sheet was when it took over); if the same
+ * finger turns and goes back up past that point, the list takes the rest
+ * again instead of the sheet leaving its place. `raw` is where the finger
+ * would put the sheet. The sheet stops at `top` and the list takes the
+ * overflow.
  */
 export function expandCarry(raw: number, top: number): { sheetY: number; scrollBy: number } {
   if (raw >= top) return { sheetY: raw, scrollBy: 0 }
@@ -247,14 +251,54 @@ export function releaseVelocity(samples: Sample[], releasedAt?: number): number 
 }
 
 /** Where the stops are, in translateY, ascending. The last one is closed. */
+/**
+ * ===========================================================================
+ *  THE TALLEST STOP COVERS THE BAR OR CLEARS IT, NEVER HALF OF IT
+ * ===========================================================================
+ * A 92% sheet on an 844px screen has its top edge at 68px. With a 59px
+ * status bar the editor's bar runs to 107px and its buttons from 67px, so
+ * the sheet's edge cut across the top pixel of every button: a violet line
+ * of the Ask AI button showing at the sheet's corners, "purple things in the
+ * corners". A fraction of the screen knows nothing about what is drawn
+ * there, so the fraction is only where the edge WANTS to be:
+ *
+ *   at or above the status bar   the sheet covers the bar entirely, at the
+ *                                status bar (a stop of 1: Ask Storelib)
+ *   inside the bar               moved down to BAR_GAP_PX under the bar, so
+ *                                the whole bar shows, dimmed, over a clear
+ *                                gap (a 92% stop: Sections, Add section)
+ *   below the bar                where it asked to be
+ *
+ * `barBottom` is the bottom edge of whatever the page marked
+ * `data-sheet-clear`, measured by the sheet off the element itself, 0 where
+ * nothing is marked. Only the TALLEST stop moves: the lower stops are
+ * fractions of the screen measured from the bottom and do not change.
+ */
+export const BAR_GAP_PX = 8
+
+export function clearOfBar(top: number, safeTop: number, barBottom: number): number {
+  const floor = Math.max(0, safeTop)
+  if (top <= floor) return floor
+  if (barBottom > floor && top < barBottom + BAR_GAP_PX) return Math.round(barBottom + BAR_GAP_PX)
+  return top
+}
+
 export function offsetsFor(input: {
   viewport: number
   detents: number[]
   peekHeight: number
+  /**
+   * The status bar. A stop of 1 is the whole screen BELOW it: a sheet's top
+   * edge is never drawn under the clock, whatever fraction it asked for.
+   */
+  safeTop?: number
+  /** The bottom of the page's own bar, see `clearOfBar`. */
+  barBottom?: number
 }): { height: number; offsets: number[] } {
   const stops = [...input.detents].sort((a, b) => a - b)
   const tallest = stops[stops.length - 1] ?? 0.92
-  const height = Math.round(input.viewport * tallest)
+  const wanted = input.viewport - Math.round(input.viewport * tallest)
+  const height = input.viewport - clearOfBar(wanted, input.safeTop ?? 0, input.barBottom ?? 0)
 
   /**
    * SORTED, which is the whole correctness of the thing. A larger fraction is
@@ -275,29 +319,179 @@ export function offsetsFor(input: {
  * ===========================================================================
  * The sheet pads itself by the keyboard's height so its content clears it.
  * That padding comes out of the sheet's OWN height, which is a fraction of
- * the screen — so a 60% sheet with a 336px keyboard up had 170px left for a
- * header, a form and two buttons. What a creator saw was the title, a sliver
- * of something, and the buttons: the field they had just tapped was not on
- * screen at all.
+ * the screen, so a 60% sheet with a 336px keyboard up had 170px left for a
+ * header, a form and two buttons. Growing by the keyboard's height keeps the
+ * panel above it the size it was before the keyboard arrived.
  *
- * Growing by exactly the keyboard's height keeps the panel above it the size
- * it was before the keyboard arrived, which is the size the detent asked for.
- * Where there is not that much screen the sheet takes what there is, and the
- * panel is the whole strip above the keyboard.
+ * ---------------------------------------------------------------------------
+ *  BUT NEVER UNDER THE STATUS BAR
+ * ---------------------------------------------------------------------------
+ * The growth used to be capped at the whole screen. A 92% sheet and a 388px
+ * keyboard want 1164px of an 844px screen, so the cap was what decided, and
+ * it put the sheet's top edge at y = 0: Ask Storelib's title under the clock,
+ * on a real iPhone. `ceiling` is the most room the sheet may take instead:
+ * the screen, less the clearance its tallest stop keeps at the top, less the
+ * part of the page iOS has panned out of view above the keyboard (see
+ * `visibleKeyboard`). The caller works it out; `keyboardCeiling` below.
  *
  * OFFSETS ARE DELIBERATELY NOT ADJUSTED. The sheet is anchored by `bottom: 0`
  * and moved by translateY, so a taller sheet at the same offset has its top
- * edge higher by exactly the growth — which is the keyboard's height, which
- * is what the padding then takes back. Every stop shows the same panel it
- * showed before. Recomputing the offsets as well would move it twice.
+ * edge higher by exactly the growth, which is what the padding takes back.
  */
-export function sheetHeightWithKeyboard(height: number, keyboardInset: number, viewport: number): number {
-  if (keyboardInset <= 0) return height
-  return Math.min(viewport, height + keyboardInset)
+export function sheetHeightWithKeyboard(height: number, keyboardInset: number, ceiling: number): number {
+  return Math.max(0, Math.min(ceiling, height + Math.max(0, keyboardInset)))
 }
 
-export const VELOCITY_THRESHOLD = 0.4
+/**
+ * The most room a sheet may take while a keyboard is up, in layout pixels,
+ * measured up from the bottom of the fixed box. Its top edge may rise to
+ * where a full sheet stands (KEYBOARD_REACH of the screen) or to its own
+ * tallest stop if that is higher, never above the safe area, and it comes
+ * down by however far iOS has panned the page. `height - keyboardInset` is
+ * then the panel, and it always ends on the keyboard.
+ *
+ * So a 78% form sheet still grows for a keyboard (to 92%, where there is a
+ * header's worth of screen above it), a 92% sheet keeps its top edge, and a
+ * sheet whose tallest stop is the whole screen below the status bar keeps
+ * that.
+ */
+export const KEYBOARD_REACH = 0.92
+
+export function keyboardCeiling(input: {
+  viewport: number
+  /** The sheet's tallest stop, in pixels. */
+  tallestHeight: number
+  safeTop: number
+  /** How far the visible area has been panned down the page. */
+  visibleTop: number
+  /** The page's own bar, which a keyboard does not let the sheet cut across either. */
+  barBottom?: number
+}): number {
+  const reach = Math.round(input.viewport * (1 - KEYBOARD_REACH))
+  const clearance = clearOfBar(
+    Math.max(input.safeTop, Math.min(input.viewport - input.tallestHeight, reach)),
+    input.safeTop,
+    input.barBottom ?? 0,
+  )
+  return Math.max(0, input.viewport - clearance - Math.max(0, input.visibleTop))
+}
+
+/**
+ * ===========================================================================
+ *  WHAT THE KEYBOARD COVERS, AND HOW FAR iOS PANNED TO SHOW THE FIELD
+ * ===========================================================================
+ * iOS does not shrink the layout viewport for a keyboard. It shrinks the
+ * visual one, and when the focused field would sit under the keys it PANS
+ * the visual viewport down the page to show it: `offsetTop` goes up by as
+ * much as it needed. A fixed sheet does not move with that pan, so the part
+ * of it above `offsetTop` is off the top of the screen, and what the keyboard
+ * covers at the bottom is only the fixed box's height, less the visible
+ * height, less the pan.
+ *
+ * The old reading took that covered strip and nothing else. After a pan it
+ * was small or zero, a zero fell through to the published ESTIMATE of a
+ * keyboard (half the screen, for web views that report nothing), and the
+ * sheet padded itself by a keyboard's height of empty white on top of a
+ * keyboard that had been reported all along. That is the band between the
+ * composer and the keyboard in the screenshot.
+ *
+ * So the estimate is only for a platform that reported nothing. When the
+ * visual viewport is shorter than the fixed box by more than a toolbar, the
+ * platform spoke, and the covered strip is the answer even when it is zero:
+ * `reported` says so and the caller skips the floor. `top` is the pan, which
+ * the sheet takes off its own height so its top edge follows the screen.
+ *
+ * `layoutHeight` is the FIXED BOX, read off a fixed element, not
+ * `innerHeight`: some iOS versions shrink `innerHeight` with the keyboard
+ * while fixed elements stay where they were (see keyboardInsetFrom in
+ * lib/ui/keyboard-safe-sheet.ts), and then the keyboard reads as nothing.
+ *
+ * Pinch zoom also shrinks the visual viewport and is not a keyboard; with a
+ * scale other than 1 there is no pan and nothing counts as reported.
+ */
+export const REPORTED_KEYBOARD_MIN_PX = 80
+
+export function visibleKeyboard(input: {
+  layoutHeight: number
+  vvHeight: number
+  vvTop: number
+  scale?: number
+}): { inset: number; top: number; reported: boolean } {
+  const { layoutHeight, vvHeight } = input
+  const zoomed = Math.abs((input.scale ?? 1) - 1) > 0.01
+  const shrunk = layoutHeight - vvHeight
+  const covered = Math.max(0, Math.round(layoutHeight - vvHeight - Math.max(0, input.vvTop)))
+  if (zoomed || shrunk <= REPORTED_KEYBOARD_MIN_PX) return { inset: covered, top: 0, reported: false }
+  const top = Math.max(0, Math.min(Math.round(input.vvTop), Math.round(shrunk)))
+  return { inset: covered, top, reported: true }
+}
+
+/**
+ * ===========================================================================
+ *  WHAT COUNTS AS A FLICK
+ * ===========================================================================
+ * Both numbers were higher (0.4 px/ms over 8px) and "open to half, then
+ * full" took a real throw. They are set from what a thumb does rather than
+ * from a round number:
+ *
+ * SPEED, 0.25 px/ms (250 px/s). A thumb placing a sheet slows as it arrives,
+ * and what is left at the lift is under 0.15 px/ms: 100px eased over most of
+ * a second. The shortest deliberate flick, a 20 to 30px nudge in about 60ms,
+ * leaves at 0.35 to 0.5. 0.25 sits between the two with room on both sides.
+ * A finger held still first does not get through it at all: the release
+ * speed counts the stillness (`releaseVelocity` with `releasedAt`).
+ *
+ * DISTANCE, more than 8px of finger from where it came DOWN. It used to be
+ * 8px from where the sheet took the gesture, which is DRAG_THRESHOLD_PX
+ * later, so a flick needed 14px and more: and the browser withholds the
+ * first moves inside its own slop, so the sheet often took the gesture on
+ * the last move of a short flick and measured 0px from there. Counted from
+ * touchdown, 9px is enough, which is past the 6px that makes it a drag at
+ * all and three times what a tap wanders.
+ */
+export const VELOCITY_THRESHOLD = 0.25
 export const FLICK_MIN_DISTANCE = 8
+
+/**
+ * ===========================================================================
+ *  A TAP ON THE GRAB BAR STEPS THE SHEET
+ * ===========================================================================
+ * Closed, it opens to half. At half, it goes to full. At full, back to half.
+ * The same cycle the grabber of an iOS sheet has for VoiceOver, given to a
+ * finger, so reaching full never needs a gesture somebody has to discover.
+ *
+ * A tap is a touch that stayed inside DRAG_THRESHOLD_PX and came up within
+ * TAP_MAX_MS. Longer than that is a press somebody changed their mind about,
+ * and it leaves the sheet where it is.
+ *
+ * `offsets` ascend (tallest stop first) and the last is closed. Returns the
+ * index to go to; the one it is at when there is nowhere to step to, a
+ * content-fit sheet already open.
+ */
+export const TAP_MAX_MS = 300
+
+export function tapTarget(offsets: number[], current: number): number {
+  const last = offsets.length - 1
+  if (last < 0) return 0
+  let at = 0
+  let best = Number.POSITIVE_INFINITY
+  for (let i = 0; i < offsets.length; i++) {
+    const distance = Math.abs(offsets[i] - current)
+    if (distance < best) {
+      best = distance
+      at = i
+    }
+  }
+  /* The lowest open stop: half on a sheet that has one, the only stop on one that does not. */
+  const lowestOpen = Math.max(0, last - 1)
+  if (at === last) return lowestOpen
+  if (at === 0) return lowestOpen
+  return 0
+}
+
+export function isTap(input: { distance: number; ms: number }): boolean {
+  return input.distance < DRAG_THRESHOLD_PX && input.ms <= TAP_MAX_MS
+}
 
 /**
  * How far a release carries, per unit of speed.
@@ -530,8 +724,8 @@ function round4(n: number): number {
  * ===========================================================================
  *  A LIST LET GO MID-PUSH KEEPS GOING
  * ===========================================================================
- * When the sheet grows out of a list and the same finger carries on into it,
- * the list is being moved by hand rather than by the browser, so on release
+ * When a hand-off turns back (see `expandCarry`) and the same finger carries
+ * on into the list, it is moved by hand rather than by the browser, so on release
  * nothing carries it on. This is the coast a native scroll view would have
  * given it: speed falls by the same fraction every millisecond, which is
  * UIScrollView's normal deceleration.

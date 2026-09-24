@@ -39,10 +39,21 @@ const MIN = 1.5
  */
 const MAX = 12
 
+/* A layout effect in the browser; on the server there is nothing to measure. */
+const useBeforePaint = typeof window === "undefined" ? React.useEffect : React.useLayoutEffect
+
 export function useCoverAspect(open: boolean): number {
   const [aspect, setAspect] = React.useState(FALLBACK_COVER_ASPECT)
 
-  React.useEffect(() => {
+  /*
+    BEFORE PAINT, not after. As a passive effect the first frame of an open
+    sheet drew the frame at the fallback 3:1 and the next one at the band's
+    real shape (2:1 on a phone), so the cover jumped while the sheet was
+    still sliding: one of the "glitching sometimes". A layout effect runs
+    before that first frame is painted, and the sheet commits its content in
+    the same render that opens it (components/ui/bottom-sheet).
+  */
+  useBeforePaint(() => {
     if (!open) return
 
     const measure = () => {
