@@ -329,16 +329,17 @@ check(
       behaviour at all, only address.
     */
     /*
-      And the analytics chart now reads the shared gesture in
-      components/app/use-chart-scrub, which is where its taps are asked for.
+      And both charts now draw one layer, components/app/chart-scrub, which
+      is where the taps are asked for: one place, so neither chart can miss
+      them again.
     */
-    const analytics = code("components/app/use-chart-scrub.ts")
-    return (dash.match(/hapticTap\(/g)?.length ?? 0) >= 2 &&
-           (analytics.match(/hapticTap\(/g)?.length ?? 0) >= 1 &&
-           /hapticTap\(strong \? "medium" : "light"\)/.test(analytics) &&
-           /useChartScrub</.test(code("components/app/analytics-chart.tsx"))
+    const layer = code("components/app/chart-scrub.tsx")
+    return /hapticTap\(r\.index < 0 \? "medium" : "light"\)/.test(layer) &&
+           /import \{ hapticTap \} from "@\/lib\/native-bridge"/.test(layer) &&
+           /<ChartScrub\b/.test(dash) &&
+           /<ChartScrub\b/.test(code("components/app/analytics-chart.tsx"))
   })(),
-  "        dashboard-client.tsx + use-chart-scrub.ts (the analytics chart's gesture)",
+  "        chart-scrub.tsx, drawn by dashboard-client.tsx and analytics-chart.tsx",
 )
 
 check(

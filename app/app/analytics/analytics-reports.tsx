@@ -14,10 +14,10 @@
  * donut and the funnel in steps of the same violet. Thin marks, a recessive
  * grid, text in ink and never in the data colour.
  *
- * READ THE SAME WAY AS THE CHART ABOVE. A pointer or a finger moves a marker
- * that glides from point to point and stops on each one; a sideways drag or
- * a hold scrubs, a finger going down the page is a scroll
- * (components/app/use-chart-scrub).
+ * READ THE SAME WAY AS THE CHART ABOVE, by the same layer
+ * (components/app/chart-scrub): the readout stays on the pointer or the
+ * finger, the dots sit on the nearest day, and it fades when let go; a
+ * sideways drag or a hold scrubs, a finger going down the page is a scroll.
  *
  * NOTHING SCROLLS INSIDE A CARD. A list shows its top five and opens the rest
  * in a sheet, so a wheel or a thumb over a card always moves the page.
@@ -42,7 +42,7 @@ import { axisWidth, compactCount, compactMoney, compactPercent } from "@/lib/ana
 import { AxisLabels, MORPH_MS, fixedScale, morphEase } from "@/components/app/chart-morph"
 import { viewerTimeZone } from "@/lib/orders/time-zone"
 import { HelpLabel } from "@/components/app/help-label"
-import { useChartScrub, type ChartScrub } from "@/components/app/use-chart-scrub"
+import { ChartScrub, type ScrubRow, type ScrubSeries } from "@/components/app/chart-scrub"
 import { SourceIcon, type IconFor } from "@/components/analytics/source-icon"
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 
@@ -53,8 +53,6 @@ export const BEFORE = "#b8bcc6"
 /** Two or three parts of a whole, in steps of the same violet. */
 const CATEGORICAL = ["#8b5cf6", "#c4b5fd", "#e4dcfd"]
 const FUNNEL = ["#6d28d9", "#8b5cf6", "#a78bfa", "#c4b5fd"]
-/** Every move of a marker between two points: short, and slowing into place. */
-const GLIDE = "transform 140ms cubic-bezier(0.2, 0.8, 0.2, 1)"
 
 const money = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" })
 const moneyShort = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", notation: "compact", maximumFractionDigits: 1 })
@@ -148,24 +146,6 @@ function Empty({ children }: { children: React.ReactNode }) {
 
 type AxisKind = "count" | "money" | "percent"
 
-/**
- * The first placement of a marker is a cut, and every move after it a
- * glide: turning the transition on only once the marker has been painted
- * where it starts is what stops it swooping in from the corner.
- */
-export function useGlide(shown: boolean): string {
-  const [settled, setSettled] = React.useState(false)
-  React.useEffect(() => {
-    if (!shown) {
-      setSettled(false)
-      return
-    }
-    const id = requestAnimationFrame(() => setSettled(true))
-    return () => cancelAnimationFrame(id)
-  }, [shown])
-  return shown && settled ? GLIDE : "none"
-}
-
 function LineChart({ series, format, kind }: { series: Series; format: (n: number) => string; kind: AxisKind }) {
   const compared = React.useContext(ComparedContext) && series.previous.length > 0
   /* Drawn at the card's own width in pixels, measured before the first
@@ -187,23 +167,15 @@ function LineChart({ series, format, kind }: { series: Series; format: (n: numbe
   const plotW = W - pad.l - pad.r
   const x = (i: number) => pad.l + (n <= 1 ? plotW / 2 : (i / (n - 1)) * plotW)
 
-  const scrub: ChartScrub<HTMLDivElement> = useChartScrub<HTMLDivElement>((clientX: number): number | null => {
-    const el: HTMLDivElement | null = scrub.ref.current
-    if (!el || n === 0) return null
-    const px: number = clientX - el.getBoundingClientRect().left
-    if (px < pad.l - 16 || px > W - pad.r + 16) return null
-    return Math.max(0, Math.min(n - 1, Math.round(((px - pad.l) / plotW) * (n - 1))))
-  })
-
+  const boxRef = React.useRef<HTMLDivElement>(null)
   React.useLayoutEffect(() => {
-    const el = scrub.ref.current
+    const el = boxRef.current
     if (!el) return
     const measure = () => setW(Math.max(160, Math.round(el.getBoundingClientRect().width)))
     measure()
     const ro = new ResizeObserver(measure)
     ro.observe(el)
     return () => ro.disconnect()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const plotH = H - pad.t - pad.b
@@ -261,94 +233,68 @@ function LineChart({ series, format, kind }: { series: Series; format: (n: numbe
   const path = (ys: number[]) => ys.map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${v.toFixed(1)}`).join("")
   const area = n > 1 ? `${path(cur)}L${x(n - 1).toFixed(1)},${floor}L${x(0).toFixed(1)},${floor}Z` : ""
   const xl = n > 1 ? [0, Math.floor((n - 1) / 2), n - 1] : [0]
-  const i = scrub.index
-  const glide = useGlide(i !== null)
   const gradient = React.useId().replace(/:/g, "")
 
+  /*
+    READ THE WAY EVERY TREND CHART IS READ: components/app/chart-scrub, with
+    its readout in the light card these reports use. The dots sit where the
+    line is going, not where the morph has it this frame.
+  */
+  const scrubSeries = React.useMemo<ScrubSeries[]>(
+    () => [
+      ...(compared ? [{ ys: target.prev, color: BEFORE, hollow: true }] : []),
+      { ys: target.cur, color: SERIES },
+    ],
+    [target, compared],
+  )
+  const scrubRows = React.useMemo<ScrubRow[]>(
+    () => [
+      { label: compared ? "This period" : "Value", value: (k) => format(series.current[k] ?? 0), mark: "line", tone: "value", color: SERIES },
+      ...(compared ? [{ label: "Before", value: (k: number) => format(series.previous[k] ?? 0), mark: "dashed", tone: "compared", color: BEFORE } as ScrubRow] : []),
+    ],
+    [series, compared, format],
+  )
+  const scrubTitle = React.useCallback((k: number) => series.labels[k] ?? "", [series])
+
   return (
-    <div
-      ref={scrub.ref}
-      className="relative mt-3 select-none [-webkit-touch-callout:none]"
-      style={{ touchAction: "pan-y" }}
-      onPointerMove={scrub.onPointerMove}
-      onPointerLeave={scrub.onPointerLeave}
-    >
-      <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} className="block h-[150px] w-full overflow-visible" role="img" aria-label="Chart">
-        <defs>
-          <linearGradient id={gradient} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={SERIES} stopOpacity={0.14} />
-            <stop offset="100%" stopColor={SERIES} stopOpacity={0} />
-          </linearGradient>
-        </defs>
-        {/* Four lines at four fixed heights; the numbers on them are AxisLabels, below. */}
-        {scale.ticks.map((t, k) => (
-          <line key={k} x1={pad.l} x2={W - pad.r} y1={y(t)} y2={y(t)} stroke="#eef0f2" strokeWidth={1} />
-        ))}
-        {xl.map((k) => (
-          <text key={k} x={x(k)} y={H - 5} textAnchor={k === 0 ? "start" : k === n - 1 ? "end" : "middle"} fontSize="10" fill="#9ca3af">
-            {series.labels[k]}
-          </text>
-        ))}
-        <path d={area} fill={`url(#${gradient})`} />
-        {compared ? <path d={path(prev)} fill="none" stroke={BEFORE} strokeWidth={1.5} strokeDasharray="4 4" strokeLinecap="round" /> : null}
-        <path d={path(cur)} fill="none" stroke={SERIES} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
-        {i !== null ? (
-          <g style={{ transform: `translateX(${x(i).toFixed(1)}px)`, transition: glide }}>
-            <line x1={0} x2={0} y1={pad.t} y2={H - pad.b} stroke="#d4d6dc" strokeWidth={1} />
-          </g>
-        ) : null}
-        {i !== null && compared ? (
-          <circle
-            r={3}
-            cx={0}
-            cy={0}
-            fill="#fff"
-            stroke={BEFORE}
-            strokeWidth={1.5}
-            style={{ transform: `translate(${x(i).toFixed(1)}px, ${y(series.previous[i] ?? 0).toFixed(1)}px)`, transition: glide }}
-          />
-        ) : null}
-        {i !== null ? (
-          <circle
-            r={4.5}
-            cx={0}
-            cy={0}
-            fill={SERIES}
-            stroke="#fff"
-            strokeWidth={2}
-            style={{ transform: `translate(${x(i).toFixed(1)}px, ${y(series.current[i]).toFixed(1)}px)`, transition: glide }}
-          />
-        ) : null}
-      </svg>
-      <AxisLabels labels={labels} top={pad.t} height={plotH} width={pad.l} fontSize={10} />
-      {i !== null ? (
-        <div
-          className="pointer-events-none absolute top-0 left-0 z-10 min-w-[136px] rounded-lg border border-[#e5e7eb] bg-white px-3 py-2 text-[12px] shadow-[0_10px_28px_-8px_rgba(17,24,39,0.22)]"
-          style={{
-            transform: `translateX(clamp(0px, calc(${x(i).toFixed(1)}px - 50%), calc(${W}px - 100%))) translateY(-12px)`,
-            transition: glide,
-            willChange: "transform",
-          }}
-        >
-          <p className="text-[11px] font-medium text-[#6b7280]">{series.labels[i]}</p>
-          <p className="mt-1 flex items-center justify-between gap-4">
-            <span className="flex items-center gap-1.5 text-[#4b5563]">
-              <span className="h-[2px] w-3 rounded" style={{ background: SERIES }} />
-              {compared ? "This period" : "Value"}
-            </span>
-            <span className="font-semibold tabular-nums text-[#1a1a2e]">{format(series.current[i])}</span>
-          </p>
-          {compared ? (
-            <p className="flex items-center justify-between gap-4">
-              <span className="flex items-center gap-1.5 text-[#6b7280]">
-                <span className="h-0 w-3 border-t-2 border-dashed" style={{ borderColor: BEFORE }} />
-                Before
-              </span>
-              <span className="tabular-nums text-[#4b5563]">{format(series.previous[i] ?? 0)}</span>
-            </p>
-          ) : null}
-        </div>
-      ) : null}
+    <div className="mt-3 select-none">
+      <div ref={boxRef} className="relative" style={{ height: H }}>
+        <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} className="block h-[150px] w-full overflow-visible" role="img" aria-label="Chart">
+          <defs>
+            <linearGradient id={gradient} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={SERIES} stopOpacity={0.14} />
+              <stop offset="100%" stopColor={SERIES} stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          {/* Four lines at four fixed heights; the numbers on them are AxisLabels, below. */}
+          {scale.ticks.map((t, k) => (
+            <line key={k} x1={pad.l} x2={W - pad.r} y1={y(t)} y2={y(t)} stroke="#eef0f2" strokeWidth={1} />
+          ))}
+          {xl.map((k) => (
+            <text key={k} x={x(k)} y={H - 5} textAnchor={k === 0 ? "start" : k === n - 1 ? "end" : "middle"} fontSize="10" fill="#9ca3af">
+              {series.labels[k]}
+            </text>
+          ))}
+          <path d={area} fill={`url(#${gradient})`} />
+          {compared ? <path d={path(prev)} fill="none" stroke={BEFORE} strokeWidth={1.5} strokeDasharray="4 4" strokeLinecap="round" /> : null}
+          <path d={path(cur)} fill="none" stroke={SERIES} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+        </svg>
+        <AxisLabels labels={labels} top={pad.t} height={plotH} width={pad.l} fontSize={10} />
+        <ChartScrub
+          count={n}
+          left={pad.l}
+          right={pad.r}
+          top={pad.t}
+          bottom={H - pad.b}
+          series={scrubSeries}
+          title={scrubTitle}
+          rows={scrubRows}
+          disabled={n === 0}
+          tone="light"
+          readoutTop={-12}
+          crosshairColor="#c9ccd3"
+        />
+      </div>
       {compared ? (
         <div className="mt-2 flex items-center gap-4 text-[12px] text-[#6b7280]">
           <span className="flex items-center gap-1.5">
