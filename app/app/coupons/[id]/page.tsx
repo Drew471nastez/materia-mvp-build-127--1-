@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation"
 import { CreateCouponClient, type CouponRecord } from "../new/create-coupon-client"
-import CouponFormLoading from "../new/loading"
+import CouponFormLoading from "../new/skeleton"
 import { loadCouponArea } from "../load-coupons"
 
 export const dynamic = "force-dynamic"

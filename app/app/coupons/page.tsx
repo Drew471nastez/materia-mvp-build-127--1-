@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation"
 import { CouponsClient } from "./coupons-client"
-import CouponsLoading from "./loading"
+import CouponsLoading from "./skeleton"
 import { loadCouponArea } from "./load-coupons"
 
 export const dynamic = "force-dynamic"
