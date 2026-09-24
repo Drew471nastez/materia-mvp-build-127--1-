@@ -70,6 +70,7 @@ import type {
   PageKey, EditorPanel, SchemaField, SectionSchema } from "@/lib/website-builder/types"
 import { ColorsPanel, SectionDesignPanel, TypographyPanel } from "@/components/website-builder/editor/design-panels"
 import { remapScheme, themeColorSchemes } from "@/lib/storelib-theme/color-schemes"
+import { sameSettingValue } from "@/lib/website-builder/same-setting"
 import { PAGE_META } from "@/lib/website-builder/types"
 import { BUILT_IN_PAGE_KEYS, pageKeyFromSegment, pageTitleFromKey } from "@/lib/website-builder/site-pages"
 import { resolveEditorHref } from "@/lib/website-builder/editor-navigation"
@@ -4628,7 +4629,15 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     [sections],
   )
 
+  /*
+    A SETTING SET TO WHAT IT ALREADY IS CHANGES NOTHING. Clicking the option
+    that is already chosen, or leaving a number box without typing, used to
+    make a new section (or a new theme, for every section on the page) with
+    the same values in it: an undo step for nothing, the page marked unsaved,
+    and the canvas drawing again. Now it is dropped here.
+  */
   const updateSetting = (key: string, value: unknown) => {
+    if (sameSettingValue(settingsRef.current[key], value)) return
     debouncedPushUndo()
     setSettingsDraft(prev => ({ ...prev, [key]: value }))
 
@@ -4643,8 +4652,17 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     setIsDirty(true)
   }
 
+  /* One function for the life of the editor, so the memoised canvas is not
+     drawn again by every change anywhere else in the editor. */
+  const createMissingPage = useCallback((path: string) => {
+    setNewPageTitle(pageTitleFromKey(path.replace(/^\//, "").replace(/\/$/, "")))
+    setAddPageOpen(true)
+  }, [])
+
   // Section settings change
   const updateSectionSetting = (sectionId: string, key: string, value: unknown) => {
+    const current = sectionsRef.current.find(s => s.id === sectionId)
+    if (current && sameSettingValue(current.settings?.[key], value)) return
     debouncedPushUndo()
     setSections(prev => {
       const section = prev.find(s => s.id === sectionId)
@@ -4674,6 +4692,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
   // Block settings change (debounced undo push, as for a section's own)
   const updateBlockSetting = (sectionId: string, blockId: string, key: string, value: unknown) => {
+    const block = sectionsRef.current.find(s => s.id === sectionId)?.blocks?.find(b => b.id === blockId)
+    if (block && sameSettingValue(block.settings?.[key], value)) return
     debouncedPushUndo()
     setSections(prev => prev.map(s =>
       s.id === sectionId
@@ -8320,10 +8340,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                  * in: the person has just told us what they want it called
                  * by clicking a link to it.
                  */
-                onCreateMissingPage={(path) => {
-                  setNewPageTitle(pageTitleFromKey(path.replace(/^\//, "").replace(/\/$/, "")))
-                  setAddPageOpen(true)
-                }}
+                onCreateMissingPage={createMissingPage}
                 shopCards={shopCards}
                 installId={installId}
               />

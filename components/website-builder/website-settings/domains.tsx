@@ -38,9 +38,19 @@ function describe(d: DomainRow): { tone: "live" | "attention" | "critical" | "ne
   return { tone: "attention", label: "Waiting for DNS", ssl: "Issued once DNS is set" }
 }
 
+/**
+ * The domains last read, so coming back to this subject draws them at once
+ * and reads them again quietly, rather than a spinner that the card then
+ * grows out of, pushing the page down.
+ */
+let lastDomains: DomainRow[] | null = null
+
 export function DomainSettings({ ctx }: { ctx: SettingsContext }) {
-  const [domains, setDomains] = useState<DomainRow[] | null>(null)
+  const [domains, setDomains] = useState<DomainRow[] | null>(() => lastDomains)
   const [error, setError] = useState<string | null>(null)
+  useEffect(() => {
+    if (domains && !error) lastDomains = domains
+  }, [domains, error])
 
   useEffect(() => {
     let alive = true

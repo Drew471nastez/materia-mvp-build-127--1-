@@ -11,8 +11,8 @@
  * asked for the grey line, "like on the homepage". This is the home page's
  * tab, and both rows draw it, so they cannot drift again.
  *
- * Only the row around it differs: a strip that scrolls sideways on a phone at
- * home (components/app/use-tab-strip), a two by two grid on Analytics.
+ * The row around it is the same too: a strip that scrolls sideways on a phone,
+ * at home and on Analytics alike (components/app/use-tab-strip).
  */
 import type * as React from "react"
 import { cn } from "@/lib/utils"

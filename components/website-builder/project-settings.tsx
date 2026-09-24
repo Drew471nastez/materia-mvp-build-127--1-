@@ -267,7 +267,9 @@ export function ProjectSettings({
             Website Settings
           </button>
         </div>
-        <div key={section} className="wb-settings-in mx-auto w-full max-w-[860px] px-5 pb-16 pt-6 md:px-12 md:pb-14 md:pt-12" aria-label={current?.label}>
+        {/* A new subject fades in where it is: no rise, no scale. It rose 8px
+            and grew from 98.5%, which on every switch read as a bump. */}
+        <div key={section} className="wb-settings-swap mx-auto w-full max-w-[860px] px-5 pb-16 pt-6 md:px-12 md:pb-14 md:pt-12" aria-label={current?.label}>
           {section === "general" && <GeneralSettings ctx={ctx} />}
           {section === "domains" && <DomainSettings ctx={ctx} />}
           {section === "seo" && <SeoSettings ctx={ctx} />}

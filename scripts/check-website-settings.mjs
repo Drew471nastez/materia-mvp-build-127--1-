@@ -198,6 +198,22 @@ console.log("\ndesktop, 1280 wide")
   expect(robots === false, "switching search engines off stores false, which the live page now reads as noindex", robots)
   await p.screenshot({ path: join(shots, "desktop-seo.png"), fullPage: false })
 
+  /* Switching subjects: a fade in place, nothing rising or growing into it. */
+  await clickText(p, "nav[aria-label='Website settings'] button", "Commerce")
+  await sleep(300)
+  await clickText(p, "nav[aria-label='Website settings'] button", "Policies")
+  const mid = await p.evaluate(() => {
+    const box = document.querySelector("main > div[aria-label]")
+    const cs = getComputedStyle(box)
+    return { transform: cs.transform, top: Math.round(box.getBoundingClientRect().top) }
+  })
+  await sleep(400)
+  const settled = await p.evaluate(() => Math.round(document.querySelector("main > div[aria-label]").getBoundingClientRect().top))
+  expect(mid.transform === "none" && mid.top === settled, "a new subject fades in where it will sit, without a rise or a scale", JSON.stringify({ ...mid, settled }))
+  await clickText(p, "nav[aria-label='Website settings'] button", "Commerce")
+  await sleep(250)
+  expect(!/shipping/i.test(await p.evaluate(() => document.querySelector("main").textContent)), "Commerce no longer asks about shipping")
+
   /* Domains: a new one is added here, and replacing the one there is asked first. */
   await clickText(p, "nav[aria-label='Website settings'] button", "Domains")
   await sleep(300)

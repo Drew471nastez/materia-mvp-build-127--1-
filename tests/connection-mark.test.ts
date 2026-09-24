@@ -19,6 +19,7 @@ import {
   POLL_BASE_MS,
   POLL_MAX_MS,
   actedRecently,
+  connectionTip,
   describeChange,
   kindForName,
   nextPollDelay,
@@ -118,6 +119,18 @@ function main() {
   check("nothing connected, nothing followed", /const connected = ready && !!brief && \(brief\.agents\.length > 0 \|\| !!brief\.github\)/.test(follow) && /if \(!connected\) return/.test(follow))
   check("a hidden tab stops asking, and coming back asks at once", /document\.visibilityState !== "visible"/.test(follow) && /document\.addEventListener\("visibilitychange", wake\)/.test(follow) && /window\.addEventListener\("focus", wake\)/.test(follow))
   check("one read at a time", /if \(stopped \|\| busy/.test(follow))
+
+  console.log("\nThe tooltip is four words at most")
+  {
+    const tips = [
+      connectionTip(pickConnection(null)),
+      connectionTip(pickConnection({ agents: [], github: { repo: "drew/storely" }, latest: null } as unknown as ConnectionsBrief)),
+      connectionTip(pickConnection({ agents: [{ name: "Claude Code", lastUsedAt: null }, { name: "Codex", lastUsedAt: null }, { name: "My ChatGPT", lastUsedAt: null }], github: { repo: "drew/storely" }, latest: { name: "Claude Code", at: new Date().toISOString() } } as unknown as ConnectionsBrief)),
+    ]
+    check("nothing connected, one connected, several connected", tips[0] === "Connect an agent" && tips[1] === "GitHub connected" && tips[2] === "Claude + 3 more", tips.join(" | "))
+    check("never more than four words, and never the repo or the list", tips.every((t) => t.split(/\s+/).length <= 4 && !t.includes("/")))
+    check("the top bar's tooltip is that line alone", /<TooltipContent side="bottom">\{connectionTip\(mark\)\}/.test(readFileSync(join(process.cwd(), "components/website-builder/site-connections.tsx"), "utf8")))
+  }
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }

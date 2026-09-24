@@ -3,6 +3,7 @@
 import { useEffect } from "react"
 
 import { keyboardInsetOrFloor } from "@/lib/ui/keyboard-safe-sheet"
+import { isSiteDocument } from "@/components/website-builder/site-document"
 
 /**
  * KeyboardGuard — globally tracks software keyboard open/close via the
@@ -18,8 +19,11 @@ import { keyboardInsetOrFloor } from "@/lib/ui/keyboard-safe-sheet"
  * since the browser's native scroll-into-view doesn't work reliably inside
  * custom `overflow-y: auto` scroll containers (`.app-content-scroll`).
  *
- * Safe on all platforms — on desktop/browser visualViewport.height equals
- * window.innerHeight so kbHeight is always 0 and the class is never added.
+ * The class is never added on a desktop, where visualViewport.height equals
+ * window.innerHeight. The focus pass did run there, and on published
+ * websites, centring every field clicked; it now stands down on a website
+ * (components/website-builder/site-document) and moves a field only when
+ * the keyboard covers it.
  */
 export function KeyboardGuard() {
   useEffect(() => {
@@ -110,8 +114,19 @@ export function KeyboardGuard() {
             not by where the box is, which is what --kb-inset decides.
           */
           if (document.documentElement.classList.contains("app-layout")) return
-          // Fallback: use native scrollIntoView for document-level scroll
-          active.scrollIntoView({ block: "center", behavior: "smooth" })
+          /*
+            THE DOCUMENT SCROLLS, AND THE BROWSER ALREADY BROUGHT THE FIELD
+            INTO VIEW. This centred it anyway, smoothly, so a field that was
+            plainly visible was dragged to the middle of the screen, and with
+            a keyboard up the middle of the layout viewport is behind the
+            keys. Now it moves only a field the keyboard actually covers,
+            and only as far as it takes to show it.
+          */
+          const r = active.getBoundingClientRect()
+          const top = vv.offsetTop
+          const bottom = vv.offsetTop + vv.height
+          if (r.top >= top && r.bottom <= bottom) return
+          active.scrollIntoView({ block: "nearest", behavior: "auto" })
           return
         }
 
@@ -143,6 +158,8 @@ export function KeyboardGuard() {
     let keyboardWasOpen = false
 
     function onViewportChange() {
+      /* A creator's website: the document scrolls, and the browser handles it. */
+      if (isSiteDocument()) return
       // Ignore orientation changes — they are not keyboard events
       const currentWidth = window.innerWidth
       if (currentWidth !== lastInnerWidth) {
@@ -212,6 +229,7 @@ export function KeyboardGuard() {
     // for slower iOS keyboards that take ~400-500ms to finish animating).
     let focusTimers: ReturnType<typeof setTimeout>[] = []
     function onFocusIn(e: FocusEvent) {
+      if (isSiteDocument()) return
       const target = e.target as HTMLElement | null
       if (
         !target ||

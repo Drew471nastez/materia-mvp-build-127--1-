@@ -211,6 +211,14 @@ try {
     expect(load.router === 0, "loading asks nothing of the router", load.router)
     const wide = await p.evaluate(() => document.documentElement.scrollWidth)
     expect(wide <= vp.width, "no sideways scroll", wide)
+    /* The four figures: one row everywhere; on a phone it scrolls sideways, like the home page's. */
+    const strip = await p.evaluate(() => {
+      const row = document.querySelector("[role=tablist][aria-label=Metric]")
+      const tops = [...row.querySelectorAll("[data-tab]")].map((b) => Math.round(b.getBoundingClientRect().top))
+      return { tops: [...new Set(tops)].length, scrolls: row.scrollWidth > row.clientWidth + 1, overflowX: getComputedStyle(row).overflowX }
+    })
+    expect(strip.tops === 1, "the four figures are one row", JSON.stringify(strip))
+    if (vp.isMobile) expect(strip.scrolls && strip.overflowX === "auto", "which scrolls sideways on a phone", JSON.stringify(strip))
 
     /* 2. Each tab, one after another: a morph of the line and nothing else. */
     for (const tab of ["revenue", "orders", "conversion", "views"]) {

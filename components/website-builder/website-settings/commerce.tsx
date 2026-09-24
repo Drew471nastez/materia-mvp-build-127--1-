@@ -1,19 +1,15 @@
 "use client"
 
-import { Card, GOES_LIVE, PageTitle, Row, Toggle, buttonClass, inputClass } from "./parts"
+import { Card, PageTitle, Row, buttonClass } from "./parts"
 import type { SettingsContext } from "./types"
 
 /**
  * What selling on this website means. Storelib sells one product at a time:
  * Buy goes to Storelib's checkout, which takes the card through Stripe and
- * pays out to the account in Settings › Payments. So most of this page is
- * facts and doors, and the two controls are the shipping ones the theme
- * really draws.
+ * pays out to the account in Settings › Payments. So this page is facts
+ * and doors. Shipping is not asked here: the owner took it out.
  */
 export function CommerceSettings({ ctx }: { ctx: SettingsContext }) {
-  const threshold = typeof ctx.settings.free_shipping_threshold === "number" ? ctx.settings.free_shipping_threshold : 0
-  const bar = ctx.settings.free_shipping_bar === true
-
   return (
     <>
       <PageTitle>Commerce</PageTitle>
@@ -40,30 +36,6 @@ export function CommerceSettings({ ctx }: { ctx: SettingsContext }) {
           <button type="button" onClick={() => ctx.onNavigate("/app/settings?tab=payments")} className={buttonClass}>
             Payments settings
           </button>
-        </Row>
-      </Card>
-
-      <Card title="Shipping" footer={GOES_LIVE}>
-        <Row label="Free shipping from" hint="Only for products you ship. Leave at 0 for none." htmlFor="wb-free-shipping">
-          <div className="relative md:w-[160px]">
-            <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[14.5px] text-white/45">$</span>
-            <input
-              id="wb-free-shipping"
-              type="number"
-              inputMode="decimal"
-              min={0}
-              value={threshold || ""}
-              placeholder="0"
-              onChange={(e) => {
-                const n = Number(e.target.value)
-                ctx.onSettingChange("free_shipping_threshold", Number.isFinite(n) && n > 0 ? n : 0)
-              }}
-              className={inputClass + " pl-7 md:w-[160px]"}
-            />
-          </div>
-        </Row>
-        <Row label="Free shipping bar" hint="A line above the header saying how far a visitor is from free shipping.">
-          <Toggle checked={bar} onChange={(on) => ctx.onSettingChange("free_shipping_bar", on)} label="Show the free shipping bar" />
         </Row>
       </Card>
     </>

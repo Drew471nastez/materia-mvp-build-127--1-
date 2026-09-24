@@ -133,6 +133,26 @@ export function pickConnection(brief: ConnectionsBrief | null): ConnectionMark {
 }
 
 /** True while the connection acted within the last few minutes. */
+/** The short name a tooltip gives a connection: "GitHub", "Claude", "Codex". */
+export function shortName(kind: ConnectionKind, name: string): string {
+  if (kind === "github") return "GitHub"
+  if (kind === "claude") return "Claude"
+  if (kind === "openai") return /chatgpt/i.test(name) ? "ChatGPT" : "Codex"
+  return "Agent"
+}
+
+/**
+ * THE TOOLTIP, IN FOUR WORDS AT MOST. It read "GitHub: owner/repo. Also
+ * Claude Code connected, Codex connected and 2 more", a paragraph hanging
+ * off a 32px button. The owner asked for three or four words. The repo and
+ * the list are one click away, in the panel the button opens.
+ */
+export function connectionTip(mark: ConnectionMark): string {
+  if (!mark.online) return "Connect an agent"
+  const who = shortName(mark.kind, mark.name)
+  return mark.others.length === 0 ? `${who} connected` : `${who} + ${mark.others.length} more`
+}
+
 export function actedRecently(mark: ConnectionMark, now: number): boolean {
   return mark.online && mark.lastActiveAt !== null && now - mark.lastActiveAt >= -60_000 && now - mark.lastActiveAt < RECENT_MS
 }

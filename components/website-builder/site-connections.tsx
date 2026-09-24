@@ -33,6 +33,7 @@ import {
   POLL_BASE_MS,
   RECENT_MS,
   actedRecently,
+  connectionTip,
   isGitHubName,
   kindForName,
   nextPollDelay,
@@ -192,14 +193,7 @@ export function ConnectionButton({
           {mark.online && <span aria-hidden className="wb-live-dot" data-pulse={working || recent ? "" : undefined} />}
         </button>
       </TooltipTrigger>
-      <TooltipContent side="bottom">
-        <span className="block">{mark.label}</span>
-        {mark.others.length > 0 && (
-          <span className="block opacity-70">
-            Also {mark.others.slice(0, 2).join(", ")}
-            {mark.others.length > 2 ? ` and ${mark.others.length - 2} more` : ""}
-          </span>
-        )}
+      <TooltipContent side="bottom">{connectionTip(mark)}
       </TooltipContent>
     </Tooltip>
   )
