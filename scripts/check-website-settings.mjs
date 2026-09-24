@@ -176,7 +176,8 @@ console.log("\ndesktop, 1280 wide")
     const rows = [...card.querySelectorAll(":scope > div > div")]
     /* Tailwind 4's divide-y rules the bottom of every row but the last. */
     const ruleOf = (r) => parseFloat(getComputedStyle(r).borderTopWidth) + parseFloat(getComputedStyle(r).borderBottomWidth)
-    return rows.length === 3 && rows.slice(0, -1).every((r) => ruleOf(r) > 0)
+    /* Primary, redirect and HTTPS, then the field for another domain. */
+    return rows.length === 4 && rows.slice(0, -1).every((r) => ruleOf(r) > 0)
   })
   expect(ruled, "and each of its rows is ruled off like every other card's")
 
@@ -196,6 +197,39 @@ console.log("\ndesktop, 1280 wide")
   const robots = await p.evaluate(() => window.__settings?.seo_robots)
   expect(robots === false, "switching search engines off stores false, which the live page now reads as noindex", robots)
   await p.screenshot({ path: join(shots, "desktop-seo.png"), fullPage: false })
+
+  /* Domains: a new one is added here, and replacing the one there is asked first. */
+  await clickText(p, "nav[aria-label='Website settings'] button", "Domains")
+  await sleep(300)
+  await p.type("#wb-new-domain", "newstudio.com")
+  await clickText(p, "main button", "Connect")
+  await sleep(150)
+  const asked = await p.evaluate(() => ({ text: document.querySelector("main").textContent, posted: window.__calls.some((c) => c.startsWith("POST /api/domains")) }))
+  expect(/This replaces astridstudio\.com/.test(asked.text) && !asked.posted, "replacing the connected domain is said and asked before anything is sent", asked.posted)
+  await clickText(p, "main button", "Replace")
+  await sleep(300)
+  const added = await p.evaluate(() => ({ text: document.querySelector("main").textContent, posted: window.__calls.includes("POST /api/domains") }))
+  expect(added.posted && /216\.150\.1\.1/.test(added.text) && /cname\.vercel-dns\.com/.test(added.text) && /storelib-verify-3f9c2a71d04b8e56a1c7f02e9d4b6a8c/.test(added.text), "then it is added, with the three records to set", added.posted)
+  await clickText(p, "main button", "Check DNS")
+  await sleep(300)
+  expect(await p.evaluate(() => window.__calls.includes("POST /api/domains/verify")), "and Check DNS asks whether they are in place")
+  expect((await overflow(p)) === 0, "the records fit without scrolling sideways", await overflow(p))
+  await p.screenshot({ path: join(shots, "desktop-domains-add.png") })
+
+  /* Pages & Navigation: each page's search result, edited in place. */
+  await clickText(p, "nav[aria-label='Website settings'] button", "Pages & Navigation")
+  await sleep(300)
+  await p.click("button[aria-controls='wb-page-seo-about']")
+  await sleep(200)
+  await p.type("#wb-page-seo-about input", "About Astrid Studio")
+  await sleep(120)
+  const stored = await p.evaluate(() => window.__settings?.page_seo?.about?.title)
+  expect(stored === "About Astrid Studio", "a page's own title reaches the draft", stored)
+  await p.click("#wb-page-seo-about input[type=checkbox]")
+  await sleep(150)
+  const hidden = await p.evaluate(() => ({ v: window.__settings?.page_seo?.about?.hidden, badge: /Hidden from search/.test(document.querySelector("main").textContent) }))
+  expect(hidden.v === true && hidden.badge, "and it can be kept out of search, which the list then says", hidden)
+  await p.screenshot({ path: join(shots, "desktop-pages-seo.png") })
 
   /* Connections: its own group, one question, then only that path. */
   const group = await p.evaluate(() => {
@@ -275,6 +309,30 @@ console.log("\nphone, 390 wide")
     await sleep(120)
   }
   expect(true, "every subject fits the phone's width")
+
+  /* The two panels that open in place: a new domain's records, a page's search result. */
+  await clickText(p, "nav[aria-label='Website settings'] button", "Domains")
+  await sleep(250)
+  await p.type("#wb-new-domain", "newstudio.com")
+  await clickText(p, "main button", "Connect")
+  await sleep(120)
+  await clickText(p, "main button", "Replace")
+  await sleep(300)
+  const records = await p.evaluate(() => [...document.querySelectorAll("button[aria-label^='Copy the']")].map((b) => b.getBoundingClientRect()).map((r) => ({ right: Math.round(r.right), h: Math.round(r.height) })))
+  expect(records.length === 3 && records.every((r) => r.right <= 390 - 16) && (await overflow(p)) === 0, "a new domain's three records fit the phone, each copy button in reach", records)
+  const cut = await p.evaluate(() => [...document.querySelectorAll("button[aria-label^='Copy the']")].map((b) => b.previousElementSibling.lastElementChild).filter((v) => v.scrollWidth > v.clientWidth).map((v) => v.textContent))
+  expect(cut.length === 0, "and every value is there in full, to be typed by hand if need be", cut)
+  await p.evaluate(() => document.querySelector("button[aria-label^='Copy the']")?.scrollIntoView({ block: "center" }))
+  await p.screenshot({ path: join(shots, "phone-domains-records.png") })
+  await clickText(p, "main button", "Website Settings")
+  await sleep(150)
+  await clickText(p, "nav[aria-label='Website settings'] button", "Pages & Navigation")
+  await sleep(250)
+  await p.click("button[aria-controls='wb-page-seo-contact']")
+  await sleep(200)
+  expect((await overflow(p)) === 0, "and so does a page's search panel", await overflow(p))
+  await p.evaluate(() => document.getElementById("wb-page-seo-contact")?.scrollIntoView({ block: "start" }))
+  await p.screenshot({ path: join(shots, "phone-pages-seo.png") })
 
   /* Straight to one subject: how the tabs on the website page arrive. */
   const q = await open({ width: 390, height: 844, isMobile: true, hasTouch: true }, "domains")
