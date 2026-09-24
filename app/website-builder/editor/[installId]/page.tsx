@@ -3450,6 +3450,14 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   useEffect(() => {
     if (aiOpen) setAiMounted(true)
   }, [aiOpen])
+  /**
+   * A REQUEST TO THE AI IS NOT STOPPED BY CLOSING ITS PANEL. On a desktop the
+   * panel was drawn only while open, so closing it unmounted the chat and the
+   * request went with it, half done. It stays mounted once opened, like the
+   * phone's sheet, and hidden when closed; the button says it is still at
+   * work, and the changes land on the canvas as they come.
+   */
+  const [aiBusy, setAiBusy] = useState(false)
 
   /**
    * ONE OPERATION FROM THE AI, APPLIED TO THE STATE THE PANELS ALREADY EDIT.
@@ -7469,9 +7477,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                   <span className="wb-ai-ring-spin" />
                 </span>
                 <StorelibMark className={cn("h-[18px] w-[18px] rounded-[5px] transition-opacity", aiOpen ? "opacity-100" : "opacity-80")} />
+                {/* Still working with the panel closed: the same live dot the connection mark uses. */}
+                {aiBusy && !aiOpen && <span aria-hidden className="wb-live-dot" data-pulse="" data-ai-working="" />}
               </button>
             </TooltipTrigger>
-            <TooltipContent side="bottom">{aiOpen ? "Hide Storelib AI" : "Ask Storelib"}</TooltipContent>
+            <TooltipContent side="bottom">{aiOpen ? "Hide Storelib AI" : aiBusy ? "Storelib AI is working" : "Ask Storelib"}</TooltipContent>
           </Tooltip>
           {/* The button says what is actually true.
               On a LIVE theme it is Publish: the draft is saved automatically,
@@ -7822,6 +7832,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               selectedSectionId={selectedSectionId ?? undefined}
               onRunStart={pushUndo}
               onRunEnd={backupAfterTask}
+              onBusyChange={setAiBusy}
               onOp={applyAiOp}
               onClose={() => setAiOpen(false)}
               onSourcesChanged={() => { void loadStorelibSources() }}
@@ -7839,8 +7850,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         {/* The same shape as the sidebar, mirrored: when the AI is open it is
             the panel on the canvas's other side, and it rounds away from the
             canvas exactly as the sidebar does, over the same four pixels. */}
-        {!isMobileView && aiOpen && (
-          <div className="relative flex-shrink-0" style={{ width: 340 }}>
+        {!isMobileView && aiMounted && (
+          <div className={cn("relative flex-shrink-0", !aiOpen && "hidden")} style={{ width: 340 }} aria-hidden={!aiOpen} data-ai-panel={aiOpen ? "open" : "closed"}>
             <div className="h-full overflow-hidden bg-white rounded-t-[20px]">
             <ThemeChat
               installId={installId}
@@ -7850,6 +7861,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               selectedSectionId={selectedSectionId ?? undefined}
               onRunStart={pushUndo}
               onRunEnd={backupAfterTask}
+              onBusyChange={setAiBusy}
               onOp={applyAiOp}
               onClose={() => setAiOpen(false)}
               onSourcesChanged={() => { void loadStorelibSources() }}
