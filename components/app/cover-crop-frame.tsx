@@ -47,6 +47,7 @@ import {
   clampPercent,
   coverCropStyle,
   cropFromGesture,
+  cropFromTransform,
   imageRectStyle,
   roundCrop,
   transformBetween,
@@ -106,32 +107,54 @@ export function CoverCropFrame({ src, crop, onChange, onActivate, aspect, label,
   const lastTapRef = React.useRef<{ t: number; x: number; y: number } | null>(null)
   const downAtRef = React.useRef(0)
   const wheelTimer = React.useRef<number | null>(null)
+  /*
+    The latest props, for the handlers below. They are read at the moment a
+    gesture ends rather than captured when a handler was made, so the
+    handlers never have to be made again: a native listener re-bound in the
+    middle of a trackpad pinch lost the timer that ends it.
+  */
   const onChangeRef = React.useRef(onChange)
-  React.useEffect(() => { onChangeRef.current = onChange })
+  const cropRef = React.useRef(crop)
+  const aspectRef = React.useRef(aspect)
+  React.useLayoutEffect(() => {
+    onChangeRef.current = onChange
+    cropRef.current = crop
+    aspectRef.current = aspect
+  })
 
   /* The parent's value is the truth whenever no finger is down. */
   React.useLayoutEffect(() => {
+    /*
+      A value that arrives while a glide is still running came from outside
+      it (Reset, say): the glide is abandoned, not finished, or its last
+      frame would put back the crop that was just replaced.
+    */
+    const running = animRef.current
+    if (running) {
+      animRef.current = null
+      running.anim.cancel()
+      const img = imgRef.current
+      if (img) { img.style.transform = ""; img.style.willChange = "" }
+    }
     if (draggingRef.current) return
     restRef.current = crop
     liveRef.current = crop
   }, [crop])
 
+  /** The photograph's own shape, once the browser knows both sides of it. */
+  const readNatural = (img: HTMLImageElement | null): Size | null =>
+    img && img.naturalWidth > 0 && img.naturalHeight > 0 ? { w: img.naturalWidth, h: img.naturalHeight } : null
+
   /* A new picture: its shape is unknown until it loads. */
   React.useLayoutEffect(() => {
-    naturalRef.current = null
-    setNatural(null)
-    const img = imgRef.current
-    if (img && img.complete && img.naturalWidth > 0) {
-      const n = { w: img.naturalWidth, h: img.naturalHeight }
-      naturalRef.current = n
-      setNatural(n)
-    }
+    const n = imgRef.current?.complete ? readNatural(imgRef.current) : null
+    naturalRef.current = n
+    setNatural(n)
   }, [src])
 
   const onLoad = () => {
-    const img = imgRef.current
-    if (!img || !img.naturalWidth) return
-    const n = { w: img.naturalWidth, h: img.naturalHeight }
+    const n = readNatural(imgRef.current)
+    if (!n) return
     naturalRef.current = n
     setNatural(n)
   }
@@ -178,32 +201,52 @@ export function CoverCropFrame({ src, crop, onChange, onActivate, aspect, label,
    * THE HAND-BACK. The laid-out position becomes the live one and the
    * transform goes, in the same frame, so the picture does not move; then the
    * parent is told, and its render writes the same numbers again.
+   *
+   * With nobody to tell (an upload started under the finger, so the frame
+   * stopped being the editor), the picture goes back to the parent's crop:
+   * what is on screen is never a crop that will not be saved.
    */
   const commit = React.useCallback((next: CoverCrop) => {
     if (rafRef.current != null) { cancelAnimationFrame(rafRef.current); rafRef.current = null }
     const img = imgRef.current
     const n = naturalRef.current
-    const rounded = roundCrop(next)
-    if (img && n) {
-      Object.assign(img.style, imageRectStyle(aspect, n.w / n.h, rounded))
+    const current = cropRef.current
+    const notify = onChangeRef.current
+    const rounded = notify ? roundCrop(next) : current
+    if (img) {
+      Object.assign(img.style, n ? imageRectStyle(aspectRef.current, n.w / n.h, rounded) : coverCropStyle(rounded))
       img.style.transform = ""
       img.style.willChange = ""
     }
     restRef.current = rounded
     liveRef.current = rounded
-    const changed =
-      rounded.x !== crop.x || rounded.y !== crop.y || rounded.zoom !== crop.zoom
-    if (changed) onChangeRef.current?.(rounded)
-  }, [aspect, crop])
+    const changed = rounded.x !== current.x || rounded.y !== current.y || rounded.zoom !== current.zoom
+    if (changed) notify?.(rounded)
+  }, [])
 
-  /** A finger landing mid glide: the glide is over, and the picture is where it was going. */
-  const stopAnimation = () => {
+  /**
+   * A finger landing mid glide: the glide stops, and the picture stays
+   * exactly where it had got to, read off the running transform.
+   */
+  const stopAnimation = React.useCallback(() => {
     const running = animRef.current
     if (!running) return
     animRef.current = null
-    commit(running.target)
+    const img = imgRef.current
+    const n = naturalRef.current
+    const f = frameSize()
+    let here = running.target
+    if (img && n && f) {
+      const t = getComputedStyle(img).transform
+      if (t && t !== "none") {
+        const m = new DOMMatrixReadOnly(t)
+        here = cropFromTransform(f, n, restRef.current, { tx: m.m41, ty: m.m42, k: m.m11 })
+      }
+    }
+    commit(here)
     running.anim.cancel()
-  }
+    /* frameSize reads refs only. */
+  }, [commit])
 
   /** A double tap, or a key: glide to `target` on the compositor, then hand back. */
   const glideTo = React.useCallback((target: CoverCrop) => {
@@ -304,8 +347,9 @@ export function CoverCropFrame({ src, crop, onChange, onActivate, aspect, label,
       lastTapRef.current = null
       return
     }
-    /* A tap. Two in a row zoom in on that spot, or back out. */
-    if (e.type === "pointercancel") return
+    /* A tap. Two in a row zoom in on that spot, or back out. A cancel or a
+       lost capture is not a tap: the system took the finger. */
+    if (e.type !== "pointerup") return
     const now = performance.now()
     if (now - downAtRef.current > 400) { lastTapRef.current = null; return }
     const last = lastTapRef.current
@@ -394,12 +438,24 @@ export function CoverCropFrame({ src, crop, onChange, onActivate, aspect, label,
       el.removeEventListener("gesturestart", onGestureStart)
       el.removeEventListener("gesturechange", onGestureChange)
       el.removeEventListener("gestureend", onGestureEnd)
-      if (wheelTimer.current != null) window.clearTimeout(wheelTimer.current)
+      /* A pinch still settling is finished now, not dropped with its timer. */
+      if (wheelTimer.current != null) {
+        window.clearTimeout(wheelTimer.current)
+        wheelTimer.current = null
+        if (pointers.current.size === 0) {
+          draggingRef.current = false
+          setMoving(false)
+          commit(liveRef.current)
+        }
+      }
     }
-  }, [editable, commit, schedule])
+    /* Every handler reads refs (see onChangeRef), so only `editable` re-binds them. */
+  }, [editable, commit, schedule, stopAnimation])
 
   React.useEffect(() => () => {
     if (rafRef.current != null) cancelAnimationFrame(rafRef.current)
+    animRef.current?.anim.cancel()
+    animRef.current = null
   }, [])
 
   /* ── The keyboard way in ───────────────────────────────────────────── */
@@ -414,6 +470,7 @@ export function CoverCropFrame({ src, crop, onChange, onActivate, aspect, label,
     const f = frameSize()
     const n = naturalRef.current
     if (!f || !n) return
+    stopAnimation()
     const c = restRef.current
     const STEP = 2
     let next: CoverCrop | null = null
@@ -447,13 +504,27 @@ export function CoverCropFrame({ src, crop, onChange, onActivate, aspect, label,
       onPointerMove={onPointerMove}
       onPointerUp={onPointerEnd}
       onPointerCancel={onPointerEnd}
+      /* A capture the browser takes away without an up or a cancel would
+         leave a finger in the map for good, and the next touch would pinch
+         against it. */
+      onLostPointerCapture={onPointerEnd}
       onClick={!editable && onActivate ? (e) => { if (!(e.target as HTMLElement).closest("button")) onActivate() } : undefined}
       onKeyDown={onKeyDown}
-      className={`relative w-full select-none overflow-hidden rounded-lg bg-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 ${
+      /*
+        SIDEWAYS, NEVER MORE THAN 30% OF THE SCREEN TALL. The frame keeps
+        every touch that starts on it, and on a phone turned sideways a frame
+        the width of the sheet was taller than most of the form's scroller,
+        so the form could hardly be scrolled. In landscape it is capped by
+        height, its width following from the band's shape so the crop is
+        unchanged, and centred. Upright, and in a desktop window of any
+        ordinary height, the cap is never reached.
+      */
+      className={`relative mx-auto w-full landscape:max-w-[calc(30vh*var(--cover-aspect))] select-none overflow-hidden rounded-lg bg-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 ${
         editable ? (moving ? "cursor-grabbing" : "cursor-grab") : onActivate ? "cursor-pointer" : ""
       } ${className ?? ""}`}
       style={{
         aspectRatio: String(aspect),
+        ["--cover-aspect" as string]: String(aspect),
         /* The one element on the sheet that keeps every touch for itself. */
         touchAction: editable ? "none" : undefined,
         /* Nothing inside can change the size of anything outside. */

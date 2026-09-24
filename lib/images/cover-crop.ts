@@ -49,7 +49,9 @@ export const DEFAULT_COVER_CROP: CoverCrop = { x: 50, y: 50, zoom: 1 }
 
 const finite = (n: unknown): n is number => typeof n === "number" && Number.isFinite(n)
 
+/** 0..100, and the middle for anything that is not a number at all, so a NaN can never reach a style or a save. */
 export function clampPercent(n: number): number {
+  if (!finite(n)) return 50
   return Math.min(100, Math.max(0, n))
 }
 
@@ -152,9 +154,11 @@ export interface Rect {
  * which only the loaded image knows.
  */
 export function imageRect(frame: Size, natural: Size, c: CoverCrop): Rect {
-  const s0 = Math.max(frame.w / natural.w, frame.h / natural.h)
-  const width = natural.w * s0 * clampZoom(c.zoom)
-  const height = natural.h * s0 * clampZoom(c.zoom)
+  /* A picture with no size yet is drawn as the frame's shape, never as a division by zero. */
+  const n = natural.w > 0 && natural.h > 0 ? natural : frame
+  const s0 = n.w > 0 && n.h > 0 ? Math.max(frame.w / n.w, frame.h / n.h) : 1
+  const width = n.w * s0 * clampZoom(c.zoom)
+  const height = n.h * s0 * clampZoom(c.zoom)
   return {
     left: -(clampPercent(c.x) / 100) * (width - frame.w),
     top: -(clampPercent(c.y) / 100) * (height - frame.h),
@@ -175,6 +179,9 @@ export function imageRect(frame: Size, natural: Size, c: CoverCrop): Rect {
  * size under it and stay right.
  */
 export function imageRectStyle(frameAspect: number, naturalAspect: number, c: CoverCrop): CSSProperties {
+  if (!(frameAspect > 0 && Number.isFinite(frameAspect) && naturalAspect > 0 && Number.isFinite(naturalAspect))) {
+    return coverCropStyle(c)
+  }
   const z = clampZoom(c.zoom)
   const w = z * 100 * Math.max(1, naturalAspect / frameAspect)
   const h = z * 100 * Math.max(1, frameAspect / naturalAspect)
@@ -246,6 +253,34 @@ export function transformBetween(frame: Size, natural: Size, rest: CoverCrop, li
   const b = imageRect(frame, natural, live)
   const k = a.width > 0 ? b.width / a.width : 1
   return `translate3d(${(b.left - a.left).toFixed(2)}px, ${(b.top - a.top).toFixed(2)}px, 0) scale(${k.toFixed(5)})`
+}
+
+/**
+ * The crop a picture is showing part way through a glide: the inverse of
+ * `transformBetween`. `rest` is the crop the <img> is laid out at, and
+ * `tx`, `ty`, `k` are the translate and scale of its running transform. A
+ * finger that lands mid glide stops the picture where it is with this,
+ * rather than jumping it to where the glide was going.
+ */
+export function cropFromTransform(
+  frame: Size,
+  natural: Size,
+  rest: CoverCrop,
+  t: { tx: number; ty: number; k: number },
+): CoverCrop {
+  const a = imageRect(frame, natural, rest)
+  const k = finite(t.k) && t.k > 0 ? t.k : 1
+  const width = a.width * k
+  const height = a.height * k
+  const left = a.left + (finite(t.tx) ? t.tx : 0)
+  const top = a.top + (finite(t.ty) ? t.ty : 0)
+  const ox = width - frame.w
+  const oy = height - frame.h
+  return {
+    x: ox > 0.5 ? clampPercent((-left / ox) * 100) : rest.x,
+    y: oy > 0.5 ? clampPercent((-top / oy) * 100) : rest.y,
+    zoom: clampZoom(rest.zoom * k),
+  }
 }
 
 /** A zoom step for a key or a wheel notch, about the frame's centre. */

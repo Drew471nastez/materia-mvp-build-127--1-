@@ -204,6 +204,7 @@ export function BottomSheet({
   scrim = "dim",
   waitForImages = false,
   onClosed,
+  dismissible = true,
 }: {
   isOpen: boolean
   onClose: () => void
@@ -241,6 +242,12 @@ export function BottomSheet({
   waitForImages?: boolean
   /** Runs once the sheet has finished leaving and is out of the document. */
   onClosed?: () => void
+  /**
+   * False while the sheet must stay (a save in flight): a pull down springs
+   * back, and a tap outside or Escape does nothing, rather than the sheet
+   * sliding away and coming back up because the parent said no.
+   */
+  dismissible?: boolean
 }) {
   const [mounted, setMounted] = useState(false)
   /**
@@ -290,7 +297,8 @@ export function BottomSheet({
   const onCloseRef = useRef(onClose)
   const onClosedRef = useRef(onClosed)
   const waitRef = useRef(waitForImages)
-  useEffect(() => { onCloseRef.current = onClose; onClosedRef.current = onClosed; waitRef.current = waitForImages })
+  const dismissibleRef = useRef(dismissible)
+  useEffect(() => { onCloseRef.current = onClose; onClosedRef.current = onClosed; waitRef.current = waitForImages; dismissibleRef.current = dismissible })
   const isOpenRef = useRef(isOpen)
   useLayoutEffect(() => { isOpenRef.current = isOpen }, [isOpen])
 
@@ -441,6 +449,11 @@ export function BottomSheet({
   /** Out of the way, then gone: the parent is told, and its answer closes it. */
   const dismiss = useCallback((velocity = 0) => {
     if (closingRef.current) return
+    if (!dismissibleRef.current) {
+      const from = currentY()
+      if (Math.abs(from) > 0.5) glide(from, 0, Math.max(200, Math.min(OPEN_MS, OPEN_MS * 2 * Math.abs(from) / (heightRef.current || 1))))
+      return
+    }
     closingRef.current = true
     const sheet = sheetRef.current
     const h = heightRef.current || sheet?.offsetHeight || 600
@@ -624,7 +637,13 @@ export function BottomSheet({
 
   useEffect(() => {
     if (!isOpen) return
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") requestClose() }
+    /* Not an Escape something inside already used: a menu or a popover in
+       the sheet closes itself (Radix marks the event), and the sheet, with
+       whatever was typed into it, stays. Nor one that ends an IME word. */
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || e.defaultPrevented || e.isComposing) return
+      requestClose()
+    }
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
   }, [isOpen, requestClose])
