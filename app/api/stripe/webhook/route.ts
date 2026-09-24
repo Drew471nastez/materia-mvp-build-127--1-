@@ -10,6 +10,7 @@ import { orderOriginFrom, orderSourceFrom, tagOrderSource } from "@/lib/orders/o
 import { fulfilPaymentIntent, isCheckoutIntent } from "@/lib/checkout/fulfil-payment"
 import { fulfilCartSession, isCartSession } from "@/lib/checkout/fulfil-cart-session"
 import { syncChargeRefund } from "@/lib/stripe/refund-sync"
+import { maskEmail } from "@/lib/privacy/mask-email"
 
 export const runtime = "nodejs"
 
@@ -993,7 +994,7 @@ export async function POST(request: Request) {
                   to: profile.email,
                   sellerName: profile.display_name || "Seller",
                 })
-                console.log("[Connect] Sent payouts paused email to:", profile.email)
+                console.log("[Connect] Sent payouts paused email to:", maskEmail(profile.email))
               }
 
               // Bank account updated email: check if external accounts changed
@@ -1009,7 +1010,7 @@ export async function POST(request: Request) {
                       bankName: bankAccount.bank_name || null,
                       bankLast4: bankAccount.last4,
                     })
-                    console.log("[Connect] Sent bank updated email to:", profile.email)
+                    console.log("[Connect] Sent bank updated email to:", maskEmail(profile.email))
                   }
                 }
               }
@@ -1027,7 +1028,7 @@ export async function POST(request: Request) {
                   requirements: allReqs,
                   isPastDue: pastDue.length > 0,
                 })
-                console.log("[Connect] Sent verification required email to:", profile.email)
+                console.log("[Connect] Sent verification required email to:", maskEmail(profile.email))
               }
             }
           }
