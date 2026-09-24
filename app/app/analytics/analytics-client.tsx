@@ -47,6 +47,7 @@ import { bucketLabel, bucketStarts, grainFor, type Span } from "@/lib/analytics/
 import { AnalyticsReports, useAnalyticsReports } from "./analytics-reports"
 import { AnalyticsChartWithTooltip, CHART_COLORS } from "@/components/app/analytics-chart"
 import { MetricTab } from "@/components/app/metric-tab"
+import { HoverNote } from "@/components/app/help-label"
 
 interface Product {
   id: string
@@ -130,19 +131,24 @@ function PercentChangeIndicator({ current, previous }: { current: number; previo
   if (against === null) return null
   if (previous === 0) {
     /* Nothing before is not "+100%": it is new, or it is still nothing. */
-    return current > 0 ? <span className="text-[11px] font-medium text-[#9ca3af]" title={`None in ${against}`}>New</span> : null
+    return current > 0 ? (
+      <HoverNote className="text-[11px] font-medium text-[#9ca3af]" note={`None in ${against}`}>
+        New
+      </HoverNote>
+    ) : null
   }
   const change = ((current - previous) / previous) * 100
   if (Math.round(change) === 0) return null
   const up = change > 0
+  /* What it is measured against, in the card every hover note uses (components/app/help-label). */
   return (
-    <span
+    <HoverNote
       className={`inline-flex items-center gap-0.5 text-[11px] font-medium tabular-nums ${up ? "text-emerald-600" : "text-[#9ca3af]"}`}
-      title={`${up ? "+" : "-"}${Math.round(Math.abs(change))}% compared with ${against}`}
+      note={`${up ? "+" : "-"}${Math.round(Math.abs(change))}% compared with ${against}`}
     >
       {up ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
       {Math.round(Math.abs(change))}%
-    </span>
+    </HoverNote>
   )
 }
 

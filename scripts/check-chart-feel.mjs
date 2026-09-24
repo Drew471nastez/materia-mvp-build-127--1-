@@ -56,7 +56,7 @@ export function shareNative() { return Promise.resolve(false) }
 let server
 let browser
 try {
-  const css = await appCss(root)
+  const css = await appCss(root, process.env.FEEL_ROOT && existsSync(join(process.env.FEEL_ROOT, "app/globals.css")) ? join(process.env.FEEL_ROOT, "app/globals.css") : null)
   const bundle = join(dir, "probe.js")
   execFileSync("npx", ["--no-install", "esbuild", join(root, "scripts/render-chart-feel.tsx"),
     "--bundle", "--format=iife", "--platform=browser", "--jsx=automatic", "--log-level=error", `--outfile=${bundle}`,

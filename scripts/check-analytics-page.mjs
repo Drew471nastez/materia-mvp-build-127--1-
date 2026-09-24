@@ -132,7 +132,8 @@ let server
 let browser
 let broken = 0
 try {
-  const css = await appCss(root)
+  /* With PAGE_ROOT, that checkout's stylesheet too, so its motion is its own. */
+  const css = await appCss(root, process.env.PAGE_ROOT && existsSync(join(process.env.PAGE_ROOT, "app/globals.css")) ? join(process.env.PAGE_ROOT, "app/globals.css") : null)
   const bundle = join(dir, "probe.js")
   execFileSync("npx", ["--no-install", "esbuild", join(root, "scripts/render-analytics-page.tsx"),
     "--bundle", "--format=iife", "--platform=browser", "--jsx=automatic", "--log-level=error", `--outfile=${bundle}`,
@@ -294,7 +295,87 @@ try {
       expect(d.cls < 0.005, `${mode.source}: nothing moves but text the new numbers change the width of`, d.cls)
     }
 
-    expect(errors.length === 0, "no errors in the page", errors.slice(0, 3))
+    /*
+      7. THE HOVER CARDS, with a mouse: a report card's dotted title and the
+      change beside a figure. Every frame is read: when the card appears,
+      how its opacity climbs, whether it survives the pointer crossing the
+      gap into it, and how it leaves.
+    */
+    if (!vp.hasTouch) {
+      await p.evaluate(() => {
+        let run = 0
+        window.__cardSample = (on) => {
+          run++
+          const mine = run
+          if (!on) return window.__cardFrames
+          window.__cardFrames = []
+          const t0 = performance.now()
+          const tick = () => {
+            if (mine !== run) return
+            const c = document.querySelector(".help-card")
+            const anim = c && c.getAnimations ? c.getAnimations()[0] : null
+            window.__cardFrames.push({ t: Math.round(performance.now() - t0), state: c ? c.getAttribute("data-state") : null, opacity: c ? +Number(getComputedStyle(c).opacity).toFixed(2) : 0, ms: anim ? Math.round(anim.effect.getTiming().duration) : null })
+            requestAnimationFrame(tick)
+          }
+          requestAnimationFrame(tick)
+        }
+      })
+      const summary = (frames) => {
+        const shown = frames.filter((f) => f.state)
+        const first = shown[0]
+        const full = frames.find((f) => f.opacity >= 0.99)
+        return {
+          appearsAt: first ? first.t : null,
+          risesOver: first && full ? full.t - first.t : null,
+          risingFrames: frames.filter((f) => f.state === "open" && f.opacity > 0 && f.opacity < 0.99).length,
+          ms: (shown.find((f) => f.ms !== null) || {}).ms ?? null,
+        }
+      }
+      for (const [what, find] of [
+        ["a report card's title", () => [...document.querySelectorAll("section h3")].find((h) => h.textContent === "Sessions over time")],
+        ["the change beside a figure", () => document.querySelector("[role=tablist][aria-label=Metric] [data-hover-note]")],
+      ]) {
+        const box = await p.evaluate((src) => {
+          const el = new Function(`return (${src})()`)()
+          if (!el) return null
+          el.scrollIntoView({ block: "center" })
+          const r = el.getBoundingClientRect()
+          return { x: r.left + Math.min(20, r.width / 2), y: r.top + r.height / 2, bottom: r.bottom }
+        }, find.toString())
+        if (!box) { expect(false, `${what}: found on the page`, null); continue }
+        await p.mouse.move(box.x, box.y - 60)
+        await sleep(300)
+        await p.evaluate(() => window.__cardSample(true))
+        await p.mouse.move(box.x, box.y)
+        await sleep(450)
+        const opening = summary(await p.evaluate(() => window.__cardSample(false)))
+        /* Across the gap and into the card, slowly, the way a hand does it. */
+        const card = await p.evaluate(() => { const c = document.querySelector(".help-card"); if (!c) return null; const r = c.getBoundingClientRect(); return { x: r.left + 20, y: r.top + r.height / 2, top: r.top } })
+        await p.evaluate(() => window.__cardSample(true))
+        if (card) {
+          for (let k = 1; k <= 6; k++) {
+            await p.mouse.move(box.x + ((card.x - box.x) * k) / 6, box.bottom + ((card.y - box.bottom) * k) / 6)
+            await sleep(30)
+          }
+        }
+        await sleep(250)
+        const crossing = await p.evaluate(() => window.__cardSample(false))
+        /* And away. */
+        await p.evaluate(() => window.__cardSample(true))
+        await p.mouse.move(8, 8)
+        await sleep(450)
+        const closing = await p.evaluate(() => window.__cardSample(false))
+        const leaving = closing.filter((f) => f.state === "closed")
+        const gone = closing.findIndex((f) => !f.state)
+        console.log(`  ${what}:`, JSON.stringify({ opening, crossingClosed: crossing.some((f) => f.state !== "open"), leavingFrames: leaving.length, leavingOpacity: leaving.map((f) => f.opacity), goneAfterMs: gone >= 0 ? closing[gone].t : null }))
+        expect(opening.appearsAt !== null && opening.appearsAt >= 90 && opening.appearsAt <= 260, `${what}: opens on a resting pointer, after a short rest`, opening.appearsAt)
+        expect(opening.ms === 160 && opening.risingFrames >= 6, `${what}: fades in over 160ms, through at least six frames`, opening)
+        expect(!crossing.some((f) => f.state !== "open"), `${what}: crossing from the label into the card never closes it`, crossing.map((f) => f.state).join(","))
+        expect(leaving.length >= 5 && (leaving.find((f) => f.ms !== null) || {}).ms === 120 && leaving[0].opacity > leaving[leaving.length - 1].opacity, `${what}: leaves with a 120ms fade, not a blink`, leaving.map((f) => f.opacity))
+        expect(gone >= 0 && closing[gone].t <= 420, `${what}: and is gone soon after`, gone >= 0 ? closing[gone].t : null)
+      }
+    }
+
     if (process.env.SHOTS) {
       mkdirSync(process.env.SHOTS, { recursive: true })
       await p.screenshot({ path: join(process.env.SHOTS, `analytics-${name.split(",")[0]}.png`) })

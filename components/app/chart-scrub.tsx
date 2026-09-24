@@ -60,7 +60,7 @@ export const SCRUB_GLIDE = "transform 120ms cubic-bezier(0.2, 0, 0, 1)"
 /** The readout arriving and leaving: one curve, a little longer in than out. */
 export const SCRUB_FADE_IN_MS = 160
 export const SCRUB_FADE_OUT_MS = 120
-export const SCRUB_FADE_EASE = "cubic-bezier(0.2, 0.8, 0.2, 1)"
+export const SCRUB_FADE_EASE = "cubic-bezier(0.4, 0, 0.2, 1)"
 
 const SLOP_X = 8
 const SLOP_Y = 12
