@@ -64,7 +64,9 @@ function main() {
 
   check(
     "a control can ask the sheet for its full height",
-    /export function useSheetExpand/.test(sheet) && /openFull \|\| expanders\.length > 0 \? offsets\[0\]/.test(sheet),
+    /export function useSheetExpand/.test(sheet) &&
+      /const lifted = expanders\.length > 0 \|\| keyboardHere/.test(sheet) &&
+      /openFull \|\| lifted \? offsets\[0\]/.test(sheet),
   )
   check(
     "the picker asks while it is open and gives it back when it closes",

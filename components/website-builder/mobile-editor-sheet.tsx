@@ -44,12 +44,16 @@ import {
   dragPosition,
   expandCarry,
   handOffToSheet,
+  isTap,
+  keyboardCeiling,
   offsetsFor,
   sheetHeightWithKeyboard,
   sheetVelocityAt,
   releaseVelocity,
   snapMotion,
   snapTarget,
+  tapTarget,
+  visibleKeyboard,
   type DragIntent,
   type Sample,
 } from "./sheet-gestures"
@@ -111,11 +115,16 @@ function keyboardWindow(): Window {
  * them happens: a resize, a rotation, the visual viewport moving. Any number
  * of sheets can ask in the same frame and the box is read at most once.
  */
-const insetCache: { safe: number | null; gap: number | null } = { safe: null, gap: null }
-let insetProbes: { safe: HTMLElement; gap: HTMLElement } | null = null
+const insetCache: { safe: number | null; gap: number | null; top: number | null; box: number | null } = {
+  safe: null,
+  gap: null,
+  top: null,
+  box: null,
+}
+let insetProbes: { safe: HTMLElement; gap: HTMLElement; top: HTMLElement } | null = null
 
-function probes(): { safe: HTMLElement; gap: HTMLElement } {
-  if (insetProbes && insetProbes.safe.isConnected && insetProbes.gap.isConnected) return insetProbes
+function probes(): { safe: HTMLElement; gap: HTMLElement; top: HTMLElement } {
+  if (insetProbes && insetProbes.safe.isConnected && insetProbes.gap.isConnected && insetProbes.top.isConnected) return insetProbes
   const make = (css: string) => {
     const el = document.createElement("div")
     el.setAttribute("aria-hidden", "true")
@@ -126,10 +135,13 @@ function probes(): { safe: HTMLElement; gap: HTMLElement } {
   insetProbes = {
     safe: make("position:fixed;left:0;bottom:0;width:0;height:env(safe-area-inset-bottom,0px);visibility:hidden;pointer-events:none"),
     gap: make("position:fixed;left:0;bottom:0;width:0;height:0;visibility:hidden;pointer-events:none"),
+    top: make("position:fixed;left:0;top:0;width:0;height:env(safe-area-inset-top,0px);visibility:hidden;pointer-events:none"),
   }
   const forget = () => {
     insetCache.safe = null
     insetCache.gap = null
+    insetCache.top = null
+    insetCache.box = null
   }
   window.addEventListener("resize", forget)
   window.addEventListener("orientationchange", forget)
@@ -138,11 +150,34 @@ function probes(): { safe: HTMLElement; gap: HTMLElement } {
   return insetProbes
 }
 
+/**
+ * The height of the box `position: fixed` is laid out against, which is the
+ * box this sheet's `bottom: 0` and its height are measured in. Read off the
+ * zero-height probe pinned to its bottom. Not `innerHeight`: that is the same
+ * number on most platforms, and on the iOS versions where it shrinks with the
+ * keyboard the fixed box does not, so a sheet sized from it collapsed on
+ * focus and read the keyboard as nothing.
+ */
+function fixedBoxHeight(): number {
+  if (typeof document === "undefined") return 0
+  if (insetCache.box === null) insetCache.box = Math.round(probes().gap.getBoundingClientRect().top)
+  return insetCache.box
+}
+
 /** The home-indicator inset, as a number, for sizing a content-fit sheet. */
 function safeAreaBottom(): number {
   if (typeof document === "undefined") return 0
   if (insetCache.safe === null) insetCache.safe = probes().safe.getBoundingClientRect().height
   return insetCache.safe
+}
+/**
+ * The status bar, as a number. A sheet's top edge never goes above it: see
+ * `offsetsFor` and `keyboardCeiling`. Zero in a browser, real in the app.
+ */
+function safeAreaTop(): number {
+  if (typeof document === "undefined") return 0
+  if (insetCache.top === null) insetCache.top = probes().top.getBoundingClientRect().height
+  return insetCache.top
 }
 /**
  * How much of a bottom-anchored fixed element the browser's own bar covers.
@@ -226,6 +261,12 @@ function chainScrollTop(chain: HTMLElement[]): number {
 }
 
 const SNAP_DURATION_MS = 360
+/**
+ * How long after a touch a mousedown is taken to be the browser's copy of it.
+ * Compatibility mouse events follow a tap within a frame or two; 800ms is
+ * comfortably past that and shorter than any real switch to a mouse.
+ */
+const TOUCH_MOUSE_GAP_MS = 800
 /** A sheet that moves for somebody who asked for less motion moves briefly. */
 const REDUCED_MOTION_MS = 180
 /**
@@ -350,6 +391,22 @@ export function MobileEditorSheet({
    * rather than taken out of the sheet's height — see measureViewport.
    */
   const [keyboardInset, setKeyboardInset] = React.useState(0)
+  /**
+   * How far iOS has panned the visible area down the page to show a focused
+   * field, which takes that much off the top of a fixed sheet. Measured in
+   * the same frame as `keyboardInset`, from the same viewport; see
+   * `visibleKeyboard` in sheet-gestures.ts.
+   */
+  const [visibleTop, setVisibleTop] = React.useState(0)
+  /** The status bar, which no stop and no keyboard puts the sheet's top edge under. */
+  const [safeTop, setSafeTop] = React.useState(0)
+  /**
+   * The keyboard is up for a field INSIDE this sheet. Then the sheet stands
+   * at its tallest stop while it is typed into, the way an iOS sheet goes to
+   * its large detent for a keyboard, and goes back to where it was left when
+   * the keyboard does. A keyboard some other sheet opened moves nothing here.
+   */
+  const [keyboardHere, setKeyboardHere] = React.useState(false)
   /**
    * The home indicator, added to the peek rather than subtracted from it.
    *
@@ -544,13 +601,14 @@ export function MobileEditorSheet({
        * it at once, and Add Section collapsed to a strip with the search
        * field and the whole library gone behind the keyboard.
        *
-       * `innerHeight` does not move when a keyboard opens, so the sheet's
-       * geometry does not either. What the keyboard covers is published
-       * separately, below, and padded into the CONTENT — which is the same
-       * thing the code editor does with its path bar, on the same platform,
-       * for the same reason.
+       * The fixed box does not move when a keyboard opens, so the sheet's
+       * geometry does not either. It was `innerHeight`, which agrees with
+       * the fixed box everywhere except the iOS versions that shrink
+       * `innerHeight` with the keyboard (see `fixedBoxHeight`). What the
+       * keyboard covers is measured separately, below, and padded into the
+       * CONTENT.
        */
-      setViewport(Math.round(window.innerHeight || vv?.height || 0))
+      setViewport(Math.round(fixedBoxHeight() || window.innerHeight || vv?.height || 0))
       /**
        * The strip the keyboard is sitting over. Rounded away from a
        * sub-pixel: a 0.5px "keyboard" is a rounding artefact on every
@@ -576,9 +634,26 @@ export function MobileEditorSheet({
        */
       const kb = keyboardWindow()
       const kvv = kb.visualViewport
-      const covered = kvv ? kb.innerHeight - kvv.height - kvv.offsetTop : 0
-      const keyboard = keyboardInsetOrFloor(covered)
+      /**
+       * ONE READING, TWO NUMBERS: what the keyboard covers at the bottom and
+       * how far iOS panned the page at the top to show the field. Both come
+       * from this one viewport in this one frame, and both reach the page
+       * through the sheet's own geometry (its height, its padding), so the
+       * conversation inside never measures a keyboard of its own.
+       */
+      const box = kb === window ? fixedBoxHeight() : kb.innerHeight
+      const seen = kvv
+        ? visibleKeyboard({ layoutHeight: box, vvHeight: kvv.height, vvTop: kvv.offsetTop, scale: kvv.scale })
+        : { inset: 0, top: 0, reported: false }
+      /* The published floor only where the platform said nothing at all. */
+      const keyboard = seen.reported ? seen.inset : keyboardInsetOrFloor(seen.inset)
+      const panned = seen.top
       setKeyboardInset(keyboard)
+      setVisibleTop(panned)
+      const active = document.activeElement
+      setKeyboardHere(
+        (keyboard > 0 || panned > 0) && !!active && active !== document.body && !!sheetRef.current?.contains(active),
+      )
       /**
        * =====================================================================
        *  THE KEYBOARD IS NOT PART OF THE BROWSER'S CHROME
@@ -609,7 +684,7 @@ export function MobileEditorSheet({
        * frame. A home indicator only changes on rotation. It has its own
        * listeners below.
        */
-      if (!keyboard) setChromeGap(browserChromeGap())
+      if (!keyboard && !panned) setChromeGap(browserChromeGap())
     }
     measureViewport()
     window.addEventListener("resize", update)
@@ -642,7 +717,10 @@ export function MobileEditorSheet({
   // cache is only forgotten by the listeners that run alongside this one.
   React.useEffect(() => {
     let frame = 0
-    const read = () => setPeekInset(safeAreaBottom())
+    const read = () => {
+      setPeekInset(safeAreaBottom())
+      setSafeTop(safeAreaTop())
+    }
     const measure = () => {
       if (frame) return
       frame = requestAnimationFrame(() => {
@@ -707,11 +785,19 @@ export function MobileEditorSheet({
   // A sheet with no peek has nothing to grow: `peekHeight={0}` still means
   // gone, not "gone except for the home indicator".
   const peek = peekHeight > 0 ? peekHeight + peekInset : 0
-  const natural = offsetsFor({ viewport, detents: stops, peekHeight: peek }).height
-  const detentHeight = fit && contentHeight > 0 ? Math.min(contentHeight, Math.round(viewport * tallest)) : natural
-  /* Grown by the keyboard, so the panel above it stays the size the detent
-     asked for. sheet-gestures.ts explains why the offsets are left alone. */
-  const height = sheetHeightWithKeyboard(detentHeight, keyboardInset, viewport)
+  const natural = offsetsFor({ viewport, detents: stops, peekHeight: peek, safeTop }).height
+  const detentHeight = fit && contentHeight > 0 ? Math.min(contentHeight, natural) : natural
+  /**
+   * Grown by the keyboard, so the panel above it stays the size the detent
+   * asked for, up to the ceiling: the top edge stays where the tallest stop
+   * keeps it, under the status bar never, and follows the screen down when
+   * iOS pans the page to show the field. With the keyboard up the sheet
+   * stands at its tallest stop (`keyboardHere`), so the panel is exactly the
+   * strip from that edge to the keyboard, and the composer sits on the keys.
+   * sheet-gestures.ts explains why the offsets are left alone.
+   */
+  const ceiling = keyboardCeiling({ viewport, tallestHeight: natural, safeTop, visibleTop })
+  const height = sheetHeightWithKeyboard(detentHeight, keyboardInset, ceiling)
 
   /**
    * translateY for each stop, tallest first — and SORTED, which is the whole
@@ -735,8 +821,8 @@ export function MobileEditorSheet({
           // closed. Using the grown height here would leave the keyboard's
           // height of sheet showing after a dismissal.
           [0, Math.max(detentHeight - peek, 0)]
-        : offsetsFor({ viewport, detents: stops, peekHeight: peek }).offsets,
-    [stops, viewport, peek, fit, contentHeight, detentHeight],
+        : offsetsFor({ viewport, detents: stops, peekHeight: peek, safeTop }).offsets,
+    [stops, viewport, peek, fit, contentHeight, detentHeight, safeTop],
   )
 
   /**
@@ -768,7 +854,9 @@ export function MobileEditorSheet({
   }, [peek])
 
   const closedY = offsets[offsets.length - 1]
-  const openY = openFull || expanders.length > 0 ? offsets[0] : (offsets[Math.max(0, offsets.length - 2)] ?? 0)
+  /** Something in the sheet needs all of it: a picker, or a field being typed into. */
+  const lifted = expanders.length > 0 || keyboardHere
+  const openY = openFull || lifted ? offsets[0] : (offsets[Math.max(0, offsets.length - 2)] ?? 0)
   /**
    * WHERE THE SHEET BELONGS RIGHT NOW, for the render and for the effect
    * that moves it, which have to be the same answer or the sheet fights
@@ -780,7 +868,7 @@ export function MobileEditorSheet({
    * been dragged.
    */
   const settledY =
-    expanders.length > 0
+    lifted
       ? openY
       : restIndex !== null && restIndex < offsets.length
         ? offsets[restIndex]
@@ -830,6 +918,17 @@ export function MobileEditorSheet({
     carry: null as null | { base: number; from: number; byHand: boolean },
     /** The finger landed on a sheet that was still moving and stopped it. */
     caught: false,
+    /**
+     * Where and when the finger came down, and the furthest it has been from
+     * there since. `startY` moves when the sheet takes over; these do not,
+     * so a tap can be told from a drag however the gesture was decided.
+     */
+    downX: 0,
+    downY: 0,
+    downTime: 0,
+    travel: 0,
+    /** The gesture began on the grab bar, where a tap steps the sheet. */
+    onHandle: false,
     /** Recent positions, for the release speed. */
     samples: [] as Sample[],
   })
@@ -847,6 +946,8 @@ export function MobileEditorSheet({
    */
   const pendingY = React.useRef<number | null>(null)
   const rafId = React.useRef(0)
+  /** When a finger last touched or left the sheet; see the grab bar's mousedown. */
+  const lastTouchAt = React.useRef(-Infinity)
 
   const writeTransform = (y: number) => {
     const sheet = sheetRef.current
@@ -1199,7 +1300,28 @@ export function MobileEditorSheet({
     root.style.overflow = "hidden"
     body.style.overflow = "hidden"
     body.style.touchAction = "none"
+    /**
+     * `overflow: hidden` stops a finger scrolling the page. It does not stop
+     * the browser: focusing a field near the bottom of a fixed sheet with a
+     * keyboard coming up, iOS scrolls the DOCUMENT to show it, and the whole
+     * layer the sheet is fixed to goes up with it, header and all, under the
+     * status bar. The sheet has already made room for the keyboard itself,
+     * so the document is put back the frame it moves. What iOS does to the
+     * visual viewport instead of the document is `visibleTop`, which the
+     * sheet's height follows.
+     */
+    let frame = 0
+    const hold = () => {
+      frame = 0
+      if (window.scrollY !== y) window.scrollTo(0, y)
+    }
+    const onScroll = () => {
+      if (!frame) frame = requestAnimationFrame(hold)
+    }
+    window.addEventListener("scroll", onScroll, { passive: true })
     return () => {
+      window.removeEventListener("scroll", onScroll)
+      if (frame) cancelAnimationFrame(frame)
       root.style.overflow = prev.rootOverflow
       body.style.overflow = prev.bodyOverflow
       body.style.touchAction = prev.bodyTouch
@@ -1355,6 +1477,11 @@ export function MobileEditorSheet({
 
     drag.current.startY = clientY
     drag.current.startX = clientX
+    drag.current.downY = clientY
+    drag.current.downX = clientX
+    drag.current.downTime = now
+    drag.current.travel = 0
+    drag.current.onHandle = immediate
     drag.current.lastY = clientY
     drag.current.startTime = now
     drag.current.lastTime = now
@@ -1394,6 +1521,11 @@ export function MobileEditorSheet({
     if (!drag.current.active) return
 
     const stepY = clientY - drag.current.lastY
+    drag.current.travel = Math.max(
+      drag.current.travel,
+      Math.abs(clientY - drag.current.downY),
+      Math.abs(clientX - drag.current.downX),
+    )
     drag.current.samples.push({ y: clientY, t: now })
     // Enough for a 100ms window at any sane touch rate, and bounded so a long
     // drag does not grow an array for ever.
@@ -1415,10 +1547,6 @@ export function MobileEditorSheet({
         deltaY,
         scrollTop: chainScrollTop(drag.current.chain),
         hasScroller: !!drag.current.scroller,
-        /* Growing out of a list only while the browser still lets the sheet
-           have the gesture; a move it has already started scrolling cannot
-           be taken back, and the two would move at once. */
-        canExpand: cancelable && drag.current.currentY > top + 1,
       })
       drag.current.horizontal = Math.abs(deltaX) > Math.abs(deltaY) * HORIZONTAL_BIAS
       /**
@@ -1429,10 +1557,6 @@ export function MobileEditorSheet({
       if (drag.current.intent === "sheet") {
         drag.current.startY = clientY
         drag.current.startX = clientX
-        /* Grown out of a list: past the tallest stop the same finger scrolls it. */
-        if (drag.current.scroller && deltaY < 0) {
-          drag.current.carry = { base: top, from: drag.current.scroller.scrollTop, byHand: true }
-        }
       }
     } else if (
       drag.current.intent === "scroll" &&
@@ -1491,11 +1615,14 @@ export function MobileEditorSheet({
     else scheduleRoom(target)
   }
 
-  const endDrag = (now: number = performance.now()) => {
-    if (!drag.current.active) return
+  /** Returns true when the gesture was a tap on the grab bar, which it has answered. */
+  const endDrag = (now: number = performance.now()): boolean => {
+    if (!drag.current.active) return false
     drag.current.active = false
 
     const wasDragging = drag.current.intent === "sheet"
+    const tapped = drag.current.onHandle && isTap({ distance: drag.current.travel, ms: now - drag.current.downTime })
+    drag.current.onHandle = false
     const caught = drag.current.caught
     const carry = drag.current.carry
     const scroller = drag.current.scroller
@@ -1518,16 +1645,24 @@ export function MobileEditorSheet({
       settleOverlay(openRef.current)
       if (caught) resumeMove()
       else if (settle.current.active) finishSettle()
-      return
+      return false
     }
 
     const list = offsetsRef.current
     const top = list[0] ?? 0
-    const totalDelta = drag.current.lastY - drag.current.startY
-    const fingerVelocity = releaseVelocity(drag.current.samples, now)
     /* Where the sheet is DRAWN, a rubber band included, so the snap starts
        from the pixel the finger left it on. */
     const current = drag.current.currentY
+    /**
+     * A TAP ON THE GRAB BAR steps the sheet: closed to half, half to full,
+     * full to half (`tapTarget`). A tap that caught the sheet mid-move steps
+     * on from where that move was going, not from the pixel it was stopped
+     * on, so two quick taps from closed reach full.
+     */
+    const tapFrom = caught && settle.current.active ? settle.current.targetY : current
+    /* From touchdown, not from where the sheet took over: see FLICK_MIN_DISTANCE. */
+    const totalDelta = tapped ? 0 : drag.current.lastY - drag.current.downY
+    const fingerVelocity = tapped ? 0 : releaseVelocity(drag.current.samples, now)
     /**
      * Fed into a list: the sheet is sitting on its stop and the finger was
      * moving the list, so the list gets the speed and the sheet stays put.
@@ -1544,8 +1679,19 @@ export function MobileEditorSheet({
      * one further in the direction of the flick is what makes a sheet feel
      * like it has weight.
      */
-    const index = snapTarget({ offsets: list, current, velocity, totalDelta })
+    const index = tapped ? tapTarget(list, tapFrom) : snapTarget({ offsets: list, current, velocity, totalDelta })
     const targetY = list[index]
+    /**
+     * Pulled down off the tallest stop while typing: the keyboard goes with
+     * it, the way a sheet's keyboard is dismissed by dragging on iOS. The
+     * sheet stands at its tallest stop for as long as a field in it has the
+     * keyboard, so a lower stop with the field still focused would only be
+     * put back.
+     */
+    if (index > 0) {
+      const active = document.activeElement as HTMLElement | null
+      if (active && active !== document.body && sheetRef.current?.contains(active)) active.blur()
+    }
     /**
      * Timed and curved so the sheet leaves at the speed it was moving: the
      * finger's, or a fraction of it past the tallest stop where the sheet was
@@ -1553,8 +1699,10 @@ export function MobileEditorSheet({
      */
     const motion = snapMotion(targetY - current, sheetVelocityAt(drag.current.rawY, top, velocity))
     const reduce = prefersReducedMotion()
-    const ms = reduce ? Math.min(motion.ms, REDUCED_MOTION_MS) : motion.ms
-    setTransition(true, ms, reduce ? SNAP_EASING : curveCss(motion.curve))
+    /* A tap has no speed to carry on, so it moves the way a tab opening the
+       sheet does: the house curve over the house duration. */
+    const ms = reduce ? Math.min(motion.ms, REDUCED_MOTION_MS) : tapped ? SNAP_DURATION_MS : motion.ms
+    setTransition(true, ms, reduce || tapped ? SNAP_EASING : curveCss(motion.curve))
     drag.current.currentY = targetY
     applyTransformNow(targetY)
     motionUntil.current = performance.now() + ms
@@ -1564,6 +1712,7 @@ export function MobileEditorSheet({
     settleOverlay(nowOpen)
     /* The rest of what a release means is told once the sheet has arrived. */
     beginSettle(targetY, index, nowOpen, ms)
+    return tapped
   }
 
   /**
@@ -1612,6 +1761,7 @@ export function MobileEditorSheet({
        * about the sheet moves for the length of the gesture.
        */
       if ((e.target as HTMLElement | null)?.closest?.("[data-sheet-no-drag]")) return
+      lastTouchAt.current = performance.now()
       const touch = e.touches[0]
       const onHandle = !!handleRef.current?.contains(e.target as Node)
       startDrag(touch.clientY, touch.clientX, e.target, onHandle, eventTime(e))
@@ -1631,7 +1781,15 @@ export function MobileEditorSheet({
     }
 
     const onEnd = (e: TouchEvent) => {
-      if (drag.current.active) endDrag(eventTime(e))
+      lastTouchAt.current = performance.now()
+      if (!drag.current.active) return
+      /**
+       * A tap on the grab bar has been answered, so the mouse events a
+       * browser makes up after a tap are cancelled: the bar's own mousedown
+       * would otherwise catch the sheet a few milliseconds into the step it
+       * just started and snap it back to the nearest stop.
+       */
+      if (endDrag(eventTime(e)) && e.cancelable) e.preventDefault()
     }
 
     sheet.addEventListener("touchstart", onStart, { passive: true })
@@ -1840,6 +1998,16 @@ export function MobileEditorSheet({
            */
           contain: "paint",
           /**
+           * `clip`, over the class's `hidden`, where the browser has it. Both
+           * cut the content at the sheet's edge, but `hidden` is still a
+           * scroll container a script can scroll: a focused field or a
+           * `scrollIntoView` inside slid the whole sheet's content sideways
+           * or up inside its own box, with nothing a finger could do to put it
+           * back. `clip` is not a scroll container, so there is nothing to
+           * scroll. A browser without it drops the value and keeps `hidden`.
+           */
+          overflow: "clip",
+          /**
            * Whatever is actually under the sheet, and only once.
            *
            * With a keyboard up, that is the keyboard. It is drawn over the
@@ -1847,7 +2015,7 @@ export function MobileEditorSheet({
            * well lifted Cancel and Save off the keyboard by a band of empty
            * sheet. See lib/website-builder/sheet-reserve.ts.
            */
-          paddingBottom: sheetBottomReserve(chromeGap, keyboardInset),
+          paddingBottom: sheetBottomReserve(chromeGap, keyboardInset, visibleTop > 0),
           /**
            * `pan-y`, not `none`. `none` would hand every touch to us and kill
            * native scrolling inside the sheet — smooth, momentum-carrying,
@@ -1868,6 +2036,9 @@ export function MobileEditorSheet({
           ref={handleRef}
           className="flex shrink-0 cursor-grab touch-none select-none justify-center bg-inherit pb-1.5 pt-2.5 active:cursor-grabbing"
           onMouseDown={(e) => {
+            /* The mouse events a browser makes up after a touch are that
+               touch, which the touch listeners have already handled. */
+            if (performance.now() - lastTouchAt.current < TOUCH_MOUSE_GAP_MS) return
             e.preventDefault()
             // A mouse is unambiguous — there is no scroll gesture to confuse
             // it with — so it drags immediately, as it always did.

@@ -393,7 +393,8 @@ export function ThemeChat({
     }
   }, [])
   const abortRef = React.useRef<AbortController | null>(null)
-  const bottomRef = React.useRef<HTMLDivElement>(null)
+  /** The conversation's own scroller, and the only thing a new message scrolls. */
+  const threadRef = React.useRef<HTMLDivElement>(null)
   const fieldRef = React.useRef<HTMLTextAreaElement>(null)
 
   /**
@@ -428,8 +429,24 @@ export function ThemeChat({
   const live = React.useRef({ sections, settings, page, selectedSectionId, locked, engine: chosenEngine })
   live.current = { sections, settings, page, selectedSectionId, locked, engine: chosenEngine }
 
+  /**
+   * ===========================================================================
+   *  A NEW MESSAGE SCROLLS THE THREAD, AND NOTHING ELSE
+   * ===========================================================================
+   * This was `scrollIntoView` on a marker at the end of the list. That walks
+   * EVERY scrollable ancestor and moves each of them until the marker is in
+   * view, on both axes: the thread, and also the phone sheet (an
+   * `overflow: hidden` box is still scrollable by script) and the document
+   * behind it. With a keyboard up the end of the list is under the keys, so
+   * the document went up and took the sheet's header under the status bar,
+   * and a thread holding anything wider than itself was left scrolled
+   * sideways with every message cut off on the left. The thread's own
+   * `scrollTop` touches nothing but the thread.
+   */
   React.useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" })
+    const thread = threadRef.current
+    if (!thread) return
+    thread.scrollTo({ top: thread.scrollHeight, behavior: "smooth" })
   }, [exchanges])
 
   /**
@@ -1006,7 +1023,14 @@ export function ThemeChat({
 
   return (
     <div
-      className="relative flex h-full w-full flex-col bg-background"
+      /*
+        `min-h-0 flex-1` so that inside the phone sheet this column is the
+        room the sheet leaves above its padding, which is the keyboard when
+        one is up: the thread is the part that gives, and the composer ends
+        on the keys. `min-w-0` and a clipped x axis so nothing in here can be
+        wider than the panel, or scrolled sideways by script.
+      */
+      className="relative flex h-full min-h-0 w-full min-w-0 flex-1 flex-col bg-background [overflow-x:clip]"
       /**
        * DROPPING WORKS ANYWHERE ON THE PANEL, not only on the composer. The
        * counter is why: dragenter and dragleave fire for every child the
@@ -1130,7 +1154,20 @@ export function ThemeChat({
         </button>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
+      {/*
+        THE THREAD SCROLLS ONE WAY. Up and down, never sideways: x is hidden,
+        a word or a URL longer than the line breaks where it has to
+        (`overflow-wrap: anywhere`, which also lets a flex row shrink past
+        it), and a finger here pans vertically only. Code blocks scroll
+        sideways inside themselves (work-panel.tsx). Measured by
+        scripts/check-chat-keyboard.mjs: scrollWidth equals clientWidth with
+        a 200 character URL, a long unbroken word and a wide code block in it.
+      */}
+      <div
+        ref={threadRef}
+        data-chat-thread=""
+        className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain px-3 py-3 [overflow-wrap:anywhere] [touch-action:pan-y]"
+      >
         {loadingHistory ? (
           <p className="flex items-center gap-2 text-[13px] text-muted-foreground">
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -1275,7 +1312,6 @@ export function ThemeChat({
                 </span>
               </li>
             )}
-            <div ref={bottomRef} />
           </ul>
         )}
       </div>
@@ -1306,7 +1342,7 @@ export function ThemeChat({
               onClick={() => { setMode(key); setWriteError(null) }}
               aria-pressed={mode === key}
               className={cn(
-                "flex-1 rounded-[7px] px-2 py-1.5 text-[12px] font-medium transition-colors",
+                "min-w-0 flex-1 truncate rounded-[7px] px-2 py-1.5 text-[12px] font-medium transition-colors",
                 mode === key ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
               )}
             >
@@ -1379,7 +1415,7 @@ export function ThemeChat({
           answer.
         */}
         {selectedSection && (
-          <div className="mb-2 flex items-center gap-1.5 px-0.5">
+          <div className="mb-2 flex min-w-0 items-center gap-1.5 px-0.5">
             {locked ? (
               <>
                 <span className="inline-flex min-w-0 items-center gap-1.5 rounded-md border border-foreground/15 bg-muted/60 py-1 pl-2 pr-1 text-[11.5px] text-foreground">
@@ -1395,7 +1431,7 @@ export function ThemeChat({
                     <X className="h-3 w-3" strokeWidth={2.25} />
                   </button>
                 </span>
-                <span className="truncate text-[11px] text-muted-foreground/70">
+                <span className="min-w-0 truncate text-[11px] text-muted-foreground/70">
                   nothing else will change
                 </span>
               </>
@@ -1403,16 +1439,17 @@ export function ThemeChat({
               <button
                 type="button"
                 onClick={() => setLockOn(true)}
-                className="inline-flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-[11.5px] text-muted-foreground transition-colors hover:border-foreground/25 hover:text-foreground"
+                className="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-md border border-border px-2 py-1 text-[11.5px] text-muted-foreground transition-colors hover:border-foreground/25 hover:text-foreground"
               >
-                <Lock className="h-3 w-3 opacity-60" strokeWidth={2} />
-                Editing the whole page. Limit to {selectedSection.name}
+                <Lock className="h-3 w-3 shrink-0 opacity-60" strokeWidth={2} />
+                <span className="truncate">Editing the whole page. Limit to {selectedSection.name}</span>
               </button>
             )}
           </div>
         )}
         <div
-          className="rounded-xl border border-border bg-background focus-within:border-foreground/30"
+          data-chat-composer=""
+          className="min-w-0 rounded-xl border border-border bg-background focus-within:border-foreground/30"
           /**
            * A drop anywhere on the composer, not just on the button. The
            * dragover has to be cancelled or the browser opens the file

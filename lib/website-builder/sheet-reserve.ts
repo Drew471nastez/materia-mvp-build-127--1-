@@ -26,9 +26,14 @@
  * detent on focus — but a frozen value is still a value, and it was still
  * being added.
  *
+ * `keyboardUp` is for a keyboard that covers NOTHING of the sheet: iOS can
+ * pan the page down by the whole keyboard to show a field, and then the
+ * bottom of the fixed box is the top of the keys. The keyboard is still over
+ * the home indicator, so the indicator is still not reserved: 0 is.
+ *
  * Returns a CSS length for `padding-bottom`.
  */
-export function sheetBottomReserve(chromeGap: number, keyboardInset: number): string {
-  if (keyboardInset > 0) return `${keyboardInset}px`
+export function sheetBottomReserve(chromeGap: number, keyboardInset: number, keyboardUp = false): string {
+  if (keyboardInset > 0 || keyboardUp) return `${Math.max(0, keyboardInset)}px`
   return `calc(env(safe-area-inset-bottom, 0px) + ${chromeGap}px)`
 }

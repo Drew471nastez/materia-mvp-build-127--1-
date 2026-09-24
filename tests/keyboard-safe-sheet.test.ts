@@ -236,6 +236,19 @@ function main() {
     "innerHeight shrinking on iOS is the keyboard, not a resize, and reading it as one is the third screenshot",
   )
   check("a platform that did report does not", !needsKeyboardEstimate({ ...phone, measuredInset: 336 }))
+  /*
+    iOS panned the page down to show the field: the visible area is 486px of
+    an 874px box, and nothing is left covered below it. That is a keyboard
+    reported, not a platform keeping quiet, and the floor on top of it was
+    the white band under Ask Storelib's composer.
+  */
+  check(
+    "nor does one that shrank the visible area and panned, leaving nothing covered",
+    !needsKeyboardEstimate({ ...phone, measuredInset: 0, visibleHeightNow: 874 - 388 }) &&
+      needsKeyboardEstimate({ ...phone, measuredInset: 0, visibleHeightNow: 874 }) &&
+      needsKeyboardEstimate({ ...phone, measuredInset: 0, visibleHeightNow: 874 - 60 }),
+  )
+  check("and ViewportVars tells it how tall the visible area is", /visibleHeightNow: Math\.round\(vv\?\.height \?\? window\.innerHeight\)/.test(vars))
   check(
     "a desktop browser does not, where a focused field means no keyboard",
     !needsKeyboardEstimate({ ...phone, measuredInset: 0, coarsePointer: false }),
@@ -317,9 +330,17 @@ function main() {
   }
   scan("components")
   scan("app")
-  /* Five: the product form's sheet stopped working the keyboard out itself
-     when it became the shared sheet, which reads the published inset. */
-  check("every file that works out a keyboard height was found", scanned.length >= 5 && !scanned.includes("app/app/products/new/product-editor.tsx"), `${scanned.length} found`)
+  /* Four: the product form's sheet stopped working the keyboard out itself
+     when it became the shared sheet, which reads the published inset, and
+     the website builder's sheet reads its keyboard through `visibleKeyboard`
+     in sheet-gestures.ts, which keeps the pan as a number of its own. That
+     one is pinned by name just below, so it is not lost from this list. */
+  check("every file that works out a keyboard height was found", scanned.length >= 4 && !scanned.includes("app/app/products/new/product-editor.tsx"), `${scanned.length} found`)
+  check(
+    "the website builder's sheet reads its keyboard through visibleKeyboard, and the floor only where nothing was reported",
+    /visibleKeyboard\(\{ layoutHeight: box/.test(read("components/website-builder/mobile-editor-sheet.tsx")) &&
+      /seen\.reported \? seen\.inset : keyboardInsetOrFloor\(seen\.inset\)/.test(read("components/website-builder/mobile-editor-sheet.tsx")),
+  )
   check(
     "and every one of them falls back to the published floor",
     unshared.length === 0,
