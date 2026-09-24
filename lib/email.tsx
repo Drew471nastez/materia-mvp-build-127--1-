@@ -273,7 +273,7 @@ export async function resolveCreatorIdentity(
     if (creator?.support_email?.trim()) {
       replyTo = creator.support_email.trim()
       sellerEmail = replyTo
-      console.log("[email] Found creator support_email:", sellerEmail)
+      console.log("[email] Found creator support_email:", maskEmail(sellerEmail))
     }
 
     // from name: prefer PROFILE DISPLAY NAME first (what you want)
@@ -301,7 +301,7 @@ export async function resolveCreatorIdentity(
       // Seller email should be the profile email if we don't have support_email
       if (!sellerEmail && profile?.email?.trim()) {
         sellerEmail = profile.email.trim()
-        console.log("[email] Using profile email as seller email:", sellerEmail)
+        console.log("[email] Using profile email as seller email:", maskEmail(sellerEmail))
       }
     }
 
@@ -313,7 +313,7 @@ export async function resolveCreatorIdentity(
         if (authUser?.user?.email) {
           sellerEmail = authUser.user.email.trim()
           if (!replyTo) replyTo = sellerEmail
-          console.log("[email] Using auth email as seller email:", sellerEmail)
+          console.log("[email] Using auth email as seller email:", maskEmail(sellerEmail))
         }
       } catch (authErr) {
         // This might fail if auth admin is not available, which is fine

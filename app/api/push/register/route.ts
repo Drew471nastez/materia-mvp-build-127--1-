@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { maskEmail } from "@/lib/privacy/mask-email"
 
 /**
  * POST /api/push/register
@@ -17,7 +18,7 @@ export async function POST(req: Request) {
     error: authError,
   } = await supabase.auth.getUser()
 
-  console.log("[push/register] Auth user:", user ? `id=${user.id.slice(0, 8)}... email=${user.email}` : "null", authError ? `authError=${authError.message}` : "")
+  console.log("[push/register] Auth user:", user ? `id=${user.id.slice(0, 8)}... email=${maskEmail(user.email)}` : "null", authError ? `authError=${authError.message}` : "")
 
   if (!user) {
     console.error("[push/register] Unauthorized — no session/cookie found")

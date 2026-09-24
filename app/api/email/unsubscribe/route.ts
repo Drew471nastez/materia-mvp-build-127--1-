@@ -76,7 +76,7 @@ export async function GET(request: NextRequest) {
     // Continue anyway - unsubscribe was successful
   }
 
-  console.log("[unsubscribe] Unsubscribed:", subscriber.email)
+  console.log("[unsubscribe] Unsubscribed:", maskEmail(subscriber.email))
 
   return renderPage(
     "Unsubscribed Successfully",
