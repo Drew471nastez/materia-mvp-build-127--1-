@@ -119,7 +119,8 @@ function main() {
   )
   check(
     "and the sheet honours that opt-out at touchdown",
-    /closest\?\.\("\[data-sheet-no-drag\]"\)\) return/.test(sheet),
+    /if \(ownsItsTouch\(e\.target, sheet, handleRef\.current\)\) return/.test(sheet) &&
+      /node\.hasAttribute\("data-sheet-no-drag"\)\) return true/.test(sheet),
   )
   check(
     "the picker's two drag surfaces do too",

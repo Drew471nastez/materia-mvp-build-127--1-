@@ -17,8 +17,12 @@
  *                longer than the line, a long step label, a long section
  *                name and a wide line of code in the thread; then a sideways
  *                swipe and a scripted scroll, and whether anything moved.
- *                The code block itself should scroll sideways, inside itself
- *   KEYBOARD     iOS's shape of it: the layout viewport stays 844, the visual
+ *                The code block itself should scroll sideways, inside itself,
+ *                under a real finger swiping on it. Again at 320x568
+ *   STREAMING    a run still sending lines: a reader scrolled to the top of
+ *                the thread stays there, a reader at the end follows, and a
+ *                message sent lands at the end
+ *   KEYBOARD    iOS's shape of it: the layout viewport stays 844, the visual
  *                one shrinks, and it may be PANNED down the page to show the
  *                field (offsetTop). A headless browser has no keyboard, so the
  *                page's `visualViewport` is replaced before anything loads by
@@ -145,7 +149,11 @@ window.process = { env: { NODE_ENV: "production" } };
         { type: "thinking", text: "${WORD}" }
       ];
       /* Left open, so the run is still going and its work panel stays open. */
-      var body = new ReadableStream({ start: function (c) { lines.forEach(function (l) { c.enqueue(enc.encode(JSON.stringify(l) + "\\n")) }) } });
+      var body = new ReadableStream({ start: function (c) {
+        /* Kept, so the probe can stream more of the run: __push(line). */
+        window.__push = function (l) { c.enqueue(enc.encode(JSON.stringify(l) + "\\n")) };
+        lines.forEach(window.__push);
+      } });
       return Promise.resolve(new Response(body, { status: 200 }));
     }
     return Promise.resolve(new Response("{}", { status: 404 }));
@@ -250,6 +258,10 @@ const READ = `(() => {
     threadHeight: thread ? thread.clientHeight : null,
     threadSW: thread ? thread.scrollWidth : null, threadCW: thread ? thread.clientWidth : null,
     threadLeft: thread ? thread.scrollLeft : null,
+    /* How far the thread is from its end: 0 is reading the newest line. */
+    threadGap: thread ? thread.scrollHeight - thread.scrollTop - thread.clientHeight : null,
+    threadTop: thread ? thread.scrollTop : null,
+    preLeft: pre ? pre.scrollLeft : null,
     columnSW: column ? column.scrollWidth : null, columnCW: column ? column.clientWidth : null,
     sheetSW: sheet.scrollWidth, sheetCW: sheet.clientWidth, sheetLeft: sheet.scrollLeft, sheetScrollTop: sheet.scrollTop,
     docSW: document.documentElement.scrollWidth, docCW: document.documentElement.clientWidth,
@@ -305,6 +317,41 @@ await shot("rest")
   r.afterScript = await read()
 }
 
+/* A finger swiping sideways ON the code block scrolls the code block. */
+{
+  await js(`(() => { const p = document.querySelector("[data-code-scroll]") || document.querySelector("[data-mobile-bottom-sheet] pre"); p.scrollLeft = 0; p.scrollIntoView({ block: "center" }) })()`)
+  await frames(2)
+  const box = JSON.parse(await js(`(() => { const b = (document.querySelector("[data-code-scroll]") || document.querySelector("[data-mobile-bottom-sheet] pre")).getBoundingClientRect(); return JSON.stringify({ x: b.left + b.width / 2, y: b.top + Math.min(b.height / 2, 20) }) })()`))
+  await touch("touchStart", Math.round(box.x + 100), Math.round(box.y))
+  for (let i = 1; i <= 8; i++) { await touch("touchMove", Math.round(box.x + 100 - 25 * i), Math.round(box.y)); await sleep(16) }
+  await touch("touchEnd", 0, 0)
+  await sleep(500)
+  r.codeSwipe = await read()
+}
+
+/* A RUN STILL STREAMING. A reader who scrolled up stays where they are;
+   one at the end follows the new lines. */
+{
+  await js(`(() => { const t = document.querySelector("[data-chat-thread]"); t.scrollTop = t.scrollHeight })()`)
+  await frames(3)
+  await js(`(() => { const t = document.querySelector("[data-chat-thread]"); t.scrollTop = 0 })()`)
+  await frames(3)
+  for (let i = 0; i < 6; i++) {
+    await js(`window.__push({ type: "step", id: "up${i}", label: "Step ${i} while the reader is up the thread", state: "done" })`)
+    await sleep(60)
+  }
+  await sleep(400)
+  r.readerUp = await read()
+  await js(`(() => { const t = document.querySelector("[data-chat-thread]"); t.scrollTop = t.scrollHeight })()`)
+  await frames(3)
+  for (let i = 0; i < 6; i++) {
+    await js(`window.__push({ type: "step", id: "end${i}", label: "Step ${i} while the reader is at the end", state: "done" })`)
+    await sleep(60)
+  }
+  await sleep(400)
+  r.readerEnd = await read()
+}
+
 /* The keyboard: focus the field, then iOS reports it. */
 const withKeyboard = async (keys, pan, estimate = 0) => {
   await js(`document.documentElement.style.setProperty("--kb-inset", "${estimate}px")`)
@@ -327,6 +374,22 @@ await js(`document.activeElement && document.activeElement.blur()`)
 await sleep(700)
 r.closed = await read()
 r.errors = JSON.parse(await js("JSON.stringify(window.__err)"))
+
+/* ── 320: the narrowest phone, the same thread ───────────────────────── */
+await call("Emulation.setDeviceMetricsOverride", { width: 320, height: 568, deviceScaleFactor: 1, mobile: true, screenOrientation: { angle: 0, type: "portraitPrimary" } })
+await call("Page.navigate", { url: "about:blank" })
+await sleep(300)
+await call("Page.navigate", { url: "file://" + file + "#narrow" })
+await sleep(1500)
+await js(`document.querySelector("textarea").focus()`)
+await call("Input.insertText", { text: "Make the header black" })
+await call("Input.dispatchKeyEvent", { type: "keyDown", key: "Enter", code: "Enter", windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13 })
+await call("Input.dispatchKeyEvent", { type: "keyUp", key: "Enter", code: "Enter", windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13 })
+await sleep(900)
+await js(`document.activeElement && document.activeElement.blur()`)
+await frames(4)
+r.narrow = await read()
+r.errors.push(...JSON.parse(await js("JSON.stringify(window.__err)")))
 
 /* ── 1280: the desktop column, the same thread ───────────────────────── */
 await call("Emulation.setTouchEmulationEnabled", { enabled: false })
@@ -366,6 +429,9 @@ console.log(`  sideways      thread ${r.rest.threadSW}/${r.rest.threadCW}, colum
 console.log(`                code block ${r.rest.preSW}/${r.rest.preCW}: scrolls inside itself; chip ends at ${r.rest.chip ? f(r.rest.chip.right) : "none"}`)
 console.log(`                after a sideways swipe: thread scrollLeft ${r.afterSwipe.threadLeft}; after a script set 400: thread ${r.afterScript.threadLeft}, sheet ${r.afterScript.sheetLeft} left / ${r.afterScript.sheetScrollTop} top`)
 if (r.rest.overflowing.length) console.log(`                past the edge: ${r.rest.overflowing.join(" | ")}`)
+console.log(`                a finger swiping sideways on the code block: code scrollLeft ${f(r.codeSwipe.preLeft)}, thread scrollLeft ${f(r.codeSwipe.threadLeft)}`)
+console.log(`  streaming     after the send: ${f(r.rest.threadGap)}px from the end; scrolled to the top while 6 steps arrived: scrollTop ${f(r.readerUp.threadTop)}, ${f(r.readerUp.threadGap)}px from the end`)
+console.log(`                at the end while 6 more arrived: ${f(r.readerEnd.threadGap)}px from the end`)
 kbLine("keyboard", r.kb, KEYS, 0)
 kbLine("panned 188", r.kbPan, KEYS, 188)
 kbLine("panned all", r.kbPanAll, KEYS, KEYS)
@@ -373,6 +439,7 @@ console.log(`                (that one with the half-screen estimate, ${Math.rou
 kbLine("no report", r.kbNoReport, 0, 0)
 console.log(`                (a web view that reports nothing, with a ${KEYS}px estimate published)`)
 console.log(`  closed again  sheet top ${f(r.closed.sheetTop)}, padded ${f(r.closed.padBottom)}`)
+console.log(`  320 phone     thread ${r.narrow.threadSW}/${r.narrow.threadCW}, column ${r.narrow.columnSW}/${r.narrow.columnCW}, sheet ${r.narrow.sheetSW}/${r.narrow.sheetCW}, document ${r.narrow.docSW}/${r.narrow.docCW}${r.narrow.overflowing.length ? `; past the edge: ${r.narrow.overflowing.join(" | ")}` : ""}`)
 console.log(`  1280 column   thread ${r.desktop.threadSW}/${r.desktop.threadCW}, column ${r.desktop.columnSW}/${r.desktop.columnCW}, scrollLeft after a script set 400: ${r.desktop.left}; code block ${r.desktop.preSW}/${r.desktop.preCW}`)
 if (r.errors.length) console.log(`  page errors: ${r.errors.join(" | ")}`)
 console.log("")
@@ -388,6 +455,12 @@ for (const [name, s] of [["at rest", r.rest], ["after a swipe", r.afterSwipe], [
 expect(r.rest.overflowing.length === 0, "no element in the sheet reaches past the screen's edge")
 expect(r.afterSwipe.threadLeft === 0 && r.afterScript.threadLeft === 0 && r.afterScript.sheetLeft === 0 && r.afterScript.sheetScrollTop === 0, "a sideways swipe or a script moves nothing sideways, and the sheet cannot be scrolled")
 expect(r.rest.preSW > r.rest.preCW, "the code block is the one thing that scrolls sideways, inside itself")
+expect(r.codeSwipe.preLeft > 20 && r.codeSwipe.threadLeft === 0, "and a finger swiping sideways on it scrolls it, and only it")
+expect(r.rest.threadGap <= 2, "a message sent scrolls the thread to its newest line")
+expect(r.readerUp.threadTop <= 2, "a reader who scrolled up is left where they are while a run streams in")
+expect(r.readerEnd.threadGap <= 2, "a reader at the end follows the run as it streams in")
+expect(r.narrow.threadSW === r.narrow.threadCW && r.narrow.columnSW === r.narrow.columnCW && r.narrow.sheetSW === r.narrow.sheetCW && r.narrow.docSW === r.narrow.docCW, "at 320px nothing in the thread, the column, the sheet or the page is wider than it")
+expect(r.narrow.overflowing.length === 0, "at 320px no element in the sheet reaches past the screen's edge")
 for (const [name, s] of [["keyboard", r.kb], ["panned 188", r.kbPan], ["panned all", r.kbPanAll]]) {
   const visibleBottom = s.vvTop + s.vvHeight
   expect(Math.abs(s.columnBottom - visibleBottom) <= 1, `${name}: the composer's row ends on the keyboard, within 1px of the visible bottom`)
