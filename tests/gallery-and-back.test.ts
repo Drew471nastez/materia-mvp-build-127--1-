@@ -156,7 +156,7 @@ console.log("\nThe back arrow\n")
 
   check(
     "the fallback is a route change, not a new document",
-    /router\.push\(creatorHref\)/.test(bar) && !/window\.location\.href = creatorHref/.test(bar),
+    /startBackTransition\(\(\) => router\.push\(href\)\)/.test(bar) && !/window\.location\.href = creatorHref/.test(bar),
     "assigning location throws the page away and loads the shell again, which is the flash",
   )
   check(
@@ -183,7 +183,7 @@ console.log("\nThe back arrow\n")
   check(
     "going back holds its own state, because a popstate has no completion event",
     /setLeaving\(true\)/.test(bar) &&
-      bar.indexOf("setLeaving(true)") < bar.indexOf("window.history.back()"),
+      bar.indexOf("setLeaving(true)") < bar.indexOf("goBackOr(target"),
   )
   check(
     "and nothing washes the page out on the way",

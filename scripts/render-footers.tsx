@@ -5,7 +5,7 @@
  * measured by scripts/check-footers.mjs.
  */
 import { createRoot } from "react-dom/client"
-import { createElement, Fragment } from "react"
+import type { ReactNode } from "react"
 
 import { SellerFooter } from "@/components/storefront/seller-footer"
 import { FooterSection } from "@/components/website-builder/sections/renderers/FooterSection"
@@ -41,20 +41,20 @@ const longSection: SectionInstance = {
   },
 } as unknown as SectionInstance
 
-const mount = (id: string, node: ReturnType<typeof createElement>) => {
+const mount = (id: string, node: ReactNode) => {
   const el = document.getElementById(id)
   if (el) createRoot(el).render(node)
 }
 
-mount("seller-live", createElement(SellerFooter))
-mount("seller-desktop-preview", createElement(SellerFooter, { isMobile: false }))
-mount("seller-phone-preview", createElement(SellerFooter, { isMobile: true }))
+const Site = FooterSection as unknown as (p: Record<string, unknown>) => ReactNode
+
+mount("seller-live", <SellerFooter />)
+mount("seller-desktop-preview", <SellerFooter isMobile={false} />)
+mount("seller-phone-preview", <SellerFooter isMobile />)
 mount(
   "seller-dark",
-  createElement(SellerFooter, {
-    surface: { backgroundColor: "#111111", textColor: "#f5f5f5", mutedColor: "#a3a3a3", borderColor: "#262626" },
-  }),
+  <SellerFooter surface={{ backgroundColor: "#111111", textColor: "#f5f5f5", mutedColor: "#a3a3a3", borderColor: "#262626" }} />,
 )
-mount("site", createElement(Fragment, null, createElement(FooterSection, { section, theme, deviceMode: "desktop" } as never)))
-mount("site-long", createElement(Fragment, null, createElement(FooterSection, { section: longSection, theme, deviceMode: "desktop" } as never)))
-mount("marketing", createElement(MarketingFooter))
+mount("site", <Site section={section} theme={theme} deviceMode="desktop" />)
+mount("site-long", <Site section={longSection} theme={theme} deviceMode="desktop" />)
+mount("marketing", <MarketingFooter />)

@@ -69,7 +69,7 @@ async function run() {
       bar: bar ? rect(bar) : null,
       emails: [...host.querySelectorAll('input[type="email"]')].filter(visible).length,
       buttons: [...host.querySelectorAll('button[type="submit"]')].filter(visible).length,
-      back: [...host.querySelectorAll('button[aria-label="Back"]')].filter(visible).length,
+      back: [...host.querySelectorAll('a[aria-label="Back"]')].filter(visible).length,
       /*
         THE FOLLOW BUTTON, WITH NOTHING TYPED IN THE FIELD. Nothing here
         touches the input first: an untouched form is the state a visitor

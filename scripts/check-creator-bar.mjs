@@ -47,7 +47,7 @@ writeFileSync(join(out, "index.html"), `<!doctype html><html><head><meta charset
 setTimeout(function () {
   var crash = document.querySelector("[data-crash]")
   var bar = document.querySelector("[data-bar]")
-  var backs = bar ? bar.querySelectorAll('button[aria-label="Back"]') : []
+  var backs = bar ? bar.querySelectorAll('a[aria-label="Back"]') : []
   var links = bar ? bar.querySelectorAll('a[href*="/u/"]') : []
   var pre = document.createElement("pre"); pre.id = "result"
   pre.textContent = JSON.stringify({

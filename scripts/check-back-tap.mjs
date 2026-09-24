@@ -70,8 +70,8 @@ const INSTRUMENT = `(() => {
     return el.tagName.toLowerCase() + (el.className && typeof el.className === "string" ? "." + el.className.split(" ")[0] : "")
   }
   const box = () => {
-    const b = document.querySelector('[data-product-bar="phone"] button[aria-label="Back"]')
-      || document.querySelector('button[aria-label="Back"]')
+    const b = document.querySelector('[data-product-bar="phone"] a[aria-label="Back"]')
+      || document.querySelector('a[aria-label="Back"]')
     if (!b) return null
     const r = b.getBoundingClientRect()
     return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2), w: Math.round(r.width), h: Math.round(r.height), top: Math.round(r.top) }
@@ -197,7 +197,7 @@ async function main() {
     const started = Date.now()
     for (let i = 0; i < 90; i++) {
       if (busyAt === null) {
-        const busy = await evaluate(`document.querySelector('[data-product-bar="phone"] button[aria-label="Back"]')?.getAttribute("aria-busy") === "true"`)
+        const busy = await evaluate(`document.querySelector('[data-product-bar="phone"] a[aria-label="Back"]')?.getAttribute("aria-busy") === "true"`)
         if (busy) busyAt = Date.now() - started
       }
       const now = await evaluate("location.pathname")

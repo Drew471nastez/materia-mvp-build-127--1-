@@ -9,9 +9,10 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import { useTap } from "@/lib/gestures/use-tap"
-import { canReturnInApp } from "@/lib/navigation/in-app-history"
+import { creatorPageHref, fallbackHref, isPlainClick, planBack } from "@/lib/navigation/back-plan"
+import { goBackOr, readBackEvidence } from "@/lib/navigation/go-back"
 import { Mail, ArrowLeft, Check, Flag, MoreHorizontal, Share2 } from "lucide-react"
-import { getStoreInternalPath, getProductShareUrl } from "@/lib/url-helpers"
+import { getProductShareUrl } from "@/lib/url-helpers"
 import { isDiscoverMode } from "@/lib/isDiscoverMode"
 import { isNativeApp } from "@/lib/platform-utils"
 import { SmartLink } from "@/components/smart-link"
@@ -199,45 +200,16 @@ function getInputOpacityClass(isSubscribed: boolean, isFocused: boolean) {
   return isSubscribed ? "opacity-[0.85]" : "opacity-[0.95]"
 }
 
-function getCreatorHref(creatorUsername?: string, creatorId?: string, creatorName?: string) {
-  // IMPORTANT: Only use creatorUsername (the actual DB username, e.g. "johndoe").
-  // Never use creatorId (UUID) — creates URLs like /u/d06724e5-… that always 404.
-  // Never use creatorName (display name, e.g. "John Smith") — sanitisation turns
-  // it into /u/john-smith which may not match the real username and gets "lost".
-  if (!creatorUsername) return "#"
-  const raw = creatorUsername.toString().trim()
-  if (!raw) return "#"
-  /**
-   * =========================================================================
-   *  THE CREATOR'S PAGE, NOT THEIR WEBSITE
-   * =========================================================================
-   * This used `getStoreUrl`, which returns the SUBDOMAIN —
-   * https://<handle>.storelib.com — and that is the site a creator builds in
-   * the website builder. It is not the page this bar is about.
-   *
-   * The two have been separate since websites moved to the subdomain and
-   * profiles stayed on the main domain; the bar simply kept calling the
-   * helper it always had. So a visitor pressing the name of the person
-   * selling them something landed on a different product entirely: a site
-   * that may be unpublished, empty, or nothing to do with the item they were
-   * looking at.
-   *
-   * `/u/<handle>` on the main domain is the creator page. Relative, so it
-   * works on the subdomain, on a custom domain and inside the native shell
-   * without three branches — the proxy rewrites it the same way everywhere.
-   */
-  return getStoreInternalPath(sanitiseHandle(raw))
-}
-
-/** The same sanitising getStoreUrl does, so a handle cannot carry a path. */
-function sanitiseHandle(raw: string): string {
-  return raw
-    .toLowerCase()
-    .trim()
-    .replace(/\s+/g, "-")
-    .replace(/[^a-z0-9-]/g, "")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "")
+/**
+ * The creator's page, `/<handle>` on the main domain: the page this bar is
+ * about, not the website a creator builds on their subdomain. Relative, so it
+ * works on a subdomain, on a custom domain and in the app without three
+ * branches. Only the username is used: a UUID or a sanitised display name
+ * makes an address that 404s or belongs to somebody else. The rule lives in
+ * lib/navigation/back-plan, where the product page's server code reads it too.
+ */
+function getCreatorHref(creatorUsername?: string, _creatorId?: string, _creatorName?: string) {
+  return creatorPageHref(creatorUsername)
 }
 
 /**
@@ -610,8 +582,21 @@ function usePressFeedback(): [boolean, { onPointerDown: () => void }] {
 const SPINNER_DELAY_MS = 300
 /** How long a back is given before the arrow comes back. */
 const BACK_GIVE_UP_MS = 4000
+/**
+ * How long a push to the creator's page may stay pending before the page is
+ * loaded as a document instead. Measured cold pushes take two to three and a
+ * half seconds; this is well past that, and well short of "for ever".
+ */
+const PUSH_GIVE_UP_MS = 8000
 
-function BackControl({ onBack, label, pending }: { onBack: () => void; label: string; pending: boolean }) {
+/**
+ * A REAL LINK TO THE CREATOR'S PAGE, taken over by script. Without script,
+ * or opened in a new tab, it goes to the creator's page, which is where the
+ * product belongs. A plain press or tap goes back instead when there is a
+ * page of ours to go back to (lib/navigation/back-plan decides), and to the
+ * same creator's page when there is not.
+ */
+function BackControl({ onBack, href, label, pending }: { onBack: () => void; href: string; label: string; pending: boolean }) {
   const [pressed, press] = usePressFeedback()
   /**
    * THE TAP IS READ FROM THE POINTER, NOT FROM THE CLICK. Measured against
@@ -634,12 +619,26 @@ function BackControl({ onBack, label, pending }: { onBack: () => void; label: st
   }, [pending])
 
   return (
-    <button
-      type="button"
+    <a
+      href={href}
       {...tap}
       /* Both want pointerdown: the disc and the haptic answer the contact,
-         the tap hook starts watching the gesture. */
-      onPointerDown={(e) => { press.onPointerDown(); tap.onPointerDown(e) }}
+         the tap hook starts watching the gesture. A press with a modifier
+         held is a new tab or a new window, and belongs to the browser. */
+      onPointerDown={(e) => {
+        if (!isPlainClick(e)) return
+        press.onPointerDown()
+        tap.onPointerDown(e)
+      }}
+      /* The link's own navigation never runs on a plain press: the tap hook
+         has answered the pointer already, or answers the keyboard's click
+         here. Anything else (a middle click, cmd or ctrl) opens the href. */
+      onClick={(e) => {
+        if (!isPlainClick(e)) return
+        e.preventDefault()
+        tap.onClick(e)
+      }}
+      draggable={false}
       aria-label={label}
       title={label}
       aria-busy={showSpinner || undefined}
@@ -661,7 +660,7 @@ function BackControl({ onBack, label, pending }: { onBack: () => void; label: st
         reaching for "back" actually lands.
       */
       className="relative -my-2 -ml-4 -mr-2 inline-flex h-[52px] w-[56px] shrink-0 items-center justify-center select-none outline-none"
-      style={{ color: "inherit", WebkitTapHighlightColor: "transparent" }}
+      style={{ color: "inherit", WebkitTapHighlightColor: "transparent", WebkitTouchCallout: "none" }}
     >
       <span
         className={cn(
@@ -697,7 +696,7 @@ function BackControl({ onBack, label, pending }: { onBack: () => void; label: st
           />
         </span>
       </span>
-    </button>
+    </a>
   )
 }
 
@@ -982,6 +981,9 @@ export function LiveProductCreatorBar({
   const [backPending, startBackTransition] = useTransition()
   /** True from the moment a back is asked for until this page goes away. */
   const [leaving, setLeaving] = useState(false)
+  /** The last resort for a push that never lands; cleared when this page goes. */
+  const pushWatch = useRef<number | null>(null)
+  useEffect(() => () => { if (pushWatch.current) window.clearTimeout(pushWatch.current) }, [])
 
   const goBack = useCallback(() => {
     if (typeof window === "undefined") return
@@ -1010,33 +1012,33 @@ export function LiveProductCreatorBar({
       it and the spatial version becomes available.
     */
     /**
-     * `document.referrer` used to decide this, and it is the wrong
-     * instrument: it describes how the DOCUMENT was fetched, and pressing a
-     * product card does not fetch a document. So the most common visit of
-     * all — creator page, tap a product, tap back — read as "arrived from
-     * nowhere" and took the slow path. Measured against production, that
-     * path is 2.0 to 3.5 seconds of the same page with a spinner on it,
-     * which is why the arrow was being pressed a second time.
+     * WHICH WAY IS lib/navigation/back-plan's decision, and goBackOr carries
+     * it out. There is a page of ours behind this one in this tab: go back to
+     * it, instantly and with its scroll. There is not (a shared link opened
+     * cold, a new tab): go to the creator's page, which is where the product
+     * belongs.
      *
-     * canReturnInApp counts this document's own navigations instead, and
-     * still accepts a same-origin referrer for a hard load that really did
-     * come from another page of ours.
+     * It used to ask canReturnInApp alone, which counted this document's
+     * route changes. A route that REPLACED its entry (a sign-in finishing
+     * with router.replace, the app's start screen) counted as one too, and
+     * then `history.back()` ran with nothing behind it:
+     * the browser did nothing, the arrow became a spinner, and the page
+     * "loaded forever". The browser's own `navigation.canGoBack` now decides
+     * wherever it exists, and a back that does not show itself within
+     * BACK_WATCH_MS goes to the creator's page instead.
+     *
+     * The push is a server render behind a network, so the page stays, the
+     * arrow becomes a spinner once the wait is long enough to need
+     * explaining, and React reports when the route lands. If it never does,
+     * PUSH_GIVE_UP_MS loads the creator's page as a document.
      */
-    if (canReturnInApp()) {
-      setLeaving(true)
-      window.history.back()
-      return
-    }
-    /*
-      No history entry to return to — a shared link opened cold — so this is
-      a push, and a push is a server render behind a network. The page stays,
-      the arrow becomes a spinner once the wait is long enough to need
-      explaining, and React reports when the route lands.
-    */
-    if (creatorHref && creatorHref !== "#") {
-      setLeaving(true)
-      startBackTransition(() => router.push(creatorHref))
-    }
+    const target = fallbackHref(creatorHref)
+    setLeaving(true)
+    goBackOr(target, (href) => {
+      startBackTransition(() => router.push(href))
+      if (pushWatch.current) window.clearTimeout(pushWatch.current)
+      pushWatch.current = window.setTimeout(() => window.location.assign(href), PUSH_GIVE_UP_MS)
+    })
   }, [creatorHref, router])
 
   /**
@@ -1059,7 +1061,7 @@ export function LiveProductCreatorBar({
   useEffect(() => {
     if (typeof window === "undefined") return
     if (!creatorHref || creatorHref === "#") return
-    if (canReturnInApp()) return
+    if (planBack(readBackEvidence(), creatorHref).kind === "history") return
     try {
       router.prefetch(creatorHref)
     } catch {
@@ -1313,7 +1315,7 @@ export function LiveProductCreatorBar({
         width: out, who, and more.
       */}
       <div data-product-bar="phone" className="flex w-full items-center gap-2.5 px-3 py-2 sm:hidden">
-        <BackControl onBack={goBack} label="Back" pending={backPending || leaving} />
+        <BackControl onBack={goBack} href={fallbackHref(creatorHref)} label="Back" pending={backPending || leaving} />
 
         <SmartLink
           href={creatorHref}
@@ -1347,7 +1349,7 @@ export function LiveProductCreatorBar({
       <div className={cn("hidden sm:block py-[calc(0.625rem+5px)] px-4 sm:px-5")}>
         <div className={cn("mx-auto w-full", LIVE_DESKTOP_MAX_W)}>
           <div className="w-full flex items-center gap-3">
-            <BackControl onBack={goBack} label="Back" pending={backPending || leaving} />
+            <BackControl onBack={goBack} href={fallbackHref(creatorHref)} label="Back" pending={backPending || leaving} />
             <SmartLink
               href={creatorHref}
               className="flex items-center gap-2 min-w-0 group"

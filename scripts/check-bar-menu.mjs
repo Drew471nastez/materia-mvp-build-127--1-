@@ -44,13 +44,13 @@ writeFileSync(join(out, "index.html"), `<!doctype html><html><head><meta charset
 <script>
 function r(el) { var b = el.getBoundingClientRect(); return { x: Math.round(b.x), y: Math.round(b.y), w: Math.round(b.width), h: Math.round(b.height) } }
 function disc() {
-  var back = document.querySelector('button[aria-label="Back"]')
+  var back = document.querySelector('a[aria-label="Back"]')
   return back ? back.querySelector("span[aria-hidden]") : null
 }
 var steps = []
 setTimeout(function () {
   var dots = document.querySelector('button[aria-label="More"]')
-  var back = document.querySelector('button[aria-label="Back"]')
+  var back = document.querySelector('a[aria-label="Back"]')
   steps.push({ at: "before", menu: !!document.querySelector('[role="menu"]'), dots: dots ? r(dots) : null, bar: r(document.querySelector('[data-product-bar="phone"]')) })
 
   /* The press: pointerdown only, then released immediately. A real tap is

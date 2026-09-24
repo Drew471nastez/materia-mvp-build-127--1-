@@ -73,7 +73,7 @@ function show(o) {
 }
 async function run() {
   var report = {}
-  var btn = document.querySelector('button[aria-label="Back"]')
+  var btn = document.querySelector('a[aria-label="Back"]')
   report.foundButton = !!btn
   if (!btn) { show(report); return }
 
@@ -91,7 +91,7 @@ async function run() {
     live button while the opacities read their pre-click values off two nodes
     that were no longer in the page.
   */
-  var live = function () { return document.querySelector('button[aria-label="Back"]') }
+  var live = function () { return document.querySelector('a[aria-label="Back"]') }
   var opArrow = function () { var b = live(); var el = b && b.querySelector("svg"); return el ? Math.round(parseFloat(getComputedStyle(el).opacity) * 100) / 100 : null }
   var opSpin = function () { var b = live(); var el = b && b.querySelector(".bar-control-spinner"); return el ? Math.round(parseFloat(getComputedStyle(el).opacity) * 100) / 100 : null }
   var op = function (el) { return Math.round(parseFloat(getComputedStyle(el).opacity) * 100) / 100 }
@@ -115,7 +115,7 @@ async function run() {
   var lb = live()
   report.arrowClassAfter = lb.querySelector("svg").getAttribute("class")
   report.spinClassAfter = lb.querySelector(".bar-control-spinner").getAttribute("class")
-  report.buttonCount = document.querySelectorAll('button[aria-label="Back"]').length
+  report.buttonCount = document.querySelectorAll('a[aria-label="Back"]').length
   show(report)
 }
 window.addEventListener("error", function (e) { show({ pageError: String(e.message) }) })
