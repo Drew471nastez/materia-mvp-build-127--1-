@@ -359,7 +359,7 @@ async function main() {
     const base: OriginInput = {
       href: "https://storelib.com/checkout?productId=1",
       referrer: "",
-      previousPath: null,
+      trail: [],
       landingSearch: "",
       userAgent: "Mozilla/5.0 (iPhone) Safari",
       mainDomain: "storelib.com",
@@ -374,16 +374,20 @@ async function main() {
     const bare = at({ href: "https://storelib.com/checkout?productId=1&src=website", referrer: "https://andrewrullz.storelib.com/" })
     check("a website link with nothing added: the website from the referrer, and no guess at the visit", JSON.stringify(bare) === JSON.stringify({ surface: "website", site: "andrewrullz.storelib.com" }), bare)
     check("in Instagram's own browser, that is where the visit is", at({ href: "https://storelib.com/checkout?productId=1&src=website", referrer: "https://andrewrullz.storelib.com/", userAgent: "Mozilla/5.0 (iPhone) Instagram 300.0" })?.from === "instagram")
-    const spa = at({ previousPath: "/andrew/preset-pack", referrer: "https://www.tiktok.com/" })
+    const spa = at({ trail: ["/andrew/preset-pack"], referrer: "https://www.tiktok.com/" })
     check("a product page opened from TikTok, then Buy", JSON.stringify(spa) === JSON.stringify({ surface: "product", from: "tiktok" }), spa)
-    check("Explore with no referrer at all is Direct", JSON.stringify(at({ previousPath: "/explore" })) === JSON.stringify({ surface: "explore", from: "direct" }))
+    const explored = at({ trail: ["/explore", "/andrew/preset-pack"] })
+    check("a product found on Explore, with no referrer at all: Explore, Direct", JSON.stringify(explored) === JSON.stringify({ surface: "explore", from: "direct" }), explored)
+    check("a product found on the profile", at({ trail: ["/andrew", "/andrew/preset-pack"], referrer: "https://l.instagram.com/" })?.surface === "profile")
+    check("and on the profile after a full load of the product page", at({ trail: ["/andrew/preset-pack"], referrer: "https://storelib.com/andrew" })?.surface === "profile")
+    check("a product page reached from somewhere else in Storelib is the product page", at({ trail: ["/library", "/andrew/preset-pack"] })?.surface === "product")
     const hard = at({ referrer: "https://storelib.com/andrew" })
     check("a full load from the profile: the profile, and nothing claimed about the visit", JSON.stringify(hard) === JSON.stringify({ surface: "profile" }), hard)
     check("with Analytics' first address (consent given), the visit is known", at({ referrer: "https://storelib.com/andrew", firstTouch: { referrerDomain: "youtube.com" } })?.from === "youtube")
     const link = at({ href: "https://storelib.com/checkout?productId=1&utm_source=newsletter&utm_campaign=launch", referrer: "https://mail.google.com/" })
     check("a checkout link opened from an email, with its tags", JSON.stringify(link) === JSON.stringify({ surface: "link", from: "email", utm_source: "newsletter", utm_campaign: "launch" }), link)
-    check("a landing page's tags are kept through client navigations", at({ previousPath: "/andrew/preset-pack", landingSearch: "?utm_source=ig&utm_campaign=drop" })?.utm_campaign === "drop")
-    check("coming back from the card's bank page says nothing about the visit", at({ previousPath: "/andrew/x", referrer: "https://hooks.stripe.com/3d" })?.from === undefined)
+    check("a landing page's tags are kept through client navigations", at({ trail: ["/andrew/preset-pack"], landingSearch: "?utm_source=ig&utm_campaign=drop" })?.utm_campaign === "drop")
+    check("coming back from the card's bank page says nothing about the visit", at({ trail: ["/andrew/x"], referrer: "https://hooks.stripe.com/3d" })?.from === undefined)
     check("a checkout on a creator's own domain is their website", at({ href: "https://www.andrewshop.com/checkout?productId=1", referrer: "https://www.andrewshop.com/products/x" })?.site === "andrewshop.com")
 
     const page = (o: Partial<OriginInput>) => describePage({ ...base, ...o })

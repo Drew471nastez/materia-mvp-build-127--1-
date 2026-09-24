@@ -1231,7 +1231,7 @@ function QuickAccessBottomSheet({
           onOpen={() => {
             if (isOnePageReady) {
               const url = onePageUrl || navOnePageUrl
-              openExternal(url)
+              if (url) openExternal(url)
             } else {
               onSetupOnePage()
             }
@@ -1248,7 +1248,7 @@ function QuickAccessBottomSheet({
           onAction={onCopyStore}
           onOpen={() => {
             const url = storeUrl || navStoreUrl
-            openExternal(url)
+            if (url) openExternal(url)
             onClose()
           }}
           icon={<div className="w-8 h-8 rounded-full bg-black flex items-center justify-center overflow-hidden"><img src={STORELIB_LOGO} alt="" width={20} height={20} className="w-5 h-5" loading="eager" decoding="async" /></div>}

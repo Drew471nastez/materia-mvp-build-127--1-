@@ -85,6 +85,11 @@ export function previousPath(): string | null {
   return trail.length ? trail[trail.length - 1] : null
 }
 
+/** The paths behind the current one, oldest first, as far as this document knows. */
+export function recentPaths(): string[] {
+  return trail.slice(-5)
+}
+
 /**
  * True when `history.back()` would land on exactly `href`.
  *

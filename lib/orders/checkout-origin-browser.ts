@@ -8,7 +8,7 @@
 
 import { hasConsent } from "@/lib/consent/client"
 import { getStoredAttribution } from "@/lib/analytics-utils"
-import { landingSearch, previousPath } from "@/lib/navigation/in-app-history"
+import { landingSearch, recentPaths } from "@/lib/navigation/in-app-history"
 import { getMainDomain } from "@/lib/url-helpers"
 import { describeCheckout, describePage, type FirstTouch, type OriginInput } from "./checkout-origin"
 import type { OrderOrigin } from "./order-source"
@@ -37,7 +37,7 @@ function input(): OriginInput | null {
   return {
     href: window.location.href,
     referrer: document.referrer || "",
-    previousPath: previousPath(),
+    trail: recentPaths(),
     landingSearch: landingSearch(),
     userAgent: navigator.userAgent || "",
     mainDomain: getMainDomain(),

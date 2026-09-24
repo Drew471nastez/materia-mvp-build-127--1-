@@ -13,11 +13,16 @@
  *                          withCheckoutOrigin, run on the website).
  *   ?ref=, ?utm_*          what the website saw of its visit, or a link the
  *                          creator shared with tags on it.
- *   the page before        the in-app trail (lib/navigation/in-app-history)
- *                          after a client navigation, or document.referrer
- *                          after a full load. Its path says profile, product
- *                          page, OnePage or Explore; none at all is a
- *                          checkout link opened on its own.
+ *   the pages before       the in-app trail (lib/navigation/in-app-history)
+ *                          after client navigations, or document.referrer
+ *                          after a full load. Their paths say profile,
+ *                          product page, OnePage or Explore; none at all is
+ *                          a checkout link opened on its own. Buy is always
+ *                          on a product page, so when the page before THAT
+ *                          was Explore, the profile or the OnePage, that is
+ *                          where the product was found, and it is what is
+ *                          recorded: a product page means the visit landed
+ *                          on the product itself.
  *   document.referrer      the address that loaded this document. After
  *                          client navigations it still names the page the
  *                          visit came in from, which is the one wanted.
@@ -56,8 +61,8 @@ export interface OriginInput {
   href: string
   /** document.referrer. */
   referrer: string
-  /** The Storelib path before this one in this document, after a client navigation. */
-  previousPath: string | null
+  /** The Storelib paths before this one in this document, oldest first, after client navigations. */
+  trail: string[]
   /** The query this document was first loaded with. */
   landingSearch: string
   userAgent: string
@@ -125,8 +130,10 @@ function visitFrom(input: OriginInput, own: string[], site: string | undefined):
   return fromOfHost(refHost) ?? appFrom
 }
 
-function utmFrom(input: OriginInput, q: URLSearchParams): { utm_source?: string; utm_campaign?: string } {
-  const pick = (params: URLSearchParams) => ({
+type Utm = { utm_source?: string; utm_campaign?: string }
+
+function utmFrom(input: OriginInput, q: URLSearchParams): Utm {
+  const pick = (params: URLSearchParams): Utm => ({
     utm_source: params.get("utm_source") ?? undefined,
     utm_campaign: params.get("utm_campaign") ?? undefined,
   })
@@ -138,7 +145,7 @@ function utmFrom(input: OriginInput, q: URLSearchParams): { utm_source?: string;
   } catch {
     landing = null
   }
-  const first = landing ? pick(landing) : {}
+  const first: Utm = landing ? pick(landing) : {}
   if (first.utm_source || first.utm_campaign) return first
   return {
     utm_source: input.firstTouch?.utm_source ?? undefined,
@@ -171,9 +178,14 @@ export function describeCheckout(input: OriginInput): OrderOrigin | null {
       (isSiteHost(pageHost, main) ? cleanHost(pageHost) : undefined)
   } else {
     const sameDocumentReferrer = refHost && refHost === pageHost ? pathOf(input.referrer) : null
-    const before = input.previousPath ?? sameDocumentReferrer
+    /* The pages behind the checkout, nearest last: the trail, and before it
+       the page that loaded this document when that was one of ours. */
+    const behind = [...(sameDocumentReferrer ? [sameDocumentReferrer] : []), ...input.trail]
+    const before = behind.at(-1)
     if (before) {
-      const surface = surfaceOfPath(before)
+      let surface = surfaceOfPath(before)
+      const found = surfaceOfPath(behind.at(-2))
+      if (surface === "product" && (found === "explore" || found === "profile" || found === "onepage")) surface = found
       if (surface) origin.surface = surface
     } else if (refHost && isSiteHost(refHost, main) && !hostIs(refHost, ...PAYMENT_HOSTS) && hostIs(refHost, main)) {
       /* A page on a Storelib subdomain is a creator's website, whether or
