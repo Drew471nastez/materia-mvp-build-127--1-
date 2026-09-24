@@ -99,3 +99,4 @@ tsconfig.*.generated.json
 .probe-cover-desktop.png
 .probe-cover-phone.png
 .checkout-probe/
+.focus-probe/

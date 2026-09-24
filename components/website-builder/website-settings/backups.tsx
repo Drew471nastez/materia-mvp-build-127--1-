@@ -38,14 +38,24 @@ const SOURCE_WORD: Record<BackupRow["source"], string> = {
  * one-way door, because the route takes a safety copy of the draft it is
  * replacing before it writes. Nothing goes live until published.
  */
+/**
+ * The list last read for each website, so coming back to this subject draws
+ * it at once and reads it again quietly, rather than a spinner that the list
+ * then pushes the rest of the page down from.
+ */
+const lastBackups = new Map<string, BackupRow[]>()
+
 export function BackupSettings({ ctx }: { ctx: SettingsContext }) {
-  const [backups, setBackups] = useState<BackupRow[] | null>(null)
+  const [backups, setBackups] = useState<BackupRow[] | null>(() => lastBackups.get(ctx.installId) ?? null)
   const [error, setError] = useState<string | null>(null)
   const [backingUp, setBackingUp] = useState(false)
   const [confirming, setConfirming] = useState<BackupRow | null>(null)
   const [restoring, setRestoring] = useState(false)
   const [copying, setCopying] = useState(false)
   const [copied, setCopied] = useState(false)
+  useEffect(() => {
+    if (backups && !error) lastBackups.set(ctx.installId, backups)
+  }, [backups, error, ctx.installId])
 
   const load = useCallback(async () => {
     setError(null)

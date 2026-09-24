@@ -1,5 +1,6 @@
 import type React from "react"
 import { CheckoutLinkOrigin } from "@/components/website-builder/checkout-link-origin"
+import { SiteDocument } from "@/components/website-builder/site-document"
 
 /**
  * ===========================================================================
@@ -27,6 +28,8 @@ export default function SiteLayout({ children }: { children: React.ReactNode }) 
       {/* A link to checkout carries which website and where its visit came
           from, for the order's Source. Static: nothing here reads the request. */}
       <CheckoutLinkOrigin />
+      {/* Marks <html> as a website, so the app shell's guards stand down. */}
+      <SiteDocument />
     </>
   )
 }

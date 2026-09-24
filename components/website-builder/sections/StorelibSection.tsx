@@ -19,13 +19,17 @@
  * published page renders nothing, so a broken section is a gap and not a
  * broken storefront.
  */
-import { useMemo, useState, type FormEvent, type MouseEvent } from "react"
+import { useLayoutEffect, useMemo, useState, type FormEvent, type MouseEvent } from "react"
 import { SectionWrapper, type SectionProps } from "./_shared"
 import { useStorelibContext, useStorelibPage } from "./storelib-sources"
 import { useStorefront } from "../theme/storefront-context"
 import { formIntent } from "@/lib/website-builder/form-intent"
 import { subscribeToCreator } from "@/lib/website-builder/subscribe-client"
 import { useSectionScript } from "./section-sandbox"
+import { morphInto } from "@/lib/website-builder/morph-html"
+
+/** The markup each section element holds, once it has been changed after React drew it. */
+const drawn = new WeakMap<Element, string>()
 
 /**
  * A form's state, written onto the form so a section's own CSS can style it:
@@ -123,8 +127,31 @@ export function StorelibSection({
    * and re-parsed its stylesheet on every render, changed or not. See
    * ./stable-html.
    */
-  const cssProp = useMemo(() => (out.ok === true && out.css ? { __html: out.css } : null), [out])
-  const htmlProp = useMemo(() => ({ __html: out.ok === true ? out.html : "" }), [out])
+  /* Keyed on the STRINGS, not on `out`. Any new section or theme object
+     makes a new `out` with the same markup in it, and keyed on `out` that
+     rewrote the section's DOM anyway: its pictures decoded again, its video
+     restarted and its entrance animation played, which was the section
+     flashing on a click in the sidebar that changed nothing it draws. */
+  const html = out.ok === true ? out.html : ""
+  const css = out.ok === true ? out.css : ""
+  const cssProp = useMemo(() => (css ? { __html: css } : null), [css])
+  /*
+    AND A REAL EDIT CHANGES ONLY WHAT IT CHANGED. React is given the markup
+    this section first drew, once, and never a new object after it, so React
+    never writes `innerHTML` again. A new string is applied below as a change
+    (lib/website-builder/morph-html): typing into the heading changes the
+    heading's text, and the picture beside it stays the same decoded <img>.
+    The server's markup and the first paint are still React's, unchanged.
+  */
+  const [htmlProp] = useState(() => ({ __html: html }))
+  useLayoutEffect(() => {
+    if (!scriptRoot) return
+    /* What this element holds: the first markup when React has just drawn it. */
+    const holds = drawn.get(scriptRoot) ?? htmlProp.__html
+    if (holds === html) return
+    morphInto(scriptRoot, html)
+    drawn.set(scriptRoot, html)
+  }, [scriptRoot, html, htmlProp])
   const script = out.ok === true ? out.script ?? null : null
   useSectionScript(
     script

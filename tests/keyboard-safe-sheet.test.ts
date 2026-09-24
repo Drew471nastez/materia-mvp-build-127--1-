@@ -410,7 +410,7 @@ function main() {
   const guard = read("components/platform/keyboard-guard.tsx")
   check(
     "the document-level fallback is skipped under the app shell",
-    /if \(!scrollContainer\) \{[\s\S]{0,1200}?classList\.contains\("app-layout"\)\) return[\s\S]{0,200}?scrollIntoView/.test(guard),
+    /if \(!scrollContainer\) \{[\s\S]{0,1200}?classList\.contains\("app-layout"\)\) return[\s\S]{0,1200}?scrollIntoView/.test(guard),
     "scrollIntoView on a pinned document is a shudder, not a scroll",
   )
   check("and the scroller walk above it is untouched", /const scrollContainer = findScrollableAncestor\(active\)/.test(guard))

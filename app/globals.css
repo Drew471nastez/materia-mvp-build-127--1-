@@ -1135,6 +1135,14 @@ html.capacitor body {
   .wb-settings-in {
     animation: wb-settings-in 220ms cubic-bezier(0.32, 0.72, 0, 1) both;
   }
+  /* Website Settings, one subject to the next: a quick fade in place. */
+  .wb-settings-swap {
+    animation: wb-settings-swap 140ms ease-out both;
+  }
+  @keyframes wb-settings-swap {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
   @keyframes wb-settings-in {
     from { opacity: 0; transform: translateY(8px) scale(0.985); }
     to { opacity: 1; transform: none; }
@@ -1229,6 +1237,7 @@ html.capacitor body {
   }
   @media (prefers-reduced-motion: reduce) {
     .wb-settings-in,
+    .wb-settings-swap,
     .wb-settings-out,
     .wb-scrim-in,
     .wb-scrim-out,
@@ -2178,6 +2187,19 @@ html.capacitor body {
   [contenteditable="true"] {
     font-size: 16px !important;
   }
+}
+
+/* ── A FIELD ON A WEBSITE IS NEVER BROUGHT UP UNDER ITS STICKY HEADER ────────
+   When the browser scrolls to a focused field on a published website, it
+   brings it just into view, which with a sticky header on top can be just
+   under that header. This leaves the room a header takes, and a little under
+   the field for the keyboard's edge. It only matters when the page moves;
+   a field already in view does not move for it. `storelib-site`:
+   components/website-builder/site-document.
+   ──────────────────────────────────────────────────────────────────────────── */
+html.storelib-site :is(input, textarea, select, [contenteditable="true"]) {
+  scroll-margin-top: 96px;
+  scroll-margin-bottom: 24px;
 }
 
 /* ── Keyboard-open: zero out body + scroll-container bottom padding ──────────
