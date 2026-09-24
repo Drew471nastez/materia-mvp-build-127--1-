@@ -1,137 +1,89 @@
-import { type NextRequest, NextResponse } from "next/server"
+/**
+ * ===========================================================================
+ *  A LINK IN A CAMPAIGN: COUNT THE CLICK, THEN GO WHERE THE LINK WENT
+ * ===========================================================================
+ * GET ?url=<base64 of the link>&t=<recipient's tracking token>
+ *
+ * This used to redirect to whatever the url parameter said. A redirector on
+ * storelib.com that goes anywhere is a phishing tool: "storelib.com/api/..."
+ * in a link looks safe and lands on any page an attacker likes. Now the
+ * target must be a link that is actually in the email that token belongs to
+ * (appearsIn), or on storelib.com itself. Anything else goes to the home
+ * page.
+ *
+ * The click is recorded after the response (after()), so the reader is never
+ * kept waiting on the database.
+ */
+import { type NextRequest, NextResponse, after } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { maskEmail } from "@/lib/privacy/mask-email"
+import { appearsIn } from "@/lib/email-campaigns/links"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
-// GET - Handle click tracking redirects
+const TOKEN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+/* storelib.com itself, not its subdomains: those are sites creators publish. */
+const OWN_HOST = /^(www\.)?storelib\.com$/i
+
+function decodeTarget(raw: string | null): string | null {
+  if (!raw) return null
+  try {
+    const url = Buffer.from(raw, "base64").toString("utf-8")
+    const u = new URL(url)
+    return u.protocol === "http:" || u.protocol === "https:" ? u.toString() : null
+  } catch {
+    return null
+  }
+}
+
 export async function GET(request: NextRequest) {
-  const searchParams = request.nextUrl.searchParams
-  const encodedUrl = searchParams.get("url")
-  const token = searchParams.get("t") // tracking_token
-  const campaignId = searchParams.get("cid")
-  const email = searchParams.get("e")
+  const home = new URL("/", request.url)
+  const target = decodeTarget(request.nextUrl.searchParams.get("url"))
+  if (!target) return NextResponse.redirect(home)
+  const token = request.nextUrl.searchParams.get("t")
 
-  // If no URL, redirect to homepage
-  if (!encodedUrl) {
-    return NextResponse.redirect(new URL("/", request.url))
+  let allowed = OWN_HOST.test(new URL(target).hostname)
+  let recipient: { id: string; campaign_id: string; creator_id: string; email: string; clicked_at: string | null; click_count: number | null } | null = null
+  if (token && TOKEN.test(token)) {
+    try {
+      const db = createAdminClient()
+      const { data } = await db.from("campaign_recipients").select("id, campaign_id, creator_id, email, clicked_at, click_count").eq("tracking_token", token).maybeSingle()
+      recipient = data
+      if (recipient && !allowed) {
+        const { data: campaign } = await db.from("email_campaigns").select("body").eq("id", recipient.campaign_id).maybeSingle()
+        allowed = typeof campaign?.body === "string" && appearsIn(campaign.body, target)
+      }
+    } catch {
+      /* Could not check: only our own pages are safe to send them to. */
+    }
   }
+  if (!allowed) return NextResponse.redirect(home)
 
-  // Decode the URL
-  let targetUrl: string
-  try {
-    targetUrl = Buffer.from(encodedUrl, "base64").toString("utf-8")
-  } catch {
-    targetUrl = encodedUrl
-  }
-
-  // Validate URL
-  try {
-    new URL(targetUrl)
-  } catch {
-    return NextResponse.redirect(new URL("/", request.url))
-  }
-
-  // Track the click asynchronously
-  if (token || (campaignId && email)) {
-    trackClick(
-      token,
-      campaignId,
-      email ? decodeURIComponent(email) : null,
-      targetUrl,
-      request
-    ).catch(err => {
-      console.error("[track/click] Error:", err)
+  if (recipient) {
+    const r = recipient
+    const userAgent = request.headers.get("user-agent")?.slice(0, 300) || null
+    after(async () => {
+      try {
+        const db = createAdminClient()
+        const now = new Date().toISOString()
+        await db
+          .from("campaign_recipients")
+          .update({ click_count: (r.click_count || 0) + 1, ...(r.clicked_at ? {} : { clicked_at: now }) })
+          .eq("id", r.id)
+        await db.from("email_events").insert({
+          campaign_id: r.campaign_id,
+          recipient_id: r.id,
+          creator_id: r.creator_id,
+          email: r.email,
+          event_type: "clicked",
+          url: target.slice(0, 2000),
+          user_agent: userAgent,
+          metadata: { clicked_at: now },
+        })
+      } catch (err) {
+        console.error("[track/click] not recorded:", err instanceof Error ? err.message : "unknown error")
+      }
     })
   }
-
-  // Redirect to the target URL
-  return NextResponse.redirect(targetUrl)
-}
-
-async function trackClick(
-  token: string | null,
-  campaignId: string | null,
-  email: string | null,
-  url: string,
-  request: NextRequest
-) {
-  try {
-    const adminSupabase = createAdminClient()
-    const now = new Date().toISOString()
-    const userAgent = request.headers.get("user-agent") || null
-    const ipAddress = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || null
-
-    let recipient = null
-
-    // Find recipient by token (preferred) or by campaign+email
-    if (token) {
-      const { data } = await adminSupabase
-        .from("campaign_recipients")
-        .select("id, campaign_id, creator_id, email, clicked_at, click_count")
-        .eq("tracking_token", token)
-        .single()
-      recipient = data
-    } else if (campaignId && email) {
-      const { data } = await adminSupabase
-        .from("campaign_recipients")
-        .select("id, campaign_id, creator_id, email, clicked_at, click_count")
-        .eq("campaign_id", campaignId)
-        .eq("email", email)
-        .single()
-      recipient = data
-    }
-
-    if (!recipient) {
-      console.log("[track/click] Recipient not found")
-      return
-    }
-
-    // Always increment click count
-    const newClickCount = (recipient.click_count || 0) + 1
-
-    // Update recipient record
-    if (!recipient.clicked_at) {
-      // First click
-      await adminSupabase
-        .from("campaign_recipients")
-        .update({ clicked_at: now, click_count: newClickCount })
-        .eq("id", recipient.id)
-    } else {
-      // Additional click
-      await adminSupabase
-        .from("campaign_recipients")
-        .update({ click_count: newClickCount })
-        .eq("id", recipient.id)
-    }
-
-    // Always log click events (unlike opens, we track all clicks)
-    await adminSupabase.from("email_events").insert({
-      campaign_id: recipient.campaign_id,
-      recipient_id: recipient.id,
-      creator_id: recipient.creator_id,
-      email: recipient.email,
-      event_type: "clicked",
-      url: url,
-      user_agent: userAgent,
-      ip_address: ipAddress,
-      metadata: { clicked_at: now, url: url },
-    })
-
-    console.log("[track/click] Recorded click for:", maskEmail(recipient.email), "url:", url.substring(0, 50))
-
-  } catch (error) {
-    console.error("[track/click] Error:", error)
-  }
-}
-
-export async function OPTIONS() {
-  return new NextResponse(null, {
-    status: 200,
-    headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET, OPTIONS",
-    },
-  })
+  return NextResponse.redirect(target)
 }

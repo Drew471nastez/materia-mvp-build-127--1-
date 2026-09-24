@@ -194,11 +194,10 @@ export function prepareContent(input: { subject?: unknown; preview_text?: unknow
 
 /* ─── Who it goes to ─────────────────────────────────────────────────── */
 
-export const AUDIENCES = ["all", "last_7days", "last_30days", "last_90days", "onepage", "store_builder", "segment"] as const
+export const AUDIENCES = ["all", "last_24h", "last_7days", "last_30days", "last_90days", "onepage", "store_builder", "segment"] as const
 export type AudienceType = (typeof AUDIENCES)[number]
 
 export function readAudience(type: unknown): AudienceType {
-  if (type === "last_24h") return "last_7days"
   return (AUDIENCES as readonly string[]).includes(type as string) ? (type as AudienceType) : "all"
 }
 
@@ -220,6 +219,7 @@ const SUPPRESSED = new Set(["unsubscribed", "bounced", "complained", "cleaned"])
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function applyAudience(query: any, type: AudienceType, now: number) {
   if (type === "onepage" || type === "store_builder") return query.eq("source", type)
+  if (type === "last_24h") return query.gte("subscribed_at", new Date(now - DAY).toISOString())
   if (type === "last_7days") return query.gte("subscribed_at", new Date(now - 7 * DAY).toISOString())
   if (type === "last_30days") return query.gte("subscribed_at", new Date(now - 30 * DAY).toISOString())
   if (type === "last_90days") return query.gte("subscribed_at", new Date(now - 90 * DAY).toISOString())

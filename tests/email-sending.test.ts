@@ -42,6 +42,7 @@ import { sanitizeForSend, sanitizeForStorage, visibleText } from "@/lib/email-ca
 import { checkContent, cleanSubject } from "@/lib/email-campaigns/validate"
 import { emailPlanOf, fitsPlan, monthlyLimit } from "@/lib/email-campaigns/limits"
 import { buildCampaignEmail, campaignPlainText, personalizeHtml, personalizeSubject, unknownMergeFields } from "@/lib/email-campaigns/template"
+import { appearsIn } from "@/lib/email-campaigns/links"
 import { blockIssues, hasRealContent, newBlock, renderBlocks, safeUrl, textOn, type Block } from "@/lib/email-campaigns/blocks"
 
 let passed = 0
@@ -136,6 +137,9 @@ check("click tracking leaves mailto, unsubscribe and #", (() => {
   const t = trackLinks('<a href="https://x.com/p">a</a><a href="mailto:a@b.co">m</a><a href="https://storelib.com/unsubscribe?token=1">u</a>', "tok")
   return /api\/email\/click\?url=[^"]+&amp;t=tok/.test(t) && /mailto:a@b\.co/.test(t) && /storelib\.com\/unsubscribe\?token=1/.test(t)
 })())
+
+check("the click redirect follows a link that is in the email, escaped or not", appearsIn('<a href="https://x.com/a?b=1&amp;c=2">x</a>', "https://x.com/a?b=1&c=2") && appearsIn("<a href='https://x.com/'>x</a>", "https://x.com"))
+check("and refuses one that is not", !appearsIn('<a href="https://x.com/a">x</a>', "https://evil.example/a"))
 
 console.log("\nBlocks")
 check("a link without a scheme gets https, a script link is refused", safeUrl("example.com/x") === "https://example.com/x" && safeUrl("javascript:alert(1)") === "" && safeUrl("/relative") === "")

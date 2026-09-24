@@ -5,6 +5,7 @@ import { ignoreError } from "@/lib/supabase/ignore-error"
 import { requireBearerSecret } from "@/lib/api/require-secret"
 import { automationEmail, standingOf } from "@/lib/email-automation"
 import { maskEmail } from "@/lib/privacy/mask-email"
+import { runCampaignQueue } from "@/lib/email-campaigns/queue"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -94,6 +95,14 @@ export async function GET(request: Request) {
     console.log("[cron/scheduled-emails] SMTP not configured, skipping")
     return NextResponse.json({ error: "SMTP not configured" }, { status: 500 })
   }
+
+  /*
+    Campaigns first, in a budget of their own so the flow emails below always
+    get their turn: scheduled campaigns that are due, and any send whose
+    worker ran out of time. Never throws (lib/email-campaigns/queue.ts).
+  */
+  const campaigns = await runCampaignQueue(supabaseAdmin, Date.now() + 150_000)
+  console.log(`[cron/scheduled-emails] campaigns: ${campaigns.started} started, ${campaigns.processed} worked, ${campaigns.sent} sent, ${campaigns.failedToStart} could not start`)
 
   try {
     // Get pending scheduled emails that are due
