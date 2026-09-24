@@ -40,6 +40,7 @@ import {
   rememberScroll,
   takeTraversal,
 } from "@/lib/ui/app-navigation"
+import { SHEET_CLOSE_EASE, SHEET_CLOSE_MS, SHEET_EASE, SHEET_OPEN_MS } from "@/components/ui/bottom-sheet"
 
 const root = process.cwd()
 const read = (p: string) => readFileSync(join(root, p), "utf8")
@@ -156,6 +157,18 @@ section("Sheets")
       && /useLayoutEffect\(\(\) => \{\s*const leave = leaveRef\s*return \(\) => leave\.current\(\)\s*\}, \[\]\)/.test(sheet)
       && /ghost\.setAttribute\("inert", ""\)/.test(sheet) && /a\.onfinish = done/.test(sheet))
   check("a closing sheet gives the tap back at once", /style=\{isOpen \? undefined : \{ pointerEvents: "none" \}\}/.test(sheet))
+  check("it opens over 440ms on the iOS curve and closes over 340ms on an ease in and out; a flick keeps the iOS curve",
+    SHEET_OPEN_MS === 440 && SHEET_CLOSE_MS === 340 && SHEET_EASE === "cubic-bezier(0.32, 0.72, 0, 1)" && SHEET_CLOSE_EASE === "cubic-bezier(0.4, 0, 0.2, 1)"
+      && /\}, v > 0 \? EASE : CLOSE_EASE\)/.test(sheet) && /\}, velocity > 0 \? EASE : CLOSE_EASE\)/.test(sheet))
+  check("focus moves after the slide, not on its first frames", /window\.setTimeout\(\(\) => \{\s*const panel = sheetRef\.current/.test(sheet))
+  check("what is inside a sheet is laid out and painted on its own, and the big blurred shadow is gone",
+    (sheet.match(/contain: "layout paint"/g) || []).length === 2 && !/0_-8px_40px/.test(sheet))
+  const menu = code("components/app/mobile-account-menu.tsx")
+  check("the account sheet decodes its photo ahead, and its links do not prefetch as they slide in",
+    /preloadAvatar\(avatarSrc, 40\)/.test(menu) && /prefetch=\{false\}/.test(menu) && /SHEET_OPEN_MS \+ 60/.test(menu))
+  const sheetCss = read("app/globals.css")
+  check("no sheet rule ends in a bare `*`, which restyled the whole document on every open and close",
+    !/html:has\([^{]*\) \[data-app-nav-pill\] \*/.test(sheetCss) && /\[data-app-nav-pill\] :is\(a, button, \.pointer-events-auto\)/.test(sheetCss))
   const css = read("app/globals.css")
   check("the pill is never hidden, faded or dropped under the page for a sheet",
     /html:has\(\[data-app-sheet\]\) \[data-app-nav-pill\],[\s\S]{0,200}z-index: 39;/.test(css)

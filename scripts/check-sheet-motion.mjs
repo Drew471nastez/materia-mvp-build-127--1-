@@ -344,6 +344,7 @@ for (const kind of ["open", "close"]) {
 }
 if (feelReport.open.durationMs.median < 400 || feelReport.open.durationMs.median > 480) problems.push(`an open took ${feelReport.open.durationMs.median}ms, not 420 to 460`)
 if (feelReport.close.durationMs.median < 300 || feelReport.close.durationMs.median > 380) problems.push(`a tap outside closed in ${feelReport.close.durationMs.median}ms, not 320 to 360`)
+if (feelReport.close.firstTwoFramesPct.median > 10) problems.push(`a tap outside moved the sheet ${feelReport.close.firstTwoFramesPct.median}% of the way in its first two frames: a jump, not a slide`)
 if (linkPrefetch) problems.push(`the account sheet's links asked for ${linkPrefetch} prefetches as they appeared`)
 
 await browser.close()

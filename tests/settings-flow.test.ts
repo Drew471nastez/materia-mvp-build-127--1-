@@ -203,8 +203,11 @@ section("Upgrade opens and closes")
   )
   check(
     "it is its own page: a layer over the whole shell, with the pill stepping aside under it",
-    /data-page-layer="" className="fixed inset-0 z-\[60\]/.test(read("app/app/settings/billing/upgrade/layout.tsx")) &&
-      /html:has\(\[data-page-layer\]\) \[data-app-nav-pill\] \{\s*visibility: hidden;/.test(css),
+    /* The shared layer (components/app/page-layer.tsx): over the header (50), under the pill (55), which it hides. */
+    /<PageLayer inset="white">/.test(read("app/app/settings/billing/upgrade/layout.tsx")) &&
+      /data-page-layer=\{pill \? "pill" : ""\}/.test(read("components/app/page-layer.tsx")) &&
+      /fixed inset-0 z-\[52\]/.test(read("components/app/page-layer.tsx")) &&
+      /html:has\(\[data-page-layer=""\]\) \[data-app-nav-pill\] \{\s*visibility: hidden;/.test(css),
   )
   check(
     "and it arrives and leaves on the shell's landing, not animations of its own",

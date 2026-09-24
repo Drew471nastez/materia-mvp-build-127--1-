@@ -620,6 +620,17 @@ export function BottomSheet({
             {shownRef.current}
           </div>
         )}
+        {/*
+          THE SKIRT. The sheet's own colour, carried on below where the sheet
+          ends. Nothing here is ever meant to be seen: it is what is there
+          instead of the scrim when the sheet is lifted by a pull, by a
+          keyboard, or by a phone deciding its safe area is bigger than it
+          said. Out of the layout, so it changes nothing above it.
+        */}
+        <div
+          aria-hidden
+          style={{ position: "absolute", left: 0, right: 0, top: "100%", height: 160, background: "inherit" }}
+        />
       </div>
     </div>,
     document.body,
