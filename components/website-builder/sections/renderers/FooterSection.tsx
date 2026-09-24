@@ -335,17 +335,28 @@ export function FooterSection({
           </div>
         )}
 
+        {/*
+          THE BOTTOM LINE IS A ROW OF TWO, not a sentence with a button in it.
+          "Cookie preferences" used to follow the copyright inline, a margin
+          apart and a shade fainter, so a long copyright line wrapped it under
+          itself at whatever point the words ran out. It is the copyright's
+          equal now: same size, same colour, same baseline, on the right, and
+          under it (still left aligned, like the rest of this footer) when the
+          two do not fit on one line.
+        */}
         <div
-          className="mt-8 border-t pt-5 text-[12px]"
+          className="mt-8 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1 border-t pt-5 text-[12px] leading-5"
           style={{ borderColor: divider, color: textColor }}
+          data-footer-bottom
         >
-          {str(s.copyright, `© ${new Date().getFullYear()} ${str(s.logo_text, theme.brand_name ?? "My Store")}`)}
+          <span>{str(s.copyright, `© ${new Date().getFullYear()} ${str(s.logo_text, theme.brand_name ?? "My Store")}`)}</span>
           {/* How a visitor changes their cookie choice later: as easy as making it. */}
           <button
             type="button"
             onClick={() => openCookiePreferences()}
-            className="ml-3 underline-offset-2 opacity-80 hover:underline hover:opacity-100"
+            className="cursor-pointer border-0 bg-transparent p-0 text-left underline-offset-2 hover:underline"
             style={{ color: textColor }}
+            data-cookie-preferences
           >
             Cookie preferences
           </button>

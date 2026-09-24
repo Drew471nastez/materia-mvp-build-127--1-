@@ -36,6 +36,7 @@ import { SectionRenderer, type ProductData } from "@/components/store-builder/se
 import { ProductAboutSection } from "@/components/store-builder/unified-section-renderer"
 import { DynamicFavicon } from "@/components/store-builder/dynamic-favicon"
 import { LiveProductCreatorBar } from "@/components/store-builder/product-creator-bar"
+import { creatorPageHref } from "@/lib/navigation/back-plan"
 import { DiscoverStickyWrapper } from "@/components/store-builder/discover-sticky-wrapper"
 import { LiveStickyAddToCart } from "@/components/store-builder/sticky-add-to-cart"
 import type { Section, ProductHeaderSettings } from "@/lib/store-builder/types"
@@ -949,7 +950,11 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
       <div className="lg:col-span-3 min-w-0 w-full">
         {/* Back button above product cover image — always visible on Capacitor native,
             on web only when ?recommended=1 (e.g. clicked from More From Seller section) */}
-        <DiscoverBackBreadcrumb showOnWeb={showDiscoverBreadcrumb} />
+        <DiscoverBackBreadcrumb
+          showOnWeb={showDiscoverBreadcrumb}
+          creatorHref={creatorPageHref(creatorUsername)}
+          creatorName={creatorProfile?.display_name || creator?.name || undefined}
+        />
         {galleryImages.length > 0 || videoFileUrl || youtubeUrls.length > 0 ? (
           <ProductGallery
             images={galleryImages}

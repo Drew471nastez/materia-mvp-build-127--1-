@@ -349,7 +349,7 @@ check(
 check(
   "an account that published, messaged, ordered or was cleared is spared",
   purge.includes('spam_state === "clear"') &&
-    purge.includes('.eq("status", "published")') &&
+    (purge.includes('.eq("status", "published")') || purge.includes('p.status === "published"')) &&
     purge.includes('.from("messages")') &&
     purge.includes('.from("orders")'),
   "        app/api/admin/spam-purge/route.ts",
@@ -748,7 +748,7 @@ check(
     const bare = (branch.match(/await\s+admin\s*\n?\s*\.from\(/g) ?? []).length
     return (
       /async function must</.test(moderate) &&
-      /if \(error\) throw new Error/.test(moderate) &&
+      /if \(error\) \{?[\s\S]{0,120}throw new Error/.test(moderate) &&
       /await must\(/.test(branch) &&
       bare === 0
     )

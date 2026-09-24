@@ -189,7 +189,9 @@ export function MarketingFooter() {
                   </Link>
                 ),
               )}
-              <button type="button" onClick={() => openCookiePreferences()} className={linkClass}>
+              {/* One of the Support links: the same class, so the same size,
+                  colour, line height and left edge as the four above it. */}
+              <button type="button" onClick={() => openCookiePreferences()} className={`${linkClass} cursor-pointer p-0`} data-cookie-preferences>
                 Cookie Preferences
               </button>
             </div>

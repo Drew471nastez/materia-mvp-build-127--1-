@@ -30,7 +30,23 @@ export function AppHistoryTracker() {
     return () => window.removeEventListener("popstate", onPop)
   }, [])
 
+  /*
+    A REPLACE IS NOT A PAGE BEHIND THIS ONE. router.replace changes the path
+    without adding a history entry (a sign in finishing, the app's start
+    screen), and counting it told the product page's back arrow there was a
+    page of ours to go back to when there was not. Until this document has
+    gone back once it is at the end of its history, where every push makes
+    the history longer; a path change that did not is a replace. After a
+    back a push can leave the length alone, so from then on every change
+    counts, as before.
+  */
+  const length = useRef(typeof window === "undefined" ? 0 : window.history.length)
+  const poppedOnce = useRef(false)
+
   useEffect(() => {
+    const now = window.history.length
+    const grew = now > length.current
+    length.current = now
     if (first.current) {
       first.current = false
       lastPath.current = pathname
@@ -38,7 +54,12 @@ export function AppHistoryTracker() {
     }
     if (returning.current) {
       returning.current = false
+      poppedOnce.current = true
       notePopNavigation()
+      lastPath.current = pathname
+      return
+    }
+    if (!grew && !poppedOnce.current) {
       lastPath.current = pathname
       return
     }

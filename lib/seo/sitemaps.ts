@@ -36,6 +36,7 @@ import { STORELIB_CATEGORIES, categoryToSlug } from "@/lib/blog-categories"
 import { CATEGORIES } from "@/lib/marketplace/categories"
 import { getLinksShareUrl, getMainDomain, getProductShareUrl } from "@/lib/url-helpers"
 import { DEV_PAGES, devPath } from "@/lib/developers/pages"
+import { HELP_ARTICLES, HELP_CATEGORIES, helpArticlePath } from "@/lib/help/articles"
 import {
   SITEMAP_CHUNK,
   creatorIndexable,
@@ -159,6 +160,14 @@ export async function pagesSitemap(): Promise<SitemapEntry[]> {
     ...DEV_PAGES.map((p) => ({
       url: `${BASE}${devPath(p.slug)}`,
     })),
+    /*
+      The Help Center, from the list its pages are built from
+      (lib/help/articles), for the same reason: an article added there is
+      here too. /help/search is left out on purpose; it is not indexed.
+    */
+    { url: `${BASE}/help` },
+    ...HELP_CATEGORIES.map((c) => ({ url: `${BASE}/help/${c.slug}` })),
+    ...HELP_ARTICLES.map((a) => ({ url: `${BASE}${helpArticlePath(a)}` })),
   ]
 
   /**

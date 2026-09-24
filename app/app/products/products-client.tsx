@@ -8,7 +8,9 @@ import { Plus, Package, Search, X, Trash2, AlertTriangle, Download } from "lucid
 import { getProductUrl } from "@/lib/url-helpers"
 import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
 import { cn } from "@/lib/utils"
-import { GUTTER, LIST_WIDTH, PaneBar, RowMenuButton, StatusBadge, buttonAccent, buttonSecondary, card, iconButton } from "../orders/order-parts"
+import { useRouter } from "next/navigation"
+import { GUTTER, LIST_BAR, LIST_WIDTH, PaneBar, RowMenuButton, StatusBadge, buttonAccent, buttonSecondary, card, iconButton } from "../orders/order-parts"
+import { ProductsSubnav } from "./products-subnav"
 import { createClient } from "@/lib/supabase/client"
 import { useLanguage } from "@/lib/i18n"
 import { STORELIB_LOGO } from "@/lib/brand/logo"
@@ -26,7 +28,15 @@ interface Product {
   archived?: boolean
   description?: string | null
   includes_community?: boolean
+  sales_count?: number | null
 }
+
+/** A thumb's size on a phone, the Orders size from 768px. */
+const NEW_BUTTON = "max-md:h-11 max-md:rounded-xl max-md:px-4 max-md:text-[15px]"
+const TOOL_BUTTON = "max-md:h-10 max-md:w-10 max-md:rounded-[10px]"
+
+/** `router.prefetch`'s full kind: the page's data too, not only its shell. */
+const FULL_PREFETCH = { kind: "full" } as unknown as Parameters<ReturnType<typeof useRouter>["prefetch"]>[1]
 
 interface ProductsClientProps {
   products: Product[]
@@ -349,6 +359,54 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
     all: products.filter(p => !p.archived && p.status !== "archived").length,
   }
 
+  /*
+    OPENING A PRODUCT BEFORE IT IS PRESSED. The editor is a server page that
+    reads the product, its files and its variants; a full prefetch fetches
+    that whole payload when the pointer arrives (a hover on a computer, the
+    finger going down on a phone), so the press itself has nothing left to
+    wait for. Once per product per visit, and a pointer only passing over
+    a row on its way somewhere else does not count: it has to rest on it.
+  */
+  const router = useRouter()
+  const warmed = useRef(new Set<string>())
+  const warm = (id: string) => {
+    if (warmed.current.has(id)) return
+    warmed.current.add(id)
+    router.prefetch(`/app/products/${id}`, FULL_PREFETCH)
+  }
+  const resting = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const hover = (id: string) => ({
+    onMouseEnter: () => {
+      if (resting.current) clearTimeout(resting.current)
+      resting.current = setTimeout(() => warm(id), 80)
+    },
+    onMouseLeave: () => {
+      if (resting.current) clearTimeout(resting.current)
+    },
+  })
+
+  const statusOf = (product: Product) => {
+    const archived = product.archived || product.status === "archived"
+    return archived ? (
+      <StatusBadge tone="neutral">Archived</StatusBadge>
+    ) : product.status === "published" ? (
+      <StatusBadge tone="success">Active</StatusBadge>
+    ) : (
+      <StatusBadge tone="neutral">Draft</StatusBadge>
+    )
+  }
+
+  const actionsFor = (product: Product) => {
+    const archived = product.archived || product.status === "archived"
+    return [
+      { label: t("common.view"), href: getProductUrl(creatorUsername, product.slug), target: "_blank" as const },
+      { label: t("products.share"), onClick: () => handleShare(product) },
+      { label: archived ? t("products.restore") : t("products.archive"), onClick: () => handleArchive(product), separatorBefore: true },
+      { label: t("products.duplicate"), onClick: () => handleDuplicate(product) },
+      { label: "Delete", variant: "destructive" as const, separatorBefore: true, onClick: () => handleDeleteClick(product) },
+    ]
+  }
+
   return (
     <div className="orders-pane h-full overflow-y-auto overflow-x-hidden page-scroll bg-[#f8f9fa] app-page-enter">
       {/* Notification Toast */}
@@ -363,42 +421,46 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
       {/*
         THE ORDERS PAGE'S LANGUAGE (app/app/orders/order-parts.tsx): the pane's
         bar with the page's one action, then one card whose toolbar holds the
-        views, search and export, over a dense table. One table for every
-        width: on a phone it scrolls sideways under a Product column that
-        stays put, where it used to be a second, different list of cards.
+        views, search and export. On a computer the card holds a dense table;
+        under 768px it holds a list drawn for a phone instead: a picture you
+        can see, the whole name, and the price and status under it, one row
+        per press. The table used to scroll sideways there under a pinned
+        column, which cut Status off at the edge of the screen.
       */}
-      <PaneBar width={LIST_WIDTH} className="flex min-h-[60px] items-center justify-between gap-3 py-2">
+      <PaneBar width={LIST_WIDTH} className={LIST_BAR}>
         <h1 className="text-[24px] font-bold text-[#1a1a2e] sm:text-[28px]">{t("products.title")}</h1>
-        <Link href="/app/products/new" className={buttonAccent}>
-          <Plus className="h-4 w-4" />
+        <Link href="/app/products/new" className={cn(buttonAccent, NEW_BUTTON)}>
+          <Plus className="h-[18px] w-[18px] md:h-4 md:w-4" />
           {t("products.newProduct")}
         </Link>
       </PaneBar>
 
       <div className={cn("mx-auto pb-24 md:pb-8", LIST_WIDTH, GUTTER)}>
+        <ProductsSubnav active="products" />
         <section aria-label="Products" className={cn(card, "mt-4 overflow-hidden")}>
-          <div className="flex h-12 items-center gap-2 border-b border-[#eef0f2] px-2">
+          <div className="flex h-[52px] items-center gap-1.5 border-b border-[#eef0f2] px-2 md:h-12 md:gap-2">
             {isSearchOpen ? (
               <>
-                <label className="flex h-8 min-w-0 flex-1 items-center gap-2 rounded-lg border border-[#d5d7dd] bg-white px-2.5 focus-within:border-[#1a1a2e] focus-within:shadow-[0_0_0_1px_#1a1a2e]">
+                <label className="flex h-10 min-w-0 flex-1 items-center gap-2 rounded-[10px] border border-[#d5d7dd] bg-white px-3 focus-within:border-[#1a1a2e] focus-within:shadow-[0_0_0_1px_#1a1a2e] md:h-8 md:rounded-lg md:px-2.5">
                   <Search className="h-4 w-4 shrink-0 text-[#6b7280]" />
                   <input
                     ref={searchInputRef}
                     type="search"
+                    enterKeyHint="search"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Search products"
-                    className="min-w-0 flex-1 bg-transparent text-[16px] text-[#1a1a2e] outline-none placeholder:text-[#9ca3af] sm:text-[13px] [&::-webkit-search-cancel-button]:hidden"
+                    className="min-w-0 flex-1 bg-transparent text-[16px] text-[#1a1a2e] outline-none placeholder:text-[#9ca3af] md:text-[13px] [&::-webkit-search-cancel-button]:hidden"
                   />
                   {searchQuery ? (
-                    <button type="button" aria-label="Clear search" className="text-[#9ca3af] hover:text-[#4b5563]" onClick={() => setSearchQuery("")}>
+                    <button type="button" aria-label="Clear search" className="-mr-1 flex h-8 w-8 items-center justify-center text-[#9ca3af] hover:text-[#4b5563] md:h-6 md:w-6" onClick={() => setSearchQuery("")}>
                       <X className="h-4 w-4" />
                     </button>
                   ) : null}
                 </label>
                 <button
                   type="button"
-                  className="h-8 shrink-0 rounded-lg px-2.5 text-[13px] font-medium text-[#1a1a2e] hover:bg-[#f1f2f4]"
+                  className="h-10 shrink-0 rounded-lg px-3 text-[15px] font-medium text-[#1a1a2e] hover:bg-[#f1f2f4] md:h-8 md:px-2.5 md:text-[13px]"
                   onClick={() => {
                     setSearchQuery("")
                     setIsSearchOpen(false)
@@ -420,7 +482,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                         aria-selected={selected}
                         onClick={() => setActiveTab(option.value)}
                         className={cn(
-                          "inline-flex h-8 shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-lg px-3 text-[13px] font-medium transition-colors duration-100",
+                          "inline-flex h-9 shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-[10px] px-3 text-[14px] font-medium transition-colors duration-100 md:h-8 md:rounded-lg md:text-[13px]",
                           selected ? "bg-[#eceef1] text-[#1a1a2e]" : "text-[#4b5563] hover:bg-[#f4f5f7]",
                         )}
                       >
@@ -430,15 +492,15 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                     )
                   })}
                 </div>
-                <button type="button" aria-label="Search products" className={iconButton} onClick={() => setIsSearchOpen(true)}>
-                  <Search className="h-4 w-4" />
+                <button type="button" aria-label="Search products" className={cn(iconButton, TOOL_BUTTON)} onClick={() => setIsSearchOpen(true)}>
+                  <Search className="h-[18px] w-[18px] md:h-4 md:w-4" />
                 </button>
                 <ResponsiveActionMenu
                   title="Export"
                   align="end"
                   trigger={
-                    <button type="button" aria-label="Export products" className={iconButton}>
-                      <Download className="h-4 w-4" />
+                    <button type="button" aria-label="Export products" className={cn(iconButton, TOOL_BUTTON)}>
+                      <Download className="h-[18px] w-[18px] md:h-4 md:w-4" />
                     </button>
                   }
                   items={[
@@ -451,78 +513,99 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
           </div>
 
           {filteredProducts.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[500px] border-collapse">
+            <>
+              {/* A PHONE: one row per product, and the whole row is the press. */}
+              <ul aria-label="Products" className="divide-y divide-[#f1f2f4] md:hidden">
+                {filteredProducts.map((product) => (
+                  <li key={product.id} className="relative flex min-h-[80px] items-center gap-3 py-3 pl-4 pr-1.5 has-[a:active]:bg-[#f6f7f8]">
+                    <Link
+                      href={`/app/products/${product.id}`}
+                      aria-label={product.title}
+                      onTouchStart={() => warm(product.id)}
+                      {...hover(product.id)}
+                      className="absolute inset-0 z-0 outline-none focus-visible:shadow-[inset_0_0_0_2px_#8b5cf6]"
+                    />
+                    <span className="pointer-events-none relative h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-[#eef0f2] bg-[#f3f4f6]">
+                      {product.thumbnail_url ? (
+                        <Image src={product.thumbnail_url} alt="" fill sizes="56px" className="object-cover" />
+                      ) : (
+                        <span className="flex h-full items-center justify-center">
+                          <Package className="h-5 w-5 text-[#9ca3af]" />
+                        </span>
+                      )}
+                    </span>
+                    <span className="pointer-events-none min-w-0 flex-1">
+                      <span className="line-clamp-2 break-words text-[15px] font-medium leading-5 text-[#1a1a2e]">{product.title}</span>
+                      <span className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] leading-5 text-[#6b7280]">
+                        <span className="tabular-nums text-[#1a1a2e]">{formatPrice(product.price_cents)}</span>
+                        {statusOf(product)}
+                        {product.sales_count ? <span className="tabular-nums">{product.sales_count} sold</span> : null}
+                      </span>
+                    </span>
+                    <ResponsiveActionMenu
+                      title={product.title}
+                      align="end"
+                      trigger={<RowMenuButton label={`Actions for ${product.title}`} className="relative z-[1] h-11 w-11 rounded-xl" />}
+                      items={actionsFor(product)}
+                    />
+                  </li>
+                ))}
+              </ul>
+
+              {/* A COMPUTER: the table, as it was. */}
+              <table className="hidden w-full border-collapse md:table">
                 <thead className="border-b border-[#eef0f2] bg-[#fafbfb]">
                   <tr>
-                    <th className="sticky left-0 z-[1] h-9 bg-[#fafbfb] px-3 text-left text-[12px] font-medium text-[#4b5563]">Product</th>
+                    <th className="h-9 px-3 text-left text-[12px] font-medium text-[#4b5563]">Product</th>
                     <th className="h-9 px-3 text-left text-[12px] font-medium text-[#4b5563]">Status</th>
                     <th className="h-9 px-3 text-right text-[12px] font-medium text-[#4b5563]">Price</th>
                     <th className="h-9 w-[132px] px-3" aria-label="Actions" />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#f1f2f4]">
-                  {filteredProducts.map((product) => {
-                    const archived = product.archived || product.status === "archived"
-                    return (
-                      <tr key={product.id} className="group hover:bg-[#fafbfb]">
-                        <td className="sticky left-0 z-[1] h-14 bg-white px-3 group-hover:bg-[#fafbfb]">
-                          {/* The limit is on the link: a table cell's own max-width is ignored.
-                              Narrow on a phone, so the columns scrolling under it still show. */}
-                          <Link href={`/app/products/${product.id}`} className="flex min-w-0 max-w-[170px] items-center gap-3 sm:max-w-[320px]">
-                            <span className="relative h-10 w-10 shrink-0 overflow-hidden rounded-lg border border-[#eef0f2] bg-[#f3f4f6]">
-                              {product.thumbnail_url ? (
-                                <Image src={product.thumbnail_url} alt="" fill sizes="40px" className="object-cover" />
-                              ) : (
-                                <span className="flex h-full items-center justify-center">
-                                  <Package className="h-4 w-4 text-[#9ca3af]" />
-                                </span>
-                              )}
-                            </span>
-                            <span className="truncate text-[13px] font-medium text-[#1a1a2e]">{product.title}</span>
+                  {filteredProducts.map((product) => (
+                    <tr key={product.id} className="group hover:bg-[#fafbfb]" {...hover(product.id)}>
+                      <td className="h-14 px-3">
+                        {/* The limit is on the link: a table cell's own max-width is ignored. */}
+                        <Link href={`/app/products/${product.id}`} className="flex min-w-0 max-w-[320px] items-center gap-3">
+                          <span className="relative h-10 w-10 shrink-0 overflow-hidden rounded-lg border border-[#eef0f2] bg-[#f3f4f6]">
+                            {product.thumbnail_url ? (
+                              <Image src={product.thumbnail_url} alt="" fill sizes="40px" className="object-cover" />
+                            ) : (
+                              <span className="flex h-full items-center justify-center">
+                                <Package className="h-4 w-4 text-[#9ca3af]" />
+                              </span>
+                            )}
+                          </span>
+                          <span className="truncate text-[13px] font-medium text-[#1a1a2e]">{product.title}</span>
+                        </Link>
+                      </td>
+                      <td className="h-14 whitespace-nowrap px-3">{statusOf(product)}</td>
+                      <td className="h-14 whitespace-nowrap px-3 text-right text-[13px] tabular-nums text-[#1a1a2e]">{formatPrice(product.price_cents)}</td>
+                      <td className="h-14 whitespace-nowrap px-2 text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <Link href={`/app/products/${product.id}`} className={buttonSecondary}>
+                            {t("products.edit")}
                           </Link>
-                        </td>
-                        <td className="h-14 whitespace-nowrap px-3">
-                          {archived ? (
-                            <StatusBadge tone="neutral">Archived</StatusBadge>
-                          ) : product.status === "published" ? (
-                            <StatusBadge tone="success">Active</StatusBadge>
-                          ) : (
-                            <StatusBadge tone="neutral">Draft</StatusBadge>
-                          )}
-                        </td>
-                        <td className="h-14 whitespace-nowrap px-3 text-right text-[13px] tabular-nums text-[#1a1a2e]">{formatPrice(product.price_cents)}</td>
-                        <td className="h-14 whitespace-nowrap px-2 text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            <Link href={`/app/products/${product.id}`} className={buttonSecondary}>
-                              {t("products.edit")}
-                            </Link>
-                            <ResponsiveActionMenu
-                              title={product.title}
-                              align="end"
-                              trigger={<RowMenuButton label={`Actions for ${product.title}`} />}
-                              items={[
-                                { label: t("common.view"), href: getProductUrl(creatorUsername, product.slug), target: "_blank" },
-                                { label: t("products.share"), onClick: () => handleShare(product) },
-                                { label: archived ? t("products.restore") : t("products.archive"), onClick: () => handleArchive(product), separatorBefore: true },
-                                { label: t("products.duplicate"), onClick: () => handleDuplicate(product) },
-                                { label: "Delete", variant: "destructive", separatorBefore: true, onClick: () => handleDeleteClick(product) },
-                              ]}
-                            />
-                          </div>
-                        </td>
-                      </tr>
-                    )
-                  })}
+                          <ResponsiveActionMenu
+                            title={product.title}
+                            align="end"
+                            trigger={<RowMenuButton label={`Actions for ${product.title}`} />}
+                            items={actionsFor(product)}
+                          />
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
-            </div>
+            </>
           ) : (
             <div className="flex flex-col items-center px-6 py-14 text-center">
               <p className="text-[15px] font-semibold text-[#1a1a2e]">
                 {searchQuery ? "No products match" : activeTab === "archived" ? "No archived products" : "No products yet"}
               </p>
-              <p className="mt-1 max-w-[340px] text-[13px] text-[#6b7280]">
+              <p className="mt-1 max-w-[340px] text-[14px] text-[#6b7280] md:text-[13px]">
                 {searchQuery
                   ? "Try another name."
                   : activeTab === "archived"
@@ -530,8 +613,8 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                     : "Create a product and it can be sold on your page and your website."}
               </p>
               {!searchQuery && activeTab !== "archived" ? (
-                <Link href="/app/products/new" className={cn(buttonAccent, "mt-4")}>
-                  <Plus className="h-4 w-4" />
+                <Link href="/app/products/new" className={cn(buttonAccent, NEW_BUTTON, "mt-4")}>
+                  <Plus className="h-[18px] w-[18px] md:h-4 md:w-4" />
                   Create product
                 </Link>
               ) : null}

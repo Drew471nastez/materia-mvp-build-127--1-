@@ -2,7 +2,7 @@
 
 import { useSearchParams } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { GUTTER, LIST_WIDTH, PaneBar } from "../order-parts"
+import { GUTTER, LIST_BAR, LIST_WIDTH, PaneBar } from "../order-parts"
 import { OrderSkeleton } from "../order-skeleton"
 
 /**
@@ -35,7 +35,7 @@ export default function OrdersLoading() {
   return (
     <div className="orders-stage relative h-full overflow-hidden bg-[#f8f9fa] skeleton-late">
       <div className="orders-pane absolute inset-0 overflow-hidden">
-        <PaneBar width={LIST_WIDTH} className="flex min-h-[60px] items-center justify-between gap-3 py-2">
+        <PaneBar width={LIST_WIDTH} className={LIST_BAR}>
           <div className={`${bone} h-7 w-28`} />
           <div className={`${bone} h-8 w-[92px] rounded-lg`} />
         </PaneBar>

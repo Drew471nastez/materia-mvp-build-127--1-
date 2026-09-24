@@ -1252,7 +1252,7 @@ function main() {
     check("and the label the creator typed", productPage.includes("creatorBarLabel") && /buttonLabel\?\.trim\(\)/.test(bar))
     check(
       "it carries a way back",
-      /<BackControl onBack=\{goBack\}/.test(live) && /window\.history\.back\(\)/.test(bar),
+      /<BackControl onBack=\{goBack\} href=\{fallbackHref\(creatorHref\)\}/.test(live) && /goBackOr\(/.test(bar) && /window\.history\.back\(\)/.test(code("lib/navigation/go-back.ts")),
     )
     /*
       The fallback is a router.push now, not an assignment to location. Same
@@ -1268,10 +1268,15 @@ function main() {
       production that path is 2.0 to 3.5 seconds of the same page, which is why
       the arrow was being pressed twice. The referrer is still consulted, inside
       canReturnInApp, for a hard load that really did come from a page of ours.
+
+      THE DECISION NOW LIVES IN lib/navigation/back-plan (tests/back-plan.test.ts
+      runs it case by case): the browser's own navigation.canGoBack first, the
+      app's count after it, and a back that never shows itself goes to the
+      creator's page, so there is no spinner that lasts for ever.
     */
     check(
       "which falls back to the creator's page when there is no history of ours",
-      /if \(canReturnInApp\(\)\)/.test(bar) && /router\.push\(creatorHref\)/.test(bar),
+      /goBackOr\(target, \(href\) => \{\s*startBackTransition\(\(\) => router\.push\(href\)\)/.test(bar) && /const target = fallbackHref\(creatorHref\)/.test(bar),
     )
     /*
       AND THE TAP HAS TO ARRIVE THE FIRST TIME, which is the other half of
@@ -1337,7 +1342,7 @@ function main() {
      */
     check(
       "and it is the creator's page, not the subdomain website",
-      /return getStoreInternalPath\(sanitiseHandle\(raw\)\)/.test(bar) && !/getStoreUrl\(/.test(bar),
+      /return creatorPageHref\(creatorUsername\)/.test(bar) && /return handle \? getStoreInternalPath\(handle\) : "#"/.test(code("lib/navigation/back-plan.ts")) && !/getStoreUrl\(/.test(bar),
     )
     /**
      * The bar shipped throwing: `goBack` read `creatorHref` in a dependency

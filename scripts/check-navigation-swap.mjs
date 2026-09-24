@@ -305,8 +305,8 @@ async function main() {
     try { return { referrer: document.referrer, histLen: history.length } } catch (e) { return String(e) }
   })()`)
   report.backPressed = await ev(`(() => {
-    const b = document.querySelector('[data-product-bar="phone"] button[aria-label="Back"]')
-      || document.querySelector('button[aria-label="Back"]')
+    const b = document.querySelector('[data-product-bar="phone"] a[aria-label="Back"]')
+      || document.querySelector('a[aria-label="Back"]')
     if (!b) return false
     b.click()
     return true

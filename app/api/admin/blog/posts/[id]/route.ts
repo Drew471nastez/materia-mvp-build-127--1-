@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { adminFailure } from "@/lib/admin/gate"
 import { revalidatePath } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { isAdminAuthenticated } from "@/lib/admin-blog-auth"
@@ -22,7 +23,7 @@ export async function GET(_req: NextRequest, context: { params: Promise<{ id: st
     .eq("id", id)
     .single()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return adminFailure("blog post", error)
   return NextResponse.json(data)
 }
 
@@ -59,7 +60,7 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
     .select()
     .single()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return adminFailure("blog post", error)
 
   // Revalidate public blog pages so changes appear immediately
   revalidateBlogPages(data?.slug)
@@ -87,7 +88,7 @@ export async function DELETE(_req: NextRequest, context: { params: Promise<{ id:
     .delete()
     .eq("id", id)
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return adminFailure("blog post", error)
 
   // Revalidate public blog pages so deleted post is removed
   revalidateBlogPages(post?.slug)

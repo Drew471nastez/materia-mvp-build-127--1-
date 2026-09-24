@@ -3,6 +3,10 @@ import { NextResponse, type NextRequest } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { isAdminAuthenticated } from "@/lib/admin-blog-auth"
 import { deleteAllUserData } from "@/app/api/auth/delete-account/route"
+import { adminFailure } from "@/lib/admin/gate"
+import { recordAdminAction } from "@/lib/admin/audit"
+import { plainReason } from "@/lib/admin/plain-reason"
+import { UUID_RE } from "@/lib/admin/platform-metrics"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -80,8 +84,15 @@ export interface Selection {
   to?: string
 }
 
+/** A read that failed, kept apart from a read that found nothing. */
+class ReadFailed extends Error {
+  constructor(readonly plain: string) {
+    super(plain)
+  }
+}
+
 async function resolve(selection: Selection): Promise<string[]> {
-  if (selection.ids && selection.ids.length > 0) return selection.ids
+  if (selection.ids && selection.ids.length > 0) return selection.ids.filter((id) => UUID_RE.test(id))
   if (!selection.from && !selection.to) return []
 
   const admin = createAdminClient()
@@ -90,58 +101,94 @@ async function resolve(selection: Selection): Promise<string[]> {
   if (selection.from) query = query.gte("created_at", selection.from)
   if (selection.to) query = query.lt("created_at", selection.to)
 
-  const { data } = await query
+  const { data, error } = await query
+  if (error) throw new ReadFailed(plainReason(error, "creators"))
   return ((data as Array<{ id: string }> | null) ?? []).map((row) => row.id)
 }
 
+/**
+ * What acting on these creators would touch.
+ *
+ * ORDERS GO THROUGH PRODUCTS. This counted `orders.creator_id`, a column
+ * the orders table has never had. The count came back null, `?? 0` made it
+ * zero, and every creator read as having no orders: the one fact that stops
+ * a delete from taking buyers' receipts with it was always "none". An order
+ * belongs to a product (orders.product_id) and a product to a creator.
+ *
+ * A count that fails is not zero here either. It throws, and nothing is
+ * acted on.
+ */
 async function describe(ids: string[]): Promise<Target[]> {
   const admin = createAdminClient()
 
-  const { data: creators } = await admin
-    .from("creators")
-    .select("id, user_id, username, banned_at")
-    .in("id", ids)
+  const first = await admin.from("creators").select("id, user_id, username, banned_at").in("id", ids)
+  let creators = first.data as unknown[] | null
+  let error = first.error
+  if (error && /banned_at/.test(error.message ?? "")) {
+    /* Before RUN_ADMIN_CONSOLE.sql there is no ban column to read; the preview still works. */
+    const second = await admin.from("creators").select("id, user_id, username").in("id", ids)
+    creators = second.data as unknown[] | null
+    error = second.error
+  }
+  if (error) throw new ReadFailed(plainReason(error, "creators"))
 
   const rows = (creators ?? []) as Array<{
     id: string
     user_id: string | null
     username: string | null
-    banned_at: string | null
+    banned_at?: string | null
   }>
 
   const targets: Target[] = []
 
   for (const creator of rows) {
-    const [{ count: products }, { count: published }, { count: orders }] = await Promise.all([
-      admin.from("products").select("id", { count: "exact", head: true }).eq("creator_id", creator.id),
-      admin
-        .from("products")
+    const { data: products, error: productsError } = await admin.from("products").select("id, status").eq("creator_id", creator.id).limit(10000)
+    if (productsError) throw new ReadFailed(plainReason(productsError, "products"))
+    const productIds = (products ?? []).map((p: { id: string }) => p.id)
+
+    let orders = 0
+    for (let i = 0; i < productIds.length; i += 150) {
+      const { count, error: ordersError } = await admin
+        .from("orders")
         .select("id", { count: "exact", head: true })
-        .eq("creator_id", creator.id)
-        .eq("status", "published"),
-      admin.from("orders").select("id", { count: "exact", head: true }).eq("creator_id", creator.id),
-    ])
+        .in("product_id", productIds.slice(i, i + 150))
+      if (ordersError) throw new ReadFailed(plainReason(ordersError, "orders"))
+      orders += count ?? 0
+    }
 
     targets.push({
       creatorId: creator.id,
       userId: creator.user_id,
       username: creator.username,
-      products: products ?? 0,
-      publishedProducts: published ?? 0,
-      orders: orders ?? 0,
-      bannedAt: creator.banned_at,
-      hasOrders: (orders ?? 0) > 0,
+      products: productIds.length,
+      publishedProducts: (products ?? []).filter((p: { status: string | null }) => p.status === "published").length,
+      orders,
+      bannedAt: creator.banned_at ?? null,
+      hasOrders: orders > 0,
     })
   }
 
   return targets
 }
 
+/** A read that failed answers in plain words; anything else stays in the log. */
+function failure(where: string, thrown: unknown) {
+  if (thrown instanceof ReadFailed) return NextResponse.json({ error: `${thrown.plain} Nothing was changed.` }, { status: 500 })
+  return adminFailure(where, thrown)
+}
+
 export async function GET(request: NextRequest) {
   if (!(await isAdminAuthenticated())) {
     return NextResponse.json({ error: "Not authorised." }, { status: 401 })
   }
+  try {
+    return await preview(request)
+  } catch (thrown) {
+    return failure("moderation preview", thrown)
+  }
+}
 
+async function preview(request: NextRequest) {
   const params = new URL(request.url).searchParams
   const ids = await resolve({
     ids: (params.get("ids") ?? "")
@@ -176,7 +223,14 @@ export async function POST(request: NextRequest) {
   if (!(await isAdminAuthenticated())) {
     return NextResponse.json({ error: "Not authorised." }, { status: 401 })
   }
+  try {
+    return await act(request)
+  } catch (thrown) {
+    return failure("moderation", thrown)
+  }
+}
 
+async function act(request: NextRequest) {
   let body: {
     action?: string
     creatorIds?: string[]
@@ -275,10 +329,14 @@ async function must<T extends { error: { message: string } | null }>(
   what: string,
 ): Promise<void> {
   const { error } = await write
-  if (error) throw new Error(`Could not ${what}: ${error.message}`)
+  if (error) {
+    console.error(`[admin] moderation, ${what}:`, error.message)
+    throw new Error(`Could not ${what}. ${plainReason(error)}`)
+  }
 }
 
   const done: string[] = []
+  let unrecorded = 0
   const failed: Array<{ creatorId: string; error: string }> = []
 
   for (const target of targets) {
@@ -336,7 +394,7 @@ async function must<T extends { error: { message: string } | null }>(
        * that must outlive a delete is the record that it happened. A cascade
        * into auth.users leaves nothing else behind.
        */
-      await admin.from("admin_moderation_log").insert({
+      const { error: logError } = await admin.from("admin_moderation_log").insert({
         action,
         creator_id: target.creatorId,
         user_id: target.userId,
@@ -344,12 +402,24 @@ async function must<T extends { error: { message: string } | null }>(
         reason: body.reason ?? null,
         products_affected: action === "unban" ? 0 : target.publishedProducts,
       })
+      const recorded = await recordAdminAction(admin, {
+        action: action === "delete" ? "delete_creator" : action,
+        targetType: "creator",
+        targetId: target.creatorId,
+        targetLabel: target.username,
+        reason: body.reason ?? null,
+        detail: { user_id: target.userId, products_affected: action === "unban" ? 0 : target.publishedProducts, orders: target.orders },
+      })
+      if (logError || !recorded) unrecorded++
 
       done.push(target.creatorId)
     } catch (thrown) {
+      /* must() throws plain sentences; anything else is logged and summarised. */
+      const plain = thrown instanceof Error && thrown.message.startsWith("Could not ")
+      if (!plain) console.error("[admin] moderation:", thrown instanceof Error ? thrown.message : "unknown")
       failed.push({
         creatorId: target.creatorId,
-        error: thrown instanceof Error ? thrown.message : "Failed.",
+        error: plain ? (thrown as Error).message : "Failed. The server log has the details.",
       })
     }
   }
@@ -359,5 +429,6 @@ async function must<T extends { error: { message: string } | null }>(
     action,
     done: done.length,
     failed,
+    notes: unrecorded ? [`${unrecorded} not written to the audit log: its table is missing. Run supabase/sql/RUN_ADMIN_CONSOLE.sql.`] : [],
   })
 }

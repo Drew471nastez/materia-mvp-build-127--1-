@@ -319,7 +319,7 @@ function main() {
   scan("app")
   /* Five: the product form's sheet stopped working the keyboard out itself
      when it became the shared sheet, which reads the published inset. */
-  check("every file that works out a keyboard height was found", scanned.length >= 5 && !scanned.includes("app/app/products/new/page.tsx"), `${scanned.length} found`)
+  check("every file that works out a keyboard height was found", scanned.length >= 5 && !scanned.includes("app/app/products/new/product-editor.tsx"), `${scanned.length} found`)
   check(
     "and every one of them falls back to the published floor",
     unshared.length === 0,
@@ -340,7 +340,7 @@ function main() {
     "bottom-sheet.tsx: the product form's sheet sits on the keyboard through the published inset",
     /\.\.\.\(aboveKeyboard \? bottomAboveKeyboard\(\) : \{\}\)/.test(read("components/ui/bottom-sheet.tsx"))
       && /calc\(var\(--vv-h, 100dvh\) - 24px\)/.test(read("components/ui/bottom-sheet.tsx"))
-      && /<BottomSheet isOpen=\{isOpen\} onClose=\{onClose\} maxHeight=\{maxHeight \?\? "85dvh"\} aboveKeyboard>/.test(read("app/app/products/new/page.tsx")),
+      && /<BottomSheet isOpen=\{isOpen\} onClose=\{onClose\} maxHeight=\{maxHeight \?\? "85dvh"\} aboveKeyboard>/.test(read("app/app/products/new/product-editor.tsx")),
   )
   /* The guard's own height variable has to follow the same number, or the
      class says a keyboard is up and the height says the screen is empty. */
@@ -454,7 +454,7 @@ function main() {
     ["components/onepage/onepage-editor.tsx", 2],
     /* The category picker is typed into; the exit dialog is not, but it is
        the same sheet and the scan above is strict about !bottom-0. */
-    ["app/app/products/new/page.tsx", 2],
+    ["app/app/products/new/product-editor.tsx", 2],
   ] as const) {
     const src = read(file)
     const used = (src.match(/\.\.\.sheetAboveKeyboard\(/g) ?? []).length

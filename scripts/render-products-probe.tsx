@@ -11,7 +11,7 @@ const PIC = "data:image/svg+xml;utf8," + encodeURIComponent('<svg xmlns="http://
 const products = Array.from({ length: 14 }, (_, i) => ({
   id: `p${i}`,
   creator_id: "c1",
-  title: i === 2 ? "The complete portrait retouching course, with every raw file and preset included" : `Product ${i + 1}`,
+  title: i === 2 ? "The complete portrait retouching course, with every raw file and preset included for the whole year" : `Product ${i + 1}`,
   type: "digital",
   price_cents: 1200 + i * 350,
   status: i % 5 === 3 ? "draft" : "published",
@@ -19,6 +19,7 @@ const products = Array.from({ length: 14 }, (_, i) => ({
   slug: `product-${i}`,
   created_at: "2026-09-01T00:00:00Z",
   archived: i === 13,
+  sales_count: i % 3 === 0 ? 12 * i : 0,
 }))
 
 createRoot(document.getElementById("app")!).render(

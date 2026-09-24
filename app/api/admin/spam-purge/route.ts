@@ -2,6 +2,8 @@ import { NextResponse, type NextRequest } from "next/server"
 
 import { createAdminClient } from "@/lib/supabase/admin"
 import { isAdminAuthenticated } from "@/lib/admin-blog-auth"
+import { adminFailure } from "@/lib/admin/gate"
+import { recordAdminAction } from "@/lib/admin/audit"
 import { deleteAllUserData } from "@/app/api/auth/delete-account/route"
 import { scoreSignup, handleSignature, BLOCK_SCORE } from "@/lib/security/spam-signals"
 
@@ -74,46 +76,77 @@ async function idsWithRealActivity(admin: ReturnType<typeof createAdminClient>, 
   if (!ids.length) return spare
 
   for (const part of chunk(ids, 200)) {
-    // Published anything, via creators.
-    const { data: creators } = await admin.from("creators").select("id, user_id").in("user_id", part)
-    const creatorIds = (creators ?? []).map((c: { id: string }) => c.id)
-    if (creatorIds.length) {
-      const { data: products } = await admin
-        .from("products")
-        .select("creator_id")
-        .in("creator_id", creatorIds)
-        .eq("status", "published")
-      const publishing = new Set((products ?? []).map((p: { creator_id: string }) => p.creator_id))
-      for (const c of creators ?? []) {
-        const row = c as { id: string; user_id: string }
-        if (publishing.has(row.id)) spare.add(row.user_id)
-      }
-    }
-
-    // Ever sent a message.
-    const { data: senders } = await admin.from("messages").select("sender_id").in("sender_id", part)
-    for (const m of senders ?? []) spare.add((m as { sender_id: string }).sender_id)
-
     /**
-     * Ever bought or sold.
+     * Ever bought.
      *
      * A FAILED check must never read as "no orders" — that inverts the safety
      * property of this whole function — so an error spares the entire chunk
      * rather than letting it through. Over-sparing leaves spam in place, which
      * containment has already defanged; under-sparing removes a customer.
      */
-    for (const col of ["buyer_id", "seller_id"] as const) {
-      try {
-        const { data, error } = await admin.from("orders").select(col).in(col, part)
-        if (error) {
-          for (const id of part) spare.add(id)
-          continue
-        }
-        for (const row of data ?? []) spare.add((row as Record<string, string>)[col])
-      } catch {
+    try {
+      const { data, error } = await admin.from("orders").select("buyer_id").in("buyer_id", part)
+      if (error) {
         for (const id of part) spare.add(id)
+        continue
+      }
+      for (const row of data ?? []) spare.add((row as { buyer_id: string }).buyer_id)
+    } catch {
+      for (const id of part) spare.add(id)
+      continue
+    }
+
+    /* The rest of the checks hold to the same rule: an error spares the chunk. */
+    const { data: creators, error: creatorsError } = await admin.from("creators").select("id, user_id").in("user_id", part)
+    if (creatorsError) {
+      for (const id of part) spare.add(id)
+      continue
+    }
+    const ownerOf = new Map((creators ?? []).map((c: { id: string; user_id: string }) => [c.id, c.user_id]))
+    const creatorIds = [...ownerOf.keys()]
+
+    if (creatorIds.length) {
+      // Published anything, or ever sold anything.
+      const { data: products, error: productsError } = await admin
+        .from("products")
+        .select("id, creator_id, status")
+        .in("creator_id", creatorIds)
+      if (productsError) {
+        for (const id of part) spare.add(id)
+        continue
+      }
+      const productOwner = new Map<string, string>()
+      for (const p of (products ?? []) as Array<{ id: string; creator_id: string; status: string | null }>) {
+        productOwner.set(p.id, p.creator_id)
+        if (p.status === "published") spare.add(ownerOf.get(p.creator_id)!)
+      }
+
+      /*
+        SOLD: orders carry no seller column. This asked orders for
+        `seller_id`, which never existed, so the query failed on every chunk
+        and the error branch spared everybody: the purge could never remove
+        anyone. A sale is an order for one of their products.
+      */
+      for (const productIds of chunk([...productOwner.keys()], 150)) {
+        const { data: sold, error: soldError } = await admin.from("orders").select("product_id").in("product_id", productIds)
+        if (soldError) {
+          for (const id of part) spare.add(id)
+          break
+        }
+        for (const o of (sold ?? []) as Array<{ product_id: string }>) {
+          const owner = ownerOf.get(productOwner.get(o.product_id) ?? "")
+          if (owner) spare.add(owner)
+        }
       }
     }
+
+    // Ever sent a message.
+    const { data: senders, error: sendersError } = await admin.from("messages").select("sender_id").in("sender_id", part)
+    if (sendersError) {
+      for (const id of part) spare.add(id)
+      continue
+    }
+    for (const m of senders ?? []) spare.add((m as { sender_id: string }).sender_id)
   }
   return spare
 }
@@ -121,12 +154,14 @@ async function idsWithRealActivity(admin: ReturnType<typeof createAdminClient>, 
 async function collectCandidates(): Promise<{ candidates: Candidate[]; scanned: number; spared: number }> {
   const admin = createAdminClient()
 
-  const { data: profiles } = await admin
+  const { data: profiles, error: profilesError } = await admin
     .from("profiles")
     .select("id, username, display_name, created_at, spam_state")
     .not("username", "is", null)
     .limit(5000)
 
+  /* A profiles read that failed is not "nobody to remove": it is a question that was not answered. */
+  if (profilesError) throw new Error(`profiles read failed: ${profilesError.code ?? ""}`)
   const rows = (profiles ?? []) as Array<Record<string, unknown>>
 
   // Score first, so the activity queries run only against accounts that are
@@ -173,7 +208,13 @@ export async function GET() {
   if (!(await isAdminAuthenticated())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
-  const { candidates, scanned, spared } = await collectCandidates()
+  let found: Awaited<ReturnType<typeof collectCandidates>>
+  try {
+    found = await collectCandidates()
+  } catch (e) {
+    return adminFailure("spam-purge preview", e, "The accounts could not be read. Nothing was changed.")
+  }
+  const { candidates, scanned, spared } = found
   return NextResponse.json({
     dryRun: true,
     scanned,
@@ -191,7 +232,12 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json().catch(() => ({}))
-  const { candidates } = await collectCandidates()
+  let candidates: Candidate[]
+  try {
+    candidates = (await collectCandidates()).candidates
+  } catch (e) {
+    return adminFailure("spam-purge", e, "The accounts could not be read. Nothing was removed.")
+  }
 
   if (body?.confirm !== candidates.length) {
     return NextResponse.json(
@@ -223,8 +269,10 @@ export async function POST(req: NextRequest) {
     try {
       await deleteAllUserData(admin, c.id)
       removed++
+      await recordAdminAction(admin, { action: "spam_purge", targetType: "account", targetId: c.id, targetLabel: c.username, detail: { score: c.score, signature: c.signature } })
     } catch (e: unknown) {
-      failed.push({ id: c.id, username: c.username, error: e instanceof Error ? e.message : String(e) })
+      console.error("[spam-purge] removal failed:", e instanceof Error ? e.message : "unknown")
+      failed.push({ id: c.id, username: c.username, error: "Could not be removed. The server log has the details." })
     }
   }
 

@@ -1,0 +1,635 @@
+/**
+ * ===========================================================================
+ *  THE HELP CENTRE'S ARTICLES
+ * ===========================================================================
+ * Every article at /help, as data: the index, the category pages, the article
+ * pages, the search and the sitemap all read this one list, so an article
+ * added here is linked, searchable and in the sitemap without anybody
+ * remembering three other places.
+ *
+ * WRITTEN FROM THE CODE, NOT FROM THE MARKETING. Each statement here was
+ * checked against what the product does today: the fee in
+ * lib/billing/fee-calculator, the cash out rules on /app/payouts and
+ * app/api/stripe/cashout, the refund route, the receipt rules in
+ * lib/receipts/rules, the DNS records in Settings > Domains. When the
+ * product changes, the article that describes it changes with it; an
+ * article that is wrong is worse than no article.
+ *
+ * Text may carry links as [label](/path). Nothing else is parsed.
+ */
+
+export type HelpBlock =
+  | { type: "p"; text: string }
+  | { type: "h"; text: string }
+  | { type: "steps"; items: string[] }
+  | { type: "list"; items: string[] }
+  | { type: "table"; head: string[]; rows: string[][] }
+  | { type: "note"; text: string }
+
+export interface HelpCategory {
+  slug: string
+  title: string
+  description: string
+}
+
+export interface HelpArticle {
+  slug: string
+  category: string
+  title: string
+  /** One sentence, shown in lists, search results and the meta description. */
+  summary: string
+  /** Words people search with that the text itself may not use. */
+  keywords?: string[]
+  body: HelpBlock[]
+}
+
+export const SUPPORT_EMAIL = "support@storelib.com"
+
+export const HELP_CATEGORIES: HelpCategory[] = [
+  { slug: "getting-started", title: "Getting started", description: "Your account, your page address and your first product." },
+  { slug: "products", title: "Products", description: "Creating, pricing and delivering what you sell." },
+  { slug: "orders-and-payouts", title: "Orders and payouts", description: "Stripe, fees, orders, refunds and cashing out." },
+  { slug: "website-builder", title: "Website builder", description: "Your creator page, your website, OnePage and your own domain." },
+  { slug: "email", title: "Email", description: "Subscribers, emails to your list and automations." },
+  { slug: "account-and-billing", title: "Account and billing", description: "Plans, signing in and closing your account." },
+  { slug: "policies", title: "Policies", description: "Refund policies, cookies, privacy and reporting a product." },
+]
+
+export const HELP_ARTICLES: HelpArticle[] = [
+  /* ── Getting started ─────────────────────────────────────────────────── */
+  {
+    slug: "create-your-account",
+    category: "getting-started",
+    title: "Create your account",
+    summary: "Sign up with your email, Google or Apple, and confirm your address with a code.",
+    keywords: ["sign up", "signup", "register", "join", "verification code", "login"],
+    body: [
+      { type: "p", text: "Go to [storelib.com/signup](/signup). You can sign up with an email address and a password, or with your Google or Apple account." },
+      { type: "p", text: "With an email address, we send a 6 digit code to that address. Enter it on the next screen to confirm the address is yours. If the code does not arrive within a few minutes, check your spam folder, then ask for a new one from the same screen." },
+      { type: "p", text: "With Google or Apple, there is no code: the address comes from that account." },
+      { type: "h", text: "Signing in later" },
+      { type: "p", text: "Sign in at [storelib.com/login](/login) with the same method you signed up with. If you signed up with Google, use Continue with Google rather than a password." },
+    ],
+  },
+  {
+    slug: "your-page-address",
+    category: "getting-started",
+    title: "Your username and page address",
+    summary: "Your username is the address of your creator page, storelib.com/yourname.",
+    keywords: ["username", "handle", "url", "link", "address", "change username", "store link"],
+    body: [
+      { type: "p", text: "Your username decides where your pages live:" },
+      {
+        type: "table",
+        head: ["Page", "Address"],
+        rows: [
+          ["Creator page", "storelib.com/yourname"],
+          ["A product", "storelib.com/yourname/product-name"],
+          ["OnePage (link in bio)", "storelib.com/yourname/links"],
+          ["Website", "yourname.storelib.com"],
+        ],
+      },
+      { type: "h", text: "Change your username" },
+      { type: "steps", items: ["Open Settings from the menu under your profile picture.", "On the General tab, edit Username.", "Save."] },
+      { type: "note", text: "Links you have already shared use the old username. Update them wherever you posted them, such as your social profiles." },
+      { type: "p", text: "Some words are reserved because Storelib uses them for its own pages, such as help or explore. The field tells you when a name is not available." },
+    ],
+  },
+  {
+    slug: "add-your-first-product",
+    category: "getting-started",
+    title: "Add your first product",
+    summary: "The shortest path from an empty account to a product people can buy.",
+    keywords: ["first sale", "new product", "start selling", "setup", "checklist"],
+    body: [
+      { type: "steps", items: [
+        "Open Products in the dashboard and press New product.",
+        "Give it a title, a cover image and a description.",
+        "Upload the files the buyer should receive.",
+        "Set a price. Use 0 to give it away.",
+        "Pick a category, so it can be found on Explore.",
+        "Press Publish.",
+      ] },
+      { type: "p", text: "To be paid for a sale you also need Stripe connected. See [Connect Stripe to get paid](/help/orders-and-payouts/connect-stripe)." },
+      { type: "p", text: "Everything else in the product editor (variants, FAQ, a refund policy, SEO) is optional and can be added later. See [Create and edit a product](/help/products/create-a-product)." },
+    ],
+  },
+  {
+    slug: "find-your-way-around",
+    category: "getting-started",
+    title: "Find your way around the dashboard",
+    summary: "What each item in the dashboard menu is for.",
+    keywords: ["dashboard", "menu", "sidebar", "navigation", "where is"],
+    body: [
+      { type: "table", head: ["Menu item", "What it is for"], rows: [
+        ["Dashboard", "Your recent sales and visits at a glance."],
+        ["Products", "Everything you sell. Coupons sits underneath it."],
+        ["Analytics", "Visits, sales and where visitors come from."],
+        ["Orders", "Every sale, with refunds, receipts and invoices."],
+        ["Creator Page", "The page at storelib.com/yourname."],
+        ["Website", "The site you build at yourname.storelib.com."],
+        ["OnePage", "Your link in bio page."],
+        ["Emails", "Subscribers, emails to your list and automations."],
+        ["Payouts", "Your balance and cashing out to your bank."],
+      ] },
+      { type: "p", text: "Settings and Billing are in the menu under your profile picture, along with a link back to this Help Center." },
+    ],
+  },
+
+  /* ── Products ────────────────────────────────────────────────────────── */
+  {
+    slug: "create-a-product",
+    category: "products",
+    title: "Create and edit a product",
+    summary: "The parts of the product editor, and which of them you need.",
+    keywords: ["product editor", "new product", "description", "images", "faq", "whats included", "seo", "call to action"],
+    body: [
+      { type: "p", text: "Open Products and press New product, or press a product in the list to edit it. The editor is split into parts. Only a title and a price are needed to publish; the rest makes the page better." },
+      { type: "table", head: ["Part", "What goes in it"], rows: [
+        ["About", "The title."],
+        ["Media", "Images and video shown at the top of the product page."],
+        ["Description", "What the product is, formatted text."],
+        ["What's included", "A short list of what the buyer gets."],
+        ["FAQ", "Questions and answers shown on the page."],
+        ["Files", "What the buyer downloads after paying."],
+        ["Variants", "Versions with their own price and files."],
+        ["Pricing", "Price, compare at price and pay what you want."],
+        ["Category", "Where it is listed on Explore."],
+        ["Settings", "The buy button's words and a refund policy."],
+        ["SEO", "The title and description search engines show."],
+      ] },
+      { type: "p", text: "Changes to a published product go live when you save. A product that is not published is only visible to you." },
+    ],
+  },
+  {
+    slug: "pricing",
+    category: "products",
+    title: "Price a product",
+    summary: "Fixed prices, free products, compare at prices and pay what you want.",
+    keywords: ["price", "free", "discount", "sale", "compare at", "pay what you want", "pwyw"],
+    body: [
+      { type: "h", text: "A fixed price" },
+      { type: "p", text: "Enter the price in the Pricing part of the editor. A price of 0 makes the product free: buyers still go through checkout so they get a receipt and the download, but no payment is taken." },
+      { type: "h", text: "Compare at price" },
+      { type: "p", text: "A compare at price is shown crossed out next to the real price, to show a reduction. Turn on the sales badge in the same part to label the product as on sale." },
+      { type: "h", text: "Pay what you want" },
+      { type: "p", text: "Turn on Pay What You Want Pricing and set a minimum price and a suggested price. Buyers can pay anything from the minimum up." },
+      { type: "p", text: "For temporary discounts on existing prices, use [coupons](/help/products/coupons) instead of changing the price." },
+    ],
+  },
+  {
+    slug: "files-and-delivery",
+    category: "products",
+    title: "Files and how buyers receive them",
+    summary: "What happens between a buyer paying and a buyer downloading your files.",
+    keywords: ["upload", "file size", "download", "delivery", "receipt", "library", "buyer", "didn't receive", "access"],
+    body: [
+      { type: "p", text: "Upload files in the Files part of the product editor. Each file can be up to 5 GB." },
+      { type: "h", text: "What the buyer gets" },
+      { type: "steps", items: [
+        "After paying, the buyer receives one receipt email for the payment.",
+        "Its button opens the receipt page, which is also the download page.",
+        "Each download link is made when it is pressed and works for a few minutes, so a copied link cannot be passed around.",
+        "Buyers with a Storelib account also find every purchase in their Library.",
+      ] },
+      { type: "p", text: "The receipt email's link keeps working for as long as the order stands. If a buyer loses the email, open the order in Orders and choose Resend receipt, or Change customer email if they typed the wrong address." },
+      { type: "note", text: "A full refund closes access to the files. A partial refund does not." },
+    ],
+  },
+  {
+    slug: "variants",
+    category: "products",
+    title: "Sell versions of a product with variants",
+    summary: "Offer versions of one product, each with its own price and files.",
+    keywords: ["variant", "options", "tiers", "versions", "license", "bundle"],
+    body: [
+      { type: "p", text: "Variants let one product page offer several versions, for example a personal and a commercial license, or a basic and a complete pack." },
+      { type: "steps", items: [
+        "In the product editor, open Variants and add one for each version.",
+        "Give each a name and a price. A compare at price is optional.",
+        "Attach the files that version should deliver.",
+      ] },
+      { type: "p", text: "Buyers choose a variant on the product page before checkout, and receive only that variant's files." },
+    ],
+  },
+  {
+    slug: "coupons",
+    category: "products",
+    title: "Coupons",
+    summary: "Discount codes by percentage or fixed amount, with dates, limits and a minimum spend.",
+    keywords: ["coupon", "discount code", "promo code", "voucher", "percent off"],
+    body: [
+      { type: "p", text: "Open Coupons under Products and create a coupon. Each coupon has a code buyers type at checkout, and:" },
+      { type: "list", items: [
+        "a discount, as a percentage or a fixed amount",
+        "optional start and end dates",
+        "an optional usage limit",
+        "an optional minimum purchase",
+        "the products it applies to, or all of them",
+      ] },
+      { type: "p", text: "Buyers enter the code at checkout. The discount is shown before they pay." },
+    ],
+  },
+  {
+    slug: "publish-archive-delete",
+    category: "products",
+    title: "Publish, archive, duplicate or delete a product",
+    summary: "What each action in a product's menu does.",
+    keywords: ["publish", "unpublish", "draft", "hide", "archive", "restore", "duplicate", "copy", "delete", "remove"],
+    body: [
+      { type: "table", head: ["Action", "What happens"], rows: [
+        ["Publish", "The product appears on your creator page and can be bought. Published products with a category can appear on Explore."],
+        ["Unpublish", "The product goes back to a draft. Only you can see it."],
+        ["Archive", "The product is moved out of your main list. Restore brings it back."],
+        ["Duplicate", "A copy is made for you to edit, useful for similar products."],
+        ["Delete", "The product is removed. This cannot be undone."],
+      ] },
+      { type: "p", text: "Publish and Unpublish are in the product editor. Archive, Duplicate and Delete are in the menu on each row of the Products list." },
+    ],
+  },
+
+  /* ── Orders and payouts ──────────────────────────────────────────────── */
+  {
+    slug: "connect-stripe",
+    category: "orders-and-payouts",
+    title: "Connect Stripe to get paid",
+    summary: "Payments are taken by Stripe. Connect an account once to receive them.",
+    keywords: ["stripe", "connect", "bank account", "onboarding", "payments", "verification", "identity"],
+    body: [
+      { type: "steps", items: [
+        "Open Settings from the menu under your profile picture, then the Payments tab.",
+        "Press the button to connect Stripe. You are taken to Stripe.",
+        "Fill in the details Stripe asks for, including your bank account.",
+        "When you finish, Stripe sends you back to Storelib.",
+      ] },
+      { type: "p", text: "Stripe may ask for more details later, for example to confirm your identity. Until it has what it needs, it may pause payments or cash outs. The Payouts page shows when something is missing." },
+    ],
+  },
+  {
+    slug: "fees",
+    category: "orders-and-payouts",
+    title: "What Storelib charges per sale",
+    summary: "A percentage of each sale that depends on your plan, plus $0.25 on orders of $3.00 or more.",
+    keywords: ["fee", "fees", "commission", "transaction fee", "percentage", "cost", "how much"],
+    body: [
+      { type: "p", text: "Storelib takes a fee from each sale. The percentage depends on your plan, and $0.25 is added to every order of $3.00 or more." },
+      { type: "table", head: ["Plan", "Per sale"], rows: [
+        ["Free", "6% + $0.25"],
+        ["Growth", "3% + $0.25"],
+        ["Professional", "1.5% + $0.25"],
+      ] },
+      { type: "p", text: "Orders under $3.00 pay the percentage only. For example, a $10 sale on the Free plan is a fee of $0.85, and a $1 sale is $0.06." },
+      { type: "p", text: "The paid plan's rate applies while its subscription is active. The Payouts page shows the fees taken in any period under Platform Fees. See [Plans](/help/account-and-billing/plans)." },
+    ],
+  },
+  {
+    slug: "cash-out",
+    category: "orders-and-payouts",
+    title: "When you get paid: balance and cash out",
+    summary: "Sales settle in 2 to 7 business days, then you cash out from Payouts.",
+    keywords: ["payout", "payouts", "withdraw", "cash out", "cashout", "bank", "balance", "when do i get paid", "pending", "negative balance"],
+    body: [
+      { type: "p", text: "Money from a sale is not sent to your bank on its own. It goes into your Storelib balance, and you cash out when you want to." },
+      { type: "steps", items: [
+        "A sale is processed by Stripe and settles in 2 to 7 business days, depending on your country. Until then it shows as Available soon.",
+        "Once settled, it is Available for cash out.",
+        "On the Payouts page, press Cash out. Your full available balance is sent to your bank. The minimum is $1.00.",
+        "The money usually arrives in 24 to 48 hours.",
+      ] },
+      { type: "h", text: "A negative balance" },
+      { type: "p", text: "A refund or a dispute can take your balance below zero. Future sales cover it automatically, and you can cash out again once the balance is positive." },
+    ],
+  },
+  {
+    slug: "orders",
+    category: "orders-and-payouts",
+    title: "Find and manage orders",
+    summary: "Search orders, open one, resend a receipt, download an invoice or export to CSV.",
+    keywords: ["order", "orders", "sales", "customer", "invoice", "receipt", "export", "csv", "change email"],
+    body: [
+      { type: "p", text: "Orders in the dashboard lists every sale. Search by order, customer or product, and press an order to open it." },
+      { type: "p", text: "The menu on an order has:" },
+      { type: "list", items: [
+        "Refund, see [Refund an order](/help/orders-and-payouts/refund-an-order)",
+        "Resend receipt, which emails the buyer their receipt and download link again",
+        "Download invoice",
+        "Change customer email, when the buyer typed the wrong address",
+        "View receipt, the page the buyer sees",
+      ] },
+      { type: "h", text: "Export" },
+      { type: "p", text: "Use the export button on the Orders page to download orders as a CSV file, for the current page, a selection, a date range or all of them." },
+    ],
+  },
+  {
+    slug: "refund-an-order",
+    category: "orders-and-payouts",
+    title: "Refund an order",
+    summary: "Refund all or part of an order from Orders. A full refund closes the buyer's access.",
+    keywords: ["refund", "money back", "return", "partial refund", "chargeback", "dispute"],
+    body: [
+      { type: "steps", items: [
+        "Open Orders and press the order.",
+        "Open its menu and choose Refund.",
+        "Enter the amount, up to what has not been refunded yet, and a reason.",
+        "Confirm.",
+      ] },
+      { type: "p", text: "The money goes back to the buyer's card through Stripe, and the buyer and you both get an email." },
+      { type: "list", items: [
+        "A full refund removes the product from the buyer's Library and closes their download link.",
+        "A partial refund leaves their access as it is.",
+        "You can refund the same order more than once, until the whole amount is refunded.",
+        "The refunded amount comes out of your balance. Storelib's fee on the sale is not returned.",
+      ] },
+      { type: "p", text: "Whether you give refunds, and for how long, is your choice. You can show it on your product pages. See [Your refund policy](/help/policies/refund-policy)." },
+    ],
+  },
+
+  /* ── Website builder ─────────────────────────────────────────────────── */
+  {
+    slug: "creator-page-website-onepage",
+    category: "website-builder",
+    title: "Creator page, website and OnePage: which is which",
+    summary: "Three pages you can publish, what each one is for and where each one lives.",
+    keywords: ["creator page", "website", "onepage", "link in bio", "store", "difference", "which"],
+    body: [
+      { type: "table", head: ["", "Address", "What it is"], rows: [
+        ["Creator page", "storelib.com/yourname", "Your profile: picture, bio, links and products. Every account has one."],
+        ["Website", "yourname.storelib.com", "A site you build from a theme, with as many pages and sections as you like."],
+        ["OnePage", "storelib.com/yourname/links", "A single link in bio page for your social profiles."],
+      ] },
+      { type: "p", text: "Each is edited from its own item in the dashboard menu: Creator Page, Website and OnePage. Your products appear on all three." },
+      { type: "p", text: "You do not need all three. Most people start with the creator page and add a website later." },
+    ],
+  },
+  {
+    slug: "build-your-website",
+    category: "website-builder",
+    title: "Build and publish your website",
+    summary: "Pick a theme, edit its sections and publish to yourname.storelib.com.",
+    keywords: ["website", "theme", "sections", "editor", "publish", "template", "design", "pages"],
+    body: [
+      { type: "steps", items: [
+        "Open Website in the dashboard and choose a theme.",
+        "In the editor, press a section on the page to edit it, or Add section to add a new one.",
+        "Theme settings holds what applies to the whole site: colours, fonts and your logo.",
+        "Press Publish. Your site is live at yourname.storelib.com.",
+      ] },
+      { type: "p", text: "Edits are saved as you work but visitors only see them after you publish again. Use the preview switch in the editor to check the phone layout before publishing." },
+      { type: "p", text: "Products, the cart and checkout are built in: products you publish appear on your website without being added by hand." },
+    ],
+  },
+  {
+    slug: "custom-domain",
+    category: "website-builder",
+    title: "Connect your own domain",
+    summary: "Point a domain you own at your Storelib website. Growth and Professional plans.",
+    keywords: ["domain", "custom domain", "dns", "cname", "a record", "ssl", "https", "www"],
+    body: [
+      { type: "p", text: "Custom domains are part of the Growth and Professional plans." },
+      { type: "steps", items: [
+        "Open Settings from the menu under your profile picture, then the Domains tab.",
+        "Add your domain, for example yourname.com.",
+        "At the company you bought the domain from, add the DNS records shown there.",
+      ] },
+      { type: "table", head: ["Type", "Name", "Value"], rows: [
+        ["A", "@", "216.150.1.1"],
+        ["CNAME", "www", "cname.vercel-dns.com"],
+        ["TXT", "_storelib", "The code shown next to your domain"],
+      ] },
+      { type: "p", text: "The domain shows Waiting for DNS until the records are found, then Securing while its HTTPS certificate is issued, then Connected. DNS changes can take from a few minutes to a day to reach everyone." },
+      { type: "note", text: "If the domain stays on Waiting for DNS, check the records for typos and remove any other A record on @, which would send visitors elsewhere." },
+    ],
+  },
+  {
+    slug: "edit-your-creator-page",
+    category: "website-builder",
+    title: "Edit your creator page",
+    summary: "Change the picture, bio, links and look of storelib.com/yourname.",
+    keywords: ["creator page", "profile", "bio", "avatar", "banner", "colors", "store page"],
+    body: [
+      { type: "p", text: "Open Creator Page in the dashboard. The page you see is the page visitors see, and you edit it in place: your picture, name, bio, links, the products shown and the colour scheme." },
+      { type: "p", text: "Your published products are listed on it automatically. Products that are drafts or archived are not." },
+      { type: "p", text: "The same colours carry through to your product pages, so a buyer moving from your page to a product stays in your look." },
+    ],
+  },
+  {
+    slug: "onepage",
+    category: "website-builder",
+    title: "Set up OnePage, your link in bio",
+    summary: "One page of links and products for your social profiles.",
+    keywords: ["onepage", "link in bio", "linktree", "instagram bio", "tiktok bio", "links page"],
+    body: [
+      { type: "steps", items: [
+        "Open OnePage in the dashboard.",
+        "Add blocks: links, products, a newsletter sign up and more.",
+        "Choose its look.",
+        "Copy its address, storelib.com/yourname/links, into your social profiles.",
+      ] },
+      { type: "p", text: "People who sign up on your OnePage are added to your subscribers, marked with OnePage as the source." },
+    ],
+  },
+
+  /* ── Email ───────────────────────────────────────────────────────────── */
+  {
+    slug: "subscribers",
+    category: "email",
+    title: "Where your subscribers come from",
+    summary: "Sign up forms on your pages fill your list. Buyers are not added on their own.",
+    keywords: ["subscribers", "email list", "newsletter", "audience", "export", "import", "unsubscribe", "buyers"],
+    body: [
+      { type: "p", text: "The Subscribers tab in Emails lists everyone on your list, with where they signed up." },
+      { type: "list", items: [
+        "People join through the sign up forms on your pages: your creator page and product pages, your website, and your OnePage.",
+        "Buyers are not added to your list just by buying. The Emails page shows how many buyers are not on it.",
+        "Every email you send has an unsubscribe link. Someone who unsubscribes stops getting your emails.",
+        "Use the export button on the Subscribers tab to download your list.",
+      ] },
+    ],
+  },
+  {
+    slug: "send-an-email",
+    category: "email",
+    title: "Send an email to your list",
+    summary: "Write an email, then send it now or schedule it.",
+    keywords: ["email", "newsletter", "broadcast", "campaign", "schedule", "send", "draft", "open rate", "clicks"],
+    body: [
+      { type: "steps", items: [
+        "Open Emails and press New email.",
+        "Write a subject and the email. Send yourself a test to check it.",
+        "Send it now, or pick a date and time to schedule it.",
+      ] },
+      { type: "p", text: "Sent emails are under Published, with how many people opened them and clicked a link. Scheduled emails wait under Scheduled until their time, and unfinished ones stay under Drafts." },
+      { type: "p", text: "Replies go to the email address on your Storelib account." },
+    ],
+  },
+  {
+    slug: "automations",
+    category: "email",
+    title: "Automations: welcome and thank you emails",
+    summary: "Emails sent on their own when someone subscribes or buys.",
+    keywords: ["automation", "automations", "flow", "welcome email", "thank you email", "after purchase", "sequence", "autoresponder"],
+    body: [
+      { type: "p", text: "The Automations tab in Emails has two automations:" },
+      { type: "table", head: ["Automation", "Sent when"], rows: [
+        ["New Subscriber", "Someone subscribes to your email list."],
+        ["Purchase", "A customer buys one of your products."],
+      ] },
+      { type: "p", text: "Each comes with a starting email you can rewrite. Turn one on with its switch; it only sends while it is on." },
+      { type: "p", text: "The purchase email is separate from the receipt. Buyers always get their receipt and download link, whether or not this automation is on." },
+    ],
+  },
+
+  /* ── Account and billing ─────────────────────────────────────────────── */
+  {
+    slug: "plans",
+    category: "account-and-billing",
+    title: "Plans",
+    summary: "Free, Growth and Professional, and what changes between them.",
+    keywords: ["plan", "plans", "pricing", "free", "growth", "professional", "pro", "upgrade", "subscription", "price"],
+    body: [
+      { type: "table", head: ["", "Free", "Growth", "Professional"], rows: [
+        ["Price", "$0", "$29 a month", "$99 a month"],
+        ["Fee per sale", "6% + $0.25", "3% + $0.25", "1.5% + $0.25"],
+        ["Custom domain", "No", "Yes", "Yes"],
+        ["Verified badge", "No", "Yes", "Yes"],
+      ] },
+      { type: "p", text: "All plans can sell as many products as they like. The $0.25 applies to orders of $3.00 or more. See [What Storelib charges per sale](/help/orders-and-payouts/fees) and the [pricing page](/pricing) for the full list." },
+    ],
+  },
+  {
+    slug: "change-or-cancel-plan",
+    category: "account-and-billing",
+    title: "Upgrade, change or cancel your plan",
+    summary: "Change plans in Billing. Cancelling keeps your plan until the end of the period you paid for.",
+    keywords: ["upgrade", "downgrade", "cancel", "billing", "invoice", "payment method", "card", "subscription"],
+    body: [
+      { type: "steps", items: [
+        "Open Billing from the menu under your profile picture.",
+        "To upgrade, choose a plan and pay.",
+        "To change your card, see invoices or cancel, use the button that opens Stripe's billing portal.",
+      ] },
+      { type: "p", text: "When you cancel, the plan stays active until the date shown on the Billing page, then your account moves to the Free plan and its fee. Your products, pages and orders stay as they are." },
+      { type: "p", text: "For billing questions, email [support@storelib.com](mailto:support@storelib.com)." },
+    ],
+  },
+  {
+    slug: "sign-in-and-security",
+    category: "account-and-billing",
+    title: "Sign in and account security",
+    summary: "Reset your password, or sign out on every device.",
+    keywords: ["password", "reset password", "forgot password", "security", "sessions", "sign out", "google", "apple", "login"],
+    body: [
+      { type: "h", text: "Forgot your password" },
+      { type: "p", text: "On the sign in page, choose to reset your password and enter your email. We send a link to set a new one. If you signed up with Google or Apple, you have no Storelib password: use that button to sign in." },
+      { type: "h", text: "In Settings" },
+      { type: "p", text: "The Security tab in Settings can send you a password reset link, sign you out, or sign you out on every device at once, which is what to do if you signed in on a computer that is not yours." },
+    ],
+  },
+  {
+    slug: "delete-your-account",
+    category: "account-and-billing",
+    title: "Delete your account",
+    summary: "Permanently delete your Storelib account from Settings.",
+    keywords: ["delete account", "close account", "remove account", "gdpr", "data"],
+    body: [
+      { type: "steps", items: [
+        "Open Settings, then the Security tab.",
+        "Under Delete your account, press the delete button.",
+        "We email you a 6 digit code. Enter it to confirm.",
+      ] },
+      { type: "note", text: "Deleting an account is permanent. Your pages and products go offline. If you have a paid plan, cancel it first so you are not charged again." },
+      { type: "p", text: "You can also read [how account deletion works](/account-deletion)." },
+    ],
+  },
+
+  /* ── Policies ────────────────────────────────────────────────────────── */
+  {
+    slug: "refund-policy",
+    category: "policies",
+    title: "Your refund policy",
+    summary: "Show buyers your refund terms on each product page.",
+    keywords: ["refund policy", "money back guarantee", "no refunds", "returns", "7 day", "14 day", "30 day"],
+    body: [
+      { type: "p", text: "Each product can show a refund policy on its page. In the product editor, open Settings, turn on Enable refund policy and choose one:" },
+      { type: "list", items: ["No refunds allowed", "7-day money back guarantee", "14-day money back guarantee", "30-day money back guarantee"] },
+      { type: "p", text: "The policy is what you promise buyers. Storelib does not issue refunds for you: when a buyer asks within your policy, refund them from Orders. See [Refund an order](/help/orders-and-payouts/refund-an-order)." },
+    ],
+  },
+  {
+    slug: "help-with-a-purchase",
+    category: "policies",
+    title: "For buyers: help with a purchase",
+    summary: "Finding your download, getting a refund, or reaching the creator.",
+    keywords: ["buyer", "purchase", "download", "refund", "contact seller", "receipt", "library", "didn't get"],
+    body: [
+      { type: "list", items: [
+        "Your download is on the receipt page linked from your receipt email. If you bought while signed in, it is also in your [Library](/library).",
+        "Refunds are decided by the creator who sold the product, following the refund policy on its page. Reply to your receipt email or contact them from their page.",
+        "If you cannot find the receipt email, check spam, then ask the creator to resend it: they can send it again, or to a corrected address.",
+      ] },
+      { type: "p", text: "If you cannot reach the creator, email [support@storelib.com](mailto:support@storelib.com) with the product and the email address you paid with." },
+    ],
+  },
+  {
+    slug: "cookies-and-privacy",
+    category: "policies",
+    title: "Cookies and privacy",
+    summary: "What Storelib stores in your browser and how to change your choice.",
+    keywords: ["cookies", "cookie preferences", "privacy", "gdpr", "tracking", "analytics", "consent", "terms"],
+    body: [
+      { type: "p", text: "The first time you visit, a banner asks whether optional cookies may be used. Accept all and Reject all are side by side; nothing optional is stored until you choose." },
+      { type: "p", text: "To change your choice, press Cookie preferences at the bottom of any Storelib page, creator page or website." },
+      { type: "p", text: "The [Privacy Policy](/privacy) lists every cookie and what it is for. The [Terms of Service](/terms) cover using Storelib as a creator or a buyer." },
+    ],
+  },
+  {
+    slug: "report-a-product",
+    category: "policies",
+    title: "Report a product",
+    summary: "Tell us about a product that breaks the rules or infringes your rights.",
+    keywords: ["report", "abuse", "copyright", "scam", "infringement", "illegal", "dmca", "takedown"],
+    body: [
+      { type: "steps", items: [
+        "On the product page, open the menu with the three dots in the bar at the top.",
+        "Choose Report. An email to support@storelib.com opens with the product's address filled in.",
+        "Say what is wrong and send it.",
+      ] },
+      { type: "p", text: "You can also write to [support@storelib.com](mailto:support@storelib.com) directly. For a copyright claim, include the work you own and where the copy is." },
+    ],
+  },
+]
+
+export function helpCategory(slug: string): HelpCategory | undefined {
+  return HELP_CATEGORIES.find((c) => c.slug === slug)
+}
+
+export function helpArticlesIn(category: string): HelpArticle[] {
+  return HELP_ARTICLES.filter((a) => a.category === category)
+}
+
+export function helpArticle(category: string, slug: string): HelpArticle | undefined {
+  return HELP_ARTICLES.find((a) => a.category === category && a.slug === slug)
+}
+
+export function helpArticlePath(a: Pick<HelpArticle, "category" | "slug">): string {
+  return `/help/${a.category}/${a.slug}`
+}
+
+/** The article's words as plain text, links reduced to their labels. */
+export function plainText(text: string): string {
+  return text.replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+}
+
+const sentence = (t: string) => (/[.!?:]$/.test(t.trim()) ? t : `${t}.`)
+
+export function articleText(a: HelpArticle): string {
+  const parts: string[] = []
+  for (const b of a.body) {
+    if (b.type === "p" || b.type === "h" || b.type === "note") parts.push(b.text)
+    /* Each item and each row ends as a sentence, so a search snippet cut
+       from the text reads as one rather than running two items together. */
+    else if (b.type === "steps" || b.type === "list") parts.push(...b.items.map(sentence))
+    else if (b.type === "table") parts.push(...b.rows.map((r) => sentence(r.filter(Boolean).join(", "))))
+  }
+  return parts.map(plainText).join(" ")
+}

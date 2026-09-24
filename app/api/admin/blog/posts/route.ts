@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { adminFailure } from "@/lib/admin/gate"
 import { revalidatePath } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { isAdminAuthenticated } from "@/lib/admin-blog-auth"
@@ -14,7 +15,7 @@ export async function GET() {
     .select("id, slug, title, category, is_published, published_at, views, created_at, updated_at, cover_image_url, excerpt")
     .order("created_at", { ascending: false })
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return adminFailure("blog posts", error)
   return NextResponse.json(data)
 }
 
@@ -46,7 +47,7 @@ export async function POST(req: NextRequest) {
     .select()
     .single()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return adminFailure("blog posts", error)
 
   // Revalidate public blog pages so new posts appear immediately
   revalidatePath("/blog")
