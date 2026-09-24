@@ -770,7 +770,7 @@ function DialogShell({
   )
   if (phone) {
     return (
-      <BottomSheet isOpen={open} onClose={() => (busy ? undefined : onClose())} label={title}>
+      <BottomSheet isOpen={open} onClose={() => (busy ? undefined : onClose())} label={title} aboveKeyboard>
         {form(
           <div className="px-5 pb-1 pt-2">
             <p className="text-[16px] font-semibold text-[#1a1a2e]">{title}</p>
