@@ -280,7 +280,8 @@ function main() {
     check("every sheet on a phone goes over the nav pill, and the pill itself never moves layer",
       !/\[data-app-nav-pill\] \{\s*\n\s*z-index: 0;/.test(css)
         && /:is\(\[data-slot="sheet-overlay"\], \[data-slot="sheet-content"\], \[data-slot="alert-dialog-overlay"\], \[data-slot="alert-dialog-content"\]\) \{\s*z-index: 60;/.test(css)
-        && /fixed inset-0 z-\[60\] flex items-center justify-center">/.test(read("app/app/coupons/coupons-client.tsx")))
+        /* The coupon delete confirm draws its own layer, and it is above the pill (60 or more). */
+        && /fixed inset-0 z-\[(6\d|[1-9]\d\d)\] flex/.test(read("app/app/coupons/coupons-client.tsx")))
     /* The phone sheets in these pages are the shared one now, which says it
        is open itself; what is left drawing its own layer is a centred modal
        that still has to say so. */
