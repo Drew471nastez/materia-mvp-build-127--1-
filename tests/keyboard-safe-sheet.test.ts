@@ -317,7 +317,9 @@ function main() {
   }
   scan("components")
   scan("app")
-  check("every file that works out a keyboard height was found", scanned.length >= 6, `${scanned.length} found`)
+  /* Five: the product form's sheet stopped working the keyboard out itself
+     when it became the shared sheet, which reads the published inset. */
+  check("every file that works out a keyboard height was found", scanned.length >= 5 && !scanned.includes("app/app/products/new/page.tsx"), `${scanned.length} found`)
   check(
     "and every one of them falls back to the published floor",
     unshared.length === 0,
@@ -327,11 +329,19 @@ function main() {
     ["components/platform/keyboard-guard.tsx", "the keyboard-open class and --vvh, which every /app page is sized by"],
     ["components/app/app-layout-wrapper.tsx", "--keyboard-inset-height"],
     ["app/library/settings/buyer-settings.tsx", "the buyer's settings"],
-    ["app/app/products/new/page.tsx", "the product form's own sheet"],
     ["components/website-builder/mobile-editor-sheet.tsx", "the website builder's sheet"],
   ] as const) {
     check(`${file[0].split("/").slice(-1)[0]}: ${file[1]}`, read(file[0]).includes("keyboardInsetOrFloor"))
   }
+  /* The product form's own sheet is the shared one now. It measures nothing
+     itself: it reads --kb-inset and --vv-h, which ViewportVars publishes from
+     the same floored number, when it is asked to sit on the keyboard. */
+  check(
+    "bottom-sheet.tsx: the product form's sheet sits on the keyboard through the published inset",
+    /\.\.\.\(aboveKeyboard \? bottomAboveKeyboard\(\) : \{\}\)/.test(read("components/ui/bottom-sheet.tsx"))
+      && /calc\(var\(--vv-h, 100dvh\) - 24px\)/.test(read("components/ui/bottom-sheet.tsx"))
+      && /<BottomSheet isOpen=\{isOpen\} onClose=\{onClose\} maxHeight=\{maxHeight \?\? "85dvh"\} aboveKeyboard>/.test(read("app/app/products/new/page.tsx")),
+  )
   /* The guard's own height variable has to follow the same number, or the
      class says a keyboard is up and the height says the screen is empty. */
   check(

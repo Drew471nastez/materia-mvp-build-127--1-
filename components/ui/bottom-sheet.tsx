@@ -44,6 +44,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { cn } from "@/lib/utils"
+import { bottomAboveKeyboard } from "@/lib/ui/keyboard-safe-sheet"
 
 /** Long enough to read as a movement, short enough not to be a wait. */
 export const SHEET_OPEN_MS = 380
@@ -99,6 +100,7 @@ export function BottomSheet({
   fill = false,
   height,
   maxHeight = "min(86dvh, 720px)",
+  aboveKeyboard = false,
   className,
 }: {
   isOpen: boolean
@@ -116,6 +118,13 @@ export function BottomSheet({
   /** A fixed height, so content that arrives late does not move the top edge. */
   height?: string
   maxHeight?: string
+  /**
+   * The sheet has a field in it: it sits on the keyboard rather than under
+   * it, and is never taller than the room the keyboard leaves
+   * (lib/ui/keyboard-safe-sheet). Off by default, so no sheet without a
+   * field changes.
+   */
+  aboveKeyboard?: boolean
   className?: string
 }) {
   const [mounted, setMounted] = useState(false)
@@ -436,7 +445,8 @@ export function BottomSheet({
              half way through that this was a scroll. */
           touchAction: "none",
           paddingBottom: "max(env(safe-area-inset-bottom), 12px)",
-          maxHeight,
+          ...(aboveKeyboard ? bottomAboveKeyboard() : {}),
+          maxHeight: aboveKeyboard ? `min(${maxHeight}, calc(var(--vv-h, 100dvh) - 24px))` : maxHeight,
           height,
           display: "flex",
           flexDirection: "column",
