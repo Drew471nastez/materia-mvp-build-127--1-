@@ -133,7 +133,7 @@ function day(iso: string | null | undefined): string {
 
 function stepTitle(steps: FlowStep[], s: FlowStep): string {
   if (s.type === "email") return s.config.subject.trim() || "No subject yet"
-  if (s.type === "wait") return `Wait ${waitText(s)}`
+  if (s.type === "wait") return waitText(s)
   return `Only if ${CONDITIONS[s.config.check].phrase}`
 }
 
@@ -277,6 +277,7 @@ export function FlowBuilder({ data }: { data: BuilderData }) {
       <StepPanel
         key={selectedStep.id}
         flowId={data.flow.id}
+        purchase={draft.trigger === "purchase"}
         steps={draft.steps}
         step={selectedStep}
         stats={data.stats[selectedStep.id]}
@@ -298,13 +299,21 @@ export function FlowBuilder({ data }: { data: BuilderData }) {
           </button>
         </div>
         <div className="flex min-h-9 min-w-0 items-center gap-2">
-          <input
-            aria-label="Name"
-            value={draft.name}
-            maxLength={80}
-            onChange={(e) => update({ name: e.target.value })}
-            className="-ml-1.5 h-9 min-w-0 flex-1 truncate rounded-lg bg-transparent px-1.5 text-[18px] font-semibold text-[#1a1a2e] outline-none transition-colors hover:bg-[#eef0f2] focus:bg-white focus:shadow-[0_0_0_1px_#1a1a2e] sm:max-w-[420px] sm:text-[20px]"
-          />
+          {/* As wide as the name, so the badge sits right after it: an
+              invisible copy of the text sizes the cell the field fills. */}
+          <span className="-ml-1.5 inline-grid min-w-0 grid-cols-[minmax(0,auto)]">
+            <span aria-hidden className="invisible col-start-1 row-start-1 overflow-hidden whitespace-pre px-1.5 text-[18px] font-semibold sm:text-[20px]">
+              {draft.name || "Name"}
+            </span>
+            <input
+              aria-label="Name"
+              value={draft.name}
+              maxLength={80}
+              placeholder="Name"
+              onChange={(e) => update({ name: e.target.value })}
+              className="col-start-1 row-start-1 h-9 w-full min-w-[4ch] truncate rounded-lg bg-transparent px-1.5 text-[18px] font-semibold text-[#1a1a2e] outline-none transition-colors hover:bg-[#eef0f2] focus:bg-white focus:shadow-[0_0_0_1px_#1a1a2e] sm:text-[20px]"
+            />
+          </span>
           <StatusBadge tone={on ? "success" : "neutral"} className="hidden sm:inline-flex">
             {on ? "On" : "Off"}
           </StatusBadge>
@@ -523,7 +532,7 @@ function Canvas(props: {
                     <span>{stepKindName(draft.steps, s)}</span>
                     {s.type !== "wait" && when.get(s.id) ? <span className="text-[#9ca3af]">· {when.get(s.id)}</span> : null}
                   </span>
-                  <span className={cn("block truncate text-[14px] font-semibold", s.type === "email" && !s.config.subject.trim() ? "text-[#9ca3af]" : "text-[#1a1a2e]")}>
+                  <span className={cn("line-clamp-2 block break-words text-[14px] font-semibold", s.type === "email" && !s.config.subject.trim() ? "text-[#9ca3af]" : "text-[#1a1a2e]")}>
                     {stepTitle(draft.steps, s)}
                   </span>
                   {s.type === "condition" ? <span className="block text-[12px] text-[#6b7280]">Everyone else leaves here.</span> : null}
@@ -558,7 +567,7 @@ const AddButton = React.forwardRef<HTMLButtonElement, React.ButtonHTMLAttributes
       type="button"
       aria-label="Add a step here"
       {...props}
-      className="relative z-[1] inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border border-[#d5d7dd] bg-white text-[#4b5563] shadow-[0_1px_2px_rgba(17,24,39,0.06)] transition-[transform,background-color,color] duration-100 hover:scale-105 hover:bg-[#1a1a2e] hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#8b5cf6]"
+      className="relative z-[1] inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border border-[#d5d7dd] bg-white text-[#4b5563] shadow-[0_1px_2px_rgba(17,24,39,0.06)] transition-[transform,background-color,color] duration-100 hover:scale-105 hover:bg-[#1a1a2e] hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#8b5cf6]"
     >
       <Plus className="h-3.5 w-3.5" strokeWidth={2.4} />
     </button>
@@ -710,6 +719,7 @@ function TriggerPanel({ draft, on, products, onChange, onClose }: { draft: Draft
 
 function StepPanel(props: {
   flowId: string
+  purchase: boolean
   steps: FlowStep[]
   step: FlowStep
   stats?: StepStats
@@ -752,7 +762,7 @@ function StepPanel(props: {
   )
 }
 
-function EmailFields(props: { flowId: string; step: Extract<FlowStep, { type: "email" }>; stats?: StepStats; accountEmail: string | null; onChange: (s: FlowStep) => void }) {
+function EmailFields(props: { flowId: string; purchase: boolean; step: Extract<FlowStep, { type: "email" }>; stats?: StepStats; accountEmail: string | null; onChange: (s: FlowStep) => void }) {
   const { step } = props
   const { toast } = useToast()
   const [testing, setTesting] = React.useState(false)
@@ -799,7 +809,7 @@ function EmailFields(props: { flowId: string; step: Extract<FlowStep, { type: "e
         <span className={labelText}>Email</span>
         <BodyEditor key={step.id} label="Email body" value={step.config.body} onChange={(body) => set({ body })} />
         <p className={hint}>
-          {"{{first_name}}"} becomes their first name, or &ldquo;there&rdquo;. {"{{product_name}}"} is what they bought. Every email ends with your name and an unsubscribe link.
+          {"{{first_name}}"} becomes their first name, or &ldquo;there&rdquo;.{props.purchase ? ` ${"{{product_name}}"} is what they bought.` : ""} Every email ends with your name and an unsubscribe link.
         </p>
       </div>
       <div className="flex items-center justify-between gap-3 rounded-xl bg-[#f7f7f8] px-3 py-2.5">

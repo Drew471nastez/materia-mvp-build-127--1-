@@ -45,10 +45,10 @@ export function FlowShape({ trigger, steps }: { trigger: string; steps: FlowStep
     ...steps.map((s) => ({ kind: s.type, text: s.type === "email" ? "Email" : s.type === "wait" ? waitText(s) : "Check" })),
   ]
   return (
-    <ol className="flex flex-wrap items-center gap-y-2" aria-label="Steps">
+    <ol className="flex flex-wrap items-center gap-x-1.5 gap-y-2 sm:gap-x-0" aria-label="Steps">
       {items.map((it, i) => (
         <li key={i} className="flex items-center">
-          {i > 0 ? <span aria-hidden className="mx-1 h-px w-3 bg-[#d5d7dd]" /> : null}
+          {i > 0 ? <span aria-hidden className="mx-1 hidden h-px w-3 bg-[#d5d7dd] sm:block" /> : null}
           <span
             className={cn(
               "inline-flex h-7 items-center gap-1.5 rounded-lg pl-1 pr-2 text-[12px] font-medium",

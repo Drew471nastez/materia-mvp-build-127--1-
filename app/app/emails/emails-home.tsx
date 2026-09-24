@@ -526,9 +526,11 @@ function SubscribersTable(props: EmailsHomeProps) {
                     <td className={cn(td, sticky, "font-medium")}><span className="block max-w-[180px] truncate sm:max-w-[260px]">{s.email}</span></td>
                     <td className={cn(td, "text-[#4b5563]")}><span className="block max-w-[180px] truncate">{s.name || "–"}</span></td>
                     <td className={td} title={v ? [v.label, v.detail].filter(Boolean).join(" · ") : undefined}>
-                      <span className="flex max-w-[300px] items-baseline gap-1.5 truncate">
-                        <span className={cn("truncate", v?.label === NOT_RECORDED ? "text-[#9ca3af]" : "text-[#1a1a2e]")}>{v?.label ?? NOT_RECORDED}</span>
-                        {v?.detail ? <span className="truncate text-[12px] text-[#6b7280]">{v.detail}</span> : null}
+                      {/* The website's address is the part that matters: it keeps its
+                          width, and the detail after it is what gets cut. */}
+                      <span className="flex max-w-[380px] items-baseline gap-1.5">
+                        <span className={cn("max-w-[230px] shrink-0 truncate", v?.label === NOT_RECORDED ? "text-[#9ca3af]" : "text-[#1a1a2e]")}>{v?.label ?? NOT_RECORDED}</span>
+                        {v?.detail ? <span className="min-w-0 truncate text-[12px] text-[#6b7280]">{v.detail}</span> : null}
                       </span>
                     </td>
                     <td className={td}>

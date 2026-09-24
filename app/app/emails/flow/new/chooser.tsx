@@ -63,9 +63,9 @@ export function FlowChooser({ existing }: { existing: Record<string, string> }) 
       <div className={cn("mx-auto pb-24 md:pb-10", LIST_WIDTH, GUTTER)}>
         <p className="max-w-[560px] text-[14px] text-[#6b7280]">Pick a starting point. You can change every step, and nothing is sent until you turn it on.</p>
 
-        <ul className="mt-5 grid gap-4 md:grid-cols-2" aria-label="Starting points">
+        <ul className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2" aria-label="Starting points">
           {TEMPLATES.map((t) => (
-            <li key={t.id} className="flex">
+            <li key={t.id} className="flex min-w-0">
               <TemplateCard template={t} mine={Boolean(existing[t.id])} busy={busy === t.id} disabled={busy !== null} onPick={() => void start(t.id, { template: t.id })} />
             </li>
           ))}
@@ -74,7 +74,7 @@ export function FlowChooser({ existing }: { existing: Record<string, string> }) 
         <section aria-labelledby="scratch" className="mt-9">
           <h2 id="scratch" className="text-[15px] font-semibold text-[#1a1a2e]">Start from scratch</h2>
           <p className="mt-0.5 text-[13px] text-[#6b7280]">One empty email, and you add the rest.</p>
-          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
             {(Object.keys(TRIGGERS) as TriggerType[]).map((trigger) => (
               <button
                 key={trigger}
@@ -124,7 +124,7 @@ function TemplateCard({ template, mine, busy, disabled, onPick }: { template: Fl
         <FlowShape trigger={TRIGGERS[template.trigger].name} steps={template.steps} />
       </span>
       <span className="mt-auto flex items-center justify-between gap-3 px-4 pb-3.5 pt-3 text-[13px]">
-        <span className="min-w-0 truncate text-[#6b7280]">
+        <span className="min-w-0 text-[#6b7280]">
           {stepSummary(template.steps)} · {entryText(template.trigger, template.entry)}
         </span>
         <span className="inline-flex shrink-0 items-center gap-1 font-medium text-[#1a1a2e]">
