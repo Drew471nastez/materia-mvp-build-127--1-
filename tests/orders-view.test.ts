@@ -428,9 +428,10 @@ async function main() {
     const parts = read("app/app/orders/order-parts.tsx")
     check("the metric lines are Storelib violet, the comparison grey and dashed",
       /stroke="#8b5cf6"/.test(parts) && !/#2a78d6/i.test(parts) && /stroke="#b6bcc6"[\s\S]{0,80}strokeDasharray="3 3"/.test(parts))
-    check("the list and an order share one top bar, sticky, with a hairline and a soft shadow under it",
-      /export const topBar =\s*"sticky top-0[^"]*shadow-\[0_1px_0_rgba\(17,24,39,0\.06\),0_4px_12px_-8px_rgba\(17,24,39,0\.12\)\]/.test(parts)
-        && /className=\{cn\(topBar,/.test(list) && /<div className=\{topBar\}>/.test(read("app/app/orders/order-detail.tsx")))
+    check("the list and an order share one top bar, sticky across the pane, with a hairline and a soft shadow once scrolled under",
+      /export function PaneBar/.test(parts) && /className="orders-bar sticky top-0/.test(parts)
+        && /<PaneBar width=\{LIST_WIDTH\}/.test(list) && /<PaneBar width=\{ORDER_WIDTH\}/.test(parts) && /<OrderBarFrame/.test(read("app/app/orders/order-detail.tsx"))
+        && /\.orders-bar\[data-scrolled="true"\] \{\s*box-shadow: 0 1px 0 rgba\(17, 24, 39, 0\.07\)/.test(read("app/globals.css")))
     check("no comparison control; the changes are always against the period before",
       !/ComparePicker/.test(list) && /const compare = PREVIOUS_PERIOD/.test(client))
     check("the export does not let a cell run as a formula", /\^\[=\+\\-@\\t\\r\]/.test(read("lib/orders/export-csv.ts")))

@@ -15,14 +15,75 @@ import { FULFILLMENT_LABEL, PAYMENT_LABEL } from "@/lib/orders/order-view"
 
 export const INK = "#1a1a2e"
 
+/** The width of the list's content, and of an order's. Shared by each page's bar and body. */
+export const LIST_WIDTH = "max-w-[1200px]"
+export const ORDER_WIDTH = "max-w-[1040px]"
+export const GUTTER = "px-4 sm:px-6 lg:px-8"
+
 /**
- * The top bar of the list and of an order: sticky over the page it belongs
- * to, with a hairline and a short soft shadow under it, so what scrolls
- * beneath reads as going under it rather than being cut off. One string for
- * both, so the two bars cannot drift apart.
+ * ===========================================================================
+ *  THE TOP BAR OF THE LIST AND OF AN ORDER
+ * ===========================================================================
+ * It sits on the pane that scrolls, not inside the page's column, so it runs
+ * the pane's whole width and its background covers everything that scrolls
+ * under it. It used to be the column's own width, drawn with a shadow all
+ * the time, so on a wide screen the shadow stopped short of both edges and
+ * the line under the title looked as if it were half under the bar.
+ *
+ * Its depth is a hairline and a very soft shadow, and only once something is
+ * under it: the pane's scroll sets `data-scrolled`, written straight onto the
+ * element, so scrolling never renders anything.
  */
-export const topBar =
-  "sticky top-0 z-10 -mx-4 flex min-h-[60px] items-center gap-2 bg-[#f8f9fa] px-4 pt-2 pb-2 shadow-[0_1px_0_rgba(17,24,39,0.06),0_4px_12px_-8px_rgba(17,24,39,0.12)] sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8"
+export function PaneBar({ width, className, children }: { width: string; className?: string; children: React.ReactNode }) {
+  const ref = React.useRef<HTMLDivElement>(null)
+  React.useEffect(() => {
+    const bar = ref.current
+    const pane = bar?.closest<HTMLElement>(".orders-pane")
+    if (!bar || !pane) return
+    let under = false
+    const read = () => {
+      const now = pane.scrollTop > 0
+      if (now === under) return
+      under = now
+      bar.dataset.scrolled = now ? "true" : "false"
+    }
+    read()
+    pane.addEventListener("scroll", read, { passive: true })
+    return () => pane.removeEventListener("scroll", read)
+  }, [])
+  return (
+    <div ref={ref} data-orders-bar="" data-scrolled="false" className="orders-bar sticky top-0 z-10 bg-[#f8f9fa]">
+      <div className={cn("mx-auto", width, GUTTER, className)}>{children}</div>
+    </div>
+  )
+}
+
+/**
+ * An order's bar: back, the number and its statuses, the actions, and the
+ * date under the number. The same frame draws the real order and the
+ * skeleton a slow load shows (app/app/orders/order-skeleton.tsx), so the
+ * bar is the same size on every frame from the first.
+ */
+export function OrderBarFrame({
+  back,
+  title,
+  actions,
+  subtitle,
+}: {
+  back: React.ReactNode
+  title: React.ReactNode
+  actions?: React.ReactNode
+  subtitle: React.ReactNode
+}) {
+  return (
+    <PaneBar width={ORDER_WIDTH} className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2 pb-2.5 pt-2">
+      <div className="-ml-1.5 flex h-9 w-9 items-center justify-center">{back}</div>
+      <div className="flex min-h-9 min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1">{title}</div>
+      <div className="flex min-h-9 shrink-0 items-center gap-1">{actions}</div>
+      <div className="col-span-2 col-start-2 -mt-0.5 min-w-0 truncate text-[13px] leading-5 text-[#6b7280]">{subtitle}</div>
+    </PaneBar>
+  )
+}
 
 const money = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" })
 

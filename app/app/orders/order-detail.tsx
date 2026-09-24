@@ -39,9 +39,11 @@ import {
   type LucideIcon,
 } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog"
+import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import { cn } from "@/lib/utils"
 import { SOURCE_LABEL, dayHeading, fullDate, itemsLabel, timeOfDay, type Order, type OrderRow } from "@/lib/orders/order-view"
+import { originCampaign, sourceText } from "@/lib/orders/order-source"
 import {
   groupTimeline,
   orderEvents,
@@ -62,8 +64,10 @@ import {
   buttonSecondary,
   card,
   formatMoney,
+  GUTTER,
   iconButton,
-  topBar,
+  ORDER_WIDTH,
+  OrderBarFrame,
 } from "./order-parts"
 
 export type OrderAction =
@@ -90,8 +94,45 @@ function canEmail(line: OrderRow): boolean {
   return line.status === "completed" && Boolean(line.receipt_token)
 }
 
+/** A phone: the width from which the shared sheets are not drawn (components/ui/bottom-sheet). */
+const PHONE = "(max-width: 639px)"
+
+function usePhone(): boolean {
+  const [phone, setPhone] = React.useState(false)
+  React.useEffect(() => {
+    const mql = window.matchMedia(PHONE)
+    const read = () => setPhone(mql.matches)
+    read()
+    mql.addEventListener("change", read)
+    return () => mql.removeEventListener("change", read)
+  }, [])
+  return phone
+}
+
+/**
+ * How long the More actions sheet takes to leave a phone's screen after a
+ * row is tapped (components/ui/responsive-action-menu waits 140ms before it
+ * runs the row, and the sheet's slide is 360ms). A dialog asked for from the
+ * menu waits for the rest, so one sheet is on screen at a time: the menu's
+ * going down, then the refund's coming up, never the two crossing.
+ */
+const MENU_SHEET_LEFT_MS = 230
+
 export function OrderDetail({ order, timeZone, now, onBack, onStep, canStep, position, onAction, onNotice }: OrderDetailProps) {
-  const [dialog, setDialog] = React.useState<"refund" | "email" | null>(null)
+  const [dialog, setDialogNow] = React.useState<"refund" | "email" | null>(null)
+  const phone = usePhone()
+  const later = React.useRef<number | undefined>(undefined)
+  React.useEffect(() => () => window.clearTimeout(later.current), [])
+  const setDialog = (next: "refund" | "email" | null) => {
+    window.clearTimeout(later.current)
+    setDialogNow(next)
+  }
+  /* From the More actions menu: on a phone, once its sheet is gone. */
+  const fromMenu = (next: "refund" | "email") => {
+    window.clearTimeout(later.current)
+    if (!phone) return setDialogNow(next)
+    later.current = window.setTimeout(() => setDialogNow(next), MENU_SHEET_LEFT_MS)
+  }
   const [busy, setBusy] = React.useState<string | null>(null)
   /* Bumped after an action lands, so the timeline reads its history again. */
   const [revision, setRevision] = React.useState(0)
@@ -137,13 +178,13 @@ export function OrderDetail({ order, timeZone, now, onBack, onStep, canStep, pos
 
   const items: ActionMenuItem[] = [
     ...(refundable.length > 0
-      ? [{ label: "Refund", icon: <RotateCcw className="h-4 w-4" />, onClick: () => setDialog("refund") }]
+      ? [{ label: "Refund", icon: <RotateCcw className="h-4 w-4" />, onClick: () => fromMenu("refund") }]
       : []),
     ...(emailable
       ? [{ label: "Resend receipt", icon: <Send className="h-4 w-4" />, onClick: () => void run("resend", { kind: "resend" }) }]
       : []),
     { label: "Download invoice", icon: <Download className="h-4 w-4" />, onClick: () => void run("invoice", { kind: "invoice" }) },
-    { label: "Change customer email", icon: <Mail className="h-4 w-4" />, onClick: () => setDialog("email") },
+    { label: "Change customer email", icon: <Mail className="h-4 w-4" />, onClick: () => fromMenu("email") },
     ...(firstReceipt
       ? [{ label: "View receipt", icon: <ExternalLink className="h-4 w-4" />, href: `/receipt/${firstReceipt}`, target: "_blank" as const, separatorBefore: true }]
       : []),
@@ -156,70 +197,100 @@ export function OrderDetail({ order, timeZone, now, onBack, onStep, canStep, pos
   ]
 
   return (
-    <div className="mx-auto max-w-[1040px] px-4 pb-6 sm:px-6 lg:px-8">
-      {/* Title bar. Stays in reach while the order scrolls under it. */}
-      <div className={topBar}>
-        <button type="button" onClick={onBack} aria-label="Back to orders" className={cn(iconButton, "-ml-1.5 h-9 w-9")}>
-          <ArrowLeft className="h-5 w-5" />
-        </button>
-        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2.5 gap-y-1">
-          <h1 className="text-[20px] font-bold leading-7 text-[#1a1a2e]">#{order.number}</h1>
-          <div className="flex flex-wrap items-center gap-1.5">
-            <PaymentBadge status={order.payment} />
-            <FulfillmentBadge status={order.fulfillment} />
-          </div>
-        </div>
-        <ResponsiveActionMenu
-          title={`Order #${order.number}`}
-          menuWidth="w-56"
-          items={items}
-          trigger={
-            <button type="button" className={cn(buttonSecondary, "shrink-0 px-2.5 sm:px-3")} disabled={busy !== null} aria-label="More actions">
-              <span className="hidden sm:inline">More actions</span>
-              <MoreHorizontal className="h-4 w-4 sm:hidden" />
-              <ChevronDown className="hidden h-4 w-4 sm:block" />
-            </button>
-          }
-        />
-        {onStep ? (
-          <div className="flex shrink-0 items-center">
-            {position ? (
-              <span className="mr-1 hidden text-[12px] tabular-nums text-[#6b7280] md:inline">
-                {position.index + 1} of {position.count}
+    <>
+      {/* The bar: in reach while the order scrolls under it, the pane's full
+          width, and drawn on the first frame the order is. */}
+      <OrderBarFrame
+        back={
+          <button type="button" onClick={onBack} aria-label="Back to orders" className={cn(iconButton, "h-9 w-9")}>
+            <ArrowLeft className="h-5 w-5" />
+          </button>
+        }
+        title={
+          <>
+            <h1 className="text-[20px] font-bold leading-7 text-[#1a1a2e]">#{order.number}</h1>
+            <span className="flex flex-wrap items-center gap-1.5">
+              <PaymentBadge status={order.payment} />
+              <FulfillmentBadge status={order.fulfillment} />
+            </span>
+          </>
+        }
+        actions={
+          <>
+            <ResponsiveActionMenu
+              title={`Order #${order.number}`}
+              menuWidth="w-56"
+              items={items}
+              trigger={
+                <button type="button" className={cn(buttonSecondary, "shrink-0 px-2.5 sm:px-3")} disabled={busy !== null} aria-label="More actions">
+                  <span className="hidden sm:inline">More actions</span>
+                  <MoreHorizontal className="h-4 w-4 sm:hidden" />
+                  <ChevronDown className="hidden h-4 w-4 sm:block" />
+                </button>
+              }
+            />
+            {onStep ? (
+              <span className="flex shrink-0 items-center">
+                {position ? (
+                  <span className="ml-1 mr-1 hidden text-[12px] tabular-nums text-[#6b7280] md:inline">
+                    {position.index + 1} of {position.count}
+                  </span>
+                ) : null}
+                <button type="button" aria-label="Previous order" title="Previous order" disabled={!canStep.previous} onClick={() => onStep(-1)} className={iconButton}>
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <button type="button" aria-label="Next order" title="Next order" disabled={!canStep.next} onClick={() => onStep(1)} className={iconButton}>
+                  <ChevronRight className="h-4 w-4" />
+                </button>
               </span>
             ) : null}
-            <button type="button" aria-label="Previous order" title="Previous order" disabled={!canStep.previous} onClick={() => onStep(-1)} className={iconButton}>
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <button type="button" aria-label="Next order" title="Next order" disabled={!canStep.next} onClick={() => onStep(1)} className={iconButton}>
-              <ChevronRight className="h-4 w-4" />
-            </button>
-          </div>
-        ) : null}
-      </div>
-      <p className="ml-9 text-[13px] text-[#6b7280] sm:ml-10">
-        {fullDate(order.createdAt, timeZone)}
-        {order.source ? ` from ${SOURCE_LABEL[order.source]}` : ""}
-      </p>
+          </>
+        }
+        subtitle={
+          <>
+            {fullDate(order.createdAt, timeZone)}
+            {order.source ? ` from ${SOURCE_LABEL[order.source]}` : ""}
+          </>
+        }
+      />
 
-      <div className="mt-5 grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_300px]">
-        <div className="grid min-w-0 gap-4">
-          <FulfillmentCard order={order} timeZone={timeZone} busy={busy} onResend={emailable ? () => void run("resend", { kind: "resend" }) : null} />
+      {/*
+        THE CARDS, AS SHOPIFY LAYS THEM OUT. On a wide screen two columns,
+        the main one two thirds: what was bought, the payment and the
+        timeline one under the other; the customer and the order's details
+        beside them, both columns starting under the bar. The side column
+        spans a last row that is `1fr`, so however tall it is it never
+        stretches a row of the main column: a spanning item that crosses a
+        flexible track is left out of sizing the others (CSS Grid 11.5).
+        On a phone, one column in the order the source reads: the items, the
+        payment, who bought it, the details, then the history.
+      */}
+      <div key={order.id} className={cn("orders-body mx-auto pt-4 pb-6", ORDER_WIDTH, GUTTER)}>
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:grid-rows-[auto_auto_auto_1fr] lg:items-start">
+          <FulfillmentCard
+            className="lg:col-start-1 lg:row-start-1"
+            order={order}
+            timeZone={timeZone}
+            busy={busy}
+            onResend={emailable ? () => void run("resend", { kind: "resend" }) : null}
+          />
           <PaymentCard
+            className="lg:col-start-1 lg:row-start-2"
             order={order}
             busy={busy}
             onRefund={refundable.length > 0 ? () => setDialog("refund") : null}
             onInvoice={() => void run("invoice", { kind: "invoice" })}
           />
-          <Timeline order={order} timeZone={timeZone} now={now} revision={revision} />
-        </div>
-        <div className="grid min-w-0 gap-4">
-          <CustomerCard order={order} onEdit={() => setDialog("email")} onCopy={copy} />
-          <DetailsCard order={order} timeZone={timeZone} receipt={firstReceipt ?? null} onCopy={copy} />
+          <div className="grid min-w-0 content-start gap-4 lg:col-start-2 lg:row-span-4 lg:row-start-1">
+            <CustomerCard order={order} onEdit={() => setDialog("email")} onCopy={copy} />
+            <DetailsCard order={order} timeZone={timeZone} receipt={firstReceipt ?? null} onCopy={copy} />
+          </div>
+          <Timeline className="lg:col-start-1 lg:row-start-3" order={order} timeZone={timeZone} now={now} revision={revision} />
         </div>
       </div>
 
       <RefundDialog
+        phone={phone}
         open={dialog === "refund"}
         lines={refundable}
         onClose={() => setDialog(null)}
@@ -230,6 +301,7 @@ export function OrderDetail({ order, timeZone, now, onBack, onStep, canStep, pos
         busy={busy === "refund"}
       />
       <EmailDialog
+        phone={phone}
         open={dialog === "email"}
         current={order.customerEmail || ""}
         sendsReceipt={emailable}
@@ -240,7 +312,7 @@ export function OrderDetail({ order, timeZone, now, onBack, onStep, canStep, pos
         }}
         busy={busy === "email"}
       />
-    </div>
+    </>
   )
 }
 
@@ -279,18 +351,20 @@ function accessLine(order: Order, timeZone: string): string {
 }
 
 function FulfillmentCard({
+  className,
   order,
   timeZone,
   busy,
   onResend,
 }: {
+  className?: string
   order: Order
   timeZone: string
   busy: string | null
   onResend: (() => void) | null
 }) {
   return (
-    <section className={card}>
+    <section className={cn(card, "min-w-0", className)}>
       <CardHead aside={<DeliveryBadge status={order.delivery} />}>
         <FulfillmentBadge status={order.fulfillment} />
         <span className="truncate text-[12px] text-[#6b7280]">{itemsLabel(order.itemCount)}</span>
@@ -345,11 +419,13 @@ function Row({ label, middle, value, strong, muted }: { label: string; middle?: 
 }
 
 function PaymentCard({
+  className,
   order,
   busy,
   onRefund,
   onInvoice,
 }: {
+  className?: string
   order: Order
   busy: string | null
   onRefund: (() => void) | null
@@ -362,7 +438,7 @@ function PaymentCard({
   const earnings = Math.max(0, received - order.refundedCents - fee)
   const method = paymentMethodOf(order)
   return (
-    <section className={card}>
+    <section className={cn(card, "min-w-0", className)}>
       <CardHead>
         <PaymentBadge status={order.payment} />
       </CardHead>
@@ -472,7 +548,12 @@ function DetailsCard({
       <h2 className="text-[13px] font-semibold text-[#1a1a2e]">Order details</h2>
       <dl className="mt-2 grid gap-2.5">
         <Field label="Placed">{fullDate(order.createdAt, timeZone)}</Field>
-        <Field label="Source">{order.source ? SOURCE_LABEL[order.source] : "Not recorded"}</Field>
+        <Field label="Source">
+          <span className={order.source ? undefined : "text-[#9ca3af]"}>{sourceText(order.source, order.sourceDetail)}</span>
+          {originCampaign(order.sourceDetail) ? (
+            <span className="mt-0.5 block break-words text-[12px] text-[#6b7280]">{originCampaign(order.sourceDetail)}</span>
+          ) : null}
+        </Field>
         <Field label="Delivery">{order.customerEmail ? "Email, and the buyer's library" : "The buyer's library"}</Field>
         {receipt ? (
           <Field label="Receipt">
@@ -531,7 +612,7 @@ const GLYPH_TONE: Record<TimelineTone, string> = {
 /** The rail runs through the middle of the 22px glyph column. */
 const RAIL = "absolute left-[10.5px] w-px bg-[#e4e6ea]"
 
-function Timeline({ order, timeZone, now, revision }: { order: Order; timeZone: string; now: number; revision: number }) {
+function Timeline({ className, order, timeZone, now, revision }: { className?: string; order: Order; timeZone: string; now: number; revision: number }) {
   const [activity, setActivity] = React.useState<OrderActivity[]>([])
   const [stripe, setStripe] = React.useState<StripeStep[]>([])
   const [open, setOpen] = React.useState<string | null>(null)
@@ -579,7 +660,7 @@ function Timeline({ order, timeZone, now, revision }: { order: Order; timeZone: 
   const lastEvent = rows.map((r) => r.kind).lastIndexOf("event")
 
   return (
-    <section className={cn(card, "px-4 pb-2 pt-3.5")}>
+    <section className={cn(card, "min-w-0 px-4 pb-2 pt-3.5", className)}>
       <h2 className="text-[13px] font-semibold text-[#1a1a2e]">Timeline</h2>
       <ol className="mt-1.5">
         {rows.map((row, i) => {
@@ -643,13 +724,88 @@ function Timeline({ order, timeZone, now, revision }: { order: Order; timeZone: 
 const dialogShell =
   "w-[calc(100%-32px)] max-w-[440px] gap-0 rounded-2xl border border-[#e5e7eb] bg-white p-0 shadow-[0_24px_60px_-12px_rgba(17,24,39,0.3)]"
 
+/**
+ * ONE SHELL FOR BOTH OF THIS PAGE'S DIALOGS. On a wide screen a dialog in the
+ * middle of the window, which fades and settles in and out
+ * (components/ui/dialog). On a phone the shared sheet
+ * (components/ui/bottom-sheet), with the same motion as every other sheet in
+ * /app and above the navigation pill. Only one of the two is ever drawn, and
+ * the page keeps one dialog open at a time.
+ *
+ * While the action is in flight neither can be dismissed: the dialog ignores
+ * the request, and the sheet comes back up.
+ */
+function DialogShell({
+  phone,
+  open,
+  busy,
+  onClose,
+  title,
+  description,
+  onSubmit,
+  children,
+  footer,
+}: {
+  phone: boolean
+  open: boolean
+  busy: boolean
+  onClose: () => void
+  title: string
+  description: React.ReactNode
+  onSubmit: () => void
+  children: React.ReactNode
+  footer: React.ReactNode
+}) {
+  const form = (heading: React.ReactNode) => (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault()
+        onSubmit()
+      }}
+    >
+      {heading}
+      {children}
+      <div className="flex justify-end gap-2 border-t border-[#eef0f2] px-5 py-3">{footer}</div>
+    </form>
+  )
+  if (phone) {
+    return (
+      <BottomSheet isOpen={open} onClose={() => (busy ? undefined : onClose())} label={title}>
+        {form(
+          <div className="px-5 pb-1 pt-2">
+            <p className="text-[16px] font-semibold text-[#1a1a2e]">{title}</p>
+            <p className="mt-1 text-[13px] text-[#6b7280]">{description}</p>
+          </div>,
+        )}
+      </BottomSheet>
+    )
+  }
+  return (
+    <Dialog open={open} onOpenChange={(o) => (!o && !busy ? onClose() : undefined)}>
+      <DialogContent className={dialogShell} showCloseButton={false}>
+        {form(
+          <div className="px-5 pb-1 pt-5">
+            <DialogTitle className="text-[16px] font-semibold text-[#1a1a2e]">{title}</DialogTitle>
+            <DialogDescription className="mt-1 text-[13px] text-[#6b7280]">{description}</DialogDescription>
+          </div>,
+        )}
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+const field =
+  "h-9 rounded-lg border border-[#d5d7dd] bg-white px-2.5 text-[16px] text-[#1a1a2e] outline-none focus:border-[#1a1a2e] sm:text-[13px]"
+
 function RefundDialog({
+  phone,
   open,
   lines,
   onClose,
   onSubmit,
   busy,
 }: {
+  phone: boolean
   open: boolean
   lines: OrderRow[]
   onClose: () => void
@@ -673,82 +829,76 @@ function RefundDialog({
   const valid = line && Number.isFinite(value) && value > 0 && value <= max + 1e-9
 
   return (
-    <Dialog open={open} onOpenChange={(o) => (!o && !busy ? onClose() : undefined)}>
-      <DialogContent className={dialogShell} showCloseButton={false}>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault()
-            if (valid && line) onSubmit(line, Math.round(value * 100), reason)
-          }}
-        >
-          <div className="px-5 pb-1 pt-5">
-            <DialogTitle className="text-[16px] font-semibold text-[#1a1a2e]">Refund</DialogTitle>
-            <DialogDescription className="mt-1 text-[13px] text-[#6b7280]">
-              The money goes back to the buyer&apos;s original payment method, and they get an email about it.
-            </DialogDescription>
+    <DialogShell
+      phone={phone}
+      open={open}
+      busy={busy}
+      onClose={onClose}
+      title="Refund"
+      description="The money goes back to the buyer's original payment method, and they get an email about it."
+      onSubmit={() => {
+        if (valid && line) onSubmit(line, Math.round(value * 100), reason)
+      }}
+      footer={
+        <>
+          <button type="button" className={buttonSecondary} onClick={onClose} disabled={busy}>
+            Cancel
+          </button>
+          <button type="submit" className={buttonPrimary} disabled={!valid || busy}>
+            {busy ? "Refunding…" : valid ? `Refund ${formatMoney(Math.round(value * 100))}` : "Refund"}
+          </button>
+        </>
+      }
+    >
+      <div className="grid gap-3 px-5 py-4">
+        {lines.length > 1 ? (
+          <label className="grid gap-1.5 text-[12px] font-medium text-[#4b5563]">
+            Item
+            <select
+              value={line?.id}
+              onChange={(e) => {
+                const next = lines.find((l) => l.id === e.target.value)
+                setLineId(e.target.value)
+                if (next) setAmount(((next.amount_cents || 0) / 100).toFixed(2))
+              }}
+              className={field}
+            >
+              {lines.map((l) => (
+                <option key={l.id} value={l.id}>
+                  {(l.product?.title || "Product") + ", " + formatMoney(l.amount_cents || 0)}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
+        <label className="grid gap-1.5 text-[12px] font-medium text-[#4b5563]">
+          Amount
+          <div className="flex h-9 items-center rounded-lg border border-[#d5d7dd] bg-white px-2.5 focus-within:border-[#1a1a2e]">
+            <span className="text-[13px] text-[#6b7280]">$</span>
+            <input
+              inputMode="decimal"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ""))}
+              className="min-w-0 flex-1 bg-transparent pl-1 text-[16px] tabular-nums text-[#1a1a2e] outline-none sm:text-[13px]"
+            />
+            <span className="text-[12px] text-[#9ca3af]">of {formatMoney(Math.round(max * 100))}</span>
           </div>
-          <div className="grid gap-3 px-5 py-4">
-            {lines.length > 1 ? (
-              <label className="grid gap-1.5 text-[12px] font-medium text-[#4b5563]">
-                Item
-                <select
-                  value={line?.id}
-                  onChange={(e) => {
-                    const next = lines.find((l) => l.id === e.target.value)
-                    setLineId(e.target.value)
-                    if (next) setAmount(((next.amount_cents || 0) / 100).toFixed(2))
-                  }}
-                  className="h-9 rounded-lg border border-[#d5d7dd] bg-white px-2.5 text-[16px] text-[#1a1a2e] outline-none focus:border-[#1a1a2e] sm:text-[13px]"
-                >
-                  {lines.map((l) => (
-                    <option key={l.id} value={l.id}>
-                      {(l.product?.title || "Product") + ", " + formatMoney(l.amount_cents || 0)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            ) : null}
-            <label className="grid gap-1.5 text-[12px] font-medium text-[#4b5563]">
-              Amount
-              <div className="flex h-9 items-center rounded-lg border border-[#d5d7dd] bg-white px-2.5 focus-within:border-[#1a1a2e]">
-                <span className="text-[13px] text-[#6b7280]">$</span>
-                <input
-                  inputMode="decimal"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ""))}
-                  className="min-w-0 flex-1 bg-transparent pl-1 text-[16px] tabular-nums text-[#1a1a2e] outline-none sm:text-[13px]"
-                />
-                <span className="text-[12px] text-[#9ca3af]">of {formatMoney(Math.round(max * 100))}</span>
-              </div>
-            </label>
-            <label className="grid gap-1.5 text-[12px] font-medium text-[#4b5563]">
-              Reason
-              <select
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-                className="h-9 rounded-lg border border-[#d5d7dd] bg-white px-2.5 text-[16px] text-[#1a1a2e] outline-none focus:border-[#1a1a2e] sm:text-[13px]"
-              >
-                <option value="requested_by_customer">The buyer asked for it</option>
-                <option value="duplicate">Charged twice</option>
-                <option value="fraudulent">Fraudulent</option>
-              </select>
-            </label>
-          </div>
-          <div className="flex justify-end gap-2 border-t border-[#eef0f2] px-5 py-3">
-            <button type="button" className={buttonSecondary} onClick={onClose} disabled={busy}>
-              Cancel
-            </button>
-            <button type="submit" className={buttonPrimary} disabled={!valid || busy}>
-              {busy ? "Refunding…" : valid ? `Refund ${formatMoney(Math.round(value * 100))}` : "Refund"}
-            </button>
-          </div>
-        </form>
-      </DialogContent>
-    </Dialog>
+        </label>
+        <label className="grid gap-1.5 text-[12px] font-medium text-[#4b5563]">
+          Reason
+          <select value={reason} onChange={(e) => setReason(e.target.value)} className={field}>
+            <option value="requested_by_customer">The buyer asked for it</option>
+            <option value="duplicate">Charged twice</option>
+            <option value="fraudulent">Fraudulent</option>
+          </select>
+        </label>
+      </div>
+    </DialogShell>
   )
 }
 
 function EmailDialog({
+  phone,
   open,
   current,
   sendsReceipt,
@@ -756,6 +906,7 @@ function EmailDialog({
   onSubmit,
   busy,
 }: {
+  phone: boolean
   open: boolean
   current: string
   sendsReceipt: boolean
@@ -772,47 +923,46 @@ function EmailDialog({
   const same = trimmed.toLowerCase() === current.trim().toLowerCase()
   const valid = wellFormed && !same
   return (
-    <Dialog open={open} onOpenChange={(o) => (!o && !busy ? onClose() : undefined)}>
-      <DialogContent className={dialogShell} showCloseButton={false}>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault()
-            if (valid) onSubmit(trimmed)
-          }}
-        >
-          <div className="px-5 pb-1 pt-5">
-            <DialogTitle className="text-[16px] font-semibold text-[#1a1a2e]">Change customer email</DialogTitle>
-            <DialogDescription className="mt-1 text-[13px] text-[#6b7280]">
-              {sendsReceipt
-                ? "The order moves to the new address, and the receipt with the download link is sent there now."
-                : "The order moves to the new address. Nothing is sent, as nothing in it has been paid for yet."}
-            </DialogDescription>
-          </div>
-          <div className="px-5 py-4">
-            <input
-              type="email"
-              inputMode="email"
-              autoComplete="off"
-              autoCapitalize="none"
-              spellCheck={false}
-              aria-label="New email address"
-              autoFocus
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="h-9 w-full rounded-lg border border-[#d5d7dd] bg-white px-2.5 text-[16px] text-[#1a1a2e] outline-none focus:border-[#1a1a2e] sm:text-[13px]"
-            />
-            {trimmed && !wellFormed ? <p className="mt-1.5 text-[12px] text-[#b42318]">Enter a full address, like name@example.com</p> : null}
-          </div>
-          <div className="flex justify-end gap-2 border-t border-[#eef0f2] px-5 py-3">
-            <button type="button" className={buttonSecondary} onClick={onClose} disabled={busy}>
-              Cancel
-            </button>
-            <button type="submit" className={buttonPrimary} disabled={!valid || busy}>
-              {busy ? "Saving…" : sendsReceipt ? "Save and send" : "Save"}
-            </button>
-          </div>
-        </form>
-      </DialogContent>
-    </Dialog>
+    <DialogShell
+      phone={phone}
+      open={open}
+      busy={busy}
+      onClose={onClose}
+      title="Change customer email"
+      description={
+        sendsReceipt
+          ? "The order moves to the new address, and the receipt with the download link is sent there now."
+          : "The order moves to the new address. Nothing is sent, as nothing in it has been paid for yet."
+      }
+      onSubmit={() => {
+        if (valid) onSubmit(trimmed)
+      }}
+      footer={
+        <>
+          <button type="button" className={buttonSecondary} onClick={onClose} disabled={busy}>
+            Cancel
+          </button>
+          <button type="submit" className={buttonPrimary} disabled={!valid || busy}>
+            {busy ? "Saving…" : sendsReceipt ? "Save and send" : "Save"}
+          </button>
+        </>
+      }
+    >
+      <div className="px-5 py-4">
+        <input
+          type="email"
+          inputMode="email"
+          autoComplete="off"
+          autoCapitalize="none"
+          spellCheck={false}
+          aria-label="New email address"
+          autoFocus={!phone}
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className={cn(field, "w-full")}
+        />
+        {trimmed && !wellFormed ? <p className="mt-1.5 text-[12px] text-[#b42318]">Enter a full address, like name@example.com</p> : null}
+      </div>
+    </DialogShell>
   )
 }

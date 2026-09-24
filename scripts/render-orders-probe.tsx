@@ -7,6 +7,7 @@
  */
 import React from "react"
 import { OrdersClient } from "@/app/app/orders/orders-client"
+import OrdersLoading from "@/app/app/orders/sales/loading"
 import type { OrderRow } from "@/lib/orders/order-view"
 
 const g = globalThis as unknown as { __probeNow: number; __probeTz: string }
@@ -60,6 +61,14 @@ export function fixtureRows(now: number): OrderRow[] {
       buyer_notified_at: i === 5 ? null : new Date(Date.parse(at) + 40_000).toISOString(),
       buyer_email_last_error: i === 5 ? "Mailbox unavailable" : null,
       source: i % 3 === 0 ? "website" : "storelib",
+      /* Where each checkout began, as lib/orders/order-source records it; the
+         oldest orders have none, as orders from before it do. */
+      source_detail:
+        i > 100
+          ? null
+          : i % 3 === 0
+            ? { surface: "website", site: "andrewrullz.storelib.com", from: i % 2 ? "instagram" : "tiktok", ...(i % 4 === 0 ? { utm_source: "ig", utm_campaign: "fall_drop" } : {}) }
+            : { surface: i % 3 === 1 ? "product" : "explore", from: i % 2 ? "google" : "direct" },
       product: { id: product.id, title: product.title, type: product.type, thumbnail_url: null },
     }
     rows.push(base)
@@ -78,6 +87,18 @@ export function fixtureRows(now: number): OrderRow[] {
     }
   }
   return rows
+}
+
+/** The route's loading state in the same shell, for a link straight to an order. */
+export function SkeletonApp() {
+  return (
+    <div style={{ height: "100vh", display: "flex", flexDirection: "column" }}>
+      <div data-probe-header style={{ height: 58, flex: "none", background: "#131316" }} />
+      <div className="app-content-scroll" style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
+        <OrdersLoading />
+      </div>
+    </div>
+  )
 }
 
 export function App() {
