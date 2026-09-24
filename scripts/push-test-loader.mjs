@@ -69,6 +69,16 @@ export const useLinkStatus = () => ({ pending: false })
 export const headers = async () => new Map()
 export const draftMode = async () => ({ isEnabled: false })
 `,
+  /**
+   * next/cache: a cached function is the function, and revalidation has
+   * nothing to revalidate. lib/seo/sitemaps wraps its reads in
+   * unstable_cache, and its pure helpers are what the suites test.
+   */
+  "next/cache": `export const unstable_cache = (fn) => fn
+export const revalidatePath = () => {}
+export const revalidateTag = () => {}
+export const unstable_noStore = () => {}
+`,
   "next/navigation": `export const usePathname = () => globalThis.__PUSH_TEST_PATHNAME__ ?? "/"
 export const useRouter = () => ({ push() {}, replace() {}, prefetch() {}, back() {} })
 export const useSearchParams = () => new URLSearchParams()
