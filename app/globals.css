@@ -2532,14 +2532,15 @@ html.keyboard-open [data-page="library"] main {
 
 /* ── The iOS spinner (components/ui/activity-spinner.tsx) ────────────────────
  *
- * Eight spokes, turned an eighth at a time: `steps(8)` holds each position
- * for 100ms and then jumps, which is how the system indicator moves. A linear
- * turn would smear the spokes into a blur of grey. Transform only, so it runs
- * on the compositor while the page it is waiting for is being put together.
+ * Eight spokes with stepped shading, turned continuously: one turn a second
+ * on a linear curve, so every frame moves it by the same small angle. It used
+ * to jump an eighth every 100ms (`steps(8)`), and on a phone that read as a
+ * judder rather than as motion. Transform only, on an HTML box, so it runs on
+ * the compositor while the page it is waiting for is being put together.
  */
 .activity-spinner {
   display: block;
-  animation: activity-spin 800ms steps(8) infinite;
+  animation: activity-spin 1000ms linear infinite;
   will-change: transform;
 }
 @keyframes activity-spin {
@@ -2549,7 +2550,7 @@ html.keyboard-open [data-page="library"] main {
 @media (prefers-reduced-motion: reduce) {
   /* Slower, never still: a spinner that has stopped reads as a frozen screen. */
   .activity-spinner {
-    animation-duration: 2400ms;
+    animation-duration: 3000ms;
   }
 }
 

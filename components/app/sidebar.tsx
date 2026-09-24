@@ -319,6 +319,14 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     })
   }, [])
 
+  /* The account menu's own pages (Settings, Billing), fetched whole under
+     the pointer the way the rail's rows are (prefetchAppPage): a plain Link's
+     prefetch of a page with no loading boundary brings almost nothing, so the
+     click waited for the server. */
+  const warmAccountPage = (href: string) => {
+    if (href.startsWith("/app/")) prefetchAppPage(router, href)
+  }
+
   const profileDropdownItems = [
     { href: "/app/settings", label: t("nav.settings"), icon: Settings },
     { href: "/app/settings/billing", label: t("settings.billing"), icon: CreditCard },
@@ -399,6 +407,8 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
                 key={item.href}
                 href={item.href}
                 {...("target" in item ? { target: item.target, rel: "noopener noreferrer" } : {})}
+                onMouseEnter={() => warmAccountPage(item.href)}
+                onFocus={() => warmAccountPage(item.href)}
                 onClick={(e) => {
                   if (isExplore && isNativeApp()) {
                     e.preventDefault()
@@ -663,6 +673,8 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
                       key={item.href}
                       href={item.href}
                       {...("target" in item ? { target: item.target, rel: "noopener noreferrer" } : {})}
+                      onMouseEnter={() => warmAccountPage(item.href)}
+                      onFocus={() => warmAccountPage(item.href)}
                       onClick={(e) => {
                         if (isHelp && isNativeApp()) {
                           e.preventDefault()
