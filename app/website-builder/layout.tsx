@@ -1,7 +1,15 @@
 import type React from "react"
+import type { Metadata } from "next"
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { Toaster } from "sonner"
+
+/**
+ * One signed in person's own screens: never in a search index. robots.txt
+ * keeps crawlers out too (lib/seo/indexing.ts PLATFORM_DISALLOW); this is
+ * for the page somebody links to anyway.
+ */
+export const metadata: Metadata = { robots: { index: false, follow: false } }
 
 // Full-screen layout for Website Builder editor & code editor pages.
 // No app sidebar — the editor has its own top bar.

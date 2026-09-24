@@ -250,7 +250,9 @@ check(
   !deservesIndexing({ publishedProducts: 5, handle: "powerokebos999" }),
 )
 
-const sitemap = stripComments(read("app/sitemap.ts"))
+/* The sitemap readers and the rules they apply (the index moved out of
+   app/sitemap.ts when it grew into chunks). */
+const sitemap = stripComments(read("lib/seo/sitemaps.ts") + read("lib/seo/indexing.ts"))
 check(
   "the sitemap gates storefronts on published products",
   sitemap.includes("deservesIndexing") &&
@@ -258,7 +260,7 @@ check(
     // The old unconditional query listed every profile that had a username.
     // That exact shape must not come back.
     !/\.from\("profiles"\)[\s\S]{0,160}\.not\("username", "is", null\)[\s\S]{0,80}\.limit\(5000\)/.test(sitemap),
-  "        app/sitemap.ts",
+  "        lib/seo/sitemaps.ts, lib/seo/indexing.ts",
 )
 
 const storefront = stripComments(read("app/(marketing)/u/[username]/page.tsx"))

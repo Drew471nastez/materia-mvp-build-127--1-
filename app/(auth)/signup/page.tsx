@@ -226,7 +226,7 @@ function SignUpFormContent() {
      * and it is wrapped here too, because a signup form that breaks when a
      * fetch does is a far worse outcome than a spammer getting through. The
      * containment layer is what actually removes their reason for coming; see
-     * app/sitemap.ts and lib/security/spam-signals.ts.
+     * lib/seo/sitemaps.ts and lib/security/spam-signals.ts.
      */
     try {
       const guard = await fetch("/api/auth/signup-guard", {

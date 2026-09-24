@@ -65,6 +65,9 @@ export const RESERVED_ROOT_SEGMENTS: readonly string[] = [
   "reset-password",
   "signup",
   "site",
+  // storelib.com's sitemap index, and the files it names (/sitemap/<name>.xml).
+  "sitemap",
+  "sitemap.xml",
   "sites",
   "store",
   "store-builder",
@@ -105,7 +108,6 @@ export const RESERVED_ROOT_EXTRAS: readonly string[] = [
   "robots",
   "sales",
   "settings",
-  "sitemap",
   "signin",
   "sign-in",
   "sign-up",

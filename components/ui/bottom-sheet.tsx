@@ -102,6 +102,7 @@ export function BottomSheet({
   maxHeight = "min(86dvh, 720px)",
   aboveKeyboard = false,
   className,
+  scrollKey,
 }: {
   isOpen: boolean
   onClose: () => void
@@ -126,6 +127,9 @@ export function BottomSheet({
    */
   aboveKeyboard?: boolean
   className?: string
+  /** When this changes the content scrolls back to the top: a list that
+      swaps for a sub-list, say, would otherwise open part way down. */
+  scrollKey?: string | number | null
 }) {
   const [mounted, setMounted] = useState(false)
   /**
@@ -146,6 +150,10 @@ export function BottomSheet({
 
   const sheetRef = useRef<HTMLDivElement>(null)
   const scrimRef = useRef<HTMLDivElement>(null)
+  const bodyRef = useRef<HTMLDivElement>(null)
+  useLayoutEffect(() => {
+    if (bodyRef.current) bodyRef.current.scrollTop = 0
+  }, [scrollKey])
 
   /* Gesture and motion state is refs: none of it should cause a render. */
   const startYRef = useRef(0)
@@ -482,7 +490,7 @@ export function BottomSheet({
             {shownRef.current}
           </div>
         ) : (
-          <div data-sheet-scroll="" className="min-h-0 flex-1 overflow-y-auto overscroll-contain" style={{ touchAction: "pan-y" }}>
+          <div ref={bodyRef} data-sheet-scroll="" className="min-h-0 flex-1 overflow-y-auto overscroll-contain" style={{ touchAction: "pan-y" }}>
             {shownRef.current}
           </div>
         )}

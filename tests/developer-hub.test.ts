@@ -201,7 +201,7 @@ function main() {
     ["developers", "llms.txt", "llms-full.txt"].every((w) => RESERVED_ROOT_SEGMENTS.includes(w)),
     "a creator called developers would have their page shadowed for ever")
   check("every page is in the sitemap, from the same list",
-    /DEV_PAGES\.map\(\(p\) => \(\{\s*\n\s*url: `\$\{BASE\}\$\{devPath\(p\.slug\)\}`/.test(read("app/sitemap.ts")))
+    /DEV_PAGES\.map\(\(p\) => \(\{\s*\n\s*url: `\$\{BASE\}\$\{devPath\(p\.slug\)\}`/.test(read("lib/seo/sitemaps.ts")))
   const map = llmsTxt()
   check("llms.txt opens with a title and a one-paragraph summary, as the format asks",
     /^# Storelib Developer Hub\n\n> /.test(map))

@@ -7,7 +7,6 @@ import Image from "next/image"
 import Link from "next/link"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { useEffect, useMemo, useRef, useState, useCallback } from "react"
-import { createPortal } from "react-dom"
 import type { User } from "@supabase/supabase-js"
 import { createClient, isNativePlatform } from "@/lib/supabase/client"
 import { extractUsernameFromHost, getCanonicalSiteUrl, isCustomDomain, isSellerPage, isProductPage, getProductInternalPath } from "@/lib/url-helpers"
@@ -19,6 +18,7 @@ import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { BottomSheet } from "@/components/ui/bottom-sheet"
 
 import { Heart, Library, Search, LayoutDashboard, Settings, LogOut, LogIn, Menu, X, Loader2, ChevronRight, ChevronLeft, ChevronDown, Sparkles, Code, Megaphone, Briefcase, Music, Camera, Video, Bot, Share2, Flame, Zap, ShoppingBag, Lightbulb, ArrowRight, User as UserIcon, Compass, Globe } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
@@ -211,7 +211,23 @@ type Profile = {
   is_creator?: boolean | null
 }
 
-// Mobile Bottom Sheet Component with swipe-to-close
+/**
+ * ===========================================================================
+ *  THE PHONE MENU AND THE ACCOUNT SHEET ARE THE APP'S ONE SHEET
+ * ===========================================================================
+ * This was a sheet of its own: React state per drag frame, a CSS transition
+ * that moved on release rather than under the finger, a body scroll lock,
+ * and a close that waited 400ms on a timer before telling anybody. Every
+ * other sheet in Storelib is components/ui/bottom-sheet.tsx, which moves on
+ * the compositor (transform and opacity only), follows the thumb without a
+ * render per frame, and paints its first frame already below the screen, so
+ * it cannot flash open before it slides. These two use it too now, with the
+ * same look they had: no title, three quarters of the screen at most, and
+ * hidden from the width the header stops drawing its hamburger.
+ *
+ * `contentKey` still resets the scroll when the menu swaps its category list
+ * for a sub-list, through the sheet's own `scrollKey`.
+ */
 function MobileBottomSheet({
   isOpen,
   onClose,
@@ -225,175 +241,19 @@ function MobileBottomSheet({
   title?: string
   contentKey?: string | null
 }) {
-  const [isVisible, setIsVisible] = useState(false)
-  const [isAnimating, setIsAnimating] = useState(false)
-  const [dragY, setDragY] = useState(0)
-  const [isDragging, setIsDragging] = useState(false)
-  const startY = useRef(0)
-  const sheetRef = useRef<HTMLDivElement>(null)
-  const scrollRef = useRef<HTMLDivElement>(null)
-  const [isMounted, setIsMounted] = useState(false)
-
-  useEffect(() => {
-    setIsMounted(true)
-  }, [])
-
-  useEffect(() => {
-    if (isOpen && !isVisible) {
-      setIsVisible(true)
-      document.body.style.overflow = "hidden"
-      document.documentElement.style.overscrollBehavior = 'none'
-      document.body.style.overscrollBehavior = 'none'
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          setIsAnimating(true)
-        })
-      })
-    } else if (!isOpen && isVisible) {
-      setIsAnimating(false)
-      document.body.style.overflow = ""
-      document.documentElement.style.overscrollBehavior = ''
-      document.body.style.overscrollBehavior = ''
-      const timer = setTimeout(() => {
-        setIsVisible(false)
-        setDragY(0)
-      }, 400)
-      return () => clearTimeout(timer)
-    }
-    return () => {
-      document.body.style.overflow = ""
-      document.documentElement.style.overscrollBehavior = ''
-      document.body.style.overscrollBehavior = ''
-    }
-  }, [isOpen, isVisible])
-
-  const handleClose = () => {
-    setIsAnimating(false)
-    setDragY(0)
-    setTimeout(() => {
-      onClose()
-    }, 400)
-  }
-
-  // ── Shared drag finisher ────────────────────────────────────────────────
-  const finishDrag = () => {
-    setIsDragging(false)
-    if (dragY > 80) {
-      handleClose()
-    } else {
-      setDragY(0)
-    }
-  }
-
-  // ── Handle-bar drag (always active on handle) ───────────────────────────
-  const handleHandleTouchStart = (e: React.TouchEvent) => {
-    startY.current = e.touches[0].clientY
-    setIsDragging(true)
-  }
-
-  const handleHandleTouchMove = (e: React.TouchEvent) => {
-    if (!isDragging) return
-    const currentY = e.touches[0].clientY
-    const diff = currentY - startY.current
-    if (diff > 0) {
-      e.preventDefault()
-      setDragY(diff * 0.8)
-    }
-  }
-
-  // ── Full-sheet drag (active when scroll content is at the very top) ─────
-  // This lets users swipe down from anywhere in the sheet to dismiss it,
-  // not just from the narrow handle bar. Only activates when the scroll
-  // container is at scrollTop ≤ 2 px so normal upward scrolling is unaffected.
-  const handleSheetTouchStart = (e: React.TouchEvent) => {
-    const scrollEl = scrollRef.current
-    if (scrollEl && scrollEl.scrollTop > 2) return // content is scrolled — don't start drag
-    startY.current = e.touches[0].clientY
-    setIsDragging(true)
-  }
-
-  const handleSheetTouchMove = (e: React.TouchEvent) => {
-    if (!isDragging) return
-    const scrollEl = scrollRef.current
-    if (scrollEl && scrollEl.scrollTop > 2) {
-      // Content scrolled away from top mid-gesture — cancel drag, let scroll run
-      setIsDragging(false)
-      setDragY(0)
-      return
-    }
-    const currentY = e.touches[0].clientY
-    const diff = currentY - startY.current
-    if (diff > 0) {
-      e.preventDefault()
-      setDragY(diff * 0.8)
-    } else {
-      // Moving upward — cancel drag so scroll container takes over
-      setIsDragging(false)
-      setDragY(0)
-    }
-  }
-
-  if (!isVisible || !isMounted) return null
-
-  return createPortal(
-    <div data-mobile-bottom-sheet="true" className="fixed inset-0 z-[100] md:hidden">
-      {/* Backdrop */}
-      <div
-        className={`absolute inset-0 bg-black/50 backdrop-blur-[2px] transition-opacity ease-out ${
-          isAnimating ? "opacity-100" : "opacity-0"
-        }`}
-        style={{ transitionDuration: '400ms' }}
-        onClick={handleClose}
-      />
-      {/* Bottom Sheet — full-sheet drag active when scroll is at top */}
-      <div
-        ref={sheetRef}
-        className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl"
-        onTouchStart={handleSheetTouchStart}
-        onTouchMove={handleSheetTouchMove}
-        onTouchEnd={finishDrag}
-        style={{
-          // Use 'none' instead of translateY(0px) when fully open — CSS transforms
-          // create a new containing block on iOS which can offset touch coordinates,
-          // causing taps to register on the wrong list item.
-          transform: isAnimating ? (dragY !== 0 ? `translateY(${dragY}px)` : 'none') : "translateY(100%)",
-          transition: isDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
-          maxHeight: '74vh',
-        }}
-      >
-        {/* Handle bar — always a drag target regardless of scroll position */}
-        <div
-          className="pt-3 pb-2 touch-none"
-          onTouchStart={handleHandleTouchStart}
-          onTouchMove={handleHandleTouchMove}
-          onTouchEnd={finishDrag}
-        >
-          <button
-            onClick={handleClose}
-            className="w-full flex justify-center py-2 cursor-pointer"
-          >
-            <div className="w-10 h-1.5 bg-gray-300 rounded-full" />
-          </button>
-        </div>
-        {title && (
-          <div className="px-4 pb-3">
-            <h3 className="text-[16px] font-semibold text-gray-900">{title}</h3>
-          </div>
-        )}
-        {/* key resets scroll to top when switching between main list and subcategory view.
-            Without this, expanding a category while scrolled down makes the subcategory
-            view appear blank because the scroll position is past the shorter content. */}
-        <div
-          ref={scrollRef}
-          key={contentKey ?? 'default'}
-          className="overflow-y-auto overscroll-contain"
-          style={{ maxHeight: 'calc(74vh - 80px)' }}
-        >
-          {children}
-        </div>
-      </div>
-    </div>,
-    document.body,
+  return (
+    <BottomSheet
+      isOpen={isOpen}
+      onClose={onClose}
+      title={title}
+      label={title ?? "Menu"}
+      hideFrom="md"
+      maxHeight="min(74dvh, 720px)"
+      className="rounded-t-[24px]"
+      scrollKey={contentKey ?? "default"}
+    >
+      {children}
+    </BottomSheet>
   )
 }
 
@@ -621,6 +481,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
       // document → setExpandedCategory(null) is scheduled 100ms later → the
       // subcategory view opens for 100ms and immediately collapses back.
       if (
+        target.closest('[data-app-sheet]') ||
         target.closest('[data-mobile-bottom-sheet]') ||
         target.closest('[data-mobile-top-sheet]')
       ) {

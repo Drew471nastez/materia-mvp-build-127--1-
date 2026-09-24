@@ -1,4 +1,5 @@
-import { NextResponse } from "next/server"
+import { NextResponse, after } from "next/server"
+import { announce, websiteAddresses } from "@/lib/seo/announce"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { takeBackup } from "@/lib/website-builder/backups"
@@ -157,6 +158,11 @@ export async function POST(req: Request, { params }: Params) {
      */
     await revalidatePublishedSite(creator.id)
 
+    /* After the answer: every page of the site, to the search engines that
+       take IndexNow (lib/seo/indexnow.ts). Never in the way of the publish. */
+    const announced = creator.id
+    after(() => announce(() => websiteAddresses(announced)))
+
     return NextResponse.json({ ok: true, status: "published" })
   }
 
@@ -178,6 +184,9 @@ export async function POST(req: Request, { params }: Params) {
 
     // A site taken down that stays in a cache is still up.
     await revalidatePublishedSite(creator.id)
+    /* And in a search index, until an engine is told to look again. */
+    const announced = creator.id
+    after(() => announce(() => websiteAddresses(announced)))
 
     return NextResponse.json({ ok: true, status: "unpublished" })
   }

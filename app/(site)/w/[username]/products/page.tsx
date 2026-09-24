@@ -7,6 +7,7 @@ import { publishedShopByName } from "@/lib/website-builder/published-site"
 import { getMainDomain } from "@/lib/url-helpers"
 import { shopSections } from "@/lib/website-builder/shop-page"
 import { siteMetadata } from "../render-site"
+import { SiteVitals } from "@/components/website-builder/site-vitals"
 
 /**
  * RENDERED PER REQUEST, unlike the pages of the site around it.
@@ -69,6 +70,7 @@ export default async function SiteShopPage({ params }: PageProps) {
         storefront={{ creatorId: site.creatorId, installId: site.installId }}
         emptyDetail="Nothing in the shop yet."
       />
+      <SiteVitals installId={site.installId} />
     </StorelibSourcesProvider>
   )
 }

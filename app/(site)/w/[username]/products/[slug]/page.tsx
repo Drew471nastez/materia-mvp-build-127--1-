@@ -19,8 +19,9 @@ interface PageProps {
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const { slug } = await params
-  return productMetadata(slug)
+  const { username, slug } = await params
+  /* Canonical at the site's own /products/<slug>, on its canonical origin. */
+  return productMetadata(slug, { site: username })
 }
 
 /**

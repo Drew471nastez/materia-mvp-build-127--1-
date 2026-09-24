@@ -73,7 +73,7 @@ const INFRA_ITEMS = [
   { label: "Googlebot max-image-preview", detail: "large", file: "app/layout.tsx" },
   { label: "OG type default", detail: "website, locale: en_US", file: "app/layout.tsx" },
   { label: "Twitter card default", detail: "summary_large_image", file: "app/layout.tsx" },
-  { label: "sitemap.xml", detail: "Products + Sellers + Blog + 14 categories + static pages", file: "app/sitemap.ts" },
+  { label: "sitemap.xml", detail: "Products + Sellers + Blog + 14 categories + static pages", file: "lib/seo/sitemaps.ts" },
   { label: "robots.txt", detail: "Blocks /admin/ /api/ /app/ /auth/ + filter/sort params", file: "app/robots.ts" },
   { label: "Canonical URLs", detail: "All public dynamic pages — absolute URLs", file: "multiple" },
   { label: "Subdomain rewrite", detail: "username.storelib.com/ → /u/username (no redirect)", file: "middleware.ts" },

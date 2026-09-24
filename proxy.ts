@@ -547,7 +547,7 @@ const FRAME_RESERVED_FIRST_SEGMENT = new Set([
   "checkout", "cover-render", "creator-page", "dashboard", "developers", "downloads", "editions", "explore",
   "faq", "features", "help", "l", "legal", "library", "llms-full.txt", "llms.txt", "login", "native-start",
   "onboarding", "p", "pricing", "privacy", "products", "purchase", "receipt",
-  "register", "request", "reset-password", "signup", "site", "sites", "store",
+  "register", "request", "reset-password", "signup", "site", "sitemap", "sitemap.xml", "sites", "store",
   "store-builder", "terms", "u", "unsubscribe", "upgrade", "verify-email",
   "w", "website-builder", "welcome", "wishlist",
 ])
@@ -557,6 +557,21 @@ export async function proxy(request: NextRequest) {
   const host = request.headers.get("host") || ""
 
   const bareHost = host.split(":")[0].toLowerCase()
+
+  /**
+   * ── The IndexNow key, on every host ──────────────────────────────────────
+   * IndexNow (lib/seo/indexnow.ts) proves a site is ours by a text file at
+   * the root of each host whose pages it announces, holding the key. The key
+   * is public by design. Answered here, before any other rule, so the same
+   * one line serves storelib.com, every <name>.storelib.com and every
+   * connected domain. Nothing is served while INDEXNOW_KEY is unset.
+   */
+  const indexNowKey = process.env.INDEXNOW_KEY
+  if (indexNowKey && /^[A-Za-z0-9-]{8,128}$/.test(indexNowKey) && pathname === `/${indexNowKey}.txt`) {
+    return new NextResponse(indexNowKey, {
+      headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "public, max-age=3600" },
+    })
+  }
 
   /**
    * ═══════════════════════════════════════════════════════════════════════════
@@ -759,6 +774,20 @@ export async function proxy(request: NextRequest) {
         apex.search = search
         // 307: the method and body survive, which a POST to checkout needs.
         return NextResponse.redirect(apex, { status: 307 })
+      }
+
+      /**
+       * THE SITE'S OWN ROBOTS.TXT AND SITEMAP. They look like files, so they
+       * used to go to /site like an asset, which answered a website-builder
+       * site's /robots.txt with a redirect to storelib.com/<name>/robots.txt:
+       * Google, which treats every host as its own site, found no sitemap on
+       * any of them. A website-builder site answers from its own routes now;
+       * a live AI site keeps serving (or generating) its own.
+       */
+      if ((pathname === "/robots.txt" || pathname === "/sitemap.xml") && !(await hasLiveAiSite(subdomain))) {
+        const own = request.nextUrl.clone()
+        own.pathname = `/w/${subdomain}${pathname}`
+        return NextResponse.rewrite(own)
       }
 
       const looksLikeFile = /\.[a-z0-9]{1,8}$/i.test(pathname)
@@ -996,6 +1025,17 @@ export async function proxy(request: NextRequest) {
 
   // Handle subdomain or custom domain routing
   let supabaseResponse: NextResponse
+
+  /**
+   * A connected domain's robots.txt and sitemap are the site's own, not
+   * storelib.com's: the reserved-path rule below would hand it Storelib's,
+   * which names storelib.com's sitemap from somebody else's domain.
+   */
+  if (username && isCustomDomain && (pathname === "/robots.txt" || pathname === "/sitemap.xml")) {
+    const own = request.nextUrl.clone()
+    own.pathname = `/w/${username}${pathname}`
+    return NextResponse.rewrite(own)
+  }
 
   // If we have a username (from subdomain or custom domain) and it's not a reserved path
   if (username && !isReservedPath(pathname)) {

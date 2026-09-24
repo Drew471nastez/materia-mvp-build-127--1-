@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation"
 import { plainSummary } from "@/lib/html-entities"
+import { productIndexable } from "@/lib/seo/indexing"
 import Link from "next/link"
 import { createClient } from "@/lib/supabase/server"
 import { startPhaseTimer } from "@/lib/perf/phase-timer"
@@ -195,7 +196,13 @@ export async function generateMetadata({ params }: ProductPageProps) {
     alternates: {
       canonical: productUrl,
     },
-    robots: { index: true, follow: true, googleBot: { index: true, follow: true, "max-image-preview": "large" as const } },
+    /* Listed and indexed by one rule (lib/seo/indexing productIndexable):
+       a published product, unless its seller's handle is a link farm's. */
+    robots: {
+      index: productIndexable(product, sellerHandle ?? null),
+      follow: true,
+      googleBot: { index: productIndexable(product, sellerHandle ?? null), follow: true, "max-image-preview": "large" as const },
+    },
     ...(faviconUrl && {
       icons: {
         icon: faviconUrl,
