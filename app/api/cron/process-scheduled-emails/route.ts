@@ -1,14 +1,41 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
-import { sendEmail, buildFromHeader, isSmtpConfigured, EMAIL_FROM, EMAIL_REPLY_TO } from "@/lib/mail"
+import { sendEmail, isSmtpConfigured, EMAIL_FROM, EMAIL_REPLY_TO } from "@/lib/mail"
 import { ignoreError } from "@/lib/supabase/ignore-error"
 import { requireBearerSecret } from "@/lib/api/require-secret"
 import { automationEmail, standingOf } from "@/lib/email-automation"
 import { maskEmail } from "@/lib/privacy/mask-email"
+import { runDueJobs } from "@/lib/automations/run"
+
+/**
+ * ===========================================================================
+ *  THE HOURLY RUN OF EVERY AUTOMATION
+ * ===========================================================================
+ * Two queues, one after the other, inside the function's time:
+ *
+ *   the engine   email_flow_jobs, claimed a few at a time with a lease, so
+ *                this and any other worker (the `after()` that runs straight
+ *                after a trigger) never take the same step. See
+ *                lib/automations/engine.ts.
+ *   the older    scheduled_flow_emails, from before the engine, or from a
+ *                database that has not run its SQL yet. Each row is taken
+ *                with a conditional update (pending to sending) before it is
+ *                sent, so two runs at once cannot both send it. A failure is
+ *                tried again twice, half an hour apart, then kept as failed
+ *                with its reason.
+ *
+ * The reply says what was done and never quotes an address or a database
+ * error.
+ */
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 export const maxDuration = 300 // 5 minutes max
+
+/** Stop claiming new work with time left to finish what was claimed. */
+const ENGINE_BUDGET_MS = 180_000
+const LEGACY_BUDGET_MS = 60_000
+const LEGACY_ATTEMPTS = 3
 
 // Create admin client
 const supabaseAdmin = createClient(
@@ -27,12 +54,6 @@ function buildFromHeaderLocal(displayName?: string) {
   const email = emailMatch ? emailMatch[1] : FROM_EMAIL
   return `${name} <${email}>`
 }
-
-function safeText(s: string) {
-  return (s || "").toString().replace(/\s+/g, " ").trim()
-}
-
-
 
 // Resolve creator identity for sending emails
 async function resolveCreatorIdentity(creatorId: string): Promise<{ fromName: string; replyTo: string }> {
@@ -74,179 +95,169 @@ async function resolveCreatorIdentity(creatorId: string): Promise<{ fromName: st
       fromName: fromName || PLATFORM_BRAND_NAME,
       replyTo: replyTo.toLowerCase().trim() || DEFAULT_SUPPORT,
     }
-  } catch (err) {
-    console.error("[cron/scheduled-emails] Error resolving creator identity:", err)
+  } catch {
+    console.error("[cron/scheduled-emails] Could not read a creator's name for sending")
     return { fromName: PLATFORM_BRAND_NAME, replyTo: DEFAULT_SUPPORT }
   }
 }
 
+function errorText(err: unknown): string {
+  const raw = err instanceof Error ? err.message : String(err ?? "Unknown error")
+  return raw.replace(/[^\s@<>"']+@[^\s@<>"']+/g, "(address)").slice(0, 300)
+}
+
 export async function GET(request: Request) {
-  // Verify cron secret for security (optional but recommended)
   const denied = requireBearerSecret(request, "CRON_SECRET")
   if (denied) {
     console.log("[cron/scheduled-emails] Unauthorized request")
     return denied
   }
 
-  console.log("[cron/scheduled-emails] Starting scheduled email processing...")
-
   if (!isSmtpConfigured()) {
+    /* Nothing is claimed, so no attempt is spent on a sender that is not there. */
     console.log("[cron/scheduled-emails] SMTP not configured, skipping")
-    return NextResponse.json({ error: "SMTP not configured" }, { status: 500 })
+    return NextResponse.json({ error: "Email sending is not configured" }, { status: 500 })
   }
 
+  const started = Date.now()
+  let engine: Awaited<ReturnType<typeof runDueJobs>> | { available: false; error: true } = { available: false, error: true }
   try {
-    // Get pending scheduled emails that are due
-    const now = new Date().toISOString()
+    engine = await runDueJobs(ENGINE_BUDGET_MS)
+  } catch (err) {
+    console.error("[cron/scheduled-emails] Engine run failed:", errorText(err))
+  }
 
-    const { data: scheduledEmails, error: fetchError } = await supabaseAdmin
+  const legacy = await drainLegacyQueue(started + ENGINE_BUDGET_MS + LEGACY_BUDGET_MS)
+
+  const { data: health } = await supabaseAdmin.rpc("email_flow_health").then(
+    (r: { data: unknown }) => r,
+    () => ({ data: null }),
+  )
+
+  console.log("[cron/scheduled-emails] Done:", { engine, legacy })
+  return NextResponse.json({
+    engine,
+    legacy,
+    health: Array.isArray(health) ? health[0] ?? null : null,
+  })
+}
+
+async function drainLegacyQueue(deadline: number): Promise<{ sent: number; failed: number; cancelled: number; retrying: number }> {
+  const out = { sent: 0, failed: 0, cancelled: 0, retrying: 0 }
+  const now = new Date().toISOString()
+  const { data: scheduledEmails, error: fetchError } = await supabaseAdmin
+    .from("scheduled_flow_emails")
+    .select("*")
+    .eq("status", "pending")
+    .lte("scheduled_for", now)
+    .order("scheduled_for", { ascending: true })
+    .limit(50)
+
+  if (fetchError || !scheduledEmails || scheduledEmails.length === 0) return out
+
+  for (const email of scheduledEmails) {
+    if (Date.now() > deadline) break
+
+    /* Taken, or somebody else has it. Only the run whose update changed the
+       row sends it. */
+    const { data: taken } = await supabaseAdmin
       .from("scheduled_flow_emails")
-      .select("*")
+      .update({ status: "sending", updated_at: new Date().toISOString() })
+      .eq("id", email.id)
       .eq("status", "pending")
-      .lte("scheduled_for", now)
-      .order("scheduled_for", { ascending: true })
-      .limit(50) // Process max 50 emails per run
+      .select("id")
+    if (!Array.isArray(taken) || taken.length === 0) continue
 
-    if (fetchError) {
-      console.error("[cron/scheduled-emails] Error fetching scheduled emails:", fetchError)
-      return NextResponse.json({ error: fetchError.message }, { status: 500 })
-    }
+    try {
+      // Check if flow is still active
+      const { data: flow } = await supabaseAdmin
+        .from("email_flows")
+        .select("status")
+        .eq("id", email.flow_id)
+        .maybeSingle()
 
-    if (!scheduledEmails || scheduledEmails.length === 0) {
-      console.log("[cron/scheduled-emails] No pending scheduled emails")
-      return NextResponse.json({ processed: 0, message: "No pending emails" })
-    }
-
-    console.log(`[cron/scheduled-emails] Found ${scheduledEmails.length} pending email(s)`)
-
-    let sent = 0
-    let failed = 0
-    const errors: string[] = []
-
-    for (const email of scheduledEmails) {
-      try {
-        // Check if flow is still active
-        const { data: flow } = await supabaseAdmin
-          .from("email_flows")
-          .select("status")
-          .eq("id", email.flow_id)
-          .single()
-
-        if (flow?.status !== "active") {
-          // Flow is paused or deleted, cancel this email
-          await supabaseAdmin
-            .from("scheduled_flow_emails")
-            .update({ status: "cancelled", updated_at: new Date().toISOString() })
-            .eq("id", email.id)
-
-          console.log(`[cron/scheduled-emails] Cancelled email ${email.id} - flow no longer active`)
-          continue
-        }
-
-        /**
-         * AND THE PERSON IS CHECKED AGAIN, NOT ONLY THE FLOW.
-         *
-         * This email was queued when somebody signed up, and is being sent
-         * days later. Unsubscribing in between did nothing: the row was
-         * still pending and still went. Now it is cancelled, and the send
-         * carries the unsubscribe link read here.
-         */
-        const standing = await standingOf(supabaseAdmin, email.creator_id, email.recipient_email)
-        if (standing.suppressed) {
-          await supabaseAdmin
-            .from("scheduled_flow_emails")
-            .update({ status: "cancelled", updated_at: new Date().toISOString() })
-            .eq("id", email.id)
-          console.log(`[cron/scheduled-emails] Cancelled ${email.id} - the address left the list`)
-          continue
-        }
-
-        // Get creator identity for this email
-        const identity = await resolveCreatorIdentity(email.creator_id)
-        const mail = automationEmail({
-          body: email.body,
-          fromName: identity.fromName,
-          unsubscribeToken: standing.unsubscribeToken,
-        })
-
-        // Send the email
-        const result = await sendEmail({
-          from: buildFromHeaderLocal(identity.fromName),
-          to: email.recipient_email.toLowerCase().trim(),
-          replyTo: identity.replyTo,
-          subject: email.subject,
-          html: mail.html,
-          text: mail.text,
-          headers: mail.headers,
-        })
-
-        if (result.success) {
-          // Mark as sent
-          await supabaseAdmin
-            .from("scheduled_flow_emails")
-            .update({
-              status: "sent",
-              sent_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", email.id)
-
-          // Log email event
-          await supabaseAdmin.from("email_events").insert({
-            flow_id: email.flow_id,
-            recipient_email: email.recipient_email,
-            event_type: "sent",
-            metadata: {
-              step_id: email.step_id,
-              subject: email.subject,
-              scheduled_for: email.scheduled_for,
-            },
-          })
-
-          // Increment email usage for the creator
-          // Ignore if the function doesn't exist. `.catch()` on a PostgREST
-          // builder never did that — it threw. See lib/supabase/ignore-error.
-          await ignoreError(
-            supabaseAdmin.rpc("increment_email_usage", {
-              p_creator_id: email.creator_id,
-              p_count: 1,
-            }),
-          )
-
-          sent++
-          console.log(`[cron/scheduled-emails] Sent email to ${maskEmail(email.recipient_email)}`)
-        } else {
-          throw new Error(result.error || "Failed to send")
-        }
-      } catch (err: any) {
-        // Mark as failed
+      if (flow?.status !== "active") {
         await supabaseAdmin
           .from("scheduled_flow_emails")
-          .update({
-            status: "failed",
-            error_message: err.message || "Unknown error",
-            updated_at: new Date().toISOString(),
-          })
+          .update({ status: "cancelled", updated_at: new Date().toISOString() })
           .eq("id", email.id)
-
-        errors.push(`${maskEmail(email.recipient_email)}: ${err.message}`)
-        failed++
-        console.error(`[cron/scheduled-emails] Failed to send email to ${maskEmail(email.recipient_email)}:`, err.message)
+        out.cancelled++
+        continue
       }
+
+      /**
+       * AND THE PERSON IS CHECKED AGAIN, NOT ONLY THE FLOW.
+       *
+       * This email was queued when somebody signed up, and is being sent
+       * days later. Unsubscribing in between did nothing: the row was
+       * still pending and still went. Now it is cancelled, and the send
+       * carries the unsubscribe link read here.
+       */
+      const standing = await standingOf(supabaseAdmin, email.creator_id, email.recipient_email)
+      if (standing.suppressed) {
+        await supabaseAdmin
+          .from("scheduled_flow_emails")
+          .update({ status: "cancelled", updated_at: new Date().toISOString() })
+          .eq("id", email.id)
+        console.log(`[cron/scheduled-emails] Cancelled ${email.id} - the address left the list`)
+        out.cancelled++
+        continue
+      }
+
+      const identity = await resolveCreatorIdentity(email.creator_id)
+      const mail = automationEmail({
+        body: email.body,
+        fromName: identity.fromName,
+        unsubscribeToken: standing.unsubscribeToken,
+      })
+
+      const result = await sendEmail({
+        from: buildFromHeaderLocal(identity.fromName),
+        to: email.recipient_email.toLowerCase().trim(),
+        replyTo: identity.replyTo,
+        subject: email.subject,
+        html: mail.html,
+        text: mail.text,
+        headers: mail.headers,
+      })
+
+      if (!result.success) throw new Error(result.error || "Failed to send")
+
+      await supabaseAdmin
+        .from("scheduled_flow_emails")
+        .update({ status: "sent", sent_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+        .eq("id", email.id)
+
+      await ignoreError(
+        supabaseAdmin.from("email_events").insert({
+          flow_id: email.flow_id,
+          recipient_email: email.recipient_email,
+          event_type: "sent",
+          metadata: { step_id: email.step_id, subject: email.subject, scheduled_for: email.scheduled_for },
+        }),
+      )
+      await ignoreError(supabaseAdmin.rpc("increment_email_usage", { p_creator_id: email.creator_id, p_count: 1 }))
+      out.sent++
+      console.log(`[cron/scheduled-emails] Sent email to ${maskEmail(email.recipient_email)}`)
+    } catch (err) {
+      const attempts = Number((email.metadata as { attempts?: number } | null)?.attempts ?? 0) + 1
+      const again = attempts < LEGACY_ATTEMPTS
+      await supabaseAdmin
+        .from("scheduled_flow_emails")
+        .update({
+          status: again ? "pending" : "failed",
+          scheduled_for: again ? new Date(Date.now() + attempts * 30 * 60_000).toISOString() : email.scheduled_for,
+          error_message: errorText(err),
+          metadata: { ...(email.metadata ?? {}), attempts },
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", email.id)
+      if (again) out.retrying++
+      else out.failed++
+      console.error(`[cron/scheduled-emails] Failed to send to ${maskEmail(email.recipient_email)}:`, errorText(err))
     }
-
-    console.log(`[cron/scheduled-emails] Completed: ${sent} sent, ${failed} failed`)
-
-    return NextResponse.json({
-      processed: scheduledEmails.length,
-      sent,
-      failed,
-      errors: errors.length > 0 ? errors : undefined,
-    })
-  } catch (err: any) {
-    console.error("[cron/scheduled-emails] Fatal error:", err)
-    return NextResponse.json({ error: err.message }, { status: 500 })
   }
+  return out
 }
 
 // Also support POST for manual triggers

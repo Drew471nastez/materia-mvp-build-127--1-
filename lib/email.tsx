@@ -11,6 +11,9 @@
 import { sendEmail, buildFromHeader, isSmtpConfigured, EMAIL_FROM, EMAIL_REPLY_TO } from "./mail"
 import type { MailAttachment } from "./mailgun"
 import { automationEmail, personalize, personalizeText, standingOf } from "@/lib/email-automation"
+import { enrollInFlows } from "@/lib/automations/run"
+import { normalizeSteps as normalizeFlowSteps, waitMs as flowWaitMs } from "@/lib/automations/flow-model"
+import type { ContactSource } from "@/lib/contacts/contact-source"
 import { maskEmail } from "@/lib/privacy/mask-email"
 import { ignoreError } from "@/lib/supabase/ignore-error"
 
@@ -1695,19 +1698,8 @@ export interface TriggerEmailFlowParams {
   productTitle?: string
   productId?: string
   orderId?: string
-}
-
-interface FlowStep {
-  id: string
-  type: "email" | "delay" | "condition"
-  order: number
-  config: {
-    subject?: string
-    body?: string
-    preview_text?: string
-    delay_value?: number
-    delay_unit?: "minutes" | "hours" | "days"
-  }
+  /** Where the person came from (lib/contacts/contact-source), kept on the run for its history. */
+  source?: ContactSource | null
 }
 
 interface EmailFlow {
@@ -1715,10 +1707,51 @@ interface EmailFlow {
   name: string
   trigger_type: string
   status: string
-  steps: FlowStep[]
+  steps: unknown
 }
 
+/**
+ * A trigger happened: enter the creator's active flows for it.
+ *
+ * The engine (lib/automations) does this with a unique run per entry, one
+ * job per step and a send record before every email, so the same trigger
+ * twice (a webhook delivered again, the browser and the webhook reporting
+ * one order) sends nothing twice. Before its SQL has run it reports itself
+ * unavailable, and the older path below does what it always did.
+ */
 export async function triggerEmailFlows(
+  admin: any,
+  params: TriggerEmailFlowParams
+): Promise<{ triggered: number; errors: string[] }> {
+  try {
+    const result = await enrollInFlows({
+      triggerType: params.triggerType,
+      creatorId: params.creatorId,
+      email: params.recipientEmail,
+      name: params.recipientName ?? null,
+      productId: params.productId ?? null,
+      productTitle: params.productTitle ?? null,
+      orderId: params.orderId ?? null,
+      source: params.source ?? null,
+    })
+    if (result.available) return { triggered: result.enrolled, errors: [] }
+  } catch (err: any) {
+    /* The engine is there and failed: not a reason to send through the
+       older path as well, which has no way to tell it would be a second copy. */
+    console.error("[email-flows] Could not enter the flows:", err?.message)
+    return { triggered: 0, errors: ["Could not enter the flows"] }
+  }
+  return legacyTriggerEmailFlows(admin, params)
+}
+
+/**
+ * THE OLDER PATH, for a database without the engine's tables: the first
+ * email now, later ones into scheduled_flow_emails for the cron. It reads
+ * today's steps (a wait before an email is that email's delay) and will not
+ * run a flow with a check in it, because it cannot check anything: sending
+ * a win-back to somebody who bought yesterday is worse than not sending.
+ */
+export async function legacyTriggerEmailFlows(
   admin: any,
   params: TriggerEmailFlowParams
 ): Promise<{ triggered: number; errors: string[] }> {
@@ -1752,8 +1785,8 @@ export async function triggerEmailFlows(
       .eq("status", "active")
 
     if (flowsError) {
-      console.error("[email-flows] Error fetching flows:", flowsError)
-      return { triggered: 0, errors: [flowsError.message] }
+      console.error("[email-flows] Error fetching flows:", flowsError.code)
+      return { triggered: 0, errors: ["Could not read the flows"] }
     }
 
     if (!flows || flows.length === 0) {
@@ -1768,16 +1801,21 @@ export async function triggerEmailFlows(
 
     for (const flow of flows as EmailFlow[]) {
       try {
-        const steps = flow.steps || []
-        const emailSteps = steps.filter(s => s.type === "email")
-
-        if (emailSteps.length === 0) {
-          console.log("[email-flows] Flow has no email steps:", flow.name)
+        const steps = normalizeFlowSteps(flow.steps)
+        if (steps.some((s) => s.type === "condition")) {
+          console.log("[email-flows] Skipped a flow with a check: the engine's SQL has not run")
           continue
         }
+        const products = Array.isArray((flow as any).trigger_config?.product_ids) ? (flow as any).trigger_config.product_ids : []
+        if (triggerType === "purchase" && products.length > 0 && (!productId || !products.includes(productId))) continue
 
-        for (const step of emailSteps) {
-          const delayMs = calculateDelayMs(step.config.delay_value || 0, step.config.delay_unit || "minutes")
+        let delayMs = 0
+        for (const step of steps) {
+          if (step.type === "wait") {
+            delayMs += flowWaitMs(step)
+            continue
+          }
+          if (step.type !== "email") continue
           const values = { name: recipientName, product: productTitle }
           const subject = personalizeText(step.config.subject || "A message from " + fromName, values)
           const body = personalize(step.config.body || "", values)
@@ -1811,8 +1849,8 @@ export async function triggerEmailFlows(
                 errors.push(`Flow ${flow.name}: ${result.error || "Send failed"}`)
               }
             } catch (emailErr: any) {
-              console.error("[email-flows] Email send error:", emailErr)
-              errors.push(`Flow ${flow.name}: ${emailErr.message}`)
+              console.error("[email-flows] Email send error:", emailErr?.message)
+              errors.push(`Flow ${flow.name}: send failed`)
             }
           } else {
             /* Queued for the cron, which checks the flow AND the person again
@@ -1834,40 +1872,30 @@ export async function triggerEmailFlows(
               })
 
               if (scheduleError) {
-                console.error("[email-flows] Failed to schedule:", scheduleError)
-                errors.push(`Flow ${flow.name}: Failed to schedule - ${scheduleError.message}`)
+                console.error("[email-flows] Failed to schedule:", scheduleError.code)
+                errors.push(`Flow ${flow.name}: could not schedule`)
               } else {
                 console.log("[email-flows] Scheduled for:", scheduledTime.toISOString())
                 triggered++
               }
             } catch (err: any) {
-              console.error("[email-flows] Schedule error:", err)
-              errors.push(`Flow ${flow.name}: ${err.message}`)
+              console.error("[email-flows] Schedule error:", err?.message)
+              errors.push(`Flow ${flow.name}: could not schedule`)
             }
           }
         }
       } catch (flowErr: any) {
-        errors.push(`Flow ${flow.name}: ${flowErr.message}`)
+        errors.push(`Flow ${flow.name}: ${flowErr?.message}`)
       }
     }
 
     console.log("[email-flows] Completed:", { triggered, errors: errors.length })
     return { triggered, errors }
   } catch (err: any) {
-    console.error("[email-flows] Error triggering flows:", err)
-    return { triggered: 0, errors: [err.message] }
+    console.error("[email-flows] Error triggering flows:", err?.message)
+    return { triggered: 0, errors: ["Could not run the flows"] }
   }
 }
-
-function calculateDelayMs(value: number, unit: "minutes" | "hours" | "days"): number {
-  const multipliers = {
-    minutes: 60 * 1000,
-    hours: 60 * 60 * 1000,
-    days: 24 * 60 * 60 * 1000,
-  }
-  return value * (multipliers[unit] || multipliers.minutes)
-}
-
 
 // -------------------------
 // Refund Confirmation Emails (Transactional)
