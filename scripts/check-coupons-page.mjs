@@ -2,8 +2,8 @@
  * ===========================================================================
  *  THE COUPONS PAGES, MEASURED
  * ===========================================================================
- * The list in the Products area's frame (its tabs, one card, views with
- * counts, a table from 768px and a list of whole-row presses under it) and
+ * The list on a page of its own (its title, one card, views with counts,
+ * no tabs shared with Products, a table from 768px and a list of whole-row presses under it) and
  * the form with its bar at the top, at a phone's widths and a computer's.
  *
  *   node scripts/check-coupons-page.mjs
@@ -67,8 +67,8 @@ export default React.forwardRef(function Link({ href, children, prefetch, ...res
 
     const views = await p.$$eval("[role=tablist][aria-label=Views] [role=tab]", (t) => t.map((x) => x.textContent.trim()))
     expect(views.join("|") === "All6|Active2|Scheduled1|Ended3", "views with counts: all, active, scheduled, ended", views)
-    const tabs = await p.$$eval("nav[aria-label='Products area'] a", (a) => a.map((x) => [x.textContent.trim(), x.getAttribute("aria-current")]))
-    expect(tabs[1][0] === "Coupons" && tabs[1][1] === "page", "Coupons is the current tab of the Products area", tabs)
+    const own = await p.evaluate(() => ({ title: document.querySelector("[data-orders-bar] h1")?.textContent.trim(), subnav: document.querySelectorAll("nav[aria-label='Products area']").length }))
+    expect(own.title === "Coupons" && own.subnav === 0, "a page of its own: titled Coupons, no Products and Coupons tabs", own)
     const sideways = await p.evaluate(() => { const el = document.querySelector(".orders-pane"); return el.scrollWidth - el.clientWidth })
     expect(sideways === 0, "nothing scrolls sideways", sideways)
     const states = await p.evaluate(() => [...document.querySelectorAll(window.innerWidth < 768 ? "section ul > li" : "section tbody tr")].map((r) => r.querySelector("span.inline-flex, td:nth-child(2) span")?.textContent.trim()))

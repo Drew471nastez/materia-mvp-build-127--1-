@@ -10,7 +10,6 @@ import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
 import { cn } from "@/lib/utils"
 import { useRouter } from "next/navigation"
 import { GUTTER, LIST_BAR, LIST_WIDTH, PaneBar, RowMenuButton, StatusBadge, buttonAccent, buttonSecondary, card, iconButton } from "../orders/order-parts"
-import { ProductsSubnav } from "./products-subnav"
 import { createClient } from "@/lib/supabase/client"
 import { useLanguage } from "@/lib/i18n"
 import { STORELIB_LOGO } from "@/lib/brand/logo"
@@ -33,7 +32,8 @@ interface Product {
 
 /** A thumb's size on a phone, the Orders size from 768px. */
 const NEW_BUTTON = "max-md:h-11 max-md:rounded-xl max-md:px-4 max-md:text-[15px]"
-const TOOL_BUTTON = "max-md:h-10 max-md:w-10 max-md:rounded-[10px]"
+/** The phone's search field and Export: 44px, white on the page, one hairline. */
+const PHONE_FIELD = "h-11 rounded-xl border border-[#e3e5e8] bg-white shadow-[0_1px_0_rgba(17,24,39,0.03)]"
 
 /** `router.prefetch`'s full kind: the page's data too, not only its shell. */
 const FULL_PREFETCH = { kind: "full" } as unknown as Parameters<ReturnType<typeof useRouter>["prefetch"]>[1]
@@ -428,7 +428,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
         column, which cut Status off at the edge of the screen.
       */}
       <PaneBar width={LIST_WIDTH} className={LIST_BAR}>
-        <h1 className="text-[24px] font-bold text-[#1a1a2e] sm:text-[28px]">{t("products.title")}</h1>
+        <h1 className="text-[24px] font-bold leading-[30px] text-[#1a1a2e] sm:text-[28px] sm:leading-9">{t("products.title")}</h1>
         <Link href="/app/products/new" className={cn(buttonAccent, NEW_BUTTON)}>
           <Plus className="h-[18px] w-[18px] md:h-4 md:w-4" />
           {t("products.newProduct")}
@@ -436,12 +436,80 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
       </PaneBar>
 
       <div className={cn("mx-auto pb-24 md:pb-8", LIST_WIDTH, GUTTER)}>
-        <ProductsSubnav active="products" />
-        <section aria-label="Products" className={cn(card, "mt-4 overflow-hidden")}>
-          <div className="flex h-[52px] items-center gap-1.5 border-b border-[#eef0f2] px-2 md:h-12 md:gap-2">
+        {/*
+          A PHONE'S CONTROLS, ABOVE THE LIST RATHER THAN SQUEEZED INTO IT. The
+          card's toolbar held three views, search and export in one 52px row,
+          which at 360px cut "Archived" off and left 40px buttons. Here the
+          search is a field you can type into straight away with Export beside
+          it, and the views are three equal segments that always fit, each a
+          44px press. From 768px the card's own toolbar does this job.
+        */}
+        <div className="mt-1 md:hidden">
+          <div className="flex gap-2">
+            <label className={cn(PHONE_FIELD, "flex min-w-0 flex-1 items-center gap-2.5 px-3.5 focus-within:border-[#1a1a2e] focus-within:shadow-[0_0_0_1px_#1a1a2e]")}>
+              <Search className="h-[18px] w-[18px] shrink-0 text-[#9ca3af]" aria-hidden />
+              <input
+                type="search"
+                enterKeyHint="search"
+                aria-label="Search products"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search products"
+                className="h-full min-w-0 flex-1 bg-transparent text-[16px] text-[#1a1a2e] outline-none placeholder:text-[#9ca3af] [&::-webkit-search-cancel-button]:hidden"
+              />
+              {searchQuery ? (
+                <button type="button" aria-label="Clear search" className="-mr-3.5 flex h-11 w-11 shrink-0 items-center justify-center text-[#9ca3af] active:text-[#4b5563]" onClick={() => setSearchQuery("")}>
+                  <X className="h-[18px] w-[18px]" />
+                </button>
+              ) : null}
+            </label>
+            <ResponsiveActionMenu
+              title="Export"
+              align="end"
+              trigger={
+                <button type="button" aria-label="Export products" className={cn(PHONE_FIELD, "flex w-11 shrink-0 items-center justify-center text-[#4b5563] active:bg-[#f1f2f4]")}>
+                  <Download className="h-[18px] w-[18px]" />
+                </button>
+              }
+              items={[
+                { label: "Export as CSV", onClick: exportCSV },
+                { label: "Export as PDF", onClick: exportPDF },
+              ]}
+            />
+          </div>
+          {/* Each segment is the whole 44px of the track to a finger; the white is drawn 4px inside it. */}
+          <div role="tablist" aria-label="Views" className="mt-3 grid h-11 grid-cols-3 rounded-xl bg-[#eceef1]">
+            {tabOptions.map((option) => {
+              const selected = activeTab === option.value
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  role="tab"
+                  aria-selected={selected}
+                  onClick={() => setActiveTab(option.value)}
+                  className="group flex h-11 min-w-0 p-1"
+                >
+                  <span
+                    className={cn(
+                      "flex h-full w-full min-w-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-[9px] text-[15px] font-medium transition-colors duration-100",
+                      selected ? "bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(17,24,39,0.08)]" : "text-[#4b5563] group-active:bg-[#e3e5e8]",
+                    )}
+                  >
+                    {option.label}
+                    <span className="tabular-nums text-[#9ca3af]">{tabCounts[option.value]}</span>
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        <section aria-label="Products" className={cn(card, "mt-3 overflow-hidden md:mt-4")}>
+          <div className="hidden h-12 items-center gap-2 border-b border-[#eef0f2] px-2 md:flex">
             {isSearchOpen ? (
               <>
-                <label className="flex h-10 min-w-0 flex-1 items-center gap-2 rounded-[10px] border border-[#d5d7dd] bg-white px-3 focus-within:border-[#1a1a2e] focus-within:shadow-[0_0_0_1px_#1a1a2e] md:h-8 md:rounded-lg md:px-2.5">
+                <label className="flex h-8 min-w-0 flex-1 items-center gap-2 rounded-lg border border-[#d5d7dd] bg-white px-2.5 focus-within:border-[#1a1a2e] focus-within:shadow-[0_0_0_1px_#1a1a2e]">
                   <Search className="h-4 w-4 shrink-0 text-[#6b7280]" />
                   <input
                     ref={searchInputRef}
@@ -450,17 +518,17 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Search products"
-                    className="min-w-0 flex-1 bg-transparent text-[16px] text-[#1a1a2e] outline-none placeholder:text-[#9ca3af] md:text-[13px] [&::-webkit-search-cancel-button]:hidden"
+                    className="min-w-0 flex-1 bg-transparent text-[13px] text-[#1a1a2e] outline-none placeholder:text-[#9ca3af] [&::-webkit-search-cancel-button]:hidden"
                   />
                   {searchQuery ? (
-                    <button type="button" aria-label="Clear search" className="-mr-1 flex h-8 w-8 items-center justify-center text-[#9ca3af] hover:text-[#4b5563] md:h-6 md:w-6" onClick={() => setSearchQuery("")}>
+                    <button type="button" aria-label="Clear search" className="-mr-1 flex h-6 w-6 items-center justify-center text-[#9ca3af] hover:text-[#4b5563]" onClick={() => setSearchQuery("")}>
                       <X className="h-4 w-4" />
                     </button>
                   ) : null}
                 </label>
                 <button
                   type="button"
-                  className="h-10 shrink-0 rounded-lg px-3 text-[15px] font-medium text-[#1a1a2e] hover:bg-[#f1f2f4] md:h-8 md:px-2.5 md:text-[13px]"
+                  className="h-8 shrink-0 rounded-lg px-2.5 text-[13px] font-medium text-[#1a1a2e] hover:bg-[#f1f2f4]"
                   onClick={() => {
                     setSearchQuery("")
                     setIsSearchOpen(false)
@@ -482,7 +550,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                         aria-selected={selected}
                         onClick={() => setActiveTab(option.value)}
                         className={cn(
-                          "inline-flex h-9 shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-[10px] px-3 text-[14px] font-medium transition-colors duration-100 md:h-8 md:rounded-lg md:text-[13px]",
+                          "inline-flex h-8 shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-lg px-3 text-[13px] font-medium transition-colors duration-100",
                           selected ? "bg-[#eceef1] text-[#1a1a2e]" : "text-[#4b5563] hover:bg-[#f4f5f7]",
                         )}
                       >
@@ -492,15 +560,15 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                     )
                   })}
                 </div>
-                <button type="button" aria-label="Search products" className={cn(iconButton, TOOL_BUTTON)} onClick={() => setIsSearchOpen(true)}>
-                  <Search className="h-[18px] w-[18px] md:h-4 md:w-4" />
+                <button type="button" aria-label="Search products" className={iconButton} onClick={() => setIsSearchOpen(true)}>
+                  <Search className="h-4 w-4" />
                 </button>
                 <ResponsiveActionMenu
                   title="Export"
                   align="end"
                   trigger={
-                    <button type="button" aria-label="Export products" className={cn(iconButton, TOOL_BUTTON)}>
-                      <Download className="h-[18px] w-[18px] md:h-4 md:w-4" />
+                    <button type="button" aria-label="Export products" className={iconButton}>
+                      <Download className="h-4 w-4" />
                     </button>
                   }
                   items={[
@@ -514,10 +582,23 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
 
           {filteredProducts.length > 0 ? (
             <>
-              {/* A PHONE: one row per product, and the whole row is the press. */}
-              <ul aria-label="Products" className="divide-y divide-[#f1f2f4] md:hidden">
+              {/*
+                A PHONE: one row per product, and the whole row is the press.
+                A 64px square picture, the name at 16px on up to two lines, and
+                under it the price and how many sold. Where a product stands is
+                said once, by the view, in Active and Archived; in All, where
+                live and draft products are mixed, each row says it. Eleven
+                green Active pills under eleven names in the Active view said
+                nothing the tab did not, and pushed the sales onto a third line
+                at 360px. The hairline between rows starts where the text does,
+                as a native list's does, and the actions are a 44px press.
+              */}
+              <ul aria-label="Products" className="md:hidden">
                 {filteredProducts.map((product) => (
-                  <li key={product.id} className="relative flex min-h-[80px] items-center gap-3 py-3 pl-4 pr-1.5 has-[a:active]:bg-[#f6f7f8]">
+                  <li
+                    key={product.id}
+                    className="relative flex min-h-[88px] items-center gap-3.5 py-3 pl-4 pr-1 has-[a:active]:bg-[#f6f7f8] [&+li]:before:absolute [&+li]:before:left-[94px] [&+li]:before:right-0 [&+li]:before:top-0 [&+li]:before:h-px [&+li]:before:bg-[#eef0f2]"
+                  >
                     <Link
                       href={`/app/products/${product.id}`}
                       aria-label={product.title}
@@ -525,20 +606,20 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                       {...hover(product.id)}
                       className="absolute inset-0 z-0 outline-none focus-visible:shadow-[inset_0_0_0_2px_#8b5cf6]"
                     />
-                    <span className="pointer-events-none relative h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-[#eef0f2] bg-[#f3f4f6]">
+                    <span data-thumb="" className="pointer-events-none relative aspect-square w-16 shrink-0 overflow-hidden rounded-[12px] bg-[#f1f2f4] shadow-[inset_0_0_0_1px_rgba(17,24,39,0.06)]">
                       {product.thumbnail_url ? (
-                        <Image src={product.thumbnail_url} alt="" fill sizes="56px" className="object-cover" />
+                        <Image src={product.thumbnail_url} alt="" fill sizes="64px" className="object-cover" />
                       ) : (
                         <span className="flex h-full items-center justify-center">
-                          <Package className="h-5 w-5 text-[#9ca3af]" />
+                          <Package className="h-6 w-6 text-[#9ca3af]" />
                         </span>
                       )}
                     </span>
                     <span className="pointer-events-none min-w-0 flex-1">
-                      <span className="line-clamp-2 break-words text-[15px] font-medium leading-5 text-[#1a1a2e]">{product.title}</span>
-                      <span className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] leading-5 text-[#6b7280]">
-                        <span className="tabular-nums text-[#1a1a2e]">{formatPrice(product.price_cents)}</span>
-                        {statusOf(product)}
+                      <span data-name="" className="line-clamp-2 break-words text-[16px] font-medium leading-[22px] text-[#1a1a2e]">{product.title}</span>
+                      <span data-meta="" className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[14px] leading-5 text-[#6b7280]">
+                        <span className="text-[15px] font-medium tabular-nums text-[#1a1a2e]">{formatPrice(product.price_cents)}</span>
+                        {activeTab === "all" ? statusOf(product) : null}
                         {product.sales_count ? <span className="tabular-nums">{product.sales_count} sold</span> : null}
                       </span>
                     </span>
