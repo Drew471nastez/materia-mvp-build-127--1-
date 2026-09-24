@@ -135,9 +135,12 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
   }
 
   const handleCoverSave = (imageUrl: string, focalPoint: { x: number; y: number }) => {
+    /* This editor places a picture at zoom 1, so a zoom from the profile
+       sheet goes with it, as it does in sections-sidebar. */
     updateHeaderSettings({
       coverImageUrl: imageUrl,
       coverFocalPoint: focalPoint,
+      coverZoom: undefined,
     })
   }
 

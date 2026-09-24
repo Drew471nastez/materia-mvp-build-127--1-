@@ -1777,6 +1777,31 @@ function main() {
       was the thing reported. So the workspace's bar has no dim to follow.
     */
     check("the phone editor leaves the page behind undimmed", sheet.includes('scrim="clear"'))
+    {
+      /*
+        AND ONLY THE EDITORS. A confirmation, a menu or an invoice is a
+        question about nothing behind it, so every other phone sheet keeps
+        the dim; "clear" is opt-in and the editor is the one that opts in.
+      */
+      const bottom = code("components/ui/bottom-sheet.tsx")
+      check("every other sheet keeps its dim by default", /scrim = "dim",/.test(bottom) && /scrim === "clear" \? "bg-transparent" : "bg-black\/40"/.test(bottom))
+    }
+
+    /*
+      A SAVE IN FLIGHT CANNOT BE CLOSED OUT FROM UNDER. Cancel was disabled
+      while busy, but a tap above the sheet, a pull down or Escape still
+      closed it; the save then finished after the sheet had gone, onClosed
+      had already run with nothing to refresh, and the page kept the old
+      values until a later Cancel refreshed it. scripts/check-cover-crop
+      holds a save open and tries all three.
+    */
+    check("a close is refused while a save is in flight", /const close = React\.useCallback\(\(\) => \{\s*if \(busyRef\.current\) return\s*onClose\(\)/.test(sheet) && /onClose=\{close\}/.test(sheet) && /if \(!next\) close\(\)/.test(sheet))
+    check("and the phone sheet springs back rather than leaving and returning", /dismissible=\{!busy\}/.test(sheet))
+    {
+      const bottom = code("components/ui/bottom-sheet.tsx")
+      check("the sheet's own refusal: not dismissible means a pull springs back", /if \(!dismissibleRef\.current\) \{[\s\S]{0,200}glide\(from, 0,/.test(bottom) && /dismissible = true,/.test(bottom))
+      check("an Escape a menu inside the sheet already used does not close the sheet too", /e\.defaultPrevented/.test(bottom) && /e\.isComposing/.test(bottom))
+    }
     check("and tells the workspace nothing about it", !sheet.includes("notifyEditorSheet"))
     check("so the workspace has no dim of its own to keep in step", !workspace.includes('data.kind === "sheet"') && !/bg-black\/30 transition-opacity/.test(workspace))
     /**

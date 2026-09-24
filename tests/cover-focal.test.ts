@@ -32,8 +32,11 @@ import {
   coverCropStyle,
   cropFromGesture,
   cropFromSettings,
+  cropFromTransform,
   imageRect,
+  imageRectStyle,
   isDefaultCrop,
+  clampPercent,
   roundCrop,
   transformBetween,
   zoomAbout,
@@ -203,6 +206,47 @@ check("stored precision is two decimals and three", JSON.stringify(roundCrop({ x
 check("the frame's own zoom step clamps too", zoomAbout(FRAME, PHOTO, C, 0.5).zoom === 1)
 
 /**
+ * NO NaN, WHATEVER ARRIVES. A picture whose size is not known yet (0 by 0),
+ * a frame with no shape, a position that is not a number: each is drawn as
+ * something finite, never as `NaN%` in a style or a save.
+ */
+{
+  const allFinite = (c: CoverCrop) => [c.x, c.y, c.zoom].every(Number.isFinite)
+  check("a position that is not a number is the middle", clampPercent(NaN) === 50 && clampPercent(Infinity) === 50 && roundCrop({ x: NaN, y: 20, zoom: NaN }).x === 50)
+  const r0 = imageRect(FRAME, { w: 0, h: 0 }, { x: 30, y: 30, zoom: 2 })
+  check("a picture with no size yet has a finite rect", [r0.left, r0.top, r0.width, r0.height].every(Number.isFinite))
+  check(
+    "and a gesture on it gives a finite crop",
+    allFinite(cropFromGesture(FRAME, { w: 0, h: 0 }, C, { mid: { x: 10, y: 10 }, dist: 0 }, { mid: { x: 50, y: 40 }, dist: 0 })),
+  )
+  const bad = imageRectStyle(NaN, 0, { x: 30, y: 30, zoom: 2 })
+  check("a shape that is not a number draws the box instead", !/NaN|Infinity/.test(JSON.stringify(bad)) && bad.objectFit === "cover")
+}
+
+/**
+ * A GLIDE CAUGHT MID WAY STOPS WHERE IT IS. `cropFromTransform` reads the
+ * crop back off a running transform; it has to be the exact inverse of
+ * `transformBetween` or a finger landing on a double tap's glide jumps the
+ * picture. Round-tripped over a spread of crops.
+ */
+{
+  let worst = 0
+  for (const rest of [C, { x: 20, y: 80, zoom: 1.5 }, { x: 90, y: 10, zoom: 3 }]) {
+    for (const live of [{ x: 40, y: 60, zoom: 2 }, { x: 0, y: 100, zoom: 1 }, { x: 75, y: 25, zoom: 4 }]) {
+      const t = transformBetween(FRAME, PHOTO, rest, live)
+      const m = t.match(/translate3d\((-?[\d.]+)px, (-?[\d.]+)px, 0\) scale\(([\d.]+)\)/)!
+      const back = cropFromTransform(FRAME, PHOTO, rest, { tx: Number(m[1]), ty: Number(m[2]), k: Number(m[3]) })
+      const ox = imageRect(FRAME, PHOTO, live).width - FRAME.w
+      const oy = imageRect(FRAME, PHOTO, live).height - FRAME.h
+      if (ox > 1) worst = Math.max(worst, Math.abs(back.x - live.x))
+      if (oy > 1) worst = Math.max(worst, Math.abs(back.y - live.y))
+      worst = Math.max(worst, Math.abs(back.zoom - live.zoom) * 100)
+    }
+  }
+  check("a running transform reads back as the crop it draws", worst < 0.2, `worst difference ${worst}`)
+}
+
+/**
  * ---------------------------------------------------------------------------
  *  THE SHAPE OF THE CONTROL
  * ---------------------------------------------------------------------------
@@ -252,7 +296,7 @@ check(
 {
   const move = frame.slice(frame.indexOf("const onPointerMove"), frame.indexOf("const onPointerEnd"))
   check("a move writes a transform in a frame callback, not React state", /schedule\(\)/.test(move) && !/onChange|setMoving\(|setNatural\(/.test(move.replace(/startMoving\(\)/g, "")))
-  check("the parent hears once, on release", /commit\(liveRef\.current\)/.test(frame) && /onChangeRef\.current\?\.\(rounded\)/.test(frame))
+  check("the parent hears once, on release", /commit\(liveRef\.current\)/.test(frame) && /notify\?\.\(rounded\)/.test(frame))
   check("and the paint is transform only", /img\.style\.transform = transformBetween/.test(frame))
 }
 check("two fingers pinch", /pts\.length > 1 \? Math\.hypot/.test(frame))
@@ -273,9 +317,58 @@ check("one eager <img> at one URL, not a lazy next/image", /loading="eager"/.tes
 check("uploading is a thin bar, not a dark wash over the picture", !/bg-black\/55 backdrop-blur-\[1px\]/.test(upload.slice(upload.indexOf("if (value && replaceOnly && reposition)"), upload.indexOf("if (value && replaceOnly) {"))))
 check("the corner controls are 44px to a thumb", /before:-inset-1\.5/.test(upload))
 
+/**
+ * THE HANDLERS READ THE LATEST PROPS, SO THEY ARE NEVER RE-MADE MID GESTURE.
+ * `commit` used to depend on the crop and the aspect, which re-bound the
+ * native wheel listeners on every change and dropped the timer that ends a
+ * trackpad pinch: the frame was then stuck "moving", ignoring every value
+ * the parent sent, Reset included.
+ */
+check("the hand-back reads refs and is made once", /const commit = React\.useCallback\(\(next: CoverCrop\) => \{[\s\S]*?cropRef\.current[\s\S]*?aspectRef\.current[\s\S]*?\}, \[\]\)/.test(frame))
+check("a pinch still settling is finished when its listeners go, not dropped", /window\.clearTimeout\(wheelTimer\.current\)\s*wheelTimer\.current = null\s*if \(pointers\.current\.size === 0\) \{[\s\S]{0,120}commit\(liveRef\.current\)/.test(frame))
+check("with nobody to tell, the picture goes back to the parent's crop", /const rounded = notify \? roundCrop\(next\) : current/.test(frame))
+check("a finger on a glide stops it where it is, read off the running transform", /cropFromTransform\(f, n, restRef\.current/.test(frame))
+check("a value from outside abandons a running glide (Reset during a double tap's glide)", /const running = animRef\.current\s*if \(running\) \{\s*animRef\.current = null\s*running\.anim\.cancel\(\)/.test(frame))
+check("a capture taken away ends the finger, and only a real up is a tap", /onLostPointerCapture=\{onPointerEnd\}/.test(frame) && /if \(e\.type !== "pointerup"\) return/.test(frame))
+check("a picture's shape needs both sides before a gesture uses it", /img\.naturalWidth > 0 && img\.naturalHeight > 0/.test(frame))
+check(
+  "sideways, the frame is capped by height so the form around it still scrolls",
+  /landscape:max-w-\[calc\(30vh\*var\(--cover-aspect\)\)\]/.test(frame) && /\["--cover-aspect" as string\]: String\(aspect\)/.test(frame),
+  "scripts/check-cover-crop measures it at 667x375",
+)
+
+/**
+ * REMOVE IS A CHANGE TO THE FORM. The X used to delete the file from storage
+ * before Save, so Remove then Cancel left the live page pointing at a file
+ * that was gone, and a builder draft deleted what the published page drew.
+ */
+{
+  const remove = upload.slice(upload.indexOf("const handleRemove"), upload.indexOf("const handleDrop"))
+  check("removing a picture does not delete the file before anything is saved", !/storage/.test(strip(remove)) && /onChange\(null\)/.test(remove))
+}
+
 /** THE SERVER CLAMPS WHAT A PUBLIC PAGE WILL DRAW. */
 check("the route clamps the zoom it stores", /clampZoom\(raw\)/.test(route) && /next\.coverZoom = coverZoom \?\? undefined/.test(route))
 check("and keeps two decimals of position", /Math\.round\(clampPercent\(n\) \* 100\) \/ 100/.test(route))
+check(
+  "an image URL that will not clean is ignored, not written as a clear",
+  /return cleanUrl\(body\[key\]\) \?\? undefined/.test(route) && /const coverUrl = imageField\("coverUrl"\)/.test(route),
+  "a bad value used to come out of the cleaner as null and delete the cover",
+)
+check(
+  "a cover removed or replaced without a crop of its own starts from the middle at zoom 1",
+  /if \(coverUrl !== undefined && \(coverUrl \?\? undefined\) !== header\.coverImageUrl\) \{\s*if \(coverFocalPoint === undefined\) next\.coverFocalPoint = undefined\s*if \(coverZoom === undefined\) next\.coverZoom = undefined/.test(route),
+)
+{
+  const sidebar = readFileSync(join(root, "components/store-builder/sections-sidebar.tsx"), "utf8")
+  const canvas = readFileSync(join(root, "components/store-builder/preview-canvas.tsx"), "utf8")
+  check("the builder's cover thumbnail draws the zoom too", /coverCropStyle\(cropFromSettings\(settings\.coverFocalPoint, settings\.coverZoom\)\)/.test(sidebar))
+  check(
+    "every builder path that places a new cover at zoom 1 says so",
+    (sidebar.match(/coverZoom: undefined/g) || []).length === 3 && /coverFocalPoint: focalPoint,\s*coverZoom: undefined/.test(canvas),
+  )
+}
+check("the sheet's copy has no em dash in what a creator reads", !/setError\("[^"]*—/.test(editor) && !/either way —/.test(editor))
 
 /** THE PAGE DRAWS WHAT THE FRAME DREW. */
 check("the band draws the crop from the same function", /coverCropStyle\(crop\)/.test(band) && /cropFromSettings\(settings\.coverFocalPoint, settings\.coverZoom\)/.test(band))

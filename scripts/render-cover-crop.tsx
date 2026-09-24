@@ -19,6 +19,11 @@
  *             uncovers the frame, whether the band then draws the same crop,
  *             and how often React rendered while a finger was down.
  *
+ *   #save     the profile page again, with a cover that was saved zoomed and
+ *             moved, and `fetch` answered here: the driver removes the cover
+ *             and saves, and reads what was sent; and holds a save open and
+ *             tries to close the sheet under it.
+ *
  * Beside each real band is a REFERENCE band in the markup the renderer had
  * before zoom existed (`absolute inset-0 h-full w-full object-cover` at the
  * focal point), so "a cover saved before today looks exactly as it did" is
@@ -45,25 +50,39 @@ declare global {
     __crop: CoverCrop
     __ready: boolean
     __logo?: string
+    __bodies: unknown[]
+    __hold: boolean
+    __release?: () => void
+    __refreshes: number
   }
 }
 window.__renders = 0
+window.__refreshes = 0
 window.__crop = DEFAULT_COVER_CROP
 window.__ready = false
 
-/** 1600 by 1200 of full-saturation hue: nothing in it is near grey. */
-function colourField(): string {
+/** Full-saturation hue, 1600 by 1200 unless asked otherwise: nothing in it is near grey. */
+function colourField(w = 1600, h = 1200): string {
   const c = document.createElement("canvas")
-  c.width = 1600
-  c.height = 1200
+  c.width = w
+  c.height = h
   const g = c.getContext("2d")!
-  for (let x = 0; x < 1600; x += 8) {
-    for (let y = 0; y < 1200; y += 8) {
-      g.fillStyle = `hsl(${(x / 1600) * 300}, 100%, ${30 + (y / 1200) * 30}%)`
-      g.fillRect(x, y, 8, 8)
+  const step = Math.max(1, Math.min(8, Math.floor(Math.min(w, h) / 20)))
+  for (let x = 0; x < w; x += step) {
+    for (let y = 0; y < h; y += step) {
+      g.fillStyle = `hsl(${(x / w) * 300}, 100%, ${30 + (y / h) * 30}%)`
+      g.fillRect(x, y, step, step)
     }
   }
   return c.toDataURL("image/png")
+}
+
+/** `#crop-tall` and the rest: the same harness with a photograph of another shape. */
+const SHAPES: Record<string, [number, number]> = {
+  photo: [1600, 1200],
+  tall: [600, 1600],
+  panorama: [4000, 500],
+  tiny: [60, 40],
 }
 
 /** The report's cover: a black 3:1 banner with the Storelib mark in the middle. */
@@ -101,11 +120,12 @@ function ReferenceBand({ src, focal, heightClass }: { src: string; focal: { x: n
   )
 }
 
-function ProfilePage({ cover }: { cover: string }) {
+function ProfilePage({ cover, saved }: { cover: string; saved?: { x: number; y: number; zoom: number } }) {
   const settings = {
     ...defaultShopHeaderSettings,
     coverImageUrl: cover,
-    coverFocalPoint: { x: 50, y: 50 },
+    coverFocalPoint: saved ? { x: saved.x, y: saved.y } : { x: 50, y: 50 },
+    coverZoom: saved?.zoom,
   } as never
   return (
     <div style={{ background: "#111113", minHeight: "200vh", fontFamily: "Inter, system-ui, sans-serif" }}>
@@ -126,8 +146,8 @@ function ProfilePage({ cover }: { cover: string }) {
               username="andrewrullz"
               avatarUrl={null}
               coverUrl={cover}
-              coverFocalPoint={{ x: 50, y: 50 }}
-              coverZoom={null}
+              coverFocalPoint={saved ? { x: saved.x, y: saved.y } : { x: 50, y: 50 }}
+              coverZoom={saved?.zoom ?? null}
               socialLinks={{}}
             />
           }
@@ -199,8 +219,8 @@ function ReferencePage({ photo }: { photo: string }) {
 }
 
 async function main() {
-  const mode = location.hash.replace("#", "") || "profile"
-  const photo = colourField()
+  const [mode, shape] = (location.hash.replace("#", "") || "profile").split("-")
+  const photo = colourField(...(SHAPES[shape] ?? SHAPES.photo))
   let logo: HTMLImageElement | null = null
   if (window.__logo) {
     logo = new Image()
@@ -208,7 +228,17 @@ async function main() {
     await logo.decode().catch(() => { logo = null })
   }
   const root = createRoot(document.getElementById("app")!)
-  if (mode === "crop") root.render(<CropHarness photo={photo} />)
+  if (mode === "save") {
+    /* The route, answered here: every body kept, and held open on request. */
+    window.__bodies = []
+    window.__hold = false
+    window.fetch = (async (_url: unknown, init?: RequestInit) => {
+      window.__bodies.push(JSON.parse(String(init?.body ?? "null")))
+      if (window.__hold) await new Promise<void>((resolve) => { window.__release = resolve })
+      return new Response(JSON.stringify({ ok: true, storefront: true }), { status: 200, headers: { "Content-Type": "application/json" } })
+    }) as typeof fetch
+    root.render(<ProfilePage cover={photo} saved={{ x: 30, y: 40, zoom: 2 }} />)
+  } else if (mode === "crop") root.render(<CropHarness photo={photo} />)
   else if (mode === "reference") root.render(<ReferencePage photo={photo} />)
   else root.render(<ProfilePage cover={brandCover(logo)} />)
   window.__ready = true

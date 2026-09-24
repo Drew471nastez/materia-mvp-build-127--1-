@@ -325,23 +325,21 @@ export function ImageUpload({
     [bucket, folder, maxSizeMB, onChange, isVideoMode],
   )
 
-  const handleRemove = useCallback(async () => {
+  /**
+   * REMOVING IS A CHANGE TO THE FORM, NOT TO STORAGE.
+   *
+   * This used to delete the file from the bucket the moment the X was
+   * pressed, before anything was saved. Every caller is a form with a Cancel
+   * or a draft: the profile sheet, a product before Save, a builder draft
+   * whose PUBLISHED page still points at the picture. Remove, then Cancel,
+   * and the saved page was left pointing at a file that no longer existed:
+   * a broken cover on the live page. The picture now leaves the form only;
+   * the file stays where the saved record can still reach it.
+   */
+  const handleRemove = useCallback(() => {
     if (!value) return
-
-    // Try to delete from storage
-    try {
-      const supabase = createClient()
-      const url = new URL(value)
-      const pathMatch = url.pathname.match(new RegExp(`/storage/v1/object/public/${bucket}/(.+)`))
-      if (pathMatch?.[1]) {
-        await supabase.storage.from(bucket).remove([decodeURIComponent(pathMatch[1])])
-      }
-    } catch {
-      // Ignore deletion errors
-    }
-
     onChange(null)
-  }, [value, bucket, onChange])
+  }, [value, onChange])
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
@@ -415,7 +413,7 @@ export function ImageUpload({
               <Pencil className="h-3.5 w-3.5" strokeWidth={2.25} />
             </button>
             {allowRemove && !uploading && (
-              <button type="button" aria-label="Remove image" onClick={() => void handleRemove()} className={disc}>
+              <button type="button" aria-label="Remove image" onClick={handleRemove} className={disc}>
                 <X className="h-3.5 w-3.5" strokeWidth={2.25} />
               </button>
             )}
@@ -523,7 +521,7 @@ export function ImageUpload({
             aria-label="Remove image"
             onClick={(e) => {
               e.stopPropagation()
-              void handleRemove()
+              handleRemove()
             }}
             className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-black/55 text-white opacity-0 backdrop-blur-sm transition-all duration-200 hover:bg-black/75 focus-visible:opacity-100 focus-visible:outline-none group-hover:opacity-100"
           >

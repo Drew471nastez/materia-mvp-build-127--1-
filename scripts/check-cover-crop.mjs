@@ -30,6 +30,16 @@
  *      Frame gaps while the sheet opens and while a pinch is under way, and
  *      whether the first frame of the open has the sheet below the screen.
  *
+ * And the review of that work, each claim as a measurement: three phones
+ * (375x667, 390x844, 430x932) for anything peeking above the sheet; the form
+ * still scrolling around the frame at 320x568 and sideways at 667x375; a
+ * finger lifted mid pinch, three fingers, a cancelled touch, a press that
+ * starts on the pencil, double and slow taps, a glide caught mid way, Reset
+ * during a glide and a turn mid drag, with no NaN anywhere; the page and the
+ * frame showing the same part of a 4:3, a tall, a panoramic and a 60px
+ * photograph at 390, 768 and 1280; and a save: a removed cover takes its
+ * crop with it, and a save in flight cannot be closed out from under.
+ *
  *   node scripts/check-cover-crop.mjs
  *
  * No production build is needed: the stylesheet is compiled from
@@ -56,7 +66,7 @@ const out = mkdtempSync(join(tmpdir(), "storelib-covercrop-"))
 const stubs = join(root, ".cover-crop-probe")
 mkdirSync(stubs, { recursive: true })
 writeFileSync(join(stubs, "navigation.js"), `export const usePathname = () => "/andrewrullz"
-export const useRouter = () => ({ push() {}, prefetch() {}, replace() {}, refresh() {}, back() {} })
+export const useRouter = () => ({ push() {}, prefetch() {}, replace() {}, refresh() { window.__refreshes = (window.__refreshes || 0) + 1 }, back() {} })
 export const useSearchParams = () => new URLSearchParams()
 export const useParams = () => ({})
 `)
@@ -204,9 +214,16 @@ async function keep(p, name) {
 }
 
 /* ======================================================================
-   1. PROFILE PAGE, 390 AND 1280: the fade, the corners, the purple tab
+   1. PROFILE PAGE, THREE PHONES AND 1280: the fade, the corners, the purple tab
    ====================================================================== */
-for (const vp of [{ name: "390", width: 390, height: 844, phone: true }, { name: "1280", width: 1280, height: 800, phone: false }]) {
+/* Three phones, the small, the common and the large, for anything peeking above the sheet. */
+const PROFILE_VIEWPORTS = [
+  { name: "375x667", width: 375, height: 667, phone: true },
+  { name: "390", width: 390, height: 844, phone: true },
+  { name: "430x932", width: 430, height: 932, phone: true },
+  { name: "1280", width: 1280, height: 800, phone: false },
+]
+for (const vp of PROFILE_VIEWPORTS) {
   const p = await page({ ...vp, hash: "profile" })
   const band = JSON.parse(await p.js(`(() => {
     const b = document.querySelector("[data-cover-band]")
@@ -290,22 +307,22 @@ for (const vp of [{ name: "390", width: 390, height: 844, phone: true }, { name:
   if (maxDiff > 3) problems.push(`${vp.name}: opening Profile details changed the page's pixels by up to ${round(maxDiff)} (a dim or a fade)`)
   if (vp.phone) {
     r.purplePixelsAboveSheet = purpleAbove
-    if (purpleAbove > 0) problems.push(`390: ${purpleAbove} purple pixels of the banner's mark still show above the sheet`)
+    if (purpleAbove > 0) problems.push(`${vp.name}: ${purpleAbove} purple pixels of the banner's mark still show above the sheet`)
     /* The rounded corners: just outside the curve is the page, unchanged; just inside is the sheet's white. */
     const ty = Math.round(sheet.top)
     const outside = [after.px(1, ty + 1), after.px(vp.width - 2, ty + 1)]
     const pageThere = [before.px(1, ty + 1), before.px(vp.width - 2, ty + 1)]
     const inside = after.px(40, ty + 14)
     r.corners = `outside ${JSON.stringify(outside)}, page there before ${JSON.stringify(pageThere)}, inside ${JSON.stringify(inside)}, radius ${sheet.radius}`
-    if (outside.some((o) => purple(o))) problems.push("390: purple at the sheet's corners")
-    if (outside.some((o, i) => dist(o, pageThere[i]) > 3)) problems.push("390: the corners show something other than the page")
-    if (dist(inside, [255, 255, 255]) > 3) problems.push(`390: the sheet's own surface is not white under its top edge: ${JSON.stringify(inside)}`)
+    if (outside.some((o) => purple(o))) problems.push(`${vp.name}: purple at the sheet's corners`)
+    if (outside.some((o, i) => dist(o, pageThere[i]) > 3)) problems.push(`${vp.name}: the corners show something other than the page`)
+    if (dist(inside, [255, 255, 255]) > 3) problems.push(`${vp.name}: the sheet's own surface is not white under its top edge: ${JSON.stringify(inside)}`)
     r.firstFrameTop = sheet.firstTop === null ? "n/a" : `${Math.round(sheet.firstTop)} (screen is ${vp.height})`
-    if (sheet.firstTop !== null && sheet.firstTop < vp.height - 2) problems.push(`390: the sheet's first frame was already on screen at ${sheet.firstTop}`)
+    if (sheet.firstTop !== null && sheet.firstTop < vp.height - 2) problems.push(`${vp.name}: the sheet's first frame was already on screen at ${sheet.firstTop}`)
     const g = sheet.gaps.slice().sort((a, b) => a - b)
     r.openFrameGaps = `p50 ${round(g[Math.floor(g.length * 0.5)] ?? 0, 1)}ms p95 ${round(g[Math.floor(g.length * 0.95)] ?? 0, 1)}ms max ${round(g[g.length - 1] ?? 0, 1)}ms over ${g.length}`
     r.frameInSheet = sheet.frame ? `${round(sheet.frame.w, 1)}x${round(sheet.frame.h, 1)} (${round(sheet.frame.w / sheet.frame.h)}:1, band ${round(band.w / band.h)}:1)` : "none"
-    if (sheet.frame && Math.abs(sheet.frame.w / sheet.frame.h - band.w / band.h) > 0.02) problems.push("390: the frame in the sheet is not the band's shape")
+    if (sheet.frame && Math.abs(sheet.frame.w / sheet.frame.h - band.w / band.h) > 0.02) problems.push(`${vp.name}: the frame in the sheet is not the band's shape`)
   }
   if (vp.phone) {
     /*
@@ -327,8 +344,8 @@ for (const vp of [{ name: "390", width: 390, height: 844, phone: true }, { name:
       return JSON.stringify({ saveBottom: s.bottom, panelTop: panel.top, panelBottom: panel.bottom })
     })()`))
     r.withA320pxKeyboard = `Save ends at y=${Math.round(kb.saveBottom)}, keyboard starts at ${vp.height - 320}; sheet ${Math.round(kb.panelTop)}..${Math.round(kb.panelBottom)}`
-    if (kb.saveBottom > vp.height - 320 + 0.5) problems.push(`390: Save is under a 320px keyboard (bottom ${kb.saveBottom})`)
-    if (kb.panelTop < 0) problems.push(`390: with the keyboard up the sheet runs off the top (${kb.panelTop})`)
+    if (kb.saveBottom > vp.height - 320 + 0.5) problems.push(`${vp.name}: Save is under a 320px keyboard (bottom ${kb.saveBottom})`)
+    if (kb.panelTop < 0) problems.push(`${vp.name}: with the keyboard up the sheet runs off the top (${kb.panelTop})`)
 
     /* THE CLOSE: Cancel, then every frame until the sheet is out of the document. */
     const closing = JSON.parse(await p.js(`(async () => {
@@ -352,9 +369,9 @@ for (const vp of [{ name: "390", width: 390, height: 844, phone: true }, { name:
       return JSON.stringify({ ms: Math.round(performance.now() - t0), frames: tops.length, first: tops.slice(0, 3), last: tops.slice(-2), back, gone: !document.querySelector("[data-sheet-panel]") })
     })()`))
     r.closeOnCancel = `${closing.frames} frames, ${closing.ms}ms, tops ${closing.first.join(",")} .. ${closing.last.join(",")}, backward steps ${closing.back}, gone ${closing.gone}`
-    if (!closing.gone) problems.push("390: the sheet was still in the document 2s after Cancel")
-    if (closing.back > 0) problems.push(`390: the close moved backwards ${closing.back} times`)
-    if (closing.frames < 12) problems.push(`390: the close was ${closing.frames} frames, a cut rather than a slide`)
+    if (!closing.gone) problems.push(`${vp.name}: the sheet was still in the document 2s after Cancel`)
+    if (closing.back > 0) problems.push(`${vp.name}: the close moved backwards ${closing.back} times`)
+    if (closing.frames < 12) problems.push(`${vp.name}: the close was ${closing.frames} frames, a cut rather than a slide`)
   }
   report[`profile @${vp.name}`] = r
   await p.close()
@@ -384,6 +401,42 @@ for (const vp of [{ name: "390", width: 390, height: 844, phone: true }, { name:
   await p.close()
 }
 
+/* ── The frame and the band, read together, and what each shows of the photograph ── */
+const READ = `(() => {
+  const f = document.querySelector("[data-cover-crop-frame]")
+  const img = f.querySelector("img")
+  const fr = f.getBoundingClientRect(), ir = img.getBoundingClientRect()
+  const cs = getComputedStyle(f)
+  const bl = parseFloat(cs.borderLeftWidth), bt = parseFloat(cs.borderTopWidth)
+  const inner = { l: fr.left + bl, t: fr.top + bt, r: fr.right - parseFloat(cs.borderRightWidth), b: fr.bottom - parseFloat(cs.borderBottomWidth) }
+  /* The corner controls draw white glyphs; the scan for the frame's grey leaves them out. */
+  const controls = [...f.querySelectorAll("button")].map((b) => { const r = b.getBoundingClientRect(); return { l: r.left - 2, t: r.top - 2, r: r.right + 2, b: r.bottom + 2 } })
+  const band = document.querySelector("[data-cover-band]")
+  const br = band.getBoundingClientRect()
+  const bimg = band.querySelector("img")
+  const bir = bimg.getBoundingClientRect()
+  const bcs = getComputedStyle(bimg)
+  return JSON.stringify({ inner, img: { l: ir.left, t: ir.top, r: ir.right, b: ir.bottom, w: ir.width, h: ir.height },
+    nw: img.naturalWidth, nh: img.naturalHeight, frameAspect: (inner.r - inner.l) / (inner.b - inner.t),
+    band: { l: br.left, t: br.top, w: br.width, h: br.height }, bandImg: { l: bir.left, t: bir.top, w: bir.width, h: bir.height, pos: bcs.objectPosition, fit: bcs.objectFit },
+    crop: window.__crop, renders: window.__renders, transform: img.style.transform, controls })
+})()`
+/** Which part of the photograph the frame shows, as fractions of it (the frame's <img> is the photograph's own rect). */
+const visibleFrame = (s) => {
+  const w = s.img.w, h = s.img.h
+  return { u0: (s.inner.l - s.img.l) / w, u1: (s.inner.r - s.img.l) / w, v0: (s.inner.t - s.img.t) / h, v1: (s.inner.b - s.img.t) / h }
+}
+/** The same for the band: object-fit: cover inside the band image's box, at its object-position. */
+const visibleBand = (s) => {
+  const bw = s.bandImg.w, bh = s.bandImg.h
+  const k = Math.max(bw / s.nw, bh / s.nh)
+  const pw = s.nw * k, ph = s.nh * k
+  const [ox, oy] = s.bandImg.pos.split(" ").map((v) => parseFloat(v) / 100)
+  const left = s.bandImg.l + (bw - pw) * ox, top = s.bandImg.t + (bh - ph) * oy
+  return { u0: (s.band.l - left) / pw, u1: (s.band.l + s.band.w - left) / pw, v0: (s.band.t - top) / ph, v1: (s.band.t + s.band.h - top) / ph }
+}
+const uvDiff = (a, b) => Math.max(Math.abs(a.u0 - b.u0), Math.abs(a.u1 - b.u1), Math.abs(a.v0 - b.v0), Math.abs(a.v1 - b.v1))
+
 /* ======================================================================
    3. THE CROP UNDER REAL FINGERS, 390
    ====================================================================== */
@@ -391,25 +444,6 @@ for (const vp of [{ name: "390", width: 390, height: 844, phone: true }, { name:
   const vp = { width: 390, height: 844, phone: true }
   const p = await page({ ...vp, hash: "crop" })
   await sleep(700)
-  const READ = `(() => {
-    const f = document.querySelector("[data-cover-crop-frame]")
-    const img = f.querySelector("img")
-    const fr = f.getBoundingClientRect(), ir = img.getBoundingClientRect()
-    const cs = getComputedStyle(f)
-    const bl = parseFloat(cs.borderLeftWidth), bt = parseFloat(cs.borderTopWidth)
-    const inner = { l: fr.left + bl, t: fr.top + bt, r: fr.right - parseFloat(cs.borderRightWidth), b: fr.bottom - parseFloat(cs.borderBottomWidth) }
-    /* The corner controls draw white glyphs; the scan for the frame's grey leaves them out. */
-    const controls = [...f.querySelectorAll("button")].map((b) => { const r = b.getBoundingClientRect(); return { l: r.left - 2, t: r.top - 2, r: r.right + 2, b: r.bottom + 2 } })
-    const band = document.querySelector("[data-cover-band]")
-    const br = band.getBoundingClientRect()
-    const bimg = band.querySelector("img")
-    const bir = bimg.getBoundingClientRect()
-    const bcs = getComputedStyle(bimg)
-    return JSON.stringify({ inner, img: { l: ir.left, t: ir.top, r: ir.right, b: ir.bottom, w: ir.width, h: ir.height },
-      nw: img.naturalWidth, nh: img.naturalHeight, frameAspect: (inner.r - inner.l) / (inner.b - inner.t),
-      band: { l: br.left, t: br.top, w: br.width, h: br.height }, bandImg: { l: bir.left, t: bir.top, w: bir.width, h: bir.height, pos: bcs.objectPosition, fit: bcs.objectFit },
-      crop: window.__crop, renders: window.__renders, transform: img.style.transform, controls })
-  })()`
   const read = async () => JSON.parse(await p.js(READ))
   const s0 = await read()
   const sheetTop0 = await p.js(`document.querySelector("[data-sheet-panel]").getBoundingClientRect().top`)
@@ -499,21 +533,8 @@ for (const vp of [{ name: "390", width: 390, height: 844, phone: true }, { name:
   gaps.push(...JSON.parse(await p.js("JSON.stringify(window.__g)")))
 
   /* The band draws the same part of the photograph the frame shows. */
-  const visibleFrame = (s) => {
-    const w = s.img.w, h = s.img.h
-    return { u0: (s.inner.l - s.img.l) / w, u1: (s.inner.r - s.img.l) / w, v0: (s.inner.t - s.img.t) / h, v1: (s.inner.b - s.img.t) / h }
-  }
-  const visibleBand = (s) => {
-    /* object-fit: cover inside the band image's box, at its object-position. */
-    const bw = s.bandImg.w, bh = s.bandImg.h
-    const k = Math.max(bw / s.nw, bh / s.nh)
-    const pw = s.nw * k, ph = s.nh * k
-    const [ox, oy] = s.bandImg.pos.split(" ").map((v) => parseFloat(v) / 100)
-    const left = s.bandImg.l + (bw - pw) * ox, top = s.bandImg.t + (bh - ph) * oy
-    return { u0: (s.band.l - left) / pw, u1: (s.band.l + s.band.w - left) / pw, v0: (s.band.t - top) / ph, v1: (s.band.t + s.band.h - top) / ph }
-  }
   const vf = visibleFrame(fin), vb = visibleBand(fin)
-  const cropDiff = Math.max(Math.abs(vf.u0 - vb.u0), Math.abs(vf.u1 - vb.u1), Math.abs(vf.v0 - vb.v0), Math.abs(vf.v1 - vb.v1))
+  const cropDiff = uvDiff(vf, vb)
   if (cropDiff > 0.004) problems.push(`crop: the band shows a different part of the photograph from the frame (by ${round(cropDiff * 100, 2)}% of it)`)
   const g = gaps.slice(2).sort((a, b) => a - b)
   report["crop @390, real touches"] = {
@@ -570,6 +591,326 @@ for (const vp of [{ name: "390", width: 390, height: 844, phone: true }, { name:
   if (!(dragged.x > zoomed.x)) problems.push("1280: a mouse drag to the left did not move the picture left")
   if (Math.abs(f.w / f.h - band.w / band.h) > 0.02) problems.push("1280: the frame in the drawer is not the band's shape")
   await p.close()
+}
+
+/* ======================================================================
+   5. SMALL SCREENS: the frame keeps every touch, so the form has to be
+      reachable around it
+   ====================================================================== */
+for (const vp of [
+  { name: "320x568", width: 320, height: 568, phone: true },
+  { name: "667x375 landscape", width: 667, height: 375, phone: true },
+]) {
+  const p = await page({ ...vp, hash: "profile" })
+  const pencil = JSON.parse(await p.js(`JSON.stringify(document.querySelector("[aria-label='Edit profile']").getBoundingClientRect())`))
+  await p.touch("touchStart", [[pencil.x + pencil.width / 2, pencil.y + pencil.height / 2]])
+  await p.touch("touchEnd", [])
+  await sleep(1200)
+  const GEO = `(() => {
+    const panel = document.querySelector("[data-sheet-panel]")
+    const sc = panel.querySelector("[data-sheet-scroll]")
+    const f = panel.querySelector("[data-cover-crop-frame]")
+    const s = sc.getBoundingClientRect(), fr = f.getBoundingClientRect()
+    return JSON.stringify({ sc: { t: s.top, b: s.bottom, h: s.height, l: s.left, r: s.right }, fr: { t: fr.top, b: fr.bottom, h: fr.height, w: fr.width, l: fr.left, r: fr.right }, top: sc.scrollTop, max: sc.scrollHeight - sc.clientHeight })
+  })()`
+  const g = JSON.parse(await p.js(GEO))
+  const covered = Math.max(0, Math.min(g.sc.b, g.fr.b) - Math.max(g.sc.t, g.fr.t))
+  /* The widest strip of the form a thumb can start a scroll in, beside the frame. */
+  const sideFree = Math.max(g.fr.l - g.sc.l, g.sc.r - g.fr.r)
+  const below = Math.max(0, g.sc.b - g.fr.b)
+  const above = Math.max(0, g.fr.t - g.sc.t)
+  /* A scroll that starts on the form under the frame, or beside it when there is no room under it. */
+  const startX = below >= 44 || sideFree < 44 ? (g.sc.l + g.sc.r) / 2 : g.fr.r + sideFree / 2
+  const startY = below >= 44 ? g.fr.b + below / 2 : sideFree >= 44 ? (g.fr.t + g.fr.b) / 2 : g.fr.t - above / 2
+  await p.touch("touchStart", [[startX, startY]])
+  for (let i = 1; i <= 10; i++) { await p.touch("touchMove", [[startX, startY - i * 12]]); await sleep(16) }
+  await p.touch("touchEnd", [])
+  await sleep(500)
+  const after = JSON.parse(await p.js(GEO))
+  report[`small screen ${vp.name}`] = {
+    scroller: `${Math.round(g.sc.h)}px tall, ${Math.round(g.max)}px to scroll`,
+    frame: `${round(g.fr.w, 1)}x${round(g.fr.h, 1)}, covering ${Math.round(covered)}px of it (${Math.round((covered / g.sc.h) * 100)}%)`,
+    freeAroundFrame: `${Math.round(below)}px under, ${Math.round(sideFree)}px beside`,
+    scrollFromTheForm: `started at ${Math.round(startX)},${Math.round(startY)}: scrollTop ${Math.round(g.top)} -> ${Math.round(after.top)}`,
+  }
+  if (Math.max(below, sideFree) < 44) problems.push(`${vp.name}: the frame leaves no 44px strip of the form to start a scroll in (${Math.round(below)} under, ${Math.round(sideFree)} beside)`)
+  if (!(after.top > g.top + 20)) problems.push(`${vp.name}: a drag on the form next to the frame did not scroll it (${g.top} -> ${after.top})`)
+  await p.close()
+}
+
+/* ======================================================================
+   6. THE AWKWARD GESTURES, 390: a finger lifted mid pinch, three fingers,
+      a cancelled touch, a press on the corner buttons, taps, a glide
+      caught mid way, Reset during a glide
+   ====================================================================== */
+{
+  const vp = { width: 390, height: 844, phone: true }
+  const p = await page({ ...vp, hash: "crop" })
+  await sleep(700)
+  const STATE = `(() => {
+    const f = document.querySelector("[data-cover-crop-frame]")
+    const img = f.querySelector("img")
+    const fr = f.getBoundingClientRect(), ir = img.getBoundingClientRect()
+    const btn = (label) => { const b = [...f.querySelectorAll("button")].find((x) => (x.getAttribute("aria-label") || x.textContent.trim()) === label); if (!b) return null; const r = b.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 } }
+    return JSON.stringify({ frame: { l: fr.left, t: fr.top, r: fr.right, b: fr.bottom }, img: { l: ir.left, t: ir.top, w: ir.width, h: ir.height },
+      crop: window.__crop, css: img.style.cssText, transform: img.style.transform, pencil: btn("Change banner"), reset: btn("Reset") })
+  })()`
+  const st = async () => JSON.parse(await p.js(STATE))
+  const finite = (c) => [c.x, c.y, c.zoom].every((n) => typeof n === "number" && Number.isFinite(n))
+  const s0 = await st()
+  const cx = (s0.frame.l + s0.frame.r) / 2, cy = (s0.frame.t + s0.frame.b) / 2
+  const r = {}
+  const seen = []
+  const note = (tag, s) => { seen.push(s); if (!finite(s.crop) || /NaN|Infinity/.test(s.css)) problems.push(`gestures: ${tag}: a non-number reached the crop or the style: ${JSON.stringify(s.crop)} ${s.css}`) }
+  const settle = async (ms = 450) => { await sleep(ms); return st() }
+
+  /* a. Pinch out, lift one finger, carry on with the other. */
+  await p.touch("touchStart", [[cx - 40, cy], [cx + 40, cy]])
+  for (let i = 1; i <= 8; i++) { await p.touch("touchMove", [[cx - 40 - i * 8, cy], [cx + 40 + i * 8, cy]]); await sleep(16) }
+  await sleep(40)
+  const beforeLift = await st()
+  /* The second finger leaves (a touchEnd naming only it); the first stays exactly where it was. */
+  await p.call("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [{ x: cx + 104, y: cy, id: 2 }] })
+  await p.touch("touchMove", [[cx - 104, cy]])
+  await sleep(40)
+  const atLift = await st()
+  for (let i = 1; i <= 6; i++) { await p.touch("touchMove", [[cx - 104 + i * 6, cy + i * 3]]); await sleep(16) }
+  await sleep(40)
+  const dragged = await st()
+  await p.touch("touchEnd", [])
+  const a = await settle()
+  note("lift one finger", a)
+  const liftJump = Math.max(Math.abs(atLift.img.l - beforeLift.img.l), Math.abs(atLift.img.t - beforeLift.img.t), Math.abs(atLift.img.w - beforeLift.img.w))
+  const carried = Math.hypot(dragged.img.l - atLift.img.l, dragged.img.t - atLift.img.t)
+  r.pinchThenLiftOne = `zoom ${a.crop.zoom}; picture moved ${round(liftJump)}px when the finger lifted, then ${round(carried)}px under the remaining finger (it moved 40px)`
+  if (liftJump > 1) problems.push(`gestures: lifting one finger of a pinch jumped the picture ${round(liftJump)}px`)
+  if (carried < 10) problems.push("gestures: the finger left after a pinch did not carry on moving the picture")
+  if (!(a.crop.zoom > 1.2)) problems.push(`gestures: the pinch before the lift did not zoom (${a.crop.zoom})`)
+
+  /* b. Three fingers. */
+  await p.touch("touchStart", [[cx - 50, cy], [cx + 50, cy], [cx, cy + 30]])
+  for (let i = 1; i <= 6; i++) { await p.touch("touchMove", [[cx - 50 - i * 5, cy], [cx + 50 + i * 5, cy], [cx + i * 4, cy + 30]]); await sleep(16) }
+  await p.touch("touchEnd", [])
+  const b = await settle()
+  note("three fingers", b)
+  r.threeFingers = `zoom ${a.crop.zoom} -> ${b.crop.zoom}, transform after "${b.transform || "none"}"`
+  if (b.transform) problems.push(`gestures: three fingers left a transform: ${b.transform}`)
+
+  /* c. A pinch in that the system takes away, then a plain drag. A finger
+     left behind would turn the drag into a pinch against where it was. */
+  await p.touch("touchStart", [[cx - 60, cy], [cx + 60, cy]])
+  for (let i = 1; i <= 6; i++) { await p.touch("touchMove", [[cx - 60 + i * 5, cy], [cx + 60 - i * 5, cy]]); await sleep(16) }
+  await p.touch("touchCancel", [])
+  const c1 = await settle(200)
+  note("touch cancelled", c1)
+  await p.touch("touchStart", [[cx, cy]])
+  for (let i = 1; i <= 6; i++) { await p.touch("touchMove", [[cx - i * 8, cy]]); await sleep(16) }
+  await p.touch("touchEnd", [])
+  const c2 = await settle(200)
+  note("drag after a cancel", c2)
+  r.cancelledPinch = `transform after cancel "${c1.transform || "none"}", zoom ${c1.crop.zoom}; a one-finger drag after it: zoom ${c2.crop.zoom}`
+  if (c1.transform) problems.push("gestures: a cancelled pinch left a transform on the picture")
+  if (Math.abs(c2.crop.zoom - c1.crop.zoom) > 0.001) problems.push(`gestures: a one-finger drag after a cancelled pinch zoomed (${c1.crop.zoom} -> ${c2.crop.zoom}): a finger was left behind`)
+
+  /* d. A press that starts on the pencil and slides onto the picture. */
+  const d0 = await st()
+  await p.touch("touchStart", [[d0.pencil.x, d0.pencil.y]])
+  for (let i = 1; i <= 8; i++) { await p.touch("touchMove", [[d0.pencil.x - i * 12, d0.pencil.y + i * 4]]); await sleep(16) }
+  await p.touch("touchEnd", [])
+  const d1 = await settle(200)
+  r.dragFromThePencil = `crop ${JSON.stringify(d0.crop)} -> ${JSON.stringify(d1.crop)}`
+  if (JSON.stringify(d0.crop) !== JSON.stringify(d1.crop)) problems.push("gestures: a drag that started on the pencil moved the picture")
+
+  const tap = async (x, y) => { await p.touch("touchStart", [[x, y]]); await p.touch("touchEnd", []) }
+  /* e. Double tap in, double tap out. */
+  await tap(cx, cy); await sleep(90); await tap(cx, cy)
+  const e1 = await settle(500)
+  await tap(cx, cy); await sleep(90); await tap(cx, cy)
+  const e2 = await settle(500)
+  note("double tap", e2)
+  r.doubleTap = `zoom ${d1.crop.zoom} -> ${e1.crop.zoom} -> ${e2.crop.zoom}`
+  const toggled = (from, to) => (from > 1.05 ? Math.abs(to - 1) < 0.001 : Math.abs(to - 2) < 0.01)
+  if (!toggled(d1.crop.zoom, e1.crop.zoom) || !toggled(e1.crop.zoom, e2.crop.zoom)) problems.push(`gestures: double taps did not go in and back out (${r.doubleTap})`)
+
+  /* f. Two taps too far apart in time are two taps. */
+  await tap(cx, cy); await sleep(450); await tap(cx, cy)
+  const f1 = await settle(500)
+  r.twoSlowTaps = `zoom ${e2.crop.zoom} -> ${f1.crop.zoom}`
+  if (Math.abs(f1.crop.zoom - e2.crop.zoom) > 0.001) problems.push("gestures: two taps 450ms apart zoomed")
+
+  /* g. A finger that lands on a glide half way stops it there. */
+  await tap(cx, cy); await sleep(90); await tap(cx, cy)
+  await sleep(110)
+  await tap(cx + 30, cy)
+  const g1 = await settle(500)
+  note("glide caught", g1)
+  const target = f1.crop.zoom > 1.05 ? 1 : 2
+  r.glideCaughtMidWay = `going from ${f1.crop.zoom} to ${target}, stopped at ${g1.crop.zoom}`
+  if (!(Math.abs(g1.crop.zoom - target) > 0.02 && Math.abs(g1.crop.zoom - f1.crop.zoom) > 0.02)) problems.push(`gestures: a finger on a glide did not stop it where it was (${r.glideCaughtMidWay})`)
+
+  /* h. Reset while a glide is still running. */
+  const h0 = await st()
+  if (!h0.reset) { await tap(cx, cy); await sleep(90); await tap(cx, cy); await sleep(500) }
+  await sleep(400)
+  await tap(cx, cy); await sleep(90); await tap(cx, cy)
+  await sleep(60)
+  const h1 = await st()
+  if (h1.reset) await tap(h1.reset.x, h1.reset.y)
+  const h2 = await settle(600)
+  note("reset during a glide", h2)
+  r.resetDuringGlide = `${h1.reset ? "Reset pressed" : "no Reset shown"} 60ms into a glide; crop after ${JSON.stringify(h2.crop)}, transform "${h2.transform || "none"}"`
+  if (!h1.reset || h2.crop.x !== 50 || h2.crop.y !== 50 || h2.crop.zoom !== 1 || h2.transform) problems.push(`gestures: Reset during a glide did not stick (${r.resetDuringGlide})`)
+
+  /* i. The phone turns sideways with a finger down, and the finger carries on. */
+  await p.touch("touchStart", [[cx, cy]])
+  for (let i = 1; i <= 4; i++) { await p.touch("touchMove", [[cx + i * 6, cy + i * 3]]); await sleep(16) }
+  /* 667 wide, so it is still the phone sheet: past 767 the editor becomes
+     the drawer, a different element, and a gesture under way goes with the
+     old one (the crop stays what it was saved as). */
+  await p.call("Emulation.setDeviceMetricsOverride", { width: 667, height: 375, deviceScaleFactor: 1, mobile: true })
+  await sleep(250)
+  for (let i = 5; i <= 8; i++) { await p.touch("touchMove", [[cx + i * 6, cy + i * 3]]); await sleep(16) }
+  await p.touch("touchEnd", [])
+  const i1 = await settle(500)
+  note("turned mid drag", i1)
+  if (!(i1.crop.y < 49)) problems.push(`gestures: a drag that carried on through a turn was not kept (${JSON.stringify(i1.crop)})`)
+  const turned = JSON.parse(await p.js(READ))
+  const turnedGap = Math.max(turned.img.l - turned.inner.l, turned.img.t - turned.inner.t, turned.inner.r - turned.img.r, turned.inner.b - turned.img.b, 0)
+  const turnedDiff = uvDiff(visibleFrame(turned), visibleBand(turned))
+  r.turnedMidDrag = `crop ${JSON.stringify(i1.crop)}, frame ${round(turned.frameAspect)}:1, uncovered ${round(turnedGap, 2)}px, band differs by ${round(turnedDiff * 100, 3)}%, transform "${i1.transform || "none"}"`
+  if (turnedGap > 0.5 || turnedDiff > 0.004 || i1.transform) problems.push(`gestures: turning the phone mid drag left the frame wrong (${r.turnedMidDrag})`)
+
+  r.nonNumbers = `${seen.length} states read, none with NaN or Infinity in the crop or the image's style`
+  report["gestures @390"] = r
+  await p.close()
+}
+
+/* ======================================================================
+   7. SAVING: a removed cover takes its crop with it, and a sheet with a
+      save in flight cannot be closed out from under it
+   ====================================================================== */
+{
+  const vp = { width: 390, height: 844, phone: true }
+  const p = await page({ ...vp, hash: "save" })
+  const openSheet = async () => {
+    const b = JSON.parse(await p.js(`JSON.stringify(document.querySelector("[aria-label='Edit profile']").getBoundingClientRect())`))
+    await p.touch("touchStart", [[b.x + b.width / 2, b.y + b.height / 2]])
+    await p.touch("touchEnd", [])
+    await sleep(1100)
+  }
+  const tapButton = async (label) => {
+    const b = JSON.parse(await p.js(`(() => { const el = [...document.querySelectorAll("[data-sheet-panel] button")].find((x) => (x.getAttribute("aria-label") || x.textContent.trim()) === ${JSON.stringify(label)}); if (!el) return "null"; const r = el.getBoundingClientRect(); return JSON.stringify({ x: r.left + r.width / 2, y: r.top + r.height / 2 }) })()`))
+    if (!b) { problems.push(`save: no "${label}" button`); return }
+    await p.touch("touchStart", [[b.x, b.y]])
+    await p.touch("touchEnd", [])
+  }
+  const sheetState = async () => JSON.parse(await p.js(`(() => { const s = document.querySelector("[data-app-sheet]:not([data-sheet-ghost])"); const panel = s && s.querySelector("[data-sheet-panel]"); return JSON.stringify({ state: s ? s.getAttribute("data-app-sheet") : "gone", top: panel ? panel.getBoundingClientRect().top : null, refreshes: window.__refreshes, bodies: window.__bodies }) })()`))
+  const r = {}
+
+  await openSheet()
+  await tapButton("Remove image")
+  await sleep(300)
+  const frameLeft = await p.js(`!!document.querySelector("[data-sheet-panel] [data-cover-crop-frame]")`)
+  await tapButton("Save")
+  await sleep(1200)
+  const saved = await sheetState()
+  const body = saved.bodies[0] || {}
+  r.removeThenSave = `frame after remove ${frameLeft ? "still there" : "gone"}; sent coverUrl ${JSON.stringify(body.coverUrl)}, coverFocalPoint ${JSON.stringify(body.coverFocalPoint)}, coverZoom ${JSON.stringify(body.coverZoom)}; sheet ${saved.state}; refreshes ${saved.refreshes}`
+  if (frameLeft) problems.push("save: the frame stayed after the cover was removed")
+  if (body.coverUrl !== null || body.coverFocalPoint !== null || body.coverZoom !== null) problems.push(`save: removing a zoomed cover did not clear its crop (${r.removeThenSave})`)
+  if (saved.state !== "gone" || saved.refreshes !== 1) problems.push(`save: after a save the sheet should be gone and the page refreshed once (${saved.state}, ${saved.refreshes})`)
+
+  /* The same sheet again, and a save that does not come back yet. */
+  await openSheet()
+  const open0 = await sheetState()
+  await p.js("window.__hold = true")
+  await tapButton("Save")
+  await sleep(150)
+  await p.touch("touchStart", [[195, 16]])
+  await p.touch("touchEnd", [])
+  await sleep(700)
+  const afterTap = await sheetState()
+  await p.call("Input.dispatchKeyEvent", { type: "keyDown", key: "Escape", code: "Escape", windowsVirtualKeyCode: 27 })
+  await p.call("Input.dispatchKeyEvent", { type: "keyUp", key: "Escape", code: "Escape", windowsVirtualKeyCode: 27 })
+  await sleep(700)
+  const afterEscape = await sheetState()
+  /* A pull down on the title, well past the distance that closes an idle sheet. */
+  const hy = open0.top + 30
+  await p.touch("touchStart", [[195, hy]])
+  for (let i = 1; i <= 12; i++) { await p.touch("touchMove", [[195, hy + i * 20]]); await sleep(16) }
+  await p.touch("touchEnd", [])
+  await sleep(800)
+  const afterPull = await sheetState()
+  await p.js("window.__release && window.__release()")
+  await sleep(1300)
+  const done = await sheetState()
+  r.closeDuringSave = `tap above: ${afterTap.state} at ${Math.round(afterTap.top)}; Escape: ${afterEscape.state} at ${Math.round(afterEscape.top)}; pull down 240px: ${afterPull.state} at ${Math.round(afterPull.top)} (was ${Math.round(open0.top)}); after the save answered: ${done.state}, refreshes ${done.refreshes}`
+  for (const [tag, s2] of [["a tap above", afterTap], ["Escape", afterEscape], ["a pull down", afterPull]]) {
+    if (s2.state !== "open" || Math.abs(s2.top - open0.top) > 1) problems.push(`save: ${tag} closed or moved the sheet with a save in flight (${s2.state}, top ${s2.top})`)
+  }
+  if (done.state !== "gone" || done.refreshes !== 2) problems.push(`save: once the held save answered, the sheet should close and refresh exactly once more (${done.state}, ${done.refreshes})`)
+
+  /* And with nothing in flight, Escape is a Cancel: the sheet goes, and nothing is refreshed. */
+  await p.js("window.__hold = false")
+  await openSheet()
+  await p.call("Input.dispatchKeyEvent", { type: "keyDown", key: "Escape", code: "Escape", windowsVirtualKeyCode: 27 })
+  await p.call("Input.dispatchKeyEvent", { type: "keyUp", key: "Escape", code: "Escape", windowsVirtualKeyCode: 27 })
+  await sleep(800)
+  const escaped = await sheetState()
+  r.escapeWhenIdle = `${escaped.state}, refreshes ${escaped.refreshes}`
+  if (escaped.state !== "gone" || escaped.refreshes !== 2) problems.push(`save: Escape on an idle sheet should close it without a refresh (${r.escapeWhenIdle})`)
+  report["save @390"] = r
+  await p.close()
+}
+
+/* ======================================================================
+   8. THE SAME CROP ON THE PAGE AS IN THE FRAME, for photographs of every
+      shape (4:3, tall, a panorama, a 60px thumbnail) at 390, 768 and 1280,
+      after a zoom and a move
+   ====================================================================== */
+{
+  const rows = []
+  let worst = 0
+  for (const shape of ["photo", "tall", "panorama", "tiny"]) {
+    for (const vp of [
+      { name: "390", width: 390, height: 844, phone: true },
+      { name: "768", width: 768, height: 1024, phone: false },
+      { name: "1280", width: 1280, height: 800, phone: false },
+    ]) {
+      const p = await page({ ...vp, hash: `crop-${shape}` })
+      await sleep(700)
+      const s0 = JSON.parse(await p.js(READ))
+      const cx = (s0.inner.l + s0.inner.r) / 2, cy = (s0.inner.t + s0.inner.b) / 2
+      if (vp.phone) {
+        await p.touch("touchStart", [[cx - 30, cy], [cx + 30, cy]])
+        for (let i = 1; i <= 8; i++) { await p.touch("touchMove", [[cx - 30 - i * 7, cy - i], [cx + 30 + i * 7, cy - i]]); await sleep(16) }
+        await p.touch("touchEnd", [])
+        await sleep(150)
+        await p.touch("touchStart", [[cx, cy]])
+        for (let i = 1; i <= 8; i++) { await p.touch("touchMove", [[cx + i * 9, cy + i * 5]]); await sleep(16) }
+        await p.touch("touchEnd", [])
+      } else {
+        await p.call("Input.dispatchMouseEvent", { type: "mouseWheel", x: cx, y: cy, deltaX: 0, deltaY: -90, modifiers: 2 })
+        await sleep(400)
+        await p.call("Input.dispatchMouseEvent", { type: "mousePressed", x: cx, y: cy, button: "left", buttons: 1, clickCount: 1 })
+        for (let i = 1; i <= 8; i++) { await p.call("Input.dispatchMouseEvent", { type: "mouseMoved", x: cx + i * 9, y: cy + i * 5, button: "left", buttons: 1 }); await sleep(16) }
+        await p.call("Input.dispatchMouseEvent", { type: "mouseReleased", x: cx + 72, y: cy + 40, button: "left", buttons: 0, clickCount: 1 })
+      }
+      await sleep(400)
+      const s = JSON.parse(await p.js(READ))
+      const diff = uvDiff(visibleFrame(s), visibleBand(s))
+      const gap = Math.max(s.img.l - s.inner.l, s.img.t - s.inner.t, s.inner.r - s.img.r, s.inner.b - s.img.b, 0)
+      worst = Math.max(worst, diff)
+      const finiteCrop = [s.crop.x, s.crop.y, s.crop.zoom].every(Number.isFinite)
+      rows.push(`${shape.padEnd(8)} @${vp.name.padEnd(4)} ${s.nw}x${s.nh} in ${round(s.frameAspect)}:1, crop ${JSON.stringify(s.crop)}, differs by ${round(diff * 100, 3)}%, uncovered ${round(gap, 2)}px`)
+      if (diff > 0.004) problems.push(`parity: ${shape} @${vp.name}: the band shows ${round(diff * 100, 2)}% of the photograph differently from the frame`)
+      if (gap > 0.5) problems.push(`parity: ${shape} @${vp.name}: the picture left ${round(gap, 2)}px of the frame uncovered`)
+      if (!finiteCrop) problems.push(`parity: ${shape} @${vp.name}: a non-number reached the crop ${JSON.stringify(s.crop)}`)
+      if (!(s.crop.zoom > 1)) problems.push(`parity: ${shape} @${vp.name}: the zoom did not take (${s.crop.zoom})`)
+      await p.close()
+    }
+  }
+  report["band vs frame, every shape and width"] = [...rows, `worst difference ${round(worst * 100, 3)}% of the photograph`].join("\n  ")
 }
 
 proc.kill()

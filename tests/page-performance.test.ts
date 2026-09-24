@@ -1063,7 +1063,11 @@ check(
      * self-contained and broke the moment it delegated, which is the honest
      * signal that it was testing a transcription rather than the code.
      */
-    if (!/cleanUrl\(body\.avatarUrl\)/.test(api) || !/cleanUrl\(body\.coverUrl\)/.test(api))
+    if (
+      !/return cleanUrl\(body\[key\]\) \?\? undefined/.test(api) ||
+      !/const avatarUrl = imageField\("avatarUrl"\)/.test(api) ||
+      !/const coverUrl = imageField\("coverUrl"\)/.test(api)
+    )
       missing.push("the image URLs reach the page unchecked")
 
     if (toPublicHttpUrl("javascript:alert(1)") !== null) missing.push("a javascript: URL gets through")

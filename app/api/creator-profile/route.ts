@@ -106,11 +106,17 @@ export async function PATCH(request: NextRequest) {
    * Images go through the same cleaner as the social links, for the same
    * reason: they end up in a `src` on a public page, and `javascript:` in an
    * attribute does not care that we called it an avatar. `null` clears; a
-   * value that will not parse is refused rather than stored.
+   * value that will not parse is ignored, and the stored picture stays. It
+   * used to come out of the cleaner as `null` and was then written as a
+   * clear, so a bad value deleted the creator's cover.
    */
-  const avatarUrl =
-    body.avatarUrl === null ? null : "avatarUrl" in body ? cleanUrl(body.avatarUrl) : undefined
-  const coverUrl = body.coverUrl === null ? null : "coverUrl" in body ? cleanUrl(body.coverUrl) : undefined
+  const imageField = (key: "avatarUrl" | "coverUrl"): string | null | undefined => {
+    if (!(key in body)) return undefined
+    if (body[key] === null) return null
+    return cleanUrl(body[key]) ?? undefined
+  }
+  const avatarUrl = imageField("avatarUrl")
+  const coverUrl = imageField("coverUrl")
 
   /**
    * The About story. Bounded like every other free-text field, and media is an
@@ -470,6 +476,17 @@ export async function PATCH(request: NextRequest) {
     if (productsOrder !== undefined) next.productsOrder = productsOrder
     if (coverFocalPoint !== undefined) next.coverFocalPoint = coverFocalPoint ?? undefined
     if (coverZoom !== undefined) next.coverZoom = coverZoom ?? undefined
+    /*
+      A CROP BELONGS TO ONE PICTURE. Where it sits and how close it is drawn
+      mean nothing for a different photograph, so a cover that is removed or
+      replaced without a crop of its own starts from the middle at zoom 1,
+      whoever sent it. The profile sheet already sends both; this is the rule
+      for any caller that does not.
+    */
+    if (coverUrl !== undefined && (coverUrl ?? undefined) !== header.coverImageUrl) {
+      if (coverFocalPoint === undefined) next.coverFocalPoint = undefined
+      if (coverZoom === undefined) next.coverZoom = undefined
+    }
     if (subscribeBar) {
       const existing = (header.subscribeBar || {}) as Record<string, unknown>
       /**

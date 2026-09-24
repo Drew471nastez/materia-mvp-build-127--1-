@@ -42,17 +42,12 @@
  * shadow to say which is in front, and the canvas is still readable while a
  * colour is picked.
  *
- * IT IS STILL A RADIX DIALOG. Focus trapping, Escape, returning focus to the
- * trigger and — the part that matters here — keeping the content mounted for
- * the length of the exit animation are all things it already does correctly
- * and all things that look like a flash when hand-rolled. Only the geometry
- * and the overlay are ours.
- *
- * `peekHeight={0}` and `layer="raised"`: the sheet's default is the builder's
- * BASE sheet, which peeks 72px above the bottom edge when closed because the
- * builder's tab row lives in it. An editor is not that. Left at the default,
- * a closed editor sat as a permanent strip across the bottom of the page —
- * which is what "your page is live is always at the bottom" was.
+ * THE DRAWER IS STILL A RADIX DIALOG. Focus trapping, Escape, returning
+ * focus to the trigger and keeping the content mounted for the length of the
+ * exit animation are all things it already does correctly, and all things
+ * that look like a flash when hand-rolled. Only the geometry and the overlay
+ * are ours. The phone sheet has no closed state on screen at all: closed, it
+ * is out of the document.
  */
 
 import * as React from "react"
@@ -208,6 +203,22 @@ export function EditorSheet({
   const phone = useIsPhone()
 
   /**
+   * NOT CLOSED WHILE A SAVE IS IN FLIGHT, by anything. Cancel was already
+   * disabled, but a tap above the sheet, a pull down or Escape still closed
+   * it: the save then finished after the sheet had gone, `onClosed` had
+   * already run with nothing to refresh, and the page kept showing the old
+   * values until some later Cancel refreshed it. An error from that save had
+   * nowhere to appear. While busy a close is refused: the drawer stays, and
+   * the phone sheet springs back from a pull (BottomSheet `dismissible`).
+   */
+  const busyRef = React.useRef(busy)
+  busyRef.current = busy
+  const close = React.useCallback(() => {
+    if (busyRef.current) return
+    onClose()
+  }, [onClose])
+
+  /**
    * ===========================================================================
    *  THE SHEET LEAVES FIRST, AND THE PAGE CHANGES AFTER
    * ===========================================================================
@@ -220,10 +231,10 @@ export function EditorSheet({
    * before the other starts.
    *
    * So the close plays on its own, and whatever the caller wanted to do
-   * afterwards happens when the sheet is actually gone. The delay is the
-   * sheet's own exit: the phone sheet snaps in SNAP_DURATION_MS and the
-   * desktop drawer's Radix exit is 200ms, which is the `duration-200` in
-   * components/ui/dialog.
+   * afterwards happens when the sheet is actually gone. The phone sheet says
+   * so itself (BottomSheet `onClosed`, once its slide has finished); the
+   * desktop drawer's Radix exit is 200ms, the `duration-200` in
+   * components/ui/dialog, so that is timed.
    */
   const closedRef = React.useRef(onClosed)
   closedRef.current = onClosed
@@ -314,7 +325,8 @@ export function EditorSheet({
     return (
       <BottomSheet
         isOpen={open}
-        onClose={onClose}
+        onClose={close}
+        dismissible={!busy}
         onClosed={() => closedRef.current?.()}
         label={title}
         /* useIsPhone decides; the sheet must not hide itself between 640 and 767. */
@@ -348,7 +360,7 @@ export function EditorSheet({
   }
 
   return (
-    <Dialog open={open} onOpenChange={(next) => { if (!next) onClose() }}>
+    <Dialog open={open} onOpenChange={(next) => { if (!next) close() }}>
       <DialogContent
         showCloseButton={false}
         /*
