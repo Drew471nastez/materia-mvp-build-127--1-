@@ -102,3 +102,4 @@ tsconfig.*.generated.json
 .focus-probe/
 .button-probe/
 .parity-probe/
+.claude/worktrees/

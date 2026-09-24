@@ -1863,14 +1863,13 @@ section("The website list, and the row of themes under it")
 const wbPage = readFileSync(join(root, "app/app/website-builder/website-builder-client.tsx"), "utf8")
 
 check(
-  "the explore row is inset from both edges, scroll padding included",
+  "the theme row sits on the page's gutters like every other block",
   /**
-   * A snap container's snapport starts at its PADDING BOX, so a `snap-start`
-   * card aligns to the screen edge and the row's own `px-4` is scrolled
-   * straight past — which is why these cards sat flush while every other
-   * block on the page was inset.
+   * It was a row of cards scrolled sideways, which needed scroll padding to
+   * keep off the screen edge. With one theme on offer it is one full-width
+   * row in the card style, inside the section's own padding.
    */
-  /snap-x snap-mandatory[^"]*px-4[^"]*scroll-px-4/.test(wbPage) && /sm:scroll-px-0/.test(wbPage),
+  /data-explore-row=""/.test(wbPage) && !/snap-x snap-mandatory/.test(wbPage),
 )
 
 check(
@@ -3066,8 +3065,8 @@ check(
    * ever named them, which on a phone is nothing at all.
    */
   /Edit website\s*\n\s*<\/Button>/.test(wbPage) &&
-    /View site\s*\n\s*<\/a>/.test(wbPage) &&
-    /More\s*\n\s*<\/button>/.test(wbPage) &&
+    /View website/.test(readFileSync(join(root, "app/app/website-builder/site-controls.tsx"), "utf8")) &&
+    /aria-label=\{`More actions for \$\{live\.name\}`\}/.test(wbPage) &&
     // the icon-square component is gone, not merely unused
     !/function IconAction\(/.test(wbPage) &&
     // and View site is not also a row of the menu beside it
@@ -3111,8 +3110,8 @@ check(
   // the attribute. An assertion that reads its own documentation is an
   // assertion that passes when the code is deleted and the comment stays.
   (wbPage.match(/data-page-block>/g) ?? []).length === 3 &&
-    /h-11 rounded-xl bg-\[#e9ebee\]/.test(wbLoading) &&
-    /grid grid-cols-2 gap-2/.test(wbLoading) &&
+    /h-11 flex-1 rounded-xl bg-\[#e9ebee\]/.test(wbLoading) &&
+    /h-11 w-11 rounded-xl/.test(wbLoading) &&
     !/\[0, 1, 2, 3, 4\]\.map/.test(wbLoading),
 )
 

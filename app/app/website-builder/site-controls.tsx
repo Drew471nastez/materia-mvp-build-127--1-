@@ -26,7 +26,7 @@ import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/respo
 import { cn } from "@/lib/utils"
 
 export const CONTROL =
-  "inline-flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border border-[#e5e7eb] bg-white px-3 text-[13px] font-medium text-[#1a1a2e] shadow-[0_1px_2px_rgba(0,0,0,0.04)] outline-none transition-colors duration-150 hover:bg-[#f8f9fa] active:bg-[#f3f4f6] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 disabled:pointer-events-none disabled:opacity-50"
+  "inline-flex h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg sm:h-9 border border-[#e5e7eb] bg-white px-3 text-[13px] font-medium text-[#1a1a2e] shadow-[0_1px_2px_rgba(0,0,0,0.04)] outline-none transition-colors duration-150 hover:bg-[#f8f9fa] active:bg-[#f3f4f6] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 disabled:pointer-events-none disabled:opacity-50"
 
 export interface SiteControlsProps {
   /** The live site's address, or "" when nothing is live. */

@@ -20,6 +20,7 @@
  * ViewBox is 1200×750 (16:10). Everything inside is proportional to that.
  */
 
+import type * as React from "react"
 import type { CSSProperties } from "react"
 import { cn } from "@/lib/utils"
 import type { ThemeSettingsValues } from "@/lib/website-builder/types"
@@ -109,9 +110,24 @@ export function coverSpecFromSettings(
   const primary = str(s.primary_color) ?? base.primary
   const text = str(s.text_color) ?? base.text
   const heroBg = def ? base.heroBg : isDark(bg) ? bg : text
+  /*
+    THE WEBSITE'S OWN WORDS, where it has any. The theme's sample copy
+    ("Northwind", "Presets that hit different") belongs to the theme's demo
+    shop, and a card for somebody's website drawn with it looks like
+    somebody else's website. So the headline and line under it come from
+    the site's own tagline and SEO text when it has set them, and a site
+    that renamed its brand gets its brand as the headline rather than the
+    sample's. This is only ever the picture shown until the photograph of
+    the real site arrives, a few seconds after it is created.
+  */
+  const brand = str(s.brand_name) ?? (def ? name : base.brand)
+  const ownHeadline = str(s.tagline) ?? str(s.seo_title)
+  const renamed = !!def && brand !== base.brand
   return {
     ...base,
-    brand: str(s.brand_name) ?? base.brand,
+    brand,
+    headline: ownHeadline ?? (renamed ? brand : base.headline),
+    sub: str(s.seo_description) ?? (renamed ? "" : base.sub),
     primary,
     bg,
     surface: str(s.surface_color) ?? base.surface,
@@ -431,6 +447,61 @@ export function ThemePhoneCover({ spec, className, style }: { spec: ThemeCoverSp
  */
 export const PHONE_FRAME =
   "absolute bottom-[5%] right-[4%] w-[18%] overflow-hidden rounded-[12%/5.6%] border-[3px] border-white bg-white ring-1 ring-black/[0.08] shadow-[0_1px_2px_rgba(15,23,42,0.08),0_8px_20px_-10px_rgba(15,23,42,0.28)]"
+
+/**
+ * ===========================================================================
+ *  THE COVER AS A PRODUCT SHOT
+ * ===========================================================================
+ * The live website's card shows the site the way a product is shown: the
+ * desktop version in a light browser window, the phone version standing in
+ * front of it, both on a neutral stage lit softly from the top left.
+ *
+ * DEPTH WITHOUT TRANSFORMS. The look is a 3D one, and it is made of light,
+ * layering and shadow rather than of a tilt: app/globals.css removes
+ * transforms inside a hovered `.group` on touch screens, and a perspective
+ * tilt is also the trend-of-the-month version of this picture. Here the
+ * window casts a long soft shadow and a contact shadow onto the stage, the
+ * phone casts a deeper one onto the window, and the stage is brightest where
+ * the light comes from.
+ *
+ * Every size is in container units of the stage, so the picture is the same
+ * picture at 340px on a phone and 900px on a desktop.
+ */
+export function CoverStage({ desktop, phone, title }: { desktop: React.ReactNode; phone: React.ReactNode | null; title?: string }) {
+  return (
+    <div
+      data-cover-stage=""
+      role={title ? "img" : undefined}
+      aria-label={title}
+      className="relative h-full w-full overflow-hidden [container-type:inline-size]"
+      style={{ background: "radial-gradient(130% 110% at 18% 0%, #fdfdfe 0%, #f3f4f6 42%, #e8eaee 100%)" }}
+    >
+      {/* The window's contact shadow on the stage, soft and wide. */}
+      <div aria-hidden className="absolute bottom-[3.2cqw] left-[8cqw] h-[4cqw] w-[70cqw] rounded-[50%] bg-[rgba(15,23,42,0.18)] blur-[2.4cqw]" />
+      <div
+        data-cover-window=""
+        className="absolute left-[5cqw] top-[4.4cqw] w-[80cqw] overflow-hidden rounded-[1.1cqw] bg-white ring-1 ring-[rgba(15,23,42,0.07)] shadow-[0_1px_1px_rgba(15,23,42,0.05),0_0.8cqw_1.6cqw_-0.8cqw_rgba(15,23,42,0.14),0_3cqw_6cqw_-3cqw_rgba(15,23,42,0.34)]"
+      >
+        <div className="flex h-[3.2cqw] items-center gap-[0.7cqw] border-b border-[rgba(15,23,42,0.06)] bg-[#f7f8fa] px-[1.4cqw]">
+          <span className="h-[0.8cqw] w-[0.8cqw] rounded-full bg-[#dfe2e7]" />
+          <span className="h-[0.8cqw] w-[0.8cqw] rounded-full bg-[#dfe2e7]" />
+          <span className="h-[0.8cqw] w-[0.8cqw] rounded-full bg-[#dfe2e7]" />
+          <span className="mx-auto h-[1.5cqw] w-[26cqw] rounded-full bg-white ring-1 ring-[rgba(15,23,42,0.06)]" />
+          <span className="w-[3.1cqw]" />
+        </div>
+        <div className="aspect-[16/10] w-full overflow-hidden">{desktop}</div>
+      </div>
+      {phone && (
+        <div
+          data-cover-phone=""
+          className="absolute bottom-[3.8cqw] right-[5cqw] w-[18.5cqw] rounded-[3.3cqw] bg-[#15171c] p-[0.75cqw] ring-1 ring-[rgba(255,255,255,0.08)] shadow-[0_0.2cqw_0.4cqw_rgba(15,23,42,0.18),0_1.4cqw_2.6cqw_-1.2cqw_rgba(15,23,42,0.40),0_3.6cqw_6cqw_-3cqw_rgba(15,23,42,0.50)]"
+        >
+          <div className="aspect-[390/800] w-full overflow-hidden rounded-[2.6cqw] bg-white">{phone}</div>
+        </div>
+      )}
+    </div>
+  )
+}
 
 /**
  * A desktop cover with the phone version tucked into its corner — one

@@ -24,7 +24,7 @@ export default function WebsiteBuilderLoading() {
           </div>
           <div className="flex gap-2">
             {[124, 92, 96].map((w, i) => (
-              <div key={i} className="h-9 rounded-lg border border-[#e5e7eb] bg-white" style={{ width: w }} />
+              <div key={i} className="h-11 rounded-lg border border-[#e5e7eb] bg-white sm:h-9" style={{ width: w }} />
             ))}
           </div>
         </div>

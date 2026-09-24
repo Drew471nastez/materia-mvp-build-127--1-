@@ -24,6 +24,7 @@
  *
  * Run with:  npm run test:push
  */
+import { isPackagedCover } from "@/lib/website-builder/cover-take"
 import { bodyGapToListIndex } from "@/lib/website-builder/section-order"
 import { readFileSync, readdirSync, existsSync } from "node:fs"
 import { DEFAULT_THEME_SOURCES } from "@/themes/default/sources.generated"
@@ -303,7 +304,7 @@ section("The page")
     check("  the status menu takes the site offline, or puts an offline one back, through the page's own questions",
       /onTakeOffline=\{\(\) => live && setUnpublishing\(live\)\}/.test(client) && /onPublishAgain=\{\(\) => offline && setPublishing\(offline\)\}/.test(client))
     check("  Settings opens Website Settings in the editor", /onSettings=\{\(\) => go\(editorHref\(username, \(live \?\? offline \?\? installs\[0\]\)\.id, "settings"\)\)\}/.test(client))
-    check("  one control shape, 36px, with a hairline", /const CONTROL =\s*"inline-flex h-9/.test(read("app/app/website-builder/site-controls.tsx")) && /border border-\[#e5e7eb\]/.test(controls))
+    check("  one control shape with a hairline: 44px on a phone, 36px from a tablet up", /const CONTROL =\s*"inline-flex h-11 [^"]*sm:h-9/.test(read("app/app/website-builder/site-controls.tsx")) && /border border-\[#e5e7eb\]/.test(controls))
     check("  on a phone the row scrolls sideways with no scrollbar", /overflow-x-auto/.test(controls) && /\[scrollbar-width:none\]/.test(controls))
     check("the live site's More menu no longer carries Website settings", !/WEBSITE_SETTINGS/.test(client) && !/section: n === 0 \? "Website settings"/.test(client))
     check("the card's buttons are Edit website and a square More", /<div className="mt-auto flex gap-2 pt-5">/.test(live) && /"w-11 shrink-0 px-0"/.test(live) && !/View site/.test(live))
@@ -521,11 +522,13 @@ section("The add route")
 section("The cover")
 {
   const route = stripComments(read("app/api/website-builder/themes/[installId]/cover/route.ts"))
+  /* The photographing moved to one helper every route that makes a website calls. */
+  const take = stripComments(read("lib/website-builder/cover-take.ts"))
   check("the install must belong to the caller's creator", /\.eq\("creator_id", \(creator as \{ id: string \}\)\.id\)/.test(route))
   check("the install id is validated as a UUID before it becomes part of a path", /isThemeId\(installId\)/.test(route))
   check("the storage path is built from the user id and the install id only",
     snapshotFolder("u1", "i1") === "u1/theme-snapshots/i1" &&
-      /const folder = snapshotFolder\(user\.id, installId\)/.test(route) &&
+      /const folder = snapshotFolder\(owner\.userId, owner\.installId\)/.test(take) && /userId: user\.id/.test(route) &&
       snapshotName("abc", "webp") === `abc.v${SNAPSHOT_VERSION}.webp` &&
       snapshotName("abc", "webp", true) === `abc.v${SNAPSHOT_VERSION}.m.webp`)
   /*
@@ -535,14 +538,39 @@ section("The cover")
     this is where a browser holding a pass is about to go.
   */
   check("the browser is sent to this server's own render page, not to a host the request names",
-    /function renderOrigin\(req: Request\)/.test(route) && /return `https:\/\/\$\{main\}`/.test(route) &&
-      /\/cover-render\/\$\{encodeURIComponent\(pass\)\}/.test(route))
+    /function renderOrigin\(requestUrl: string\)/.test(take) && /return `https:\/\/\$\{main\}`/.test(take) &&
+      /\/cover-render\/\$\{encodeURIComponent\(pass\)\}/.test(take) && /renderOrigin\(req\.url\)/.test(route))
   check("a cover taken moments ago is handed back rather than taken again",
-    /const MIN_GAP_MS = \d+/.test(route) && /Date\.now\(\) - newestAt < MIN_GAP_MS/.test(route))
+    /const MIN_GAP_MS = \d+/.test(take) && /Date\.now\(\) - newestAt < MIN_GAP_MS/.test(take))
   check("a cover that cannot be taken is said out loud and keeps the last one",
     /console\.error\("\[cover\]/.test(route) && /status: 502/.test(route))
   check("the folder is kept to the newest few covers, after the response",
-    SNAPSHOTS_KEPT >= 2 && /after\(async \(\) =>/.test(route) && /staleSnapshots\(/.test(route))
+    SNAPSHOTS_KEPT >= 2 && /await prune\(folder\)/.test(take) && /staleSnapshots\(/.test(take))
+  /*
+    A WEBSITE IS PHOTOGRAPHED WHEN IT IS MADE, not after its first save: a
+    theme just added, imported or copied used to sit under a drawing of the
+    theme's sample shop until somebody opened it and saved.
+  */
+  for (const [label, file] of [
+    ["added", "app/api/website-builder/themes/add/route.ts"],
+    ["imported", "app/api/website-builder/themes/import/route.ts"],
+    ["copied", "app/api/website-builder/themes/[installId]/duplicate/route.ts"],
+  ] as const) {
+    const src = stripComments(read(file))
+    check(`a website ${label} is photographed as soon as it exists, after the answer`, /after\(\(\) => coverAfterCreate\(/.test(src) && /export const maxDuration = \d+/.test(src))
+  }
+  check("  a copy starts from its source's picture", /await copyCover\(user\.id, installId, owner\)/.test(stripComments(read("app/api/website-builder/themes/[installId]/duplicate/route.ts"))))
+  check("  a copy is the whole website: drafts, live values and section files",
+    /draft_settings: srcSettings\?\.draft_settings/.test(read("app/api/website-builder/themes/[installId]/duplicate/route.ts")) &&
+      /draft_sections: p\.draft_sections/.test(read("app/api/website-builder/themes/[installId]/duplicate/route.ts")) &&
+      /store_theme_custom_files"\)\.insert/.test(read("app/api/website-builder/themes/[installId]/duplicate/route.ts")))
+  check("  an export carries the cover, and an import shows it at once without adding it to the media library",
+    /cover: cover\.ref/.test(read("app/api/website-builder/themes/[installId]/export/route.ts")) &&
+      /if \(coverHashes\.has\(hash\)\) continue/.test(read("app/api/website-builder/themes/import/route.ts")) &&
+      /await storeCover\(owner/.test(read("app/api/website-builder/themes/import/route.ts")))
+  check("  a picture from a package is a WebP by its bytes and no bigger than a cover", isPackagedCover(new Uint8Array([82,73,70,70,0,0,0,0,87,69,66,80,0,0,0,0]), 1024) && !isPackagedCover(new TextEncoder().encode("<svg onload=alert(1)>......"), 1024))
+  check("  an error page is never kept as a cover", /if \(status >= 400\) throw/.test(read("lib/website-builder/cover-shot.ts")))
+  check("  an import is a draft, not a site taken offline", !/status: "unpublished"/.test(read("app/api/website-builder/themes/import/route.ts")))
   check("the route has the time a cold browser needs", /export const maxDuration = \d+/.test(route) && /runtime = "nodejs"/.test(route))
 
   /*

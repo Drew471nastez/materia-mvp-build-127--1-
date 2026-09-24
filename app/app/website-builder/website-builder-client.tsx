@@ -78,8 +78,11 @@ import {
   type ThemeDefinition,
 } from "@/lib/website-builder/theme-registry"
 import {
+  CoverStage,
   PHONE_FRAME,
+  ThemeCover,
   ThemeCoverPair,
+  ThemePhoneCover,
   coverSpecFromDefinition,
   coverSpecFromSettings,
 } from "@/components/website-builder/theme-cover"
@@ -244,6 +247,55 @@ function CoverPicture({
   className?: string
 }) {
   const def = getThemeDefinition(install.theme_id)
+  /*
+    THE LIVE CARD IS A PRODUCT SHOT: the desktop version in a browser window
+    and the phone version in front of it, on a softly lit stage. See
+    CoverStage. Library rows and thumbnails keep the plain picture.
+  */
+  if (phone) {
+    const spec = install.snapshot_url ? null : coverSpecFromSettings(install.settings, def, install.name)
+    return (
+      <CoverStage
+        desktop={
+          install.snapshot_url ? (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img
+              src={install.snapshot_url}
+              alt=""
+              width={1440}
+              height={900}
+              loading={eager ? "eager" : "lazy"}
+              fetchPriority={eager ? "high" : "auto"}
+              decoding="async"
+              draggable={false}
+              className="h-full w-full object-cover object-top"
+            />
+          ) : (
+            <ThemeCover spec={spec!} className="h-full w-full" />
+          )
+        }
+        phone={
+          install.snapshot_url ? (
+            install.snapshot_mobile_url ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                src={install.snapshot_mobile_url}
+                alt=""
+                width={390}
+                height={844}
+                loading={eager ? "eager" : "lazy"}
+                decoding="async"
+                draggable={false}
+                className="h-full w-full object-cover object-top"
+              />
+            ) : null
+          ) : (
+            <ThemePhoneCover spec={spec!} className="h-full w-full" />
+          )
+        }
+      />
+    )
+  }
   if (install.snapshot_url) {
     /*
       THE SITE, AT BOTH WIDTHS. The desktop screenshot fills the card and the
@@ -469,16 +521,24 @@ export function WebsiteBuilderClient({
       for (const i of queue) {
         if (cancelled) return
         asked.current.add(i.id)
-        const got = await requestCover(i.id)
+        let got = await requestCover(i.id)
+        /* One more try a little later: a browser that failed to start once
+           usually starts the second time, and a card left on a stale picture
+           for the whole visit is what this is here to prevent. */
+        if (!got && !cancelled) {
+          await new Promise((r) => setTimeout(r, 15_000))
+          if (!cancelled) got = await requestCover(i.id)
+        }
         /* Used even if this run was superseded: the site is already marked
            asked, so a result dropped here would leave its card stale for the
            rest of the visit. Cancelling only stops the NEXT one starting. */
-        if (got) {
+        const cover = got
+        if (cover) {
           /* Decoded before it is swapped in. Handing the card a new URL
              straight away blanked the cover while a 1440px picture arrived
              and decoded, which is the flash of grey a retake used to be. */
-          await decodedFirst([got.url, got.mobile_url])
-          setFresh((prev) => ({ ...prev, [i.id]: got }))
+          await decodedFirst([cover.url, cover.mobile_url])
+          setFresh((prev) => ({ ...prev, [i.id]: cover }))
         }
       }
     })()
@@ -500,7 +560,7 @@ export function WebsiteBuilderClient({
 
   const live = installs.find((i) => i.status === "published") ?? null
   /** A site that was live and was taken offline: the status menu can put it back. */
-  const offline = live ? null : (installs.find((i) => i.status === "unpublished") ?? null)
+  const offline = live ? null : (installs.find((i) => i.status === "unpublished" && !!i.published_at) ?? null)
   const library = installs.filter((i) => i.status !== "published")
   const installedThemeIds = React.useMemo(() => new Set(installs.map((i) => i.theme_id)), [installs])
   const slotsUsed = installs.length
@@ -1137,7 +1197,7 @@ function ExploreRow({
           <span className="hidden sm:inline">In library</span>
         </span>
       ) : (
-        <Button onClick={onAdd} disabled={busy} className="h-9 shrink-0 rounded-lg bg-[#1a1a2e] px-3 text-[13px] font-semibold text-white hover:bg-[#2d2d44]">
+        <Button onClick={onAdd} disabled={busy} className="h-11 shrink-0 rounded-lg bg-[#1a1a2e] px-3 sm:h-9 text-[13px] font-semibold text-white hover:bg-[#2d2d44]">
           {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
           Add
         </Button>

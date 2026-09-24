@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server"
+import { NextResponse, after } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { LIBRARY_FULL_MESSAGE, librarySlotsLeft } from "@/lib/website-builder/library-limit"
@@ -10,6 +10,11 @@ import {
   themeCatalogRow,
   BROWSABLE_THEME_IDS,
 } from "@/lib/website-builder/theme-registry"
+import { coverAfterCreate, renderOrigin } from "@/lib/website-builder/cover-take"
+
+export const runtime = "nodejs"
+/** The theme is added at once; its photograph is taken after, which needs a browser launch. */
+export const maxDuration = 60
 
 /**
  * POST /api/website-builder/themes/add   body: { theme_id }
@@ -112,6 +117,9 @@ export async function POST(req: Request) {
       { status: 500 },
     )
   }
+
+  /* Its cover is a photograph of this website from the start, not a drawing of the theme's sample shop. */
+  after(() => coverAfterCreate({ installId: newInstall.id as string, userId: user.id, creatorId: creator.id as string }, renderOrigin(req.url), "add"))
 
   return NextResponse.json({ install: newInstall })
 }
