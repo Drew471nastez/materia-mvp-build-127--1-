@@ -100,6 +100,28 @@ function writeAddress(mutate: (p: URLSearchParams) => void, mode: "push" | "repl
   else window.history.replaceState(null, "", url)
 }
 
+/**
+ * A callback whose identity never changes and which always runs the latest
+ * version of `fn`, so the list below can skip rendering when nothing it
+ * shows has changed.
+ */
+function useStable<A extends unknown[], R>(fn: (...args: A) => R): (...args: A) => R {
+  const ref = React.useRef(fn)
+  React.useLayoutEffect(() => {
+    ref.current = fn
+  })
+  return React.useCallback((...args: A) => ref.current(...args), [])
+}
+
+/**
+ * THE LIST DOES NOT RENDER WHEN AN ORDER OPENS. Opening one changes only
+ * `?order=`, and the list, fifty rows and five sparklines, was drawn again
+ * for it in the same task as the order: the frame with the order's bar on
+ * it waited for a list nobody could see. Every prop it takes is kept the
+ * same object while what it shows is the same, and it is memoised.
+ */
+const OrdersListMemo = React.memo(OrdersList)
+
 function findOrder(orders: Order[], id: string | null): Order | null {
   if (!id) return null
   return orders.find((o) => o.id === id) ?? orders.find((o) => o.lines.some((l) => l.id === id)) ?? null
@@ -126,7 +148,13 @@ export function OrdersClient(props: OrdersClientProps) {
   }, [props.timeZone])
 
   /* ── The address is the state ───────────────────────────────────────── */
-  const query = queryFromParams(searchParams)
+  /* The list's part of it: everything but the open order. */
+  const listAddress = React.useMemo(() => {
+    const p = new URLSearchParams(searchParams.toString())
+    p.delete("order")
+    return p.toString()
+  }, [searchParams])
+  const query = React.useMemo(() => queryFromParams(new URLSearchParams(listAddress)), [listAddress])
   /*
     THE PERIOD AND ITS COMPARISON: the same picker every page in /app has.
     The address first (a shared link), then what this creator chose last
@@ -138,8 +166,8 @@ export function OrdersClient(props: OrdersClientProps) {
   const firstDay = firstDayOf(earliest, timeZone)
   const today = todayIn(timeZone, now)
   const { period } = React.useMemo(
-    () => readOrdersPeriod(new URLSearchParams(searchParams.toString()), remembered, today, firstDay),
-    [searchParams, remembered, today, firstDay],
+    () => readOrdersPeriod(new URLSearchParams(listAddress), remembered, today, firstDay),
+    [listAddress, remembered, today, firstDay],
   )
   /*
     ALWAYS THE PERIOD JUST BEFORE. There is no comparison control on this
@@ -152,7 +180,7 @@ export function OrdersClient(props: OrdersClientProps) {
 
   const [searchText, setSearchText] = React.useState(query.q)
   const searchTimer = React.useRef<number | undefined>(undefined)
-  const onSearchText = (q: string) => {
+  const onSearchText = useStable((q: string) => {
     setSearchText(q)
     window.clearTimeout(searchTimer.current)
     searchTimer.current = window.setTimeout(() => {
@@ -162,10 +190,10 @@ export function OrdersClient(props: OrdersClientProps) {
         next.forEach((v, k) => p.set(k, v))
       }, "replace")
     }, 250)
-  }
+  })
   React.useEffect(() => () => window.clearTimeout(searchTimer.current), [])
 
-  const onQuery = (next: Partial<ListQuery>) => {
+  const onQuery = useStable((next: Partial<ListQuery>) => {
     writeAddress((p) => {
       const merged = paramsFromQuery({ ...queryFromParams(p), q: searchText, ...next }, p)
       p.forEach((_, k) => p.delete(k))
@@ -174,7 +202,7 @@ export function OrdersClient(props: OrdersClientProps) {
     if (next.q !== undefined) setSearchText(next.q)
     if (next.view !== undefined || next.source !== undefined || next.product !== undefined) setSelected(new Set())
     if (next.page !== undefined) listRef.current?.scrollTo({ top: 0 })
-  }
+  })
 
   const remember = (p: RangeValue, c: CompareValue) => {
     const value = serializePeriod(p, c)
@@ -185,7 +213,7 @@ export function OrdersClient(props: OrdersClientProps) {
         : `${RANGE_COOKIE}=; path=/; max-age=0; samesite=lax`
     }
   }
-  const onRange = (v: RangeValue) => {
+  const onRange = useStable((v: RangeValue) => {
     remember(v, compare)
     writeAddress((params) => {
       params.delete("period")
@@ -194,7 +222,7 @@ export function OrdersClient(props: OrdersClientProps) {
     }, "replace")
     setSelected(new Set())
     listRef.current?.scrollTo({ top: 0 })
-  }
+  })
 
   /* ── What the list shows ────────────────────────────────────────────── */
   const span = React.useMemo(
@@ -207,12 +235,13 @@ export function OrdersClient(props: OrdersClientProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [orders, query.view, query.source, query.product, query.sort, searchText, span],
   )
-  const page = pageOf(filtered, query.page)
+  const page = React.useMemo(() => pageOf(filtered, query.page), [filtered, query.page])
+  const listQuery = React.useMemo(() => ({ ...query, q: searchText }), [query, searchText])
   const metrics = React.useMemo(() => readMetrics(orders, span, span.previous, timeZone), [orders, span, timeZone])
 
   /* ── Columns, remembered in a cookie so the server draws the same table ─ */
   const [hidden, setHidden] = React.useState(() => new Set(props.hiddenColumns))
-  const onToggleColumn = (key: ColumnKey) => {
+  const onToggleColumn = useStable((key: ColumnKey) => {
     setHidden((prev) => {
       const next = new Set(prev)
       if (next.has(key)) next.delete(key)
@@ -221,11 +250,11 @@ export function OrdersClient(props: OrdersClientProps) {
       if (hasConsent("preferences")) document.cookie = `${COLUMNS_COOKIE}=${[...next].join(".")}; path=/; max-age=31536000; samesite=lax`
       return next
     })
-  }
+  })
 
   /* ── Selection ──────────────────────────────────────────────────────── */
   const [selected, setSelected] = React.useState<Set<string>>(() => new Set())
-  const onSelect = (ids: string[], on: boolean) =>
+  const onSelect = useStable((ids: string[], on: boolean) =>
     setSelected((prev) => {
       const next = new Set(prev)
       for (const id of ids) {
@@ -233,7 +262,8 @@ export function OrdersClient(props: OrdersClientProps) {
         else next.delete(id)
       }
       return next
-    })
+    }),
+  )
 
   /* ── The order over the list ────────────────────────────────────────── */
   const shown = findOrder(orders, openId)
@@ -260,10 +290,10 @@ export function OrdersClient(props: OrdersClientProps) {
     if (!openId) pushed.current = false
   }, [openId])
 
-  const onOpen = (id: string) => {
+  const onOpen = useStable((id: string) => {
     pushed.current = true
     writeAddress((p) => p.set("order", id), "push")
-  }
+  })
   const onBack = () => {
     if (pushed.current) window.history.back()
     else writeAddress((p) => p.delete("order"), "replace")
@@ -367,7 +397,7 @@ export function OrdersClient(props: OrdersClientProps) {
 
   /* Export opens the dialog; which orders and which file are chosen there. */
   const [exporting, setExporting] = React.useState(false)
-  const onExport = () => setExporting(true)
+  const onExport = useStable(() => setExporting(true))
   const filtering = Boolean(searchText.trim()) || query.source !== "any" || Boolean(query.product) || query.view !== "all"
 
   const listCovered = shown !== null
@@ -381,12 +411,12 @@ export function OrdersClient(props: OrdersClientProps) {
         aria-hidden={listCovered || undefined}
         style={{ visibility: listCovered ? "hidden" : undefined }}
       >
-        <OrdersList
+        <OrdersListMemo
           allOrders={orders}
           pageOrders={page.items}
           matching={filtered.length}
           range={page}
-          query={{ ...query, q: searchText }}
+          query={listQuery}
           onQuery={onQuery}
           searchText={searchText}
           onSearchText={onSearchText}

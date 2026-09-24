@@ -116,7 +116,7 @@ function usePhone(): boolean {
  * menu waits for the rest, so one sheet is on screen at a time: the menu's
  * going down, then the refund's coming up, never the two crossing.
  */
-const MENU_SHEET_LEFT_MS = 230
+const MENU_SHEET_LEFT_MS = 200
 
 export function OrderDetail({ order, timeZone, now, onBack, onStep, canStep, position, onAction, onNotice }: OrderDetailProps) {
   const [dialog, setDialogNow] = React.useState<"refund" | "email" | null>(null)
