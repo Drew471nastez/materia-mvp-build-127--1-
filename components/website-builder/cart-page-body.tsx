@@ -21,6 +21,7 @@ import { useState } from "react"
 import { ShoppingBag, Minus, Plus, Trash2 } from "lucide-react"
 import { useSiteCart } from "./site-cart"
 import { checkoutItems, lineKey } from "@/lib/website-builder/cart"
+import { pageOrigin } from "@/lib/orders/checkout-origin-browser"
 
 export interface CartPalette {
   bg: string
@@ -49,7 +50,9 @@ export function CartPageBody({ palette, radius }: { palette: CartPalette; radius
       const res = await fetch("/api/checkout/cart", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items: checkoutItems(lines), returnPath: "/cart" }),
+        /* `origin`: this website and where its visit came from, for the
+           order's Source (lib/orders/checkout-origin). */
+        body: JSON.stringify({ items: checkoutItems(lines), returnPath: "/cart", origin: pageOrigin() }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok || !data?.url) {

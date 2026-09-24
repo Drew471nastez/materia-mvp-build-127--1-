@@ -117,6 +117,19 @@ export function canReturnTo(href: string): boolean {
   }
 }
 
+/**
+ * The query this document was loaded with. Read once, when this module is
+ * first evaluated, which is the root layout's tracker hydrating on the
+ * page the visit landed on: after a client navigation the address says
+ * where the visitor is now, and a link's utm tags were on where they came
+ * in. Memory only, gone with the tab. Read by lib/orders/checkout-origin.
+ */
+const landing = typeof window !== "undefined" ? window.location.search : ""
+
+export function landingSearch(): string {
+  return landing
+}
+
 /** For tests and probes: what the count is now. */
 export function inAppDepth(): number {
   return depth

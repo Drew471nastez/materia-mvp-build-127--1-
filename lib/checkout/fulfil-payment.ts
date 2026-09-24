@@ -32,7 +32,7 @@ import type Stripe from "stripe"
 import { v4 as uuidv4 } from "uuid"
 import { stripe } from "@/lib/stripe"
 import { sendOrderEmails } from "@/lib/email"
-import { orderSourceFrom, tagOrderSource } from "@/lib/orders/order-source"
+import { orderOriginFrom, orderSourceFrom, tagOrderSource } from "@/lib/orders/order-source"
 import { recordCouponUse } from "./coupons"
 import { businessFromMetadata } from "./business"
 import { invoiceFilename, invoiceForOrder, renderInvoicePdf } from "./invoice"
@@ -209,7 +209,7 @@ export async function fulfilPaymentIntent(
     return { ok: false, status: 500, error: "The order could not be saved. The payment is safe; refresh this page in a moment." }
   }
 
-  await tagOrderSource(admin, order.id, orderSourceFrom(m, opts.request))
+  await tagOrderSource(admin, order.id, orderSourceFrom(m, opts.request), orderOriginFrom(m, opts.request))
 
   /* Everything after the order is recorded is allowed to fail on its own:
      the buyer paid and the order exists, whatever an email server says. */

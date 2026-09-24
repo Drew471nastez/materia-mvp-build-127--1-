@@ -14,6 +14,8 @@ import { cn } from "@/lib/utils"
 import { useSiteCart } from "../../site-cart"
 import { useStorefront } from "../../theme/storefront-context"
 import { trackFunnelStep } from "@/lib/analytics-utils"
+import { checkoutHrefWithOrigin } from "@/lib/orders/checkout-origin"
+import { pageOrigin } from "@/lib/orders/checkout-origin-browser"
 import {
   type SectionProps,
   resolveScheme,
@@ -327,9 +329,10 @@ export function ProductSection({ section, theme, isEditing, isSelected, onClick 
                 const slug = str((productData?.slug as unknown) ?? "", "")
                 const from = slug ? `&from=${encodeURIComponent(`/products/${slug}`)}` : ""
                 /* `src=website` is how the order ends up in the Orders
-                   table as a Website order (lib/orders/order-source.ts). */
+                   table as a Website order (lib/orders/order-source.ts);
+                   the rest says which website and where its visit came from. */
                 if (storefront.creatorId) void trackFunnelStep("buy_click", storefront.creatorId, productId)
-                window.location.href = `/checkout?productId=${encodeURIComponent(productId)}${from}&src=website`
+                window.location.href = checkoutHrefWithOrigin(`/checkout?productId=${encodeURIComponent(productId)}${from}&src=website`, pageOrigin())
               }}
               className="w-full py-3.5 text-base font-semibold text-white rounded-lg transition-colors cursor-pointer disabled:cursor-not-allowed"
               style={{ background: primaryColor, ...buttonRadiusStyle(theme) }}

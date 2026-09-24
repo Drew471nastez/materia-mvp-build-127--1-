@@ -27,6 +27,7 @@ import { useState, useRef, useEffect, useLayoutEffect, useCallback, createContex
 import { Bell, X, Check, Send, Link2, ChevronLeft, ChevronRight, ExternalLink, Loader2, Download, ShoppingBag, Calendar } from "lucide-react"
 import { getLinksUrl, getLinksShareUrl } from "@/lib/url-helpers"
 import { isNativeApp } from "@/lib/platform-utils"
+import { pageOrigin } from "@/lib/orders/checkout-origin-browser"
 
 const stripHtmlToPlainText = (value?: string | null) => {
   if (!value) return ""
@@ -1574,6 +1575,8 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
           first_name: formData.firstName,
           last_name: formData.lastName,
           email: formData.email,
+          /* This page and where its visit came from, for the order's Source. */
+          origin: pageOrigin(),
         }),
       })
 

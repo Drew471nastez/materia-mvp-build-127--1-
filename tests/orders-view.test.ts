@@ -27,7 +27,24 @@ import {
 import { readMetrics } from "../lib/orders/metrics"
 import { DEFAULT_PRESET, rangeWindow, readOrdersPeriod, serializePeriod } from "../lib/orders/range"
 import { presetRange, rangeLabel, type PresetId, type RangeValue } from "../lib/date-range/range"
-import { orderSourceFrom, orderSourceFromRequest, tagOrderSource } from "../lib/orders/order-source"
+import {
+  channelOf,
+  cleanOrigin,
+  decodeOrigin,
+  encodeOrigin,
+  fromOfHost,
+  orderOriginFrom,
+  orderSourceFrom,
+  orderSourceFromRequest,
+  originFromRequest,
+  originOf,
+  sourceDetailText,
+  sourceText,
+  surfaceOfPath,
+  tagOrderSource,
+} from "../lib/orders/order-source"
+import { checkoutHrefWithOrigin, describeCheckout, describePage, type OriginInput } from "../lib/orders/checkout-origin"
+import { ordersCsv } from "../lib/orders/export-csv"
 import { readTimeZone } from "../lib/orders/time-zone"
 
 let passed = 0
@@ -236,6 +253,35 @@ async function main() {
     }
     await tagOrderSource(fakeAdmin, ["o1", null, ""], "website")
     check("tagging writes the source for the real ids", JSON.stringify(updated) === JSON.stringify({ v: { source: "website" }, ids: ["o1"] }))
+
+    /* With a detail: both columns in one update, and the source alone when
+       the database has only the older column. */
+    const writes: unknown[] = []
+    const olderDb = {
+      from: () => ({
+        update: (v: Record<string, unknown>) => ({
+          in: async () => {
+            writes.push(v)
+            return "source_detail" in v ? { error: { message: "Could not find the 'source_detail' column of 'orders' in the schema cache" } } : { error: null }
+          },
+        }),
+      }),
+    }
+    await tagOrderSource(olderDb, "o1", "website", { surface: "website", site: "andrewrullz.storelib.com", from: "instagram" })
+    check(
+      "a detail is written with the source, and the source alone when its column is not there yet",
+      JSON.stringify(writes) ===
+        JSON.stringify([{ source: "website", source_detail: { surface: "website", site: "andrewrullz.storelib.com", from: "instagram" } }, { source: "website" }]),
+      writes,
+    )
+    const newerWrites: unknown[] = []
+    await tagOrderSource(
+      { from: () => ({ update: (v: unknown) => ({ in: async () => { newerWrites.push(v); return { error: null } } }) }) },
+      "o1",
+      "storelib",
+      { surface: "product", from: "google" },
+    )
+    check("one update when both columns are there", newerWrites.length === 1, newerWrites)
     let threw = false
     try {
       await tagOrderSource({ from: () => { throw new Error("down") } }, "o1", "storelib")
@@ -244,21 +290,118 @@ async function main() {
     }
     check("and a failure never reaches the payment", !threw)
 
+    /* Every path that makes an order records where it came from, after the
+       insert and never inside it. */
     const insertFirst: Array<[string, RegExp]> = [
-      ["app/api/checkout/process/route.ts", /Order created successfully:", order\.id\)\n\s*await tagOrderSource\(admin, order\.id, orderSourceFromRequest\(request\)\)/],
-      ["app/api/checkout/quick-free/route.ts", /await tagOrderSource\(admin, order\.id, orderSourceFromRequest\(request\)\)/],
-      ["lib/checkout/fulfil-payment.ts", /await tagOrderSource\(admin, order\.id, orderSourceFrom\(m, opts\.request\)\)/],
-      ["app/api/stripe/webhook/route.ts", /await tagOrderSource\(supabaseAdmin, order\.id, orderSourceFrom\(metadata\)\)/],
-      ["lib/checkout/fulfil-cart-item.ts", /await tagOrderSource\(ctx\.admin, order\.id, "website"\)/],
+      ["app/api/checkout/process/route.ts", /Order created successfully:", order\.id\)\n\s*const origin = originOf\(body\.origin, request\)\n\s*await tagOrderSource\(admin, order\.id, channelOf\(origin, orderSourceFromRequest\(request\)\), origin\)/],
+      ["app/api/checkout/quick-free/route.ts", /const origin = originOf\(body\.origin, request\)\n\s*await tagOrderSource\(admin, order\.id, channelOf\(origin, orderSourceFromRequest\(request\)\), origin\)/],
+      ["lib/checkout/fulfil-payment.ts", /await tagOrderSource\(admin, order\.id, orderSourceFrom\(m, opts\.request\), orderOriginFrom\(m, opts\.request\)\)/],
+      ["app/api/stripe/webhook/route.ts", /await tagOrderSource\(supabaseAdmin, order\.id, orderSourceFrom\(metadata\), orderOriginFrom\(metadata\)\)/],
+      ["lib/checkout/fulfil-cart-item.ts", /await tagOrderSource\(ctx\.admin, order\.id, "website", ctx\.origin\)/],
+      ["app/api/admin/sales-trigger/route.ts", /await tagOrderSource\(admin, order\.id, "storelib", \{ surface: "admin" \}\)/],
     ]
     for (const [file, pattern] of insertFirst) {
       const src = read(file)
       check(`${file} records the source`, pattern.test(src))
       check(`  and never puts it in the insert itself`, !/insert\([^)]*source:/s.test(src.replace(/source: "checkout"/g, "")))
     }
-    check("the PaymentIntent carries it to fulfilment", (read("app/api/checkout/stripe-session/route.ts").match(/\[SOURCE_METADATA_KEY\]: orderSourceFromRequest\(request\)/g) ?? []).length === 1)
+    const session = read("app/api/checkout/stripe-session/route.ts")
+    check(
+      "the PaymentIntent carries the source and the detail to fulfilment",
+      /\[SOURCE_METADATA_KEY\]: channelOf\(origin, orderSourceFromRequest\(request\)\)/.test(session) &&
+        /\[ORIGIN_METADATA_KEY\]: encodeOrigin\(origin\)/.test(session) &&
+        /const origin = originOf\(body\.origin, request\)/.test(session),
+    )
+    check("a basket's session carries the detail", /\[ORIGIN_METADATA_KEY\]: origin/.test(read("app/api/checkout/cart/route.ts")) && /origin: orderOriginFrom\(metadata\)/.test(read("lib/checkout/fulfil-cart-session.ts")))
+    check("the checkout page, the OnePage form and the cart send where they began",
+      /origin: checkoutOrigin\(\)/.test(read("app/checkout/checkout-client.tsx")) &&
+        /origin: pageOrigin\(\)/.test(read("components/onepage/public-onepage.tsx")) &&
+        /origin: pageOrigin\(\)/.test(read("components/website-builder/cart-page-body.tsx")))
+    check("a website adds itself to every link to checkout", /<CheckoutLinkOrigin \/>/.test(read("app/(site)/layout.tsx")) && /checkoutHrefWithOrigin\(`\/checkout\?productId=/.test(read("components/website-builder/sections/renderers/ProductSection.tsx")))
     check("a website's Buy button marks its checkout", /&src=website`/.test(read("components/website-builder/sections/renderers/ProductSection.tsx")))
-    check("the column arrives by SQL, additive", /add column if not exists source text/.test(read("supabase/sql/RUN_ORDER_SOURCE.sql")))
+    const sql = read("supabase/sql/RUN_ORDER_SOURCE.sql")
+    check("the columns arrive by SQL, additive", /add column if not exists source text/.test(sql) && /add column if not exists source_detail jsonb/.test(sql))
+    check("and by a migration with the same columns", /add column if not exists source_detail jsonb/i.test(read("supabase/migrations/20260925_order_source_detail.sql")))
+  }
+
+  console.log("\nOrders: the detail of where an order came from")
+  {
+    check("a product page's path", surfaceOfPath("/andrew/preset-pack") === "product" && surfaceOfPath("/p/preset-pack") === "product")
+    check("a profile's path", surfaceOfPath("/andrew") === "profile" && surfaceOfPath("/u/andrew") === "profile")
+    check("a OnePage's path", surfaceOfPath("/andrew/links") === "onepage" && surfaceOfPath("/l/andrew") === "onepage")
+    check("Explore", surfaceOfPath("/explore") === "explore" && surfaceOfPath("/explore/templates?x=1") === "explore")
+    check("Storelib's own pages are none of those", ["/library", "/app/orders", "/checkout", "/pricing", "/"].every((p) => surfaceOfPath(p) === null))
+    check("hosts to names", fromOfHost("l.instagram.com") === "instagram" && fromOfHost("www.google.co.uk") === "google" && fromOfHost("t.co") === "x" && fromOfHost("m.youtube.com") === "youtube" && fromOfHost("someblog.net") === "someblog.net")
+
+    const clean = cleanOrigin({ surface: "website", site: "WWW.Andrew.com", from: "<b>", utm_source: "ig", utm_campaign: "ana@example.com", extra: "x" })
+    check("every field checked: a site is a host, junk and an address are dropped", JSON.stringify(clean) === JSON.stringify({ surface: "website", site: "andrew.com", utm_source: "ig" }), clean)
+    check("nothing valid is nothing", cleanOrigin({ surface: "moon" }) === null && cleanOrigin("") === null && cleanOrigin(null) === null)
+    const full = { surface: "website" as const, site: "andrewrullz.storelib.com", from: "instagram", utm_source: "ig", utm_campaign: "fall_drop" }
+    const packed = encodeOrigin(full)
+    check("the metadata string is short and round-trips", packed.length < 120 && JSON.stringify(decodeOrigin(packed)) === JSON.stringify(full), packed)
+    check("a payment made before the detail existed has none", orderOriginFrom({ order_source: "storelib" }) === null)
+    check("the metadata's detail is read back", JSON.stringify(orderOriginFrom({ order_via: packed })) === JSON.stringify(full))
+
+    check("a website's checkout is a Website order whatever the address says", channelOf({ surface: "website" }, "storelib") === "website" && channelOf({ surface: "product" }, "storelib") === "storelib" && channelOf(null, "website") === "website")
+    const fromReq = (referer: string) => originFromRequest(new Request("https://storelib.com/api/x", { headers: { referer } }))
+    check("a route reads a website's checkout from the Referer", JSON.stringify(fromReq("https://storelib.com/checkout?productId=1&src=website&site=andrew.storelib.com&ref=tiktok")) === JSON.stringify({ surface: "website", site: "andrew.storelib.com", from: "tiktok" }))
+    check("and a OnePage from its path", fromReq("https://storelib.com/andrew/links")?.surface === "onepage")
+    check("what the page sent wins over the Referer", originOf({ surface: "explore" }, new Request("https://storelib.com/api/x", { headers: { referer: "https://storelib.com/andrew/links" } }))?.surface === "explore")
+
+    check("the order page's line", sourceText("website", full) === "Website · andrewrullz.storelib.com · from Instagram", sourceText("website", full))
+    check("a Storelib page", sourceText("storelib", { surface: "product", from: "google" }) === "Storelib · Product page · from Google")
+    check("direct reads Direct", sourceText("storelib", { surface: "explore", from: "direct" }) === "Storelib · Explore · Direct")
+    check("the channel alone when that is all there is", sourceText("storelib", null) === "Storelib")
+    check("and nothing recorded stays Not recorded", sourceText(null, null) === "Not recorded" && sourceText(undefined, { surface: "product" }) === "Not recorded")
+    check("an admin's test sale says so", sourceText("storelib", { surface: "admin" }) === "Storelib · Test sale")
+    check("the export's detail column", sourceDetailText("website", full) === "andrewrullz.storelib.com · from Instagram · utm_source ig · utm_campaign fall_drop")
+
+    const base: OriginInput = {
+      href: "https://storelib.com/checkout?productId=1",
+      referrer: "",
+      previousPath: null,
+      landingSearch: "",
+      userAgent: "Mozilla/5.0 (iPhone) Safari",
+      mainDomain: "storelib.com",
+    }
+    const at = (o: Partial<OriginInput>) => describeCheckout({ ...base, ...o })
+    check(
+      "a website's Buy button: which website, and where its visit came from",
+      JSON.stringify(at({ href: "https://storelib.com/checkout?productId=1&src=website&site=andrewrullz.storelib.com&ref=instagram", referrer: "https://andrewrullz.storelib.com/" })) ===
+        JSON.stringify({ surface: "website", site: "andrewrullz.storelib.com", from: "instagram" }),
+      at({ href: "https://storelib.com/checkout?productId=1&src=website&site=andrewrullz.storelib.com&ref=instagram", referrer: "https://andrewrullz.storelib.com/" }),
+    )
+    const bare = at({ href: "https://storelib.com/checkout?productId=1&src=website", referrer: "https://andrewrullz.storelib.com/" })
+    check("a website link with nothing added: the website from the referrer, and no guess at the visit", JSON.stringify(bare) === JSON.stringify({ surface: "website", site: "andrewrullz.storelib.com" }), bare)
+    check("in Instagram's own browser, that is where the visit is", at({ href: "https://storelib.com/checkout?productId=1&src=website", referrer: "https://andrewrullz.storelib.com/", userAgent: "Mozilla/5.0 (iPhone) Instagram 300.0" })?.from === "instagram")
+    const spa = at({ previousPath: "/andrew/preset-pack", referrer: "https://www.tiktok.com/" })
+    check("a product page opened from TikTok, then Buy", JSON.stringify(spa) === JSON.stringify({ surface: "product", from: "tiktok" }), spa)
+    check("Explore with no referrer at all is Direct", JSON.stringify(at({ previousPath: "/explore" })) === JSON.stringify({ surface: "explore", from: "direct" }))
+    const hard = at({ referrer: "https://storelib.com/andrew" })
+    check("a full load from the profile: the profile, and nothing claimed about the visit", JSON.stringify(hard) === JSON.stringify({ surface: "profile" }), hard)
+    check("with Analytics' first address (consent given), the visit is known", at({ referrer: "https://storelib.com/andrew", firstTouch: { referrerDomain: "youtube.com" } })?.from === "youtube")
+    const link = at({ href: "https://storelib.com/checkout?productId=1&utm_source=newsletter&utm_campaign=launch", referrer: "https://mail.google.com/" })
+    check("a checkout link opened from an email, with its tags", JSON.stringify(link) === JSON.stringify({ surface: "link", from: "email", utm_source: "newsletter", utm_campaign: "launch" }), link)
+    check("a landing page's tags are kept through client navigations", at({ previousPath: "/andrew/preset-pack", landingSearch: "?utm_source=ig&utm_campaign=drop" })?.utm_campaign === "drop")
+    check("coming back from the card's bank page says nothing about the visit", at({ previousPath: "/andrew/x", referrer: "https://hooks.stripe.com/3d" })?.from === undefined)
+    check("a checkout on a creator's own domain is their website", at({ href: "https://www.andrewshop.com/checkout?productId=1", referrer: "https://www.andrewshop.com/products/x" })?.site === "andrewshop.com")
+
+    const page = (o: Partial<OriginInput>) => describePage({ ...base, ...o })
+    check("a website page names itself", JSON.stringify(page({ href: "https://andrewrullz.storelib.com/products/x", referrer: "https://l.instagram.com/" })) === JSON.stringify({ surface: "website", site: "andrewrullz.storelib.com", from: "instagram" }))
+    check("a website visited from the creator's Storelib page", page({ href: "https://andrewrullz.storelib.com/", referrer: "https://storelib.com/andrew" })?.from === "storelib")
+    check("the OnePage names itself", page({ href: "https://storelib.com/andrew/links" })?.surface === "onepage" && page({ href: "https://www.andrewshop.com/links" })?.surface === "onepage")
+
+    const here = { surface: "website" as const, site: "andrewrullz.storelib.com", from: "instagram" }
+    check("a checkout link gets the website's account added", checkoutHrefWithOrigin("/checkout?productId=1&src=website", here) === "/checkout?productId=1&src=website&site=andrewrullz.storelib.com&ref=instagram")
+    check("keys it already has are left alone", checkoutHrefWithOrigin("/checkout?productId=1&ref=tiktok", here) === "/checkout?productId=1&ref=tiktok&site=andrewrullz.storelib.com")
+    check("any other link is left alone", checkoutHrefWithOrigin("/products/x", here) === "/products/x" && checkoutHrefWithOrigin("/checkout?productId=1", null) === "/checkout?productId=1")
+
+    const [detailed] = groupOrders([row("z", "2025-01-01T00:00:00Z", { source: "website", source_detail: { surface: "website", site: "andrew.com", from: "tiktok" } })])
+    check("an order reads its detail from its row", detailed.sourceDetail?.site === "andrew.com" && detailed.sourceDetail?.from === "tiktok")
+    const [plain] = groupOrders([row("y", "2025-01-01T00:00:00Z", { source_detail: "<junk>" })])
+    check("and junk in the row is no detail", plain.sourceDetail === null)
+    const csv = ordersCsv([detailed], "UTC", "plain")
+    check("the export has the detail beside the source", /"Source","Source detail"/.test(csv) && /"Website","andrew.com · from TikTok"/.test(csv), csv.split("\n").slice(0, 2))
   }
 
   console.log("\nOrders: the page")

@@ -9,7 +9,7 @@ import { cookies } from "next/headers"
 import { generateReceiptToken } from "@/lib/security"
 import { collectOrderDeviceInfo } from "@/lib/device-info"
 import { calculatePlatformFee } from "@/lib/billing/fee-calculator"
-import { SOURCE_METADATA_KEY, orderSourceFromRequest } from "@/lib/orders/order-source"
+import { ORIGIN_METADATA_KEY, SOURCE_METADATA_KEY, channelOf, encodeOrigin, orderSourceFromRequest, originOf } from "@/lib/orders/order-source"
 import { rateLimit, addressSubject, emailSubject, LIMITS } from "@/lib/api/rate-limit"
 import { MIN_CHARGE_CENTS, priceOrder } from "@/lib/checkout/pricing"
 import { businessToMetadata, checkBusiness } from "@/lib/checkout/business"
@@ -22,7 +22,7 @@ import { businessToMetadata, checkBusiness } from "@/lib/checkout/business"
  *
  * Body: { productId, variantId?, customPriceCents?, tipCents?, couponCode?,
  *         firstName, lastName, email, emailOptIn?, agreedToTerms,
- *         business? }
+ *         business?, origin? }
  * Answers { clientSecret, paymentIntentId, amountCents }.
  *
  * The amount is the server's (lib/checkout/pricing.ts): the product or
@@ -142,10 +142,15 @@ export async function POST(request: Request) {
 
   const fee = await calculatePlatformFee(totals.totalCents, creator.id, admin)
 
+  /* Where the checkout began: the page's account, every field checked, or
+     what its address says. Words and hosts only (lib/orders/order-source). */
+  const origin = originOf(body.origin, request)
+
   /* Built once. The retry below used to rebuild it by hand and left out the
      email opt-in, and a buyer who said no was then subscribed. */
   const metadata: Record<string, string> = {
-    [SOURCE_METADATA_KEY]: orderSourceFromRequest(request),
+    [SOURCE_METADATA_KEY]: channelOf(origin, orderSourceFromRequest(request)),
+    [ORIGIN_METADATA_KEY]: encodeOrigin(origin),
     product_id: product.id,
     product_slug: String(product.slug || "").slice(0, 200),
     product_title: String(product.title || "").slice(0, 480),

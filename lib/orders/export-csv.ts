@@ -13,6 +13,7 @@
  *   plain              UTF-8 and LF, for scripts and other tools
  */
 import { FULFILLMENT_LABEL, PAYMENT_LABEL, SOURCE_LABEL, type Order } from "./order-view"
+import { sourceDetailText } from "./order-source"
 
 export type ExportFormat = "spreadsheet" | "plain"
 
@@ -33,6 +34,7 @@ export const CSV_HEADER = [
   "Customer",
   "Email",
   "Source",
+  "Source detail",
   "Items",
   "Products",
   "Total",
@@ -60,6 +62,7 @@ export function ordersCsv(orders: Order[], timeZone: string, format: ExportForma
       o.customerName || "",
       o.customerEmail || "",
       o.source ? SOURCE_LABEL[o.source] : "",
+      sourceDetailText(o.source, o.sourceDetail ?? null),
       o.itemCount,
       o.lines.map((l) => l.product?.title || "").join("; "),
       (o.totalCents / 100).toFixed(2),
