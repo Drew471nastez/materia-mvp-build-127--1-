@@ -105,10 +105,17 @@ check("prices bring up the decimal keypad", (editor.match(/inputMode="decimal"/g
 console.log("\nThe Products list on a phone")
 
 const list = code("app/app/products/products-client.tsx")
-check("a list under 768px and the table from it", /className="divide-y divide-\[#f1f2f4\] md:hidden"/.test(list) && /className="hidden w-full border-collapse md:table"/.test(list))
+check("a list under 768px and the table from it", /<ul aria-label="Products" className="md:hidden">/.test(list) && /className="hidden w-full border-collapse md:table"/.test(list))
 check("no table forced sideways on a phone", !/min-w-\[500px\]/.test(list) && !/sticky left-0/.test(list))
 check("a hover or a finger prefetches the editor in full", /onTouchStart=\{\(\) => warm\(product\.id\)\}/.test(list) && /kind: "full"/.test(list))
-check("Products and Coupons share a row of tabs", /<ProductsSubnav active="products"/.test(list) && /<ProductsSubnav active="coupons"/.test(code("app/app/coupons/coupons-client.tsx")))
+const couponsList = code("app/app/coupons/coupons-client.tsx")
+check("no Products and Coupons tabs: Coupons is a page of its own again", !existsSync("app/app/products/products-subnav.tsx") && !/ProductsSubnav|products-subnav/.test(list + couponsList + code("app/app/products/skeleton.tsx") + code("app/app/coupons/skeleton.tsx")))
+check("with its own title", /<h1[^>]*>Coupons<\/h1>/.test(couponsList))
+const sidebar = code("components/app/sidebar.tsx")
+check("and its own place in the menu, under Products, where it was", /href: "\/app\/products",[\s\S]{0,160}children: \[\{ href: "\/app\/coupons", label: "Coupons" \}\]/.test(sidebar))
+check("a phone gets its own search field and views, 44px each, above the list", /aria-label="Views" className="mt-3 grid h-11 grid-cols-3/.test(list) && /PHONE_FIELD = "h-11 /.test(list) && /text-\[16px\] text-\[#1a1a2e\]/.test(list))
+check("rows with a 64px square picture and the name at 16px", /aspect-square w-16 shrink-0/.test(list) && /line-clamp-2 break-words text-\[16px\]/.test(list))
+check("the card's own toolbar is a computer's only", /className="hidden h-12 items-center gap-2 border-b border-\[#eef0f2\] px-2 md:flex"/.test(list))
 
 console.log("\nA coupon's rules, on the server")
 
