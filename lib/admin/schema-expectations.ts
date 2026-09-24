@@ -1,0 +1,111 @@
+/**
+ * ===========================================================================
+ *  THE TABLES AND COLUMNS /admin READS, CHECKED AGAINST THE LIVE DATABASE
+ * ===========================================================================
+ * The System view asks the database, read-only, whether each of these is
+ * there: the same question supabase/sql/CHECK_WHAT_IS_MISSING.sql asks from
+ * the SQL editor, answered from the admin instead.
+ *
+ * tests/admin-queries.test.ts keeps this list honest in both directions:
+ * every column an admin query names must be listed here, and every column
+ * listed here must exist in the repository's SQL. A query that names a
+ * column nobody created (the old `orders.creator_id`) fails the suite
+ * before it reaches the owner.
+ *
+ * `later` marks what arrives with supabase/sql/RUN_ADMIN_CONSOLE.sql, so the
+ * view can say "run the admin SQL" rather than "something is broken".
+ */
+export const EXPECTED_SCHEMA: Record<string, { columns: string[]; later?: boolean; laterColumns?: string[] }> = {
+  orders: {
+    columns: [
+      "id", "created_at", "status", "amount_cents", "fee_cents", "currency", "buyer_email", "customer_email",
+      "product_id", "buyer_id", "variant_id", "refund_amount_cents", "refund_reason", "refunded_at", "stripe_refund_id",
+      "stripe_payment_intent_id", "stripe_session_id", "payment_method", "buyer_country", "buyer_country_code",
+    ],
+  },
+  products: { columns: ["id", "title", "slug", "status", "archived", "type", "price_cents", "sales_count", "created_at", "creator_id"] },
+  creators: {
+    columns: [
+      "id", "user_id", "slug", "username", "display_name", "created_at", "store_published", "stripe_account_id",
+      "charges_enabled", "payouts_enabled", "details_submitted", "stripe_onboarding_status", "subscription_status",
+    ],
+    laterColumns: ["banned_at", "banned_reason"],
+  },
+  profiles: { columns: ["id", "username", "display_name", "email", "role", "is_creator", "spam_state", "created_at"] },
+  entitlements: { columns: ["id", "buyer_id", "product_id", "variant_id"] },
+  payouts: { columns: ["id", "created_at", "arrival_date", "status", "amount_cents", "currency", "method", "failure_message", "failure_code", "creator_id"] },
+  seller_ledger: { columns: ["creator_id", "pending_amount", "available_amount", "in_transit_amount", "negative_balance", "lifetime_paid_out"] },
+  ledger_events: { columns: ["id", "created_at", "event_type", "amount_cents", "net_seller_cents", "creator_id", "description", "released_at", "hold_until"] },
+  subscriptions: { columns: ["id", "status"] },
+  sites: { columns: ["id", "name", "slug", "status", "published_at", "updated_at", "creator_id"] },
+  custom_domains: { columns: ["id", "domain", "status", "ssl_status", "verified_at", "created_at", "creator_id"] },
+  site_deployments: { columns: ["id", "created_at", "error", "status", "site_id"] },
+  site_web_vitals: { columns: ["lcp_ms", "day"] },
+  analytics_events: { columns: ["id", "created_at", "visitor_id", "source_category", "country_code", "country_name", "event_type"] },
+  analytics_daily_rollups: { columns: ["id", "updated_at"] },
+  email_events: { columns: ["id", "created_at", "event_type", "recipient_email", "email", "metadata"] },
+  email_campaigns: { columns: ["id", "subject", "status", "audience_count", "scheduled_at", "created_at", "sent_at"] },
+  scheduled_flow_emails: { columns: ["id", "status", "scheduled_for", "created_at", "sent_at"] },
+  email_logs: { columns: ["id", "status", "created_at"] },
+  subscribers: { columns: ["id", "status"] },
+  storelib_newsletter: { columns: ["id", "unsubscribed_at"] },
+  conversation_reports: { columns: ["id", "created_at", "reason", "status"] },
+  rate_limit_hits: { columns: ["id", "created_at"] },
+  admin_actions: { columns: ["id", "created_at", "action", "target_type", "target_id", "target_label", "reason", "detail", "actor"], later: true },
+  admin_moderation_log: { columns: ["id", "action", "creator_id", "user_id", "username", "reason", "products_affected", "created_at"], later: true },
+}
+
+/** The database functions the admin calls, all from RUN_ADMIN_CONSOLE.sql. */
+export const EXPECTED_FUNCTIONS = ["admin_order_totals", "admin_creator_sales", "admin_daily_sales"]
+
+/**
+ * The scheduled jobs in vercel.json, with where each leaves a trace. None of
+ * them writes a "last ran" row, so the check reads the work they do.
+ */
+export const CRON_JOBS = [
+  { path: "/api/cron/process-scheduled-emails", schedule: "0 * * * *", what: "Sends email flow steps that are due" },
+  { path: "/api/cron/release-holds", schedule: "0 6 * * *", what: "Moves held sale money to available" },
+  { path: "/api/cron/rollup-daily", schedule: "0 1 * * *", what: "Adds up yesterday's analytics" },
+  { path: "/api/cron/purge-chat-attachments", schedule: "20 3 * * *", what: "Deletes chat pictures after 30 days" },
+] as const
+
+/**
+ * Environment variables, reported as set or not set. Never their values:
+ * the answer leaves the server as a boolean and nothing else.
+ */
+export const ENV_CHECKS: { name: string; group: string }[] = [
+  { name: "NEXT_PUBLIC_SUPABASE_URL", group: "Database" },
+  { name: "NEXT_PUBLIC_SUPABASE_ANON_KEY", group: "Database" },
+  { name: "SUPABASE_SERVICE_ROLE_KEY", group: "Database" },
+  { name: "STRIPE_SECRET_KEY", group: "Payments" },
+  { name: "STRIPE_WEBHOOK_SECRET", group: "Payments" },
+  { name: "STRIPE_CONNECT_WEBHOOK_SECRET", group: "Payments" },
+  { name: "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY", group: "Payments" },
+  { name: "PRICE_PRO_MONTHLY", group: "Payments" },
+  { name: "PRICE_GROWTH_MONTHLY", group: "Payments" },
+  { name: "MAILGUN_API_KEY", group: "Email" },
+  { name: "MAILGUN_DOMAIN", group: "Email" },
+  { name: "MAILGUN_WEBHOOK_SIGNING_KEY", group: "Email" },
+  { name: "EMAIL_FROM", group: "Email" },
+  { name: "CRON_SECRET", group: "Jobs and admin" },
+  { name: "ADMIN_SECRET", group: "Jobs and admin" },
+  { name: "BLOG_ADMIN_SECRET", group: "Jobs and admin" },
+  { name: "RECEIPT_TOKEN_SECRET", group: "Jobs and admin" },
+  { name: "ORDER_LINK_SECRET", group: "Jobs and admin" },
+  { name: "NEXT_PUBLIC_SITE_URL", group: "Addresses" },
+  { name: "NEXT_PUBLIC_APP_URL", group: "Addresses" },
+  { name: "NEXT_PUBLIC_MAIN_DOMAIN", group: "Addresses" },
+  { name: "NEXT_PUBLIC_SITES_HOST", group: "Addresses" },
+  { name: "VERCEL_TOKEN", group: "Domains" },
+  { name: "VERCEL_PROJECT_ID", group: "Domains" },
+  { name: "VERCEL_TEAM_ID", group: "Domains" },
+  { name: "ANTHROPIC_API_KEY", group: "Website agent" },
+  { name: "OPENAI_API_KEY", group: "Website agent" },
+  { name: "FIREBASE_PROJECT_ID", group: "Push" },
+  { name: "FIREBASE_CLIENT_EMAIL", group: "Push" },
+  { name: "FIREBASE_PRIVATE_KEY", group: "Push" },
+  { name: "GITHUB_APP_ID", group: "GitHub sync" },
+  { name: "GITHUB_APP_PRIVATE_KEY", group: "GitHub sync" },
+  { name: "GITHUB_WEBHOOK_SECRET", group: "GitHub sync" },
+  { name: "VIRUSTOTAL_API_KEY", group: "File scanning" },
+]
