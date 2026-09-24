@@ -251,6 +251,38 @@ export function releaseVelocity(samples: Sample[], releasedAt?: number): number 
 }
 
 /** Where the stops are, in translateY, ascending. The last one is closed. */
+/**
+ * ===========================================================================
+ *  THE TALLEST STOP COVERS THE BAR OR CLEARS IT, NEVER HALF OF IT
+ * ===========================================================================
+ * A 92% sheet on an 844px screen has its top edge at 68px. With a 59px
+ * status bar the editor's bar runs to 107px and its buttons from 67px, so
+ * the sheet's edge cut across the top pixel of every button: a violet line
+ * of the Ask AI button showing at the sheet's corners, "purple things in the
+ * corners". A fraction of the screen knows nothing about what is drawn
+ * there, so the fraction is only where the edge WANTS to be:
+ *
+ *   at or above the status bar   the sheet covers the bar entirely, at the
+ *                                status bar (a stop of 1: Ask Storelib)
+ *   inside the bar               moved down to BAR_GAP_PX under the bar, so
+ *                                the whole bar shows, dimmed, over a clear
+ *                                gap (a 92% stop: Sections, Add section)
+ *   below the bar                where it asked to be
+ *
+ * `barBottom` is the bottom edge of whatever the page marked
+ * `data-sheet-clear`, measured by the sheet off the element itself, 0 where
+ * nothing is marked. Only the TALLEST stop moves: the lower stops are
+ * fractions of the screen measured from the bottom and do not change.
+ */
+export const BAR_GAP_PX = 8
+
+export function clearOfBar(top: number, safeTop: number, barBottom: number): number {
+  const floor = Math.max(0, safeTop)
+  if (top <= floor) return floor
+  if (barBottom > floor && top < barBottom + BAR_GAP_PX) return Math.round(barBottom + BAR_GAP_PX)
+  return top
+}
+
 export function offsetsFor(input: {
   viewport: number
   detents: number[]
@@ -260,10 +292,13 @@ export function offsetsFor(input: {
    * edge is never drawn under the clock, whatever fraction it asked for.
    */
   safeTop?: number
+  /** The bottom of the page's own bar, see `clearOfBar`. */
+  barBottom?: number
 }): { height: number; offsets: number[] } {
   const stops = [...input.detents].sort((a, b) => a - b)
   const tallest = stops[stops.length - 1] ?? 0.92
-  const height = Math.min(Math.round(input.viewport * tallest), input.viewport - Math.max(0, input.safeTop ?? 0))
+  const wanted = input.viewport - Math.round(input.viewport * tallest)
+  const height = input.viewport - clearOfBar(wanted, input.safeTop ?? 0, input.barBottom ?? 0)
 
   /**
    * SORTED, which is the whole correctness of the thing. A larger fraction is
@@ -329,9 +364,15 @@ export function keyboardCeiling(input: {
   safeTop: number
   /** How far the visible area has been panned down the page. */
   visibleTop: number
+  /** The page's own bar, which a keyboard does not let the sheet cut across either. */
+  barBottom?: number
 }): number {
   const reach = Math.round(input.viewport * (1 - KEYBOARD_REACH))
-  const clearance = Math.max(input.safeTop, Math.min(input.viewport - input.tallestHeight, reach))
+  const clearance = clearOfBar(
+    Math.max(input.safeTop, Math.min(input.viewport - input.tallestHeight, reach)),
+    input.safeTop,
+    input.barBottom ?? 0,
+  )
   return Math.max(0, input.viewport - clearance - Math.max(0, input.visibleTop))
 }
 

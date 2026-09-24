@@ -7204,7 +7204,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       {/* Dark, like the reference: the bar is chrome, and chrome that is the
           same colour as the page it frames is chrome you keep mistaking for
           the page. Everything on it is white-on-dark from here down. */}
-      <header className="wb-editor-topbar relative bg-[var(--wb-chrome-bg)] text-[var(--wb-chrome-fg)] border-b border-[var(--wb-chrome-line)] flex items-center px-3 md:px-4 gap-2 shrink-0 z-50">
+      {/* data-sheet-clear: the phone sheets' tallest stop covers this bar or
+          clears it, never cuts across its buttons (sheet-gestures, clearOfBar). */}
+      <header className="wb-editor-topbar relative bg-[var(--wb-chrome-bg)] text-[var(--wb-chrome-fg)] border-b border-[var(--wb-chrome-line)] flex items-center px-3 md:px-4 gap-2 shrink-0 z-50" data-sheet-clear="">
         {/* LEFT: Exit + sidebar mode toggles (desktop only) */}
         <div className="flex items-center gap-1.5 min-w-0">
           {/* Exit button — X on mobile (Shopify-style editor close), back arrow on desktop */}

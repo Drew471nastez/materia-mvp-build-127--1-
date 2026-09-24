@@ -115,11 +115,12 @@ function keyboardWindow(): Window {
  * them happens: a resize, a rotation, the visual viewport moving. Any number
  * of sheets can ask in the same frame and the box is read at most once.
  */
-const insetCache: { safe: number | null; gap: number | null; top: number | null; box: number | null } = {
+const insetCache: { safe: number | null; gap: number | null; top: number | null; box: number | null; bar: number | null } = {
   safe: null,
   gap: null,
   top: null,
   box: null,
+  bar: null,
 }
 let insetProbes: { safe: HTMLElement; gap: HTMLElement; top: HTMLElement } | null = null
 
@@ -142,6 +143,7 @@ function probes(): { safe: HTMLElement; gap: HTMLElement; top: HTMLElement } {
     insetCache.gap = null
     insetCache.top = null
     insetCache.box = null
+    insetCache.bar = null
   }
   window.addEventListener("resize", forget)
   window.addEventListener("orientationchange", forget)
@@ -178,6 +180,26 @@ function safeAreaTop(): number {
   if (typeof document === "undefined") return 0
   if (insetCache.top === null) insetCache.top = probes().top.getBoundingClientRect().height
   return insetCache.top
+}
+/**
+ * The bottom of the page's own bar: the editor's top bar, which marks itself
+ * `data-sheet-clear`. MEASURED OFF THE BAR, the one place its height lives
+ * (48px plus the status bar, from globals.css), so a sheet never restates it.
+ * Read with the other insets and cached until a resize, a rotation or the
+ * visual viewport changes. 0 on a page that marks nothing. See `clearOfBar`.
+ */
+function barBottom(): number {
+  if (typeof document === "undefined") return 0
+  if (insetCache.bar === null) {
+    probes()
+    let bottom = 0
+    for (const el of document.querySelectorAll<HTMLElement>("[data-sheet-clear]")) {
+      const r = el.getBoundingClientRect()
+      if (r.width > 0 && r.height > 0) bottom = Math.max(bottom, r.bottom)
+    }
+    insetCache.bar = Math.round(bottom)
+  }
+  return insetCache.bar
 }
 /**
  * How much of a bottom-anchored fixed element the browser's own bar covers.
@@ -400,6 +422,8 @@ export function MobileEditorSheet({
   const [visibleTop, setVisibleTop] = React.useState(0)
   /** The status bar, which no stop and no keyboard puts the sheet's top edge under. */
   const [safeTop, setSafeTop] = React.useState(0)
+  /** The page's own bar, which the tallest stop covers or clears but never cuts across. */
+  const [barEdge, setBarEdge] = React.useState(0)
   /**
    * The keyboard is up for a field INSIDE this sheet. Then the sheet stands
    * at its tallest stop while it is typed into, the way an iOS sheet goes to
@@ -720,6 +744,7 @@ export function MobileEditorSheet({
     const read = () => {
       setPeekInset(safeAreaBottom())
       setSafeTop(safeAreaTop())
+      setBarEdge(barBottom())
     }
     const measure = () => {
       if (frame) return
@@ -737,6 +762,13 @@ export function MobileEditorSheet({
       window.removeEventListener("orientationchange", measure)
     }
   }, [])
+  /* The bar again on every open: a sheet can mount before the page's bar
+     has, and a bar is not a resize. One query and one box per open. */
+  React.useEffect(() => {
+    if (!open) return
+    insetCache.bar = null
+    setBarEdge(barBottom())
+  }, [open])
 
   /**
    * =====================================================================
@@ -785,7 +817,7 @@ export function MobileEditorSheet({
   // A sheet with no peek has nothing to grow: `peekHeight={0}` still means
   // gone, not "gone except for the home indicator".
   const peek = peekHeight > 0 ? peekHeight + peekInset : 0
-  const natural = offsetsFor({ viewport, detents: stops, peekHeight: peek, safeTop }).height
+  const natural = offsetsFor({ viewport, detents: stops, peekHeight: peek, safeTop, barBottom: barEdge }).height
   const detentHeight = fit && contentHeight > 0 ? Math.min(contentHeight, natural) : natural
   /**
    * Grown by the keyboard, so the panel above it stays the size the detent
@@ -796,7 +828,7 @@ export function MobileEditorSheet({
    * strip from that edge to the keyboard, and the composer sits on the keys.
    * sheet-gestures.ts explains why the offsets are left alone.
    */
-  const ceiling = keyboardCeiling({ viewport, tallestHeight: natural, safeTop, visibleTop })
+  const ceiling = keyboardCeiling({ viewport, tallestHeight: natural, safeTop, visibleTop, barBottom: barEdge })
   const height = sheetHeightWithKeyboard(detentHeight, keyboardInset, ceiling)
 
   /**
@@ -821,8 +853,8 @@ export function MobileEditorSheet({
           // closed. Using the grown height here would leave the keyboard's
           // height of sheet showing after a dismissal.
           [0, Math.max(detentHeight - peek, 0)]
-        : offsetsFor({ viewport, detents: stops, peekHeight: peek, safeTop }).offsets,
-    [stops, viewport, peek, fit, contentHeight, detentHeight, safeTop],
+        : offsetsFor({ viewport, detents: stops, peekHeight: peek, safeTop, barBottom: barEdge }).offsets,
+    [stops, viewport, peek, fit, contentHeight, detentHeight, safeTop, barEdge],
   )
 
   /**

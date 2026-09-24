@@ -55,6 +55,7 @@ function Harness() {
     <>
       <div
         id="bar"
+        data-sheet-clear=""
         style={{
           height: "calc(48px + env(safe-area-inset-top, 0px))",
           paddingTop: "env(safe-area-inset-top, 0px)",

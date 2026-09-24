@@ -53,6 +53,8 @@ import {
   tapTarget,
   VELOCITY_THRESHOLD,
   FLICK_MIN_DISTANCE,
+  BAR_GAP_PX,
+  keyboardCeiling,
   dragPosition,
   expandCarry,
   handOffToSheet,
@@ -1659,7 +1661,7 @@ section("The mobile sheet snaps where it should")
      * above drives `offsetsFor` directly. What is worth pinning now is that
      * the component has not gone back to computing its own.
      */
-    /offsetsFor\(\{ viewport, detents: stops, peekHeight: peek, safeTop \}\)\.offsets/.test(sheet) &&
+    /offsetsFor\(\{ viewport, detents: stops, peekHeight: peek, safeTop, barBottom: barEdge \}\)\.offsets/.test(sheet) &&
       !/const list = stops$/m.test(sheet),
   )
 
@@ -2058,8 +2060,46 @@ section("Ask Storelib on a phone: the keyboard, and nothing sideways")
     "the AI sheet's tallest stop is the whole screen below the status bar",
     /const AI_SHEET_DETENTS = \[0\.5, 1\]/.test(editor) &&
       /<MobileEditorSheet open=\{aiOpen\}[\s\S]{0,200}?detents=\{AI_SHEET_DETENTS\}>/.test(editor) &&
-      /offsetsFor\(\{ viewport, detents: stops, peekHeight: peek, safeTop \}\)/.test(sheet),
+      /offsetsFor\(\{ viewport, detents: stops, peekHeight: peek, safeTop, barBottom: barEdge \}\)/.test(sheet),
   )
+  /**
+   * THE TALLEST STOP COVERS THE BAR OR CLEARS IT. At 92% of 844 the top edge
+   * is 68px, and with a 59px status bar the editor's bar runs to 107 with its
+   * buttons from 67: one violet pixel row of Ask AI at the sheet's corners.
+   */
+  {
+    const at = (detents: number[], safeTop: number, barBottom: number) =>
+      844 - offsetsFor({ viewport: 844, detents, peekHeight: 72, safeTop, barBottom }).height
+    check(
+      "a 92% stop on a notched phone clears the whole bar with a gap, instead of cutting across its buttons",
+      at([0.5, 0.92], 59, 107) === 107 + BAR_GAP_PX,
+      String(at([0.5, 0.92], 59, 107)),
+    )
+    check(
+      "in a browser, where the bar ends at 48, the 92% stop is already clear and stays at 68",
+      at([0.5, 0.92], 0, 48) === 68,
+    )
+    check("a stop of 1 still covers the bar, at the status bar", at([0.5, 1], 59, 107) === 59 && at([0.5, 1], 0, 48) === 0)
+    check("with no bar marked the stops are what they were", at([0.5, 0.92], 59, 0) === 68 && at([0.92], 0, 0) === 68)
+    check(
+      "the half stop does not move",
+      [[59, 107], [0, 48], [59, 0]].every(([s, b]) => {
+        const g = offsetsFor({ viewport: 844, detents: [0.5, 0.92], peekHeight: 72, safeTop: s, barBottom: b })
+        return 844 - g.height + g.offsets[1] === 422
+      }),
+    )
+    check(
+      "and a keyboard does not lift a 92% sheet into the bar either",
+      844 - keyboardCeiling({ viewport: 844, tallestHeight: 844 - at([0.5, 0.92], 59, 107), safeTop: 59, visibleTop: 0, barBottom: 107 }) === 107 + BAR_GAP_PX &&
+        844 - keyboardCeiling({ viewport: 844, tallestHeight: Math.round(844 * 0.78), safeTop: 59, visibleTop: 0, barBottom: 107 }) === 107 + BAR_GAP_PX,
+    )
+    check(
+      "the editor's bar is what is marked, and the sheet measures it off the element",
+      /<header className="wb-editor-topbar[^"]*" data-sheet-clear="">/.test(editor) &&
+        /document\.querySelectorAll<HTMLElement>\("\[data-sheet-clear\]"\)/.test(sheet) &&
+        /keyboardCeiling\(\{ viewport, tallestHeight: natural, safeTop, visibleTop, barBottom: barEdge \}\)/.test(sheet),
+    )
+  }
   check(
     "the panels that scroll inside the Sections sheet carry the room themselves",
     (editor.match(/<div data-sheet-scroll className="flex-1 overflow-y-auto wb-slim-scroll/g) || []).length >= 6 &&

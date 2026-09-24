@@ -1830,7 +1830,7 @@ check(
    * typed into was not on screen at all.
    */
   "a sheet grows by the keyboard, up to a ceiling that keeps its top edge out from under the status bar",
-  /const ceiling = keyboardCeiling\(\{ viewport, tallestHeight: natural, safeTop, visibleTop \}\)/.test(sheetSrc) &&
+  /const ceiling = keyboardCeiling\(\{ viewport, tallestHeight: natural, safeTop, visibleTop, barBottom: barEdge \}\)/.test(sheetSrc) &&
     /const height = sheetHeightWithKeyboard\(detentHeight, keyboardInset, ceiling\)/.test(sheetSrc),
 )
 
@@ -1963,7 +1963,7 @@ check(
     // indicator cannot change mid-scroll, so it does not belong on that path.
     /window\.addEventListener\("orientationchange", measure\)/.test(sheetSrc) &&
     !/setChromeGap\(browserChromeGap\(\)\)\s*\n\s*setPeekInset/.test(sheetSrc) &&
-    /offsetsFor\(\{ viewport, detents: stops, peekHeight: peek, safeTop \}\)/.test(sheetSrc),
+    /offsetsFor\(\{ viewport, detents: stops, peekHeight: peek, safeTop, barBottom: barEdge \}\)/.test(sheetSrc),
 )
 
 check(
