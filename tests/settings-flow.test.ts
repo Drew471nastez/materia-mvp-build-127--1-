@@ -79,14 +79,26 @@ check(
 )
 check(
   "the panel is keyed on the tab, so one replaces another instead of being edited into it",
-  /<div key=\{activeTab\} className="settings-panel">/.test(settings),
+  /<div key=\{activeTab\} data-settings-panel=\{activeTab\} className="settings-panel">/.test(settings),
 )
 
 {
   const swap = css.slice(css.indexOf(".settings-panel {"), css.indexOf(".settings-panel {") + 420)
+  /* The 4px rise it used to have was the bump the owner reported, measured
+     on every switch by scripts/check-settings-tabs.mjs. Opacity only, and
+     never from nothing, so no frame is empty under the tabs. */
   check(
-    "it fades rather than shimmers, on opacity and translate only",
-    /translate: 0 4px/.test(swap) && !/height|width|background/.test(swap),
+    "it settles in tone only: no rise, no frame with nothing under the tabs",
+    /from \{ opacity: 0\.4; \}/.test(swap) && !/translate|transform|height|width|background/.test(swap),
+  )
+  check(
+    "a switch keeps the scroll, so the tab bar does not jump under the finger",
+    /form\.style\.minHeight = `\$\{Math\.max\(0, Math\.ceil\(scroller\.scrollTop \+ scroller\.clientHeight - formTop\)\)\}px`/.test(settings)
+      && /<form ref=\{formRef\} onSubmit=\{handleSubmit\}>/.test(settings),
+  )
+  check(
+    "and a refresh of the domain list keeps the list on screen",
+    /if \(!domainsLoadedRef\.current\) setDomainsLoading\(true\)/.test(settings),
   )
   check(
     "and it is short enough to switch through repeatedly",

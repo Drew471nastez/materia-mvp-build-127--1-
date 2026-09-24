@@ -1062,7 +1062,7 @@ html.capacitor body {
    * in the browser. A fake loading state makes a change of tab look slower
    * AND cheaper than simply doing it.
    *
-   * 120ms, opacity and 4px. Short because this is a tab, not a page — long
+   * 140ms, opacity only. Short because this is a tab, not a page — long
    * enough to read as one thing replacing another, short enough that the
    * fourth switch in a row does not make you wait for it.
    */
@@ -1095,12 +1095,21 @@ html.capacitor body {
     .upgrade-arriving, .upgrade-leaving { animation: none; }
   }
 
+  /*
+    THE BUMP WAS THIS RULE. The panel used to rise 4px as it faded in, and
+    scripts/check-settings-tabs measured exactly that on every switch at 390
+    and 1440: the new tab's first card drawn 4px low and then moving up. A
+    content switch under a tab bar that does not move is read as the page
+    jolting, not as an entrance. Opacity only now, and from 0.4 rather than
+    0, so there is never a frame with nothing under the tabs: the new tab is
+    there at once, in its final place, and only settles in tone.
+  */
   .settings-panel {
-    animation: settings-panel-in 120ms cubic-bezier(0.32, 0.72, 0, 1) both;
+    animation: settings-panel-in 140ms cubic-bezier(0.2, 0, 0, 1) backwards;
   }
   @keyframes settings-panel-in {
-    from { opacity: 0; translate: 0 4px; }
-    to { opacity: 1; translate: none; }
+    from { opacity: 0.4; }
+    to { opacity: 1; }
   }
   @media (prefers-reduced-motion: reduce) {
     .settings-panel { animation: none; }
