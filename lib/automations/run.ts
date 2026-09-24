@@ -68,20 +68,24 @@ export async function enrollInFlows(input: TriggerInput): Promise<EnrollResult> 
 }
 
 /** Runs due work until nothing is due or the budget is spent. */
-export async function runDueJobs(budgetMs: number): Promise<DueResult> {
+export async function runDueJobs(budgetMs: number, batch = 10): Promise<DueResult> {
   const db = createAdminClient()
-  return runDue({ store: supabaseStore(db), mailer: mailerFor(db), worker: `w_${randomUUID()}`, budgetMs, batch: 10 })
+  return runDue({ store: supabaseStore(db), mailer: mailerFor(db), worker: `w_${randomUUID()}`, budgetMs, batch })
 }
 
 /**
  * The first steps now, after the response is sent. Outside a request (a
  * script, a test) there is no `after`, and the cron picks the work up.
  */
-export function processSoon(budgetMs = 15_000): void {
+export function processSoon(budgetMs = 6_000): void {
   try {
     after(async () => {
       try {
-        const r = await runDueJobs(budgetMs)
+        /* Small batches and a short budget: this runs on the tail of a
+           sign-up or a payment, whose function can be stopped at its time
+           limit. A job cut off before its send is claimed again by the cron;
+           one cut off during its send is never sent twice (see engine.ts). */
+        const r = await runDueJobs(budgetMs, 3)
         if (r.claimed > 0) console.log("[automations] ran", r.claimed, "step(s) after the trigger:", r.outcomes)
       } catch (error) {
         console.error("[automations] running steps after the trigger failed:", (error as Error)?.message)
