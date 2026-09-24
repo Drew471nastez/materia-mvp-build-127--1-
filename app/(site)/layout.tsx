@@ -1,4 +1,5 @@
 import type React from "react"
+import { CheckoutLinkOrigin } from "@/components/website-builder/checkout-link-origin"
 
 /**
  * ===========================================================================
@@ -20,5 +21,12 @@ import type React from "react"
  * caching. The product routes stay dynamic, because a cart is per visitor.
  */
 export default function SiteLayout({ children }: { children: React.ReactNode }) {
-  return children
+  return (
+    <>
+      {children}
+      {/* A link to checkout carries which website and where its visit came
+          from, for the order's Source. Static: nothing here reads the request. */}
+      <CheckoutLinkOrigin />
+    </>
+  )
 }

@@ -30,6 +30,7 @@ import {
   type Order,
 } from "@/lib/orders/order-view"
 import { METRICS, type MetricReading } from "@/lib/orders/metrics"
+import { fromLabel, sourceText } from "@/lib/orders/order-source"
 import { HelpLabel } from "@/components/app/help-label"
 import {
   Checkbox,
@@ -44,7 +45,9 @@ import {
   card,
   formatMoney,
   iconButton,
-  topBar,
+  GUTTER,
+  LIST_WIDTH,
+  PaneBar,
 } from "./order-parts"
 
 export interface OrdersListProps {
@@ -79,9 +82,9 @@ export interface OrdersListProps {
 export function OrdersList(props: OrdersListProps) {
   const { allOrders, stripeConnected } = props
   return (
-    <div className="mx-auto max-w-[1200px] px-4 pb-6 sm:px-6 lg:px-8">
-      {/* The top bar: the same sticky bar, with the same depth, as an order's own. */}
-      <div className={cn(topBar, "justify-between gap-3")}>
+    <>
+      {/* The top bar: the same bar, the pane's full width, as an order's own. */}
+      <PaneBar width={LIST_WIDTH} className="flex min-h-[60px] items-center justify-between gap-3 py-2">
         <h1 className="text-[24px] font-bold text-[#1a1a2e] sm:text-[28px]">Orders</h1>
         <button
           type="button"
@@ -92,7 +95,8 @@ export function OrdersList(props: OrdersListProps) {
           <Download className="h-4 w-4" />
           Export
         </button>
-      </div>
+      </PaneBar>
+      <div className={cn("mx-auto pb-6", LIST_WIDTH, GUTTER)}>
 
       {!stripeConnected ? (
         <div className="mt-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-xl border border-[#f3e3b3] bg-[#fffaeb] px-4 py-3 text-[13px] text-[#5c4300]">
@@ -115,7 +119,8 @@ export function OrdersList(props: OrdersListProps) {
       <MetricsStrip metrics={props.metrics} comparable={props.comparable} />
 
       <OrdersTable {...props} />
-    </div>
+      </div>
+    </>
   )
 }
 
@@ -429,8 +434,14 @@ function Cell({ column, order, now, timeZone }: { column: ColumnKey; order: Orde
         <span className="text-[#9ca3af]">No customer</span>
       )
     case "source":
+      /* The channel, and where the visit came from when that was seen; the
+         whole line (which website, which page, the campaign) on hover and on
+         the order's page. */
       return order.source ? (
-        <span>{SOURCE_LABEL[order.source]}</span>
+        <span className="whitespace-nowrap" title={sourceText(order.source, order.sourceDetail)}>
+          {SOURCE_LABEL[order.source]}
+          {order.sourceDetail?.from ? <span className="text-[#6b7280]"> · {fromLabel(order.sourceDetail.from)}</span> : null}
+        </span>
       ) : (
         <span className="text-[#9ca3af]" title="Not recorded for this order">
           &ndash;

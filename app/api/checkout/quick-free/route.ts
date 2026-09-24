@@ -6,7 +6,7 @@ import { cookies } from "next/headers"
 import { generateReceiptToken } from "@/lib/security"
 import { sendOrderEmails } from "@/lib/email"
 import { v4 as uuidv4 } from "uuid"
-import { orderSourceFromRequest, tagOrderSource } from "@/lib/orders/order-source"
+import { channelOf, orderSourceFromRequest, originOf, tagOrderSource } from "@/lib/orders/order-source"
 import { rateLimit, addressSubject, emailSubject, LIMITS } from "@/lib/api/rate-limit"
 import { baseFor } from "@/lib/checkout/pricing"
 
@@ -21,7 +21,6 @@ export async function POST(request: Request) {
 
     const { product_id, first_name, last_name, email } = body
 
-    console.log("[quick-free] Starting quick checkout for:", first_name, last_name, email)
 
     if (!product_id || !first_name || !last_name || !email) {
       return NextResponse.json({ error: "All fields are required" }, { status: 400 })
@@ -120,7 +119,6 @@ export async function POST(request: Request) {
     const sessionFingerprint = nanoid(32)
     const receiptToken = generateReceiptToken()
 
-    console.log("[quick-free] Generated receipt token:", receiptToken.substring(0, 10) + "...")
 
     // Get domain for cross-subdomain cookie support
     const mainDomain = process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"
@@ -137,7 +135,6 @@ export async function POST(request: Request) {
     })
 
     // Create order - try full insert first, fallback to minimal if it fails
-    console.log("[quick-free] Creating order for email:", email.toLowerCase().trim())
 
     let order = null
     let orderError = null
@@ -195,7 +192,10 @@ export async function POST(request: Request) {
     }
 
     console.log("[quick-free] ✅ Order created successfully:", order.id)
-    await tagOrderSource(admin, order.id, orderSourceFromRequest(request))
+    /* The OnePage sends where it is and where its visit came from; a page
+       that sends nothing is read from its own address (the Referer). */
+    const origin = originOf(body.origin, request)
+    await tagOrderSource(admin, order.id, channelOf(origin, orderSourceFromRequest(request)), origin)
 
     // Upsert customer
     await admin.rpc("upsert_customer", {
@@ -231,7 +231,6 @@ export async function POST(request: Request) {
         consent_timestamp: new Date().toISOString(),
         unsubscribe_token: unsubscribeToken,
       })
-      console.log("[quick-free] ✅ Added buyer to subscribers:", normalizedEmail)
     } else if (existingSubscriber.status === "unsubscribed") {
       await admin
         .from("subscribers")
@@ -242,9 +241,6 @@ export async function POST(request: Request) {
           unsubscribed_at: null,
         })
         .eq("id", existingSubscriber.id)
-      console.log("[quick-free] ✅ Re-subscribed buyer:", normalizedEmail)
-    } else {
-      console.log("[quick-free] ✅ Buyer already subscribed:", normalizedEmail)
     }
 
     // Create entitlement for logged-in users

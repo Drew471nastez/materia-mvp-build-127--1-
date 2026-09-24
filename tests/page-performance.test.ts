@@ -130,6 +130,18 @@ const INSTANT_BY_DESIGN = new Set([
   "app/(auth)/welcome/loading.tsx",
 ])
 
+/**
+ * An order's address draws the order's bar at once, on the owner's word:
+ * "the top bar appears on the very first frame". The bar is the real bar's
+ * frame, not a placeholder that flashes; what is a skeleton, the cards under
+ * it, is held back by `skeleton-late` in the shared outline these draw.
+ */
+const BAR_FIRST = new Set(["app/app/orders/[id]/loading.tsx", "app/app/orders/sales/loading.tsx"])
+const barFirstDeferred = () => {
+  const outline = read("app/app/orders/order-skeleton.tsx")
+  return /className=\{cn\("skeleton-late /.test(outline) && /<OrderBarFrame/.test(outline)
+}
+
 function loadingFiles(dir: string): string[] {
   let out: string[] = []
   for (const entry of readdirSync(join(root, dir))) {
@@ -146,6 +158,7 @@ check(
   (() => {
     const offenders = loadingFiles("app").filter((f) => {
       if (INSTANT_BY_DESIGN.has(f)) return false
+      if (BAR_FIRST.has(f)) return !barFirstDeferred()
       const src = read(f)
       // A file that renders no skeleton has nothing to defer.
       if (!/Skeleton|animate-pulse/.test(src)) return false

@@ -6,7 +6,7 @@ import { cookies } from "next/headers"
 import { generateReceiptToken } from "@/lib/security"
 import { sendOrderEmails, triggerEmailFlows } from "@/lib/email"
 import { v4 as uuidv4 } from "uuid"
-import { orderSourceFromRequest, tagOrderSource } from "@/lib/orders/order-source"
+import { channelOf, orderSourceFromRequest, originOf, tagOrderSource } from "@/lib/orders/order-source"
 import { rateLimit, addressSubject, emailSubject, LIMITS } from "@/lib/api/rate-limit"
 import { priceOrder } from "@/lib/checkout/pricing"
 import { recordCouponUse } from "@/lib/checkout/coupons"
@@ -24,7 +24,7 @@ export const runtime = "nodejs"
  * pay-what-you-want product leaves at 0 whatever its minimum.
  *
  * Body: { productId, variantId?, customPriceCents?, couponCode?, firstName,
- *         lastName, email, emailOptIn?, agreedToTerms }
+ *         lastName, email, emailOptIn?, agreedToTerms, origin? }
  * Answers { success, receiptToken, orderId, emailSent, redirectUrl }.
  */
 export async function POST(request: Request) {
@@ -158,7 +158,8 @@ export async function POST(request: Request) {
     }
 
     console.log("[checkout/process] Order created successfully:", order.id)
-    await tagOrderSource(admin, order.id, orderSourceFromRequest(request))
+    const origin = originOf(body.origin, request)
+    await tagOrderSource(admin, order.id, channelOf(origin, orderSourceFromRequest(request)), origin)
 
     const step = async (name: string, fn: () => Promise<unknown>) => {
       try {

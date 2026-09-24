@@ -69,7 +69,8 @@ writeFileSync(file, `<!doctype html><html><head><meta charset="utf-8"><meta name
 const browser = await puppeteer.launch({ executablePath: CHROMIUM, args: ["--no-sandbox"], headless: true })
 const page = await browser.newPage()
 await page.emulate({ viewport: { width: 390, height: 844, deviceScaleFactor: 2, isMobile: true, hasTouch: true }, userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148" })
-await page.goto("file://" + file)
+/* SHEET_KB=1: the sheet as one with a field in it (aboveKeyboard). */
+await page.goto("file://" + file + (process.env.SHEET_KB ? "?kb" : ""))
 await new Promise((r) => setTimeout(r, 800))
 await page.evaluate(() => {
   window.__rec = []

@@ -6,10 +6,11 @@ import { createClient } from "@supabase/supabase-js"
 import { generateReceiptToken } from "@/lib/security"
 import { sendOrderEmails, triggerEmailFlows, sendPayoutStatusEmail, sendFirstPayoutEmail, sendBankUpdatedEmail, sendPayoutsPausedEmail, sendVerificationRequiredEmail, sendFirstSaleEmail, resolveSellerEmail, sendDisputeCreatedEmail, sendDisputeWonEmail, sendDisputeLostEmail } from "@/lib/email"
 import { v4 as uuidv4 } from "uuid"
-import { orderSourceFrom, tagOrderSource } from "@/lib/orders/order-source"
+import { orderOriginFrom, orderSourceFrom, tagOrderSource } from "@/lib/orders/order-source"
 import { fulfilPaymentIntent, isCheckoutIntent } from "@/lib/checkout/fulfil-payment"
 import { fulfilCartSession, isCartSession } from "@/lib/checkout/fulfil-cart-session"
 import { syncChargeRefund } from "@/lib/stripe/refund-sync"
+import { maskEmail } from "@/lib/privacy/mask-email"
 
 export const runtime = "nodejs"
 
@@ -372,7 +373,7 @@ export async function POST(request: Request) {
     }
 
     console.log("[Webhook] Order created:", order.id)
-    await tagOrderSource(supabaseAdmin, order.id, orderSourceFrom(metadata))
+    await tagOrderSource(supabaseAdmin, order.id, orderSourceFrom(metadata), orderOriginFrom(metadata))
 
     // ── Ledger: record sale earnings ──────────────────────────────────────
     if (creatorId && totalAmount > 0) {
@@ -993,7 +994,7 @@ export async function POST(request: Request) {
                   to: profile.email,
                   sellerName: profile.display_name || "Seller",
                 })
-                console.log("[Connect] Sent payouts paused email to:", profile.email)
+                console.log("[Connect] Sent payouts paused email to:", maskEmail(profile.email))
               }
 
               // Bank account updated email: check if external accounts changed
@@ -1009,7 +1010,7 @@ export async function POST(request: Request) {
                       bankName: bankAccount.bank_name || null,
                       bankLast4: bankAccount.last4,
                     })
-                    console.log("[Connect] Sent bank updated email to:", profile.email)
+                    console.log("[Connect] Sent bank updated email to:", maskEmail(profile.email))
                   }
                 }
               }
@@ -1027,7 +1028,7 @@ export async function POST(request: Request) {
                   requirements: allReqs,
                   isPastDue: pastDue.length > 0,
                 })
-                console.log("[Connect] Sent verification required email to:", profile.email)
+                console.log("[Connect] Sent verification required email to:", maskEmail(profile.email))
               }
             }
           }

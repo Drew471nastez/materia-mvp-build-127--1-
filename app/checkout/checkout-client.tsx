@@ -33,6 +33,7 @@ import { isNativeApp } from "@/lib/platform-utils"
 import { getProductUrl } from "@/lib/url-helpers"
 import { ReturnLink } from "@/components/navigation/return-link"
 import { trackFunnelStep } from "@/lib/analytics-utils"
+import { checkoutOrigin } from "@/lib/orders/checkout-origin-browser"
 import { EMPTY_BUSINESS, checkBusiness, type BusinessDetails } from "@/lib/checkout/business"
 import { CheckRow, ErrorBanner, Field, PayButton, SectionTitle, TextInput, money } from "./parts/ui"
 import { DiscountForm, LineItem, TipPicker, Totals, type SummaryVariant } from "./parts/order-summary"
@@ -292,6 +293,10 @@ export default function CheckoutPageClient({
       emailOptIn,
       agreedToTerms: agreed,
       business: businessOn ? business : null,
+      /* Which page sent the buyer here and where their visit came from, for
+         the order's Source (lib/orders/checkout-origin). Read when Pay is
+         pressed, when the page before this one is surely known. */
+      origin: checkoutOrigin(),
     }
   }
 

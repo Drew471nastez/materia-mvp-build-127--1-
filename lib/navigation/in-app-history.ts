@@ -85,6 +85,11 @@ export function previousPath(): string | null {
   return trail.length ? trail[trail.length - 1] : null
 }
 
+/** The paths behind the current one, oldest first, as far as this document knows. */
+export function recentPaths(): string[] {
+  return trail.slice(-5)
+}
+
 /**
  * True when `history.back()` would land on exactly `href`.
  *
@@ -115,6 +120,19 @@ export function canReturnTo(href: string): boolean {
   } catch {
     return false
   }
+}
+
+/**
+ * The query this document was loaded with. Read once, when this module is
+ * first evaluated, which is the root layout's tracker hydrating on the
+ * page the visit landed on: after a client navigation the address says
+ * where the visitor is now, and a link's utm tags were on where they came
+ * in. Memory only, gone with the tab. Read by lib/orders/checkout-origin.
+ */
+const landing = typeof window !== "undefined" ? window.location.search : ""
+
+export function landingSearch(): string {
+  return landing
 }
 
 /** For tests and probes: what the count is now. */

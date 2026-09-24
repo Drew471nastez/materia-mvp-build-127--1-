@@ -4534,63 +4534,34 @@ html.pop-in-flight #platform-header-root {
   display: none;
 }
 
-/* An order slides in over the list. On a phone it is a push from the right
-   edge, like any other page on the phone; wider, a short slide and fade.
-   Keyframes rather than a transition: see the note in orders-client.tsx. */
-@keyframes orders-push-in {
-  from { transform: translate3d(100%, 0, 0); box-shadow: -12px 0 32px rgba(17, 24, 39, 0.08); }
-  to { transform: translate3d(0, 0, 0); box-shadow: -12px 0 32px rgba(17, 24, 39, 0); }
+/* An order over the list. Its bar is drawn at full strength on the first
+   frame; only the cards under it fade in, 120ms, opacity alone. `backwards`,
+   not `both`: an opacity animation still in effect after it ends keeps a
+   stacking context, and the cards' menus must be free to rise out of it
+   (see .app-page-enter). Stepping to the previous or next order draws the
+   next one's cards the same way, as the body is keyed by the order. */
+@keyframes orders-body-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
-@keyframes orders-push-out {
-  from { transform: translate3d(0, 0, 0); box-shadow: -12px 0 32px rgba(17, 24, 39, 0); }
-  to { transform: translate3d(100%, 0, 0); box-shadow: -12px 0 32px rgba(17, 24, 39, 0.08); }
-}
-@keyframes orders-fade-in {
-  from { transform: translate3d(24px, 0, 0); opacity: 0; }
-  to { transform: translate3d(0, 0, 0); opacity: 1; }
-}
-@keyframes orders-fade-out {
-  from { transform: translate3d(0, 0, 0); opacity: 1; }
-  to { transform: translate3d(24px, 0, 0); opacity: 0; }
-}
-.orders-detail[data-stage="entering"] {
-  animation: orders-push-in 320ms cubic-bezier(0.32, 0.72, 0, 1) both;
-}
-.orders-detail[data-stage="closing"] {
-  animation: orders-push-out 280ms cubic-bezier(0.32, 0.72, 0, 1) both;
-  pointer-events: none;
-}
-@media (min-width: 768px) {
-  .orders-detail[data-stage="entering"] {
-    animation: orders-fade-in 240ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
-  }
-  .orders-detail[data-stage="closing"] {
-    animation: orders-fade-out 200ms ease-in both;
-  }
-}
-/* Stepping to the previous or next order from inside one. The page does not
-   slide again, only its contents: the next order comes in a few pixels from
-   the side it lies on, quickly, so the change is seen as well as read. The
-   title bar is inside it, so the number changes with the rest. */
-@keyframes orders-step-next {
-  from { transform: translate3d(12px, 0, 0); opacity: 0.25; }
-  to { transform: translate3d(0, 0, 0); opacity: 1; }
-}
-@keyframes orders-step-previous {
-  from { transform: translate3d(-12px, 0, 0); opacity: 0.25; }
-  to { transform: translate3d(0, 0, 0); opacity: 1; }
-}
-.orders-step[data-dir="next"] {
-  animation: orders-step-next 180ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
-}
-.orders-step[data-dir="previous"] {
-  animation: orders-step-previous 180ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+.orders-body {
+  animation: orders-body-in 120ms ease-out backwards;
 }
 @media (prefers-reduced-motion: reduce) {
-  .orders-detail[data-stage],
-  .orders-step[data-dir] {
+  .orders-body {
     animation: none;
   }
+}
+
+/* The top bar of the list and of an order (PaneBar in
+   app/app/orders/order-parts.tsx): flat at the top of the pane, and a
+   hairline with a very soft shadow once something has scrolled under it. */
+.orders-bar {
+  box-shadow: 0 1px 0 rgba(17, 24, 39, 0);
+  transition: box-shadow 120ms ease-out;
+}
+.orders-bar[data-scrolled="true"] {
+  box-shadow: 0 1px 0 rgba(17, 24, 39, 0.07), 0 4px 10px -8px rgba(17, 24, 39, 0.16);
 }
 
 /* A report card's list scrolls inside the card, which keeps every card the

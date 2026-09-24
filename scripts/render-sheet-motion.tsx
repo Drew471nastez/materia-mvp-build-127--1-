@@ -45,7 +45,8 @@ function Harness() {
       <div data-app-nav-pill="" id="pill" style={{ position: "fixed", left: 0, right: 0, bottom: 0, display: "flex", justifyContent: "center", pointerEvents: "none" }}>
         <div style={{ pointerEvents: "auto", width: 256, height: 56, marginBottom: 16, borderRadius: 999, background: "#000" }} />
       </div>
-      <BottomSheet isOpen={open} onClose={() => setOpen(false)} label="Account">
+      {/* `?kb`: the same sheet asked to sit on the keyboard, which a sheet with a field is. */}
+      <BottomSheet isOpen={open} onClose={() => setOpen(false)} label="Account" aboveKeyboard={new URLSearchParams(location.search).has("kb")}>
         <div style={{ padding: 12 }}>
           {["Settings", "Billing", "Help", "Explore", "Library", "Language", "Logout"].map((l) => (
             <SlowRow key={l} label={l} />

@@ -56,6 +56,7 @@ export function toOrderRow(order: any, product: CreatorProduct | undefined): Ord
     buyer_email_last_error: order.buyer_email_last_error ?? null,
     variant_name: order.variant_name ?? null,
     source: order.source ?? null,
+    source_detail: order.source_detail ?? null,
     product: product ? { id: product.id, title: product.title, type: product.type, thumbnail_url: product.thumbnail_url } : null,
   }
 }

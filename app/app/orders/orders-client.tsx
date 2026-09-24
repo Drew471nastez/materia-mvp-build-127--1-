@@ -10,8 +10,16 @@
  * An order's page is not a second route. A route change unmounts the list,
  * and everything that makes "where I left it" true goes with it: how far down
  * the page was, how far the table was swiped sideways, what was ticked. So
- * the list stays mounted and the order slides in over it, in its own scroll
- * container, and closing it slides it away again from a list nobody touched.
+ * the list stays mounted and the order is drawn over it, in its own scroll
+ * container, and closing it shows again a list nobody touched.
+ *
+ * NO SLIDE. The order used to slide in (320ms on a phone, a 240ms slide and
+ * fade wider) with its top bar inside the moving layer, so the bar arrived
+ * late and drifted into place: "too smooth and flowy", "the top bar takes
+ * long and glitchy to load". Now the order and its bar are there on the
+ * first frame after the click, and only the cards under the bar fade in,
+ * over 120ms (.orders-body in globals.css). Back is immediate: the list was
+ * never unmounted, so it is where it was, filters and scroll and all.
  *
  * The address still says which order is open (`?order=`), pushed as a real
  * history entry: the browser's back button, the Android back gesture and a
@@ -49,6 +57,7 @@ import { writePeriod } from "@/lib/date-range/params"
 import { OrderDetail, type OrderAction } from "./order-detail"
 import { formatMoney } from "./order-parts"
 import { saveFile, savedMessage } from "@/lib/platform/save-file"
+import { cn } from "@/lib/utils"
 
 /** What every change on this page is measured against. */
 const PREVIOUS_PERIOD: CompareValue = { mode: "previous_period" }
@@ -62,21 +71,6 @@ interface OrdersClientProps {
   initialRange: string | null
   timeZone: string
   now: number
-}
-
-type Stage = "closed" | "entering" | "open" | "closing"
-
-/**
- * The slide in globals.css (.orders-detail) takes 320ms at most. The stage
- * moves on when the animation says it has ended; this is only the net under
- * that, for an animation that never runs (a hidden tab, a style not loaded).
- */
-const SLIDE_MS = 330
-const SLIDE_NET_MS = SLIDE_MS + 120
-
-/** Asked each time, so changing the setting applies without a reload. */
-function prefersReducedMotion(): boolean {
-  return typeof window !== "undefined" && Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)").matches)
 }
 
 /** What an action on an order sends back about each row's receipt email. */
@@ -106,6 +100,28 @@ function writeAddress(mutate: (p: URLSearchParams) => void, mode: "push" | "repl
   else window.history.replaceState(null, "", url)
 }
 
+/**
+ * A callback whose identity never changes and which always runs the latest
+ * version of `fn`, so the list below can skip rendering when nothing it
+ * shows has changed.
+ */
+function useStable<A extends unknown[], R>(fn: (...args: A) => R): (...args: A) => R {
+  const ref = React.useRef(fn)
+  React.useLayoutEffect(() => {
+    ref.current = fn
+  })
+  return React.useCallback((...args: A) => ref.current(...args), [])
+}
+
+/**
+ * THE LIST DOES NOT RENDER WHEN AN ORDER OPENS. Opening one changes only
+ * `?order=`, and the list, fifty rows and five sparklines, was drawn again
+ * for it in the same task as the order: the frame with the order's bar on
+ * it waited for a list nobody could see. Every prop it takes is kept the
+ * same object while what it shows is the same, and it is memoised.
+ */
+const OrdersListMemo = React.memo(OrdersList)
+
 function findOrder(orders: Order[], id: string | null): Order | null {
   if (!id) return null
   return orders.find((o) => o.id === id) ?? orders.find((o) => o.lines.some((l) => l.id === id)) ?? null
@@ -132,7 +148,13 @@ export function OrdersClient(props: OrdersClientProps) {
   }, [props.timeZone])
 
   /* ── The address is the state ───────────────────────────────────────── */
-  const query = queryFromParams(searchParams)
+  /* The list's part of it: everything but the open order. */
+  const listAddress = React.useMemo(() => {
+    const p = new URLSearchParams(searchParams.toString())
+    p.delete("order")
+    return p.toString()
+  }, [searchParams])
+  const query = React.useMemo(() => queryFromParams(new URLSearchParams(listAddress)), [listAddress])
   /*
     THE PERIOD AND ITS COMPARISON: the same picker every page in /app has.
     The address first (a shared link), then what this creator chose last
@@ -144,8 +166,8 @@ export function OrdersClient(props: OrdersClientProps) {
   const firstDay = firstDayOf(earliest, timeZone)
   const today = todayIn(timeZone, now)
   const { period } = React.useMemo(
-    () => readOrdersPeriod(new URLSearchParams(searchParams.toString()), remembered, today, firstDay),
-    [searchParams, remembered, today, firstDay],
+    () => readOrdersPeriod(new URLSearchParams(listAddress), remembered, today, firstDay),
+    [listAddress, remembered, today, firstDay],
   )
   /*
     ALWAYS THE PERIOD JUST BEFORE. There is no comparison control on this
@@ -158,7 +180,7 @@ export function OrdersClient(props: OrdersClientProps) {
 
   const [searchText, setSearchText] = React.useState(query.q)
   const searchTimer = React.useRef<number | undefined>(undefined)
-  const onSearchText = (q: string) => {
+  const onSearchText = useStable((q: string) => {
     setSearchText(q)
     window.clearTimeout(searchTimer.current)
     searchTimer.current = window.setTimeout(() => {
@@ -168,10 +190,10 @@ export function OrdersClient(props: OrdersClientProps) {
         next.forEach((v, k) => p.set(k, v))
       }, "replace")
     }, 250)
-  }
+  })
   React.useEffect(() => () => window.clearTimeout(searchTimer.current), [])
 
-  const onQuery = (next: Partial<ListQuery>) => {
+  const onQuery = useStable((next: Partial<ListQuery>) => {
     writeAddress((p) => {
       const merged = paramsFromQuery({ ...queryFromParams(p), q: searchText, ...next }, p)
       p.forEach((_, k) => p.delete(k))
@@ -180,7 +202,7 @@ export function OrdersClient(props: OrdersClientProps) {
     if (next.q !== undefined) setSearchText(next.q)
     if (next.view !== undefined || next.source !== undefined || next.product !== undefined) setSelected(new Set())
     if (next.page !== undefined) listRef.current?.scrollTo({ top: 0 })
-  }
+  })
 
   const remember = (p: RangeValue, c: CompareValue) => {
     const value = serializePeriod(p, c)
@@ -191,7 +213,7 @@ export function OrdersClient(props: OrdersClientProps) {
         : `${RANGE_COOKIE}=; path=/; max-age=0; samesite=lax`
     }
   }
-  const onRange = (v: RangeValue) => {
+  const onRange = useStable((v: RangeValue) => {
     remember(v, compare)
     writeAddress((params) => {
       params.delete("period")
@@ -200,7 +222,7 @@ export function OrdersClient(props: OrdersClientProps) {
     }, "replace")
     setSelected(new Set())
     listRef.current?.scrollTo({ top: 0 })
-  }
+  })
 
   /* ── What the list shows ────────────────────────────────────────────── */
   const span = React.useMemo(
@@ -213,12 +235,13 @@ export function OrdersClient(props: OrdersClientProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [orders, query.view, query.source, query.product, query.sort, searchText, span],
   )
-  const page = pageOf(filtered, query.page)
+  const page = React.useMemo(() => pageOf(filtered, query.page), [filtered, query.page])
+  const listQuery = React.useMemo(() => ({ ...query, q: searchText }), [query, searchText])
   const metrics = React.useMemo(() => readMetrics(orders, span, span.previous, timeZone), [orders, span, timeZone])
 
   /* ── Columns, remembered in a cookie so the server draws the same table ─ */
   const [hidden, setHidden] = React.useState(() => new Set(props.hiddenColumns))
-  const onToggleColumn = (key: ColumnKey) => {
+  const onToggleColumn = useStable((key: ColumnKey) => {
     setHidden((prev) => {
       const next = new Set(prev)
       if (next.has(key)) next.delete(key)
@@ -227,11 +250,11 @@ export function OrdersClient(props: OrdersClientProps) {
       if (hasConsent("preferences")) document.cookie = `${COLUMNS_COOKIE}=${[...next].join(".")}; path=/; max-age=31536000; samesite=lax`
       return next
     })
-  }
+  })
 
   /* ── Selection ──────────────────────────────────────────────────────── */
   const [selected, setSelected] = React.useState<Set<string>>(() => new Set())
-  const onSelect = (ids: string[], on: boolean) =>
+  const onSelect = useStable((ids: string[], on: boolean) =>
     setSelected((prev) => {
       const next = new Set(prev)
       for (const id of ids) {
@@ -239,71 +262,18 @@ export function OrdersClient(props: OrdersClientProps) {
         else next.delete(id)
       }
       return next
-    })
+    }),
+  )
 
   /* ── The order over the list ────────────────────────────────────────── */
-  const target = findOrder(orders, openId)
-  const [shown, setShown] = React.useState<Order | null>(target)
-  const [stage, setStage] = React.useState<Stage>(target ? "open" : "closed")
+  const shown = findOrder(orders, openId)
   const pushed = React.useRef(false)
   const listRef = React.useRef<HTMLDivElement>(null)
   const detailRef = React.useRef<HTMLDivElement>(null)
-
-  /* The order the last step went to, and from which side, so that order
-     (and only that one, not the one being left) plays the step in. */
-  const [step, setStep] = React.useState<{ id: string; dir: "previous" | "next" } | null>(null)
-  const stageRef = React.useRef(stage)
-  React.useLayoutEffect(() => {
-    stageRef.current = stage
-  }, [stage])
-
-  /* The slide is a CSS animation (.orders-detail in globals.css), not a
-     transition between two states. A transition needs the page to be drawn
-     once in its starting place before it moves, and on a phone the tap
-     arrives in step with the frame, so the starting place was never drawn:
-     measured, the order simply appeared. An animation starts when the
-     element does, and says when it has ended (onAnimationEnd below). With
-     reduced motion asked for there is no slide, and no wait for one. */
-  React.useEffect(() => {
-    if (target) {
-      setShown(target)
-      if (stage === "closed" || stage === "closing") {
-        if (prefersReducedMotion()) {
-          setStage("open")
-          return
-        }
-        setStage("entering")
-        const net = window.setTimeout(() => setStage((s) => (s === "entering" ? "open" : s)), SLIDE_NET_MS)
-        return () => window.clearTimeout(net)
-      }
-      return
-    }
-    if (stage === "open" || stage === "entering") {
-      pushed.current = false
-      if (prefersReducedMotion()) {
-        setStage("closed")
-        setShown(null)
-        return
-      }
-      setStage("closing")
-      const net = window.setTimeout(finishClosing, SLIDE_NET_MS)
-      return () => window.clearTimeout(net)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [target?.id])
-
-  function finishClosing() {
-    if (stageRef.current !== "closing") return
-    setStage("closed")
-    setShown(null)
-    setStep(null)
-  }
-
-  const onSlideEnd = (e: React.AnimationEvent<HTMLDivElement>) => {
-    if (e.target !== e.currentTarget) return
-    if (stage === "entering") setStage("open")
-    else if (stage === "closing") finishClosing()
-  }
+  /* Opened straight onto an order (a link, a reload): the page does not fade
+     in as a whole, so its bar is at full strength on the first frame, the
+     same as the skeleton's before it (./order-skeleton). */
+  const [openedOnOrder] = React.useState(() => shown !== null)
 
   /* Each order starts at its top, before it is drawn: after the paint, the
      next order showed for a frame at the last one's scroll position. */
@@ -313,14 +283,17 @@ export function OrdersClient(props: OrdersClientProps) {
 
   /* An address naming an order that is not this creator's, or not there. */
   React.useEffect(() => {
-    if (openId && !target) writeAddress((p) => p.delete("order"), "replace")
-  }, [openId, target])
+    if (openId && !shown) writeAddress((p) => p.delete("order"), "replace")
+  }, [openId, shown])
+  /* Closed by the browser's own back: nothing of ours pushed an entry now. */
+  React.useEffect(() => {
+    if (!openId) pushed.current = false
+  }, [openId])
 
-  const onOpen = (id: string) => {
-    setStep(null)
+  const onOpen = useStable((id: string) => {
     pushed.current = true
     writeAddress((p) => p.set("order", id), "push")
-  }
+  })
   const onBack = () => {
     if (pushed.current) window.history.back()
     else writeAddress((p) => p.delete("order"), "replace")
@@ -329,7 +302,6 @@ export function OrdersClient(props: OrdersClientProps) {
   const onStep = (dir: -1 | 1) => {
     const next = filtered[at + dir]
     if (!next) return
-    setStep({ id: next.id, dir: dir < 0 ? "previous" : "next" })
     writeAddress((p) => p.set("order", next.id), "replace")
   }
 
@@ -425,13 +397,13 @@ export function OrdersClient(props: OrdersClientProps) {
 
   /* Export opens the dialog; which orders and which file are chosen there. */
   const [exporting, setExporting] = React.useState(false)
-  const onExport = () => setExporting(true)
+  const onExport = useStable(() => setExporting(true))
   const filtering = Boolean(searchText.trim()) || query.source !== "any" || Boolean(query.product) || query.view !== "all"
 
-  const listCovered = stage === "open"
+  const listCovered = shown !== null
 
   return (
-    <div className="orders-stage app-page-enter relative h-full overflow-hidden bg-[#f8f9fa]">
+    <div className={cn("orders-stage relative h-full overflow-hidden bg-[#f8f9fa]", !openedOnOrder && "app-page-enter")}>
       <div
         ref={listRef}
         className="orders-pane page-scroll absolute inset-0 overflow-y-auto overflow-x-hidden"
@@ -439,12 +411,12 @@ export function OrdersClient(props: OrdersClientProps) {
         aria-hidden={listCovered || undefined}
         style={{ visibility: listCovered ? "hidden" : undefined }}
       >
-        <OrdersList
+        <OrdersListMemo
           allOrders={orders}
           pageOrders={page.items}
           matching={filtered.length}
           range={page}
-          query={{ ...query, q: searchText }}
+          query={listQuery}
           onQuery={onQuery}
           searchText={searchText}
           onSearchText={onSearchText}
@@ -471,26 +443,20 @@ export function OrdersClient(props: OrdersClientProps) {
         <div
           ref={detailRef}
           className="orders-pane orders-detail page-scroll absolute inset-0 overflow-y-auto overflow-x-hidden bg-[#f8f9fa]"
-          data-stage={stage}
-          onAnimationEnd={onSlideEnd}
           role="region"
           aria-label={`Order ${shown.number}`}
         >
-          {/* Keyed by the order, so a step to the next one draws it fresh
-              (its menus and dialogs closed) and plays the short step in. */}
-          <div key={shown.id} className="orders-step" data-dir={step?.id === shown.id ? step.dir : undefined}>
-            <OrderDetail
-              order={orders.find((o) => o.id === shown.id) ?? shown}
-              timeZone={timeZone}
-              now={now}
-              onBack={onBack}
-              onStep={at >= 0 ? onStep : null}
-              canStep={{ previous: at > 0, next: at >= 0 && at < filtered.length - 1 }}
-              position={at >= 0 ? { index: at, count: filtered.length } : null}
-              onAction={onAction}
-              onNotice={onNotice}
-            />
-          </div>
+          <OrderDetail
+            order={shown}
+            timeZone={timeZone}
+            now={now}
+            onBack={onBack}
+            onStep={at >= 0 ? onStep : null}
+            canStep={{ previous: at > 0, next: at >= 0 && at < filtered.length - 1 }}
+            position={at >= 0 ? { index: at, count: filtered.length } : null}
+            onAction={onAction}
+            onNotice={onNotice}
+          />
         </div>
       ) : null}
 
