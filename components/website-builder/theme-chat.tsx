@@ -2550,7 +2550,7 @@ function ThemeChatPanel({
             <div
               ref={surfaceRef}
               data-ask-surface=""
-              className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-[30px] border border-white/80 bg-white/[0.86] shadow-[0_32px_80px_-28px_rgba(15,23,42,0.38),0_10px_28px_-14px_rgba(15,23,42,0.18)] ring-1 ring-black/[0.06] backdrop-blur-2xl backdrop-saturate-150"
+              className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-[30px] border border-white/80 bg-white/[0.97] shadow-[0_32px_80px_-28px_rgba(15,23,42,0.38),0_10px_28px_-14px_rgba(15,23,42,0.18)] ring-1 ring-black/[0.06] backdrop-blur-2xl backdrop-saturate-150"
             >
               {dropTarget}
               <div ref={contentRef} className="flex min-h-0 flex-1 flex-col">
