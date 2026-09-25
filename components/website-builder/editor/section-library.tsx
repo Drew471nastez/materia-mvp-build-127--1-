@@ -13,7 +13,9 @@
  * And then: "one section per row, not 2 per row", "it should not show at the
  * end 'after (whatever)'", "'Created by you' should be called 'Created'", and
  * "when I switch between the category pills of the sections, there should be
- * no flash and no glitch in the preview cards".
+ * no flash and no glitch in the preview cards". And a short section (the
+ * "My banner" preview) should not sit at the top of a tall fixed frame over
+ * a large empty area: each card is its section's height.
  *
  * One library, in two shells:
  *
@@ -36,11 +38,13 @@
  *   A PREVIEW IS MARKUP. Each section is drawn once by the real renderer,
  *   with the real theme, and from then on its card is that markup (1:1 with
  *   the section, because it IS the section's output). Drawn off screen, in
- *   idle time after the editor has settled, one section per idle slice, so
- *   by the time anybody opens the library every preview is ready and opening
- *   it builds nothing. A card that is shown before its preview is ready
- *   holds a quiet grey box of the final size, and the preview fades in over
- *   it once, when it lands in front of somebody: nothing moves.
+ *   idle time after the editor has settled, one section per idle slice, and
+ *   measured once in the slice after, so by the time anybody opens the
+ *   library every preview is ready, at its section's height, and opening it
+ *   builds nothing. A card that is shown before its preview is ready holds
+ *   a quiet grey box as tall as a card can be, and the preview fades in over
+ *   it once, when it lands in front of somebody: nothing moves, and the card
+ *   takes its section's height only where nobody can see it change.
  *
  *   A CATEGORY IS A FILTER, NOT A NEW LIST. Every card is built once and
  *   kept; choosing a category shows some and hides the rest. Nothing is
@@ -81,7 +85,7 @@ import SectionRenderer from "@/components/website-builder/sections/SectionRender
 import { StorelibLiveProvider } from "@/components/website-builder/sections/storelib-live"
 import { SECTION_CATEGORIES, SECTION_CATEGORY_ORDER } from "@/lib/website-builder/section-schemas"
 import { CUSTOM_SECTION_CATEGORY } from "@/lib/website-builder/storelib-schemas"
-import { lazyImages, previewKey, splitStyles } from "@/lib/website-builder/preview-markup"
+import { lazyImages, previewCardHeight, previewCentered, previewKey, splitStyles } from "@/lib/website-builder/preview-markup"
 import type { SectionInstance, SectionSchema, ThemeSettingsValues } from "@/lib/website-builder/types"
 
 /* ── What a preview is drawn at ────────────────────────────────────────── */
@@ -126,19 +130,24 @@ export function buildPreviewSection(type: string, presetIndex: number, schema: S
 }
 
 
-/* The styles taken out of each preview (lib/website-builder/preview-markup.ts), in one sheet of the library's own. */
-let styleSheet: HTMLStyleElement | null = null
+/* The styles taken out of each preview (lib/website-builder/preview-markup.ts), in sheets of the library's own. */
 const styleQueue: string[] = []
 const addStyles = (css: string[]) => { styleQueue.push(...css) }
-/** One write to the sheet per idle slice, however many previews it drew. */
+/**
+ * ONE SMALL SHEET PER IDLE MOMENT THAT HAS STYLES TO ADD, NEVER A BIGGER ONE.
+ * They used to go on the end of a single sheet, and a sheet that is written
+ * to is read again from its first line and every rule in it checked against
+ * the page again: by the last preview that was 22 to 37ms a write on a
+ * computer at a quarter speed, and the measuring after it paid for the
+ * check. A sheet added after the others costs its own rules and nothing
+ * else (measured: 643ms of writes over the warm-up became 81ms).
+ */
 function flushStyles() {
   if (!styleQueue.length || typeof document === "undefined") return
-  if (!styleSheet) {
-    styleSheet = document.createElement("style")
-    styleSheet.setAttribute("data-section-preview-styles", "")
-    document.head.appendChild(styleSheet)
-  }
-  styleSheet.appendChild(document.createTextNode(styleQueue.splice(0).join("\n")))
+  const sheet = document.createElement("style")
+  sheet.setAttribute("data-section-preview-styles", "")
+  sheet.textContent = styleQueue.splice(0).join("\n")
+  document.head.appendChild(sheet)
 }
 
 /* ── The preview store ─────────────────────────────────────────────────── */
@@ -151,6 +160,14 @@ function flushStyles() {
  * opening, a category, and a search cost nothing.
  */
 const MARKUP = new Map<string, string>()
+/**
+ * AND HOW TALL EACH ONE IS, measured once, just after it is drawn, at the
+ * width it was drawn at: so a card knows its section's height before it is
+ * ever built, and is that tall from its first frame (see previewCardHeight).
+ */
+const HEIGHTS = new Map<string, number>()
+/** Counts every batch of heights, for what has to be worked out again when they change (the eager cards). */
+let heightsVersion = 0
 const listeners = new Set<() => void>()
 const notify = () => {
   for (const l of listeners) l()
@@ -172,6 +189,13 @@ interface Job {
 
 const queue: Job[] = []
 const queued = new Set<string>()
+/**
+ * Drawn, and waiting to be measured, in the order they were drawn. A card is
+ * handed its preview and its height together, when both are known, so it
+ * never shows a preview at a height it is about to lose.
+ */
+const unmeasured: { key: string; html: string; width: number }[] = []
+const pending = new Set<string>()
 let host: HTMLDivElement | null = null
 let root: Root | null = null
 let running = false
@@ -219,40 +243,112 @@ function drawOne(job: Job): string {
   return lazyImages(split.html)
 }
 
+/**
+ * ===========================================================================
+ *  A PREVIEW IS MEASURED WHERE IT CAN BE, ONCE
+ * ===========================================================================
+ * The drawing root is not in the document (see drawOne), so nothing drawn
+ * there has a height. The markup is put, once, into a ruler that is: out of
+ * sight far to the left, as wide as the preview is drawn, with the
+ * previews' own styles already in the document, and its height read. The
+ * same markup in the same width is the same height in the card, where the
+ * section is laid out at that width and only scaled afterwards.
+ *
+ * `contain: layout paint` keeps the ruler to itself: nothing around it is
+ * laid out again for it, and a section's fixed layer, a menu say, measures
+ * inside it rather than against the window, as it does in a card, whose
+ * scale is a transform. Fixed, so a tall section does not make the page
+ * longer for the moment it is in there.
+ */
+let ruler: HTMLDivElement | null = null
+function measureOne(html: string, width: number): number {
+  if (!html || typeof document === "undefined") return 0
+  if (!ruler || !ruler.isConnected) {
+    ruler = document.createElement("div")
+    ruler.setAttribute("aria-hidden", "true")
+    ruler.setAttribute("data-section-preview-ruler", "")
+    ruler.style.cssText = "position:fixed;left:-100000px;top:0;visibility:hidden;pointer-events:none;contain:layout paint"
+    document.body.appendChild(ruler)
+  }
+  ruler.style.width = `${width}px`
+  ruler.innerHTML = html
+  const height = ruler.getBoundingClientRect().height
+  ruler.textContent = ""
+  return Math.ceil(height)
+}
+
 const idle = (cb: (deadline: { timeRemaining: () => number }) => void) => {
   const w = typeof window !== "undefined" ? (window as unknown as { requestIdleCallback?: (cb: (d: { timeRemaining: () => number }) => void, o?: { timeout: number }) => number }) : undefined
   if (w?.requestIdleCallback) w.requestIdleCallback(cb, { timeout: 400 })
   else setTimeout(() => cb({ timeRemaining: () => 8 }), 16)
 }
 
-/** One section per slice, while the browser says it has time; the next slice waits for the next idle moment. */
+/** Another measurement only while the idle moment has at least this much of itself left. */
+const MEASURE_ROOM_MS = 30
+
+/**
+ * ===========================================================================
+ *  ONE KIND OF WORK PER IDLE MOMENT, AND NO MORE THAN IT HAS ROOM FOR
+ * ===========================================================================
+ * Drawing a preview is script; measuring one is the browser laying a whole
+ * section out. Both in the one slice, with the styles written to a single
+ * growing sheet (see flushStyles), made nearly every slice a long task: at
+ * a quarter speed, the 5 or 6 long tasks the previews used to be drawn in
+ * became 40 on a computer, and 2 or 3 became 42 on a phone, and a tap that
+ * lands in a long task waits for it. So a slice either measures what the
+ * slices before it drew or draws more, one at least, and stops at its
+ * deadline either way. Measuring goes first, so what is drawn reaches its
+ * card before more is drawn.
+ *
+ * Measured the same way now: 4 on the computer and 2 on the phone, fewer
+ * than drawing alone took before anything was measured, since the sheets
+ * are small now as well.
+ */
 function pump() {
   if (running) return
   running = true
   idle((deadline) => {
     running = false
-    let drew = 0
-    do {
-      const job = queue.shift()
-      if (!job) break
-      queued.delete(job.key)
-      if (MARKUP.has(job.key)) continue
-      try {
-        MARKUP.set(job.key, drawOne(job))
-      } catch {
-        MARKUP.set(job.key, "")
-      }
-      drew++
-    } while (queue.length && deadline.timeRemaining() > 12)
-    flushStyles()
-    if (drew) notify()
-    if (queue.length) pump()
+    if (unmeasured.length) {
+      /* After the styles are in, so each is measured as it will look. */
+      flushStyles()
+      do {
+        const next = unmeasured.shift()!
+        let height = 0
+        try {
+          height = measureOne(next.html, next.width)
+        } catch {
+          height = 0
+        }
+        HEIGHTS.set(next.key, height)
+        MARKUP.set(next.key, next.html)
+        pending.delete(next.key)
+      } while (unmeasured.length && deadline.timeRemaining() > MEASURE_ROOM_MS)
+      heightsVersion++
+      notify()
+    } else {
+      do {
+        const job = queue.shift()
+        if (!job) break
+        queued.delete(job.key)
+        if (MARKUP.has(job.key) || pending.has(job.key)) continue
+        let html = ""
+        try {
+          html = drawOne(job)
+        } catch {
+          html = ""
+        }
+        pending.add(job.key)
+        unmeasured.push({ key: job.key, html, width: job.width })
+      } while (queue.length && deadline.timeRemaining() > 12)
+    }
+    if (queue.length || unmeasured.length) pump()
   })
 }
 
-/** Ask for previews; the first in the list first. Already drawn or already asked for: nothing. */
+/** Ask for previews; the first in the list first. Already drawn, being drawn or already asked for: nothing. */
 export function requestPreviews(jobs: Job[], front = false) {
-  const fresh = jobs.filter((j) => !MARKUP.has(j.key) && !queued.has(j.key))
+  const fresh = jobs.filter((j) => !MARKUP.has(j.key) && !queued.has(j.key) && !pending.has(j.key))
   for (const j of fresh) queued.add(j.key)
   if (front) queue.unshift(...fresh)
   else queue.push(...fresh)
@@ -264,7 +360,15 @@ function useMarkup(key: string): string | undefined {
   return useSyncExternalStore(subscribe, () => MARKUP.get(key), () => undefined)
 }
 
+/** The section's own height as drawn, in the width it was drawn at; undefined until it has been. */
+function useDrawnHeight(key: string): number | undefined {
+  return useSyncExternalStore(subscribe, () => HEIGHTS.get(key), () => undefined)
+}
+
 /* ── A card ────────────────────────────────────────────────────────────── */
+
+/** A section under the floor, in the middle of its card (see previewCentered). */
+const IN_THE_MIDDLE: CSSProperties = { display: "flex", flexDirection: "column", justifyContent: "center" }
 
 /** A preview that lands in front of somebody comes in over the grey, once. */
 const ARRIVE_MS = 220
@@ -289,6 +393,84 @@ function reducedMotion(): boolean {
   } catch {
     return false
   }
+}
+
+/**
+ * ===========================================================================
+ *  A CARD NEVER GETS SHORTER WHILE SOMEBODY CAN SEE IT
+ * ===========================================================================
+ * A card is as tall as its section (previewCardHeight), and that is known
+ * the moment the preview is drawn, which is nearly always long before the
+ * card is built: so nearly every card is its own height from its first
+ * frame. Until then it is as tall as a card can be, a grey box of the crop's
+ * height, because most sections are at least that tall.
+ *
+ * A library opened before its previews were drawn has such boxes on screen,
+ * and a preview landing in one used to be free to take the card down to its
+ * section's height in front of whoever was reading: every card under it
+ * jumping up the list. So a card that would get shorter where it can be
+ * seen keeps its height, the section on white to its foot, until nobody can
+ * see it change: the next time a category or a search is chosen (a new
+ * list, drawn from its top), or the next time the library opens. A card
+ * ABOVE what can be seen is held as well, because shortening it moves
+ * everything under it, and iOS Safari has no scroll anchoring to put the
+ * list back. A card below the fold, in a hidden category or in a closed
+ * library takes its height at once.
+ */
+interface HeldCard {
+  box: HTMLElement
+  take: () => void
+}
+const heldCards = new Set<HeldCard>()
+
+/** Where a change in this box's height would move something somebody can see. */
+function inSight(box: HTMLElement): boolean {
+  const check = (box as HTMLElement & { checkVisibility?: (o?: Record<string, boolean>) => boolean }).checkVisibility
+  if (typeof check === "function" && !check.call(box, { visibilityProperty: true, opacityProperty: true })) return false
+  if (box.getClientRects().length === 0) return false
+  const list = box.closest("[data-library-scroll]")
+  if (!list) return true
+  return box.getBoundingClientRect().top < list.getBoundingClientRect().bottom
+}
+
+/** The held cards take their own height: all of them, or the ones nobody can see any more. */
+function releaseHeld(all: boolean) {
+  for (const held of [...heldCards]) {
+    if (all || !held.box.isConnected || !inSight(held.box)) {
+      heldCards.delete(held)
+      held.take()
+    }
+  }
+}
+
+/**
+ * The height a card is drawn at: `wanted` (see previewCardHeight), except
+ * that it is never made shorter where somebody can see it (above). A card
+ * whose section is not measured yet keeps what it has, so a creator's
+ * section drawn again does not grow its card to the crop and back.
+ */
+function useSteadyHeight(boxRef: React.RefObject<HTMLDivElement | null>, wanted: number, width: number, known: boolean): number {
+  const [kept, setKept] = useState(() => ({ height: wanted, width }))
+  useLayoutEffect(() => {
+    /* A new width is a new layout: everything is its new size at once. */
+    if (kept.width !== width) {
+      setKept({ height: wanted, width })
+      return
+    }
+    if (kept.height === wanted || !known) return
+    const take = () => setKept({ height: wanted, width })
+    const box = boxRef.current
+    if (wanted > kept.height || !box || !inSight(box)) {
+      take()
+      return
+    }
+    const held: HeldCard = { box, take }
+    heldCards.add(held)
+    return () => {
+      heldCards.delete(held)
+    }
+  }, [boxRef, wanted, width, known, kept])
+  return kept.width === width ? kept.height : wanted
 }
 
 const PreviewBox = memo(function PreviewBox({
@@ -345,22 +527,28 @@ const PreviewBox = memo(function PreviewBox({
     if (reducedMotion() || typeof el.animate !== "function" || !inFrontOfSomebody(el)) return
     el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: ARRIVE_MS, easing: ARRIVE_EASE })
   }, [html])
-  const height = Math.round(width * ratio)
+  /* As tall as its section, between a floor and the crop, and never shorter in front of somebody. */
+  const boxRef = useRef<HTMLDivElement | null>(null)
+  const drawn = useDrawnHeight(markupKey)
+  const height = useSteadyHeight(boxRef, previewCardHeight(drawn, width, renderWidth, ratio), width, drawn !== undefined)
   const scale = width > 0 ? width / renderWidth : 0.3
+  const centered = previewCentered(drawn, width, renderWidth, height)
   const inner: CSSProperties = {
     width: renderWidth,
-    /* A section shorter than its card sits on white to the card's foot, like a page. */
+    /* A section shorter than its card sits on white to the card's foot: in the middle of it under the floor, at the top of it otherwise. */
     minHeight: height ? Math.ceil(height / scale) : undefined,
+    ...(centered ? IN_THE_MIDDLE : null),
     transform: `scale(${scale})`,
     pointerEvents: "none",
     userSelect: "none",
   }
   return (
     <div
+      ref={boxRef}
       data-preview-box=""
       className="relative w-full overflow-hidden bg-[#f3f4f6]"
       style={{
-        /* The box is its final size before anything is drawn in it, so the list never moves. */
+        /* The box is its section's height before anything is drawn in it, so the list never moves. */
         height: height || undefined,
         aspectRatio: height ? undefined : `1 / ${ratio}`,
         contentVisibility: eager ? "visible" : "auto",
@@ -496,6 +684,8 @@ export const SectionLibrary = memo(function SectionLibrary({
     if (open) {
       setActiveCategory(null)
       setQuery("")
+      /* Before its first frame: a card held at the crop last time opens at its own height. */
+      releaseHeld(true)
     }
   }, [open])
 
@@ -635,23 +825,6 @@ export const SectionLibrary = memo(function SectionLibrary({
   useEffect(() => {
     orderRef.current = order
   }, [order])
-  /**
-   * ===========================================================================
-   *  THE TOP OF A CATEGORY IS DRAWN THE MOMENT IT IS SHOWN
-   * ===========================================================================
-   * Every preview box is `content-visibility: auto`, which is what lets forty
-   * cards cost nothing below the fold. But a box the browser has never drawn
-   * starts out skipped, and it is only drawn once the browser has worked out
-   * that it is on screen, a frame or more later. A category shows cards that
-   * have been hidden since they were built, so the first time one was shown
-   * its previews came up as empty grey boxes for that long: filmed at a
-   * quarter speed, three to seven frames of grey before the picture.
-   *
-   * So the first few of whatever is showing are drawn outright, whatever the
-   * browser thinks of them yet. A switch starts the list at its top, so they
-   * are exactly the cards on screen; everything under them keeps its saving.
-   */
-  const eager = useMemo(() => new Set(order.slice(0, Math.min(EAGER_CARDS, shown.size))), [order, shown])
   useEffect(() => {
     if (!built) return
     let cancelled = false
@@ -702,6 +875,50 @@ export const SectionLibrary = memo(function SectionLibrary({
   const cardWidth = gridWidth > 0 ? gridWidth - 2 : 0
 
   /**
+   * ===========================================================================
+   *  THE TOP OF A CATEGORY IS DRAWN THE MOMENT IT IS SHOWN
+   * ===========================================================================
+   * Every preview box is `content-visibility: auto`, which is what lets forty
+   * cards cost nothing below the fold. But a box the browser has never drawn
+   * starts out skipped, and it is only drawn once the browser has worked out
+   * that it is on screen, a frame or more later. A category shows cards that
+   * have been hidden since they were built, so the first time one was shown
+   * its previews came up as empty grey boxes for that long: filmed at a
+   * quarter speed, three to seven frames of grey before the picture.
+   *
+   * So the first few of whatever is showing are drawn outright, whatever the
+   * browser thinks of them yet. A switch starts the list at its top, so they
+   * are exactly the cards on screen; everything under them keeps its saving.
+   *
+   * AS MANY AS FILL THE WINDOW. Three were enough while every card was the
+   * crop's height; a category of short cards has more than three on screen.
+   * So they are counted down the list at the heights they will be drawn at,
+   * pictures only, until they would fill the window, which the list is
+   * always shorter than, and never fewer than three.
+   */
+  /*
+    Read from HEIGHTS below; this is what says HEIGHTS has something new in
+    it. Listened to only while the library is open: closed, the previews
+    are measured forty times over, and redrawing the whole library (and its
+    sheet) for each was most of what the warm-up cost. Every render reads
+    the latest anyway, the one that opens it included.
+  */
+  const subscribeWhileOpen = useCallback((l: () => void) => (open ? subscribe(l) : () => {}), [open])
+  const heightsSeen = useSyncExternalStore(subscribeWhileOpen, () => heightsVersion, () => 0)
+  const eager = useMemo(() => {
+    const out = new Set<string>()
+    const reach = cardWidth > 0 && typeof window !== "undefined" ? window.innerHeight : 0
+    let y = 0
+    for (const e of entries) {
+      if (!shown.has(e)) continue
+      if (out.size >= EAGER_CARDS && y >= reach) break
+      out.add(cardKey(e))
+      y += previewCardHeight(HEIGHTS.get(e.keyFor(renderWidth)), cardWidth, renderWidth, ratio)
+    }
+    return out
+  }, [entries, shown, heightsSeen, cardWidth, renderWidth, ratio])
+
+  /**
    * THE PILLS START AT THE START. The row snaps to its pills, and the browser
    * keeps a snapped row on the pill it was snapped to when pills are added in
    * front of it: the creator's own sections arrive a moment after the editor
@@ -727,6 +944,8 @@ export const SectionLibrary = memo(function SectionLibrary({
     if (lastFilter.current === filterKey) return
     lastFilter.current = filterKey
     if (scroller.current) scroller.current.scrollTop = 0
+    /* A new list: a held card that is not in it, or is under the fold of it, takes its own height. */
+    releaseHeld(false)
   }, [filterKey])
 
   /**

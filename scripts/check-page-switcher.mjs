@@ -52,13 +52,14 @@ const page = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewp
   window.PROBE_PRODUCTS = ${JSON.stringify(PRODUCTS)}
 </script>
 <script src="/editor-probe.js"></script></body></html>`
+/* The editor, and nothing else: the code editor it frames over the canvas is an empty page here, not two more editors (see check-add-section.mjs). */
 const server = createServer((req, res) => {
   if (req.url.startsWith("/editor-probe.js")) {
     res.writeHead(200, { "content-type": "text/javascript" })
     return res.end(js)
   }
   res.writeHead(200, { "content-type": "text/html" })
-  res.end(page)
+  res.end(req.url.startsWith("/editor") ? page : "<!doctype html><title>blank</title>")
 })
 await new Promise((r) => server.listen(0, "127.0.0.1", r))
 const origin = `http://127.0.0.1:${server.address().port}`
