@@ -260,7 +260,7 @@ export const SKILLS: Skill[] = [
     steps: ["Pictures are image_picker settings through | asset; video is the embed filter with the embed capability."],
     tools: ["storelib_read_selected_section", "storelib_update_styles", "storelib_patch_section"],
     topics: ["assets", "embed"],
-    pitfalls: ["An image URL in a default. The creator picks pictures.", "An iframe whose src is not from | embed. The save refuses it."],
+    pitfalls: ["An image URL in a default. The creator picks pictures.", "An iframe whose src is not from | embed. The save refuses it.", "A picture in a flex row without min-width: 0. Once it loads it widens to its own size and the page jumps."],
     checks: ["compile", "quality"],
   },
   {

@@ -59,16 +59,23 @@
 .pp__gallery { min-width: 0; }
 .pp__track { display: flex; gap: 8px; overflow-x: auto; scroll-snap-type: x mandatory; overscroll-behavior-x: contain; scrollbar-width: none; }
 .pp__track::-webkit-scrollbar { display: none; }
-.pp__img { display: block; flex: 0 0 100%; width: 100%; height: auto; aspect-ratio: 1; object-fit: cover; scroll-snap-align: start; border-radius: var(--pp-radius); background: var(--pp-border); }
+/* On a phone the next picture shows at the edge, which is what says the gallery swipes.
+   min-width: 0 keeps it there: a flex item may not shrink below its content, and a
+   loaded 1200px picture would otherwise widen to the whole row and push the page down. */
+.pp__img { display: block; flex: 0 0 88%; width: 100%; min-width: 0; height: auto; aspect-ratio: 1; object-fit: cover; scroll-snap-align: start; border-radius: var(--pp-radius); background: var(--pp-border); }
+.pp__img:only-child { flex-basis: 100%; }
 .pp__info { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 .pp__title {
   margin: 0;
   overflow-wrap: anywhere;
   color: var(--pp-heading);
   font-family: var(--theme-font-heading, {{ theme.typography.heading }}), ui-sans-serif, system-ui, sans-serif;
-  font-size: var(--type-h1-size, var(--section-heading-size, 32px));
+  /* The page's one h1, sized as the section's heading style rather than the
+     display size a hero uses, so the price and the buy button stay in view. */
+  font-size: var(--section-heading-size, 32px);
   font-weight: var(--section-heading-weight, 700);
   line-height: var(--section-heading-line-height, 1.15);
+  letter-spacing: var(--section-heading-tracking, -0.01em);
 }
 .pp__price { margin: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; font-size: 20px; font-weight: 600; color: var(--pp-heading); }
 .pp__from { font-size: 14px; font-weight: 400; color: var(--pp-para); }
