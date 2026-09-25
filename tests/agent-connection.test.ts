@@ -25,6 +25,7 @@ import { PROTOCOL_VERSIONS, TOOLS, formatErrors, handleMcp, type BoundOps } from
 import { briefFrom } from "@/lib/agent-access/site-brief"
 import { readBodyCapped } from "@/lib/agent-access/body"
 import { FIRST_ASK, afterSetup, detectOs, openTerminalGuide, setupCommands } from "@/lib/agent-access/setup-commands"
+import { agentStatus, toolForName } from "@/components/website-builder/agent-connections-panel"
 
 let passed = 0
 let failed = 0
@@ -237,20 +238,46 @@ async function main() {
 
   const panel = read("components/website-builder/agent-connections-panel.tsx")
   const advanced = read("components/website-builder/website-settings/connections.tsx")
+  const row = read("components/website-builder/website-settings/connection-row.tsx")
   check("Website settings has a Connections page of its own, under Code",
     /id: "connections", label: "Connections", group: "code"/.test(read("components/website-builder/website-settings/types.ts")) &&
-      /<AgentConnectionsPanel installId=\{ctx\.installId\} \/>/.test(advanced))
-  check("which starts with one choice: directly, or through GitHub",
-    /role="radiogroup" aria-label="How to connect"/.test(advanced) &&
-      /title: "Connect directly", tools: "Claude Code, Codex CLI", note: "Recommended"/.test(advanced) &&
-      /title: "Through GitHub", tools: "ChatGPT Codex, Claude Code on the web, any tool that works on a repo"/.test(advanced))
-  check("and shows only the path picked", /via === "github" \?/.test(advanced) && (advanced.match(/<AgentConnectionsPanel /g) ?? []).length === 1)
+      /const agents = useAgentConnections\(ctx\.installId\)/.test(advanced))
+  check("which is a list of the tools, Claude Code, Codex and GitHub, not a question to answer first",
+    /<AgentConnectionRow tool="claude"/.test(advanced) && /<AgentConnectionRow tool="codex"/.test(advanced) &&
+      advanced.indexOf('tool="codex"') < advanced.indexOf("<GitHubSyncPanel") && !/How to connect/.test(advanced))
+  check("  and another tool that speaks MCP only once it is asked for, or has a key",
+    /const showOther = open === "other" \|\| \(agents\.connections !== null && agents\.byTool\.other\.length > 0\)/.test(advanced))
+  check("  one line open at a time", /useState<ConnectionId \| null>/.test(advanced) && /open=\{open === "claude"\}/.test(advanced) && /open=\{open === "github"\}/.test(advanced))
+  check("each line has one button while closed: Connect, Manage, or none when it cannot be used",
+    /\{open \? "Done" : action\}/.test(row) && (row.match(/<button/g) ?? []).length === 2 /* the row's, and a note's inline one */)
+  {
+    const now = Date.parse("2026-09-25T12:00:00Z")
+    const said = (list: { last_used_at: string | null }[] | null, ready = true) => {
+      const s = agentStatus(list, ready, now)
+      return [s.status, s.detail, s.action].filter(Boolean).join(" | ")
+    }
+    check("its status in words: not connected, connected and when it was last used, not used yet",
+      said([]) === "Not connected | Connect" &&
+        said([{ last_used_at: null }, { last_used_at: "2026-09-25T10:00:00Z" }]) === "Connected | used 2 hours ago | Manage" &&
+        said([{ last_used_at: null }]) === "Not used yet | Manage" && said([], false) === "Not available on this Storelib yet" &&
+        agentStatus(null, true, now).loading === true)
+    check("a key goes on the line its name belongs to",
+      toolForName("Claude Code") === "claude" && toolForName("Codex") === "codex" && toolForName("ChatGPT Codex") === "codex" && toolForName("AI agent") === "other")
+  }
+  check("Connect makes the key as the line opens, and never a second one for the same line",
+    /if \(\(list\?\.length \?\? 0\) === 0 && !fresh && agents\.making !== tool\) void agents\.make\(tool\)/.test(panel))
   check("which shows the token once, inside the lines that use it",
-    /shown only this once/.test(panel) && /setupCommands\(agent, os, token\)/.test(panel) && /const token = fresh\?\.token \?\? NO_TOKEN_YET/.test(panel))
+    /shown only this once/.test(panel) && /setupCommands\(tool, os, token\)/.test(panel) && /const token = fresh\?\.token \?\? NO_TOKEN_YET/.test(panel))
   check("every line has its own Copy button, and none can be copied before there is a token",
     /<CommandBlock key=\{line\.label\}[^\n]*disabled=\{!fresh\} \/>/.test(panel) && /if \(disabled\) return/.test(read("components/website-builder/setup-steps.tsx")))
   check("the token lives in memory only", !/localStorage|sessionStorage/.test(panel))
   check("disconnecting asks first", /confirmingId === c\.id/.test(panel))
+  check("it says when the tool has used its key: looked at while waiting, and when the page comes back into view",
+    /const waiting = open && fresh !== null && !freshUsed/.test(panel) && /window\.setInterval\(look, WAIT_POLL_MS\)/.test(panel) &&
+      /addEventListener\("visibilitychange", look\)/.test(panel) && /document\.visibilityState === "visible"/.test(panel))
+  check("  and a look that fails changes nothing on screen", /if \(quiet\) return/.test(panel) && /void load\(true\)/.test(panel))
+  check("the tools that work on a repository are sent to GitHub where they are read",
+    /web: "Claude Code on the web"/.test(panel) && /web: "Codex in ChatGPT"/.test(panel) && /<InlineButton onClick=\{onGitHub\}>Connect GitHub<\/InlineButton> instead/.test(panel))
 
   console.log("\nSetting it up on a computer")
 
@@ -284,7 +311,7 @@ async function main() {
       keys("linux") === "Ctrl Alt T" && /PowerShell/.test(openTerminalGuide("windows").aside ?? ""))
   check("then what to ask, and how to see it worked",
     FIRST_ASK === "Add a pricing section to my Storelib site" && afterSetup("claude")?.check === "claude mcp list" && afterSetup("other") === null &&
-      /Done\? Run <Code>\{next\.start\}<\/Code>/.test(panel))
+      /Type <Code>\{next\.start\}<\/Code>, press \{enter\}, then ask:/.test(panel) && /is connected\. What it writes shows up here as a draft\./.test(panel))
 
   console.log("\nHolding up at scale, and keeping to its own site")
 

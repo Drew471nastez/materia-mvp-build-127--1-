@@ -9,9 +9,10 @@
  *     its own page with its own heading;
  *   • on a phone the subjects are a list first, every one a thumb's height,
  *     and a subject opens over it with its own Back;
- *   • Connections stands apart under Code, asks how the tool reaches the
- *     site, and each answer shows only its own path: a token and a command
- *     for Claude Code and Codex, a GitHub repository for the rest;
+ *   • Connections stands apart under Code and lists the tools, Claude Code,
+ *     Codex and GitHub, each with its status and one button; pressing one
+ *     shows only its own steps: a key and a command for Claude Code and
+ *     Codex, a GitHub repository for the rest;
  *   • a setting written here reaches the editor's state, and the search
  *     preview follows it;
  *   • nothing scrolls sideways, at either width.
@@ -119,16 +120,25 @@ const clickText = (p, selector, text) =>
     return true
   }, selector, text)
 
-/** One of the Connections cards, by the title its text starts with. Fails loudly if there is none. */
-const pickWay = async (p, title) => {
-  const hit = await p.evaluate((t) => {
-    const el = [...document.querySelectorAll("[role=radiogroup][aria-label='How to connect'] [role=radio]")].find((e) => e.textContent.trim().startsWith(t))
+/** Presses the one button on a line of Connections ("claude", "codex", "github"). Fails loudly if there is none. */
+const pressLine = async (p, id) => {
+  const hit = await p.evaluate((id) => {
+    const el = document.querySelector(`[data-connection="${id}"] > div:first-child button`)
     if (!el) return false
     el.click()
     return true
-  }, title)
-  if (!hit) fail(`No "${title}" card to press.`)
+  }, id)
+  if (!hit) fail(`No "${id}" line to press.`)
 }
+/** Each line of Connections: its id, its status in words, and the buttons on it while closed. */
+const connectionLines = (p) =>
+  p.evaluate(() =>
+    [...document.querySelectorAll("[data-connection]")].map((r) => ({
+      id: r.getAttribute("data-connection"),
+      status: (r.querySelector("[data-connection-status]")?.textContent ?? "").replace(/\s+/g, " ").trim(),
+      buttons: [...r.firstElementChild.querySelectorAll("button, a")].map((b) => b.textContent.trim()),
+    })),
+  )
 
 /* ── Desktop ─────────────────────────────────────────────────────────── */
 console.log("\ndesktop, 1280 wide")
@@ -288,7 +298,7 @@ console.log("\ndesktop, 1280 wide")
   expect(hidden.v === true && hidden.badge, "and it can be kept out of search, which the list then says", hidden)
   await p.screenshot({ path: join(shots, "desktop-pages-seo.png") })
 
-  /* Connections: its own group, one question, then only that path. */
+  /* Connections: its own group, a line per tool, then only that tool's steps. */
   const group = await p.evaluate(() => {
     const nav = document.querySelector("nav[aria-label='Website settings']")
     const heading = [...nav.querySelectorAll("p")].find((x) => x.textContent.trim() === "Code")
@@ -298,16 +308,19 @@ console.log("\ndesktop, 1280 wide")
   expect(group.heading && group.before, "Connections stands apart, under its own Code heading after the site's settings", group)
   await clickText(p, "nav[aria-label='Website settings'] button", "Connections")
   await sleep(400)
-  const ways = await p.$$eval("[role=radiogroup][aria-label='How to connect'] [role=radio]", (r) => r.map((x) => ({ t: x.textContent.trim(), on: x.getAttribute("aria-checked") })))
-  expect(ways.length === 2 && /^Connect directly/.test(ways[0].t) && /^Through GitHub/.test(ways[1].t), "it asks how the tool reaches the site: directly, or through GitHub", ways.map((w) => w.t))
-  expect(ways[0].on === "true", "directly is the one picked to start with")
+  const lines = await connectionLines(p)
+  expect(lines.map((l) => l.id).join(",") === "claude,codex,github", "it lists the tools: Claude Code, Codex, GitHub", lines.map((l) => l.id))
+  expect(lines.every((l) => l.status === "Not connected" && l.buttons.join() === "Connect"), "each says whether it is connected, with one button", lines)
+  await p.screenshot({ path: join(shots, "desktop-connections.png") })
+  await pressLine(p, "claude")
+  await sleep(500)
   const direct = await p.evaluate(() => document.querySelector("main").textContent)
-  expect(/Make a token/.test(direct) && !/Connect GitHub/.test(direct), "directly shows the token steps and nothing about GitHub")
+  expect(/Paste this and press/.test(direct) && /Bearer slb_/.test(direct) && !/Continue to GitHub/.test(direct), "Claude Code shows its key in its command, and nothing about a repository")
   await p.screenshot({ path: join(shots, "desktop-connections-direct.png") })
-  await pickWay(p, "Through GitHub")
-  await sleep(300)
+  await pressLine(p, "github")
+  await sleep(500)
   const github = await p.evaluate(() => document.querySelector("main").textContent)
-  expect(/Connect GitHub/.test(github) && !/Make a token/.test(github), "GitHub shows the repository steps and no token")
+  expect(/Continue to GitHub/.test(github) && !/Paste this and press/.test(github), "GitHub shows the repository steps, and Claude Code's close")
   await p.screenshot({ path: join(shots, "desktop-connections-github.png") })
 
   /* Escape is the way out. */
@@ -344,14 +357,16 @@ console.log("\nphone, 390 wide")
   }))
   expect(inside.heading === "Connections" && !inside.listShown, "a subject opens over the list", inside)
   expect((await overflow(p)) === 0, "and does not scroll sideways", await overflow(p))
-  const cards = await p.$$eval("[role=radiogroup][aria-label='How to connect'] [role=radio]", (r) => r.map((x) => { const b = x.getBoundingClientRect(); return { h: Math.round(b.height), right: Math.round(b.right) } }))
-  expect(cards.length === 2 && cards.every((c) => c.h >= 44 && c.right <= 390), "both ways are full-width cards a thumb can hit, stacked on a phone", cards)
+  const buttons = await p.$$eval("[data-connection] > div:first-child button", (r) => r.map((x) => { const b = x.getBoundingClientRect(); return { h: Math.round(b.height), right: Math.round(b.right) } }))
+  expect(buttons.length === 3 && buttons.every((c) => c.h >= 44 && c.right <= 390), "each line's button is a thumb's height, on the screen", buttons)
+  await pressLine(p, "claude")
+  await sleep(500)
   const steps = await p.evaluate(() => [...document.querySelectorAll("main button, main pre, main code")].filter((e) => e.getBoundingClientRect().right > 391).length)
   expect(steps === 0, "no step, command or button runs off the right edge", steps)
   await p.screenshot({ path: join(shots, "phone-connections.png"), fullPage: false })
-  await pickWay(p, "Through GitHub")
-  await sleep(300)
-  expect((await overflow(p)) === 0, "the GitHub path fits the phone too", await overflow(p))
+  await pressLine(p, "github")
+  await sleep(500)
+  expect((await overflow(p)) === 0, "the GitHub steps fit the phone too", await overflow(p))
   await p.screenshot({ path: join(shots, "phone-connections-github.png"), fullPage: false })
   await clickText(p, "main button", "Website Settings")
   await sleep(250)

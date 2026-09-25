@@ -2,28 +2,41 @@
 
 /**
  * ===========================================================================
- *  WEBSITE SETTINGS › ADVANCED › CONNECT DIRECTLY
+ *  WEBSITE SETTINGS › CONNECTIONS › CLAUDE CODE, CODEX, ANOTHER TOOL
  * ===========================================================================
  * Claude Code or Codex on the creator's own computer, talking to this one
- * website over MCP with a token. Three steps, each one thing to do:
+ * website over MCP with a key. Each is one line on Connections
+ * (./website-settings/connection-row) with one button:
  *
- *   1  pick the tool and make a token
- *   2  open a terminal, shown as the keys to press on THIS computer
- *   3  paste the line, spelled for this computer's shell
+ *   Connect   makes a key at once and opens the steps, which are only ever
+ *             the two or three things left to do:
+ *               1  open Terminal, shown as the keys to press on THIS computer
+ *               2  paste the line, spelled for this computer's shell
+ *               3  start the tool and ask for something
+ *   Manage    the keys this tool has, each with Disconnect, and a new key
+ *             for another computer.
  *
- * and then what to ask for, and how to see it worked. The computer is read
- * from the browser and can be switched; the lines themselves are in
- * lib/agent-access/setup-commands.ts, where they are tested as text.
+ * Choosing the tool used to be step one, a row of three buttons inside a
+ * panel that first had to be reached by answering "directly, or through
+ * GitHub?". Now the tool is the line that was pressed.
  *
- * The token is shown ONCE, inside the lines that use it. The server keeps
- * only its hash, so there is no "show again": a lost token is disconnected
- * and replaced, which takes one click. It lives in this component's memory
- * and nowhere else in the browser.
+ * IT SAYS WHEN IT HAS WORKED. While a new key's steps are open, the list is
+ * read again every few seconds and whenever the page comes back into view
+ * (the creator was in Terminal), and the line turns to Connected the first
+ * time the tool uses its key. The steps used to end with a command to run to
+ * find that out.
+ *
+ * The key is shown ONCE, inside the lines that use it. The server keeps only
+ * its hash, so there is no "show again": a lost key is disconnected and
+ * replaced. It lives in this component's memory and nowhere else in the
+ * browser. The lines themselves are in lib/agent-access/setup-commands.ts,
+ * where they are tested as text.
  */
-import { Fragment, useCallback, useEffect, useState } from "react"
-import { Loader2 } from "lucide-react"
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react"
+import { Plug } from "lucide-react"
 import { relativeTime } from "@/lib/website-builder/relative-time"
 import { cn } from "@/lib/utils"
+import { kindForName } from "@/lib/agent-access/connection-mark"
 import {
   CLAUDE_REMOVE_OLD,
   FIRST_ASK,
@@ -35,7 +48,9 @@ import {
   type AgentTool,
   type Os,
 } from "@/lib/agent-access/setup-commands"
+import { ClaudeMark, OpenAIMark } from "@/components/website-builder/connection-marks"
 import { Code, CommandBlock, Keycap, Step, Steps } from "@/components/website-builder/setup-steps"
+import { ConnectionRow, InlineButton, RowNote, type ConnectionTone } from "@/components/website-builder/website-settings/connection-row"
 
 interface Connection {
   id: string
@@ -45,15 +60,24 @@ interface Connection {
   last_used_at: string | null
 }
 
-const AGENTS: { id: AgentTool; label: string; name: string }[] = [
-  { id: "claude", label: "Claude Code", name: "Claude Code" },
-  { id: "codex", label: "Codex", name: "Codex" },
-  { id: "other", label: "Other", name: "AI agent" },
-]
+const TOOLS: Record<AgentTool, { name: string; tokenName: string; web?: string }> = {
+  claude: { name: "Claude Code", tokenName: "Claude Code", web: "Claude Code on the web" },
+  codex: { name: "Codex", tokenName: "Codex", web: "Codex in ChatGPT" },
+  other: { name: "Another tool", tokenName: "AI agent" },
+}
+
+/** Which line a key belongs on, from the name it was made with. */
+export function toolForName(name: string): AgentTool {
+  const kind = kindForName(name)
+  return kind === "claude" ? "claude" : kind === "openai" ? "codex" : "other"
+}
+
+/** How often a new key is looked at while its steps are open, and the page is in view. */
+export const WAIT_POLL_MS = 5000
 
 const OSES: Os[] = ["mac", "windows", "linux"]
 
-/** Stands where the token goes until there is one. Never copyable. */
+/** Stands where the key goes until there is one. Never copyable. */
 const NO_TOKEN_YET = "YOUR_TOKEN"
 
 /** How to open a terminal on this computer, as keys. */
@@ -89,13 +113,11 @@ function Segmented<T extends string>({
   options,
   value,
   onChange,
-  size = "md",
 }: {
   label: string
   options: { id: T; label: string }[]
   value: T
   onChange: (v: T) => void
-  size?: "sm" | "md"
 }) {
   return (
     <div role="radiogroup" aria-label={label} className="inline-flex rounded-xl border border-white/10 bg-white/[0.03] p-1">
@@ -109,8 +131,7 @@ function Segmented<T extends string>({
           className={cn(
             /* The group's own 4px padding is part of each button's press area:
                an invisible band out to the group's edge, so a phone gets 44px. */
-            "relative rounded-lg font-medium transition-colors duration-150 after:absolute after:inset-x-0 after:-inset-y-1 after:content-[''] [-webkit-tap-highlight-color:transparent]",
-            size === "sm" ? "h-9 px-3 text-[13.5px] md:h-7 md:px-2.5 md:text-[12.5px]" : "h-10 px-4 text-[15px] md:h-9 md:text-[14px]",
+            "relative h-9 rounded-lg px-3 text-[13.5px] font-medium transition-colors duration-150 after:absolute after:inset-x-0 after:-inset-y-1 after:content-[''] md:h-7 md:px-2.5 md:text-[12.5px] [-webkit-tap-highlight-color:transparent]",
             value === o.id ? "bg-white text-[#0f0f0f]" : "text-white/65 hover:text-white",
           )}
         >
@@ -121,209 +142,329 @@ function Segmented<T extends string>({
   )
 }
 
-export function AgentConnectionsPanel({ installId }: { installId: string }) {
+/**
+ * The keys for this website, read once and then kept here. One hook for all
+ * three lines, so a key made on one shows on the right one at once and the
+ * list is read from the server once, not three times.
+ */
+export function useAgentConnections(installId: string) {
   const [connections, setConnections] = useState<Connection[] | null>(null)
   const [ready, setReady] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [agent, setAgent] = useState<AgentTool>("claude")
+  const [error, setError] = useState<{ tool: AgentTool | null; message: string } | null>(null)
+  const [making, setMaking] = useState<AgentTool | null>(null)
+  /** The key just made for each tool. Held in memory only, and gone when this closes. */
+  const [fresh, setFresh] = useState<Partial<Record<AgentTool, { id: string; token: string }>>>({})
   /* The panel only ever renders in the browser (Website settings is a
      portal opened by a click), so the computer can be read on first render. */
   const [os, setOs] = useState<Os>(() => detectOs())
-  const [creating, setCreating] = useState(false)
-  /** The token just made. Held in memory only, and gone when this closes. */
-  const [fresh, setFresh] = useState<{ name: string; token: string } | null>(null)
-  const [confirmingId, setConfirmingId] = useState<string | null>(null)
 
-  const load = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/website-builder/themes/${installId}/agent-connections`)
-      const d = (await res.json().catch(() => ({}))) as { connections?: Connection[]; ready?: boolean; error?: string }
-      if (!res.ok) throw new Error(d.error || "Could not load connections")
-      setConnections(d.connections ?? [])
-      setReady(d.ready !== false)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not load connections")
-      setConnections([])
-    }
-  }, [installId])
+  /** `quiet` for a look taken while waiting: a failed one changes nothing on screen. */
+  const load = useCallback(
+    async (quiet = false) => {
+      try {
+        const res = await fetch(`/api/website-builder/themes/${installId}/agent-connections`)
+        const d = (await res.json().catch(() => ({}))) as { connections?: Connection[]; ready?: boolean; error?: string }
+        if (!res.ok) throw new Error(d.error || "Could not load connections")
+        setConnections(d.connections ?? [])
+        setReady(d.ready !== false)
+      } catch (e) {
+        if (quiet) return
+        setError({ tool: null, message: e instanceof Error ? e.message : "Could not load connections" })
+        setConnections([])
+      }
+    },
+    [installId],
+  )
 
   useEffect(() => {
     void load()
   }, [load])
 
-  const connect = async () => {
-    setCreating(true)
+  const byTool = useMemo(() => {
+    const out: Record<AgentTool, Connection[]> = { claude: [], codex: [], other: [] }
+    for (const c of connections ?? []) out[toolForName(c.name)].push(c)
+    return out
+  }, [connections])
+
+  const make = async (tool: AgentTool) => {
+    setMaking(tool)
     setError(null)
     try {
-      const name = AGENTS.find((a) => a.id === agent)?.name ?? "AI agent"
       const res = await fetch(`/api/website-builder/themes/${installId}/agent-connections`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({ name: TOOLS[tool].tokenName }),
       })
       const d = (await res.json().catch(() => ({}))) as { connection?: Connection; token?: string; error?: string }
-      if (!res.ok || !d.token || !d.connection) throw new Error(d.error || "Could not make a token")
-      setFresh({ name: d.connection.name, token: d.token })
-      setConnections((prev) => [d.connection as Connection, ...(prev ?? [])])
+      if (!res.ok || !d.token || !d.connection) throw new Error(d.error || "Could not make a key")
+      const made = d.connection
+      setFresh((prev) => ({ ...prev, [tool]: { id: made.id, token: d.token as string } }))
+      setConnections((prev) => [made, ...(prev ?? [])])
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not make a token")
+      setError({ tool, message: e instanceof Error ? e.message : "Could not make a key" })
     } finally {
-      setCreating(false)
+      setMaking(null)
     }
   }
 
-  const disconnect = async (id: string) => {
+  const disconnect = async (tool: AgentTool, id: string): Promise<boolean> => {
     setError(null)
     const res = await fetch(`/api/website-builder/themes/${installId}/agent-connections?id=${encodeURIComponent(id)}`, {
       method: "DELETE",
-    })
-    if (!res.ok) {
-      setError("Could not disconnect. Try again.")
-      return
+    }).catch(() => null)
+    if (!res?.ok) {
+      setError({ tool, message: "Could not disconnect. Try again." })
+      return false
     }
-    setConfirmingId(null)
     setConnections((prev) => (prev ?? []).filter((c) => c.id !== id))
+    setFresh((prev) => (prev[tool]?.id === id ? { ...prev, [tool]: undefined } : prev))
+    return true
   }
 
-  if (!ready) {
-    return (
-      <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 text-[15px] text-white/60 md:p-6">
-        Direct connections are not switched on for this Storelib yet.
-      </div>
-    )
-  }
+  return { connections, ready, error, making, fresh, os, setOs, byTool, load, make, disconnect }
+}
 
+export type AgentConnections = ReturnType<typeof useAgentConnections>
+
+/** The newest time any of these keys was used. */
+function lastUsed(list: Connection[]): string | null {
+  let best: string | null = null
+  for (const c of list) if (c.last_used_at && (!best || Date.parse(c.last_used_at) > Date.parse(best))) best = c.last_used_at
+  return best
+}
+
+/** What a tool's line says, from its keys. Pure, so the words are tested as words. */
+export function agentStatus(
+  list: { last_used_at: string | null }[] | null,
+  ready: boolean,
+  now = Date.now(),
+): { tone: ConnectionTone; status?: string; detail?: string; action?: string; loading?: boolean } {
+  if (list === null) return { tone: "off", loading: true }
+  if (!ready) return { tone: "none", status: "Not available on this Storelib yet" }
+  if (list.length === 0) return { tone: "off", status: "Not connected", action: "Connect" }
+  const used = lastUsed(list as Connection[])
+  if (used) return { tone: "on", status: "Connected", detail: `used ${relativeTime(used, now)}`, action: "Manage" }
+  return { tone: "waiting", status: "Not used yet", action: "Manage" }
+}
+
+/** The steps for a key that has just been made, with the key in them. */
+function SetupSteps({ tool, agents }: { tool: AgentTool; agents: AgentConnections }) {
+  const { os, setOs } = agents
+  const fresh = agents.fresh[tool] ?? null
   const token = fresh?.token ?? NO_TOKEN_YET
-  const lines = setupCommands(agent, os, token)
-  const next = afterSetup(agent)
-  const terminal = agent !== "other"
-
+  const lines = setupCommands(tool, os, token)
+  const next = afterSetup(tool)
+  const terminal = tool !== "other"
+  const enter = os === "mac" ? "Return" : "Enter"
   return (
-    <>
-      <Steps>
-        <Step n={1} title="Pick your tool and make a token" done={!!fresh}>
-          <Segmented label="Agent" options={AGENTS} value={agent} onChange={setAgent} />
-          <div className="mt-3">
-            {fresh ? (
-              <p className="text-[13.5px] text-white/55">Made. It is in the line below and is shown only this once.</p>
-            ) : (
+    <Steps>
+      {terminal && (
+        <Step
+          n={1}
+          title="Open Terminal"
+          aside={<Segmented label="Your computer" options={OSES.map((o) => ({ id: o, label: OS_LABEL[o] }))} value={os} onChange={setOs} />}
+        >
+          <TerminalGuide os={os} />
+        </Step>
+      )}
+
+      <Step n={terminal ? 2 : 1} title={terminal ? `Paste this and press ${enter}` : "Add Storelib to your tool"} muted={!fresh}>
+        <div className="space-y-3">
+          {lines.map((line) => (
+            <CommandBlock key={line.label} label={lines.length > 1 ? line.label : undefined} value={line.value} disabled={!fresh} />
+          ))}
+        </div>
+        <p className="mt-2.5 text-[13px] leading-relaxed text-white/45">
+          {fresh ? "Your key is in this line. It is shown only this once." : "Making your key"}
+        </p>
+        {tool === "claude" && fresh && (
+          <p className="mt-1 text-[13px] leading-relaxed text-white/45">
+            Added Storelib before? Run <Code>{CLAUDE_REMOVE_OLD}</Code> first.
+          </p>
+        )}
+      </Step>
+
+      {next && (
+        <Step n={3} title={`Start ${TOOLS[tool].name} and ask for a change`} muted={!fresh}>
+          <p className="text-[14px] text-white/65">
+            Type <Code>{next.start}</Code>, press {enter}, then ask:
+          </p>
+          <p className="mt-2 text-[15.5px] leading-snug text-white">&ldquo;{FIRST_ASK}&rdquo;</p>
+        </Step>
+      )}
+    </Steps>
+  )
+}
+
+/** The keys a tool has, each with Disconnect, asked once. */
+function KeyList({ tool, agents, list }: { tool: AgentTool; agents: AgentConnections; list: Connection[] }) {
+  const [confirmingId, setConfirmingId] = useState<string | null>(null)
+  return (
+    <ul aria-label={`${TOOLS[tool].name} keys`} className="-my-1 divide-y divide-white/[0.07]">
+      {list.map((c) => (
+        <li key={c.id} className="flex min-h-[60px] items-center gap-4 py-2.5">
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[14px] text-white/85">
+              Key <span className="font-mono text-[13px] text-white/70">{c.prefix}…</span>
+            </p>
+            <p className="mt-0.5 truncate text-[13px] text-white/45">
+              {c.last_used_at ? `Used ${relativeTime(c.last_used_at)}` : "Not used yet"}
+            </p>
+          </div>
+          {confirmingId === c.id ? (
+            <div className="flex shrink-0 items-center gap-1">
               <button
                 type="button"
-                onClick={() => void connect()}
-                disabled={creating}
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-white px-5 text-[15px] font-semibold text-[#0f0f0f] transition-opacity hover:opacity-90 disabled:opacity-50 md:h-10 md:text-[14.5px]"
+                onClick={() => setConfirmingId(null)}
+                className="h-11 rounded-lg px-3 text-[15px] text-white/70 hover:text-white md:h-9 md:text-[14px]"
               >
-                {creating && <Loader2 className="h-4 w-4 animate-spin" />}
-                Make a token
+                Keep
               </button>
-            )}
-          </div>
-        </Step>
-
-        {terminal && (
-          <Step
-            n={2}
-            title="Open a terminal"
-            aside={
-              <Segmented
-                label="Your computer"
-                size="sm"
-                options={OSES.map((o) => ({ id: o, label: OS_LABEL[o] }))}
-                value={os}
-                onChange={setOs}
-              />
-            }
-          >
-            <TerminalGuide os={os} />
-          </Step>
-        )}
-
-        <Step
-          n={terminal ? 3 : 2}
-          title={terminal ? "Paste, then press Enter" : "Add Storelib to your MCP client"}
-          muted={!fresh}
-        >
-          <div className="space-y-3">
-            {lines.map((line) => (
-              <CommandBlock key={line.label} label={lines.length > 1 ? line.label : undefined} value={line.value} disabled={!fresh} />
-            ))}
-          </div>
-          {agent === "claude" && (
-            <p className="mt-2.5 text-[13px] text-white/45">
-              Added storelib before? Run <Code>{CLAUDE_REMOVE_OLD}</Code> first.
-            </p>
+              <button
+                type="button"
+                onClick={() => void agents.disconnect(tool, c.id).then((ok) => ok && setConfirmingId(null))}
+                className="h-11 rounded-lg bg-red-500/90 px-4 text-[15px] font-medium text-white hover:bg-red-500 md:h-9 md:text-[14px]"
+              >
+                Disconnect
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setConfirmingId(c.id)}
+              className="h-11 shrink-0 rounded-lg px-3 text-[15px] font-medium text-white/70 transition-colors hover:bg-white/[0.08] hover:text-white md:h-9 md:text-[14px]"
+            >
+              Disconnect
+            </button>
           )}
-        </Step>
-      </Steps>
+        </li>
+      ))}
+    </ul>
+  )
+}
 
-      {fresh && next && (
-        <div className="mt-8 rounded-2xl border border-emerald-400/25 bg-emerald-400/[0.05] p-5 md:p-6">
-          <p className="text-[15px] font-medium">
-            Done? Run <Code>{next.start}</Code> in any folder and ask:
-          </p>
-          <p className="mt-2 text-[16px] text-white">&ldquo;{FIRST_ASK}&rdquo;</p>
-          <p className="mt-4 text-[13px] text-white/55">
-            Check it works: <Code>{next.check}</Code> {next.checkResult}.
-          </p>
-        </div>
+/**
+ * One tool's line. Closed: its status and one button. Open: the steps for a
+ * key made just now, or the keys it already has.
+ */
+export function AgentConnectionRow({
+  tool,
+  agents,
+  open,
+  onOpen,
+  onGitHub,
+}: {
+  tool: AgentTool
+  agents: AgentConnections
+  open: boolean
+  onOpen: (tool: AgentTool | null) => void
+  onGitHub: () => void
+}) {
+  const list = agents.connections === null ? null : agents.byTool[tool]
+  const line = agentStatus(list, agents.ready)
+  const fresh = agents.fresh[tool] ?? null
+  const failed = agents.error && (agents.error.tool === tool || agents.error.tool === null) ? agents.error.message : null
+  const freshUsed = fresh ? Boolean(list?.find((c) => c.id === fresh.id)?.last_used_at) : false
+  const waiting = open && fresh !== null && !freshUsed
+
+  /*
+    WAITING FOR THE FIRST USE. Only while this line is open with a key made
+    just now that has not been used: every few seconds while the page is in
+    view, and the moment it comes back into view, which is when the creator
+    has just been in Terminal. A failed look is quiet; the next one tries again.
+  */
+  const { load } = agents
+  useEffect(() => {
+    if (!waiting) return
+    const look = () => {
+      if (document.visibilityState === "visible") void load(true)
+    }
+    const timer = window.setInterval(look, WAIT_POLL_MS)
+    window.addEventListener("focus", look)
+    document.addEventListener("visibilitychange", look)
+    return () => {
+      window.clearInterval(timer)
+      window.removeEventListener("focus", look)
+      document.removeEventListener("visibilitychange", look)
+    }
+  }, [waiting, load])
+
+  const toggle = () => {
+    if (open) return onOpen(null)
+    onOpen(tool)
+    /* Connect: the key is made as the line opens, so the steps have it by the time they are read. */
+    if ((list?.length ?? 0) === 0 && !fresh && agents.making !== tool) void agents.make(tool)
+  }
+
+  const mark =
+    tool === "claude" ? (
+      <ClaudeMark className="h-5 w-5" />
+    ) : tool === "codex" ? (
+      <OpenAIMark className="h-5 w-5" />
+    ) : (
+      <Plug className="h-5 w-5" strokeWidth={1.75} />
+    )
+  const name = TOOLS[tool].name
+  const others = (list ?? []).filter((c) => c.id !== fresh?.id)
+  /* A key made just now, or being made: the steps. Otherwise the keys there are. */
+  const settingUp = fresh !== null || agents.making === tool
+
+  return (
+    <ConnectionRow
+      id={tool}
+      mark={mark}
+      name={name}
+      tone={line.tone}
+      status={line.status}
+      detail={line.detail}
+      loading={line.loading}
+      action={line.action}
+      open={open}
+      onToggle={toggle}
+    >
+      {() => (
+        <>
+          {settingUp && <SetupSteps tool={tool} agents={agents} />}
+          {settingUp && fresh && (
+            <RowNote tone={freshUsed ? "good" : "quiet"}>
+              {freshUsed ? `${name} is connected. What it writes shows up here as a draft.` : `Waiting for ${name} to connect.`}
+            </RowNote>
+          )}
+
+          {!settingUp && others.length > 0 && <KeyList tool={tool} agents={agents} list={others} />}
+          {settingUp && others.length > 0 && (
+            <div className="mt-7">
+              <p className="text-[13px] font-medium text-white/50">Other keys</p>
+              <div className="mt-1.5">
+                <KeyList tool={tool} agents={agents} list={others} />
+              </div>
+            </div>
+          )}
+
+          {failed && (
+            <RowNote tone="bad">
+              {failed}
+              {agents.error?.tool === tool && !fresh && (
+                <>
+                  {" "}
+                  <InlineButton onClick={() => void agents.make(tool)}>Try again</InlineButton>
+                </>
+              )}
+            </RowNote>
+          )}
+
+          {!settingUp && others.length > 0 && (
+            <RowNote>
+              On another computer, or lost the line? <InlineButton onClick={() => void agents.make(tool)}>Make a new key</InlineButton>
+            </RowNote>
+          )}
+          {TOOLS[tool].web && (
+            <RowNote>
+              Using {TOOLS[tool].web}? <InlineButton onClick={onGitHub}>Connect GitHub</InlineButton> instead.
+            </RowNote>
+          )}
+        </>
       )}
-
-      {error && (
-        <p className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-[14px] text-red-300">{error}</p>
-      )}
-
-      <h3 className="mt-10 text-[15px] font-medium text-white/80">Connected</h3>
-      <div className="mt-3 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
-        {connections === null ? (
-          <div className="flex items-center justify-center py-10 text-white/50">
-            <Loader2 className="h-5 w-5 animate-spin" />
-          </div>
-        ) : connections.length === 0 ? (
-          <p className="px-5 py-8 text-center text-[14px] text-white/45">Nothing connected yet.</p>
-        ) : (
-          <ul className="divide-y divide-white/[0.07]">
-            {connections.map((c) => (
-              <li key={c.id} className="flex items-center gap-4 px-4 py-4 md:px-5">
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-[15px] font-medium">{c.name}</p>
-                  <p className="mt-0.5 truncate text-[13px] text-white/50">
-                    <span className="font-mono">{c.prefix}…</span>
-                    <span className="text-white/30"> · </span>
-                    {c.last_used_at ? `Used ${relativeTime(c.last_used_at)}` : "Not used yet"}
-                  </p>
-                </div>
-                {confirmingId === c.id ? (
-                  <div className="flex shrink-0 items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setConfirmingId(null)}
-                      className="h-11 rounded-lg px-3 text-[15px] text-white/70 hover:text-white md:h-9 md:text-[14px]"
-                    >
-                      Keep
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void disconnect(c.id)}
-                      className="h-11 rounded-lg bg-red-500/90 px-4 text-[15px] font-medium text-white hover:bg-red-500 md:h-9 md:text-[14px]"
-                    >
-                      Disconnect
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setConfirmingId(c.id)}
-                    className="h-11 shrink-0 rounded-lg border border-white/15 px-4 text-[15px] font-medium text-white transition-colors hover:bg-white/[0.1] md:h-9 md:text-[14px]"
-                  >
-                    Disconnect
-                  </button>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-      <p className="mt-2 text-[13px] text-white/40">Lost a token? Disconnect it and make a new one.</p>
-    </>
+    </ConnectionRow>
   )
 }
