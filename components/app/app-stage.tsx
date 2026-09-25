@@ -124,18 +124,18 @@ export function playEntrance(outer: HTMLElement, { fade = true }: { fade?: boole
   /* Every scroller something moves in, and whether it had anywhere to go
      before the rise: read before anything moves, because the rise itself
      adds to what can be scrolled. */
-  const scrollers = new Map<HTMLElement, boolean>()
+  const fitted = new Map<HTMLElement, boolean>()
   const fits = (el: HTMLElement) => el.scrollHeight <= el.clientHeight
   for (const child of Array.from(outer.children) as HTMLElement[]) {
     if (!showing(child)) continue
     const boxes = ownScrollers(child)
     if (!boxes.length) {
       movers.push(child)
-      if (!scrollers.has(outer)) scrollers.set(outer, fits(outer))
+      if (!fitted.has(outer)) fitted.set(outer, fits(outer))
       continue
     }
     for (const box of boxes) {
-      scrollers.set(box, fits(box))
+      fitted.set(box, fits(box))
       movers.push(...(Array.from(box.children) as HTMLElement[]))
     }
     /* Whatever else a stage holds besides its panes lands as it did. */
@@ -154,7 +154,7 @@ export function playEntrance(outer: HTMLElement, { fade = true }: { fade?: boole
     const a = el.animate([from, to], { duration: NAV_ENTER_MS, easing: NAV_ENTER_EASE })
     if (rise) moving.push(a)
   }
-  holdStill(moving.length ? [...scrollers].filter(([, fitted]) => fitted).map(([el]) => el) : [], moving)
+  holdStill(moving.length ? [...fitted].filter(([, fit]) => fit).map(([el]) => el) : [], moving)
 }
 
 function showing(el: HTMLElement) {

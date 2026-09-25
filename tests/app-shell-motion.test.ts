@@ -431,8 +431,8 @@ section("One scrollbar track on a computer, always there, never moving")
       && /movers\.push\(\.\.\.\(Array\.from\(box\.children\) as HTMLElement\[\]\)\)/.test(stage)
       && /const a = el\.animate\(\[from, to\]/.test(stage) && !/child\.animate\(/.test(stage))
   check("it reads whether each scroller fitted before the rise starts, marks only those, and lets go when the rise is over or soon after",
-    /scrollers\.set\(box, fits\(box\)\)/.test(stage) && /scrollers\.set\(outer, fits\(outer\)\)/.test(stage)
-      && /holdStill\(moving\.length \? \[\.\.\.scrollers\]\.filter\(\(\[, fitted\]\) => fitted\)\.map\(\(\[el\]\) => el\) : \[\], moving\)/.test(stage)
+    /fitted\.set\(box, fits\(box\)\)/.test(stage) && /fitted\.set\(outer, fits\(outer\)\)/.test(stage)
+      && /holdStill\(moving\.length \? \[\.\.\.fitted\]\.filter\(\(\[, fit\]\) => fit\)\.map\(\(\[el\]\) => el\) : \[\], moving\)/.test(stage)
       && /el\.setAttribute\("data-app-landing", ""\)/.test(stage)
       && /a\.finished\.catch\(\(\) => undefined\)/.test(stage) && /window\.setTimeout\(release, NAV_ENTER_MS \+ 120\)/.test(stage))
   check("the billing tab, drawn inside Settings, is not a scroller of its own: no second, empty track down its side",
