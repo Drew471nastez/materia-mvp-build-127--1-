@@ -88,3 +88,43 @@ export function progressLabel(stage: "preparing" | "sending", fraction: number):
   const pct = Math.round(Math.max(0, Math.min(1, fraction)) * 100)
   return stage === "preparing" ? `Preparing, ${pct}%` : `Sending, ${pct}%`
 }
+
+/*
+  ═══════════════════════════════════════════════════════════════════════════
+   THE NOTE A STORED MESSAGE KEEPS FOR ITS PICTURES
+  ═══════════════════════════════════════════════════════════════════════════
+  The transcript keeps a message's words and, after them, a note of how many
+  pictures came with it: "[an image attached]", "[3 images attached]". The
+  pictures themselves are rows beside the message, kept thirty days
+  (lib/website-builder/agent/attachment-store.ts). The note is what is left
+  once they have gone, and it is how many tiles the thread draws: a picture
+  that comes back is a thumbnail, one that does not is "Picture no longer
+  available". It is never shown as text. One writer and one reader, here,
+  used by the route that writes it, the history that names a conversation
+  after it, and the thread that reads it back.
+*/
+
+/** "[an image attached]", "[3 images attached]", or "" for none. */
+export function pictureNote(count: number): string {
+  const n = Math.max(0, Math.floor(count))
+  if (n === 0) return ""
+  return `[${n === 1 ? "an image" : `${n} images`} attached]`
+}
+
+/** The words with the note after them, as the transcript stores a message. */
+export function withPictureNote(words: string, count: number): string {
+  const note = pictureNote(count)
+  const text = words.trim()
+  if (!note) return words
+  return text ? `${text}\n\n${note}` : note
+}
+
+const PICTURE_NOTE = /\n*\[(an image|(\d+) images) attached\]\s*$/
+
+/** A stored message read back: its words without the note, and how many pictures the note says it had. */
+export function readPictureNote(content: string): { text: string; count: number } {
+  const match = PICTURE_NOTE.exec(content)
+  if (!match) return { text: content, count: 0 }
+  const count = match[2] ? Math.max(1, Number.parseInt(match[2], 10) || 1) : 1
+  return { text: content.slice(0, match.index).trim(), count }
+}

@@ -1,5 +1,5 @@
 -- STORELIB DATABASE, FILE 3 of 4
--- Saved cards, bounces and exec_sql closed, email sending, domains for a website or creator page, browser notifications and time zone, Ask Storelib conversations, Analytics speed, business accounts, creator badges, Ask Storelib reports, notification rules, website accounts and contact forms, discount code holds, orders kept with their creator, customer accounts on websites.
+-- Saved cards, bounces and exec_sql closed, email sending, domains for a website or creator page, browser notifications and time zone, Ask Storelib conversations and pictures, Analytics speed, business accounts, creator badges, Ask Storelib reports, notification rules, website accounts and contact forms, discount code holds, orders kept with their creator, customer accounts on websites.
 -- HOW: select all of this file, copy, paste into a NEW query tab in the Supabase
 -- SQL editor, press Run. Run the four files in order, one at a time.
 -- Safe to run again: every statement checks before it changes anything, so a
@@ -265,6 +265,18 @@ CREATE INDEX IF NOT EXISTS site_customer_wishlist_product ON public.site_custome
 ALTER TABLE public.site_customer_wishlist ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.site_customer_wishlist FROM anon, authenticated;
 GRANT ALL ON public.site_customer_wishlist TO service_role;
+
+-- part 34_theme_chat_attachments.sql
+/* Ask Storelib pictures: the private bucket a conversation's pictures are kept in for thirty days, and one row per picture naming its message, readable only by the creator who owns the website and written by the server only. Until it runs, a sent picture shows while the chat is open and reads back as "Picture no longer available". Run after 24. Source: supabase/migrations/20261005_theme_chat_attachments.sql. */
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types) VALUES ('theme-chat-attachments', 'theme-chat-attachments', false, 3145728, ARRAY['image/png', 'image/jpeg', 'image/webp', 'image/gif']) ON CONFLICT (id) DO UPDATE SET public = false, file_size_limit = 3145728, allowed_mime_types = ARRAY['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
+CREATE TABLE IF NOT EXISTS public.theme_chat_attachments ( id uuid PRIMARY KEY DEFAULT gen_random_uuid(), install_id uuid NOT NULL REFERENCES public.store_theme_installs(id) ON DELETE CASCADE, message_id uuid REFERENCES public.theme_chat_messages(id) ON DELETE CASCADE, storage_path text NOT NULL, media_type text NOT NULL, byte_size integer NOT NULL DEFAULT 0, name text, created_at timestamptz NOT NULL DEFAULT now(), expires_at timestamptz NOT NULL DEFAULT (now() + interval '30 days') );
+CREATE INDEX IF NOT EXISTS theme_chat_attachments_message_idx ON public.theme_chat_attachments (message_id);
+CREATE INDEX IF NOT EXISTS theme_chat_attachments_expiry_idx ON public.theme_chat_attachments (expires_at);
+CREATE INDEX IF NOT EXISTS theme_chat_attachments_install_idx ON public.theme_chat_attachments (install_id);
+ALTER TABLE public.theme_chat_attachments ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS tca_own ON public.theme_chat_attachments;
+DROP POLICY IF EXISTS tca_own_read ON public.theme_chat_attachments;
+CREATE POLICY tca_own_read ON public.theme_chat_attachments FOR SELECT USING (install_id IN (SELECT i.id FROM public.store_theme_installs i JOIN public.creators c ON c.id = i.creator_id WHERE c.user_id = auth.uid()));
 
 notify pgrst, 'reload schema';
 select 'Storelib file 3 of 4 ran. Next file.' as done;

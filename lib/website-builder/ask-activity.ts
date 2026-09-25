@@ -107,7 +107,7 @@ export const EMPTY_ACTIVITY: Activity = {
 }
 
 /** Lines the chat handles itself: never steps, whatever they carry. */
-const NOT_ACTIVITY = new Set(["conversation", "recorded", "message", "error", "sources-changed"])
+const NOT_ACTIVITY = new Set(["conversation", "recorded", "unsaved", "message", "error", "sources-changed"])
 
 /** A progress line of a kind this file does not know may say itself in `text` instead of `label`. */
 const TEXT_IS_LABEL = /^(status|stage|phase|progress|activity|tool|task)$/
@@ -337,8 +337,9 @@ export function changeCount(activity: Pick<Activity, "sections" | "theme" | "cha
   const parts: string[] = []
   if (n > 0) parts.push(`${n} section${n === 1 ? "" : "s"}`)
   if (activity.theme) parts.push("the site's settings")
-  if (parts.length === 0 && activity.changes.length > 0) parts.push(`${activity.changes.length} change${activity.changes.length === 1 ? "" : "s"}`)
-  const changed = parts.length ? `${parts.join(" and ")} changed` : ""
+  /* Changes that name no section are counted as changes: "2 changes made", never "2 changes changed". */
+  const loose = parts.length === 0 ? activity.changes.length : 0
+  const changed = loose > 0 ? `${loose} change${loose === 1 ? "" : "s"} made` : parts.length ? `${parts.join(" and ")} changed` : ""
   const wrote = files > 0 ? `${files} section file${files === 1 ? "" : "s"} rewritten` : ""
   const line = [changed, wrote].filter(Boolean).join(", ")
   return line ? line.charAt(0).toUpperCase() + line.slice(1) : null
