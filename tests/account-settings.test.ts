@@ -141,7 +141,8 @@ async function main() {
     const explore = readCode("app/(marketing)/explore/page.tsx")
     check(
       "Explore reads the column before building For you",
-      /select\("personalized_recommendations"\)/.test(explore) && /personalized_recommendations === false\) \{\s*return EMPTY_INTERESTS/.test(explore),
+      /select\("personalized_recommendations"\)/.test(explore) && /personalized_recommendations !== false/.test(explore) &&
+        /if \(!\(await personalizationOn\(supabase, user\.id\)\)\) return EMPTY_INTERESTS/.test(explore),
     )
 
     const loader = readCode("app/app/settings/_server.ts")

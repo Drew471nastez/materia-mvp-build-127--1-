@@ -43,6 +43,10 @@ function check(label: string, ok: boolean, detail?: string) {
 /** How a route may establish who is asking. */
 const PROOFS: [string, RegExp][] = [
   ["a signed-in session", /auth\.getUser\(\)/],
+  /* lib/auth/current-user.ts: getUser(), with "Supabase did not answer" kept
+     apart from "nobody is signed in". A route that uses it acts only on
+     `current.user`, which is null in both. */
+  ["a signed-in session, classified", /await readCurrentUser\(supabase\)[\s\S]*if \(!(current\.)?user\b/],
   ["the creator behind the session", /currentCreatorId\(\)/],
   ["a helper that leaves the decision to RLS", /\b(resolveSite|getSite)\(/],
   /* requireAdmin() in lib/admin/gate.ts is isAdminAuthenticated with the 401 attached. */

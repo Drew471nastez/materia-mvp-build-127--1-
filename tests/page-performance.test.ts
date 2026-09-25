@@ -2632,7 +2632,11 @@ check(
 
     if (!/rewritePath\.startsWith\("\/u\/"\)/.test(proxy))
       missing.push("the proxy no longer recognises a storefront rewrite")
-    if (!/supabaseResponse\.headers\.set\("Cache-Control", "private, no-cache, must-revalidate"\)/.test(proxy))
+    /* Set on whichever response the proxy returns: built by `respond()`, the
+       one function the proxy uses both first and again after a session
+       renewal, so the header survives a renewal too. */
+    if (!/if \(rewritePath\.startsWith\("\/u\/"\)\) r\.headers\.set\("Cache-Control", "private, no-cache, must-revalidate"\)/.test(proxy) ||
+        !/supabaseResponse = respond\(\)/.test(proxy))
       missing.push("a subdomain storefront is edge-cacheable again — saves will not show, and one viewer's page can be served to another")
 
     // The direct path keeps its own rule.

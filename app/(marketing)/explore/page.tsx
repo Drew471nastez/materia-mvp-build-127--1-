@@ -59,6 +59,20 @@ const VALID_CATEGORIES = [
   "video", "ecommerce", "education", "audio-music", "other", "freebies"
 ]
 
+/**
+ * The switch in Settings, Privacy (app/api/account/preferences): off means
+ * nobody's purchases or wishlist shape what they are shown here. A column
+ * that is not there yet, or a read that fails, is the default: on.
+ */
+async function personalizationOn(supabase: Awaited<ReturnType<typeof createClient>>, userId: string): Promise<boolean> {
+  const { data: pref } = await supabase
+    .from("profiles")
+    .select("personalized_recommendations")
+    .eq("id", userId)
+    .maybeSingle()
+  return (pref as { personalized_recommendations?: boolean } | null)?.personalized_recommendations !== false
+}
+
 export default async function ExplorePage({
   searchParams,
 }: {
@@ -118,17 +132,7 @@ export default async function ExplorePage({
         data: { user },
       } = await supabase.auth.getUser()
       if (!user) return EMPTY_INTERESTS
-      /* The switch in Settings, Privacy: off means nobody's purchases or
-         wishlist shape what they are shown. A column not there yet reads as
-         on, the default. */
-      const { data: pref } = await supabase
-        .from("profiles")
-        .select("personalized_recommendations")
-        .eq("id", user.id)
-        .maybeSingle()
-      if ((pref as { personalized_recommendations?: boolean } | null)?.personalized_recommendations === false) {
-        return EMPTY_INTERESTS
-      }
+      if (!(await personalizationOn(supabase, user.id))) return EMPTY_INTERESTS
       return readInterests(user.id, user.email)
     })().catch(() => EMPTY_INTERESTS)
 

@@ -1131,15 +1131,14 @@ export async function proxy(request: NextRequest) {
     }
 
     const seller = username
-    const storefront = rewritePath.startsWith("/u/")
     respond = () => {
       const r = NextResponse.rewrite(rewriteUrl, { request })
       r.headers.set("x-seller-subdomain", seller)
-      /* Why a storefront is no-cache: the note just below. */
-      if (storefront) r.headers.set("Cache-Control", "private, no-cache, must-revalidate")
+      if (rewritePath.startsWith("/u/")) r.headers.set("Cache-Control", "private, no-cache, must-revalidate")
       if (isCustomDomain) r.headers.set("x-custom-domain", host.split(":")[0])
       return r
     }
+    /* Why a storefront is no-cache, set in `respond` just above: */
 
     /**
      * THE STOREFRONT IS PER-VIEWER, ON THIS PATH TOO.

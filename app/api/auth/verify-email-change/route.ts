@@ -101,7 +101,11 @@ export async function POST(request: Request) {
         lead: `Your account now signs in with ${pending.new_email}. This address, ${previousEmail}, is no longer used for it.`,
         footer: "If you did not make this change, reply to this email and we will help you get your account back.",
       })
-      await sendEmail({ from: "Storelib <noreply@storelib.com>", to: previousEmail, subject: "Your Storelib email was changed", ...notice }).catch(() => null)
+      try {
+        await sendEmail({ from: "Storelib <noreply@storelib.com>", to: previousEmail, subject: "Your Storelib email was changed", ...notice })
+      } catch {
+        /* the change stands either way */
+      }
     }
 
     return NextResponse.json({ success: true, newEmail: pending.new_email })
