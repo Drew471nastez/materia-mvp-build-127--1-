@@ -26,6 +26,7 @@ import { forwardRef, memo, useCallback, useEffect, useImperativeHandle, useRef, 
 import { AppAvatar } from "@/components/app/app-avatar"
 import { useShellAvatar } from "@/lib/account/avatar-store"
 import { MobileAccountMenu } from "@/components/app/mobile-account-menu"
+import { BusinessSwitcher, type BusinessRow } from "@/components/app/business-switcher"
 import { DesktopSidebarContent, NAV_ICONS, NAV_ICONS_EXTRA } from "@/components/app/sidebar-desktop-nav"
 import type { NavIconPair } from "@/components/app/sidebar-desktop-nav"
 import { MobileMenuPage, MobileNavPill, pillBelongsOn, useLockAppScroll } from "@/components/app/sidebar-mobile-nav"
@@ -88,6 +89,8 @@ interface SidebarProps {
   stripeStatus?: string
   onePagePublished?: boolean
   setupProgress?: { completed: number; total: number }
+  /** The account's businesses for the switcher at the top of the account menu (app/app/layout.tsx). */
+  businesses?: BusinessRow[]
 }
 
 type NotificationsHandle = { open: () => void; toggle: () => void }
@@ -116,7 +119,7 @@ const NotificationsHost = memo(forwardRef<NotificationsHandle, {
   )
 }))
 
-export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, displayName, stripeConnected = false, stripeStatus = "not_connected", onePagePublished = false, setupProgress }: SidebarProps) {
+export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, displayName, stripeConnected = false, stripeStatus = "not_connected", onePagePublished = false, setupProgress, businesses = [] }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const { t } = useLanguage()
@@ -528,13 +531,20 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
             {/* Header Profile Dropdown */}
             <div
               className={cn(
-                "absolute left-0 top-full mt-2 z-[60] min-w-[200px] transition-all duration-200 ease-out origin-top-left",
+                "absolute left-0 top-full mt-2 z-[60] min-w-[248px] transition-all duration-200 ease-out origin-top-left",
                 headerProfileOpen
                   ? "opacity-100 scale-100 translate-y-0 pointer-events-auto"
                   : "opacity-0 scale-95 -translate-y-1 pointer-events-none"
               )}
             >
               <div className="rounded-xl border border-neutral-200/70 bg-white p-1 shadow-xl shadow-black/10">
+                {/* Your businesses first: the one you are in, the other, and New business while there is room. */}
+                {businesses.length > 0 && (
+                  <>
+                    <BusinessSwitcher businesses={businesses} variant="dropdown" onNavigate={() => setHeaderProfileOpen(false)} />
+                    <div className="my-1 h-px bg-neutral-100" />
+                  </>
+                )}
                 {profileDropdownItems.map((item) => {
                   const Icon = item.icon
                   const isHelp = item.href === "/help"
@@ -671,6 +681,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
               its own open state, so opening the account sheet re-renders the
               trigger and the sheet and nothing else in this sidebar. */}
           <MobileAccountMenu
+            businesses={businesses}
             avatarSrc={avatarSrc}
             userDisplayName={userDisplayName}
             settingsLabel={t("nav.settings")}
