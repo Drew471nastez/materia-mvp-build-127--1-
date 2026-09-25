@@ -2745,6 +2745,113 @@ function PatternPreview({ pattern, color }: { pattern: string; color: string }) 
   return patternSVGs[pattern] || null
 }
 
+/**
+ * THE GRADIENT DIRECTION DIAL, DECLARED ONCE AT MODULE SCOPE.
+ *
+ * It used to be a component declared inside WallpaperSection's render. A
+ * component declared in a render is a new function on every render, and
+ * React treats a new function as a new component type, so it throws the old
+ * dial away and mounts a fresh one. Every onChange updates the theme, the
+ * section renders again, and the dial that was being dragged was replaced by
+ * one whose `isDragging` was false: a drag moved the angle by one step and
+ * then stopped following the pointer. Out here it is the same component on
+ * every render and keeps its drag state for as long as the drag lasts.
+ */
+function DirectionDial({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  const dialRef = useRef<HTMLDivElement>(null)
+  const [isDragging, setIsDragging] = useState(false)
+
+  const updateAngle = useCallback((clientX: number, clientY: number) => {
+    if (!dialRef.current) return
+    const rect = dialRef.current.getBoundingClientRect()
+    const centerX = rect.left + rect.width / 2
+    const centerY = rect.top + rect.height / 2
+    const angle = Math.atan2(clientY - centerY, clientX - centerX)
+    let degrees = Math.round((angle * 180) / Math.PI + 90)
+    if (degrees < 0) degrees += 360
+    // Snap to 15 degree increments for easier control
+    degrees = Math.round(degrees / 15) * 15
+    if (degrees === 360) degrees = 0
+    onChange(degrees)
+  }, [onChange])
+
+  const handleStart = (e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault()
+    setIsDragging(true)
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY
+    updateAngle(clientX, clientY)
+  }
+
+  useEffect(() => {
+    const handleMove = (e: MouseEvent | TouchEvent) => {
+      if (!isDragging) return
+      const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
+      const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY
+      updateAngle(clientX, clientY)
+    }
+    const handleEnd = () => setIsDragging(false)
+
+    if (isDragging) {
+      window.addEventListener('mousemove', handleMove)
+      window.addEventListener('mouseup', handleEnd)
+      window.addEventListener('touchmove', handleMove)
+      window.addEventListener('touchend', handleEnd)
+    }
+    return () => {
+      window.removeEventListener('mousemove', handleMove)
+      window.removeEventListener('mouseup', handleEnd)
+      window.removeEventListener('touchmove', handleMove)
+      window.removeEventListener('touchend', handleEnd)
+    }
+  }, [isDragging, updateAngle])
+
+  // Quick preset angles
+  const presetAngles = [0, 45, 90, 135, 180, 225, 270, 315]
+
+  return (
+    <div className="flex flex-col items-center gap-2">
+      <div
+        ref={dialRef}
+        className={cn(
+          "w-20 h-20 rounded-full border-2 bg-gradient-to-br from-gray-50 to-gray-100 relative cursor-pointer select-none shadow-inner transition-all",
+          isDragging ? "border-violet-500 shadow-lg scale-105" : "border-gray-200 hover:border-gray-300"
+        )}
+        onMouseDown={handleStart}
+        onTouchStart={handleStart}
+      >
+        {/* Tick marks around the dial */}
+        {presetAngles.map((angle) => (
+          <div
+            key={angle}
+            className="absolute w-0.5 h-2 bg-gray-300 rounded-full"
+            style={{
+              top: '4px',
+              left: '50%',
+              transformOrigin: '50% 36px',
+              transform: `translateX(-50%) rotate(${angle}deg)`
+            }}
+          />
+        ))}
+
+        {/* Rotating indicator */}
+        <div
+          className="absolute inset-3 rounded-full flex items-start justify-center transition-transform"
+          style={{ transform: `rotate(${value}deg)` }}
+        >
+          <div className="w-2 h-8 bg-gradient-to-b from-violet-500 to-violet-600 rounded-full shadow-md" />
+        </div>
+
+        {/* Center dot */}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div className="w-3 h-3 bg-white rounded-full shadow-sm border border-gray-200" />
+        </div>
+      </div>
+      <span className="text-sm font-medium text-gray-700">{value}°</span>
+    </div>
+  )
+}
+
 function WallpaperSection() {
   const { onepage, updateTheme } = useOnePage()
   const [uploading, setUploading] = useState(false)
@@ -3039,102 +3146,6 @@ function WallpaperSection() {
       background_video_url: null,
       background_video_crop: null
     } as any)
-  }
-
-  // Gradient direction component - improved with better UX
-  const DirectionDial = ({ value, onChange }: { value: number; onChange: (v: number) => void }) => {
-    const dialRef = useRef<HTMLDivElement>(null)
-    const [isDragging, setIsDragging] = useState(false)
-
-    const updateAngle = useCallback((clientX: number, clientY: number) => {
-      if (!dialRef.current) return
-      const rect = dialRef.current.getBoundingClientRect()
-      const centerX = rect.left + rect.width / 2
-      const centerY = rect.top + rect.height / 2
-      const angle = Math.atan2(clientY - centerY, clientX - centerX)
-      let degrees = Math.round((angle * 180) / Math.PI + 90)
-      if (degrees < 0) degrees += 360
-      // Snap to 15 degree increments for easier control
-      degrees = Math.round(degrees / 15) * 15
-      if (degrees === 360) degrees = 0
-      onChange(degrees)
-    }, [onChange])
-
-    const handleStart = (e: React.MouseEvent | React.TouchEvent) => {
-      e.preventDefault()
-      setIsDragging(true)
-      const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
-      const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY
-      updateAngle(clientX, clientY)
-    }
-
-    useEffect(() => {
-      const handleMove = (e: MouseEvent | TouchEvent) => {
-        if (!isDragging) return
-        const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
-        const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY
-        updateAngle(clientX, clientY)
-      }
-      const handleEnd = () => setIsDragging(false)
-
-      if (isDragging) {
-        window.addEventListener('mousemove', handleMove)
-        window.addEventListener('mouseup', handleEnd)
-        window.addEventListener('touchmove', handleMove)
-        window.addEventListener('touchend', handleEnd)
-      }
-      return () => {
-        window.removeEventListener('mousemove', handleMove)
-        window.removeEventListener('mouseup', handleEnd)
-        window.removeEventListener('touchmove', handleMove)
-        window.removeEventListener('touchend', handleEnd)
-      }
-    }, [isDragging, updateAngle])
-
-    // Quick preset angles
-    const presetAngles = [0, 45, 90, 135, 180, 225, 270, 315]
-
-    return (
-      <div className="flex flex-col items-center gap-2">
-        <div
-          ref={dialRef}
-          className={cn(
-            "w-20 h-20 rounded-full border-2 bg-gradient-to-br from-gray-50 to-gray-100 relative cursor-pointer select-none shadow-inner transition-all",
-            isDragging ? "border-violet-500 shadow-lg scale-105" : "border-gray-200 hover:border-gray-300"
-          )}
-          onMouseDown={handleStart}
-          onTouchStart={handleStart}
-        >
-          {/* Tick marks around the dial */}
-          {presetAngles.map((angle) => (
-            <div
-              key={angle}
-              className="absolute w-0.5 h-2 bg-gray-300 rounded-full"
-              style={{
-                top: '4px',
-                left: '50%',
-                transformOrigin: '50% 36px',
-                transform: `translateX(-50%) rotate(${angle}deg)`
-              }}
-            />
-          ))}
-
-          {/* Rotating indicator */}
-          <div
-            className="absolute inset-3 rounded-full flex items-start justify-center transition-transform"
-            style={{ transform: `rotate(${value}deg)` }}
-          >
-            <div className="w-2 h-8 bg-gradient-to-b from-violet-500 to-violet-600 rounded-full shadow-md" />
-          </div>
-
-          {/* Center dot */}
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="w-3 h-3 bg-white rounded-full shadow-sm border border-gray-200" />
-          </div>
-        </div>
-        <span className="text-sm font-medium text-gray-700">{value}°</span>
-      </div>
-    )
   }
 
   return (

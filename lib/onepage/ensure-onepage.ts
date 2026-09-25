@@ -4,6 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 
 import type { OnePageTheme, OnePageSettings } from "@/lib/onepage/types"
 import { defaultSocialLinks, generateBlockId } from "@/lib/onepage/types"
+import { hasRealUrl } from "@/lib/onepage/editor-state"
 
 /**
  * ===========================================================================
@@ -204,6 +205,17 @@ export async function ensureOnePage(
   const defaultBio = ""
   const defaultAvatarUrl = profile?.avatar_url || null
   const defaultBlocks = [headerBlock, socialRowBlock, linkBlock1, linkBlock2, dividerBlock, newsletterBlock]
+  /**
+   * NO DEAD LINKS ON DAY ONE. The two "My Link" buttons stay in the draft,
+   * where they show a new creator what a link looks like and wait for an
+   * address. The published copy leaves out any link without one: it used to
+   * carry both, pointing at "https://", so every new page went live with two
+   * buttons that led nowhere. hasRealUrl is the same test the published
+   * page should use for links saved later.
+   */
+  const publishedDefaultBlocks = defaultBlocks
+    .filter((b) => b.type !== "link_button" || hasRealUrl((b.data as { url?: string }).url))
+    .map((b, i) => ({ ...b, sort_order: i }))
 
   const newOnepage = {
     owner_id: userId,
@@ -220,7 +232,7 @@ export async function ensureOnePage(
     // Auto-publish by default so page is visible immediately
     status: "published",
     published_at: new Date().toISOString(),
-    published_blocks: defaultBlocks,
+    published_blocks: publishedDefaultBlocks,
     published_theme: newDefaultTheme,
     published_profile: {
       title: defaultTitle,
