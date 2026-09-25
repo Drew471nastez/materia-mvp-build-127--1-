@@ -12,17 +12,41 @@
  * except the two counts the banner asks for, which come from the address:
  * `&subs=N` subscribers and `&flows=N` active automations.
  *
+ * `{ before: BASE }` builds Home as it was at commit BASE where this work
+ * changed it: the old banner (scripts/home-banner-before.tsx), the old globe
+ * and the old pull to refresh hook, both read from the repository at BASE.
+ * Everything else is this checkout's, so a before and an after differ only
+ * in those.
+ *
  * Used by scripts/check-home-banner.mjs and scripts/check-home-scroll.mjs.
  */
 import { execFileSync } from "node:child_process"
 import { createServer } from "node:http"
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
+import { build } from "esbuild"
 import { appCss, interFaces } from "./probe-css.mjs"
 
-export async function homeProbePage(root = process.cwd()) {
-  const dir = join(root, `.home-banner-${process.pid}-probe`)
+export async function homeProbePage(root = process.cwd(), { before = null } = {}) {
+  const dir = join(root, `.home-banner-${process.pid}${before ? "-before" : ""}-probe`)
   mkdirSync(dir, { recursive: true })
+  /* The old files go beside the new ones (in folders the repository ignores), so their own relative imports still resolve. */
+  const swaps = {}
+  const oldDirs = []
+  if (before) {
+    const show = (file) => execFileSync("git", ["show", `${before}:${file}`], { cwd: root, encoding: "utf8" })
+    const globeDir = join(root, "components/app/home", `.old-${process.pid}-probe`)
+    const hookDir = join(root, "hooks", `.old-${process.pid}-probe`)
+    mkdirSync(globeDir, { recursive: true })
+    mkdirSync(hookDir, { recursive: true })
+    oldDirs.push(globeDir, hookDir)
+    writeFileSync(join(globeDir, "globe.tsx"), show("components/app/home/globe.tsx"))
+    writeFileSync(join(globeDir, "globe-land.ts"), show("components/app/home/globe-land.ts"))
+    writeFileSync(join(hookDir, "use-pull-to-refresh.ts"), show("hooks/use-pull-to-refresh.ts"))
+    swaps["@/components/app/home/home-banner"] = join(root, "scripts/home-banner-before.tsx")
+    swaps["@probe/old-globe"] = join(globeDir, "globe.tsx")
+    swaps["@/hooks/use-pull-to-refresh"] = join(hookDir, "use-pull-to-refresh.ts")
+  }
   writeFileSync(join(dir, "navigation.js"), `export const usePathname = () => "/app"
 export const useRouter = () => ({ push(h) { window.__pushed = h }, prefetch(h) { (window.__prefetched = window.__prefetched || []).push(h) }, replace() {}, refresh() {}, back() {} })
 export const useSearchParams = () => new URLSearchParams()
@@ -66,20 +90,46 @@ export function createClient() {
 }
 export function isNativePlatform() { return false }
 `)
+  /* These exact import paths go to these files; everything else resolves as the app's does. */
+  const redirect = (map) => ({
+    name: "home-probe-redirects",
+    setup(b) {
+      for (const [spec, file] of Object.entries(map)) {
+        const filter = new RegExp(`^${spec.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&")}$`)
+        b.onResolve({ filter }, () => ({ path: file }))
+      }
+    },
+  })
   try {
-    execFileSync("pnpm", ["exec", "esbuild", join(root, "scripts/render-home-banner.tsx"),
-      "--bundle", "--format=iife", "--platform=browser", "--jsx=automatic", "--log-level=error", `--outfile=${join(dir, "probe.js")}`,
-      '--define:process.env.NODE_ENV="production"',
-      '--define:process.env.NEXT_PUBLIC_SUPABASE_URL="https://probe.invalid"',
-      '--define:process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY="probe-anon-key"',
-      `--alias:next/navigation=${join(dir, "navigation.js")}`, `--alias:next/link=${join(dir, "link.jsx")}`,
-      `--alias:next/image=${join(dir, "image.jsx")}`, `--alias:@/lib/supabase/client=${join(dir, "supabase.js")}`,
-      `--alias:@=${root}`, "--loader:.jsx=jsx", "--loader:.css=empty", "--loader:.svg=dataurl", "--loader:.png=dataurl"],
-      { cwd: root, stdio: ["ignore", "ignore", "inherit"] })
-  } catch {
+    await build({
+      entryPoints: [join(root, "scripts/render-home-banner.tsx")],
+      bundle: true,
+      format: "iife",
+      platform: "browser",
+      jsx: "automatic",
+      logLevel: "error",
+      outfile: join(dir, "probe.js"),
+      define: {
+        "process.env.NODE_ENV": '"production"',
+        "process.env.NEXT_PUBLIC_SUPABASE_URL": '"https://probe.invalid"',
+        "process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY": '"probe-anon-key"',
+      },
+      plugins: [redirect({
+        ...swaps,
+        "next/navigation": join(dir, "navigation.js"),
+        "next/link": join(dir, "link.jsx"),
+        "next/image": join(dir, "image.jsx"),
+        "@/lib/supabase/client": join(dir, "supabase.js"),
+      })],
+      alias: { "@": root },
+      loader: { ".jsx": "jsx", ".css": "empty", ".svg": "dataurl", ".png": "dataurl" },
+    })
+  } catch (e) {
     rmSync(dir, { recursive: true, force: true })
-    throw new Error("the Home probe did not bundle")
+    for (const d of oldDirs) rmSync(d, { recursive: true, force: true })
+    throw new Error(`the Home probe did not bundle: ${e?.message ?? e}`)
   }
+  for (const d of oldDirs) rmSync(d, { recursive: true, force: true })
   const script = readFileSync(join(dir, "probe.js"), "utf8")
   rmSync(dir, { recursive: true, force: true })
 

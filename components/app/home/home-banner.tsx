@@ -151,14 +151,11 @@ function BannerView({ list, onShare }: { list: Announcement[]; onShare?: () => v
   const [currentId, setCurrentId] = useState(list[0]?.id)
   const [leavingId, setLeavingId] = useState<string | null>(null)
   const [dir, setDir] = useState(1)
-  /* Each slide shown gets its own clock, from nothing. */
-  const [turn, setTurn] = useState(0)
-  const [hold, setHold] = useState(0)
   /* A change the reader asked for is read out; one the clock made is not. */
   const [live, setLive] = useState<"off" | "polite">("off")
   const rootRef = useRef<HTMLElement>(null)
   const trackRef = useRef<HTMLDivElement>(null)
-  const tabsRef = useRef<HTMLDivElement>(null)
+  const tabsRef = useRef<HTMLDivElement | null>(null)
 
   /* The slide showing stays the one showing when the list changes under it (a count arriving, a sale coming in). */
   const found = list.findIndex((a) => a.id === currentId)
@@ -173,13 +170,31 @@ function BannerView({ list, onShare }: { list: Announcement[]; onShare?: () => v
       setLeavingId(current?.id ?? null)
       setCurrentId(next.id)
       setDir(direction)
-      setTurn((t) => t + 1)
       setLive(asked ? "polite" : "off")
     },
     [count, list, current],
   )
 
-  const setBit = useCallback((bit: number, on: boolean) => setHold((h) => (on ? h | bit : h & ~bit)), [])
+  /*
+    WHY THE CLOCK IS HELD LIVES OUTSIDE REACT. A hover, a focus, a finger
+    down or the banner leaving the screen only pauses the segment's
+    animation; as state, each of them re-rendered the banner inside the
+    touch that started a scroll (measured: the longest tasks of a swipe
+    that began on the banner). Now they set one attribute on the tabs.
+  */
+  const holdRef = useRef(0)
+  const applyHold = useCallback(() => {
+    tabsRef.current?.toggleAttribute("data-held", holdRef.current !== 0)
+  }, [])
+  const setBit = useCallback((bit: number, on: boolean) => {
+    holdRef.current = on ? holdRef.current | bit : holdRef.current & ~bit
+    applyHold()
+  }, [applyHold])
+  /* The tabs, when they appear, start in whatever state the banner is in. */
+  const tabsAt = useCallback((el: HTMLDivElement | null) => {
+    tabsRef.current = el
+    applyHold()
+  }, [applyHold])
 
   /* Off screen or on a hidden tab, the clock waits. */
   useEffect(() => {
@@ -248,8 +263,6 @@ function BannerView({ list, onShare }: { list: Announcement[]; onShare?: () => v
     tab?.focus()
   }
 
-  const playing = count > 1 && hold === 0
-
   const warm = (href: string) => {
     if (href.startsWith("/app/")) prefetchAppPage(router, href)
   }
@@ -293,9 +306,13 @@ function BannerView({ list, onShare }: { list: Announcement[]; onShare?: () => v
                   role={count > 1 ? "tabpanel" : "group"}
                   aria-roledescription="slide"
                   aria-label={`${i + 1} of ${count}`}
-                  aria-hidden={state !== "active"}
+                  /* Not aria-hidden, and data-slide rather than data-state: a slide not showing is
+                     already visibility hidden (out of the accessibility tree, unfocusable) and inert,
+                     and either attribute changing anywhere makes a :has() on <html> in globals.css
+                     (the nav pill's dialog rule, the cookie banner's) restyle the whole page:
+                     measured at 363 elements a slide change. */
                   inert={state !== "active"}
-                  data-state={state}
+                  data-slide={state}
                   data-announcement={a.id}
                   className="home-banner-slide"
                 >
@@ -326,7 +343,7 @@ function BannerView({ list, onShare }: { list: Announcement[]; onShare?: () => v
           </div>
 
           {count > 1 && (
-            <div ref={tabsRef} role="tablist" aria-label="Announcements" className="home-banner-tabs" onKeyDown={onTabKey}>
+            <div ref={tabsAt} role="tablist" aria-label="Announcements" className="home-banner-tabs" onKeyDown={onTabKey}>
               {list.map((a, i) => {
                 const on = i === index
                 return (
@@ -343,14 +360,18 @@ function BannerView({ list, onShare }: { list: Announcement[]; onShare?: () => v
                     onClick={() => go(i, i >= index ? 1 : -1, true)}
                   >
                     <span className="home-banner-tab-track">
-                      {on && (
-                        <span
-                          key={`${a.id}:${turn}`}
-                          className="home-banner-tab-fill"
-                          style={{ animationDuration: `${SLIDE_MS}ms`, animationPlayState: playing ? "running" : "paused" }}
-                          onAnimationEnd={() => go(index + 1, 1, false)}
-                        />
-                      )}
+                      {/*
+                        EVERY SEGMENT KEEPS ITS FILL, and the showing one runs it (data-on).
+                        Mounting a new fill for each slide was a DOM insertion, and any
+                        insertion on /app makes the :has() rules on <html> in globals.css
+                        restyle the whole page: measured at 363 elements, every six seconds.
+                        An attribute change costs a handful.
+                      */}
+                      <span
+                        className="home-banner-tab-fill"
+                        style={{ animationDuration: `${SLIDE_MS}ms` }}
+                        onAnimationEnd={on ? () => go(index + 1, 1, false) : undefined}
+                      />
                     </span>
                   </button>
                 )
@@ -499,22 +520,22 @@ const BANNER_CSS = `
   translate: var(--in) 0;
   transition: none;
 }
-.home-banner-slide[data-state="active"] { visibility: visible; }
-.home-banner-slide[data-state="active"] > * {
+.home-banner-slide[data-slide="active"] { visibility: visible; }
+.home-banner-slide[data-slide="active"] > * {
   opacity: 1;
   translate: 0 0;
   transition:
     opacity 380ms cubic-bezier(0.22, 1, 0.36, 1),
     translate 520ms cubic-bezier(0.22, 1, 0.36, 1);
 }
-.home-banner-slide[data-state="active"] > :nth-child(2) { transition-delay: 40ms; }
-.home-banner-slide[data-state="active"] > :nth-child(3) { transition-delay: 80ms; }
-.home-banner-slide[data-state="active"] > :nth-child(4) { transition-delay: 120ms; }
-.home-banner-slide[data-state="leaving"] {
+.home-banner-slide[data-slide="active"] > :nth-child(2) { transition-delay: 40ms; }
+.home-banner-slide[data-slide="active"] > :nth-child(3) { transition-delay: 80ms; }
+.home-banner-slide[data-slide="active"] > :nth-child(4) { transition-delay: 120ms; }
+.home-banner-slide[data-slide="leaving"] {
   visibility: hidden;
   transition: visibility 0s linear 300ms;
 }
-.home-banner-slide[data-state="leaving"] > * {
+.home-banner-slide[data-slide="leaving"] > * {
   opacity: 0;
   translate: var(--out) 0;
   transition:
@@ -632,10 +653,15 @@ const BANNER_CSS = `
   border-radius: inherit;
   background: rgba(26, 26, 46, 0.72);
   transform-origin: left center;
+  transform: scaleX(0);
+}
+/* The showing slide's segment fills over SLIDE_MS; the clock is this animation, and the slide changes when it ends. */
+.home-banner-tab[data-on] .home-banner-tab-fill {
   animation-name: home-banner-fill;
   animation-timing-function: linear;
   animation-fill-mode: both;
 }
+.home-banner-tabs[data-held] .home-banner-tab-fill { animation-play-state: paused; }
 @keyframes home-banner-fill {
   from { transform: scaleX(0); }
   to { transform: scaleX(1); }
@@ -648,9 +674,9 @@ const BANNER_CSS = `
   to { transform: scaleX(1); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .home-banner-tab-fill { animation-name: home-banner-fill-still; }
+  .home-banner-tab[data-on] .home-banner-tab-fill { animation-name: home-banner-fill-still; }
   .home-banner-slide > *,
-  .home-banner-slide[data-state="active"] > *,
-  .home-banner-slide[data-state="leaving"] > * { translate: 0 0; transition: opacity 160ms linear; transition-delay: 0ms; }
+  .home-banner-slide[data-slide="active"] > *,
+  .home-banner-slide[data-slide="leaving"] > * { translate: 0 0; transition: opacity 160ms linear; transition-delay: 0ms; }
 }
 `
