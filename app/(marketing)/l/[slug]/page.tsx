@@ -54,7 +54,7 @@ const onePageOwner = cache(async (sellerId: string | null, creatorId: string | n
       ? await supabase.from("creators").select("*").eq("user_id", ownerId).maybeSingle()
       : { data: null }
   const row = creator as { id?: string; user_id?: string | null; banned_at?: string | null } | null
-  // profiles.avatar_url is the single source of truth — both Settings and Store Builder sync to it.
+  // profiles.avatar_url is the single source of truth: Settings and Store Builder both sync to it.
   const userId = ownerId || row?.user_id || null
   const { data: profile } = userId
     ? await supabase.from("profiles").select("avatar_url, username").eq("id", userId).maybeSingle()
