@@ -338,7 +338,17 @@ section("The database")
   const partName = readdirSync(join(process.cwd(), "supabase/sql/run-now")).find((f) => /_theme_chat_reports\.sql$/.test(f)) ?? ""
   const part = partName ? read(`supabase/sql/run-now/${partName}`) : ""
   const lines = part.trim().split("\n")
-  check("there is a run-now part for it, listed in the README, with a column in 99", !!partName && read("supabase/sql/run-now/README.md").includes(partName) && /_theme_chat_reports;?\s*$/.test(read("supabase/sql/run-now/99_check_after.sql").trim()))
+  /*
+    The part is XX_ until the lead numbers it; then build-run-four.py carries
+    it into the four paste files and 99 gets its column, in that order, so
+    the column is only asked for once the part has a number.
+  */
+  const numbered = /^\d{2}_/.test(partName)
+  check(
+    "there is a run-now part for it, listed in the README, with a column in 99 once it is numbered",
+    !!partName && read("supabase/sql/run-now/README.md").includes(partName) &&
+      (!numbered || /as p\d{2}_theme_chat_reports/.test(read("supabase/sql/run-now/99_check_after.sql"))),
+  )
   check("the part is a one line note and then one whole statement per line", /^\/\* .* \*\/$/.test(lines[0]) && lines.slice(1).every((l) => /;\s*$/.test(l)))
   const statements = (sql: string) => sql.split("\n").filter((l) => l.trim() && !l.startsWith("/*"))
   check("the migration holds the same statements", statements(migration).join("\n") === statements(part).join("\n"))
