@@ -285,15 +285,58 @@ async function main() {
     check("a second tap while one action runs does nothing", /if \(busy\) return false/.test(detail))
     const client = code("app/app/orders/orders-client.tsx")
     const css = read("app/globals.css")
-    /* "Too smooth and flowy", and a bar that arrived late: no slide. The
-       order and its bar are drawn on the first frame; only the cards under
-       the bar fade, 120ms, opacity alone, and back is immediate. */
-    check("an order opens with no slide and no stage to wait on", !/onAnimationEnd|SLIDE_NET_MS|data-stage|orders-push-in|orders-fade-in/.test(client + css))
-    check("  only the cards fade in, 120ms, opacity alone, never held after", /\.orders-body \{\s*animation: orders-body-in 120ms ease-out backwards;/.test(css) && /@keyframes orders-body-in \{\s*from \{ opacity: 0; \}\s*to \{ opacity: 1; \}\s*\}/.test(css))
-    check("  and reduced motion stills that too", /@media \(prefers-reduced-motion: reduce\) \{\s*\.orders-body \{\s*animation: none;/.test(css))
-    check("the next order starts at its top before it is drawn", /React\.useLayoutEffect\(\(\) => \{\s*detailRef\.current\?\.scrollTo\(\{ top: 0 \}\)\s*\}, \[shown\?\.id\]\)/.test(client))
+    const motion = code("app/app/orders/order-motion.ts")
+    /* "Not so direct or clunky": the phone's own push and pop, started
+       before the frame that draws the order is painted, on the compositor.
+       The slide that came out once ("too smooth and flowy", a bar that
+       arrived late) was a class put on after the paint; this is not. */
+    check("an order is moved from the layout effect of the commit that draws or closes it",
+      /React\.useLayoutEffect\(\(\) => \{\s*const was = settledId\.current[\s\S]{0,900}moveOrder\("push", detail, list\)[\s\S]{0,300}moveOrder\("pop", detail, list, \(\) => setLeavingId\(null\)\)\s*\}, \[shownId\]\)/.test(client))
+    check("  a step to the previous or next order moves nothing but the cards",
+      /if \(was !== null \|\| !detail\) return/.test(client) && /\.orders-detail\[data-arrival="step"\] \.orders-body \{\s*animation: orders-body-in 120ms ease-out backwards;/.test(css) && !/^\.orders-body \{/m.test(css))
+    check("  on transform and opacity alone, as Web Animations, never a layout property",
+      /detail\.animate\(\[\{ transform: `translate3d\(\$\{detailX\}px, 0, 0\)` \}/.test(motion) && /list\.animate\(\[\{ transform:/.test(motion) && /detail\.animate\(\[\{ opacity: detailOpacity \}, \{ opacity: to \}\]/.test(motion)
+        && !/\.animate\(\[\{ (left|top|width|height|margin)/.test(motion))
+    check("  about 300ms on iOS's curve on a phone, a short fade wider, decided by the sheets' phone width",
+      /export const ORDER_PUSH_MS = 300/.test(motion) && /export const ORDER_POP_MS = 280/.test(motion) && /export const ORDER_EASE = "cubic-bezier\(0\.32, 0\.72, 0, 1\)"/.test(motion)
+        && /export const ORDER_FADE_IN_MS = 150/.test(motion) && /export const ORDER_PHONE_QUERY = "\(max-width: 639px\)"/.test(motion))
+    check("  interrupted, it starts from where the layer is, read before the running move is cancelled",
+      /const detailX = moving \? xOf\(detail\)/.test(motion) && motion.indexOf("const detailX") < motion.indexOf("stop(detail)"))
+    check("  the pop holds its last frame until the order is taken away, so it cannot snap back",
+      /fill: kind === "pop" \? "forwards" : "none"/.test(motion))
+    check("  and reduced motion moves nothing", /if \(reducedMotion\(\) \|\| typeof detail\.animate !== "function"\) \{\s*settle\(detail, list\)\s*done\?\.\(\)/.test(motion))
+    check("the list stays drawn under a moving order, and is hidden under a settled one",
+      /\.orders-stage\[data-order-open\] > \.orders-list:not\(\[data-moving\]\) \{\s*visibility: hidden;/.test(css)
+        && /list\.dataset\.moving = ""/.test(motion) && /delete list\.dataset\.moving/.test(motion)
+        && /data-order-open=\{listCovered \? "" : undefined\}/.test(client) && !/style=\{\{ visibility: listCovered/.test(client))
+    check("an order going back is kept, inert, until it is off, worked out while rendering",
+      /if \(shownId !== lastId\) \{\s*setLastId\(shownId\)\s*setLeavingId\(shownId === null \? lastId : null\)/.test(client)
+        && /const displayed = shown \?\? leaving/.test(client) && /inert=\{!shown\}/.test(client))
+    check("  and a browser that already drew its own back transition is not followed by a second",
+      /hasUAVisualTransition/.test(client) && /if \(!detail \|\| skip\) \{\s*stillOrder\(detail, list\)\s*setLeavingId\(null\)/.test(client))
+    check("the row the order came from is tinted, then fades, on opacity alone, written without drawing the list again",
+      /markRow\(list, shownId, "held"\)/.test(client) && /markRow\(list, was, "fading"\)/.test(client)
+        && /@keyframes orders-row-fade \{\s*0%, 30% \{ opacity: 1; \}\s*100% \{ opacity: 0; \}/.test(css)
+        && /data-order-id=\{order\.id\}/.test(code("app/app/orders/orders-list.tsx")))
+    check("a finger on a row, or a pointer resting on one, reads the order's history ahead, and the timeline starts from it",
+      /onPointerDown=\{\(\) => prefetchOrder\(order\)\}/.test(code("app/app/orders/orders-list.tsx"))
+        && /HOVER_PREFETCH_MS/.test(code("app/app/orders/orders-list.tsx"))
+        && /useState<OrderActivity\[\]>\(\(\) => activityOf\(cachedJson\(activityUrl\(order\.id\)\)\) \?\? \[\]\)/.test(code("app/app/orders/order-detail.tsx"))
+        && /readJson\(activityUrl\(order\.id\), revision > 0\)/.test(code("app/app/orders/order-detail.tsx")))
+    check("the next order starts at its top before it is drawn, a leaving one where it was", /React\.useLayoutEffect\(\(\) => \{\s*if \(shownId\) detailRef\.current\?\.scrollTo\(\{ top: 0 \}\)\s*\}, \[shownId\]\)/.test(client))
     check("a step draws the next order's cards fresh, the bar staying put", /<div key=\{order\.id\} className=\{cn\("orders-body /.test(detail) && detail.indexOf("<OrderBarFrame") < detail.indexOf("key={order.id}"))
     check("opened straight onto an order, the page does not fade in as a whole", /!openedOnOrder && "app-page-enter"/.test(client))
+
+    /* Export: the shared sheet on a phone, a panel from the button wider. */
+    const exporter = code("app/app/orders/export-dialog.tsx")
+    check("Export is the shared sheet on a phone, with its title and no close button",
+      /<BottomSheet isOpen=\{open\} onClose=\{onClose\} title="Export orders" dismissible=\{!busy\}>/.test(exporter) && !/<Dialog\b/.test(exporter) && !/aria-label="Close"/.test(exporter))
+    check("  48px rows and one full width 48px button", /compact \? "min-h-\[48px\] px-3 text-\[15px\]/.test(exporter) && /className="flex h-12 w-full items-center justify-center rounded-xl bg-\[#1a1a2e\]/.test(exporter))
+    check("  and a panel hung from the Export button on a computer", /<PopoverAnchor virtualRef=\{measure\} \/>/.test(exporter) && /align="end"/.test(exporter) && /data-orders-export=""/.test(code("app/app/orders/orders-list.tsx")))
+    check("  whose choices are fresh on its first frame, not an effect later",
+      /if \(open !== wasOpen\) \{\s*setWasOpen\(open\)\s*if \(open\) \{\s*setScope\(selected\.size > 0 \? "selected" : "matching"\)/.test(exporter) && !/React\.useEffect\(\(\) => \{\s*if \(!open\) return/.test(exporter))
+    check("  and it stays up, saying so, until the file is made, then says how many",
+      /setBusy\(true\)[\s\S]{0,120}const outcome = await saveFile\(/.test(exporter) && /onDone\(outcome === "downloaded" \? `\$\{what\} exported`/.test(exporter) && /"Exporting…"/.test(exporter))
     const parts = code("app/app/orders/order-parts.tsx")
     check("the bar is on the pane, its full width, and the date is inside it",
       /data-orders-bar="" data-scrolled="false" className="orders-bar sticky top-0 z-10 bg-\[#f8f9fa\]"/.test(parts) && /<OrderBarFrame[\s\S]*subtitle=\{/.test(detail))
@@ -304,7 +347,8 @@ async function main() {
       /lg:grid-cols-\[minmax\(0,2fr\)_minmax\(0,1fr\)\] lg:grid-rows-\[auto_auto_auto_1fr\]/.test(detail) && /lg:col-start-2 lg:row-span-4 lg:row-start-1/.test(detail))
     check("an action updates the rows from the server's answer, without reloading every order", !/router\.refresh\(\)/.test(client) && /applyDelivery\(data\?\.lines\)/.test(client))
     const list = code("app/app/orders/orders-list.tsx")
-    check("Export is the violet action, and off with no orders", /className=\{buttonAccent\}\s*onClick=\{\(\) => props\.onExport\(\)\}\s*disabled=\{allOrders\.length === 0\}/.test(list))
+    check("Export is the violet action, and off with no orders", /className=\{cn\(buttonAccent, [^}]*\)\}\s*onClick=\{\(\) => props\.onExport\(\)\}\s*disabled=\{allOrders\.length === 0\}/.test(list))
+    check("  44px to tap on a phone, 32px to see", /cn\(buttonAccent, "relative before:absolute before:-inset-y-1\.5 before:inset-x-0 before:content-\[''\] sm:before:hidden"\)/.test(list))
     check("  violet, white, a step darker on hover, with a shadow", /bg-\[#8b5cf6\][^"]*text-white[^"]*hover:bg-\[#7c3aed\]/.test(read("app/app/orders/order-parts.tsx")) && /buttonAccent =[\s\S]{0,200}shadow-\[/.test(read("app/app/orders/order-parts.tsx")))
   }
 

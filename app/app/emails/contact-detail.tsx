@@ -9,6 +9,29 @@
  * contact's automation runs itself, through the creator's own session
  * (row level security keeps it to theirs); before the engine's SQL has run
  * there are none, and it says so plainly.
+ *
+ * "When I click on an email it should open the bottom sheet clean, with no
+ * glitch, smooth in and out." What the glitch was, measured:
+ *
+ *   THE SHEET CAME UP BEFORE ITS CONTENT. The runs were asked for when the
+ *   sheet opened, so it rose with two grey bars in it and, half way up or
+ *   just after, they turned into the list or into "None yet": a different
+ *   height, and since the sheet stands on the bottom of the screen its top
+ *   edge jumped under the thumb. Now a finger on the row asks for them
+ *   (`prefetchContact`), the tap waits for the answer for at most
+ *   OPEN_WAIT_MS (usually it is already here), and the sheet rises once,
+ *   with everything in it laid out.
+ *
+ *   THE SHEET WAS MOUNTED BY AN EFFECT. The contact to show was copied into
+ *   state from an effect, so the first render after the tap drew nothing,
+ *   and the sheet was created fresh a render later, with its own mount
+ *   round. It is always there on a phone now, closed, and opening it is one
+ *   render: the sheet's portal and its content land in the same commit, and
+ *   its rise starts before that commit is painted.
+ *
+ *   A SECOND CONTACT SHOWED THE FIRST ONE'S RUNS for a frame, then grey
+ *   bars, then its own. The body is keyed by the contact and starts from
+ *   what is already known about that contact.
  */
 
 import * as React from "react"
@@ -27,6 +50,67 @@ interface RunLite {
   started_at: string
   flow_id: string
   email_flows: { name: string } | null
+}
+
+/** The longest a tap waits for a contact's runs before the sheet rises without them. */
+export const OPEN_WAIT_MS = 300
+/** How long a contact's runs are good for before they are read again. */
+const FRESH_MS = 30_000
+
+const runsKept = new Map<string, { at: number; runs: RunLite[] }>()
+const runsAsked = new Map<string, Promise<RunLite[]>>()
+
+const keyOf = (email: string) => email.toLowerCase()
+
+function keptRuns(email: string): RunLite[] | null {
+  const hit = runsKept.get(keyOf(email))
+  return hit && Date.now() - hit.at < FRESH_MS ? hit.runs : null
+}
+
+/** The contact's last twenty runs: kept, already asked for, or asked for now. */
+function readRuns(email: string): Promise<RunLite[]> {
+  const key = keyOf(email)
+  const kept = keptRuns(email)
+  if (kept) return Promise.resolve(kept)
+  const asked = runsAsked.get(key)
+  if (asked) return asked
+  const request = (async () => {
+    try {
+      const { data, error } = await createClient()
+        .from("email_flow_runs")
+        .select("id, status, exit_reason, started_at, flow_id, email_flows(name)")
+        .eq("email", key)
+        .order("started_at", { ascending: false })
+        .limit(20)
+      const runs = error ? [] : ((data ?? []) as unknown as RunLite[])
+      /* A failed read is shown as none, and not kept: the next open asks again. */
+      if (!error) runsKept.set(key, { at: Date.now(), runs })
+      return runs
+    } catch {
+      return []
+    } finally {
+      runsAsked.delete(key)
+    }
+  })()
+  runsAsked.set(key, request)
+  return request
+}
+
+/** A finger on a contact's row: ask for what its sheet will show. */
+export function prefetchContact(email: string) {
+  void readRuns(email)
+}
+
+/**
+ * Resolves when the contact's runs are here, or after OPEN_WAIT_MS, whichever
+ * is first. The row's pressed colour covers the wait.
+ */
+export function contactReady(email: string): Promise<void> {
+  if (keptRuns(email)) return Promise.resolve()
+  return Promise.race([
+    readRuns(email).then(() => undefined),
+    new Promise<void>((resolve) => window.setTimeout(resolve, OPEN_WAIT_MS)),
+  ])
 }
 
 function day(iso?: string | null): string {
@@ -59,10 +143,10 @@ function useWide(query = "(min-width: 768px)") {
 export function ContactDetail({ contact, onClose }: { contact: SubscriberRow | null; onClose: () => void }) {
   const wide = useWide()
   const open = contact !== null
+  /* The contact on screen, kept while the sheet or panel leaves. Taken while
+     rendering, not from an effect, so the render that opens it draws it. */
   const [shown, setShown] = React.useState<SubscriberRow | null>(contact)
-  React.useEffect(() => {
-    if (contact) setShown(contact)
-  }, [contact])
+  if (contact && contact !== shown) setShown(contact)
 
   React.useEffect(() => {
     if (!open || !wide) return
@@ -73,14 +157,15 @@ export function ContactDetail({ contact, onClose }: { contact: SubscriberRow | n
     return () => window.removeEventListener("keydown", onKey)
   }, [open, wide, onClose])
 
-  if (!shown) return null
   if (!wide) {
+    /* Always there, closed, so opening is the one render that flips it. */
     return (
-      <BottomSheet isOpen={open} onClose={onClose} label={shown.email} hideFrom="md">
-        <ContactBody contact={shown} />
+      <BottomSheet isOpen={open} onClose={onClose} label={shown?.email ?? "Contact"} hideFrom="md">
+        {shown ? <ContactBody key={keyOf(shown.email)} contact={shown} /> : null}
       </BottomSheet>
     )
   }
+  if (!shown) return null
   return (
     <div className={cn("fixed inset-0 z-[200]", open ? "" : "pointer-events-none")} aria-hidden={!open}>
       <div className={cn("absolute inset-0 bg-[#1a1a2e]/20 transition-opacity duration-200", open ? "opacity-100" : "opacity-0")} onClick={onClose} />
@@ -99,7 +184,7 @@ export function ContactDetail({ contact, onClose }: { contact: SubscriberRow | n
           </button>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto">
-          <ContactBody contact={shown} />
+          <ContactBody key={keyOf(shown.email)} contact={shown} />
         </div>
       </aside>
     </div>
@@ -108,21 +193,15 @@ export function ContactDetail({ contact, onClose }: { contact: SubscriberRow | n
 
 function ContactBody({ contact }: { contact: SubscriberRow }) {
   const source = sourceView(contact.source_detail, contact.source)
-  const [runs, setRuns] = React.useState<RunLite[] | null>(null)
+  /* What the tap already read, so the sheet rises with it in place. */
+  const [runs, setRuns] = React.useState<RunLite[] | null>(() => keptRuns(contact.email))
 
   React.useEffect(() => {
+    /* Kept runs come back as the same list, which draws nothing again. */
     let alive = true
-    setRuns(null)
-    ;(async () => {
-      const supabase = createClient()
-      const { data, error } = await supabase
-        .from("email_flow_runs")
-        .select("id, status, exit_reason, started_at, flow_id, email_flows(name)")
-        .eq("email", contact.email.toLowerCase())
-        .order("started_at", { ascending: false })
-        .limit(20)
-      if (alive) setRuns(error ? [] : ((data ?? []) as unknown as RunLite[]))
-    })()
+    readRuns(contact.email).then((list) => {
+      if (alive) setRuns(list)
+    })
     return () => {
       alive = false
     }
@@ -132,7 +211,7 @@ function ContactBody({ contact }: { contact: SubscriberRow }) {
     contact.status === "subscribed" ? (contact.unsubscribed_at ? "Resubscribed" : "Subscribed") : contact.status === "unsubscribed" ? "Unsubscribed" : contact.status
 
   return (
-    <div className="px-5 pb-6 pt-3">
+    <div data-contact-body="" className="px-5 pb-6 pt-3">
       <p className="truncate text-[17px] font-semibold text-[#1a1a2e]">{contact.name || contact.email}</p>
       {contact.name ? <p className="truncate text-[13px] text-[#6b7280]">{contact.email}</p> : null}
 

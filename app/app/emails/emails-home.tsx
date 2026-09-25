@@ -25,7 +25,7 @@ import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/respo
 import { Popover, PopoverTrigger } from "@/components/ui/popover"
 import { NOT_RECORDED, sourceView } from "@/lib/contacts/contact-source"
 import { TRIGGERS, isTriggerType, normalizeSteps, stepSummary } from "@/lib/automations/flow-model"
-import { ContactDetail } from "./contact-detail"
+import { ContactDetail, contactReady, prefetchContact } from "./contact-detail"
 import type { RangeValue } from "@/lib/date-range/range"
 import { cn } from "@/lib/utils"
 import { WaitingArea } from "@/components/ui/activity-spinner"
@@ -311,7 +311,7 @@ const td = "h-12 whitespace-nowrap px-3 text-[13px] text-[#1a1a2e]"
  * it. Its cells carry `data-scroll-edge`: the table's frame draws the shadow
  * at their right side once the rows have moved (components/app/scroll-edge).
  */
-const sticky = "sticky left-0 z-[1] bg-white group-hover:bg-[#fafbfb]"
+const sticky = "sticky left-0 z-[1] bg-white group-hover:bg-[#fafbfb] group-active:bg-[#f4f5f7]"
 const stickyHead = "sticky left-0 z-[1] bg-[#fafbfb]"
 
 function Empty({ title, body, action }: { title: string; body: string; action?: React.ReactNode }) {
@@ -417,6 +417,20 @@ function SubscribersTable(props: EmailsHomeProps) {
   const [page, setPage] = React.useState(1)
   const [source, setSource] = React.useState("")
   const [open, setOpen] = React.useState<SubscriberRow | null>(null)
+  /*
+    A contact's sheet rises with its content already in it: the tap waits
+    for the contact's automation runs (asked for when the finger landed), at
+    most a moment, and then opens it (./contact-detail). The latest tap wins.
+  */
+  const opening = React.useRef<SubscriberRow | null>(null)
+  const openContact = (s: SubscriberRow) => {
+    opening.current = s
+    void contactReady(s.email).then(() => {
+      if (opening.current !== s) return
+      opening.current = null
+      setOpen(s)
+    })
+  }
   const q = props.search.trim().toLowerCase()
 
   /* Every contact's source, read once: the column, the filter and its counts. */
@@ -521,7 +535,20 @@ function SubscribersTable(props: EmailsHomeProps) {
               {shown.map((s) => {
                 const v = views.get(s.id)
                 return (
-                  <tr key={s.id} className="group cursor-pointer hover:bg-[#fafbfb]" onClick={() => setOpen(s)}>
+                  <tr
+                    key={s.id}
+                    data-contact-row=""
+                    className="group cursor-pointer hover:bg-[#fafbfb] active:bg-[#f4f5f7]"
+                    onPointerDown={() => prefetchContact(s.email)}
+                    onPointerEnter={(e) => {
+                      if (e.pointerType !== "mouse") return
+                      const row = e.currentTarget
+                      window.clearTimeout(Number(row.dataset.prefetch))
+                      row.dataset.prefetch = String(window.setTimeout(() => prefetchContact(s.email), 80))
+                    }}
+                    onPointerLeave={(e) => window.clearTimeout(Number(e.currentTarget.dataset.prefetch))}
+                    onClick={() => openContact(s)}
+                  >
                     <td data-scroll-edge="" className={cn(td, sticky, "font-medium")}><span className="block max-w-[180px] truncate sm:max-w-[260px]">{s.email}</span></td>
                     <td className={cn(td, "text-[#4b5563]")}><span className="block max-w-[180px] truncate">{s.name || "–"}</span></td>
                     <td className={td} title={v ? [v.label, v.detail].filter(Boolean).join(" · ") : undefined}>
@@ -542,7 +569,7 @@ function SubscribersTable(props: EmailsHomeProps) {
                         align="end"
                         trigger={<RowMenuButton label={`Actions for ${s.email}`} />}
                         items={[
-                          { label: "Details", onClick: () => setOpen(s) },
+                          { label: "Details", onClick: () => openContact(s) },
                           { label: "Copy email", onClick: () => props.onCopyEmail(s.email) },
                           { label: "Remove", variant: "destructive", separatorBefore: true, onClick: () => props.onRemoveSubscriber(s.id) },
                         ]}
@@ -599,7 +626,7 @@ function FlowsTable(props: EmailsHomeProps) {
                 const on = f.status === "active"
                 const t = f.totals
                 return (
-                  <tr key={f.id} className="group cursor-pointer hover:bg-[#fafbfb]" onClick={() => props.onEditFlow(f)}>
+                  <tr key={f.id} className="group cursor-pointer hover:bg-[#fafbfb] active:bg-[#f4f5f7]" onClick={() => props.onEditFlow(f)}>
                     <td data-scroll-edge="" className={cn(td, sticky, "font-medium")}>
                       <span className="flex max-w-[180px] items-center gap-2 sm:max-w-[260px]">
                         <span className="truncate">{f.name}</span>
@@ -694,7 +721,7 @@ function CampaignsTable(props: EmailsHomeProps) {
                       { label: "Delete", variant: "destructive", separatorBefore: true, onClick: () => props.onDeleteCampaign(c.id) },
                     ]
                 return (
-                  <tr key={c.id} className="group cursor-pointer hover:bg-[#fafbfb]" onClick={() => props.onOpenCampaign(c)}>
+                  <tr key={c.id} className="group cursor-pointer hover:bg-[#fafbfb] active:bg-[#f4f5f7]" onClick={() => props.onOpenCampaign(c)}>
                     <td data-scroll-edge="" className={cn(td, sticky)}>
                       {/* The limit is on the span: a table cell's own max-width is ignored.
                           Narrow on a phone, so the columns scrolling under it still show. */}

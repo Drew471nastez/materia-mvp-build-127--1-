@@ -4838,22 +4838,56 @@ html.pop-in-flight #platform-header-root {
   display: none;
 }
 
-/* An order over the list. Its bar is drawn at full strength on the first
-   frame; only the cards under it fade in, 120ms, opacity alone. `backwards`,
-   not `both`: an opacity animation still in effect after it ends keeps a
-   stacking context, and the cards' menus must be free to rise out of it
-   (see .app-page-enter). Stepping to the previous or next order draws the
-   next one's cards the same way, as the body is keyed by the order. */
+/* An order over the list (app/app/orders/orders-client.tsx). Opened from the
+   list, the whole order moves as one layer (app/app/orders/order-motion.ts),
+   so nothing inside it animates on its own. Stepping to the previous or next
+   order keeps the bar still and fades only the next one's cards in, 120ms,
+   opacity alone, as the body is keyed by the order. `backwards`, not `both`:
+   an opacity animation still in effect after it ends keeps a stacking
+   context, and the cards' menus must be free to rise out of it (see
+   .app-page-enter). */
 @keyframes orders-body-in {
   from { opacity: 0; }
   to { opacity: 1; }
 }
-.orders-body {
+.orders-detail[data-arrival="step"] .orders-body {
   animation: orders-body-in 120ms ease-out backwards;
 }
+
+/* Under a settled order the list is not drawn at all (nothing to paint, no
+   scroll to follow), and it keeps its scroll position while hidden. While an
+   order moves over it, in or out, it carries data-moving and is drawn. */
+.orders-stage[data-order-open] > .orders-list:not([data-moving]) {
+  visibility: hidden;
+}
+
+/* The row an order was opened from: tinted while the order covers it, and
+   fading once the list is back, so the eye lands where it left. The tint is
+   a layer over each cell, faded on opacity alone. */
+.orders-row[data-picked] > td:not(.orders-sticky) {
+  position: relative;
+}
+.orders-row[data-picked] > td::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(26, 26, 46, 0.06);
+  pointer-events: none;
+}
+@keyframes orders-row-fade {
+  0%, 30% { opacity: 1; }
+  100% { opacity: 0; }
+}
+.orders-row[data-picked="fading"] > td::after {
+  animation: orders-row-fade 900ms ease-out forwards;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .orders-body {
+  .orders-detail[data-arrival="step"] .orders-body {
     animation: none;
+  }
+  .orders-row[data-picked="fading"] > td::after {
+    animation-duration: 1ms;
   }
 }
 
