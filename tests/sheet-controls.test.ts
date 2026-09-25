@@ -222,8 +222,9 @@ function main() {
   */
   check("the name keeps its line and is not the thing that shrinks",
     /<span className="shrink-0 whitespace-nowrap font-medium text-foreground">Advanced colors<\/span>/.test(panels))
+  /* The status is only there when some colours are changed ("2 changed"); when it is, it may shrink. */
   check("the status beside it may shrink, and loses characters rather than lines",
-    /<span className="flex min-w-0 items-center gap-2 text-\[12px\] text-muted-foreground">\s*\n\s*<span className="truncate">/.test(panels),
+    /<span className="flex min-w-0 items-center gap-2 text-\[12px\] text-muted-foreground">[\s\S]{0,200}\{overridden > 0 && <span className="truncate">\{overridden\} changed<\/span>\}/.test(panels),
     "`min-w-0` is what lets a flex child shrink at all; without it `truncate` never fires")
   check("the chevron is never squeezed",
     /<ChevronDown className=\{cn\("h-3\.5 w-3\.5 shrink-0 transition-transform duration-200", customizeOpen && "rotate-180"\)\} \/>/.test(panels))
