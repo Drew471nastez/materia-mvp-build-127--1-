@@ -133,6 +133,7 @@ a.order__title:hover { text-decoration: underline; text-underline-offset: 3px; }
   border-radius: var(--s-radius); border: 1px solid transparent; transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease;
 }
 .s__btn--primary { background: var(--s-btn); color: var(--s-btn-text); border-color: var(--s-btn); }
+.s__btn--secondary { background: var(--s-btn2); color: var(--s-btn2-text); border-color: var(--s-btn2-border); }
 .s__btn:focus-visible, .order__go:focus-visible, .acct__link:focus-visible { outline: 2px solid var(--s-heading); outline-offset: 2px; }
 /* Hover colours from the scheme, after the section's own Advanced colors. */
 .s__btn--primary:hover { background: var(--s-btn-hover); color: var(--s-btn-hover-text); border-color: var(--s-btn-hover); }
