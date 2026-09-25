@@ -53,9 +53,18 @@ export interface ContactSource {
   utm_campaign?: string
   /** Checkout only: the product bought or left at checkout, by id. */
   product?: string
+  /**
+   * Website only: which page of it, as its page key ("contact", "home", a
+   * page the creator made). A key is a known shape (lib/website-builder/
+   * site-pages), not a path, so it carries no query and nothing a visitor
+   * typed.
+   */
+  page?: string
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+/** The page key shape, the same rule lib/website-builder/site-pages.ts holds a key to. */
+const PAGE_KEY = /^[a-z0-9](?:[a-z0-9-]{0,62})$/
 
 export const SURFACE_NAME: Record<ContactSurface, string> = {
   website: "Website",
@@ -95,6 +104,7 @@ export function cleanContactSource(input: unknown): ContactSource | null {
   if (out.site && !out.surface) out.surface = "website"
   if (out.surface !== "website" && out.surface !== "checkout") delete out.site
   if (out.surface === "checkout" && typeof raw.product === "string" && UUID.test(raw.product)) out.product = raw.product.toLowerCase()
+  if (out.surface === "website" && typeof raw.page === "string" && PAGE_KEY.test(raw.page)) out.page = raw.page
   return Object.keys(out).length > 0 ? out : null
 }
 
@@ -109,6 +119,8 @@ export function legacySurface(source: unknown): ContactSurface | null {
       return "onepage"
     case "website_builder_newsletter":
     case "store_builder":
+    /* A message sent through a website's contact form (lib/site-contact). */
+    case "contact_form":
       return "website"
     case "creator_page":
       return "profile"
@@ -140,7 +152,7 @@ export function sourceView(detail: unknown, legacy?: unknown): SourceView {
   const label = surface === "website" && site ? site : surface === "checkout" && site ? `Checkout on ${site}` : SURFACE_NAME[surface]
   const key = surface === "website" && site ? `site:${site}` : surface
   const parts: string[] = []
-  if (d?.form) parts.push(FORM_NAME[d.form])
+  if (d?.form) parts.push(d.page && d.page !== "home" ? `${FORM_NAME[d.form]} on /${d.page}` : FORM_NAME[d.form])
   if (d?.from) parts.push(d.from === "direct" ? "Direct" : `from ${fromLabel(d.from)}`)
   if (d?.utm_campaign) parts.push(`utm_campaign ${d.utm_campaign}`)
   else if (d?.utm_source) parts.push(`utm_source ${d.utm_source}`)
@@ -193,6 +205,8 @@ export function contactSourceFrom(input: {
   surface?: ContactSurface
   form?: ContactForm
   sent?: unknown
+  /** Which page of the website, as a page key. Kept only for a website. */
+  page?: string
 }): ContactSource | null {
   const url = refererUrl(input.request)
   const host = url ? cleanHost(url.host.split(":")[0]) : undefined
@@ -218,6 +232,7 @@ export function contactSourceFrom(input: {
     from: sent.from,
     utm_source: sent.utm_source,
     utm_campaign: sent.utm_campaign,
+    page: input.page,
   })
 }
 

@@ -25,6 +25,15 @@
  *              Undo, Copy and Report. A kind of line the chat has never seen
  *              ({type: "status"}, {type: "tool"}) shows too. Long tasks and
  *              frame gaps are counted while it streams
+ *   QUESTIONS  at 1440 and 390: a run that stops to ask ends on its
+ *              question and answers (44px on a phone), drawn once, the
+ *              closing message not repeated; a tap, or a typed answer,
+ *              is the next message in the same conversation. The answer's
+ *              run is told in the server's headlines and ends on a summary
+ *              that names what it changed. Folded, the pill says the
+ *              summary or asks the question. At 360 long answers wrap
+ *              cleanly. Read back from the database, a question is one
+ *              again, its answer marked
  *   HISTORY    grouped by day, opened, continued, a new chat, one deleted in
  *              place, the open one deleted, all deleted; and before the
  *              database update, one plain sentence
@@ -106,6 +115,16 @@ try { Object.defineProperty(navigator, "clipboard", { configurable: true, value:
     earlier: q.get("earlier") === "1" ? [{ id: "e0000000-0000-4000-8000-000000000001", role: "user", content: "From before conversations", ops: [], error: null }] : []
   };
   if (q.get("empty") === "1") db.conversations = [];
+  /* A conversation whose run stopped to ask, kept the way the route keeps it: the question as text, then the answer as the next message. */
+  if (q.get("asked")) {
+    var asked = { id: "66666666-6666-4666-8666-666666666666", title: "Put my best product in the hero", updatedAt: iso(now - 60000), messages: [
+      { id: "a6666666-0000-4000-8000-000000000001", role: "user", content: "Put my best product in the hero", ops: [], error: null },
+      { id: "a6666666-0000-4000-8000-000000000002", role: "assistant", content: "Which product should the hero show?\\n- Clay mug\\n- Linen apron\\n- Oak board", ops: [], error: null } ] };
+    if (q.get("asked") === "answered") asked.messages.push(
+      { id: "a6666666-0000-4000-8000-000000000003", role: "user", content: "Linen apron", ops: [], error: null },
+      { id: "a6666666-0000-4000-8000-000000000004", role: "assistant", content: "Put the Linen apron in the hero.", ops: [{ kind: "update_section", id: "s2", settings: {} }], error: null });
+    db.conversations.push(asked);
+  }
   var find = function (id) { return db.conversations.filter(function (c) { return c.id === id })[0] };
   var json = function (body, status) { return Promise.resolve(new Response(JSON.stringify(body), { status: status || 200, headers: { "content-type": "application/json" } })) };
   var list = function () {
@@ -538,6 +557,253 @@ async function states(browser) {
   await q.close()
 }
 
+/* ── QUESTIONS, AND THE SUMMARY A RUN ENDS ON ─────────────────────────── */
+const ASKED = { id: "call_7", question: "Which product should the hero show?", why: "The hero sells one product.", options: ["Clay mug", "Linen apron", "Oak board"] }
+/* The closing message, as lib/website-builder/agent/ask.ts questionText writes it. */
+const asText = (q) => [q.question, ...q.options.map((o) => `- ${o}`)].join("\n")
+/* The same run order the loop streams: headlines, the ask_creator step, the question, the message that repeats it. */
+const questionRun = (q) => [
+  { type: "progress", phase: "reading", label: "Reading the page" },
+  { type: "progress", phase: "products", label: "Looking at your products" },
+  { type: "progress", phase: "planning", label: "Planning" },
+  { type: "step", id: q.id, label: "Asking you a question", state: "running" },
+  { type: "step", id: q.id, label: "Asking you a question", state: "done" },
+  { type: "question", id: q.id, question: q.question, why: q.why, options: q.options },
+  { type: "message", text: asText(q) },
+]
+/* A run that changes the hero, told in headlines, ending on `done` with its sentence and the section by name. */
+const summaryRun = (detail, reply) => [
+  [{ type: "progress", phase: "reading", label: "Reading the page" }, "Reading the page"],
+  [{ type: "progress", phase: "planning", label: "Planning" }, "Planning"],
+  [{ type: "step", id: "t1", label: "Reading the Hero", state: "running" }, "Planning"],
+  [{ type: "step", id: "t1", label: "Reading the Hero", state: "done" }, "Planning"],
+  [{ type: "step", id: "t2", label: "Changing the Hero", state: "running" }, "Planning"],
+  [{ type: "progress", phase: "writing", label: "Writing Hero" }, "Writing Hero"],
+  [{ type: "op", op: { kind: "update_section", id: "s2", settings: {} }, label: "Changed the Hero heading" }, "Changed the Hero heading"],
+  [{ type: "step", id: "t2", label: "Changing the Hero", state: "done" }, "Writing Hero"],
+  [{ type: "progress", phase: "checking", label: "Checking contrast" }, "Checking contrast"],
+  [{ type: "progress", phase: "done", label: "Done", detail, sections: ["Hero"] }, "Done"],
+  [{ type: "message", text: reply }, null],
+]
+const SUMMARY_STEPS = ["Reading the page", "Planning", "Reading the Hero", "Changing the Hero", "Writing Hero", "Checking contrast"]
+
+/* Where the question and its answers are, measured against the thread's own padding. */
+const readQuestion = (p, question) => p.evaluate((question) => {
+  const thread = document.querySelector("[data-chat-thread]")
+  const box = thread.getBoundingClientRect()
+  const cs = getComputedStyle(thread)
+  const inner = { left: box.left + parseFloat(cs.paddingLeft), right: box.right - parseFloat(cs.paddingRight) }
+  const blocks = [...document.querySelectorAll("[data-ask-question]")]
+  const block = blocks[blocks.length - 1]
+  const options = [...(block ? block.querySelectorAll("[data-ask-option]") : [])].map((b) => {
+    const r = b.getBoundingClientRect()
+    return { t: b.textContent, left: +r.left.toFixed(1), right: +r.right.toFixed(1), top: Math.round(r.top), h: Math.round(r.height), enabled: !b.disabled, picked: b.hasAttribute("data-picked") }
+  })
+  const text = thread.textContent
+  const rows = [...new Set(options.map((o) => o.top))].sort((a, b) => a - b)
+  return {
+    state: block ? block.getAttribute("data-ask-question") : null,
+    question: block ? block.querySelector("[data-ask-question-text]")?.textContent : null,
+    why: block ? block.querySelector("[data-ask-question-why]")?.textContent ?? null : null,
+    options,
+    inner: { left: +inner.left.toFixed(1), right: +inner.right.toFixed(1) },
+    inside: options.every((o) => o.left >= inner.left - 0.5 && o.right <= inner.right + 0.5),
+    rows: rows.length,
+    rowStarts: rows.map((top) => Math.min(...options.filter((o) => o.top === top).map((o) => o.left))),
+    rowGaps: rows.slice(1).map((top, i) => top - (rows[i] + Math.max(...options.filter((o) => o.top === rows[i]).map((o) => o.h)))),
+    once: question ? text.split(question).length - 1 : null,
+    dashes: /\n- |- Clay mug/.test(text),
+    reply: document.querySelectorAll("[data-ask-exchange]:last-child [data-ask-reply]").length,
+    suggestions: document.querySelectorAll("[data-ask-suggestion]").length,
+    placeholder: document.querySelector("[data-chat-composer] textarea").placeholder,
+    sideways: thread.scrollWidth > thread.clientWidth + 0.5 || document.documentElement.scrollWidth > document.documentElement.clientWidth + 0.5,
+    running: !!document.querySelector('[data-ask-exchange="running"]'),
+  }
+}, question)
+
+const readSummary = (p) => p.evaluate(() => {
+  const last = [...document.querySelectorAll("[data-ask-exchange]")].pop()
+  return {
+    state: last.getAttribute("data-ask-exchange"),
+    reply: last.querySelector("[data-ask-reply]")?.textContent ?? null,
+    detail: last.querySelector("[data-ask-detail]")?.textContent ?? null,
+    count: last.querySelector("[data-ask-count]")?.textContent ?? null,
+    undo: !!last.querySelector("[data-ask-undo]"),
+    toggle: last.querySelector("[data-ask-steps-toggle]")?.textContent ?? null,
+    activity: !!last.querySelector("[data-ask-activity]"),
+  }
+})
+
+async function questions(browser, vp, hash) {
+  const phone = hash === "#phone"
+  const label = `${vp.width}`
+  console.log(`\nquestion-${label}`)
+  const p = await page(browser, vp, "agent=manual&empty=1", hash)
+  const field = phone ? "[data-chat-composer] textarea" : "[data-ask-pill] textarea"
+  if (!phone) { await p.click(field); await sleep(400) }
+  await p.type(field, "Put my best product in the hero")
+  await p.keyboard.press("Enter")
+  await sleep(200)
+  const run = questionRun(ASKED)
+  await p.evaluate((lines) => lines.forEach((l) => window.__push(l)), run.slice(0, 3))
+  await sleep(350)
+  const headline = await lineText(p)
+  await p.evaluate((lines) => { lines.forEach((l) => window.__push(l)); window.__end() }, run.slice(3))
+  await sleep(600)
+  const q = await readQuestion(p, ASKED.question)
+  measures[`question-${label}`] = { options: q.options, rows: q.rows, inner: q.inner }
+  expect(headline === "Planning", "while it works the line is the server's headline", headline)
+  expect(q.state === "open" && q.question === ASKED.question && q.why === ASKED.why && q.options.map((o) => o.t).join() === ASKED.options.join() && q.options.every((o) => o.enabled), "the run ends on its question, why, and three answers to tap", { state: q.state, question: q.question, why: q.why, options: q.options.map((o) => o.t) })
+  expect(q.once === 1 && !q.dashes && q.reply === 0, "the closing message that repeats it is not drawn: the question is on screen once, and no - lines", { once: q.once, dashes: q.dashes, reply: q.reply })
+  expect(q.options.every((o) => o.h >= (phone ? 44 : 32)), `each answer is ${phone ? 44 : 32}px or more tall`, q.options.map((o) => o.h))
+  expect(q.rows === 1 && q.inside && !q.sideways, "three short answers are one row, inside the thread, and nothing scrolls sideways", { rows: q.rows, inside: q.inside, sideways: q.sideways })
+  expect(q.suggestions === 0 && q.placeholder === "Or type your answer", "the suggestions step aside and the box says an answer can be typed", { suggestions: q.suggestions, placeholder: q.placeholder })
+  expect(!q.running, "and nothing is still running", q.running)
+  await p.screenshot({ path: join(shots, `${P}question-${label}.png`) })
+
+  const firstConversation = await p.evaluate(() => window.__posts[0].conversationId === null && window.__db.conversations.length === 1 ? window.__db.conversations[0].id : null)
+  if (!phone) {
+    /* A tap: the answer is sent as the next message in the same conversation. */
+    const before = await p.evaluate(() => window.__posts.length)
+    await p.click('[data-ask-option]:nth-child(2)')
+    await sleep(250)
+    const sent = await p.evaluate(() => window.__posts[window.__posts.length - 1])
+    const after = await readQuestion(p, ASKED.question)
+    expect(sent.prompt === "Linen apron" && sent.conversationId === firstConversation && (await p.evaluate(() => window.__posts.length)) === before + 1, "tapping Linen apron sends it, once, as the next message in the same conversation", { sent, firstConversation })
+    expect(after.state === "answered" && after.options.filter((o) => o.picked).map((o) => o.t).join() === "Linen apron" && after.options.every((o) => !o.enabled), "the question stays as a record: Linen apron marked, the answers no longer tappable", after.options)
+  } else {
+    /* A typed answer instead: the box, the same conversation, no answer marked. */
+    await p.type(field, "The blue vase")
+    await p.keyboard.press("Enter")
+    await sleep(250)
+    const sent = await p.evaluate(() => window.__posts[window.__posts.length - 1])
+    const after = await readQuestion(p, ASKED.question)
+    expect(sent.prompt === "The blue vase" && sent.conversationId === firstConversation, "a typed answer goes as the next message in the same conversation", { sent, firstConversation })
+    expect(after.state === "answered" && after.options.every((o) => !o.picked && !o.enabled), "and the question is answered, none of its choices marked", after.options)
+  }
+
+  /* The answer's run: headlines as the line, then the summary. */
+  const seen = []
+  for (const [line, want] of summaryRun("Put the Linen apron in the hero.", "Put the Linen apron in the hero. Its name is the heading and the button goes to its page.")) {
+    await p.evaluate((l) => window.__push(l), line)
+    await sleep(want === "Done" ? 120 : 260)
+    if (want) seen.push([want, await lineText(p)])
+  }
+  await p.evaluate(() => window.__end())
+  await sleep(500)
+  const wrong = seen.filter(([want, got]) => want !== got)
+  expect(wrong.length === 0, "each headline replaces the last as the line, tool calls do not take it, a change landing does, and Done ends it", wrong.length ? wrong : seen.map((s) => s[1]))
+  const s = await readSummary(p)
+  expect(s.state === "done" && !s.activity && s.reply === "Put the Linen apron in the hero. Its name is the heading and the button goes to its page.", "it ends on the answer", s)
+  expect(s.count === "Changed Hero" && s.undo, "the summary names the section it changed, from done, with Undo", { count: s.count, undo: s.undo })
+  expect(s.detail === null, "done's sentence is not drawn under an answer that already says it", s.detail)
+  expect(s.toggle === `${SUMMARY_STEPS.length} steps`, `and ${SUMMARY_STEPS.length} finished steps fold under a toggle: every headline and tool call, Done not among them`, s.toggle)
+  await p.click("[data-ask-exchange]:last-child [data-ask-steps-toggle]")
+  await sleep(250)
+  const listed = await p.$$eval("[data-ask-exchange]:last-child [data-ask-steps] li", (l) => l.map((x) => x.textContent))
+  expect(listed.join(" | ") === SUMMARY_STEPS.join(" | "), "opened, they are listed oldest first", listed)
+  await p.screenshot({ path: join(shots, `${P}summary-${label}.png`) })
+
+  if (!phone) {
+    /* FOLDED: a run that ends while the pill is folded says so in the pill. */
+    await p.click(field)
+    await sleep(300)
+    await p.type(field, "Make the FAQ shorter")
+    await p.keyboard.press("Enter")
+    await sleep(200)
+    await p.keyboard.press("Escape")
+    await sleep(450)
+    await p.evaluate(() => { window.__push({ type: "progress", phase: "reading", label: "Reading the page" }); window.__push({ type: "progress", phase: "planning", label: "Planning" }) })
+    await sleep(300)
+    const folding = await p.$eval(field, (f) => ({ state: document.querySelector("[data-ask-dock]").getAttribute("data-state"), placeholder: f.placeholder }))
+    await p.evaluate(() => {
+      window.__push({ type: "progress", phase: "writing", label: "Writing FAQ" })
+      window.__push({ type: "op", op: { kind: "update_section", id: "s3", settings: {} }, label: "Changed the FAQ" })
+      window.__push({ type: "progress", phase: "done", label: "Done", detail: "Cut the FAQ to its four most asked questions.", sections: ["FAQ"] })
+      window.__push({ type: "message", text: "Cut the FAQ to its four most asked questions. The answers are two lines each." })
+      window.__end()
+    })
+    await sleep(500)
+    const folded = await p.$eval(field, (f) => f.placeholder)
+    await p.screenshot({ path: join(shots, `${P}summary-folded-${label}.png`) })
+    await p.click(field)
+    await sleep(500)
+    const reopened = await p.$eval(field, (f) => f.placeholder)
+    expect(folding.state === "pill" && folding.placeholder === "Planning…", "folded while it works, the pill says the headline", folding)
+    expect(folded === "Cut the FAQ to its four most asked questions.", "when it finishes folded, the pill says done's sentence", folded)
+    expect(reopened === "Continue the conversation", "and once the conversation is open again, the pill is a box to type in", reopened)
+
+    /* And a question asked while folded is asked in the pill. */
+    await p.type(field, "Add my best seller")
+    await p.keyboard.press("Enter")
+    await sleep(200)
+    await p.keyboard.press("Escape")
+    await sleep(450)
+    const again = { ...ASKED, id: "call_9", question: "Which one is your best seller?", why: undefined }
+    await p.evaluate((lines) => { lines.forEach((l) => window.__push(l)); window.__end() }, questionRun(again))
+    await sleep(500)
+    const pillAsks = await p.$eval(field, (f) => f.placeholder)
+    await p.screenshot({ path: join(shots, `${P}question-folded-${label}.png`) })
+    await p.click(field)
+    await sleep(500)
+    const openAsk = await readQuestion(p, again.question)
+    expect(pillAsks === "Which one is your best seller?", "a run that stops to ask while folded asks in the pill", pillAsks)
+    expect(openAsk.state === "open" && openAsk.why === null && openAsk.options.every((o) => o.enabled) && openAsk.placeholder === "Or type your answer", "and opening it shows the question with its answers, no why when none was given", { state: openAsk.state, why: openAsk.why, placeholder: openAsk.placeholder })
+  }
+  if (p.__errors.length) expect(false, "no errors on the page", p.__errors)
+  await p.close()
+}
+
+/* At 360, answers too long for one row wrap onto the next, and one longer than the row wraps inside itself. */
+async function questionWrap(browser) {
+  console.log("\nquestion-360, long answers")
+  const vp = { width: 360, height: 740, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }
+  const p = await page(browser, vp, "agent=manual&empty=1", "#phone")
+  await p.type("[data-chat-composer] textarea", "Feature a product in the hero")
+  await p.keyboard.press("Enter")
+  await sleep(200)
+  const long = { id: "call_8", question: "Which product should the hero show?", why: "The hero sells one product.", options: ["A large speckled stoneware serving bowl in white", "Linen apron", "Oak board", "Four espresso cups"] }
+  await p.evaluate((lines) => { lines.forEach((l) => window.__push(l)); window.__end() }, questionRun(long))
+  await sleep(600)
+  const q = await readQuestion(p, long.question)
+  measures["question-360"] = { options: q.options, rows: q.rows, rowStarts: q.rowStarts, rowGaps: q.rowGaps, inner: q.inner }
+  expect(q.options.length === 4 && q.inside && !q.sideways, "every answer is inside the thread and nothing scrolls sideways", { inside: q.inside, sideways: q.sideways, inner: q.inner, options: q.options.map((o) => [o.left, o.right]) })
+  expect(q.rows >= 2 && q.rowStarts.every((x) => Math.abs(x - q.inner.left) <= 0.5), "they wrap onto rows that each start at the thread's edge", { rows: q.rows, starts: q.rowStarts, edge: q.inner.left })
+  expect(q.rowGaps.every((g) => g === q.rowGaps[0]) && q.rowGaps[0] >= 6 && q.rowGaps[0] <= 10, "with the same gap between every row", q.rowGaps)
+  const longest = q.options[0]
+  expect(longest.h > 44 && longest.right - longest.left <= q.inner.right - q.inner.left + 0.5, "the one longer than a row wraps inside itself rather than running out", { h: longest.h, w: +(longest.right - longest.left).toFixed(1) })
+  expect(q.options.every((o) => o.h >= 44), "every answer is 44px or more tall", q.options.map((o) => o.h))
+  await p.screenshot({ path: join(shots, `${P}question-360-wrap.png`) })
+  if (p.__errors.length) expect(false, "no errors on the page", p.__errors)
+  await p.close()
+}
+
+/* Read back from the database: the question from its text, the answer from the next message. */
+async function questionHistory(browser) {
+  console.log("\nquestion, read back")
+  const a = await page(browser, { width: 1440, height: 900 }, "agent=manual&asked=answered", "#desktop")
+  await a.click("[data-ask-pill] textarea")
+  await sleep(600)
+  const answered = await readQuestion(a, ASKED.question)
+  const prompts = await a.$$eval("[data-ask-prompt]", (x) => x.map((e) => e.textContent))
+  expect(answered.state === "answered" && answered.options.map((o) => o.t).join() === ASKED.options.join() && answered.options.filter((o) => o.picked).map((o) => o.t).join() === "Linen apron", "a question in a chat read back is drawn as one, the answer that was sent marked", answered.options)
+  expect(answered.once === 1 && !answered.dashes && prompts.join(" | ") === "Put my best product in the hero | Linen apron", "its text is not repeated as a list, and the answer is the next message", { once: answered.once, dashes: answered.dashes, prompts })
+  await a.screenshot({ path: join(shots, `${P}question-history-1440.png`) })
+  await a.close()
+
+  const o = await page(browser, { width: 1440, height: 900 }, "agent=manual&asked=open", "#desktop")
+  await o.click("[data-ask-pill] textarea")
+  await sleep(600)
+  const open = await readQuestion(o, ASKED.question)
+  expect(open.state === "open" && open.options.every((x) => x.enabled) && open.placeholder === "Or type your answer", "one still waiting for its answer can be answered after a reload", { state: open.state, placeholder: open.placeholder })
+  await o.click('[data-ask-option]:nth-child(3)')
+  await sleep(250)
+  const sent = await o.evaluate(() => window.__posts[window.__posts.length - 1])
+  expect(sent.prompt === "Oak board" && sent.conversationId === "66666666-6666-4666-8666-666666666666", "and the tap continues that conversation", sent)
+  if (o.__errors.length) expect(false, "no errors on the page", o.__errors)
+  await o.close()
+}
+
 /* ── HISTORY ──────────────────────────────────────────────────────────── */
 async function history(browser, vp, hash) {
   const label = `history-${vp.width}`
@@ -876,6 +1142,12 @@ export default React.forwardRef(function Link({ href, children, prefetch, ...res
     }
     if (want("labels")) for (const w of [360, 390, 430]) await labels(browser, w)
     if (want("states")) await states(browser)
+    if (want("questions")) {
+      await questions(browser, { width: 1440, height: 900 }, "#desktop")
+      await questions(browser, { width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }, "#phone")
+      await questionWrap(browser)
+      await questionHistory(browser)
+    }
     if (want("history")) { await history(browser, { width: 1440, height: 900 }, "#desktop"); await history(browser, { width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }, "#phone") }
     if (want("models")) await models(browser)
     if (want("pictures")) await pictures(browser)

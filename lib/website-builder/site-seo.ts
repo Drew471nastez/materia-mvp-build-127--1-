@@ -41,8 +41,12 @@ export const MAX_IMAGES_PER_PAGE = 1000
 /** And at most this many addresses per sitemap. */
 export const MAX_SITEMAP_URLS = 50000
 
-/** Pages that are addresses, but not ones worth a search result. */
-const UNLISTED_PAGE_KEYS = new Set(["search", "product", "cart", "404"])
+/**
+ * Pages that are addresses, but not ones worth a search result. The account,
+ * sign in and Wishlist pages are one visitor's, and a creator who arranged
+ * them in the builder has them stored like any page, so they are named here.
+ */
+const UNLISTED_PAGE_KEYS = new Set(["search", "product", "cart", "404", "account", "login", "wishlist"])
 
 /** The address of a page of the site, on the site's own origin. */
 export function pageUrl(origin: string, pageKey: string): string {

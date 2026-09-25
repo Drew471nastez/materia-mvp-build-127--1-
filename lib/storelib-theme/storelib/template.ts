@@ -672,6 +672,11 @@ export function renderTemplate(tpl: CompiledTemplate, ctx: RenderContext, opts: 
     scheme: ctx.scheme,
     page: ctx.page,
     section: { ...ctx.section, settings: ctx.settings, blocks: ctx.blocks },
+    /* The store, its addresses, and the visitor: lib/storelib-theme/globals.ts. */
+    shop: ctx.shop ?? {},
+    routes: ctx.routes ?? {},
+    customer: ctx.customer ?? null,
+    wishlist: ctx.wishlist ?? null,
   }
   const walk = (nodes: Node[], scope: Record<string, unknown>) => {
     for (const n of nodes) {

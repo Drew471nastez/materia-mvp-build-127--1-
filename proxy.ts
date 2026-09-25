@@ -1134,8 +1134,25 @@ export async function proxy(request: NextRequest) {
    */
   let respond: () => NextResponse = () => NextResponse.next({ request })
 
+  /**
+   * THE WEBSITE'S WISHLIST, ON ITS OWN DOMAIN. `/wishlist` is also a
+   * platform page, and reserved, so on a connected domain it served
+   * storelib.com's own wishlist with Storelib's header, instead of the
+   * website's Wishlist page that its header's heart links to. A domain
+   * connected for a published website answers it with the website's; any
+   * other domain keeps what it had. Pages only; the lookups are the same two
+   * the rest of this branch makes.
+   */
+  const websiteOwnsPath =
+    !!username &&
+    isCustomDomain &&
+    domainPurpose === "website" &&
+    (pathname === "/wishlist" || pathname === "/wishlist/") &&
+    !(await hasLiveAiSite(username)) &&
+    (await hasPublishedWebsite(username))
+
   // If we have a username (from subdomain or custom domain) and it's not a reserved path
-  if (username && !isReservedPath(pathname)) {
+  if (username && (!isReservedPath(pathname) || websiteOwnsPath)) {
     // Check if this is an old username that should redirect to a new one
     if (!isCustomDomain) {
       const newUsername = await resolveOldUsername(username)

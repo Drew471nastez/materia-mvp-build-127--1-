@@ -2195,40 +2195,30 @@ check(
 )
 
 check(
-  "and the account and wishlist links do not navigate the builder either",
+  "and the account and wishlist links open their pages in the canvas, not the builder window",
   /**
-   * They are real anchors now, to the platform, so in the editor they would
-   * take the creator out of the builder. The canvas cannot intercept them
-   * the way it does a nav link, because these leave the site entirely.
-   */
-  /**
-   * Four: search and wishlist in the icon row, and the two wishlist slots in
-   * the phone drawer. Search is root-relative rather than a link out of the
-   * site, but it is still a real anchor, so in the editor it would navigate
-   * the builder away from the canvas exactly the same way.
+   * They are links to the website's own /account and /wishlist now
+   * (lib/website-builder/account-pages), so in the builder they do what a
+   * nav link does: cancel the browser's navigation and open that page in
+   * the canvas. The icon row's two call `onEditorNavigate` with the path; the
+   * phone drawer's (account, the two wishlist slots and Create account) go
+   * through `handleLinkClick`, like every other link in the menu.
    *
-   * One closes the drawer instead: the phone's Search row.
+   * One icon still only cancels: search in the icon row, which is a real
+   * anchor to /search and would otherwise take the builder away.
    *
-   * The account controls are not in either count. They take the return
-   * target from the address bar at the moment of the click, which cannot be
-   * an `href` written at render, so they go through `goToPlatform` — which
-   * is handed the editor flag and does nothing at all inside the canvas.
+   * `handleLinkClick` is seven now: a nav link on the menu's root pane and
+   * one on its submenu pane, the call to action, account, the two wishlist
+   * slots and Create account. The phone's Search row is matched on its own
+   * because it is a conditional (see below).
    */
-  (headerRenderer.match(/onClick=\{onEditorNavigate \? \(e\) => e\.preventDefault\(\) : undefined\}/g) ?? []).length === 4 &&
-    /* Four go through `handleLinkClick`: a nav link on the menu's root pane
-       and one on its submenu pane, the call to action, and the phone's
-       Search row when the header is set to send people to a search page.
-       It cancels the default in the editor and, on a published site, closes
-       the drawer before asking for the page, so the close animation gets a
-       frame instead of being cut off by the navigation.
-
-       The Search row is matched on its own because it is a conditional: with
-       the header set to open search in itself, that row opens the field
-       instead of leaving, and `onClick={handleLinkClick(` never appears. */
-    (headerRenderer.match(/onClick=\{handleLinkClick\(/g) ?? []).length === 3 &&
+  (headerRenderer.match(/onClick=\{onEditorNavigate \? \(e\) => e\.preventDefault\(\) : undefined\}/g) ?? []).length === 1 &&
+    /onEditorNavigate \? \(e\) => \{ e\.preventDefault\(\); onEditorNavigate\(ACCOUNT_PATH, true\) \}/.test(headerRenderer) &&
+    /onEditorNavigate \? \(e\) => \{ e\.preventDefault\(\); onEditorNavigate\(WISHLIST_PATH, true\) \}/.test(headerRenderer) &&
+    (headerRenderer.match(/onClick=\{handleLinkClick\(/g) ?? []).length === 7 &&
     /: handleLinkClick\("\/search"\)/.test(headerRenderer) &&
-    /if \(inEditor\) return/.test(headerRenderer) &&
-    (headerRenderer.match(/goToPlatform\("[^"]+", !!onEditorNavigate\)/g) ?? []).length === 3,
+    /* Nothing leaves for the platform from the header any more. */
+    !/goToPlatform|platformUrl/.test(headerRenderer),
 )
 
 check(
