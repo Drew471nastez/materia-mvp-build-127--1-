@@ -188,7 +188,7 @@ check(
       /export const NAV_SPINNER_AFTER_MS = 1000/.test(nav) &&
       /export const NAV_PHONE_SPINNER_AFTER_MS = 500/.test(nav) &&
       /export const NAV_BAR_AFTER_MS = 300/.test(nav) &&
-      /<ActivitySpinner \/>/.test(stage) &&
+      /<PageSpinner \/>/.test(stage) &&
       !/RouteSkeleton/.test(stage) &&
       !existsSync(join(root, "components/app/route-skeletons.tsx"))
     )
