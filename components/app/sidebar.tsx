@@ -242,7 +242,9 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
      * because they are the same kind of decision.
      */
     { href: "/creator-page", label: t("nav.creatorPage"), icon: NAV_ICONS.storeBuilder },
-    { href: "/app/website-builder", label: t("nav.websiteBuilder"), icon: NAV_ICONS.websiteBuilder, forceNavigation: true },
+    /* A page in the shell like the others, so the router brings it: a whole
+       document load was the spinner, a blank frame, then the page. */
+    { href: "/app/website-builder", label: t("nav.websiteBuilder"), icon: NAV_ICONS.websiteBuilder },
     { href: "/app/onepage", label: t("nav.onepage"), icon: NAV_ICONS.onepage, forceNavigation: true },
     /*
       Storelib AI is NOT LISTED HERE ANY MORE.

@@ -28,6 +28,7 @@ import { useToast } from "@/hooks/use-toast"
 import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
 import { cn } from "@/lib/utils"
 import { BROWSABLE_THEMES, THEME_INSTALL_LIMIT, type ThemeDefinition } from "@/lib/website-builder/theme-registry"
+import { type Cover, seedCover, watchCover } from "@/lib/website-builder/cover-refresh"
 import { SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
 import { ThemeCover, ThemePhoneCover, coverSpecFromDefinition } from "@/components/website-builder/theme-cover"
 import { LIBRARY_FULL_CODE } from "@/lib/website-builder/library-limit"
@@ -79,6 +80,11 @@ export function ThemeMarketplaceClient({
         toast({ title: d.error ?? "Could not add theme", variant: "destructive" })
         return
       }
+      /* Its first picture, for the Website page this tab goes back to: kept now, or looked for while its photograph is taken. */
+      const made = (await res.json().catch(() => ({}))) as { install?: { id?: string }; cover?: Cover | null; cover_pending?: boolean }
+      const id = made.install?.id
+      if (id && made.cover?.url) seedCover(id, made.cover)
+      else if (id && made.cover_pending) void watchCover(id)
       setAdded((prev) => new Set(prev).add(def.id))
       toast({ title: `${def.name} added` })
       router.refresh()

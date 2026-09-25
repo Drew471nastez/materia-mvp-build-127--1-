@@ -1,4 +1,4 @@
-import { NextResponse, after } from "next/server"
+import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { LIBRARY_FULL_CODE, LIBRARY_FULL_MESSAGE, isLibraryFullError, keptWithinLimit, librarySlotsLeft, nextSortOrder } from "@/lib/website-builder/library-limit"
@@ -9,10 +9,10 @@ import {
   themeCatalogRow,
   BROWSABLE_THEME_IDS,
 } from "@/lib/website-builder/theme-registry"
-import { coverAfterCreate, renderOrigin } from "@/lib/website-builder/cover-take"
+import { coverForNewWebsite, renderOrigin } from "@/lib/website-builder/cover-take"
 
 export const runtime = "nodejs"
-/** The theme is added at once; its photograph is taken after, which needs a browser launch. */
+/** The theme is added at once, and photographed within QUICK_COVER_MS when a browser is that quick. */
 export const maxDuration = 60
 
 /**
@@ -130,8 +130,13 @@ export async function POST(req: Request) {
     )
   }
 
-  /* Its cover is a photograph of this website from the start, not a drawing of the theme's sample shop. */
-  after(() => coverAfterCreate({ installId: newInstall.id as string, userId: user.id, creatorId: creator.id as string }, renderOrigin(req.url), "add"))
+  /*
+    Its cover is a photograph of this website from the start, not a drawing
+    of the theme's sample shop. No theme ships a preview picture of its own
+    (themeCatalogRow's preview_image_url is null for all of them), so the
+    photograph is the first picture it can have.
+  */
+  const first = await coverForNewWebsite({ installId: newInstall.id as string, userId: user.id, creatorId: creator.id as string }, renderOrigin(req.url), "add", null)
 
-  return NextResponse.json({ install: newInstall })
+  return NextResponse.json({ install: newInstall, ...first })
 }
