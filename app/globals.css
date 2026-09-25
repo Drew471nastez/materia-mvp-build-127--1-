@@ -1331,6 +1331,61 @@ html.capacitor body {
   }
 
   /**
+   * THE EDITOR DRAWER'S SCROLLBAR (components/storefront/overlay-scroll).
+   * Under a mouse or a trackpad the platform's bar is hidden and a 6px thumb
+   * is drawn over the content instead, fading in while the list moves or the
+   * pointer is over it. On a touch screen (a coarse primary pointer) the
+   * platform's overlay indicator already is that, so it is left alone and the
+   * drawn thumb never appears.
+   */
+  .cp-overlay-rail {
+    position: absolute;
+    top: 6px;
+    bottom: 6px;
+    right: 3px;
+    width: 6px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 220ms ease-out;
+  }
+  .cp-overlay-rail[data-visible="true"],
+  .cp-overlay-rail[data-dragging] {
+    opacity: 1;
+    transition-duration: 120ms;
+  }
+  .cp-overlay-thumb {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    border-radius: 999px;
+    background: rgba(17, 17, 19, 0.26);
+    pointer-events: auto;
+    will-change: transform;
+    transition: background-color 150ms ease-out;
+  }
+  .cp-overlay-thumb:hover,
+  .cp-overlay-rail[data-dragging] .cp-overlay-thumb {
+    background: rgba(17, 17, 19, 0.42);
+  }
+  .cp-overlay-rail[data-visible="false"]:not([data-dragging]) .cp-overlay-thumb {
+    pointer-events: none;
+  }
+  @media not (pointer: coarse) {
+    .cp-overlay-scroll {
+      scrollbar-width: none;
+    }
+    .cp-overlay-scroll::-webkit-scrollbar {
+      display: none;
+    }
+  }
+  @media (pointer: coarse) {
+    .cp-overlay-rail {
+      display: none !important;
+    }
+  }
+
+  /**
    * ===========================================================================
    *  THE CODE EDITOR'S TWO THEMES
    * ===========================================================================

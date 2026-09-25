@@ -186,7 +186,10 @@ function main() {
      * covering its middle, works against that.
      */
     check("pinned to the right edge, not centred", sheet.includes("left-auto right-0 top-0 translate-x-0"))
-    check("with no dimming overlay", sheet.includes('overlayClassName="bg-transparent"'))
+    /* Transparent, and it stops taking clicks the moment it starts to leave
+       (`data-[state=closed]`), so a press on the pencil during the drawer's
+       exit reopens it instead of landing on a layer that is on its way out. */
+    check("with no dimming overlay", sheet.includes('overlayClassName="bg-transparent data-[state=closed]:!pointer-events-none"'))
     check("and depth instead", sheet.includes("shadow-[-24px_0_60px_-24px_rgba(15,23,42,0.35)]"))
     /** Radix keeps the node mounted for the exit, so closing is animated. */
     check("it slides both ways", sheet.includes("data-[state=closed]:slide-out-to-right") && sheet.includes("data-[state=open]:slide-in-from-right"))
