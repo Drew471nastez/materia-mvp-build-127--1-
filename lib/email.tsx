@@ -1841,11 +1841,13 @@ export async function legacyTriggerEmailFlows(
                 console.log("[email-flows] Sent:", flow.name, "to:", who)
                 triggered++
                 await ignoreError(
+                  /* Same columns as every other writer since the 20260203
+                     rebuild: creator_id and email, with flow_id in metadata. */
                   admin.from("email_events").insert({
-                    flow_id: flow.id,
-                    recipient_email: recipientEmail,
+                    creator_id: creatorId,
+                    email: recipientEmail,
                     event_type: "sent",
-                    metadata: { step_id: step.id, subject },
+                    metadata: { flow_id: flow.id, step_id: step.id, subject },
                   }),
                 )
               } else {

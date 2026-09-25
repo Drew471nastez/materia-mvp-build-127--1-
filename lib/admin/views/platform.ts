@@ -107,8 +107,11 @@ export async function email(r: Reader): Promise<Omit<EmailPayload, "problems" | 
       ev("complained", "complained"),
       ev("unsubscribed", "unsubscribed"),
       r.count("suppressed addresses", "subscribers", (q) => q.eq("status", "bounced")),
-      r.rows<{ created_at: string | null; event_type: string; recipient_email: string | null; email: string | null; metadata: { reason?: string | null } | null }>(
-        "recent bounces", "email_events", "created_at, event_type, recipient_email, email, metadata",
+      /* `email` is the address column: 20260203_rebuild_email_sent_system.sql
+         rebuilt this table without recipient_email, and a select naming a
+         column that is not there fails the whole read, so this panel errored. */
+      r.rows<{ created_at: string | null; event_type: string; email: string | null; metadata: { reason?: string | null } | null }>(
+        "recent bounces", "email_events", "created_at, event_type, email, metadata",
         (q) => q.in("event_type", ["failed", "complained"]).order("created_at", { ascending: false }).limit(15)),
       r.count("scheduled campaigns", "email_campaigns", (q) => q.eq("status", "scheduled")),
       r.count("sending campaigns", "email_campaigns", (q) => q.eq("status", "sending")),
@@ -131,7 +134,7 @@ export async function email(r: Reader): Promise<Omit<EmailPayload, "problems" | 
       ? bounces.map((b) => ({
           at: b.created_at,
           kind: b.event_type === "complained" ? "Complaint" : "Failed",
-          address: maskEmail(b.recipient_email || b.email || ""),
+          address: maskEmail(b.email || ""),
           reason: typeof b.metadata?.reason === "string" ? b.metadata.reason.replace(/[^\s@]+@[^\s@]+/g, "an address").slice(0, 140) : null,
         }))
       : null,

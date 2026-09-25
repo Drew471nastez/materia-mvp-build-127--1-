@@ -21,7 +21,7 @@ part changed. Stop there and send the error; the parts after it expect it.
 
 | File | What it does | Lines | Bytes |
 | --- | --- | ---: | ---: |
-| `00_check_first.sql` | Read only. The audit: everything the app needs, whether it is there, and which file creates what is not. | 3 | 44,925 |
+| `00_check_first.sql` | Read only. The audit: everything the app needs, whether it is there, and which file creates what is not. | 3 | 45,056 |
 | `01_rate_limits_and_newsletter.sql` | Rate limit counter for the open forms, and the storelib.com footer newsletter table. Server only. | 9 | 1,116 |
 | `02_agent_connections_and_github.sql` | Agent connections (Claude Code, Codex), their activity log, GitHub sync, and the indexes on them. | 33 | 4,852 |
 | `03_refund_recorded_once.sql` | A Stripe refund is recorded on an order once. If this fails with "could not create unique index", see README. | 2 | 291 |
@@ -41,11 +41,12 @@ part changed. Stop there and send the error; the parts after it expect it.
 | `17_digital_assets_server_only.sql` | Storage safety: digital_assets written by the server only (reading unchanged), and its indexes. | 3 | 2,631 |
 | `18_storage_cleanup_functions.sql` | Storage cleanup: what no row refers to any more, and recent browser uploads for the metadata sweep. | 11 | 8,257 |
 | `19_variant_policies.sql` | Product variants read policies split so a visitor skips the creator check. Same access, faster product page. | 18 | 3,349 |
+| `20_saved_cards_bounces_and_exec_sql.sql` | Saved cards land, the bounce list reads, `exec_sql` is closed to the public key, and search ranks without a general SQL runner. | 7 | 5,893 |
 | `90_storage_policies_needs_owner.sql` | LAST, ON ITS OWN. Replaces the storage.objects policies. Needs the owner of storage.objects; see README if it says "must be owner". | 2 | 3,896 |
 | `91_storage_policies_to_remove.sql` | Read only. For the dashboard route: the storage policies to delete. | 2 | 1,242 |
-| `99_check_after.sql` | Read only. One row of true or false, one column per part. | 2 | 5,335 |
+| `99_check_after.sql` | Read only. One row of true or false, one column per part. | 2 | 6,517 |
 
-Parts `01` to `19` all run as the editor's normal role. `90` is the one
+Parts `01` to `20` all run as the editor's normal role. `90` is the one
 that may not; see below.
 
 Two of the three `pre-flight` rows in `00` matter to `16` and to Route 1 below:
@@ -71,7 +72,7 @@ old way to status `archived` (there were none of those last time).
 
 ## Reading `00_check_first.sql`
 
-This is the whole picture: 657 things the running app needs from the database,
+This is the whole picture: 659 things the running app needs from the database,
 checked against yours. `99_check_after.sql` is the quick one, a single row of
 true or false that answers "did the parts land". `00` answers the larger
 question, "is anything the app calls missing, whenever it was supposed to
@@ -111,23 +112,32 @@ unique keys an upsert needs, buckets, and buckets that must be private.
 - a table the app reads with the public key that has row level security and no
   policies, so it reads as empty
 
-Six rows can read `not shipped` in the FIX column, meaning nothing in this
-repository creates them. They are not part of this round and no part fixes
-them:
+Four rows can read `not shipped` in the FIX column, meaning nothing in this
+repository creates them. They were all made in the dashboard:
 
-- `public.onepages` and `public.library_items`: tables made in the dashboard.
-  Nothing creates them, so a fresh project has neither.
-- `public.exec_sql` and `public.generate_onepage_slug`: functions made in the
-  dashboard. `/api/v2/search` and the onepage editor call them.
-- `email_events.recipient_email`: `lib/admin/views/platform.ts` reads it in the
-  recent bounces list, but `20260203_rebuild_email_sent_system.sql` rebuilt
-  `email_events` with `email` in its place. If `00` lists this one, that panel
-  is failing.
-- `payment_methods (creator_id, stripe_payment_method_id)`: the Stripe webhook
-  upserts on that pair, and the only unique key on the table is on
-  `stripe_payment_method_id` alone. Postgres refuses an `on conflict` whose
-  columns have no matching unique index, so a saved card is never recorded. The
-  webhook swallows the error.
+- `public.onepages` and `public.library_items`: tables. Nothing creates them,
+  so a fresh project has neither. Their real shape cannot be read off the
+  app's queries closely enough to write down here (types, defaults, the unique
+  key on a slug and the read policies are all guesses), and a wrong shape is
+  worse than a missing file, so no part creates them.
+- `public.generate_onepage_slug`: a function the onepage editor calls to pick
+  an unused slug. `lib/onepage/ensure-onepage.ts` falls back to the plain slug
+  when it is absent, so a guessed one that does not deduplicate would be worse
+  than none.
+- `public.exec_sql`: a function that runs arbitrary SQL as its definer, and on
+  a stock project `anon` can execute it, which makes anyone holding the public
+  anon key able to run any statement. Part `20` revokes it from `public`,
+  `anon` and `authenticated` and leaves the service role alone; it does not
+  drop it, because what else in the dashboard calls it is not known. `00`
+  keeps listing the function itself as `not shipped`, which is true, but the
+  `LOOK` row about the public key goes away once `20` has run.
+
+The two rows that used to sit in this list and were bugs rather than findings
+are fixed at the source: `email_events.recipient_email`, which the admin
+bounce panel read and the `20260203` rebuild had removed, and
+`payment_methods (creator_id, stripe_payment_method_id)`, the pair the Stripe
+webhook upserted on although no unique index matched it. The code now names
+the address column and the key that exist, and part `20` pins both.
 
 Anything else that reads `MISSING` has a file next to it. Run that file.
 
@@ -247,7 +257,7 @@ for each policy it drops.
 
 Run `99_check_after.sql`. Every column should read true. A false column names
 the part to look at. Then run `00_check_first.sql` again: the count on the
-first row should have dropped to the six `not shipped` rows above, and nothing
+first row should have dropped to the four `not shipped` rows above, and nothing
 with a file next to it should still read `MISSING`.
 
 ## Not in here, on purpose
@@ -273,6 +283,10 @@ statement by statement, by a tokenizer that knows quotes, dollar quotes and
 comments: comments dropped, whitespace joined, literals untouched. Nothing
 was retyped. If a source file changes, rebuild the parts from it rather than
 editing a part by hand.
+
+`20` is the exception: it was written for the bugs `00` found, and
+`supabase/migrations/20260930_saved_cards_bounces_and_exec_sql.sql` holds the
+same statements with the reasons above them.
 
 `00_check_first.sql` is generated the same way, from two sides: the table,
 column, function, bucket and `onConflict` names read out of `app/`, `lib/` and

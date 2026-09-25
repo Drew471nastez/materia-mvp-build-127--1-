@@ -39,6 +39,13 @@ function verifyWebhookSignature(signature: unknown): boolean {
   })
 }
 
+/**
+ * The Mailgun events email_events.event_type accepts. Mailgun sends more than
+ * these ("accepted", "rejected", "stored"); those are handled above where they
+ * matter and not written to the table, whose check constraint would refuse them.
+ */
+const LOGGED_EVENTS = new Set(["delivered", "opened", "clicked", "failed", "complained", "unsubscribed"])
+
 /** "a***@example.com": enough to recognise in a log, not enough to be the address. */
 function masked(email: string): string {
   const at = email.indexOf("@")
@@ -115,19 +122,27 @@ export async function POST(request: Request) {
     // Log the event in email_events table
     // `.catch()` here threw instead of logging — a PostgREST builder has no
     // `catch` — so this webhook answered 500 on every delivery event.
-    const logged = await ignoreError(
-      supabaseAdmin.from("email_events").insert({
-        recipient_email: recipient,
-        event_type: event,
-        metadata: {
-          severity,
-          message_id: eventData?.message?.headers?.["message-id"] || null,
-          reason: eventData?.reason || eventData?.["delivery-status"]?.message || null,
-          timestamp: eventData?.timestamp || null,
-        },
-      }),
-    )
-    if (logged === null) console.warn("[mailgun-webhook] Failed to log event")
+    //
+    // The address goes in `email`: 20260203_rebuild_email_sent_system.sql
+    // rebuilt this table without recipient_email, so every write from here
+    // was refused and the admin bounce list stayed empty. A Mailgun name the
+    // table's event_type does not allow ("accepted", "rejected", "stored")
+    // would be refused the same way, so it is not written at all.
+    if (LOGGED_EVENTS.has(event)) {
+      const logged = await ignoreError(
+        supabaseAdmin.from("email_events").insert({
+          email: recipient,
+          event_type: event,
+          metadata: {
+            severity,
+            message_id: eventData?.message?.headers?.["message-id"] || null,
+            reason: eventData?.reason || eventData?.["delivery-status"]?.message || null,
+            timestamp: eventData?.timestamp || null,
+          },
+        }),
+      )
+      if (logged === null) console.warn("[mailgun-webhook] Failed to log event")
+    }
 
     return NextResponse.json({ received: true })
   } catch (error) {
