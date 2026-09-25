@@ -2355,7 +2355,7 @@ function ThemeChatPanel({
           </p>
           <p className="mt-1 text-[12.5px] leading-snug text-[#6b7280]">
             Saved as <span className="font-mono text-[12px]">{written.path}</span>.{" "}
-            {written.placed ? "It goes live when you publish." : "Add it from Add Section, under Created by you."}
+            {written.placed ? "It goes live when you publish." : "Add it from Add Section, under Created."}
           </p>
           {onOpenCodeEditor && (
             <button

@@ -4304,18 +4304,40 @@ html.capacitor:has([data-page="auth"]) .rotation-guard-overlay {
   .wb-library-panel { transition: none; }
 }
 
-/* A section library preview that lands while its card is on screen fades
-   in over the card's grey (components/website-builder/editor/section-library.tsx). */
-.wb-preview-arrive {
-  /* backwards, not both: once in, the preview holds no finished animation (and no layer of its own). */
-  animation: wb-preview-arrive 220ms cubic-bezier(0.32, 0.72, 0, 1) backwards;
+/* A section library preview that lands while its card is on screen fades in
+   over the card's grey once, played by hand rather than by a class here: a
+   CSS animation starts again every time a category shows its card after
+   hiding it, and one that fills holds its preview on a layer of its own
+   (components/website-builder/editor/section-library.tsx). A preview drawn
+   ahead into the closed library does not fade at all. */
+
+/* The page switcher's menu: it opens and closes by opacity and a short drop,
+   both on the compositor, and is kept for the length of its exit, hidden and
+   then gone (components/website-builder/page-switcher.tsx). It is built as
+   it opens, so its opening starts from the closed look through
+   @starting-style, rather than appearing. */
+.wb-pages-menu {
+  opacity: 1;
+  transform: none;
+  transform-origin: 50% 0;
+  transition: opacity 140ms ease-out, transform 200ms cubic-bezier(0.32, 0.72, 0, 1);
 }
-@keyframes wb-preview-arrive {
-  from { opacity: 0; }
-  to { opacity: 1; }
+.wb-pages-menu[data-state="closed"] {
+  opacity: 0;
+  transform: translate3d(0, -4px, 0) scale(0.98);
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 120ms ease-in, transform 120ms ease-in, visibility 0s linear 120ms;
+}
+@starting-style {
+  .wb-pages-menu[data-state="open"] {
+    opacity: 0;
+    transform: translate3d(0, -4px, 0) scale(0.98);
+  }
 }
 @media (prefers-reduced-motion: reduce) {
-  .wb-preview-arrive { animation: none; }
+  .wb-pages-menu,
+  .wb-pages-menu[data-state="closed"] { transition: none; }
 }
 
 /* ── Website-builder Add-Section modal close animation ──

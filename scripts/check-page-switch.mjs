@@ -152,9 +152,12 @@ const DRIVE = `
     opener.click()
     await sleep(500)
 
-    var target = null
+    /* A page's row says which page it is (components/website-builder/page-switcher.tsx),
+       so the Add section library's own "About" and "Products" category
+       buttons, mounted behind its closed dialog, cannot be taken for one. */
+    var target = document.querySelector("[data-page-row='about']") || document.querySelector("[data-page-row='contact']")
     var rows = document.querySelectorAll("button, [role=button]")
-    for (var j = 0; j < rows.length; j++) {
+    for (var j = 0; !target && j < rows.length; j++) {
       var t2 = (rows[j].textContent || "").trim()
       /* A page's row is its path. The slash is required since the Add section
          library stays mounted behind its closed dialog (acc43f33), whose

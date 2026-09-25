@@ -61,6 +61,70 @@ export function arrivalScrollTarget(top: number, viewTop: number, viewHeight: nu
   return Math.max(0, Math.round(top - lead))
 }
 
+/**
+ * ===========================================================================
+ *  ON A PHONE, THE ROOM ABOVE THE SHEET IS THE SCREEN
+ * ===========================================================================
+ * A section added on a phone is followed by the sections sheet rising to its
+ * middle stop on that section's settings, so "on screen" means above where
+ * the sheet will be, not above its peek. The sheet publishes both numbers on
+ * the root (components/website-builder/mobile-editor-sheet.tsx): the room it
+ * takes when it is up, and its peek, which the canvas already keeps clear
+ * below itself. What the risen sheet covers of the canvas is the difference.
+ * 0 where there is no sheet. Pure, over anything with getPropertyValue.
+ */
+export function sheetCoverAbovePeek(style: { getPropertyValue(name: string): string }): number {
+  const open = parseFloat(style.getPropertyValue("--wb-sheet-open")) || 0
+  const peek = parseFloat(style.getPropertyValue("--wb-sheet-peek")) || 0
+  return Math.max(0, Math.round(open - peek))
+}
+
+/**
+ * ===========================================================================
+ *  THE SHEET RISES WHEN THE PAGE HAS STOPPED MOVING
+ * ===========================================================================
+ * Calls `done` once three things are true: `waitMs` has passed (the library
+ * closing), the new section's arrival has started (it scrolls the canvas in
+ * the commit that draws the section, which can be a frame or two after the
+ * add), and the canvas has not scrolled for two frames. So the sheet never
+ * rises over a canvas that is still travelling. `maxMs` after the wait it
+ * goes anyway. Returns a function that cancels all of it.
+ */
+export function afterAddSettles(
+  opts: { waitMs: number; scroller: HTMLElement | null; sectionId: string; maxMs?: number },
+  done: () => void,
+): () => void {
+  let raf = 0
+  let cancelled = false
+  const timer = setTimeout(() => {
+    const start = performance.now()
+    const limit = opts.maxMs ?? 900
+    let last = opts.scroller ? opts.scroller.scrollTop : 0
+    let still = 0
+    const tick = () => {
+      if (cancelled) return
+      const el = document.getElementById(`wb-section-${opts.sectionId}`)
+      /* Not drawn yet, or drawn and not yet told where to go: keep waiting. */
+      const started = !opts.scroller || (el !== null && el.hasAttribute("data-arrival"))
+      const now = opts.scroller ? opts.scroller.scrollTop : 0
+      still = started && Math.abs(now - last) < 0.5 ? still + 1 : 0
+      last = now
+      if (still >= 2 || performance.now() - start >= limit) {
+        raf = 0
+        done()
+        return
+      }
+      raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+  }, opts.waitMs)
+  return () => {
+    cancelled = true
+    clearTimeout(timer)
+    if (raf) cancelAnimationFrame(raf)
+  }
+}
+
 function reduced(): boolean {
   try {
     return window.matchMedia("(prefers-reduced-motion: reduce)").matches
