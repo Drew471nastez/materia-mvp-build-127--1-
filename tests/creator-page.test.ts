@@ -950,7 +950,28 @@ function main() {
     check("and nothing is dimmed behind it", !/fixed inset-0 z-\[999999\] flex items-center justify-center/.test(renderer))
     check("Customize page is hidden inside any frame, parameter or not", /!embedded && !framed/.test(button) && button.includes("window.self !== window.top"))
     check("owner controls are icon-only on a phone", button.includes('<span className="hidden sm:inline">Edit profile</span>') && button.includes('<span className="hidden sm:inline">Customize page</span>'))
-    check("the page fetches the account email for the contact default", page.includes('"id, display_name, username, avatar_url, email"'))
+    /*
+      The select this pinned was generateMetadata's own profile query, which
+      is gone: metadata now shares the page's deduped loader. The address the
+      contact default falls back to comes from that loader's row, which asks
+      for every column, so it still arrives on the server.
+    */
+    check(
+      "the page fetches the account email for the contact default",
+      page.includes("await loadProfileByUsername(username)") &&
+        /\.from\("profiles"\)\s*\.select\("\*"\)/.test(read("lib/commerce/creator-page-data.ts")),
+    )
+    /*
+      THE CLIENT HEADER NEVER SEES THE ACCOUNT ROWS. It was handed the whole
+      profiles and creators rows, so the account email, the Stripe ids and the
+      plan were in the HTML of every creator page. Found by reading the RSC
+      payload of a live page.
+    */
+    check(
+      "the header is handed the fields it draws, not the account rows",
+      !/creator=\{creator\}/.test(page) && !/profile=\{profile\}/.test(page) &&
+        (page.match(/creator=\{headerCreator\}/g) ?? []).length === 2,
+    )
     check("and the contact link falls back to it", page.includes("headerSettings.contactEmail || profile.email || undefined"))
     check("and the About editor opens on the same value", page.includes("headerSettings.contactEmail || profile.email ||"))
   }

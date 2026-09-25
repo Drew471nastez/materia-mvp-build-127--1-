@@ -132,27 +132,45 @@ export async function generateMetadata({ params }: StorefrontPageProps) {
 
   const supabase = await createClient()
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("id, display_name, username, avatar_url, email")
-    .eq("username", username)
-    .maybeSingle()
+  /*
+    THE PAGE'S OWN LOADERS, not a second set of queries.
+
+    This asked for the profile, then the creator, then the config, then the
+    SEO override, then the product count: five round trips in a row, three of
+    them for rows the page below fetches anyway. The loaders are deduped per
+    request, so the profile and the creator are now paid for once between the
+    two, and the three reads that only need the creator go out together.
+  */
+  const profile = await loadProfileByUsername(username)
 
   if (!profile) {
     return { title: "Creator Not Found" }
   }
 
-  // Fetch creator to get published config for favicon
-  const { data: creator } = await supabase
-    .from("creators")
-    .select("id")
-    .eq("user_id", profile.id)
-    .maybeSingle()
+  const creator = await loadCreatorForUser(profile.id)
+
+  const [publishedConfigForMeta, { data: seoOverride }, publishedProducts] = await Promise.all([
+    creator ? getPublishedConfig(creator.id, "shop") : Promise.resolve(null),
+    supabase
+      .from("seo_overrides")
+      .select("seo_title, seo_description")
+      .eq("type", "creator")
+      .eq("identifier", username)
+      .maybeSingle(),
+    creator
+      ? supabase
+          .from("products")
+          .select("id", { count: "exact", head: true })
+          .eq("creator_id", creator.id)
+          .eq("status", "published")
+          .then(({ count }) => count ?? 0)
+      : Promise.resolve(0),
+  ])
 
   let faviconUrl: string | undefined
   let socialPreviewImage: string | undefined
   if (creator) {
-    const publishedConfig = await getPublishedConfig(creator.id, "shop")
+    const publishedConfig = publishedConfigForMeta
     const headerSettings = publishedConfig?.headerSettings as ShopHeaderSettings | undefined
     faviconUrl = headerSettings?.faviconUrl || undefined
 
@@ -172,14 +190,6 @@ export async function generateMetadata({ params }: StorefrontPageProps) {
   } else {
     socialPreviewImage = profile.avatar_url || undefined
   }
-
-  // Check for admin SEO overrides
-  const { data: seoOverride } = await supabase
-    .from("seo_overrides")
-    .select("seo_title, seo_description")
-    .eq("type", "creator")
-    .eq("identifier", username)
-    .maybeSingle()
 
   const siteUrl = `https://${username}.storelib.com`
   const displayTitle = profile.display_name || profile.username || "Creator"
@@ -245,23 +255,14 @@ export async function generateMetadata({ params }: StorefrontPageProps) {
      * helper. If these two ever disagree, the sitemap is advertising a page
      * that tells crawlers to go away, which is worse than either alone.
      */
-    ...(await (async () => {
-      let publishedProducts = 0
-      if (creator) {
-        const { count } = await supabase
-          .from("products")
-          .select("id", { count: "exact", head: true })
-          .eq("creator_id", creator.id)
-          .eq("status", "published")
-        publishedProducts = count ?? 0
-      }
+    ...(() => {
       const indexable = deservesIndexing({ publishedProducts, handle: username })
       return {
         robots: indexable
           ? { index: true, follow: true, googleBot: { index: true, follow: true, "max-image-preview": "large" as const } }
           : { index: false, follow: false, googleBot: { index: false, follow: false } },
       }
-    })()),
+    })(),
     ...(faviconUrl && {
       icons: {
         icon: faviconUrl,
@@ -471,6 +472,35 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
   ])
 
   const viewerIsOwner = !!viewer && viewer.id === profile.id
+
+  /*
+    ═══════════════════════════════════════════════════════════════════════
+     WHAT THE HEADER IS HANDED IS WHAT EVERY VISITOR DOWNLOADS
+    ═══════════════════════════════════════════════════════════════════════
+    The header is a client component, so every prop it takes is serialised
+    into the page for whoever opens it. It was given the whole `creators` row
+    and the whole `profiles` row: the account email, the Stripe account and
+    customer ids, the plan, the country, the last time they were seen, every
+    push preference. None of it was drawn, and all of it was in the HTML of
+    every creator page for anybody who looked.
+
+    The contact address is gated on a purchase further down this file, and
+    this was handing the account address out beside it regardless.
+
+    So the header gets the fields it reads and nothing else. The server keeps
+    the full rows for the decisions it makes itself.
+  */
+  const headerCreator = {
+    cover_url: creator.cover_url ?? null,
+    bio: creator.bio ?? null,
+    show_total_sales_badge: creator.show_total_sales_badge ?? undefined,
+  }
+  const headerProfile = {
+    display_name: profile.display_name ?? null,
+    avatar_url: profile.avatar_url ?? null,
+    username: profile.username ?? null,
+    created_at: profile.created_at ?? null,
+  }
 
   /**
    * The creator's rating, across everything they sell.
@@ -1091,9 +1121,9 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
 
         <ShopHeaderRenderer
           settings={headerSettings}
-          creator={creator}
-          profile={profile}
-          products={products || []}
+          creator={headerCreator}
+          profile={headerProfile}
+          products={productsData}
           productCount={products?.length || 0}
           globalSettings={globalSettings}
           ownerActions={buildOwnerActions(headerSettings, chrome.preset)}
@@ -1410,9 +1440,9 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
       */}
       <ShopHeaderRenderer
         settings={defaultShopHeaderSettings}
-        creator={creator}
-        profile={profile}
-        products={products || []}
+        creator={headerCreator}
+        profile={headerProfile}
+        products={productsData}
         productCount={productCount}
         ownerActions={buildOwnerActions(defaultShopHeaderSettings)}
         reviewCount={creatorReviewCount}
