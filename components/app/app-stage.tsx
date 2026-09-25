@@ -91,6 +91,9 @@ function reducedMotion() {
  */
 export function playEntrance(outer: HTMLElement, { fade = true }: { fade?: boolean } = {}) {
   if (reducedMotion()) return
+  /* Read before anything moves: the rise itself adds to what can be scrolled. */
+  const fitted = outer.scrollHeight <= outer.clientHeight
+  const moving: Animation[] = []
   for (const child of Array.from(outer.children) as HTMLElement[]) {
     if (typeof child.animate !== "function") continue
     const cs = getComputedStyle(child)
@@ -99,8 +102,36 @@ export function playEntrance(outer: HTMLElement, { fade = true }: { fade?: boole
     if (!rise && !fade) continue
     const from: Keyframe = { ...(fade ? { opacity: 0 } : {}), ...(rise ? { translate: `0 ${NAV_ENTER_RISE_PX}px` } : {}) }
     const to: Keyframe = { ...(fade ? { opacity: 1 } : {}), ...(rise ? { translate: "0 0" } : {}) }
-    child.animate([from, to], { duration: NAV_ENTER_MS, easing: NAV_ENTER_EASE })
+    const a = child.animate([from, to], { duration: NAV_ENTER_MS, easing: NAV_ENTER_EASE })
+    if (rise) moving.push(a)
   }
+  holdStill(outer, fitted && moving.length > 0, moving)
+}
+
+/**
+ * THE RISE NEVER MAKES THE SHELL SCROLL. A transform counts towards what a
+ * scroller can scroll, so a page that fitted, or a page that scrolls in a box
+ * of its own (which is exactly the scroller's height), was 5px too tall for
+ * the 180ms of the rise, and on a computer with classic scrollbars the shell
+ * put up a scrollbar for those frames and took it away again: the bar that
+ * "flashes and then disappears" on every page change and every Back. So when
+ * nothing overflowed before the rise, the scroller is marked for as long as
+ * it lasts, and app/globals.css stops it scrolling (on a computer only; the
+ * column for its bar stays reserved, so nothing beside it moves). A page that
+ * was already scrolling keeps its bar: it is there before and after.
+ */
+let landing = 0
+function holdStill(outer: HTMLElement, hold: boolean, moving: Animation[]) {
+  const mine = ++landing
+  if (!hold) {
+    outer.removeAttribute("data-app-landing")
+    return
+  }
+  outer.setAttribute("data-app-landing", "")
+  const release = () => { if (landing === mine) outer.removeAttribute("data-app-landing") }
+  Promise.all(moving.map((a) => a.finished.catch(() => undefined))).then(release)
+  /* An animation that never finishes (a tab in the background) still lets go. */
+  window.setTimeout(release, NAV_ENTER_MS + 120)
 }
 
 /**
