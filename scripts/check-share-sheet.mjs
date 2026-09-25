@@ -87,12 +87,25 @@ const trackPanel = (p, ms) =>
     requestAnimationFrame(tick)
   }), ms)
 
+/* The panel's "Open OnePage" is an app link (components/app/app-link.tsx), which asks for the app's router: a stand-in, as in the home probes. */
+writeFileSync(join(work, "navigation.js"), `export const usePathname = () => "/app"
+export const useRouter = () => ({ push() {}, replace() {}, prefetch() {}, refresh() {}, back() {} })
+export const useSearchParams = () => new URLSearchParams()
+export const useParams = () => ({})
+`)
+writeFileSync(join(work, "link.jsx"), `import React from "react"
+export default React.forwardRef(function Link({ href, children, prefetch, ...rest }, ref) {
+  return <a ref={ref} href={typeof href === "string" ? href : "#"} {...rest}>{children}</a>
+})
+`)
+
 try {
   execFileSync(
     "npx",
     [
       "esbuild", "scripts/render-share-sheet.tsx", "--bundle", "--format=iife", "--jsx=automatic",
       '--define:process.env.NODE_ENV="production"', "--alias:@=.",
+      `--alias:next/navigation=${join(work, "navigation.js")}`, `--alias:next/link=${join(work, "link.jsx")}`, "--loader:.jsx=jsx",
       "--banner:js=var process={env:{NODE_ENV:'production'}};",
       `--outfile=${join(work, "app.js")}`, "--log-level=error",
     ],
@@ -191,7 +204,8 @@ try {
         actions: [...el.querySelectorAll("[data-share-actions] button")].map((b) => b.textContent.trim()),
         buttons: [...el.querySelectorAll("button")].map((b) => b.textContent.trim()).filter(Boolean),
         text: el.textContent,
-        hint: el.querySelector("[data-share-address]")?.closest("div")?.nextElementSibling?.textContent.trim(),
+        /* innerText: the line for an unpublished OnePage is there too, hidden, so no element comes or goes on a switch. */
+        hint: el.querySelector("[data-share-address]")?.closest("div")?.nextElementSibling?.innerText.trim(),
       }
     })
     expect(!!surface, "the pill opens the share panel", surface?.kind)
@@ -265,15 +279,20 @@ try {
       const qrView = await p.evaluate(() => {
         const el = document.querySelector("[data-share-sheet]")
         const svg = el.querySelector("[role=img] svg")
+        /* The view on show; on a phone the share view is kept beside it, out of sight. */
+        const shown = el.querySelector("[data-share-pane][data-on]") ?? el
         return {
           view: el.getAttribute("data-view"),
           drawn: !!svg && svg.querySelectorAll("path").length > 0,
           size: svg ? Math.round(svg.getBoundingClientRect().width) : 0,
-          buttons: [...el.querySelectorAll("button")].map((b) => b.textContent.trim()).filter(Boolean),
+          buttons: [...shown.querySelectorAll("button")].map((b) => b.textContent.trim()).filter(Boolean),
+          panes: [...el.querySelectorAll("[data-share-pane]")].map((n) => (n.hasAttribute("data-on") ? "on" : getComputedStyle(n).visibility)),
         }
       })
       expect(qrView.view === "qr" && qrView.drawn && qrView.size >= 180, "the QR view draws a large code", qrView)
-      expect(qrView.buttons.includes("Download") && qrView.buttons.includes("Copy link"), "with Download and Copy link", qrView.buttons)
+      expect(qrView.buttons.join("|") === "Download|Copy link", "with Download and Copy link", qrView.buttons)
+      if (phone) expect(qrView.panes.join("|") === "hidden|on", "the share view is kept out of sight behind it, not taken down", qrView.panes)
+      else expect(qrView.panes.join("|") === "on", "on a computer only the view on show is in the panel", qrView.panes)
       await p.screenshot({ path: join(shots, `${label}-qr.png`) })
       const back = await p.$("button[aria-label=Back]")
       if (phone) await back.tap()
