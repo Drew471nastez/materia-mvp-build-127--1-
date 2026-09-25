@@ -2658,7 +2658,7 @@ function OrderDetailsModal({
       {/* Modern smooth notification toast */}
       {notification.visible && (
         <div
-          className="fixed top-[calc(68px+env(safe-area-inset-top)+12px)] md:top-4 left-1/2 -translate-x-1/2 z-[200] animate-in fade-in-0 slide-in-from-top-2 duration-300"
+          className="fixed top-[calc(68px+env(safe-area-inset-top)+12px)] md:top-[calc(58px+env(safe-area-inset-top)+14px)] left-1/2 -translate-x-1/2 z-[200] animate-in fade-in-0 slide-in-from-top-2 duration-300"
         >
           <div className={cn(
             "px-4 py-2.5 rounded-xl shadow-lg flex items-center gap-2 text-[13px] font-medium whitespace-nowrap max-w-[calc(100vw-2rem)]",

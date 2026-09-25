@@ -36,8 +36,9 @@ export function startNavigationLoading(href?: string) {
  * was already in the router's cache and landed on the next frame: a flash of
  * progress for something that took no time. Now it waits NAV_BAR_AFTER_MS
  * (lib/ui/app-navigation) and most navigations are over before it would
- * have shown. When it does show it is 2px, runs on an easing that slows as it
- * goes, and finishes and fades when the page commits.
+ * have shown. When it does show it is 2px, a quiet white along the black bar
+ * (not violet), runs on an easing that slows as it goes, and finishes and
+ * fades when the page commits.
  *
  * Width and opacity are written straight to the node, never through React.
  */
@@ -166,7 +167,7 @@ export function NavigationLoadingBar() {
       <div
         ref={barRef}
         data-app-nav-progress=""
-        className="h-full w-full origin-left bg-[#8b5cf6]"
+        className="h-full w-full origin-left bg-white/60 shadow-[0_0_6px_rgba(255,255,255,0.35)]"
         style={{ transform: "scaleX(0)", willChange: "transform, opacity" }}
       />
     </div>

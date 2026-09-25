@@ -1900,7 +1900,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
     <>
       {/* Save Toast Notification */}
       <div
-        className={`fixed top-[calc(68px+env(safe-area-inset-top)+12px)] md:top-4 left-1/2 -translate-x-1/2 z-[100] transition-all duration-300 ease-out ${
+        className={`fixed top-[calc(68px+env(safe-area-inset-top)+12px)] md:top-[calc(58px+env(safe-area-inset-top)+14px)] left-1/2 -translate-x-1/2 z-[100] transition-all duration-300 ease-out ${
           showSaveToast
             ? "opacity-100 translate-y-0"
             : "opacity-0 -translate-y-2 pointer-events-none"

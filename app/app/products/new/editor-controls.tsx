@@ -2,10 +2,11 @@
 
 import React, { useCallback, useEffect, useLayoutEffect, useRef } from "react"
 import { cn } from "@/lib/utils"
+import { switchKnob, switchTrack } from "@/components/ui/switch-style"
 
 /**
- * A switch, drawn for this form: a track and a knob that slides, the /app
- * violet when on. A real button with role="switch", so it is a 44px press on
+ * A switch, drawn for this form: the app's one slim, near black switch
+ * (components/ui/switch-style.ts). A real button with role="switch", so it is a 44px press on
  * a phone and a key press on a computer.
  */
 export function FormSwitch({
@@ -29,18 +30,8 @@ export function FormSwitch({
       onClick={() => onChange(!checked)}
       className="group relative -m-2 inline-flex shrink-0 cursor-pointer items-center p-2 outline-none"
     >
-      <span
-        className={cn(
-          "relative block h-7 w-[46px] rounded-full transition-colors duration-200 group-focus-visible:ring-2 group-focus-visible:ring-[#8b5cf6] group-focus-visible:ring-offset-2 sm:h-6 sm:w-10",
-          checked ? "bg-[#8b5cf6]" : "bg-[#e1e3e8]",
-        )}
-      >
-        <span
-          className={cn(
-            "absolute left-0.5 top-0.5 block h-6 w-6 rounded-full bg-white shadow-[0_1px_3px_rgba(17,24,39,0.25)] transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] sm:h-5 sm:w-5",
-            checked ? "translate-x-[18px] sm:translate-x-4" : "translate-x-0",
-          )}
-        />
+      <span className={cn(switchTrack(checked), "group-focus-visible:ring-2 group-focus-visible:ring-[#111113]/30 group-focus-visible:ring-offset-2")}>
+        <span className={switchKnob(checked)} />
       </span>
     </button>
   )

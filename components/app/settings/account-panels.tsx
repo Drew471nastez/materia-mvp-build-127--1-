@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client"
 import { accountErrorKind, accountErrorMessage, passwordProblem } from "@/lib/auth/account-errors"
 import { readConsent, writeConsent, onConsentChange } from "@/lib/consent/client"
 import { everything } from "@/lib/consent/consent"
+import { switchKnob, switchTrack } from "@/components/ui/switch-style"
 
 /**
  * ===========================================================================
@@ -55,8 +56,8 @@ function Note({ tone, children }: { tone: "ok" | "error"; children: ReactNode })
 
 /**
  * A real switch: role="switch" with aria-checked, and a 44px square to press
- * around a 44 by 24 track, so a thumb on a phone does not have to find the
- * track itself. The knob moves by transform only.
+ * around the app's slim track (components/ui/switch-style.ts), so a thumb
+ * on a phone does not have to find the track itself. The knob moves by transform only.
  */
 export function Switch({
   checked,
@@ -81,16 +82,10 @@ export function Switch({
       aria-busy={busy || undefined}
       data-settings-switch=""
       onClick={() => onChange(!checked)}
-      className="group relative -mr-1.5 inline-flex h-11 w-14 shrink-0 cursor-pointer items-center justify-center rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8b5cf6]/40"
+      className="group relative -mr-1.5 inline-flex h-11 w-14 shrink-0 cursor-pointer items-center justify-center rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#111113]/25"
     >
-      <span
-        aria-hidden="true"
-        className={`relative block h-6 w-11 rounded-full transition-colors duration-150 ${checked ? "bg-[#8b5cf6]" : "bg-[#d1d5db]"}`}
-      >
-        <span
-          className="absolute left-0.5 top-0.5 block h-5 w-5 rounded-full bg-white shadow-[0_1px_2px_rgba(16,24,40,0.2)] transition-transform duration-150 motion-reduce:transition-none"
-          style={{ transform: checked ? "translateX(20px)" : "translateX(0)" }}
-        />
+      <span aria-hidden="true" className={switchTrack(checked)}>
+        <span className={switchKnob(checked)} />
       </span>
     </button>
   )

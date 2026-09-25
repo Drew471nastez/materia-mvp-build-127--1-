@@ -1940,7 +1940,7 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
       {/* Success Notification - Modern black toast */}
       {showNotification && (
         <div
-          className="fixed top-[calc(68px+env(safe-area-inset-top)+12px)] md:top-4 left-1/2 -translate-x-1/2 z-[100] animate-in slide-in-from-top-3 fade-in duration-300"
+          className="fixed top-[calc(68px+env(safe-area-inset-top)+12px)] md:top-[calc(58px+env(safe-area-inset-top)+14px)] left-1/2 -translate-x-1/2 z-[100] animate-in slide-in-from-top-3 fade-in duration-300"
         >
           <div className="flex items-center gap-2.5 px-4 py-3 bg-gray-900 rounded-xl shadow-2xl shadow-gray-900/20 backdrop-blur-sm border border-gray-800 whitespace-nowrap max-w-[calc(100vw-2rem)]">
             <CheckCircle className="h-4 w-4 text-white flex-shrink-0" />
@@ -1952,7 +1952,7 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
       {/* Validation Toast Notification - Black modern style */}
       {toast.visible && (
         <div
-          className={`fixed top-[calc(68px+env(safe-area-inset-top)+12px)] md:top-4 left-1/2 z-[100] ${
+          className={`fixed top-[calc(68px+env(safe-area-inset-top)+12px)] md:top-[calc(58px+env(safe-area-inset-top)+14px)] left-1/2 z-[100] ${
             toast.dismissing ? "animate-toast-out" : "animate-toast-in"
           }`}
         >

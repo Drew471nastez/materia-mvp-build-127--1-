@@ -194,7 +194,7 @@ export function CouponsClient({ initialCoupons, products }: CouponsClientProps) 
   return (
     <div className="orders-pane h-full overflow-y-auto overflow-x-hidden page-scroll bg-[#f8f9fa] app-page-enter">
       {notice && (
-        <div role="status" className="fixed left-1/2 top-[calc(68px+env(safe-area-inset-top)+12px)] z-[100] -translate-x-1/2 animate-in fade-in-0 slide-in-from-top-2 duration-300 md:top-4">
+        <div role="status" className="fixed left-1/2 top-[calc(68px+env(safe-area-inset-top)+12px)] z-[100] -translate-x-1/2 animate-in fade-in-0 slide-in-from-top-2 duration-300 md:top-[calc(58px+env(safe-area-inset-top)+14px)]">
           <div className={cn("max-w-[calc(100vw-2rem)] truncate rounded-xl px-4 py-3 text-[13px] font-medium text-white shadow-lg", notice.tone === "error" ? "bg-rose-600" : "bg-[#1a1a2e]")}>
             {notice.message}
           </div>

@@ -121,6 +121,7 @@ import { getWebsiteShareUrl, getWebsiteUrlDisplay } from "@/lib/url-helpers"
 import { ThemeChat } from "@/components/website-builder/theme-chat"
 import { ColorField } from "@/components/storefront/color-field"
 import { applyOp, type ThemeOp } from "@/lib/website-builder/agent/operations"
+import { switchKnob, switchTrack } from "@/components/ui/switch-style"
 
 /** Ask Storelib on a phone: half, and the whole screen below the status bar. A constant so the sheet's memo holds. */
 const AI_SHEET_DETENTS = [0.5, 1]
@@ -596,13 +597,10 @@ function FieldEditor({
         type="button"
         role="switch"
         aria-checked={checked}
-        className={cn(
-          "relative inline-flex h-[22px] w-[38px] items-center rounded-full transition-colors shrink-0 cursor-pointer focus:outline-none",
-          checked ? "bg-foreground" : "bg-muted-foreground/30",
-        )}
+        className={cn(switchTrack(checked), "cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#111113]/30 focus-visible:ring-offset-2")}
         onClick={() => onChange(!checked)}
       >
-        <span className={cn("inline-block h-[18px] w-[18px] transform rounded-full bg-white shadow-md transition-transform duration-200", checked ? "translate-x-[18px]" : "translate-x-0.5")} />
+        <span className={switchKnob(checked)} />
       </button>
     )
   }
@@ -1879,13 +1877,10 @@ function WbToggle({
         type="button"
         role="switch"
         aria-checked={checked}
-        className={cn(
-          "relative inline-flex h-[22px] w-[38px] items-center rounded-full transition-colors shrink-0 cursor-pointer focus:outline-none",
-          checked ? "bg-foreground" : "bg-muted-foreground/30",
-        )}
+        className={cn(switchTrack(checked), "cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#111113]/30 focus-visible:ring-offset-2")}
         onClick={e => { e.preventDefault(); onChange(!checked) }}
       >
-        <span className={cn("inline-block h-[18px] w-[18px] transform rounded-full bg-white shadow-md transition-transform duration-200", checked ? "translate-x-[18px]" : "translate-x-0.5")} />
+        <span className={switchKnob(checked)} />
       </button>
     </label>
   )
@@ -2092,15 +2087,9 @@ function SortableNavLink({
                   role="switch"
                   aria-checked={checked}
                   onClick={e => { e.preventDefault(); onUpdateBlockSetting(block.id, field.id, !checked) }}
-                  className={cn(
-                    "relative inline-flex h-[22px] w-[38px] items-center rounded-full transition-colors shrink-0 focus:outline-none",
-                    checked ? "bg-foreground" : "bg-muted-foreground/30",
-                  )}
+                  className={cn(switchTrack(checked), "cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#111113]/30 focus-visible:ring-offset-2")}
                 >
-                  <span className={cn(
-                    "inline-block h-[18px] w-[18px] transform rounded-full bg-white shadow-md transition-transform duration-200",
-                    checked ? "translate-x-[18px]" : "translate-x-0.5",
-                  )} />
+                  <span className={switchKnob(checked)} />
                 </button>
               </label>
             )

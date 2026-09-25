@@ -631,14 +631,17 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         </div>
 
         {/* Concave bottom corners - SVG curves on left and right */}
-        <div className="relative h-3 pointer-events-none" style={{ marginTop: "-1px" }}>
+        {/* 16px quarter circles, drawn with geometric precision so the arc is smooth at any
+            zoom, each with a 1px strip of the bar's own colour above it: the curve starts
+            inside the bar instead of meeting its edge, so no hairline seam shows between them. */}
+        <div className="relative h-4 pointer-events-none" style={{ marginTop: "-1px" }}>
           {/* Left concave corner */}
-          <svg className="absolute left-0 top-0 h-3 w-3" viewBox="0 0 12 12" fill="none">
-            <path d="M12 0H0v12C0 5.373 5.373 0 12 0Z" fill="#131316" />
+          <svg className="absolute left-0 top-0 h-[17px] w-4" viewBox="0 0 16 17" fill="none" shapeRendering="geometricPrecision" aria-hidden="true">
+            <path d="M16 0H0v17C0 8.163 7.163 1 16 1V0Z" fill="#131316" />
           </svg>
           {/* Right concave corner */}
-          <svg className="absolute right-0 top-0 h-3 w-3" viewBox="0 0 12 12" fill="none">
-            <path d="M0 0h12v12C12 5.373 6.627 0 0 0Z" fill="#131316" />
+          <svg className="absolute right-0 top-0 h-[17px] w-4" viewBox="0 0 16 17" fill="none" shapeRendering="geometricPrecision" aria-hidden="true">
+            <path d="M0 0h16v17C16 8.163 8.837 1 0 1V0Z" fill="#131316" />
           </svg>
         </div>
       </header>

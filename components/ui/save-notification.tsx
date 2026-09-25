@@ -67,7 +67,7 @@ export function SaveNotification({
   return createPortal(
     <div className={cn(
       "fixed left-0 right-0 z-[2147483647] flex justify-center px-4 pointer-events-none",
-      resolvedPosition === "bottom" ? "bottom-16" : "top-4"
+      resolvedPosition === "bottom" ? "bottom-16" : "top-[calc(58px+env(safe-area-inset-top)+14px)]"
     )}>
       <div
         className={cn(
