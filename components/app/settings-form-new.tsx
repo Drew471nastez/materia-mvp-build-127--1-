@@ -26,7 +26,7 @@ import {
 } from "lucide-react"
 import type { Profile, Creator } from "@/lib/types"
 import { isValidUsername } from "@/lib/reserved-words"
-import { getLinksShareUrl, getLinksUrl, getStoreShareUrl, getStoreUrl, getStoreUrlDisplay, getWebsiteUrl } from "@/lib/url-helpers"
+import { getLinksShareUrl, getLinksUrl, getStoreShareUrl, getStoreUrl, getStoreUrlDisplay, getWebsiteUrl, getWebsiteUrlDisplay } from "@/lib/url-helpers"
 import { isNativeApp } from "@/lib/platform-utils"
 import { openExternal } from "@/lib/native-bridge"
 import { useLanguage, LANGUAGES } from "@/lib/i18n"
@@ -34,6 +34,8 @@ import { BillingPageClient } from "@/components/app/billing/billing-page-client"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { TimeZonePicker } from "@/components/app/time-zone-picker"
 import { ProfilePhoto } from "@/components/app/settings/profile-photo"
+import { DomainsPanel, type DomainsData } from "@/components/app/settings/domains-panel"
+import { creatorPageHostFrom } from "@/lib/custom-domains/client"
 import { AddressList, type SettingsWebsite } from "@/components/app/settings/addresses"
 import { WaitingArea } from "@/components/ui/activity-spinner"
 import { STORELIB_LOGO } from "@/lib/brand/logo"
@@ -527,17 +529,8 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
   // Domain state
   const [domains, setDomains] = useState<any[]>([])
   const [domainsLoading, setDomainsLoading] = useState(false)
-  const [domainInput, setDomainInput] = useState("")
-  const [domainAdding, setDomainAdding] = useState(false)
-  const [domainError, setDomainError] = useState<string | null>(null)
-  const [domainInfo, setDomainInfo] = useState<string | null>(null)
-  const [lastVerifyDomainId, setLastVerifyDomainId] = useState<string | null>(null)
-  const [domainVerifying, setDomainVerifying] = useState<string | null>(null)
-  const [domainRemoving, setDomainRemoving] = useState<string | null>(null)
-  const [dnsRecordStatus, setDnsRecordStatus] = useState<{ aRecord: boolean; cname: boolean; txt: boolean } | null>(null)
-  const [domainWarnings, setDomainWarnings] = useState<string[]>([])
-  const [domainIssues, setDomainIssues] = useState<string[]>([])
-  const [copiedValue, setCopiedValue] = useState<string | null>(null)
+  /* The whole GET /api/domains answer: the list, and the primary host of each purpose. */
+  const [domainsData, setDomainsData] = useState<DomainsData | null>(null)
 
   // Avatar fallback order: Profile → Creator → Store Builder → OnePage → Google → Initials
   // Filter out placeholder URLs to match layout.tsx logic for sidebar consistency
@@ -668,7 +661,10 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
     try {
       const res = await fetch("/api/domains")
       const data = await res.json()
-      if (data.domains) setDomains(data.domains)
+      if (data.domains) {
+        setDomains(data.domains)
+        setDomainsData(data)
+      }
       domainsLoadedRef.current = true
     } catch (err) {
       console.error("Failed to fetch domains:", err)
@@ -691,47 +687,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
       .finally(() => setPlanLoading(false))
   }, [])
 
-  // Auto-poll SSL provisioning domains every 10s until they become active
-  useEffect(() => {
-    const sslDomains = domains.filter((d) => d.status === "ssl_provisioning")
-    if (sslDomains.length === 0) return
-
-    let cancelled = false
-
-    const checkSsl = async () => {
-      for (const d of sslDomains) {
-        if (cancelled) return
-        try {
-          const res = await fetch("/api/domains/verify", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ domainId: d.id }),
-          })
-          const data = await res.json()
-          if (data.warnings?.length) setDomainWarnings(data.warnings)
-          if (data.issues?.length) setDomainIssues(data.issues)
-          if (data.verified && !data.sslPending) {
-            setDomains((prev) => prev.map((dom) => dom.id === d.id ? { ...dom, status: "active", ssl_status: "active" } : dom))
-            setDomainWarnings([])
-            setDomainIssues([])
-          }
-        } catch {
-          // Ignore polling errors
-        }
-      }
-    }
-
-    // Immediate first check (after 2s to avoid double-checking on initial verify)
-    const initialTimeout = setTimeout(checkSsl, 2000)
-    // Then poll every 10 seconds
-    const interval = setInterval(checkSsl, 10000)
-
-    return () => {
-      cancelled = true
-      clearTimeout(initialTimeout)
-      clearInterval(interval)
-    }
-  }, [domains])
+  /* A certificate being issued is polled by the Domains panel itself, while it is open. */
 
   // Handle URL parameters for tab navigation and Stripe Connect return/refresh
   useEffect(() => {
@@ -942,113 +898,6 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
   }, [activeTab])
 
   // fetchDomains moved above the URL params useEffect to avoid TDZ
-
-  const addDomain = async () => {
-    if (!domainInput.trim()) return
-    setDomainAdding(true)
-    setDomainError(null)
-    setDomainInfo(null)
-    setLastVerifyDomainId(null)
-    setDomainWarnings([])
-    setDomainIssues([])
-    setDnsRecordStatus(null)
-    try {
-      const res = await fetch("/api/domains", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ domain: domainInput.trim() }),
-      })
-      const data = await res.json()
-      if (!res.ok) {
-        setDomainError(data.error || "Failed to add domain")
-        return
-      }
-      setDomains((prev) => [data.domain, ...prev])
-      setDomainInput("")
-      setDomainError(null)
-    } catch (err) {
-      setDomainError("Failed to add domain")
-    } finally {
-      setDomainAdding(false)
-    }
-  }
-
-  const verifyDomain = async (domainId: string) => {
-    setDomainVerifying(domainId)
-    setLastVerifyDomainId(domainId)
-    setDomainError(null)
-    setDomainInfo(null)
-    try {
-      const res = await fetch("/api/domains/verify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ domainId }),
-      })
-      const data = await res.json()
-      if (data.records) setDnsRecordStatus(data.records)
-      if (data.warnings) setDomainWarnings(data.warnings)
-      if (data.issues) setDomainIssues(data.issues)
-      if (data.verified && data.sslPending) {
-        // DNS verified but SSL certificate is still being issued — info, not an error
-        setDomains((prev) => prev.map((d) => d.id === domainId ? { ...d, status: "ssl_provisioning", verified_at: new Date().toISOString(), ssl_status: "provisioning" } : d))
-        setDomainError(null)
-        setDomainInfo(data.message || "DNS verified! SSL certificate is being issued. This usually takes 1–10 minutes.")
-      } else if (data.verified) {
-        // Fully connected with SSL
-        setDomains((prev) => prev.map((d) => d.id === domainId ? { ...d, status: "active", verified_at: new Date().toISOString(), ssl_status: "active" } : d))
-        setDomainError(null)
-        setDomainInfo(null)
-        setLastVerifyDomainId(null)
-        setDomainWarnings([])
-        setDomainIssues([])
-      } else {
-        setDomainInfo(null)
-        setDomainError(data.message || "DNS records not found yet. Please check your records and try again.")
-      }
-    } catch (err) {
-      setDomainError("Verification failed — please try again.")
-    } finally {
-      setDomainVerifying(null)
-    }
-  }
-
-  const removeDomain = async (domainId: string) => {
-    setDomainRemoving(domainId)
-    setDomainError(null)
-    setDomainInfo(null)
-    setLastVerifyDomainId(null)
-    setDomainWarnings([])
-    setDomainIssues([])
-    setDnsRecordStatus(null)
-    try {
-      const res = await fetch("/api/domains", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ domainId }),
-      })
-      if (res.ok) {
-        setDomains((prev) => prev.filter((d) => d.id !== domainId))
-      }
-    } catch (err) {
-      console.error("Failed to remove domain:", err)
-    } finally {
-      setDomainRemoving(null)
-    }
-  }
-
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text)
-    setCopiedValue(text)
-    setTimeout(() => setCopiedValue(null), 2000)
-  }
-
-  // Suggested domains based on username
-  const suggestedDomains = username ? [
-    `${username.toLowerCase()}.com`,
-    `${username.toLowerCase()}.store`,
-    `${username.toLowerCase()}.shop`,
-    `${username.toLowerCase()}.io`,
-  ] : []
 
   // Tab change with skeleton loading animation
   const handleTabChange = (newTab: TabId) => {
@@ -1407,7 +1256,8 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
 
   const settingsHandleBase = creator?.username || profile?.username || storeUrlDisplay.split(".")[0] || "store"
   const settingsHandleLabel = `@${settingsHandleBase}`
-  const connectedDomain = domains.find((d: any) => d.status === "active")?.domain || null
+  /* The creator page's own domain (and so the OnePage's, at /links), from the list read on load. */
+  const connectedDomain = creatorPageHostFrom(domainsData)
   // Canonical subdomain URLs for display text and clipboard copy
   const onepageUrl = connectedDomain ? `https://${connectedDomain}/links` : getLinksShareUrl(settingsHandleBase)
   const storeUrlWithDomain = connectedDomain ? `https://${connectedDomain}` : getStoreShareUrl(settingsHandleBase)
@@ -2325,465 +2175,20 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
             </div>
           )}
 
-          {/* Domains Tab */}
+          {/* Domains Tab: connected domains for the website and the creator page (components/app/settings/domains-panel.tsx) */}
           {activeTab === "domains" && (
-            <div className="space-y-4 sm:space-y-6">
-
-              {/* Upgrade banner — only shown for free/null plan, nothing while loading or paid */}
-              {!planLoading && (userPlan === "free" || userPlan === null) ? (
-                <div className="flex items-center justify-between gap-3 rounded-2xl bg-gradient-to-r from-[#7c3aed] to-[#6d28d9] px-4 sm:px-6 py-3 sm:py-3.5 shadow-sm">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <Globe className="h-5 w-5 text-white shrink-0" />
-                    <p className="text-[13px] sm:text-[14px] font-medium text-white truncate">
-                      <span className="sm:hidden">Upgrade for custom domains</span>
-                      <span className="hidden sm:inline">Custom domains are available on the Pro plan.</span>
-                    </p>
-                  </div>
-                  <a
-                    href="/app/settings/billing/upgrade"
-                    className="shrink-0 inline-flex items-center justify-center h-9 px-5 text-[13px] font-semibold text-[#7c3aed] bg-white rounded-xl hover:bg-[#f5f3ff] active:bg-[#ede9fe] transition-colors shadow-sm cursor-pointer no-underline whitespace-nowrap"
-                  >
-                    Upgrade
-                  </a>
-                </div>
-              ) : null}
-
-              {/* Connect Your Domain Card */}
-              <div className={`bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb] transition-[filter,opacity] duration-700 ease-in-out ${(userPlan === "free" || userPlan === null) && !planLoading ? "blur-[1.5px] opacity-80 pointer-events-none select-none" : ""}`}>
-                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-1">Connect your own domain</h3>
-                {/* Desktop: full text, Mobile: shorter text */}
-                <p className="hidden sm:block text-[13px] text-[#6b7280] mb-4">Connect a custom domain to your store and OnePage. Your store will be at <span className="font-medium">yourdomain.com</span> and OnePage at <span className="font-medium">yourdomain.com/links</span>.</p>
-                <p className="sm:hidden text-[13px] text-[#6b7280] mb-4">Connect a custom domain to your store and OnePage.</p>
-
-                <div className="flex gap-2">
-                  <div className="flex-1 relative">
-                    <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#9ca3af]" />
-                    <input
-                      type="text"
-                      value={domainInput}
-                      onChange={(e) => { setDomainInput(e.target.value); setDomainError(null); setDomainInfo(null) }}
-                      onKeyDown={(e) => e.key === "Enter" && addDomain()}
-                      placeholder="Enter your domain (e.g. mydomain.com)"
-                      disabled={userPlan === "free" || userPlan === null}
-                      className="w-full h-11 pl-10 pr-4 text-[14px] border border-[#e5e7eb] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#8b5cf6] focus:border-[#8b5cf6] transition-colors disabled:cursor-not-allowed"
-                    />
-                  </div>
-                  <button
-                    onClick={addDomain}
-                    disabled={domainAdding || !domainInput.trim() || userPlan === "free" || userPlan === null}
-                    className="h-11 px-5 text-[13px] font-semibold text-white bg-[#7c3aed] rounded-xl hover:bg-[#6d28d9] transition-colors disabled:opacity-50 cursor-pointer flex items-center gap-2 shrink-0 disabled:cursor-not-allowed"
-                  >
-                    {domainAdding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                    Connect
-                  </button>
-                </div>
-
-                {domainError && (
-                  <div className="mt-3 flex items-center gap-2 text-[12px] text-red-600">
-                    <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-                    {domainError}
-                  </div>
-                )}
-
-                {domainInfo && (
-                  <div className="mt-3 flex items-center gap-2 text-[12px] text-blue-700 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
-                    <CheckCircle className="h-3.5 w-3.5 shrink-0 text-blue-500" />
-                    {domainInfo}
-                  </div>
-                )}
-
-                {domainIssues.length > 0 && (
-                  <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-xl">
-                    <p className="text-[12px] font-semibold text-red-800 mb-1.5">Issues blocking SSL:</p>
-                    <ul className="space-y-1.5">
-                      {domainIssues.map((issue, i) => (
-                        <li key={i} className="text-[11px] text-red-700 flex items-start gap-2 leading-relaxed">
-                          <span className="w-1.5 h-1.5 rounded-full bg-red-500 mt-1 flex-shrink-0" />
-                          {issue}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {domainWarnings.length > 0 && (
-                  <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-xl">
-                    <p className="text-[12px] font-semibold text-amber-800 mb-1.5">Warnings:</p>
-                    <ul className="space-y-1.5">
-                      {domainWarnings.map((warning, i) => (
-                        <li key={i} className="text-[11px] text-amber-700 flex items-start gap-2 leading-relaxed">
-                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-1 flex-shrink-0" />
-                          {warning}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {/* DNS Provider Quick Links */}
-                <div className="flex items-center gap-3 mt-3">
-                  <span className="text-[11px] text-[#9ca3af]">Get a domain:</span>
-                  <div className="flex items-center gap-3">
-                    <a href="https://www.hostinger.com/domain-name-search" target="_blank" rel="noopener noreferrer" className="opacity-90 hover:opacity-100 transition-opacity cursor-pointer" title="Hostinger">
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="#374151" xmlns="http://www.w3.org/2000/svg"><path d="M16.415 0v7.16l5.785 3.384V2.949zM1.8 0v11.237h18.815L14.89 8.09l-7.457-.003V3.024zm14.615 20.894v-5.019l-7.514-.005c.007.033-5.82-3.197-5.82-3.197l19.119.091V24zM1.8 13.551v7.343l5.633 2.949v-6.988z"/></svg>
-                    </a>
-                    <a href="https://www.godaddy.com/en/domains" target="_blank" rel="noopener noreferrer" className="opacity-90 hover:opacity-100 transition-opacity cursor-pointer" title="GoDaddy">
-                      <svg width="20" height="20" viewBox="0 0 1534 1368" fill="#374151" xmlns="http://www.w3.org/2000/svg"><path fillRule="evenodd" d="M1391.5 968.9C1233.6 1221.8 986.7 1370 767 1367.2c-219.8 2.8-466.6-145.4-624.5-398.4C-71.6 625.8-41 220 210.9 62.4c159.2-99.5 369.2-75.9 555.8 41.8 187.2-117.8 397.1-141.3 556.5-41.8 251.9 157.6 282.2 563.4 68.3 906.5M280.3 929.8q11.3 16.5 23.4 32.3 12.2 15.9 25 31.1 12.8 15.3 26.4 30c-45.4-184.8-5.7-416.6 124.3-624.9Q497 370 516.5 343q19.5-27.1 40.8-52.7t44.3-49.7 47.7-46.6c-17.2-9-34.8-17.1-52.8-24.4-118.2-46.9-229.3-43.9-313.3 8.7-84 52.7-135.5 151.4-145.1 278.1q-1.8 26.9-1.3 53.8.4 27 3.1 53.8 2.7 26.9 7.6 53.4 5 26.5 12.1 52.5 7.9 30 18.2 59.3 10.2 29.3 22.6 57.8 12.4 28.4 26.9 55.8 14.6 27.5 31.1 53.7 10.5 16.9 21.9 33.3m1106.3-312.4q4.8-26.5 7.4-53.3 2.7-26.8 3.1-53.7t-1.4-53.8c-9.6-126.7-61-225.4-145.1-278-84-52.6-195.3-55.7-313.3-8.7q-24.9 10.2-48.8 22.4-24 12.3-46.9 26.5T797.1 249q-21.6 16.1-41.8 33.8c-31.1 27.3-60.2 56.8-86.9 88.2-26.8 31.5-51.2 65-73.1 100-21.9 35.1-41.2 71.7-57.8 109.6-16.5 37.9-30.2 77-41.1 116.9C477.5 767 470.3 839.2 475 911c9.5 126.8 61.1 225.6 145.1 278.1 10.8 6.7 22 12.5 33.5 17.6 11.6 5.1 23.5 9.5 35.6 13s24.5 6.2 37 8.1c12.5 1.8 25.1 2.8 37.7 3h6.5c12.6-.2 25.2-1.2 37.7-3.1 12.5-1.8 24.8-4.5 37-8 12.1-3.6 24-7.9 35.5-13 11.6-5.1 22.8-11 33.6-17.6 83.9-52.5 135.5-151.3 145-278 4.8-71.9-2.4-144.1-21.4-213.6-4.9-19.8-11.4-39-17.9-58.6l-201 125.7c-2.8 1.8-6 3-9.2 3.6-3.3.5-6.7.4-9.9-.3-3.3-.8-6.4-2.2-9.1-4.1-2.7-2-5-4.4-6.7-7.2l-45.5-72.9c-1.8-2.8-3-5.9-3.5-9.2-.6-3.3-.5-6.7.3-9.9.7-3.3 2.1-6.3 4-9 2-2.8 4.4-5.1 7.2-6.8l310.2-194c2.9-1.9 6.2-3.2 9.7-3.7 3.5-.6 7-.4 10.4.5 3.4 1 6.6 2.6 9.3 4.8s4.9 5 6.5 8.2c99.5 190.3 127.1 393.2 86.5 558.8q13.5-14.7 26.4-30 12.8-15.3 24.9-31.2t23.5-32.3q11.3-16.5 21.9-33.4 16.5-26.3 31-53.7 14.6-27.4 27-55.9 12.4-28.4 22.6-57.7t18.2-59.3q7.1-26 12-52.5"/></svg>
-                    </a>
-                    <a href="https://www.namecheap.com/domains/" target="_blank" rel="noopener noreferrer" className="opacity-90 hover:opacity-100 transition-opacity cursor-pointer" title="Namecheap">
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="#374151" xmlns="http://www.w3.org/2000/svg"><path d="M17.295 17.484c.227.403.57.728.985.931-.309.15-.647.229-.99.232h-3.068a2.26 2.26 0 0 1-1.957-1.143L6.705 6.511a2.27 2.27 0 0 0-.974-.922c.309-.153.652-.233.997-.232h3.05c.81.003 1.558.438 1.959 1.143zm-9.329-7.392L6.269 6.755c-.209-.392-.582-.657-.984-.829-.204.165-.391.35-.522.581-.184.349-4.391 8.648-4.569 8.987a2.245 2.245 0 0 0 4.016 1.999zm15.846-1.593a2.245 2.245 0 0 0-1.162-2.955v-.001a2.2 2.2 0 0 0-.892-.187l-.003-.011c-.816 0-1.569.443-1.965 1.157l-3.749 7.414 1.689 3.323c.213.399.59.664.998.839.252-.2.473-.444.605-.742z"/></svg>
-                    </a>
-                  </div>
-                </div>
-
-                {/* Suggested Domains */}
-                {suggestedDomains.length > 0 && domains.length === 0 && (
-                  <div className="mt-4">
-                    <p className="text-[12px] font-medium text-[#6b7280] mb-2">Suggested domains based on your username:</p>
-                    <div className="flex flex-wrap gap-2">
-                      {suggestedDomains.filter((sd) => !domains.some((d) => d.domain === sd)).map((sd, idx) => (
-                        <button
-                          key={sd}
-                          onClick={() => { setDomainInput(sd); setDomainError(null) }}
-                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-[#7c3aed] bg-[#f5f3ff] border border-[#ede9fe] rounded-lg hover:bg-[#ede9fe] transition-colors cursor-pointer ${idx >= 3 ? "hidden sm:inline-flex" : ""}`}
-                        >
-                          {sd}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Connected Domains List */}
-              <div className={`bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb] transition-[filter,opacity] duration-700 ease-in-out ${(userPlan === "free" || userPlan === null) && !planLoading ? "blur-[1.5px] opacity-80 pointer-events-none select-none" : ""}`}>
-                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-4">Your Domains</h3>
-
-                {/* The spinner and the empty list are the same height, so the first load does not move what is under it. */}
-                {domainsLoading ? (
-                  <div className="flex min-h-[156px] items-center justify-center">
-                    <Loader2 className="h-5 w-5 animate-spin text-[#7c3aed]" />
-                  </div>
-                ) : domains.length === 0 ? (
-                  <div className="flex min-h-[156px] flex-col items-center justify-center text-center">
-                    <Globe className="h-10 w-10 text-[#d1d5db] mx-auto mb-3" />
-                    <p className="text-[13px] text-[#6b7280] mb-1">No domains connected yet</p>
-                    <p className="text-[12px] text-[#9ca3af]">Add a custom domain above to get started</p>
-                  </div>
-                ) : (
-                  <>
-                    {/* Table Header - Desktop */}
-                    <div className="hidden sm:grid sm:grid-cols-[1fr_130px_150px_140px] gap-4 pb-3 border-b border-[#e5e7eb]">
-                      <p className="text-[12px] font-semibold text-[#6b7280] uppercase tracking-wider">Domain Name</p>
-                      <p className="text-[12px] font-semibold text-[#6b7280] uppercase tracking-wider">Status</p>
-                      <p className="text-[12px] font-semibold text-[#6b7280] uppercase tracking-wider">Date Added</p>
-                      <p className="text-[12px] font-semibold text-[#6b7280] uppercase tracking-wider text-right">Actions</p>
-                    </div>
-
-                    {domains.map((d) => (
-                      <div key={d.id}>
-                        {/* Desktop Row */}
-                        <div className="hidden sm:grid sm:grid-cols-[1fr_130px_150px_140px] gap-4 items-center py-4 border-b border-[#f3f4f6] last:border-0">
-                          <div>
-                            <p className="text-[14px] font-medium text-[#1a1a2e]">{d.domain}</p>
-                            {(d.status === "ssl_provisioning" || d.status === "pending" || d.status === "verifying") && (
-                              <p className="text-[11px] text-[#9ca3af] mt-0.5">Fallback: <SmartLink href={`https://${username}.storelib.com`} className="text-[#7c3aed] hover:underline">{username}.storelib.com</SmartLink></p>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            {d.status === "active" ? (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-700 text-[11px] font-semibold rounded-full">
-                                <CheckCircle className="h-3 w-3" /> Connected
-                              </span>
-                            ) : d.status === "ssl_provisioning" ? (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 text-blue-700 text-[11px] font-semibold rounded-full">
-                                <Loader2 className="h-3 w-3 animate-spin" /> SSL Pending
-                              </span>
-                            ) : d.status === "verifying" ? (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-50 text-amber-700 text-[11px] font-semibold rounded-full">
-                                <Loader2 className="h-3 w-3 animate-spin" /> Verifying
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-gray-100 text-gray-600 text-[11px] font-semibold rounded-full">
-                                <Clock className="h-3 w-3" /> Pending
-                              </span>
-                            )}
-                            <div className="relative group">
-                              <Info className="h-3.5 w-3.5 text-[#c0c5cc] hover:text-[#9ca3af] transition-colors cursor-help" />
-                              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2.5 py-1.5 bg-[#1a1a2e] text-white text-[11px] rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-                                {d.status === "active" ? "Domain is live" : d.status === "ssl_provisioning" ? "Issuing SSL cert" : d.status === "verifying" ? "Checking DNS records" : "Awaiting DNS setup"}
-                                <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-[#1a1a2e]" />
-                              </div>
-                            </div>
-                          </div>
-                          <p className="text-[13px] text-[#6b7280]">
-                            {new Date(d.created_at).toLocaleDateString("en-US", { day: "numeric", month: "long", year: "numeric" })}
-                          </p>
-                          <div className="flex items-center gap-2 justify-end">
-                            {d.status !== "active" && (
-                              <button
-                                onClick={() => verifyDomain(d.id)}
-                                disabled={domainVerifying === d.id}
-                                className="h-8 px-3 text-[12px] font-medium text-[#7c3aed] border border-[#ede9fe] bg-[#f5f3ff] hover:bg-[#ede9fe] rounded-lg transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1"
-                              >
-                                {domainVerifying === d.id ? <Loader2 className="h-3 w-3 animate-spin" /> : "Verify"}
-                              </button>
-                            )}
-                            <button
-                              onClick={() => removeDomain(d.id)}
-                              disabled={domainRemoving === d.id}
-                              className="h-8 px-3 text-[12px] font-medium text-[#6b7280] border border-[#e5e7eb] hover:text-red-600 hover:border-red-200 rounded-lg transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1"
-                            >
-                              {domainRemoving === d.id ? <Loader2 className="h-3 w-3 animate-spin" /> : "Remove"}
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* Inline verify feedback — shown only for the last-verified domain */}
-                        {lastVerifyDomainId === d.id && (domainError || domainInfo) && (
-                          <div className={`hidden sm:flex items-start gap-2 px-4 py-2.5 mx-0 mb-1 rounded-xl text-[12px] leading-relaxed ${domainError ? "bg-red-50 border border-red-200 text-red-700" : "bg-blue-50 border border-blue-200 text-blue-700"}`}>
-                            {domainError ? <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" /> : <CheckCircle className="h-3.5 w-3.5 shrink-0 mt-0.5 text-blue-500" />}
-                            <span>{domainError || domainInfo}</span>
-                          </div>
-                        )}
-
-                        {/* Mobile Card */}
-                        <div className="sm:hidden bg-[#f9fafb] rounded-xl p-4 border border-[#e5e7eb] mb-3">
-                          <div className="flex items-start justify-between mb-2">
-                            <p className="text-[14px] font-semibold text-[#1a1a2e]">{d.domain}</p>
-                            <div className="flex items-center gap-1.5">
-                              {d.status === "active" ? (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-700 text-[11px] font-semibold rounded-full">
-                                  <CheckCircle className="h-3 w-3" /> Connected
-                                </span>
-                              ) : d.status === "ssl_provisioning" ? (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 text-blue-700 text-[11px] font-semibold rounded-full">
-                                  <Loader2 className="h-3 w-3 animate-spin" /> SSL Pending
-                                </span>
-                              ) : d.status === "verifying" ? (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-50 text-amber-700 text-[11px] font-semibold rounded-full">
-                                  <Loader2 className="h-3 w-3 animate-spin" /> Verifying
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-gray-100 text-gray-600 text-[11px] font-semibold rounded-full">
-                                  <Clock className="h-3 w-3" /> Pending
-                                </span>
-                              )}
-                              <div className="relative group">
-                                <Info className="h-3.5 w-3.5 text-[#c0c5cc] hover:text-[#9ca3af] transition-colors cursor-help" />
-                                <div className="absolute bottom-full right-0 mb-1.5 px-2.5 py-1.5 bg-[#1a1a2e] text-white text-[11px] rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-                                  {d.status === "active" ? "Domain is live" : d.status === "ssl_provisioning" ? "Issuing SSL cert" : d.status === "verifying" ? "Checking DNS records" : "Awaiting DNS setup"}
-                                  <div className="absolute top-full right-3 border-4 border-transparent border-t-[#1a1a2e]" />
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                          <p className="text-[12px] text-[#9ca3af] mb-1">Added {new Date(d.created_at).toLocaleDateString("en-US", { day: "numeric", month: "long", year: "numeric" })}</p>
-                          {(d.status === "ssl_provisioning" || d.status === "pending" || d.status === "verifying") && (
-                            <p className="text-[11px] text-[#9ca3af] mb-2">Fallback: <SmartLink href={`https://${username}.storelib.com`} className="text-[#7c3aed] hover:underline">{username}.storelib.com</SmartLink></p>
-                          )}
-                          <div className="flex items-center gap-2">
-                            {d.status !== "active" && (
-                              <button
-                                onClick={() => verifyDomain(d.id)}
-                                disabled={domainVerifying === d.id}
-                                className="flex-1 h-9 text-[12px] font-medium text-[#7c3aed] bg-[#f5f3ff] rounded-lg hover:bg-[#ede9fe] transition-colors cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1"
-                              >
-                                {domainVerifying === d.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Verify DNS"}
-                              </button>
-                            )}
-                            <button
-                              onClick={() => removeDomain(d.id)}
-                              disabled={domainRemoving === d.id}
-                              className={`h-9 px-4 text-[12px] font-medium text-[#6b7280] border border-[#e5e7eb] rounded-lg hover:text-red-600 hover:border-red-200 transition-colors cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1 ${d.status === "active" ? "flex-1" : ""}`}
-                            >
-                              {domainRemoving === d.id ? <Loader2 className="h-3 w-3 animate-spin" /> : "Remove"}
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </>
-                )}
-              </div>
-
-              {/* DNS Setup Instructions */}
-              {domains.some((d) => d.status !== "active") && (
-                <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
-                  <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-3">DNS Setup Instructions</h3>
-                  <p className="text-[13px] text-[#6b7280] mb-4">Add both DNS records below at your registrar. Your site will be served at <span className="font-medium">www.yourdomain.com</span> (apex auto-redirects to www). Set TTL to 300 for faster propagation.</p>
-
-                  <div className="space-y-4">
-                    {/* A Record for apex domain */}
-                    <div className="bg-[#f9fafb] rounded-xl p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <p className="text-[12px] font-semibold text-[#374151]">Step 1: A Record <span className="font-normal text-[#6b7280]">— apex domain ({domains.find((d) => d.status !== "active")?.domain || "yourdomain.com"})</span></p>
-                        {dnsRecordStatus && (
-                          <span className={`inline-flex items-center gap-1 text-[11px] font-medium ${dnsRecordStatus.aRecord ? "text-green-600" : "text-[#9ca3af]"}`}>
-                            {dnsRecordStatus.aRecord ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
-                            {dnsRecordStatus.aRecord ? "Verified" : "Not found"}
-                          </span>
-                        )}
-                      </div>
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2 text-[12px]">
-                          <span className="text-[#6b7280] w-14">Type:</span>
-                          <span className="font-mono font-medium text-[#1a1a2e]">A</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2 text-[12px]">
-                            <span className="text-[#6b7280] w-14">Name:</span>
-                            <span className="font-mono font-medium text-[#1a1a2e]">@</span>
-                          </div>
-                          <button onClick={() => copyToClipboard("@")} className="text-[11px] text-[#7c3aed] hover:text-[#6d28d9] cursor-pointer flex items-center gap-1">
-                            {copiedValue === "@" ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                            {copiedValue === "@" ? "Copied" : "Copy"}
-                          </button>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2 text-[12px]">
-                            <span className="text-[#6b7280] w-14">Value:</span>
-                            <span className="font-mono font-medium text-[#7c3aed]">216.150.1.1</span>
-                          </div>
-                          <button onClick={() => copyToClipboard("216.150.1.1")} className="text-[11px] text-[#7c3aed] hover:text-[#6d28d9] cursor-pointer flex items-center gap-1">
-                            {copiedValue === "216.150.1.1" ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                            {copiedValue === "216.150.1.1" ? "Copied" : "Copy"}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* CNAME Record for www */}
-                    <div className="bg-[#f9fafb] rounded-xl p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <p className="text-[12px] font-semibold text-[#374151]">Step 2: CNAME Record <span className="font-normal text-[#6b7280]">— www subdomain (www.{domains.find((d) => d.status !== "active")?.domain || "yourdomain.com"})</span></p>
-                        {dnsRecordStatus && (
-                          <span className={`inline-flex items-center gap-1 text-[11px] font-medium ${dnsRecordStatus.cname ? "text-green-600" : "text-[#9ca3af]"}`}>
-                            {dnsRecordStatus.cname ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
-                            {dnsRecordStatus.cname ? "Verified" : "Not found"}
-                          </span>
-                        )}
-                      </div>
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2 text-[12px]">
-                          <span className="text-[#6b7280] w-14">Type:</span>
-                          <span className="font-mono font-medium text-[#1a1a2e]">CNAME</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2 text-[12px]">
-                            <span className="text-[#6b7280] w-14">Name:</span>
-                            <span className="font-mono font-medium text-[#1a1a2e]">www</span>
-                            <span className="relative group">
-                              <Info className="h-3 w-3 text-[#9ca3af] cursor-help" />
-                              <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2.5 py-1.5 bg-[#1a1a2e] text-white text-[10px] rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 shadow-lg">Enter &quot;www&quot; or &quot;@&quot; — try both if one doesn&apos;t work</span>
-                            </span>
-                          </div>
-                          <button onClick={() => copyToClipboard("www")} className="text-[11px] text-[#7c3aed] hover:text-[#6d28d9] cursor-pointer flex items-center gap-1">
-                            {copiedValue === "www" ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                            {copiedValue === "www" ? "Copied" : "Copy"}
-                          </button>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2 text-[12px]">
-                            <span className="text-[#6b7280] w-14">Value:</span>
-                            <span className="font-mono font-medium text-[#7c3aed]">cname.vercel-dns.com</span>
-                          </div>
-                          <button onClick={() => copyToClipboard("cname.vercel-dns.com")} className="text-[11px] text-[#7c3aed] hover:text-[#6d28d9] cursor-pointer flex items-center gap-1">
-                            {copiedValue === "cname.vercel-dns.com" ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                            {copiedValue === "cname.vercel-dns.com" ? "Copied" : "Copy"}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* TXT Verification */}
-                    {domains.filter((d) => d.status !== "active" && d.status !== "ssl_provisioning").map((d) => (
-                      <div key={d.id} className="bg-[#f9fafb] rounded-xl p-4">
-                        <div className="flex items-center justify-between mb-3">
-                          <p className="text-[12px] font-semibold text-[#374151]">Step 3: TXT Record for verification ({d.domain})</p>
-                          {dnsRecordStatus && (
-                            <span className={`inline-flex items-center gap-1 text-[11px] font-medium ${dnsRecordStatus.txt ? "text-green-600" : "text-[#9ca3af]"}`}>
-                              {dnsRecordStatus.txt ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
-                              {dnsRecordStatus.txt ? "Verified" : "Not found"}
-                            </span>
-                          )}
-                        </div>
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2 text-[12px]">
-                            <span className="text-[#6b7280] w-14">Type:</span>
-                            <span className="font-mono font-medium text-[#1a1a2e]">TXT</span>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2 text-[12px]">
-                              <span className="text-[#6b7280] w-14">Name:</span>
-                              <span className="font-mono font-medium text-[#1a1a2e]">_storelib</span>
-                            </div>
-                            <button onClick={() => copyToClipboard("_storelib")} className="text-[11px] text-[#7c3aed] hover:text-[#6d28d9] cursor-pointer flex items-center gap-1">
-                              {copiedValue === "_storelib" ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                              {copiedValue === "_storelib" ? "Copied" : "Copy"}
-                            </button>
-                          </div>
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="flex items-start gap-2 text-[12px] min-w-0">
-                              <span className="text-[#6b7280] w-14 shrink-0">Value:</span>
-                              <span className="font-mono font-medium text-[#7c3aed] break-all text-[11px]">{d.verification_token}</span>
-                            </div>
-                            <button onClick={() => copyToClipboard(d.verification_token)} className="text-[11px] text-[#7c3aed] hover:text-[#6d28d9] cursor-pointer flex items-center gap-1 shrink-0">
-                              {copiedValue === d.verification_token ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                              {copiedValue === d.verification_token ? "Copied" : "Copy"}
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-
-                    {/* SSL Provisioning notice */}
-                    {domains.some((d) => d.status === "ssl_provisioning") && (
-                      <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
-                        <p className="text-[13px] font-medium text-blue-800 mb-1">SSL certificate is being issued</p>
-                        <p className="text-[12px] text-blue-600">Your DNS is correctly configured. An SSL certificate is being provisioned automatically. This usually takes 1-10 minutes. This page will update automatically when complete.</p>
-                      </div>
-                    )}
-
-                    {/* Cloudflare tip */}
-                    <div className="bg-amber-50/60 rounded-xl p-4 border border-amber-100">
-                      <p className="text-[12px] font-semibold text-amber-800 mb-1">Using Cloudflare?</p>
-                      <p className="text-[11px] text-amber-700">Set the DNS records to &quot;DNS only&quot; (grey cloud icon, not orange proxy). Set SSL mode to &quot;Full (strict)&quot;. The orange proxy can block SSL certificate issuance.</p>
-                    </div>
-
-                    <p className="text-[11px] text-[#b0b5bd] leading-relaxed">DNS propagation may take a few minutes to 48 hours. Click &quot;Verify&quot; after adding records. Remove any conflicting A, AAAA, or CNAME records.</p>
-                  </div>
-                </div>
-              )}
-
-              {/* How Custom Domains Work */}
-              <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
-                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-4">How Custom Domains Work</h3>
-                {(() => {
-                  const activeDomain = domains.find((d) => d.status === "active")?.domain
-                  const displayDomain = activeDomain || "yourdomain.com"
-                  return (
-                    <div className="space-y-3">
-                      {[
-                        { title: "Your Store", from: `${username}.storelib.com`, to: displayDomain },
-                        { title: "Your OnePage", from: `storelib.com/${username}/links`, to: `${displayDomain}/links` },
-                        { title: "Product Pages", from: `storelib.com/${username}/...`, to: `${displayDomain}/p/...` },
-                      ].map((item, i) => (
-                        <div key={i} className="group bg-[#f9fafb] hover:bg-[#f5f3ff]/50 rounded-xl p-3.5 border border-[#e5e7eb] hover:border-[#ede9fe] transition-all duration-200">
-                          <p className="text-[13px] font-semibold text-[#374151] mb-2">{item.title}</p>
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-mono text-[11px] bg-[#e5e7eb]/60 text-[#6b7280] px-2 py-0.5 rounded">{item.from}</span>
-                            <ChevronRight className="h-3 w-3 text-[#9ca3af] shrink-0" />
-                            <span className="font-mono text-[11px] bg-[#ede9fe] text-[#7c3aed] font-medium px-2 py-0.5 rounded">{item.to}</span>
-                          </div>
-                        </div>
-                      ))}
-                      <p className="text-[11px] text-[#9ca3af] mt-2">Marketplace traffic continues to work via <span className="font-mono">{username}.storelib.com</span></p>
-                    </div>
-                  )
-                })()}
-              </div>
-            </div>
+            <DomainsPanel
+              data={domainsData}
+              loading={domainsLoading}
+              onData={(next) => {
+                setDomainsData(next)
+                setDomains(next.domains ?? [])
+              }}
+              websiteAddress={getWebsiteUrlDisplay(website?.handle || settingsHandleBase)}
+              creatorPageAddress={getStoreUrlDisplay(settingsHandleBase)}
+              locked={userPlan === "free" || userPlan === null}
+              planLoading={planLoading}
+            />
           )}
 
           </div>

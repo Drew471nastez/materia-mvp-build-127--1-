@@ -39,12 +39,15 @@ import { useCallback, useEffect, useState } from "react"
 import { Check, Copy, ExternalLink, Globe, ShieldCheck } from "lucide-react"
 
 import { InlinePanel } from "@/components/app/inline-panel"
+import { creatorPageHostFrom } from "@/lib/custom-domains/client"
 import { MobileEditorSheet } from "@/components/website-builder/mobile-editor-sheet"
 
 interface Domain {
   domain?: string | null
   status?: string | null
-  is_active?: boolean | null
+  purpose?: string | null
+  is_primary?: boolean | null
+  host?: string | null
 }
 
 export function CreatorPageShare({
@@ -76,7 +79,15 @@ export function CreatorPageShare({
         const res = await fetch("/api/domains")
         if (!res.ok) return
         const data = await res.json()
-        const live = (data.domains as Domain[] | undefined)?.find((d) => d.is_active) ?? null
+        /*
+          The creator page's own domain: its primary one, connected or still
+          waiting on DNS. This read `is_active`, a field no domain has, so the
+          row said "Add a custom domain" to everybody who had one.
+        */
+        const host = creatorPageHostFrom(data)
+        const mine = (data.domains as Domain[] | undefined)?.filter((d) => d.purpose === "creator_page") ?? []
+        const primary = mine.find((d) => d.is_primary) ?? mine[0] ?? null
+        const live = host ? { domain: host, status: "active" } : primary ? { domain: primary.host || primary.domain, status: primary.status } : null
         if (!cancelled) setDomain(live)
       } catch {
         /* A domain we could not look up is shown as none, which is the same
@@ -168,7 +179,7 @@ export function CreatorPageShare({
                 {domain?.domain
                   ? domain.status === "active"
                     ? domain.domain
-                    : `${domain.domain} — waiting on DNS`
+                    : `${domain.domain}, waiting on DNS`
                   : "Add a custom domain"}
               </span>
               <span className="shrink-0 text-white/50">{domain?.domain ? "Manage" : "Set up"}</span>
