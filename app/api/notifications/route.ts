@@ -7,6 +7,8 @@ import { createClient } from "@/lib/supabase/server"
  *   - limit: number (default 20)
  *   - offset: number (default 0)
  *   - unread_only: boolean (default false)
+ *   - summary: "1" answers { unreadCount } and nothing else, for the count on
+ *     the bell, which every /app page draws (lib/notifications/unread-state.ts)
  */
 export async function GET(request: NextRequest) {
   const supabase = await createClient()
@@ -22,6 +24,18 @@ export async function GET(request: NextRequest) {
 
   if (!user) {
     return NextResponse.json({ error: "Authentication required" }, { status: 401 })
+  }
+
+  if (searchParams.get("summary") === "1") {
+    const { count, error } = await supabase
+      .from("seller_notifications")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .is("read_at", null)
+      .is("dismissed_at", null)
+    /* Before the table exists, or while it cannot be read: nothing unread. */
+    if (error) return NextResponse.json({ unreadCount: 0 }, { headers: { "Cache-Control": "private, no-store" } })
+    return NextResponse.json({ unreadCount: count || 0 }, { headers: { "Cache-Control": "private, no-store" } })
   }
 
   // Fetch notifications for this user
@@ -96,8 +110,8 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: "Authentication required" }, { status: 401 })
   }
 
-  const body = await request.json()
-  const { ids, action } = body
+  const body = await request.json().catch(() => null)
+  const { ids, action } = body ?? {}
 
   if (!action || !["read", "dismiss", "read_all"].includes(action)) {
     return NextResponse.json({ error: "Invalid action. Must be 'read', 'dismiss', or 'read_all'" }, { status: 400 })
@@ -106,12 +120,14 @@ export async function PATCH(request: NextRequest) {
   const now = new Date().toISOString()
 
   if (action === "read_all") {
-    // Mark all unread notifications as read for this user
+    // Mark all unread notifications as read for this user: one statement,
+    // scoped to the signed in user here and by row level security.
     const { error } = await supabase
       .from("seller_notifications")
       .update({ read_at: now })
       .eq("user_id", user.id)
       .is("read_at", null)
+      .is("dismissed_at", null)
 
     if (error) {
       console.error("[notifications] Error marking all as read:", error)
