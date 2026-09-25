@@ -2985,7 +2985,10 @@ html.capacitor .app-content-scroll {
    *
    * What counts as open: a sheet that says so ([data-app-sheet="open"]), any
    * fixed modal dialog except the pill's own menu page, and Radix's scroll
-   * lock on <body>, which every Dialog, AlertDialog and Sheet sets. A sheet
+   * lock on <body>, which every Dialog, AlertDialog and Sheet sets. A dialog
+   * kept in the page while closed says aria-hidden and is not counted: the
+   * app search's panel, always mounted, turned the pill's buttons off on
+   * every page, and taps went through it to the page underneath. A sheet
    * on its way out ("closing") keeps the pill under it until it is gone, so
    * the pill does not pop out of the fading scrim, but gives the tap back
    * at once.
@@ -3004,12 +3007,12 @@ html.capacitor .app-content-scroll {
    * on <body> itself and needs no :has() at all.
    */
   html:has([data-app-sheet]) [data-app-nav-pill],
-  html:has([role="dialog"][aria-modal="true"]:not([data-mobile-menu])) [data-app-nav-pill],
+  html:has([role="dialog"][aria-modal="true"]:not([data-mobile-menu], [aria-hidden="true"])) [data-app-nav-pill],
   body[data-scroll-locked] [data-app-nav-pill] {
     z-index: 39;
   }
   html:has([data-app-sheet="open"]) [data-app-nav-pill] :is(a, button, .pointer-events-auto),
-  html:has([role="dialog"][aria-modal="true"]:not([data-mobile-menu])) [data-app-nav-pill] :is(a, button, .pointer-events-auto),
+  html:has([role="dialog"][aria-modal="true"]:not([data-mobile-menu], [aria-hidden="true"])) [data-app-nav-pill] :is(a, button, .pointer-events-auto),
   body[data-scroll-locked] [data-app-nav-pill] :is(a, button, .pointer-events-auto) {
     pointer-events: none !important;
   }

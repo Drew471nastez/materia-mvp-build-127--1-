@@ -315,7 +315,14 @@ export const AppSearch = memo(
         <div
           ref={panelRef}
           role="dialog"
-          aria-modal="true"
+          /* A modal only while it is open. It stays in the page when closed,
+             invisible, and a closed panel that still said aria-modal="true"
+             told the phone's pill a modal was up (app/globals.css), which
+             turned the pill's buttons off: every tap on Home, Orders,
+             Products or Analytics went through to the page under it. */
+          aria-modal={open ? "true" : undefined}
+          aria-hidden={open ? undefined : "true"}
+          inert={!open}
           aria-label="Search"
           data-app-search=""
           data-open={open ? "" : undefined}

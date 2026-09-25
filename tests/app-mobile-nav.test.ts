@@ -940,6 +940,21 @@ function main() {
     /THE GLASS UNDER A FINGER, EVERY FRAME, IN THE NATIVE SHELL/.test(read("scripts/check-app-mobile-nav.mjs"))
       && /no icon moves, not by half a pixel/.test(read("scripts/check-app-mobile-nav.mjs")))
 
+  /* "The pill's buttons don't work at all, it takes me somewhere weird." The
+     app search keeps its panel in the page while closed; it said
+     aria-modal="true" all the time, the pill read that as a modal being up
+     and turned its buttons off, and every tap went through to the page. */
+  {
+    const search = read("components/app/app-search.tsx")
+    const css = read("app/globals.css")
+    check("the search panel says it is a modal only while it is open, and is hidden and inert while closed",
+      /aria-modal=\{open \? "true" : undefined\}/.test(search) && /aria-hidden=\{open \? undefined : "true"\}/.test(search) && /inert=\{!open\}/.test(search)
+        && !/^\s*aria-modal="true"\s*$/m.test(search))
+    check("and the pill never counts a dialog that says it is hidden",
+      (css.match(/\[role="dialog"\]\[aria-modal="true"\]:not\(\[data-mobile-menu\], \[aria-hidden="true"\]\)\) \[data-app-nav-pill\]/g) ?? []).length === 2
+        && !/\[aria-modal="true"\]:not\(\[data-mobile-menu\]\)\)/.test(css))
+  }
+
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }
 }
