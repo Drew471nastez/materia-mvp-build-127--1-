@@ -96,7 +96,8 @@ function main() {
       && /withWritingPlaceholder\(deferredSections, [^)]*\) : deferredSections\)/.test(editor))
   check(
     "and hands the canvas those, not the live ones",
-    /theme=\{canvasThemeSettings\}/.test(editor) && /sections=\{canvasSections\}/.test(editor),
+    /theme=\{canvasThemeSettings\}/.test(editor)
+      && (/sections=\{canvasSections\}/.test(editor) || (/sections=\{drawnSections\}/.test(editor) && /withDynamicSources\(canvasSections,/.test(editor))),
   )
   check(
     "the canvas is memoised, so an unchanged deferred value costs nothing",

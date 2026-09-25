@@ -192,12 +192,22 @@ function main() {
       three controls that were never controls — a guard that reports work
       nobody has to do is a guard that gets muted.
     */
+    /* FieldEditor hands the value to FieldControl, which holds the branches;
+       the newer types are drawn by the controls folder's one registry
+       function (components/website-builder/editor/controls/index.tsx),
+       which FieldControl asks first. Both are the panel. */
     const fnStart = editor.indexOf("function FieldEditor(")
-    const after = editor.indexOf("\nfunction ", fnStart + 1)
+    const controlStart = editor.indexOf("function FieldControl(", fnStart)
+    const after = editor.indexOf("\nfunction ", (controlStart > 0 ? controlStart : fnStart) + 1)
     const body = editor.slice(fnStart, after > 0 ? after : undefined)
+    const registered = read("components/website-builder/editor/controls/index.tsx")
+    const registeredBody = registered.slice(registered.indexOf("export function renderRegisteredControl("))
     /* `kind` is what resolveControlType returns, so aliases are resolved
        before they reach these branches and never appear as one. */
-    const drawn = [...new Set([...body.matchAll(/kind === "([a-z_]+)"/g)].map((m) => m[1]))].sort()
+    const drawn = [...new Set([
+      ...[...body.matchAll(/kind === "([a-z_]+)"/g)].map((m) => m[1]),
+      ...(/renderRegisteredControl\(kind,/.test(body) ? [...registeredBody.matchAll(/case "([a-z_]+)":/g)].map((m) => m[1]).filter((k) => k !== "menus") : []),
+    ])].sort()
 
     const missing = defined.filter((t) => !drawn.includes(t))
     const extra = drawn.filter((t) => !defined.includes(t))

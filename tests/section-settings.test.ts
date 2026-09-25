@@ -194,6 +194,9 @@ function readsOf(src: string): string[] {
  */
 const STRUCTURAL: Record<string, string[]> = {
   header: ["parent_id"],
+  /* The 404 page's section draws the shop's own products, which arrive
+     block-shaped (`block.settings.title`) and are no setting of its own. */
+  not_found: ["image", "title", "price", "url"],
 }
 
 /**
