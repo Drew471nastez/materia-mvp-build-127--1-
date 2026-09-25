@@ -20,7 +20,7 @@ export const SEGMENTS = "flex gap-1 p-1 bg-neutral-100 rounded-lg"
 /** One segment. */
 export function segment(selected: boolean): string {
   return [
-    "flex-1 h-8 max-sm:h-10 px-3 text-sm font-medium rounded-md border text-center transition-[background-color,color,border-color,box-shadow] duration-200 ease-out",
+    "flex-1 h-8 max-sm:h-11 px-3 text-sm font-medium rounded-md border text-center transition-[background-color,color,border-color,box-shadow] duration-200 ease-out",
     selected
       ? "bg-white text-foreground border-neutral-200/80 shadow-[0_1px_2px_rgba(0,0,0,0.06),0_0_0_0.5px_rgba(0,0,0,0.04)]"
       : "bg-transparent text-neutral-500 border-transparent hover:text-foreground hover:bg-white/40",

@@ -30,7 +30,7 @@ export function DateTimeControl({
           type="datetime-local"
           aria-label={label}
           /* Not a type the sheet's field rule names, so it carries its own phone size. */
-          className={`${INPUT} max-sm:h-11 max-sm:text-[16px]`}
+          className={`${INPUT} min-w-0 max-sm:h-11 max-sm:text-[16px]`}
           value={shown}
           onChange={(e) => onChange(e.target.value ? `${e.target.value}${zone}` : "")}
         />
