@@ -332,16 +332,18 @@ section("One scrollbar column on a computer")
 {
   /* Measured every frame, at 1440 and 1920 with classic scrollbars, by scripts/check-scrollbar-stable.mjs. */
   const css = read("app/globals.css")
-  const block = /@media \(min-width: 768px\) \{\s*html\.app-layout \.app-content-scroll \{\s*scrollbar-gutter: stable;[\s\S]*?\n\}/.exec(css)?.[0] ?? ""
+  const block = /@media \(min-width: 768px\) \{\s*html\.app-layout:not\(\.capacitor\) \.app-content-scroll \{\s*scrollbar-gutter: stable;[\s\S]*?\n\}/.exec(css)?.[0] ?? ""
   check("the shell's scroller keeps its scrollbar column, in the same slim bar as the pages' own",
-    /html\.app-layout \.app-content-scroll \{\s*scrollbar-gutter: stable;\s*scrollbar-width: thin;/.test(block)
+    /html\.app-layout:not\(\.capacitor\) \.app-content-scroll \{\s*scrollbar-gutter: stable;\s*scrollbar-width: thin;/.test(block)
       && /\.page-scroll \{\s*scrollbar-width: thin;/.test(css))
   check("a page that scrolls itself keeps the column in its own box, and the shell's scroller then does not scroll and keeps none",
     /\.app-content-scroll:has\(> \.page-scroll, > \.dashboard-scroll-container, > \.sales-scroll-container, > \.orders-stage, > \[data-page-layer\]\) \{\s*overflow-y: hidden;\s*scrollbar-gutter: auto;/.test(block)
       && /\.app-content-scroll > \.page-scroll,/.test(block) && /\.app-content-scroll > \.orders-stage > \.orders-pane,/.test(block)
       && /\[data-page-layer-scroll\] > \.page-scroll \{\s*scrollbar-gutter: stable;/.test(block))
   check("while the landing rises, the shell's scroller cannot scroll", /\.app-content-scroll\[data-app-landing\] \{\s*overflow-y: hidden;/.test(block))
-  check("none of it below 768px, where scrollbars float and take no room", !/@media \(max-width: 767px\) \{\s*html\.app-layout \.app-content-scroll \{\s*scrollbar-gutter/.test(css))
+  check("none of it below 768px or in the native apps, where scrollbars float and take no room",
+    !/@media \(max-width: 767px\) \{\s*html\.app-layout \.app-content-scroll \{\s*scrollbar-gutter/.test(css)
+      && (block.match(/html\.app-layout:not\(\.capacitor\) \.app-content-scroll/g) ?? []).length === 8 && !/html\.app-layout \.app-content-scroll/.test(block))
   const stage = code("components/app/app-stage.tsx")
   check("the stage reads whether the page fitted before the rise starts, and holds the scroller only then, letting go when the rise is over or soon after",
     /const fitted = outer\.scrollHeight <= outer\.clientHeight\s+const moving/.test(stage)

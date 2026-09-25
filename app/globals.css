@@ -3076,27 +3076,28 @@ html.app-layout .app-content-scroll {
  *   nothing overflowed before the rise, and the rise cannot make it scroll.
  *
  * On a phone, and in the native apps, scrollbars float over the page and
- * take no room: none of this applies below 768px, where they are as they
- * were. The same list of page scrollers as the pill's room rule above.
+ * take no room: none of this applies below 768px or under html.capacitor
+ * (an iPad included), where they are as they were. The same list of page
+ * scrollers as the pill's room rule above.
  * ────────────────────────────────────────────────────────────────────────── */
 @media (min-width: 768px) {
-  html.app-layout .app-content-scroll {
+  html.app-layout:not(.capacitor) .app-content-scroll {
     scrollbar-gutter: stable;
     scrollbar-width: thin;
     scrollbar-color: rgba(156, 163, 175, 0.5) transparent;
   }
-  html.app-layout .app-content-scroll:has(> .page-scroll, > .dashboard-scroll-container, > .sales-scroll-container, > .orders-stage, > [data-page-layer]) {
+  html.app-layout:not(.capacitor) .app-content-scroll:has(> .page-scroll, > .dashboard-scroll-container, > .sales-scroll-container, > .orders-stage, > [data-page-layer]) {
     overflow-y: hidden;
     scrollbar-gutter: auto;
   }
-  html.app-layout .app-content-scroll > .page-scroll,
-  html.app-layout .app-content-scroll > .dashboard-scroll-container,
-  html.app-layout .app-content-scroll > .sales-scroll-container,
-  html.app-layout .app-content-scroll > .orders-stage > .orders-pane,
-  html.app-layout .app-content-scroll [data-page-layer-scroll] > .page-scroll {
+  html.app-layout:not(.capacitor) .app-content-scroll > .page-scroll,
+  html.app-layout:not(.capacitor) .app-content-scroll > .dashboard-scroll-container,
+  html.app-layout:not(.capacitor) .app-content-scroll > .sales-scroll-container,
+  html.app-layout:not(.capacitor) .app-content-scroll > .orders-stage > .orders-pane,
+  html.app-layout:not(.capacitor) .app-content-scroll [data-page-layer-scroll] > .page-scroll {
     scrollbar-gutter: stable;
   }
-  html.app-layout .app-content-scroll[data-app-landing] {
+  html.app-layout:not(.capacitor) .app-content-scroll[data-app-landing] {
     overflow-y: hidden;
   }
 }
