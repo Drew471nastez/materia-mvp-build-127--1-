@@ -17,7 +17,6 @@ import {
   TrendingUp,
   TrendingDown,
   ChevronRight,
-  ArrowRight,
   ChevronDown,
   ChevronUp,
   Sparkles,
@@ -63,6 +62,7 @@ import { getLinksShareUrl, getLinksUrlDisplay, getStoreShareUrl, getStoreUrlDisp
 import { ShareStorelib } from "@/components/app/share/share-storelib"
 import { HomeCards, bumpGettingStarted } from "@/components/app/home/home-cards"
 import { QuickActions } from "@/components/app/home/quick-actions"
+import { AppLink } from "@/components/app/app-link"
 import { useHomeProgress } from "@/components/app/home/use-home-progress"
 import { BannerGlobe } from "@/components/app/home/globe"
 import type { ConnectedPlatform, ShareAddress } from "@/components/app/share/share-data"
@@ -530,7 +530,7 @@ const AnnouncementBar = memo(function AnnouncementBar({
                   <span className="font-semibold text-white">{t("dashboard.tryProFree")}</span>
                   <span className="hidden md:inline text-white/85 ml-2">{t("dashboard.proSubtitle")}</span>
                 </span>
-                <Link
+                <AppLink
                   href="/app/settings/billing/upgrade"
                   className="relative inline-flex items-center gap-1 md:gap-1.5 px-2.5 md:px-3 py-0.5 md:py-1 bg-gradient-to-r from-gray-900 to-black text-white text-[11px] md:text-[13px] font-medium rounded-full transition-all shrink-0 overflow-hidden group"
                 >
@@ -541,7 +541,7 @@ const AnnouncementBar = memo(function AnnouncementBar({
                 <span className="absolute inset-0 rounded-full opacity-0 group-hover:opacity-100 group-hover:[animation:laser-sweep_2s_linear_infinite] transition-opacity" style={{ background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent)' }} />
                   <Sparkles className="h-3 w-3 md:h-3.5 md:w-3.5 relative z-10" />
                   <span className="relative z-10">{t("dashboard.upgrade")}</span>
-                </Link>
+                </AppLink>
               </>
             )}
             {announcementType === "steps" && (
@@ -566,13 +566,13 @@ const AnnouncementBar = memo(function AnnouncementBar({
                   <span className="font-semibold text-white">{t("dashboard.getPaid")}</span>
                   <span className="hidden md:inline text-white/85 ml-2">{t("dashboard.connectPayoutsDesc")}</span>
                 </span>
-                <Link
+                <AppLink
                   href="/app/settings?tab=payments"
                   className="inline-flex items-center gap-1 md:gap-1.5 px-2.5 md:px-3 py-0.5 md:py-1 bg-gradient-to-r from-white/90 to-gray-100/90 text-gray-800 text-[11px] md:text-[13px] font-medium rounded-full transition-all hover:from-white hover:to-gray-50 shrink-0"
                 >
                   <Wallet className="h-3 w-3 md:h-3.5 md:w-3.5" />
                   {t("common.connect")}
-                </Link>
+                </AppLink>
               </>
             )}
           </div>

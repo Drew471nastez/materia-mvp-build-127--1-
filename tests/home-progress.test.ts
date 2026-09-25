@@ -44,7 +44,7 @@ function check(label: string, ok: boolean, detail?: unknown) {
     console.log(`  ok    ${label}`)
   } else {
     failed++
-    const d = detail === undefined ? "" : ` — ${JSON.stringify(detail)}`
+    const d = detail === undefined ? "" : `: ${JSON.stringify(detail)}`
     failures.push(label + d)
     console.log(`  FAIL  ${label}${d}`)
   }

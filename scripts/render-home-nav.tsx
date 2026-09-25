@@ -123,23 +123,21 @@ const orders = Array.from({ length: 6 }, (_, i) => ({
   refund_amount_cents: 0,
 }))
 
+const HOME_PROPS = {
+  creatorId: "00000000-0000-4000-8000-000000000000",
+  displayName: "Andrew",
+  /* The guide opened, so the next step is a page (Set up payments), fetched once the card is seen. */
+  initialProgress: { ...NO_FACTS, products: 1, publishedProducts: 1, guideOpened: true },
+  productIds: ["product-0"],
+  initialOrders: orders,
+  creatorHandle: "andrewrullz",
+  connectedDomain: null,
+  websitePublished: false,
+  subscriptionPlanId: "free",
+} as unknown as React.ComponentProps<typeof DashboardClient>
+
 function Home() {
-  return (
-    <DashboardClient
-      {...({
-        creatorId: "00000000-0000-4000-8000-000000000000",
-        displayName: "Andrew",
-        /* The guide opened, so the next step is a page (Set up payments), fetched once the card is seen. */
-        initialProgress: { ...NO_FACTS, products: 1, publishedProducts: 1, guideOpened: true },
-        productIds: ["product-0"],
-        initialOrders: orders,
-        creatorHandle: "andrewrullz",
-        connectedDomain: null,
-        websitePublished: false,
-        subscriptionPlanId: "free",
-      } as never)}
-    />
-  )
+  return <DashboardClient {...HOME_PROPS} />
 }
 
 /** Any other page: a heading and cards, in the shell's own scroller, as most /app pages are. */

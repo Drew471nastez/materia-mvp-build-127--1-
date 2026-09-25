@@ -46,7 +46,7 @@
  */
 
 import * as React from "react"
-import Link from "next/link"
+import { AppLink } from "@/components/app/app-link"
 import * as PopoverPrimitive from "@radix-ui/react-popover"
 import { ArrowLeft, ArrowUpRight, Check, Download, QrCode as QrCodeIcon, Share, X } from "lucide-react"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
@@ -429,9 +429,9 @@ function ShareView({
         ) : (
           <>
             Not published yet.{" "}
-            <Link href="/app/onepage" className="font-medium text-[#1a1a2e] underline underline-offset-2">
+            <AppLink href="/app/onepage" className="font-medium text-[#1a1a2e] underline underline-offset-2">
               Open OnePage
-            </Link>
+            </AppLink>
           </>
         )}
       </EaseIn>
