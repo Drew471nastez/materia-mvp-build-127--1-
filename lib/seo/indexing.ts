@@ -129,7 +129,12 @@ export const PLATFORM_DISALLOW = [
   "/explore?q=",
 ]
 
-/** On a built site's host: its forms' API, previews and the shop's search results. */
+/**
+ * On a built site's host: its forms' API, previews, the shop's search results
+ * and the basket. Anchored like PLATFORM_DISALLOW, so a creator's own page at
+ * /cartoons or /search-tips stays crawlable. The site's /robots.txt writes
+ * these (lib/website-builder/site-seo.ts robotsTxt).
+ */
 export const SITE_DISALLOW = ["/api/", "/preview/", "/search$", "/search?", "/search/", "/cart$", "/cart?", "/cart/"]
 
 /* ── Which pages may be listed ─────────────────────────────────────────── */

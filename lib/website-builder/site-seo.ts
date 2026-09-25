@@ -21,6 +21,7 @@
  * Pure. The loader that fills these from the database is ./site-seo-data.ts.
  */
 import type { SectionInstance } from "./types"
+import { SITE_DISALLOW } from "@/lib/seo/indexing"
 
 export interface SitemapImage {
   loc: string
@@ -135,14 +136,14 @@ export function sitemapXml(entries: SitemapEntry[]): string {
  * no sitemap.
  */
 export function robotsTxt(origin: string, indexable: boolean): string {
-  const lines = [
-    "User-agent: *",
-    "Allow: /",
-    // A draft shared by link, the basket and search results are never results.
-    "Disallow: /preview/",
-    "Disallow: /cart",
-    "Disallow: /search",
-  ]
+  /*
+    A draft shared by link, the basket and search results are never results.
+    ANCHORED, because a robots rule is a prefix: `Disallow: /cart` also hid a
+    creator's own page at /cartoons, and `/search` hid /search-tips. Only the
+    keys `cart` and `search` are reserved (./site-pages.ts), so the rules name
+    those addresses exactly: SITE_DISALLOW in lib/seo/indexing.ts.
+  */
+  const lines = ["User-agent: *", "Allow: /", ...SITE_DISALLOW.map((rule) => `Disallow: ${rule}`)]
   if (indexable) lines.push("", `Sitemap: ${origin}/sitemap.xml`)
   return `${lines.join("\n")}\n`
 }

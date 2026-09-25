@@ -33,11 +33,33 @@ function check(name: string, ok: boolean, detail = "") {
 const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
 const O = "https://astrid.storelib.com"
 
+/**
+ * Whether a robots.txt lets a crawler fetch a path, read the way Google reads
+ * it: every rule is a prefix, `*` is anything, a trailing `$` ends the match,
+ * the longest matching rule wins and Allow wins a tie.
+ */
+function crawlable(robots: string, path: string): boolean {
+  let best: { allow: boolean; length: number } | null = null
+  for (const line of robots.split("\n")) {
+    const m = /^(Allow|Disallow):\s*(\S*)$/.exec(line)
+    if (!m || !m[2]) continue
+    const pattern = new RegExp(`^${m[2].replace(/[.+?^{}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*")}`)
+    if (!pattern.test(path)) continue
+    const rule = { allow: m[1] === "Allow", length: m[2].length }
+    if (!best || rule.length > best.length || (rule.length === best.length && rule.allow)) best = rule
+  }
+  return best ? best.allow : true
+}
+
 console.log("\nrobots.txt")
 {
   const open = robotsTxt(O, true)
   check("an indexable site lets crawlers in and names its own sitemap", /^User-agent: \*\nAllow: \//.test(open) && open.includes(`Sitemap: ${O}/sitemap.xml`))
-  check("it keeps previews, the basket and search results out", ["/preview/", "/cart", "/search"].every((p) => open.includes(`Disallow: ${p}`)))
+  check("it keeps previews, the basket and search results out",
+    ["/preview/abc", "/cart", "/cart?item=1", "/search", "/search?q=presets", "/api/subscribe"].every((p) => !crawlable(open, p)), open)
+  check("and not a creator's own page that starts the same way",
+    ["/", "/cartoons", "/cart-guide", "/search-tips", "/searchlight", "/previews", "/about", "/products/cart"].every((p) => crawlable(open, p)), open)
+  check("the rules are anchored ones, not bare prefixes", !/^Disallow: \/(cart|search)$/m.test(open) && /^Disallow: \/cart\$$/m.test(open) && /^Disallow: \/search\$$/m.test(open))
   const hidden = robotsTxt(O, false)
   check("a hidden site still lets crawlers read each page's noindex, and names no sitemap", !hidden.includes("Sitemap:") && !/Disallow: \/\n/.test(hidden) && hidden.includes("Allow: /"))
   check("hidden means the switch in SEO & Social, stored either way", !siteIsIndexable({ seo_robots: false }) && !siteIsIndexable({ seo_robots: "noindex, nofollow" }) && siteIsIndexable({}) && siteIsIndexable({ seo_robots: true }))
