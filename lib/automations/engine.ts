@@ -380,7 +380,10 @@ export async function enroll(store: Store, input: TriggerInput, now: number): Pr
     if (!isTriggerType(flow.trigger_type)) continue
     const trigger = flow.trigger_type
     const steps = normalizeSteps(flow.steps)
-    if (steps.length === 0 || problemsOf(trigger, steps).length > 0) {
+    /* What stops it running, not a field it would leave as written: a flow
+       that was on before fields were checked keeps sending, and the builder
+       shows the field as a problem the next time it is opened or saved. */
+    if (steps.length === 0 || problemsOf(trigger, steps, { fields: false }).length > 0) {
       out.skipped.push({ flowId: flow.id, why: "flow is not complete" })
       continue
     }

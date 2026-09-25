@@ -323,7 +323,8 @@ const textOf = (html: string) => html.replace(/<[^>]*>/g, " ").replace(/&nbsp;/g
  * What stops this flow from sending properly, in the creator's words, one
  * line per problem. An empty list means it can be turned on.
  */
-export function problemsOf(trigger: string, steps: FlowStep[]): Problem[] {
+export function problemsOf(trigger: string, steps: FlowStep[], opts: { fields?: boolean } = {}): Problem[] {
+  const checkFields = opts.fields !== false
   const out: Problem[] = []
   if (!isTriggerType(trigger)) out.push({ stepId: null, message: "Choose what starts this flow." })
   if (steps.length === 0) out.push({ stepId: null, message: "Add at least one email." })
@@ -335,7 +336,7 @@ export function problemsOf(trigger: string, steps: FlowStep[]): Problem[] {
       else if (s.config.subject.length > MAX_SUBJECT) out.push({ stepId: s.id, message: `Email ${emailNumber(steps, s.id)} has a subject over ${MAX_SUBJECT} characters.` })
       if (!textOf(s.config.body) && !/<img\b/i.test(s.config.body)) out.push({ stepId: s.id, message: `Email ${emailNumber(steps, s.id)} is empty.` })
       if (s.config.body.length > MAX_BODY) out.push({ stepId: s.id, message: `Email ${emailNumber(steps, s.id)} is too long to send.` })
-      if (isTriggerType(trigger)) {
+      if (checkFields && isTriggerType(trigger)) {
         for (const p of fieldProblems(`${s.config.subject} ${s.config.preview_text ?? ""} ${s.config.body}`, trigger)) {
           out.push({ stepId: s.id, message: `Email ${emailNumber(steps, s.id)}: ${p}` })
         }

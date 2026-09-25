@@ -207,6 +207,12 @@ async function main() {
     check("a product in a welcome email is refused: nothing to fill it", fieldProblems("{{product_name}}", "new_subscriber").length === 1 && problemsOf("new_subscriber", [{ id: "e", type: "email", config: { subject: "{{product_name}}", body: "<p>x</p>" } }]).some((p) => /only known/.test(p.message)))
     check("white on a dark colour, ink on a light one", textOn("#1a1a2e") === "#ffffff" && textOn("#f5d90a") === "#1a1a2e")
     check("fields found as written", fieldsIn("{{ first_name }} {{store_url}}").join() === "first_name,store_url")
+    const w = world()
+    const odd = [{ id: "x", type: "email" as const, config: { subject: "Your order, {{email}}", body: "<p>Thanks.</p>" } }]
+    const flowId = turnOn(w, { ...templateById("thank_you")!, steps: odd })
+    await buy(w, "old.flow@example.com")
+    check("a flow that was on before fields were checked keeps entering people", runsOf(w, flowId).length === 1)
+    check("while turning it on or saving it names the field to fix", problemsOf("purchase", odd).some((p) => /\{\{email\}\} is not a field/.test(p.message)))
   }
 
   for (const t of TEMPLATES) {
