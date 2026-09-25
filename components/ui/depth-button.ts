@@ -46,22 +46,6 @@ export const iconDepth = cn(
 )
 
 /**
- * Polaris's light grey button, for controls that sit on the page's own grey
- * rather than on a card: the Website page's Public and View website. A fill
- * a step darker than the page, no border, a faint shade at its foot, a step
- * darker again on hover and flat when pressed. Disabled keeps its shape and
- * fades, so a row of them does not change width.
- */
-export const grayDepth = cn(
-  "inline-flex shrink-0 cursor-pointer select-none items-center justify-center gap-1.5 whitespace-nowrap bg-[#e3e3e3] font-medium text-[#303030] outline-none",
-  "shadow-[inset_0_-1px_0_rgba(0,0,0,0.08)] transition-[background-color,box-shadow] duration-100",
-  "hover:bg-[#d4d4d4] active:bg-[#cccccc] active:shadow-[inset_0_1px_1px_rgba(0,0,0,0.12)]",
-  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#8b5cf6]",
-  "disabled:cursor-not-allowed disabled:bg-[#ebebeb] disabled:text-[#9a9a9a] disabled:shadow-none",
-  "[-webkit-tap-highlight-color:transparent]",
-)
-
-/**
  * The solid violet with a line of light on top and a darker line under it,
  * flat and a step darker when pressed. Save wears it, and so does the one
  * add action on the Products page (New product), so the two read as the same

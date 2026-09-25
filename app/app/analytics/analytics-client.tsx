@@ -390,9 +390,9 @@ export function AnalyticsClient({ products }: AnalyticsClientProps) {
   const onePageFigures = sample ? SAMPLE_ONEPAGE : onePage ?? { views: zero, clicks: zero, subscribers: zero, ctr: zero }
   /* Nothing has come back yet. The figures on screen are the mode of the answer (trendMode), so a switch never shows zeros. */
   const figuresLoading = !sample && !answer
-  /* Before the first answer the tabs hold light gray shapes where the
-     figures go (MetricTab `loading`), not zeros gone soft; after it, a
-     figure being replaced goes soft. */
+  /* Before the first answer the tabs draw their figures soft (MetricTab
+     `loading`), and clear to the real ones when it lands; after it, a
+     figure being replaced goes soft the same way. */
   const soft = isRefreshing && !figuresLoading
 
   /*

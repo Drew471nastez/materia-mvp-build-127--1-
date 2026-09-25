@@ -39,6 +39,7 @@ import {
   Download,
   Eye,
   EyeOff,
+  Globe,
   Layers,
   Loader2,
   MoreHorizontal,
@@ -70,7 +71,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
-import { grayDepth, iconDepth } from "@/components/ui/depth-button"
+import { iconDepth, secondaryDepth } from "@/components/ui/depth-button"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useToast } from "@/hooks/use-toast"
 import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
 import { getWebsiteShareUrl, getWebsiteUrlDisplay } from "@/lib/url-helpers"
@@ -148,18 +150,26 @@ export function editorHref(
 
 
 /**
- * THE LIVE COVER, FROM EDGE TO EDGE. "Why is it windows in a window? I want
- * it full width in the container." The site's desktop picture fills the
- * card's cover area and nothing is drawn around it: no grey stage, no browser
- * window, no phone. The card's own clip gives it its corners, repeated here
- * at the card's inner radius (16px less the 1px border) so the picture is
- * rounded even where a browser skips the parent's clip. A hairline over the
- * picture, on the side that meets the details, keeps a white site from
- * running into the white card: under it on a phone, on its right from `lg`.
- * 16:10, the shape the area has always had, so the card keeps its height.
+ * THE LIVE COVER, A PICTURE WITH ITS OWN CORNERS. Flush with the card, the
+ * screenshot ended in a straight cut through the site's text, which read as
+ * a picture that failed to load. It is set into the card again, as it was
+ * before the full bleed: 12px corners on all four sides, a hairline drawn
+ * over the picture so a white site keeps its edge on the white card, and two
+ * soft shadows, one close and one wide. Still only the picture: no stage, no
+ * browser window, no phone.
+ *
+ * 16:10 on the frame itself, so the box is there before the picture is, and
+ * the screenshot is cut from its top (object-top in CoverPicture), so what
+ * shows is the site's header and hero and the crop reads as a choice.
+ *
+ * Not a `.group`: on a touch screen app/globals.css takes the shadow off a
+ * hovered `.group`, and a tap leaves it hovered. The hover tint is its own
+ * layer (`before:`) on a fine pointer only, and the focus ring is an outline,
+ * drawn outside the picture where nothing covers it. `translateZ(0)` with
+ * `isolate` keeps Safari clipping the crossfading picture to the corners.
  */
 const COVER_FRAME =
-  "group relative block aspect-[16/10] w-full select-none overflow-hidden rounded-t-[15px] bg-[#f3f4f6] text-left outline-none [&_img]:[-webkit-user-drag:none] lg:rounded-tr-none lg:rounded-bl-[15px] after:pointer-events-none after:absolute after:inset-0 after:z-10 after:shadow-[inset_0_-1px_0_rgba(15,23,42,0.08)] lg:after:shadow-[inset_-1px_0_0_rgba(15,23,42,0.08)]"
+  "relative block aspect-[16/10] w-full select-none overflow-hidden rounded-[12px] bg-[#eef0f3] text-left isolate outline-none [transform:translateZ(0)] [&_img]:[-webkit-user-drag:none] shadow-[0_1px_2px_rgba(15,23,42,0.06),0_10px_28px_-14px_rgba(15,23,42,0.22)] after:pointer-events-none after:absolute after:inset-0 after:z-10 after:rounded-[inherit] after:shadow-[inset_0_0_0_1px_rgba(15,23,42,0.08)] before:pointer-events-none before:absolute before:inset-0 before:z-20 before:bg-[#1a1a2e]/0 before:transition-colors before:duration-200 pointer-fine:hover:before:bg-[#1a1a2e]/[0.04] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1a1a2e]/35"
 
 /** "2 days ago" without the "ago", for a meta line that already reads as time. */
 function since(iso: string | null | undefined): string | null {
@@ -328,23 +338,49 @@ function SiteAddress({ url, display }: { url: string; display: string }) {
 }
 
 /**
- * THE TITLE'S BUTTONS, SHOPIFY'S LIGHT GREY: Public with its menu, and View
- * website. They sit on the page's grey rather than on a card, so they are a
- * fill a step darker than it with no border (grayDepth). 36px with 10px
- * corners from 640px; 44px on a phone, where only View website is here, and
- * there it overhangs the title's line by 4px above and below rather than
- * making the line taller, so the address under it stays where it was.
+ * THE TITLE'S BUTTONS: Public with its menu, and View website. The light grey
+ * fill they had read as flat on the page's own grey, so they are the shared
+ * secondary (components/ui/depth-button.ts), the one the product editor's bar
+ * and its file picker wear: white, a hairline border, a 1px shade inside the
+ * foot and a hairline under it, flat with the shade inside when pressed, a
+ * violet focus outline. Sized as the file picker's button: 36px with 8px
+ * corners from 640px; 44px with 10px corners on a phone, where it overhangs
+ * the title's line by 4px above and below rather than making the line
+ * taller, so the address under it stays where it was.
  */
-const HEADER_BUTTON = cn(grayDepth, "-my-1 h-11 rounded-[10px] px-3.5 text-[14px] sm:my-0 sm:h-9 sm:px-3")
+const HEADER_BUTTON = cn(secondaryDepth, "-my-1 h-11 rounded-[10px] px-3.5 text-[14px] sm:my-0 sm:h-9 sm:rounded-lg sm:px-3")
 
 /**
  * THE BUTTONS BESIDE EDIT WEBSITE: Settings and the three dots, both in the
  * icon depth (components/ui/depth-button.ts): a hairline, a 2px shade inside
- * the foot and a soft shadow under it, flat when pressed. As tall as Edit
- * website. Settings is a 44px square with its icon on a phone and says its
- * name from 640px.
+ * the foot and a soft shadow under it, flat when pressed. 44px squares at
+ * every width, as tall as Edit website. Settings is its gear alone, with its
+ * name as the button's label and in a tooltip on a pointer.
  */
-const SETTINGS_ON_CARD = cn(iconDepth, "h-11 w-11 rounded-xl px-0 text-[14px] text-[#1a1a2e] sm:w-auto sm:px-3.5")
+const SETTINGS_ON_CARD = cn(iconDepth, "h-11 w-11 rounded-xl px-0 text-[#4b5563]")
+
+/**
+ * Settings' name on a pointer: a small near-black label, the builder's own
+ * dark, with no arrow. The shared tooltip's theme colours and its arrow are
+ * replaced here, not added to.
+ */
+const TOOLTIP = "rounded-md bg-[#1a1a2e] px-2 py-1 text-[12px] font-medium text-white shadow-[0_2px_8px_rgba(15,23,42,0.18)] [&_svg]:hidden"
+
+/**
+ * View website's words: "View" with an eye on a phone, where the title's line
+ * is short, and "View website" from 640px. Both are in the markup and CSS
+ * picks one, so nothing changes after the first paint; the button's label is
+ * "View website" at every width.
+ */
+function ViewLabel() {
+  return (
+    <>
+      <Eye aria-hidden className="h-4 w-4 text-[#4b5563] sm:hidden" strokeWidth={1.9} />
+      <span className="sm:hidden">View</span>
+      <span className="hidden sm:inline">View website</span>
+    </>
+  )
+}
 const MORE_ON_CARD = cn(iconDepth, "h-11 w-11 rounded-xl px-0 text-[#4b5563]")
 /**
  * A library row's three dots: the same depth, 40px on a phone with an
@@ -888,13 +924,15 @@ export function WebsiteBuilderClient({
       <div className="app-page-enter mx-auto max-w-[1200px] space-y-7 px-4 py-6 sm:px-6 lg:px-8">
         {/* ── Header ─────────────────────────────────────────────────
             The title, the address under it, and on the title's line the two
-            things you do to the site as a whole, in Shopify's light grey:
+            things you do to the site as a whole, as white secondary buttons:
             whether it is public, and a way to look at it. Settings moved
             down beside Edit website, where the site it opens is named.
 
-            On a phone the line has room for one, and it is View website.
-            Public is not lost there: Take offline is in the live card's
-            More menu, and Publish again is on the offline card and row. */}
+            On a phone the line has room for one, and it is View, with an
+            eye. Public is not lost there: Take offline is in the live card's
+            More menu, and Publish again is on the offline card and row. The
+            eye belongs to View, so Public wears a globe (and Unpublished its
+            crossed eye), and the two never show the same mark. */}
         <div>
           <div className="flex items-center justify-between gap-3" data-title-row="">
             <h1 className="min-w-0 truncate text-[24px] font-bold tracking-tight text-[#1a1a2e] sm:text-[28px]">Website</h1>
@@ -911,12 +949,12 @@ export function WebsiteBuilderClient({
                           {publicControl.busy ? (
                             <Loader2 className="h-4 w-4 animate-spin" />
                           ) : publicControl.live ? (
-                            <Eye className="h-4 w-4" strokeWidth={1.9} />
+                            <Globe className="h-4 w-4 text-[#4b5563]" strokeWidth={1.9} />
                           ) : (
-                            <EyeOff className="h-4 w-4" strokeWidth={1.9} />
+                            <EyeOff className="h-4 w-4 text-[#4b5563]" strokeWidth={1.9} />
                           )}
                           {publicControl.label}
-                          <ChevronDown className="-mr-0.5 h-4 w-4 text-[#616161]" strokeWidth={1.9} />
+                          <ChevronDown className="-mr-0.5 h-4 w-4 text-[#6b7280]" strokeWidth={1.9} />
                         </button>
                       }
                     />
@@ -924,12 +962,12 @@ export function WebsiteBuilderClient({
                 )}
                 {siteUrl &&
                   (live ? (
-                    <a href={siteUrl} target="_blank" rel="noopener noreferrer" data-control="view" className={HEADER_BUTTON}>
-                      View website
+                    <a href={siteUrl} target="_blank" rel="noopener noreferrer" aria-label="View website" data-control="view" className={HEADER_BUTTON}>
+                      <ViewLabel />
                     </a>
                   ) : (
-                    <button type="button" disabled data-control="view" className={HEADER_BUTTON}>
-                      View website
+                    <button type="button" disabled aria-label="View website" data-control="view" className={HEADER_BUTTON}>
+                      <ViewLabel />
                     </button>
                   ))}
               </div>
@@ -949,12 +987,11 @@ export function WebsiteBuilderClient({
               <>
                 <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
                   {/* ── The cover ───────────────────────────────────────
-                      The site's desktop picture, flush with the card's
-                      edges: the whole top of the card on a phone, its left
-                      from `lg`. See COVER_FRAME. The tint on hover, and the
-                      focus ring, are a layer over the picture, since an
-                      inset ring on the button would be painted under it. */}
-                  <div className="min-w-0">
+                      Set into the card rather than cut flush with its edge,
+                      so it has corners of its own on all four sides: above
+                      the details on a phone, on their left from `lg`. See
+                      COVER_FRAME. */}
+                  <div className="min-w-0 p-4 pb-3 lg:pb-4 lg:pr-2">
                     <button
                       type="button"
                       onClick={() => go(editorHref(username, live.id))}
@@ -963,10 +1000,9 @@ export function WebsiteBuilderClient({
                       className={COVER_FRAME}
                     >
                       <WebsiteCover install={live} eager />
-                      <span className="pointer-events-none absolute inset-0 z-20 rounded-[inherit] bg-[#1a1a2e]/0 transition-[background-color,box-shadow] duration-200 group-hover:bg-[#1a1a2e]/[0.04] group-focus-visible:shadow-[inset_0_0_0_2px_rgba(26,26,46,0.35)]" />
                     </button>
                   </div>
-                  <div className="flex min-w-0 flex-col p-4 lg:p-6">
+                  <div className="flex min-w-0 flex-col px-4 pb-4 pt-2 lg:p-6 lg:pl-4">
                     <StatusDot status="published" />
                     <h2 id="live-heading" className="mt-2 truncate text-[20px] font-semibold tracking-tight text-[#1a1a2e]">
                       {live.name}
@@ -994,9 +1030,8 @@ export function WebsiteBuilderClient({
                         </div>
                       )}
                     </dl>
-                    {/* One line at every width: Edit website, then Settings (a
-                        44px square with its icon on a phone, its name from
-                        640px), then More, with Take offline last in it. */}
+                    {/* One line at every width: Edit website, then Settings and
+                        More as 44px squares, with Take offline last in More. */}
                     <div className="mt-auto flex gap-2 pt-5" data-card-actions="">
                       <Button
                         onClick={() => go(editorHref(username, live.id))}
@@ -1004,16 +1039,22 @@ export function WebsiteBuilderClient({
                       >
                         Edit website
                       </Button>
-                      <button
-                        type="button"
-                        data-control="settings"
-                        aria-label="Settings"
-                        onClick={() => go(editorHref(username, live.id, "settings"))}
-                        className={SETTINGS_ON_CARD}
-                      >
-                        <Settings className="h-[18px] w-[18px] text-[#4b5563] sm:h-4 sm:w-4" strokeWidth={1.8} />
-                        <span className="hidden sm:inline">Settings</span>
-                      </button>
+                      <Tooltip delayDuration={400}>
+                        <TooltipTrigger asChild>
+                          <button
+                            type="button"
+                            data-control="settings"
+                            aria-label="Settings"
+                            onClick={() => go(editorHref(username, live.id, "settings"))}
+                            className={SETTINGS_ON_CARD}
+                          >
+                            <Settings className="h-[18px] w-[18px]" strokeWidth={1.8} />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" sideOffset={6} className={TOOLTIP}>
+                          Settings
+                        </TooltipContent>
+                      </Tooltip>
                       <ResponsiveActionMenu
                         title={live.name}
                         items={menuFor(live)}
