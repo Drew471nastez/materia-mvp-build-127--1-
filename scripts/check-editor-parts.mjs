@@ -395,44 +395,43 @@ async function category(p, label, isPhone, vp) {
     const picked = await p.evaluate(() => ({ sheet: !!document.querySelector("[data-app-sheet]"), value: document.querySelector("[data-category-trigger]").textContent }))
     expect(!picked.sheet && /^Video LUTs/.test(picked.value), "and choosing a found one closes it too", picked)
   } else {
-    const pop = await p.evaluate(() => {
-      const el = document.querySelector("[data-category-popover]")
+    const win = await p.evaluate(() => {
+      const el = document.querySelector("[data-category-dialog]")
       if (!el) return null
       const r = el.getBoundingClientRect()
-      const t = document.querySelector("[data-category-trigger]").getBoundingClientRect()
-      return { tb: Math.round(t.bottom), h: Math.round(r.height), below: Math.round(r.top - t.bottom), above: Math.round(t.top - r.bottom), left: Math.round(r.left - t.left), w: Math.round(r.width), focus: document.activeElement?.hasAttribute("data-category-search"), sheet: !!document.querySelector("[data-app-sheet]"), row: Math.round(el.querySelector("[data-category-row]").getBoundingClientRect().height) }
+      const bar = document.querySelector("[data-app-topbar], header")?.getBoundingClientRect()
+      return {
+        cx: Math.round(r.left + r.width / 2 - innerWidth / 2), cy: Math.round(r.top + r.height / 2 - innerHeight / 2),
+        w: Math.round(r.width), h: Math.round(r.height), top: Math.round(r.top), barBottom: bar ? Math.round(bar.bottom) : 0,
+        focus: document.activeElement?.hasAttribute("data-category-search"), sheet: !!document.querySelector("[data-app-sheet]"),
+        groups: el.querySelectorAll("[data-category-group]").length, options: el.querySelectorAll("[data-category-option]").length,
+        row: Math.round(el.querySelector("[data-category-row]").getBoundingClientRect().height),
+      }
     })
-    await p.screenshot({ path: join(shots, `${PREFIX}${label}-category-popover.png`) })
-    /* Under the field when the list fits there, over it when it does not, as a combobox does. */
-    const side = pop && pop.below >= 0 && pop.below <= 12 ? "below" : pop && pop.above >= 0 && pop.above <= 12 ? "above" : null
-    expect(!!pop && !pop.sheet && !!side && Math.abs(pop.left) <= 1, "a popover against the field, its left edge on the field's, not a sheet", pop && { side, gap: side === "below" ? pop.below : pop.above, room: 800 - pop.tb, h: pop.h, w: pop.w, row: pop.row })
-    /* And near the top of the screen it opens below. */
-    await p.keyboard.press("Escape")
-    await sleep(250)
-    await p.evaluate(() => {
-      const t = document.querySelector("[data-category-trigger]")
-      let s = t.parentElement
-      while (s && !(s.scrollHeight > s.clientHeight + 1 && /auto|scroll/.test(getComputedStyle(s).overflowY))) s = s.parentElement
-      if (s) s.scrollTop += t.getBoundingClientRect().top - 240
-    })
-    await sleep(200)
-    await p.click("[data-category-trigger]")
-    await sleep(350)
-    const low = await p.evaluate(() => { const r = document.querySelector("[data-category-popover]").getBoundingClientRect(); const t = document.querySelector("[data-category-trigger]").getBoundingClientRect(); return { gap: Math.round(r.top - t.bottom), top: Math.round(t.top) } })
-    expect(low.gap >= 0 && low.gap <= 12, "with room under the field, it opens under it", low)
+    await p.screenshot({ path: join(shots, `${PREFIX}${label}-category-window.png`) })
+    /* A window in the middle of the screen, clear of the top bar, not a popover squeezed against the field. */
+    expect(!!win && !win.sheet && Math.abs(win.cx) <= 1 && Math.abs(win.cy) <= 1 && win.top >= win.barBottom, "a window in the middle of the screen, clear of the top bar", win)
+    expect(!!win && win.groups >= 20 && win.options >= 10 && win.row === 36, "the groups beside the open group's categories, 36px rows", win && { groups: win.groups, options: win.options, row: win.row })
+    expect(win && win.focus, "with the search focused", win && { focus: win.focus })
+    /* Hovering a group opens it. */
+    await p.hover('[data-category-group="Audio & Music"]')
+    await sleep(150)
+    const hovered = await p.evaluate(() => !!document.querySelector('[data-category-option="Drum Kits"]'))
+    expect(hovered, "hovering a group shows its categories", { hovered })
     await p.keyboard.type("pre")
     await sleep(200)
-    await p.screenshot({ path: join(shots, `${PREFIX}${label}-category-popover-search.png`) })
+    await p.screenshot({ path: join(shots, `${PREFIX}${label}-category-window-search.png`) })
     await p.keyboard.press("Escape")
-    await sleep(250)
+    await sleep(300)
+    const closed = await p.evaluate(() => !document.querySelector("[data-category-dialog]"))
+    expect(closed, "Escape closes it", { closed })
     await p.click("[data-category-trigger]")
     await sleep(350)
-    expect(pop && pop.focus, "with the search focused", pop && { focus: pop.focus })
     await p.keyboard.type("font")
     await sleep(150)
     await p.keyboard.press("Enter")
     await sleep(400)
-    const after = await p.evaluate(() => ({ open: !!document.querySelector("[data-category-popover]"), value: document.querySelector("[data-category-trigger]").textContent }))
+    const after = await p.evaluate(() => ({ open: !!document.querySelector("[data-category-dialog]"), value: document.querySelector("[data-category-trigger]").textContent }))
     expect(!after.open && /^Fonts/.test(after.value), "type, Enter: chosen and closed", after)
   }
 }

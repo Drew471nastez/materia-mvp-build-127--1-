@@ -28,9 +28,7 @@ import {
   Check,
   Plus,
   X,
-  Loader2,
   FileText,
-  Info,
   Play,
   Trash2,
   ChevronUp,
@@ -70,7 +68,7 @@ import { returnToProducts, useListOrigin, warmProducts } from "../list-return"
 import { holdLayerLanding } from "@/components/app/page-layer"
 import { useConfirm } from "./confirm-sheet"
 import { FaqList } from "./faq-list"
-import { MediaGrid } from "./media-grid"
+import { MediaGrid, type PendingMedia } from "./media-grid"
 import { DigitalFiles, useFileUploads } from "./file-uploads"
 import { CategoryPicker } from "./category-picker"
 
@@ -325,8 +323,8 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
 
   // Media section fields - unified draggable media
   const [mediaItems, setMediaItems] = useState<MediaItem[]>(initial.mediaItems)
-  const [uploadingMedia, setUploadingMedia] = useState(false)
-  const [uploadProgress, setUploadProgress] = useState(0)
+  /* Photos on their way up, each shown as its own preview in the grid. */
+  const [pendingMedia, setPendingMedia] = useState<PendingMedia[]>([])
 
   // Content tab fields
   const [description, setDescription] = useState(initial.description)
@@ -382,12 +380,11 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
 
   // Guard click handler: only fire if not scrolling and touch didn't move
   const handleUploadZoneClick = useCallback(() => {
-    if (uploadingMedia || isScrollingRef.current) return
+    if (isScrollingRef.current) return
     document.getElementById("media-input")?.click()
-  }, [uploadingMedia])
+  }, [])
 
   // Ratio warning state for non-widescreen images
-  const [ratioWarning, setRatioWarning] = useState<string | null>(null)
 
   // Variants state (max 7 variants)
   const [variants, setVariants] = useState<ProductVariant[]>(initial.variants)
@@ -1350,126 +1347,80 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
     })
   }
 
-  // Handle media upload with progress (images only)
+  // Handle media upload (images only). Each photo shows in the grid at once as
+  // its own preview, comes into focus as it uploads, and becomes a real tile
+  // only once the uploaded copy is decoded, so nothing flashes when it lands.
   const handleMediaUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return
 
-    setUploadingMedia(true)
-    setUploadProgress(0)
     setError(null)
     const supabase = createClient()
-    const newItems: MediaItem[] = []
-    let completedFiles = 0
 
-    // Calculate total bytes for accurate progress
     const filesToUpload: File[] = []
-    let totalBytes = 0
+    for (const file of Array.from(files)) {
+      if (!file.type.startsWith("image/")) {
+        setError(`Only images are supported. Use YouTube for videos.`)
+        continue
+      }
+      const existingImages = mediaItems.filter(m => m.type === "image").length + pendingMedia.length
+      if (existingImages + filesToUpload.length >= MAX_PHOTOS) {
+        setError(`Maximum ${MAX_PHOTOS} photos allowed`)
+        continue
+      }
+      filesToUpload.push(file)
+    }
+    if (filesToUpload.length === 0) return
 
-    try {
-      // First pass: validate files and calculate total size
-      for (const file of Array.from(files)) {
-        const isImage = file.type.startsWith("image/")
+    const queued = filesToUpload.map((file) => ({
+      file,
+      pending: { id: `pending-${Date.now()}-${Math.random().toString(36).slice(2)}`, preview: URL.createObjectURL(file), progress: 0 } as PendingMedia,
+    }))
+    setPendingMedia(prev => [...prev, ...queued.map(q => q.pending)])
 
-        if (!isImage) {
-          setError(`Only images are supported. Use YouTube for videos.`)
-          continue
-        }
+    const setProgress = (id: string, progress: number) =>
+      setPendingMedia(prev => prev.map(p => (p.id === id ? { ...p, progress } : p)))
+    const drop = (id: string, preview: string) => {
+      setPendingMedia(prev => prev.filter(p => p.id !== id))
+      URL.revokeObjectURL(preview)
+    }
+    /* Wait for the uploaded copy to be ready to paint, but never longer than 4s. */
+    const warm = (url: string) =>
+      new Promise<void>((resolve) => {
+        const img = new window.Image()
+        const done = () => resolve()
+        const timer = setTimeout(done, 4000)
+        img.onload = () => { clearTimeout(timer); (img.decode ? img.decode().catch(() => {}) : Promise.resolve()).then(done) }
+        img.onerror = () => { clearTimeout(timer); done() }
+        img.src = url
+      })
 
-        const existingImages = mediaItems.filter(m => m.type === "image").length
-        if (existingImages + filesToUpload.length >= MAX_PHOTOS) {
-          setError(`Maximum ${MAX_PHOTOS} photos allowed`)
-          continue
-        }
-
-        filesToUpload.push(file)
-        totalBytes += file.size
+    for (const { file, pending } of queued) {
+      const timestamp = Date.now()
+      let fileToUpload = file
+      try {
+        fileToUpload = (await processImageToWidescreen(file)).processedFile
+      } catch (err) {
+        console.error("Image processing error:", err)
       }
 
-      // Second pass: upload files with progress
-      let uploadedBytes = 0
-      let processedCount = 0
+      const safeName = fileToUpload.name.replace(/[^a-zA-Z0-9.-]/g, "_")
+      const filePath = `${creatorId}/${productId || "temp"}/${timestamp}_${safeName}`
 
-      // Clear previous ratio warning
-      setRatioWarning(null)
-
-      for (const file of filesToUpload) {
-        const timestamp = Date.now()
-
-        let fileToUpload = file
-
-        // Process images that are not widescreen
-        try {
-          const result = await processImageToWidescreen(file)
-          fileToUpload = result.processedFile
-
-          if (result.wasProcessed) {
-            processedCount++
-            // Show ratio warning
-            if (result.originalRatio === "square") {
-              setRatioWarning(`Image "${file.name}" was square and has been fitted to 1280x720.`)
-            } else if (result.originalRatio === "portrait") {
-              setRatioWarning(`Image "${file.name}" was portrait and has been fitted to 1280x720.`)
-            }
-          }
-        } catch (err) {
-          console.error("Image processing error:", err)
-          // Continue with original file if processing fails
-        }
-
-        // Upload image with progress
-        const safeName = fileToUpload.name.replace(/[^a-zA-Z0-9.-]/g, "_")
-        const folder = productId || "temp"
-        const filePath = `${creatorId}/${folder}/${timestamp}_${safeName}`
-
-        const fileStartBytes = uploadedBytes
-
-        const { error: uploadError } = await uploadWithProgress(
-          fileToUpload,
-          filePath,
-          (filePercent) => {
-            // Calculate overall progress based on bytes
-            const currentFileUploaded = (filePercent / 100) * fileToUpload.size
-            const totalUploaded = fileStartBytes + currentFileUploaded
-            const overallPercent = Math.round((totalUploaded / totalBytes) * 100)
-            setUploadProgress(Math.min(overallPercent, 99)) // Cap at 99% until fully done
-          }
-        )
-
-        if (uploadError) {
-          console.error("Upload error:", uploadError)
-          setError(`Failed to upload ${file.name}: ${uploadError.message}`)
-          continue
-        }
-
-        uploadedBytes += fileToUpload.size
-
-        const { data: { publicUrl } } = supabase.storage
-          .from("product-images")
-          .getPublicUrl(filePath)
-
-        newItems.push({
-          id: `${timestamp}-${Math.random().toString(36).slice(2)}`,
-          type: "image",
-          url: publicUrl,
-        })
-
-        completedFiles++
+      const { error: uploadError } = await uploadWithProgress(fileToUpload, filePath, (percent) =>
+        setProgress(pending.id, Math.min(percent, 96)),
+      )
+      if (uploadError) {
+        console.error("Upload error:", uploadError)
+        setError(`Failed to upload ${file.name}: ${uploadError.message}`)
+        drop(pending.id, pending.preview)
+        continue
       }
 
-      // Show combined warning if multiple images were processed
-      if (processedCount > 1) {
-        setRatioWarning(`${processedCount} images were fitted to 1280x720 (recommended ratio).`)
-      }
-
-      if (newItems.length > 0) {
-        setUploadProgress(100)
-        setMediaItems(prev => [...prev, ...newItems])
-      }
-    } finally {
-      // Brief delay to show 100% completion
-      await new Promise(resolve => setTimeout(resolve, 300))
-      setUploadingMedia(false)
-      setUploadProgress(0)
+      const { data: { publicUrl } } = supabase.storage.from("product-images").getPublicUrl(filePath)
+      setProgress(pending.id, 100)
+      await warm(publicUrl)
+      setMediaItems(prev => [...prev, { id: `${timestamp}-${Math.random().toString(36).slice(2)}`, type: "image", url: publicUrl }])
+      drop(pending.id, pending.preview)
     }
   }
 
@@ -2192,8 +2143,8 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
                 </div>
 
                 {/* The grid, two a row, held to reorder (./media-grid.tsx). */}
-                {mediaItems.length > 0 && (
-                  <MediaGrid items={mediaItems} onChange={setMediaItems} onRemove={removeMedia} />
+                {(mediaItems.length > 0 || pendingMedia.length > 0) && (
+                  <MediaGrid items={mediaItems} pending={pendingMedia} onChange={setMediaItems} onRemove={removeMedia} />
                 )}
 
                 {/* The upload zone, and its state while a file uploads */}
@@ -2203,9 +2154,8 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
                     flex flex-col items-center justify-center py-6 sm:py-8
                     transition-all duration-400 cursor-pointer
                     touch-action-pan-y
-                    ${uploadingMedia ? "pointer-events-none border-gray-300" : ""}
                     ${isExternalDragOver
-                      ? "border-violet-500 bg-violet-50 scale-[1.02] shadow-lg shadow-violet-100"
+                      ? "border-[#1a1a2e] bg-[#f6f7f9]"
                       : "border-gray-300 hover:border-gray-400 hover:bg-gray-50/50"
                     }
                   `}
@@ -2245,37 +2195,15 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
                     multiple
                     accept="image/*"
                     className="hidden"
-                    onChange={(e) => handleMediaUpload(e.target.files)}
-                    disabled={uploadingMedia}
+                    onChange={(e) => { handleMediaUpload(e.target.files); e.target.value = "" }}
                   />
 
-                  {uploadingMedia ? (
-                    <div className="flex flex-col items-center gap-3 animate-pulse">
-                      <div className="w-10 h-10 rounded-full bg-violet-100 flex items-center justify-center">
-                        <Loader2 className="h-5 w-5 text-violet-600 animate-spin" />
+                  {isExternalDragOver ? (
+                    <div className="flex flex-col items-center gap-2 animate-in fade-in duration-200">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-[0_1px_2px_rgba(16,24,40,0.08),0_0_0_1px_rgba(16,24,40,0.06)]">
+                        <Plus className="h-5 w-5 text-[#1a1a2e]" />
                       </div>
-                      <div className="flex flex-col items-center gap-1">
-                        <p className="text-sm font-medium text-gray-700">Uploading...</p>
-                        <div className="w-32 h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-violet-500 rounded-full transition-all duration-300 ease-out"
-                            style={{ width: `${uploadProgress}%` }}
-                          />
-                        </div>
-                        <p className="text-xs text-gray-500">{uploadProgress}%</p>
-                      </div>
-                    </div>
-                  ) : isExternalDragOver ? (
-                    <div className="flex flex-col items-center gap-3 animate-in fade-in zoom-in-95 duration-400">
-                      <div className="w-12 h-12 rounded-full bg-violet-100 flex items-center justify-center animate-pulse">
-                        <Plus className="h-6 w-6 text-violet-600" />
-                      </div>
-                      <p className="text-sm font-medium text-violet-600">
-                        Drop files here
-                      </p>
-                      <p className="text-xs text-violet-500">
-                        Release to upload images and videos
-                      </p>
+                      <p className="text-sm font-medium text-[#1a1a2e]">Drop to add photos</p>
                     </div>
                   ) : (
                     <>
@@ -2288,7 +2216,6 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
                         variant="outline"
                         size="sm"
                         className="border-gray-300 text-gray-700 hover:bg-gray-50 h-8 sm:h-9 px-3 sm:px-4 text-xs sm:text-sm pointer-events-auto"
-                        disabled={uploadingMedia}
                         onClick={(e) => {
                           e.stopPropagation()
                           document.getElementById("media-input")?.click()
@@ -2297,12 +2224,6 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
                         <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1 sm:mr-1.5" />
                         Upload
                       </Button>
-
-                      {/* Recommended ratio info */}
-                      <p className="mt-2 text-[10px] sm:text-xs text-gray-400 flex items-center gap-1">
-                        <Info className="h-3 w-3" />
-                        Recommended: horizontal 1280x720px
-                      </p>
 
                       {/* YouTube add — inline toggle */}
                       {!showYoutubeInput ? (
@@ -2399,23 +2320,6 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
                   {existingImages}/{MAX_PHOTOS} images · {existingYouTube}/{MAX_YOUTUBE_VIDEOS} YouTube videos
                 </p>
 
-                {/* Ratio warning */}
-                {ratioWarning && (
-                  <div className="flex items-start gap-2 p-2.5 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-700">
-                    <Info className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <p>{ratioWarning}</p>
-                      <p className="text-amber-600 mt-1">For best results, use horizontal images (1280x720px or 1920x1080px).</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setRatioWarning(null)}
-                      className="ml-auto p-0.5 text-amber-500 hover:text-amber-700 transition-colors"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                )}
               </div>
 
               {/* Content Section */}

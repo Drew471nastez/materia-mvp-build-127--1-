@@ -41,12 +41,22 @@ import { AUTO_SCROLL, HANDLE_TOUCH, liftTick, useHoldToDragSensors } from "./hol
 
 const kindOf = (item: MediaItem | undefined) => (item?.type === "youtube" ? "video" : "photo")
 
+/** A photo on its way up: its own preview, shown the moment it is picked. */
+export interface PendingMedia {
+  id: string
+  preview: string
+  /** 0 to 100, from the upload's own progress events. */
+  progress: number
+}
+
 export function MediaGrid({
   items,
+  pending = [],
   onChange,
   onRemove,
 }: {
   items: MediaItem[]
+  pending?: PendingMedia[]
   onChange: (update: (prev: MediaItem[]) => MediaItem[]) => void
   onRemove: (id: string) => void
 }) {
@@ -103,6 +113,9 @@ export function MediaGrid({
         <div data-media-grid="" data-dragging={activeId != null ? "" : undefined} className="grid grid-cols-2 gap-3 sm:gap-4">
           {items.map((item, index) => (
             <MediaTile key={item.id} item={item} index={index} onRemove={onRemove} />
+          ))}
+          {pending.map((p) => (
+            <PendingTile key={p.id} pending={p} />
           ))}
         </div>
       </SortableContext>
@@ -191,6 +204,45 @@ function MediaTile({ item, index, onRemove }: { item: MediaItem; index: number; 
             YouTube
           </span>
         )}
+      </div>
+    </div>
+  )
+}
+
+/**
+ * A PHOTO ON ITS WAY UP. The picture itself, the moment it is chosen, soft
+ * and a little dim, coming into focus as its bytes go up, with a hairline
+ * along its foot that fills with them. No spinner and no box: the tile is
+ * already where the photo will sit, so when it lands nothing moves.
+ */
+function PendingTile({ pending }: { pending: PendingMedia }) {
+  const p = Math.max(0, Math.min(100, pending.progress)) / 100
+  return (
+    <div data-media-pending="" className="relative animate-in fade-in zoom-in-[0.97] duration-300 ease-out motion-reduce:animate-none">
+      <div className="relative aspect-video overflow-hidden rounded-lg border border-gray-200 bg-[#f3f4f6] select-none">
+        <img
+          src={pending.preview}
+          alt=""
+          draggable={false}
+          className="h-full w-full object-cover transition-[filter,transform] duration-500 ease-out motion-reduce:transition-none"
+          style={{ filter: `blur(${(1 - p) * 10}px) saturate(${0.6 + p * 0.4}) brightness(${0.92 + p * 0.08})`, transform: `scale(${1.04 - p * 0.04})` }}
+        />
+        <span aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
+          <span className="absolute inset-y-0 -left-1/2 w-1/2 animate-[media-sheen_1.6s_ease-in-out_infinite] bg-gradient-to-r from-transparent via-white/25 to-transparent motion-reduce:hidden" />
+        </span>
+        <span
+          role="progressbar"
+          aria-label="Uploading photo"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={Math.round(pending.progress)}
+          className="absolute inset-x-2.5 bottom-2.5 h-[3px] overflow-hidden rounded-full bg-white/35 shadow-[0_1px_2px_rgba(0,0,0,0.15)]"
+        >
+          <span
+            className="absolute inset-y-0 left-0 w-full origin-left rounded-full bg-white transition-transform duration-300 ease-out motion-reduce:transition-none"
+            style={{ transform: `scaleX(${p.toFixed(3)})` }}
+          />
+        </span>
       </div>
     </div>
   )

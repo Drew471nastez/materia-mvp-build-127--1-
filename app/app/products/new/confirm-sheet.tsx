@@ -23,7 +23,7 @@ import * as React from "react"
 import * as AlertDialogPrimitive from "@radix-ui/react-alert-dialog"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { cn } from "@/lib/utils"
-import { criticalDepth, secondaryDepth } from "./editor-buttons"
+import { secondaryDepth } from "./editor-buttons"
 
 /** The breakpoint the sheet hides itself from, and the bar's buttons change size at. */
 const PHONE = "(max-width: 639px)"
@@ -47,9 +47,17 @@ export interface ConfirmQuestion {
   confirm: string
   /** The button that leaves things as they are. */
   cancel: string
-  /** Red for anything that throws work away; the violet otherwise. */
+  /** Near black for anything that throws work away (never red: the words say what it does); the violet otherwise. */
   tone?: "critical" | "default"
 }
+
+/* The button that throws work away: near black with the same depth as the bar's buttons, not an alarm red. */
+const destructiveDepth = cn(
+  "inline-flex shrink-0 cursor-pointer select-none items-center justify-center gap-1.5 whitespace-nowrap bg-[#1a1a2e] font-semibold text-white outline-none",
+  "shadow-[inset_0_1px_0_rgba(255,255,255,0.14),inset_0_-1px_0_rgba(0,0,0,0.35),0_1px_2px_rgba(16,24,40,0.25)] transition-[background-color,box-shadow] duration-100",
+  "hover:bg-[#2a2a40] active:bg-[#0f0f1c] active:shadow-[inset_0_1px_2px_rgba(0,0,0,0.4)]",
+  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1a1a2e]",
+)
 
 const primaryDepth = cn(
   "inline-flex shrink-0 cursor-pointer select-none items-center justify-center whitespace-nowrap bg-[#8b5cf6] font-semibold text-white outline-none",
@@ -73,7 +81,7 @@ export function ConfirmSheet({
   if (question !== null && question !== shown) setShown(question)
   const q = question ?? shown
   if (!q) return null
-  const doIt = q.tone === "default" ? primaryDepth : criticalDepth
+  const doIt = q.tone === "default" ? primaryDepth : destructiveDepth
 
   if (phone) {
     return (

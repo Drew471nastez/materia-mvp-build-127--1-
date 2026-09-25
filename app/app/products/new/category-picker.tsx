@@ -19,8 +19,13 @@
  * opening a group or typing a search never moves its top edge, and it sits
  * on the keyboard while the search is typed into.
  *
- * On a computer it is a popover under the field, with the search focused and
- * the arrow keys moving through the rows.
+ * On a computer it is a window in the middle of the screen, not a popover:
+ * a popover under a field in the side column had no room, flipped up over
+ * the top bar and covered the fields around it. The window has the search on
+ * top and two columns under it, the groups on the left and the open group's
+ * categories on the right, so the whole catalogue is two moves away and a
+ * search is one. Hovering a group opens it, as a menu does; a click on a
+ * category chooses it and closes. Escape or a click outside closes it.
  *
  * 48px rows on a phone, 36px on a computer.
  */
@@ -28,7 +33,7 @@
 import React, { useLayoutEffect, useMemo, useRef, useState } from "react"
 import { Check, ChevronDown, ChevronLeft, ChevronRight, Search, X } from "lucide-react"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import * as DialogPrimitive from "@radix-ui/react-dialog"
 import { hapticTap } from "@/lib/native-bridge"
 import { cn } from "@/lib/utils"
 
@@ -554,7 +559,6 @@ export function CategoryPicker({
 }) {
   const [open, setOpen] = useState(false)
   const [level, setLevel] = useState<Level>({ group: null, query: "" })
-  const rowsRef = useRef<HTMLDivElement>(null)
   const group = groupOfCategory(value)
 
   const show = (next: boolean) => {
@@ -567,10 +571,6 @@ export function CategoryPicker({
     setOpen(false)
   }
   const levelKey = useMemo(() => (level.query.trim() ? `q:${level.query.trim()}` : `g:${level.group ?? ""}`), [level])
-  /* A new level starts at its top (the phone sheet does this itself, from scrollKey). */
-  useLayoutEffect(() => {
-    if (rowsRef.current) rowsRef.current.scrollTop = 0
-  }, [levelKey])
 
   const rows = (phone: boolean) => (
     <CategoryRows
@@ -633,39 +633,180 @@ export function CategoryPicker({
     )
   }
 
-  /* The field's own width, 240px at least: from lg it sits in the editor's side column, near the window's right edge, where a wider list would be pushed off its left edge. */
   return (
-    <Popover open={open} onOpenChange={show}>
-      <PopoverTrigger asChild>{trigger}</PopoverTrigger>
-      <PopoverContent
-        align="start"
-        sideOffset={6}
-        collisionPadding={16}
-        data-category-popover=""
-        onOpenAutoFocus={(e) => {
-          /* The search takes focus, not the first row. */
-          e.preventDefault()
-          ;(e.currentTarget as HTMLElement | null)?.querySelector<HTMLInputElement>("[data-category-search]")?.focus()
-        }}
-        className="flex w-[var(--radix-popover-trigger-width)] min-w-[240px] max-w-[440px] flex-col overflow-hidden rounded-xl border border-[#e3e4e8] bg-white p-0 text-[#1a1a2e] shadow-[0_12px_40px_-8px_rgba(17,24,39,0.22),0_2px_6px_rgba(17,24,39,0.06)]"
-        style={{ maxHeight: "min(340px, var(--radix-popover-content-available-height))" }}
-      >
-        <div className="shrink-0 border-b border-[#eef0f2] p-2">
+    <DialogPrimitive.Root open={open} onOpenChange={show}>
+      <DialogPrimitive.Trigger asChild>{trigger}</DialogPrimitive.Trigger>
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay className="fixed inset-0 z-[200] bg-[#0f172a]/25 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 duration-200" />
+        <DialogPrimitive.Content
+          data-category-dialog=""
+          aria-describedby={undefined}
+          onOpenAutoFocus={(e) => {
+            e.preventDefault()
+            ;(e.currentTarget as HTMLElement | null)?.querySelector<HTMLInputElement>("[data-category-search]")?.focus()
+          }}
+          className="fixed left-1/2 top-1/2 z-[201] flex h-[min(540px,calc(100dvh-96px))] w-[min(760px,calc(100vw-48px))] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl bg-white text-[#1a1a2e] shadow-[0_32px_80px_-24px_rgba(15,23,42,0.35),0_8px_24px_-12px_rgba(15,23,42,0.12),0_0_0_1px_rgba(15,23,42,0.06)] outline-none data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-[0.98] data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-[0.98] duration-200 ease-sheet"
+        >
+          <DesktopCategoryBrowser value={value} suggested={suggested} onPick={pick} />
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
+  )
+}
+
+/* ── on a computer: search on top, groups and categories side by side ── */
+
+function DesktopCategoryBrowser({
+  value,
+  suggested,
+  onPick,
+}: {
+  value: string | null
+  suggested: string | null
+  onPick: (category: string) => void
+}) {
+  const [query, setQuery] = useState("")
+  const [active, setActive] = useState<string>(() => groupOfCategory(value) ?? groupOfCategory(suggested) ?? CATEGORY_GROUPS[0].name)
+  const groupsRef = useRef<HTMLDivElement>(null)
+  const listRef = useRef<HTMLDivElement>(null)
+  const current = groupOfCategory(value)
+  const found = useMemo(() => (query.trim() ? search(query) : null), [query])
+  const shown = found ?? CATEGORY_GROUPS.find((g) => g.name === active)?.categories ?? []
+
+  /* The open group's list starts at its top; the chosen group is scrolled into view once. */
+  useLayoutEffect(() => {
+    if (listRef.current) listRef.current.scrollTop = 0
+  }, [active, found])
+  useLayoutEffect(() => {
+    groupsRef.current?.querySelector<HTMLElement>("[data-active]")?.scrollIntoView({ block: "center" })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const moveFocus = (root: HTMLElement | null, e: React.KeyboardEvent) => {
+    if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return
+    const rows = [...(root?.querySelectorAll<HTMLElement>("[data-category-row]") ?? [])]
+    const i = rows.indexOf(document.activeElement as HTMLElement)
+    if (i < 0) return
+    e.preventDefault()
+    rows[Math.max(0, Math.min(rows.length - 1, i + (e.key === "ArrowDown" ? 1 : -1)))]?.focus()
+  }
+
+  const rowBase =
+    "flex h-9 w-full cursor-pointer select-none items-center gap-2.5 rounded-lg px-3 text-left text-[14px] leading-5 outline-none transition-colors duration-100"
+
+  return (
+    <>
+      <div className="flex shrink-0 items-center gap-3 border-b border-[#eef0f2] px-4 py-3">
+        <DialogPrimitive.Title className="shrink-0 text-[15px] font-semibold">Category</DialogPrimitive.Title>
+        <div className="min-w-0 flex-1">
           <SearchField
-            value={level.query}
-            onChange={(q) => setLevel({ group: null, query: q })}
+            value={query}
+            onChange={setQuery}
             phone={false}
             onEnter={() => {
-              const first = level.query.trim() ? search(level.query)[0] : null
-              if (first) pick(first)
+              const first = found?.[0]
+              if (first) onPick(first)
             }}
-            onDown={() => rowsRef.current?.querySelector<HTMLElement>("[data-category-row]")?.focus()}
+            onDown={() => (found ? listRef : groupsRef).current?.querySelector<HTMLElement>("[data-category-row]")?.focus()}
           />
         </div>
-        <div ref={rowsRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-          {rows(false)}
+      </div>
+
+      {suggested && suggested !== value && !found ? (
+        <div className="flex shrink-0 items-center gap-2 border-b border-[#eef0f2] px-4 py-2.5 text-[13px] text-[#6b7280]">
+          <span>Suggested</span>
+          <button
+            type="button"
+            onClick={() => onPick(suggested)}
+            className="rounded-full bg-[#f1f2f4] px-2.5 py-1 font-medium text-[#1a1a2e] outline-none transition-colors hover:bg-[#e7e8eb] focus-visible:bg-[#e7e8eb]"
+          >
+            {suggested}
+          </button>
+          <span className="text-[#9ca3af]">in {groupOfCategory(suggested)}</span>
         </div>
-      </PopoverContent>
-    </Popover>
+      ) : null}
+
+      <div className="flex min-h-0 flex-1">
+        {found ? null : (
+          <div
+            ref={groupsRef}
+            role="list"
+            aria-label="Groups"
+            onKeyDown={(e) => {
+              if (e.key === "ArrowRight") {
+                e.preventDefault()
+                listRef.current?.querySelector<HTMLElement>("[data-category-row]")?.focus()
+                return
+              }
+              moveFocus(groupsRef.current, e)
+            }}
+            className="w-[260px] shrink-0 overflow-y-auto overscroll-contain border-r border-[#eef0f2] p-1.5"
+          >
+            {CATEGORY_GROUPS.map((g) => {
+              const on = g.name === active
+              return (
+                <button
+                  key={g.name}
+                  type="button"
+                  data-category-row=""
+                  data-category-group={g.name}
+                  data-active={on ? "" : undefined}
+                  onMouseEnter={() => setActive(g.name)}
+                  onFocus={() => setActive(g.name)}
+                  onClick={() => setActive(g.name)}
+                  className={cn(rowBase, on ? "bg-[#f1f2f4] font-medium text-[#1a1a2e]" : "text-[#374151] hover:bg-[#f6f7f8]")}
+                >
+                  <span className="min-w-0 flex-1 truncate">{g.name}</span>
+                  {current === g.name ? <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#1a1a2e]" /> : null}
+                  <ChevronRight aria-hidden className={cn("h-4 w-4 shrink-0", on ? "text-[#6b7280]" : "text-[#c4c7ce]")} />
+                </button>
+              )
+            })}
+          </div>
+        )}
+
+        <div
+          ref={listRef}
+          data-category-list=""
+          onKeyDown={(e) => {
+            if (e.key === "ArrowLeft" && !found) {
+              e.preventDefault()
+              groupsRef.current?.querySelector<HTMLElement>("[data-active]")?.focus()
+              return
+            }
+            moveFocus(listRef.current, e)
+          }}
+          className="min-w-0 flex-1 overflow-y-auto overscroll-contain p-1.5"
+        >
+          {found ? (
+            <p className="px-3 pb-1 pt-1.5 text-[12px] font-medium text-[#6b7280]">
+              {found.length ? `${found.length} ${found.length === 1 ? "match" : "matches"}` : `No category matches “${query.trim()}”`}
+            </p>
+          ) : (
+            <p className="px-3 pb-1 pt-1.5 text-[12px] font-medium text-[#6b7280]">{active}</p>
+          )}
+          <div className={found ? undefined : "grid grid-cols-2 gap-x-1"}>
+            {(found && found.length === 0 ? ["Other"] : shown).map((c) => {
+              const on = c === value
+              return (
+                <button
+                  key={c}
+                  type="button"
+                  data-category-row=""
+                  data-category-option={c}
+                  aria-current={on ? "true" : undefined}
+                  onClick={() => onPick(c)}
+                  className={cn(rowBase, "text-[#1a1a2e] hover:bg-[#f1f2f4] focus-visible:bg-[#f1f2f4]", on && "font-medium")}
+                >
+                  <span className="min-w-0 flex-1 truncate">{c}</span>
+                  {found ? <span className="max-w-[45%] shrink-0 truncate text-[13px] text-[#9ca3af]">{GROUP_OF.get(c)}</span> : null}
+                  {on ? <Check aria-hidden className="h-4 w-4 shrink-0 text-[#1a1a2e]" strokeWidth={2.5} /> : null}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+    </>
   )
 }

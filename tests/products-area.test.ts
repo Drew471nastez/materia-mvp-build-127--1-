@@ -198,7 +198,7 @@ console.log("\nEvery question the editor asks (app/app/products/new/confirm-shee
 const confirmSheet = code("app/app/products/new/confirm-sheet.tsx")
 check("on a phone it is the shared bottom sheet", /import \{ BottomSheet \} from "@\/components\/ui\/bottom-sheet"/.test(confirmSheet) && /<BottomSheet\s/.test(confirmSheet) && /data-surface="sheet"/.test(confirmSheet))
 check("from 640px a compact modal in the middle", /AlertDialogPrimitive\.Content/.test(confirmSheet) && /data-surface="modal"/.test(confirmSheet) && /max-w-\[420px\]/.test(confirmSheet))
-check("two buttons: the safe one with the bar's depth, the one that does it in red", /cn\(secondaryDepth, "h-12/.test(confirmSheet) && /criticalDepth/.test(confirmSheet) && /bg-\[#c4290c\]/.test(buttons))
+check("two buttons: the safe one with the bar's depth, the one that does it near black, never red", /cn\(secondaryDepth, "h-12/.test(confirmSheet) && /destructiveDepth/.test(confirmSheet) && /bg-\[#1a1a2e\]/.test(confirmSheet) && !/criticalDepth|#c4290c/.test(confirmSheet))
 check("the old forced dialog sheet and its swipe code are gone from the editor", !/showExitDialog|handleSaveAndExit|"unsaved"/.test(editor) && /\{confirmSheet\}/.test(editor))
 check("no window.confirm left in the editor: a big upload and deleting a file ask in the sheet", !/\bconfirm\(`/.test(editor) && /title: "Upload this much\?"/.test(editor) && /title: "Delete this file\?"/.test(editor))
 
@@ -234,7 +234,7 @@ check("the remove button is its own button above the handle; the labels take no 
 check("positions are read out, and position 1 is named the thumbnail", /`Picked up \$\{name\(active\.id\)\.toLowerCase\(\)\} of \$\{count\}\.`/.test(media) && /n === 1 \? ", the thumbnail" : ""/.test(media))
 check("only a drop commits; a cancel changes nothing", /onDragCancel=\{\(\) => setActiveId\(null\)\}/.test(media) && /arrayMove\(prev, from, to\)/.test(media))
 check("the editor draws the grid from the form's own media; the old sensors, overlay and dead touch handlers are gone",
-  /<MediaGrid items=\{mediaItems\} onChange=\{setMediaItems\} onRemove=\{removeMedia\} \/>/.test(editor) && !/SortableMediaItem|mediaSensors|activeDragItem|<DragOverlay|handleTouchStart|touchDragIndex|longPressTimerRef/.test(editor))
+  /<MediaGrid items=\{mediaItems\} pending=\{pendingMedia\} onChange=\{setMediaItems\} onRemove=\{removeMedia\} \/>/.test(editor) && !/SortableMediaItem|mediaSensors|activeDragItem|<DragOverlay|handleTouchStart|touchDragIndex|longPressTimerRef/.test(editor))
 
 console.log("\nThe editor's page")
 

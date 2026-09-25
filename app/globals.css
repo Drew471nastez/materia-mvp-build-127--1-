@@ -295,6 +295,11 @@ html.capacitor body {
     from { opacity: 0; }
     to   { opacity: 1; }
   }
+  /* A photo uploading in the product editor: one soft pass of light across it. */
+  @keyframes media-sheen {
+    from { transform: translateX(0); }
+    to   { transform: translateX(300%); }
+  }
   @keyframes skeleton-reveal {
     from { opacity: 0; }
     to { opacity: 1; }

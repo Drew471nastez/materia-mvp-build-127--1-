@@ -90,7 +90,7 @@ check("48px rows on a phone, 36px on a computer", /min-h-\[48px\]/.test(picker) 
 check("a search on top, across every group", /data-category-search=""/.test(picker) && /function search\(query: string\)/.test(picker))
 check("groups open into their categories, with a way back", /data-category-group=\{g\.name\}/.test(picker) && /data-category-back=""/.test(picker))
 check("a check on the chosen one, and choosing closes", /aria-current=\{on \? "true" : undefined\}/.test(picker) && /onChange\(category\)\s+setOpen\(false\)/.test(picker))
-check("on a computer a popover under the field, the search focused", /<PopoverContent[\s\S]{0,120}data-category-popover=""/.test(picker) && /querySelector<HTMLInputElement>\("\[data-category-search\]"\)\?\.focus\(\)/.test(picker))
+check("on a computer a window in the middle, not a popover over the fields, the search focused", /<DialogPrimitive\.Content[\s\S]{0,40}data-category-dialog=""/.test(picker) && !/PopoverContent/.test(picker) && /querySelector<HTMLInputElement>\("\[data-category-search\]"\)\?\.focus\(\)/.test(picker))
 check("every category the editor offered is still offered", (read("app/app/products/new/category-picker.tsx").match(/^      "/gm) ?? []).length >= 80 && /"Lightroom Presets"/.test(picker) && /"Video LUTs"/.test(picker))
 
 console.log("\nThe probe")
