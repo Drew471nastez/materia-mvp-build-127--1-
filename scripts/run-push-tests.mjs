@@ -196,6 +196,8 @@ const SUITES = [
   "tests/settings-flow.test.ts",
   "tests/sheet-rest.test.ts",
   "tests/control-frames.test.ts",
+  "tests/builder-sidebar.test.ts",
+  "tests/media-field.test.ts",
   "tests/header-search.test.ts",
   "tests/creator-page-default.test.ts",
   "tests/explore-show-all.test.ts",

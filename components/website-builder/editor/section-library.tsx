@@ -60,6 +60,7 @@ import SectionRenderer from "@/components/website-builder/sections/SectionRender
 import { StorelibLiveProvider } from "@/components/website-builder/sections/storelib-live"
 import { SECTION_CATEGORIES, SECTION_CATEGORY_ORDER } from "@/lib/website-builder/section-schemas"
 import { CUSTOM_SECTION_CATEGORY } from "@/lib/website-builder/storelib-schemas"
+import { lazyImages, previewKey, splitStyles } from "@/lib/website-builder/preview-markup"
 import type { SectionInstance, SectionSchema, ThemeSettingsValues } from "@/lib/website-builder/types"
 
 /* ── What a preview is drawn at ────────────────────────────────────────── */
@@ -103,37 +104,8 @@ export function buildPreviewSection(type: string, presetIndex: number, schema: S
   }
 }
 
-/** Every picture in a preview waits until it is near the screen, and decodes off the main thread. */
-export function lazyImages(html: string): string {
-  return html.replace(/<img\s/gi, '<img loading="lazy" decoding="async" ')
-}
 
-/**
- * ===========================================================================
- *  A PREVIEW'S STYLE GOES IN ONE SHEET, ONCE, BEFORE ANYBODY LOOKS
- * ===========================================================================
- * A section written as a .storelib file carries its own <style>, scoped to
- * its instance, inside its markup. Thirty-eight of those arriving in the
- * library meant thirty-eight new stylesheets in the document in the frame it
- * opened, and a new stylesheet makes the browser look again at every element
- * on the page, the whole editor included: measured, a 424ms task on a
- * computer at a quarter speed, most of it the dialog asking for its own
- * animation name and waiting for that style pass.
- *
- * So the styles are taken out of the markup when a preview is drawn and put
- * into one sheet of the library's own, in idle time, long before the library
- * opens. The card's markup is then only markup. Each rule is still scoped to
- * its own preview's instance, so nothing reaches the page.
- */
-const STYLE_BLOCK = /<style\b[^>]*>([\s\S]*?)<\/style>/gi
-export function splitStyles(html: string): { html: string; css: string[] } {
-  const css: string[] = []
-  const rest = html.replace(STYLE_BLOCK, (_, body: string) => {
-    if (body.trim()) css.push(body)
-    return ""
-  })
-  return { html: rest, css }
-}
+/* The styles taken out of each preview (lib/website-builder/preview-markup.ts), in one sheet of the library's own. */
 let styleSheet: HTMLStyleElement | null = null
 const styleQueue: string[] = []
 const addStyles = (css: string[]) => { styleQueue.push(...css) }
@@ -167,7 +139,6 @@ const subscribe = (l: () => void) => {
   return () => listeners.delete(l)
 }
 
-export const previewKey = (type: string, presetIndex: number, width: number, sourcesTag: string) => `${type}:${presetIndex}:${width}:${sourcesTag}`
 
 interface Job {
   key: string

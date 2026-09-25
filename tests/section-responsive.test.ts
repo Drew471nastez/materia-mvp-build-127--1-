@@ -1363,7 +1363,7 @@ check(
     /* Taller than wide on a phone: a phone's layout is a column, and its first screen is what is shown. */
     /export const PREVIEW_RATIO_MOBILE = 1\.22/.test(library) &&
     /const renderWidth = phone \? PREVIEW_RENDER_WIDTH_MOBILE : PREVIEW_RENDER_WIDTH/.test(library) &&
-    /export const previewKey = \(type: string, presetIndex: number, width: number, sourcesTag: string\) => `\$\{type\}:\$\{presetIndex\}:\$\{width\}:\$\{sourcesTag\}`/.test(library) &&
+    /export const previewKey = \(type: string, presetIndex: number, width: number, sourcesTag: string\) =>\s*`\$\{type\}:\$\{presetIndex\}:\$\{width\}:\$\{sourcesTag\}`/.test(readFileSync(join(root, "lib/website-builder/preview-markup.ts"), "utf8")) &&
     /const scale = width > 0 \? width \/ renderWidth : 0\.3/.test(library) &&
     /deviceMode=\{job\.width <= PREVIEW_RENDER_WIDTH_MOBILE \? "mobile" : "desktop"\}/.test(library),
 )
