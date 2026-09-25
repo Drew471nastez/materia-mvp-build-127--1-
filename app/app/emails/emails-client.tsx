@@ -47,6 +47,7 @@ import { sourceView } from "@/lib/contacts/contact-source"
 import { viewerTimeZone } from "@/lib/orders/time-zone"
 import { boundsOf, resolveValue, todayIn, type RangeValue } from "@/lib/date-range/range"
 import { cn } from "@/lib/utils"
+import { useToast } from "@/hooks/use-toast"
 import { buttonPrimary, buttonSecondary } from "../orders/order-parts"
 import { markRow, moveOrder, stillOrder } from "../orders/order-motion"
 import { EmailsHome, type CampaignRow, type EmailsTab, type FlowRow, type SubscriberRow } from "./emails-home"
@@ -156,14 +157,20 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
   const [search, setSearch] = React.useState("")
 
   /* ── Notices ────────────────────────────────────────────────────────── */
-  const [notice, setNotice] = React.useState<string | null>(null)
-  const noticeTimer = React.useRef<number | undefined>(undefined)
-  const onNotice = React.useCallback((message: string) => {
-    setNotice(message)
-    window.clearTimeout(noticeTimer.current)
-    noticeTimer.current = window.setTimeout(() => setNotice(null), 3200)
-  }, [])
-  React.useEffect(() => () => window.clearTimeout(noticeTimer.current), [])
+  /*
+    The app's own toast (components/ui/toaster.tsx), the same dark box with
+    a white mark as the automation pages and the rest of /app, where this
+    page used to draw a notice of its own at the top. Something that did not
+    happen gets the other mark: said so by the caller, or by the words ("Not
+    deleted. Try again.", "Could not copy the email").
+  */
+  const { toast } = useToast()
+  const onNotice = React.useCallback(
+    (message: string, failed = /^(Not |Could not |There are no )|Try again\.?$/.test(message)) => {
+      toast(failed ? { title: message, variant: "destructive" } : { title: message })
+    },
+    [toast],
+  )
 
   /* ── An email, or a contact, over the list ──────────────────────────── */
   /*
@@ -368,7 +375,7 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
     const out = res ? await res.json().catch(() => ({})) : {}
     if (!res || !res.ok) {
       const first = Array.isArray(out.problems) && out.problems[0]?.message
-      onNotice(first || out.error || (on ? "Not turned on. Try again." : "Not turned off. Try again."))
+      onNotice(first || out.error || (on ? "Not turned on. Try again." : "Not turned off. Try again."), true)
       return
     }
     write<FlowRow[]>(keyFor("flows"), (prev) => (prev ?? []).map((f) => (f.id === flow.id ? { ...f, status: on ? "active" : "paused" } : f)))
@@ -524,17 +531,6 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
               : "They are unsubscribed and get no more of your emails."}
         </p>
       </ComposeDialog>
-
-      <div
-        aria-live="polite"
-        className="pointer-events-none fixed left-1/2 top-[calc(68px+env(safe-area-inset-top,0px)+12px)] z-[100] -translate-x-1/2 md:top-[calc(58px+env(safe-area-inset-top,0px)+12px)]"
-      >
-        {notice ? (
-          <div className="max-w-[calc(100vw-2rem)] truncate rounded-xl bg-[#1a1a2e] px-4 py-2.5 text-[13px] font-medium text-white shadow-lg animate-in fade-in-0 slide-in-from-top-2 duration-200">
-            {notice}
-          </div>
-        ) : null}
-      </div>
     </div>
   )
 }

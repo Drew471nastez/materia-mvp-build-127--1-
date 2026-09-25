@@ -268,6 +268,10 @@ async function main() {
     !/from "lucide-react"[\s\S]{0,40}UserRoundPlus|ShoppingCart|BookOpen|CalendarClock/.test(parts) && (parts.match(/= drawing\(/g) ?? []).length >= 9
       && /welcome: JoinIcon/.test(parts) && /blank: PlusIcon/.test(parts))
 
+  check("the Emails page's notices are the app's toast, not a notice of its own, and what did not happen gets the other mark",
+    /const \{ toast \} = useToast\(\)/.test(page) && /toast\(failed \? \{ title: message, variant: "destructive" \} : \{ title: message \}\)/.test(page)
+      && !/setNotice|rounded-xl bg-\[#1a1a2e\] px-4 py-2\.5/.test(page) && /"Not turned off\. Try again\."\), true\)/.test(page))
+
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }
 }
