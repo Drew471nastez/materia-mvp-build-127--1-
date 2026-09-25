@@ -8,10 +8,10 @@ import { cookies, headers } from "next/headers"
 import { dayPart, greetingZone } from "@/lib/greeting"
 import { TIME_ZONE_COOKIE } from "@/lib/orders/time-zone"
 import { accountTimeZone } from "@/lib/account/time-zone"
-import { homeTotals } from "@/lib/analytics/home-figures"
 import { pageUser } from "@/lib/auth/page-user"
-import { connectedBioPlatforms } from "@/components/app/share/share-data"
 import { creatorPageHostFromRows, websiteHostFromRows } from "@/lib/custom-domains/client"
+import { factsFromRows, WEBSITE_LIVE_STATUS } from "@/lib/home/progress"
+import { readChallengeCounts } from "@/lib/home/progress-server"
 
 /*
   WHO IS ASKING, AND THEIR TWO ROWS, ONCE PER REQUEST. The title and the page
@@ -34,7 +34,7 @@ const homeProfile = cache(async (userId: string) => {
 const homeCreator = cache(async (userId: string) => {
   const { data } = await createAdminClient()
     .from("creators")
-    .select("id, user_id, slug, username, display_name, avatar_url, bio, onboarding_completed, payouts_enabled, stripe_onboarding_status, stripe_account_id, store_published, subscription_plan_id")
+    .select("id, user_id, slug, username, display_name, avatar_url, bio, onboarding_completed, payouts_enabled, charges_enabled, stripe_onboarding_status, stripe_account_id, store_published, subscription_plan_id")
     .eq("user_id", userId)
     .maybeSingle()
   return data
@@ -85,9 +85,10 @@ export default async function AppDashboard() {
   const [creator, profile, { data: onepage }] = await Promise.all([
     homeCreator(user.id),
     homeProfile(user.id),
+    /* Only whether it is published: the share panel says so under its address. */
     adminSupabase
       .from("onepages")
-      .select("id, status, draft_blocks, bio, avatar_url, title, social_links, instagram, tiktok, youtube")
+      .select("id, status")
       .eq("owner_id", user.id)
       .maybeSingle(),
   ])
@@ -101,35 +102,40 @@ export default async function AppDashboard() {
     { data: activeDomains },
     { data: publishedSite },
     { data: ordersData },
-    { data: creatorPageConfig },
+    challengeCounts,
   ] = await Promise.all([
+    /* Every product and whether it is published: Getting started asks for one, the challenges for five published. */
     adminSupabase
       .from("products")
-      .select("id")
+      .select("id, status")
       .eq("creator_id", creator.id),
     adminSupabase
       .from("custom_domains")
-      /* Every live domain, not maybeSingle: a creator can have several now, and
-         one row too many read as none. The creator page's is picked below. */
+      /* Every domain, not maybeSingle: a creator can have several now, and
+         one row too many read as none. The creator page's is picked below,
+         and lib/home/progress counts one whose DNS is verified as connected
+         (active, or ssl_provisioning while its certificate is issued). */
       .select("*")
       .eq("creator_id", creator.id)
-      .eq("status", "active")
       .order("created_at", { ascending: true }),
     /**
      * HAS THIS CREATOR GOT A WEBSITE THAT IS ACTUALLY LIVE?
      *
-     * Quick access lists the addresses somebody hands to another person, so
-     * the test is PUBLISHED, not "has a theme installed". Every account is
-     * seeded with installs the first time it opens the website builder, so
-     * existence would put a link to a 404 in front of people who have never
-     * built anything. `published_at` is written when they publish, and one
-     * row is enough to know.
+     * The share panel lists the addresses somebody hands to another person,
+     * and Getting started ticks "Build your online store" off the same
+     * answer, so the test is PUBLISHED RIGHT NOW, not "has a theme
+     * installed" (every account is seeded with installs the first time it
+     * opens the website builder) and not "was published once": the status,
+     * which the builder sets to "published" on publish and takes away on
+     * unpublish, and which every database has. published_at is only there
+     * once RUN_THEME_PUBLISHED_AT.sql has been run, and stays after an
+     * unpublish. One row is enough to know.
      */
     adminSupabase
       .from("store_theme_installs")
       .select("id")
       .eq("creator_id", creator.id)
-      .not("published_at", "is", null)
+      .eq("status", WEBSITE_LIVE_STATUS)
       .limit(1)
       .maybeSingle(),
     adminSupabase
@@ -137,23 +143,13 @@ export default async function AppDashboard() {
       .select("id, product_id, amount_cents, status, created_at, stripe_session_id, refund_amount_cents, products!inner(creator_id)")
       .eq("products.creator_id", creator.id)
       .order("created_at", { ascending: false }),
-    /* The creator page's header holds the socials Settings edits; the share sheet lists them as "My platforms". */
-    adminSupabase
-      .from("store_builder_configs")
-      .select("published_config, draft_config")
-      .eq("creator_id", creator.id)
-      .eq("page_type", "shop")
-      .maybeSingle(),
+    /* Subscribers, emails sent, automations on and coupons used, for the
+       challenges after Getting started (lib/home/progress-server): head
+       counts, each 0 on a database without its table. */
+    readChallengeCounts(adminSupabase, creator.id),
   ])
 
   const productIds = products?.map((p: any) => p.id) || []
-  const hasProducts = (products?.length || 0) > 0
-
-  const hasOnePage = !!onepage
-  const hasOnePageBlock = onepage?.draft_blocks && onepage.draft_blocks.length > 1
-
-  // Check for Stripe connection — read from creators table (source of truth)
-  const hasPayoutsSetup = creator.payouts_enabled === true || creator.stripe_onboarding_status === "connected"
 
   /* The rows the client is handed, without the embedded product, which was
      only the filter. The Stripe session groups a basket into one order and
@@ -161,82 +157,23 @@ export default async function AppDashboard() {
      (lib/analytics/home-figures). */
   const allOrders: any[] = (ordersData || []).map(({ products: _owner, ...order }: any) => order)
 
-  /* Orders that are sales, by the rule every figure uses (homeTotals). */
-  const { totalOrders } = homeTotals(allOrders)
-
-  // Branding check: check each item independently
-  const hasAvatar = !!(profile?.avatar_url || creator.avatar_url || onepage?.avatar_url)
-  const hasName = !!(profile?.display_name || creator.display_name || profile?.username || creator.username || creator.slug)
-  const hasBio = !!(creator.bio || onepage?.bio)
-  const hasBranding = hasAvatar && hasName && hasBio
-
-  // First sale check
-  const hasFirstSale = totalOrders > 0
-
-  // Setup checklist - 6 steps with concise tooltips
-  const setupSteps = [
-    {
-      id: "welcome",
-      title: "Welcome",
-      description: "Account created",
-      tooltip: "Your account is ready!",
-      completed: true,
-      href: "/app/settings",
-    },
-    {
-      id: "branding",
-      title: "Branding",
-      description: "Set your name, image, and bio",
-      tooltip: "Add your profile photo, name, and bio",
-      completed: hasBranding,
-      href: "/app/settings",
-    },
-    {
-      id: "product",
-      title: "Create your first product",
-      description: "Add something people can buy",
-      tooltip: "Create a product to start selling",
-      completed: hasProducts,
-      href: "/app/products/new",
-    },
-    {
-      id: "payouts",
-      title: "Set up payouts",
-      description: "Connect a payment method",
-      tooltip: "Connect Stripe to receive payments",
-      completed: hasPayoutsSetup,
-      href: "/app/payouts",
-    },
-    {
-      id: "onepage",
-      title: "Create your OnePage",
-      description: "Build your public page",
-      tooltip: "Build your link-in-bio page",
-      completed: hasOnePage && hasOnePageBlock,
-      href: "/app/onepage",
-    },
-    {
-      id: "sale",
-      title: "Make your first sale",
-      description: "Share your link and sell",
-      tooltip: "Share your link to get sales",
-      completed: hasFirstSale,
-      href: "/app/orders",
-    },
-  ]
-
-  /* The platforms a creator is on, from the creator page first and the OnePage second (components/app/share/share-data). */
-  const pageSocials =
-    (creatorPageConfig?.published_config as any)?.headerSettings?.socialLinks ??
-    (creatorPageConfig?.draft_config as any)?.headerSettings?.socialLinks ??
-    null
-  const onePageSocials = {
-    ...((onepage?.social_links as Record<string, string | null> | null) ?? {}),
-    instagram: (onepage?.social_links as any)?.instagram ?? onepage?.instagram ?? null,
-    tiktok: (onepage?.social_links as any)?.tiktok ?? onepage?.tiktok ?? null,
-    youtube: (onepage?.social_links as any)?.youtube ?? onepage?.youtube ?? null,
-  }
-  const sharePlatforms = connectedBioPlatforms({ creatorPage: pageSocials, onePage: onePageSocials })
+  /**
+   * WHAT THE ACCOUNT HAS DONE, by the rules in lib/home/progress: Getting
+   * started's eight steps and the challenges after them are worked out from
+   * these, on the server, and asked for again by Home when it is landed on
+   * from another page (GET /api/home/progress). The orders are counted as
+   * sales by the rule every figure uses (homeTotals), so "Make your first
+   * sale" and the Orders tab's all time count can never disagree.
+   */
+  const progressFacts = factsFromRows({
+    creator,
+    products: products ?? [],
+    domains: activeDomains ?? [],
+    websiteLive: !!publishedSite,
+    orders: allOrders,
+    userMetadata: user.user_metadata ?? null,
+    counts: challengeCounts,
+  })
 
   const displayName = profile?.display_name || creator.display_name || "there"
   const [jar, head] = await Promise.all([cookies(), headers()])
@@ -247,7 +184,7 @@ export default async function AppDashboard() {
       creatorId={creator.id}
       displayName={displayName}
       initialDayPart={dayPart(Date.now(), greetingTimeZone)}
-      initialSetupSteps={setupSteps}
+      initialProgress={progressFacts}
       productIds={productIds}
       initialOrders={allOrders}
       creatorHandle={profile?.username || creator.slug || ""}
@@ -255,7 +192,6 @@ export default async function AppDashboard() {
       websiteDomain={websiteHostFromRows(activeDomains)}
       websitePublished={!!publishedSite}
       subscriptionPlanId={creator.subscription_plan_id || "free"}
-      sharePlatforms={sharePlatforms}
       onePageLive={onepage?.status === "published"}
     />
   )

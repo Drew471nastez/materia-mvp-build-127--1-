@@ -61,9 +61,12 @@ import { createClient } from "@/lib/supabase/client"
 import { useLanguage } from "@/lib/i18n"
 import { getLinksShareUrl, getLinksUrlDisplay, getStoreShareUrl, getStoreUrlDisplay, getWebsiteShareUrl, getWebsiteUrlDisplay } from "@/lib/url-helpers"
 import { ShareStorelib } from "@/components/app/share/share-storelib"
-import { HomeCards, bumpGettingStarted, type StartStep } from "@/components/app/home/home-cards"
+import { HomeCards, bumpGettingStarted } from "@/components/app/home/home-cards"
+import { QuickActions } from "@/components/app/home/quick-actions"
+import { useHomeProgress } from "@/components/app/home/use-home-progress"
 import { BannerGlobe } from "@/components/app/home/globe"
 import type { ConnectedPlatform, ShareAddress } from "@/components/app/share/share-data"
+import { homeProgress, legacyFacts, type ProgressFacts } from "@/lib/home/progress"
 import { isNativeApp } from "@/lib/platform-utils"
 import { openExternal } from "@/lib/native-bridge"
 import { AxisLabels, fixedScale } from "@/components/app/chart-morph"
@@ -76,13 +79,14 @@ import { homeFigures, homeSpans, homeTotals, type HomeMetric } from "@/lib/analy
 import type { ViewRow } from "@/lib/analytics/reports"
 import type { OrderRow } from "@/lib/orders/order-view"
 
+/** The old checklist's shape, still accepted from the probes that render Home with it. */
 interface SetupStep {
   id: string
-  title: string
-  description: string
-  tooltip: string
+  title?: string
+  description?: string
+  tooltip?: string
   completed: boolean
-  href: string
+  href?: string
 }
 
 interface ChartDataPoint {
@@ -387,7 +391,15 @@ interface DashboardClientProps {
   displayName: string
   /** Worked out on the server from the creator's zone, so the first paint is already right. */
   initialDayPart?: DayPart
-  initialSetupSteps: SetupStep[]
+  /**
+   * What the account has done (lib/home/progress), read on the server. Getting
+   * started, the challenges after it and the purple bar are all worked out
+   * from these, and they are asked for again when Home is landed on from
+   * another page (use-home-progress).
+   */
+  initialProgress?: ProgressFacts
+  /** The old checklist, read only when `initialProgress` is not given. */
+  initialSetupSteps?: SetupStep[]
   productIds: string[]
   initialOrders?: Order[]
   creatorHandle?: string
@@ -397,7 +409,7 @@ interface DashboardClientProps {
   /** True only when a site has actually been published, never when one merely exists. */
   websitePublished?: boolean
   subscriptionPlanId?: string
-  /** The platforms the creator is on, for the share sheet's "My platforms" (app/app/page.tsx). */
+  /** No longer shown: the share panel is the addresses, Copy, a QR code and Share (components/app/share). */
   sharePlatforms?: ConnectedPlatform[]
   /** The OnePage is published, so its address opens (app/app/page.tsx). */
   onePageLive?: boolean
@@ -611,6 +623,7 @@ export function DashboardClient({
   creatorId,
   displayName,
   initialDayPart = "morning",
+  initialProgress,
   initialSetupSteps,
   productIds,
   initialOrders = [],
@@ -619,7 +632,6 @@ export function DashboardClient({
   websiteDomain = null,
   websitePublished = false,
   subscriptionPlanId = "free",
-  sharePlatforms = [],
   onePageLive = false,
 }: DashboardClientProps) {
   /**
@@ -976,10 +988,22 @@ export function DashboardClient({
     return () => window.clearTimeout(safetyTimer)
   }, [periodKey, creatorId]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Derive completion status from steps
-  const hasProducts = initialSetupSteps.find((s) => s.id === "product")?.completed || false
-  const hasPayouts = initialSetupSteps.find((s) => s.id === "payouts")?.completed || false
-  const hasFirstSale = initialSetupSteps.find((s) => s.id === "sale")?.completed || false
+  /**
+   * WHAT THE ACCOUNT HAS DONE (lib/home/progress), from the server, asked for
+   * again when Home is landed on from another page or comes back into view
+   * (use-home-progress), so a domain verified or Stripe connected meanwhile
+   * ticks without a reload. The sales are this page's own orders, kept live
+   * over realtime, counted by the same rule (homeTotals): a first sale ticks
+   * the moment it lands.
+   */
+  const { facts: readFacts, markGuideOpened } = useHomeProgress(initialProgress ?? legacyFacts(initialSetupSteps ?? [], subscriptionPlanId))
+  const facts = useMemo<ProgressFacts>(
+    () => ({ ...readFacts, sales: totals.totalOrders, revenueCents: Math.max(0, totals.totalRevenue) }),
+    [readFacts, totals.totalOrders, totals.totalRevenue],
+  )
+  const progress = useMemo(() => homeProgress(facts), [facts])
+  const hasProducts = facts.products > 0
+  const hasPayouts = facts.paymentsReady
   /**
    * THE ADDRESSES A CREATOR HANDS OUT, for the pill and the share sheet
    * (components/app/share). Always absolute, so the same string is copied,
@@ -1027,29 +1051,22 @@ export function DashboardClient({
   }, [creatorHandle, connectedDomain, websiteDomain, websitePublished, onePageLive])
 
   /**
-   * GETTING STARTED (components/app/home/home-cards): the six things a new
-   * store does before it sells, each read off the account the server sent,
-   * never ticked by hand. Signing up is done by being here. The store is the
-   * website, done once one is published; the domain once one is connected
-   * and active, for the website or for the creator page. The first sale
-   * opens the share sheet while there is none, because sharing the address
-   * is how the first one comes. The purple bar's "steps remaining" counts
-   * these same six.
+   * GETTING STARTED (components/app/home/home-cards): the eight steps of
+   * lib/home/progress, and once every one is done, the challenges. The
+   * purple bar's "steps remaining" counts the same eight. The first sale
+   * (and the ten sales after it) open the share panel while there is an
+   * address to share, because sharing it is how a sale comes.
    */
-  const startSteps = useMemo<StartStep[]>(() => [
-    { id: "signup", label: "Sign up", done: true, href: "/app/settings" },
-    { id: "product", label: "Add your first product", done: hasProducts, href: hasProducts ? "/app/products" : "/app/products/new" },
-    { id: "store", label: "Build your store", done: websitePublished, href: "/app/website-builder", hardNavigation: true },
-    { id: "payments", label: "Set up payments", done: hasPayouts, href: "/app/payouts" },
-    { id: "domain", label: "Connect your domain", done: !!(connectedDomain || websiteDomain), href: "/app/settings?tab=domains" },
-    hasFirstSale || shareAddresses.length === 0
-      ? { id: "sale", label: "Make your first sale", done: hasFirstSale, href: "/app/orders" }
-      : { id: "sale", label: "Make your first sale", done: false, onSelect: () => setShareSignal((n) => n + 1) },
-  ], [hasProducts, websitePublished, hasPayouts, connectedDomain, websiteDomain, hasFirstSale, shareAddresses.length])
-  const completedSteps = startSteps.filter((s) => s.done).length
-  const totalSteps = startSteps.length
-  const allCompleted = completedSteps === totalSteps
-
+  const completedSteps = progress.completed
+  const totalSteps = progress.total
+  const allCompleted = progress.setupDone
+  const canShare = shareAddresses.length > 0
+  const openShare = useCallback(() => setShareSignal((n) => n + 1), [])
+  /* The guide points at Getting started, and opening it is a step of its own, kept on the account. */
+  const openGuide = useCallback(() => {
+    markGuideOpened()
+    bumpGettingStarted()
+  }, [markGuideOpened])
 
   /* The purple bar's slides, worked out from the account. The bar itself,
      its timing and its state are AnnouncementBar, above. */
@@ -1145,16 +1162,27 @@ export function DashboardClient({
         {/*
           THE ADDRESS ON THE RIGHT, THE PERIOD BESIDE THE GREETING.
 
-          The period and the live count sit where quick access used to, next
-          to the greeting they describe. The right of the row is the creator's
-          address in a grey pill (components/app/share): the one thing on this
-          page they hand to other people, and what opens the share panel. On a
-          phone all three share one row under the greeting: the live count and
-          the period keep their size and the pill takes what is left, its
-          address fading out where the room runs out.
+          The period and the live count sit next to the greeting they
+          describe. The right of the row is the creator's address in a grey
+          pill (components/app/share): the one thing on this page they hand
+          to other people, and what opens the share panel.
+
+          ON A PHONE THE PILL IS ABOVE THE GREETING. "The pill on the same row
+          as 'Last 7 days' and '0 live' looks bad. Better to position that pill
+          above the 'Good evening' text, and reduce its width on mobile by
+          only 3%." It had what the live count and the period left of the row
+          (measured with Inter: 130, 160 and 200px at 360, 390 and 430 wide,
+          the column less 198px), and it keeps 97% of exactly that, its
+          address fading out where the room runs out; the live count and the
+          period have the row under the greeting to themselves.
         */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
           <div className="min-w-0">
+            {shareAddresses.length > 0 && (
+              <div data-home-phone-pill="" className="md:hidden mb-3 flex min-w-0 max-w-[calc((100%-198px)*0.97)]">
+                <ShareStorelib size="sm" addresses={shareAddresses} openSignal={shareSignal} />
+              </div>
+            )}
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
               <h1 className="text-[22px] sm:text-[26px] font-semibold text-[#1a1a2e] tracking-tight">
                 {t(`dashboard.greeting.${greetingPart}` as Parameters<typeof t>[0])}
@@ -1173,21 +1201,16 @@ export function DashboardClient({
           {/* Desktop: the address, which opens the share panel in place */}
           {shareAddresses.length > 0 && (
             <div className="hidden md:flex min-w-0 max-w-[300px] shrink-0 items-center">
-              <ShareStorelib addresses={shareAddresses} platforms={sharePlatforms} openSignal={shareSignal} />
+              <ShareStorelib addresses={shareAddresses} openSignal={shareSignal} />
             </div>
           )}
 
-          {/* Mobile: the live count, the period and the address, on one row */}
+          {/* Mobile: the live count and the period, on the row under the greeting */}
           <div className="md:hidden flex min-w-0 items-center gap-2">
             <LivePill count={liveVisitors} label={t("dashboard.liveVisitors")} className="shrink-0 px-2.5 rounded-xl h-9" textClassName="text-[12px] whitespace-nowrap" />
             <div className="shrink-0">
               <DateRangePicker value={period} onChange={setPeriod} today={dashToday} align="start" className="h-9 rounded-xl px-3" />
             </div>
-            {shareAddresses.length > 0 && (
-              <div className="ml-auto flex min-w-0 flex-1 justify-end">
-                <ShareStorelib size="sm" addresses={shareAddresses} platforms={sharePlatforms} openSignal={shareSignal} />
-              </div>
-            )}
           </div>
         </div>
 
@@ -1431,89 +1454,15 @@ export function DashboardClient({
           </div>
         </div>
 
-        {/* Getting started, the guide and Your Plan (components/app/home/home-cards) */}
-        <div className="mb-8">
-          <HomeCards steps={startSteps} planId={subscriptionPlanId} />
+        {/* Getting started, the guide and Your Plan (components/app/home/home-cards).
+            The id is where the sidebar's Setup ring and the phone menu's
+            Store setup card scroll to (components/app/sidebar). */}
+        <div id="store-setup-section" className="mb-8 scroll-mt-4">
+          <HomeCards progress={progress} planId={subscriptionPlanId} onGuide={openGuide} onShare={canShare ? openShare : undefined} />
         </div>
 
-        {/* Quick actions, two across from a tablet up */}
-        <div className="grid gap-4 md:grid-cols-2">
-          {/* Add a product card */}
-          <Link
-            href="/app/products/new"
-            className="group flex items-center gap-5 bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:border-[#8b5cf6]/30 hover:shadow-[0_4px_12px_rgba(139,92,246,0.08)] transition-all duration-200"
-          >
-            <div className="flex h-16 w-16 items-center justify-center rounded-xl overflow-hidden shrink-0">
-              <Image src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/iiii.png" alt="Create product" width={128} height={128} className="h-full w-full object-cover" />
-            </div>
-            <div className="flex-1">
-              <div className="flex items-center gap-2">
-                <p className="text-[15px] font-semibold text-[#1a1a2e] group-hover:text-[#8b5cf6] transition-colors">
-                  {t("dashboard.createProduct")}
-                </p>
-                <ArrowRight className="h-4 w-4 text-[#d1d5db] group-hover:text-[#8b5cf6] group-hover:translate-x-0.5 transition-all" />
-              </div>
-              <p className="text-[13px] text-[#6b7280] mt-0.5">{t("dashboard.createProductDesc")}</p>
-            </div>
-          </Link>
-
-          {/* Market your products card */}
-          <Link
-            href="/app/onepage"
-            className="group flex items-center gap-5 bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:border-[#8b5cf6]/30 hover:shadow-[0_4px_12px_rgba(139,92,246,0.08)] transition-all duration-200"
-          >
-            <div className="flex h-16 w-16 items-center justify-center rounded-xl overflow-hidden shrink-0">
-              <Image src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/ooaw.png" alt="Edit OnePage" width={128} height={128} className="h-full w-full object-cover" />
-            </div>
-            <div className="flex-1">
-              <div className="flex items-center gap-2">
-                <p className="text-[15px] font-semibold text-[#1a1a2e] group-hover:text-[#8b5cf6] transition-colors">
-                  {t("dashboard.editOnePage")}
-                </p>
-                <ArrowRight className="h-4 w-4 text-[#d1d5db] group-hover:text-[#8b5cf6] group-hover:translate-x-0.5 transition-all" />
-              </div>
-              <p className="text-[13px] text-[#6b7280] mt-0.5">{t("dashboard.editOnePageDesc")}</p>
-            </div>
-          </Link>
-
-          {/* View analytics card */}
-          <Link
-            href="/app/analytics"
-            className="group flex items-center gap-5 bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:border-[#8b5cf6]/30 hover:shadow-[0_4px_12px_rgba(139,92,246,0.08)] transition-all duration-200"
-          >
-            <div className="flex h-16 w-16 items-center justify-center rounded-xl overflow-hidden shrink-0">
-              <Image src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/naaly.png" alt="View analytics" width={128} height={128} className="h-full w-full object-cover" />
-            </div>
-            <div className="flex-1">
-              <div className="flex items-center gap-2">
-                <p className="text-[15px] font-semibold text-[#1a1a2e] group-hover:text-[#8b5cf6] transition-colors">
-                  {t("dashboard.viewAnalytics")}
-                </p>
-                <ArrowRight className="h-4 w-4 text-[#d1d5db] group-hover:text-[#8b5cf6] group-hover:translate-x-0.5 transition-all" />
-              </div>
-              <p className="text-[13px] text-[#6b7280] mt-0.5">{t("dashboard.viewAnalyticsDesc")}</p>
-            </div>
-          </Link>
-
-          {/* Add Custom Domain card */}
-          <Link
-            href="/app/settings?tab=domains"
-            className="group flex items-center gap-5 bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:border-[#8b5cf6]/30 hover:shadow-[0_4px_12px_rgba(139,92,246,0.08)] transition-all duration-200"
-          >
-            <div className="flex h-16 w-16 items-center justify-center rounded-xl overflow-hidden shrink-0">
-              <Image src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/domani.png" alt="Add domain" width={128} height={128} className="h-full w-full object-cover" />
-            </div>
-            <div className="flex-1">
-              <div className="flex items-center gap-2">
-                <p className="text-[15px] font-semibold text-[#1a1a2e] group-hover:text-[#8b5cf6] transition-colors">
-                  Add Custom Domain
-                </p>
-                <ArrowRight className="h-4 w-4 text-[#d1d5db] group-hover:text-[#8b5cf6] group-hover:translate-x-0.5 transition-all" />
-              </div>
-              <p className="text-[13px] text-[#6b7280] mt-0.5">Connect your own domain to your store</p>
-            </div>
-          </Link>
-        </div>
+        {/* Quick actions, two across from a tablet up (components/app/home/quick-actions) */}
+        <QuickActions />
 
       </div>
 
