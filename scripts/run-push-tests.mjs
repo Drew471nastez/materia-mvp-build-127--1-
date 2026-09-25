@@ -110,6 +110,7 @@ const SUITES = [
   "tests/product-page-load.test.ts",
   "tests/back-no-replay.test.ts",
   "tests/explore-entrance.test.ts",
+  "tests/explore-browse.test.ts",
   "tests/route-loading-bar.test.ts",
   "tests/avatar-grounds.test.ts",
   "tests/brand-logo.test.ts",

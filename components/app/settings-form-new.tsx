@@ -361,7 +361,7 @@ function CountrySelectorModal({
                 e.currentTarget.readOnly = false
               }
             }}
-            className="w-full h-11 pl-10 pr-4 border border-[#e5e7eb] rounded-xl text-[14px] focus:outline-none focus:ring-2 focus:ring-[#8b5cf6] focus:border-[#8b5cf6]"
+            className="w-full h-11 pl-10 pr-4 border border-[#e5e7eb] rounded-xl text-[16px] sm:text-[14px] outline-none transition-[border-color,box-shadow] duration-150 focus:border-[#c9ccd3] focus:shadow-[0_0_0_3px_rgba(17,17,19,0.06)]"
           />
         </div>
 

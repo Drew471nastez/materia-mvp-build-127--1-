@@ -776,7 +776,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
           <div data-controls="" className="flex flex-col gap-1 md:gap-2 md:pt-1 @min-[700px]:flex-row-reverse @min-[700px]:items-center @min-[700px]:justify-between @min-[700px]:gap-4">
             <div className="flex min-w-0 items-center gap-1 md:gap-2">
               <label data-search="" className="flex h-11 min-w-0 flex-1 cursor-text items-center md:h-8 @min-[700px]:w-[240px] @min-[700px]:flex-none xl:@min-[700px]:w-[270px]">
-                <span className="flex h-9 min-w-0 flex-1 items-center gap-2 rounded-[10px] border border-[#e3e5e8] bg-white px-3 transition-[border-color,box-shadow] duration-100 focus-within:border-[#1a1a2e] focus-within:shadow-[0_0_0_1px_#1a1a2e] md:h-8 md:rounded-lg md:px-2.5">
+                <span className="flex h-9 min-w-0 flex-1 items-center gap-2 rounded-[10px] border border-[#e3e5e8] bg-white px-3 transition-[border-color,box-shadow] duration-150 focus-within:border-[#c9ccd3] focus-within:shadow-[0_0_0_3px_rgba(17,17,19,0.06)] md:h-8 md:rounded-lg md:px-2.5">
                   <Search className="h-[15px] w-[15px] shrink-0 text-[#9ca3af]" aria-hidden />
                   <input
                     ref={searchInputRef}
