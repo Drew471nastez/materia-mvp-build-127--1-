@@ -25,6 +25,12 @@
  *   node scripts/check-page-flash.mjs
  *   FLASH_PAGES=home,emails node scripts/check-page-flash.mjs
  *   FLASH_SHOTS=<dir> node scripts/check-page-flash.mjs   (a picture of each page mid load: loading-<page>-<width>.png)
+ *
+ * Then, on Home and Analytics, THE FIGURE TABS WHILE THEY WAIT, with the data
+ * held back 1.5s: "I don't like the skeleton structure in the chart tabs;
+ * before it was the blur thing, I liked those, revert it." Each tab's figure
+ * is drawn and blurred while it waits (2px, its foot 1px), no gray bar
+ * stands in any tab, and once the answer lands every figure is sharp.
  */
 import { execFileSync } from "node:child_process"
 import { createServer } from "node:http"
@@ -142,7 +148,11 @@ try {
  *   a colour or a size that comes back to a value it had left
  *   text that is replaced by other text: a zero or a dash drawn and then
  *     turned into the figure is a figure that changed twice, the second
- *     time in front of you (text arriving where there was none is fine)
+ *     time in front of you (text arriving where there was none is fine).
+ *     One exception, the owner's: a figure tab's number drawn blurred while
+ *     it waits and clearing to the real one ("before it was the blur thing,
+ *     I liked those"). Text inside a [data-tab] that is still blurred when
+ *     it is replaced is that, and is one change.
  *
  * Sizes are read to the whole pixel, so an animation's last half pixel is
  * not a second change; an element that is animating for ever (a pulse, a
@@ -168,6 +178,12 @@ const RECORDER = `(() => {
      the inside of a drawing (an SVG's paths and groups) is drawn to animate,
      so only its box is read. */
   const same = (k, a, b, el) => (k === 3 || k === 4) ? (el.ownerSVGElement != null || Math.abs(a - b) < 1) : a === b
+  /* A figure tab's number or foot, blurred while it waits (components/app/metric-tab). */
+  const waitingBlurred = (el) => {
+    if (!el.closest("[data-tab]")) return false
+    const f = getComputedStyle(el).filter
+    return f !== "none" && f !== "blur(0px)"
+  }
   /* Changes this close together are one change (an animation, and its tail). */
   const RUN_GAP = 12
   const looping = (el) => {
@@ -214,7 +230,7 @@ const RECORDER = `(() => {
             if (v >= Number(seen[0]) - 0.001 && s.low > 0.1 && s.low < Number(seen[0]) - 0.03 && s.returned[k] == null) s.returned[k] = { frame: fr, value: vals[k], path: [seen[0], String(s.low), vals[k]] }
             s.low = Math.min(s.low, v)
           } else if (PROPS[k] === "text") {
-            if (s.last[k] !== "" && vals[k] !== "" && s.returned[k] == null) s.returned[k] = { frame: fr, value: vals[k], path: [s.last[k], vals[k]], replaced: true }
+            if (s.last[k] !== "" && vals[k] !== "" && s.returned[k] == null && !waitingBlurred(el)) s.returned[k] = { frame: fr, value: vals[k], path: [s.last[k], vals[k]], replaced: true }
           } else if (seen.length > 1 && seen.slice(0, -1).includes(vals[k]) && s.returned[k] == null) {
             s.returned[k] = { frame: fr, value: vals[k], path: seen.concat(vals[k]).slice(-4) }
           }
@@ -285,6 +301,46 @@ for (const [label, viewport] of [
     if (r.focusRingFrames) problems.push(`${id} at ${label}: a focus ring showed on ${r.focusRingFrames} frames of the landing`)
   }
 }
+const tabsWait = {}
+for (const [label, viewport] of [
+  ["390", { width: 390, height: 844, deviceScaleFactor: 2, isMobile: true, hasTouch: true }],
+  ["1280", { width: 1280, height: 860, deviceScaleFactor: 1 }],
+]) {
+  for (const id of PAGES.filter((p) => p === "home" || p === "analytics")) {
+    const page = await browser.newPage()
+    await page.setViewport(viewport)
+    await page.goto(`${base}/?page=${id}&delay=1500`)
+    const read = () => page.evaluate(() => [...document.querySelectorAll("button[role=tab][data-tab]")].filter((t) => t.getBoundingClientRect().width > 0).map((t) => {
+      const value = t.querySelector(".tabular-nums")
+      const foot = t.querySelector(":scope > span:last-of-type")
+      return {
+        tab: t.getAttribute("data-tab"),
+        text: value ? value.textContent.trim() : null,
+        blur: value ? getComputedStyle(value).filter : null,
+        footBlur: foot ? getComputedStyle(foot).filter : null,
+        bars: t.querySelectorAll("[data-shimmer-block], [data-shimmer], .shimmer-block").length,
+      }
+    }))
+    await wait(600)
+    const during = await read()
+    if (process.env.FLASH_SHOTS) await page.screenshot({ path: join(process.env.FLASH_SHOTS, `tabs-waiting-${id}-${label}.png`) })
+    /* Home asks in a chain, each answer 1.5s late here. */
+    await wait(5000)
+    const after = await read()
+    if (process.env.FLASH_SHOTS) await page.screenshot({ path: join(process.env.FLASH_SHOTS, `tabs-landed-${id}-${label}.png`) })
+    await page.close()
+    const sharp = (f) => f === "none" || f === "blur(0px)"
+    tabsWait[`${id}@${label}`] = { during, after }
+    const w = during.length > 0 && during.every((t) => t.text && t.blur === "blur(2px)" && t.footBlur === "blur(1px)" && t.bars === 0)
+    const a = after.length === during.length && after.every((t) => t.text && sharp(t.blur) && sharp(t.footBlur) && t.bars === 0)
+    const line = (ts) => ts.map((t) => `${t.tab} "${t.text}" ${t.blur}/${t.footBlur}${t.bars ? `, ${t.bars} bars` : ""}`).join("; ")
+    console.log(`${w ? "ok  " : "FAIL"}  ${id} at ${label}: while the figures wait, each tab's figure is blurred, no bar: ${line(during)}`)
+    console.log(`${a ? "ok  " : "FAIL"}  ${id} at ${label}: once they land, sharp: ${line(after)}`)
+    if (!w) problems.push(`${id} at ${label}: the figure tabs do not wait blurred (${line(during)})`)
+    if (!a) problems.push(`${id} at ${label}: the figure tabs are not sharp once the figures land (${line(after)})`)
+  }
+}
+
 await browser.close()
 server.close()
 console.log(JSON.stringify(report, null, 1))

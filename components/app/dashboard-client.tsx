@@ -917,11 +917,10 @@ export function DashboardClient({
      is no drawing of the page before it: a full page skeleton used to sit
      here behind an `isLoading` that nothing ever set. */
   const [isRefreshing, setIsRefreshing] = useState(true)
-  /* The period's first figures are in. Until then the four tabs hold light
-     gray shapes where the numbers go (components/app/metric-tab `loading`):
-     they used to draw zeros, blurred, that then turned into the real
-     figures, and "No activity yet" over the chart until the answer said
-     otherwise. */
+  /* The period's first figures are in. Until then the four tabs draw their
+     figures soft, blurred, and clear to the real numbers when they land
+     (components/app/metric-tab `loading`), and "No activity yet" waits for
+     the answer rather than showing over the chart before it. */
   const [figuresReady, setFiguresReady] = useState(false)
   const [expandedStep, setExpandedStep] = useState<string | null>(null)
   const [openKPIModal, setOpenKPIModal] = useState<KPIType>("views")

@@ -39,7 +39,21 @@
  *                           editor, on a phone, visible, on top, reachable,
  *                           and the editor's last content scrolls clear of it
  *
- * The editor at 1440:
+ * The editor from lg (1280, 1440, 1920), where its Save is at the foot:
+ *
+ *   THE SHELL AROUND IT     the black header is painted and reached; the rail
+ *                           is at 0 and 240px wide, and every point of a grid
+ *                           over it lands in it (nothing of the editor covers
+ *                           or shifts it), and the window never scrolls
+ *                           sideways; the editor fills the content area
+ *   NO TOP BAR, NO TABS     the page header 24px under the shell's, two
+ *                           columns, the main one wider
+ *   THE FOOT BAR            sticky, across the content area to the pixel, on
+ *                           the bottom edge, padded by the home indicator's
+ *                           inset (34px under the override, 0 without), Save
+ *                           reachable; still on the edge scrolled 600px
+ *
+ * The editor at 900 (md, below lg), where its bar is still at the top:
  *
  *   THE SHELL AROUND IT     the black header and the rail are painted and a
  *                           point in each lands in it; the editor fills the
@@ -53,7 +67,8 @@
  *                           centred in the content area
  *   ACROSS THE BREAKPOINT   the same boxes at 767 (a layer over the window)
  *                           and 768 (in the shell): the editor's scroll is
- *                           kept both ways and its bar is at the top of it
+ *                           kept both ways and its bar is at the top of it;
+ *                           at 1440 it is the same node with the same scroll
  *
  *   node scripts/check-page-layer.mjs
  */
@@ -147,7 +162,10 @@ const frames = (p) => p.evaluate(() => new Promise((r) => requestAnimationFrame(
 
 const VIEWPORTS = {
   390: { width: 390, height: 844, deviceScaleFactor: 2, isMobile: true, hasTouch: true },
+  900: { width: 900, height: 900, deviceScaleFactor: 1 },
+  1280: { width: 1280, height: 800, deviceScaleFactor: 1 },
   1440: { width: 1440, height: 900, deviceScaleFactor: 1 },
+  1920: { width: 1920, height: 1080, deviceScaleFactor: 1 },
 }
 /* width, engine, native shell, inset */
 const RUNS = [
@@ -155,11 +173,68 @@ const RUNS = [
   [390, "webkit", false, INSET],
   [390, "chromium", false, INSET],
   [390, "chromium", false, null],
+  /* From md to lg the editor keeps its top bar, under the shell's header. */
+  [900, "webkit", false, INSET],
+  [900, "chromium", false, null],
   /* Not the native shell at 1440: a landscape window there is the rotation
-     guard's (a phone held sideways), which covers everything by design. */
+     guard's (a phone held sideways), which covers everything by design.
+     From lg the editor's bar is at its foot. */
+  [1280, "chromium", false, null],
   [1440, "webkit", false, INSET],
   [1440, "chromium", false, null],
+  [1920, "chromium", false, null],
 ]
+
+/**
+ * The editor from lg: a page header under the shell's, two columns, and the
+ * foot bar along the bottom of the content area, sticky in the pane that
+ * scrolls, never over the rail.
+ */
+async function measureDesk(p) {
+  return p.evaluate(() => {
+    const W = innerWidth, H = innerHeight
+    const r1 = (n) => Math.round(n * 10) / 10
+    const shown = (el) => !!el && el.getClientRects().length > 0
+    const header = document.querySelector("[data-desktop-header]")
+    const rail = document.querySelector("[data-rail]")
+    const layer = document.querySelector("[data-page-layer]")
+    const scroller = layer.querySelector("[data-page-layer-scroll] > .page-scroll")
+    const foot = document.querySelector("[data-editor-foot]")
+    const head = document.querySelector("[data-editor-head]")
+    const hr = header.getBoundingClientRect()
+    const lr = layer.getBoundingClientRect()
+    const railR = rail.getBoundingClientRect()
+    const sr = scroller.getBoundingClientRect()
+    const fr = foot.getBoundingClientRect()
+    const hit = (x, y, el) => el.contains(document.elementFromPoint(x, y))
+    /* A grid over the rail: every point lands in the rail, none in the editor. */
+    let railPoints = 0, railHits = 0
+    for (let y = railR.top + 10; y < railR.bottom - 10; y += 40) {
+      for (let x = railR.left + 10; x < railR.right - 10; x += 40) {
+        railPoints++
+        if (hit(x, y, rail)) railHits++
+      }
+    }
+    const save = foot.querySelector("[data-save-button]")
+    const sb = save.getBoundingClientRect()
+    return {
+      W, H,
+      header: { bottom: r1(hr.bottom), visibility: getComputedStyle(header).visibility, hit: hit(W / 2, hr.bottom / 2, header) },
+      rail: { x: r1(railR.x), width: r1(railR.width), visibility: getComputedStyle(rail).visibility, points: railPoints, hits: railHits },
+      doc: { scrollWidth: document.scrollingElement.scrollWidth, scrollX: scrollX },
+      layer: { x: r1(lr.x), y: r1(lr.y), w: r1(lr.width), h: r1(lr.height), position: getComputedStyle(layer).position },
+      topBar: shown(document.querySelector("[data-editor-bar]")),
+      tabs: document.querySelectorAll("[data-page-layer] [role=tablist]").length,
+      head: shown(head) ? { top: r1(head.getBoundingClientRect().top) } : null,
+      columns: [document.querySelector("[data-editor-main]"), document.querySelector("[data-editor-side]")].map((c) => r1(c.getBoundingClientRect().width)),
+      area: { left: r1(sr.left + scroller.clientLeft), width: r1(scroller.clientWidth), bottom: r1(sr.top + scroller.clientHeight) },
+      foot: shown(foot) ? { left: r1(fr.left), width: r1(fr.width), top: r1(fr.top), bottom: r1(fr.bottom), position: getComputedStyle(foot).position, paddingBottom: getComputedStyle(foot).paddingBottom } : null,
+      saveReached: hit(sb.x + sb.width / 2, sb.y + sb.height / 2, save),
+      sideways: scroller.scrollWidth - scroller.clientWidth,
+      scrollable: scroller.scrollHeight - scroller.clientHeight,
+    }
+  })
+}
 
 /** The page drawn over the whole window: the plans page anywhere, the editor on a phone. */
 async function measureLayer(p, which) {
@@ -272,6 +347,40 @@ for (const which of (process.env.PAGES || "plans,new,edit").split(",")) {
     if (process.env.LAYER_SHOTS) await p.screenshot({ path: join(process.env.LAYER_SHOTS, `${label.replace(/ /g, "-")}.png`) })
     const at = `${label}:`
     const wantTop = inset ? inset.top : 0
+
+    if (which !== "plans" && width >= 1024) {
+      /* ── The editor from lg: a page header, two columns, the foot bar ──── */
+      const m = await measureDesk(p)
+      const wantHeader = 58 + wantTop
+      const wantPad = `${inset ? inset.bottom : 0}px`
+      const scrolled = await p.evaluate(async () => {
+        const s = document.querySelector("[data-page-layer-scroll] > .page-scroll")
+        s.scrollTop = 600
+        await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
+        return s.scrollTop
+      })
+      const after = await measureDesk(p)
+      await p.close()
+      report[label] = { ...m, scrolled: { to: scrolled, foot: after.foot }, errors }
+      if (errors.length) problems.push(`${at} the page threw: ${errors[0]}`)
+      if (m.header.visibility !== "visible" || !m.header.hit || Math.abs(m.header.bottom - wantHeader) > 0.5) problems.push(`${at} the black header is not showing, whole, over the editor: ${JSON.stringify(m.header)}`)
+      if (m.rail.visibility !== "visible" || m.rail.x !== 0 || m.rail.width !== 240 || m.rail.hits !== m.rail.points) problems.push(`${at} the rail is clipped, moved or covered beside the editor: ${JSON.stringify(m.rail)}`)
+      if (m.doc.scrollWidth !== m.W || m.doc.scrollX !== 0) problems.push(`${at} the window scrolls sideways, which would move the rail: ${JSON.stringify(m.doc)}`)
+      if (m.layer.position === "fixed" || m.layer.x !== 240 || Math.abs(m.layer.y - wantHeader) > 0.5 || m.layer.w !== m.W - 240 || Math.abs(m.layer.h - (m.H - wantHeader)) > 0.5)
+        problems.push(`${at} the editor does not fill exactly the content area: ${JSON.stringify(m.layer)}`)
+      if (m.topBar) problems.push(`${at} the top bar is drawn from lg, where Save is at the foot`)
+      if (m.tabs) problems.push(`${at} a row of section tabs is drawn`)
+      if (!m.head || Math.abs(m.head.top - (wantHeader + 24)) > 0.5) problems.push(`${at} the page header should start 24px under the shell's header: ${JSON.stringify(m.head)}`)
+      if (!(m.columns[0] > m.columns[1] * 1.4 && m.columns[1] >= 272)) problems.push(`${at} the form is not two columns, the main one wider: ${JSON.stringify(m.columns)}`)
+      if (!m.foot || m.foot.position !== "sticky" || m.foot.left !== m.area.left || m.foot.width !== m.area.width || m.foot.bottom !== m.H || m.foot.bottom !== m.area.bottom)
+        problems.push(`${at} the foot bar is not across the content area on the bottom edge: ${JSON.stringify({ foot: m.foot, area: m.area, H: m.H })}`)
+      if (m.foot && m.foot.paddingBottom !== wantPad) problems.push(`${at} the foot bar pads ${m.foot.paddingBottom} for the home indicator, not ${wantPad}`)
+      if (!m.saveReached) problems.push(`${at} a click on Save in the foot bar does not reach it`)
+      if (m.sideways) problems.push(`${at} the editor scrolls sideways by ${m.sideways}px`)
+      if (m.scrollable < 600 || scrolled < 600) problems.push(`${at} the editor did not scroll 600px (${scrolled} of ${m.scrollable})`)
+      if (!after.foot || after.foot.bottom !== m.H || after.foot.top !== m.foot?.top) problems.push(`${at} scrolled 600px, the foot bar left the bottom edge: ${JSON.stringify(after.foot)}`)
+      continue
+    }
 
     if (which !== "plans" && width >= 768) {
       /* ── The editor in the shell ─────────────────────────────────────── */
@@ -403,4 +512,4 @@ const brief = Object.fromEntries(Object.entries(report).map(([k, v]) => [k, v.po
 } : v]))
 console.log(JSON.stringify(brief, null, 1))
 if (problems.length) fail(problems.join("\n"))
-console.log("ok: the plans page covers the whole shell at every width and the editor does on a phone, bars under the status bar and nothing of the header, in Chromium and under WebKit's stacking rule; from md the editor sits in the shell, its bar exactly under the header, beside the rail, the same boxes and scroll across the breakpoint")
+console.log("ok: the plans page covers the whole shell at every width and the editor does on a phone, bars under the status bar and nothing of the header, in Chromium and under WebKit's stacking rule; from md the editor sits in the shell, its bar exactly under the header, beside the rail, the same boxes and scroll across the breakpoint; from lg its Save is in a foot bar across the content area, the rail untouched")

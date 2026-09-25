@@ -9,9 +9,14 @@
  * a real key reads when it is down. No gradients, no glow.
  *
  * Only the look and the press. Size, radius and padding are the caller's, so
- * the product editor's bar, its questions and the Website page's row menus
- * share one depth at their own sizes. The product editor started this
- * (app/app/products/new/editor-buttons.tsx), which re-exports these.
+ * the product editor's bar, its questions, the Website page's title buttons
+ * and its row menus share one depth at their own sizes. The product editor
+ * started this (app/app/products/new/editor-buttons.tsx), which re-exports
+ * these.
+ *
+ * The keyboard outline names its style (`focus-visible:outline-solid`):
+ * Tailwind 4's `outline-none` sets the style variable `outline-2` reads to
+ * none, so without it the outline had a width and a colour and never drew.
  */
 import { cn } from "@/lib/utils"
 
@@ -23,7 +28,7 @@ export const secondaryDepth = cn(
   "inline-flex shrink-0 cursor-pointer select-none items-center justify-center gap-1.5 whitespace-nowrap border border-[#d9dbe0] bg-white font-medium text-[#1a1a2e] outline-none",
   "shadow-[inset_0_-1px_0_rgba(0,0,0,0.08),0_1px_0_rgba(0,0,0,0.05)] transition-[background-color,box-shadow] duration-100",
   "hover:bg-[#f7f7f8] active:bg-[#f1f2f4] active:shadow-[inset_0_1px_1px_rgba(0,0,0,0.1)]",
-  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#8b5cf6]",
+  "focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-[#8b5cf6]",
   "disabled:cursor-not-allowed disabled:opacity-50",
   "[-webkit-tap-highlight-color:transparent]",
 )
@@ -40,24 +45,8 @@ export const iconDepth = cn(
   "inline-flex shrink-0 cursor-pointer select-none items-center justify-center gap-1.5 whitespace-nowrap border border-[#d9dbe0] bg-white font-medium text-[#1a1a2e] outline-none",
   "shadow-[inset_0_-2px_0_rgba(0,0,0,0.07),0_1px_2px_rgba(15,23,42,0.08)] transition-[background-color,box-shadow] duration-100",
   "hover:bg-[#f7f7f8] active:bg-[#f1f2f4] active:shadow-[inset_0_1px_2px_rgba(0,0,0,0.12)]",
-  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#8b5cf6]",
+  "focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-[#8b5cf6]",
   "disabled:cursor-not-allowed disabled:opacity-50",
-  "[-webkit-tap-highlight-color:transparent]",
-)
-
-/**
- * Polaris's light grey button, for controls that sit on the page's own grey
- * rather than on a card: the Website page's Public and View website. A fill
- * a step darker than the page, no border, a faint shade at its foot, a step
- * darker again on hover and flat when pressed. Disabled keeps its shape and
- * fades, so a row of them does not change width.
- */
-export const grayDepth = cn(
-  "inline-flex shrink-0 cursor-pointer select-none items-center justify-center gap-1.5 whitespace-nowrap bg-[#e3e3e3] font-medium text-[#303030] outline-none",
-  "shadow-[inset_0_-1px_0_rgba(0,0,0,0.08)] transition-[background-color,box-shadow] duration-100",
-  "hover:bg-[#d4d4d4] active:bg-[#cccccc] active:shadow-[inset_0_1px_1px_rgba(0,0,0,0.12)]",
-  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#8b5cf6]",
-  "disabled:cursor-not-allowed disabled:bg-[#ebebeb] disabled:text-[#9a9a9a] disabled:shadow-none",
   "[-webkit-tap-highlight-color:transparent]",
 )
 
@@ -72,7 +61,7 @@ export const primaryDepth = cn(
   "bg-[#8b5cf6] shadow-[inset_0_1px_0_rgba(255,255,255,0.22),inset_0_-1px_0_rgba(0,0,0,0.18),0_1px_1px_rgba(76,29,149,0.25)]",
   "transition-[background-color,box-shadow,color] duration-100",
   "hover:bg-[#7c3aed] active:bg-[#6d28d9] active:shadow-[inset_0_1px_2px_rgba(0,0,0,0.28)]",
-  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#8b5cf6]",
+  "focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-[#8b5cf6]",
   "[-webkit-tap-highlight-color:transparent]",
 )
 
@@ -81,6 +70,6 @@ export const criticalDepth = cn(
   "inline-flex shrink-0 cursor-pointer select-none items-center justify-center gap-1.5 whitespace-nowrap bg-[#c4290c] font-semibold text-white outline-none",
   "shadow-[inset_0_1px_0_rgba(255,255,255,0.2),inset_0_-1px_0_rgba(0,0,0,0.2),0_1px_1px_rgba(0,0,0,0.12)] transition-[background-color,box-shadow] duration-100",
   "hover:bg-[#ab230a] active:bg-[#921e09] active:shadow-[inset_0_1px_2px_rgba(0,0,0,0.3)]",
-  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#c4290c]",
+  "focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-[#c4290c]",
   "[-webkit-tap-highlight-color:transparent]",
 )
