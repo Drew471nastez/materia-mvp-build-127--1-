@@ -102,6 +102,17 @@ export function usePhone(): boolean {
 
 /* ── the frame the steps move in ────────────────────────────────────────── */
 
+const NO_STEPS: readonly string[] = []
+/**
+ * A kept step: out of sight, out of the flow, its rendering skipped where
+ * the browser has content-visibility. Set as a style: a class that hides
+ * something is a change the page's :has() rules answer by restyling the
+ * whole document, a style is not (scripts/check-app-sheets-frames.mjs).
+ */
+const STEP_AWAY: React.CSSProperties = { visibility: "hidden", contentVisibility: "hidden", pointerEvents: "none", position: "absolute", left: 0, top: 0 }
+const STEP_AWAY_FULL: React.CSSProperties = { ...STEP_AWAY, right: 0 }
+const CUSTOM_AHEAD: readonly string[] = ["custom"]
+
 /**
  * Two steps side by side for the length of one move.
  *
@@ -125,15 +136,18 @@ function StepFrame({
   dir,
   compact,
   render,
+  ahead = NO_STEPS,
 }: {
   active: string
   dir: 1 | -1
   compact: boolean
   render: (key: string) => React.ReactNode
+  /** Steps built with the frame and kept out of sight, so the first visit to each is only a show. */
+  ahead?: readonly string[]
 }) {
   const [shown, setShown] = React.useState(active)
   const [leaving, setLeaving] = React.useState<{ key: string; dir: 1 | -1 } | null>(null)
-  const [kept, setKept] = React.useState<string[]>([active])
+  const [kept, setKept] = React.useState<string[]>(() => [active, ...ahead.filter((k) => k !== active)])
   /* Decided during the render that receives the new step, so the first frame
      painted already has both layers in place. */
   if (shown !== active) {
@@ -174,15 +188,15 @@ function StepFrame({
             key={k}
             ref={on ? activeRef : undefined}
             data-drp-step={k}
-            data-drp-kept={!on && !going ? "" : undefined}
             inert={!on}
             className={cn(
               compact ? "w-full" : "w-max",
-              !on && "pointer-events-none absolute left-0 top-0",
-              !on && compact && "right-0",
-              !on && !going && "invisible [content-visibility:hidden]",
+              going && "pointer-events-none absolute left-0 top-0",
+              going && compact && "right-0",
               motion,
             )}
+            /* A kept step is away by its style, not by classes: see STEP_AWAY. */
+            style={!on && !going ? (compact ? STEP_AWAY_FULL : STEP_AWAY) : undefined}
           >
             {render(k)}
           </div>
@@ -401,11 +415,14 @@ function Month({
                 hidden={!isDay}
                 data-day={isDay ? d : undefined}
                 tabIndex={isDay && d === focusDay ? 0 : -1}
-                disabled={disabled || !isDay}
+                /* aria-disabled, not disabled: a :disabled that changes is a
+                   change under a :has() in the app's CSS, answered with a
+                   restyle of the whole document on every arrow tap. */
+                aria-disabled={disabled || !isDay || undefined}
                 aria-pressed={edge}
                 aria-current={isDay && d === today ? "date" : undefined}
                 aria-label={isDay ? longDate(d) : undefined}
-                onClick={() => isDay && onPick(d)}
+                onClick={() => isDay && !disabled && onPick(d)}
                 onMouseEnter={() => isDay && onHover(d)}
                 onFocus={() => isDay && setFocusDay(d)}
                 className={cn(
@@ -659,7 +676,8 @@ export function RangePanel({ initial, today, months, onBack, onApply, inline = f
               </span>
             ))}
           </div>
-          <button type="button" aria-label="Next month" disabled={!canForward} onClick={forward} className={cn(monthNav, navSize)}>
+          {/* aria-disabled with the same look, not disabled: see the days above. */}
+          <button type="button" aria-label="Next month" aria-disabled={!canForward || undefined} onClick={forward} className={cn(monthNav, navSize, !canForward && "pointer-events-none opacity-35")}>
             <ChevronRight className="h-4 w-4" strokeWidth={2.25} />
           </button>
         </div>
@@ -738,6 +756,7 @@ function PickerPanel({
   compact,
   onPick,
   restart = 0,
+  ahead,
 }: {
   value: RangeValue
   today: Ymd
@@ -746,6 +765,8 @@ function PickerPanel({
   onPick: (v: RangeValue) => void
   /** A new number puts the panel back on the list, for a sheet that is kept between opens. */
   restart?: number
+  /** Steps to build with the panel (see StepFrame `ahead`). */
+  ahead?: readonly string[]
 }) {
   const [step, setStep] = React.useState("list")
   const [dir, setDir] = React.useState<1 | -1>(1)
@@ -803,7 +824,7 @@ function PickerPanel({
 
   return (
     <div ref={rootRef} data-drp-panel>
-      <StepFrame active={step} dir={dir} compact={compact} render={render} />
+      <StepFrame active={step} dir={dir} compact={compact} render={render} ahead={ahead} />
     </div>
   )
 }
@@ -917,7 +938,7 @@ export function DateRangePicker({ value, onChange, today, firstDay, align = "sta
         {trigger}
         {/* Kept, and built while the page is idle: the tap only slides it up. */}
         <BottomSheet isOpen={open} onClose={() => setOpen(false)} title="Date range" keepMounted={onScreen} onClosed={onSheetClosed}>
-          <PickerPanel value={value} today={today} firstDay={firstDay} compact onPick={pick} restart={restart} />
+          <PickerPanel value={value} today={today} firstDay={firstDay} compact onPick={pick} restart={restart} ahead={CUSTOM_AHEAD} />
         </BottomSheet>
       </>
     )

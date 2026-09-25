@@ -348,10 +348,13 @@ function LinkRow({
         <ArrowUpRight className="h-[18px] w-[18px]" strokeWidth={1.75} aria-hidden />
       </button>
       <button type="button" onClick={onCopy} data-share-copy="" className={cn(inkDepth, "h-9 min-w-[70px] rounded-[10px] px-3 text-[14px]")}>
-        {/* The check is always there and shown or hidden: an element put in
-            or taken out under a sheet is a change the page's :has() rules
-            answer by restyling the whole document (scripts/check-app-sheets-frames.mjs). */}
-        <Check className={cn("h-4 w-4", !copied && "hidden")} strokeWidth={2.25} aria-hidden />
+        {/* The check is always there and shown or hidden by its `hidden`
+            attribute: an element put in or taken out under a sheet, or a
+            class that hides it, is a change the page's :has() rules answer
+            by restyling the whole document (scripts/check-app-sheets-frames.mjs). */}
+        <span hidden={!copied} className="inline-flex">
+          <Check className="h-4 w-4" strokeWidth={2.25} aria-hidden />
+        </span>
         {copied ? "Copied" : "Copy"}
       </button>
     </div>
@@ -793,7 +796,9 @@ const QrView = React.memo(function QrView({ address, phone, copied, onCopy }: { 
           </button>
         )}
         <button type="button" onClick={onCopy} className={cn(inkDepth, "h-11 rounded-xl text-[15px]")}>
-          <Check className={cn("h-4 w-4", !copied && "hidden")} strokeWidth={2.25} aria-hidden />
+          <span hidden={!copied} className="inline-flex">
+            <Check className="h-4 w-4" strokeWidth={2.25} aria-hidden />
+          </span>
           {copied ? "Copied" : "Copy link"}
         </button>
       </div>
@@ -809,7 +814,7 @@ const QrView = React.memo(function QrView({ address, phone, copied, onCopy }: { 
  * Animations API, so there are no keyframes to add to globals.css; both
  * skipped when the person has asked for less motion.
  *
- * What slides in is the view that is showing: the Pane marked `data-on`.
+ * What slides in is the view that is showing: the Pane that is not away.
  */
 function Swap({ viewKey, forward, children }: { viewKey: string; forward: boolean; children: React.ReactNode }) {
   const outer = React.useRef<HTMLDivElement>(null)
@@ -841,7 +846,7 @@ function Swap({ viewKey, forward, children }: { viewKey: string; forward: boolea
       return
     }
     const el = outer.current
-    const content = el?.querySelector<HTMLElement>(":scope > [data-share-pane][data-on]")
+    const content = Array.from(el?.querySelectorAll<HTMLElement>(":scope > [data-share-pane]") ?? []).find((p) => p.style.visibility !== "hidden")
     if (!el || !content || reducedMotion()) return
     const from = last.current
     const to = el.offsetHeight
@@ -879,15 +884,24 @@ function Swap({ viewKey, forward, children }: { viewKey: string; forward: boolea
  * rendering until it shows again. Showing it again is those two properties,
  * and another platform's how to is the same view with other words in it.
  */
+/* Out of sight and out of the flow, set as a style, not as classes: a class
+   that changes is a change the page's :has() rules answer by restyling the
+   whole document, a style is not (scripts/check-app-sheets-frames.mjs). */
+const PANE_AWAY: React.CSSProperties = {
+  visibility: "hidden",
+  pointerEvents: "none",
+  position: "absolute",
+  left: 0,
+  right: 0,
+  top: 0,
+  contentVisibility: "hidden",
+}
+
 function Pane({ on, children }: { on: boolean; children: React.ReactNode }) {
   return (
-    <div
-      data-share-pane=""
-      data-on={on ? "" : undefined}
-      /* No aria-hidden: out of sight is out of the accessibility tree, and an
-         aria-hidden that changed would be a change under the page's :has(). */
-      className={on ? undefined : "pointer-events-none invisible absolute inset-x-0 top-0 [content-visibility:hidden]"}
-    >
+    /* No aria-hidden: out of sight is out of the accessibility tree, and an
+       aria-hidden that changed would be a change under the page's :has(). */
+    <div data-share-pane="" style={on ? undefined : PANE_AWAY}>
       {children}
     </div>
   )
@@ -906,13 +920,13 @@ function Header({
   const heading = <h2 className="min-w-0 flex-1 truncate text-[16px] font-semibold leading-6 text-[#1a1a2e]">{title}</h2>
   return (
     <div className={cn("flex items-center gap-1.5", onClose ? "h-14 px-2.5 sm:px-3" : "h-12 px-2.5")}>
-      {onBack ? (
-        <button type="button" onClick={onBack} aria-label="Back" className={iconButton}>
-          <ArrowLeft className="h-[19px] w-[19px]" strokeWidth={1.75} aria-hidden />
-        </button>
-      ) : (
-        <span className={onClose ? "w-2" : "w-1.5"} aria-hidden />
-      )}
+      {/* Both are always there and one is hidden: a button put in or taken
+          out on every change of view was a change the page's :has() rules
+          answer by restyling the whole document (scripts/check-app-sheets-frames.mjs). */}
+      <button type="button" onClick={onBack} aria-label="Back" hidden={!onBack} className={iconButton}>
+        <ArrowLeft className="h-[19px] w-[19px]" strokeWidth={1.75} aria-hidden />
+      </button>
+      <span hidden={!!onBack} className={onClose ? "w-2" : "w-1.5"} aria-hidden />
       {heading}
       {onClose && (
         <button type="button" onClick={onClose} aria-label="Close" className={cn(iconButton, "h-8 w-8 bg-[#f1f2f4] hover:bg-[#e7e8eb]")}>
@@ -1035,16 +1049,26 @@ export const ShareStorelib = React.memo(function ShareStorelib({
   const onPlatform = React.useCallback((key: BioPlatform) => go({ kind: "platform", key }), [go])
   const onQr = React.useCallback(() => go({ kind: "qr" }), [go])
 
-  /* On a phone a view once shown is kept (Pane): the last platform's how to, and the QR code. */
-  const [keptPlatform, setKeptPlatform] = React.useState<BioPlatform | null>(null)
+  /**
+   * ON A PHONE EVERY PLATFORM'S HOW TO IS ALREADY THERE. Each is its own
+   * view (Pane), built with the sheet while the page is idle, out of sight
+   * and with its content's rendering skipped (content-visibility) until it
+   * shows, so a tap on a platform and Back only show one view and hide
+   * another. Building one on the tap was the platform's whole view put into
+   * the page: 120 to 200ms on a phone's CPU, most of it the page's :has()
+   * rules restyling the whole document for the insertion
+   * (scripts/check-app-sheets-frames.mjs). The QR code, which loads its
+   * library, is built on its first tap and kept.
+   */
   const [qrKept, setQrKept] = React.useState(false)
-  if (phone && view.kind === "platform" && keptPlatform !== view.key) setKeptPlatform(view.key)
   if (phone && view.kind === "qr" && !qrKept) setQrKept(true)
-  const platformKey = view.kind === "platform" ? view.key : phone ? keptPlatform : null
-  const platform = React.useMemo(
-    () => (platformKey ? platforms.find((p) => p.key === platformKey) ?? { key: platformKey, profileUrl: null } : null),
-    [platformKey, platforms],
-  )
+  const platformPanes = React.useMemo(() => {
+    const keys: readonly BioPlatform[] = phone
+      ? platforms.length > 0 ? platforms.map((p) => p.key) : DEFAULT_BIO_PLATFORMS
+      : view.kind === "platform" ? [view.key] : []
+    const all = view.kind === "platform" && !keys.includes(view.key) ? [...keys, view.key] : keys
+    return all.map((key) => platforms.find((p) => p.key === key) ?? { key, profileUrl: null })
+  }, [phone, view, platforms])
 
   /**
    * THE PHONE'S SHEET IS BUILT AHEAD AND KEPT (BottomSheet keepMounted), so
@@ -1092,11 +1116,11 @@ export const ShareStorelib = React.memo(function ShareStorelib({
           />
         </Pane>
       )}
-      {platform && (
-        <Pane on={view.kind === "platform"}>
+      {platformPanes.map((platform) => (
+        <Pane key={platform.key} on={view.kind === "platform" && view.key === platform.key}>
           <PlatformView platform={platform} address={current} copied={isCopied} onCopy={copyCurrent} />
         </Pane>
-      )}
+      ))}
       {(view.kind === "qr" || (phone && qrKept)) && (
         <Pane on={view.kind === "qr"}>
           <QrView address={current} phone={phone} copied={isCopied} onCopy={copyCurrent} />
