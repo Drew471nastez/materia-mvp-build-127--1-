@@ -13,6 +13,7 @@ import { GUTTER, LIST_BAR, LIST_WIDTH, PaneBar, RowMenuButton, StatusBadge, butt
 import { withReturn } from "./coupon-form"
 import { Pill, inkDepth, usePill } from "./coupon-parts"
 import { isReturning, openCoupon, peekReturn, takeReturn } from "./list-return"
+import { whenIdle } from "../products/list-return"
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -187,6 +188,18 @@ export function CouponsClient({ initialCoupons, products }: CouponsClientProps) 
     warmed.current.add(href)
     prefetchAppPage(router, href)
   }
+  /* Once the list has drawn and the browser is idle, New coupon and the first three rows, as the Products list does: on a phone there is no hover to start them. */
+  const firstShown = useRef<string[]>([])
+  firstShown.current = shown.slice(0, 3).map((r) => r.coupon.id)
+  useEffect(
+    () =>
+      whenIdle(() => {
+        warm("/app/coupons/new")
+        for (const id of firstShown.current) warm(`/app/coupons/${id}`)
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per visit, with the rows shown when the browser is idle
+    [],
+  )
   /*
     OPENING A COUPON SLIDES IT IN over the list on a phone (./list-return).
     A press with a modifier key, or not the main button, is left to the link.

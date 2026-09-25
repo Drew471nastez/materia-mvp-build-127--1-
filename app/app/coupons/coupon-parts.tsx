@@ -104,7 +104,7 @@ export function Pill({ notice }: { notice: { message: string; tone: "ok" | "erro
           "flex max-w-[calc(100vw-2rem)] items-center gap-2 rounded-full bg-[#111113] py-2.5 pl-4 pr-4 text-[14px] font-medium text-white md:text-[13px]",
           "shadow-[0_1px_2px_rgba(0,0,0,0.2),0_8px_24px_-6px_rgba(0,0,0,0.35)]",
           leaving
-            ? "opacity-0 -translate-y-1.5 transition-[opacity,transform] duration-150 ease-in motion-reduce:transition-none"
+            ? "opacity-0 -translate-y-1.5 transition-[opacity,translate] duration-150 ease-in motion-reduce:transition-none"
             : "animate-in fade-in-0 slide-in-from-top-2 duration-200 motion-reduce:animate-none",
         )}
       >
