@@ -135,7 +135,7 @@ export function isPaidPlan(plan: string | null | undefined): boolean {
  * sales, and money is what was charged less what was refunded
  * (lib/orders/order-view, lib/analytics/reports).
  */
-export function salesSummary(rows: OrderRow[], now: number): SalesSummary {
+export function salesSummary(rows: OrderRow[], now: number, before: { count: number; cents: number } = { count: 0, cents: 0 }): SalesSummary {
   const sales = groupOrders(rows)
     .filter(isSale)
     /* A sale stamped after `now` came in live after the page took its clock (or the clocks disagree a little): it happened now. */
@@ -143,13 +143,14 @@ export function salesSummary(rows: OrderRow[], now: number): SalesSummary {
     .filter((s) => Number.isFinite(s.at))
     .sort((a, b) => a.at - b.at)
 
-  let cents = 0
+  /* `before`: the sales older than `rows`, counted elsewhere (salesSummaryFrom), so a round number passed this week is still found. */
+  let cents = before.cents
   const last30 = { count: 0, cents: 0, feeFreeCents: 0, feeProCents: 0 }
   let moneyPassed: { value: number; at: number } | null = null
   let countPassed: { value: number; at: number } | null = null
   for (let i = 0; i < sales.length; i++) {
     const s = sales[i]
-    const before = cents
+    const was = cents
     cents += s.cents
     if (now - s.at <= MONTH) {
       last30.count++
@@ -161,16 +162,40 @@ export function salesSummary(rows: OrderRow[], now: number): SalesSummary {
       }
     }
     /* A round number this sale passed, this week. The first sale is its own announcement, so it passes nothing here. */
-    if (now - s.at > WEEK || i === 0) continue
-    for (const m of MONEY_MILESTONES) if (before < m && cents >= m && (!moneyPassed || m > moneyPassed.value)) moneyPassed = { value: m, at: s.at }
-    if (COUNT_MILESTONES.includes(i + 1) && (!countPassed || i + 1 > countPassed.value)) countPassed = { value: i + 1, at: s.at }
+    const nth = before.count + i + 1
+    if (now - s.at > WEEK || nth === 1) continue
+    for (const m of MONEY_MILESTONES) if (was < m && cents >= m && (!moneyPassed || m > moneyPassed.value)) moneyPassed = { value: m, at: s.at }
+    if (COUNT_MILESTONES.includes(nth) && (!countPassed || nth > countPassed.value)) countPassed = { value: nth, at: s.at }
   }
 
-  const first = sales[0] ? { at: sales[0].at, cents: sales[0].cents, id: sales[0].id } : null
+  const first = sales[0] && before.count === 0 ? { at: sales[0].at, cents: sales[0].cents, id: sales[0].id } : null
   /* Money over count: $1,000 in sales says more than a 25th sale. */
   const milestone: SalesSummary["milestone"] = moneyPassed ? { kind: "money", ...moneyPassed } : countPassed ? { kind: "count", ...countPassed } : null
-  return { count: sales.length, cents, first, last30, milestone }
+  return { count: before.count + sales.length, cents, first, last30, milestone }
 }
+
+/**
+ * THE SALES, WITHOUT EVERY ORDER IN THE BROWSER. A read stops at 1,000 rows,
+ * so Home reads no order rows (app/app/page.tsx): the totals are counted
+ * over every order on the server (lib/analytics/creator-orders
+ * creatorSalesTotals), and only the last 30 days (every row of them, a page
+ * at a time) and the first few orders are read. What came before the 30
+ * days is the totals less those, so a round number passed this week is
+ * found the same as if every order had been read.
+ */
+export function salesSummaryFrom(
+  input: { recent: OrderRow[]; earliest: OrderRow[]; totals: { sales: number; revenueCents: number } | null },
+  now: number,
+): SalesSummary {
+  const recent = salesSummary(input.recent, now)
+  const count = Math.max(input.totals?.sales ?? 0, recent.count)
+  const cents = Math.max(input.totals?.revenueCents ?? 0, recent.cents)
+  const summary = salesSummary(input.recent, now, { count: count - recent.count, cents: cents - recent.cents })
+  return { ...summary, count, cents, first: salesSummary(input.earliest, now).first }
+}
+
+/** No sales read (an older caller): the banner says nothing about sales. */
+export const NO_SALES: SalesSummary = { count: 0, cents: 0, first: null, last30: { count: 0, cents: 0, feeFreeCents: 0, feeProCents: 0 }, milestone: null }
 
 /* ─── Words ────────────────────────────────────────────────────────────── */
 

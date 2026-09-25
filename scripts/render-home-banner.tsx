@@ -19,7 +19,9 @@ import { createRoot } from "react-dom/client"
 import { Component, createElement, type ReactNode } from "react"
 import { DashboardClient } from "@/components/app/dashboard-client"
 import { LanguageProvider } from "@/lib/i18n/context"
-import { NO_FACTS, type ProgressFacts } from "@/lib/home/progress"
+import { NO_FACTS, salesFrom, type ProgressFacts } from "@/lib/home/progress"
+import { salesSummary } from "@/lib/home/announcements"
+import type { OrderRow } from "@/lib/orders/order-view"
 
 class Boundary extends Component<{ children: ReactNode }, { failed: boolean }> {
   state = { failed: false }
@@ -63,6 +65,16 @@ const FIXTURES: Record<string, Fixture> = {
 }
 const f = FIXTURES[state] ?? FIXTURES.selling
 const busy = state === "pro" || state === "quiet"
+const orders = f.sales.map((days, i) => ({
+  id: `order-${i}`,
+  product_id: "product-0",
+  amount_cents: f.price,
+  status: "completed",
+  created_at: new Date(Date.now() - days * DAY).toISOString(),
+  stripe_session_id: `cs_${i}`,
+  refund_amount_cents: 0,
+}))
+
 const facts: ProgressFacts = {
   ...NO_FACTS,
   products: f.product ? 2 : 0,
@@ -75,17 +87,10 @@ const facts: ProgressFacts = {
   pro: f.plan === "growth",
   subscribers: Number(params.get("subs") ?? (busy ? 180 : 0)),
   automationsOn: Number(params.get("flows") ?? (busy ? 2 : 0)),
+  /* The page counts the sales over every order on the server and hands them to Getting started (creatorSalesTotals). */
+  ...salesFrom(orders as OrderRow[]),
 }
 
-const orders = f.sales.map((days, i) => ({
-  id: `order-${i}`,
-  product_id: "product-0",
-  amount_cents: f.price,
-  status: "completed",
-  created_at: new Date(Date.now() - days * DAY).toISOString(),
-  stripe_session_id: `cs_${i}`,
-  refund_amount_cents: 0,
-}))
 
 createRoot(document.getElementById("app")!).render(
   createElement(Boundary, null, createElement(LanguageProvider, null, createElement(DashboardClient, {
@@ -100,7 +105,8 @@ createRoot(document.getElementById("app")!).render(
       { id: "sale", title: "Sale", description: "", tooltip: "", completed: f.sales.length > 0, href: "/app/orders" },
     ],
     productIds: f.product ? ["product-0", "product-1"] : [],
-    initialOrders: orders,
+    /* Home reads no orders in the browser now: the page hands the banner its sales, counted on the server. */
+    bannerSales: salesSummary(orders as OrderRow[], Date.now()),
     initialProgress: facts,
     creatorHandle: "andrewrullz",
     connectedDomain: f.domain ? "andrewrullz.com" : null,

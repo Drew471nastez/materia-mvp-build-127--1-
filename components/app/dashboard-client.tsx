@@ -63,6 +63,7 @@ import { QuickActions } from "@/components/app/home/quick-actions"
 import { AppLink } from "@/components/app/app-link"
 import { useHomeProgress } from "@/components/app/home/use-home-progress"
 import { HomeBanner } from "@/components/app/home/home-banner"
+import { NO_SALES, type SalesSummary } from "@/lib/home/announcements"
 import type { ConnectedPlatform, ShareAddress } from "@/components/app/share/share-data"
 import { homeProgress, legacyFacts, type ProgressFacts } from "@/lib/home/progress"
 import { AxisLabels, fixedScale } from "@/components/app/chart-morph"
@@ -402,6 +403,8 @@ interface DashboardClientProps {
    * another page (use-home-progress).
    */
   initialProgress?: ProgressFacts
+  /** The banner's sales news, counted on the server (app/app/page.tsx). */
+  bannerSales?: SalesSummary
   /** The old checklist, read only when `initialProgress` is not given. */
   initialSetupSteps?: SetupStep[]
   productIds: string[]
@@ -652,6 +655,7 @@ export function DashboardClient({
   displayName,
   initialDayPart = "morning",
   initialProgress,
+  bannerSales,
   initialSetupSteps,
   productIds,
   viewerId = null,
@@ -1393,7 +1397,7 @@ export function DashboardClient({
 
         {/* Dashboard Banner: what matters now for this store, beside the globe (components/app/home/home-banner) */}
         <div className="mb-8">
-          <HomeBanner facts={facts} planId={subscriptionPlanId} orders={liveOrders} onShare={canShare ? openShare : undefined} />
+          <HomeBanner facts={facts} planId={subscriptionPlanId} sales={bannerSales ?? NO_SALES} onShare={canShare ? openShare : undefined} />
         </div>
 
         {/* Getting started, the guide and Your Plan (components/app/home/home-cards).

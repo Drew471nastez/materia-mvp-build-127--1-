@@ -10,8 +10,8 @@
  * globe."
  *
  * WHAT IT SAYS is lib/home/announcements.ts: rules on the creator's real
- * state (the facts Getting started reads, lib/home/progress, the orders
- * Home holds and the plan), most important first, at most five, with the
+ * state (the facts Getting started reads, lib/home/progress, the sales
+ * counted on the server and the plan), most important first, at most five, with the
  * step the card names next leading. Only this store's things: connect payouts, a first sale, what Pro
  * would really have saved.
  *
@@ -41,9 +41,8 @@
  */
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from "react"
 import { AppLink } from "@/components/app/app-link"
-import { announcementsFor, fromFacts, salesSummary, type Announcement } from "@/lib/home/announcements"
+import { announcementsFor, fromFacts, type Announcement, type SalesSummary } from "@/lib/home/announcements"
 import type { ProgressFacts } from "@/lib/home/progress"
-import type { OrderRow } from "@/lib/orders/order-view"
 import { BannerGlobe } from "./globe"
 
 /** How long a slide stays, in ms. */
@@ -53,16 +52,15 @@ export interface HomeBannerProps {
   /** What the account has done, as Getting started reads it (lib/home/progress). Read only. */
   facts: ProgressFacts
   planId: string
-  /** The orders Home holds, kept live. */
-  orders: readonly unknown[]
+  /** The sales, counted on the server over every order (app/app/page.tsx, lib/home/announcements salesSummaryFrom). */
+  sales: SalesSummary
   /** Opens Home's share sheet, when there is an address to hand out. */
   onShare?: () => void
 }
 
-export const HomeBanner = memo(function HomeBanner({ facts, planId, orders, onShare }: HomeBannerProps) {
+export const HomeBanner = memo(function HomeBanner({ facts, planId, sales, onShare }: HomeBannerProps) {
   /* One clock for the page view: the same on the server and in the browser to the second, so the words agree. */
   const [now] = useState(() => Date.now())
-  const sales = useMemo(() => salesSummary(orders as OrderRow[], now), [orders, now])
   const list = useMemo(() => announcementsFor(fromFacts(facts, sales, planId, !!onShare), now), [facts, sales, planId, onShare, now])
   return <BannerView list={list} onShare={onShare} />
 })

@@ -10,11 +10,13 @@
  */
 import {
   COUNT_MILESTONES, MAX_ANNOUNCEMENTS, MONEY_MILESTONES, REAL_SAVING_CENTS, RULES,
-  ago, announcementsFor, fromFacts, isPaidPlan, money, ordinal, proSaving, salesSummary, stepsDone,
+  ago, announcementsFor, fromFacts, isPaidPlan, money, ordinal, proSaving, salesSummary, salesSummaryFrom, stepsDone,
   type HomeProgress,
 } from "../lib/home/announcements"
 import { NO_FACTS, homeProgress, nextSetupStep, type ProgressFacts } from "../lib/home/progress"
 import type { OrderRow } from "../lib/orders/order-view"
+import { readFileSync } from "node:fs"
+import { join } from "node:path"
 
 let passed = 0
 let failed = 0
@@ -203,6 +205,24 @@ function main() {
   check("every title fits two lines on a 360 phone (34 characters)", texts.every((a) => a.title.length <= 34), texts.filter((a) => a.title.length > 34).map((a) => a.title))
   check("every line fits three (66 characters, even with a big number)", texts.every((a) => a.line.length <= 66), texts.filter((a) => a.line.length > 66).map((a) => `${a.line.length}: ${a.line}`))
   check("every button goes to a page in /app, or opens the share sheet", texts.every((a) => a.action === "share" || a.href.startsWith("/app/")), texts.map((a) => a.href))
+
+  /* Home reads no order rows in the browser (a read stops at 1,000): the page counts every order on the server and reads only the last 30 days and the first few. */
+  console.log("\nthe sales without every order (salesSummaryFrom, app/app/page.tsx)")
+  const history = [...Array.from({ length: 1200 }, (_, i) => order(40 + i / 10, 700)), ...Array.from({ length: 6 }, (_, i) => order(20 - i, 2500)), order(2, 60000), order(1, 90000)]
+  const full = salesSummary(history, NOW)
+  const recentRows = history.filter((o) => NOW - Date.parse(o.created_at) <= 30 * DAY)
+  const earliestRows = [...history].sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at)).slice(0, 50)
+  const split = salesSummaryFrom({ recent: recentRows, earliest: earliestRows, totals: { sales: full.count, revenueCents: full.cents } }, NOW)
+  check("the same count, money and last 30 days as reading every order", split.count === full.count && split.cents === full.cents && same(split.last30, full.last30), { split, full })
+  check("the same first sale", same(split.first, full.first), [split.first, full.first])
+  check("and the same round number passed this week, though it counts orders the browser never read", same(split.milestone, full.milestone) && split.milestone?.kind === "money", [split.milestone, full.milestone])
+  const noTotals = salesSummaryFrom({ recent: recentRows, earliest: earliestRows, totals: null }, NOW)
+  check("totals not counted: at least what was read, never less", noTotals.count === recentRows.length && same(noTotals.last30, full.last30))
+  const banner = readFileSync(join(process.cwd(), "components/app/home/home-banner.tsx"), "utf8")
+  const page = readFileSync(join(process.cwd(), "app/app/page.tsx"), "utf8")
+  check("the banner is handed the sales, and reads no orders itself",
+    /sales: SalesSummary/.test(banner) && !/OrderRow|orders:/.test(banner)
+    && /creatorSalesRows\(adminSupabase, creator\.id, now\)/.test(page) && /salesSummaryFrom\(\{ \.\.\.bannerRows, totals: salesTotals \}, now\)/.test(page) && /bannerSales=\{bannerSales\}/.test(page))
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }
