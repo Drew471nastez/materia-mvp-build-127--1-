@@ -1312,11 +1312,11 @@ section("A form that says it worked, did")
   const empty = chat.slice(chat.indexOf("exchanges.length === 0 ? ("), chat.indexOf('data-ask-tray=""'))
   const composer = chat.slice(chat.indexOf('data-ask-tray=""'))
 
-  check("the mode row is with the box you type into", /\["change", "Change this page"\]/.test(composer))
-  check("and not only in the empty state", !/\["change", "Change this page"\]/.test(empty))
+  check("the mode row is with the box you type into", /<ModeSwitch/.test(composer))
+  check("and not only in the empty state", !/<ModeSwitch/.test(empty))
   check("what the writer produced is reported there too", /\{written && \(/.test(composer) && !/\{written && \(/.test(empty))
   check("so are its errors", /\{writeError && /.test(composer) && !/\{writeError && /.test(empty))
-  check("and so is the fact that it is working", /\{writing && writeLabel && <AiStatus/.test(composer) && !/\{writing && /.test(empty))
+  check("and so is the fact that it is working, on the same live line a run uses", /\{writing && writeLabel && <ActivityLine/.test(composer) && !/\{writing && /.test(empty))
   check("and so is an answer, when it answered instead of writing", /\{writeReply && !writing && \(/.test(composer))
   /* "Line 331: <schema> is never closed" is the compiler talking to a
      developer. The chat says what a creator can do, and offers to do it. */
@@ -1324,7 +1324,7 @@ section("A form that says it worked, did")
   check("a failed section can be asked for again in one press", /lastWrite\.current/.test(composer) && /Try again/.test(composer))
   check("it asks the writer for its stages as they happen", /Accept: "application\/x-ndjson"/.test(chat))
 
-  check("the empty state keeps the part that is only useful when empty", /SUGGESTIONS : CODE_SUGGESTIONS|mode === "change" \? SUGGESTIONS/.test(empty))
+  check("the empty state keeps the part that is only useful when empty: what to ask", /<SuggestionChips items=\{suggestions\}/.test(empty))
 }
 
 /**

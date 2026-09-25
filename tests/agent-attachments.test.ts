@@ -693,26 +693,48 @@ section("The composer")
 // ---------------------------------------------------------------------------
 
 {
+  /*
+    The composer's pictures are made ready in components/website-builder/
+    ask-attach-prepare.ts (decode, shrink, encode, off the main thread where
+    it can be), by the rules in lib/website-builder/ask-attach.ts, and drawn
+    by ask-attachments.tsx. The chat holds the state and the request.
+  */
   const chat = read("components/website-builder/theme-chat.tsx")
+  const prepare = read("components/website-builder/ask-attach-prepare.ts")
+  const rules = read("lib/website-builder/ask-attach.ts")
+  const tray = read("components/website-builder/ask-attachments.tsx")
   check(
-    "Send is live when there is a picture and no words",
-    /disabled=\{draft\.trim\(\)\.length === 0 && attached\.length === 0\}/.test(chat),
+    "Send is live when there is a picture and no words, and waits while one is still being made ready",
+    /disabled=\{\(draft\.trim\(\)\.length === 0 && attached\.length === 0\) \|\| preparing\}/.test(chat),
   )
-  check("there is a file picker restricted to the types we accept", /accept=\{ALLOWED_IMAGE_TYPES\.join\(","\)\}/.test(chat))
+  check(
+    "the file picker offers the types the model reads, and HEIC and video, which are converted before anything is sent",
+    /accept=\{\[\.\.\.ALLOWED_IMAGE_TYPES, "image\/heic", "image\/heif", "video\/\*"\]\.join\(","\)\}/.test(chat),
+  )
   check("a pasted screenshot lands in it", /onPaste=/.test(chat) && /clipboardData\.files/.test(chat))
   check("so does a dragged file", /onDrop=/.test(chat) && /dataTransfer\.files/.test(chat))
-  check("each attached picture can be taken back off", /removeAttachment\(image\.id\)/.test(chat))
+  check("each attached picture can be taken back off", /onClick=\{\(\) => onRemove\(item\.id\)\}/.test(tray) && /onRemove=\{removeAttachment\}/.test(chat))
   check(
-    "a screenshot is shrunk before it is sent, to the size the model reads at",
-    /LONG_EDGE \/ long/.test(chat) && /canvas\.toDataURL\("image\/jpeg", 0\.92\)/.test(chat),
+    "a screenshot is shrunk before it is sent, to the size the model reads at, as JPEG at 0.92 first",
+    /const size = fitWithin\(decoded\.width, decoded\.height, LONG_EDGE\)/.test(prepare) &&
+      /const JPEG_QUALITY = 0\.92/.test(prepare) && /const scale = edge \/ long/.test(rules),
   )
   check(
-    "a picture already small enough is left exactly as it is",
-    /if \(long <= LONG_EDGE &&/.test(chat) && /out\.length < url\.length \? \{ url: out/.test(chat),
+    "a picture already small enough is left exactly as it is, and so is one the JPEG would not make smaller",
+    /if \(allowed && long <= LONG_EDGE && file\.size <= KEEP_BELOW_BYTES\)/.test(prepare) &&
+      /const url = await readAsDataUrl\(smaller \? blob : file\)/.test(prepare),
   )
   check(
     "and a transparent PNG is not flattened onto black",
-    /fillStyle = "#ffffff"/.test(chat) && /fillRect\(0, 0, canvas\.width, canvas\.height\)/.test(chat),
+    (prepare.match(/fillStyle = "#ffffff"/g) ?? []).length === 2 && (prepare.match(/fillRect\(0, 0, canvas\.width, canvas\.height\)/g) ?? []).length === 2,
+  )
+  check(
+    "a very detailed photo is encoded again a notch lower rather than sent over the per-picture limit",
+    /if \(blob\.size <= MAX_IMAGE_BYTES \* 0\.9\) return blob/.test(prepare),
+  )
+  check(
+    "the encode is asynchronous (toBlob, convertToBlob), never toDataURL, which stops the page for a large picture",
+    /convertToBlob\(/.test(prepare) && /canvas\.toBlob\(/.test(prepare) && !/toDataURL\(/.test(prepare) && !/toDataURL\(/.test(chat),
   )
   check(
     "the composer says the request is too big rather than letting it fail on the wire",
@@ -720,7 +742,8 @@ section("The composer")
   )
   check(
     "the limits shown in the UI are the server's limits, not a second copy",
-    /MAX_IMAGES/.test(chat) && /MAX_IMAGE_BYTES/.test(chat) && /LONG_EDGE/.test(chat) && !/\d \* 1024 \* 1024/.test(chat),
+    /MAX_IMAGES/.test(chat) && /MAX_IMAGE_BYTES/.test(prepare) && /LONG_EDGE/.test(prepare) &&
+      ![chat, prepare, tray].some((s) => /\d \* 1024 \* 1024/.test(s)),
   )
   check(
     "an image alone still reads as a request in the thread",

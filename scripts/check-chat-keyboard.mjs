@@ -274,6 +274,9 @@ const READ = `(() => {
       const w = document.documentElement.clientWidth
       return [...sheet.querySelectorAll("*")].filter((el) => {
         if (el.closest("[data-code-scroll], pre")) return false
+        /* The live line's band of light slides across the words inside the line's clip (.ask-shine is
+           overflow: hidden); its box travels with its transform and nothing it covers can scroll. */
+        if (el.closest(".ask-shine-window")) return false
         const r = el.getBoundingClientRect()
         return r.width > 0 && (r.right > w + 0.5 || r.left < -0.5)
       }).slice(0, 5).map((el) => el.tagName.toLowerCase() + "." + String(el.className).split(" ").slice(0, 3).join(".") + " " + Math.round(el.getBoundingClientRect().left) + ".." + Math.round(el.getBoundingClientRect().right))

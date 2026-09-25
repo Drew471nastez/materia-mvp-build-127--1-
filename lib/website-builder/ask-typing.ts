@@ -12,8 +12,9 @@
  * So the box is moved towards what was heard a few characters a frame:
  *
  *   MORE WAS HEARD         the next characters are typed in, faster the
- *                          further behind the box is, so a long burst lands
- *                          in about a sixth of a second and never lags
+ *                          further behind the box is: a few words land in
+ *                          about an eighth of a second, and even a burst of
+ *                          two hundred characters in under half a second
  *   THE WORDS WERE REVISED the box is cut back to what the two agree on in
  *                          one frame, then the new ending types in
  *
@@ -21,10 +22,12 @@
  * Pure, so tests/ask-dock.test.ts can play a whole recording through it.
  */
 
-/** Frames a burst of any length takes to type in, at most. */
-export const CATCH_UP_FRAMES = 10
+/** A burst types in over about this many frames: the step is what is left over this. */
+export const CATCH_UP_FRAMES = 8
 /** Characters per frame, at most: a quick reader's pace at 60 frames a second. */
 export const MAX_CHARS_PER_FRAME = 14
+/** And at least, so the last letters of a burst do not trickle in one a frame. */
+export const MIN_CHARS_PER_FRAME = 2
 
 function commonPrefix(a: string, b: string): number {
   const n = Math.min(a.length, b.length)
@@ -40,7 +43,7 @@ export function typeToward(shown: string, target: string): string {
   /* Revised: back to what they agree on, at once. Never cut into the middle of a word that stays. */
   if (shared < shown.length) return target.slice(0, shared)
   const behind = target.length - shown.length
-  const step = Math.max(1, Math.min(MAX_CHARS_PER_FRAME, Math.ceil(behind / CATCH_UP_FRAMES)))
+  const step = Math.min(behind, Math.max(MIN_CHARS_PER_FRAME, Math.min(MAX_CHARS_PER_FRAME, Math.ceil(behind / CATCH_UP_FRAMES))))
   return target.slice(0, shown.length + step)
 }
 

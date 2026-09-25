@@ -84,7 +84,6 @@ import { PictureTray, ProgressRing, type ComposerPicture } from "@/components/we
 import { ConnectAiButton, ModeSwitch, ScopeChip, SuggestionChips, type AskMode } from "@/components/website-builder/ask-parts"
 import { PrepareError, preparePicture, prepareStills } from "@/components/website-builder/ask-attach-prepare"
 import { useVoiceInput } from "@/components/website-builder/ask-voice"
-import { useSheetStop } from "@/components/website-builder/mobile-editor-sheet"
 import type { WriteStage } from "@/lib/website-builder/agent/write-section"
 import { cn } from "@/lib/utils"
 import {
@@ -614,7 +613,6 @@ function ThemeChatPanel({
    */
   const [wanted, setWanted] = React.useState(!dock)
   const reducedMotion = useReducedMotion()
-  const sheetStop = useSheetStop()
   /**
    * WHICH OF THE TWO THINGS IS BEING ASKED FOR. "change" edits this page and
    * goes to the agent; "code" writes a new section type and goes to the one

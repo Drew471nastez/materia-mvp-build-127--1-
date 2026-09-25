@@ -192,6 +192,7 @@ const SUITES = [
   "tests/work-panel.test.ts",
   "tests/ask-storelib.test.ts",
   "tests/ask-conversations.test.ts",
+  "tests/ask-dock.test.ts",
   "tests/native-feel.test.ts",
   "tests/theme-media.test.ts",
   "tests/settings-flow.test.ts",

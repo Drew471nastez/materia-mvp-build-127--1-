@@ -159,7 +159,7 @@ export const READING_MS = 1600
  *   a step that is running          its label: "Reading the FAQ"
  *   commentary newer than any step  its first sentence
  *   a change that just landed       what changed: "Added Testimonials"
- *   steps finished, none running    "Working out the next step"
+ *   steps finished, none running    "Choosing the next step"
  *   nothing yet                     "Reading the page", then "Planning the change"
  *
  * Never a percentage and never a timer dressed up as progress: every word
@@ -172,7 +172,7 @@ export function activityLine(activity: Activity, elapsedMs: number): string {
   if (activity.last === "change" && activity.changes.length) return activity.changes[activity.changes.length - 1]
   if (activity.last === "code" && activity.code.length) return `Writing ${activity.code[activity.code.length - 1].path.replace(/^sections\//, "")}`
   if (running) return running.label
-  if (activity.steps.length > 0) return "Working out the next step"
+  if (activity.steps.length > 0) return "Choosing the next step"
   if (activity.last === "plan" || elapsedMs >= READING_MS) return "Planning the change"
   return "Reading the page"
 }
