@@ -3125,7 +3125,7 @@ check(
   // word found four: the three sections, and the comment above them naming
   // the attribute. An assertion that reads its own documentation is an
   // assertion that passes when the code is deleted and the comment stays.
-  (wbPage.match(/data-page-block>/g) ?? []).length === 3 &&
+  (wbPage.match(/data-page-block\s*>/g) ?? []).length === 3 &&
     !existsSync(join(root, "app/app/website-builder/skeleton.tsx")) &&
     !existsSync(join(root, "app/app/website-builder/loading.tsx")),
 )

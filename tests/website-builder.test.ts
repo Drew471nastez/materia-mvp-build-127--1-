@@ -263,7 +263,7 @@ section("The cover")
   check("no website is drawn from its settings: the drawing is a catalogue theme's alone",
     !/coverSpecFromSettings/.test(coverSrc) && !/coverSpecFromSettings/.test(client) && !/ThemeSettingsValues/.test(coverSrc))
   check("  a website with no photograph yet is its name on a plain surface, breathing while one is taken",
-    /return <PendingCover name=\{install\.name\} preparing=\{preparing\} \/>/.test(client) &&
+    /: <PendingCover name=\{install\.name\} preparing=\{preparing\} \/>/.test(client) &&
       /data-cover-pending=\{preparing \? "preparing" : "waiting"\}/.test(client) &&
       /\{preparing && <span aria-hidden className="wb-incoming-pulse absolute inset-0 bg-\[#e6e8ec\]" \/>\}/.test(client) &&
       /Preparing preview/.test(client))
@@ -1623,7 +1623,7 @@ section("Two at once still make five, and an import that says what went wrong")
   const page = read("app/app/website-builder/page.tsx")
   check("the Website page draws each website's last whole cover first (cover-memory), in the box it reserves",
     /function firstFace\(installId: string, current: string \| null\): Face/.test(client) && /const last = shownCover\(installId\)/.test(client)
-      && /onLoad=\{\(\) => rememberCover\(installId, url\)\}/.test(client))
+      && /onLoad=\{\(e\) => \{\s*rememberCover\(installId, url\)/.test(client))
   check("  and a new address is fetched and decoded aside, then swapped in once, never before",
     /if \(isDecoded\(current\)\) swap\(\)\s*else void decodeCover\(current\)\.then\(\(ok\) => \{ if \(ok\) swap\(\) \}\)/.test(client) && !/const DECODED = new Set/.test(client))
   check("  a picture it has drawn is drawn again on its first frame: eager and decoded in step",
