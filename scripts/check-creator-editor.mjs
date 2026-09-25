@@ -184,6 +184,15 @@ const SHEET_STATE = `(() => {
 })()`
 
 const ONLY = process.env.ONLY
+if (ONLY === "debug") {
+  const p = await page({ width: 390, height: 844, phone: true, hash: "profile" })
+  await p.js(`window.addEventListener("error", (e) => window.__err.push(String(e.message))); window.addEventListener("unhandledrejection", (e) => window.__err.push("rej " + String(e.reason)))`)
+  const pencil = JSON.parse(await p.js(`JSON.stringify(document.querySelector("[aria-label='Edit profile']").getBoundingClientRect())`))
+  await p.tap(pencil.x + pencil.width / 2, pencil.y + pencil.height / 2)
+  await sleep(900)
+  console.log(await p.js(`JSON.stringify({ err: window.__err, schemes: document.querySelectorAll("[data-scheme]").length, picker: !!document.querySelector("[data-scheme-picker]"), sheet: !!document.querySelector("[data-app-sheet]"), html: document.querySelector("[data-app-sheet]")?.outerHTML.slice(0, 300) })`))
+  process.exit(0)
+}
 for (const vp of ONLY && ONLY !== "reopen" ? [] : [
   { name: "390", width: 390, height: 844, phone: true },
   { name: "1280", width: 1280, height: 800, phone: false },
@@ -199,7 +208,7 @@ for (const vp of ONLY && ONLY !== "reopen" ? [] : [
   /* Somewhere outside the sheet or drawer, on the page, away from the pencil. */
   const outside = vp.phone ? [vp.width / 2, 20] : [60, vp.height - 60]
   const button = async (label) => {
-    const r = JSON.parse(await p.js(`JSON.stringify([...document.querySelectorAll("button")].find((b) => b.textContent.trim() === ${JSON.stringify(label)})?.getBoundingClientRect() ?? null)`))
+    const r = JSON.parse(await p.js(`JSON.stringify([...document.querySelectorAll("button")].find((b) => b.textContent.trim() === ${JSON.stringify(label)} || (${JSON.stringify(label)} === "Save" && b.textContent.trim() === "SaveSaving"))?.getBoundingClientRect() ?? null)`))
     if (r) await p.tap(r.x + r.width / 2, r.y + r.height / 2)
     return !!r
   }
@@ -353,7 +362,7 @@ for (const vp of ONLY && ONLY !== "schemes" ? [] : [
   const pencil = JSON.parse(await p.js(`JSON.stringify(document.querySelector("[aria-label='Edit profile']").getBoundingClientRect())`))
   const openSheet = async () => { await p.tap(pencil.x + pencil.width / 2, pencil.y + pencil.height / 2); await sleep(800) }
   const button = async (label) => {
-    const r = JSON.parse(await p.js(`JSON.stringify([...document.querySelectorAll("button")].find((b) => b.textContent.trim() === ${JSON.stringify(label)})?.getBoundingClientRect() ?? null)`))
+    const r = JSON.parse(await p.js(`JSON.stringify([...document.querySelectorAll("button")].find((b) => b.textContent.trim() === ${JSON.stringify(label)} || (${JSON.stringify(label)} === "Save" && b.textContent.trim() === "SaveSaving"))?.getBoundingClientRect() ?? null)`))
     if (r) await p.tap(r.x + r.width / 2, r.y + r.height / 2)
     return !!r
   }
@@ -419,6 +428,8 @@ for (const vp of ONLY && ONLY !== "schemes" ? [] : [
   const afterSave = await p.js(`getComputedStyle(document.querySelector("[data-storefront-root]")).backgroundColor`)
   if (vp.phone) {
     /* The lowered sheet: the page shows above it, Cancel and Save stay on screen, and a pull up takes it back. */
+    await button("Cancel")
+    await sleep(900)
     await openSheet()
     await pick("sage")
     const geo = async () => JSON.parse(await p.js(`(() => { const panel = document.querySelector("[data-app-sheet] [data-sheet-panel]"), foot = panel.querySelector("[data-sheet-pin-bottom]")

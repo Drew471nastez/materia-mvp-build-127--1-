@@ -241,7 +241,8 @@ function main() {
     check("one colour per row, so the label is not truncated", bar.includes('<EditorField label="Colours">') && !/grid grid-cols-2 gap-3[\s\S]{0,200}<ColorField/.test(bar))
 
     /** The scheme, in the dialog that owns how the page presents itself. */
-    check("the colour scheme is in Edit profile", profile.includes("<SchemePicker"))
+    /* Through a memoised wrapper, React.memo(SchemePicker), so a keystroke in the name does not redraw eight schemes. */
+    check("the colour scheme is in Edit profile", profile.includes("<SchemePicker") || (profile.includes("<MemoSchemePicker") && profile.includes("React.memo(SchemePicker)")))
     check("and it saves with the rest of it", profile.includes("themePreset: scheme"))
     /* Eight since sage, harbor and clay joined; the list moved to lib/store-builder/scheme-preview
        because the server prepares each one's paint for the instant preview. */

@@ -403,6 +403,7 @@ export function EditorSheet({
       >
         <span className="grid place-items-center">
           <span
+            aria-hidden={busy || undefined}
             className={cn(
               "col-start-1 row-start-1 transition-[opacity,translate] duration-200 ease-out motion-reduce:transition-none",
               busy ? "-translate-y-1 opacity-0" : "translate-y-0 opacity-100",
