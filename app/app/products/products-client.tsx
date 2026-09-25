@@ -9,10 +9,12 @@ import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
 import { cn } from "@/lib/utils"
 import { useRouter } from "next/navigation"
 import { GUTTER, LIST_BAR, PaneBar, RowMenuButton, buttonSecondary, formatMoney } from "../orders/order-parts"
-import { primaryDepth, secondaryDepth } from "./new/editor-buttons"
+import { primaryDepth, quietDepth } from "./new/editor-buttons"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { isNativeApp, openExternal } from "@/lib/native-bridge"
 import { isReturning, listShown, openEditor, takeEdited, warmEditor, whenIdle } from "./list-return"
+import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
+import { ActivitySpinner } from "@/components/ui/activity-spinner"
 import { playList, shootList, type ListShot } from "./list-motion"
 import { LAYER_MOTION_MS } from "@/components/app/page-layer"
 import { createClient } from "@/lib/supabase/client"
@@ -130,7 +132,7 @@ const NEW_LOOK = cn(primaryDepth, PRESS, "h-8 gap-1.5 rounded-lg px-3 text-[13px
 
 /**
  * A ROW'S TWO BUTTONS: Preview (the eye) and the more button, the same size
- * side by side, both in the editor's depth (secondaryDepth), so the pair
+ * side by side, both in the editor's quieter icon depth (quietDepth), so the pair
  * reads as one. A product with no page to open draws its eye off: grey,
  * flat, and no pressed look. On a phone each is drawn 32px with a 44px
  * press (6px of invisible box on every side), 12px apart, so the two
@@ -138,10 +140,10 @@ const NEW_LOOK = cn(primaryDepth, PRESS, "h-8 gap-1.5 rounded-lg px-3 text-[13px
  */
 const ROW_BUTTON_PHONE = "relative z-[1] h-8 w-8 rounded-lg text-[#4b5563] after:absolute after:-inset-1.5 after:content-['']"
 const ROW_BUTTON_TABLE = "h-7 w-7 rounded-[7px] text-[#4b5563] lg:h-[30px] lg:w-[30px] lg:[&>svg]:h-[17px] lg:[&>svg]:w-[17px]"
-const ROW_MENU_PHONE = cn(secondaryDepth, ROW_BUTTON_PHONE)
-const ROW_MENU_TABLE = cn(secondaryDepth, ROW_BUTTON_TABLE)
+const ROW_MENU_PHONE = cn(quietDepth, ROW_BUTTON_PHONE)
+const ROW_MENU_TABLE = cn(quietDepth, ROW_BUTTON_TABLE)
 const EYE_DEPTH = cn(
-  secondaryDepth,
+  quietDepth,
   "aria-disabled:cursor-not-allowed aria-disabled:text-[#b6bac1] aria-disabled:shadow-none aria-disabled:hover:bg-white aria-disabled:active:bg-white aria-disabled:active:shadow-none",
 )
 const EYE_PHONE = cn(EYE_DEPTH, ROW_BUTTON_PHONE)
@@ -606,6 +608,9 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
       if (error) throw error
       if (!gone?.length) throw new Error("Nothing was deleted")
 
+      /* A live product's address now answers nothing; the search engines are
+         told by the slug it had, since the row is gone. Never waited for. */
+      if (productToDelete.status === "published" && productToDelete.slug) announceChange({ removedProduct: productToDelete.slug })
       setProducts(prev => prev.filter(p => p.id !== productToDelete.id))
       showNotification("Product deleted")
       closeDelete()
@@ -708,11 +713,47 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
     press with a modifier key, or not the main button, is left to the link:
     a new tab or window, as the browser does.
   */
-  const openFromLink = (href: string) => (e: ReactMouseEvent<HTMLAnchorElement>) => {
+  /*
+    THE PRESS IS ANSWERED ON ITS OWN FRAME. The editor is read on the server
+    (the account, the product, its files and variants), and on a slow line
+    that took seconds with the row looking untouched. Now the row you
+    pressed holds its pressed tint with a spinner where its Preview was, the
+    app's loading bar is told, and further presses wait for this one. On a
+    phone the move waits one painted frame, so the spinner is what the view
+    transition holds while the editor is on its way.
+  */
+  const [opening, setOpening] = useState<string | null>(null)
+  useEffect(() => {
+    if (!opening) return
+    /* Still here after all: shown again from the browser's back cache, or a navigation that never happened. The list comes back to life. */
+    const reset = () => setOpening(null)
+    const t = window.setTimeout(reset, 10_000)
+    window.addEventListener("pageshow", reset)
+    return () => {
+      window.clearTimeout(t)
+      window.removeEventListener("pageshow", reset)
+    }
+  }, [opening])
+  /* `id` is the product's, or "new" for New product. */
+  const open = (id: string) => {
+    if (opening) return
+    const href = `/app/products/${id}`
+    if (id === "new") warmNew()
+    else warm(id)
+    setOpening(id)
+    startNavigationLoading(href)
+    requestAnimationFrame(() => requestAnimationFrame(() => openEditor(router, href)))
+  }
+  const openFromLink = (id: string) => (e: ReactMouseEvent<HTMLAnchorElement>) => {
     if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
     e.preventDefault()
-    openEditor(router, href)
+    open(id)
   }
+  const openingMark = (size: "phone" | "table") => (
+    <span data-row-opening="" className={cn("relative z-[1] grid shrink-0 place-items-center", size === "phone" ? "h-8 w-8" : "h-7 w-7 lg:h-[30px] lg:w-[30px]")}>
+      <ActivitySpinner size={16} label="Opening" className="text-[#4b5563]" />
+    </span>
+  )
 
   /*
     THE ROW YOU CAME BACK FROM. Tinted as the list comes back under the
@@ -879,7 +920,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
             <Link
               href="/app/products/new"
               data-new-product=""
-              onClick={openFromLink("/app/products/new")}
+              onClick={openFromLink("new")}
               onMouseEnter={warmNew}
               onTouchStart={warmNew}
               onPointerDown={warmNew}
@@ -1069,14 +1110,15 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                       key={product.id}
                       data-row={product.id}
                       hidden={!shownIds.has(product.id)}
-                      className="relative flex h-16 items-center gap-3 px-3 has-[a[data-row-link]:active]:bg-[#eef0f2] [li:not([hidden])~&]:before:absolute [li:not([hidden])~&]:before:left-[74px] [li:not([hidden])~&]:before:right-0 [li:not([hidden])~&]:before:top-0 [li:not([hidden])~&]:before:h-px [li:not([hidden])~&]:before:bg-[#eceef1]"
+                      data-opening={opening === product.id ? "" : undefined}
+                      className="relative flex h-16 items-center gap-3 px-3 has-[a[data-row-link]:active]:bg-[#eef0f2] data-[opening]:bg-[#eef0f2] [li:not([hidden])~&]:before:absolute [li:not([hidden])~&]:before:left-[74px] [li:not([hidden])~&]:before:right-0 [li:not([hidden])~&]:before:top-0 [li:not([hidden])~&]:before:h-px [li:not([hidden])~&]:before:bg-[#eceef1]"
                     >
                       <Link
                         href={`/app/products/${product.id}`}
                         aria-label={product.title}
                         data-row-link=""
                         onTouchStart={() => warm(product.id)}
-                        onClick={openFromLink(`/app/products/${product.id}`)}
+                        onClick={openFromLink(product.id)}
                         {...hover(product.id)}
                         className="absolute inset-0 z-0 outline-none focus-visible:shadow-[inset_0_0_0_2px_#1a1a2e]"
                       />
@@ -1099,7 +1141,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                           ) : null}
                         </span>
                       </span>
-                      {previewButton(product, EYE_PHONE, false)}
+                      {opening === product.id ? openingMark("phone") : previewButton(product, EYE_PHONE, false)}
                       <ResponsiveActionMenu
                         title={product.title}
                         align="end"
@@ -1142,13 +1184,14 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                         key={product.id}
                         data-row={product.id}
                         hidden={!shownIds.has(product.id)}
-                        className="group h-14 cursor-pointer lg:h-[60px] xl:h-[68px] [tr:not([hidden])~&>td]:border-t [tr:not([hidden])~&>td]:border-[#f1f2f4]"
+                        data-opening={opening === product.id ? "" : undefined}
+                        className="group h-14 cursor-pointer lg:h-[60px] xl:h-[68px] [tr:not([hidden])~&>td]:border-t [tr:not([hidden])~&>td]:border-[#f1f2f4] data-[opening]:[&>td]:bg-[#f4f5f7]"
                         {...hover(product.id)}
                         onClick={(e) => {
                           /* Not a press inside the row's own controls, nor one that bubbled up from its menu's portal. */
                           const target = e.target as HTMLElement
                           if (!e.currentTarget.contains(target) || target.closest("a,button,input,label")) return
-                          openEditor(router, `/app/products/${product.id}`)
+                          open(product.id)
                         }}
                       >
                         <td className="bg-white pl-4 pr-3 group-hover:bg-[#fafafb] lg:pl-[17px] lg:pr-[13px] xl:pl-[21px]">
@@ -1156,7 +1199,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                             <Thumb src={product.thumbnail_url} title={product.title} size="table" />
                             <Link
                               href={`/app/products/${product.id}`}
-                              onClick={openFromLink(`/app/products/${product.id}`)}
+                              onClick={openFromLink(product.id)}
                               className="min-w-0 truncate text-[13px] font-medium text-[#1a1a2e] outline-none hover:underline focus-visible:underline lg:text-[14px] xl:text-[15px]"
                             >
                               {product.title}
@@ -1172,7 +1215,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                         <td className="whitespace-nowrap bg-white px-3 text-right font-medium tabular-nums text-[#1a1a2e] group-hover:bg-[#fafafb] lg:px-[13px]">{priceOf(product.price_cents)}</td>
                         <td className="bg-white pr-3 group-hover:bg-[#fafafb] lg:pr-[13px] xl:pr-[17px]">
                           <div data-row-actions="" className="flex items-center justify-end gap-2 lg:gap-[9px]">
-                            {previewButton(product, EYE_TABLE, true)}
+                            {opening === product.id ? openingMark("table") : previewButton(product, EYE_TABLE, true)}
                             <ResponsiveActionMenu
                               title={product.title}
                               align="end"
@@ -1207,7 +1250,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
               ) : products.length === 0 ? (
                 <Link
                   href="/app/products/new"
-                  onClick={openFromLink("/app/products/new")}
+                  onClick={openFromLink("new")}
                   onMouseEnter={warmNew}
                   onTouchStart={warmNew}
                   className={cn(NEW_LOOK, "mt-5 max-md:h-10 max-md:px-4 max-md:text-[14px]")}

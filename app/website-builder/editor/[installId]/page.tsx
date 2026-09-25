@@ -3099,6 +3099,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       price_cents: p.price_cents,
       compare_at_cents: p.compare_at_cents,
       thumbnail_url: p.thumbnail_url,
+      gallery_urls: p.gallery_urls,
       status: "published",
     })),
     [products],
@@ -3428,6 +3429,45 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    */
   const currentPageRef = useRef(currentPage)
   currentPageRef.current = currentPage
+
+  /**
+   * ASK STORELIB'S UNDO, FOR ONE RUN. A run pushes one undo step before its
+   * first change, as every AI edit always has, and that snapshot is also kept
+   * here under the run's id with the page it was made on. The chat's Undo
+   * puts it back: through the editor's own Undo when nothing has happened
+   * since, and otherwise by restoring it with the page as it is now kept on
+   * the redo stack, so Redo brings the run back. Only on the page the run
+   * was made on; anywhere else it answers false and the chat stops offering.
+   */
+  const aiRuns = useRef(new Map<string, { page: string; before: { sections: SectionInstance[]; settings: ThemeSettingsValues } }>())
+  const startAiRun = useCallback(
+    (runId?: string) => {
+      const before = snapshotNow()
+      setUndoStack(prev => [...prev.slice(-30), before])
+      setRedoStack([])
+      if (runId) aiRuns.current.set(runId, { page: currentPageRef.current, before })
+    },
+    [snapshotNow],
+  )
+  const undoAiRun = useCallback(
+    (runId: string) => {
+      const run = aiRuns.current.get(runId)
+      if (!run || run.page !== currentPageRef.current) return false
+      aiRuns.current.delete(runId)
+      const stack = undoRef.current
+      if (stack[stack.length - 1] === run.before) {
+        handleUndo()
+        return true
+      }
+      setRedoStack(prev => [...prev, snapshotNow()])
+      setSections(run.before.sections)
+      setSettingsDraft(run.before.settings)
+      setIsDirty(true)
+      return true
+    },
+    [handleUndo, snapshotNow],
+  )
+
   const pageChangeRef = useRef(handlePageChange)
   pageChangeRef.current = handlePageChange
   const selectProductRef = useRef(handleSelectProductPage)
@@ -6308,6 +6348,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const openAiCodeFromDock = useCallback((path: string) => {
     void openCodeRef.current(path)
   }, [])
+  /** Ask Storelib's Connect AI: Website settings on Connections, where Claude Code and Codex are connected. */
+  const connectAiFromChat = useCallback(() => actionCalls.current.openConnections(), [])
+  /** What Ask Storelib's suggestions know about the store. Unknown while the list loads. */
+  const aiStore = useMemo(
+    () => ({ productCount: productsLoading ? null : products.length }),
+    [productsLoading, products.length],
+  )
   const aiSettings = settingsDraft as Record<string, unknown>
   const aiSelected = selectedSectionId ?? undefined
 
@@ -7010,11 +7057,14 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               sections={sections}
               settings={aiSettings}
               selectedSectionId={aiSelected}
-              onRunStart={pushUndo}
+              store={aiStore}
+              onRunStart={startAiRun}
               onRunEnd={backupAfterTask}
+              onUndoRun={undoAiRun}
               onBusyChange={setAiBusy}
               onOp={applyAiOp}
               onClose={closeAiSheet}
+              onConnectAi={connectAiFromChat}
               onSourcesChanged={reloadAiSources}
               onWriteStart={handleWriteStart}
               onWriteDone={handleWriteDone}
@@ -7584,11 +7634,14 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               sections={sections}
               settings={aiSettings}
               selectedSectionId={aiSelected}
-              onRunStart={pushUndo}
+              store={aiStore}
+              onRunStart={startAiRun}
               onRunEnd={backupAfterTask}
+              onUndoRun={undoAiRun}
               onBusyChange={setAiBusy}
               onOp={applyAiOp}
               onClose={closeAiDock}
+              onConnectAi={connectAiFromChat}
               onSourcesChanged={reloadAiSources}
               onWriteStart={handleWriteStart}
               onWriteDone={handleWriteDone}

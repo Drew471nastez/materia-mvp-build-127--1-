@@ -18,6 +18,8 @@
  * exchange, so nothing here needs to outlive it.
  */
 
+import { imageInfo, MAX_IMAGE_SIDE } from "./image-info"
+
 /** What a model can actually look at. Everything else is refused. */
 export const ALLOWED_IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif"] as const
 export type AllowedImageType = (typeof ALLOWED_IMAGE_TYPES)[number]
@@ -122,6 +124,17 @@ export function reviewImages(input: unknown): { images: AgentImage[]; rejected: 
       rejected.push({ index, reason: `That is more than ${MAX_TOTAL_IMAGE_BYTES / (1024 * 1024)}MB of pictures in one go.` })
       return
     }
+    /**
+     * And a size the header can stand behind. A picture that claims to be
+     * wider than any screen is refused rather than handed to a model; one
+     * whose header cannot be read at all is still sent, because an unusual
+     * encoder is not a reason to lose somebody's screenshot.
+     */
+    const info = imageInfo({ mediaType: item.mediaType, data: item.data })
+    if (info && (info.width > MAX_IMAGE_SIDE || info.height > MAX_IMAGE_SIDE)) {
+      rejected.push({ index, reason: "That image is larger than any screen. Attach a screenshot of the part you want." })
+      return
+    }
     total += size
     images.push({
       mediaType: item.mediaType,
@@ -142,41 +155,90 @@ export function reviewImages(input: unknown): { images: AgentImage[]; rejected: 
  * image, in the order the answer is built, so "detail by detail" is a
  * procedure rather than an adjective.
  *
+ * "Create me something similar" means the SHAPE of the picture on THIS site:
+ * its layout, its hierarchy and its style, built with the theme's colour
+ * schemes, fonts and controls, and filled with the creator's own words and
+ * products. A picture is usually somebody else's page, and copying its
+ * headline, its logo or its prices onto a creator's site would put another
+ * business's words and claims there. So the words are the creator's, every
+ * time (the rulebook's "A picture as the brief", lib/agent-rules).
+ *
+ * Each picture's size is read from its header (./image-info.ts) and said: a
+ * phone screenshot is built phone first, a full page is split into sections,
+ * and one too tall to read once shrunk is a reason to ask, not to guess.
+ *
  * The last paragraph is the case the request names directly: a picture on
  * its own, with nothing typed. That is not an empty request. It is the whole
  * request.
  */
-export function describeImages(images: AgentImage[], hasPrompt: boolean): string {
+export function describeImages(
+  images: AgentImage[],
+  hasPrompt: boolean,
+  /**
+   * How this surface asks and where its content is. The builder's assistant
+   * has ask_creator and read_store; the section writer has neither, and
+   * answers REPLY: with a question and reads the site it was handed.
+   */
+  how: { ask?: string; content?: string } = {},
+): string {
   if (images.length === 0) return ""
   const many = images.length > 1
+  const ask = how.ask ?? "ask one question with ask_creator"
+  const content = how.content ?? "this creator's store, products and page (read_store)"
+  const sizes = images
+    .map((image, i) => {
+      const info = imageInfo(image)
+      if (!info) return null
+      const what =
+        info.shape === "tall page"
+          ? "a whole page, scrolled: split it into sections, top to bottom; small text in it may be unreadable once it is scaled down"
+          : info.shape === "phone"
+            ? "a phone screenshot: build the phone layout from it and widen from there"
+            : info.shape === "wide strip"
+              ? "a narrow strip, probably one band of a page"
+              : info.shape === "desktop"
+                ? "a desktop screenshot"
+                : "square"
+      return `  ${many ? `Picture ${i + 1}: ` : ""}${info.width} x ${info.height}, ${what}.`
+    })
+    .filter(Boolean)
   return [
-    `THE CREATOR ATTACHED ${many ? `${images.length} IMAGES` : "AN IMAGE"}. ${many ? "They are" : "It is"} the reference. Reproduce ${many ? "them" : "it"} as closely as this theme allows.`,
+    `THE CREATOR ATTACHED ${many ? `${images.length} IMAGES` : "AN IMAGE"}. ${many ? "They are" : "It is"} the reference for layout, hierarchy and style. Build ${many ? "them" : "it"} on this site, with this theme and this creator's own content.`,
+    ...(sizes.length ? ["", ...sizes] : []),
     "",
     "Read it in this order and write down what you find as you go:",
     "  1. LAYOUT. How many columns, at what widths, in what order. Where the",
     "     text sits against the picture. What is centred and what is not.",
-    "  2. SPACING. How much room above and below, between the heading and the",
+    "  2. HIERARCHY. What is read first, second and third. What is large, what",
+    "     is quiet, what is a button and what is a link.",
+    "  3. SPACING. How much room above and below, between the heading and the",
     "     text under it, between the cards. Generous or tight.",
-    "  3. TYPE. The size of the heading against the body. Its weight. Whether",
-    "     it is set in caps, and how tight the letter-spacing is.",
-    "  4. COLOUR. The background, the text on it, the buttons and their",
-    "     labels, the borders. Take them from the image, and set them as the",
-    "     section's own colours so the creator can still change them.",
-    "  5. SHAPE. Corner radius, borders, shadows, dividers.",
-    "  6. THE PARTS. Every eyebrow, heading, paragraph, button, badge, price,",
-    "     avatar, icon and image that is in the picture is in the section.",
+    "  4. TYPE. The size of the heading against the body. Its weight. Whether",
+    "     it is set in capitals. Use the theme's fonts and type scale for it.",
+    "  5. COLOUR. Light or dark, where the accent is used. Use the colour",
+    "     scheme of this site closest to it; set the section's own colours",
+    "     only when no scheme is close.",
+    "  6. SHAPE. Corner radius, borders, shadows, dividers.",
+    "  7. THE PARTS. Every eyebrow, heading, paragraph, button, price, image",
+    "     and icon slot in the picture becomes a setting or a block.",
     "",
-    "WRITE THE WORDS THAT ARE IN THE PICTURE. If the heading in the image says",
-    "something, that is the heading. Do not replace it with a placeholder, and",
-    "do not invent copy that is not there. Where a real photograph belongs,",
-    "leave the image field empty so the creator drops their own in.",
+    "DO NOT COPY ITS WORDS, LOGOS OR BRAND. The picture is usually somebody",
+    `else's page. Write every word from ${content},`,
+    "keeping the kind and length of text each slot holds: a short heading",
+    "stays short. A product or price in the picture becomes one of the",
+    "creator's real products, or is left out. Never put another brand's name,",
+    "logo or claims on this site. Where a photograph belongs, leave the image",
+    "field empty so the creator drops their own in.",
     "",
     "WHAT NOT TO COPY: a browser's chrome, a phone's status bar, a cursor, a",
     "watermark, or anything belonging to the tool the screenshot was taken in.",
     "Reproduce the page, not the screenshot of it.",
     "",
+    "IF YOU CANNOT READ IT, because it is too small, blurred, cropped or not",
+    `a web page, ${ask} instead of guessing.`,
+    "",
     hasPrompt
       ? "What they typed comes first where the two disagree: the image shows what it should look like, their words say what it is for."
-      : "THEY TYPED NOTHING, AND THAT IS THE WHOLE REQUEST. Build the section in the picture. Do not ask what they want or offer alternatives — they have already shown you. Make it, then say in one line what you read off the image, so they can correct you if you read it wrong.",
+      : "THEY TYPED NOTHING, AND THAT IS THE WHOLE REQUEST. Build the section in the picture. Do not ask what they want or offer alternatives, because they have already shown you; ask only if you cannot read it. Make it, then say in one line what you read off the image, so they can correct you if you read it wrong.",
   ].join("\n")
 }

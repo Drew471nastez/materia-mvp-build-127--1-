@@ -54,9 +54,14 @@ import {
 import { describeHouseStyle, readHouseStyle } from "./house-style"
 import { describeFindings, reviewSections } from "./review"
 import { nameOf as typeName, schemaMapFor, schemaOf, type SchemaMap } from "./schemas"
+import { ASK_TOOL, questionText, readAsk } from "./ask"
+import { applySourceEdits } from "./code-edits"
+import { describeRecent, lastQuestion, type RecentMessage } from "./memory"
+import { PROGRESS_LABELS, ProgressTrail, progress, savingLabel, writingLabel, type ProgressEvent } from "./progress"
 import { checkSectionQuality, describeQuality, pageAgentRules, qualityErrors } from "@/lib/storelib-ai"
 import { builderAgentRules } from "@/lib/agent-rules"
 import { skillContext } from "@/lib/agent-skills"
+import type { AgentQuestion } from "@/lib/sites/agent/questions"
 import type {
   AgentProvider,
   AgentTurn,
@@ -122,6 +127,19 @@ export type ThemeAgentEvent =
   /** A section's source was rewritten: whoever is drawing it should reload. */
   | { type: "sources-changed" }
   | { type: "error"; message: string }
+  /**
+   * WHERE THE RUN IS: reading, products, planning, writing <section>,
+   * checking, saving, done. One headline at a time, documented with the
+   * phases in ./progress.ts. Draw `label`; on `done`, `detail` and `sections`.
+   */
+  | ProgressEvent
+  /**
+   * THE RUN STOPPED TO ASK. One short question and the choices to tap
+   * (ask_creator, ./ask.ts). Nothing after it in this run but the closing
+   * `message`, which carries the same question as text. The creator's answer
+   * is their next message in the same conversation.
+   */
+  | { type: "question"; id: string; question: string; why?: string; options: string[] }
 
 export interface ThemeAgentResult {
   status: "succeeded" | "failed" | "refused"
@@ -131,6 +149,8 @@ export interface ThemeAgentResult {
   ops: ThemeOp[]
   /** A section's source was rewritten, so the editor reloads its files. */
   wroteCode?: boolean
+  /** The question the run stopped on, when it asked one. */
+  asked?: AgentQuestion | null
 }
 
 const SYSTEM_PROMPT = `You edit a website in a visual theme editor. The page is a list of SECTIONS, each with settings defined by a schema, and each KIND of section is a file you can read and rewrite: its markup, its CSS, its script and that schema. You change the page by calling tools.
@@ -144,8 +164,9 @@ Rules:
 - PREFER HIDING TO DELETING. "Take this off for now", "hide it until launch", "I don't want this here yet" all mean set_section_visibility, not remove_section. A hidden section keeps its settings and its content and comes back in one call; a removed one is gone, and whoever wrote that content wrote it once. Remove only when somebody clearly wants it gone for good.
 - WHEN A SECTION IS SELECTED, act on it. "Make this section better" means that section, and it is not a question — look at what it is, decide what is weak about it, and change it. A FAQ with five thin questions gets better questions and better answers; a hero with a generic headline gets a specific one; a pricing table with unnamed tiers gets named tiers.
 - MOST SECTIONS KEEP THEIR CONTENT IN BLOCKS, not in settings. A FAQ's questions, a pricing table's tiers, a testimonial's quotes, a gallery's images are all blocks. Changing a section's settings alone will not touch any of them, so if a request is about content, use the block tools. read_section lists the block types a section takes and the blocks it currently has.
-- NOT EVERY MESSAGE IS AN EDIT. A greeting, a question ("what can you do?", "why is my header dark?"), or a request too unclear to act on gets an answer, not a guess: make no changes and reply in one to three plain sentences. Answer the question; or say what you understood and ask for the missing part, with one concrete example of what they could type ("Try: make the hero headline shorter"). Never apologise at length and never describe your tools.
-- ALWAYS CHANGE SOMETHING VISIBLE when you are asked to change something. A run that reads a section and then replies without a single operation has not done what was asked. If a request is broad, decide what would genuinely improve the thing in front of you and do it.
+- NOT EVERY MESSAGE IS AN EDIT. A greeting or a question ("what can you do?", "why is my header dark?") gets an answer, not a guess: make no changes and reply in one to three plain sentences. Never apologise at length and never describe your tools.
+- ASK ONLY WHAT YOU CANNOT READ. When a missing fact would change what you build (which of several products, which page, brand colours the site does not have, a business fact that is nowhere on the page or in the store) call ask_creator with one short question and two to four choices taken from what you read. The run stops there; their answer is their next message, with this conversation shown above it. Never ask what the page, the theme, the store or the conversation already answers, and never about taste you can decide.
+- ALWAYS CHANGE SOMETHING VISIBLE when you are asked to change something, unless you asked a question. A run that reads a section and then replies without a single operation has not done what was asked. If a request is broad, decide what would genuinely improve the thing in front of you and do it.
 - STAY ON THE SUBJECT, but do the subject properly. "Change this heading to X" is one operation and stops there — do not restyle things nobody mentioned or "improve" copy that was not the subject. That is about SCOPE, not about effort, and it is not licence to do the smallest possible version of what WAS asked.
 - WHEN THE ASK IS TO BUILD, DESIGN OR MAKE SOMETHING GOOD, the standard is a section a designer would ship, and it takes ten to twenty operations. Adding the section is the first of them, not the job:
     1. read_section_type first, so you know every control and block type before you start.
@@ -155,12 +176,14 @@ Rules:
     5. Read it back with read_section and ask yourself whether you would ship it. If a field is empty that should not be, fill it.
 - "COMPLEX" AND "COMPLETE" MEAN CONTENT, NOT DECORATION. Nobody asking for a complex section wants louder colours; they want a section with real substance in it — more entries, better written, properly organised. Fill it up.
 - DO NOT STOP EARLY. If you have made two or three operations and the section is not finished, keep going. Running out of turns having done thorough work is fine; stopping at a third of the job because it technically answers the request is not.
-- WRITE COPY ABOUT THE REAL BUSINESS. Call read_store before you write anything that mentions what they sell, what it costs, or who it is for — the catalogue is there and inventing one produces a page that contradicts the shop behind it. Never "Lorem ipsum" and never "Your headline here".
+- WRITE COPY ABOUT THE REAL BUSINESS. Call read_store before you write anything that mentions what they sell, what it costs, or who it is for — the catalogue is there and inventing one produces a page that contradicts the shop behind it. When the STORE is already shown with the request, it has been read for you: do not read it again. Never "Lorem ipsum" and never "Your headline here".
+- SELL WITH THE REAL CATALOGUE. A product section set to the shop draws the real products, prices and pictures and stays in step with them; a product picker takes a product's page address from read_store. Buy buttons go to Storelib checkout, which brings the buyer back to this site. Never type a price, product or picture the store does not have.
 - Do not add a product section to a store with no products. It renders empty, which looks broken rather than new.
 - MATCH THE PAGE YOU ARE ON. It has a palette, a spacing rhythm and a way of alternating backgrounds, and you are shown them. Reuse a colour that is already there rather than introducing one three shades off it; keep padding on the values the rest of the page uses. Coherence is what separates a designed page from an assembled one, and it comes from using a small vocabulary consistently — not from making each section interesting on its own.
 - YOUR WORK IS CHECKED BEFORE YOU FINISH. Contrast, empty text, repeated entries, and a section left holding its preset's demo copy are all checked against the page as it stands after your changes. If anything is wrong you will be told and you fix it. So get it right first: text needs at least 4.5:1 against what is behind it, every section you add gets real copy about this store, and no two entries say the same thing.
-- THE SOURCE IS REACHED WITH TOOLS, LIKE ANYTHING ELSE HERE. When the change is not something a control covers: read_section_code on that section's type, change the markup, the CSS, the script or the schema, then write_section_code with the whole file. A refused write did not happen; the compiler says what is wrong, so fix that and write again rather than reporting a change you did not save.
-- When you are done, reply with one plain sentence saying what you changed. No preamble, no markdown, no lists.
+- THE SOURCE IS REACHED WITH TOOLS, LIKE ANYTHING ELSE HERE. When the change is not something a control covers: read_section_code on that section's type, then change the markup, the CSS, the script or the schema with edit_section_code, exact find and replace for only the lines that change. Use write_section_code with the whole file only for a new layout. A refused write did not happen; the compiler says what is wrong, so fix that and write again rather than reporting a change you did not save.
+- READ ONCE. What you read in this run stays true until you change it; a second read of something unchanged is answered with a note, not the content again. Make related changes in the same turn.
+- When you are done, reply with one plain sentence saying what you changed and in which sections. No preamble, no markdown, no lists.
 
 ${pageAgentRules()}
 
@@ -361,9 +384,35 @@ function toolSpecs(addable: string[], schemas?: SchemaMap, code?: boolean): Tool
             },
           },
           {
+            name: "edit_section_code",
+            description:
+              "Change PART of a kind of section's source: exact find-and-replace edits, applied in order. Each find is copied from read_section_code and appears exactly once in the file (add a neighbouring line if it does not). The result is compiled and checked like a whole file and refused if it fails. This is how to make a change to a file: it costs a fraction of resending it and cannot touch lines you did not name. Changes every place this kind of section is used.",
+            parameters: {
+              type: "object" as const,
+              properties: {
+                sectionType: { type: "string", description: "The section type you read." },
+                edits: {
+                  type: "array",
+                  description: "One or more edits, in order.",
+                  items: {
+                    type: "object",
+                    properties: {
+                      find: { type: "string", description: "Text that is in the file exactly once, copied exactly." },
+                      replace: { type: "string", description: "What it becomes." },
+                    },
+                    required: ["find", "replace"],
+                    additionalProperties: false,
+                  },
+                },
+              },
+              required: ["sectionType", "edits"],
+              additionalProperties: false,
+            },
+          },
+          {
             name: "write_section_code",
             description:
-              "Replace the source of a kind of section with a new one. Send the WHOLE file, not a patch. It is compiled before it is stored and refused if it does not compile, so keep every part you were not asked to change exactly as it was: the schema, the settings it reads, the blocks, the classes the rest of the theme uses. Changes every place this kind of section is used.",
+              "Replace the source of a kind of section with a new one. Send the WHOLE file. Only for a new layout: for a change to part of it, edit_section_code. It is compiled before it is stored and refused if it does not compile, so keep every part you were not asked to change exactly as it was: the schema, the settings it reads, the blocks, the classes the rest of the theme uses. Changes every place this kind of section is used.",
             parameters: {
               type: "object" as const,
               properties: {
@@ -379,7 +428,7 @@ function toolSpecs(addable: string[], schemas?: SchemaMap, code?: boolean): Tool
     {
       name: "read_store",
       description:
-        "Read what this store actually sells — its name, whether it is live, and its products with their kinds and prices. Do this before writing copy that mentions the business or its catalogue, and before adding a product section: a store with no products renders one empty.",
+        "Read what this store actually sells: its name, whether it is live, and its products with their ids, page addresses, kinds, prices, sale prices and options. Do this before writing copy that mentions the business or its catalogue, and before adding a product section: a store with no products renders one empty. Not needed when the STORE is already shown with the request.",
       parameters: { type: "object", properties: {}, required: [], additionalProperties: false },
     },
     {
@@ -397,6 +446,8 @@ function toolSpecs(addable: string[], schemas?: SchemaMap, code?: boolean): Tool
         additionalProperties: false,
       },
     },
+    /* Last, so every tool above it keeps its place in the cached prefix. */
+    ASK_TOOL,
   ]
 }
 
@@ -473,6 +524,8 @@ function describeCall(
     case "read_section_type": return `Looking at what ${typeOf(args.sectionType)} can do`
     case "read_section_code": return `Reading ${typeOf(args.sectionType)} code`
     case "write_section_code": return `Writing ${typeOf(args.sectionType)} code`
+    case "edit_section_code": return `Editing ${typeOf(args.sectionType)} code`
+    case "ask_creator": return "Asking you a question"
     case "read_store": return "Reading the catalogue"
     case "add_section": return `Adding ${typeOf(args.sectionType)}`
     case "remove_section": return `Removing ${nameOf(args.id)}`
@@ -601,6 +654,13 @@ export interface ThemeAgentInput {
    * being left to invent one.
    */
   readStore?: () => Promise<StoreFacts | null>
+  /**
+   * THE LAST FEW MESSAGES OF THIS CONVERSATION, oldest first, before this
+   * request (./memory.ts). What makes "I meant the animation" and a tapped
+   * answer to its own question mean something. Absent: the request stands
+   * alone, as it always did.
+   */
+  history?: RecentMessage[]
   /** Groups this theme's requests for the provider's prompt cache. */
   cacheKey?: string
   /** How hard to think, passed through to providers that have such a dial. */
@@ -664,7 +724,24 @@ export async function* themeAgent(
    * without it, every contrast check reports the product's own presets.
    */
   const written = new Map<string, Set<string>>()
+  /** Which blocks the run wrote words into, per section, for the copy check. */
+  const blockWrites = new Map<string, Set<string>>()
   let reviews = 0
+
+  /** Where the run is, said once per stage: see ./progress. */
+  const trail = new ProgressTrail()
+  /** The question the run stopped on, when it asked one. */
+  let asked: AgentQuestion | null = null
+  /**
+   * WHAT THIS RUN HAS ALREADY READ, by tool and arguments. Every turn resends
+   * the whole conversation, so a second read of something unchanged pays for
+   * the same text twice and then again on every turn after it. It is answered
+   * with a note instead, until a write changes what was read.
+   */
+  const reads = new Map<string, string>()
+  const forget = (prefix: string) => {
+    for (const key of [...reads.keys()]) if (key.startsWith(prefix)) reads.delete(key)
+  }
 
   /**
    * The selected section is sent IN FULL up front — settings and blocks —
@@ -679,6 +756,29 @@ export async function* themeAgent(
     ? state.sections.find((s) => s.id === input.selectedSectionId)
     : undefined
 
+  const history = input.history ?? []
+
+  /**
+   * THE CATALOGUE, READ BEFORE THE MODEL IS ASKED, when the request is about
+   * the business: copy, products, prices, a picture to fill with the
+   * creator's content. The model would call read_store as its first move on
+   * every one of these, and that round trip resends everything above it; read
+   * here, it is one database read and a few lines in the first turn.
+   */
+  {
+    const reading = trail.next(progress("reading", PROGRESS_LABELS.page))
+    if (reading) yield reading
+    if (images.length) yield progress("reading", PROGRESS_LABELS.picture)
+  }
+
+  let store: StoreFacts | null | undefined
+  const aboutTheBusiness = STORE_WORDS.test(prompt) || images.length > 0
+  if (aboutTheBusiness && input.readStore) {
+    const said = trail.next(progress("products", PROGRESS_LABELS.products))
+    if (said) yield said
+    store = await input.readStore()
+  }
+
   const turns: AgentTurn[] = [
     {
       role: "user",
@@ -691,12 +791,16 @@ export async function* themeAgent(
          * afterwards has already chosen.
          */
         describeHouseStyle(readHouseStyle(state, [], schemas)),
-        `THEME SETTINGS\n${JSON.stringify(state.settings, null, 2).slice(0, 3_000)}`,
+        /* Compact: the indentation of a pretty-printed dump was a third of its tokens. */
+        `THEME SETTINGS\n${compactSettings(state.settings)}`,
         selected && locked
           ? `THE CREATOR HAS THIS SECTION OPEN AND LOCKED. It is the ONLY thing you may change — its settings, its blocks, its name. You may READ anything else on the page to match it, but every write to another section, and every change to the theme, will be refused. If what they asked for genuinely needs more than this section, do what you can here and say plainly what the rest would take.\n\n${describeSection(selected, schemas)}`
           : selected
             ? `THE CREATOR HAS THIS SECTION SELECTED AND OPEN. "this section", "this", "it" and "here" all mean THIS one unless they clearly name another.\n\n${describeSection(selected, schemas)}`
             : "",
+        store ? `STORE, read for you just now:\n${describeStore(store)}` : "",
+        /* What was just said, so a follow-up or an answer means what it meant. */
+        describeRecent(history),
         /**
          * AFTER the theme and BEFORE the request. What the picture is for is
          * read in the light of what this theme can do; what they typed is
@@ -711,7 +815,7 @@ export async function* themeAgent(
          * prefix that changes per request is a prefix neither provider
          * caches, and the cached prefix is most of what a run costs.
          */
-        skillContext(prompt),
+        skillContext(prompt, { images: images.length > 0 }),
         `REQUEST\n${prompt}`,
       ]
         .filter(Boolean)
@@ -731,6 +835,8 @@ export async function* themeAgent(
         error = "This edit reached its token budget."
         break
       }
+
+      if (attempt === 1) yield progress("planning", PROGRESS_LABELS.planning)
 
       const turn = await provider.complete({
         model,
@@ -771,16 +877,22 @@ export async function* themeAgent(
          * are fixed or the review budget is spent. See MAX_REVIEWS for why the
          * budget is small.
          */
-        const findings =
-          ops.length > 0 && reviews < maxReviews
-            ? reviewSections({
-                state,
-                touched: [...touched],
-                added: [...added],
-                filled: [...filled],
-                written: Object.fromEntries([...written].map(([id, set]) => [id, [...set]])),
-              })
-            : []
+        const reviewing = ops.length > 0 && reviews < maxReviews
+        if (reviewing) {
+          const checking = trail.next(progress("checking", PROGRESS_LABELS.checking))
+          if (checking) yield checking
+        }
+        const findings = reviewing
+          ? reviewSections({
+              state,
+              schemas,
+              touched: [...touched],
+              added: [...added],
+              filled: [...filled],
+              written: Object.fromEntries([...written].map(([id, set]) => [id, [...set]])),
+              writtenBlocks: Object.fromEntries([...blockWrites].map(([id, set]) => [id, [...set]])),
+            })
+          : []
 
         if (findings.length > 0) {
           reviews++
@@ -827,61 +939,135 @@ export async function* themeAgent(
          */
         const stepLabel = describeCall(call.name, call.argumentsJson, state, schemas)
         yield { type: "step", id: call.id, label: stepLabel, state: "running" }
+
+        /**
+         * A QUESTION ENDS THE RUN. The policy is checked first (./ask.ts):
+         * once a run, two to four choices, never the same question twice,
+         * never "which product" to a one-product store. A refusal goes back to
+         * the model as a result it acts on; a question goes to the creator.
+         */
+        if (call.name === "ask_creator") {
+          const read = readAsk(call.argumentsJson, call.id, {
+            products: store ? store.publishedProducts : null,
+            previousQuestion: lastQuestion(history),
+            asked: asked ? 1 : 0,
+          })
+          if ("refused" in read) {
+            results.push({ id: call.id, output: read.refused })
+            yield { type: "step", id: call.id, label: stepLabel, state: "failed" }
+            continue
+          }
+          asked = read.question
+          yield { type: "step", id: call.id, label: stepLabel, state: "done" }
+          yield {
+            type: "question",
+            id: asked.id,
+            question: asked.question,
+            ...(asked.why ? { why: asked.why } : {}),
+            options: asked.suggestions,
+          }
+          break
+        }
+
         /**
          * The one tool that has to wait on something. `execute` is synchronous
          * on purpose — every other tool is a pure function of the theme — so
          * this is handled here rather than making the whole executor async for
-         * one caller.
+         * one caller. Read once a run: the catalogue does not change under it.
          */
         if (call.name === "read_store") {
-          const facts = input.readStore ? await input.readStore() : null
-          results.push({
-            id: call.id,
-            output: facts
-              ? describeStore(facts)
-              : "The catalogue is not available from here. Write copy that does not depend on knowing the products, and say so in your reply.",
-          })
-          yield { type: "step", id: call.id, label: stepLabel, state: facts ? "done" : "failed" }
+          if (store === undefined) {
+            const said = trail.next(progress("products", PROGRESS_LABELS.products))
+            if (said) yield said
+            store = input.readStore ? await input.readStore() : null
+            results.push({
+              id: call.id,
+              output: store
+                ? describeStore(store)
+                : "The catalogue is not available from here. Write copy that does not depend on knowing the products, and say so in your reply.",
+            })
+          } else {
+            results.push({
+              id: call.id,
+              output: store
+                ? "You already have the store: it is shown above (STORE) and has not changed. Use it."
+                : "The catalogue is not available from here. Write copy that does not depend on knowing the products, and say so in your reply.",
+            })
+          }
+          yield { type: "step", id: call.id, label: stepLabel, state: store ? "done" : "failed" }
+          continue
+        }
+
+        /* A read of something this run already read, unchanged since: a note, not the text again. */
+        const readKey = READ_TOOLS.has(call.name) ? `${call.name}:${readTarget(call.argumentsJson)}` : ""
+        if (readKey && reads.has(readKey)) {
+          results.push({ id: call.id, output: `You read this earlier in this run and nothing has changed it since. Use that result.` })
+          yield { type: "step", id: call.id, label: stepLabel, state: "done" }
           continue
         }
 
         /**
-         * THE TWO CODE TOOLS ARE THE ONLY ONES THAT TOUCH A FILE, so they are
+         * THE CODE TOOLS ARE THE ONLY ONES THAT TOUCH A FILE, so they are
          * the only ones that have to wait for anything. Everything else is a
          * change to the page held in memory here and stays instant.
          */
-        if (input.code && (call.name === "read_section_code" || call.name === "write_section_code")) {
-          const result = await runCodeTool(call.name, call.argumentsJson, input.code, codeRefusals)
-          results.push({ id: call.id, output: result })
-          const wrote = call.name === "write_section_code" && result.startsWith("sections/")
+        if (
+          input.code &&
+          (call.name === "read_section_code" || call.name === "write_section_code" || call.name === "edit_section_code")
+        ) {
+          const writing = call.name !== "read_section_code"
+          const codeType = readTarget(call.argumentsJson)
+          const codeName = `the ${typeName(schemas, codeType)}`
+          if (writing) {
+            const said = trail.next(progress("writing", writingLabel(codeName)))
+            if (said) yield said
+          }
+          const saved = await runCodeTool(call.name, call.argumentsJson, input.code, codeRefusals)
+          results.push({ id: call.id, output: saved.output })
+          if (call.name === "read_section_code" && saved.ok) reads.set(readKey, saved.output)
+          const wrote = writing && saved.ok
           if (wrote) {
             // The canvas has to be told, the same way an operation tells it.
-            const type = String(JSON.parse(call.argumentsJson || "{}").sectionType ?? "")
-            done.push(`Rewrote the ${type.replace(/_/g, " ")} section's code`)
+            yield progress("saving", savingLabel(codeName))
+            done.push(`Rewrote the ${codeType.replace(/_/g, " ")} section's code`)
             wroteCode = true
+            /* What was read of it, and what its schema says, are no longer true. */
+            forget(`read_section_code:${codeType}`)
+            forget(`read_section_type:${codeType}`)
+            forget("read_section:")
             /**
              * The source itself, so the panel can show what was written
-             * rather than only that something was. It is what the model sent
-             * and what was saved — the same string, not a summary of it.
+             * rather than only that something was. It is what was saved,
+             * after the edits were applied: the same string, not a summary.
              */
-            try {
-              const source = String(JSON.parse(call.argumentsJson || "{}").source ?? "")
-              if (source) yield { type: "code", path: result.trim(), source }
-            } catch {
-              /* A step that cannot show its code is still a step that ran. */
-            }
+            if (saved.source) yield { type: "code", path: `sections/${codeType}.storelib`, source: saved.source }
           }
           yield {
             type: "step",
             id: call.id,
             label: stepLabel,
-            state: call.name === "write_section_code" && !wrote ? "failed" : "done",
+            state: writing && !wrote ? "failed" : "done",
           }
           continue
         }
 
+        /* Which section a write is about, for "Writing the FAQ", said when the run moves on to it. */
+        if (WRITE_TOOLS.has(call.name)) {
+          const said = trail.next(progress("writing", writingLabel(targetName(call.name, call.argumentsJson, state, schemas))))
+          if (said) yield said
+        }
+
         const { output, op, failed: refused } = execute(call.name, call.argumentsJson, state, newId, locked, schemas)
+        if (readKey && !refused) reads.set(readKey, output)
         if (op) {
+          /* What was read of this section is no longer what it holds. */
+          forget(`read_section:${"sectionId" in op ? op.sectionId : "id" in op ? op.id : ""}`)
+          if (op.kind === "update_theme") forget("read_section:")
+          if (op.kind === "add_block" || op.kind === "update_block") {
+            const blocks = blockWrites.get(op.sectionId) ?? new Set<string>()
+            blocks.add(op.blockId)
+            blockWrites.set(op.sectionId, blocks)
+          }
           /**
            * Labelled against the state BEFORE the operation, so "Removed FAQ"
            * can still name the section it removed.
@@ -921,6 +1107,17 @@ export async function* themeAgent(
           label: stepLabel,
           state: refused || changedNothing ? "failed" : "done",
         }
+      }
+      /**
+       * ASKED: the run is over. What it changed before asking stays, and the
+       * question is the reply, as text for the transcript and for a client
+       * that does not draw the `question` event.
+       */
+      if (asked) {
+        status = "succeeded"
+        message = questionText(asked)
+        error = null
+        break
       }
       turns.push({ role: "tool", results })
     }
@@ -983,7 +1180,90 @@ export async function* themeAgent(
     }
   }
 
-  return { status, message, error, usage, ops, wroteCode }
+  /**
+   * DONE, with what changed: one sentence and the sections, by the names the
+   * sidebar uses. Not after a question (the question is the ending) and not
+   * after a failure (the error is).
+   */
+  if (status === "succeeded" && !asked && (ops.length > 0 || wroteCode)) {
+    yield progress("done", PROGRESS_LABELS.done, {
+      detail: firstSentence(message),
+      sections: changedSections(state, input.state, touched, schemas),
+    })
+  }
+
+  return { status, message, error, usage, ops, wroteCode, asked }
+}
+
+/** The tools that only read. A second identical read in a run is answered from the first. */
+const READ_TOOLS = new Set(["read_section", "read_section_type", "read_section_code"])
+
+/**
+ * A request about the business, which the model would answer by reading the
+ * store first: products, prices, selling, and copy about what they do.
+ */
+const STORE_WORDS = /\b(products?|price[sd]?|pricing|shop|store|catalog(ue)?|sell(s|ing)?|buy|checkout|cart|presets?|courses?|ebooks?|downloads?|offers?|collections?|headlines?|taglines?|copy|about (us|me)|what (i|we) (sell|do|make))\b/i
+
+/** What a read or code call is about: its section id or its section type. */
+function readTarget(argumentsJson: string): string {
+  try {
+    const args = JSON.parse(argumentsJson || "{}") as Record<string, unknown>
+    const value = args.id ?? args.sectionType ?? args.sectionId ?? ""
+    return typeof value === "string" ? value.trim() : ""
+  } catch {
+    return ""
+  }
+}
+
+/** "the FAQ", "the theme": the thing a write is about, the way the sidebar names it. */
+function targetName(name: string, argumentsJson: string, state: ThemeState, schemas?: SchemaMap): string {
+  if (name === "update_theme") return "the theme"
+  let args: Record<string, unknown> = {}
+  try {
+    args = JSON.parse(argumentsJson || "{}") as Record<string, unknown>
+  } catch {
+    /* named generically below */
+  }
+  if (name === "add_section" && typeof args.sectionType === "string") return `the ${typeName(schemas, args.sectionType)}`
+  const id = typeof args.sectionId === "string" ? args.sectionId : typeof args.id === "string" ? args.id : ""
+  const section = state.sections.find((s) => s.id === id)
+  if (!section) return "the page"
+  return `the ${section.name?.trim() || typeName(schemas, section.type)}`
+}
+
+/** The sections a run changed, by name, first change first. */
+function changedSections(after: ThemeState, before: ThemeState, touched: Set<string>, schemas?: SchemaMap): string[] {
+  const names: string[] = []
+  for (const id of touched) {
+    const section = after.sections.find((s) => s.id === id) ?? before.sections.find((s) => s.id === id)
+    if (!section) continue
+    const name = section.name?.trim() || typeName(schemas, section.type)
+    if (!names.includes(name)) names.push(name)
+  }
+  return names.slice(0, 8)
+}
+
+/** The run's own closing sentence, one sentence of it. */
+function firstSentence(text: string): string {
+  const t = text.replace(/\s+/g, " ").trim()
+  const end = t.search(/[.!?](\s|$)/)
+  return (end >= 0 ? t.slice(0, end + 1) : t).slice(0, 240)
+}
+
+/**
+ * The theme's settings as the model reads them: compact JSON of what is set,
+ * without the indentation a pretty print spends a third of its tokens on,
+ * and without values nobody set.
+ */
+function compactSettings(settings: Record<string, unknown>): string {
+  const kept: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(settings)) {
+    if (value === null || value === undefined || value === "") continue
+    if (typeof value === "string" && value.length > 300) continue
+    kept[key] = value
+  }
+  const text = JSON.stringify(kept)
+  return text.length > 3_000 ? `${text.slice(0, 3_000)}…` : text
 }
 
 /**
@@ -1016,32 +1296,62 @@ export async function* themeAgent(
  */
 const QUALITY_REFUSALS = 2
 
+/**
+ * What a code tool says back: the text the model reads, whether it did what
+ * it was asked, and for a write, the whole source that was saved (after the
+ * edits, for edit_section_code), for the panel to show.
+ */
+interface CodeResult {
+  ok: boolean
+  output: string
+  source?: string
+}
+
 async function runCodeTool(
   name: string,
   argumentsJson: string,
   code: NonNullable<ThemeAgentInput["code"]>,
   /** How many times each section's write has already been sent back. */
   refused: Map<string, number>,
-): Promise<string> {
+): Promise<CodeResult> {
   let args: Record<string, unknown> = {}
   try {
     args = JSON.parse(argumentsJson || "{}") as Record<string, unknown>
   } catch {
-    return "The arguments were not JSON. Send sectionType, and for a write the whole source as a string."
+    return { ok: false, output: "The arguments were not JSON. Send sectionType, and for a write the edits or the whole source." }
   }
   const sectionType = typeof args.sectionType === "string" ? args.sectionType.trim() : ""
-  if (!sectionType) return "Name the section type, e.g. \"faq_accordion\"."
+  if (!sectionType) return { ok: false, output: "Name the section type, e.g. \"faq_accordion\"." }
 
   if (name === "read_section_code") {
     const source = code.read(sectionType)
     if (source === null) {
-      return `There is no source for "${sectionType}" in this theme. It is one of the sections built into the product, so it has no file to edit: do what you can with its settings and say plainly in your reply what the settings cannot do.`
+      return {
+        ok: false,
+        output: `There is no source for "${sectionType}" in this theme. It is one of the sections built into the product, so it has no file to edit: do what you can with its settings and say plainly in your reply what the settings cannot do.`,
+      }
     }
-    return `The whole of sections/${sectionType}.storelib:\n\n${source}`
+    return { ok: true, output: `The whole of sections/${sectionType}.storelib:\n\n${source}` }
   }
 
-  const source = typeof args.source === "string" ? args.source : ""
-  if (!source.trim()) return "Send the whole file in `source`. A patch or a fragment cannot be stored."
+  /**
+   * THE SAME GATE FOR BOTH WRITES. A patch is applied to the file as it
+   * stands, and what that produces is then held to exactly what a whole file
+   * is: the quality checks, the compiler, a draft save.
+   */
+  let source: string
+  if (name === "edit_section_code") {
+    const current = code.read(sectionType)
+    if (current === null) {
+      return { ok: false, output: `There is no source for "${sectionType}" in this theme to edit. Built-in sections cannot be changed: work with their settings.` }
+    }
+    const applied = applySourceEdits(current, args.edits)
+    if (applied.ok === false) return { ok: false, output: `Nothing was saved. ${applied.error}` }
+    source = applied.source
+  } else {
+    source = typeof args.source === "string" ? args.source : ""
+    if (!source.trim()) return { ok: false, output: "Send the whole file in `source`, or use edit_section_code for a change to part of it." }
+  }
 
   const seen = refused.get(sectionType) ?? 0
   if (seen < QUALITY_REFUSALS) {
@@ -1050,15 +1360,25 @@ async function runCodeTool(
     const introduced = qualityErrors(checkSectionQuality(source)).filter((f) => !had.has(f.id))
     if (introduced.length) {
       refused.set(sectionType, seen + 1)
-      return `That source was NOT saved. It compiles, but the change would be wrong on a real page:\n${describeQuality(introduced)}\n\nFix those in the source you sent and write it again, keeping everything else exactly as it is.`
+      return {
+        ok: false,
+        output: `That change was NOT saved. It compiles, but it would be wrong on a real page:\n${describeQuality(introduced)}\n\nFix those and send it again, keeping everything else exactly as it is.`,
+      }
     }
   }
 
   const written = await code.write(sectionType, source)
   if (written.ok === true) {
-    return `sections/${sectionType}.storelib was compiled and saved. It is live on the canvas. If the change was meant to be visible, say what you changed in one sentence when you finish.`
+    return {
+      ok: true,
+      source,
+      output: `sections/${sectionType}.storelib was compiled and saved. It is live on the canvas. If the change was meant to be visible, say what you changed in one sentence when you finish.`,
+    }
   }
-  return `That source was refused and NOTHING was saved: ${written.error}\n\nRead the errors, fix them in the source you sent, and write it again. Do not give up on the request because of a compile error.`
+  return {
+    ok: false,
+    output: `That change was refused and NOTHING was saved: ${written.error}\n\nRead the errors, fix them, and send it again. Do not give up on the request because of a compile error.`,
+  }
 }
 
 function execute(

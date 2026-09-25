@@ -184,7 +184,7 @@ async function main() {
         { page_key: "about", sections: [{ type: "text", name: "Story" }] },
         { page_key: "home", sections: [{ type: "hero", name: "Hero", settings: { heading: "x" } }, { type: "faq", hidden: true }, "junk"] },
       ],
-      products: [{ id: "p1", type: "product", settings: { title: "Preset pack", price: "$12.00", compare_price: "", image: "", url: "/products/preset-pack", tag: "Sold out" } }],
+      products: [{ id: "p1", type: "product", settings: { title: "Preset pack", price: "$12.00", compare_price: "", currency: "USD", free: false, pay_what_you_want: false, image: "", images: [], url: "/products/preset-pack", slug: "preset-pack", kind: "digital", available: false, tag: "Sold out", checkout_url: "", variants: [] } }],
     })
     check("home comes first, and each page lists its sections by type", brief.pages[0].key === "home" && brief.pages[0].sections.map((x) => x.type).join() === "hero,faq" && brief.pages[0].sections[1].hidden === true)
     check("a section's settings are not copied out, only what it is", !JSON.stringify(brief.pages).includes("heading"))

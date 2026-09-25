@@ -231,9 +231,12 @@ export function HeroSection({ section, theme, isEditing, isSelected, onClick }: 
         <div className={cn(split && "@[820px]:w-1/2")}>{content}</div>
         {split && !!heroImage && (
           <div className="@[820px]:w-1/2">
+            {/* The picture beside the heading is content, not decoration, so it
+                is named by the heading, as hero.storelib names it. The
+                backdrop behind the text keeps an empty alt. */}
             <img
               src={heroImage}
-              alt=""
+              alt={str(s.heading)}
               className="w-full rounded-2xl object-cover"
               loading="lazy"
               decoding="async"

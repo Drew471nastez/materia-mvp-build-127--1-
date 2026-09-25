@@ -1,5 +1,6 @@
-import { NextResponse } from "next/server"
+import { NextResponse, after } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { announce, onePageAddresses } from "@/lib/seo/announce"
 
 export async function POST(request: Request) {
   try {
@@ -110,6 +111,11 @@ export async function POST(request: Request) {
       console.error("Publish error:", publishError)
       return NextResponse.json({ error: "Failed to publish" }, { status: 500 })
     }
+
+    /* After the answer: the page's address, to the search engines that take
+       IndexNow (lib/seo/indexnow.ts). Never in the way of the publish. */
+    const owner = user.id
+    after(() => announce(() => onePageAddresses(owner)))
 
     return NextResponse.json({
       success: true,

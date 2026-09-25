@@ -57,13 +57,15 @@ export function useCoverAspect(open: boolean): number {
     if (!open) return
 
     const measure = () => {
-      const band = document.querySelector("[data-cover-band]")
+      /* The band that is actually drawn: one hidden at this width has no shape. */
+      const band = [...document.querySelectorAll("[data-cover-band]")].find((el) => el.getBoundingClientRect().width > 0)
       if (!band) return
       const rect = band.getBoundingClientRect()
       if (rect.width <= 0 || rect.height <= 0) return
       const next = Math.min(MAX, Math.max(MIN, rect.width / rect.height))
-      /* Rounded, so a sub-pixel reflow does not re-render the drawer. */
-      setAspect(Math.round(next * 100) / 100)
+      /* Rounded, so a sub-pixel reflow does not re-render the drawer; to a
+         thousandth, so the frame's shape is the band's to well under a pixel. */
+      setAspect(Math.round(next * 1000) / 1000)
     }
 
     measure()
@@ -73,7 +75,7 @@ export function useCoverAspect(open: boolean): number {
       the page is in a frame that the editor resizes without the window ever
       changing size.
     */
-    const band = document.querySelector("[data-cover-band]")
+    const band = [...document.querySelectorAll("[data-cover-band]")].find((el) => el.getBoundingClientRect().width > 0)
     if (!band || typeof ResizeObserver === "undefined") {
       window.addEventListener("resize", measure)
       return () => window.removeEventListener("resize", measure)

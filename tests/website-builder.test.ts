@@ -1315,11 +1315,11 @@ section("A form that says it worked, did")
   const empty = chat.slice(chat.indexOf("exchanges.length === 0 ? ("), chat.indexOf('data-ask-tray=""'))
   const composer = chat.slice(chat.indexOf('data-ask-tray=""'))
 
-  check("the mode row is with the box you type into", /\["change", "Change this page"\]/.test(composer))
-  check("and not only in the empty state", !/\["change", "Change this page"\]/.test(empty))
+  check("the mode row is with the box you type into", /<ModeSwitch/.test(composer))
+  check("and not only in the empty state", !/<ModeSwitch/.test(empty))
   check("what the writer produced is reported there too", /\{written && \(/.test(composer) && !/\{written && \(/.test(empty))
   check("so are its errors", /\{writeError && /.test(composer) && !/\{writeError && /.test(empty))
-  check("and so is the fact that it is working", /\{writing && writeLabel && <AiStatus/.test(composer) && !/\{writing && /.test(empty))
+  check("and so is the fact that it is working, on the same live line a run uses", /\{writing && writeLabel && <ActivityLine/.test(composer) && !/\{writing && /.test(empty))
   check("and so is an answer, when it answered instead of writing", /\{writeReply && !writing && \(/.test(composer))
   /* "Line 331: <schema> is never closed" is the compiler talking to a
      developer. The chat says what a creator can do, and offers to do it. */
@@ -1327,7 +1327,7 @@ section("A form that says it worked, did")
   check("a failed section can be asked for again in one press", /lastWrite\.current/.test(composer) && /Try again/.test(composer))
   check("it asks the writer for its stages as they happen", /Accept: "application\/x-ndjson"/.test(chat))
 
-  check("the empty state keeps the part that is only useful when empty", /SUGGESTIONS : CODE_SUGGESTIONS|mode === "change" \? SUGGESTIONS/.test(empty))
+  check("the empty state keeps the part that is only useful when empty: what to ask", /<SuggestionChips items=\{suggestions\}/.test(empty))
 }
 
 /**
@@ -1426,7 +1426,8 @@ section("Two at once still make five, and an import that says what went wrong")
   const install = read("app/api/website-builder/themes/[installId]/route.ts")
   check("rename takes text only, trimmed, at most 80, and bad JSON is a 400",
     /await req\.json\(\)\.catch\(\(\) => null\)/.test(install) && /typeof body\?\.name === "string"/.test(install) && /name\.length > 80/.test(install))
-  check("publish reads a bad body as an invalid action, not a crash", /const body = await req\.json\(\)\.catch\(\(\) => null\)/.test(read("app/api/website-builder/themes/[installId]/publish/route.ts")))
+  // Read up to a cap now (lib/website-builder/request-body.ts); a body that is not JSON is still no action.
+  check("publish reads a bad body as an invalid action, not a crash", /const body = \(read\.invalid \? null : read\.json\) as \{ action\?: unknown \} \| null/.test(read("app/api/website-builder/themes/[installId]/publish/route.ts")))
   check("every route the page calls asks who is signed in and whether the website is theirs",
     [routes.duplicate, install, read("app/api/website-builder/themes/[installId]/publish/route.ts")].every((src) => /auth\.getUser\(\)/.test(src) && /\.eq\("creator_id", creator\.id\)/.test(src)) &&
       [routes.add, routes.import, read("app/api/website-builder/themes/import/upload/route.ts")].every((src) => /auth\.getUser\(\)/.test(src) && /Unauthorized/.test(src)))
@@ -1583,8 +1584,8 @@ section("Two at once still make five, and an import that says what went wrong")
   check("  a tap while the rings fade out is a preview's tap", /if \(!inspectorRef\.current\) return\s*const el = document\.getElementById\("wb-preview-root"\)/.test(editor))
 
   check("the Publish sheet shows what is connected, on a phone only, right above the security line that ends it",
-    /\{pinActions && <ConnectionsRow brief=\{connections\} settled=\{connectionsSettled\} onOpen=\{onConnections\} \/>\}\s*<div data-publish-security=""[^>]*>[\s\S]{0,200}?No security issues found\s*<\/div>\s*<\/div>\s*\)/.test(publish) &&
-      publish.indexOf("{pinActions && <ConnectionsRow") < publish.indexOf("No security issues found"))
+    /\{pinActions && <ConnectionsRow brief=\{connections\} settled=\{connectionsSettled\} onOpen=\{onConnections\} \/>\}\s*<SecurityLine\s[\s\S]{0,300}?\/>\s*<\/div>\s*\)/.test(publish) &&
+      publish.indexOf("{pinActions && <ConnectionsRow") < publish.indexOf("<SecurityLine\n"))
   check("  from the editor's own read, the one the bar's mark uses: no second request",
     /connections=\{connectionsBrief\}/.test(editor) && /connectionsSettled=\{connectionsSettled\}/.test(editor) &&
       /settled: connectionsSettled \} = useSiteActivity\(/.test(editor) && !/agent-activity/.test(publish))

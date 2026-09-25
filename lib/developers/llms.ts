@@ -2,6 +2,11 @@
  * The text of storelib.com/llms.txt, in the llms.txt format (llmstxt.org).
  * Here rather than in the route because a Next route file may only export
  * its handlers and its config, and the tests want to read this directly.
+ *
+ * The pages are listed by hand, not looped over, because the order is for an
+ * agent rather than for the sidebar: the rules and the AI guide come before
+ * everything else, whatever category the site files them under.
+ * tests/developer-hub.test.ts fails when a page of the hub is missing here.
  */
 import { DEV_PAGES, FRAMEWORK_NAME, HUB_NAME, SITE_ORIGIN, devPath } from "./pages"
 
@@ -20,28 +25,42 @@ export function llmsTxt(): string {
     "",
     `Before writing any code on a Storelib site, an agent reads and follows ${SITE_ORIGIN}/developers/rules: it writes section files only, never changes a built-in section, and makes every link, button and menu editable. A creator can connect an agent to one of their sites from Website Settings › Connections, in two ways. Through GitHub: the site's section files live in a repository, and every push to the linked branch is compiled and saved to the site as a draft (${SITE_ORIGIN}/developers/ai#connect-through-github); this is also how ChatGPT's Codex connects. Or directly: the site is an MCP server at https://mcp.storelib.com, with tools to read the project, its pages and the section the creator has selected, search the section library, create and edit sections, change settings and styles, create pages, apply several changes as one safe patch with a restore point, run tests and preview drafts; the rules and the skills for the task arrive with the connection (${SITE_ORIGIN}/developers/ai#connect-an-agent-directly).`,
     "",
-    "A section never takes a payment. It shows the creator's products and links to their page or to Storelib checkout; see the Selling page.",
+    "A section never takes a payment. It shows the creator's products (`products` on every page, `page.product` on a product page, each with its prices, pictures, options and `checkout_url`) and links to their page or to Storelib checkout, which brings the buyer back to the site after paying; see the Selling page.",
     "",
-    "## Start",
+    "When a fact that changes the result is missing and nothing on the site has it, an agent asks its person one short question with a few options instead of guessing, and never asks what a tool can tell it.",
+    "",
+    "## Start here",
     "",
     line(""),
-    line("builder"),
-    line("website-builder"),
     line("rules"),
     line("ai"),
+    line("builder"),
+    line("website-builder"),
     "",
-    `## ${FRAMEWORK_NAME}`,
+    "## Themes",
+    "",
+    line("themes"),
+    line("pages"),
+    line("sharing-themes"),
+    line("publishing"),
+    "",
+    `## Sections: the ${FRAMEWORK_NAME}`,
     "",
     line("sections"),
-    line("blocks"),
     line("schema"),
+    line("blocks"),
     line("styling"),
     line("javascript"),
-    "",
-    "## Build",
-    "",
-    line("selling"),
     line("examples"),
+    "",
+    "## Data and logic",
+    "",
+    line("dynamic-values"),
+    line("selling"),
+    "",
+    "## Reference",
+    "",
+    line("data-model"),
     "",
     "## Optional",
     "",

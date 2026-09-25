@@ -46,9 +46,17 @@ const now = new Date().toISOString()
 /**
  * PROBE_LIVE makes the website live, so Publish opens its panel rather than
  * saving; PROBE_CONNECTIONS is what the agent-activity route says is
- * connected (a ConnectionsBrief), read at the moment it is asked.
+ * connected (a ConnectionsBrief), read at the moment it is asked;
+ * PROBE_SECURITY is what the security check answers, or "fail" for a check
+ * that could not run (a 500). Unset, the site is clean.
  */
-const probeGlobals = globalThis as unknown as { PROBE_LIVE?: boolean; PROBE_CONNECTIONS?: unknown; PROBE_FILES?: Record<string, string> }
+const probeGlobals = globalThis as unknown as {
+  PROBE_LIVE?: boolean
+  PROBE_CONNECTIONS?: unknown
+  PROBE_SECURITY?: unknown
+  /* The install's saved .storelib files, path to source (see the files route below). */
+  PROBE_FILES?: Record<string, string>
+}
 const install = {
   id: "probe-install", creator_id: "probe-creator", theme_id: "default", name: "Probe store", status: probeGlobals.PROBE_LIVE ? "published" : "draft",
   is_custom: false, parent_install_id: null, sort_order: 0, created_at: now, updated_at: now, published_at: probeGlobals.PROBE_LIVE ? now : null,
@@ -65,6 +73,10 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   if (!url.startsWith("/api/")) return realFetch(input, init)
   if (/\/themes\/probe-install\/agent-activity/.test(url) && probeGlobals.PROBE_CONNECTIONS) {
     return json({ ready: true, cursor: 0, connections: probeGlobals.PROBE_CONNECTIONS, events: [] })
+  }
+  if (/\/themes\/probe-install\/security/.test(url)) {
+    if (probeGlobals.PROBE_SECURITY === "fail") return new Response(JSON.stringify({ error: "Could not check the site just now. Try again." }), { status: 500, headers: { "content-type": "application/json" } })
+    return json(probeGlobals.PROBE_SECURITY ?? { issues: [], truncated: false, checked_at: now })
   }
   if (/\/themes\/probe-install\/sections/.test(url)) return json({ sections, has_draft: false })
   if (/\/themes\/probe-install\/settings/.test(url)) return json({ settings: install.settings })

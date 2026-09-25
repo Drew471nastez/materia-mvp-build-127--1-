@@ -1,6 +1,6 @@
 # Examples
 
-Seven complete sections. Each is a real `.storelib` file that the test suite compiles, and runs through the same quality checks the builder applies to AI-written sections, on every change to the platform. If one of these stopped compiling, the change that broke it would not ship. Copy any of them into the code editor as `sections/<type>.storelib` and it works as shown.
+Eight complete sections. Each is a real `.storelib` file that the test suite compiles, and runs through the same quality checks the builder applies to AI-written sections, on every change to the platform. If one of these stopped compiling, the change that broke it would not ship. Copy any of them into the code editor as `sections/<type>.storelib` and it works as shown.
 
 Every example follows the same conventions, which are the library's own:
 
@@ -40,6 +40,12 @@ The `embed` capability and the `embed` filter: a creator pastes whatever link th
 The creator's own published products through `products`, in the same `{ id, type, settings }` shape as blocks. Prices arrive formatted, and a sale shows the old price struck through.
 
 @[example:product_cards]
+
+## Product page
+
+The product a product page is about, through `page.product`: a gallery that swipes on a phone, the price and the sale price, options chosen with radio inputs and `:checked` with a buy button for the chosen one, and the sold out state. Every buy button is the product's own `checkout_url`, and checkout brings the buyer back to the site. See [Selling](/developers/selling).
+
+@[example:product_page]
 
 ## Tabs
 

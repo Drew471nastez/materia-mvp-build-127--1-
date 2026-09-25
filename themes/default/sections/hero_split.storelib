@@ -22,7 +22,7 @@
     </div>
     <div class="hero2__media hero2__media--{{ settings.image_shape }}">
       {% if settings.image %}
-        <img src="{{ settings.image | asset }}" alt="{{ settings.image_alt }}" loading="eager" fetchpriority="high" decoding="async">
+        <img src="{{ settings.image | asset }}" alt="{{ settings.image_alt | default: settings.heading }}" loading="eager" fetchpriority="high" decoding="async">
       {% else %}
         <div class="hero2__placeholder" aria-hidden="true"></div>
       {% endif %}
