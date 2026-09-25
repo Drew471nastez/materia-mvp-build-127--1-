@@ -322,6 +322,16 @@ export interface RenderContext {
   section: { id: string; type: string }
   /** `asset://…` → URL, for the `asset` filter. */
   assets: Record<string, string>
+  /**
+   * The store, the addresses every website answers on, and the visitor when
+   * the page is drawn for one. See lib/storelib-theme/globals.ts. Optional:
+   * a surface that gives none still has `shop` from the theme and `routes`,
+   * and reads `customer` and `wishlist` as null.
+   */
+  shop?: Record<string, unknown>
+  routes?: Record<string, unknown>
+  customer?: Record<string, unknown> | null
+  wishlist?: Record<string, unknown> | null
 }
 
 // ── Limits ──────────────────────────────────────────────────────────────────

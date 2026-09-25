@@ -48,6 +48,7 @@ import { ALL_CHECKS, checkPageState, checkSectionFile, describeResults, type Che
 import { validateSection } from "@/lib/storelib-ai/validate"
 import { checksFor, selectSkills, type CheckId } from "@/lib/agent-skills"
 import { describeSection, type ThemeOp, type ThemeState } from "@/lib/website-builder/agent/operations"
+import { applySourceEdits } from "@/lib/website-builder/agent/code-edits"
 import { schemaMapFor, type SchemaMap } from "@/lib/website-builder/agent/schemas"
 import { editorContent } from "@/lib/website-builder/theme-file-drafts"
 import { sanitizeSections } from "@/lib/website-builder/sanitize-sections"
@@ -408,12 +409,41 @@ export async function editSection(
   return { ok: true, value: `${path} saved as a draft. It passed compile and quality. updated_at ${saved.value.updated_at ?? "unknown"}. The previous version is kept.` }
 }
 
+/**
+ * A CHANGE TO PART OF A SECTION FILE, as find-and-replace edits rather than
+ * the whole file resent (lib/website-builder/agent/code-edits.ts, the same
+ * rule the builder's assistant works by). Each find must be in the file
+ * exactly once. What the edits produce then goes through storelib_edit_section
+ * unchanged: the built-in refusal, base_updated_at, compile, quality, a
+ * draft with the previous version kept, and the mirror to GitHub.
+ */
+export async function patchSection(
+  db: Db,
+  who: AgentIdentity,
+  args: { path?: unknown; edits?: unknown; base_updated_at?: unknown },
+  mirror: (path: string, source: string) => void,
+): Promise<OpResult<string>> {
+  const path = typeof args.path === "string" ? args.path : ""
+  const allowed = agentMayWrite(path)
+  if (allowed.ok === false) return bad(allowed.error, allowed.status)
+  const existing = await readFile(db, who.installId, path)
+  if (existing.ok === false) return bad(`There is no ${path} to change. Make it with storelib_create_section.`, 404)
+  const applied = applySourceEdits(existing.value.source, args.edits)
+  if (applied.ok === false) return bad(`${applied.error.replace(/write_section_code/g, "storelib_edit_section")} Nothing was saved.`, 400)
+  const saved = await editSection(db, who, { path, source: applied.source, base_updated_at: args.base_updated_at }, mirror)
+  return saved.ok === true ? { ok: true, value: `${saved.value} ${applied.applied} edit${applied.applied === 1 ? "" : "s"} applied.` } : saved
+}
+
 /* ── tests and preview ─────────────────────────────────────────────── */
 
 export async function runTests(db: Db, who: AgentIdentity, args: { path?: unknown; page?: unknown; checks?: unknown; request?: unknown }): Promise<OpResult<string>> {
   let wanted: CheckId[] = ALL_CHECKS
   if (Array.isArray(args.checks) && args.checks.length) wanted = args.checks.filter((c): c is CheckId => (ALL_CHECKS as string[]).includes(String(c)))
-  else if (typeof args.request === "string" && args.request.trim()) wanted = checksFor(selectSkills(args.request))
+  else if (typeof args.request === "string" && args.request.trim()) {
+    /* A task whose skills name no checks (asking a question) still gets them all. */
+    const named = checksFor(selectSkills(args.request))
+    wanted = named.length ? named : ALL_CHECKS
+  }
   if (!wanted.length) return bad(`checks are any of: ${ALL_CHECKS.join(", ")}.`)
 
   const results: CheckResult[] = []

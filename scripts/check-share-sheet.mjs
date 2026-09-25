@@ -227,9 +227,11 @@ try {
     else await ig.asElement().click()
     await sleep(600)
     const how = await p.evaluate(() => {
-      const el = document.querySelector("[data-share-sheet]")
+      const sheet = document.querySelector("[data-share-sheet]")
+      /* On a phone every platform's how to is kept, out of sight: read the one showing. */
+      const el = [...sheet.querySelectorAll("[data-share-pane]")].find((p) => p.style.visibility !== "hidden") || sheet
       return {
-        view: el.getAttribute("data-view"),
+        view: sheet.getAttribute("data-view"),
         steps: el.querySelectorAll("ol li").length,
         bold: el.querySelectorAll("ol li strong").length,
         open: [...el.querySelectorAll("button")].some((b) => b.textContent.trim() === "Open Instagram"),
@@ -267,7 +269,11 @@ try {
 
     await p.keyboard.press("Escape")
     await sleep(600)
-    const closed = await p.evaluate(() => !document.querySelector("[data-share-sheet]"))
+    /* The phone's sheet is kept once it has been built (BottomSheet keepMounted): closed, it is at rest, out of sight. */
+    const closed = await p.evaluate(() => {
+      const el = document.querySelector("[data-share-sheet]")
+      return !el || (!!el.closest("[data-app-sheet-rest]") && getComputedStyle(el.closest("[data-app-sheet-rest]")).visibility === "hidden")
+    })
     expect(closed, "Escape closes it", closed)
     if (errors.length) expect(false, "no errors on the page", errors)
     await p.close()

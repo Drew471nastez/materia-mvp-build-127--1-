@@ -26,6 +26,7 @@ const SUITES = [
   "tests/canvas-containment.test.ts",
   "tests/agent-rules.test.ts",
   "tests/agent-mcp.test.ts",
+  "tests/agent-brain.test.ts",
   "tests/section-integration.test.ts",
   "tests/site-seo.test.ts",
   "tests/page-seo.test.ts",
@@ -191,6 +192,8 @@ const SUITES = [
   "tests/agent-attachments.test.ts",
   "tests/work-panel.test.ts",
   "tests/ask-storelib.test.ts",
+  "tests/ask-conversations.test.ts",
+  "tests/ask-dock.test.ts",
   "tests/native-feel.test.ts",
   "tests/theme-media.test.ts",
   "tests/settings-flow.test.ts",
@@ -211,6 +214,8 @@ const SUITES = [
   "tests/pricing-plans.test.ts",
   "tests/app-search.test.ts",
   "tests/notifications-panel.test.ts",
+  "tests/notification-rules.test.ts",
+  "tests/notification-snapshot.test.ts",
   "tests/rich-text.test.ts",
   "tests/upload-security.test.ts",
   "tests/direct-uploader.test.ts",
@@ -227,6 +232,9 @@ const SUITES = [
   "tests/own-section-html.test.ts",
   "tests/website-builder-api.test.ts",
   "tests/security-scan.test.ts",
+  "tests/site-accounts.test.ts",
+  "tests/site-contact.test.ts",
+  "tests/account-sections.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))

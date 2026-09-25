@@ -1073,7 +1073,9 @@ section("The conversation survives a refresh")
      * Replaying them would apply the same edits a second time to a page that
      * already has them. The transcript is a record, not a script.
      */
-    /message\.ops\.length/.test(panel) && !/onOp\(message/.test(panel),
+    /const counted = activityFromOps\(Array\.isArray\(message\.ops\) \? message\.ops : \[\]\)/.test(panel) &&
+      /open\.activity = question \? \{ \.\.\.counted, question \} : counted/.test(panel) &&
+      !/onOp\(message/.test(panel),
   )
 }
 
@@ -1182,7 +1184,15 @@ section("The panel does not drop what the run tells it")
      * showed "Working" and nothing else. Latest line only — commentary, not a
      * transcript.
      */
-    /event\.type === "thinking"/.test(panel) && /exchange\.note/.test(panel),
+    (() => {
+      /* Every progress line goes to the activity reader, which keeps the latest commentary and says it as the line. */
+      const reader = readFileSync(join(root, "lib/website-builder/ask-activity.ts"), "utf8")
+      return (
+        /const next = reduceActivity\(e\.activity, event\)/.test(panel) &&
+        /if \(type === "thinking"\) \{/.test(reader) &&
+        /if \(activity\.last === "note" && activity\.note\) return firstSentence\(activity\.note\)/.test(reader)
+      )
+    })(),
   )
 
   check(
@@ -2059,7 +2069,10 @@ section("Ask Storelib on a phone: the keyboard, and nothing sideways")
 {
   const strip = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")
   const chat = readFileSync(join(root, "components/website-builder/theme-chat.tsx"), "utf8")
-  const panel = readFileSync(join(root, "components/website-builder/work-panel.tsx"), "utf8")
+  /* The run's code preview lives with the live activity now (the old work panel is gone). */
+  const panel = readFileSync(join(root, "components/website-builder/ask-activity.tsx"), "utf8")
+  const parts = readFileSync(join(root, "components/website-builder/ask-parts.tsx"), "utf8")
+  const picker = readFileSync(join(root, "components/website-builder/ask-model-picker.tsx"), "utf8")
   const sheet = readFileSync(join(root, "components/website-builder/mobile-editor-sheet.tsx"), "utf8")
   const editor = readFileSync(join(root, "app/website-builder/editor/[installId]/page.tsx"), "utf8")
   const css = readFileSync(join(root, "app/globals.css"), "utf8")
@@ -2106,8 +2119,9 @@ section("Ask Storelib on a phone: the keyboard, and nothing sideways")
     "the composer's and the header's buttons answer a 44px thumb",
     /phone \? "h-11 w-11" : "h-8 w-8"/.test(chat) &&
       /phone \? "h-11 w-11" : "h-9 w-9"/.test(chat) &&
-      /phone \? "h-11 pl-3\.5 pr-2\.5" : "h-9 pl-3 pr-2"/.test(chat) &&
-      (chat.match(/after:absolute after:-inset-3 after:content-\[''\]/g) ?? []).length >= 3,
+      /phone \? "h-11 pl-3 pr-2\.5" : "h-9 pl-2\.5 pr-2"/.test(picker) &&
+      (chat.match(/after:absolute after:-inset-3 after:content-\[''\]/g) ?? []).length >= 2 &&
+      /after:absolute after:-inset-3 after:content-\[''\]/.test(parts),
   )
   check(
     "the thread scrolls up and down only: x hidden, long words broken, a vertical pan",
@@ -2119,11 +2133,13 @@ section("Ask Storelib on a phone: the keyboard, and nothing sideways")
   )
   check(
     "the scope chip and the whole-page button truncate instead of pushing the row wider",
-    /inline-flex min-w-0 max-w-full items-center[\s\S]{0,400}<span className="truncate">Editing the whole page\. Limit to/.test(chat),
+    /<span className="min-w-0 truncate">Only \{name\}<\/span>/.test(parts) &&
+      /<span className="min-w-0 truncate">Limit to \{name\}<\/span>/.test(parts) &&
+      /data-ask-mode-row="" className="mb-2 flex min-w-0 flex-nowrap items-center gap-2"/.test(chat),
   )
   check(
     "a code block scrolls sideways inside itself, and only it",
-    /<pre data-code-scroll="" className="max-h-56 overflow-auto max-w-full[^"]*\[touch-action:pan-x_pan-y\]/.test(panel),
+    /<pre\s*\n\s*data-code-scroll=""\s*\n\s*className="max-h-44 max-w-full overflow-auto[^"]*\[touch-action:pan-x_pan-y\]/.test(panel),
   )
   check(
     "the sheet clips rather than hides, so no script can scroll its content out of place",
@@ -2715,8 +2731,9 @@ section("The panel says the true thing, and does not make you wait to type")
     /historyError === "not_set_up"/.test(chat) && /historyError === "read_failed"/.test(chat),
   )
   check(
-    "the not-set-up message does not claim anything is broken",
-    /Chat history is not switched on yet/.test(chat),
+    "the not-set-up message does not claim anything is broken: it says what turns it on",
+    /History turns on once the database update is run\. Until then your messages here are kept as one chat\./.test(chat) &&
+      /History turns on once the database update is run\./.test(readFileSync(join(root, "components/website-builder/ask-history.tsx"), "utf8")),
   )
 
   /**
@@ -3071,8 +3088,10 @@ check(
 {
   const chat = readFileSync(join(root, "components/website-builder/theme-chat.tsx"), "utf8")
   check(
-    "the panel shows what the edit is limited to, before you type it",
-    /Only \{selectedSection\.name\}/.test(chat) && /nothing else will change/.test(chat),
+    "the panel shows what the edit is limited to, before you type it, in two words and a title rather than a sentence",
+    /<ScopeChip\s*\n\s*name=\{selectedSection\.name\}\s*\n\s*locked=\{locked\}/.test(chat) &&
+      /Only \{name\}/.test(readFileSync(join(root, "components/website-builder/ask-parts.tsx"), "utf8")) &&
+      /title=\{`Only \$\{name\} will change`\}/.test(readFileSync(join(root, "components/website-builder/ask-parts.tsx"), "utf8")),
   )
   check("it is on by default when a section is selected", /useState\(true\)/.test(chat))
   check(

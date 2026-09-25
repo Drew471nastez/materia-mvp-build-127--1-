@@ -10,10 +10,12 @@ import { PickSheet } from "./pick-sheet"
 import { cn } from "@/lib/utils"
 import { useRouter } from "next/navigation"
 import { GUTTER, LIST_BAR, PaneBar, RowMenuButton, buttonSecondary, formatMoney } from "../orders/order-parts"
-import { primaryDepth, secondaryDepth } from "./new/editor-buttons"
+import { primaryDepth, quietDepth } from "./new/editor-buttons"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { isNativeApp, openExternal } from "@/lib/native-bridge"
 import { isReturning, listShown, openEditor, takeEdited, warmEditor, whenIdle } from "./list-return"
+import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
+import { ActivitySpinner } from "@/components/ui/activity-spinner"
 import { playList, shootList, type ListShot } from "./list-motion"
 import { LAYER_MOTION_MS } from "@/components/app/page-layer"
 import { createClient } from "@/lib/supabase/client"
@@ -136,7 +138,7 @@ const NEW_LOOK = cn(primaryDepth, PRESS, "h-8 gap-1.5 rounded-lg px-3 text-[13px
 
 /**
  * A ROW'S TWO BUTTONS: Preview (the eye) and the more button, the same size
- * side by side, both in the editor's depth (secondaryDepth), so the pair
+ * side by side, both in the editor's quieter icon depth (quietDepth), so the pair
  * reads as one. A product with no page to open draws its eye off: grey,
  * flat, and no pressed look. On a phone each is drawn 32px with a 44px
  * press (6px of invisible box on every side), 12px apart, so the two
@@ -144,10 +146,10 @@ const NEW_LOOK = cn(primaryDepth, PRESS, "h-8 gap-1.5 rounded-lg px-3 text-[13px
  */
 const ROW_BUTTON_PHONE = "relative z-[1] h-8 w-8 rounded-lg text-[#4b5563] after:absolute after:-inset-1.5 after:content-['']"
 const ROW_BUTTON_TABLE = "h-7 w-7 rounded-[7px] text-[#4b5563] lg:h-[31px] lg:w-[31px] lg:[&>svg]:h-[18px] lg:[&>svg]:w-[18px]"
-const ROW_MENU_PHONE = cn(secondaryDepth, ROW_BUTTON_PHONE)
-const ROW_MENU_TABLE = cn(secondaryDepth, ROW_BUTTON_TABLE)
+const ROW_MENU_PHONE = cn(quietDepth, ROW_BUTTON_PHONE)
+const ROW_MENU_TABLE = cn(quietDepth, ROW_BUTTON_TABLE)
 const EYE_DEPTH = cn(
-  secondaryDepth,
+  quietDepth,
   "aria-disabled:cursor-not-allowed aria-disabled:text-[#b6bac1] aria-disabled:shadow-none aria-disabled:hover:bg-white aria-disabled:active:bg-white aria-disabled:active:shadow-none",
 )
 const EYE_PHONE = cn(EYE_DEPTH, ROW_BUTTON_PHONE)
@@ -713,10 +715,41 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
     press with a modifier key, or not the main button, is left to the link:
     a new tab or window, as the browser does.
   */
-  const openFromLink = (href: string) => (e: ReactMouseEvent<HTMLAnchorElement>) => {
+  /*
+    THE PRESS IS ANSWERED ON ITS OWN FRAME. The editor is read on the server
+    (the account, the product, its files and variants), and on a slow line
+    that took seconds with the row looking untouched. Now the row you
+    pressed holds its pressed tint with a spinner where its Preview was, the
+    app's loading bar is told, and further presses wait for this one. On a
+    phone the move waits one painted frame, so the spinner is what the view
+    transition holds while the editor is on its way.
+  */
+  const [opening, setOpening] = useState<string | null>(null)
+  useEffect(() => {
+    if (!opening) return
+    /* Still here after all: shown again from the browser's back cache, or a navigation that never happened. The list comes back to life. */
+    const reset = () => setOpening(null)
+    const t = window.setTimeout(reset, 10_000)
+    window.addEventListener("pageshow", reset)
+    return () => {
+      window.clearTimeout(t)
+      window.removeEventListener("pageshow", reset)
+    }
+  }, [opening])
+  /* `id` is the product's, or "new" for New product. */
+  const open = (id: string) => {
+    if (opening) return
+    const href = `/app/products/${id}`
+    if (id === "new") warmNew()
+    else warm(id)
+    setOpening(id)
+    startNavigationLoading(href)
+    requestAnimationFrame(() => requestAnimationFrame(() => openEditor(router, href)))
+  }
+  const openFromLink = (id: string) => (e: ReactMouseEvent<HTMLAnchorElement>) => {
     if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
     e.preventDefault()
-    openEditor(router, href)
+    open(id)
   }
 
   /*
@@ -799,7 +832,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
       },
       warm,
       open: openFromLink,
-      openRow: (id) => openEditor(router, `/app/products/${id}`),
+      openRow: open,
       openPreview,
       previewOff,
       share: handleShare,
@@ -889,7 +922,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
             <Link
               href="/app/products/new"
               data-new-product=""
-              onClick={openFromLink("/app/products/new")}
+              onClick={openFromLink("new")}
               onMouseEnter={warmNew}
               onTouchStart={warmNew}
               onPointerDown={warmNew}
@@ -1085,6 +1118,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                       product={product}
                       hidden={!shownIds.has(product.id)}
                       mark={view === "all" && status !== "live" ? statusLabel[status] : null}
+                      opening={opening === product.id}
                       username={creatorUsername}
                       labels={rowLabels}
                       api={rowApi}
@@ -1123,6 +1157,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                       key={product.id}
                       product={product}
                       hidden={!shownIds.has(product.id)}
+                      opening={opening === product.id}
                       statusText={statusLabel[productStatus(product)]}
                       username={creatorUsername}
                       labels={rowLabels}
@@ -1152,7 +1187,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
               ) : products.length === 0 ? (
                 <Link
                   href="/app/products/new"
-                  onClick={openFromLink("/app/products/new")}
+                  onClick={openFromLink("new")}
                   onMouseEnter={warmNew}
                   onTouchStart={warmNew}
                   className={cn(NEW_LOOK, "mt-5 max-md:h-10 max-md:px-4 max-md:text-[14px]")}
@@ -1255,7 +1290,8 @@ interface RowApi {
   leave: () => void
   /** The editor of this product, fetched ahead. */
   warm: (id: string) => void
-  open: (href: string) => (e: ReactMouseEvent<HTMLAnchorElement>) => void
+  /** The product's editor, from its link (a modifier key left to the browser) or from anywhere else on its row. */
+  open: (id: string) => (e: ReactMouseEvent<HTMLAnchorElement>) => void
   openRow: (id: string) => void
   openPreview: (url: string) => (e: ReactMouseEvent<HTMLAnchorElement>) => void
   previewOff: (e: ReactMouseEvent<HTMLButtonElement>) => void
@@ -1332,6 +1368,7 @@ const PhoneRow = memo(function PhoneRow({
   product,
   hidden,
   mark,
+  opening,
   username,
   labels,
   api,
@@ -1339,6 +1376,8 @@ const PhoneRow = memo(function PhoneRow({
   product: Product
   hidden: boolean
   mark: string | null
+  /** This row was pressed and its editor is on its way: it holds its tint, a spinner where Preview was. */
+  opening: boolean
   username: string
   labels: RowLabels
   api: RowApiRef
@@ -1350,14 +1389,15 @@ const PhoneRow = memo(function PhoneRow({
     <li
       data-row={product.id}
       hidden={hidden}
-      className="relative flex h-16 items-center gap-3 px-3 [content-visibility:auto] has-[a[data-row-link]:active]:bg-[#eef0f2] [li:not([hidden])~&]:before:absolute [li:not([hidden])~&]:before:left-[74px] [li:not([hidden])~&]:before:right-0 [li:not([hidden])~&]:before:top-0 [li:not([hidden])~&]:before:h-px [li:not([hidden])~&]:before:bg-[#eceef1]"
+      data-opening={opening ? "" : undefined}
+      className="relative flex h-16 items-center gap-3 px-3 [content-visibility:auto] has-[a[data-row-link]:active]:bg-[#eef0f2] data-[opening]:bg-[#eef0f2] [li:not([hidden])~&]:before:absolute [li:not([hidden])~&]:before:left-[74px] [li:not([hidden])~&]:before:right-0 [li:not([hidden])~&]:before:top-0 [li:not([hidden])~&]:before:h-px [li:not([hidden])~&]:before:bg-[#eceef1]"
     >
       <Link
         href={href}
         aria-label={product.title}
         data-row-link=""
         onTouchStart={() => api.current?.warm(product.id)}
-        onClick={(e) => api.current?.open(href)(e)}
+        onClick={(e) => api.current?.open(product.id)(e)}
         onMouseEnter={() => api.current?.rest(product.id)}
         onMouseLeave={() => api.current?.leave()}
         onPointerDown={() => api.current?.warm(product.id)}
@@ -1383,7 +1423,7 @@ const PhoneRow = memo(function PhoneRow({
           ) : null}
         </span>
       </span>
-      <Preview product={product} username={username} look={EYE_PHONE} tip={false} api={api} />
+      {opening ? <OpeningMark size="phone" /> : <Preview product={product} username={username} look={EYE_PHONE} tip={false} api={api} />}
       <ResponsiveActionMenu
         title={product.title}
         align="end"
@@ -1398,6 +1438,7 @@ const PhoneRow = memo(function PhoneRow({
 const TableRow = memo(function TableRow({
   product,
   hidden,
+  opening,
   statusText,
   username,
   labels,
@@ -1405,6 +1446,7 @@ const TableRow = memo(function TableRow({
 }: {
   product: Product
   hidden: boolean
+  opening: boolean
   statusText: string
   username: string
   labels: RowLabels
@@ -1417,7 +1459,8 @@ const TableRow = memo(function TableRow({
     <tr
       data-row={product.id}
       hidden={hidden}
-      className="group h-14 cursor-pointer lg:h-[62px] xl:h-[70px] [tr:not([hidden])~&>td]:border-t [tr:not([hidden])~&>td]:border-[#f1f2f4]"
+      data-opening={opening ? "" : undefined}
+      className="group h-14 cursor-pointer lg:h-[62px] xl:h-[70px] [tr:not([hidden])~&>td]:border-t [tr:not([hidden])~&>td]:border-[#f1f2f4] data-[opening]:[&>td]:bg-[#f4f5f7]"
       onMouseEnter={() => api.current?.rest(product.id)}
       onMouseLeave={() => api.current?.leave()}
       onPointerDown={() => api.current?.warm(product.id)}
@@ -1434,7 +1477,7 @@ const TableRow = memo(function TableRow({
           <Thumb src={product.thumbnail_url} title={product.title} size="table" />
           <Link
             href={href}
-            onClick={(e) => api.current?.open(href)(e)}
+            onClick={(e) => api.current?.open(product.id)(e)}
             className="min-w-0 truncate text-[13px] font-medium text-[#1a1a2e] outline-none hover:underline focus-visible:underline lg:text-[14.5px] xl:text-[15.5px]"
           >
             {product.title}
@@ -1450,7 +1493,7 @@ const TableRow = memo(function TableRow({
       <td className="whitespace-nowrap bg-white px-3 text-right font-medium tabular-nums text-[#1a1a2e] group-hover:bg-[#fafafb] lg:px-[13px]">{priceOf(product.price_cents)}</td>
       <td className="bg-white pr-3 group-hover:bg-[#fafafb] lg:pr-[13px] xl:pr-[18px]">
         <div data-row-actions="" className="flex items-center justify-end gap-2 lg:gap-[9px]">
-          <Preview product={product} username={username} look={EYE_TABLE} tip api={api} />
+          {opening ? <OpeningMark size="table" /> : <Preview product={product} username={username} look={EYE_TABLE} tip api={api} />}
           <ResponsiveActionMenu
             title={product.title}
             align="end"
@@ -1462,6 +1505,15 @@ const TableRow = memo(function TableRow({
     </tr>
   )
 })
+
+/** Where a pressed row's Preview was while its editor is on its way: the spinner, in the button's own box. */
+function OpeningMark({ size }: { size: "phone" | "table" }) {
+  return (
+    <span data-row-opening="" className={cn("relative z-[1] grid shrink-0 place-items-center", size === "phone" ? "h-8 w-8" : "h-7 w-7 lg:h-[31px] lg:w-[31px]")}>
+      <ActivitySpinner size={16} label="Opening" className="text-[#4b5563]" />
+    </span>
+  )
+}
 
 /** A free product says Free rather than $0.00, on the list and in the table. */
 function priceOf(cents: number) {

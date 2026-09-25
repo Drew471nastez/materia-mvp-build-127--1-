@@ -527,8 +527,9 @@ section("One bottom sheet, and the finger moves it")
   )
   check(
     "the first frame the sheet exists it is below the screen",
+    /* A kept sheet (keepMounted) is already in the page, below the screen, when it opens: the open also leaves rest. */
     /transform: "translate3d\(0, 100%, 0\)"/.test(sheet) && /useLayoutEffect\(\(\) => \{\s*if \(!mounted \|\| !present\) return/.test(sheet)
-      && /if \(isOpen !== prevOpen\) \{\s*setPrevOpen\(isOpen\)\s*if \(isOpen\) setPresent\(true\)/.test(sheet),
+      && /if \(isOpen !== prevOpen\) \{\s*setPrevOpen\(isOpen\)\s*if \(isOpen\) \{\s*setPresent\(true\)\s*setResting\(false\)/.test(sheet),
     "`present` set from an effect committed the sheet at rest and moved it a paint later: it showed, vanished and slid up.",
   )
   check(

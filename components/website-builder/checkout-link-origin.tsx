@@ -11,8 +11,10 @@
  *
  * So as such a link is followed, the website's address and where its visit
  * came from are added to it (lib/orders/checkout-origin), for the order's
- * Source. Only links to /checkout on this same site are touched, only keys
- * the link does not already carry are added, and nothing is stored.
+ * Source, and the page itself as where to come back to after paying
+ * (`return`, `cancel`: lib/checkout/return-url.ts). Only links to /checkout
+ * on this same site are touched, only keys the link does not already carry
+ * are added, and nothing is stored.
  *
  * The capture phase and the event's path, because a section can draw its
  * markup where a bubbling listener on the document would see only its host.
@@ -35,7 +37,9 @@ export function CheckoutLinkOrigin() {
       }
       if (url.origin !== window.location.origin || url.pathname !== "/checkout") return
       const href = anchor.getAttribute("href") || ""
-      const next = checkoutHrefWithOrigin(href, pageOrigin())
+      /* And this page, so checkout brings the buyer back here after paying
+         (checked there against the creator's own sites). */
+      const next = checkoutHrefWithOrigin(href, pageOrigin(), window.location.href)
       if (next !== href) anchor.setAttribute("href", next)
     }
     document.addEventListener("click", onActivate, true)

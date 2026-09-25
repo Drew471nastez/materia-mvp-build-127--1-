@@ -1,4 +1,4 @@
-import { type NextRequest, NextResponse } from "next/server"
+import { type NextRequest, NextResponse, after } from "next/server"
 import { revalidateTag } from "next/cache"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -196,8 +196,8 @@ export async function POST(request: NextRequest) {
         creator_id: product.creator_id,
         user_id: creatorUserId,
         type: "new_review",
-        title: `New ${rating}-star review!`,
-        message: `${reviewerName} left a ${rating}-star review on "${product.title}"`,
+        title: `New ${rating} star review on ${product.title}`,
+        message: `${reviewerName}: “${content.trim().replace(/\s+/g, " ").slice(0, 120)}”`,
         action_url: `/p/${product.slug}#testimonials`,
         product_id: product.id,
         review_id: review.id,
@@ -216,6 +216,9 @@ export async function POST(request: NextRequest) {
         console.error("[reviews] Failed to create notification:", notifError)
       } else {
         console.log("[reviews] ✅ Notification created for seller")
+        /* The creator's first review is a milestone: that row becomes it, and pushes (lib/notifications/events.ts). */
+        const reviewCreatorId = product.creator_id as string
+        after(async () => (await import("@/lib/notifications/events")).noteReview(reviewCreatorId))
       }
 
       // Send email notification (async, don't wait)

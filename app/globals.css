@@ -713,8 +713,13 @@ html.capacitor body {
   .onepage-live, .onepage-live * {
     caret-color: transparent !important;
   }
-  /* Force block wrapper divs that contain only whitespace to collapse */
-  .onepage-live .flex.flex-col > .w-full:has(> :only-child:is(p)) > p {
+  /* Force block wrapper divs that contain only whitespace to collapse.
+     `> p:only-child`, not `:has(> :only-child:is(p)) > p`, which selects
+     the same paragraph: the browser keeps one list of what any change under
+     any `:has()` restyles, and a `p` at the end of this one put every
+     paragraph in the document on it, restyled each time a sheet or dialog
+     opened or closed anywhere in the app (scripts/check-app-sheets-frames.mjs). */
+  .onepage-live .flex.flex-col > .w-full > p:only-child {
     overflow: hidden;
   }
 
@@ -3128,9 +3133,10 @@ html.capacitor .app-content-scroll {
    * not the pill, takes a tap that lands on it. The pointer rule is the
    * second lock on that door, for an overlay that is not full screen.
    *
-   * What counts as open: a sheet that says so ([data-app-sheet="open"]), any
-   * fixed modal dialog except the pill's own menu page, and Radix's scroll
-   * lock on <body>, which every Dialog, AlertDialog and Sheet sets. A dialog
+   * What counts as open: the shared sheet, which says so on <html>
+   * (`data-app-sheet-up`, components/ui/bottom-sheet.tsx), any other fixed
+   * modal dialog except the pill's own menu page, and Radix's scroll lock
+   * on <body>, which every Dialog, AlertDialog and Sheet sets. A dialog
    * kept in the page while closed says aria-hidden and is not counted: the
    * app search's panel, always mounted, turned the pill's buttons off on
    * every page, and taps went through it to the page underneath. A sheet
@@ -3147,29 +3153,36 @@ html.capacitor .app-content-scroll {
    * CPU slowed four times (scripts/check-sheet-motion.mjs): 80 to 130ms of
    * style work in the first 100ms after the tap, on the open and again on
    * the close, which are the first frames of both. Naming what can take a
-   * tap gives the same result for a few elements. Radix's lock is an
-   * attribute on <body> itself and needs no :has() at all.
+   * tap (the pill's `pointer-events-auto` parts, and any link or button)
+   * gives the same result for a few elements. Radix's lock is an attribute
+   * on <body> itself and needs no :has() at all.
    *
-   * AND NOT `a` OR `button` EITHER. It said `:is(a, button,
-   * .pointer-events-auto)`, and the browser files a change like this under
-   * the last part of the rule alone: every link and every button in the
-   * document, wherever it is, not only the pill's. The Products list on a
-   * phone has three hundred of them (fifty rows, twice), so opening its Sort
-   * sheet restyled 298 elements, 46ms of a 90ms first frame on a CPU slowed
-   * four times, and picking a row did it again (scripts/check-products-
-   * sheets.mjs). The pill's links and buttons set no pointer-events of their
-   * own: they take the pill's parts' value, and those parts are the
-   * `pointer-events-auto` boxes (the bar and the round menu button), so
-   * turning those off turns off everything in them, for a handful of
-   * elements restyled instead of hundreds.
+   * NOT EVERY LINK AND BUTTON EITHER. The browser decides what a change
+   * under `:has()` restyles from the rule's last part alone, so `a` and
+   * `button` there meant every link and button in the document, the page's
+   * and every sheet's, restyled on each open and close: 150 to 230
+   * elements, 20 to 30ms of the tap on a phone's CPU
+   * (scripts/check-app-sheets-frames.mjs). Everything in the pill that takes
+   * a tap is a `pointer-events-auto` part (the bar, the menu button), and
+   * the links and buttons inside them inherit `none` from them, so the
+   * class alone locks the same things and restyles only those.
+   *
+   * AND THE SHARED SHEET IS NOT FOUND BY :has(). Whenever the answer of a
+   * `:has()` on the root changes, the browser restyles every element in the
+   * document, whatever the rule after it names: 590 elements on the home
+   * page, on every open and every close, and on every change of an
+   * attribute any of these `:has()` names (Chromium's own trace, in
+   * scripts/check-app-sheets-frames.mjs). The sheet sets an attribute on
+   * <html> instead, which restyles the pill and nothing else, and marks its
+   * own root `data-sheet-root` so the rule for other dialogs leaves it out.
    */
-  html:has([data-app-sheet]) [data-app-nav-pill],
-  html:has([role="dialog"][aria-modal="true"]:not([data-mobile-menu], [aria-hidden="true"])) [data-app-nav-pill],
+  html[data-app-sheet-up] [data-app-nav-pill],
+  html:has([role="dialog"][aria-modal="true"]:not([data-mobile-menu], [aria-hidden="true"], [data-sheet-root])) [data-app-nav-pill],
   body[data-scroll-locked] [data-app-nav-pill] {
     z-index: 39;
   }
-  html:has([data-app-sheet="open"]) [data-app-nav-pill] .pointer-events-auto,
-  html:has([role="dialog"][aria-modal="true"]:not([data-mobile-menu], [aria-hidden="true"])) [data-app-nav-pill] .pointer-events-auto,
+  html[data-app-sheet-up="open"] [data-app-nav-pill] .pointer-events-auto,
+  html:has([role="dialog"][aria-modal="true"]:not([data-mobile-menu], [aria-hidden="true"], [data-sheet-root])) [data-app-nav-pill] .pointer-events-auto,
   body[data-scroll-locked] [data-app-nav-pill] .pointer-events-auto {
     pointer-events: none !important;
   }
@@ -5584,6 +5597,104 @@ html.pop-in-flight #platform-header-root {
   .ask-listen-ring { animation: none; opacity: 0; }
 }
 
+/* Ask Storelib's live line (components/website-builder/ask-activity.tsx).
+   One line that says what the run is doing now. When it changes, the old
+   words rise out as the new ones rise in; the box is one line tall and
+   clips them, so nothing below it moves.
+
+   The band of light on the words in progress is two copies of the same
+   line: the grey one, and a dark one inside a window with feathered edges.
+   The window slides one way while the copy inside it slides the other by
+   the same distance, so the light travels and the letters stay put. Every
+   part of it is transform and opacity, so it costs the page no painting;
+   under reduced motion it is the plain dark line. */
+@keyframes ask-line-in {
+  from { opacity: 0; transform: translateY(0.5em); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes ask-line-out {
+  from { opacity: 1; transform: none; }
+  to { opacity: 0; transform: translateY(-0.5em); }
+}
+@keyframes ask-shine-window {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(100%); }
+}
+@keyframes ask-shine-copy {
+  from { transform: translateX(100%); }
+  to { transform: translateX(-100%); }
+}
+.ask-line {
+  position: relative;
+  display: block;
+  height: 20px;
+  min-width: 0;
+  overflow: hidden;
+}
+.ask-line > [data-line] {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+.ask-line > [data-line="in"] { animation: ask-line-in 280ms cubic-bezier(0.32, 0.72, 0, 1) both; }
+.ask-line > [data-line="out"] { animation: ask-line-out 200ms cubic-bezier(0.4, 0, 1, 1) both; }
+.ask-shine {
+  position: relative;
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: #6b7280;
+}
+.ask-shine-window {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  -webkit-mask-image: linear-gradient(90deg, transparent 28%, #000 46%, #000 54%, transparent 72%);
+  mask-image: linear-gradient(90deg, transparent 28%, #000 46%, #000 54%, transparent 72%);
+  animation: ask-shine-window 2.4s linear infinite;
+}
+.ask-shine-copy {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: #1a1a2e;
+  animation: ask-shine-copy 2.4s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ask-line > [data-line] { animation: none; }
+  .ask-line > [data-line="out"] { display: none; }
+  .ask-shine { color: #1a1a2e; }
+  .ask-shine-window { display: none; }
+}
+
+/* A picture's progress ring while it is prepared or sent: the arc is drawn
+   from the state; when there is no number yet it turns, on transform. */
+@keyframes ask-ring-turn {
+  to { transform: rotate(360deg); }
+}
+.ask-ring-turn { animation: ask-ring-turn 0.9s linear infinite; transform-origin: 50% 50%; }
+@media (prefers-reduced-motion: reduce) {
+  .ask-ring-turn { animation: none; }
+}
+
+/* Recording: a red dot that breathes beside the clock. */
+@keyframes ask-rec {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.8); }
+}
+.ask-rec-dot { animation: ask-rec 1.2s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .ask-rec-dot { animation: none; }
+}
+
 /* ─── Checkout ──────────────────────────────────────────────────────────
    A new line (a discount, a message) rises into place; a Stripe field that
    has not drawn yet shimmers where it will be; and paying ends on a check
@@ -5683,21 +5794,11 @@ html.pop-in-flight #platform-header-root {
 /* The leaving step is gone from sight a little sooner than the new one settles. */
 .drp-out-next { animation: drp-out-next 180ms cubic-bezier(0.32, 0.72, 0, 1) both; }
 .drp-out-back { animation: drp-out-back 180ms cubic-bezier(0.32, 0.72, 0, 1) both; }
-/* A month arrives from the side it was asked for. It never starts invisible:
-   the days are readable from the first frame. */
-@keyframes drp-month-next {
-  from { opacity: 0.35; transform: translate3d(14px, 0, 0); }
-  to { opacity: 1; transform: none; }
-}
-@keyframes drp-month-back {
-  from { opacity: 0.35; transform: translate3d(-14px, 0, 0); }
-  to { opacity: 1; transform: none; }
-}
-.drp-month-next { animation: drp-month-next 220ms cubic-bezier(0.32, 0.72, 0, 1) both; }
-.drp-month-back { animation: drp-month-back 220ms cubic-bezier(0.32, 0.72, 0, 1) both; }
+/* A month's arrival is played by the picker itself, on the grid it keeps
+   (RangePanel in components/app/date-range-picker.tsx). */
 @media (prefers-reduced-motion: reduce) {
   .drp-frame { transition: none; }
-  .drp-in-next, .drp-in-back, .drp-out-next, .drp-out-back, .drp-month-next, .drp-month-back { animation: none; }
+  .drp-in-next, .drp-in-back, .drp-out-next, .drp-out-back { animation: none; }
 }
 
 /* ─── The canvas is the page's window ──────────────────────────────────
@@ -5822,9 +5923,17 @@ html.pop-in-flight #platform-header-root {
  * page at z 9999 so nothing on a page can hide it, which also put it over
  * the phone menu's sheet on a first visit. While a sheet or a modal dialog
  * is open it is hidden (not removed: the choice is still owed), and it is
- * back the moment that closes.
+ * back the moment that closes. The shared sheet says it is open on <html>,
+ * not through :has() (see the pill's rules above for why), and a Radix
+ * dialog by the scroll lock it puts on <body>. It used to ask
+ * `:has([role="dialog"][data-state="open"])`, which named `data-state`
+ * under a :has() on the root: every tooltip, tab, switch and popover in the
+ * app changes its data-state, and each change restyled the whole document
+ * in Chromium (scripts/check-app-sheets-frames.mjs).
  */
-html:has([data-app-sheet="open"], [role="dialog"][aria-modal="true"], [role="dialog"][data-state="open"]) [data-cookie-banner] {
+html[data-app-sheet-up="open"] [data-cookie-banner],
+body[data-scroll-locked] [data-cookie-banner],
+html:has([role="dialog"][aria-modal="true"]:not([data-sheet-root])) [data-cookie-banner] {
   visibility: hidden;
 }
 

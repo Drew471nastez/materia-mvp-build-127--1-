@@ -295,9 +295,12 @@ section("The page")
   )
   check("the cover is the snapshot when there is one, and the site's name on a plain surface otherwise", /snapshot_url/.test(client) && /<PendingCover /.test(client) && !/coverSpecFromSettings/.test(client))
   check("the snapshot is a plain <img>, not an optimiser round-trip", /<img/.test(client) && !/from "next\/image"/.test(client))
-  check("the live cover loads eagerly with high priority; library thumbnails lazily, unless the tab has already decoded the picture",
-    /fetchPriority=\{eager \? "high"/.test(client) && /const ready = eager \|\| DECODED\.has\(install\.snapshot_url\)/.test(client) &&
-      /loading=\{ready \? "eager" : "lazy"\}/.test(client) && /decoding=\{DECODED\.has\(install\.snapshot_url\) \? "sync" : "async"\}/.test(client))
+  check("the live cover loads eagerly with high priority; library thumbnails lazily, unless the tab has already shown or decoded the picture",
+    /fetchPriority=\{eager \? "high"/.test(client) && /const known = isDecoded\(url\) \|\| shownCover\(installId\) === url/.test(client) &&
+      /loading=\{eager \|\| known \? "eager" : "lazy"\}/.test(client) && /decoding=\{known \? "sync" : "async"\}/.test(client))
+  check("  a picture the tab has not shown fades in once loaded; one it has is drawn at full strength at once",
+    /const fade = useCoverFade\(known\)/.test(client) && /style: known \? undefined : \(\{ opacity: 0 \} as React\.CSSProperties\)/.test(client)
+      && /rememberCover\(installId, url\)\s*fade\.onLoad\(e\)/.test(client))
   check("there is no skeleton inside the component", !/animate-pulse|skeleton/.test(client))
   /*
     NO SKELETON, NOT A DEFERRED ONE. The route's skeleton.tsx was left behind
@@ -752,13 +755,13 @@ section("The cover")
     const refresh = read("lib/website-builder/cover-refresh.ts")
     const client = stripComments(read("app/app/website-builder/website-builder-client.tsx"))
     check("  the page keeps the answer's cover and decodes it before the refresh, so the new row's first frame is the picture",
-      /seedCover\(id, cover\)\s*await decodedFirst\(\[cover\.url\], 2500\)\s*setFresh/.test(client) &&
+      /seedCover\(id, cover\)\s*await decodedFirst\(cover\.url, 2500\)\s*setFresh/.test(client) &&
         client.indexOf("seedCover(id, cover)") < client.indexOf("setIncoming((c) => (c ? { ...c, phase: \"working\", installId: id } : c))"))
     check("  a pending one is looked for (GET, every 2s, backing off, about 30s) rather than taken twice, then asked for if it never came",
       /export const WATCH_STEPS_MS = \[2000, 2000, 2000, 3000, 3000, 4000, 4000, 5000, 5000\]/.test(refresh) &&
         /await fetch\(`\/api\/website-builder\/themes\/\$\{encodeURIComponent\(installId\)\}\/cover`, \{ cache: "no-store" \}\)/.test(refresh) &&
         /\(data\.cover_pending \? await watchCover\(id\) : null\) \?\? \(await requestCover\(id\)\)/.test(client) && /asked\.current\.add\(id\)/.test(client))
-    check("  and crossfades to it once decoded", /if \(got\?\.url\) await showCover\(id, got\)/.test(client) && /await decodedFirst\(\[cover\.url, cover\.mobile_url\]\)\s*setFresh/.test(client))
+    check("  and crossfades to it once decoded", /if \(got\?\.url\) await showCover\(id, got\)/.test(client) && /await decodedFirst\(cover\.url\)\s*setFresh/.test(client))
   }
   check("  a copy is the whole website: drafts, live values and section files",
     /draft_settings: srcSettings\?\.draft_settings/.test(read("app/api/website-builder/themes/[installId]/duplicate/route.ts")) &&
@@ -906,9 +909,10 @@ section("The cover")
   check("'last edited' is the pages and the settings, never the row a cover is recorded on",
     /const editedAt = newest\(settings\?\.updated_at, \.\.\.\(row\.pages \?\? \[\]\)\.map\(\(p\) => p\.updated_at\), row\.created_at\)/.test(page) &&
       !/saved_at: newest\(row\.updated_at/.test(page))
-  /* The phone picture is still taken and still decoded before a swap, but the card no longer draws it: the cover is the desktop site, edge to edge. */
-  check("the card draws the desktop picture alone, with no phone in front of it",
-    !/src=\{install\.snapshot_mobile_url\}/.test(client) && !/aspect-\[390\/780\]/.test(client) && /decodedFirst\(\[cover\.url, cover\.mobile_url\]\)/.test(client))
+  /* The phone picture is still taken, but the card does not draw it: the cover is the desktop site, edge to edge, and only that is decoded before a swap. */
+  check("the card draws the desktop picture alone, with no phone in front of it, and decodes only that",
+    !/src=\{install\.snapshot_mobile_url\}/.test(client) && !/aspect-\[390\/780\]/.test(client) && /decodedFirst\(cover\.url\)/.test(client)
+      && !/cover\.mobile_url\]\)/.test(client))
   check("the page finds the phone picture in the folder", /mobilePartner\(newest, names\)/.test(page))
   check("the editor opens on the pane the website page asked for", /get\("view"\)/.test(editor) && /v === "code" \|\| v === "settings"/.test(editor))
 }
@@ -951,7 +955,8 @@ section("Add Section is derived from the files, one card per preset")
    * is retired — three heroes replaced it — which is what retirement is
    * supposed to look like: gone from the list, still on the pages using it.
    */
-  check("the library is thirty sections across ten categories", ADDABLE_SECTIONS.length === 30 && new Set(ADDABLE_SECTIONS.map((t) => STORELIB_SCHEMAS[t]?.category)).size === 10, `${ADDABLE_SECTIONS.length} sections`)
+  /* About has a fourth: the contact form every website's /contact page is made of, which a creator can also put on any page. */
+  check("the library is ten categories of three, and About also has the contact form", ADDABLE_SECTIONS.length === 31 && new Set(ADDABLE_SECTIONS.map((t) => STORELIB_SCHEMAS[t]?.category)).size === 10 && STORELIB_SCHEMAS.contact?.category === "about", `${ADDABLE_SECTIONS.length} sections`)
   check("every one of them is a .storelib file with a preset", ADDABLE_SECTIONS.every((t) => STORELIB_SCHEMAS[t] && (STORELIB_SCHEMAS[t].presets?.length ?? 0) > 0))
   check("the sections it retired still render, so no page using one goes blank", RETIRED_SECTIONS.length > 0 && RETIRED_SECTIONS.every((t) => !!SECTION_SCHEMAS[t]) && !RETIRED_SECTIONS.some((t) => ADDABLE_SECTIONS.includes(t)))
   check("a creator's own section is filed under its own heading", CUSTOM_SECTION_CATEGORY === "yours" && SECTION_CATEGORIES.yours === "Created by you")
@@ -1312,11 +1317,11 @@ section("A form that says it worked, did")
   const empty = chat.slice(chat.indexOf("exchanges.length === 0 ? ("), chat.indexOf('data-ask-tray=""'))
   const composer = chat.slice(chat.indexOf('data-ask-tray=""'))
 
-  check("the mode row is with the box you type into", /\["change", "Change this page"\]/.test(composer))
-  check("and not only in the empty state", !/\["change", "Change this page"\]/.test(empty))
+  check("the mode row is with the box you type into", /<ModeSwitch/.test(composer))
+  check("and not only in the empty state", !/<ModeSwitch/.test(empty))
   check("what the writer produced is reported there too", /\{written && \(/.test(composer) && !/\{written && \(/.test(empty))
   check("so are its errors", /\{writeError && /.test(composer) && !/\{writeError && /.test(empty))
-  check("and so is the fact that it is working", /\{writing && writeLabel && <AiStatus/.test(composer) && !/\{writing && /.test(empty))
+  check("and so is the fact that it is working, on the same live line a run uses", /\{writing && writeLabel && <ActivityLine/.test(composer) && !/\{writing && /.test(empty))
   check("and so is an answer, when it answered instead of writing", /\{writeReply && !writing && \(/.test(composer))
   /* "Line 331: <schema> is never closed" is the compiler talking to a
      developer. The chat says what a creator can do, and offers to do it. */
@@ -1324,7 +1329,7 @@ section("A form that says it worked, did")
   check("a failed section can be asked for again in one press", /lastWrite\.current/.test(composer) && /Try again/.test(composer))
   check("it asks the writer for its stages as they happen", /Accept: "application\/x-ndjson"/.test(chat))
 
-  check("the empty state keeps the part that is only useful when empty", /SUGGESTIONS : CODE_SUGGESTIONS|mode === "change" \? SUGGESTIONS/.test(empty))
+  check("the empty state keeps the part that is only useful when empty: what to ask", /<SuggestionChips items=\{suggestions\}/.test(empty))
 }
 
 /**

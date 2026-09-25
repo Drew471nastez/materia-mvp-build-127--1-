@@ -128,6 +128,8 @@ async function page({ width, height, phone, hash }) {
       : [{ name: "hover", value: "hover" }, { name: "pointer", value: "fine" }, { name: "prefers-reduced-motion", value: "no-preference" }],
   })
   if (phone) await call("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 5 })
+  /* CPU=4 runs everything four times slower, the way a mid-range phone does. */
+  if (process.env.CPU) await call("Emulation.setCPUThrottlingRate", { rate: Number(process.env.CPU) })
   await call("Page.navigate", { url: `file://${file}#${hash}` })
   const js = async (expression) => {
     const r = await call("Runtime.evaluate", { expression, awaitPromise: true, returnByValue: true })
@@ -184,6 +186,31 @@ const SHEET_STATE = `(() => {
 })()`
 
 const ONLY = process.env.ONLY
+if (ONLY === "profile") {
+  /* Where the main thread goes when the drawer opens and closes: CPU=4 node scripts/check-creator-editor.mjs with ONLY=profile. */
+  const vp = process.env.VP === "390" ? { width: 390, height: 844, phone: true } : { width: 1280, height: 800, phone: false }
+  const p = await page({ ...vp, hash: "profile" })
+  const pencil = JSON.parse(await p.js(`JSON.stringify(document.querySelector("[aria-label='Edit profile']").getBoundingClientRect())`))
+  const summarize = (profile) => {
+    const self = new Map(), byId = new Map(profile.nodes.map((n) => [n.id, n]))
+    const dt = profile.timeDeltas
+    profile.samples.forEach((id, i) => { const n = byId.get(id); const k = `${n.callFrame.functionName || "(anon)"} ${n.callFrame.url.split("/").pop()}:${n.callFrame.lineNumber}`; self.set(k, (self.get(k) || 0) + (dt[i] || 0) / 1000) })
+    return [...self.entries()].filter(([k]) => !/^\(idle\)|^\(program\)/.test(k)).sort((a, b) => b[1] - a[1]).slice(0, 18).map(([k, v]) => `${v.toFixed(1).padStart(7)}ms  ${k}`).join("\n")
+  }
+  await p.call("Profiler.enable", {})
+  for (const phase of ["open", "close"]) {
+    await p.call("Profiler.start", {})
+    if (phase === "open") await p.tap(pencil.x + pencil.width / 2, pencil.y + pencil.height / 2)
+    else {
+      const r = JSON.parse(await p.js(`JSON.stringify([...document.querySelectorAll("button")].find((b) => b.textContent.trim() === "Cancel").getBoundingClientRect())`))
+      await p.tap(r.x + r.width / 2, r.y + r.height / 2)
+    }
+    await sleep(1200)
+    const { profile } = await p.call("Profiler.stop", {})
+    console.log(`\n${phase}:\n${summarize(profile)}`)
+  }
+  process.exit(0)
+}
 if (ONLY === "debug") {
   const p = await page({ width: 390, height: 844, phone: true, hash: "profile" })
   await p.js(`window.addEventListener("error", (e) => window.__err.push(String(e.message))); window.addEventListener("unhandledrejection", (e) => window.__err.push("rej " + String(e.reason)))`)
@@ -420,6 +447,9 @@ for (const vp of ONLY && ONLY !== "schemes" ? [] : [
   const afterCancel = await p.js(`getComputedStyle(document.querySelector("[data-storefront-root]")).backgroundColor`)
   const defaultPage = JSON.parse(await p.js(`JSON.stringify(window.__replaced.slice(-1)[0])`))
   await openSheet()
+  /* Reopened after a Cancel, the picker shows the scheme the page is in, not the abandoned one. */
+  const pressedAfterCancel = await p.js(`[...document.querySelectorAll("[data-scheme][aria-pressed=true]")].map((b) => b.dataset.scheme).join(",")`)
+  if (pressedAfterCancel !== "default") problems.push(`${vp.name}: reopened after a Cancel, the picker shows ${pressedAfterCancel} while the page is in default`)
   await pick("harbor")
   await button("Save")
   await sleep(1500)

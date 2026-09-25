@@ -27,6 +27,7 @@
 import { COMPILE_CACHE_LIMIT, compileSection, createLru } from "@/lib/storelib-theme/storelib/compile"
 import { renderSection } from "@/lib/storelib-theme/render"
 import type { CompiledSection, RenderContext, SectionInstanceData, ThemeError } from "@/lib/storelib-theme/types"
+import type { StorefrontGlobals } from "@/lib/storelib-theme/globals"
 import { DEFAULT_THEME_SOURCES } from "../../themes/default/sources.generated"
 import type { SectionInstance, ThemeSettingsValues } from "./types"
 
@@ -112,7 +113,7 @@ export type StorelibRendered =
 export function renderStorelibSection(
   section: SectionInstance,
   theme: ThemeSettingsValues,
-  page: { template: string; in_editor?: boolean } = { template: "index" },
+  page: { template: string; in_editor?: boolean; [key: string]: unknown } = { template: "index" },
   overrides?: Record<string, string>,
   /**
    * The creator's published products, block-shaped, for a section that draws
@@ -121,6 +122,12 @@ export function renderStorelibSection(
    * products draws none — which is what the export and a thumbnail want.
    */
   products?: RenderContext["products"],
+  /**
+   * The store and, on a page drawn for one visitor, the visitor: `shop`,
+   * `customer`, `wishlist` (lib/storelib-theme/globals.ts). Absent is the
+   * theme's own `shop` and nobody signed in.
+   */
+  globals?: StorefrontGlobals,
 ): StorelibRendered {
   const c = compiledSection(section.type, overrides)
   if (c.ok === false) return c
@@ -129,8 +136,9 @@ export function renderStorelibSection(
     id: section.id,
     instance: toInstanceData(section),
     theme: theme as unknown as Record<string, unknown>,
-    page,
+    page: withPageProduct(page, products),
     products,
+    globals,
   })
   return {
     ok: true,
@@ -139,4 +147,37 @@ export function renderStorelibSection(
     script: c.value.script ?? null,
     capabilities: c.value.schema.capabilities ?? [],
   }
+}
+
+/**
+ * ===========================================================================
+ *  THE PRODUCT A PRODUCT PAGE IS ABOUT, IN THE BUILDER TOO
+ * ===========================================================================
+ * On a live product page the route hands its sections the product as
+ * `page.product` (components/website-builder/theme/render-product.tsx). The
+ * builder has no product in its address, so a section written for the
+ * product page would draw an empty page there and the creator would be
+ * designing blind. While the builder is drawing the product template and
+ * nobody said which product, the newest one stands in: the same card the
+ * site would draw, so what is designed is what is published.
+ *
+ * Only in the builder, and only on the product template. A visitor's page
+ * without a product is a missing product, never somebody else's.
+ *
+ * The live route calls that template "product" and the builder, which names
+ * every page but home `page.<key>` (lib/website-builder/site-pages.ts), calls
+ * it "page.product". Both are the product page. The card has no description,
+ * so it gets an empty one: `page.product` has the same fields either way.
+ */
+const PRODUCT_TEMPLATES = new Set(["product", "page.product"])
+
+export function withPageProduct(
+  page: { template: string; in_editor?: boolean; [key: string]: unknown },
+  products?: RenderContext["products"],
+): { template: string; in_editor?: boolean; [key: string]: unknown } {
+  if (!PRODUCT_TEMPLATES.has(page.template) || page.product !== undefined || page.in_editor !== true) return page
+  const first = products?.[0]
+  if (!first) return page
+  const settings = (first as { settings?: Record<string, unknown> }).settings ?? {}
+  return { ...page, product: { ...first, settings: { description: "", ...settings } } }
 }

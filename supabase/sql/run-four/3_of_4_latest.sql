@@ -1,5 +1,5 @@
 -- STORELIB DATABASE, FILE 3 of 4
--- Saved cards, bounces and exec_sql closed, email sending, domains for a website or creator page, browser notifications and time zone, Ask Storelib conversations, Analytics speed, business accounts, creator badges.
+-- Saved cards, bounces and exec_sql closed, email sending, domains for a website or creator page, browser notifications and time zone, Ask Storelib conversations, Analytics speed, business accounts, creator badges, Ask Storelib reports, notification rules, website accounts and contact forms.
 -- HOW: select all of this file, copy, paste into a NEW query tab in the Supabase
 -- SQL editor, press Run. Run the four files in order, one at a time.
 -- Safe to run again: every statement checks before it changes anything, so a
@@ -139,6 +139,73 @@ CREATE TRIGGER profiles_keep_badges BEFORE INSERT OR UPDATE ON public.profiles F
 UPDATE public.profiles SET badges = array_append(badges, 'veteran') WHERE lower(username) = lower('lucadragoste') AND NOT ('veteran' = ANY(badges));
 /* Who has a badge now. */
 SELECT username, badges FROM public.profiles WHERE cardinality(badges) > 0;
+
+-- part 28_theme_chat_reports.sql
+/* Ask Storelib reports: one row per answer a creator flags, with the question and reply as they were. Written by the server only; no browser can read or write it. Needs nothing else. Source: supabase/migrations/20261003_theme_chat_reports.sql. */
+CREATE TABLE IF NOT EXISTS public.theme_chat_reports ( id uuid PRIMARY KEY DEFAULT gen_random_uuid(), install_id uuid NOT NULL REFERENCES public.store_theme_installs(id) ON DELETE CASCADE, creator_id uuid NOT NULL REFERENCES public.creators(id) ON DELETE CASCADE, conversation_id uuid, message_id uuid NOT NULL, reply_message_id uuid, reason text, prompt text NOT NULL DEFAULT '', reply text NOT NULL DEFAULT '', engine text, created_at timestamptz NOT NULL DEFAULT now() );
+CREATE UNIQUE INDEX IF NOT EXISTS theme_chat_reports_message ON public.theme_chat_reports (message_id);
+CREATE INDEX IF NOT EXISTS theme_chat_reports_created_idx ON public.theme_chat_reports (created_at DESC);
+ALTER TABLE public.theme_chat_reports ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.theme_chat_reports DROP CONSTRAINT IF EXISTS theme_chat_reports_reason_length;
+ALTER TABLE public.theme_chat_reports ADD CONSTRAINT theme_chat_reports_reason_length CHECK (reason IS NULL OR char_length(reason) <= 500) NOT VALID;
+
+-- part 29_notification_rules.sql
+/* Notifications that decide for themselves (lib/notifications): each thing said once per creator, resolved when fixed, pushed only when critical or a milestone, run hourly by /api/cron/notifications. Source: supabase/migrations/20261003_notification_rules.sql. Before this runs the engine does nothing and the panel reads as it always has. */
+/* 1. What a rule writes on its row: kind, category, priority, dedupe key, subject, rule version, and when it was resolved and pushed. */
+ALTER TABLE public.seller_notifications ADD COLUMN IF NOT EXISTS kind text;
+ALTER TABLE public.seller_notifications ADD COLUMN IF NOT EXISTS category text;
+ALTER TABLE public.seller_notifications ADD COLUMN IF NOT EXISTS priority smallint;
+ALTER TABLE public.seller_notifications ADD COLUMN IF NOT EXISTS dedupe_key text;
+ALTER TABLE public.seller_notifications ADD COLUMN IF NOT EXISTS subject_id text;
+ALTER TABLE public.seller_notifications ADD COLUMN IF NOT EXISTS rule_version smallint;
+ALTER TABLE public.seller_notifications ADD COLUMN IF NOT EXISTS resolved_at timestamptz;
+ALTER TABLE public.seller_notifications ADD COLUMN IF NOT EXISTS pushed_at timestamptz;
+/* 2. The type takes the six categories beside the old kinds; every check on type, whatever it was named, is replaced. NOT VALID: rows already there are not rechecked. */
+DO $$ DECLARE c record; BEGIN FOR c IN SELECT conname FROM pg_constraint WHERE conrelid = 'public.seller_notifications'::regclass AND contype = 'c' AND pg_get_constraintdef(oid) ILIKE '%type%' LOOP EXECUTE format('ALTER TABLE public.seller_notifications DROP CONSTRAINT %I', c.conname); END LOOP; END $$;
+ALTER TABLE public.seller_notifications ADD CONSTRAINT seller_notifications_type_check CHECK (type IN ('new_review', 'new_sale', 'new_subscriber', 'payout', 'announcement', 'critical', 'problem', 'next_step', 'opportunity', 'milestone', 'update')) NOT VALID;
+ALTER TABLE public.seller_notifications DROP CONSTRAINT IF EXISTS seller_notifications_category_check;
+ALTER TABLE public.seller_notifications ADD CONSTRAINT seller_notifications_category_check CHECK (category IS NULL OR category IN ('critical', 'problem', 'next_step', 'opportunity', 'milestone', 'update')) NOT VALID;
+/* 3. Said once: one row per creator and dedupe key, which the engine writes ON CONFLICT DO NOTHING. Older rows have no key, and NULLs never clash. Then what the engine and the panel read by. */
+CREATE UNIQUE INDEX IF NOT EXISTS seller_notifications_once ON public.seller_notifications (creator_id, dedupe_key);
+CREATE INDEX IF NOT EXISTS seller_notifications_engine ON public.seller_notifications (creator_id, created_at) WHERE kind IS NOT NULL;
+CREATE INDEX IF NOT EXISTS seller_notifications_feed ON public.seller_notifications (user_id, created_at DESC) WHERE dismissed_at IS NULL AND resolved_at IS NULL;
+/* 4. When each creator was last evaluated, and a lease so two runs never evaluate the same one at once. The server's alone. */
+CREATE TABLE IF NOT EXISTS public.notification_creator_state ( creator_id uuid PRIMARY KEY REFERENCES public.creators(id) ON DELETE CASCADE, lease_until timestamptz, evaluated_at timestamptz, created_at timestamptz NOT NULL DEFAULT now() );
+CREATE INDEX IF NOT EXISTS notification_creator_state_next ON public.notification_creator_state (evaluated_at ASC NULLS FIRST, creator_id);
+ALTER TABLE public.notification_creator_state ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.notification_creator_state FROM anon, authenticated;
+GRANT ALL ON public.notification_creator_state TO service_role;
+/* 5. The claim: creators who finished onboarding get a row, then the least recently evaluated free ones are leased, skipping any another run holds (FOR UPDATE SKIP LOCKED) and any evaluated in the last half hour. Run by the server only. */
+CREATE OR REPLACE FUNCTION public.notification_claim_creators(p_limit integer, p_lease_seconds integer) RETURNS SETOF uuid LANGUAGE sql SECURITY DEFINER SET search_path = public AS $fn$ INSERT INTO public.notification_creator_state (creator_id) SELECT c.id FROM public.creators c WHERE c.onboarding_completed IS TRUE AND NOT EXISTS (SELECT 1 FROM public.notification_creator_state s WHERE s.creator_id = c.id) ORDER BY c.created_at LIMIT 1000 ON CONFLICT (creator_id) DO NOTHING; UPDATE public.notification_creator_state AS s SET lease_until = now() + make_interval(secs => greatest(coalesce(p_lease_seconds, 300), 30)) WHERE s.creator_id IN (SELECT q.creator_id FROM public.notification_creator_state q WHERE (q.lease_until IS NULL OR q.lease_until < now()) AND (q.evaluated_at IS NULL OR q.evaluated_at < now() - interval '30 minutes') ORDER BY q.evaluated_at ASC NULLS FIRST, q.creator_id LIMIT least(greatest(coalesce(p_limit, 25), 1), 200) FOR UPDATE SKIP LOCKED) RETURNING s.creator_id; $fn$;
+REVOKE ALL ON FUNCTION public.notification_claim_creators(integer, integer) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.notification_claim_creators(integer, integer) TO service_role;
+/* PostgREST answers from its cached schema; without this the API keeps saying the new columns and function do not exist. */
+NOTIFY pgrst, 'reload schema';
+
+-- part 30_site_accounts_contact.sql
+/* Website accounts: every sign in code storelib.com gives a creator's website is exchanged once, and its id is kept here. Written and read by the server only. */
+CREATE TABLE IF NOT EXISTS public.site_account_codes ( jti text PRIMARY KEY, creator_id uuid NOT NULL, user_id uuid NOT NULL, host text NOT NULL, used_at timestamptz NOT NULL DEFAULT now() );
+CREATE INDEX IF NOT EXISTS site_account_codes_used_at ON public.site_account_codes (used_at);
+ALTER TABLE public.site_account_codes ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.site_account_codes FROM anon, authenticated;
+GRANT ALL ON public.site_account_codes TO service_role;
+/* Contact form messages from a creator's website. The creator reads their own; nobody but the server writes. */
+CREATE TABLE IF NOT EXISTS public.site_contact_messages ( id uuid PRIMARY KEY DEFAULT gen_random_uuid(), creator_id uuid NOT NULL REFERENCES public.creators(id) ON DELETE CASCADE, subscriber_id uuid REFERENCES public.subscribers(id) ON DELETE SET NULL, email text NOT NULL, name text, subject text, message text NOT NULL, consent boolean NOT NULL DEFAULT false, site text, page text, source_detail jsonb, emailed_at timestamptz, created_at timestamptz NOT NULL DEFAULT now() );
+ALTER TABLE public.site_contact_messages DROP CONSTRAINT IF EXISTS site_contact_messages_email_lower;
+ALTER TABLE public.site_contact_messages ADD CONSTRAINT site_contact_messages_email_lower CHECK (email = lower(email)) NOT VALID;
+ALTER TABLE public.site_contact_messages DROP CONSTRAINT IF EXISTS site_contact_messages_sizes;
+ALTER TABLE public.site_contact_messages ADD CONSTRAINT site_contact_messages_sizes CHECK (char_length(message) <= 5000 AND char_length(coalesce(subject, '')) <= 150 AND char_length(coalesce(name, '')) <= 120) NOT VALID;
+CREATE INDEX IF NOT EXISTS site_contact_messages_creator_created ON public.site_contact_messages (creator_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS site_contact_messages_creator_email ON public.site_contact_messages (creator_id, email);
+ALTER TABLE public.site_contact_messages ENABLE ROW LEVEL SECURITY;
+REVOKE INSERT, UPDATE, DELETE ON public.site_contact_messages FROM anon, authenticated;
+DROP POLICY IF EXISTS "Creators read their own contact messages" ON public.site_contact_messages;
+CREATE POLICY "Creators read their own contact messages" ON public.site_contact_messages FOR SELECT TO authenticated USING (creator_id IN (SELECT id FROM public.creators WHERE user_id = (SELECT auth.uid())));
+GRANT SELECT ON public.site_contact_messages TO authenticated;
+GRANT ALL ON public.site_contact_messages TO service_role;
+/* A contact who wrote through a contact form and did not ask for news is status 'wrote': kept, never sent a campaign. Rows already there are not rechecked. */
+ALTER TABLE public.subscribers DROP CONSTRAINT IF EXISTS subscribers_status_check;
+ALTER TABLE public.subscribers ADD CONSTRAINT subscribers_status_check CHECK (status IS NULL OR status IN ('subscribed', 'unsubscribed', 'bounced', 'complained', 'cleaned', 'customer', 'wrote')) NOT VALID;
 
 notify pgrst, 'reload schema';
 select 'Storelib file 3 of 4 ran. Next file.' as done;
