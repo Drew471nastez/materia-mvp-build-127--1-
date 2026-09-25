@@ -1,6 +1,7 @@
 "use client"
 
 import type { SupabaseClient, Session } from "@supabase/supabase-js"
+import { parseCookieHeader, storedSessionKey } from "@/lib/supabase/session-jar"
 
 /**
  * ===========================================================================
@@ -45,16 +46,8 @@ import type { SupabaseClient, Session } from "@supabase/supabase-js"
  * /login.
  */
 
-/** The key supabase-js stores the session under. Derived, never hardcoded. */
-export function storedSessionKey(): string | null {
-  try {
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-    if (!url) return null
-    return `sb-${new URL(url).hostname.split(".")[0]}-auth-token`
-  } catch {
-    return null
-  }
-}
+/** The key supabase-js stores the session under. Derived, never hardcoded; lib/supabase/session-jar.ts. */
+export { storedSessionKey }
 
 /**
  * Is there a session stored on this device?
@@ -83,10 +76,22 @@ export function hasStoredSessionToken(): boolean {
   try {
     if (localStorage.getItem(key)) return true
     if (localStorage.getItem(`${key}.0`)) return true
-    return false
   } catch {
-    // Storage disabled or private mode: no evidence either way. `false` is
-    // right — this function answers "do we have proof", and we do not.
+    /* Storage disabled or private mode: the cookie below may still say so. */
+  }
+  /**
+   * THE WEB KEEPS ITS SESSION IN A COOKIE, NOT IN localStorage. This used to
+   * look in localStorage only, which the browser client never writes, so on
+   * the web it always answered "no session" and every caller that asked it
+   * as a tiebreaker (the gate's ten second timeout among them) sent a signed
+   * in person to /login. The cookie is readable here by design.
+   */
+  try {
+    const jar = parseCookieHeader(document.cookie)
+    return Boolean(jar.get(key) || jar.get(`${key}.0`))
+  } catch {
+    // No cookie jar either: no evidence either way. `false` is right, this
+    // function answers "do we have proof", and we do not.
     return false
   }
 }

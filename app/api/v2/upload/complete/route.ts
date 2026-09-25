@@ -1,22 +1,45 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { updateCreatorStorageUsed } from "@/lib/storage"
+import { PUBLIC_BUCKET, STORAGE_BUCKET, checkUploadAllowed, updateCreatorStorageUsed } from "@/lib/storage"
+import {
+  UPLOAD_HEADERS,
+  cleanStoredPublicImage,
+  ownsStoragePath,
+  readStoredHead,
+  storedObjectSize,
+} from "@/lib/storage/upload-guard"
+import { scanFile } from "@/lib/storage/security"
+import { sniff } from "@/lib/storage/file-signature"
+import { scanAsset } from "@/lib/storage/scan-gate"
 
 export const runtime = "nodejs"
+export const maxDuration = 60
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 /**
  * POST /api/v2/upload/complete
  *
- * Called after the client has successfully uploaded a file to the signed URL.
- * Marks the digital asset as completed, stores SHA-256 checksum, sets
- * scan_status = "pending_scan", and updates storage quota.
+ * Called after the client has uploaded a file to the signed URL from
+ * /prepare. Nothing the page says about the file is believed:
+ *
+ *   - the asset is found by id AND by the signed in uploader, and its path
+ *     and bucket come from the row, not the request;
+ *   - the size is storage's own record of the object, not `fileSize`. A
+ *     signed upload URL cannot limit what is sent through it, so a page could
+ *     declare 1 KB, send 10 GB and stay under quota. Now the real size is
+ *     checked against the quota here and a file over it is removed;
+ *   - the first bytes are read back from storage and scanned, so a renamed
+ *     executable is refused even though it never passed through a function;
+ *   - a picture for the public bucket is checked as a picture and loses its
+ *     location metadata, at the same URL.
  *
  * Request body:
- *   { assetId, path, bucket, fileSize?, checksum? }
+ *   { assetId?, path, bucket, fileSize?, checksum? }
  *
  * Response:
- *   { success, asset }
+ *   { success, asset } or, for a picture, { success, publicUrl, path, bucket }
  */
 export async function POST(request: NextRequest) {
   try {
@@ -26,20 +49,21 @@ export async function POST(request: NextRequest) {
     // Authenticate
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: UPLOAD_HEADERS })
     }
 
-    const body = await request.json()
-    const { assetId, path, bucket, fileSize, checksum } = body as {
-      assetId?: string
-      path: string
-      bucket: string
-      fileSize?: number
-      checksum?: string
-    }
+    const body = (await request.json().catch(() => null)) as {
+      assetId?: unknown
+      path?: unknown
+      bucket?: unknown
+      checksum?: unknown
+    } | null
+    const assetId = typeof body?.assetId === "string" && UUID.test(body.assetId) ? body.assetId : null
+    const path = typeof body?.path === "string" ? body.path : ""
+    const checksum = typeof body?.checksum === "string" && /^[a-f0-9]{64}$/i.test(body.checksum) ? body.checksum : null
 
-    if (!path || !bucket) {
-      return NextResponse.json({ error: "Missing required fields: path, bucket" }, { status: 400 })
+    if (!assetId && !path) {
+      return NextResponse.json({ error: "Missing required fields: path, bucket" }, { status: 400, headers: UPLOAD_HEADERS })
     }
 
     // Get creator
@@ -50,93 +74,150 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (!creator) {
-      return NextResponse.json({ error: "Creator account required" }, { status: 403 })
+      return NextResponse.json({ error: "Creator account required" }, { status: 403, headers: UPLOAD_HEADERS })
     }
 
-    // Verify the file actually exists in storage
-    const { data: fileInfo, error: fileError } = await admin.storage
-      .from(bucket)
-      .list(path.substring(0, path.lastIndexOf("/")), {
-        search: path.substring(path.lastIndexOf("/") + 1),
-      })
-
-    const fileExists = fileInfo && fileInfo.length > 0
-    if (!fileExists && fileError) {
-      console.warn("[v2/upload/complete] Could not verify file in storage:", fileError)
-    }
-
-    // If assetId is provided, mark the asset as completed
+    // A digital file: everything from the row.
     if (assetId) {
+      const { data: pending } = await admin
+        .from("digital_assets")
+        .select("id, file_name, file_path, file_size, mime_type, storage_bucket, upload_status")
+        .eq("id", assetId)
+        .eq("uploaded_by", user.id)
+        .maybeSingle()
+
+      if (!pending || !pending.file_path) {
+        return NextResponse.json({ error: "Upload not found" }, { status: 404, headers: UPLOAD_HEADERS })
+      }
+
+      const bucket = pending.storage_bucket || STORAGE_BUCKET
+      const realSize = await storedObjectSize(admin, bucket, pending.file_path)
+      if (realSize === null) {
+        return NextResponse.json({ error: "The upload did not arrive. Try again." }, { status: 400, headers: UPLOAD_HEADERS })
+      }
+
+      const discard = async (reason: string, status: number) => {
+        await admin.storage.from(bucket).remove([pending.file_path]).catch(() => undefined)
+        await admin.from("digital_assets").update({ upload_status: "failed", updated_at: new Date().toISOString() }).eq("id", pending.id)
+        return NextResponse.json({ error: reason }, { status, headers: UPLOAD_HEADERS })
+      }
+
+      /* Only the bytes beyond what was declared count as new here: the
+         declared size is already part of the usage, as a pending upload. */
+      if (pending.upload_status === "pending") {
+        const extra = realSize - (Number(pending.file_size) || 0)
+        if (extra > 0) {
+          const quota = await checkUploadAllowed(admin, creator.id, extra)
+          if (!quota.allowed) return discard(quota.reason, 403)
+        }
+      }
+
+      const head = await readStoredHead(admin, bucket, pending.file_path)
+      if (head) {
+        const verdict = scanFile(pending.file_name || pending.file_path, pending.mime_type || "application/octet-stream", head)
+        if (!verdict.safe) return discard(verdict.reason || "That file cannot be uploaded.", 400)
+      }
+
       const updateData: Record<string, unknown> = {
         upload_status: "completed",
         scan_status: "pending_scan",
-        file_size: fileSize || null,
+        file_size: realSize,
         updated_at: new Date().toISOString(),
       }
-
-      // Store SHA-256 checksum if provided by the client
-      if (checksum && checksum !== "no-crypto-api") {
-        updateData.checksum = checksum
-      }
+      if (checksum) updateData.checksum = checksum
 
       const { data: asset, error: updateError } = await admin
         .from("digital_assets")
         .update(updateData)
-        .eq("id", assetId)
+        .eq("id", pending.id)
         .eq("uploaded_by", user.id)
-        .select("id, file_name, file_path, file_size, mime_type, file_category, checksum, scan_status")
+        .select("id, file_name, file_path, file_size, mime_type, file_category, checksum, scan_status, storage_bucket")
         .single()
 
-      if (updateError) {
+      if (updateError || !asset) {
         console.error("[v2/upload/complete] Asset update error:", updateError)
-        return NextResponse.json({ error: "Failed to complete upload" }, { status: 500 })
+        return NextResponse.json({ error: "Failed to complete upload" }, { status: 500, headers: UPLOAD_HEADERS })
       }
 
-      // Update creator's storage usage counter
+      /* Scanned now rather than whenever somebody remembers to: by header
+         always, and by the configured engine when there is one. */
+      const scanStatus = await scanAsset(admin, asset).catch(() => "pending_scan")
+
       await updateCreatorStorageUsed(admin, creator.id)
 
-      // Log upload event for audit trail
       try {
         await admin.from("upload_events").insert({
-          creator_id: creator.id,
+          creator_id: user.id,
           file_name: asset.file_name,
           file_size: asset.file_size || 0,
-          security_scan_result: "pending",
+          mime_type: asset.mime_type,
+          file_category: asset.file_category,
+          storage_bucket: bucket,
+          storage_path: asset.file_path,
+          security_scan_result: scanStatus === "infected" ? "blocked" : "passed",
           security_threat_type: null,
         })
       } catch { /* non-fatal */ }
 
-      return NextResponse.json({
-        success: true,
-        asset: {
-          id: asset.id,
-          fileName: asset.file_name,
-          filePath: asset.file_path,
-          fileSize: asset.file_size,
-          mimeType: asset.mime_type,
-          category: asset.file_category,
-          checksum: asset.checksum,
-          scanStatus: asset.scan_status,
+      if (scanStatus === "infected") {
+        return NextResponse.json({ error: "That file was flagged by the virus scan and was removed." }, { status: 400, headers: UPLOAD_HEADERS })
+      }
+
+      return NextResponse.json(
+        {
+          success: true,
+          asset: {
+            id: asset.id,
+            fileName: asset.file_name,
+            filePath: asset.file_path,
+            fileSize: asset.file_size,
+            mimeType: asset.mime_type,
+            category: asset.file_category,
+            checksum: asset.checksum,
+            scanStatus,
+          },
         },
-      })
+        { headers: UPLOAD_HEADERS },
+      )
     }
 
-    // No assetId — this was a non-digital upload (image/thumbnail)
-    // Just update storage counter
-    await updateCreatorStorageUsed(admin, creator.id)
+    /* No asset: a picture in the public bucket, at a path /prepare built
+       under this creator's id. Any other bucket or path is refused, so this
+       cannot be pointed at somebody else's file. */
+    if (body?.bucket !== PUBLIC_BUCKET || !ownsStoragePath(path, [creator.id])) {
+      return NextResponse.json({ error: "Upload not found" }, { status: 404, headers: UPLOAD_HEADERS })
+    }
 
-    // Get the public URL
-    const { data: urlData } = admin.storage.from(bucket).getPublicUrl(path)
+    if (path.startsWith(`${creator.id}/digital-products/`)) {
+      /* A link page's file (a lead magnet): any kind of file, but never a
+         program or a page, since it is served from a public URL. */
+      const head = await readStoredHead(admin, PUBLIC_BUCKET, path)
+      const kind = head ? sniff(head) : null
+      const verdict = head ? scanFile(path, "application/octet-stream", head) : { safe: true as const }
+      if (!head || !verdict.safe || kind?.family === "markup" || kind?.family === "executable") {
+        await admin.storage.from(PUBLIC_BUCKET).remove([path]).catch(() => undefined)
+        return NextResponse.json({ error: "That file cannot be shared from a link page." }, { status: 400, headers: UPLOAD_HEADERS })
+      }
+    } else {
+      const cleaned = await cleanStoredPublicImage(admin, PUBLIC_BUCKET, path)
+      if (!cleaned.ok) {
+        return NextResponse.json({ error: cleaned.error }, { status: cleaned.status, headers: UPLOAD_HEADERS })
+      }
+    }
 
-    return NextResponse.json({
-      success: true,
-      publicUrl: urlData.publicUrl,
-      path,
-      bucket,
-    })
+    const { data: urlData } = admin.storage.from(PUBLIC_BUCKET).getPublicUrl(path)
+
+    return NextResponse.json(
+      {
+        success: true,
+        publicUrl: urlData.publicUrl,
+        path,
+        bucket: PUBLIC_BUCKET,
+      },
+      { headers: UPLOAD_HEADERS },
+    )
   } catch (error) {
     console.error("[v2/upload/complete] Error:", error)
-    const message = error instanceof Error ? error.message : "Internal server error"
-    return NextResponse.json({ error: message }, { status: 500 })
+    return NextResponse.json({ error: "Could not finish the upload. Try again." }, { status: 500, headers: UPLOAD_HEADERS })
   }
 }

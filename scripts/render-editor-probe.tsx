@@ -43,9 +43,15 @@ const PAGE = (globalThis as unknown as { PROBE_SHORT?: boolean }).PROBE_SHORT
 const sections = PAGE.map((t, i) => instance(t, i))
 
 const now = new Date().toISOString()
+/**
+ * PROBE_LIVE makes the website live, so Publish opens its panel rather than
+ * saving; PROBE_CONNECTIONS is what the agent-activity route says is
+ * connected (a ConnectionsBrief), read at the moment it is asked.
+ */
+const probeGlobals = globalThis as unknown as { PROBE_LIVE?: boolean; PROBE_CONNECTIONS?: unknown }
 const install = {
-  id: "probe-install", creator_id: "probe-creator", theme_id: "default", name: "Probe store", status: "draft",
-  is_custom: false, parent_install_id: null, sort_order: 0, created_at: now, updated_at: now, published_at: null,
+  id: "probe-install", creator_id: "probe-creator", theme_id: "default", name: "Probe store", status: probeGlobals.PROBE_LIVE ? "published" : "draft",
+  is_custom: false, parent_install_id: null, sort_order: 0, created_at: now, updated_at: now, published_at: probeGlobals.PROBE_LIVE ? now : null,
   settings: { id: "s1", install_id: "probe-install", settings: {}, draft_settings: null, created_at: now, updated_at: now },
   pages: [{ id: "p1", install_id: "probe-install", page_key: "home", sections: [], created_at: now, updated_at: now }],
 }
@@ -57,6 +63,9 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   calls.push(`${init?.method ?? "GET"} ${url}`)
   const json = (body: unknown) => new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } })
   if (!url.startsWith("/api/")) return realFetch(input, init)
+  if (/\/themes\/probe-install\/agent-activity/.test(url) && probeGlobals.PROBE_CONNECTIONS) {
+    return json({ ready: true, cursor: 0, connections: probeGlobals.PROBE_CONNECTIONS, events: [] })
+  }
   if (/\/themes\/probe-install\/sections/.test(url)) return json({ sections, has_draft: false })
   if (/\/themes\/probe-install\/settings/.test(url)) return json({ settings: install.settings })
   if (/\/themes\/probe-install\/files/.test(url)) return json({ files: [] })

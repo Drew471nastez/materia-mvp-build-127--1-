@@ -159,10 +159,10 @@ export function BackupSettings({ ctx }: { ctx: SettingsContext }) {
             <Loader2 className="h-5 w-5 animate-spin" />
           </div>
         ) : backups.length === 0 ? (
-          <p className="px-5 py-10 text-center text-[14.5px] text-white/50 md:px-6">No backups yet.</p>
+          <p className="px-4 py-10 text-center text-[14.5px] text-white/50 md:px-6">No backups yet.</p>
         ) : (
           backups.map((b) => (
-            <Row key={b.id} label={b.label} hint={`${backupWhen(b.created_at)} · ${SOURCE_WORD[b.source]}`}>
+            <Row key={b.id} label={b.label} hint={`${backupWhen(b.created_at)} · ${SOURCE_WORD[b.source]}`} inline>
               <button type="button" onClick={() => setConfirming(b)} className={buttonClass}>
                 Restore
               </button>
@@ -172,7 +172,7 @@ export function BackupSettings({ ctx }: { ctx: SettingsContext }) {
       </Card>
 
       <Card title="Duplicate">
-        <Row label="Copy this website" hint={copied ? "Copied. The copy is a draft in your library." : "Makes a draft copy with the same pages, sections and settings."}>
+        <Row label="Copy this website" hint={copied ? "Copied. The copy is a draft in your library." : "Makes a draft copy with the same pages, sections and settings."} inline>
           <button type="button" onClick={() => void duplicate()} disabled={copying || copied} className={buttonClass}>
             {copying ? <Loader2 className="h-4 w-4 animate-spin" /> : copied ? <Check className="h-4 w-4" /> : null}
             {copied ? "Copied" : "Duplicate"}
@@ -184,7 +184,7 @@ export function BackupSettings({ ctx }: { ctx: SettingsContext }) {
           will not, which is the whole reason it is asked. */}
       {confirming && (
         <div
-          className="fixed inset-0 z-[160] flex items-end justify-center bg-black/60 p-4 backdrop-blur-[2px] md:items-center"
+          className="fixed inset-0 z-[160] flex items-end justify-center bg-black/60 px-3 pt-4 pb-[max(12px,env(safe-area-inset-bottom))] md:items-center md:p-4"
           onClick={() => !restoring && setConfirming(null)}
         >
           <div
@@ -192,7 +192,7 @@ export function BackupSettings({ ctx }: { ctx: SettingsContext }) {
             aria-modal="true"
             aria-label="Restore this backup"
             onClick={(e) => e.stopPropagation()}
-            className="wb-settings-in w-full max-w-[460px] rounded-2xl border border-white/10 bg-[#1a1a1a] p-6 text-white shadow-[0_32px_80px_-24px_rgba(0,0,0,0.9)]"
+            className="wb-settings-in w-full max-w-[460px] rounded-2xl border border-white/10 bg-[#1a1a1a] p-5 text-white shadow-[0_32px_80px_-24px_rgba(0,0,0,0.9)] md:p-6"
           >
             <h2 className="text-[20px] font-semibold">Restore this backup?</h2>
             <p className="mt-2 text-[15px] leading-relaxed text-white/70">
@@ -208,12 +208,12 @@ export function BackupSettings({ ctx }: { ctx: SettingsContext }) {
                 Nothing changes on your live site until you publish.
               </li>
             </ul>
-            <div className="mt-6 flex justify-end gap-2.5">
+            <div className="mt-6 grid grid-cols-2 gap-2.5 md:flex md:justify-end">
               <button
                 type="button"
                 onClick={() => setConfirming(null)}
                 disabled={restoring}
-                className="h-10 rounded-xl px-4 text-[14px] font-medium text-white/80 transition-colors hover:bg-white/[0.08] hover:text-white"
+                className="h-11 rounded-xl px-4 text-[15px] font-medium text-white/80 transition-colors hover:bg-white/[0.08] hover:text-white active:bg-white/[0.06] md:h-10 md:text-[14px]"
               >
                 Cancel
               </button>
@@ -221,7 +221,7 @@ export function BackupSettings({ ctx }: { ctx: SettingsContext }) {
                 type="button"
                 onClick={() => void restore(confirming)}
                 disabled={restoring}
-                className="flex h-10 items-center gap-2 rounded-xl bg-white px-5 text-[14px] font-semibold text-[#0f0f0f] transition-opacity hover:opacity-90 disabled:opacity-60"
+                className="flex h-11 items-center justify-center gap-2 rounded-xl bg-white px-5 text-[15px] font-semibold text-[#0f0f0f] transition-opacity hover:opacity-90 disabled:opacity-60 md:h-10 md:text-[14px]"
               >
                 {restoring && <Loader2 className="h-4 w-4 animate-spin" />}
                 {restoring ? "Restoring" : "Restore"}

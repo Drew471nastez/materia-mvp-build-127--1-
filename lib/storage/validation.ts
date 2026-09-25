@@ -176,15 +176,37 @@ export function sanitizeFileName(fileName: string): string {
 }
 
 /**
- * Generate a unique storage path for a file.
+ * A random id for a storage key: 128 bits from the platform's CSPRNG, so a
+ * path cannot be guessed from another one. Math.random gave 41 bits from a
+ * generator that is not meant for secrets.
+ */
+function randomKey(): string {
+  const c = (globalThis as { crypto?: Crypto }).crypto
+  if (c?.randomUUID) return c.randomUUID().replace(/-/g, "")
+  if (c?.getRandomValues) {
+    const b = c.getRandomValues(new Uint8Array(16))
+    return Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("")
+  }
+  return `${Math.random().toString(36).slice(2)}${Math.random().toString(36).slice(2)}`
+}
+
+/** The extension of a name, reduced to letters and digits (a name is the uploader's). */
+export function storageExtension(fileName: string, fallback = "bin"): string {
+  const dot = fileName.lastIndexOf(".")
+  const raw = dot === -1 ? "" : fileName.slice(dot + 1)
+  return raw.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 10) || fallback
+}
+
+/**
+ * Generate a unique storage path for a file: the owner's id, a fixed folder,
+ * a time and a random key. Nothing from the uploader but a cleaned extension.
  */
 export function generateStoragePath(
   creatorId: string,
   fileName: string,
   subfolder: "digital-products" | "product-images" = "digital-products",
 ): string {
-  const ext = fileName.split(".").pop()?.toLowerCase() || "bin"
+  const ext = storageExtension(fileName)
   const timestamp = Date.now()
-  const random = Math.random().toString(36).slice(2, 10)
-  return `${creatorId}/${subfolder}/${timestamp}-${random}.${ext}`
+  return `${creatorId}/${subfolder}/${timestamp}-${randomKey()}.${ext}`
 }

@@ -87,8 +87,12 @@ section("Who is signed in: asked once per request")
 {
   for (const f of PAGES) {
     const src = code(f)
-    check(`${f} asks through the request cache, not straight off the auth client`, /currentUserForRequest\(\)/.test(src) && !/auth\.getUser\(\)/.test(src))
+    /* pageUser() (lib/auth/page-user.ts) is the request cache with the one
+       decision a page makes: /login only when Supabase said nobody. */
+    check(`${f} asks through the request cache, not straight off the auth client`, /(currentUserForRequest|pageUser)\(\)/.test(src) && !/auth\.getUser\(\)/.test(src))
   }
+  check("pageUser is the request cache, and redirects only on a definite nobody",
+    /const current = await currentUserForRequest\(\)/.test(code("lib/auth/page-user.ts")) && /if \(shouldSendToLogin\(current\)\) redirect\(loginPath\)/.test(code("lib/auth/page-user.ts")))
   const scope = code("lib/auth/request-scope.ts")
   check("the cache is React's, per request", /export const currentUserForRequest = cache\(/.test(scope) && /export const creatorForRequest = cache\(/.test(scope) && /export const profileForRequest = cache\(/.test(scope))
   check("the creator row it shares is read on the caller's own client, by their own user id, never on the service role",
@@ -116,7 +120,7 @@ section("Home: three trips, and its title shares them")
   const meta = home.slice(home.indexOf("export async function generateMetadata"), home.indexOf("export const dynamic"))
   check("the title reads the same cached answers, and nothing of its own", /Promise\.all\(\[homeProfile\(user\.id\), homeCreator\(user\.id\)\]\)/.test(meta) && !/\.from\(/.test(meta))
   const body = home.slice(home.indexOf("export default async function AppDashboard"))
-  const first = batchAfter(body, /currentUserForRequest/)
+  const first = batchAfter(body, /pageUser\(\)/)
   check("the creator row, the profile and the OnePage go together", /homeCreator\(user\.id\)/.test(first) && /homeProfile\(user\.id\)/.test(first) && /\.from\("onepages"\)/.test(first))
   const second = batchAfter(body, /onboarding_completed/)
   check("then the products, the domain, the live website and the orders go together",
@@ -134,18 +138,24 @@ section("Products: the creator and the profile together")
   check("both rows in one batch, through the request cache the layout filled",
     /Promise\.all\(\[creatorForRequest\(user\.id\), profileForRequest\(user\.id\)\]\)/.test(src))
   check("the products on the caller's own client, by the creator's id", /\.from\("products"\)\s*\.select\("\*"\)\s*\.eq\("creator_id", creator\.id\)/.test(src) && !/createAdminClient/.test(src))
-  check("no user or no creator is sent where that is sorted out, rather than reading an id off nothing", /if \(!user\) redirect\("\/login"\)/.test(src) && /if \(!creator\) redirect\("\/app"\)/.test(src) && !/!\.id/.test(src))
+  check("no user or no creator is sent where that is sorted out, rather than reading an id off nothing",
+    /const user = await pageUser\(\)/.test(src) && /if \(!user\) return null/.test(src) && /if \(!creator\) redirect\("\/app"\)/.test(src) && !/!\.id/.test(src))
 }
 
 section("Settings: six trips to three")
 {
   const src = code("app/app/settings/_server.ts")
-  const first = batchAfter(src, /currentUserForRequest/)
+  const first = batchAfter(src, /pageUser\(\)/)
   check("the profile, the creator row and the OnePage together", /\.from\("profiles"\)/.test(first) && /\.from\("creators"\)/.test(first) && /\.from\("onepages"\)/.test(first))
   const second = batchAfter(src, /redirect\("\/onboarding"\)/)
   check("then the store header and the published website together, by the creator's id",
     /\.from\("store_builder_configs"\)[\s\S]*\.eq\("creator_id", creator\.id\)/.test(second) && /\.from\("store_theme_installs"\)[\s\S]*\.eq\("creator_id", creator\.id\)/.test(second))
-  check("on the caller's own client only", !/createAdminClient/.test(src))
+  /* One exception, and only one: whether the account's own address is on
+     Storelib's newsletter. That table is closed to browsers (RLS on, no
+     policies), so it is read with the service role, by the signed in
+     person's own address, in the same batch. */
+  check("on the caller's own client, but for the newsletter row",
+    (src.match(/createAdminClient\(\)/g) ?? []).length === 1 && /readNewsletter\(createAdminClient\(\), user\.email\)/.test(src) && /\.from\("newsletter|storelib_newsletter"\)/.test(src) === false)
 }
 
 section("Payouts: its questions asked together")

@@ -1,95 +1,37 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { validateFile, checkUploadRateLimit } from "@/lib/storage"
+import { validateFile } from "@/lib/storage"
+import { storageExtension } from "@/lib/storage/validation"
+import { declaresPublicImage, isRenderedDocumentType } from "@/lib/storage/file-signature"
+import { PUBLIC_IMAGE_MAX_BYTES } from "@/lib/storage/public-image"
+import { UPLOAD_HEADERS, uploadRateLimit } from "@/lib/storage/upload-guard"
 
 const BUCKET_NAME = process.env.ONEPAGE_LEAD_FILES_BUCKET || "lead-form-files-v2"
 
-export const runtime = "nodejs"
-export const maxDuration = 300
-
 /**
- * Ensure the bucket exists with NO bucket-level file size limit.
- * Setting file_size_limit to 0/null disables the bucket check in Supabase Storage,
- * letting only the project-level global limit apply.
+ * A file on a link page is public: whoever gets the link downloads it. That
+ * is what a lead magnet is, and it is also what makes a public bucket a free
+ * file host for anybody with an account. So there is a ceiling well above a
+ * real ebook or template pack.
  */
-async function ensureBucketNoLimit(): Promise<{ ok: boolean; currentLimit: number | null }> {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!supabaseUrl || !serviceRoleKey) return { ok: true, currentLimit: null }
+const LINK_PAGE_FILE_MAX_BYTES = 1024 * 1024 * 1024
 
-  const headers = {
-    Authorization: `Bearer ${serviceRoleKey}`,
-    apikey: serviceRoleKey,
-    "Content-Type": "application/json",
-  }
-
-  const getBucketInfo = async (): Promise<{ exists: boolean; limit: number | null }> => {
-    try {
-      const r = await fetch(`${supabaseUrl}/storage/v1/bucket/${BUCKET_NAME}`, {
-        method: "GET",
-        headers: { Authorization: `Bearer ${serviceRoleKey}`, apikey: serviceRoleKey },
-      })
-      if (!r.ok) return { exists: false, limit: null }
-      const b = await r.json()
-      return { exists: true, limit: b?.file_size_limit ?? null }
-    } catch {
-      return { exists: false, limit: null }
-    }
-  }
-
-  const info = await getBucketInfo()
-
-  // null/0 = no bucket-level limit = OK
-  if (info.exists && (info.limit === null || info.limit === 0)) {
-    return { ok: true, currentLimit: null }
-  }
-
-  // Try to remove the limit (set to 0)
-  const adminSupabase = createAdminClient()
-
-  // Method 1: REST API
-  try {
-    if (info.exists) {
-      await fetch(`${supabaseUrl}/storage/v1/bucket/${BUCKET_NAME}`, {
-        method: "PUT",
-        headers,
-        body: JSON.stringify({ public: true, file_size_limit: 0, allowed_mime_types: null }),
-      })
-    } else {
-      await fetch(`${supabaseUrl}/storage/v1/bucket`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({ id: BUCKET_NAME, name: BUCKET_NAME, public: true, file_size_limit: 0, allowed_mime_types: null }),
-      })
-    }
-  } catch { /* continue */ }
-  const after1 = await getBucketInfo()
-  if (after1.exists && (after1.limit === null || after1.limit === 0)) return { ok: true, currentLimit: null }
-
-  // Method 2: JS client
-  try {
-    await adminSupabase.storage.updateBucket(BUCKET_NAME, { public: true, fileSizeLimit: 0 as unknown as string })
-  } catch {
-    try {
-      await adminSupabase.storage.createBucket(BUCKET_NAME, { public: true, fileSizeLimit: 0 as unknown as string })
-    } catch { /* exists */ }
-  }
-  const after2 = await getBucketInfo()
-  if (after2.exists && (after2.limit === null || after2.limit === 0)) return { ok: true, currentLimit: null }
-
-  // Method 3: RPC direct SQL
-  try {
-    await adminSupabase.rpc("fix_storage_bucket_limit", { p_bucket_id: BUCKET_NAME, p_file_size_limit: 0 })
-  } catch { /* may not exist */ }
-  const after3 = await getBucketInfo()
-  if (after3.exists && (after3.limit === null || after3.limit === 0)) return { ok: true, currentLimit: null }
-
-  return { ok: false, currentLimit: after3.limit }
-}
+export const runtime = "nodejs"
+export const maxDuration = 60
 
 /**
- * POST - Generate a signed upload URL for direct-to-storage uploads.
+ * POST - A signed upload URL for a file on a link page.
+ *
+ * The bucket and the path are this route's: `${creatorId}/product-images/…`
+ * for a picture, `${creatorId}/digital-products/…` for a file, a random name
+ * and a cleaned extension. `folder` only picks between the two.
+ *
+ * It no longer touches the bucket. It used to remove the bucket's size limit
+ * and call ensure_storage_rls on every request, and that RPC gave every
+ * signed in user read, write and delete on the whole bucket, their own files
+ * and everybody else's. Bucket settings and policies are set once, by
+ * supabase/migrations/20260929_upload_safety.sql.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -100,96 +42,95 @@ export async function POST(request: NextRequest) {
       data: { user },
     } = await supabase.auth.getUser()
     if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: UPLOAD_HEADERS })
     }
 
     const { data: creator } = await adminSupabase
       .from("creators")
-      .select("id")
+      .select("id, subscription_plan_id")
       .eq("user_id", user.id)
       .single()
 
     if (!creator) {
-      return NextResponse.json({ error: "Creator not found" }, { status: 404 })
+      return NextResponse.json({ error: "Creator not found" }, { status: 404, headers: UPLOAD_HEADERS })
     }
 
-    const body = await request.json()
-    const { fileName, contentType, fileSize, folder } = body as {
-      fileName: string
-      contentType: string
-      fileSize: number
-      folder: string
+    const limited = await uploadRateLimit(user.id, creator.subscription_plan_id)
+    if (limited) return limited
+
+    const body = (await request.json().catch(() => null)) as {
+      fileName?: unknown
+      contentType?: unknown
+      fileSize?: unknown
+      folder?: unknown
+    } | null
+    const fileName = typeof body?.fileName === "string" ? body.fileName.slice(0, 255) : ""
+    const contentType = typeof body?.contentType === "string" ? body.contentType : "application/octet-stream"
+    const fileSize = Number(body?.fileSize)
+    const isDigital = body?.folder === "digital"
+
+    if (!fileName || !Number.isFinite(fileSize) || fileSize <= 0) {
+      return NextResponse.json({ error: "Missing required fields" }, { status: 400, headers: UPLOAD_HEADERS })
     }
 
-    if (!fileName || !fileSize) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
-    }
-
-    // Rate limit check
-    const rateCheck = await checkUploadRateLimit(adminSupabase, creator.id)
-    if (!rateCheck.allowed) {
-      return NextResponse.json({ error: rateCheck.reason }, { status: 429 })
-    }
-
-    // Security validation (extension blocklist + 5GB limit)
-    const fileValidation = validateFile(fileName, contentType || "application/octet-stream", fileSize)
+    // Extension blocklist, double extensions, dangerous types
+    const fileValidation = validateFile(fileName, contentType, fileSize)
     if (!fileValidation.valid) {
-      return NextResponse.json({ error: fileValidation.reason }, { status: 400 })
+      return NextResponse.json({ error: fileValidation.reason }, { status: 400, headers: UPLOAD_HEADERS })
     }
 
-    // Ensure bucket has no file_size_limit (let global project limit handle it)
-    const bucketFix = await ensureBucketNoLimit()
-
-    if (!bucketFix.ok) {
-      const sql = `UPDATE storage.buckets SET file_size_limit = NULL WHERE id = '${BUCKET_NAME}';`
-      console.error(`[signed-upload] Bucket limit still set: ${bucketFix.currentLimit}. Run SQL: ${sql}`)
-      return NextResponse.json(
-        { error: `Storage bucket file_size_limit is ${bucketFix.currentLimit} bytes — run this SQL in Supabase SQL Editor to remove it: ${sql}` },
-        { status: 507 },
-      )
+    if (isDigital) {
+      /* Served from a public URL, so nothing a browser would render as a page. */
+      if (isRenderedDocumentType(contentType) || /\.(html?|xhtml|svg|xml|js|mjs)$/i.test(fileName)) {
+        return NextResponse.json(
+          { error: "Web pages and SVG files cannot be shared from a link page. Put them in a ZIP." },
+          { status: 415, headers: UPLOAD_HEADERS },
+        )
+      }
+      if (fileSize > LINK_PAGE_FILE_MAX_BYTES) {
+        return NextResponse.json({ error: "That file is over 1 GB." }, { status: 413, headers: UPLOAD_HEADERS })
+      }
+    } else {
+      if (!declaresPublicImage(contentType)) {
+        return NextResponse.json(
+          { error: "That file is not a picture. Use a JPEG, PNG, WebP, GIF or AVIF." },
+          { status: 415, headers: UPLOAD_HEADERS },
+        )
+      }
+      if (fileSize > PUBLIC_IMAGE_MAX_BYTES) {
+        return NextResponse.json({ error: "That picture is over 25 MB. Choose a smaller one." }, { status: 413, headers: UPLOAD_HEADERS })
+      }
     }
 
-    // Generate unique path
-    const ext = fileName.split(".").pop() || "bin"
-    const subfolder = folder === "digital" ? "digital-products" : "product-images"
-    const filePath = `${creator.id}/${subfolder}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+    const subfolder = isDigital ? "digital-products" : "product-images"
+    const filePath = `${creator.id}/${subfolder}/${Date.now()}-${crypto.randomUUID().replace(/-/g, "")}.${storageExtension(fileName)}`
 
-    // Create a signed upload URL using admin client (valid for 10 minutes)
     const { data: signedData, error: signedError } = await adminSupabase.storage
       .from(BUCKET_NAME)
       .createSignedUploadUrl(filePath)
 
     if (signedError || !signedData) {
       console.error("Signed URL error:", signedError)
-      return NextResponse.json(
-        { error: `Failed to create upload URL: ${signedError?.message || "Unknown error"}` },
-        { status: 500 },
-      )
+      return NextResponse.json({ error: "Could not start the upload. Try again." }, { status: 500, headers: UPLOAD_HEADERS })
     }
 
-    // Auto-create RLS policies so browser TUS uploads work (idempotent)
-    let tusReady = false
-    try {
-      await adminSupabase.rpc("ensure_storage_rls", { p_bucket_id: BUCKET_NAME })
-      tusReady = true
-    } catch {
-      console.warn("[signed-upload] ensure_storage_rls RPC not available")
-    }
-
-    // Get the public URL for after upload
     const { data: urlData } = adminSupabase.storage.from(BUCKET_NAME).getPublicUrl(filePath)
 
-    return NextResponse.json({
-      signedUrl: signedData.signedUrl,
-      token: signedData.token,
-      path: filePath,
-      publicUrl: urlData.publicUrl,
-      bucket: BUCKET_NAME,
-      tusReady,
-    })
+    return NextResponse.json(
+      {
+        signedUrl: signedData.signedUrl,
+        token: signedData.token,
+        path: filePath,
+        publicUrl: urlData.publicUrl,
+        bucket: BUCKET_NAME,
+        /* The browser client's own upload into this path is allowed by the
+           owner-prefix policy, so the page's second strategy still works. */
+        tusReady: true,
+      },
+      { headers: UPLOAD_HEADERS },
+    )
   } catch (error) {
     console.error("Signed upload URL error:", error)
-    const message = error instanceof Error ? error.message : "Internal server error"
-    return NextResponse.json({ error: message }, { status: 500 })
+    return NextResponse.json({ error: "Could not start the upload. Try again." }, { status: 500, headers: UPLOAD_HEADERS })
   }
 }

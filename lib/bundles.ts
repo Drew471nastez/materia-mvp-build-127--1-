@@ -21,6 +21,12 @@ import type { createAdminClient } from "@/lib/supabase/admin"
 /** Minimum number of files that triggers automatic ZIP bundling. */
 export const BUNDLE_THRESHOLD = 6
 
+/** The most a bundle may hold, since the ZIP is assembled in memory. */
+export const BUNDLE_MAX_BYTES = 400 * 1024 * 1024
+
+/** Files a bundle never includes: the ones the virus scan flagged. */
+const BLOCKED_SCAN = new Set(["infected", "quarantined"])
+
 type AdminClient = ReturnType<typeof createAdminClient>
 
 // ---------------------------------------------------------------------------
@@ -93,32 +99,41 @@ export async function ensureProductBundle(
   }>
 
   if (variantId) {
-    // Variant-specific files (via product_variant_files junction table)
+    // Variant-specific files (via product_variant_files junction table).
+    // Only this product's own files: a variant id is a request parameter,
+    // and one from another creator's product must not pull their files into
+    // this creator's bundle.
     const { data: vFiles } = await admin
       .from("product_variant_files")
       .select(
         `digital_asset_id,
-         digital_assets!inner(id, file_path, file_name, file_size, storage_bucket)`,
+         digital_assets!inner(id, file_path, file_name, file_size, storage_bucket, product_id, upload_status, scan_status)`,
       )
       .eq("variant_id", variantId)
+      .eq("digital_assets.product_id", productId)
 
     assets = ((vFiles ?? []) as any[])
       .map((vf) => vf.digital_assets)
-      .filter(Boolean)
+      .filter((a) => a && a.product_id === productId && (a.upload_status ?? "completed") === "completed" && !BLOCKED_SCAN.has(a.scan_status))
   } else {
     // All files for the product
     const { data } = await admin
       .from("digital_assets")
-      .select("id, file_path, file_name, file_size, storage_bucket")
+      .select("id, file_path, file_name, file_size, storage_bucket, scan_status")
       .eq("product_id", productId)
       .eq("upload_status", "completed")
       .order("created_at", { ascending: true })
 
-    assets = data ?? []
+    assets = (data ?? []).filter((a: { scan_status?: string | null }) => !BLOCKED_SCAN.has(a.scan_status ?? ""))
   }
 
   // ── 2. Below threshold → no bundle ─────────────────────────────────────
   if (assets.length < BUNDLE_THRESHOLD) return null
+
+  /* A ZIP is built in this function's memory. Past this, the files go one
+     by one instead of the function running out of memory for everybody. */
+  const totalBytes = assets.reduce((n, a) => n + (Number(a.file_size) || 0), 0)
+  if (totalBytes > BUNDLE_MAX_BYTES) return null
 
   // ── 3. Check cache ──────────────────────────────────────────────────────
   const newHash = computeFilesHash(

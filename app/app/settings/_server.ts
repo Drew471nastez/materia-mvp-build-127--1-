@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
-import { currentUserForRequest } from "@/lib/auth/request-scope"
+import { pageUser } from "@/lib/auth/page-user"
+import { createAdminClient } from "@/lib/supabase/admin"
+import { readNewsletter } from "@/lib/account/preferences"
 
 export type SettingsTab = "general" | "security" | "privacy" | "billing" | "payments" | "stores"
 
@@ -16,11 +18,12 @@ export type SettingsTab = "general" | "security" | "privacy" | "billing" | "paym
 export async function loadSettingsData() {
   const supabase = await createClient()
 
-  const { user } = await currentUserForRequest()
+  const user = await pageUser()
+  /* Supabase did not answer in time. null, not /login: the /app layout's gate
+     recovers the session in the browser (lib/auth/page-user.ts). */
+  if (!user) return null
 
-  if (!user) redirect("/login")
-
-  const [{ data: profile }, { data: creator }, { data: onepage }] = await Promise.all([
+  const [{ data: profile }, { data: creator }, { data: onepage }, newsletter] = await Promise.all([
     supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
     supabase.from("creators").select("*").eq("user_id", user.id).maybeSingle(),
     supabase
@@ -28,6 +31,15 @@ export async function loadSettingsData() {
       .select("avatar_url")
       .eq("owner_id", user.id)
       .maybeSingle(),
+    /* The Privacy tab's newsletter switch: is this account's address on
+       Storelib's own list. The table is closed to browsers. */
+    (async () => {
+      try {
+        return await readNewsletter(createAdminClient(), user.email)
+      } catch {
+        return false
+      }
+    })(),
   ])
 
   if (!creator) redirect("/onboarding")
@@ -94,5 +106,6 @@ export async function loadSettingsData() {
     onepageAvatarUrl: onepage?.avatar_url || null,
     googleAvatarUrl,
     websitePublished: !!publishedSite,
+    newsletter,
   }
 }

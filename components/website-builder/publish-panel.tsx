@@ -2,10 +2,12 @@
 
 import { relativeTime } from "@/lib/website-builder/relative-time"
 import { useEffect, useRef, useState } from "react"
-import { Check, Copy, ExternalLink, Eye, Globe, Loader2, ShieldCheck } from "lucide-react"
+import { Check, ChevronRight, Copy, ExternalLink, Eye, Globe, Loader2, ShieldCheck } from "lucide-react"
 
 import { AnchoredPanel } from "@/components/website-builder/anchored-panel"
+import { ConnectionMarkIcon } from "@/components/website-builder/connection-marks"
 import { MobileEditorSheet } from "@/components/website-builder/mobile-editor-sheet"
+import { connectedTools, toolNames, type ConnectionsBrief } from "@/lib/agent-access/connection-mark"
 import { cn } from "@/lib/utils"
 
 /**
@@ -49,6 +51,85 @@ export interface PublishPanelProps {
    * day they wanted one back.
    */
   backupsReady?: boolean | null
+  /**
+   * What is connected: the editor's own read of it, the one the bar's mark
+   * comes from (useSiteActivity), so opening this asks the server nothing
+   * more. Shown on a phone only, whose bar has no room for the mark.
+   */
+  connections?: ConnectionsBrief | null
+  /** That read has come back, with an answer or without one. Until then the row keeps its place, empty. */
+  connectionsSettled?: boolean
+  /** Website Settings, on Connections. */
+  onConnections?: () => void
+}
+
+/**
+ * The time the phone sheet takes to arrive (MobileEditorSheet's snap, 360ms)
+ * and a frame over. Anything that would change the card's height waits for
+ * it: a row appearing during the slide changed the sheet's height under the
+ * slide, and its top edge jumped.
+ */
+const SHEET_ARRIVES_MS = 400
+
+/**
+ * ===========================================================================
+ *  WHAT IS CONNECTED, AT THE FOOT OF THE PUBLISH SHEET
+ * ===========================================================================
+ * "Publish should also have a section showing what is connected." On a phone
+ * only: a desktop has the mark on its bar. Each connected tool by its own
+ * mark (Claude, Codex, GitHub) and Connected; with nothing connected, the
+ * GitHub mark, "Connect your own AI" and GitHub not connected. A tap opens
+ * Website Settings on Connections, the same place the bar's mark opens.
+ *
+ * The row is there from the first frame at its full height, and its content
+ * fades in if the editor is still hearing back, so it never moves the card.
+ */
+function ConnectionsRow({
+  brief,
+  settled,
+  onOpen,
+}: {
+  brief: ConnectionsBrief | null
+  settled: boolean
+  onOpen?: () => void
+}) {
+  const tools = connectedTools(brief)
+  const connected = tools.length > 0
+  const shown = connected ? tools.slice(0, 3) : [{ kind: "github" as const, name: "GitHub" }]
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      data-publish-connections={!settled ? "waiting" : connected ? "connected" : "none"}
+      aria-label={!settled ? "Connections" : connected ? `${toolNames(tools)} connected. Open Connections` : "Connect your own AI. GitHub not connected"}
+      className="flex min-h-[60px] w-full items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-2.5 text-left transition-colors duration-150 hover:bg-white/[0.06] active:bg-white/[0.08] [-webkit-tap-highlight-color:transparent]"
+    >
+      <span className={cn("flex min-w-0 flex-1 items-center gap-3 transition-opacity duration-200", settled ? "opacity-100" : "opacity-0")}>
+        <span className="flex shrink-0 items-center">
+          {shown.map((t, i) => (
+            <span
+              key={`${t.kind}:${t.name}`}
+              className={cn(
+                "flex h-8 w-8 items-center justify-center rounded-full border-2 border-[#1f1f1f] bg-[#2c2c2c]",
+                connected ? "text-white" : "text-white/55",
+                i > 0 && "-ml-2",
+              )}
+            >
+              <ConnectionMarkIcon kind={t.kind} className="h-4 w-4" />
+            </span>
+          ))}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-[15px] font-medium text-white">{connected ? toolNames(tools) : "Connect your own AI"}</span>
+          <span className="mt-0.5 flex items-center gap-1.5 text-[13px] text-white/55">
+            {connected && <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400" />}
+            {connected ? "Connected" : "GitHub not connected"}
+          </span>
+        </span>
+      </span>
+      <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-white/35" strokeWidth={2} />
+    </button>
+  )
 }
 
 /**
@@ -59,6 +140,9 @@ export { relativeTime }
 
 function Body({
   backupsReady,
+  connections = null,
+  connectionsSettled = false,
+  onConnections,
   installId,
   active,
   live,
@@ -96,6 +180,11 @@ function Body({
   const [previewBusy, setPreviewBusy] = useState(false)
   const [previewNote, setPreviewNote] = useState<string | null>(null)
   const asked = useRef(false)
+  /** When the panel last came on screen, so a late answer can wait for the sheet to land. */
+  const shownAt = useRef(0)
+  useEffect(() => {
+    if (active) shownAt.current = performance.now()
+  }, [active])
 
   useEffect(() => {
     if (!active || asked.current || !installId) return
@@ -104,12 +193,18 @@ function Body({
       try {
         const r = await fetch(`/api/website-builder/themes/${installId}/preview`)
         const j = (await r.json().catch(() => ({}))) as { token?: string | null }
-        if (r.ok && j.token) setPreviewToken(j.token)
+        const token = r.ok ? j.token : null
+        if (!token) return
+        /* A row that arrives mid-slide grows the sheet under the slide; one
+           that arrives after it is grown smoothly, on a transform. */
+        const wait = pinActions ? Math.max(0, shownAt.current + SHEET_ARRIVES_MS - performance.now()) : 0
+        if (wait > 0) window.setTimeout(() => setPreviewToken(token), wait)
+        else setPreviewToken(token)
       } catch {
         /* the link is an extra; not having asked yet is not an error to show */
       }
     })()
-  }, [active, installId])
+  }, [active, installId, pinActions])
 
   // A path, not a query: see `withToken` in the preview route for why.
   const previewUrl = previewToken && websiteUrl
@@ -326,7 +421,7 @@ function Body({
               * exist is a row about a button three inches away.
               */}
             {previewUrl && (
-              <div className="flex items-center gap-3 border-t border-white/10 px-4 py-3 text-[14px]">
+              <div className="wb-settings-swap flex items-center gap-3 border-t border-white/10 px-4 py-3 text-[14px]">
                 <Eye className="h-4 w-4 shrink-0 text-white/40" strokeWidth={1.75} />
                 <span className="min-w-0 flex-1 text-white/70">Preview link shows unpublished changes</span>
                 <button
@@ -357,6 +452,9 @@ function Body({
         <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-400" strokeWidth={1.75} />
         No security issues found
       </div>
+
+      {/* The last thing in the phone's sheet. A desktop has the mark on its bar. */}
+      {pinActions && <ConnectionsRow brief={connections} settled={connectionsSettled} onOpen={onConnections} />}
     </div>
   )
 

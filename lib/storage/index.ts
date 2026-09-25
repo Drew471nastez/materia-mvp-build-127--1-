@@ -6,6 +6,7 @@
 export {
   STORAGE_BUCKET,
   PUBLIC_BUCKET,
+  DIGITAL_BUCKETS,
   BUCKET_FILE_SIZE_LIMIT,
   MAX_FILE_SIZE_BYTES,
   type PlanId,
@@ -29,6 +30,7 @@ export {
   getFileCategory,
   sanitizeFileName,
   generateStoragePath,
+  storageExtension,
 } from "./validation"
 
 export {

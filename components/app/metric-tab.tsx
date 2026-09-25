@@ -15,7 +15,9 @@
  * at home and on Analytics alike (components/app/use-tab-strip).
  */
 import type * as React from "react"
+import { useState } from "react"
 import { cn } from "@/lib/utils"
+import { ShimmerBlock } from "@/components/ui/shimmer"
 
 /** The line under the chosen tab: light grey, never the accent. */
 export const METRIC_TAB_LINE = "#d1d5db"
@@ -28,6 +30,7 @@ export function MetricTab({
   foot,
   selected,
   soft = false,
+  loading = false,
   sample = false,
   onSelect,
   className,
@@ -42,11 +45,22 @@ export function MetricTab({
   selected: boolean
   /** The figures are being replaced: they go soft until the new ones land. */
   soft?: boolean
+  /**
+   * No figure has come back yet. Where a zero used to stand, blurred, and
+   * then turn into the real number (a figure that changed twice on landing),
+   * the value's line holds a light gray shape until the first answer, which
+   * then fades in (components/ui/shimmer).
+   */
+  loading?: boolean
   /** Sample numbers, not the creator's: drawn fainter. */
   sample?: boolean
   onSelect: () => void
   className?: string
 }) {
+  /* Whether this tab has waited for its figure, so that figure fades in,
+     and a tab that arrived with its figure does not. */
+  const [waited, setWaited] = useState(loading)
+  if (loading && !waited) setWaited(true)
   return (
     <button
       type="button"
@@ -68,19 +82,21 @@ export function MetricTab({
             "truncate text-[18px] font-semibold tabular-nums tracking-tight transition-[filter,color,opacity] duration-[700ms] ease-[cubic-bezier(0.32,0.72,0,1)] sm:text-[22px]",
             sample ? "text-[#1a1a2e]/50" : "text-[#1a1a2e]",
             soft ? "blur-[2px]" : "blur-0",
+            waited && !loading && "shimmer-enter",
           )}
         >
-          {value}
+          {loading ? <ShimmerBlock className="shimmer-wait inline-block h-[0.78em] w-[3.4em] rounded-md align-[-0.06em]" /> : value}
         </span>
-        {change}
+        {loading ? null : change}
       </span>
       <span
         className={cn(
           "block truncate text-[10px] text-[#9ca3af] transition-[filter,opacity] duration-[700ms] ease-[cubic-bezier(0.32,0.72,0,1)] sm:text-[11px]",
           soft ? "blur-[1px]" : "blur-0",
+          waited && !loading && "shimmer-enter",
         )}
       >
-        {foot}
+        {loading ? <ShimmerBlock className="shimmer-wait inline-block h-[0.8em] w-[7em] rounded-full align-[-0.05em]" /> : foot}
       </span>
     </button>
   )

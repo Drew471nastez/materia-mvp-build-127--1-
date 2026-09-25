@@ -40,6 +40,8 @@ export interface PlanCardAction {
   loading?: boolean
   /** Drawn quietly: the plan somebody is already on, or a change already scheduled. */
   settled?: boolean
+  /** The plan somebody is on now. */
+  current?: boolean
 }
 
 const PICTURE_BASE = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images"
@@ -132,7 +134,7 @@ function PlanCard({
   return (
     <article
       data-plan-card={plan.id}
-      className="flex flex-col overflow-hidden rounded-[28px] bg-white shadow-[0_32px_64px_-28px_rgba(16,24,40,0.28),0_2px_8px_rgba(16,24,40,0.05)] ring-1 ring-[#0f172a]/[0.06]"
+      className="flex w-full flex-col overflow-hidden rounded-[28px] bg-white shadow-[0_32px_64px_-28px_rgba(16,24,40,0.28),0_2px_8px_rgba(16,24,40,0.05)] ring-1 ring-[#0f172a]/[0.06]"
     >
       <div
         data-plan-header=""
@@ -197,12 +199,15 @@ export function PlanCards({
   actions,
   labels,
   compact,
+  lead,
   className = "",
 }: {
   actions: Record<OfferedPlanId, PlanCardAction>
   /** In place of the small label at the top of a card, such as "Current plan". */
   labels?: Partial<Record<OfferedPlanId, string>>
   compact?: boolean
+  /** On a phone, where the cards stack, this plan comes first: Pro for somebody already on Free. Side by side they keep their order. */
+  lead?: OfferedPlanId
   className?: string
 }) {
   return (
@@ -211,7 +216,9 @@ export function PlanCards({
       className={`grid grid-cols-1 md:grid-cols-2 items-stretch ${compact ? "gap-3" : "gap-5 md:gap-6"} ${className}`}
     >
       {OFFERED_PLANS.map((plan) => (
-        <PlanCard key={plan.id} plan={plan} action={actions[plan.id]} label={labels?.[plan.id]} compact={compact} />
+        <div key={plan.id} data-plan-slot={plan.id} className={`flex ${lead === plan.id ? "order-first md:order-none" : ""}`}>
+          <PlanCard plan={plan} action={actions[plan.id]} label={labels?.[plan.id]} compact={compact} />
+        </div>
       ))}
     </div>
   )

@@ -1,0 +1,38 @@
+import { NextResponse } from "next/server"
+
+import { requireBearerSecret } from "@/lib/api/require-secret"
+import { sweepImageMetadata } from "@/lib/storage/metadata-sweep"
+import { createAdminClient } from "@/lib/supabase/admin"
+
+/**
+ * GET /api/cron/strip-image-metadata
+ *
+ * Rewrites recent public pictures that still carry EXIF, GPS or XMP without
+ * it, at the same URL (lib/storage/metadata-sweep.ts). The net under every
+ * upload that goes straight from a browser to storage.
+ *
+ * ?minutes=10080 looks further back, for a first run by hand.
+ *
+ * Protected by CRON_SECRET, like every other job here.
+ * Schedule: hourly at :10 (vercel.json).
+ */
+export const runtime = "nodejs"
+export const dynamic = "force-dynamic"
+export const maxDuration = 300
+
+export async function GET(request: Request) {
+  const denied = requireBearerSecret(request, "CRON_SECRET")
+  if (denied) return denied
+
+  const minutes = Number(new URL(request.url).searchParams.get("minutes"))
+  try {
+    const summary = await sweepImageMetadata(createAdminClient(), {
+      sinceMinutes: Number.isFinite(minutes) && minutes > 0 ? minutes : undefined,
+    })
+    if (summary.errors.length > 0) console.error("[strip-image-metadata]", summary.errors.slice(0, 20).join("; "))
+    return NextResponse.json(summary, { headers: { "Cache-Control": "no-store" } })
+  } catch (error) {
+    console.error("[strip-image-metadata]", error)
+    return NextResponse.json({ error: "Sweep failed" }, { status: 500 })
+  }
+}

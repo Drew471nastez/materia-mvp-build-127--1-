@@ -218,10 +218,26 @@ const INK_EASE = `${INK_MS}ms cubic-bezier(0.22, 0.61, 0.36, 1)`
  * not what was objected to, and it is the bar's weight rather than the
  * icon's.
  */
-function NavIcon({ icon, active, color, size = 22 }: { icon: NavIconPair; active: boolean; color: string; size?: number }) {
+/**
+ * `layer`: each glyph on a compositor layer of its own for good. In the pill
+ * the lens moves under the icons, on its own layer, and a glyph that is not
+ * on one is drawn into whichever layer the browser puts over the lens at
+ * that moment. As the lens came to rest under the next icon that choice
+ * changed, and the glyph was drawn again on another layer's pixel grid: half
+ * a device pixel over, on the frame you let go. "Exactly at that moment the
+ * button icon glitches and moves a little bit." A glyph that is always on
+ * its own layer is always drawn the same way, and its fade is a change of
+ * opacity and nothing else.
+ */
+function NavIcon({ icon, active, color, size = 22, layer = false }: { icon: NavIconPair; active: boolean; color: string; size?: number; layer?: boolean }) {
   const Line = icon.line
   const Fill = icon.fill
-  const piece = { position: "absolute", inset: 0, transition: FILL_TRANSITION } as const
+  const piece = { position: "absolute", inset: 0, transition: FILL_TRANSITION, ...(layer ? { willChange: "opacity" } : {}) } as const
+  /* On a layer of its own the solid is DRAWN at the matched size rather than
+     scaled to it: a layer is painted before its transform, so a scaled one
+     would be a 22px drawing stretched by the compositor, a pixel softer at
+     the edge than the outline it replaces. Drawn at 23.3px it is as crisp. */
+  const grow = (size * (FILL_MATCH - 1)) / 2
   return (
     <span className="relative block shrink-0" style={{ color, width: size, height: size }}>
       <Line
@@ -231,9 +247,9 @@ function NavIcon({ icon, active, color, size = 22 }: { icon: NavIconPair; active
         style={{ ...piece, opacity: active ? 0 : 1 }}
       />
       <Fill
-        size={size}
+        size={layer ? size * FILL_MATCH : size}
         data-part="ink"
-        style={{ ...piece, opacity: active ? 1 : 0, scale: String(FILL_MATCH) }}
+        style={layer ? { ...piece, inset: -grow, opacity: active ? 1 : 0 } : { ...piece, opacity: active ? 1 : 0, scale: String(FILL_MATCH) }}
       />
     </span>
   )
@@ -811,42 +827,83 @@ export const pillBelongsOn = (pathname: string): boolean =>
  * UNDER A FINGER it is where the finger is. Not where the finger's SLOT is:
  * the first version moved the circle slot to slot, each hop on a 90ms
  * transition, and that is what "very snappy, very direct, landing on it,
- * not smooth at all" describes. A transition is a delay by definition, and
- * a slot is a step by definition. So while a finger is down there is no
- * transition on the circle's position at all. The finger's x is written to
- * it every frame by a loop that closes the remaining distance by FOLLOW,
- * which is what lets it catch up from a slot away on the press without a
- * transition to be cut short, and what leaves it a pixel or two behind a
- * fast finger, like something with a little weight rather than a cursor.
+ * not smooth at all" describes. So while a finger is down there is no
+ * transition on the circle's position at all.
  *
- * LET GO OF IT and it should arrive rather than stop. A little over, a
- * little back: that is the whole of what "more iOS style bouncing and
- * satisfying" is asking for, and it is one cubic-bezier with its third
- * control point past 1. Position and size are separate CSS properties
- * (`translate`, `scale`) so the lift can keep its own easing under the
- * finger while the position has none.
- */
-const FOLLOW = 0.72
-/**
- * AND IT LANDS WHERE IT IS GOING. The spring used to carry it 24% past the
- * slot and back, which is lively but reads as not quite knowing where the
- * icon is: "landing accurately". A tenth over is enough to feel it arrive.
- */
-const SETTLE = `translate 380ms cubic-bezier(0.3, 1.12, 0.42, 1)`
-/**
- * LIQUID, AND DRAWN TOWARDS THE ICONS.
+ * AND NOW IT IS UNDER THE FINGER, NOT A LITTLE BEHIND IT. It used to close
+ * the distance by 72% a frame (and lean 22% of the way into the slot under
+ * the finger), which left it a few pixels behind a quick finger and never
+ * quite under a slow one: "smoother, cleaner, and accurate". So it tracks
+ * the finger one to one. The only lag left is the pick up: a drag begins
+ * with the circle on its slot and the finger somewhere in that slot, so the
+ * gap between them is carried as an offset that dies away over about a
+ * tenth of a second (CATCH_UP a frame), rather than a jump.
  *
- * Under a finger the lens is pulled a little towards the centre of the slot
- * the finger is over (MAGNET of the way), so it always reads as being ON
- * something rather than floating between two, and the slot it will land in
- * is the one it is already leaning into. And it stretches along the way it
- * is moving, by how fast it is moving, and rounds off as it slows: the glass
- * behaving like a drop rather than a disc. Stretch is written as `transform`,
- * which composes with `translate` and `scale` without touching either.
+ * LET GO OF IT and it springs onto the slot, carrying the speed the finger
+ * gave it (settleSpring below). A spring started at the finger's speed has
+ * no seam at the release, where a curve from rest had one; it is sampled
+ * into keyframes and played by the compositor, so a page rendering on the
+ * main thread cannot stall it; and it ends on the slot's exact centre,
+ * because the last keyframe and the resting style are the same number.
+ * Position and size are separate CSS properties (`translate`, `scale`), and
+ * the stretch is `transform`, so each keeps its own motion.
  */
-const MAGNET = 0.22
-const STRETCH_MAX = 0.14
-const stretchFor = (delta: number) => Math.min(STRETCH_MAX, Math.abs(delta) / 70)
+const CATCH_UP = 0.6
+/**
+ * The spring a released drag lands on: stiff enough to be there in about a
+ * third of a second, damped to a single small overshoot (about 3% of the
+ * distance left), which reads as arriving rather than as stopping.
+ */
+const SPRING = { stiffness: 520, damping: 34 }
+/**
+ * WHICH SLOT A RELEASE MEANS. A finger that lets go while still moving
+ * means the slot it is moving towards, not the one it happens to be over:
+ * the release is projected PROJECT_MS ahead at the speed it had. A finger
+ * that stopped first lands where it stopped.
+ */
+const PROJECT_MS = 90
+/**
+ * LIQUID, LIKE A DROP OF GLASS. It stretches along the way it is moving, by
+ * how fast it is moving, and rounds off as it slows: up to STRETCH_MAX wider
+ * (a little narrower top to bottom, so it reads as the same drop pulled
+ * along rather than a bigger one), on top of the lift, for about 1.12 in
+ * all. From the speed, smoothed over a few frames, so a finger's uneven
+ * events do not make it wobble. Stretch is written as `transform`, which
+ * composes with `translate` and `scale` without touching either.
+ */
+const STRETCH_MAX = 0.08
+/** px per ms of speed for all of STRETCH_MAX: three slots in a quarter of a second, an ordinary slide. */
+const STRETCH_AT = 0.6
+const stretchFor = (speed: number) => Math.min(STRETCH_MAX, (Math.abs(speed) / STRETCH_AT) * STRETCH_MAX)
+const stretchStyle = (speed: number): string => {
+  const k = stretchFor(speed)
+  return k > 0.004 ? `scale(${Math.round((1 + k) * 1000) / 1000}, ${Math.round((1 - k * 0.5) * 1000) / 1000})` : "scale(1, 1)"
+}
+
+/**
+ * The spring from `from` (px, with `speed` px/ms) to `to`, as keyframes of
+ * position and stretch, one per 1/120s. Semi implicit Euler at that step is
+ * stable for these constants and ends when both the distance and the speed
+ * are below what a screen can show.
+ */
+function settleSpring(from: number, speed: number, to: number): { frames: Keyframe[]; ms: number } {
+  const dt = 1 / 120
+  let x = from - to
+  let v = speed * 1000
+  const frames: Keyframe[] = []
+  let t = 0
+  for (let i = 0; i < 240; i++) {
+    const place = `${Math.round((to + x) * 100) / 100}px 0`
+    frames.push({ translate: place, transform: stretchStyle(v / 1000) })
+    if (Math.abs(x) < 0.05 && Math.abs(v) < 5) break
+    v += (-SPRING.stiffness * x - SPRING.damping * v) * dt
+    x += v * dt
+    t += dt
+  }
+  const rest = `${to}px 0`
+  frames.push({ translate: rest, transform: "scale(1, 1)" })
+  return { frames, ms: Math.max(1, Math.round(t * 1000)) }
+}
 /**
  * AND A PRESS DOES NOT TRAVEL.
  *
@@ -854,8 +911,8 @@ const stretchFor = (delta: number) => Math.min(STRETCH_MAX, Math.abs(delta) / 70
  * of the movements left and right."
  *
  * A finger sliding along the bar carries the circle with it, and letting go
- * of it bounces it into the slot; that is the gesture this was built for and
- * it is untouched. A press is not that gesture. The circle is simply on the
+ * of it springs it into the slot; that is the gesture this was built for. A
+ * press is not that gesture. The circle is simply on the
  * icon that was pressed, on the frame it was pressed, with no journey across
  * the bar to watch and nothing to be caught halfway through.
  */
@@ -880,8 +937,22 @@ const NO_TRAVEL = "translate 0s"
  * lands is the same press whether it is held for a frame or a second. The
  * release is where the easing belongs, because nothing interrupts a release.
  */
-const PRESS_FILL = "rgba(255,255,255,0.97)"
-const REST_FILL = "rgba(255,255,255,0.82)"
+/*
+ * CLEARER THAN THE BAR, AND LIT. "Should feel more like glass, like iOS
+ * 2026." It was a disc of 82% white on a bar of 93% white: a white disc with
+ * a ring, which is a badge. Now the fill is thinner and the glass is in the
+ * light: its own blur and saturation over what is behind it (LENS_GLASS), a
+ * highlight along the top edge and a band of refracted light low inside it
+ * (LENS_LIGHT, REST_EDGE), and a soft shadow that lifts it off the bar
+ * (DROP). A press still brightens it, by 0.18.
+ */
+const PRESS_FILL = "rgba(255,255,255,0.9)"
+const REST_FILL = "rgba(255,255,255,0.72)"
+const LENS_GLASS = "blur(8px) saturate(180%)"
+const LENS_LIGHT =
+  "radial-gradient(80% 55% at 50% 4%, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0) 72%)," +
+  " radial-gradient(70% 38% at 50% 100%, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0) 75%)," +
+  " linear-gradient(180deg, rgba(255,255,255,0) 45%, rgba(16,18,27,0.03) 100%)"
 /**
  * ═══════════════════════════════════════════════════════════════════════════
  *  THE LENS ARRIVES AS A COLOUR, THE WAY THE INK DOES
@@ -904,9 +975,11 @@ const REST_FILL = "rgba(255,255,255,0.82)"
  * movement of colour across the whole bar.
  */
 const ARRIVING_FILL = "rgba(255,255,255,0)"
-const PRESS_EDGE = "inset 0 0 0 0.5px rgba(255,255,255,0.95)"
-const REST_EDGE = "inset 0 0 0 0.5px rgba(255,255,255,0.75)"
-const DROP = "0 1px 2px rgba(16,18,27,0.07), 0 3px 8px rgba(16,18,27,0.10)"
+/* The glass's edge: light caught along the top, a hairline of shade along
+   the bottom, and a rim all round, a touch stronger under a finger. */
+const PRESS_EDGE = "inset 0 1px 0.5px rgba(255,255,255,1), inset 0 -1px 1px rgba(16,18,27,0.06), inset 0 0 0 0.5px rgba(16,18,27,0.08)"
+const REST_EDGE = "inset 0 1px 0.5px rgba(255,255,255,0.95), inset 0 -1px 1px rgba(16,18,27,0.05), inset 0 0 0 0.5px rgba(16,18,27,0.06)"
+const DROP = "0 1px 1.5px rgba(16,18,27,0.08), 0 4px 12px -2px rgba(16,18,27,0.14)"
 /** On instantly, off over this. Never the other way round. */
 /* The same length and the same curve as the ink, so a press and the icon it
    fills are one movement of colour rather than two of different lengths. */
@@ -936,9 +1009,11 @@ const PRESS_ON = "background-color 0s, box-shadow 0s"
 
 /**
  * Under a finger the circle LIFTS a little, which is the tell of the newer
- * system bars: the thing you are holding is the thing that is bigger.
+ * system bars: the thing you are holding is the thing that is bigger. 4%, so
+ * that with the stretch on top (STRETCH_MAX) it is never more than about
+ * 1.12 wide.
  */
-const LIFT = 1.06
+const LIFT = 1.04
 const LIFT_EASE = `scale 200ms cubic-bezier(0.32, 0.72, 0, 1)`
 
 /**
@@ -1026,10 +1101,19 @@ function useSlide(count: number, onPick: (index: number) => void, onPress?: (ind
      a finger is down can be told no about the finger that just landed. */
   const activeRef = useRef(false)
   /* The circle's left edge in the bar's own coordinates: where the finger
-     wants it, where it is, and the frame between them. */
+     puts it, where it is drawn, and the frame loop between them. */
   const targetRef = useRef(0)
   const posRef = useRef<number | null>(null)
   const frameRef = useRef(0)
+  /* The gap between the circle and the finger when a drag picks it up,
+     dying away by CATCH_UP a frame. */
+  const offsetRef = useRef(0)
+  /* How fast it is going, px per ms, smoothed; and when it was last drawn. */
+  const speedRef = useRef(0)
+  const stampRef = useRef(0)
+  /* The spring a released drag is on, and the slot it is landing on. */
+  const settleRef = useRef<Animation | null>(null)
+  const settleToRef = useRef<number | null>(null)
 
   /**
    * ═════════════════════════════════════════════════════════════════════════
@@ -1069,36 +1153,79 @@ function useSlide(count: number, onPick: (index: number) => void, onPress?: (ind
     return centre - DOT / 2
   }
 
-  const paint = (delta = 0) => {
+  const paint = () => {
     const dot = dotRef.current
     if (!dot || posRef.current == null) return
-    dot.style.translate = `${posRef.current}px 0`
-    const k = stretchFor(delta)
-    dot.style.transform = k > 0.004 ? `scale(${1 + k}, ${1 - k * 0.45})` : ""
+    dot.style.translate = `${Math.round(posRef.current * 100) / 100}px 0`
+    const k = stretchFor(speedRef.current)
+    dot.style.transform = k > 0.004 ? stretchStyle(speedRef.current) : ""
   }
-  const step = () => {
+  /**
+   * One frame under a finger: the finger's place, plus what is left of the
+   * pick up gap. Runs for as long as the finger is dragging, still or not,
+   * so the gap and the stretch both settle while it holds still.
+   */
+  const step = (now: number) => {
     frameRef.current = 0
-    if (posRef.current == null) return
-    const gap = targetRef.current - posRef.current
-    if (Math.abs(gap) < 0.15) {
-      posRef.current = targetRef.current
-      paint()
-      return
-    }
-    posRef.current += gap * FOLLOW
-    paint(gap * FOLLOW)
+    if (posRef.current == null || !activeRef.current) return
+    const dt = stampRef.current ? Math.min(64, Math.max(1, now - stampRef.current)) : 16.7
+    stampRef.current = now
+    offsetRef.current *= Math.pow(CATCH_UP, dt / 16.7)
+    if (Math.abs(offsetRef.current) < 0.05) offsetRef.current = 0
+    const next = targetRef.current + offsetRef.current
+    /* Speed as an average over the last few frames: the finger's own events
+       are uneven, and a stretch read off one of them would wobble. */
+    const blend = 1 - Math.pow(0.55, dt / 16.7)
+    speedRef.current += ((next - posRef.current) / dt - speedRef.current) * blend
+    posRef.current = next
+    paint()
     frameRef.current = requestAnimationFrame(step)
   }
   const wake = () => {
     if (!frameRef.current) frameRef.current = requestAnimationFrame(step)
   }
-  /** Where the circle is drawn right now, mid-settle included, so a press
+  /** Where the circle is drawn right now, mid-spring included, so a press
       during a spring picks it up from where it is rather than where it was going. */
   const drawnAt = (): number | null => {
     const dot = dotRef.current
     if (!dot) return null
     const m = /^(-?[\d.]+)px/.exec(getComputedStyle(dot).translate || "")
     return m ? Number.parseFloat(m[1]) : null
+  }
+  /**
+   * Stop a spring where it is: the drawn place becomes the resting style, so
+   * whatever comes next (a drag picking it up, a press moving it) starts
+   * from what the eye last saw.
+   */
+  const stopSettle = () => {
+    const a = settleRef.current
+    if (!a) return
+    const dot = dotRef.current
+    const at = drawnAt()
+    a.cancel()
+    settleRef.current = null
+    settleToRef.current = null
+    if (dot && at != null) { dot.style.translate = `${at}px 0`; dot.style.transform = "" }
+  }
+  /**
+   * A released drag onto `to`: the spring, from where the circle is and at
+   * the speed it had. The resting style is the landing place before the
+   * first keyframe plays, so when the spring ends there is nothing to hand
+   * over: it is on the slot's exact centre.
+   */
+  const settle = (to: number) => {
+    const dot = dotRef.current
+    const from = posRef.current ?? drawnAt()
+    if (!dot || from == null) return
+    const speed = speedRef.current
+    dot.style.translate = `${to}px 0`
+    dot.style.transform = ""
+    if (typeof dot.animate !== "function" || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return
+    const { frames, ms } = settleSpring(from, speed, to)
+    const a = dot.animate(frames, { duration: ms, easing: "linear" })
+    settleRef.current = a
+    settleToRef.current = to
+    a.onfinish = () => { if (settleRef.current === a) { settleRef.current = null; settleToRef.current = null } }
   }
 
   const slotAt = (clientX: number): number => {
@@ -1108,6 +1235,9 @@ function useSlide(count: number, onPick: (index: number) => void, onPress?: (ind
     const x = clientX - box.left - PAD
     return Math.max(0, Math.min(count - 1, Math.floor((x / inner) * count)))
   }
+  /** The slot whose resting place is nearest a left edge of the circle. */
+  const slotNearest = (left: number): number =>
+    Math.max(0, Math.min(count - 1, Math.round((left - leftForSlot(0)) / SLOT)))
 
   /**
    * A gesture that has left the bar vertically was never for the bar.
@@ -1128,19 +1258,24 @@ function useSlide(count: number, onPick: (index: number) => void, onPress?: (ind
   const move = (clientX: number) => {
     if (!movedRef.current && Math.abs(clientX - downXRef.current) > DRAG_SLOP) {
       movedRef.current = true
-      /* Pick the circle up from where it is drawn, so following it on starts
-         where the eye last saw it. */
-      posRef.current = drawnAt() ?? leftFor(clientX)
+      /* Pick the circle up from where it is drawn (a spring still running
+         included), so following it on starts where the eye last saw it, and
+         carry the gap to the finger as an offset that dies away. */
+      stopSettle()
+      const drawn = drawnAt() ?? leftFor(clientX)
+      posRef.current = drawn
+      offsetRef.current = drawn - leftFor(clientX)
+      speedRef.current = 0
+      stampRef.current = 0
       setFollowing(true)
-      /* And a drag, released, is the gesture the bounce was asked for. */
+      /* And a drag, released, is the gesture the spring was asked for. */
       setBounce(true)
     }
     const next = slotAt(clientX)
     if (movedRef.current) {
-      /* Under the finger, every frame, with no transition to be a delay,
-         leaning MAGNET of the way towards the slot the finger is over. */
-      const under = leftFor(clientX)
-      targetRef.current = under + (leftForSlot(next) - under) * MAGNET
+      /* Under the finger, one to one, every frame, with no transition to be
+         a delay. */
+      targetRef.current = leftFor(clientX)
       wake()
     }
     /* A press writes nothing here. `at` below moves the slot, and the effect
@@ -1184,7 +1319,10 @@ function useSlide(count: number, onPick: (index: number) => void, onPress?: (ind
     if (frameRef.current) cancelAnimationFrame(frameRef.current)
     frameRef.current = 0
     posRef.current = null
-    /* Round again as it lets go; the transition in the render eases it. */
+    stampRef.current = 0
+    /* Round again as it lets go: the spring that lands it (the pill's layout
+       effect, settleTo) starts from the stretch its speed gives it, in the
+       same frame, so this is never painted on its own. */
     if (dotRef.current) dotRef.current.style.transform = ""
     setFollowing(false)
     setPressed(false)
@@ -1195,6 +1333,28 @@ function useSlide(count: number, onPick: (index: number) => void, onPress?: (ind
 
   useEffect(() => () => { if (frameRef.current) cancelAnimationFrame(frameRef.current) }, [])
 
+  /**
+   * Land a released drag on `to`, once: a spring already landing there is
+   * left to finish, and a circle already resting there has nowhere to go.
+   */
+  const settleTo = (to: number) => {
+    if (settleToRef.current === to) return
+    stopSettle()
+    const at = drawnAt()
+    if (at != null && Math.abs(at - to) < 0.05 && Math.abs(speedRef.current) < 0.01) {
+      if (dotRef.current) dotRef.current.style.translate = `${to}px 0`
+      return
+    }
+    posRef.current = at
+    settle(to)
+    posRef.current = null
+  }
+
+  /* The spring's controls, for the pill's layout effect: one ref for the life
+     of the bar, its contents refreshed each render (they read only refs). */
+  const motion = useRef({ settleTo, stopSettle, settlingTo: () => settleToRef.current })
+  motion.current = { settleTo, stopSettle, settlingTo: () => settleToRef.current }
+
   return {
     barRef,
     dotRef,
@@ -1202,6 +1362,7 @@ function useSlide(count: number, onPick: (index: number) => void, onPress?: (ind
     pressed,
     bounce,
     at,
+    motion,
     handlers: {
       onPointerDown: (e: React.PointerEvent) => {
         /* Keeps the moves coming even when the finger leaves the bar, which
@@ -1228,9 +1389,14 @@ function useSlide(count: number, onPick: (index: number) => void, onPress?: (ind
       },
       onPointerUp: (e: React.PointerEvent) => {
         if (!activeRef.current) return
-        const picked = slotAt(e.clientX)
-        const away = escaped(e.clientY)
         const dragged = movedRef.current
+        /* A tap picks the slot it landed on. A drag picks the slot its
+           circle is heading for: where it is, PROJECT_MS on at the speed it
+           has, so a finger let go mid slide lands where it was going. */
+        const picked = dragged && posRef.current != null
+          ? slotNearest(posRef.current + speedRef.current * PROJECT_MS)
+          : slotAt(e.clientX)
+        const away = escaped(e.clientY)
         end()
         if (away) return
         /* A drag lands, and landing is worth a tick of its own. A tap already
@@ -1401,8 +1567,8 @@ export function MobileNavPill({
     on the way would either fight that or, on the lift, be the same string
     React last rendered and so never be written at all, leaving the circle
     the few pixels off where the loop left it. So at rest the position is
-    written here, after the render that set the SETTLE transition, from
-    wherever the loop left it to the slot it belongs on.
+    written here, after the render, from wherever the loop left it to the
+    slot it belongs on: by the spring after a drag, in one step otherwise.
   */
   /*
     Where the lens was last put down, so a change of slot can be told from a
@@ -1432,18 +1598,23 @@ export function MobileNavPill({
     const dot = slide.dotRef.current
     if (!dot) return
     const lay = () => { dot.style.translate = `${x}px 0`; laidAt.current = x }
-    /* A released drag brings its own arrival with it — it springs into the
-       slot on SETTLE — and a lens already where it belongs has not moved. */
-    if (laidAt.current === x || slide.bounce) { lay(); return }
+    /* A released drag brings its own arrival with it: it springs onto the
+       slot from where the finger left it, at the finger's speed (settleTo,
+       once per landing place). */
+    if (slide.bounce) { slide.motion.current.settleTo(x); laidAt.current = x; return }
+    /* A lens already where it belongs has not moved. */
+    if (laidAt.current === x) { lay(); return }
     /* One frame with no colour in it, and the next one somewhere else, where
        the glass comes in. The move is invisible because there is nothing
-       painted to see move. */
+       painted to see move. A spring still landing somewhere else stops, or
+       it would carry on over the new place until it ended. */
     if (!arriving) { setArriving(true); return }
+    if (slide.motion.current.settlingTo() != null) slide.motion.current.stopSettle()
     lay()
     setFilling(true)
     const id = requestAnimationFrame(() => setArriving(false))
     return () => cancelAnimationFrame(id)
-  }, [x, arriving, slide.following, slide.bounce, slide.dotRef])
+  }, [x, arriving, slide.following, slide.bounce, slide.dotRef, slide.motion])
   useEffect(() => {
     if (!filling) return
     const t = window.setTimeout(() => setFilling(false), INK_MS)
@@ -1549,36 +1720,53 @@ export function MobileNavPill({
             is moving. It was an oval before, because it was an inset on a
             rectangular slot and slots are not square.
 
-            No accent colour on it. It is a lens over the glass — more white
-            than the bar, which at 28% is thin enough for that to read — so
-            the bar has one material rather than a bar and a badge.
+            No accent colour on it. It is a lens of glass over the bar's
+            frosted white (LENS_GLASS): a clearer fill with its own blur and
+            saturation, light caught along its top edge, a faint band of
+            refracted light low inside it, and a soft shadow under it, so it
+            reads as a drop of glass resting on the bar rather than a badge.
           */}
           <span
             ref={slide.dotRef}
             aria-hidden="true"
+            data-app-nav-lens=""
             className="absolute rounded-full"
             style={{
               width: DOT,
               height: DOT,
               top: PAD,
               left: 0,
-              /* `translate` is written by the loop and the effect above, never here. */
+              /* `translate` is written by the loop, the spring and the effect
+                 above, never here; `transform` (the stretch) likewise. */
               scale: String(marked < 0 ? 0.55 : slide.following ? LIFT : 1),
               opacity: marked < 0 ? 0 : 1,
               backgroundColor: arriving ? ARRIVING_FILL : slide.pressed ? PRESS_FILL : REST_FILL,
+              backdropFilter: LENS_GLASS,
+              WebkitBackdropFilter: LENS_GLASS,
               boxShadow: `${slide.pressed ? PRESS_EDGE : REST_EDGE}, ${DROP}`,
-              /* No transition on the position under a finger: the loop is the
-                 motion. And the brightening goes on instantly, comes off
-                 eased — see the note by PRESS_FILL. */
-              /* Emptied instantly on the frame it changes slot, filled back
-                 over the ink's own curve. Never the other way round. */
-              /* Emptied instantly on the frame it changes slot, then filled
-                 back over the ink's own curve — which outranks the press's
-                 instant for as long as the filling lasts. */
-              transition: `${slide.bounce && !slide.following ? SETTLE : NO_TRAVEL}, ${LIFT_EASE}, ${slide.following ? "transform 0s" : "transform 280ms cubic-bezier(0.32, 0.72, 0, 1)"}, opacity 220ms ease-out, ${arriving || (slide.pressed && !filling) ? PRESS_ON : `background-color ${INK_EASE}, box-shadow ${INK_EASE}`}`,
+              /* No transition on the position or the stretch: under a finger
+                 the loop is the motion, and after one the spring is. The
+                 brightening goes on instantly and comes off eased (see the
+                 note by PRESS_FILL); emptied instantly on the frame it
+                 changes slot, then filled back over the ink's own curve,
+                 which outranks the press's instant while the filling lasts. */
+              transition: `${NO_TRAVEL}, ${LIFT_EASE}, transform 0s, opacity 220ms ease-out, ${arriving || (slide.pressed && !filling) ? PRESS_ON : `background-color ${INK_EASE}, box-shadow ${INK_EASE}`}`,
               willChange: "translate, scale, transform",
             }}
-          />
+          >
+            {/* The light in the glass: a highlight across the top, a faint
+                refracted band near the bottom. It empties and fills with the
+                lens's own colour, on the same curve. */}
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 rounded-full"
+              style={{
+                background: LENS_LIGHT,
+                opacity: arriving ? 0 : 1,
+                transition: arriving || (slide.pressed && !filling) ? "opacity 0s" : `opacity ${INK_EASE}`,
+              }}
+            />
+          </span>
 
           {items.map((item, i) => {
             const on = i === shown
@@ -1622,7 +1810,7 @@ export function MobileNavPill({
                   transition: `color ${FILL_MS}ms ${FILL_CURVE}`,
                 }}
               >
-                <NavIcon icon={item.icon} active={on} color="currentColor" size={GLYPH} />
+                <NavIcon icon={item.icon} active={on} color="currentColor" size={GLYPH} layer />
               </Link>
             )
           })}

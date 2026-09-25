@@ -402,14 +402,8 @@ async function uploadDigitalFile(
   file: File,
   onProgress: (percent: number) => void,
 ): Promise<{ url: string; path: string; filename: string }> {
-  // Step 1: Try to fix/ensure bucket exists first
-  try {
-    await fetch("/api/onepage/fix-bucket", { method: "POST" })
-  } catch {
-    // Non-critical, continue with upload
-  }
-
-  // Step 2: Get a signed upload URL from the server
+  // Step 1: Get a signed upload URL from the server. The bucket is set up by
+  // migration; the route that let any signed in user reset it is gone.
   const signedRes = await fetch("/api/onepage/signed-upload-url", {
     method: "POST",
     headers: { "Content-Type": "application/json" },

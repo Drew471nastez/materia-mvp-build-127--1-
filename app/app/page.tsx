@@ -7,6 +7,7 @@ import type { Metadata } from "next"
 import { cookies, headers } from "next/headers"
 import { dayPart, greetingZone } from "@/lib/greeting"
 import { TIME_ZONE_COOKIE } from "@/lib/orders/time-zone"
+import { pageUser } from "@/lib/auth/page-user"
 
 /*
   WHO IS ASKING, AND THEIR TWO ROWS, ONCE PER REQUEST. The title and the page
@@ -62,9 +63,10 @@ export const dynamic = "force-dynamic"
 export default async function AppDashboard() {
   const adminSupabase = createAdminClient()
 
-  const { user } = await currentUserForRequest()
-
-  if (!user) redirect("/login")
+  const user = await pageUser()
+  /* Supabase did not answer in time: the layout's gate recovers the
+     session in the browser. Not /login (lib/auth/page-user.ts). */
+  if (!user) return null
 
   /*
     THREE TRIPS, WHERE THERE WERE FOUR. The creator row, the profile and the

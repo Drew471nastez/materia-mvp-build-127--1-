@@ -70,6 +70,8 @@ async function cronChecks(r: Reader): Promise<CronCheck[]> {
       note: lastRollup === null ? r.reasonFor("cron: rollups") ?? "Could not be read." : !rollupSign ? "No rollup has ever been written." : old(rollupSign, 50) ? "The newest rollup is more than two days old." : "Rolled up within the last two days.",
     },
     { ...purge, lastSign: null, state: "unknown", note: "Leaves no record to read. Check the Vercel cron log." },
+    { ...byPath("/api/cron/storage-cleanup"), lastSign: null, state: "unknown", note: "Leaves no record to read. Check the Vercel cron log." },
+    { ...byPath("/api/cron/strip-image-metadata"), lastSign: null, state: "unknown", note: "Leaves no record to read. Check the Vercel cron log." },
   ]
 }
 

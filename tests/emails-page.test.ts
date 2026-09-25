@@ -56,9 +56,10 @@ console.log("\nTables that scroll sideways under a frozen column")
       && /\.scroll-edge\[data-start="true"\]::before,\s*\.scroll-edge\[data-end="true"\]::after \{\s*opacity: 1;/.test(css)
       && /@media \(prefers-reduced-motion: reduce\) \{\s*\.scroll-edge::before,\s*\.scroll-edge::after \{\s*transition: none;/.test(css))
   check("Emails' three tables use it, and mark the frozen column in the header and in every row",
-    (home.match(/<ScrollEdge>/g) ?? []).length === 3 && (home.match(/<th data-scroll-edge="" className=\{cn\(th, stickyHead\)\}>/g) ?? []).length === 3
+    (home.match(/<ScrollEdge>/g) ?? []).length === 3 && (home.match(/<th data-scroll-edge="" className=\{cn\(th, stickyHead[,)]/g) ?? []).length === 3
       && (home.match(/<td data-scroll-edge="" className=\{cn\(td, sticky/g) ?? []).length === 3)
-  check("the frozen cells are the row's own opaque colour, hover included", /const sticky = "sticky left-0 z-\[1\] bg-white group-hover:bg-\[#fafbfb\]"/.test(home) && /const stickyHead = "sticky left-0 z-\[1\] bg-\[#fafbfb\]"/.test(home))
+  check("the subscribers' email column keeps to its content (w-px), so the scrolling columns stay in view on a phone", /<th data-scroll-edge="" className=\{cn\(th, stickyHead, "w-px"\)\}>Email<\/th>/.test(home))
+  check("the frozen cells are the row's own opaque colour, hover and press included", /const sticky = "sticky left-0 z-\[1\] bg-white group-hover:bg-\[#fafbfb\] group-active:bg-\[#f4f5f7\]"/.test(home) && /const stickyHead = "sticky left-0 z-\[1\] bg-\[#fafbfb\]"/.test(home))
   const flow = read("app/app/emails/flow/[id]/builder.tsx")
   check("so does an automation's runs table", /<ScrollEdge>/.test(flow) && (flow.match(/data-scroll-edge="" className="sticky left-0 z-\[1\]/g) ?? []).length === 2)
   const orders = read("app/app/orders/orders-list.tsx")
@@ -70,6 +71,28 @@ console.log("\nTables that scroll sideways under a frozen column")
   const offenders = [...walk("app/app"), ...walk("components/app")]
     .filter((f) => /<(td|th)\b[^>]*(sticky left-|orders-sticky)/.test(read(f)) && !/<ScrollEdge\b/.test(read(f)))
   check("no other table in /app freezes a column without it", offenders.length === 0, offenders.join(", "))
+}
+
+/*
+ * A contact's sheet. It rose before its content: the runs were read once it
+ * was open, and the grey bars turned into the list half way up, a different
+ * height, so the top edge jumped (scripts/check-emails-page.mjs measured
+ * 360 then 390px, and a quick tap turned the sheet round twice). The content
+ * is read on the finger now, the tap waits a moment for it, and the sheet is
+ * always there on a phone so opening it is one render.
+ */
+console.log("\nA contact, opened from its row")
+{
+  const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")
+  const detail = code("app/app/emails/contact-detail.tsx")
+  const homeCode = code("app/app/emails/emails-home.tsx")
+  check("a finger on the row, or a pointer resting on it, asks for the contact's runs", /onPointerDown=\{\(\) => prefetchContact\(s\.email\)\}/.test(homeCode) && /prefetchContact\(s\.email\), 80\)/.test(homeCode))
+  check("the tap waits for them, at most a moment, and the latest tap wins",
+    /export const OPEN_WAIT_MS = 300/.test(detail) && /void contactReady\(s\.email\)\.then\(\(\) => \{\s*if \(opening\.current !== s\) return/.test(homeCode) && /onClick=\{\(\) => openContact\(s\)\}/.test(homeCode))
+  check("the sheet is always there on a phone, so opening is one render",
+    /<BottomSheet isOpen=\{open\} onClose=\{onClose\} label=\{shown\?\.email \?\? "Contact"\} hideFrom="md">/.test(detail) && /if \(contact && contact !== shown\) setShown\(contact\)/.test(detail) && !/React\.useEffect\(\(\) => \{\s*if \(contact\) setShown\(contact\)/.test(detail))
+  check("its body is the contact's own and starts from what is known", /<ContactBody key=\{keyOf\(shown\.email\)\} contact=\{shown\} \/>/.test(detail) && /useState<RunLite\[\] \| null>\(\(\) => keptRuns\(contact\.email\)\)/.test(detail) && !/setRuns\(null\)/.test(detail))
+  check("a failed read is not kept", /if \(!error\) runsKept\.set\(key/.test(detail))
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)

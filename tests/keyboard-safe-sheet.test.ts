@@ -476,9 +476,6 @@ function main() {
     ["components/onepage/tabs/links-tab.tsx", 5],
     ["components/onepage/tabs/products-tab.tsx", 1],
     ["components/onepage/onepage-editor.tsx", 2],
-    /* The category picker is typed into. The exit dialog that was the second
-       is now the shared sheet (./confirm-sheet.tsx), which has nothing typed into it. */
-    ["app/app/products/new/product-editor.tsx", 1],
   ] as const) {
     const src = read(file)
     const used = (src.match(/\.\.\.sheetAboveKeyboard\(/g) ?? []).length
@@ -489,6 +486,14 @@ function main() {
     )
     check(`${file.split("/").slice(-1)[0]}: imports it`, src.includes('from "@/lib/ui/keyboard-safe-sheet"'))
   }
+
+  /* The product form's category picker is typed into. It was a dialog that
+     used the helper; it is the shared sheet now, which sits on the keyboard
+     through the published inset when asked (aboveKeyboard). The exit dialog
+     is the shared sheet too (./confirm-sheet.tsx), with nothing typed into it. */
+  const picker = read("app/app/products/new/category-picker.tsx")
+  check("category-picker.tsx: the typed-into sheet is the shared one, on the keyboard",
+    /<BottomSheet[\s\S]{0,200}aboveKeyboard/.test(picker) && !read("app/app/products/new/product-editor.tsx").includes("sheetAboveKeyboard("))
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }
