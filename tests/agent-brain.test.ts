@@ -139,8 +139,8 @@ async function run(prompt: string, script: Scripted[], extra: Partial<Parameters
   })
   for (;;) {
     const step = await loop.next()
-    if (step.done) return { sent, events, result: step.value, storeReads: () => storeReads }
-    events.push(step.value)
+    if (step.done === true) return { sent, events, result: step.value, storeReads: () => storeReads }
+    events.push(step.value as ThemeAgentEvent)
   }
 }
 
