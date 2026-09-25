@@ -1,0 +1,300 @@
+/**
+ * ===========================================================================
+ *  ASK STORELIB: THE COMPUTER'S PILL, THE PHONE'S SHEET, AND CONVERSATIONS
+ * ===========================================================================
+ * On a computer Ask Storelib is a frosted pill at the bottom centre of the
+ * canvas that opens into the conversation, not a column beside the sidebar.
+ * Both shapes have a history of conversations, a new chat, maximize and
+ * close, a model menu, pictures and a microphone.
+ *
+ * Geometry, motion and what a press does are measured on the real component
+ * by scripts/check-ask-ai.mjs. This pins the source those measurements rest
+ * on, holds the dock's geometry to its numbers, and pins the part no probe
+ * can see: that a creator only ever lists and opens their own conversations,
+ * on their own websites.
+ */
+import { readFileSync } from "node:fs"
+import { join } from "node:path"
+
+import { dockGeometry, DOCK_GAP, DOCK_PAD, PILL_WIDTH } from "../lib/website-builder/ask-dock"
+
+let passed = 0
+let failed = 0
+const failures: string[] = []
+function check(name: string, ok: boolean, detail = "") {
+  if (ok) { passed++; console.log(`  ok    ${name}`) }
+  else { failed++; failures.push(name); console.log(`  FAIL  ${name}${detail ? `\n        ${detail}` : ""}`) }
+}
+const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const section = (name: string) => console.log(`\n${name}`)
+
+const editor = read("app/website-builder/editor/[installId]/page.tsx")
+const chat = read("components/website-builder/theme-chat.tsx")
+const voice = read("components/website-builder/ask-voice.ts")
+const history = read("components/website-builder/ask-history.tsx")
+const sheet = read("components/website-builder/mobile-editor-sheet.tsx")
+const lib = read("lib/website-builder/agent/chat.ts")
+const chatRoute = read("app/api/website-builder/themes/[installId]/chat/route.ts")
+const listRoute = read("app/api/website-builder/themes/[installId]/chat/conversations/route.ts")
+const agentRoute = read("app/api/website-builder/themes/[installId]/agent/route.ts")
+const transcribe = read("app/api/website-builder/transcribe/route.ts")
+const css = read("app/globals.css")
+
+// ---------------------------------------------------------------------------
+section("Where the dock sits")
+// ---------------------------------------------------------------------------
+{
+  const g = dockGeometry(1122, 846, false, 900)
+  check("a pill 660 wide on a wide canvas, 20px above its bottom", g.pillW === PILL_WIDTH && g.pillBottom === DOCK_GAP, JSON.stringify(g))
+  check("the conversation is the pill's width and 10px more each side, from just under it", g.cardW === g.pillW + 2 * DOCK_PAD && g.cardBottom === DOCK_GAP - DOCK_PAD && g.cardH === 620, JSON.stringify(g))
+  const narrow = dockGeometry(600, 500, false, 700)
+  check("on a narrow canvas the pill keeps 24px either side, and the conversation fits under the top", narrow.pillW === 552 && narrow.cardH + narrow.cardBottom <= 500 - 24, JSON.stringify(narrow))
+  const max = dockGeometry(1122, 846, true, 900)
+  check("maximized: min(960, canvas - 48) wide and 85% of the window tall, centred", max.cardW === 960 && max.cardH === 765 && Math.abs(max.cardBottom - (846 - 765) / 2) <= 0.5, JSON.stringify(max))
+  check("and the pill moves up with it, staying its input row", max.pillBottom === max.cardBottom + DOCK_PAD)
+  const short = dockGeometry(900, 500, true, 560)
+  check("maximized in a short window it still fits the canvas", short.cardH <= 500 - 48 && short.cardBottom >= 0, JSON.stringify(short))
+}
+
+// ---------------------------------------------------------------------------
+section("The computer's pill")
+// ---------------------------------------------------------------------------
+{
+  check(
+    "it is drawn inside the canvas's <main>, not beside the sidebar",
+    (() => {
+      const main = editor.indexOf("ref={canvasMainRef}")
+      const dock = editor.indexOf('variant="dock"')
+      const end = editor.indexOf("</main>", main)
+      return main > 0 && dock > main && dock < end
+    })(),
+  )
+  check("the old 340px column is gone", !/style=\{\{ width: 340 \}\} aria-hidden=\{!aiOpen\} data-ai-panel/.test(editor))
+  check(
+    "it is there by default on a computer, and one closed with its X stays closed until the bar brings it back",
+    /if \(mobile !== wasMobile\) setAiOpen\(!mobile && !askDockClosed\(\)\)/.test(editor) &&
+      /rememberAskDockClosed\(true\)/.test(editor) &&
+      /else rememberAskDockClosed\(aiOpen\)/.test(editor),
+  )
+  check(
+    "a section's Ask AI opens the conversation, not only the pill",
+    /rememberAskDockClosed\(false\)\s*\n\s*setAiAsk\(\(n\) => n \+ 1\)/.test(editor) && /openRequest=\{aiAsk\}/.test(editor),
+  )
+  check(
+    "the chat is memoised and given stable callbacks, so typing and streaming never render the editor",
+    /export const ThemeChat = React\.memo\(ThemeChatPanel\)/.test(chat) &&
+      /onClose=\{closeAiDock\}/.test(editor) && /onOpenCodeEditor=\{openAiCodeFromDock\}/.test(editor) &&
+      !/onClose=\{\(\) => setAiOpen\(false\)\}/.test(editor),
+  )
+  check(
+    "the pill is frosted: a blur, a whitish fill, a hairline, and a soft halo round it that fades out",
+    /data-ask-glass=""[\s\S]{0,120}className="[^"]*bg-white\/70[^"]*backdrop-blur-xl backdrop-saturate-150/.test(chat) &&
+      /backdropFilter: "blur\(6px\)"/.test(chat) && /maskImage: "radial-gradient\(closest-side/.test(chat),
+  )
+  check(
+    "opening and closing move on transform and opacity only, on the iOS curve",
+    /transform: shown \? "none" : away/.test(chat) &&
+      /`transform \$\{openMs\}ms \$\{EASE\}, opacity/.test(chat) &&
+      /EASE = "cubic-bezier\(0\.32, 0\.72, 0, 1\)"/.test(read("lib/website-builder/ask-dock.ts")),
+  )
+  check("and not at all under reduced motion", /transition: reducedMotion\s*\n?\s*\? "none"/.test(chat))
+  check(
+    "maximize is measured and played as a transform (FLIP), the words fading back in at the new size",
+    /surface\.style\.transform = `translate\(\$\{from\.surface\.left - to\.left\}px/.test(chat) &&
+      /content\.style\.opacity = "0"/.test(chat),
+  )
+  check(
+    "Escape and a press outside fold it back to the pill; the picture viewer, the menu, a recording and the history go first",
+    /if \(event\.key !== "Escape" \|\| event\.defaultPrevented \|\| viewingRef\.current\) return/.test(chat) &&
+      /else if \(view === "history"\) setView\("thread"\)\s*\n\s*else collapseDock\(\)/.test(chat) &&
+      /document\.addEventListener\("pointerdown", onDown, true\)/.test(chat),
+  )
+  check(
+    "the picture viewer is drawn in the body, because the dock's transform and blur would trap a fixed layer",
+    /createPortal\(\s*\n\s*<div data-ask-keep="">/.test(chat),
+  )
+  check(
+    "the section toolbar outranks the pill: the pill steps away while they overlap, measured from its unmoving slot",
+    /document\.querySelector<HTMLElement>\("\.wb-section-toolbar"\)/.test(chat) && /const slot = pillSlotRef\.current/.test(chat),
+  )
+  check("while open it is above the toolbar (z-30)", /cardOpen \? "z-40" : "z-20"/.test(chat))
+  check(
+    "writing a section folds it out of the canvas's way, and a failure or an answer opens it again",
+    /if \(dock\) setExpanded\(false\)\s*\n\s*let kept = false/.test(chat) && /if \(!kept && dock\) setExpanded\(true\)/.test(chat),
+  )
+}
+
+// ---------------------------------------------------------------------------
+section("The header, on both")
+// ---------------------------------------------------------------------------
+{
+  for (const label of ["Conversation history", "New chat", "Close chat", "Back to the conversation"]) {
+    check(`it has ${label}`, chat.includes(`aria-label="${label}"`))
+  }
+  check("and maximize, which says what it will do", /aria-label=\{isMax \? "Restore size" : "Maximize"\}/.test(chat))
+  check(
+    "on a phone maximize moves the sheet between its tallest stop and the one below",
+    /if \(sheetStop\.tallest\) sheetStop\.toMiddle\(\)\s*\n\s*else sheetStop\.toTallest\(\)/.test(chat) &&
+      /export function useSheetStop\(\)/.test(sheet) && /toTallest: \(\) => setRestIndex\(0\)/.test(sheet),
+  )
+  check(
+    "a new chat cannot start in the middle of a change, and the one on screen stays in the history",
+    /const newChat = React\.useCallback\(\(\) => \{\s*\n\s*if \(busy \|\| writing\) return/.test(chat) &&
+      /setConversation\(\{ id: null, title: "", earlier: false \}\)/.test(chat),
+  )
+  check(
+    "the history slides in and back on transform, and is only in the page while it is used",
+    /slide\(view === "history" \? "none" : "translateX\(100%\)"/.test(chat) &&
+      /const historyPane = historyMounted && \(/.test(chat) &&
+      /setHistoryMounted\(false\), reducedMotion \? 0 : SLIDE_MS \+ 60/.test(chat),
+  )
+  check(
+    "it is read fresh each time it opens, newest first",
+    /\}, \[installId, refreshKey\]\)/.test(history) && /items\.sort\(\(a, b\) => new Date\(b\.when\)\.getTime\(\) - new Date\(a\.when\)\.getTime\(\)\)/.test(history),
+  )
+}
+
+// ---------------------------------------------------------------------------
+section("Pictures")
+// ---------------------------------------------------------------------------
+{
+  check("a picture holds its place while it is read and shrunk", /setPreparing\(\(n\) => n \+ picked\.length\)/.test(chat) && /data-ask-preparing=""/.test(chat))
+  check(
+    "a sent picture says it is sending until the route has read the request",
+    /patch\(\(e\) => \(\{ \.\.\.e, sent: true \}\)\)/.test(chat) && /exchange\.running && !exchange\.sent && \(/.test(chat),
+  )
+  check("dragging a file over the pill opens the conversation to drop it in", /setDragging\(true\)\s*\n\s*if \(dock\) openDock\(\)/.test(chat))
+  check("its errors are said where it happened, and can be put away", /data-ask-attach-error=""/.test(chat) && /onClick=\{\(\) => setAttachError\(null\)\}/.test(chat))
+}
+
+// ---------------------------------------------------------------------------
+section("Voice")
+// ---------------------------------------------------------------------------
+{
+  check("the words go into the box and are never sent by themselves", /setDraft\(base \? `\$\{base\} \$\{text\}` : text\)/.test(chat) && !/submit\(/.test(voice))
+  check(
+    "the browser's recogniser first, with the words appearing while they are said",
+    /rec\.interimResults = true/.test(voice) && /w\.SpeechRecognition \?\? w\.webkitSpeechRecognition/.test(voice),
+  )
+  check(
+    "not in the iOS and Android apps, whose web views have no recogniser to trust; they record instead",
+    /if \(!inNativeShell\(\) && recogniser\(\)\)/.test(voice) && /cap\?\.isNativePlatform\?\.\(\) === true/.test(voice) && !/userAgent/.test(voice),
+  )
+  check(
+    "recording is offered only where the server says it can turn it into text",
+    /body\.available\) setEngine\("record"\)/.test(voice) && /available: !!creatorId && !!process\.env\.OPENAI_API_KEY/.test(transcribe),
+  )
+  check("with neither, no microphone is drawn at all", /const micButton = voice\.supported && \(/.test(chat))
+  check("a permission refused is said in plain words", /Microphone access is off for Storelib/.test(voice))
+  check("a microphone left on stops by itself after a minute", /VOICE_LIMIT_SECONDS = 60/.test(voice) && /if \(elapsed >= VOICE_LIMIT_SECONDS\) stop\(\)/.test(voice))
+  check("and is let go when the chat goes", /React\.useEffect\(\(\) => \(\) => cancel\(\), \[cancel\]\)/.test(voice))
+  check(
+    "transcription is for a signed in creator, rate limited, capped in size, and keeps nothing",
+    /if \(!creatorId\) return NextResponse\.json\(\{ error: "Sign in to use voice input\." \}, \{ status: 401 \}\)/.test(transcribe) &&
+      /bucket: "ask-transcribe"/.test(transcribe) &&
+      /audio\.size > MAX_AUDIO_BYTES/.test(transcribe) &&
+      !/storage|\.insert\(/.test(transcribe),
+  )
+  check("the listening ring is transform and opacity, and still under reduced motion", /@keyframes ask-listen \{\s*\n\s*0% \{ transform: scale\(1\); opacity: 0\.45; \}/.test(css) && /\.ask-listen-ring \{ animation: none; opacity: 0; \}/.test(css))
+}
+
+// ---------------------------------------------------------------------------
+section("A creator only ever sees their own conversations")
+// ---------------------------------------------------------------------------
+{
+  check(
+    "both read routes prove the signed in creator owns the install before anything is read",
+    [chatRoute, listRoute].every((r) => {
+      const own = r.indexOf("await ownThemeInstall(installId)")
+      const refuse = r.indexOf("if (!owned.ok)")
+      const firstRead = Math.min(...["listThemeConversations(", "readThemeChat("].map((f) => r.indexOf(f)).filter((i) => i > 0))
+      return own > 0 && refuse > own && firstRead > refuse
+    }),
+  )
+  check(
+    "ownership is the user's own client: their user, their creator, and an install with their creator id",
+    (() => {
+      const body = lib.slice(lib.indexOf("export async function ownThemeInstall"), lib.indexOf("export async function listThemeConversations"))
+      return /await createClient\(\)/.test(body) && !/createAdminClient/.test(body) &&
+        /\.eq\("creator_id", creatorId\)/.test(body) && /if \(!user\) return \{ ok: false, status: 401 \}/.test(body)
+    })(),
+  )
+  check(
+    "the list is read through the user's client, so the policy decides, and filtered to this install",
+    (() => {
+      const body = lib.slice(lib.indexOf("export async function listThemeConversations"), lib.indexOf("export function titleFrom"))
+      return /await createClient\(\)/.test(body) && !/createAdminClient/.test(body) && /\.eq\("install_id", installId\)/.test(body)
+    })(),
+  )
+  check(
+    "a conversation id is opened only when it is in this install's own list",
+    /const found = listed\.conversations\.find\(\(c\) => c\.id === asked\)/.test(chatRoute) && /if \(!found\) return NextResponse\.json\(\{ error: "That conversation is not on this website\." \}, \{ status: 404 \}\)/.test(chatRoute),
+  )
+  check(
+    "one conversation's messages at a time",
+    /if \(scope\.kind === "one"\) query = query\.eq\("conversation_id", scope\.id\)/.test(lib) && /else if \(scope\.kind === "earlier"\) query = query\.is\("conversation_id", null\)/.test(lib),
+  )
+  check(
+    "a run writes into a conversation only when it is on the same install, and starts a new one otherwise",
+    (() => {
+      const body = lib.slice(lib.indexOf("export async function openThemeConversation"), lib.indexOf("async function touchConversation"))
+      return /\.eq\("id", input\.requested\)\s*\n\s*\.eq\("install_id", input\.installId\)/.test(body) && /\.insert\(\{ install_id: input\.installId, title \}\)/.test(body)
+    })(),
+  )
+  check(
+    "the agent route opens it after proving ownership, and records both halves of the exchange in it",
+    agentRoute.indexOf("const { data: install }") < agentRoute.indexOf("await openThemeConversation(") &&
+      /startThemeExchange\(\{ installId, pageKey: body\.page, prompt: noted, conversationId \}\)/.test(agentRoute) &&
+      /error: result\.status === "failed" \? result\.error : null,\s*\n\s*conversationId,/.test(agentRoute) &&
+      /conversationId: z\.string\(\)\.uuid\(\)\.nullable\(\)\.optional\(\)/.test(agentRoute),
+  )
+  check(
+    "and tells the panel which conversation it is in, first",
+    /if \(conversation\) send\(\{ type: "conversation", id: conversation\.id, title: conversation\.title \}\)/.test(agentRoute) &&
+      /event\.type === "conversation" && event\.id/.test(chat),
+  )
+  check(
+    "a database without the conversations part still has its one thread, and says so",
+    /history: "not_set_up",\s*\n\s*messages: await readThemeChat\(installId\)/.test(chatRoute) &&
+      /\.\.\.\(input\.conversationId \? \{ conversation_id: input\.conversationId \} : \{\}\)/.test(lib),
+  )
+  check("the panel never posts to the transcript", !/method: "POST"[\s\S]{0,200}\/chat/.test(chat))
+}
+
+// ---------------------------------------------------------------------------
+section("The database")
+// ---------------------------------------------------------------------------
+{
+  const part = read("supabase/sql/run-now/22_theme_chat_conversations.sql")
+  const lines = part.trim().split("\n")
+  const migration = read("supabase/migrations/20260930_theme_chat_conversations.sql")
+  const run = read("supabase/sql/RUN_THEME_CHAT_CONVERSATIONS.sql")
+  const after = read("supabase/sql/run-now/99_check_after.sql")
+  const readme = read("supabase/sql/run-now/README.md")
+  check("the part opens with a one line note and then one whole statement per line", /^\/\* .* \*\/$/.test(lines[0]) && lines.slice(1).every((l) => /;\s*$/.test(l)))
+  check(
+    "every statement can run twice",
+    lines.slice(1).every((l) => /IF NOT EXISTS|IF EXISTS|ENABLE ROW LEVEL SECURITY|^ALTER TABLE .* ADD CONSTRAINT|^CREATE POLICY|^DO \$\$ BEGIN IF NOT EXISTS/.test(l)) &&
+      /DROP CONSTRAINT IF EXISTS theme_chat_messages_conversation_fk;\nALTER TABLE public\.theme_chat_messages ADD CONSTRAINT theme_chat_messages_conversation_fk/.test(part) &&
+      /DROP POLICY IF EXISTS tcc_own_read ON public\.theme_chat_conversations;\nCREATE POLICY tcc_own_read/.test(part),
+  )
+  for (const [name, sql] of [["the part", part], ["the migration", migration], ["the RUN file", run]] as const) {
+    const s = sql.toLowerCase()
+    check(
+      `${name}: a message's conversation must be on the message's own install`,
+      /foreign key \(conversation_id, install_id\) references public\.theme_chat_conversations \(id, install_id\)/.test(s) &&
+        /unique index if not exists theme_chat_conversations_id_install on public\.theme_chat_conversations \(id, install_id\)/.test(s),
+    )
+    check(
+      `${name}: conversations are readable only through the ownership chain, and writable by no client`,
+      /create policy tcc_own_read on public\.theme_chat_conversations for select using \(install_id in \(select i\.id from public\.store_theme_installs i join public\.creators c on c\.id = i\.creator_id where c\.user_id = auth\.uid\(\)\)\)/.test(s) &&
+        /alter table public\.theme_chat_conversations enable row level security/.test(s) &&
+        !/on public\.theme_chat_conversations for (insert|update|delete|all)/.test(s),
+    )
+  }
+  check("99 has a column for it", /as p22_theme_chat_conversations/.test(after) && /theme_chat_conversations/.test(after))
+  check("and the README lists it", /\| `22_theme_chat_conversations\.sql` \|/.test(readme) && /Parts `01` to `22`/.test(readme))
+}
+
+console.log(`\n${passed} passed, ${failed} failed`)
+if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }

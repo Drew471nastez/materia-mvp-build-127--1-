@@ -126,6 +126,30 @@ import { switchKnob, switchTrack } from "@/components/ui/switch-style"
 /** Ask Storelib on a phone: half, and the whole screen below the status bar. A constant so the sheet's memo holds. */
 const AI_SHEET_DETENTS = [0.5, 1]
 
+/**
+ * ASK STORELIB'S PILL, CLOSED ON PURPOSE, is remembered per browser: the
+ * pill is there by default on a computer, and somebody who closed it with
+ * its X should not find it back on every load. The bar's Ask AI brings it
+ * back and forgets this. Per viewer convenience only, so a blocked store
+ * just means the default.
+ */
+const ASK_DOCK_CLOSED_KEY = "storelib.ask-dock.closed"
+function askDockClosed(): boolean {
+  try {
+    return window.localStorage.getItem(ASK_DOCK_CLOSED_KEY) === "1"
+  } catch {
+    return false
+  }
+}
+function rememberAskDockClosed(closed: boolean) {
+  try {
+    if (closed) window.localStorage.setItem(ASK_DOCK_CLOSED_KEY, "1")
+    else window.localStorage.removeItem(ASK_DOCK_CLOSED_KEY)
+  } catch {
+    /* the default next time */
+  }
+}
+
 // ── Custom back-with-bar icon (topbar) ──────────────────────
 function BackWithBarIcon({ className }: { className?: string }) {
   return (
@@ -3338,7 +3362,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     setPreviewMode("settings")
     setProjectSettingsOpen(true)
     setMobileSidebarOpen(false)
-    setAiOpen(false)
+    // The phone's sheet makes way; the computer's pill folds away by itself while settings show.
+    if (isMobileView) setAiOpen(false)
   }
 
   /**
@@ -3403,8 +3428,17 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const [pendingInsertIndex, setPendingInsertIndex] = useState<number | null>(null)
   /** A gap in the CANVAS, counted in body sections rather than in the list. */
   const [canvasInsertAt, setCanvasInsertAt] = useState<number | null>(null)
-  /** The AI panel, docked beside the sidebar. Closed until asked for. */
+  /**
+   * ASK STORELIB IS SHOWING. On a phone, its sheet is open; closed until
+   * asked for. On a computer, its pill is on the canvas; there by default,
+   * unless it was closed with its X (see ASK_DOCK_CLOSED_KEY).
+   */
   const [aiOpen, setAiOpen] = useState(false)
+  /**
+   * Bumped to ask the computer's dock to open its conversation and put the
+   * cursor in it: the Ask AI button on a section, or an answer to read.
+   */
+  const [aiAsk, setAiAsk] = useState(0)
   /**
    * A SECTION ASK AI IS WRITING, and the spot on this page it will land in.
    * The canvas draws a placeholder there until the file compiles, then the
@@ -4161,10 +4195,20 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   // 1200-wide desktop layout inside a 390px viewport and every header row
   // turns into a squished mess.
   useEffect(() => {
+    /**
+     * Crossing the line between a phone and a computer changes what
+     * `aiOpen` means (a sheet, or the pill), so it is set for the side it
+     * lands on: the pill shown on a computer unless it was closed, and the
+     * sheet closed on a phone. Only on a crossing, never on an ordinary
+     * resize, which must not reopen something somebody closed.
+     */
+    let wasMobile: boolean | null = null
     const checkMobile = () => {
       const mobile = window.innerWidth < 768
       setIsMobileView(mobile)
       if (mobile) setDevice("mobile")
+      if (mobile !== wasMobile) setAiOpen(!mobile && !askDockClosed())
+      wasMobile = mobile
     }
     checkMobile()
     window.addEventListener("resize", checkMobile)
@@ -7083,7 +7127,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     if (!isMobileView) {
       setPreviewMode("code")
       setMobileSidebarOpen(false)
-      setAiOpen(false)
+      /* Ask Storelib's pill folds away by itself while the code is showing, and comes back after. */
       return
     }
     if (isDirty && !saving && !publishing) {
@@ -7192,7 +7236,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       setPreviewMode("settings")
       setProjectSettingsOpen(true)
       setMobileSidebarOpen(false)
-      setAiOpen(false)
+      if (isMobileView) setAiOpen(false)
     },
     openConnections,
     openConnection,
@@ -7286,6 +7330,34 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     ),
     [],
   )
+
+  /*
+    ASK STORELIB'S CALLBACKS, STABLE. The chat is memoised, so it renders
+    when what it is given changes and not on every edit the editor makes;
+    an arrow written inline here would be a new prop every render and undo
+    that. `openCode` is a plain function of this render, reached through a
+    ref for the same reason.
+  */
+  const openCodeRef = useRef(openCode)
+  openCodeRef.current = openCode
+  const closeAiSheet = useCallback(() => setAiOpen(false), [])
+  /** Closed with its X on a computer: the pill goes, and stays gone until the bar's Ask AI. */
+  const closeAiDock = useCallback(() => {
+    setAiOpen(false)
+    rememberAskDockClosed(true)
+  }, [])
+  const reloadAiSources = useCallback(() => {
+    void loadStorelibSources()
+  }, [loadStorelibSources])
+  const openAiCodeFromSheet = useCallback((path: string) => {
+    setAiOpen(false)
+    void openCodeRef.current(path)
+  }, [])
+  const openAiCodeFromDock = useCallback((path: string) => {
+    void openCodeRef.current(path)
+  }, [])
+  const aiSettings = settingsDraft as Record<string, unknown>
+  const aiSelected = selectedSectionId ?? undefined
 
   // ── Main editor layout ─────────────────────────────────────
   return (
@@ -7593,6 +7665,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                   // The section sheet and the AI sheet cannot both own the
                   // bottom of the screen.
                   if (isMobileView) setMobileSidebarOpen(false)
+                  // On a computer this shows or hides the pill, and a pill
+                  // brought back is no longer one that was closed.
+                  else rememberAskDockClosed(aiOpen)
                 }}
                 aria-label="Ask Storelib"
                 aria-pressed={aiOpen}
@@ -7955,12 +8030,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         )}
 
         {/* ── AI panel ──
-            A COLUMN, not an overlay. Docked between the section list and the
-            canvas so the preview stays fully visible and keeps its width to
-            the right of it — the page moving while you type is the point, and
-            a panel floating over the preview would hide the thing it is
-            changing. Hidden rather than unmounted so a conversation survives
-            being closed and reopened. */}
+            On a computer it is no longer a column beside the sidebar: it is
+            Ask Storelib's pill, drawn over the bottom of the canvas inside
+            <main> below, which opens into the conversation. Mounted once shown
+            and kept, hidden rather than unmounted, so a conversation and a
+            running change survive it being closed and reopened. */}
         {/* The AI on a phone.
             It was desktop-only — `!isMobileView` — so the one place somebody
             is most likely to want to describe a change rather than hunt for a
@@ -7977,56 +8051,24 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         {isMobileView && aiMounted && (
           <MobileEditorSheet open={aiOpen} onOpenChange={(next) => setAiOpen(next)} openFull layer="raised" peekHeight={0} detents={AI_SHEET_DETENTS}>
             <ThemeChat
+              variant="sheet"
               installId={installId}
               page={currentPage}
               sections={sections}
-              settings={settingsDraft as Record<string, unknown>}
-              selectedSectionId={selectedSectionId ?? undefined}
+              settings={aiSettings}
+              selectedSectionId={aiSelected}
               onRunStart={pushUndo}
               onRunEnd={backupAfterTask}
               onBusyChange={setAiBusy}
               onOp={applyAiOp}
-              onClose={() => setAiOpen(false)}
-              onSourcesChanged={() => { void loadStorelibSources() }}
+              onClose={closeAiSheet}
+              onSourcesChanged={reloadAiSources}
               onWriteStart={handleWriteStart}
               onWriteDone={handleWriteDone}
               onWriteFailed={handleWriteFailed}
-              onOpenCodeEditor={(path) => {
-                setAiOpen(false)
-                void openCode(path)
-              }}
+              onOpenCodeEditor={openAiCodeFromSheet}
             />
           </MobileEditorSheet>
-        )}
-
-        {/* The same shape as the sidebar, mirrored: when the AI is open it is
-            the panel on the canvas's other side, and it rounds away from the
-            canvas exactly as the sidebar does, over the same four pixels. */}
-        {!isMobileView && aiMounted && (
-          <div className={cn("relative flex-shrink-0", !aiOpen && "hidden")} style={{ width: 340 }} aria-hidden={!aiOpen} data-ai-panel={aiOpen ? "open" : "closed"}>
-            <div className="h-full overflow-hidden bg-white rounded-t-[20px]">
-            <ThemeChat
-              installId={installId}
-              page={currentPage}
-              sections={sections}
-              settings={settingsDraft as Record<string, unknown>}
-              selectedSectionId={selectedSectionId ?? undefined}
-              onRunStart={pushUndo}
-              onRunEnd={backupAfterTask}
-              onBusyChange={setAiBusy}
-              onOp={applyAiOp}
-              onClose={() => setAiOpen(false)}
-              onSourcesChanged={() => { void loadStorelibSources() }}
-              onWriteStart={handleWriteStart}
-              onWriteDone={handleWriteDone}
-              onWriteFailed={handleWriteFailed}
-              onOpenCodeEditor={(path) => {
-                setAiOpen(false)
-                void openCode(path)
-              }}
-            />
-            </div>
-          </div>
         )}
 
         {/* ── Canvas ──
@@ -8557,12 +8599,49 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 onAskAi={() => {
                   setAiOpen(true)
                   if (isMobileView) setMobileSidebarOpen(false)
+                  else {
+                    rememberAskDockClosed(false)
+                    setAiAsk((n) => n + 1)
+                  }
                 }}
                 onToggleHide={() => selectedSectionId && toggleSectionHidden(selectedSectionId)}
                 onRemove={() => selectedSectionId && removeSection(selectedSectionId)}
               />
             )
           })()}
+
+          {/* ── Ask Storelib on a computer ──
+              A frosted pill at the bottom centre of the canvas, over it and
+              out of the layout, so the page does not move when it appears.
+              Focusing it opens the conversation above it; Escape or a press
+              elsewhere folds it back. Only over the preview: while the code
+              or the settings fill the canvas it folds away by itself, still
+              mounted, so a change it is making keeps going. The selected
+              section's toolbar is drawn above it, and the pill steps out of
+              its way when they meet. See components/website-builder/theme-chat.tsx. */}
+          {!isMobileView && aiMounted && (
+            <ThemeChat
+              variant="dock"
+              hidden={!aiOpen}
+              suspended={previewMode !== "preview" || projectSettingsOpen}
+              openRequest={aiAsk}
+              installId={installId}
+              page={currentPage}
+              sections={sections}
+              settings={aiSettings}
+              selectedSectionId={aiSelected}
+              onRunStart={pushUndo}
+              onRunEnd={backupAfterTask}
+              onBusyChange={setAiBusy}
+              onOp={applyAiOp}
+              onClose={closeAiDock}
+              onSourcesChanged={reloadAiSources}
+              onWriteStart={handleWriteStart}
+              onWriteDone={handleWriteDone}
+              onWriteFailed={handleWriteFailed}
+              onOpenCodeEditor={openAiCodeFromDock}
+            />
+          )}
         </main>
       </div>
 
