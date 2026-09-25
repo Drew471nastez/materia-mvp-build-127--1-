@@ -11,6 +11,7 @@ import { contactSourceOfOrder } from "@/lib/contacts/contact-source"
 import { recordCheckoutContact } from "@/lib/contacts/checkout-contact"
 import { fulfilCartSession, isCartSession } from "@/lib/checkout/fulfil-cart-session"
 import { syncChargeRefund } from "@/lib/stripe/refund-sync"
+import { disputedProductName, markPaymentDisputed, restorePaymentAfterWonDispute } from "@/lib/stripe/dispute-orders"
 import { maskEmail } from "@/lib/privacy/mask-email"
 
 export const runtime = "nodejs"
@@ -1418,27 +1419,17 @@ export async function POST(request: Request) {
           }
 
           if (paymentIntentId) {
-            const { data: disputeOrder } = await supabaseAdmin
-              .from("orders")
-              .select("id, product_id")
-              .eq("stripe_payment_intent_id", paymentIntentId)
-              .maybeSingle()
-
-            if (disputeOrder) {
-              await supabaseAdmin
-                .from("orders")
-                .update({ status: "disputed" })
-                .eq("id", disputeOrder.id)
-
-              // Get product name for email
-              if (disputeOrder.product_id) {
-                const { data: prod } = await supabaseAdmin
-                  .from("products")
-                  .select("title")
-                  .eq("id", disputeOrder.product_id)
-                  .single()
-                productName = prod?.title || null
+            /* Every row of the payment, a basket's included (lib/stripe/dispute-orders). */
+            try {
+              const marked = await markPaymentDisputed(supabaseAdmin, paymentIntentId)
+              const productIds = [...new Set(marked.map((r) => r.product_id).filter((id): id is string => !!id))]
+              if (productIds.length > 0) {
+                const { data: prods } = await supabaseAdmin.from("products").select("id, title").in("id", productIds)
+                const titleOf = new Map(((prods ?? []) as Array<{ id: string; title: string | null }>).map((p) => [p.id, p.title]))
+                productName = disputedProductName(productIds.map((id) => titleOf.get(id)))
               }
+            } catch (markErr) {
+              console.error("[Webhook] Dispute: orders not marked disputed:", markErr)
             }
           }
         }
@@ -1546,11 +1537,12 @@ export async function POST(request: Request) {
               } catch { /* non-fatal */ }
             }
             if (piId) {
-              await supabaseAdmin
-                .from("orders")
-                .update({ status: "completed" })
-                .eq("stripe_payment_intent_id", piId)
-                .eq("status", "disputed")
+              /* Each row back to what it was: a partly refunded row stays refunded (lib/stripe/dispute-orders). */
+              try {
+                await restorePaymentAfterWonDispute(supabaseAdmin, piId)
+              } catch (restoreErr) {
+                console.error("[Webhook] Dispute won: orders not restored:", restoreErr)
+              }
             }
           }
 
