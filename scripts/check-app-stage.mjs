@@ -148,7 +148,20 @@ for (const [label, viewport] of [
     new PerformanceObserver((l) => { for (const e of l.getEntries()) window.__long.push({ t: e.startTime, d: e.duration }) }).observe({ type: "longtask" })
     new PerformanceObserver((l) => { for (const e of l.getEntries()) window.__shift += e.value }).observe({ type: "layout-shift", buffered: false })
     const scroller = () => document.querySelector(".app-content-scroll")
+    /* Each frame is read once it has been drawn, in a task right after it: a
+       page's landing starts in a requestAnimationFrame callback of its own
+       (components/app/app-stage.tsx), queued after this one and run before
+       that frame's paint, so a reading taken in this callback would show the
+       page as it was before its landing began, which is never on the glass. */
+    const drawn = new MessageChannel()
+    const frames = []
+    drawn.port1.onmessage = () => { const t = frames.shift(); if (t != null) read(t) }
     const tick = (t) => {
+      frames.push(t)
+      drawn.port2.postMessage(0)
+      requestAnimationFrame(tick)
+    }
+    const read = (t) => {
       const p = document.querySelector("[data-page]")
       const outline = document.querySelector("[data-app-route-skeleton]")
       const slow = document.querySelector("[data-app-slow-page]")
@@ -182,7 +195,6 @@ for (const [label, viewport] of [
         bar: !!bar && Number(getComputedStyle(bar).opacity) > 0.01,
         fixedTop: fixed ? Math.round(fixed.getBoundingClientRect().top) : null,
       })
-      requestAnimationFrame(tick)
     }
     requestAnimationFrame(tick)
   })

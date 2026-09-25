@@ -124,8 +124,8 @@ check(
 )
 check(
   "and LanguageProvider is still mounted in exactly one place",
-  FILES.filter((f) => /<LanguageProvider>/.test(read.get(f) || "")).length === 1,
-  FILES.filter((f) => /<LanguageProvider>/.test(read.get(f) || "")).join(", "),
+  FILES.filter((f) => /<LanguageProvider[\s>]/.test(read.get(f) || "")).length === 1,
+  FILES.filter((f) => /<LanguageProvider[\s>]/.test(read.get(f) || "")).join(", "),
 )
 
 /*
@@ -136,12 +136,17 @@ check(
 */
 const contextSrc = readFileSync("lib/i18n/context.tsx", "utf8")
 check(
-  "LanguageProvider still returns null before hydration, which is why placement matters",
-  /if \(!isHydrated\) \{\s*\n\s*return null/.test(contextSrc),
+  "LanguageProvider still renders none of its children before hydration (its fallback at most, null by default), which is why placement matters",
+  /if \(!isHydrated\) \{\s*\n\s*return fallback/.test(contextSrc) && /fallback = null,/.test(contextSrc),
   "if this stops being true, the rule below can be relaxed",
 )
+/* In /app it stands on the shell's frame and spinner until then, so a document load is never a white page. */
+check(
+  "and in /app its fallback is the shell's frame with the slow page's spinner, not nothing",
+  /<LanguageProvider fallback=\{<AppColdStart \/>\}>/.test(read.get("components/app/app-layout-wrapper.tsx") || ""),
+)
 const serverRenderedMounts = FILES.filter(
-  (f) => /<LanguageProvider>/.test(read.get(f) || "") && f.startsWith("app/"),
+  (f) => /<LanguageProvider[\s>]/.test(read.get(f) || "") && f.startsWith("app/"),
 )
 check(
   "and it is not mounted in any route layout, whose HTML has to exist without JavaScript",
