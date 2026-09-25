@@ -295,11 +295,16 @@ async function main() {
     check("  a step to the previous or next order moves nothing but the cards",
       /if \(was !== null \|\| !detail\) return/.test(client) && /\.orders-detail\[data-arrival="step"\] \.orders-body \{\s*animation: orders-body-in 120ms ease-out backwards;/.test(css) && !/^\.orders-body \{/m.test(css))
     check("  on transform and opacity alone, as Web Animations, never a layout property",
-      /detail\.animate\(\[\{ transform: `translate3d\(\$\{detailX\}px, 0, 0\)` \}/.test(motion) && /list\.animate\(\[\{ transform:/.test(motion) && /detail\.animate\(\[\{ opacity: detailOpacity \}, \{ opacity: to \}\]/.test(motion)
+      /detail\.animate\(\[\{ transform: `translate3d\(\$\{detailX\}px, 0, 0\)` \}/.test(motion) && /list\.animate\(\[\{ transform:/.test(motion) && /body\.animate\(\[\{ opacity: 0 \}, \{ opacity: 1 \}\], \{ duration: ORDER_FADE_IN_MS/.test(motion)
         && !/\.animate\(\[\{ (left|top|width|height|margin)/.test(motion))
     check("  about 300ms on iOS's curve on a phone, a short fade wider, decided by the sheets' phone width",
       /export const ORDER_PUSH_MS = 300/.test(motion) && /export const ORDER_POP_MS = 280/.test(motion) && /export const ORDER_EASE = "cubic-bezier\(0\.32, 0\.72, 0, 1\)"/.test(motion)
         && /export const ORDER_FADE_IN_MS = 150/.test(motion) && /export const ORDER_PHONE_QUERY = "\(max-width: 639px\)"/.test(motion))
+    /* "When I open an order the top bar blends in with a delay, it looks
+       cheap." On a computer the bar is never faded over the list's bar. */
+    check("  on a computer the order's bar is there on the first frame: only its cards fade in, and back is at once",
+      /const body = detail\.querySelector<HTMLElement>\("\.orders-body"\)/.test(motion) && !/detail\.animate\(\[\{ opacity/.test(motion)
+        && /if \(kind === "pop"\) \{\s*settle\(detail, list\)\s*done\?\.\(\)\s*return/.test(motion))
     check("  interrupted, it starts from where the layer is, read before the running move is cancelled",
       /const detailX = moving \? xOf\(detail\)/.test(motion) && motion.indexOf("const detailX") < motion.indexOf("stop(detail)"))
     check("  the pop holds its last frame until the order is taken away, so it cannot snap back",

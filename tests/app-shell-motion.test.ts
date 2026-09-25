@@ -98,8 +98,8 @@ section("A navigation, from start to landing")
   endAppNavigation()
   check("and clearing twice is harmless", getAppNavigation() === null)
   check(
-    "the thresholds are the ones asked for: a computer's bar at 300ms, a 180ms landing with a 4 to 6px rise",
-    NAV_BAR_AFTER_MS === 300 && NAV_ENTER_MS >= 160 && NAV_ENTER_MS <= 200 && NAV_ENTER_RISE_PX >= 4 && NAV_ENTER_RISE_PX <= 6,
+    "the thresholds are the ones asked for: a computer's bar at 300ms, a 180ms landing with a 1 to 3px rise",
+    NAV_BAR_AFTER_MS === 300 && NAV_ENTER_MS >= 160 && NAV_ENTER_MS <= 200 && NAV_ENTER_RISE_PX >= 1 && NAV_ENTER_RISE_PX <= 3,
   )
 }
 
@@ -404,7 +404,14 @@ section("One scrollbar column on a computer")
   check("while the landing rises, the shell's scroller cannot scroll", /\.app-content-scroll\[data-app-landing\] \{\s*overflow-y: hidden;/.test(block))
   check("none of it below 768px or in the native apps, where scrollbars float and take no room",
     !/@media \(max-width: 767px\) \{\s*html\.app-layout \.app-content-scroll \{\s*scrollbar-gutter/.test(css)
-      && (block.match(/html\.app-layout:not\(\.capacitor\) \.app-content-scroll/g) ?? []).length === 8 && !/html\.app-layout \.app-content-scroll/.test(block))
+      && (block.match(/html\.app-layout:not\(\.capacitor\) \.app-content-scroll/g) ?? []).length === 12 && !/html\.app-layout \.app-content-scroll/.test(block))
+  /* "When I click Settings coming from a page with no scrollbar, it glitches
+     with the scrollbar on the right." Safari before 18.2 reads only
+     ::-webkit-scrollbar: the pages' own boxes were 6px there and the shell's
+     scroller the system's 15px, so landing on Settings moved the column. */
+  check("in a browser that reads only ::-webkit-scrollbar, the shell's bar is the pages' 6px too",
+    /\.app-content-scroll::-webkit-scrollbar \{\s*width: 6px;/.test(block) && /\.page-scroll::-webkit-scrollbar \{\s*width: 6px;/.test(css)
+      && /\.app-content-scroll::-webkit-scrollbar-thumb \{\s*background-color: rgba\(156, 163, 175, 0\.5\);/.test(block))
   const stage = code("components/app/app-stage.tsx")
   check("the stage reads whether the page fitted before the rise starts, and holds the scroller only then, letting go when the rise is over or soon after",
     /const fitted = outer\.scrollHeight <= outer\.clientHeight\s+const moving/.test(stage)

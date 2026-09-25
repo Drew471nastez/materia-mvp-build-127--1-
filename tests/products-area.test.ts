@@ -249,7 +249,7 @@ check("prices bring up the decimal keypad", (editor.match(/inputMode="decimal"/g
 console.log("\nThe Products list: a shelf of pictures on a phone, a light table from 768px")
 
 const list = code("app/app/products/products-client.tsx")
-check("a list under 768px and the table from it", /<ul aria-label="Products" data-list="" className="-mx-4 sm:-mx-6 md:hidden" hidden=\{pageProducts\.length === 0\}>/.test(list) && /className="hidden w-full table-fixed border-separate border-spacing-0 text-\[13px\] md:table"/.test(list))
+check("a list under 768px and the table from it", /<ul aria-label="Products" data-list="" className="-mx-4 sm:-mx-6 md:hidden" hidden=\{pageProducts\.length === 0\}>/.test(list) && /className="hidden w-full table-fixed border-separate border-spacing-0 text-\[13px\] md:table xl:text-\[14px\]"/.test(list))
 check("no table forced sideways on a phone", !/min-w-\[500px\]/.test(list) && !/min-w-max/.test(list) && !/sticky left-0/.test(list))
 check("a hover or a finger prefetches the editor in full", /onTouchStart=\{\(\) => warm\(product\.id\)\}/.test(list) && /kind: "full"/.test(list))
 const couponsList = code("app/app/coupons/coupons-client.tsx")
@@ -260,7 +260,7 @@ check("and its own place in the menu, under Products, where it was", /href: "\/a
 check("the Orders bar, gutter and width, not a parallel set", /<PaneBar width=\{LIST_WIDTH\} className=\{LIST_BAR\}>/.test(list) && /from "\.\.\/orders\/order-parts"/.test(list))
 /* "In the Products page the New product button at the top should be purple." */
 check("New product is the one violet button, the editor's Save's colour and depth (primaryDepth, not a copy), with no icon, and a 44px press on a phone",
-  /const NEW_LOOK = cn\(primaryDepth, PRESS, "h-8 gap-1\.5 rounded-lg px-3 text-\[13px\]"\)/.test(list) && /data-new-product=""[\s\S]{0,200}className=\{NEW_LOOK\}\s*>\s*\{t\("products\.newProduct"\)\}\s*<\/Link>/.test(list)
+  /const NEW_LOOK = cn\(primaryDepth, PRESS, "h-8 gap-1\.5 rounded-lg px-3 text-\[13px\] xl:h-9 xl:px-3\.5 xl:text-\[14px\]"\)/.test(list) && /data-new-product=""[\s\S]{0,200}className=\{NEW_LOOK\}\s*>\s*\{t\("products\.newProduct"\)\}\s*<\/Link>/.test(list)
     && /import \{ primaryDepth, secondaryDepth \} from "\.\/new\/editor-buttons"/.test(list) && !/buttonAccent|buttonPrimary/.test(list) && !/bg-\[#8b5cf6\]/.test(list) && /max-md:after:-inset-1\.5/.test(list))
 /* "Make sure the three dots button in the products page has the same depth as the three dots button in the edit product page." */
 check("a row's more button wears the editor's secondaryDepth, 40px on a phone with a 44px press, 32px in the table",
@@ -285,8 +285,8 @@ check("a phone row names its status only when it is not on sale, as a dot and a 
   /view === "all" && status !== "live"/.test(list) && /function StatusMark/.test(list) && !/StatusBadge/.test(list) && /bg-\[#e0a100\]/.test(list))
 check("a product with no picture shows its first letter, not a box icon", /Array\.from\(title\.trim\(\)\)\[0\]/.test(list) && !/<Package/.test(list))
 check("table rows are 64px, the whole row opens the product, and nothing from a menu's portal does", /className="group h-16 cursor-pointer/.test(list) && /openEditor\(router, `\/app\/products\/\$\{product\.id\}`\)/.test(list) && /!e\.currentTarget\.contains\(target\)/.test(list) && !/\{t\("products\.edit"\)\}/.test(list))
-check("no grey heading band in the table", !/bg-\[#f7f7f8\] pl-4/.test(list) && /<th scope="col" className="border-b border-\[#eef0f2\] pl-4 pr-3 font-medium">Product<\/th>/.test(list))
-check("numbers right aligned in figures of one width, Sales from 1024px", /text-right font-medium tabular-nums text-\[#1a1a2e\]/.test(list) && /hidden w-\[96px\] border-b border-\[#eef0f2\] px-3 text-right font-medium lg:table-cell">Sales/.test(list))
+check("no grey heading band in the table", !/bg-\[#f7f7f8\] pl-4/.test(list) && /<th scope="col" className="border-b border-\[#eef0f2\] pl-4 pr-3 font-medium xl:pl-5">Product<\/th>/.test(list))
+check("numbers right aligned in figures of one width, Sales from 1024px", /text-right font-medium tabular-nums text-\[#1a1a2e\]/.test(list) && /hidden w-\[96px\] border-b border-\[#eef0f2\] px-3 text-right font-medium lg:table-cell xl:w-\[112px\]">Sales/.test(list))
 check("fifty to a page, with the footer's count and arrows, the count left off a phone with one page", /const PAGE_SIZE = 50/.test(list) && /data-footer=""/.test(list) && /aria-label="Next page"/.test(list) && /pages === 1 && "max-md:hidden"/.test(list))
 check("every phone press is 44px however small it is drawn", /max-md:min-h-11 max-md:min-w-11/.test(list) && /max-md:after:-inset-1\.5/.test(list) && /trigger=\{<RowMenuButton label=\{`Actions for \$\{product\.title\}`\} className=\{ROW_MENU_PHONE\} \/>\}/.test(list) && /after:-inset-\[3px\]/.test(list))
 check("the product actions are all still there: view, share, archive or restore, duplicate, delete", /t\("common\.view"\)/.test(list) && /handleShare\(product\)/.test(list) && /handleArchive\(product\)/.test(list) && /handleDuplicate\(product\)/.test(list) && /handleDeleteClick\(product\)/.test(list) && /generateProductsCSV/.test(list) && /generateProductsPDF/.test(list))
@@ -311,7 +311,7 @@ check("a shorter list holds its height until it has settled, the card's foot gli
 const animated = [...motion.matchAll(/\.animate\(\s*\[\s*\{ (\w+):/g)].map((m) => m[1])
 check("nothing moves under reduced motion, and nothing in it animates layout: opacity, transform and the card's clip only",
   /if \(!section \|\| reducedMotion\(\) \|\| typeof section\.animate !== "function"\) return null/.test(motion) && animated.length >= 5 && animated.every((k) => ["opacity", "transform", "clipPath"].includes(k)), animated)
-check("each picture is its own size, decoded off the main thread, on grey", /<Image src=\{src\} alt="" width=\{size\} height=\{size\} decoding="async"/.test(list) && !/<Image[^>]*\bfill\b/.test(list) && /bg-\[#eceef1\]/.test(list))
+check("each picture is its own size, decoded off the main thread, on grey", /<Image src=\{src\} alt="" width=\{size === 44 \? 48 : size\} height=\{size === 44 \? 48 : size\} decoding="async"/.test(list) && !/<Image[^>]*\bfill\b/.test(list) && /bg-\[#eceef1\]/.test(list))
 check("the list comes back as it was left: its view, order, search and page, kept for the tab", /let leftAt: \{ view: View; sort: Sort; search: string; page: number \} \| null = null/.test(list) && /leftAt = \{ view, sort, search: searchQuery, page \}/.test(list))
 /* "The remembered list state should only be restored on a return from the editor (or browser back to the list), not when the Products page is opened fresh." */
 check("but only on a return: a fresh visit from the sidebar or the pill starts at All, Newest, no search, page one",
