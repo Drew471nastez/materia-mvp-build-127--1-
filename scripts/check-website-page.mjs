@@ -439,6 +439,76 @@ async function livePage(W) {
     await p.close()
   }
 
+  // ── A library row's three dots, and the menu they open ──────────────
+  /**
+   * "The three dots button should have more depth, a very subtle depth", and
+   * its phone sheet should be smoother. Measured: the button's depth (a
+   * hairline and a 1px foot, the shared secondary depth), its press area,
+   * and on a phone the sheet's first moving frame already holding its rows,
+   * then a row's action (Rename's dialog) starting only once the sheet has
+   * gone, so two things never move at the same time.
+   */
+  {
+    const { p, errors, phone } = await open(W, "room")
+    const more = await p.evaluate(() => {
+      const b = [...document.querySelectorAll("[data-install-row] [data-more-button]")].find((x) => x.getBoundingClientRect().width > 0)
+      if (!b) return null
+      const r = b.getBoundingClientRect()
+      const cs = getComputedStyle(b)
+      const after = getComputedStyle(b, "::after")
+      const reach = after.content !== "none" && after.display !== "none" && after.position === "absolute" ? r.height - (parseFloat(after.top) || 0) - (parseFloat(after.bottom) || 0) : r.height
+      return { w: Math.round(r.width), h: Math.round(r.height), reach: Math.round(reach), shadow: cs.boxShadow, border: cs.borderTopColor, bg: cs.backgroundColor }
+    })
+    expect(!!more, "a library row has its three dots")
+    if (more) {
+      expect(/inset/.test(more.shadow) && /0px 1px 0px/.test(more.shadow), `  with a subtle depth: a line inside its foot and a 1px shade (${more.shadow})`)
+      expect(more.border === "rgb(217, 219, 224)" && more.bg === "rgb(255, 255, 255)", `  white, with a hairline (${more.bg}, ${more.border})`)
+      expect(phone ? more.w === 40 && more.reach >= 44 : more.w === 36, `  ${more.w}x${more.h}px, pressed over ${more.reach}px${phone ? ", 44 or more on a phone" : ""}`)
+    }
+    if (phone && more) {
+      await p.evaluate(() => {
+        window.__sheet = []
+        const t0 = performance.now()
+        const tick = () => {
+          const panel = document.querySelector("[data-app-sheet] [data-sheet-panel]")
+          if (panel) {
+            const m = getComputedStyle(panel).transform
+            window.__sheet.push({ t: Math.round(performance.now() - t0), y: m === "none" ? 0 : Math.round(new DOMMatrixReadOnly(m).m42), rows: panel.querySelectorAll("[data-action-sheet] button, [data-action-sheet] a").length })
+          }
+          if (performance.now() - t0 < 700) requestAnimationFrame(tick)
+        }
+        requestAnimationFrame(tick)
+        ;[...document.querySelectorAll("[data-install-row] [data-more-button]")].find((x) => x.getBoundingClientRect().width > 0).click()
+      })
+      await sleep(760)
+      const frames = await p.evaluate(() => window.__sheet)
+      const first = frames[0]
+      expect(!!first && first.rows > 0, `  its sheet's first frame already holds its rows (${first ? first.rows : 0} rows at ${first ? first.y : "-"}px)`)
+      const ys = frames.map((f) => f.y)
+      const rising = ys.every((y, i) => i === 0 || y <= ys[i - 1] + 0.5)
+      expect(rising && ys[ys.length - 1] === 0, `  and it rises in one motion to rest: ${ys.slice(0, 8).join(", ")} … ${ys[ys.length - 1]}`)
+      /* A row's action waits for the sheet to have gone. */
+      await p.evaluate(() => {
+        window.__handoff = { sheetGone: null, dialog: null }
+        const t0 = performance.now()
+        const tick = () => {
+          const now = Math.round(performance.now() - t0)
+          if (window.__handoff.sheetGone === null && !document.querySelector("[data-app-sheet]")) window.__handoff.sheetGone = now
+          if (window.__handoff.dialog === null && document.querySelector('[role="dialog"]:not([data-app-sheet]), [role="alertdialog"]')) window.__handoff.dialog = now
+          if (now < 1200) requestAnimationFrame(tick)
+        }
+        requestAnimationFrame(tick)
+        ;[...document.querySelectorAll("[data-action-sheet] button")].find((b) => b.textContent.trim() === "Rename").click()
+      })
+      await sleep(1300)
+      const h = await p.evaluate(() => window.__handoff)
+      expect(h.dialog !== null && h.sheetGone !== null && h.dialog >= h.sheetGone, `  Rename opens after the sheet has gone, not over it (sheet gone at ${h.sheetGone}ms, dialog at ${h.dialog}ms)`)
+      if (KEEP) await p.screenshot({ path: KEEP.replace(/(\.png)?$/, `-${W}-rename.png`) })
+    }
+    expect(errors.length === 0, "no errors on the page", errors.slice(0, 2).join(" / "))
+    await p.close()
+  }
+
   // ── An import, from file to arrival, into libraries of three sizes ────
   for (const drafts of [2, 0, 3]) {
     const websites = drafts + 1

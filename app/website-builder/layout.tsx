@@ -1,7 +1,8 @@
 import type React from "react"
 import type { Metadata } from "next"
 import { redirect } from "next/navigation"
-import { createClient } from "@/lib/supabase/server"
+import { currentUserForRequest } from "@/lib/auth/request-scope"
+import { SessionRecovery } from "@/components/auth/session-recovery"
 import { Toaster } from "sonner"
 
 /**
@@ -18,9 +19,13 @@ export default async function WebsiteBuilderEditorLayout({
 }: {
   children: React.ReactNode
 }) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect("/login")
+  /* A blip is not a sign-out (lib/auth/current-user.ts). When Supabase did
+     not answer, the session is recovered in the browser, not thrown away. */
+  const current = await currentUserForRequest()
+  if (!current.user) {
+    if (current.state === "indeterminate") return <SessionRecovery />
+    redirect("/login")
+  }
 
   return (
     /*

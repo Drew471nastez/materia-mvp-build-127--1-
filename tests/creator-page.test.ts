@@ -997,9 +997,14 @@ function main() {
       /storeBuilder: \{ line: CreatorPageLinear, fill: CreatorPageBold \}/.test(rail) &&
         /linear\/user-id/.test(rail),
     )
+    /* The search draws no icon per row any more (components/app/app-search.tsx),
+       so there is no second icon to drift from the rail's: it names the page
+       the same and sends it to the same address. */
     check(
-      "and so is the one in search",
-      /\{ label: "Creator Page", href: "\/creator-page", icon: ContactRound, category: "Pages" \}/.test(sidebar),
+      "and search names it the same, at the same address, with no icon of its own",
+      /\{ label: "Creator Page", href: "\/creator-page", group: "Pages"/.test(read("lib/search/app-pages.ts")) &&
+        !/icon/i.test(read("lib/search/app-pages.ts")) &&
+        !/ContactRound/.test(sidebar),
     )
   }
 

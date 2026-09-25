@@ -4,7 +4,7 @@ import { useState } from "react"
 import { ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { PAGE_DESCRIPTION_MAX, PAGE_TITLE_MAX, typedPageSeo, withPageSeo } from "@/lib/website-builder/page-seo"
-import { Badge, Card, Counter, GOES_LIVE, PageTitle, Row, Toggle, buttonClass, inputClass } from "./parts"
+import { Badge, Card, Counter, GOES_LIVE, PageTitle, Row, Toggle, buttonClass, inputClass, textAreaClass } from "./parts"
 import type { SettingsContext, SitePage } from "./types"
 
 const str = (v: unknown) => (typeof v === "string" ? v.trim() : "")
@@ -85,7 +85,7 @@ function PageRow({
         }
         hint={page.path}
       >
-        <div className="flex items-center gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
           {home ? (
             <button type="button" onClick={() => ctx.go("seo")} className={buttonClass}>
               Search
@@ -103,7 +103,7 @@ function PageRow({
       </Row>
 
       {!home && open && (
-        <div id={id} className="wb-settings-in space-y-4 border-t border-white/[0.06] bg-white/[0.02] px-5 py-4 md:px-6">
+        <div id={id} className="wb-settings-in space-y-4 border-t border-white/[0.06] bg-white/[0.02] px-4 py-4 md:px-6">
           {/* What the result will say, from the same fallbacks the live page uses. */}
           <div className="rounded-xl bg-white p-4 text-left" aria-label="Search result preview">
             <p className="truncate text-[12.5px] text-[#4d5156]">{`${ctx.websiteUrlDisplay}${page.path === "/" ? "" : page.path}`}</p>
@@ -136,7 +136,7 @@ function PageRow({
               rows={3}
               placeholder={defaults.description}
               onChange={(e) => set({ description: e.target.value })}
-              className={cn(inputClass, "mt-1.5 h-auto resize-none py-2.5 leading-snug md:w-full")}
+              className={cn(textAreaClass, "mt-1.5 leading-snug")}
             />
           </label>
 

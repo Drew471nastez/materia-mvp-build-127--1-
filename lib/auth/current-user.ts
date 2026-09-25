@@ -1,6 +1,7 @@
 import "server-only"
 
 import type { SupabaseClient, User } from "@supabase/supabase-js"
+import { classifyAuthError } from "./auth-error"
 
 /**
  * ===========================================================================
@@ -66,66 +67,11 @@ export interface CurrentUser {
 }
 
 /**
- * Errors that mean the session is genuinely finished.
- *
- * A revoked or reused refresh token IS a real sign-out and must redirect, or
- * a dead session would keep somebody in a broken app forever. Everything
- * outside this list is treated as "we could not tell", which is the safe
- * direction for the reasons above.
+ * What counts as a real sign-out is decided in lib/auth/auth-error.ts, which
+ * the client screens ask too, so the server and the browser cannot disagree
+ * about what a 502 means.
  */
-const DEFINITELY_SIGNED_OUT = [
-  "session_not_found",
-  "session_expired",
-  "refresh_token_not_found",
-  "refresh_token_already_used",
-  "user_not_found",
-  "user_banned",
-  "bad_jwt",
-]
-
-function classify(error: unknown): { signedOut: boolean; reason: string } {
-  const e = error as { code?: string; status?: number; name?: string; message?: string } | null
-  if (!e) return { signedOut: false, reason: "unknown" }
-
-  const code = String(e.code ?? "").toLowerCase()
-  const name = String(e.name ?? "")
-  const message = String(e.message ?? "").toLowerCase()
-
-  if (DEFINITELY_SIGNED_OUT.some((c) => code === c || message.includes(c.replace(/_/g, " ")))) {
-    return { signedOut: true, reason: code || name }
-  }
-
-  /**
-   * "Auth session missing" is supabase-js saying there was no token to check
-   * in the first place, which is an answer and not a failure.
-   */
-  if (name === "AuthSessionMissingError" || message.includes("auth session missing")) {
-    return { signedOut: true, reason: "no session" }
-  }
-
-  /**
-   * THE ONE THAT WAS COSTING PEOPLE THEIR SESSIONS. supabase-js raises
-   * AuthRetryableFetchError when the request never completed, and a 5xx is
-   * the auth service having a bad moment. Neither says anything about
-   * whether this person is signed in.
-   */
-  if (name === "AuthRetryableFetchError") return { signedOut: false, reason: "network" }
-  if (typeof e.status === "number" && (e.status === 0 || e.status >= 500)) {
-    return { signedOut: false, reason: `status ${e.status}` }
-  }
-  if (message.includes("fetch failed") || message.includes("network") || message.includes("timeout")) {
-    return { signedOut: false, reason: "network" }
-  }
-
-  /**
-   * A 401 or 403 from the auth endpoint is the token being rejected, which is
-   * a real sign-out. Anything else unrecognised is not assumed to be one.
-   */
-  if (typeof e.status === "number" && (e.status === 401 || e.status === 403)) {
-    return { signedOut: true, reason: `status ${e.status}` }
-  }
-  return { signedOut: false, reason: code || name || "unrecognised" }
-}
+const classify = classifyAuthError
 
 /** getUser(), with a ceiling, because it goes to the network. */
 async function getUserBounded(supabase: SupabaseClient, ms: number) {

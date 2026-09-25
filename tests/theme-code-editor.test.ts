@@ -272,7 +272,8 @@ section("It is reachable, and it works on a file longer than the window")
       /const ok = await saveDraft\(\{ quiet: true \}\)\s*\n\s*if \(!ok\) return/.test(editor) &&
       /router\.push\(`\/website-builder\/code\/\$\{installId\}\?\$\{q\.toString\(\)\}`\)/.test(editor) &&
       !/setCodeFilePath\(path\)\s*\n\s*setPreviewMode\("code"\)/.test(editor) &&
-      /else void openCode\(\)/.test(editor),
+      /* The Actions menu calls it through a ref (actionItems), so the list is built once. */
+      /else void actionCalls\.current\.openCode\(\)/.test(editor),
   )
   check(
     "a panel that is centred is not animated by its own placement: the two transforms are on two boxes",

@@ -179,20 +179,28 @@ export function UpgradePageClient({
       label,
       onClick: () => handleUpgrade(id),
       settled,
+      current: isCurrentPlan,
       disabled: loading !== null,
       loading: loading === id,
     }
   }
 
   return (
-    <div data-upgrade-page="" className="min-h-full">
+    <div data-upgrade-page="" className="min-h-full bg-[#f8f9fa]">
       {/*
         ONE BAR, ONE WAY BACK. It used to carry a Back on the left and an X
         on the right that did the same thing. The bar sticks to the top of
         this page's own scroller. The status bar's strip above it is the
         layer's (components/app/page-layer.tsx), so it is not padded here too.
       */}
-      <div className="sticky top-0 z-10 border-b border-[#e5e7eb]/60 bg-white/95 backdrop-blur-sm">
+      {/*
+        Solid white, not a translucent blur: the page's own colour, the colour
+        of the strip under the status bar and of what shows above this bar
+        when the page is pulled down (components/app/page-layer.tsx paints
+        that). A see-through bar let the cards show through it as they
+        scrolled under.
+      */}
+      <div data-upgrade-bar="" className="sticky top-0 z-10 border-b border-[#e5e7eb]/60 bg-white">
         <div className="relative flex h-14 items-center px-4 sm:h-16 sm:px-6">
           <Link
             href="/app/settings?tab=billing"
@@ -204,12 +212,19 @@ export function UpgradePageClient({
             <span className="sm:hidden">Back</span>
             <span className="hidden sm:inline">Back to billing</span>
           </Link>
+          {/*
+            THE MARK WAS SQUASHED. It had a height class (24px on a phone) and
+            no width class, so the width came from the width attribute, 28:
+            a square mark drawn 28 by 24. Both sides are set now, from one
+            size, and it may not shrink or stretch to fit anything.
+          */}
           <img
             src={STORELIB_LOGO_URL}
             alt="Storelib"
             width={28}
             height={28}
-            className="pointer-events-none absolute left-1/2 h-6 -translate-x-1/2 rounded-[7px] sm:h-7"
+            data-upgrade-logo=""
+            className="pointer-events-none absolute left-1/2 h-7 w-7 shrink-0 -translate-x-1/2 rounded-[7px] object-contain"
           />
         </div>
       </div>
@@ -234,6 +249,7 @@ export function UpgradePageClient({
 
         <PlanCards
           actions={{ free: actionFor("free"), growth: actionFor("growth") }}
+          lead={currentPlanId === "free" ? "growth" : undefined}
           className="max-w-[820px] mx-auto"
         />
 

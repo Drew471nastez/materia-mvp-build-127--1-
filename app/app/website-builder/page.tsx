@@ -13,6 +13,7 @@ import {
   snapshotTakenAt,
   mobilePartner,
 } from "@/lib/website-builder/snapshot"
+import { pageUser } from "@/lib/auth/page-user"
 
 export const metadata: Metadata = {
   title: "Website",
@@ -101,8 +102,10 @@ function toSummary(row: InstallRow): WebsiteSummary {
 
 export default async function WebsiteBuilderPage() {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect("/login")
+  const user = await pageUser()
+  /* Supabase did not answer in time: the layout's gate recovers the
+     session in the browser. Not /login (lib/auth/page-user.ts). */
+  if (!user) return null
 
   const [{ data: creator }, { data: profile }] = await Promise.all([
     supabase.from("creators").select("id, slug").eq("user_id", user.id).maybeSingle(),

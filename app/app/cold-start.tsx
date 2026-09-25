@@ -1,4 +1,4 @@
-import { ActivitySpinner } from "@/components/ui/activity-spinner"
+import { PageSpinner } from "@/components/ui/activity-spinner"
 
 /**
  * ===========================================================================
@@ -14,8 +14,9 @@ import { ActivitySpinner } from "@/components/ui/activity-spinner"
  * clock on every cold start. Now it is the shell's own frame, which is what
  * every page arrives in: the header's #111111 across the top, the content
  * area's #f8f9fa below it with the same rounded top, and the same light gray
- * spinner a slow page shows (components/app/app-stage.tsx), in the middle.
- * The corners of that rounded top are the header's colour because the whole
+ * spinner a slow page shows (components/app/app-stage.tsx), in the same
+ * place: 40% of the way down (PageSpinner), so the cold start and a slow
+ * page never disagree about where it is. The corners of that rounded top are the header's colour because the whole
  * window is.
  *
  * The header's height is the shell's: 68px under the status bar on a phone,
@@ -24,8 +25,8 @@ import { ActivitySpinner } from "@/components/ui/activity-spinner"
 export default function AppColdStart() {
   return (
     <div data-app-cold-start="" className="fixed inset-0 bg-[#111111] md:bg-[#131316]">
-      <div className="absolute inset-x-0 bottom-0 top-[calc(68px+env(safe-area-inset-top,0px))] flex items-center justify-center rounded-t-[20px] bg-[#f8f9fa] md:top-[calc(58px+env(safe-area-inset-top,0px))] md:rounded-none">
-        <ActivitySpinner />
+      <div className="absolute inset-x-0 bottom-0 top-[calc(68px+env(safe-area-inset-top,0px))] rounded-t-[20px] bg-[#f8f9fa] md:top-[calc(58px+env(safe-area-inset-top,0px))] md:rounded-none">
+        <PageSpinner />
       </div>
     </div>
   )

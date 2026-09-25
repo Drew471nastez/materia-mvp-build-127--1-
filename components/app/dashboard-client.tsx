@@ -79,7 +79,7 @@ import { useToast } from "@/hooks/use-toast"
 import { ChartScrub, type ScrubRow, type ScrubSeries } from "@/components/app/chart-scrub"
 import { STORELIB_LOGO } from "@/lib/brand/logo"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
-import { WaitingArea } from "@/components/ui/activity-spinner"
+import { ShimmerBlock, ShimmerChart, ShimmerSwap } from "@/components/ui/shimmer"
 import { DateRangePicker } from "@/components/app/date-range-picker"
 import { boundsOf, resolveValue, todayIn, type RangeValue } from "@/lib/date-range/range"
 
@@ -917,6 +917,12 @@ export function DashboardClient({
      is no drawing of the page before it: a full page skeleton used to sit
      here behind an `isLoading` that nothing ever set. */
   const [isRefreshing, setIsRefreshing] = useState(true)
+  /* The period's first figures are in. Until then the four tabs hold light
+     gray shapes where the numbers go (components/app/metric-tab `loading`):
+     they used to draw zeros, blurred, that then turned into the real
+     figures, and "No activity yet" over the chart until the answer said
+     otherwise. */
+  const [figuresReady, setFiguresReady] = useState(false)
   const [expandedStep, setExpandedStep] = useState<string | null>(null)
   const [openKPIModal, setOpenKPIModal] = useState<KPIType>("views")
   /* Follows the chosen tab, and keeps a sideways swipe off the page. */
@@ -1046,7 +1052,9 @@ export function DashboardClient({
     ? (SAMPLE_CHART[openKPIModal] ?? chartData)
     : chartData
 
-  const [liveVisitors, setLiveVisitors] = useState(0)
+  /* null until the first read: a count of 0 drawn and then replaced by the
+     real one was a figure that changed in front of you. */
+  const [liveVisitors, setLiveVisitors] = useState<number | null>(null)
   const { t } = useLanguage()
   /* The greeting follows the creator's own clock: the server's guess first
      (lib/greeting.ts), then the browser's zone once it runs, then every
@@ -1230,6 +1238,7 @@ export function DashboardClient({
         setIsRefreshing(false)
       }
       isFirstLoadRef.current = false
+      setFiguresReady(true)
     }
   }
 
@@ -1257,6 +1266,7 @@ export function DashboardClient({
       setLiveVisitors(uniqueVisitors.size)
     } catch (error) {
       console.error("Error fetching live visitors:", error)
+      setLiveVisitors((n) => n ?? 0)
     }
   }
 
@@ -1414,14 +1424,21 @@ export function DashboardClient({
       setTimeout(() => setIsChartLoading(false), 350)
     } catch (error) {
       console.error("Error fetching chart data:", error)
-      if (request === chartRequestRef.current) setIsChartLoading(false)
+      if (request === chartRequestRef.current) {
+        setIsChartLoading(false)
+        /* Nothing to draw, rather than a skeleton that waits for ever. */
+        setChartEvents((prev) => prev ?? { buckets: [], views: [], clicks: [] })
+      }
     }
   }
 
   // Read the chart's events when the period changes. Not when the tab does.
   useEffect(() => {
     // Safety net: if Supabase queries hang, stop the skeleton after 5 s
-    const safetyTimer = window.setTimeout(() => setIsChartLoading(false), 5000)
+    const safetyTimer = window.setTimeout(() => {
+      setIsChartLoading(false)
+      setChartEvents((prev) => prev ?? { buckets: [], views: [], clicks: [] })
+    }, 5000)
     fetchChartEvents().finally(() => window.clearTimeout(safetyTimer))
     return () => window.clearTimeout(safetyTimer)
   }, [periodKey, creatorId]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -1432,6 +1449,7 @@ export function DashboardClient({
     // let live order updates recalculate after 5s rather than wait forever.
     const safetyTimer = window.setTimeout(() => {
       isFirstLoadRef.current = false
+      setFiguresReady(true)
     }, 5000)
     fetchAnalytics(timeframe).finally(() => window.clearTimeout(safetyTimer))
     return () => window.clearTimeout(safetyTimer)
@@ -1784,16 +1802,16 @@ export function DashboardClient({
             <div className="flex items-center gap-1.5 px-3 py-2 bg-[#f3f4f6] rounded-lg">
               <div
                 className={`w-2 h-2 rounded-full ${
-                  liveVisitors > 0
+                  (liveVisitors ?? 0) > 0
                     ? "bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.6)]"
                     : "bg-gray-400"
                 }`}
                 style={{
-                  animation: liveVisitors > 0 ? "pulse-glow 2s ease-in-out infinite" : "none",
+                  animation: (liveVisitors ?? 0) > 0 ? "pulse-glow 2s ease-in-out infinite" : "none",
                 }}
               />
-              <span className={`text-[13px] font-medium ${liveVisitors > 0 ? "text-emerald-600" : "text-gray-500"}`}>
-                {liveVisitors} {t("dashboard.liveVisitors")}
+              <span className={`text-[13px] font-medium ${(liveVisitors ?? 0) > 0 ? "text-emerald-600" : "text-gray-500"}`}>
+                {liveVisitors == null ? <ShimmerBlock className="shimmer-wait inline-block h-[0.8em] w-[3.6em] rounded-full align-[-0.05em]" /> : `${liveVisitors} ${t("dashboard.liveVisitors")}`}
               </span>
             </div>
           </div>
@@ -1804,16 +1822,16 @@ export function DashboardClient({
             <div className="flex items-center gap-1.5 px-2.5 py-2 bg-[#f3f4f6] rounded-xl h-[38px]">
               <div
                 className={`w-2 h-2 rounded-full ${
-                  liveVisitors > 0
+                  (liveVisitors ?? 0) > 0
                     ? "bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.6)]"
                     : "bg-gray-400"
                 }`}
                 style={{
-                  animation: liveVisitors > 0 ? "pulse-glow 2s ease-in-out infinite" : "none",
+                  animation: (liveVisitors ?? 0) > 0 ? "pulse-glow 2s ease-in-out infinite" : "none",
                 }}
               />
-              <span className={`text-[12px] font-medium ${liveVisitors > 0 ? "text-emerald-600" : "text-gray-500"}`}>
-                {liveVisitors} {t("dashboard.liveVisitors")}
+              <span className={`text-[12px] font-medium ${(liveVisitors ?? 0) > 0 ? "text-emerald-600" : "text-gray-500"}`}>
+                {liveVisitors == null ? <ShimmerBlock className="shimmer-wait inline-block h-[0.8em] w-[3.6em] rounded-full align-[-0.05em]" /> : `${liveVisitors} ${t("dashboard.liveVisitors")}`}
               </span>
             </div>
             <DateRangePicker value={period} onChange={setPeriod} today={dashToday} align="end" className="h-[38px] rounded-xl px-3" />
@@ -1846,7 +1864,8 @@ export function DashboardClient({
               tab="views"
               className="flex-shrink-0 min-w-[130px] md:min-w-0"
               selected={openKPIModal === "views"}
-              soft={isRefreshing}
+              soft={isRefreshing && figuresReady}
+              loading={!figuresReady}
               sample={showSampleData && !hasRealData}
               label={t("dashboard.views")}
               value={formatCompactNumber(displayAnalytics.periodViews)}
@@ -1858,7 +1877,8 @@ export function DashboardClient({
               tab="revenue"
               className="flex-shrink-0 min-w-[130px] md:min-w-0"
               selected={openKPIModal === "revenue"}
-              soft={isRefreshing}
+              soft={isRefreshing && figuresReady}
+              loading={!figuresReady}
               sample={showSampleData && !hasRealData}
               label={t("dashboard.revenue")}
               value={formatCurrency(displayAnalytics.periodRevenue)}
@@ -1870,7 +1890,8 @@ export function DashboardClient({
               tab="orders"
               className="flex-shrink-0 min-w-[130px] md:min-w-0"
               selected={openKPIModal === "orders"}
-              soft={isRefreshing}
+              soft={isRefreshing && figuresReady}
+              loading={!figuresReady}
               sample={showSampleData && !hasRealData}
               label={t("dashboard.orders")}
               value={formatCompactNumber(displayAnalytics.periodOrders)}
@@ -1882,7 +1903,8 @@ export function DashboardClient({
               tab="conversion"
               className="flex-shrink-0 min-w-[130px] md:min-w-0"
               selected={openKPIModal === "conversion"}
-              soft={isRefreshing}
+              soft={isRefreshing && figuresReady}
+              loading={!figuresReady}
               sample={showSampleData && !hasRealData}
               label={t("dashboard.conversionRate")}
               value={`${Math.round(displayAnalytics.conversionRate)}%`}
@@ -1910,12 +1932,13 @@ export function DashboardClient({
           {/* Shared Chart Area - smooth line chart, toggleable */}
           <div className={`overflow-hidden transition-all duration-500 ease-out ${chartExpanded && openKPIModal ? "max-h-[300px] opacity-100" : "max-h-0 opacity-0"}`}>
             <div className="border-t border-[#e5e7eb]/60 px-2 py-3 sm:px-4 sm:py-4">
-              {isChartLoading && displayChartData.length === 0 ? (
-                /* The chart's room, empty, and the spinner only past half a
-                   second: a first read that answers quickly shows nothing
-                   before its line. These were ten grey bars. */
-                <WaitingArea className="h-[200px]" />
-              ) : (
+              {/* The chart's room with its shape in light gray until the
+                  period's first line is in, from the very first frame: the
+                  read starts in an effect, so waiting on `isChartLoading`
+                  alone drew an empty chart for a frame first. Nothing shows
+                  for 200ms, so a quick answer shows only its line
+                  (components/ui/shimmer). */}
+              <ShimmerSwap loading={(chartEvents == null || isChartLoading) && displayChartData.length === 0} skeleton={<ShimmerChart height={CHART_H} className="px-1" />}>
                 <div className="relative">
                   {/*
                     NO BLUR WHEN THE METRIC CHANGES.
@@ -1940,7 +1963,7 @@ export function DashboardClient({
                   <div className={`transition-opacity duration-300 ease-out ${showSampleData && !hasRealData ? "opacity-50" : "opacity-100"}`}>
                   <DashboardTrendChart displayChartData={displayChartData} openKPIModal={openKPIModal} widthFrom={showSampleData && !hasRealData ? SAMPLE_CHART : chartSeries ?? {}} t={t} />
                   </div>
-                  {!hasRealData && (
+                  {figuresReady && !hasRealData && (
                     <div className="absolute top-2 right-2 flex items-center gap-1.5 z-10">
                       <span className="text-[11px] text-[#c8ccd4]">
                         {showSampleData ? "Sample data" : "No activity yet"}
@@ -1955,7 +1978,7 @@ export function DashboardClient({
                     </div>
                   )}
                 </div>
-              )}
+              </ShimmerSwap>
             </div>
           </div>
         </div>

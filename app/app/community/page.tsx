@@ -1,15 +1,15 @@
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { CommunityFeed } from "@/components/app/community-feed"
+import { pageUser } from "@/lib/auth/page-user"
 
 export default async function CommunityPage() {
   const supabase = await createClient()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) redirect("/login")
+  const user = await pageUser()
+  /* Supabase did not answer in time: the layout's gate recovers the
+     session in the browser. Not /login (lib/auth/page-user.ts). */
+  if (!user) return null
 
   const { data: creator } = await supabase.from("creators").select("*").eq("user_id", user.id).single()
 

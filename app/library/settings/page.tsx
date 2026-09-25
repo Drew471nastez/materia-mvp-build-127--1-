@@ -1,17 +1,16 @@
-import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { BuyerSettings } from "./buyer-settings"
+import { pageUser } from "@/lib/auth/page-user"
 
 export const dynamic = "force-dynamic"
 
 export default async function LibrarySettingsPage() {
   const supabase = await createClient()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) redirect("/login")
+  const user = await pageUser()
+  /* Supabase did not answer in time: the layout's gate recovers the
+     session in the browser. Not /login (lib/auth/page-user.ts). */
+  if (!user) return null
 
   const { data: profile } = await supabase
     .from("profiles")

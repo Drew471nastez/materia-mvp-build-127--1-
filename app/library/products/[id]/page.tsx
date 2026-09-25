@@ -8,6 +8,7 @@ import { SmartLink } from "@/components/smart-link"
 import { ArrowLeft, CheckCircle, Calendar, Package } from "lucide-react"
 import { DownloadButton } from "@/components/download-button"
 import { ReturnLink } from "@/components/navigation/return-link"
+import { pageUser } from "@/lib/auth/page-user"
 
 interface ProductAccessPageProps {
   params: Promise<{ id: string }>
@@ -18,11 +19,10 @@ export default async function ProductAccessPage({ params }: ProductAccessPagePro
   const supabase = await createClient()
   const admin = createAdminClient()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) redirect("/login")
+  const user = await pageUser()
+  /* Supabase did not answer in time: the layout's gate recovers the
+     session in the browser. Not /login (lib/auth/page-user.ts). */
+  if (!user) return null
 
   // Fetch the product via entitlement first, then fallback to order
   const { data: entitlement } = await supabase

@@ -1,12 +1,13 @@
 /**
- * Renders the two places plans are chosen, on their own: the marketing
- * pricing section (landing page and /pricing) and the in-app upgrade page,
- * once for somebody on Free and once for somebody on the earlier $99 plan.
- * No session, no database. Bundled by scripts/check-pricing-cards.mjs, which
- * stubs the router and next/link.
+ * Renders the places plans are chosen, on their own: the marketing pricing
+ * section (landing page and /pricing), the onboarding step's compact cards,
+ * and the in-app upgrade page, once for somebody on Free and once for
+ * somebody on the earlier $99 plan. No session, no database. Bundled by
+ * scripts/check-pricing-cards.mjs, which stubs the router and next/link and
+ * hands next/image the app's own image settings.
  *
  * The Billing tab draws the same <PlanCards> with different button labels, so
- * measuring these two surfaces measures it too.
+ * measuring these surfaces measures it too.
  */
 import { renderToStaticMarkup } from "react-dom/server"
 import type { ReactElement } from "react"
@@ -27,6 +28,15 @@ const plans = [
 
 const pages: Record<string, ReactElement> = {
   marketing: <PricingSection hideDetailsLink />,
+  onboarding: (
+    <div style={{ maxWidth: 860, margin: "0 auto", padding: "24px 16px" }}>
+      <PricingSection
+        compact
+        hideDetailsLink
+        onboardingCallbacks={{ onPlanSelect: () => {}, loadingPlan: null, ctaLabels: { free: "Start free", growth: "Get Pro" } }}
+      />
+    </div>
+  ),
   upgrade: <UpgradePageClient plans={plans} currentPlanId="free" hasActiveSubscription={false} />,
   "upgrade-legacy": <UpgradePageClient plans={plans} currentPlanId="pro" hasActiveSubscription />,
 }

@@ -2,6 +2,8 @@ import { redirect } from "next/navigation"
 import type { Metadata } from "next"
 import { createClient } from "@/lib/supabase/server"
 import { FlowBuilder, type BuilderData, type RunView, type StepStats } from "./builder"
+import { pageUser } from "@/lib/auth/page-user"
+import { creatorForRequest } from "@/lib/auth/request-scope"
 
 export const metadata: Metadata = { title: "Automation" }
 export const dynamic = "force-dynamic"
@@ -15,25 +17,27 @@ export const dynamic = "force-dynamic"
  * (`tracking: false`).
  *
  * ONE ROUND AFTER SIGN IN. The flow, its numbers and its history are read by
- * the flow's id, all at once, beside the creator's own row; the products
- * follow the creator row inside the same round. It used to be four rounds
- * one after another: the user, the creator, the flow, then the rest.
+ * the flow's id, all at once, beside the creator's row (the /app layout's
+ * own cached read, so not a query of its own); the products follow the
+ * creator inside the same round. It used to be four rounds one after
+ * another: the user, the creator, the flow, then the rest.
  */
 export default async function FlowPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) redirect(`/login?next=${encodeURIComponent(`/app/emails/flow/${id}`)}`)
+  const user = await pageUser(`/login?next=${encodeURIComponent(`/app/emails/flow/${id}`)}`)
+  /* Supabase did not answer in time: the layout's gate recovers the
+     session in the browser. Not /login (lib/auth/page-user.ts). */
+  if (!user) return null
   if (!/^[0-9a-f-]{36}$/i.test(id)) redirect("/app/emails?tab=flows")
 
-  const creatorRead = supabase.from("creators").select("id").eq("user_id", user.id).maybeSingle()
+  /* The same cached read of the creator the /app layout makes for this request: no second query. */
+  const creatorRead = creatorForRequest(user.id)
   const count = (q: PromiseLike<{ count: number | null }>) => q.then((r) => r.count ?? 0, () => 0)
-  const [creatorRes, flowRes, products, stats, runs, active, finished, left, failed, failedJobs, starts] = await Promise.all([
+  const [creator, flowRes, products, stats, runs, active, finished, left, failed, failedJobs, starts] = await Promise.all([
     creatorRead,
     supabase.from("email_flows").select("id, creator_id, name, trigger_type, trigger_config, status, steps, updated_at").eq("id", id).maybeSingle(),
-    creatorRead.then(({ data }) =>
+    creatorRead.then((data) =>
       data ? supabase.from("products").select("id, title").eq("creator_id", data.id).order("created_at", { ascending: false }).limit(200) : { data: [] },
     ),
     supabase.rpc("email_flow_step_stats", { p_flow_id: id }),
@@ -52,7 +56,6 @@ export default async function FlowPage({ params }: { params: Promise<{ id: strin
     supabase.from("checkout_starts").select("id", { head: true }).limit(1),
   ])
 
-  const creator = creatorRes.data
   if (!creator) redirect("/app")
   const flow = flowRes.data
   /* Row level security already keeps other creators' flows out; this says so twice. */

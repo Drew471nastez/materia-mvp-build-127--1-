@@ -32,6 +32,8 @@
  *   version of it failed is worse than uploading the big one.
  */
 
+import { stripImageMetadata } from "./metadata"
+
 export interface CompressProfile {
   /** Longest edge, in CSS pixels, that this image is ever displayed at ×2. */
   maxWidth: number
@@ -149,6 +151,25 @@ async function decode(file: File): Promise<{ source: CanvasImageSource; width: n
   }
 }
 
+/**
+ * The same picture without its location, camera and owner metadata
+ * (lib/images/metadata.ts), for every path above that uploads the original.
+ * A re-encode through canvas drops the metadata anyway; an original that goes
+ * up as it came used to keep it, GPS included. Never throws: a file it cannot
+ * read is returned as it was.
+ */
+export async function withoutMetadata<T extends Blob>(file: T): Promise<T | File> {
+  try {
+    const bytes = new Uint8Array(await file.arrayBuffer())
+    const clean = stripImageMetadata(bytes)
+    if (clean === bytes) return file
+    const name = file instanceof File ? file.name : "image"
+    return new File([clean], name, { type: file.type, lastModified: Date.now() })
+  } catch {
+    return file
+  }
+}
+
 export async function compressImage(file: File, profile: CompressProfile): Promise<File> {
   if (typeof document === "undefined") return file
   if (!file.type.startsWith("image/") || LEAVE_ALONE.test(file.type)) return file
@@ -162,29 +183,29 @@ export async function compressImage(file: File, profile: CompressProfile): Promi
 
     // Already small enough AND already a modern format: re-encoding it can
     // only lose detail, and often gains bytes.
-    if (scale === 1 && (file.type === "image/webp" || file.type === "image/avif")) return file
+    if (scale === 1 && (file.type === "image/webp" || file.type === "image/avif")) return (await withoutMetadata(file)) as File
 
     const targetWidth = Math.max(1, Math.round(decoded.width * scale))
     const targetHeight = Math.max(1, Math.round(decoded.height * scale))
     const canvas = drawDownscaled(decoded.source, decoded.width, decoded.height, targetWidth, targetHeight)
-    if (!canvas) return file
+    if (!canvas) return (await withoutMetadata(file)) as File
 
     const blob = await new Promise<Blob | null>((resolve) =>
       canvas.toBlob(resolve, "image/webp", profile.quality),
     )
-    if (!blob || blob.size === 0) return file
+    if (!blob || blob.size === 0) return (await withoutMetadata(file)) as File
 
     // A clean PNG logo, or a photo already compressed harder than this, comes
     // out larger. Uploading that would be a downgrade wearing an optimisation's
-    // name.
-    if (blob.size >= file.size) return file
+    // name. The original goes instead, without its metadata.
+    if (blob.size >= file.size) return (await withoutMetadata(file)) as File
 
     return new File([blob], withExtension(file.name, "webp"), {
       type: "image/webp",
       lastModified: Date.now(),
     })
   } catch {
-    return file
+    return (await withoutMetadata(file)) as File
   } finally {
     release()
   }

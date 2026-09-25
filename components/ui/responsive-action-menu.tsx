@@ -15,12 +15,24 @@
  * Groups come from the items: `separatorBefore` starts a new one, and
  * `section` names it. The order is the caller's, and the caller puts
  * destructive rows last.
+ *
+ * ONE MOTION AT A TIME, ON A PHONE. A row's action used to land 140ms into
+ * the sheet's 340ms close, so Rename's dialog, the builder's settings sheet
+ * or a page change started while the menu was still sliding away: two
+ * things moving at once, which is what read as clunky. The action now waits
+ * for the sheet to have left (`onClosed`), and a link still goes at once,
+ * because the browser, not this menu, is what follows it.
+ *
+ * NOTHING TO REDO WHILE IT MOVES. The rows are built once per set of items
+ * and the component is memoised, so a busy parent (the builder re-renders on
+ * every autosave and every poll) does not rebuild the sheet under a finger.
  */
 
 import * as React from "react"
 import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu"
 import { DropdownMenu, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
+import { hapticTap } from "@/lib/native-bridge"
 import { cn } from "@/lib/utils"
 
 export interface ActionMenuItem {
@@ -84,7 +96,7 @@ const toneOf = (item: ActionMenuItem) => TONE[item.variant ?? "default"]
 
 /* ── the component ─────────────────────────────────────────────────────── */
 
-export function ResponsiveActionMenu({
+export const ResponsiveActionMenu = React.memo(function ResponsiveActionMenu({
   trigger,
   items,
   title,
@@ -100,7 +112,14 @@ export function ResponsiveActionMenu({
 }) {
   const [isMobile, setIsMobile] = React.useState(false)
   const [sheetOpen, setSheetOpen] = React.useState(false)
-  const groups = groupsOf(items)
+  const groups = React.useMemo(() => groupsOf(items), [items])
+  /** The row pressed, run once the sheet has finished leaving. */
+  const pendingRef = React.useRef<(() => void) | null>(null)
+  /** A row was pressed: the sheet closes now and the action runs when it has gone. */
+  const pick = React.useCallback((run: (() => void) | null) => {
+    pendingRef.current = run
+    setSheetOpen(false)
+  }, [])
 
   React.useEffect(() => {
     const mql = window.matchMedia("(max-width: 639px)")
@@ -120,6 +139,9 @@ export function ResponsiveActionMenu({
           e.stopPropagation()
           const original = (trigger.props as { onClick?: (e: React.MouseEvent) => void }).onClick
           original?.(e)
+          pendingRef.current = null
+          /* Felt as the press lands, before anything has moved. */
+          hapticTap("soft")
           setSheetOpen(true)
         },
       },
@@ -128,56 +150,16 @@ export function ResponsiveActionMenu({
     return (
       <>
         {triggerWithHandler}
-        <BottomSheet isOpen={sheetOpen} onClose={() => setSheetOpen(false)} title={title} label={title ?? "Actions"}>
-          <div data-action-sheet="" className="px-2 pb-1 pt-1.5">
-            {groups.map((group, gi) => (
-              <div key={gi} role="group" aria-label={group.title}>
-                {gi > 0 && <div aria-hidden className="mx-3 my-1.5 h-px bg-[#ebecef]" />}
-                {group.title && (
-                  <p className="px-3 pb-1 pt-1.5 text-[12.5px] font-medium text-[#6b7280]">{group.title}</p>
-                )}
-                {group.items.map((item, i) => {
-                  const tone = toneOf(item)
-                  const row = cn(
-                    "flex min-h-[52px] w-full items-center gap-3.5 rounded-xl px-3 text-left text-[16px] font-medium outline-none transition-colors duration-150 [&_svg]:h-5 [&_svg]:w-5",
-                    tone.tap,
-                  )
-                  const body = (
-                    <>
-                      {item.icon && <span className={cn("flex shrink-0 items-center justify-center", tone.icon)}>{item.icon}</span>}
-                      <span className="truncate">{item.label}</span>
-                    </>
-                  )
-                  return item.href ? (
-                    <a
-                      key={i}
-                      href={item.href}
-                      target={item.target}
-                      rel={item.target === "_blank" ? "noopener noreferrer" : undefined}
-                      onClick={() => setSheetOpen(false)}
-                      className={row}
-                    >
-                      {body}
-                    </a>
-                  ) : (
-                    <button
-                      key={i}
-                      type="button"
-                      onClick={() => {
-                        setSheetOpen(false)
-                        // Let the close begin before the action lands, so the
-                        // dismissal reads as a response rather than a freeze.
-                        setTimeout(() => item.onClick?.(), 140)
-                      }}
-                      className={row}
-                    >
-                      {body}
-                    </button>
-                  )
-                })}
-              </div>
-            ))}
-          </div>
+        <BottomSheet isOpen={sheetOpen} onClose={() => setSheetOpen(false)}
+          onClosed={() => {
+            const run = pendingRef.current
+            pendingRef.current = null
+            run?.()
+          }}
+          title={title}
+          label={title ?? "Actions"}
+        >
+          <ActionSheetRows groups={groups} onPick={pick} />
         </BottomSheet>
       </>
     )
@@ -252,4 +234,66 @@ export function ResponsiveActionMenu({
       </DropdownMenuPrimitive.Portal>
     </DropdownMenu>
   )
-}
+})
+
+/**
+ * The phone sheet's rows, memoised on the groups: drawn once when the sheet
+ * opens and left alone while it slides, whatever the page behind it does.
+ */
+const ActionSheetRows = React.memo(function ActionSheetRows({
+  groups,
+  onPick,
+}: {
+  groups: Group[]
+  /** A row was pressed: close, then run this. Null for a link, which the browser follows. */
+  onPick: (run: (() => void) | null) => void
+}) {
+  const pick = React.useRef(onPick)
+  pick.current = onPick
+  return (
+    <div data-action-sheet="" className="px-2 pb-1 pt-1.5">
+      {groups.map((group, gi) => (
+        <div key={gi} role="group" aria-label={group.title}>
+          {gi > 0 && <div aria-hidden className="mx-3 my-1.5 h-px bg-[#ebecef]" />}
+          {group.title && (
+            <p className="px-3 pb-1 pt-1.5 text-[12.5px] font-medium text-[#6b7280]">{group.title}</p>
+          )}
+          {group.items.map((item, i) => {
+            const tone = toneOf(item)
+            const row = cn(
+              "flex min-h-[52px] w-full items-center gap-3.5 rounded-xl px-3 text-left text-[16px] font-medium outline-none transition-colors duration-150 [-webkit-tap-highlight-color:transparent] [&_svg]:h-5 [&_svg]:w-5",
+              tone.tap,
+            )
+            const body = (
+              <>
+                {item.icon && <span className={cn("flex shrink-0 items-center justify-center", tone.icon)}>{item.icon}</span>}
+                <span className="truncate">{item.label}</span>
+              </>
+            )
+            return item.href ? (
+              <a
+                key={i}
+                href={item.href}
+                target={item.target}
+                rel={item.target === "_blank" ? "noopener noreferrer" : undefined}
+                onClick={() => pick.current(null)}
+                className={row}
+              >
+                {body}
+              </a>
+            ) : (
+              <button
+                key={i}
+                type="button"
+                onClick={() => pick.current(item.onClick ?? null)}
+                className={row}
+              >
+                {body}
+              </button>
+            )
+          })}
+        </div>
+      ))}
+    </div>
+  )
+})

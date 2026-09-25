@@ -16,24 +16,24 @@
  *     preview follows it;
  *   • nothing scrolls sideways, at either width.
  *
- *   pnpm build && node scripts/check-website-settings.mjs
+ *   node scripts/check-website-settings.mjs   (PROBE_CSS=source without a build)
  *
  * Screenshots go to SHOTS_DIR, or a temporary folder that is printed.
  */
 import { execFileSync } from "node:child_process"
 import { createServer } from "node:http"
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import puppeteer from "puppeteer-core"
+import { appCss, interFaces } from "./probe-css.mjs"
 
 const root = process.cwd()
 const CHROMIUM = process.env.CHROMIUM_PATH || "/opt/pw-browsers/chromium"
 const fail = (m) => { console.error(`\n${m}\n`); process.exit(1) }
 if (!existsSync(CHROMIUM)) fail(`No browser at ${CHROMIUM}.`)
-const cssDir = join(root, ".next/static/chunks")
-if (!existsSync(cssDir)) fail("No production build found. Run `pnpm build` first.")
-const css = readdirSync(cssDir).filter((f) => f.endsWith(".css")).map((f) => readFileSync(join(cssDir, f), "utf8")).join("\n")
+/* The built stylesheet when there is one, else globals.css compiled from source (scripts/probe-css.mjs). */
+const css = (await appCss(root)) + "\n" + interFaces(root)
 
 const out = mkdtempSync(join(tmpdir(), "storelib-settings-"))
 const shots = process.env.SHOTS_DIR || join(out, "shots")
@@ -331,7 +331,8 @@ console.log("\nphone, 390 wide")
   await sleep(350)
   const inside = await p.evaluate(() => ({
     heading: document.querySelector("main h1")?.textContent,
-    listShown: getComputedStyle(document.querySelector("aside")).display !== "none",
+    /* Under the page, hidden rather than removed, so it keeps its scroll for Back. */
+    listShown: getComputedStyle(document.querySelector("aside")).visibility !== "hidden",
   }))
   expect(inside.heading === "Connections" && !inside.listShown, "a subject opens over the list", inside)
   expect((await overflow(p)) === 0, "and does not scroll sideways", await overflow(p))
@@ -346,7 +347,8 @@ console.log("\nphone, 390 wide")
   await p.screenshot({ path: join(shots, "phone-connections-github.png"), fullPage: false })
   await clickText(p, "main button", "Website Settings")
   await sleep(250)
-  expect(await p.evaluate(() => getComputedStyle(document.querySelector("aside")).display !== "none"), "its Back returns to the list")
+  await sleep(200)
+  expect(await p.evaluate(() => getComputedStyle(document.querySelector("aside")).visibility !== "hidden" && getComputedStyle(document.querySelector("main")).display === "none"), "its Back returns to the list")
 
   for (const label of EXPECTED) {
     await clickText(p, "nav[aria-label='Website settings'] button", label)

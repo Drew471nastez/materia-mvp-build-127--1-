@@ -27,6 +27,13 @@
  *                                         spinner; past it the spinner,
  *                                         faded in over about 150ms, the old
  *                                         page under it until the new one
+ *   A LITTLE HIGHER                       "move that loading thing a little
+ *                                         bit more up": its centre at 0.38 to
+ *                                         0.42 of the content area's height
+ *   QUICK TO GO, AND NO GAP               "doesn't stay so long ... no empty
+ *                                         gap": gone within 150ms of the
+ *                                         commit, and surface and page
+ *                                         together cover every frame after
  *   ON A COMPUTER                         the bar from 300ms, the spinner
  *                                         only past 1000ms
  *   ONE SPINNER THROUGH TWO CLICKS        a second click while it is up does
@@ -181,7 +188,7 @@ for (const [label, viewport] of [
     await page.evaluate((d) => { window.__delay = d }, delay)
     const t0 = await now()
     await page.evaluate((to) => document.querySelector(`a[data-to="${to}"]`).click(), to)
-    if (shot && process.env.STAGE_SHOTS) { await wait(shot.at); await page.screenshot({ path: join(process.env.STAGE_SHOTS, `${label}-${shot.name}.png`) }); await wait(delay + settle - shot.at) } else await wait(delay + settle)
+    if (shot && process.env.STAGE_SHOTS) { await wait(shot.at); await page.screenshot({ path: join(process.env.STAGE_SHOTS, `loading-${label}-${shot.name}.png`) }); await wait(delay + settle - shot.at) } else await wait(delay + settle)
     return { t0, ...(await since(t0)) }
   }
 
@@ -228,6 +235,11 @@ for (const [label, viewport] of [
       fadeInMs: full < 0 || first < 0 ? null : Math.round(before[full].t - before[first].t),
       opacityAtCommit: commit < 0 || !nav.rec[commit - 1] ? null : r2(nav.rec[commit - 1].slowOpacity),
       goneAfterCommitMs: commit < 0 || gone < 0 ? null : Math.round(after[gone].t - after[0].t),
+      /* How much of the screen is covered, surface or page, on the worst
+         frame after the commit: the surface's own opacity plus what of the
+         page shows through it. Under 1 is a frame of neither, the "empty
+         gap" after the spinner. Read over the landing's first 300ms. */
+      coverAfterCommit: commit < 0 ? null : r2(Math.min(...after.filter((r) => r.t - after[0].t <= 300).map((r) => Math.min(1, r.slowOpacity + (r.seen ?? 0))))),
       continuous: first < 0 ? null : before.slice(first).every((r) => r.slow),
       dipsBeforeCommit: dips,
       spinnerFrames: nav.rec.filter((r) => r.spinnerShown).length,
@@ -390,6 +402,13 @@ for (const [label, viewport] of [
       surfacePointerEvents: slow ? getComputedStyle(slow.firstElementChild).pointerEvents : null,
       middleIsThePage: !!hit?.closest("[data-page]"),
       linkIsTheLink: linkHit?.getAttribute("data-to") === "/app/analytics",
+      /* Where the spinner sits in the surface, as a fraction of its height
+         from the top: 0.5 was the middle, and "a little bit more up" is the
+         optical middle, about 0.4. */
+      spinnerAt: (() => {
+        const sp = document.querySelector("[data-activity-spinner]").getBoundingClientRect()
+        return { y: Math.round(((sp.top + sp.height / 2 - surface.top) / surface.height) * 1000) / 1000, dx: Math.round(sp.left + sp.width / 2 - (surface.left + surface.width / 2)), fromTop: Math.round(sp.top + sp.height / 2 - surface.top) }
+      })(),
       button: { x: button.left + button.width / 2, y: button.top + button.height / 2 },
     }
   })
@@ -506,9 +525,13 @@ for (const [label, viewport] of [
     if (s.frames && !s.continuous) problems.push(`${at} the ${name} navigation's spinner went away before the page came`)
     if (s.dipsBeforeCommit) problems.push(`${at} the ${name} navigation's spinner dimmed ${s.dipsBeforeCommit} times before the page came`)
     if (s.movedFrames) problems.push(`${at} the ${name} navigation's spinner surface moved: it should fade on opacity alone`)
-    if (s.frames && (s.goneAfterCommitMs == null || s.goneAfterCommitMs > 260)) problems.push(`${at} the ${name} navigation's spinner was still up ${s.goneAfterCommitMs}ms after the page came`)
+    if (s.frames && (s.goneAfterCommitMs == null || s.goneAfterCommitMs > 150)) problems.push(`${at} the ${name} navigation's spinner was still up ${s.goneAfterCommitMs}ms after the page came: it should be gone within about 120ms`)
     if (s.frames && s.spinnerFrames === 0) problems.push(`${at} the ${name} navigation's surface came up with no spinner on it`)
   }
+  /* "After it ends there is no empty gap": under a fully raised surface the
+     page is whole on the commit frame, so surface and page cover the screen
+     between them on every frame. */
+  if (slowSpinner.coverAfterCommit == null || slowSpinner.coverAfterCommit < 0.98) problems.push(`${at} after the slow page came, a frame showed only ${slowSpinner.coverAfterCommit} of surface and page together: an empty gap`)
   /* A page that lands under the fully raised surface only rises: the surface's fade is its fade. */
   if (slowLanding && slowLanding.firstPageOpacity < 0.99) problems.push(`${at} under the spinner the page faded in as well (from ${slowLanding.firstPageOpacity}): two fades multiplied`)
   if (phone) {
@@ -539,6 +562,7 @@ for (const [label, viewport] of [
   if (returnedSpinner || returnedBar) problems.push(`${at} pressing the showing page while another was on its way left the spinner for ${returnedSpinner} frames and the bar for ${returnedBar}`)
   if (guardSpinner || guardBar) problems.push(`${at} Back onto a guard entry at the same address drew the spinner for ${guardSpinner} frames and the bar for ${guardBar}`)
   if (!through.up) problems.push(`${at} the surface was not up for the press-through check`)
+  if (through.spinnerAt.y < 0.38 || through.spinnerAt.y > 0.42 || Math.abs(through.spinnerAt.dx) > 1) problems.push(`${at} the spinner sits at ${through.spinnerAt.y} of the surface's height (${through.spinnerAt.dx}px off centre across): it belongs at 0.38 to 0.42`)
   if (through.pointerEvents !== "none") problems.push(`${at} the surface takes presses (pointer-events ${through.pointerEvents})`)
   if (!through.middleIsThePage) problems.push(`${at} the point under the surface's middle is not the page`)
   if (!through.linkIsTheLink) problems.push(`${at} the header's link is not what is under the finger while the surface is up`)
@@ -619,6 +643,7 @@ for (const [label, viewport] of [
       centredIn: {
         dx: Math.round(r.left + r.width / 2 - (area.left + area.width / 2)),
         dy: Math.round(r.top + r.height / 2 - (area.top + area.height / 2)),
+        y: Math.round(((r.top + r.height / 2 - area.top) / area.height) * 1000) / 1000,
       },
       surface: { top: Math.round(area.top), background: getComputedStyle(surface).backgroundColor, radius: getComputedStyle(surface).borderTopLeftRadius },
       animation: getComputedStyle(box).animationName + " " + getComputedStyle(box).animationDuration + " " + getComputedStyle(box).animationTimingFunction,
@@ -627,7 +652,7 @@ for (const [label, viewport] of [
     }
   })
   spin.smooth = smooth
-  if (process.env.STAGE_SHOTS) await page.screenshot({ path: join(process.env.STAGE_SHOTS, "spinner-390.png") })
+  if (process.env.STAGE_SHOTS) await page.screenshot({ path: join(process.env.STAGE_SHOTS, "loading-spinner-390.png") })
   /* THE CORNERS, AS PIXELS. Leaving Home, whose top is the violet bar, the
      two rounded corners of the surface must show the header's #111111, not
      the page under them. Read 3px in from each side, 3px below the header. */
@@ -667,7 +692,7 @@ for (const [label, viewport] of [
   if (spin.spokes !== 8) problems.push(`the spinner has ${spin.spokes} spokes, not 8`)
   if (spin.colour !== "rgb(156, 163, 175)") problems.push(`the spinner is ${spin.colour}, not the light gray #9ca3af`)
   if (spin.size[0] !== 26 || spin.size[1] !== 26 || spin.drawn[0] !== 26) problems.push(`the spinner is ${spin.size.join("x")} (drawn ${spin.drawn.join("x")}), not 26x26`)
-  if (Math.abs(spin.centredIn.dx) > 1 || Math.abs(spin.centredIn.dy) > 1) problems.push(`the spinner is ${spin.centredIn.dx}, ${spin.centredIn.dy} off the content area's centre`)
+  if (Math.abs(spin.centredIn.dx) > 1 || spin.centredIn.y < 0.38 || spin.centredIn.y > 0.42) problems.push(`the spinner is ${spin.centredIn.dx}px off centre across and at ${spin.centredIn.y} of the height, not 0.38 to 0.42`)
   if (spin.surface.top !== 68 || spin.surface.background !== "rgb(248, 249, 250)" || spin.surface.radius !== "20px") problems.push(`the surface is not the content area: ${JSON.stringify(spin.surface)}`)
   if (!/^activity-spin 1s linear$/.test(spin.animation)) problems.push(`the spinner turns on ${spin.animation}, not one turn a second, linear`)
   if (spin.tag !== "SPAN" || spin.willChange !== "transform") problems.push(`the turn is on a ${spin.tag} with will-change ${spin.willChange}, not an HTML box on its own layer`)
@@ -681,4 +706,4 @@ await browser.close()
 server.close()
 console.log(JSON.stringify(report, null, 1))
 if (problems.length) fail(problems.join("\n"))
-console.log("ok: no outline anywhere; a phone waits 500ms and a computer a second before the spinner; one fade in, one fade out; back keeps its place; presses go through it, it gives way at 8s and never outstays the page; the spinner is 26px and turns without a repeated or jumping frame")
+console.log("ok: no outline anywhere; a phone waits 500ms and a computer a second before the spinner; it sits 40% of the way down; one fade in, one quick fade out with no gap after it; back keeps its place; presses go through it, it gives way at 8s and never outstays the page; the spinner is 26px and turns without a repeated or jumping frame")

@@ -10,27 +10,42 @@
  *   the first two columns stay put            under a horizontal scroll
  *   a finger swipes the table sideways        a real touch gesture
  *     and not the page
- *   an order opens over the list              the list is covered, not gone
- *   its bar is there on the first frame       ms from the click to the frame
- *     after the click, at one size             that draws it, its size on
- *                                              every frame, layout shift
+ *   an order opens over the list, on the      every frame from the tap: where
+ *     first frame after the tap: slid in       the order's layer is and how
+ *     from the right on a phone, faded in      opaque, where the list under it
+ *     on a computer, the list drawn under      is and whether it is drawn,
+ *     it until it rests, never a blank         columns covered by neither, how
+ *     frame, the timeline already whole        long until it rests, timeline
+ *                                              rows on the first and last frame
+ *   a finger on a row, or a pointer resting   the requests the stand-in server
+ *     on one, reads the order's history        saw before the tap lifted
  *   the bar spans the pane, carries the       its rect against the pane's,
  *     date, and has depth only once           its text, data-scrolled and
  *     something is under it                   its shadow at 0 and scrolled
  *   the cards sit as Shopify's do             column tops, widths, gaps; on a
  *                                              phone one column, in order
- *   back returns to exactly where it was      the next frame, vertical and
- *                                              sideways scroll, ticked rows,
- *                                              the address, no skeleton
+ *   back returns to exactly where it was      every frame: the list drawn, its
+ *     with the order sliding or fading off     scrollTop, the order's layer; then
+ *     it, and the row it came from tinted      sideways scroll, ticked rows, the
+ *     for a moment                             address, no skeleton, the tint
+ *   a step to the next order fades only       the layer's place and opacity,
+ *     its cards                                the cards' opacity
  *   one dialog at a time                      a centred dialog on a laptop;
  *                                              on a phone the menu's sheet is
  *                                              gone before the refund's rises
  *   a link straight to an order               the page does not fade in as a
  *                                              whole
+ *   Export: a panel hung from the button on   its rect against the button's, on
+ *     a computer; the shared sheet on a        a phone every frame of its rise
+ *     phone, anchored to the bottom, rising    and fall, its rows and button,
+ *     once, filled on its first frame; the     the file written and the notice
+ *     file is made and the page says so
  *
- * and writes screenshots of each state, desktop and phone, to look at.
+ * and writes screenshots of each state, desktop and phone, and two frames
+ * held half way through a move, to look at (prefixed orders-).
  *
- *   pnpm build && node scripts/check-orders-page.mjs
+ *   node scripts/check-orders-page.mjs                    (built CSS, or the source's)
+ *   PROBE_CSS=source node scripts/check-orders-page.mjs
  *   CSS_URL=http://localhost:3000/login node scripts/check-orders-page.mjs   (a dev server's CSS instead)
  */
 import { execFileSync } from "node:child_process"
@@ -40,6 +55,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { createRequire } from "node:module"
 import puppeteer from "puppeteer-core"
+import { appCss, interFaces } from "./probe-css.mjs"
 
 const root = process.cwd()
 const CHROMIUM = process.env.CHROMIUM_PATH || "/opt/pw-browsers/chromium"
@@ -47,12 +63,9 @@ const fail = (m) => { console.error(`\n${m}\n`); process.exit(1) }
 if (!existsSync(CHROMIUM)) fail(`No browser at ${CHROMIUM}.`)
 
 async function stylesheet() {
-  const cssDir = join(root, ".next/static/chunks")
-  if (existsSync(cssDir) && !process.env.CSS_URL) {
-    return readdirSync(cssDir).filter((f) => f.endsWith(".css")).map((f) => readFileSync(join(cssDir, f), "utf8")).join("\n")
-  }
   const base = process.env.CSS_URL
-  if (!base) fail("No production build found. Run `pnpm build` first, or set CSS_URL to a running dev server's page.")
+  /* Inter from a build when there is one, so text is measured in the face that ships. */
+  if (!base) return (await appCss(root)) + "\n" + interFaces(root)
   const html = await (await fetch(base)).text()
   const hrefs = [...html.matchAll(/<link[^>]+rel="stylesheet"[^>]+href="([^"]+)"/g)].map((m) => new URL(m[1], base).toString())
   return (await Promise.all(hrefs.map(async (h) => (await fetch(h)).text()))).join("\n")
@@ -140,8 +153,21 @@ const page = (html) =>
 const html = page(markup)
 const orderHtml = page(orderMarkup)
 
+/* The two things an order's timeline reads, answered a little late, as a
+   real network would, and logged so a prefetch can be seen to have asked. */
+const served = []
+const API_DELAY_MS = 150
 const server = createServer((req, res) => {
   if (req.url.startsWith("/probe.js")) { res.writeHead(200, { "content-type": "text/javascript" }); return res.end(bundle) }
+  if (req.url.startsWith("/api/")) {
+    served.push({ url: req.url, at: Date.now() })
+    const body = req.url.includes("/activity")
+      ? { activity: [{ id: "act-1", type: "receipt_resent", at: new Date(NOW - 40 * 60_000).toISOString(), by: "creator", failed: false }] }
+      : req.url.includes("order-timeline")
+        ? { timeline: [{ id: "funds_available", label: "Available soon", timestamp: new Date(NOW + 3 * 86_400_000).toISOString(), status: "pending" }] }
+        : {}
+    return setTimeout(() => { res.writeHead(200, { "content-type": "application/json" }); res.end(JSON.stringify(body)) }, API_DELAY_MS)
+  }
   res.writeHead(200, { "content-type": "text/html" })
   res.end(req.url.includes("order=ord-0005") ? orderHtml : html)
 })
@@ -171,27 +197,55 @@ async function open(viewport, path = "/app/orders") {
   return p
 }
 
-/* Every frame from now until `ms` later: the order's bar, where it is and
-   how opaque everything above it makes it, and whether the list shows. */
+/*
+  Every frame from now until `ms` later: where the order's layer is and how
+  opaque, its bar relative to it, whether the list is drawn and where, how
+  far down it is, how many timeline rows the order has, and whether a row of
+  the list is tinted. A frame is BLANK where some column of the stage is
+  covered neither by a drawn list nor by a fully opaque order.
+*/
 async function recordFrames(p, ms) {
   await p.evaluate((ms) => {
     window.__frames = []
     window.__clickAt = null
-    const onClick = (e) => { if (window.__clickAt === null) window.__clickAt = performance.now() }
+    const onClick = () => { if (window.__clickAt === null) window.__clickAt = performance.now() }
     document.addEventListener("click", onClick, { capture: true, once: true })
     document.addEventListener("touchend", onClick, { capture: true, once: true })
     const t0 = performance.now()
     const opacityOf = (el) => { let o = 1; for (let n = el; n && n !== document.body; n = n.parentElement) o *= Number(getComputedStyle(n).opacity); return o }
     const tick = () => {
-      const bar = document.querySelector(".orders-detail [data-orders-bar]")
-      const body = document.querySelector(".orders-detail .orders-body")
-      const list = document.querySelector(".orders-pane")
+      const stage = document.querySelector(".orders-stage").getBoundingClientRect()
+      const detail = document.querySelector(".orders-detail")
+      const bar = detail?.querySelector("[data-orders-bar]")
+      const body = detail?.querySelector(".orders-body")
+      const list = document.querySelector(".orders-list")
+      const lr = list.getBoundingClientRect()
+      const dr = detail?.getBoundingClientRect()
       const r = bar?.getBoundingClientRect()
+      const listShown = getComputedStyle(list).visibility !== "hidden"
+      const dOpacity = detail ? opacityOf(detail) : 0
+      const spans = []
+      if (listShown) spans.push([Math.max(stage.left, lr.left), Math.min(stage.right, lr.right)])
+      if (detail && dOpacity >= 0.999) spans.push([Math.max(stage.left, dr.left), Math.min(stage.right, dr.right)])
+      spans.sort((a, b) => a[0] - b[0])
+      let covered = 0
+      let reach = stage.left
+      for (const [a, b] of spans) {
+        if (b <= reach) continue
+        covered += b - Math.max(a, reach)
+        reach = b
+      }
       window.__frames.push({
         t: performance.now(),
-        bar: r ? { top: r.top, left: r.left, width: r.width, height: r.height, opacity: opacityOf(bar) } : null,
+        detail: dr ? { left: dr.left, opacity: dOpacity, leaving: detail.hasAttribute("data-leaving") } : null,
+        bar: r ? { top: r.top, left: r.left, dx: r.left - dr.left, width: r.width, height: r.height, opacity: opacityOf(bar) } : null,
         body: body ? opacityOf(body) : null,
-        listShown: list ? getComputedStyle(list).visibility !== "hidden" : false,
+        listShown,
+        listLeft: lr.left,
+        listTop: list.scrollTop,
+        blank: Math.max(0, Math.round(stage.width - covered)),
+        timeline: detail ? detail.querySelectorAll("ol li").length : 0,
+        picked: document.querySelector(".orders-list tr[data-picked]")?.dataset.picked ?? null,
         skeleton: document.querySelectorAll(".skeleton-late").length,
       })
       if (performance.now() - t0 < ms) requestAnimationFrame(tick)
@@ -201,18 +255,55 @@ async function recordFrames(p, ms) {
 }
 const readFrames = (p) => p.evaluate(() => ({ frames: window.__frames, clickAt: window.__clickAt }))
 
-function barOnFirstFrame({ frames, clickAt }) {
+/* An order coming in: when its layer first shows, how, and how long until it rests. */
+function arrival({ frames, clickAt }) {
   const after = frames.filter((f) => clickAt !== null && f.t >= clickAt)
-  const first = after.find((f) => f.bar)
-  const sizes = new Set(after.filter((f) => f.bar).map((f) => `${f.bar.left.toFixed(1)},${f.bar.top.toFixed(1)},${f.bar.width.toFixed(1)}x${f.bar.height.toFixed(1)}`))
+  const first = after.find((f) => f.detail)
+  const shown = after.filter((f) => f.detail)
+  const rest = shown.find((f) => Math.abs(f.detail.left) < 0.5 && f.detail.opacity >= 0.999)
+  const lefts = shown.map((f) => f.detail.left)
+  const opacities = shown.map((f) => f.detail.opacity)
   return {
     ms: first ? Math.round(first.t - clickAt) : null,
     framesBefore: first ? after.indexOf(first) : null,
-    opacity: first ? Number(first.bar.opacity.toFixed(3)) : null,
-    bodyFirst: first ? Number((first.body ?? 0).toFixed(3)) : null,
-    sizes: [...sizes],
-    bodyFullAt: (() => { const f = after.find((x) => x.body !== null && x.body >= 0.999); return f ? Math.round(f.t - clickAt) : null })(),
-    fadeMs: (() => { const f = after.find((x) => x.body !== null && x.body >= 0.999); return f && first ? Math.round(f.t - first.t) : null })(),
+    firstLeft: first ? Math.round(first.detail.left) : null,
+    firstOpacity: first ? Number(first.detail.opacity.toFixed(3)) : null,
+    restMs: rest && first ? Math.round(rest.t - first.t) : null,
+    frames: shown.length,
+    monotonic: lefts.every((l, i) => i === 0 || l <= lefts[i - 1] + 0.5) && opacities.every((o, i) => i === 0 || o >= opacities[i - 1] - 0.001),
+    barOffsets: [...new Set(after.filter((f) => f.bar).map((f) => `${f.bar.dx.toFixed(1)},${f.bar.width.toFixed(1)}x${f.bar.height.toFixed(1)}`))],
+    barPlaces: [...new Set(after.filter((f) => f.bar).map((f) => `${f.bar.left.toFixed(1)},${f.bar.top.toFixed(1)}`))],
+    listDuring: shown.filter((f) => rest ? f.t < rest.t : true).every((f) => f.listShown),
+    listLeftMin: Math.round(Math.min(...after.map((f) => f.listLeft))),
+    listAfter: after.at(-1)?.listShown,
+    blank: Math.max(0, ...after.map((f) => f.blank)),
+    blankFrames: after.filter((f) => f.blank > 0).length,
+    timelineFirst: first?.timeline ?? null,
+    timelineLast: after.at(-1)?.timeline ?? null,
+    picked: [...new Set(after.map((f) => f.picked))],
+  }
+}
+
+/* An order going back to the list: every frame, the list drawn; the order off and gone. */
+function departure({ frames, clickAt }) {
+  const after = frames.filter((f) => clickAt !== null && f.t >= clickAt)
+  const firstMove = after.find((f) => f.detail && (f.detail.left > 0.5 || f.detail.opacity < 0.999))
+  const gone = after.find((f) => !f.detail)
+  const lefts = after.filter((f) => f.detail).map((f) => f.detail.left)
+  const opacities = after.filter((f) => f.detail).map((f) => f.detail.opacity)
+  return {
+    startMs: firstMove ? Math.round(firstMove.t - clickAt) : null,
+    goneMs: gone ? Math.round(gone.t - clickAt) : null,
+    moveMs: gone && firstMove ? Math.round(gone.t - firstMove.t) : null,
+    framesWithoutList: after.filter((f) => !f.listShown).length,
+    blank: Math.max(0, ...after.map((f) => f.blank)),
+    monotonic: lefts.every((l, i) => i === 0 || l >= lefts[i - 1] - 0.5) && opacities.every((o, i) => i === 0 || o <= opacities[i - 1] + 0.001),
+    leavingInert: after.filter((f) => f.detail && f.detail.leaving).length,
+    listLeftFirst: after[0] ? Math.round(after[0].listLeft) : null,
+    listLeftLast: after.at(-1) ? Math.round(after.at(-1).listLeft) : null,
+    scrollTops: [...new Set(after.map((f) => f.listTop))],
+    picked: [...new Set(after.map((f) => f.picked))],
+    skeleton: Math.max(0, ...after.map((f) => f.skeleton)),
   }
 }
 
@@ -250,7 +341,7 @@ console.log("\ndesktop, 1280 wide")
   expect(r.sources.some((s) => /^Website · (Instagram|TikTok)$/.test(s)) && r.sources.some((s) => /^Storelib · (Google|Direct)$/.test(s)), "the Source column says the channel and where the visit came from", r.sources)
   expect(near(r.listBar.bar[0], r.listBar.pane[0]) && near(r.listBar.bar[1], r.listBar.pane[1], 1), "the list's bar spans the pane", r.listBar)
   expect(r.metrics === 5, "five figures: sales, orders, average order, customers, refunds", r.metrics)
-  await p.screenshot({ path: join(shots, "desktop-list.png") })
+  await p.screenshot({ path: join(shots, "orders-desktop-list.png") })
 
   /* Scroll the list down, tick a row, filter, then open an order and come back. */
   await p.click(".orders-scroller tbody tr:nth-child(3) label")
@@ -265,15 +356,28 @@ console.log("\ndesktop, 1280 wide")
   })
   const wanted = await p.evaluate(() => document.querySelector(".orders-scroller tbody tr:nth-child(12) td:nth-child(2) a").textContent)
   const clsBefore = await p.evaluate(() => window.__cls)
+  /* The pointer rests on the row first, as a hand does before it clicks:
+     the order's history is asked for then, not after it opens. */
+  const servedBefore = served.length
+  await p.mouse.move(spot.x, spot.y)
+  await sleep(API_DELAY_MS + 250)
+  const hoverAsked = served.slice(servedBefore).map((s) => s.url)
   await recordFrames(p, 700)
   await p.mouse.click(spot.x, spot.y)
   await sleep(800)
-  const opening = barOnFirstFrame(await readFrames(p))
+  const openFrames = await readFrames(p)
+  if (process.env.DUMP) console.log(JSON.stringify(openFrames.frames.filter((f) => f.t >= openFrames.clickAt).map((f) => [Math.round(f.t - openFrames.clickAt), f.detail && Number(f.detail.opacity.toFixed(3))])))
+  const opening = arrival(openFrames)
   const clsOpen = (await p.evaluate(() => window.__cls)) - clsBefore
-  console.log(`  ..    click to bar drawn: ${opening.ms}ms, ${opening.framesBefore} frames before it; bar opacity on that frame ${opening.opacity}; cards fully in at ${opening.bodyFullAt}ms; bar sizes seen ${JSON.stringify(opening.sizes)}; layout shift ${clsOpen.toFixed(4)}`)
-  expect(opening.ms !== null && opening.framesBefore === 0 && opening.opacity === 1, "the order's bar is drawn, whole, on the first frame after the click", opening)
-  expect(opening.sizes.length === 1, "and at one size and place on every frame", opening.sizes)
-  expect(opening.fadeMs !== null && opening.fadeMs <= 160, "the cards under it are in after a very short fade", opening.fadeMs)
+  console.log(`  ..    click to the order's first frame: ${opening.ms}ms, ${opening.framesBefore} frames before it, at opacity ${opening.firstOpacity}; at rest ${opening.restMs}ms later over ${opening.frames} frames; list drawn under it until then: ${opening.listDuring}, after: ${opening.listAfter}; blank frames ${opening.blankFrames} (max ${opening.blank}px); timeline rows first/last ${opening.timelineFirst}/${opening.timelineLast}; bar places ${JSON.stringify(opening.barPlaces)}; layout shift ${clsOpen.toFixed(4)}`)
+  expect(hoverAsked.some((u) => u.includes("/activity")) && hoverAsked.some((u) => u.includes("order-timeline")), "a pointer resting on a row asks for that order's history ahead", hoverAsked)
+  expect(opening.ms !== null && opening.framesBefore === 0, "the order is on the first frame after the click", opening.ms)
+  expect(opening.firstOpacity < 0.5 && opening.restMs !== null && opening.restMs >= 90 && opening.restMs <= 220 && opening.monotonic, "on a computer it fades in, quickly and only one way", { first: opening.firstOpacity, restMs: opening.restMs })
+  expect(opening.barPlaces.length === 1, "its bar never moves while it does", opening.barPlaces)
+  expect(opening.listDuring && opening.listAfter === false, "the list is drawn under it while it fades, and not after", { during: opening.listDuring, after: opening.listAfter })
+  expect(opening.blankFrames === 0, "no frame shows neither the list nor the order", opening.blank)
+  expect(opening.timelineFirst === opening.timelineLast && opening.timelineFirst >= 5, "the timeline is whole on the first frame, the history already read", `${opening.timelineFirst}/${opening.timelineLast}`)
+  expect(opening.picked.includes("held"), "the row it came from is tinted under it", opening.picked)
   expect(clsOpen < 0.001, "opening an order shifts nothing", clsOpen)
 
   const opened = await p.evaluate(() => {
@@ -284,6 +388,7 @@ console.log("\ndesktop, 1280 wide")
       title: d.querySelector("h1")?.textContent,
       url: location.search,
       transform: getComputedStyle(d).transform,
+      opacity: getComputedStyle(d).opacity,
       listHidden: getComputedStyle(document.querySelector(".orders-pane")).visibility,
       listInert: document.querySelector(".orders-pane").inert,
       listStillThere: document.querySelectorAll(".orders-scroller tbody tr").length,
@@ -296,7 +401,7 @@ console.log("\ndesktop, 1280 wide")
   })
   expect(opened.title === wanted, "the clicked order opens", `${opened.title} vs ${wanted}`)
   expect(/[?&]order=/.test(opened.url), "its address is in the URL", opened.url)
-  expect(opened.transform === "none", "nothing slides", opened.transform)
+  expect(opened.transform === "none" && opened.opacity === "1", "at rest, nothing is left moved or faded", { transform: opened.transform, opacity: opened.opacity })
   expect(opened.listHidden === "hidden" && opened.listInert === true && opened.listStillThere === 50, "the list is covered, still mounted, and out of the tab order", { hidden: opened.listHidden, inert: opened.listInert, rows: opened.listStillThere })
   expect(near(opened.bar.left, opened.pane.left) && near(opened.bar.width, opened.pane.width, 1) && near(opened.bar.top, opened.pane.top), "the bar spans the pane, edge to edge, at its top", { bar: opened.bar, pane: opened.pane })
   expect(/ at \d{1,2}:\d\d (am|pm) from (Website|Storelib)$/.test(opened.barText), "the date is a line of the bar itself", opened.barText)
@@ -317,14 +422,14 @@ console.log("\ndesktop, 1280 wide")
   expect(main[0].top === side[0].top && main[0].top >= Math.round(opened.bar.bottom), "both columns start together, under the bar", { main: main[0].top, side: side[0].top, bar: opened.bar.bottom })
   const gaps = [main[1].top - main[0].bottom, main[2].top - main[1].bottom, side[1].top - side[0].bottom]
   expect(gaps.every((g) => g === 16), "one under the other with equal gaps", gaps)
-  await p.screenshot({ path: join(shots, "desktop-order.png") })
+  await p.screenshot({ path: join(shots, "orders-desktop-order.png") })
 
   /* Scrolled: the cards go under the bar, which takes its depth. */
   await p.evaluate(() => { document.querySelector(".orders-detail").scrollTop = 260 })
   await sleep(250)
   const scrolled = await p.evaluate(() => { const b = document.querySelector(".orders-detail [data-orders-bar]"); return { scrolled: b.dataset.scrolled, shadow: getComputedStyle(b).boxShadow, top: b.getBoundingClientRect().top } })
   expect(scrolled.scrolled === "true" && /rgba\(17, 24, 39, 0\.07\)/.test(scrolled.shadow) && near(scrolled.top, opened.pane.top), "scrolled, the bar stays and takes a hairline and a soft shadow", scrolled)
-  await p.screenshot({ path: join(shots, "desktop-order-scrolled.png") })
+  await p.screenshot({ path: join(shots, "orders-desktop-order-scrolled.png") })
   await p.evaluate(() => { document.querySelector(".orders-detail").scrollTop = 0 })
   await sleep(100)
 
@@ -342,31 +447,48 @@ console.log("\ndesktop, 1280 wide")
   })
   expect(dialog.count === 1 && dialog.menus === 0 && dialog.title === "Change customer email", "one dialog, the menu gone", dialog)
   expect(near(dialog.cx, 640, 1) && near(dialog.cy, 430, 2), "in the middle of the window", { cx: dialog.cx, cy: dialog.cy })
-  await p.screenshot({ path: join(shots, "desktop-dialog.png") })
+  await p.screenshot({ path: join(shots, "orders-desktop-dialog.png") })
   await p.keyboard.press("Escape")
   await sleep(350)
   const closedDialog = await p.evaluate(() => document.querySelectorAll("[role=dialog]").length)
   expect(closedDialog === 0, "and Escape closes it", closedDialog)
 
-  /* Back: the next frame is the list, where it was. */
-  await recordFrames(p, 400)
+  /* A step to the next order: the bar stays, only the cards fade. */
+  await recordFrames(p, 300)
+  await p.click("button[aria-label='Next order']")
+  await sleep(400)
+  const step = await readFrames(p)
+  const stepFrames = step.frames.filter((f) => step.clickAt !== null && f.t >= step.clickAt && f.detail)
+  const stepBody = stepFrames.map((f) => f.body ?? 1)
+  console.log(`  ..    a step: the order's layer at opacity ${Math.min(...stepFrames.map((f) => f.detail.opacity)).toFixed(3)}..1 and left ${Math.max(...stepFrames.map((f) => Math.abs(f.detail.left)))}; the cards from ${Math.min(...stepBody).toFixed(3)}`)
+  expect(stepFrames.every((f) => f.detail.opacity >= 0.999 && Math.abs(f.detail.left) < 0.5) && Math.min(...stepBody) < 0.9, "a step to the next order keeps the layer still and fades only the cards", Math.min(...stepBody))
+  await p.click("button[aria-label='Previous order']")
+  await sleep(300)
+
+  /* Back: the list is drawn on every frame, the order fades off it. */
+  await recordFrames(p, 500)
   await p.click("button[aria-label='Back to orders']")
-  await sleep(500)
-  const back = await readFrames(p)
-  const shownAt = back.frames.find((f) => back.clickAt !== null && f.t >= back.clickAt && f.listShown)
+  await sleep(600)
+  const back = departure(await readFrames(p))
   const after = await p.evaluate(() => ({
-    top: document.querySelector(".orders-pane").scrollTop,
+    top: document.querySelector(".orders-list").scrollTop,
     url: location.search,
     detail: !!document.querySelector(".orders-detail"),
     ticked: document.querySelectorAll(".orders-scroller tbody input:checked").length,
+    picked: document.querySelector(".orders-list tr[data-picked]")?.dataset.picked ?? null,
   }))
-  const backMs = shownAt ? Math.round(shownAt.t - back.clickAt) : null
-  console.log(`  ..    back to the list drawn: ${backMs}ms after the click, ${back.frames.filter((f) => f.t >= back.clickAt && !f.listShown).length} frames without it; skeletons seen ${Math.max(0, ...back.frames.map((f) => f.skeleton))}`)
-  expect(!after.detail && shownAt && back.frames.filter((f) => f.t >= back.clickAt && !f.listShown).length === 0, "back shows the list on the next frame", backMs)
-  expect(Math.max(0, ...back.frames.map((f) => f.skeleton)) === 0, "with no skeleton", back.frames.length)
-  expect(after.top === before.top && before.top > 0, "and the list is exactly as far down as it was", `${after.top} vs ${before.top}`)
+  console.log(`  ..    back: the order starts to go ${back.startMs}ms after the click and is gone at ${back.goneMs}ms (${back.moveMs}ms of fade); frames without the list ${back.framesWithoutList}; blank ${back.blank}px; list scrollTop on every frame ${JSON.stringify(back.scrollTops)}; row tint ${JSON.stringify(back.picked)}; skeletons ${back.skeleton}`)
+  expect(!after.detail && back.framesWithoutList === 0 && back.blank === 0, "back draws the list under the order on every frame", back.framesWithoutList)
+  expect(back.monotonic && back.moveMs !== null && back.moveMs <= 220, "and the order fades off it, quickly and only one way", back.moveMs)
+  expect(back.leavingInert > 0, "the leaving order is marked leaving (inert) while it goes", back.leavingInert)
+  expect(back.skeleton === 0, "with no skeleton", back.skeleton)
+  expect(after.top === before.top && before.top > 0 && back.scrollTops.length === 1 && back.scrollTops[0] === before.top, "and the list is exactly as far down as it was, on every frame", `${after.top} vs ${before.top}`)
+  expect(back.picked.includes("fading"), "the row the order came from is tinted, then fades", back.picked)
   expect(after.ticked === 1, "with the same row still ticked", after.ticked)
   expect(after.url === before.url, "and the same address", `${after.url} vs ${before.url}`)
+  await sleep(1000)
+  const cleared = await p.evaluate(() => document.querySelectorAll(".orders-list tr[data-picked]").length)
+  expect(cleared === 0, "and the tint is gone a moment later", cleared)
   await p.close()
 }
 
@@ -390,7 +512,7 @@ console.log("\nphone, 390 wide, touch")
   expect(r.errors.length === 0, "hydrates with no error", r.errors.slice(0, 2).join(" | "))
   expect(r.cls < 0.001, "nothing shifted while it hydrated", r.cls)
   expect(r.pageWidth <= 390, "the page itself never scrolls sideways", r.pageWidth)
-  await p.screenshot({ path: join(shots, "phone-list.png") })
+  await p.screenshot({ path: join(shots, "orders-phone-list.png") })
 
   const geo = () => p.evaluate(() => {
     const s = document.querySelector(".orders-scroller")
@@ -435,16 +557,33 @@ console.log("\nphone, 390 wide, touch")
   expect(g0.date - g1.date > 150, "while the rest moves under them", `${g0.date} -> ${g1.date}`)
   expect(g1.scrolled === "true" && g1.edge === 1, "and a shadow marks the edge", g1.edge)
   expect(!(await p.$(".orders-detail")), "a swipe is a swipe, not a tap on the row")
-  await p.screenshot({ path: join(shots, "phone-list-swiped.png") })
+  await p.screenshot({ path: join(shots, "orders-phone-list-swiped.png") })
 
-  /* Open an order from the swiped table: its bar on the first frame. */
+  /* Open an order from the swiped table, as a thumb does: down on the row
+     for a moment, then up. It slides in from the right over the list. */
   const before = await geo()
-  await recordFrames(p, 700)
-  await p.tap(".orders-scroller tbody tr:nth-child(4) td:nth-child(2) a")
-  await sleep(800)
-  const opening = barOnFirstFrame(await readFrames(p))
-  console.log(`  ..    tap to bar drawn: ${opening.ms}ms, ${opening.framesBefore} frames before it; bar opacity on that frame ${opening.opacity}; cards fully in at ${opening.bodyFullAt}ms; bar sizes seen ${JSON.stringify(opening.sizes)}`)
-  expect(opening.ms !== null && opening.framesBefore === 0 && opening.opacity === 1 && opening.sizes.length === 1, "on a phone too the bar is there, whole and still, on the first frame", opening)
+  const link = await p.evaluate(() => { const r = document.querySelector(".orders-scroller tbody tr:nth-child(4) td:nth-child(2) a").getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 } })
+  await recordFrames(p, 900)
+  await p.touchscreen.touchStart(link.x, link.y)
+  await sleep(API_DELAY_MS + 60)
+  const liftedAt = Date.now()
+  await p.touchscreen.touchEnd()
+  await sleep(900)
+  const tappedId = await p.evaluate(() => new URLSearchParams(location.search).get("order"))
+  /* Asked for while the finger was down, on this tap or on the swipe across the same row before it. */
+  const touchAsked = served.filter((s) => s.at <= liftedAt && s.url.includes(`/orders/${tappedId}/activity`)).map((s) => s.url)
+  const phoneOpen = await readFrames(p)
+  if (process.env.DUMP) console.log(JSON.stringify(phoneOpen.frames.filter((f) => f.t >= phoneOpen.clickAt).map((f) => [Math.round(f.t - phoneOpen.clickAt), f.detail && Math.round(f.detail.left), Math.round(f.listLeft)])))
+  const opening = arrival(phoneOpen)
+  console.log(`  ..    tap to the order's first frame: ${opening.ms}ms, ${opening.framesBefore} frames before it, its left edge at ${opening.firstLeft}px of 390; at rest ${opening.restMs}ms later over ${opening.frames} frames; the list under it moved to ${opening.listLeftMin}px and was drawn until then: ${opening.listDuring}, after: ${opening.listAfter}; blank frames ${opening.blankFrames} (max ${opening.blank}px); bar offsets in the layer ${JSON.stringify(opening.barOffsets)}; timeline rows first/last ${opening.timelineFirst}/${opening.timelineLast}`)
+  expect(touchAsked.some((u) => u.includes("/activity")), "a finger on a row asks for that order's history before it lifts", touchAsked)
+  expect(opening.ms !== null && opening.framesBefore === 0, "on a phone the order is on the first frame after the tap", opening.ms)
+  expect(opening.firstLeft >= 300 && opening.monotonic, "it starts at the right edge, not at rest, and only moves left", { first: opening.firstLeft, monotonic: opening.monotonic })
+  expect(opening.restMs !== null && opening.restMs >= 240 && opening.restMs <= 360, "and is in place in about 300ms", opening.restMs)
+  expect(opening.barOffsets.length === 1, "its bar travels with it, at one size and place inside it", opening.barOffsets)
+  expect(opening.listDuring && opening.listAfter === false && opening.listLeftMin <= -110 && opening.listLeftMin >= -125, "the list stays drawn underneath, moving a third of the way left, then rests hidden", { min: opening.listLeftMin, after: opening.listAfter })
+  expect(opening.blankFrames === 0, "no frame shows neither the list nor the order", opening.blank)
+  expect(opening.timelineFirst === opening.timelineLast, "the timeline is whole on its first frame", `${opening.timelineFirst}/${opening.timelineLast}`)
   const phoneCards = await cardsOf(p)
   const order = [...phoneCards].sort((a, b) => a.top - b.top).map((c) => c.name)
   expect(order.join(",") === "Items,Payment,Customer,Order details,Timeline", "one column: items, payment, customer, details, then the timeline", order)
@@ -453,10 +592,10 @@ console.log("\nphone, 390 wide, touch")
   expect(detailWidth <= 390, "the order fits the phone's width", detailWidth)
   const barH = await p.evaluate(() => document.querySelector(".orders-detail [data-orders-bar]").getBoundingClientRect().height)
   console.log(`  ..    the phone's bar is ${barH}px tall`)
-  await p.screenshot({ path: join(shots, "phone-order.png") })
+  await p.screenshot({ path: join(shots, "orders-phone-order.png") })
   await p.evaluate(() => { document.querySelector(".orders-detail").scrollTop = 600 })
   await sleep(150)
-  await p.screenshot({ path: join(shots, "phone-order-scrolled.png") })
+  await p.screenshot({ path: join(shots, "orders-phone-order-scrolled.png") })
   await p.evaluate(() => { document.querySelector(".orders-detail").scrollTop = 0 })
   await sleep(100)
 
@@ -490,12 +629,22 @@ console.log("\nphone, 390 wide, touch")
   expect(both.length === 0 && rose && settled.sheet !== null && settled.sheet < H / 2 + 200, "one sheet at a time: the menu's leaves, then the email's rises and stays", { both: both.slice(0, 3), rose, settled })
   const sheet = await p.evaluate(() => ({ title: document.querySelector("[data-sheet-panel]")?.textContent?.slice(0, 40), dialogs: document.querySelectorAll("[role=dialog][data-slot=dialog-content]").length }))
   expect(/^Change customer email/.test(sheet.title || "") && sheet.dialogs === 0, "on a phone it is the shared sheet, not a centred dialog", sheet)
-  await p.screenshot({ path: join(shots, "phone-email-sheet.png") })
+  await p.screenshot({ path: join(shots, "orders-phone-email-sheet.png") })
   await p.evaluate(() => [...document.querySelectorAll("[data-sheet-panel] button")].find((b) => b.textContent === "Cancel").click())
   await sleep(600)
 
+  const openedId = await p.evaluate(() => new URLSearchParams(location.search).get("order"))
+  await recordFrames(p, 700)
   await p.tap("button[aria-label='Back to orders']")
-  await sleep(300)
+  await sleep(750)
+  const back = departure(await readFrames(p))
+  console.log(`  ..    back: the order starts to slide ${back.startMs}ms after the tap and is gone at ${back.goneMs}ms (${back.moveMs}ms of slide); the list from ${back.listLeftFirst}px to ${back.listLeftLast}px, drawn on every frame: ${back.framesWithoutList === 0}; blank ${back.blank}px; list scrollTop on every frame ${JSON.stringify(back.scrollTops)}; row tint ${JSON.stringify(back.picked)}`)
+  expect(back.framesWithoutList === 0 && back.blank === 0, "back: the list is drawn under the order on every frame", back.framesWithoutList)
+  expect(back.monotonic && back.moveMs !== null && back.moveMs >= 220 && back.moveMs <= 360, "the order slides off to the right in about 300ms, only one way", back.moveMs)
+  expect(back.listLeftFirst <= -110 && back.listLeftLast === 0, "while the list slides back from a third of the way left", { first: back.listLeftFirst, last: back.listLeftLast })
+  expect(back.scrollTops.length === 1 && Math.abs(back.scrollTops[0] - before.paneTop) < 1, "and is as far down as it was on every frame", back.scrollTops)
+  const tinted = await p.evaluate(() => document.querySelector(".orders-list tr[data-picked]")?.dataset.orderId ?? null)
+  expect(back.picked.includes("fading") && (tinted === null || tinted === openedId), "the row of the order it came from is tinted, then fades", { picked: back.picked, tinted, openedId })
   const after = await geo()
   expect(Math.abs(after.scrollLeft - before.scrollLeft) < 1 && Math.abs(after.paneTop - before.paneTop) < 1,
     "the back arrow returns to the list scrolled exactly as it was, both ways",
@@ -514,7 +663,147 @@ console.log("\nphone, 390 wide, touch")
   }))
   expect(found.rows.length > 0 && found.rows.every((t) => /Mihai/.test(t)), "search narrows the list to the customer", found.rows.length)
   expect(/q=mihai/.test(found.url), "and keeps the search in the address", found.url)
-  await p.screenshot({ path: join(shots, "phone-search.png") })
+  await p.screenshot({ path: join(shots, "orders-phone-search.png") })
+  await p.close()
+}
+
+/* ── Mid-move, to look at ─────────────────────────────────────────────────
+   Every running animation is held half way and the frame is photographed. */
+console.log("\nhalf way, to look at")
+{
+  const p = await open({ width: 390, height: 844, deviceScaleFactor: 2, isMobile: true, hasTouch: true })
+  await p.evaluate(() => { document.querySelector(".orders-list").scrollTop = 300 })
+  await sleep(150)
+  const hold = (ms) => p.evaluate((ms) => { for (const a of document.getAnimations()) { a.pause(); a.currentTime = ms } }, ms)
+  const resume = () => p.evaluate(() => { for (const a of document.getAnimations()) a.play() })
+  await p.tap(".orders-scroller tbody tr:nth-child(9) td:nth-child(2) a")
+  await hold(90)
+  await p.screenshot({ path: join(shots, "orders-phone-push-half.png") })
+  await resume()
+  await sleep(600)
+  await p.tap("button[aria-label='Back to orders']")
+  await sleep(40)
+  await hold(110)
+  await p.screenshot({ path: join(shots, "orders-phone-pop-half.png") })
+  await resume()
+  await sleep(500)
+  await p.screenshot({ path: join(shots, "orders-phone-back-tint.png") })
+  await p.close()
+}
+
+/* ── Export ──────────────────────────────────────────────────────────────
+   A compact panel under the button on a computer; the shared sheet on a
+   phone, anchored to the bottom, rising once and going down once. Either
+   way the file is made and the page says so. */
+console.log("\nexport, 1280 wide")
+{
+  const p = await open({ width: 1280, height: 860 })
+  await p.click("[data-orders-export]")
+  await sleep(350)
+  const panel = await p.evaluate(() => {
+    const el = document.querySelector("[data-export-panel]")
+    const b = document.querySelector("[data-orders-export]").getBoundingClientRect()
+    if (!el) return null
+    const r = el.getBoundingClientRect()
+    return {
+      left: r.left, right: r.right, top: r.top, width: r.width, height: r.height,
+      button: { right: b.right, bottom: b.bottom },
+      expanded: document.querySelector("[data-orders-export]").getAttribute("aria-expanded"),
+      rows: [...el.querySelectorAll("[role=radio]")].map((x) => ({ text: x.textContent, h: Math.round(x.getBoundingClientRect().height), on: x.getAttribute("aria-checked") })),
+      sheet: !!document.querySelector("[data-sheet-panel]"),
+      centred: [...document.querySelectorAll("[role=dialog][data-slot=dialog-content]")].length,
+      focused: document.activeElement?.getAttribute("role"),
+    }
+  })
+  console.log(`  ..    panel ${panel && `${Math.round(panel.width)}x${Math.round(panel.height)} at ${Math.round(panel.left)},${Math.round(panel.top)}; the button's bottom right ${Math.round(panel.button.right)},${Math.round(panel.button.bottom)}; rows ${panel.rows.map((r) => `${r.h}px`).join(" ")}`}`)
+  expect(panel && !panel.sheet && panel.centred === 0, "on a computer Export opens a panel, not a sheet or a centred dialog", panel && { sheet: panel.sheet, centred: panel.centred })
+  expect(panel && near(panel.right, panel.button.right, 1) && panel.top >= panel.button.bottom + 4 && panel.top <= panel.button.bottom + 8 && near(panel.width, 340, 1), "hung from the button: right edges aligned, 6px under it, 340 wide", panel && { right: panel.right, top: panel.top })
+  expect(panel && panel.expanded === "true" && panel.focused === "radio", "the button says it is open, and focus is on the chosen row", panel && { expanded: panel.expanded, focused: panel.focused })
+  expect(panel && panel.rows.length >= 6 && panel.rows.find((r) => r.on === "true" && /This view/.test(r.text)), "it offers this view (chosen), this page, all orders, by date, and two kinds of file", panel && panel.rows.map((r) => r.text))
+  await p.screenshot({ path: join(shots, "orders-desktop-export.png") })
+  await p.click("[data-orders-export]")
+  await sleep(300)
+  const toggled = await p.evaluate(() => ({ panel: !!document.querySelector("[data-export-panel]"), expanded: document.querySelector("[data-orders-export]").getAttribute("aria-expanded"), focus: document.activeElement?.hasAttribute("data-orders-export") }))
+  expect(!toggled.panel && toggled.expanded === "false" && toggled.focus, "the button closes it again, and keeps focus", toggled)
+  await p.click("[data-orders-export]")
+  await sleep(300)
+  await p.evaluate(() => [...document.querySelectorAll("[data-export-panel] [role=radio]")].find((r) => /All orders/.test(r.textContent)).click())
+  await sleep(100)
+  const label = await p.evaluate(() => [...document.querySelectorAll("[data-export-panel] button")].at(-1).textContent)
+  await p.evaluate(() => [...document.querySelectorAll("[data-export-panel] button")].at(-1).click())
+  await sleep(500)
+  const done = await p.evaluate(() => ({ panel: !!document.querySelector("[data-export-panel]"), notice: document.querySelector("[aria-live=polite]")?.textContent }))
+  expect(/^Export \d+ orders$/.test(label) && !done.panel && done.notice === label.replace(/^Export (.*)$/, "$1 exported"), "Export writes the file, closes, and says how many", { label, notice: done.notice })
+  await p.close()
+}
+console.log("\nexport, 390 wide")
+{
+  const p = await open({ width: 390, height: 844, deviceScaleFactor: 2, isMobile: true, hasTouch: true })
+  const sheetFrames = (ms) => p.evaluate((ms) => {
+    window.__sheet = []
+    const t0 = performance.now()
+    const tick = () => {
+      const panel = [...document.querySelectorAll("[data-sheet-panel]")].find((x) => x.querySelector("[data-export-sheet]"))
+      window.__sheet.push({ t: Math.round(performance.now() - t0), top: panel ? Math.round(panel.getBoundingClientRect().top) : null, rows: panel ? panel.querySelectorAll("[role=radio]").length : 0 })
+      if (performance.now() - t0 < ms) requestAnimationFrame(tick)
+    }
+    requestAnimationFrame(tick)
+  }, ms)
+  await sheetFrames(800)
+  await p.tap("[data-orders-export]")
+  await sleep(850)
+  const rise = await p.evaluate(() => window.__sheet)
+  const seen = rise.filter((f) => f.top !== null)
+  const tops = seen.map((f) => f.top)
+  const risen = seen.find((f, i) => i > 0 && f.top === tops.at(-1) && seen[i - 1].top === f.top)
+  const sheet = await p.evaluate(() => {
+    const panel = [...document.querySelectorAll("[data-sheet-panel]")].find((x) => x.querySelector("[data-export-sheet]"))
+    const r = panel.getBoundingClientRect()
+    const cta = [...panel.querySelectorAll("button")].at(-1).getBoundingClientRect()
+    return {
+      left: r.left, width: r.width, bottom: r.bottom, top: r.top,
+      padBottom: getComputedStyle(panel).paddingBottom,
+      grabber: !!panel.querySelector("[data-sheet-handle] .rounded-full"),
+      title: panel.querySelector("[data-sheet-handle] p")?.textContent,
+      close: !!panel.querySelector("[aria-label=Close], [aria-label='Close']"),
+      rows: [...panel.querySelectorAll("[role=radio]")].map((x) => Math.round(x.getBoundingClientRect().height)),
+      cta: { h: Math.round(cta.height), w: Math.round(cta.width), left: Math.round(cta.left) },
+      popover: !!document.querySelector("[data-export-panel]"),
+    }
+  })
+  console.log(`  ..    sheet rose from ${tops[0]}px to ${tops.at(-1)}px in ${risen ? risen.t - seen[0].t : "?"}ms over ${seen.length} frames, rows laid out on its first frame: ${seen[0]?.rows}; at rest ${Math.round(sheet.width)} wide, bottom ${Math.round(sheet.bottom)} of 844, rows ${sheet.rows.join("/")}px, button ${sheet.cta.w}x${sheet.cta.h}`)
+  expect(tops[0] >= 780 && tops.every((t, i) => i === 0 || t <= tops[i - 1]), "on a phone Export rises from below the screen, one way, once", tops.slice(0, 6))
+  expect(seen[0]?.rows >= 5 && seen.every((f) => f.rows === seen[0].rows), "with every row already in it on its first frame", seen.map((f) => f.rows).slice(0, 4))
+  expect(near(sheet.left, 0) && near(sheet.width, 390) && near(sheet.bottom, 844, 1) && !sheet.popover, "anchored to the bottom, the full width", { left: sheet.left, width: sheet.width, bottom: sheet.bottom })
+  expect(sheet.grabber && sheet.title === "Export orders" && !sheet.close, "the grabber and the title, no close button", sheet)
+  expect(sheet.rows.every((h) => h >= 48) && sheet.cta.h === 48 && sheet.cta.w === 358, "rows at least 48px to tap, one full width 48px button", { rows: sheet.rows, cta: sheet.cta })
+  expect(parseFloat(sheet.padBottom) >= 12, "the safe area kept at its foot", sheet.padBottom)
+  await p.screenshot({ path: join(shots, "orders-phone-export.png") })
+
+  /* By date: the month opens inside the sheet. */
+  await p.evaluate(() => [...document.querySelectorAll("[data-export-sheet] [role=radio]")].find((r) => /By date/.test(r.textContent)).click())
+  await sleep(400)
+  const dated = await p.evaluate(() => { const panel = document.querySelector("[data-export-sheet]").closest("[data-sheet-panel]"); const r = panel.getBoundingClientRect(); return { top: Math.round(r.top), bottom: Math.round(r.bottom), days: panel.querySelectorAll("[data-day]").length } })
+  expect(dated.days >= 28 && near(dated.bottom, 844, 1) && dated.top >= 0, "By date shows the month in the sheet, which stays on the screen", dated)
+  await p.screenshot({ path: join(shots, "orders-phone-export-dates.png") })
+  await p.evaluate(() => [...document.querySelectorAll("[data-export-sheet] [role=radio]")].find((r) => /This view/.test(r.textContent)).click())
+  await sleep(300)
+
+  /* A tap outside: it goes down once. */
+  await sheetFrames(700)
+  await p.touchscreen.tap(195, 40)
+  await sleep(750)
+  const fall = (await p.evaluate(() => window.__sheet)).filter((f) => f.top !== null).map((f) => f.top)
+  expect(fall.length > 3 && fall.every((t, i) => i === 0 || t >= fall[i - 1]) && !(await p.$("[data-export-sheet]")), "a tap outside takes it down, one way, and it is gone", fall.slice(-4))
+
+  /* Export from the sheet. */
+  await p.tap("[data-orders-export]")
+  await sleep(700)
+  const label = await p.evaluate(() => [...document.querySelector("[data-export-sheet]").closest("[data-sheet-panel]").querySelectorAll("button")].at(-1).textContent)
+  await p.evaluate(() => [...document.querySelector("[data-export-sheet]").closest("[data-sheet-panel]").querySelectorAll("button")].at(-1).click())
+  await sleep(700)
+  const done = await p.evaluate(() => ({ sheet: !!document.querySelector("[data-export-sheet]"), notice: document.querySelector("[aria-live=polite]")?.textContent }))
+  expect(/^Export \d+ orders?$/.test(label) && !done.sheet && done.notice === label.replace(/^Export (.*)$/, "$1 exported"), "Export in the sheet writes the file, the sheet goes down, and the page says how many", { label, notice: done.notice })
   await p.close()
 }
 

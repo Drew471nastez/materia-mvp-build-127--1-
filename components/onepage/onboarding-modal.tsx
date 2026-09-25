@@ -1016,7 +1016,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error("Not authenticated")
 
-      const fileName = `onepage-avatar-${user.id}-${Date.now()}.png`
+      const fileName = `${user.id}/onepage-avatar-${Date.now()}.png` // the owner's folder first: storage only lets a person write there
       const { error: uploadError } = await supabase.storage
         .from("avatars")
         .upload(fileName, blob, { upsert: true })

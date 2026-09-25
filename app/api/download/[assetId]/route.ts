@@ -5,6 +5,7 @@ import { SIGNED_URL_EXPIRY_SECONDS } from "@/lib/security"
 import { rateLimit, addressSubject, callerAddress } from "@/lib/api/rate-limit"
 import { resolveDownloadAccess } from "@/lib/receipts/download-access"
 import { DENY_MESSAGES, isUuid } from "@/lib/receipts/rules"
+import { gateDownload } from "@/lib/storage/scan-gate"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -74,14 +75,15 @@ export async function GET(request: Request, { params }: { params: Promise<{ asse
         { status: 403, headers: NO_STORE },
       )
     }
-    if (asset.scan_status === "infected") {
-      return NextResponse.json(
-        { error: "This file was flagged by the virus scan and cannot be downloaded. The seller has been told." },
-        { status: 403, headers: NO_STORE },
-      )
-    }
     if (!asset.file_path) {
       return NextResponse.json({ error: "This file is not available yet." }, { status: 404, headers: NO_STORE })
+    }
+    /* Flagged files never go out, and a file nobody has scanned yet is
+       scanned now, before the first buyer gets it (lib/storage/scan-gate.ts).
+       This used to refuse only files already marked infected. */
+    const gate = await gateDownload(admin, asset, { isCreator: decision.via === "creator" })
+    if (!gate.ok) {
+      return NextResponse.json({ error: gate.error }, { status: gate.status, headers: NO_STORE })
     }
 
     const { generateSignedDownloadUrl, logDownloadEvent } = await import("@/lib/storage")
@@ -90,6 +92,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ asse
       asset.file_path,
       SIGNED_URL_EXPIRY_SECONDS,
       asset.storage_bucket || undefined,
+      asset.file_name,
     )
     if (!signed) {
       console.error("[download] could not sign a URL for asset", asset.id)

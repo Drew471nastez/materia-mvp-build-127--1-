@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ArrowLeft, Download, FileIcon, ExternalLink } from "lucide-react"
 import { getStoreUrl } from "@/lib/url-helpers"
+import { pageUser } from "@/lib/auth/page-user"
 
 interface ProductAccessPageProps {
   params: Promise<{ id: string }>
@@ -23,11 +24,10 @@ export default async function ProductAccessPage({ params }: ProductAccessPagePro
   const { id } = await params
   const supabase = await createClient()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) redirect("/login")
+  const user = await pageUser()
+  /* Supabase did not answer in time: the layout's gate recovers the
+     session in the browser. Not /login (lib/auth/page-user.ts). */
+  if (!user) return null
 
   // Check entitlement
   const { data: entitlement } = await supabase

@@ -2,7 +2,8 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { sendEmail, isSmtpConfigured } from "@/lib/mail"
-import { generateVerificationCode, VERIFICATION_CODE_EXPIRY_MINUTES } from "@/lib/security"
+import { VERIFICATION_CODE_EXPIRY_MINUTES } from "@/lib/security"
+import { MAX_CODE_ATTEMPTS, codeMatches, newCode, wrongCodeMessage } from "@/lib/account/codes"
 import { ignoreError } from "@/lib/supabase/ignore-error"
 
 export const runtime = "nodejs"
@@ -41,7 +42,7 @@ export async function POST(request: Request) {
       }
 
       // Generate verification code
-      const verificationCode = generateVerificationCode()
+      const verificationCode = newCode()
       const expiresAt = new Date(Date.now() + VERIFICATION_CODE_EXPIRY_MINUTES * 60 * 1000)
 
       // Delete any existing pending codes for this user
@@ -125,18 +126,27 @@ If you didn't request this, please ignore this email and secure your account imm
         return NextResponse.json({ error: "Verification code is required" }, { status: 400 })
       }
 
-      // Find matching code
-      const { data: codeRecord, error: findError } = await adminSupabase
+      /* The pending code, whatever was typed, so a wrong guess can be counted
+         against it. After five it is thrown away (lib/account/codes.ts). */
+      const { data: codeRecord } = await adminSupabase
         .from("account_delete_codes")
         .select("*")
         .eq("user_id", user.id)
-        .eq("code", code)
         .eq("verified", false)
         .gt("expires_at", new Date().toISOString())
-        .single()
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle()
 
-      if (findError || !codeRecord) {
-        return NextResponse.json({ error: "Invalid or expired verification code" }, { status: 400 })
+      if (!codeRecord) {
+        return NextResponse.json({ error: "That code has expired. Ask for a new one." }, { status: 400 })
+      }
+      const attempts = typeof codeRecord.attempts === "number" ? codeRecord.attempts : 0
+      if (attempts >= MAX_CODE_ATTEMPTS || !codeMatches(codeRecord.code, String(code))) {
+        const next = attempts + 1
+        if (next >= MAX_CODE_ATTEMPTS) await adminSupabase.from("account_delete_codes").delete().eq("id", codeRecord.id)
+        else await adminSupabase.from("account_delete_codes").update({ attempts: next }).eq("id", codeRecord.id)
+        return NextResponse.json({ error: wrongCodeMessage(next) }, { status: 400 })
       }
 
       // Mark code as verified
@@ -190,10 +200,12 @@ export async function deleteAllUserData(adminSupabase: any, userId: string) {
   const creatorId = creatorRow?.id ?? null
 
   // 2. Delete storage files ─────────────────────────────────────────────────
-  await deleteStorageFolder(adminSupabase, "avatars", userId)
-  await deleteStorageFolder(adminSupabase, "onepage-assets", userId)
-  if (creatorId) {
-    await deleteStorageFolder(adminSupabase, "product-images", creatorId)
+  // Every public bucket a person uploads to, under both of their ids: uploads
+  // are filed under the user id or the creator id (see the storage policies in
+  // supabase/migrations/20260929_upload_safety.sql). Their photos go with them.
+  const ownerFolders = [userId, creatorId].filter((id): id is string => typeof id === "string" && id.length > 0)
+  for (const bucket of ["avatars", "covers", "onepage-assets", "product-images", "store-builder-images", "product-videos", "lead-form-files-v2", "email-images", "digital-products"]) {
+    for (const owner of ownerFolders) await deleteStorageFolder(adminSupabase, bucket, owner)
   }
 
   // 3. Collect product IDs for child-table cleanup ──────────────────────────
@@ -363,13 +375,26 @@ async function deleteStorageFolder(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   adminSupabase: any,
   bucket: string,
-  prefix: string
+  prefix: string,
+  depth = 0,
 ): Promise<void> {
+  // The folder and the folders inside it: list() is one level, and uploads
+  // live in subfolders (`<id>/avatars/…`, `<id>/<product>/gallery/…`), which
+  // the old one level listing left behind. Bounded in depth and pages.
+  if (depth > 4) return
   try {
-    const { data: files } = await adminSupabase.storage.from(bucket).list(prefix, { limit: 1000 })
-    if (!files || files.length === 0) return
-    const paths = files.map((f: { name: string }) => `${prefix}/${f.name}`)
-    await adminSupabase.storage.from(bucket).remove(paths)
+    // Always the first page: what was removed is no longer listed.
+    for (let round = 0; round < 20; round++) {
+      const { data: entries } = await adminSupabase.storage.from(bucket).list(prefix, { limit: 1000 })
+      if (!entries || entries.length === 0) return
+      const files: string[] = []
+      for (const e of entries as { name: string; id: string | null }[]) {
+        if (e.id === null) await deleteStorageFolder(adminSupabase, bucket, `${prefix}/${e.name}`, depth + 1)
+        else files.push(`${prefix}/${e.name}`)
+      }
+      if (files.length > 0) await adminSupabase.storage.from(bucket).remove(files)
+      if (files.length === 0 || entries.length < 1000) return
+    }
   } catch {
     // Non-fatal: storage cleanup failure should not block account deletion
     console.warn(`[delete-account] storage cleanup failed for ${bucket}/${prefix}`)
