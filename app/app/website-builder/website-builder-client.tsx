@@ -169,7 +169,7 @@ export function editorHref(
  * `isolate` keeps Safari clipping the crossfading picture to the corners.
  */
 const COVER_FRAME =
-  "relative block aspect-[16/10] w-full select-none overflow-hidden rounded-[12px] bg-[#eef0f3] text-left isolate outline-none [transform:translateZ(0)] [&_img]:[-webkit-user-drag:none] shadow-[0_1px_2px_rgba(15,23,42,0.06),0_10px_28px_-14px_rgba(15,23,42,0.22)] after:pointer-events-none after:absolute after:inset-0 after:z-10 after:rounded-[inherit] after:shadow-[inset_0_0_0_1px_rgba(15,23,42,0.08)] before:pointer-events-none before:absolute before:inset-0 before:z-20 before:bg-[#1a1a2e]/0 before:transition-colors before:duration-200 pointer-fine:hover:before:bg-[#1a1a2e]/[0.04] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1a1a2e]/35"
+  "relative block aspect-[16/10] w-full select-none overflow-hidden rounded-[12px] bg-[#eef0f3] text-left isolate outline-none [transform:translateZ(0)] [&_img]:[-webkit-user-drag:none] shadow-[0_1px_2px_rgba(15,23,42,0.06),0_10px_28px_-14px_rgba(15,23,42,0.22)] after:pointer-events-none after:absolute after:inset-0 after:z-10 after:rounded-[inherit] after:shadow-[inset_0_0_0_1px_rgba(15,23,42,0.08)] before:pointer-events-none before:absolute before:inset-0 before:z-20 before:bg-[#1a1a2e]/0 before:transition-colors before:duration-200 pointer-fine:hover:before:bg-[#1a1a2e]/[0.04] focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-[#1a1a2e]/35"
 
 /** "2 days ago" without the "ago", for a meta line that already reads as time. */
 function since(iso: string | null | undefined): string | null {
@@ -364,7 +364,7 @@ const SETTINGS_ON_CARD = cn(iconDepth, "h-11 w-11 rounded-xl px-0 text-[#4b5563]
  * dark, with no arrow. The shared tooltip's theme colours and its arrow are
  * replaced here, not added to.
  */
-const TOOLTIP = "rounded-md bg-[#1a1a2e] px-2 py-1 text-[12px] font-medium text-white shadow-[0_2px_8px_rgba(15,23,42,0.18)] [&_svg]:hidden"
+const TOOLTIP = "rounded-md bg-[#1a1a2e] px-2 py-1 text-[12px] font-medium text-white shadow-[0_2px_8px_rgba(15,23,42,0.18)] [&_svg]:hidden!"
 
 /**
  * View website's words: "View" with an eye on a phone, where the title's line

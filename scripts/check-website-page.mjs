@@ -15,14 +15,18 @@
  *
  *   THE LIVE PAGE (mounted in a browser, driven like a person would)
  *   • the title row holds Public and View website on a laptop and View
- *     website alone on a phone, in the light grey (36px, 10px corners; 44px
- *     on a phone); Public's menu says Take offline, or Unpublished's says
+ *     alone, with an eye, on a phone, as white secondary buttons with depth
+ *     (a hairline border, a 1px foot, inset when pressed, a focus outline;
+ *     36px with 8px corners, 44px with 10px on a phone); only one eye on
+ *     the line; Public's menu says Take offline, or Unpublished's says
  *     Publish again
  *   • the live card's row is Edit website, Settings and More on one line,
- *     Settings a 44px icon square on a phone, and Take offline still in the
- *     More sheet there
- *   • the cover is one picture whose box is the cover area's box, flush
- *     with the card, with no stage, browser window or phone inside it
+ *     Settings a 44px gear square at every width with a Settings tooltip on
+ *     a pointer, and Take offline still in the More sheet on a phone
+ *   • the cover is one picture set into the card: 16:10, rounded on all four
+ *     corners, a shadow under it, inside the card's padding and never cut by
+ *     the card's edge, with no stage, browser window or phone inside it, and
+ *     its box is there before a slow picture arrives (no layout shift)
  *   • with the library full, Import opens the full library surface and never
  *     a file picker: a sheet on the bottom edge on a phone, a centred modal
  *     on a laptop, nothing wider than the screen, every control 44px on a
@@ -39,7 +43,7 @@
  *     in the card, with Publish again
  *
  *   node scripts/check-website-page.mjs            both widths
- *   WIDTH=390 node scripts/check-website-page.mjs  one
+ *   WIDTH=390 node scripts/check-website-page.mjs  one (or WIDTH=360,390,1440,1920)
  *   KEEP_SHOT=/tmp/wb.png ...                      also a screenshot of the static page
  *   SHOTS=/some/dir ...                            website-v3-desktop.png and -phone.png of the live card
  *
@@ -58,7 +62,7 @@ const CHROMIUM = process.env.CHROMIUM ?? "/opt/pw-browsers/chromium"
 const root = process.cwd()
 const out = mkdtempSync(join(tmpdir(), "storelib-wb-page-"))
 const KEEP = process.env.KEEP_SHOT
-const WIDTHS = process.env.WIDTH ? [Number(process.env.WIDTH)] : [390, 1280]
+const WIDTHS = process.env.WIDTH ? process.env.WIDTH.split(",").map(Number) : [390, 1280]
 
 const fail = (m) => {
   console.error(m)
@@ -342,11 +346,16 @@ try {
 }
 const js = readFileSync(liveJs)
 const shell = `<!doctype html><html class="light"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>${css}</style><style>body{margin:0;background:#f8f9fa;font-family:Inter,system-ui,sans-serif}</style></head><body><div id="root"></div><script src="/live.js"></script></body></html>`
+const SLOW_COVER = `<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900"><rect width="1440" height="900" fill="#fff"/><rect y="80" width="1440" height="480" fill="#0b0b0c"/></svg>`
 const zip = join(out, "summer-shop.storelib-theme.zip")
 writeFileSync(zip, Buffer.alloc(2048, 1))
 
 const server = createServer((req, res) => {
   if (req.url.startsWith("/live.js")) { res.writeHead(200, { "content-type": "text/javascript" }); return res.end(js) }
+  if (req.url.startsWith("/slow-cover.svg")) {
+    /* The live card's picture, late: the cover's box has to be there before it. */
+    return setTimeout(() => { res.writeHead(200, { "content-type": "image/svg+xml" }); res.end(SLOW_COVER) }, 900)
+  }
   if (req.url.startsWith("/api/")) { res.writeHead(404, { "content-type": "application/json" }); return res.end("{}") }
   res.writeHead(200, { "content-type": "text/html" })
   res.end(shell)
@@ -356,7 +365,7 @@ const origin = `http://127.0.0.1:${server.address().port}`
 const browser = await puppeteer.launch({ executablePath: CHROMIUM, headless: true, args: ["--no-sandbox", "--disable-gpu", "--hide-scrollbars"] })
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
-async function open(W, scenario, extra = "") {
+async function open(W, scenario, extra = "", waitUntil = "load") {
   const p = await browser.newPage()
   const phone = W <= 640
   await p.setViewport({ width: W, height: phone ? 844 : 900, deviceScaleFactor: 1, isMobile: phone, hasTouch: phone })
@@ -364,8 +373,8 @@ async function open(W, scenario, extra = "") {
   const errors = []
   p.on("pageerror", (e) => errors.push(String(e.message || e)))
   await p.evaluateOnNewDocument(INSTRUMENT)
-  await p.goto(`${origin}/?scenario=${scenario}${extra}`, { waitUntil: "load" })
-  await sleep(700)
+  await p.goto(`${origin}/?scenario=${scenario}${extra}`, { waitUntil })
+  if (waitUntil === "load") await sleep(700)
   return { p, errors, phone }
 }
 
@@ -389,12 +398,15 @@ async function livePage(W) {
           const b = c.getBoundingClientRect()
           const cs = getComputedStyle(c)
           return {
-            label: c.textContent.trim(),
+            label: c.innerText.trim(),
+            name: c.getAttribute("aria-label") || c.innerText.trim(),
+            icons: [...c.querySelectorAll("svg")].filter((s) => s.getBoundingClientRect().width > 0).map((s) => [...s.classList].find((k) => k.startsWith("lucide-") && k !== "lucide-icon") || "svg"),
             h: Math.round(b.height),
             w: Math.round(b.width),
             mid: Math.round(b.top + b.height / 2),
             bg: cs.backgroundColor,
-            border: cs.borderTopWidth,
+            border: `${cs.borderTopWidth} ${cs.borderTopColor}`,
+            shadow: cs.boxShadow,
             radius: cs.borderTopLeftRadius,
             font: `${cs.fontSize} ${cs.fontWeight}`,
           }
@@ -402,18 +414,47 @@ async function livePage(W) {
       }
     })
     const labels = title.controls.map((c) => c.label)
-    const wanted = phone ? ["View website"] : ["Public", "View website"]
+    const wanted = phone ? ["View"] : ["Public", "View website"]
     expect(
       labels.join("|") === wanted.join("|"),
       `the title row holds ${wanted.join(" and ")} on the heading's line, nothing else: ${labels.map((l) => `"${l}"`).join(", ") || "none"}`,
     )
     for (const c of title.controls) {
       const dy = Math.abs(c.mid - title.heading.mid)
-      const grey = c.bg === "rgb(227, 227, 227)" && c.border === "0px"
-      const size = phone ? c.h >= 44 : c.h === 36 && c.radius === "10px"
-      expect(grey && size && dy <= 2 && c.font === "14px 500",
-        `  ${c.label}: ${c.w}x${c.h}px, ${c.bg}, border ${c.border}, corners ${c.radius}, ${c.font}, ${dy}px off the heading's middle`)
+      /* The shared secondary depth: white, a hairline, a 1px shade inside the foot and a hairline under it. */
+      const depth = c.bg === "rgb(255, 255, 255)" && c.border === "1px rgb(217, 219, 224)" && /inset/.test(c.shadow) && /0px -1px 0px/.test(c.shadow) && /0px 1px 0px/.test(c.shadow)
+      const size = phone ? c.h === 44 && c.radius === "10px" : c.h === 36 && c.radius === "8px"
+      expect(depth && size && dy <= 2 && c.font === "14px 500",
+        `  ${c.label}: ${c.w}x${c.h}px, ${c.bg}, border ${c.border}, shadow ${c.shadow}, corners ${c.radius}, ${c.font}, ${dy}px off the heading's middle`)
     }
+    const heights = new Set(title.controls.map((c) => c.h))
+    expect(heights.size === 1, `  the title's buttons are one height (${[...heights].join(", ")}px)`)
+    const eyes = title.controls.flatMap((c) => c.icons).filter((k) => k === "lucide-eye")
+    const view = title.controls.find((c) => c.name === "View website")
+    expect(!!view && (phone ? view.label === "View" && view.icons.join() === "lucide-eye" : view.label === "View website" && view.icons.length === 0),
+      `  View website reads "${view?.label}" with ${view?.icons.join(", ") || "no icon"}, named "${view?.name}"`)
+    expect(eyes.length <= 1, `  one eye on the line at most (${eyes.length}); Public wears ${title.controls.find((c) => c.label === "Public")?.icons.join(", ") || "nothing (not drawn)"}`)
+    /* Pressed goes flat with the shade inside; keyboard focus draws the violet outline. */
+    const target = phone ? '[data-control="view"]' : '[data-control="public"]'
+    const box = await p.evaluate((sel) => { const r = document.querySelector(sel).getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 } }, target)
+    await p.mouse.move(box.x, box.y)
+    await p.mouse.down()
+    await sleep(160)
+    const pressed = await p.evaluate((sel) => { const cs = getComputedStyle(document.querySelector(sel)); return { shadow: cs.boxShadow, bg: cs.backgroundColor } }, target)
+    await p.evaluate(() => document.addEventListener("click", (e) => e.preventDefault(), { once: true, capture: true }))
+    await p.mouse.up()
+    await p.keyboard.press("Escape")
+    await sleep(250)
+    expect(/inset 0px 1px 1px|0px 1px 1px 0px .*inset/.test(pressed.shadow) && pressed.bg === "rgb(241, 242, 244)", `  pressed, it goes flat with the shade inside (${pressed.bg}, ${pressed.shadow})`)
+    /* Tab onto it from the page's top, the way a keyboard gets there. */
+    await p.evaluate(() => { document.activeElement?.blur(); document.body.tabIndex = -1; document.body.focus() })
+    let reached = false
+    for (let i = 0; i < 30 && !reached; i++) {
+      await p.keyboard.press("Tab")
+      reached = await p.evaluate((sel) => document.activeElement === document.querySelector(sel), target)
+    }
+    const focus = await p.evaluate((sel) => { const el = document.querySelector(sel); const cs = getComputedStyle(el); const r = { style: cs.outlineStyle, width: cs.outlineWidth, color: cs.outlineColor, offset: cs.outlineOffset }; el.blur(); return r }, target)
+    expect(focus.style === "solid" && focus.width === "2px" && focus.color === "rgb(139, 92, 246)", `  keyboard focus draws an outline (${focus.style} ${focus.width} ${focus.color}, offset ${focus.offset})`)
     if (!phone) {
       await p.click('[data-control="public"]')
       await sleep(300)
@@ -422,12 +463,12 @@ async function livePage(W) {
       await p.keyboard.press("Escape")
       await sleep(250)
     }
-    const view = await p.evaluate(() => {
+    const link = await p.evaluate(() => {
       const a = document.querySelector('[data-control="view"]')
       return a ? { tag: a.tagName, target: a.getAttribute("target"), href: a.getAttribute("href") } : null
     })
-    expect(!!view && view.tag === "A" && view.target === "_blank" && /andrewullz/.test(view.href || ""),
-      `  View website is a link to the live site in a new tab (${view ? `${view.tag} ${view.target} ${view.href}` : "missing"})`)
+    expect(!!link && link.tag === "A" && link.target === "_blank" && /andrewullz/.test(link.href || ""),
+      `  View website is a link to the live site in a new tab (${link ? `${link.tag} ${link.target} ${link.href}` : "missing"})`)
 
     await p.click("[data-import-button]")
     await sleep(900)
@@ -495,6 +536,7 @@ async function livePage(W) {
       const settings = row && row.querySelector('[data-control="settings"]')
       const cover = document.querySelector("[data-cover]")
       const frame = cover && cover.closest(".rounded-2xl")
+      const coverCs = cover && getComputedStyle(cover)
       const pics = cover ? [...cover.querySelectorAll("img, svg")].filter((el) => !el.parentElement.closest("svg")) : []
       const pic = pics[0]
       const scroller = document.querySelector("[data-probe-shell] .page-scroll")
@@ -502,9 +544,11 @@ async function livePage(W) {
       const frameCs = frame && getComputedStyle(frame)
       return {
         buttons: buttons.map((b) => ({ label: b.textContent.trim() || b.getAttribute("aria-label"), ...box(b) })),
-        settings: settings ? { text: [...settings.querySelectorAll("span")].filter((s) => s.getBoundingClientRect().width > 0).map((s) => s.textContent.trim()).join(""), label: settings.getAttribute("aria-label"), shadow: cs.boxShadow, border: cs.borderTopColor, ...box(settings) } : null,
+        settings: settings ? { text: settings.innerText.trim(), icon: !!settings.querySelector("svg.lucide-settings"), label: settings.getAttribute("aria-label"), shadow: cs.boxShadow, border: cs.borderTopColor, ...box(settings) } : null,
         cover: cover ? box(cover) : null,
-        coverRadius: cover ? getComputedStyle(cover).borderTopLeftRadius : null,
+        corners: coverCs ? [coverCs.borderTopLeftRadius, coverCs.borderTopRightRadius, coverCs.borderBottomRightRadius, coverCs.borderBottomLeftRadius] : null,
+        coverShadow: coverCs ? coverCs.boxShadow : null,
+        coverClip: coverCs ? coverCs.overflow : null,
         frame: frame ? { ...box(frame), border: parseFloat(frameCs.borderTopWidth) } : null,
         pics: pics.map((el) => ({ tag: el.tagName.toLowerCase(), fit: getComputedStyle(el).objectFit, pos: getComputedStyle(el).objectPosition, ...box(el) })),
         mockups: cover ? cover.querySelectorAll('[data-cover-stage], [data-cover-window], [data-cover-phone], [class*="aspect-[390"], [class*="rounded-[3.3cqw]"], [class*="cqw"]').length : -1,
@@ -521,8 +565,29 @@ async function livePage(W) {
         `  its row is Edit website, Settings and More, on one line: ${b.map((x) => `${x.label.replace(/^More actions.*/, "More")} ${Math.round(x.w)}x${Math.round(x.h)} at ${Math.round(x.top)}`).join(", ")} (tops ${spread}px apart)`)
       if (card.settings) {
         const s = card.settings
-        expect(phone ? Math.round(s.w) === 44 && Math.round(s.h) === 44 && s.text === "" : s.text === "Settings" && Math.round(s.h) === 44,
-          `  Settings ${phone ? "is a 44px square with its icon only" : "says its name"}: ${Math.round(s.w)}x${Math.round(s.h)}px, text "${s.text}", named "${s.label}"`)
+        const edit = b[0]
+        expect(Math.round(s.w) === 44 && Math.round(s.h) === 44 && s.text === "" && s.icon && s.label === "Settings" && edit && Math.round(edit.h) === Math.round(s.h),
+          `  Settings is a 44px gear square, as tall as Edit website (${edit ? Math.round(edit.h) : "-"}px): ${Math.round(s.w)}x${Math.round(s.h)}px, text "${s.text}", named "${s.label}"`)
+        if (!phone) {
+          await p.hover('[data-card-actions] [data-control="settings"]')
+          await sleep(700)
+          const tip = await p.evaluate(() => {
+            const t = document.querySelector('[data-slot="tooltip-content"]')
+            if (!t) return null
+            const r = t.getBoundingClientRect()
+            const s = document.querySelector('[data-card-actions] [data-control="settings"]').getBoundingClientRect()
+            const cs = getComputedStyle(t)
+            return { text: [...t.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent).join("").trim(), said: t.querySelector("[role=tooltip]")?.textContent, above: r.bottom <= s.top, bg: cs.backgroundColor, arrow: [...t.querySelectorAll("svg")].some((x) => x.getBoundingClientRect().width > 0) }
+          })
+          expect(!!tip && tip.text === "Settings" && tip.said === "Settings" && tip.above && tip.bg === "rgb(26, 26, 46)" && !tip.arrow,
+            `  on a pointer it says "Settings" in a tooltip above it (${tip ? `"${tip.text}" (read as "${tip.said}"), ${tip.bg}, ${tip.above ? "above" : "not above"}, ${tip.arrow ? "an arrow" : "no arrow"}` : "none"})`)
+          /* Away the way a hand goes, in steps: one jump sits inside Radix's grace area on its way to the tip. */
+          await p.mouse.move(2, 2, { steps: 8 })
+          await p.mouse.move(6, 6)
+          await sleep(400)
+          const gone = await p.evaluate(() => !document.querySelector('[data-slot="tooltip-content"]'))
+          expect(gone, `  and it goes when the pointer leaves (${gone ? "gone" : "still there"})`)
+        }
         expect(/0px -2px 0px/.test(s.shadow) && /0px 1px 2px/.test(s.shadow) && s.border === "rgb(217, 219, 224)",
           `  in the icon depth, a touch deeper than the secondary one (${s.shadow})`)
         const more = b[2]
@@ -532,12 +597,13 @@ async function livePage(W) {
     if (card.cover && card.frame) {
       const c = card.cover
       const f = card.frame
-      const inset = f.border
-      const flushTop = Math.abs(c.top - (f.top + inset)) <= 1
-      const flushLeft = Math.abs(c.left - (f.left + inset)) <= 1
-      const flushRight = phone ? Math.abs(c.right - (f.right - inset)) <= 1 : true
-      expect(flushTop && flushLeft && flushRight,
-        `  the cover area is flush with the card: ${Math.round(c.w)}x${Math.round(c.h)}px at ${Math.round(c.left - f.left)},${Math.round(c.top - f.top)} in a ${Math.round(f.w)}px card${phone ? `, ${Math.round(f.right - c.right)}px from its right` : ""}; corners ${card.coverRadius}`)
+      /* Set into the card with room on every side, so the card's own edge never cuts it. */
+      const gaps = { top: c.top - f.top, left: c.left - f.left, right: f.right - c.right, bottom: f.bottom - c.bottom }
+      const inside = gaps.top >= 12 && gaps.left >= 12 && gaps.bottom >= 12 && (phone ? gaps.right >= 12 : gaps.right > 0)
+      expect(inside && Math.abs(gaps.top - gaps.left) <= 1 && (!phone || Math.abs(gaps.left - gaps.right) <= 1),
+        `  the cover is set into the card, not cut by it: ${Math.round(c.w)}x${Math.round(c.h)}px, ${Math.round(gaps.top)}px from the card's top, ${Math.round(gaps.left)} from its left, ${Math.round(gaps.right)} from its right, ${Math.round(gaps.bottom)} above its bottom`)
+      expect(card.corners.every((r) => r === "12px") && card.coverClip === "hidden", `  rounded on all four corners, clipped to them (${card.corners.join(" ")}, overflow ${card.coverClip})`)
+      expect(/0px 1px 2px/.test(card.coverShadow) && /0px 10px 28px -14px/.test(card.coverShadow), `  with a soft shadow under it (${card.coverShadow})`)
       expect(Math.abs(c.w / c.h - 1.6) < 0.01, `  16:10, the shape it always had (${(c.w / c.h).toFixed(3)})`)
       const pic = card.pics[0]
       const off = pic ? Math.max(Math.abs(pic.top - c.top), Math.abs(pic.left - c.left), Math.abs(pic.right - c.right), Math.abs(pic.bottom - c.bottom)) : null
@@ -551,8 +617,7 @@ async function livePage(W) {
     expect(card.overflow === 0, `  nothing scrolls sideways (${card.overflow}px)`)
     if (withPicture && process.env.SHOTS) {
       mkdirSync(process.env.SHOTS, { recursive: true })
-      const name = phone ? "phone" : "desktop"
-      await p.screenshot({ path: join(process.env.SHOTS, `website-v3-${name}.png`) })
+      await p.screenshot({ path: join(process.env.SHOTS, `website-v4-${W}.png`) })
     }
     /* On a phone the title has no Public, so Take offline has to be in the live card's More sheet. */
     if (withPicture && phone) {
@@ -560,8 +625,33 @@ async function livePage(W) {
       await sleep(600)
       const rows = await p.evaluate(() => [...document.querySelectorAll("[data-action-sheet] button, [data-action-sheet] a")].map((r) => r.textContent.trim()))
       expect(rows.includes("Take offline"), `  on a phone, Take offline is in the live card's More sheet: ${rows.join(", ")}`)
-      if (process.env.SHOTS) await p.screenshot({ path: join(process.env.SHOTS, "website-v3-phone-more.png") })
+      if (process.env.SHOTS) await p.screenshot({ path: join(process.env.SHOTS, `website-v4-${W}-more.png`) })
     }
+    expect(errors.length === 0, "  no errors on the page", errors.slice(0, 2).join(" / "))
+    await p.close()
+  }
+
+  // ── The cover's box is there before its picture ──────────────────────
+  {
+    const { p, errors } = await open(W, "room", "&snapshot=slow", "domcontentloaded")
+    await p.evaluate(() => {
+      window.__cls = 0
+      new PerformanceObserver((l) => { for (const e of l.getEntries()) if (!e.hadRecentInput) window.__cls += e.value }).observe({ type: "layout-shift", buffered: true })
+    })
+    await p.waitForSelector("[data-cover]")
+    await sleep(150)
+    const read = () => p.evaluate(() => {
+      const c = document.querySelector("[data-cover]")
+      const img = c.querySelector("img")
+      const r = c.getBoundingClientRect()
+      const d = document.querySelector("[data-card-actions]").getBoundingClientRect()
+      return { w: Math.round(r.width), h: Math.round(r.height), actions: Math.round(d.top), loaded: !!img && img.complete && img.naturalWidth > 0, cls: window.__cls }
+    })
+    const before = await read()
+    await sleep(1300)
+    const after = await read()
+    expect(!before.loaded && after.loaded && before.h === after.h && before.w === after.w && before.actions === after.actions && after.cls < 0.001,
+      `  the cover's box is there before a slow picture: ${before.w}x${before.h}px ${before.loaded ? "(already loaded)" : "while it loads"}, ${after.w}x${after.h}px after; the buttons under it ${before.actions === after.actions ? "stay put" : `move ${after.actions - before.actions}px`}; layout shift ${after.cls.toFixed(4)}`)
     expect(errors.length === 0, "  no errors on the page", errors.slice(0, 2).join(" / "))
     await p.close()
   }

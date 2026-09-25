@@ -82,7 +82,8 @@ export function MetricTab({
         >
           {value}
         </span>
-        {change}
+        {/* The change against a figure that is not in yet would be a wrong number drawn sharp, so it waits for the answer. */}
+        {loading ? null : change}
       </span>
       <span
         className={cn(

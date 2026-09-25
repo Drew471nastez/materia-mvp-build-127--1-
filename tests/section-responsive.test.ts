@@ -3074,10 +3074,10 @@ check(
    */
   /Edit website\s*\n\s*<\/Button>/.test(wbPage) &&
     // View website is a labelled button beside the title, not a menu row
-    /data-control="view" className=\{HEADER_BUTTON\}>\s*View website/.test(wbPage) && !/label: "View website"/.test(wbPage) &&
-    // Settings says its name from 640px; on a phone it is the one icon
-    // square the owner asked for, and it is named for a screen reader
-    /aria-label="Settings"/.test(wbPage) && /<span className="hidden sm:inline">Settings<\/span>/.test(wbPage) &&
+    /aria-label="View website" data-control="view" className=\{HEADER_BUTTON\}>\s*<ViewLabel \/>/.test(wbPage) && /<span className="hidden sm:inline">View website<\/span>/.test(wbPage) && !/label: "View website"/.test(wbPage) &&
+    // Settings is the gear square at every width, as the owner asked, named
+    // for a screen reader and in a tooltip on a pointer
+    /aria-label="Settings"/.test(wbPage) && /<TooltipContent side="top" sideOffset=\{6\} className=\{TOOLTIP\}>\s*Settings/.test(wbPage) &&
     /aria-label=\{`More actions for \$\{live\.name\}`\}/.test(wbPage) &&
     // the icon-square component is gone, not merely unused
     !/function IconAction\(/.test(wbPage) &&

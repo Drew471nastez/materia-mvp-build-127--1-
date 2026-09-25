@@ -252,7 +252,7 @@ section("No page draws a picture of itself while it loads, inside or out")
   check("Home has no full page skeleton, and its chart holds its own shape while it is read, from the first frame",
     !/showLoadingSkeleton|isLoading && |Full Page Skeleton|skeleton-bar/.test(dash) && !/animate-pulse/.test(dash) && !/WaitingArea/.test(dash)
       && /<ShimmerSwap loading=\{\(chartEvents == null \|\| isChartLoading\) && displayChartData\.length === 0\} skeleton=\{<ShimmerChart height=\{CHART_H\}/.test(dash))
-  check("and its four figures hold shapes until the period's first answer, rather than zeros that turn into numbers",
+  check("and its four figures wait for the period's first answer (MetricTab `loading`), with No activity yet held back until it",
     /const \[figuresReady, setFiguresReady\] = useState\(false\)/.test(dash) && (dash.match(/loading=\{!figuresReady\}/g) ?? []).length === 4
       && (dash.match(/soft=\{isRefreshing && figuresReady\}/g) ?? []).length === 4 && /\{figuresReady && !hasRealData && \(/.test(dash))
   const reports = code("app/app/analytics/analytics-reports.tsx")
@@ -261,8 +261,14 @@ section("No page draws a picture of itself while it loads, inside or out")
       && (reports.match(/<Body blank=\{/g) ?? []).length === 16
       && /<ShimmerSwap loading=\{blank\} skeleton=\{<Waiting kind=\{wait\} lead=\{lead\} \/>\} className=\{BODY\} contentClassName="h-full">/.test(reports))
   const tab = code("components/app/metric-tab.tsx")
-  check("a figure tab holds a light gray shape where its number goes until the first answer, and Analytics' tabs use it",
-    /\{loading \? <ShimmerBlock className="shimmer-wait inline-block/.test(tab) && /waited && !loading && "shimmer-enter"/.test(tab)
+  /* "I don't like the skeleton structure in the chart tabs; before it was
+     the blur thing, I liked those, revert it." The tabs only: the charts
+     under them keep their own waiting shapes. */
+  check("a figure tab waits blurred, the way it did before the gray bars: its number 2px and its foot 1px, clearing over 700ms",
+    /const blurred = soft \|\| loading/.test(tab) && /blurred \? "blur-\[2px\]" : "blur-0"/.test(tab) && /blurred \? "blur-\[1px\]" : "blur-0"/.test(tab)
+      && /transition-\[filter,color,opacity\] duration-\[700ms\]/.test(tab)
+      && /\n\s*\{value\}\n/.test(tab) && /\n\s*\{foot\}\n/.test(tab) && /\{loading \? null : change\}/.test(tab)
+      && !/ShimmerBlock|shimmer-enter|shimmer-wait|from "@\/components\/ui\/shimmer"/.test(tab)
       && (code("app/app/analytics/analytics-client.tsx").match(/loading=\{figuresLoading\}/g) ?? []).length === 8)
   const payouts = code("app/app/payouts/payouts-client.tsx")
   check("Payouts' chart, figures, bank lines, holds, timeline and payout list draw their shapes, not the spinner",
