@@ -334,7 +334,7 @@ export default function PrivacyPolicyPage() {
                 </p>
                 <p>Our native analytics system tracks:</p>
                 <Ul items={[
-                  "Product page views. With your consent to analytics, a returning visitor is recognised by a cookie so a visit is counted once; without it, each page view is counted with no identifier stored",
+                  "Product page views. With your consent to analytics, a returning visitor is recognised by a cookie so a visit is counted once. Without it, nothing is stored on your device: the pages of one visit are grouped by a code made from your IP address and browser for that store, which changes every day and cannot be turned back into either. Your IP address itself is not stored",
                   "Traffic sources (direct, organic search, social media, email, referral, paid search)",
                   "UTM campaign parameters",
                   "Geographic/country-level data (derived from IP addresses)",

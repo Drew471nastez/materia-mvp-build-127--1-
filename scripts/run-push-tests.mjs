@@ -42,6 +42,8 @@ const SUITES = [
   "tests/orders-view.test.ts",
   "tests/orders-detail.test.ts",
   "tests/analytics-reports.test.ts",
+  "tests/dispute-orders.test.ts",
+  "tests/anon-visit.test.ts",
   "tests/home-figures.test.ts",
   "tests/auth-session.test.ts",
   "tests/library-depth.test.ts",
