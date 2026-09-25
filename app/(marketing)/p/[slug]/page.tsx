@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation"
 import { plainSummary } from "@/lib/html-entities"
 import { productIndexable } from "@/lib/seo/indexing"
+import { jsonLdScript } from "@/lib/seo/json-ld"
 import Link from "next/link"
 import { createClient } from "@/lib/supabase/server"
 import { startPhaseTimer } from "@/lib/perf/phase-timer"
@@ -1891,11 +1892,11 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
       )}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: jsonLdScript(productJsonLd) }}
       />
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: jsonLdScript(breadcrumbJsonLd) }}
       />
       <TrackView type="product" creatorId={product.creator_id} productId={product.id} />
       {creatorAvatarPreload && (

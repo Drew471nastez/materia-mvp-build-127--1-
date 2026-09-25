@@ -225,7 +225,7 @@ function main() {
     /title: \{ absolute: title \}/.test(hub) && /alternates: \{ canonical: path \}/.test(hub))
   check("and structured data saying what it is and where it sits",
     /"@type": "TechArticle"/.test(hub) && /"@type": "BreadcrumbList"/.test(hub)
-      && /JSON\.stringify\(data\)\.replace\(\/<\/g, "\\\\u003c"\)/.test(hub),
+      && /__html: jsonLdScript\(data\)/.test(hub) && /from "@\/lib\/seo\/json-ld"/.test(hub),
     "`<` escaped so nothing in the data can close the script element")
   check("the side columns stick below the site header, not behind it",
     (hub.match(/sticky top-\[92px\]/g) ?? []).length === 2)

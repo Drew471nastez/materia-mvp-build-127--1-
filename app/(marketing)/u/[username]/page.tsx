@@ -80,6 +80,7 @@ import { AllProductsGrid } from "@/components/storefront/all-products-grid"
 import { ReviewsPanel, type StorefrontReview } from "@/components/storefront/reviews-panel"
 import { BackLabelSetter } from "@/components/product/discover-back-breadcrumb"
 import { deservesIndexing } from "@/lib/security/spam-signals"
+import { jsonLdScript } from "@/lib/seo/json-ld"
 import {
   STOREFRONT_PAGE_BACKGROUND,
   storefrontSectionBackground,
@@ -1051,11 +1052,11 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
           <>
             <script
               type="application/ld+json"
-              dangerouslySetInnerHTML={{ __html: JSON.stringify(profilePageJsonLd) }}
+              dangerouslySetInnerHTML={{ __html: jsonLdScript(profilePageJsonLd) }}
             />
             <script
               type="application/ld+json"
-              dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+              dangerouslySetInnerHTML={{ __html: jsonLdScript(breadcrumbJsonLd) }}
             />
           </>
         )}
@@ -1441,11 +1442,11 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
         <>
           <script
             type="application/ld+json"
-            dangerouslySetInnerHTML={{ __html: JSON.stringify(defaultProfilePageJsonLd) }}
+            dangerouslySetInnerHTML={{ __html: jsonLdScript(defaultProfilePageJsonLd) }}
           />
           <script
             type="application/ld+json"
-            dangerouslySetInnerHTML={{ __html: JSON.stringify(defaultBreadcrumbJsonLd) }}
+            dangerouslySetInnerHTML={{ __html: jsonLdScript(defaultBreadcrumbJsonLd) }}
           />
         </>
       )}

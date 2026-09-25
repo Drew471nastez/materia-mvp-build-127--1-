@@ -30,6 +30,7 @@ import {
 
 import { DocContent } from "./doc-content"
 import { Toc } from "./toc"
+import { jsonLdScript } from "@/lib/seo/json-ld"
 
 export function devMetadata(slug: string): Metadata {
   const page = devPage(slug)
@@ -119,7 +120,7 @@ function JsonLd({ slug }: { slug: string }) {
     },
   ]
   /* `<` escaped so no string in the data can close the script element. */
-  return <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(data).replace(/</g, "\\u003c") }} />
+  return <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(data) }} />
 }
 
 /*

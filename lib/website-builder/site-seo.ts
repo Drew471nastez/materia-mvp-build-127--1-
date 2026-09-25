@@ -217,8 +217,7 @@ export function productJsonLd(p: {
 
 /**
  * Structured data as a script body. `<` is escaped so a product description
- * that says `</script>` cannot end the element it sits in.
+ * that says `</script>` cannot end the element it sits in. One function for
+ * every page that prints JSON-LD, the website's and the platform's alike.
  */
-export function jsonLdScript(data: unknown): string {
-  return JSON.stringify(data).replace(/</g, "\\u003c")
-}
+export { jsonLdScript } from "@/lib/seo/json-ld"

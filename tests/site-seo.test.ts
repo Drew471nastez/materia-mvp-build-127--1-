@@ -7,7 +7,7 @@
  * had no sitemap of its own. Held here: what the site's own files say, what
  * the sitemap lists, and that the proxy and the pages are wired to them.
  */
-import { readFileSync } from "node:fs"
+import { readFileSync, readdirSync, statSync } from "node:fs"
 import { join } from "node:path"
 import {
   imagesOnPage,
@@ -96,6 +96,25 @@ console.log("\nStructured data")
   const product = productJsonLd({ url: `${O}/products/p`, name: "Presets", description: "Twelve presets", images: ["https://cdn.example.com/p.png"], priceCents: 2400, inStock: true, seller: "Astrid Studio" }) as { offers?: { price: string; priceCurrency: string } }
   check("a product carries its price, so a result can show it", product.offers?.price === "24.00" && product.offers?.priceCurrency === "USD")
   check("a description cannot end the script it is printed in", !jsonLdScript({ d: "</script><script>alert(1)" }).includes("</script>"))
+  const named = { name: "Mara </script><img src=x onerror=alert(1)>", sameAs: ["https://x.com/mara"] }
+  check("and what a search engine reads back is exactly what was given", JSON.stringify(JSON.parse(jsonLdScript(named))) === JSON.stringify(named))
+
+  /*
+    EVERY PAGE THAT PRINTS JSON-LD PRINTS IT THROUGH jsonLdScript. The creator
+    page and the product page put a display name and a product title into
+    JSON.stringify and straight into the script element, so a name containing
+    `</script>` ended it. Walked rather than listed, so a page added later is
+    held to the same rule without anybody remembering to add it here.
+  */
+  const walk = (dir: string): string[] =>
+    readdirSync(join(process.cwd(), dir)).flatMap((f) => {
+      const p = `${dir}/${f}`
+      if (f === "node_modules" || f.startsWith(".")) return []
+      return statSync(join(process.cwd(), p)).isDirectory() ? walk(p) : /\.tsx?$/.test(f) ? [p] : []
+    })
+  const emitters = [...walk("app"), ...walk("components")].filter((p) => read(p).includes("application/ld+json"))
+  const bare = emitters.filter((p) => /__html:\s*JSON\.stringify/.test(read(p)) || !/jsonLdScript\(|__html: structured/.test(read(p)))
+  check("every page that prints JSON-LD escapes it with the one helper", emitters.length >= 10 && bare.length === 0, bare.join(", "))
 }
 
 console.log("\nWired")
