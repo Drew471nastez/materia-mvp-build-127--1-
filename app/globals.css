@@ -5933,6 +5933,8 @@ html:has([data-app-sheet="open"], [role="dialog"][aria-modal="true"], [role="dia
   [data-pay-tile],
   .home-guide-thumb,
   .home-plan-sky { transition-duration: 0ms; }
+}
+
 /*
   THE NAME OF A CREATOR BADGE, over the badge (components/storefront/creator-badges.tsx).
   Placed by the badge's centre and top; this lifts it clear and centres it,

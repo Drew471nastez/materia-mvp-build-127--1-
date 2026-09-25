@@ -112,9 +112,11 @@ class MemoryStore implements Store {
   }
   async setRunStep(rid: string, sid: string) { const r = this.runs.find((x) => x.id === rid); if (r?.status === "active") r.current_step_id = sid }
   async enqueue(j: Parameters<Store["enqueue"]>[0]) {
-    if (this.jobs.some((x) => x.run_id === j.runId && x.step_id === j.stepId)) return
+    if (this.jobs.some((x) => x.run_id === j.runId && x.step_id === j.stepId)) return false
     this.jobs.push(this.newJob(j.runId, j.flowId, j.creatorId, j.stepId, j.afterStepId, Date.parse(j.runAt)))
+    return true
   }
+  async jobState(rid: string, sid: string) { return this.jobs.find((x) => x.run_id === rid && x.step_id === sid)?.state ?? null }
   held(jid: string, worker: string) { const j = this.jobs.find((x) => x.id === jid); return j && j.state === "running" && j.claimed_by === worker ? j : null }
   async completeJob(jid: string, worker: string, state: "done" | "cancelled", note?: string | null) {
     if (this.failComplete > 0) { this.failComplete--; throw new Error("connection reset") }
@@ -399,6 +401,48 @@ async function main() {
     check("resolveStep says the same", resolveStep(normalizeSteps(f.steps), "e2", "w")?.id === "e3")
   }
 
+  {
+    /* Found reading the engine: moving a step up past someone who already had it left them with no job, "in progress" for ever. */
+    const store = new MemoryStore()
+    const f = flowOf(store, [email("e1"), wait("w", 1), email("e2")])
+    await join_(store)
+    const { m, sent } = mailer()
+    await runDue({ store, mailer: m, worker: "A", budgetMs: 1000, now })
+    f.steps = [email("e1"), email("e2"), wait("w", 1)]
+    clock += DAY + 1
+    await runDue({ store, mailer: m, worker: "A", budgetMs: 1000, now })
+    const r = store.runs[0]
+    const pending = store.jobs.filter((j) => j.run_id === r.id && (j.state === "queued" || j.state === "running"))
+    check("a step moved up past someone who already had it: they finish rather than wait for ever with nothing queued", r.status === "completed" && pending.length === 0, { status: r.status, pending: pending.length })
+    check("and nothing is sent twice", sent.map((x) => x.subject).join("|") === "Subject e1|Subject e2", sent.map((x) => x.subject))
+  }
+  {
+    const store = new MemoryStore()
+    const f = flowOf(store, [email("e1"), wait("w", 1), email("e2"), email("e3")])
+    await join_(store)
+    const { m, sent } = mailer()
+    await runDue({ store, mailer: m, worker: "A", budgetMs: 1000, now })
+    f.steps = [email("e1"), email("e2"), wait("w", 1), email("e3")]
+    clock += DAY + 1
+    await runDue({ store, mailer: m, worker: "A", budgetMs: 1000, now })
+    check("and when there is more after the step they had, they go on to it", sent.map((x) => x.subject).join("|") === "Subject e1|Subject e2|Subject e3" && store.runs[0].status === "completed", sent.map((x) => x.subject))
+  }
+  {
+    /* A job run a second time after its worker died: the next step exists and is queued, so it is left alone and runs once. */
+    const store = new MemoryStore()
+    flowOf(store, [email("e1"), wait("w", 1), email("e2")])
+    await join_(store)
+    const { m, sent } = mailer()
+    const [job] = await store.claim("A", 1, LEASE_SECONDS)
+    store.failComplete = 1
+    await processJob({ store, mailer: m, worker: "A", now }, job)
+    clock += LEASE_SECONDS * 1000 + 1
+    await runDue({ store, mailer: m, worker: "B", budgetMs: 1000, now })
+    clock += DAY + 1
+    await runDue({ store, mailer: m, worker: "B", budgetMs: 1000, now })
+    check("moving on stays safe to repeat: a job run again after a crash neither skips nor doubles a step", sent.map((x) => x.subject).join("|") === "Subject e1|Subject e2" && store.runs[0].status === "completed", { sent: sent.map((x) => x.subject), status: store.runs[0].status })
+  }
+
   console.log("\nChecks")
   {
     const store = new MemoryStore()
@@ -482,6 +526,20 @@ async function main() {
     const cron = read("app/api/cron/process-scheduled-emails/route.ts")
     check("the cron runs the engine and takes each older queued email before sending it", /runDueJobs\(/.test(cron) && /\.update\(\{ status: "sending"[\s\S]{0,120}\.eq\("status", "pending"\)/.test(cron))
     check("and never answers with a database error or an address", !/fetchError\.message|err\.message \}/.test(cron))
+  }
+
+  console.log("\nThe hourly run keeps inside its time")
+  {
+    const cron = read("app/api/cron/process-scheduled-emails/route.ts")
+    const n = (name: string) => Number((cron.match(new RegExp(`const ${name} = ([\\d_]+)`))?.[1] ?? "NaN").replace(/_/g, ""))
+    const max = Number(cron.match(/export const maxDuration = (\d+)/)?.[1]) * 1000
+    check("the engine stops claiming by a deadline counted from the start of the whole run, not from its own start",
+      /runDueJobs\(Math\.max\(0, Math\.min\(ENGINE_BUDGET_MS, started \+ ENGINE_DEADLINE_MS - Date\.now\(\)\)\)\)/.test(cron))
+    check("with a minute of room for the batch it holds before the function's limit",
+      n("ENGINE_DEADLINE_MS") + 60_000 <= max && n("LEGACY_DEADLINE_MS") < max && /Math\.min\(Date\.now\(\) \+ LEGACY_BUDGET_MS, started \+ LEGACY_DEADLINE_MS\)/.test(cron),
+      { engine: n("ENGINE_DEADLINE_MS"), legacy: n("LEGACY_DEADLINE_MS"), max })
+    check("the cron runs every hour, with the checkout sweep before the engine so a reminder's first email goes in the same run",
+      /"path": "\/api\/cron\/process-scheduled-emails",\s*"schedule": "0 \* \* \* \*"/.test(read("vercel.json")) && cron.indexOf("runAbandonedSweep()") < cron.indexOf("runDueJobs(") && /requireBearerSecret\(request, "CRON_SECRET"\)/.test(cron))
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)
