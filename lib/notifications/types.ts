@@ -88,6 +88,13 @@ export interface DomainFacts {
   verifiedAt: string | null
   createdAt: string | null
   updatedAt: string | null
+  /**
+   * Whether an HTTPS request to it completed just now. Asked only of a
+   * domain whose row says it is stuck or failed: the row moves on only when
+   * someone checks it again in Settings, so a certificate that came up since
+   * would otherwise still read as missing. Null when not asked.
+   */
+  httpsOk?: boolean | null
 }
 
 export interface CampaignFacts {

@@ -21,6 +21,7 @@ import { groupOrders, isSale, type OrderRow } from "@/lib/orders/order-view"
 import { validTimeZone } from "@/lib/account/time-zone"
 import { DAY_MS, HOUR_MS } from "./policy"
 import { SALES_THRESHOLDS, SUBSCRIBER_THRESHOLDS } from "./rules/milestones"
+import { httpsSuspect } from "./rules/domains"
 import type { SnapshotSource } from "./engine"
 import type {
   CampaignFacts,
@@ -106,7 +107,24 @@ function chunks<T>(items: T[], size: number): T[][] {
 const hasKinds = (rows: ExistingRow[] | undefined, kind: string, subjects: string[]) =>
   subjects.every((s) => (rows ?? []).some((r) => r.kind === kind && r.subject_id === s))
 
-export function supabaseSnapshots(db: Db): SnapshotSource {
+/**
+ * Does the domain complete an HTTPS request? Any answer at all, a redirect
+ * included, means the certificate is there. One try, a few seconds: a
+ * visitor waits no longer. The same test as the verify route's
+ * (lib/custom-domains/vercel.ts httpsAnswers), shorter.
+ */
+export async function httpsResponds(host: string): Promise<boolean> {
+  if (!/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(host)) return false
+  try {
+    const res = await fetch(`https://${host}`, { method: "HEAD", redirect: "manual", signal: AbortSignal.timeout(5000), cache: "no-store" })
+    return res.status > 0
+  } catch {
+    return false
+  }
+}
+
+export function supabaseSnapshots(db: Db, options: { probeHttps?: (host: string) => Promise<boolean> } = {}): SnapshotSource {
+  const probeHttps = options.probeHttps ?? httpsResponds
   return {
     async load(ids, parts, existing, now) {
       const snaps = new Map<string, CreatorSnapshot>(ids.map((id) => [id, { now }]))
@@ -225,6 +243,11 @@ export function supabaseSnapshots(db: Db): SnapshotSource {
           for (const r of rows) {
             snaps.get(r.creator_id)?.domains?.push({ id: r.id, domain: r.domain ?? "", status: r.status ?? null, sslStatus: r.ssl_status ?? null, verifiedAt: r.verified_at ?? null, createdAt: r.created_at ?? null, updatedAt: r.updated_at ?? null } satisfies DomainFacts)
           }
+          /* A row that says HTTPS is failing is only as fresh as the last check in Settings: ask the domain. */
+          const suspects = [...snaps.values()].flatMap((s) => (s.domains ?? []).filter((d) => httpsSuspect(d, now)))
+          await limited(suspects, async (d) => {
+            d.httpsOk = await probeHttps(d.domain).catch(() => false)
+          })
         }
       }
 

@@ -18,6 +18,7 @@
 import { ALL_PARTS, runNotificationEngine } from "@/lib/notifications/engine"
 import { supabaseSnapshots } from "@/lib/notifications/snapshot"
 import { supabaseNotificationStore } from "@/lib/notifications/supabase-store"
+import { domainHttps } from "@/lib/notifications/rules/domains"
 import type { ExistingRow } from "@/lib/notifications/types"
 
 let passed = 0
@@ -244,10 +245,17 @@ function fixture(): Record<string, Row[]> {
   }
 }
 
+/* No network in a test: a domain that is asked never answers, unless a case says it does. */
+const asked: string[] = []
+const offline = async (host: string) => {
+  asked.push(host)
+  return false
+}
+
 async function main() {
   console.log("\nA batch read into snapshots")
   const db = new FakeDb(fixture())
-  const snaps = await supabaseSnapshots(db).load(["c1", "c2", "c3"], ALL_PARTS, new Map(), NOW)
+  const snaps = await supabaseSnapshots(db, { probeHttps: offline }).load(["c1", "c2", "c3"], ALL_PARTS, new Map(), NOW)
   const c1 = snaps.get("c1")!
   const c2 = snaps.get("c2")!
   const c3 = snaps.get("c3")!
@@ -257,6 +265,12 @@ async function main() {
   check("payouts of the last 30 days", c1.payouts?.map((p) => p.id).join() === "po_1" && c1.payouts[0].failureCode === "no_account")
   check("disputes: one open, one closed", JSON.stringify(c1.disputes?.map((d) => [d.id, d.closed]).sort()) === JSON.stringify([["dp_1", false], ["dp_2", true]]), c1.disputes)
   check("domains as the verify route left them", c3.domains?.[0]?.status === "ssl_provisioning" && c1.domains?.length === 0)
+  check("a domain whose row says it is stuck is asked over HTTPS itself, once", asked.join() === "shop.example.com" && c3.domains?.[0]?.httpsOk === false, { asked, httpsOk: c3.domains?.[0]?.httpsOk })
+  {
+    const answering = await supabaseSnapshots(new FakeDb(fixture()), { probeHttps: async () => true }).load(["c3"], new Set(["creator", "domains"]), new Map(), NOW)
+    const d = answering.get("c3")!
+    check("and when it answers, the row was only behind: no notification", d.domains?.[0]?.httpsOk === true && (domainHttps.evaluate(d) ?? []).length === 0)
+  }
   check("a scheduled campaign that failed", c1.failedCampaigns?.map((c) => c.id).join() === "e1")
   check("the last send per creator, and never for one who has not", c1.lastCampaignSentAt === ago(10) && c3.lastCampaignSentAt === ago(80) && c2.lastCampaignSentAt === null)
   check("bounces counted for a creator who sent this month: 121 went out, 10 bounced, 1 complained", JSON.stringify(c1.emailHealth) === JSON.stringify({ wentOut: 120, bounced: 10, complained: 1 }), c1.emailHealth)
@@ -278,7 +292,7 @@ async function main() {
     delete (t as Record<string, unknown>).checkout_starts
     delete (t as Record<string, unknown>).email_flows
     delete (t as Record<string, unknown>).analytics_daily_rollups
-    const s = await supabaseSnapshots(new FakeDb(t)).load(["c1"], ALL_PARTS, new Map(), NOW)
+    const s = await supabaseSnapshots(new FakeDb(t), { probeHttps: offline }).load(["c1"], ALL_PARTS, new Map(), NOW)
     const one = s.get("c1")!
     check("no started checkouts table: checkout and recovery unknown", one.checkout === undefined && one.recovery === undefined)
     check("no rollups: traffic unknown, not zero", one.traffic === undefined)
@@ -288,14 +302,14 @@ async function main() {
     /* A store with ten thousand products in the batch: the list hits its ceiling. */
     const t = fixture()
     t.products = [...t.products, ...Array.from({ length: 10_000 }, (_, i) => ({ id: `big${i}`, creator_id: "c3", title: `Pack ${i}`, status: "published", type: "digital", created_at: ago(30) }))]
-    const s = await supabaseSnapshots(new FakeDb(t)).load(["c1", "c2", "c3"], new Set(["creator", "products", "files"]), new Map(), NOW)
+    const s = await supabaseSnapshots(new FakeDb(t), { probeHttps: offline }).load(["c1", "c2", "c3"], new Set(["creator", "products", "files"]), new Map(), NOW)
     check("a batch whose product list hits its ceiling: the creator it could not finish is unknown, not empty", s.get("c3")?.products === undefined && s.get("c3")?.deliverable === undefined)
     check("and the creators before it are read whole, an empty one as empty", s.get("c1")?.products?.length === 3 && s.get("c2")?.products?.length === 0)
   }
   {
     const recorded: ExistingRow[] =["sales_1", "sales_10", "sales_100"].map((s, i) => ({ id: `x${i}`, creator_id: "c1", kind: "sales_milestone", category: "milestone", dedupe_key: `sales_milestone:${s}:`, subject_id: s, created_at: ago(100), read_at: null, dismissed_at: null, resolved_at: null, pushed_at: null, metadata: {} }))
     const d = new FakeDb(fixture())
-    const s = await supabaseSnapshots(d).load(["c1"], new Set(["creator", "sales"]), new Map([["c1", recorded]]), NOW)
+    const s = await supabaseSnapshots(d, { probeHttps: offline }).load(["c1"], new Set(["creator", "sales"]), new Map([["c1", recorded]]), NOW)
     check("every sales milestone recorded: orders are not read at all", !d.reads.includes("orders") && s.get("c1")?.sales?.truncated === true, d.reads)
   }
 
@@ -305,7 +319,7 @@ async function main() {
     d.columns.seller_notifications = ["creator_id", "user_id", "type", "title", "message", "action_url", "product_id", "review_id", "metadata", "kind", "category", "priority", "dedupe_key", "subject_id", "rule_version", "created_at", "read_at", "dismissed_at", "resolved_at", "pushed_at"]
     const sent: string[] = []
     const pusher = { send: async (_u: string, p: { data: { kind: string } }) => void sent.push(p.data.kind) }
-    const run = () => runNotificationEngine({ store: supabaseNotificationStore(d, () => undefined), source: supabaseSnapshots(d), pusher, deadline: NOW + 250_000, clock: () => NOW })
+    const run = () => runNotificationEngine({ store: supabaseNotificationStore(d, () => undefined), source: supabaseSnapshots(d, { probeHttps: offline }), pusher, deadline: NOW + 250_000, clock: () => NOW })
     const s1 = await run()
     const rows = d.tables.seller_notifications
     const shown = rows.filter((r) => !r.dismissed_at).map((r) => `${r.creator_id}:${r.kind}`).sort()
@@ -330,13 +344,13 @@ async function main() {
   {
     const d = new FakeDb(fixture())
     d.claimable = false
-    const s = await runNotificationEngine({ store: supabaseNotificationStore(d, () => undefined), source: supabaseSnapshots(d), pusher: null, deadline: NOW + 250_000, clock: () => NOW })
+    const s = await runNotificationEngine({ store: supabaseNotificationStore(d, () => undefined), source: supabaseSnapshots(d, { probeHttps: offline }), pusher: null, deadline: NOW + 250_000, clock: () => NOW })
     check("before the SQL: not available, nothing read, nothing written", !s.available && d.reads.length === 0 && d.tables.seller_notifications.length === 0)
   }
   {
     const d = new FakeDb(fixture())
     d.columns.seller_notifications = ["creator_id", "user_id", "type", "title", "message", "action_url", "product_id", "review_id", "metadata", "created_at", "read_at", "dismissed_at"]
-    const s = await runNotificationEngine({ store: supabaseNotificationStore(d, () => undefined), source: supabaseSnapshots(d), pusher: null, deadline: NOW + 250_000, clock: () => NOW })
+    const s = await runNotificationEngine({ store: supabaseNotificationStore(d, () => undefined), source: supabaseSnapshots(d, { probeHttps: offline }), pusher: null, deadline: NOW + 250_000, clock: () => NOW })
     check("a database with the function but not the columns: nothing written, errors counted, no crash", d.tables.seller_notifications.length === 0 && s.errors > 0)
   }
 

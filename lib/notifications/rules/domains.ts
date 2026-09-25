@@ -14,11 +14,22 @@
  * leaves it. Resolved when it goes active, or when the domain is removed.
  */
 import { ageHours } from "../format"
-import type { Finding, Rule } from "../types"
+import type { DomainFacts, Finding, Rule } from "../types"
 
 const DOMAINS = "/app/settings?tab=domains"
 
 const WAITING_FOR_HTTPS = new Set(["ssl_provisioning", "provisioning"])
+
+/** Its row says HTTPS is failing or has been waiting a day: the loader then asks the domain itself (DomainFacts.httpsOk). */
+export function httpsSuspect(d: Pick<DomainFacts, "status" | "sslStatus" | "verifiedAt">, now: number): boolean {
+  const failed = d.sslStatus === "failed"
+  const stuck =
+    !!d.verifiedAt &&
+    d.status !== "active" &&
+    (WAITING_FOR_HTTPS.has(d.status ?? "") || WAITING_FOR_HTTPS.has(d.sslStatus ?? "")) &&
+    ageHours(d.verifiedAt, now) >= 24
+  return failed || stuck
+}
 
 export const domainHttps: Rule = {
   kind: "domain_https",
@@ -34,13 +45,9 @@ export const domainHttps: Rule = {
     if (!s.domains) return undefined
     const out: Finding[] = []
     for (const d of s.domains) {
-      const failed = d.sslStatus === "failed"
-      const stuck =
-        !!d.verifiedAt &&
-        d.status !== "active" &&
-        (WAITING_FOR_HTTPS.has(d.status ?? "") || WAITING_FOR_HTTPS.has(d.sslStatus ?? "")) &&
-        ageHours(d.verifiedAt, s.now) >= 24
-      if (!failed && !stuck) continue
+      if (!httpsSuspect(d, s.now)) continue
+      /* The domain answered over HTTPS just now: the row is only behind. */
+      if (d.httpsOk === true) continue
       out.push({
         subject: d.id,
         title: `HTTPS is not working on ${d.domain}`,
