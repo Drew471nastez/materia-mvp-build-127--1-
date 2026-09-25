@@ -303,7 +303,7 @@ export async function POST(req: Request) {
 
   const manifestFile = zip.file("manifest.json")
   if (!manifestFile) {
-    return NextResponse.json({ error: "Missing manifest.json — not a storelib export" }, { status: 400 })
+    return NextResponse.json({ error: "Not a Storelib theme export" }, { status: 400 })
   }
 
   // Validate manifest with Zod. This covers: JSON parse errors,

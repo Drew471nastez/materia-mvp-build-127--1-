@@ -38,9 +38,10 @@
  * skeletons were "too complicated", and a grey drawing of a page that then
  * turns into the page is a second thing to look at on every slow click.
  *
- * Never for the product editor or the plans page (`waitsWithSpinner`): they
- * are drawn over the whole shell, and the page you were on stays until they
- * are ready.
+ * Never for the product editor or the plans page (`waitsWithSpinner`): the
+ * plans page is drawn over the whole shell, the editor is on a phone (from md
+ * it is a page in the shell, and the bar still shows there), and the page you
+ * were on stays until they are ready.
  *
  * When the new page commits there is one short entrance: opacity from 0 and a
  * 5px rise, 180ms, one curve (components/app/app-stage.tsx). If the spinner's

@@ -9,14 +9,52 @@ import { cn } from '@/lib/utils'
 
 const ToastProvider = ToastPrimitives.Provider
 
+/**
+ * ===========================================================================
+ *  WHERE A TOAST SITS, AND HOW BIG IT GETS
+ * ===========================================================================
+ * "The toast notifications that appear on mobile devices can have too much
+ * text, and that makes the toast feel too big instead of being adapted,
+ * clean, shrunk text on mobile."
+ *
+ * Part of that was the words (every message now says one short thing), and
+ * part was this box. On a phone the viewport was `left: 50%` with an auto
+ * width, and a box placed that way can only grow into the half of the screen
+ * to the right of its left edge: every toast was squeezed into 163px of a
+ * 390px screen, so a sentence broke over three or four lines inside a pill.
+ *
+ * Now, below md (the shell's phone width):
+ *
+ *   ACROSS THE SCREEN BETWEEN 16px GUTTERS, as wide as its words need and
+ *   never wider than 358px at 390;
+ *
+ *   JUST UNDER THE HEADER, 8px below it and the status bar: nowhere near
+ *   the nav pill or the home indicator at the foot;
+ *
+ *   ONE LINE OF TITLE at 14px, and at most two lines of detail at 13px,
+ *   with tight padding and a 12px corner, the same box as the app's other
+ *   toasts (Settings, Products, the product editor);
+ *
+ *   NO CLOSE BUTTON: it was only ever shown on hover, which a finger never
+ *   does, and it still took 34px of the width. A swipe up puts it away
+ *   (the Toaster sets the direction), or it goes by itself.
+ *
+ * From md it sits at the bottom right, 24px in, 380px at most, where the
+ * website builder's toasts already are (components/ui/editor-toaster.tsx):
+ * not over the header's account and bell buttons, where it used to be, nor
+ * over the page's own action at the top right of its bar. It swipes away
+ * to the right.
+ */
 const ToastViewport = React.forwardRef<
   React.ElementRef<typeof ToastPrimitives.Viewport>,
   React.ComponentPropsWithoutRef<typeof ToastPrimitives.Viewport>
 >(({ className, ...props }, ref) => (
   <ToastPrimitives.Viewport
     ref={ref}
+    data-toast-viewport=""
     className={cn(
-      'fixed left-1/2 -translate-x-1/2 top-[calc(76px+env(safe-area-inset-top))] z-[2147483646] flex max-h-screen w-auto flex-col items-center gap-2 px-4 pointer-events-none sm:left-auto sm:right-4 sm:top-4 sm:translate-x-0 sm:items-end md:max-w-[380px]',
+      'pointer-events-none fixed inset-x-0 top-[calc(68px+env(safe-area-inset-top,0px)+8px)] z-[2147483646] flex max-h-screen flex-col items-center gap-2 px-4 outline-none',
+      'md:left-auto md:right-6 md:top-auto md:bottom-[calc(24px+env(safe-area-inset-bottom,0px))] md:w-[380px] md:items-end md:px-0',
       className,
     )}
     {...props}
@@ -26,21 +64,23 @@ ToastViewport.displayName = ToastPrimitives.Viewport.displayName
 
 const toastVariants = cva(
   [
-    'group pointer-events-auto relative flex items-center gap-3 overflow-hidden rounded-full px-4 py-2.5 pr-5',
-    'shadow-[0_10px_30px_-10px_rgba(0,0,0,0.35)] backdrop-blur-md will-change-transform',
+    'group pointer-events-auto relative flex max-w-full items-center gap-2.5 overflow-hidden rounded-xl px-3.5 py-2.5 md:gap-3 md:px-4 md:py-3',
+    'shadow-[0_10px_30px_-10px_rgba(0,0,0,0.35)] will-change-transform',
     'transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]',
-    'data-[swipe=cancel]:translate-x-0 data-[swipe=end]:translate-x-[var(--radix-toast-swipe-end-x)] data-[swipe=move]:translate-x-[var(--radix-toast-swipe-move-x)] data-[swipe=move]:transition-none',
+    'data-[swipe=cancel]:translate-x-0 data-[swipe=cancel]:translate-y-0',
+    'data-[swipe=end]:translate-x-[var(--radix-toast-swipe-end-x)] data-[swipe=end]:translate-y-[var(--radix-toast-swipe-end-y)]',
+    'data-[swipe=move]:translate-x-[var(--radix-toast-swipe-move-x)] data-[swipe=move]:translate-y-[var(--radix-toast-swipe-move-y)] data-[swipe=move]:transition-none',
     'data-[state=open]:animate-in data-[state=closed]:animate-out data-[swipe=end]:animate-out',
     'data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=closed]:slide-out-to-top-4',
     'data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=open]:slide-in-from-top-4',
-    'sm:data-[state=closed]:slide-out-to-right-4 sm:data-[state=open]:slide-in-from-right-4',
+    'md:data-[state=closed]:slide-out-to-right-4 md:data-[state=open]:slide-in-from-right-4',
   ].join(' '),
   {
     variants: {
       variant: {
-        default: 'border border-white/10 bg-neutral-900/95 text-white',
+        default: 'border border-white/10 bg-[#1a1a2e] text-white',
         destructive:
-          'destructive group border border-red-400/30 bg-red-600/95 text-white',
+          'destructive group border border-red-400/30 bg-red-600 text-white',
       },
     },
     defaultVariants: {
@@ -86,7 +126,7 @@ const ToastClose = React.forwardRef<
   <ToastPrimitives.Close
     ref={ref}
     className={cn(
-      'shrink-0 rounded-full p-1 text-white/60 opacity-0 transition-opacity hover:text-white focus:opacity-100 focus:outline-none group-hover:opacity-100',
+      'hidden shrink-0 rounded-full p-1 text-white/60 opacity-0 transition-opacity hover:text-white focus:opacity-100 focus:outline-none group-hover:opacity-100 md:inline-flex',
       className,
     )}
     toast-close=""
@@ -103,7 +143,7 @@ const ToastTitle = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <ToastPrimitives.Title
     ref={ref}
-    className={cn('text-[13px] font-medium leading-tight', className)}
+    className={cn('truncate text-[14px] font-medium leading-5', className)}
     {...props}
   />
 ))
@@ -115,7 +155,7 @@ const ToastDescription = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <ToastPrimitives.Description
     ref={ref}
-    className={cn('text-[12px] opacity-80 leading-tight', className)}
+    className={cn('line-clamp-2 text-[13px] leading-[18px] text-white/75', className)}
     {...props}
   />
 ))

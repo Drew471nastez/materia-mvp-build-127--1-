@@ -288,7 +288,7 @@ async function main() {
     check("but the editor's canvas is", /select\("path, content, draft_content"\)/.test(files) && /const files = sourceMap\(/.test(files))
     check("the editor says when a file is saved and not yet live", /Not published yet/.test(codePage) && /setUnpublished\(saved\?\.drafted !== false\)/.test(codePage))
     check("and says the other thing when there is no draft column yet", /saved\?\.drafted === false \? "Saved and live"/.test(codePage))
-    check("restoring an old version goes back out through the editor, not around it", /handleContentChange\(v\.content\)/.test(codePage) && /Loaded into the editor\. Save it to keep it\./.test(codePage))
+    check("restoring an old version goes back out through the editor, not around it", /handleContentChange\(v\.content\)/.test(codePage) && /toast\.success\("Loaded\. Save to keep it\."\)/.test(codePage))
     check("the migration is idempotent and additive", /add column if not exists draft_content/.test(sql) && /create table if not exists public\.store_theme_file_versions/.test(sql))
     check("and the history is only readable by whoever owns the install", /enable row level security/.test(sql) && (sql.match(/c\.user_id = auth\.uid\(\)/g) ?? []).length >= 3)
   }

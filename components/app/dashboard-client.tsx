@@ -1510,7 +1510,7 @@ export function DashboardClient({
       setTimeout(() => setCopiedTarget((prev) => (prev === target ? null : prev)), 1800)
       setTimeout(() => setCopyNotice(null), 1800)
     } catch {
-      toast({ title: "Copy failed", description: "Please copy the link manually.", variant: "destructive" })
+      toast({ title: "Could not copy the link", variant: "destructive" })
     }
   }
 

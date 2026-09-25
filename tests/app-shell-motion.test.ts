@@ -9,6 +9,8 @@
  *   scripts/check-app-stage.mjs        no outline ever; the spinner only past its wait; the landing; back keeps scroll
  *   scripts/check-settings-tabs.mjs    the tab bar and the new tab hold still through every switch
  *   scripts/check-upgrade-page.mjs     the plans page covers the shell; Back goes back
+ *   scripts/check-page-layer.mjs       the editor over the shell on a phone, in it from md, its bar under the header
+ *   scripts/check-scrollbar-stable.mjs the column and the scrollbar gutter never move while pages swap (1440, 1920)
  *   scripts/check-app-avatar.mjs       no initials before a photo; one fade; none on the way back
  *
  * What is held here is the logic those rest on (the navigation record, the
@@ -340,23 +342,62 @@ section("Pages drawn over the whole shell")
   const upgrade = code("app/app/settings/billing/upgrade/layout.tsx")
   const newLayout = code("app/app/products/new/layout.tsx")
   const idLayout = code("app/app/products/[id]/layout.tsx")
-  check("the plans page and both editor addresses use the one shared layer; the editor keeps the pill and its bar clears the status bar itself",
-    /<PageLayer inset="white">/.test(upgrade) && /<PageLayer pill inset="bar">/.test(newLayout) && /<PageLayer pill inset="bar">/.test(idLayout))
+  check("the plans page and both editor addresses use the one shared layer; the editor keeps the pill, its bar clears the status bar itself, and it is a layer on a phone only",
+    /<PageLayer inset="white">/.test(upgrade) && /<PageLayer pill inset="bar" phoneOnly>/.test(newLayout) && /<PageLayer pill inset="bar" phoneOnly>/.test(idLayout))
   const layer = code("components/app/page-layer.tsx")
   check("the layer is the whole window, between the header and the pill, and pads itself under the status bar",
-    /fixed inset-0 z-\[52\]/.test(layer) && /pt-\[env\(safe-area-inset-top,0px\)\]/.test(layer) && /classList\.add\("has-page-layer"\)/.test(layer))
+    /"fixed inset-0 z-\[52\] flex flex-col bg-\[#f8f9fa\]"/.test(layer) && /"pt-\[env\(safe-area-inset-top,0px\)\]"/.test(layer)
+      && /phoneOnly \? "has-phone-page-layer" : "has-page-layer"/.test(layer) && /html\.classList\.add\(name\)/.test(layer))
+  check("a phone only layer is the same layer below md and, from md, fills the shell's content area in the flow",
+    /"flex h-full flex-col bg-\[#f8f9fa\] max-md:fixed max-md:inset-0 max-md:z-\[52\] max-md:h-auto"/.test(layer)
+      && /data-page-layer-phone=\{phoneOnly \? "" : undefined\}/.test(layer) && /"max-md:pt-\[env\(safe-area-inset-top,0px\)\]"/.test(layer))
   const css = read("app/globals.css")
   check("while a layer is up the shell's chrome is not painted, the scroller is no stacking context on iOS, and the black shield stands down, each by :has() and by class",
-    /html:has\(\[data-page-layer\]\) \[data-shell-chrome\] \{\s*visibility: hidden;/.test(css)
+    /html:has\(\[data-page-layer\]:not\(\[data-page-layer-phone\]\)\) \[data-shell-chrome\] \{\s*visibility: hidden;/.test(css)
       && /html\.has-page-layer \[data-shell-chrome\] \{\s*visibility: hidden;/.test(css)
-      && /html:has\(\[data-page-layer\]\) \.app-content-scroll \{\s*-webkit-overflow-scrolling: auto;/.test(css)
-      && /html\.capacitor:has\(\[data-page-layer\]\)::before \{\s*display: none;/.test(css)
+      && /html:has\(\[data-page-layer\]:not\(\[data-page-layer-phone\]\)\) \.app-content-scroll \{\s*-webkit-overflow-scrolling: auto;/.test(css)
+      && /html\.capacitor:has\(\[data-page-layer\]:not\(\[data-page-layer-phone\]\)\)::before \{\s*display: none;/.test(css)
       && /html\.capacitor\.has-page-layer::before \{\s*display: none;/.test(css))
+  const phoneOnlyRules = /@media \(max-width: 767px\) \{\s*html:has\(\[data-page-layer-phone\]\) \[data-shell-chrome\] \{[\s\S]*?\n\}/.exec(css)?.[0] ?? ""
+  check("and for the editor's layer the same four, by :has() and by class, below 768px only: from md the header and the rail stay",
+    /html:has\(\[data-page-layer-phone\]\) \[data-shell-chrome\] \{\s*visibility: hidden;/.test(phoneOnlyRules)
+      && /html\.has-phone-page-layer \[data-shell-chrome\] \{\s*visibility: hidden;/.test(phoneOnlyRules)
+      && /html:has\(\[data-page-layer-phone\]\) \.app-content-scroll \{\s*-webkit-overflow-scrolling: auto;/.test(phoneOnlyRules)
+      && /html\.capacitor:has\(\[data-page-layer-phone\]\)::before \{\s*display: none;/.test(phoneOnlyRules)
+      && /html\.capacitor\.has-phone-page-layer::before \{\s*display: none;/.test(phoneOnlyRules)
+      && /html\.capacitor\.has-phone-page-layer \{\s*background-color: #f8f9fa;/.test(phoneOnlyRules))
+  const stage = code("components/app/app-stage.tsx")
+  check("the slow page's surface stands aside only for a layer that is over the shell now, not for the editor in it",
+    /if \(overShell\(\)\) return clear/.test(stage) && /getComputedStyle\(el\)\.position === "fixed"/.test(stage) && !/document\.querySelector\("\[data-page-layer\]"\)\) return clear/.test(stage))
   check("the pill steps aside only for a layer that does not keep it, and a layer that does gives the scroller room for it",
     /html:has\(\[data-page-layer=""\]\) \[data-app-nav-pill\] \{\s*visibility: hidden;/.test(css)
       && /\[data-page-layer="pill"\] \[data-page-layer-scroll\] > \.page-scroll \{\s*padding-bottom: calc\(104px \+ env\(safe-area-inset-bottom, 0px\)\);/.test(css))
   const sidebar = read("components/app/sidebar.tsx")
   check("both headers and the rail say they are the shell's chrome", (sidebar.match(/data-shell-chrome=""/g) || []).length >= 3)
+}
+
+section("One scrollbar column on a computer")
+{
+  /* Measured every frame, at 1440 and 1920 with classic scrollbars, by scripts/check-scrollbar-stable.mjs. */
+  const css = read("app/globals.css")
+  const block = /@media \(min-width: 768px\) \{\s*html\.app-layout:not\(\.capacitor\) \.app-content-scroll \{\s*scrollbar-gutter: stable;[\s\S]*?\n\}/.exec(css)?.[0] ?? ""
+  check("the shell's scroller keeps its scrollbar column, in the same slim bar as the pages' own",
+    /html\.app-layout:not\(\.capacitor\) \.app-content-scroll \{\s*scrollbar-gutter: stable;\s*scrollbar-width: thin;/.test(block)
+      && /\.page-scroll \{\s*scrollbar-width: thin;/.test(css))
+  check("a page that scrolls itself keeps the column in its own box, and the shell's scroller then does not scroll and keeps none",
+    /\.app-content-scroll:has\(> \.page-scroll, > \.dashboard-scroll-container, > \.sales-scroll-container, > \.orders-stage, > \[data-page-layer\]\) \{\s*overflow-y: hidden;\s*scrollbar-gutter: auto;/.test(block)
+      && /\.app-content-scroll > \.page-scroll,/.test(block) && /\.app-content-scroll > \.orders-stage > \.orders-pane,/.test(block)
+      && /\[data-page-layer-scroll\] > \.page-scroll \{\s*scrollbar-gutter: stable;/.test(block))
+  check("while the landing rises, the shell's scroller cannot scroll", /\.app-content-scroll\[data-app-landing\] \{\s*overflow-y: hidden;/.test(block))
+  check("none of it below 768px or in the native apps, where scrollbars float and take no room",
+    !/@media \(max-width: 767px\) \{\s*html\.app-layout \.app-content-scroll \{\s*scrollbar-gutter/.test(css)
+      && (block.match(/html\.app-layout:not\(\.capacitor\) \.app-content-scroll/g) ?? []).length === 8 && !/html\.app-layout \.app-content-scroll/.test(block))
+  const stage = code("components/app/app-stage.tsx")
+  check("the stage reads whether the page fitted before the rise starts, and holds the scroller only then, letting go when the rise is over or soon after",
+    /const fitted = outer\.scrollHeight <= outer\.clientHeight\s+const moving/.test(stage)
+      && /holdStill\(outer, fitted && moving\.length > 0, moving\)/.test(stage)
+      && /outer\.setAttribute\("data-app-landing", ""\)/.test(stage)
+      && /a\.finished\.catch\(\(\) => undefined\)/.test(stage) && /window\.setTimeout\(release, NAV_ENTER_MS \+ 120\)/.test(stage))
 }
 
 section("The way back")
@@ -444,6 +485,70 @@ section("Navigation")
   check("the bar waits before it shows, and back and forward are seen as navigations",
     /NAV_BAR_AFTER_MS - \(performance\.now\(\) - nav\.startedAt\)/.test(bar) && /window\.addEventListener\("popstate", onPop\)/.test(bar))
   check("a modified click (a new tab) starts nothing", /e\.metaKey \|\| e\.ctrlKey \|\| e\.shiftKey \|\| e\.altKey/.test(bar))
+}
+
+section("Toasts on a phone")
+{
+  /* Measured at 390 and 1440 by scripts/check-toasts.mjs. */
+  const box = code("components/ui/toast.tsx")
+  check("the viewport runs across the screen between 16px gutters, just under the header, not from the middle (which squeezed every toast into half the screen)",
+    /'pointer-events-none fixed inset-x-0 top-\[calc\(68px\+env\(safe-area-inset-top,0px\)\+8px\)\] z-\[2147483646\] flex max-h-screen flex-col items-center gap-2 px-4 outline-none'/.test(box)
+      && !/left-1\/2 -translate-x-1\/2 top-\[calc\(76px/.test(box))
+  check("from md it sits at the bottom right, 380px at most, over neither the header's buttons nor the page's own bar",
+    /md:left-auto md:right-6 md:top-auto md:bottom-\[calc\(24px\+env\(safe-area-inset-bottom,0px\)\)\] md:w-\[380px\]/.test(box))
+  check("the box is tight and square cornered like the app's other toasts, no pill, no blur behind it",
+    /rounded-xl px-3\.5 py-2\.5/.test(box) && !/rounded-full px-4 py-2\.5/.test(box) && !/backdrop-blur/.test(box))
+  check("one line of 14px title and at most two lines of 13px detail",
+    /'truncate text-\[14px\] font-medium leading-5'/.test(box) && /'line-clamp-2 text-\[13px\] leading-\[18px\] text-white\/75'/.test(box))
+  check("no close button on a phone: it only showed on hover and still took the room", /'hidden shrink-0 rounded-full p-1[^']*md:inline-flex'/.test(box))
+  check("a swipe moves it on either axis, so up works as well as right",
+    /data-\[swipe=move\]:translate-y-\[var\(--radix-toast-swipe-move-y\)\]/.test(box) && /data-\[swipe=end\]:translate-y-\[var\(--radix-toast-swipe-end-y\)\]/.test(box))
+  const toaster = code("components/ui/toaster.tsx")
+  check("and it is swiped up on a phone, to the right on a computer",
+    /const PHONE = "\(max-width: 767px\)"/.test(toaster) && /return phone \? "up" : "right"/.test(toaster) && /swipeDirection=\{swipeDirection\}/.test(toaster))
+  const sonner = code("components/ui/editor-toaster.tsx")
+  check("the website builder's toasts keep clear of the home indicator on a phone and keep to the same lines",
+    /mobileOffset=\{\{ left: 16, right: 16, bottom: "calc\(16px \+ env\(safe-area-inset-bottom, 0px\)\)" \}\}/.test(sonner)
+      && /title: "truncate text-\[14px\]"/.test(sonner) && /description: "line-clamp-2 text-\[13px\]"/.test(sonner) && /toast: "max-\[600px\]:py-3!"/.test(sonner)
+      && /<EditorToaster \/>/.test(code("app/website-builder/layout.tsx")) && !/from "sonner"/.test(code("app/website-builder/layout.tsx")))
+
+  /*
+    THE WORDS. Every toast written out in these files says one short thing:
+    at most 40 characters, no em dash, no "successfully", no "Please". The
+    emails, billing, automations, search and notifications code belongs to
+    other work and is not read here.
+  */
+  const files = [
+    "app/app/payouts/payouts-client.tsx",
+    "app/app/products/products-client.tsx",
+    "app/app/products/new/product-editor.tsx",
+    "app/app/coupons/coupons-client.tsx",
+    "app/app/website-builder/themes/themes-client.tsx",
+    "app/app/website-builder/website-builder-client.tsx",
+    "components/app/dashboard-client.tsx",
+    "components/app/settings-form-new.tsx",
+    "components/onepage/tabs/products-tab.tsx",
+    "app/website-builder/code/[installId]/page.tsx",
+    "components/website-builder/editor/image-picker.tsx",
+    "app/website-builder/editor/[installId]/page.tsx",
+  ]
+  const call = /\b(?:toast(?:\.(?:success|error|info|warning|message))?|showNotification|showToast|say)\(\s*(?:\{\s*title:\s*)?(["`])((?:(?!\1)[^\\]|\\.)*)\1/g
+  const long: string[] = []
+  const said: string[] = []
+  for (const f of files) {
+    for (const m of code(f).matchAll(call)) {
+      const text = m[2]
+      said.push(text)
+      /* A name filled in at run time counts as ten characters. */
+      const length = text.replace(/\$\{[^}]*\}/g, "0123456789").length
+      if (length > 40 || /—|successfully|\bPlease\b/.test(text)) long.push(`${f}: "${text}"`)
+    }
+  }
+  check("every toast in the app's own pages is short and plain", said.length >= 40 && long.length === 0, long.join("; ") || `${said.length} read`)
+  check("an upload that failed says so, not the storage error's own words",
+    /toast\.error\("Upload failed\. Try again\."\)/.test(code("components/website-builder/editor/image-picker.tsx")) && !/err\.message/.test(code("components/website-builder/editor/image-picker.tsx")))
+  const addRoute = code("app/api/website-builder/themes/add/route.ts")
+  check("adding a theme never hands the database's error text to the toast", !/seedErr\.message|installErr\?\.message/.test(addRoute) && (addRoute.match(/"Could not add the theme\. Try again\."/g) ?? []).length === 2)
 }
 
 section("Avatars")

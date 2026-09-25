@@ -278,12 +278,12 @@ export function ProductsTab() {
 
     if (option.type === "email_capture") {
       addBlock("email_capture")
-      showNotification("Email Capture Form added to your page")
+      showNotification("Email form added")
       closeAddProductSheet()
       setActiveSection("links")
     } else if (option.id === "digital") {
       addBlock("product")
-      showNotification("Digital Product block added to your page")
+      showNotification("Product added")
       closeAddProductSheet()
       setActiveSection("links")
     } else {
@@ -333,13 +333,7 @@ export function ProductsTab() {
         <div className="fixed top-[calc(68px+env(safe-area-inset-top)+12px)] md:top-4 left-1/2 transform -translate-x-1/2 z-[2147483647] animate-in fade-in slide-in-from-top-2 duration-300 pointer-events-none">
           <div className="flex items-center gap-2 px-4 py-3 bg-gray-900 text-white rounded-lg shadow-xl whitespace-nowrap max-w-[calc(100vw-2rem)]">
             <Check className="h-4 w-4 text-green-400 shrink-0" />
-            <span className="text-sm font-medium hidden sm:block">{notification.message}</span>
-            <span className="text-sm font-medium sm:hidden overflow-hidden text-ellipsis">{
-              notification.message.includes("Email Capture") ? "Form added" :
-              notification.message.includes("Digital Product") ? "Product added" :
-              notification.message.includes("PDF Document") ? "PDF added" :
-              notification.message
-            }</span>
+            <span className="min-w-0 truncate text-sm font-medium">{notification.message}</span>
           </div>
         </div>,
         document.body
@@ -466,7 +460,7 @@ export function ProductsTab() {
           <button
             onClick={() => {
               addBlock("email_capture")
-              showNotification("Email Capture Form added to your page")
+              showNotification("Email form added")
               setActiveSection("links")
             }}
             className="flex items-center gap-4 p-4 border rounded-xl hover:border-violet-300 hover:bg-violet-50/50 transition-all text-left"
@@ -487,7 +481,7 @@ export function ProductsTab() {
           <button
             onClick={() => {
               addBlock("product")
-              showNotification("Digital Product block added to your page")
+              showNotification("Product added")
               setActiveSection("links")
             }}
             className="flex items-center gap-4 p-4 border rounded-xl hover:border-violet-300 hover:bg-violet-50/50 transition-all text-left"
@@ -508,7 +502,7 @@ export function ProductsTab() {
           <button
             onClick={() => {
               addBlock("pdf_document")
-              showNotification("PDF Document block added to your page")
+              showNotification("PDF added")
               setActiveSection("links")
             }}
             className="flex items-center gap-4 p-4 border rounded-xl hover:border-violet-300 hover:bg-violet-50/50 transition-all text-left"

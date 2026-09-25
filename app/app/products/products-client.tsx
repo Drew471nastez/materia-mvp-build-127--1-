@@ -463,11 +463,11 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
 
       if (data) {
         setProducts(prev => [data, ...prev])
-        showNotification("Product duplicated successfully")
+        showNotification("Product duplicated")
       }
     } catch (error) {
       console.error("Error duplicating product:", error)
-      showNotification("Failed to duplicate product", "error")
+      showNotification("Could not duplicate the product", "error")
     }
   }
 
@@ -511,10 +511,10 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
     const url = getProductUrl(creatorUsername, product.slug)
     try {
       await navigator.clipboard.writeText(url)
-      showNotification("Link copied to clipboard")
+      showNotification("Link copied")
     } catch (error) {
       console.error("Error copying to clipboard:", error)
-      showNotification("Failed to copy link", "error")
+      showNotification("Could not copy the link", "error")
     }
   }
 
@@ -536,11 +536,11 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
       if (!gone?.length) throw new Error("Nothing was deleted")
 
       setProducts(prev => prev.filter(p => p.id !== productToDelete.id))
-      showNotification("Product deleted successfully")
+      showNotification("Product deleted")
       closeDelete()
     } catch (error) {
       console.error("Error deleting product:", error)
-      showNotification("Failed to delete product", "error")
+      showNotification("Could not delete the product", "error")
     } finally {
       setIsDeleting(false)
     }
