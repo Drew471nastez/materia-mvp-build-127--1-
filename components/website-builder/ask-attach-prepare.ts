@@ -90,8 +90,24 @@ async function decode(file: Blob): Promise<{ source: CanvasImageSource; width: n
   }
 }
 
-/** Draws at `width` x `height` on white and encodes JPEG, asynchronously. */
+/**
+ * THE QUALITY STEPS DOWN ONLY WHEN IT HAS TO. A very detailed photo can come
+ * out of the first encode over the per-picture limit the route enforces
+ * (MAX_IMAGE_BYTES); it is encoded again a notch lower rather than refused.
+ */
+const QUALITY_STEPS = [JPEG_QUALITY, 0.85, 0.75, 0.65]
+
+/** Draws at `width` x `height` on white and encodes JPEG, asynchronously, inside the per-picture limit. */
 async function encode(source: CanvasImageSource, width: number, height: number): Promise<Blob> {
+  let blob: Blob | null = null
+  for (const quality of QUALITY_STEPS) {
+    blob = await encodeAt(source, width, height, quality)
+    if (blob.size <= MAX_IMAGE_BYTES * 0.9) return blob
+  }
+  return blob as Blob
+}
+
+async function encodeAt(source: CanvasImageSource, width: number, height: number, quality: number): Promise<Blob> {
   if (typeof OffscreenCanvas !== "undefined") {
     try {
       const canvas = new OffscreenCanvas(width, height)
@@ -102,7 +118,7 @@ async function encode(source: CanvasImageSource, width: number, height: number):
         context.fillRect(0, 0, canvas.width, canvas.height)
         context.imageSmoothingQuality = "high"
         context.drawImage(source, 0, 0, width, height)
-        return await canvas.convertToBlob({ type: "image/jpeg", quality: JPEG_QUALITY })
+        return await canvas.convertToBlob({ type: "image/jpeg", quality })
       }
     } catch {
       /* Safari before 16.4 has no 2D OffscreenCanvas; the page canvas below does the same. */
@@ -118,7 +134,7 @@ async function encode(source: CanvasImageSource, width: number, height: number):
   context.imageSmoothingQuality = "high"
   context.drawImage(source, 0, 0, width, height)
   return await new Promise<Blob>((resolve, reject) =>
-    canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new PrepareError("This browser could not shrink the picture."))), "image/jpeg", JPEG_QUALITY),
+    canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new PrepareError("This browser could not shrink the picture."))), "image/jpeg", quality),
   )
 }
 

@@ -20,14 +20,32 @@ import type { SectionInstance } from "@/lib/website-builder/types"
 
 const SECTIONS: SectionInstance[] = [
   { id: "s1", type: "header", name: "Header", settings: {} },
-  { id: "s2", type: "hero", name: "Hero", settings: {} },
-  { id: "s3", type: "faq", name: "FAQ", settings: {} },
+  { id: "s2", type: "hero_centered", name: "Hero", settings: { heading: "Handmade ceramics for slow mornings and long dinners" } },
+  { id: "s3", type: "faq_accordion", name: "FAQ", settings: {} },
+  { id: "s9", type: "footer", name: "Footer", settings: {} },
 ]
+const SETTINGS = { brand_name: "Nora Clay" }
+const STORE = { productCount: 7 }
 
 /* The editor's AI sheet props: page.tsx, `{isMobileView && aiMounted && (`. */
 const AI_SHEET_DETENTS = [0.5, 1]
 
 const noop = () => {}
+const w = globalThis as unknown as Record<string, unknown>
+/* The editor's side of a run's Undo and of Connect AI, counted so the probe can see them called. */
+w.__runs = [] as string[]
+w.__undone = [] as string[]
+w.__connect = 0
+const onRunStart = (runId?: string) => {
+  ;(w.__runs as string[]).push(runId ?? "")
+}
+const onUndoRun = (runId: string) => {
+  ;(w.__undone as string[]).push(runId)
+  return true
+}
+const onConnectAi = () => {
+  w.__connect = (w.__connect as number) + 1
+}
 
 function Desktop() {
   const [aiOpen, setAiOpen] = React.useState(true)
@@ -36,7 +54,6 @@ function Desktop() {
   /* How many times the editor stand-in has rendered: typing and streaming in the chat must not move it. */
   const renders = React.useRef(0)
   renders.current++
-  const w = globalThis as unknown as Record<string, unknown>
   w.__editorRenders = renders.current
   w.__setSelected = setSelected
   w.__ask = () => setAsk((n) => n + 1)
@@ -83,14 +100,17 @@ function Desktop() {
             suspended={false}
             openRequest={ask}
             installId="00000000-0000-4000-8000-000000000001"
-            page="index"
+            page="home"
             sections={SECTIONS}
-            settings={{}}
+            settings={SETTINGS}
+            store={STORE}
             selectedSectionId={selected}
-            onRunStart={noop}
+            onRunStart={onRunStart}
+            onUndoRun={onUndoRun}
             onBusyChange={noop}
             onOp={noop}
             onClose={onClose}
+            onConnectAi={onConnectAi}
           />
         </main>
       </div>
@@ -113,14 +133,17 @@ function Phone() {
         <ThemeChat
           variant="sheet"
           installId="00000000-0000-4000-8000-000000000001"
-          page="index"
+          page="home"
           sections={SECTIONS}
-          settings={{}}
+          settings={SETTINGS}
+          store={STORE}
           selectedSectionId="s2"
-          onRunStart={noop}
+          onRunStart={onRunStart}
+          onUndoRun={onUndoRun}
           onBusyChange={noop}
           onOp={noop}
           onClose={() => setOpen(false)}
+          onConnectAi={onConnectAi}
         />
       </MobileEditorSheet>
     </>

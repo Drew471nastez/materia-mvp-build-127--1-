@@ -1891,6 +1891,26 @@ function ThemeChatPanel({
             Chats
           </span>
         </>
+      ) : phone ? (
+        /*
+          ON A PHONE THE NAME IS THE WAY IN. The chat's name with a chevron,
+          which opens the list of chats, as a phone's chat apps do: one
+          control where a computer has two, so Connect AI fits beside it on
+          a 360px screen and the name is still readable.
+        */
+        <button
+          type="button"
+          data-ask-history-button=""
+          onClick={openHistory}
+          aria-label="Conversation history"
+          title="Conversation history"
+          className="flex h-11 min-w-0 flex-1 items-center gap-1 rounded-full pl-2.5 pr-2 text-left transition-colors hover:bg-black/[0.05] active:bg-black/[0.08]"
+        >
+          <span data-ask-title="" className="min-w-0 truncate text-[14px] font-medium text-[#1a1a2e]">
+            {conversation.title || "Ask Storelib"}
+          </span>
+          <ChevronDown className="h-3.5 w-3.5 shrink-0 text-[#1a1a2e]/55" strokeWidth={2.2} />
+        </button>
       ) : (
         <>
           <button
@@ -1899,7 +1919,7 @@ function ThemeChatPanel({
             onClick={openHistory}
             aria-label="Conversation history"
             title="Conversation history"
-            className={cn(iconButton, "w-auto gap-0.5", phone ? "min-w-11 px-2.5" : "px-2")}
+            className={cn(iconButton, "w-auto gap-0.5 px-2")}
           >
             <History className="h-[17px] w-[17px]" strokeWidth={1.8} />
             <ChevronDown className="h-3 w-3 opacity-60" strokeWidth={2.2} />
@@ -1913,7 +1933,7 @@ function ThemeChatPanel({
         </>
       )}
       {onConnectAi && (
-        <span className={cn("flex shrink-0 items-center", phone ? "px-1" : "pl-1 pr-1.5")}>
+        <span className={cn("flex shrink-0 items-center", phone ? "pl-1 pr-0.5" : "pl-1 pr-1.5")}>
           <ConnectAiButton phone={phone} onClick={onConnectAi} />
         </span>
       )}
@@ -2541,7 +2561,7 @@ function ThemeChatPanel({
               width: g.pillW,
               bottom: g.pillBottom,
               height: pillHeight,
-              boxShadow: "0 6px 44px 18px rgba(248, 249, 250, 0.66)",
+              boxShadow: "0 6px 44px 14px rgba(248, 249, 250, 0.5)",
               opacity: showPill && !cardOpen && !pillAway ? 1 : 0,
               transition: reducedMotion ? "none" : "opacity 240ms ease-out",
             }}
@@ -2563,10 +2583,16 @@ function ThemeChatPanel({
               ...fade(cardOpen, "translateY(18px) scale(0.965)"),
             }}
           >
+            {/*
+              SOLID, NOT FROSTED. At 97% white over a wide blur the canvas's
+              colours still showed through as smudges behind the words, and
+              a backdrop filter this size repainted on every scroll of the
+              page under it. The frosted glass is the folded pill's alone.
+            */}
             <div
               ref={surfaceRef}
               data-ask-surface=""
-              className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-[30px] border border-white/80 bg-white/[0.97] shadow-[0_32px_80px_-28px_rgba(15,23,42,0.38),0_10px_28px_-14px_rgba(15,23,42,0.18)] ring-1 ring-black/[0.06] backdrop-blur-2xl backdrop-saturate-150"
+              className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-[30px] border border-[#e5e7eb]/80 bg-white shadow-[0_32px_80px_-28px_rgba(15,23,42,0.38),0_10px_28px_-14px_rgba(15,23,42,0.18)] ring-1 ring-black/[0.04]"
             >
               {dropTarget}
               <div ref={contentRef} className="flex min-h-0 flex-1 flex-col">
