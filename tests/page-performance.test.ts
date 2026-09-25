@@ -2432,7 +2432,9 @@ check(
       missing.push("the stored path takes its extension from the original, so a WebP is stored as .heic")
 
     // The three refusals, each of which turns an optimisation into a downgrade.
-    if (!/if \(blob\.size >= file\.size\) return file/.test(compress))
+    /* The original goes up instead, without its location metadata
+       (lib/images/metadata.ts), never the larger re-encode. */
+    if (!/if \(blob\.size >= file\.size\) return \(await withoutMetadata\(file\)\) as File/.test(compress))
       missing.push("compression can now return something LARGER than it was given")
     if (!/const LEAVE_ALONE = /.test(compress) || !compress.includes("svg") || !compress.includes("gif"))
       missing.push("SVGs and GIFs are rasterised again — one loses its animation, the other gets bigger")

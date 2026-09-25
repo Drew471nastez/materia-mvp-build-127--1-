@@ -1,20 +1,42 @@
 /**
- * Client-side upload engine with:
- * - Direct-to-storage upload via signed URLs (bypasses server body limits)
- * - Real progress tracking via XMLHttpRequest
- * - Chunked upload for large files (>50MB)
- * - Automatic retry with exponential backoff
- * - Resume capability on connection drop
- * - SHA-256 checksum computation via Web Crypto API
+ * ===========================================================================
+ *  THE UPLOADER FOR A PRODUCT'S FILES
+ * ===========================================================================
+ * One file, from the page straight to storage, never through a function:
  *
- * Usage:
- *   const uploader = new DirectUploader({ file, productId, folder })
- *   uploader.on('progress', (pct) => setProgress(pct))
- *   uploader.on('complete', (result) => ...)
- *   uploader.on('error', (err) => ...)
- *   await uploader.start()
- *   // uploader.abort() to cancel
- *   // uploader.pause() / uploader.resume() for pause/resume
+ *   1. computing_checksum  SHA-256 of the file (a fingerprint past 100 MB)
+ *   2. preparing           /api/v2/upload/prepare: the server builds the path,
+ *                          checks quota, rate and file limits, and makes a
+ *                          pending record. A second prepare for the same file
+ *                          sends its assetId and gets the same record back.
+ *   3. uploading           the bytes. Files up to 6 MB go in one PUT to the
+ *                          signed URL. Larger ones go by TUS, Supabase's
+ *                          resumable protocol, in 6 MB parts: storage keeps
+ *                          every part it has acknowledged, so a dropped
+ *                          connection or a pause continues from the last part
+ *                          storage confirmed, not from zero. If TUS is not
+ *                          available (an older database without the policy
+ *                          that lets a person write the one path reserved for
+ *                          them), the whole file goes by signed URL instead.
+ *   4. completing          /api/v2/upload/complete: the server reads the size
+ *                          and first bytes back from storage and scans them.
+ *   5. complete
+ *
+ * PAUSE AND RESUME. pause() stops the request in flight. A stopped request is
+ * never counted as done: the run waits, and complete() is only called after
+ * every byte has been acknowledged by storage. resume() lets the same run
+ * carry on, asking storage how much it has (TUS HEAD) before sending more.
+ * It used to be that an aborted request RESOLVED, so a pause went straight on
+ * to complete() with half a file, and resume() started again from 0%.
+ *
+ * CANCEL. abort() stops everything. A cancel that arrives while the file is
+ * being completed is checked after complete() returns too, so the file is
+ * never handed to onComplete, and /api/v2/upload/cancel removes the record
+ * and the bytes. Anything that still slips through (a closed tab) is pending
+ * or unattached and the storage cleanup cron removes it.
+ *
+ * The public shape (constructor options, start, pause, resume, abort,
+ * getStatus, destroy, the callbacks and the statuses) is unchanged.
  */
 
 // ── Types ──────────────────────────────────────────────────────────
@@ -27,10 +49,15 @@ export interface UploadOptions {
   onComplete?: (result: UploadResult) => void
   onError?: (error: UploadError) => void
   onStatusChange?: (status: UploadStatus) => void
-  /** Chunk size in bytes for large files. Default: 2MB */
+  /** Unused since the chunked path was removed; kept so callers still compile. */
   chunkSize?: number
-  /** Max retry attempts per chunk. Default: 3 */
+  /** Max retry attempts per part. Default: 3 */
   maxRetries?: number
+  /**
+   * The signed in person's access token, for resumable uploads. Defaults to
+   * the browser session (lib/supabase/client). Tests pass their own.
+   */
+  getAccessToken?: () => Promise<string | null>
 }
 
 export interface UploadResult {
@@ -64,10 +91,17 @@ export type UploadStatus =
 
 // ── Constants ──────────────────────────────────────────────────────
 
-const DEFAULT_CHUNK_SIZE = 2 * 1024 * 1024 // 2MB — must stay under Vercel's 4.5MB body limit
-const LARGE_FILE_THRESHOLD = 50 * 1024 * 1024 // 50MB — use chunked for files larger
 const MAX_RETRIES = 3
 const RETRY_BASE_DELAY_MS = 1000
+
+/** Supabase's TUS endpoint takes parts of exactly this size (the last may be smaller). */
+export const RESUMABLE_PART_BYTES = 6 * 1024 * 1024
+
+/** Up to this, one PUT to the signed URL; above it, resumable parts. */
+export const SINGLE_PUT_MAX_BYTES = RESUMABLE_PART_BYTES
+
+/** Vercel's function body limit, for the last resort through the server. */
+const SERVER_UPLOAD_MAX_BYTES = 4 * 1024 * 1024
 
 // ── SHA-256 Checksum ───────────────────────────────────────────────
 
@@ -120,27 +154,65 @@ export async function computeSHA256(
     .join("")
 }
 
+// ── Helpers ────────────────────────────────────────────────────────
+
+function b64(text: string): string {
+  const bytes = new TextEncoder().encode(text)
+  let bin = ""
+  for (const b of bytes) bin += String.fromCharCode(b)
+  return btoa(bin)
+}
+
+function isUploadError(e: unknown): e is UploadError {
+  return !!e && typeof e === "object" && "code" in e && "message" in e
+}
+
+/** A stopped request, which is not an answer about the file. */
+const PAUSED: UploadError = { message: "Upload paused", code: "PAUSED", retryable: true }
+
+/** TUS could not be used here: send the file by signed URL instead. */
+const NO_RESUMABLE: UploadError = { message: "Resumable upload unavailable", code: "NO_RESUMABLE", retryable: true }
+
+async function sessionAccessToken(): Promise<string | null> {
+  try {
+    const { createClient } = await import("@/lib/supabase/client")
+    const { data } = await createClient().auth.getSession()
+    return data.session?.access_token ?? null
+  } catch {
+    return null
+  }
+}
+
 // ── Direct Uploader Class ──────────────────────────────────────────
 
 export class DirectUploader {
   private file: File
   private productId?: string
   private folder: string
-  private chunkSize: number
   private maxRetries: number
+  private getAccessToken: () => Promise<string | null>
 
   private status: UploadStatus = "idle"
+  /** The status to go back to when a pause ends. */
+  private activeStatus: UploadStatus = "idle"
   private xhr: XMLHttpRequest | null = null
   private aborted = false
   private paused = false
+  private waiters: Array<{ resolve: () => void; reject: (e: UploadError) => void }> = []
+  private run: Promise<UploadResult> | null = null
+  private discarded = false
 
-  // State for resume
+  // State kept across pauses and retries
   private signedUrl: string | null = null
   private uploadToken: string | null = null
   private uploadPath: string | null = null
   private uploadBucket: string | null = null
   private assetId: string | null = null
   private checksum: string | null = null
+  /** The TUS upload's own URL, once storage has made one. */
+  private resumableUrl: string | null = null
+  /** Bytes storage has acknowledged. Only a successful answer moves it. */
+  private confirmed = 0
 
   // Callbacks
   private onProgress?: UploadOptions["onProgress"]
@@ -156,12 +228,12 @@ export class DirectUploader {
     this.file = options.file
     this.productId = options.productId
     this.folder = options.folder || "digital"
-    this.chunkSize = options.chunkSize || DEFAULT_CHUNK_SIZE
     this.maxRetries = options.maxRetries || MAX_RETRIES
     this.onProgress = options.onProgress
     this.onComplete = options.onComplete
     this.onError = options.onError
     this.onStatusChange = options.onStatusChange
+    this.getAccessToken = options.getAccessToken ?? sessionAccessToken
 
     // Auto-pause on internet loss, auto-resume on reconnect
     if (typeof window !== "undefined") {
@@ -190,107 +262,54 @@ export class DirectUploader {
 
   // ── Public API ──────────────────────────────────────────────────
 
-  async start(): Promise<UploadResult> {
+  /** Runs the upload. Calling it again while it runs returns the same run. */
+  start(): Promise<UploadResult> {
+    if (this.run) return this.run
     this.aborted = false
     this.paused = false
-
-    try {
-      // Step 1: Compute checksum
-      this.setStatus("computing_checksum")
-      this.checksum = await computeSHA256(this.file, (pct) => {
-        // Report checksum progress as 0-5% of total
-        this.onProgress?.(Math.round(pct * 0.05), 0, this.file.size)
-      })
-
-      if (this.aborted) throw this.abortError()
-
-      // Step 2: Prepare upload (get signed URL)
-      this.setStatus("preparing")
-      await this.prepare()
-
-      if (this.aborted) throw this.abortError()
-
-      // Step 3: Upload file directly to storage via signed URL
-      // Always use direct upload — signed URL goes straight to Supabase
-      // storage with no server body-size limits. The old chunked path
-      // relied on in-memory state that breaks on Vercel serverless.
-      this.setStatus("uploading")
-      await this.uploadDirectWithRetry()
-
-      if (this.aborted) throw this.abortError()
-
-      // Step 4: Complete upload (mark asset as done, store checksum)
-      this.setStatus("completing")
-      const result = await this.complete()
-
-      this.setStatus("complete")
-      this.destroy()
-      this.onComplete?.(result)
-      return result
-    } catch (err) {
-      this.destroy()
-      if (this.aborted) {
-        this.setStatus("aborted")
-        const abortErr: UploadError = {
-          message: "Upload cancelled",
-          code: "ABORTED",
-          retryable: false,
-        }
-        this.onError?.(abortErr)
-        throw abortErr
-      }
-
-      this.setStatus("error")
-      const uploadErr: UploadError =
-        err && typeof err === "object" && "code" in err
-          ? (err as UploadError)
-          : {
-              message: err instanceof Error ? err.message : String(err),
-              code: "UNKNOWN",
-              retryable: true,
-            }
-      this.onError?.(uploadErr)
-      throw uploadErr
-    }
+    this.run = this.execute().finally(() => {
+      this.run = null
+    })
+    return this.run
   }
 
   abort(): void {
+    if (this.aborted || this.status === "complete") return
     this.aborted = true
+    this.paused = false
     this.xhr?.abort()
+    const waiting = this.waiters
+    this.waiters = []
+    for (const w of waiting) w.reject(this.abortError())
     this.setStatus("aborted")
+    /* Not running (it failed, or never started): nothing will tidy up but this. */
+    if (!this.run) void this.discard()
   }
 
   pause(): void {
+    if (this.paused || this.aborted || !this.run) return
+    if (this.status === "complete" || this.status === "error" || this.status === "aborted") return
     this.paused = true
+    this.activeStatus = this.status
     this.xhr?.abort()
     this.setStatus("paused")
   }
 
-  async resume(): Promise<UploadResult> {
-    this.paused = false
-    // If we already have a signed URL, skip prepare
-    if (this.signedUrl && this.uploadPath) {
-      this.setStatus("uploading")
-      try {
-        await this.uploadDirectWithRetry()
-
-        this.setStatus("completing")
-        const result = await this.complete()
-        this.setStatus("complete")
-        this.onComplete?.(result)
-        return result
-      } catch (err) {
-        this.setStatus("error")
-        const uploadErr: UploadError = {
-          message: err instanceof Error ? err.message : String(err),
-          code: "RESUME_FAILED",
-          retryable: true,
-        }
-        this.onError?.(uploadErr)
-        throw uploadErr
-      }
+  /**
+   * Carries on where storage left off. While a run is paused this lets the
+   * same run continue; after an error it starts again, reusing the record
+   * and, for a resumable upload, the parts storage already has.
+   */
+  resume(): Promise<UploadResult> {
+    if (this.aborted) return Promise.reject(this.abortError())
+    if (this.paused && this.run) {
+      this.paused = false
+      this.setStatus(this.activeStatus === "paused" ? "uploading" : this.activeStatus)
+      const waiting = this.waiters
+      this.waiters = []
+      for (const w of waiting) w.resolve()
+      return this.run
     }
-    // Otherwise start fresh
     return this.start()
   }
 
@@ -298,9 +317,74 @@ export class DirectUploader {
     return this.status
   }
 
-  // ── Private Methods ──────────────────────────────────────────────
+  // ── The run ─────────────────────────────────────────────────────
+
+  private async execute(): Promise<UploadResult> {
+    try {
+      if (!this.checksum) {
+        this.setStatus("computing_checksum")
+        this.checksum = await computeSHA256(this.file, (pct) => {
+          // Report checksum progress as 0-5% of total
+          this.onProgress?.(Math.round(pct * 0.05), 0, this.file.size)
+        })
+      }
+      await this.checkpoint()
+
+      if (!this.uploadPath) {
+        this.setStatus("preparing")
+        await this.prepare()
+      }
+      await this.checkpoint()
+
+      this.setStatus("uploading")
+      await this.transfer()
+
+      /* Every byte is acknowledged. A cancel or pause that came in the
+         meantime is honoured before the file is completed. */
+      await this.checkpoint()
+
+      this.setStatus("completing")
+      const result = await this.completeWithRetry()
+
+      /* A cancel during completing: the server finished, the person did not
+         want it. It is removed, and never reported as done. */
+      if (this.aborted) throw this.abortError()
+
+      this.setStatus("complete")
+      this.destroy()
+      this.onComplete?.(result)
+      return result
+    } catch (err) {
+      if (this.aborted || (isUploadError(err) && err.code === "ABORTED")) {
+        this.aborted = true
+        this.setStatus("aborted")
+        this.destroy()
+        await this.discard()
+        const abortErr = this.abortError()
+        this.onError?.(abortErr)
+        throw abortErr
+      }
+
+      this.setStatus("error")
+      const uploadErr: UploadError = isUploadError(err)
+        ? err
+        : { message: err instanceof Error ? err.message : String(err), code: "UNKNOWN", retryable: true }
+      this.onError?.(uploadErr)
+      throw uploadErr
+    }
+  }
+
+  /** Throws if cancelled; waits while paused. */
+  private async checkpoint(): Promise<void> {
+    if (this.aborted) throw this.abortError()
+    while (this.paused) {
+      await new Promise<void>((resolve, reject) => this.waiters.push({ resolve, reject }))
+      if (this.aborted) throw this.abortError()
+    }
+  }
 
   private setStatus(status: UploadStatus) {
+    if (this.status === status) return
     this.status = status
     this.onStatusChange?.(status)
   }
@@ -309,8 +393,16 @@ export class DirectUploader {
     return { message: "Upload cancelled", code: "ABORTED", retryable: false }
   }
 
+  private report(sent: number) {
+    const total = this.file.size || 1
+    this.onProgress?.(Math.min(95, Math.round(5 + (sent / total) * 90)), sent, this.file.size)
+  }
+
+  // ── Step 2: prepare ─────────────────────────────────────────────
+
   /**
-   * Step 1: Call /api/v2/upload/prepare to get a signed upload URL.
+   * /api/v2/upload/prepare: a signed upload URL for a path the server built.
+   * Sends the assetId it already has, so a second prepare is the same upload.
    */
   private async prepare(): Promise<void> {
     const body = {
@@ -319,6 +411,7 @@ export class DirectUploader {
       fileSize: this.file.size,
       productId: this.productId,
       folder: this.folder,
+      assetId: this.assetId,
     }
 
     const res = await fetch("/api/v2/upload/prepare", {
@@ -342,69 +435,80 @@ export class DirectUploader {
     this.uploadToken = data.token
     this.uploadPath = data.path
     this.uploadBucket = data.bucket
-    this.assetId = data.assetId
+    this.assetId = data.assetId ?? this.assetId
   }
 
-  /**
-   * Upload with retry and exponential backoff.
-   * If the signed URL expires (400/403), re-prepares and retries.
-   * Falls back to server-upload for small files as last resort.
-   */
-  private async uploadDirectWithRetry(): Promise<void> {
-    let lastError: UploadError | null = null
+  // ── Step 3: the bytes ───────────────────────────────────────────
 
-    for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
-      if (this.aborted) throw this.abortError()
-
+  private async transfer(): Promise<void> {
+    if (this.file.size > SINGLE_PUT_MAX_BYTES) {
       try {
-        await this.uploadDirect()
-        return // success
+        await this.resumable()
+        return
       } catch (err) {
-        lastError = err as UploadError
+        if (!isUploadError(err) || err.code !== "NO_RESUMABLE") throw err
+        /* No TUS here: the whole file by signed URL, as before. */
+        this.resumableUrl = null
+        this.confirmed = 0
+      }
+    }
+    await this.singlePut()
+  }
 
-        // Non-retryable errors (abort, etc) — stop immediately
-        if (lastError.code === "ABORTED") throw lastError
+  /** One PUT of the whole file, retried; a pause waits and sends it again. */
+  private async singlePut(): Promise<void> {
+    let lastError: UploadError | null = null
+    let attempt = 0
 
-        // If signed URL expired or rejected, get a fresh one before retry
-        if (
-          lastError.httpStatus === 400 ||
-          lastError.httpStatus === 403 ||
-          lastError.httpStatus === 413
-        ) {
+    while (attempt <= this.maxRetries) {
+      await this.checkpoint()
+      try {
+        await this.putOnce()
+        this.confirmed = this.file.size
+        return
+      } catch (err) {
+        const e = err as UploadError
+        if (e.code === "ABORTED") throw e
+        if (e.code === "PAUSED") continue // not an attempt: wait for resume, then send again
+        lastError = e
+
+        // A signed URL that expired or was refused: ask for a fresh one
+        if (e.httpStatus === 400 || e.httpStatus === 403 || e.httpStatus === 413) {
           try {
             await this.prepare()
           } catch {
-            // If re-prepare fails, continue with retry anyway
+            // Retry anyway
           }
         }
 
-        if (attempt < this.maxRetries) {
-          const delay = RETRY_BASE_DELAY_MS * Math.pow(2, attempt)
-          await new Promise((r) => setTimeout(r, delay))
+        attempt++
+        if (attempt <= this.maxRetries) {
+          await new Promise((r) => setTimeout(r, RETRY_BASE_DELAY_MS * Math.pow(2, attempt - 1)))
         }
       }
     }
 
-    // Last resort: try server upload for files small enough
-    // (Vercel has a 4.5MB body limit on serverless functions)
-    if (this.file.size <= 4 * 1024 * 1024) {
+    // Last resort: through the server, for files a function can take
+    if (this.file.size <= SERVER_UPLOAD_MAX_BYTES) {
+      await this.checkpoint()
       try {
         await this.uploadViaServer()
+        this.confirmed = this.file.size
         return
-      } catch {
-        // Fall through to throw the original error
+      } catch (err) {
+        if (isUploadError(err) && (err.code === "ABORTED" || err.code === "PAUSED")) throw err
+        // Fall through to the original error
       }
     }
 
-    throw lastError!
+    throw lastError ?? { message: "Upload failed", code: "UPLOAD_FAILED", retryable: true }
   }
 
   /**
-   * Upload file directly to signed URL using XMLHttpRequest
-   * for real progress tracking. Works for any file size since
-   * the signed URL goes straight to Supabase storage (no server limits).
+   * The file in one PUT to the signed URL. A request stopped by pause or
+   * cancel REJECTS (PAUSED or ABORTED): it is not an upload.
    */
-  private uploadDirect(): Promise<void> {
+  private putOnce(): Promise<void> {
     return new Promise((resolve, reject) => {
       if (!this.signedUrl) {
         reject({ message: "No signed URL", code: "NO_URL", retryable: true })
@@ -415,17 +519,13 @@ export class DirectUploader {
       this.xhr = xhr
 
       xhr.upload.addEventListener("progress", (e) => {
-        if (e.lengthComputable) {
-          // Progress: 5% (checksum) + 90% (upload) + 5% (complete)
-          const uploadPct = (e.loaded / e.total) * 90
-          const totalPct = 5 + uploadPct
-          this.onProgress?.(Math.round(totalPct), e.loaded, e.total)
-        }
+        if (e.lengthComputable) this.report(e.loaded)
       })
 
       xhr.addEventListener("load", () => {
+        this.xhr = null
         if (xhr.status >= 200 && xhr.status < 300) {
-          this.onProgress?.(95, this.file.size, this.file.size)
+          this.report(this.file.size)
           resolve()
         } else {
           reject({
@@ -438,23 +538,16 @@ export class DirectUploader {
       })
 
       xhr.addEventListener("error", () => {
-        reject({
-          message: "Network error during upload",
-          code: "NETWORK_ERROR",
-          retryable: true,
-        } as UploadError)
+        this.xhr = null
+        reject(this.paused ? PAUSED : ({ message: "Network error during upload", code: "NETWORK_ERROR", retryable: true } as UploadError))
       })
 
       xhr.addEventListener("abort", () => {
-        if (this.paused) {
-          resolve()
-        } else {
-          reject(this.abortError())
-        }
+        this.xhr = null
+        reject(this.aborted ? this.abortError() : PAUSED)
       })
 
-      const url = this.signedUrl
-      xhr.open("PUT", url)
+      xhr.open("PUT", this.signedUrl)
       xhr.setRequestHeader("Content-Type", this.file.type || "application/octet-stream")
       xhr.setRequestHeader("Cache-Control", "max-age=31536000")
       xhr.setRequestHeader("x-upsert", "true")
@@ -462,143 +555,152 @@ export class DirectUploader {
     })
   }
 
-  /**
-   * Step 2b: Chunked upload for large files (>50MB).
-   * Splits the file into chunks, uploads each with retry logic.
-   */
-  private async uploadChunked(): Promise<void> {
-    if (!this.signedUrl || !this.uploadPath || !this.uploadBucket) {
-      throw { message: "No upload URL prepared", code: "NO_URL", retryable: true }
-    }
+  // ── Resumable (TUS) ─────────────────────────────────────────────
 
-    const totalSize = this.file.size
-    const chunkCount = Math.ceil(totalSize / this.chunkSize)
-    let uploadedBytes = 0
-
-    for (let i = 0; i < chunkCount; i++) {
-      if (this.aborted) throw this.abortError()
-      if (this.paused) {
-        // Wait for resume
-        await new Promise<void>((resolve) => {
-          const check = setInterval(() => {
-            if (!this.paused || this.aborted) {
-              clearInterval(check)
-              resolve()
-            }
-          }, 200)
-        })
-        if (this.aborted) throw this.abortError()
-      }
-
-      const start = i * this.chunkSize
-      const end = Math.min(start + this.chunkSize, totalSize)
-      const chunk = this.file.slice(start, end)
-
-      await this.uploadChunkWithRetry(chunk, i, chunkCount, start, end, totalSize)
-      uploadedBytes = end
-    }
+  private endpoint(): string | null {
+    const base = process.env.NEXT_PUBLIC_SUPABASE_URL
+    return base ? `${base.replace(/\/+$/, "")}/storage/v1/upload/resumable` : null
   }
 
-  /**
-   * Upload a single chunk with retry and exponential backoff.
-   */
-  private async uploadChunkWithRetry(
-    chunk: Blob,
-    chunkIndex: number,
-    totalChunks: number,
-    rangeStart: number,
-    rangeEnd: number,
-    totalSize: number,
-  ): Promise<void> {
-    let lastError: UploadError | null = null
+  private async tusHeaders(): Promise<Record<string, string>> {
+    const token = await this.getAccessToken()
+    if (!token) throw NO_RESUMABLE
+    const headers: Record<string, string> = { "Tus-Resumable": "1.0.0", Authorization: `Bearer ${token}` }
+    const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    if (anon) headers.apikey = anon
+    return headers
+  }
 
-    for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
-      if (this.aborted) throw this.abortError()
+  /** Makes the TUS upload for the reserved path. Any refusal means "use the signed URL". */
+  private async createResumable(): Promise<void> {
+    const endpoint = this.endpoint()
+    if (!endpoint || !this.uploadPath || !this.uploadBucket) throw NO_RESUMABLE
+    const headers = await this.tusHeaders()
+    const metadata = [
+      `bucketName ${b64(this.uploadBucket)}`,
+      `objectName ${b64(this.uploadPath)}`,
+      `contentType ${b64(this.file.type || "application/octet-stream")}`,
+      `cacheControl ${b64("31536000")}`,
+    ].join(",")
+    let res: Response
+    try {
+      res = await fetch(endpoint, {
+        method: "POST",
+        headers: { ...headers, "Upload-Length": String(this.file.size), "Upload-Metadata": metadata, "x-upsert": "true" },
+      })
+    } catch {
+      throw NO_RESUMABLE
+    }
+    const location = res.headers.get("Location")
+    if (res.status !== 201 || !location) throw NO_RESUMABLE
+    this.resumableUrl = new URL(location, endpoint).toString()
+    this.confirmed = 0
+  }
+
+  /** How many bytes storage has for this upload, or null when it no longer knows it. */
+  private async resumableOffset(): Promise<number | null> {
+    if (!this.resumableUrl) return null
+    const headers = await this.tusHeaders()
+    const res = await fetch(this.resumableUrl, { method: "HEAD", headers })
+    if (res.status === 404 || res.status === 410) return null
+    if (!res.ok) throw { message: `Upload check failed: HTTP ${res.status}`, code: "RESUME_CHECK_FAILED", retryable: true, httpStatus: res.status } as UploadError
+    const offset = Number(res.headers.get("Upload-Offset"))
+    return Number.isFinite(offset) && offset >= 0 ? offset : null
+  }
+
+  private async resumable(): Promise<void> {
+    if (!this.resumableUrl) await this.createResumable()
+
+    let failures = 0
+    let mustAsk = this.confirmed > 0 // resumed after an error: ask storage first
+    while (true) {
+      await this.checkpoint()
+
+      if (mustAsk) {
+        try {
+          const offset = await this.resumableOffset()
+          if (offset === null) {
+            // Storage forgot the upload (it expires): start the parts again
+            await this.createResumable()
+          } else {
+            this.confirmed = offset
+          }
+          mustAsk = false
+        } catch (err) {
+          if (isUploadError(err) && err.code === "NO_RESUMABLE") throw err
+          failures++
+          if (failures > this.maxRetries) throw err
+          await new Promise((r) => setTimeout(r, RETRY_BASE_DELAY_MS * Math.pow(2, failures - 1)))
+          continue
+        }
+      }
+
+      if (this.confirmed >= this.file.size) return
 
       try {
-        await this.uploadChunk(chunk, chunkIndex, totalChunks, rangeStart, rangeEnd, totalSize)
-        return
+        this.confirmed = await this.sendPart(this.confirmed)
+        failures = 0
+        this.report(this.confirmed)
       } catch (err) {
-        lastError = err as UploadError
-        if (!lastError.retryable || attempt === this.maxRetries) {
-          throw lastError
-        }
-        // Exponential backoff
-        const delay = RETRY_BASE_DELAY_MS * Math.pow(2, attempt)
-        await new Promise((r) => setTimeout(r, delay))
+        const e = err as UploadError
+        if (e.code === "ABORTED") throw e
+        /* A pause stopped the part mid way. Storage may have kept some of
+           it: after resume, ask how much, rather than trusting either count. */
+        mustAsk = true
+        if (e.code === "PAUSED") continue
+        failures++
+        if (failures > this.maxRetries) throw e
+        await new Promise((r) => setTimeout(r, RETRY_BASE_DELAY_MS * Math.pow(2, failures - 1)))
       }
     }
-
-    throw lastError
   }
 
-  /**
-   * Upload a single chunk via XMLHttpRequest.
-   */
-  private uploadChunk(
-    chunk: Blob,
-    chunkIndex: number,
-    totalChunks: number,
-    rangeStart: number,
-    rangeEnd: number,
-    totalSize: number,
-  ): Promise<void> {
-    return new Promise((resolve, reject) => {
-      // For chunked uploads, we use the server-upload endpoint
-      // because Supabase signed URLs don't support partial uploads
-      const formData = new FormData()
-      formData.append("file", chunk, this.file.name)
-      formData.append("chunkIndex", String(chunkIndex))
-      formData.append("totalChunks", String(totalChunks))
-      formData.append("fileName", this.file.name)
-      formData.append("fileSize", String(totalSize))
-      formData.append("contentType", this.file.type || "application/octet-stream")
-      if (this.uploadPath) formData.append("path", this.uploadPath)
-      if (this.uploadBucket) formData.append("bucket", this.uploadBucket)
-      if (this.assetId) formData.append("assetId", this.assetId)
-      if (this.productId) formData.append("productId", this.productId)
-      formData.append("folder", this.folder)
+  /** One part from `offset`. Resolves with the offset storage acknowledged. */
+  private async sendPart(offset: number): Promise<number> {
+    const url = this.resumableUrl
+    if (!url) throw NO_RESUMABLE
+    const headers = await this.tusHeaders()
+    const end = Math.min(offset + RESUMABLE_PART_BYTES, this.file.size)
+    const part = this.file.slice(offset, end)
 
+    return new Promise<number>((resolve, reject) => {
       const xhr = new XMLHttpRequest()
       this.xhr = xhr
 
       xhr.upload.addEventListener("progress", (e) => {
-        if (e.lengthComputable) {
-          const chunkProgress = (rangeStart + (e.loaded / e.total) * (rangeEnd - rangeStart))
-          const uploadPct = (chunkProgress / totalSize) * 90
-          const totalPct = 5 + uploadPct
-          this.onProgress?.(Math.round(totalPct), Math.round(chunkProgress), totalSize)
-        }
+        if (e.lengthComputable) this.report(offset + e.loaded)
       })
 
       xhr.addEventListener("load", () => {
-        if (xhr.status >= 200 && xhr.status < 300) {
-          resolve()
+        this.xhr = null
+        if (xhr.status === 204 || (xhr.status >= 200 && xhr.status < 300)) {
+          const acknowledged = Number(xhr.getResponseHeader("Upload-Offset"))
+          resolve(Number.isFinite(acknowledged) && acknowledged > offset ? acknowledged : end)
         } else {
           reject({
-            message: `Chunk ${chunkIndex + 1}/${totalChunks} failed: HTTP ${xhr.status}`,
-            code: "CHUNK_FAILED",
-            retryable: xhr.status >= 500 || xhr.status === 429 || xhr.status === 413,
+            message: `Part failed: HTTP ${xhr.status}`,
+            code: "PART_FAILED",
+            retryable: true,
             httpStatus: xhr.status,
           } as UploadError)
         }
       })
 
       xhr.addEventListener("error", () => {
-        reject({
-          message: `Network error uploading chunk ${chunkIndex + 1}/${totalChunks}`,
-          code: "NETWORK_ERROR",
-          retryable: true,
-        } as UploadError)
+        this.xhr = null
+        reject(this.paused ? PAUSED : ({ message: "Network error during upload", code: "NETWORK_ERROR", retryable: true } as UploadError))
       })
 
       xhr.addEventListener("abort", () => {
-        if (!this.paused) reject(this.abortError())
-        else resolve()
+        this.xhr = null
+        reject(this.aborted ? this.abortError() : PAUSED)
       })
 
-      xhr.open("POST", "/api/v2/upload/chunk")
-      xhr.send(formData)
+      xhr.open("PATCH", url)
+      for (const [k, v] of Object.entries(headers)) xhr.setRequestHeader(k, v)
+      xhr.setRequestHeader("Upload-Offset", String(offset))
+      xhr.setRequestHeader("Content-Type", "application/offset+octet-stream")
+      xhr.send(part)
     })
   }
 
@@ -612,19 +714,18 @@ export class DirectUploader {
       formData.append("file", this.file)
       formData.append("folder", this.folder)
       if (this.productId) formData.append("productId", this.productId)
+      /* The record /prepare already made, so the server fills it rather than adding a second. */
+      if (this.assetId) formData.append("assetId", this.assetId)
 
       const xhr = new XMLHttpRequest()
       this.xhr = xhr
 
       xhr.upload.addEventListener("progress", (e) => {
-        if (e.lengthComputable) {
-          const uploadPct = (e.loaded / e.total) * 90
-          const totalPct = 5 + uploadPct
-          this.onProgress?.(Math.round(totalPct), e.loaded, e.total)
-        }
+        if (e.lengthComputable) this.report(e.loaded)
       })
 
       xhr.addEventListener("load", () => {
+        this.xhr = null
         if (xhr.status >= 200 && xhr.status < 300) {
           try {
             const data = JSON.parse(xhr.responseText)
@@ -632,11 +733,11 @@ export class DirectUploader {
             if (data.assetId) this.assetId = data.assetId
             if (data.path) this.uploadPath = data.path
             if (data.bucket) this.uploadBucket = data.bucket
-            this.onProgress?.(95, this.file.size, this.file.size)
-            resolve()
           } catch {
-            resolve()
+            /* the upload itself succeeded */
           }
+          this.report(this.file.size)
+          resolve()
         } else {
           let errMsg = `Server upload failed: HTTP ${xhr.status}`
           try {
@@ -653,16 +754,13 @@ export class DirectUploader {
       })
 
       xhr.addEventListener("error", () => {
-        reject({
-          message: "Network error during server upload",
-          code: "NETWORK_ERROR",
-          retryable: true,
-        } as UploadError)
+        this.xhr = null
+        reject(this.paused ? PAUSED : ({ message: "Network error during server upload", code: "NETWORK_ERROR", retryable: true } as UploadError))
       })
 
       xhr.addEventListener("abort", () => {
-        if (!this.paused) reject(this.abortError())
-        else resolve()
+        this.xhr = null
+        reject(this.aborted ? this.abortError() : PAUSED)
       })
 
       xhr.open("POST", "/api/v2/upload/server-upload")
@@ -670,8 +768,28 @@ export class DirectUploader {
     })
   }
 
+  // ── Step 4: complete ────────────────────────────────────────────
+
+  /** complete(), retried through a dropped connection; a pause waits for resume. */
+  private async completeWithRetry(): Promise<UploadResult> {
+    let attempt = 0
+    while (true) {
+      await this.checkpoint()
+      try {
+        return await this.complete()
+      } catch (err) {
+        const e = err as UploadError
+        if (this.aborted) throw this.abortError()
+        if (e.code !== "NETWORK_ERROR" || attempt >= this.maxRetries) throw e
+        attempt++
+        if (!this.paused) await new Promise((r) => setTimeout(r, RETRY_BASE_DELAY_MS * Math.pow(2, attempt - 1)))
+      }
+    }
+  }
+
   /**
-   * Step 3: Call /api/v2/upload/complete to finalize the upload.
+   * /api/v2/upload/complete: the server checks what storage holds and marks
+   * the file done.
    */
   private async complete(): Promise<UploadResult> {
     const body = {
@@ -682,11 +800,16 @@ export class DirectUploader {
       checksum: this.checksum,
     }
 
-    const res = await fetch("/api/v2/upload/complete", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    })
+    let res: Response
+    try {
+      res = await fetch("/api/v2/upload/complete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      })
+    } catch {
+      throw { message: "Network error while finishing the upload", code: "NETWORK_ERROR", retryable: true } as UploadError
+    }
 
     if (!res.ok) {
       const data = await res.json().catch(() => ({ error: `HTTP ${res.status}` }))
@@ -711,5 +834,37 @@ export class DirectUploader {
       fileSize: this.file.size,
       mimeType: this.file.type || "application/octet-stream",
     }
+  }
+
+  // ── Cancel ──────────────────────────────────────────────────────
+
+  /**
+   * After a cancel: the record and the bytes go (/api/v2/upload/cancel), and
+   * the TUS upload is ended. Best effort; what it misses, the storage
+   * cleanup cron removes.
+   */
+  private async discard(): Promise<void> {
+    if (this.discarded) return
+    this.discarded = true
+    const tasks: Promise<unknown>[] = []
+    if (this.resumableUrl) {
+      const url = this.resumableUrl
+      tasks.push(
+        this.tusHeaders()
+          .then((headers) => fetch(url, { method: "DELETE", headers }))
+          .catch(() => undefined),
+      )
+    }
+    if (this.assetId) {
+      tasks.push(
+        fetch("/api/v2/upload/cancel", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ assetId: this.assetId }),
+          keepalive: true,
+        }).catch(() => undefined),
+      )
+    }
+    await Promise.all(tasks)
   }
 }

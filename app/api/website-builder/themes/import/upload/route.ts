@@ -4,6 +4,12 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { LIBRARY_FULL_CODE, LIBRARY_FULL_MESSAGE, librarySlotsLeft } from "@/lib/website-builder/library-limit"
 import { IMPORT_BUCKET, importPathFor, importSizeProblem, IMPORT_TOO_LARGE } from "@/lib/website-builder/theme-import"
+import { rateLimit } from "@/lib/api/rate-limit"
+
+const THEME_IMPORT_WINDOWS = [
+  { limit: 5, seconds: 60 },
+  { limit: 30, seconds: 3600 },
+] as const
 
 export const runtime = "nodejs"
 
@@ -27,6 +33,16 @@ export async function POST(req: Request) {
 
   const { data: creator } = await supabase.from("creators").select("id").eq("user_id", user.id).maybeSingle()
   if (!creator) return NextResponse.json({ error: "Creator not found" }, { status: 404 })
+
+  /* A package is up to 50 MB and a library holds five: a few a minute is
+     somebody importing, more is somebody filling the bucket. */
+  const limited = await rateLimit({
+    bucket: "theme-import",
+    subjects: [`user:${user.id}`],
+    windows: THEME_IMPORT_WINDOWS,
+    message: "That is a lot of imports in a short time. Wait a minute and try again.",
+  })
+  if (limited) return limited
 
   const body = (await req.json().catch(() => null)) as { size?: unknown } | null
   const problem = importSizeProblem(body?.size)

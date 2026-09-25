@@ -1,283 +1,90 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { DIGITAL_BUCKETS, updateCreatorStorageUsed } from "@/lib/storage"
+import { UPLOAD_HEADERS } from "@/lib/storage/upload-guard"
 
-// Default bucket for digital product files
-const BUCKET_NAME = "product-files"
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-// Use a very large positive number - 0/null would fall back to Supabase global default (often 50MB)
-const MAX_FILE_SIZE = 2000000000 // ~2GB — must fit int4 for older Supabase projects
-
-// Helper to ensure bucket exists with proper configuration
-async function ensureBucketExists(adminSupabase: ReturnType<typeof createAdminClient>, bucketName: string) {
-  // Try RPC function first (direct database update – most reliable)
-  try {
-    const { error: rpcErr } = await adminSupabase.rpc("fix_storage_bucket_limit", {
-      p_bucket_id: bucketName,
-      p_file_size_limit: MAX_FILE_SIZE,
-    })
-    if (!rpcErr) return true
-  } catch {
-    // RPC function may not exist yet
-  }
-
-  try {
-    const { data: buckets } = await adminSupabase.storage.listBuckets()
-    const bucketExists = buckets?.some((b) => b.name === bucketName)
-
-    if (!bucketExists) {
-      const { error: createError } = await adminSupabase.storage.createBucket(bucketName, {
-        public: false,
-        fileSizeLimit: MAX_FILE_SIZE,
-        allowedMimeTypes: null,
-      })
-
-      if (createError && !createError.message.includes("already exists")) {
-        console.error(`Error creating bucket ${bucketName}:`, createError)
-        return false
-      }
-    } else {
-      try {
-        await adminSupabase.storage.updateBucket(bucketName, {
-          public: false,
-          fileSizeLimit: MAX_FILE_SIZE,
-          allowedMimeTypes: null,
-        })
-      } catch (updateErr) {
-        console.log(`Bucket ${bucketName} update skipped:`, updateErr)
-      }
-    }
-    return true
-  } catch (err) {
-    console.error("Error ensuring bucket exists:", err)
-    return false
-  }
-}
-
-// POST - Upload a digital file using admin client (bypasses RLS)
-export async function POST(request: NextRequest) {
-  try {
-    const supabase = await createClient()
-
-    // Get the current user
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-
-    if (authError) {
-      console.error("Auth error:", authError)
-      return NextResponse.json({ error: "Authentication failed" }, { status: 401 })
-    }
-
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized - please log in" }, { status: 401 })
-    }
-
-    // Create admin client after auth check
-    let adminSupabase
-    try {
-      adminSupabase = createAdminClient()
-    } catch (adminError) {
-      console.error("Admin client creation error:", adminError)
-      return NextResponse.json({ error: "Server configuration error" }, { status: 500 })
-    }
-
-    // Verify user is a creator
-    const { data: creator, error: creatorError } = await adminSupabase
-      .from("creators")
-      .select("id")
-      .eq("user_id", user.id)
-      .single()
-
-    if (creatorError) {
-      console.error("Creator lookup error:", creatorError)
-    }
-
-    if (!creator) {
-      return NextResponse.json({ error: "Only creators can upload digital files" }, { status: 403 })
-    }
-
-    // Parse form data
-    let formData
-    try {
-      formData = await request.formData()
-    } catch (formError) {
-      console.error("Form data parse error:", formError)
-      return NextResponse.json({ error: "Invalid form data" }, { status: 400 })
-    }
-
-    const file = formData.get("file") as File | null
-    const productId = formData.get("productId") as string | null
-
-    if (!file) {
-      return NextResponse.json({ error: "No file provided" }, { status: 400 })
-    }
-
-    if (!productId) {
-      return NextResponse.json({ error: "Product ID is required" }, { status: 400 })
-    }
-
-    // Verify the product belongs to this creator
-    const { data: product, error: productError } = await adminSupabase
-      .from("products")
-      .select("id, creator_id")
-      .eq("id", productId)
-      .single()
-
-    if (productError) {
-      console.error("Product lookup error:", productError)
-      return NextResponse.json({ error: "Product not found" }, { status: 404 })
-    }
-
-    if (!product || product.creator_id !== creator.id) {
-      return NextResponse.json({ error: "Product not found or access denied" }, { status: 403 })
-    }
-
-    // Ensure bucket exists
-    const bucketReady = await ensureBucketExists(adminSupabase, BUCKET_NAME)
-    if (!bucketReady) {
-      console.error("Bucket creation/verification failed")
-      return NextResponse.json({ error: "Storage not available" }, { status: 500 })
-    }
-
-    // Generate unique path
-    const timestamp = Date.now()
-    const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_")
-    const filePath = `products/${productId}/${timestamp}_${safeName}`
-
-    // Upload using admin client (bypasses RLS)
-    let arrayBuffer
-    try {
-      arrayBuffer = await file.arrayBuffer()
-    } catch (bufferError) {
-      console.error("File buffer error:", bufferError)
-      return NextResponse.json({ error: "Failed to read file" }, { status: 400 })
-    }
-
-    const { error: uploadError } = await adminSupabase.storage
-      .from(BUCKET_NAME)
-      .upload(filePath, arrayBuffer, {
-        contentType: file.type || "application/octet-stream",
-        cacheControl: "3600",
-        upsert: false,
-      })
-
-    if (uploadError) {
-      console.error("Digital file upload error:", uploadError)
-      return NextResponse.json({ error: `Upload failed: ${uploadError.message}` }, { status: 500 })
-    }
-
-    // Save to digital_assets table
-    const { data: asset, error: dbError } = await adminSupabase
-      .from("digital_assets")
-      .insert({
-        product_id: productId,
-        file_name: file.name,
-        file_path: filePath,
-        file_size: file.size,
-      })
-      .select()
-      .single()
-
-    if (dbError) {
-      console.error("Digital asset DB error:", dbError)
-      // Try to clean up uploaded file
-      await adminSupabase.storage.from(BUCKET_NAME).remove([filePath]).catch(() => {})
-      return NextResponse.json({ error: `Failed to save file metadata: ${dbError.message}` }, { status: 500 })
-    }
-
-    return NextResponse.json({
-      success: true,
-      asset: {
-        id: asset.id,
-        file_name: file.name,
-        file_path: filePath,
-        file_size: file.size,
-      },
-    })
-  } catch (error) {
-    console.error("Digital file upload error:", error)
-    const message = error instanceof Error ? error.message : "Internal server error"
-    return NextResponse.json({ error: message }, { status: 500 })
-  }
-}
-
-// DELETE - Remove a digital file
+/**
+ * DELETE /api/storage/upload-file?assetId=<id>
+ *
+ * Removes one of the caller's own digital files: the object in storage and
+ * its record. Ownership is the product's creator, checked against the signed
+ * in user; the bucket comes from the row and must be one of the private file
+ * buckets, so a row can never point this at anything else.
+ *
+ * This route also had a POST that uploaded a whole file through the function
+ * into product-files, with no type check, no scan, no quota and no limit
+ * beyond Vercel's body size. Nothing called it (uploads go through
+ * /api/v2/upload/prepare), so it is gone rather than kept as a second,
+ * weaker way in.
+ */
 export async function DELETE(request: NextRequest) {
   try {
     const supabase = await createClient()
     const adminSupabase = createAdminClient()
 
-    // Get the current user
     const {
       data: { user },
     } = await supabase.auth.getUser()
     if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: UPLOAD_HEADERS })
     }
 
-    const { searchParams } = new URL(request.url)
-    const assetId = searchParams.get("assetId")
-
-    if (!assetId) {
-      return NextResponse.json({ error: "Asset ID is required" }, { status: 400 })
+    const assetId = new URL(request.url).searchParams.get("assetId")
+    if (!assetId || !UUID.test(assetId)) {
+      return NextResponse.json({ error: "Asset ID is required" }, { status: 400, headers: UPLOAD_HEADERS })
     }
 
-    // Verify the user owns this asset's product
-    const { data: asset } = await adminSupabase
-      .from("digital_assets")
-      .select("*, product:products(creator_id)")
-      .eq("id", assetId)
-      .single()
-
-    if (!asset) {
-      return NextResponse.json({ error: "Asset not found" }, { status: 404 })
-    }
-
-    // Get the creator
     const { data: creator } = await adminSupabase
       .from("creators")
       .select("id")
       .eq("user_id", user.id)
       .single()
-
-    if (!creator || asset.product?.creator_id !== creator.id) {
-      return NextResponse.json({ error: "Access denied" }, { status: 403 })
+    if (!creator) {
+      return NextResponse.json({ error: "Access denied" }, { status: 403, headers: UPLOAD_HEADERS })
     }
 
-    // Delete from storage - use the bucket from the asset record if available, fallback to default
-    const deleteBucket = asset.storage_bucket || BUCKET_NAME
-    const { error: storageError } = await adminSupabase.storage
-      .from(deleteBucket)
-      .remove([asset.file_path])
-
-    // If deletion failed from the primary bucket, try the other bucket too
-    if (storageError && deleteBucket !== BUCKET_NAME) {
-      await adminSupabase.storage.from(BUCKET_NAME).remove([asset.file_path]).catch(() => {})
-    }
-    if (storageError && deleteBucket !== "digital-products") {
-      await adminSupabase.storage.from("digital-products").remove([asset.file_path]).catch(() => {})
-    }
-
-    if (storageError) {
-      console.log("Storage deletion error (continuing):", storageError)
-    }
-
-    // Delete from database
-    const { error: dbError } = await adminSupabase
+    const { data: asset } = await adminSupabase
       .from("digital_assets")
-      .delete()
+      .select("id, file_path, storage_bucket, product:products!inner(creator_id)")
       .eq("id", assetId)
+      .maybeSingle()
 
-    if (dbError) {
-      return NextResponse.json({ error: `Failed to delete: ${dbError.message}` }, { status: 500 })
+    if (!asset) {
+      return NextResponse.json({ error: "Asset not found" }, { status: 404, headers: UPLOAD_HEADERS })
+    }
+    const owner = (asset as { product?: { creator_id?: string } | { creator_id?: string }[] }).product
+    const ownerId = Array.isArray(owner) ? owner[0]?.creator_id : owner?.creator_id
+    if (ownerId !== creator.id) {
+      return NextResponse.json({ error: "Access denied" }, { status: 403, headers: UPLOAD_HEADERS })
     }
 
-    return NextResponse.json({ success: true })
+    /* The bucket the row names, when it is a file bucket; then the others,
+       for rows from before storage_bucket was recorded. */
+    const named = asset.storage_bucket && (DIGITAL_BUCKETS as readonly string[]).includes(asset.storage_bucket) ? asset.storage_bucket : null
+    const buckets = named ? [named] : [...DIGITAL_BUCKETS]
+    if (asset.file_path && !asset.file_path.split("/").includes("..")) {
+      for (const bucket of buckets) {
+        await adminSupabase.storage.from(bucket).remove([asset.file_path]).then(
+          () => undefined,
+          () => undefined,
+        )
+      }
+    }
+
+    const { error: dbError } = await adminSupabase.from("digital_assets").delete().eq("id", assetId)
+    if (dbError) {
+      console.error("[upload-file] delete failed:", dbError.message)
+      return NextResponse.json({ error: "The file could not be removed. Try again." }, { status: 500, headers: UPLOAD_HEADERS })
+    }
+
+    await updateCreatorStorageUsed(adminSupabase, creator.id).catch(() => undefined)
+
+    return NextResponse.json({ success: true }, { headers: UPLOAD_HEADERS })
   } catch (error) {
     console.error("Delete digital file error:", error)
-    const message = error instanceof Error ? error.message : "Internal server error"
-    return NextResponse.json({ error: message }, { status: 500 })
+    return NextResponse.json({ error: "The file could not be removed. Try again." }, { status: 500, headers: UPLOAD_HEADERS })
   }
 }

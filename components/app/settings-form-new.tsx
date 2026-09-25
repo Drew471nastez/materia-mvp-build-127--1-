@@ -1354,8 +1354,9 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
 
     try {
       const fileExt = "jpg"
-      const fileName = `${profile.id}-${Date.now()}.${fileExt}`
-      const filePath = `avatars/${fileName}`
+      const fileName = `avatar-${Date.now()}.${fileExt}`
+      // The owner's folder first: storage only lets a person write there.
+      const filePath = `${profile.id}/${fileName}`
 
       const { error: uploadError } = await supabase.storage
         .from("avatars")

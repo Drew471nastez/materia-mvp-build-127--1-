@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { ensureProductBundle, BUNDLE_THRESHOLD } from "@/lib/bundles"
+import { rateLimit } from "@/lib/api/rate-limit"
 
 export const runtime = "nodejs"
 export const maxDuration = 300
@@ -61,15 +62,27 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Product not found or access denied" }, { status: 403 })
     }
 
-    // Fetch variant name if needed
+    // Building a ZIP reads every file into memory: not something to repeat on a loop.
+    const limited = await rateLimit({
+      bucket: "bundle",
+      subjects: [`user:${user.id}`],
+      windows: [{ limit: 10, seconds: 60 }, { limit: 60, seconds: 3600 }],
+      message: "The download bundle is already being made. Try again in a minute.",
+    })
+    if (limited) return limited
+
+    // Fetch variant name if needed. The variant must be one of THIS product's.
     let variantName: string | null = null
     if (variantId) {
       const { data: variant } = await admin
         .from("product_variants")
-        .select("name")
+        .select("name, product_id")
         .eq("id", variantId)
-        .single()
-      variantName = variant?.name ?? null
+        .maybeSingle()
+      if (!variant || variant.product_id !== productId) {
+        return NextResponse.json({ error: "Variant not found" }, { status: 404 })
+      }
+      variantName = variant.name ?? null
     }
 
     // Ensure bundle exists (uses cache when nothing changed)

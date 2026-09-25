@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { ensureProductBundle } from "@/lib/bundles"
+import { rateLimit } from "@/lib/api/rate-limit"
 
 /**
  * POST /api/storage/generate-bundle
@@ -48,15 +49,27 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Not your product" }, { status: 403 })
     }
 
-    // Get variant name if applicable
+    const limited = await rateLimit({
+      bucket: "bundle",
+      subjects: [`user:${user.id}`],
+      windows: [{ limit: 10, seconds: 60 }, { limit: 60, seconds: 3600 }],
+      message: "The download bundle is already being made. Try again in a minute.",
+    })
+    if (limited) return limited
+
+    // Get variant name if applicable. The variant must be one of THIS product's,
+    // or its files (another creator's) would be read into this bundle.
     let variantName: string | null = null
     if (variantId) {
       const { data: variant } = await admin
         .from("product_variants")
-        .select("name")
+        .select("name, product_id")
         .eq("id", variantId)
-        .single()
-      variantName = variant?.name || null
+        .maybeSingle()
+      if (!variant || variant.product_id !== productId) {
+        return NextResponse.json({ error: "Variant not found" }, { status: 404 })
+      }
+      variantName = variant.name || null
     }
 
     // Generate bundle (this may take a while for large files)

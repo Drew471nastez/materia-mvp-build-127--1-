@@ -17,6 +17,14 @@
     {
       "path": "/api/cron/purge-chat-attachments",
       "schedule": "20 3 * * *"
+    },
+    {
+      "path": "/api/cron/storage-cleanup",
+      "schedule": "40 3 * * *"
+    },
+    {
+      "path": "/api/cron/strip-image-metadata",
+      "schedule": "10 * * * *"
     }
   ],
   "rewrites": [
