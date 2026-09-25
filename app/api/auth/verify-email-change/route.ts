@@ -1,82 +1,112 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { sendEmail, isSmtpConfigured } from "@/lib/mail"
+import { readCurrentUser } from "@/lib/auth/current-user"
+import { accountErrorKind } from "@/lib/auth/account-errors"
+import { MAX_CODE_ATTEMPTS, codeMatches, wrongCodeMessage } from "@/lib/account/codes"
+import { codeEmail } from "@/lib/account/code-email"
 
-// POST - Verify code and update email
+export const runtime = "nodejs"
+
+/**
+ * Step two of changing the account email (step one: /api/auth/change-email).
+ *
+ * Needs the code sent to the new address and, when one was sent, the code
+ * sent to the current address. Wrong codes are counted against the pending
+ * change and after five it is thrown away (lib/account/codes.ts).
+ *
+ * The change itself is made with the service role, confirmed, because both
+ * addresses have just been proven. The session is not touched: the person
+ * stays signed in on every device, now under the new address, and the old
+ * address is told it happened.
+ */
 export async function POST(request: Request) {
   try {
     const supabase = await createClient()
+    const current = await readCurrentUser(supabase)
+    if (current.state === "indeterminate") {
+      return NextResponse.json({ error: "Could not reach Storelib. Check your connection and try again." }, { status: 503 })
+    }
+    const user = current.user
+    if (!user) {
+      return NextResponse.json({ error: "Your session ended. Sign in again to change this." }, { status: 401 })
+    }
     const adminSupabase = createAdminClient()
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    const body = await request.json().catch(() => ({}))
+    const code = typeof body?.code === "string" ? body.code.trim() : ""
+    const currentCode = typeof body?.currentCode === "string" ? body.currentCode.trim() : ""
+    if (!/^\d{6}$/.test(code)) {
+      return NextResponse.json({ error: "Enter the 6 digit code from your new email." }, { status: 400 })
     }
 
-    const body = await request.json()
-    const { code } = body
-
-    if (!code) {
-      return NextResponse.json({ error: "Verification code is required" }, { status: 400 })
-    }
-
-    const cleanCode = code.trim()
-
-    // Find the verification code
-    const { data: codeRecord, error: codeError } = await adminSupabase
+    const { data: pending } = await adminSupabase
       .from("email_change_codes")
       .select("*")
       .eq("user_id", user.id)
-      .eq("code", cleanCode)
       .eq("verified", false)
       .gte("expires_at", new Date().toISOString())
       .order("created_at", { ascending: false })
       .limit(1)
-      .single()
+      .maybeSingle()
 
-    if (codeError || !codeRecord) {
-      return NextResponse.json({ error: "Invalid or expired verification code" }, { status: 400 })
+    if (!pending) {
+      return NextResponse.json({ error: "That code has expired. Ask for a new one." }, { status: 400 })
     }
 
-    // Mark the code as verified
-    await adminSupabase
-      .from("email_change_codes")
-      .update({ verified: true })
-      .eq("id", codeRecord.id)
+    const attempts = typeof pending.attempts === "number" ? pending.attempts : 0
+    if (attempts >= MAX_CODE_ATTEMPTS) {
+      await adminSupabase.from("email_change_codes").delete().eq("id", pending.id)
+      return NextResponse.json({ error: wrongCodeMessage(attempts) }, { status: 400 })
+    }
 
-    // Update the user's email in Supabase Auth
+    const needsCurrent = typeof pending.current_email_code === "string" && pending.current_email_code.length > 0
+    if (needsCurrent && !/^\d{6}$/.test(currentCode)) {
+      return NextResponse.json({ error: "Enter the 6 digit code from your current email too." }, { status: 400 })
+    }
+
+    const right = codeMatches(pending.code, code) && (!needsCurrent || codeMatches(pending.current_email_code, currentCode))
+    if (!right) {
+      const next = attempts + 1
+      if (next >= MAX_CODE_ATTEMPTS) await adminSupabase.from("email_change_codes").delete().eq("id", pending.id)
+      else await adminSupabase.from("email_change_codes").update({ attempts: next }).eq("id", pending.id)
+      return NextResponse.json({ error: wrongCodeMessage(next) }, { status: 400 })
+    }
+
+    await adminSupabase.from("email_change_codes").update({ verified: true }).eq("id", pending.id)
+
+    const previousEmail = user.email ?? null
     const { error: updateError } = await adminSupabase.auth.admin.updateUserById(user.id, {
-      email: codeRecord.new_email,
+      email: pending.new_email,
       email_confirm: true,
     })
-
     if (updateError) {
-      console.error("Error updating user email:", updateError)
-      return NextResponse.json({ error: "Failed to update email" }, { status: 500 })
+      const kind = accountErrorKind(updateError)
+      console.error("[verify-email-change] updateUserById:", updateError.code ?? kind)
+      if (kind === "email_taken") {
+        return NextResponse.json({ error: "That email is already used by another account." }, { status: 400 })
+      }
+      return NextResponse.json({ error: "That did not work. Try again in a moment." }, { status: 500 })
     }
 
-    // Also update the profile email
-    await adminSupabase
-      .from("profiles")
-      .update({ email: codeRecord.new_email })
-      .eq("id", user.id)
+    await adminSupabase.from("profiles").update({ email: pending.new_email }).eq("id", user.id)
+    await adminSupabase.from("email_change_codes").delete().eq("user_id", user.id)
 
-    // Clean up old codes
-    await adminSupabase
-      .from("email_change_codes")
-      .delete()
-      .eq("user_id", user.id)
+    /* The old address hears about it, whatever it was used for. Best effort:
+       the change has already been made. */
+    if (previousEmail && isSmtpConfigured()) {
+      const notice = codeEmail({
+        heading: "Your Storelib email was changed",
+        lead: `Your account now signs in with ${pending.new_email}. This address, ${previousEmail}, is no longer used for it.`,
+        footer: "If you did not make this change, reply to this email and we will help you get your account back.",
+      })
+      await sendEmail({ from: "Storelib <noreply@storelib.com>", to: previousEmail, subject: "Your Storelib email was changed", ...notice }).catch(() => null)
+    }
 
-    return NextResponse.json({
-      success: true,
-      message: "Email updated successfully",
-      newEmail: codeRecord.new_email,
-    })
+    return NextResponse.json({ success: true, newEmail: pending.new_email })
   } catch (error) {
-    console.error("Verify email change error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    console.error("[verify-email-change]", error)
+    return NextResponse.json({ error: "That did not work. Try again in a moment." }, { status: 500 })
   }
 }

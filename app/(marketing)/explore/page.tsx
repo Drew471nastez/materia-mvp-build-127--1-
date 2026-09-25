@@ -118,6 +118,17 @@ export default async function ExplorePage({
         data: { user },
       } = await supabase.auth.getUser()
       if (!user) return EMPTY_INTERESTS
+      /* The switch in Settings, Privacy: off means nobody's purchases or
+         wishlist shape what they are shown. A column not there yet reads as
+         on, the default. */
+      const { data: pref } = await supabase
+        .from("profiles")
+        .select("personalized_recommendations")
+        .eq("id", user.id)
+        .maybeSingle()
+      if ((pref as { personalized_recommendations?: boolean } | null)?.personalized_recommendations === false) {
+        return EMPTY_INTERESTS
+      }
       return readInterests(user.id, user.email)
     })().catch(() => EMPTY_INTERESTS)
 

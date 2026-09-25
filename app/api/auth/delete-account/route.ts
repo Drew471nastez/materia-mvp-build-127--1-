@@ -2,7 +2,8 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { sendEmail, isSmtpConfigured } from "@/lib/mail"
-import { generateVerificationCode, VERIFICATION_CODE_EXPIRY_MINUTES } from "@/lib/security"
+import { VERIFICATION_CODE_EXPIRY_MINUTES } from "@/lib/security"
+import { MAX_CODE_ATTEMPTS, codeMatches, newCode, wrongCodeMessage } from "@/lib/account/codes"
 import { ignoreError } from "@/lib/supabase/ignore-error"
 
 export const runtime = "nodejs"
@@ -41,7 +42,7 @@ export async function POST(request: Request) {
       }
 
       // Generate verification code
-      const verificationCode = generateVerificationCode()
+      const verificationCode = newCode()
       const expiresAt = new Date(Date.now() + VERIFICATION_CODE_EXPIRY_MINUTES * 60 * 1000)
 
       // Delete any existing pending codes for this user
@@ -125,18 +126,27 @@ If you didn't request this, please ignore this email and secure your account imm
         return NextResponse.json({ error: "Verification code is required" }, { status: 400 })
       }
 
-      // Find matching code
-      const { data: codeRecord, error: findError } = await adminSupabase
+      /* The pending code, whatever was typed, so a wrong guess can be counted
+         against it. After five it is thrown away (lib/account/codes.ts). */
+      const { data: codeRecord } = await adminSupabase
         .from("account_delete_codes")
         .select("*")
         .eq("user_id", user.id)
-        .eq("code", code)
         .eq("verified", false)
         .gt("expires_at", new Date().toISOString())
-        .single()
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle()
 
-      if (findError || !codeRecord) {
-        return NextResponse.json({ error: "Invalid or expired verification code" }, { status: 400 })
+      if (!codeRecord) {
+        return NextResponse.json({ error: "That code has expired. Ask for a new one." }, { status: 400 })
+      }
+      const attempts = typeof codeRecord.attempts === "number" ? codeRecord.attempts : 0
+      if (attempts >= MAX_CODE_ATTEMPTS || !codeMatches(codeRecord.code, String(code))) {
+        const next = attempts + 1
+        if (next >= MAX_CODE_ATTEMPTS) await adminSupabase.from("account_delete_codes").delete().eq("id", codeRecord.id)
+        else await adminSupabase.from("account_delete_codes").update({ attempts: next }).eq("id", codeRecord.id)
+        return NextResponse.json({ error: wrongCodeMessage(next) }, { status: 400 })
       }
 
       // Mark code as verified
