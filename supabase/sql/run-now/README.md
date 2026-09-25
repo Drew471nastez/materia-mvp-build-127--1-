@@ -47,11 +47,12 @@ part changed. Stop there and send the error; the parts after it expect it.
 | `23_browser_push_and_time_zone.sql` | Browser notifications save (push_tokens takes platform `web`), and the account's time zone column. | 4 | 887 |
 | `24_theme_chat_conversations.sql` | Ask Storelib conversations: new chat and history. Each message is filed under a conversation on its own website; only its creator can read them. | 15 | 2,794 |
 | `25_analytics_speed.sql` | Analytics that load quickly: indexes in the order the reports read, and the counting done in the database, run by the server only. The page works without it. Can take a minute on a large events table. | 13 | 9,648 |
+| `26_creator_badges.sql` | Badges Storelib grants a creator (the Veteran mark), kept out of reach of the public API by a trigger. Changes nothing on the page. | 8 | 1,270 |
 | `90_storage_policies_needs_owner.sql` | LAST, ON ITS OWN. Replaces the storage.objects policies. Needs the owner of storage.objects; see README if it says "must be owner". | 2 | 3,896 |
 | `91_storage_policies_to_remove.sql` | Read only. For the dashboard route: the storage policies to delete. | 2 | 1,242 |
 | `99_check_after.sql` | Read only. One row of true or false, one column per part. | 2 | 7,756 |
 
-Parts `01` to `25` all run as the editor's normal role. `90` is the one
+Parts `01` to `26` all run as the editor's normal role. `90` is the one
 that may not; see below.
 
 Two of the three `pre-flight` rows in `00` matter to `16` and to Route 1 below:
