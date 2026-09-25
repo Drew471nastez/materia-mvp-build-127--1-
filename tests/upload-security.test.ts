@@ -380,7 +380,8 @@ async function main() {
     ["components/shared/square-image-cropper.tsx", /`\$\{user\.id\}\/\$\{folder\}\//],
     ["components/onepage/onboarding-modal.tsx", /`\$\{user\.id\}\/onepage-avatar-/],
     ["components/app/creator-onboarding-modal.tsx", /`\$\{user\.id\}\/creator-avatar-/],
-    ["components/app/settings-form-new.tsx", /`\$\{profile\.id\}\/\$\{fileName\}`/],
+    /* Settings' photo changes in place now (components/app/settings/profile-photo), still under the owner's folder. */
+    ["components/app/settings/profile-photo.tsx", /`\$\{userId\}\/avatar-\$\{Date\.now\(\)\}\.jpg`/],
     ["app/library/settings/buyer-settings.tsx", /`\$\{userId\}\/avatar\.\$\{ext\}`/],
   ] as const) {
     check(`${file} uploads under the owner's folder`, pattern.test(read(file)))

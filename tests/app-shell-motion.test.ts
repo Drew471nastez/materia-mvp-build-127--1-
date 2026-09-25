@@ -605,8 +605,10 @@ section("Avatars")
   check("the header, the account sheet and the sidebar all use it, and none draws initials under a photo",
     (sidebar.match(/<AppAvatar /g) ?? []).length === 4 && !/>\s*\{userInitials\}\s*</.test(sidebar))
   const settings = code("components/app/settings-form-new.tsx")
+  const photo = code("components/app/settings/profile-photo.tsx")
   check("so does Settings, without the purple gradient behind the initials",
-    /<AppAvatar\s+src=\{avatarUrl \|\| null\}/.test(settings) && !/from-\[#8b5cf6\] to-\[#a78bfa\]/.test(settings))
+    /<ProfilePhoto\s+userId=\{profile\.id\}\s+src=\{avatarUrl \|\| null\}/.test(settings) && /<AppAvatar src=\{src \|\| null\}/.test(photo)
+      && !/from-\[#8b5cf6\] to-\[#a78bfa\]/.test(settings))
 }
 
 console.log(`\n${passed} passed, ${failed} failed\n`)

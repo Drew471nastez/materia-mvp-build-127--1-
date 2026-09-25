@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server"
 import { pageUser } from "@/lib/auth/page-user"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { readNewsletter } from "@/lib/account/preferences"
+import { websiteHandleOf } from "@/lib/website-builder/site-address-data"
 
 export type SettingsTab = "general" | "security" | "privacy" | "billing" | "payments" | "stores"
 
@@ -44,7 +45,7 @@ export async function loadSettingsData() {
 
   if (!creator) redirect("/onboarding")
 
-  const [{ data: storeConfig }, { data: publishedSite }] = await Promise.all([
+  const [{ data: storeConfig }, { data: publishedSite }, websiteHandle] = await Promise.all([
     supabase
       .from("store_builder_configs")
       .select("published_config, draft_config")
@@ -58,11 +59,15 @@ export async function loadSettingsData() {
      */
     supabase
       .from("store_theme_installs")
-      .select("id")
+      .select("id, name")
       .eq("creator_id", creator.id)
       .not("published_at", "is", null)
+      .order("published_at", { ascending: false })
       .limit(1)
       .maybeSingle(),
+    /* The name the website answers to when it has one of its own (set in its
+       Domains); null means it is at the username. Fails soft to null. */
+    websiteHandleOf(creator.id),
   ])
 
   // Check published_config first, then fall back to draft_config for avatar
@@ -114,6 +119,10 @@ export async function loadSettingsData() {
     onepageAvatarUrl: onepage?.avatar_url || null,
     googleAvatarUrl,
     websitePublished: !!publishedSite,
+    /* General shows the published website's address and opens its settings. */
+    website: publishedSite
+      ? { installId: (publishedSite as { id: string }).id, name: (publishedSite as { name?: string | null }).name ?? null, handle: websiteHandle }
+      : { installId: null, name: null, handle: websiteHandle },
     newsletter,
   }
 }

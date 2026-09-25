@@ -18,6 +18,7 @@ export default async function SettingsPage() {
       onepageAvatarUrl={data.onepageAvatarUrl}
       googleAvatarUrl={data.googleAvatarUrl}
       websitePublished={data.websitePublished}
+      website={data.website}
       newsletter={data.newsletter}
       initialTab="general"
     />

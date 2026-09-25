@@ -20,8 +20,8 @@ import {
 import {
   X, Check, Loader2, AlertCircle, Mail, Lock,
   CreditCard, Store, Shield, Settings, Wallet, Landmark,
-  Camera, ExternalLink, ChevronRight, Globe,
-  User, Palette, Link2, FileText, Search, ChevronLeft, Upload, Pencil,
+  ExternalLink, ChevronRight, Globe,
+  User, Palette, Link2, FileText, Search, ChevronLeft,
   ToggleLeft, LogOut, Trash2, Languages, Info, ChevronDown, CheckCircle, Clock, Copy, Plus, MonitorSmartphone
 } from "lucide-react"
 import type { Profile, Creator } from "@/lib/types"
@@ -32,6 +32,9 @@ import { openExternal } from "@/lib/native-bridge"
 import { useLanguage, LANGUAGES } from "@/lib/i18n"
 import { BillingPageClient } from "@/components/app/billing/billing-page-client"
 import { AppAvatar } from "@/components/app/app-avatar"
+import { TimeZonePicker } from "@/components/app/time-zone-picker"
+import { ProfilePhoto } from "@/components/app/settings/profile-photo"
+import { AddressList, type SettingsWebsite } from "@/components/app/settings/addresses"
 import { WaitingArea } from "@/components/ui/activity-spinner"
 import { STORELIB_LOGO } from "@/lib/brand/logo"
 import { EmailChangeFlow, PrivacyPanel, SecurityPanel } from "@/components/app/settings/account-panels"
@@ -126,71 +129,6 @@ const COUNTRIES = [
   { code: "NP", name: "Nepal" },
 ].sort((a, b) => a.name.localeCompare(b.name))
 
-// Timezone list - comprehensive list of major timezones
-const TIMEZONES = [
-  { code: "UTC", name: "UTC (Coordinated Universal Time)", offset: "+00:00" },
-  { code: "America/New_York", name: "Eastern Time (US & Canada)", offset: "-05:00" },
-  { code: "America/Chicago", name: "Central Time (US & Canada)", offset: "-06:00" },
-  { code: "America/Denver", name: "Mountain Time (US & Canada)", offset: "-07:00" },
-  { code: "America/Los_Angeles", name: "Pacific Time (US & Canada)", offset: "-08:00" },
-  { code: "America/Anchorage", name: "Alaska", offset: "-09:00" },
-  { code: "Pacific/Honolulu", name: "Hawaii", offset: "-10:00" },
-  { code: "America/Phoenix", name: "Arizona", offset: "-07:00" },
-  { code: "America/Toronto", name: "Toronto", offset: "-05:00" },
-  { code: "America/Vancouver", name: "Vancouver", offset: "-08:00" },
-  { code: "America/Mexico_City", name: "Mexico City", offset: "-06:00" },
-  { code: "America/Bogota", name: "Bogotá", offset: "-05:00" },
-  { code: "America/Lima", name: "Lima", offset: "-05:00" },
-  { code: "America/Santiago", name: "Santiago", offset: "-04:00" },
-  { code: "America/Sao_Paulo", name: "São Paulo", offset: "-03:00" },
-  { code: "America/Buenos_Aires", name: "Buenos Aires", offset: "-03:00" },
-  { code: "Europe/London", name: "London", offset: "+00:00" },
-  { code: "Europe/Dublin", name: "Dublin", offset: "+00:00" },
-  { code: "Europe/Lisbon", name: "Lisbon", offset: "+00:00" },
-  { code: "Europe/Paris", name: "Paris", offset: "+01:00" },
-  { code: "Europe/Berlin", name: "Berlin", offset: "+01:00" },
-  { code: "Europe/Amsterdam", name: "Amsterdam", offset: "+01:00" },
-  { code: "Europe/Brussels", name: "Brussels", offset: "+01:00" },
-  { code: "Europe/Madrid", name: "Madrid", offset: "+01:00" },
-  { code: "Europe/Rome", name: "Rome", offset: "+01:00" },
-  { code: "Europe/Zurich", name: "Zurich", offset: "+01:00" },
-  { code: "Europe/Vienna", name: "Vienna", offset: "+01:00" },
-  { code: "Europe/Stockholm", name: "Stockholm", offset: "+01:00" },
-  { code: "Europe/Oslo", name: "Oslo", offset: "+01:00" },
-  { code: "Europe/Copenhagen", name: "Copenhagen", offset: "+01:00" },
-  { code: "Europe/Warsaw", name: "Warsaw", offset: "+01:00" },
-  { code: "Europe/Prague", name: "Prague", offset: "+01:00" },
-  { code: "Europe/Budapest", name: "Budapest", offset: "+01:00" },
-  { code: "Europe/Helsinki", name: "Helsinki", offset: "+02:00" },
-  { code: "Europe/Athens", name: "Athens", offset: "+02:00" },
-  { code: "Europe/Bucharest", name: "Bucharest", offset: "+02:00" },
-  { code: "Europe/Kiev", name: "Kyiv", offset: "+02:00" },
-  { code: "Europe/Moscow", name: "Moscow", offset: "+03:00" },
-  { code: "Europe/Istanbul", name: "Istanbul", offset: "+03:00" },
-  { code: "Asia/Dubai", name: "Dubai", offset: "+04:00" },
-  { code: "Asia/Karachi", name: "Karachi", offset: "+05:00" },
-  { code: "Asia/Kolkata", name: "Mumbai, Kolkata, New Delhi", offset: "+05:30" },
-  { code: "Asia/Dhaka", name: "Dhaka", offset: "+06:00" },
-  { code: "Asia/Bangkok", name: "Bangkok", offset: "+07:00" },
-  { code: "Asia/Jakarta", name: "Jakarta", offset: "+07:00" },
-  { code: "Asia/Singapore", name: "Singapore", offset: "+08:00" },
-  { code: "Asia/Hong_Kong", name: "Hong Kong", offset: "+08:00" },
-  { code: "Asia/Shanghai", name: "Beijing, Shanghai", offset: "+08:00" },
-  { code: "Asia/Taipei", name: "Taipei", offset: "+08:00" },
-  { code: "Asia/Seoul", name: "Seoul", offset: "+09:00" },
-  { code: "Asia/Tokyo", name: "Tokyo", offset: "+09:00" },
-  { code: "Australia/Perth", name: "Perth", offset: "+08:00" },
-  { code: "Australia/Adelaide", name: "Adelaide", offset: "+09:30" },
-  { code: "Australia/Brisbane", name: "Brisbane", offset: "+10:00" },
-  { code: "Australia/Sydney", name: "Sydney", offset: "+10:00" },
-  { code: "Australia/Melbourne", name: "Melbourne", offset: "+10:00" },
-  { code: "Pacific/Auckland", name: "Auckland", offset: "+12:00" },
-  { code: "Pacific/Fiji", name: "Fiji", offset: "+12:00" },
-  { code: "Africa/Cairo", name: "Cairo", offset: "+02:00" },
-  { code: "Africa/Johannesburg", name: "Johannesburg", offset: "+02:00" },
-  { code: "Africa/Lagos", name: "Lagos", offset: "+01:00" },
-  { code: "Africa/Nairobi", name: "Nairobi", offset: "+03:00" },
-]
 
 const TABS = [
   { id: "general", label: "General", icon: Settings },
@@ -235,6 +173,8 @@ interface SettingsFormProps {
   websitePublished?: boolean
   /** On Storelib's own newsletter list (storelib_newsletter), read on the server. */
   newsletter?: boolean
+  /** The published website, and the name it answers to when it has one of its own. */
+  website?: SettingsWebsite | null
   initialTab?: TabId
 }
 
@@ -455,344 +395,9 @@ function CountrySelectorModal({
   )
 }
 
-// Image Crop Modal (similar to OnePage)
-function ImageCropModal({
-  isOpen,
-  onClose,
-  tempImageUrl,
-  onSave,
-  isSaving,
-}: {
-  isOpen: boolean
-  onClose: () => void
-  tempImageUrl: string | null
-  onSave: (croppedBlob: Blob) => void
-  isSaving: boolean
-}) {
-  const [cropBox, setCropBox] = useState({ x: 50, y: 50, size: 200 })
-  const [isDragging, setIsDragging] = useState(false)
-  const [isResizing, setIsResizing] = useState(false)
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
-  const [imageSize, setImageSize] = useState({ width: 0, height: 0 })
-  const containerRef = useRef<HTMLDivElement>(null)
 
-  // Prevent pull-to-refresh when crop modal is open
-  useEffect(() => {
-    if (isOpen) {
-      document.documentElement.style.overscrollBehavior = 'none'
-      document.body.style.overscrollBehavior = 'none'
-    } else {
-      document.documentElement.style.overscrollBehavior = ''
-      document.body.style.overscrollBehavior = ''
-    }
-    return () => {
-      document.documentElement.style.overscrollBehavior = ''
-      document.body.style.overscrollBehavior = ''
-    }
-  }, [isOpen])
 
-  useEffect(() => {
-    if (tempImageUrl && isOpen) {
-      const img = new window.Image()
-      img.onload = () => {
-        const containerSize = 300
-        const scale = Math.min(containerSize / img.width, containerSize / img.height)
-        const displayWidth = img.width * scale
-        const displayHeight = img.height * scale
-        setImageSize({ width: displayWidth, height: displayHeight })
-
-        const initialSize = Math.min(displayWidth, displayHeight) * 0.8
-        setCropBox({
-          x: (displayWidth - initialSize) / 2,
-          y: (displayHeight - initialSize) / 2,
-          size: initialSize,
-        })
-      }
-      img.src = tempImageUrl
-    }
-  }, [tempImageUrl, isOpen])
-
-  const handleCropMouseDown = (e: React.MouseEvent | React.TouchEvent) => {
-    e.preventDefault()
-    const clientX = "touches" in e ? e.touches[0].clientX : e.clientX
-    const clientY = "touches" in e ? e.touches[0].clientY : e.clientY
-    setIsDragging(true)
-    setDragStart({ x: clientX - cropBox.x, y: clientY - cropBox.y })
-  }
-
-  const handleResizeMouseDown = (e: React.MouseEvent | React.TouchEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    const clientX = "touches" in e ? e.touches[0].clientX : e.clientX
-    const clientY = "touches" in e ? e.touches[0].clientY : e.clientY
-    setIsResizing(true)
-    setDragStart({ x: clientX, y: clientY })
-  }
-
-  const handleMouseMove = useCallback(
-    (e: MouseEvent | TouchEvent) => {
-      const clientX = "touches" in e ? e.touches[0].clientX : e.clientX
-      const clientY = "touches" in e ? e.touches[0].clientY : e.clientY
-
-      if (isDragging) {
-        const newX = clientX - dragStart.x
-        const newY = clientY - dragStart.y
-
-        const maxX = imageSize.width - cropBox.size
-        const maxY = imageSize.height - cropBox.size
-
-        setCropBox((prev) => ({
-          ...prev,
-          x: Math.max(0, Math.min(maxX, newX)),
-          y: Math.max(0, Math.min(maxY, newY)),
-        }))
-      } else if (isResizing) {
-        const deltaX = clientX - dragStart.x
-        const deltaY = clientY - dragStart.y
-        const delta = Math.max(deltaX, deltaY)
-        setCropBox((prev) => {
-          const newSize = Math.max(50, Math.min(Math.min(imageSize.width - prev.x, imageSize.height - prev.y), prev.size + delta))
-          return { ...prev, size: newSize }
-        })
-        setDragStart({ x: clientX, y: clientY })
-      }
-    },
-    [isDragging, isResizing, dragStart, cropBox.size, imageSize]
-  )
-
-  const handleMouseUp = useCallback(() => {
-    setIsDragging(false)
-    setIsResizing(false)
-  }, [])
-
-  useEffect(() => {
-    if (isDragging || isResizing) {
-      window.addEventListener("mousemove", handleMouseMove)
-      window.addEventListener("mouseup", handleMouseUp)
-      window.addEventListener("touchmove", handleMouseMove, { passive: false })
-      window.addEventListener("touchend", handleMouseUp)
-      return () => {
-        window.removeEventListener("mousemove", handleMouseMove)
-        window.removeEventListener("mouseup", handleMouseUp)
-        window.removeEventListener("touchmove", handleMouseMove)
-        window.removeEventListener("touchend", handleMouseUp)
-      }
-    }
-  }, [isDragging, isResizing, handleMouseMove, handleMouseUp])
-
-  const handleSave = async () => {
-    if (!tempImageUrl) return
-
-    const canvas = document.createElement("canvas")
-    const ctx = canvas.getContext("2d")
-    const img = new window.Image()
-
-    await new Promise<void>((resolve, reject) => {
-      img.onload = () => resolve()
-      img.onerror = reject
-      img.src = tempImageUrl
-    })
-
-    const containerSize = 300
-    const scale = Math.min(containerSize / img.width, containerSize / img.height)
-
-    const actualX = cropBox.x / scale
-    const actualY = cropBox.y / scale
-    const actualSize = cropBox.size / scale
-
-    const outputSize = 800
-    canvas.width = outputSize
-    canvas.height = outputSize
-
-    if (ctx) {
-      ctx.imageSmoothingEnabled = true
-      ctx.imageSmoothingQuality = "high"
-      ctx.drawImage(img, actualX, actualY, actualSize, actualSize, 0, 0, outputSize, outputSize)
-    }
-
-    canvas.toBlob(
-      (blob) => {
-        if (blob) {
-          onSave(blob)
-        }
-      },
-      "image/jpeg",
-      0.95
-    )
-  }
-
-  if (!isOpen) return null
-
-  return (
-    <div data-app-sheet="open" className="fixed inset-0 z-[100]">
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px]" onClick={onClose} />
-      <div className="fixed inset-0 flex items-center justify-center p-4">
-        <div className="relative bg-white rounded-2xl w-full max-w-md shadow-xl overflow-hidden">
-          <div className="flex items-center p-4 border-b border-[#e5e7eb]">
-            <button
-              onClick={onClose}
-              className="w-8 h-8 rounded-lg hover:bg-[#f3f4f6] flex items-center justify-center text-[#6b7280] transition-colors"
-            >
-              <ChevronLeft className="h-5 w-5" />
-            </button>
-            <h2 className="text-[18px] font-semibold text-[#1a1a2e] flex-1 text-center pr-8">Crop Image</h2>
-          </div>
-          <div className="p-5 space-y-4">
-            {tempImageUrl && (
-              <>
-                <div
-                  ref={containerRef}
-                  className="relative mx-auto bg-[repeating-conic-gradient(#e5e7eb_0_90deg,#fff_90deg_180deg)_0_0/20px_20px] rounded-xl overflow-hidden"
-                  style={{ width: "300px", height: "300px" }}
-                >
-                  <img
-                    src={tempImageUrl}
-                    alt="Preview"
-                    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 select-none pointer-events-none"
-                    style={{
-                      width: imageSize.width,
-                      height: imageSize.height,
-                      maxWidth: "300px",
-                      maxHeight: "300px",
-                      objectFit: "contain",
-                    }}
-                    draggable={false}
-                  />
-
-                  {/* Crop box */}
-                  <div
-                    className="absolute cursor-move"
-                    style={{
-                      left: `${150 - imageSize.width / 2 + cropBox.x}px`,
-                      top: `${150 - imageSize.height / 2 + cropBox.y}px`,
-                      width: `${cropBox.size}px`,
-                      height: `${cropBox.size}px`,
-                      border: "2px solid #8b5cf6",
-                      boxShadow: "0 0 0 9999px rgba(0,0,0,0.5)",
-                      borderRadius: "50%",
-                    }}
-                    onMouseDown={handleCropMouseDown}
-                    onTouchStart={handleCropMouseDown}
-                  >
-                    {/* Grid overlay */}
-                    <div className="absolute inset-0 grid grid-cols-3 grid-rows-3 pointer-events-none rounded-full overflow-hidden">
-                      {[...Array(9)].map((_, i) => (
-                        <div key={i} className="border border-white/20" />
-                      ))}
-                    </div>
-
-                    {/* Resize handle - larger touch target for mobile */}
-                    <div
-                      className="absolute -bottom-3 -right-3 w-8 h-8 flex items-center justify-center cursor-se-resize touch-none"
-                      onMouseDown={handleResizeMouseDown}
-                      onTouchStart={handleResizeMouseDown}
-                    >
-                      <div className="w-5 h-5 bg-[#8b5cf6] border-2 border-white rounded-full shadow-lg" />
-                    </div>
-                  </div>
-                </div>
-
-                <p className="text-[12px] text-center text-[#6b7280]">Drag to move, drag corner to resize</p>
-
-                <div className="flex gap-2">
-                  <button
-                    onClick={onClose}
-                    className="flex-1 h-11 text-[14px] font-medium bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#374151] rounded-xl transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleSave}
-                    disabled={isSaving}
-                    className="flex-1 h-11 text-[14px] font-medium bg-[#8b5cf6] hover:bg-[#7c3aed] disabled:bg-[#c4b5fd] text-white rounded-xl transition-colors flex items-center justify-center gap-2"
-                  >
-                    {isSaving ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Saving...
-                      </>
-                    ) : (
-                      "Save"
-                    )}
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// Image Upload Modal
-function ImageUploadModal({
-  isOpen,
-  onClose,
-  onFileSelect,
-  fileInputRef,
-}: {
-  isOpen: boolean
-  onClose: () => void
-  onFileSelect: (e: React.ChangeEvent<HTMLInputElement>) => void
-  fileInputRef: React.RefObject<HTMLInputElement>
-}) {
-  // Prevent pull-to-refresh when modal is open
-  useEffect(() => {
-    if (isOpen) {
-      document.documentElement.style.overscrollBehavior = 'none'
-      document.body.style.overscrollBehavior = 'none'
-    } else {
-      document.documentElement.style.overscrollBehavior = ''
-      document.body.style.overscrollBehavior = ''
-    }
-    return () => {
-      document.documentElement.style.overscrollBehavior = ''
-      document.body.style.overscrollBehavior = ''
-    }
-  }, [isOpen])
-
-  if (!isOpen) return null
-
-  return (
-    <div data-app-sheet="open" className="fixed inset-0 z-[100]">
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px]" onClick={onClose} />
-      <div className="fixed inset-0 flex items-center justify-center p-4">
-        <div className="relative bg-white rounded-2xl w-full max-w-md shadow-xl overflow-hidden">
-          <div className="flex items-center justify-between p-4 border-b border-[#e5e7eb]">
-            <h2 className="text-[18px] font-semibold text-[#1a1a2e]">Upload Photo</h2>
-            <button
-              onClick={onClose}
-              className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center text-[#6b7280] hover:bg-[#e5e7eb] transition-colors"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-          <div className="p-5">
-            <div
-              onClick={() => fileInputRef.current?.click()}
-              className="border-2 border-dashed border-[#e5e7eb] rounded-xl p-8 flex flex-col items-center justify-center cursor-pointer hover:border-[#8b5cf6] hover:bg-[#faf5ff] transition-colors"
-            >
-              <Upload className="h-12 w-12 text-[#9ca3af] mb-4" />
-              <p className="font-medium text-[#374151] text-[14px]">Select file to upload</p>
-              <p className="text-[13px] text-[#6b7280] mt-1">or drag-and-drop</p>
-              <p className="text-[12px] text-[#9ca3af] mt-2">JPG, PNG or GIF. Max 2MB</p>
-            </div>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={onFileSelect}
-              className="hidden"
-            />
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepageAvatarUrl, googleAvatarUrl, websitePublished = false, newsletter = false, initialTab = "general" }: SettingsFormProps) {
+export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepageAvatarUrl, googleAvatarUrl, websitePublished = false, newsletter = false, website = null, initialTab = "general" }: SettingsFormProps) {
   const router = useRouter()
   const { language: currentLanguage, setLanguage, t } = useLanguage()
   const [selectedLanguage, setSelectedLanguage] = useState(currentLanguage)
@@ -818,7 +423,6 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
     // Auto-detect from browser
     return detectTimezone()
   })
-  const [showTimezoneModal, setShowTimezoneModal] = useState(false)
   const initialTimezone = useRef(selectedTimezone)
 
   // Support Email state - for customer receipts
@@ -955,7 +559,6 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
   const [lastName, setLastName] = useState(profile.last_name || profile.display_name?.split(" ").slice(1).join(" ") || "")
   const [username, setUsername] = useState(profile.username || creator.slug || "")
   const [avatarUrl, setAvatarUrl] = useState(getDefaultAvatarUrl())
-  const avatarInputRef = useRef<HTMLInputElement>(null)
 
   // Track initial values for unsaved changes detection
   const initialValues = useRef({
@@ -971,11 +574,6 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
   })
 
   // Avatar upload/crop states
-  const [showAvatarUploadModal, setShowAvatarUploadModal] = useState(false)
-  const [showAvatarCropModal, setShowAvatarCropModal] = useState(false)
-  const [tempAvatarUrl, setTempAvatarUrl] = useState<string | null>(null)
-  const [tempAvatarFile, setTempAvatarFile] = useState<File | null>(null)
-  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false)
 
   // Email fields
   const [currentEmail, setCurrentEmail] = useState(profile.email || "")
@@ -1331,67 +929,6 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
     if (!validation.valid) {
       setUsernameError(validation.error || "Invalid username")
     }
-  }
-
-  // Avatar file select handler
-  const handleAvatarFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-
-    const url = URL.createObjectURL(file)
-    setTempAvatarUrl(url)
-    setTempAvatarFile(file)
-    setShowAvatarUploadModal(false)
-    setShowAvatarCropModal(true)
-
-    e.target.value = ""
-  }
-
-  // Avatar crop save handler
-  const handleAvatarCropSave = async (croppedBlob: Blob) => {
-    setIsUploadingAvatar(true)
-    const supabase = createClient()
-
-    try {
-      const fileExt = "jpg"
-      const fileName = `avatar-${Date.now()}.${fileExt}`
-      // The owner's folder first: storage only lets a person write there.
-      const filePath = `${profile.id}/${fileName}`
-
-      const { error: uploadError } = await supabase.storage
-        .from("avatars")
-        .upload(filePath, croppedBlob, { upsert: true, contentType: "image/jpeg" })
-
-      if (uploadError) throw uploadError
-
-      const {
-        data: { publicUrl },
-      } = supabase.storage.from("avatars").getPublicUrl(filePath)
-
-      setAvatarUrl(publicUrl)
-
-      await supabase.from("profiles").update({ avatar_url: publicUrl }).eq("id", profile.id)
-
-      setShowAvatarCropModal(false)
-      if (tempAvatarUrl) {
-        URL.revokeObjectURL(tempAvatarUrl)
-      }
-      setTempAvatarUrl(null)
-      setTempAvatarFile(null)
-      router.refresh()
-    } catch (err) {
-      console.error("Avatar upload error:", err)
-      setError("Failed to upload image")
-    } finally {
-      setIsUploadingAvatar(false)
-    }
-  }
-
-  const handleRemoveAvatar = async () => {
-    const supabase = createClient()
-    setAvatarUrl("")
-    await supabase.from("profiles").update({ avatar_url: null }).eq("id", profile.id)
-    router.refresh()
   }
 
   // Auto-scroll tab nav to active tab on mobile
@@ -2140,46 +1677,37 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                 a way out rather than a thing to configure.
               */}
 
-              {/* Profile Image Card */}
+              {/* Profile Image Card: changed right here (components/app/settings/profile-photo) */}
               <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
-                <div className="flex items-center gap-4">
-                  <a
-                    href="/creator-page"
-                    className="relative group cursor-pointer"
-                  >
-                    {/* The shell's one avatar (components/app/app-avatar): a quiet circle
-                        while the photo comes, the photo fading in, initials only without one. */}
-                    <AppAvatar
-                      src={avatarUrl || null}
-                      name={`${firstName} ${lastName}`.trim() || username || "You"}
-                      size={72}
-                      sizedByClass
-                      className="h-16 w-16 sm:h-[72px] sm:w-[72px]"
-                    />
-                  </a>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-[#1a1a2e] text-[15px]">Profile Photo</p>
-                    <p className="text-[13px] text-[#6b7280] mb-2">JPG, PNG or GIF. Max 2MB.</p>
-                    <a
-                      href="/creator-page"
-                      className="inline-flex px-3 py-1.5 text-[13px] font-medium bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#374151] rounded-lg transition-colors items-center gap-1.5"
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                      Change
-                    </a>
-                  </div>
-                </div>
+                <ProfilePhoto
+                  userId={profile.id}
+                  src={avatarUrl || null}
+                  name={`${firstName} ${lastName}`.trim() || username || "You"}
+                  onChanged={(url) => {
+                    /* Saved already: not a change for the save bar to ask about. */
+                    setAvatarUrl(url ?? "")
+                    initialValues.current.avatarUrl = url ?? ""
+                    router.refresh()
+                  }}
+                />
               </div>
 
-              {/* Profile Information Card - Username + Store URL */}
-              <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
+              {/*
+                NAME AND USERNAME, AND WHERE THE USERNAME IS. The username was
+                three inputs (Store URL here, a OnePage handle under it, and
+                another on Stores) writing one value, and the field labelled
+                Username was the display name. One field now, and the list
+                under it (components/app/settings/addresses) says what it is
+                the address of.
+              */}
+              <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]" data-settings-card="profile">
                 <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-4">
                   {t("settings.profileInfo")}
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label htmlFor="firstName" className="text-[13px] font-medium text-[#374151]">
-                      Username
+                      Name
                     </Label>
                     <Input
                       id="firstName"
@@ -2190,63 +1718,43 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                         setFirstName(first)
                         setLastName(rest.join(" "))
                       }}
-                      placeholder="Enter your display name"
+                      placeholder="Your name or your brand's"
                       className="h-11 border-[#e5e7eb] rounded-xl text-[14px] focus:ring-[#8b5cf6] focus:border-[#8b5cf6]"
                     />
+                    <p className="text-[12px] text-[#9ca3af]">Shown on your pages and on receipts</p>
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="storeUrlProfile" className="text-[13px] font-medium text-[#374151]">
-                      {t("settings.storeUrl")}
+                    <Label htmlFor="username" className="text-[13px] font-medium text-[#374151]">
+                      Username
                     </Label>
-                    <Input
-                      id="storeUrlProfile"
-                      value={username}
-                      onChange={(e) => validateUsername(e.target.value)}
-                      placeholder="your-store-name"
-                      className={`h-11 rounded-xl text-[14px] ${
-                        usernameError ? "border-red-300 focus:ring-red-500 focus:border-red-500" : "border-[#e5e7eb] focus:ring-[#8b5cf6] focus:border-[#8b5cf6]"
-                      }`}
-                    />
+                    <div className="relative">
+                      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[14px] text-[#9ca3af]">@</span>
+                      <Input
+                        id="username"
+                        value={username}
+                        onChange={(e) => validateUsername(e.target.value)}
+                        placeholder="yourname"
+                        autoCapitalize="none"
+                        autoCorrect="off"
+                        spellCheck={false}
+                        className={`h-11 pl-7 rounded-xl text-[14px] ${
+                          usernameError ? "border-red-300 focus:ring-red-500 focus:border-red-500" : "border-[#e5e7eb] focus:ring-[#8b5cf6] focus:border-[#8b5cf6]"
+                        }`}
+                      />
+                    </div>
                     {usernameError ? (
                       <p className="text-[12px] text-red-600 flex items-center gap-1">
                         <AlertCircle className="h-3 w-3" />
                         {usernameError}
                       </p>
                     ) : (
-                      <p className="text-[12px] text-[#9ca3af]">{storeUrlDisplay}</p>
+                      <p className="text-[12px] text-[#9ca3af]">The address of your creator page and your OnePage</p>
                     )}
                   </div>
                 </div>
-
-              </div>
-
-              {/* OnePage URL - separate card */}
-              <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
-                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-4">
-                  OnePage URL
-                </h3>
-                <div className="space-y-1.5">
-                  <Label htmlFor="onepageHandle" className="text-[13px] font-medium text-[#374151]">
-                    Handle
-                  </Label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[14px] text-[#6b7280]">
-                      @
-                    </span>
-                    <Input
-                      id="onepageHandle"
-                      value={username}
-                      onChange={(e) => {
-                        const value = e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, "")
-                        setUsername(value)
-                      }}
-                      placeholder="yourhandle"
-                      className="h-11 pl-7 border-[#e5e7eb] rounded-xl text-[14px] focus:ring-[#8b5cf6] focus:border-[#8b5cf6]"
-                    />
-                  </div>
-                  <p className="text-[12px] text-[#6b7280]">
-                    Your OnePage will be available at: <span className="font-medium text-[#8b5cf6]">{getLinksShareUrl(username || "yourhandle")}</span>
-                  </p>
+                <div className="mt-5">
+                  <p className="mb-2 text-[13px] font-medium text-[#374151]">Your addresses</p>
+                  <AddressList username={username} website={website} />
                 </div>
               </div>
 
@@ -2329,22 +1837,11 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
               {/* Timezone Card */}
               <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
                 <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-1">
-                  Timezone
+                  Time zone
                 </h3>
                 <p className="text-[13px] text-[#6b7280] mb-4">Used for analytics, product launches, scheduled emails, and sales timestamps</p>
-                <button
-                  type="button"
-                  onClick={() => setShowTimezoneModal(true)}
-                  className="w-full h-11 px-3 text-left border border-[#e5e7eb] rounded-xl text-[14px] bg-white hover:bg-[#f9fafb] transition-colors flex items-center gap-2 cursor-pointer"
-                >
-                  <span className="text-[#1a1a2e] truncate min-w-0 flex-1">
-                    {TIMEZONES.find(tz => tz.code === selectedTimezone)?.name || selectedTimezone}
-                    <span className="text-[#9ca3af] ml-2">
-                      ({TIMEZONES.find(tz => tz.code === selectedTimezone)?.offset || ""})
-                    </span>
-                  </span>
-                  <ChevronRight className="h-4 w-4 text-[#9ca3af] shrink-0" />
-                </button>
+                {/* The Analytics picker's parts: a popover on a computer, the shared sheet on a phone (components/app/time-zone-picker). */}
+                <TimeZonePicker value={selectedTimezone} onChange={setSelectedTimezone} />
               </div>
 
               {/* Address Card */}
@@ -2777,28 +2274,13 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                   </a>
                 </div>
 
-                <div className="space-y-1.5">
-                  <Label htmlFor="username" className="text-[13px] font-medium text-[#374151]">
-                    {t("settings.storeUrl")}
-                  </Label>
-                  <Input
-                    id="username"
-                    value={username}
-                    onChange={(e) => validateUsername(e.target.value)}
-                    placeholder="your-store-name"
-                    className={`h-11 rounded-xl text-[14px] ${
-                      usernameError ? "border-red-300 focus:ring-red-500 focus:border-red-500" : "border-[#e5e7eb] focus:ring-[#8b5cf6] focus:border-[#8b5cf6]"
-                    }`}
-                  />
-                  {usernameError ? (
-                    <p className="text-[12px] text-red-600 flex items-center gap-1">
-                      <AlertCircle className="h-3 w-3" />
-                      {usernameError}
-                    </p>
-                  ) : (
-                    <p className="text-[12px] text-[#9ca3af]">{storeUrlDisplay}</p>
-                  )}
-                </div>
+                {/* The address comes from the username, which is set in General. */}
+                <p className="text-[13px] text-[#6b7280]">
+                  Its address is your username.{" "}
+                  <button type="button" onClick={() => handleTabChange("general")} className="cursor-pointer font-medium text-[#1a1a2e] underline-offset-4 hover:underline">
+                    Change it in General
+                  </button>
+                </p>
               </div>
 
               {/* Store Settings Card */}
@@ -3299,7 +2781,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
 
       {/* Sticky Save Bar - Smooth fade animation */}
       {(() => {
-        const barUp = hasUnsavedChanges && !showEmailChangeModal && !showLanguageModal && !showTimezoneModal && !showCountryModal && !showDeleteModal && !showAvatarUploadModal && !showAvatarCropModal
+        const barUp = hasUnsavedChanges && !showEmailChangeModal && !showLanguageModal && !showCountryModal && !showDeleteModal
         return (
       <div
         /*
@@ -3372,30 +2854,6 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
         )
       })()}
 
-      {/* Avatar Upload Modal */}
-      <ImageUploadModal
-        isOpen={showAvatarUploadModal}
-        onClose={() => setShowAvatarUploadModal(false)}
-        onFileSelect={handleAvatarFileSelect}
-        fileInputRef={avatarInputRef as React.RefObject<HTMLInputElement>}
-      />
-
-      {/* Avatar Crop Modal */}
-      <ImageCropModal
-        isOpen={showAvatarCropModal}
-        onClose={() => {
-          setShowAvatarCropModal(false)
-          if (tempAvatarUrl) {
-            URL.revokeObjectURL(tempAvatarUrl)
-          }
-          setTempAvatarUrl(null)
-          setTempAvatarFile(null)
-        }}
-        tempImageUrl={tempAvatarUrl}
-        onSave={handleAvatarCropSave}
-        isSaving={isUploadingAvatar}
-      />
-
       {/* Country Selector Modal */}
       <CountrySelectorModal isOpen={showCountryModal} onClose={() => setShowCountryModal(false)} selectedCountry={country} onSelect={setCountry} />
 
@@ -3425,34 +2883,6 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
             >
               <span>{lang.name}</span>
               {selectedLanguage === lang.code && (
-                <Check className="h-4 w-4 text-[#8b5cf6]" />
-              )}
-            </button>
-          ))}
-        </div>
-      </MobileBottomSheet>
-
-      {/* Timezone Selector Modal */}
-      <MobileBottomSheet isOpen={showTimezoneModal} onClose={() => setShowTimezoneModal(false)} title="Select Timezone">
-        <div className="space-y-1 max-h-[60vh] overflow-y-auto">
-          {TIMEZONES.map((tz) => (
-            <button
-              key={tz.code}
-              onClick={() => {
-                setSelectedTimezone(tz.code)
-                setShowTimezoneModal(false)
-              }}
-              className={`w-full text-left px-3 py-3 rounded-xl text-[14px] font-medium transition-colors flex items-center justify-between cursor-pointer ${
-                selectedTimezone === tz.code
-                  ? "bg-[#f5f3ff] text-[#8b5cf6]"
-                  : "text-[#374151] hover:bg-[#f3f4f6] active:bg-[#e5e7eb]"
-              }`}
-            >
-              <div className="flex flex-col">
-                <span>{tz.name}</span>
-                <span className="text-[12px] text-[#9ca3af]">{tz.offset}</span>
-              </div>
-              {selectedTimezone === tz.code && (
                 <Check className="h-4 w-4 text-[#8b5cf6]" />
               )}
             </button>

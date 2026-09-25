@@ -296,7 +296,8 @@ function main() {
        that still has to say so. */
     const sheets: [string, number][] = [
       ["app/app/payouts/payouts-client.tsx", 1],
-      ["components/app/settings-form-new.tsx", 3],
+      /* The photo's upload and crop modals are gone: the photo changes in place (settings/profile-photo). */
+      ["components/app/settings-form-new.tsx", 1],
       ["components/app/billing/billing-page-client.tsx", 0],
     ]
     /* The dashboard's quick access and the new product's sheet are the
