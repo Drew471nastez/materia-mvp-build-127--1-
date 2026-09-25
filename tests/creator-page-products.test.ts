@@ -102,7 +102,7 @@ function main() {
 
   const productPage = read("app/(marketing)/p/[slug]/page.tsx")
   check("the product page summarises before it shares",
-    /const pageDescription = plainSummary\(product\.description\)/.test(productPage))
+    /const pageDescription = ownDescription \|\| plainSummary\(product\.description\)/.test(productPage))
   check("and so does the structured data a search result is drawn from",
     /description: plainSummary\(product\.description, 5000\)/.test(productPage))
   check("nothing hands the raw description to a reader of plain text any more",

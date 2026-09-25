@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server"
 import { revalidatePublishedSite } from "@/lib/website-builder/published-site"
+import { readOwnSectionFields, sanitizeSections } from "@/lib/website-builder/sanitize-sections"
+import { LIMITS } from "@/lib/storelib-theme/types"
+import { LIMITS as RATE_LIMITS, rateLimit } from "@/lib/api/rate-limit"
+import { BODY_LIMITS, readEditorBody } from "@/lib/website-builder/request-body"
 import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
 import type { SectionInstance } from "@/lib/website-builder/types"
@@ -44,12 +48,20 @@ export async function PUT(req: Request, { params }: Params) {
     .eq("id", installId).eq("creator_id", creator.id).maybeSingle()
   if (!install) return NextResponse.json({ error: "Theme not found" }, { status: 404 })
 
-  let body: unknown
-  try {
-    body = await req.json()
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 })
-  }
+  /* Part of every autosave, so the same allowance as the other two saves: RATE_LIMITS.siteSave. */
+  const limited = await rateLimit({
+    bucket: "site-header-sync",
+    subjects: [`user:${user.id}`],
+    windows: RATE_LIMITS.siteSave,
+    message: "Too many saves in a short time. Wait a moment, then keep editing.",
+  })
+  if (limited) return limited
+
+  /* Read up to a cap rather than whatever arrives: lib/website-builder/request-body.ts. */
+  const read = await readEditorBody(req, BODY_LIMITS.syncGlobal)
+  if (read.ok === false) return read.response
+  if (read.invalid) return NextResponse.json({ error: "Invalid JSON" }, { status: 400 })
+  const body = read.json
   const parsed = SyncBodySchema.safeParse(body)
   if (!parsed.success) {
     return NextResponse.json(
@@ -57,23 +69,58 @@ export async function PUT(req: Request, { params }: Params) {
       { status: 400 },
     )
   }
-  const { header, footer, current_page, mode } = parsed.data as {
+  const { header: sentHeader, footer: sentFooter, current_page, mode } = parsed.data as {
     header: SectionInstance | null
     footer: SectionInstance | null
     current_page: string
     mode: "draft" | "publish"
   }
 
+  /**
+   * The same door as the sections route, for the two sections this one copies
+   * onto every other page: the same block limit, and the same cleaning, by the
+   * install's own file where the header or footer is a section it wrote.
+   * Without it, a header sent here reached every page as it was sent.
+   *
+   * The sections-per-page limit is not re-checked: a sync replaces a page's
+   * header and footer, so a page holds at most the two it may have lacked.
+   */
+  const sent = [sentHeader, sentFooter].filter((s): s is SectionInstance => !!s)
+  const overfull = sent.find((s) => (s.blocks?.length ?? 0) > LIMITS.blocksPerSection)
+  if (overfull) {
+    return NextResponse.json(
+      { error: `A section holds ${LIMITS.blocksPerSection} blocks. "${overfull.name || overfull.type}" has ${overfull.blocks?.length}.` },
+      { status: 413 },
+    )
+  }
+  const own = await readOwnSectionFields(supabase, installId, sent.map((s) => s.type))
+  const header = sentHeader ? sanitizeSections([sentHeader], own)[0] : null
+  const footer = sentFooter ? sanitizeSections([sentFooter], own)[0] : null
+
   // Get all pages except the current one (current page already has the updated header/footer)
-  const { data: pages } = await supabase
+  const { data: pages, error: readErr } = await supabase
     .from("store_theme_pages")
     .select("id, page_key, sections, draft_sections")
     .eq("install_id", installId)
     .neq("page_key", current_page)
 
+  /* A read that failed is not "no other pages": say so, rather than report a sync that did not happen. */
+  if (readErr) return NextResponse.json({ error: "Could not reach the other pages. Nothing was changed." }, { status: 500 })
+
   if (!pages || pages.length === 0) {
     return NextResponse.json({ ok: true, synced: 0 })
   }
+
+  /**
+   * In publish mode every page goes live whole, body and all, so the whole
+   * page is cleaned on the way, as the publish route cleans what it promotes.
+   */
+  const pageOwn = mode === "publish"
+    ? await readOwnSectionFields(supabase, installId, [
+        ...sent.map((s) => s.type),
+        ...pages.flatMap((p) => ((p.draft_sections ?? p.sections ?? []) as SectionInstance[]).map((s) => s.type)),
+      ])
+    : own
 
   // Run page updates in parallel — they're independent writes.
   const updates = pages.map(page => {
@@ -88,7 +135,7 @@ export async function PUT(req: Request, { params }: Params) {
     ]
 
     const update = mode === "publish"
-      ? { sections: merged, draft_sections: null }
+      ? { sections: sanitizeSections(merged, pageOwn), draft_sections: null }
       : { draft_sections: merged }
 
     return supabase
@@ -99,10 +146,20 @@ export async function PUT(req: Request, { params }: Params) {
 
   const results = await Promise.all(updates)
   const synced = results.filter(r => !r.error).length
+  const failed = results.length - synced
 
   // A shared header pushed to every page in publish mode is a change to the
-  // live site on every one of them.
-  if (mode === "publish") await revalidatePublishedSite((creator as { id: string }).id)
+  // live site on every one of them, and so is part of one when some failed.
+  if (mode === "publish" && synced > 0) await revalidatePublishedSite((creator as { id: string }).id)
+
+  /* A write that failed is not a sync. The next save sends the header and footer again. */
+  if (failed > 0) {
+    console.error(`[sync-global] ${failed} of ${results.length} pages were not updated:`, results.find((r) => r.error)?.error?.message)
+    return NextResponse.json(
+      { error: "The header and footer did not reach every page. Save again to retry.", synced, failed },
+      { status: 500 },
+    )
+  }
 
   return NextResponse.json({ ok: true, synced })
 }

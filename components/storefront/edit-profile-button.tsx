@@ -96,7 +96,7 @@ export function EditProfileButton({
   themePreset = "default",
   schemeRoots,
 }: EditProfileButtonProps) {
-  const { markSaved, onClosed } = useSaveThenRefresh()
+  const { markSaved, onClosed, toast } = useSaveThenRefresh()
   /* The page behind the sheet shows the scheme being tried; Save keeps it, anything else puts it back. */
   const preview = useSchemePreview(themePreset, schemeRoots)
   const [open, setOpen] = React.useState(false)
@@ -367,6 +367,7 @@ export function EditProfileButton({
                 onChange={(url) => { setCover(url); setCrop(DEFAULT_COVER_CROP) }}
                 replaceOnly
                 allowRemove
+                livePreview
                 replaceLabel="Change banner"
                 /*
                   ANY COVER CAN BE PLACED. The owner asked for pinch and drag
@@ -391,6 +392,7 @@ export function EditProfileButton({
                   value={avatar || undefined}
                   onChange={(url) => setAvatar(url)}
                   replaceOnly
+                  livePreview
                   replaceLabel="Change"
                 />
               </div>
@@ -492,6 +494,8 @@ export function EditProfileButton({
               </p>
             </div>
       </EditorSheet>
+      {/* "Saved", once the sheet has gone (useSaveThenRefresh). */}
+      {toast}
     </>
   )
 }

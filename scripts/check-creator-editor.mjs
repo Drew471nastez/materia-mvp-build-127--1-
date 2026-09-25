@@ -44,6 +44,19 @@ export const useRouter = () => ({ push() {},
 export const useSearchParams = () => new URLSearchParams()
 export const useParams = () => ({})
 `)
+/* Storage, answered here: an upload that reports progress over a second and a half, and a public URL the page can load. */
+writeFileSync(join(stubs, "upload.js"), `export async function uploadWithProgress(bucket, path, file, o = {}) {
+  for (const p of [8, 20, 35, 50, 65, 80, 96]) { await new Promise((r) => setTimeout(r, window.__uploadStep ?? 200)); o.onProgress && o.onProgress(p) }
+  ;(window.__uploaded = window.__uploaded || []).push(bucket + "/" + path)
+}
+`)
+writeFileSync(join(stubs, "supabase.js"), `export function createClient() {
+  return {
+    auth: { getUser: async () => ({ data: { user: { id: "u1" } } }), getSession: async () => ({ data: { session: null } }) },
+    storage: { from: () => ({ getPublicUrl: () => ({ data: { publicUrl: window.__uploadedUrl } }), upload: async () => ({ error: null }) }) },
+  }
+}
+`)
 writeFileSync(join(stubs, "link.jsx"), `import React from "react"
 export default function Link({ href, children, prefetch, ...rest }) { return React.createElement("a", { href, ...rest }, children) }
 export const useLinkStatus = () => ({ pending: false })
@@ -57,6 +70,8 @@ try {
     '--define:process.env.NODE_ENV="production"',
     `--alias:next/link=${join(stubs, "link.jsx")}`,
     `--alias:next/navigation=${join(stubs, "navigation.js")}`,
+    `--alias:@/lib/storage/upload-with-progress=${join(stubs, "upload.js")}`,
+    `--alias:@/lib/supabase/client=${join(stubs, "supabase.js")}`,
     `--alias:@=${root}`, "--loader:.css=empty", "--loader:.svg=dataurl", "--loader:.png=dataurl",
   ], { cwd: root, stdio: ["ignore", "ignore", "inherit"] })
 } finally {
@@ -430,6 +445,111 @@ for (const vp of ONLY && ONLY !== "schemes" ? [] : [
   if (sent !== "harbor") problems.push(`${vp.name}: Save did not send the scheme that was being shown (${sent})`)
   if (afterSave !== hex("#ECF1F5")) problems.push(`${vp.name}: after saving Harbor the page is ${afterSave}`)
   if (/scheme=/.test(address)) problems.push(`${vp.name}: the preview is still in the address after Save (${address})`)
+  await p.close()
+}
+
+/* ======================================================================
+   4. A COVER AND A PICTURE UPLOADED: shown at once, sharpening, no flash
+   ====================================================================== */
+for (const vp of ONLY && ONLY !== "upload" ? [] : [
+  { name: "1280", width: 1280, height: 800, phone: false },
+  { name: "390", width: 390, height: 844, phone: true },
+]) {
+  const p = await page({ ...vp, hash: "profile" })
+  const pencil = JSON.parse(await p.js(`JSON.stringify(document.querySelector("[aria-label='Edit profile']").getBoundingClientRect())`))
+  await p.tap(pencil.x + pencil.width / 2, pencil.y + pencil.height / 2)
+  await sleep(900)
+  for (const which of ["cover", "avatar"]) {
+    const rows = await p.js(`(async () => {
+      const pic = (w, h, hue) => { const c = document.createElement("canvas"); c.width = w; c.height = h; const g = c.getContext("2d")
+        g.fillStyle = "hsl(" + hue + ", 70%, 45%)"; g.fillRect(0, 0, w, h); g.fillStyle = "#fff"; g.fillRect(w * 0.4, h * 0.4, w * 0.2, h * 0.2); return c }
+      window.__uploadedUrl = pic(900, 300, 20).toDataURL("image/png")
+      const blob = await new Promise((r) => pic(1200, 400, 200).toBlob(r, "image/png"))
+      const file = new File([blob], "picked.png", { type: "image/png" })
+      const panel = document.querySelector("[data-sheet-panel]") || document.querySelector("[role=dialog][data-state=open]")
+      const inputs = [...panel.querySelectorAll("input[type=file]")]
+      const input = inputs[${which === "cover" ? 0 : 1}]
+      const box = ${which === "cover" ? `() => panel.querySelector("[data-cover-crop-frame]")` : `() => panel.querySelector(".w-28")`}
+      const samples = []
+      const t0 = performance.now()
+      await new Promise((done) => {
+        const tick = (t) => {
+          const b = box(), veil = b && b.querySelector("[data-upload-pending]")
+          const imgs = b ? [...b.querySelectorAll("img")] : []
+          const painted = imgs.some((img) => img.complete && img.naturalWidth > 0 && !img.closest("[data-upload-pending]") && getComputedStyle(img).opacity !== "0")
+          const blurred = veil?.querySelector("img")
+          const bar = veil?.querySelector("[role=progressbar]")
+          samples.push({ t: Math.round(t - t0), painted, veil: !!veil, blurOpacity: blurred ? Number(getComputedStyle(blurred).opacity) : null,
+            progress: bar ? Number(bar.getAttribute("aria-valuenow")) : null, src: (imgs.find((i) => !i.closest("[data-upload-pending]"))?.getAttribute("src") || "").slice(0, 5) })
+          if (t - t0 < 3200) requestAnimationFrame(tick); else done()
+        }
+        requestAnimationFrame(tick)
+        const dt = new DataTransfer(); dt.items.add(file); input.files = dt.files
+        input.dispatchEvent(new Event("change", { bubbles: true }))
+      })
+      return JSON.stringify(samples)
+    })()`)
+    const samples = JSON.parse(rows)
+    const firstVeil = samples.find((x) => x.veil)
+    /* From the moment there is a picture to show: an empty avatar box before the pick is not a flash. */
+    const had = which === "cover" ? samples : samples.filter((x) => firstVeil && x.t >= firstVeil.t)
+    const blank = had.filter((x) => !x.painted).length
+    const blankAt = had.filter((x) => !x.painted).slice(0, 4).map((x) => x.t)
+    const opacities = samples.filter((x) => x.blurOpacity != null).map((x) => x.blurOpacity)
+    const falling = opacities.every((o, i) => i === 0 || o <= opacities[i - 1] + 0.001)
+    const last = samples[samples.length - 1]
+    report[`${which} upload @${vp.name}`] = `preview up ${firstVeil ? firstVeil.t + "ms" : "never"} after the pick; blur ${opacities.length ? `${round(opacities[0], 2)} -> ${round(Math.min(...opacities), 2)}${falling ? ", only ever sharpening" : ", NOT monotonic"}` : "none"}; frames with nothing painted ${blank} of ${samples.length}${blank ? " at " + blankAt.join(",") + "ms" : ""}; at the end the picture is ${last.src}… with ${last.veil ? "the veil still on" : "no veil"}`
+    if (!firstVeil || firstVeil.t > 80) problems.push(`${vp.name}: the picked ${which} did not show at once (${firstVeil?.t}ms)`)
+    if (!falling) problems.push(`${vp.name}: the ${which}'s blur went back up during its upload`)
+    if (blank > 0) problems.push(`${vp.name}: the ${which} frame was blank for ${blank} frames of its upload`)
+    if (last.veil || last.src !== "data:") problems.push(`${vp.name}: the uploaded ${which} did not take over (${JSON.stringify(last)})`)
+    await p.shot(`upload-${which}-${vp.name}`)
+    if (SHOTS) {
+      /* A picture of the middle of an upload, for a person to look at. */
+      await p.js(`(async () => { const c = document.createElement("canvas"); c.width = 1200; c.height = 800; const g = c.getContext("2d")
+        const gr = g.createLinearGradient(0, 0, 1200, 800); gr.addColorStop(0, "#1f4b6e"); gr.addColorStop(1, "#d9c7a3"); g.fillStyle = gr; g.fillRect(0, 0, 1200, 800)
+        g.fillStyle = "#fff"; g.font = "bold 120px sans-serif"; g.fillText("New", 420, 440)
+        const blob = await new Promise((r) => c.toBlob(r, "image/png")); const file = new File([blob], "mid.png", { type: "image/png" })
+        const panel = document.querySelector("[data-sheet-panel]") || document.querySelector("[role=dialog][data-state=open]")
+        const input = [...panel.querySelectorAll("input[type=file]")][${which === "cover" ? 0 : 1}]
+        const dt = new DataTransfer(); dt.items.add(file); input.files = dt.files; input.dispatchEvent(new Event("change", { bubbles: true })) })()`)
+      await sleep(650)
+      await p.shot(`upload-${which}-${vp.name}-midway`)
+      await sleep(2600)
+    }
+  }
+  await p.close()
+}
+
+/* ======================================================================
+   5. SAVING: the button keeps its size and says "Saving", then "Saved" shows
+   ====================================================================== */
+for (const vp of ONLY && ONLY !== "save" ? [] : [
+  { name: "1280", width: 1280, height: 800, phone: false },
+  { name: "390", width: 390, height: 844, phone: true },
+]) {
+  const p = await page({ ...vp, hash: "profile" })
+  const pencil = JSON.parse(await p.js(`JSON.stringify(document.querySelector("[aria-label='Edit profile']").getBoundingClientRect())`))
+  await p.tap(pencil.x + pencil.width / 2, pencil.y + pencil.height / 2)
+  await sleep(900)
+  const saveBox = `(() => { const b = [...document.querySelectorAll("button[aria-disabled], button")].find((x) => /^(Save|Saving)/.test(x.textContent.trim()) && x.closest("[data-sheet-pin-bottom]")); const r = b.getBoundingClientRect()
+    const label = [...b.querySelectorAll("span")].filter((x) => getComputedStyle(x).opacity === "1").map((x) => x.textContent.trim()).filter(Boolean)
+    return JSON.stringify({ x: r.x, y: r.y, w: r.width, h: r.height, bg: getComputedStyle(b).backgroundColor, label, busy: b.getAttribute("aria-busy"), opacity: getComputedStyle(b).opacity }) })()`
+  const before = JSON.parse(await p.js(saveBox))
+  await p.js("window.__hold = true")
+  await p.tap(before.x + before.w / 2, before.y + before.h / 2)
+  await sleep(400)
+  const during = JSON.parse(await p.js(saveBox))
+  await p.shot(`saving-${vp.name}`)
+  await p.js("window.__release && window.__release()")
+  await sleep(vp.phone ? 700 : 500)
+  const toast = JSON.parse(await p.js(`JSON.stringify([...document.querySelectorAll("span")].filter((x) => x.textContent === "Saved").map((x) => { const pill = x.parentElement, cs = getComputedStyle(pill); return { bg: cs.backgroundColor, color: getComputedStyle(x).color } }))`))
+  await p.shot(`saved-${vp.name}`)
+  report[`saving @${vp.name}`] = `Save ${Math.round(before.w)}x${Math.round(before.h)} ${before.bg}; while saving ${Math.round(during.w)}x${Math.round(during.h)}, aria-busy ${during.busy}, opacity ${during.opacity}, showing ${JSON.stringify(during.label)}; then ${toast.length ? `a "Saved" pill ${JSON.stringify(toast[0])}` : "no toast"}`
+  if (Math.abs(before.w - during.w) > 0.5 || Math.abs(before.x - during.x) > 0.5) problems.push(`${vp.name}: the Save button moved or resized while saving`)
+  if (!during.label.some((l) => /^Saving/.test(l))) problems.push(`${vp.name}: a save in flight does not say so (${JSON.stringify(during.label)})`)
+  if (during.opacity !== "1") problems.push(`${vp.name}: the Save button faded while saving`)
+  if (!toast.length) problems.push(`${vp.name}: nothing said the save was kept`)
   await p.close()
 }
 

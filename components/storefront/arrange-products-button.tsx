@@ -38,7 +38,7 @@ export function ArrangeProductsButton({
   products: ArrangeableProduct[]
   className?: string
 }) {
-  const { markSaved, onClosed } = useSaveThenRefresh()
+  const { markSaved, onClosed, toast } = useSaveThenRefresh()
   const [open, setOpen] = React.useState(false)
   const [order, setOrder] = React.useState<ArrangeableProduct[]>(products)
   const [saving, setSaving] = React.useState(false)
@@ -372,6 +372,8 @@ export function ArrangeProductsButton({
           ))}
         </ul>
       </EditorSheet>
+      {/* "Saved", once the sheet has gone (useSaveThenRefresh). */}
+      {toast}
     </>
   )
 }

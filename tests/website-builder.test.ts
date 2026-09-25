@@ -1423,7 +1423,8 @@ section("Two at once still make five, and an import that says what went wrong")
   const install = read("app/api/website-builder/themes/[installId]/route.ts")
   check("rename takes text only, trimmed, at most 80, and bad JSON is a 400",
     /await req\.json\(\)\.catch\(\(\) => null\)/.test(install) && /typeof body\?\.name === "string"/.test(install) && /name\.length > 80/.test(install))
-  check("publish reads a bad body as an invalid action, not a crash", /const body = await req\.json\(\)\.catch\(\(\) => null\)/.test(read("app/api/website-builder/themes/[installId]/publish/route.ts")))
+  // Read up to a cap now (lib/website-builder/request-body.ts); a body that is not JSON is still no action.
+  check("publish reads a bad body as an invalid action, not a crash", /const body = \(read\.invalid \? null : read\.json\) as \{ action\?: unknown \} \| null/.test(read("app/api/website-builder/themes/[installId]/publish/route.ts")))
   check("every route the page calls asks who is signed in and whether the website is theirs",
     [routes.duplicate, install, read("app/api/website-builder/themes/[installId]/publish/route.ts")].every((src) => /auth\.getUser\(\)/.test(src) && /\.eq\("creator_id", creator\.id\)/.test(src)) &&
       [routes.add, routes.import, read("app/api/website-builder/themes/import/upload/route.ts")].every((src) => /auth\.getUser\(\)/.test(src) && /Unauthorized/.test(src)))

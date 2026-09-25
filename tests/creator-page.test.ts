@@ -92,8 +92,15 @@ function main() {
      * its own; not on a phone, where a gutter and a hairline around a 390px
      * page is a border eating the content it frames.
      */
-    check("inset on a desktop only", /flex-1 overflow-hidden p-0 md:p-2\.5/.test(workspace))
-    check("and bordered on a desktop only", /md:rounded-xl md:border/.test(workspace))
+    /*
+      NOT INSET ANY MORE, on the owner's "the editor must match the live page
+      exactly": a canvas 20px narrower than the window crossed the page's
+      breakpoints at different widths and drew the banner a different shape.
+      Edge to edge, the frame is the window's width and the page inside it is
+      the page a visitor gets.
+    */
+    check("the canvas is the window's full width, as the live page is", /flex-1 overflow-hidden p-0">/.test(workspace) && !/md:p-2\.5/.test(workspace))
+    check("and has no border of its own to take width from it", !/md:rounded-xl md:border/.test(workspace))
     /** A dark bar over a white page is a hard edge with nothing in between. */
     check("the chrome is light", workspace.includes("bg-[#f1f1f3]") && !workspace.includes("#18181c") && !workspace.includes("#131316"))
 
@@ -1872,7 +1879,8 @@ function main() {
       a save in flight looked like a button that had gone dead.
     */
     check("the word is still there under the spinner", /\{saveLabel\}/.test(sheet))
-    check("the spinner moves nothing", /<Loader2\s+className="absolute left-4/.test(sheet))
+    /* No spinner now: "Save" eases into "Saving" in the same grid cell, so the cell keeps its width and nothing moves. */
+    check("the busy state moves nothing", !/<Loader2/.test(sheet) && /col-start-1 row-start-1[\s\S]{0,400}\{saveLabel\}[\s\S]{0,600}col-start-1 row-start-1[\s\S]{0,300}Saving/.test(sheet))
     /* Not `disabled` at all now: that carried opacity-50 from the variants.
        See the note in tests/sheet-controls. */
     check(

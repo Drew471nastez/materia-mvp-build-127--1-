@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState, useRef, useCallback } from "react"
+import { useState, useRef, useCallback, useEffect } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
@@ -10,6 +10,7 @@ import Image from "next/image"
 import { COMPRESS_PROFILES, compressImage } from "@/lib/images/compress"
 import { DEFAULT_COVER_CROP, coverEditorSrc, isDefaultCrop, type CoverCrop } from "@/lib/images/cover-crop"
 import { CoverCropFrame } from "@/components/app/cover-crop-frame"
+import { uploadWithProgress } from "@/lib/storage/upload-with-progress"
 
 interface ImageUploadProps {
   bucket: "product-images" | "avatars" | "covers" | "store-builder-images"
@@ -77,6 +78,86 @@ interface ImageUploadProps {
      */
     aspect?: number
   }
+  /**
+   * THE PICKED PICTURE, AT ONCE, COMING INTO FOCUS. Replace-only images
+   * (the profile's cover and picture) show the chosen file the moment it is
+   * chosen, soft and a little blurred, sharpening as its bytes actually go
+   * up (real progress, from lib/storage/upload-with-progress), with a
+   * hairline along its foot. The uploaded copy takes over only once it is
+   * decoded and painted, so nothing flashes when it lands. The product
+   * editor's photo grid is the same idea (app/app/products/new/media-grid).
+   * Off by default: every other caller keeps the bar it has.
+   */
+  livePreview?: boolean
+}
+
+/** A picture on its way up: its own preview, and how far the upload has got. */
+interface Pending {
+  url: string
+  /** 0..100 */
+  progress: number
+  /** The upload is done and the parent has the new URL; the preview waits for it to paint. */
+  handedOver: boolean
+}
+
+/**
+ * Held until the uploaded copy can paint at once, never longer than 4s: the
+ * same wait the product editor's photos use, so the swap is not a flash.
+ */
+function warm(url: string): Promise<void> {
+  return new Promise((resolve) => {
+    const img = new window.Image()
+    const done = () => resolve()
+    const timer = window.setTimeout(done, 4000)
+    img.onload = () => {
+      window.clearTimeout(timer)
+      ;(img.decode ? img.decode().catch(() => {}) : Promise.resolve()).then(done)
+    }
+    img.onerror = () => { window.clearTimeout(timer); done() }
+    img.decoding = "async"
+    img.src = url
+  })
+}
+
+/**
+ * THE PENDING PICTURE'S OWN LAYERS, drawn over whatever frame it is in: a
+ * blurred copy that fades as the upload goes, a sheen, and the hairline.
+ * Only opacity and transform change, so it animates on the compositor.
+ */
+function PendingVeil({ pending, fading }: { pending: Pending; fading?: boolean }) {
+  const p = Math.max(0, Math.min(100, pending.progress)) / 100
+  return (
+    <span
+      aria-hidden={fading || undefined}
+      data-upload-pending=""
+      className="pointer-events-none absolute inset-0 overflow-hidden transition-opacity duration-200 ease-out"
+      style={{ opacity: fading ? 0 : 1 }}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element -- a local blob preview, not a remote image */}
+      <img
+        src={pending.url}
+        alt=""
+        draggable={false}
+        className="absolute inset-0 h-full w-full object-cover transition-opacity duration-300 ease-out motion-reduce:transition-none"
+        style={{ filter: "blur(14px) saturate(0.75) brightness(0.96)", transform: "scale(1.08)", opacity: Math.max(0, 1 - p) }}
+      />
+      <span className="absolute inset-y-0 -left-1/2 w-1/2 animate-[media-sheen_1.6s_ease-in-out_infinite] bg-gradient-to-r from-transparent via-white/25 to-transparent motion-reduce:hidden" />
+      <span
+        role="progressbar"
+        aria-label="Uploading"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={Math.round(pending.progress)}
+        className="absolute inset-x-2.5 bottom-2.5 h-[3px] overflow-hidden rounded-full bg-white/35 shadow-[0_1px_2px_rgba(0,0,0,0.15)]"
+      >
+        <span
+          className="absolute inset-y-0 left-0 w-full origin-left rounded-full bg-white transition-transform duration-300 ease-out motion-reduce:transition-none"
+          data-keep-transform=""
+          style={{ transform: `scaleX(${p.toFixed(3)})` }}
+        />
+      </span>
+    </span>
+  )
 }
 
 export function ImageUpload({
@@ -91,9 +172,20 @@ export function ImageUpload({
   replaceLabel = "Change image",
   allowRemove = false,
   reposition,
+  livePreview = false,
 }: ImageUploadProps) {
   const isVideoMode = accept === "video/*"
   const [uploading, setUploading] = useState(false)
+  const [pending, setPending] = useState<Pending | null>(null)
+  /* The pending preview's blob URL is released once nothing shows it. */
+  const pendingUrl = useRef<string | null>(null)
+  const clearPending = useCallback(() => {
+    setPending(null)
+    const url = pendingUrl.current
+    pendingUrl.current = null
+    if (url) window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+  }, [])
+  useEffect(() => () => { if (pendingUrl.current) URL.revokeObjectURL(pendingUrl.current) }, [])
   const [progress, setProgress] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [dragOver, setDragOver] = useState(false)
@@ -106,6 +198,27 @@ export function ImageUpload({
     /* An "add another" box, not a preview: one line of text and an icon. */
     compact: "min-h-[104px]",
   }
+
+  const isCover = !!reposition
+
+  /**
+   * THE HAND-OVER. The parent has the uploaded URL and the frame is drawing
+   * it: a cover's frame loads exactly the URL `warm` decoded, so it paints
+   * on the first frame and the veil fades off it. The avatar is a next/image
+   * with its own srcset, which `warm` cannot guess, so its preview stays on
+   * top until that image says it has loaded (`landed`), then fades.
+   */
+  const [landed, setLanded] = useState(false)
+  useEffect(() => {
+    if (!pending?.handedOver) { setLanded(false); return }
+    if (!isCover && !landed) {
+      /* An image that never reports (an error, a stalled optimiser) does not keep the preview forever. */
+      const t = window.setTimeout(() => setLanded(true), 6000)
+      return () => window.clearTimeout(t)
+    }
+    const t = window.setTimeout(clearPending, 220)
+    return () => window.clearTimeout(t)
+  }, [pending?.handedOver, landed, isCover, clearPending])
 
   const handleUpload = useCallback(
     async (file: File) => {
@@ -242,6 +355,16 @@ export function ImageUpload({
            * file that comes out bigger than it went in, passes through
            * untouched — see lib/images/compress.ts.
            */
+          /* Shown now, before anything is compressed or sent. */
+          const live = livePreview && replaceOnly
+          if (live) {
+            if (pendingUrl.current) URL.revokeObjectURL(pendingUrl.current)
+            const url = URL.createObjectURL(file)
+            pendingUrl.current = url
+            /* Decoded first, so the frame never shows an empty box between the old picture and this one. */
+            await warm(url)
+            setPending({ url, progress: 0, handedOver: false })
+          }
           const profile = COMPRESS_PROFILES[bucket]
           const upload = profile ? await compressImage(file, profile) : file
           if (upload !== file) {
@@ -285,15 +408,25 @@ export function ImageUpload({
            * "sometimes it takes very long to load": sometimes was after the
            * hour was up.
            */
-          const { error: uploadError } = await supabase.storage.from(bucket).upload(filePath, upload, {
-            cacheControl: "31536000",
-            contentType: upload.type,
-            upsert: true,
-          })
+          if (live) {
+            /* The real number, so the picture sharpens as the bytes go (lib/storage/upload-with-progress). */
+            await uploadWithProgress(bucket, filePath, upload, {
+              cacheControl: "31536000",
+              contentType: upload.type,
+              upsert: true,
+              onProgress: (percent) => setPending((p) => (p ? { ...p, progress: Math.min(96, percent) } : p)),
+            })
+          } else {
+            const { error: uploadError } = await supabase.storage.from(bucket).upload(filePath, upload, {
+              cacheControl: "31536000",
+              contentType: upload.type,
+              upsert: true,
+            })
 
-          if (uploadError) {
-            console.error("[v0] Upload error:", uploadError)
-            throw uploadError
+            if (uploadError) {
+              console.error("[v0] Upload error:", uploadError)
+              throw uploadError
+            }
           }
 
           setProgress(70)
@@ -304,9 +437,16 @@ export function ImageUpload({
           console.log("[v0] Upload successful, URL:", urlData.publicUrl)
 
           setProgress(100)
+          if (live) {
+            setPending((p) => (p ? { ...p, progress: 100 } : p))
+            /* The copy the frame will ask for, decoded before it is asked for. */
+            await warm(reposition ? coverEditorSrc(urlData.publicUrl) : urlData.publicUrl)
+            setPending((p) => (p ? { ...p, handedOver: true } : p))
+          }
           onChange(urlData.publicUrl)
         }
       } catch (err) {
+        if (livePreview) clearPending()
         console.error("[v0] Upload error:", err)
         // Handle specific Supabase storage errors
         const errorMessage = err instanceof Error ? err.message : String(err)
@@ -322,7 +462,7 @@ export function ImageUpload({
         setProgress(0)
       }
     },
-    [bucket, folder, maxSizeMB, onChange, isVideoMode],
+    [bucket, folder, maxSizeMB, onChange, isVideoMode, livePreview, replaceOnly, isCover, clearPending],
   )
 
   /**
@@ -373,16 +513,18 @@ export function ImageUpload({
    * appearing on hover: there is no hover on a phone, and on a phone the
    * frame itself no longer answers a tap.
    */
-  if (value && replaceOnly && reposition) {
-    const crop = reposition.value ?? DEFAULT_COVER_CROP
-    const editable = reposition.editable !== false
+  if ((value || pending) && replaceOnly && reposition) {
+    /* A picture on its way up is drawn from the middle at its own size, as it will be saved. */
+    const showingPending = !!pending && !pending.handedOver
+    const crop = showingPending ? DEFAULT_COVER_CROP : reposition.value ?? DEFAULT_COVER_CROP
+    const editable = reposition.editable !== false && !showingPending
     /* 44px to a thumb, 32px to the eye: the disc is small, its target is not. */
     const disc =
       "relative flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white transition-colors before:absolute before:-inset-1.5 before:content-[''] pointer-fine:hover:bg-black/75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
     return (
       <div className="space-y-2">
         <CoverCropFrame
-          src={coverEditorSrc(value)}
+          src={showingPending || !value ? pending!.url : coverEditorSrc(value)}
           crop={crop}
           onChange={editable && !uploading ? reposition.onChange : undefined}
           onActivate={editable ? undefined : () => !uploading && inputRef.current?.click()}
@@ -425,7 +567,8 @@ export function ImageUpload({
             the new one has got. A dark veil over the whole frame was the
             loudest thing on the sheet for the length of every upload.
           */}
-          {uploading && (
+          {pending && <PendingVeil pending={pending} fading={pending.handedOver} />}
+          {uploading && !pending && (
             <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[3px] bg-black/15" role="progressbar" aria-label="Uploading" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100}>
               <div
                 className="h-full origin-left bg-white transition-transform duration-200 ease-out"
@@ -446,7 +589,7 @@ export function ImageUpload({
     )
   }
 
-  if (value && replaceOnly) {
+  if ((value || pending) && replaceOnly) {
     return (
       <div
         role="button"
@@ -475,14 +618,29 @@ export function ImageUpload({
         {/* Eager: this is a preview inside a sheet that starts below the
             screen, and a lazy image there loads as the sheet arrives. Sized
             for the frame, not for the whole window. */}
-        <Image
-          src={value || "/placeholder.svg"}
-          alt=""
-          fill
-          loading="eager"
-          sizes={aspectRatio === "square" ? "(max-width: 640px) 40vw, 240px" : "(max-width: 640px) 100vw, 520px"}
-          className="object-cover"
-        />
+        {value && (
+          <Image
+            /* A new picture is a new element, so `onLoad` below is the new one's. */
+            key={value}
+            src={value || "/placeholder.svg"}
+            alt=""
+            fill
+            loading="eager"
+            sizes={aspectRatio === "square" ? "(max-width: 640px) 40vw, 240px" : "(max-width: 640px) 100vw, 520px"}
+            className="object-cover"
+            onLoad={() => { if (pending?.handedOver) setLanded(true) }}
+            onError={() => { if (pending?.handedOver) setLanded(true) }}
+          />
+        )}
+
+        {/* The chosen picture, sharp underneath its own veil, until the uploaded copy has painted. */}
+        {pending && (
+          <span className="pointer-events-none absolute inset-0 transition-opacity duration-200 ease-out" style={{ opacity: pending.handedOver && landed ? 0 : 1 }}>
+            {/* eslint-disable-next-line @next/next/no-img-element -- a local blob preview */}
+            <img src={pending.url} alt="" draggable={false} className="absolute inset-0 h-full w-full object-cover" />
+            <PendingVeil pending={pending} fading={pending.handedOver} />
+          </span>
+        )}
 
         {/* The whole image is the button; the label only appears under a
             mouse. A finger has no hover, and on a phone that answers "yes" to
@@ -496,8 +654,9 @@ export function ImageUpload({
         </div>
 
         {/* Uploading: the old picture stays put under a dim wash and a bar,
-            rather than the frame emptying out and jumping back. */}
-        {uploading && (
+            rather than the frame emptying out and jumping back. (Not with a
+            live preview, which is its own state: see PendingVeil.) */}
+        {uploading && !pending && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/55 backdrop-blur-[1px]">
             <div className="h-1 w-2/3 overflow-hidden rounded-full bg-white/25">
               <div

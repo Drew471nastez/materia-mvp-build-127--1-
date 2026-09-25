@@ -58,12 +58,12 @@ check("and a tap inside a link does not follow it", /e\.preventDefault\(\)\s*\n\
 
 /* The paste-ready part: one whole statement per line, listed, and checked after. */
 {
-  const part = read("supabase/sql/run-now/26_creator_badges.sql")
+  const part = read("supabase/sql/run-now/27_creator_badges.sql")
   const body = part.replace(/\/\*[\s\S]*?\*\//g, "").split("\n").filter((l) => l.trim())
-  check("run-now part 26 is one whole statement per line", body.length > 0 && body.every((l) => /;\s*$/.test(l)))
+  check("run-now part 27 is one whole statement per line", body.length > 0 && body.every((l) => /;\s*$/.test(l)))
   check("and keeps the trigger that stops self-granted badges", /CREATE TRIGGER profiles_keep_badges BEFORE INSERT OR UPDATE ON public\.profiles/.test(part))
-  check("and is listed in the run-now README", /26_creator_badges\.sql/.test(read("supabase/sql/run-now/README.md")))
-  check("and the after check reads it", /p26_creator_badges/.test(read("supabase/sql/run-now/99_check_after.sql")))
+  check("and is listed in the run-now README", /27_creator_badges\.sql/.test(read("supabase/sql/run-now/README.md")))
+  check("and the after check reads it", /p27_creator_badges/.test(read("supabase/sql/run-now/99_check_after.sql")))
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)
