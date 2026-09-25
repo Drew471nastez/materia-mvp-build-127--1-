@@ -14,7 +14,15 @@
  *   • both gutters are the same, and at least 16px
  *
  *   THE LIVE PAGE (mounted in a browser, driven like a person would)
- *   • the title row has exactly one control, Settings, on the heading's line
+ *   • the title row holds Public and View website on a laptop and View
+ *     website alone on a phone, in the light grey (36px, 10px corners; 44px
+ *     on a phone); Public's menu says Take offline, or Unpublished's says
+ *     Publish again
+ *   • the live card's row is Edit website, Settings and More on one line,
+ *     Settings a 44px icon square on a phone, and Take offline still in the
+ *     More sheet there
+ *   • the cover is one picture whose box is the cover area's box, flush
+ *     with the card, with no stage, browser window or phone inside it
  *   • with the library full, Import opens the full library surface and never
  *     a file picker: a sheet on the bottom edge on a phone, a centred modal
  *     on a laptop, nothing wider than the screen, every control 44px on a
@@ -33,6 +41,7 @@
  *   node scripts/check-website-page.mjs            both widths
  *   WIDTH=390 node scripts/check-website-page.mjs  one
  *   KEEP_SHOT=/tmp/wb.png ...                      also a screenshot of the static page
+ *   SHOTS=/some/dir ...                            website-v3-desktop.png and -phone.png of the live card
  *
  * Runs without a build: the stylesheet is the built one when there is one,
  * else app/globals.css through the build's own Tailwind (scripts/probe-css.mjs).
@@ -374,24 +383,51 @@ async function livePage(W) {
         const b = el.getBoundingClientRect()
         return b.width > 0 && b.height > 0 && b.top < hb.bottom && b.bottom > hb.top
       })
-      const c = onLine[0]
-      const cb = c ? c.getBoundingClientRect() : null
       return {
-        count: onLine.length,
-        label: c ? c.textContent.trim() : null,
-        control: cb ? { h: Math.round(cb.height), mid: Math.round(cb.top + cb.height / 2) } : null,
         heading: { mid: Math.round(hb.top + hb.height / 2), h: Math.round(hb.height) },
+        controls: onLine.map((c) => {
+          const b = c.getBoundingClientRect()
+          const cs = getComputedStyle(c)
+          return {
+            label: c.textContent.trim(),
+            h: Math.round(b.height),
+            w: Math.round(b.width),
+            mid: Math.round(b.top + b.height / 2),
+            bg: cs.backgroundColor,
+            border: cs.borderTopWidth,
+            radius: cs.borderTopLeftRadius,
+            font: `${cs.fontSize} ${cs.fontWeight}`,
+          }
+        }),
       }
     })
+    const labels = title.controls.map((c) => c.label)
+    const wanted = phone ? ["View website"] : ["Public", "View website"]
     expect(
-      title.count === 1 && title.label === "Settings",
-      `the title row has one control on the heading's line: ${title.label} (${title.count} found)`,
+      labels.join("|") === wanted.join("|"),
+      `the title row holds ${wanted.join(" and ")} on the heading's line, nothing else: ${labels.map((l) => `"${l}"`).join(", ") || "none"}`,
     )
-    if (title.control) {
-      const dy = Math.abs(title.control.mid - title.heading.mid)
-      expect(dy <= 2, `  centred on the heading's line (${dy}px apart)`)
-      expect(!phone || title.control.h >= 44, `  ${title.control.h}px tall${phone ? ", 44px or more on a phone" : ""}`)
+    for (const c of title.controls) {
+      const dy = Math.abs(c.mid - title.heading.mid)
+      const grey = c.bg === "rgb(227, 227, 227)" && c.border === "0px"
+      const size = phone ? c.h >= 44 : c.h === 36 && c.radius === "10px"
+      expect(grey && size && dy <= 2 && c.font === "14px 500",
+        `  ${c.label}: ${c.w}x${c.h}px, ${c.bg}, border ${c.border}, corners ${c.radius}, ${c.font}, ${dy}px off the heading's middle`)
     }
+    if (!phone) {
+      await p.click('[data-control="public"]')
+      await sleep(300)
+      const rows = await p.evaluate(() => [...document.querySelectorAll('[role="menu"] [role="menuitem"]')].map((r) => r.textContent.trim()))
+      expect(rows.join("|") === "Take offline", `  Public opens a menu with Take offline (${rows.join(", ") || "no menu"})`)
+      await p.keyboard.press("Escape")
+      await sleep(250)
+    }
+    const view = await p.evaluate(() => {
+      const a = document.querySelector('[data-control="view"]')
+      return a ? { tag: a.tagName, target: a.getAttribute("target"), href: a.getAttribute("href") } : null
+    })
+    expect(!!view && view.tag === "A" && view.target === "_blank" && /andrewullz/.test(view.href || ""),
+      `  View website is a link to the live site in a new tab (${view ? `${view.tag} ${view.target} ${view.href}` : "missing"})`)
 
     await p.click("[data-import-button]")
     await sleep(900)
@@ -439,6 +475,97 @@ async function livePage(W) {
     await p.close()
   }
 
+  // ── The live card: its row of buttons, and its cover ─────────────────
+  /**
+   * "The Settings button needs to be on the same row as the Edit website
+   * button", and "why is it windows in a window? I want it full width in
+   * the container". Measured: the three buttons share one top; Settings is a
+   * 44px square on a phone and says its name on a laptop; the picture's box
+   * is the cover area's box, and the cover area is flush with the card; and
+   * nothing that drew a stage, a browser window or a phone is inside it.
+   * Once with a real picture of the site, once with the drawn one.
+   */
+  for (const withPicture of [true, false]) {
+    const { p, errors, phone } = await open(W, "room", withPicture ? "&snapshot=1" : "")
+    await sleep(withPicture ? 300 : 0)
+    const card = await p.evaluate(() => {
+      const box = (el) => { const b = el.getBoundingClientRect(); return { top: b.top, left: b.left, right: b.right, bottom: b.bottom, w: b.width, h: b.height } }
+      const row = document.querySelector("[data-card-actions]")
+      const buttons = row ? [...row.children].filter((c) => c.getBoundingClientRect().width > 0) : []
+      const settings = row && row.querySelector('[data-control="settings"]')
+      const cover = document.querySelector("[data-cover]")
+      const frame = cover && cover.closest(".rounded-2xl")
+      const pics = cover ? [...cover.querySelectorAll("img, svg")].filter((el) => !el.parentElement.closest("svg")) : []
+      const pic = pics[0]
+      const scroller = document.querySelector("[data-probe-shell] .page-scroll")
+      const cs = settings && getComputedStyle(settings)
+      const frameCs = frame && getComputedStyle(frame)
+      return {
+        buttons: buttons.map((b) => ({ label: b.textContent.trim() || b.getAttribute("aria-label"), ...box(b) })),
+        settings: settings ? { text: [...settings.querySelectorAll("span")].filter((s) => s.getBoundingClientRect().width > 0).map((s) => s.textContent.trim()).join(""), label: settings.getAttribute("aria-label"), shadow: cs.boxShadow, border: cs.borderTopColor, ...box(settings) } : null,
+        cover: cover ? box(cover) : null,
+        coverRadius: cover ? getComputedStyle(cover).borderTopLeftRadius : null,
+        frame: frame ? { ...box(frame), border: parseFloat(frameCs.borderTopWidth) } : null,
+        pics: pics.map((el) => ({ tag: el.tagName.toLowerCase(), fit: getComputedStyle(el).objectFit, pos: getComputedStyle(el).objectPosition, ...box(el) })),
+        mockups: cover ? cover.querySelectorAll('[data-cover-stage], [data-cover-window], [data-cover-phone], [class*="aspect-[390"], [class*="rounded-[3.3cqw]"], [class*="cqw"]').length : -1,
+        overflow: scroller ? Math.max(0, scroller.scrollWidth - scroller.clientWidth) : null,
+      }
+    })
+    const tag = withPicture ? "with a picture of the site" : "with the drawn cover"
+    console.log(`\n  the live card, ${tag}\n`)
+    if (withPicture) {
+      const b = card.buttons
+      const tops = b.map((x) => Math.round(x.top))
+      const spread = tops.length ? Math.max(...tops) - Math.min(...tops) : -1
+      expect(b.map((x) => x.label).join("|") === "Edit website|Settings|More actions for Storelib Default" && spread <= 1,
+        `  its row is Edit website, Settings and More, on one line: ${b.map((x) => `${x.label.replace(/^More actions.*/, "More")} ${Math.round(x.w)}x${Math.round(x.h)} at ${Math.round(x.top)}`).join(", ")} (tops ${spread}px apart)`)
+      if (card.settings) {
+        const s = card.settings
+        expect(phone ? Math.round(s.w) === 44 && Math.round(s.h) === 44 && s.text === "" : s.text === "Settings" && Math.round(s.h) === 44,
+          `  Settings ${phone ? "is a 44px square with its icon only" : "says its name"}: ${Math.round(s.w)}x${Math.round(s.h)}px, text "${s.text}", named "${s.label}"`)
+        expect(/0px -2px 0px/.test(s.shadow) && /0px 1px 2px/.test(s.shadow) && s.border === "rgb(217, 219, 224)",
+          `  in the icon depth, a touch deeper than the secondary one (${s.shadow})`)
+        const more = b[2]
+        if (more) expect(Math.round(more.w) === 44 && Math.round(more.h) === 44, `  More is ${Math.round(more.w)}x${Math.round(more.h)}px`)
+      }
+    }
+    if (card.cover && card.frame) {
+      const c = card.cover
+      const f = card.frame
+      const inset = f.border
+      const flushTop = Math.abs(c.top - (f.top + inset)) <= 1
+      const flushLeft = Math.abs(c.left - (f.left + inset)) <= 1
+      const flushRight = phone ? Math.abs(c.right - (f.right - inset)) <= 1 : true
+      expect(flushTop && flushLeft && flushRight,
+        `  the cover area is flush with the card: ${Math.round(c.w)}x${Math.round(c.h)}px at ${Math.round(c.left - f.left)},${Math.round(c.top - f.top)} in a ${Math.round(f.w)}px card${phone ? `, ${Math.round(f.right - c.right)}px from its right` : ""}; corners ${card.coverRadius}`)
+      expect(Math.abs(c.w / c.h - 1.6) < 0.01, `  16:10, the shape it always had (${(c.w / c.h).toFixed(3)})`)
+      const pic = card.pics[0]
+      const off = pic ? Math.max(Math.abs(pic.top - c.top), Math.abs(pic.left - c.left), Math.abs(pic.right - c.right), Math.abs(pic.bottom - c.bottom)) : null
+      expect(card.pics.length === 1 && off !== null && off <= 1,
+        `  one picture (${card.pics.map((x) => x.tag).join(", ") || "none"}), its box the cover area's box: ${off === null ? "-" : off.toFixed(2)}px off at most`)
+      if (withPicture && pic) expect(pic.tag === "img" && pic.fit === "cover" && /^50% 0%|^center top|^50% 0px/.test(pic.pos), `  the screenshot fills it from the top (${pic.fit}, ${pic.pos})`)
+      expect(card.mockups === 0, `  no stage, browser window or phone inside it (${card.mockups} found)`)
+    } else {
+      expect(false, "  the live card has a cover")
+    }
+    expect(card.overflow === 0, `  nothing scrolls sideways (${card.overflow}px)`)
+    if (withPicture && process.env.SHOTS) {
+      mkdirSync(process.env.SHOTS, { recursive: true })
+      const name = phone ? "phone" : "desktop"
+      await p.screenshot({ path: join(process.env.SHOTS, `website-v3-${name}.png`) })
+    }
+    /* On a phone the title has no Public, so Take offline has to be in the live card's More sheet. */
+    if (withPicture && phone) {
+      await p.evaluate(() => document.querySelector("[data-card-actions] [data-more-button]").click())
+      await sleep(600)
+      const rows = await p.evaluate(() => [...document.querySelectorAll("[data-action-sheet] button, [data-action-sheet] a")].map((r) => r.textContent.trim()))
+      expect(rows.includes("Take offline"), `  on a phone, Take offline is in the live card's More sheet: ${rows.join(", ")}`)
+      if (process.env.SHOTS) await p.screenshot({ path: join(process.env.SHOTS, "website-v3-phone-more.png") })
+    }
+    expect(errors.length === 0, "  no errors on the page", errors.slice(0, 2).join(" / "))
+    await p.close()
+  }
+
   // ── A library row's three dots, and the menu they open ──────────────
   /**
    * "The three dots button should have more depth, a very subtle depth", and
@@ -461,7 +588,7 @@ async function livePage(W) {
     })
     expect(!!more, "a library row has its three dots")
     if (more) {
-      expect(/inset/.test(more.shadow) && /0px 1px 0px/.test(more.shadow), `  with a subtle depth: a line inside its foot and a 1px shade (${more.shadow})`)
+      expect(/inset/.test(more.shadow) && /0px -2px 0px/.test(more.shadow) && /0px 1px 2px/.test(more.shadow), `  with the icon depth: a 2px line inside its foot and a soft shade under it (${more.shadow})`)
       expect(more.border === "rgb(217, 219, 224)" && more.bg === "rgb(255, 255, 255)", `  white, with a hairline (${more.bg}, ${more.border})`)
       expect(phone ? more.w === 40 && more.reach >= 44 : more.w === 36, `  ${more.w}x${more.h}px, pressed over ${more.reach}px${phone ? ", 44 or more on a phone" : ""}`)
     }
@@ -661,6 +788,26 @@ async function livePage(W) {
     expect(o.state === "offline" && o.heading === "Your website is offline", `the card says the website is offline ("${o.heading}")`)
     expect(o.again >= (phone ? 44 : 40), `  with Publish again, ${o.again}px tall`)
     expect(o.offlineOnRow && !o.draftOnRow, "  and its row says Offline, not Draft")
+    const head = await p.evaluate(() => {
+      const shown = (el) => el && el.getBoundingClientRect().width > 0
+      const pub = document.querySelector('[data-control="public"]')
+      const view = document.querySelector('[data-control="view"]')
+      return { pub: shown(pub) ? pub.textContent.trim() : null, view: shown(view) ? { tag: view.tagName, disabled: view.disabled === true, bg: getComputedStyle(view).backgroundColor } : null }
+    })
+    expect(phone ? head.pub === null : head.pub === "Unpublished", `  the title says ${phone ? "nothing about it on a phone" : '"Unpublished"'} (${head.pub ?? "no control"})`)
+    expect(!!head.view && head.view.tag === "BUTTON" && head.view.disabled, `  and View website is there, disabled (${head.view ? `${head.view.tag}, ${head.view.bg}` : "missing"})`)
+    if (!phone) {
+      await p.click('[data-control="public"]')
+      await sleep(300)
+      const rows = await p.evaluate(() => [...document.querySelectorAll('[role="menu"] [role="menuitem"]')].map((r) => r.textContent.trim()))
+      expect(rows.join("|") === "Publish again", `  Unpublished opens a menu with Publish again (${rows.join(", ") || "no menu"})`)
+      await p.evaluate(() => [...document.querySelectorAll('[role="menu"] [role="menuitem"]')].find((r) => r.textContent.trim() === "Publish again").click())
+      await sleep(500)
+      const q = await p.evaluate(() => document.querySelector('[role="alertdialog"]')?.textContent || "")
+      expect(/Publish “Storelib Default”\?/.test(q), "  which asks first, like every publish")
+      await p.keyboard.press("Escape")
+      await sleep(400)
+    }
     await p.evaluate(() => [...document.querySelectorAll("[data-live-empty] button")].find((b) => b.textContent.trim() === "Publish again").click())
     await sleep(500)
     const asked = await p.evaluate(() => document.querySelector('[role="alertdialog"]')?.textContent || "")

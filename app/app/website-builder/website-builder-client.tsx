@@ -33,9 +33,11 @@ import {
   ArrowRight,
   ArrowUpRight,
   Check,
+  ChevronDown,
   Code2,
   Copy,
   Download,
+  Eye,
   EyeOff,
   Layers,
   Loader2,
@@ -43,8 +45,8 @@ import {
   Pencil,
   Plus,
   Rocket,
+  Settings,
   Settings2,
-  SquareArrowOutUpRight,
   Trash2,
   Upload,
 } from "lucide-react"
@@ -68,7 +70,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
-import { secondaryDepth } from "@/components/ui/depth-button"
+import { grayDepth, iconDepth } from "@/components/ui/depth-button"
 import { useToast } from "@/hooks/use-toast"
 import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
 import { getWebsiteShareUrl, getWebsiteUrlDisplay } from "@/lib/url-helpers"
@@ -81,15 +83,7 @@ import {
   getThemeDefinition,
   type ThemeDefinition,
 } from "@/lib/website-builder/theme-registry"
-import {
-  CoverStage,
-  PHONE_FRAME,
-  ThemeCover,
-  ThemeCoverPair,
-  ThemePhoneCover,
-  coverSpecFromDefinition,
-  coverSpecFromSettings,
-} from "@/components/website-builder/theme-cover"
+import { ThemeCover, coverSpecFromDefinition, coverSpecFromSettings } from "@/components/website-builder/theme-cover"
 import { relativeTime } from "@/lib/website-builder/relative-time"
 import { latestCover, requestCover, savedAt } from "@/lib/website-builder/cover-refresh"
 import { HelpLabel } from "@/components/app/help-label"
@@ -154,14 +148,18 @@ export function editorHref(
 
 
 /**
- * The live cover's frame: 12px corners on all four sides, clipped on the
- * frame itself so nothing inside is drawn square past the curve. The
- * hairline is drawn OVER the picture (the last child), so the edge of a
- * screenshot never shows past it; the depth is two soft shadows, one close
- * and one wide.
+ * THE LIVE COVER, FROM EDGE TO EDGE. "Why is it windows in a window? I want
+ * it full width in the container." The site's desktop picture fills the
+ * card's cover area and nothing is drawn around it: no grey stage, no browser
+ * window, no phone. The card's own clip gives it its corners, repeated here
+ * at the card's inner radius (16px less the 1px border) so the picture is
+ * rounded even where a browser skips the parent's clip. A hairline over the
+ * picture, on the side that meets the details, keeps a white site from
+ * running into the white card: under it on a phone, on its right from `lg`.
+ * 16:10, the shape the area has always had, so the card keeps its height.
  */
 const COVER_FRAME =
-  "group relative block w-full select-none overflow-hidden rounded-[12px] bg-[#eef0f3] text-left isolate outline-none [&_img]:[-webkit-user-drag:none] [transform:translateZ(0)] shadow-[0_1px_2px_rgba(15,23,42,0.06),0_10px_28px_-14px_rgba(15,23,42,0.22)] after:pointer-events-none after:absolute after:inset-0 after:z-10 after:rounded-[inherit] after:shadow-[inset_0_0_0_1px_rgba(15,23,42,0.08)] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/25 focus-visible:ring-offset-2"
+  "group relative block aspect-[16/10] w-full select-none overflow-hidden rounded-t-[15px] bg-[#f3f4f6] text-left outline-none [&_img]:[-webkit-user-drag:none] lg:rounded-tr-none lg:rounded-bl-[15px] after:pointer-events-none after:absolute after:inset-0 after:z-10 after:shadow-[inset_0_-1px_0_rgba(15,23,42,0.08)] lg:after:shadow-[inset_-1px_0_0_rgba(15,23,42,0.08)]"
 
 /** "2 days ago" without the "ago", for a meta line that already reads as time. */
 function since(iso: string | null | undefined): string | null {
@@ -206,12 +204,6 @@ function DraftBadge({ offline = false }: { offline?: boolean }) {
 }
 
 /**
- * The website's picture. A snapshot when the editor has taken one, else the
- * cover drawn from the theme. Plain `<img>`: the snapshot is already 1200px
- * WebP, sized once at capture — there is nothing for an optimiser to do and
- * nothing to pay per view.
- */
-/**
  * ===========================================================================
  *  A NEW COVER CROSSFADES IN, IT DOES NOT CUT
  * ===========================================================================
@@ -224,7 +216,7 @@ function DraftBadge({ offline = false }: { offline?: boolean }) {
  * then the old one is let go. The first cover a card shows is not faded: the
  * page itself already arrives on its own fade (`app-page-enter`).
  */
-function WebsiteCover(props: { install: WebsiteSummary; eager?: boolean; phone?: boolean; className?: string }) {
+function WebsiteCover(props: { install: WebsiteSummary; eager?: boolean }) {
   const id = props.install.snapshot_url ?? `drawn:${props.install.theme_id}:${props.install.name}`
   const [shownId, setShownId] = React.useState(id)
   const [previous, setPrevious] = React.useState<{ id: string; props: typeof props } | null>(null)
@@ -257,112 +249,36 @@ function WebsiteCover(props: { install: WebsiteSummary; eager?: boolean; phone?:
 }
 const COVER_FADE_MS = 420
 
-function CoverPicture({
-  install,
-  eager = false,
-  phone = false,
-  className,
-}: {
-  install: WebsiteSummary
-  eager?: boolean
-  phone?: boolean
-  className?: string
-}) {
-  const def = getThemeDefinition(install.theme_id)
-  /*
-    THE LIVE CARD IS A PRODUCT SHOT: the desktop version in a browser window
-    and the phone version in front of it, on a softly lit stage. See
-    CoverStage. Library rows and thumbnails keep the plain picture.
-  */
-  if (phone) {
-    const spec = install.snapshot_url ? null : coverSpecFromSettings(install.settings, def, install.name)
+/**
+ * The website's picture: the desktop screenshot the server took on the last
+ * save, or until there is one the cover drawn from the site's own settings.
+ * Either one fills the box it is given, cut from the top so the site's header
+ * and hero are what shows. Plain `<img>`: the snapshot is already 1440px
+ * WebP, sized once at capture, so there is nothing for an optimiser to do and
+ * nothing to pay per view.
+ */
+function CoverPicture({ install, eager = false }: { install: WebsiteSummary; eager?: boolean }) {
+  if (install.snapshot_url) {
     return (
-      <CoverStage
-        desktop={
-          install.snapshot_url ? (
-            /* eslint-disable-next-line @next/next/no-img-element */
-            <img
-              src={install.snapshot_url}
-              alt=""
-              width={1440}
-              height={900}
-              loading={eager ? "eager" : "lazy"}
-              fetchPriority={eager ? "high" : "auto"}
-              decoding="async"
-              draggable={false}
-              className="h-full w-full object-cover object-top"
-            />
-          ) : (
-            <ThemeCover spec={spec!} className="h-full w-full" />
-          )
-        }
-        phone={
-          install.snapshot_url ? (
-            install.snapshot_mobile_url ? (
-              /* eslint-disable-next-line @next/next/no-img-element */
-              <img
-                src={install.snapshot_mobile_url}
-                alt=""
-                width={390}
-                height={844}
-                loading={eager ? "eager" : "lazy"}
-                decoding="async"
-                draggable={false}
-                className="h-full w-full object-cover object-top"
-              />
-            ) : null
-          ) : (
-            <ThemePhoneCover spec={spec!} className="h-full w-full" />
-          )
-        }
+      /* eslint-disable-next-line @next/next/no-img-element */
+      <img
+        src={install.snapshot_url}
+        alt=""
+        width={1440}
+        height={900}
+        loading={eager ? "eager" : "lazy"}
+        fetchPriority={eager ? "high" : "auto"}
+        decoding="async"
+        draggable={false}
+        data-cover-picture=""
+        className="block h-full w-full object-cover object-top"
       />
     )
   }
-  if (install.snapshot_url) {
-    /*
-      THE SITE, AT BOTH WIDTHS. The desktop screenshot fills the card and the
-      phone screenshot stands in front of it in a phone's frame — the same
-      place and shape the theme's drawn stand-in uses, so the card does not
-      change layout when a real cover arrives. Both pictures are from one
-      save: the route writes them under one timestamp.
-    */
-    return (
-      <div className={cn("relative h-full w-full overflow-hidden", className)}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={install.snapshot_url}
-          alt=""
-          width={1440}
-          height={900}
-          loading={eager ? "eager" : "lazy"}
-          fetchPriority={eager ? "high" : "auto"}
-          decoding="async"
-          draggable={false}
-          className="h-full w-full object-cover object-top"
-        />
-        {phone && install.snapshot_mobile_url && (
-          <div className={PHONE_FRAME}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={install.snapshot_mobile_url}
-              alt=""
-              width={390}
-              height={844}
-              loading={eager ? "eager" : "lazy"}
-              decoding="async"
-              draggable={false}
-              className="block aspect-[390/780] w-full object-cover object-top"
-            />
-          </div>
-        )}
-      </div>
-    )
-  }
   return (
-    <ThemeCoverPair
-      spec={coverSpecFromSettings(install.settings, def, install.name)}
-      phone={phone}
-      className={className}
+    <ThemeCover
+      spec={coverSpecFromSettings(install.settings, getThemeDefinition(install.theme_id), install.name)}
+      className="block h-full w-full"
     />
   )
 }
@@ -412,30 +328,30 @@ function SiteAddress({ url, display }: { url: string; display: string }) {
 }
 
 /**
- * The second rank of button: same height and shape as the primary above it,
- * white instead of near-black. 44px, because it is the size a thumb hits.
+ * THE TITLE'S BUTTONS, SHOPIFY'S LIGHT GREY: Public with its menu, and View
+ * website. They sit on the page's grey rather than on a card, so they are a
+ * fill a step darker than it with no border (grayDepth). 36px with 10px
+ * corners from 640px; 44px on a phone, where only View website is here, and
+ * there it overhangs the title's line by 4px above and below rather than
+ * making the line taller, so the address under it stays where it was.
  */
-/**
- * Settings, beside the page title: 44px on a phone, 36px from a tablet up,
- * with a hairline. On a phone it overhangs the title's line by 4px above and
- * below rather than making the line taller, so the address under it stays
- * where it was.
- */
-const SETTINGS_BUTTON =
-  "-my-1 inline-flex h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border border-[#e5e7eb] bg-white px-3.5 text-[13px] font-medium text-[#1a1a2e] shadow-[0_1px_2px_rgba(0,0,0,0.04)] outline-none transition-colors duration-150 hover:bg-[#f8f9fa] active:bg-[#f3f4f6] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 sm:my-0 sm:h-9"
+const HEADER_BUTTON = cn(grayDepth, "-my-1 h-11 rounded-[10px] px-3.5 text-[14px] sm:my-0 sm:h-9 sm:px-3")
 
 /**
- * THE MORE BUTTON, WITH A LITTLE DEPTH. "The three dots button should have
- * more depth, a very subtle depth." The shared secondary depth
- * (components/ui/depth-button.ts): a hairline, a 1px shade at its foot, and
- * flat with the shade inside when pressed, the same press as the product
- * editor's buttons. On the live card it is the Edit button's height; on a
- * library row it is 40px on a phone with an invisible band to 48, and 36 from
- * 640px, beside Publish and Edit.
+ * THE BUTTONS BESIDE EDIT WEBSITE: Settings and the three dots, both in the
+ * icon depth (components/ui/depth-button.ts): a hairline, a 2px shade inside
+ * the foot and a soft shadow under it, flat when pressed. As tall as Edit
+ * website. Settings is a 44px square with its icon on a phone and says its
+ * name from 640px.
  */
-const MORE_ON_CARD = cn(secondaryDepth, "h-11 w-11 rounded-xl px-0 text-[#4b5563]")
+const SETTINGS_ON_CARD = cn(iconDepth, "h-11 w-11 rounded-xl px-0 text-[14px] text-[#1a1a2e] sm:w-auto sm:px-3.5")
+const MORE_ON_CARD = cn(iconDepth, "h-11 w-11 rounded-xl px-0 text-[#4b5563]")
+/**
+ * A library row's three dots: the same depth, 40px on a phone with an
+ * invisible band to 48, and 36 from 640px, beside Publish and Edit.
+ */
 const MORE_ON_ROW = cn(
-  secondaryDepth,
+  iconDepth,
   "relative h-10 w-10 rounded-[10px] px-0 text-[#4b5563] after:absolute after:-inset-1 after:content-[''] sm:h-9 sm:w-9 sm:rounded-lg sm:after:hidden",
 )
 
@@ -627,8 +543,6 @@ export function WebsiteBuilderClient({
     : ([...installs]
         .filter((i) => i.status === "unpublished")
         .sort((a, b) => (Date.parse(b.published_at ?? "") || 0) - (Date.parse(a.published_at ?? "") || 0))[0] ?? null)
-  /** Whose Website Settings the button beside the title opens: the live site's, else the one that was. */
-  const settingsFor = live ?? offline ?? installs[0] ?? null
   const library = installs.filter((i) => i.status !== "published")
   const installedThemeIds = React.useMemo(() => new Set(installs.map((i) => i.theme_id)), [installs])
   const slotsUsed = installs.length
@@ -916,28 +830,20 @@ export function WebsiteBuilderClient({
   }
 
   /**
-   * `preview` is gone from here. It added a "View live site" row, and the
-   * live card now has that as a button of its own standing beside this
-   * menu — which was the duplication the card was rewritten to remove, so
-   * leaving the option in would have left the trap set.
-   */
-  /**
    * THE MORE MENU, in Shopify's action list shape: groups, a hairline
    * between them, and what cannot be undone last and in red.
    *
-   * The live site's menu opens with the pages of its Website Settings,
-   * which were the tabs above the cover. A draft's menu keeps one row for
-   * them, because a draft's domain and SEO are not live anywhere yet.
+   * View website is not in it: that is the button beside the page title, at
+   * every width. Take offline stays in the live site's menu, because on a
+   * phone the title has no room for the Public control that also offers it.
    */
   const menuFor = (i: WebsiteSummary, opts: { publish?: boolean } = {}): ActionMenuItem[] => {
     const items: ActionMenuItem[] = []
-    /* The live site, in a new tab from a real anchor: it was a button beside the page title. */
-    if (i.status === "published" && siteUrl) items.push({ label: "View website", icon: <SquareArrowOutUpRight />, href: siteUrl, target: "_blank" })
     /* A site that was live and was taken offline goes back up from its own row. */
     if (opts.publish) items.push({ label: i.status === "unpublished" ? "Publish again" : "Publish", icon: <Rocket />, onClick: () => setPublishing(i) })
     items.push(
       { label: "Edit code", icon: <Code2 />, onClick: () => go(editorHref(username, i.id, "code")), separatorBefore: items.length > 0 },
-      /* The live site's settings are the Settings button beside the page title; a draft's are here. */
+      /* The live site's settings are the Settings button beside Edit website; a draft's are here. */
       ...(i.status === "published" ? [] : [{ label: "Website settings", icon: <Settings2 />, onClick: () => go(editorHref(username, i.id, "settings")) }]),
       { label: "Rename", icon: <Pencil />, onClick: () => setRenaming(i) },
       { label: "Duplicate", icon: <Layers />, onClick: () => void duplicate(i) },
@@ -951,6 +857,29 @@ export function WebsiteBuilderClient({
     return items
   }
 
+  /**
+   * PUBLIC, BESIDE THE TITLE. Whether visitors see the site, as Shopify says
+   * it: Public with Take offline under it while a website is live, and
+   * Unpublished with Publish again for the one that was, through the same
+   * questions the card and the rows ask. With neither (only drafts, or no
+   * website at all) there is nothing for it to say, so it is not drawn.
+   */
+  const publicControl: { label: string; live: boolean; busy: boolean; items: ActionMenuItem[] } | null = live
+    ? {
+        label: "Public",
+        live: true,
+        busy: busy === `${live.id}:unpublish`,
+        items: [{ label: "Take offline", icon: <EyeOff />, onClick: () => setUnpublishing(live), variant: "warning" }],
+      }
+    : offline
+      ? {
+          label: "Unpublished",
+          live: false,
+          busy: busy === `${offline.id}:publish`,
+          items: [{ label: "Publish again", icon: <Rocket />, onClick: () => setPublishing(offline) }],
+        }
+      : null
+
   /* The themes Browse themes offers (one, for now), whether or not they are in the library already. */
   const explore = BROWSABLE_THEMES
 
@@ -958,28 +887,52 @@ export function WebsiteBuilderClient({
     <div className="h-full overflow-y-auto page-scroll bg-[#f8f9fa]">
       <div className="app-page-enter mx-auto max-w-[1200px] space-y-7 px-4 py-6 sm:px-6 lg:px-8">
         {/* ── Header ─────────────────────────────────────────────────
-            The title with one button on its line, Settings, and the address
-            under them: the shape every other page in /app uses, and the
-            first thing you want here is where your site lives.
+            The title, the address under it, and on the title's line the two
+            things you do to the site as a whole, in Shopify's light grey:
+            whether it is public, and a way to look at it. Settings moved
+            down beside Edit website, where the site it opens is named.
 
-            The row held three controls (View website, Public, Settings) and
-            on a phone they wrapped under the title as a sideways scroller.
-            Each of the other two is where the thing it acts on is: View
-            website and Take offline in the live website's More menu, and
-            Publish again on the offline website's own row. */}
+            On a phone the line has room for one, and it is View website.
+            Public is not lost there: Take offline is in the live card's
+            More menu, and Publish again is on the offline card and row. */}
         <div>
           <div className="flex items-center justify-between gap-3" data-title-row="">
             <h1 className="min-w-0 truncate text-[24px] font-bold tracking-tight text-[#1a1a2e] sm:text-[28px]">Website</h1>
-            {settingsFor && (
-              <button
-                type="button"
-                data-control="settings"
-                onClick={() => go(editorHref(username, settingsFor.id, "settings"))}
-                className={SETTINGS_BUTTON}
-              >
-                <Settings2 className="h-[15px] w-[15px] text-[#6b7280]" strokeWidth={1.9} />
-                Settings
-              </button>
+            {(publicControl || siteUrl) && (
+              <div className="flex shrink-0 items-center gap-2">
+                {publicControl && (
+                  <div className="hidden sm:block">
+                    <ResponsiveActionMenu
+                      title={publicControl.label}
+                      items={publicControl.items}
+                      menuWidth="w-48"
+                      trigger={
+                        <button type="button" data-control="public" className={HEADER_BUTTON}>
+                          {publicControl.busy ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : publicControl.live ? (
+                            <Eye className="h-4 w-4" strokeWidth={1.9} />
+                          ) : (
+                            <EyeOff className="h-4 w-4" strokeWidth={1.9} />
+                          )}
+                          {publicControl.label}
+                          <ChevronDown className="-mr-0.5 h-4 w-4 text-[#616161]" strokeWidth={1.9} />
+                        </button>
+                      }
+                    />
+                  </div>
+                )}
+                {siteUrl &&
+                  (live ? (
+                    <a href={siteUrl} target="_blank" rel="noopener noreferrer" data-control="view" className={HEADER_BUTTON}>
+                      View website
+                    </a>
+                  ) : (
+                    <button type="button" disabled data-control="view" className={HEADER_BUTTON}>
+                      View website
+                    </button>
+                  ))}
+              </div>
             )}
           </div>
           {siteUrl && <SiteAddress url={siteUrl} display={siteDisplay} />}
@@ -996,11 +949,12 @@ export function WebsiteBuilderClient({
               <>
                 <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
                   {/* ── The cover ───────────────────────────────────────
-                      Set into the card rather than cut flush with its edge,
-                      so it has corners of its own on all four sides. The clip
-                      is on the picture itself, with a hairline and a short
-                      two layer shadow for depth. */}
-                  <div className="min-w-0 p-4 pb-3 lg:pb-4 lg:pr-2">
+                      The site's desktop picture, flush with the card's
+                      edges: the whole top of the card on a phone, its left
+                      from `lg`. See COVER_FRAME. The tint on hover, and the
+                      focus ring, are a layer over the picture, since an
+                      inset ring on the button would be painted under it. */}
+                  <div className="min-w-0">
                     <button
                       type="button"
                       onClick={() => go(editorHref(username, live.id))}
@@ -1008,13 +962,11 @@ export function WebsiteBuilderClient({
                       data-cover=""
                       className={COVER_FRAME}
                     >
-                      <span className="block aspect-[16/10] w-full">
-                        <WebsiteCover install={live} eager phone />
-                      </span>
-                      <span className="pointer-events-none absolute inset-0 rounded-[inherit] bg-[#1a1a2e]/0 transition-colors duration-200 group-hover:bg-[#1a1a2e]/[0.04]" />
+                      <WebsiteCover install={live} eager />
+                      <span className="pointer-events-none absolute inset-0 z-20 rounded-[inherit] bg-[#1a1a2e]/0 transition-[background-color,box-shadow] duration-200 group-hover:bg-[#1a1a2e]/[0.04] group-focus-visible:shadow-[inset_0_0_0_2px_rgba(26,26,46,0.35)]" />
                     </button>
                   </div>
-                  <div className="flex min-w-0 flex-col px-4 pb-4 pt-2 lg:p-6 lg:pl-4">
+                  <div className="flex min-w-0 flex-col p-4 lg:p-6">
                     <StatusDot status="published" />
                     <h2 id="live-heading" className="mt-2 truncate text-[20px] font-semibold tracking-tight text-[#1a1a2e]">
                       {live.name}
@@ -1042,14 +994,26 @@ export function WebsiteBuilderClient({
                         </div>
                       )}
                     </dl>
-                    {/* Edit website, and everything else behind More: View website first, Take offline last. */}
-                    <div className="mt-auto flex gap-2 pt-5">
+                    {/* One line at every width: Edit website, then Settings (a
+                        44px square with its icon on a phone, its name from
+                        640px), then More, with Take offline last in it. */}
+                    <div className="mt-auto flex gap-2 pt-5" data-card-actions="">
                       <Button
                         onClick={() => go(editorHref(username, live.id))}
                         className="h-11 min-w-0 flex-1 rounded-xl bg-[#1a1a2e] text-[14px] font-semibold text-white hover:bg-[#2d2d44]"
                       >
                         Edit website
                       </Button>
+                      <button
+                        type="button"
+                        data-control="settings"
+                        aria-label="Settings"
+                        onClick={() => go(editorHref(username, live.id, "settings"))}
+                        className={SETTINGS_ON_CARD}
+                      >
+                        <Settings className="h-[18px] w-[18px] text-[#4b5563] sm:h-4 sm:w-4" strokeWidth={1.8} />
+                        <span className="hidden sm:inline">Settings</span>
+                      </button>
                       <ResponsiveActionMenu
                         title={live.name}
                         items={menuFor(live)}
@@ -1070,8 +1034,8 @@ export function WebsiteBuilderClient({
               </>
             ) : (
               /* Nothing live. When a website was, the card says which and puts it back
-                 in one press: the header's Public control used to be the only
-                 place that said the site was down. */
+                 in one press, at every width: on a phone the title has no
+                 room for the Unpublished control. */
               <div className="flex flex-col items-center gap-2 px-6 py-12 text-center" data-live-empty={offline ? "offline" : "none"}>
                 <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#f3f4f6] text-[#6b7280]">
                   {offline ? <EyeOff className="h-4.5 w-4.5" /> : <Rocket className="h-4.5 w-4.5" />}
@@ -1468,7 +1432,7 @@ function ExploreRow({
       <button type="button" onClick={onOpen} aria-label={`Preview ${def.name}`} className="flex min-w-0 flex-1 items-center gap-3 rounded-lg text-left outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 sm:gap-4">
         <span className="relative block w-24 shrink-0 overflow-hidden rounded-lg border border-[#e5e7eb] bg-[#f3f4f6] sm:w-32">
           <span className="block aspect-[16/10]">
-            <ThemeCoverPair spec={coverSpecFromDefinition(def)} />
+            <ThemeCover spec={coverSpecFromDefinition(def)} className="block h-full w-full" />
           </span>
         </span>
         <span className="min-w-0">
