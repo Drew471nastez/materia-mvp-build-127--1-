@@ -601,13 +601,35 @@ const GLYPH: Record<TimelineGlyph, LucideIcon> = {
 }
 
 /* Semantic, never the accent: green for what went through, amber for what is
-   waiting, red for what failed or went back, grey for the rest. */
+   waiting, red for what failed or went back, grey for the rest. The node is
+   white on the panel's grey, so the colour is in the glyph and a tinted
+   hairline, not a filled disc: six green discs in a row read as a traffic
+   light, six white nodes read as one rail. */
 const GLYPH_TONE: Record<TimelineTone, string> = {
-  success: "bg-[#e7f5ec] text-[#16803c] border-[#cde9d6]",
-  attention: "bg-[#fff4d9] text-[#9a5b00] border-[#f3dfaa]",
-  critical: "bg-[#fdecea] text-[#b42318] border-[#f5cfca]",
-  neutral: "bg-[#f3f4f6] text-[#4b5563] border-[#e3e5e9]",
-  upcoming: "bg-white text-[#9ca3af] border-dashed border-[#c9ccd3]",
+  success: "text-[#16803c] border-[#cde9d6]",
+  attention: "text-[#9a5b00] border-[#f0dca6]",
+  critical: "text-[#b42318] border-[#f3cdc8]",
+  neutral: "text-[#4b5563] border-[#e1e3e8]",
+  upcoming: "text-[#9ca3af] border-dashed border-[#c9ccd3]",
+}
+
+/**
+ * THE PANEL THE TIMELINE SITS IN. "In a container: a gray background with
+ * depth, rounded corners, with dots behind." A well pressed into the page
+ * rather than a card lifted off it, so it reads as the order's record and
+ * not as a fifth card: a grey a step under the page's own #f8f9fa, a
+ * hairline and a soft shade on the inside edge, and a white line under the
+ * outside edge where the light catches the lip. The dots are a CSS radial
+ * gradient on a 12px grid at 9 per cent ink: there to give the grey a
+ * surface, quiet enough that 12px text over them reads as on plain grey.
+ * The heading sits above it on the page, so it is not a card inside a card.
+ */
+const PANEL_STYLE: React.CSSProperties = {
+  backgroundColor: "#f3f4f6",
+  backgroundImage: "radial-gradient(circle, rgba(17,24,39,0.09) 1px, transparent 1.25px)",
+  backgroundSize: "12px 12px",
+  backgroundPosition: "6px 6px",
+  boxShadow: "inset 0 0 0 1px rgba(17,24,39,0.06), inset 0 1px 3px rgba(17,24,39,0.06), 0 1px 0 rgba(255,255,255,0.9)",
 }
 
 const activityOf = (json: unknown): OrderActivity[] | null =>
@@ -615,8 +637,8 @@ const activityOf = (json: unknown): OrderActivity[] | null =>
 const stepsOf = (json: unknown): StripeStep[] | null =>
   Array.isArray((json as { timeline?: unknown } | null)?.timeline) ? (json as { timeline: StripeStep[] }).timeline : null
 
-/** The rail runs through the middle of the 22px glyph column. */
-const RAIL = "absolute left-[10.5px] w-px bg-[#e4e6ea]"
+/** The rail runs through the middle of the 22px node column. */
+const RAIL = "absolute left-[10.5px] w-px bg-[#d9dce1]"
 
 function Timeline({ className, order, timeZone, now, revision }: { className?: string; order: Order; timeZone: string; now: number; revision: number }) {
   const paidLine = paidLineOf(order)
@@ -674,61 +696,66 @@ function Timeline({ className, order, timeZone, now, revision }: { className?: s
   const lastEvent = rows.map((r) => r.kind).lastIndexOf("event")
 
   return (
-    <section className={cn(card, "min-w-0 px-4 pb-2 pt-3.5", className)}>
-      <h2 className="text-[13px] font-semibold text-[#1a1a2e]">Timeline</h2>
-      <ol className="mt-1.5">
-        {rows.map((row, i) => {
-          if (row.kind === "day") {
+    <section className={cn("min-w-0", className)} data-order-timeline="">
+      <h2 className="px-1 text-[13px] font-semibold text-[#1a1a2e]">Timeline</h2>
+      <div data-timeline-panel="" className="mt-2 rounded-[14px] px-3.5 pb-1.5 pt-1 sm:px-4" style={PANEL_STYLE}>
+        <ol>
+          {rows.map((row, i) => {
+            if (row.kind === "day") {
+              return (
+                <li key={row.key} data-timeline-day="" className="relative grid grid-cols-[22px_minmax(0,1fr)] gap-x-3 pb-2 pt-3">
+                  {i > firstEvent && firstEvent >= 0 ? <span aria-hidden className={cn(RAIL, "bottom-0 top-0")} /> : null}
+                  <span />
+                  <p className="text-[12px] font-medium leading-4 text-[#6b7280]">{row.label}</p>
+                </li>
+              )
+            }
+            const { event, upcoming } = row
+            const Glyph = GLYPH[event.glyph]
+            const exact = event.at ? fullDate(event.at, timeZone) : null
+            const short = event.at
+              ? upcoming
+                ? dayHeading(event.at, now, timeZone)
+                : relativeTime(event.at, now) ?? timeOfDay(event.at, timeZone)
+              : null
+            const expanded = open === event.id
             return (
-              <li key={row.key} className="relative grid grid-cols-[22px_minmax(0,1fr)] gap-x-3 pb-1.5 pt-2">
-                {i > firstEvent && firstEvent >= 0 ? <span aria-hidden className={cn(RAIL, "bottom-0 top-0")} /> : null}
-                <span />
-                <p className="text-[12px] font-medium text-[#6b7280]">{row.label}</p>
+              <li key={row.key} data-timeline-event="" className="relative grid grid-cols-[22px_minmax(0,1fr)_auto] items-start gap-x-3 pb-3.5">
+                {i > firstEvent ? <span aria-hidden className={cn(RAIL, "top-0 h-[11px]")} /> : null}
+                {i < lastEvent ? <span aria-hidden className={cn(RAIL, "bottom-0 top-[11px]")} /> : null}
+                <span
+                  aria-hidden
+                  className={cn(
+                    "relative z-[1] flex h-[22px] w-[22px] items-center justify-center rounded-full border bg-white shadow-[0_1px_1px_rgba(17,24,39,0.05)]",
+                    GLYPH_TONE[event.tone],
+                  )}
+                >
+                  <Glyph className="h-3 w-3" strokeWidth={2.25} />
+                </span>
+                <div className="min-w-0 pt-[2px]">
+                  <p className={cn("text-[13px] font-semibold leading-[18px]", upcoming ? "text-[#6b7280]" : "text-[#1a1a2e]")}>{event.text}</p>
+                  {event.detail ? <p className="mt-0.5 break-words text-[12px] leading-4 text-[#6b7280] first-letter:uppercase">{event.detail}</p> : null}
+                  {expanded && exact ? <p className="mt-0.5 text-[12px] leading-4 tabular-nums text-[#4b5563]">{exact}</p> : null}
+                </div>
+                {short && exact ? (
+                  <button
+                    type="button"
+                    title={exact}
+                    aria-expanded={expanded}
+                    aria-label={`${short}. Show the exact time`}
+                    onClick={() => setOpen(expanded ? null : event.id)}
+                    className="-mr-1 rounded-md px-1 pt-[3px] text-[12px] leading-4 tabular-nums text-[#6b7280] hover:text-[#1a1a2e] hover:underline hover:decoration-dotted hover:underline-offset-2"
+                  >
+                    <time dateTime={event.at!}>{short}</time>
+                  </button>
+                ) : (
+                  <span />
+                )}
               </li>
             )
-          }
-          const { event, upcoming } = row
-          const Glyph = GLYPH[event.glyph]
-          const exact = event.at ? fullDate(event.at, timeZone) : null
-          const short = event.at
-            ? upcoming
-              ? dayHeading(event.at, now, timeZone)
-              : relativeTime(event.at, now) ?? timeOfDay(event.at, timeZone)
-            : null
-          const expanded = open === event.id
-          return (
-            <li key={row.key} className="relative grid grid-cols-[22px_minmax(0,1fr)_auto] items-start gap-x-3 pb-3">
-              {i > firstEvent ? <span aria-hidden className={cn(RAIL, "top-0 h-[11px]")} /> : null}
-              {i < lastEvent ? <span aria-hidden className={cn(RAIL, "bottom-0 top-[11px]")} /> : null}
-              <span
-                aria-hidden
-                className={cn("relative z-[1] flex h-[22px] w-[22px] items-center justify-center rounded-full border", GLYPH_TONE[event.tone])}
-              >
-                <Glyph className="h-3 w-3" strokeWidth={2.25} />
-              </span>
-              <div className="min-w-0 pt-[2px]">
-                <p className={cn("text-[13px] leading-[18px]", upcoming ? "text-[#6b7280]" : "text-[#1a1a2e]")}>{event.text}</p>
-                {event.detail ? <p className="mt-0.5 break-words text-[12px] leading-4 text-[#6b7280] first-letter:uppercase">{event.detail}</p> : null}
-                {expanded && exact ? <p className="mt-0.5 text-[12px] leading-4 text-[#4b5563]">{exact}</p> : null}
-              </div>
-              {short && exact ? (
-                <button
-                  type="button"
-                  title={exact}
-                  aria-expanded={expanded}
-                  aria-label={`${short}. Show the exact time`}
-                  onClick={() => setOpen(expanded ? null : event.id)}
-                  className="-mr-1 rounded-md px-1 pt-[3px] text-[12px] leading-4 tabular-nums text-[#6b7280] hover:text-[#1a1a2e] hover:underline hover:decoration-dotted hover:underline-offset-2"
-                >
-                  <time dateTime={event.at!}>{short}</time>
-                </button>
-              ) : (
-                <span />
-              )}
-            </li>
-          )
-        })}
-      </ol>
+          })}
+        </ol>
+      </div>
     </section>
   )
 }

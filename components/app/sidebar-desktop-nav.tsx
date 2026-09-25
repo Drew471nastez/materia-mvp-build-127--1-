@@ -53,24 +53,30 @@ import { BillListIcon as OrdersLinear } from "@solar-icons/react/linear/bill-lis
 import { BillListIcon as OrdersBold } from "@solar-icons/react/bold/bill-list"
 import { BoxIcon as ProductsLinear } from "@solar-icons/react/linear/box"
 import { BoxIcon as ProductsBold } from "@solar-icons/react/bold/box"
-import { CardIcon as PayoutsLinear } from "@solar-icons/react/linear/card"
-import { CardIcon as PayoutsBold } from "@solar-icons/react/bold/card"
+/**
+ * A BANKNOTE, for Payouts. It was a bank card, which read as "a wallet": a
+ * way to pay, when this page is money on its way to you. A note with the
+ * round seal in the middle is the one shape at 20px that only means cash,
+ * and it keeps the card's landscape outline, so the rail's rhythm is the
+ * same. The order timeline draws a payout with a banknote as well.
+ */
+import { BanknoteIcon as PayoutsLinear } from "@solar-icons/react/linear/banknote"
+import { BanknoteIcon as PayoutsBold } from "@solar-icons/react/bold/banknote"
 import { ChartSquareIcon as AnalyticsLinear } from "@solar-icons/react/linear/chart-square"
 import { ChartSquareIcon as AnalyticsBold } from "@solar-icons/react/bold/chart-square"
-import { GlobalIcon as OnePageLinear } from "@solar-icons/react/linear/global"
-import { GlobalIcon as OnePageBold } from "@solar-icons/react/bold/global"
 import { LetterIcon as EmailsLinear } from "@solar-icons/react/linear/letter"
 import { LetterIcon as EmailsBold } from "@solar-icons/react/bold/letter"
 /**
- * ONE PLAIN SCREEN, not a screen with a phone beside it.
+ * A BROWSER WINDOW WITH A LAYOUT IN IT, for Website.
  *
- * Every other glyph in this list is a single object drawn once — an
- * envelope, a card, a box, a bill. `monitor-smartphone` is two devices at
- * two sizes with a gap between them, so at 20px it carries more strokes
- * than anything next to it and reads as busier rather than as different.
+ * It was a desktop monitor on a stand, which says "computer" before it says
+ * "site", and a globe before that, which says "internet". Solar's
+ * `window-frame` is a browser: a title bar with three dots, and a page split
+ * into a narrow column and a wide one. That is a website being built, and
+ * it is one object drawn once, like everything else in the rail.
  */
-import { MonitorIcon as WebsiteBuilderLinear } from "@solar-icons/react/linear/monitor"
-import { MonitorIcon as WebsiteBuilderBold } from "@solar-icons/react/bold/monitor"
+import { WindowFrameIcon as WebsiteBuilderLinear } from "@solar-icons/react/linear/window-frame"
+import { WindowFrameIcon as WebsiteBuilderBold } from "@solar-icons/react/bold/window-frame"
 import { SettingsIcon as SettingsLinear } from "@solar-icons/react/linear/settings"
 import { SettingsIcon as SettingsBold } from "@solar-icons/react/bold/settings"
 /**
@@ -84,8 +90,8 @@ import { SettingsIcon as SettingsBold } from "@solar-icons/react/bold/settings"
  * what the account menu's avatar is, and it is a lighter version of the
  * People row two below it, so the rail had two people in it and one of them
  * was a page. A card with a person on it says PAGE ABOUT A PERSON, which is
- * what this is, and nothing else in the rail is that shape — Payouts is a
- * plain card with no face on it.
+ * what this is, and nothing else in the rail is that shape. Payouts is a
+ * banknote, Website a browser window, OnePage a tall phone of buttons.
  *
  * The Store Builder this icon was originally drawn for is gone; the name
  * `storeBuilder` stays only because the key is referenced in several places,
@@ -267,13 +273,62 @@ function HomeFillIcon({ size = 24, style, className, ...rest }: HomeIconProps) {
   )
 }
 
+/**
+ * ===========================================================================
+ *  ONEPAGE, A PHONE OF BUTTONS
+ * ===========================================================================
+ * OnePage is a link in bio: one tall page of buttons, each one a link. It
+ * was a globe, and a globe says "the internet", which every row here is.
+ *
+ * Solar has no picture of that page, so this one is drawn to Solar's own
+ * rules rather than taken from another set. The outline is Solar's
+ * `smartphone` contour verbatim: the same superellipse corners, the same
+ * 1.5 stroke in a 24 unit box, the same 16 by 20 footprint. Inside it are
+ * three solid pills, 8 by 2 units, 2 apart: the stacked buttons that are
+ * the whole idea of the page. Solid rather than stroked because a stroked
+ * pill that short closes up at 20px into a thick line, and three
+ * thick lines in a phone read as a document. Solar draws small solid parts
+ * inside its line icons the same way (the dots on Website's title bar).
+ *
+ * The filled variant is the same phone solid, with the three pills cut out
+ * of it through one path and `evenodd`, the same construction and the same
+ * reason as the house above: fill rule only relates contours that share one
+ * path's `d`.
+ *
+ * Checked at 20px and 40px beside the rest of the rail by
+ * scripts/check-nav-icons.mjs (screenshots prefixed icons-).
+ */
+const ONEPAGE_PHONE_D =
+  "M4 10C4 6.22876 4 4.34315 5.17157 3.17157C6.34315 2 8.22876 2 12 2C15.7712 2 17.6569 2 18.8284 3.17157C20 4.34315 20 6.22876 20 10V14C20 17.7712 20 19.6569 18.8284 20.8284C17.6569 22 15.7712 22 12 22C8.22876 22 6.34315 22 5.17157 20.8284C4 19.6569 4 17.7712 4 14V10Z"
+/** Three 8 by 2 pills, centred on the phone, 2 units apart: the page's buttons. */
+const ONEPAGE_BUTTONS_D = [7, 11, 15]
+  .map((y) => `M9 ${y}H15A1 1 0 0 1 15 ${y + 2}H9A1 1 0 0 1 9 ${y}Z`)
+  .join(" ")
+
+function OnePageLineIcon({ size = 24, strokeWidth = 1.5, style, className, ...rest }: HomeIconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={style} className={className} {...rest}>
+      <path d={ONEPAGE_PHONE_D} stroke="currentColor" strokeWidth={strokeWidth} />
+      <path d={ONEPAGE_BUTTONS_D} fill="currentColor" />
+    </svg>
+  )
+}
+
+function OnePageFillIcon({ size = 24, style, className, ...rest }: HomeIconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" fillRule="evenodd" style={style} className={className} {...rest}>
+      <path d={`${ONEPAGE_PHONE_D} ${ONEPAGE_BUTTONS_D}`} />
+    </svg>
+  )
+}
+
 /** The icons the sidebar uses, exported so the shell can build its nav list. */
 export const NAV_ICONS = {
   dashboard: { line: HomeLineIcon, fill: HomeFillIcon },
   products: { line: ProductsLinear, fill: ProductsBold },
   analytics: { line: AnalyticsLinear, fill: AnalyticsBold },
   orders: { line: OrdersLinear, fill: OrdersBold },
-  onepage: { line: OnePageLinear, fill: OnePageBold },
+  onepage: { line: OnePageLineIcon, fill: OnePageFillIcon },
   storeBuilder: { line: CreatorPageLinear, fill: CreatorPageBold },
   websiteBuilder: { line: WebsiteBuilderLinear, fill: WebsiteBuilderBold },
   emails: { line: EmailsLinear, fill: EmailsBold },
@@ -324,8 +379,9 @@ export const NAV_ICONS_EXTRA = {
  *
  * Home is Lucide's `House` rather than Solar's — see the note above
  * NAV_ICONS — but it is stroked by the same mechanism: a real stroke, on
- * the same 24-unit box, at the same ICON_STROKE. Nothing about NavIcon
- * below has to know it did not come from Solar.
+ * the same 24-unit box, at the same ICON_STROKE. OnePage is drawn here as
+ * well, on Solar's own smartphone outline. Nothing about NavIcon below has
+ * to know either did not come from Solar.
  *
  * All of this is used HERE ONLY — the rest of the app is Lucide and stays
  * Lucide.
