@@ -700,6 +700,8 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
       thumbnail_url: p.thumbnail_url,
       price_cents: p.price_cents,
       compare_at_cents: p.compare_at_cents,
+      pay_what_you_want: p.pay_what_you_want ?? null,
+      pwyw_min_price_cents: p.pwyw_min_price_cents ?? null,
       sales_count: p.sales_count,
       description: p.description,
       whats_included: p.whats_included,

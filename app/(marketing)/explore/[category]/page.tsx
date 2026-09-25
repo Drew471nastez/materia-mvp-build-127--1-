@@ -115,7 +115,7 @@ export default async function CategoryPage({ params, searchParams }: Props) {
   // Category filtering is done client-side for relevance-based sorting
   const { data: products, error: productsError } = await supabase
     .from("products")
-    .select("id, title, slug, description, price_cents, compare_at_cents, thumbnail_url, type, category, creator_id, created_at, sales_count, reviews_count, reviews_average")
+    .select("id, title, slug, description, price_cents, compare_at_cents, pay_what_you_want, pwyw_min_price_cents, thumbnail_url, type, category, creator_id, created_at, sales_count, reviews_count, reviews_average")
     .eq("status", "published")
     .order("created_at", { ascending: false })
     .limit(100)

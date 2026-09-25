@@ -1,5 +1,6 @@
 "use client"
 
+import { listPrice } from "@/lib/pricing/list-price"
 import { memo, useState, useRef, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
@@ -46,6 +47,9 @@ interface ProductCardProps {
     description?: string | null
     price_cents: number
     compare_at_cents?: number | null
+    /* Pay what you want: listed from its minimum (lib/pricing/list-price). */
+    pay_what_you_want?: boolean | null
+    pwyw_min_price_cents?: number | null
     thumbnail_url?: string | null
     type: string
     category?: string | null // Direct category field from product
@@ -226,12 +230,8 @@ export const ProductCard = memo(function ProductCard({
   // Safety check - if product is null/undefined, don't render
   if (!product) return null
 
-  const formatPrice = (cents: number) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-    }).format((cents || 0) / 100)
-  }
+  /* Free, pay what you want, a price and a saving: one rule for every card (lib/pricing/list-price). */
+  const priceLabel = listPrice(product)
 
   const creatorName = product.creator?.profile?.display_name || "Creator"
   // Only use the profile username — it's what /u/[username] routes look up.
@@ -304,9 +304,9 @@ export const ProductCard = memo(function ProductCard({
             </span>
           </div>
         )}
-        {!!product.compare_at_cents && product.compare_at_cents > product.price_cents && (
+        {priceLabel.off != null && (
           <Badge variant="destructive" className="absolute left-2 top-2 text-xs">
-            {Math.round((1 - product.price_cents / product.compare_at_cents) * 100)}% OFF
+            {priceLabel.off}% OFF
           </Badge>
         )}
       </SmartLink>
@@ -392,13 +392,13 @@ export const ProductCard = memo(function ProductCard({
             </Badge>
           </div>
           <div className="mt-auto pt-4">
-            <span className="font-semibold" style={surface?.priceColor ? { color: surface.priceColor } : undefined}>{product.price_cents === 0 ? "Free" : formatPrice(product.price_cents)}</span>
-            {!!product.compare_at_cents && product.compare_at_cents > product.price_cents && (
+            <span className="font-semibold" style={surface?.priceColor ? { color: surface.priceColor } : undefined}>{priceLabel.main}</span>
+            {priceLabel.was && (
               <span
                 className="ml-2 text-sm text-muted-foreground line-through"
                 style={surface?.mutedColor ? { color: surface.mutedColor } : undefined}
               >
-                {formatPrice(product.compare_at_cents)}
+                {priceLabel.was}
               </span>
             )}
           </div>
