@@ -616,6 +616,9 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
       if (error) throw error
       if (!gone?.length) throw new Error("Nothing was deleted")
 
+      /* A live product's address now answers nothing; the search engines are
+         told by the slug it had, since the row is gone. Never waited for. */
+      if (productToDelete.status === "published" && productToDelete.slug) announceChange({ removedProduct: productToDelete.slug })
       setProducts(prev => prev.filter(p => p.id !== productToDelete.id))
       showNotification("Product deleted")
       closeDelete()

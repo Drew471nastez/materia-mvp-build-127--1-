@@ -215,6 +215,9 @@ try {
       expect(row === "andrewrullz.storelib.com", "the Website tab shows the website's address", row)
       const thumb = await p.$eval("[data-share-sheet] [data-share-thumb]", (el) => getComputedStyle(el).transform)
       expect(/matrix\(1, 0, 0, 1, [1-9]/.test(thumb), "the thumb has slid under Website", thumb)
+      /* A thumb held on its own layer pulled the tab text over it onto another, which a phone re-draws late: the "Creator page" glitch. */
+      const layered = await p.$eval("[data-share-sheet] [data-share-thumb]", (el) => getComputedStyle(el).willChange)
+      expect(layered === "auto", "the thumb is not held on a layer of its own", layered)
       await p.screenshot({ path: join(shots, `${label}-website.png`) })
     }
 

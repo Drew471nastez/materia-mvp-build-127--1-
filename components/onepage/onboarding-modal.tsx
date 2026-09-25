@@ -17,6 +17,7 @@ import {
   Pencil
 } from "lucide-react"
 import { StorelibMark as StorelibLogo } from "@/components/storelib-mark"
+import { isNativeApp } from "@/lib/native-bridge"
 
 // Storelib logo SVG component - inlined for instant loading
 
@@ -624,6 +625,17 @@ interface OnboardingProgress {
 
 export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalProps) {
   const { onepage, updateProfile, updateTheme, updateSocialLinks, addBlock, updateBlock, removeBlock, save } = useOnePage()
+  /*
+    FULL SCREEN IN THE APP, AT EVERY WIDTH, like the creator onboarding
+    (components/app/creator-onboarding-modal.tsx). Below 640px this has always
+    been the whole screen; above it, a 930 by 540 card, which on an iPad in
+    the app read as a website inside the app. Read after mount, so the
+    server's HTML and the first client render agree.
+  */
+  const [nativeFullScreen, setNativeFullScreen] = useState(false)
+  useEffect(() => {
+    setNativeFullScreen(isNativeApp())
+  }, [])
 
   // Load saved progress from localStorage
   const getSavedProgress = useCallback((): OnboardingProgress | null => {
@@ -1124,10 +1136,10 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
     // Clear saved progress since we're completing the onboarding
     clearSavedProgress()
 
-    // Wait 6 seconds - "We're setting things up..."
+    // Wait 6 seconds - "Setting up your OnePage"
     await new Promise((resolve) => setTimeout(resolve, 6000))
 
-    // Change to "Just a moment..." phase
+    // Change to the "Almost there" phase
     setSetupPhase("just-a-moment")
 
     // Apply all changes
@@ -1297,7 +1309,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
       console.error("Error during setup:", e)
     }
 
-    // Wait 3 more seconds - "Just a moment..."
+    // Wait 3 more seconds - "Almost there"
     await new Promise((resolve) => setTimeout(resolve, 3000))
 
     // Mark as completed to prevent duplicate execution
@@ -1489,12 +1501,17 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
         <DialogContent
           className={cn(
             "p-0 gap-0 overflow-hidden border-0",
-            // Desktop: centered modal with exact specs - 948px width, 550px height
-            "sm:w-[930px] sm:max-w-[930px] sm:h-[540px] sm:rounded-[44px]",
-            // Mobile: auto height modal that fits content, max height to viewport
-            "w-[calc(100%-24px)] max-w-none max-sm:fixed max-sm:inset-0 max-sm:top-0 max-sm:left-0 max-sm:w-screen max-sm:h-[100dvh] max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none",
-            // Shadow
-            "shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25)]",
+            nativeFullScreen
+              ? // The app: the whole screen at every width (see nativeFullScreen above)
+                "fixed inset-0 top-0 left-0 w-screen h-[100dvh] max-w-none translate-x-0 translate-y-0 rounded-none"
+              : cn(
+                  // Desktop: centered modal, 930 by 540
+                  "sm:w-[930px] sm:max-w-[930px] sm:h-[540px] sm:rounded-[44px]",
+                  // Mobile: the whole screen
+                  "w-[calc(100%-24px)] max-w-none max-sm:fixed max-sm:inset-0 max-sm:top-0 max-sm:left-0 max-sm:w-screen max-sm:h-[100dvh] max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none",
+                  // Shadow
+                  "shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25)]",
+                ),
             // Hide the close button
             "[&>button]:hidden"
           )}
@@ -1506,7 +1523,12 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
           onEscapeKeyDown={(e) => e.preventDefault()}
           onOpenAutoFocus={(e) => e.preventDefault()}
         >
-          <div className="flex flex-col h-full sm:max-h-[540px] max-sm:max-h-[100dvh] max-sm:pt-[env(safe-area-inset-top)] max-sm:pb-[env(safe-area-inset-bottom)] bg-white">
+          <div className={cn(
+            "flex flex-col h-full bg-white",
+            nativeFullScreen
+              ? "max-h-[100dvh] pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]"
+              : "sm:max-h-[540px] max-sm:max-h-[100dvh] max-sm:pt-[env(safe-area-inset-top)] max-sm:pb-[env(safe-area-inset-bottom)]",
+          )}>
             {/* Progress bar - centered, 8px height, more border radius */}
             <div className="flex justify-center pt-4 sm:pt-8 shrink-0">
               <div className="w-[160px] sm:w-[200px] h-[6px] sm:h-[8px] bg-gray-200 rounded-full overflow-hidden">
@@ -1530,10 +1552,10 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                 <div className="flex flex-col items-center">
                   <div className="text-center mb-4 sm:mb-8">
                     <h1 className="text-[24px] sm:text-[42px] font-bold leading-tight">
-                      Let's get started <span className="inline-block">👋</span>
+                      Let's get started
                     </h1>
                     <p className="text-gray-500 text-xs sm:text-base mt-1.5 sm:mt-2">
-                      Start with your name — everything can be changed later
+                      Start with your name. You can change everything later.
                     </p>
                   </div>
 
@@ -1638,7 +1660,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                         <div className="flex-1 pr-3">
                           <h3 className="font-semibold text-base">General</h3>
                           <p className="text-sm text-gray-500 mt-1">
-                            Covers all goals - links, business, and socials.
+                            Links, socials and products, a bit of each.
                           </p>
                         </div>
                         <div className="w-12 h-12 rounded-[9px] shrink-0 overflow-hidden">
@@ -1672,7 +1694,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                         <div className="flex-1 pr-3">
                           <h3 className="font-semibold text-base">Artist & Creator</h3>
                           <p className="text-sm text-gray-500 mt-1">
-                            Share my creative work with the world.
+                            Show my work and where to find me.
                           </p>
                         </div>
                         <div className="w-12 h-12 rounded-[9px] shrink-0 overflow-hidden">
@@ -1706,7 +1728,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                         <div className="flex-1 pr-3">
                           <h3 className="font-semibold text-base">Digital Products</h3>
                           <p className="text-sm text-gray-500 mt-1">
-                            Sell my digital products to anyone.
+                            Sell my digital products.
                           </p>
                         </div>
                         <div className="w-12 h-12 rounded-[9px] shrink-0 overflow-hidden">
@@ -1740,7 +1762,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                         <div className="flex-1 pr-3">
                           <h3 className="font-semibold text-base">Business</h3>
                           <p className="text-sm text-gray-500 mt-1">
-                            Grow my business & convert customers.
+                            Bring customers to my business.
                           </p>
                         </div>
                         <div className="w-12 h-12 rounded-[9px] shrink-0 overflow-hidden">
@@ -1852,10 +1874,10 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                 <div className="flex flex-col items-center h-full">
                   <div className="text-center mb-3 sm:mb-6 shrink-0">
                     <h1 className="text-[24px] sm:text-[42px] font-bold leading-tight">
-                      Select a template
+                      Choose a template
                     </h1>
                     <p className="text-gray-500 text-xs sm:text-base mt-1.5 sm:mt-2">
-                      Pick the style you want - you can change it later
+                      Pick a style. You can change it later.
                     </p>
                   </div>
 
@@ -2437,14 +2459,14 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                     {isSettingUp && setupPhase === "setting-up" ? (
                       <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3">
                         <h1 className="text-lg sm:text-2xl font-bold">
-                          We're setting things up...
+                          Setting up your OnePage
                         </h1>
                         <Loader2 className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600 animate-spin" />
                       </div>
                     ) : isSettingUp && setupPhase === "just-a-moment" ? (
                       <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3 animate-in fade-in duration-300">
                         <h1 className="text-lg sm:text-2xl font-bold">
-                          Just a moment...
+                          Almost there
                         </h1>
                         <Loader2 className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600 animate-spin" />
                       </div>
@@ -2460,18 +2482,6 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                     ) : null}
                   </div>
 
-                  {/* Divider */}
-                  <div className="h-px bg-gray-200 mt-6 sm:mt-8" style={{ width: '210px' }} />
-
-                  {/* Quote - centered with purple accolades */}
-                  <div className="mt-4 sm:mt-5 text-center max-w-sm px-4">
-                    <p className="text-gray-500 text-xs sm:text-sm italic">
-                      <span className="text-purple-600 font-medium not-italic">"</span>
-                      Logic will get you from A to B. Imagination will take you everywhere.
-                      <span className="text-purple-600 font-medium not-italic">"</span>
-                    </p>
-                    <p className="text-gray-400 text-[10px] sm:text-xs mt-1">- Albert Einstein</p>
-                  </div>
                 </div>
               )}
             </div>
@@ -2559,7 +2569,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
             <button onClick={() => { setShowCropModal(false); setTempImageUrl(null); setAvatarFile(null) }} className="hover:bg-gray-100 p-1 rounded-lg transition-colors">
               <ChevronLeft className="h-5 w-5" />
             </button>
-            <h2 className="text-lg font-semibold flex-1 text-center pr-8">Crop Image</h2>
+            <h2 className="text-lg font-semibold flex-1 text-center pr-8">Crop image</h2>
           </div>
           <div className="p-5 space-y-4">
             {tempImageUrl && (

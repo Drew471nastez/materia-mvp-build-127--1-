@@ -5,6 +5,7 @@ import { HELP_ARTICLES, helpArticle, helpArticlePath, helpArticlesIn, helpCatego
 import { ArticleBody, Breadcrumbs, ContactSupport, HELP_READING } from "@/components/help/help-parts"
 import { HelpSearch } from "@/components/help/help-search"
 import { cn } from "@/lib/utils"
+import { jsonLdScript } from "@/lib/seo/json-ld"
 
 export const dynamicParams = false
 
@@ -48,7 +49,7 @@ export default async function HelpArticlePage({ params }: PageProps) {
 
   return (
     <div className="bg-white">
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(breadcrumbJsonLd) }} />
       <header className="border-b border-[#e5e7eb] bg-[#f8f9fa]">
         <div className={`${HELP_READING} flex flex-col gap-5 py-6 sm:py-8 lg:flex-row lg:items-center lg:justify-between`}>
           <Breadcrumbs items={[{ label: "Help Center", href: "/help" }, { label: category.title, href: `/help/${category.slug}` }]} />

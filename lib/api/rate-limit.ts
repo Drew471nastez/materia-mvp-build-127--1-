@@ -200,4 +200,38 @@ export const LIMITS = {
    * and well short of a script walking somebody's customer list.
    */
   search: [{ limit: 60, seconds: 60 }],
+
+  /*
+    THE WEBSITE BUILDER, per signed in person, one bucket per route. Every
+    number below is set against the editor at its busiest in TWO tabs, and
+    has to stay out of its way: a save refused here is work somebody thinks
+    is saved.
+  */
+  /**
+   * Settings, a page, and the header and footer sync. Autosave runs 1.5
+   * seconds after the last change and sends those three in turn, so each
+   * route sees at most one call per 1.5 seconds per tab: 40 a minute, 80 in
+   * two tabs, 4,800 in an hour of two tabs saving back to back. Publishing
+   * and adding a page send a few more.
+   */
+  siteSave: [{ limit: 150, seconds: 60 }, { limit: 6000, seconds: 3600 }],
+  /** Reading a page into the editor: two reads a page switch (the page, and home's header and footer). */
+  siteRead: [{ limit: 300, seconds: 60 }, { limit: 6000, seconds: 3600 }],
+  /** A press each, never a stream: deleting a page, a backup, the preview link, a security check. */
+  siteAction: [{ limit: 30, seconds: 60 }, { limit: 300, seconds: 3600 }],
+  /** Publishing writes every page of the site, then clears its cache. */
+  sitePublish: [{ limit: 20, seconds: 60 }, { limit: 200, seconds: 3600 }],
+  /**
+   * The cover starts a real browser on the server. The editor asks 12
+   * seconds after the last save, so a tab asks at most five times a minute,
+   * and the websites page asks once per stale website. A cover newer than
+   * 20 seconds is handed back without a browser (lib/website-builder/cover-take.ts).
+   */
+  siteCover: [{ limit: 20, seconds: 60 }, { limit: 300, seconds: 3600 }],
+  /**
+   * Writing or repairing a section with the AI: one to three model calls
+   * each, so the same budget as the page assistant (AGENT_LIMITS in
+   * lib/sites/rate-limit.ts), counted per route.
+   */
+  siteAi: [{ limit: 6, seconds: 60 }, { limit: 40, seconds: 3600 }],
 } as const satisfies Record<string, readonly RateWindow[]>

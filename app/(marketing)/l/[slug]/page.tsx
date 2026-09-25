@@ -1,10 +1,16 @@
-import { notFound, redirect } from "next/navigation"
+import { notFound, permanentRedirect } from "next/navigation"
+import { cache } from "react"
 import { createAdminClient } from "@/lib/supabase/admin"
 import type { Metadata } from "next"
 import { PublicOnePage } from "@/components/onepage/public-onepage"
 import { headers } from "next/headers"
-import { getLinksInternalPath, getLinksShareUrl } from "@/lib/url-helpers"
+import { getLinksInternalPath, getLinksShareUrl, getLinksUrlWithCustomDomain } from "@/lib/url-helpers"
 import { primaryHostFor } from "@/lib/custom-domains/store"
+import { onePageIndexable } from "@/lib/seo/indexing"
+import { isBanned } from "@/lib/seo/bans"
+import { jsonLdScript } from "@/lib/seo/json-ld"
+import { onePageSameAs, profilePageJsonLd } from "@/lib/seo/structured-data"
+import { activeDomainOf } from "@/lib/website-builder/site-seo-data"
 import crypto from "crypto"
 
 // Hash IP address for privacy (same as track API)
@@ -18,6 +24,58 @@ interface Props {
   params: Promise<{ slug: string }>
 }
 
+/**
+ * ===========================================================================
+ *  WHOSE ONEPAGE THIS IS, AND WHETHER A SEARCH ENGINE MAY LIST IT
+ * ===========================================================================
+ * The page had no canonical, no og:url and no robots rule of its own, so every
+ * OnePage was indexable at every address it answers on, a link farm's page of
+ * outbound links included, while the sitemap was careful to list only the ones
+ * whose owner has earned a creator page (lib/seo/sitemaps.ts). This answers
+ * the questions both need, once per request (React `cache`), for the metadata
+ * and the page alike:
+ *
+ *   handle      the owner's username, which the page is canonical under:
+ *               storelib.com/<handle>/links, or /links on their connected
+ *               domain, where the proxy serves the same page
+ *   indexable   the sitemap's own rule, lib/seo/indexing.ts onePageIndexable
+ *   banned      an operator banned the owner: the page is not served at all,
+ *               as their products are not (lib/seo/bans.ts)
+ *
+ * The creator row is read whole (`*`), the way the product page reads it, so
+ * a column one database has and another does not cannot fail the read.
+ */
+const onePageOwner = cache(async (sellerId: string | null, creatorId: string | null, ownerId: string | null) => {
+  const supabase = createAdminClient()
+  const effective = sellerId || creatorId || null
+  const { data: creator } = effective
+    ? await supabase.from("creators").select("*").eq("id", effective).maybeSingle()
+    : ownerId
+      ? await supabase.from("creators").select("*").eq("user_id", ownerId).maybeSingle()
+      : { data: null }
+  const row = creator as { id?: string; user_id?: string | null; banned_at?: string | null } | null
+  // profiles.avatar_url is the single source of truth: Settings and Store Builder both sync to it.
+  const userId = ownerId || row?.user_id || null
+  const { data: profile } = userId
+    ? await supabase.from("profiles").select("avatar_url, username").eq("id", userId).maybeSingle()
+    : { data: null }
+  const id = row?.id ?? effective
+  const [products, domain] = await Promise.all([
+    id
+      ? supabase.from("products").select("id", { count: "exact", head: true }).eq("creator_id", id).eq("status", "published")
+      : Promise.resolve({ count: 0 }),
+    id ? activeDomainOf(id) : Promise.resolve(null),
+  ])
+  const handle = (profile as { username?: string | null } | null)?.username || null
+  return {
+    handle,
+    banned: isBanned(row),
+    avatarUrl: (profile as { avatar_url?: string | null } | null)?.avatar_url || null,
+    publishedProducts: products.count ?? 0,
+    canonical: handle ? (domain ? getLinksUrlWithCustomDomain(handle, domain) : getLinksShareUrl(handle)) : null,
+  }
+})
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params
 
@@ -26,7 +84,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   // First try to find onepage by slug
   let { data: onepage, error } = await supabase
     .from("onepages")
-    .select("published_profile, settings, seller_id, creator_id, owner_id, avatar_url, title")
+    .select("published_profile, settings, seller_id, creator_id, owner_id, avatar_url, title, status")
     .eq("slug", slug)
     .eq("status", "published")
     .single()
@@ -49,7 +107,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       if (creator) {
         const { data: creatorOnepage } = await supabase
           .from("onepages")
-          .select("published_profile, settings, seller_id, creator_id, owner_id, avatar_url, title")
+          .select("published_profile, settings, seller_id, creator_id, owner_id, avatar_url, title, status")
           .or(`seller_id.eq.${creator.id},creator_id.eq.${creator.id}`)
           .eq("status", "published")
           .maybeSingle()
@@ -63,7 +121,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       if (!onepage) {
         const { data: ownerOnepage } = await supabase
           .from("onepages")
-          .select("published_profile, settings, seller_id, creator_id, owner_id, avatar_url, title")
+          .select("published_profile, settings, seller_id, creator_id, owner_id, avatar_url, title, status")
           .eq("owner_id", profile.id)
           .eq("status", "published")
           .maybeSingle()
@@ -95,33 +153,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   let faviconUrl = profile?.avatar_url || onepage.avatar_url
   const effectiveSellerId = onepage.seller_id || onepage.creator_id || null
 
-  // Also look up the user's profiles.avatar_url as fallback
-  // (profiles.avatar_url is the single source of truth — both Settings and Store Builder sync to it)
-  let userProfileAvatarUrl: string | null = null
-  const userId = onepage.owner_id
-  if (userId) {
-    const { data: userProfile } = await supabase
-      .from("profiles")
-      .select("avatar_url")
-      .eq("id", userId)
-      .maybeSingle()
-    userProfileAvatarUrl = userProfile?.avatar_url || null
-  } else if (effectiveSellerId) {
-    // If no owner_id, look up user_id from creators table
-    const { data: creatorRecord } = await supabase
-      .from("creators")
-      .select("user_id")
-      .eq("id", effectiveSellerId)
-      .maybeSingle()
-    if (creatorRecord?.user_id) {
-      const { data: userProfile } = await supabase
-        .from("profiles")
-        .select("avatar_url")
-        .eq("id", creatorRecord.user_id)
-        .maybeSingle()
-      userProfileAvatarUrl = userProfile?.avatar_url || null
-    }
-  }
+  // Also look up the user's profiles.avatar_url as fallback, from the owner
+  // (or, with no owner_id, the creator's user), with the handle and the
+  // indexing answer beside it: onePageOwner above.
+  const owner = await onePageOwner(onepage.seller_id ?? null, onepage.creator_id ?? null, onepage.owner_id ?? null)
+  const userProfileAvatarUrl: string | null = owner.avatarUrl
+  /* The sitemap's rule, so a page it does not list does not ask to be listed. */
+  const indexable = !owner.banned && onePageIndexable({ status: onepage.status, publishedProducts: owner.publishedProducts, handle: owner.handle })
 
   if (!faviconUrl && effectiveSellerId) {
     try {
@@ -156,18 +194,30 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     faviconUrl = userProfileAvatarUrl
   }
 
-  /* The address it is shared at: <creator page domain>/links, or storelib.com/<handle>/links. */
+  /*
+    The address it is shared at: <creator page domain>/links, or
+    storelib.com/<handle>/links under the owner's own handle, which is the
+    one the sitemap lists (onePageOwner). The address it was reached at when
+    there is no handle to name.
+  */
   const pageHost = await primaryHostFor(effectiveSellerId, "creator_page")
-  const pageAddress = getLinksShareUrl(slug, pageHost)
+  const pageAddress = owner.canonical ?? getLinksShareUrl(slug, pageHost)
 
   return {
     title: pageTitle,
     description: settings?.seo_description || profile?.bio || undefined,
+    /*
+      ONE ADDRESS. The same page answers at storelib.com/<handle>/links, at
+      /l/<slug>, and at /links on a connected domain; the canonical names the
+      one the creator gives out, and the share card says the same.
+    */
     alternates: { canonical: pageAddress },
     openGraph: {
       url: pageAddress,
       title: ogTitle,
       description: settings?.seo_description || profile?.bio || undefined,
+      type: "profile",
+      ...(owner.handle ? { username: owner.handle } : {}),
       images: socialImageUrl ? [socialImageUrl] : undefined,
     },
     twitter: {
@@ -176,6 +226,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       description: settings?.seo_description || profile?.bio || undefined,
       images: socialImageUrl ? [socialImageUrl] : undefined,
     },
+    /*
+      Not listed means not indexed, and not followed: the links are the
+      whole page, and on a farm's page they are what it was made for. The
+      creator page makes the same call (app/(marketing)/u/[username]).
+    */
+    robots: indexable
+      ? { index: true, follow: true, googleBot: { index: true, follow: true, "max-image-preview": "large" as const } }
+      : { index: false, follow: false, googleBot: { index: false, follow: false } },
     ...(faviconUrl && {
       icons: {
         icon: faviconUrl,
@@ -273,12 +331,21 @@ export default async function PublicOnePageRoute({ params }: Props) {
       .maybeSingle()
 
     if (historyRecord?.new_username) {
-      /* Their page, at the address it has now: /{handle}/links. */
-      redirect(getLinksInternalPath(historyRecord.new_username))
+      /* Their page, at the address it has now: /{handle}/links. Permanent
+         (308), so a search engine moves what it knows there. */
+      permanentRedirect(getLinksInternalPath(historyRecord.new_username))
     }
 
     notFound()
   }
+
+  /*
+    An operator banned the owner: the page goes the way their products went,
+    before anything is counted. The answer is the one the metadata asked for,
+    held for the request (onePageOwner).
+  */
+  const owner = await onePageOwner(onepage.seller_id ?? null, onepage.creator_id ?? null, onepage.owner_id ?? null)
+  if (owner.banned) notFound()
 
   // Track view with IP/device deduplication (one view per IP per day)
   try {
@@ -415,5 +482,29 @@ export default async function PublicOnePageRoute({ params }: Props) {
     seller_id: resolvedCreatorId,
   }
 
-  return <PublicOnePage onepage={transformedOnepage} />
+  /*
+    WHO THIS PAGE IS ABOUT, for a search engine, and only on a page it may
+    list: the same answer the metadata gave (`owner` above, from
+    onePageOwner). `sameAs` is the social links the page draws, so an engine
+    can tie this page to the accounts it already knows.
+  */
+  const structured =
+    owner.canonical && onePageIndexable({ status: onepage.status, publishedProducts: owner.publishedProducts, handle: owner.handle })
+      ? jsonLdScript(
+          profilePageJsonLd({
+            url: owner.canonical,
+            name: transformedOnepage.title || owner.handle || "Creator",
+            image: transformedOnepage.avatar_url,
+            description: transformedOnepage.bio,
+            sameAs: onePageSameAs(transformedOnepage.social_links),
+          }),
+        )
+      : null
+
+  return (
+    <>
+      {structured && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: structured }} />}
+      <PublicOnePage onepage={transformedOnepage} />
+    </>
+  )
 }

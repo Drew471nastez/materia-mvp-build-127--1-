@@ -2,7 +2,8 @@ import { notFound } from "next/navigation"
 import type { Metadata } from "next"
 import { productMetadata, productStructuredData, renderProduct } from "@/components/website-builder/theme/render-product"
 import { creatorByName, publishedShopByName } from "@/lib/website-builder/published-site"
-import { productUrl, siteIsIndexable } from "@/lib/website-builder/site-seo"
+import { productUrl } from "@/lib/website-builder/site-seo"
+import { builtSiteIndexable } from "@/lib/seo/indexing"
 import { siteOrigin } from "@/lib/website-builder/site-seo-data"
 
 /**
@@ -27,7 +28,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const [origin, found] = await Promise.all([siteOrigin(creator.creatorId, username), publishedShopByName(username)])
   const settings = found.kind === "site" ? (found.site.themeSettings as Record<string, unknown>) : {}
   const brand = typeof settings.brand_name === "string" && settings.brand_name.trim() ? settings.brand_name.trim() : creator.displayName
-  return productMetadata(slug, { url: productUrl(origin, slug), brand, indexable: siteIsIndexable(settings) })
+  /* The site's own rule: its switch, and not under a handle the spam rules hold back. */
+  return productMetadata(slug, { url: productUrl(origin, slug), brand, indexable: builtSiteIndexable(settings, username) })
 }
 
 /**

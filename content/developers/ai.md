@@ -54,11 +54,11 @@ When you cannot run the compiler, the person will: the code editor compiles on s
 
 ## Change content before source
 
-Most requests are not new sections. "Make the heading bigger", "use the dark scheme", "add a fourth question" are changes to a section's **settings** or **blocks**, which the creator can make in the builder without new code. Write or change a section file only when no existing setting can do what was asked. When you do change one, change the least that does it, and never rename or remove a setting `id` without a `migrations` entry; see [Changing a section safely](/developers/schema#changing-a-section-safely).
+Most requests are not new sections. "Make the heading bigger", "use the dark scheme", "add a fourth question" are changes to a section's **settings** or **blocks**, which the creator can make in the builder without new code. Write or change a section file only when no existing setting can do what was asked. When you do change one, change the least that does it, and never rename or remove a setting `id`: nothing moves a stored value to a new id, so whatever the creator typed under the old one stops showing. See [Changing a section safely](/developers/schema#changing-a-section-safely).
 
 ## What you may not do
 
-- Write outside `sections/`, `templates/`, `config/`, `layout/`, `snippets/` and `locales/`.
+- Write any file but `sections/<type>.storelib`, or change one of the library's built-in sections. Both are refused; see [Rules before you ship](/developers/rules#1-what-you-may-change).
 - Invent an asset. Images are chosen by the creator through an `image_picker`; never put a URL to a picture into a default.
 - Declare a capability the section does not need.
 - Use `window`, `document`, `fetch`, `localStorage` or `eval`. They are refused when the file is saved; query inside `root` instead.
@@ -208,4 +208,4 @@ curl -X PUT https://storelib.com/api/agent/v1/files \
 ## Without a connection
 
 - **One section.** Open the code editor in the website builder, create `sections/<type>.storelib`, paste the file and save. It compiles, appears in Add Section, and can be placed on any page.
-- **A whole theme.** Export the theme from the builder as a `.storelib-theme` file, unzip it, let the agent work on the folder, zip it and import it. The import checks every file and refuses the package with the reasons if anything is wrong, so a broken edit never reaches a live site.
+- **A whole theme.** Export the theme from your library as a `.storelib-theme.zip` file, unzip it, let the agent work on the folder, update `manifest.json` with the new hashes, zip the folder's contents and import it as a new draft website. The import checks every file and refuses the package with the reasons if anything is wrong, a stale hash included, so a broken edit never reaches a live site. [Editing a package by hand](/developers/sharing-themes#editing-a-package-by-hand) has the script and the zip command.

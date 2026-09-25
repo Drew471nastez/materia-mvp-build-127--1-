@@ -88,8 +88,9 @@ for (const file of LINKERS) {
 
 check(
   "the canonical tag names the bare path",
-  /* Or the creator page's own domain when it has one (lib/custom-domains): still one address, never /u/. */
-  /canonical: (?:pageHost \? `https:\/\/\$\{pageHost\}\/` : )?`https:\/\/storelib\.com\/\$\{username\}`/.test(code("app/(marketing)/u/[username]/page.tsx")),
+  /* Or the creator page's own domain when it has one (lib/custom-domains): still one address, never /u/, under the username as stored. */
+  /const pageUrl = pageHost \? `https:\/\/\$\{pageHost\}\/` : `https:\/\/storelib\.com\/\$\{handle\}`/.test(code("app/(marketing)/u/[username]/page.tsx")) &&
+    /canonical: pageUrl,/.test(code("app/(marketing)/u/[username]/page.tsx")),
   "two spellings competing as duplicate content is the thing a canonical exists to stop",
 )
 check(
@@ -105,7 +106,7 @@ check(
 const sitemapSrc = code("lib/seo/sitemaps.ts")
 check(
   "a sitemap query that fails says so",
-  /console\.error\("\[sitemap\]/.test(sitemapSrc) && !/\} catch \{\}\s*$/.test(sitemapSrc.slice(sitemapSrc.indexOf("product block"))),
+  /console\.error\(["`]\[sitemap\]/.test(sitemapSrc) && /throw new SitemapReadFailed\(/.test(sitemapSrc) && !/\} catch \{\}\s*$/.test(sitemapSrc.slice(sitemapSrc.indexOf("product block"))),
   "silence is why nobody noticed",
 )
 check(

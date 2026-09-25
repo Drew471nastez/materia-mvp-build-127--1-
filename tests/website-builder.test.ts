@@ -1423,7 +1423,8 @@ section("Two at once still make five, and an import that says what went wrong")
   const install = read("app/api/website-builder/themes/[installId]/route.ts")
   check("rename takes text only, trimmed, at most 80, and bad JSON is a 400",
     /await req\.json\(\)\.catch\(\(\) => null\)/.test(install) && /typeof body\?\.name === "string"/.test(install) && /name\.length > 80/.test(install))
-  check("publish reads a bad body as an invalid action, not a crash", /const body = await req\.json\(\)\.catch\(\(\) => null\)/.test(read("app/api/website-builder/themes/[installId]/publish/route.ts")))
+  // Read up to a cap now (lib/website-builder/request-body.ts); a body that is not JSON is still no action.
+  check("publish reads a bad body as an invalid action, not a crash", /const body = \(read\.invalid \? null : read\.json\) as \{ action\?: unknown \} \| null/.test(read("app/api/website-builder/themes/[installId]/publish/route.ts")))
   check("every route the page calls asks who is signed in and whether the website is theirs",
     [routes.duplicate, install, read("app/api/website-builder/themes/[installId]/publish/route.ts")].every((src) => /auth\.getUser\(\)/.test(src) && /\.eq\("creator_id", creator\.id\)/.test(src)) &&
       [routes.add, routes.import, read("app/api/website-builder/themes/import/upload/route.ts")].every((src) => /auth\.getUser\(\)/.test(src) && /Unauthorized/.test(src)))
@@ -1580,8 +1581,8 @@ section("Two at once still make five, and an import that says what went wrong")
   check("  a tap while the rings fade out is a preview's tap", /if \(!inspectorRef\.current\) return\s*const el = document\.getElementById\("wb-preview-root"\)/.test(editor))
 
   check("the Publish sheet shows what is connected, on a phone only, right above the security line that ends it",
-    /\{pinActions && <ConnectionsRow brief=\{connections\} settled=\{connectionsSettled\} onOpen=\{onConnections\} \/>\}\s*<div data-publish-security=""[^>]*>[\s\S]{0,200}?No security issues found\s*<\/div>\s*<\/div>\s*\)/.test(publish) &&
-      publish.indexOf("{pinActions && <ConnectionsRow") < publish.indexOf("No security issues found"))
+    /\{pinActions && <ConnectionsRow brief=\{connections\} settled=\{connectionsSettled\} onOpen=\{onConnections\} \/>\}\s*<SecurityLine\s[\s\S]{0,300}?\/>\s*<\/div>\s*\)/.test(publish) &&
+      publish.indexOf("{pinActions && <ConnectionsRow") < publish.indexOf("<SecurityLine\n"))
   check("  from the editor's own read, the one the bar's mark uses: no second request",
     /connections=\{connectionsBrief\}/.test(editor) && /connectionsSettled=\{connectionsSettled\}/.test(editor) &&
       /settled: connectionsSettled \} = useSiteActivity\(/.test(editor) && !/agent-activity/.test(publish))
