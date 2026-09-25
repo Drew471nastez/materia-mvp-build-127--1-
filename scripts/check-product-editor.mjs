@@ -64,9 +64,23 @@ const expect = (ok, what, got) => {
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
 const same = (a, b) => a.length === b.length && a.every((x, i) => x === b[i])
-const saveButton = "[data-editor-bar] [data-save-button]"
+/*
+  WHICH BAR HOLDS SAVE. Below 1024px the top bar; from 1024 (lg) the foot bar
+  along the bottom of the pane, and the more menu is in the page header. Set
+  for each run by useBar().
+*/
+let BAR = "[data-editor-bar]"
+let MORE = "[data-editor-bar] button[aria-label='More actions']"
+let saveButton = `${BAR} [data-save-button]`
 /* The bar's first button holds both of its words (Cancel and Back), one unseen, so it is found by its attribute. */
-const leaveButton = "[data-editor-bar] [data-leave-button]"
+let leaveButton = `${BAR} [data-leave-button]`
+const useBar = (width) => {
+  const wide = width >= 1024
+  BAR = wide ? "[data-editor-foot]" : "[data-editor-bar]"
+  MORE = wide ? "[data-editor-head] button[aria-label='More actions']" : "[data-editor-bar] button[aria-label='More actions']"
+  saveButton = `${BAR} [data-save-button]`
+  leaveButton = `${BAR} [data-leave-button]`
+}
 const pressLeave = (p) => p.$eval(leaveButton, (b) => b.click())
 const leaveMode = (p) => p.$eval(leaveButton, (b) => b.dataset.mode)
 const pressText = (p, scope, text) => p.evaluate((scope, text) => {
@@ -97,7 +111,7 @@ async function leaving(p, label, vp, isPhone) {
   expect((await pushes()) === p0 + 1 && !(await open()), "and it goes straight back to Products", { pushes: (await pushes()) - p0 })
 
   /* The more menu names the state the bar used to. */
-  await p.click("[data-editor-bar] button[aria-label='More actions']")
+  await p.click(MORE)
   await sleep(600)
   const menu = await p.evaluate(() => (document.querySelector("[data-action-sheet]") || document.querySelector("[data-action-list]"))?.innerText ?? "")
   expect(/Live on your page/.test(menu) && /Unpublish/.test(menu), "the more menu says the product is live, over Unpublish", menu.replace(/\n+/g, " | "))
@@ -169,6 +183,17 @@ async function leaving(p, label, vp, isPhone) {
     await t("touchEnd")
     await sleep(700)
     expect(!(await open()) && (await pushes()) === p1, "pulled down, it goes, and nothing is discarded", { open: await open() })
+  }
+
+  /* From lg the page header's back arrow is a way out too, and asks the same question. */
+  if (vp.width >= 1024) {
+    await p.click("[data-editor-head] button[aria-label='Back to products']")
+    await sleep(400)
+    const asked = await p.evaluate(() => document.querySelector("[data-confirm-sheet]")?.closest("[data-sheet-panel]")?.querySelector("h2")?.textContent ?? document.querySelector("[data-confirm-sheet] h2")?.textContent ?? null)
+    expect(asked === "Discard changes?" && (await pushes()) === p1, "the header's back arrow asks before a change is thrown away", { asked, pushes: (await pushes()) - p1 })
+    await pressText(p, "[data-confirm-sheet] button", "Keep editing")
+    await sleep(600)
+    expect(!(await open()) && (await pushes()) === p1, "and Keep editing stays", { pushes: (await pushes()) - p1 })
   }
 
   await pressLeave(p)
@@ -956,7 +981,10 @@ export async function cleanDescription(html) { window.__descriptionCleans = (win
     ["phone-390-new", phone(390), "?new"],
     ["phone-390-layer", phone(390), "?layer"],
     ["phone-360-new-layer", phone(360), "?new&layer"],
+    /* A tablet held upright, or a narrow window: in the shell, one column, the top bar. */
+    ["tablet-1000", { width: 1000, height: 900 }, ""],
     ["desktop-1280", { width: 1280, height: 800 }, ""],
+    ["desktop-1280-new", { width: 1280, height: 800 }, "?new"],
     ["desktop-1440", { width: 1440, height: 900 }, ""],
     ["desktop-1440-new", { width: 1440, height: 900 }, "?new"],
     ["wide-1920", { width: 1920, height: 1080 }, ""],
@@ -967,6 +995,9 @@ export async function cleanDescription(html) { window.__descriptionCleans = (win
   const only = process.env.ONLY ? process.env.ONLY.split(",") : null
   for (const [label, vp, query] of runs.filter(([l]) => !only || only.includes(l))) {
     const isPhone = label.startsWith("phone")
+    /* From 1024 the page is laid out for a computer: the foot bar holds Save. */
+    const wide = vp.width >= 1024
+    useBar(vp.width)
     const isNew = query.includes("new")
     const isLayer = query.includes("layer")
     console.log(`\n${label}`)
@@ -1040,6 +1071,19 @@ export async function cleanDescription(html) { window.__descriptionCleans = (win
     expect(requests.length === 0, "and no request is made to draw it", requests)
     console.log(`        (form mounted ${first.form ? (first.form.at - first.script).toFixed(1) : "?"}ms after the script began)`)
 
+    /* No row of section tabs on any width: "there should not be the About / Media / Content / Settings / SEO". */
+    const tabs = await p.evaluate(() => ({
+      roles: document.querySelectorAll("[data-product-editor] [role=tablist], [data-product-editor] [role=tab]").length,
+      words: [...document.querySelectorAll("[data-product-editor] button")].filter((b) => b.getClientRects().length > 0 && ["About", "Media", "Content", "Settings", "SEO"].includes(b.textContent.trim())).length,
+    }))
+    expect(tabs.roles === 0 && tabs.words === 0, "no row of section tabs", tabs)
+    const announced = await p.evaluate(() => {
+      const a = document.querySelector("[data-editor-announce]")
+      return a ? { live: a.getAttribute("aria-live"), w: a.getBoundingClientRect().width, shown: a.getClientRects().length > 0 } : null
+    })
+    expect(announced?.live === "polite" && announced.w <= 1 && announced.shown, "a screen reader still hears Saving and Saved, from a hidden line that is there at every width", announced)
+
+    if (!wide) {
     /* The bar */
     const bar = await p.evaluate(() => {
       const pane = document.querySelector("[data-product-editor]")
@@ -1062,7 +1106,6 @@ export async function cleanDescription(html) { window.__descriptionCleans = (win
         const own = [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim())
         return own && r.width > 1 && r.height > 1 && getComputedStyle(el).visibility !== "hidden"
       }).map((el) => el.textContent.trim())
-      const announce = b.querySelector("[data-editor-announce]")
       return {
         top: Math.round(b.getBoundingClientRect().top - pane.getBoundingClientRect().top),
         h: Math.round(b.getBoundingClientRect().height),
@@ -1074,7 +1117,6 @@ export async function cleanDescription(html) { window.__descriptionCleans = (win
         named: /Portrait retouching/.test(b.innerText),
         oldState: !!b.querySelector("[data-editor-state]"),
         loose,
-        announce: announce ? { live: announce.getAttribute("aria-live"), w: announce.getBoundingClientRect().width } : null,
         padTop: Math.round(parseFloat(getComputedStyle(b).paddingTop)),
         /* The pane's content area: its box less the scrollbar column it keeps from md (app/globals.css). */
         area: { left: pane.getBoundingClientRect().left + pane.clientLeft, width: pane.clientWidth, right: window.innerWidth - (pane.getBoundingClientRect().left + pane.clientLeft + pane.clientWidth) },
@@ -1082,14 +1124,13 @@ export async function cleanDescription(html) { window.__descriptionCleans = (win
     })
     const H = isPhone ? 40 : 32
     /* The column is centred in the content area, which from md stops at the scrollbar's column. */
-    const edge = isPhone ? 16 : Math.round((bar.area.width - 760) / 2) + 24
+    const edge = isPhone ? 16 : Math.max(0, Math.round((bar.area.width - 760) / 2)) + 24
     const pad = isPhone ? 16 : Math.round(bar.area.left) + edge
     const padEnd = isPhone ? 16 : Math.round(bar.area.right) + edge
     expect(bar.top === 0, "the bar is at the top of the page", bar.top)
-    expect(bar.h === (isPhone ? 56 + bar.padTop : 108), `and is ${isPhone ? "56px under any safe area" : "64px, with a 44px row of section tabs,"}`, bar.h)
+    expect(bar.h === (isPhone ? 56 + bar.padTop : 64), `and is ${isPhone ? "56px under any safe area" : "64px"}, with no row of tabs under it`, bar.h)
     expect(!!bar.save && !!bar.cancel, "with Cancel and Save in it", { save: bar.save, cancel: bar.cancel })
     expect(!bar.oldState && bar.loose.length === 0, "and no state in the middle: no Unsaved changes, Live, Draft or New product to read", { oldState: bar.oldState, loose: bar.loose })
-    expect(bar.announce?.live === "polite" && bar.announce.w <= 1, "a screen reader still hears Saving and Saved, from a hidden line", bar.announce)
     expect(bar.cancel.left === pad, "Cancel is at the start of the bar, on the column's edge", { left: bar.cancel.left, want: pad })
     expect(bar.save.right === padEnd, "Save is at the end", { right: bar.save.right, want: padEnd })
     expect(bar.cancel.h === H && bar.save.h === H, `Cancel and Save are both ${H}px`, { cancel: bar.cancel.h, save: bar.save.h })
@@ -1117,11 +1158,13 @@ export async function cleanDescription(html) { window.__descriptionCleans = (win
       return (cs.position === "fixed" || (cs.position === "sticky" && cs.bottom !== "auto")) && cs.visibility !== "hidden" && r.bottom >= window.innerHeight - 1 && r.height > 20 && r.height < 200
     }).map((el) => el.className.toString().slice(0, 80)))
     expect(footBars.length === 0, "no bar at the foot of the screen", footBars)
+    const header = await p.evaluate(() => document.querySelector("[data-editor-head]")?.getClientRects().length ?? -1)
+    expect(header === 0, "and no page header: below 1024 the top bar is the page's only bar", header)
 
     /* Room */
     const room = await p.evaluate(() => {
       const pane = document.querySelector("[data-product-editor]")
-      return { sideways: pane.scrollWidth - pane.clientWidth, pb: getComputedStyle(pane).paddingBottom, column: Math.round(pane.querySelector("[data-editor-bar] + div").getBoundingClientRect().width) }
+      return { sideways: pane.scrollWidth - pane.clientWidth, pb: getComputedStyle(pane).paddingBottom, column: Math.round(pane.querySelector("[data-editor-page]").getBoundingClientRect().width) }
     })
     expect(room.sideways === 0, "nothing scrolls sideways", room.sideways)
     if (isPhone) {
@@ -1133,7 +1176,7 @@ export async function cleanDescription(html) { window.__descriptionCleans = (win
       await p.$eval("[data-product-editor]", (el) => { el.scrollTop = el.scrollHeight })
       await sleep(250)
       const clear = await p.evaluate(() => {
-        const cards = [...document.querySelectorAll("[data-product-editor] .rounded-2xl")]
+        const cards = [...document.querySelectorAll("[data-product-editor] .rounded-2xl")].filter((c) => c.getClientRects().length > 0)
         const last = cards[cards.length - 1].getBoundingClientRect()
         const pill = document.getElementById("pill")
         const pillShown = getComputedStyle(pill.parentElement).visibility !== "hidden"
@@ -1147,6 +1190,9 @@ export async function cleanDescription(html) { window.__descriptionCleans = (win
       await p.screenshot({ path: join(shots, `${label}-end.png`) })
       await p.$eval("[data-product-editor]", (el) => { el.scrollTop = 0 })
       await sleep(150)
+      /* One column in the order the source reads, the Status card (a computer's) not drawn. */
+      const order = await p.evaluate(() => [...document.querySelectorAll("[data-product-editor] h2")].filter((h) => h.getClientRects().length > 0 && h.closest(".rounded-2xl")).map((h) => h.textContent.trim()))
+      expect(same(order, ["About", "Photos and video", "Content", "What's Included", "Digital Files", "Variants", "Pricing", "FAQ", "Category", "Settings", "SEO"]), "one column of cards, each under its own heading, with no Status card", order)
       const fields = await p.$$eval("[data-product-editor] input:not([type=checkbox]):not([type=file]), [data-product-editor] select, [data-product-editor] textarea", (els) =>
         els.filter((e) => e.getBoundingClientRect().width > 0).map((e) => ({ id: e.id || e.placeholder, size: getComputedStyle(e).fontSize, h: Math.round(e.getBoundingClientRect().height) })))
       expect(fields.every((f) => f.size === "16px"), "every field is 16px, so iOS does not zoom", fields.filter((f) => f.size !== "16px"))
@@ -1163,25 +1209,129 @@ export async function cleanDescription(html) { window.__descriptionCleans = (win
       await p.screenshot({ path: join(shots, `${label}-settings.png`) })
       await p.$eval("[data-product-editor]", (el) => { el.scrollTop = 0 })
     } else {
-      expect(room.column === 760, "the form is one 760px column", room.column)
+      const want = Math.min(760, Math.round(bar.area.width))
+      expect(room.column === want, `the form is one column, ${want}px (760 at most), under the top bar`, { column: room.column, area: bar.area.width })
+    }
+    } else {
+    /*
+      FROM 1024: THE PAGE A COMPUTER GETS. The page header, two columns in the
+      1200px page container, and the foot bar along the bottom of the pane,
+      inside the content area, never over the rail.
+    */
+    const desk = await p.evaluate(() => {
+      const pane = document.querySelector("[data-product-editor]")
+      const pr = pane.getBoundingClientRect()
+      const R = (el) => {
+        if (!el) return null
+        const r = el.getBoundingClientRect()
+        return { left: Math.round(r.left), right: Math.round(r.right), top: Math.round(r.top), bottom: Math.round(r.bottom), w: Math.round(r.width), h: Math.round(r.height) }
+      }
+      const shown = (el) => !!el && el.getClientRects().length > 0
+      const head = document.querySelector("[data-editor-head]")
+      const foot = document.querySelector("[data-editor-foot]")
+      const main = document.querySelector("[data-editor-main]")
+      const side = document.querySelector("[data-editor-side]")
+      const titles = (col) => [...col.querySelectorAll("h2")].filter(shown).map((h) => h.textContent.trim())
+      const fcs = getComputedStyle(foot)
+      const save = foot.querySelector("[data-save-button]")
+      const leave = foot.querySelector("[data-leave-button]")
+      const state = foot.querySelector("[data-editor-state]")
+      const rail = document.querySelector("[data-rail]")
+      const railHits = rail ? [0.2, 0.5, 0.8].map((f) => rail.contains(document.elementFromPoint(120, rail.getBoundingClientRect().top + rail.getBoundingClientRect().height * f))) : []
+      return {
+        area: { left: Math.round(pr.left + pane.clientLeft), width: Math.round(pane.clientWidth), right: Math.round(pr.left + pane.clientLeft + pane.clientWidth), bottom: Math.round(pr.top + pane.clientHeight) },
+        topBar: shown(document.querySelector("[data-editor-bar]")),
+        head: shown(head) ? {
+          ...R(head),
+          h1: head.querySelector("h1").textContent.trim(),
+          h1Size: getComputedStyle(head.querySelector("h1")).fontSize,
+          badge: [...head.querySelectorAll("span")].find((s) => /^(Live|Draft)$/.test(s.textContent.trim()))?.textContent.trim() ?? null,
+          back: shown(head.querySelector("button[aria-label='Back to products']")),
+          more: shown(head.querySelector("button[aria-label='More actions']")),
+        } : null,
+        h1s: [...document.querySelectorAll("[data-product-editor] h1")].filter(shown).map((h) => h.textContent.trim()),
+        page: R(document.querySelector("[data-editor-page]")),
+        main: R(main),
+        side: R(side),
+        mainCards: titles(main),
+        sideCards: titles(side),
+        cardLook: (() => {
+          const c = main.querySelector(".rounded-2xl")
+          const cs = getComputedStyle(c)
+          return { bg: cs.backgroundColor, radius: cs.borderTopLeftRadius, shadow: cs.boxShadow }
+        })(),
+        foot: shown(foot) ? { ...R(foot), position: fcs.position, bottomProp: fcs.bottom, bg: fcs.backgroundColor, borderTop: `${fcs.borderTopWidth} ${fcs.borderTopColor}`, shadow: fcs.boxShadow } : null,
+        save: save && { ...R(save), disabled: save.disabled, word: save.textContent.trim(), bg: getComputedStyle(save).backgroundColor },
+        leave: leave && { ...R(leave), mode: leave.dataset.mode, bg: getComputedStyle(leave).backgroundColor, border: getComputedStyle(leave).borderTopWidth },
+        state: state && { text: state.textContent.trim(), left: R(state).left },
+        rail: rail && { ...R(rail), clipped: [...rail.querySelectorAll("[data-rail-label]")].filter((l) => l.scrollWidth > l.clientWidth).length, hits: railHits },
+        doc: { w: document.scrollingElement.scrollWidth, x: document.scrollingElement.scrollLeft, inner: innerWidth },
+        sideways: pane.scrollWidth - pane.clientWidth,
+      }
+    })
+    const title = "Portrait retouching presets, the complete set for Lightroom and Capture One"
+    expect(!desk.topBar, "the top bar is not drawn: from 1024 Save and Cancel are at the foot", desk.topBar)
+    expect(!!desk.head && desk.head.h1 === (isNew ? "New product" : title) && desk.head.h1Size === "28px", "a page header, like the other /app pages: the product's name (or New product) at 28px", desk.head)
+    expect(!!desk.head && desk.head.back && desk.head.badge === (isNew ? null : "Live") && desk.head.more === !isNew, isNew ? "with the way back to Products, and no status or more menu before the first save" : "with the way back to Products, its status as a badge and the more menu", desk.head)
+    expect(desk.h1s.length === 1, "one heading for the page", desk.h1s)
+    const wantPage = Math.min(1200, desk.area.width)
+    expect(Math.abs(desk.page.w - wantPage) <= 1 && Math.abs((desk.page.left - desk.area.left) - (desk.area.right - desk.page.right)) <= 1, `the page container is ${wantPage}px, centred in the content area`, { page: desk.page, area: desk.area })
+    expect(desk.main.left === desk.page.left + 32 && desk.side.right === desk.page.right - 32, "the columns sit inside its 32px gutters", { main: desk.main.left, side: desk.side.right, page: [desk.page.left, desk.page.right] })
+    expect(desk.side.left - desk.main.right === 16 && desk.main.top === desk.side.top, "two columns, 16px apart, starting on one line", { gap: desk.side.left - desk.main.right, tops: [desk.main.top, desk.side.top] })
+    expect(desk.side.w >= 272 && (desk.side.w === 272 || Math.abs(desk.main.w - 2 * desk.side.w) <= 2), "the main column two thirds, the side one third", { main: desk.main.w, side: desk.side.w })
+    expect(same(desk.mainCards, ["About", "Photos and video", "Content", "What's Included", "Digital Files", "Variants", "Pricing", "FAQ"]), "the product itself in the main column", desk.mainCards)
+    expect(same(desk.sideCards, ["Status", "Category", "Settings", "SEO"]), "its status, category, settings and search listing beside it", desk.sideCards)
+    expect(desk.cardLook.bg === "rgb(255, 255, 255)" && desk.cardLook.radius === "16px" && /0px 1px 3px/.test(desk.cardLook.shadow), "each card is the /app card: white, 16px corners, the faint shadow", desk.cardLook)
+    expect(!!desk.foot && desk.foot.position === "sticky" && desk.foot.bottomProp === "0px", "a foot bar, sticky at the bottom of the pane that scrolls", desk.foot)
+    expect(!!desk.foot && desk.foot.left === desk.area.left && desk.foot.w === desk.area.width && desk.foot.bottom === desk.area.bottom && desk.foot.bottom === vp.height, "across the content area and only it, on the bottom edge of the window", { foot: desk.foot, area: desk.area })
+    expect(!!desk.foot && desk.foot.bg === "rgb(255, 255, 255)" && desk.foot.borderTop === "1px rgb(229, 231, 235)" && /-\d+px 16px/.test(desk.foot.shadow) && desk.foot.h === 65, "white, a hairline on top and a soft shadow upward, 64px and the hairline", desk.foot)
+    expect(!!desk.state && desk.state.text === (isNew ? "Not saved yet" : "Live") && desk.state.left === desk.main.left, "the state in words on the left, on the column's edge", desk.state)
+    expect(!!desk.save && desk.save.right === desk.side.right && desk.save.h === 32 && desk.save.disabled === true, "Save on the right, on the column's edge, grey until there is a change", desk.save)
+    expect(!!desk.leave && desk.leave.right + 8 === desk.save.left && desk.leave.mode === (isNew ? "cancel" : "back") && desk.leave.bg === "rgb(255, 255, 255)" && desk.leave.border === "1px", "Cancel (Back with nothing to discard) just before it, white with a hairline", desk.leave)
+    expect(!!desk.rail && desk.rail.left === 0 && desk.rail.w === 240 && desk.rail.clipped === 0 && desk.rail.hits.every(Boolean) && desk.area.left === 240, "the rail is whole and untouched beside it: 240px from the left edge, no label cut, nothing of the editor over it", desk.rail)
+    expect(desk.doc.w === desk.doc.inner && desk.doc.x === 0 && desk.sideways === 0, "nothing scrolls sideways, the window or the pane", { doc: desk.doc, pane: desk.sideways })
+    await p.screenshot({ path: join(shots, `${label}-top.png`) })
+
+    /* Half way down, and at the end: the bar stays on the bottom edge and never covers a card. */
+    const footAt = (where) => p.evaluate(async (where) => {
+      const pane = document.querySelector("[data-product-editor]")
+      pane.scrollTop = where === "end" ? pane.scrollHeight : (pane.scrollHeight - pane.clientHeight) / 2
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
+      const f = document.querySelector("[data-editor-foot]").getBoundingClientRect()
+      const last = (col) => {
+        const cards = [...document.querySelector(col).querySelectorAll(":scope > .rounded-2xl")].filter((c) => c.getClientRects().length > 0)
+        const r = cards[cards.length - 1].getBoundingClientRect()
+        const hit = document.elementFromPoint(r.left + r.width / 2, r.bottom - 4)
+        return { bottom: Math.round(r.bottom), reached: !!hit && cards[cards.length - 1].contains(hit) }
+      }
+      return { top: Math.round(f.top), bottom: Math.round(f.bottom), scrolled: Math.round(pane.scrollTop), max: pane.scrollHeight - pane.clientHeight, main: last("[data-editor-main]"), side: last("[data-editor-side]") }
+    }, where)
+    const mid = await footAt("mid")
+    expect(mid.bottom === vp.height && mid.scrolled > 0, "scrolled half way, the bar is still on the bottom edge", mid)
+    const end = await footAt("end")
+    await p.screenshot({ path: join(shots, `${label}-end.png`) })
+    expect(end.bottom === vp.height && end.main.bottom <= end.top - 24 && end.side.bottom <= end.top - 24 && [end.main, end.side].every((c) => c.bottom < 0 || c.reached), "scrolled to the end, the last card of each column ends above the bar, and a click at its foot (where it is on screen) reaches it", end)
+    expect(Math.max(end.main.bottom, end.side.bottom) === end.top - 32, "the room under the last card is the page's 32px, not a gap and not an overlap", { cards: Math.max(end.main.bottom, end.side.bottom), bar: end.top })
+    await p.$eval("[data-product-editor]", (el) => { el.scrollTop = 0 })
+    await sleep(150)
     }
     await p.screenshot({ path: join(shots, `${label}-top.png`) })
 
     /* Where everything in the bar is, to see that a change of state moves none of it. */
-    const geometry = () => p.evaluate(() => {
-      const b = document.querySelector("[data-editor-bar]")
+    const geometry = () => p.evaluate((BAR) => {
+      const b = document.querySelector(BAR)
       const parts = [...b.querySelectorAll("button, a")].filter((x) => x.getBoundingClientRect().width > 0).map((x) => {
         const r = x.getBoundingClientRect()
         return `${x.textContent.trim() || x.getAttribute("aria-label")}@${Math.round(r.left)}+${Math.round(r.width)}x${Math.round(r.height)}`
       })
       return [...parts, `bar ${Math.round(b.getBoundingClientRect().height)}`].join(" ")
-    })
+    }, BAR)
     const resting = await geometry()
 
     /* Save */
-    const saveState = () => p.evaluate(() => {
-      const b = document.querySelector("[data-editor-bar] [data-save-button]")
-      const leave = document.querySelector("[data-editor-bar] [data-leave-button]")
+    const saveState = () => p.evaluate((BAR) => {
+      const b = document.querySelector(`${BAR} [data-save-button]`)
+      const leave = document.querySelector(`${BAR} [data-leave-button]`)
       const r = b.getBoundingClientRect()
       return {
         phase: b.dataset.phase,
@@ -1199,15 +1349,18 @@ export async function cleanDescription(html) { window.__descriptionCleans = (win
         leave: leave.dataset.mode,
         leaveName: leave.getAttribute("aria-label"),
         leaveDisabled: leave.disabled,
+        /* The foot bar's words, from 1024 (null below it, where the top bar says nothing). */
+        state: document.querySelector("[data-editor-foot]")?.getClientRects().length ? document.querySelector("[data-editor-state]").textContent.trim() : null,
       }
-    })
+    }, BAR)
     if (isNew) {
       await p.click("#title", { clickCount: 1 })
       await p.keyboard.type("Film presets")
       await sleep(150)
       const moved = await geometry()
       const typed = await saveState()
-      expect(typed.disabled === false && !/Film presets/.test(await p.$eval("[data-editor-bar]", (b) => b.innerText)), "typing a name lights Save up, and the name stays out of the bar", typed)
+      expect(typed.disabled === false && !/Film presets/.test(await p.$eval(BAR, (b) => b.innerText)), "typing a name lights Save up, and the name stays out of the bar", typed)
+      if (wide) expect(typed.state === "Unsaved changes", "and the foot bar says Unsaved changes", typed.state)
       expect(moved === resting, "and nothing in the bar moves or changes size", { resting, moved })
       await p.screenshot({ path: join(shots, `${label}-typed.png`) })
     }
@@ -1218,6 +1371,7 @@ export async function cleanDescription(html) { window.__descriptionCleans = (win
       await sleep(150)
       const dirty = await saveState()
       expect(dirty.disabled === false && dirty.bg === "rgb(139, 92, 246)", "a change lights Save up, in the violet", dirty)
+      if (wide) expect(dirty.state === "Unsaved changes", "and the foot bar says Unsaved changes", dirty.state)
       const moved = await geometry()
       expect(moved === resting, "and nothing in the bar moves or changes size", { resting, moved })
       await p.screenshot({ path: join(shots, `${label}-dirty.png`) })
@@ -1233,15 +1387,16 @@ export async function cleanDescription(html) { window.__descriptionCleans = (win
       ctx.fakeDb = true
       ctx.writes.length = 0
       /* Two presses in the same moment: one save. */
-      await p.evaluate(() => {
-        const b = document.querySelector("[data-editor-bar] [data-save-button]")
+      await p.evaluate((sel) => {
+        const b = document.querySelector(sel)
         b.click()
         b.click()
-      })
+      }, saveButton)
       await sleep(250)
       const saving = await saveState()
       await p.screenshot({ path: join(shots, `${label}-saving.png`) })
       expect(saving.phase === "saving" && saving.busy === "true" && saving.spinner && saving.label === "0", "saving: a spinner in place of the word, aria-busy", saving)
+      if (wide) expect(saving.state === "Saving", "the foot bar says Saving", saving.state)
       expect(saving.w === idle.w && saving.h === idle.h, "and Save keeps its size to the hundredth of a pixel", { idle: [idle.w, idle.h], saving: [saving.w, saving.h] })
       expect(saving.bg === "rgb(139, 92, 246)" && saving.disabled === false, "and its colour: busy, not greyed", saving.bg)
       expect(saving.said === "Saving", "a screen reader hears Saving", saving.said)
@@ -1264,6 +1419,7 @@ export async function cleanDescription(html) { window.__descriptionCleans = (win
       const held = Date.now() - t0
       expect(after.phase === "idle" && after.disabled === true && after.w === idle.w, "and back to a grey button with nothing left to save", after)
       expect(after.word === "Saved" && after.leave === "back" && after.leaveName === "Back", "saved: the grey button says Saved and Cancel has become Back", { word: after.word, leave: after.leave, name: after.leaveName })
+      if (wide) expect(after.state === "Saved", "and the foot bar says Saved", after.state)
       await sleep(200)
       await p.screenshot({ path: join(shots, `products-editor-${label}-settled.png`) })
       expect(saving.leave === "cancel" && saving.leaveDisabled === true, "while it saves, Cancel stays Cancel and is held", { leave: saving.leave, disabled: saving.leaveDisabled })

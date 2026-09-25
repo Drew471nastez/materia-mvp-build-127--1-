@@ -39,6 +39,7 @@ import {
   CheckCircle,
   AlertCircle,
   MoreHorizontal,
+  ArrowLeft,
 } from "lucide-react"
 import Link from "next/link"
 import { RichTextEditor } from "@/components/app/rich-text-editor"
@@ -64,6 +65,7 @@ import {
   type UploadedFile,
 } from "./editor-form"
 import { LeaveButton, SAVED_CHECK_MS, SaveButton, barIconButton, secondaryDepth, type SavePhase } from "./editor-buttons"
+import { StatusBadge, iconButton } from "../../orders/order-parts"
 import { returnToProducts, useListOrigin, warmProducts } from "../list-return"
 import { holdLayerLanding } from "@/components/app/page-layer"
 import { useConfirm } from "./confirm-sheet"
@@ -72,44 +74,19 @@ import { MediaGrid } from "./media-grid"
 import { DigitalFiles, useFileUploads } from "./file-uploads"
 import { CategoryPicker } from "./category-picker"
 
-// Section definitions - internal refs for all sections
-const SECTIONS = [
-  { id: "about", name: "Title" },
-  { id: "media", name: "Media" },
-  { id: "content", name: "Content" },
-  { id: "whatsIncluded", name: "Included" },
-  { id: "files", name: "Files" },
-  { id: "variants", name: "Variants" },
-  { id: "pricing", name: "Pricing" },
-  { id: "category", name: "Category" },
-  { id: "faq", name: "FAQ" },
-  { id: "settings", name: "Settings" },
-  { id: "seo", name: "SEO" },
-] as const
+/*
+  The cards a failed check scrolls to (handleSaveChanges). There is no row of
+  section tabs any more, on any width: "there should not be the About / Media /
+  Content / Settings / SEO". The cards are the page, each under its own heading.
+*/
+type SectionId = "about" | "media" | "content" | "files" | "variants" | "category"
 
-// Pills to show in the navigation bar (only these 5)
-const PILL_SECTIONS = [
-  { id: "about", name: "About" },
-  { id: "media", name: "Media" },
-  { id: "content", name: "Content" },
-  { id: "settings", name: "Settings" },
-  { id: "seo", name: "SEO" },
-] as const
-
-// Map child sections to their parent pill - Content pill encompasses these sections
-const CONTENT_CHILD_SECTIONS = ["content", "whatsIncluded", "files", "variants", "pricing", "category", "faq"] as const
-
-type SectionId = typeof SECTIONS[number]["id"]
-type PillSectionId = typeof PILL_SECTIONS[number]["id"]
-
-// Helper to determine which pill is active based on current section
-const getPillForSection = (sectionId: SectionId): PillSectionId => {
-  if ((CONTENT_CHILD_SECTIONS as readonly string[]).includes(sectionId)) {
-    return "content"
-  }
-  // For about, media, settings, seo - they match directly
-  return sectionId as PillSectionId
-}
+/*
+  ONE CARD, THE /app CARD (CLAUDE.md), with the editor's own padding. The
+  columns space the cards (gap), so a card carries no margin of its own.
+*/
+const CARD = "scroll-mt-4 space-y-4 rounded-2xl border border-[#e5e7eb]/60 bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:space-y-5 sm:p-6"
+const CARD_TITLE = "text-[16px] font-semibold leading-6 text-[#1a1a2e] sm:text-[17px]"
 
 // Limits
 const MAX_PHOTOS = 12
@@ -250,8 +227,6 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
      a server render after a save hands new props that must not reset it. */
   const [initial] = useState(() => initialForm(loaded))
   const editProductId = loaded?.product.id ?? null
-  const [activeSection, setActiveSection] = useState<SectionId>("about")
-  const [completedSections, setCompletedSections] = useState<Set<SectionId>>(new Set())
   const [isLoading, setIsLoading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -341,10 +316,8 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
     return () => window.removeEventListener("resize", syncViewport)
   }, [])
 
-  // Refs for sections
+  // The cards a failed check scrolls to
   const sectionRefs = useRef<{ [key in SectionId]?: HTMLDivElement | null }>({})
-  const pillScrollRef = useRef<HTMLDivElement>(null)
-  const pillRefs = useRef<{ [key in SectionId]?: HTMLButtonElement | null }>({})
   const contentRef = useRef<HTMLDivElement>(null)
 
   // About section fields
@@ -391,6 +364,8 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
     if (!scrollContainer) return
 
     const handleScroll = () => {
+      /* The top bar's hairline, once something is under it. */
+      setIsScrolled(scrollContainer.scrollTop > 0)
       isScrollingRef.current = true
       if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current)
       scrollTimeoutRef.current = setTimeout(() => {
@@ -788,50 +763,6 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
     }
   }, [editProductId])
 
-  // Check section completion
-  const checkSectionCompletion = useCallback(() => {
-    const completed = new Set<SectionId>()
-
-    // About (Title): title filled
-    if (title.trim()) completed.add("about")
-
-    // Media: at least one media item
-    if (mediaItems.length > 0) completed.add("media")
-
-    // Content: description filled
-    if (description.trim()) completed.add("content")
-
-    // What's Included: has items
-    if (whatsIncluded.length > 0) completed.add("whatsIncluded")
-
-    // FAQ: has items
-    if (faqs.length > 0) completed.add("faq")
-
-    // Files: has digital files
-    if (digitalFiles.length > 0) completed.add("files")
-
-    // Variants: has variants
-    if (variants.length > 0) completed.add("variants")
-
-    // Pricing: price filled
-    if (price.trim()) completed.add("pricing")
-
-    // Category: category selected
-    if (selectedCategory) completed.add("category")
-
-    // Settings: any setting configured
-    if (callToAction.trim() || refundPolicyEnabled) completed.add("settings")
-
-    // SEO: seo title or description filled
-    if (seoTitle.trim() || seoDescription.trim()) completed.add("seo")
-
-    setCompletedSections(completed)
-  }, [title, mediaItems, description, whatsIncluded, faqs, digitalFiles, variants, price, selectedCategory, callToAction, refundPolicyEnabled, seoTitle, seoDescription])
-
-  useEffect(() => {
-    checkSectionCompletion()
-  }, [checkSectionCompletion])
-
   /*
     OPENS AT THE TOP, AND AT ONCE. This used to hold the form back for 300ms
     behind a skeleton of its own while it re-scrolled six times; the form is
@@ -847,65 +778,7 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
     return () => clearTimeout(t)
   }, [])
 
-  // Scroll spy for active section and header hide/show - only after page is ready
-  useEffect(() => {
-    const handleScroll = () => {
-      if (!contentRef.current) return
-
-      // Track scroll position for header
-      const scrollTop = contentRef.current.scrollTop
-      setIsScrolled(scrollTop > 0)
-      const barHeight = barRef.current?.offsetHeight ?? 0
-
-      // Find which section is currently in view
-      let currentSection: SectionId = "about"
-      const containerRect = contentRef.current.getBoundingClientRect()
-
-      for (const section of SECTIONS) {
-        const element = sectionRefs.current[section.id]
-        if (element) {
-          const rect = element.getBoundingClientRect()
-          // Check if section top is above the middle of the viewport
-          const relativeTop = rect.top - containerRect.top
-
-          if (relativeTop <= barHeight + 48) {
-            currentSection = section.id
-          }
-        }
-      }
-
-      // Auto-scroll pills to show active pill on mobile
-      if (currentSection !== activeSection) {
-        const activePill = pillRefs.current[currentSection]
-        const pillScroll = pillScrollRef.current
-        if (activePill && pillScroll) {
-          const pillRect = activePill.getBoundingClientRect()
-          const scrollRect = pillScroll.getBoundingClientRect()
-
-          // Check if pill is outside visible area
-          if (pillRect.left < scrollRect.left || pillRect.right > scrollRect.right) {
-            activePill.scrollIntoView({
-              behavior: 'smooth',
-              block: 'nearest',
-              inline: 'center'
-            })
-          }
-        }
-      }
-
-      setActiveSection(currentSection)
-    }
-
-    const content = contentRef.current
-    if (content) {
-      content.addEventListener("scroll", handleScroll, { passive: true })
-      // Initial check after a small delay to ensure scroll position is correct
-      setTimeout(() => handleScroll(), 100)
-      return () => content.removeEventListener("scroll", handleScroll)
-    }
-  }, [activeSection])
-
-  // Scroll to section when pill clicked with smooth animation
+  /* A card a failed check points at, brought to the top of the pane under any bar. */
   const scrollToSection = (sectionId: SectionId) => {
     const element = sectionRefs.current[sectionId]
     if (element && contentRef.current) {
@@ -1827,7 +1700,8 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
     // Validation 3: At least 1 digital file is required
     if (digitalFiles.length === 0) {
       showToast("Upload a file")
-      scrollToSection("content")
+      /* The files' own card: the Content tab used to cover it, and the tabs are gone. */
+      scrollToSection("files")
       return false
     }
 
@@ -2062,8 +1936,56 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
     return () => window.removeEventListener("keydown", onKey)
   }, [])
 
+  /*
+    WHAT THE PAGE HOLDS AGAINST WHAT IS SAVED, in the desktop foot bar's own
+    words. Saving while Save spins; Unsaved changes from the first change to
+    the save; Saved after a save in this visit; otherwise what the product is
+    on the storefront, Live or Draft. A new product with nothing in it yet has
+    nothing saved.
+  */
+  const saveState = saveBusy
+    ? "Saving"
+    : hasUnsavedChanges
+      ? "Unsaved changes"
+      : !productId
+        ? "Not saved yet"
+        : savedThisVisit
+          ? "Saved"
+          : isPublished
+            ? "Live"
+            : "Draft"
+
+  /* The more menu: in the top bar below lg, at the end of the page header from lg. */
+  const moreMenu = productId ? (
+    <ResponsiveActionMenu
+      title={savedTitle.trim() || "Product"}
+      align="end"
+      trigger={
+        <button type="button" aria-label="More actions" className={barIconButton}>
+          <MoreHorizontal className="h-5 w-5 sm:h-4 sm:w-4" />
+        </button>
+      }
+      items={[
+        ...(isPublished && slug ? [{ label: "View on your page", onClick: handleRedirectToProduct }] : []),
+        { label: isPublished ? "Unpublish" : "Publish", onClick: handleTogglePublish },
+      ].map((item, i) => (i === 0 ? { ...item, section: isPublished ? "Live on your page" : "Draft, hidden from your page" } : item))}
+    />
+  ) : null
+
+  /* Live or Draft, the Products list's dot in a badge, for the page header and the Status card. */
+  const statusBadge = productId ? (
+    <StatusBadge tone={isPublished ? "success" : "neutral"}>
+      <span aria-hidden className={cn("h-1.5 w-1.5 shrink-0 rounded-full", isPublished ? "bg-[#22a06b]" : "bg-[#e0a100]")} />
+      {isPublished ? "Live" : "Draft"}
+    </StatusBadge>
+  ) : null
+
   return (
-    <div ref={contentRef} data-product-editor="" className="page-scroll h-full overflow-y-auto overflow-x-hidden bg-[#f8f9fa] max-md:[[data-page-layer]_&]:pb-[calc(32px+env(safe-area-inset-bottom))]">
+    /*
+      THE PANE THAT SCROLLS. From lg it is a column, so the foot bar can sit at
+      the bottom of the pane even when the form is shorter than the window.
+    */
+    <div ref={contentRef} data-product-editor="" className="page-scroll h-full overflow-y-auto overflow-x-hidden bg-[#f8f9fa] max-md:[[data-page-layer]_&]:pb-[calc(32px+env(safe-area-inset-bottom))] lg:flex lg:flex-col">
       {/* Success Notification - Modern black toast */}
       {showNotification && (
         <div
@@ -2097,8 +2019,13 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
         </div>
       )}
 
+      {/* Saving and Saved for a screen reader, at every width: the two bars come and go with the breakpoint. */}
+      <p data-editor-announce="" className="sr-only" aria-live="polite" aria-atomic="true">
+        {savePhase === "saving" ? "Saving" : savePhase === "saved" ? "Saved" : ""}
+      </p>
+
       {/*
-        THE BAR: CANCEL, AND SAVE.
+        THE TOP BAR, BELOW lg: CANCEL, AND SAVE.
         It used to be two bars, a title row that folded away on scroll over a
         row of section pills, and a Cancel and Save strip across the foot of
         the screen, which on a phone sat under the navigation pill. Now it is
@@ -2111,7 +2038,7 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
         asked for it to go. What it said is still said where it belongs: Save
         is grey until there is something to save, spins while it saves and
         shows a check when it has (./editor-buttons); a screen reader hears
-        Saving and Saved from the line below; whether the product is live or a
+        Saving and Saved from the line above; whether the product is live or a
         draft heads the more menu, above the Publish or Unpublish that changes
         it; and Cancel still asks before unsaved changes are thrown away.
 
@@ -2124,10 +2051,11 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
 
         The three buttons have Polaris depth: white with a hairline and a soft
         foot for Cancel and more, solid violet for Save, all flat when pressed,
-        one height on each screen. On a computer the sections are a row of
-        tabs under it. It sits on the pane that scrolls, like the Orders bar,
-        with a hairline once something is under it, and Cmd or Ctrl and S
-        saves from anywhere on the page.
+        one height on each screen. No row of section tabs under it, on any
+        width: the owner asked for them to go, and each card carries its own
+        heading. It sits on the pane that scrolls, like the Orders bar, with a
+        hairline once something is under it, and Cmd or Ctrl and S saves from
+        anywhere on the page.
 
         On a phone the editor is the first thing on the screen, a full screen
         layer over the app's header (`data-page-layer`, as the plans page
@@ -2135,86 +2063,81 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
         env(safe-area-inset-top), which is 0 in a browser. From md the editor
         is a page in the shell, under the app's header, which has already
         taken the inset, so the bar adds nothing there (`max-md:`).
+
+        FROM 768 TO 1023 IT STAYS AT THE TOP. That width is a tablet held
+        upright far more often than a computer, and there the keyboard rises
+        from the bottom edge: a bar along the foot would be covered by it, or
+        pushed up over the field being typed in. At the top it is where the
+        phone has it. From lg (1024) the page is laid out as a computer's
+        (below) and the buttons move to a bar along the foot of the pane.
       */}
       <div
         ref={barRef}
         data-editor-bar=""
         className={cn(
-          "sticky top-0 z-30 bg-[#f8f9fa] transition-shadow duration-150 max-md:[[data-page-layer]_&]:pt-[env(safe-area-inset-top)]",
+          "sticky top-0 z-30 bg-[#f8f9fa] transition-shadow duration-150 max-md:[[data-page-layer]_&]:pt-[env(safe-area-inset-top)] lg:hidden",
           isScrolled ? "shadow-[0_1px_0_#e3e5e8,0_4px_12px_-8px_rgba(17,24,39,0.12)]" : "",
         )}
       >
         <h1 className="sr-only">{productId ? "Edit product" : "New product"}</h1>
-        <p data-editor-announce="" className="sr-only" aria-live="polite" aria-atomic="true">
-          {savePhase === "saving" ? "Saving" : savePhase === "saved" ? "Saved" : ""}
-        </p>
         <div className="mx-auto flex h-14 max-w-[760px] items-center justify-between gap-2 px-4 sm:h-16 sm:px-6">
           <LeaveButton mode={leaveMode} disabled={saveBusy} onLeave={() => void handleCancel()} />
           <div className="flex items-center gap-2">
-            {productId ? (
-              <ResponsiveActionMenu
-                title={savedTitle.trim() || "Product"}
-                align="end"
-                trigger={
-                  <button type="button" aria-label="More actions" className={barIconButton}>
-                    <MoreHorizontal className="h-5 w-5 sm:h-4 sm:w-4" />
-                  </button>
-                }
-                items={[
-                  ...(isPublished && slug ? [{ label: "View on your page", onClick: handleRedirectToProduct }] : []),
-                  { label: isPublished ? "Unpublish" : "Publish", onClick: handleTogglePublish },
-                ].map((item, i) => (i === 0 ? { ...item, section: isPublished ? "Live on your page" : "Draft, hidden from your page" } : item))}
-              />
-            ) : null}
+            {moreMenu}
             <SaveButton phase={savePhase} disabled={!canSave} saved={savedThisVisit} onSave={() => void handleSaveChanges()} />
-          </div>
-        </div>
-        <div className="mx-auto hidden h-11 max-w-[760px] items-start px-6 sm:flex">
-          <div
-            ref={pillScrollRef}
-            role="tablist"
-            aria-label="Sections"
-            className="-mx-1 flex min-w-0 items-center gap-0.5 overflow-x-auto px-1"
-            style={{ scrollbarWidth: "none" }}
-          >
-            {PILL_SECTIONS.map((section) => {
-              const isActive = getPillForSection(activeSection) === section.id
-              return (
-                <button
-                  key={section.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={isActive}
-                  ref={(el) => { pillRefs.current[section.id as SectionId] = el }}
-                  onClick={() => scrollToSection(section.id as SectionId)}
-                  className={cn(
-                    "inline-flex h-8 shrink-0 items-center whitespace-nowrap rounded-lg px-3 text-[13px] font-medium transition-colors duration-100",
-                    isActive ? "bg-[#e6e8eb] text-[#1a1a2e]" : "text-[#4b5563] hover:bg-[#eef0f2]",
-                  )}
-                >
-                  {section.name}
-                </button>
-              )
-            })}
           </div>
         </div>
       </div>
 
-      <div className="mx-auto w-full max-w-[760px] px-4 pb-6 pt-3 sm:px-6 sm:pb-16 sm:pt-4">
-              {/* Error message */}
-              {error && (
-                <div className="mb-3 rounded-xl border border-red-200 bg-red-50 p-3 text-[14px] text-red-700">
-                  {error}
-                </div>
-              )}
+      {/*
+        THE FORM. Below lg one column of cards, 760px at most, in the order the
+        page reads. From lg the page is laid out the way an admin product page
+        is on a computer (Shopify's, and Storelib's own order page): the 1200px
+        page container every /app page uses, a header with the way back to
+        Products, the product's name and its status, and two columns of cards.
+        The main one, two thirds, is the product itself: its title, pictures,
+        description, what is included, files, variants, price and questions.
+        The side one is how it is shown and found: its status, category,
+        settings and search listing. The cards are the same cards at every
+        width, in the same order in the source, so a screen reader and the
+        Tab key meet them in the order they are seen.
+      */}
+      <div data-editor-page="" className="mx-auto w-full max-w-[760px] px-4 pb-6 pt-3 sm:px-6 sm:pb-16 sm:pt-4 lg:max-w-[1200px] lg:px-8 lg:pb-8 lg:pt-6">
+        {/* The page header, from lg: back to Products, the name, the status, the more menu. */}
+        <header data-editor-head="" className="mb-5 hidden min-h-9 items-center gap-2 lg:flex">
+          <button
+            type="button"
+            aria-label="Back to products"
+            title="Products"
+            disabled={saveBusy}
+            onClick={() => void handleCancel()}
+            className={cn(iconButton, "-ml-1.5 h-9 w-9 shrink-0 hover:bg-[#eceef1] active:bg-[#e4e6ea]")}
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </button>
+          <h1 className="min-w-0 truncate text-[24px] font-bold leading-9 text-[#1a1a2e] sm:text-[28px]">
+            {productId ? savedTitle.trim() || "Untitled" : "New product"}
+          </h1>
+          {statusBadge ? <span className="ml-1 shrink-0">{statusBadge}</span> : null}
+          <div className="ml-auto flex shrink-0 items-center pl-2">{moreMenu}</div>
+        </header>
 
+        {/* Error message */}
+        {error && (
+          <div className="mb-3 rounded-xl border border-red-200 bg-red-50 p-3 text-[14px] text-red-700 lg:mb-4">
+            {error}
+          </div>
+        )}
+
+        <div className="flex flex-col gap-3 sm:gap-4 lg:grid lg:grid-cols-[minmax(0,2fr)_minmax(272px,1fr)] lg:items-start">
+          <div data-editor-main="" className="flex min-w-0 flex-col gap-3 sm:gap-4">
               {/* About Section */}
               <div
                 ref={(el) => { sectionRefs.current.about = el }}
-                className="mb-3 scroll-mt-4 space-y-4 rounded-2xl border border-[#e5e7eb]/60 bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:mb-4 sm:space-y-5 sm:p-6"
+                className={CARD}
               >
                 <div>
-                  <h2 className="text-[16px] font-semibold leading-6 text-[#1a1a2e] sm:text-[17px]">About</h2>
+                  <h2 className={CARD_TITLE}>About</h2>
                 </div>
 
                 {/* Title Field */}
@@ -2251,11 +2174,11 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
               {/* Media Section */}
               <div
                 ref={(el) => { sectionRefs.current.media = el }}
-                className="mb-3 scroll-mt-4 space-y-4 rounded-2xl border border-[#e5e7eb]/60 bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:mb-4 sm:space-y-5 sm:p-6"
+                className={CARD}
               >
                 <div>
                   <div className="flex items-center gap-1.5">
-                    <h2 className="text-[16px] font-semibold leading-6 text-[#1a1a2e] sm:text-[17px]">Photos and video</h2>
+                    <h2 className={CARD_TITLE}>Photos and video</h2>
                     <span className="text-red-500">*</span>
                     <TooltipIcon
                       content={
@@ -2498,10 +2421,10 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
               {/* Content Section */}
               <div
                 ref={(el) => { sectionRefs.current.content = el }}
-                className="mb-3 scroll-mt-4 space-y-4 rounded-2xl border border-[#e5e7eb]/60 bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:mb-4 sm:space-y-5 sm:p-6"
+                className={CARD}
               >
                 <div>
-                  <h2 className="text-[16px] font-semibold leading-6 text-[#1a1a2e] sm:text-[17px]">Content</h2>
+                  <h2 className={CARD_TITLE}>Content</h2>
                   <p className="text-[13px] leading-5 text-[#6b7280] sm:text-[14px]">
                     Describe your product to attract customers.
                   </p>
@@ -2526,12 +2449,11 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
 
               {/* What's Included Section */}
               <div
-                ref={(el) => { sectionRefs.current.whatsIncluded = el }}
-                className="mb-3 scroll-mt-4 space-y-4 rounded-2xl border border-[#e5e7eb]/60 bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:mb-4 sm:space-y-5 sm:p-6"
+                className={CARD}
               >
                 <div>
                   <div className="flex items-center gap-1.5">
-                    <h2 className="text-[16px] font-semibold leading-6 text-[#1a1a2e] sm:text-[17px]">What's Included</h2>
+                    <h2 className={CARD_TITLE}>What's Included</h2>
                     <TooltipIcon
                       content={<p>List what customers will receive with their purchase</p>}
                     />
@@ -2607,11 +2529,11 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
               {/* Digital Files Section */}
               <div
                 ref={(el) => { sectionRefs.current.files = el }}
-                className="mb-3 scroll-mt-4 space-y-4 rounded-2xl border border-[#e5e7eb]/60 bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:mb-4 sm:space-y-5 sm:p-6"
+                className={CARD}
               >
                 <div>
                   <div className="flex items-center gap-1.5">
-                    <h2 className="text-[16px] font-semibold leading-6 text-[#1a1a2e] sm:text-[17px]">Digital Files</h2>
+                    <h2 className={CARD_TITLE}>Digital Files</h2>
                     <span className="text-red-500 text-sm">*</span>
                     <TooltipIcon
                       content={<p>If multiple files, upload ZIP.</p>}
@@ -2635,12 +2557,12 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
               {/* Variants Section */}
               <div
                 ref={(el) => { sectionRefs.current.variants = el }}
-                className="mb-3 scroll-mt-4 space-y-4 rounded-2xl border border-[#e5e7eb]/60 bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:mb-4 sm:space-y-5 sm:p-6"
+                className={CARD}
               >
                 <div className="flex items-start justify-between">
                   <div>
                     <div className="flex items-center gap-1.5">
-                      <h2 className="text-[16px] font-semibold leading-6 text-[#1a1a2e] sm:text-[17px]">Variants</h2>
+                      <h2 className={CARD_TITLE}>Variants</h2>
                       <TooltipIcon
                         content={<p>Add different versions of your product with different prices</p>}
                       />
@@ -2980,11 +2902,10 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
 
               {/* Pricing Section */}
               <div
-                ref={(el) => { sectionRefs.current.pricing = el }}
-                className="mb-3 scroll-mt-4 space-y-4 rounded-2xl border border-[#e5e7eb]/60 bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:mb-4 sm:space-y-5 sm:p-6"
+                className={CARD}
               >
                 <div>
-                  <h2 className="text-[16px] font-semibold leading-6 text-[#1a1a2e] sm:text-[17px]">Pricing</h2>
+                  <h2 className={CARD_TITLE}>Pricing</h2>
                   <p className="text-[13px] leading-5 text-[#6b7280] sm:text-[14px]">
                     How buyers pay for it.
                   </p>
@@ -3105,37 +3026,14 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
                 />
               </div>
 
-              {/* Category Section */}
-              <div
-                ref={(el) => { sectionRefs.current.category = el }}
-                className="mb-3 scroll-mt-4 space-y-4 rounded-2xl border border-[#e5e7eb]/60 bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:mb-4 sm:space-y-5 sm:p-6"
-              >
-                <div>
-                  <div className="flex items-center gap-1.5">
-                    <h2 className="text-[16px] font-semibold leading-6 text-[#1a1a2e] sm:text-[17px]">Category</h2>
-                  </div>
-                  <p className="text-[13px] leading-5 text-[#6b7280] sm:text-[14px]">
-                    Select the best category for your product.
-                  </p>
-                </div>
-
-                <CategoryPicker
-                  value={selectedCategory}
-                  onChange={setSelectedCategory}
-                  suggested={suggestedCategory}
-                  isPhone={isMobileViewport}
-                />
-              </div>
-
               {/* FAQ Section */}
               <div
-                ref={(el) => { sectionRefs.current.faq = el }}
-                className="mb-3 scroll-mt-4 space-y-4 rounded-2xl border border-[#e5e7eb]/60 bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:mb-4 sm:space-y-5 sm:p-6"
+                className={CARD}
               >
                 <div className="flex items-start justify-between">
                   <div>
                     <div className="flex items-center gap-1.5">
-                      <h2 className="text-[16px] font-semibold leading-6 text-[#1a1a2e] sm:text-[17px]">FAQ</h2>
+                      <h2 className={CARD_TITLE}>FAQ</h2>
                       <TooltipIcon
                         content={<p>Add frequently asked questions to help customers</p>}
                       />
@@ -3170,14 +3068,69 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
 
                 <FaqList faqs={faqs} onChange={setFaqs} />
               </div>
+          </div>
+
+          <div data-editor-side="" className="flex min-w-0 flex-col gap-3 sm:gap-4">
+              {/*
+                STATUS, from lg: what the product is on the storefront and the
+                one thing that changes it, which the more menu also holds.
+                Publish and Unpublish take effect at once, as they do there;
+                Save always publishes, which is said here for a draft.
+              */}
+              <div data-editor-status="" className={cn(CARD, "hidden lg:block")}>
+                {/* The badge is in the page header, right above: here it is said once, in words. */}
+                <div>
+                  <h2 className={CARD_TITLE}>Status</h2>
+                  <p className="text-[13px] leading-5 text-[#6b7280] sm:text-[14px]">
+                    {!productId
+                      ? "Goes on your page when you save it."
+                      : isPublished
+                        ? "Live on your page."
+                        : "Draft, hidden from your page. Saving publishes it."}
+                  </p>
+                </div>
+                {productId ? (
+                  <div className="flex flex-wrap gap-2">
+                    {isPublished && slug ? (
+                      <button type="button" onClick={handleRedirectToProduct} className={cn(secondaryDepth, "h-8 rounded-lg px-3 text-[13px]")}>
+                        View on your page
+                      </button>
+                    ) : null}
+                    <button type="button" disabled={isLoading} onClick={() => void handleTogglePublish()} className={cn(secondaryDepth, "h-8 rounded-lg px-3 text-[13px]")}>
+                      {isPublished ? "Unpublish" : "Publish"}
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+
+              {/* Category Section */}
+              <div
+                ref={(el) => { sectionRefs.current.category = el }}
+                className={CARD}
+              >
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <h2 className={CARD_TITLE}>Category</h2>
+                  </div>
+                  <p className="text-[13px] leading-5 text-[#6b7280] sm:text-[14px]">
+                    Select the best category for your product.
+                  </p>
+                </div>
+
+                <CategoryPicker
+                  value={selectedCategory}
+                  onChange={setSelectedCategory}
+                  suggested={suggestedCategory}
+                  isPhone={isMobileViewport}
+                />
+              </div>
 
               {/* Settings Section */}
               <div
-                ref={(el) => { sectionRefs.current.settings = el }}
-                className="mb-3 scroll-mt-4 space-y-4 rounded-2xl border border-[#e5e7eb]/60 bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:mb-4 sm:space-y-5 sm:p-6"
+                className={CARD}
               >
                 <div>
-                  <h2 className="text-[16px] font-semibold leading-6 text-[#1a1a2e] sm:text-[17px]">Settings</h2>
+                  <h2 className={CARD_TITLE}>Settings</h2>
                   <p className="text-[13px] leading-5 text-[#6b7280] sm:text-[14px]">
                     Configure product display and policies.
                   </p>
@@ -3294,12 +3247,11 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
 
               {/* SEO Section */}
               <div
-                ref={(el) => { sectionRefs.current.seo = el }}
-                className="scroll-mt-4 space-y-4 rounded-2xl border border-[#e5e7eb]/60 bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:space-y-5 sm:p-6"
+                className={CARD}
               >
                 <div>
                   <div className="flex items-center gap-1.5">
-                    <h2 className="text-[16px] font-semibold leading-6 text-[#1a1a2e] sm:text-[17px]">SEO</h2>
+                    <h2 className={CARD_TITLE}>SEO</h2>
                     <TooltipIcon
                       content={
                         <>
@@ -3358,8 +3310,9 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
                   <Label htmlFor="productUrl" className="text-xs sm:text-sm font-medium text-gray-700">
                     Product URL
                   </Label>
+                  {/* In the side column (lg) there is no room for the address in front of the slug; the search preview under it shows it whole. */}
                   <div className="flex items-center gap-0">
-                    <div className="h-11 px-3 bg-gray-100 border border-r-0 border-gray-200 rounded-l-lg flex items-center">
+                    <div className="h-11 px-3 bg-gray-100 border border-r-0 border-gray-200 rounded-l-lg flex items-center lg:hidden">
                       <span className="text-xs sm:text-sm text-gray-500 whitespace-nowrap">
                         {/* The address every link uses: storelib.com/<handle>/<slug> (lib/url-helpers getProductShareUrl). */}
                         storelib.com/{(creator?.username || creator?.slug || "yourstore").toLowerCase()}/
@@ -3378,7 +3331,7 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
                           .replace(/^-|-$/g, '')
                         setSlug(newSlug)
                       }}
-                      className="h-11 border-gray-200 rounded-l-none text-sm sm:text-base flex-1"
+                      className="h-11 border-gray-200 rounded-l-none text-sm sm:text-base flex-1 lg:rounded-l-md"
                     />
                   </div>
                   <p className="text-[10px] sm:text-xs text-gray-400">
@@ -3403,9 +3356,45 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
                   </div>
                 </div>
               </div>
+          </div>
+        </div>
       </div>
 
-      {/* YouTube input is now inline in the Photos and video section */}
+      {/*
+        THE FOOT BAR, FROM lg: WHERE THE FORM IS SAVED ON A COMPUTER.
+        "On desktop it should be better to be at the bottom." A white bar across
+        the pane, and only the pane: the rail and the header are outside it.
+        What the page holds against what is saved on the left, in words; Cancel
+        (or Back, with nothing to discard) and Save on the right, the same two
+        buttons as the top bar below lg, with the same states and the same
+        question before anything is thrown away.
+
+        It is `position: sticky; bottom: 0` inside the pane that scrolls, the
+        last box in it, not a fixed box measured against the shell: whatever
+        box scrolls the page, the bar stays at the foot of it. Being in the
+        flow, it keeps its own room below the last card, so scrolled to the
+        end it sits under the card, never over it. The pane is a column from
+        lg and the bar takes the auto margin above it, so on a short form it
+        is still at the bottom. It pads itself by the home indicator's inset
+        (an iPad), which is 0 in a browser.
+      */}
+      <div
+        data-editor-foot=""
+        className="sticky bottom-0 z-30 mt-auto hidden shrink-0 border-t border-[#e5e7eb] bg-white pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_16px_-8px_rgba(17,24,39,0.10)] lg:block"
+      >
+        <div className="mx-auto flex h-16 max-w-[1200px] items-center justify-between gap-4 px-8">
+          <p data-editor-state={saveState} className="flex min-w-0 items-center gap-2 text-[14px] leading-5">
+            {saveState === "Live" || saveState === "Draft" ? (
+              <span aria-hidden className={cn("h-1.5 w-1.5 shrink-0 rounded-full", saveState === "Live" ? "bg-[#22a06b]" : "bg-[#e0a100]")} />
+            ) : null}
+            <span className={cn("truncate", saveState === "Unsaved changes" ? "font-medium text-[#1a1a2e]" : "text-[#6b7280]")}>{saveState}</span>
+          </p>
+          <div className="flex shrink-0 items-center gap-2">
+            <LeaveButton mode={leaveMode} disabled={saveBusy} onLeave={() => void handleCancel()} />
+            <SaveButton phase={savePhase} disabled={!canSave} saved={savedThisVisit} onSave={() => void handleSaveChanges()} />
+          </div>
+        </div>
+      </div>
 
       {/* CTA Bottom Sheet */}
       <MobileSheet isOpen={showCtaSheet} onClose={() => setShowCtaSheet(false)}>

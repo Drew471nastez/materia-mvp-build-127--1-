@@ -2,7 +2,11 @@
  * The real product editor (app/app/products/new/product-editor.tsx) inside a
  * copy of the /app shell's frame: the 68px (58px from 768px) header space,
  * the .app-content-scroll pane and, on a phone, a stand-in for the navigation
- * pill with the same data attribute and the same place on the screen.
+ * pill with the same data attribute and the same place on the screen. From
+ * 768px the pane sits beside a 240px rail, as app/app/layout.tsx has it
+ * (`md:pl-[240px]`), and the editor is inside the real PageLayer its layouts
+ * use (`phoneOnly`), so the columns and the foot bar are measured in the
+ * content area a creator's computer actually gives them.
  * Mounted from the rows the server page would hand it, so what is measured
  * is the first frame a creator gets. Bundled by scripts/check-product-editor.mjs.
  *
@@ -137,7 +141,7 @@ function Routed() {
   return (
     <div style={{ position: "fixed", inset: 0 }}>
       <div data-shell-chrome="" className="fixed inset-x-0 top-0 z-50 h-[68px] border-b border-[#eceef1] bg-white md:h-[58px]" />
-      <main className="h-full pt-[68px] md:pt-[58px] bg-[#f8f9fa] overflow-hidden">
+      <main className="h-full pt-[68px] md:pt-[58px] md:pl-[240px] bg-[#f8f9fa] overflow-hidden">
         <div className="h-[calc(100svh-68px)] md:h-[calc(100svh-58px)] overflow-y-auto app-content-scroll">
           {path === "/app/products" ? (
             <LanguageProvider>
@@ -147,7 +151,7 @@ function Routed() {
             /* Any other page, reached from the pill: Orders, say. */
             <div data-other-page="" className="p-6 text-[14px] text-[#6b7280]">{path}</div>
           ) : (
-            <PageLayer pill inset="bar">
+            <PageLayer pill inset="bar" phoneOnly>
               <ProductEditor key={path} creator={{ id: "c1", slug: "astrid", username: "astrid" }} loaded={loaded} />
             </PageLayer>
           )}
@@ -169,6 +173,20 @@ if (location.search.includes("route")) {
       <div data-page-layer="" className="fixed inset-0 z-[60] overflow-y-auto overscroll-contain bg-[#f8f9fa]">
         {editor}
       </div>
+    ) : window.innerWidth >= 768 ? (
+      <>
+        <div data-shell-chrome="" data-desktop-header="" className="fixed inset-x-0 top-0 z-50 h-[58px] bg-[#131316]" />
+        <aside data-shell-chrome="" data-rail="" className="fixed left-0 top-[58px] z-40 flex h-[calc(100svh-58px)] w-[240px] flex-col gap-1 border-r border-neutral-200/60 bg-white p-3">
+          {["Dashboard", "Products", "Orders", "Customers", "Analytics"].map((l) => (
+            <span key={l} data-rail-label="" className="block h-9 truncate rounded-lg px-3 text-[14px] leading-9 text-[#1a1a2e]">{l}</span>
+          ))}
+        </aside>
+        <main className="h-full pt-[58px] pl-[240px] bg-white overflow-hidden">
+          <div className="h-[calc(100svh-58px)] overflow-y-auto app-content-scroll">
+            <PageLayer pill inset="bar" phoneOnly>{editor}</PageLayer>
+          </div>
+        </main>
+      </>
     ) : (
       <main className="h-full pt-[68px] md:pt-[58px] bg-[#f8f9fa] overflow-hidden">
         <div className="h-[calc(100svh-68px)] md:h-[calc(100svh-58px)] overflow-y-auto app-content-scroll">{editor}</div>
