@@ -106,7 +106,7 @@ export function ContactFormSection({ section, theme, isEditing, isSelected, onCl
           {bool(s.show_subject, true) && <input type="text" name="subject" placeholder="Subject" maxLength={150} className={inputClass} style={inputStyle} />}
           {bool(s.show_message, true) && <textarea name="message" placeholder="Message" rows={5} maxLength={5000} required className={inputClass} style={inputStyle} />}
           {/* For scripts only: nobody sees it or can tab to it. */}
-          <div aria-hidden="true" style={{ position: "absolute", left: -10000, width: 1, height: 1, overflow: "hidden" }}>
+          <div aria-hidden="true" style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clipPath: "inset(50%)", opacity: 0, pointerEvents: "none" }}>
             <input type="text" name="hp_company" tabIndex={-1} autoComplete="off" />
           </div>
           {offerOptIn && (

@@ -92,7 +92,7 @@
 }
 .cf__input:focus { border-color: var(--s-heading); }
 .cf__area { min-height: 144px; resize: vertical; line-height: 1.5; }
-.cf__trap { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
+.cf__trap { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); opacity: 0; pointer-events: none; }
 .cf__check { display: flex; align-items: flex-start; gap: 10px; font-size: 15px; line-height: 1.45; color: var(--s-text); cursor: pointer; }
 .cf__box { flex: none; width: 18px; height: 18px; margin: 1px 0 0; accent-color: var(--s-btn); }
 .cf__send {
