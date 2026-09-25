@@ -42,6 +42,18 @@ export const maxDuration = 300 // 5 minutes max
 const CAMPAIGN_BUDGET_MS = 90_000
 const ENGINE_BUDGET_MS = 130_000
 const LEGACY_BUDGET_MS = 45_000
+/**
+ * THE WHOLE RUN'S CLOCK. Each queue's budget used to count from its own
+ * start, so a slow campaign queue and a busy checkout sweep pushed the
+ * engine's 130 seconds, and the batch it was still sending, past the
+ * function's 300. A function stopped mid send leaves that email "sending",
+ * which the engine then never sends (it cannot know whether it arrived) and
+ * marks the run failed. So the engine stops claiming by ENGINE_DEADLINE_MS
+ * after the run began, leaving room for the batch it holds, and the older
+ * queue stops by LEGACY_DEADLINE_MS, whatever came before them.
+ */
+const ENGINE_DEADLINE_MS = 220_000
+const LEGACY_DEADLINE_MS = 280_000
 const LEGACY_ATTEMPTS = 3
 
 // Create admin client
@@ -141,12 +153,12 @@ export async function GET(request: Request) {
 
   let engine: Awaited<ReturnType<typeof runDueJobs>> | { available: false; error: true } = { available: false, error: true }
   try {
-    engine = await runDueJobs(ENGINE_BUDGET_MS)
+    engine = await runDueJobs(Math.max(0, Math.min(ENGINE_BUDGET_MS, started + ENGINE_DEADLINE_MS - Date.now())))
   } catch (err) {
     console.error("[cron/scheduled-emails] Engine run failed:", errorText(err))
   }
 
-  const legacy = await drainLegacyQueue(Date.now() + LEGACY_BUDGET_MS)
+  const legacy = await drainLegacyQueue(Math.min(Date.now() + LEGACY_BUDGET_MS, started + LEGACY_DEADLINE_MS))
 
   const { data: health } = await supabaseAdmin.rpc("email_flow_health").then(
     (r: { data: unknown }) => r,

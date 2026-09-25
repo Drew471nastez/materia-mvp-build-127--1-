@@ -528,6 +528,20 @@ async function main() {
     check("and never answers with a database error or an address", !/fetchError\.message|err\.message \}/.test(cron))
   }
 
+  console.log("\nThe hourly run keeps inside its time")
+  {
+    const cron = read("app/api/cron/process-scheduled-emails/route.ts")
+    const n = (name: string) => Number((cron.match(new RegExp(`const ${name} = ([\\d_]+)`))?.[1] ?? "NaN").replace(/_/g, ""))
+    const max = Number(cron.match(/export const maxDuration = (\d+)/)?.[1]) * 1000
+    check("the engine stops claiming by a deadline counted from the start of the whole run, not from its own start",
+      /runDueJobs\(Math\.max\(0, Math\.min\(ENGINE_BUDGET_MS, started \+ ENGINE_DEADLINE_MS - Date\.now\(\)\)\)\)/.test(cron))
+    check("with a minute of room for the batch it holds before the function's limit",
+      n("ENGINE_DEADLINE_MS") + 60_000 <= max && n("LEGACY_DEADLINE_MS") < max && /Math\.min\(Date\.now\(\) \+ LEGACY_BUDGET_MS, started \+ LEGACY_DEADLINE_MS\)/.test(cron),
+      { engine: n("ENGINE_DEADLINE_MS"), legacy: n("LEGACY_DEADLINE_MS"), max })
+    check("the cron runs every hour, with the checkout sweep before the engine so a reminder's first email goes in the same run",
+      /"path": "\/api\/cron\/process-scheduled-emails",\s*"schedule": "0 \* \* \* \*"/.test(read("vercel.json")) && cron.indexOf("runAbandonedSweep()") < cron.indexOf("runDueJobs(") && /requireBearerSecret\(request, "CRON_SECRET"\)/.test(cron))
+  }
+
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }
 }
