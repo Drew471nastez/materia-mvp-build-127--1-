@@ -106,4 +106,3 @@ tsconfig.*.generated.json
 
 # The old slider, copied from git for the length of one probe run (scripts/check-slider-drag.mjs)
 scripts/.slider-old/
-scripts/zz-*.mjs
