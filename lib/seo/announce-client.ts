@@ -6,7 +6,7 @@
  * is awaited, a failure is swallowed, and it is only ever called after the
  * save itself succeeded, so it can never fail one.
  */
-export function announceChange(what: { product: string } | { profile: true }): void {
+export function announceChange(what: { product: string } | { removedProduct: string } | { profile: true }): void {
   try {
     void fetch("/api/seo/indexnow", {
       method: "POST",

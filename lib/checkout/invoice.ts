@@ -29,6 +29,7 @@ import { stripe } from "@/lib/stripe"
 import { businessFromMetadata, addressLines, type BusinessDetails } from "./business"
 import { countryName } from "./countries"
 import { fullyRefunded } from "@/lib/orders/refund-state"
+import { ownerAddress } from "@/lib/businesses/email-alias"
 
 type Db = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -194,7 +195,7 @@ export async function invoiceForOrder(
       let username: string | null = creator.username || creator.slug || null
       if ((!email || !name || !username) && creator.user_id) {
         const { data: profile } = await admin.from("profiles").select("email, display_name, username").eq("id", creator.user_id).maybeSingle()
-        email = email || profile?.email || null
+        email = email || ownerAddress(profile?.email) || null
         name = name || profile?.display_name || null
         username = username || profile?.username || null
       }

@@ -1780,7 +1780,8 @@ check(
     const cardMenu = code("components/storefront/product-owner-menu.tsx")
     const missing: string[] = []
 
-    if (!/if \(value && replaceOnly\)/.test(upload))
+    /* `(value || pending)` since a picked picture shows while it uploads (livePreview). */
+    if (!/if \(\(?value(?: \|\| pending\))? && replaceOnly\)/.test(upload))
       missing.push("the uploader has no replace-only mode — the avatar gets a delete button again")
     if ((dialog.match(/replaceOnly/g)?.length ?? 0) < 2)
       missing.push("the avatar or the cover is back to a deletable upload")
@@ -1977,10 +1978,11 @@ check(
      * where deleting really is the offer — and this is not the place to change
      * that.
      */
-    const replaceBranch = upload.slice(
-      upload.indexOf("if (value && replaceOnly)"),
-      upload.indexOf("if (value) {", upload.indexOf("if (value && replaceOnly)") + 10),
-    )
+    /* Spelled `(value || pending) && replaceOnly` since a picked picture shows while it uploads. */
+    const replaceAt = upload.indexOf("if ((value || pending) && replaceOnly)") >= 0
+      ? upload.indexOf("if ((value || pending) && replaceOnly)")
+      : upload.indexOf("if (value && replaceOnly)")
+    const replaceBranch = replaceAt < 0 ? "" : upload.slice(replaceAt, upload.indexOf("if (value) {", replaceAt + 10))
     if (!replaceBranch) missing.push("the replace-only branch is gone")
     else if (/variant="destructive"/.test(replaceBranch))
       missing.push("the destructive red button is back on a replace-only image")

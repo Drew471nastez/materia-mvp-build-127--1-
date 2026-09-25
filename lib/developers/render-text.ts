@@ -29,7 +29,7 @@ export function nodesToText(nodes: DocNode[]): string {
       case "quote": out.push(`> ${absolute(n.text)}`); break
       case "rule": out.push("---"); break
       case "list":
-        out.push(n.items.map((it, i) => `${n.ordered ? `${i + 1}.` : "-"} ${absolute(it)}`).join("\n"))
+        out.push(n.items.map((it, i) => `${n.ordered ? `${(n.start ?? 1) + i}.` : "-"} ${absolute(it)}`).join("\n"))
         break
       case "table":
         out.push([row(n.head), row(n.head.map(() => "---")), ...n.rows.map((r) => row(r.map(absolute)))].join("\n"))
@@ -58,6 +58,11 @@ export function nodesToText(nodes: DocNode[]): string {
           row(["---", ...n.schemes.map(() => "---")]),
           ...n.schemes[0].colors.map((c, i) => row([`${c.group}: ${c.label}`, ...n.schemes.map((sc) => sc.colors[i].value)])),
         ].join("\n"))
+        break
+      case "hubmap":
+        for (const g of n.groups) {
+          out.push(`## ${g.name}`, g.info, g.pages.map((p) => `- [${p.nav}](${SITE_ORIGIN}${p.href}): ${p.summary}`).join("\n"))
+        }
         break
       case "directive":
         break

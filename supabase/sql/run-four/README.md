@@ -2,7 +2,7 @@
 
 Everything the app is waiting on from the last three weeks, in four files for
 the Supabase SQL editor. They hold every part in `supabase/sql/run-now/`
-(01 to 26, then the storage policies and the check), text unchanged, so there
+(01 to 27, then the storage policies and the check), text unchanged, so there
 is one list and nothing to pick out by hand.
 
 ## How to run them
@@ -27,7 +27,7 @@ from `run-now/`, changes nothing.
 - `05`: basket orders from before the order source existed are marked as
   website orders.
 - `08`: products archived the old way get the status `archived`.
-- `26`: gives lucadragoste the Veteran badge.
+- `27`: gives lucadragoste the Veteran badge.
 
 Nothing else touches existing rows. Nothing deletes data.
 
@@ -63,7 +63,7 @@ sent whole, as the editor sends it, twice:
   warning, no error, only `p03_refund_once` false.
 
 After the four files, `run-now/00_check_first.sql` (the list of every table,
-column, function, policy and bucket the app's code names, 723 of them) finds
+column, function, policy and bucket the app's code names, 738 of them) finds
 nothing missing.
 
 Three objects the app uses are not in any file because they were made in the

@@ -1,5 +1,5 @@
 -- STORELIB DATABASE, FILE 3 of 4
--- Saved cards, bounces and exec_sql closed, email sending, domains for a website or creator page, browser notifications and time zone, Ask Storelib conversations, Analytics speed, creator badges.
+-- Saved cards, bounces and exec_sql closed, email sending, domains for a website or creator page, browser notifications and time zone, Ask Storelib conversations, Analytics speed, business accounts, creator badges.
 -- HOW: select all of this file, copy, paste into a NEW query tab in the Supabase
 -- SQL editor, press Run. Run the four files in order, one at a time.
 -- Safe to run again: every statement checks before it changes anything, so a
@@ -114,7 +114,22 @@ REVOKE ALL ON FUNCTION public.analytics_all_time(uuid, uuid) FROM PUBLIC, anon, 
 GRANT EXECUTE ON FUNCTION public.analytics_visit_tally(uuid, uuid, text, bigint, bigint, bigint, bigint, bigint[], bigint[], boolean) TO service_role;
 GRANT EXECUTE ON FUNCTION public.analytics_all_time(uuid, uuid) TO service_role;
 
--- part 26_creator_badges.sql
+-- part 26_business_accounts.sql
+/* Business accounts: one login, up to two businesses. The link between a login and its second business (one per login, no chains, read by the two accounts it links, written by the server only), and a server only log of every switch. Needs nothing else. Reasons: supabase/migrations/20261001_business_accounts.sql. */
+create table if not exists public.business_links (owner_id uuid not null references auth.users(id) on delete cascade, member_id uuid not null references auth.users(id) on delete cascade, created_at timestamptz not null default now(), constraint business_links_pkey primary key (member_id), constraint business_links_one_per_owner unique (owner_id), constraint business_links_not_self check (owner_id <> member_id));
+alter table public.business_links enable row level security;
+drop policy if exists business_links_read on public.business_links;
+create policy business_links_read on public.business_links for select using ((select auth.uid()) = owner_id or (select auth.uid()) = member_id);
+revoke insert, update, delete on public.business_links from anon, authenticated;
+create or replace function public.business_links_no_chain() returns trigger language plpgsql security definer set search_path = public as $$ begin if exists (select 1 from public.business_links where member_id = new.owner_id) then raise exception 'A business account cannot own another business'; end if; if exists (select 1 from public.business_links where owner_id = new.member_id) then raise exception 'An account that owns a business cannot be added as one'; end if; return new; end; $$;
+drop trigger if exists business_links_no_chain on public.business_links;
+create trigger business_links_no_chain before insert or update on public.business_links for each row execute function public.business_links_no_chain();
+create table if not exists public.business_switches (id bigint generated always as identity primary key, from_user uuid not null, to_user uuid not null, created_at timestamptz not null default now(), ip text, user_agent text);
+alter table public.business_switches enable row level security;
+revoke all on public.business_switches from anon, authenticated;
+create index if not exists business_switches_from_created on public.business_switches (from_user, created_at desc);
+
+-- part 27_creator_badges.sql
 /* Creator badges Storelib grants (profiles.badges), kept from being written through the API by a trigger, and Veteran for lucadragoste. Safe to run twice. */
 alter table public.profiles add column if not exists badges text[] not null default '{}';
 create or replace function public.profiles_keep_badges() returns trigger language plpgsql as $$ begin if current_user in ('authenticated', 'anon') then if tg_op = 'INSERT' then new.badges := '{}'; elsif new.badges is distinct from old.badges then new.badges := old.badges; end if; end if; return new; end $$;

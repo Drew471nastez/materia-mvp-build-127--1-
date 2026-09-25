@@ -165,7 +165,7 @@ console.log("\nThe database change, and before it runs")
 
 console.log("\nThe pages name it")
 {
-  check("the creator page's canonical", /canonical: pageHost \? `https:\/\/\$\{pageHost\}\/` : `https:\/\/storelib\.com\/\$\{username\}`/.test(code("app/(marketing)/u/[username]/page.tsx")))
+  check("the creator page's canonical", /const pageUrl = pageHost \? `https:\/\/\$\{pageHost\}\/` : `https:\/\/storelib\.com\/\$\{handle\}`/.test(code("app/(marketing)/u/[username]/page.tsx")) && /canonical: pageUrl,/.test(code("app/(marketing)/u/[username]/page.tsx")))
   const product = code("app/(marketing)/p/[slug]/page.tsx")
   check("a product's canonical, structured data and share sheet", /getProductShareUrl\(sellerHandle \|\| "", product\.slug, pageHost\)/.test(product) && /getProductShareUrl\(creatorUsername, product\.slug, pageHost\)/.test(product) && /pageHost=\{pageHost\}/.test(product))
   check("the OnePage's canonical and share sheet", /alternates: \{ canonical: pageAddress \}/.test(code("app/(marketing)/l/[slug]/page.tsx")) && /custom_domain: await primaryHostFor\(resolvedCreatorId, "creator_page"\)/.test(code("app/(marketing)/l/[slug]/page.tsx")) && /getLinksShareUrl\(onepage\.slug, /.test(code("components/onepage/public-onepage.tsx")))

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { stripe } from "@/lib/stripe"
 import { countryCode } from "@/lib/checkout/countries"
+import { ownerAddress } from "@/lib/businesses/email-alias"
 
 function tryCreateAdminClient() {
   try {
@@ -44,7 +45,7 @@ export async function POST() {
         type: "express",
         /* The profile may hold a name ("United States"); Stripe takes the code. */
         country: countryCode((profile as any)?.country) ?? "RO",
-        email: profile?.email || user.email || undefined,
+        email: ownerAddress(profile?.email || user.email) || undefined,
         capabilities: {
           card_payments: { requested: true },
           transfers: { requested: true },

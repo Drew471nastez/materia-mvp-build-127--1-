@@ -47,12 +47,13 @@ part changed. Stop there and send the error; the parts after it expect it.
 | `23_browser_push_and_time_zone.sql` | Browser notifications save (push_tokens takes platform `web`), and the account's time zone column. | 4 | 887 |
 | `24_theme_chat_conversations.sql` | Ask Storelib conversations: new chat and history. Each message is filed under a conversation on its own website; only its creator can read them. | 15 | 2,794 |
 | `25_analytics_speed.sql` | Analytics that load quickly: indexes in the order the reports read, and the counting done in the database, run by the server only. The page works without it. Can take a minute on a large events table. | 13 | 9,648 |
-| `26_creator_badges.sql` | Badges Storelib grants a creator (Veteran for lucadragoste), and a trigger so nobody can set their own through the API. | 7 | 942 |
+| `26_business_accounts.sql` | A second business on the same login: the link between the two accounts (one per login, read by those two, written by the server only) and a server only log of every switch. | 13 | 2,278 |
+| `27_creator_badges.sql` | Badges Storelib grants a creator (Veteran for lucadragoste), and a trigger so nobody can set their own through the API. | 7 | 942 |
 | `90_storage_policies_needs_owner.sql` | LAST, ON ITS OWN. Replaces the storage.objects policies. Needs the owner of storage.objects; see README if it says "must be owner". | 2 | 3,896 |
 | `91_storage_policies_to_remove.sql` | Read only. For the dashboard route: the storage policies to delete. | 2 | 1,242 |
-| `99_check_after.sql` | Read only. One row of true or false, one column per part. | 2 | 8,317 |
+| `99_check_after.sql` | Read only. One row of true or false, one column per part. | 2 | 8,548 |
 
-Parts `01` to `26` all run as the editor's normal role. `90` is the one
+Parts `01` to `27` all run as the editor's normal role. `90` is the one
 that may not; see below.
 
 Two of the three `pre-flight` rows in `00` matter to `16` and to Route 1 below:
