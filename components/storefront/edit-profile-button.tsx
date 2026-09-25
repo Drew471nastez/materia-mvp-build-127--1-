@@ -31,6 +31,7 @@ import { ImageUpload } from "@/components/app/image-upload"
 import { Pencil, Wand2 } from "lucide-react"
 import { SocialLinksEditor } from "@/components/social/social-links-editor"
 import { SchemePicker } from "@/components/storefront/scheme-picker"
+import { OWNER_CONTROL_DEPTH } from "@/components/storefront/owner-actions-menu"
 import { useSchemePreview } from "@/components/storefront/use-scheme-preview"
 import type { RootPaint } from "@/lib/store-builder/scheme-preview"
 import type { SocialPlatformKey } from "@/lib/social/platforms"
@@ -298,7 +299,8 @@ export function EditProfileButton({
           // chip or a tag; this is a button, and it sits beside a card grid whose
           // corners are the same 8px.
           /* 36px to the eye over the cover, 44px to a thumb (the ::before). */
-          className="relative inline-flex h-9 items-center gap-2 rounded-lg bg-white/95 px-3 text-sm font-medium text-gray-900 shadow-md backdrop-blur transition-colors before:absolute before:-inset-1 before:content-[''] hover:bg-white sm:px-4"
+          /* Raised a little more on a phone, where it sits on the banner alone (OWNER_CONTROL_DEPTH). */
+          className={`relative inline-flex h-9 items-center gap-2 rounded-lg bg-white/95 px-3 text-sm font-medium text-gray-900 backdrop-blur transition-colors before:absolute before:-inset-1 before:content-[''] hover:bg-white sm:px-4 ${OWNER_CONTROL_DEPTH}`}
         >
           <Pencil className="h-3.5 w-3.5" />
           {/* The word on a desktop; on a phone the cover is 128px tall and a

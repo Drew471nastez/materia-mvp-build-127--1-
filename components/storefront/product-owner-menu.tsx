@@ -13,45 +13,40 @@
  * only ever be a worse version of that, so the menu takes you there.
  */
 
-import { SmartLink } from "@/components/smart-link"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+import * as React from "react"
 import { MoreHorizontal } from "lucide-react"
 
-export function ProductOwnerMenu({ productId, productHref }: { productId: string; productHref?: string }) {
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        aria-label="Product options"
-        onClick={(e) => {
-          // The card is a link. Opening the menu is not navigating.
-          e.preventDefault()
-          e.stopPropagation()
-        }}
-        className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/95 text-gray-900 shadow-sm ring-1 ring-black/5 backdrop-blur transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-      >
-        <MoreHorizontal className="h-4 w-4" />
-      </DropdownMenuTrigger>
+import { OwnerActionsMenu } from "@/components/storefront/owner-actions-menu"
+import { isInEditorFrame } from "@/lib/store-builder/editor-channel"
 
-      <DropdownMenuContent align="end" sideOffset={6} className="w-52" onClick={(e) => e.stopPropagation()}>
-        {/* No icons — three short labels do not need pictures beside them. */}
-        <DropdownMenuItem asChild className="cursor-pointer">
-          {/* /app/products/[id] redirects into the editor for that product. */}
-          <SmartLink href={`/app/products/${productId}`}>Edit product</SmartLink>
-        </DropdownMenuItem>
-        <DropdownMenuItem asChild className="cursor-pointer">
-          <SmartLink href="/app/analytics">View analytics</SmartLink>
-        </DropdownMenuItem>
-        {productHref && (
-          <DropdownMenuItem asChild className="cursor-pointer">
-            <SmartLink href={productHref}>Open product page</SmartLink>
-          </DropdownMenuItem>
-        )}
-      </DropdownMenuContent>
-    </DropdownMenu>
+export function ProductOwnerMenu({ productId, productHref }: { productId: string; productHref?: string }) {
+  /**
+   * INSIDE THE WORKSPACE, THE APP OPENS OVER IT. "Edit product" and
+   * "View analytics" go to /app, which the canvas refuses to load, so from
+   * inside the frame they did nothing when pressed. They leave the frame now,
+   * as the header's menu always has. Asked of the window after mounting, so
+   * the server render and the first client render agree.
+   */
+  const [framed, setFramed] = React.useState(false)
+  React.useEffect(() => setFramed(isInEditorFrame()), [])
+  const top = framed ? { target: "_top" as const } : {}
+  /* No icons: three short labels do not need pictures beside them. */
+  const links = [
+    /* /app/products/[id] redirects into the editor for that product. */
+    { href: `/app/products/${productId}`, label: "Edit product", ...top },
+    { href: "/app/analytics", label: "View analytics", ...top },
+    ...(productHref ? [{ href: productHref, label: "Open product page" }] : []),
+  ]
+  return (
+    <OwnerActionsMenu
+      ariaLabel="Product options"
+      title="This product"
+      links={links}
+      /* The card is a link. Opening the menu is not navigating (the menu stops the click: e.preventDefault(), e.stopPropagation()). */
+      stopClicks
+      icon={<MoreHorizontal className="h-4 w-4" />}
+      menuClassName="w-52"
+      triggerClassName="flex h-8 w-8 items-center justify-center rounded-lg bg-white/95 text-gray-900 shadow-sm ring-1 ring-black/5 backdrop-blur transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+    />
   )
 }

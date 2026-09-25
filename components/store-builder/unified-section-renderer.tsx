@@ -2887,7 +2887,9 @@ export function UnifiedShopHeader({
           {ownerActions && (
             <div
               className={cn(
-                "absolute right-3 top-3 z-[6]",
+                /* 15px from the top on a phone, a touch below the 12px it was, so the
+                   raised buttons sit into the banner rather than on its edge. */
+                "absolute right-3 top-[15px] z-[6]",
                 !isMobile && "sm:bottom-4 sm:right-4 sm:top-auto",
               )}
             >

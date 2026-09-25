@@ -13,16 +13,9 @@
  * So it is a menu of destinations, not a second editor.
  */
 
-import { SmartLink } from "@/components/smart-link"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import { MoreHorizontal } from "lucide-react"
+
+import { OWNER_CONTROL_DEPTH, OwnerActionsMenu } from "@/components/storefront/owner-actions-menu"
 
 /**
  * NO ICONS ON THE ITEMS. Four rows that each say what they are do not need a
@@ -37,34 +30,19 @@ const LINKS = [
 ] as const
 
 export function OwnerMenu({ embedded = false }: { embedded?: boolean }) {
+  /* Inside the workspace frame these are app screens, and loading the app
+     inside a frame on a public page is not a destination. _top puts them
+     where they belong. */
+  const links = LINKS.map((link) => ({ ...link, ...(embedded ? { target: "_top" as const } : {}) }))
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        aria-label="Creator options"
-        className="relative flex h-9 w-9 items-center justify-center rounded-lg bg-white/95 before:absolute before:-inset-1 before:content-[''] text-gray-900 shadow-md backdrop-blur transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-      >
-        <MoreHorizontal className="h-4 w-4" />
-      </DropdownMenuTrigger>
-
-      <DropdownMenuContent align="end" sideOffset={8} className="w-60">
-        <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
-          Only you can see this
-        </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        {LINKS.map(({ href, label, detail }) => (
-          <DropdownMenuItem key={href} asChild className="cursor-pointer py-2">
-            {/* Inside the workspace frame these are app screens, and loading
-                the app inside a frame on a public page is not a destination.
-                _top puts them where they belong. */}
-            <SmartLink href={href} {...(embedded ? { target: "_top" as const } : {})}>
-              <span className="flex flex-col">
-                <span className="text-sm">{label}</span>
-                <span className="text-xs text-muted-foreground">{detail}</span>
-              </span>
-            </SmartLink>
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
+    /* A dropdown under a mouse, the app's bottom sheet on a phone (owner-actions-menu). */
+    <OwnerActionsMenu
+      ariaLabel="Creator options"
+      title="Your page"
+      heading="Only you can see this"
+      links={links}
+      icon={<MoreHorizontal className="h-4 w-4" />}
+      triggerClassName={`relative flex h-9 w-9 items-center justify-center rounded-lg bg-white/95 before:absolute before:-inset-1 before:content-[''] text-gray-900 backdrop-blur transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 ${OWNER_CONTROL_DEPTH}`}
+    />
   )
 }

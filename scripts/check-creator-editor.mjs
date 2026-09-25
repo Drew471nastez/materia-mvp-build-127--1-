@@ -244,6 +244,21 @@ for (const vp of ONLY && ONLY !== "reopen" ? [] : [
   }
   report[`edit profile @${vp.name}, every way out and back in`] = rows.join("\n  ")
 
+  /* The owner's buttons on the cover, and the three dots' menu: a sheet on a phone, a dropdown on a computer. */
+  await p.shot(`owner-controls-${vp.name}`)
+  const controls = JSON.parse(await p.js(`JSON.stringify({ top: document.querySelector("[aria-label='Edit profile']").getBoundingClientRect().top - document.querySelector("[data-cover-band]").getBoundingClientRect().top,
+    shadow: getComputedStyle(document.querySelector("[aria-label='Edit profile']")).boxShadow })`))
+  await p.tap(dots.x + dots.width / 2, dots.y + dots.height / 2)
+  await sleep(700)
+  const menu = JSON.parse(await p.js(`JSON.stringify({ sheet: !!document.querySelector("[data-app-sheet] [data-sheet-panel] a[href='/app/products']"), dropdown: !!document.querySelector("[role=menu] a[href='/app/products']"),
+    top: [...document.querySelectorAll("a[href='/app/products']")].map((a) => a.getAttribute("target")) })`))
+  await p.shot(`owner-menu-${vp.name}`)
+  await p.key("Escape")
+  await sleep(600)
+  report[`owner controls @${vp.name}`] = `buttons ${round(controls.top)}px into the banner; shadow ${controls.shadow}; menu as ${menu.sheet ? "a bottom sheet" : menu.dropdown ? "a dropdown" : "nothing"}, links target ${JSON.stringify(menu.top)}`
+  if (vp.phone ? !menu.sheet : !menu.dropdown) problems.push(`${vp.name}: the three dots opened ${menu.sheet ? "a sheet" : menu.dropdown ? "a dropdown" : "nothing"}`)
+  if (!menu.top.every((t) => t === "_top")) problems.push(`${vp.name}: an owner menu link would load the app inside the frame`)
+
   /* ── The motion: how soon it moves after the press, and whether any frame is late ── */
   const RECORD = `(() => {
     window.__track = []; window.__long = 0; window.__press = performance.now()
@@ -415,6 +430,50 @@ for (const vp of ONLY && ONLY !== "schemes" ? [] : [
   if (sent !== "harbor") problems.push(`${vp.name}: Save did not send the scheme that was being shown (${sent})`)
   if (afterSave !== hex("#ECF1F5")) problems.push(`${vp.name}: after saving Harbor the page is ${afterSave}`)
   if (/scheme=/.test(address)) problems.push(`${vp.name}: the preview is still in the address after Save (${address})`)
+  await p.close()
+}
+
+/* ======================================================================
+   3. "YOUR PAGE IS LIVE": how soon a close shows, and whether it drops frames
+   ====================================================================== */
+for (const vp of ONLY && ONLY !== "share" ? [] : [
+  { name: "1280", width: 1280, height: 800, phone: false },
+  { name: "390", width: 390, height: 844, phone: true },
+]) {
+  const p = await page({ ...vp, hash: "share" })
+  const card = `(() => { const h = [...document.querySelectorAll("h2")].find((e) => e.textContent === "Your page is live"); if (!h) return null
+    let el = h; while (el && el.parentElement && !(el.getAttribute("role") === "dialog" || el.hasAttribute("data-sheet-panel"))) el = el.parentElement
+    return el })()`
+  const rows = []
+  for (let i = 0; i < 3; i++) {
+    await p.js("window.__setShare(true)")
+    await sleep(700)
+    const box = JSON.parse(await p.js(`JSON.stringify(${card}?.getBoundingClientRect() ?? null)`))
+    if (!box) { problems.push(`${vp.name}: the share card did not open`); break }
+    await p.js(`(() => { window.__trk = []; window.__long = 0; window.__clickAt = null
+      try { new PerformanceObserver((l) => { for (const e of l.getEntries()) window.__long = Math.max(window.__long, e.duration) }).observe({ type: "longtask" }) } catch {}
+      document.addEventListener(${vp.phone ? '"touchend"' : '"pointerdown"'}, () => { if (window.__clickAt === null) window.__clickAt = performance.now() }, { capture: true, once: true })
+      const t0 = performance.now()
+      const tick = (t) => { const el = ${card}; const r = el?.getBoundingClientRect(); const cs = el && getComputedStyle(el)
+        window.__trk.push([t, el ? Math.round(r.top) : null, el ? Number(cs.opacity) : 0]); if (t - t0 < 1100) requestAnimationFrame(tick) }
+      requestAnimationFrame(tick) })()`)
+    /* Out: a tap beside the card on a computer, above the sheet on a phone. */
+    await p.tap(vp.phone ? vp.width / 2 : 80, vp.phone ? 60 : vp.height - 80)
+    await sleep(1200)
+    const r = JSON.parse(await p.js(`(() => { const tr = window.__trk, c = window.__clickAt
+      const after = tr.filter(([t]) => t >= c), base = after[0]
+      const moved = after.find(([, y, o]) => y !== base?.[1] || Math.abs(o - (base?.[2] ?? 1)) > 0.03)
+      const gone = after.find(([, y]) => y === null)
+      const gaps = after.slice(1).map(([t], i) => t - after[i][0]).sort((a, b) => a - b)
+      return JSON.stringify({ firstMove: moved ? moved[0] - c : null, gone: gone ? gone[0] - c : null, max: gaps[gaps.length - 1] ?? 0, long: window.__long })
+    })()`))
+    rows.push(`close #${i}: visibly moving ${r.firstMove == null ? "never" : round(r.firstMove) + "ms"} after the press, gone at ${r.gone == null ? "never" : round(r.gone) + "ms"}, worst frame gap ${round(r.max)}ms, longest task ${round(r.long)}ms`)
+    if (r.firstMove == null || r.firstMove > 40) problems.push(`${vp.name}: the share card took ${r.firstMove}ms to start leaving`)
+    if (r.gone == null) problems.push(`${vp.name}: the share card never left`)
+    if (r.max > 34) problems.push(`${vp.name}: a ${round(r.max)}ms frame while the share card closed`)
+  }
+  await p.js("window.__setShare(true)"); await sleep(800); await p.shot(`share-${vp.name}`)
+  report[`share card @${vp.name}`] = rows.join("\n  ")
   await p.close()
 }
 

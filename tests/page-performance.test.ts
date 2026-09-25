@@ -1382,8 +1382,10 @@ check(
     if (!/isOwner = false/.test(card)) missing.push("the per-card menu defaults to shown")
     if (!/viewerIsOwner/.test(page)) missing.push("the page no longer passes who is looking down to the cards")
 
-    // The trigger must not navigate the card it sits on.
-    if (!/e\.preventDefault\(\)/.test(menu) || !/e\.stopPropagation\(\)/.test(menu))
+    // The trigger must not navigate the card it sits on. The menu is the shared
+    // owner menu now (a sheet on a phone), which stops the click when told to.
+    const shared = code("components/storefront/owner-actions-menu.tsx")
+    if (!/\bstopClicks\b/.test(menu) || !/e\.preventDefault\(\)/.test(shared) || !/e\.stopPropagation\(\)/.test(shared))
       missing.push("opening the menu navigates the card underneath it")
 
     if (!menu.includes("/app/products/${productId}")) missing.push("Edit product no longer opens that product")
@@ -2232,7 +2234,8 @@ check(
     if (!block) missing.push("could not find the owner-actions block")
     if (/isMobile \? "top-3 right-3" : "bottom-4 right-4"/.test(header))
       missing.push("the position is chosen by the isMobile prop again — the published page always picks desktop")
-    if (!/"absolute right-3 top-3 z-\[6\]"/.test(block))
+    /* 15px rather than 12 since the owner asked for the phone controls a few pixels lower. */
+    if (!/"absolute right-3 top-\[15px\] z-\[6\]"/.test(block))
       missing.push("the owner's controls no longer start at the top-right, where nothing else is")
     if (!/!isMobile && "sm:bottom-4 sm:right-4 sm:top-auto"/.test(block))
       missing.push("the desktop position is no longer a breakpoint")

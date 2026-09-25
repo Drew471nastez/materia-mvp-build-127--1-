@@ -216,7 +216,8 @@ function main() {
     /* Comment-stripped: the shell's own note quotes the prop it is checked for. */
     const sheetCode = code("components/storefront/editor-sheet.tsx")
     /* BottomSheet has no peek at all: closed is out of the document. */
-    check("closed sheets are off screen, not peeking", !sheetCode.includes("peekHeight") && code("components/app/creator-page-share.tsx").includes("peekHeight={0}"))
+    /* The share card is on BottomSheet too now, which has no peek at all: closed is out of the document. */
+    check("closed sheets are off screen, not peeking", !sheetCode.includes("peekHeight") && code("components/app/creator-page-share.tsx").includes("<BottomSheet") && !code("components/app/creator-page-share.tsx").includes("<MobileEditorSheet"))
     check("and the sheet decides nothing about the breakpoint useIsPhone already decided", sheetCode.includes("hideFrom={null}"))
 
     /** Six sentences as pills were six things competing for the eye. */
@@ -1098,7 +1099,8 @@ function main() {
      */
     check("the share card has no close button", !/aria-label="Close"/.test(share) && !/<X /.test(share))
     check("Escape still closes it", panel.includes('e.key === "Escape"'))
-    check("and a phone gets a real bottom sheet", share.includes("MobileEditorSheet"))
+    /* The app's own sheet since the builder's lagged on close (scripts/check-creator-editor measures it). */
+    check("and a phone gets a real bottom sheet", share.includes("<BottomSheet") && !share.includes("<MobileEditorSheet"))
   }
 
   /* ------------------------------------------------------------------ */
