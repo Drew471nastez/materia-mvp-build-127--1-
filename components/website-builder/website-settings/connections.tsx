@@ -1,95 +1,78 @@
 "use client"
 
 import { useState } from "react"
-import { Terminal } from "lucide-react"
-import { AgentConnectionsPanel } from "@/components/website-builder/agent-connections-panel"
-import { GitHubMark, GitHubSyncPanel } from "@/components/website-builder/github-sync-panel"
-import { cn } from "@/lib/utils"
+import { AgentConnectionRow, useAgentConnections } from "@/components/website-builder/agent-connections-panel"
+import { GitHubSyncPanel } from "@/components/website-builder/github-sync-panel"
+import { InlineButton } from "./connection-row"
 import { Card, Lead, PageTitle, Row, buttonClass } from "./parts"
-import type { ConnectVia, SettingsContext } from "./types"
+import type { SettingsContext } from "./types"
 
-const PATHS: { id: ConnectVia; title: string; tools: string; note?: string }[] = [
-  { id: "direct", title: "Connect directly", tools: "Claude Code, Codex CLI", note: "Recommended" },
-  { id: "github", title: "Through GitHub", tools: "ChatGPT Codex, Claude Code on the web, any tool that works on a repo" },
-]
+/** The lines on Connections. "other" is shown once it is asked for, or has a key. */
+type ConnectionId = "claude" | "codex" | "github" | "other"
 
 /**
  * ===========================================================================
- *  CONNECT AN AI CODING TOOL
+ *  CONNECTIONS: WHICH TOOLS CAN CHANGE THIS WEBSITE
  * ===========================================================================
- * One question first: how does your tool reach this website?
+ * A list of the tools, each with whether it is connected and one button:
  *
- *   Connect directly   Claude Code or the Codex CLI on your own computer. A
- *                      token and one line in a terminal; nothing else to set
- *                      up, so it is the one we recommend.
- *   Through GitHub     For anything that works on a repository rather than
- *                      on your computer: ChatGPT's Codex, Claude Code on the
- *                      web. Link a repository, and a push arrives here.
+ *   Claude Code   on the creator's own computer, with a key
+ *   Codex         the same
+ *   GitHub        a repository, for anything that works on one: Codex in
+ *                 ChatGPT, Claude Code on the web, a person
  *
- * Each answer is its own three steps, and the other is not on the screen.
- * The two used to be stacked one under the other, each explaining itself,
- * with a row of tool names above them that decided which order they came in,
- * and a creator had to read all of it to work out which part applied.
+ * and, when asked for, another tool that speaks MCP. One line opens at a
+ * time, with its steps or its settings under it.
+ *
+ * It used to open on a question, "Connect directly" or "Through GitHub",
+ * each with a paragraph, and only the answer's steps were drawn. Which one
+ * applied depended on knowing what MCP and a repository are. Everybody
+ * knows which tool they use, so the tools are the list, and the one line
+ * that needs the other route says so where it is read: "Using Codex in
+ * ChatGPT? Connect GitHub instead."
  *
  * Whatever arrives either way is a draft of this one website until it is
  * published.
  */
 export function ConnectionsSettings({ ctx }: { ctx: SettingsContext }) {
-  /* Back from GitHub's install page, or sent by the top bar's GitHub button:
-     the GitHub path. Otherwise the recommended one. */
-  const [via, setVia] = useState<ConnectVia>(ctx.connectVia ?? (ctx.githubReturned ? "github" : "direct"))
+  /* Back from GitHub's install page, or sent by the top bar's GitHub button: GitHub, open. */
+  const [open, setOpen] = useState<ConnectionId | null>(ctx.connectVia === "github" || ctx.githubReturned ? "github" : null)
+  const agents = useAgentConnections(ctx.installId)
+  const onOpen = (id: ConnectionId | null) => setOpen(id)
+  const showOther = open === "other" || (agents.connections !== null && agents.byTool.other.length > 0)
 
   return (
     <>
       <PageTitle>Connections</PageTitle>
+      <Lead>Let Claude Code, Codex or a GitHub repository change this website. What they write is a draft until you publish.</Lead>
 
-      <section className="mt-6">
-        <h2 className="text-[17px] font-medium">Connect Claude Code, Codex or ChatGPT</h2>
-        <Lead>They write this website&apos;s sections. They reach this website only, and what they write is a draft until you publish.</Lead>
-
-        <div role="radiogroup" aria-label="How to connect" className="mt-5 grid gap-3 sm:grid-cols-2">
-          {PATHS.map((p) => {
-            const on = via === p.id
-            return (
-              <button
-                key={p.id}
-                type="button"
-                role="radio"
-                aria-checked={on}
-                onClick={() => setVia(p.id)}
-                className={cn(
-                  "group flex items-start gap-3.5 rounded-2xl border p-4 text-left transition-colors duration-150 md:p-5",
-                  on ? "border-white/70 bg-white/[0.07]" : "border-white/10 bg-white/[0.02] hover:border-white/25 hover:bg-white/[0.04]",
-                )}
-              >
-                <span
-                  className={cn(
-                    "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-colors duration-150",
-                    on ? "bg-white text-[#0f0f0f]" : "bg-white/[0.07] text-white/70",
-                  )}
-                >
-                  {p.id === "github" ? <GitHubMark className="h-[18px] w-[18px]" /> : <Terminal className="h-[18px] w-[18px]" strokeWidth={2} />}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="flex items-baseline justify-between gap-3">
-                    <span className="text-[15px] font-medium text-white">{p.title}</span>
-                    {p.note && <span className="shrink-0 text-[12.5px] text-emerald-300/90">{p.note}</span>}
-                  </span>
-                  <span className="mt-1 block text-[13.5px] leading-snug text-white/55">{p.tools}</span>
-                </span>
-              </button>
-            )
-          })}
-        </div>
-
-        <div className="mt-8">
-          {via === "github" ? (
-            <GitHubSyncPanel installId={ctx.installId} returned={ctx.githubReturned} />
-          ) : (
-            <AgentConnectionsPanel installId={ctx.installId} />
-          )}
-        </div>
+      <section
+        aria-label="Connections"
+        className="mt-6 divide-y divide-white/[0.07] overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] md:mt-7"
+      >
+        <AgentConnectionRow tool="claude" agents={agents} open={open === "claude"} onOpen={onOpen} onGitHub={() => setOpen("github")} />
+        <AgentConnectionRow tool="codex" agents={agents} open={open === "codex"} onOpen={onOpen} onGitHub={() => setOpen("github")} />
+        <GitHubSyncPanel
+          installId={ctx.installId}
+          returned={ctx.githubReturned}
+          open={open === "github"}
+          onToggle={() => setOpen(open === "github" ? null : "github")}
+        />
+        {showOther && <AgentConnectionRow tool="other" agents={agents} open={open === "other"} onOpen={onOpen} onGitHub={() => setOpen("github")} />}
       </section>
+      {!showOther && (
+        <p className="mt-3 text-[13.5px] text-white/45 md:text-[13px]">
+          Another tool that works with MCP?{" "}
+          <InlineButton
+            onClick={() => {
+              setOpen("other")
+              if (!agents.fresh.other && agents.making !== "other") void agents.make("other")
+            }}
+          >
+            Connect it
+          </InlineButton>
+        </p>
+      )}
 
       <Card title="Code">
         <Row label="Section files" hint="Every section of this website is a .storelib file you can read and change.">

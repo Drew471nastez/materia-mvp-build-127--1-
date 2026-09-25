@@ -726,8 +726,12 @@ section("The library draws what you would actually get")
    * wrote does not ship with the theme, so it had nothing to draw from and
    * arrived as an empty box under its own name.
    */
-  check("a section you wrote has a preview, because the cards get your files", /<StorelibLiveProvider sources=\{sources\}>/.test(editor) && /sources=\{storelibSources\}/.test(editor))
-  check("and there is one renderer around the grid, not one per card", (editor.match(/<StorelibLiveProvider/g) ?? []).length === 2)
+  /* The library is its own module now: components/website-builder/editor/section-library.tsx. */
+  const library = readFileSync(join(root, "components/website-builder/editor/section-library.tsx"), "utf8")
+  check("a section you wrote has a preview, because the cards get your files",
+    /<StorelibLiveProvider sources=\{job\.sources\}>/.test(library) && /<SectionLibrary[\s\S]{0,400}sources=\{storelibSources\}/.test(editor))
+  check("and each preview is drawn once, off screen, not by a live renderer in every card",
+    (library.match(/<StorelibLiveProvider/g) ?? []).length === 1 && /dangerouslySetInnerHTML=\{html\}/.test(library))
   /**
    * Thirty cards measuring themselves was thirty observers agreeing, each
    * reporting after the first paint — so every card drew once at a guess and
@@ -743,11 +747,12 @@ section("The library draws what you would actually get")
    * A callback ref is handed the node the moment the node exists, so the one
    * measurement still happens once and can no longer be missed.
    */
-  check("the column is measured once, by the grid, the moment the grid exists", /const gridRef = useCallback\(\(el: HTMLDivElement \| null\) => \{/.test(editor) && (editor.match(/new ResizeObserver\(/g) ?? []).length >= 1 && !/new ResizeObserver\(\(\[entry\]\) => \{/.test(editor))
-  check("and a card takes that width rather than finding its own", /\/\*\* Measured once by the grid, not thirty times by thirty cards\. \*\//.test(editor) && /width: number/.test(editor))
+  check("the column is measured once, by the grid, the moment the grid exists", /const gridRef = useCallback\(\(el: HTMLDivElement \| null\) => \{/.test(library) && (library.match(/new ResizeObserver\(/g) ?? []).length === 1)
+  check("and a card takes that width rather than finding its own", /const cardWidth = gridWidth > 0 \?/.test(library) && /width=\{cardWidth\}/.test(library))
   // A box whose height is known before anything renders cannot shift when it does.
-  check("a preview box is a known shape before it draws, so the grid never resettles", /const PREVIEW_RATIO = 0\.5/.test(editor) && /height,\s*\n\s*contentVisibility: "auto"/.test(editor) && /containIntrinsicSize:/.test(editor))
-  check("and it scales with a transform, which costs no layout", /transform: `scale\(\$\{scale\}\)`/.test(editor) && !/zoom: scale/.test(editor))
+  check("a preview box is a known shape before it draws, so the grid never resettles",
+    /export const PREVIEW_RATIO = 0\.56/.test(library) && /height: height \|\| undefined,/.test(library) && /contentVisibility: "auto"/.test(library) && /containIntrinsicSize:/.test(library))
+  check("and it scales with a transform, which costs no layout", /transform: `scale\(\$\{scale\}\)`/.test(library) && !/zoom: scale/.test(library))
 }
 
 console.log(`\n${passed} passed, ${failed} failed\n`)

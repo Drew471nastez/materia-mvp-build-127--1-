@@ -19,6 +19,8 @@ import { createHmac } from "node:crypto"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 
+import { githubStatus } from "@/components/website-builder/github-sync-panel"
+
 import {
   COMMIT_MARKER,
   MAX_FILES_PER_PUSH,
@@ -198,16 +200,31 @@ function main() {
   const panel = read("components/website-builder/github-sync-panel.tsx")
   {
     const advanced = read("components/website-builder/website-settings/connections.tsx")
-    check("Website settings › Connections has the GitHub path, as one of two answers to one question",
-      /<GitHubSyncPanel installId=\{ctx\.installId\}/.test(advanced) && (advanced.match(/<GitHubSyncPanel /g) ?? []).length === 1 &&
-        /via === "github" \?/.test(advanced))
-    check("and ChatGPT is sent to GitHub, the route that works for it",
-      /id: "github", title: "Through GitHub", tools: "ChatGPT Codex, Claude Code on the web/.test(advanced))
-    check("the GitHub button and a return from GitHub open that path",
-      /ctx\.connectVia \?\? \(ctx\.githubReturned \? "github" : "direct"\)/.test(advanced))
+    const direct = read("components/website-builder/agent-connections-panel.tsx")
+    check("Website settings › Connections has GitHub as one line of the list, after Claude Code and Codex",
+      /<GitHubSyncPanel\s+installId=\{ctx\.installId\}/.test(advanced) && (advanced.match(/<GitHubSyncPanel/g) ?? []).length === 1 &&
+        advanced.indexOf('tool="codex"') < advanced.indexOf("<GitHubSyncPanel"))
+    check("and the tools that work on a repository are sent to it from their own lines",
+      /web: "Codex in ChatGPT"/.test(direct) && /web: "Claude Code on the web"/.test(direct) && /onGitHub=\{\(\) => setOpen\("github"\)\}/.test(advanced))
+    check("the GitHub button and a return from GitHub open that line",
+      /useState<ConnectionId \| null>\(ctx\.connectVia === "github" \|\| ctx\.githubReturned \? "github" : null\)/.test(advanced))
   }
   check("it says how it works in three steps", /Connect a repository/.test(panel) && /Ask your agent for a change/.test(panel) && /It appears here/.test(panel))
   check("and says so plainly when GitHub is not set up on the server", /GitHub is not switched on for this Storelib yet/.test(panel))
+  {
+    const said = (s: Parameters<typeof githubStatus>[0], failed = false) => {
+      const r = githubStatus(s, failed)
+      return [r.status, r.detail, r.action].filter(Boolean).join(" | ")
+    }
+    const link = { account: "maya", repo: "maya/site", branch: "main", folder: "", lastSyncedAt: null, lastSyncedSha: null, lastError: null, pushOnSave: true, pullOnPush: true }
+    check("its line says where GitHub stands, with the one thing to press",
+      said({ configured: true, ready: true, link: null }) === "Not connected | Connect" &&
+        said({ configured: true, ready: true, link: { ...link, repo: null } }) === "Pick a repository | maya | Continue" &&
+        said({ configured: true, ready: true, link }) === "Connected | maya/site | Manage" &&
+        said({ configured: true, ready: true, link: { ...link, lastError: "GitHub did not answer" } }) === "Last sync failed | maya/site | Manage" &&
+        said({ configured: false, ready: false, link: null }) === "Not switched on for this Storelib yet" &&
+        githubStatus(null, false).loading === true && said(null, true) === "Could not check GitHub | Open")
+  }
   const editor = read("app/website-builder/editor/[installId]/page.tsx")
   const button = read("components/website-builder/site-connections.tsx")
   const marks = read("components/website-builder/connection-marks.tsx")
@@ -278,11 +295,12 @@ function main() {
     /Builder to GitHub/.test(panel2) && /GitHub to builder/.test(panel2) && /action: "pull"/.test(panel2) && /status\.events\.map/.test(panel2))
   check("its switch cannot draw outside its track", /absolute left-\[3px\] top-\[3px\] h-4 w-4/.test(panel2) && /translate-x-\[18px\]/.test(panel2))
   const direct = read("components/website-builder/agent-connections-panel.tsx")
-  check("the direct connection is three steps with only the chosen agent's command",
-    /<Segmented label="Agent"/.test(direct) && /role="radiogroup" aria-label=\{label\}/.test(direct) &&
-      /setupCommands\(agent, os, token\)/.test(direct) && /n=\{terminal \? 3 : 2\}/.test(direct) && /\bn=\{2\}/.test(direct))
-  check("the GitHub path is the same three steps while nothing is linked, and acting is step one",
-    /<Step n=\{1\} title=\{STEPS\[0\]\[0\]\}>/.test(panel2) && /<Step n=\{3\} title=\{STEPS\[2\]\[0\]\} muted>/.test(panel2) && /\{connectButtons\}/.test(panel2))
+  check("a direct connection is the steps left for the tool whose line was pressed, with only its command",
+    /<SetupSteps tool=\{tool\} agents=\{agents\} \/>/.test(direct) && /role="radiogroup" aria-label=\{label\}/.test(direct) &&
+      /setupCommands\(tool, os, token\)/.test(direct) && /n=\{terminal \? 2 : 1\}/.test(direct) && /<Step n=\{3\}/.test(direct))
+  check("the GitHub line is the same three steps while nothing is linked, and acting is step one",
+    /<Step n=\{1\} title=\{STEPS\[0\]\[0\]\}>/.test(panel2) && /<Step n=\{3\} title=\{STEPS\[2\]\[0\]\} muted>/.test(panel2) && /\{connectButtons\}/.test(panel2) &&
+      /Continue to GitHub/.test(panel2))
 
   console.log("\nGitHub, safely")
   check("an error that is not GitHub's own, or written for the creator, is not shown as it is",

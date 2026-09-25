@@ -573,11 +573,12 @@ section("Leaving a page always ends, one way or the other")
      * A callback ref is called with the node the moment the node exists,
      * whenever that is, so there is no window to fall through.
      */
-    const editorSrc = readFileSync(join(process.cwd(), "app/website-builder/editor/[installId]/page.tsx"), "utf8")
+    /* The library is its own module now (components/website-builder/editor/section-library.tsx). */
+    const editorSrc = readFileSync(join(process.cwd(), "components/website-builder/editor/section-library.tsx"), "utf8")
     check(
       "the grid is measured by a callback ref, not a ref read in an effect",
       /const gridRef = useCallback\(\(el: HTMLDivElement \| null\) => \{/.test(editorSrc) &&
-        /new ResizeObserver\(\(\) => setGridWidth\(el\.getBoundingClientRect\(\)\.width\)\)/.test(editorSrc),
+        /new ResizeObserver\(\(\) => setGridWidth\(el\.clientWidth\)\)/.test(editorSrc),
     )
     /**
      * And even a width that never arrives must not hide the library. A card
@@ -586,7 +587,7 @@ section("Leaving a page always ends, one way or the other")
      */
     check("the list is not gated on the measurement at all", !/\{gridWidth > 0 && visible\.map/.test(editorSrc))
     check("the observer is disconnected when the node goes and on unmount", /gridObserver\.current\?\.disconnect\(\)/.test(editorSrc))
-    check("each card carries a stable hook to count by", /data-library-card=\{type\}/.test(editorSrc))
+    check("each card carries a stable hook to count by", /data-library-card=\{entry\.type\}/.test(editorSrc))
   }
 
 {
