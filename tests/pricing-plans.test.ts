@@ -89,7 +89,8 @@ function main() {
   const free = OFFERED_PLANS[0].features
   const growthFee = formatFeePercent(getFeePreview(1000, "growth").feePercent).replace(".0%", "%")
   const freeFee = formatFeePercent(getFeePreview(1000, "free").feePercent).replace(".0%", "%")
-  check(`the Pro fee line is growth's charged rate (${growthFee})`, pro[0] === `${growthFee} + $0.25 per sale`, pro[0])
+  check("the Pro card starts with Everything in Free", pro[0] === "Everything in Free", pro[0])
+  check(`the Pro fee line, next, is growth's charged rate (${growthFee})`, pro[1] === `${growthFee} + $0.25 per sale`, pro[1])
   check(`the Free fee line is free's charged rate (${freeFee})`, free[0] === `${freeFee} + $0.25 per sale`, free[0])
   check("the $0.25 is the fixed fee the calculator adds", getFeePreview(1000, "growth").feeFixedCents === 25)
 
@@ -113,10 +114,75 @@ function main() {
    * Things the old cards promised that nothing in the code delivers, or that
    * only the $99 plan gets. None may come back on a card that sells growth.
    */
-  const notGrowth = [/priority/i, /emails?\s*\//i, /api access/i, /white.?label/i, /custom code/i, /shopify/i, /1\.5%/, /analytics/i]
+  const notGrowth = [/priority/i, /emails?\s*\//i, /api access/i, /white.?label/i, /custom code/i, /shopify/i, /1\.5%/, /advanced analytics/i, /physical/i]
   for (const line of [...pro, ...free]) {
     const bad = notGrowth.find((re) => re.test(line))
     check(`"${line}" is a real entitlement`, !bad, bad ? `matches ${bad}` : undefined)
+  }
+
+  /**
+   * EVERY LINE IS ONE OF THESE. A line that comes from a table is checked
+   * against the table above; the others name something every plan has, and
+   * each is tied here to the code that provides it. A new line with nothing
+   * behind it fails, rather than slipping onto a card.
+   */
+  const exists = (file: string) => {
+    try {
+      return readSource(file).length > 0
+    } catch {
+      return false
+    }
+  }
+  const products = readCode("app/app/products/new/product-editor.tsx")
+  const analytics = readCode("app/app/analytics/page.tsx") + readCode("app/app/analytics/analytics-client.tsx")
+  const fromTables = new Set([
+    `${freeFee} + $0.25 per sale`,
+    `${growthFee} + $0.25 per sale`,
+    "Your own domain",
+    "No Storelib branding",
+    `${g.maxSites} websites, ${g.maxPages} pages each`,
+    `${formatBytes(PLAN_LIMITS.free.storageQuotaBytes)} of file storage`,
+    `${formatBytes(PLAN_LIMITS.growth.storageQuotaBytes)} of file storage`,
+    `${g.aiEditsPerMonth} AI edits a month`,
+  ])
+  const namedClaims: [string, boolean][] = [
+    ["Everything in Free", true],
+    /* Digital files and courses are the two product types there are, and no plan caps how many. */
+    ["Unlimited digital products and courses", /"digital" \| "course"/.test(products) && !/maxProducts|max_products|productLimit/.test(readCode("lib/billing/plans.ts") + readCode("lib/storage/plans.ts"))],
+    [`A creator page and ${siteLimits("free").maxSites} websites`, exists("app/creator-page/page.tsx") && siteLimits("free").maxSites > 0],
+    ["Payouts to your bank through Stripe", /stripe_account_id/.test(readCode("lib/checkout/fulfil-payment.ts")) && exists("app/app/payouts/payouts-client.tsx")],
+    ["Email your buyers and subscribers", exists("app/app/emails/page.tsx") && exists("app/api/email/send/route.ts")],
+    ["Sales and visitor analytics", /\S/.test(analytics) && !/subscription_plan_id|userPlan|isPro\b/.test(analytics)],
+    ["Verified badge", true],
+  ]
+  for (const [line, backed] of namedClaims) check(`"${line}" is backed by the code`, backed)
+  const named = new Set(namedClaims.map(([line]) => line))
+  for (const line of [...pro, ...free, ...OFFERED_PLANS[0].excluded]) {
+    check(`"${line}" is a table line or a backed claim`, fromTables.has(line) || named.has(line))
+  }
+
+  console.log("\nThe two cards compare line for line, and say nothing that is not so")
+  const [freePlan, proPlan] = OFFERED_PLANS
+  check(
+    "the same number of lines on both cards",
+    freePlan.features.length + freePlan.excluded.length === proPlan.features.length + proPlan.excluded.length,
+    [freePlan.features.length + freePlan.excluded.length, proPlan.features.length + proPlan.excluded.length],
+  )
+  check("what Free is shown without is its own domain, which it lacks and Pro has", freePlan.excluded.join() === "Your own domain" && !siteLimits("free").customDomain && g.customDomain)
+  check("Pro claims nothing as missing", proPlan.excluded.length === 0)
+  check("the labels are about who a plan is for", freePlan.pill === "Start here" && proPlan.pill === "For growing stores")
+  check("under the price: no fee, or per month", freePlan.priceNote === "No monthly fee" && proPlan.priceNote === "per month")
+  check(
+    "Free's small print: no card, because Free never reaches a checkout",
+    freePlan.note === "No card needed" && /return \{ label: DEFAULT_CTA\[id\], href: "\/signup" \}/.test(readCode("components/marketing/pricing-section.tsx")),
+  )
+  check(
+    "Pro's small print: monthly, and cancelled from Billing, which a route does",
+    proPlan.note === "Billed monthly. Cancel anytime." && proPlan.period === "/month" && exists("app/api/billing/subscription/cancel/route.ts"),
+  )
+  const cardWords = OFFERED_PLANS.flatMap((p) => [p.pill, p.priceNote, p.summary, p.note, ...p.features, ...p.excluded]).join(" | ")
+  for (const invented of [/save \$/i, /one.?time/i, /no subscription/i, /most (chosen|popular)/i, /best value/i, /% off/i, /\blimited\b/i]) {
+    check(`no invented offer on the cards (${invented})`, !invented.test(cardWords), cardWords.match(invented)?.[0])
   }
 
   /**
@@ -157,7 +223,10 @@ function main() {
   const cards = readCode("components/billing/plan-cards.tsx")
   check("the cards come from OFFERED_PLANS", /OFFERED_PLANS\.map\(/.test(cards))
   check("two columns from md up, one on a phone", /grid-cols-1 md:grid-cols-2/.test(cards))
-  check("no gradient, glow or badge on the cards", !/gradient|glow|btn-shine|absolute -top-3/.test(cards))
+  /* The headers are the owner's pictures, not a CSS gradient, and nothing floats over a card. */
+  check("no CSS gradient, glow or floated badge on the cards", !/bg-gradient|linear-gradient|radial-gradient|glow|btn-shine|absolute -top-3/.test(cards))
+  check("the header pictures go through next/image, sized to the card", /import Image from "next\/image"/.test(cards) && /<Image[\s\S]*?fill[\s\S]*?sizes=\{PLAN_PICTURE_SIZES\}/.test(cards) && /PLAN_PICTURE_SIZES = "\(min-width: 768px\) 440px, calc\(100vw - 32px\)"/.test(cards))
+  check("both pictures are on the host next.config lets the optimizer fetch", (cards.match(/skgtqglupjcnfhfscink\.supabase\.co/g) ?? []).length === 1 && /hostname: 'skgtqglupjcnfhfscink\.supabase\.co'/.test(readSource("next.config.mjs")))
   check("the billing tab no longer upsells from Pro to the $99 plan", !/nextUpgradePlan/.test(readCode("components/app/billing/billing-page-client.tsx")))
 
   console.log("\nChoosing Pro checks out as growth")
@@ -198,7 +267,7 @@ function main() {
     check(`${file}: no banned words`, !banned.test(src), src.match(banned)?.[0])
     check(`${file}: no em dashes, in copy or comments`, !src.includes("—"))
   }
-  for (const line of [...pro, ...free, ...OFFERED_PLANS.map((p) => p.summary)]) {
+  for (const line of [...pro, ...free, ...OFFERED_PLANS.flatMap((p) => [p.summary, p.pill, p.priceNote, p.note, ...p.excluded])]) {
     check(`"${line}" has no banned word or em dash`, !banned.test(line) && !line.includes("—"))
   }
 
