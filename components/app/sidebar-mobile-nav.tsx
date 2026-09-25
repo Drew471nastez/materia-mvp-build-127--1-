@@ -37,6 +37,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react"
 
 import { cn } from "@/lib/utils"
 import { hapticTap } from "@/lib/native-bridge"
+import { UpgradeBolt } from "@/components/app/upgrade-bolt"
 import { APP_PAGE_KEPT_MS, pendingPath, prefetchAppPage, useAppNavigation, useShownPath } from "@/lib/ui/app-navigation"
 import {
   isRouteActive,
@@ -58,7 +59,6 @@ const ACTIVE_TEXT = "#1a1a2e"
 const ACTIVE_BG = "#ebecee"
 const PRESS_BG = "#e3e4e7"
 const LABEL_TEXT = "#a5a5a5"
-const ACCENT = "#8b5cf6"
 
 /**
  * The name of the "close yourself" event, exported so the one other place
@@ -574,20 +574,13 @@ export function MobileMenuPage({
         <Link
           href="/app/settings/billing/upgrade"
           onClick={onClose}
-          className="mt-4 flex items-center justify-between rounded-[16px] border border-violet-100/70 bg-white px-4 py-3.5"
+          className="mt-4 flex items-center justify-between gap-3 rounded-[16px] border border-[#e6e7eb] bg-white py-3.5 pl-4 pr-3.5 shadow-[0_1px_2px_rgba(16,24,40,0.05),0_2px_6px_-2px_rgba(16,24,40,0.06)] active:bg-[#f7f7f8]"
         >
-          <span className="block">
-            <span className="block text-[14px] font-semibold" style={{ color: ACTIVE_TEXT }}>{upgradeTitle}</span>
-            <span className="block text-[12px]" style={{ color: REST_TEXT }}>{upgradeSubtitle}</span>
+          <span className="block min-w-0">
+            <span className="block truncate text-[14px] font-semibold" style={{ color: ACTIVE_TEXT }}>{upgradeTitle}</span>
+            <span className="block truncate text-[12.5px]" style={{ color: REST_TEXT }}>{upgradeSubtitle}</span>
           </span>
-          <span
-            className="flex h-8 w-8 items-center justify-center rounded-full"
-            style={{ backgroundColor: "rgba(139,92,246,0.12)" }}
-          >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill={ACCENT} aria-hidden="true">
-              <path d="M13 2 4.5 13.2a.6.6 0 0 0 .48.96H11l-1 8.04 8.5-11.2a.6.6 0 0 0-.48-.96H12z" />
-            </svg>
-          </span>
+          <UpgradeBolt size={34} />
         </Link>
       </nav>
     </div>

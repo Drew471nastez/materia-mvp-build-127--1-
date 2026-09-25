@@ -47,7 +47,6 @@ import { createPortal } from "react-dom"
   two glyphs this file actually renders, and nothing else ships.
 */
 import { AltArrowDownIcon } from "@solar-icons/react/linear/alt-arrow-down"
-import { BoltIcon as BoltBold } from "@solar-icons/react/bold/bolt"
 
 import { BillListIcon as OrdersLinear } from "@solar-icons/react/linear/bill-list"
 import { BillListIcon as OrdersBold } from "@solar-icons/react/bold/bill-list"
@@ -95,6 +94,7 @@ import { UserIdIcon as CreatorPageLinear } from "@solar-icons/react/linear/user-
 import { UserIdIcon as CreatorPageBold } from "@solar-icons/react/bold/user-id"
 
 import { cn } from "@/lib/utils"
+import { UpgradeBolt } from "@/components/app/upgrade-bolt"
 
 // ── The palette, in one place ───────────────────────────────────────────────
 //
@@ -705,17 +705,16 @@ export function DesktopSidebarContent({
       {/* pb accounts for the iOS home indicator in Capacitor; env() is 0 in a
           browser, so this is a no-op there. */}
       <div className="space-y-2 px-[7px] pb-[calc(0.75rem+env(safe-area-inset-bottom,_0px))]">
+        {/* A white card with a violet bolt (components/app/upgrade-bolt), the same in the phone menu. */}
         <Link
           href="/app/settings/billing/upgrade"
-          className="group flex items-center justify-between rounded-[12px] border border-violet-100/60 bg-gradient-to-r from-violet-50/80 to-purple-50/80 px-[14px] py-3 transition-[background-color,border-color] duration-[140ms] ease-out hover:border-violet-200/70 hover:from-violet-100/80 hover:to-purple-100/80"
+          className="flex items-center justify-between gap-3 rounded-[14px] border border-[#e6e7eb] bg-white py-3 pl-[14px] pr-3 shadow-[0_1px_2px_rgba(16,24,40,0.05),0_2px_6px_-2px_rgba(16,24,40,0.06)] transition-colors duration-[140ms] ease-out hover:bg-[#fafafb] active:bg-[#f4f4f6]"
         >
-          <div>
-            <p className="text-[13px] font-semibold text-neutral-900">{upgradeTitle}</p>
-            <p className="text-[11px] text-neutral-600">{upgradeSubtitle}</p>
+          <div className="min-w-0">
+            <p className="truncate text-[13.5px] font-semibold tracking-[-0.005em] text-[#1a1a2e]">{upgradeTitle}</p>
+            <p className="truncate text-[12px] text-[#6b7280]">{upgradeSubtitle}</p>
           </div>
-          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gray-100 transition-colors duration-[140ms] ease-out group-hover:bg-gray-200">
-            <BoltBold size={14} className="text-violet-500" />
-          </div>
+          <UpgradeBolt size={32} />
         </Link>
 
         <Link

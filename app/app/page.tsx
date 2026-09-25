@@ -252,7 +252,6 @@ export default async function AppDashboard() {
       creatorHandle={profile?.username || creator.slug || ""}
       connectedDomain={creatorPageHostFromRows(activeDomains)}
       websiteDomain={websiteHostFromRows(activeDomains)}
-      brandingDetail={{ hasAvatar, hasName, hasBio }}
       websitePublished={!!publishedSite}
       subscriptionPlanId={creator.subscription_plan_id || "free"}
       sharePlatforms={sharePlatforms}

@@ -16,19 +16,12 @@ import {
   DollarSign,
   TrendingUp,
   TrendingDown,
-  Check,
   ChevronRight,
   ArrowRight,
   ChevronDown,
   ChevronUp,
   Sparkles,
   Image as ImageIcon,
-  Package,
-  Link2,
-  Trophy,
-  User,
-  Palette,
-  CreditCard,
   X,
   Camera,
   FileText,
@@ -68,6 +61,8 @@ import { createClient } from "@/lib/supabase/client"
 import { useLanguage } from "@/lib/i18n"
 import { getLinksShareUrl, getLinksUrlDisplay, getStoreShareUrl, getStoreUrlDisplay, getWebsiteShareUrl, getWebsiteUrlDisplay } from "@/lib/url-helpers"
 import { SharePill, ShareStorelibSheet } from "@/components/app/share/share-storelib"
+import { HomeCards, bumpGettingStarted, type StartStep } from "@/components/app/home/home-cards"
+import { BannerGlobe } from "@/components/app/home/globe"
 import type { ConnectedPlatform, ShareAddress } from "@/components/app/share/share-data"
 import { isNativeApp } from "@/lib/platform-utils"
 import { openExternal } from "@/lib/native-bridge"
@@ -379,42 +374,6 @@ const SAMPLE_KPI = {
   conversionRate: 6.2, prevConversionRate: 5.8,
 }
 
-// Icon mapping for setup steps
-const stepIcons: Record<string, any> = {
-  welcome: User,
-  branding: Palette,
-  product: Package,
-  payouts: CreditCard,
-  onepage: Link2,
-  sale: Trophy,
-}
-
-// Substeps for each main step - using translation keys
-const stepSubsteps: Record<string, { labelKey: string; check: (data: any) => boolean; href: string }[]> = {
-  welcome: [
-    { labelKey: "setup.accountCreated", check: () => true, href: "/app/settings" },
-  ],
-  branding: [
-    { labelKey: "setup.addPhoto", check: (d) => !!d.hasAvatar, href: "/app/settings" },
-    { labelKey: "setup.setName", check: (d) => !!d.hasName, href: "/app/settings" },
-    { labelKey: "setup.writeBio", check: (d) => !!d.hasBio, href: "/app/settings" },
-  ],
-  product: [
-    { labelKey: "setup.createAProduct", check: (d) => d.hasProducts, href: "/app/products/new" },
-  ],
-  payouts: [
-    { labelKey: "setup.connectStripe", check: (d) => d.hasPayouts, href: "/app/payouts" },
-  ],
-  onepage: [
-    { labelKey: "setup.createOnePage", check: (d) => d.hasOnePage, href: "/app/onepage" },
-    { labelKey: "setup.addBlocks", check: (d) => d.hasOnePageBlock, href: "/app/onepage" },
-  ],
-  sale: [
-    { labelKey: "setup.shareLink", check: () => false, href: "/app/onepage" },
-    { labelKey: "setup.getFirstSale", check: (d) => d.hasFirstSale, href: "/app/orders" },
-  ],
-}
-
 /**
  * An order row as Home holds it: enough to group a basket into one payment
  * and to take its refunds off (lib/analytics/home-figures). The rows the
@@ -435,7 +394,6 @@ interface DashboardClientProps {
   connectedDomain?: string | null
   /** The website's own domain (lib/custom-domains). On an old database, the same one domain. */
   websiteDomain?: string | null
-  brandingDetail?: { hasAvatar: boolean; hasName: boolean; hasBio: boolean }
   /** True only when a site has actually been published, never when one merely exists. */
   websitePublished?: boolean
   subscriptionPlanId?: string
@@ -468,40 +426,6 @@ function PercentChangeIndicator({ current, previous }: { current: number; previo
       )}
       {Math.round(value)}%
     </span>
-  )
-}
-
-// Helper function to format period text naturally
-// Progress circle component with purple accent
-function ProgressCircle({ progress, size = 32 }: { progress: number; size?: number }) {
-  const strokeWidth = 2.5
-  const radius = (size - strokeWidth) / 2
-  const circumference = radius * 2 * Math.PI
-  const offset = circumference - (progress / 100) * circumference
-
-  return (
-    <svg width={size} height={size} className="transform -rotate-90">
-      <circle
-        cx={size / 2}
-        cy={size / 2}
-        r={radius}
-        fill="none"
-        stroke="#f3f4f6"
-        strokeWidth={strokeWidth}
-      />
-      <circle
-        cx={size / 2}
-        cy={size / 2}
-        r={radius}
-        fill="none"
-        stroke="#8b5cf6"
-        strokeWidth={strokeWidth}
-        strokeDasharray={circumference}
-        strokeDashoffset={offset}
-        strokeLinecap="round"
-        className="transition-all duration-500"
-      />
-    </svg>
   )
 }
 
@@ -614,10 +538,7 @@ const AnnouncementBar = memo(function AnnouncementBar({
                   <span className="hidden md:inline text-white/85 ml-2">{totalSteps - completedSteps} {t("dashboard.stepsRemaining")}</span>
                 </span>
                 <button
-                  onClick={() => {
-                    const setupSection = document.getElementById("store-setup-section")
-                    setupSection?.scrollIntoView({ behavior: "smooth" })
-                  }}
+                  onClick={bumpGettingStarted}
                   className="inline-flex items-center gap-1 md:gap-1.5 px-2.5 md:px-3 py-0.5 md:py-1 bg-gradient-to-r from-white/90 to-gray-100/90 text-gray-800 text-[11px] md:text-[13px] font-medium rounded-full transition-all hover:from-white hover:to-gray-50 shrink-0"
                 >
                   {t("common.continue")}
@@ -694,7 +615,6 @@ export function DashboardClient({
   creatorHandle = "",
   connectedDomain = null,
   websiteDomain = null,
-  brandingDetail,
   websitePublished = false,
   subscriptionPlanId = "free",
   sharePlatforms = [],
@@ -743,7 +663,6 @@ export function DashboardClient({
      (components/app/metric-tab `loading`), and "No activity yet" waits for
      the answer rather than showing over the chart before it. */
   const [figuresReady, setFiguresReady] = useState(false)
-  const [expandedStep, setExpandedStep] = useState<string | null>(null)
   const [openKPIModal, setOpenKPIModal] = useState<KPIType>("views")
   /* Follows the chosen tab, and keeps a sideways swipe off the page. */
   const kpiStripRef = useTabStrip<HTMLDivElement>(openKPIModal ?? "views", KPI_TAB_ORDER)
@@ -1053,14 +972,11 @@ export function DashboardClient({
     return () => window.clearTimeout(safetyTimer)
   }, [periodKey, creatorId]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const completedSteps = initialSetupSteps.filter((s) => s.completed).length
-  const totalSteps = initialSetupSteps.length
-  const allCompleted = completedSteps === totalSteps
-
   // Derive completion status from steps
   const hasProducts = initialSetupSteps.find((s) => s.id === "product")?.completed || false
   const hasPayouts = initialSetupSteps.find((s) => s.id === "payouts")?.completed || false
   const hasOnePageSetup = initialSetupSteps.find((s) => s.id === "onepage")?.completed || false
+  const hasFirstSale = initialSetupSteps.find((s) => s.id === "sale")?.completed || false
   /**
    * THE ADDRESSES A CREATOR HANDS OUT, for the pill and the share sheet
    * (components/app/share). Always absolute, so the same string is copied,
@@ -1106,6 +1022,30 @@ export function DashboardClient({
     return list
   }, [creatorHandle, connectedDomain, websiteDomain, websitePublished, hasOnePageSetup])
 
+  /**
+   * GETTING STARTED (components/app/home/home-cards): the six things a new
+   * store does before it sells, each read off the account the server sent,
+   * never ticked by hand. Signing up is done by being here. The store is the
+   * website, done once one is published; the domain once one is connected
+   * and active, for the website or for the creator page. The first sale
+   * opens the share sheet while there is none, because sharing the address
+   * is how the first one comes. The purple bar's "steps remaining" counts
+   * these same six.
+   */
+  const startSteps = useMemo<StartStep[]>(() => [
+    { id: "signup", label: "Sign up", done: true, href: "/app/settings" },
+    { id: "product", label: "Add your first product", done: hasProducts, href: hasProducts ? "/app/products" : "/app/products/new" },
+    { id: "store", label: "Build your store", done: websitePublished, href: "/app/website-builder", hardNavigation: true },
+    { id: "payments", label: "Set up payments", done: hasPayouts, href: "/app/payouts" },
+    { id: "domain", label: "Connect your domain", done: !!(connectedDomain || websiteDomain), href: "/app/settings?tab=domains" },
+    hasFirstSale || shareAddresses.length === 0
+      ? { id: "sale", label: "Make your first sale", done: hasFirstSale, href: "/app/orders" }
+      : { id: "sale", label: "Make your first sale", done: false, onSelect: () => setIsShareOpen(true) },
+  ], [hasProducts, websitePublished, hasPayouts, connectedDomain, websiteDomain, hasFirstSale, shareAddresses.length])
+  const completedSteps = startSteps.filter((s) => s.done).length
+  const totalSteps = startSteps.length
+  const allCompleted = completedSteps === totalSteps
+
 
   /* The purple bar's slides, worked out from the account. The bar itself,
      its timing and its state are AnnouncementBar, above. */
@@ -1115,25 +1055,6 @@ export function DashboardClient({
     if (hasProducts && !hasPayouts) list.push("payouts")
     return list
   }, [allCompleted, hasProducts, hasPayouts])
-
-  // Build substep data based on step completion
-  const getSubstepData = (step: SetupStep) => {
-    return {
-      hasAvatar: step.id === "branding" ? (brandingDetail?.hasAvatar ?? step.completed) : false,
-      hasName: step.id === "branding" ? (brandingDetail?.hasName ?? step.completed) : false,
-      hasBio: step.id === "branding" ? (brandingDetail?.hasBio ?? step.completed) : false,
-      hasProducts: step.id === "product" ? step.completed : false,
-      hasPayouts: step.id === "payouts" ? step.completed : false,
-      hasOnePage: step.id === "onepage" ? step.completed : false,
-      hasOnePageBlock: step.id === "onepage" ? step.completed : false,
-      hasFirstSale: step.id === "sale" ? step.completed : false,
-    }
-  }
-
-  const handleStepClick = (stepId: string, e: React.MouseEvent) => {
-    e.preventDefault()
-    setExpandedStep(expandedStep === stepId ? null : stepId)
-  }
 
   // ── Pull-to-refresh ───────────────────────────────────────────────────────
   // Wraps the dashboard's own scroll container so we can intercept touch events
@@ -1446,7 +1367,17 @@ export function DashboardClient({
               className="absolute inset-0 w-full h-full object-cover"
             />
             <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-black/30" />
-            <div className="relative z-10 px-5 py-5 sm:px-8 sm:py-6">
+            {/*
+              THE GLOBE, in the right corner and running off its foot
+              (components/app/home/globe). A dark pool under it so the dots
+              read over the painting. The text column stops short of it and
+              lets the pointer through its empty space, so the globe can be
+              grabbed wherever it shows and the buttons are always the
+              buttons.
+            */}
+            <div aria-hidden="true" className="pointer-events-none absolute -bottom-24 -right-16 h-[300px] w-[340px] bg-[radial-gradient(closest-side,rgba(8,6,18,0.62),rgba(8,6,18,0))] sm:-bottom-28 sm:right-0 sm:h-[340px] sm:w-[420px]" />
+            <BannerGlobe className="absolute -right-10 top-8 h-[190px] w-[190px] sm:right-6 sm:top-2 sm:h-[250px] sm:w-[250px] lg:right-12" />
+            <div className="pointer-events-none relative z-10 max-w-[62%] px-5 py-5 sm:max-w-[calc(100%-260px)] sm:px-8 sm:py-6 lg:max-w-[calc(100%-300px)] [&_a]:pointer-events-auto [&_button]:pointer-events-auto">
               {subscriptionPlanId === "growth" || subscriptionPlanId === "pro" ? (
                 /* Pro plan banner (internal ids "growth" and the earlier "pro") */
                 <>
@@ -1494,195 +1425,88 @@ export function DashboardClient({
           </div>
         </div>
 
-        {/* Main Content Grid - Store Setup + Quick Actions */}
-        <div className="grid gap-6 lg:grid-cols-[370px_1fr]">
-          {/* Left Column - Store Setup Checklist */}
-          <div id="store-setup-section" className="bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] h-fit">
-              <div className="flex items-center justify-between mb-5">
-                <h2 className="text-[15px] font-semibold text-[#1a1a2e]">{t("dashboard.storeSetup")}</h2>
-                <span className="text-[13px] font-medium text-[#6b7280] bg-[#f3f4f6] px-2.5 py-1 rounded-full">
-                  {completedSteps}/{totalSteps}
-                </span>
-              </div>
+        {/* Getting started, the guide and Your Plan (components/app/home/home-cards) */}
+        <div className="mb-8">
+          <HomeCards steps={startSteps} planId={subscriptionPlanId} />
+        </div>
 
-              {/* Progress bar */}
-              <div className="w-full h-1.5 bg-[#f3f4f6] rounded-full mb-5 overflow-hidden">
-                <div
-                  className="h-full bg-gradient-to-r from-[#8b5cf6] to-[#a78bfa] rounded-full transition-all duration-500"
-                  style={{ width: `${(completedSteps / totalSteps) * 100}%` }}
-                />
-              </div>
-
-              {/* Steps List with Collapsible Substeps */}
-              <div className="space-y-1">
-                {initialSetupSteps.map((step) => {
-                  const Icon = stepIcons[step.id] || Package
-                  const isExpanded = expandedStep === step.id
-                  const substeps = stepSubsteps[step.id] || []
-                  const substepData = getSubstepData(step)
-
-                  return (
-                    <div key={step.id}>
-                      <button
-                        onClick={(e) => handleStepClick(step.id, e)}
-                        className="group relative flex items-center gap-3 p-3 rounded-xl hover:bg-[#f9fafb] transition-all duration-150 w-full text-left"
-                      >
-                        {/* Checkmark or Progress circle */}
-                        <div className="relative shrink-0">
-                          {step.completed ? (
-                            <div className="w-8 h-8 rounded-full bg-[#8b5cf6] flex items-center justify-center">
-                              <Check className="h-4 w-4 text-white" strokeWidth={2.5} />
-                            </div>
-                          ) : (
-                            <div className="relative">
-                              <ProgressCircle progress={0} size={32} />
-                              <div className="absolute inset-0 flex items-center justify-center">
-                                <Icon className="h-3.5 w-3.5 text-[#9ca3af]" />
-                              </div>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Content */}
-                        <div className="flex-1 min-w-0">
-                          <p
-                            className={`text-[13px] font-medium text-[#1a1a2e]`}
-                          >
-                            {step.title}
-                          </p>
-                          <p className="text-[11px] text-[#9ca3af] mt-0.5 truncate">{step.description}</p>
-                        </div>
-
-                        {/* Expand/Collapse Arrow */}
-                        <ChevronDown
-                          className={`h-4 w-4 text-[#d1d5db] shrink-0 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`}
-                        />
-
-                        {/* Tooltip on hover - hidden on mobile, wider on desktop */}
-                        <div className="hidden lg:block absolute left-full ml-3 top-1/2 -translate-y-1/2 z-50 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200">
-                          <div className="bg-[#1a1a2e] text-white text-[12px] px-4 py-2.5 rounded-xl shadow-lg w-[220px] whitespace-normal leading-relaxed">
-                            {step.tooltip}
-                            <div className="absolute left-0 top-1/2 -translate-x-1 -translate-y-1/2 border-4 border-transparent border-r-[#1a1a2e]" />
-                          </div>
-                        </div>
-                      </button>
-
-                      {/* Collapsible Substeps */}
-                      <div
-                        className={`overflow-hidden transition-all duration-300 ease-out ${
-                          isExpanded ? "max-h-[200px] opacity-100" : "max-h-0 opacity-0"
-                        }`}
-                      >
-                        <div className="pl-11 pr-3 pb-2 space-y-1">
-                          {substeps.map((substep, idx) => {
-                            const isSubstepComplete = substep.check(substepData)
-                            return (
-                              <Link
-                                key={idx}
-                                href={substep.href}
-                                className="flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-[#f5f3ff]/50 transition-colors"
-                              >
-                                <div className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${
-                                  isSubstepComplete
-                                    ? "bg-[#8b5cf6] border-[#8b5cf6]"
-                                    : "border-[#d1d5db]"
-                                }`}>
-                                  {isSubstepComplete && <Check className="h-2.5 w-2.5 text-white" strokeWidth={3} />}
-                                </div>
-                                <span className={`text-[12px] ${
-                                  isSubstepComplete ? "text-[#1a1a2e]" : "text-[#6b7280]"
-                                }`}>
-                                  {t(substep.labelKey as any)}
-                                </span>
-                              </Link>
-                            )
-                          })}
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
+        {/* Quick actions, two across from a tablet up */}
+        <div className="grid gap-4 md:grid-cols-2">
+          {/* Add a product card */}
+          <Link
+            href="/app/products/new"
+            className="group flex items-center gap-5 bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:border-[#8b5cf6]/30 hover:shadow-[0_4px_12px_rgba(139,92,246,0.08)] transition-all duration-200"
+          >
+            <div className="flex h-16 w-16 items-center justify-center rounded-xl overflow-hidden shrink-0">
+              <Image src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/iiii.png" alt="Create product" width={128} height={128} className="h-full w-full object-cover" />
             </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <p className="text-[15px] font-semibold text-[#1a1a2e] group-hover:text-[#8b5cf6] transition-colors">
+                  {t("dashboard.createProduct")}
+                </p>
+                <ArrowRight className="h-4 w-4 text-[#d1d5db] group-hover:text-[#8b5cf6] group-hover:translate-x-0.5 transition-all" />
+              </div>
+              <p className="text-[13px] text-[#6b7280] mt-0.5">{t("dashboard.createProductDesc")}</p>
+            </div>
+          </Link>
 
-          {/* Right Column - Quick Actions */}
-          <div className="space-y-4">
-            {/* Add a product card */}
-            <Link
-              href="/app/products/new"
-              className="group flex items-center gap-5 bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:border-[#8b5cf6]/30 hover:shadow-[0_4px_12px_rgba(139,92,246,0.08)] transition-all duration-200"
-            >
-              <div className="flex h-16 w-16 items-center justify-center rounded-xl overflow-hidden shrink-0">
-                <Image src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/iiii.png" alt="Create product" width={128} height={128} className="h-full w-full object-cover" />
+          {/* Market your products card */}
+          <Link
+            href="/app/onepage"
+            className="group flex items-center gap-5 bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:border-[#8b5cf6]/30 hover:shadow-[0_4px_12px_rgba(139,92,246,0.08)] transition-all duration-200"
+          >
+            <div className="flex h-16 w-16 items-center justify-center rounded-xl overflow-hidden shrink-0">
+              <Image src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/ooaw.png" alt="Edit OnePage" width={128} height={128} className="h-full w-full object-cover" />
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <p className="text-[15px] font-semibold text-[#1a1a2e] group-hover:text-[#8b5cf6] transition-colors">
+                  {t("dashboard.editOnePage")}
+                </p>
+                <ArrowRight className="h-4 w-4 text-[#d1d5db] group-hover:text-[#8b5cf6] group-hover:translate-x-0.5 transition-all" />
               </div>
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <p className="text-[15px] font-semibold text-[#1a1a2e] group-hover:text-[#8b5cf6] transition-colors">
-                    {t("dashboard.createProduct")}
-                  </p>
-                  <ArrowRight className="h-4 w-4 text-[#d1d5db] group-hover:text-[#8b5cf6] group-hover:translate-x-0.5 transition-all" />
-                </div>
-                <p className="text-[13px] text-[#6b7280] mt-0.5">{t("dashboard.createProductDesc")}</p>
-              </div>
-            </Link>
+              <p className="text-[13px] text-[#6b7280] mt-0.5">{t("dashboard.editOnePageDesc")}</p>
+            </div>
+          </Link>
 
-            {/* Market your products card */}
-            <Link
-              href="/app/onepage"
-              className="group flex items-center gap-5 bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:border-[#8b5cf6]/30 hover:shadow-[0_4px_12px_rgba(139,92,246,0.08)] transition-all duration-200"
-            >
-              <div className="flex h-16 w-16 items-center justify-center rounded-xl overflow-hidden shrink-0">
-                <Image src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/ooaw.png" alt="Edit OnePage" width={128} height={128} className="h-full w-full object-cover" />
+          {/* View analytics card */}
+          <Link
+            href="/app/analytics"
+            className="group flex items-center gap-5 bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:border-[#8b5cf6]/30 hover:shadow-[0_4px_12px_rgba(139,92,246,0.08)] transition-all duration-200"
+          >
+            <div className="flex h-16 w-16 items-center justify-center rounded-xl overflow-hidden shrink-0">
+              <Image src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/naaly.png" alt="View analytics" width={128} height={128} className="h-full w-full object-cover" />
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <p className="text-[15px] font-semibold text-[#1a1a2e] group-hover:text-[#8b5cf6] transition-colors">
+                  {t("dashboard.viewAnalytics")}
+                </p>
+                <ArrowRight className="h-4 w-4 text-[#d1d5db] group-hover:text-[#8b5cf6] group-hover:translate-x-0.5 transition-all" />
               </div>
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <p className="text-[15px] font-semibold text-[#1a1a2e] group-hover:text-[#8b5cf6] transition-colors">
-                    {t("dashboard.editOnePage")}
-                  </p>
-                  <ArrowRight className="h-4 w-4 text-[#d1d5db] group-hover:text-[#8b5cf6] group-hover:translate-x-0.5 transition-all" />
-                </div>
-                <p className="text-[13px] text-[#6b7280] mt-0.5">{t("dashboard.editOnePageDesc")}</p>
-              </div>
-            </Link>
+              <p className="text-[13px] text-[#6b7280] mt-0.5">{t("dashboard.viewAnalyticsDesc")}</p>
+            </div>
+          </Link>
 
-            {/* View analytics card */}
-            <Link
-              href="/app/analytics"
-              className="group flex items-center gap-5 bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:border-[#8b5cf6]/30 hover:shadow-[0_4px_12px_rgba(139,92,246,0.08)] transition-all duration-200"
-            >
-              <div className="flex h-16 w-16 items-center justify-center rounded-xl overflow-hidden shrink-0">
-                <Image src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/naaly.png" alt="View analytics" width={128} height={128} className="h-full w-full object-cover" />
+          {/* Add Custom Domain card */}
+          <Link
+            href="/app/settings?tab=domains"
+            className="group flex items-center gap-5 bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:border-[#8b5cf6]/30 hover:shadow-[0_4px_12px_rgba(139,92,246,0.08)] transition-all duration-200"
+          >
+            <div className="flex h-16 w-16 items-center justify-center rounded-xl overflow-hidden shrink-0">
+              <Image src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/domani.png" alt="Add domain" width={128} height={128} className="h-full w-full object-cover" />
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <p className="text-[15px] font-semibold text-[#1a1a2e] group-hover:text-[#8b5cf6] transition-colors">
+                  Add Custom Domain
+                </p>
+                <ArrowRight className="h-4 w-4 text-[#d1d5db] group-hover:text-[#8b5cf6] group-hover:translate-x-0.5 transition-all" />
               </div>
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <p className="text-[15px] font-semibold text-[#1a1a2e] group-hover:text-[#8b5cf6] transition-colors">
-                    {t("dashboard.viewAnalytics")}
-                  </p>
-                  <ArrowRight className="h-4 w-4 text-[#d1d5db] group-hover:text-[#8b5cf6] group-hover:translate-x-0.5 transition-all" />
-                </div>
-                <p className="text-[13px] text-[#6b7280] mt-0.5">{t("dashboard.viewAnalyticsDesc")}</p>
-              </div>
-            </Link>
-
-            {/* Add Custom Domain card */}
-            <Link
-              href="/app/settings?tab=domains"
-              className="group flex items-center gap-5 bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:border-[#8b5cf6]/30 hover:shadow-[0_4px_12px_rgba(139,92,246,0.08)] transition-all duration-200"
-            >
-              <div className="flex h-16 w-16 items-center justify-center rounded-xl overflow-hidden shrink-0">
-                <Image src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/domani.png" alt="Add domain" width={128} height={128} className="h-full w-full object-cover" />
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <p className="text-[15px] font-semibold text-[#1a1a2e] group-hover:text-[#8b5cf6] transition-colors">
-                    Add Custom Domain
-                  </p>
-                  <ArrowRight className="h-4 w-4 text-[#d1d5db] group-hover:text-[#8b5cf6] group-hover:translate-x-0.5 transition-all" />
-                </div>
-                <p className="text-[13px] text-[#6b7280] mt-0.5">Connect your own domain to your store</p>
-              </div>
-            </Link>
-          </div>
+              <p className="text-[13px] text-[#6b7280] mt-0.5">Connect your own domain to your store</p>
+            </div>
+          </Link>
         </div>
 
       </div>
