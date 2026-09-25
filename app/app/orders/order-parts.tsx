@@ -300,12 +300,13 @@ export const iconButton =
 export const card = "rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
 
 /**
- * The page's own action, in the /app violet (CLAUDE.md): Export on the Orders
- * list. A flat fill with a hairline of light on top and a soft violet shadow
- * under it, a step darker on hover and again when pressed. Not a gradient.
+ * The page's own action: Export on the Orders list, New email, Send. Near
+ * black (the owner asked for no purple on the app's actions), a flat fill
+ * with a hairline of light on top and a soft shadow under it, a step darker
+ * on hover and again when pressed. Not a gradient.
  */
 export const buttonAccent =
-  "inline-flex h-8 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-[#8b5cf6] px-3 text-[13px] font-medium text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_1px_2px_rgba(76,29,149,0.28),0_3px_8px_-3px_rgba(139,92,246,0.55)] transition-[background-color,box-shadow] duration-100 hover:bg-[#7c3aed] active:bg-[#6d28d9] active:shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_1px_1px_rgba(76,29,149,0.3)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#8b5cf6] disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none cursor-pointer select-none"
+  "inline-flex h-8 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-[#1a1a2e] px-3 text-[13px] font-medium text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_1px_2px_rgba(16,24,40,0.28),0_3px_8px_-3px_rgba(16,24,40,0.35)] transition-[background-color,box-shadow] duration-100 hover:bg-[#2a2a40] active:bg-[#0f0f1c] active:shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_1px_1px_rgba(16,24,40,0.3)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1a1a2e]/40 disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none cursor-pointer select-none"
 
 /**
  * A row's "more" button, for ResponsiveActionMenu. The menu hands its trigger

@@ -59,7 +59,7 @@ export const CATEGORY_TEXT: Record<ConsentCategory, { title: string; body: strin
   },
   analytics: {
     title: "Analytics",
-    body: "Count returning visitors and where visits come from, so creators can see what works. Without them a visit is still counted, once, with nothing stored.",
+    body: "Count returning visitors and where visits come from, so creators can see what works. Without them a visit is still counted, once, with nothing stored on your device.",
   },
   marketing: {
     title: "Marketing",

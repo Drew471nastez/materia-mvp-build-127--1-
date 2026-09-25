@@ -445,11 +445,13 @@ section("One scrollbar track on a computer, always there, never moving")
     const HALO_WITHIN = /focus-within:border-\[#c9ccd3\] focus-within:shadow-\[0_0_0_3px_rgba\(17,17,19,0\.06\)\]/
     const HALO = /focus:border-\[#c9ccd3\] focus:shadow-\[0_0_0_3px_rgba\(17,17,19,0\.06\)\]/
     const within = ["app/app/orders/orders-list.tsx", "app/app/emails/emails-home.tsx", "app/app/products/products-client.tsx"]
-    const direct = ["components/app/product-picker.tsx", "components/ui/choice-list.tsx", "components/app/settings-form-new.tsx"]
+    /* Settings' country search is the shared list's now (components/app/settings/country-picker), so it is choice-list's halo. */
+    const direct = ["components/app/product-picker.tsx", "components/ui/choice-list.tsx"]
     const heavy = /focus-within:border-\[#1a1a2e\] focus-within:shadow-\[0_0_0_1px_#1a1a2e\]/
     check("every /app search field focuses with a light grey hairline and a soft halo, never a black 2px edge or a violet ring",
       within.every((f) => HALO_WITHIN.test(code(f)) && !heavy.test(code(f))) && direct.every((f) => HALO.test(code(f)))
         && !/placeholder="Search countries\.\.\."[\s\S]{0,500}focus:ring-\[#8b5cf6\]/.test(code("components/app/settings-form-new.tsx"))
+        && /<ChoicePicker/.test(code("components/app/settings/country-picker.tsx")) && !/<input/.test(code("components/app/settings/country-picker.tsx"))
         && /focus-visible:shadow-\[inset_0_0_0_1px_#c9ccd3,0_0_0_3px_rgba\(17,17,19,0\.06\)\]/.test(code("components/app/app-search.tsx")) && !/focus-visible:ring-\[#8b5cf6\]/.test(code("components/app/app-search.tsx")),
       [...within, ...direct].filter((f) => !(HALO_WITHIN.test(code(f)) || HALO.test(code(f)))).join(", "))
   }
@@ -513,8 +515,9 @@ section("Sheets")
   check("a keyboard lifts the sheet over the keyboard's own time, not in one frame",
     /const KEYBOARD_MOVE = "bottom 250ms/.test(sheet) && /aboveKeyboard \? \{ transition: KEYBOARD_MOVE \}/.test(sheet))
   const menu = code("components/app/mobile-account-menu.tsx")
-  check("the account sheet decodes its photo ahead, and its links do not prefetch as they slide in",
-    /preloadAvatar\(avatarSrc, 40\)/.test(menu) && /prefetch=\{false\}/.test(menu) && /SHEET_OPEN_MS \+ 60/.test(menu))
+  check("the account sheet decodes its photo ahead, at the size it draws it, and its links do not prefetch as they slide in",
+    /const sheetAvatar = businesses\.length > 0 \? SWITCHER_AVATAR\.sheet : 40/.test(menu) && (menu.match(/preloadAvatar\(avatarSrc, sheetAvatar\)/g) ?? []).length === 3 &&
+      /prefetch=\{false\}/.test(menu) && /SHEET_OPEN_MS \+ 60/.test(menu))
   const sheetCss = read("app/globals.css")
   /* The shared sheet is found by an attribute on <html>, not by :has(): a :has() on the root that changes its
      answer restyled all 590 elements of the home page on every open and close (scripts/check-app-sheets-frames.mjs). */
@@ -632,8 +635,11 @@ section("Toasts on a phone")
     }
   }
   check("every toast in the app's own pages is short and plain", said.length >= 40 && long.length === 0, long.join("; ") || `${said.length} read`)
+  /* The field says it under the box now, in its own words; only its own refusals carry their message through. */
   check("an upload that failed says so, not the storage error's own words",
-    /toast\.error\("Upload failed\. Try again\."\)/.test(code("components/website-builder/editor/image-picker.tsx")) && !/err\.message/.test(code("components/website-builder/editor/image-picker.tsx")))
+    /message: "The upload did not finish\. Check your connection and try again\."/.test(code("components/website-builder/editor/image-picker.tsx")) &&
+      /e instanceof Refused\s*\?\s*\{ message: e\.message \}/.test(code("components/website-builder/editor/image-picker.tsx")) &&
+      !/err\.message/.test(code("components/website-builder/editor/image-picker.tsx")))
   const addRoute = code("app/api/website-builder/themes/add/route.ts")
   check("adding a theme never hands the database's error text to the toast", !/seedErr\.message|installErr\?\.message/.test(addRoute) && (addRoute.match(/"Could not add the theme\. Try again\."/g) ?? []).length === 2)
 }

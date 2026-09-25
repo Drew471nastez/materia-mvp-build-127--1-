@@ -11,6 +11,7 @@ import { isBanned } from "@/lib/seo/bans"
 import { jsonLdScript } from "@/lib/seo/json-ld"
 import { onePageSameAs, profilePageJsonLd } from "@/lib/seo/structured-data"
 import { activeDomainOf } from "@/lib/website-builder/site-seo-data"
+import { isScheduledNow } from "@/lib/onepage/extra-blocks"
 import crypto from "crypto"
 
 // Hash IP address for privacy (same as track API)
@@ -473,7 +474,8 @@ export default async function PublicOnePageRoute({ params }: Props) {
         spacing: "normal",
         card_width: "standard",
       },
-    blocks: publishedBlocks || onepage.draft_blocks || [],
+    /* A block outside its schedule is left out here, so it is not in the page at all until it starts. */
+    blocks: ((publishedBlocks || onepage.draft_blocks || []) as any[]).filter((b) => isScheduledNow(b)),
     social_links: onepage.published_social_links || onepage.social_links || {},
     /* The creator page's own domain names the OnePage too (<domain>/links):
        read here as well as kept in settings.custom_domain, so a share link is

@@ -47,6 +47,7 @@ import {
   FILL_TRANSITION,
   FILL_MS,
   FILL_CURVE,
+  UPGRADE_HREF,
 } from "@/components/app/sidebar-desktop-nav"
 
 /* ── The palette ──────────────────────────────────────────────────────────
@@ -483,6 +484,7 @@ export function MobileMenuPage({
     can find `[data-mobile-menu="open"]` and ask it to close, and this is
     what answers.
   */
+  const router = useRouter()
   const closeRef = useRef(onClose)
   closeRef.current = onClose
   const nodeRef = useRef<HTMLDivElement>(null)
@@ -571,16 +573,24 @@ export function MobileMenuPage({
 
         {setupSlot}
 
+        {/* The desktop card's quiet surface (white on this grey page, a
+            hairline, no shadow) and its navigation: fetched on the press,
+            recorded on the tap, like every row above. */}
         <Link
-          href="/app/settings/billing/upgrade"
-          onClick={onClose}
-          className="mt-4 flex items-center justify-between gap-3 rounded-[16px] border border-[#e6e7eb] bg-white py-3.5 pl-4 pr-3.5 shadow-[0_1px_2px_rgba(16,24,40,0.05),0_2px_6px_-2px_rgba(16,24,40,0.06)] active:bg-[#f7f7f8]"
+          href={UPGRADE_HREF}
+          data-upgrade-card=""
+          onClick={() => {
+            onNavigate?.(UPGRADE_HREF)
+            onClose()
+          }}
+          onPointerDown={() => prefetchAppPage(router, UPGRADE_HREF)}
+          className="mt-4 flex items-center justify-between gap-3 rounded-[16px] border border-[#ececef] bg-white py-3.5 pl-4 pr-3.5 transition-colors duration-100 active:bg-[#f4f4f5]"
         >
           <span className="block min-w-0">
             <span className="block truncate text-[14px] font-semibold" style={{ color: ACTIVE_TEXT }}>{upgradeTitle}</span>
             <span className="block truncate text-[12.5px]" style={{ color: REST_TEXT }}>{upgradeSubtitle}</span>
           </span>
-          <UpgradeBolt size={34} />
+          <UpgradeBolt size={30} />
         </Link>
       </nav>
     </div>

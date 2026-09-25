@@ -68,12 +68,16 @@ const BADGE_TYPES = [
 
 export interface SettingsTabRef {
   saveSeo: () => Promise<void>
-  /** Sync ALL local settings state to context + API before global save */
+  /**
+   * Hands every field typed into this tab to the page, so the next save()
+   * sends it. Makes no request of its own: the editor's save is the one that
+   * writes, and the one that reports whether it worked.
+   */
   saveAllSettings: () => Promise<void>
 }
 
 export const SettingsTab = forwardRef<SettingsTabRef>(function SettingsTab(_, ref) {
-  const { onepage, updateProfile, updateSettings, updateSlug, save, saveState, markDirty } = useOnePage()
+  const { onepage, updateProfile, updateSettings, updateSlug, save, saveState, markDirty, getLatestOnePage } = useOnePage()
   const router = useRouter()
   const [activeSection, setActiveSection] = useState("basic")
   const [copied, setCopied] = useState(false)
@@ -123,24 +127,72 @@ export const SettingsTab = forwardRef<SettingsTabRef>(function SettingsTab(_, re
   const [verifiedType, setVerifiedType] = useState<string>((onepage?.settings as any)?.verified_badge_type || "verified_creator")
   const [showBadgeDropdown, setShowBadgeDropdown] = useState(false)
 
-  // Update local state when onepage changes
+  /**
+   * A FIELD IS ONLY REFILLED FROM THE PAGE WHEN THE PAGE'S VALUE FOR IT MOVED,
+   * AND NOBODY IS TYPING IN IT.
+   *
+   * This used to copy every field back from the page whenever anything on
+   * the page changed. The toggles below write to the page as they are
+   * flipped, so typing an SEO title and then turning Share on put the old
+   * title back over the new one. Now each field remembers the value it last
+   * took from the page (`syncedFromPageRef`). When the page's value is still
+   * that, nothing happens. When it has moved (an undo, a save that came
+   * back), the field follows it only if what is in the field is still what it
+   * took last time; if it differs, somebody typed there, and the typing wins.
+   */
+  const fromPage = onepage
+    ? {
+        pageName: onepage.title || "",
+        pageSlug: onepage.slug || "",
+        metaTitle: onepage.settings?.seo_title || onepage.title || "",
+        metaDescription: onepage.settings?.seo_description || onepage.bio || "",
+        ogImage: onepage.settings?.social_image_url || "",
+        ogPosX: onepage.settings?.social_image_position_x ?? 50,
+        ogPosY: onepage.settings?.social_image_position_y ?? 50,
+        subscribeEnabled: onepage.settings?.subscribe_enabled ?? true,
+        subscribeStyle: onepage.settings?.subscribe_style || "glass",
+        shareEnabled: onepage.settings?.share_enabled ?? true,
+        shareStyle: onepage.settings?.share_style || "white",
+        verifiedEnabled: (onepage.settings as any)?.verified_badge_enabled ?? false,
+        verifiedType: (onepage.settings as any)?.verified_badge_type || "verified_creator",
+      }
+    : null
+  const inFields: Record<string, unknown> = {
+    pageName, pageSlug, metaTitle, metaDescription, ogImage, ogPosX, ogPosY,
+    subscribeEnabled, subscribeStyle, shareEnabled, shareStyle, verifiedEnabled, verifiedType,
+  }
+  const setField: Record<string, (value: any) => void> = {
+    pageName: setPageName, pageSlug: setPageSlug, metaTitle: setMetaTitle, metaDescription: setMetaDescription,
+    ogImage: setOgImage, ogPosX: setOgPosX, ogPosY: setOgPosY,
+    subscribeEnabled: setSubscribeEnabled, subscribeStyle: setSubscribeStyle,
+    shareEnabled: setShareEnabled, shareStyle: setShareStyle,
+    verifiedEnabled: setVerifiedEnabled, verifiedType: setVerifiedType,
+  }
+  const syncedFromPageRef = useRef<Record<string, unknown> | null>(null)
+  const fromPageKey = JSON.stringify(fromPage)
   useEffect(() => {
-    if (onepage) {
-      setPageName(onepage.title || "")
-      setPageSlug(onepage.slug || "")
-      setMetaTitle(onepage.settings?.seo_title || onepage.title || "")
-      setMetaDescription(onepage.settings?.seo_description || onepage.bio || "")
-      setOgImage(onepage.settings?.social_image_url || "")
-      setOgPosX(onepage.settings?.social_image_position_x ?? 50)
-      setOgPosY(onepage.settings?.social_image_position_y ?? 50)
-      setSubscribeEnabled(onepage.settings?.subscribe_enabled ?? true)
-      setSubscribeStyle(onepage.settings?.subscribe_style || "glass")
-      setShareEnabled(onepage.settings?.share_enabled ?? true)
-      setShareStyle(onepage.settings?.share_style || "white")
-      setVerifiedEnabled((onepage.settings as any)?.verified_badge_enabled ?? false)
-      setVerifiedType((onepage.settings as any)?.verified_badge_type || "verified_creator")
+    if (!fromPage) return
+    const synced = syncedFromPageRef.current
+    if (!synced) {
+      // The fields were just filled from this same page by their useState
+      syncedFromPageRef.current = { ...fromPage }
+      return
     }
-  }, [onepage])
+    for (const [key, incoming] of Object.entries(fromPage)) {
+      if (Object.is(synced[key], incoming)) continue
+      const typedIn = !Object.is(inFields[key], synced[key])
+      synced[key] = incoming
+      if (!typedIn) setField[key](incoming)
+    }
+    // Keyed on the page's values for these fields, not on the whole page
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fromPageKey])
+
+  /** Whether a field holds something typed since it last took the page's value. */
+  const typedSinceSync = (key: string, value: unknown) => {
+    const synced = syncedFromPageRef.current
+    return !!synced && !Object.is(synced[key], value)
+  }
 
   if (!onepage) return null
 
@@ -154,20 +206,31 @@ export const SettingsTab = forwardRef<SettingsTabRef>(function SettingsTab(_, re
     setTimeout(() => setCopied(false), 2000)
   }
 
-  const handleSaveBasicInfo = async () => {
-    setLocalSaveState("saving")
-    try {
-      updateProfile({ title: pageName })
-      if (pageSlug !== onepage.slug) {
-        updateSlug(pageSlug)
-      }
-      await save()
+  /**
+   * Every Save button in this tab ends here. save() answers whether the page
+   * was saved; "Saved!" is shown only when it was, and a failure is put on
+   * screen by the editor, which watches every save.
+   */
+  const finishSave = async () => {
+    const result = await save()
+    if (result.ok) {
       setLocalSaveState("saved")
       setTimeout(() => setLocalSaveState("idle"), 2000)
-    } catch {
+    } else {
       setLocalSaveState("error")
       setTimeout(() => setLocalSaveState("idle"), 3000)
     }
+  }
+
+  const handleSaveBasicInfo = async () => {
+    setLocalSaveState("saving")
+    /* The page's title and address are written before save() reads the page.
+       They used to reach it only after a render, so this saved the old ones. */
+    updateProfile({ title: pageName })
+    if (pageSlug !== onepage.slug) {
+      updateSlug(pageSlug)
+    }
+    await finishSave()
   }
 
   const computeFocalFromEvent = useCallback((clientX: number, clientY: number) => {
@@ -180,95 +243,52 @@ export const SettingsTab = forwardRef<SettingsTabRef>(function SettingsTab(_, re
     markDirty()
   }, [])
 
+  /*
+    SEO IS SAVED LIKE EVERYTHING ELSE. It used to PUT `{ ...onepage }` itself,
+    the whole page as this tab last rendered it, to get around save() reading
+    the page before updateSettings had reached it. That copy carried the
+    archived blocks the editor opened with, so a block archived during the
+    visit came back in the database. The context now writes the page before
+    save() reads it, so the settings go to the page and save() sends them.
+  */
   const handleSaveSeo = async () => {
     setLocalSaveState("saving")
-    try {
-      // Build the complete updated settings inline, using current local state values
-      // This avoids any async React state timing issues with updateSettings + save()
-      const updatedSettings = {
-        ...((onepage?.settings as any) || {}),
-        seo_title: metaTitle,
-        seo_description: metaDescription,
-        social_image_url: ogImage || null,
-        social_image_position_x: ogImage ? ogPosX : null,
-        social_image_position_y: ogImage ? ogPosY : null,
-      }
-
-      // Persist directly to the API with explicit values
-      const res = await fetch("/api/onepage", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...onepage, settings: updatedSettings }),
-      })
-      if (!res.ok) throw new Error("Failed to save")
-
-      // Also update context state so live preview and other handlers stay in sync
-      updateSettings({
-        seo_title: metaTitle,
-        seo_description: metaDescription,
-        social_image_url: ogImage || null,
-        social_image_position_x: ogImage ? ogPosX : null,
-        social_image_position_y: ogImage ? ogPosY : null,
-      } as any)
-
-      setLocalSaveState("saved")
-      setTimeout(() => setLocalSaveState("idle"), 2000)
-    } catch {
-      setLocalSaveState("error")
-      setTimeout(() => setLocalSaveState("idle"), 3000)
-    }
-  }
-
-  // Sync ALL local settings state to context + API so the global Save button
-  // persists every section (basic info, SEO, subscribe, share, verified badge)
-  const handleSaveAllSettings = async () => {
-    // 1. Basic info — update context (slug + title)
-    updateProfile({ title: pageName })
-    if (pageSlug !== onepage.slug) {
-      updateSlug(pageSlug)
-    }
-
-    // 2. Merge every settings section into one object and persist via API
-    const mergedSettings = {
-      ...((onepage?.settings as any) || {}),
-      // SEO
-      seo_title: metaTitle,
-      seo_description: metaDescription,
-      social_image_url: ogImage || null,
-      social_image_position_x: ogImage ? ogPosX : null,
-      social_image_position_y: ogImage ? ogPosY : null,
-      // Subscribe
-      subscribe_enabled: subscribeEnabled,
-      subscribe_style: subscribeStyle,
-      // Share
-      share_enabled: shareEnabled,
-      share_style: shareStyle,
-      // Verified badge
-      verified_badge_enabled: verifiedEnabled,
-      verified_badge_type: verifiedType,
-    }
-
-    const res = await fetch("/api/onepage", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...onepage, settings: mergedSettings }),
-    })
-    if (!res.ok) throw new Error("Failed to save settings")
-
-    // Keep context in sync so live preview reflects persisted values
     updateSettings({
       seo_title: metaTitle,
       seo_description: metaDescription,
       social_image_url: ogImage || null,
       social_image_position_x: ogImage ? ogPosX : null,
       social_image_position_y: ogImage ? ogPosY : null,
-      subscribe_enabled: subscribeEnabled,
-      subscribe_style: subscribeStyle,
-      share_enabled: shareEnabled,
-      share_style: shareStyle,
-      verified_badge_enabled: verifiedEnabled,
-      verified_badge_type: verifiedType,
     } as any)
+    await finishSave()
+  }
+
+  /*
+    WHAT THE HEADER'S SAVE, AND LEAVING THIS TAB, TAKE FROM HERE: the fields
+    somebody typed in, and nothing else. The toggles and styles below already
+    write to the page as they change. This used to make its own PUT of the
+    whole page and throw if it failed, with nobody catching it, and it wrote
+    every field whether touched or not, so an SEO title that was only
+    showing the page title as its placeholder value was saved as a title of
+    its own.
+  */
+  const handleSaveAllSettings = async () => {
+    if (typedSinceSync("pageName", pageName)) {
+      updateProfile({ title: pageName })
+    }
+    if (typedSinceSync("pageSlug", pageSlug) && pageSlug !== onepage.slug) {
+      updateSlug(pageSlug)
+    }
+    const typedSettings: Record<string, unknown> = {}
+    if (typedSinceSync("metaTitle", metaTitle)) typedSettings.seo_title = metaTitle
+    if (typedSinceSync("metaDescription", metaDescription)) typedSettings.seo_description = metaDescription
+    if (typedSinceSync("ogPosX", ogPosX) || typedSinceSync("ogPosY", ogPosY)) {
+      typedSettings.social_image_position_x = ogImage ? ogPosX : null
+      typedSettings.social_image_position_y = ogImage ? ogPosY : null
+    }
+    if (Object.keys(typedSettings).length > 0) {
+      updateSettings(typedSettings as any)
+    }
   }
 
   // Expose save methods so the global Save button in the editor can call them
@@ -279,18 +299,11 @@ export const SettingsTab = forwardRef<SettingsTabRef>(function SettingsTab(_, re
 
   const handleSaveSubscribe = async () => {
     setLocalSaveState("saving")
-    try {
-      updateSettings({
-        subscribe_enabled: subscribeEnabled,
-        subscribe_style: subscribeStyle,
-      })
-      await save()
-      setLocalSaveState("saved")
-      setTimeout(() => setLocalSaveState("idle"), 2000)
-    } catch {
-      setLocalSaveState("error")
-      setTimeout(() => setLocalSaveState("idle"), 3000)
-    }
+    updateSettings({
+      subscribe_enabled: subscribeEnabled,
+      subscribe_style: subscribeStyle,
+    })
+    await finishSave()
   }
 
   // Live update subscribe settings (instant preview)
@@ -305,18 +318,11 @@ export const SettingsTab = forwardRef<SettingsTabRef>(function SettingsTab(_, re
 
   const handleSaveShare = async () => {
     setLocalSaveState("saving")
-    try {
-      updateSettings({
-        share_enabled: shareEnabled,
-        share_style: shareStyle,
-      })
-      await save()
-      setLocalSaveState("saved")
-      setTimeout(() => setLocalSaveState("idle"), 2000)
-    } catch {
-      setLocalSaveState("error")
-      setTimeout(() => setLocalSaveState("idle"), 3000)
-    }
+    updateSettings({
+      share_enabled: shareEnabled,
+      share_style: shareStyle,
+    })
+    await finishSave()
   }
 
   // Live update share settings (instant preview)
@@ -332,18 +338,11 @@ export const SettingsTab = forwardRef<SettingsTabRef>(function SettingsTab(_, re
   // Verified badge handlers
   const handleSaveVerified = async () => {
     setLocalSaveState("saving")
-    try {
-      updateSettings({
-        verified_badge_enabled: verifiedEnabled,
-        verified_badge_type: verifiedType,
-      } as any)
-      await save()
-      setLocalSaveState("saved")
-      setTimeout(() => setLocalSaveState("idle"), 2000)
-    } catch {
-      setLocalSaveState("error")
-      setTimeout(() => setLocalSaveState("idle"), 3000)
-    }
+    updateSettings({
+      verified_badge_enabled: verifiedEnabled,
+      verified_badge_type: verifiedType,
+    } as any)
+    await finishSave()
   }
 
   // Live update verified badge settings (instant preview)
@@ -395,25 +394,30 @@ export const SettingsTab = forwardRef<SettingsTabRef>(function SettingsTab(_, re
       setOgImage(publicUrl)
       setShowOgImageModal(false)
 
-      // Immediately persist the new image URL to the database so it survives
-      // a page refresh — don't wait for the user to manually click "Save".
-      const updatedSettings = {
-        ...((onepage?.settings as any) || {}),
+      /*
+        WRITTEN AT ONCE, AND ONLY WHAT CHANGED. The picture is stored straight
+        away so it survives a refresh without a Save. The request used to send
+        `{ ...onepage }`, the whole page as it was when this tab rendered,
+        including the archived blocks the editor opened with, so a block
+        archived since then came back in the database. It sends the page's id
+        and these three settings now; the server merges settings into what it
+        has. Once that worked the page is told quietly (it is already saved);
+        if it did not, it is told as an ordinary edit, so the next Save sends
+        it.
+      */
+      const latestSettings = (getLatestOnePage()?.settings as any) || {}
+      const imageSettings = {
         social_image_url: publicUrl,
         // Preserve existing focal point if already set
-        social_image_position_x: (onepage?.settings as any)?.social_image_position_x ?? 50,
-        social_image_position_y: (onepage?.settings as any)?.social_image_position_y ?? 50,
+        social_image_position_x: latestSettings.social_image_position_x ?? 50,
+        social_image_position_y: latestSettings.social_image_position_y ?? 50,
       }
-      await fetch("/api/onepage", {
+      const res = await fetch("/api/onepage", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...onepage, settings: updatedSettings }),
-      })
-      updateSettings({
-        social_image_url: publicUrl,
-        social_image_position_x: updatedSettings.social_image_position_x,
-        social_image_position_y: updatedSettings.social_image_position_y,
-      } as any)
+        body: JSON.stringify({ id: onepage.id, settings: imageSettings }),
+      }).catch(() => null)
+      updateSettings(imageSettings as any, { silent: !!res?.ok })
     } catch (error: any) {
       console.error("Upload error:", error)
       const msg = error?.message || error?.error_description || JSON.stringify(error)
@@ -427,23 +431,19 @@ export const SettingsTab = forwardRef<SettingsTabRef>(function SettingsTab(_, re
 
   const removeOgImage = async () => {
     setOgImage("")
-    // Also clear from the database immediately
-    const updatedSettings = {
-      ...((onepage?.settings as any) || {}),
+    // Also clear from the database immediately: the id and the three settings
+    // that change, never the whole page (see handleImageUpload)
+    const clearedSettings = {
       social_image_url: null,
       social_image_position_x: null,
       social_image_position_y: null,
     }
-    await fetch("/api/onepage", {
+    const res = await fetch("/api/onepage", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...onepage, settings: updatedSettings }),
-    })
-    updateSettings({
-      social_image_url: null,
-      social_image_position_x: null,
-      social_image_position_y: null,
-    } as any)
+      body: JSON.stringify({ id: onepage.id, settings: clearedSettings }),
+    }).catch(() => null)
+    updateSettings(clearedSettings as any, { silent: !!res?.ok })
   }
 
   // Sidebar navigation item component
@@ -470,8 +470,8 @@ export const SettingsTab = forwardRef<SettingsTabRef>(function SettingsTab(_, re
 
   const getSaveButtonText = () => {
     if (localSaveState === "saving" || saveState === "saving") return "Saving..."
+    if (localSaveState === "error" || saveState === "error") return "Not saved. Try again"
     if (localSaveState === "saved" || saveState === "saved") return "Saved!"
-    if (localSaveState === "error" || saveState === "error") return "Error"
     return "Save Changes"
   }
 

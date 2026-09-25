@@ -292,7 +292,8 @@ console.log("\nTracking: robots and people")
   const event = read("app/api/track-event/route.ts")
   check("funnel steps read the consent cookie on the server, not the page",
     /const consented = allows\(parse\(\(await cookies\(\)\)\.get\(CONSENT_COOKIE\)\?\.value, Date\.now\(\)\), "analytics"\)/.test(event)
-      && /const sessionId = consented &&/.test(event) && /const visitorId = consented &&/.test(event))
+      /* Changed on purpose: without consent the ids are now the daily hash and its visit (lib/analytics/anon-visit), never what the page sent. */
+      && /const sessionId = consented\s*\?\s*typeof payload\.sessionId === "string"/.test(event) && /const visitorId = consented \? \(typeof payload\.visitorId === "string"/.test(event))
   check("and only the steps the funnel knows are recorded", /\(EVENTS as readonly string\[\]\)\.includes\(payload\.eventType\)/.test(event) && /isBotAgent/.test(event))
 }
 

@@ -116,7 +116,9 @@ console.log("\nA OnePage says where it lives and who it is about")
   check("its structured data is printed only when it may be listed, and escaped",
     /owner\.canonical && onePageIndexable\(/.test(page) && /jsonLdScript\(\s*profilePageJsonLd\(/.test(page) && /sameAs: onePageSameAs\(transformedOnepage\.social_links\)/.test(page))
   check("and a page published before the published columns existed still draws its draft content",
-    /blocks: publishedBlocks \|\| onepage\.draft_blocks \|\| \[\]/.test(page) && /social_links: onepage\.published_social_links \|\| onepage\.social_links/.test(page))
+    /blocks: \(\(publishedBlocks \|\| onepage\.draft_blocks \|\| \[\]\) as any\[\]\)/.test(page) && /social_links: onepage\.published_social_links \|\| onepage\.social_links/.test(page))
+  check("and a block outside its schedule is left out before the page is sent",
+    /\.filter\(\(b\) => isScheduledNow\(b\)\)/.test(page) && /import \{ isScheduledNow \} from "@\/lib\/onepage\/extra-blocks"/.test(page))
   check("the handle and the counts are asked once per request, for the metadata and the page",
     /const onePageOwner = cache\(async/.test(page) && (page.match(/await onePageOwner\(/g) ?? []).length === 2)
 }

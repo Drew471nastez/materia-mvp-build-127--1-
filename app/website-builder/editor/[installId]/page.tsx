@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useLayoutEffect, useCallback, useDeferredValue, useMemo, useRef, use, memo, startTransition, type CSSProperties } from "react"
+import { useEffect, useState, useLayoutEffect, useCallback, useDeferredValue, useMemo, useRef, use, memo, startTransition } from "react"
 import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
 import {
@@ -32,12 +32,25 @@ import { CSS } from "@dnd-kit/utilities"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+  Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog"
-import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { MobileEditorSheet } from "@/components/website-builder/mobile-editor-sheet"
 import { SliderNumberControl } from "@/components/website-builder/editor/slider-number-control"
 import { WbImagePicker } from "@/components/website-builder/editor/image-picker"
+import { MediaField } from "@/components/website-builder/editor/image-picker"
+import { SegmentedChoice, SettingSelect, fitsSegmented } from "@/components/website-builder/editor/setting-controls"
+import { Collapse } from "@/components/website-builder/editor/collapse"
+import { altFieldFor, pairedAltIds } from "@/lib/website-builder/alt-pairing"
+import { whereItGoes } from "@/lib/website-builder/insert-words"
+import { measureSectionTops, playArrival } from "@/lib/website-builder/section-arrival"
+import { SectionLibrary } from "@/components/website-builder/editor/section-library"
+import {
+  DEFAULT_DESKTOP_HEADER_LAYOUT,
+  DEFAULT_MOBILE_HEADER_LAYOUT,
+  DESKTOP_HEADER_LAYOUTS,
+  HeaderLayoutPicker,
+  MOBILE_HEADER_LAYOUTS,
+} from "@/components/website-builder/editor/header-layout-picker"
 import { useEchoedValue } from "@/components/website-builder/echo-field"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import { hapticTap } from "@/lib/native-bridge"
@@ -69,7 +82,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import type {
   ThemeInstall, SectionInstance, ThemeSettingsValues,
   PageKey, EditorPanel, SchemaField, SectionSchema } from "@/lib/website-builder/types"
-import { BUTTON_COLOR_GROUPS, ButtonColorGroup, ColorsPanel, SectionDesignPanel, TypographyPanel } from "@/components/website-builder/editor/design-panels"
+import { BUTTON_COLOR_GROUPS, ButtonColorGroup, ColorsPanel, SchemeEditor, SectionDesignPanel, TypographyPanel } from "@/components/website-builder/editor/design-panels"
 import { remapScheme, themeColorSchemes } from "@/lib/storelib-theme/color-schemes"
 import { sameSettingValue } from "@/lib/website-builder/same-setting"
 import { PAGE_META } from "@/lib/website-builder/types"
@@ -82,7 +95,7 @@ import { chromeOf, withUniversalChrome } from "@/lib/website-builder/universal-c
 import { AutoTextarea } from "@/components/website-builder/auto-textarea"
 import { RichTextField } from "@/components/website-builder/rich-text-field"
 import { toPageSlug } from "@/lib/sites/slug"
-import { SECTION_SCHEMAS, ADDABLE_SECTIONS, SECTION_CATEGORIES, SECTION_CATEGORY_ORDER } from "@/lib/website-builder/section-schemas"
+import { SECTION_SCHEMAS, ADDABLE_SECTIONS } from "@/lib/website-builder/section-schemas"
 import { controlFor, resolveControlType } from "@/lib/storelib-theme/controls/registry"
 import { fillResponsive } from "@/lib/storelib-theme/resolve"
 import { toCard, type ProductCard } from "@/lib/website-builder/shop-products"
@@ -93,7 +106,7 @@ import { isCanvasNavigationLink, isTypingTarget, leavesThePage, type ClickTarget
 
 import { watchKeyboard } from "@/lib/website-builder/keyboard-watch"
 import { clearStaleDocumentLocks, watchForStuckLayer } from "@/lib/website-builder/stuck-layer"
-import { CUSTOM_SECTION_CATEGORY, customAddableSections, customSectionSchemas, schemaFor } from "@/lib/website-builder/storelib-schemas"
+import { customAddableSections, customSectionSchemas, schemaFor } from "@/lib/website-builder/storelib-schemas"
 import {
   WRITING_SECTION_ID,
   WRITING_SECTION_TYPE,
@@ -467,10 +480,13 @@ function FieldEditor({
   field,
   value,
   onChange,
+  alt,
 }: {
   field: SchemaField
   value: unknown
   onChange: (v: unknown) => void
+  /** A picture's description, drawn under the picture (lib/website-builder/alt-pairing). */
+  alt?: { value: string; onChange: (v: string) => void; label?: string }
 }) {
   const raw = value ?? field.default
   /**
@@ -597,20 +613,15 @@ function FieldEditor({
     )
   }
 
+  /* The sidebar's own list, not the operating system's menu: setting-controls.tsx. */
   if (kind === "select") {
     return (
-      <div className="relative">
-        <select
-          className="w-full h-10 px-3 pr-8 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 appearance-none cursor-pointer transition-colors"
-          value={typeof raw === "string" ? raw : String(field.default ?? "")}
-          onChange={e => onChange(e.target.value)}
-        >
-          {field.options?.map(opt => (
-            <option key={opt.value} value={opt.value}>{opt.label}</option>
-          ))}
-        </select>
-        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-      </div>
+      <SettingSelect
+        label={field.label}
+        value={typeof raw === "string" ? raw : String(field.default ?? "")}
+        options={field.options ?? []}
+        onChange={v => onChange(v)}
+      />
     )
   }
 
@@ -639,6 +650,7 @@ function FieldEditor({
         max={field.max ?? 100}
         step={field.step ?? 1}
         unit={field.unit ?? ""}
+        label={field.label}
       />
     )
   }
@@ -664,13 +676,14 @@ function FieldEditor({
         onChange={url => onChange(url ?? "")}
         aspectRatio="video"
         folder="sections"
+        alt={alt}
       />
     )
   }
 
   if (kind === "header") {
     return (
-      <div className="pt-3 pb-1 border-t border-border mt-2">
+      <div className="wb-field-header pt-3 pb-1 border-t border-border mt-2">
         <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">{field.label}</span>
         {field.info && <p className="text-[11px] text-muted-foreground mt-0.5">{field.info}</p>}
       </div>
@@ -683,53 +696,38 @@ function FieldEditor({
     )
   }
 
+  /* An upload, with the same field every picture uses: editor/image-picker.tsx. */
   if (kind === "video_picker") {
     return (
-      <div className="space-y-2">
-        {typeof raw === "string" && raw && (
-          <div className="relative w-full aspect-video rounded-lg overflow-hidden border border-border bg-muted">
-            <video src={raw} className="w-full h-full object-cover" muted />
-            <button
-              className="absolute top-1.5 right-1.5 h-6 w-6 bg-black/60 hover:bg-black/80 rounded-full flex items-center justify-center transition-colors"
-              onClick={() => onChange("")}
-            >
-              <X className="h-3 w-3 text-white" />
-            </button>
-          </div>
-        )}
-        <input
-          type="text"
-          className="w-full h-9 px-3 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 transition-colors"
-          placeholder="Paste video URL..."
-          value={typeof raw === "string" ? raw : ""}
-          onChange={e => onChange(e.target.value)}
-        />
-      </div>
+      <MediaField
+        kind="video"
+        value={typeof raw === "string" ? raw : undefined}
+        onChange={url => onChange(url ?? "")}
+        aspectRatio="video"
+        folder="sections"
+      />
     )
   }
 
   if (kind === "font_picker") {
+    const fonts = field.options ?? [
+      { label: "Inter", value: "Inter" },
+      { label: "Poppins", value: "Poppins" },
+      { label: "Playfair Display", value: "Playfair Display" },
+      { label: "Merriweather", value: "Merriweather" },
+      { label: "Raleway", value: "Raleway" },
+      { label: "Montserrat", value: "Montserrat" },
+      { label: "Lora", value: "Lora" },
+      { label: "DM Sans", value: "DM Sans" },
+      { label: "Space Grotesk", value: "Space Grotesk" },
+    ]
     return (
-      <select
-        className="w-full h-9 px-3 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 appearance-none cursor-pointer transition-colors"
+      <SettingSelect
+        label={field.label}
         value={typeof raw === "string" ? raw : String(field.default ?? "")}
-        onChange={e => onChange(e.target.value)}
-        style={{ fontFamily: typeof raw === "string" ? raw : String(field.default ?? "") }}
-      >
-        {(field.options ?? [
-          { label: "Inter", value: "Inter" },
-          { label: "Poppins", value: "Poppins" },
-          { label: "Playfair Display", value: "Playfair Display" },
-          { label: "Merriweather", value: "Merriweather" },
-          { label: "Raleway", value: "Raleway" },
-          { label: "Montserrat", value: "Montserrat" },
-          { label: "Lora", value: "Lora" },
-          { label: "DM Sans", value: "DM Sans" },
-          { label: "Space Grotesk", value: "Space Grotesk" },
-        ]).map(opt => (
-          <option key={opt.value} value={opt.value}>{opt.label}</option>
-        ))}
-      </select>
+        options={fonts.map(o => ({ ...o, fontFamily: o.value }))}
+        onChange={v => onChange(v)}
+      />
     )
   }
 
@@ -741,34 +739,25 @@ function FieldEditor({
     const schemes = themeColorSchemes({})
     const keys = Object.keys(schemes)
     return (
-      <div className="relative">
-        <select
-          className={cn("w-full h-9 px-3 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-300", "appearance-none pr-8")}
-          value={typeof raw === "string" && keys.includes(raw) ? raw : keys[0]}
-          onChange={e => onChange(e.target.value)}
-        >
-          {keys.map(k => <option key={k} value={k}>{schemes[k].name}</option>)}
-        </select>
-        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-      </div>
+      <SettingSelect
+        label={field.label}
+        value={typeof raw === "string" && keys.includes(raw) ? raw : keys[0]}
+        options={keys.map(k => ({ label: schemes[k].name, value: k }))}
+        onChange={v => onChange(v)}
+      />
     )
   }
 
   if (kind === "alignment") {
     const current = typeof raw === "string" ? raw : "left"
     return (
-      <div className="grid grid-cols-3 gap-1 p-1 rounded-lg bg-muted/60">
-        {(["left", "center", "right"] as const).map(a => (
-          <button
-            key={a}
-            type="button"
-            className={cn("h-7 rounded-md text-xs font-medium capitalize transition-colors", current === a ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground")}
-            onClick={() => onChange(a)}
-          >
-            {a}
-          </button>
-        ))}
-      </div>
+      <SegmentedChoice
+        label={field.label}
+        fieldId="alignment"
+        value={current}
+        options={[{ label: "Left", value: "left" }, { label: "Center", value: "center" }, { label: "Right", value: "right" }]}
+        onChange={v => onChange(v)}
+      />
     )
   }
 
@@ -795,18 +784,16 @@ function FieldEditor({
     const options = targets.filter(t => t.kind === want)
     const current = typeof raw === "string" ? raw : ""
     return (
-      <div className="relative">
-        <select
-          className={cn("w-full h-9 px-3 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-300", "appearance-none pr-8")}
-          value={current}
-          onChange={e => onChange(e.target.value)}
-        >
-          <option value="">{options.length ? `Choose a ${want}` : `No ${want}s yet`}</option>
-          {options.map(t => <option key={t.href} value={t.href}>{t.label}</option>)}
-          {current && !options.some(t => t.href === current) && <option value={current}>{current}</option>}
-        </select>
-        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-      </div>
+      <SettingSelect
+        label={field.label}
+        value={current}
+        placeholder={options.length ? `Choose a ${want}` : `No ${want}s yet`}
+        options={[
+          ...options.map(t => ({ label: t.label, value: t.href })),
+          ...(current && !options.some(t => t.href === current) ? [{ label: current, value: current }] : []),
+        ]}
+        onChange={v => onChange(v)}
+      />
     )
   }
 
@@ -822,47 +809,15 @@ function FieldEditor({
     )
   }
 
+  /* Two to four short answers side by side, with a small picture when they
+     are positions (Image on: Left | Right); anything longer is a list. */
   if (kind === "radio") {
     const current = typeof raw === "string" ? raw : String(field.default ?? "")
     const opts = field.options ?? []
-    // Fallback to a select when there are too many options for a segmented control
-    if (opts.length > 3) {
-      return (
-        <div className="relative">
-          <select
-            className="w-full h-10 px-3 pr-8 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 appearance-none cursor-pointer transition-colors"
-            value={current}
-            onChange={e => onChange(e.target.value)}
-          >
-            {opts.map(opt => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
-          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-        </div>
-      )
-    }
-    return (
-      <div className="flex gap-1 p-1 bg-neutral-100 rounded-lg">
-        {opts.map(opt => {
-          const isSelected = current === opt.value
-          return (
-            <button
-              key={opt.value}
-              type="button"
-              onClick={() => onChange(opt.value)}
-              className={cn(
-                "flex-1 py-1.5 px-3 text-sm font-medium rounded-md border text-center transition-[background-color,color,border-color,box-shadow,scale] duration-200 ease-out active:scale-[0.97] active:duration-75",
-                isSelected
-                  ? "bg-white text-foreground border-neutral-200/80 shadow-[0_1px_2px_rgba(0,0,0,0.06),0_0_0_0.5px_rgba(0,0,0,0.04)]"
-                  : "bg-transparent text-neutral-500 border-transparent hover:text-foreground hover:bg-white/40"
-              )}
-            >
-              {opt.label}
-            </button>
-          )
-        })}
-      </div>
+    return fitsSegmented(opts) ? (
+      <SegmentedChoice label={field.label} fieldId={field.id} value={current} options={opts} onChange={v => onChange(v)} />
+    ) : (
+      <SettingSelect label={field.label} value={current} options={opts} onChange={v => onChange(v)} />
     )
   }
 
@@ -946,771 +901,11 @@ const DEVICE_WIDTH: Record<Exclude<DeviceMode, "desktop">, number> = {
 /** A thumbnail draws the theme's own file, never a creator's edit of it. */
 const EMPTY_SOURCES: Record<string, string> = {}
 
-/**
- * THE WIDTH A PREVIEW IS DRAWN AT, WHICH DECIDES WHAT IT SHOWS.
- *
- * Sections ask about the width they are IN, not the width of the window:
- * `@[768px]:grid-cols-3` is a container query and the section's own wrapper
- * is what it measures. See SectionRenderer. So the render width is not a
- * detail of the scaling — it is the question being put to the section, and
- * 800px asks "what do you look like on a desktop" wherever it is asked.
- *
- * A phone got the desktop answer, shrunk. Three columns at a third of their
- * size, a split hero with two unreadable halves: a picture of a layout the
- * person holding the phone will never see, offered as the thing they are
- * about to add. 390 is a phone, so the section answers as a phone.
- */
-const PREVIEW_RENDER_WIDTH = 800
-const PREVIEW_RENDER_WIDTH_MOBILE = 390
-const PREVIEW_THEME: ThemeSettingsValues = {
-  primary_color: "#6366f1",
-  secondary_color: "#8b5cf6",
-  accent_color: "#f59e0b",
-  background_color: "#ffffff",
-  surface_color: "#f8fafc",
-  text_color: "#0f172a",
-  text_secondary_color: "#64748b",
-  border_color: "#e2e8f0",
-  button_style: "rounded",
-  border_radius: 8,
-  font_heading: "Inter",
-  font_body: "Inter",
-}
-
-function buildPreviewSection(type: string, presetIndex = 0, given?: SectionSchema): SectionInstance | null {
-  const schema = given ?? SECTION_SCHEMAS[type]
-  if (!schema) return null
-  const preset = schema.presets?.[presetIndex] ?? schema.presets?.[0]
-  return {
-    id: `preview-${type}-${presetIndex}`,
-    type,
-    name: schema.name,
-    settings: preset?.settings ?? {},
-    blocks: preset?.blocks ?? [],
-    hidden: false,
-  }
-}
-
-/**
- * ===========================================================================
- *  ONE SECTION, DRAWN SMALL
- * ===========================================================================
- * The section is rendered at a desktop width and shrunk to fit the card, so
- * what you see is the section and not a narrow-screen version of it.
- *
- * THE BOX IS A FIXED SHAPE. It used to be as tall as whatever the section
- * rendered to, which meant every card changed height the moment its preview
- * appeared, and a grid of them settled in stages — the jumping when the
- * library opens or a category changes. A ratio known before anything renders
- * means the grid is its final size on the first frame, and the previews fill
- * in underneath without moving anything.
- *
- * `content-visibility: auto` lets the browser skip the ones scrolled out of
- * view; `contain-intrinsic-size` is what keeps that from costing a scroll
- * jump, since the box's size is known whether it has been drawn or not.
- */
-/**
- * And the box is a different shape, because the section is. The same hero
- * that is 400px tall at 800 wide is most of a screen tall at 390: keeping the
- * desktop's 2:1 box would crop a phone preview to its first line and a half.
- * Taller here, though not as tall as the section — a card is a glimpse, and a
- * list of full-height phone screens is a list you scroll instead of scan.
- */
-const PREVIEW_RATIO = 0.5
-const PREVIEW_RATIO_MOBILE = 0.75
-
-/**
- * ===========================================================================
- *  A PREVIEW IS DRAWN ONCE AND THEN IT IS MARKUP
- * ===========================================================================
- * Every card mounted a live `SectionRenderer`: a full React tree per section,
- * with its hooks, its effects and its reconciliation, thirty of them in one
- * modal. Opening the library built all thirty. Picking a category rebuilt
- * whatever the new list held. On a phone that is the freeze, the lag and the
- * glitch on close — the main thread is building sections while the sheet is
- * trying to animate, and the sheet's animation is the thing that loses.
- *
- * The previews are not live for any reason. Nothing in them is interactive —
- * they are `pointer-events: none` and scaled to a third of their size — and
- * nothing about them changes after they are drawn. So each one is drawn ONCE,
- * its markup is taken, and from then on the card is that markup.
- *
- * EXACTLY 1:1, and that is the point of doing it this way rather than
- * drawing pictures of the sections: the markup comes from the real renderer,
- * with the real theme, so a preview cannot drift from the section it stands
- * for. It is the same pixels, without the machinery that produced them.
- *
- * Cached across the whole session by type and preset, so a category switch, a
- * keystroke in the search box and a second opening of the library all cost
- * nothing. The cache is module-level on purpose: it outlives the modal, which
- * is exactly the case that used to rebuild everything.
- */
-const PREVIEW_MARKUP = new Map<string, string>()
-
-function SectionPreviewThumbnail({ type, presetIndex = 0, containerWidth = 220, schema, mobile = false }: { type: string; presetIndex?: number; containerWidth?: number; schema?: SectionSchema; mobile?: boolean }) {
-  const section = useMemo(() => buildPreviewSection(type, presetIndex, schema), [type, presetIndex, schema])
-  const renderWidth = mobile ? PREVIEW_RENDER_WIDTH_MOBILE : PREVIEW_RENDER_WIDTH
-  const height = Math.round(containerWidth * (mobile ? PREVIEW_RATIO_MOBILE : PREVIEW_RATIO))
-  /**
-   * THE WIDTH IS PART OF THE KEY.
-   *
-   * The markup a section produces at 390 is a different document from the one
-   * it produces at 800 — that is the whole point of asking it at 390. Keying
-   * on the type alone would hand a phone the desktop markup it happened to
-   * draw first, or the reverse, depending only on which was opened first in
-   * that session.
-   */
-  const cacheKey = `${type}:${presetIndex}:${renderWidth}`
-  const captureRef = useRef<HTMLDivElement>(null)
-
-  /**
-   * What we already have. Read during the first render rather than in an
-   * effect, so a card whose section has been drawn before never mounts a
-   * renderer at all — not even for one frame.
-   */
-  const [markup, setMarkup] = useState<string | null>(() => PREVIEW_MARKUP.get(cacheKey) ?? null)
-
-  /**
-   * The one live render, and only if nothing is cached. `useLayoutEffect`
-   * rather than `useEffect`: the markup is read and the renderer is dropped
-   * before the browser paints, so there is no frame where both exist.
-   */
-  useLayoutEffect(() => {
-    if (markup !== null || !section) return
-    const node = captureRef.current
-    if (!node) return
-    const html = node.innerHTML
-    if (!html) return
-    PREVIEW_MARKUP.set(cacheKey, html)
-    setMarkup(html)
-  }, [markup, section, cacheKey])
-
-  /**
-   * The markup as a prop that stays the same object. React 19 compares the
-   * object, not the string, so `{{ __html: markup }}` inline rewrote every
-   * card's preview, images and all, whenever the library rendered, which was
-   * on every keystroke anywhere in the editor. See sections/stable-html.
-   */
-  const markupProp = useMemo(() => (markup === null ? null : { __html: markup }), [markup])
-
-  if (!section) {
-    return (
-      <div className="w-full flex items-center justify-center bg-muted" style={{ height }}>
-        <Layout className="h-8 w-8 text-muted-foreground/30" />
-      </div>
-    )
-  }
-
-  const scale = containerWidth / renderWidth
-  const inner: CSSProperties = {
-    width: renderWidth,
-    transform: `scale(${scale})`,
-    pointerEvents: "none",
-    userSelect: "none",
-  }
-
-  return (
-    <div
-      className="relative w-full overflow-hidden"
-      style={{
-        height,
-        contentVisibility: "auto",
-        containIntrinsicSize: `${containerWidth}px ${height}px`,
-      }}
-    >
-      {markup === null ? (
-        <div ref={captureRef} className="absolute left-0 top-0 origin-top-left" data-keep-transform style={inner}>
-          {/* `deviceMode` for the header's sake. It is the one section kept
-              out of the container-query wrapper — it positions things `fixed`
-              and containment would make an ancestor their containing block —
-              so it is also the one section that cannot work the width out for
-              itself, and has to be told. */}
-          <SectionRenderer
-            section={section}
-            theme={PREVIEW_THEME}
-            isEditing={false}
-            isSelected={false}
-            deviceMode={mobile ? "mobile" : "desktop"}
-          />
-        </div>
-      ) : (
-        /**
-         * The same box, the same transform, the same markup — and no React
-         * below this point. `dangerouslySetInnerHTML` is the whole of it:
-         * the string came from this application's own renderer a moment ago,
-         * not from anywhere a creator or a visitor can reach.
-         */
-        <div
-          className="absolute left-0 top-0 origin-top-left"
-          /* The scale is what makes the preview fit the card. On a touch
-             device a blanket `transform: none` under `.group` used to remove
-             it: see the rule in globals.css that this opts out of. */
-          data-keep-transform
-          style={inner}
-          aria-hidden
-          dangerouslySetInnerHTML={markupProp ?? undefined}
-        />
-      )}
-    </div>
-  )
-}
-
-// ── Add Section Modal ────────────────────────────────────────
-/**
- * ===========================================================================
- *  ONE CARD IN THE ADD SECTION LIBRARY
- * ===========================================================================
- * Declared here, at the top level, and not inside the modal — which is where
- * it used to be. A component declared inside another component is a NEW
- * component type on every render of its parent, so React unmounts and
- * remounts every card whenever anything in the modal changes: each card's
- * width state resets to its guess, each ResizeObserver re-attaches, and every
- * preview redraws. That is the flicker you see on picking a category, and it
- * would have been one flicker per keystroke once there was a search box.
- *
- * `memo` then does what it is meant to: a card whose props have not changed
- * does not re-render at all.
- */
-const SectionLibraryCard = memo(function SectionLibraryCard({
-  type,
-  presetIndex,
-  title,
-  schema,
-  width,
-  mobile,
-  onAdd,
-}: {
-  type: string
-  presetIndex: number
-  title: string
-  schema: SectionSchema
-  /** Measured once by the grid, not thirty times by thirty cards. */
-  width: number
-  mobile?: boolean
-  onAdd: (type: string, presetIndex: number) => void
-}) {
-  return (
-    <button
-      onClick={() => onAdd(type, presetIndex)}
-      /* A stable hook so the library can be counted from outside: an empty
-         list and a list that failed to draw look identical in a screenshot. */
-      data-library-card={type}
-      className={cn(
-        "flex flex-col w-full rounded-xl border border-border bg-background overflow-hidden text-left",
-        /**
-         * NAMED PROPERTIES, NOT `all`.
-         *
-         * `transition-all` on a card that contains a live rendered section
-         * animates every property that changes on it, the preview's included.
-         * Thirty-eight of those in a grid is thirty-eight elements the
-         * compositor is asked to keep interpolating while you scroll past.
-         */
-        /**
-         * `translate` and `scale`, NOT `transform`. Tailwind v4 compiles
-         * `-translate-y-*` and `scale-*` to the standalone `translate:` and
-         * `scale:` properties, so a transition naming `transform` animates
-         * nothing at all and the lift snaps — silently, with the border and
-         * shadow still easing, so it half looks right.
-         */
-        "transition-[border-color,box-shadow,translate,scale] duration-200 ease-out",
-        mobile
-          ? /**
-             * NO PRESS EFFECT OF ITS OWN ON A PHONE.
-             *
-             * It had `active:scale-[0.98] active:opacity-80`, and the shell
-             * adds `opacity: .72` to every [role=button] on top of that. So a
-             * thumb landing here — to tap it, or to start a scroll — shrank
-             * the card AND faded it twice, over 200ms. That is the bump and
-             * the whitish fade. The shell's dim is the press feedback, it is
-             * delayed so a scroll never triggers it, and one is enough.
-             */
-            "rounded-2xl shadow-sm"
-          : "hover:border-foreground/25 hover:shadow-lg hover:shadow-black/8 hover:-translate-y-0.5 active:scale-[0.99] active:shadow-sm will-change-transform",
-        "focus:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 focus-visible:ring-offset-2",
-        "group cursor-pointer select-none [-webkit-touch-callout:none]",
-      )}
-    >
-      <div className="px-4 pt-3 pb-2.5 shrink-0">
-        <p className="font-semibold text-sm leading-tight text-foreground">{title}</p>
-      </div>
-      <div className="w-full border-t border-border/40 bg-muted/10 overflow-hidden">
-        <SectionPreviewThumbnail type={type} presetIndex={presetIndex} containerWidth={width} schema={schema} mobile={mobile} />
-      </div>
-    </button>
-  )
-})
-
-interface LibraryEntry {
-  type: string
-  presetIndex: number
-  title: string
-  schema: SectionSchema
-  /** Everything somebody might type to find this, lower-cased once. */
-  haystack: string
-}
-
-const AddSectionModal = memo(function AddSectionModal({
-  open,
-  onOpenChange,
-  onAddSection,
-  schemas,
-  addable,
-  ownTypes,
-  sources,
-}: {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  onAddSection: (type: string, presetIndex?: number) => void
-  /** Every section this install can add: the theme's, and this creator's own. */
-  schemas: Record<string, SectionSchema>
-  addable: string[]
-  /** The ones this creator wrote, which get their own heading. */
-  ownTypes: string[]
-  /** Every .storelib file this install has saved, so the cards can draw them. */
-  sources: Record<string, string>
-}) {
-  const [activeCategory, setActiveCategory] = useState<string | null>(null)
-  const [query, setQuery] = useState("")
-  const [isMobileLayout, setIsMobileLayout] = useState(false)
-
-  useEffect(() => {
-    const check = () => setIsMobileLayout(window.innerWidth < 640)
-    check()
-    window.addEventListener("resize", check)
-    return () => window.removeEventListener("resize", check)
-  }, [])
-
-  /** A fresh open starts at everything, with nothing typed. */
-  useEffect(() => {
-    if (open) { setActiveCategory(null); setQuery("") }
-  }, [open])
-
-  const own = useMemo(() => new Set(ownTypes), [ownTypes])
-
-  /**
-   * ONE CARD PER PRESET. A section's presets are the different things it can
-   * first appear as — the centred hero on a colour and the same hero on an
-   * image — and each is its own card with its own preview. A section with one
-   * preset, or none declared, is one card named after the section.
-   */
-  const allEntries = useMemo<LibraryEntry[]>(() => {
-    const out: LibraryEntry[] = []
-    for (const type of addable) {
-      const schema = schemas[type]
-      if (!schema) continue
-      const category = own.has(type) ? CUSTOM_SECTION_CATEGORY : schema.category ?? "content"
-      const label = SECTION_CATEGORIES[category] ?? category
-      const presets = schema.presets ?? []
-      const many = presets.length > 1
-      const list = many ? presets.map((p, i) => ({ i, name: p.name || schema.name })) : [{ i: 0, name: schema.name }]
-      for (const { i, name } of list) {
-        out.push({
-          type,
-          presetIndex: i,
-          title: name,
-          schema,
-          haystack: `${name} ${schema.name} ${label} ${schema.description ?? ""} ${type}`.toLowerCase(),
-        })
-      }
-    }
-    return out
-  }, [addable, schemas, own])
-
-  /**
-   * The theme's own order first, so the tabs read the way the library was
-   * laid out rather than the way an object happened to be built. A creator's
-   * own sections go last, under their own heading, which is the one tab that
-   * is not the theme's.
-   */
-  const categories = useMemo(() => {
-    const counts = new Map<string, number>()
-    for (const e of allEntries) {
-      const cat = own.has(e.type) ? CUSTOM_SECTION_CATEGORY : e.schema.category ?? "content"
-      counts.set(cat, (counts.get(cat) ?? 0) + 1)
-    }
-    const themeOrder = SECTION_CATEGORY_ORDER.map(c => c.id).filter(id => counts.has(id))
-    const rest = [...counts.keys()].filter(id => !themeOrder.includes(id) && id !== CUSTOM_SECTION_CATEGORY)
-    const mine = counts.has(CUSTOM_SECTION_CATEGORY) ? [CUSTOM_SECTION_CATEGORY] : []
-    return [
-      { key: "all", label: "All", count: allEntries.length },
-      ...[...themeOrder, ...rest, ...mine].map(id => ({
-        key: id,
-        label: SECTION_CATEGORIES[id] ?? id,
-        count: counts.get(id) ?? 0,
-      })),
-    ]
-  }, [allEntries, own])
-
-  /**
-   * Typing searches the whole library rather than the category in front of
-   * you: somebody looking for "countdown" should not have to know it is
-   * filed under Marketing first.
-   */
-  const searching = query.trim().length > 0
-  const visible = useMemo(() => {
-    const needle = query.trim().toLowerCase()
-    if (needle) {
-      const words = needle.split(/\s+/)
-      return allEntries.filter(e => words.every(w => e.haystack.includes(w)))
-    }
-    if (!activeCategory) return allEntries
-    return allEntries.filter(e => (own.has(e.type) ? CUSTOM_SECTION_CATEGORY : e.schema.category ?? "content") === activeCategory)
-  }, [allEntries, query, activeCategory, own])
-
-  /**
-   * CLOSE FIRST, ADD ON THE NEXT FRAME.
-   *
-   * Adding a section mounts a section's worth of DOM in the canvas and
-   * scrolls to it, which is a hundred milliseconds of main thread. Doing it
-   * in the same tick as the close means the browser may never commit the
-   * sheet's starting style before that work begins, and a transition whose
-   * start is never committed does not run: the sheet vanishes instead of
-   * sliding. One frame is all it takes to have the transition committed and
-   * handed to the compositor, which then finishes it whatever the main
-   * thread is doing.
-   */
-  const handleAdd = useCallback((type: string, presetIndex = 0) => {
-    onOpenChange(false)
-    requestAnimationFrame(() => onAddSection(type, presetIndex))
-  }, [onAddSection, onOpenChange])
-
-  const empty = searching
-    ? `Nothing matches “${query.trim()}”`
-    : activeCategory === CUSTOM_SECTION_CATEGORY
-      ? "Write a section in the code editor and it appears here"
-      : "No sections in this category"
-
-  const search = (
-    <div className="relative">
-      <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-      <input
-        type="search"
-        value={query}
-        onChange={e => setQuery(e.target.value)}
-        placeholder="Search sections"
-        aria-label="Search sections"
-        /* 16px on a phone. iOS zooms the page when a field under that takes
-           focus and does not zoom back, which inside a bottom sheet leaves
-           the sheet wider than the screen with its own content off to one
-           side. `md:text-sm` puts it back for the desktop modal. */
-        className="h-10 w-full rounded-lg border border-border bg-background pl-9 pr-8 text-[16px] text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-foreground/10 focus:border-neutral-300 md:h-9 md:text-sm [&::-webkit-search-cancel-button]:hidden"
-      />
-      {searching && (
-        <button
-          type="button"
-          onClick={() => setQuery("")}
-          aria-label="Clear the search"
-          className="absolute right-2 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
-        >
-          <X className="h-3 w-3" />
-        </button>
-      )}
-    </div>
-  )
-
-  /**
-   * THE COLUMN IS MEASURED ONCE, BY THE GRID. Every card in a one-column
-   * grid is the width of the grid, so thirty cards measuring themselves was
-   * thirty ResizeObservers agreeing — and each of them reported after the
-   * first paint, so every card drew once at a guessed width and then jumped
-   * to the real one. That is the snap on opening the library and on changing
-   * category.
-   *
-   * Measured here instead, before paint, and kept while the modal is open:
-   * changing category re-uses the width that is already known, so the new
-   * cards are the right size on their first frame. There is nothing to
-   * settle into.
-   */
-  /**
-   * ═════════════════════════════════════════════════════════════════════════
-   *  THE LIBRARY IS NOT ALLOWED TO DEPEND ON A MEASUREMENT ARRIVING
-   * ═════════════════════════════════════════════════════════════════════════
-   * This was a ref read inside an effect keyed on `[open, isMobileLayout]`,
-   * and the grid below was drawn only when `gridWidth > 0`. If the ref was
-   * not attached in the commit that effect ran in — which is what a dialog
-   * mounting its content through a presence wrapper does — the effect
-   * returned early, nothing ever set the width, and the deps never changed
-   * again to give it a second chance.
-   *
-   * That is the bug as reported: every category down the side and, beside
-   * them, nothing. Not "no sections in this category" — the list was never
-   * empty, it simply never drew. Measured on the real editor: `cards=0` in a
-   * modal reading "Add New Section … All, Hero, Products, Features …".
-   *
-   * A CALLBACK REF CANNOT MISS IT. React calls it with the node the moment
-   * the node exists, whenever that is, and with null when it goes away. The
-   * observer is created there, so the first measurement and every later one
-   * come from the same place and there is no window to fall through.
-   */
-  const [gridWidth, setGridWidth] = useState(0)
-  const gridObserver = useRef<ResizeObserver | null>(null)
-  const gridRef = useCallback((el: HTMLDivElement | null) => {
-    gridObserver.current?.disconnect()
-    gridObserver.current = null
-    if (!el) return
-    setGridWidth(el.getBoundingClientRect().width)
-    if (typeof ResizeObserver === "undefined") return
-    const ro = new ResizeObserver(() => setGridWidth(el.getBoundingClientRect().width))
-    ro.observe(el)
-    gridObserver.current = ro
-  }, [])
-  useEffect(() => () => gridObserver.current?.disconnect(), [])
-  /**
-   * The card has a 1px border, and the preview sits inside it, so the space
-   * the preview actually has is the column less those two pixels. Scaling to
-   * the column instead put a 2px-wide sliver of every section past the right
-   * edge of its own box, cropped and never seen — small, but it is the
-   * difference between a preview that is the section and one that is nearly
-   * the section.
-   */
-  const previewWidth = Math.max(0, gridWidth - 2)
-
-  const cards = (mobile: boolean) => (
-    <>
-      {/*
-        * ONE PROVIDER, NOT ONE PER CARD — and it carries this install's saved
-        * sources, which is what lets a section the creator wrote draw at all:
-        * it exists only in their files, so a card with no sources had nothing
-        * to render and showed an empty box under its name. It also means a
-        * theme section somebody has edited previews as they edited it, rather
-        * than as it shipped.
-        */}
-      <StorelibLiveProvider sources={sources}>
-        {/*
-          KEYED ON THE FILTER, so choosing a category replaces the grid rather
-          than editing it in place — which is what lets the new set arrive
-          instead of appearing. React would otherwise reconcile card against
-          card, keep the DOM nodes, and swap their contents: no element is new,
-          so nothing can animate, and a category with a live preview in every
-          card changes under you in one frame.
-
-          The animation is on the CONTAINER, once, not on thirty-eight cards.
-          Thirty-eight staggered entrances is thirty-eight composited layers
-          arriving together on a phone, which is the lag this modal is being
-          blamed for rather than a cure for it.
-        */}
-        <div
-          key={`${activeCategory ?? "all"}:${searching ? "q" : ""}`}
-          ref={gridRef}
-          className={cn("wb-panel-swap", mobile ? "flex flex-col gap-3" : "grid grid-cols-1 gap-4")}
-        >
-          {/* The width no longer gates the list. A card whose preview does
-              not yet know how wide it is can still be drawn and still be
-              pressed; a library nobody can see is worse than a preview that
-              arrives a frame late. */}
-          {visible.map(e => (
-            <SectionLibraryCard
-              key={`${e.type}-${e.presetIndex}`}
-              type={e.type}
-              presetIndex={e.presetIndex}
-              title={e.title}
-              schema={e.schema}
-              width={previewWidth}
-              mobile={mobile}
-              onAdd={handleAdd}
-            />
-          ))}
-        </div>
-      </StorelibLiveProvider>
-      {visible.length === 0 && (
-        <div className="py-16 text-center text-muted-foreground">
-          <p className="text-sm">{empty}</p>
-        </div>
-      )}
-    </>
-  )
-
-  // ── Mobile: bottom sheet ──
-  /**
-   * THE SAME SHEET AS PUBLISH, NOT A SECOND ONE.
-   *
-   * This was Radix's `Sheet` with `enableDragToClose`, which is a different
-   * thing wearing the same shape: it opens and closes on its own curve, its
-   * drag is a gesture handler bolted to a static panel, and it sat beside a
-   * sheet — the publish card, the menu, the AI — that does all of that
-   * properly. Two bottom sheets in one product that do not move alike is
-   * something you feel before you can name it.
-   *
-   * `MobileEditorSheet` is that other one: the drag writes `transform`
-   * imperatively while the finger is down so the sheet is under the thumb on
-   * the same frame, the release settles to a detent on the curve a thrown
-   * thing lands on, and the whole of it is a compositor transform that keeps
-   * running when the main thread is busy — which is exactly the moment a
-   * section is being added.
-   *
-   * NO CLOSE BUTTON. The handle is the affordance, dragging down is the
-   * gesture, and the scrim takes a tap. An X in the corner of a sheet is a
-   * third way to do what two gestures already do, and it is the one that
-   * needs a 44px target in the corner furthest from the thumb.
-   */
-  if (isMobileLayout) {
-    return (
-      <MobileEditorSheet
-        open={open}
-        onOpenChange={onOpenChange}
-        /* A library is a thing you browse: half a screen of it is a peephole,
-           and making somebody drag first is a step with one answer. */
-        openFull
-        detents={[0.92]}
-        /* Over the sections sheet it was opened from, not under it. */
-        layer="raised"
-        peekHeight={0}
-      >
-        <div className="flex min-h-0 flex-1 flex-col">
-          <div className="shrink-0 px-5 pb-3 pt-0.5">
-            <h2 className="text-[17px] font-semibold tracking-tight text-[#1a1a2e]">Add section</h2>
-          </div>
-
-          <div className="shrink-0 px-4 pb-3">{search}</div>
-
-          {!searching && (
-            <div className="wb-chip-row shrink-0 overflow-x-auto px-4 pb-3">
-              <div className="flex w-max gap-2">
-                {categories.map(cat => {
-                  const on = (cat.key === "all" && !activeCategory) || activeCategory === cat.key
-                  return (
-                    <button
-                      key={cat.key}
-                      type="button"
-                      onClick={() => setActiveCategory(cat.key === "all" ? null : cat.key)}
-                      /**
-                       * THE SELECTED PILL SAYS SO IN AN ATTRIBUTE, NOT ONLY IN
-                       * A UTILITY CLASS.
-                       *
-                       * A tapped pill went white and read as untouched. The
-                       * cause was a sheet-wide `:hover { background-color:
-                       * transparent !important }` for touch, which on a phone
-                       * stays on the last element tapped, so it landed on
-                       * exactly the chip you had just selected. That rule now
-                       * excludes `.wb-chip` (see globals.css).
-                       *
-                       * The attribute is what a class cannot be: something a
-                       * stylesheet, a test and a screen reader can all read.
-                       * `aria-pressed` because that is what this control is,
-                       * a toggle, and it never announced itself as one.
-                       */
-                      data-on={on ? "true" : "false"}
-                      aria-pressed={on}
-                      className={cn(
-                        /**
-                         * Named properties, not `transition-all`. Tailwind v4
-                         * compiles `active:scale-95` to the standalone
-                         * `scale:` property, so `transition-all` covers it —
-                         * but it also covers `width`, and a chip row that
-                         * transitions width re-lays-out the row on every
-                         * press. These three are colour and a compositor
-                         * transform, and nothing else moves.
-                         */
-                        "wb-chip shrink-0 rounded-full px-4 py-2 text-sm font-medium whitespace-nowrap",
-                        "transition-[background-color,color,scale] duration-200 ease-out active:scale-[0.96]",
-                        /**
-                         * EXPLICIT COLOURS, NOT `bg-foreground` / `bg-muted`.
-                         *
-                         * Those are the app's semantic tokens, and they are
-                         * defined twice: once on `:root` and once under
-                         * `.dark`. The builder is a light surface by
-                         * decision — every other thing in it is a literal,
-                         * `#1a1a2e` and `#f3f4f6` and the rest — but these
-                         * chips asked the document what "foreground" meant.
-                         * Put the sheet under a dark root and the selected
-                         * chip becomes near-white ON near-white: a pill you
-                         * cannot read and cannot see you have selected.
-                         *
-                         * Nothing here needs to be relative to anything. The
-                         * selected chip is the near-black this product uses
-                         * for a primary action, the rest are the same grey
-                         * the section actions use, and neither can be
-                         * flipped by a class on an ancestor.
-                         */
-                        on
-                          ? "bg-[#1a1a2e] text-white"
-                          : "bg-[#f3f4f6] text-[#4b5563]",
-                      )}
-                    >
-                      {cat.label}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-          )}
-
-          <div className="h-px w-full shrink-0 bg-border/60" />
-
-          {/**
-            * Keyed on the category, so switching one REPLACES the list and
-            * the new list arrives rather than appearing. Not keyed on the
-            * query as well: an entrance animation on every keystroke is a
-            * list that flickers while you type.
-            */}
-          <div
-            key={activeCategory ?? "all"}
-            data-sheet-scroll
-            className="wb-cards-enter wb-slim-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-8 pt-3"
-          >
-            {cards(true)}
-          </div>
-        </div>
-      </MobileEditorSheet>
-    )
-  }
-
-  // ── Desktop: centered modal ──
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        data-wb-add-section-modal
-        className={cn(
-          "p-0 gap-0 flex flex-col overflow-hidden rounded-2xl",
-          "w-[min(735px,calc(100vw-2rem))] !max-w-[calc(100vw-2rem)]",
-          "max-h-[88vh]",
-        )}
-      >
-        <DialogHeader className="px-6 py-4 border-b border-border shrink-0 space-y-3">
-          <div>
-            <DialogTitle className="text-lg font-semibold">Add New Section</DialogTitle>
-            <DialogDescription className="text-sm text-muted-foreground">Choose a section type to add to your page</DialogDescription>
-          </div>
-          {search}
-        </DialogHeader>
-
-        <div className="flex flex-1 min-h-0 overflow-hidden">
-          <nav className="w-[150px] sm:w-[180px] border-r border-border shrink-0 overflow-y-auto wb-slim-scroll py-2 bg-muted/20">
-            {categories.map(cat => {
-              const on = (cat.key === "all" && !activeCategory) || activeCategory === cat.key
-              return (
-                <button
-                  key={cat.key}
-                  onClick={() => { setQuery(""); setActiveCategory(cat.key === "all" ? null : cat.key) }}
-                  className={cn(
-                    "w-full flex items-center gap-2 text-left px-4 py-2.5 text-sm font-medium transition-all relative",
-                    on && !searching
-                      ? "text-foreground bg-background border-l-2 border-foreground"
-                      : "text-muted-foreground hover:text-foreground hover:bg-background/60",
-                  )}
-                >
-                  <span className="truncate">{cat.label}</span>
-                  {cat.key === CUSTOM_SECTION_CATEGORY && (
-                    <span className="ml-auto rounded-full bg-muted px-1.5 text-[11px] tabular-nums">{cat.count}</span>
-                  )}
-                </button>
-              )
-            })}
-          </nav>
-
-          <div className="flex-1 overflow-y-auto wb-slim-scroll overscroll-contain p-5">
-            {searching && (
-              <p className="mb-3 text-xs text-muted-foreground">
-                {visible.length === 1 ? "1 section" : `${visible.length} sections`} matching “{query.trim()}”
-              </p>
-            )}
-            {cards(false)}
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-  )
-})
+/*
+  THE SECTION LIBRARY moved to components/website-builder/editor/
+  section-library.tsx: its previews, its cards, and the sheet and the dialog
+  it opens in. It is imported above as SectionLibrary.
+*/
 
 // ── Professional Image Picker ────────────────────────────────
 /*
@@ -1733,8 +928,8 @@ function BrandingTabPanel({
   return (
     <div className="space-y-5">
       {/* Store name */}
-      <div>
-        <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-1.5 block">Store name</label>
+      <div className="space-y-1.5">
+        <label className="text-sm font-medium text-foreground block">Store name</label>
         <input
           type="text"
           className="w-full h-10 px-3 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 transition-colors"
@@ -1746,7 +941,7 @@ function BrandingTabPanel({
 
       {/* Logo image — synced with header section */}
       <WbImagePicker
-        label="LOGO IMAGE"
+        label="Logo"
         value={typeof settingsDraft.logo_url === "string" ? settingsDraft.logo_url as string : undefined}
         onChange={url => updateSetting("logo_url", url ?? "")}
         aspectRatio="logo"
@@ -1767,15 +962,14 @@ function BrandingTabPanel({
 
       {/* Mobile logo toggle */}
       <WbToggle
-        label="Use different logo for mobile"
+        label="A different logo on phones"
         value={useMobileLogo}
         onChange={v => updateSetting("use_mobile_logo", v)}
-        info="Enable to show a smaller logo on phones."
       />
       {useMobileLogo && (
         <>
           <WbImagePicker
-            label="MOBILE LOGO"
+            label="Phone logo"
             value={typeof settingsDraft.mobile_logo_url === "string" ? settingsDraft.mobile_logo_url as string : undefined}
             onChange={url => updateSetting("mobile_logo_url", url ?? "")}
             aspectRatio="logo"
@@ -1798,20 +992,19 @@ function BrandingTabPanel({
 
       {/* Favicon — compact clean preview */}
       <WbImagePicker
-        label="FAVICON"
+        label="Favicon"
         value={typeof settingsDraft.favicon_url === "string" ? settingsDraft.favicon_url as string : undefined}
         onChange={url => updateSetting("favicon_url", url ?? "")}
         aspectRatio="favicon"
         folder="logos"
       />
-      <p className="text-[11px] text-muted-foreground flex items-start gap-1.5 -mt-2">
-        <Info className="h-3 w-3 shrink-0 mt-0.5" />
-        The favicon is the tiny icon shown in browser tabs. Use a square image (ideally 64×64 or larger).
+      <p className="text-[11.5px] text-muted-foreground -mt-2">
+        The icon in a browser tab. Square, 64 × 64 or larger.
       </p>
 
       {/* Tagline */}
-      <div>
-        <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-1.5 block">Tagline</label>
+      <div className="space-y-1.5">
+        <label className="text-sm font-medium text-foreground block">Tagline</label>
         <input
           type="text"
           className="w-full h-10 px-3 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 transition-colors"
@@ -1821,9 +1014,8 @@ function BrandingTabPanel({
         />
       </div>
 
-      <p className="text-[11px] text-muted-foreground flex items-start gap-1.5">
-        <Info className="h-3 w-3 shrink-0 mt-0.5" />
-        Logo, mobile logo and heights are synced with the Header section. Changes here update the header everywhere.
+      <p className="text-[11.5px] text-muted-foreground">
+        The header uses these logos and heights too.
       </p>
     </div>
   )
@@ -1865,7 +1057,7 @@ function WbSlider({
   const num = typeof value === "number" ? value : defaultValue
   return (
     <div className="space-y-2">
-      <p className="text-sm font-medium text-foreground">{label}</p>
+      <p className="wb-field-label text-[13px] font-medium text-[#374151]">{label}</p>
       <SliderNumberControl
         value={num}
         onChange={onChange}
@@ -1873,6 +1065,7 @@ function WbSlider({
         max={max}
         step={step}
         unit={unit}
+        label={label}
       />
     </div>
   )
@@ -1894,7 +1087,7 @@ function WbToggle({
   return (
     <label className="flex items-center justify-between py-1.5 cursor-pointer select-none group">
       <div className="flex-1 min-w-0 pr-3">
-        <p className="text-sm font-medium text-foreground transition-colors">{label}</p>
+        <p className="text-[13px] font-medium text-[#1a1a2e]">{label}</p>
         {info && <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">{info}</p>}
       </div>
       <button
@@ -1923,21 +1116,17 @@ function WbSelect({
   options: { label: string; value: string }[]
 }) {
   const selected = typeof value === "string" ? value : String(options[0]?.value ?? "")
+  /* A font list draws each font in itself. */
+  const fonts = /font/i.test(label)
   return (
     <div className="space-y-1.5">
-      <p className="text-sm font-medium text-foreground">{label}</p>
-      <div className="relative">
-        <select
-          className="w-full h-10 px-3 pr-8 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 appearance-none cursor-pointer transition-colors"
-          value={selected}
-          onChange={e => onChange(e.target.value)}
-        >
-          {options.map(opt => (
-            <option key={opt.value} value={opt.value}>{opt.label}</option>
-          ))}
-        </select>
-        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-      </div>
+      <p className="wb-field-label text-[13px] font-medium text-[#374151]">{label}</p>
+      <SettingSelect
+        label={label}
+        value={selected}
+        options={fonts ? options.map(o => ({ ...o, fontFamily: o.value })) : options}
+        onChange={onChange}
+      />
     </div>
   )
 }
@@ -1955,46 +1144,14 @@ function WbRadioSegment({
   options: { label: string; value: string }[]
 }) {
   const selected = typeof value === "string" ? value : String(options[0]?.value ?? "")
-  // Fallback to a select when there are too many options for a segmented control
-  if (options.length > 3) {
-    return (
-      <div className="space-y-1.5">
-        <p className="text-sm font-medium text-foreground">{label}</p>
-        <div className="relative">
-          <select
-            className="w-full h-10 px-3 pr-8 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 appearance-none cursor-pointer transition-colors"
-            value={selected}
-            onChange={e => onChange(e.target.value)}
-          >
-            {options.map(opt => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
-          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-        </div>
-      </div>
-    )
-  }
   return (
-    <div className="space-y-2">
-      <p className="text-sm font-medium text-foreground">{label}</p>
-      <div className="flex gap-1 p-1 bg-neutral-100 rounded-lg">
-        {options.map(opt => (
-          <button
-            key={opt.value}
-            type="button"
-            onClick={() => onChange(opt.value)}
-            className={cn(
-              "flex-1 py-1.5 px-3 text-sm font-medium rounded-md border text-center transition-[background-color,color,border-color,box-shadow,scale] duration-200 ease-out active:scale-[0.97] active:duration-75",
-              selected === opt.value
-                ? "bg-white text-foreground border-neutral-200/80 shadow-[0_1px_2px_rgba(0,0,0,0.06),0_0_0_0.5px_rgba(0,0,0,0.04)]"
-                : "bg-transparent text-neutral-500 border-transparent hover:text-foreground hover:bg-white/40"
-            )}
-          >
-            {opt.label}
-          </button>
-        ))}
-      </div>
+    <div className="space-y-1.5">
+      <p className="wb-field-label text-[13px] font-medium text-[#374151]">{label}</p>
+      {fitsSegmented(options) ? (
+        <SegmentedChoice label={label} value={selected} options={options} onChange={onChange} />
+      ) : (
+        <SettingSelect label={label} value={selected} options={options} onChange={onChange} />
+      )}
     </div>
   )
 }
@@ -2121,7 +1278,7 @@ function SortableNavLink({
           return (
             <div key={field.id}>
               {!fieldCarriesOwnLabel(field) && (
-                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">{field.label}</label>
+                <label className="wb-field-label mb-1.5 block text-[13px] font-medium text-[#374151]">{field.label}</label>
               )}
               {field.id === "url" ? (
                 <LinkFieldEditor
@@ -2160,45 +1317,6 @@ function SortableNavLink({
         )}
       </div>
     </details>
-  )
-}
-
-// ── Mobile header layout preview thumbnails (shared) ────────
-const MOBILE_LAYOUT_PREVIEW_NODE = (id: string): React.ReactNode => {
-  const burger = (
-    <div className="flex flex-col gap-[2px]">
-      <div className="h-[2px] w-3 bg-gray-800 rounded-full" />
-      <div className="h-[2px] w-3 bg-gray-800 rounded-full" />
-      <div className="h-[2px] w-3 bg-gray-800 rounded-full" />
-    </div>
-  )
-  const logo = <div className="h-3 w-8 bg-gray-800 rounded-sm" />
-  const dot = <div className="h-2 w-2 bg-gray-800 rounded-full" />
-  if (id === "logo_left_hamburger_right") {
-    return (
-      <div className="flex items-center justify-between w-full h-full px-4">
-        {logo}
-        <div className="flex items-center gap-2">{dot}{burger}</div>
-      </div>
-    )
-  }
-  if (id === "hamburger_left_logo_left") {
-    return (
-      <div className="flex items-center w-full h-full px-4 gap-2">
-        {burger}
-        {logo}
-        <div className="flex-1" />
-        {dot}
-      </div>
-    )
-  }
-  // logo_center_hamburger_left (default)
-  return (
-    <div className="grid grid-cols-[1fr_auto_1fr] items-center w-full h-full px-4">
-      <div className="flex items-center justify-start">{burger}</div>
-      <div className="flex items-center justify-center">{logo}</div>
-      <div className="flex items-center justify-end">{dot}</div>
-    </div>
   )
 }
 
@@ -2253,8 +1371,6 @@ function HeaderSectionSettings({
     { id: "header", label: "Header Settings" },
   ]
 
-  const [layoutPickerOpen, setLayoutPickerOpen] = useState(false)
-  const [mobileLayoutPickerOpen, setMobileLayoutPickerOpen] = useState(false)
 
   // ── Sub-panel content ──────────────────────────────────────
   const renderSubPanel = (tabId: string) => {
@@ -2264,7 +1380,7 @@ function HeaderSectionSettings({
           <div className="space-y-5">
             {/* Logo image picker */}
             <WbImagePicker
-              label="LOGO IMAGE"
+              label="Logo"
               value={typeof s.logo_url === "string" ? s.logo_url : undefined}
               onChange={url => onUpdateSetting("logo_url", url ?? "")}
               aspectRatio="logo"
@@ -2290,10 +1406,10 @@ function HeaderSectionSettings({
 
             {/* Custom logo horizontal position — desktop (clean inline) */}
             <WbToggle
-              label="Custom logo horizontal position"
+              label="Move the logo sideways"
               value={s.logo_horizontal_offset_enabled}
               onChange={v => onUpdateSetting("logo_horizontal_offset_enabled", v)}
-              info="Nudge the logo left or right inside the header."
+              info="On a computer."
             />
             {!!s.logo_horizontal_offset_enabled && (
               <WbSlider
@@ -2312,7 +1428,7 @@ function HeaderSectionSettings({
                 uploads an image here it's automatically used for mobile
                 devices; if left empty the main LOGO IMAGE is reused. */}
             <WbImagePicker
-              label="MOBILE LOGO IMAGE"
+              label="Phone logo"
               value={typeof s.mobile_logo_url === "string" ? s.mobile_logo_url : undefined}
               onChange={url => {
                 onUpdateSetting("mobile_logo_url", url ?? "")
@@ -2338,10 +1454,10 @@ function HeaderSectionSettings({
 
             {/* Custom logo horizontal position — mobile (clean inline) */}
             <WbToggle
-              label="Custom mobile logo horizontal position"
+              label="Move the phone logo sideways"
               value={s.mobile_logo_horizontal_offset_enabled}
               onChange={v => onUpdateSetting("mobile_logo_horizontal_offset_enabled", v)}
-              info="Nudge the mobile logo left or right inside the header."
+              
             />
             {!!s.mobile_logo_horizontal_offset_enabled && (
               <WbSlider
@@ -2432,95 +1548,8 @@ function HeaderSectionSettings({
       }
 
       case "header": {
-        const currentLayout = (typeof s.header_layout === "string" ? s.header_layout : "logo_left_nav_right")
-        const colorSchemes: { id: string; label: string; bg: string; text: string }[] = [
-          { id: "white",     label: "White",     bg: "#ffffff", text: "#0f172a" },
-          { id: "light",     label: "Light",     bg: "#f1f5f9", text: "#0f172a" },
-          { id: "dark",      label: "Dark",      bg: "#1f2937", text: "#ffffff" },
-          { id: "black",     label: "Black",     bg: "#000000", text: "#ffffff" },
-          { id: "highlight", label: "Highlight", bg: "#6366f1", text: "#ffffff" },
-        ]
-        const layoutOptions: { id: string; label: string; preview: React.ReactNode }[] = [
-          {
-            id: "logo_left_nav_right",
-            label: "Logo left · Nav + icons right",
-            preview: (
-              <div className="flex items-center justify-between w-full h-full px-3">
-                <div className="h-3 w-10 bg-gray-700 rounded-sm" />
-                <div className="flex items-center gap-1.5">
-                  <div className="h-1.5 w-4 bg-gray-500 rounded-full" />
-                  <div className="h-1.5 w-4 bg-gray-500 rounded-full" />
-                  <div className="h-1.5 w-4 bg-gray-500 rounded-full" />
-                  <div className="h-2 w-2 bg-gray-700 rounded-full ml-1" />
-                </div>
-              </div>
-            ),
-          },
-          {
-            id: "logo_left_nav_inline",
-            label: "Logo left · Nav inline · Icons right",
-            preview: (
-              <div className="flex items-center w-full h-full px-3 gap-3">
-                <div className="h-3 w-8 bg-gray-700 rounded-sm" />
-                <div className="h-1.5 w-4 bg-gray-500 rounded-full" />
-                <div className="h-1.5 w-4 bg-gray-500 rounded-full" />
-                <div className="h-1.5 w-4 bg-gray-500 rounded-full" />
-                <div className="flex-1" />
-                <div className="h-2 w-2 bg-gray-700 rounded-full" />
-              </div>
-            ),
-          },
-          {
-            id: "logo_left_nav_center",
-            label: "Logo left · Nav centered · Icons right",
-            preview: (
-              <div className="flex items-center justify-between w-full h-full px-3">
-                <div className="h-3 w-8 bg-gray-700 rounded-sm" />
-                <div className="flex items-center gap-1.5">
-                  <div className="h-1.5 w-4 bg-gray-500 rounded-full" />
-                  <div className="h-1.5 w-4 bg-gray-500 rounded-full" />
-                  <div className="h-1.5 w-4 bg-gray-500 rounded-full" />
-                </div>
-                <div className="h-2 w-2 bg-gray-700 rounded-full" />
-              </div>
-            ),
-          },
-          {
-            id: "nav_left_logo_center",
-            label: "Nav left · Logo centered · Icons right",
-            preview: (
-              <div className="flex items-center justify-between w-full h-full px-3">
-                <div className="flex items-center gap-1.5">
-                  <div className="h-1.5 w-4 bg-gray-500 rounded-full" />
-                  <div className="h-1.5 w-4 bg-gray-500 rounded-full" />
-                </div>
-                <div className="h-3 w-8 bg-gray-700 rounded-sm" />
-                <div className="h-2 w-2 bg-gray-700 rounded-full" />
-              </div>
-            ),
-          },
-          {
-            id: "logo_center_nav_below",
-            label: "Logo centered · Nav below",
-            preview: (
-              <div className="flex flex-col items-center justify-center gap-1 w-full h-full px-3">
-                <div className="h-3 w-10 bg-gray-700 rounded-sm" />
-                <div className="flex items-center gap-1.5">
-                  <div className="h-1.5 w-4 bg-gray-500 rounded-full" />
-                  <div className="h-1.5 w-4 bg-gray-500 rounded-full" />
-                  <div className="h-1.5 w-4 bg-gray-500 rounded-full" />
-                </div>
-              </div>
-            ),
-          },
-        ]
-        const currentLayoutMeta = layoutOptions.find(l => l.id === currentLayout) ?? layoutOptions[0]
-
-        const currentMobileLayout = (typeof s.mobile_header_layout === "string" ? s.mobile_header_layout : "logo_center_hamburger_left")
-        const currentMobileLayoutLabel =
-          currentMobileLayout === "hamburger_left_logo_left" ? "Hamburger left · Logo left"
-          : "Logo centered · Hamburger left"
-        const mobilePreviewSummary = MOBILE_LAYOUT_PREVIEW_NODE(currentMobileLayout)
+        const currentLayout = (typeof s.header_layout === "string" ? s.header_layout : DEFAULT_DESKTOP_HEADER_LAYOUT)
+        const currentMobileLayout = (typeof s.mobile_header_layout === "string" ? s.mobile_header_layout : DEFAULT_MOBILE_HEADER_LAYOUT)
         const showCta = s.show_cta_button !== false
         // Border & shadow — preserve legacy `show_border` default (true) so a
         // pre-existing store that never saved `show_bottom_border` keeps
@@ -2536,40 +1565,28 @@ function HeaderSectionSettings({
         const showSearchIcon = headerIconOn(s.show_search_icon, s.show_search)
         return (
           <div className="space-y-6">
-            {/* ── 1. Header layout (desktop) ── */}
+            {/* ── 1. Layout, on a computer and on a phone ──
+                Every layout on this panel, drawn as a wireframe and chosen
+                with one tap: editor/header-layout-picker.tsx. There used to
+                be a second panel of big cards behind a row for each. */}
             <div className="space-y-2">
-              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">Header layout (desktop)</p>
-              <button
-                type="button"
-                onClick={() => setLayoutPickerOpen(true)}
-                className="w-full group border border-border rounded-xl bg-background hover:border-foreground/30 transition-colors overflow-hidden"
-              >
-                <div className="h-14 bg-muted/30 border-b border-border">
-                  {currentLayoutMeta.preview}
-                </div>
-                <div className="flex items-center justify-between px-3 py-2.5 text-left">
-                  <span className="text-xs font-medium text-foreground">{currentLayoutMeta.label}</span>
-                  <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
-                </div>
-              </button>
+              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">Layout on a computer</p>
+              <HeaderLayoutPicker
+                label="Layout on a computer"
+                value={currentLayout}
+                options={DESKTOP_HEADER_LAYOUTS}
+                onChange={id => onUpdateSetting("header_layout", id)}
+              />
             </div>
 
-            {/* ── 2. Header layout (mobile) ── */}
             <div className="space-y-2">
-              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">Header layout (mobile)</p>
-              <button
-                type="button"
-                onClick={() => setMobileLayoutPickerOpen(true)}
-                className="w-full group border border-border rounded-xl bg-background hover:border-foreground/30 transition-colors overflow-hidden"
-              >
-                <div className="h-14 bg-muted/30 border-b border-border">
-                  {mobilePreviewSummary}
-                </div>
-                <div className="flex items-center justify-between px-3 py-2.5 text-left">
-                  <span className="text-xs font-medium text-foreground">{currentMobileLayoutLabel}</span>
-                  <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
-                </div>
-              </button>
+              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">Layout on a phone</p>
+              <HeaderLayoutPicker
+                label="Layout on a phone"
+                value={currentMobileLayout}
+                options={MOBILE_HEADER_LAYOUTS}
+                onChange={id => onUpdateSetting("mobile_header_layout", id)}
+              />
             </div>
 
             <div className="h-px bg-border" />
@@ -2589,24 +1606,19 @@ function HeaderSectionSettings({
                 onEditScheme={onEditScheme}
               />
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-foreground block">Menu link hover style</label>
-                <div className="relative">
-                  <select
-                    className="w-full h-10 px-3 pr-8 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 appearance-none cursor-pointer transition-colors"
-                    value={typeof s.menu_link_hover_style === "string" ? s.menu_link_hover_style : "inherit"}
-                    onChange={e => onUpdateSetting("menu_link_hover_style", e.target.value)}
-                  >
-                    <option value="inherit">Inherit (theme default)</option>
-                    <option value="none">None</option>
-                    <option value="underline">Underline</option>
-                    <option value="underline_reverse">Underline (reverse)</option>
-                    <option value="fade_siblings">Fade siblings</option>
-                  </select>
-                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-                </div>
-                <p className="text-[11px] text-muted-foreground leading-snug">
-                  Controls how desktop menu links react when hovered.
-                </p>
+                <WbSelect
+                  label="Menu links on hover"
+                  value={typeof s.menu_link_hover_style === "string" ? s.menu_link_hover_style : "inherit"}
+                  onChange={v => onUpdateSetting("menu_link_hover_style", v)}
+                  options={[
+                    { label: "Theme default", value: "inherit" },
+                    { label: "None", value: "none" },
+                    { label: "Underline", value: "underline" },
+                    { label: "Underline, from the right", value: "underline_reverse" },
+                    { label: "Fade the others", value: "fade_siblings" },
+                  ]}
+                />
+                <p className="text-[11px] text-muted-foreground leading-snug">On a computer, when the pointer is over a menu link.</p>
               </div>
             </div>
 
@@ -2619,23 +1631,18 @@ function HeaderSectionSettings({
                   content on desktop / large screens. Narrow/Medium/Wide map
                   to 960/1140/1280px caps; Full is edge-to-edge. */}
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-foreground block">Header width</label>
-                <div className="relative">
-                  <select
-                    className="w-full h-10 px-3 pr-8 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 appearance-none cursor-pointer transition-colors"
-                    value={typeof s.header_width === "string" ? s.header_width : "wide"}
-                    onChange={e => onUpdateSetting("header_width", e.target.value)}
-                  >
-                    <option value="narrow">Narrow (960px)</option>
-                    <option value="medium">Medium (1140px)</option>
-                    <option value="wide">Wide (1280px)</option>
-                    <option value="full">Full width</option>
-                  </select>
-                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-                </div>
-                <p className="text-[11px] text-muted-foreground leading-snug">
-                  Controls the maximum width of the header on desktop (large) screens.
-                </p>
+                <WbSelect
+                  label="Header width"
+                  value={typeof s.header_width === "string" ? s.header_width : "wide"}
+                  onChange={v => onUpdateSetting("header_width", v)}
+                  options={[
+                    { label: "Narrow, 960px", value: "narrow" },
+                    { label: "Medium, 1140px", value: "medium" },
+                    { label: "Wide, 1280px", value: "wide" },
+                    { label: "Full width", value: "full" },
+                  ]}
+                />
+                <p className="text-[11px] text-muted-foreground leading-snug">The widest the header's content gets on a large screen.</p>
               </div>
               {/*
                 PIXELS, ONE NUMBER PER DEVICE. These were `vw`, which is a
@@ -2689,9 +1696,9 @@ function HeaderSectionSettings({
 
             {/* ── 4. Sticky behaviour ── */}
             <div className="space-y-3">
-              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">Sticky behaviour</p>
+              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">Scrolling</p>
               <WbToggle
-                label="Enable sticky header"
+                label="Stick to the top"
                 value={!!s.header_sticky_enabled && !s.header_sticky_on_scroll_up}
                 onChange={v => {
                   if (v) {
@@ -2701,10 +1708,10 @@ function HeaderSectionSettings({
                     onUpdateSetting("header_sticky_enabled", false)
                   }
                 }}
-                info="Keep the header pinned to the top as the visitor scrolls."
+                info="Stays on screen while a visitor scrolls."
               />
               <WbToggle
-                label="Sticky header on scroll up"
+                label="Come back on scroll up"
                 value={!!s.header_sticky_on_scroll_up}
                 onChange={v => {
                   if (v) {
@@ -2714,10 +1721,10 @@ function HeaderSectionSettings({
                     onUpdateSetting("header_sticky_on_scroll_up", false)
                   }
                 }}
-                info="Only reveal the header when scrolling up. Hides on scroll down."
+                info="Hides while a visitor scrolls down, shows again when they scroll up."
               />
               <WbToggle
-                label="Make header transparent"
+                label="Transparent background"
                 value={s.header_transparent}
                 onChange={v => onUpdateSetting("header_transparent", v)}
               />
@@ -2738,7 +1745,7 @@ function HeaderSectionSettings({
                 label="Show bottom border"
                 value={bottomBorderEnabled}
                 onChange={v => onUpdateSetting("show_bottom_border", v)}
-                info="Shows a 1px line at the bottom of the header to visually separate it from the page content."
+                info="A 1px line along the bottom of the header."
               />
               {bottomBorderEnabled && (
                 <>
@@ -2751,29 +1758,23 @@ function HeaderSectionSettings({
                       { label: "Subtle", value: "subtle" },
                     ]}
                   />
-                  <div className="space-y-1.5">
-                    <label className="text-sm font-medium text-foreground block">Show border on</label>
-                    <div className="relative">
-                      <select
-                        className="w-full h-10 px-3 pr-8 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 appearance-none cursor-pointer transition-colors"
-                        value={borderVisibilityValue}
-                        onChange={e => onUpdateSetting("border_visibility", e.target.value)}
-                      >
-                        <option value="all">All pages</option>
-                        <option value="home_only">Homepage only</option>
-                        <option value="inner_only">Inner pages only</option>
-                        <option value="none">None</option>
-                      </select>
-                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-                    </div>
-                  </div>
+                  <WbSelect
+                    label="Show border on"
+                    value={borderVisibilityValue}
+                    onChange={v => onUpdateSetting("border_visibility", v)}
+                    options={[
+                      { label: "All pages", value: "all" },
+                      { label: "Home page only", value: "home_only" },
+                      { label: "Other pages only", value: "inner_only" },
+                      { label: "No pages", value: "none" },
+                    ]}
+                  />
                 </>
               )}
               <WbToggle
-                label="Subtle depth shadow"
+                label="Shadow under the header"
                 value={depthShadowEnabled}
                 onChange={v => onUpdateSetting("header_depth_shadow", v)}
-                info="Adds a soft shadow underneath the header so it feels gently lifted off the page."
               />
             </div>
 
@@ -2781,7 +1782,7 @@ function HeaderSectionSettings({
 
             {/* ── 7. Header elements ── */}
             <div className="space-y-3">
-              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">Header elements</p>
+              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">Icons</p>
               {/*
                 ═══════════════════════════════════════════════════════════
                  THESE WROTE KEYS THE HEADER DOES NOT READ
@@ -2812,20 +1813,15 @@ function HeaderSectionSettings({
               />
               {showSearchIcon && (
                 <>
-                  <div className="space-y-1.5">
-                    <p className="text-sm font-medium text-foreground">When search is clicked</p>
-                    <div className="relative">
-                      <select
-                        className="w-full h-10 pl-3 pr-8 text-sm border border-border rounded-lg bg-background appearance-none focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 transition-colors"
-                        value={typeof s.search_behaviour === "string" ? s.search_behaviour : "header"}
-                        onChange={e => onUpdateSetting("search_behaviour", e.target.value)}
-                      >
-                        <option value="header">Open it in the header</option>
-                        <option value="page">Go to the search page</option>
-                      </select>
-                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-                    </div>
-                  </div>
+                  <WbRadioSegment
+                    label="Search opens"
+                    value={typeof s.search_behaviour === "string" ? s.search_behaviour : "header"}
+                    onChange={v => onUpdateSetting("search_behaviour", v)}
+                    options={[
+                      { label: "In the header", value: "header" },
+                      { label: "Search page", value: "page" },
+                    ]}
+                  />
                   <div className="space-y-1.5">
                     <p className="text-sm font-medium text-foreground">Search placeholder</p>
                     <input
@@ -2848,7 +1844,7 @@ function HeaderSectionSettings({
                 label="Show wishlist icon"
                 value={headerIconOn(s.show_wishlist_icon)}
                 onChange={v => onUpdateSetting("show_wishlist_icon", v)}
-                info="Desktop header only. Also appears in the mobile sidebar footer."
+                info="In the header on a computer, and at the foot of the phone menu."
               />
               <WbToggle
                 label="Show cart icon"
@@ -2865,9 +1861,9 @@ function HeaderSectionSettings({
                 picker is the same component used by nav links, so users get
                 the same Pages/Products/Categories dropdown experience. */}
             <div className="space-y-3">
-              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">Call to action button</p>
+              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">Button</p>
               <WbToggle
-                label="Show call to action button"
+                label="Show a button"
                 value={s.show_cta_button !== false}
                 onChange={v => onUpdateSetting("show_cta_button", v)}
               />
@@ -2925,168 +1921,6 @@ function HeaderSectionSettings({
       default:
         return null
     }
-  }
-
-  // ── Mobile layout picker sub-panel ─────────────────────────
-  if (mobileLayoutPickerOpen) {
-    const mobileLayoutOptions: { id: string; label: string }[] = [
-      { id: "logo_center_hamburger_left", label: "Logo centered · Hamburger left" },
-      { id: "hamburger_left_logo_left",   label: "Hamburger left · Logo left" },
-    ]
-    const currentMobileLayout = (typeof s.mobile_header_layout === "string" ? s.mobile_header_layout : "logo_center_hamburger_left")
-    return (
-      <div className="flex flex-col h-full">
-        <PanelBack onBack={() => setMobileLayoutPickerOpen(false)}>
-          <span className="text-[15px] font-semibold md:text-sm">Choose mobile header layout</span>
-        </PanelBack>
-        <div className="flex-1 overflow-y-auto wb-slim-scroll px-5 py-4 space-y-3">
-          {mobileLayoutOptions.map(opt => {
-            const active = currentMobileLayout === opt.id
-            return (
-              <button
-                key={opt.id}
-                type="button"
-                onClick={() => {
-                  onUpdateSetting("mobile_header_layout", opt.id)
-                  setMobileLayoutPickerOpen(false)
-                }}
-                className={cn(
-                  "w-full text-left border rounded-xl overflow-hidden bg-white transition-all",
-                  active ? "border-blue-500 ring-2 ring-blue-500/30" : "border-border hover:border-blue-300",
-                )}
-              >
-                <div className="h-20 bg-gray-50 border-b border-border flex items-center">
-                  {MOBILE_LAYOUT_PREVIEW_NODE(opt.id)}
-                </div>
-                <div className="px-3 py-2.5 flex items-center justify-between">
-                  <span className="text-xs font-medium">{opt.label}</span>
-                  {active && (
-                    <span className="text-[10px] font-semibold text-blue-600 uppercase tracking-wider">Selected</span>
-                  )}
-                </div>
-              </button>
-            )
-          })}
-        </div>
-      </div>
-    )
-  }
-
-  // ── Layout picker sub-panel (inline, not modal) ────────────
-  if (layoutPickerOpen) {
-    // Re-use the same layoutOptions the "header" tab builds. We build
-    // a minimal local set so this branch is independent — keeps the
-    // rendering stable even if the "header" case wasn't mounted yet.
-    const layoutOptions: { id: string; label: string }[] = [
-      { id: "logo_left_nav_right",   label: "Logo left · Nav + icons right" },
-      { id: "logo_left_nav_inline",  label: "Logo left · Nav inline · Icons right" },
-      { id: "logo_left_nav_center",  label: "Logo left · Nav centered · Icons right" },
-      { id: "nav_left_logo_center",  label: "Nav left · Logo centered · Icons right" },
-      /* The header has always drawn this one; the picker never offered it. */
-      { id: "logo_center_nav_below", label: "Logo centered · Nav below" },
-    ]
-    const currentLayout = (typeof s.header_layout === "string" ? s.header_layout : "logo_left_nav_right")
-    const renderPreview = (id: string) => {
-      switch (id) {
-        case "logo_left_nav_right":
-          return (
-            <div className="flex items-center justify-between w-full h-full px-4">
-              <div className="h-3 w-12 bg-gray-800 rounded-sm" />
-              <div className="flex items-center gap-2">
-                <div className="h-1.5 w-5 bg-gray-500 rounded-full" />
-                <div className="h-1.5 w-5 bg-gray-500 rounded-full" />
-                <div className="h-1.5 w-5 bg-gray-500 rounded-full" />
-                <div className="h-2 w-2 bg-gray-800 rounded-full ml-1.5" />
-                <div className="h-2 w-2 bg-gray-800 rounded-full" />
-              </div>
-            </div>
-          )
-        case "logo_left_nav_inline":
-          return (
-            <div className="flex items-center w-full h-full px-4 gap-3">
-              <div className="h-3 w-10 bg-gray-800 rounded-sm" />
-              <div className="h-1.5 w-5 bg-gray-500 rounded-full" />
-              <div className="h-1.5 w-5 bg-gray-500 rounded-full" />
-              <div className="h-1.5 w-5 bg-gray-500 rounded-full" />
-              <div className="flex-1" />
-              <div className="h-2 w-2 bg-gray-800 rounded-full" />
-              <div className="h-2 w-2 bg-gray-800 rounded-full" />
-            </div>
-          )
-        case "logo_left_nav_center":
-          return (
-            <div className="flex items-center justify-between w-full h-full px-4">
-              <div className="h-3 w-10 bg-gray-800 rounded-sm" />
-              <div className="flex items-center gap-2">
-                <div className="h-1.5 w-5 bg-gray-500 rounded-full" />
-                <div className="h-1.5 w-5 bg-gray-500 rounded-full" />
-                <div className="h-1.5 w-5 bg-gray-500 rounded-full" />
-              </div>
-              <div className="h-2 w-2 bg-gray-800 rounded-full" />
-            </div>
-          )
-        case "nav_left_logo_center":
-          return (
-            <div className="flex items-center justify-between w-full h-full px-4">
-              <div className="flex items-center gap-2">
-                <div className="h-1.5 w-5 bg-gray-500 rounded-full" />
-                <div className="h-1.5 w-5 bg-gray-500 rounded-full" />
-              </div>
-              <div className="h-3 w-10 bg-gray-800 rounded-sm" />
-              <div className="h-2 w-2 bg-gray-800 rounded-full" />
-            </div>
-          )
-        case "logo_center_nav_below":
-          return (
-            <div className="flex flex-col items-center justify-center gap-1.5 w-full h-full px-4">
-              <div className="h-3 w-12 bg-gray-800 rounded-sm" />
-              <div className="flex items-center gap-2">
-                <div className="h-1.5 w-5 bg-gray-500 rounded-full" />
-                <div className="h-1.5 w-5 bg-gray-500 rounded-full" />
-                <div className="h-1.5 w-5 bg-gray-500 rounded-full" />
-              </div>
-            </div>
-          )
-      }
-      return null
-    }
-
-    return (
-      <div className="flex flex-col h-full">
-        <PanelBack onBack={() => setLayoutPickerOpen(false)}>
-          <span className="text-[15px] font-semibold md:text-sm">Choose header layout</span>
-        </PanelBack>
-        <div className="flex-1 overflow-y-auto wb-slim-scroll px-5 py-4 space-y-3">
-          {layoutOptions.map(opt => {
-            const active = currentLayout === opt.id
-            return (
-              <button
-                key={opt.id}
-                type="button"
-                onClick={() => {
-                  onUpdateSetting("header_layout", opt.id)
-                  setLayoutPickerOpen(false)
-                }}
-                className={cn(
-                  "w-full text-left border rounded-xl overflow-hidden bg-white transition-all",
-                  active ? "border-blue-500 ring-2 ring-blue-500/30" : "border-border hover:border-blue-300",
-                )}
-              >
-                <div className="h-20 bg-gray-50 border-b border-border flex items-center">
-                  {renderPreview(opt.id)}
-                </div>
-                <div className="px-3 py-2.5 flex items-center justify-between">
-                  <span className="text-xs font-medium">{opt.label}</span>
-                  {active && (
-                    <span className="text-[10px] font-semibold text-blue-600 uppercase tracking-wider">Selected</span>
-                  )}
-                </div>
-              </button>
-            )
-          })}
-        </div>
-      </div>
-    )
   }
 
   // ── Sub-panel view ─────────────────────────────────────────
@@ -3420,8 +2254,14 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    */
   const switchingPage = useRef(false)
   const [expandedSettings, setExpandedSettings] = useState<string | null>(null)
-  const [editSchemeKey, setEditSchemeKey] = useState<string | null>(null)
+  /**
+   * ONE COLOUR SCHEME OPEN IN A PANEL OF ITS OWN, and where Back goes: the
+   * Colors list it was opened from, or the section whose Edit opened it.
+   */
+  const [schemeEditing, setSchemeEditing] = useState<{ key: string; from: Panel } | null>(null)
   const [addSectionOpen, setAddSectionOpen] = useState(false)
+  /** A section just added, and where the page's sections were before it: see addSection. */
+  const arrivalRef = useRef<{ id: string; before: Map<string, number> } | null>(null)
   // Absolute index in `sections` where a new section should be inserted.
   // Set when the user clicks an "insert between" divider in the sidebar.
   // null = append before the footer (default).
@@ -4939,12 +3779,33 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   }, [sidebarMode, selectedPanel, sections])
   const desktopPanelRef = useRef<HTMLDivElement>(null)
   const desktopScrollRef = useRef<HTMLDivElement>(null)
-  const themeGroupOpenedRef = useRef<string | null>(null)
+  /* Going anywhere else closes a scheme's panel: a tab, a section, a page. */
+  useEffect(() => {
+    setSchemeEditing(null)
+  }, [selectedPanel, sidebarMode, pageBrowserOpen])
+  /**
+   * Into a scheme's panel and back out again, on a computer: the same short
+   * ease the tabs have, so it reads as going somewhere. A phone's sheet
+   * slides its panels already.
+   */
+  const schemeOpen = schemeEditing?.key ?? null
+  const lastSchemeRef = useRef(schemeOpen)
+  useLayoutEffect(() => {
+    if (lastSchemeRef.current === schemeOpen) return
+    lastSchemeRef.current = schemeOpen
+    const panel = desktopPanelRef.current
+    const scroller = desktopScrollRef.current
+    if (scroller) scroller.scrollTop = 0
+    if (!panel || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return
+    panel.animate(
+      [{ opacity: 0.4, transform: `translate3d(${schemeOpen ? 10 : -10}px, 0, 0)` }, { opacity: 1, transform: "none" }],
+      { duration: 200, easing: "cubic-bezier(0.32, 0.72, 0, 1)" },
+    )
+  }, [schemeOpen])
   const lastTabRef = useRef(committedTab)
   useLayoutEffect(() => {
     if (lastTabRef.current === committedTab) return
     lastTabRef.current = committedTab
-    themeGroupOpenedRef.current = null
     const scroller = desktopScrollRef.current
     if (scroller) scroller.scrollTop = 0
     const panel = desktopPanelRef.current
@@ -5163,10 +4024,18 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       if (footerIdx !== -1) next.splice(footerIdx, 0, newSection)
       else next.push(newSection)
     }
+    /**
+     * Where every section is BEFORE this one goes in, so the canvas can open
+     * the page where it lands instead of jumping (lib/website-builder/
+     * section-arrival.ts). The canvas plays it in the frame the section is
+     * committed, and brings it on screen if it is not.
+     */
+    const scroller = document.getElementById("wb-preview-root")
+    arrivalRef.current = scroller ? { id: newSection.id, before: measureSectionTops(scroller) } : null
     setSections(next)
     setSelectedPanel({ type: "section", sectionId: newSection.id })
     setIsDirty(true)
-    revealSection(newSection.id)
+    if (!scroller) revealSection(newSection.id)
   }
 
   // Add custom page
@@ -5677,11 +4546,26 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * editor. Each card is memoised on `onAdd`, so every keystroke anywhere
    * re-rendered thirty-eight cards and their previews.
    */
+  const addSectionOpenRef = useRef(addSectionOpen)
+  addSectionOpenRef.current = addSectionOpen
   const onAddSectionOpenChange = useCallback((o: boolean) => {
     setAddSectionOpen(o)
     if (!o) {
-      setPendingInsertIndex(null)
-      setCanvasInsertAt(null)
+      /**
+       * NOT AT ONCE. A section chosen in the library is added on the frame
+       * after the library starts to close (the close goes first, so it is
+       * already with the compositor), and it needs to know which gap it was
+       * chosen for. Clearing the gap here, in the same commit as the close,
+       * is what sent every section tapped into a gap to the end of the page
+       * instead (scripts/check-add-section.mjs: "at 9 of 11"). Two frames
+       * later the add has used it and cleared it itself; a library closed
+       * without a choice is cleared then too, unless it was opened again.
+       */
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        if (addSectionOpenRef.current) return
+        setPendingInsertIndex(null)
+        setCanvasInsertAt(null)
+      }))
     }
   }, [])
   const addSectionRef = useRef<(type: string, presetIndex?: number) => void>(() => {})
@@ -5731,6 +4615,20 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     setCanvasInsertAt(at)
     setAddSectionOpen(true)
   }, [])
+
+  /**
+   * Where the next section will go, in words, for the library's title: on a
+   * phone the library covers the gap that was tapped. Worked out only while
+   * the library is open, and kept while it closes so the line does not
+   * change under a sheet that is leaving.
+   */
+  const libraryWhereRef = useRef<string | null>(null)
+  const libraryWhere = useMemo(() => {
+    if (!addSectionOpen) return libraryWhereRef.current
+    const index = canvasInsertAt != null ? bodyGapToListIndex(sections, canvasInsertAt) : pendingInsertIndex
+    libraryWhereRef.current = whereItGoes(sections, index, s => sectionDisplayName(s, librarySchemas))
+    return libraryWhereRef.current
+  }, [addSectionOpen, canvasInsertAt, pendingInsertIndex, sections, librarySchemas])
 
   // Narrow the selected section id safely
   const selectedSectionId: string | null =
@@ -6080,9 +4978,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    */
   const sidebarPanelKey = pageBrowserOpen
     ? "pages"
-    : selectedPanel.type === "section"
-      ? `section:${(selectedPanel as { sectionId?: string }).sectionId ?? ""}`
-      : `${sidebarMode}:${selectedPanel.type}`
+    : schemeEditing
+      ? `scheme:${schemeEditing.key}`
+      : selectedPanel.type === "section"
+        ? `section:${(selectedPanel as { sectionId?: string }).sectionId ?? ""}`
+        : `${sidebarMode}:${selectedPanel.type}`
 
   /**
    * ═════════════════════════════════════════════════════════════════════════
@@ -6116,6 +5016,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    */
   const TAB_POSITION: Record<string, number> = { sections: 0, pages: 1, settings: 2 }
   const panelDepth = (key: string) => {
+    /* A scheme is opened from a section or from Colors, so it sits past both. */
+    if (key.startsWith("scheme:")) return 11
     if (key.startsWith("section:")) return 10
     if (key === "pages") return TAB_POSITION.pages
     const tab = key.split(":")[0]
@@ -6159,9 +5061,196 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * fail on type errors. tests/react-binding.test.ts is what catches it now.
    */
 
+  /**
+   * ONE THEME SETTING, drawn by the control its type calls for. Shared by
+   * every group under Theme, so a range is the same slider in Buttons and in
+   * Layout and a choice is the same select in Animations and in SEO.
+   */
+  const renderThemeField = (field: SchemaField) => {
+    const val = settingsDraft[field.id as keyof ThemeSettingsValues] ?? field.default
+    return (
+      <div key={field.id}>
+        {field.type === "toggle" ? (
+          <WbToggle
+            label={field.label}
+            value={val}
+            onChange={v => updateSetting(field.id, v)}
+            info={field.info}
+          />
+        ) : field.type === "range" ? (
+          <WbSlider
+            label={field.label}
+            value={val}
+            onChange={v => updateSetting(field.id, v)}
+            min={field.min ?? 0}
+            max={field.max ?? 100}
+            step={field.step ?? 1}
+            unit={field.unit ?? ""}
+            defaultValue={typeof field.default === "number" ? field.default : 0}
+          />
+        ) : field.type === "select" || field.type === "font" ? (
+          <WbSelect
+            label={field.label}
+            value={val}
+            onChange={v => updateSetting(field.id, v)}
+            options={field.options ?? []}
+          />
+        ) : field.type === "radio" ? (
+          <WbRadioSegment
+            label={field.label}
+            value={val}
+            onChange={v => updateSetting(field.id, v)}
+            options={field.options ?? []}
+          />
+        ) : field.type === "image" ? (
+          <WbImagePicker
+            label={field.label}
+            value={typeof val === "string" ? val : undefined}
+            onChange={url => updateSetting(field.id, url ?? "")}
+            aspectRatio="video"
+            folder="sections"
+          />
+        ) : field.type === "color" ? (
+          /* No label here: fieldCarriesOwnLabel(field) is true for a
+             colour, because ColorField's own row is the label. */
+          <FieldEditor field={field} value={val} onChange={v => updateSetting(field.id, v)} />
+        ) : field.type === "header" || field.type === "paragraph" ? (
+          <FieldEditor field={field} value={val} onChange={v => updateSetting(field.id, v)} />
+        ) : (
+          <>
+            <label className="wb-field-label mb-1.5 block text-[13px] font-medium text-[#374151]">{field.label}</label>
+            <FieldEditor field={field} value={val} onChange={v => updateSetting(field.id, v)} />
+          </>
+        )}
+        {field.type !== "toggle" && field.info && (
+          <p className="text-[11px] text-muted-foreground mt-1">{field.info}</p>
+        )}
+      </div>
+    )
+  }
+
+  /**
+   * ===========================================================================
+   *  THEME: THE WEBSITE'S OWN SETTINGS, IN GROUPS THAT OPEN AND CLOSE
+   * ===========================================================================
+   * "The animation when I close a tab in general settings." A group opened
+   * with a fade and closed in one frame, so everything under it jumped up by
+   * the height of a form. Each group is a Collapse now (editor/collapse.tsx):
+   * open and shut by height, from wherever it is, and a group that was left
+   * open is drawn open when you come back, without playing its opening again.
+   */
+  const renderThemeSettings = () => {
+    const groups = THEME_SETTINGS_GROUPS.filter(group => group.id !== "colors")
+    const pageColors = THEME_SETTINGS_GROUPS.find(g => g.id === "colors")?.fields ?? []
+    const body = (group: (typeof THEME_SETTINGS_GROUPS)[number]) =>
+      group.id === "color_schemes" ? (
+        <ColorsPanel
+          theme={settingsDraft}
+          updateSetting={updateSetting}
+          onOpenScheme={key => setSchemeEditing({ key, from: selectedPanel })}
+          advanced={pageColors.map(field => (
+            <div key={field.id}>
+              {!fieldCarriesOwnLabel(field) && (
+                <label className="wb-field-label mb-1.5 block text-[13px] font-medium text-[#374151]">{field.label}</label>
+              )}
+              <FieldEditor
+                field={field}
+                value={settingsDraft[field.id as keyof ThemeSettingsValues] ?? field.default}
+                onChange={v => updateSetting(field.id, v)}
+              />
+            </div>
+          ))}
+        />
+      ) : group.id === "typography" ? (
+        <TypographyPanel
+          theme={settingsDraft}
+          updateSetting={updateSetting}
+          fonts={group.fields.map(field => (
+            <WbSelect
+              key={field.id}
+              label={field.label}
+              value={settingsDraft[field.id as keyof ThemeSettingsValues] ?? field.default}
+              onChange={v => updateSetting(field.id, v)}
+              options={field.options ?? []}
+            />
+          ))}
+        />
+      ) : group.id === "branding" ? (
+        <BrandingTabPanel
+          settingsDraft={settingsDraft}
+          updateSetting={updateSetting}
+        />
+      ) : (
+        group.fields.map(renderThemeField)
+      )
+
+    return (
+      <div className="flex flex-col h-full">
+        <div className="shrink-0 px-5 pt-2.5 pb-1.5">
+          <p className="text-[15px] font-semibold text-[#1a1a2e] md:text-sm">General Settings</p>
+        </div>
+        <div data-sheet-scroll className="flex-1 overflow-y-auto wb-slim-scroll px-2 pb-6">
+          {groups.map(group => {
+            const isOpen = expandedSettings === group.id
+            return (
+              <div key={group.id} data-theme-group={group.id} className="border-b border-[#f0f1f3] last:border-b-0">
+                <button
+                  type="button"
+                  aria-expanded={isOpen}
+                  className="flex h-11 w-full items-center justify-between rounded-lg px-3 text-left text-[14px] font-medium text-[#1a1a2e] transition-colors duration-150 hover:bg-[#f6f7f8] focus:outline-none focus-visible:ring-2 focus-visible:ring-black/10"
+                  onClick={() => setExpandedSettings(isOpen ? null : group.id)}
+                >
+                  {group.label}
+                  <ChevronDown className={cn("h-4 w-4 text-[#9ca3af] transition-transform duration-200", isOpen && "rotate-180 text-[#1a1a2e]")} />
+                </button>
+                <Collapse open={isOpen} innerClassName="px-3 pb-5 pt-1.5 space-y-4">
+                  {() => body(group)}
+                </Collapse>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    )
+  }
+
+  /** One colour scheme, in a panel of its own, with Back to where it was opened. */
+  const renderSchemeEditor = () => {
+    if (!schemeEditing) return null
+    const schemes = themeColorSchemes(settingsDraft as unknown as Record<string, unknown>)
+    const name = schemes[schemeEditing.key]?.name ?? "Scheme"
+    const back = () => {
+      setSelectedPanel(schemeEditing.from)
+      setSchemeEditing(null)
+    }
+    return (
+      <div className="flex flex-col h-full">
+        <PanelBack onBack={back}>
+          <p className="truncate text-[15px] font-semibold md:text-sm">{name}</p>
+        </PanelBack>
+        <div data-sheet-scroll className="flex-1 overflow-y-auto wb-slim-scroll px-3 py-4">
+          <SchemeEditor
+            theme={settingsDraft}
+            schemeKey={schemeEditing.key}
+            updateSetting={updateSetting}
+            onRemapSections={(from, to) => {
+              debouncedPushUndo()
+              setSections(prev => remapScheme(prev, from, to))
+              setIsDirty(true)
+            }}
+            onDeleted={back}
+          />
+        </div>
+      </div>
+    )
+  }
+
   const renderSidebarContent = () => {
     // ── Page browser mode ──
     if (pageBrowserOpen) return renderPageBrowser()
+
+    // ── One colour scheme, opened from Colors or from a section ──
+    if (schemeEditing) return renderSchemeEditor()
 
     // ── General Settings mode ──
     if (sidebarMode === "settings") {
@@ -6174,149 +5263,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         // This will fall through to the existing SECTION panel code below
       } else {
         // Global theme settings
-        return (
-          <div className="flex flex-col h-full">
-            <div className="px-4 py-3 border-b border-border shrink-0">
-              <p className="text-sm font-semibold">General Settings</p>
-              <p className="text-xs text-muted-foreground mt-0.5">Colors, fonts, buttons, spacing</p>
-            </div>
-            <div data-sheet-scroll className="flex-1 overflow-y-auto wb-slim-scroll p-2">
-              {THEME_SETTINGS_GROUPS.filter(group => group.id !== "colors").map(group => (
-                <div key={group.id} className="mb-0.5">
-                  <button
-                    className={cn(
-                      "w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150",
-                      expandedSettings === group.id ? "bg-muted/80 text-foreground" : "text-muted-foreground hover:bg-muted/40 hover:text-foreground"
-                    )}
-                    onClick={() => {
-                      const next = expandedSettings === group.id ? null : group.id
-                      themeGroupOpenedRef.current = next
-                      setExpandedSettings(next)
-                    }}
-                  >
-                    {group.label}
-                    <ChevronDown className={cn("h-3.5 w-3.5 transition-transform duration-200", expandedSettings === group.id && "rotate-180")} />
-                  </button>
-                  {expandedSettings === group.id && (
-                    <div className={cn("px-3 py-3 space-y-4", themeGroupOpenedRef.current === group.id && "animate-in fade-in slide-in-from-top-1 duration-150")}>
-                      {/* Custom Color Schemes editor */}
-                      {group.id === "color_schemes" ? (
-                        <ColorsPanel
-                          theme={settingsDraft}
-                          updateSetting={updateSetting}
-                          onRemapSections={(from, to) => {
-                            debouncedPushUndo()
-                            setSections(prev => remapScheme(prev, from, to))
-                            setIsDirty(true)
-                          }}
-                          initialActive={editSchemeKey}
-                          onInitialActiveConsumed={() => setEditSchemeKey(null)}
-                          advanced={THEME_SETTINGS_GROUPS.find(g => g.id === "colors")?.fields.map(field => (
-                            <div key={field.id}>
-                              {!fieldCarriesOwnLabel(field) && (
-                                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">{field.label}</label>
-                              )}
-                              <FieldEditor
-                                field={field}
-                                value={settingsDraft[field.id as keyof ThemeSettingsValues] ?? field.default}
-                                onChange={v => updateSetting(field.id, v)}
-                              />
-                            </div>
-                          ))}
-                        />
-                      ) : group.id === "typography" ? (
-                        <TypographyPanel
-                          theme={settingsDraft}
-                          updateSetting={updateSetting}
-                          fonts={group.fields.map(field => (
-                            <WbSelect
-                              key={field.id}
-                              label={field.label}
-                              value={settingsDraft[field.id as keyof ThemeSettingsValues] ?? field.default}
-                              onChange={v => updateSetting(field.id, v)}
-                              options={field.options ?? []}
-                            />
-                          ))}
-                        />
-                      ) : group.id === "branding" ? (
-                        <BrandingTabPanel
-                          settingsDraft={settingsDraft}
-                          updateSetting={updateSetting}
-                        />
-                      ) : (
-                        /* All other groups use modern Wb* components */
-                        group.fields.map(field => {
-                          const val = settingsDraft[field.id as keyof ThemeSettingsValues] ?? field.default
-                          return (
-                            <div key={field.id}>
-                              {field.type === "toggle" ? (
-                                <WbToggle
-                                  label={field.label}
-                                  value={val}
-                                  onChange={v => updateSetting(field.id, v)}
-                                  info={field.info}
-                                />
-                              ) : field.type === "range" ? (
-                                <WbSlider
-                                  label={field.label}
-                                  value={val}
-                                  onChange={v => updateSetting(field.id, v)}
-                                  min={field.min ?? 0}
-                                  max={field.max ?? 100}
-                                  step={field.step ?? 1}
-                                  unit={field.unit ?? ""}
-                                  defaultValue={typeof field.default === "number" ? field.default : 0}
-                                />
-                              ) : field.type === "select" || field.type === "font" ? (
-                                <WbSelect
-                                  label={field.label}
-                                  value={val}
-                                  onChange={v => updateSetting(field.id, v)}
-                                  options={field.options ?? []}
-                                />
-                              ) : field.type === "radio" ? (
-                                <WbRadioSegment
-                                  label={field.label}
-                                  value={val}
-                                  onChange={v => updateSetting(field.id, v)}
-                                  options={field.options ?? []}
-                                />
-                              ) : field.type === "image" ? (
-                                <>
-                                  <label className="text-xs font-medium text-muted-foreground mb-1.5 block">{field.label}</label>
-                                  <WbImagePicker
-                                    value={typeof val === "string" ? val : undefined}
-                                    onChange={url => updateSetting(field.id, url ?? "")}
-                                    aspectRatio="video"
-                                    folder="sections"
-                                  />
-                                </>
-                              ) : field.type === "color" ? (
-                                /* No label here: fieldCarriesOwnLabel(field) is true for a
-                                   colour, because ColorField's own row is the label. */
-                                <FieldEditor field={field} value={val} onChange={v => updateSetting(field.id, v)} />
-                              ) : field.type === "header" || field.type === "paragraph" ? (
-                                <FieldEditor field={field} value={val} onChange={v => updateSetting(field.id, v)} />
-                              ) : (
-                                <>
-                                  <label className="text-xs font-medium text-muted-foreground mb-1.5 block">{field.label}</label>
-                                  <FieldEditor field={field} value={val} onChange={v => updateSetting(field.id, v)} />
-                                </>
-                              )}
-                              {field.type !== "toggle" && field.info && (
-                                <p className="text-[11px] text-muted-foreground mt-1">{field.info}</p>
-                              )}
-                            </div>
-                          )
-                        })
-                      )}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        )
+        return renderThemeSettings()
       }
     }
 
@@ -6354,10 +5301,16 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             * identical, and the first thing somebody does on a refresh is
             * wonder where their sections went.
             */}
+          {/*
+            And it is a quiet wait: the rows do not pulse, and they are not
+            there at all for a load that takes less than a moment (the app's
+            own `skeleton-deferred`), so a quick switch shows the list, not a
+            flash of grey before it.
+          */}
           {sectionsLoading || loading ? (
-            <div data-sheet-scroll className="flex-1 overflow-y-auto wb-slim-scroll p-3 space-y-2">
+            <div data-sheet-scroll className="flex-1 overflow-y-auto wb-slim-scroll skeleton-deferred p-3 space-y-2" aria-busy="true">
               {[1, 2, 3, 4, 5].map(i => (
-                <div key={i} className="h-12 rounded-lg bg-muted/60 animate-pulse" style={{ animationDelay: `${i * 80}ms` }} />
+                <div key={i} className="h-12 rounded-lg bg-[#f3f4f6]" />
               ))}
             </div>
           ) : (
@@ -6544,10 +5497,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             onReorderBlocks={(blocks) => reorderBlocks(section.id, blocks)}
             theme={settingsDraft}
             onEditScheme={(schemeKey) => {
-              if (schemeKey) setEditSchemeKey(schemeKey)
-              setSidebarMode("settings")
-              setExpandedSettings("color_schemes")
-              setSelectedPanel({ type: "pages" })
+              /* The scheme's own panel, and Back comes here again. */
+              if (schemeKey) setSchemeEditing({ key: schemeKey, from: { type: "section", sectionId: section.id } })
             }}
           />
         )
@@ -6594,10 +5545,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               theme={settingsDraft}
               onUpdateSetting={(key, val) => updateSectionSetting(section.id, key, val)}
               onEditScheme={(schemeKey) => {
-                if (schemeKey) setEditSchemeKey(schemeKey)
-                setSidebarMode("settings")
-                setExpandedSettings("color_schemes")
-                setSelectedPanel({ type: "pages" })
+                /* The scheme's own panel, and Back comes here again. */
+                if (schemeKey) setSchemeEditing({ key: schemeKey, from: { type: "section", sectionId: section.id } })
               }}
             />
 
@@ -6620,23 +5569,34 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 clean.push(f)
               }
               if (clean.length === 0) return null
+              /* A picture's description is drawn under the picture, not as a field of its own. */
+              const altIds = pairedAltIds(clean)
               return (
-                <div className="p-4 space-y-4">
-                  {clean.map(field => (
-                    <div key={field.id}>
-                      {!fieldCarriesOwnLabel(field) && (
-                        <label className="text-xs font-medium text-muted-foreground mb-1.5 block">{field.label}</label>
-                      )}
-                      <FieldEditor
-                        field={field}
-                        value={section.settings[field.id]}
-                        onChange={val => updateSectionSetting(section.id, field.id, val)}
-                      />
-                      {field.type !== "header" && field.type !== "paragraph" && field.info && (
-                        <p className="text-[11px] text-muted-foreground mt-1">{field.info}</p>
-                      )}
-                    </div>
-                  ))}
+                <div className="p-4 space-y-4 [&>div:first-child>.wb-field-header]:mt-0 [&>div:first-child>.wb-field-header]:border-t-0 [&>div:first-child>.wb-field-header]:pt-0">
+                  {clean.filter(field => !altIds.has(field.id)).map(field => {
+                    const altId = altFieldFor(field, clean)
+                    const altDef = altId ? clean.find(f => f.id === altId) : undefined
+                    return (
+                      <div key={field.id}>
+                        {!fieldCarriesOwnLabel(field) && (
+                          <label className="wb-field-label mb-1.5 block text-[13px] font-medium text-[#374151]">{field.label}</label>
+                        )}
+                        <FieldEditor
+                          field={field}
+                          value={section.settings[field.id]}
+                          onChange={val => updateSectionSetting(section.id, field.id, val)}
+                          alt={altId ? {
+                            label: altDef?.label,
+                            value: typeof section.settings[altId] === "string" ? String(section.settings[altId]) : "",
+                            onChange: v => updateSectionSetting(section.id, altId, v),
+                          } : undefined}
+                        />
+                        {field.type !== "header" && field.type !== "paragraph" && field.info && (
+                          <p className="text-[11px] text-muted-foreground mt-1">{field.info}</p>
+                        )}
+                      </div>
+                    )
+                  })}
                 </div>
               )
             })()}
@@ -6705,18 +5665,30 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                           </div>
                         </summary>
                         <div className="px-3 pb-3 space-y-3 border-t border-border pt-3">
-                          {blockSchema?.fields.map(field => (
-                            <div key={field.id}>
-                              {!fieldCarriesOwnLabel(field) && (
-                                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">{field.label}</label>
-                              )}
-                              <FieldEditor
-                                field={field}
-                                value={block.settings[field.id]}
-                                onChange={val => updateBlockSetting(section.id, block.id, field.id, val)}
-                              />
-                            </div>
-                          ))}
+                          {(() => {
+                            const fields = blockSchema?.fields ?? []
+                            const altIds = pairedAltIds(fields)
+                            return fields.filter(field => !altIds.has(field.id)).map(field => {
+                              const altId = altFieldFor(field, fields)
+                              return (
+                                <div key={field.id}>
+                                  {!fieldCarriesOwnLabel(field) && (
+                                    <label className="wb-field-label mb-1.5 block text-[13px] font-medium text-[#374151]">{field.label}</label>
+                                  )}
+                                  <FieldEditor
+                                    field={field}
+                                    value={block.settings[field.id]}
+                                    onChange={val => updateBlockSetting(section.id, block.id, field.id, val)}
+                                    alt={altId ? {
+                                      label: fields.find(f => f.id === altId)?.label,
+                                      value: typeof block.settings[altId] === "string" ? String(block.settings[altId]) : "",
+                                      onChange: v => updateBlockSetting(section.id, block.id, altId, v),
+                                    } : undefined}
+                                  />
+                                </div>
+                              )
+                            })
+                          })()}
                         </div>
                       </details>
                     )
@@ -6815,107 +5787,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       )
     }
 
-    // THEME SETTINGS panel
-    if (selectedPanel.type === "theme_settings") {
-      return (
-        <div className="flex flex-col h-full">
-          <PanelBack onBack={() => setSelectedPanel({ type: "pages" })}>
-            <span className="text-[15px] font-semibold md:text-sm">Theme settings</span>
-          </PanelBack>
-          <div data-sheet-scroll className="flex-1 overflow-y-auto wb-slim-scroll p-3">
-            {THEME_SETTINGS_GROUPS.map(group => (
-              <div key={group.id} className="mb-1">
-                <button
-                  className={cn(
-                    "w-full flex items-center justify-between py-2.5 px-3 rounded-lg text-left transition-colors",
-                    expandedSettings === group.id ? "bg-muted" : "hover:bg-muted/50"
-                  )}
-                  onClick={() => setExpandedSettings(expandedSettings === group.id ? null : group.id)}
-                >
-                  <span className="text-sm font-medium">{group.label}</span>
-                  <ChevronDown className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform", expandedSettings === group.id && "rotate-180")} />
-                </button>
-                {expandedSettings === group.id && (
-                  <div className="px-3 pb-4 space-y-4">
-                    {group.id === "branding" ? (
-                      <BrandingTabPanel
-                        settingsDraft={settingsDraft}
-                        updateSetting={updateSetting}
-                      />
-                    ) : (
-                      group.fields.map(field => {
-                        const val = settingsDraft[field.id as keyof ThemeSettingsValues] ?? field.default
-                        return (
-                          <div key={field.id}>
-                            {field.type === "toggle" ? (
-                              <WbToggle
-                                label={field.label}
-                                value={val}
-                                onChange={v => updateSetting(field.id, v)}
-                                info={field.info}
-                              />
-                            ) : field.type === "range" ? (
-                              <WbSlider
-                                label={field.label}
-                                value={val}
-                                onChange={v => updateSetting(field.id, v)}
-                                min={field.min ?? 0}
-                                max={field.max ?? 100}
-                                step={field.step ?? 1}
-                                unit={field.unit ?? ""}
-                                defaultValue={typeof field.default === "number" ? field.default : 0}
-                              />
-                            ) : field.type === "select" || field.type === "font" ? (
-                              <WbSelect
-                                label={field.label}
-                                value={val}
-                                onChange={v => updateSetting(field.id, v)}
-                                options={field.options ?? []}
-                              />
-                            ) : field.type === "radio" ? (
-                              <WbRadioSegment
-                                label={field.label}
-                                value={val}
-                                onChange={v => updateSetting(field.id, v)}
-                                options={field.options ?? []}
-                              />
-                            ) : field.type === "image" ? (
-                              <>
-                                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">{field.label}</label>
-                                <WbImagePicker
-                                  value={typeof val === "string" ? val : undefined}
-                                  onChange={url => updateSetting(field.id, url ?? "")}
-                                  aspectRatio="video"
-                                  folder="sections"
-                                />
-                              </>
-                            ) : field.type === "color" ? (
-                              /* No label here: fieldCarriesOwnLabel(field) is true for a
-                                 colour, because ColorField's own row is the label. */
-                              <FieldEditor field={field} value={val} onChange={v => updateSetting(field.id, v)} />
-                            ) : field.type === "header" || field.type === "paragraph" ? (
-                              <FieldEditor field={field} value={val} onChange={v => updateSetting(field.id, v)} />
-                            ) : (
-                              <>
-                                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">{field.label}</label>
-                                <FieldEditor field={field} value={val} onChange={v => updateSetting(field.id, v)} />
-                              </>
-                            )}
-                            {field.type !== "toggle" && field.info && (
-                              <p className="text-[11px] text-muted-foreground mt-1">{field.info}</p>
-                            )}
-                          </div>
-                        )
-                      })
-                    )}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )
-    }
+    // THEME SETTINGS panel: the same groups, reached from the menu's Theme settings.
+    if (selectedPanel.type === "theme_settings") return renderThemeSettings()
 
     return null
   }
@@ -8678,6 +7551,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 pageTemplate={templateForPage(currentPage)}
                 sections={canvasSections}
                 arrivedId={arrivedId}
+                arrival={arrivalRef}
                 inspectorEnabled={canvasInspecting}
                 selectedSectionId={selectedSectionId}
                 device={device}
@@ -8784,8 +7658,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         </main>
       </div>
 
-      {/* ── Add Section Modal ── */}
-      <AddSectionModal
+      {/* ── Add a section: components/website-builder/editor/section-library.tsx ── */}
+      <SectionLibrary
         open={addSectionOpen}
         onOpenChange={onAddSectionOpenChange}
         onAddSection={addSectionStable}
@@ -8793,6 +7667,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         addable={libraryAddable}
         ownTypes={ownSectionTypes}
         sources={storelibSources}
+        where={libraryWhere}
       />
 
       {/* ── Add Custom Page Modal ── */}
@@ -9300,6 +8175,7 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
   theme,
   sections,
   arrivedId,
+  arrival,
   sources,
   pageTemplate,
   inspectorEnabled,
@@ -9320,6 +8196,12 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
   sections: SectionInstance[]
   /** A section Ask AI has just put on the page, which arrives rather than appears. */
   arrivedId?: string | null
+  /**
+   * A section just added from the library, with where the page's sections
+   * were before it went in. Played by the canvas in the commit that draws it
+   * (lib/website-builder/section-arrival.ts).
+   */
+  arrival?: { current: { id: string; before: Map<string, number> } | null }
   /** Saved .storelib files, path to source; see storelibSources in the editor. */
   sources: Record<string, string>
   /** Which page's sections these are, for `page.template` in a section. */
@@ -9352,6 +8234,26 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
    * and SectionRenderer is memoised on its props.
    */
   const navigateFromChrome = useCallback((href: string) => onEditorNavigate(href, true), [onEditorNavigate])
+  /**
+   * A SECTION JUST ADDED ARRIVES. The canvas draws a deferred copy of the
+   * page, so the commit that puts the new section here can be a frame or two
+   * after the add; whichever commit it is, this runs before it is painted,
+   * opens the page where the section went in and brings it on screen.
+   */
+  useLayoutEffect(() => {
+    const plan = arrival?.current
+    if (!plan) return
+    const el = document.getElementById(`wb-section-${plan.id}`)
+    if (!el) return
+    arrival!.current = null
+    const scroller = document.getElementById("wb-preview-root")
+    if (!scroller) return
+    /* On a phone the sections sheet covers the foot of the canvas by its peek.
+       Read from the root's own style, where the sheet writes it: asking for
+       the computed style here would make the browser restyle the page first. */
+    const peek = parseFloat(document.documentElement.style.getPropertyValue("--wb-sheet-peek")) || 0
+    void playArrival(scroller, el, plan.before, { bottomInset: peek })
+  }, [sections, arrival])
   /* One object per install. Inline, it was a new storefront context on every
      canvas render, and every section reading it rendered again past its memo. */
   const storefront = useMemo(() => ({ inEditor: true, installId }), [installId])

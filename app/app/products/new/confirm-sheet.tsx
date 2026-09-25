@@ -47,7 +47,7 @@ export interface ConfirmQuestion {
   confirm: string
   /** The button that leaves things as they are. */
   cancel: string
-  /** Near black for anything that throws work away (never red: the words say what it does); the violet otherwise. */
+  /** Near black either way (never red, never violet): the words say what it does. */
   tone?: "critical" | "default"
 }
 
@@ -60,10 +60,10 @@ const destructiveDepth = cn(
 )
 
 const primaryDepth = cn(
-  "inline-flex shrink-0 cursor-pointer select-none items-center justify-center whitespace-nowrap bg-[#8b5cf6] font-semibold text-white outline-none",
-  "shadow-[inset_0_1px_0_rgba(255,255,255,0.22),inset_0_-1px_0_rgba(0,0,0,0.18),0_1px_1px_rgba(76,29,149,0.25)] transition-[background-color,box-shadow] duration-100",
-  "hover:bg-[#7c3aed] active:bg-[#6d28d9] active:shadow-[inset_0_1px_2px_rgba(0,0,0,0.28)]",
-  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#8b5cf6]",
+  "inline-flex shrink-0 cursor-pointer select-none items-center justify-center whitespace-nowrap bg-[#1a1a2e] font-semibold text-white outline-none",
+  "shadow-[inset_0_1px_0_rgba(255,255,255,0.14),inset_0_-1px_0_rgba(0,0,0,0.35),0_1px_2px_rgba(16,24,40,0.25)] transition-[background-color,box-shadow] duration-100",
+  "hover:bg-[#2a2a40] active:bg-[#0f0f1c] active:shadow-[inset_0_1px_2px_rgba(0,0,0,0.4)]",
+  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1a1a2e]/40",
 )
 
 const AHEAD: ConfirmQuestion = { title: "Discard changes?", body: "Your edits since the last save will be lost.", confirm: "Discard", cancel: "Keep editing" }

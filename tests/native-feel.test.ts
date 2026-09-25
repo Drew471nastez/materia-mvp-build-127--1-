@@ -52,6 +52,8 @@ const read = (path: string) => readFileSync(join(root, path), "utf8")
 const css = read("app/globals.css")
 const editor = read("app/website-builder/editor/[installId]/page.tsx")
 const sheet = read("components/website-builder/mobile-editor-sheet.tsx")
+/* Add a section, in its own module since it became a phone sheet and a kept dialog. */
+const library = read("components/website-builder/editor/section-library.tsx")
 
 // ---------------------------------------------------------------------------
 section("A press is not the start of a scroll")
@@ -109,8 +111,8 @@ section("The Add Section card presses once, not three times")
    * the fix as absent — the guard would have failed on the very change it
    * exists to describe.
    */
-  const card = editor
-    .slice(editor.indexOf("data-library-card={type}"), editor.indexOf("data-library-card={type}") + 2600)
+  const card = library
+    .slice(library.indexOf("const LibraryCard = memo("), library.indexOf("/* ── The library"))
     .replace(/\/\*[\s\S]*?\*\//g, "")
   check(
     "it no longer dims and shrinks itself on a phone, on top of the shell's dim",
@@ -125,7 +127,7 @@ section("The Add Section card presses once, not three times")
      * is here so the card cannot quietly fall back into `transition-all`.
      */
     "it transitions the properties that actually move, rather than everything it contains",
-    /transition-\[border-color,box-shadow,translate,scale\]/.test(card) && !/"transition-all duration-200 ease-out will-change-transform"/.test(card),
+    /transition-\[border-color,box-shadow,translate\]/.test(card) && !/transition-all/.test(card),
   )
   check(
     "a long press on it selects nothing and pops nothing",
@@ -133,11 +135,11 @@ section("The Add Section card presses once, not three times")
   )
   check(
     "the desktop lift is still there, because a mouse does hover",
-    /hover:-translate-y-0\.5/.test(card) && /hover:shadow-lg/.test(card),
+    /!phone && "group-hover:[^"]*group-hover:shadow-\[[^"]*group-hover:-translate-y-px"/.test(card),
   )
   check(
-    "and will-change is only promised where something actually moves",
-    /will-change-transform/.test(card.slice(card.indexOf("hover:border-foreground/25"))),
+    "and no card asks for a layer of its own: forty cards would be forty layers",
+    !/will-change/.test(card),
   )
 }
 
@@ -259,67 +261,28 @@ check(
   "selecting a section does not make the sidebar move",
   !/wb-panel-swap-back/.test(editor) && !/sidebarGoingBack/.test(editor),
 )
-check(
-  "choosing a category replaces the grid rather than swapping card contents",
-  /key=\{`\$\{activeCategory \?\? "all"\}:\$\{searching \? "q" : ""\}`\}/.test(editor),
-)
-check(
-  "the entrance is on the grid, not on every card in it",
-  (() => {
-    const grid = editor.slice(editor.indexOf("ref={gridRef}") - 800, editor.indexOf("ref={gridRef}") + 300)
-    return /wb-panel-swap/.test(grid)
-  })(),
-)
-
 /**
- * What is left of `.wb-panel-swap` belongs to the ADD SECTION grid, where a
- * category change replaces the whole list and the fade is what says so.
+ * CHOOSING A CATEGORY BUILDS NOTHING. Every card is built once, when the
+ * library is first opened; a category or a search hides the ones it does
+ * not want (`hidden`) and shows the others. It used to key the grid on the
+ * category, which threw away every card and its preview and built the new
+ * list from nothing on each press. scripts/check-add-section.mjs counts the
+ * cards rebuilt by a category switch: 0.
+ */
+check(
+  "choosing a category hides and shows cards already built, rather than building a new grid",
+  /hidden=\{!shown\.has\(e\)\}/.test(library) && /hidden=\{hidden\}/.test(library) && !/key=\{`\$\{activeCategory/.test(library),
+)
+/**
+ * And the grid says it changed with one short ease: the grid itself, once,
+ * by opacity and transform (the compositor's two properties), on a category
+ * change only; a keystroke in the search is not announced.
  */
 {
-  /**
-   * 400, not 900. The block shrank when the sidebar stopped sliding, and a
-   * fixed window that outlives its block reads into the NEXT rule: the
-   * "no transform" check started failing on `.wb-settings-in`, which is a
-   * different animation that is allowed one. Sized to the rule and its
-   * keyframes and nothing after them.
-   */
-  const swap = css.slice(css.indexOf(".wb-panel-swap {"), css.indexOf(".wb-panel-swap {") + 400)
-  check(
-    "it animates opacity and translate only, so it costs a layer and not a layout",
-    /translate: [-\d]/.test(swap) && !/height|width|margin|padding/.test(swap),
-    swap.slice(0, 160),
-  )
-  /**
-   * AND IT MOVES SIDEWAYS, NEVER DOWN.
-   *
-   * The panel is as tall as the scroller it sits in, so a translate DOWN puts
-   * something past the scroller's bottom edge, and a scroll container counts
-   * that as scrollable overflow: for the 180ms of the animation the sidebar
-   * grew a scrollbar and then lost it. Measured with
-   * scripts/check-sidebar-swap.mjs, sampling every frame: 6px of overflow at
-   * the worst frame against 0px settled. Sideways cannot do it, because the
-   * scroller is overflow-x-hidden and a horizontal translate is clipped.
-   */
-  check(
-    "it comes from the side, so it cannot grow a scrollbar for its own animation",
-    /translate: -?\d+px 0/.test(swap) && !/translate: 0 -?\d+px/.test(swap),
-    swap.slice(0, 200),
-  )
-  check(
-    "`translate`, not `transform` — the v4 trap again",
-    !/transform:/.test(swap),
-  )
-  check(
-    "it is short enough to step back through four times without waiting",
-    (() => {
-      const ms = [...swap.matchAll(/animation: wb-panel-swap[a-z-]* (\d+)ms/g)].map((m) => Number(m[1]))
-      return ms.length >= 1 && ms.every((n) => n <= 220)
-    })(),
-  )
-  check(
-    "and it is off where motion is not wanted",
-    /prefers-reduced-motion: reduce\)[\s\S]{0,140}wb-panel-swap/.test(css),
-  )
+  const ease = library.slice(library.indexOf("const grid = gridEl.current"), library.indexOf("const grid = gridEl.current") + 500)
+  check("the entrance is on the grid, not on every card in it", /grid\.animate\(/.test(ease) && !/\.animate\(/.test(library.slice(library.indexOf("const LibraryCard = memo("), library.indexOf("/* ── The library"))))
+  check("it moves opacity and transform only, briefly", /\{ opacity: 0\.25, transform: "translate3d\(0, 6px, 0\)" \}, \{ opacity: 1, transform: "none" \}/.test(ease) && /duration: 200/.test(ease))
+  check("on a category change only, and not where motion is not wanted", /if \(!categoryChanged \|\| !grid \|\| window\.matchMedia\("\(prefers-reduced-motion: reduce\)"\)\.matches\) return/.test(ease))
 }
 
 // ---------------------------------------------------------------------------

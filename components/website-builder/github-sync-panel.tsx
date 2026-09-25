@@ -5,19 +5,26 @@
  *  WEBSITE SETTINGS › CONNECTIONS › GITHUB
  * ===========================================================================
  * One repository per website. Storelib writes the site's section files and an
- * AGENTS.md into it; Claude Code, Codex or a person edits them and pushes;
- * every push to the linked branch lands here as a draft, and an open builder
- * shows it within seconds. See lib/github-sync.
+ * AGENTS.md into it; Codex in ChatGPT, Claude Code on the web or a person
+ * edits them and pushes; every push to the linked branch lands here as a
+ * draft, and an open builder shows it within seconds. See lib/github-sync.
  *
- * Four states, each one screen: GitHub is not set up on this Storelib;
- * not connected; connected but no repository picked; linked. The first
- * three are the three steps, with the first one being where you act; the
- * last is the linked repository and its two switches.
+ * One line on Connections (./website-settings/connection-row), whose status
+ * is where GitHub stands and whose one button is the next thing to do:
+ *
+ *   not switched on here   says so, and has no button
+ *   not connected          Connect: the three steps, the first one being
+ *                          the button that goes to GitHub
+ *   connected, no repo     Continue: pick the repository
+ *   linked                 Manage: Pull, Push, which way changes travel,
+ *                          what happened lately, change or disconnect
  */
 import { useCallback, useEffect, useState } from "react"
 import { ArrowDownToLine, ArrowUpFromLine, ExternalLink, Loader2 } from "lucide-react"
 import { relativeTime } from "@/lib/website-builder/relative-time"
 import { Step, Steps } from "@/components/website-builder/setup-steps"
+import { ConnectionRow, InlineButton, RowNote, type ConnectionTone } from "@/components/website-builder/website-settings/connection-row"
+import { buttonClass, primaryButtonClass } from "@/components/website-builder/website-settings/parts"
 
 interface Link {
   account: string
@@ -52,7 +59,7 @@ interface Status {
 
 /** What GitHub's round trip came back with, from ?github= on the editor's URL. */
 const RETURNED: Record<string, string> = {
-  expired: "That GitHub link expired. Press Connect GitHub again.",
+  expired: "That GitHub link expired. Press Continue to GitHub again.",
   cancelled: "GitHub was not connected.",
   denied: "GitHub did not confirm that your account can reach that installation, so nothing was linked.",
   "not-set-up": "GitHub needs a database update first. Run supabase/sql/RUN_GITHUB_SYNC.sql.",
@@ -74,8 +81,7 @@ type Action = "select" | "export" | "disconnect" | "reuse" | "pull" | "settings"
  * the thumb is placed with `left`, then moved by exactly the track's width
  * less the thumb and both gaps, so it cannot land outside the track.
  */
-function SyncRow({ icon, title, detail, on, busy, onChange }: {
-  icon: React.ReactNode
+function SyncRow({ title, detail, on, busy, onChange }: {
   title: string
   detail: string
   on: boolean
@@ -83,10 +89,9 @@ function SyncRow({ icon, title, detail, on, busy, onChange }: {
   onChange: (v: boolean) => void
 }) {
   return (
-    <label className="flex cursor-pointer items-center gap-3 border-b border-white/[0.07] px-3.5 py-3 last:border-0">
-      <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${on ? "bg-white text-[#0f0f0f]" : "bg-white/[0.06] text-white/40"}`}>{icon}</span>
+    <label className="flex min-h-[60px] cursor-pointer items-center gap-4 py-2.5">
       <span className="min-w-0 flex-1">
-        <span className="block text-[14px] font-medium">{title}</span>
+        <span className="block text-[14.5px] font-medium text-white/90 md:text-[14px]">{title}</span>
         <span className="block text-[13px] text-white/50">{on ? detail : "Off"}</span>
       </span>
       <button
@@ -109,11 +114,36 @@ function SyncRow({ icon, title, detail, on, busy, onChange }: {
 
 const STEPS = [
   ["Connect a repository", "Storelib writes this website's sections into it, with an AGENTS.md your tool reads first."],
-  ["Ask your agent for a change", "Open the repository in ChatGPT Codex or Claude Code on the web and ask for a section."],
-  ["It appears here", "Merge it and it arrives within seconds, as a draft. Publish when you like it."],
+  ["Ask your agent for a change", "Open the repository in Codex in ChatGPT or Claude Code on the web and ask for a section."],
+  ["It appears here", "Each push arrives within seconds, as a draft. Publish when you like it."],
 ] as const
 
-export function GitHubSyncPanel({ installId, returned }: { installId: string; returned?: string | null }) {
+/** What GitHub's line says. Pure, so the words are tested as words. */
+export function githubStatus(
+  status: Pick<Status, "configured" | "ready" | "link"> | null,
+  failed: boolean,
+): { tone: ConnectionTone; status?: string; detail?: string; action?: string; loading?: boolean } {
+  if (!status) return failed ? { tone: "attention", status: "Could not check GitHub", action: "Open" } : { tone: "off", loading: true }
+  if (!status.configured) return { tone: "none", status: "Not switched on for this Storelib yet" }
+  if (!status.ready) return { tone: "none", status: "Needs a database update first" }
+  const link = status.link
+  if (!link) return { tone: "off", status: "Not connected", action: "Connect" }
+  if (!link.repo) return { tone: "attention", status: "Pick a repository", detail: link.account || undefined, action: "Continue" }
+  if (link.lastError) return { tone: "attention", status: "Last sync failed", detail: link.repo, action: "Manage" }
+  return { tone: "on", status: "Connected", detail: link.repo, action: "Manage" }
+}
+
+export function GitHubSyncPanel({
+  installId,
+  returned,
+  open,
+  onToggle,
+}: {
+  installId: string
+  returned?: string | null
+  open: boolean
+  onToggle: () => void
+}) {
   const [status, setStatus] = useState<Status | null>(null)
   const [error, setError] = useState<string | null>(returned && RETURNED[returned] ? RETURNED[returned] : null)
   const [busy, setBusy] = useState<null | Action>(null)
@@ -173,10 +203,10 @@ export function GitHubSyncPanel({ installId, returned }: { installId: string; re
   const disconnect = async () => {
     setBusy("disconnect")
     setError(null)
-    const res = await fetch(`/api/website-builder/themes/${installId}/github`, { method: "DELETE" })
+    const res = await fetch(`/api/website-builder/themes/${installId}/github`, { method: "DELETE" }).catch(() => null)
     setBusy(null)
     setConfirmDisconnect(false)
-    if (!res.ok) {
+    if (!res?.ok) {
       setError("Could not disconnect. Try again.")
       return
     }
@@ -186,122 +216,112 @@ export function GitHubSyncPanel({ installId, returned }: { installId: string; re
 
   const link = status?.link ?? null
   const linked = Boolean(link?.repo)
+  const line = githubStatus(status, error !== null)
 
   const connectButtons = status ? (
-          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-            <a
-              href={`/api/github/connect?installId=${encodeURIComponent(installId)}`}
-              className="inline-flex h-11 items-center justify-center gap-2.5 rounded-xl bg-white px-5 text-[15px] font-medium text-[#0f0f0f] transition-opacity hover:opacity-90"
-            >
-              <GitHubMark className="h-4 w-4" />
-              Connect GitHub
-            </a>
-            {status.accounts.map((a) => (
-              <button
-                key={a.installationId}
-                type="button"
-                disabled={busy !== null}
-                onClick={() => void post({ action: "reuse", installationId: a.installationId }, "reuse")}
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-white/15 px-5 text-[15px] font-medium text-white transition-colors hover:bg-white/[0.08] disabled:opacity-50"
-              >
-                {busy === "reuse" && <Loader2 className="h-4 w-4 animate-spin" />}
-                Use {a.account || "your GitHub"}
-              </button>
-            ))}
-          </div>
+    <div className="flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center">
+      <a href={`/api/github/connect?installId=${encodeURIComponent(installId)}`} className={primaryButtonClass}>
+        <GitHubMark className="h-4 w-4" />
+        Continue to GitHub
+      </a>
+      {status.accounts.map((a) => (
+        <button
+          key={a.installationId}
+          type="button"
+          disabled={busy !== null}
+          onClick={() => void post({ action: "reuse", installationId: a.installationId }, "reuse")}
+          className={buttonClass}
+        >
+          {busy === "reuse" && <Loader2 className="h-4 w-4 animate-spin" />}
+          Use {a.account || "your GitHub"}
+        </button>
+      ))}
+    </div>
   ) : null
 
   const picker = status && link ? (
-          <div>
-            <p className="text-[14px] text-white/60">
-              Connected to <span className="text-white">{link.account || "GitHub"}</span>. Pick the repository for this website.
-            </p>
-            {status.reposError ? (
-              <p className="mt-3 text-[14px] text-red-300">{status.reposError}</p>
-            ) : status.repos.length === 0 ? (
-              <p className="mt-3 text-[14px] text-white/60">
-                Storelib cannot see any repositories. Give it access to one on GitHub, then{" "}
-                <button type="button" onClick={() => void load()} className="underline underline-offset-2">check again</button>.
-              </p>
-            ) : (
-              <div className="mt-4 grid gap-3 md:grid-cols-[2fr_1fr_1fr]">
-                <label className="block">
-                  <span className="text-[13px] text-white/50">Repository</span>
-                  <select
-                    value={repo}
-                    onChange={(e) => {
-                      setRepo(e.target.value)
-                      setBranch(status.repos.find((r) => r.fullName === e.target.value)?.defaultBranch ?? "")
-                    }}
-                    className="mt-1.5 h-11 w-full rounded-xl border border-white/15 bg-[#1a1a1a] px-3 text-[15px] text-white outline-none focus:border-white/40"
-                  >
-                    {status.repos.map((r) => (
-                      <option key={r.fullName} value={r.fullName}>{r.fullName}{r.private ? " (private)" : ""}</option>
-                    ))}
-                  </select>
-                </label>
-                <label className="block">
-                  <span className="text-[13px] text-white/50">Branch</span>
-                  <input
-                    value={branch}
-                    onChange={(e) => setBranch(e.target.value)}
-                    className="mt-1.5 h-11 w-full rounded-xl border border-white/15 bg-white/[0.04] px-3 font-mono text-[14px] text-white outline-none focus:border-white/40"
-                  />
-                </label>
-                <label className="block">
-                  <span className="text-[13px] text-white/50">Folder</span>
-                  <input
-                    value={folder}
-                    onChange={(e) => setFolder(e.target.value)}
-                    placeholder="Top of the repository"
-                    className="mt-1.5 h-11 w-full rounded-xl border border-white/15 bg-white/[0.04] px-3 font-mono text-[14px] text-white outline-none placeholder:font-sans placeholder:text-white/30 focus:border-white/40"
-                  />
-                </label>
-                <button
-                  type="button"
-                  disabled={busy !== null || !repo}
-                  onClick={() => void post({ action: "select", repo, branch, folder }, "select")}
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-white px-5 text-[15px] font-medium text-[#0f0f0f] transition-opacity hover:opacity-90 disabled:opacity-50 md:col-span-3 md:justify-self-start"
-                >
-                  {busy === "select" && <Loader2 className="h-4 w-4 animate-spin" />}
-                  Link and send sections
-                </button>
-              </div>
-            )}
-          </div>
+    <div>
+      <p className="text-[14px] text-white/60">
+        Connected to <span className="text-white">{link.account || "GitHub"}</span>. Pick the repository for this website.
+      </p>
+      {status.reposError ? (
+        <p className="mt-3 text-[14px] text-red-300">{status.reposError}</p>
+      ) : status.repos.length === 0 ? (
+        <p className="mt-3 text-[14px] text-white/60">
+          Storelib cannot see any repositories. Give it access to one on GitHub, then <InlineButton onClick={() => void load()}>check again</InlineButton>.
+        </p>
+      ) : (
+        <div className="mt-4 grid gap-3 md:grid-cols-[2fr_1fr_1fr]">
+          <label className="block">
+            <span className="text-[13px] text-white/50">Repository</span>
+            <select
+              value={repo}
+              onChange={(e) => {
+                setRepo(e.target.value)
+                setBranch(status.repos.find((r) => r.fullName === e.target.value)?.defaultBranch ?? "")
+              }}
+              className="mt-1.5 h-11 w-full rounded-lg border border-white/12 bg-[#171717] px-3 text-[16px] text-white outline-none focus:border-white/35 md:h-10 md:text-[14.5px]"
+            >
+              {status.repos.map((r) => (
+                <option key={r.fullName} value={r.fullName}>{r.fullName}{r.private ? " (private)" : ""}</option>
+              ))}
+            </select>
+          </label>
+          <label className="block">
+            <span className="text-[13px] text-white/50">Branch</span>
+            <input
+              value={branch}
+              onChange={(e) => setBranch(e.target.value)}
+              className="mt-1.5 h-11 w-full rounded-lg border border-white/12 bg-[#171717] px-3 font-mono text-[16px] text-white outline-none focus:border-white/35 md:h-10 md:text-[14px]"
+            />
+          </label>
+          <label className="block">
+            <span className="text-[13px] text-white/50">Folder</span>
+            <input
+              value={folder}
+              onChange={(e) => setFolder(e.target.value)}
+              placeholder="Top of the repository"
+              className="mt-1.5 h-11 w-full rounded-lg border border-white/12 bg-[#171717] px-3 font-mono text-[16px] text-white outline-none placeholder:font-sans placeholder:text-white/30 focus:border-white/35 md:h-10 md:text-[14px]"
+            />
+          </label>
+          <button
+            type="button"
+            disabled={busy !== null || !repo}
+            onClick={() => void post({ action: "select", repo, branch, folder }, "select")}
+            className={`${primaryButtonClass} md:col-span-3 md:justify-self-start`}
+          >
+            {busy === "select" && <Loader2 className="h-4 w-4 animate-spin" />}
+            Link and send sections
+          </button>
+        </div>
+      )}
+    </div>
   ) : null
 
   const messages = (
     <>
-      {notice && <p className="mt-4 text-[14px] text-emerald-300">{notice}</p>}
-      {error && (
-        <p className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-[14px] text-red-300">{error}</p>
-      )}
+      {notice && <RowNote tone="good">{notice}</RowNote>}
+      {error && <RowNote tone="bad">{error}</RowNote>}
     </>
   )
 
   /*
-    NOT LINKED YET: the same three steps as connecting directly, and the
-    first one is where you do it. The two after it say what happens next,
-    in a line each, and are drawn quieter until there is a repository.
+    NOT LINKED YET: the same steps as Claude Code and Codex, and the first
+    one is where you act. The two after it say what happens next, in a line
+    each, drawn quieter until there is a repository.
   */
-  if (!linked) {
-    return (
-      <section aria-labelledby="github-title">
-        <h2 id="github-title" className="sr-only">GitHub</h2>
+  const setup = () => (
+    <>
+      {status === null ? null : !status.configured ? (
+        <p className="text-[14px] text-white/60">GitHub is not switched on for this Storelib yet.</p>
+      ) : !status.ready ? (
+        <p className="text-[14px] text-white/60">GitHub needs a database update first. Run supabase/sql/RUN_GITHUB_SYNC.sql.</p>
+      ) : (
         <Steps>
           <Step n={1} title={STEPS[0][0]}>
-            {status === null ? (
-              <div className="flex items-center gap-2 text-[14px] text-white/50">
-                <Loader2 className="h-4 w-4 animate-spin" /> Checking GitHub
-              </div>
-            ) : !status.configured ? (
-              <p className="text-[14px] text-white/60">GitHub is not switched on for this Storelib yet.</p>
-            ) : !status.ready ? (
-              <p className="text-[14px] text-white/60">GitHub needs a database update first. Run supabase/sql/RUN_GITHUB_SYNC.sql.</p>
-            ) : !link ? (
+            {!link ? (
               <>
-                <p className="mb-3 text-[13.5px] text-white/55">{STEPS[0][1]}</p>
+                <p className="mb-3.5 text-[13.5px] leading-relaxed text-white/55">{STEPS[0][1]}</p>
                 {connectButtons}
               </>
             ) : (
@@ -315,147 +335,126 @@ export function GitHubSyncPanel({ installId, returned }: { installId: string; re
             <p className="text-[13.5px] leading-relaxed text-white/60">{STEPS[2][1]}</p>
           </Step>
         </Steps>
+      )}
+      {messages}
+    </>
+  )
+
+  /* LINKED: the repository, what to press, which way changes travel, what happened. */
+  const manage = () =>
+    status && link ? (
+      <>
+        <div className="flex flex-col gap-3.5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <a
+              href={`https://github.com/${link.repo}/tree/${encodeURIComponent(link.branch ?? "")}${link.folder ? `/${link.folder}` : ""}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex max-w-full items-center gap-1.5 truncate text-[15px] font-medium text-white hover:underline"
+            >
+              {link.repo}
+              <ExternalLink className="h-3.5 w-3.5 shrink-0 text-white/50" />
+            </a>
+            <p className="mt-0.5 text-[13px] text-white/50">
+              <span className="font-mono">{link.branch}</span>
+              {link.folder && <span className="font-mono"> · {link.folder}</span>}
+              <span className="text-white/30"> · </span>
+              {link.lastSyncedAt ? `Synced ${relativeTime(link.lastSyncedAt)}` : "Not synced yet"}
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <button type="button" disabled={busy !== null} onClick={() => void post({ action: "pull" }, "pull")} className={buttonClass}>
+              {busy === "pull" ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowDownToLine className="h-4 w-4" />}
+              Pull
+            </button>
+            <button type="button" disabled={busy !== null} onClick={() => void post({ action: "export" }, "export")} className={buttonClass}>
+              {busy === "export" ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowUpFromLine className="h-4 w-4" />}
+              Push
+            </button>
+          </div>
+        </div>
+
+        {link.lastError && !error && <RowNote tone="bad">{link.lastError}</RowNote>}
         {messages}
-      </section>
-    )
-  }
 
-  return (
-    <section aria-labelledby="github-title" className="rounded-2xl border border-white/10 bg-white/[0.03]">
-      <div className="flex items-center gap-3 border-b border-white/[0.07] px-5 py-4 md:px-6">
-        <GitHubMark className="h-5 w-5 shrink-0 text-white" />
-        <h2 id="github-title" className="text-[15px] font-medium">GitHub</h2>
-        <span className="ml-auto inline-flex items-center gap-1.5 text-[12.5px] font-medium text-emerald-300">
-          <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-          Linked
-        </span>
-      </div>
+        {/* Which way changes travel: two switches, named as the two directions they are. */}
+        <div className="mt-5 divide-y divide-white/[0.07] border-y border-white/[0.07]">
+          <SyncRow
+            title="Builder to GitHub"
+            detail="Every section you save here is committed"
+            on={link.pushOnSave}
+            busy={busy === "settings"}
+            onChange={(v) => void post({ action: "settings", pushOnSave: v }, "settings")}
+          />
+          <SyncRow
+            title="GitHub to builder"
+            detail="Every push to the branch arrives as a draft"
+            on={link.pullOnPush}
+            busy={busy === "settings"}
+            onChange={(v) => void post({ action: "settings", pullOnPush: v }, "settings")}
+          />
+        </div>
 
-      <div className="p-5 md:p-6">
-        {status && link && (
-          <div>
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div className="min-w-0">
-                <a
-                  href={`https://github.com/${link.repo}/tree/${encodeURIComponent(link.branch ?? "")}${link.folder ? `/${link.folder}` : ""}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex max-w-full items-center gap-1.5 truncate text-[15px] font-medium hover:underline"
-                >
-                  {link.repo}
-                  <ExternalLink className="h-3.5 w-3.5 shrink-0 text-white/50" />
-                </a>
-                <p className="mt-0.5 text-[13px] text-white/50">
-                  <span className="font-mono">{link.branch}</span>
-                  {link.folder && <span className="font-mono"> · {link.folder}</span>}
-                  <span className="text-white/30"> · </span>
-                  {link.lastSyncedAt ? `Synced ${relativeTime(link.lastSyncedAt)}` : "Not synced yet"}
-                </p>
-              </div>
-              <div className="flex shrink-0 flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  disabled={busy !== null}
-                  onClick={() => void post({ action: "pull" }, "pull")}
-                  className="inline-flex h-9 items-center gap-2 rounded-lg border border-white/15 px-3.5 text-[14px] font-medium text-white transition-colors hover:bg-white/[0.08] disabled:opacity-50"
-                >
-                  {busy === "pull" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ArrowDownToLine className="h-3.5 w-3.5" />}
-                  Pull
-                </button>
-                <button
-                  type="button"
-                  disabled={busy !== null}
-                  onClick={() => void post({ action: "export" }, "export")}
-                  className="inline-flex h-9 items-center gap-2 rounded-lg bg-white px-3.5 text-[14px] font-medium text-[#0f0f0f] hover:opacity-90 disabled:opacity-50"
-                >
-                  {busy === "export" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ArrowUpFromLine className="h-3.5 w-3.5" />}
-                  Push
-                </button>
-              </div>
-            </div>
-
-            {/* Which way changes travel. Two switches, drawn as the two
-                directions they are, so what they do needs no paragraph. */}
-            <div className="mt-5 overflow-hidden rounded-xl border border-white/10">
-              <SyncRow
-                icon={<ArrowUpFromLine className="h-4 w-4" />}
-                title="Builder to GitHub"
-                detail="Every section you save here is committed"
-                on={link.pushOnSave}
-                busy={busy === "settings"}
-                onChange={(v) => void post({ action: "settings", pushOnSave: v }, "settings")}
-              />
-              <SyncRow
-                icon={<ArrowDownToLine className="h-4 w-4" />}
-                title="GitHub to builder"
-                detail="Every push to the branch arrives as a draft"
-                on={link.pullOnPush}
-                busy={busy === "settings"}
-                onChange={(v) => void post({ action: "settings", pullOnPush: v }, "settings")}
-              />
-            </div>
-
-            {link.lastError && !error && (
-              <p className="mt-3 rounded-lg border border-amber-400/25 bg-amber-400/[0.07] px-3 py-2 text-[13px] text-amber-200">{link.lastError}</p>
-            )}
-
-            {/* What went each way, lately. */}
-            {status.events.length > 0 && (
-              <div className="mt-5">
-                <p className="text-[13px] font-medium text-white/50">Recent</p>
-                <ul className="mt-2 space-y-px overflow-hidden rounded-xl border border-white/10">
-                  {status.events.map((ev) => (
-                    <li key={ev.id} className="flex items-center gap-3 bg-white/[0.02] px-3.5 py-2.5 text-[13px]">
-                      <span
-                        className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md ${ev.ok ? "bg-white/[0.06] text-white/70" : "bg-red-500/15 text-red-300"}`}
-                        aria-label={ev.direction === "to_github" ? "To GitHub" : "From GitHub"}
-                      >
-                        {ev.direction === "to_github" ? <ArrowUpFromLine className="h-3.5 w-3.5" /> : <ArrowDownToLine className="h-3.5 w-3.5" />}
-                      </span>
-                      <span className={`min-w-0 flex-1 truncate ${ev.ok ? "text-white/80" : "text-red-200"}`}>{ev.summary}</span>
-                      {ev.commit_sha && link.repo && (
-                        <a
-                          href={`https://github.com/${link.repo}/commit/${ev.commit_sha}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="hidden shrink-0 font-mono text-[12px] text-white/40 hover:text-white sm:inline"
-                        >
-                          {ev.commit_sha.slice(0, 7)}
-                        </a>
-                      )}
-                      <span className="shrink-0 text-[12px] text-white/35">{relativeTime(ev.created_at)}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2 text-[13px]">
-              <button
-                type="button"
-                disabled={busy !== null}
-                onClick={() => void post({ action: "change-repo" }, "reuse")}
-                className="text-white/60 underline-offset-2 hover:text-white hover:underline disabled:opacity-50"
-              >
-                Change repository
-              </button>
-              {confirmDisconnect ? (
-                <span className="flex items-center gap-3">
-                  <span className="text-white/60">Disconnect GitHub? The repository stays as it is.</span>
-                  <button type="button" onClick={() => setConfirmDisconnect(false)} className="text-white/70 hover:text-white">Keep</button>
-                  <button type="button" onClick={() => void disconnect()} className="font-medium text-red-300 hover:text-red-200">Disconnect</button>
-                </span>
-              ) : (
-                <button type="button" onClick={() => setConfirmDisconnect(true)} className="text-white/60 underline-offset-2 hover:text-white hover:underline">
-                  Disconnect
-                </button>
-              )}
-            </div>
+        {/* What went each way, lately. */}
+        {status.events.length > 0 && (
+          <div className="mt-6">
+            <p className="text-[13px] font-medium text-white/50">Recent</p>
+            <ul className="mt-1.5 divide-y divide-white/[0.05]">
+              {status.events.map((ev) => (
+                <li key={ev.id} className="flex items-center gap-3 py-2 text-[13px]">
+                  <span
+                    className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md ${ev.ok ? "bg-white/[0.06] text-white/60" : "bg-red-500/15 text-red-300"}`}
+                    aria-label={ev.direction === "to_github" ? "To GitHub" : "From GitHub"}
+                  >
+                    {ev.direction === "to_github" ? <ArrowUpFromLine className="h-3.5 w-3.5" /> : <ArrowDownToLine className="h-3.5 w-3.5" />}
+                  </span>
+                  <span className={`min-w-0 flex-1 truncate ${ev.ok ? "text-white/80" : "text-red-200"}`}>{ev.summary}</span>
+                  {ev.commit_sha && link.repo && (
+                    <a
+                      href={`https://github.com/${link.repo}/commit/${ev.commit_sha}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="hidden shrink-0 font-mono text-[12px] text-white/40 hover:text-white sm:inline"
+                    >
+                      {ev.commit_sha.slice(0, 7)}
+                    </a>
+                  )}
+                  <span className="shrink-0 text-[12px] text-white/35">{relativeTime(ev.created_at)}</span>
+                </li>
+              ))}
+            </ul>
           </div>
         )}
 
-        {messages}
-      </div>
-    </section>
+        <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 text-[13.5px] md:text-[13px]">
+          <InlineButton onClick={() => void post({ action: "change-repo" }, "reuse")}>Change repository</InlineButton>
+          {confirmDisconnect ? (
+            <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              <span className="text-white/60">Disconnect GitHub? The repository stays as it is.</span>
+              <button type="button" onClick={() => setConfirmDisconnect(false)} className="h-11 text-white/70 hover:text-white md:h-auto">Keep</button>
+              <button type="button" onClick={() => void disconnect()} className="h-11 font-medium text-red-300 hover:text-red-200 md:h-auto">Disconnect</button>
+            </span>
+          ) : (
+            <InlineButton onClick={() => setConfirmDisconnect(true)}>Disconnect</InlineButton>
+          )}
+        </div>
+      </>
+    ) : null
+
+  return (
+    <ConnectionRow
+      id="github"
+      mark={<GitHubMark className="h-5 w-5" />}
+      name="GitHub"
+      tone={line.tone}
+      status={line.status}
+      detail={line.detail}
+      loading={line.loading}
+      action={line.action}
+      open={open}
+      onToggle={onToggle}
+    >
+      {() => (linked ? manage() : setup())}
+    </ConnectionRow>
   )
 }

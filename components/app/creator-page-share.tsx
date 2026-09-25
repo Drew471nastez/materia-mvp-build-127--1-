@@ -196,7 +196,7 @@ export function CreatorPageShare({
           href={path}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#8B56FA] text-[15px] font-medium text-white no-underline transition-colors hover:bg-[#7b46ec]"
+          className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-white text-[15px] font-semibold text-[#111113] no-underline shadow-[0_1px_2px_rgba(0,0,0,0.3),inset_0_-1px_0_rgba(0,0,0,0.08)] transition-colors hover:bg-white/90 active:bg-white/80"
         >
           <ExternalLink className="h-4 w-4" />
           Open my page

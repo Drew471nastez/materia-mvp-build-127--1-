@@ -115,7 +115,7 @@ export type SavePhase = "idle" | "saving" | "saved"
 export const SAVED_CHECK_MS = 900
 
 /**
- * THE SAVE BUTTON. The /app violet, solid (primaryDepth).
+ * THE SAVE BUTTON. Near black, solid (primaryDepth).
  *
  * Its width never changes: the word stays in the layout the whole time and
  * only goes invisible while the spinner or the check is drawn over it, and

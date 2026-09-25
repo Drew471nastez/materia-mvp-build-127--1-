@@ -52,16 +52,17 @@ export const iconDepth = cn(
 
 /**
  * The solid violet with a line of light on top and a darker line under it,
- * flat and a step darker when pressed. Save wears it, and so does the one
+ * flat and a step darker when pressed. Near black, not the old violet: the
+ * owner asked for no purple on the app's actions. Save wears it, and so does the one
  * add action on the Products page (New product), so the two read as the same
  * kind of button. Colour and depth only: each caller sets its own size.
  */
 export const primaryDepth = cn(
   "inline-flex shrink-0 cursor-pointer select-none items-center justify-center whitespace-nowrap font-semibold text-white outline-none",
-  "bg-[#8b5cf6] shadow-[inset_0_1px_0_rgba(255,255,255,0.22),inset_0_-1px_0_rgba(0,0,0,0.18),0_1px_1px_rgba(76,29,149,0.25)]",
+  "bg-[#1a1a2e] shadow-[inset_0_1px_0_rgba(255,255,255,0.14),inset_0_-1px_0_rgba(0,0,0,0.35),0_1px_2px_rgba(16,24,40,0.25)]",
   "transition-[background-color,box-shadow,color] duration-100",
-  "hover:bg-[#7c3aed] active:bg-[#6d28d9] active:shadow-[inset_0_1px_2px_rgba(0,0,0,0.28)]",
-  "focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-[#8b5cf6]",
+  "hover:bg-[#2a2a40] active:bg-[#0f0f1c] active:shadow-[inset_0_1px_2px_rgba(0,0,0,0.4)]",
+  "focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-[#1a1a2e]/40",
   "[-webkit-tap-highlight-color:transparent]",
 )
 

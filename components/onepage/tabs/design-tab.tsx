@@ -11,6 +11,7 @@ import { Slider as BaseSlider } from "@/components/ui/slider"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
 import { MobileColorPicker } from "@/components/onepage/mobile-color-picker"
+import { SocialIcon } from "@/components/onepage/brand-icons"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
   ImageIcon,
@@ -37,6 +38,7 @@ import { createClient } from "@/lib/supabase/client"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import type { OnePageTheme } from "@/lib/onepage/types"
+import { onePageFontSampleHref } from "@/lib/onepage/fonts"
 
 type DesignSection = "header" | "theme" | "wallpaper" | "text" | "buttons" | "socials" | "footer"
 
@@ -99,25 +101,6 @@ function Slider({ value, onValueChange, min = 0, max = 100, step = 1 }: {
   )
 }
 
-// Social icons SVG components for preview in design tab
-const SocialIconsSVG: Record<string, React.FC<{ size?: number; color?: string }>> = {
-  instagram: ({ size = 20, color = "currentColor" }) => (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
-      <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
-    </svg>
-  ),
-  youtube: ({ size = 20, color = "currentColor" }) => (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
-      <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
-    </svg>
-  ),
-  twitter: ({ size = 20, color = "currentColor" }) => (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
-      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
-    </svg>
-  ),
-}
-
 // Body text fonts
 const FONTS = [
   { name: "Inter", category: "sans", style: "Clean & Professional", value: "'Inter', sans-serif" },
@@ -172,6 +155,9 @@ const TITLE_FONTS = [
   { name: "Space Grotesk", value: "'Space Grotesk', sans-serif" },
   { name: "Sora", value: "'Sora', sans-serif" },
 ]
+
+/* Every name in the two lists above, drawn in its own face: one small request cut to the letters of the names (lib/onepage/fonts). */
+const FONT_SAMPLE_HREF = onePageFontSampleHref([...FONTS.map((f) => f.name), ...TITLE_FONTS.map((f) => f.name)])
 
 const FONT_CATEGORIES = [
   { id: "all", label: "All Fonts" },
@@ -2759,6 +2745,113 @@ function PatternPreview({ pattern, color }: { pattern: string; color: string }) 
   return patternSVGs[pattern] || null
 }
 
+/**
+ * THE GRADIENT DIRECTION DIAL, DECLARED ONCE AT MODULE SCOPE.
+ *
+ * It used to be a component declared inside WallpaperSection's render. A
+ * component declared in a render is a new function on every render, and
+ * React treats a new function as a new component type, so it throws the old
+ * dial away and mounts a fresh one. Every onChange updates the theme, the
+ * section renders again, and the dial that was being dragged was replaced by
+ * one whose `isDragging` was false: a drag moved the angle by one step and
+ * then stopped following the pointer. Out here it is the same component on
+ * every render and keeps its drag state for as long as the drag lasts.
+ */
+function DirectionDial({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  const dialRef = useRef<HTMLDivElement>(null)
+  const [isDragging, setIsDragging] = useState(false)
+
+  const updateAngle = useCallback((clientX: number, clientY: number) => {
+    if (!dialRef.current) return
+    const rect = dialRef.current.getBoundingClientRect()
+    const centerX = rect.left + rect.width / 2
+    const centerY = rect.top + rect.height / 2
+    const angle = Math.atan2(clientY - centerY, clientX - centerX)
+    let degrees = Math.round((angle * 180) / Math.PI + 90)
+    if (degrees < 0) degrees += 360
+    // Snap to 15 degree increments for easier control
+    degrees = Math.round(degrees / 15) * 15
+    if (degrees === 360) degrees = 0
+    onChange(degrees)
+  }, [onChange])
+
+  const handleStart = (e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault()
+    setIsDragging(true)
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY
+    updateAngle(clientX, clientY)
+  }
+
+  useEffect(() => {
+    const handleMove = (e: MouseEvent | TouchEvent) => {
+      if (!isDragging) return
+      const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
+      const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY
+      updateAngle(clientX, clientY)
+    }
+    const handleEnd = () => setIsDragging(false)
+
+    if (isDragging) {
+      window.addEventListener('mousemove', handleMove)
+      window.addEventListener('mouseup', handleEnd)
+      window.addEventListener('touchmove', handleMove)
+      window.addEventListener('touchend', handleEnd)
+    }
+    return () => {
+      window.removeEventListener('mousemove', handleMove)
+      window.removeEventListener('mouseup', handleEnd)
+      window.removeEventListener('touchmove', handleMove)
+      window.removeEventListener('touchend', handleEnd)
+    }
+  }, [isDragging, updateAngle])
+
+  // Quick preset angles
+  const presetAngles = [0, 45, 90, 135, 180, 225, 270, 315]
+
+  return (
+    <div className="flex flex-col items-center gap-2">
+      <div
+        ref={dialRef}
+        className={cn(
+          "w-20 h-20 rounded-full border-2 bg-gradient-to-br from-gray-50 to-gray-100 relative cursor-pointer select-none shadow-inner transition-all",
+          isDragging ? "border-violet-500 shadow-lg scale-105" : "border-gray-200 hover:border-gray-300"
+        )}
+        onMouseDown={handleStart}
+        onTouchStart={handleStart}
+      >
+        {/* Tick marks around the dial */}
+        {presetAngles.map((angle) => (
+          <div
+            key={angle}
+            className="absolute w-0.5 h-2 bg-gray-300 rounded-full"
+            style={{
+              top: '4px',
+              left: '50%',
+              transformOrigin: '50% 36px',
+              transform: `translateX(-50%) rotate(${angle}deg)`
+            }}
+          />
+        ))}
+
+        {/* Rotating indicator */}
+        <div
+          className="absolute inset-3 rounded-full flex items-start justify-center transition-transform"
+          style={{ transform: `rotate(${value}deg)` }}
+        >
+          <div className="w-2 h-8 bg-gradient-to-b from-violet-500 to-violet-600 rounded-full shadow-md" />
+        </div>
+
+        {/* Center dot */}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div className="w-3 h-3 bg-white rounded-full shadow-sm border border-gray-200" />
+        </div>
+      </div>
+      <span className="text-sm font-medium text-gray-700">{value}°</span>
+    </div>
+  )
+}
+
 function WallpaperSection() {
   const { onepage, updateTheme } = useOnePage()
   const [uploading, setUploading] = useState(false)
@@ -3053,102 +3146,6 @@ function WallpaperSection() {
       background_video_url: null,
       background_video_crop: null
     } as any)
-  }
-
-  // Gradient direction component - improved with better UX
-  const DirectionDial = ({ value, onChange }: { value: number; onChange: (v: number) => void }) => {
-    const dialRef = useRef<HTMLDivElement>(null)
-    const [isDragging, setIsDragging] = useState(false)
-
-    const updateAngle = useCallback((clientX: number, clientY: number) => {
-      if (!dialRef.current) return
-      const rect = dialRef.current.getBoundingClientRect()
-      const centerX = rect.left + rect.width / 2
-      const centerY = rect.top + rect.height / 2
-      const angle = Math.atan2(clientY - centerY, clientX - centerX)
-      let degrees = Math.round((angle * 180) / Math.PI + 90)
-      if (degrees < 0) degrees += 360
-      // Snap to 15 degree increments for easier control
-      degrees = Math.round(degrees / 15) * 15
-      if (degrees === 360) degrees = 0
-      onChange(degrees)
-    }, [onChange])
-
-    const handleStart = (e: React.MouseEvent | React.TouchEvent) => {
-      e.preventDefault()
-      setIsDragging(true)
-      const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
-      const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY
-      updateAngle(clientX, clientY)
-    }
-
-    useEffect(() => {
-      const handleMove = (e: MouseEvent | TouchEvent) => {
-        if (!isDragging) return
-        const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
-        const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY
-        updateAngle(clientX, clientY)
-      }
-      const handleEnd = () => setIsDragging(false)
-
-      if (isDragging) {
-        window.addEventListener('mousemove', handleMove)
-        window.addEventListener('mouseup', handleEnd)
-        window.addEventListener('touchmove', handleMove)
-        window.addEventListener('touchend', handleEnd)
-      }
-      return () => {
-        window.removeEventListener('mousemove', handleMove)
-        window.removeEventListener('mouseup', handleEnd)
-        window.removeEventListener('touchmove', handleMove)
-        window.removeEventListener('touchend', handleEnd)
-      }
-    }, [isDragging, updateAngle])
-
-    // Quick preset angles
-    const presetAngles = [0, 45, 90, 135, 180, 225, 270, 315]
-
-    return (
-      <div className="flex flex-col items-center gap-2">
-        <div
-          ref={dialRef}
-          className={cn(
-            "w-20 h-20 rounded-full border-2 bg-gradient-to-br from-gray-50 to-gray-100 relative cursor-pointer select-none shadow-inner transition-all",
-            isDragging ? "border-violet-500 shadow-lg scale-105" : "border-gray-200 hover:border-gray-300"
-          )}
-          onMouseDown={handleStart}
-          onTouchStart={handleStart}
-        >
-          {/* Tick marks around the dial */}
-          {presetAngles.map((angle) => (
-            <div
-              key={angle}
-              className="absolute w-0.5 h-2 bg-gray-300 rounded-full"
-              style={{
-                top: '4px',
-                left: '50%',
-                transformOrigin: '50% 36px',
-                transform: `translateX(-50%) rotate(${angle}deg)`
-              }}
-            />
-          ))}
-
-          {/* Rotating indicator */}
-          <div
-            className="absolute inset-3 rounded-full flex items-start justify-center transition-transform"
-            style={{ transform: `rotate(${value}deg)` }}
-          >
-            <div className="w-2 h-8 bg-gradient-to-b from-violet-500 to-violet-600 rounded-full shadow-md" />
-          </div>
-
-          {/* Center dot */}
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="w-3 h-3 bg-white rounded-full shadow-sm border border-gray-200" />
-          </div>
-        </div>
-        <span className="text-sm font-medium text-gray-700">{value}°</span>
-      </div>
-    )
   }
 
   return (
@@ -3888,6 +3885,7 @@ function TextSection() {
 
   return (
     <div className="space-y-6 md:space-y-8">
+      {FONT_SAMPLE_HREF ? <link rel="stylesheet" href={FONT_SAMPLE_HREF} /> : null}
       <h2 className="text-lg md:text-xl font-semibold">Text</h2>
       <div className="space-y-3">
         <Label className="text-sm font-medium">Font</Label>
@@ -4290,7 +4288,6 @@ function SocialsSection() {
         <p className="text-xs text-muted-foreground mb-3">Preview</p>
         <div className="flex gap-3 justify-center">
           {["instagram", "youtube", "twitter"].map((platform) => {
-            const IconComponent = SocialIconsSVG[platform]
             return (
               <div 
                 key={platform} 
@@ -4302,7 +4299,7 @@ function SocialsSection() {
                   borderStyle: "solid" 
                 }}
               >
-                {IconComponent && <IconComponent size={18} color={socialColor} />}
+                <SocialIcon platform={platform} size={18} color={socialColor} />
               </div>
             )
           })}
