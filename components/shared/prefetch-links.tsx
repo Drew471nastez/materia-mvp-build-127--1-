@@ -43,6 +43,8 @@ export function PrefetchLinks() {
         if (!prefetchedRef.current.has(route)) {
           prefetchedRef.current.add(route)
           router.prefetch(route)
+          /* From Home, Analytics' numbers too, kept for the page (lib/analytics/report-cache). */
+          if (route === "/app/analytics") import("@/lib/analytics/report-cache").then((m) => m.warmAnalytics()).catch(() => {})
         }
       }
     }

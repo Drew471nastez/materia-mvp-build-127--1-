@@ -304,6 +304,11 @@ export function prefetchAppPage(router: { prefetch: (href: string, options?: nev
   } catch {
     /* a prefetch that fails is a click that waits, nothing worse */
   }
+  /* Analytics' page is quick; its numbers are what take the time. They are
+     fetched ahead too, and kept for the page (lib/analytics/report-cache). */
+  if (href === "/app/analytics" || href.startsWith("/app/analytics?")) {
+    import("@/lib/analytics/report-cache").then((m) => m.warmAnalytics()).catch(() => {})
+  }
 }
 
 /* ── Where the reader was, per address ─────────────────────────────────── */

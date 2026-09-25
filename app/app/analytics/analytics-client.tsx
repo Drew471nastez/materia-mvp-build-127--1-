@@ -45,6 +45,7 @@ import { viewerTimeZone } from "@/lib/orders/time-zone"
 import { boundsOf, compareBounds, compareRange, rangeLabel, type CompareValue, type DateRange } from "@/lib/date-range/range"
 import { bucketLabel, bucketStarts, grainFor, type Span } from "@/lib/analytics/buckets"
 import { AnalyticsReports, useAnalyticsReports } from "./analytics-reports"
+import { reportNow } from "@/lib/analytics/report-cache"
 import { AnalyticsChartWithTooltip, CHART_COLORS } from "@/components/app/analytics-chart"
 import { MetricTab } from "@/components/app/metric-tab"
 import { useTabStrip } from "@/components/app/use-tab-strip"
@@ -216,7 +217,7 @@ function changeOf(f: Figure) {
   return <PercentChangeIndicator current={f.value} previous={f.previous} />
 }
 
-export function AnalyticsClient({ products }: AnalyticsClientProps) {
+export function AnalyticsClient({ products, userId }: AnalyticsClientProps) {
   const searchParams = useSearchParams()
   const { t } = useLanguage()
 
@@ -269,12 +270,14 @@ export function AnalyticsClient({ products }: AnalyticsClientProps) {
   /**
    * The period's instants: whole days on the creator's clock, the last one
    * running to now. And the comparison's, cut at the same point into its
-   * own last day when the period is still running.
+   * own last day when the period is still running. "Now" is rounded up to
+   * the next ten seconds (reportNow), so the page asks the question a
+   * prefetch from the sidebar just asked, and is answered from memory.
    */
-  const span = useMemo(() => boundsOf(period, timeZone, Date.now()),
+  const span = useMemo(() => boundsOf(period, timeZone, reportNow()),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [period.start, period.end, period.preset, timeZone, tick])
-  const against = useMemo(() => (isAllTime ? null : compareBounds(period, compare, timeZone, Date.now())),
+  const against = useMemo(() => (isAllTime ? null : compareBounds(period, compare, timeZone, reportNow())),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [period.start, period.end, period.preset, timeZone, tick])
   const safeSpan = useMemo(() => ({ start: span.start, end: Math.max(span.end, span.start + 1) }), [span])
@@ -286,6 +289,7 @@ export function AnalyticsClient({ products }: AnalyticsClientProps) {
     product: analyticsMode === "store" ? selectedProduct : "all",
     mode: analyticsMode,
     refresh: tick,
+    viewer: userId,
   })
   const answer = reportsState.data
   /*

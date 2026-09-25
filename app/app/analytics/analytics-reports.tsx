@@ -41,6 +41,7 @@ import type { BreakdownRow, Headline, OnePageReports, Reports, Series } from "@/
 import { axisWidth, compactCount, compactMoney, compactPercent } from "@/lib/analytics/chart-scale"
 import { AxisLabels, MORPH_MS, fixedScale, morphEase } from "@/components/app/chart-morph"
 import { viewerTimeZone } from "@/lib/orders/time-zone"
+import { FRESH_MS, askReport, keptAnswer, questionOf, reportKey } from "@/lib/analytics/report-cache"
 import { HelpLabel } from "@/components/app/help-label"
 import { ChartScrub, type ScrubRow, type ScrubSeries } from "@/components/app/chart-scrub"
 import { SourceIcon, type IconFor } from "@/components/analytics/source-icon"
@@ -666,7 +667,7 @@ const SOURCE_ICON: Record<SourceTab, IconFor | null> = { source: "source", refer
 
 type Breakdowns = Reports["breakdowns"] | OnePageReports["breakdowns"]
 
-function VisitCards({ b, blank, noun }: { b: Breakdowns | null; blank: boolean; noun: "visits" | "views" }) {
+function VisitCards({ b, blank, noun, className }: { b: Breakdowns | null; blank: boolean; noun: "visits" | "views"; className?: string }) {
   const [sourceTab, setSourceTab] = React.useState<SourceTab>("source")
   const [placeTab, setPlaceTab] = React.useState<PlaceTab>("country")
   const [deviceTab, setDeviceTab] = React.useState<DeviceTab>("device")
@@ -676,6 +677,7 @@ function VisitCards({ b, blank, noun }: { b: Breakdowns | null; blank: boolean; 
       <Card
         title={`${noun === "visits" ? "Sessions" : "Views"} by traffic source`}
         help="Where each visit came from, judged by its first page: a search engine, a social app, an email, another website, or typed in directly."
+        className={className}
         tabs={<Tabs value={sourceTab} onChange={setSourceTab} options={SOURCE_TABS} />}
       >
         <Body blank={blank || !b} wait="list" lead>
@@ -696,6 +698,7 @@ function VisitCards({ b, blank, noun }: { b: Breakdowns | null; blank: boolean; 
       <Card
         title={`${noun === "visits" ? "Sessions" : "Views"} by location`}
         help="Where visitors were, from their connection."
+        className={className}
         tabs={<Tabs value={placeTab} onChange={setPlaceTab} options={[{ value: "country", label: "Country" }, { value: "city", label: "City" }]} />}
       >
         <Body blank={blank || !b} wait="list" lead>
@@ -720,6 +723,7 @@ function VisitCards({ b, blank, noun }: { b: Breakdowns | null; blank: boolean; 
       <Card
         title={`${noun === "visits" ? "Sessions" : "Views"} by device`}
         help="The device, browser and system of the first page of each visit."
+        className={className}
         tabs={<Tabs value={deviceTab} onChange={setDeviceTab} options={DEVICE_TABS} />}
       >
         <Body blank={blank || !b} wait="list" lead>
@@ -740,8 +744,20 @@ function VisitCards({ b, blank, noun }: { b: Breakdowns | null; blank: boolean; 
   )
 }
 
-function StoreGrid({ r }: { r: Reports | null }) {
+function StoreGrid({ r, before = null }: { r: Reports | null; before?: Reports | null }) {
   const blank = !r
+  /*
+    THE FIGURES FIRST, THE LISTS AFTER. The first answer to a new question
+    can be the figures alone (Reports `partial`): every card drawn from the
+    headline numbers and the orders fills in at once. The funnel and the
+    visit lists come a moment later with the rest. Until then they are the
+    last whole answer's, softened, as any figures being replaced are; on a
+    first visit, with nothing before, they wait in their shapes.
+  */
+  const l = r?.partial ? before : r
+  const listsBlank = !l || l.partial === true
+  const listsSoft = !!r?.partial && !listsBlank
+  const soft = listsSoft ? "opacity-60 blur-[0.5px] transition-[opacity,filter] duration-300" : "transition-[opacity,filter] duration-300"
   const orders = (row: BreakdownRow) => {
     const n = row.extra?.orders ?? 0
     return `${fmtCount(n)} ${n === 1 ? "order" : "orders"}`
@@ -803,25 +819,25 @@ function StoreGrid({ r }: { r: Reports | null }) {
         </Body>
       </Card>
 
-      <Card title="Conversion rate breakdown" help="Of the visits in the period, how many pressed Buy, how many reached the checkout, and how many ordered.">
-        <Body blank={blank} wait="funnel">
-          {blank ? null : (
+      <Card title="Conversion rate breakdown" help="Of the visits in the period, how many pressed Buy, how many reached the checkout, and how many ordered." className={soft}>
+        <Body blank={listsBlank} wait="funnel">
+          {listsBlank ? null : (
             <>
-              <Figure value={fmtPct(r!.conversion.value)} h={r!.conversion} />
-              <Funnel steps={r!.funnel} />
+              <Figure value={fmtPct(l!.conversion.value)} h={l!.conversion} />
+              <Funnel steps={l!.funnel} />
             </>
           )}
         </Body>
       </Card>
 
-      <VisitCards b={r?.breakdowns ?? null} blank={blank} noun="visits" />
+      <VisitCards b={listsBlank ? null : l!.breakdowns} blank={listsBlank} noun="visits" className={soft} />
 
-      <Card title="Sessions by landing page" help="The page each visit started on." className="md:col-span-2">
-        <Body blank={blank} wait="list">
-          {blank ? null : (
+      <Card title="Sessions by landing page" help="The page each visit started on." className={cn("md:col-span-2", soft)}>
+        <Body blank={listsBlank} wait="list">
+          {listsBlank ? null : (
             <BarList
               title="Sessions by landing page"
-              rows={r!.breakdowns.landing}
+              rows={l!.breakdowns.landing}
               format={fmtCount}
               sub={(row) => `${Math.round(row.share * 100)}% of visits`}
               empty="No visits in this period"
@@ -830,10 +846,10 @@ function StoreGrid({ r }: { r: Reports | null }) {
         </Body>
       </Card>
 
-      <Card title="Sessions by channel" help="Visits to your Storelib page, and visits to the website you built.">
-        <Body blank={blank} wait="donut">
-          {blank ? null : r!.sessions.value === 0 ? <Empty>No visits in this period</Empty> : (
-            <Donut rows={r!.breakdowns.channel} total={fmtCount(r!.sessions.value)} format={fmtCount} />
+      <Card title="Sessions by channel" help="Visits to your Storelib page, and visits to the website you built." className={soft}>
+        <Body blank={listsBlank} wait="donut">
+          {listsBlank ? null : l!.sessions.value === 0 ? <Empty>No visits in this period</Empty> : (
+            <Donut rows={l!.breakdowns.channel} total={fmtCount(l!.sessions.value)} format={fmtCount} />
           )}
         </Body>
       </Card>
@@ -934,6 +950,13 @@ export type ReportsAnswer =
 
 export interface ReportsState {
   data: ReportsAnswer | null
+  /**
+   * The last whole answer, lists and funnel included. The same as `data`
+   * except while `data` is a quick first answer (Reports `partial`) to a new
+   * question: then the lists on screen are still these, softened, until the
+   * rest of the new answer lands.
+   */
+  lists: ReportsAnswer | null
   loading: boolean
   failed: boolean
   /**
@@ -948,15 +971,29 @@ export interface ReportsState {
 /**
  * The page's one read of /api/analytics/reports. `compare` is the
  * comparison picker's span, or null for No comparison. A new question
- * aborts the one in flight, so a quick run of taps cannot land out of order.
+ * drops the one in flight, so a quick run of taps cannot land out of order.
  * `refresh` asks the same question again, for the page's minute poll.
+ *
+ * WHAT IS ALREADY KNOWN IS SHOWN AT ONCE (lib/analytics/report-cache). The
+ * last complete answer to this question in this tab, or the one the sidebar
+ * fetched when the pointer came near, is on screen before the first paint,
+ * sharp, and the page asks again behind it. A kept answer under FRESH_MS old
+ * is the answer, and nothing is asked. An answer on its way for the same
+ * question, a prefetch, is joined rather than asked again.
+ *
+ * FIGURES, THEN LISTS. The server sends the figures as soon as it has
+ * counted them, then everything. The figures go on screen when there is
+ * nothing better for this question there already; the whole answer
+ * replaces them, and a card that was waiting fills in.
+ *
+ * `viewer` is who is signed in: a kept answer counted for anybody else is
+ * never shown.
  */
-/** What was asked, without the moving end of a period that runs to now. */
-function questionOf(key: string | undefined): string {
-  const p = new URLSearchParams(key || "")
-  p.delete("end")
-  p.delete("cend")
-  return p.toString()
+const noSubscription = () => () => {}
+
+function answerOf(json: Record<string, unknown>, key: string): ReportsAnswer {
+  const mode = new URLSearchParams(key).get("mode") === "onepage" ? "onepage" : "store"
+  return { ...json, allTime: json.allTime ?? null, truncated: !!json.truncated, mode, key } as unknown as ReportsAnswer
 }
 
 export function useAnalyticsReports({
@@ -966,6 +1003,7 @@ export function useAnalyticsReports({
   product,
   mode,
   refresh = 0,
+  viewer = null,
 }: {
   start: number
   end: number
@@ -973,39 +1011,73 @@ export function useAnalyticsReports({
   product: string
   mode: "store" | "onepage"
   refresh?: number
+  viewer?: string | null
 }): ReportsState {
-  const [state, setState] = React.useState<{ data: ReportsAnswer | null; loading: boolean; failed: boolean; asking: string }>({
-    data: null,
-    loading: true,
-    failed: false,
-    asking: "",
+  /*
+    A page opened from inside the app starts with the kept answer in its very
+    first render, so its cards are simply there rather than fading in. Not
+    while hydrating a full load: the server drew that page without one, and
+    the first render has to match it (the layout effect below adopts it, still
+    before the first paint).
+  */
+  const hydrated = React.useSyncExternalStore(noSubscription, () => true, () => false)
+  const [state, setState] = React.useState<{ data: ReportsAnswer | null; lists: ReportsAnswer | null; loading: boolean; failed: boolean; asking: string }>(() => {
+    const known = hydrated
+      ? keptAnswer(questionOf(reportKey({ start, end, compare, product, mode, timeZone: viewerTimeZone() })), viewer)
+      : null
+    const data = known ? answerOf(known.answer, known.key) : null
+    return { data, lists: data, loading: true, failed: false, asking: data ? questionOf(data.key) : "" }
   })
   /* The last answer's text, so an answer that says nothing new changes nothing on screen. */
   const lastText = React.useRef("")
+  /* The minute's refresh always asks, however recent the kept answer. */
+  const refreshed = React.useRef(refresh)
   const cs = compare?.start ?? null
   const ce = compare?.end ?? null
-  React.useEffect(() => {
-    const ctrl = new AbortController()
-    const q = new URLSearchParams({
-      start: new Date(start).toISOString(),
-      end: new Date(end).toISOString(),
-      tz: viewerTimeZone(),
-      product,
-      mode,
-    })
-    if (cs !== null && ce !== null) {
-      q.set("cstart", new Date(cs).toISOString())
-      q.set("cend", new Date(ce).toISOString())
-    } else {
-      q.set("compare", "none")
-    }
-    const key = q.toString()
+  /*
+    Before the paint: a kept answer goes on screen in the same frame the page
+    first draws, and not one frame later. (Not in the first render itself: on
+    a full load the server drew this page without one, and the first render
+    must match it.)
+  */
+  React.useLayoutEffect(() => {
+    const key = reportKey({ start, end, compare: cs !== null && ce !== null ? { start: cs, end: ce } : null, product, mode, timeZone: viewerTimeZone() })
     const question = questionOf(key)
-    /* Same question, same state: a refresh does not even re-render the page until it has something to say. */
-    setState((s) => (s.loading && !s.failed && s.asking === question ? s : { ...s, loading: true, failed: false, asking: question }))
-    fetch(`/api/analytics/reports?${q}`, { signal: ctrl.signal, cache: "no-store" })
-      .then((r) => (r.ok ? r.text() : Promise.reject(new Error(String(r.status)))))
-      .then((text) => {
+    const known = keptAnswer(question, viewer)
+    setState((s) => {
+      const onScreen = s.data && questionOf(s.data.key) === question && !(s.data.mode === "store" && s.data.reports.partial) ? s.data : null
+      if (known && !onScreen) {
+        lastText.current = JSON.stringify(known.answer)
+        const data = answerOf(known.answer, known.key)
+        return { data, lists: data, loading: true, failed: false, asking: question }
+      }
+      /* Same question, same state: a refresh does not even re-render the page until it has something to say. */
+      return s.loading && !s.failed && s.asking === question ? s : { ...s, loading: true, failed: false, asking: question }
+    })
+    const polled = refreshed.current !== refresh
+    refreshed.current = refresh
+    if (known && !polled && Date.now() - known.at < FRESH_MS) {
+      setState((s) => (s.asking === question ? { ...s, loading: false } : s))
+      return
+    }
+
+    let live = true
+    const { promise, release } = askReport(key, (figures) => {
+      if (!live) return
+      setState((s) => {
+        /* A whole answer for this question is already on screen: it stays until the next whole one. */
+        if (s.data && questionOf(s.data.key) === question && !(s.data.mode === "store" && s.data.reports.partial)) return s
+        const { part: _part, ...json } = figures
+        const data = answerOf(json, key)
+        /* Store and One page are different grids: a switch changes the grid once, when everything is here. */
+        if (s.data && s.data.mode !== data.mode) return s
+        return { ...s, data, asking: question }
+      })
+    })
+    promise
+      .then((json) => {
+        if (!live) return
+        const text = JSON.stringify(json)
         setState((s) => {
           /*
             NOTHING NEW, NOTHING DRAWN. The minute refresh usually brings the
@@ -1014,9 +1086,10 @@ export function useAnalyticsReports({
           */
           if (s.data && questionOf(s.data.key) === question && text === lastText.current) return { ...s, loading: false, failed: false }
           lastText.current = text
-          const json = JSON.parse(text)
+          const data = answerOf(json, key)
           return {
-            data: { ...json, allTime: json.allTime ?? null, truncated: !!json.truncated, mode, key } as ReportsAnswer,
+            data,
+            lists: data,
             loading: false,
             failed: false,
             asking: question,
@@ -1024,19 +1097,22 @@ export function useAnalyticsReports({
         })
       })
       .catch((e) => {
-        if ((e as Error).name === "AbortError") return
+        if (!live || (e as Error).name === "AbortError") return
         /* A failed refresh of the same question keeps the figures on screen;
            figures for a different question (another period, product or
            mode) would read as this one's, so those go. The end of a running
            period moves every minute, so it is not part of the question. */
         setState((s) => ({ ...s, data: s.data && questionOf(s.data.key) === question ? s.data : null, loading: false, failed: true }))
       })
-    return () => ctrl.abort()
-  }, [start, end, cs, ce, product, mode, refresh])
+    return () => {
+      live = false
+      release()
+    }
+  }, [start, end, cs, ce, product, mode, refresh, viewer])
   const stale = state.loading && !!state.data && questionOf(state.data.key) !== state.asking
   return React.useMemo(
-    () => ({ data: state.data, loading: state.loading, failed: state.failed, stale }),
-    [state.data, state.loading, state.failed, stale],
+    () => ({ data: state.data, lists: state.lists, loading: state.loading, failed: state.failed, stale }),
+    [state.data, state.lists, state.loading, state.failed, stale],
   )
 }
 
@@ -1072,7 +1148,7 @@ function SelfLoading({ start, end, product, mode }: { start: number; end: number
 }
 
 function ReportsView({ state, mode: asked }: { state: ReportsState; mode: "store" | "onepage" }) {
-  const { data, loading, failed, stale } = state
+  const { data, lists, loading, failed, stale } = state
   /*
     THE CARDS OF THE ANSWER ON SCREEN. A switch to the other mode used to
     put that mode's eight or eleven cards up as skeletons at once, and the
@@ -1091,14 +1167,14 @@ function ReportsView({ state, mode: asked }: { state: ReportsState; mode: "store
         aria-busy={loading}
         className={cn("grid gap-4 transition-[opacity,filter] duration-300 md:grid-cols-2 xl:grid-cols-3", soft && "opacity-60 blur-[0.5px]")}
       >
-        {failed && !current ? (
+        {failed && (!current || (current.mode === "store" && current.reports.partial)) ? (
           <p className="rounded-xl border border-[#fde8e7] bg-[#fff7f6] px-4 py-3 text-[13px] text-[#8a1c0f] md:col-span-2 xl:col-span-3">
             The reports could not be loaded. Refresh the page to try again.
           </p>
         ) : null}
 
         {mode === "store" ? (
-          <StoreGrid r={current?.mode === "store" ? current.reports : null} />
+          <StoreGrid r={current?.mode === "store" ? current.reports : null} before={lists?.mode === "store" ? lists.reports : null} />
         ) : (
           <OnePageGrid r={current?.mode === "onepage" ? current.reports : null} hasPage={current?.mode === "onepage" ? current.hasPage !== false : true} />
         )}

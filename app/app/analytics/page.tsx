@@ -26,20 +26,24 @@ export default async function AnalyticsPage() {
      session in the browser. Not /login (lib/auth/page-user.ts). */
   if (!user) return null
 
-  const { data: creator, error: creatorError } = await adminSupabase
-    .from("creators")
-    .select("id")
-    .eq("user_id", user.id)
-    .single()
+  /*
+    The creator and their products side by side, both found from the user:
+    one round trip before the page can draw, not two in a line. The products
+    are read through their creator's user id; an install where the two are
+    not joined reads them by the creator's id once it is known.
+  */
+  const [{ data: creator, error: creatorError }, joined] = await Promise.all([
+    adminSupabase.from("creators").select("id").eq("user_id", user.id).single(),
+    adminSupabase.from("products").select("id, title, thumbnail_url, creators!inner(user_id)").eq("creators.user_id", user.id),
+  ])
 
   if (creatorError || !creator) {
     redirect("/onboarding")
   }
 
-  const { data: productsData } = await adminSupabase
-    .from("products")
-    .select("id, title, thumbnail_url")
-    .eq("creator_id", creator.id)
+  const productsData = joined.error
+    ? (await adminSupabase.from("products").select("id, title, thumbnail_url").eq("creator_id", creator.id)).data
+    : (joined.data ?? []).map((p: { id: string; title: string; thumbnail_url: string | null }) => ({ id: p.id, title: p.title, thumbnail_url: p.thumbnail_url }))
 
   return <AnalyticsClient creatorId={creator.id} userId={user.id} products={productsData || []} />
 }
