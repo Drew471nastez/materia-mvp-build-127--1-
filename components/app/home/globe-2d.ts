@@ -24,7 +24,7 @@ import { landDots } from "./globe-land"
 import type { GlobeRenderer } from "./globe-gl"
 import {
   ARC_SAMPLES, DOT_RADIUS, GLOBE_RADIUS, LIGHT, MAX_ARCS, PALETTE, SPRITE_DISC, SPRITE_FLOATS, SPRITE_GLOW, SPRITE_RING, TRAIL_FLOATS,
-  css, type Overlay, type Rgb,
+  css, paintBall, type Overlay, type Rgb,
 } from "./globe-scene"
 
 const LEVELS = 5
@@ -68,38 +68,6 @@ export function create2dRenderer(canvas: HTMLCanvasElement, ball: HTMLCanvasElem
   let device = 1
   let dpr = 1
 
-  /** The ball, its light, its rim and its atmosphere: the same every frame, so painted once per size, into the still canvas. */
-  const paintBall = () => {
-    if (ball.width !== device) ball.width = device
-    if (ball.height !== device) ball.height = device
-    const b = ball.getContext("2d")
-    if (!b) return
-    b.clearRect(0, 0, device, device)
-    const c = device / 2
-    const R = GLOBE_RADIUS * device
-    const halo = b.createRadialGradient(c, c, R * 0.98, c, c, R * 1.13)
-    halo.addColorStop(0, css(PALETTE.halo, PALETTE.haloAlpha))
-    halo.addColorStop(1, css(PALETTE.halo, 0))
-    b.fillStyle = halo
-    b.beginPath()
-    b.arc(c, c, R * 1.13, 0, Math.PI * 2)
-    b.fill()
-    const lx = c + LIGHT[0] * R * 0.55
-    const ly = c - LIGHT[1] * R * 0.55
-    const body = b.createRadialGradient(lx, ly, R * 0.05, c, c, R)
-    body.addColorStop(0, css(PALETTE.lit))
-    body.addColorStop(0.7, css([(PALETTE.lit[0] + PALETTE.deep[0]) / 2, (PALETTE.lit[1] + PALETTE.deep[1]) / 2, (PALETTE.lit[2] + PALETTE.deep[2]) / 2]))
-    body.addColorStop(1, css(PALETTE.deep))
-    b.fillStyle = body
-    b.beginPath()
-    b.arc(c, c, R, 0, Math.PI * 2)
-    b.fill()
-    b.strokeStyle = css(PALETTE.rim, 0.28)
-    b.lineWidth = Math.max(1, dpr)
-    b.beginPath()
-    b.arc(c, c, R - b.lineWidth / 2, 0, Math.PI * 2)
-    b.stroke()
-  }
 
   return {
     kind: "2d",
@@ -108,7 +76,12 @@ export function create2dRenderer(canvas: HTMLCanvasElement, ball: HTMLCanvasElem
       device = Math.max(1, Math.round(size * dpr))
       if (canvas.width !== device) canvas.width = device
       if (canvas.height !== device) canvas.height = device
-      paintBall()
+      /* The still ball is painted once, so it is painted sharp: at the screen's ratio, up to 2x. */
+      const still = Math.max(1, Math.round(size * ratio))
+      if (ball.width !== still) ball.width = still
+      if (ball.height !== still) ball.height = still
+      const b = ball.getContext("2d")
+      if (b) paintBall(b, still, ratio)
     },
     draw(m, o) {
       const c = device / 2
@@ -190,6 +163,12 @@ export function create2dRenderer(canvas: HTMLCanvasElement, ball: HTMLCanvasElem
         }
       }
       ctx.globalAlpha = 1
+    },
+    pending() {
+      return false
+    },
+    failed() {
+      return false
     },
     restore() {
       return true

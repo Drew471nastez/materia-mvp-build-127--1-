@@ -6,78 +6,48 @@
  * one a path the processor built and the rasteriser filled, on the page's
  * own thread. On a phone that was several milliseconds a frame, every frame
  * the globe was on screen, and a swipe had to wait behind it (measured by
- * scripts/check-home-scroll.mjs).
+ * scripts/check-home-scroll.mjs and scripts/check-home-globe.mjs).
  *
  * Here the land is uploaded once, as points, and turned on the graphics
  * card by one 3x3 matrix. The ball, its light and its atmosphere do not
- * change as it turns (the light is fixed to the viewer, and a ball looks
- * the same from every side), so they are one shader pass drawn once per
- * size and copied into a still canvas under this one (`ball`): every
- * frame after that is only the dots, the pins and the arcs, on a clear
- * canvas. A frame on the page's thread is a matrix, a few dozen moving
- * points written into an array made once, and four draw calls. Nothing is
- * allocated per frame.
+ * change as it turns, so they are painted once per size into a still
+ * canvas under this one (globe-scene paintBall), and every frame is only
+ * the dots, the pins and the arcs on a clear canvas. A frame on the page's
+ * thread is a matrix, a few dozen moving points written into arrays made
+ * once, and three draw calls. Nothing is allocated per frame.
+ *
+ * NOTHING WAITS FOR THE SHADERS. Asking whether a shader compiled, right
+ * after compiling it, makes the page's thread wait for the compiler: 104ms
+ * at mount, measured. The three programs are compiled and linked without a
+ * question; where the browser can say when they are done
+ * (KHR_parallel_shader_compile) the frame loop asks each frame and draws
+ * the land from the first frame they are, with the still ball already on
+ * screen; elsewhere the first frame asks once. A program that did not link
+ * reports failed(), and the 2D renderer takes over.
  *
  * Asked for with `failIfMajorPerformanceCaveat`, so a device whose WebGL
- * would run on the processor gets the 2D renderer instead (globe-2d.ts),
- * which is cheaper there.
+ * would run on the processor gets the 2D renderer instead (globe-2d.ts).
  */
 import { landDots } from "./globe-land"
 import {
   ARC_SAMPLES, DOT_RADIUS, GLOBE_RADIUS, LIGHT, MAX_ARCS, MAX_SPRITES, PALETTE, SPRITE_FLOATS, TRAIL_FLOATS,
-  type Overlay,
+  paintBall, type Overlay,
 } from "./globe-scene"
 
 export interface GlobeRenderer {
   readonly kind: "webgl" | "2d"
   /** The canvas's size in CSS pixels (it is square) and the pixel ratio to draw at; the still ball is painted again here. */
   resize(size: number, dpr: number): void
-  /** One frame: the land turned by `m`, and the overlay on top. */
+  /** One frame: the land turned by `m`, and the overlay on top. Draws nothing while pending. */
   draw(m: Float32Array, overlay: Overlay): void
+  /** Still getting ready (shaders compiling): keep asking for frames. */
+  pending(): boolean
+  /** Could not get ready: the 2D renderer should take over. */
+  failed(): boolean
   /** Rebuild whatever the context lost (WebGL only). */
   restore(): boolean
   dispose(): void
 }
-
-const BODY_VS = `
-attribute vec2 aCorner;
-uniform float uUnits;
-varying vec2 vP;
-void main() {
-  vP = aCorner * uUnits;
-  gl_Position = vec4(aCorner, 0.0, 1.0);
-}`
-
-/* The ball: lit from the upper left, a rim of light at its edge, a small
-   shine, and outside it a thin atmosphere that is brighter on the lit side.
-   Premultiplied alpha, anti-aliased over one pixel at the outline. */
-const BODY_FS = `
-precision mediump float;
-varying vec2 vP;
-uniform float uAA;
-uniform vec3 uLight;
-uniform vec3 uDeep;
-uniform vec3 uLit;
-uniform vec3 uRim;
-uniform vec3 uHalo;
-uniform float uHaloAlpha;
-void main() {
-  float r2 = dot(vP, vP);
-  float r = sqrt(r2);
-  float inside = 1.0 - smoothstep(1.0 - uAA, 1.0 + uAA, r);
-  float z = sqrt(max(0.0, 1.0 - min(r2, 1.0)));
-  vec3 n = vec3(vP, z);
-  float wrap = clamp((dot(n, uLight) + 0.3) / 1.3, 0.0, 1.0);
-  float fres = pow(1.0 - z, 2.6);
-  vec3 body = mix(uDeep, uLit, wrap * wrap);
-  body += uRim * fres * (0.12 + 0.55 * wrap);
-  vec3 refl = reflect(-uLight, n);
-  body += vec3(0.9, 0.88, 1.0) * pow(max(refl.z, 0.0), 28.0) * 0.1;
-  float t = clamp((r - 1.0) / 0.13, 0.0, 1.0);
-  float side = 0.5 + 0.5 * dot(normalize(vP + vec2(0.0001)), normalize(uLight.xy));
-  float halo = (1.0 - t) * (1.0 - t) * uHaloAlpha * (0.45 + 0.55 * side) * (1.0 - inside);
-  gl_FragColor = vec4(body * inside + uHalo * halo, inside + halo);
-}`
 
 /* The land: every dot on the half facing the viewer, smaller and fainter
    towards the edge, brighter where the light falls. */
@@ -188,34 +158,35 @@ void main() {
 }`
 
 type Program = { p: WebGLProgram; a: Record<string, number>; u: Record<string, WebGLUniformLocation | null> }
+type Linking = { p: WebGLProgram; attributes: string[]; uniforms: string[] }
 
-function compile(gl: WebGLRenderingContext, vs: string, fs: string, attributes: string[], uniforms: string[]): Program | null {
-  const shader = (type: number, src: string) => {
-    const s = gl.createShader(type)
-    if (!s) return null
-    gl.shaderSource(s, src)
-    gl.compileShader(s)
-    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS) && !gl.isContextLost()) {
-      gl.deleteShader(s)
-      return null
-    }
-    return s
-  }
-  const v = shader(gl.VERTEX_SHADER, vs)
-  const f = shader(gl.FRAGMENT_SHADER, fs)
+/** Compile and link, and ask nothing: the answer is read once the compiler is done (`finish`). */
+function start(gl: WebGLRenderingContext, vs: string, fs: string, attributes: string[], uniforms: string[]): Linking | null {
+  const v = gl.createShader(gl.VERTEX_SHADER)
+  const f = gl.createShader(gl.FRAGMENT_SHADER)
   const p = gl.createProgram()
   if (!v || !f || !p) return null
+  gl.shaderSource(v, vs)
+  gl.shaderSource(f, fs)
+  gl.compileShader(v)
+  gl.compileShader(f)
   gl.attachShader(p, v)
   gl.attachShader(p, f)
   gl.linkProgram(p)
+  /* Flagged now, freed with the program. */
   gl.deleteShader(v)
   gl.deleteShader(f)
-  if (!gl.getProgramParameter(p, gl.LINK_STATUS) && !gl.isContextLost()) return null
+  return { p, attributes, uniforms }
+}
+
+/** Once linked: whether it worked, and where its inputs are. */
+function finish(gl: WebGLRenderingContext, l: Linking): Program | null {
+  if (!gl.getProgramParameter(l.p, gl.LINK_STATUS)) return null
   const a: Record<string, number> = {}
-  for (const name of attributes) a[name] = gl.getAttribLocation(p, name)
+  for (const name of l.attributes) a[name] = gl.getAttribLocation(l.p, name)
   const u: Record<string, WebGLUniformLocation | null> = {}
-  for (const name of uniforms) u[name] = gl.getUniformLocation(p, name)
-  return { p, a, u }
+  for (const name of l.uniforms) u[name] = gl.getUniformLocation(l.p, name)
+  return { p: l.p, a, u }
 }
 
 /** `canvas` is drawn every frame; `ball`, a 2D canvas under it, holds the still ball, painted once per size. */
@@ -237,16 +208,17 @@ export function createGlRenderer(canvas: HTMLCanvasElement, ball: HTMLCanvasElem
   }
   if (!gl) return null
   const g = gl
+  const parallel = g.getExtension("KHR_parallel_shader_compile") as { COMPLETION_STATUS_KHR: number } | null
 
   const land = landDots()
   const landCount = land.length / 3
   const spriteData = new Float32Array(MAX_SPRITES * SPRITE_FLOATS)
   const trailData = new Float32Array(MAX_ARCS * ARC_SAMPLES * 2 * 4)
-  let body: Program | null = null
+  let linking: Linking[] = []
+  let phase: "compiling" | "ready" | "failed" = "compiling"
   let dots: Program | null = null
   let sprites: Program | null = null
   let trails: Program | null = null
-  let quadBuf: WebGLBuffer | null = null
   let landBuf: WebGLBuffer | null = null
   let spriteBuf: WebGLBuffer | null = null
   let trailBuf: WebGLBuffer | null = null
@@ -258,15 +230,23 @@ export function createGlRenderer(canvas: HTMLCanvasElement, ball: HTMLCanvasElem
   const counts = new Int32Array(MAX_ARCS)
   let spriteAttrs: number[] = []
 
-  const build = (): boolean => {
-    body = compile(g, BODY_VS, BODY_FS, ["aCorner"], ["uUnits", "uAA", "uLight", "uDeep", "uLit", "uRim", "uHalo", "uHaloAlpha"])
-    dots = compile(g, LAND_VS, LAND_FS, ["aPos"], ["uRot", "uScale", "uDot", "uLight", "uLandLit", "uLandDark"])
-    sprites = compile(g, SPRITE_VS, SPRITE_FS, ["aXY", "aRadius", "aAlpha", "aKind", "aColor"], ["uScale", "uRadiusPx", "uMaxPoint"])
-    trails = compile(g, TRAIL_VS, TRAIL_FS, ["aXY", "aAlpha", "aAcross"], ["uColor"])
-    if (!body || !dots || !sprites || !trails) return false
-    quadBuf = g.createBuffer()
-    g.bindBuffer(g.ARRAY_BUFFER, quadBuf)
-    g.bufferData(g.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), g.STATIC_DRAW)
+  /** One land dot at the front, across, in device pixels: DOT_RADIUS of the globe's, never under a pixel and a half. */
+  const dotPx = () => Math.max(1.5 * dpr, 2 * DOT_RADIUS * GLOBE_RADIUS * device)
+
+  /** Everything that does not wait on the compiler: the programs started, the buffers filled, the blending set. */
+  const begin = () => {
+    const programs = [
+      start(g, LAND_VS, LAND_FS, ["aPos"], ["uRot", "uScale", "uDot", "uLight", "uLandLit", "uLandDark"]),
+      start(g, SPRITE_VS, SPRITE_FS, ["aXY", "aRadius", "aAlpha", "aKind", "aColor"], ["uScale", "uRadiusPx", "uMaxPoint"]),
+      start(g, TRAIL_VS, TRAIL_FS, ["aXY", "aAlpha", "aAcross"], ["uColor"]),
+    ]
+    dots = sprites = trails = null
+    if (programs.some((l) => !l)) {
+      phase = "failed"
+      return
+    }
+    linking = programs as Linking[]
+    phase = "compiling"
     landBuf = g.createBuffer()
     g.bindBuffer(g.ARRAY_BUFFER, landBuf)
     g.bufferData(g.ARRAY_BUFFER, land, g.STATIC_DRAW)
@@ -281,15 +261,31 @@ export function createGlRenderer(canvas: HTMLCanvasElement, ball: HTMLCanvasElem
     g.enable(g.BLEND)
     g.blendFunc(g.ONE, g.ONE_MINUS_SRC_ALPHA)
     g.disable(g.DEPTH_TEST)
+  }
+
+  /** The sizes the programs are told, whenever the size or the programs change. */
+  const sized = () => {
+    if (!dots || !sprites) return
+    g.useProgram(dots.p)
+    g.uniform1f(dots.u.uDot, dotPx())
+    g.useProgram(sprites.p)
+    g.uniform1f(sprites.u.uRadiusPx, GLOBE_RADIUS * device)
+  }
+
+  /** Ready yet? Asks the compiler without waiting where it can, and finishes the setup the first time the answer is yes. */
+  const settle = (): boolean => {
+    if (phase !== "compiling") return phase === "ready"
+    if (g.isContextLost()) return false
+    if (parallel) for (const l of linking) if (!g.getProgramParameter(l.p, parallel.COMPLETION_STATUS_KHR)) return false
+    const [d, s, t] = linking.map((l) => finish(g, l))
+    if (!d || !s || !t) {
+      phase = g.isContextLost() ? "compiling" : "failed"
+      return false
+    }
+    dots = d
+    sprites = s
+    trails = t
     /* The unchanging uniforms, once per program. */
-    g.useProgram(body.p)
-    g.uniform1f(body.u.uUnits, 1 / (2 * GLOBE_RADIUS))
-    g.uniform3fv(body.u.uLight, LIGHT)
-    g.uniform3fv(body.u.uDeep, PALETTE.deep)
-    g.uniform3fv(body.u.uLit, PALETTE.lit)
-    g.uniform3fv(body.u.uRim, PALETTE.rim)
-    g.uniform3fv(body.u.uHalo, PALETTE.halo)
-    g.uniform1f(body.u.uHaloAlpha, PALETTE.haloAlpha)
     g.useProgram(dots.p)
     g.uniform1f(dots.u.uScale, 2 * GLOBE_RADIUS)
     g.uniform3fv(dots.u.uLight, LIGHT)
@@ -299,12 +295,13 @@ export function createGlRenderer(canvas: HTMLCanvasElement, ball: HTMLCanvasElem
     g.uniform1f(sprites.u.uScale, 2 * GLOBE_RADIUS)
     g.uniform1f(sprites.u.uMaxPoint, maxPoint)
     spriteAttrs = [sprites.a.aXY, sprites.a.aRadius, sprites.a.aAlpha, sprites.a.aKind, sprites.a.aColor]
+    sized()
+    phase = "ready"
     return true
   }
-  if (!build()) return null
 
-  /** One land dot at the front, across, in device pixels: DOT_RADIUS of the globe's, never under a pixel and a half. */
-  const dotPx = () => Math.max(1.5 * dpr, 2 * DOT_RADIUS * GLOBE_RADIUS * device)
+  begin()
+  if ((phase as string) === "failed") return null
 
   return {
     kind: "webgl",
@@ -313,36 +310,15 @@ export function createGlRenderer(canvas: HTMLCanvasElement, ball: HTMLCanvasElem
       device = Math.max(1, Math.round(size * ratio))
       if (canvas.width !== device) canvas.width = device
       if (canvas.height !== device) canvas.height = device
-      g.viewport(0, 0, device, device)
-      if (!body || !dots || !sprites) return
-      const radiusPx = GLOBE_RADIUS * device
-      g.useProgram(body.p)
-      g.uniform1f(body.u.uAA, 1.1 / radiusPx)
-      g.useProgram(dots.p)
-      g.uniform1f(dots.u.uDot, dotPx())
-      g.useProgram(sprites.p)
-      g.uniform1f(sprites.u.uRadiusPx, radiusPx)
-
-      /* The ball and its atmosphere, once: drawn here, copied into the still canvas before this task ends (while the drawing buffer is still this frame's), and cleared. */
       if (ball.width !== device) ball.width = device
       if (ball.height !== device) ball.height = device
+      g.viewport(0, 0, device, device)
       const still = ball.getContext("2d")
-      if (still && !g.isContextLost()) {
-        g.clearColor(0, 0, 0, 0)
-        g.clear(g.COLOR_BUFFER_BIT)
-        g.useProgram(body.p)
-        g.bindBuffer(g.ARRAY_BUFFER, quadBuf)
-        g.enableVertexAttribArray(body.a.aCorner)
-        g.vertexAttribPointer(body.a.aCorner, 2, g.FLOAT, false, 0, 0)
-        g.drawArrays(g.TRIANGLE_STRIP, 0, 4)
-        g.disableVertexAttribArray(body.a.aCorner)
-        still.clearRect(0, 0, device, device)
-        still.drawImage(canvas, 0, 0)
-        g.clear(g.COLOR_BUFFER_BIT)
-      }
+      if (still) paintBall(still, device, dpr)
+      sized()
     },
     draw(m, o) {
-      if (!body || !dots || !sprites || !trails || g.isContextLost()) return
+      if (!settle() || !dots || !sprites || !trails || g.isContextLost()) return
       g.clearColor(0, 0, 0, 0)
       g.clear(g.COLOR_BUFFER_BIT)
 
@@ -420,13 +396,21 @@ export function createGlRenderer(canvas: HTMLCanvasElement, ball: HTMLCanvasElem
         for (let i = 0; i < spriteAttrs.length; i++) g.disableVertexAttribArray(spriteAttrs[i])
       }
     },
+    pending() {
+      return phase === "compiling"
+    },
+    failed() {
+      return phase === "failed"
+    },
     restore() {
-      return build()
+      begin()
+      return phase !== "failed"
     },
     dispose() {
-      for (const b of [quadBuf, landBuf, spriteBuf, trailBuf]) if (b) g.deleteBuffer(b)
-      for (const p of [body, dots, sprites, trails]) if (p) g.deleteProgram(p.p)
-      body = dots = sprites = trails = null
+      for (const b of [landBuf, spriteBuf, trailBuf]) if (b) g.deleteBuffer(b)
+      for (const l of linking) g.deleteProgram(l.p)
+      dots = sprites = trails = null
+      linking = []
       /* Handed back now rather than when it is collected: a browser keeps only so many contexts, and Home is left and come back to all day. */
       g.getExtension("WEBGL_lose_context")?.loseContext()
     },

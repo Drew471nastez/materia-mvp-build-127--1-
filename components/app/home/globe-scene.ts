@@ -67,6 +67,79 @@ export const PALETTE = {
   ripple: rgb("#ede9fe"),
 } as const
 
+const mix = (a: Rgb, b: Rgb, t: number): Rgb => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]
+
+/**
+ * THE STILL BALL. A ball lit from a light fixed to the viewer looks the same
+ * however it is turned, so its body, its rim, its shine and its atmosphere
+ * are painted once per size into a 2D canvas under the moving one, by both
+ * renderers alike, and never again. Gradients, not a shader: no program to
+ * compile for it, and nothing to read back from the graphics card.
+ *   the atmosphere, a thin glow outside the edge, stronger towards the light
+ *   the body, from the lit colour where the light falls to the deep one
+ *   the rim, a crescent of light along the lit edge, and a trace all round
+ *   the shine, a faint soft spot where the light would reflect
+ */
+export function paintBall(b: CanvasRenderingContext2D, device: number, dpr: number) {
+  const TAU = Math.PI * 2
+  const c = device / 2
+  const R = GLOBE_RADIUS * device
+  /* Towards the light, on the screen (y down). */
+  const lx = LIGHT[0]
+  const ly = -LIGHT[1]
+  b.setTransform(1, 0, 0, 1, 0, 0)
+  b.clearRect(0, 0, device, device)
+
+  const halo = b.createRadialGradient(c + lx * R * 0.06, c + ly * R * 0.06, R * 0.96, c, c, R * 1.14)
+  halo.addColorStop(0, css(PALETTE.halo, PALETTE.haloAlpha))
+  halo.addColorStop(0.4, css(PALETTE.halo, PALETTE.haloAlpha * 0.38))
+  halo.addColorStop(1, css(PALETTE.halo, 0))
+  b.fillStyle = halo
+  b.beginPath()
+  b.arc(c, c, R * 1.14, 0, TAU)
+  b.fill()
+
+  const body = b.createRadialGradient(c + lx * R * 0.5, c + ly * R * 0.5, R * 0.02, c + lx * R * 0.12, c + ly * R * 0.12, R * 1.1)
+  body.addColorStop(0, css(PALETTE.lit))
+  body.addColorStop(0.42, css(mix(PALETTE.lit, PALETTE.deep, 0.5)))
+  body.addColorStop(1, css(PALETTE.deep))
+  b.fillStyle = body
+  b.beginPath()
+  b.arc(c, c, R, 0, TAU)
+  b.fill()
+
+  b.save()
+  b.beginPath()
+  b.arc(c, c, R, 0, TAU)
+  b.clip()
+  const trace = b.createRadialGradient(c, c, R * 0.8, c, c, R)
+  trace.addColorStop(0, css(PALETTE.rim, 0))
+  trace.addColorStop(1, css(PALETTE.rim, 0.12))
+  b.fillStyle = trace
+  b.fillRect(0, 0, device, device)
+  /* Centred away from the light, so only the lit edge is far enough out to catch it. */
+  const crescent = b.createRadialGradient(c - lx * R * 0.24, c - ly * R * 0.24, R * 0.92, c - lx * R * 0.24, c - ly * R * 0.24, R * 1.24)
+  crescent.addColorStop(0, css(PALETTE.rim, 0))
+  crescent.addColorStop(1, css(PALETTE.rim, 0.34))
+  b.fillStyle = crescent
+  b.fillRect(0, 0, device, device)
+  const sx = c + lx * R * 0.44
+  const sy = c + ly * R * 0.44
+  const shine = b.createRadialGradient(sx, sy, 0, sx, sy, R * 0.34)
+  shine.addColorStop(0, "rgba(236,233,255,0.11)")
+  shine.addColorStop(1, "rgba(236,233,255,0)")
+  b.fillStyle = shine
+  b.fillRect(0, 0, device, device)
+  b.restore()
+
+  const edge = Math.max(1, dpr * 0.75)
+  b.strokeStyle = css(PALETTE.rim, 0.2)
+  b.lineWidth = edge
+  b.beginPath()
+  b.arc(c, c, R - edge / 2, 0, TAU)
+  b.stroke()
+}
+
 /** Where sales fly between. Bucharest is where Storelib is made. */
 export const CITY_LATLON: readonly [number, number][] = [
   [44.43, 26.1], [40.71, -74.0], [51.5, -0.12], [48.85, 2.35], [52.52, 13.4],

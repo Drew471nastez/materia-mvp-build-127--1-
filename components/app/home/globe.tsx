@@ -175,6 +175,8 @@ export function BannerGlobe({ className }: { className?: string }) {
     }
 
     const busy = () => {
+      /* Still compiling: frames keep coming until the land can be drawn, reduced motion or not. */
+      if (renderer?.pending()) return true
       if (dragging || Math.abs(tiltVel) > 1e-6 || Math.abs(REST_TILT - tilt) > 1e-3) return true
       if (Math.abs(yawVel - (reduced ? 0 : BASE_SPEED)) > 1e-6) return true
       for (let i = 0; i < arcs.length; i++) if (arcs[i].active) return true
@@ -240,6 +242,8 @@ export function BannerGlobe({ className }: { className?: string }) {
         nextArc = now + 1100 + Math.random() * 1300
       }
       paint()
+      /* The graphics card could not build the globe's programs: the 2D canvas takes over, as if WebGL had never been there. */
+      if (renderer?.failed()) fallBack()
       if (canRun() && (!reduced || busy())) frame = requestAnimationFrame(tick)
     }
 
@@ -264,7 +268,8 @@ export function BannerGlobe({ className }: { className?: string }) {
       dpr = ratio
       renderer.resize(size, dpr)
       if (!clock) clock = performance.now()
-      paint()
+      /* Not while the shaders compile: that would make this call wait for them. The frame loop draws it once they are done. */
+      if (!renderer.pending()) paint()
     }
 
     /* ── The drag ─────────────────────────────────────────────────────── */
@@ -386,21 +391,23 @@ export function BannerGlobe({ className }: { className?: string }) {
       lost = true
       sleep()
     }
-    function onRestored() {
-      if (renderer?.restore()) {
-        lost = false
-        renderer.resize(size, dpr)
-        paint()
-        wake()
-        return
-      }
-      /* It came back unable to draw: the 2D canvas from here on. */
+    function fallBack() {
       renderer?.dispose()
       lost = false
       mount(false)
       size = 0
       resize()
       wake()
+    }
+    function onRestored() {
+      if (renderer?.restore()) {
+        lost = false
+        renderer.resize(size, dpr)
+        wake()
+        return
+      }
+      /* It came back unable to draw: the 2D canvas from here on. */
+      fallBack()
     }
 
     mount(true)

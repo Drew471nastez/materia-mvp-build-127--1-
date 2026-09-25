@@ -16,8 +16,9 @@
  *
  * For each: the canvas's pixels, the page's own time per frame (the frame
  * callbacks, from a trace), the bytes allocated per frame (V8's sampling
- * heap profiler, over the same frames), what else repainted, and how long
- * a drag's pointer events and frames took. The graphics process's time is
+ * heap profiler, over the same frames), what else repainted, how long a
+ * drag's pointer events and frames took, and at mount the longest task
+ * and the time to the first frame drawn. The graphics process's time is
  * printed too: here it is SwiftShader, the processor standing in for a
  * graphics card, so it is where WebGL pays in this harness and not on a
  * phone.
@@ -125,8 +126,35 @@ try {
       HTMLCanvasElement.prototype.getContext = function (type, attrs) { return get.call(this, type, type === "webgl" && attrs ? { ...attrs, failIfMajorPerformanceCaveat: false } : attrs) }
     })
     const cdp = await tab.createCDPSession()
+    /* MOUNT: the longest task while the globe starts, and how long until its first frame is drawn. */
+    await tab.evaluateOnNewDocument(() => {
+      window.__firstTick = 0
+      const raf = window.requestAnimationFrame.bind(window)
+      window.requestAnimationFrame = (cb) => raf((t) => {
+        if ((cb.name === "tick") && !window.__firstTick) window.__firstTick = performance.now()
+        cb(t)
+      })
+    })
+    await cdp.send("Emulation.setCPUThrottlingRate", { rate: CPU })
+    const mountPath = join(mkdtempSync(join(tmpdir(), "globe-mount-")), "t.json")
+    await tab.tracing.start({ path: mountPath, categories: ["devtools.timeline", "disabled-by-default-devtools.timeline", "toplevel"] })
     await tab.goto(`${base}/${c.variant === "old" ? "old" : "new"}?size=${c.size}`)
     await tab.waitForSelector("[data-home-globe]", { timeout: 15000 })
+    await sleep(2500)
+    await tab.tracing.stop()
+    const firstFrame = await tab.evaluate(() => window.__firstTick)
+    await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 })
+    const mountTrace = JSON.parse(readFileSync(mountPath, "utf8")).traceEvents
+    rmSync(mountPath, { force: true })
+    const mountNames = new Map()
+    for (const e of mountTrace) if (e.ph === "M" && e.name === "thread_name") mountNames.set(`${e.pid}:${e.tid}`, e.args.name)
+    const mains = [...mountNames.entries()].filter(([, n]) => n === "CrRendererMain").map(([k]) => k)
+    const mountTasks = mountTrace.filter((e) => mains.includes(`${e.pid}:${e.tid}`) && e.name === "RunTask" && e.ph === "X")
+    /* The page's own renderer: the one whose main thread did the most. */
+    const byThread = new Map()
+    for (const t of mountTasks) byThread.set(`${t.pid}:${t.tid}`, (byThread.get(`${t.pid}:${t.tid}`) ?? 0) + t.dur)
+    const pageMain = [...byThread.entries()].sort((a, b) => b[1] - a[1])[0]?.[0]
+    const longestMount = Math.max(0, ...mountTasks.filter((t) => `${t.pid}:${t.tid}` === pageMain).map((t) => t.dur)) / 1000
     await sleep(1200)
     await cdp.send("Emulation.setCPUThrottlingRate", { rate: CPU })
     await sleep(600)
@@ -217,7 +245,7 @@ try {
       for (const child of node.children || []) walk(child)
     }
     walk(profile.head)
-    results.push({ ...c, canvas, idle, drag, bytesPerFrame: idle.frames ? bytes / idle.frames : 0 })
+    results.push({ ...c, canvas, idle, drag, bytesPerFrame: idle.frames ? bytes / idle.frames : 0, longestMount, firstFrame })
   }
 } finally {
   await browser.close()
@@ -227,9 +255,9 @@ try {
 const f = (n, d = 2) => (Number.isFinite(n) ? n.toFixed(d) : "-")
 console.log(`\nThe globe alone, CPU slowed ${CPU}x, four seconds turning by itself and one second dragged`)
 console.log(`old = ${BASE}'s 2D globe; gl and 2d = the new one's two renderers\n`)
-console.log("  view  version  canvas px   frames  JS/frame avg  p95    max    bytes/frame  main busy  paints  drag: JS/frame  input/event  (GPU process, software here)")
+console.log("  view  version  canvas px   frames  JS/frame avg  p95    max    bytes/frame  main busy  paints  drag: JS/frame  input/event  mount: longest task, first frame   (GPU process, software here)")
 for (const r of results) {
-  console.log(`  ${r.view.padEnd(5)} ${r.variant.padEnd(8)} ${`${r.canvas.w}x${r.canvas.h}`.padEnd(10)} ${String(r.idle.frames).padStart(6)}  ${f(r.idle.msPerFrame).padStart(8)}ms  ${f(r.idle.p95).padStart(5)}  ${f(r.idle.max).padStart(5)}  ${f(r.bytesPerFrame, 0).padStart(11)}  ${f(r.idle.mainBusy * 100, 1).padStart(7)}%  ${String(r.idle.paints).padStart(6)}  ${f(r.drag.msPerFrame).padStart(12)}ms  ${f(r.drag.inputMs).padStart(9)}ms  (${f(r.idle.gpuBusy * 100, 1)}%)`)
+  console.log(`  ${r.view.padEnd(5)} ${r.variant.padEnd(8)} ${`${r.canvas.w}x${r.canvas.h}`.padEnd(10)} ${String(r.idle.frames).padStart(6)}  ${f(r.idle.msPerFrame).padStart(8)}ms  ${f(r.idle.p95).padStart(5)}  ${f(r.idle.max).padStart(5)}  ${f(r.bytesPerFrame, 0).padStart(11)}  ${f(r.idle.mainBusy * 100, 1).padStart(7)}%  ${String(r.idle.paints).padStart(6)}  ${f(r.drag.msPerFrame).padStart(12)}ms  ${f(r.drag.inputMs).padStart(9)}ms  ${f(r.longestMount, 0).padStart(10)}ms, ${f(r.firstFrame, 0).padStart(5)}ms   (${f(r.idle.gpuBusy * 100, 1)}%)`)
 }
 if (process.env.OUT) writeFileSync(process.env.OUT, JSON.stringify(results, null, 2))
 
@@ -244,6 +272,7 @@ for (const r of results.filter((x) => x.variant !== "old")) {
   if (old) expect(r.idle.msPerFrame < old.idle.msPerFrame, `${r.view} ${r.variant}: less of the page's time per frame than the old globe`, `${f(r.idle.msPerFrame)} vs ${f(old.idle.msPerFrame)}ms`)
   if (old) expect(r.idle.mainBusy < old.idle.mainBusy, `${r.view} ${r.variant}: the page's thread less busy than with the old globe`, `${f(r.idle.mainBusy * 100, 1)}% vs ${f(old.idle.mainBusy * 100, 1)}%`)
   if (r.variant === "gl") expect(r.bytesPerFrame < 64, `${r.view} gl: allocates next to nothing per frame`, `${f(r.bytesPerFrame, 0)} bytes`)
+  if (old) expect(r.longestMount <= old.longestMount * 1.25 + 10, `${r.view} ${r.variant}: starting it holds the page no longer than the old globe did`, `${f(r.longestMount, 0)} vs ${f(old.longestMount, 0)}ms`)
 }
 console.log(bad ? `\n${bad} failed\n` : "\nall good\n")
 process.exit(bad ? 1 : 0)
