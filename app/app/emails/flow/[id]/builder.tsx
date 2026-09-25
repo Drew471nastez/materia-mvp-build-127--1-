@@ -574,6 +574,7 @@ function StateLine(props: {
   const toNews = audienceOf(props.trigger, props.config) === "subscribers"
   const notes: string[] = []
   if (!props.tracking && props.hasCheck) notes.push("Checks are not running yet on your account, so a flow with a check sends nothing for now. Remove the check to send without it.")
+  if (!props.tracking && (props.trigger === "first_purchase" || props.trigger === "abandoned_checkout")) notes.push("This kind of automation is not running on your account yet, so it sends nothing for now.")
   if (props.trigger === "abandoned_checkout" && !props.startsRecorded) notes.push("Started checkouts are not recorded on your account yet, so this sends nothing for now.")
   const line = on
     ? props.tracking && counts.active > 0
