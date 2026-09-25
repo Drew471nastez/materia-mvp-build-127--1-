@@ -279,7 +279,7 @@ function main() {
        painted over it and it disappeared. It is never hidden or faded for a
        sheet, and while one is open the scrim, not the pill, takes the tap. */
     check("every sheet on a phone goes over the nav pill, and the pill stays visible under it",
-      /html:has\(\[data-app-sheet\]\) \[data-app-nav-pill\],\s*\n\s*html:has\(\[role="dialog"\]\[aria-modal="true"\]:not\(\[data-mobile-menu\]\)\) \[data-app-nav-pill\],\s*\n\s*body\[data-scroll-locked\] \[data-app-nav-pill\] \{\s*\n\s*z-index: 39;/.test(css)
+      /html:has\(\[data-app-sheet\]\) \[data-app-nav-pill\],\s*\n\s*html:has\(\[role="dialog"\]\[aria-modal="true"\]:not\(\[data-mobile-menu\], \[aria-hidden="true"\]\)\) \[data-app-nav-pill\],\s*\n\s*body\[data-scroll-locked\] \[data-app-nav-pill\] \{\s*\n\s*z-index: 39;/.test(css)
         /* What can take a tap is named, not `*`: a bare `*` restyled the whole document on every open and close. */
         && /html:has\(\[data-app-sheet="open"\]\) \[data-app-nav-pill\] :is\(a, button, \.pointer-events-auto\),[\s\S]{0,300}pointer-events: none !important;/.test(css)
         && !/data-app-sheet[^{]*\[data-app-nav-pill\][^{]*\{[^}]*(opacity: 0|visibility: hidden|display: none|z-index: 0;)/.test(css))

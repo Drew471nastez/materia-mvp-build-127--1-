@@ -10,8 +10,8 @@
  * the way left underneath it; back runs the same motion the other way. The
  * list is never unmounted, so underneath it is exactly where it was left.
  * Wider, where nothing on a desktop slides in from an edge, the order's bar
- * is there on the first frame and only its cards fade in under it; back is
- * at once. The whole order used to fade in over the list, bar and all, so
+ * is there on the first frame and only its cards fade in under it; back
+ * takes the order away at once and the list settles in over 180ms. The whole order used to fade in over the list, bar and all, so
  * for 150ms the list's bar and the order's number and badges were drawn
  * through each other: "the top bar blends in with a delay, it looks cheap".
  *
@@ -43,6 +43,8 @@ export const ORDER_PUSH_MS = 300
 export const ORDER_POP_MS = 280
 export const ORDER_FADE_IN_MS = 150
 export const ORDER_FADE_OUT_MS = 130
+/** Back on a computer: how long the list takes to settle in. */
+export const ORDER_LIST_BACK_MS = 180
 /** iOS's navigation curve: off quickly, settles slowly, never past the edge. */
 export const ORDER_EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
 /** How far the list moves left under an order coming in, as a share of its width. */
@@ -125,6 +127,13 @@ export function moveOrder(kind: Kind, detail: HTMLElement, list: HTMLElement, do
     if (kind === "pop") {
       settle(detail, list)
       done?.()
+      /* Back on a computer: the order goes at once and the list settles in
+         from half opacity and 2px down, so it arrives rather than snaps.
+         It never starts from nothing, so there is no empty frame. */
+      list.animate(
+        [{ opacity: 0.5, transform: "translate3d(0, 2px, 0)" }, { opacity: 1, transform: "translate3d(0, 0, 0)" }],
+        { duration: ORDER_LIST_BACK_MS, easing: ORDER_EASE },
+      )
       return
     }
     const body = detail.querySelector<HTMLElement>(".orders-body")

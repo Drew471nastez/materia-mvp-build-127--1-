@@ -302,9 +302,11 @@ async function main() {
         && /export const ORDER_FADE_IN_MS = 150/.test(motion) && /export const ORDER_PHONE_QUERY = "\(max-width: 639px\)"/.test(motion))
     /* "When I open an order the top bar blends in with a delay, it looks
        cheap." On a computer the bar is never faded over the list's bar. */
-    check("  on a computer the order's bar is there on the first frame: only its cards fade in, and back is at once",
+    check("  on a computer the order's bar is there on the first frame: only its cards fade in; back takes the order at once and the list settles in, never from nothing",
       /const body = detail\.querySelector<HTMLElement>\("\.orders-body"\)/.test(motion) && !/detail\.animate\(\[\{ opacity/.test(motion)
-        && /if \(kind === "pop"\) \{\s*settle\(detail, list\)\s*done\?\.\(\)\s*return/.test(motion))
+        && /if \(kind === "pop"\) \{\s*settle\(detail, list\)\s*done\?\.\(\)/.test(motion)
+        && /list\.animate\(\s*\[\{ opacity: 0\.5, transform: "translate3d\(0, 2px, 0\)" \}/.test(motion)
+        && /export const ORDER_LIST_BACK_MS = 180/.test(motion))
     check("  interrupted, it starts from where the layer is, read before the running move is cancelled",
       /const detailX = moving \? xOf\(detail\)/.test(motion) && motion.indexOf("const detailX") < motion.indexOf("stop(detail)"))
     check("  the pop holds its last frame until the order is taken away, so it cannot snap back",

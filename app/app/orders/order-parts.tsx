@@ -81,7 +81,7 @@ export function OrderBarFrame({
   subtitle: React.ReactNode
 }) {
   return (
-    <PaneBar width={ORDER_WIDTH} className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2 pb-2.5 pt-2">
+    <PaneBar width={ORDER_WIDTH} className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2 pb-2.5 pt-2 lg:pb-3 lg:pt-5">
       <div className="-ml-1.5 flex h-9 w-9 items-center justify-center">{back}</div>
       <div className="flex min-h-9 min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1">{title}</div>
       <div className="flex min-h-9 shrink-0 items-center gap-1">{actions}</div>
