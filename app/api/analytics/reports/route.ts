@@ -23,6 +23,7 @@ import { categorizeServerSource, detectClientAppFromUA, isInternalReferrer, refe
 import { parseUserAgent } from "@/lib/analytics/user-agent"
 import { isTimeZone } from "@/lib/orders/time-zone"
 import { groupOrders, isSale, type OrderRow } from "@/lib/orders/order-view"
+import { byCreator, ownRows, scopedOrders } from "@/lib/analytics/creator-orders"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -305,7 +306,6 @@ export async function GET(request: Request) {
   const { figures, all } = storeAnswer(admin, key, {
     creatorId: creator.id,
     product,
-    productIds: product ? [product] : products.map((p) => p.id),
     productTitles,
     span,
     previous,
@@ -329,7 +329,6 @@ function storeAnswer(
   q: {
     creatorId: string
     product: string | null
-    productIds: string[]
     productTitles: Record<string, string>
     span: Span
     previous: Span | null
@@ -345,8 +344,8 @@ function storeAnswer(
     const base = { window: q.span, previous: q.previous, timeZone: q.timeZone, mainDomain: getMainDomain(), productTitles: q.productTitles }
     const args = { p_creator_id: q.creatorId, p_product_id: q.product, ...tallyArgs(q.span, q.previous, q.timeZone) }
 
-    const orders = readOrders(admin, spans, q.productIds)
-    const allTime = allTimeOf(admin, q.creatorId, q.product, q.productIds)
+    const orders = readOrders(admin, spans, q.creatorId, q.product)
+    const allTime = allTimeOf(admin, q.creatorId, q.product)
     const visits = (async (): Promise<{ visits: VisitTallies; truncated: boolean }> => {
       const wire = await rpc<Parameters<typeof talliesFromWire>[0]>(admin, "analytics_visit_tally", { ...args, p_detail: true })
       if (wire) return { visits: talliesFromWire(wire, true), truncated: false }
@@ -406,17 +405,19 @@ async function readSteps(admin: Admin, spans: Span[], creatorId: string, product
   return { rows: read.rows.map(({ id: _id, ...step }) => step as StepRow), truncated: read.truncated }
 }
 
-function readOrders(admin: Admin, spans: Span[], productIds: string[]): Promise<OrderRow[]> {
-  if (productIds.length === 0) return Promise.resolve([])
-  return withColumns(ORDER_COLUMNS, async (columns) => {
-    const read = await readSpans<OrderRow>(spans, (start, end, after) =>
-      startingAt(admin.from("orders").select(columns).in("product_id", productIds).lt("created_at", end), start, after)
-        .order("created_at", { ascending: true })
-        .order("id", { ascending: true })
-        .limit(PAGE) as unknown as Read<OrderRow>,
-    )
-    return read.rows
-  })
+/* The creator's orders by the order's own creator, never by a list of product ids (lib/analytics/creator-orders). */
+function readOrders(admin: Admin, spans: Span[], creatorId: string, product: string | null): Promise<OrderRow[]> {
+  return byCreator((scope) =>
+    withColumns(ORDER_COLUMNS, async (columns) => {
+      const read = await readSpans<OrderRow>(spans, (start, end, after) =>
+        startingAt(scopedOrders(admin, columns, scope, creatorId, product).lt("created_at", end), start, after)
+          .order("created_at", { ascending: true })
+          .order("id", { ascending: true })
+          .limit(PAGE) as unknown as Read<OrderRow>,
+      )
+      return ownRows(read.rows)
+    }),
+  )
 }
 
 /**
@@ -424,7 +425,7 @@ function readOrders(admin: Admin, spans: Span[], productIds: string[]): Promise<
  * rather than in the browser, where "all time" was the first thousand rows:
  * by the database when it can (analytics_all_time), else from the rows here.
  */
-async function allTimeOf(admin: Admin, creatorId: string, product: string | null, productIds: string[]) {
+async function allTimeOf(admin: Admin, creatorId: string, product: string | null) {
   const counted = await rpc<{ views: number; orders: number; sales_cents: number }>(admin, "analytics_all_time", {
     p_creator_id: creatorId,
     p_product_id: product,
@@ -433,19 +434,20 @@ async function allTimeOf(admin: Admin, creatorId: string, product: string | null
 
   let viewsQuery = admin.from("analytics_events").select("id", { count: "exact", head: true }).eq("creator_id", creatorId).eq("event_type", "view")
   if (product) viewsQuery = viewsQuery.eq("product_id", product)
-  const everyOrder =
-    productIds.length === 0
-      ? Promise.resolve([] as OrderRow[])
-      : withColumns(ORDER_COLUMNS, async (columns) =>
-          (
-            await readAll<OrderRow>((after) =>
-              startingAt(admin.from("orders").select(columns).in("product_id", productIds), "1970-01-01T00:00:00.000Z", after)
-                .order("created_at", { ascending: true })
-                .order("id", { ascending: true })
-                .limit(PAGE) as unknown as Read<OrderRow>,
-            )
-          ).rows,
-        )
+  const everyOrder = byCreator((scope) =>
+    withColumns(ORDER_COLUMNS, async (columns) =>
+      ownRows(
+        (
+          await readAll<OrderRow>((after) =>
+            startingAt(scopedOrders(admin, columns, scope, creatorId, product), "1970-01-01T00:00:00.000Z", after)
+              .order("created_at", { ascending: true })
+              .order("id", { ascending: true })
+              .limit(PAGE) as unknown as Read<OrderRow>,
+          )
+        ).rows,
+      ),
+    ),
+  )
   const [{ count }, rows] = await Promise.all([viewsQuery, everyOrder])
   const sales = groupOrders(rows).filter(isSale)
   return { views: count ?? 0, orders: sales.length, salesCents: sales.reduce((sum, o) => sum + moneyOf(o).net, 0) }

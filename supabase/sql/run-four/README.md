@@ -2,7 +2,7 @@
 
 Everything the app is waiting on from the last three weeks, in four files for
 the Supabase SQL editor. They hold every part in `supabase/sql/run-now/`
-(01 to 30, then the storage policies and the check), text unchanged, so there
+(01 to 32, then the storage policies and the check), text unchanged, so there
 is one list and nothing to pick out by hand.
 
 ## How to run them
@@ -28,6 +28,9 @@ from `run-now/`, changes nothing.
   website orders.
 - `08`: products archived the old way get the status `archived`.
 - `27`: gives lucadragoste the Veteran badge.
+- `32`: writes each order's creator into its new `creator_id` column, from the
+  order's product. From then on deleting a product keeps its orders (with no
+  product) instead of deleting them.
 
 Nothing else touches existing rows. Nothing deletes data.
 
