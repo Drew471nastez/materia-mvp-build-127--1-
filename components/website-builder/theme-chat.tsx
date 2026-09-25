@@ -2887,18 +2887,18 @@ function ThemeChatPanel({
             }}
           >
             {/*
-              FROSTED, AND READABLE. The same glass as the pill, denser and
-              calmer: the canvas blurred 24px and saturated less (1.5, the
-              pill's is 1.8) under 90% white, so a photo behind it is a faint
-              wash of its colour and never a shape behind the words, with the
-              pill's rim, hairline and three shadows. The surface fades on its
-              own opacity (appear) while the element around it moves (lift),
-              so the blur is on for the whole of the open and the close.
+              READABLE FIRST. The pill is the glass; the open conversation is
+              a near solid white surface (97%) over the same blur, so the
+              page's colours never show as smudges behind the words, with the
+              pill's rim, hairline and three shadows for depth. The surface
+              fades on its own opacity (appear) while the element around it
+              moves (lift), so the blur is on for the whole of the open and
+              the close.
             */}
             <div
               ref={surfaceRef}
               data-ask-surface=""
-              className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-[30px] border border-white/60 bg-white/[0.9] shadow-[inset_0_1px_0_rgba(255,255,255,0.7),0_0_0_1px_rgba(15,23,42,0.06),0_2px_6px_rgba(15,23,42,0.05),0_12px_28px_-10px_rgba(15,23,42,0.16),0_32px_72px_-24px_rgba(15,23,42,0.3)] backdrop-blur-xl backdrop-saturate-[1.5]"
+              className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-[30px] border border-white/60 bg-white/[0.97] shadow-[inset_0_1px_0_rgba(255,255,255,0.7),0_0_0_1px_rgba(15,23,42,0.06),0_2px_6px_rgba(15,23,42,0.05),0_12px_28px_-10px_rgba(15,23,42,0.16),0_32px_72px_-24px_rgba(15,23,42,0.3)] backdrop-blur-xl backdrop-saturate-[1.5]"
               style={appear(cardOpen)}
             >
               {dropTarget}

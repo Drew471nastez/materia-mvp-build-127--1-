@@ -115,8 +115,8 @@ section("The computer's pill")
       /export const FADE_BLUR = [3-6]\b/.test(read("lib/website-builder/ask-dock.ts")),
   )
   check(
-    "the open conversation is frosted too, dense enough to read over: 90% white over the same blur, saturated less",
-    /data-ask-surface=""\s*\n\s*className="[^"]*bg-white\/\[0\.9\][^"]*backdrop-blur-xl backdrop-saturate-\[1\.5\]"/.test(chat),
+    "the open conversation reads first: 97% white over the same blur, so the page never shows through as smudges behind the words",
+    /data-ask-surface=""\s*\n\s*className="[^"]*bg-white\/\[0\.97\][^"]*backdrop-blur-xl backdrop-saturate-\[1\.5\]"/.test(chat),
   )
   check(
     "every glass layer fades on its own opacity, and what moves them is a transform, so the blur is never switched off mid fade",

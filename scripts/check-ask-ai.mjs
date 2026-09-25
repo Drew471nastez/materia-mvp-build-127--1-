@@ -645,7 +645,7 @@ async function glassStyles(browser, vp) {
   await sleep(500)
   const open = await read()
   measures[label].surface = open.surface
-  expect(/blur\(24px\)/.test(open.surface.backdrop) && /saturate\(1\.5\)/.test(open.surface.backdrop) && /0\.9\)$/.test(open.surface.fill), "the open conversation: the same blur, saturated less, under 90% white", { backdrop: open.surface.backdrop, fill: open.surface.fill })
+  expect(/blur\(24px\)/.test(open.surface.backdrop) && /saturate\(1\.5\)/.test(open.surface.backdrop) && /0\.97\)$/.test(open.surface.fill), "the open conversation: the same blur, saturated less, under 97% white", { backdrop: open.surface.backdrop, fill: open.surface.fill })
   const sl = layers(open.surface.shadow).filter((l) => !l.inset && l.a > 0)
   expect(sl.length >= 4 && sl.every((l) => l.r <= 60 && l.g <= 60 && l.b <= 60), "with ink shadows only", sl)
   expect(open.fade.opacity === "0", "and the fade round the pill is not drawn while it is open", open.fade.opacity)
