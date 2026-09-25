@@ -107,7 +107,7 @@ console.log("\n3. Notifications on this browser")
   const route = readCode("app/api/push/web/route.ts")
   check("the save is a delete of this endpoint then an insert, not an upsert on a conflict target that may not exist",
     !/onConflict/.test(route) && /\.delete\(\)\.eq\("platform", "web"\)\.like\("token", endpointPattern\(sub\.endpoint\)\)/.test(route) && /\.insert\(\{ user_id: who\.id, token, platform: "web"/.test(route))
-  check("a database that refuses 'web' keeps it on the account, and says which SQL to run", /failure === "platform_refused" \|\| failure === "no_table"/.test(route) && /keepOnAccount\(admin, who\.id, sub\)/.test(route) && /run-now\/22_browser_push_and_time_zone\.sql/.test(route))
+  check("a database that refuses 'web' keeps it on the account, and says which SQL to run", /failure === "platform_refused" \|\| failure === "no_table"/.test(route) && /keepOnAccount\(admin, who\.id, sub\)/.test(route) && /run-now\/23_browser_push_and_time_zone\.sql/.test(route))
   check("GET ?endpoint= says whether this browser is saved", /searchParams\.get\("endpoint"\)/.test(route) && /saved: inTable \|\| onAccount/.test(route))
   check("a blip is a 503, not a sign out", /current\.state === "indeterminate"/.test(route) && /kind === "unknown"\) return unreachable\(\)/.test(route))
   const sender = readCode("lib/push/sender.ts")
@@ -126,12 +126,12 @@ console.log("\n3. Notifications on this browser")
   check("and is still not drawn in the native apps", /state === "unsupported" && document\.documentElement\.classList\.contains\("capacitor"\)\)\) return null/.test(panels))
 
   const migration = readFileSync("supabase/migrations/20261001_browser_push_and_time_zone.sql", "utf8")
-  const part = readFileSync("supabase/sql/run-now/22_browser_push_and_time_zone.sql", "utf8")
+  const part = readFileSync("supabase/sql/run-now/23_browser_push_and_time_zone.sql", "utf8")
   for (const [name, sql] of [["the migration", migration], ["run-now 22", part]] as const) {
     check(`${name}: every platform check is replaced by one that takes 'web'`, /pg_get_constraintdef\(oid\) ilike '%platform%'/.test(sql) && /check \(platform in \('ios', 'android', 'web'\)\)/.test(sql))
     check(`${name}: the token index and profiles.timezone`, /create unique index if not exists push_tokens_token_idx on public\.push_tokens \(token\)/.test(sql) && /add column if not exists timezone text/.test(sql))
   }
-  check("run-now 22 is one statement per line, listed in the README", part.trim().split("\n").every((l) => l.startsWith("/*") || l.trim().endsWith(";")) && readFileSync("supabase/sql/run-now/README.md", "utf8").includes("22_browser_push_and_time_zone.sql"))
+  check("run-now 22 is one statement per line, listed in the README", part.trim().split("\n").every((l) => l.startsWith("/*") || l.trim().endsWith(";")) && readFileSync("supabase/sql/run-now/README.md", "utf8").includes("23_browser_push_and_time_zone.sql"))
 }
 
 console.log("\n4. Tooltips are never cut off")

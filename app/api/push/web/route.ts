@@ -107,7 +107,7 @@ export async function POST(req: Request) {
   const failure = saveFailure(error)
   if (failure === "platform_refused" || failure === "no_table") {
     console.warn(
-      `[push/web] push_tokens ${failure === "no_table" ? "is not in the database" : "refuses platform web"} (${error?.code ?? "unknown"}); kept on the account. Run supabase/sql/run-now/22_browser_push_and_time_zone.sql`,
+      `[push/web] push_tokens ${failure === "no_table" ? "is not in the database" : "refuses platform web"} (${error?.code ?? "unknown"}); kept on the account. Run supabase/sql/run-now/23_browser_push_and_time_zone.sql`,
     )
     if (await keepOnAccount(admin, who.id, sub)) return NextResponse.json({ ok: true, kept: "account" }, { headers: NO_STORE })
     console.error("[push/web] not kept on the account either")
