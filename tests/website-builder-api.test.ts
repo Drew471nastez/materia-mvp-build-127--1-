@@ -16,6 +16,8 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 
+import { LIMITS } from "@/lib/api/rate-limit"
+import { AGENT_LIMITS } from "@/lib/sites/rate-limit"
 import { toPageSlug } from "@/lib/sites/slug"
 import { POLICY_PAGE_KEYS } from "@/lib/website-builder/policy-pages"
 import { previewBase } from "@/lib/website-builder/preview-link"
@@ -143,6 +145,55 @@ function main() {
       /if \(!existing && !isPageKey\(page_key\)\)/.test(put) && put.indexOf("if (!existing && !isPageKey(page_key))") < put.indexOf(".insert("))
     check("delete matches the key exactly as stored, as save does", !/toLowerCase\(\)/.test(del) && /const pageKey = searchParams\.get\("page"\) \?\? ""/.test(del))
     check("and refuses a key that is neither the shape nor a page this site has", /if \(!isPageKey\(pageKey\)\) \{/.test(del) && /if \(!found\) return NextResponse\.json\(/.test(del))
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  section("Every route is limited per person, after they are known, above anything the editor does")
+  // ═══════════════════════════════════════════════════════════════════════
+  {
+    /* [route, the function's name, bucket, allowance] */
+    const limited: [string, string, string, keyof typeof LIMITS][] = [
+      ["settings", "PUT", "site-settings-save", "siteSave"],
+      ["sections", "PUT", "site-sections-save", "siteSave"],
+      ["sections", "GET", "site-sections-read", "siteRead"],
+      ["sections", "DELETE", "site-page-delete", "siteAction"],
+      ["sections/sync-global", "PUT", "site-header-sync", "siteSave"],
+      ["publish", "POST", "site-publish", "sitePublish"],
+      ["backups", "GET", "site-backups-read", "siteRead"],
+      ["backups", "POST", "site-backup", "siteAction"],
+      ["cover", "POST", "site-cover", "siteCover"],
+      ["preview", "GET", "site-preview-link", "siteAction"],
+      ["sections/code", "POST", "site-section-write", "siteAi"],
+      ["sections/code/fix", "POST", "site-section-fix", "siteAi"],
+    ]
+    for (const [route, method, bucket, allowance] of limited) {
+      const src = read(`${ROUTES}/${route}/route.ts`)
+      const fn = src.slice(src.indexOf(`export async function ${method}(`))
+      const body = fn.slice(0, fn.indexOf("\nexport async function ") > 0 ? fn.indexOf("\nexport async function ") : undefined)
+      const where = src.indexOf(`bucket: "${bucket}"`)
+      const counted = where > 0 && new RegExp(`bucket: "${bucket}",?\\s*(\\n\\s*)?subjects: \\[\`user:\\$\\{[\\w.]+\\}\`\\],?\\s*(\\n\\s*)?windows: (RATE_)?LIMITS\\.${allowance}`).test(src)
+      /* The helper may be a small function of its own (the preview route's three methods share one). */
+      const called = /const limited = await (rateLimit\(|limit\()/.test(body) && /if \(limited\) return limited/.test(body)
+      const afterAuth = body.indexOf("const limited") > Math.max(body.indexOf("await getCreatorInstall("), body.indexOf("await ownInstall("), body.indexOf("await owned("), body.indexOf(".eq(\"creator_id\""))
+      check(`${route} ${method}: limited per person as "${bucket}" (${allowance}), once they are known`, counted && called && afterAuth)
+    }
+    const preview = read(`${ROUTES}/preview/route.ts`)
+    check("the preview link's three methods all count against it", (preview.match(/const limited = await limit\(o\.userId\)/g) ?? []).length === 3)
+
+    const editor = read("app/website-builder/editor/[installId]/page.tsx")
+    const delay = Number(editor.match(/const AUTOSAVE_DELAY_MS = ([\d_]+)/)?.[1].replace(/_/g, "") ?? 0)
+    const perTabPerMinute = Math.ceil(60_000 / delay)
+    const [minute, hour] = LIMITS.siteSave
+    check(`a save allowance above autosave in two tabs (${perTabPerMinute} a minute each, every ${delay} ms)`,
+      delay > 0 && minute.seconds === 60 && minute.limit >= 2 * perTabPerMinute && hour.seconds === 3600 && hour.limit >= 2 * perTabPerMinute * 60,
+      `${minute.limit}/min, ${hour.limit}/h`)
+    check("the AI section routes have the page assistant's budget",
+      JSON.stringify(LIMITS.siteAi.map(({ limit, seconds }) => [limit, seconds])) === JSON.stringify(AGENT_LIMITS.map(({ limit, seconds }) => [limit, seconds])))
+    check("and they are refused before a model is reached", (() => {
+      const code = read(`${ROUTES}/sections/code/route.ts`)
+      const fix = read(`${ROUTES}/sections/code/fix/route.ts`)
+      return code.indexOf('bucket: "site-section-write"') < code.indexOf("writeSection(") && fix.indexOf('bucket: "site-section-fix"') < fix.indexOf("fixSection(")
+    })())
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)

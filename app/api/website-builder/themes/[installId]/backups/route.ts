@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
 import { takeBackup } from "@/lib/website-builder/backups"
+import { LIMITS, rateLimit } from "@/lib/api/rate-limit"
 
 type Params = { params: Promise<{ installId: string }> }
 
@@ -26,15 +27,18 @@ async function ownInstall(installId: string) {
     .maybeSingle()
   if (!install) return { error: "Theme not found", status: 404, supabase: null }
 
-  return { error: null, status: 200, supabase }
+  return { error: null, status: 200, supabase, userId: user.id }
 }
 
 // GET /api/website-builder/themes/[installId]/backups
 // Newest first. The list never carries the snapshots themselves.
 export async function GET(_req: Request, { params }: Params) {
   const { installId } = await params
-  const { error, status, supabase } = await ownInstall(installId)
+  const { error, status, supabase, userId } = await ownInstall(installId)
   if (error || !supabase) return NextResponse.json({ error }, { status })
+
+  const limited = await rateLimit({ bucket: "site-backups-read", subjects: [`user:${userId}`], windows: LIMITS.siteRead })
+  if (limited) return limited
 
   const { data, error: fetchErr } = await supabase
     .from("store_theme_backups")
@@ -77,8 +81,17 @@ const PostSchema = z.object({
 // written by the server from the routes that do those things.
 export async function POST(req: Request, { params }: Params) {
   const { installId } = await params
-  const { error, status, supabase } = await ownInstall(installId)
+  const { error, status, supabase, userId } = await ownInstall(installId)
   if (error || !supabase) return NextResponse.json({ error }, { status })
+
+  /* One after each AI task and one per press: LIMITS.siteAction is far above both. */
+  const limited = await rateLimit({
+    bucket: "site-backup",
+    subjects: [`user:${userId}`],
+    windows: LIMITS.siteAction,
+    message: "Too many backups in a short time. Wait a minute and try again.",
+  })
+  if (limited) return limited
 
   let body: unknown = {}
   try {

@@ -5,6 +5,7 @@ import type { ThemeSettingsValues } from "@/lib/website-builder/types"
 import { NextResponse } from "next/server"
 import { revalidatePublishedSite } from "@/lib/website-builder/published-site"
 import { LIMITS } from "@/lib/storelib-theme/types"
+import { LIMITS as RATE_LIMITS, rateLimit } from "@/lib/api/rate-limit"
 import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
 import type { SectionInstance } from "@/lib/website-builder/types"
@@ -52,14 +53,17 @@ async function getCreatorInstall(installId: string) {
   // The creator id comes back too: a write that lands on the LIVE columns
   // has to throw away the cached published site, and that cache is keyed by
   // creator. See lib/website-builder/published-site.ts.
-  return { error: null, status: 200, supabase, creatorId: (creator as { id: string }).id }
+  return { error: null, status: 200, supabase, creatorId: (creator as { id: string }).id, userId: user.id }
 }
 
 // GET /api/website-builder/themes/[installId]/sections?page=home
 export async function GET(req: Request, { params }: Params) {
   const { installId } = await params
-  const { error, status, supabase } = await getCreatorInstall(installId)
+  const { error, status, supabase, userId } = await getCreatorInstall(installId)
   if (error || !supabase) return NextResponse.json({ error }, { status })
+
+  const limited = await rateLimit({ bucket: "site-sections-read", subjects: [`user:${userId}`], windows: RATE_LIMITS.siteRead })
+  if (limited) return limited
 
   const { searchParams } = new URL(req.url)
   const pageKey = searchParams.get("page") ?? "home"
@@ -151,8 +155,17 @@ export async function GET(req: Request, { params }: Params) {
 // body: { page_key: string, sections: SectionInstance[], mode: "draft" | "publish" }
 export async function PUT(req: Request, { params }: Params) {
   const { installId } = await params
-  const { error, status, supabase, creatorId } = await getCreatorInstall(installId)
+  const { error, status, supabase, creatorId, userId } = await getCreatorInstall(installId)
   if (error || !supabase) return NextResponse.json({ error }, { status })
+
+  /* Per person, after they are known, sized for autosave in two tabs: RATE_LIMITS.siteSave. */
+  const limited = await rateLimit({
+    bucket: "site-sections-save",
+    subjects: [`user:${userId}`],
+    windows: RATE_LIMITS.siteSave,
+    message: "Too many saves in a short time. Wait a moment, then keep editing.",
+  })
+  if (limited) return limited
 
   let body: unknown
   try {
@@ -293,8 +306,16 @@ export async function PUT(req: Request, { params }: Params) {
  */
 export async function DELETE(req: Request, { params }: Params) {
   const { installId } = await params
-  const { error, status, supabase, creatorId } = await getCreatorInstall(installId)
+  const { error, status, supabase, creatorId, userId } = await getCreatorInstall(installId)
   if (error || !supabase) return NextResponse.json({ error }, { status })
+
+  const limited = await rateLimit({
+    bucket: "site-page-delete",
+    subjects: [`user:${userId}`],
+    windows: RATE_LIMITS.siteAction,
+    message: "Too many pages deleted in a short time. Wait a minute and try again.",
+  })
+  if (limited) return limited
 
   const { searchParams } = new URL(req.url)
   /**

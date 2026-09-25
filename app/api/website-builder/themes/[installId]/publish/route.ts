@@ -2,6 +2,7 @@ import { NextResponse, after } from "next/server"
 import { announce, websiteAddresses } from "@/lib/seo/announce"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { LIMITS, rateLimit } from "@/lib/api/rate-limit"
 import { takeBackup } from "@/lib/website-builder/backups"
 import { promoteFileDrafts } from "@/lib/website-builder/theme-file-drafts"
 import { revalidatePublishedSite } from "@/lib/website-builder/published-site"
@@ -36,6 +37,15 @@ export async function POST(req: Request, { params }: Params) {
     .maybeSingle()
 
   if (!install) return NextResponse.json({ error: "Theme not found" }, { status: 404 })
+
+  /* Publishing, taking down and saving as a draft all come through here: LIMITS.sitePublish. */
+  const limited = await rateLimit({
+    bucket: "site-publish",
+    subjects: [`user:${user.id}`],
+    windows: LIMITS.sitePublish,
+    message: "Too many publishes in a short time. Wait a minute and try again.",
+  })
+  if (limited) return limited
 
   /* A body that is not JSON falls through to "Invalid action", a 400, not a 500. */
   const body = await req.json().catch(() => null)

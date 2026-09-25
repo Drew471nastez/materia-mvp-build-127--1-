@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { revalidatePublishedSite } from "@/lib/website-builder/published-site"
 import { readOwnSectionFields, sanitizeSections } from "@/lib/website-builder/sanitize-sections"
 import { LIMITS } from "@/lib/storelib-theme/types"
+import { LIMITS as RATE_LIMITS, rateLimit } from "@/lib/api/rate-limit"
 import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
 import type { SectionInstance } from "@/lib/website-builder/types"
@@ -45,6 +46,15 @@ export async function PUT(req: Request, { params }: Params) {
     .from("store_theme_installs").select("id")
     .eq("id", installId).eq("creator_id", creator.id).maybeSingle()
   if (!install) return NextResponse.json({ error: "Theme not found" }, { status: 404 })
+
+  /* Part of every autosave, so the same allowance as the other two saves: RATE_LIMITS.siteSave. */
+  const limited = await rateLimit({
+    bucket: "site-header-sync",
+    subjects: [`user:${user.id}`],
+    windows: RATE_LIMITS.siteSave,
+    message: "Too many saves in a short time. Wait a moment, then keep editing.",
+  })
+  if (limited) return limited
 
   let body: unknown
   try {

@@ -19,6 +19,7 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { newPreviewToken, previewBase } from "@/lib/website-builder/preview-link"
+import { LIMITS, rateLimit } from "@/lib/api/rate-limit"
 import { getCanonicalSiteUrl, getMainDomain } from "@/lib/url-helpers"
 
 export const runtime = "nodejs"
@@ -41,7 +42,21 @@ async function owned(installId: string) {
     .maybeSingle()
   if (error && /preview_token/.test(error.message)) return { error: MIGRATION, status: 503 as const, supabase: null }
   if (!install) return { error: "Theme not found", status: 404 as const, supabase: null }
-  return { error: null, status: 200 as const, supabase, install: install as { id: string; preview_token: string | null } }
+  return { error: null, status: 200 as const, supabase, install: install as { id: string; preview_token: string | null }, userId: user.id }
+}
+
+/**
+ * The panel asks once when it opens and once per press, so LIMITS.siteAction
+ * covers it many times over. Shared by all three methods: a loop of make and
+ * remove is still a loop.
+ */
+function limit(userId: string) {
+  return rateLimit({
+    bucket: "site-preview-link",
+    subjects: [`user:${userId}`],
+    windows: LIMITS.siteAction,
+    message: "Too many preview link requests. Wait a minute and try again.",
+  })
 }
 
 /**
@@ -85,6 +100,8 @@ export async function GET(req: NextRequest, { params }: Params) {
   const { installId } = await params
   const o = await owned(installId)
   if (o.error || !o.supabase) return NextResponse.json({ error: o.error }, { status: o.status })
+  const limited = await limit(o.userId)
+  if (limited) return limited
   const token = o.install.preview_token
   const base = req.nextUrl.searchParams.get("base")
   return NextResponse.json({ token, url: token ? withToken(req, base, token) : null })
@@ -94,6 +111,8 @@ export async function POST(req: NextRequest, { params }: Params) {
   const { installId } = await params
   const o = await owned(installId)
   if (o.error || !o.supabase) return NextResponse.json({ error: o.error }, { status: o.status })
+  const limited = await limit(o.userId)
+  if (limited) return limited
 
   const existing = o.install.preview_token
   if (existing) {
@@ -112,6 +131,8 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
   const { installId } = await params
   const o = await owned(installId)
   if (o.error || !o.supabase) return NextResponse.json({ error: o.error }, { status: o.status })
+  const limited = await limit(o.userId)
+  if (limited) return limited
   const { error } = await o.supabase.from("store_theme_installs").update({ preview_token: null }).eq("id", installId)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ ok: true })

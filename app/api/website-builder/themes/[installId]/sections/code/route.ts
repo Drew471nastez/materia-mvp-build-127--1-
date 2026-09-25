@@ -24,6 +24,7 @@ import { editorContent, recordVersion, saveDraft, sourceMap } from "@/lib/websit
 import { schemasFromSources } from "@/lib/website-builder/storelib-schemas"
 import { SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
 import { LIMITS } from "@/lib/storelib-theme/types"
+import { LIMITS as RATE_LIMITS, rateLimit } from "@/lib/api/rate-limit"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -72,6 +73,19 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
     .eq("creator_id", (creator as { id: string }).id)
     .maybeSingle()
   if (!install) return NextResponse.json({ error: "Theme not found" }, { status: 404 })
+
+  /**
+   * BEFORE the model is reached and before the stream opens, as on the page
+   * assistant's route: a limit checked after the work starts bills for what
+   * it refused. One to three model calls per request: RATE_LIMITS.siteAi.
+   */
+  const limited = await rateLimit({
+    bucket: "site-section-write",
+    subjects: [`user:${user.id}`],
+    windows: RATE_LIMITS.siteAi,
+    message: "That is a lot of sections asked for in a short time. Wait a moment and try again.",
+  })
+  if (limited) return limited
 
   const parsed = BodySchema.safeParse(await request.json().catch(() => null))
   if (!parsed.success) return NextResponse.json({ error: "Invalid body", issues: parsed.error.issues }, { status: 400 })

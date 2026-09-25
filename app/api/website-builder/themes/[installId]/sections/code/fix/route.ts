@@ -21,6 +21,7 @@ import { schemasFromSources } from "@/lib/website-builder/storelib-schemas"
 import { SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
 import { sourceMap } from "@/lib/website-builder/theme-file-drafts"
 import { LIMITS } from "@/lib/storelib-theme/types"
+import { LIMITS as RATE_LIMITS, rateLimit } from "@/lib/api/rate-limit"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -58,6 +59,15 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
     .eq("creator_id", (creator as { id: string }).id)
     .maybeSingle()
   if (!install) return NextResponse.json({ error: "Theme not found" }, { status: 404 })
+
+  /* Each repair is one to three model calls, so the same budget as writing a section: RATE_LIMITS.siteAi. */
+  const limited = await rateLimit({
+    bucket: "site-section-fix",
+    subjects: [`user:${user.id}`],
+    windows: RATE_LIMITS.siteAi,
+    message: "That is a lot of fixes asked for in a short time. Wait a moment and try again.",
+  })
+  if (limited) return limited
 
   const parsed = BodySchema.safeParse(await request.json().catch(() => null))
   if (!parsed.success) return NextResponse.json({ error: "Invalid body", issues: parsed.error.issues }, { status: 400 })
