@@ -27,7 +27,7 @@ export const stripeRestricted: Rule = {
   category: "critical",
   priority: 100,
   version: 1,
-  needs: ["creator"],
+  needs: ["creator", "sales"],
   cooldownDays: 1,
   ttlDays: 90,
   resolveWhenGone: true,
@@ -39,6 +39,17 @@ export const stripeRestricted: Rule = {
     if (!c.stripeAccountId || c.detailsSubmitted !== true) return []
     const charges = s.stripeAccount ? s.stripeAccount.chargesEnabled : c.chargesEnabled
     const payouts = s.stripeAccount ? s.stripeAccount.payoutsEnabled : c.payoutsEnabled
+    if (charges !== false && payouts !== false) return []
+    /* Stripe is still checking a new account: nothing to do but wait. */
+    if (s.stripeAccount?.disabledReason === "requirements.pending_verification") return []
+    /* Off on an account that never sold is Stripe finishing its checks after
+       onboarding, which "Set up payments" covers; off on one that sold is a
+       stop. Stripe's own reason, from a webhook, is enough either way. */
+    const sold = s.sales ? s.sales.times.length > 0 || s.sales.truncated : undefined
+    if (!s.stripeAccount?.disabledReason) {
+      if (sold === undefined) return undefined
+      if (!sold) return []
+    }
     if (charges === false) {
       return [
         {
@@ -78,6 +89,8 @@ export const stripeRequirementsDue: Rule = {
   evaluate(s) {
     const a = s.stripeAccount
     if (!a) return undefined
+    /* Still setting up: Stripe lists everything as due until then, and the panel's own "Set up payments" says it. */
+    if (s.creator?.detailsSubmitted !== true) return []
     /* Already off: stripe_restricted says so, and one notification is enough. */
     if (!a.chargesEnabled || !a.payoutsEnabled) return []
     const due = [...a.pastDue, ...a.currentlyDue]

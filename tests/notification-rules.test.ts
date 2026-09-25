@@ -107,11 +107,17 @@ console.log("\nCritical: Stripe")
   check("all on: nothing", subjects(stripeRestricted.evaluate(base())) === "")
   check("never finished setting up: not critical (the panel's Set up payments says it)", subjects(stripeRestricted.evaluate(withCreator({ detailsSubmitted: false, payoutsEnabled: false }))) === "")
   check("no creator row: cannot tell", stripeRestricted.evaluate(base({ creator: undefined })) === undefined)
+  const neverSold = { sales: { times: [] as string[], first: null, truncated: false } }
+  check("payouts off on an account that never sold: Stripe finishing its checks, not a stop", subjects(stripeRestricted.evaluate(withCreator({ payoutsEnabled: false }, neverSold))) === "")
+  check("unless Stripe says why (a webhook): then it is a stop", subjects(stripeRestricted.evaluate(withCreator({ payoutsEnabled: false }, { ...neverSold, stripeAccount: { chargesEnabled: true, payoutsEnabled: false, currentlyDue: [], pastDue: ["external_account"], currentDeadline: null, disabledReason: "requirements.past_due" } }))) === "payouts")
+  check("and Stripe still verifying is never a stop", subjects(stripeRestricted.evaluate(withCreator({ payoutsEnabled: false }, { stripeAccount: { chargesEnabled: true, payoutsEnabled: false, currentlyDue: [], pastDue: [], currentDeadline: null, disabledReason: "requirements.pending_verification" } }))) === "")
+  check("sales unknown and no word from Stripe: cannot tell", stripeRestricted.evaluate(withCreator({ payoutsEnabled: false }, { sales: undefined })) === undefined)
   check("the webhook's account wins over the stored row", subjects(stripeRestricted.evaluate(base({ stripeAccount: { chargesEnabled: true, payoutsEnabled: false, currentlyDue: [], pastDue: [], currentDeadline: null, disabledReason: null } }))) === "payouts")
   check("requirements: only a webhook can tell", stripeRequirementsDue.evaluate(base()) === undefined)
   const due = stripeRequirementsDue.evaluate(base({ stripeAccount: { chargesEnabled: true, payoutsEnabled: true, currentlyDue: ["external_account"], pastDue: [], currentDeadline: Date.parse("2026-10-03T12:00:00Z") / 1000, disabledReason: null } }))
   check("requirements due with a deadline, on the creator's clock", due?.[0]?.title === "Stripe needs more details by Oct 3", due?.[0]?.title)
-  check("and nothing once Stripe has what it needs", subjects(stripeRequirementsDue.evaluate(base({ stripeAccount: { chargesEnabled: true, payoutsEnabled: true, currentlyDue: [], pastDue: [], currentDeadline: null, disabledReason: null } }))) === "")
+  check("nothing while the account is still being set up, when Stripe lists everything as due", subjects(stripeRequirementsDue.evaluate(withCreator({ detailsSubmitted: false }, { stripeAccount: { chargesEnabled: true, payoutsEnabled: true, currentlyDue: ["individual.dob.day", "external_account"], pastDue: [], currentDeadline: null, disabledReason: null } }))) === "")
+  check("and nothing once Stripe has what it needs",subjects(stripeRequirementsDue.evaluate(base({ stripeAccount: { chargesEnabled: true, payoutsEnabled: true, currentlyDue: [], pastDue: [], currentDeadline: null, disabledReason: null } }))) === "")
   check("and nothing when payouts are already off (one notification is enough)", subjects(stripeRequirementsDue.evaluate(base({ stripeAccount: { chargesEnabled: true, payoutsEnabled: false, currentlyDue: ["x"], pastDue: [], currentDeadline: null, disabledReason: null } }))) === "")
 }
 
