@@ -8,7 +8,7 @@ import { domainHttps, domainNotConnected } from "./domains"
 import { campaignFailed, checkoutReminderOff, emailBounceRate, subscribersNotEmailed } from "./email"
 import { firstReview, salesMilestone, subscribersMilestone } from "./milestones"
 import { disputeOpened, payoutFailed, stripeRequirementsDue, stripeRestricted } from "./payments"
-import { checkoutNotCompleting, couponExpiring, productMissingFile, productViewsNoSales } from "./products"
+import { checkoutNotCompleting, couponExpiring, productMissingFile, productViewsNoSales, receiptNotDelivered } from "./products"
 import { setupNextStep } from "./setup"
 import { featureLaunch } from "./updates"
 
@@ -22,6 +22,7 @@ export const RULES: readonly Rule[] = [
   emailBounceRate,
   /* problem */
   productMissingFile,
+  receiptNotDelivered,
   checkoutNotCompleting,
   campaignFailed,
   domainNotConnected,

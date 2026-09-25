@@ -440,6 +440,35 @@ export function supabaseSnapshots(db: Db, options: { probeHttps?: (host: string)
         }
       }
 
+      /* ─── Receipts that did not reach a buyer ───────────────────── */
+      if (want("delivery")) {
+        /* No address is read: whether it failed, and which order. */
+        const rows = await readAll(() =>
+          db
+            .from("orders")
+            .select("id, created_at, stripe_session_id, products!inner(creator_id, title)")
+            .in("products.creator_id", ids)
+            .not("buyer_email_last_error", "is", null)
+            .is("buyer_notified_at", null)
+            .not("status", "in", "(failed,pending)")
+            .gte("created_at", iso(now - 8 * DAY_MS))
+            .order("created_at", { ascending: true })
+            .order("id"),
+        )
+        if (rows) {
+          each((s) => (s.undelivered = []))
+          const seen = new Set<string>()
+          for (const r of rows) {
+            /* A basket is one order and one receipt: its first line stands for it. */
+            const key = r.stripe_session_id ? `s:${r.stripe_session_id}` : `o:${r.id}`
+            if (seen.has(key)) continue
+            seen.add(key)
+            const product = r.products as Row | null
+            snaps.get(product?.creator_id)?.undelivered?.push({ orderId: r.id, createdAt: r.created_at, productTitle: product?.title ?? null })
+          }
+        }
+      }
+
       /* ─── The first review ──────────────────────────────────────── */
       if (want("reviews")) {
         const since = iso(now - 8 * DAY_MS)

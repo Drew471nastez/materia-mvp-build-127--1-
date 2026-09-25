@@ -27,7 +27,7 @@ import { DIGEST_KIND, RULES, ruleOf } from "@/lib/notifications/rules"
 import { stripeRequirementsDue, stripeRestricted, payoutFailed, disputeOpened } from "@/lib/notifications/rules/payments"
 import { domainHttps, domainNotConnected } from "@/lib/notifications/rules/domains"
 import { campaignFailed, checkoutReminderOff, emailBounceRate, subscribersNotEmailed } from "@/lib/notifications/rules/email"
-import { checkoutNotCompleting, couponExpiring, productMissingFile, productViewsNoSales } from "@/lib/notifications/rules/products"
+import { checkoutNotCompleting, couponExpiring, productMissingFile, productViewsNoSales, receiptNotDelivered } from "@/lib/notifications/rules/products"
 import { setupNextStep } from "@/lib/notifications/rules/setup"
 import { firstReview, salesMilestone, subscribersMilestone } from "@/lib/notifications/rules/milestones"
 import { featureLaunchRule } from "@/lib/notifications/rules/updates"
@@ -92,6 +92,7 @@ function base(over: Partial<CreatorSnapshot> = {}): CreatorSnapshot {
     recovery: { recoverable: 0, reminderOn: false, flowId: null },
     coupons: [],
     reviews: { firstRecent: null, olderExists: true },
+    undelivered: [],
     ...over,
   }
 }
@@ -181,6 +182,9 @@ console.log("\nProducts and checkout")
   check("a course has no file to have: nothing", subjects(productMissingFile.evaluate(base({ deliverable: [], products: [{ id: "p1", title: "X", status: "published", type: "course", createdAt: ago(9) }] }))) === "")
   check("published a moment ago: its file may still be uploading", subjects(productMissingFile.evaluate(base({ deliverable: [], products: [{ id: "p1", title: "X", status: "published", type: "digital", createdAt: ago(1 / 24) }] }))) === "")
   check("files unreadable: cannot tell", productMissingFile.evaluate(base({ deliverable: undefined })) === undefined)
+  const r = receiptNotDelivered.evaluate(base({ undelivered: [{ orderId: "o1", createdAt: ago(1), productTitle: "Lightroom presets" }] }))
+  check("a receipt that did not reach a buyer, linked to its order", r?.[0]?.title === "A receipt for Lightroom presets did not reach the buyer" && r?.[0]?.href === "/app/orders?order=o1", r?.[0])
+  check("older than a week: the buyer has written in by now", subjects(receiptNotDelivered.evaluate(base({ undelivered: [{ orderId: "o1", createdAt: ago(9), productTitle: null }] }))) === "")
   check("4 buyers reached Pay, no order, a store that sells", checkoutNotCompleting.evaluate(base({ checkout: { starts: 6, buyers: 4, orders: 0, soldBefore: true } }))?.[0]?.title === "4 buyers reached Pay in the last day and none finished")
   check("one order came through: nothing", subjects(checkoutNotCompleting.evaluate(base({ checkout: { starts: 6, buyers: 4, orders: 1, soldBefore: true } }))) === "")
   check("a store that has never sold: nothing", subjects(checkoutNotCompleting.evaluate(base({ checkout: { starts: 6, buyers: 4, orders: 0, soldBefore: false } }))) === "")
@@ -305,6 +309,7 @@ console.log("\nEvery rule: fires, is said once, and resolves when fixed (a miles
     [emailBounceRate, base({ emailHealth: { wentOut: 400, bounced: 30, complained: 0 } }), base({ emailHealth: { wentOut: 400, bounced: 2, complained: 0 } })],
     [productMissingFile, base({ deliverable: [] }), base()],
     [checkoutNotCompleting, base({ checkout: { starts: 5, buyers: 4, orders: 0, soldBefore: true } }), base({ checkout: { starts: 5, buyers: 4, orders: 2, soldBefore: true } })],
+    [receiptNotDelivered, base({ undelivered: [{ orderId: "o1", createdAt: ago(1), productTitle: "Lightroom presets" }] }), base({ undelivered: [] })],
     [campaignFailed, base({ failedCampaigns: [{ id: "e1", subject: "Hi", status: "failed", scheduledAt: ago(1), createdAt: ago(2) }] }), base({ failedCampaigns: [] })],
     [setupNextStep, withCreator({ createdAt: ago(2) }, { products: [] }), withCreator({ createdAt: ago(2) })],
     [checkoutReminderOff, base({ recovery: { recoverable: 4, reminderOn: false, flowId: null } }), base({ recovery: { recoverable: 4, reminderOn: true, flowId: null } })],
@@ -666,7 +671,7 @@ function wordsSuite() {
   console.log("\nThe words")
   const worlds = [
     base({ deliverable: [], creator: { ...base().creator!, payoutsEnabled: false } }),
-    base({ payouts: [{ id: "po_1", status: "failed", amountCents: 500, currency: "usd", createdAt: ago(1), failureCode: "declined" }], disputes: [{ id: "dp", amountCents: 900, currency: "usd", openedAt: ago(1), closed: false }] }),
+    base({ payouts: [{ id: "po_1", status: "failed", amountCents: 500, currency: "usd", createdAt: ago(1), failureCode: "declined" }], disputes: [{ id: "dp", amountCents: 900, currency: "usd", openedAt: ago(1), closed: false }], undelivered: [{ orderId: "o9", createdAt: ago(1), productTitle: "Portrait retouching masterclass for wedding photographers" }] }),
     base({ domains: [{ id: "d", domain: "x.example", status: "pending", sslStatus: "pending", verifiedAt: null, createdAt: ago(4), updatedAt: ago(4) }, { id: "d2", domain: "y.example", status: "active", sslStatus: "failed", verifiedAt: ago(4), createdAt: ago(4), updatedAt: ago(1) }], emailHealth: { wentOut: 300, bounced: 30, complained: 0 }, failedCampaigns: [{ id: "e", subject: "Hello", status: "partially_failed", scheduledAt: ago(1), createdAt: ago(2) }] }),
     base({ recovery: { recoverable: 3, reminderOn: false, flowId: null }, subscribers: { count: 99, countWeekAgo: 40 }, lastCampaignSentAt: null, traffic: { views14: { p1: 90 }, orders14: {}, soldRecently: [] }, coupons: [{ id: "k", code: "HELLO", expiresAt: ahead(1), usageCount: 1, usageLimit: null }], checkout: { starts: 5, buyers: 3, orders: 0, soldBefore: true } }),
     withCreator({ createdAt: ago(2), hasAvatar: false, hasBio: false }, { products: [] }),

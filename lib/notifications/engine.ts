@@ -54,6 +54,7 @@ export const ALL_PARTS: ReadonlySet<SnapshotPart> = new Set<SnapshotPart>([
   "recovery",
   "coupons",
   "reviews",
+  "delivery",
 ])
 
 export const KNOWN_KINDS: ReadonlySet<string> = new Set([...RULES.map((r) => r.kind), DIGEST_KIND])

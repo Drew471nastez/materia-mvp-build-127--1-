@@ -38,6 +38,7 @@ export type SnapshotPart =
   | "recovery"
   | "coupons"
   | "reviews"
+  | "delivery"
 
 export interface CreatorFacts {
   id: string
@@ -170,6 +171,14 @@ export interface ReviewFacts {
   olderExists: boolean
 }
 
+/** A paid order whose receipt, with the buyer's download, did not go through. No address is read. */
+export interface UndeliveredFacts {
+  /** The order's page: its first row's id. */
+  orderId: string
+  createdAt: string
+  productTitle: string | null
+}
+
 /** Stripe's own account object, from an account.updated webhook. Never stored. */
 export interface StripeAccountFacts {
   chargesEnabled: boolean
@@ -206,6 +215,8 @@ export interface CreatorSnapshot {
   recovery?: RecoveryFacts
   coupons?: CouponFacts[]
   reviews?: ReviewFacts
+  /** Paid orders of the last week whose receipt email failed and was not sent since. */
+  undelivered?: UndeliveredFacts[]
   stripeAccount?: StripeAccountFacts
 }
 

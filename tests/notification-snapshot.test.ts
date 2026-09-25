@@ -220,6 +220,9 @@ function fixture(): Record<string, Row[]> {
       { id: "o2", product_id: "p2", amount_cents: 3000, status: "completed", created_at: ago(1), stripe_session_id: "cs_1", refund_amount_cents: 0, currency: "usd" },
       { id: "o3", product_id: "p1", amount_cents: 1200, status: "failed", created_at: ago(0.5), stripe_session_id: "cs_2", refund_amount_cents: 0, currency: "usd" },
       { id: "o4", product_id: "p4", amount_cents: 5000, status: "completed", created_at: ago(20), stripe_session_id: null, refund_amount_cents: 0, currency: "usd" },
+      { id: "o5", product_id: "p4", amount_cents: 5000, status: "completed", created_at: ago(2), stripe_session_id: "cs_5", refund_amount_cents: 0, currency: "usd", buyer_email: "buyer@example.com", buyer_email_last_error: "550 mailbox unavailable", buyer_notified_at: null },
+      { id: "o6", product_id: "p4", amount_cents: 900, status: "completed", created_at: ago(2), stripe_session_id: "cs_5", refund_amount_cents: 0, currency: "usd", buyer_email: "buyer@example.com", buyer_email_last_error: "550 mailbox unavailable", buyer_notified_at: null },
+      { id: "o7", product_id: "p4", amount_cents: 900, status: "completed", created_at: ago(3), stripe_session_id: null, refund_amount_cents: 0, currency: "usd", buyer_email_last_error: "timeout", buyer_notified_at: ago(1) },
     ],
     analytics_daily_rollups: [
       ...Array.from({ length: 14 }, (_, i) => ({ id: `r${i}`, creator_id: "c1", product_id: "p2", total_views: 20, total_orders: 0, rollup_date: day(i + 1) })),
@@ -284,6 +287,7 @@ async function main() {
   check("checkouts: 4 reached Pay from 3 people, and no order since", c3.checkout?.starts === 4 && c3.checkout.buyers === 3 && c3.checkout.orders === 0 && c3.checkout.soldBefore === true, c3.checkout)
   check("the checkout reminder: 4 people it could write to, the flow paused", c1.recovery?.recoverable === 4 && c1.recovery.reminderOn === false && c1.recovery.flowId === "f1", c1.recovery)
   check("coupons ending in the next three days only", c1.coupons?.map((c) => c.id).join() === "k1")
+  check("a receipt that failed: one per basket, none once it has gone, and no address read", JSON.stringify(c3.undelivered?.map((o) => o.orderId)) === JSON.stringify(["o5"]) && c1.undelivered?.length === 0 && !JSON.stringify(c3).includes("buyer@"), c3.undelivered)
   check("the first review: new for c3, long ago for c1", c3.reviews?.firstRecent?.id === "rv1" && c3.reviews.olderExists === false && c3.reviews.firstRecent.productTitle === "Coaching" && c1.reviews?.olderExists === true, { c1: c1.reviews, c3: c3.reviews })
 
   console.log("\nWhat cannot be read stays unknown")

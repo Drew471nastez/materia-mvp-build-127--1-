@@ -6,6 +6,9 @@
  *                            file a buyer can download (none, still
  *                            uploading, or flagged by the scan). Buyers pay
  *                            and get nothing.
+ *   receipt_not_delivered    a problem: a buyer paid this week and the email
+ *                            with their download failed; the order's page
+ *                            sends it again.
  *   checkout_not_completing  a problem: three or more people reached Pay in
  *                            the last day and not one order came of it, on a
  *                            store that did sell in the month before. Stripe
@@ -53,6 +56,35 @@ export const productMissingFile: Rule = {
       })
     }
     return out
+  },
+}
+
+/**
+ * A buyer paid and the email with their download did not go through
+ * (lib/orders/notify writes the failure on the order). The order's page has
+ * Resend receipt; resolved once it has gone (buyer_notified_at).
+ */
+export const receiptNotDelivered: Rule = {
+  kind: "receipt_not_delivered",
+  category: "problem",
+  priority: 74,
+  version: 1,
+  needs: ["delivery"],
+  cooldownDays: 0,
+  ttlDays: 7,
+  resolveWhenGone: true,
+  push: false,
+  evaluate(s) {
+    if (!s.undelivered) return undefined
+    const list = s.undelivered.filter((o) => ageDays(o.createdAt, s.now) <= 7)
+    return list.slice(0, 3).map((o) => ({
+      subject: o.orderId,
+      period: "",
+      title: o.productTitle ? `A receipt for ${clip(o.productTitle, 30)} did not reach the buyer` : "A receipt did not reach the buyer",
+      message: "The email with their download did not go through. Open the order to send it again.",
+      href: `/app/orders?order=${encodeURIComponent(o.orderId)}`,
+      area: "Orders",
+    }))
   },
 }
 
