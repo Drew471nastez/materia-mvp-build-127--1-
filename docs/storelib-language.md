@@ -185,6 +185,7 @@ read the ends of a list or a string.
 | `json` | the value as JSON, for a data attribute |
 | `date: "short"` | a `datetime` for people to read: `long`, `short`, `time`, `long_time`, `iso` |
 | `strip_html` | the words of some markup, for an alt text made from rich text |
+| `lines` | a `textarea` typed one item per line, as a list to loop over |
 | `escape` | escape again; output is already escaped |
 | `raw` | do NOT escape. `richtext`, `inline_richtext` and `html` settings, and `product.description_html`, only |
 

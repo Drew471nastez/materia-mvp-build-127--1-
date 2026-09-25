@@ -17,6 +17,7 @@ import { z } from "zod"
 
 import { CONTROL_TYPES, UNSUPPORTED_TYPES, controlFor, holdsValue, resolveControlType } from "../controls/registry"
 import { VIDEO_HOSTS } from "../values"
+import { parseCondition } from "../storelib/template"
 import { readLanguageVersion } from "../language"
 import { LIMITS, SECTION_SCHEMA_VERSION, type Result, type SectionSchema, type ThemeError } from "../types"
 
@@ -40,6 +41,7 @@ const setting = z
     unit: z.string().max(8).optional(),
     responsive: z.boolean().optional(),
     content: z.string().optional(),
+    visible_if: z.string().max(300).optional(),
   })
   .passthrough()
 
@@ -150,7 +152,33 @@ export function validateSectionSchema(input: unknown, opts: ValidateOptions = {}
   if (!TYPE.test(s.type)) err("type", `"${s.type}" is not a section type: lowercase letters, digits, - and _`)
   if (s.settings.length > LIMITS.settingsPerSchema) err("settings", `${s.settings.length} settings; the limit is ${LIMITS.settingsPerSchema}`)
 
-  const checkSettings = (list: typeof s.settings, at: string, seen = new Set<string>()) => {
+  /**
+   * A `visible_if` may read the section's settings, and a block's may also
+   * read its own block's. Anything else is a condition about nothing, which
+   * would hide its setting for good, so it is refused where it is written.
+   */
+  const sectionValueIds = new Set(s.settings.filter((f) => holdsValue(f.type)).map((f) => f.id))
+  const checkCondition = (f: (typeof s.settings)[number], p: string, blockIds: Set<string> | null) => {
+    if (f.visible_if === undefined) return
+    const parsed = parseCondition(f.visible_if)
+    if (parsed.ok === false) {
+      err(`${p}.visible_if`, `visible_if does not read: ${parsed.message}`)
+      return
+    }
+    for (const segs of parsed.paths) {
+      const [root, group, id] = segs
+      const owner = root === "section" ? sectionValueIds : root === "block" ? blockIds : null
+      if (group !== "settings" || !owner || !id) {
+        err(`${p}.visible_if`, `visible_if reads "${segs.join(".")}"; it may read section.settings.<id>${blockIds ? " or block.settings.<id>" : ""}`)
+      } else if (!owner.has(id)) {
+        err(`${p}.visible_if`, `visible_if reads ${root}.settings.${id}, which is not a setting of this ${root}`)
+      } else if (id === f.id) {
+        err(`${p}.visible_if`, `a setting cannot be shown or hidden by its own value`)
+      }
+    }
+  }
+
+  const checkSettings = (list: typeof s.settings, at: string, seen = new Set<string>(), blockIds: Set<string> | null = null) => {
     list.forEach((f, i) => {
       const p = `${at}[${i}]`
       const control = controlFor(f.type)
@@ -199,6 +227,7 @@ export function validateSectionSchema(input: unknown, opts: ValidateOptions = {}
         }
       }
       if (!holdsValue(f.type) && f.default !== undefined) err(`${p}.default`, `a ${canonical} holds no value and takes no default`)
+      checkCondition(f, p, blockIds)
     })
   }
   checkSettings(s.settings, "settings")
@@ -209,7 +238,7 @@ export function validateSectionSchema(input: unknown, opts: ValidateOptions = {}
     if (!TYPE.test(b.type)) err(`${p}.type`, `"${b.type}" is not a block type`)
     if (blockTypes.has(b.type)) err(`${p}.type`, `block type "${b.type}" is declared twice`)
     blockTypes.add(b.type)
-    checkSettings(b.settings, `${p}.settings`)
+    checkSettings(b.settings, `${p}.settings`, new Set<string>(), new Set(b.settings.filter((f) => holdsValue(f.type)).map((f) => f.id)))
   })
   if (s.max_blocks !== undefined && s.max_blocks > LIMITS.blocksPerSection) {
     err("max_blocks", `${s.max_blocks} is above the limit of ${LIMITS.blocksPerSection}`)

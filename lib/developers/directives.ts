@@ -24,6 +24,7 @@ import { SCHEME_COLOR_KEYS, SCHEME_CSS_VARS } from "@/lib/storelib-theme/color-s
 import { FONT_ROLES, TYPE_STYLE_KEYS, TYPE_STYLE_LABELS } from "@/lib/storelib-theme/typography"
 import { ENGINE_VERSION, LIMITS, SECTION_SCHEMA_VERSION, THEME_FORMAT_VERSION } from "@/lib/storelib-theme/types"
 import { ALL_TOPICS, MAX_REPAIR_ATTEMPTS, writeSectionRules } from "@/lib/storelib-ai"
+import { DYNAMIC_SOURCES, SOURCE_TARGETS, sourcesFor } from "@/lib/storelib-theme/dynamic"
 
 import { DEVELOPER_EXAMPLES } from "./content.generated"
 import { builtInSchemes, controlSpecimens, themeSettingGroups, typeStyleRows } from "./builder-reference"
@@ -58,6 +59,7 @@ export const FILTER_DOCS: Record<string, { use: string; does: string }> = {
   asset: { use: `{{ block.settings.clip | asset }}`, does: "An `asset://` reference as the URL this account serves it from. A plain URL passes through." },
   date: { use: `{{ settings.ends_at | date: "short" }}`, does: "A `datetime` for people to read: `long` (14 March 2026, the default), `short` (14 Mar 2026), `time` (23:00), `long_time` or `iso`. Read as written, never moved to another time zone." },
   strip_html: { use: `alt="{{ settings.heading | strip_html }}"`, does: "The words of some markup, entities decoded, on one line. For an alt text or a title made from a rich text setting." },
+  lines: { use: `{% for line in block.settings.features | lines %}`, does: "Each line of a text that has something on it, trimmed, as a list, at most 100. For a `textarea` typed one item per line: the features of a plan, the lessons of a module." },
   alpha: { use: `{{ settings.color | alpha: 0.4 }}`, does: "A hex colour at that opacity, as `rgba()`." },
 }
 
@@ -135,7 +137,7 @@ export function exampleTypes(): string[] {
 export const DIRECTIVE_NAMES = [
   "limits", "filters", "refusals", "controls", "legacy-controls", "scheme-vars", "type-styles",
   "embed-hosts", "forbidden", "capabilities", "versions", "example", "ai-brief", "ai-topics-extra", "ai-loop",
-  "builder-controls", "theme-settings", "builder-schemes", "builder-type-styles",
+  "builder-controls", "theme-settings", "builder-schemes", "builder-type-styles", "dynamic-sources",
 ] as const
 
 export function expandDirective(name: string, arg?: string): DocNode[] {
@@ -200,6 +202,21 @@ export function expandDirective(name: string, arg?: string): DocNode[] {
           }],
         },
       ]
+
+    case "dynamic-sources": {
+      /* The setting types a placeholder can go in, asked of the same function
+         the editor's Insert shop data list is built from. */
+      const types = Object.keys(SOURCE_TARGETS).filter((t) => (CONTROL_TYPES as readonly string[]).includes(t))
+      return [{
+        kind: "table",
+        head: ["Placeholder", "What it is", "Setting types it fills"],
+        rows: DYNAMIC_SOURCES.map((s) => [
+          code(`{{ ${s.id} }}`),
+          s.templates ? `${s.description} On the product page only.` : s.description,
+          types.filter((t) => sourcesFor(t, s.templates?.[0] ?? "index").some((x) => x.id === s.id)).map(code).join(" "),
+        ]),
+      }]
+    }
 
     case "legacy-controls":
       return [{

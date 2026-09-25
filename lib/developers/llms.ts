@@ -42,6 +42,7 @@ export function llmsTxt(): string {
     "",
     line("selling"),
     line("examples"),
+    line("shopify"),
     "",
     "## Optional",
     "",

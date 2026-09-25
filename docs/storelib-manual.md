@@ -306,6 +306,7 @@ All 27 of them.
 | `alpha: 0.5` | The same colour at the given alpha. Hex only. |
 | `date: "short"` | A `datetime` for people to read: `long` (14 March 2026), `short`, `time`, `long_time`, `iso`. Read as written, never moved to another time zone. |
 | `strip_html` | The words of some markup, on one line. For an alt text made from rich text. |
+| `lines` | Each line of a text with something on it, trimmed, as a list of at most 100. For a `textarea` typed one item per line: `{% for line in block.settings.features \| lines %}`. |
 
 `url` keeps root-relative `/…`, `http://`, `https://`, `mailto:`, `tel:` and
 `#…`. Everything else becomes `#`, including a protocol-relative `//host`,
@@ -561,9 +562,25 @@ type does not allow is drawn as the setting's default and kept as it was in
 the stored page, so a section never draws a word in a `range`, an option its
 `select` does not list, or a `javascript:` address in a `url`.
 
+A setting that only means something in one mode says so with `visible_if`,
+written the way Shopify writes it:
+
+```json
+{ "type": "product_list", "id": "chosen", "label": "Products to show",
+  "visible_if": "{{ section.settings.source == 'chosen' }}" }
+```
+
+The condition is an expression of the template language inside `{{ }}`. A
+section's setting reads `section.settings.<id>`; a block's setting reads its
+own `block.settings.<id>` and the section's. Each is read as the page would
+draw it, saved value or default. It decides only what the panel shows: a
+hidden setting keeps its value and a template still reads it.
+
 What the validator refuses:
 
 - A type that is not one of the 33, with the list in the message.
+- A `visible_if` that does not parse, reads a setting that is not declared,
+  reads a block's settings from a section setting, or reads its own setting.
 - A `product_list` `limit` outside 1 to 24, a `video_url` `accept` naming a
   host other than `youtube` or `vimeo`, and a `focal_point` whose `image` is
   not an `image_picker` beside it.
@@ -1092,8 +1109,26 @@ the filter did not recognise renders empty rather than loading it.
 ## 12. Templates and pages
 
 A template is a page: which section instances it has, in what order, with what
-settings. A theme ships four page templates, `home`, `product`, `about` and
-`contact`, and a merchant can add their own.
+settings. A theme ships `home`, `product`, `about` and `contact`, and a creator
+can add their own. Three more exist on every site before anybody arranges
+them, generated from the home page's header and footer and one section each,
+and stored like any other page once the creator opens and saves one:
+
+| Page | Address | Its section | `page.template` |
+| --- | --- | --- | --- |
+| Shop | `/products` | `product_grid` reading the shop | `page.products` |
+| Search | `/search` | `search` | `page.search` |
+| 404 | any address the site does not have | `not_found` | `page.404` |
+
+The 404 page is drawn inside the real 404 answer: Next's root not-found keeps
+the status, and on a creator's host it fetches `/not_found` (the site's own
+route, published content only) and draws the page the creator arranged in
+place of the plain one. `404` is a reserved key, so `/404` is one more address
+the site does not have.
+
+The cart (`/cart`) is the site's header and footer around the visitor's cart,
+and is not arranged with sections. Policy pages come from the creator's own
+policies.
 
 ```json
 {
@@ -1114,6 +1149,11 @@ the heading rules that follow a section's text style leave them alone, because
 a cart drawer's title is not the section's heading.
 
 A template may hold at most 60 sections.
+
+Every storefront page fills the placeholders a creator typed into settings
+(`{{ shop.name }}`, `{{ product.price }}` and the rest of the closed list in
+lib/storelib-theme/dynamic.ts) on the server before a section is drawn, and
+hands the engine the site's menus and the products its pickers name.
 
 ---
 

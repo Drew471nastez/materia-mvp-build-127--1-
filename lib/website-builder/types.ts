@@ -290,12 +290,13 @@ export interface ThemePage {
 }
 
 /**
- * "products" and "search" are pages the site has whether or not anybody has
- * arranged them: the shop and the search results, built from the home page's
- * header and footer and a section each until the creator opens one in the
- * builder, after which what they saved is what is served.
+ * "products", "search" and "404" are pages the site has whether or not
+ * anybody has arranged them: the shop, the search results and the page for
+ * an address the site does not have, built from the home page's header and
+ * footer and a section each until the creator opens one in the builder,
+ * after which what they saved is what is served.
  */
-export type PageKey = "home" | "product" | "about" | "contact" | "products" | "search"
+export type PageKey = "home" | "product" | "about" | "contact" | "products" | "search" | "404"
 
 export const PAGE_META: Record<PageKey, { label: string; icon: string }> = {
   home: { label: "Home page", icon: "home" },
@@ -304,6 +305,7 @@ export const PAGE_META: Record<PageKey, { label: string; icon: string }> = {
   contact: { label: "Contact page", icon: "mail" },
   products: { label: "Shop", icon: "grid" },
   search: { label: "Search", icon: "search" },
+  "404": { label: "404 page", icon: "search" },
 }
 
 // ── Custom files ─────────────────────────────────────────────
@@ -405,6 +407,8 @@ export interface SchemaField {
   image?: string
   /** paragraph: the words it shows. */
   content?: string
+  /** When the panel shows it. See lib/storelib-theme/visible-if.ts. */
+  visible_if?: string
 }
 
 export interface BlockSchema {

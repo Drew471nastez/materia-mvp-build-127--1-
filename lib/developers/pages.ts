@@ -130,6 +130,14 @@ export const DEV_PAGES: readonly DevPage[] = [
     group: "Build",
   },
   {
+    slug: "shopify",
+    title: "Coming from Shopify",
+    nav: "Coming from Shopify",
+    description:
+      "How Shopify's theme structure maps to the Storelib Builder Framework: setting types, schema keys, templates and pages, sections, menus and dynamic sources, and what Storelib does not have and why.",
+    group: "Reference",
+  },
+  {
     slug: "changelog",
     title: "Changelog",
     nav: "Changelog",

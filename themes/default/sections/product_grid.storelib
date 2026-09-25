@@ -31,6 +31,29 @@
           {% endfor %}
         </div>
       {% endif %}
+    {% elsif settings.source == 'chosen' %}
+      {# Real products, in the order they were chosen: the product_list
+         setting hands them over block-shaped, like `products`. A product
+         that is unpublished or deleted is simply not in the list. #}
+      {% if settings.chosen.size == 0 %}
+        {% if page.in_editor %}<p class="empty">Choose products in the sidebar</p>{% endif %}
+      {% else %}
+        <div class="grid">
+          {% for block in settings.chosen %}
+          <article class="card card__wrap" data-block-id="{{ block.id }}">
+            <div class="card__media" style="aspect-ratio: {{ settings.shape }};">
+              {% if block.settings.image %}<img src="{{ block.settings.image | asset }}" alt="{{ block.settings.title }}" loading="lazy" decoding="async">{% endif %}
+              {% if block.settings.tag %}<span class="tag">{{ block.settings.tag }}</span>{% endif %}
+            </div>
+            <h3 class="card__title">{{ block.settings.title }}</h3>
+            {% if settings.show_price and block.settings.price %}
+              <p class="card__price">{{ block.settings.price }}{% if block.settings.compare_price %}<s class="card__was">{{ block.settings.compare_price }}</s>{% endif %}</p>
+            {% endif %}
+            {% if block.settings.url %}<a class="card__link" href="{{ block.settings.url | url }}"><span class="sr">{{ block.settings.title }}</span></a>{% endif %}
+          </article>
+          {% endfor %}
+        </div>
+      {% endif %}
     {% else %}
       {% if blocks.size == 0 %}
         {% if page.in_editor %}<p class="empty">Add products in the sidebar</p>{% endif %}
@@ -39,7 +62,8 @@
           {% for block in blocks %}
           <article class="card card__wrap" data-block-id="{{ block.id }}">
             <div class="card__media" style="aspect-ratio: {{ settings.shape }};">
-              {% if block.settings.image %}<img src="{{ block.settings.image | asset }}" alt="{{ block.settings.title }}" loading="lazy" decoding="async">{% endif %}
+              {# No photo of its own: the photo of the product the card goes to. #}
+              {% if block.settings.image %}<img src="{{ block.settings.image | asset }}" alt="{{ block.settings.title }}" loading="lazy" decoding="async">{% elsif block.settings.url.image %}<img src="{{ block.settings.url.image | asset }}" alt="{{ block.settings.title }}" loading="lazy" decoding="async">{% endif %}
               {% if block.settings.tag %}<span class="tag">{{ block.settings.tag }}</span>{% endif %}
             </div>
             <h3 class="card__title">{{ block.settings.title }}</h3>
@@ -142,18 +166,30 @@
       "type": "select",
       "id": "source",
       "label": "Products",
-      "info": "Your shop stays in step on its own. Picked products are whatever you type here.",
+      "info": "Products you choose and your shop stay in step with Products on their own. Cards you fill in show whatever you type.",
       "default": "picked",
       "options": [
         {
-          "label": "The ones I pick",
+          "label": "Cards I fill in",
           "value": "picked"
+        },
+        {
+          "label": "Products I choose",
+          "value": "chosen"
         },
         {
           "label": "My shop, newest first",
           "value": "shop"
         }
       ]
+    },
+    {
+      "type": "product_list",
+      "id": "chosen",
+      "label": "Products to show",
+      "limit": 12,
+      "default": [],
+      "visible_if": "{{ section.settings.source == 'chosen' }}"
     },
     {
       "type": "header",

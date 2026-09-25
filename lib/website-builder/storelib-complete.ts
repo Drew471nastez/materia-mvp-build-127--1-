@@ -80,8 +80,9 @@ export const FILTERS: { name: string; detail: string }[] = [
   { name: "divided_by", detail: "divide" },
   { name: "round", detail: "round to a whole number" },
   { name: "json", detail: "the value as JSON, for a data attribute" },
-  { name: "date", detail: 'date: "short" — a datetime for people to read' },
+  { name: "date", detail: 'date: "short", a datetime for people to read' },
   { name: "strip_html", detail: "the words of some markup, for alt text" },
+  { name: "lines", detail: "a text typed one item per line, as a list" },
 ]
 
 export const TAGS: { name: string; detail: string }[] = [

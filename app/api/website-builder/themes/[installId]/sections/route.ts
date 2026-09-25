@@ -1,7 +1,7 @@
 import { sanitizeSections } from "@/lib/website-builder/sanitize-sections"
 import { customSchemaLookup } from "@/lib/website-builder/custom-schemas"
 import { GENERATED_PAGE_KEYS } from "@/lib/website-builder/site-pages"
-import { searchSections, shopSections } from "@/lib/website-builder/shop-page"
+import { notFoundSections, searchSections, shopSections } from "@/lib/website-builder/shop-page"
 import type { ThemeSettingsValues } from "@/lib/website-builder/types"
 import { NextResponse } from "next/server"
 import { revalidatePublishedSite } from "@/lib/website-builder/published-site"
@@ -83,7 +83,7 @@ export async function GET(req: Request, { params }: Params) {
 
   /*
     ═══════════════════════════════════════════════════════════════════════
-     THE SHOP AND THE SEARCH PAGE EXIST BEFORE ANYBODY HAS ARRANGED THEM
+     THE SHOP, SEARCH AND 404 PAGES EXIST BEFORE ANYBODY HAS ARRANGED THEM
     ═══════════════════════════════════════════════════════════════════════
     A published site answers /products and /search from the day it is
     published, built from the home page's header and footer and one section
@@ -112,7 +112,11 @@ export async function GET(req: Request, { params }: Params) {
     ])
     const homeSections = ((home?.draft_sections ?? home?.sections) as SectionInstance[] | null) ?? []
     const theme = ((settingsRow?.draft_settings ?? settingsRow?.settings) as ThemeSettingsValues | null) ?? ({} as ThemeSettingsValues)
-    const generated = pageKey === "products" ? shopSections(homeSections, theme) : searchSections(homeSections)
+    const generated = pageKey === "products"
+      ? shopSections(homeSections, theme)
+      : pageKey === "search"
+        ? searchSections(homeSections)
+        : notFoundSections(homeSections)
     return NextResponse.json({ page: null, sections: sanitizeSections(generated), has_draft: false, generated: true })
   }
 

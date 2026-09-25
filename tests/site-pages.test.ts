@@ -155,7 +155,8 @@ function main() {
     /* Six now: the shop and the search page are pages every site has, built
        on read until a creator arranges them, and reserved so nobody can also
        make a page by either name. */
-    check("and the six are the six", BUILT_IN_PAGE_KEYS.size === 6 && ["home", "product", "about", "contact", "products", "search"].every((k) => BUILT_IN_PAGE_KEYS.has(k)))
+    /* Seven with the 404 page, generated like the shop and the search page. */
+    check("and the seven are the seven", BUILT_IN_PAGE_KEYS.size === 7 && ["home", "product", "about", "contact", "products", "search", "404"].every((k) => BUILT_IN_PAGE_KEYS.has(k)))
 
     check("delete calls the server", /handleDeletePage/.test(editor) && /method: "DELETE"/.test(editor))
     check("it leaves the page it is deleting first", /if \(currentPage === key\) await handlePageChange\("home"\)/.test(editor))
@@ -291,11 +292,11 @@ function main() {
      * payload carried both boundaries and the platform's was the one that
      * showed.
      */
-    check("the platform's 404 has a second body for a creator's own address", /<NotFoundBody platform=\{<PlatformNotFound \/>\} site=\{<SiteNotFound \/>\} \/>/.test(nf))
+    check("the platform's 404 has a second body for a creator's own address", /<NotFoundBody platform=\{<PlatformNotFound \/>\} site=\{<SiteNotFound fallback=\{<PlainSiteNotFound \/>\} \/>\} \/>/.test(nf))
     check("which says the page is not here", /That page is not here/.test(nf))
     check("and offers the site's own front page, not Storelib", /href="\/"[\s\S]{0,200}Back to the home page/.test(nf))
     check("the site body mentions neither Storelib nor Explore", (() => {
-      const siteBody = nf.slice(nf.indexOf("function SiteNotFound"), nf.indexOf("function PlatformNotFound"))
+      const siteBody = nf.slice(nf.indexOf("function PlainSiteNotFound"), nf.indexOf("function PlatformNotFound"))
       return !/Storelib/.test(siteBody) && !/Explore/.test(siteBody)
     })())
 
@@ -308,6 +309,22 @@ function main() {
     )
     check("which is a rule because the pages under it are cached", /export const revalidate = 60/.test(home))
     check("there is no second not-found under the site routes to compete with it", !existsSync(join(process.cwd(), "app/(site)/w/[username]/not-found.tsx")))
+
+    /**
+     * THE CREATOR'S OWN 404 PAGE, INSIDE THE REAL 404. The site body asks
+     * the same host for the page the creator arranged and draws it with
+     * their header and footer; the status is still the root 404's.
+     */
+    const siteNf = read("components/website-builder/site-not-found.tsx")
+    const siteNfPage = read("components/website-builder/site-not-found-page.tsx")
+    const nfRoute = read("app/(site)/w/[username]/not_found/route.ts")
+    check("the site body asks its own host for the creator's 404 page", /fetch\("\/not_found"/.test(siteNf) && /credentials: "omit"/.test(siteNf))
+    check("and falls back to the plain page when it cannot, without swapping later", /setPlain\(true\)/.test(siteNf) && /if \(settled\) return/.test(siteNf))
+    check("the theme is loaded only on a creator's site", /import\("@\/components\/website-builder\/site-not-found-page"\)/.test(siteNf) && !/from "@\/components\/website-builder\/theme\/ThemePage"/.test(siteNf))
+    check("the page is drawn like every page of the site", /<ThemePage theme=\{page\.theme\} sections=\{page\.sections\}/.test(siteNfPage) && /<SiteDocument \/>/.test(siteNfPage))
+    check("the address it asks is published content, cached, and never indexed", /publishedNotFoundPage\(username\)/.test(nfRoute) && /s-maxage=60/.test(nfRoute) && /"X-Robots-Tag": "noindex"/.test(nfRoute))
+    check("the address cannot collide with a page a creator makes", pageKeyFromSegment("not_found") === null)
+    check("a missing page is still a real 404 from the page route", /if \(!key\) notFound\(\)/.test(read("app/(site)/w/[username]/[page]/page.tsx")))
   }
 
   // ═══════════════════════════════════════════════════════════════════════

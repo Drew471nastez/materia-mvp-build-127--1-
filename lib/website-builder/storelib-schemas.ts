@@ -37,6 +37,7 @@ function field(s: SettingDefinition): SchemaField {
   if (Array.isArray(s.accept)) f.accept = (s.accept as unknown[]).filter((x): x is string => typeof x === "string")
   if (typeof s.image === "string") f.image = s.image
   if (typeof s.content === "string") f.content = s.content
+  if (typeof s.visible_if === "string") f.visible_if = s.visible_if
   return f
 }
 

@@ -18,6 +18,7 @@ import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder
 /** The id is fixed, not generated: the same page must render the same twice. */
 const SEARCH_ID = "storelib-search"
 const GRID_ID = "shop-all-products"
+const NOT_FOUND_ID = "storelib-not-found"
 
 export function shopSections(
   homeSections: SectionInstance[],
@@ -109,6 +110,46 @@ export function searchSections(homeSections: SectionInstance[]): SectionInstance
   }
 
   return [...(header ? [header] : []), search, ...(footer ? [footer] : [])]
+}
+
+/**
+ * ===========================================================================
+ *  THE 404 PAGE, LIKE THE SEARCH PAGE: CHROME AND ONE SECTION
+ * ===========================================================================
+ * An address the site does not have still belongs to the site. The visitor
+ * gets the creator's header and footer, one line saying the page is not
+ * here, the way home, a search box and a few things from the shop: the
+ * `not_found` section, which the builder shows in the sidebar like any
+ * other once the creator opens the 404 page from the page switcher.
+ */
+export function notFoundSections(homeSections: SectionInstance[]): SectionInstance[] {
+  const header = homeSections.find((s) => s.type === "header")
+  const footer = homeSections.find((s) => s.type === "footer")
+
+  const notFound: SectionInstance = {
+    id: NOT_FOUND_ID,
+    type: "not_found",
+    name: "Page not found",
+    settings: {
+      heading: "This page is not here",
+      text: "The link may be old, or the page may have moved.",
+      button_text: "Back to the home page",
+      button_url: "/",
+      show_search: true,
+      search_placeholder: "Search the shop",
+      search_button: "Search",
+      show_products: true,
+      products_heading: "From the shop",
+      product_count: 4,
+      color_scheme: "white",
+      padding_top: 96,
+      padding_bottom: 96,
+    },
+    blocks: [],
+    hidden: false,
+  }
+
+  return [...(header ? [header] : []), notFound, ...(footer ? [footer] : [])]
 }
 
 /**

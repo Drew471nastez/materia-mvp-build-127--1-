@@ -73,13 +73,16 @@ A path reads plain data only. `__proto__`, `constructor` and `prototype` cannot 
 | `page.template` | Which page this is on: `index`, `product`, `page.about` and so on. |
 | `page.in_editor` | `true` inside the builder. Put prompts for the creator behind it so a visitor never sees them. |
 | `products` | The creator's published products, newest first, each `{ id, type, settings }` with `settings.title`, `price` (already formatted), `compare_price`, `image`, `url` and `tag`. The same shape as a block, so one card works for both. |
+| `shop.name`, `shop.description`, `shop.url`, `shop.product_count` | This site: its name, its description, its own address and how many products it has published. |
+| `creator.name`, `creator.headline`, `creator.bio`, `creator.avatar` | The creator's public profile. |
+| `product` | On the product page only, the product it shows: `title`, `price`, `compare_price`, `description` (words), `description_html` (cleaned markup, printed with `raw`), `image`, `images`, `url`, `includes` and `id`. Empty everywhere else, so `{% if product %}` tells a section which page it is on. |
 | `forloop.index`, `index0`, `first`, `last`, `length` | Inside a `for`. |
 
 ### Filters
 
 @[filters]
 
-Two rules worth remembering: put `| url` on every `href` built from a setting, and use `raw` only on a `richtext` setting.
+Two rules worth remembering: put `| url` on every `href` built from a setting, and use `raw` only on a `richtext`, `inline_richtext` or `html` setting, or on `product.description_html`. Each of those is cleaned against an allow list before a template sees it.
 
 ### What the compiler refuses
 

@@ -2,7 +2,7 @@
 
 Storelib sites are built from sections, and every section is written in one language: the **Storelib Builder Framework**. This hub is its complete reference, and a guide to the website builder that runs it.
 
-The same language is read by everyone who builds here. A creator in the code editor, the builder's own AI, and whatever you bring with you, whether that is Claude Code, Codex, ChatGPT or Cursor, all write the same files through the same compiler and get the same errors back. There is no second format for machines and no private dialect for the platform's own sections: the thirty sections in the library are written in exactly what these pages describe.
+The same language is read by everyone who builds here. A creator in the code editor, the builder's own AI, and whatever you bring with you, whether that is Claude Code, Codex, ChatGPT or Cursor, all write the same files through the same compiler and get the same errors back. There is no second format for machines and no private dialect for the platform's own sections: the sections in the library are written in exactly what these pages describe.
 
 Where part of the framework is specified but not live yet, the page says so plainly. Nothing here describes a feature you cannot use today without saying that it is not live.
 

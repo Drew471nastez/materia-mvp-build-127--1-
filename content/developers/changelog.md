@@ -12,6 +12,34 @@ A file written for a newer version is **refused, not misread**: a schema declari
 
 Every change since 1.0 has been additive. Nothing a section could do on 11 September 2026 has stopped working since, which is why every version above is still 1.
 
+## 25 September 2026
+
+**Added**
+
+- Eight setting types: `inline_richtext`, `html`, `color_background`, `datetime`, `focal_point`, `video_url`, `product_list` and `link_list`. See [Schema](/developers/schema#every-control-type).
+- `visible_if` on a setting, written as Shopify writes it, so the panel shows a setting only when it matters. See [Showing a setting only when it matters](/developers/schema#showing-a-setting-only-when-it-matters).
+- Shop data in a setting: `{{ shop.name }}`, `{{ creator.avatar }}`, `{{ product.price }}` and the rest of a closed list, filled in on the server. See [Shop data in a setting](/developers/schema#shop-data-in-a-setting).
+- `shop`, `creator` and `product` in a template, beside `settings` and `blocks`.
+- A `product_picker` carries the product's title, price and picture as well as its address.
+- Menus, made in Theme settings, for a `link_list`. `main-menu` is the header's own links, and the header can show any menu.
+- The `lines` filter, for a `textarea` typed one item per line.
+- Three sections: Plans, Rows and Course Outline.
+- The 404 page: every site draws its own inside its header and footer for an address it does not have, and a creator can arrange it in the builder like the shop and search pages.
+- The Product Grid can show products the creator chooses from the shop.
+- [Coming from Shopify](/developers/shopify).
+
+**Changed**
+
+- Every saved value is held to its type as a section is drawn. A value the type does not allow is drawn as the default and left as it was in storage.
+- The countdown's exact time is a `datetime`, written out when no end is typed.
+- The header's phone menu can slide in from either side or cover the screen, and its see-through setting can apply to the home page only.
+- The announcement bar can hold several messages that take turns.
+
+**Security**
+
+- A creator's own sections are cleaned by the schema their file declares, not only by the built-in ones, when a page is saved, read in the builder and published.
+- The builder's routes no longer return database error text.
+
 ## 24 September 2026
 
 **Added**

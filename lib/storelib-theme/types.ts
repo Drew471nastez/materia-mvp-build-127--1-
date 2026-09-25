@@ -138,6 +138,11 @@ export interface SettingDefinition {
   unit?: string
   /** A value per breakpoint rather than one. */
   responsive?: boolean
+  /**
+   * When the editor shows this setting: `{{ section.settings.source == 'chosen' }}`.
+   * The panel only; a hidden setting keeps its value and a template still reads it.
+   */
+  visible_if?: string
   [key: string]: unknown
 }
 

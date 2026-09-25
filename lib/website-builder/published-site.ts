@@ -46,7 +46,8 @@ import { creatorIdByHandle } from "@/lib/website-builder/site-address-data"
 import { renderWithSources, sectionSources } from "@/lib/website-builder/storefront-render"
 import { shopProducts, type ProductCard } from "@/lib/website-builder/shop-products"
 import { pageSections, themeSettings as themeSettingsOf } from "@/lib/website-builder/preview-link"
-import { pageTitleFromKey, templateForPage } from "@/lib/website-builder/site-pages"
+import { NOT_FOUND_PAGE_KEY, pageTitleFromKey, templateForPage } from "@/lib/website-builder/site-pages"
+import { notFoundSections } from "@/lib/website-builder/shop-page"
 import { SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
 import { schemaFor } from "@/lib/website-builder/storelib-schemas"
 import {
@@ -209,13 +210,21 @@ export async function creatorByName(name: string): Promise<NameMatch | null> {
   return unstable_cache(() => lookUpName(lower), ["site-name", lower], { revalidate: NAME_TTL })()
 }
 
-/** Where a name that no longer exists went, if anywhere. */
+/**
+ * Where a name that no longer exists went, if anywhere.
+ *
+ * `ilike` for case, with the name taken literally. The name is whatever was
+ * typed into an address, and to LIKE a `%` is any name at all: `/w/%25`
+ * answered with a redirect to whichever creator had changed their username
+ * most recently.
+ */
 async function renamedTo(name: string): Promise<string | null> {
   const admin = createAdminClient()
+  const literal = name.replace(/[\\%_]/g, (c) => `\\${c}`)
   const { data } = await admin
     .from("username_history")
     .select("new_username")
-    .ilike("old_username", name)
+    .ilike("old_username", literal)
     .order("changed_at", { ascending: false })
     .limit(1)
     .maybeSingle()
@@ -438,6 +447,50 @@ export async function dressPage(
     menus: siteMenus(site.themeSettings, filled),
   })
   return { sections: filled, data }
+}
+
+/**
+ * ===========================================================================
+ *  THE SITE'S OWN 404 PAGE, DRAWN FOR AN ADDRESS IT DOES NOT HAVE
+ * ===========================================================================
+ * What the creator arranged on their 404 page, or the generated one (their
+ * header and footer around the `not_found` section) until they do. Drawn
+ * the way every other page is: live links, placeholders, picked products.
+ *
+ * Handed to app/(site)/w/[username]/not_found, which the 404 answer fetches
+ * on the visitor's side: Next draws a missing page with the one root 404,
+ * which cannot know whose site it is on, so the status stays a real 404 and
+ * the page inside it becomes the creator's. See app/not-found.tsx.
+ */
+export interface NotFoundPage {
+  template: string
+  title: string
+  theme: ThemeSettingsValues
+  sections: SectionInstance[]
+  prerendered: Record<string, RenderedSection>
+  storefront: { creatorId: string; installId: string }
+}
+
+export async function publishedNotFoundPage(name: string): Promise<NotFoundPage | null> {
+  const found = await resolveSite(name)
+  if (found.kind !== "site") return null
+  const { site, products, productCount } = found
+  const stored = site.pages[NOT_FOUND_PAGE_KEY]
+  const arranged = stored && stored.length > 0 ? stored : notFoundSections(site.pages.home ?? site.sections)
+  const linked = pageWithLiveLinks(arranged, new Set(Object.keys(site.pages)))
+  const template = templateForPage(NOT_FOUND_PAGE_KEY)
+  const title = pageTitleFromKey(NOT_FOUND_PAGE_KEY)
+  const { sections, data } = await dressPage(site, linked, products, productCount, template, title)
+  const prerendered = renderWithSources(site.sources, sections, site.themeSettings, template, products, undefined, data)
+  const brand = typeof site.themeSettings.brand_name === "string" ? site.themeSettings.brand_name.trim() : ""
+  return {
+    template,
+    title: `${title} | ${brand || site.displayName}`,
+    theme: site.themeSettings,
+    sections,
+    prerendered,
+    storefront: { creatorId: site.creatorId, installId: site.installId },
+  }
 }
 
 /**

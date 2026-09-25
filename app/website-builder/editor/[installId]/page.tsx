@@ -126,6 +126,7 @@ import { DynamicSourceField, EditorFieldProvider, SiblingSettingsProvider, contr
 import { dynamicContext, productFacts, siteMenus, storefrontData, withDynamicSources, type CreatorFacts } from "@/lib/website-builder/storefront-data"
 import { formatPrice } from "@/lib/website-builder/shop-products"
 import { cleanMenus } from "@/lib/storelib-theme/values"
+import { visibleFields } from "@/lib/storelib-theme/visible-if"
 
 /** Ask Storelib on a phone: half, and the whole screen below the status bar. A constant so the sheet's memo holds. */
 const AI_SHEET_DETENTS = [0.5, 1]
@@ -299,7 +300,7 @@ const LOGO_SYNC_THEME_TO_HEADER: Record<string, string> = {
 // user is currently previewing. We also accept the legacy `?page=X[&product=Y]`
 // query string so existing deep-links keep working.
 type ParsedPreview = {
-  page: "home" | "product" | "about" | "contact" | "products" | "search"
+  page: "home" | "product" | "about" | "contact" | "products" | "search" | "404"
   productSlug?: string
   productTitle?: string
 }
@@ -325,6 +326,7 @@ function parsePreviewFromSearch(search: string): ParsedPreview {
   if (pathOnly === "/contact") return { page: "contact" }
   if (pathOnly === SHOP_PATH) return { page: "products" }
   if (pathOnly === "/search") return { page: "search" }
+  if (pathOnly === "/404") return { page: "404" }
   if (pathOnly.startsWith("/products/")) {
     const slug = pathOnly.slice("/products/".length).split("/")[0]
     return { page: "product", productSlug: slug || undefined }
@@ -337,6 +339,7 @@ function previewPathForState(page: string, productSlug?: string): string {
   if (page === "contact") return "/contact"
   if (page === "products") return SHOP_PATH
   if (page === "search") return "/search"
+  if (page === "404") return "/404"
   if (page === "product" && productSlug) return `/products/${productSlug}`
   return "/"
 }
@@ -6000,6 +6003,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       { name: "Contact Page", key: "contact" as PageKey },
       { name: "Shop", key: "products" as PageKey },
       { name: "Search", key: "search" as PageKey },
+      { name: "404 page", key: "404" as PageKey },
     ]
     const allCustomPages = [
       ...builtInPages,
@@ -6636,7 +6640,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               // Also drop "header"/"paragraph" dividers that only separated
               // color groups and end up as orphans once the colors are gone.
               const DESIGN_FIELDS = new Set(["color_scheme", "heading_style", "body_style", "custom_heading", "custom_body", "color_overrides"])
-              const visible = schema.fields.filter(f => f.type !== "color" && f.type !== "color_scheme" && !DESIGN_FIELDS.has(f.id))
+              // And a setting whose `visible_if` does not hold for this section's values.
+              const visible = visibleFields(schema.fields, section.settings).filter(f => f.type !== "color" && f.type !== "color_scheme" && !DESIGN_FIELDS.has(f.id))
               const clean: typeof visible = []
               for (let i = 0; i < visible.length; i++) {
                 const f = visible[i]
@@ -6737,7 +6742,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                         </summary>
                         <div className="px-3 pb-3 space-y-3 border-t border-border pt-3">
                           <SiblingSettingsProvider settings={block.settings}>
-                          {blockSchema?.fields.map(field => (
+                          {visibleFields(blockSchema?.fields ?? [], block.settings, { fields: schema.fields ?? [], saved: section.settings }).map(field => (
                             <div key={field.id}>
                               {!fieldCarriesOwnLabel(field) && (
                                 <label className="text-xs font-medium text-muted-foreground mb-1.5 block">{field.label}</label>

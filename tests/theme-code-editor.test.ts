@@ -517,7 +517,8 @@ section("Save compiles, errors carry lines, the canvas finds out")
   check("the editor listens and reloads the saved sources", /data\?\.type === "storelib:file-saved"\) void loadStorelibSources\(\)/.test(editor) && /files\?sources=1/.test(editor))
   // The sidebar reads the library, which is the theme's sections and this
   // creator's own together — see librarySchemas in the editor.
-  check("and hands them to the canvas and the sidebar", /<StorelibLiveProvider sources=\{sources\} page=\{\{ template: pageTemplate \}\} inEditor products=\{shopCards\}>/.test(editor) && (editor.match(/schemaFor\(section\.type, storelibSources, librarySchemas\)/g) ?? []).length >= 2)
+  /* And the shop's own facts since dynamic sources: the canvas draws a page the way the live site does. */
+  check("and hands them to the canvas and the sidebar", /<StorelibLiveProvider sources=\{sources\} page=\{\{ template: pageTemplate \}\} inEditor products=\{shopCards\} data=\{canvasStorefrontData\}>/.test(editor) && (editor.match(/schemaFor\(section\.type, storelibSources, librarySchemas\)/g) ?? []).length >= 2)
   check("a section this creator wrote is in the library too", /customSectionSchemas\(storelibSources\)/.test(editor) && /customAddableSections\(customSchemas\)/.test(editor) && /addable=\{libraryAddable\}/.test(editor))
   // The call grew a products argument when sections learned to draw the
   // shop. What this guard is about is unchanged: the SAVED sources are what

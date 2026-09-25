@@ -254,15 +254,15 @@ thirty are in that position.
 
 ### The library, rebuilt
 
-The theme offers thirty sections in ten categories, every one of them a
+The theme offers thirty three sections in ten categories, every one of them a
 `.storelib` file:
 
 | Category | Sections |
 | --- | --- |
 | Hero | Centered Hero, Split Hero, Product Hero |
-| Products | Product Grid, Featured Products, Product Spotlight |
+| Products | Product Grid, Featured Products, Product Spotlight, Plans |
 | Features | Feature Grid, Image + Features, Feature Cards |
-| Content | Rich Text, Image + Text, Two Column Content |
+| Content | Rich Text, Image + Text, Two Column Content, Rows, Course Outline |
 | Social Proof | Testimonials Grid, Featured Testimonial, Logo / Trust Row |
 | CTA | Simple CTA, CTA + Image, Full Width CTA Banner |
 | Media | Image Gallery, Video Section, Image Collage |

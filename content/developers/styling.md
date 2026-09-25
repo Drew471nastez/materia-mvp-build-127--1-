@@ -168,7 +168,7 @@ Set `"supports_typography_overrides": false` on a section that has its own size 
 
 ## Layout conventions
 
-These are what the library's thirty sections do, and what makes a new section sit beside them without looking out of place:
+These are what the library's sections do, and what makes a new section sit beside them without looking out of place:
 
 ```css
 .s__in {

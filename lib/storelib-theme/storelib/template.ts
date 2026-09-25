@@ -569,6 +569,12 @@ const FILTERS: Record<string, Filter> = {
   date: (v, [style]) => formatDatetime(str(v), style ?? "long"),
   /** The words of some markup, for an alt text or a title made from rich text. */
   strip_html: (v) => plainText(str(v)),
+  /**
+   * Each line with something on it, trimmed, as a list: a textarea somebody
+   * typed one item per line. At most 100, so a pasted essay is not a loop of
+   * ten thousand.
+   */
+  lines: (v) => str(v).split(/\r?\n/).map((l) => l.trim()).filter((l) => l !== "").slice(0, 100),
   /** A colour with alpha, for overlays: {{ settings.color | alpha: 0.4 }} */
   alpha: (v, [a]) => {
     const m = str(v).match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i)
@@ -581,6 +587,67 @@ const FILTERS: Record<string, Filter> = {
 }
 
 export const FILTER_NAMES = Object.keys(FILTERS)
+
+/* ── conditions: `visible_if` ─────────────────────────────────────────── */
+
+export type ParsedCondition = { ok: true; expr: Expr; paths: string[][] } | { ok: false; message: string }
+
+const conditionCache = new Map<string, ParsedCondition>()
+
+/**
+ * A setting's `visible_if`, written the way Shopify writes it:
+ * `{{ section.settings.source == 'chosen' }}`. Parsed with this language's
+ * own expression grammar, so a condition can say what an `{% if %}` can and
+ * nothing more, and a theme author learns one syntax rather than two.
+ */
+export function parseCondition(source: string): ParsedCondition {
+  const hit = conditionCache.get(source)
+  if (hit) return hit
+  let out: ParsedCondition
+  const m = source.trim().match(/^\{\{([\s\S]*)\}\}$/)
+  if (!m || m[1].trim() === "") {
+    out = { ok: false, message: `write it as {{ … }}, for example "{{ section.settings.layout == 'grid' }}"` }
+  } else {
+    try {
+      const expr = parseExpr(m[1].trim(), 1)
+      const paths: string[][] = []
+      const walk = (e: Expr) => {
+        switch (e.t) {
+          case "path": paths.push(e.segs); break
+          case "not": walk(e.e); break
+          case "bin": walk(e.l); walk(e.r); break
+          case "filter": walk(e.e); e.args.forEach(walk); break
+        }
+      }
+      walk(expr)
+      out = { ok: true, expr, paths }
+    } catch (e) {
+      out = { ok: false, message: e instanceof Error ? e.message : String(e) }
+    }
+  }
+  /* Conditions come from a handful of schemas; the cap only stops a
+     generated one per keystroke from growing this without end. */
+  if (conditionCache.size > 500) conditionCache.clear()
+  conditionCache.set(source, out)
+  return out
+}
+
+const CONDITION_CONTEXT = { settings: {}, blocks: [], theme: {}, scheme: {}, assets: {} } as unknown as RenderContext
+
+/**
+ * Does the condition hold for these values? A condition that does not parse
+ * holds: showing a setting that should have been hidden costs a line in a
+ * panel, and hiding one that should show makes it impossible to change.
+ */
+export function conditionHolds(source: string, scope: Record<string, unknown>): boolean {
+  const parsed = parseCondition(source)
+  if (!parsed.ok) return true
+  try {
+    return truthy(evaluate(parsed.expr, scope, CONDITION_CONTEXT))
+  } catch {
+    return true
+  }
+}
 
 function evaluate(e: Expr, scope: Record<string, unknown>, ctx: RenderContext): unknown {
   switch (e.t) {
