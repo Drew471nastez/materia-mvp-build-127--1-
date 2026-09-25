@@ -170,7 +170,10 @@ try {
     expect(buttons.length === 15, "fifteen controls: two headings, four marks, two lists, quote, link, picture, divider, clear, undo, redo", buttons.length)
     expect(buttons.every((b) => b.w === want && b.h === want), `every control is ${want}px square`, [...new Set(buttons.map((b) => `${b.w}x${b.h}`))])
     const rows = new Set(buttons.map((b) => b.top)).size
-    const bar = await p.$eval("[role=toolbar]", (t) => ({ scroll: t.scrollWidth, client: t.clientWidth, overflowX: getComputedStyle(t).overflowX }))
+    /* The row of controls is the scroller, inside the toolbar: the toolbar
+       itself stays put so it can stick, and so a slot at its end (a block's
+       own menu in the email composer) never scrolls away. */
+    const bar = await p.$eval("[role=toolbar]", (bar) => { const t = bar.querySelector("[data-more]") ?? bar; return { scroll: t.scrollWidth, client: t.clientWidth, overflowX: getComputedStyle(t).overflowX } })
     if (phone) {
       expect(rows === 1, "one row", rows)
       expect(bar.scroll > bar.client && bar.overflowX === "auto", "that scrolls sideways inside itself", bar)
