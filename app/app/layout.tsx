@@ -15,6 +15,7 @@ import { profileAvatar } from "@/lib/account/avatar"
 import { accountTimeZone, timeZoneScript } from "@/lib/account/time-zone"
 import { TimeZoneSync } from "@/components/app/time-zone-sync"
 import { factsFromRows, homeProgress, WEBSITE_LIVE_STATUS } from "@/lib/home/progress"
+import { listBusinesses } from "@/lib/businesses/server"
 
 /**
  * One signed in person's own screens: never in a search index. robots.txt
@@ -94,7 +95,7 @@ export default async function AppLayout({
     so a page that reads them too with its own client is not a second trip.
     All of it on the caller's own client: row-level security as before.
   */
-  const [gateCheck, creator, { data: onepage }] = await Promise.all([
+  const [gateCheck, creator, { data: onepage }, businesses] = await Promise.all([
     profileForRequest(user.id),
     creatorForRequest(user.id),
     supabase
@@ -102,6 +103,9 @@ export default async function AppLayout({
       .select("id, avatar_url, published, draft_blocks, bio")
       .eq("owner_id", user.id)
       .maybeSingle(),
+    /* The account menu's businesses (lib/businesses/server). In parallel with the rest, so the
+       shell draws no later; an error reads as this business alone, as it always was. */
+    listBusinesses(user.id).catch(() => []),
   ])
   const profile = gateCheck
 
@@ -188,6 +192,7 @@ export default async function AppLayout({
           stripeStatus={creator.stripe_onboarding_status || "not_connected"}
           onePagePublished={!!onepage}
           setupProgress={{ completed: completedSteps, total: totalSteps }}
+          businesses={businesses}
         />
         {/* md:pt accounts for the desktop header height (58 px) plus the
             safe-area-inset-top padding the header adds in Capacitor.

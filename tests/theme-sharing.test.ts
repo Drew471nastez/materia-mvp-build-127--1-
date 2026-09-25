@@ -52,7 +52,8 @@ function main() {
   console.log("\nEvery way a section's settings get INTO the database")
 
   check("the editor's save cleans them",
-    /const sections = sanitizeSections\(raw\)/.test(sections))
+    /const sections = sanitizeSections\(raw, own\)/.test(sections),
+    "with the install's own section files, so a type the theme does not ship is cleaned by its schema")
   check("a package's pages are cleaned before the row is written",
     /sections: sanitizeSections\(\s*\n\s*rewriteUrls\(sectionsFromTemplate/.test(imp),
     "this is the shared-theme path; the zip is written by somebody else")

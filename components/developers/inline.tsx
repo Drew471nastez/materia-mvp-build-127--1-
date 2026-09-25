@@ -6,6 +6,8 @@
 import Link from "next/link"
 import type { ReactNode } from "react"
 
+import { MONO } from "./type"
+
 const PATTERN = /(`[^`]+`)|(\*\*[^*]+\*\*)|(\*[^*\s][^*]*\*)|(\[[^\]]+\]\([^)\s]+\))/g
 
 export function Inline({ text }: { text: string }) {
@@ -18,17 +20,17 @@ export function Inline({ text }: { text: string }) {
     const t = m[0]
     if (m[1]) {
       out.push(
-        <code key={key++} className="rounded-md bg-neutral-100 px-1.5 py-0.5 font-mono text-[0.85em] text-neutral-900">
+        <code key={key++} className={`rounded-md bg-[#f1f2f4] px-1.5 py-0.5 text-[0.85em] text-[#1a1a2e] [overflow-wrap:break-word] ${MONO}`}>
           {t.slice(1, -1)}
         </code>,
       )
     } else if (m[2]) {
-      out.push(<strong key={key++} className="font-semibold text-neutral-900"><Inline text={t.slice(2, -2)} /></strong>)
+      out.push(<strong key={key++} className="font-semibold text-[#1a1a2e]"><Inline text={t.slice(2, -2)} /></strong>)
     } else if (m[3]) {
       out.push(<em key={key++}>{t.slice(1, -1)}</em>)
     } else if (m[4]) {
       const [, label, href] = t.match(/^\[([^\]]+)\]\(([^)\s]+)\)$/) ?? []
-      const cls = "font-medium text-neutral-900 underline decoration-neutral-300 underline-offset-4 transition-colors hover:decoration-neutral-900"
+      const cls = "font-medium text-[#1a1a2e] underline decoration-[#c4c7cf] underline-offset-4 transition-colors hover:decoration-[#1a1a2e]"
       /* Internal pages go through the router; a text file and the outside world do not. */
       out.push(
         href.startsWith("/") && !/\.txt$/.test(href) ? (

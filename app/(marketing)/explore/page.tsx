@@ -6,6 +6,7 @@ import { readInterests } from "@/lib/explore/read-interests"
 import { ExplorePageClient } from "@/components/explore/explore-page-client"
 import { FeaturedCategoriesSection } from "@/components/explore/featured-categories-section"
 import { MostPopularSection } from "@/components/explore/most-popular-section"
+import { jsonLdScript } from "@/lib/seo/json-ld"
 
 // SEO-optimized metadata
 export const metadata: Metadata = {
@@ -227,7 +228,7 @@ export default async function ExplorePage({
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
+          __html: jsonLdScript({
             "@context": "https://schema.org",
             "@type": "CollectionPage",
             "name": "Discover Digital Products",

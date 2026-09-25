@@ -219,7 +219,8 @@ export function ProductSection({ section, theme, isEditing, isSelected, onClick 
                       style={{ borderColor: activeImage === i ? primaryColor : scheme.border }}
                       onClick={e => { e.stopPropagation(); setActiveImage(i) }}
                     >
-                      <img src={img} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" />
+                      {/* The button's only content, so its name: the product and which picture, as storelib.com's gallery says it. */}
+                      <img src={img} alt={`${title} thumbnail ${i + 1}`} className="w-full h-full object-cover" loading="lazy" decoding="async" />
                     </button>
                   ))}
                 </div>

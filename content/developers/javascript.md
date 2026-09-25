@@ -204,12 +204,23 @@ The script is wrapped as a function and handed six things:
 | Name | What it is |
 | --- | --- |
 | `root` | A copy of this instance's markup, in the sandbox. Query inside it; it is the whole of the page the script can see. |
-| `settings`, `blocks`, `theme`, `page` | The same resolved data the template rendered from, as plain objects. |
+| `settings`, `blocks` | The values **stored** on this instance, as plain objects: what its preset set and what the creator changed. Schema defaults are not filled in, and a responsive value is as stored. |
+| `theme` | The theme settings as saved, not the tokens a template reads. |
+| `page` | `{ template }`. |
 | `storelib` | The platform API: `scrollTo`, `inEditor`, `capabilities`, and whatever the section's declared capabilities add. |
+
+So a setting the creator never touched is `undefined` in a script, even though the template drew its default. For a value the template has worked out, write it into the markup and read it back from there:
+
+```storelib
+<div class="slider" data-autoplay="{{ settings.autoplay }}" data-interval="{{ settings.interval }}">
+```
 
 A slider that advances on its own and on a click. Every slide is in the template; the script only chooses which one shows. It declares `"capabilities": ["timers"]` for `setInterval`:
 
 ```js
+const box = root.querySelector(".slider")
+const autoplay = box.dataset.autoplay === "true"
+const seconds = Number(box.dataset.interval) || 5
 const slides = root.querySelectorAll(".slide")
 const dots = root.querySelectorAll(".dot")
 let current = 0
@@ -222,7 +233,7 @@ root.querySelector("[data-next]")?.addEventListener("click", () => show(current 
 root.querySelector("[data-prev]")?.addEventListener("click", () => show(current - 1))
 dots.forEach((el, j) => el.addEventListener("click", () => show(j)))
 show(0)
-if (!storelib.inEditor && settings.autoplay) setInterval(() => show(current + 1), settings.interval * 1000)
+if (!storelib.inEditor && autoplay) setInterval(() => show(current + 1), seconds * 1000)
 ```
 
 ### What a script cannot name
@@ -235,10 +246,10 @@ Querying inside `root`, never the document, is also what makes a section safe to
 
 ### Capabilities
 
-A section declares what it needs in its schema, and the builder shows the creator what each section has been granted. Everything a capability exposes goes to Storelib's own endpoints for that site; a section never gets an arbitrary host.
+A section declares what it needs in its schema, under `capabilities`. The builder does not show a creator what a section declares yet, so declare only what the section uses. Everything a capability exposes goes to Storelib's own endpoints for that site; a section never gets an arbitrary host.
 
 @[capabilities]
 
-An unknown capability is refused, listing the ones that exist. A script is limited in size:
+In a section with a script, an unknown capability is refused, listing the ones that exist. A script is limited in size:
 
 @[limits]

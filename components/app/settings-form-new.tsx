@@ -41,6 +41,8 @@ import { ShareStorelib } from "@/components/app/share/share-storelib"
 import type { ConnectedPlatform, ShareAddress } from "@/components/app/share/share-data"
 import { EmailChangeFlow, PrivacyPanel, SecurityPanel } from "@/components/app/settings/account-panels"
 import { profileAvatar } from "@/lib/account/avatar"
+import { applyBusinessSession } from "@/lib/businesses/switch-client"
+import { ownerAddress } from "@/lib/businesses/email-alias"
 
 // Countries list
 const COUNTRIES = [
@@ -557,7 +559,8 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
   // Avatar upload/crop states
 
   // Email fields
-  const [currentEmail, setCurrentEmail] = useState(profile.email || "")
+  /* A second business's address is its owner's with a tag (lib/businesses/email-alias); the owner's is the one shown, and the one its codes are sent to. */
+  const [currentEmail, setCurrentEmail] = useState(ownerAddress(profile.email) || profile.email || "")
   const [emailVerified] = useState(true)
 
   // Address fields
@@ -1235,6 +1238,11 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
       const data = await response.json()
 
       if (response.ok) {
+        /* A second business was deleted: back into the first one, signed in (lib/businesses). */
+        if (data.firstBusiness?.session) {
+          await applyBusinessSession(data.firstBusiness.session, "/app")
+          return
+        }
         /* The account and every session are already gone on the server;
            this clears what is left on this device. */
         const supabase = createClient()

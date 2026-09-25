@@ -66,11 +66,31 @@
  *   those frames. It waits for them, never longer than IMAGE_WAIT_MS, and
  *   only for a fresh open.
  *
+ *   A SHEET THAT IS ALREADY THERE OPENS FOR FREE (`keepMounted`). The
+ *   website builder's sheets are never taken out of the page: closed, they
+ *   wait below the screen on their own layer, so opening one is a transform
+ *   and nothing else. Every other sheet was built on the tap that opened it:
+ *   React rendered its content, and the browser matched every one of its
+ *   elements against the app's whole stylesheet and laid it out, all before
+ *   the first frame could move. Measured on the account, notifications,
+ *   date range and share sheets over the home page with the CPU slowed four
+ *   times (scripts/check-app-sheets-frames.mjs): 70 to 260ms on the tap, most
+ *   of it style for 100 to 300 new elements at about 0.2ms each. A sheet
+ *   that asks for it is now built once, while the page is idle, and kept
+ *   after it closes: at rest it is below the screen, invisible (so out of
+ *   the accessibility tree), takes no tap, has no `data-app-sheet` and does
+ *   not tell the page it is up, and its styles and layout are kept, so the
+ *   tap that opens it only makes it visible and starts the slide.
+ *   `visibility` is one of the properties the browser hands down without
+ *   restyling what is inside.
+ *
  * `will-change` is set only while something is moving, so a sheet at rest
- * does not hold a layer it does not need.
+ * does not hold a layer it does not need; except a kept sheet, which holds
+ * its layer the whole time, as the builder's do, so an open never has to
+ * make one on its first frame.
  */
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
+import { startTransition, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { cn } from "@/lib/utils"
 import { bottomAboveKeyboard } from "@/lib/ui/keyboard-safe-sheet"
@@ -119,6 +139,11 @@ const IMAGE_WAIT_MS = 120
 /** The keyboard's own slide, near enough, so the sheet rides up with it. */
 const KEYBOARD_MOVE = "bottom 250ms cubic-bezier(0.32, 0.72, 0, 1)"
 
+/** How long after the page settles a kept sheet is built, at the latest. */
+const PREWARM_TIMEOUT_MS = 4000
+/** A kept sheet at rest: there, styled and laid out, and neither seen nor touched. */
+const REST_STYLE: React.CSSProperties = { visibility: "hidden", pointerEvents: "none" }
+
 const translate = (y: number) => `translate3d(0, ${y.toFixed(1)}px, 0)`
 
 /** Where the sheet really is right now, running animation included. */
@@ -130,6 +155,44 @@ function readY(el: HTMLElement): number {
 
 function reducedMotion() {
   return typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+}
+
+/**
+ * ===========================================================================
+ *  THE PAGE IS TOLD A SHEET IS UP BY AN ATTRIBUTE ON <html>, NOT BY :has()
+ * ===========================================================================
+ * The nav pill steps under a sheet and gives up its taps, and the cookie
+ * banner steps aside (app/globals.css). Those rules asked
+ * `html:has([data-app-sheet])`, and a `:has()` on the root that changes its
+ * answer makes the browser work out the style of every element in the
+ * document again. Measured with Chromium's own trace
+ * (scripts/check-app-sheets-frames.mjs): 590 elements, the whole home page,
+ * restyled on every open and every close, and on every change of any
+ * attribute named in any of those `:has()` (a role, an aria-hidden). It was
+ * most of what a tap on the pill or the account cost.
+ *
+ * Now each sheet says where it is, and `data-app-sheet-up` on <html> is
+ * "open" while any sheet is open and "closing" while one is still on its
+ * way out. A rule on an attribute of <html> restyles only what it names.
+ * A sheet's own root carries `data-sheet-root`, which the rules for other
+ * dialogs leave out, and a kept sheet never changes its role or
+ * aria-modal, so nothing any `:has()` names changes when it opens.
+ */
+const sheetStates = new Map<object, "open" | "closing">()
+function showSheetState(key: object, state: "open" | "closing" | null) {
+  if (typeof document === "undefined") return
+  if (state) sheetStates.set(key, state)
+  else sheetStates.delete(key)
+  let up: "open" | "closing" | null = null
+  for (const v of sheetStates.values()) {
+    if (v === "open") { up = "open"; break }
+    up = "closing"
+  }
+  const html = document.documentElement
+  const now = html.getAttribute("data-app-sheet-up")
+  if (up === now) return
+  if (up) html.setAttribute("data-app-sheet-up", up)
+  else html.removeAttribute("data-app-sheet-up")
 }
 
 /**
@@ -163,9 +226,12 @@ function leaveBehind(root: HTMLElement, fromY: number, height: number, scrimOpac
   panel.style.willChange = "transform"
   if (scrim) scrim.style.opacity = "0"
   document.body.appendChild(ghost)
+  /* The page keeps treating it as a sheet on its way out (the pill stays under it). */
+  const ghostKey = {}
+  showSheetState(ghostKey, "closing")
   for (const [i, top] of scrolled) if (to[i]) to[i].scrollTop = top
   let gone = false
-  const done = () => { if (!gone) { gone = true; ghost.remove() } }
+  const done = () => { if (!gone) { gone = true; ghost.remove(); showSheetState(ghostKey, null) } }
   const ms = reducedMotion() ? 1 : Math.max(200, CLOSE_MS * Math.min(1, (h - fromY) / h))
   if (typeof panel.animate !== "function") { done(); return }
   const timing: KeyframeAnimationOptions = { duration: ms, easing: CLOSE_EASE }
@@ -218,9 +284,11 @@ export function BottomSheet({
   scrim = "dim",
   waitForImages = false,
   onClosed,
+  onOpened,
   dismissible = true,
   lowered = 0,
   onRaise,
+  keepMounted = false,
 }: {
   isOpen: boolean
   onClose: () => void
@@ -256,8 +324,10 @@ export function BottomSheet({
   scrim?: "dim" | "clear"
   /** Hold a fresh open until the pictures inside have decoded (at most IMAGE_WAIT_MS). */
   waitForImages?: boolean
-  /** Runs once the sheet has finished leaving and is out of the document. */
+  /** Runs once the sheet has finished leaving and is out of the document (or, kept, at rest). */
   onClosed?: () => void
+  /** Runs once the sheet has finished arriving: the moment for work that should not share its frames. */
+  onOpened?: () => void
   /**
    * False while the sheet must stay (a save in flight): a pull down springs
    * back, and a tap outside or Escape does nothing, rather than the sheet
@@ -275,6 +345,13 @@ export function BottomSheet({
   lowered?: number
   /** The finger took a lowered sheet back up to the top. */
   onRaise?: () => void
+  /**
+   * Build the sheet while the page is idle and keep it after it closes, so
+   * opening it costs no rendering, styling or layout (see A SHEET THAT IS
+   * ALREADY THERE above). What is inside keeps its state between opens, so
+   * a caller that wants a fresh start resets it itself.
+   */
+  keepMounted?: boolean
 }) {
   const [mounted, setMounted] = useState(false)
   /**
@@ -283,15 +360,22 @@ export function BottomSheet({
    * sheet is below the screen, ready to rise".
    */
   const [present, setPresent] = useState(isOpen)
+  /* Kept, closed and still: in the DOM, out of sight (keepMounted). */
+  const [resting, setResting] = useState(false)
   const [prevOpen, setPrevOpen] = useState(isOpen)
   if (isOpen !== prevOpen) {
     setPrevOpen(isOpen)
-    if (isOpen) setPresent(true)
+    if (isOpen) {
+      setPresent(true)
+      setResting(false)
+    }
   }
+  const atRest = resting && !isOpen
 
-  /* The children the sheet had while open, drawn unchanged while it leaves. */
+  /* The children the sheet had while open, drawn unchanged while it leaves.
+     A kept sheet at rest draws what it is given, so it opens up to date. */
   const shownRef = useRef<React.ReactNode>(children)
-  if (isOpen) shownRef.current = children
+  if (isOpen || atRest) shownRef.current = children
 
   const rootRef = useRef<HTMLDivElement>(null)
   const sheetRef = useRef<HTMLDivElement>(null)
@@ -323,10 +407,12 @@ export function BottomSheet({
   const openTokenRef = useRef(0)
   const onCloseRef = useRef(onClose)
   const onClosedRef = useRef(onClosed)
+  const onOpenedRef = useRef(onOpened)
   const waitRef = useRef(waitForImages)
   const dismissibleRef = useRef(dismissible)
   const onRaiseRef = useRef(onRaise)
-  useEffect(() => { onCloseRef.current = onClose; onClosedRef.current = onClosed; waitRef.current = waitForImages; dismissibleRef.current = dismissible; onRaiseRef.current = onRaise })
+  const keepRef = useRef(keepMounted)
+  useEffect(() => { onCloseRef.current = onClose; onClosedRef.current = onClosed; onOpenedRef.current = onOpened; waitRef.current = waitForImages; dismissibleRef.current = dismissible; onRaiseRef.current = onRaise; keepRef.current = keepMounted })
   /** Where the open sheet rests: 0 at the top, or `lowered` below it. */
   const restRef = useRef(0)
   /**
@@ -337,8 +423,44 @@ export function BottomSheet({
   const pinLimitRef = useRef(0)
   const isOpenRef = useRef(isOpen)
   useLayoutEffect(() => { isOpenRef.current = isOpen }, [isOpen])
+  const atRestRef = useRef(atRest)
+  useLayoutEffect(() => { atRestRef.current = atRest }, [atRest])
+  /* Where this sheet is, for <html> (see showSheetState): in the same commit as its own attributes. */
+  const stateKeyRef = useRef({})
+  const pageState = !mounted || !present || atRest ? null : isOpen ? "open" : "closing"
+  useLayoutEffect(() => {
+    const key = stateKeyRef.current
+    showSheetState(key, pageState)
+    return () => showSheetState(key, null)
+  }, [pageState])
+  /* The layer a panel keeps between moves: a kept sheet's, always. */
+  const restingWillChange = () => (keepRef.current ? "transform" : "")
 
   useEffect(() => setMounted(true), [])
+
+  /**
+   * BUILT WHILE NOTHING ELSE IS HAPPENING. A kept sheet is put in the page
+   * the first time the page is idle, at a priority any tap overtakes, so
+   * even the first open is only a slide. Opened before then, it is built on
+   * the tap as any other sheet is.
+   */
+  useEffect(() => {
+    if (!keepMounted || !mounted || present) return
+    const build = () => {
+      if (isOpenRef.current) return
+      startTransition(() => {
+        setPresent(true)
+        setResting(true)
+      })
+    }
+    const w = window as Window & { requestIdleCallback?: (f: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void }
+    if (w.requestIdleCallback) {
+      const id = w.requestIdleCallback(build, { timeout: PREWARM_TIMEOUT_MS })
+      return () => w.cancelIdleCallback?.(id)
+    }
+    const t = window.setTimeout(build, 1200)
+    return () => window.clearTimeout(t)
+  }, [keepMounted, mounted, present])
 
   const stopMotion = useCallback(() => {
     for (const a of animsRef.current) a.cancel()
@@ -392,7 +514,7 @@ export function BottomSheet({
     sheet.style.transform = translate(to)
     if (scrim) scrim.style.opacity = String(opacity(to))
     if (typeof sheet.animate !== "function") {
-      sheet.style.willChange = ""
+      sheet.style.willChange = restingWillChange()
       then?.()
       return
     }
@@ -410,7 +532,7 @@ export function BottomSheet({
     a.onfinish = () => {
       if (animsRef.current[0] !== a) return
       animsRef.current = []
-      sheet.style.willChange = ""
+      sheet.style.willChange = restingWillChange()
       /* Back at the top: nothing is held any more. */
       if (restRef.current === 0 && to <= 0.5) {
         pinLimitRef.current = 0
@@ -418,7 +540,7 @@ export function BottomSheet({
       }
       then?.()
     }
-  }, [stopMotion])
+  }, [stopMotion]) // eslint-disable-line react-hooks/exhaustive-deps
 
   /** Where the sheet is this frame: mid-animation, mid-drag or at rest. */
   const currentY = useCallback(() => {
@@ -431,6 +553,8 @@ export function BottomSheet({
   /* ── Open and close ─────────────────────────────────────────────────── */
   useLayoutEffect(() => {
     if (!mounted || !present) return
+    /* Built ahead, or back at rest after a close: nothing to move. */
+    if (atRest) return
     const sheet = sheetRef.current
     if (!sheet) return
     heightRef.current = sheet.offsetHeight || 600
@@ -439,12 +563,15 @@ export function BottomSheet({
       const token = ++openTokenRef.current
       /* Fresh: from below the screen. Reopened mid-close: from where it is. */
       const fresh = !animsRef.current.length
+      /* A kept sheet opens at the top of its content, as a new one would. */
+      if (fresh && keepRef.current && bodyRef.current) bodyRef.current.scrollTop = 0
       const from = fresh ? heightRef.current : readY(sheet)
       const pictures = waitRef.current && fresh
         ? Array.from(sheet.querySelectorAll("img")).filter((img) => img.loading !== "lazy" && typeof img.decode === "function")
         : []
+      const opened = () => onOpenedRef.current?.()
       if (!pictures.length) {
-        glide(from, restRef.current, OPEN_MS)
+        glide(from, restRef.current, OPEN_MS, opened)
         return
       }
       /* Parked below the screen, invisible, until the pictures are ready. */
@@ -456,7 +583,7 @@ export function BottomSheet({
       ]).then(() => {
         if (openTokenRef.current !== token || !isOpenRef.current || closingRef.current) return
         if (draggingRef.current || animsRef.current.length) return
-        glide(offsetRef.current, restRef.current, OPEN_MS)
+        glide(offsetRef.current, restRef.current, OPEN_MS, opened)
       })
       return
     }
@@ -479,10 +606,11 @@ export function BottomSheet({
     glide(from, heightRef.current, ms, () => {
       closingRef.current = false
       pinLimitRef.current = 0
-      setPresent(false)
+      if (keepRef.current) setResting(true)
+      else setPresent(false)
       onClosedRef.current?.()
     }, v > 0 ? EASE : CLOSE_EASE)
-  }, [isOpen, present, mounted, glide, currentY])
+  }, [isOpen, present, mounted, atRest, glide, currentY])
 
   useEffect(() => () => stopMotion(), [stopMotion])
 
@@ -511,7 +639,8 @@ export function BottomSheet({
     leaveRef.current = () => {
       const root = rootRef.current
       const sheet = sheetRef.current
-      if (!root || !sheet) return
+      /* A kept sheet at rest was never on screen: nothing to see leave. */
+      if (!root || !sheet || atRestRef.current) return
       const scrim = scrimRef.current
       leaveBehind(root, currentY(), heightRef.current || sheet.offsetHeight, scrim ? Number(getComputedStyle(scrim).opacity) || 0 : 0)
     }
@@ -544,7 +673,8 @@ export function BottomSheet({
          rather than leave a sheet it still thinks is open. */
       if (isOpenRef.current) { glide(h, restRef.current, OPEN_MS); return }
       pinLimitRef.current = 0
-      setPresent(false)
+      if (keepRef.current) setResting(true)
+      else setPresent(false)
       onClosedRef.current?.()
     }, velocity > 0 ? EASE : CLOSE_EASE)
     /* The parent hears about it after the slide has started, so whatever it
@@ -746,9 +876,17 @@ export function BottomSheet({
   return createPortal(
     <div
       ref={rootRef}
-      data-app-sheet={isOpen ? "open" : "closing"}
+      /* At rest a kept sheet is not a sheet to the page's own rules (the
+         pill, the cookie banner) nor a dialog to a screen reader. */
+      data-app-sheet={atRest ? undefined : isOpen ? "open" : "closing"}
+      data-app-sheet-rest={atRest ? "" : undefined}
+      /* The rules for other dialogs leave this one out; <html> says it is up. */
+      data-sheet-root=""
       className={cn("fixed inset-0 z-[200]", hideFrom === "sm" && "sm:hidden", hideFrom === "md" && "md:hidden")}
-      style={isOpen ? undefined : { pointerEvents: "none" }}
+      style={isOpen ? undefined : atRest ? REST_STYLE : { pointerEvents: "none" }}
+      /* The same at rest: a role or an aria-* that changed would be a change
+         under the page's `:has()` rules. Out of sight, it is out of the
+         accessibility tree anyway. */
       role="dialog"
       aria-modal="true"
       aria-label={label ?? title}
@@ -759,7 +897,7 @@ export function BottomSheet({
         className={cn("absolute inset-0", scrim === "clear" ? "bg-transparent" : "bg-black/40")}
         /* Below the screen and invisible on the very first paint, before any
            script has run: there is no frame in which the sheet is at rest. */
-        style={{ opacity: 0, touchAction: "none" }}
+        style={{ opacity: 0, touchAction: "none", willChange: keepMounted ? "opacity" : undefined }}
       />
       <div
         ref={sheetRef}
@@ -768,6 +906,7 @@ export function BottomSheet({
         className={cn("absolute inset-x-0 bottom-0 rounded-t-[20px] bg-white outline-none", className)}
         style={{
           transform: "translate3d(0, 100%, 0)",
+          willChange: keepMounted ? "transform" : undefined,
           /* The sheet owns every touch on it: the browser must not decide
              half way through that this was a scroll. */
           touchAction: "none",

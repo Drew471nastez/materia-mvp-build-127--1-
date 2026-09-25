@@ -4,7 +4,7 @@ A Storelib website sells the creator's products, and the part that takes the mon
 
 ## Products reach a section as `products`
 
-`products` holds the creator's published products, newest first, up to 24, in the same `{ id, type, settings }` shape as blocks:
+`products` holds the creator's published products, newest first, up to 24 on the live site, in the same `{ id, type, settings }` shape as blocks. It is empty on a product page, and on the search page it holds the products that match. Which list each page has is in [Dynamic values](/developers/dynamic-values#products).
 
 | Field | What it is |
 | --- | --- |
@@ -14,7 +14,7 @@ A Storelib website sells the creator's products, and the part that takes the mon
 | `block.settings.compare_price` | The price before a sale, formatted, or empty. Show it struck through. |
 | `block.settings.image` | Its main picture, or empty. |
 | `block.settings.url` | Its page on this website, such as `/products/preset-pack`. |
-| `block.settings.tag` | `Sold out` when there are none left, or empty. |
+| `block.settings.tag` | Meant to read `Sold out` when none are left. Today it is always empty, because stock is not read yet. |
 
 Templates do not do money: never compute, round or convert a price. Show the text you are given.
 
@@ -43,7 +43,7 @@ Templates do not do money: never compute, round or convert a price. Show the tex
 
 `src=website` is how the order is recorded as a Website order in the creator's Orders. Keep it.
 
-Do not link to checkout for a product that is `Sold out`. Show the tag instead.
+Do not link to checkout for a product that is `Sold out`: test `block.settings.tag` and show it instead, so the section is right on the day stock is read.
 
 ## What checkout does
 

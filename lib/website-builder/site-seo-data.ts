@@ -9,7 +9,7 @@ import { unstable_cache } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { primaryHostFor } from "@/lib/custom-domains/store"
 import { getMainDomain } from "@/lib/url-helpers"
-import { deservesIndexing } from "@/lib/security/spam-signals"
+import { builtSiteIndexable } from "@/lib/seo/indexing"
 import { creatorShopTag, creatorSiteTag, publishedShopByName } from "./published-site"
 import { websiteHandleOf } from "./site-address-data"
 import {
@@ -17,11 +17,20 @@ import {
   listedPageKeys,
   pageUrl,
   productUrl,
-  siteIsIndexable,
   type SitemapEntry,
 } from "./site-seo"
 import type { ThemeSettingsValues } from "./types"
 import { hiddenPages } from "./page-seo"
+
+/**
+ * The creator page's domain, at the host it is served at, or null. The
+ * OnePage answers at `/links` on it (proxy.ts), so its canonical and the
+ * addresses announced for it both read this; a website domain is not the
+ * OnePage's. Cached with the domain list (lib/custom-domains/store).
+ */
+export function activeDomainOf(creatorId: string): Promise<string | null> {
+  return primaryHostFor(creatorId, "creator_page")
+}
 
 /**
  * THE SITE'S OWN ADDRESS. A connected, active domain when there is one,
@@ -43,6 +52,31 @@ export async function siteOrigin(creatorId: string, name: string): Promise<strin
   return `${protocol}://${origin}`
 }
 
+/**
+ * The creator's own picture (profiles.avatar_url, which Settings and the
+ * page builder both keep), for a share card that has nothing better. Asked
+ * only when the site has no share image, logo or hero picture; cached for
+ * five minutes, and nothing at all rather than an error.
+ */
+export async function creatorAvatar(creatorId: string): Promise<string | null> {
+  return unstable_cache(
+    async () => {
+      try {
+        const admin = createAdminClient()
+        const { data: creator } = await admin.from("creators").select("user_id").eq("id", creatorId).maybeSingle()
+        const userId = (creator as { user_id?: string | null } | null)?.user_id
+        if (!userId) return null
+        const { data: profile } = await admin.from("profiles").select("avatar_url").eq("id", userId).maybeSingle()
+        return ((profile as { avatar_url?: string | null } | null)?.avatar_url ?? null) || null
+      } catch {
+        return null
+      }
+    },
+    ["site-avatar", creatorId],
+    { revalidate: 300 },
+  )()
+}
+
 interface ListedProduct {
   slug: string
   title: string | null
@@ -51,27 +85,50 @@ interface ListedProduct {
   updated_at: string | null
 }
 
-/** Every published product of one creator, for the sitemap. Not the shop's 24. */
+/** At most this many products in one site's sitemap. */
+const MAX_LISTED_PRODUCTS = 5000
+/** Rows per request: PostgREST answers at most `max_rows`, 1,000 on Supabase. */
+const PRODUCT_PAGE = 1000
+
+/**
+ * Every published product of one creator, for the sitemap. Not the shop's 24.
+ *
+ * A THOUSAND AT A TIME. This asked for `.limit(5000)` in one request, and a
+ * request is answered with at most `max_rows` rows, so a shop with more than a
+ * thousand products had the rest left out of its sitemap in silence. A read
+ * that fails is thrown out of the cache rather than kept in it, so a blip is
+ * not remembered as "no products" for ten minutes; the site's files still
+ * answer, with its pages, because robots.txt must never fail.
+ */
 async function listedProducts(creatorId: string): Promise<ListedProduct[]> {
-  return unstable_cache(
-    async () => {
-      try {
-        const { data } = await createAdminClient()
-          .from("products")
-          .select("slug, title, thumbnail_url, gallery_urls, updated_at")
-          .eq("creator_id", creatorId)
-          .eq("status", "published")
-          .not("slug", "is", null)
-          .order("updated_at", { ascending: false })
-          .limit(5000)
-        return ((data ?? []) as ListedProduct[]).filter((p) => typeof p.slug === "string" && p.slug !== "")
-      } catch {
-        return []
-      }
-    },
-    ["site-seo-products", creatorId],
-    { tags: [creatorShopTag(creatorId)], revalidate: 600 },
-  )()
+  try {
+    return await unstable_cache(
+      async () => {
+        const admin = createAdminClient()
+        const rows: ListedProduct[] = []
+        for (let from = 0; from < MAX_LISTED_PRODUCTS; from += PRODUCT_PAGE) {
+          const { data, error } = await admin
+            .from("products")
+            .select("slug, title, thumbnail_url, gallery_urls, updated_at")
+            .eq("creator_id", creatorId)
+            .eq("status", "published")
+            .not("slug", "is", null)
+            .order("updated_at", { ascending: false })
+            .order("id", { ascending: true })
+            .range(from, from + PRODUCT_PAGE - 1)
+          if (error) throw new Error(error.message)
+          rows.push(...((data ?? []) as ListedProduct[]))
+          if (!data || data.length < PRODUCT_PAGE) break
+        }
+        return rows.filter((p) => typeof p.slug === "string" && p.slug !== "")
+      },
+      ["site-seo-products", creatorId],
+      { tags: [creatorShopTag(creatorId)], revalidate: 600 },
+    )()
+  } catch (e) {
+    console.error("[site-seo] products query failed:", (e as Error).message)
+    return []
+  }
 }
 
 export type SiteSeo =
@@ -93,9 +150,9 @@ export async function siteSeo(name: string): Promise<SiteSeo> {
   const { site } = found
   const origin = await siteOrigin(site.creatorId, name)
   /* The creator's switch, and the same spam rule storelib.com's own
-     sitemap applies to a handle (lib/security/spam-signals). */
-  const indexable =
-    siteIsIndexable(site.themeSettings as Record<string, unknown>) && deservesIndexing({ publishedProducts: 1, handle: name })
+     sitemap applies to a handle: lib/seo/indexing builtSiteIndexable, which
+     the site's pages and storelib.com's websites sitemap read too. */
+  const indexable = builtSiteIndexable(site.themeSettings as Record<string, unknown>, name)
 
   const entries: SitemapEntry[] = []
   if (indexable) {
@@ -125,4 +182,45 @@ export async function siteSeo(name: string): Promise<SiteSeo> {
     themeSettings: site.themeSettings,
     entries,
   }
+}
+
+/**
+ * THE ADDRESSES A WEBSITE HAD, once it has been taken down. Unpublishing
+ * changes the install's status and leaves its published sections on their
+ * rows, so the install unpublished most recently still says which pages were
+ * live, and the products it listed are the creator's published ones. What
+ * lib/seo/announce.ts tells search engines to look at again when there is no
+ * published site left for siteSeo to read. The front page at least, whatever
+ * else could not be read.
+ */
+export async function formerSiteAddresses(creatorId: string, name: string): Promise<string[]> {
+  const origin = await siteOrigin(creatorId, name)
+  const urls = [pageUrl(origin, "home")]
+  try {
+    const admin = createAdminClient()
+    const { data: install } = await admin
+      .from("store_theme_installs")
+      .select("id, store_theme_settings ( settings )")
+      .eq("creator_id", creatorId)
+      .eq("status", "unpublished")
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    const row = install as { id: string; store_theme_settings?: unknown } | null
+    if (!row) return urls
+    const settingsRow = (Array.isArray(row.store_theme_settings) ? row.store_theme_settings[0] : row.store_theme_settings) as
+      | { settings?: Record<string, unknown> | null }
+      | null
+      | undefined
+    const { data: pages } = await admin.from("store_theme_pages").select("page_key, sections").eq("install_id", row.id)
+    const live = ((pages ?? []) as { page_key: string; sections: unknown }[]).filter((p) => Array.isArray(p.sections) && p.sections.length > 0)
+    const hidden = hiddenPages(settingsRow?.settings ?? {})
+    for (const key of listedPageKeys(live.map((p) => p.page_key)).filter((k) => !hidden.has(k))) urls.push(pageUrl(origin, key))
+    const products = await listedProducts(creatorId)
+    if (products.length > 0) urls.push(pageUrl(origin, "products"))
+    for (const p of products) urls.push(productUrl(origin, p.slug))
+  } catch {
+    /* The front page is still worth telling. */
+  }
+  return [...new Set(urls)]
 }

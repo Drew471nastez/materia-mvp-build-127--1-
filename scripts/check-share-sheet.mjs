@@ -250,6 +250,9 @@ try {
         if (i === 2) {
           const thumb = await p.$eval("[data-share-sheet] [data-share-thumb]", (el) => getComputedStyle(el).transform)
           expect(/matrix\(1, 0, 0, 1, [1-9]/.test(thumb), "the thumb has slid under Website", thumb)
+          /* A thumb held on its own layer pulled the tab text over it onto another, which a phone re-draws late: the "Creator page" glitch. */
+          const layered = await p.$eval("[data-share-sheet] [data-share-thumb]", (el) => getComputedStyle(el).willChange)
+          expect(layered === "auto", "the thumb is not held on a layer of its own", layered)
           await p.screenshot({ path: join(shots, `${label}-website.png`) })
         }
       }
@@ -287,7 +290,11 @@ try {
       expect(frames.every((f) => Math.abs(f[2] - pill.right) <= 0.5), "every frame of the close, the right edge stays on the pill's", [...new Set(frames.map((f) => f[2]))])
     }
     await sleep(600)
-    const closed = await p.evaluate(() => !document.querySelector("[data-share-sheet]"))
+    /* The phone's sheet is kept once it has been built (BottomSheet keepMounted): closed, it is at rest, out of sight. */
+    const closed = await p.evaluate(() => {
+      const el = document.querySelector("[data-share-sheet]")
+      return !el || (!!el.closest("[data-app-sheet-rest]") && getComputedStyle(el.closest("[data-app-sheet-rest]")).visibility === "hidden")
+    })
     expect(closed, "Escape closes it", closed)
     if (errors.length) expect(false, "no errors on the page", errors)
     await p.close()
