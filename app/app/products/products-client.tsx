@@ -6,6 +6,7 @@ import Link from "next/link"
 import { ArrowUpDown, Check, ChevronLeft, ChevronRight, ChevronsUpDown, Download, Eye, Search, X } from "lucide-react"
 import { getProductUrl } from "@/lib/url-helpers"
 import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
+import { PickSheet } from "./pick-sheet"
 import { cn } from "@/lib/utils"
 import { useRouter } from "next/navigation"
 import { GUTTER, LIST_BAR, PaneBar, RowMenuButton, buttonSecondary, formatMoney } from "../orders/order-parts"
@@ -51,41 +52,46 @@ const SECONDARY_LOOK =
   "inline-flex h-8 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-[#e3e4e8] bg-white px-3 text-[13px] font-medium text-[#1a1a2e] shadow-[0_1px_0_rgba(17,24,39,0.05)] transition-colors duration-100 group-hover/press:bg-[#f7f7f8] group-active/press:bg-[#f1f2f4] group-disabled/press:opacity-50 select-none"
 
 /*
- * ONE SCALE, ABOUT A TENTH SMALLER, AND 7% BIGGER FROM 1024px. "Reduce the
+ * ONE SCALE, ABOUT A TENTH SMALLER, THEN BIGGER FROM 1024px. "Reduce the
  * products page's overall scale by about 10%" brought the bar's buttons,
  * the search and the views to 32px from 768px, the table to 13px, its rows
  * to 56px (64px from 1280px) with a 40px picture (44px), and a phone's rows
  * to 64px with a 50px picture. Then: "On desktop larger screens, make the
- * page just 7% bigger, a little bit." From 1024px every size on the page
- * is that one times 1.07, rounded to the pixel: the column (1200 to 1284px)
- * and its gutters, the bar, the title, the buttons, the search, the views,
- * the table's heading, text, rows, pictures and columns, and the footer.
- * Real sizes, not zoom, so text stays sharp and every press is where it is
- * drawn. A phone keeps its sizes, and every press on it is still 44px.
+ * page just 7% bigger, a little bit", and after it "just make the products
+ * page 3% bigger". From 1024px every size on the page is the 7% one times
+ * 1.03: the column (1284 to 1323px) and its gutters, the bar, the title,
+ * the buttons, the search, the views, the table's heading, text, rows,
+ * pictures and columns, the row buttons and the footer. Boxes are rounded
+ * to the whole pixel, so edges stay crisp; text to the half pixel, because
+ * 13, 14 and 15px times 1.03 round back to themselves and the words would
+ * not have grown at all. Real sizes, not zoom, so text stays sharp and every
+ * press is where it is drawn. A phone and a tablet keep their sizes, and
+ * every press on a phone is still 44px.
  */
-const BAR_BUTTON_SIZE = "lg:h-[34px] lg:px-[13px] lg:text-[14px]"
+const BAR_BUTTON_SIZE = "lg:h-[35px] lg:px-[13px] lg:text-[14.5px]"
 
-/** The page's column: Orders' 1200px, 7% wider from 1024px, with gutters 7% wider too. */
-const PAGE_WIDTH = "max-w-[1200px] lg:max-w-[1284px]"
-const PAGE_GUTTER = "lg:px-[34px]"
-/** Orders' bar (LIST_BAR), 7% taller from 1024px: 66 to 71px, 14 and 8px round the title to 15 and 9. */
-const PAGE_BAR = "lg:min-h-[71px] lg:pb-[9px] lg:pt-[15px]"
+/** The page's column: Orders' 1200px, 10% wider from 1024px (7%, then 3%), with its gutters wider too. */
+const PAGE_WIDTH = "max-w-[1200px] lg:max-w-[1323px]"
+const PAGE_GUTTER = "lg:px-[35px]"
+/** Orders' bar (LIST_BAR), taller from 1024px: 66 to 71px (7%), then 73 (3%), with 15 and 9px round the title. */
+const PAGE_BAR = "lg:min-h-[73px] lg:pb-[9px] lg:pt-[15px]"
 
-/** Export in the bar, from 768px: the secondary button with its word. On a phone it is Download, in the list's own toolbar. */
+/** Export in the bar, from 768px: the secondary button with its word. On a phone it is Download, the icon beside New product. */
 const EXPORT_LOOK = cn(SECONDARY_LOOK, BAR_BUTTON_SIZE)
 
 /**
- * THE DOWNLOAD BUTTON IN THE PHONE'S TOOLBAR. "Around the download icon add
- * an extremely small, subtle border to make it like a button." White, a
- * hairline a step lighter than any other border on the page, 8px round, no
- * shadow, and a grey fill while it is pressed. Drawn 32px in a 44px press.
+ * THE PHONE'S QUIET ICON BUTTON: Download beside New product, and Sort at
+ * the end of the list's toolbar. "Around the download icon add an extremely
+ * small, subtle border to make it like a button." White, a hairline a step
+ * lighter than any other border on the page, 8px round, no shadow, and a
+ * grey fill while it is pressed. Drawn 32px in a 44px press.
  */
 const DOWNLOAD_LOOK =
   "inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#eef0f2] bg-white text-[#4b5563] transition-colors duration-100 group-hover/press:bg-[#f7f7f8] group-active/press:border-[#e5e7eb] group-active/press:bg-[#f1f2f4]"
 
-/** Sort beside the search field, from 768px: the field's own white box and hairline. */
+/** Sort beside the search field, from 768px: the field's own white box and hairline. On a phone it is DOWNLOAD_LOOK's. */
 const SORT_LOOK =
-  "inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#e3e5e8] bg-white text-[#4b5563] transition-colors duration-100 group-hover/press:bg-[#f7f7f8] group-active/press:bg-[#f1f2f4] lg:h-[34px] lg:w-[34px]"
+  "inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#e3e5e8] bg-white text-[#4b5563] transition-colors duration-100 group-hover/press:bg-[#f7f7f8] group-active/press:bg-[#f1f2f4] lg:h-[35px] lg:w-[35px]"
 /** And when an order other than Newest is on. */
 const SORT_ON = "border-transparent bg-[#eceef1] text-[#1a1a2e] group-hover/press:bg-[#e5e7eb]"
 
@@ -124,7 +130,7 @@ const Press = forwardRef<HTMLButtonElement, ButtonHTMLAttributes<HTMLButtonEleme
 
 /**
  * The New product button: the editor's violet Save (primaryDepth), at the
- * bar's 32px (34 from 1024px), with the 44px press on a phone.
+ * bar's 32px (35 from 1024px), with the 44px press on a phone.
  */
 const NEW_LOOK = cn(primaryDepth, PRESS, "h-8 gap-1.5 rounded-lg px-3 text-[13px]", BAR_BUTTON_SIZE)
 
@@ -134,10 +140,10 @@ const NEW_LOOK = cn(primaryDepth, PRESS, "h-8 gap-1.5 rounded-lg px-3 text-[13px
  * reads as one. A product with no page to open draws its eye off: grey,
  * flat, and no pressed look. On a phone each is drawn 32px with a 44px
  * press (6px of invisible box on every side), 12px apart, so the two
- * presses meet and never overlap. In the table 28px, and 30px from 1024px.
+ * presses meet and never overlap. In the table 28px, and 31px from 1024px.
  */
 const ROW_BUTTON_PHONE = "relative z-[1] h-8 w-8 rounded-lg text-[#4b5563] after:absolute after:-inset-1.5 after:content-['']"
-const ROW_BUTTON_TABLE = "h-7 w-7 rounded-[7px] text-[#4b5563] lg:h-[30px] lg:w-[30px] lg:[&>svg]:h-[17px] lg:[&>svg]:w-[17px]"
+const ROW_BUTTON_TABLE = "h-7 w-7 rounded-[7px] text-[#4b5563] lg:h-[31px] lg:w-[31px] lg:[&>svg]:h-[18px] lg:[&>svg]:w-[18px]"
 const ROW_MENU_PHONE = cn(secondaryDepth, ROW_BUTTON_PHONE)
 const ROW_MENU_TABLE = cn(secondaryDepth, ROW_BUTTON_TABLE)
 const EYE_DEPTH = cn(
@@ -157,16 +163,16 @@ const EYE_TABLE = cn(EYE_DEPTH, ROW_BUTTON_TABLE)
  * is sharp at its own pixel ratio, at quality 88 (listed in next.config's
  * images.qualities, or the optimizer answers 400). Three candidates each,
  * not Next's fifteen, so fifty rows do not add a page of markup. The
- * table's box is 40px, 43 from 1024px and 47 from 1280px (the 7% step):
- * 48, 96 and 128 still cover it at 1x and 2x, which is what a computer's
- * screen is.
+ * table's box is 40px, 44 from 1024px and 48 from 1280px (the 7% and 3%
+ * steps): 48, 96 and 128 still cover it at 1x and 2x, which is what a
+ * computer's screen is.
  */
 type ThumbSize = "phone" | "table"
 const THUMB_QUALITY = PORTRAIT_QUALITY
 const THUMB_FILES: Record<ThumbSize, number[]> = { phone: [64, 128, 256], table: [48, 96, 128] }
-const THUMB_SIZES: Record<ThumbSize, string> = { phone: "50px", table: "(min-width: 1280px) 47px, (min-width: 1024px) 43px, 40px" }
+const THUMB_SIZES: Record<ThumbSize, string> = { phone: "50px", table: "(min-width: 1280px) 48px, (min-width: 1024px) 44px, 40px" }
 /** The largest box each size is drawn in: the width and height the picture reserves, and its fallback file. */
-const THUMB_BOX: Record<ThumbSize, number> = { phone: 50, table: 47 }
+const THUMB_BOX: Record<ThumbSize, number> = { phone: 50, table: 48 }
 
 /** How long a pointer rests on a row before its editor is fetched ahead. */
 const WARM_REST_MS = 50
@@ -417,12 +423,16 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
   ]
 
   /* Polaris's order, and as on Orders only the views with something in them, plus the open one. One view alone is not drawn. */
-  const views = ([
-    { value: "all", label: t("products.all") },
-    { value: "active", label: t("products.active") },
-    { value: "draft", label: t("products.draft") },
-    { value: "archived", label: t("products.archived") },
-  ] as Array<{ value: View; label: string }>).filter((v) => v.value === "all" || v.value === view || products.some((p) => inView(p, v.value)))
+  const views = useMemo(
+    () =>
+      ([
+        { value: "all", label: t("products.all") },
+        { value: "active", label: t("products.active") },
+        { value: "draft", label: t("products.draft") },
+        { value: "archived", label: t("products.archived") },
+      ] as Array<{ value: View; label: string }>).filter((v) => v.value === "all" || v.value === view || products.some((p) => inView(p, v.value))),
+    [t, view, products],
+  )
 
   /* One timer: a second notice restarts it, rather than the first one's timer hiding the second early. */
   const notificationTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -628,6 +638,9 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
     setSort(next)
     setPage(1)
   }
+  /* The phone's two sheets hand over their pick once they have gone (./pick-sheet). */
+  const pickView = (next: string) => showView(next as View)
+  const pickSort = (next: string) => sortBy(next as Sort)
   const search = (q: string) => {
     setSearchQuery(q)
     setPage(1)
@@ -793,20 +806,12 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
   const viewIndex = Math.max(0, views.findIndex((v) => v.value === view))
   const viewLabel = views[viewIndex]?.label ?? t("products.all")
 
+  /* The computer's Sort menu: the orders, a check on the one that is on. */
   const sortItems = SORTS.map((o) => ({
     label: o.label,
     icon: <Check className={o.value === sort ? "opacity-100" : "opacity-0"} />,
     onClick: () => sortBy(o.value),
   }))
-  /* The phone's one sheet: the views, then the orders under Sort by. */
-  const viewAndSortItems = [
-    ...views.map((v) => ({
-      label: v.label,
-      icon: <Check className={v.value === view ? "opacity-100" : "opacity-0"} />,
-      onClick: () => showView(v.value),
-    })),
-    ...sortItems.map((item, i) => (i === 0 ? { ...item, section: "Sort by" } : item)),
-  ]
 
   /**
    * A row's Preview: a link to the product's page in a new tab, or, for a
@@ -850,28 +855,45 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
 
       {/*
         A CREATOR'S SHELF IN ONE WHITE CARD. On a phone the card's first row
-        is its toolbar, the way Shopify's app has it: the view ("All", with
-        the order in the same sheet), a search that takes the rest of the
-        row, and Download after a thin divider. Nothing above the card but
-        the bar. Then a "Product" heading and the rows: a 50px picture, the
-        name, and under it the price and how many sold in quiet grey, with
-        Preview and the more button at the right. A row only says its status
-        when it is not on sale. The bar keeps the title and New product, top
-        right, so nothing floats over the list or the navigation pill. From
-        768px the same parts are a light table in the same card, with the
-        views and the search above it, where there is room to show them all.
+        is its toolbar, the way Shopify's app has it: the view ("All", its
+        own sheet of views), a search that takes the rest of the row, and
+        Sort after a thin divider (a sheet of the orders alone). Nothing above
+        the card but the bar. Then a "Product" heading and the rows: a 50px
+        picture, the name, and under it the price and how many sold in quiet
+        grey, with Preview and the more button at the right. A row only says
+        its status when it is not on sale. The bar keeps the title, Download
+        and New product, top right, so nothing floats over the list or the
+        navigation pill. From 768px the same parts are a light table in the
+        same card, with the views and the search above it, where there is
+        room to show them all.
       */}
       <PaneBar width={PAGE_WIDTH} className={cn(LIST_BAR, PAGE_BAR, PAGE_GUTTER)}>
-        <h1 className="min-w-0 truncate text-[22px] font-bold leading-7 text-[#1a1a2e] sm:text-[25px] sm:leading-8 lg:text-[27px] lg:leading-[34px]">{t("products.title")}</h1>
-        {/* An empty shop has nothing to export, and its one way forward is the button in the middle of the page. */}
+        <h1 className="min-w-0 truncate text-[22px] font-bold leading-7 text-[#1a1a2e] sm:text-[25px] sm:leading-8 lg:text-[28px] lg:leading-[35px]">{t("products.title")}</h1>
+        {/*
+          An empty shop has nothing to export, and its one way forward is the
+          button in the middle of the page. On a phone Export is Download, the
+          quiet icon beside New product: its 44px press and New product's meet
+          (6px between the press and the violet button, whose own press reaches
+          6px out), so the two drawings are 12px apart and no press overlaps.
+        */}
         {products.length > 0 ? (
-          <div className="flex shrink-0 items-center gap-2 lg:gap-[9px]">
+          <div className="flex shrink-0 items-center gap-1.5 md:gap-2 lg:gap-[9px]">
             <ResponsiveActionMenu
               title="Export"
               align="end"
               trigger={
                 <Press aria-label="Export products" className="max-md:hidden" look={EXPORT_LOOK}>
                   Export
+                </Press>
+              }
+              items={exportItems}
+            />
+            <ResponsiveActionMenu
+              title="Export"
+              align="end"
+              trigger={
+                <Press aria-label="Export products" data-download="" className="md:hidden" look={DOWNLOAD_LOOK}>
+                  <Download className="h-4 w-4" />
                 </Press>
               }
               items={exportItems}
@@ -903,17 +925,17 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
         {products.length > 0 ? (
           <div data-controls="" className="hidden flex-col gap-2 pt-1 md:flex @min-[700px]:flex-row-reverse @min-[700px]:items-center @min-[700px]:justify-between @min-[700px]:gap-4">
             <div className="flex min-w-0 items-center gap-2 lg:gap-[9px]">
-              <label data-search="" className="flex h-8 min-w-0 flex-1 cursor-text items-center lg:h-[34px] @min-[700px]:w-[240px] @min-[700px]:flex-none lg:@min-[700px]:w-[257px] xl:@min-[700px]:w-[289px]">
-                <span className="flex h-8 min-w-0 flex-1 items-center gap-2 rounded-lg border border-[#e3e5e8] bg-white px-2.5 transition-[border-color,box-shadow] duration-150 focus-within:border-[#c9ccd3] focus-within:shadow-[0_0_0_3px_rgba(17,17,19,0.06)] lg:h-[34px] lg:gap-[9px] lg:px-[11px]">
+              <label data-search="" className="flex h-8 min-w-0 flex-1 cursor-text items-center lg:h-[35px] @min-[700px]:w-[240px] @min-[700px]:flex-none lg:@min-[700px]:w-[265px] xl:@min-[700px]:w-[298px]">
+                <span className="flex h-8 min-w-0 flex-1 items-center gap-2 rounded-lg border border-[#e3e5e8] bg-white px-2.5 transition-[border-color,box-shadow] duration-150 focus-within:border-[#c9ccd3] focus-within:shadow-[0_0_0_3px_rgba(17,17,19,0.06)] lg:h-[35px] lg:gap-[9px] lg:px-[11px]">
                   <Search className="h-[15px] w-[15px] shrink-0 text-[#9ca3af] lg:h-4 lg:w-4" aria-hidden />
                   <input
                     ref={searchInputRef}
                     {...searchField}
                     placeholder="Search products"
-                    className="min-w-0 flex-1 bg-transparent text-[13px] text-[#1a1a2e] outline-none placeholder:text-[#9ca3af] lg:text-[14px] [&::-webkit-search-cancel-button]:hidden"
+                    className="min-w-0 flex-1 bg-transparent text-[13px] text-[#1a1a2e] outline-none placeholder:text-[#9ca3af] lg:text-[14.5px] [&::-webkit-search-cancel-button]:hidden"
                   />
                   {searchQuery ? (
-                    <button type="button" aria-label="Clear search" className="-mr-1.5 flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-full text-[#9ca3af] hover:text-[#4b5563] lg:h-[26px] lg:w-[26px]" onClick={clearSearch}>
+                    <button type="button" aria-label="Clear search" className="-mr-1.5 flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-full text-[#9ca3af] hover:text-[#4b5563] lg:h-[27px] lg:w-[27px]" onClick={clearSearch}>
                       <X className="h-4 w-4" />
                     </button>
                   ) : null}
@@ -945,7 +967,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                 role="tablist"
                 aria-label="Views"
                 data-views=""
-                className="relative grid h-8 w-[calc(var(--views)*84px)] shrink-0 lg:h-[34px] lg:w-[calc(var(--views)*90px)] xl:w-[calc(var(--views)*98px)]"
+                className="relative grid h-8 w-[calc(var(--views)*84px)] shrink-0 lg:h-[35px] lg:w-[calc(var(--views)*93px)] xl:w-[calc(var(--views)*101px)]"
                 style={{ gridTemplateColumns: `repeat(${views.length}, minmax(0, 1fr))`, ["--views" as string]: views.length }}
               >
                 <span aria-hidden className="pointer-events-none absolute inset-0 rounded-[9px] bg-[#eceef1] lg:rounded-[10px]" />
@@ -965,7 +987,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                       aria-selected={selected}
                       onClick={() => showView(option.value)}
                       className={cn(
-                        "relative min-w-0 cursor-pointer truncate rounded-[7px] px-2 text-[13px] font-medium outline-none transition-colors duration-100 focus-visible:shadow-[inset_0_0_0_2px_#1a1a2e] lg:text-[14px]",
+                        "relative min-w-0 cursor-pointer truncate rounded-[7px] px-2 text-[13px] font-medium outline-none transition-colors duration-100 focus-visible:shadow-[inset_0_0_0_2px_#1a1a2e] lg:text-[14.5px]",
                         selected ? "text-[#1a1a2e]" : "text-[#6b7280] hover:text-[#1a1a2e]",
                       )}
                     >
@@ -985,29 +1007,32 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
         >
           {/*
             THE PHONE'S TOOLBAR, THE CARD'S FIRST ROW. The view as a word and
-            an up and down chevron, opening one sheet with the views and the
-            orders; a search with no box of its own, 16px so iOS does not
-            zoom into it; a thin divider; and Download, drawn 32px with the
-            faintest border. Every press 44px. Then the column's name.
+            an up and down chevron, opening a sheet of the views alone; a
+            search with no box of its own, 16px so iOS does not zoom into it;
+            a thin divider; and Sort, the arrows drawn 32px with the faintest
+            border, opening a sheet of the orders alone (./pick-sheet). Every
+            press 44px. Then the column's name.
           */}
           {products.length > 0 ? (
             <div className="md:hidden">
               <div data-toolbar="" className="flex h-12 items-center gap-1 border-b border-[#eef0f2] pl-0.5 pr-1.5">
-                <ResponsiveActionMenu
+                <PickSheet
+                  name="views"
                   title="View"
-                  align="start"
+                  options={views}
+                  value={view}
+                  onPick={pickView}
                   trigger={
                     <button
                       type="button"
                       data-view-select=""
-                      aria-label={`Showing ${viewLabel}. Change view or order`}
+                      aria-label={`Showing ${viewLabel}. Change view`}
                       className="flex h-11 shrink-0 cursor-pointer items-center gap-1 rounded-lg pl-2.5 pr-2 text-[15px] font-semibold text-[#1a1a2e] outline-none transition-colors duration-100 active:bg-[#f1f2f4] focus-visible:shadow-[inset_0_0_0_2px_#1a1a2e] [-webkit-tap-highlight-color:transparent]"
                     >
                       {viewLabel}
                       <ChevronsUpDown className="h-4 w-4 text-[#6b7280]" aria-hidden />
                     </button>
                   }
-                  items={viewAndSortItems}
                 />
                 <label data-search="" className="flex h-11 min-w-0 flex-1 cursor-text items-center gap-2 pl-1.5">
                   <Search className="h-4 w-4 shrink-0 text-[#9ca3af]" aria-hidden />
@@ -1024,15 +1049,17 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                   ) : null}
                 </label>
                 <span aria-hidden data-divider="" className="h-6 w-px shrink-0 bg-[#e5e7eb]" />
-                <ResponsiveActionMenu
-                  title="Export"
-                  align="end"
+                <PickSheet
+                  name="sort"
+                  title="Sort by"
+                  options={SORTS}
+                  value={sort}
+                  onPick={pickSort}
                   trigger={
-                    <Press aria-label="Export products" data-download="" look={DOWNLOAD_LOOK}>
-                      <Download className="h-4 w-4" />
+                    <Press aria-label="Sort" data-sort="" look={cn(DOWNLOAD_LOOK, sort !== "newest" && SORT_ON)}>
+                      <ArrowUpDown className="h-4 w-4" />
                     </Press>
                   }
-                  items={exportItems}
                 />
               </div>
               <div data-list-head="" aria-hidden hidden={pageProducts.length === 0} className="flex h-9 items-center border-b border-[#eef0f2] px-3 text-[12px] font-medium text-[#6b7280]">
@@ -1114,8 +1141,9 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
               {/*
                 A COMPUTER: the same parts as a light table. 56px rows with a
                 40px picture and 13px text (64px rows, a 44px picture and 14px
-                names from 1280px), and 7% bigger from 1024px: 60 and 68px
-                rows, 43 and 47px pictures, 14 and 15px text. The status as a
+                names from 1280px), and bigger from 1024px (7%, then 3%):
+                62 and 70px rows, 44 and 48px pictures, 14.5 and 15.5px
+                text. The status as a
                 dot and a word rather than a tinted badge, numbers right
                 aligned in figures of one width, and the whole row opens the
                 product. No grey heading band and no line above the first row
@@ -1124,14 +1152,14 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                 under 1024px Status and Price are 96 and 88px, so the name
                 keeps the room it had.
               */}
-              <table className="hidden w-full table-fixed border-separate border-spacing-0 text-[13px] md:table lg:text-[14px]" hidden={pageProducts.length === 0}>
+              <table className="hidden w-full table-fixed border-separate border-spacing-0 text-[13px] md:table lg:text-[14.5px]" hidden={pageProducts.length === 0}>
                 <thead>
-                  <tr className="h-9 text-left text-[12px] text-[#6b7280] lg:h-[39px] lg:text-[13px] xl:h-[43px]">
-                    <th scope="col" className="border-b border-[#eef0f2] pl-4 pr-3 font-medium lg:pl-[17px] lg:pr-[13px] xl:pl-[21px]">Product</th>
-                    <th scope="col" className="w-[96px] border-b border-[#eef0f2] px-3 font-medium lg:w-[111px] lg:px-[13px] xl:w-[128px]">Status</th>
-                    <th scope="col" className="hidden w-[94px] border-b border-[#eef0f2] px-3 text-right font-medium lg:table-cell lg:px-[13px] xl:w-[107px]">Sales</th>
-                    <th scope="col" className="w-[88px] border-b border-[#eef0f2] px-3 text-right font-medium lg:w-[111px] lg:px-[13px] xl:w-[128px]">Price</th>
-                    <th scope="col" className="w-[76px] border-b border-[#eef0f2] lg:w-[82px] xl:w-[86px]" aria-label="Actions" />
+                  <tr className="h-9 text-left text-[12px] text-[#6b7280] lg:h-[40px] lg:text-[13.5px] xl:h-[44px]">
+                    <th scope="col" className="border-b border-[#eef0f2] pl-4 pr-3 font-medium lg:pl-[18px] lg:pr-[13px] xl:pl-[22px]">Product</th>
+                    <th scope="col" className="w-[96px] border-b border-[#eef0f2] px-3 font-medium lg:w-[114px] lg:px-[13px] xl:w-[132px]">Status</th>
+                    <th scope="col" className="hidden w-[97px] border-b border-[#eef0f2] px-3 text-right font-medium lg:table-cell lg:px-[13px] xl:w-[110px]">Sales</th>
+                    <th scope="col" className="w-[88px] border-b border-[#eef0f2] px-3 text-right font-medium lg:w-[114px] lg:px-[13px] xl:w-[132px]">Price</th>
+                    <th scope="col" className="w-[76px] border-b border-[#eef0f2] lg:w-[84px] xl:w-[89px]" aria-label="Actions" />
                   </tr>
                 </thead>
                 <tbody>
@@ -1142,7 +1170,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                         key={product.id}
                         data-row={product.id}
                         hidden={!shownIds.has(product.id)}
-                        className="group h-14 cursor-pointer lg:h-[60px] xl:h-[68px] [tr:not([hidden])~&>td]:border-t [tr:not([hidden])~&>td]:border-[#f1f2f4]"
+                        className="group h-14 cursor-pointer lg:h-[62px] xl:h-[70px] [tr:not([hidden])~&>td]:border-t [tr:not([hidden])~&>td]:border-[#f1f2f4]"
                         {...hover(product.id)}
                         onClick={(e) => {
                           /* Not a press inside the row's own controls, nor one that bubbled up from its menu's portal. */
@@ -1151,13 +1179,13 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                           openEditor(router, `/app/products/${product.id}`)
                         }}
                       >
-                        <td className="bg-white pl-4 pr-3 group-hover:bg-[#fafafb] lg:pl-[17px] lg:pr-[13px] xl:pl-[21px]">
+                        <td className="bg-white pl-4 pr-3 group-hover:bg-[#fafafb] lg:pl-[18px] lg:pr-[13px] xl:pl-[22px]">
                           <div className="flex min-w-0 items-center gap-3 lg:gap-[13px]">
                             <Thumb src={product.thumbnail_url} title={product.title} size="table" />
                             <Link
                               href={`/app/products/${product.id}`}
                               onClick={openFromLink(`/app/products/${product.id}`)}
-                              className="min-w-0 truncate text-[13px] font-medium text-[#1a1a2e] outline-none hover:underline focus-visible:underline lg:text-[14px] xl:text-[15px]"
+                              className="min-w-0 truncate text-[13px] font-medium text-[#1a1a2e] outline-none hover:underline focus-visible:underline lg:text-[14.5px] xl:text-[15.5px]"
                             >
                               {product.title}
                             </Link>
@@ -1170,7 +1198,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                           {product.sales_count ? product.sales_count.toLocaleString("en-US") : <span className="text-[#b6bac1]">0</span>}
                         </td>
                         <td className="whitespace-nowrap bg-white px-3 text-right font-medium tabular-nums text-[#1a1a2e] group-hover:bg-[#fafafb] lg:px-[13px]">{priceOf(product.price_cents)}</td>
-                        <td className="bg-white pr-3 group-hover:bg-[#fafafb] lg:pr-[13px] xl:pr-[17px]">
+                        <td className="bg-white pr-3 group-hover:bg-[#fafafb] lg:pr-[13px] xl:pr-[18px]">
                           <div data-row-actions="" className="flex items-center justify-end gap-2 lg:gap-[9px]">
                             {previewButton(product, EYE_TABLE, true)}
                             <ResponsiveActionMenu
@@ -1189,9 +1217,9 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
             </>
           ) : null}
           {pageProducts.length === 0 ? (
-            <div data-empty="" className="flex flex-col items-center px-6 py-16 text-center md:py-14 lg:py-[60px]">
-              <p className="text-[16px] font-semibold text-[#1a1a2e] md:text-[15px] lg:text-[16px]">{emptyTitle}</p>
-              <p className="mt-1 max-w-[320px] text-[14px] leading-5 text-[#6b7280] md:text-[13px] lg:max-w-[342px] lg:text-[14px]">
+            <div data-empty="" className="flex flex-col items-center px-6 py-16 text-center md:py-14 lg:py-[62px]">
+              <p className="text-[16px] font-semibold text-[#1a1a2e] md:text-[15px] lg:text-[16.5px]">{emptyTitle}</p>
+              <p className="mt-1 max-w-[320px] text-[14px] leading-5 text-[#6b7280] md:text-[13px] lg:max-w-[352px] lg:text-[14.5px]">
                 {searchQuery
                   ? "Try another name, or clear the search."
                   : products.length === 0
@@ -1227,19 +1255,19 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
             <div
               data-footer=""
               className={cn(
-                "flex h-11 items-center justify-between gap-3 border-t border-[#eef0f2] pl-3 pr-1.5 md:h-10 md:px-4 lg:h-[43px] lg:px-[17px] xl:h-[47px] xl:px-[21px]",
+                "flex h-11 items-center justify-between gap-3 border-t border-[#eef0f2] pl-3 pr-1.5 md:h-10 md:px-4 lg:h-[44px] lg:px-[18px] xl:h-[48px] xl:px-[22px]",
                 pages === 1 && "max-md:hidden",
               )}
             >
-              <span className="text-[12px] tabular-nums text-[#6b7280] lg:text-[13px]">
+              <span className="text-[12px] tabular-nums text-[#6b7280] lg:text-[13.5px]">
                 {from + 1}&ndash;{from + pageProducts.length} of {filteredProducts.length.toLocaleString("en-US")}
               </span>
               {pages > 1 ? (
                 <div className="flex items-center gap-1 max-md:gap-0">
-                  <Press aria-label="Previous page" look={cn(SECONDARY_LOOK, "h-7 w-8 px-0 lg:h-[30px] lg:w-[34px]")} disabled={pageNow <= 1} onClick={() => setPage(pageNow - 1)}>
+                  <Press aria-label="Previous page" look={cn(SECONDARY_LOOK, "h-7 w-8 px-0 lg:h-[31px] lg:w-[35px]")} disabled={pageNow <= 1} onClick={() => setPage(pageNow - 1)}>
                     <ChevronLeft className="h-4 w-4" />
                   </Press>
-                  <Press aria-label="Next page" look={cn(SECONDARY_LOOK, "h-7 w-8 px-0 lg:h-[30px] lg:w-[34px]")} disabled={pageNow >= pages} onClick={() => setPage(pageNow + 1)}>
+                  <Press aria-label="Next page" look={cn(SECONDARY_LOOK, "h-7 w-8 px-0 lg:h-[31px] lg:w-[35px]")} disabled={pageNow >= pages} onClick={() => setPage(pageNow + 1)}>
                     <ChevronRight className="h-4 w-4" />
                   </Press>
                 </div>
@@ -1334,8 +1362,8 @@ function StatusMark({ status, label, strong = false }: { status: Status; label: 
 }
 
 /**
- * A product's picture: 50px on a phone and 40px in the table (43 from
- * 1024px, 47 from 1280px), rounded in proportion, with a hairline drawn inside it so a white
+ * A product's picture: 50px on a phone and 40px in the table (44 from
+ * 1024px, 48 from 1280px), rounded in proportion, with a hairline drawn inside it so a white
  * cover still has an edge. With no picture, the name's first letter on grey
  * rather than a stock box icon, so two products without covers can still be
  * told apart.
@@ -1355,7 +1383,7 @@ function Thumb({ src, title, size }: { src: string | null; title: string; size: 
       data-thumb=""
       className={cn(
         "pointer-events-none relative shrink-0 overflow-hidden bg-[#eceef1] after:pointer-events-none after:absolute after:inset-0 after:rounded-[inherit] after:shadow-[inset_0_0_0_1px_rgba(17,24,39,0.06)] after:content-['']",
-        phone ? "h-[50px] w-[50px] rounded-[11px]" : "h-10 w-10 rounded-[9px] lg:h-[43px] lg:w-[43px] lg:rounded-[10px] xl:h-[47px] xl:w-[47px] xl:rounded-[11px]",
+        phone ? "h-[50px] w-[50px] rounded-[11px]" : "h-10 w-10 rounded-[9px] lg:h-[44px] lg:w-[44px] lg:rounded-[10px] xl:h-[48px] xl:w-[48px] xl:rounded-[11px]",
       )}
     >
       {src ? (
@@ -1373,7 +1401,7 @@ function Thumb({ src, title, size }: { src: string | null; title: string; size: 
           className="h-full w-full object-cover"
         />
       ) : (
-        <span aria-hidden className={cn("flex h-full items-center justify-center font-semibold text-[#9ca3af]", phone ? "text-[18px]" : "text-[15px] lg:text-[16px]")}>
+        <span aria-hidden className={cn("flex h-full items-center justify-center font-semibold text-[#9ca3af]", phone ? "text-[18px]" : "text-[15px] lg:text-[16.5px]")}>
           {letter}
         </span>
       )}

@@ -2,18 +2,20 @@
  * ===========================================================================
  *  THE PRODUCTS PAGE, MEASURED
  * ===========================================================================
- * On a phone: the bar with the title and New product as the one violet
- * button, the editor's Save to the letter; then the list as one white card
- * whose first row is its toolbar (the view with an up and down chevron, a
- * borderless search, a thin divider, Download with the faintest border),
- * then the column's name, then 64px rows with a 50px picture, the name, the
- * price and sales in grey, and at the right Preview and the more button,
- * 32px each in 44px presses, on one centre line. No search field or views
- * above the card. From 768px the same parts as a light table in the card
- * (56px rows, a 40px picture, 13px text; 64px rows and a 44px picture from
- * 1280px), with the views and the search above it, and from 1024px every
- * size 7% bigger (1200px column to 1284px), printed against what it was
- * before the 7%. A phone keeps its sizes. Every press
+ * On a phone: the bar with the title, Download (the quiet icon with the
+ * faintest border) and New product as the one violet button, the editor's
+ * Save to the letter; then the list as one white card whose first row is
+ * its toolbar (the view with an up and down chevron, a borderless search, a
+ * thin divider, Sort with the faintest border), then the column's name,
+ * then 64px rows with a 50px picture, the name, the price and sales in
+ * grey, and at the right Preview and the more button, 32px each in 44px
+ * presses, on one centre line. The view opens a sheet of the views alone,
+ * Sort a sheet of the orders alone. No search field or views above the
+ * card. From 768px the same parts as a light table in the card (56px rows,
+ * a 40px picture, 13px text; 64px rows and a 44px picture from 1280px),
+ * with the views and the search above it, and from 1024px every size 7%
+ * bigger and then 3% more (1200px column to 1284px, then 1323px), printed
+ * against what it was before the 3%. A phone keeps its sizes. Every press
  * on a phone is 44px however small it is drawn, nothing scrolls sideways,
  * nothing moves after the first frame (CLS 0), and nothing of the page's
  * sits under the navigation pill, whose box is read from
@@ -155,19 +157,21 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
   /*
     THE SIZES EACH WIDTH IS HELD TO. Under 1024px the page as it is (a tenth
     under the other pages since "reduce the products page's overall scale by
-    about 10%"); from 1024px (lg) every one of those times 1.07, rounded to
-    the pixel; from 1280px (xl) the step that was already there (64px rows,
-    a 44px picture, 14px names, a 40px heading, a 44px footer) times 1.07.
-    OLD is what lg and xl measured before the 7%, for the before and after.
+    about 10%"); from 1024px (lg) every one of those times 1.07 and then
+    1.03, boxes rounded to the pixel and text to the half pixel; from 1280px
+    (xl) the step that was already there (64px rows, a 44px picture, 14px
+    names, a 40px heading, a 44px footer) the same way. OLD is what lg and
+    xl measured before the 3%, for the before and after.
   */
   const SIZES = {
     md: { bar: 66, btn: 32, btnText: "13px", search: 32, searchText: "13px", track: 32, segment: 28, tab: 32, tabText: "13px", head: 36, row: 56, pic: 40, radius: "9px", name: "13px", table: "13px", footer: 40, arrows: "32,28", title: "25px", rowBtn: 28, rowGap: 8 },
-    lg: { bar: 71, btn: 34, btnText: "14px", search: 34, searchText: "14px", track: 34, segment: 30, tab: 34, tabText: "14px", head: 39, row: 60, pic: 43, radius: "10px", name: "14px", table: "14px", footer: 43, arrows: "34,30", title: "27px", rowBtn: 30, rowGap: 9 },
-    xl: { bar: 71, btn: 34, btnText: "14px", search: 34, searchText: "14px", track: 34, segment: 30, tab: 34, tabText: "14px", head: 43, row: 68, pic: 47, radius: "11px", name: "15px", table: "14px", footer: 47, arrows: "34,30", title: "27px", rowBtn: 30, rowGap: 9 },
+    lg: { bar: 73, btn: 35, btnText: "14.5px", search: 35, searchText: "14.5px", track: 35, segment: 31, tab: 35, tabText: "14.5px", head: 40, row: 62, pic: 44, radius: "10px", name: "14.5px", table: "14.5px", footer: 44, arrows: "35,31", title: "28px", rowBtn: 31, rowGap: 9 },
+    xl: { bar: 73, btn: 35, btnText: "14.5px", search: 35, searchText: "14.5px", track: 35, segment: 31, tab: 35, tabText: "14.5px", head: 44, row: 70, pic: 48, radius: "11px", name: "15.5px", table: "14.5px", footer: 48, arrows: "35,31", title: "28px", rowBtn: 31, rowGap: 9 },
   }
+  /* What lg and xl measured with the 7% alone, before "just make the products page 3% bigger". */
   const OLD = {
-    lg: { bar: 66, row: 56, pic: 40, name: 13, table: 13, head: 36, btn: 32, search: 32, track: 32, footer: 40, rowBtn: 28, container: 1200, title: 25 },
-    xl: { bar: 66, row: 64, pic: 44, name: 14, table: 13, head: 40, btn: 32, search: 32, track: 32, footer: 44, rowBtn: 28, container: 1200, title: 25 },
+    lg: { bar: 71, row: 60, pic: 43, name: 14, table: 14, head: 39, btn: 34, search: 34, track: 34, footer: 43, rowBtn: 30, container: 1284, title: 27 },
+    xl: { bar: 71, row: 68, pic: 47, name: 15, table: 14, head: 43, btn: 34, search: 34, track: 34, footer: 47, rowBtn: 30, container: 1284, title: 27 },
   }
   for (const [label, vp, hash] of [
     ["phone-360", phone(360)],
@@ -179,6 +183,8 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
     ["desktop-1440", { width: 1440, height: 900 }, "#sidebar"],
     ["wide-1920", { width: 1920, height: 1080 }, "#sidebar"],
   ]) {
+    /* ONLY=phone-390,desktop-1280 measures those widths alone. */
+    if (process.env.ONLY && !process.env.ONLY.split(",").includes(label)) continue
     const isPhone = label.startsWith("phone")
     const tier = vp.width >= 1280 ? "xl" : vp.width >= 1024 ? "lg" : "md"
     const S = SIZES[tier]
@@ -195,14 +201,26 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
     row.cls = cls.cls
     expect(cls.cls === 0, "CLS 0: nothing on the page moves once it is drawn", cls)
 
-    /* The bar: Orders' 66px, the title, Export (from 768px), and New product as the one violet button. */
+    /* The bar: Orders' 66px, the title, Export (from 768px) or Download (a phone), and New product as the one violet button. */
     const bar = await p.evaluate((pageLeft) => {
       const el = document.querySelector("[data-orders-bar]")
       const h = el.querySelector("h1")
       const addEl = el.querySelector("a[data-new-product]")
       const add = addEl.getBoundingClientRect()
-      const expBtn = el.querySelector("button[aria-label='Export products']")
+      const expBtn = el.querySelector("button[aria-label='Export products']:not([data-download])")
       const exp = expBtn.firstElementChild.getBoundingClientRect()
+      const dlBtn = el.querySelector("button[data-download]")
+      const dl = dlBtn.getBoundingClientRect()
+      const dlDrawn = dlBtn.firstElementChild.getBoundingClientRect()
+      const dc = getComputedStyle(dlBtn.firstElementChild)
+      /* New product's press reaches 6px past its drawing (PRESS's ::after). */
+      const addPressLeft = add.left + (parseFloat(getComputedStyle(addEl, "::after").left) || 0)
+      const download = getComputedStyle(dlBtn).display === "none" ? null : {
+        press: [Math.round(dl.width), Math.round(dl.height)], drawn: [Math.round(dlDrawn.width), Math.round(dlDrawn.height)],
+        border: `${dc.borderTopWidth} ${dc.borderTopStyle} ${dc.borderTopColor}`, radius: dc.borderTopLeftRadius, bg: dc.backgroundColor, shadow: dc.boxShadow,
+        gap: Math.round(add.left - dlDrawn.right), pressesMeet: +(addPressLeft - dl.right).toFixed(1), beforeNew: dl.right <= add.left, icon: !!dlBtn.querySelector("svg"),
+        mid: +Math.abs(dlDrawn.top + dlDrawn.height / 2 - (add.top + add.height / 2)).toFixed(1),
+      }
       const hitAbove = document.elementFromPoint(add.left + add.width / 2, add.top - 5)?.closest("a[data-new-product]") != null
       const hitBelow = document.elementFromPoint(add.left + add.width / 2, add.bottom + 5)?.closest("a[data-new-product]") != null
       const save = getComputedStyle(document.querySelector("[data-probe-save] button"))
@@ -211,19 +229,24 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
         barH: Math.round(el.getBoundingClientRect().height), titleSize: getComputedStyle(h).fontSize,
         add: [Math.round(add.width), Math.round(add.height)], addBg: getComputedStyle(addEl).backgroundColor, addText: addEl.textContent.trim(), addSize: getComputedStyle(addEl).fontSize,
         exp: [Math.round(exp.width), Math.round(exp.height)], expText: expBtn.innerText.trim(), expShown: getComputedStyle(expBtn).display !== "none", expSize: getComputedStyle(expBtn.firstElementChild).fontSize,
-        titleLeft: Math.round(h.getBoundingClientRect().left - pageLeft), addRight: Math.round(window.innerWidth - add.right), hitAbove, hitBelow,
+        titleLeft: Math.round(h.getBoundingClientRect().left - pageLeft), addRight: Math.round(window.innerWidth - add.right), hitAbove, hitBelow, download,
       }
     }, pageLeft)
     row.header = bar.barH
     row.title = bar.titleSize
     const barH = isPhone ? 66 : S.bar
-    expect(bar.barH === barH, barH === 66 ? "the bar is Orders' 66px" : `the bar is Orders' 66px times 1.07, ${barH}px`, bar.barH)
+    expect(bar.barH === barH, barH === 66 ? "the bar is Orders' 66px" : `the bar is Orders' 66px times 1.07 and 1.03, ${barH}px`, bar.barH)
     expect(bar.titleSize === (isPhone ? "22px" : S.title), `the title is ${isPhone ? "22px" : S.title}`, bar.titleSize)
     row.newBg = bar.addBg
     expect(bar.addText === "New product" && bar.add[1] === S.btn && bar.addSize === S.btnText && bar.addBg === "rgb(139, 92, 246)", `New product is one violet button, ${S.btn}px with ${S.btnText} text`, { add: bar.add, size: bar.addSize, bg: bar.addBg })
     expect(bar.addBg === bar.saveBg && bar.addShadow === bar.saveShadow, "with the editor's Save's colour and depth, to the letter", { newProduct: bar.addShadow, save: bar.saveShadow })
     if (isPhone) {
-      expect(!bar.expShown, "Export is not in the bar on a phone: it is the list's own toolbar", bar.expShown)
+      expect(!bar.expShown, "the word Export is not in the bar on a phone", bar.expShown)
+      const d = bar.download
+      row.download = d ? `${d.drawn[0]}px ${d.border.split(" ").slice(2).join(" ")} r${d.radius}` : "none"
+      expect(d && d.icon && d.beforeNew && d.press.join() === "44,44" && d.drawn.join() === "32,32", "Download is in the bar, just before New product: an icon drawn 32px in a 44px press", d)
+      expect(d && d.border === "1px solid rgb(238, 240, 242)" && d.radius === "8px" && d.bg === "rgb(255, 255, 255)" && d.shadow === "none", "with the faintest border (1px #eef0f2), 8px round, white, no shadow", d)
+      expect(d && d.gap === 12 && d.pressesMeet === 0 && d.mid <= 0.5, "12px from New product, on its centre line, the two presses meeting and never overlapping", d)
       expect(bar.hitAbove && bar.hitBelow, "New product is a 44px press: a finger 5px outside it still lands on it", { above: bar.hitAbove, below: bar.hitBelow })
       expect(bar.titleLeft === 16 && bar.addRight === 16, "16px in from both edges", { left: bar.titleLeft, right: bar.addRight })
     } else {
@@ -233,7 +256,8 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
     if (isPhone) {
       /*
         THE PHONE'S TOOLBAR, INSIDE THE CARD. The view, the search, a thin
-        divider and Download; nothing above the card but the bar.
+        divider and Sort, where Download was; nothing above the card but the
+        bar.
       */
       const tb = await p.evaluate(() => {
         const section = document.querySelector("section[aria-label=Products]")
@@ -244,7 +268,7 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
         const label = bar.querySelector("label[data-search]")
         const input = label.querySelector("input[type=search]")
         const divider = bar.querySelector("[data-divider]")
-        const dl = bar.querySelector("button[aria-label='Export products']")
+        const dl = bar.querySelector("button[aria-label='Sort']")
         const dlDrawn = dl.firstElementChild
         const box = (el) => { const r = el.getBoundingClientRect(); return [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)] }
         const c = getComputedStyle(dlDrawn)
@@ -258,7 +282,8 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
           select: { box: box(select), text: select.textContent.trim(), chevron: !!select.querySelector("svg"), size: getComputedStyle(select).fontSize },
           search: { box: box(label), input: box(input), font: getComputedStyle(input).fontSize, placeholder: input.placeholder, border: getComputedStyle(input).borderTopWidth + "/" + getComputedStyle(label).borderTopWidth, icon: !!label.querySelector("svg") },
           divider: box(divider), dividerBg: getComputedStyle(divider).backgroundColor,
-          download: { press: box(dl), drawn: box(dlDrawn), border: `${c.borderTopWidth} ${c.borderTopStyle} ${c.borderTopColor}`, radius: c.borderTopLeftRadius, bg: c.backgroundColor, shadow: c.boxShadow },
+          sort: { press: box(dl), drawn: box(dlDrawn), border: `${c.borderTopWidth} ${c.borderTopStyle} ${c.borderTopColor}`, radius: c.borderTopLeftRadius, bg: c.backgroundColor, shadow: c.boxShadow, icon: !!dl.querySelector("svg"), popup: dl.getAttribute("aria-haspopup") },
+          exportInToolbar: !!bar.querySelector("button[aria-label='Export products']"),
           visibleSearches: inputs.length, visibleSearchInCard: inputs.every((i) => section.contains(i)), controlsShown: controls ? getComputedStyle(controls).display !== "none" : false,
           views: [...document.querySelectorAll("[role=tablist]")].some((t) => t.getClientRects().length > 0),
           head: head ? { text: head.textContent.trim(), size: getComputedStyle(head).fontSize, color: getComputedStyle(head).color, box: box(head), checkbox: !!head.querySelector("input[type=checkbox]") } : null,
@@ -266,16 +291,17 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
         }
       })
       row.toolbar = tb.bar[3]
-      row.download = `${tb.download.drawn[2]}px ${tb.download.border.split(" ").slice(2).join(" ")} r${tb.download.radius}`
+      row.sort = `${tb.sort.drawn[2]}px ${tb.sort.border.split(" ").slice(2).join(" ")} r${tb.sort.radius}`
       expect(tb.section[0] === "16px" && tb.section[1] === "rgb(255, 255, 255)", "the list is one white card, 16px round", tb.section)
-      expect(tb.inCard && tb.bar[3] === 48 && tb.order, "its first row, inside the card, is the toolbar (48px): the view, the search, a divider, Download, in that order", { inCard: tb.inCard, bar: tb.bar, order: tb.order })
+      expect(tb.inCard && tb.bar[3] === 48 && tb.order, "its first row, inside the card, is the toolbar (48px): the view, the search, a divider, Sort, in that order", { inCard: tb.inCard, bar: tb.bar, order: tb.order })
       expect(tb.select.text === "All" && tb.select.chevron && tb.select.box[3] === 44 && tb.select.box[2] >= 44 && tb.select.size === "15px", "the view reads All with an up and down chevron, a 44px press", tb.select)
       expect(tb.search.placeholder === "Search and filter" && tb.search.font === "16px" && tb.search.border === "0px/0px" && tb.search.icon && tb.search.box[3] === 44, "then a search with no box of its own, Search and filter, 16px text so iOS does not zoom, a 44px press", tb.search)
       expect(tb.search.box[2] >= 120, "and the search takes the rest of the row", tb.search.box[2])
       expect(tb.divider[2] === 1 && tb.divider[3] === 24, "a thin divider, 1 by 24", { box: tb.divider, bg: tb.dividerBg })
-      expect(tb.download.press[2] === 44 && tb.download.press[3] === 44 && tb.download.drawn[2] === 32 && tb.download.drawn[3] === 32, "Download: drawn 32px in a 44px press", tb.download)
-      expect(tb.download.border === "1px solid rgb(238, 240, 242)" && tb.download.radius === "8px" && tb.download.bg === "rgb(255, 255, 255)" && tb.download.shadow === "none", "with the faintest border (1px #eef0f2), 8px round, white, no shadow", tb.download)
-      expect(Math.round(tb.card[0] + tb.card[2] - (tb.download.drawn[0] + tb.download.drawn[2])) === 13, "and on the rows' right edge (12px in from the card's inside)", tb.card[0] + tb.card[2] - (tb.download.drawn[0] + tb.download.drawn[2]))
+      expect(tb.sort.icon && tb.sort.popup === "dialog" && tb.sort.press[2] === 44 && tb.sort.press[3] === 44 && tb.sort.drawn[2] === 32 && tb.sort.drawn[3] === 32, "Sort, where Download was: the up and down arrows drawn 32px in a 44px press, opening a sheet", tb.sort)
+      expect(tb.sort.border === "1px solid rgb(238, 240, 242)" && tb.sort.radius === "8px" && tb.sort.bg === "rgb(255, 255, 255)" && tb.sort.shadow === "none", "with Download's faintest border (1px #eef0f2), 8px round, white, no shadow", tb.sort)
+      expect(Math.round(tb.card[0] + tb.card[2] - (tb.sort.drawn[0] + tb.sort.drawn[2])) === 13, "and on the rows' right edge (12px in from the card's inside)", tb.card[0] + tb.card[2] - (tb.sort.drawn[0] + tb.sort.drawn[2]))
+      expect(!tb.exportInToolbar, "Download is no longer in the toolbar", tb.exportInToolbar)
       expect(tb.visibleSearches === 1 && tb.visibleSearchInCard && !tb.controlsShown && !tb.views, "no search field or segmented views above the list: the only search is in the card", { searches: tb.visibleSearches, inCard: tb.visibleSearchInCard, controls: tb.controlsShown, views: tb.views })
       expect(tb.head && tb.head.text === "Product" && tb.head.size === "12px" && tb.head.color === "rgb(107, 114, 128)" && !tb.head.checkbox, "under it the column's name, Product, in 12px grey (no checkbox: the list has no selection)", tb.head)
 
@@ -287,7 +313,7 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
         return rules
       })
       expect(pressed.length > 0, "Download goes a step darker while it is pressed", pressed)
-      await p.click("[data-toolbar] button[aria-label='Export products']")
+      await p.click("[data-orders-bar] button[data-download]")
       await wait(650)
       const exp = await p.evaluate(() => { const d = [...document.querySelectorAll("[role=dialog]")].find((x) => /Export as CSV/.test(x.textContent)); return d ? [...d.querySelectorAll("[data-action-sheet] button, [data-action-sheet] a")].map((b) => b.textContent.trim()) : null })
       expect(exp && exp.includes("Export as CSV") && exp.includes("Export as PDF"), "and it opens Export as CSV and Export as PDF", exp)
@@ -295,7 +321,7 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
       await wait(500)
       const ring = await p.evaluate(() => {
         const b = document.activeElement
-        if (!b?.matches("[data-toolbar] button[aria-label='Export products']")) return { focused: b?.getAttribute("aria-label") ?? b?.tagName }
+        if (!b?.matches("[data-orders-bar] button[data-download]")) return { focused: b?.getAttribute("aria-label") ?? b?.tagName }
         const c = getComputedStyle(b.firstElementChild)
         return { focused: "Export products", visible: b.matches(":focus-visible"), outline: `${c.outlineStyle} ${c.outlineColor}`, own: getComputedStyle(b).outlineStyle }
       })
@@ -338,7 +364,7 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
       expect(Math.abs(seg.thumb[0] - seg.tabs[0].left) <= 2, "the segment sits on All", { segment: seg.thumb[0], all: seg.tabs[0].left })
     }
 
-    /* The column: 1200px, 1284px (7% more) from 1024px, with 32px gutters, 34px from 1024px. */
+    /* The column: 1200px, 1323px (7% and 3% more) from 1024px, with 32px gutters, 35px from 1024px. */
     const col = await p.evaluate(() => {
       const c = document.querySelector("section[aria-label=Products]").parentElement
       const cs = getComputedStyle(c)
@@ -346,10 +372,10 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
     })
     row.column = col.width
     if (!isPhone) {
-      const wantMax = tier === "md" ? "1200px" : "1284px"
-      const wantPad = tier === "md" ? "24px" : "34px"
+      const wantMax = tier === "md" ? "1200px" : "1323px"
+      const wantPad = tier === "md" ? "24px" : "35px"
       expect(col.max === wantMax && col.pad === wantPad, `the column is at most ${wantMax}, with ${wantPad} gutters`, col)
-      if (vp.width - pageLeft >= 1284) expect(col.width === 1284, "and it is 1284px wide on a wide screen (1200 before)", col.width)
+      if (vp.width - pageLeft >= 1323) expect(col.width === 1323, "and it is 1323px wide on a wide screen (1284 before the 3%, 1200 before the 7%)", col.width)
     }
 
     /* No sideways scroll anywhere. */
@@ -481,7 +507,7 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
       expect(!pill.newOverlaps && pill.add[1] < pill.pill[1] - 600, "New product is in the bar at the top, far from the pill, and covers nothing", pill)
       expect(pill.room === 104 && pill.clear >= 8, "scrolled to the end, the last row stops above the pill (the pane's 104px room)", { clear: pill.clear, room: pill.room, pill: pill.pill })
 
-      await p.screenshot({ path: join(shots, `${label}-products-v3.png`) })
+      await p.screenshot({ path: join(shots, `${label}-products-v4.png`) })
 
       /*
         IN THE APP. Capacitor's web view has no tabs, so there Preview hands
@@ -574,7 +600,7 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
         const r = Object.fromEntries(Object.keys(n).filter((k) => k !== "container").map((k) => [k, +(n[k] / o[k]).toFixed(3)]))
         growth.push({ label, ...Object.fromEntries(Object.keys(r).map((k) => [k, `${o[k]} > ${n[k]} (${((r[k] - 1) * 100).toFixed(1)}%)`])), container: `${Math.min(o.container, col.width)} > ${col.width}` })
         /* The footer is measured on the sixty product page below; its before and after is added there. */
-        expect(Object.values(r).every((x) => x >= 1.05 && x <= 1.09), "every size is 5 to 9% bigger than it was (7% rounded to the pixel)", r)
+        expect(Object.values(r).every((x) => x >= 1.02 && x <= 1.04), "every size is 2 to 4% bigger than it was (3%, boxes rounded to the pixel, text to the half pixel)", r)
       }
 
       /* Headless Chromium reports (hover: none), so the tint is read from the rule itself. */
@@ -684,7 +710,7 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
 
     const footer = await p.evaluate(() => { const f = document.querySelector("[data-footer]"); return f ? getComputedStyle(f).display : "missing" })
     expect(isPhone ? footer === "none" : footer === "flex", isPhone ? "no footer counting rows on a phone when there is one page" : "the footer counts what is shown", footer)
-    if (!isPhone) await p.screenshot({ path: join(shots, `${label}-products-v3.png`) })
+    if (!isPhone) await p.screenshot({ path: join(shots, `${label}-products-v4.png`) })
 
     /*
       SWITCHING VIEWS. All, Draft, Archived, All: every picture shown before is
@@ -746,30 +772,40 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
     expect(pics.every((x) => x.bg === "rgb(236, 238, 241)") && pics.filter((x) => x.decoding !== null).every((x) => x.decoding === "async" && x.w && x.h), "each picture sits on grey (never white), decodes off the main thread, with its width and height set", pics.slice(0, 2))
     await p.screenshot({ path: join(shots, `products-${label}-after-switch.png`) })
 
-    /* On a phone the views and the orders are one sheet, opened from the view's name. */
-    const sheetPick = async (name) => {
-      await p.click("[data-toolbar] button[data-view-select]")
+    /*
+      On a phone the views are a sheet of their own, opened from the view's
+      name, and the orders another, opened from Sort (./pick-sheet). Each
+      holds only its own rows, with a check on the one that is on.
+    */
+    const sheetPick = async (which, name) => {
+      await p.click(which === "views" ? "[data-toolbar] button[data-view-select]" : "[data-toolbar] button[aria-label='Sort']")
       await wait(650)
-      const found = await p.evaluate((name) => {
-        const d = [...document.querySelectorAll("[role=dialog]")].find((x) => /Sort by/.test(x.textContent))
-        if (!d) return null
-        const rows = [...d.querySelectorAll("[data-action-sheet] button")]
+      const found = await p.evaluate((which, name) => {
+        const list = document.querySelector(`[role=dialog] [data-pick-sheet=${which}]`)
+        if (!list) return null
+        const d = list.closest("[role=dialog]")
+        const rows = [...list.querySelectorAll("[data-pick]")]
         const b = rows.find((x) => x.textContent.trim() === name)
-        const out = { rows: rows.map((x) => x.textContent.trim()), groups: [...d.querySelectorAll("[data-action-sheet] [role=group]")].map((g) => g.getAttribute("aria-label")) }
+        const out = {
+          title: d.getAttribute("aria-label"), rows: rows.map((x) => x.textContent.trim()), checked: rows.filter((x) => x.getAttribute("aria-selected") === "true").map((x) => x.textContent.trim()),
+          checks: rows.map((x) => !!x.querySelector("svg")), weight: rows.map((x) => getComputedStyle(x.firstElementChild).fontWeight), heights: [...new Set(rows.map((x) => Math.round(x.getBoundingClientRect().height)))],
+          otherRows: d.querySelectorAll("[data-action-sheet], [data-pick-sheet]:not([data-pick-sheet=" + which + "])").length,
+        }
         b?.click()
         return out
-      }, name)
+      }, which, name)
       await wait(700)
       return found
     }
     if (isPhone) {
-      const sheet = await sheetPick("Draft")
-      await p.screenshot({ path: join(shots, `${label}-products-v3-draft.png`) })
+      const sheet = await sheetPick("views", "Draft")
+      await p.screenshot({ path: join(shots, `${label}-products-v4-draft.png`) })
       const now = await p.evaluate(() => ({ label: document.querySelector("[data-toolbar] button[data-view-select]").textContent.trim(), rows: window.__rows().length, statuses: [...window.__rows()].map((r) => r.querySelector("[data-meta] [data-status]")?.textContent ?? null) }))
-      expect(sheet && ["All", "Active", "Draft", "Archived", "Newest", "Price high to low"].every((x) => sheet.rows.includes(x)) && sheet.groups.includes("Sort by"), "the view's name opens one sheet: All, Active, Draft, Archived, then Sort by", sheet)
+      expect(sheet && sheet.title === "View" && sheet.rows.join() === "All,Active,Draft,Archived" && sheet.otherRows === 0, "the view's name opens a sheet of the views alone: All, Active, Draft, Archived, and no orders in it", sheet)
+      expect(sheet && sheet.checked.join() === "All" && sheet.checks.join() === "true,false,false,false" && sheet.weight[0] === "600" && sheet.heights.join() === "48", "the one on (All) has the check and is semibold; every row is 48px", sheet)
       expect(now.label === "Draft" && now.rows === 2, "picking Draft there shows the two drafts, and the toolbar says Draft", now)
       expect(now.statuses.every((s) => s === null), "in the Draft view the rows do not say Draft again", now.statuses)
-      await sheetPick("All")
+      await sheetPick("views", "All")
     } else {
       /* Views: Draft holds the two drafts, and the segment slides under it. */
       await p.evaluate(() => [...document.querySelectorAll("[role=tab]")].find((t) => t.textContent.trim() === "Draft").click())
@@ -789,7 +825,12 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
     /* Sort: price high to low puts the dearest first. */
     let sorted
     if (isPhone) {
-      sorted = !!(await sheetPick("Price high to low"))
+      const sheet = await sheetPick("sort", "Price high to low")
+      await p.screenshot({ path: join(shots, `${label}-products-v4-sorted.png`) })
+      expect(sheet && sheet.title === "Sort by" && sheet.rows.join() === "Newest,Oldest,Title A to Z,Title Z to A,Price high to low,Price low to high,Best selling" && sheet.otherRows === 0,
+        "Sort opens a sheet of the orders alone, under Sort by: no views in it", sheet)
+      expect(sheet && sheet.checked.join() === "Newest" && sheet.checks.filter(Boolean).length === 1 && sheet.checks[0], "Newest, the one on, has the check", sheet && sheet.checked)
+      sorted = !!sheet
     } else {
       await p.click("[data-controls] button[aria-label='Sort']")
       await wait(250)
@@ -803,9 +844,13 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
     }
     const prices = await p.evaluate(() => [...window.__rows()].slice(0, 3).map((r) => (r.textContent.match(/\$\d+\.\d{2}/) || [""])[0]))
     expect(sorted && prices.join() === "$54.00,$50.50,$47.00", "Sort, Price high to low, puts the dearest first", prices)
-    if (!isPhone) {
-      const sortOn = await p.$eval("[data-controls] button[aria-label='Sort']", (b) => getComputedStyle(b.firstElementChild).backgroundColor)
+    {
+      const sortOn = await p.$eval(isPhone ? "[data-toolbar] button[aria-label='Sort']" : "[data-controls] button[aria-label='Sort']", (b) => getComputedStyle(b.firstElementChild).backgroundColor)
       expect(sortOn === "rgb(236, 238, 241)", "and the sort button shows an order other than Newest is on", sortOn)
+    }
+    if (isPhone) {
+      const again = await sheetPick("sort", "Price high to low")
+      expect(again && again.checked.join() === "Price high to low", "opened again, the check is on Price high to low", again && again.checked)
     }
 
     /* Search: typing narrows; nothing found says so and offers to clear it. */
@@ -816,7 +861,7 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
     expect(found.length === 1 && /portrait/.test(found[0]), "typing narrows the list", found.length)
     const clearBtn = await p.$eval(`${SEARCH_BOX} button[aria-label='Clear search']`, (b) => { const r = b.getBoundingClientRect(); return [Math.round(r.width), Math.round(r.height)] })
     expect(isPhone ? clearBtn[0] >= 44 && clearBtn[1] >= 44 : clearBtn[0] >= 24, "and a clear button appears in the field", clearBtn)
-    await p.screenshot({ path: join(shots, `${label}-products-v3-search.png`) })
+    await p.screenshot({ path: join(shots, `${label}-products-v4-search.png`) })
     await p.type(SEARCH, "zzz")
     await wait(80)
     const empty = await p.evaluate(() => document.querySelector("section[aria-label=Products]").textContent)
@@ -851,7 +896,7 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
     expect(menu.kind === (isPhone ? "sheet" : "dropdown"), `a row's actions are a ${isPhone ? "bottom sheet" : "dropdown"}`, menu.kind)
     expect(["View", "Share", "Archive", "Duplicate", "Delete"].every((l) => menu.labels.includes(l)), "with View, Share, Archive, Duplicate and Delete", [...new Set(menu.labels)])
     expect(menu.pushed === pushedBeforeMenu, "and opening them does not open the product", menu.pushed - pushedBeforeMenu)
-    await p.screenshot({ path: join(shots, `${label}-products-v3-actions.png`) })
+    await p.screenshot({ path: join(shots, `${label}-products-v4-actions.png`) })
     /* Delete asks first, with Cancel focused, and Escape takes the question away. */
     await p.evaluate(() => {
       const box = document.querySelector("[role=menu]") || [...document.querySelectorAll("[role=dialog]")].find((d) => /Duplicate/.test(d.textContent))
@@ -875,7 +920,7 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
     if (!isPhone && tier !== "md") {
       const g = growth.find((x) => x.label === label)
       if (g) g.footer = `${OLD[tier].footer} > ${first.h} (${((first.h / OLD[tier].footer - 1) * 100).toFixed(1)}%)`
-      expect(first.h / OLD[tier].footer >= 1.05 && first.h / OLD[tier].footer <= 1.09, "the footer 7% taller too", [OLD[tier].footer, first.h])
+      expect(first.h / OLD[tier].footer >= 1.02 && first.h / OLD[tier].footer <= 1.04, "the footer 3% taller too", [OLD[tier].footer, first.h])
     }
     const next = await q.evaluate(() => {
       const press = document.querySelector("button[aria-label='Next page']")
@@ -988,7 +1033,7 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
 }
 console.log("\nsummary (px)")
 console.table(summary)
-console.log("\n7% from 1024px: before > after")
+console.log("\n3% from 1024px: before > after")
 console.table(growth)
 console.log(`\nscreenshots in ${shots}`)
 if (broken) { console.error(`\n${broken} check(s) failed\n`); process.exit(1) }

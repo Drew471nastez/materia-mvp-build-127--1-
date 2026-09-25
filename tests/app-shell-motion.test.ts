@@ -514,7 +514,10 @@ section("Sheets")
     /preloadAvatar\(avatarSrc, 40\)/.test(menu) && /prefetch=\{false\}/.test(menu) && /SHEET_OPEN_MS \+ 60/.test(menu))
   const sheetCss = read("app/globals.css")
   check("no sheet rule ends in a bare `*`, which restyled the whole document on every open and close",
-    !/html:has\([^{]*\) \[data-app-nav-pill\] \*/.test(sheetCss) && /\[data-app-nav-pill\] :is\(a, button, \.pointer-events-auto\)/.test(sheetCss))
+    !/html:has\([^{]*\) \[data-app-nav-pill\] \*/.test(sheetCss) && /\[data-app-nav-pill\] \.pointer-events-auto,/.test(sheetCss))
+  /* Nor in `a` or `button`: a change is filed under the rule's last part, so that restyled every link and button in the document (298 on a phone's Products list). */
+  check("nor in a tag name: only the pill's own pointer-events-auto parts are named",
+    !/\[data-app-nav-pill\] :is\([^)]*\b(a|button)\b/.test(sheetCss) && !/\[data-app-nav-pill\] (a|button)\b/.test(sheetCss))
   const css = read("app/globals.css")
   check("the pill is never hidden, faded or dropped under the page for a sheet",
     /html:has\(\[data-app-sheet\]\) \[data-app-nav-pill\],[\s\S]{0,200}z-index: 39;/.test(css)

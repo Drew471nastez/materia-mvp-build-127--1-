@@ -3124,18 +3124,30 @@ html.capacitor .app-content-scroll {
    * CPU slowed four times (scripts/check-sheet-motion.mjs): 80 to 130ms of
    * style work in the first 100ms after the tap, on the open and again on
    * the close, which are the first frames of both. Naming what can take a
-   * tap (the pill's `pointer-events-auto` parts, and any link or button)
-   * gives the same result for a few elements. Radix's lock is an attribute
-   * on <body> itself and needs no :has() at all.
+   * tap gives the same result for a few elements. Radix's lock is an
+   * attribute on <body> itself and needs no :has() at all.
+   *
+   * AND NOT `a` OR `button` EITHER. It said `:is(a, button,
+   * .pointer-events-auto)`, and the browser files a change like this under
+   * the last part of the rule alone: every link and every button in the
+   * document, wherever it is, not only the pill's. The Products list on a
+   * phone has three hundred of them (fifty rows, twice), so opening its Sort
+   * sheet restyled 298 elements, 46ms of a 90ms first frame on a CPU slowed
+   * four times, and picking a row did it again (scripts/check-products-
+   * sheets.mjs). The pill's links and buttons set no pointer-events of their
+   * own: they take the pill's parts' value, and those parts are the
+   * `pointer-events-auto` boxes (the bar and the round menu button), so
+   * turning those off turns off everything in them, for a handful of
+   * elements restyled instead of hundreds.
    */
   html:has([data-app-sheet]) [data-app-nav-pill],
   html:has([role="dialog"][aria-modal="true"]:not([data-mobile-menu], [aria-hidden="true"])) [data-app-nav-pill],
   body[data-scroll-locked] [data-app-nav-pill] {
     z-index: 39;
   }
-  html:has([data-app-sheet="open"]) [data-app-nav-pill] :is(a, button, .pointer-events-auto),
-  html:has([role="dialog"][aria-modal="true"]:not([data-mobile-menu], [aria-hidden="true"])) [data-app-nav-pill] :is(a, button, .pointer-events-auto),
-  body[data-scroll-locked] [data-app-nav-pill] :is(a, button, .pointer-events-auto) {
+  html:has([data-app-sheet="open"]) [data-app-nav-pill] .pointer-events-auto,
+  html:has([role="dialog"][aria-modal="true"]:not([data-mobile-menu], [aria-hidden="true"])) [data-app-nav-pill] .pointer-events-auto,
+  body[data-scroll-locked] [data-app-nav-pill] .pointer-events-auto {
     pointer-events: none !important;
   }
 
