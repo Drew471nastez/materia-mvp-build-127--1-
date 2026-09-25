@@ -141,6 +141,33 @@ export function warmProducts(router: Router) {
   prefetchAppPage(router, PRODUCTS_HREF)
 }
 
+/*
+  THE WAY IN, FETCHED AHEAD. A full prefetch brings the editor's whole
+  payload, the product read on the server and the references to the
+  editor's code, whose chunks the router starts loading as it reads them. So
+  the press that follows has nothing left to wait for. The router keeps it
+  for staleTimes (five minutes); asking again for one it holds costs nothing.
+*/
+export function warmEditor(router: Router, href: string) {
+  prefetchAppPage(router, href)
+}
+
+/**
+ * Run `task` once the browser is idle (a frame with nothing else to do), or
+ * after `timeout` at the latest; at once where idle callbacks do not exist.
+ * Returns the cancel, for an unmount before it ran.
+ */
+export function whenIdle(task: () => void, timeout = 1500): () => void {
+  if (typeof window === "undefined") return () => {}
+  const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (h: number) => void }
+  if (typeof w.requestIdleCallback === "function" && typeof w.cancelIdleCallback === "function") {
+    const handle = w.requestIdleCallback(task, { timeout })
+    return () => w.cancelIdleCallback?.(handle)
+  }
+  const handle = window.setTimeout(task, 200)
+  return () => window.clearTimeout(handle)
+}
+
 /** The product the editor just had open, once. */
 export function takeEdited(): string | null {
   const id = edited

@@ -3,7 +3,6 @@
 import { announceChange } from "@/lib/seo/announce-client"
 import { forwardRef, useState, useRef, useEffect, useLayoutEffect, useMemo, type ButtonHTMLAttributes, type MouseEvent as ReactMouseEvent } from "react"
 import Link from "next/link"
-import Image from "next/image"
 import { ArrowUpDown, Check, ChevronLeft, ChevronRight, Download, Search, X } from "lucide-react"
 import { getProductUrl } from "@/lib/url-helpers"
 import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
@@ -11,12 +10,13 @@ import { cn } from "@/lib/utils"
 import { useRouter } from "next/navigation"
 import { GUTTER, LIST_BAR, LIST_WIDTH, PaneBar, RowMenuButton, buttonSecondary, formatMoney } from "../orders/order-parts"
 import { primaryDepth, secondaryDepth } from "./new/editor-buttons"
-import { isReturning, listShown, openEditor, takeEdited } from "./list-return"
+import { isReturning, listShown, openEditor, takeEdited, warmEditor, whenIdle } from "./list-return"
 import { playList, shootList, type ListShot } from "./list-motion"
 import { LAYER_MOTION_MS } from "@/components/app/page-layer"
 import { createClient } from "@/lib/supabase/client"
 import { useLanguage } from "@/lib/i18n"
 import { STORELIB_LOGO } from "@/lib/brand/logo"
+import { PORTRAIT_QUALITY, optimizedImageUrl, optimizedSrcSet } from "@/lib/images/optimized-url"
 import { archiveProduct, isArchivedProduct as isArchived, restoreProduct } from "@/lib/products/archive"
 
 interface Product {
@@ -54,20 +54,21 @@ const SECONDARY_LOOK =
  * the bar that looks like a button is New product.
  */
 /*
- * FROM 1280px EVERYTHING IS A STEP UP. "On desktop larger screens the
- * products page, things are too small: make them a little bit bigger." The
- * bar's buttons, the search, the views, the table's text, rows and pictures
- * each grow by one step at xl, and nothing changes below it.
+ * ONE SCALE, ABOUT A TENTH SMALLER. "Reduce the products page's overall
+ * scale by about 10%." The bar's buttons, the search and the views are 32px
+ * at every width from 768px (they grew to 36px at 1280px before), the table
+ * reads at 13px, its rows are 56px (64px from 1280px) with a 40px picture
+ * (44px), and a phone's rows are 64px with a 50px picture. Every press on a
+ * phone is still 44px, however small it is drawn.
  */
 const EXPORT_LOOK = cn(
   SECONDARY_LOOK,
-  "xl:h-9 xl:px-3.5 xl:text-[14px]",
   "max-md:w-8 max-md:border-transparent max-md:bg-transparent max-md:px-0 max-md:text-[#4b5563] max-md:shadow-none",
 )
 
-/** Sort beside the search field: the field's own white box and hairline, 40px on a phone and 32 from 768px. */
+/** Sort beside the search field: the field's own white box and hairline, 36px on a phone and 32 from 768px. */
 const SORT_LOOK =
-  "inline-flex h-10 w-10 items-center justify-center rounded-[10px] border border-[#e3e5e8] bg-white text-[#4b5563] transition-colors duration-100 group-hover/press:bg-[#f7f7f8] group-active/press:bg-[#f1f2f4] md:h-8 md:w-8 md:rounded-lg xl:h-9 xl:w-9"
+  "inline-flex h-9 w-9 items-center justify-center rounded-[10px] border border-[#e3e5e8] bg-white text-[#4b5563] transition-colors duration-100 group-hover/press:bg-[#f7f7f8] group-active/press:bg-[#f1f2f4] md:h-8 md:w-8 md:rounded-lg"
 /** And when an order other than Newest is on. */
 const SORT_ON = "border-transparent bg-[#eceef1] text-[#1a1a2e] group-hover/press:bg-[#e5e7eb]"
 
@@ -96,18 +97,39 @@ const Press = forwardRef<HTMLButtonElement, ButtonHTMLAttributes<HTMLButtonEleme
  * The New product button: the editor's violet Save (primaryDepth), at the
  * bar's 32px, with the 44px press on a phone.
  */
-const NEW_LOOK = cn(primaryDepth, PRESS, "h-8 gap-1.5 rounded-lg px-3 text-[13px] xl:h-9 xl:px-3.5 xl:text-[14px]")
+const NEW_LOOK = cn(primaryDepth, PRESS, "h-8 gap-1.5 rounded-lg px-3 text-[13px]")
 
 /**
  * A row's more button with the same depth as the editor's (secondaryDepth):
- * drawn 40px on a phone, as the editor's is, with a 44px press (3px from
- * inside its 1px border), and 32px in the table.
+ * drawn 36px on a phone with a 46px press (5px from inside its 1px
+ * border), and 28px in the table.
  */
 const ROW_MENU_PHONE = cn(
   secondaryDepth,
-  "relative z-[1] h-10 w-10 rounded-[10px] text-[#4b5563] after:absolute after:-inset-[3px] after:content-[''] [&>svg]:h-5 [&>svg]:w-5",
+  "relative z-[1] h-9 w-9 rounded-[9px] text-[#4b5563] after:absolute after:-inset-[5px] after:content-[''] [&>svg]:h-[18px] [&>svg]:w-[18px]",
 )
-const ROW_MENU_TABLE = cn(secondaryDepth, "h-8 w-8 rounded-lg text-[#4b5563]")
+const ROW_MENU_TABLE = cn(secondaryDepth, "h-7 w-7 rounded-[7px] text-[#4b5563]")
+
+/**
+ * THE PICTURES, SHARP ON EVERY SCREEN. They went through next/image at a
+ * fixed width, which offers a 1x and a 2x file at Next's default quality of
+ * 75: on a 3x phone a 56px picture was a 128px file stretched over 168
+ * device pixels, and at 75 a small picture's edges went soft and blocky.
+ * Now each size offers the files its box needs at 1x, 2x and 3x, with honest
+ * `w` descriptors and `sizes`, so the browser takes the smallest one that
+ * is sharp at its own pixel ratio, at quality 88 (listed in next.config's
+ * images.qualities, or the optimizer answers 400). Three candidates each,
+ * not Next's fifteen, so fifty rows do not add a page of markup.
+ */
+type ThumbSize = "phone" | "table"
+const THUMB_QUALITY = PORTRAIT_QUALITY
+const THUMB_FILES: Record<ThumbSize, number[]> = { phone: [64, 128, 256], table: [48, 96, 128] }
+const THUMB_SIZES: Record<ThumbSize, string> = { phone: "50px", table: "(min-width: 1280px) 44px, 40px" }
+
+/** How long a pointer rests on a row before its editor is fetched ahead. */
+const WARM_REST_MS = 50
+/** How many of the first rows are fetched ahead once the list is idle. */
+const WARM_AHEAD = 3
 
 /** How many rows a page holds before the footer's arrows take over. */
 const PAGE_SIZE = 50
@@ -127,8 +149,6 @@ let leftAt: { view: View; sort: Sort; search: string; page: number } | null = nu
 const EDITED_TINT = "#f3effe"
 const EDITED_FADE_MS = 1200
 
-/** `router.prefetch`'s full kind: the page's data too, not only its shell. */
-const FULL_PREFETCH = { kind: "full" } as unknown as Parameters<ReturnType<typeof useRouter>["prefetch"]>[1]
 
 interface ProductsClientProps {
   products: Product[]
@@ -576,34 +596,52 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
   /*
     OPENING A PRODUCT BEFORE IT IS PRESSED. The editor is a server page that
     reads the product, its files and its variants; a full prefetch fetches
-    that whole payload when the pointer arrives (a hover on a computer, the
-    finger going down on a phone), so the press itself has nothing left to
-    wait for. Once per product per visit, and a pointer only passing over
-    a row on its way somewhere else does not count: it has to rest on it.
+    that whole payload, and the editor's code with it, before the press
+    (./list-return warmEditor), so the press itself has nothing left to wait
+    for. It starts at the first sign of intent: a pointer resting on a row
+    for 50ms (one only passing over on its way somewhere else does not
+    count), the finger or the button going down, or keyboard focus. Once the
+    list has drawn and the browser is idle, New product and the first three
+    rows are fetched ahead as well: those are the presses most visits end in,
+    and on a phone there is no hover to give them a head start. Once per
+    product per visit.
   */
   const router = useRouter()
   const warmed = useRef(new Set<string>())
   const warm = (id: string) => {
     if (warmed.current.has(id)) return
     warmed.current.add(id)
-    router.prefetch(`/app/products/${id}`, FULL_PREFETCH)
+    warmEditor(router, `/app/products/${id}`)
   }
   const resting = useRef<ReturnType<typeof setTimeout> | null>(null)
   const hover = (id: string) => ({
     onMouseEnter: () => {
       if (resting.current) clearTimeout(resting.current)
-      resting.current = setTimeout(() => warm(id), 80)
+      resting.current = setTimeout(() => warm(id), WARM_REST_MS)
     },
     onMouseLeave: () => {
       if (resting.current) clearTimeout(resting.current)
     },
+    onPointerDown: () => warm(id),
+    onFocus: () => warm(id),
   })
   /* New product the same way: its page is the empty editor, read on the server. */
   const warmNew = () => {
     if (warmed.current.has("new")) return
     warmed.current.add("new")
-    router.prefetch("/app/products/new", FULL_PREFETCH)
+    warmEditor(router, "/app/products/new")
   }
+  const firstShown = useRef<string[]>([])
+  firstShown.current = pageProducts.slice(0, WARM_AHEAD).map((p) => p.id)
+  useEffect(
+    () =>
+      whenIdle(() => {
+        warmNew()
+        for (const id of firstShown.current) warm(id)
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per visit, with the rows shown when the browser is idle
+    [],
+  )
 
   /*
     OPENING THE EDITOR SLIDES IT IN over the list (../list-return,
@@ -686,7 +724,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
       {/*
         A CREATOR'S SHELF, NOT A DATABASE TABLE. On a phone the products sit
         straight on the page, the way the Shopify and App Store Connect apps
-        list them: no card around the list, a 56px picture doing the work, the
+        list them: no card around the list, a 50px picture doing the work, the
         name, and under it the price and how many sold in quiet grey. A row
         only says its status when it is not on sale. Above the list, a real
         search field and one segmented control for the views; the bar keeps
@@ -696,7 +734,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
         From 768px the same parts become a light table in one card.
       */}
       <PaneBar width={LIST_WIDTH} className={LIST_BAR}>
-        <h1 className="min-w-0 truncate text-[24px] font-bold leading-[30px] text-[#1a1a2e] sm:text-[28px] sm:leading-9">{t("products.title")}</h1>
+        <h1 className="min-w-0 truncate text-[22px] font-bold leading-7 text-[#1a1a2e] sm:text-[25px] sm:leading-8">{t("products.title")}</h1>
         {/* An empty shop has nothing to export, and its one way forward is the button in the middle of the page. */}
         {products.length > 0 ? (
           <div className="flex shrink-0 items-center gap-1 md:gap-2">
@@ -717,6 +755,8 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
               onClick={openFromLink("/app/products/new")}
               onMouseEnter={warmNew}
               onTouchStart={warmNew}
+              onPointerDown={warmNew}
+              onFocus={warmNew}
               className={NEW_LOOK}
             >
               {t("products.newProduct")}
@@ -735,9 +775,9 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
         {products.length > 0 ? (
           <div data-controls="" className="flex flex-col gap-1 md:gap-2 md:pt-1 @min-[700px]:flex-row-reverse @min-[700px]:items-center @min-[700px]:justify-between @min-[700px]:gap-4">
             <div className="flex min-w-0 items-center gap-1 md:gap-2">
-              <label data-search="" className="flex h-11 min-w-0 flex-1 cursor-text items-center md:h-8 xl:h-9 @min-[700px]:w-[260px] @min-[700px]:flex-none xl:@min-[700px]:w-[300px]">
-                <span className="flex h-10 min-w-0 flex-1 items-center gap-2 rounded-[10px] border border-[#e3e5e8] bg-white px-3 transition-[border-color,box-shadow] duration-100 focus-within:border-[#1a1a2e] focus-within:shadow-[0_0_0_1px_#1a1a2e] md:h-8 md:rounded-lg md:px-2.5 xl:h-9 xl:px-3">
-                  <Search className="h-4 w-4 shrink-0 text-[#9ca3af]" aria-hidden />
+              <label data-search="" className="flex h-11 min-w-0 flex-1 cursor-text items-center md:h-8 @min-[700px]:w-[240px] @min-[700px]:flex-none xl:@min-[700px]:w-[270px]">
+                <span className="flex h-9 min-w-0 flex-1 items-center gap-2 rounded-[10px] border border-[#e3e5e8] bg-white px-3 transition-[border-color,box-shadow] duration-100 focus-within:border-[#1a1a2e] focus-within:shadow-[0_0_0_1px_#1a1a2e] md:h-8 md:rounded-lg md:px-2.5">
+                  <Search className="h-[15px] w-[15px] shrink-0 text-[#9ca3af]" aria-hidden />
                   <input
                     ref={searchInputRef}
                     type="search"
@@ -752,7 +792,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                       }
                     }}
                     placeholder="Search products"
-                    className="min-w-0 flex-1 bg-transparent text-[16px] text-[#1a1a2e] outline-none placeholder:text-[#9ca3af] md:text-[13px] xl:text-[14px] [&::-webkit-search-cancel-button]:hidden"
+                    className="min-w-0 flex-1 bg-transparent text-[16px] text-[#1a1a2e] outline-none placeholder:text-[#9ca3af] md:text-[13px] [&::-webkit-search-cancel-button]:hidden"
                   />
                   {searchQuery ? (
                     <button type="button" aria-label="Clear search" className="-mr-1.5 flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-full text-[#9ca3af] hover:text-[#4b5563] max-md:-mr-3 max-md:h-10 max-md:w-10" onClick={clearSearch}>
@@ -767,7 +807,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                 menuWidth="w-52"
                 trigger={
                   <Press aria-label="Sort" title="Sort" className="max-md:-mr-0.5" look={cn(SORT_LOOK, sort !== "newest" && SORT_ON)}>
-                    <ArrowUpDown className="h-4 w-4" />
+                    <ArrowUpDown className="h-[15px] w-[15px]" />
                   </Press>
                 }
                 items={SORTS.map((o) => ({
@@ -784,21 +824,21 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
               columns, so the segment is one column wide and moves by whole
               widths of itself. Only when there is more than one view to be
               in: a shop with nothing drafted or archived has nothing to
-              switch between. 36px drawn in a 44px press on a phone.
+              switch between. 32px drawn in a 44px press on a phone.
             */}
             {views.length > 1 ? (
               <div
                 role="tablist"
                 aria-label="Views"
                 data-views=""
-                className="relative grid h-11 w-full shrink-0 md:h-9 md:w-[calc(var(--views)*92px)] xl:h-10 xl:w-[calc(var(--views)*104px)]"
+                className="relative grid h-11 w-full shrink-0 md:h-8 md:w-[calc(var(--views)*84px)] xl:w-[calc(var(--views)*92px)]"
                 style={{ gridTemplateColumns: `repeat(${views.length}, minmax(0, 1fr))`, ["--views" as string]: views.length }}
               >
-                <span aria-hidden className="pointer-events-none absolute inset-x-0 inset-y-1 rounded-[10px] bg-[#eceef1] md:inset-y-0" />
+                <span aria-hidden className="pointer-events-none absolute inset-x-0 inset-y-1.5 rounded-[9px] bg-[#eceef1] md:inset-y-0" />
                 <span
                   aria-hidden
                   data-segment=""
-                  className="pointer-events-none absolute left-[2px] top-[6px] bottom-[6px] rounded-[8px] bg-white shadow-[0_1px_2px_rgba(17,24,39,0.08),0_0_0_0.5px_rgba(17,24,39,0.06)] transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none md:top-[2px] md:bottom-[2px]"
+                  className="pointer-events-none absolute left-[2px] top-[8px] bottom-[8px] rounded-[7px] bg-white shadow-[0_1px_2px_rgba(17,24,39,0.08),0_0_0_0.5px_rgba(17,24,39,0.06)] transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none md:top-[2px] md:bottom-[2px]"
                   style={{ width: `calc((100% - 4px) / ${views.length})`, transform: `translateX(${viewIndex * 100}%)` }}
                 />
                 {views.map((option) => {
@@ -811,7 +851,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                       aria-selected={selected}
                       onClick={() => showView(option.value)}
                       className={cn(
-                        "relative min-w-0 cursor-pointer truncate rounded-[8px] px-2 text-[13px] font-medium outline-none xl:text-[14px] transition-colors duration-100 focus-visible:shadow-[inset_0_0_0_2px_#1a1a2e]",
+                        "relative min-w-0 cursor-pointer truncate rounded-[7px] px-2 text-[13px] font-medium outline-none transition-colors duration-100 focus-visible:shadow-[inset_0_0_0_2px_#1a1a2e]",
                         selected ? "text-[#1a1a2e]" : "text-[#6b7280] hover:text-[#1a1a2e]",
                       )}
                     >
@@ -827,7 +867,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
         <section
           ref={sectionRef}
           aria-label="Products"
-          className="relative mt-1 md:mt-3 md:overflow-hidden md:rounded-2xl md:border md:border-[#e5e7eb]/60 md:bg-white md:shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
+          className="relative mt-1 md:mt-2.5 md:overflow-hidden md:rounded-2xl md:border md:border-[#e5e7eb]/60 md:bg-white md:shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
         >
           {/*
             Every row drawn since the page opened is here (`drawn`); the ones
@@ -838,9 +878,9 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
           {drawn.length > 0 ? (
             <>
               {/*
-                A PHONE: one 72px row per product, the whole row the press,
+                A PHONE: one 64px row per product, the whole row the press,
                 running to both edges of the screen so a press tints the full
-                width. The picture at 56px, the name on one line, and under
+                width. The picture at 50px, the name on one line, and under
                 it the price and sales in grey. A Draft says so with a small
                 amber dot in All, where live and draft products are mixed;
                 in its own view the control above already says it. The
@@ -856,7 +896,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                       key={product.id}
                       data-row={product.id}
                       hidden={!shownIds.has(product.id)}
-                      className="relative flex h-[72px] items-center gap-3 pl-4 pr-4 has-[a:active]:bg-[#eef0f2] sm:pl-6 sm:pr-6 [li:not([hidden])~&]:before:absolute [li:not([hidden])~&]:before:left-[84px] [li:not([hidden])~&]:before:right-0 [li:not([hidden])~&]:before:top-0 [li:not([hidden])~&]:before:h-px [li:not([hidden])~&]:before:bg-[#eceef1] sm:[li:not([hidden])~&]:before:left-[92px]"
+                      className="relative flex h-16 items-center gap-3 pl-4 pr-4 has-[a:active]:bg-[#eef0f2] sm:pl-6 sm:pr-6 [li:not([hidden])~&]:before:absolute [li:not([hidden])~&]:before:left-[78px] [li:not([hidden])~&]:before:right-0 [li:not([hidden])~&]:before:top-0 [li:not([hidden])~&]:before:h-px [li:not([hidden])~&]:before:bg-[#eceef1] sm:[li:not([hidden])~&]:before:left-[86px]"
                     >
                       <Link
                         href={`/app/products/${product.id}`}
@@ -866,10 +906,10 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                         {...hover(product.id)}
                         className="absolute inset-0 z-0 outline-none focus-visible:shadow-[inset_0_0_0_2px_#1a1a2e]"
                       />
-                      <Thumb src={product.thumbnail_url} title={product.title} size={56} />
+                      <Thumb src={product.thumbnail_url} title={product.title} size="phone" />
                       <span className="pointer-events-none min-w-0 flex-1">
-                        <span data-name="" className="block truncate text-[15px] font-medium leading-5 tracking-[-0.01em] text-[#1a1a2e]">{product.title}</span>
-                        <span data-meta="" className="mt-1 flex h-[18px] items-center gap-1.5 overflow-hidden whitespace-nowrap text-[13px] leading-[18px] text-[#6b7280]">
+                        <span data-name="" className="block truncate text-[14px] font-medium leading-[18px] tracking-[-0.01em] text-[#1a1a2e]">{product.title}</span>
+                        <span data-meta="" className="mt-1 flex h-4 items-center gap-1.5 overflow-hidden whitespace-nowrap text-[12px] leading-4 text-[#6b7280]">
                           {view === "all" && status !== "live" ? (
                             <>
                               <StatusMark status={status} label={statusLabel[status]} />
@@ -897,21 +937,22 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
               </ul>
 
               {/*
-                A COMPUTER: the same parts as a light table. 64px rows with a
-                44px picture, 14px names, the status as a dot and a word
-                rather than a tinted badge, numbers right aligned in figures
+                A COMPUTER: the same parts as a light table. 56px rows with a
+                40px picture and 13px text (64px rows, a 44px picture and 14px
+                names from 1280px), the status as a dot and a word rather
+                than a tinted badge, numbers right aligned in figures
                 of one width, and the whole row opens the product. No grey
                 heading band and no line above the first row shown. Sales
                 joins from 1024px, where the sidebar leaves room for it.
               */}
-              <table className="hidden w-full table-fixed border-separate border-spacing-0 text-[13px] md:table xl:text-[14px]" hidden={pageProducts.length === 0}>
+              <table className="hidden w-full table-fixed border-separate border-spacing-0 text-[13px] md:table" hidden={pageProducts.length === 0}>
                 <thead>
-                  <tr className="h-10 text-left text-[12px] text-[#6b7280] xl:h-11 xl:text-[13px]">
+                  <tr className="h-9 text-left text-[12px] text-[#6b7280] xl:h-10">
                     <th scope="col" className="border-b border-[#eef0f2] pl-4 pr-3 font-medium xl:pl-5">Product</th>
-                    <th scope="col" className="w-[112px] border-b border-[#eef0f2] px-3 font-medium xl:w-[132px]">Status</th>
-                    <th scope="col" className="hidden w-[96px] border-b border-[#eef0f2] px-3 text-right font-medium lg:table-cell xl:w-[112px]">Sales</th>
-                    <th scope="col" className="w-[112px] border-b border-[#eef0f2] px-3 text-right font-medium xl:w-[132px]">Price</th>
-                    <th scope="col" className="w-14 border-b border-[#eef0f2] xl:w-16" aria-label="Actions" />
+                    <th scope="col" className="w-[104px] border-b border-[#eef0f2] px-3 font-medium xl:w-[120px]">Status</th>
+                    <th scope="col" className="hidden w-[88px] border-b border-[#eef0f2] px-3 text-right font-medium lg:table-cell xl:w-[100px]">Sales</th>
+                    <th scope="col" className="w-[104px] border-b border-[#eef0f2] px-3 text-right font-medium xl:w-[120px]">Price</th>
+                    <th scope="col" className="w-12 border-b border-[#eef0f2] xl:w-14" aria-label="Actions" />
                   </tr>
                 </thead>
                 <tbody>
@@ -922,7 +963,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                         key={product.id}
                         data-row={product.id}
                         hidden={!shownIds.has(product.id)}
-                        className="group h-16 cursor-pointer xl:h-[72px] [tr:not([hidden])~&>td]:border-t [tr:not([hidden])~&>td]:border-[#f1f2f4]"
+                        className="group h-14 cursor-pointer xl:h-16 [tr:not([hidden])~&>td]:border-t [tr:not([hidden])~&>td]:border-[#f1f2f4]"
                         {...hover(product.id)}
                         onClick={(e) => {
                           /* Not a press inside the row's own controls, nor one that bubbled up from its menu's portal. */
@@ -932,12 +973,12 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                         }}
                       >
                         <td className="bg-white pl-4 pr-3 group-hover:bg-[#fafafb] xl:pl-5">
-                          <div className="flex min-w-0 items-center gap-3 xl:gap-3.5">
-                            <Thumb src={product.thumbnail_url} title={product.title} size={44} />
+                          <div className="flex min-w-0 items-center gap-3">
+                            <Thumb src={product.thumbnail_url} title={product.title} size="table" />
                             <Link
                               href={`/app/products/${product.id}`}
                               onClick={openFromLink(`/app/products/${product.id}`)}
-                              className="min-w-0 truncate text-[14px] font-medium text-[#1a1a2e] outline-none hover:underline focus-visible:underline xl:text-[15px]"
+                              className="min-w-0 truncate text-[13px] font-medium text-[#1a1a2e] outline-none hover:underline focus-visible:underline xl:text-[14px]"
                             >
                               {product.title}
                             </Link>
@@ -1004,11 +1045,11 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
             <div
               data-footer=""
               className={cn(
-                "flex h-11 items-center justify-between gap-3 md:border-t md:border-[#eef0f2] md:px-4 xl:h-12 xl:px-5",
+                "flex h-11 items-center justify-between gap-3 md:h-10 md:border-t md:border-[#eef0f2] md:px-4 xl:h-11 xl:px-5",
                 pages === 1 && "max-md:hidden",
               )}
             >
-              <span className="text-[12px] tabular-nums text-[#6b7280] xl:text-[13px]">
+              <span className="text-[12px] tabular-nums text-[#6b7280]">
                 {from + 1}&ndash;{from + pageProducts.length} of {filteredProducts.length.toLocaleString("en-US")}
               </span>
               {pages > 1 ? (
@@ -1111,31 +1152,46 @@ function StatusMark({ status, label, strong = false }: { status: Status; label: 
 }
 
 /**
- * A product's picture: 56px on a phone and 44px in the table, rounded in
- * proportion, with a hairline drawn inside it so a white cover still has an
- * edge. With no picture, the name's first letter on grey rather than a
- * stock box icon, so two products without covers can still be told apart.
+ * A product's picture: 50px on a phone and 40px in the table (44 from
+ * 1280px), rounded in proportion, with a hairline drawn inside it so a white
+ * cover still has an edge. With no picture, the name's first letter on grey
+ * rather than a stock box icon, so two products without covers can still be
+ * told apart.
  *
  * The grey is under the picture too, so a picture still on its way shows
- * grey, never white. Its box is its size exactly (width and height, not a
- * fill measured from the parent), decoded off the main thread, and loaded
- * lazily only the first time: the row keeps this element for as long as the
- * page is open (see `drawn`), so a picture once shown is not asked for again.
+ * grey, never white. Its box is its size exactly, decoded off the main
+ * thread, and loaded lazily only the first time: the row keeps this element
+ * for as long as the page is open (see `drawn`), so a picture once shown is
+ * not asked for again.
  */
-function Thumb({ src, title, size }: { src: string | null; title: string; size: 56 | 44 }) {
+function Thumb({ src, title, size }: { src: string | null; title: string; size: ThumbSize }) {
   const letter = (Array.from(title.trim())[0] || "").toUpperCase()
+  const phone = size === "phone"
+  const srcSet = src ? optimizedSrcSet(src, THUMB_FILES[size], THUMB_QUALITY) : ""
   return (
     <span
       data-thumb=""
       className={cn(
         "pointer-events-none relative shrink-0 overflow-hidden bg-[#eceef1] after:pointer-events-none after:absolute after:inset-0 after:rounded-[inherit] after:shadow-[inset_0_0_0_1px_rgba(17,24,39,0.06)] after:content-['']",
-        size === 56 ? "h-14 w-14 rounded-[12px]" : "h-11 w-11 rounded-[10px] xl:h-12 xl:w-12 xl:rounded-[11px]",
+        phone ? "h-[50px] w-[50px] rounded-[11px]" : "h-10 w-10 rounded-[9px] xl:h-11 xl:w-11 xl:rounded-[10px]",
       )}
     >
       {src ? (
-        <Image src={src} alt="" width={size === 44 ? 48 : size} height={size === 44 ? 48 : size} decoding="async" draggable={false} className="h-full w-full object-cover" />
+        /* eslint-disable-next-line @next/next/no-img-element -- the srcset is chosen here (THUMB_FILES), see there */
+        <img
+          src={srcSet ? optimizedImageUrl(src, phone ? 50 : 44, THUMB_QUALITY) : src}
+          srcSet={srcSet || undefined}
+          sizes={THUMB_SIZES[size]}
+          alt=""
+          width={phone ? 50 : 44}
+          height={phone ? 50 : 44}
+          loading="lazy"
+          decoding="async"
+          draggable={false}
+          className="h-full w-full object-cover"
+        />
       ) : (
-        <span aria-hidden className={cn("flex h-full items-center justify-center font-semibold text-[#9ca3af]", size === 56 ? "text-[20px]" : "text-[16px]")}>
+        <span aria-hidden className={cn("flex h-full items-center justify-center font-semibold text-[#9ca3af]", phone ? "text-[18px]" : "text-[15px]")}>
           {letter}
         </span>
       )}
