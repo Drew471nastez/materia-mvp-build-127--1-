@@ -13,7 +13,7 @@ import { compileSection } from "@/lib/storelib-theme/storelib/compile"
 import { DEFAULT_THEME_SOURCES } from "@/themes/default/sources.generated"
 import { renderStorelibSection } from "@/lib/website-builder/storelib-runtime"
 import { SITE_ROUTES, shopObject, wishlistObject } from "@/lib/storelib-theme/globals"
-import { accountPageSections, signInNotice } from "@/lib/website-builder/account-pages"
+import { accountPageSections, baseScheme, signInNotice } from "@/lib/website-builder/account-pages"
 import { BUILT_IN_PAGE_KEYS, GENERATED_PAGE_KEYS, RESERVED_PAGE_KEYS, pageKeyFromSegment, pagePath, pageTitleFromKey } from "@/lib/website-builder/site-pages"
 import { resolveEditorHref } from "@/lib/website-builder/editor-navigation"
 import { withLiveLinks } from "@/lib/website-builder/live-links"
@@ -152,6 +152,10 @@ function main() {
       check(`${key}: generated and built in`, GENERATED_PAGE_KEYS.has(key) && BUILT_IN_PAGE_KEYS.has(key))
     }
     check("the same page twice is the same page", JSON.stringify(accountPageSections("account", home)) === JSON.stringify(accountPageSections("account", home)))
+    check("on a light site the page keeps every section default", JSON.stringify(accountPageSections("login", home)![1].settings) === "{}")
+    const dark = [{ ...header, settings: { color_scheme: "black" } } as SectionInstance, footer]
+    check("on a dark site the page sits on the header's scheme, not a white band", (accountPageSections("login", dark)![1].settings as Record<string, unknown>).color_scheme === "black")
+    check("a white header is the default and is not written", baseScheme([{ ...header, settings: { color_scheme: "white" } } as SectionInstance]) === null && baseScheme([]) === null)
     check("account, login and wishlist cannot be made as pages of one's own", ["account", "login", "wishlist"].every((k) => RESERVED_PAGE_KEYS.has(k) && pageKeyFromSegment(k) === null))
     check("contact still can, and is served as made when it is", !RESERVED_PAGE_KEYS.has("contact") && pageKeyFromSegment("contact") === "contact")
     check("the sign in page lives under the account", pagePath("login") === "/account/login" && pagePath("home") === "/" && pagePath("wishlist") === "/wishlist")

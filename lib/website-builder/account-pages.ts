@@ -40,26 +40,42 @@ function page(homeSections: SectionInstance[], main: SectionInstance): SectionIn
   return [...(header ? [header] : []), main, ...(footer ? [footer] : [])]
 }
 
-function main(id: string, type: string, name: string): SectionInstance {
-  /* Settings left empty: every value is the section's own default, so a
-     change to a default reaches every site that never changed it. */
-  return { id, type, name, settings: {}, blocks: [], hidden: false }
+/**
+ * THE SITE'S OWN GROUND. A dark theme's pages sit on its dark scheme: Studio
+ * Noir's header and body are "black", and a sign in page drawn on the
+ * section's default "white" would be a white page between a black header and
+ * a black footer. The header is the one section every site has and every
+ * theme sets, so its scheme is the page's; "white" is the sections' own
+ * default, so it is not written at all.
+ */
+export function baseScheme(homeSections: SectionInstance[]): string | null {
+  const header = homeSections.find((s) => s.type === "header")
+  const scheme = (header?.settings as Record<string, unknown> | undefined)?.color_scheme
+  return typeof scheme === "string" && scheme && scheme !== "white" ? scheme : null
+}
+
+function main(id: string, type: string, name: string, homeSections: SectionInstance[]): SectionInstance {
+  /* Settings left empty but for the ground: every other value is the
+     section's own default, so a change to a default reaches every site that
+     never changed it. */
+  const scheme = baseScheme(homeSections)
+  return { id, type, name, settings: scheme ? { color_scheme: scheme } : {}, blocks: [], hidden: false }
 }
 
 export function accountSections(homeSections: SectionInstance[]): SectionInstance[] {
-  return page(homeSections, main("storelib-account", "main_account", "Account"))
+  return page(homeSections, main("storelib-account", "main_account", "Account", homeSections))
 }
 
 export function loginSections(homeSections: SectionInstance[]): SectionInstance[] {
-  return page(homeSections, main("storelib-login", "main_login", "Sign in"))
+  return page(homeSections, main("storelib-login", "main_login", "Sign in", homeSections))
 }
 
 export function wishlistSections(homeSections: SectionInstance[]): SectionInstance[] {
-  return page(homeSections, main("storelib-wishlist", "main_wishlist", "Wishlist"))
+  return page(homeSections, main("storelib-wishlist", "main_wishlist", "Wishlist", homeSections))
 }
 
 export function contactSections(homeSections: SectionInstance[]): SectionInstance[] {
-  return page(homeSections, main("storelib-contact", "contact", "Contact form"))
+  return page(homeSections, main("storelib-contact", "contact", "Contact form", homeSections))
 }
 
 /** The generated page for a key, or null when the key is not one of these. */
