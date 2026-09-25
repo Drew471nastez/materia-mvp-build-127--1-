@@ -19,9 +19,11 @@
  *                                         either width
  *   A FAST PAGE SHOWS NOTHING BUT ITSELF  no spinner, no bar, and the old
  *                                         page on screen until the new one
- *   THE LANDING                           seen from 0 (the page's opacity
- *                                         times what the spinner's surface
- *                                         lets through), a rise of 4 to 6px,
+ *   THE LANDING                           seen from 0 (the opacity of what
+ *                                         lands, the page or what is in its
+ *                                         own scroller, times what the
+ *                                         spinner's surface lets through),
+ *                                         a rise of 2px,
  *                                         about 180ms, never backwards
  *   ON A PHONE                            nothing under 500ms: no bar, no
  *                                         spinner; past it the spinner,
@@ -42,7 +44,7 @@
  *                                         shows no bar and no spinner
  *   BACK                                  the page's scroll is where it was on
  *                                         the first frame it shows
- *   A PAGE WITH A FIXED BAR               fades without the rise
+ *   A PAGE WITH A FIXED BAR               the bar fades and never moves
  *   THE PRODUCT EDITOR                    no spinner at any width
  *   NO LONG TASK, NO LAYOUT SHIFT
  *
@@ -520,7 +522,8 @@ for (const [label, viewport] of [
   for (const [name, l] of landings) {
     if (!l) { problems.push(`${at} the ${name} navigation never landed`); continue }
     if (l.firstSeen > 0.35) problems.push(`${at} the ${name} landing was first seen at ${l.firstSeen}: the page was painted before it faded`)
-    if (l.rise < 3 || l.rise > 6) problems.push(`${at} the ${name} landing rose ${l.rise}px, not 4 to 6`)
+    /* NAV_ENTER_RISE_PX (lib/ui/app-navigation.ts): 2px since the landing was made quieter. */
+    if (l.rise < 1.5 || l.rise > 2.5) problems.push(`${at} the ${name} landing rose ${l.rise}px, not 2`)
     if (l.ms == null || l.ms < 120 || l.ms > 260) problems.push(`${at} the ${name} landing took ${l.ms}ms, not about 180`)
     if (l.back) problems.push(`${at} the ${name} landing went backwards ${l.back} times`)
   }

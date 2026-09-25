@@ -33,6 +33,11 @@
  *   THE BAR HOLDS STILL     the scrollbar is never faded or moved by the
  *                           page's landing: the page rises into place, its
  *                           scrollbar does not
+ *   NO THUMB FLASH          a page's thumb shows at most once, and never
+ *                           shows and goes (the rise tipping a page that fits
+ *                           over the edge)
+ *   ONE TRACK               nothing inside a page paints a second, empty
+ *                           track of its own (Settings' billing tab did)
  *   NOTHING ELSE SCROLLS    <html> never takes a scrollbar, nothing is wider
  *                           than the window, the document never scrolls
  *   BACK                    the page is where it was on its first frame
@@ -400,6 +405,8 @@ for (const [label, viewport] of VIEWPORTS) {
   await go("/app/website-builder")
   await go("/app/customers")
   await go("/app/settings", 1300)
+  /* Settings' tabs, Billing among them: drawn inside the page, no track of their own. */
+  for (const tab of ["Billing", "Security", "General"]) await step(`to Settings, ${tab}`, `[...document.querySelectorAll("[data-settings-tabs] button")].find((b) => b.textContent.trim() === "${tab}")?.click()`, 0, 700)
   await go("/app/products/x")
   await back("back from the editor")
   await go("/app/products")
