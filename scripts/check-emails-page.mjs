@@ -22,8 +22,9 @@
  *     (app/app/orders/order-motion.ts), measured the way
  *     scripts/check-orders-page.mjs measures an order: on the first frame
  *     after the click, pushed from the right edge in about 300ms on a phone
- *     and faded in about 150ms on a computer, the list drawn under it on
- *     every frame of the way back, at the same tab and scroll, and the row
+ *     and on a computer whole at once with its cards faded in over about
+ *     150ms, gone at once on the way back as the list settles in, the list
+ *     drawn whenever the email is not over it, at the same tab and scroll, and the row
  *     it came from tinted and then fading;
  *   - an automation's row reads ahead on hover and opens its builder, and
  *     its switch turns it on without opening it;
@@ -227,9 +228,13 @@ export default function Link({ href, children, prefetch, onClick, ...rest }) {
         covered += b - Math.max(a, reach)
         reach = b
       }
+      const body = detail?.querySelector(".orders-body")
       window.__mf.push({
         t: performance.now(),
         detail: dr ? { left: dr.left, opacity: dOpacity, leaving: detail.hasAttribute("data-leaving"), title: detail.querySelector("h1")?.textContent ?? "" } : null,
+        body: body ? opacityOf(body) : null,
+        /* What is in the list, as drawn: back on a computer settles it in (the list itself, the scroller, holds still). */
+        listFade: Math.min(1, ...[...list.children].filter((c) => c.getClientRects().length).map(opacityOf)),
         bar: bar ? `${(bar.left - dr.left).toFixed(1)},${bar.width.toFixed(1)}x${bar.height.toFixed(1)}` : null,
         listShown,
         listLeft: lr.left,
@@ -266,6 +271,10 @@ export default function Link({ href, children, prefetch, onClick, ...rest }) {
       blank: Math.max(0, ...after.map((f) => f.blank)),
       blankFrames: after.filter((f) => f.blank > 0).length,
       picked: [...new Set(after.map((f) => f.picked))],
+      layerMin: shown.length ? Math.min(...shown.map((f) => f.detail.opacity)) : null,
+      bodyFirst: first?.body ?? null,
+      bodyRestMs: (() => { const r = shown.find((f) => (f.body ?? 1) >= 0.999); return r && first ? Math.round(r.t - first.t) : null })(),
+      bodyMonotonic: shown.every((f, i) => i === 0 || (f.body ?? 1) >= (shown[i - 1].body ?? 1) - 0.001),
     }
   }
 
@@ -287,6 +296,19 @@ export default function Link({ href, children, prefetch, onClick, ...rest }) {
       listLeftLast: after.at(-1) ? Math.round(after.at(-1).listLeft) : null,
       scrollTops: [...new Set(after.map((f) => f.listTop))],
       picked: [...new Set(after.map((f) => f.picked))],
+      /* On a computer: the email at rest on every frame it is there, and the list's settling in once it is gone. */
+      layerStill: after.filter((f) => f.detail).every((f) => f.detail.opacity >= 0.999 && Math.abs(f.detail.left) < 0.5),
+      listUncovered: after.filter((f) => !f.listShown && !(f.detail && f.detail.opacity >= 0.999 && Math.abs(f.detail.left) < 0.5)).length,
+      ...(() => {
+        const from = gone ? after.filter((f) => f.t >= gone.t) : []
+        const fades = from.map((f) => f.listFade)
+        const whole = from.find((f) => f.listFade >= 0.999)
+        return {
+          listFadeFirst: fades.length ? Number(fades[0].toFixed(3)) : null,
+          listFadeMs: whole && gone ? Math.round(whole.t - gone.t) : null,
+          listFadeMonotonic: fades.every((o, i) => i === 0 || o >= fades[i - 1] - 0.001),
+        }
+      })(),
     }
   }
 
@@ -436,8 +458,12 @@ export default function Link({ href, children, prefetch, onClick, ...rest }) {
       expect(opening.restMs !== null && opening.restMs >= 240 && opening.restMs <= 360, "and is in place in about 300ms, as an order is", opening.restMs)
       expect(opening.listDuring && opening.listAfter === false && Math.abs(opening.listLeftMin + vp.width * 0.3) <= 8, "the list stays drawn underneath, moving a third of the way left, then rests hidden", { min: opening.listLeftMin, after: opening.listAfter })
     } else {
-      expect(opening.firstOpacity < 0.5 && opening.restMs !== null && opening.restMs >= 90 && opening.restMs <= 220 && opening.monotonic, "on a computer it fades in, quickly and only one way, as an order does", { first: opening.firstOpacity, restMs: opening.restMs })
-      expect(opening.listDuring && opening.listAfter === false, "the list is drawn under it while it fades, and not after", { during: opening.listDuring, after: opening.listAfter })
+      /* Since c69b54d3 ("a solid order bar") an order's layer is not faded
+         on a computer: its bar is whole on the first frame and only the
+         cards (.orders-body) fade in. The email moves as an order does, so
+         what fades is measured now, not the layer. */
+      expect(opening.layerMin >= 0.999 && opening.bodyFirst !== null && opening.bodyFirst < 0.5 && opening.bodyRestMs !== null && opening.bodyRestMs >= 90 && opening.bodyRestMs <= 220 && opening.bodyMonotonic, "on a computer the email and its bar are whole on the first frame; only its cards fade in, quickly and only one way, as an order's do", { layer: opening.layerMin, cards: opening.bodyFirst, restMs: opening.bodyRestMs })
+      expect(opening.listAfter === false, "the list is not drawn under the settled email", { after: opening.listAfter })
     }
     expect(opening.bars.length === 1, "its bar travels with it, at one size and place inside it", opening.bars)
     expect(opening.blankFrames === 0, "no frame shows neither the list nor the email", opening.blank)
@@ -466,14 +492,20 @@ export default function Link({ href, children, prefetch, onClick, ...rest }) {
     const back = departure(await readFrames(p))
     const afterBack = await p.evaluate(() => ({ detail: !!document.querySelector("[data-email-detail]"), search: location.search }))
     console.log(`  ..    back: the email starts to go ${back.startMs}ms after the click and is gone at ${back.goneMs}ms (${back.moveMs}ms of ${phone ? "slide" : "fade"}); ${phone ? `the list from ${back.listLeftFirst}px to ${back.listLeftLast}px, ` : ""}frames without the list ${back.framesWithoutList}; blank ${back.blank}px; list scrollTop on every frame ${JSON.stringify(back.scrollTops)}; row tint ${JSON.stringify(back.picked)}`)
-    expect(!afterBack.detail && back.framesWithoutList === 0 && back.blank === 0, "back draws the list under the email on every frame", back.framesWithoutList)
+    if (phone) expect(!afterBack.detail && back.framesWithoutList === 0 && back.blank === 0, "back draws the list under the email on every frame", back.framesWithoutList)
+    else expect(!afterBack.detail && back.listUncovered === 0 && back.blank === 0, "back draws the list on every frame the email is not over it", back.listUncovered)
     if (phone) {
       expect(back.monotonic && back.moveMs !== null && back.moveMs >= 220 && back.moveMs <= 360, "the email slides off to the right in about 300ms, only one way", back.moveMs)
       expect(back.listLeftFirst <= -vp.width * 0.28 && back.listLeftLast === 0, "while the list slides back from a third of the way left", { first: back.listLeftFirst, last: back.listLeftLast })
     } else {
-      expect(back.monotonic && back.moveMs !== null && back.moveMs <= 220, "the email fades off it, quickly and only one way", back.moveMs)
+      /* Was "the email fades off it" and "is marked leaving while it goes":
+         since c69b54d3 back on a computer takes an order (and so an email)
+         away at once, and since cea30d1c the list settles in over
+         ORDER_LIST_BACK_MS instead. */
+      expect(back.layerStill && back.leavingInert === 0 && back.goneMs !== null && back.goneMs <= 300, "the email goes at once, never faded, moved or drawn leaving", { gone: back.goneMs, still: back.layerStill, leaving: back.leavingInert })
+      expect(back.listFadeFirst !== null && back.listFadeFirst >= 0.4 && back.listFadeFirst <= 0.9 && back.listFadeMonotonic && back.listFadeMs !== null && back.listFadeMs >= 100 && back.listFadeMs <= 300, "while the list settles in from about half, only up, in about 180ms, as Orders' does", { first: back.listFadeFirst, ms: back.listFadeMs })
     }
-    expect(back.leavingInert > 0, "the leaving email is marked leaving (inert) while it goes", back.leavingInert)
+    if (phone) expect(back.leavingInert > 0, "the leaving email is marked leaving (inert) while it goes", back.leavingInert)
     expect(back.scrollTops.length === 1 && back.scrollTops[0] === listScroll, "and the list is exactly as far down as it was, on every frame", { tops: back.scrollTops, was: listScroll })
     expect(back.picked.includes("fading"), "the row the email came from is tinted, then fades", back.picked)
     expect(afterBack.search.includes("tab=published") && !afterBack.search.includes("email="), "on the same tab, and the address forgets the email", afterBack.search)

@@ -129,11 +129,16 @@ export function moveOrder(kind: Kind, detail: HTMLElement, list: HTMLElement, do
       done?.()
       /* Back on a computer: the order goes at once and the list settles in
          from half opacity and 2px down, so it arrives rather than snaps.
-         It never starts from nothing, so there is no empty frame. */
-      list.animate(
-        [{ opacity: 0.5, transform: "translate3d(0, 2px, 0)" }, { opacity: 1, transform: "translate3d(0, 0, 0)" }],
-        { duration: ORDER_LIST_BACK_MS, easing: ORDER_EASE },
-      )
+         It never starts from nothing, so there is no empty frame.
+         What moves is what is IN the list, never the list itself: the list
+         is the scroller, and a scroller faded or moved takes its scrollbar
+         with it (scripts/check-scrollbar-stable.mjs, "the bar holds still"). */
+      for (const layer of list.children) {
+        (layer as HTMLElement).animate(
+          [{ opacity: 0.5, transform: "translate3d(0, 2px, 0)" }, { opacity: 1, transform: "translate3d(0, 0, 0)" }],
+          { duration: ORDER_LIST_BACK_MS, easing: ORDER_EASE },
+        )
+      }
       return
     }
     const body = detail.querySelector<HTMLElement>(".orders-body")
