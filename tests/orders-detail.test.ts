@@ -274,6 +274,23 @@ async function main() {
     check("  it draws a glyph per kind of event, in semantic colours", /GLYPH\[event\.glyph\]/.test(timeline) && /GLYPH_TONE\[event\.tone\]/.test(detail))
     check("  with the exact time on hover and on tap", /title=\{exact\}/.test(timeline) && /onClick=\{\(\) => setOpen\(expanded \? null : event\.id\)\}/.test(timeline))
     check("  and reads its history again after an action", /\[order\.id, revision\]/.test(timeline))
+    /* "The timeline needs to be in a container: a gray background with
+       depth, rounded corners, with dots behind." A well pressed into the
+       page with its heading above it, not a white card, so not a card in a
+       card; measured in Chromium by scripts/check-orders-page.mjs. */
+    check("the timeline sits in a grey panel with 14px corners, its heading above it on the page",
+      /<h2 className="px-1 text-\[13px\] font-semibold text-\[#1a1a2e\]">Timeline<\/h2>\s*<div data-timeline-panel="" className="mt-2 rounded-\[14px\][^"]*" style=\{PANEL_STYLE\}>/.test(timeline)
+        && !/cn\(card, "min-w-0 px-4 pb-2 pt-3\.5"/.test(timeline))
+    check("  a dot grid behind it in CSS, and depth from an inset hairline and an inset shade",
+      /backgroundColor: "#f3f4f6"/.test(detail) && /backgroundImage: "radial-gradient\(circle, rgba\(17,24,39,0\.09\) 1px, transparent 1\.25px\)"/.test(detail)
+        && /backgroundSize: "12px 12px"/.test(detail) && /boxShadow: "inset 0 0 0 1px rgba\(17,24,39,0\.06\), inset 0 1px 3px rgba\(17,24,39,0\.06\)/.test(detail)
+        && !/url\(/.test(detail.slice(detail.indexOf("const PANEL_STYLE"), detail.indexOf("const activityOf"))))
+    check("  each event a white node on the rail, a 13px semibold title, the time in tabular figures",
+      /rounded-full border bg-white/.test(timeline) && /"text-\[13px\] font-semibold leading-\[18px\]"/.test(timeline)
+        && /text-\[12px\] leading-4 tabular-nums text-\[#6b7280\]/.test(timeline)
+        && /success: "text-\[#16803c\] border-\[#cde9d6\]"/.test(detail) && /upcoming: "text-\[#9ca3af\] border-dashed/.test(detail))
+    check("  grouped under day headers, in the order the events came",
+      /data-timeline-day=""/.test(timeline) && /for \(const g of groups\) \{\s*rows\.push\(\{ kind: "day"/.test(timeline))
   }
 
   console.log("\nThe controls and the slide")

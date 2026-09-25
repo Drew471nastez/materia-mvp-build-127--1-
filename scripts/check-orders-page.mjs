@@ -319,6 +319,58 @@ const cardsOf = (p) => p.evaluate(() => {
   return sections.map((s) => { const r = s.getBoundingClientRect(); return { name: name(s), left: Math.round(r.left), top: Math.round(r.top), width: Math.round(r.width), bottom: Math.round(r.bottom) } })
 })
 
+/**
+ * THE TIMELINE'S PANEL. "In a container: a gray background with depth,
+ * rounded corners, with dots behind, and the text should look great." What
+ * that is in numbers: the panel's radius, fill, dot layer and inset shade;
+ * the nodes white on it; the title, detail, time and day sizes; the times
+ * in tabular figures against the right edge; nothing wider than the panel.
+ */
+const timelineLook = (p) => p.evaluate(() => {
+  const s = document.querySelector(".orders-detail [data-order-timeline]")
+  const panel = s?.querySelector("[data-timeline-panel]")
+  if (!panel) return null
+  const cs = getComputedStyle(panel)
+  const pr = panel.getBoundingClientRect()
+  const events = [...panel.querySelectorAll("[data-timeline-event]")]
+  const font = (el) => el ? { size: getComputedStyle(el).fontSize, weight: getComputedStyle(el).fontWeight, color: getComputedStyle(el).color, nums: getComputedStyle(el).fontVariantNumeric } : null
+  const e = events[0]
+  const node = e?.querySelector("span[aria-hidden].rounded-full")
+  const times = events.map((ev) => ev.querySelector("button")).filter(Boolean)
+  const padR = parseFloat(cs.paddingRight)
+  return {
+    radius: cs.borderRadius, bg: cs.backgroundColor, image: cs.backgroundImage, size: cs.backgroundSize, shadow: cs.boxShadow,
+    width: Math.round(pr.width), scrollW: panel.scrollWidth, clientW: panel.clientWidth,
+    events: events.length, days: panel.querySelectorAll("[data-timeline-day]").length,
+    title: font(e?.querySelector("p")), detail: font(panel.querySelector("[data-timeline-event] p + p")),
+    day: font(panel.querySelector("[data-timeline-day] p")), time: font(times[0]),
+    node: node ? { w: node.getBoundingClientRect().width, h: node.getBoundingClientRect().height, bg: getComputedStyle(node).backgroundColor, border: getComputedStyle(node).borderTopWidth } : null,
+    timesRight: times.map((t) => Math.round(pr.right - padR - t.getBoundingClientRect().right)),
+    heading: s.querySelector("h2")?.getBoundingClientRect().bottom <= pr.top,
+    overflowing: [...panel.querySelectorAll("*")].filter((el) => el.getBoundingClientRect().right > pr.right + 0.5).length,
+  }
+})
+const expectTimeline = (t, where) => {
+  console.log(`  ..    timeline panel ${where}: ${t?.width}px wide, radius ${t?.radius}, ${t?.bg}, ${t?.events} events under ${t?.days} days; title ${t?.title?.size}/${t?.title?.weight}, detail ${t?.detail?.size}, time ${t?.time?.size} ${t?.time?.nums}, day ${t?.day?.size}; times from the right edge ${JSON.stringify(t?.timesRight)}`)
+  expect(t && t.radius === "14px" && t.bg === "rgb(243, 244, 246)", `${where}: the timeline sits in a grey panel with 14px corners`, t && { radius: t.radius, bg: t.bg })
+  expect(t && /radial-gradient/.test(t.image) && t.size === "12px 12px", "  with a dot grid behind, CSS only, on 12px", t && { image: t.image, size: t.size })
+  expect(t && /inset/.test(t.shadow) && (t.shadow.match(/inset/g) || []).length === 2, "  pressed in: an inset hairline and an inset shade", t?.shadow)
+  expect(t && t.heading, "  its heading above it, on the page, not inside it", t?.heading)
+  expect(t && t.node && t.node.w === 22 && t.node.bg === "rgb(255, 255, 255)" && t.node.border === "1px", "  each event a white 22px node with a hairline", t?.node)
+  expect(t && t.title?.size === "13px" && t.title.weight === "600" && t.title.color === "rgb(26, 26, 46)", "  titles 13px semibold in the heading colour", t?.title)
+  expect(t && t.detail?.size === "12px" && t.detail.color === "rgb(107, 114, 128)" && t.day?.size === "12px", "  details and day headers 12px, muted", { detail: t?.detail, day: t?.day })
+  expect(t && t.time?.nums === "tabular-nums" && t.timesRight.every((r) => Math.abs(r + 4) <= 1), "  times in tabular figures, against the right edge", t && { nums: t.time?.nums, right: t.timesRight })
+  expect(t && t.scrollW <= t.clientW && t.overflowing === 0, "  and nothing wider than the panel", t && { scrollW: t.scrollW, clientW: t.clientW, overflowing: t.overflowing })
+}
+const shootTimeline = async (p, file) => {
+  const el = await p.$(".orders-detail [data-order-timeline]")
+  if (el) {
+    await el.evaluate((n) => n.scrollIntoView({ block: "center" }))
+    await sleep(120)
+    await el.screenshot({ path: join(shots, file) })
+  }
+}
+
 /* ── Desktop ─────────────────────────────────────────────────────────── */
 console.log("\ndesktop, 1280 wide")
 {
@@ -423,6 +475,10 @@ console.log("\ndesktop, 1280 wide")
   const gaps = [main[1].top - main[0].bottom, main[2].top - main[1].bottom, side[1].top - side[0].bottom]
   expect(gaps.every((g) => g === 16), "one under the other with equal gaps", gaps)
   await p.screenshot({ path: join(shots, "orders-desktop-order.png") })
+  expectTimeline(await timelineLook(p), "at 1280")
+  await shootTimeline(p, "orders-desktop-timeline.png")
+  await p.evaluate(() => { document.querySelector(".orders-detail").scrollTop = 0 })
+  await sleep(100)
 
   /* Scrolled: the cards go under the bar, which takes its depth. */
   await p.evaluate(() => { document.querySelector(".orders-detail").scrollTop = 260 })
@@ -593,6 +649,8 @@ console.log("\nphone, 390 wide, touch")
   const barH = await p.evaluate(() => document.querySelector(".orders-detail [data-orders-bar]").getBoundingClientRect().height)
   console.log(`  ..    the phone's bar is ${barH}px tall`)
   await p.screenshot({ path: join(shots, "orders-phone-order.png") })
+  expectTimeline(await timelineLook(p), "at 390")
+  await shootTimeline(p, "orders-phone-timeline.png")
   await p.evaluate(() => { document.querySelector(".orders-detail").scrollTop = 600 })
   await sleep(150)
   await p.screenshot({ path: join(shots, "orders-phone-order-scrolled.png") })
