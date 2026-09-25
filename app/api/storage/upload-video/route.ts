@@ -1,12 +1,13 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { VIDEO_BUCKET, safeExtension, uploadFolderOf, videoBucketOf } from "@/lib/storage/upload-location"
+import { safeExtension, uploadFolderOf, videoBucketOf } from "@/lib/storage/upload-location"
+import { isPublicVideo } from "@/lib/storage/file-signature"
+import { UPLOAD_HEADERS, uploadRateLimit } from "@/lib/storage/upload-guard"
 
-// Default bucket for product videos - can also use product-images with video support
-const BUCKET_NAME = VIDEO_BUCKET
+// The bucket is always product-videos (lib/storage/upload-location.ts), never the caller's.
 
-// Allowed video MIME types - be more permissive
+// Allowed video MIME types
 const ALLOWED_VIDEO_TYPES = [
   "video/mp4",
   "video/webm",
@@ -20,42 +21,25 @@ const ALLOWED_VIDEO_TYPES = [
   "video/3gpp",
 ]
 
-// Helper to ensure bucket exists with proper configuration. The bucket is
-// always BUCKET_NAME (lib/storage/upload-location.ts), never the caller's.
-async function ensureBucketExists(adminSupabase: ReturnType<typeof createAdminClient>, bucketName: string) {
-  try {
-    const { data: buckets } = await adminSupabase.storage.listBuckets()
-    const bucketExists = buckets?.some((b) => b.name === bucketName)
+/**
+ * The bucket is made by supabase/migrations/20260929_upload_safety.sql, public,
+ * with a size limit and these types. This only creates it when a storage call
+ * has just said it does not exist, instead of listing every bucket and
+ * rewriting this one's settings on every upload as it used to.
+ */
+async function createBucketIfMissing(adminSupabase: ReturnType<typeof createAdminClient>, bucketName: string, message: string) {
+  if (!/not found|does not exist/i.test(message)) return false
+  const { error } = await adminSupabase.storage.createBucket(bucketName, {
+    public: true,
+    fileSizeLimit: 2000000000, // ~2GB, must fit int4 for older Supabase projects
+    allowedMimeTypes: [...ALLOWED_VIDEO_TYPES, "image/jpeg", "image/png", "image/gif", "image/webp"],
+  })
+  return !error || /already exists/i.test(error.message)
+}
 
-    if (!bucketExists) {
-      // Create bucket with public access and high file size limit
-      const { error: createError } = await adminSupabase.storage.createBucket(bucketName, {
-        public: true,
-        fileSizeLimit: 2000000000, // ~2GB — must fit int4 for older Supabase projects
-        allowedMimeTypes: [...ALLOWED_VIDEO_TYPES, 'image/jpeg', 'image/png', 'image/gif', 'image/webp'],
-      })
-
-      if (createError && !createError.message.includes("already exists")) {
-        console.error(`Error creating bucket ${bucketName}:`, createError)
-      }
-    } else {
-      // Try to update bucket settings
-      try {
-        await adminSupabase.storage.updateBucket(bucketName, {
-          public: true,
-          fileSizeLimit: 2000000000, // ~2GB — must fit int4 for older Supabase projects
-          allowedMimeTypes: [...ALLOWED_VIDEO_TYPES, 'image/jpeg', 'image/png', 'image/gif', 'image/webp'],
-        })
-      } catch (updateErr) {
-        // Ignore update errors - bucket config might be fine
-        console.log(`Bucket ${bucketName} update skipped:`, updateErr)
-      }
-    }
-    return true
-  } catch (err) {
-    console.error("Error ensuring bucket exists:", err)
-    return false
-  }
+/** A key nobody can guess or collide with. */
+function randomId(): string {
+  return crypto.randomUUID().replace(/-/g, "")
 }
 
 // POST - Get a signed upload URL for video files
@@ -72,6 +56,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    const limited = await uploadRateLimit(user.id)
+    if (limited) return limited
+
     const body = await request.json()
     const { filename, contentType } = body
     const bucket = videoBucketOf(body.bucket)
@@ -84,8 +71,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing filename or contentType" }, { status: 400 })
     }
 
-    // Validate content type is a video (be more permissive)
-    if (!contentType.startsWith("video/")) {
+    // One of the video types the bucket takes
+    if (!ALLOWED_VIDEO_TYPES.includes(contentType.toLowerCase())) {
       return NextResponse.json({ error: "Only video files are allowed" }, { status: 400 })
     }
 
@@ -93,39 +80,40 @@ export async function POST(request: NextRequest) {
 
     // Generate unique path with user folder
     const timestamp = Date.now()
-    const randomId = Math.random().toString(36).slice(2, 10)
     const ext = safeExtension(filename, "mp4")
-    const safeName = `${timestamp}_${randomId}.${ext}`
+    const safeName = `${timestamp}_${randomId()}.${ext}`
     const filePath = folder ? `${user.id}/${folder}/${safeName}` : `${user.id}/${safeName}`
 
-    // Ensure bucket exists
-    await ensureBucketExists(adminSupabase, targetBucket)
-
-    // Create a signed upload URL (valid for 1 hour)
-    const { data: signedData, error: signedError } = await adminSupabase.storage
+    // Create a signed upload URL
+    let { data: signedData, error: signedError } = await adminSupabase.storage
       .from(targetBucket)
       .createSignedUploadUrl(filePath)
+    if (signedError && (await createBucketIfMissing(adminSupabase, targetBucket, signedError.message))) {
+      ;({ data: signedData, error: signedError } = await adminSupabase.storage.from(targetBucket).createSignedUploadUrl(filePath))
+    }
 
-    if (signedError) {
+    if (signedError || !signedData) {
       console.error("Error creating signed URL:", signedError)
-      return NextResponse.json({ error: `Failed to create upload URL: ${signedError.message}` }, { status: 500 })
+      return NextResponse.json({ error: "Could not start the upload. Try again." }, { status: 500 })
     }
 
     // Get the public URL for after upload
     const { data: urlData } = adminSupabase.storage.from(targetBucket).getPublicUrl(filePath)
 
-    return NextResponse.json({
-      success: true,
-      signedUrl: signedData.signedUrl,
-      token: signedData.token,
-      path: signedData.path,
-      publicUrl: urlData.publicUrl,
-      bucket: targetBucket,
-    })
+    return NextResponse.json(
+      {
+        success: true,
+        signedUrl: signedData.signedUrl,
+        token: signedData.token,
+        path: signedData.path,
+        publicUrl: urlData.publicUrl,
+        bucket: targetBucket,
+      },
+      { headers: UPLOAD_HEADERS },
+    )
   } catch (error) {
     console.error("Upload video error:", error)
-    const message = error instanceof Error ? error.message : "Internal server error"
-    return NextResponse.json({ error: message }, { status: 500 })
+    return NextResponse.json({ error: "Could not start the upload. Try again." }, { status: 500 })
   }
 }
 
@@ -143,6 +131,9 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    const limited = await uploadRateLimit(user.id)
+    if (limited) return limited
+
     const formData = await request.formData()
     const file = formData.get("file") as File | null
     const folder = uploadFolderOf(formData.get("folder"))
@@ -155,48 +146,54 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 })
     }
 
-    // Validate content type (be more permissive)
+    // The declared type, and then the bytes: a page labelled video/mp4 is not a video
     if (!file.type.startsWith("video/")) {
       return NextResponse.json({ error: "Only video files are allowed" }, { status: 400 })
     }
-
-    // Ensure bucket exists before upload
-    await ensureBucketExists(adminSupabase, bucket)
+    const arrayBuffer = await file.arrayBuffer()
+    const kind = isPublicVideo(new Uint8Array(arrayBuffer, 0, Math.min(arrayBuffer.byteLength, 4096)))
+    if (!kind) {
+      return NextResponse.json({ error: "That file is not a video. Use MP4, MOV or WebM." }, { status: 415 })
+    }
 
     // Generate unique path
     const timestamp = Date.now()
-    const randomId = Math.random().toString(36).slice(2, 10)
     const ext = safeExtension(file.name, "mp4")
-    const safeName = `${timestamp}_${randomId}.${ext}`
+    const safeName = `${timestamp}_${randomId()}.${ext}`
     const filePath = folder ? `${user.id}/${folder}/${safeName}` : `${user.id}/${safeName}`
 
-    // Upload directly using admin client (bypasses RLS)
-    const arrayBuffer = await file.arrayBuffer()
-    const { error: uploadError } = await adminSupabase.storage
-      .from(bucket)
-      .upload(filePath, arrayBuffer, {
-        contentType: file.type,
-        cacheControl: "3600",
-        upsert: true,
+    // A new random name every time, so nothing is overwritten and the URL
+    // can be cached for a year.
+    const upload = () =>
+      adminSupabase.storage.from(bucket).upload(filePath, arrayBuffer, {
+        contentType: kind.mime ?? file.type,
+        cacheControl: "31536000",
+        upsert: false,
       })
+    let { error: uploadError } = await upload()
+    if (uploadError && (await createBucketIfMissing(adminSupabase, bucket, uploadError.message))) {
+      ;({ error: uploadError } = await upload())
+    }
 
     if (uploadError) {
       console.error("Direct upload error:", uploadError)
-      return NextResponse.json({ error: `Upload failed: ${uploadError.message}` }, { status: 500 })
+      return NextResponse.json({ error: "The upload failed. Try again." }, { status: 500 })
     }
 
     // Get public URL
     const { data: urlData } = adminSupabase.storage.from(bucket).getPublicUrl(filePath)
 
-    return NextResponse.json({
-      success: true,
-      publicUrl: urlData.publicUrl,
-      path: filePath,
-      bucket,
-    })
+    return NextResponse.json(
+      {
+        success: true,
+        publicUrl: urlData.publicUrl,
+        path: filePath,
+        bucket,
+      },
+      { headers: UPLOAD_HEADERS },
+    )
   } catch (error) {
     console.error("Direct upload error:", error)
-    const message = error instanceof Error ? error.message : "Internal server error"
-    return NextResponse.json({ error: message }, { status: 500 })
+    return NextResponse.json({ error: "The upload failed. Try again." }, { status: 500 })
   }
 }

@@ -67,6 +67,8 @@ export const CRON_JOBS = [
   { path: "/api/cron/release-holds", schedule: "0 6 * * *", what: "Moves held sale money to available" },
   { path: "/api/cron/rollup-daily", schedule: "0 1 * * *", what: "Adds up yesterday's analytics" },
   { path: "/api/cron/purge-chat-attachments", schedule: "20 3 * * *", what: "Deletes chat pictures after 30 days" },
+  { path: "/api/cron/storage-cleanup", schedule: "40 3 * * *", what: "Removes files nothing refers to and scans waiting uploads" },
+  { path: "/api/cron/strip-image-metadata", schedule: "10 * * * *", what: "Removes location data from new public photos" },
 ] as const
 
 /**

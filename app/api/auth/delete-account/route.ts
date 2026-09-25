@@ -190,10 +190,12 @@ export async function deleteAllUserData(adminSupabase: any, userId: string) {
   const creatorId = creatorRow?.id ?? null
 
   // 2. Delete storage files ─────────────────────────────────────────────────
-  await deleteStorageFolder(adminSupabase, "avatars", userId)
-  await deleteStorageFolder(adminSupabase, "onepage-assets", userId)
-  if (creatorId) {
-    await deleteStorageFolder(adminSupabase, "product-images", creatorId)
+  // Every public bucket a person uploads to, under both of their ids: uploads
+  // are filed under the user id or the creator id (see the storage policies in
+  // supabase/migrations/20260929_upload_safety.sql). Their photos go with them.
+  const ownerFolders = [userId, creatorId].filter((id): id is string => typeof id === "string" && id.length > 0)
+  for (const bucket of ["avatars", "covers", "onepage-assets", "product-images", "store-builder-images", "product-videos", "lead-form-files-v2", "email-images", "digital-products"]) {
+    for (const owner of ownerFolders) await deleteStorageFolder(adminSupabase, bucket, owner)
   }
 
   // 3. Collect product IDs for child-table cleanup ──────────────────────────
@@ -363,13 +365,26 @@ async function deleteStorageFolder(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   adminSupabase: any,
   bucket: string,
-  prefix: string
+  prefix: string,
+  depth = 0,
 ): Promise<void> {
+  // The folder and the folders inside it: list() is one level, and uploads
+  // live in subfolders (`<id>/avatars/…`, `<id>/<product>/gallery/…`), which
+  // the old one level listing left behind. Bounded in depth and pages.
+  if (depth > 4) return
   try {
-    const { data: files } = await adminSupabase.storage.from(bucket).list(prefix, { limit: 1000 })
-    if (!files || files.length === 0) return
-    const paths = files.map((f: { name: string }) => `${prefix}/${f.name}`)
-    await adminSupabase.storage.from(bucket).remove(paths)
+    // Always the first page: what was removed is no longer listed.
+    for (let round = 0; round < 20; round++) {
+      const { data: entries } = await adminSupabase.storage.from(bucket).list(prefix, { limit: 1000 })
+      if (!entries || entries.length === 0) return
+      const files: string[] = []
+      for (const e of entries as { name: string; id: string | null }[]) {
+        if (e.id === null) await deleteStorageFolder(adminSupabase, bucket, `${prefix}/${e.name}`, depth + 1)
+        else files.push(`${prefix}/${e.name}`)
+      }
+      if (files.length > 0) await adminSupabase.storage.from(bucket).remove(files)
+      if (files.length === 0 || entries.length < 1000) return
+    }
   } catch {
     // Non-fatal: storage cleanup failure should not block account deletion
     console.warn(`[delete-account] storage cleanup failed for ${bucket}/${prefix}`)

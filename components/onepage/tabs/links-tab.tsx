@@ -1371,7 +1371,10 @@ export function LinksTab() {
     try {
       const supabase = createClient()
       const fileExt = file.name.split('.').pop()
-      const fileName = `thumbnail_${thumbnailBlockId}_${Date.now()}.${fileExt}`
+      /* Under the owner's own folder: storage only lets a person write there. */
+      const ownerId = (await supabase.auth.getSession()).data.session?.user.id
+      if (!ownerId) throw new Error('Not signed in')
+      const fileName = `${ownerId}/thumbnail_${thumbnailBlockId}_${Date.now()}.${fileExt}`
 
       const { error: uploadError } = await supabase.storage
         .from('onepage-assets')
@@ -5922,7 +5925,10 @@ function BlockEditor({
     try {
       const supabase = createClient()
       const fileExt = file.name.split('.').pop()
-      const fileName = `thumbnail_${block.id}_${Date.now()}.${fileExt}`
+      /* Under the owner's own folder: storage only lets a person write there. */
+      const ownerId = (await supabase.auth.getSession()).data.session?.user.id
+      if (!ownerId) throw new Error('Not signed in')
+      const fileName = `${ownerId}/thumbnail_${block.id}_${Date.now()}.${fileExt}`
 
       const { error: uploadError } = await supabase.storage
         .from('onepage-assets')
@@ -5955,7 +5961,10 @@ function BlockEditor({
     try {
       const supabase = createClient()
       const fileExt = file.name.split('.').pop()
-      const fileName = `image_${block.id}_${currentImageItemId}_${Date.now()}.${fileExt}`
+      /* Under the owner's own folder: storage only lets a person write there. */
+      const ownerId = (await supabase.auth.getSession()).data.session?.user.id
+      if (!ownerId) throw new Error('Not signed in')
+      const fileName = `${ownerId}/image_${block.id}_${currentImageItemId}_${Date.now()}.${fileExt}`
 
       const { error: uploadError } = await supabase.storage
         .from('onepage-assets')

@@ -648,7 +648,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe }: Crea
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error("Not authenticated")
 
-      const fileName = `creator-avatar-${user.id}-${Date.now()}.png`
+      const fileName = `${user.id}/creator-avatar-${Date.now()}.png` // the owner's folder first: storage only lets a person write there
       const { error: uploadError } = await supabase.storage
         .from("avatars")
         .upload(fileName, blob, { upsert: true })
