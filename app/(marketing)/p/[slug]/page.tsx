@@ -49,6 +49,8 @@ import {
 import type { ShopHeaderSettings } from "@/lib/store-builder/types"
 import { SellerFooter } from "@/components/storefront/seller-footer"
 import { ShareButton } from "@/components/product/share-button"
+import { CreatorBadges } from "@/components/storefront/creator-badges"
+import { creatorBadges } from "@/lib/creators/badges"
 import { WishlistButton } from "@/components/wishlist/wishlist-button"
 import { RefundPolicyDisplay } from "@/components/product/refund-policy-display"
 import { getStoreUrl, getProductShareUrl } from "@/lib/url-helpers"
@@ -865,6 +867,8 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   /* The creator page's own domain, when it has one: where the canonical, the
      structured data and the share sheet send people (lib/custom-domains). */
   const pageHost = await primaryHostFor(product.creator_id, "creator_page")
+  /* The marks Storelib has granted the seller, beside their name in both rows. */
+  const creatorBadgeIds = creatorBadges(creatorProfile)
   // Use a relative internal path directly — avoids the server-side getStoreUrl()
   // which returns https://username.storelib.com (isNativeApp()=false on the server).
   // That subdomain URL, present in the pre-hydration SSR HTML, was being
@@ -1033,6 +1037,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                   >
                     {creatorProfile?.display_name || "Creator"}
                   </p>
+                  <CreatorBadges badges={creatorBadgeIds} ink={themeColors.textColor} size={17} className="-ml-1.5" />
                   {/* Not gap-3 away from the name: the chevron belongs to the
                       name, and at the row's gap it read as a third item. */}
                   <ChevronRight
@@ -1227,6 +1232,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                     >
                       {creatorProfile?.display_name || "Creator"}
                     </p>
+                    <CreatorBadges badges={creatorBadgeIds} ink={themeColors.cardTextColor} size={15} className="-ml-1.5" />
                     <ChevronRight
                       aria-hidden
                       className="creator-link-arrow -ml-1 h-3.5 w-3.5 shrink-0"

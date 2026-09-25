@@ -25,6 +25,7 @@ import { EditAboutButton } from "@/components/storefront/edit-about-button"
 import { OwnerMenu } from "@/components/storefront/owner-menu"
 import { EmbeddedNavigation } from "@/components/storefront/embedded-navigation"
 import { StorefrontTabs, EmptyTabPanel, type StorefrontTab } from "@/components/storefront/storefront-tabs"
+import { creatorBadges } from "@/lib/creators/badges"
 
 /**
  * ===========================================================================
@@ -1142,6 +1143,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
           reviewCount={creatorReviewCount}
           reviewAverage={creatorRating}
           followerCount={followerCount ?? 0}
+          badges={creatorBadges(profile)}
           /**
            * The scheme's type colours. Without these the block reads its own
            * stored `colors.textColor`, which for nearly every account on the
@@ -1460,6 +1462,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
         reviewCount={creatorReviewCount}
         reviewAverage={creatorRating}
         followerCount={followerCount ?? 0}
+        badges={creatorBadges(profile)}
       />
 
       {/**

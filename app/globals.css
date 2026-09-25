@@ -5903,4 +5903,23 @@ html:has([data-app-sheet="open"], [role="dialog"][aria-modal="true"], [role="dia
   [data-pay-tile],
   .home-guide-thumb,
   .home-plan-sky { transition-duration: 0ms; }
+/*
+  THE NAME OF A CREATOR BADGE, over the badge (components/storefront/creator-badges.tsx).
+  Placed by the badge's centre and top; this lifts it clear and centres it,
+  and it arrives on opacity and transform only.
+*/
+.creator-badge-label {
+  transform: translate(-50%, -100%);
+  animation: creator-badge-in 170ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes creator-badge-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, calc(-100% + 4px)) scale(0.96);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .creator-badge-label {
+    animation: none;
+  }
 }
