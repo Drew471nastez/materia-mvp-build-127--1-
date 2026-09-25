@@ -10,50 +10,53 @@
  * button, Snapchat its yellow, Google its four colours.
  *
  * Anything that is not a company (Direct, Search, Email, a referral, a
- * device) gets a plain line glyph in ink, so a brand colour always means a
- * brand.
+ * campaign, a device) gets a glyph drawn for this list: two tones of ink, a
+ * dark body and a light face, on a small raised white tile. They replaced
+ * stock outline icons in a grey box, which the owner found flat. A website
+ * with no brand mark here shows its own favicon, and the globe only when it
+ * has none.
  */
 import * as React from "react"
-import {
-  ArrowUpRight,
-  Globe,
-  Link2,
-  Mail,
-  Megaphone,
-  Monitor,
-  Search,
-  Smartphone,
-  Tablet,
-  Users,
-  type LucideIcon,
-} from "lucide-react"
 import { socialNetworkOfHost } from "@/lib/analytics/sources"
 import { BRAND_MARKS } from "./brand-marks"
 
-type Mark = { kind: "brand"; name: string } | { kind: "line"; Icon: LucideIcon }
+type GlyphName =
+  | "direct"
+  | "search"
+  | "paid"
+  | "email"
+  | "link"
+  | "social"
+  | "campaign"
+  | "globe"
+  | "mobile"
+  | "tablet"
+  | "desktop"
+
+type Mark = { kind: "brand"; name: string } | { kind: "glyph"; name: GlyphName } | { kind: "site"; host: string }
 
 const brand = (name: string): Mark => ({ kind: "brand", name })
-const line = (Icon: LucideIcon): Mark => ({ kind: "line", Icon })
+const glyph = (name: GlyphName): Mark => ({ kind: "glyph", name })
 
 const SOURCE: Record<string, Mark> = {
-  direct: line(ArrowUpRight),
-  organic_search: line(Search),
-  paid_search: line(Megaphone),
-  paid: line(Megaphone),
-  email: line(Mail),
-  affiliate: line(Link2),
-  referral: line(Link2),
-  social: line(Users),
+  direct: glyph("direct"),
+  organic_search: glyph("search"),
+  paid_search: glyph("paid"),
+  paid: glyph("paid"),
+  email: glyph("email"),
+  affiliate: glyph("link"),
+  referral: glyph("globe"),
+  social: glyph("social"),
 }
 
 const DEVICE: Record<string, Mark> = {
-  mobile: line(Smartphone),
-  tablet: line(Tablet),
-  desktop: line(Monitor),
+  mobile: glyph("mobile"),
+  tablet: glyph("tablet"),
+  desktop: glyph("desktop"),
 }
 
 function network(name: string): Mark {
-  return name in BRAND_MARKS || name === "google" ? brand(name) : line(Users)
+  return name in BRAND_MARKS || name === "google" ? brand(name) : glyph("social")
 }
 
 /** A referrer's host, to the mark of the company behind it. */
@@ -76,7 +79,7 @@ export function markForHost(host: string): Mark | null {
   if (is("spotify.com", "open.spotify.com")) return brand("spotify")
   const social = socialNetworkOfHost(h)
   if (social) return network(social)
-  if (is("yahoo.com", "yandex.ru", "yandex.com", "startpage.com", "qwant.com")) return line(Search)
+  if (is("yahoo.com", "yandex.ru", "yandex.com", "startpage.com", "qwant.com")) return glyph("search")
   return null
 }
 
@@ -88,7 +91,7 @@ function markForBrowser(name: string): Mark | null {
   if (n.includes("edge")) return brand("edge")
   if (n.includes("opera")) return brand("opera")
   if (n.includes("brave")) return brand("brave")
-  if (n.includes("samsung")) return line(Globe)
+  if (n.includes("samsung")) return glyph("globe")
   if (n.includes("firefox")) return brand("firefox")
   if (n.includes("chrome")) return brand("chrome")
   if (n.includes("safari")) return brand("safari")
@@ -105,7 +108,7 @@ function markForOs(name: string): Mark | null {
   return null
 }
 
-export type IconFor = "source" | "social" | "referrer" | "device" | "browser" | "os"
+export type IconFor = "source" | "social" | "referrer" | "device" | "browser" | "os" | "campaign"
 
 /** Google's G in its four colours; Simple Icons only has it in one. */
 function GoogleG() {
@@ -123,7 +126,7 @@ function BrandGlyph({ name }: { name: string }) {
   const id = React.useId().replace(/:/g, "")
   if (name === "google") return <GoogleG />
   const m = BRAND_MARKS[name]
-  if (!m) return <Globe className="h-3.5 w-3.5" strokeWidth={2} />
+  if (!m) return <Glyph name="globe" />
   const size = "h-3.5 w-3.5"
   if (name === "instagram") {
     return (
@@ -165,36 +168,184 @@ function BrandGlyph({ name }: { name: string }) {
   )
 }
 
+/* The two inks every glyph is drawn in, and the light face between them. */
+const INK = "#1a1a2e"
+const MID = "#8b919c"
+const FACE = "#e6e8ee"
+
+/**
+ * THE GLYPHS, drawn on a 16 unit square for a 14px mark. Each is a dark body
+ * with a light face, so it reads as an object rather than a line drawing:
+ * a phone has a screen, a monitor has a stand, an envelope has a flap.
+ */
+function Glyph({ name }: { name: GlyphName }) {
+  const common = { viewBox: "0 0 16 16", className: "h-3.5 w-3.5", "aria-hidden": true } as const
+  switch (name) {
+    case "mobile":
+      return (
+        <svg {...common}>
+          <rect x="4" y="0.75" width="8" height="14.5" rx="2" fill={INK} />
+          <rect x="5.1" y="2.3" width="5.8" height="10.6" rx="0.8" fill={FACE} />
+          <rect x="6.9" y="13.55" width="2.2" height="0.7" rx="0.35" fill={MID} />
+        </svg>
+      )
+    case "tablet":
+      return (
+        <svg {...common}>
+          <rect x="2" y="1" width="12" height="14" rx="2" fill={INK} />
+          <rect x="3.2" y="2.3" width="9.6" height="10.8" rx="0.8" fill={FACE} />
+          <circle cx="8" cy="14.05" r="0.45" fill={MID} />
+        </svg>
+      )
+    case "desktop":
+      return (
+        <svg {...common}>
+          <rect x="0.75" y="1.75" width="14.5" height="10" rx="1.6" fill={INK} />
+          <rect x="1.9" y="2.9" width="12.2" height="7.7" rx="0.6" fill={FACE} />
+          <path d="M6.6 11.75h2.8l.45 1.9H6.15z" fill={MID} />
+          <rect x="4.6" y="13.4" width="6.8" height="1.35" rx="0.675" fill={INK} />
+        </svg>
+      )
+    case "direct":
+      /* An address bar with the caret in it: typed in, or opened from a bookmark. */
+      return (
+        <svg {...common}>
+          <rect x="0.75" y="3.5" width="14.5" height="9" rx="4.5" fill={INK} />
+          <rect x="1.9" y="4.65" width="12.2" height="6.7" rx="3.35" fill={FACE} />
+          <rect x="4.3" y="6.1" width="1.3" height="3.8" rx="0.65" fill={INK} />
+          <rect x="7" y="7.35" width="5" height="1.3" rx="0.65" fill={MID} />
+        </svg>
+      )
+    case "search":
+      return (
+        <svg {...common}>
+          <circle cx="6.6" cy="6.6" r="5.35" fill={INK} />
+          <circle cx="6.6" cy="6.6" r="3.9" fill={FACE} />
+          <path d="M10.4 10.4l4.1 4.1" stroke={INK} strokeWidth="2.3" strokeLinecap="round" />
+        </svg>
+      )
+    case "paid":
+      /* A megaphone: paid reach. */
+      return (
+        <svg {...common}>
+          <path d="M1.5 6.1c0-.7.55-1.25 1.25-1.25H5l6.4-3.4c.6-.3 1.3.1 1.3.8v11.5c0 .7-.7 1.1-1.3.8L5 11.15H2.75c-.7 0-1.25-.55-1.25-1.25z" fill={INK} />
+          <path d="M5 4.85v6.3" stroke={FACE} strokeWidth="1" />
+          <path d="M5.2 11.3l.9 3.1c.15.5.6.85 1.15.85h.5c.5 0 .85-.45.75-.95l-.7-3z" fill={MID} />
+          <path d="M14.2 5.6c.8.6 1.3 1.45 1.3 2.4s-.5 1.8-1.3 2.4" stroke={MID} strokeWidth="1.1" strokeLinecap="round" fill="none" />
+        </svg>
+      )
+    case "email":
+      return (
+        <svg {...common}>
+          <rect x="0.75" y="2.75" width="14.5" height="10.5" rx="2" fill={INK} />
+          <rect x="1.95" y="3.95" width="12.1" height="8.1" rx="1" fill={FACE} />
+          <path d="M2.4 4.6l5.6 4.1 5.6-4.1" stroke={INK} strokeWidth="1.25" strokeLinejoin="round" strokeLinecap="round" fill="none" />
+        </svg>
+      )
+    case "link":
+      return (
+        <svg {...common}>
+          <path d="M6.9 9.1a3 3 0 0 0 4.25 0l2.4-2.4a3 3 0 0 0-4.25-4.25l-.9.9" stroke={INK} strokeWidth="1.9" strokeLinecap="round" fill="none" />
+          <path d="M9.1 6.9a3 3 0 0 0-4.25 0l-2.4 2.4a3 3 0 0 0 4.25 4.25l.9-.9" stroke={MID} strokeWidth="1.9" strokeLinecap="round" fill="none" />
+        </svg>
+      )
+    case "social":
+      /* Two speech bubbles, the one behind lighter. */
+      return (
+        <svg {...common}>
+          <path d="M6.4 1.5h6.6c1.2 0 2.2 1 2.2 2.2v3.6c0 1.2-1 2.2-2.2 2.2h-.5v1.9l-2.5-1.9H6.4c-1.2 0-2.2-1-2.2-2.2V3.7c0-1.2 1-2.2 2.2-2.2z" fill={MID} />
+          <path d="M3 5.6h6.6c1.2 0 2.2 1 2.2 2.2v3.6c0 1.2-1 2.2-2.2 2.2H6.1l-2.6 2v-2H3c-1.2 0-2.2-1-2.2-2.2V7.8c0-1.2 1-2.2 2.2-2.2z" fill={INK} />
+          <rect x="3.1" y="8.35" width="5.6" height="1.1" rx="0.55" fill={FACE} />
+          <rect x="3.1" y="10.35" width="3.6" height="1.1" rx="0.55" fill={FACE} />
+        </svg>
+      )
+    case "campaign":
+      /* A tag: the link was tagged with a campaign. */
+      return (
+        <svg {...common}>
+          <path d="M1 2.4C1 1.6 1.6 1 2.4 1h4.8c.4 0 .75.15 1 .4l6.6 6.6c.55.55.55 1.45 0 2l-4.8 4.8c-.55.55-1.45.55-2 0L1.4 8.2c-.25-.25-.4-.6-.4-1z" fill={INK} />
+          <circle cx="4.6" cy="4.6" r="1.45" fill={FACE} />
+        </svg>
+      )
+    case "globe":
+    default:
+      return (
+        <svg {...common}>
+          <circle cx="8" cy="8" r="7.25" fill={INK} />
+          <circle cx="8" cy="8" r="6" fill={FACE} />
+          <ellipse cx="8" cy="8" rx="2.6" ry="6" stroke={INK} strokeWidth="1.1" fill="none" />
+          <path d="M2 8h12M3 4.9h10M3 11.1h10" stroke={INK} strokeWidth="1.1" fill="none" />
+        </svg>
+      )
+  }
+}
+
+/**
+ * THE TILE every mark sits on: white, a hairline edge and a one pixel shadow
+ * under it, so it reads as a small raised key rather than a grey patch.
+ */
+export const TILE =
+  "flex h-6 w-6 shrink-0 items-center justify-center rounded-[7px] bg-white shadow-[0_0_0_0.5px_rgba(17,24,39,0.12),0_1px_2px_rgba(17,24,39,0.08),inset_0_-1px_0_rgba(17,24,39,0.04)]"
+
+/** The site's own icon, and the globe when it has none or it does not load. */
+function SiteIcon({ host }: { host: string }) {
+  const [failed, setFailed] = React.useState(false)
+  if (failed) return <Glyph name="globe" />
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={`https://icons.duckduckgo.com/ip3/${encodeURIComponent(host)}.ico`}
+      alt=""
+      width={14}
+      height={14}
+      loading="lazy"
+      decoding="async"
+      referrerPolicy="no-referrer"
+      onError={() => setFailed(true)}
+      onLoad={(e) => {
+        /* A one pixel answer is "no icon", not an icon. */
+        if (e.currentTarget.naturalWidth < 2) setFailed(true)
+      }}
+      className="h-3.5 w-3.5 rounded-[3px] object-contain"
+    />
+  )
+}
+
+/** A bare host, or null when the value is not one ("Direct", "Other"). */
+function hostOf(value: string): string | null {
+  const h = value.trim().toLowerCase().replace(/^https?:\/\//, "").split("/")[0]
+  return /^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(h) ? h : null
+}
+
 export function SourceIcon({ kind, value }: { kind: IconFor; value: string }) {
-  const mark =
-    kind === "source"
-      ? SOURCE[value]
-      : kind === "social"
-        ? network(value)
-        : kind === "referrer"
-          ? markForHost(value)
-          : kind === "device"
-            ? DEVICE[value]
-            : kind === "browser"
-              ? markForBrowser(value)
-              : markForOs(value)
-  const m: Mark = mark ?? line(Globe)
+  let mark: Mark | null | undefined
+  if (kind === "source") mark = SOURCE[value]
+  else if (kind === "social") mark = network(value)
+  else if (kind === "referrer") {
+    const host = hostOf(value)
+    mark = markForHost(value) ?? (host ? { kind: "site", host } : null)
+  } else if (kind === "device") mark = DEVICE[value]
+  else if (kind === "browser") mark = markForBrowser(value)
+  else if (kind === "campaign") mark = glyph("campaign")
+  else mark = markForOs(value)
+  const m: Mark = mark ?? glyph("globe")
   if (m.kind === "brand") {
     return (
-      <span
-        aria-hidden
-        data-brand={m.name}
-        className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-[#eceef1]"
-        style={{ background: m.name === "snapchat" ? "#FFFC00" : "#fff" }}
-      >
+      <span aria-hidden data-brand={m.name} className={TILE} style={m.name === "snapchat" ? { background: "#FFFC00" } : undefined}>
         <BrandGlyph name={m.name} />
       </span>
     )
   }
-  const Icon = m.Icon
+  if (m.kind === "site") {
+    return (
+      <span aria-hidden data-site={m.host} className={TILE}>
+        <SiteIcon host={m.host} />
+      </span>
+    )
+  }
   return (
-    <span aria-hidden className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-[#eceef1] bg-[#f7f7f8] text-[#4b5563]">
-      <Icon className="h-3.5 w-3.5" strokeWidth={2} />
+    <span aria-hidden data-glyph={m.name} className={TILE}>
+      <Glyph name={m.name} />
     </span>
   )
 }

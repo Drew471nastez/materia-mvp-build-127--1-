@@ -753,14 +753,14 @@ check(
      * first-load skeleton stays, because that is the one moment there really
      * is nothing to look at; the sample-data dimming stays too, because it
      * says these numbers are not yours rather than "wait". The first-load
-     * state is the chart's own shape in light gray now (components/ui/
-     * shimmer), from the first frame, and only while there is no line.
+     * state is the chart's frame with a grey floor line, softly blurred,
+     * from the first frame and only while there is no line: no skeleton.
      */
     const src = code("components/app/dashboard-client.tsx")
     return (
       !/isChartLoading \? "opacity-30 blur-\[2px\]"/.test(src) &&
-      /loading=\{\(chartEvents == null \|\| isChartLoading\) && displayChartData\.length === 0\}/.test(src) &&
-      /showSampleData && !hasRealData \? "opacity-50"/.test(src)
+      /const chartWaiting = \(chartEvents == null \|\| isChartLoading\) && displayChartData\.length === 0/.test(src) &&
+      /showSampleData && !hasRealData \? "opacity-50/.test(src)
     )
   })(),
 )

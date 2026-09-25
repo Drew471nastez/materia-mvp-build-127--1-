@@ -249,9 +249,14 @@ section("No page draws a picture of itself while it loads, inside or out")
      tables loading; loading structures or skeleton, light gray shimmering."
      Page to page stays on the spinner and draws no page; the data inside a
      page draws its own shapes (components/ui/shimmer). */
-  check("Home has no full page skeleton, and its chart holds its own shape while it is read, from the first frame",
+  /* "I don't like those skeleton loading structures in the charts... it
+     just needs to be that blur thing happening." The chart waits as
+     Analytics' does: its frame, a grey line on the floor, softly blurred. */
+  check("Home has no full page skeleton, and its chart waits as a blurred grey floor line, not a skeleton, from the first frame",
     !/showLoadingSkeleton|isLoading && |Full Page Skeleton|skeleton-bar/.test(dash) && !/animate-pulse/.test(dash) && !/WaitingArea/.test(dash)
-      && /<ShimmerSwap loading=\{\(chartEvents == null \|\| isChartLoading\) && displayChartData\.length === 0\} skeleton=\{<ShimmerChart height=\{CHART_H\}/.test(dash))
+      && !/ShimmerChart|ShimmerSwap/.test(dash)
+      && /const chartWaiting = \(chartEvents == null \|\| isChartLoading\) && displayChartData\.length === 0/.test(dash)
+      && /chartWaiting \? "opacity-60 blur-\[1\.5px\]"/.test(dash) && /loading=\{chartWaiting\}/.test(dash))
   check("and its four figures wait for the period's first answer (MetricTab `loading`), with No activity yet held back until it",
     /const \[figuresReady, setFiguresReady\] = useState\(false\)/.test(dash) && (dash.match(/loading=\{!figuresReady\}/g) ?? []).length === 4
       && (dash.match(/soft=\{isRefreshing && figuresReady\}/g) ?? []).length === 4 && /\{figuresReady && !hasRealData && \(/.test(dash))
@@ -262,8 +267,8 @@ section("No page draws a picture of itself while it loads, inside or out")
       && /<ShimmerSwap loading=\{blank\} skeleton=\{<Waiting kind=\{wait\} lead=\{lead\} \/>\} className=\{BODY\} contentClassName="h-full">/.test(reports))
   const tab = code("components/app/metric-tab.tsx")
   /* "I don't like the skeleton structure in the chart tabs; before it was
-     the blur thing, I liked those, revert it." The tabs only: the charts
-     under them keep their own waiting shapes. */
+     the blur thing, I liked those, revert it." The home chart under them
+     waits as a blurred grey floor line too (checked above). */
   check("a figure tab waits blurred, the way it did before the gray bars: its number 2px and its foot 1px, clearing over 700ms",
     /const blurred = soft \|\| loading/.test(tab) && /blurred \? "blur-\[2px\]" : "blur-0"/.test(tab) && /blurred \? "blur-\[1px\]" : "blur-0"/.test(tab)
       && /transition-\[filter,color,opacity\] duration-\[700ms\]/.test(tab)

@@ -454,7 +454,7 @@ section("Every chart reads one layer")
   check("the Analytics readout keeps both numbers: this period and what it is compared with",
     /label: "Compared"/.test(ANALYTICS) && /mark: "dashed", tone: "compared"/.test(ANALYTICS) && /hollow: true/.test(ANALYTICS))
   check("a placeholder has nothing to read",
-    /disabled=\{isLoading \|\| n === 0\}/.test(ANALYTICS) && /disabled=\{displayChartData\.length === 0\}/.test(DASHBOARD))
+    /disabled=\{isLoading \|\| n === 0\}/.test(ANALYTICS) && /disabled=\{loading \|\| displayChartData\.length === 0\}/.test(DASHBOARD))
   check("the feel is measured in a browser, on both charts, with a mouse and a finger, and held equal",
     /Input\.dispatchMouseEvent/.test(FEEL_PROBE) && /Input\.dispatchTouchEvent/.test(FEEL_PROBE)
       && /\["home", "analytics"\]/.test(FEEL_PROBE) && /the readout stays on the pointer on both charts/.test(FEEL_PROBE)
