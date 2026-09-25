@@ -24,9 +24,14 @@ import "server-only"
  * /robots.txt and /sitemap.xml from siteSitemap below.
  *
  * The rules (what is listed, what date it carries) are lib/seo/indexing.ts.
- * A query that fails says so in the log and leaves its part out; it never
- * turns into an empty list in silence, which is how this file once listed
- * no creator pages for months.
+ * A query that fails is tried once more, then says so in the log and the
+ * file is not served (SitemapReadFailed, a 503 from the route). It never
+ * turns into an empty or a shorter list in silence, which is how this file
+ * once listed no creator pages for months: a file cut short at a failure is
+ * served and cached for an hour as if the rest did not exist, while a 503
+ * leaves search engines the copy they already have and they ask again.
+ * A table that arrives with a migration (website_addresses) is read softly
+ * instead, because its absence is a normal state.
  */
 
 import { unstable_cache } from "next/cache"
@@ -50,52 +55,108 @@ import {
 } from "./indexing"
 
 export const BASE = "https://storelib.com"
+/**
+ * Rows per request. PostgREST answers at most `max_rows` rows whatever range
+ * is asked for, 1,000 on Supabase unless configured otherwise, so a page
+ * must not be larger than that: a short page is read as the end of the table.
+ */
 const PAGE = 1000
+/**
+ * Ids per `.in()` query. They travel in the request's URL, and a gateway
+ * refuses a request line much past 8 KB; 150 UUIDs, encoded, are under 6 KB.
+ * The website sitemap once sent every creator of a chunk, up to ten thousand,
+ * in one URL, and a refused request listed no websites at all.
+ */
+export const IDS_PER_QUERY = 150
 
 type Admin = ReturnType<typeof createAdminClient>
 type Rows<T> = { data: T[] | null; error: { message: string } | null }
 
-/** Every row of a query, a thousand at a time, from `from` for `count` rows. */
-async function readRange<T>(query: (a: number, b: number) => PromiseLike<Rows<T>>, from: number, count: number, what: string): Promise<T[]> {
+/** A read failed twice. The route answers 503 rather than a file cut short. */
+export class SitemapReadFailed extends Error {}
+
+/**
+ * What a sitemap route answers when a read failed. 503 with Retry-After is
+ * "come back later" to a crawler, which keeps the copy it has, and nothing
+ * holds the answer: the next request reads again.
+ */
+export function sitemapUnavailable(): Response {
+  return new Response("Sitemap temporarily unavailable", {
+    status: 503,
+    headers: { "Content-Type": "text/plain; charset=utf-8", "Retry-After": "600", "Cache-Control": "no-store" },
+  })
+}
+
+/** A query's rows, tried twice before the whole file is given up on. */
+async function rowsOf<T>(query: () => PromiseLike<Rows<T>>, what: string): Promise<T[]> {
+  let { data, error } = await query()
+  /* Once more: most failures here are a blip, and a blip should not cost a file. */
+  if (error) ({ data, error } = await query())
+  if (error) {
+    console.error(`[sitemap] ${what} query failed:`, error.message)
+    throw new SitemapReadFailed(what)
+  }
+  return data ?? []
+}
+
+/** Every row of a query, a thousand at a time, from `from` for `count` rows. Exported so a test can drive it. */
+export async function readRange<T>(query: (a: number, b: number) => PromiseLike<Rows<T>>, from: number, count: number, what: string): Promise<T[]> {
   const rows: T[] = []
   for (let a = from; a < from + count; a += PAGE) {
     const b = Math.min(a + PAGE, from + count) - 1
-    const { data, error } = await query(a, b)
-    if (error) {
-      console.error(`[sitemap] ${what} query failed:`, error.message)
-      break
-    }
-    rows.push(...(data ?? []))
-    if (!data || data.length < b - a + 1) break
+    const data = await rowsOf(() => query(a, b), what)
+    rows.push(...data)
+    if (data.length < b - a + 1) break
   }
   return rows
 }
 
-/** user id → username, for the ids given, 500 to a query. */
+/**
+ * `work` over the ids, IDS_PER_QUERY at a time and four queries in flight at
+ * once, so a chunk of ten thousand creators is not a hundred round trips in a
+ * line. The answers come back in the order of the batches. Exported so a
+ * test can drive it.
+ */
+export async function eachBatch<T>(ids: string[], work: (batch: string[]) => Promise<T>, size = IDS_PER_QUERY): Promise<T[]> {
+  const batches: string[][] = []
+  for (let i = 0; i < ids.length; i += size) batches.push(ids.slice(i, i + size))
+  const out: T[] = new Array(batches.length)
+  let next = 0
+  const lane = async () => {
+    while (next < batches.length) {
+      const i = next++
+      out[i] = await work(batches[i])
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(4, batches.length) }, lane))
+  return out
+}
+
+/** user id → username, for the ids given. */
 async function usernames(admin: Admin, userIds: string[]): Promise<Map<string, string>> {
   const out = new Map<string, string>()
   const ids = [...new Set(userIds.filter(Boolean))]
-  for (let i = 0; i < ids.length; i += 500) {
-    /**
-     * `updated_at` is NOT asked for: profiles has no such column, and asking
-     * for one turns the whole answer into an error and no creator pages.
-     */
-    const { data: sellers, error: sellersError } = await admin
-      .from("profiles")
-      .select("id, username")
-      .in("id", ids.slice(i, i + 500))
-      .not("username", "is", null)
-    if (sellersError) console.error("[sitemap] profiles query failed:", sellersError.message)
-    for (const seller of (sellers || []) as { id: string; username: string }[]) out.set(seller.id, seller.username)
-  }
+  const found = await eachBatch(ids, (batch) =>
+    rowsOf<{ id: string; username: string }>(
+      /**
+       * `updated_at` is NOT asked for: profiles has no such column, and asking
+       * for one turns the whole answer into an error and no creator pages.
+       */
+      () => admin.from("profiles").select("id, username").in("id", batch).not("username", "is", null),
+      "profiles",
+    ),
+  )
+  for (const seller of found.flat()) out.set(seller.id, seller.username)
   return out
 }
 
 async function countOf(admin: Admin, table: string, filter: (q: any) => any, what: string): Promise<number> {
-  const { count, error } = await filter(admin.from(table).select("id", { count: "exact", head: true }))
+  let { count, error } = await filter(admin.from(table).select("id", { count: "exact", head: true }))
+  if (error) ({ count, error } = await filter(admin.from(table).select("id", { count: "exact", head: true })))
   if (error) {
+    /* A count of nothing would drop every chunk after the first from the index. */
     console.error(`[sitemap] ${what} count failed:`, error.message)
-    return 0
+    throw new SitemapReadFailed(what)
   }
   return count ?? 0
 }
@@ -271,24 +332,24 @@ export async function creatorsSitemap(chunk: number): Promise<SitemapEntry[]> {
   )
   const newestProduct = new Map<string, { n: number; at: string | null }>()
   const ids = creators.map((c) => c.id)
-  for (let i = 0; i < ids.length; i += 200) {
-    const products = await readRange<{ creator_id: string; updated_at: string | null }>(
+  const batches = await eachBatch(ids, (batch) =>
+    readRange<{ creator_id: string; updated_at: string | null }>(
       (a, b) =>
         admin
           .from("products")
           .select("creator_id, updated_at")
-          .in("creator_id", ids.slice(i, i + 200))
+          .in("creator_id", batch)
           .eq("status", "published")
           .order("id", { ascending: true })
           .range(a, b),
       0,
       1_000_000,
       "creator products",
-    )
-    for (const p of products) {
-      const seen = newestProduct.get(p.creator_id) ?? { n: 0, at: null }
-      newestProduct.set(p.creator_id, { n: seen.n + 1, at: newestOf(seen.at, p.updated_at) })
-    }
+    ),
+  )
+  for (const p of batches.flat()) {
+    const seen = newestProduct.get(p.creator_id) ?? { n: 0, at: null }
+    newestProduct.set(p.creator_id, { n: seen.n + 1, at: newestOf(seen.at, p.updated_at) })
   }
   const selling = creators.filter((c) => newestProduct.has(c.id) && c.user_id)
   const usernameByUserId = await usernames(admin, selling.map((c) => c.user_id as string))
@@ -310,20 +371,27 @@ export async function creatorsSitemap(chunk: number): Promise<SitemapEntry[]> {
 /** creator id → when their published OnePage last changed, for these creators. */
 async function publishedOnePages(admin: Admin, creatorIds: string[]): Promise<Map<string, string | null>> {
   const out = new Map<string, string | null>()
-  for (let i = 0; i < creatorIds.length; i += 100) {
-    const ids = creatorIds.slice(i, i + 100).join(",")
-    const { data, error } = await admin
-      .from("onepages")
-      .select("creator_id, seller_id, updated_at")
-      .eq("status", "published")
-      .or(`creator_id.in.(${ids}),seller_id.in.(${ids})`)
-    if (error) {
-      console.error("[sitemap] onepages query failed:", error.message)
-      return out
-    }
-    for (const p of (data ?? []) as { creator_id: string | null; seller_id: string | null; updated_at: string | null }[]) {
-      for (const id of [p.creator_id, p.seller_id]) if (id) out.set(id, newestOf(out.get(id), p.updated_at))
-    }
+  /* Half a batch: each id is in the URL twice, once per column. */
+  const found = await eachBatch(
+    creatorIds,
+    (batch) =>
+      readRange<{ creator_id: string | null; seller_id: string | null; updated_at: string | null }>(
+        (a, b) =>
+          admin
+            .from("onepages")
+            .select("creator_id, seller_id, updated_at")
+            .eq("status", "published")
+            .or(`creator_id.in.(${batch.join(",")}),seller_id.in.(${batch.join(",")})`)
+            .order("id", { ascending: true })
+            .range(a, b),
+        0,
+        1_000_000,
+        "onepages",
+      ),
+    IDS_PER_QUERY / 2,
+  )
+  for (const p of found.flat()) {
+    for (const id of [p.creator_id, p.seller_id]) if (id) out.set(id, newestOf(out.get(id), p.updated_at))
   }
   return out
 }
@@ -346,27 +414,57 @@ const settingsOf = (row: InstallRow) => {
 /** Connected, active domains for these creators. */
 async function activeDomains(admin: Admin, creatorIds: string[]): Promise<Map<string, string>> {
   const out = new Map<string, string>()
-  for (let i = 0; i < creatorIds.length; i += 500) {
-    const ids = creatorIds.slice(i, i + 500)
-    /* Website domains only, the primary one first; a creator page domain is not the website's. */
-    let { data, error } = await admin
-      .from("custom_domains")
-      .select("creator_id, domain, created_at, purpose, is_primary")
-      .in("creator_id", ids)
-      .eq("status", "active")
-      .eq("purpose", "website")
-      .order("is_primary", { ascending: false })
-      .order("created_at", { ascending: true })
-    if (error && isMissingColumn(error)) {
-      ;({ data, error } = (await admin
+  /*
+    Strict: without it a site that lives on its own domain would be listed at
+    a subdomain that is not its canonical. Website domains only, the primary
+    one first; a creator page domain is not the website's. Before the purpose
+    column exists (run-now part 22) every active domain, as it was.
+  */
+  const found = await eachBatch(creatorIds, async (batch) => {
+    const byPurpose = () =>
+      admin
         .from("custom_domains")
-        .select("creator_id, domain, created_at")
-        .in("creator_id", ids)
+        .select("creator_id, domain, created_at, purpose, is_primary")
+        .in("creator_id", batch)
         .eq("status", "active")
-        .order("created_at", { ascending: true })) as never)
-    }
-    if (error) console.error("[sitemap] custom domains query failed:", error.message)
-    for (const d of (data ?? []) as { creator_id: string; domain: string }[]) if (!out.has(d.creator_id)) out.set(d.creator_id, d.domain)
+        .eq("purpose", "website")
+        .order("is_primary", { ascending: false })
+        .order("created_at", { ascending: true })
+    const first = await byPurpose()
+    if (!first.error) return (first.data ?? []) as { creator_id: string; domain: string }[]
+    if (!isMissingColumn(first.error)) return rowsOf<{ creator_id: string; domain: string }>(byPurpose, "custom domains")
+    return rowsOf<{ creator_id: string; domain: string }>(
+      () =>
+        admin
+          .from("custom_domains")
+          .select("creator_id, domain, created_at")
+          .in("creator_id", batch)
+          .eq("status", "active")
+          .order("created_at", { ascending: true }),
+      "custom domains",
+    )
+  })
+  for (const d of found.flat()) if (!out.has(d.creator_id)) out.set(d.creator_id, d.domain)
+  return out
+}
+
+/**
+ * creator id → the name their website was given in Website Settings ›
+ * Domains, where one was. The site is canonical at that name
+ * (lib/website-builder/site-seo-data.ts siteOrigin), so that is the address
+ * listed. Soft: until RUN_WEBSITE_ADDRESSES.sql has run there is no table,
+ * and every website is at its creator's username, as it always was.
+ */
+async function websiteNames(admin: Admin, creatorIds: string[]): Promise<Map<string, string>> {
+  const out = new Map<string, string>()
+  try {
+    const found = await eachBatch(creatorIds, async (batch) => {
+      const { data, error } = await admin.from("website_addresses").select("creator_id, handle").in("creator_id", batch)
+      return error ? [] : ((data ?? []) as { creator_id: string; handle: string | null }[])
+    })
+    for (const w of found.flat()) if (w.handle) out.set(w.creator_id, w.handle)
+  } catch {
+    /* No table yet: usernames it is. */
   }
   return out
 }
@@ -393,16 +491,26 @@ export async function websitesSitemap(chunk: number): Promise<SitemapEntry[]> {
   )
   const open = installs.filter((i) => websiteIndexable(settingsOf(i)))
   const creatorIds = [...new Set(open.map((i) => i.creator_id))]
-  const { data: creators, error } = creatorIds.length
-    ? await admin.from("creators").select("id, user_id").in("id", creatorIds)
-    : { data: [], error: null }
-  if (error) console.error("[sitemap] website creators query failed:", error.message)
-  const userOf = new Map(((creators ?? []) as { id: string; user_id: string }[]).map((c) => [c.id, c.user_id]))
-  const [names, domains] = await Promise.all([usernames(admin, [...userOf.values()]), activeDomains(admin, creatorIds)])
+  /*
+    IN BATCHES. This was one `.in("id", …)` naming every creator in the chunk,
+    up to ten thousand ids in a single URL, which a gateway refuses; and even
+    answered it would have been cut to the first thousand rows. A refusal was
+    logged and the file listed no websites at all.
+  */
+  const creators = await eachBatch(creatorIds, (batch) =>
+    rowsOf<{ id: string; user_id: string }>(() => admin.from("creators").select("id, user_id").in("id", batch), "website creators"),
+  )
+  const userOf = new Map(creators.flat().map((c) => [c.id, c.user_id]))
+  const [names, domains, chosen] = await Promise.all([
+    usernames(admin, [...userOf.values()]),
+    activeDomains(admin, creatorIds),
+    websiteNames(admin, creatorIds),
+  ])
   const main = getMainDomain()
   const entries: SitemapEntry[] = []
   for (const i of open) {
-    const handle = names.get(userOf.get(i.creator_id) ?? "")
+    /* The name the site was given, else its creator's username: the host it is canonical at. */
+    const handle = chosen.get(i.creator_id) ?? names.get(userOf.get(i.creator_id) ?? "")
     if (!handle || domains.has(i.creator_id)) continue
     entries.push({ url: `${siteOrigin({ handle, mainDomain: main })}/`, lastModified: newestOf(i.published_at, i.updated_at) })
   }

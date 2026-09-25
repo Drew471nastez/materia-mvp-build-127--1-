@@ -105,7 +105,7 @@ check(
 const sitemapSrc = code("lib/seo/sitemaps.ts")
 check(
   "a sitemap query that fails says so",
-  /console\.error\("\[sitemap\]/.test(sitemapSrc) && !/\} catch \{\}\s*$/.test(sitemapSrc.slice(sitemapSrc.indexOf("product block"))),
+  /console\.error\(["`]\[sitemap\]/.test(sitemapSrc) && /throw new SitemapReadFailed\(/.test(sitemapSrc) && !/\} catch \{\}\s*$/.test(sitemapSrc.slice(sitemapSrc.indexOf("product block"))),
   "silence is why nobody noticed",
 )
 check(

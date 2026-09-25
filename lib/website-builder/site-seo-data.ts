@@ -51,27 +51,50 @@ interface ListedProduct {
   updated_at: string | null
 }
 
-/** Every published product of one creator, for the sitemap. Not the shop's 24. */
+/** At most this many products in one site's sitemap. */
+const MAX_LISTED_PRODUCTS = 5000
+/** Rows per request: PostgREST answers at most `max_rows`, 1,000 on Supabase. */
+const PRODUCT_PAGE = 1000
+
+/**
+ * Every published product of one creator, for the sitemap. Not the shop's 24.
+ *
+ * A THOUSAND AT A TIME. This asked for `.limit(5000)` in one request, and a
+ * request is answered with at most `max_rows` rows, so a shop with more than a
+ * thousand products had the rest left out of its sitemap in silence. A read
+ * that fails is thrown out of the cache rather than kept in it, so a blip is
+ * not remembered as "no products" for ten minutes; the site's files still
+ * answer, with its pages, because robots.txt must never fail.
+ */
 async function listedProducts(creatorId: string): Promise<ListedProduct[]> {
-  return unstable_cache(
-    async () => {
-      try {
-        const { data } = await createAdminClient()
-          .from("products")
-          .select("slug, title, thumbnail_url, gallery_urls, updated_at")
-          .eq("creator_id", creatorId)
-          .eq("status", "published")
-          .not("slug", "is", null)
-          .order("updated_at", { ascending: false })
-          .limit(5000)
-        return ((data ?? []) as ListedProduct[]).filter((p) => typeof p.slug === "string" && p.slug !== "")
-      } catch {
-        return []
-      }
-    },
-    ["site-seo-products", creatorId],
-    { tags: [creatorShopTag(creatorId)], revalidate: 600 },
-  )()
+  try {
+    return await unstable_cache(
+      async () => {
+        const admin = createAdminClient()
+        const rows: ListedProduct[] = []
+        for (let from = 0; from < MAX_LISTED_PRODUCTS; from += PRODUCT_PAGE) {
+          const { data, error } = await admin
+            .from("products")
+            .select("slug, title, thumbnail_url, gallery_urls, updated_at")
+            .eq("creator_id", creatorId)
+            .eq("status", "published")
+            .not("slug", "is", null)
+            .order("updated_at", { ascending: false })
+            .order("id", { ascending: true })
+            .range(from, from + PRODUCT_PAGE - 1)
+          if (error) throw new Error(error.message)
+          rows.push(...((data ?? []) as ListedProduct[]))
+          if (!data || data.length < PRODUCT_PAGE) break
+        }
+        return rows.filter((p) => typeof p.slug === "string" && p.slug !== "")
+      },
+      ["site-seo-products", creatorId],
+      { tags: [creatorShopTag(creatorId)], revalidate: 600 },
+    )()
+  } catch (e) {
+    console.error("[site-seo] products query failed:", (e as Error).message)
+    return []
+  }
 }
 
 export type SiteSeo =
