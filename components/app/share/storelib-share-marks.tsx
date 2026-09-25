@@ -81,9 +81,9 @@ export function StorelibVioletS({ size = 16, className }: { size?: number; class
           <feOffset in="soft" dy="6" result="drop" />
           <feFlood floodColor="#4c1d95" floodOpacity="0.32" />
           <feComposite in2="drop" operator="in" result="shadow" />
-          <feOffset in="SourceAlpha" dy="7" result="down" />
+          <feOffset in="SourceAlpha" dy="6" result="down" />
           <feComposite in="SourceAlpha" in2="down" operator="out" result="rim" />
-          <feFlood floodColor="#ffffff" floodOpacity="0.5" />
+          <feFlood floodColor="#ffffff" floodOpacity="0.36" />
           <feComposite in2="rim" operator="in" result="light" />
           <feMerge>
             <feMergeNode in="shadow" />
