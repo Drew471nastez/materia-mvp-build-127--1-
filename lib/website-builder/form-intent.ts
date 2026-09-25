@@ -9,6 +9,13 @@
  *
  *   data-storelib-form="subscribe"      the creator's Subscribers. Say so
  *                                       explicitly and this always wins.
+ *   data-storelib-form="contact"        a message to the creator: kept for
+ *                                       them, emailed to them with Reply
+ *                                       going to the sender, and the sender
+ *                                       recorded as a contact who wrote.
+ *                                       Only a ticked name="consent" box
+ *                                       makes them a subscriber. Never the
+ *                                       default: a form has to say it is one.
  *   data-storelib-form="native"         leave it to the browser, action and
  *                                       all, e.g. a search box or a form
  *                                       posting to another mailing service.
@@ -28,7 +35,7 @@
  * form's attributes so it can be tested without a browser.
  */
 
-export type FormIntent = "subscribe" | "native" | "inert"
+export type FormIntent = "subscribe" | "contact" | "native" | "inert"
 
 /** The parts of a form element this reads. An HTMLFormElement satisfies it. */
 export interface FormLike {
@@ -45,6 +52,7 @@ function hasRealAction(form: FormLike): boolean {
 export function formIntent(form: FormLike): FormIntent {
   const declared = (form.getAttribute("data-storelib-form") ?? "").trim().toLowerCase()
   if (declared === "subscribe") return "subscribe"
+  if (declared === "contact") return "contact"
   if (declared === "native") return "native"
 
   if (hasRealAction(form)) return "native"

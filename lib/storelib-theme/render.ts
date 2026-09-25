@@ -18,6 +18,7 @@ import { sectionTypography } from "./typography"
 import { cssForInstance } from "./storelib/css"
 import { renderTemplate, stripDocumentMarkup, type CompiledTemplate } from "./storelib/template"
 import type { CompiledSection, RenderContext, SectionInstanceData } from "./types"
+import { SITE_ROUTES, shopObject, type StorefrontGlobals } from "./globals"
 
 export interface RenderInput {
   compiled: CompiledSection
@@ -35,6 +36,11 @@ export interface RenderInput {
    * did not supply any, and a section that asks for them draws none.
    */
   products?: RenderContext["products"]
+  /**
+   * What the page knows about the store and, on a page drawn for one visitor,
+   * about them. Absent means `shop` from the theme alone, and no customer.
+   */
+  globals?: StorefrontGlobals
 }
 
 export interface Rendered {
@@ -68,6 +74,10 @@ export function renderSection(input: RenderInput): Rendered {
     products: input.products ?? [],
     section: { id, type: compiled.type },
     assets,
+    shop: shopObject(input.theme, input.globals?.shop) as unknown as Record<string, unknown>,
+    routes: SITE_ROUTES,
+    customer: input.globals?.customer ?? null,
+    wishlist: (input.globals?.wishlist ?? null) as Record<string, unknown> | null,
   }
   /* No tag here acts on the whole document, whatever the file or a richtext
      setting held: storelib/template.ts, DOCUMENT_MARKUP. */
