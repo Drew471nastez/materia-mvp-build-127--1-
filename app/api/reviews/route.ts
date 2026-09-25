@@ -1,4 +1,4 @@
-import { type NextRequest, NextResponse } from "next/server"
+import { type NextRequest, NextResponse, after } from "next/server"
 import { revalidateTag } from "next/cache"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -216,6 +216,9 @@ export async function POST(request: NextRequest) {
         console.error("[reviews] Failed to create notification:", notifError)
       } else {
         console.log("[reviews] ✅ Notification created for seller")
+        /* The creator's first review is a milestone: that row becomes it, and pushes (lib/notifications/events.ts). */
+        const reviewCreatorId = product.creator_id as string
+        after(async () => (await import("@/lib/notifications/events")).noteReview(reviewCreatorId))
       }
 
       // Send email notification (async, don't wait)
