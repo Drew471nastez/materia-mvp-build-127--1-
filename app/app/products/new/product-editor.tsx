@@ -64,7 +64,9 @@ import {
 } from "./editor-form"
 import { LeaveButton, SAVED_CHECK_MS, SaveButton, barIconButton, secondaryDepth, type SavePhase } from "./editor-buttons"
 import { StatusBadge, iconButton } from "../../orders/order-parts"
-import { returnToProducts, useListOrigin, warmProducts } from "../list-return"
+import { PRODUCTS_HREF, returnToProducts, useListOrigin, warmProducts } from "../list-return"
+import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
+import { ActivitySpinner } from "@/components/ui/activity-spinner"
 import { holdLayerLanding } from "@/components/app/page-layer"
 import { useConfirm } from "./confirm-sheet"
 import { FaqList } from "./faq-list"
@@ -197,14 +199,21 @@ function MobileSheet({
   onClose,
   children,
   maxHeight,
+  kept = false,
 }: {
   isOpen: boolean
   onClose: () => void
   children: React.ReactNode
   maxHeight?: string
+  /**
+   * Built while the editor is idle and kept after it closes (BottomSheet
+   * keepMounted), so the tap that opens it only slides it up: nothing to
+   * render, style or lay out on that frame. On a phone only, where it is seen.
+   */
+  kept?: boolean
 }) {
   return (
-    <BottomSheet isOpen={isOpen} onClose={onClose} maxHeight={maxHeight ?? "85dvh"} aboveKeyboard>
+    <BottomSheet isOpen={isOpen} onClose={onClose} maxHeight={maxHeight ?? "85dvh"} aboveKeyboard keepMounted={kept}>
       {children}
     </BottomSheet>
   )
@@ -1421,7 +1430,29 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
     list opened this editor, in place of it otherwise (../list-return).
   */
   const leaveMode = productId && !hasUnsavedChanges ? "back" : "cancel"
+  /*
+    THE PRESS IS ANSWERED ON ITS OWN FRAME. The list comes back from the
+    server (the page reads the account and every product), which on a slow
+    line took seconds with nothing on the screen saying the press had
+    landed. Now the button turns into a spinner at once, the app's loading
+    bar is told, and a second press does nothing. On a phone the move waits
+    one painted frame first, so the spinner is what the view transition
+    holds while the list is on its way, not the button as it was.
+  */
+  const [leaving, setLeaving] = useState(false)
+  useEffect(() => {
+    if (!leaving) return
+    /* Still here after all: shown again from the browser's back cache, or a navigation that never happened. The editor comes back to life. */
+    const reset = () => setLeaving(false)
+    const t = window.setTimeout(reset, 10_000)
+    window.addEventListener("pageshow", reset)
+    return () => {
+      window.clearTimeout(t)
+      window.removeEventListener("pageshow", reset)
+    }
+  }, [leaving])
   const handleCancel = async () => {
+    if (leaving) return
     if (hasUnsavedChanges) {
       const leave = await ask(
         productId
@@ -1431,6 +1462,9 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
       if (!leave) return
       setHasUnsavedChanges(false)
     }
+    setLeaving(true)
+    startNavigationLoading(PRODUCTS_HREF)
+    await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
     returnToProducts(router, productId)
   }
 
@@ -1835,7 +1869,7 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
       >
         <h1 className="sr-only">{productId ? "Edit product" : "New product"}</h1>
         <div className="mx-auto flex h-14 max-w-[760px] items-center justify-between gap-2 px-4 sm:h-16 sm:px-6">
-          <LeaveButton mode={leaveMode} disabled={saveBusy} onLeave={() => void handleCancel()} />
+          <LeaveButton mode={leaveMode} disabled={saveBusy} leaving={leaving} onLeave={() => void handleCancel()} />
           <div className="flex items-center gap-2">
             {moreMenu}
             <SaveButton phase={savePhase} disabled={!canSave} saved={savedThisVisit} onSave={() => void handleSaveChanges()} />
@@ -1862,12 +1896,13 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
           <button
             type="button"
             aria-label="Back to products"
+            aria-busy={leaving || undefined}
             title="Products"
             disabled={saveBusy}
             onClick={() => void handleCancel()}
-            className={cn(iconButton, "-ml-1.5 h-9 w-9 shrink-0 hover:bg-[#eceef1] active:bg-[#e4e6ea]")}
+            className={cn(iconButton, "-ml-1.5 h-9 w-9 shrink-0 hover:bg-[#eceef1] active:bg-[#e4e6ea]", leaving && "bg-[#eceef1]")}
           >
-            <ArrowLeft className="h-5 w-5" />
+            {leaving ? <ActivitySpinner size={18} label="Going back to products" className="text-[#4b5563]" /> : <ArrowLeft className="h-5 w-5" />}
           </button>
           <h1 className="min-w-0 truncate text-[24px] font-bold leading-9 text-[#1a1a2e] sm:text-[28px]">
             {productId ? savedTitle.trim() || "Untitled" : "New product"}
@@ -3098,14 +3133,14 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
             <span className={cn("truncate", saveState === "Unsaved changes" ? "font-medium text-[#1a1a2e]" : "text-[#6b7280]")}>{saveState}</span>
           </p>
           <div className="flex shrink-0 items-center gap-2">
-            <LeaveButton mode={leaveMode} disabled={saveBusy} onLeave={() => void handleCancel()} />
+            <LeaveButton mode={leaveMode} disabled={saveBusy} leaving={leaving} onLeave={() => void handleCancel()} />
             <SaveButton phase={savePhase} disabled={!canSave} saved={savedThisVisit} onSave={() => void handleSaveChanges()} />
           </div>
         </div>
       </div>
 
       {/* CTA Bottom Sheet */}
-      <MobileSheet isOpen={showCtaSheet} onClose={() => setShowCtaSheet(false)}>
+      <MobileSheet isOpen={showCtaSheet} onClose={() => setShowCtaSheet(false)} kept={isMobileViewport}>
         <div className="px-5 pb-6 space-y-1" style={{ paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }}>
           <h3 className="text-base font-semibold text-gray-900 mb-3">Call to Action</h3>
           {["I want this!", "Buy Now", "Get Access", "Download Now", "Purchase", "Add to Cart", "Join Now", "Get it Now", "Start Now"].map((cta) => (
@@ -3127,7 +3162,7 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
       </MobileSheet>
 
       {/* Refund Policy Bottom Sheet */}
-      <MobileSheet isOpen={showRefundPolicySheet} onClose={() => setShowRefundPolicySheet(false)} maxHeight="85vh">
+      <MobileSheet isOpen={showRefundPolicySheet} onClose={() => setShowRefundPolicySheet(false)} maxHeight="85vh" kept={isMobileViewport}>
         <div className="px-5 pb-6 space-y-1" style={{ paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }}>
           <h3 className="text-base font-semibold text-gray-900 mb-3">Refund Policy</h3>
           {[

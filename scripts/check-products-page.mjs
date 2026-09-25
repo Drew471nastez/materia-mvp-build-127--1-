@@ -608,6 +608,12 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
       await wait(650)
       const pushed = await p.evaluate(() => window.__pushed || [])
       expect(pushed.length === 1 && pushed[0] === "/app/products/p1", "a click anywhere on a row opens the product", pushed)
+      /* The press is answered at once: the row holds its tint with a spinner where its Preview was. */
+      const answered = await p.evaluate(() => !!document.querySelector("section[aria-label=Products] tbody tr:nth-child(2)[data-opening] [data-row-opening] [role=status]"))
+      expect(answered, "the pressed row answers at once, with a spinner where its Preview was", answered)
+      /* A real open takes the list away; this harness stays. Shown again (the back cache's pageshow), the list comes back to life. */
+      await p.evaluate(() => window.dispatchEvent(new Event("pageshow")))
+      await wait(50)
       await p.mouse.move(5, 5)
       await wait(100)
 
