@@ -499,14 +499,21 @@ export function skillsForRequest(request: string, opts: { limit?: number } = {})
 export function skillContext(request: string, opts: { limit?: number; images?: boolean } = {}): string {
   const chosen = selectSkills(request, { ...opts, fallback: false })
   if (chosen.length === 0) return ""
-  const topics = [...new Set(chosen.flatMap((s) => s.topics))].slice(0, 5)
+  /**
+   * The format reference only for the tasks where the builder's assistant
+   * writes or restyles against it. Adding a built-in section, writing copy or
+   * choosing a product is settings and blocks, and a page of template facts
+   * beside it is paid for on every turn of the run and used on none.
+   */
+  const topics = [...new Set(chosen.filter((s) => BUILDER_REFERENCE.has(s.id)).flatMap((s) => s.topics))].slice(0, 4)
   const lines = chosen.map((s) => `${s.title}: ${[...(s.builder ?? []), ...s.pitfalls].join(" ")}`)
-  const docs = docsFor(chosen)
   return [
     `TASK NOTES:\n${lines.join("\n")}`,
     topics.length ? `STORELIB REFERENCE, for what you are about to do:\n\n${topicsById(topics)}` : "",
-    docs ? `FROM THE DOCS:\n\n${docs}` : "",
   ]
     .filter(Boolean)
     .join("\n\n")
 }
+
+/** The skills whose framework topics the builder's assistant works against: code, colour, type, layout. */
+const BUILDER_REFERENCE = new Set(["edit-section", "schema-design", "interaction", "debug", "performance", "accessibility", "layout", "restyle", "typography"])

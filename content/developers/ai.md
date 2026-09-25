@@ -168,6 +168,7 @@ For the task itself, `storelib_skills` with the task in the agent's own words re
 | `storelib_search_components` | The sections this site can use, built in and the creator's own, ranked for what you are looking for. |
 | `storelib_create_section` | Saves a new section file and, with `page`, places it there. Refused with what to fix unless it compiles and passes the quality checks. |
 | `storelib_edit_section` | Saves a change to a section file the creator has, with `base_updated_at`. The previous version is kept. |
+| `storelib_patch_section` | The same, as find-and-replace `edits` instead of the whole file. Each `find` is in the file exactly once. Checked and saved exactly as `storelib_edit_section`, for a fraction of the tokens. |
 | `storelib_update_styles` | Settings on a section, a block or the theme: colour scheme, button colours and hover, spacing, alignment, type. Checked against what the section declares. |
 | `storelib_create_page` | A new page with the site's header and footer and the sections listed. |
 | `storelib_create_safe_patch` | Several page operations as one change. All are checked first; if one is refused, nothing is written. A restore point is taken before it is applied. |
@@ -175,11 +176,13 @@ For the task itself, `storelib_skills` with the task in the agent's own words re
 | `storelib_run_preview` | A link to the page as the drafts make it, the builder link, and the page checks. |
 | `storelib_guide`, `storelib_site`, `storelib_list_files`, `storelib_read_file`, `storelib_compile`, `storelib_write_section` | The framework, the site brief, and the section files, as before. |
 
-The loop that works: read the project and the selected section, get the skills for the task, change settings where a setting does it and write a file only where it does not, run the tests, and preview. When changing a file that exists, pass the `updated_at` you read as `base_updated_at`, and a save made elsewhere in the meantime is refused rather than overwritten.
+The loop that works: read the project and the selected section, get the skills for the task, change settings where a setting does it and write a file only where it does not, patch the lines that change rather than resending a file, run the tests, and preview. When changing a file that exists, pass the `updated_at` you read as `base_updated_at`, and a save made elsewhere in the meantime is refused rather than overwritten.
+
+When a fact that changes the result is missing and no tool has it (which product to feature, which page, brand colours the site does not have, a business fact), ask the person you are working with one short question with a few options, and wait. Never ask what `storelib_site` or the page can tell you. `storelib_site` lists the published products with every field of the [product data](/developers/selling#products-reach-a-section-as-products), including each one's `checkout_url` and options.
 
 ### What a connection can and cannot do
 
-- It reaches **one site**. Not the creator's other sites, orders, buyers, subscribers or account. It sees the site's published products only as a visitor does: title, price, picture and address. No argument to any tool names a site; the token decides it.
+- It reaches **one site**. Not the creator's other sites, orders, buyers, subscribers or account. It sees the site's published products only as a visitor does: title, prices, pictures, options, address and buy link. No argument to any tool names a site; the token decides it.
 - It writes **section files** as `sections/<type>.storelib`, lower case, digits, `_` and `-`, and **never changes a built-in section**: a different version is written as a new section. Paths with `../`, a leading `/` or another folder are refused.
 - It changes **pages and settings only through the page tools**, which refuse a setting a section does not declare or a value its control cannot take. Before every page or theme change a restore point of the whole site is taken, listed in Website Settings › Backups.
 - **Every change is a draft**. Nothing reaches visitors until the creator publishes. It cannot publish, and it cannot delete a page or a section file.

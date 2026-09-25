@@ -61,26 +61,31 @@ export interface RuleGroup {
  * does not pass the same checks the test step runs, so skipping a step only
  * moves the failure later.
  */
-export const AGENT_WORKFLOW: { step: string; what: string }[] = [
+export const AGENT_WORKFLOW: { step: string; what: string; builder: string }[] = [
   {
     step: "Inspect",
     what: "Context first. Read the site before changing anything: what it is and sells (storelib_site), the page and its sections in order (storelib_read_page), the section in question with its settings and blocks (storelib_read_selected_section), and the skills for the task (storelib_skills). Find what already exists with storelib_search_components. Never guess what is on a page.",
+    builder: "Context first. You are shown the page, its sections, the theme settings and the section the creator has open. read_section before changing a section, read_section_type before adding one, and the store (read_store, or the STORE shown) before writing about the business. Never guess what is on a page.",
   },
   {
     step: "Plan",
     what: "Say in a few lines what will change and where, and which existing setting or section does the job. Prefer a setting change to a new file, and an existing section to a new one. If a fact that changes the result is missing and nothing you can read has it, ask one question now, before building.",
+    builder: "Say in a sentence what will change and where, and which existing setting or section does the job. If a fact that changes the result is missing and nothing you can read has it, ask_creator now, before building.",
   },
   {
     step: "Implement",
     what: "Make the smallest change that does it. Patch the lines that change (storelib_patch_section) rather than resending a file. A section file is compiled with storelib_compile until it is clean before it is saved. Several changes that belong together go in one storelib_create_safe_patch.",
+    builder: "Make the smallest change that does it: settings and blocks first, edit_section_code for part of a file, and changes that belong together in the same turn.",
   },
   {
     step: "Test",
     what: "Run storelib_run_tests on what changed, then storelib_run_preview and look at the page at phone and desktop width.",
+    builder: "When you finish, the review checks what you changed: contrast, empty and repeated text, demo copy and banned words. The compiler checks every file you write.",
   },
   {
     step: "Repair",
     what: "Fix exactly what a test names, at the line it names, and test again. Stop after three rounds on the same failure and say what is still wrong instead of guessing. Finish with one or two plain sentences: what changed, on which page, in which sections.",
+    builder: "Fix exactly what the review or the compiler names. Finish with one plain sentence: what changed, in which sections.",
   },
 ]
 
@@ -108,6 +113,8 @@ export const AGENT_RULE_GROUPS: RuleGroup[] = [
   {
     id: "architecture",
     title: "Architecture",
+    /* The builder's own prompt describes the page it edits, in its tools' terms. */
+    surfaces: ["outside"],
     rules: [
       "A website is pages; a page is an ordered list of section instances; each section instance has a type, settings and blocks. A section type is one file, sections/<type>.storelib, with <template>, <style>, an optional <script> and <schema>. The format is in the developer docs (storelib_guide); read them rather than recalling them.",
       "Theme settings (fonts, type scale, colour schemes, buttons) apply to every section. Sections read them; they never redefine them.",
@@ -226,6 +233,8 @@ export const AGENT_RULE_GROUPS: RuleGroup[] = [
   {
     id: "testing",
     title: "Testing",
+    /* The builder's review and compiler are its tests, and its workflow says so. */
+    surfaces: ["outside"],
     rules: [
       "A section file is not finished until it compiles and passes the quality checks (storelib_run_tests). The write tools run the same checks and refuse a file that fails them.",
       "A page change is not finished until storelib_run_tests on that page passes: known section types, settings the schema declares, text contrast of at least 4.5:1.",
@@ -270,6 +279,17 @@ export function agentRulesText(): string {
 }
 
 /**
+ * The rule groups alone, as markdown at a heading level of the caller's
+ * choosing: the repository's AGENTS.md nests them under its own heading.
+ */
+export function ruleGroupsMarkdown(level = 3): string {
+  const hashes = "#".repeat(level)
+  return ruleGroupsFor("outside")
+    .map((g) => [`${hashes} ${g.title}`, "", ...g.rules.map((r) => `- ${r}`)].join("\n"))
+    .join("\n\n")
+}
+
+/**
  * The short form, for the MCP `initialize` instructions. Clients put this in
  * the model's context on connect and some cut it short, so it holds the
  * workflow and the edges, and points at the full text.
@@ -279,7 +299,7 @@ export function agentRulesBrief(ctx: { siteName: string; agentName: string }): s
     `Connected to the Storelib website "${ctx.siteName}" as "${ctx.agentName}". Every change you make is a draft the creator publishes. Rules version ${RULEBOOK_VERSION}.`,
     [
       "WORKFLOW, every task:",
-      "1. Inspect. Read before changing anything: storelib_site (what it sells), storelib_read_page, storelib_read_selected_section, storelib_skills. Never guess what is on a page.",
+      "1. Inspect. Read before changing anything: storelib_read_project (pages, what is open), storelib_site (what it sells), storelib_read_selected_section, storelib_skills. Never guess what is on a page.",
       "2. Plan. Say what will change and which existing setting or section does it.",
       "3. Implement. The smallest change: storelib_patch_section for part of a file, storelib_compile before saving.",
       "4. Test. storelib_run_tests, then storelib_run_preview at phone and desktop width.",
@@ -326,7 +346,7 @@ function forBuilder(text: string): string {
 export function builderAgentRules(): string {
   return [
     `THE SAME RULES AS EVERY AGENT ON STORELIB (version ${RULEBOOK_VERSION}):`,
-    forBuilder(workflowText()),
+    ["WORKFLOW, every task, in this order:", ...AGENT_WORKFLOW.map((w, i) => `${i + 1}. ${w.step}. ${w.builder}`)].join("\n"),
     "EDGES: this website only; every change is a draft; never publish, delete a page or invent a product, price or review; built-in sections are read-only.",
     ...ruleGroupsFor("builder").map((g) => [`${g.title.toUpperCase()}:`, ...g.rules.map((r) => `- ${forBuilder(r)}`)].join("\n")),
   ].join("\n\n")
