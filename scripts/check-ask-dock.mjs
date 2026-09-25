@@ -262,11 +262,26 @@ async function page(browser, vp, query, hash, extraPrelude = "") {
 const lineText = (p) => p.evaluate(() => { const t = [...document.querySelectorAll('[data-ask-activity] [data-line="in"] [data-ask-line-text]')].pop(); return t ? t.firstChild.textContent : null })
 
 /* ── FADE ─────────────────────────────────────────────────────────────── */
-async function fade(browser, vp) {
-  const label = `fade-${vp.width}`
+async function fade(browser, vp, attached = false) {
+  const label = `fade-${vp.width}${attached ? "-attached" : ""}`
   console.log(`\n${label}`)
   const p = await page(browser, vp, "agent=auto", "#desktop", PHOTOS)
   await sleep(300)
+  if (attached) {
+    /* The owner's screenshot: the folded pill holding a picture, "Add a note, or just send". */
+    const dir = mkdtempSync(join(tmpdir(), "askdock-fade-"))
+    const png = await p.evaluate(async () => { const c = new OffscreenCanvas(900, 600); const x = c.getContext("2d"); x.fillStyle = "#c2410c"; x.fillRect(0, 0, 900, 600); x.fillStyle = "#fff"; x.fillRect(80, 80, 300, 200); const b = new Uint8Array(await (await c.convertToBlob({ type: "image/png" })).arrayBuffer()); let s = ""; for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000)); return btoa(s) })
+    writeFileSync(join(dir, "shot.png"), Buffer.from(png, "base64"))
+    const input = await p.$("[data-ask-pill] input[type=file]")
+    await input.uploadFile(join(dir, "shot.png"))
+    await sleep(900)
+    await p.keyboard.press("Escape")
+    await p.mouse.click(400, 300)
+    await sleep(500)
+    rmSync(dir, { recursive: true, force: true })
+    const state = await p.evaluate(() => ({ dock: document.querySelector("[data-ask-dock]").getAttribute("data-state"), thumbs: document.querySelectorAll("[data-ask-pill] [data-ask-thumb]").length, placeholder: document.querySelector("[data-ask-pill] textarea").placeholder }))
+    expect(state.dock === "pill" && state.thumbs === 1 && state.placeholder === "Add a note, or just send", "the folded pill holds the picture, as in the screenshot that was sent", state)
+  }
   /* Scroll so a photograph and a line of text sit behind the pill. */
   await p.evaluate(() => { document.getElementById("wb-preview-root").scrollTop = 470 })
   await sleep(300)
@@ -855,7 +870,10 @@ export default React.forwardRef(function Link({ href, children, prefetch, ...res
   try {
     const only = process.env.ONLY ? process.env.ONLY.split(",") : null
     const want = (name) => !only || only.includes(name)
-    if (want("fade")) for (const vp of [{ width: 1920, height: 1080 }, { width: 1440, height: 900 }, { width: 1280, height: 800 }]) await fade(browser, vp)
+    if (want("fade")) {
+      for (const vp of [{ width: 1920, height: 1080 }, { width: 1440, height: 900 }, { width: 1280, height: 800 }]) await fade(browser, vp)
+      await fade(browser, { width: 1440, height: 900 }, true)
+    }
     if (want("labels")) for (const w of [360, 390, 430]) await labels(browser, w)
     if (want("states")) await states(browser)
     if (want("history")) { await history(browser, { width: 1440, height: 900 }, "#desktop"); await history(browser, { width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }, "#phone") }
