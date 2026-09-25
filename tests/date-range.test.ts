@@ -300,15 +300,16 @@ function main() {
       ["components/app/settings-form-new.tsx", 1],
       ["components/app/billing/billing-page-client.tsx", 0],
     ]
-    /* The dashboard's quick access and the new product's sheet are the
-       shared one too now, not drawn by hand. */
-    const shared = ["app/app/payouts/payouts-client.tsx", "components/app/settings-form-new.tsx", "components/app/billing/billing-page-client.tsx", "components/app/notifications-modal.tsx", "components/app/mobile-account-menu.tsx", "components/app/dashboard-client.tsx"]
+    /* The dashboard's share sheet and the new product's sheet are the
+       shared one too, not drawn by hand. */
+    const shared = ["app/app/payouts/payouts-client.tsx", "components/app/settings-form-new.tsx", "components/app/billing/billing-page-client.tsx", "components/app/notifications-modal.tsx", "components/app/mobile-account-menu.tsx", "components/app/share/share-storelib.tsx"]
     check("and the sheets pages draw for themselves say when they are open",
       sheets.every(([f, n]) => (read(f).match(/data-app-sheet="open"/g) ?? []).length === n)
         && /data-app-sheet=\{isOpen \? "open" : "closing"\}/.test(read("components/ui/bottom-sheet.tsx"))
         && /role="dialog"\s*aria-modal="true"/.test(read("components/ui/bottom-sheet.tsx"))
         && shared.every((f) => /<BottomSheet\b/.test(read(f)) && !/translateY\(100%\)|translate3d\(0, ?100%, ?0\)/.test(read(f)))
-        && /<BottomSheet\s+isOpen=\{isOpen\}\s+onClose=\{onClose\}\s+label="Quick access"/.test(read("components/app/dashboard-client.tsx"))
+        && /<ShareStorelibSheet\b/.test(read("components/app/dashboard-client.tsx"))
+        && /<BottomSheet\s+isOpen=\{open\}\s+onClose=\{close\}[\s\S]{0,80}hideFrom="md"/.test(read("components/app/share/share-storelib.tsx"))
         && !/data-dashboard-sheet/.test(read("components/app/dashboard-client.tsx")))
   }
   check("a sheet takes focus when it opens and hands it back when it closes, without scrolling",

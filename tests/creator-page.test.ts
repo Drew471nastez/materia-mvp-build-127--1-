@@ -517,8 +517,10 @@ function main() {
     const settings = read("components/app/settings-form-new.tsx")
 
     for (const [name, code] of [["the dashboard", dash], ["settings", settings]] as const) {
-      check(`${name} builds the website address from the helper`, code.includes("getWebsiteUrl("))
-      check(`${name} lists Website in quick access`, />Website<\/(div|p)>/.test(code))
+      /* The dashboard's share sheet copies, encodes and shares the address, so it
+         uses the share helper, which is absolute in the app as in a browser. */
+      check(`${name} builds the website address from the helper`, code.includes("getWebsiteUrl(") || code.includes("getWebsiteShareUrl("))
+      check(`${name} lists Website in quick access`, />Website<\/(div|p)>/.test(code) || /label: "Website"/.test(code))
       /**
        * PUBLISHED, NOT INSTALLED. Every account is seeded with theme installs
        * the first time it opens the website builder, so listing on existence
