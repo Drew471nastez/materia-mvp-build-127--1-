@@ -913,6 +913,10 @@ function UnifiedAboutSection({
                               src={item.url}
                               alt={item.caption || ""}
                               fill
+                              /* No `sizes` meant 100vw: a phone at 3x fetched a
+                                 picture wider than a desktop for a slide in a
+                                 column. The column is at most ~600px. */
+                              sizes="(max-width: 768px) 100vw, 600px"
                               className={cn(
                                 "object-cover transition-opacity duration-300",
                                 /* Same inversion as the skeleton above. */
@@ -1631,6 +1635,8 @@ function UnifiedImageTextSection({
                 src={settings.imageUrl || "/placeholder.svg"}
                 alt=""
                 fill
+                /* Half the 1180px column from md up; the whole width below. */
+                sizes="(max-width: 768px) 100vw, 590px"
                 className="object-cover"
                 style={
                   settings.imageFocalPoint
@@ -4605,6 +4611,8 @@ export function UnifiedProductsGrid({
                     src={product.thumbnail_url || "/placeholder.svg"}
                     alt={product.title}
                     fill
+                    /* A card in a grid of up to three, not the window's width. */
+                    sizes={isMobile ? "100vw" : columns === 3 ? "(max-width: 640px) 100vw, (max-width: 768px) 50vw, 400px" : "(max-width: 640px) 100vw, 600px"}
                     className="object-cover transition-all duration-500 [@media(hover:hover)]:group-hover:scale-105 opacity-0"
                     /*
                       A PICTURE THAT IS ALREADY DECODED DOES NOT FADE IN.

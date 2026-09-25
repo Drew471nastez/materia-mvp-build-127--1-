@@ -2,6 +2,7 @@ import type React from "react"
 
 import { loadShopThemePreset } from "@/lib/commerce/creator-page-data"
 import { getThemeSkeletonColors } from "@/lib/theme-skeleton-colors"
+import { storefrontPageBackground } from "@/lib/store-builder/page-surface"
 import type { ThemePreset } from "@/lib/store-builder/types"
 
 interface ShopLayoutProps {
@@ -46,7 +47,10 @@ export default async function ShopLayout({ children, params }: ShopLayoutProps) 
     <div
       style={{
         // CSS custom properties the loading skeleton reads.
-        "--skeleton-bg": colors.backgroundColor,
+        /* The page's own rule for its colour: a preset's white means nobody
+           chose, and the page is then its light grey, so loading and loaded
+           are the same colour rather than white turning grey. */
+        "--skeleton-bg": storefrontPageBackground(colors.backgroundColor),
         "--skeleton-color": colors.skeletonColor || "#e5e7eb",
         "--skeleton-text": colors.textColor,
         "--skeleton-border": themePreset === "astrid" ? "#2a2a2a" : "#e5e7eb",
