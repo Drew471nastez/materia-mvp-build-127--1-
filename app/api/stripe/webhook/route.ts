@@ -137,15 +137,24 @@ export async function POST(request: Request) {
               })
             }
 
+            /**
+             * ON THE KEY THE TABLE HAS. A Stripe payment method id is unique
+             * across all of Stripe and the table's only unique key is on that
+             * column alone, so the pair (creator_id, stripe_payment_method_id)
+             * matched no unique index and Postgres refused the whole upsert.
+             * The catch below swallowed it, so no saved card was ever recorded.
+             * `type` is NOT NULL with no value here, which failed next.
+             */
             await supabaseAdmin.from("payment_methods").upsert({
               creator_id: setupCreatorId,
               stripe_payment_method_id: paymentMethodId,
+              type: pm.type || "card",
               card_brand: pm.card?.brand || "unknown",
               card_last4: pm.card?.last4 || "0000",
               card_exp_month: pm.card?.exp_month || 0,
               card_exp_year: pm.card?.exp_year || 0,
               is_default: true,
-            }, { onConflict: "creator_id, stripe_payment_method_id" })
+            }, { onConflict: "stripe_payment_method_id" })
 
             console.log("[Webhook] Payment method saved for creator:", setupCreatorId)
           }
@@ -178,15 +187,17 @@ export async function POST(request: Request) {
             const pmId = typeof defaultPmId === "string" ? defaultPmId : defaultPmId.id
             const pm = await stripe.paymentMethods.retrieve(pmId)
 
+            /* Same key, same reason: see the setup mode upsert above. */
             await supabaseAdmin.from("payment_methods").upsert({
               creator_id: creatorId,
               stripe_payment_method_id: pmId,
+              type: pm.type || "card",
               card_brand: pm.card?.brand || "unknown",
               card_last4: pm.card?.last4 || "0000",
               card_exp_month: pm.card?.exp_month || 0,
               card_exp_year: pm.card?.exp_year || 0,
               is_default: true,
-            }, { onConflict: "creator_id, stripe_payment_method_id" })
+            }, { onConflict: "stripe_payment_method_id" })
 
             console.log("[Webhook] Subscription payment method saved")
           }

@@ -16,4 +16,17 @@ ALTER TABLE public.orders DROP CONSTRAINT IF EXISTS orders_source_check;
 ALTER TABLE public.orders
   ADD CONSTRAINT orders_source_check CHECK (source IS NULL OR source IN ('storelib', 'website'));
 
+-- Orders from before the column, as in RUN_ORDER_SOURCE.sql: several orders
+-- under one Stripe session are a basket, and a basket is only ever filled on
+-- a website. Everything else from before is left empty rather than guessed.
+UPDATE public.orders o
+   SET source = 'website'
+ WHERE o.source IS NULL
+   AND o.stripe_session_id IS NOT NULL
+   AND EXISTS (
+     SELECT 1 FROM public.orders other
+      WHERE other.stripe_session_id = o.stripe_session_id
+        AND other.id <> o.id
+   );
+
 NOTIFY pgrst, 'reload schema';

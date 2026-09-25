@@ -43,7 +43,7 @@ export const EXPECTED_SCHEMA: Record<string, { columns: string[]; later?: boolea
   site_web_vitals: { columns: ["lcp_ms", "day"] },
   analytics_events: { columns: ["id", "created_at", "visitor_id", "source_category", "country_code", "country_name", "event_type"] },
   analytics_daily_rollups: { columns: ["id", "updated_at"] },
-  email_events: { columns: ["id", "created_at", "event_type", "recipient_email", "email", "metadata"] },
+  email_events: { columns: ["id", "created_at", "event_type", "email", "metadata"] },
   email_campaigns: { columns: ["id", "subject", "status", "audience_count", "scheduled_at", "created_at", "sent_at"] },
   scheduled_flow_emails: { columns: ["id", "status", "scheduled_for", "created_at", "sent_at"] },
   email_logs: { columns: ["id", "status", "created_at"] },
