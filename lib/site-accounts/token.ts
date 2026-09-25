@@ -1,69 +1,78 @@
 import "server-only"
 
-import { createHmac, randomBytes, timingSafeEqual } from "node:crypto"
+import { createHmac, randomInt, timingSafeEqual } from "node:crypto"
 
 /**
  * ===========================================================================
- *  TWO SIGNED NOTES, AND NEITHER OF THEM IS A SESSION TO STORELIB
+ *  THE SIGNED NOTES A CREATOR'S WEBSITE KEEPS ABOUT ITS CUSTOMERS
  * ===========================================================================
- * A visitor to a creator's website signs in on storelib.com, because that is
- * where their account and its session live, and the session cookie there is
- * host-only on purpose. The website still needs to know who came back, so
- * the platform hands it two things, one after the other:
+ * A visitor signs in to a creator's website the way Shopify's customer
+ * accounts work: they type their email on the website, get a six digit code
+ * by email, type it back, and are signed in. A new email makes the account
+ * there and then. Nothing here is a Storelib login: the account is a row in
+ * `site_customers` for this one creator (lib/site-accounts/customers.ts), and
+ * no Supabase user, profile or creator row is ever made or read for it.
  *
- *   A CODE      made by storelib.com the moment the visitor says "continue",
- *               carried in the redirect to the website, good for two minutes
- *               and exchanged once (the exchange records its id in Postgres,
- *               lib/site-accounts/codes.ts). It names the person, the
- *               creator, the exact host it may be exchanged on, the state the
- *               website set in this browser before it sent them, and the
- *               path to land on.
+ * Two signed notes carry the state between the steps, both in httpOnly
+ * cookies on the website's own host (lib/site-accounts/session.ts):
  *
- *   A SESSION   what the website's own route writes after the exchange: an
- *               httpOnly cookie on the website's host, signed, naming the
- *               person, the creator and the host, for fourteen days. It lets
- *               that website show the person their purchases from that
- *               creator and keep their saved items. It is not a Supabase
- *               session and cannot become one: nothing reads it on
- *               storelib.com, and it carries no Supabase token.
+ *   PENDING    written when a code is sent: which code row this browser is
+ *              waiting on, the email it went to (shown on the code step),
+ *              the creator, the exact host, and where to land afterwards.
+ *              Thirty minutes, so "Send a new code" still knows the email
+ *              after a code runs out. It proves nothing on its own: the code
+ *              does.
+ *
+ *   SESSION    written when the code is right: the customer's id, the
+ *              creator and the host, for fourteen days. It lets that website
+ *              show the customer their orders from that creator and keep
+ *              their saved items, and nothing else.
  *
  *     <version>.<claims, base64url JSON>.<HMAC-SHA256 of both, base64url>
+ *
+ * THE CODE ITSELF is never stored: the row keeps an HMAC of it under the
+ * row's own id, so a read of the table gives nobody a code to type.
  *
  * THE KEY is SITE_ACCOUNT_SECRET when one is set, and otherwise one derived
  * from the service role key, the same fallback lib/website-builder/cover-pass
  * and lib/orders/signed-link use: already server-only, already configured.
  * Derived under a label of its own, so a signature made here means nothing
  * anywhere else that key signs.
+ *
+ * VERSION 2. The first version named a Storelib user; this one names a
+ * customer. A version 1 session is not read at all, so nobody signed in the
+ * old way is taken for a customer with the same id.
  */
 
-export const CODE_TTL_MS = 2 * 60_000
+/** How long a code can be typed. */
+export const CODE_TTL_MS = 10 * 60_000
+/** Wrong codes a code survives. The fifth wrong one ends it (and the table's check says the same). */
+export const CODE_TRIES = 5
+/** How long the code step is shown for, so a new code can be sent to the same email. */
+export const PENDING_TTL_MS = 30 * 60_000
 export const SESSION_TTL_MS = 14 * 24 * 60 * 60_000
-/** How long the website waits for the visitor to come back from signing in. */
-export const STATE_TTL_S = 30 * 60
 
-const VERSION = "v1"
+const VERSION = "v2"
 const MAX_TOKEN = 2048
 
-export interface CodeClaims {
-  t: "c"
-  /** The person, by auth user id. */
-  u: string
+export interface PendingClaims {
+  t: "p"
+  /** The code row this browser is waiting on. */
+  k: string
+  /** The email the code went to, lower case. */
+  m: string
   /** The creator whose website this is. */
   c: string
-  /** The host the code may be exchanged on, e.g. "maralind.storelib.com". */
+  /** The host, e.g. "maralind.storelib.com". */
   h: string
-  /** The state the website set in this browser before sending them. */
-  s: string
-  /** Where on the website to land, a path. */
+  /** Where on the website to land once signed in, a path. */
   r: string
-  /** Expiry, ms since the epoch. */
   e: number
-  /** This code's id, which the exchange records so it is used once. */
-  j: string
 }
 
 export interface SessionClaims {
   t: "s"
+  /** The customer, a site_customers id. */
   u: string
   c: string
   h: string
@@ -74,10 +83,10 @@ export interface SessionClaims {
 
 function signingKey(): Buffer | null {
   const own = process.env.SITE_ACCOUNT_SECRET
-  if (own && own.length >= 32) return createHmac("sha256", own).update("storelib:site-account:v1").digest()
+  if (own && own.length >= 32) return createHmac("sha256", own).update("storelib:site-account:v2").digest()
   const base = process.env.SUPABASE_SERVICE_ROLE_KEY || ""
   if (base.length < 16) return null
-  return createHmac("sha256", base).update("storelib:site-account:v1").digest()
+  return createHmac("sha256", base).update("storelib:site-account:v2").digest()
 }
 
 function mac(key: Buffer, body: string): string {
@@ -88,10 +97,27 @@ const B64URL = /^[A-Za-z0-9_-]+$/
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 /** A host as the browser sends it: letters, digits, dots, hyphens, an optional port. */
 const HOST = /^[a-z0-9.-]{1,253}(:\d{1,5})?$/
-const STATE = /^[A-Za-z0-9_-]{32,64}$/
-const JTI = /^[A-Za-z0-9_-]{16,64}$/
+/** An email as it is kept: lower case, one @, no spaces, at most 254 characters. */
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
 
-function sign(claims: CodeClaims | SessionClaims): string | null {
+export function isUuid(value: unknown): value is string {
+  return typeof value === "string" && UUID.test(value)
+}
+
+/**
+ * An email a visitor typed, as it is kept: trimmed, lower case, and only
+ * when it is shaped like an address. Null otherwise.
+ */
+export function cleanEmail(value: unknown): string | null {
+  if (typeof value !== "string") return null
+  const email = value.trim().toLowerCase()
+  if (email.length < 6 || email.length > 254 || !EMAIL.test(email)) return null
+  // eslint-disable-next-line no-control-regex
+  if (/[\u0000-\u001f\u007f<>"'`\\]/.test(email)) return null
+  return email
+}
+
+function sign(claims: PendingClaims | SessionClaims): string | null {
   const key = signingKey()
   if (!key) return null
   const body = `${VERSION}.${Buffer.from(JSON.stringify(claims), "utf8").toString("base64url")}`
@@ -130,45 +156,64 @@ export function isSitePath(path: unknown): path is string {
   )
 }
 
-export function isState(value: unknown): value is string {
-  return typeof value === "string" && STATE.test(value)
+/* ─── The code ──────────────────────────────────────────────────────────── */
+
+/** Six digits from the system's random source, leading zeros kept. */
+export function newCode(): string {
+  return String(randomInt(0, 1_000_000)).padStart(6, "0")
 }
 
-/** A fresh random value for the state cookie: 32 bytes, base64url. */
-export function newState(): string {
-  return randomBytes(32).toString("base64url")
+/** What a visitor typed, as six digits: spaces and dashes they added are dropped. Null when it is not a code. */
+export function cleanCode(value: unknown): string | null {
+  if (typeof value !== "string" || value.length > 32) return null
+  const digits = value.replace(/[\s-]/g, "")
+  return /^\d{6}$/.test(digits) ? digits : null
 }
 
-export function newCodeId(): string {
-  return randomBytes(18).toString("base64url")
+/** What the table keeps instead of the code: an HMAC under the row's id. Null when no key is configured. */
+export function codeHash(codeId: string, code: string): string | null {
+  const key = signingKey()
+  if (!key) return null
+  return mac(key, `site-code.${codeId}.${code}`)
 }
 
-export function mintCode(
-  input: { userId: string; creatorId: string; host: string; state: string; returnPath: string },
+/** Constant time, for a hash worked out now against the one the row keeps. */
+export function sameHash(a: unknown, b: unknown): boolean {
+  if (typeof a !== "string" || typeof b !== "string" || a.length === 0 || a.length > 200) return false
+  const x = Buffer.from(a)
+  const y = Buffer.from(b)
+  return x.length === y.length && timingSafeEqual(x, y)
+}
+
+/* ─── Pending: the code step ────────────────────────────────────────────── */
+
+export function mintPending(
+  input: { codeId: string; email: string; creatorId: string; host: string; returnPath: string },
   now = Date.now(),
 ): string | null {
-  if (!UUID.test(input.userId) || !UUID.test(input.creatorId)) return null
-  if (!HOST.test(input.host) || !isState(input.state) || !isSitePath(input.returnPath)) return null
-  return sign({ t: "c", u: input.userId, c: input.creatorId, h: input.host, s: input.state, r: input.returnPath, e: now + CODE_TTL_MS, j: newCodeId() })
+  if (!UUID.test(input.codeId) || !UUID.test(input.creatorId) || !HOST.test(input.host)) return null
+  if (cleanEmail(input.email) !== input.email || !isSitePath(input.returnPath)) return null
+  return sign({ t: "p", k: input.codeId, m: input.email, c: input.creatorId, h: input.host, r: input.returnPath, e: now + PENDING_TTL_MS })
 }
 
-export function readCode(token: unknown, now = Date.now()): CodeClaims | null {
+export function readPending(token: unknown, now = Date.now()): PendingClaims | null {
   const c = open(token)
-  if (!c || c.t !== "c") return null
-  if (typeof c.u !== "string" || !UUID.test(c.u)) return null
+  if (!c || c.t !== "p") return null
+  if (typeof c.k !== "string" || !UUID.test(c.k)) return null
   if (typeof c.c !== "string" || !UUID.test(c.c)) return null
   if (typeof c.h !== "string" || !HOST.test(c.h)) return null
-  if (!isState(c.s) || !isSitePath(c.r)) return null
-  if (typeof c.j !== "string" || !JTI.test(c.j)) return null
+  if (typeof c.m !== "string" || cleanEmail(c.m) !== c.m) return null
+  if (!isSitePath(c.r)) return null
   if (typeof c.e !== "number" || !Number.isFinite(c.e) || c.e <= now) return null
-  /* A code is never good for longer than it is made for, whatever it says. */
-  if (c.e > now + CODE_TTL_MS + 5_000) return null
-  return c as unknown as CodeClaims
+  if (c.e > now + PENDING_TTL_MS + 5_000) return null
+  return c as unknown as PendingClaims
 }
 
-export function mintSession(input: { userId: string; creatorId: string; host: string }, now = Date.now()): string | null {
-  if (!UUID.test(input.userId) || !UUID.test(input.creatorId) || !HOST.test(input.host)) return null
-  return sign({ t: "s", u: input.userId, c: input.creatorId, h: input.host, i: now, e: now + SESSION_TTL_MS })
+/* ─── The session ───────────────────────────────────────────────────────── */
+
+export function mintSession(input: { customerId: string; creatorId: string; host: string }, now = Date.now()): string | null {
+  if (!UUID.test(input.customerId) || !UUID.test(input.creatorId) || !HOST.test(input.host)) return null
+  return sign({ t: "s", u: input.customerId, c: input.creatorId, h: input.host, i: now, e: now + SESSION_TTL_MS })
 }
 
 export function readSession(token: unknown, now = Date.now()): SessionClaims | null {
@@ -181,39 +226,4 @@ export function readSession(token: unknown, now = Date.now()): SessionClaims | n
   if (c.e <= now || c.i > now + 60_000) return null
   if (c.e - c.i > SESSION_TTL_MS + 1_000) return null
   return c as unknown as SessionClaims
-}
-
-/**
- * The consent form's proof that it was drawn by this server for this person,
- * this website and this state, in the last ten minutes. The POST that grants
- * a code checks it beside the request's Origin, so a page elsewhere cannot
- * make somebody's browser grant one by submitting a form of its own.
- */
-export const FORM_TTL_MS = 10 * 60_000
-
-export function formProof(input: { userId: string; returnUrl: string; state: string }, now = Date.now()): string | null {
-  const key = signingKey()
-  if (!key) return null
-  const at = now.toString(36)
-  return `${at}.${mac(key, `form.${input.userId}.${input.returnUrl}.${input.state}.${at}`)}`
-}
-
-export function checkFormProof(proof: unknown, input: { userId: string; returnUrl: string; state: string }, now = Date.now()): boolean {
-  const key = signingKey()
-  if (!key || typeof proof !== "string" || proof.length > 200) return false
-  const [at, sig] = proof.split(".")
-  if (!at || !sig || !/^[a-z0-9]{1,12}$/.test(at) || !B64URL.test(sig)) return false
-  const issued = Number.parseInt(at, 36)
-  if (!Number.isFinite(issued) || issued > now + 60_000 || now - issued > FORM_TTL_MS) return false
-  const given = Buffer.from(sig, "base64url")
-  const expected = Buffer.from(mac(key, `form.${input.userId}.${input.returnUrl}.${input.state}.${at}`), "base64url")
-  return given.length === expected.length && timingSafeEqual(given, expected)
-}
-
-/** Constant time, for the state the browser sent against the one in the code. */
-export function sameState(a: unknown, b: unknown): boolean {
-  if (!isState(a) || !isState(b)) return false
-  const x = Buffer.from(a)
-  const y = Buffer.from(b)
-  return x.length === y.length && timingSafeEqual(x, y)
 }

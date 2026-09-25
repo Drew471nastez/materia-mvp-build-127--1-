@@ -6,11 +6,11 @@
  * ===========================================================================
  * Under the Pro plan banner.
  *
- * GETTING STARTED is the eight steps of lib/home/progress, each read off the
+ * GETTING STARTED is the seven steps of lib/home/progress, each read off the
  * account on the server and asked for again when Home is landed on
  * (use-home-progress), never ticked by hand. What is left comes first and
  * what is done drops to the bottom, crossed out, so the step at the top is
- * always the next one, and it alone carries the arrow. When all eight are
+ * always the next one, and it alone carries the arrow. When all seven are
  * done the same card turns into the CHALLENGES, the next things that grow a
  * store, counted the same way and drawn the same way, with how far each has
  * got. At its foot, the three ways a buyer pays, on tiles that lift.
@@ -31,8 +31,8 @@
  * pricing cards read. On Free the button is Upgrade to Pro.
  *
  * HOVER, AND ITS STAND IN ON A PHONE. The lift (a deeper shadow on a layer
- * of its own, the tiles tipping, the guide's light drifting, the plan's dots
- * moving) is CSS in app/globals.css (HOME CARDS), on opacity, translate,
+ * of its own, the tiles tipping, the guide's light drifting) is CSS in
+ * app/globals.css (HOME CARDS), on opacity, translate,
  * rotate and scale only, and behind (hover: hover) and (pointer: fine), so a
  * tap never leaves it stuck. A phone cannot hover, so there it plays by
  * itself (useHoverAutoplay): the same motion, the same rules, on a card that
@@ -78,7 +78,7 @@ export function bumpGettingStarted() {
 /*
   No overflow-hidden on the card itself: the deeper shadow of the lift is a
   layer of its own (::before in globals.css) that has to show outside the
-  card. What must be clipped (the tiles, the plan's sky, the guide's
+  card. What must be clipped (the tiles, the plan's band, the guide's
   thumbnail) is clipped where it is drawn.
 */
 const CARD = "home-card relative flex flex-col rounded-[20px] border border-[#e6e7eb] bg-white"
@@ -483,10 +483,14 @@ export function PlanCard({ planId }: { planId: string }) {
 
   return (
     <section ref={ref} aria-labelledby="your-plan-title" className={`${CARD} min-h-[392px]`}>
-      {/* A deep violet band with a fine halftone of dots, fading in toward the right, away from the words. */}
-      <div className="home-plan-sky flex h-[46px] shrink-0 items-center rounded-t-[19px] px-5">
-        <span aria-hidden="true" className="home-plan-dots" />
-        <h2 id="your-plan-title" className="relative text-[13.5px] font-semibold text-white">
+      {/*
+        A FLAT, LIGHT VIOLET BAND WITH A HAIRLINE UNDER IT. It was a deep
+        violet gradient carrying a halftone of dots that drifted on hover.
+        "No dots, no pattern, no gradient; something cleaner, simple, a
+        subtle colour." The same 46px, the plan's name in deep violet on it.
+      */}
+      <div className="home-plan-head flex h-[46px] shrink-0 items-center rounded-t-[19px] px-5">
+        <h2 id="your-plan-title" className="text-[13.5px] font-semibold text-[#4c1d95]">
           Your Plan
         </h2>
       </div>

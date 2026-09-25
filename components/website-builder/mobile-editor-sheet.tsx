@@ -326,6 +326,16 @@ function chainScrollTop(chain: HTMLElement[]): number {
 const SNAP_DURATION_MS = 360
 /** A sheet that moves for somebody who asked for less motion moves briefly. */
 const REDUCED_MOTION_MS = 180
+
+/**
+ * How long a sheet takes to open or close when a tab, a button or the page
+ * moves it: the one number, for a caller that has to wait for a sheet to be
+ * gone before it moves another (the editor raising the sections sheet once
+ * Add a section has closed).
+ */
+export function sheetMoveMs(): number {
+  return prefersReducedMotion() ? REDUCED_MOTION_MS : SNAP_DURATION_MS
+}
 /**
  * iOS animates its keyboard in about a quarter of a second, and Android is
  * close enough. The sheet resizes over the same time so the two move
@@ -437,6 +447,13 @@ type Props = {
    * bottom and nothing is empty under it.
    */
   fit?: boolean
+  /**
+   * A new value sends an open sheet back to the stop it opens to, wherever
+   * a drag left it. The editor changes it when a section has just been
+   * added on a phone: the canvas has scrolled the section into the room
+   * above that stop, and a sheet left at its tallest would cover it.
+   */
+  restKey?: number
 }
 
 export function MobileEditorSheet({
@@ -449,6 +466,7 @@ export function MobileEditorSheet({
   openFull = false,
   layer = "base",
   fit = false,
+  restKey,
 }: Props) {
   const sheetRef = React.useRef<HTMLDivElement>(null)
   /** The grab bar. A touch that starts here is a drag and needs no arbitration. */
@@ -546,6 +564,13 @@ export function MobileEditorSheet({
       setRestIndex(null)
     }
   }, [open])
+  /* Asked to go back to the stop it opens to (see `restKey`): where it was left no longer counts. */
+  const restKeySeen = React.useRef(restKey)
+  React.useEffect(() => {
+    if (restKey === restKeySeen.current) return
+    restKeySeen.current = restKey
+    setRestIndex(null)
+  }, [restKey])
 
   /**
    * A TAP WHEN IT ARRIVES.
@@ -935,6 +960,22 @@ export function MobileEditorSheet({
       root.style.removeProperty("--wb-sheet-peek")
     }
   }, [peek])
+  /**
+   * AND HOW MUCH OF THE SCREEN IT TAKES WHEN IT IS UP, at the stop it opens
+   * to. Published the same way and for the same reason: the editor scrolls a
+   * section it has just added into the room above this stop before it
+   * raises the sheet there (lib/website-builder/section-arrival.ts), and a
+   * second computation of the stop would be a second answer.
+   */
+  const openCover = Math.max(0, Math.round(detentHeight - (offsets[Math.max(0, offsets.length - 2)] ?? 0)))
+  React.useEffect(() => {
+    if (peek <= 0 || openCover <= 0) return
+    const root = document.documentElement
+    root.style.setProperty("--wb-sheet-open", `${openCover}px`)
+    return () => {
+      root.style.removeProperty("--wb-sheet-open")
+    }
+  }, [peek, openCover])
 
   const closedY = offsets[offsets.length - 1]
   /** Something in the sheet needs all of it: a picker, or a field being typed into. */

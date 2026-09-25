@@ -9,6 +9,8 @@
  * it is given, the hearts only where a product can be saved, and the pages
  * those sections sit on exist on every website.
  */
+import { readFileSync } from "node:fs"
+import { join } from "node:path"
 import { compileSection } from "@/lib/storelib-theme/storelib/compile"
 import { DEFAULT_THEME_SOURCES } from "@/themes/default/sources.generated"
 import { renderStorelibSection } from "@/lib/website-builder/storelib-runtime"
@@ -73,33 +75,62 @@ function main() {
     check("the creator's own name when the store has none", shopObject({}, { name: "Creator Name" }).name === "Creator Name")
     check("social links are the theme's, and only ones a visitor can open", shop.socials.length === 1 && shop.socials[0].label === "Instagram")
     check("the email is there only when the page was given it", shop.email === "Help@Maralind.com" && shopObject({}, {}).email === "")
-    check("sign in leaves from the website's own host and comes back to the account", SITE_ROUTES.account_signin_url === "/api/site-account/start?return=%2Faccount")
+    check("sign in is the website's own page, and so is making an account: a new email makes it there",
+      SITE_ROUTES.account_signin_url === "/account/login" && SITE_ROUTES.account_register_url === "/account/login" && SITE_ROUTES.account_login_url === "/account/login")
+    check("and the forms post to the website's own host", SITE_ROUTES.account_code_url === "/api/site-account/code" && SITE_ROUTES.account_verify_url === "/api/site-account/verify" && SITE_ROUTES.account_profile_url === "/api/site-account/profile")
+    check("nothing leaves for storelib.com to sign in", !Object.values(SITE_ROUTES).some((r) => /storelib\.com|site-account\/start/.test(r)))
   }
 
-  section("Sign in")
+  section("Sign in: an email, then the code sent to it")
   {
-    const html = draw("main_login", {}, { template: "page.login", page: { notice: "That sign in took too long. Sign in again." } })
-    check("a heading and the two ways in", /<h1 class="s__h">Sign in<\/h1>/.test(html) && html.includes(`href="${SITE_ROUTES.account_signin_url}"`) && html.includes(`href="${SITE_ROUTES.account_register_url.replace(/&/g, "&amp;")}"`), html)
-    check("no password field: the website never sees one", !/type="password"/.test(html))
-    check("the reason the last sign in stopped, as a fixed sentence", /role="alert">That sign in took too long\. Sign in again\.<\/p>/.test(html))
-    check("says the account is a Storelib account, in words the creator can change", /Accounts here are Storelib accounts\./.test(html) && !/login__note/.test(draw("main_login", { note: "" }, { template: "page.login" })))
-    check("reasons are fixed words for fixed codes, and nothing else is printed", signInNotice("expired") !== null && signInNotice("<script>") === null)
-    check("Create account can be turned off", !/Create account/.test(draw("main_login", { show_register: false }, { template: "page.login" })))
+    const html = draw("main_login", {}, { template: "page.login", page: { notice: "That code has expired. Send a new one.", step: "email", return_to: "/wishlist" } })
+    check("a heading and one line", /<h1 class="s__h">Sign in<\/h1>/.test(html) && html.includes("Enter your email and we will send you a code."), html)
+    check("one email field, posted by the browser to this website's code route", /<form class="login__form" method="post" action="\/api\/site-account\/code" data-storelib-form="native">/.test(html) && /name="email" type="email" inputmode="email" autocomplete="email" maxlength="254" required/.test(html))
+    check("carrying where to land afterwards", /<input type="hidden" name="return" value="\/wishlist">/.test(html))
+    check("no password field, and no separate sign up", !/type="password"/.test(html) && !/Create account/i.test(html))
+    check("says a new email makes the account, in words the creator can change", /New here\? Signing in makes your account\./.test(html) && !/login__note/.test(draw("main_login", { note: "" }, { template: "page.login" })))
+    check("the reason the last step stopped, as a fixed sentence", /role="alert">That code has expired\. Send a new one\.<\/p>/.test(html))
+    check("reasons are fixed words for fixed codes, and nothing else is printed", signInNotice("expired") !== null && signInNotice("code") !== null && signInNotice("<script>") === null)
+    const editor = draw("main_login", {}, { template: "page.login", page: { in_editor: true } })
+    check("in the builder the page is the email step, as a visitor first sees it", /action="\/api\/site-account\/code"/.test(editor) && !/one-time-code/.test(editor))
+
+    const step = draw("main_login", {}, { template: "page.login", page: { step: "code", email: "ana@mail.test", return_to: "/account" } })
+    check("the code step says where the code went", /<h1 class="s__h">Enter your code<\/h1>/.test(step) && /We sent a code to <span class="login__email">ana@mail\.test<\/span>/.test(step), step)
+    check("one field for the code, which a phone can fill from the email", /action="\/api\/site-account\/verify" data-storelib-form="native"/.test(step) && /name="code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="7" required autofocus/.test(step))
+    check("a new code to the same email, from the page itself", /<form method="post" action="\/api\/site-account\/code" data-storelib-form="native"> <input type="hidden" name="email" value="ana@mail\.test"> <input type="hidden" name="return" value="\/account"> <input type="hidden" name="again" value="1"> <button class="login__link" type="submit">Send a new code<\/button>/.test(step))
+    check("and a way back to the email step", /href="\/account\/login\?step=email">Use a different email<\/a>/.test(step))
+    check("an address that tries to be markup is only text", !/<script>/.test(draw("main_login", {}, { template: "page.login", page: { step: "code", email: "<script>x</script>@a.test" } })))
   }
 
-  section("Account, with somebody signed in")
+  section("Account, with a customer signed in")
   {
-    const customer = { name: "Alex Morgan", first_name: "Alex", email: "alex@example.com", orders_count: 1, orders: [{ id: P1, title: "Linen apron", image: "", url: "/products/linen-apron", date: "Sep 21, 2026", price: "$64.00", action_label: "Download", action_url: `https://storelib.com/library/products/${P1}` }] }
+    const order = {
+      id: P1, number: "3F2A9C1B", date: "Sep 21, 2026", status: "Complete", state: "open", total: "$93.00", item_count: 2,
+      items: [{ title: "Linen apron", image: "", url: "/products/linen-apron", variant: "" }, { title: "Card wallet", image: "", url: "", variant: "Blue" }],
+      action_label: "Download", action_url: "https://storelib.com/receipt/tok-1",
+      title: "Linen apron and 1 more", image: "", url: "/products/linen-apron", price: "$93.00",
+    }
+    const customer = { name: "Ana Pop", first_name: "Ana", email: "ana@mail.test", orders_count: 1, orders: [order], sample: false }
     const html = draw("main_account", {}, { template: "page.account", globals: { customer, wishlist: wishlistObject([card(P2, "Card wallet")], true) } })
-    check("it greets them by first name", /<h1 class="s__h">Hi, Alex<\/h1>/.test(html), html)
-    check("their email", html.includes("alex@example.com"))
-    check("their order, with the way to the download", html.includes("Linen apron") && html.includes(`href="https://storelib.com/library/products/${P1}"`) && html.includes(">Download<"))
-    check("their saved items, and the way to all of them", html.includes("Card wallet") && html.includes(`href="${SITE_ROUTES.wishlist_url}"`))
+    check("a page title and the way out, and no greeting by name", /<h1 class="s__h">Account<\/h1>/.test(html) && !/Hi,|Hello|Welcome/.test(html), html)
     check("sign out is a POST to this website's own route, left to the browser", /<form class="acct__out" method="post" action="\/account\/logout" data-storelib-form="native">/.test(html))
-    const empty = draw("main_account", {}, { template: "page.account", globals: { customer: { ...customer, orders: [], orders_count: 0 }, wishlist: wishlistObject([], true) } })
-    check("no orders says so and offers the shop", empty.includes("Nothing here yet.") && empty.includes(`href="${SITE_ROUTES.products_url}"`))
+    check("Orders: each with its date, number, status and total", /<h2 class="acct__h2">Orders<\/h2>/.test(html) && html.includes(">Sep 21, 2026<") && html.includes("Order #3F2A9C1B") && /data-state="open">Complete</.test(html) && /Total<\/span> \$93\.00/.test(html))
+    check("its items, a variant under its title, the whole row a link where the product is still for sale",
+      /<a class="item__row" href="\/products\/linen-apron"> <span class="item__img"><\/span> <span class="item__main"><span class="item__title">Linen apron<\/span><\/span> <\/a>/.test(html) &&
+        /<div class="item__row"> <span class="item__img"><\/span> <span class="item__main"><span class="item__title">Card wallet<\/span><span class="item__meta">Blue<\/span><\/span> <\/div>/.test(html), html)
+    check("and the button to its download", html.includes('<a class="order__go" href="https://storelib.com/receipt/tok-1">Download</a>'))
+    check("Profile: the name, with Edit, and the email", /<h2 class="acct__h2">Profile<\/h2>/.test(html) && html.includes(">Ana Pop<") && html.includes('href="/account?edit=name#profile">Edit<') && html.includes(">ana@mail.test<"))
+    check("the wishlist, as an entry with its count and a way to it", /<a class="entry" href="\/wishlist"> <span class="entry__text">1 saved<\/span> <span class="entry__go">View<\/span> <\/a>/.test(html))
+    const editing = draw("main_account", {}, { template: "page.account", page: { edit: "name", notice: "Saved." }, globals: { customer, wishlist: wishlistObject([], true) } })
+    check("Edit opens the name in place, posted to the profile route, with Cancel", /<form class="row row--edit" method="post" action="\/api\/site-account\/profile" data-storelib-form="native">/.test(editing) && /name="name" type="text" value="Ana Pop" maxlength="120" autocomplete="name" autofocus/.test(editing) && editing.includes('href="/account#profile">Cancel<'))
+    check("and says when it was saved", /role="status">Saved\.<\/p>/.test(editing))
+    const empty = draw("main_account", {}, { template: "page.account", globals: { customer: { ...customer, name: "", orders: [], orders_count: 0 }, wishlist: wishlistObject([], true) } })
+    check("no orders says so in plain words, and offers the shop", empty.includes("No orders yet.") && empty.includes(`href="${SITE_ROUTES.products_url}"`))
+    check("no name says so", /<span class="is-muted">Not added<\/span>/.test(empty))
+    check("nothing saved says so", empty.includes('<span class="entry__text">Nothing saved yet.</span>'))
+    check("the wishlist entry can be turned off", !/class="entry"/.test(draw("main_account", { show_wishlist: false }, { template: "page.account", globals: { customer, wishlist: wishlistObject([], true) } })))
     const nobody = draw("main_account", {}, { template: "page.account" })
-    check("without a customer it draws the signed out line and a way to sign in, and no data", nobody.includes("Sign in to see your orders") && !nobody.includes("alex@example.com") && nobody.includes(`href="${SITE_ROUTES.account_signin_url}"`))
+    check("without a customer it draws the signed out line and a way to sign in, and no data", nobody.includes("Sign in to see your orders") && !nobody.includes("ana@mail.test") && nobody.includes(`href="${SITE_ROUTES.account_login_url}"`))
   }
 
   section("Wishlist")
@@ -107,7 +138,7 @@ function main() {
     const full = draw("main_wishlist", {}, { template: "page.wishlist", globals: { wishlist: wishlistObject([card(P1, "Linen apron"), card(P2, "Card wallet")], false) } })
     check("each saved product is a card the page can hide, with a pressed heart", (full.match(/data-storelib-wishlist-card="/g) ?? []).length === 2 && (full.match(/data-storelib-wishlist="/g) ?? []).length === 2 && /aria-pressed="true"/.test(full))
     check("the empty line is drawn hidden, ready for when the last one goes", /<div class="empty" data-storelib-wishlist-empty hidden>/.test(full))
-    check("a guest is told the list is in this browser, with a way to keep it", full.includes("Saved items stay in this browser.") && full.includes(`href="${SITE_ROUTES.account_login_url}"`))
+    check("a guest is told the list is in this browser, with a way to keep it that comes back here", full.includes("Saved items stay in this browser.") && full.includes(`href="${SITE_ROUTES.account_login_url}?return=%2Fwishlist"`))
     const mine = draw("main_wishlist", {}, { template: "page.wishlist", globals: { wishlist: wishlistObject([card(P1, "Linen apron")], true) } })
     check("a signed in visitor is not told to sign in", !mine.includes("Saved items stay in this browser."))
     const none = draw("main_wishlist", {}, { template: "page.wishlist", globals: { wishlist: wishlistObject([], false) } })
@@ -176,19 +207,28 @@ function main() {
     check("the canvas opens the account page", (to("/account") as { key?: string }).key === "account")
     check("the sign in page", (to("/account/login") as { key?: string }).key === "login")
     check("and the wishlist", (to("/wishlist") as { key?: string }).key === "wishlist")
-    check("signing in, out and the API are not pages to make", to("/api/site-account/start?return=%2Faccount").kind === "ignore" && to("/account/logout").kind === "ignore")
+    check("signing in, out and the API are not pages to make", to("/api/site-account/code").kind === "ignore" && to("/api/site-account/verify").kind === "ignore" && to("/account/logout").kind === "ignore")
+    check("the sign in page's own links open it", (to("/account/login?step=email") as { key?: string }).key === "login" && (to("/account/login?return=%2Fwishlist") as { key?: string }).key === "login" && (to("/account?edit=name#profile") as { key?: string }).key === "account")
 
     const withContact = withLiveLinks({ ...header, blocks: [{ id: "nav-contact", type: "nav_link", settings: { label: "Contact", url: "/contact" } }] }, new Set(["home"]))
     check("a stock Contact link stays: every website answers /contact now", (withContact.blocks ?? []).length === 1)
   }
 
-  section("In the builder, the account pages have somebody on them")
+  section("In the builder, the account page is drawn signed in, with nobody invented")
   {
     const products = [card(P1, "Linen apron"), card(P2, "Card wallet")]
-    const acct = editorGlobals("page.account", products)
-    check("the account page gets a made up customer with the creator's own products", !!acct?.customer && (acct.customer as { orders: unknown[] }).orders.length === 2)
+    const acct = editorGlobals("page.account", products, Date.parse("2026-09-25T12:00:00Z"))
+    const sample = acct?.customer as { name: string; email: string; sample: boolean; orders: { items: { title: string }[]; action_url: string }[] }
+    check("the account page gets placeholders where the customer would be", sample?.name === "Customer name" && sample.email === "Customer email" && sample.sample === true, sample)
+    check("and the creator's own products as the orders", sample?.orders.length === 2 && sample.orders.map((o) => o.items[0].title).join() === "Linen apron,Card wallet" && sample.orders.every((o) => o.action_url === "#"))
+    check("NO INVENTED PERSON: no Alex, no example.com, no address at all", !/Alex|Morgan|example\.com|@/.test(JSON.stringify(acct)))
+    const html = draw("main_account", {}, { template: "page.account", page: { in_editor: true }, globals: acct })
+    check("drawn, the placeholders look like placeholders", /<p class="row__value is-sample">Customer name<\/p>/.test(html) && /<p class="row__value is-sample">Customer email<\/p>/.test(html), html)
+    check("and the page has no greeting, no Alex and no example.com anywhere", !/Hi,|Alex|example\.com/.test(html))
+    check("the orders are drawn as orders, with the creator's products in them", html.includes(">Linen apron<") && html.includes(">Card wallet<") && /Order #100[12]/.test(html))
+    check("the source holds no made up person either", !/Alex|Morgan|example\.com/.test(readFileSync(join(process.cwd(), "components/website-builder/sections/storelib-live.tsx"), "utf8")))
     check("the wishlist page gets saved items", editorGlobals("page.wishlist", products)?.wishlist?.count === 2)
-    check("no other page gets anybody", editorGlobals("index", products) === undefined && editorGlobals("page.contact", products) === undefined)
+    check("no other page gets anybody", editorGlobals("index", products) === undefined && editorGlobals("page.contact", products) === undefined && editorGlobals("page.login", products) === undefined)
     check("a store with nothing published still draws two cards", editorGlobals("page.wishlist", [])?.wishlist?.count === 2)
   }
 

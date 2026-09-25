@@ -12,9 +12,17 @@
  *
  *   shop       every page: the store's name, and its support email only when
  *              a section on the page asked to show it
- *   customer   /account, the signed-in visitor
+ *   customer   /account, the signed-in customer and their orders
  *   wishlist   /account and /wishlist, what they saved
- *   notice     /account/login, why the last sign in did not finish
+ *
+ * and, as `page.*`, what one visit to a page knows:
+ *
+ *   notice     /account/login and /account: why the last step did not
+ *              finish, or that it did, as a fixed sentence
+ *   edit       /account: "name" while the profile's name is being changed
+ *   step       /account/login: "email" or "code"
+ *   email      /account/login on the code step: where the code went
+ *   return_to  /account/login: the path on this website to land on after
  *
  * The published site and its catalogue come from the same cache every page
  * uses (lib/website-builder/published-site), so nothing here is a second
@@ -59,7 +67,14 @@ async function supportEmail(creatorId: string): Promise<string> {
 export async function renderAccountPage(
   username: string,
   key: AccountPageKey,
-  extras: { customer?: Record<string, unknown> | null; wishlist?: StorefrontGlobals["wishlist"]; notice?: string | null } = {},
+  extras: {
+    customer?: Record<string, unknown> | null
+    wishlist?: StorefrontGlobals["wishlist"]
+    notice?: string | null
+    signIn?: { step: "email" | "code"; email: string; returnTo: string }
+    /** /account: the profile field open for editing. */
+    edit?: "name" | null
+  } = {},
 ) {
   const found = await publishedShopByName(username)
   /* Renamed for good: the same page at the new name, permanently (308), as every other page of a website. */
@@ -80,7 +95,14 @@ export async function renderAccountPage(
     customer: extras.customer ?? null,
     wishlist: extras.wishlist ?? null,
   }
-  const page = extras.notice ? { notice: extras.notice } : undefined
+  const page: Record<string, unknown> = {}
+  if (extras.notice) page.notice = extras.notice
+  if (extras.edit) page.edit = extras.edit
+  if (extras.signIn) {
+    page.step = extras.signIn.step
+    page.email = extras.signIn.email
+    page.return_to = extras.signIn.returnTo
+  }
   const prerendered = renderWithSources(site.sources, sections, site.themeSettings, template, products, page, data, globals)
 
   return (

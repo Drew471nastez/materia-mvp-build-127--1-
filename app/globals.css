@@ -1124,6 +1124,25 @@ html.capacitor body {
     .settings-panel { animation: none; }
   }
 
+  /* ── The rich text editor's own content ─────────────────────────────────
+     A contentEditable inherits nothing, so headings and lists inside it
+     render as plain paragraphs and the formatting somebody just applied is
+     invisible until they look at the page. These are the shapes the field
+     can actually produce and nothing else. */
+  .wb-richtext > * + * { margin-top: 0.65em; }
+  .wb-richtext h2 { font-size: 1.15rem; font-weight: 650; line-height: 1.3; }
+  .wb-richtext h3 { font-size: 1.02rem; font-weight: 650; line-height: 1.35; }
+  .wb-richtext h4 { font-size: 0.95rem; font-weight: 650; line-height: 1.4; }
+  .wb-richtext p { line-height: 1.55; }
+  .wb-richtext ul,
+  .wb-richtext ol { padding-left: 1.25rem; }
+  .wb-richtext ul { list-style: disc; }
+  .wb-richtext ol { list-style: decimal; }
+  .wb-richtext li { line-height: 1.55; }
+  .wb-richtext li + li { margin-top: 0.25em; }
+  .wb-richtext a { color: #8b5cf6; text-decoration: underline; }
+  .wb-richtext strong, .wb-richtext b { font-weight: 650; }
+
   /* Project settings: a whole page over the builder, arriving from a touch
      below and a touch smaller, which is what makes it a page opening rather
      than a modal appearing. */
@@ -4202,73 +4221,55 @@ html.capacitor:has([data-page="auth"]) .rotation-guard-overlay {
   background-color: #ffffff;
 }
 
-/* ── The builder's slider (components/website-builder/editor/slider-number-control) ──
-   Drawn from three elements the drag moves by transform alone: the fill
-   (scaleX from the left), the thumb (on a rail one thumb shorter than the
-   track) and the number. Nothing here is laid out again while a finger is
-   down. `--wb-thumb` is the one size both the rail and the thumb read, so
-   the phone sheet can make the thumb bigger in one place (see the sheet's
-   block further down) and the far end is still the far end. */
-.wb-slider {
-  --wb-thumb: 18px;
-}
-.wb-slider-track {
-  height: 4px;
-}
-/* The fill runs from under the thumb's centre at the left end, so at the
-   start it is hidden by the thumb rather than peeking out behind it. */
-.wb-slider-track::before {
-  content: "";
-  position: absolute;
-  inset-block: 0;
-  left: 0;
-  width: calc(var(--wb-thumb) / 2 + 1px);
-  background: #1a1a2e;
-}
-.wb-slider-fill {
-  left: calc(var(--wb-thumb) / 2);
-  width: calc(100% - var(--wb-thumb));
-  border-radius: 0;
-}
-.wb-slider-rail {
-  right: var(--wb-thumb);
-}
-.wb-slider-thumb {
-  width: var(--wb-thumb);
-  height: var(--wb-thumb);
-  box-shadow: 0 0 0 1px rgba(17, 24, 39, 0.16), 0 1px 3px rgba(17, 24, 39, 0.22);
-  transition: scale 160ms cubic-bezier(0.32, 0.72, 0, 1), box-shadow 160ms ease-out;
-  cursor: grab;
-}
-.wb-slider [data-slot="slider"]:hover .wb-slider-thumb {
-  box-shadow: 0 0 0 1px rgba(17, 24, 39, 0.2), 0 1px 3px rgba(17, 24, 39, 0.22), 0 0 0 5px rgba(26, 26, 46, 0.06);
-}
-.wb-slider[data-dragging] .wb-slider-thumb {
-  scale: 1.12;
-  cursor: grabbing;
-  box-shadow: 0 0 0 1px rgba(17, 24, 39, 0.2), 0 2px 6px rgba(17, 24, 39, 0.24), 0 0 0 6px rgba(26, 26, 46, 0.08);
-}
-.wb-slider-thumb:focus-visible {
-  box-shadow: 0 0 0 1px rgba(17, 24, 39, 0.2), 0 1px 3px rgba(17, 24, 39, 0.22), 0 0 0 4px rgba(26, 26, 46, 0.18);
-}
-@media (prefers-reduced-motion: reduce) {
-  .wb-slider-thumb { transition: none; }
-}
+/* ── Website-builder black slider (SliderNumberControl) ──
+   Overrides the shared shadcn Slider look: filled black range,
+   black thumb with subtle halo on hover/drag, bigger hit area for
+   smooth drag on mobile + desktop.
 
-/* A rich text setting in the sidebar stops growing sooner than a product
-   description does, so the section's other settings stay in reach
-   (components/website-builder/rich-text-field.tsx). */
-.wb-rich-text .rich-text-content {
-  max-height: var(--wb-rich-max, 260px);
-  /* The panel's own slim bar, not a second, wider one inside it. */
-  scrollbar-width: thin;
+   IMPORTANT: hide ticks via `:not([data-slot])` instead of `> div`.
+   The base Slider renders SliderPrimitive.Range as a direct <div> child
+   of Track (with data-slot="slider-range"), so `> div` would also hide
+   the filled range — leaving only a blank track. Targeting only
+   divs WITHOUT a data-slot isolates the tick markers cleanly. */
+.wb-black-slider [data-slot="slider-track"] {
+  background-color: #ececec !important;
+  height: 6px !important;
+  border-radius: 999px !important;
+  overflow: hidden !important;
 }
-/* Seven controls in one row at the sidebar's default width: 29px targets
-   instead of 32, on a computer only (a phone keeps 44 and scrolls the row). */
-@media (min-width: 640px) {
-  .wb-rich-text .rich-text-toolbar button {
-    width: 29px;
-  }
+.wb-black-slider [data-slot="slider-track"] > div:not([data-slot]) {
+  /* Hide the tick dots Slider adds so the filled range reads cleanly */
+  display: none !important;
+}
+.wb-black-slider [data-slot="slider-range"] {
+  background-color: #111111 !important;
+  border-radius: 999px !important;
+  display: block !important;
+}
+.wb-black-slider [data-slot="slider-thumb"] {
+  width: 20px !important;
+  height: 20px !important;
+  background-color: #111111 !important;
+  border: 3px solid #ffffff !important;
+  border-radius: 9999px !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.25), 0 0 0 1px rgba(0,0,0,0.06) !important;
+  transition: transform 180ms cubic-bezier(0.2, 0, 0, 1), box-shadow 180ms ease !important;
+  cursor: grab !important;
+}
+.wb-black-slider [data-slot="slider-thumb"]:hover {
+  transform: scale(1.12) !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.25), 0 0 0 6px rgba(0,0,0,0.06) !important;
+}
+.wb-black-slider [data-slot="slider-thumb"]:active,
+.wb-black-slider [data-slot="slider-thumb"][data-state="active"] {
+  transform: scale(1.18) !important;
+  cursor: grabbing !important;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.3), 0 0 0 8px rgba(0,0,0,0.08) !important;
+  transition-duration: 90ms !important;
+}
+.wb-black-slider [data-slot="slider-thumb"]:focus-visible {
+  outline: none !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.25), 0 0 0 6px rgba(0,0,0,0.06) !important;
 }
 
 /* The section library's dialog on a computer, kept rather than rebuilt: it
@@ -4303,27 +4304,40 @@ html.capacitor:has([data-page="auth"]) .rotation-guard-overlay {
   .wb-library-panel { transition: none; }
 }
 
-/* A section library preview that lands while its card is on screen fades
-   in over the card's grey (components/website-builder/editor/section-library.tsx). */
-.wb-preview-arrive {
-  /* backwards, not both: once in, the preview holds no finished animation (and no layer of its own). */
-  animation: wb-preview-arrive 220ms cubic-bezier(0.32, 0.72, 0, 1) backwards;
-}
-@keyframes wb-preview-arrive {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .wb-preview-arrive { animation: none; }
-}
+/* A section library preview that lands while its card is on screen fades in
+   over the card's grey once, played by hand rather than by a class here: a
+   CSS animation starts again every time a category shows its card after
+   hiding it, and one that fills holds its preview on a layer of its own
+   (components/website-builder/editor/section-library.tsx). A preview drawn
+   ahead into the closed library does not fade at all. */
 
-/* The white piece behind a segmented control's answer slides, by transform
-   (components/website-builder/editor/setting-controls.tsx). */
-.wb-segmented-thumb {
-  transition: transform 220ms cubic-bezier(0.32, 0.72, 0, 1);
+/* The page switcher's menu: it opens and closes by opacity and a short drop,
+   both on the compositor, and is kept for the length of its exit, hidden and
+   then gone (components/website-builder/page-switcher.tsx). It is built as
+   it opens, so its opening starts from the closed look through
+   @starting-style, rather than appearing. */
+.wb-pages-menu {
+  opacity: 1;
+  transform: none;
+  transform-origin: 50% 0;
+  transition: opacity 140ms ease-out, transform 200ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+.wb-pages-menu[data-state="closed"] {
+  opacity: 0;
+  transform: translate3d(0, -4px, 0) scale(0.98);
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 120ms ease-in, transform 120ms ease-in, visibility 0s linear 120ms;
+}
+@starting-style {
+  .wb-pages-menu[data-state="open"] {
+    opacity: 0;
+    transform: translate3d(0, -4px, 0) scale(0.98);
+  }
 }
 @media (prefers-reduced-motion: reduce) {
-  .wb-segmented-thumb { transition: none; }
+  .wb-pages-menu,
+  .wb-pages-menu[data-state="closed"] { transition: none; }
 }
 
 /* ── Website-builder Add-Section modal close animation ──
@@ -4892,22 +4906,6 @@ html.pop-in-flight #platform-header-root {
     width: 28px;
     height: 28px;
   }
-  /* The rail the thumb rides is one thumb shorter than the track, so it has
-     to know the thumb grew: the same 28, through the variable it reads. */
-  [data-mobile-bottom-sheet] .wb-slider {
-    --wb-thumb: 28px;
-  }
-
-  /* The sidebar's own select and segmented control, at a thumb's size. */
-  [data-mobile-bottom-sheet] [data-setting-select] > button,
-  [data-mobile-bottom-sheet] [data-setting-select] [role="option"] {
-    min-height: 44px;
-    font-size: 16px;
-  }
-  [data-mobile-bottom-sheet] .wb-segmented button {
-    min-height: 40px;
-    font-size: 14px;
-  }
 
   /*
    * AND THE EMPTY IMAGE BOX STOPS BEING A THIRD OF THE SCREEN.
@@ -4932,10 +4930,10 @@ html.pop-in-flight #platform-header-root {
     padding: 0 14px;
     justify-content: flex-start;
   }
-  [data-mobile-bottom-sheet] .wb-dropzone > .wb-dropzone-title {
+  [data-mobile-bottom-sheet] .wb-dropzone > p:first-of-type {
     font-size: 15px;
   }
-  [data-mobile-bottom-sheet] .wb-dropzone > .wb-dropzone-hint {
+  [data-mobile-bottom-sheet] .wb-dropzone > p + p {
     display: none;
   }
 }
@@ -5086,10 +5084,6 @@ html.pop-in-flight #platform-header-root {
 }
 .wb-image-fade {
   transition: opacity 260ms cubic-bezier(0.32, 0.72, 0, 1);
-}
-/* The upload's hairline eases between progress events instead of stepping. */
-.wb-upload-bar {
-  transition: transform 220ms linear;
 }
 @media (prefers-reduced-motion: reduce) {
   .wb-image-skeleton::after { animation: none; }
@@ -5986,7 +5980,7 @@ html:has([role="dialog"][aria-modal="true"]:not([data-sheet-root])) [data-cookie
  *
  * ONLY OPACITY AND THE TRANSFORM PROPERTIES MOVE. The deeper shadow and the
  * darker edge of the lift are a layer of their own (::before) that fades in,
- * the guide's light and the plan's dots are layers that slide, and every
+ * the guide's light is a layer that slides, and every
  * movement is on `translate`, `rotate` and `scale`, the individual
  * properties, never `transform`. So a hover paints nothing: the compositor
  * runs all of it.
@@ -6136,46 +6130,16 @@ html:has([role="dialog"][aria-modal="true"]:not([data-sheet-root])) [data-cookie
 }
 
 /*
-  Your Plan: a deep violet band, a little lighter where the light falls on
-  its right, carrying a halftone of dots in two sizes on a grid, which fades
-  in from where the words are to the far edge. Drawn by the browser at the
-  screen's own density, so it is sharp at 2x and 3x, and the band under the
-  words stays dark enough for white (measured by scripts/check-home-flow).
+  Your Plan: a flat, light violet band with a hairline under it, the plan's
+  name in deep violet on it. It was a deep violet gradient carrying a
+  halftone of dots that drifted on hover: "no dots, no pattern, no gradient;
+  something cleaner, simple, a subtle colour." One colour, no image, nothing
+  that moves; the words on it are well past 7:1 (scripts/check-home-flow).
+  The hairline is drawn inside the band, so it stays exactly 46px.
 */
-.home-plan-sky {
-  position: relative;
-  isolation: isolate;
-  overflow: hidden;
-  background:
-    radial-gradient(90% 240% at 100% 0%, rgba(167, 139, 250, 0.42), rgba(167, 139, 250, 0) 60%),
-    linear-gradient(100deg, #1c0942 0%, #2c0f64 45%, #4a1d96 100%);
-}
-/* The layer that drifts; its two grids are one pitch, so the dots grow in place from fine to full across the band: a halftone. */
-.home-plan-dots {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  right: -28px;
-  z-index: 0;
-  transition: translate 1400ms cubic-bezier(0.22, 1, 0.36, 1);
-  pointer-events: none;
-}
-.home-plan-dots::before,
-.home-plan-dots::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-}
-.home-plan-dots::before {
-  background: radial-gradient(circle, rgba(237, 233, 254, 0.46) 0.7px, rgba(237, 233, 254, 0) 1.15px) 0 0 / 7px 7px;
-  -webkit-mask-image: linear-gradient(90deg, transparent 16%, #000 46%, #000 60%, transparent 86%);
-  mask-image: linear-gradient(90deg, transparent 16%, #000 46%, #000 60%, transparent 86%);
-}
-.home-plan-dots::after {
-  background: radial-gradient(circle, rgba(221, 214, 254, 0.42) 1.55px, rgba(221, 214, 254, 0) 2px) 0 0 / 7px 7px;
-  -webkit-mask-image: linear-gradient(90deg, transparent 50%, #000 88%);
-  mask-image: linear-gradient(90deg, transparent 50%, #000 88%);
+.home-plan-head {
+  background: #f7f5ff;
+  box-shadow: inset 0 -1px 0 #ece8fb;
 }
 /* The checks: a light grey circle with a lit top edge and the faintest shade under it. */
 .home-plan-check {
@@ -6199,7 +6163,6 @@ html:has([role="dialog"][aria-modal="true"]:not([data-sheet-root])) [data-cookie
   .home-guide:hover .home-guide-light { translate: -23% -18%; }
   .home-guide:hover .home-guide-play { scale: 1.08; }
   .home-guide:hover .home-guide-play::after { opacity: 1; }
-  .home-card:hover .home-plan-dots { translate: -14px 0; }
 }
 /* ...and the same, played where nothing can hover (useHoverAutoplay). */
 .home-card[data-play]::before { opacity: 1; }
@@ -6210,7 +6173,6 @@ html:has([role="dialog"][aria-modal="true"]:not([data-sheet-root])) [data-cookie
 .home-guide[data-play] .home-guide-light { translate: -23% -18%; }
 .home-guide[data-play] .home-guide-play { scale: 1.08; }
 .home-guide[data-play] .home-guide-play::after { opacity: 1; }
-.home-card[data-play] .home-plan-dots { translate: -14px 0; }
 
 @media (prefers-reduced-motion: reduce) {
   .home-card[data-bump],
@@ -6218,8 +6180,7 @@ html:has([role="dialog"][aria-modal="true"]:not([data-sheet-root])) [data-cookie
   [data-pay-tile],
   .home-card::before,
   .home-guide-thumb,
-  .home-guide-light,
-  .home-plan-dots { transition-duration: 0ms; }
+  .home-guide-light { transition-duration: 0ms; }
 }
 
 /*

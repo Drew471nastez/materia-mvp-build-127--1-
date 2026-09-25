@@ -80,7 +80,7 @@ function main() {
   check("both answers are offered",
     /"value": "header"/.test(schema) && /"value": "page"/.test(schema))
   check("and the panel draws it",
-    /onUpdateSetting\("search_behaviour"/.test(editor) && /\{ label: "In the header", value: "header" \}/.test(editor))
+    /onUpdateSetting\("search_behaviour"/.test(editor) && /Open it in the header/.test(editor))
 
   check("opening in the header is what a header that says nothing does",
     /str\(s\.search_behaviour, "header"\) !== "page"/.test(header))
@@ -181,8 +181,12 @@ function main() {
       const search = resolveEditorHref("/search", ctx)
       return shop.kind === "page" && shop.key === "products" && search.kind === "page" && search.key === "search"
     })())
+  /* One list of the site's pages now feeds the bar's page switcher and the Pages tab alike
+     (sitePages, from PAGE_META), where the shop and its search are grouped under Shop. */
   check("and both are in the page lists",
-    /\{ name: "Shop", key: "products" as PageKey \}/.test(editor) && /\{ name: "Search", key: "search" as PageKey \}/.test(editor))
+    /products: \{ label: "Shop"/.test(read("lib/website-builder/types.ts")) && /search: \{ label: "Search"/.test(read("lib/website-builder/types.ts")) &&
+      /\.\.\.\(Object\.keys\(PAGE_META\) as PageKey\[\]\)\.map\(\(k\) => \(\{ key: k, name: PAGE_META\[k\]\.label, path: pagePath\(k\) \}\)\)/.test(editor) &&
+      /<PageSwitcher\s*\n\s*pages=\{sitePages\}/.test(editor) && /pages=\{sitePages\}/.test(editor.slice(editor.indexOf("const renderPageBrowser"))))
   check("the live shop and search prefer what the creator saved",
     /site\.pages\.products/.test(read("app/(site)/w/[username]/products/page.tsx")) && /site\.pages\.search/.test(read("app/(site)/w/[username]/search/page.tsx")))
   check("the canvas tells the field which site it is, so it can ask",

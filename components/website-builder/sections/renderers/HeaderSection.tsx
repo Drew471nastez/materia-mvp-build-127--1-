@@ -12,7 +12,7 @@
 
 import {
   ChevronDown, ChevronLeft, ChevronRight,
-  Heart, Menu, Minus, Plus, Search, ShoppingBag, Trash2, User, UserPlus, X,
+  Heart, Menu, Minus, Plus, Search, ShoppingBag, Trash2, User, X,
 } from "lucide-react"
 import { useCallback, useState, useEffect, useRef, useLayoutEffect, type CSSProperties } from "react"
 import { createPortal } from "react-dom"
@@ -25,7 +25,6 @@ import { useStorefront } from "../../theme/storefront-context"
 import { lineKey } from "@/lib/website-builder/cart"
 import { headerIconOn } from "@/lib/website-builder/header-icons"
 import { headerGap, headerPad } from "@/lib/website-builder/header-spacing"
-import { SITE_ROUTES } from "@/lib/storelib-theme/globals"
 import { useSiteWishlist } from "../../site-wishlist"
 import type { ColorSchemeKey, ColorSchemeValues } from "@/lib/website-builder/types"
 import {
@@ -155,18 +154,31 @@ function HeaderMobileNavDrawer({
  * ═══════════════════════════════════════════════════════════════════════════
  * They used to be links to storelib.com, because the session that knows who
  * a visitor is lives there and is host-only on purpose. Every website now
- * has an account page of its own (/account, and /account/login to sign in)
- * and a Wishlist (/wishlist): signing in still happens on storelib.com, and
- * the visitor comes back here with this website's own session
- * (app/api/site-account). So these are root-relative links, which the proxy
+ * has customer accounts of its own, the way a Shopify store does: an email
+ * and a code on its own sign in page (/account/login), its account page
+ * (/account) and a Wishlist (/wishlist), with this website's own session
+ * (lib/site-accounts). So these are root-relative links, which the proxy
  * resolves to whichever address the site is being served on, and in the
  * builder they open those pages in the canvas.
+ *
+ * SIGN IN OR ACCOUNT. A visitor who is not signed in is offered Sign in, and
+ * it goes straight to the sign in page; a signed in one is offered Account.
+ * The page's hint cookie says which (../../site-wishlist), read once the
+ * page is in the browser, so the server's drawing is the signed out one and
+ * the first render agrees with it.
  *
  * The heart carries the count of saved products, from the same list the
  * hearts on the products draw (../../site-wishlist), once it has been read.
  */
 const ACCOUNT_PATH = "/account"
+const SIGN_IN_PATH = "/account/login"
 const WISHLIST_PATH = "/wishlist"
+
+/** Where the account control goes, and what it is called, for this visitor. */
+function useAccountLink(): { href: string; label: string } {
+  const { signedIn } = useSiteWishlist()
+  return signedIn ? { href: ACCOUNT_PATH, label: "Account" } : { href: SIGN_IN_PATH, label: "Sign in" }
+}
 
 function SavedCount({ className }: { className?: string }) {
   const { count, ready } = useSiteWishlist()
@@ -943,8 +955,8 @@ function MobileDrawerInner({
   // The back button on the sub-page returns us to the root by clearing it.
   const dismissBackdrop = useBackdropDismiss(open, onClose)
   const [activeSubmenuId, setActiveSubmenuId] = useState<string | null>(null)
-  /* The saved count for the heart, and whether this visitor is signed in here. */
-  const { signedIn } = useSiteWishlist()
+  /* The saved count for the heart, and Sign in or Account for this visitor. */
+  const account = useAccountLink()
   const wishlistLabel = useWishlistLabel()
   // Reset to root whenever the drawer closes so reopening always starts
   // fresh on the main menu.
@@ -1279,16 +1291,16 @@ function MobileDrawerInner({
           >
             {/* LEFT slot */}
             {showAccount ? (
-              /* This website's own account page, which sends a visitor who
-                 is not signed in to its sign in page. */
+              /* Sign in, straight to this website's sign in page, or the
+                 account page once signed in (useAccountLink). */
               <a
-                href={ACCOUNT_PATH}
-                onClick={handleLinkClick(ACCOUNT_PATH)}
-                className="flex items-center gap-2 text-[15px] font-semibold hover:opacity-70 transition-opacity"
+                href={account.href}
+                onClick={handleLinkClick(account.href)}
+                className="flex min-h-[44px] items-center gap-2 text-[15px] font-semibold hover:opacity-70 transition-opacity"
                 style={{ color: scheme.nav_link }}
               >
                 <User className="h-5 w-5" strokeWidth={1.8} />
-                <span>Account</span>
+                <span>{account.label}</span>
               </a>
             ) : (
               // Wishlist-only case: wishlist goes on the LEFT.
@@ -1324,27 +1336,11 @@ function MobileDrawerInner({
         )}
 
         {/*
-          AND A WAY TO MAKE ONE. "Account" is the right word for somebody who
-          already has one and says nothing to somebody who does not, and a
-          shop whose only account control is a log in is a shop that assumes
-          everyone arriving has shopped here before.
-
-          Accounts are Storelib accounts, so it leaves for storelib.com to
-          make one and comes back to this website's account page
-          (routes.account_register_url). Not shown to somebody already
-          signed in here.
+          NO SEPARATE CREATE ACCOUNT. Signing in with an email and a code
+          makes the account when the email is new (lib/site-accounts/
+          sign-in.ts), so "Sign in" above is the way in for somebody who
+          has shopped here before and for somebody who has not.
         */}
-        {showAccount && !signedIn && (
-          <a
-            href={SITE_ROUTES.account_register_url}
-            onClick={handleLinkClick(SITE_ROUTES.account_register_url)}
-            className="border-t border-black/10 px-5 py-4 flex items-center gap-3 shrink-0 text-[15px] font-medium"
-            style={{ background: scheme.bg, color: scheme.nav_link }}
-          >
-            <UserPlus className="h-[20px] w-[20px]" strokeWidth={1.8} />
-            <span>Create account</span>
-          </a>
-        )}
 
         {/*
           AND SEARCH ON A PHONE, which is where somebody is least willing to
@@ -1436,6 +1432,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
   const showAccount = headerIconOn(s.show_account_icon)
   const showWishlist = headerIconOn(s.show_wishlist_icon)
   const wishlistLabel = useWishlistLabel()
+  const account = useAccountLink()
   /*
     ON BY DEFAULT. Every shop is expected to have one, and a header without a
     way to look for something is the first thing a visitor misses. It is a
@@ -2085,22 +2082,17 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
   const renderIcons = (forMobile: boolean = false) => (
     <div className="flex min-w-0 items-center gap-2 shrink-0" style={{ color: textColor }}>
       {/*
-        ACCOUNT AND WISHLIST GO SOMEWHERE NOW. Both were buttons whose only
+        ACCOUNT AND WISHLIST GO SOMEWHERE. Both were buttons whose only
         behaviour was `preventDefault()`: on a published site they were three
-        pixels of hover state and nothing else. What they mean already exists,
-        on the platform rather than on the site — a buyer's purchases and
-        their saved items — and the session that knows who the buyer is is
-        held on storelib.com, so these are absolute links to it. Signed out,
-        the library sends them to sign in, which is the right answer to
-        "Account" too.
+        pixels of hover state and nothing else. They are this website's own
+        pages now: Sign in (or Account, once signed in) and the Wishlist,
+        see ACCOUNT_PATH above.
       */}
       {/*
-        SEARCH GOES TO THE SITE, not to the platform. Account and wishlist are
-        absolute links to storelib.com because the session that knows who the
-        buyer is lives there; a search is about THIS shop's catalogue, so it
-        is a root-relative link the proxy resolves to whichever address the
-        site is being served on — the subdomain, the custom domain or
-        /w/<name> — without any of them being named here.
+        SEARCH GOES TO THE SITE, not to the platform. A search is about THIS
+        shop's catalogue, so it is a root-relative link the proxy resolves to
+        whichever address the site is being served on (the subdomain, the
+        custom domain or /w/<name>) without any of them being named here.
       */}
       {/*
         SEARCH IS ON A PHONE TOO, on the right beside the bag.
@@ -2139,9 +2131,10 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
       )}
       {showAccount && !forMobile && (
         <a
-          href={ACCOUNT_PATH}
-          aria-label="Account"
-          onClick={onEditorNavigate ? (e) => { e.preventDefault(); onEditorNavigate(ACCOUNT_PATH, true) } : undefined}
+          href={account.href}
+          aria-label={account.label}
+          title={account.label}
+          onClick={onEditorNavigate ? (e) => { e.preventDefault(); onEditorNavigate(account.href, true) } : undefined}
           className="h-9 w-9 flex items-center justify-center rounded-full theme-tint-hover transition-colors"
         >
           <User className="h-[18px] w-[18px]" strokeWidth={1.8} />

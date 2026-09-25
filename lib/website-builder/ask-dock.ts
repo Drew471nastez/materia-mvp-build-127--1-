@@ -30,6 +30,21 @@ export const OPEN_MS = 300
 export const CLOSE_MS = 220
 export const SLIDE_MS = 320
 
+/*
+  THE FADE AROUND THE FOLDED PILL: a band this wide on every side where the
+  canvas is blurred, most at the pill and not at all at the band's edge. A
+  blur and never a fill, so the page around the pill is softened and never
+  lightened (scripts/check-ask-ai.mjs measures both). The mask is two ramps,
+  across and down, intersected: a rounded band with no line in it.
+*/
+export const FADE_REACH = 22
+/** How strongly the band blurs at the pill's edge, in px. Subtle: text beside the pill stays readable. */
+export const FADE_BLUR = 5
+export const FADE_MASK = [
+  `linear-gradient(to right, transparent, #000 ${FADE_REACH}px, #000 calc(100% - ${FADE_REACH}px), transparent)`,
+  `linear-gradient(to bottom, transparent, #000 ${FADE_REACH}px, #000 calc(100% - ${FADE_REACH}px), transparent)`,
+].join(", ")
+
 export interface DockGeometry {
   pillW: number
   /** The pill's bottom edge above the canvas's bottom. */

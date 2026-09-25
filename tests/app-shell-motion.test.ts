@@ -183,7 +183,7 @@ section("A slow page: no outline, a spinner")
     NAV_SPINNER_CAP_MS === 8000 && /capped\.current = nav\s*console\.warn\(/.test(stage)
       && /NAV_SPINNER_CAP_MS - \(performance\.now\(\) - nav\.startedAt\)/.test(stage) && /if \(nav && delay != null && capped\.current !== nav\)/.test(stage))
   check("a commit at the address already showing ends the navigation (a redirect back to it)",
-    /useEffect\(\(\) => \{ watchRouterCommits\(\) \}, \[\]\)/.test(stage)
+    /useEffect\(\(\) => \{\s*watchRouterCommits\(\)\s*watchRouterAnswers\(\)\s*\}, \[\]\)/.test(stage)
       && /\(data as \{ __NA\?: unknown \}\)\.__NA/.test(code("lib/ui/app-navigation.ts"))
       && /if \(current === nav && isCommittedAddress\(window\.location\.pathname, window\.location\.search\)\) endAppNavigation\(\)/.test(code("lib/ui/app-navigation.ts")))
   check("the error boundary and the not-found page end it too",
@@ -645,11 +645,8 @@ section("Toasts on a phone")
     }
   }
   check("every toast in the app's own pages is short and plain", said.length >= 40 && long.length === 0, long.join("; ") || `${said.length} read`)
-  /* The field says it under the box now, in its own words; only its own refusals carry their message through. */
   check("an upload that failed says so, not the storage error's own words",
-    /message: "The upload did not finish\. Check your connection and try again\."/.test(code("components/website-builder/editor/image-picker.tsx")) &&
-      /e instanceof Refused\s*\?\s*\{ message: e\.message \}/.test(code("components/website-builder/editor/image-picker.tsx")) &&
-      !/err\.message/.test(code("components/website-builder/editor/image-picker.tsx")))
+    /toast\.error\("Upload failed\. Try again\."\)/.test(code("components/website-builder/editor/image-picker.tsx")) && !/err\.message/.test(code("components/website-builder/editor/image-picker.tsx")))
   const addRoute = code("app/api/website-builder/themes/add/route.ts")
   check("adding a theme never hands the database's error text to the toast", !/seedErr\.message|installErr\?\.message/.test(addRoute) && (addRoute.match(/"Could not add the theme\. Try again\."/g) ?? []).length >= 2 && !/json\(\{ error: [a-zA-Z]+Err/.test(addRoute))
 }

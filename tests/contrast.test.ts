@@ -12,10 +12,27 @@
  * work. That is not a theoretical finding, it is every caption and subtitle
  * on a site using those schemes.
  */
-import { DEFAULT_COLOR_SCHEMES } from "@/lib/storelib-theme/color-schemes"
+import { DEFAULT_COLOR_SCHEMES, themeColorSchemes } from "@/lib/storelib-theme/color-schemes"
 import { READ_PAIRS, contrastRatio, parseColor, sayRatio, schemeContrast } from "@/lib/storelib-theme/contrast"
+import { ColorsPanel, SectionDesignPanel } from "@/components/website-builder/editor/design-panels"
+import { ColorPickerPanel } from "@/components/website-builder/editor/color-chip"
+import type { ThemeSettingsValues } from "@/lib/website-builder/types"
+import { createElement } from "react"
+import { renderToStaticMarkup } from "react-dom/server"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
+
+/*
+  The scheme dropdown in design-panels.tsx styles its entrance with styled-jsx
+  (`<style jsx>`). Next's own types teach TypeScript that attribute; the push
+  runner compiles without them, so it is said here, as styled-jsx says it.
+*/
+declare module "react" {
+  interface StyleHTMLAttributes<T> {
+    jsx?: boolean
+    global?: boolean
+  }
+}
 
 let passed = 0
 let failed = 0
@@ -122,20 +139,53 @@ function main() {
   }
 
   // ═══════════════════════════════════════════════════════════════════════
-  section("And the editor says so where the colours are chosen")
+  section("And the editor shows none of it")
   // ═══════════════════════════════════════════════════════════════════════
+  /**
+   * The ratio rows under a scheme (Text 6.7:1, Headings 21.0:1 ...) and the
+   * "Hard to read" list were more than somebody choosing a colour needs.
+   * The owner asked for both gone, and the colour picker's ratio line with
+   * them. The arithmetic above stays, because it is what keeps every scheme
+   * Storelib ships readable; the person editing sees no number and no warning.
+   *
+   * Rendered, not only read: the Colors panel is drawn with a scheme built
+   * to fail (light grey text on white), which is exactly when the old panel
+   * spoke, and the markup is searched for anything it used to say.
+   */
   {
+    const said = (html: string) => html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ")
+    const RATIO = /\d+(?:\.\d+)?\s*(?::|to)\s*1\b/i
+    const WORDS = /hard to read|not measured|large text only|it needs|contrast/i
+    const failing = { color_schemes: { white: { text: "#dddddd", text_muted: "#eeeeee", link: "#e0e0e0" } } } as unknown as ThemeSettingsValues
+    const drawn = themeColorSchemes(failing as unknown as Record<string, unknown>).white
+    check("the scheme drawn really is one the old panel warned about", schemeContrast(drawn).failing.length >= 2)
+    const colors = renderToStaticMarkup(
+      createElement(ColorsPanel, { theme: failing, updateSetting: () => {}, onRemapSections: () => {}, initialActive: "white" }),
+    )
+    check("the Colors panel draws the scheme it is editing",
+      /Default for new sections/.test(colors) && colors.includes(`value="${drawn.name}"`), said(colors).slice(0, 200))
+    check("with no ratio in it", !RATIO.test(said(colors)), said(colors).match(RATIO)?.[0])
+    check("and no warning", !WORDS.test(said(colors)), said(colors).match(WORDS)?.[0])
+    const section = renderToStaticMarkup(
+      createElement(SectionDesignPanel, {
+        section: { id: "s1", type: "text_rich", name: "Text", settings: { color_scheme: "white" }, blocks: [] },
+        schema: { fields: [{ id: "color_scheme", type: "color_scheme", label: "Color scheme" }] },
+        theme: failing,
+        onUpdateSetting: () => {},
+      } as unknown as Parameters<typeof SectionDesignPanel>[0]),
+    )
+    check("a section's colour scheme says nothing about contrast either",
+      /Color scheme/.test(section) && !RATIO.test(said(section)) && !WORDS.test(said(section)), said(section).slice(0, 200))
+    const picker = renderToStaticMarkup(createElement(ColorPickerPanel, { value: "#dddddd", onChange: () => {}, existing: [] }))
+    check("nor does the colour picker", picker.length > 0 && !RATIO.test(said(picker)) && !WORDS.test(said(picker)), said(picker).slice(0, 200))
+
     const panel = readFileSync(join(process.cwd(), "components/website-builder/editor/design-panels.tsx"), "utf8")
-    check("the Colors panel measures the scheme it is editing", /const contrast = schemeContrast\(current\)/.test(panel))
-    check("and names the pair and the number, not a grade", /\{f\.label\} is \{sayRatio\(f\.ratio\)\}/.test(panel))
-    /**
-     * A note, not a block. Somebody may have a reason, and a scheme the
-     * editor refuses to save is worse than one it has an opinion about.
-     */
-    check("it does not refuse to save", !/disabled=\{contrast/.test(panel) && !/contrast\.failing\.length > 0 \|\|/.test(panel))
-    check("it says nothing when there is nothing to say", /contrast\.failing\.length > 0 && \(/.test(panel))
-    check("and admits when a gradient makes it unmeasurable", /A gradient sits over the background/.test(panel))
-    check("no em dashes in what it says", !/—/.test(panel.slice(panel.indexOf("const contrast = schemeContrast"), panel.indexOf("const contrast = schemeContrast") + 2000).replace(/\/\*[\s\S]*?\*\//g, "")))
+    const chip = readFileSync(join(process.cwd(), "components/website-builder/editor/color-chip.tsx"), "utf8")
+    const editor = readFileSync(join(process.cwd(), "app/website-builder/editor/[installId]/page.tsx"), "utf8")
+    const code = (t: string) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "")
+    check("the design panels do not measure a scheme at all",
+      !/storelib-theme\/contrast/.test(panel) && !/schemeContrast|sayRatio|contrastRatio/.test(code(panel)))
+    check("nothing in the sidebar's code says it", [panel, chip, editor].every((t) => !/Hard to read|to 1 it needs|data-contrast/.test(code(t))))
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)

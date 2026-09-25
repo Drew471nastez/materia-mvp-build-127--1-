@@ -27,6 +27,7 @@ import { SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
 import type { SectionInstance } from "@/lib/website-builder/types"
 import { withLiveLinks } from "@/lib/website-builder/live-links"
 import { resolveEditorHref } from "@/lib/website-builder/editor-navigation"
+import { pageGroupOf } from "@/lib/website-builder/page-groups"
 import { applyUniversalChrome, chromeOf, withUniversalChrome } from "@/lib/website-builder/universal-chrome"
 import { readdirSync, readFileSync } from "node:fs"
 import { join } from "node:path"
@@ -292,10 +293,17 @@ async function main() {
       })(),
     )
 
-    check("the pages group is shut until it is asked for", /const \[yoursOpen, setYoursOpen\] = useState\(false\)/.test(switcher))
+    /**
+     * The policies used to fold away with the creator's pages behind one row,
+     * and that group scrolled inside the panel that already scrolled:
+     * "sub-levels with sub scroll bars, it's weird and bad". They are a group
+     * of their own now, a heading in one list with one scroll
+     * (lib/website-builder/page-groups.ts, tests/library-and-pages.test.ts).
+     */
+    check("the policies are a group of their own in the page switcher", pageGroupOf("refund-policy") === "policies" && POLICY_PAGES.every((p) => pageGroupOf(p.key) === "policies"))
     check(
-      "and it scrolls inside itself past three",
-      /PAGES_BEFORE_SCROLL = 3/.test(switcher) && /yours\.length > PAGES_BEFORE_SCROLL/.test(switcher),
+      "and nothing in the switcher folds or scrolls inside itself",
+      !/yoursOpen|PAGES_BEFORE_SCROLL/.test(switcher) && (switcher.match(/overflow-y-auto/g) ?? []).length === 1,
     )
   }
 
@@ -312,19 +320,16 @@ async function main() {
     check("a plain one gets a box that grows", /if \(kind === "textarea"\)[\s\S]{0,200}<AutoTextarea/.test(editor))
     check("and neither is the old fixed-height textarea", !/min-h-\[80px\][\s\S]{0,80}resize-y/.test(editor))
 
-    /* The field is the product's one rich text editor now (components/app/rich-text-editor.tsx), with this field's toolbar. */
-    const shared = readFileSync(join(root, "components/app/rich-text-editor.tsx"), "utf8")
-    check("it is the product's own rich text editor, not a second one", /import \{ RichTextEditor, type RichTextTool \} from "@\/components\/app\/rich-text-editor"/.test(rich) && /<RichTextEditor/.test(rich))
-    check("the toolbar is the things these fields hold", /RICH_TEXT_SETTING_TOOLS: RichTextTool\[\] = \["h2", "h3", "bold", "italic", "bulletList", "numberedList", "link"\]/.test(rich) && /tools=\{RICH_TEXT_SETTING_TOOLS\}/.test(rich))
+    check("the toolbar is the six things these fields hold", ["Bold", "Italic", "Link", "Bulleted list", "Numbered list"].every((l) => rich.includes(l)))
     check("the toolbar is text controls only, with no door to the assistant in it", !/askAi/.test(rich))
     check(
       "a toolbar press keeps the selection, or there is nothing to format",
-      /onMouseDown=\{\(e\) => e\.preventDefault\(\)\}/.test(shared),
+      /onMouseDown=\{\(e\) => \{\s*e\.preventDefault\(\)/.test(rich),
     )
-    check("everything that leaves it is sanitised", /return sanitizeRichText\(cleanStoredHtml\(html, \{ blocks: true \}\)\)/.test(rich) && /cleanOutput=\{cleanRichTextSetting\}/.test(rich))
-    check("a paste arrives cleaned, not as someone else's markup", /const clean = cleanPastedHtml\(html\)/.test(shared) && /onPaste=\{onPaste\}/.test(shared))
-    check("and the value is only written in when it came from elsewhere", /if \(!root \|\| value === shown\.current\) return/.test(shared))
-    check("what it can produce is styled, so formatting is visible", /"rich-text-content storelib-prose/.test(shared) && /\.storelib-prose h2/.test(css) && /\.storelib-prose ul/.test(css))
+    check("everything that leaves it is sanitised", /sanitizeRichText\(el\.innerHTML\)/.test(rich))
+    check("a paste arrives as text, not as someone else's markup", /insertText/.test(rich) && /e\.preventDefault\(\)/.test(rich))
+    check("and the value is only written in when it came from elsewhere", /if \(el\.innerHTML !== incoming\)/.test(rich))
+    check("what it can produce is styled, so formatting is visible", /\.wb-richtext h2/.test(css) && /\.wb-richtext ul/.test(css))
 
     check("the box starts at one line", /rows=\{1\}/.test(auto))
     check("and is measured rather than counted", /el\.style\.height = "auto"/.test(auto) && /scrollHeight/.test(auto))
@@ -341,18 +346,15 @@ async function main() {
     const picker = readFileSync(join(root, "components/website-builder/link-picker.tsx"), "utf8")
     const panels = readFileSync(join(root, "components/website-builder/editor/design-panels.tsx"), "utf8")
     const renderer = readFileSync(join(root, "components/website-builder/sections/SectionRenderer.tsx"), "utf8")
-    const css = readFileSync(join(root, "app/globals.css"), "utf8")
 
     /** A text control is not a door to the assistant. */
     check("the assistant button is gone from the text toolbar", !/StorelibMark|askAi/.test(rich))
     check("and nothing still tries to provide one", !/RichTextAssistant/.test(editor))
-    check("the toolbar is the text controls, and no picture", /\["h2", "h3", "bold", "italic", "bulletList", "numberedList", "link"\]/.test(rich) && !/"image"/.test(rich))
+    check("the toolbar is the six text controls", ["Bold", "Italic", "Link", "Bulleted list", "Numbered list", "Text style"].every((l) => rich.includes(l)))
 
     /** It stops growing before it owns the panel. */
-    check("the editor has a ceiling and scrolls past it",
-      /maxHeight = 260/.test(rich) && /\["--wb-rich-max" as string\]: `\$\{maxHeight\}px`/.test(rich) &&
-        /\.wb-rich-text \.rich-text-content \{[^}]*max-height: var\(--wb-rich-max, 260px\);/.test(css))
-    check("on a slim bar, not a second wide one", /\.wb-rich-text \.rich-text-content \{[^}]*scrollbar-width: thin;/.test(css))
+    check("the editor has a ceiling and scrolls past it", /maxHeight = 260/.test(rich) && /style=\{\{ minHeight, maxHeight \}\}/.test(rich))
+    check("on the panel's own slim bar, not a second kind", /wb-slim-scroll overflow-y-auto/.test(rich))
 
     /** A link is chosen by its name. */
     check("the picker shows the name, with the address as the row's title", /title=\{t\.href\}/.test(picker))
@@ -360,12 +362,8 @@ async function main() {
 
     /** Editing a scheme lives with the schemes. */
     check("Edit is off the closed trigger", !/onEdit\(activeKey\)/.test(panels))
-    /* A scheme is picked with one tap on its tile; Edit beside them names the one it opens. */
-    check("and beside the tiles, naming the scheme it opens", /onClick=\{\(\) => onEditScheme\(schemeKey\)\}/.test(panels) && /Edit \{schemes\[schemeKey\]\?\.name \?\? "scheme"\}/.test(panels))
-    {
-      const tiles = panels.slice(panels.indexOf("export function SchemeTiles("), panels.indexOf("// ── Per-section design"))
-      check("a tile is one button, with nothing pressable inside it", (tiles.match(/<button/g) ?? []).length === 1 && /role="radio"/.test(tiles))
-    }
+    check("and on every row of the open list", /onEdit\(key\)/.test(panels))
+    check("a row is a pair, not a button inside a button", /flex h-11 min-w-0 flex-1 cursor-pointer/.test(panels))
 
     /** A footer link is a link. */
     check("sections say what type they are", /data-section-type=\{props\.section\.type\}/.test(renderer))

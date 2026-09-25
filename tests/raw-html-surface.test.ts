@@ -130,8 +130,7 @@ function main() {
     /out\.aboutContent = \/<\[a-z\]\[\\s\\S\]\*>\/i\.test\(raw\) \? sanitizeRichText\(raw\)\.trim\(\) : raw\.trim\(\)/.test(profile)
       || /sanitizeRichText\(raw\)/.test(profile))
   check("and the editor that produces it cleans on the way out too",
-    /return sanitizeRichText\(cleanStoredHtml\(html, \{ blocks: true \}\)\)/.test(read("components/website-builder/rich-text-field.tsx")) &&
-      /cleanOutput=\{cleanRichTextSetting\}/.test(read("components/website-builder/rich-text-field.tsx")))
+    /const clean = sanitizeRichText\(el\.innerHTML\)/.test(read("components/website-builder/rich-text-field.tsx")))
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }
