@@ -182,6 +182,16 @@ async function hasPublishedWebsite(db: Db, creatorId: string): Promise<boolean> 
   return !!install
 }
 
+/**
+ * A banned creator's website answers as no site (lib/seo/bans.ts), so nobody
+ * signs in to it either. Read whole: a database without the ban column has
+ * no bans, and a failed read is not taken as one.
+ */
+async function isBannedCreator(db: Db, creatorId: string): Promise<boolean> {
+  const row = await one(db.from("creators").select("*").eq("id", creatorId).maybeSingle())
+  return !!(row as { banned_at?: string | null } | null)?.banned_at
+}
+
 async function isLiveAiSite(db: Db, name: string): Promise<boolean> {
   const deployment = await one(db.from("site_deployments").select("storage_prefix").eq("is_live", true).eq("slug", name).maybeSingle())
   return !!deployment?.storage_prefix
@@ -203,5 +213,6 @@ export async function siteOwnerOfHost(db: Db, rawHost: unknown, r: HostRules = r
   }
   if (!creatorId) return null
   if (!(await hasPublishedWebsite(db, creatorId))) return null
+  if (await isBannedCreator(db, creatorId)) return null
   return { creatorId, host: site.host, kind: site.kind }
 }

@@ -31,14 +31,14 @@ export function Toc({ items }: { items: { id: string; text: string; level: 2 | 3
   if (!items.length) return null
   return (
     <nav aria-label="On this page">
-      <p className="text-[12px] font-semibold text-neutral-900">On this page</p>
-      <ul className="mt-3 space-y-2 border-l border-neutral-200">
+      <p className="text-[13px] font-semibold text-[#1a1a2e]">On this page</p>
+      <ul className="mt-3 space-y-1.5 border-l border-[#e5e7eb]">
         {items.map((i) => (
           <li key={i.id}>
             <a
               href={`#${i.id}`}
               className={`-ml-px block border-l py-0.5 text-[13px] leading-[1.45] transition-colors ${i.level === 3 ? "pl-6" : "pl-3"} ${
-                active === i.id ? "border-neutral-900 text-neutral-900" : "border-transparent text-neutral-500 hover:text-neutral-900"
+                active === i.id ? "border-[#1a1a2e] text-[#1a1a2e]" : "border-transparent text-[#6b7280] hover:text-[#1a1a2e]"
               }`}
             >
               {i.text}

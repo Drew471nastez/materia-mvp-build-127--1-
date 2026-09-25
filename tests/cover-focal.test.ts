@@ -278,10 +278,12 @@ check(
  */
 check(
   "any cover can be placed, not only one chosen in this session",
-  /editable: !!cover \}\}/.test(editor),
+  /* In a memoised object now (coverReposition), so the brace after it is useMemo's, not JSX's. */
+  /editable: !!cover \}(\}|\))/.test(editor),
   "an existing banner that cannot be zoomed or moved",
 )
-check("a new picture starts from the middle at its own size", /setCover\(url\); setCrop\(DEFAULT_COVER_CROP\)/.test(editor))
+/* One statement a line since the handler became a stable callback (onCoverChange). */
+check("a new picture starts from the middle at its own size", /setCover\(url\);?\s*setCrop\(DEFAULT_COVER_CROP\)/.test(editor))
 check(
   "position and zoom are saved together, and nothing is stored for an untouched cover",
   /coverFocalPoint: isDefaultCrop\(crop\) \? null/.test(editor) && /coverZoom: crop\.zoom > 1 \? crop\.zoom : null/.test(editor),

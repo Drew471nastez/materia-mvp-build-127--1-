@@ -213,7 +213,8 @@ check(
 )
 check(
   "the editor reads the band rather than assuming a shape",
-  /querySelector\("\[data-cover-band\]"\)/.test(aspect),
+  /* querySelectorAll since it picks the band that is actually drawn, not merely the first. */
+  /querySelector(All)?\("\[data-cover-band\]"\)/.test(aspect),
   "a hardcoded 3:1 here is a preview of a crop the page will not draw",
 )
 check(

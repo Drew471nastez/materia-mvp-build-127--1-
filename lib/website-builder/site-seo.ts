@@ -21,6 +21,9 @@
  * Pure. The loader that fills these from the database is ./site-seo-data.ts.
  */
 import type { SectionInstance } from "./types"
+import { SITE_DISALLOW, xmlEscape } from "@/lib/seo/indexing"
+import { sameAsUrls } from "@/lib/seo/structured-data"
+import { THEME_SETTINGS_GROUPS } from "./theme-settings-schema"
 
 export interface SitemapImage {
   loc: string
@@ -38,8 +41,12 @@ export const MAX_IMAGES_PER_PAGE = 1000
 /** And at most this many addresses per sitemap. */
 export const MAX_SITEMAP_URLS = 50000
 
-/** Pages that are addresses, but not ones worth a search result. */
-const UNLISTED_PAGE_KEYS = new Set(["search", "product", "cart", "404"])
+/**
+ * Pages that are addresses, but not ones worth a search result. The account,
+ * sign in and Wishlist pages are one visitor's, and a creator who arranged
+ * them in the builder has them stored like any page, so they are named here.
+ */
+const UNLISTED_PAGE_KEYS = new Set(["search", "product", "cart", "404", "account", "login", "wishlist"])
 
 /** The address of a page of the site, on the site's own origin. */
 export function pageUrl(origin: string, pageKey: string): string {
@@ -102,8 +109,26 @@ export function imagesOnPage(sections: SectionInstance[], limit = MAX_IMAGES_PER
   return out
 }
 
-function xmlEscape(s: string): string {
-  return s.replace(/[<>&'"]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", "'": "&apos;", '"': "&quot;" })[c] as string)
+/**
+ * The first picture of the first hero on a page, or undefined. A share card
+ * with no picture of its own takes this: it is what the site opens with.
+ * An SVG is passed over, because the networks that draw share cards do not
+ * draw one.
+ */
+export function heroImage(sections: SectionInstance[]): string | undefined {
+  const hero = sections.find((s) => !s.hidden && /^(?:hero|video_hero)/.test(s.type))
+  if (!hero) return undefined
+  return imagesOnPage([hero], 20).find((i) => !/\.svg(?:\?|$)/i.test(i.loc))?.loc
+}
+
+/** Every address field in Website Settings › Social links, read from the schema so a new one is not missed. */
+const SOCIAL_SETTING_IDS = (THEME_SETTINGS_GROUPS.find((g) => g.id === "social")?.fields ?? [])
+  .filter((f) => f.type === "link")
+  .map((f) => f.id)
+
+/** A site's profiles elsewhere, for `sameAs`: the social links its creator gave it. */
+export function siteSameAs(settings: Record<string, unknown>): string[] {
+  return sameAsUrls(SOCIAL_SETTING_IDS.map((id) => settings[id]))
 }
 
 export function sitemapXml(entries: SitemapEntry[]): string {
@@ -135,14 +160,14 @@ export function sitemapXml(entries: SitemapEntry[]): string {
  * no sitemap.
  */
 export function robotsTxt(origin: string, indexable: boolean): string {
-  const lines = [
-    "User-agent: *",
-    "Allow: /",
-    // A draft shared by link, the basket and search results are never results.
-    "Disallow: /preview/",
-    "Disallow: /cart",
-    "Disallow: /search",
-  ]
+  /*
+    A draft shared by link, the basket and search results are never results.
+    ANCHORED, because a robots rule is a prefix: `Disallow: /cart` also hid a
+    creator's own page at /cartoons, and `/search` hid /search-tips. Only the
+    keys `cart` and `search` are reserved (./site-pages.ts), so the rules name
+    those addresses exactly: SITE_DISALLOW in lib/seo/indexing.ts.
+  */
+  const lines = ["User-agent: *", "Allow: /", ...SITE_DISALLOW.map((rule) => `Disallow: ${rule}`)]
   if (indexable) lines.push("", `Sitemap: ${origin}/sitemap.xml`)
   return `${lines.join("\n")}\n`
 }
@@ -216,8 +241,7 @@ export function productJsonLd(p: {
 
 /**
  * Structured data as a script body. `<` is escaped so a product description
- * that says `</script>` cannot end the element it sits in.
+ * that says `</script>` cannot end the element it sits in. One function for
+ * every page that prints JSON-LD, the website's and the platform's alike.
  */
-export function jsonLdScript(data: unknown): string {
-  return JSON.stringify(data).replace(/</g, "\\u003c")
-}
+export { jsonLdScript } from "@/lib/seo/json-ld"

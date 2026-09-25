@@ -14,21 +14,25 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import {
+  MAX_IMAGES_PER_URL,
   PLATFORM_DISALLOW,
   SITEMAP_CHUNK,
   SITE_DISALLOW,
+  builtSiteIndexable,
   creatorIndexable,
   lastmodOf,
   newestOf,
   productIndexable,
   robotsTxt,
   siteOrigin,
+  sitemapImages,
   sitemapIndexXml,
   urlsetXml,
   websiteIndexable,
 } from "@/lib/seo/indexing"
-import { parseSitemapName } from "@/lib/seo/sitemaps"
+import { IDS_PER_QUERY, SitemapReadFailed, eachBatch, parseSitemapName, readRange } from "@/lib/seo/sitemaps"
 import { byHost, indexNowKey, worthSending } from "@/lib/seo/indexnow"
+import { bannedCreatorIds, isBanned } from "@/lib/seo/bans"
 import { isReservedWord } from "@/lib/reserved-words"
 
 let passed = 0
@@ -87,6 +91,32 @@ section("Sitemap files are valid, deduplicated and dated only by real dates")
       parseSitemapName("../etc.xml") === null && parseSitemapName("products-x.xml") === null)
 }
 
+section("A page's pictures are listed with it, so Google Images can find them")
+{
+  const gallery = Array.from({ length: 14 }, (_, i) => `https://x.supabase.co/storage/v1/object/public/products/p/${i}.webp`)
+  const xml = urlsetXml([
+    {
+      url: "https://storelib.com/mara/pack",
+      images: ["https://cdn.example.com/a&b.png", "https://cdn.example.com/a&b.png", "/relative.png", "https://cdn.example.com/clip.mp4", null, "", ...gallery],
+    },
+    { url: "https://storelib.com/mara", images: [null, undefined] },
+  ])
+  check("the file declares the image extension", xml.includes('xmlns:image="http://www.google.com/schemas/sitemap-image/1.1"'))
+  const pack = xml.slice(xml.indexOf("<loc>https://storelib.com/mara/pack</loc>"), xml.indexOf("<loc>https://storelib.com/mara</loc>"))
+  check("each picture once, escaped, and never a video, a relative path or an empty field",
+    pack.includes("<image:image><image:loc>https://cdn.example.com/a&amp;b.png</image:loc></image:image>") &&
+      (pack.match(/a&amp;b\.png/g) ?? []).length === 1 && !/relative|clip\.mp4|<image:loc><\/image:loc>/.test(pack))
+  check("at most ten to a page", (pack.match(/<image:image>/g) ?? []).length === MAX_IMAGES_PER_URL && MAX_IMAGES_PER_URL === 10)
+  check("a page without pictures is just its address", /<url><loc>https:\/\/storelib\.com\/mara<\/loc><\/url>/.test(xml))
+  check("an index entry never carries one", !sitemapIndexXml([{ url: "https://storelib.com/sitemap/products-0.xml", images: gallery }]).includes("image:"))
+  check("the helper is the same rule", JSON.stringify(sitemapImages(["https://a.com/1.png", "https://a.com/1.png", "https://a.com/doc.pdf"])) === JSON.stringify(["https://a.com/1.png"]))
+  const maps = code("lib/seo/sitemaps.ts")
+  check("a product lists its thumbnail and gallery",
+    /\.select\("slug, status, updated_at, creator_id, thumbnail_url, gallery_urls, creators!inner\(user_id\)"\)/.test(maps) && /images: \[row\.thumbnail_url, \.\.\.\(row\.gallery_urls \?\? \[\]\)\]/.test(maps))
+  check("a creator page lists its avatar and cover", /images: \[seller\?\.avatar_url, c\.cover_url\]/.test(maps) && /\.select\("id, username, avatar_url"\)/.test(maps))
+  check("and a website's own sitemap uses the same escaping", /import \{ SITE_DISALLOW, xmlEscape \} from "@\/lib\/seo\/indexing"/.test(code("lib/website-builder/site-seo.ts")) && !/function xmlEscape/.test(code("lib/website-builder/site-seo.ts")))
+}
+
 section("storelib.com's robots.txt keeps crawlers out of the app, and out of nobody's page")
 {
   check("the app, the editors and the private flows are not crawled",
@@ -123,7 +153,7 @@ section("A built site is canonical at one origin")
   check("the site's own sitemap and canonicals name the www host the proxy answers on, not the bare domain it redirects",
     /* The host comes from lib/custom-domains: www.<apex> for an apex, a connected subdomain as it is. */
     /primaryHostFor\(creatorId, "website"\)/.test(seoData) && /servingHost\(primary\.domain\)/.test(code("lib/custom-domains/store.ts")) && !/replace\(\/\^www\\\.\/, ""\) : `\$\{name/.test(seoData))
-  check("a site under a handle the spam rules hold back is not listed", /deservesIndexing\(\{ publishedProducts: 1, handle: name \}\)/.test(seoData))
+  check("a site under a handle the spam rules hold back is not listed", /const indexable = builtSiteIndexable\(site\.themeSettings as Record<string, unknown>, name\)/.test(seoData))
 }
 
 section("Every host answers its own robots.txt and sitemap")
@@ -153,8 +183,13 @@ section("Every host answers its own robots.txt and sitemap")
 section("Pages a visitor can reach but no index should hold carry noindex")
 {
   const site = code("app/(site)/w/[username]/render-site.tsx")
-  check("a site page names its absolute canonical at the site's origin", /alternates: \{ canonical: url \}/.test(site) && /const url = pageUrl\(await siteOrigin\(creator\.id, username\), pageKey\)/.test(site))
-  check("a site with nothing published is noindex", /if \(!install\) \{\s*return \{ title: \{ absolute: [^\n]*robots: \{ index: false, follow: true \} \}/.test(site))
+  check("a site page names its absolute canonical at the site's origin", /alternates: \{ canonical: url \}/.test(site) && /const url = pageUrl\(await siteOrigin\(creator\.creatorId, username\), pageKey\)/.test(site))
+  check("a site with nothing published is noindex", /if \(found\.kind !== "site"\) \{\s*return \{ title: \{ absolute: [^\n]*robots: \{ index: false, follow: true \} \}/.test(site))
+  /* The name a website was given in Website Settings › Domains is a name the
+     page answers to, so it has to be one the metadata answers to as well. */
+  check("a site page's metadata finds its creator the way the page does, website names included",
+    /const creator = await creatorByName\(username\)/.test(site) && /const found = await publishedShopByName\(username\)/.test(site)
+      && !/\.or\(`slug\.eq\./.test(site) && /creatorIdByHandle\(lower, admin\)/.test(code("lib/website-builder/published-site.ts")))
   check("a preview is noindex", /return \{ title: "Preview", robots: \{ index: false, follow: false \} \}/.test(site))
   for (const layout of ["app/app/layout.tsx", "app/website-builder/layout.tsx", "app/library/layout.tsx", "app/creator-page/layout.tsx", "app/dashboard/layout.tsx", "app/store/[creatorSlug]/themes/[installId]/editor/page.tsx"]) {
     check(`  ${layout} is noindex`, /export const metadata: Metadata = \{ robots: \{ index: false, follow: false \} \}/.test(code(layout)))
@@ -206,10 +241,147 @@ section("IndexNow: off without a key, never in the way of a save, one notice per
       /if \(finalProductId\) announceChange\(\{ product: finalProductId \}\)/.test(code("app/app/products/new/product-editor.tsx")) &&
       /if \(!statusError\) announceChange\(\{ product: product\.id \}\)/.test(code("components/app/product-edit-form.tsx")) &&
       /announceChange\(\{ profile: true \}\)/.test(code("components/app/settings-form-new.tsx")))
+
+  /* Every other thing a creator publishes, and the one that answered nothing. */
+  check("a OnePage is announced when it is published, after the answer",
+    /after\(\(\) => announce\(\(\) => onePageAddresses\(owner\)\)\)/.test(code("app/api/onepage/publish/route.ts")) &&
+      code("app/api/onepage/publish/route.ts").indexOf("after(() => announce(") > code("app/api/onepage/publish/route.ts").indexOf("if (publishError)"))
+  const builder = code("app/api/store-builder/route.ts")
+  check("so is the creator page when its builder publishes, and a product whose own page does",
+    /after\(\(\) => announce\(\(\) => productAddresses\(announcedProduct, announcedCreator\)\)\)/.test(builder) &&
+      /if \(pageType === "shop"\) \{\s*const announcedCreator = creator\.id\s*after\(\(\) => announce\(\(\) => profileAddresses\(announcedCreator\)\)\)/.test(builder))
+  const profileRoute = code("app/api/creator-profile/route.ts")
+  check("and an edit made from the creator page itself, once it is saved",
+    /const announceProfile = \(\) => after\(\(\) => announce\(\(\) => profileAddresses\(announcedCreator\)\)\)/.test(profileRoute) &&
+      (profileRoute.match(/announceProfile\(\)/g) ?? []).length === 2 && profileRoute.lastIndexOf("announceProfile()") > profileRoute.indexOf('"[creator-profile] config update failed"'))
+  const aiSite = code("app/api/sites/[siteId]/publish/route.ts")
+  check("an AI site when it goes live and when it is taken down",
+    /after\(\(\) => announce\(\(\) => aiSiteAddresses\(site\.creatorId, published\)\)\)/.test(aiSite) &&
+      /if \(was\) after\(\(\) => announce\(\(\) => aiSiteAddresses\(site\.creatorId, publishedUrl\(was\)\)\)\)/.test(aiSite) &&
+      aiSite.indexOf("aiSiteAddresses(site.creatorId, published)") > aiSite.indexOf("if (!result.ok)"))
+  const products = code("app/app/products/products-client.tsx")
+  check("a deleted product by the slug it had, only once the delete went through, and only if it was live",
+    /if \(productToDelete\.status === "published" && productToDelete\.slug\) announceChange\(\{ removedProduct: productToDelete\.slug \}\)/.test(products) &&
+      products.indexOf("announceChange({ removedProduct") > products.indexOf('throw new Error("Nothing was deleted")'))
+  check("which the server believes only for a real slug no product of theirs still has",
+    /typeof body\?\.removedProduct === "string" && SLUG\.test\(body\.removedProduct\)/.test(api) && /removedProductAddresses\(slug, creatorId\)/.test(api) &&
+      /if \(still \|\| !notSpam\(handle\)\) return \[\]/.test(announce))
+  check("a website taken down announces the pages it had, not nothing",
+    /if \(!site\) return formerSiteAddresses\(creatorId, handle\)/.test(announce) && !/if \(!site\) return \[\]/.test(announce) &&
+      /\.eq\("status", "unpublished"\)\s*\.order\("updated_at", \{ ascending: false \}\)/.test(code("lib/website-builder/site-seo-data.ts")))
 }
 
-console.log(`\n${passed} passed, ${failed} failed\n`)
-if (failed > 0) {
-  console.log("Failing:", failures.join(", "))
-  process.exit(1)
+/**
+ * Batching and paging are async, so they run as one function, awaited before
+ * the summary below rather than at the top level of the file.
+ */
+async function batchingAndPaging() {
+  section("A chunk's ids travel in short URLs, and a failed read is never a shorter file")
+
+  const ids = Array.from({ length: 400 }, (_, i) => `00000000-0000-4000-8000-${String(i).padStart(12, "0")}`)
+  let inFlight = 0
+  let most = 0
+  const sizes: number[] = []
+  const firsts = await eachBatch(ids, async (batch) => {
+    inFlight++
+    most = Math.max(most, inFlight)
+    sizes.push(batch.length)
+    await new Promise((resolve) => setTimeout(resolve, 5))
+    inFlight--
+    return batch[0]
+  })
+  check("ids go at most 150 to a query, and every one of them goes", IDS_PER_QUERY <= 150 && sizes.every((n) => n <= IDS_PER_QUERY) && sizes.reduce((a, b) => a + b, 0) === ids.length)
+  check("the answers come back in the order of the batches", JSON.stringify(firsts) === JSON.stringify([ids[0], ids[150], ids[300]]))
+  check("a few queries at once, not one line of them and not all of them", most > 1 && most <= 4, `${most} at once`)
+  const request = `https://x.supabase.co/rest/v1/creators?${new URLSearchParams({ select: "id,user_id", id: `in.(${ids.slice(0, IDS_PER_QUERY).join(",")})` })}`
+  check("a batch's request line stays well under a gateway's 8 KB", request.length < 7000, `${request.length} characters`)
+
+  const table = Array.from({ length: 2500 }, (_, i) => i)
+  const asked: Array<[number, number]> = []
+  const rows = await readRange<number>(async (a, b) => {
+    asked.push([a, b])
+    return { data: table.slice(a, b + 1), error: null }
+  }, 0, 10_000, "table")
+  check("every row is read, a thousand to a request, until a short page", rows.length === 2500 && asked.length === 3 && asked[0][1] === 999 && asked[2][0] === 2000)
+  let calls = 0
+  const flaky = await readRange<number>(async (a) => {
+    calls++
+    return calls === 1 ? { data: null, error: { message: "blip" } } : { data: table.slice(a, 10), error: null }
+  }, 0, 1000, "flaky")
+  check("a blip is tried once more", flaky.length === 10 && calls === 2)
+  let thrown: unknown = null
+  const quiet = console.error
+  console.error = () => {}
+  try {
+    await readRange<number>(async () => ({ data: null, error: { message: "down" } }), 0, 1000, "down")
+  } catch (e) {
+    thrown = e
+  } finally {
+    console.error = quiet
+  }
+  check("and a read that fails twice is thrown, never handed back as a shorter list", thrown instanceof SitemapReadFailed)
+
+  const maps = code("lib/seo/sitemaps.ts")
+  check("the website sitemap asks for its creators in batches, not ten thousand ids in one URL",
+    !/\.in\("id", creatorIds\)/.test(maps) && /\.from\("creators"\)\.select\("id, user_id"\)\.in\("id", batch\)/.test(maps))
+  check("and every other list of ids goes the same way", !/\.slice\(i, i \+ (100|200|500)\)/.test(maps) && (maps.match(/eachBatch\(/g) ?? []).length >= 5)
+  check("a site is listed at the name it was given, where it was given one",
+    /websiteNames\(admin, creatorIds\)/.test(maps) && /const handle = chosen\.get\(i\.creator_id\) \?\? names\.get/.test(maps))
+  const index = code("app/sitemap.xml/route.ts")
+  const file = code("app/sitemap/[name]/route.ts")
+  check("both sitemap routes answer 503 for a failed read, which nothing caches",
+    [index, file].every((r) => /if \(e instanceof SitemapReadFailed\) return sitemapUnavailable\(\)/.test(r))
+      && /status: 503/.test(maps) && /"Retry-After": "600"/.test(maps) && /"Cache-Control": "no-store"/.test(maps))
+  const seoData = code("lib/website-builder/site-seo-data.ts")
+  check("a site's own sitemap reads its products a thousand at a time, not the first thousand of 5,000",
+    !/\.limit\(5000\)/.test(seoData) && /\.range\(from, from \+ PRODUCT_PAGE - 1\)/.test(seoData) && /PRODUCT_PAGE = 1000/.test(seoData))
 }
+
+/** Bans and the one rule for a built site: pure checks, plus a read driven with a fake database. */
+async function bansAndOneRule() {
+  section("A banned creator is not listed, served or announced, and a site has one rule")
+
+  check("a built site is listed when its switch is on and its handle is not a farm's",
+    builtSiteIndexable({}, "mariapopescu") && !builtSiteIndexable({ seo_robots: false }, "mariapopescu") &&
+      !builtSiteIndexable({}, "powerokebos999") && !builtSiteIndexable({}, null))
+  check("a row read whole says banned only when it carries a ban", isBanned({ banned_at: "2026-09-20T00:00:00Z" }) && !isBanned({ banned_at: null }) && !isBanned({}) && !isBanned(null))
+
+  const fake = (pages: Array<{ data: { id: string }[] | null; error: { message: string } | null }>) => {
+    let call = 0
+    const chain = { select: () => chain, not: () => chain, order: () => chain, range: async () => pages[call++] ?? { data: [], error: null } }
+    return { from: () => chain } as never
+  }
+  const set = await bannedCreatorIds(fake([{ data: [{ id: "a" }, { id: "b" }], error: null }]))
+  check("the banned set is read", set.has("a") && set.has("b") && set.size === 2)
+  const soft = await bannedCreatorIds(fake([{ data: null, error: { message: 'column creators.banned_at does not exist' } }]))
+  check("and a database without the column has no bans, rather than no sitemap", soft.size === 0)
+
+  const maps = code("lib/seo/sitemaps.ts")
+  check("products, creator pages and websites all leave banned creators out",
+    (maps.match(/bannedCreatorIds\(admin\)/g) ?? []).length === 3 && /banned\.has\(row\.creator_id\)/.test(maps) &&
+      /!banned\.has\(c\.id\)/.test(maps) && /!banned\.has\(i\.creator_id\)/.test(maps))
+  check("storelib.com's websites sitemap reads the site's own rule", /!builtSiteIndexable\(settingsOf\(i\), handle\)/.test(maps))
+  const published = code("lib/website-builder/published-site.ts")
+  check("a banned creator's website answers as no site, from rows read whole",
+    (published.match(/if \(isBanned\(/g) ?? []).length === 3 && !/\.select\("id, slug, display_name"\)/.test(published))
+  const render = code("app/(site)/w/[username]/render-site.tsx")
+  check("a website's pages say noindex under a farm's handle, as its sitemap already left them out",
+    /websiteIndexable\(settings as Record<string, unknown>\) && !builtSiteIndexable\(settings as Record<string, unknown>, username\)\s*\? \{ robots: \{ index: false, follow: false \} \}/.test(render))
+  const onepage = code("app/(marketing)/l/[slug]/page.tsx")
+  check("a banned owner's OnePage is not served, before a view is counted, and is never indexable",
+    /if \(owner\.banned\) notFound\(\)/.test(onepage) && onepage.indexOf("if (owner.banned) notFound()") < onepage.indexOf("onepage_views") &&
+      /const indexable = !owner\.banned && onePageIndexable\(/.test(onepage))
+  check("a banned creator's page and a product they put back are noindex",
+    /deservesIndexing\(\{ publishedProducts, handle \}\) && !isBanned\(creator\)/.test(code("app/(marketing)/u/[username]/page.tsx")) &&
+      /index: productIndexable\(product, sellerHandle \?\? null\) && !sellerBanned/.test(code("app/(marketing)/p/[slug]/page.tsx")))
+  const announce = code("lib/seo/announce.ts")
+  check("and nothing of theirs is announced", /if \(isBanned\(c\)\) return null/.test(announce) && /isBanned\(creator as \{ banned_at\?: string \| null \} \| null\)\) return \[\]/.test(announce))
+}
+
+batchingAndPaging().then(bansAndOneRule).then(() => {
+  console.log(`\n${passed} passed, ${failed} failed\n`)
+  if (failed > 0) {
+    console.log("Failing:", failures.join(", "))
+    process.exit(1)
+  }
+})

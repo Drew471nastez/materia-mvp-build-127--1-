@@ -20,14 +20,14 @@
  * uses (lib/website-builder/published-site), so nothing here is a second
  * copy of the site to keep in step.
  */
-import { notFound, redirect } from "next/navigation"
+import { notFound, permanentRedirect, redirect } from "next/navigation"
 import { ThemePage } from "@/components/website-builder/theme/ThemePage"
 import { StorelibSourcesProvider } from "@/components/website-builder/sections/storelib-sources"
 import { SiteVitals } from "@/components/website-builder/site-vitals"
 import { TrackView } from "@/components/analytics/track-view"
 import { renderWithSources } from "@/lib/website-builder/storefront-render"
 import { publishedShopByName } from "@/lib/website-builder/published-site"
-import { accountPageSections } from "@/lib/website-builder/account-pages"
+import { ACCOUNT_PAGE_PATHS, accountPageSections } from "@/lib/website-builder/account-pages"
 import { pageWithLiveLinks } from "@/lib/website-builder/live-links"
 import { templateForPage } from "@/lib/website-builder/site-pages"
 import { getMainDomain } from "@/lib/url-helpers"
@@ -62,7 +62,8 @@ export async function renderAccountPage(
   extras: { customer?: Record<string, unknown> | null; wishlist?: StorefrontGlobals["wishlist"]; notice?: string | null } = {},
 ) {
   const found = await publishedShopByName(username)
-  if (found.kind === "renamed") redirect(`https://${found.to}.${getMainDomain()}`)
+  /* Renamed for good: the same page at the new name, permanently (308), as every other page of a website. */
+  if (found.kind === "renamed") permanentRedirect(`https://${found.to}.${getMainDomain()}${ACCOUNT_PAGE_PATHS[key]}`)
   if (found.kind === "missing") notFound()
   if (found.kind === "unpublished") redirect(`https://${getMainDomain()}/${username.toLowerCase()}`)
 

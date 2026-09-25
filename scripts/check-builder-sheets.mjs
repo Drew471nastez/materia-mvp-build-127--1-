@@ -83,10 +83,10 @@ window.__REACT_DEVTOOLS_GLOBAL_HOOK__ = {
 function page(opts) {
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><style>${css}</style></head><body><div id="app"></div>` +
     `<script>${HOOK}</script>` +
-    `<script>window.PROBE_LIVE=${opts.live ? "true" : "false"};window.PROBE_CONNECTIONS=${JSON.stringify(opts.connections ?? null)};</script>` +
+    `<script>window.PROBE_LIVE=${opts.live ? "true" : "false"};window.PROBE_CONNECTIONS=${JSON.stringify(opts.connections ?? null)};window.PROBE_SECURITY=${JSON.stringify(opts.security ?? null)};</script>` +
     `<script src="/editor-probe.js"></script></body></html>`
 }
-let current = { live: true, connections: null }
+let current = { live: true, connections: null, security: null }
 const server = createServer((req, res) => {
   if (req.url.startsWith("/editor-probe.js")) { res.writeHead(200, { "content-type": "text/javascript" }); return res.end(bundle) }
   res.writeHead(200, { "content-type": "text/html" })
@@ -104,7 +104,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const browser = await puppeteer.launch({ executablePath: CHROMIUM, args: ["--no-sandbox", "--disable-gpu", "--hide-scrollbars"] })
 
 async function open(width, opts) {
-  current = { live: true, connections: null, ...opts }
+  current = { live: true, connections: null, security: null, ...opts }
   const p = await browser.newPage()
   const phone = width < 768
   await p.setViewport({ width, height: phone ? 844 : 900, deviceScaleFactor: 1, isMobile: phone, hasTouch: phone })
@@ -294,6 +294,62 @@ for (const [name, connections, want] of [
   }
   expect(errors.length === 0, "  no errors", errors.slice(0, 2).join(" | "))
   await p.close()
+}
+
+console.log("\nphone, 390 wide: Publish says what the security check says")
+{
+  const found = {
+    issues: [
+      { kind: "custom-script", page: "home", sectionId: "s1", message: "Custom code here includes a script. Scripts are removed, so it will not run on your site." },
+      { kind: "insecure-media", page: null, sectionId: null, message: "A picture or video here loads over http, so browsers may block it. Use an https address." },
+    ],
+    truncated: false,
+    checked_at: new Date().toISOString(),
+  }
+  for (const [name, security, want] of [
+    ["a clean site", null, { state: "clear", text: "No security issues found" }],
+    ["two things found", found, { state: "found", text: "2 things to check" }],
+    ["a check that could not run", "fail", { state: "unknown", text: "Could not check for security issues" }],
+  ]) {
+    const { p, errors } = await open(390, { connections: { agents: [], github: null, latest: null }, security })
+    await watchFrames(p, "[data-mobile-bottom-sheet][aria-modal=true]", "[data-publish-security]", 700)
+    await p.evaluate(() => [...document.querySelectorAll("header button")].find((b) => b.textContent.trim() === "Publish").click())
+    await sleep(760)
+    const frames = await p.evaluate(() => window.__frames)
+    const line = await p.evaluate(() => {
+      const el = document.querySelector("[data-publish-security]")
+      if (!el) return null
+      const card = el.closest("[data-sheet-content]")?.firstElementChild
+      const box = el.getBoundingClientRect()
+      return { state: el.getAttribute("data-publish-security"), text: el.textContent.replace(/Try again$/, "").trim(), h: Math.round(box.height), last: !!card && card.lastElementChild === el }
+    })
+    expect(!!line && line.state === want.state && line.text === want.text, `${name}: it reads "${want.text}"`, line)
+    expect(!!line && line.last, "  still the last thing in the card")
+    expect(!!line && line.h <= 26, `  one line tall (${line?.h}px)`)
+    const heights = [...new Set(frames.map((f) => f.h))]
+    expect(heights.length === 1, "  the sheet keeps one height while it opens and the answer comes back", heights)
+    if (want.state === "found") {
+      await p.evaluate(() => document.querySelector("[data-publish-security] button[aria-expanded]").click())
+      await sleep(450)
+      const list = await p.evaluate(() => {
+        const items = [...document.querySelectorAll("[data-publish-security-issues] li")]
+        return { n: items.length, places: items.map((li) => li.querySelector("p")?.textContent), expanded: document.querySelector("[data-publish-security] button[aria-expanded]").getAttribute("aria-expanded") }
+      })
+      expect(list.n === 2 && list.places[0] === "Home page" && list.places[1] === "Theme settings" && list.expanded === "true", "  a press lists each one and where it is", list)
+      await p.screenshot({ path: join(shots, "builder-390-publish-security-found.png") })
+    }
+    if (want.state === "unknown") {
+      const retried = await p.evaluate(async () => {
+        const before = window.probeCalls.filter((c) => c.includes("/security")).length
+        ;[...document.querySelectorAll("[data-publish-security] button")].find((b) => b.textContent.trim() === "Try again").click()
+        await new Promise((r) => setTimeout(r, 300))
+        return window.probeCalls.filter((c) => c.includes("/security")).length - before
+      })
+      expect(retried === 1, "  Try again asks once more", retried)
+    }
+    expect(errors.length === 0, "  no errors", errors.slice(0, 2).join(" | "))
+    await p.close()
+  }
 }
 
 console.log("\nphone, 390 wide: the inspector")

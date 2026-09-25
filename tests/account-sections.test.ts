@@ -14,6 +14,8 @@ import { DEFAULT_THEME_SOURCES } from "@/themes/default/sources.generated"
 import { renderStorelibSection } from "@/lib/website-builder/storelib-runtime"
 import { SITE_ROUTES, shopObject, wishlistObject } from "@/lib/storelib-theme/globals"
 import { accountPageSections, baseScheme, signInNotice } from "@/lib/website-builder/account-pages"
+import { listedPageKeys } from "@/lib/website-builder/site-seo"
+import { SITE_DISALLOW } from "@/lib/seo/indexing"
 import { BUILT_IN_PAGE_KEYS, GENERATED_PAGE_KEYS, RESERVED_PAGE_KEYS, pageKeyFromSegment, pagePath, pageTitleFromKey } from "@/lib/website-builder/site-pages"
 import { resolveEditorHref } from "@/lib/website-builder/editor-navigation"
 import { withLiveLinks } from "@/lib/website-builder/live-links"
@@ -160,6 +162,13 @@ function main() {
     check("contact still can, and is served as made when it is", !RESERVED_PAGE_KEYS.has("contact") && pageKeyFromSegment("contact") === "contact")
     check("the sign in page lives under the account", pagePath("login") === "/account/login" && pagePath("home") === "/" && pagePath("wishlist") === "/wishlist")
     check("and is called Sign in", pageTitleFromKey("login") === "Sign in")
+
+    /* One visitor's pages are not search results, even once a creator has saved them as pages. */
+    check("the sitemap leaves out the account, sign in and Wishlist pages, and keeps Contact",
+      listedPageKeys(["home", "about", "account", "login", "wishlist", "contact"]).join() === "home,about,contact")
+    const blocked = (path: string) => SITE_DISALLOW.some((rule) => (rule.endsWith("$") ? path === rule.slice(0, -1) : path.startsWith(rule)))
+    check("robots.txt keeps crawlers off them", ["/account", "/account/login", "/account?x=1", "/wishlist", "/wishlist?y=2"].every(blocked))
+    check("but not off a creator's own page that starts the same way", !blocked("/accounting") && !blocked("/wishlists-we-love") && !blocked("/contact"))
 
     const ctx = { currentPage: "home", inspectorEnabled: false, fromNav: true, shopPath: "/products", customPageKeys: [] as string[] }
     const to = (href: string) => resolveEditorHref(href, ctx)

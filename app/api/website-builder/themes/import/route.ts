@@ -31,7 +31,7 @@ import {
   type MediaKind,
 } from "@/lib/storelib-theme/media"
 import { SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
-import { sanitizeSections, sanitizeThemeSettings } from "@/lib/website-builder/sanitize-sections"
+import { ownSectionFields, sanitizeSections, sanitizeThemeSettings } from "@/lib/website-builder/sanitize-sections"
 import type { SectionInstance } from "@/lib/website-builder/types"
 import { STORELIB_DEFAULT_ID, THEME_REGISTRY, themeCatalogRow } from "@/lib/website-builder/theme-registry"
 
@@ -239,6 +239,8 @@ export async function POST(req: Request) {
     const settings = sanitizeThemeSettings(
       rewriteUrls(JSON.parse(pkg.files["config/settings.json"] ?? "{}"), refToUrl) as Record<string, unknown>,
     )
+    /* The package's own section files say which of their settings are rich text. */
+    const own = ownSectionFields(Object.entries(pkg.files).map(([path, content]) => ({ path, content })))
     const pages: { page_key: string; sections: unknown }[] = []
     for (const [path, text] of Object.entries(pkg.files)) {
       const m = path.match(/^templates\/([A-Za-z0-9_.\-]+)\.json$/)
@@ -247,6 +249,7 @@ export async function POST(req: Request) {
         page_key: m[1],
         sections: sanitizeSections(
           rewriteUrls(sectionsFromTemplate(JSON.parse(text)), refToUrl) as SectionInstance[],
+          own,
         ),
       })
     }

@@ -65,8 +65,9 @@ function main() {
             readFileSync(join(root, "app/(site)/w/[username]/not-published.tsx"), "utf8"),
           ),
     )
-    check("a renamed creator's site follows them to the new subdomain", /found\.kind === "renamed"\) redirect\(`https:\/\/\$\{found\.to\}\.\$\{getMainDomain\(\)\}`\)/.test(w))
-    check("its metadata reads published settings only", /const settings: ThemeSettingsValues = settingsRow\.settings \?\? \{\}/.test(w) && !/settingsRow\.draft_settings/.test(w))
+    check("a renamed creator's site follows them to the new subdomain, for good and to the same page",
+      /found\.kind === "renamed"\) permanentRedirect\(pageUrl\(`https:\/\/\$\{found\.to\}\.\$\{getMainDomain\(\)\}`, pageKey\)\)/.test(w))
+    check("its metadata reads published settings only", /const settings: ThemeSettingsValues = found\.site\.themeSettings \?\? \{\}/.test(w) && !/settingsRow\.draft_settings/.test(w))
     check("the preview path draws the shop too", /shopProducts\(admin as never, creatorId\)/.test(w))
 
     for (const f of ["app/(site)/w/[username]/render-site.tsx", "app/(marketing)/[sellername]/page.tsx", "components/website-builder/theme/render-product.tsx"]) {

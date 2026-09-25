@@ -247,6 +247,13 @@ async function main() {
     const reply = await handleContact(body({ creator_id: "99999999-9999-4999-8999-999999999999" }), d)
     check("a store that does not exist gets nothing written", reply.status === 404 && db.rows("subscribers").length === 0)
   }
+  {
+    const db = contactDb()
+    db.rows("creators")[0].banned_at = "2026-09-20T00:00:00Z"
+    const { deps: d, rec } = deps(db)
+    const reply = await handleContact(body(), d)
+    check("a banned store's form is no store's: nothing written, nothing sent", reply.status === 404 && db.rows("subscribers").length === 0 && db.rows("site_contact_messages").length === 0 && rec.sent.length === 0)
+  }
 
   // ═══════════════════════════════════════════════════════════════════════
   section("Nothing personal in the logs")

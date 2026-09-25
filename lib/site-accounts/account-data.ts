@@ -139,7 +139,9 @@ export async function siteCustomer(
         image: p.thumbnail_url ?? "",
         url: p.status === "published" && p.slug ? `/products/${p.slug}` : "",
         date: day(b.at),
-        action_label: digital ? "Download" : "Receipt",
+        /* The word says where the link goes: a thing to download, its
+           receipt, or the Library when an older order kept no receipt. */
+        action_label: digital ? "Download" : b.receiptToken ? "Receipt" : "Library",
         action_url,
         price: b.cents === null ? "" : b.cents === 0 ? "Free" : formatPrice(b.cents),
         at: b.at,

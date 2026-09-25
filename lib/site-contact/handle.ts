@@ -50,11 +50,13 @@ export async function handleContact(raw: unknown, deps: ContactDeps): Promise<Co
   const limited = await deps.limit(msg)
   if (limited) return { status: limited.status, body: { error: limited.error } }
 
-  /* A creator that does not exist gets nothing written for it. */
+  /* A creator that does not exist gets nothing written for it, and nor does
+     a banned one, whose website answers as no site (lib/seo/bans.ts). Read
+     whole, so a database without the ban column simply has no bans. */
   let exists = false
   try {
-    const { data } = await deps.db.from("creators").select("id").eq("id", msg.creatorId).maybeSingle()
-    exists = !!data
+    const { data } = await deps.db.from("creators").select("*").eq("id", msg.creatorId).maybeSingle()
+    exists = !!data && !(data as { banned_at?: string | null }).banned_at
   } catch {
     exists = false
   }

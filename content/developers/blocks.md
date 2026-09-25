@@ -1,6 +1,6 @@
 # Blocks
 
-A block is a repeatable child of a section: one question in an FAQ, one slide in a carousel, one logo in a strip, one tier on a pricing table. The section declares which block types it accepts and what settings each has. The creator then adds, removes, reorders, duplicates and hides blocks in the builder, and the section's author writes none of that.
+A block is a repeatable child of a section: one question in an FAQ, one slide in a carousel, one logo in a strip, one tier on a pricing table. The section declares which block types it accepts and what settings each has. The creator then adds, removes, reorders and duplicates blocks in the builder, and the section's author writes none of that.
 
 **Repeated content is always blocks.** Never `question_1`, `question_2`, `question_3` as settings. Numbered settings cannot be reordered, cannot grow past the number somebody guessed, and leave an empty control in the panel for every one that is not used.
 
@@ -31,7 +31,16 @@ In the schema, `blocks` lists the types this section accepts:
 | `settings` | The block's own settings, declared exactly like a section's. See [Schema](/developers/schema). |
 | `limit` | The most of this type one section may hold. |
 
-`max_blocks` on the section caps the total across all types. Both limits are enforced by the builder and by the importer, under a hard ceiling:
+`max_blocks` on the section caps the total across all types. Where each limit is held:
+
+| Where | `limit` per type | `max_blocks` | 50 per section |
+| --- | --- | --- | --- |
+| The builder's Add and Duplicate buttons | yes | yes | yes |
+| A connected agent's page tools | no | yes | yes |
+| Saving a page, from anywhere | no | no | yes |
+| Importing a theme | no | no | yes |
+
+So `limit` and `max_blocks` shape what a creator can do in the builder, and the ceiling of 50 holds everywhere. The ceiling, with the framework's other limits:
 
 @[limits]
 
@@ -39,7 +48,7 @@ A section with no `blocks` key has no block controls at all.
 
 ## Rendering blocks
 
-`blocks` is the instance's blocks in order, each `{ id, type, settings }`, with the block definition's defaults applied and hidden blocks already left out.
+`blocks` is the instance's blocks in order, each `{ id, type, settings }`, with the block type's defaults applied.
 
 ```storelib
 {% for block in blocks %}
@@ -62,7 +71,7 @@ A section with no `blocks` key has no block controls at all.
 
 ## How blocks are stored
 
-In the page, as an ordered list on the section instance. A block stores only the settings the creator changed.
+In the page, as an ordered list on the section instance. A block that came with a preset stores the preset's settings for it; a block added with Add stores all of its type's defaults at that moment; and every value the creator sets is stored.
 
 ```json
 "blocks": [
@@ -71,8 +80,9 @@ In the page, as an ordered list on the section instance. A block stores only the
 ]
 ```
 
-- A block id is minted when the block is created and never changes. Reordering changes the order of the list only; duplicating mints a new id for the copy.
-- A block whose type the section no longer declares is **kept** with its settings and drawn by nothing. Updating a section never deletes content, so the creator can decide what to do with it.
+- A block id is a string made when the block is created, and it never changes. Reordering changes the order of the list only; duplicating a block, or a section, gives the copy new ids. Treat an id as opaque.
+- A block whose type the section no longer declares is **kept** with its settings. It is still in `blocks`, so a template that tests `block.type` draws nothing for it. Updating a section never deletes content, so the creator can decide what to do with it.
+- There is no hidden block in the builder. A theme package may mark a block `"hidden": true`, and such a block is left out of `blocks`.
 - An exported theme writes blocks in the portable form, `"blocks": { "blk_8f2a": { … } }` with a separate `"block_order"` array, and import converts it back. You will only meet that form inside a `.storelib-theme` file.
 
 ## Presets fill a new section
@@ -93,7 +103,9 @@ A **preset** is what Add Section offers. One that adds blocks makes the section 
 ]
 ```
 
-Each preset block becomes a real block with a fresh id and the preset's settings, if it gives any, over the block's defaults. A preset that names a block type or a setting the section does not declare is a schema error. **A section with no presets is not offered in Add Section** at all; it can still be placed by code or by import.
+Each preset block becomes a real block with the preset's settings, if it gives any, and the block type's defaults for the rest when it is drawn. A preset that names a block type the section does not declare, or a section setting it does not declare, is a schema error. **A section with no presets is not offered in Add Section** at all; an instance already on a page keeps working, and one can still arrive by import or from an agent's page tools.
+
+With several presets, Add Section shows one card for each, named by the preset.
 
 ## Products are shaped like blocks
 

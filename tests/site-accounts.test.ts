@@ -162,6 +162,10 @@ async function main() {
     check("an unknown name is nobody's", (await siteOwnerOfHost(db, "ghost.storelib.com", RULES)) === null)
     const broken = new FakeSupabase()
     check("a database that answers nothing places nothing", (await siteOwnerOfHost(broken, "maralind.storelib.com", RULES)) === null)
+    const banned = sitesDb()
+    banned.rows("creators").find((c) => c.id === CREATOR)!.banned_at = "2026-09-20T00:00:00Z"
+    check("a banned creator's website is no website to sign in to", (await siteOwnerOfHost(banned, "maralind.storelib.com", RULES)) === null && (await siteOwnerOfHost(banned, "maralind.com", RULES)) === null)
+    check("and a ban on one creator leaves the others be", (await siteOwnerOfHost(banned, "other.shop", RULES))?.creatorId === OTHER_CREATOR)
   }
 
   // ═══════════════════════════════════════════════════════════════════════
@@ -392,6 +396,11 @@ async function main() {
     check("anything else opens its receipt", customer?.orders[0].action_url === "https://storelib.com/receipt/r-tok" && customer.orders[0].action_label === "Receipt")
     check("the price is written out", customer?.orders[0].price === "$29.00")
     check("a refunded order is not a purchase", !customer?.orders.some((o) => o.date.includes("24")))
+
+    /* An older physical order that kept no receipt: the link goes to the Library, and says so. */
+    db.rows("orders")[0].receipt_token = null
+    const older = await siteCustomer(db, A, "https://storelib.com")
+    check("with no receipt kept, the link is the Library and is called that", older?.orders[0].action_url === "https://storelib.com/library" && older.orders[0].action_label === "Library", older?.orders[0])
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)

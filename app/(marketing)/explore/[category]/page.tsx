@@ -3,6 +3,7 @@ import { notFound } from "next/navigation"
 import { CATEGORY_PAGES } from "@/lib/explore/category-pages"
 import { createClient } from "@/lib/supabase/server"
 import { CategoryPageClient } from "@/components/explore/category-page-client"
+import { jsonLdScript } from "@/lib/seo/json-ld"
 
 /*
   The list moved to lib/explore/category-pages so that whatever DRAWS a link
@@ -170,7 +171,7 @@ export default async function CategoryPage({ params }: Props) {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
+          __html: jsonLdScript({
             "@context": "https://schema.org",
             "@type": "CollectionPage",
             "name": categoryLabel,
