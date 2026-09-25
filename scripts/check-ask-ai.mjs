@@ -9,8 +9,9 @@
  *
  *   1440x900 (and 1280x800 for the geometry)
  *     PILL        centred on the canvas, 20px above its bottom, 660 wide and
- *                 52 to 56 tall, frosted (backdrop-filter on it and on the
- *                 halo around it), and the canvas does not move for it
+ *                 52 to 56 tall, frosted inside its own shape, a soft glow
+ *                 round it (a shadow; its edges are measured by
+ *                 scripts/check-ask-dock.mjs), and the canvas does not move
  *     OPEN        focusing it opens the conversation over ~300ms: sampled
  *                 every frame, only transform, opacity and visibility
  *                 animate, it rises and fades in, and the canvas is still
@@ -29,9 +30,10 @@
  *                 listens, the words in the box, and nothing sent
  *     TOOLBAR     the section toolbar over the pill: the pill steps away
  *   390x844
- *     SHEET       the header's history, new chat, maximize and close, each
- *                 44px; the composer's buttons 44px; maximize moves the
- *                 sheet between its stops; the history slides in
+ *     SHEET       the header's history (the chat's name), Connect AI, new
+ *                 chat and close, each answering 44px; the composer's
+ *                 buttons 44px; the model menu is the shared bottom sheet;
+ *                 the history slides in
  *
  *   node scripts/check-ask-ai.mjs          (PROBE_CSS=source without a build)
  *
@@ -115,6 +117,23 @@ window.__posts = [];
     }
     return json({});
   };
+  /* A request with pictures goes over XMLHttpRequest, for its upload progress: answered by the same stub, streamed into responseText. */
+  window.XMLHttpRequest = function () {
+    var self = this;
+    this.readyState = 0; this.status = 0; this.responseText = ""; this.upload = {};
+    this.open = function (m, u) { self._m = m; self._u = u };
+    this.setRequestHeader = function () {};
+    this.abort = function () { self.onabort && self.onabort() };
+    this.send = function (body) {
+      setTimeout(function () { self.upload.onprogress && self.upload.onprogress({ lengthComputable: true, loaded: 1, total: 2 }) }, 100);
+      window.fetch(self._u, { method: self._m, body: body }).then(function (res) {
+        self.status = res.status; self.readyState = 2; self.onreadystatechange && self.onreadystatechange();
+        var reader = res.body.getReader(), dec = new TextDecoder();
+        var pump = function () { return reader.read().then(function (r) { if (r.value) { self.responseText += dec.decode(r.value, { stream: true }); self.onprogress && self.onprogress({}) } if (r.done) { self.readyState = 4; self.onload && self.onload(); return } return pump() }) };
+        return pump();
+      });
+    };
+  };
   if (q.get("speech") === "fake") {
     var Fake = function () { this.onresult = null; this.onerror = null; this.onend = null; this.onstart = null };
     Fake.prototype.start = function () {
@@ -170,10 +189,11 @@ async function desktop(browser, vp, label, full) {
   const glass = await p.evaluate(() => {
     const g = getComputedStyle(document.querySelector("[data-ask-glass]"))
     const h = getComputedStyle(document.querySelector("[data-ask-halo]"))
-    return { glass: g.backdropFilter, fill: g.backgroundColor, halo: h.backdropFilter, mask: (h.maskImage || h.webkitMaskImage || "").slice(0, 40), haloOpacity: h.opacity }
+    return { glass: g.backdropFilter, fill: g.backgroundColor, halo: h.backdropFilter, shadow: h.boxShadow.slice(0, 60), haloOpacity: h.opacity }
   })
   expect(/blur\(24px\)/.test(glass.glass) && /saturate/.test(glass.glass) && /(, 0\.7\)| \/ 0\.7\))$/.test(glass.fill), "the pill is frosted: a blur and a whitish fill", glass)
-  expect(/blur/.test(glass.halo) && /radial-gradient/.test(glass.mask) && glass.haloOpacity === "1", "with a soft blurred halo round it that fades out", { halo: glass.halo, mask: glass.mask })
+  /* The glow's edges are measured pixel by pixel in scripts/check-ask-dock.mjs (FADE). */
+  expect(glass.halo === "none" && /rgba\(248, 249, 250/.test(glass.shadow) && glass.haloOpacity === "1", "with a soft glow round it: a shadow, no filter and no mask", { halo: glass.halo, shadow: glass.shadow })
   const mic0 = await p.$("[data-ask-mic]")
   expect(!!mic0, "with a recogniser, the microphone is there")
   await p.screenshot({ path: join(shots, `${PREFIX}${label}-pill.png`) })
@@ -318,7 +338,8 @@ async function desktop(browser, vp, label, full) {
   await p.click("[data-ask-mic]")
   await sleep(350)
   const hearing = await p.evaluate(() => ({ state: document.querySelector("[data-ask-mic]").getAttribute("data-ask-mic"), clock: document.querySelector("[data-ask-voice-clock]")?.textContent, text: document.querySelector("[data-ask-pill] textarea").value }))
-  expect(hearing.state === "listening" && hearing.clock === "0:00" && hearing.text === "make the hero", "the microphone listens, with a clock, and the words arrive while they are said", hearing)
+  /* They type themselves in a few characters a frame, so a moment in they are on their way to "make the hero". */
+  expect(hearing.state === "listening" && hearing.clock === "0:00" && hearing.text.length > 0 && "make the hero".startsWith(hearing.text), "the microphone listens, with a clock, and the words arrive while they are said", hearing)
   await p.screenshot({ path: join(shots, `${PREFIX}${label}-listening.png`) })
   await sleep(400)
   await p.click("[data-ask-mic]")
@@ -401,34 +422,29 @@ async function phone(browser) {
   await p.setViewport({ width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 2 })
   await p.goto(`file://${join(stubs, "index.html")}?speech=fake#phone`)
   await sleep(1100)
-  const head = await p.$$eval("[data-ask-header] button", (b) => b.map((x) => { const r = x.getBoundingClientRect(); return [x.getAttribute("aria-label"), Math.round(r.width), Math.round(r.height)] }))
-  expect(["Conversation history", "New chat", "Maximize", "Close chat"].every((x) => head.some((h) => h[0] === x || (x === "Maximize" && h[0] === "Restore size"))), "the sheet has history, new chat, maximize and close", head.map((h) => h[0]))
-  expect(head.every(([, w, h]) => w >= 44 && h >= 44), "each at least 44px", head)
+  const head = await p.$$eval("[data-ask-header] button", (b) => b.map((x) => {
+    const r = x.getBoundingClientRect()
+    /* A pill smaller than 44px answers a thumb through its ::after box. */
+    const after = getComputedStyle(x, "::after")
+    const reach = after.content !== "none" && after.position === "absolute" ? r.height - parseFloat(after.top) - parseFloat(after.bottom) : r.height
+    return [x.getAttribute("aria-label") || x.textContent.trim(), Math.round(r.width), Math.round(reach)]
+  }))
+  /* A phone's sheet is resized by its handle; its top row gives maximize's room to Connect AI. */
+  expect(["Conversation history", "Connect AI", "New chat", "Close chat"].every((x) => head.some((h) => h[0] === x)) && !head.some((h) => h[0] === "Maximize" || h[0] === "Restore size"), "the sheet has history, Connect AI, new chat and close", head.map((h) => h[0]))
+  expect(head.every(([, w, h]) => w >= 44 && h >= 44), "each answers at least 44px", head)
   const composer = await p.$$eval("[data-chat-composer] button", (b) => b.map((x) => { const r = x.getBoundingClientRect(); return [x.getAttribute("aria-label") || x.textContent.trim(), Math.round(r.width), Math.round(r.height)] }))
   expect(composer.length >= 4 && composer.every(([, w, h]) => w >= 44 && h >= 44), "the composer's buttons, model, attach, microphone and send, 44px", composer)
   const noSideways = await p.$eval("[data-ask-sheet]", (e) => e.scrollWidth <= e.clientWidth)
   expect(noSideways, "nothing in the sheet is wider than it")
   await p.screenshot({ path: join(shots, `${PREFIX}phone-390-sheet.png`) })
 
-  const sheetTop = () => p.evaluate(() => Math.round(document.querySelector("[data-mobile-bottom-sheet]").getBoundingClientRect().top))
-  const top0 = await sheetTop()
-  const label0 = await p.$eval("[data-ask-maximize]", (b) => b.getAttribute("aria-label"))
-  await p.tap("[data-ask-maximize]")
-  await sleep(600)
-  const top1 = await sheetTop()
-  const label1 = await p.$eval("[data-ask-maximize]", (b) => b.getAttribute("aria-label"))
-  await p.tap("[data-ask-maximize]")
-  await sleep(600)
-  const top2 = await sheetTop()
-  expect(label0 === "Restore size" && top1 > top0 + 200 && label1 === "Maximize" && Math.abs(top2 - top0) <= 1, "maximize moves the sheet between its tallest stop and half, and back", { top0, top1, top2, label0, label1 })
-
   await p.tap("[data-ask-model]")
-  await sleep(250)
-  const menu = await p.$$eval("[data-ask-model-menu] [role=option]", (o) => o.map((x) => [x.textContent.slice(0, 13), Math.round(x.getBoundingClientRect().height)]))
-  expect(menu.length === 3 && menu.every(([, h]) => h >= 44), "the model menu: three choices, each 44px or more", menu)
+  await sleep(700)
+  const menu = await p.$$eval("[data-ask-model-menu] [role=option]", (o) => o.map((x) => [x.textContent.slice(0, 13), Math.round(x.getBoundingClientRect().height), !!x.closest("[data-app-sheet]")]))
+  expect(menu.length === 3 && menu.every(([, h, inSheet]) => h >= 44 && inSheet), "the model menu is the shared bottom sheet: three choices, each 44px or more", menu)
   await p.screenshot({ path: join(shots, `${PREFIX}phone-390-models.png`) })
-  await p.tap("[data-ask-header]")
-  await sleep(200)
+  await p.keyboard.press("Escape")
+  await sleep(600)
   await p.tap("[data-ask-history-button]")
   await sleep(500)
   const hist = await p.evaluate(() => ({ rows: document.querySelectorAll("[data-history-row]").length, h: Math.round(document.querySelector("[data-history-row]").getBoundingClientRect().height), t: getComputedStyle(document.querySelector('[data-ask-view="history"]')).transform }))

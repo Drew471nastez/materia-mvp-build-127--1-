@@ -17,7 +17,7 @@
  *                 visitor's address, name and words
  *   BEFORE SQL    the email still goes; nothing is claimed that is not so
  */
-import { readFileSync } from "node:fs"
+import { readFileSync, readdirSync } from "node:fs"
 import { join } from "node:path"
 import { FakeSupabase, type Row } from "./fake-supabase"
 import {
@@ -302,8 +302,12 @@ async function main() {
   section("The SQL: one statement per line, safe twice, nobody but the server writes")
   // ═══════════════════════════════════════════════════════════════════════
   {
-    const part = read("supabase/sql/run-now/XX_site_accounts_contact.sql")
-    const migration = read("supabase/migrations/20261003_site_accounts_contact.sql")
+    /* By its topic, not its number: it is XX_ until the lead numbers it. */
+    const partName = readdirSync(join(process.cwd(), "supabase/sql/run-now")).find((f) => /_site_accounts_contact\.sql$/.test(f)) ?? ""
+    const migrationName = readdirSync(join(process.cwd(), "supabase/migrations")).find((f) => /_site_accounts_contact\.sql$/.test(f)) ?? ""
+    const part = partName ? read(`supabase/sql/run-now/${partName}`) : ""
+    const migration = migrationName ? read(`supabase/migrations/${migrationName}`) : ""
+    check("there is a run-now part and a migration", !!partName && !!migrationName)
     check("the migration and the run-now part are the same text", part === migration)
     check("every line is a comment or one whole statement", part.trim().split("\n").every((l) => l.startsWith("/*") ? l.endsWith("*/") : l.trim().endsWith(";")))
     check("no -- comments", !/^\s*--/m.test(part))
@@ -313,7 +317,11 @@ async function main() {
     check("and nobody but the server writes them", /REVOKE INSERT, UPDATE, DELETE ON public\.site_contact_messages FROM anon, authenticated/.test(part))
     check("the codes are the server's alone", /REVOKE ALL ON public\.site_account_codes FROM anon, authenticated/.test(part))
     check("the status list keeps every status it had and adds wrote", /'subscribed', 'unsubscribed', 'bounced', 'complained', 'cleaned', 'customer', 'wrote'/.test(part))
-    check("it is listed in the README and checked after", /XX_site_accounts_contact\.sql/.test(read("supabase/sql/run-now/README.md")) && /pxx_site_accounts_contact/.test(read("supabase/sql/run-now/99_check_after.sql")))
+    /* Its column in 99 comes with its number: the four paste files end with 99 word for word, and carry numbered parts only. */
+    const numbered = /^\d{2}_/.test(partName)
+    check("it is listed in the README, and checked after once it is numbered",
+      read("supabase/sql/run-now/README.md").includes(partName) &&
+        (!numbered || /as p\d{2}_site_accounts_contact/.test(read("supabase/sql/run-now/99_check_after.sql"))))
   }
 
   for (const k of ["log", "warn", "error", "info"] as const) console[k] = original[k]

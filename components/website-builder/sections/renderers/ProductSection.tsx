@@ -337,7 +337,7 @@ export function ProductSection({ section, theme, isEditing, isSelected, onClick 
                    table as a Website order (lib/orders/order-source.ts);
                    the rest says which website and where its visit came from. */
                 if (storefront.creatorId) void trackFunnelStep("buy_click", storefront.creatorId, productId)
-                window.location.href = checkoutHrefWithOrigin(`/checkout?productId=${encodeURIComponent(productId)}${from}&src=website`, pageOrigin())
+                window.location.href = checkoutHrefWithOrigin(`/checkout?productId=${encodeURIComponent(productId)}${from}&src=website`, pageOrigin(), window.location.href)
               }}
               className="w-full py-3.5 text-base font-semibold text-white rounded-lg transition-colors cursor-pointer disabled:cursor-not-allowed"
               style={{ background: primaryColor, ...buttonRadiusStyle(theme) }}

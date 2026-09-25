@@ -181,8 +181,15 @@ function main() {
     check("nothing puts it on a page", !/store_theme_pages/.test(route))
     check("and the creator's own client reads what is already there, so RLS decides", /const supabase = await createClient\(\)/.test(route) && !/createAdminClient/.test(route))
 
-    check("the chat asks which of the two things is wanted", /Change this page/.test(chat) && /Code a section/.test(chat))
-    check("with suggestions the library does not already cover", /CODE_SUGGESTIONS/.test(chat) && /comparison table/.test(chat))
+    /* Two words a side now, so the row is one row on a 360px phone (components/website-builder/ask-parts.tsx). */
+    const parts = read("components/website-builder/ask-parts.tsx")
+    const suggest = read("lib/website-builder/ask-suggestions.ts")
+    check("the chat asks which of the two things is wanted", /\["change", "Change page"\]/.test(parts) && /\["code", "Code section"\]/.test(parts) && /<ModeSwitch/.test(chat))
+    check(
+      "with suggestions the library does not already cover, and not ones the page already has",
+      /if \(ctx\.mode === "code"\) picked = toCode\(ctx\)/.test(suggest) && /A comparison table of my plans/.test(suggest) &&
+        /ideas\.filter\(\(\[, taken\]\) => !types\.some\(\(t\) => taken\.test\(t\)\)\)/.test(suggest),
+    )
     check("and the written section opens in the code editor to be read", /onOpenCodeEditor\(written\.path\)/.test(chat))
   }
 

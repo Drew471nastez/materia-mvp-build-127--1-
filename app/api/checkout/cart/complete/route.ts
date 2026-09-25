@@ -4,6 +4,8 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { getMainDomain } from "@/lib/url-helpers"
 import { fulfilCartSession } from "@/lib/checkout/fulfil-cart-session"
+import { checkoutReturnTarget, paidReturnUrl } from "@/lib/checkout/return-url"
+import { siteHostsFor } from "@/lib/checkout/site-hosts"
 
 export const runtime = "nodejs"
 
@@ -65,6 +67,15 @@ export async function GET(request: Request) {
       path: "/",
       domain: isLocalhost ? undefined : `.${mainDomain}`,
     })
+
+    /* Back to the creator's website when the basket came from one, checked
+       again here against THIS creator's own sites (the address is in a URL
+       anybody can edit). The receipt is emailed either way. */
+    const back = checkoutReturnTarget(searchParams.get("return"), {
+      hosts: searchParams.get("return") ? await siteHostsFor(result.creatorId) : [],
+      mainDomain,
+    })
+    if (back) return NextResponse.redirect(paidReturnUrl(back))
 
     return NextResponse.redirect(`${platform}/receipt/${encodeURIComponent(result.receiptToken)}`)
   } catch (error) {

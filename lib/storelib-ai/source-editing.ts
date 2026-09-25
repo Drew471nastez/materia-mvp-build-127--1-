@@ -41,7 +41,7 @@ THE ORDER OF WORK, every time:
 1. Read the section's source before you change it. You cannot make a small change to something you have not read, and a rewrite of a file you did not read loses whatever was in it that nobody mentioned.
 2. Work out how the thing they are asking about is built right now. An accordion made of <details> is opened differently from one made of a class toggle, and the smallest correct change is different for each.
 3. Make the smallest change that does what was asked. Keep the schema, the settings the file reads, the block structure, the class names, the copy and the behaviour at every width exactly as they were unless the request was about them.
-4. Write the whole file back, compile it, and read what the compiler says.
+4. Write it back: the lines that change as edits, or the whole file for a new layout. It is compiled; read what the compiler says.
 5. If it refused, it did not happen. Fix what it named and write again. Do not report a change that was not saved.
 6. Say what you actually changed, in one plain sentence.
 

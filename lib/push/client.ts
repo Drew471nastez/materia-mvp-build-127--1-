@@ -104,13 +104,16 @@ export async function initPushNotifications(): Promise<void> {
   })
 
   PushNotifications.addListener("pushNotificationActionPerformed", ({ notification }) => {
-    const { type } = (notification.data ?? {}) as { type?: string }
+    const { type, url } = (notification.data ?? {}) as { type?: string; url?: string }
     console.log("[push] Notification tapped, type:", type)
 
     if (type === "sale") {
       window.location.href = "/app/sales"
     } else if (type === "payout_available") {
       window.location.href = "/app/payouts"
+    } else if (type === "notification") {
+      /* lib/notifications/push: the page it is about, always inside /app. */
+      window.location.href = typeof url === "string" && /^\/app(?:[/?#]|$)/.test(url) && !url.includes("//") ? url : "/app"
     }
   })
 

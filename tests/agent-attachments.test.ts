@@ -210,15 +210,24 @@ check(
   "the reading order is spelled out, every step",
   (() => {
     const text = describeImages(one, true)
-    return ["1. LAYOUT", "2. SPACING", "3. TYPE", "4. COLOUR", "5. SHAPE", "6. THE PARTS"].every((step) =>
+    return ["1. LAYOUT", "2. HIERARCHY", "3. SPACING", "4. TYPE", "5. COLOUR", "6. SHAPE", "7. THE PARTS"].every((step) =>
       text.includes(step),
     )
   })(),
 )
 
+/**
+ * "Create me something similar": the picture's layout, hierarchy and style,
+ * built with this site's theme and filled with the creator's own words and
+ * products. A picture is usually somebody else's page, so its words, logo
+ * and prices are never copied onto the creator's site.
+ */
 check(
-  "the words in the picture are the words in the section",
-  /WRITE THE WORDS THAT ARE IN THE PICTURE/.test(describeImages(one, true)),
+  "the picture is the brief for layout and style, and the words are the creator's",
+  /reference for layout, hierarchy and style/.test(describeImages(one, true)) &&
+    /DO NOT COPY ITS WORDS, LOGOS OR BRAND/.test(describeImages(one, true)) &&
+    /read_store/.test(describeImages(one, true)) &&
+    !/WRITE THE WORDS THAT ARE IN THE PICTURE/.test(describeImages(one, true)),
 )
 
 check(
@@ -227,8 +236,13 @@ check(
 )
 
 check(
-  "colours come off the image but stay the creator's to change",
-  /set them as the\n     section's own colours/.test(describeImages(one, true)),
+  "colours map to the site's own schemes, with the section's own colours only as a fallback",
+  /Use the colour\n     scheme of this site closest to it/.test(describeImages(one, true)) && /only when no scheme is close/.test(describeImages(one, true)),
+)
+
+check(
+  "a picture it cannot read is a question, not a guess",
+  /IF YOU CANNOT READ IT/.test(describeImages(one, true)) && /ask_creator/.test(describeImages(one, true)),
 )
 
 {
@@ -693,26 +707,48 @@ section("The composer")
 // ---------------------------------------------------------------------------
 
 {
+  /*
+    The composer's pictures are made ready in components/website-builder/
+    ask-attach-prepare.ts (decode, shrink, encode, off the main thread where
+    it can be), by the rules in lib/website-builder/ask-attach.ts, and drawn
+    by ask-attachments.tsx. The chat holds the state and the request.
+  */
   const chat = read("components/website-builder/theme-chat.tsx")
+  const prepare = read("components/website-builder/ask-attach-prepare.ts")
+  const rules = read("lib/website-builder/ask-attach.ts")
+  const tray = read("components/website-builder/ask-attachments.tsx")
   check(
-    "Send is live when there is a picture and no words",
-    /disabled=\{draft\.trim\(\)\.length === 0 && attached\.length === 0\}/.test(chat),
+    "Send is live when there is a picture and no words, and waits while one is still being made ready",
+    /disabled=\{\(draft\.trim\(\)\.length === 0 && attached\.length === 0\) \|\| preparing\}/.test(chat),
   )
-  check("there is a file picker restricted to the types we accept", /accept=\{ALLOWED_IMAGE_TYPES\.join\(","\)\}/.test(chat))
+  check(
+    "the file picker offers the types the model reads, and video, which becomes stills; not HEIC by name, so an iPhone converts its photos to JPEG itself",
+    /accept=\{\[\.\.\.ALLOWED_IMAGE_TYPES, "video\/\*"\]\.join\(","\)\}/.test(chat) && !/accept=\{[^}]*heic/.test(chat),
+  )
   check("a pasted screenshot lands in it", /onPaste=/.test(chat) && /clipboardData\.files/.test(chat))
   check("so does a dragged file", /onDrop=/.test(chat) && /dataTransfer\.files/.test(chat))
-  check("each attached picture can be taken back off", /removeAttachment\(image\.id\)/.test(chat))
+  check("each attached picture can be taken back off", /onClick=\{\(\) => onRemove\(item\.id\)\}/.test(tray) && /onRemove=\{removeAttachment\}/.test(chat))
   check(
-    "a screenshot is shrunk before it is sent, to the size the model reads at",
-    /LONG_EDGE \/ long/.test(chat) && /canvas\.toDataURL\("image\/jpeg", 0\.92\)/.test(chat),
+    "a screenshot is shrunk before it is sent, to the size the model reads at, as JPEG at 0.92 first",
+    /const size = fitWithin\(decoded\.width, decoded\.height, LONG_EDGE\)/.test(prepare) &&
+      /const JPEG_QUALITY = 0\.92/.test(prepare) && /const scale = edge \/ long/.test(rules),
   )
   check(
-    "a picture already small enough is left exactly as it is",
-    /if \(long <= LONG_EDGE &&/.test(chat) && /out\.length < url\.length \? \{ url: out/.test(chat),
+    "a picture already small enough is left exactly as it is, and so is one the JPEG would not make smaller",
+    /if \(allowed && long <= LONG_EDGE && file\.size <= KEEP_BELOW_BYTES\)/.test(prepare) &&
+      /const url = await readAsDataUrl\(smaller \? blob : file\)/.test(prepare),
   )
   check(
     "and a transparent PNG is not flattened onto black",
-    /fillStyle = "#ffffff"/.test(chat) && /fillRect\(0, 0, canvas\.width, canvas\.height\)/.test(chat),
+    (prepare.match(/fillStyle = "#ffffff"/g) ?? []).length === 2 && (prepare.match(/fillRect\(0, 0, canvas\.width, canvas\.height\)/g) ?? []).length === 2,
+  )
+  check(
+    "a very detailed photo is encoded again a notch lower rather than sent over the per-picture limit",
+    /if \(blob\.size <= MAX_IMAGE_BYTES \* 0\.9\) return blob/.test(prepare),
+  )
+  check(
+    "the encode is asynchronous (toBlob, convertToBlob), never toDataURL, which stops the page for a large picture",
+    /convertToBlob\(/.test(prepare) && /canvas\.toBlob\(/.test(prepare) && !/toDataURL\(/.test(prepare) && !/toDataURL\(/.test(chat),
   )
   check(
     "the composer says the request is too big rather than letting it fail on the wire",
@@ -720,7 +756,8 @@ section("The composer")
   )
   check(
     "the limits shown in the UI are the server's limits, not a second copy",
-    /MAX_IMAGES/.test(chat) && /MAX_IMAGE_BYTES/.test(chat) && /LONG_EDGE/.test(chat) && !/\d \* 1024 \* 1024/.test(chat),
+    /MAX_IMAGES/.test(chat) && /MAX_IMAGE_BYTES/.test(prepare) && /LONG_EDGE/.test(prepare) &&
+      ![chat, prepare, tray].some((s) => /\d \* 1024 \* 1024/.test(s)),
   )
   check(
     "an image alone still reads as a request in the thread",

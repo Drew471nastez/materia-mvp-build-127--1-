@@ -25,6 +25,10 @@
     {
       "path": "/api/cron/strip-image-metadata",
       "schedule": "10 * * * *"
+    },
+    {
+      "path": "/api/cron/notifications",
+      "schedule": "25 * * * *"
     }
   ],
   "rewrites": [

@@ -15,6 +15,7 @@ import {
   markSetupNotificationRead,
   readUnreadOnly,
   refreshDbUnread,
+  setCovered,
   setDbUnread,
   setUnreadState,
   setupNotificationIds,
@@ -22,10 +23,12 @@ import {
   unreadCount,
   writeUnreadOnly,
 } from "@/lib/notifications/unread-state"
+import { inTabOf, panelHref, panelOrder, staysOnOpen, toneOf } from "@/lib/notifications/panel"
+import { CATEGORIES, type Category, type DigestItem } from "@/lib/notifications/types"
 
 interface Notification {
   id: string
-  type: "action" | "update" | "message" | "opportunity" | "new_review"
+  type: "action" | "update" | "message" | "opportunity" | "new_review" | string
   title: string
   description: string
   href?: string
@@ -33,6 +36,13 @@ interface Notification {
   createdAt: Date
   // For database notifications
   isFromDb?: boolean
+  /** From the rules engine (lib/notifications): how much it matters, and its word. */
+  category?: Category | null
+  kind?: string | null
+  priority?: number | null
+  area?: string | null
+  /** A digest's lines, each its own link. */
+  items?: DigestItem[] | null
 }
 
 interface DbNotification {
@@ -44,6 +54,24 @@ interface DbNotification {
   read_at: string | null
   created_at: string
   metadata?: Record<string, any>
+  kind?: string | null
+  category?: string | null
+  priority?: number | null
+}
+
+/** A row's category, if it is one the panel knows. */
+function categoryFrom(value: unknown): Category | null {
+  return typeof value === "string" && (CATEGORIES as readonly string[]).includes(value) ? (value as Category) : null
+}
+
+/** A digest's lines, as the engine wrote them in metadata, links inside the site only. */
+function itemsFrom(value: unknown): DigestItem[] | null {
+  if (!Array.isArray(value)) return null
+  const items = value
+    .filter((x): x is { title: string; href: string } => !!x && typeof x.title === "string" && typeof x.href === "string")
+    .map((x) => ({ title: x.title, href: panelHref(x.href) ?? "/app" }))
+    .slice(0, 5)
+  return items.length ? items : null
 }
 
 interface NotificationsModalProps {
@@ -180,6 +208,7 @@ export function NotificationsModal({
         const data = await res.json()
         setDbNotifications(data.notifications || [])
         if (typeof data.unreadCount === "number") setDbUnread(data.unreadCount)
+        if (data && "covered" in data) setCovered(data.covered)
       }
     } catch (err) {
       console.error("[notifications] Failed to fetch:", err)
@@ -238,14 +267,18 @@ export function NotificationsModal({
   }, [open, isMobile, onOpenChange])
 
   const setupIds = setupNotificationIds({ stripeConnected, stripeStatus, onePagePublished })
+  /* A to-do a server row already says better steps aside ("Set up payments"
+     beside "Stripe paused your payouts"). */
+  const covered = unread.covered ?? []
 
   // Combine generated notifications with database notifications
   const generatedNotifications: Notification[] = []
   // OnePage setup notification - only show if not published AND not dismissed
-  if (setupIds.includes("onepage-setup") && !unread.dismissed.includes("onepage-setup")) {
+  if (setupIds.includes("onepage-setup") && !unread.dismissed.includes("onepage-setup") && !covered.includes("onepage-setup")) {
     generatedNotifications.push({
       id: "onepage-setup",
       type: "opportunity",
+      category: "next_step",
       title: t("notifications.onepageTitle"),
       description: t("notifications.onepageDesc"),
       href: "/app/onepage",
@@ -255,10 +288,11 @@ export function NotificationsModal({
     })
   }
   // Payment setup notification - only show if not connected AND not dismissed
-  if (setupIds.includes("payment-setup") && !unread.dismissed.includes("payment-setup")) {
+  if (setupIds.includes("payment-setup") && !unread.dismissed.includes("payment-setup") && !covered.includes("payment-setup")) {
     generatedNotifications.push({
       id: "payment-setup",
       type: "action",
+      category: "next_step",
       title: t("notifications.paymentTitle"),
       description: t("notifications.paymentDesc"),
       href: "/app/settings/payments",
@@ -267,31 +301,29 @@ export function NotificationsModal({
       isFromDb: false,
     })
   }
-  /* The setup to-dos lead the list, as they did when they were stamped with
-     the moment the list was drawn; the rows follow, newest first. */
-  const notifications: Notification[] = [
+  /* What needs the creator first, whatever its age: critical, then
+     problems, then the next step (the setup to-dos are next steps). The rest
+     follow, newest first (lib/notifications/panel.ts). */
+  const notifications: Notification[] = panelOrder([
     ...generatedNotifications,
-    ...dbNotifications
-      .map((n) => ({
-        id: n.id,
-        type: n.type as Notification["type"],
-        title: n.title,
-        description: n.message,
-        href: n.action_url || undefined,
-        read: !!n.read_at,
-        createdAt: new Date(n.created_at),
-        isFromDb: true,
-      }))
-      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()),
-  ]
+    ...dbNotifications.map((n) => ({
+      id: n.id,
+      type: n.type as Notification["type"],
+      title: n.title,
+      description: n.message,
+      href: panelHref(n.action_url),
+      read: !!n.read_at,
+      createdAt: new Date(n.created_at),
+      isFromDb: true,
+      category: categoryFrom(n.category),
+      kind: n.kind ?? null,
+      priority: typeof n.priority === "number" ? n.priority : null,
+      area: typeof n.metadata?.area === "string" ? n.metadata.area : null,
+      items: itemsFrom(n.metadata?.items),
+    })),
+  ])
 
-  const inTab = notifications.filter((n) => {
-    if (activeTab === "all") return true
-    if (activeTab === "updates") return n.type === "update"
-    if (activeTab === "messages") return n.type === "message"
-    if (activeTab === "opportunities") return n.type === "opportunity"
-    return true
-  })
+  const inTab = notifications.filter((n) => inTabOf(n, activeTab))
   const filteredNotifications = unreadOnly ? inTab.filter((n) => !n.read) : inTab
   const shownIds = new Set(filteredNotifications.map((n) => n.id))
   const hasUnread = unreadCount(unread, setupIds) > 0 || notifications.some((n) => !n.read)
@@ -412,7 +444,11 @@ export function NotificationsModal({
   }
 
   const handleNotificationClick = async (notification: Notification) => {
-    if (notification.isFromDb) {
+    if (notification.isFromDb && staysOnOpen(notification)) {
+      /* Critical, a problem or a digest: opened and read, and it stays until
+         it is fixed, when it resolves and drops off by itself. */
+      void handleMarkRead(notification)
+    } else if (notification.isFromDb) {
       // For database notifications, mark as read and dismissed via API
       try {
         await fetch("/api/notifications", {
@@ -584,6 +620,8 @@ export function NotificationsModal({
 function categoryOf(n: Notification): string {
   if (n.id === "payment-setup") return "Payments"
   if (n.id === "onepage-setup") return "OnePage"
+  /* A rule names its own area: Payouts, Domains, Emails, Milestone. */
+  if (n.area) return n.area
   switch (n.type) {
     case "new_review":
       return "Reviews"
@@ -680,7 +718,15 @@ function NotificationTabs<T extends string>({
       placeRef.current(false)
     })
     ro.observe(row)
-    return () => ro.disconnect()
+    /* The typeface can land between the first placing and the observer's
+       first report, which is skipped: the pill then kept the fallback
+       face's width and cut into "All". Placed again once fonts are in. */
+    let live = true
+    document.fonts?.ready.then(() => live && placeRef.current(false)).catch(() => undefined)
+    return () => {
+      live = false
+      ro.disconnect()
+    }
   }, [])
 
   const word = "whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-medium md:px-2.5"
@@ -739,6 +785,7 @@ function NotificationItem({
 }) {
   const when = whenOf(notification.createdAt)
   const unread = !notification.read
+  const tone = toneOf(notification)
   return (
     <div
       className={cn(
@@ -777,15 +824,42 @@ function NotificationItem({
         )}
       />
       <div className="pointer-events-none relative min-w-0 flex-1">
-        <p data-notification-meta="" className="truncate text-[12.5px] leading-[18px] text-[#6b7280]">
-          {categoryOf(notification)}
-          {when ? <span className="px-1.5 text-[#b6bac1]">&bull;</span> : null}
-          {when}
+        {/* Critical: the word red, a small red dot before it. A problem: an
+            amber dot. Nothing else on the row changes: no red ground. */}
+        <p data-notification-meta="" data-tone={tone ?? undefined} className="flex min-w-0 items-center text-[12.5px] leading-[18px] text-[#6b7280]">
+          {tone ? (
+            <span
+              aria-hidden="true"
+              data-tone-dot=""
+              className={cn("mr-1.5 h-1.5 w-1.5 shrink-0 rounded-full", tone === "critical" ? "bg-[#d92d20]" : "bg-[#dc6803]")}
+            />
+          ) : null}
+          {tone === "critical" ? <span className="sr-only">Needs you now: </span> : null}
+          <span className={cn("truncate", tone === "critical" && "font-medium text-[#b42318]")}>{categoryOf(notification)}</span>
+          {when ? <span className="shrink-0 px-1.5 text-[#b6bac1]">&bull;</span> : null}
+          {when ? <span className="shrink-0">{when}</span> : null}
         </p>
         <p className={cn("mt-1 text-[14px] leading-5 text-[#1a1a2e]", unread ? "font-semibold" : "font-medium")}>
           {notification.title}
         </p>
-        <p className="mt-0.5 line-clamp-2 text-[13px] leading-[18px] text-[#6b7280]">{notification.description}</p>
+        {notification.items ? (
+          /* A digest: a line per opportunity, each its own link. */
+          <ul data-notification-digest="" className="mt-1 space-y-1.5">
+            {notification.items.map((item, i) => (
+              <li key={i} className="min-w-0">
+                <Link
+                  href={item.href}
+                  onClick={onClick}
+                  className="pointer-events-auto relative z-[1] line-clamp-2 rounded-sm text-[13px] leading-[18px] text-[#4b5563] underline-offset-2 outline-none hover:text-[#1a1a2e] hover:underline focus-visible:shadow-[0_0_0_2px_#1a1a2e]"
+                >
+                  {item.title}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-0.5 line-clamp-2 text-[13px] leading-[18px] text-[#6b7280]">{notification.description}</p>
+        )}
       </div>
       {unread ? (
         <button

@@ -419,6 +419,20 @@ async function resolveSite(name: string): Promise<ShopLookup> {
 }
 
 /**
+ * The same cached catalogue, for a route that already knows whose it is: the
+ * product page, so a product list placed on it draws the shop there too.
+ * Same key and tag as above, so the two share one entry and one purge.
+ */
+export async function cachedShopProducts(creatorId: string): Promise<ProductCard[]> {
+  if (!creatorId) return []
+  return unstable_cache(
+    () => shopProducts(createAdminClient() as never, creatorId),
+    ["shop-products", creatorId],
+    { tags: [creatorShopTag(creatorId)], revalidate: SHOP_TTL },
+  )()
+}
+
+/**
  * Publish and unpublish both call this. Unpublish matters as much: a site
  * taken down that stays in a cache is still up.
  */
