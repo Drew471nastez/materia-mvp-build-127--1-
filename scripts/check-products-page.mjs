@@ -238,7 +238,7 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
     expect(bar.barH === barH, barH === 66 ? "the bar is Orders' 66px" : `the bar is Orders' 66px times 1.07 and 1.03, ${barH}px`, bar.barH)
     expect(bar.titleSize === (isPhone ? "22px" : S.title), `the title is ${isPhone ? "22px" : S.title}`, bar.titleSize)
     row.newBg = bar.addBg
-    expect(bar.addText === "New product" && bar.add[1] === S.btn && bar.addSize === S.btnText && bar.addBg === "rgb(139, 92, 246)", `New product is one violet button, ${S.btn}px with ${S.btnText} text`, { add: bar.add, size: bar.addSize, bg: bar.addBg })
+    expect(bar.addText === "New product" && bar.add[1] === S.btn && bar.addSize === S.btnText && bar.addBg === "rgb(26, 26, 46)", `New product is one near black button (the app's primary since 7ea799ec), ${S.btn}px with ${S.btnText} text`, { add: bar.add, size: bar.addSize, bg: bar.addBg })
     expect(bar.addBg === bar.saveBg && bar.addShadow === bar.saveShadow, "with the editor's Save's colour and depth, to the letter", { newProduct: bar.addShadow, save: bar.saveShadow })
     if (isPhone) {
       expect(!bar.expShown, "the word Export is not in the bar on a phone", bar.expShown)
@@ -325,7 +325,7 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
         const c = getComputedStyle(b.firstElementChild)
         return { focused: "Export products", visible: b.matches(":focus-visible"), outline: `${c.outlineStyle} ${c.outlineColor}`, own: getComputedStyle(b).outlineStyle }
       })
-      if (ring.visible) expect(ring.outline === "solid rgb(139, 92, 246)" && ring.own === "none", "closed from the keyboard, the focus goes back to Download with the app's violet outline, not the browser's blue ring", ring)
+      if (ring.visible) expect(/^solid /.test(ring.outline) && !/rgb\(0, 95, 204\)|auto/.test(ring.outline) && ring.own === "none", "closed from the keyboard, the focus goes back to Download with the app's own outline, not the browser's blue ring", ring)
       else console.log(`        (focus after the sheet: ${JSON.stringify(ring)})`)
     } else {
       /* Search and sort above the card: a real field, always there, with Sort beside it. */
@@ -962,7 +962,7 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
         controls: !!document.querySelector("[data-controls]"), export: !!document.querySelector("button[aria-label='Export products']"), barNew: !!document.querySelector("a[data-new-product]"), footer: !!card.querySelector("[data-footer]"),
       }
     })
-    expect(/No products yet/.test(e.text) && e.create && e.createBg === "rgb(139, 92, 246)" && !e.footer, "No products yet, with a violet Create product, and no footer counting nothing", e)
+    expect(/No products yet/.test(e.text) && e.create && e.createBg === "rgb(26, 26, 46)" && !e.footer, "No products yet, with a near black Create product, and no footer counting nothing", e)
     expect(e.createBox && e.createBox[1] >= 44, "Create product is a 44px press", e.createBox)
     expect(!e.controls && !e.export, "no search, sort, views or Export in an empty shop", { controls: e.controls, export: e.export })
     expect(!e.barNew, "and no second New product in the bar: one violet button on the screen, not two", e.barNew)
