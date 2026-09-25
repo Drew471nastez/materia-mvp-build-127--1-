@@ -20,6 +20,8 @@
  * See docs/theme/00-architecture-and-migration.md.
  */
 
+import type { Menu } from "./values"
+
 // ── Versions ────────────────────────────────────────────────────────────────
 
 /** The version of the `.storelib` section format this engine reads. */
@@ -322,6 +324,46 @@ export interface RenderContext {
   section: { id: string; type: string }
   /** `asset://…` → URL, for the `asset` filter. */
   assets: Record<string, string>
+  /**
+   * WHAT THE STOREFRONT KNOWS ABOUT ITSELF, the same facts a dynamic source
+   * fills a setting with (lib/storelib-theme/dynamic.ts): the shop's name
+   * and address, the creator's public profile, and on a product page the
+   * product. Optional and empty when absent, so a section reading
+   * `{{ shop.name }}` in a thumbnail draws nothing rather than failing.
+   */
+  shop?: StorefrontData["shop"]
+  creator?: StorefrontData["creator"]
+  /** The product this page is about. Present on the product template only. */
+  product?: StorefrontData["product"]
+}
+
+/**
+ * The storefront's own facts, handed to a render by whoever has them. The
+ * engine only reads this; the application builds it from the creator's
+ * rows, published values only, with every piece of markup already cleaned.
+ */
+export interface StorefrontData {
+  /** Products a `product_picker` or `product_list` may name, block-shaped. */
+  catalog?: { id: string; type?: string; settings: Record<string, unknown> }[]
+  /** Menus by handle, for `link_list`. */
+  menus?: Record<string, Menu>
+  shop?: { name?: string; description?: string; url?: string; product_count?: number }
+  creator?: { name?: string; headline?: string; bio?: string; avatar?: string }
+  product?: {
+    id?: string
+    title?: string
+    price?: string
+    compare_price?: string
+    /** Words only. */
+    description?: string
+    /** Cleaned against the rich text allow list. Output with `raw`. */
+    description_html?: string
+    image?: string
+    images?: string[]
+    url?: string
+    /** "What's included", one line each. */
+    includes?: string[]
+  } | null
 }
 
 // ── Limits ──────────────────────────────────────────────────────────────────

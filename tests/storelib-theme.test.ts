@@ -555,7 +555,10 @@ section("A name that does not exist is an error, not an empty string")
     /No setting is called "headng"/.test(refused(`<template><h2>{{ settings.headng }}</h2></template>\n${schema()}`))
     && /declares: heading/.test(refused(`<template><h2>{{ settings.headng }}</h2></template>\n${schema()}`)))
   check("including through section.settings", /No setting is called "headng"/.test(refused(`<template>{{ section.settings.headng }}</template>\n${schema()}`)))
-  check("a root that is not part of a section is refused by name", /"product" is not something a section can read/.test(refused(`<template>{{ product.title }}</template>\n${schema()}`)))
+  check("a root that is not part of a section is refused by name", /"customer" is not something a section can read/.test(refused(`<template>{{ customer.email }}</template>\n${schema()}`)))
+  /* The storefront's own facts are roots now: the product a product page
+     shows, the shop and the creator. See lib/storelib-theme/types.ts. */
+  check("and the storefront's own roots are not", compileSection(`<template>{{ product.title }}{{ shop.name }}{{ creator.name }}</template>\n${schema().replace('"settings":[{"type":"text","id":"heading","label":"H"}]', '"settings":[]')}`, { file: "sections/t.storelib" }).ok === true)
   check("so is a key that is not on a section", /"section\.title" is always empty/.test(refused(`<template>{{ section.title }}</template>\n${schema()}`)))
   check("looping over blocks a section never declared is refused", /declares none/.test(refused(`<template>{% for b in blocks %}{{ b.settings.q }}{% endfor %}</template>\n${schema()}`)))
   check("and a block setting that does not exist is refused", /No block setting is called "q"/.test(refused(`<template>{% for b in blocks %}{{ b.settings.q }}{% endfor %}</template>\n${schema(BLOCKS)}`)))

@@ -3,7 +3,7 @@
  * editor, no renderers, no Supabase. See docs/theme/.
  */
 export * from "./types"
-export { CONTROLS, CONTROL_TYPES, LEGACY_TYPE_ALIASES, controlFor, controlsAsJson, controlsAsMarkdown, holdsValue, resolveControlType } from "./controls/registry"
+export { CONTROLS, CONTROL_TYPES, LEGACY_TYPE_ALIASES, SHOPIFY_TYPE_ALIASES, UNSUPPORTED_TYPES, controlFor, controlsAsJson, controlsAsMarkdown, holdsValue, resolveControlType } from "./controls/registry"
 export type { ControlDefinition, ControlType, ValueKind } from "./controls/registry"
 export { validateSectionSchema } from "./schema/validate"
 export { parseSchemaJson, parseStorelib } from "./storelib/parse"
@@ -14,6 +14,18 @@ export { checkScript, CAPABILITIES, FORBIDDEN_IDENTIFIERS, SCRIPT_CONTEXT } from
 export type { Capability } from "./storelib/script"
 export { compileSection, createCompileCache, createLru, COMPILE_CACHE_LIMIT, sourceHash } from "./storelib/compile"
 export { resolveInstance, resolveOne, resolveSettings, stripDefaults, fillResponsive, themeTokens } from "./resolve"
+export type { CatalogItem, ResolveOptions } from "./resolve"
+export {
+  Linked, SAFE_HREF, safeHref, isSafeHref, safeMediaUrl, isColor, cleanBackground, cleanFocalPoint, sanitizeInlineHtml,
+  INLINE_TAGS, plainText, decodeEntities, parseVideoUrl, VIDEO_HOSTS, parseDatetime, cleanDatetime, formatDatetime,
+  cleanMenu, cleanMenus, MENU_LIMITS, MENU_HANDLE,
+} from "./values"
+export type { Menu, MenuLink, VideoLink, VideoHost, DateParts } from "./values"
+export {
+  DYNAMIC_SOURCES, SOURCE_TARGETS, dynamicSource, sourcesIn, wholeSource, placeholderFor, sourcesFor, fillSources,
+  targetIsWhole, describePlaceholders,
+} from "./dynamic"
+export type { DynamicSource, DynamicContext, SourceKind, SourceTarget } from "./dynamic"
 export { renderSection } from "./render"
 export {
   SCHEME_COLOR_KEYS, SCHEME_COLOR_LABELS, SCHEME_COLOR_GROUPS, SECTION_OVERRIDE_KEYS, SCHEME_CSS_VARS, SCHEME_GRADIENT_VAR,

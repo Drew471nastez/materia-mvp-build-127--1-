@@ -35,6 +35,7 @@
  * goes in the section's own <script> block, where it is checked and scoped.
  */
 import type { RenderContext, Result, ThemeError } from "../types"
+import { Linked, formatDatetime, plainText, safeHref } from "../values"
 
 // ── AST ─────────────────────────────────────────────────────────────────────
 
@@ -485,6 +486,11 @@ function lookup(scope: Record<string, unknown>, segs: string[]): unknown {
     if (BLOCKED_KEYS.has(s)) return undefined
     if (cur === null || cur === undefined) return undefined
     if (typeof cur === "function") return undefined
+    /* A product picker that knows its product: the path reads the product. */
+    if (cur instanceof Linked) {
+      cur = Object.prototype.hasOwnProperty.call(cur.fields, s) ? cur.fields[s] : undefined
+      continue
+    }
     if (Array.isArray(cur)) {
       if (s === "size" || s === "length") { cur = cur.length; continue }
       if (s === "first") { cur = cur[0]; continue }
@@ -505,6 +511,7 @@ function lookup(scope: Record<string, unknown>, segs: string[]): unknown {
 
 function truthy(v: unknown): boolean {
   if (v instanceof Safe) return v.html !== ""
+  if (v instanceof Linked) return v.href !== ""
   if (Array.isArray(v)) return v.length > 0
   return v !== undefined && v !== null && v !== false && v !== "" && !(typeof v === "number" && Number.isNaN(v))
 }
@@ -512,6 +519,7 @@ function truthy(v: unknown): boolean {
 function str(v: unknown): string {
   if (v === undefined || v === null || v === false) return ""
   if (v instanceof Safe) return v.html
+  if (v instanceof Linked) return v.href
   if (typeof v === "object") return JSON.stringify(v)
   return String(v)
 }
@@ -547,12 +555,20 @@ const FILTERS: Record<string, Filter> = {
   escape: (v) => escapeHtml(str(v)),
   /** Only for values that were sanitised on the way in: richtext. */
   raw: (v) => new Safe(str(v)),
-  /** An href that is one of ours or an http(s)/mailto/tel address; anything else becomes "#". */
-  url: (v) => { const s = str(v).trim(); return /^(\/(?!\/)|https?:\/\/|mailto:|tel:|#)/i.test(s) ? s : s === "" ? "" : "#" },
+  /**
+   * An href that is one of ours or an http(s)/mailto/tel address; anything
+   * else becomes "#". `/\other.site` is another site to a browser, which
+   * reads the backslash as a slash, so it is not "one of ours".
+   */
+  url: (v) => safeHref(str(v)),
   /** A player address, or nothing. See EMBED_HOSTS. */
   embed: (v) => embedUrl(v),
   /** asset://… → the URL this account serves it from; a plain URL passes through. */
   asset: (v, _a, ctx) => { const s = str(v); return s.startsWith("asset://") ? (ctx.assets[s] ?? "") : s },
+  /** A `datetime` for people to read: "long" (the default), "short", "time", "long_time" or "iso". */
+  date: (v, [style]) => formatDatetime(str(v), style ?? "long"),
+  /** The words of some markup, for an alt text or a title made from rich text. */
+  strip_html: (v) => plainText(str(v)),
   /** A colour with alpha, for overlays: {{ settings.color | alpha: 0.4 }} */
   alpha: (v, [a]) => {
     const m = str(v).match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i)
@@ -574,8 +590,11 @@ function evaluate(e: Expr, scope: Record<string, unknown>, ctx: RenderContext): 
     case "bin": {
       if (e.op === "and") return truthy(evaluate(e.l, scope, ctx)) && truthy(evaluate(e.r, scope, ctx))
       if (e.op === "or") return truthy(evaluate(e.l, scope, ctx)) || truthy(evaluate(e.r, scope, ctx))
-      const l = evaluate(e.l, scope, ctx)
-      const r = evaluate(e.r, scope, ctx)
+      /* A Linked value compares as the address it prints as. */
+      const lv = evaluate(e.l, scope, ctx)
+      const rv = evaluate(e.r, scope, ctx)
+      const l = lv instanceof Linked ? lv.href : lv
+      const r = rv instanceof Linked ? rv.href : rv
       switch (e.op) {
         case "==": return l === r || (l == null && r == null) || (typeof l !== "object" && typeof r !== "object" && String(l) === String(r))
         case "!=": return !(l === r || (l == null && r == null) || (typeof l !== "object" && typeof r !== "object" && String(l) === String(r)))
@@ -639,6 +658,10 @@ export function renderTemplate(tpl: CompiledTemplate, ctx: RenderContext, opts: 
     scheme: ctx.scheme,
     page: ctx.page,
     section: { ...ctx.section, settings: ctx.settings, blocks: ctx.blocks },
+    /* What the storefront knows about itself: see RenderContext. */
+    shop: ctx.shop ?? {},
+    creator: ctx.creator ?? {},
+    product: ctx.product ?? null,
   }
   const walk = (nodes: Node[], scope: Record<string, unknown>) => {
     for (const n of nodes) {

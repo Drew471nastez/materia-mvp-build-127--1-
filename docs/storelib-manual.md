@@ -281,7 +281,7 @@ expose `size` and `length`. Objects expose their own keys only.
 
 ### 3.9 Filters
 
-All 25 of them.
+All 27 of them.
 
 | Filter | Does |
 | --- | --- |
@@ -299,15 +299,18 @@ All 25 of them.
 | `round: 2` | To that many decimal places. |
 | `json` | JSON encode. Safe in an attribute. |
 | `escape` | HTML escape. Output is already escaped, so this double-escapes. |
-| `raw` | Emit unescaped. For `richtext` only. |
+| `raw` | Emit unescaped. For `richtext`, `inline_richtext`, `html` and `product.description_html` only. |
 | `url` | Makes a link safe. See below. |
 | `embed` | Turns a video URL into a player URL. See section 11.3. |
 | `asset` | Turns `asset://<hash>` into the URL this account serves it from. |
 | `alpha: 0.5` | The same colour at the given alpha. Hex only. |
+| `date: "short"` | A `datetime` for people to read: `long` (14 March 2026), `short`, `time`, `long_time`, `iso`. Read as written, never moved to another time zone. |
+| `strip_html` | The words of some markup, on one line. For an alt text made from rich text. |
 
 `url` keeps root-relative `/…`, `http://`, `https://`, `mailto:`, `tel:` and
-`#…`. Everything else becomes `#`, including a protocol-relative `//host` and
-a plain relative path like `products/thing`. Put it on every `href` that comes
+`#…`. Everything else becomes `#`, including a protocol-relative `//host`,
+`/\host` (which a browser reads as `//host`) and a plain relative path like
+`products/thing`. Put it on every `href` that comes
 from a setting, including the ones you believe are internal.
 
 `alpha` accepts `#rgb` and `#rrggbb` only. Anything else passes through
@@ -331,8 +334,12 @@ renders the raw value with no link checking. Spell them correctly.
 | `page.template` | `"index"`, `"product"`, `"page.about"`. |
 | `page.in_editor` | True only while the builder is drawing. |
 | `forloop.*` | Inside a `for`. |
+| `products` | The creator's published products, newest first, shaped like blocks. |
+| `shop.*` | `name`, `description`, `url`, `product_count`. |
+| `creator.*` | The creator's public `name`, `headline`, `bio` and `avatar`. |
+| `product.*` | On the product page: `title`, `price`, `compare_price`, `description`, `description_html`, `image`, `images`, `url`, `includes`, `id`. Empty elsewhere. |
 
-Those seven roots are the whole context. Reading anything else is a compile
+Those eleven roots are the whole context. Reading anything else is a compile
 error that says so.
 
 `page.in_editor` is how a section shows an empty state to the person building
@@ -472,7 +479,7 @@ Every setting is an object with `type`, `id` and usually `label`, plus
   "min": 0, "max": 160, "step": 4, "unit": "px", "default": 64, "responsive": true }
 ```
 
-These are all 25 control types, with what they hold, what a template sees when
+These are all 33 control types, with what they hold, what a template sees when
 nothing was set, and whether they may carry a value per breakpoint.
 
 | Type | Holds | Default when unset | Responsive | Extra keys |
@@ -488,16 +495,24 @@ nothing was set, and whether they may carry a value per breakpoint.
 | `range` | number | `0` | yes | `min`, `max`, `step`, `unit` |
 | `color` | colour | `""` | no | |
 | `color_scheme` | enum | `"white"` | no | |
+| `color_background` | background | `""` | no | |
 | `font_picker` | string | `""` | no | |
 | `alignment` | enum | `"left"` | yes | |
+| `inline_richtext` | string | `""` | no | `placeholder` |
+| `html` | string | `""` | no | `placeholder` |
+| `datetime` | string | `""` | no | |
+| `focal_point` | string | `"50% 50%"` | no | `image` |
 | `image_picker` | asset | `""` | no | |
 | `image_gallery` | asset list | `[]` | no | `max` |
 | `video_picker` | asset | `""` | no | |
 | `file_picker` | asset | `""` | no | |
 | `icon_picker` | string | `""` | no | |
 | `url` | string | `""` | no | `placeholder` |
+| `video_url` | string | `""` | no | `accept`, `placeholder` |
 | `page_picker` | string | `""` | no | |
 | `product_picker` | string | `""` | no | |
+| `product_list` | reference list | `[]` | no | `limit` |
+| `link_list` | string | `""` | no | |
 | `community_picker` | string | `""` | no | |
 | `header` | nothing | | no | |
 | `paragraph` | nothing | | no | `content` |
@@ -510,9 +525,48 @@ Six older names still validate and mean the same as their current one: `link`
 is `url`, `image` is `image_picker`, `video` is `video_picker`, `icon` is
 `icon_picker`, `font` is `font_picker`, and `spacing` is `range`.
 
+Three of Shopify's names are accepted for the same reason, so a section
+brought across from a Shopify theme validates: `text_alignment` is
+`alignment`, `product` is `product_picker`, and `page` is `page_picker`.
+Shopify types with nothing to point at here (`collection`, `collection_list`,
+`blog`, `article`, `metaobject`, `metaobject_list`, `liquid`,
+`color_scheme_group`) are refused with the reason.
+
+What the newer types hold:
+
+- `inline_richtext` is one line of formatted text: bold, italic, underline,
+  links, a line break. It is rebuilt from an allow list when it is drawn, so
+  nothing else survives, and it is printed with `raw`.
+- `html` is markup a creator pastes. It is cleaned on save and on read against
+  the custom HTML allow list: no script, no forms, frames only from known
+  players. Printed with `raw`.
+- `color_background` is one colour or one CSS gradient. Only colours,
+  gradient functions, angles and stops pass; a value that could end the
+  declaration it sits in is refused.
+- `datetime` is `2026-03-14` or `2026-03-14T23:00`, with an optional zone.
+  Format it with the `date` filter.
+- `focal_point` is two percentages, `30% 70%`, for `object-position`. Its
+  `image` key names the picture setting beside it, and the editor lets the
+  creator tap the spot on that picture.
+- `video_url` is a YouTube or Vimeo link. Print it through `embed`.
+- `product_list` holds product ids and arrives as a list shaped like
+  `products`, with live titles, prices and pictures. `limit` is 12 unless
+  given, at most 24.
+- `link_list` holds a menu's handle and arrives as `{ handle, title, links }`,
+  each link `{ title, url, links }`, every address already made safe.
+  `main-menu` is the header's own links unless a menu of that name exists.
+
+Every value is checked against its type as the section is drawn. A value the
+type does not allow is drawn as the setting's default and kept as it was in
+the stored page, so a section never draws a word in a `range`, an option its
+`select` does not list, or a `javascript:` address in a `url`.
+
 What the validator refuses:
 
-- A type that is not one of the 25, with the list in the message.
+- A type that is not one of the 33, with the list in the message.
+- A `product_list` `limit` outside 1 to 24, a `video_url` `accept` naming a
+  host other than `youtube` or `vimeo`, and a `focal_point` whose `image` is
+  not an `image_picker` beside it.
 - A `select` or `radio` with no options, or a default that is not one of them.
 - `"responsive": true` on anything but `number`, `range` and `alignment`.
 - A `range` without both `min` and `max`, or with `min` at or above `max`.
@@ -1390,6 +1444,10 @@ For anybody writing a section, including a model asked to write one.
 | `scheme` | The chosen scheme, with this instance's overrides applied. |
 | `page` | `.template`, `.in_editor`. |
 | `forloop` | `.index`, `.index0`, `.first`, `.last`, `.length`. |
+| `products` | The creator's published products, block-shaped. |
+| `shop` | `.name`, `.description`, `.url`, `.product_count`. |
+| `creator` | `.name`, `.headline`, `.bio`, `.avatar`. |
+| `product` | On the product page only: the product it shows. |
 
 ### Tags
 
@@ -1404,13 +1462,14 @@ That is all of them.
 
 ### Setting types
 
-Values somebody types or picks: `text`, `textarea`, `richtext`, `number`,
-`toggle`, `checkbox`, `select`, `radio`, `range`, `color`, `color_scheme`,
-`font_picker`, `alignment`.
+Values somebody types or picks: `text`, `textarea`, `richtext`,
+`inline_richtext`, `html`, `number`, `toggle`, `checkbox`, `select`, `radio`,
+`range`, `color`, `color_background`, `color_scheme`, `font_picker`,
+`alignment`, `datetime`, `focal_point`.
 
 References to something else: `image_picker`, `image_gallery`, `video_picker`,
-`file_picker`, `icon_picker`, `url`, `page_picker`, `product_picker`,
-`community_picker`.
+`video_url`, `file_picker`, `icon_picker`, `url`, `page_picker`,
+`product_picker`, `product_list`, `link_list`, `community_picker`.
 
 Presentational, holding no value: `header`, `paragraph`, `divider`.
 

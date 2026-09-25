@@ -17,7 +17,7 @@ import { resolveInstance, themeTokens } from "./resolve"
 import { sectionTypography } from "./typography"
 import { cssForInstance } from "./storelib/css"
 import { renderTemplate, stripDocumentMarkup, type CompiledTemplate } from "./storelib/template"
-import type { CompiledSection, RenderContext, SectionInstanceData } from "./types"
+import type { CompiledSection, RenderContext, SectionInstanceData, StorefrontData } from "./types"
 
 export interface RenderInput {
   compiled: CompiledSection
@@ -35,6 +35,13 @@ export interface RenderInput {
    * did not supply any, and a section that asks for them draws none.
    */
   products?: RenderContext["products"]
+  /**
+   * What the storefront knows: the catalogue a product picker or list may
+   * name, the menus, the shop, the creator, and on a product page the
+   * product. Absent means none of it, and every setting that reads it
+   * draws empty, which is what an export or a thumbnail wants.
+   */
+  data?: StorefrontData
 }
 
 export interface Rendered {
@@ -49,7 +56,12 @@ export interface Rendered {
 export function renderSection(input: RenderInput): Rendered {
   const { compiled, id, instance } = input
   const assets = input.assets ?? {}
-  const { settings, blocks } = resolveInstance(compiled.schema, instance, { assets })
+  const data = input.data ?? {}
+  const { settings, blocks } = resolveInstance(compiled.schema, instance, {
+    assets,
+    catalog: data.catalog,
+    menus: data.menus,
+  })
   const theme = themeTokens(input.theme)
   /**
    * The section's colours: its scheme, then its own overrides, resolved by
@@ -68,6 +80,9 @@ export function renderSection(input: RenderInput): Rendered {
     products: input.products ?? [],
     section: { id, type: compiled.type },
     assets,
+    shop: data.shop,
+    creator: data.creator,
+    product: data.product ?? null,
   }
   /* No tag here acts on the whole document, whatever the file or a richtext
      setting held: storelib/template.ts, DOCUMENT_MARKUP. */

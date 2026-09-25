@@ -15,7 +15,8 @@
  */
 import { z } from "zod"
 
-import { CONTROL_TYPES, controlFor, holdsValue, resolveControlType } from "../controls/registry"
+import { CONTROL_TYPES, UNSUPPORTED_TYPES, controlFor, holdsValue, resolveControlType } from "../controls/registry"
+import { VIDEO_HOSTS } from "../values"
 import { readLanguageVersion } from "../language"
 import { LIMITS, SECTION_SCHEMA_VERSION, type Result, type SectionSchema, type ThemeError } from "../types"
 
@@ -154,7 +155,8 @@ export function validateSectionSchema(input: unknown, opts: ValidateOptions = {}
       const p = `${at}[${i}]`
       const control = controlFor(f.type)
       if (!control) {
-        err(`${p}.type`, `"${f.type}" is not a Storelib control. Use one of: ${CONTROL_TYPES.join(", ")}`)
+        const why = UNSUPPORTED_TYPES[f.type]
+        err(`${p}.type`, why ? `"${f.type}" is a Shopify type Storelib does not have. ${why}` : `"${f.type}" is not a Storelib control. Use one of: ${CONTROL_TYPES.join(", ")}`)
         return
       }
       if (!ID.test(f.id)) err(`${p}.id`, `"${f.id}" is not a setting id: lowercase letters, digits and _`)
@@ -168,6 +170,22 @@ export function validateSectionSchema(input: unknown, opts: ValidateOptions = {}
       if (f.responsive && !control.responsive) err(`${p}.responsive`, `a ${canonical} cannot be responsive`)
       if (canonical === "range" && (f.min === undefined || f.max === undefined)) err(p, `a range needs min and max`)
       if (f.min !== undefined && f.max !== undefined && f.min >= f.max) err(p, `min ${f.min} is not below max ${f.max}`)
+      /* The keys the newer controls read, checked where they are declared
+         rather than discovered as a blank control in the panel. */
+      if (canonical === "product_list" && f.limit !== undefined) {
+        const n = f.limit as unknown
+        if (typeof n !== "number" || !Number.isInteger(n) || n < 1 || n > 24) err(`${p}.limit`, `a product_list's limit is a whole number from 1 to 24`)
+      }
+      if (canonical === "video_url" && f.accept !== undefined) {
+        const hosts = f.accept as unknown
+        if (!Array.isArray(hosts) || hosts.length === 0 || !hosts.every((h) => (VIDEO_HOSTS as readonly unknown[]).includes(h))) {
+          err(`${p}.accept`, `accept lists the hosts to allow: ${VIDEO_HOSTS.map((h) => `"${h}"`).join(", ")}`)
+        }
+      }
+      if (canonical === "focal_point" && f.image !== undefined) {
+        const target = list.find((o) => o.id === f.image)
+        if (!target || resolveControlType(target.type) !== "image_picker") err(`${p}.image`, `"${String(f.image)}" is not an image_picker setting beside this one`)
+      }
 
       if (f.default !== undefined && holdsValue(f.type)) {
         // A responsive default may be per breakpoint.

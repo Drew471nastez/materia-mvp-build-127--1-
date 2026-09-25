@@ -58,6 +58,8 @@ const CONTROL_DRAWN_AS: Record<ControlType, SpecimenControl> = {
   image_gallery: "image_gallery", video_picker: "video", file_picker: "file", community_picker: "picker",
   icon_picker: "icon", url: "url", page_picker: "picker", product_picker: "picker", header: "header",
   paragraph: "paragraph", divider: "divider",
+  color_background: "color", inline_richtext: "richtext", html: "textarea", datetime: "text",
+  focal_point: "image", video_url: "url", product_list: "picker", link_list: "picker",
 }
 
 /** How the section panel draws each type, beyond what the registry says it is. */
@@ -87,6 +89,14 @@ export const CONTROL_PANEL_NOTES: Partial<Record<ControlType, string>> = {
   header: "A small heading that divides a long panel. Holds no value.",
   paragraph: "A line of help text in the panel. Holds no value.",
   divider: "A line across the panel. Holds no value.",
+  color_background: "Solid or Gradient. Solid is the colour field; Gradient is the gradient editor with its stops, angle and the page's own colours.",
+  inline_richtext: "One line you write in, with Bold, Italic and Link above it. Enter does not start a new line.",
+  html: "A code box for pasted markup. What is not allowed is removed when it is saved, and the box says so.",
+  datetime: "A date and a time, picked with the device's own picker. Clear empties it.",
+  focal_point: "The picture it belongs to, with a point to drag or tap to where the picture should stay in view when it is cropped.",
+  video_url: "A box to paste a YouTube or Vimeo link. It says which video it found, or why the link is not one.",
+  product_list: "Your products in the order you chose, each with Up, Down and Remove, and Add product to pick more from your shop.",
+  link_list: "A dropdown of the site's menus. Menus are made in Theme settings › Menus; the header's own links are always there as Main menu.",
 }
 
 function exampleValue(ex: Record<string, unknown>): Specimen["value"] {

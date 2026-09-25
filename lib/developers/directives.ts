@@ -52,10 +52,12 @@ export const FILTER_DOCS: Record<string, { use: string; does: string }> = {
   round: { use: `{{ settings.ratio | round: 2 }}`, does: "Rounds to that many decimal places, 0 unless given." },
   json: { use: `data-config="{{ settings | json }}"`, does: "The value as JSON, escaped for an attribute." },
   escape: { use: `{{ settings.text | escape }}`, does: "HTML-escaped. Output already is, so this is rarely needed." },
-  raw: { use: `{{ settings.body | raw }}`, does: "Printed without escaping. Only on a `richtext` setting, which was cleaned before it was stored." },
+  raw: { use: `{{ settings.body | raw }}`, does: "Printed without escaping. Only on a `richtext`, `inline_richtext` or `html` setting, or on `product.description_html`: each is cleaned against an allow list before a template sees it." },
   url: { use: `href="{{ settings.link | url }}"`, does: "Keeps a link starting `/`, `http://`, `https://`, `mailto:`, `tel:` or `#`, keeps an empty value empty, and turns anything else into `#`. Use it on every link built from a setting." },
   embed: { use: `src="{{ settings.video | embed }}"`, does: "A player address from a pasted YouTube, Vimeo, Spotify or SoundCloud link, or an empty string. Needs the `embed` capability." },
   asset: { use: `{{ block.settings.clip | asset }}`, does: "An `asset://` reference as the URL this account serves it from. A plain URL passes through." },
+  date: { use: `{{ settings.ends_at | date: "short" }}`, does: "A `datetime` for people to read: `long` (14 March 2026, the default), `short` (14 Mar 2026), `time` (23:00), `long_time` or `iso`. Read as written, never moved to another time zone." },
+  strip_html: { use: `alt="{{ settings.heading | strip_html }}"`, does: "The words of some markup, entities decoded, on one line. For an alt text or a title made from a rich text setting." },
   alpha: { use: `{{ settings.color | alpha: 0.4 }}`, does: "A hex colour at that opacity, as `rgba()`." },
 }
 
@@ -85,8 +87,10 @@ const VALUE_WORDS: Record<ValueKind, string> = {
   number: "a number",
   boolean: "true or false",
   color: "a hex colour",
+  background: "a colour or a gradient",
   asset: "an asset",
   asset_list: "a list of assets",
+  reference_list: "a list of products",
   enum: "one of its options",
   none: "nothing; it only draws in the panel",
 }

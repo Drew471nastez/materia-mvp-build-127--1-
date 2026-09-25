@@ -49,6 +49,9 @@ export const ROOTS: { name: string; detail: string }[] = [
   { name: "scheme", detail: "the colours of this section's colour scheme" },
   { name: "page", detail: "template, and in_editor while the builder draws" },
   { name: "forloop", detail: "inside a for: index, index0, first, last, length" },
+  { name: "shop", detail: "name, description, url and product_count of this site" },
+  { name: "creator", detail: "the creator's public name, headline, bio and avatar" },
+  { name: "product", detail: "on the product page: title, price, image, images, url, description, includes" },
 ]
 
 export const FILTERS: { name: string; detail: string }[] = [
@@ -57,7 +60,7 @@ export const FILTERS: { name: string; detail: string }[] = [
   { name: "asset", detail: "asset://name.jpg into this account's real URL" },
   { name: "alpha", detail: "alpha: 0.4 — a colour with opacity" },
   { name: "embed", detail: "the only way a URL may reach an iframe" },
-  { name: "raw", detail: "do NOT escape. Richtext settings only" },
+  { name: "raw", detail: "do NOT escape. richtext, inline_richtext and html settings only" },
   { name: "escape", detail: "escape again; output is already escaped" },
   { name: "upcase", detail: "UPPER CASE" },
   { name: "downcase", detail: "lower case" },
@@ -77,6 +80,8 @@ export const FILTERS: { name: string; detail: string }[] = [
   { name: "divided_by", detail: "divide" },
   { name: "round", detail: "round to a whole number" },
   { name: "json", detail: "the value as JSON, for a data attribute" },
+  { name: "date", detail: 'date: "short" — a datetime for people to read' },
+  { name: "strip_html", detail: "the words of some markup, for alt text" },
 ]
 
 export const TAGS: { name: string; detail: string }[] = [
