@@ -111,7 +111,7 @@ export function PictureTray({
           >
             {item.url && (
               /* eslint-disable-next-line @next/next/no-img-element -- the creator's own file, drawn from memory. */
-              <img src={item.url} alt="" className={cn("h-full w-full object-cover", item.state === "failed" && "opacity-40")} />
+              <img src={item.url} alt="" decoding="async" className={cn("h-full w-full object-cover", item.state === "failed" && "opacity-40")} />
             )}
             {item.state === "preparing" && (
               <span data-ask-preparing="" className="absolute inset-0 flex items-center justify-center bg-white/55">

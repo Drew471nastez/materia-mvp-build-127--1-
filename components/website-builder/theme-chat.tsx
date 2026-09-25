@@ -382,7 +382,7 @@ const ExchangeItem = React.memo(function ExchangeItem({
               className="relative block overflow-hidden rounded-xl border border-[#e5e7eb] transition-opacity hover:opacity-90"
             >
               {/* eslint-disable-next-line @next/next/no-img-element -- bytes this thread already holds. */}
-              <img src={image.url} alt={image.name} className="h-16 w-16 object-cover" />
+              <img src={image.url} alt={image.name} loading="lazy" decoding="async" className="h-16 w-16 object-cover" />
               {exchange.running && !exchange.sent && (
                 <span data-ask-sending="" className="absolute inset-0 flex items-center justify-center bg-white/60">
                   <ProgressRing fraction={exchange.upload ?? null} />
@@ -2218,11 +2218,17 @@ function ThemeChatPanel({
     </div>
   )
 
+  /*
+    THE PICKER OFFERS WHAT THE MODEL READS, AND VIDEO. Not HEIC by name: an
+    iPhone converts a HEIC photo to JPEG itself when the picker does not ask
+    for HEIC, which is the surest conversion there is. A HEIC dropped or
+    pasted on a computer is converted here instead (ask-attach-prepare.ts).
+  */
   const fileInput = (
     <input
       ref={fileInputRef}
       type="file"
-      accept={[...ALLOWED_IMAGE_TYPES, "image/heic", "image/heif", "video/*"].join(",")}
+      accept={[...ALLOWED_IMAGE_TYPES, "video/*"].join(",")}
       multiple
       className="hidden"
       onChange={(event) => {

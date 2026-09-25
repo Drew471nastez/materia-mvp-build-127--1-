@@ -708,8 +708,8 @@ section("The composer")
     /disabled=\{\(draft\.trim\(\)\.length === 0 && attached\.length === 0\) \|\| preparing\}/.test(chat),
   )
   check(
-    "the file picker offers the types the model reads, and HEIC and video, which are converted before anything is sent",
-    /accept=\{\[\.\.\.ALLOWED_IMAGE_TYPES, "image\/heic", "image\/heif", "video\/\*"\]\.join\(","\)\}/.test(chat),
+    "the file picker offers the types the model reads, and video, which becomes stills; not HEIC by name, so an iPhone converts its photos to JPEG itself",
+    /accept=\{\[\.\.\.ALLOWED_IMAGE_TYPES, "video\/\*"\]\.join\(","\)\}/.test(chat) && !/accept=\{[^}]*heic/.test(chat),
   )
   check("a pasted screenshot lands in it", /onPaste=/.test(chat) && /clipboardData\.files/.test(chat))
   check("so does a dragged file", /onDrop=/.test(chat) && /dataTransfer\.files/.test(chat))
