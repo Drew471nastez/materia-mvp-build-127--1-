@@ -10,7 +10,7 @@ import { TIME_ZONE_COOKIE } from "@/lib/orders/time-zone"
 import { homeTotals } from "@/lib/analytics/home-figures"
 import { pageUser } from "@/lib/auth/page-user"
 import { connectedBioPlatforms } from "@/components/app/share/share-data"
-import { creatorPageHostFromRows } from "@/lib/custom-domains/client"
+import { creatorPageHostFromRows, websiteHostFromRows } from "@/lib/custom-domains/client"
 
 /*
   WHO IS ASKING, AND THEIR TWO ROWS, ONCE PER REQUEST. The title and the page
@@ -251,6 +251,7 @@ export default async function AppDashboard() {
       initialOrders={allOrders}
       creatorHandle={profile?.username || creator.slug || ""}
       connectedDomain={creatorPageHostFromRows(activeDomains)}
+      websiteDomain={websiteHostFromRows(activeDomains)}
       brandingDetail={{ hasAvatar, hasName, hasBio }}
       websitePublished={!!publishedSite}
       subscriptionPlanId={creator.subscription_plan_id || "free"}

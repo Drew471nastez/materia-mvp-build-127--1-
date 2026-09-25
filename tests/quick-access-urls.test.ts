@@ -86,18 +86,19 @@ function main() {
   const proxy = read("proxy.ts")
   check(
     "the proxy serves the published website on a connected domain",
-    /if \(pathname === "\/links" \|\| pathname === "\/links\/"\) \{[\s\S]{0,200}rewritePath = `\/l\/\$\{username\}`[\s\S]{0,80}\} else if \(builtSite\) \{\s*rewritePath = `\/w\/\$\{username\}/.test(proxy),
+    /if \(pathname === "\/links" \|\| pathname === "\/links\/"\) \{[\s\S]{0,200}rewritePath = `\/l\/\$\{username\}`[\s\S]{0,400}\} else if \(builtSite\) \{\s*rewritePath = `\/w\/\$\{username\}/.test(proxy),
   )
   check("and the creator page when there is none", /\} else if \(pathname === "\/" \|\| pathname === ""\) \{[\s\S]{0,120}rewritePath = `\/u\/\$\{username\}`/.test(proxy))
   check(
+    /* Its own domain (a creator page domain), or on an old database the one domain while no website is published. */
     "the creator page takes the domain only when no website is published",
-    /const domainIsPage = !!connectedDomain && !websitePublished/.test(dash) &&
+    /const domainIsPage = !!connectedDomain && \(!websitePublished \|\| connectedDomain !== websiteDomain\)/.test(dash) &&
       /url: domainIsPage \? `https:\/\/\$\{connectedDomain\}` : getStoreShareUrl\(creatorHandle\)/.test(dash),
   )
   check(
     "the website takes it once one is",
-    /const domainIsWebsite = !!connectedDomain && websitePublished/.test(dash) &&
-      /url: domainIsWebsite \? `https:\/\/\$\{connectedDomain\}` : getWebsiteShareUrl\(creatorHandle\)/.test(dash),
+    /const domainIsWebsite = !!websiteDomain && websitePublished/.test(dash) &&
+      /url: domainIsWebsite \? `https:\/\/\$\{websiteDomain\}` : getWebsiteShareUrl\(creatorHandle\)/.test(dash),
   )
   check(
     "the OnePage is the domain's /links",

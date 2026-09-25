@@ -42,3 +42,16 @@ export function creatorPageHostFromRows(rows: { domain?: string | null; status?:
   if (!pick?.domain) return null
   return servingHost(pick.domain)
 }
+
+/**
+ * The website's host from raw `custom_domains` rows: its live primary
+ * domain; on a database from before purposes, the one domain there is
+ * (which serves the website once one is published).
+ */
+export function websiteHostFromRows(rows: { domain?: string | null; status?: string | null; purpose?: string | null; is_primary?: boolean | null }[] | null | undefined): string | null {
+  const live = (rows ?? []).filter((r) => r.status === "active" && r.domain)
+  if (live.length === 0) return null
+  const legacy = live.every((r) => r.purpose === undefined)
+  const pick = legacy ? live[0] : live.find((r) => r.purpose === "website" && r.is_primary) ?? live.find((r) => r.purpose === "website")
+  return pick?.domain ? servingHost(pick.domain) : null
+}

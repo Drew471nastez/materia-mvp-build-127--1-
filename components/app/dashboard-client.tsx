@@ -433,6 +433,8 @@ interface DashboardClientProps {
   initialOrders?: Order[]
   creatorHandle?: string
   connectedDomain?: string | null
+  /** The website's own domain (lib/custom-domains). On an old database, the same one domain. */
+  websiteDomain?: string | null
   brandingDetail?: { hasAvatar: boolean; hasName: boolean; hasBio: boolean }
   /** True only when a site has actually been published, never when one merely exists. */
   websitePublished?: boolean
@@ -691,6 +693,7 @@ export function DashboardClient({
   initialOrders = [],
   creatorHandle = "",
   connectedDomain = null,
+  websiteDomain = null,
   brandingDetail,
   websitePublished = false,
   subscriptionPlanId = "free",
@@ -1064,16 +1067,18 @@ export function DashboardClient({
    * put in the QR code and handed to a share link, in the app as in a
    * browser. The creator page comes first: it is what the pill shows.
    *
-   * A connected domain answers with the published website when there is one
-   * and the creator page when there is not (proxy.ts, the custom domain
-   * branch), so it is given to whichever of the two it actually opens. The
+   * A domain is connected for the website or for the creator page
+   * (Settings, Domains), and each is given to the one it opens. A website
+   * domain answers with the creator page while no website is published
+   * (proxy.ts), and before the database knew purposes there was one domain
+   * for both, which is why the page also takes it then. The
    * OnePage is only offered once it has been set up, and the website only
    * once it has been published, never because a theme was installed.
    */
   const shareAddresses = useMemo<ShareAddress[]>(() => {
     if (!creatorHandle) return []
-    const domainIsWebsite = !!connectedDomain && websitePublished
-    const domainIsPage = !!connectedDomain && !websitePublished
+    const domainIsWebsite = !!websiteDomain && websitePublished
+    const domainIsPage = !!connectedDomain && (!websitePublished || connectedDomain !== websiteDomain)
     const list: ShareAddress[] = [
       {
         surface: "creator",
@@ -1094,12 +1099,12 @@ export function DashboardClient({
       list.push({
         surface: "website",
         label: "Website",
-        url: domainIsWebsite ? `https://${connectedDomain}` : getWebsiteShareUrl(creatorHandle),
-        display: domainIsWebsite ? (connectedDomain as string) : getWebsiteUrlDisplay(creatorHandle),
+        url: domainIsWebsite ? `https://${websiteDomain}` : getWebsiteShareUrl(creatorHandle),
+        display: domainIsWebsite ? (websiteDomain as string) : getWebsiteUrlDisplay(creatorHandle),
       })
     }
     return list
-  }, [creatorHandle, connectedDomain, websitePublished, hasOnePageSetup])
+  }, [creatorHandle, connectedDomain, websiteDomain, websitePublished, hasOnePageSetup])
 
 
   /* The purple bar's slides, worked out from the account. The bar itself,
