@@ -166,7 +166,7 @@ function main() {
   check(
     "the same number of lines on both cards",
     freePlan.features.length + freePlan.excluded.length === proPlan.features.length + proPlan.excluded.length,
-    [freePlan.features.length + freePlan.excluded.length, proPlan.features.length + proPlan.excluded.length],
+    `${freePlan.features.length + freePlan.excluded.length} and ${proPlan.features.length + proPlan.excluded.length}`,
   )
   check("what Free is shown without is its own domain, which it lacks and Pro has", freePlan.excluded.join() === "Your own domain" && !siteLimits("free").customDomain && g.customDomain)
   check("Pro claims nothing as missing", proPlan.excluded.length === 0)
