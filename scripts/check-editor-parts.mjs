@@ -18,10 +18,15 @@
  *   fields under it change in place and the box eases to its new height
  *   with no frame that jumps. Free clears the price, Fixed gives it back.
  *   Reduced motion: nothing slides.
- *   CATEGORY. On a phone, the shared sheet on the bottom edge: no X, no
- *   dots, 48px rows, a search on top; a group opens, a category chooses and
- *   closes. On a computer, a popover under the field with the search
- *   focused: type, Enter, chosen.
+ *   CATEGORY. A field in the main column above the description. On a
+ *   phone, the shared sheet on the bottom edge: no X, no dots, 48px rows, a
+ *   search on top, the suggestion pinned at its foot; a group slides open
+ *   (transform and opacity only), Back slides back, a category chooses and
+ *   closes. On a computer, the list opens from the field, its width, 6px
+ *   under it, the field keeping the focus; a group slides open in the same
+ *   list at the same height; Left, Down, Right, Enter, Escape and a click
+ *   outside; type, Enter, chosen; the suggestion with its grey tag, and the
+ *   x that clears it. A new product takes the suggestion as its value.
  *
  *   node scripts/check-editor-parts.mjs      (PROBE_CSS=source without a build)
  */
@@ -340,13 +345,41 @@ async function reduced(p) {
   await p.emulateMediaFeatures([{ name: "prefers-reduced-motion", value: "no-preference" }])
 }
 
+/* What moved while a level slid in: every animated property inside the list. */
+const SLIDE_WATCH = `(() => {
+  window.__slideProps = new Set(); window.__slideGhosts = 0
+  const root = document.querySelector("[data-category-dropdown], [data-app-sheet]")
+  const tick = () => {
+    for (const a of document.getAnimations()) {
+      const t = a.effect && a.effect.target
+      if (!t || !root || !root.contains(t)) continue
+      for (const k of a.effect.getKeyframes()) for (const p of Object.keys(k)) if (!["offset", "easing", "composite", "computedOffset"].includes(p)) window.__slideProps.add(p)
+    }
+    window.__slideGhosts = Math.max(window.__slideGhosts, document.querySelectorAll("[data-category-ghost]").length)
+    if (performance.now() - start < 500) requestAnimationFrame(tick)
+  }
+  const start = performance.now()
+  requestAnimationFrame(tick)
+})()`
+const slideResult = (p) => p.evaluate(() => ({ props: [...window.__slideProps], ghostsSeen: window.__slideGhosts, ghostsLeft: document.querySelectorAll("[data-category-ghost]").length }))
+const chosenText = (p) => p.evaluate(() => document.querySelector("[data-category-chosen]")?.textContent ?? null)
+
 async function category(p, label, isPhone, vp) {
   console.log("  -- category")
+  /* In the main column, above the description, as a field. */
+  const place = await p.evaluate(() => {
+    const f = document.querySelector("[data-editor-category]")
+    const main = document.querySelector("[data-editor-main]")
+    const desc = f?.parentElement?.querySelector("[contenteditable]")
+    return { inMain: !!f && !!main?.contains(f), above: !!f && !!desc && f.getBoundingClientRect().bottom <= desc.getBoundingClientRect().top, sideHasIt: !!document.querySelector("[data-editor-side] [data-category-field]") }
+  })
+  expect(place.inMain && place.above && !place.sideHasIt, "the field is in the main column, above the description", place)
   await p.evaluate(() => document.querySelector("[data-category-trigger]").scrollIntoView({ block: "center" }))
   await sleep(250)
-  await p.click("[data-category-trigger]")
-  await sleep(isPhone ? 650 : 350)
+  const suggested = await p.evaluate(() => document.querySelector("[data-product-editor] #title, #title")?.value)
   if (isPhone) {
+    await p.click("[data-category-trigger]")
+    await sleep(650)
     const sheet = await p.evaluate(() => {
       const root = document.querySelector("[data-app-sheet]")
       const panel = root?.querySelector("[data-sheet-panel]")
@@ -360,11 +393,13 @@ async function category(p, label, isPhone, vp) {
         return b.width > 0 && b.width <= 8 && b.height <= 8 && parseFloat(cs.borderRadius) >= b.width / 2 - 0.5 && cs.backgroundColor !== "rgba(0, 0, 0, 0)"
       })
       const rows = [...panel.querySelectorAll("[data-category-row]")].map((x) => Math.round(x.getBoundingClientRect().height))
+      const pin = panel.querySelector("[data-category-suggested]")
       return {
         state: root.dataset.appSheet,
         bottom: Math.round(innerHeight - r.bottom), left: Math.round(r.left), width: Math.round(r.width), top: Math.round(r.top),
         xButtons: xs.length, dots: dots.length, bullet: /•/.test(panel.textContent), rows: [Math.min(...rows), rows.length],
         search: !!panel.querySelector("[data-category-search]"), grabber: !!panel.querySelector("[data-sheet-handle]"),
+        pinned: pin ? { name: pin.dataset.categorySuggested, tag: !!pin.querySelector("[data-suggested-tag]"), atFoot: Math.round(r.bottom - pin.getBoundingClientRect().bottom) } : null,
       }
     })
     await p.screenshot({ path: join(shots, `${PREFIX}${label}-category-sheet.png`) })
@@ -372,68 +407,159 @@ async function category(p, label, isPhone, vp) {
     expect(sheet && sheet.xButtons === 0 && sheet.grabber, "no X: the grabber, a pull or a tap outside close it", sheet && { xButtons: sheet.xButtons })
     expect(sheet && sheet.dots === 0 && !sheet.bullet, "no dots", sheet && { dots: sheet.dots, bullet: sheet.bullet })
     expect(sheet && sheet.search && sheet.rows[0] >= 48, "a search on top, and rows at least 48px", sheet && { minRow: sheet.rows[0], rows: sheet.rows[1] })
+    expect(!!sheet?.pinned && sheet.pinned.name === "Lightroom Presets" && sheet.pinned.tag && sheet.pinned.atFoot <= 60, "the suggestion pinned at the foot of the sheet, with its tag", sheet?.pinned)
+    await p.evaluate(SLIDE_WATCH)
     await p.evaluate(() => document.querySelector('[data-category-group="Design & Creative"]').click())
-    await sleep(350)
+    await sleep(120)
+    await p.screenshot({ path: join(shots, `${PREFIX}${label}-category-sliding.png`) })
+    await sleep(450)
+    const slid = await slideResult(p)
+    expect(slid.ghostsSeen === 1 && slid.ghostsLeft === 0 && slid.props.length > 0 && slid.props.every((x) => x === "transform" || x === "opacity"), "a group slides in on transform and opacity, and the old level is gone after", slid)
     await p.screenshot({ path: join(shots, `${PREFIX}${label}-category-group.png`) })
-    const inGroup = await p.evaluate(() => ({ back: !!document.querySelector("[data-category-back]"), fonts: !!document.querySelector('[data-category-option="Fonts"]') }))
-    expect(inGroup.back && inGroup.fonts, "a group opens into its categories, with a way back", inGroup)
+    const inGroup = await p.evaluate(() => ({ back: document.querySelector("[data-category-back]")?.textContent, header: document.querySelector("[data-category-header]")?.textContent, fonts: !!document.querySelector('[data-category-option="Fonts"]') }))
+    expect(inGroup.back === "Back to All" && inGroup.header === "Design & Creative" && inGroup.fonts, "Back to All, the group as a header, its categories", inGroup)
+    await p.evaluate(() => document.querySelector("[data-category-back]").click())
+    await sleep(450)
+    const backed = await p.evaluate(() => document.querySelectorAll("[data-category-group]").length)
+    expect(backed >= 20, "and back slides to the groups", { groups: backed })
+    await p.evaluate(() => document.querySelector('[data-category-group="Design & Creative"]').click())
+    await sleep(450)
     await p.evaluate(() => document.querySelector('[data-category-option="Fonts"]').click())
     await sleep(700)
-    const after = await p.evaluate(() => ({ sheet: !!document.querySelector("[data-app-sheet]"), value: document.querySelector("[data-category-trigger]").textContent }))
-    expect(!after.sheet && /^Fonts/.test(after.value), "choosing one closes the sheet and it is chosen", after)
+    const after = await p.evaluate(() => ({ sheet: !!document.querySelector("[data-app-sheet]"), chosen: document.querySelector("[data-category-chosen]")?.textContent }))
+    expect(!after.sheet && /^Fontsin Design & Creative/.test(after.chosen || ""), "choosing one closes the sheet, and it is shown under the field", after)
     /* Search. */
     await p.click("[data-category-trigger]")
     await sleep(650)
-    await p.focus("[data-category-search]")
+    await p.focus("[data-app-sheet] [data-category-search]")
     await p.keyboard.type("lut")
     await sleep(250)
-    const found = await p.$$eval("[data-category-option]", (b) => b.map((x) => x.dataset.categoryOption))
+    const found = await p.$$eval("[data-app-sheet] [data-category-option]", (b) => b.map((x) => x.dataset.categoryOption))
     expect(found.includes("Video LUTs") && found.includes("Cinematic LUTs"), "a search finds across every group", found.slice(0, 5))
     await p.screenshot({ path: join(shots, `${PREFIX}${label}-category-search.png`) })
     await p.evaluate(() => document.querySelector('[data-category-option="Video LUTs"]').click())
     await sleep(700)
-    const picked = await p.evaluate(() => ({ sheet: !!document.querySelector("[data-app-sheet]"), value: document.querySelector("[data-category-trigger]").textContent }))
-    expect(!picked.sheet && /^Video LUTs/.test(picked.value), "and choosing a found one closes it too", picked)
+    const picked = await p.evaluate(() => ({ sheet: !!document.querySelector("[data-app-sheet]"), chosen: document.querySelector("[data-category-chosen]")?.textContent }))
+    expect(!picked.sheet && /^Video LUTs/.test(picked.chosen || ""), "and choosing a found one closes it too", picked)
+    /* The suggestion, from the sheet's foot. */
+    await p.click("[data-category-trigger]")
+    await sleep(650)
+    await p.evaluate(() => document.querySelector("[data-app-sheet] [data-category-suggested]").click())
+    await sleep(700)
+    const sug = await p.evaluate(() => ({ chosen: document.querySelector("[data-category-chosen]")?.textContent, tag: !!document.querySelector("[data-category-chosen] [data-suggested-tag]") }))
+    expect(/^Lightroom Presets/.test(sug.chosen || "") && sug.tag, "the suggestion chosen, marked Suggested under the field", sug)
+    await p.screenshot({ path: join(shots, `${PREFIX}${label}-category-chosen.png`) })
   } else {
-    const win = await p.evaluate(() => {
-      const el = document.querySelector("[data-category-dialog]")
-      if (!el) return null
+    await p.click("[data-category-trigger]")
+    await sleep(300)
+    const drop = await p.evaluate(() => {
+      const el = document.querySelector("[data-category-dropdown]")
+      const field = document.querySelector("[data-category-search]")
+      if (!el || !field) return null
       const r = el.getBoundingClientRect()
-      const bar = document.querySelector("[data-app-topbar], header")?.getBoundingClientRect()
+      const f = field.getBoundingClientRect()
+      const pin = el.querySelector("[data-category-suggested]")
       return {
-        cx: Math.round(r.left + r.width / 2 - innerWidth / 2), cy: Math.round(r.top + r.height / 2 - innerHeight / 2),
-        w: Math.round(r.width), h: Math.round(r.height), top: Math.round(r.top), barBottom: bar ? Math.round(bar.bottom) : 0,
-        focus: document.activeElement?.hasAttribute("data-category-search"), sheet: !!document.querySelector("[data-app-sheet]"),
-        groups: el.querySelectorAll("[data-category-group]").length, options: el.querySelectorAll("[data-category-option]").length,
+        left: Math.round(r.left - f.left), width: Math.round(r.width - f.width),
+        below: Math.round(r.top - f.bottom), above: Math.round(f.top - r.bottom), h: Math.round(r.height),
+        cx: Math.round(r.left + r.width / 2 - innerWidth / 2),
+        focus: document.activeElement === field, dialog: !!document.querySelector('[role="dialog"][data-category-dialog], [data-app-sheet]'),
+        groups: el.querySelectorAll("[data-category-group]").length,
         row: Math.round(el.querySelector("[data-category-row]").getBoundingClientRect().height),
+        pinned: pin ? { name: pin.dataset.categorySuggested, tag: !!pin.querySelector("[data-suggested-tag]"), atFoot: Math.round(r.bottom - pin.getBoundingClientRect().bottom) } : null,
       }
     })
-    await p.screenshot({ path: join(shots, `${PREFIX}${label}-category-window.png`) })
-    /* A window in the middle of the screen, clear of the top bar, not a popover squeezed against the field. */
-    expect(!!win && !win.sheet && Math.abs(win.cx) <= 1 && Math.abs(win.cy) <= 1 && win.top >= win.barBottom, "a window in the middle of the screen, clear of the top bar", win)
-    expect(!!win && win.groups >= 20 && win.options >= 10 && win.row === 36, "the groups beside the open group's categories, 36px rows", win && { groups: win.groups, options: win.options, row: win.row })
-    expect(win && win.focus, "with the search focused", win && { focus: win.focus })
-    /* Hovering a group opens it. */
-    await p.hover('[data-category-group="Audio & Music"]')
-    await sleep(150)
-    const hovered = await p.evaluate(() => !!document.querySelector('[data-category-option="Drum Kits"]'))
-    expect(hovered, "hovering a group shows its categories", { hovered })
+    await p.screenshot({ path: join(shots, `${PREFIX}${label}-category-dropdown.png`) })
+    expect(!!drop && drop.left === 0 && drop.width === 0 && (drop.below === 6 || drop.above === 6) && !drop.dialog, "the list opens from the field: its left edge, its width, 6px under (or over) it, not a window", drop)
+    expect(!!drop && drop.focus, "and the field keeps the focus", drop && { focus: drop.focus })
+    expect(!!drop && drop.groups >= 20 && drop.row === 36, "the groups, 36px rows", drop && { groups: drop.groups, row: drop.row })
+    expect(!!drop?.pinned && drop.pinned.name === "Lightroom Presets" && drop.pinned.tag && drop.pinned.atFoot <= 8, "the suggestion pinned at the foot, with its tag", drop?.pinned)
+    /* Into a group, with the mouse. */
+    await p.evaluate(SLIDE_WATCH)
+    await p.click('[data-category-group="Audio & Music"]')
+    await sleep(120)
+    await p.screenshot({ path: join(shots, `${PREFIX}${label}-category-sliding.png`) })
+    await sleep(450)
+    const slid = await slideResult(p)
+    const inGroup = await p.evaluate(() => {
+      const el = document.querySelector("[data-category-dropdown]")
+      return { h: Math.round(el.getBoundingClientRect().height), back: el.querySelector("[data-category-back]")?.textContent, header: el.querySelector("[data-category-header]")?.textContent, drums: !!el.querySelector('[data-category-option="Drum Kits"]'), focus: document.activeElement?.hasAttribute("data-category-search") }
+    })
+    await p.screenshot({ path: join(shots, `${PREFIX}${label}-category-group.png`) })
+    expect(slid.ghostsSeen === 1 && slid.ghostsLeft === 0 && slid.props.length > 0 && slid.props.every((x) => x === "transform" || x === "opacity"), "a group slides in on transform and opacity, and the old level is gone after", slid)
+    expect(inGroup.back === "Back to All" && inGroup.header === "Audio & Music" && inGroup.drums && inGroup.focus, "inside the same list: Back to All, the group as a header, its categories, the field still focused", inGroup)
+    expect(drop && inGroup.h === drop.h, "the list keeps its height: nothing around it moves", { before: drop?.h, after: inGroup.h })
+    /* Keys: Left goes back with the group it left highlighted, Up and Right open the one above it, Enter chooses. */
+    await p.keyboard.press("ArrowLeft")
+    await sleep(400)
+    const left = await p.evaluate(() => ({ header: !!document.querySelector("[data-category-header]"), on: document.querySelector('[data-category-dropdown] [aria-selected="true"]')?.textContent }))
+    expect(!left.header && left.on === "Audio & Music", "Left goes back, on the group it came from", left)
+    await p.keyboard.press("ArrowUp")
+    await p.keyboard.press("ArrowRight")
+    await sleep(400)
+    const keyed = await p.evaluate(() => ({ header: document.querySelector("[data-category-header]")?.textContent, on: document.querySelector('[data-category-dropdown] [aria-selected="true"]')?.textContent }))
+    expect(keyed.header === "VFX & Motion" && keyed.on === "Motion Graphics", "Up and Right open the group above, on its first category", keyed)
+    await p.keyboard.press("ArrowDown")
+    await p.keyboard.press("Enter")
+    await sleep(350)
+    const enter = await p.evaluate(() => ({ open: !!document.querySelector("[data-category-dropdown]"), chosen: document.querySelector("[data-category-chosen]")?.textContent }))
+    expect(!enter.open && /^After Effects Templatesin VFX & Motion/.test(enter.chosen || ""), "Down, Enter: chosen and closed; the choice is shown under the field", enter)
+    /* Search. */
+    await p.click("[data-category-trigger]")
+    await sleep(250)
     await p.keyboard.type("pre")
     await sleep(200)
-    await p.screenshot({ path: join(shots, `${PREFIX}${label}-category-window-search.png`) })
+    const results = await p.$$eval("[data-category-dropdown] [data-category-option]", (b) => b.slice(0, 3).map((x) => x.textContent))
+    expect(results.length === 3 && results.every((t) => t.length > 0), "typing lists categories with their group", results)
+    await p.screenshot({ path: join(shots, `${PREFIX}${label}-category-search.png`) })
     await p.keyboard.press("Escape")
     await sleep(300)
-    const closed = await p.evaluate(() => !document.querySelector("[data-category-dialog]"))
-    expect(closed, "Escape closes it", { closed })
+    const closed = await p.evaluate(() => ({ open: !!document.querySelector("[data-category-dropdown]"), q: document.querySelector("[data-category-search]").value }))
+    expect(!closed.open && closed.q === "", "Escape closes it and empties the search", closed)
     await p.click("[data-category-trigger]")
-    await sleep(350)
+    await sleep(250)
     await p.keyboard.type("font")
     await sleep(150)
     await p.keyboard.press("Enter")
-    await sleep(400)
-    const after = await p.evaluate(() => ({ open: !!document.querySelector("[data-category-dialog]"), value: document.querySelector("[data-category-trigger]").textContent }))
-    expect(!after.open && /^Fonts/.test(after.value), "type, Enter: chosen and closed", after)
+    await sleep(350)
+    const typed = await p.evaluate(() => ({ open: !!document.querySelector("[data-category-dropdown]"), chosen: document.querySelector("[data-category-chosen]")?.textContent }))
+    expect(!typed.open && /^Fonts/.test(typed.chosen || ""), "type, Enter: chosen and closed", typed)
+    /* A click outside closes. */
+    await p.click("[data-category-trigger]")
+    await sleep(250)
+    await p.mouse.click(5, vp.height - 80)
+    await sleep(300)
+    expect(await p.evaluate(() => !document.querySelector("[data-category-dropdown]")), "a click outside closes it")
+    /* The suggestion, and clearing it. */
+    await p.click("[data-category-trigger]")
+    await sleep(250)
+    await p.click("[data-category-suggested]")
+    await sleep(350)
+    const sug = await p.evaluate(() => ({ chosen: document.querySelector("[data-category-chosen]")?.textContent, tag: !!document.querySelector("[data-category-chosen] [data-suggested-tag]") }))
+    expect(/^Lightroom Presets/.test(sug.chosen || "") && sug.tag, "the suggestion chosen, marked Suggested under the field", sug)
+    await p.mouse.move(5, 5)
+    await p.screenshot({ path: join(shots, `${PREFIX}${label}-category-chosen.png`) })
+    await p.click("[data-category-clear]")
+    await sleep(200)
+    expect((await chosenText(p)) === null, "the x clears it")
   }
+  /* Nothing violet anywhere in the field or its list. */
+  const tinted = await p.evaluate(`(() => { const t = ${TINTED}; return [...document.querySelectorAll("[data-category-field] *, [data-category-field]")].flatMap((el) => { const cs = getComputedStyle(el); return [cs.color, cs.backgroundColor, cs.borderTopColor].map(t).filter((x) => x === "violet") }).length })()`)
+  expect(tinted === 0, "nothing violet in the field", { tinted })
+  void suggested
+}
+
+/* A new product: the suggestion becomes the value until the creator chooses. */
+async function preselect(p, label) {
+  await p.evaluate(() => document.querySelector("#title").scrollIntoView({ block: "center" }))
+  await p.focus("#title")
+  await p.keyboard.type("Procreate brushes for hand lettering")
+  await sleep(700)
+  const got = await p.evaluate(() => ({ chosen: document.querySelector("[data-category-chosen]")?.textContent ?? null, tag: !!document.querySelector("[data-category-chosen] [data-suggested-tag]") }))
+  expect(/^Procreate Brushes/.test(got.chosen || "") && got.tag, "a new product: once the title settles, the suggestion is chosen and marked Suggested", got)
+  await p.evaluate(() => document.querySelector("[data-editor-category]").scrollIntoView({ block: "center" }))
+  await sleep(150)
+  await p.screenshot({ path: join(shots, `${PREFIX}${label}-category-preselected.png`) })
 }
 
 try {
@@ -508,6 +634,7 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
     /* A new product: no files yet, so the drop zone. */
     await p.goto(`file://${join(stubs, "index.html")}?new`)
     await sleep(900)
+    await preselect(p, label)
     await p.evaluate(() => document.querySelector("[data-file-drop]").scrollIntoView({ block: "center" }))
     await sleep(200)
     const empty = await p.evaluate(() => {

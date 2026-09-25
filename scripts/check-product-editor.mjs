@@ -1201,7 +1201,8 @@ export async function cleanDescription(html) { window.__descriptionCleans = (win
       await sleep(150)
       /* One column in the order the source reads, the Status card (a computer's) not drawn. */
       const order = await p.evaluate(() => [...document.querySelectorAll("[data-product-editor] h2")].filter((h) => h.getClientRects().length > 0 && h.closest(".rounded-2xl")).map((h) => h.textContent.trim()))
-      expect(same(order, ["About", "Photos and video", "Content", "What's Included", "Digital Files", "Variants", "Pricing", "FAQ", "Category", "Settings", "SEO"]), "one column of cards, each under its own heading, with no Status card", order)
+      /* The category is a field in Content, above the description, since the owner moved it there. */
+      expect(same(order, ["About", "Photos and video", "Content", "What's Included", "Digital Files", "Variants", "Pricing", "FAQ", "Settings", "SEO"]), "one column of cards, each under its own heading, with no Status card", order)
       const fields = await p.$$eval("[data-product-editor] input:not([type=checkbox]):not([type=file]), [data-product-editor] select, [data-product-editor] textarea", (els) =>
         els.filter((e) => e.getBoundingClientRect().width > 0).map((e) => ({ id: e.id || e.placeholder, size: getComputedStyle(e).fontSize, h: Math.round(e.getBoundingClientRect().height) })))
       expect(fields.every((f) => f.size === "16px"), "every field is 16px, so iOS does not zoom", fields.filter((f) => f.size !== "16px"))
@@ -1263,6 +1264,11 @@ export async function cleanDescription(html) { window.__descriptionCleans = (win
         main: R(main),
         side: R(side),
         mainCards: titles(main),
+        category: (() => {
+          const f = main.querySelector("[data-editor-category]")
+          const d = main.querySelector("[data-editor-category] ~ * [contenteditable], [data-editor-category] ~ * .ProseMirror")
+          return !!f && !side.querySelector("[data-category-field]") && (!d || f.getBoundingClientRect().bottom <= d.getBoundingClientRect().top)
+        })(),
         sideCards: titles(side),
         cardLook: (() => {
           const c = main.querySelector(".rounded-2xl")
@@ -1289,7 +1295,8 @@ export async function cleanDescription(html) { window.__descriptionCleans = (win
     expect(desk.side.left - desk.main.right === 16 && desk.main.top === desk.side.top, "two columns, 16px apart, starting on one line", { gap: desk.side.left - desk.main.right, tops: [desk.main.top, desk.side.top] })
     expect(desk.side.w >= 272 && (desk.side.w === 272 || Math.abs(desk.main.w - 2 * desk.side.w) <= 2), "the main column two thirds, the side one third", { main: desk.main.w, side: desk.side.w })
     expect(same(desk.mainCards, ["About", "Photos and video", "Content", "What's Included", "Digital Files", "Variants", "Pricing", "FAQ"]), "the product itself in the main column", desk.mainCards)
-    expect(same(desk.sideCards, ["Status", "Category", "Settings", "SEO"]), "its status, category, settings and search listing beside it", desk.sideCards)
+    expect(same(desk.sideCards, ["Status", "Settings", "SEO"]), "its status, settings and search listing beside it", desk.sideCards)
+    expect(desk.category, "the category is a field in the main column, above the description", desk.category)
     expect(desk.cardLook.bg === "rgb(255, 255, 255)" && desk.cardLook.radius === "16px" && /0px 1px 3px/.test(desk.cardLook.shadow), "each card is the /app card: white, 16px corners, the faint shadow", desk.cardLook)
     expect(!!desk.foot && desk.foot.position === "sticky" && desk.foot.bottomProp === "0px", "a foot bar, sticky at the bottom of the pane that scrolls", desk.foot)
     expect(!!desk.foot && desk.foot.left === desk.area.left && desk.foot.w === desk.area.width && desk.foot.bottom === desk.area.bottom && desk.foot.bottom === vp.height, "across the content area and only it, on the bottom edge of the window", { foot: desk.foot, area: desk.area })

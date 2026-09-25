@@ -151,15 +151,17 @@ const mainAt = editor.indexOf('data-editor-main=""')
 const sideAt = editor.indexOf('data-editor-side=""')
 const at = (s: string) => editor.indexOf(s)
 check("two columns from lg, the main one two thirds", /lg:grid lg:grid-cols-\[minmax\(0,2fr\)_minmax\(272px,1fr\)\] lg:items-start/.test(editor) && mainAt > 0 && sideAt > mainAt)
-check("the product itself in the main column: title, pictures, description, included, files, variants, pricing, questions",
-  [at("sectionRefs.current.about = el"), at("sectionRefs.current.media = el"), at("sectionRefs.current.content = el"), at("What's Included</h2>"), at("sectionRefs.current.files = el"), at("sectionRefs.current.variants = el"), at(">Pricing</h2>"), at(">FAQ</h2>")]
+/* Changed on purpose: the owner moved the category into the main column, a field above the description, "at every width". */
+check("the product itself in the main column: title, pictures, category, description, included, files, variants, pricing, questions",
+  [at("sectionRefs.current.about = el"), at("sectionRefs.current.media = el"), at("sectionRefs.current.content = el"), at("sectionRefs.current.category = el"), at("<RichTextEditor"), at("What's Included</h2>"), at("sectionRefs.current.files = el"), at("sectionRefs.current.variants = el"), at(">Pricing</h2>"), at(">FAQ</h2>")]
     .every((i, n, all) => i > mainAt && i < sideAt && (n === 0 || i > all[n - 1])))
-check("how it is shown and found beside it: status (lg only), category, settings, search",
-  [at('data-editor-status=""'), at("sectionRefs.current.category = el"), at(">Settings</h2>"), at(">SEO</h2>")].every((i, n, all) => i > sideAt && (n === 0 || i > all[n - 1]))
+check("how it is shown and found beside it: status (lg only), settings, search",
+  [at('data-editor-status=""'), at(">Settings</h2>"), at(">SEO</h2>")].every((i, n, all) => i > sideAt && (n === 0 || i > all[n - 1]))
     && /data-editor-status="" className=\{cn\(CARD, "hidden lg:block"\)\}/.test(editor))
+/* Changed on purpose: one card fewer (Category is a field in Content now), so ten. */
 check("every card is the /app card, spaced by its column rather than a margin of its own",
   /const CARD = "scroll-mt-4 space-y-4 rounded-2xl border border-\[#e5e7eb\]\/60 bg-white p-4 shadow-\[0_1px_3px_rgba\(0,0,0,0\.04\)\] sm:space-y-5 sm:p-6"/.test(editor)
-    && (editor.match(/className=\{CARD\}/g) ?? []).length >= 11 && !/mb-3 scroll-mt-4/.test(editor))
+    && (editor.match(/className=\{CARD\}/g) ?? []).length >= 10 && !/mb-3 scroll-mt-4/.test(editor))
 const footSource = editor.slice(editor.indexOf('data-editor-foot=""'), editor.indexOf("{/* CTA Bottom Sheet */}"))
 check("the foot bar from lg: sticky at the bottom of the pane that scrolls, white, a hairline and a soft shadow upward, over the home indicator's inset",
   /className="sticky bottom-0 z-30 mt-auto hidden shrink-0 border-t border-\[#e5e7eb\] bg-white pb-\[env\(safe-area-inset-bottom\)\] shadow-\[0_-4px_16px_-8px_rgba\(17,24,39,0\.10\)\] lg:block"/.test(footSource)

@@ -71,6 +71,7 @@ import { FaqList } from "./faq-list"
 import { MediaGrid, type PendingMedia } from "./media-grid"
 import { DigitalFiles, useFileUploads } from "./file-uploads"
 import { CategoryPicker } from "./category-picker"
+import { useCategorySuggestion } from "./category-suggestion"
 
 /*
   The cards a failed check scrolls to (handleSaveChanges). There is no row of
@@ -438,9 +439,6 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
   const [limitSalesEnabled, setLimitSalesEnabled] = useState(false)
   const [salesLimit, setSalesLimit] = useState("")
 
-  // AI suggestion states
-  const [suggestedCategory, setSuggestedCategory] = useState<string | null>(null)
-
   // Stable handler for toggling variant assigned files - defined at component level to avoid closure issues
   const handleToggleVariantFile = useCallback((variantId: string, fileId: string) => {
     if (!variantId || !fileId) return
@@ -486,221 +484,26 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
     }, 5000)
   }, [dismissToast])
 
-  // Smart AI Category suggestion based on title and description
-  const suggestCategory = useCallback((text: string) => {
-    if (!text || text.length < 3) {
-      setSuggestedCategory(null)
-      return
-    }
-
-    const lowerText = text.toLowerCase()
-
-    // Category keywords mapping with weights (higher weight = more confident match)
-    const categoryKeywords: { [key: string]: { keywords: string[], weight: number }[] } = {
-      // Audio & Sound
-      "Sound Effects": [
-        { keywords: ["sound effect", "sfx", "sound fx"], weight: 10 },
-        { keywords: ["audio effect", "whoosh", "swoosh", "impact", "transition sound"], weight: 8 },
-        { keywords: ["foley", "ambient sound", "noise"], weight: 6 },
-      ],
-      "Sample Packs": [
-        { keywords: ["sample pack", "drum kit", "drum samples"], weight: 10 },
-        { keywords: ["loops", "one shots", "wav samples", "audio samples"], weight: 8 },
-        { keywords: ["producer", "fl studio", "ableton"], weight: 5 },
-      ],
-      "Beats": [
-        { keywords: ["beat", "beats", "instrumental", "type beat"], weight: 10 },
-        { keywords: ["hip hop", "trap", "r&b", "drill", "boom bap"], weight: 7 },
-        { keywords: ["rapper", "vocalist"], weight: 4 },
-      ],
-      "Music Tracks": [
-        { keywords: ["music track", "royalty free music", "background music"], weight: 10 },
-        { keywords: ["soundtrack", "cinematic music", "production music"], weight: 8 },
-        { keywords: ["license", "commercial use"], weight: 3 },
-      ],
-      // Design & Creative
-      "Lightroom Presets": [
-        { keywords: ["lightroom preset", "lr preset", "lightroom"], weight: 10 },
-        { keywords: ["photo preset", "color preset", "mobile preset"], weight: 7 },
-        { keywords: ["instagram filter", "photo editing"], weight: 4 },
-      ],
-      "Photoshop Actions": [
-        { keywords: ["photoshop action", "ps action", "photoshop"], weight: 10 },
-        { keywords: ["psd", "photo manipulation", "retouching"], weight: 6 },
-      ],
-      "Procreate Brushes": [
-        { keywords: ["procreate brush", "procreate"], weight: 10 },
-        { keywords: ["ipad brush", "digital brush", "illustration brush"], weight: 6 },
-      ],
-      "Video LUTs": [
-        { keywords: ["lut", "luts", "color lut"], weight: 10 },
-        { keywords: ["color grade", "color grading", "cinematic look"], weight: 8 },
-        { keywords: ["davinci", "premiere", "final cut"], weight: 4 },
-      ],
-      "Fonts": [
-        { keywords: ["font", "fonts", "typeface"], weight: 10 },
-        { keywords: ["typography", "lettering", "handwritten"], weight: 6 },
-        { keywords: ["otf", "ttf", "woff"], weight: 5 },
-      ],
-      "Icons": [
-        { keywords: ["icon pack", "icon set", "icons"], weight: 10 },
-        { keywords: ["vector icons", "ui icons", "line icons"], weight: 7 },
-      ],
-      // Templates
-      "Notion Templates": [
-        { keywords: ["notion template", "notion"], weight: 10 },
-        { keywords: ["notion workspace", "notion dashboard"], weight: 8 },
-      ],
-      "Figma Templates": [
-        { keywords: ["figma template", "figma"], weight: 10 },
-        { keywords: ["figma ui", "figma design"], weight: 7 },
-      ],
-      "Canva Templates": [
-        { keywords: ["canva template", "canva"], weight: 10 },
-      ],
-      "Social Media Templates": [
-        { keywords: ["instagram template", "social media template"], weight: 10 },
-        { keywords: ["story template", "post template", "reel template"], weight: 8 },
-        { keywords: ["tiktok", "facebook", "twitter", "linkedin"], weight: 5 },
-      ],
-      "Resume Templates": [
-        { keywords: ["resume template", "cv template", "resume"], weight: 10 },
-        { keywords: ["curriculum vitae", "job application"], weight: 6 },
-      ],
-      // AI & Prompts
-      "AI Prompts": [
-        { keywords: ["ai prompt", "prompt pack", "prompts"], weight: 10 },
-        { keywords: ["chatgpt", "midjourney", "dall-e", "stable diffusion"], weight: 8 },
-        { keywords: ["prompt engineering", "gpt"], weight: 5 },
-      ],
-      "ChatGPT Prompts": [
-        { keywords: ["chatgpt prompt", "chatgpt", "gpt prompt"], weight: 10 },
-        { keywords: ["openai", "gpt-4", "gpt-3"], weight: 7 },
-      ],
-      "Midjourney Prompts": [
-        { keywords: ["midjourney prompt", "midjourney", "mj prompt"], weight: 10 },
-        { keywords: ["ai art prompt", "image generation"], weight: 5 },
-      ],
-      // Education
-      "Online Courses": [
-        { keywords: ["online course", "course", "masterclass"], weight: 10 },
-        { keywords: ["video course", "learn", "training", "tutorial"], weight: 7 },
-        { keywords: ["lesson", "module", "curriculum"], weight: 4 },
-      ],
-      "Ebooks": [
-        { keywords: ["ebook", "e-book", "digital book"], weight: 10 },
-        { keywords: ["pdf guide", "pdf book"], weight: 8 },
-        { keywords: ["guide", "handbook", "manual"], weight: 4 },
-      ],
-      // Business
-      "Spreadsheets": [
-        { keywords: ["spreadsheet", "excel template", "google sheets"], weight: 10 },
-        { keywords: ["excel", "xlsx", "csv"], weight: 6 },
-        { keywords: ["calculator", "tracker"], weight: 3 },
-      ],
-      "Business Plans": [
-        { keywords: ["business plan", "startup plan"], weight: 10 },
-        { keywords: ["pitch deck", "investor"], weight: 5 },
-      ],
-      // Art & Crafts
-      "SVG Files": [
-        { keywords: ["svg", "svg file", "cut file"], weight: 10 },
-        { keywords: ["cricut", "silhouette", "vinyl"], weight: 8 },
-        { keywords: ["laser cut", "cnc"], weight: 5 },
-      ],
-      "Printables": [
-        { keywords: ["printable", "print at home"], weight: 10 },
-        { keywords: ["wall art", "poster", "art print"], weight: 6 },
-        { keywords: ["digital download", "instant download"], weight: 3 },
-      ],
-      // Development
-      "WordPress Themes": [
-        { keywords: ["wordpress theme", "wp theme"], weight: 10 },
-        { keywords: ["wordpress"], weight: 5 },
-      ],
-      "Shopify Themes": [
-        { keywords: ["shopify theme", "shopify template"], weight: 10 },
-        { keywords: ["shopify"], weight: 5 },
-      ],
-      "UI Kits": [
-        { keywords: ["ui kit", "design system"], weight: 10 },
-        { keywords: ["user interface", "ui/ux", "component"], weight: 6 },
-      ],
-      "Source Code": [
-        { keywords: ["source code", "github", "repository"], weight: 10 },
-        { keywords: ["script", "code", "api"], weight: 4 },
-      ],
-      // Fitness
-      "Workout Plans": [
-        { keywords: ["workout plan", "fitness program"], weight: 10 },
-        { keywords: ["exercise", "gym", "training plan"], weight: 6 },
-        { keywords: ["weight loss", "muscle", "strength"], weight: 3 },
-      ],
-      "Meal Plans": [
-        { keywords: ["meal plan", "diet plan"], weight: 10 },
-        { keywords: ["nutrition", "recipe", "food"], weight: 5 },
-        { keywords: ["keto", "vegan", "healthy"], weight: 3 },
-      ],
-      // Personal
-      "Planners": [
-        { keywords: ["planner", "digital planner"], weight: 10 },
-        { keywords: ["daily planner", "weekly planner", "monthly"], weight: 7 },
-        { keywords: ["organizer", "schedule"], weight: 4 },
-      ],
-      "Journals": [
-        { keywords: ["journal", "journaling"], weight: 10 },
-        { keywords: ["diary", "gratitude", "reflection"], weight: 5 },
-      ],
-      // 3D & Games
-      "3D Assets": [
-        { keywords: ["3d model", "3d asset"], weight: 10 },
-        { keywords: ["blender", "maya", "c4d", "3ds max"], weight: 7 },
-        { keywords: ["fbx", "obj", "stl"], weight: 5 },
-      ],
-      "Game Assets": [
-        { keywords: ["game asset", "sprite", "tileset"], weight: 10 },
-        { keywords: ["unity", "unreal", "godot"], weight: 7 },
-        { keywords: ["pixel art", "game art", "character"], weight: 5 },
-      ],
-    }
-
-    // Calculate scores for each category
-    const scores: { [key: string]: number } = {}
-
-    for (const [category, keywordGroups] of Object.entries(categoryKeywords)) {
-      let categoryScore = 0
-      for (const group of keywordGroups) {
-        for (const keyword of group.keywords) {
-          if (lowerText.includes(keyword)) {
-            // Add weighted score + bonus for keyword length (specificity)
-            categoryScore += group.weight + (keyword.length * 0.5)
-          }
-        }
-      }
-      if (categoryScore > 0) {
-        scores[category] = categoryScore
-      }
-    }
-
-    // Find best matching category
-    let bestMatch: string | null = null
-    let bestScore = 0
-
-    for (const [category, score] of Object.entries(scores)) {
-      if (score > bestScore) {
-        bestScore = score
-        bestMatch = category
-      }
-    }
-
-    setSuggestedCategory(bestMatch)
-  }, [])
-
-  // Trigger category suggestion when title or description changes
+  /*
+    THE SUGGESTED CATEGORY (./category-suggestion.ts): the keywords once
+    typing pauses, then Claude's choice from the list once the title, the
+    description and the pictures settle. While the creator has not chosen or
+    cleared a category, the suggestion is also the value, marked Suggested in
+    the field; the first choice or clear of their own ends that for the visit.
+  */
+  const suggestedCategory = useCategorySuggestion(title, description, mediaItems)
+  const categoryTouched = useRef(!!initial.selectedCategory)
   useEffect(() => {
-    const text = `${title} ${description}`.trim()
-    suggestCategory(text)
-  }, [title, description, suggestCategory])
+    if (suggestedCategory && !categoryTouched.current) setSelectedCategory(suggestedCategory)
+  }, [suggestedCategory])
+  const chooseCategory = useCallback((category: string) => {
+    categoryTouched.current = true
+    setSelectedCategory(category)
+  }, [])
+  const clearCategory = useCallback(() => {
+    categoryTouched.current = true
+    setSelectedCategory(null)
+  }, [])
 
 
   // Track changes for unsaved warning - compare against last saved values
@@ -2047,8 +1850,8 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
         page container every /app page uses, a header with the way back to
         Products, the product's name and its status, and two columns of cards.
         The main one, two thirds, is the product itself: its title, pictures,
-        description, what is included, files, variants, price and questions.
-        The side one is how it is shown and found: its status, category,
+        category and description, what is included, files, variants, price
+        and questions. The side one is how it is shown and found: its status,
         settings and search listing. The cards are the same cards at every
         width, in the same order in the source, so a screen reader and the
         Tab key meet them in the order they are seen.
@@ -2332,6 +2135,24 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
                   <p className="text-[13px] leading-5 text-[#6b7280] sm:text-[14px]">
                     Describe your product to attract customers.
                   </p>
+                </div>
+
+                {/*
+                  THE CATEGORY, a field of the product itself, above its
+                  description at every width, as Shopify has it
+                  (./category-picker.tsx).
+                */}
+                <div ref={(el) => { sectionRefs.current.category = el }} data-editor-category="" className="scroll-mt-4 space-y-1.5">
+                  <Label className="text-sm font-medium text-gray-700">
+                    Category
+                  </Label>
+                  <CategoryPicker
+                    value={selectedCategory}
+                    onChange={chooseCategory}
+                    onClear={clearCategory}
+                    suggested={suggestedCategory}
+                    isPhone={isMobileViewport}
+                  />
                 </div>
 
                 <div className="space-y-1.5">
@@ -3005,28 +2826,6 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
                     </button>
                   </div>
                 ) : null}
-              </div>
-
-              {/* Category Section */}
-              <div
-                ref={(el) => { sectionRefs.current.category = el }}
-                className={CARD}
-              >
-                <div>
-                  <div className="flex items-center gap-1.5">
-                    <h2 className={CARD_TITLE}>Category</h2>
-                  </div>
-                  <p className="text-[13px] leading-5 text-[#6b7280] sm:text-[14px]">
-                    Select the best category for your product.
-                  </p>
-                </div>
-
-                <CategoryPicker
-                  value={selectedCategory}
-                  onChange={setSelectedCategory}
-                  suggested={suggestedCategory}
-                  isPhone={isMobileViewport}
-                />
               </div>
 
               {/* Settings Section */}

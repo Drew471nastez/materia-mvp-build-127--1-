@@ -17,9 +17,14 @@
  *   (app/app/products/new/editor-controls.tsx). Nothing new is saved.
  *
  *   CATEGORY. "I don't like those dots. I don't like the X button in the
- *   mobile bottom sheet." app/app/products/new/category-picker.tsx: the
- *   shared sheet on a phone, a popover on a computer, a search, groups that
- *   open, a check on the chosen one, and a choice closes it.
+ *   mobile bottom sheet." Then: "exactly like Shopify's product category
+ *   field", in the main column above the description.
+ *   app/app/products/new/category-picker.tsx: a "Search categories" field
+ *   whose list opens under it on a computer (not a window in the middle),
+ *   the shared sheet on a phone, groups that slide open into their
+ *   categories with Back to All, a search across every group, the
+ *   suggestion pinned at the bottom with a grey "Suggested" tag, a check on
+ *   the chosen one, and a choice closes it.
  *
  * What they look like and how they move is measured in a browser by
  * scripts/check-editor-parts.mjs. This pins the source.
@@ -82,16 +87,34 @@ check("choosing fixed again gives back the price free cleared", /priceBeforeFree
 check("a saved product with no price and no variants opens on Free", /initial\.productId && initial\.variants\.length === 0 && !Number\.parseFloat\(initial\.price \|\| "0"\) \? "free" : "fixed"/.test(editor))
 
 console.log("\nThe category (app/app/products/new/category-picker.tsx)")
-check("the editor draws the picker, with its own reading of the width", /<CategoryPicker\s+value=\{selectedCategory\}\s+onChange=\{setSelectedCategory\}\s+suggested=\{suggestedCategory\}\s+isPhone=\{isMobileViewport\}/.test(editor))
+const groups = code("lib/products/category-groups.ts")
+/* Changed on purpose: the field takes onClear (its x) and the choice goes through chooseCategory, which ends the preselected suggestion. */
+check("the editor draws the field, with its own reading of the width", /<CategoryPicker\s+value=\{selectedCategory\}\s+onChange=\{chooseCategory\}\s+onClear=\{clearCategory\}\s+suggested=\{suggestedCategory\}\s+isPhone=\{isMobileViewport\}/.test(editor))
 check("the old dialog, its swipe code, the gradient badge and the dots are gone",
   !/<Dialog|DialogContent|handleSheetTouchStart|dismissingSheet|expandedGroups|CATEGORY_GROUPS/.test(editor) && !/AI Suggested|✨|from-violet-500 to-purple-500/.test(editor) && !/w-1\.5 h-1\.5 rounded-full/.test(editor + picker) && !/icon: "•"/.test(editor + picker))
+/* Changed on purpose: "move the category field into the main column, above the description, at every width". */
+check("a field of the product, in the main column above the description, and no Category card beside it",
+  editor.indexOf("data-editor-category") > editor.indexOf("sectionRefs.current.content = el") && editor.indexOf("data-editor-category") < editor.indexOf("<RichTextEditor") && editor.indexOf("data-editor-category") < editor.indexOf('data-editor-side=""')
+    && !/<h2 className=\{CARD_TITLE\}>Category<\/h2>/.test(editor))
 check("on a phone the shared sheet, with no X of its own, sitting on the keyboard", /<BottomSheet\s+isOpen=\{open\}[\s\S]{0,200}aboveKeyboard/.test(picker) && !/aria-label="Close"/.test(picker) && !/showCloseButton/.test(picker))
 check("48px rows on a phone, 36px on a computer", /min-h-\[48px\]/.test(picker) && /min-h-\[36px\]/.test(picker))
-check("a search on top, across every group", /data-category-search=""/.test(picker) && /function search\(query: string\)/.test(picker))
-check("groups open into their categories, with a way back", /data-category-group=\{g\.name\}/.test(picker) && /data-category-back=""/.test(picker))
-check("a check on the chosen one, and choosing closes", /aria-current=\{on \? "true" : undefined\}/.test(picker) && /onChange\(category\)\s+setOpen\(false\)/.test(picker))
-check("on a computer a window in the middle, not a popover over the fields, the search focused", /<DialogPrimitive\.Content[\s\S]{0,40}data-category-dialog=""/.test(picker) && !/PopoverContent/.test(picker) && /querySelector<HTMLInputElement>\("\[data-category-search\]"\)\?\.focus\(\)/.test(picker))
-check("every category the editor offered is still offered", (read("app/app/products/new/category-picker.tsx").match(/^      "/gm) ?? []).length >= 80 && /"Lightroom Presets"/.test(picker) && /"Video LUTs"/.test(picker))
+check("a search field on top, across every group", /data-category-search=""/.test(picker) && /placeholder="Search categories"/.test(picker) && /searchCategories\(query\)/.test(picker) && /export function searchCategories\(query: string\)/.test(groups))
+check("groups open into their categories in the same list: Back to All, the group as a header", /data-category-group=\{r\.name\}/.test(picker) && /data-category-back=""/.test(picker) && />Back to All</.test(picker) && /data-category-header=""/.test(picker))
+check("a check on the chosen one, and choosing closes", /aria-current=\{chosen \? "true" : undefined\}/.test(picker) && /onChange\(category\)\s+setOpen\(false\)/.test(picker))
+/* Changed on purpose: the owner asked for the list to open from the field, like Shopify's, not the window in the middle it was. */
+check("on a computer the list opens from the field, as wide as it, not a window in the middle",
+  /<PopoverPrimitive\.Anchor asChild>/.test(picker) && /<PopoverPrimitive\.Content\s+data-category-dropdown=""/.test(picker) && /w-\[var\(--radix-popover-trigger-width\)\]/.test(picker)
+    && /onOpenAutoFocus=\{\(e\) => e\.preventDefault\(\)\}/.test(picker) && !/DialogPrimitive|DesktopCategoryBrowser|data-category-dialog/.test(picker))
+check("going in and back slides, on transform and opacity only, over a list of a fixed height",
+  /pane\.animate\(\[\{ transform: "translate3d\(100%, 0, 0\)" \}/.test(picker) && /ghost\.animate\(\[\{ transform: "translate3d\(0, 0, 0\)" \}, \{ transform: "translate3d\(100%, 0, 0\)" \}\]/.test(picker)
+    && !/animate\(\[\{ (height|width|top|left)/.test(picker) && /style=\{\{ height: place\.h \}\}/.test(picker) && /const side = below >= LIST_MIN \|\| below >= above \? "bottom" : "top"/.test(picker) && /if \(!stage \|\| !pane \|\| reducedMotion\(\)/.test(picker))
+check("Up, Down, Enter, Right and Left from the field; Escape and a click outside close", /e\.key === "ArrowDown" \|\| e\.key === "ArrowUp"/.test(picker) && /e\.key === "Enter"/.test(picker) && /e\.key === "ArrowRight"/.test(picker) && /e\.key === "ArrowLeft"/.test(picker) && /aria-activedescendant=/.test(picker) && /onOpenChange=\{show\}/.test(picker))
+check("the suggestion pinned at the bottom with a grey Suggested tag, never violet", /data-category-suggested=\{suggested\}/.test(picker) && /<SuggestedTag \/>/.test(picker) && /border-\[#e3e5e8\] bg-white[^"]*text-\[#4b5563\]/.test(picker) && !/violet|purple|#8b5cf6|#7c3aed/.test(picker))
+check("under the field, the choice, the tag when it is the suggestion, and an x to clear it", /data-category-chosen=""/.test(picker) && /\{value === suggested \? <SuggestedTag \/> : null\}/.test(picker) && /data-category-clear=""/.test(picker) && /onClick=\{onClear\}/.test(picker))
+check("the suggestion is preselected until the creator chooses or clears", /if \(suggestedCategory && !categoryTouched\.current\) setSelectedCategory\(suggestedCategory\)/.test(editor) && /const categoryTouched = useRef\(!!initial\.selectedCategory\)/.test(editor))
+check("the suggestion is asked for once the fields settle, cached by content, never on a keystroke", /const SETTLE_MS = 1200/.test(code("app/app/products/new/category-suggestion.ts")) && /answers\.has\(key\)/.test(code("app/app/products/new/category-suggestion.ts")) && /ctrl\.abort\(\)/.test(code("app/app/products/new/category-suggestion.ts")))
+/* Changed on purpose: the list moved to lib/products/category-groups.ts so the suggestion route can check answers against it. */
+check("every category the editor offered is still offered", (read("lib/products/category-groups.ts").match(/^      "/gm) ?? []).length >= 80 && /"Lightroom Presets"/.test(groups) && /"Video LUTs"/.test(groups))
 
 console.log("\nThe probe")
 const probe = read("scripts/check-editor-parts.mjs")

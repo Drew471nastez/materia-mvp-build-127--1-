@@ -2,811 +2,567 @@
 
 /**
  * ===========================================================================
- *  THE CATEGORY PICKER
+ *  THE CATEGORY FIELD
  * ===========================================================================
- * "Not a great UI. Smoother, cleaner, easy to navigate, not so complex. I
- * don't like those dots. I don't like the X button in the bottom sheet."
+ * Shaped like Shopify's product category field, which the owner sent: a
+ * field that says "Search categories", in the main column above the
+ * description, and a list that opens from it.
  *
- * Shaped like Shopify's own category picker: a search field on top, then the
- * groups as plain rows that open into their categories, and one tap on a
- * category chooses it and closes. The chosen one carries a check, as a
- * Polaris ChoiceList does. No dots, no emoji, no badge, and nothing to press
- * to confirm: choosing is the confirmation.
+ * ON A COMPUTER the list opens right under the field (over it when there is
+ * no room below), as wide as the field, anchored to it. Not a window in the
+ * middle of the screen: the field stays where it is and stays typed into.
+ *   - At the top, the groups, each a row with a chevron.
+ *   - A group opens in the same list: "Back to All" first, the group's name
+ *     as a header, then its categories. Into a group slides left, back
+ *     slides right, on transform and opacity, in a list of a fixed height,
+ *     so nothing around it moves.
+ *   - Typing searches every category, its group on the right.
+ *   - Pinned at the bottom, the suggested category with a "Suggested" tag
+ *     (lib/products/category-suggest.ts and the route behind it).
+ *   - Up and Down move through the rows, Enter opens or chooses, Right
+ *     opens a group and Left goes back while nothing is typed, Escape or a
+ *     click outside closes. Focus never leaves the field.
+ * Under the field, once it is closed, the chosen category and its group,
+ * a "Suggested" tag when it is the suggestion, and an x to clear it.
  *
- * On a phone it is the shared sheet (components/ui/bottom-sheet.tsx), so it
- * opens, drags and closes like every sheet in /app: the grabber, a pull down
- * or a tap outside close it, and there is no X. It has a fixed height, so
- * opening a group or typing a search never moves its top edge, and it sits
- * on the keyboard while the search is typed into.
+ * ON A PHONE the field opens the shared sheet (components/ui/bottom-sheet.tsx:
+ * the grabber, a pull down or a tap outside close it, and it follows the
+ * finger), with the search on top and the same levels sliding the same way.
  *
- * On a computer it is a window in the middle of the screen, not a popover:
- * a popover under a field in the side column had no room, flipped up over
- * the top bar and covered the fields around it. The window has the search on
- * top and two columns under it, the groups on the left and the open group's
- * categories on the right, so the whole catalogue is two moves away and a
- * search is one. Hovering a group opens it, as a menu does; a click on a
- * category chooses it and closes. Escape or a click outside closes it.
- *
- * 48px rows on a phone, 36px on a computer.
+ * No dialog, no second dropdown inside the first, no violet: the tag is the
+ * page's own grey. 36px rows on a computer, 48px on a phone.
  */
 
-import React, { useLayoutEffect, useMemo, useRef, useState } from "react"
-import { Check, ChevronDown, ChevronLeft, ChevronRight, Search, X } from "lucide-react"
+import React, { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react"
+import * as PopoverPrimitive from "@radix-ui/react-popover"
+import { ArrowLeft, Check, ChevronRight, Search, X } from "lucide-react"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
-import * as DialogPrimitive from "@radix-ui/react-dialog"
 import { hapticTap } from "@/lib/native-bridge"
+import { CATEGORY_GROUPS, groupOfCategory, searchCategories } from "@/lib/products/category-groups"
 import { cn } from "@/lib/utils"
-
-export interface CategoryGroup {
-  name: string
-  categories: string[]
-}
-
-/* The groups and their categories, as the editor has always offered them. */
-export const CATEGORY_GROUPS: CategoryGroup[] = [
-  {
-    name: "Design & Creative",
-    categories: [
-      "Digital Art", "Graphics", "Illustrations", "Vector Art", "Icons", "Fonts",
-      "Clip Art", "Photoshop Actions", "Photoshop Brushes", "Lightroom Presets", "Lightroom Profiles", "Procreate Brushes",
-      "Procreate Stamps", "Design Systems", "UI Kits", "Wireframes", "Prototypes", "Brand Kits",
-      "Brand Guidelines", "Logo Templates", "Logo Packs", "Pattern Designs", "Textures", "Backgrounds",
-      "Overlays", "Filters", "Color Palettes", "Gradients", "Figma Templates", "Sketch Templates",
-      "Adobe XD Templates", "Canva Templates",
-    ],
-  },
-  {
-    name: "VFX & Motion",
-    categories: [
-      "Motion Graphics", "After Effects Templates", "Premiere Pro Templates", "DaVinci Resolve Templates", "Transitions", "Lower Thirds",
-      "Intros", "Outros", "Video Templates", "Video LUTs", "Visual Effects", "VFX Presets",
-      "Animation Templates", "Animated Elements", "Title Templates", "Green Screen Assets", "Particle Effects", "Light Leaks",
-      "Glitch Effects", "Cinematic LUTs",
-    ],
-  },
-  {
-    name: "Audio & Music",
-    categories: [
-      "Sample Packs", "Drum Kits", "Loops", "MIDI Files", "Presets", "Synth Presets",
-      "Vocal Samples", "Beats", "Instrumentals", "Sound Effects", "Music Tracks", "Audio Files",
-      "Sound Libraries", "Ableton Templates", "FL Studio Templates", "Logic Pro Templates", "Podcasts", "Audiobooks",
-      "Podcast Templates", "Podcast Artwork", "Podcast Intros", "Audio Branding", "Voice Overs", "Jingles",
-      "Ringtones", "Ambient Sounds",
-    ],
-  },
-  {
-    name: "Software & Development",
-    categories: [
-      "Software", "Plugins", "Extensions", "Code Snippets", "Scripts", "APIs",
-      "SDKs", "Libraries", "Frameworks", "WordPress Themes", "WordPress Plugins", "Shopify Themes",
-      "Shopify Apps", "Web Apps", "SaaS Products", "Mobile Apps", "Desktop Apps", "Source Code",
-      "Databases", "Development Tools", "CLI Tools", "DevOps Tools", "Bots", "Automation Scripts",
-      "Browser Extensions", "App Templates",
-    ],
-  },
-  {
-    name: "AI & Automation",
-    categories: [
-      "AI Tools", "AI Assistants", "AI Agents", "AI Models", "Machine Learning", "Datasets",
-      "Algorithms", "GPT Templates", "ChatGPT Prompts", "Claude Prompts", "Gemini Prompts", "AI Prompts",
-      "Midjourney Prompts", "Stable Diffusion Prompts", "DALL-E Prompts", "AI Workflows", "Automation Workflows", "Zapier Templates",
-      "Make Templates", "n8n Workflows", "AI Art Generators", "AI Voice Tools", "Text to Speech", "Prompt Packs",
-    ],
-  },
-  {
-    name: "Gaming & Esports",
-    categories: [
-      "Games", "Game Assets", "Unity Assets", "Unreal Assets", "Sprites", "Tilesets",
-      "Gaming Guides", "Strategy Guides", "Walkthroughs", "Cheat Codes", "Modding Tools", "Game Mods",
-      "Esports Coaching", "Gaming Overlays", "Stream Overlays", "Twitch Panels", "Twitch Emotes", "Discord Assets",
-      "Discord Bots", "Gaming Avatars", "Gaming Banners", "Gaming Templates", "Controller Skins", "Character Models",
-      "Game UI Kits",
-    ],
-  },
-  {
-    name: "3D & Assets",
-    categories: [
-      "3D Assets", "3D Models", "3D Printing Files", "3D Characters", "3D Environments", "3D Props",
-      "3D Textures", "3D Materials", "Blender Assets", "Maya Assets", "Cinema 4D Assets", "HDRI Images",
-      "PBR Materials", "CAD Files", "Architectural Models",
-    ],
-  },
-  {
-    name: "Photography & Video",
-    categories: [
-      "Stock Photos", "Stock Videos", "Photo Presets", "Thumbnails", "YouTube Templates", "Instagram Reels Templates",
-      "TikTok Templates", "Travel Photography", "Food Photography Presets", "Portrait Presets", "Landscape Presets", "Film Emulation",
-      "Photo Overlays", "Photo Frames",
-    ],
-  },
-  {
-    name: "Templates & Mockups",
-    categories: [
-      "Templates", "Mockups", "Presentations", "Resume Templates", "Business Cards", "Flyers",
-      "Posters", "Brochures", "Social Media Templates", "Website Templates", "Mobile App Templates", "Email Templates",
-      "Newsletter Designs", "Notion Templates", "Notion Dashboards", "Notion Databases", "Notion Wikis", "Second Brain Templates",
-      "PARA Templates", "GTD Templates",
-    ],
-  },
-  {
-    name: "Education & Courses",
-    categories: [
-      "Online Courses", "Video Courses", "Tutorials", "Workshops", "Masterclasses", "Video Lessons",
-      "Webinars", "Educational Content", "Study Guides", "Cheat Sheets", "Flashcards", "Quizzes",
-      "Language Learning", "Test Prep", "Certifications", "Training Materials", "Curriculum", "Homeschool Resources",
-      "Learning Materials", "Educational Games",
-    ],
-  },
-  {
-    name: "Business & Marketing",
-    categories: [
-      "Business Plans", "Marketing Plans", "Sales Funnels", "Marketing Funnels", "Landing Pages", "Lead Magnets",
-      "Case Studies", "White Papers", "Pitch Decks", "Reports", "Analytics Templates", "CRM Templates",
-      "Project Management", "SOPs", "Spreadsheets", "Financial Models", "Invoices", "Contracts",
-      "Legal Templates", "NDA Templates", "Proposal Templates", "Quotation Templates", "Business Proposals", "Business Model Canvas",
-      "Lean Canvas",
-    ],
-  },
-  {
-    name: "Startup & Entrepreneurship",
-    categories: [
-      "Startup Templates", "Investor Decks", "Fundraising Guides", "Startup Playbooks", "Growth Hacking", "MVP Templates",
-      "Product Roadmaps", "OKR Templates", "Venture Capital", "Angel Investing", "Pitch Templates", "Startup Guides",
-    ],
-  },
-  {
-    name: "Ecommerce & Sales",
-    categories: [
-      "Ecommerce Templates", "Dropshipping Guides", "Product Research", "Supplier Lists", "Store Setups", "Amazon FBA Guides",
-      "Etsy Templates", "Gumroad Templates", "Product Descriptions", "Pricing Strategies", "Sales Playbooks", "CRM Setups",
-      "HubSpot Templates", "Salesforce Templates", "Pipeline Templates", "Closing Scripts",
-    ],
-  },
-  {
-    name: "Writing & Content",
-    categories: [
-      "Ebooks", "Writing Templates", "Content Calendars", "Blog Posts", "Articles", "Ghostwriting",
-      "Copywriting Templates", "Ad Copy", "Sales Scripts", "Email Sequences", "Cold Email Templates", "Newsletter Templates",
-      "Documentation", "Guides", "Manuals",
-    ],
-  },
-  {
-    name: "Social Media",
-    categories: [
-      "Instagram Templates", "Pinterest Templates", "LinkedIn Posts", "Twitter Templates", "Social Media Planners", "Content Planners",
-      "Hashtag Guides", "Bio Templates", "Link in Bio Templates", "Creator Toolkits", "Sponsorship Templates", "Media Kits",
-      "Brand Deal Templates", "UGC Templates", "Influencer Contracts", "Rate Cards",
-    ],
-  },
-  {
-    name: "Email Marketing",
-    categories: [
-      "Email Funnels", "Drip Campaigns", "Welcome Sequences", "Launch Sequences", "Re-engagement Emails", "Substack Templates",
-      "ConvertKit Templates", "Mailchimp Templates", "Beehiiv Templates", "Newsletter Growth", "Cold Outreach Templates",
-    ],
-  },
-  {
-    name: "No-Code & Tools",
-    categories: [
-      "No-Code Templates", "Bubble Templates", "Webflow Templates", "Airtable Bases", "Glide Apps", "Softr Templates",
-      "Adalo Templates", "FlutterFlow Templates", "Retool Templates", "Xano Templates",
-    ],
-  },
-  {
-    name: "Finance & Investing",
-    categories: [
-      "Investment Templates", "Stock Analysis", "Portfolio Trackers", "Crypto Trackers", "Tax Templates", "Expense Trackers",
-      "Savings Planners", "Debt Payoff", "Financial Literacy", "Money Guides", "Trading Strategies", "DeFi Guides",
-      "Crypto Guides", "NFT Art", "NFT Collections",
-    ],
-  },
-  {
-    name: "Health & Fitness",
-    categories: [
-      "Workout Plans", "Meal Plans", "Nutrition Guides", "Recipe Books", "Diet Plans", "Fitness Programs",
-      "Meditation Guides", "Wellness Journals", "Health Trackers", "Yoga Guides",
-    ],
-  },
-  {
-    name: "Personal Development",
-    categories: [
-      "Planners", "Journals", "Trackers", "Goal Setting", "Habit Trackers", "Budget Planners",
-      "Mindmaps", "Note Taking", "Productivity Systems", "Life Coaching", "Self-Help Guides", "Affirmation Cards",
-      "Vision Boards", "Gratitude Journals", "Daily Planners", "Weekly Reviews",
-    ],
-  },
-  {
-    name: "Spirituality & Mindfulness",
-    categories: [
-      "Tarot Guides", "Astrology Charts", "Horoscope Templates", "Crystal Guides", "Energy Healing", "Chakra Guides",
-      "Manifestation Guides", "Law of Attraction", "Spiritual Journals", "Prayer Guides",
-    ],
-  },
-  {
-    name: "Art & Crafts",
-    categories: [
-      "Printables", "Coloring Pages", "Patterns", "SVG Files", "Cut Files", "Cricut Designs",
-      "Embroidery Designs", "Knitting Patterns", "Sewing Patterns", "Craft Templates", "Stickers", "Labels",
-      "Invitations", "Greeting Cards", "Wall Art", "Digital Planners",
-    ],
-  },
-  {
-    name: "Print on Demand",
-    categories: [
-      "T-Shirt Designs", "Mug Designs", "Phone Case Designs", "Poster Designs", "Tote Bag Designs", "Sticker Designs",
-      "Print Designs", "Apparel Graphics", "Merchandise Templates",
-    ],
-  },
-  {
-    name: "Fashion & Beauty",
-    categories: [
-      "Fashion Lookbooks", "Outfit Guides", "Style Guides", "Fashion Illustrations", "Fashion Sketches", "Makeup Tutorials",
-      "Beauty Guides", "Skincare Routines", "Hair Care Guides", "Nail Art Designs", "Fashion Presets", "Beauty Presets",
-      "Fashion Templates", "Lookbook Templates",
-    ],
-  },
-  {
-    name: "Real Estate",
-    categories: [
-      "Real Estate Flyers", "Property Listings", "Real Estate Templates", "Property Management", "Rental Agreements", "Real Estate Guides",
-      "Investment Guides", "Property Analysis", "Real Estate Marketing", "Open House Templates",
-    ],
-  },
-  {
-    name: "Events & Weddings",
-    categories: [
-      "Wedding Templates", "Wedding Invitations", "Save the Date", "Event Flyers", "Party Invitations", "Event Planning",
-      "Wedding Planning", "Event Checklists", "Seating Charts", "Menu Templates", "RSVP Templates", "Thank You Cards",
-      "Event Programs", "Wedding Programs",
-    ],
-  },
-  {
-    name: "Food & Cooking",
-    categories: [
-      "Cookbook", "Recipe Cards", "Meal Prep Guides", "Cooking Tutorials", "Baking Recipes", "Restaurant Menus",
-      "Food Blogs", "Cocktail Recipes", "Smoothie Recipes",
-    ],
-  },
-  {
-    name: "Travel & Adventure",
-    categories: [
-      "Travel Guides", "Itinerary Templates", "Packing Lists", "Travel Journals", "Destination Guides", "Travel Presets",
-      "Adventure Guides", "Hiking Guides", "Camping Guides",
-    ],
-  },
-  {
-    name: "Parenting & Family",
-    categories: [
-      "Parenting Guides", "Baby Planners", "Pregnancy Journals", "Family Budgets", "Chore Charts", "Kids Activities",
-      "Childcare Templates",
-    ],
-  },
-  {
-    name: "Home & Interior",
-    categories: [
-      "Interior Design", "Home Decor", "Room Planners", "Floor Plans", "Furniture Layouts", "DIY Home Projects",
-      "Organization Templates", "Cleaning Checklists", "Home Inventory", "Renovation Guides",
-    ],
-  },
-  {
-    name: "Career & Job Search",
-    categories: [
-      "Cover Letters", "Portfolio Templates", "LinkedIn Templates", "Interview Prep", "Career Guides", "Salary Negotiation",
-      "Job Search Trackers", "Networking Templates", "Personal Branding", "Career Coaching",
-    ],
-  },
-  {
-    name: "Agency & Freelance",
-    categories: [
-      "Agency Templates", "Client Onboarding", "Project Briefs", "Scope of Work", "Retainer Agreements", "Freelance Contracts",
-      "Rate Calculators", "Time Trackers", "Client Portals", "Service Packages",
-    ],
-  },
-  {
-    name: "Community & Membership",
-    categories: [
-      "Community Templates", "Membership Sites", "Circle Templates", "Skool Templates", "Mighty Networks", "Community Playbooks",
-      "Engagement Strategies", "Onboarding Sequences", "Welcome Emails", "Community Guidelines",
-    ],
-  },
-  {
-    name: "Data & Analytics",
-    categories: [
-      "Dashboard Templates", "Data Visualization", "Excel Templates", "Google Sheets", "Power BI Templates", "Tableau Templates",
-      "SQL Queries", "Data Analysis", "KPI Trackers", "Reporting Templates",
-    ],
-  },
-  {
-    name: "Pet & Animals",
-    categories: [
-      "Pet Care Guides", "Dog Training", "Cat Care", "Pet Health", "Animal Illustrations", "Pet Journals",
-      "Vet Records", "Pet Planners",
-    ],
-  },
-  {
-    name: "Other",
-    categories: [
-      "Memberships", "Subscriptions", "Coaching", "Consulting", "Services", "Freelance Services",
-      "Bundles", "Collections", "Preorders", "Gift Cards", "Licenses", "Other",
-    ],
-  },
-]
-
-/** Which group a category is in. */
-const GROUP_OF = new Map(CATEGORY_GROUPS.flatMap((g) => g.categories.map((c) => [c, g.name] as const)))
-const ALL = [...GROUP_OF.keys()].sort((a, b) => a.localeCompare(b))
-
-export const groupOfCategory = (category: string | null): string | null => (category ? GROUP_OF.get(category) ?? null : null)
-
-/** Matches first where a word starts with the query, then anywhere, each alphabetical. */
-function search(query: string): string[] {
-  const q = query.trim().toLowerCase()
-  if (!q) return []
-  const starts: string[] = []
-  const inside: string[] = []
-  for (const c of ALL) {
-    const l = c.toLowerCase()
-    if (l.startsWith(q) || l.includes(` ${q}`)) starts.push(c)
-    else if (l.includes(q) || (GROUP_OF.get(c) ?? "").toLowerCase().includes(q)) inside.push(c)
-  }
-  return [...starts, ...inside]
-}
 
 function reducedMotion() {
   return typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
 }
 
+/** The slide between levels: iOS's navigation curve, on transform and opacity only. */
+const SLIDE_MS = 280
+const SLIDE_EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
+
 type Level = { group: string | null; query: string }
 
-/**
- * The rows: groups, a group's categories, or what a search found. `phone`
- * sets the size: 48px rows and 16px text on a phone, 36px and 14px on a
- * computer.
- */
-function CategoryRows({
-  value,
-  suggested,
-  level,
-  phone,
-  onGroup,
-  onBack,
-  onPick,
-}: {
-  value: string | null
-  suggested: string | null
-  level: Level
-  phone: boolean
-  onGroup: (group: string) => void
-  onBack: () => void
-  onPick: (category: string) => void
-}) {
-  const listRef = useRef<HTMLDivElement>(null)
-  const levelKey = level.query.trim() ? "search" : level.group ?? ""
-  const prevKey = useRef(levelKey)
+/** A row that can be moved to and pressed. The group's header is drawn but is not one. */
+type Row =
+  | { kind: "group"; name: string }
+  | { kind: "back" }
+  | { kind: "option"; category: string; detail: string | null }
+  | { kind: "suggested"; category: string }
 
-  /* Into a group slides in from the right, back from the left; a search just appears. */
+const rowKey = (r: Row) => (r.kind === "group" ? `g:${r.name}` : r.kind === "back" ? "back" : `${r.kind}:${r.category}`)
+
+/**
+ * Where the list is, what is in it, which row the keys are on, and the slide
+ * between levels. Shared by the dropdown and the sheet.
+ */
+function useCategoryBrowser({ suggested, onPick }: { suggested: string | null; onPick: (category: string) => void }) {
+  const [level, setLevel] = useState<Level>({ group: null, query: "" })
+  const [active, setActive] = useState(-1)
+  const stageRef = useRef<HTMLDivElement>(null)
+  const paneRef = useRef<HTMLDivElement>(null)
+  const pending = useRef<{ dir: 1 | -1; ghost: HTMLElement } | null>(null)
+  const levelRef = useRef(level)
+  levelRef.current = level
+
+  const query = level.query.trim()
+  const found = useMemo(() => (query ? searchCategories(query) : null), [query])
+  const levelKey = query ? "search" : level.group ?? ""
+
+  const rows = useMemo<Row[]>(() => {
+    let list: Row[]
+    if (found) list = (found.length ? found : ["Other"]).map((c) => ({ kind: "option", category: c, detail: groupOfCategory(c) }))
+    else if (level.group) {
+      const group = CATEGORY_GROUPS.find((g) => g.name === level.group)
+      list = [{ kind: "back" }, ...(group?.categories ?? []).map((c): Row => ({ kind: "option", category: c, detail: null }))]
+    } else list = CATEGORY_GROUPS.map((g) => ({ kind: "group", name: g.name }))
+    return suggested ? [...list, { kind: "suggested", category: suggested }] : list
+  }, [found, level.group, suggested])
+
+  /**
+   * THE SLIDE. The level on screen is copied, the copy is laid over the list
+   * where it was (scrolled where it was), the new level renders into the
+   * list, and the two move: into a group the new one comes in from the right
+   * over the old, which drifts left and fades; back, the old one leaves to
+   * the right over the new, which comes in from the left. The copy is inert
+   * and goes when the slide ends.
+   */
+  const prepareSlide = (dir: 1 | -1) => {
+    const stage = stageRef.current
+    const pane = paneRef.current
+    pending.current?.ghost.remove()
+    pending.current = null
+    if (!stage || !pane || reducedMotion() || typeof pane.animate !== "function") return
+    const ghost = pane.cloneNode(true) as HTMLElement
+    for (const el of [ghost, ...ghost.querySelectorAll<HTMLElement>("*")]) {
+      el.removeAttribute("id")
+      for (const a of [...el.attributes]) if (a.name.startsWith("data-category")) el.removeAttribute(a.name)
+    }
+    ghost.setAttribute("aria-hidden", "true")
+    ghost.setAttribute("inert", "")
+    ghost.dataset.categoryGhost = ""
+    Object.assign(ghost.style, { position: "absolute", inset: "0", pointerEvents: "none", zIndex: dir === 1 ? "0" : "2" })
+    stage.appendChild(ghost)
+    ghost.scrollTop = pane.scrollTop
+    pending.current = { dir, ghost }
+  }
+
+  /* A new level, or a new search, starts at its top. */
   useLayoutEffect(() => {
-    const from = prevKey.current
-    prevKey.current = levelKey
-    if (from === levelKey) return
-    const el = listRef.current
-    if (!el || typeof el.animate !== "function" || reducedMotion()) return
-    const dx = levelKey === "search" || from === "search" ? 0 : levelKey ? 16 : -16
-    el.animate(
-      [{ opacity: 0, transform: `translate3d(${dx}px, 0, 0)` }, { opacity: 1, transform: "translate3d(0, 0, 0)" }],
-      { duration: 200, easing: "cubic-bezier(0.32, 0.72, 0, 1)" },
-    )
+    if (paneRef.current) paneRef.current.scrollTop = 0
+  }, [levelKey, query])
+
+  useLayoutEffect(() => {
+    const pane = paneRef.current
+    const slide = pending.current
+    pending.current = null
+    if (!slide || !pane) return
+    const { dir, ghost } = slide
+    const timing: KeyframeAnimationOptions = { duration: SLIDE_MS, easing: SLIDE_EASE }
+    const moves =
+      dir === 1
+        ? [
+            pane.animate([{ transform: "translate3d(100%, 0, 0)" }, { transform: "translate3d(0, 0, 0)" }], timing),
+            ghost.animate([{ transform: "translate3d(0, 0, 0)", opacity: 1 }, { transform: "translate3d(-24%, 0, 0)", opacity: 0 }], timing),
+          ]
+        : [
+            pane.animate([{ transform: "translate3d(-24%, 0, 0)", opacity: 0 }, { transform: "translate3d(0, 0, 0)", opacity: 1 }], timing),
+            ghost.animate([{ transform: "translate3d(0, 0, 0)" }, { transform: "translate3d(100%, 0, 0)" }], timing),
+          ]
+    let gone = false
+    const done = () => { if (!gone) { gone = true; ghost.remove() } }
+    moves[1].onfinish = done
+    moves[1].oncancel = done
+    const t = window.setTimeout(done, SLIDE_MS + 300)
+    return () => { window.clearTimeout(t); done() }
   }, [levelKey])
 
+  /* With the keys, the highlight lands somewhere useful: the first category going in, the group left coming back. */
+  const open = useCallback((group: string, viaKeys = false) => {
+    prepareSlide(1)
+    setLevel({ group, query: "" })
+    setActive(viaKeys ? 1 : -1)
+  }, [])
+  const back = useCallback((viaKeys = false) => {
+    const from = levelRef.current.group
+    if (from && !levelRef.current.query.trim()) prepareSlide(-1)
+    setLevel({ group: null, query: "" })
+    setActive(viaKeys && from ? CATEGORY_GROUPS.findIndex((g) => g.name === from) : -1)
+  }, [])
+  const setQuery = useCallback((q: string) => {
+    setLevel((l) => ({ group: q.trim() ? null : l.group, query: q }))
+    setActive(q.trim() ? 0 : -1)
+  }, [])
+  const reset = useCallback(() => { setLevel({ group: null, query: "" }); setActive(-1) }, [])
+
+  const press = (row: Row, viaKeys = false) => {
+    if (row.kind === "group") open(row.name, viaKeys)
+    else if (row.kind === "back") back(viaKeys)
+    else onPick(row.category)
+  }
+
+  /* The row the keys are on stays in view. */
+  useEffect(() => {
+    if (active < 0) return
+    stageRef.current?.parentElement?.querySelector<HTMLElement>(`[data-row-index="${active}"]`)?.scrollIntoView({ block: "nearest" })
+  }, [active])
+
+  /** The keys, read on the search field so focus never has to move. */
+  const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.nativeEvent.isComposing) return
+    const n = rows.length
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault()
+      if (!n) return
+      setActive((i) => (e.key === "ArrowDown" ? (i + 1 >= n ? 0 : i + 1) : i <= 0 ? n - 1 : i - 1))
+    } else if (e.key === "Enter") {
+      const row = rows[active] ?? (found ? rows[0] : undefined)
+      if (!row) return
+      e.preventDefault()
+      press(row, true)
+    } else if (e.key === "ArrowRight" && !level.query && rows[active]?.kind === "group") {
+      e.preventDefault()
+      press(rows[active], true)
+    } else if (e.key === "ArrowLeft" && !level.query && level.group) {
+      e.preventDefault()
+      back(true)
+    }
+  }
+
+  return { level, rows, found, active, setActive, stageRef, paneRef, open, back, setQuery, reset, press, onKeyDown }
+}
+
+type Browser = ReturnType<typeof useCategoryBrowser>
+
+export function SuggestedTag({ className }: { className?: string }) {
+  return (
+    <span
+      data-suggested-tag=""
+      className={cn(
+        "inline-flex h-5 shrink-0 items-center rounded-[6px] border border-[#e3e5e8] bg-white px-1.5 text-[12px] font-medium leading-none text-[#4b5563]",
+        className,
+      )}
+    >
+      Suggested
+    </span>
+  )
+}
+
+/**
+ * The list: the level on screen in a box of a fixed height, and under it the
+ * suggested category, pinned. `phone` sets the size: 48px rows and 16px text
+ * on a phone, 36px and 14px on a computer.
+ */
+function CategoryList({ browser, value, suggested, phone, listId }: { browser: Browser; value: string | null; suggested: string | null; phone: boolean; listId: string }) {
+  const { level, rows, found, active, setActive, stageRef, paneRef, press } = browser
   const row = phone
-    ? "flex min-h-[48px] w-full items-center gap-3 px-4 text-left text-[16px] leading-5 active:bg-[#f1f2f4]"
-    : "flex min-h-[36px] w-full items-center gap-2.5 rounded-md px-2.5 text-left text-[14px] leading-5 hover:bg-[#f1f2f4] focus-visible:bg-[#f1f2f4]"
+    ? "flex min-h-[48px] w-full items-center gap-3 px-4 text-left text-[16px] leading-5"
+    : "mx-1.5 flex min-h-[36px] items-center gap-2 rounded-lg px-2.5 text-left text-[14px] leading-5"
   const common = "cursor-pointer select-none text-[#1a1a2e] outline-none transition-colors duration-100 [-webkit-tap-highlight-color:transparent]"
-  const label = phone ? "px-4 pb-1 pt-3 text-[13px] font-medium text-[#6b7280]" : "px-2.5 pb-1 pt-2 text-[12px] font-medium text-[#6b7280]"
+  const on = "bg-[#f1f2f4]"
+  const current = groupOfCategory(value)
 
-  const option = (category: string, detail?: string | null) => {
-    const on = category === value
-    return (
-      <button
-        key={category}
-        type="button"
-        data-category-row=""
-        data-category-option={category}
-        aria-current={on ? "true" : undefined}
-        onClick={() => onPick(category)}
-        className={cn(row, common, on && "font-medium")}
-      >
-        <span className="min-w-0 flex-1 truncate">{category}</span>
-        {detail ? <span className="max-w-[45%] shrink-0 truncate text-[13px] text-[#9ca3af]">{detail}</span> : null}
-        <Check aria-hidden className={cn("h-4 w-4 shrink-0 text-[#1a1a2e]", on ? "opacity-100" : "opacity-0")} strokeWidth={2.5} />
-      </button>
-    )
-  }
-
-  let body: React.ReactNode
-  if (level.query.trim()) {
-    const found = search(level.query)
-    body = found.length ? (
-      <div>{found.map((c) => option(c, GROUP_OF.get(c)))}</div>
-    ) : (
-      <div>
-        <p className={cn(label, "pt-4")}>No category matches “{level.query.trim()}”</p>
-        {option("Other")}
-      </div>
-    )
-  } else if (level.group) {
-    const group = CATEGORY_GROUPS.find((g) => g.name === level.group)
-    body = (
-      <div>
-        <button type="button" data-category-row="" data-category-back="" onClick={onBack} className={cn(row, common, "font-semibold", phone ? "pl-2" : "pl-1")}>
-          <ChevronLeft aria-hidden className="h-5 w-5 shrink-0 text-[#6b7280]" />
-          <span className="min-w-0 flex-1 truncate">{level.group}</span>
-        </button>
-        <div>{group?.categories.map((c) => option(c))}</div>
-      </div>
-    )
-  } else {
-    const current = groupOfCategory(value)
-    body = (
-      <div>
-        {suggested && suggested !== value ? (
-          <>
-            <p className={label}>Suggested</p>
-            {option(suggested, GROUP_OF.get(suggested))}
-          </>
-        ) : null}
-        <p className={label}>All categories</p>
-        <div>
-          {CATEGORY_GROUPS.map((g) => (
-            <button key={g.name} type="button" data-category-row="" data-category-group={g.name} onClick={() => onGroup(g.name)} className={cn(row, common)}>
-              <span className="min-w-0 flex-1 truncate">{g.name}</span>
-              {current === g.name ? <span className="max-w-[45%] shrink-0 truncate text-[13px] text-[#6b7280]">{value}</span> : null}
-              <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-[#9ca3af]" />
-            </button>
-          ))}
+  const draw = (r: Row, i: number) => {
+    const props = {
+      key: rowKey(r),
+      id: `${listId}-${i}`,
+      role: "option" as const,
+      "aria-selected": i === active,
+      "data-row-index": i,
+      "data-category-row": "",
+      onMouseDown: (e: React.MouseEvent) => e.preventDefault(),
+      onMouseMove: phone ? undefined : () => { if (active !== i) setActive(i) },
+      onClick: () => press(r),
+    }
+    const hot = i === active
+    if (r.kind === "group") {
+      return (
+        <div {...props} data-category-group={r.name} className={cn(row, common, hot && on, phone && "active:bg-[#f1f2f4]")}>
+          <span className="min-w-0 flex-1 truncate">{r.name}</span>
+          {current === r.name ? <span className="max-w-[45%] shrink-0 truncate text-[13px] text-[#6b7280]">{value}</span> : null}
+          <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-[#9ca3af]" />
         </div>
-      </div>
-    )
+      )
+    }
+    if (r.kind === "back") {
+      return (
+        <div {...props} data-category-back="" className={cn(row, common, "text-[#4b5563]", hot && on, phone && "active:bg-[#f1f2f4]")}>
+          <ArrowLeft aria-hidden className="h-4 w-4 shrink-0" />
+          <span className="min-w-0 flex-1 truncate">Back to All</span>
+        </div>
+      )
+    }
+    if (r.kind === "option") {
+      const chosen = r.category === value
+      return (
+        <div {...props} data-category-option={r.category} aria-current={chosen ? "true" : undefined} className={cn(row, common, hot && on, chosen && "font-medium", phone && "active:bg-[#f1f2f4]")}>
+          <span className="min-w-0 flex-1 truncate">{r.category}</span>
+          {r.detail ? <span className="max-w-[45%] shrink-0 truncate text-[13px] font-normal text-[#9ca3af]">{r.detail}</span> : null}
+          <Check aria-hidden className={cn("h-4 w-4 shrink-0 text-[#1a1a2e]", chosen ? "opacity-100" : "opacity-0")} strokeWidth={2.5} />
+        </div>
+      )
+    }
+    return null
   }
+
+  const pinnedAt = rows.findIndex((r) => r.kind === "suggested")
+  const body = rows.filter((r) => r.kind !== "suggested")
 
   return (
-    <div
-      ref={listRef}
-      data-category-list=""
-      className={phone ? "pb-2" : "p-1.5"}
-      onKeyDown={(e) => {
-        if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return
-        const rows = [...(listRef.current?.querySelectorAll<HTMLElement>("[data-category-row]") ?? [])]
-        const i = rows.indexOf(document.activeElement as HTMLElement)
-        if (i < 0) return
-        e.preventDefault()
-        rows[Math.max(0, Math.min(rows.length - 1, i + (e.key === "ArrowDown" ? 1 : -1)))]?.focus()
-      }}
-    >
-      {body}
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div ref={stageRef} className="relative min-h-0 flex-1 overflow-hidden">
+        <div
+          ref={paneRef}
+          id={listId}
+          role="listbox"
+          aria-label={level.group ?? "Categories"}
+          data-category-list=""
+          className={cn("relative z-[1] h-full overflow-y-auto overscroll-contain bg-white", phone ? "pb-2" : "py-1.5")}
+          style={{ touchAction: "pan-y" }}
+        >
+          {found && found.length === 0 ? (
+            <p className={phone ? "px-4 pb-1 pt-3 text-[14px] text-[#6b7280]" : "px-4 pb-1 pt-1.5 text-[13px] text-[#6b7280]"}>No category matches “{level.query.trim()}”</p>
+          ) : null}
+          {level.group && !found ? (
+            <>
+              {draw(body[0], 0)}
+              <div
+                data-category-header=""
+                aria-hidden
+                className={cn(
+                  "flex items-center font-semibold text-[#1a1a2e]",
+                  phone ? "mx-3 my-1 min-h-[40px] rounded-[10px] bg-[#f6f7f8] px-3 text-[16px]" : "mx-1.5 my-1 min-h-[36px] rounded-lg bg-[#f6f7f8] px-2.5 text-[14px]",
+                )}
+              >
+                <span className="min-w-0 truncate">{level.group}</span>
+              </div>
+              {body.slice(1).map((r, i) => draw(r, i + 1))}
+            </>
+          ) : (
+            body.map((r, i) => draw(r, i))
+          )}
+        </div>
+      </div>
+      {suggested && pinnedAt >= 0 ? (
+        <div className={cn("shrink-0 border-t border-[#eef0f2] bg-white", phone ? "py-1" : "py-1.5")}>
+          <div
+            id={`${listId}-${pinnedAt}`}
+            role="option"
+            aria-selected={active === pinnedAt}
+            data-row-index={pinnedAt}
+            data-category-row=""
+            data-category-suggested={suggested}
+            aria-current={suggested === value ? "true" : undefined}
+            onMouseDown={(e) => e.preventDefault()}
+            onMouseMove={phone ? undefined : () => { if (active !== pinnedAt) setActive(pinnedAt) }}
+            onClick={() => press(rows[pinnedAt])}
+            className={cn(row, common, active === pinnedAt && on, phone && "active:bg-[#f1f2f4]")}
+          >
+            <span className={cn("min-w-0 truncate", phone && "flex-1")}>{suggested}</span>
+            {phone ? null : <span className="min-w-0 flex-1 truncate text-[13px] text-[#9ca3af]">{groupOfCategory(suggested)}</span>}
+            <SuggestedTag />
+            <Check aria-hidden className={cn("h-4 w-4 shrink-0 text-[#1a1a2e]", suggested === value ? "opacity-100" : "opacity-0")} strokeWidth={2.5} />
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }
 
-function SearchField({
+/** What is chosen, under the field: the category, its group, the tag when it is the suggestion, and a way to clear it. */
+function Chosen({ value, suggested, onClear }: { value: string; suggested: string | null; onClear: () => void }) {
+  const group = groupOfCategory(value)
+  return (
+    <div data-category-chosen="" className="flex min-h-9 items-center gap-2 pt-2 text-[14px] leading-5">
+      <span className="max-w-[70%] shrink-0 truncate font-medium text-[#1a1a2e] sm:max-w-[60%]">{value}</span>
+      {/* The group, where there is room for it: on a phone the category alone reads whole. */}
+      {group ? <span className="min-w-0 truncate text-[#6b7280] max-sm:hidden">in {group}</span> : null}
+      {value === suggested ? <SuggestedTag /> : null}
+      <button
+        type="button"
+        data-category-clear=""
+        aria-label={`Clear category ${value}`}
+        onClick={onClear}
+        className="relative ml-auto flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[#6b7280] outline-none transition-colors duration-100 after:absolute after:-inset-2 after:content-[''] hover:bg-[#f1f2f4] hover:text-[#1a1a2e] focus-visible:bg-[#f1f2f4] [-webkit-tap-highlight-color:transparent]"
+      >
+        <X aria-hidden className="h-4 w-4" />
+      </button>
+    </div>
+  )
+}
+
+/** The list's height when there is room, and the least it is ever drawn at. */
+const LIST_H = 360
+const LIST_MIN = 240
+const GAP = 6
+
+/**
+ * Under the field when at least LIST_MIN fits there, as Shopify does, and
+ * over it only when there is more room above. The room is the part of the
+ * pane that scrolls the field (the editor's, under its bars), not the whole
+ * window, so the list never slides under the app's header. Measured once
+ * per open: the list keeps that height while it is open, whatever level.
+ */
+function placeList(anchor: HTMLElement): { side: "bottom" | "top"; h: number } {
+  let pane: HTMLElement | null = anchor.parentElement
+  while (pane && pane !== document.body) {
+    const oy = getComputedStyle(pane).overflowY
+    if ((oy === "auto" || oy === "scroll") && pane.scrollHeight > pane.clientHeight) break
+    pane = pane.parentElement
+  }
+  const box = pane && pane !== document.body ? pane.getBoundingClientRect() : { top: 0, bottom: window.innerHeight }
+  const top = Math.max(0, box.top)
+  const bottom = Math.min(window.innerHeight, box.bottom)
+  const r = anchor.getBoundingClientRect()
+  const below = bottom - r.bottom - GAP - 12
+  const above = r.top - top - GAP - 12
+  const side = below >= LIST_MIN || below >= above ? "bottom" : "top"
+  return { side, h: Math.max(160, Math.min(LIST_H, side === "bottom" ? below : above)) }
+}
+
+const FIELD =
+  "h-11 w-full rounded-[10px] border border-[#d9dbe0] bg-white pl-9 pr-9 text-left text-[16px] text-[#1a1a2e] outline-none transition-colors duration-100 placeholder:text-[#9ca3af] hover:border-[#c4c7ce] focus:border-[#1a1a2e] sm:h-10 sm:rounded-lg sm:text-[14px] [&::-webkit-search-cancel-button]:hidden [-webkit-tap-highlight-color:transparent]"
+
+export function CategoryPicker({
   value,
   onChange,
-  phone,
-  autoFocus,
-  onEnter,
-  onDown,
+  onClear,
+  suggested,
+  isPhone,
 }: {
-  value: string
-  onChange: (next: string) => void
-  phone: boolean
-  autoFocus?: boolean
-  onEnter?: () => void
-  onDown?: () => void
+  value: string | null
+  onChange: (category: string) => void
+  onClear: () => void
+  /** The editor's suggestion from the title, the description and the pictures, pinned at the bottom. */
+  suggested: string | null
+  /** The editor's own reading of the width (under 640px), so the two agree. */
+  isPhone: boolean
 }) {
-  const ref = useRef<HTMLInputElement>(null)
+  const [open, setOpen] = useState(false)
+  const listId = useId().replace(/:/g, "")
+  const inputRef = useRef<HTMLInputElement>(null)
+  const anchorRef = useRef<HTMLDivElement>(null)
+
+  const pick = (category: string) => {
+    if (isPhone) hapticTap("soft")
+    onChange(category)
+    setOpen(false)
+    browser.reset()
+  }
+  const browser = useCategoryBrowser({ suggested, onPick: pick })
+  const [place, setPlace] = useState<{ side: "bottom" | "top"; h: number }>({ side: "bottom", h: LIST_H })
+  const show = (next: boolean) => {
+    if (next === open) return
+    if (next && anchorRef.current) setPlace(placeList(anchorRef.current))
+    setOpen(next)
+    if (!next) browser.reset()
+  }
+
+  if (isPhone) {
+    return (
+      <div data-category-field="">
+        <button type="button" data-category-trigger="" aria-haspopup="dialog" aria-expanded={open} onClick={() => show(true)} className={cn(FIELD, "relative flex items-center focus:border-[#d9dbe0] focus-visible:border-[#1a1a2e]")}>
+          <Search aria-hidden className="absolute left-3 h-4 w-4 text-[#6b7280]" />
+          <span className="truncate text-[#9ca3af]">Search categories</span>
+        </button>
+        {value ? <Chosen value={value} suggested={suggested} onClear={onClear} /> : null}
+        <BottomSheet
+          isOpen={open}
+          onClose={() => show(false)}
+          label="Category"
+          aboveKeyboard
+          fill
+          height="min(78dvh, 680px)"
+          maxHeight="min(78dvh, 680px)"
+          header={
+            <div data-category-sheet="" className="px-4 pb-2 pt-2">
+              <p className="pb-3 text-[17px] font-semibold leading-6 text-[#1a1a2e]">Category</p>
+              <SheetSearch browser={browser} listId={listId} />
+            </div>
+          }
+        >
+          <CategoryList browser={browser} value={value} suggested={suggested} phone listId={listId} />
+        </BottomSheet>
+      </div>
+    )
+  }
+
   return (
-    <label className={cn("flex cursor-text items-center gap-2 bg-[#f1f2f4] px-3", phone ? "h-11 rounded-[10px]" : "h-9 rounded-lg")}>
+    <div data-category-field="">
+      <PopoverPrimitive.Root open={open} onOpenChange={show}>
+        <PopoverPrimitive.Anchor asChild>
+          <div ref={anchorRef} className="relative">
+            <Search aria-hidden className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6b7280]" />
+            <input
+              ref={inputRef}
+              type="search"
+              role="combobox"
+              data-category-search=""
+              data-category-trigger=""
+              aria-label="Search categories"
+              aria-expanded={open}
+              aria-controls={open ? listId : undefined}
+              aria-autocomplete="list"
+              aria-activedescendant={open && browser.active >= 0 ? `${listId}-${browser.active}` : undefined}
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck={false}
+              placeholder="Search categories"
+              value={browser.level.query}
+              onFocus={() => show(true)}
+              onMouseDown={() => { if (!open) show(true) }}
+              onChange={(e) => { browser.setQuery(e.target.value); show(true) }}
+              onKeyDown={(e) => {
+                if (!open && (e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "Enter")) {
+                  e.preventDefault()
+                  show(true)
+                  return
+                }
+                browser.onKeyDown(e)
+              }}
+              className={cn(FIELD, open && "border-[#1a1a2e]")}
+            />
+            {browser.level.query ? (
+              <button
+                type="button"
+                aria-label="Clear search"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => { browser.setQuery(""); inputRef.current?.focus() }}
+                className="absolute right-1.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-[#6b7280] outline-none hover:text-[#1a1a2e]"
+              >
+                <X aria-hidden className="h-4 w-4" />
+              </button>
+            ) : null}
+          </div>
+        </PopoverPrimitive.Anchor>
+        <PopoverPrimitive.Portal>
+          <PopoverPrimitive.Content
+            data-category-dropdown=""
+            side={place.side}
+            align="start"
+            sideOffset={GAP}
+            avoidCollisions={false}
+            onOpenAutoFocus={(e) => e.preventDefault()}
+            onCloseAutoFocus={(e) => e.preventDefault()}
+            /* The field is outside the list but part of it: pressing it must not close the list it opens. */
+            onInteractOutside={(e) => { if (anchorRef.current?.contains(e.target as Node)) e.preventDefault() }}
+            className="z-[150] flex w-[var(--radix-popover-trigger-width)] flex-col overflow-hidden rounded-xl bg-white text-[#1a1a2e] shadow-[0_12px_32px_-12px_rgba(17,17,19,0.22),0_4px_10px_-4px_rgba(17,17,19,0.08),0_0_0_1px_rgba(17,17,19,0.07)] outline-none data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[side=bottom]:data-[state=open]:slide-in-from-top-1 data-[side=top]:data-[state=open]:slide-in-from-bottom-1 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 duration-150"
+            style={{ height: place.h }}
+          >
+            <CategoryList browser={browser} value={value} suggested={suggested} phone={false} listId={listId} />
+          </PopoverPrimitive.Content>
+        </PopoverPrimitive.Portal>
+      </PopoverPrimitive.Root>
+      {value && !open ? <Chosen value={value} suggested={suggested} onClear={() => { onClear(); inputRef.current?.focus({ preventScroll: true }) }} /> : null}
+    </div>
+  )
+}
+
+/** The sheet's search: the same field, 16px so iOS does not zoom, on the sheet's grey. */
+function SheetSearch({ browser, listId }: { browser: Browser; listId: string }) {
+  const ref = useRef<HTMLInputElement>(null)
+  const q = browser.level.query
+  return (
+    <label className="flex h-11 cursor-text items-center gap-2 rounded-[10px] bg-[#f1f2f4] px-3">
       <Search aria-hidden className="h-4 w-4 shrink-0 text-[#6b7280]" />
       <input
         ref={ref}
         type="search"
+        role="combobox"
         data-category-search=""
         enterKeyHint="search"
         autoComplete="off"
         autoCorrect="off"
         autoCapitalize="off"
         spellCheck={false}
-        autoFocus={autoFocus}
         aria-label="Search categories"
+        aria-controls={listId}
+        aria-expanded
         placeholder="Search categories"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") { e.preventDefault(); onEnter?.() }
-          if (e.key === "ArrowDown") { e.preventDefault(); onDown?.() }
-        }}
-        className={cn(
-          "min-w-0 flex-1 bg-transparent text-[#1a1a2e] outline-none placeholder:text-[#9ca3af] [&::-webkit-search-cancel-button]:hidden",
-          phone ? "text-[16px]" : "text-[14px]",
-        )}
+        value={q}
+        onChange={(e) => browser.setQuery(e.target.value)}
+        onKeyDown={browser.onKeyDown}
+        className="min-w-0 flex-1 bg-transparent text-[16px] text-[#1a1a2e] outline-none placeholder:text-[#9ca3af] [&::-webkit-search-cancel-button]:hidden"
       />
-      {value ? (
+      {q ? (
         <button
           type="button"
           aria-label="Clear search"
-          onClick={() => { onChange(""); ref.current?.focus() }}
+          onClick={() => { browser.setQuery(""); ref.current?.focus() }}
           className="relative -mr-1.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[#6b7280] outline-none after:absolute after:-inset-2 after:content-[''] hover:text-[#1a1a2e]"
         >
           <X className="h-4 w-4" />
         </button>
       ) : null}
     </label>
-  )
-}
-
-export function CategoryPicker({
-  value,
-  onChange,
-  suggested,
-  isPhone,
-}: {
-  value: string | null
-  onChange: (category: string) => void
-  /** The editor's guess from the title and description, offered first. */
-  suggested: string | null
-  /** The editor's own reading of the width (under 640px), so the two agree. */
-  isPhone: boolean
-}) {
-  const [open, setOpen] = useState(false)
-  const [level, setLevel] = useState<Level>({ group: null, query: "" })
-  const group = groupOfCategory(value)
-
-  const show = (next: boolean) => {
-    setOpen(next)
-    if (next) setLevel({ group: null, query: "" })
-  }
-  const pick = (category: string) => {
-    if (isPhone) hapticTap("soft")
-    onChange(category)
-    setOpen(false)
-  }
-  const levelKey = useMemo(() => (level.query.trim() ? `q:${level.query.trim()}` : `g:${level.group ?? ""}`), [level])
-
-  const rows = (phone: boolean) => (
-    <CategoryRows
-      value={value}
-      suggested={suggested}
-      level={level}
-      phone={phone}
-      onGroup={(g) => setLevel({ group: g, query: "" })}
-      onBack={() => setLevel({ group: null, query: "" })}
-      onPick={pick}
-    />
-  )
-
-  const trigger = (
-    <button
-      type="button"
-      data-category-trigger=""
-      aria-haspopup="dialog"
-      aria-expanded={open}
-      onClick={isPhone ? () => show(true) : undefined}
-      className={cn(
-        "flex h-11 w-full cursor-pointer items-center gap-2 rounded-[10px] border border-[#d9dbe0] bg-white px-3 text-left text-[15px] outline-none transition-colors duration-100 hover:border-[#c4c7ce] focus-visible:border-[#1a1a2e] sm:h-10 sm:rounded-lg sm:text-[14px] [-webkit-tap-highlight-color:transparent]",
-        open && "border-[#1a1a2e]",
-      )}
-    >
-      {value ? (
-        <>
-          <span className="min-w-0 truncate text-[#1a1a2e]">{value}</span>
-          {group ? <span className="min-w-0 flex-1 truncate text-[#9ca3af] max-sm:hidden">in {group}</span> : <span className="flex-1" />}
-        </>
-      ) : (
-        <span className="min-w-0 flex-1 truncate text-[#9ca3af]">Choose a category</span>
-      )}
-      <ChevronDown aria-hidden className={cn("ml-auto h-4 w-4 shrink-0 text-[#6b7280] transition-transform duration-200 motion-reduce:transition-none", open && !isPhone && "rotate-180")} />
-    </button>
-  )
-
-  if (isPhone) {
-    return (
-      <>
-        {trigger}
-        <BottomSheet
-          isOpen={open}
-          onClose={() => setOpen(false)}
-          label="Category"
-          aboveKeyboard
-          height="min(78dvh, 680px)"
-          maxHeight="min(78dvh, 680px)"
-          scrollKey={levelKey}
-          header={
-            <div data-category-sheet="" className="px-4 pb-2 pt-2">
-              <p className="pb-3 text-[17px] font-semibold leading-6 text-[#1a1a2e]">Category</p>
-              <SearchField value={level.query} onChange={(q) => setLevel({ group: null, query: q })} phone />
-            </div>
-          }
-        >
-          {rows(true)}
-        </BottomSheet>
-      </>
-    )
-  }
-
-  return (
-    <DialogPrimitive.Root open={open} onOpenChange={show}>
-      <DialogPrimitive.Trigger asChild>{trigger}</DialogPrimitive.Trigger>
-      <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-[200] bg-[#0f172a]/25 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 duration-200" />
-        <DialogPrimitive.Content
-          data-category-dialog=""
-          aria-describedby={undefined}
-          onOpenAutoFocus={(e) => {
-            e.preventDefault()
-            ;(e.currentTarget as HTMLElement | null)?.querySelector<HTMLInputElement>("[data-category-search]")?.focus()
-          }}
-          className="fixed left-1/2 top-1/2 z-[201] flex h-[min(540px,calc(100dvh-96px))] w-[min(760px,calc(100vw-48px))] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl bg-white text-[#1a1a2e] shadow-[0_32px_80px_-24px_rgba(15,23,42,0.35),0_8px_24px_-12px_rgba(15,23,42,0.12),0_0_0_1px_rgba(15,23,42,0.06)] outline-none data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-[0.98] data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-[0.98] duration-200 ease-sheet"
-        >
-          <DesktopCategoryBrowser value={value} suggested={suggested} onPick={pick} />
-        </DialogPrimitive.Content>
-      </DialogPrimitive.Portal>
-    </DialogPrimitive.Root>
-  )
-}
-
-/* ── on a computer: search on top, groups and categories side by side ── */
-
-function DesktopCategoryBrowser({
-  value,
-  suggested,
-  onPick,
-}: {
-  value: string | null
-  suggested: string | null
-  onPick: (category: string) => void
-}) {
-  const [query, setQuery] = useState("")
-  const [active, setActive] = useState<string>(() => groupOfCategory(value) ?? groupOfCategory(suggested) ?? CATEGORY_GROUPS[0].name)
-  const groupsRef = useRef<HTMLDivElement>(null)
-  const listRef = useRef<HTMLDivElement>(null)
-  const current = groupOfCategory(value)
-  const found = useMemo(() => (query.trim() ? search(query) : null), [query])
-  const shown = found ?? CATEGORY_GROUPS.find((g) => g.name === active)?.categories ?? []
-
-  /* The open group's list starts at its top; the chosen group is scrolled into view once. */
-  useLayoutEffect(() => {
-    if (listRef.current) listRef.current.scrollTop = 0
-  }, [active, found])
-  useLayoutEffect(() => {
-    groupsRef.current?.querySelector<HTMLElement>("[data-active]")?.scrollIntoView({ block: "center" })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  const moveFocus = (root: HTMLElement | null, e: React.KeyboardEvent) => {
-    if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return
-    const rows = [...(root?.querySelectorAll<HTMLElement>("[data-category-row]") ?? [])]
-    const i = rows.indexOf(document.activeElement as HTMLElement)
-    if (i < 0) return
-    e.preventDefault()
-    rows[Math.max(0, Math.min(rows.length - 1, i + (e.key === "ArrowDown" ? 1 : -1)))]?.focus()
-  }
-
-  const rowBase =
-    "flex h-9 w-full cursor-pointer select-none items-center gap-2.5 rounded-lg px-3 text-left text-[14px] leading-5 outline-none transition-colors duration-100"
-
-  return (
-    <>
-      <div className="flex shrink-0 items-center gap-3 border-b border-[#eef0f2] px-4 py-3">
-        <DialogPrimitive.Title className="shrink-0 text-[15px] font-semibold">Category</DialogPrimitive.Title>
-        <div className="min-w-0 flex-1">
-          <SearchField
-            value={query}
-            onChange={setQuery}
-            phone={false}
-            onEnter={() => {
-              const first = found?.[0]
-              if (first) onPick(first)
-            }}
-            onDown={() => (found ? listRef : groupsRef).current?.querySelector<HTMLElement>("[data-category-row]")?.focus()}
-          />
-        </div>
-      </div>
-
-      {suggested && suggested !== value && !found ? (
-        <div className="flex shrink-0 items-center gap-2 border-b border-[#eef0f2] px-4 py-2.5 text-[13px] text-[#6b7280]">
-          <span>Suggested</span>
-          <button
-            type="button"
-            onClick={() => onPick(suggested)}
-            className="rounded-full bg-[#f1f2f4] px-2.5 py-1 font-medium text-[#1a1a2e] outline-none transition-colors hover:bg-[#e7e8eb] focus-visible:bg-[#e7e8eb]"
-          >
-            {suggested}
-          </button>
-          <span className="text-[#9ca3af]">in {groupOfCategory(suggested)}</span>
-        </div>
-      ) : null}
-
-      <div className="flex min-h-0 flex-1">
-        {found ? null : (
-          <div
-            ref={groupsRef}
-            role="list"
-            aria-label="Groups"
-            onKeyDown={(e) => {
-              if (e.key === "ArrowRight") {
-                e.preventDefault()
-                listRef.current?.querySelector<HTMLElement>("[data-category-row]")?.focus()
-                return
-              }
-              moveFocus(groupsRef.current, e)
-            }}
-            className="w-[260px] shrink-0 overflow-y-auto overscroll-contain border-r border-[#eef0f2] p-1.5"
-          >
-            {CATEGORY_GROUPS.map((g) => {
-              const on = g.name === active
-              return (
-                <button
-                  key={g.name}
-                  type="button"
-                  data-category-row=""
-                  data-category-group={g.name}
-                  data-active={on ? "" : undefined}
-                  onMouseEnter={() => setActive(g.name)}
-                  onFocus={() => setActive(g.name)}
-                  onClick={() => setActive(g.name)}
-                  className={cn(rowBase, on ? "bg-[#f1f2f4] font-medium text-[#1a1a2e]" : "text-[#374151] hover:bg-[#f6f7f8]")}
-                >
-                  <span className="min-w-0 flex-1 truncate">{g.name}</span>
-                  {current === g.name ? <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#1a1a2e]" /> : null}
-                  <ChevronRight aria-hidden className={cn("h-4 w-4 shrink-0", on ? "text-[#6b7280]" : "text-[#c4c7ce]")} />
-                </button>
-              )
-            })}
-          </div>
-        )}
-
-        <div
-          ref={listRef}
-          data-category-list=""
-          onKeyDown={(e) => {
-            if (e.key === "ArrowLeft" && !found) {
-              e.preventDefault()
-              groupsRef.current?.querySelector<HTMLElement>("[data-active]")?.focus()
-              return
-            }
-            moveFocus(listRef.current, e)
-          }}
-          className="min-w-0 flex-1 overflow-y-auto overscroll-contain p-1.5"
-        >
-          {found ? (
-            <p className="px-3 pb-1 pt-1.5 text-[12px] font-medium text-[#6b7280]">
-              {found.length ? `${found.length} ${found.length === 1 ? "match" : "matches"}` : `No category matches “${query.trim()}”`}
-            </p>
-          ) : (
-            <p className="px-3 pb-1 pt-1.5 text-[12px] font-medium text-[#6b7280]">{active}</p>
-          )}
-          <div className={found ? undefined : "grid grid-cols-2 gap-x-1"}>
-            {(found && found.length === 0 ? ["Other"] : shown).map((c) => {
-              const on = c === value
-              return (
-                <button
-                  key={c}
-                  type="button"
-                  data-category-row=""
-                  data-category-option={c}
-                  aria-current={on ? "true" : undefined}
-                  onClick={() => onPick(c)}
-                  className={cn(rowBase, "text-[#1a1a2e] hover:bg-[#f1f2f4] focus-visible:bg-[#f1f2f4]", on && "font-medium")}
-                >
-                  <span className="min-w-0 flex-1 truncate">{c}</span>
-                  {found ? <span className="max-w-[45%] shrink-0 truncate text-[13px] text-[#9ca3af]">{GROUP_OF.get(c)}</span> : null}
-                  {on ? <Check aria-hidden className="h-4 w-4 shrink-0 text-[#1a1a2e]" strokeWidth={2.5} /> : null}
-                </button>
-              )
-            })}
-          </div>
-        </div>
-      </div>
-    </>
   )
 }
