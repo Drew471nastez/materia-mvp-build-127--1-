@@ -3429,14 +3429,16 @@ html.capacitor.wb-fullscreen::before {
    bounce, and black behind a white screen is the same band arriving from the
    other direction.
 
-   TWO RULES, NOT A SELECTOR LIST, and the same pair as above: one selector a
-   browser cannot parse throws away the whole rule, so an iOS without `:has()`
-   would lose the class-based fallback too. `.cp-fullscreen` is added by an
-   effect and `:has()` holds from the first paint; either alone is enough. */
+   TWO RULES: `.cp-fullscreen` is added by the workspace's effect, and
+   `.with-cp-editor` is set by the editor's root from its first paint
+   (components/platform/html-class.tsx), where this used to ask
+   `html.capacitor:has(.cp-editor)`. A :has() whose subject is <html> restyled
+   the whole document whenever text anywhere was replaced. Either alone is
+   enough. */
 html.capacitor.cp-fullscreen::before {
   display: none;
 }
-html.capacitor:has(.cp-editor)::before {
+html.capacitor.with-cp-editor::before {
   display: none;
 }
 /* ── A page drawn as a layer over the shell ───────────────────────────────
@@ -3460,7 +3462,12 @@ html.capacitor:has(.cp-editor)::before {
    strip in its own colour by padding its top by the inset.
 
    Pairs of rules, not selector lists, for the reason given above: the class
-   is set by the layer for an engine without :has().
+   is set by the layer for an engine without :has(). The shield and the
+   canvas are the class alone: the layer sets it from its first paint (a
+   script in the server's HTML, then its layout effect), and a
+   `html.capacitor:has([data-page-layer])` copy made <html> the subject of a
+   :has(), which restyled the whole document whenever text anywhere was
+   replaced (components/platform/html-class.tsx).
 
    THE PRODUCT EDITOR IS A LAYER ON A PHONE ONLY. From md it is a page in the
    shell with the header and the rail around it, "not how it is on mobile",
@@ -3479,13 +3486,16 @@ html:has([data-page-layer]:not([data-page-layer-phone])) .app-content-scroll {
 html.has-page-layer .app-content-scroll {
   -webkit-overflow-scrolling: auto;
 }
-html.capacitor:has([data-page-layer]:not([data-page-layer-phone]))::before {
+/* The class twice is the weight of the `html.capacitor:has([data-page-layer]:not([data-page-layer-phone]))`
+   these stand in for, (0,3,1): it won over html.capacitor.app-layout's #111,
+   which comes later, and so must they. */
+html.capacitor.has-page-layer.has-page-layer::before {
   display: none;
 }
 html.capacitor.has-page-layer::before {
   display: none;
 }
-html.capacitor:has([data-page-layer]:not([data-page-layer-phone])) {
+html.capacitor.has-page-layer.has-page-layer {
   background-color: #f8f9fa;
 }
 html.capacitor.has-page-layer {
@@ -3504,14 +3514,8 @@ html.capacitor.has-page-layer {
   html.has-phone-page-layer .app-content-scroll {
     -webkit-overflow-scrolling: auto;
   }
-  html.capacitor:has([data-page-layer-phone])::before {
-    display: none;
-  }
   html.capacitor.has-phone-page-layer::before {
     display: none;
-  }
-  html.capacitor:has([data-page-layer-phone]) {
-    background-color: #f8f9fa;
   }
   html.capacitor.has-phone-page-layer {
     background-color: #f8f9fa;
@@ -3598,7 +3602,7 @@ html[data-layer-motion="leave"]::view-transition-old(root) {
 html.capacitor.cp-fullscreen {
   background-color: #ffffff;
 }
-html.capacitor:has(.cp-editor) {
+html.capacitor.with-cp-editor {
   background-color: #ffffff;
 }
 
@@ -3764,11 +3768,11 @@ html.capacitor .mobile-top-sheet-scroll {
 
 /* On pages with a white header (checkout, library, auth) the fixed black
    safe-area shield must match the header colour so no dark bar shows. */
-html.capacitor:has([data-page="checkout"])::before,
-html.capacitor:has([data-page="login"])::before,
-html.capacitor:has([data-page="signup"])::before,
-html.capacitor:has([data-page="reset-password"])::before,
-html.capacitor:has([data-page="auth"])::before {
+html.capacitor.with-page-checkout::before,
+html.capacitor.with-page-login::before,
+html.capacitor.with-page-signup::before,
+html.capacitor.with-page-reset-password::before,
+html.capacitor.with-page-auth::before {
   background-color: #ffffff;
 }
 
@@ -3783,7 +3787,7 @@ html.capacitor:has([data-page="auth"]) body {
 
 /* Library uses DashboardSidebar whose mobile header is white (bg-background).
    The ::before shield must also be white so no black bar appears above it. */
-html.capacitor:has([data-page="library"])::before {
+html.capacitor.with-page-library::before {
   background-color: #ffffff;
 }
 
@@ -3829,14 +3833,18 @@ html.capacitor .native-hidden {
 /* Library pages: override html.capacitor's black background (#000) to the
    light library background. This prevents any black bleeding through in the
    safe-area zones in both portrait (top) and landscape (left/right) on iOS.
-   CSS-only — applies before JS hydration, so no flash on first paint. */
-html.capacitor:has([data-page="library"]) {
+   Before JS hydration too, so no flash on first paint: `.with-page-library`
+   is set by the library's root from the server's HTML (it asked
+   `:has([data-page="library"])`, and a :has() whose subject is <html>
+   restyled the whole document whenever text anywhere was replaced;
+   components/platform/html-class.tsx). */
+html.capacitor.with-page-library {
   background-color: #fafafa;
 }
 
 /* JS-driven counterpart: LibraryBgFix adds .library-layout to <html> and
    re-applies it on every resize (device rotation). These rules mirror the
-   :has([data-page="library"]) versions above so that the fix is active via
+   .with-page-library versions above so that the fix is active via
    BOTH mechanisms — neither is a single point of failure on rotation. */
 html.capacitor.library-layout {
   background-color: #fafafa;
@@ -3966,10 +3974,10 @@ html.capacitor.library-layout::before {
 
 /* Welcome page: safe-area shield matches the page background so no black bar
    appears at the top. Also lock scroll since the page is fixed/full-screen. */
-html.capacitor:has([data-page="welcome"])::before {
+html.capacitor.with-page-welcome::before {
   background-color: #f2f2f2;
 }
-html.capacitor:has([data-page="welcome"]) {
+html.capacitor.with-page-welcome {
   overflow: hidden !important;
 }
 

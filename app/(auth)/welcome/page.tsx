@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useHideNativeSplash } from "@/hooks/use-hide-native-splash"
 import { STORELIB_LOGO } from "@/lib/brand/logo"
+import { HtmlClass } from "@/components/platform/html-class"
 
 // ── Typing effect ────────────────────────────────────────────────────────────
 const PHRASES = [
@@ -142,6 +143,7 @@ export default function WelcomePage() {
           paddingRight:  "env(safe-area-inset-right,  0px)",
         }}
       >
+        <HtmlClass name="with-page-welcome" />
         {/* Logo */}
         <div
           className="wlc-fade-down flex items-center justify-center gap-3 shrink-0"

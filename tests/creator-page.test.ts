@@ -2005,10 +2005,14 @@ function main() {
      * over the safe area at z-9999 — right for every page whose header is
      * black, and a band under the clock on one whose bar is white.
      */
-    check("the shield stands down on the editor", css.includes("html.capacitor.cp-fullscreen::before") && css.includes("html.capacitor:has(.cp-editor)::before"))
-    check("two rules, so an iOS without :has() keeps the fallback", !/cp-fullscreen::before,\s*html\.capacitor:has/.test(css))
-    check("and the canvas behind it goes white with it", css.includes("html.capacitor.cp-fullscreen {\n  background-color: #ffffff;"))
-    check("the workspace carries both halves", workspace.includes('className="cp-editor relative') && workspace.includes('root.classList.add("cp-fullscreen")'))
+    // Changed on purpose: the second half was `html.capacitor:has(.cp-editor)`.
+    // A :has() whose subject is <html> restyled the whole document whenever
+    // text anywhere was replaced, so the editor's root says it is there with
+    // `.with-cp-editor`, from its first paint (components/platform/html-class.tsx).
+    check("the shield stands down on the editor", css.includes("html.capacitor.cp-fullscreen::before") && css.includes("html.capacitor.with-cp-editor::before") && !css.replace(/\/\*[\s\S]*?\*\//g, "").includes("html.capacitor:has(.cp-editor)"))
+    check("two rules, so neither class depends on the other", !/cp-fullscreen::before,\s*html\.capacitor\.with-cp-editor/.test(css))
+    check("and the canvas behind it goes white with it", css.includes("html.capacitor.cp-fullscreen {\n  background-color: #ffffff;") && css.includes("html.capacitor.with-cp-editor {\n  background-color: #ffffff;"))
+    check("the workspace carries both halves", workspace.includes('className="cp-editor relative') && workspace.includes('root.classList.add("cp-fullscreen")') && /className="cp-editor relative[^"]*">\s*<HtmlClass name="with-cp-editor" \/>/.test(workspace))
 
     /**
      * SAVING THE WORDS MUST NOT FREEZE THE COLOURS. The fields are seeded
