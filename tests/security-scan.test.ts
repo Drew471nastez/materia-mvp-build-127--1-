@@ -127,6 +127,29 @@ function main() {
     check("it says when there are more than it lists", /truncated: found\.length > SECURITY_ISSUE_LIMIT/.test(route) && /SECURITY_ISSUE_LIMIT \+ 1/.test(route))
   }
 
+  // ═══════════════════════════════════════════════════════════════════════
+  section("The panel says what the check says")
+  // ═══════════════════════════════════════════════════════════════════════
+  {
+    const panel = readFileSync(join(process.cwd(), "components/website-builder/publish-panel.tsx"), "utf8")
+    const line = panel.slice(panel.indexOf("function SecurityLine("), panel.indexOf("function Body("))
+    check("it asks the route each time the panel comes on screen, and a late answer cannot replace a newer one",
+      /fetch\(`\/api\/website-builder\/themes\/\$\{installId\}\/security`, \{ cache: "no-store" \}\)/.test(panel) &&
+        /if \(!active\) return\s*setIssuesOpen\(false\)/.test(panel) && /if \(run !== securityRun\.current\) return/.test(panel))
+    check("\"No security issues found\" only for a check that came back with an empty list",
+      (line.match(/No security issues found/g) ?? []).length === 1 && /check\.state === "clear" && \(/.test(line) &&
+        /else if \(issues\.length === 0\) setSecurity\(\{ state: "clear" \}\)/.test(panel))
+    check("a check that could not run says so, with a way to run it again",
+      /if \(!issues\) setSecurity\(\{ state: "unknown" \}\)/.test(panel) && /catch \{\s*if \(run === securityRun\.current\) setSecurity\(\{ state: "unknown" \}\)/.test(panel) &&
+        /Could not check for security issues/.test(line) && /onClick=\{onRetry\}/.test(line))
+    check("one line tall in every state, so the phone sheet keeps its height as it opens",
+      (line.match(/className=\{cn\(line, /g) ?? []).length === 4 && (line.match(/min-w-0 flex-1 truncate/g) ?? []).length === 4)
+    check("what was found opens under the line on a press, with where each one is",
+      /aria-expanded=\{open\}/.test(line) && /\{open && \(\s*<ul data-publish-security-issues=""/.test(line) && /issuePlace\(issue\.page\)/.test(line) && /\{issue\.message\}/.test(line))
+    check("more than it lists is said as more", /check\.truncated \? "\+" : ""/.test(line) && /And more after these\./.test(line))
+    check("its copy follows the house rules", !/—|unlock|elevate|seamless|powerful|effortless|supercharge|transform/i.test(line.replace(/transition-transform/g, "")))
+  }
+
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }
 }

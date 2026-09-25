@@ -1581,8 +1581,8 @@ section("Two at once still make five, and an import that says what went wrong")
   check("  a tap while the rings fade out is a preview's tap", /if \(!inspectorRef\.current\) return\s*const el = document\.getElementById\("wb-preview-root"\)/.test(editor))
 
   check("the Publish sheet shows what is connected, on a phone only, right above the security line that ends it",
-    /\{pinActions && <ConnectionsRow brief=\{connections\} settled=\{connectionsSettled\} onOpen=\{onConnections\} \/>\}\s*<div data-publish-security=""[^>]*>[\s\S]{0,200}?No security issues found\s*<\/div>\s*<\/div>\s*\)/.test(publish) &&
-      publish.indexOf("{pinActions && <ConnectionsRow") < publish.indexOf("No security issues found"))
+    /\{pinActions && <ConnectionsRow brief=\{connections\} settled=\{connectionsSettled\} onOpen=\{onConnections\} \/>\}\s*<SecurityLine\s[\s\S]{0,300}?\/>\s*<\/div>\s*\)/.test(publish) &&
+      publish.indexOf("{pinActions && <ConnectionsRow") < publish.indexOf("<SecurityLine\n"))
   check("  from the editor's own read, the one the bar's mark uses: no second request",
     /connections=\{connectionsBrief\}/.test(editor) && /connectionsSettled=\{connectionsSettled\}/.test(editor) &&
       /settled: connectionsSettled \} = useSiteActivity\(/.test(editor) && !/agent-activity/.test(publish))
