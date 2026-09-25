@@ -65,6 +65,8 @@ const server = createServer((req, res) => {
       }),
     )
     if (legacy) rows = rows.map(({ purpose, is_primary, ...r }) => r)
+  } else if (table === "domain_redirects") {
+    rows = q.domain === "eq.old.maralind.com" ? [{ redirect_to: "https://storelib.com/mara", http_code: 301, keep_until: "2999-01-01T00:00:00Z" }] : []
   } else if (table === "creators") rows = [{ id: "c1", user_id: "u1" }]
   else if (table === "profiles") rows = [{ id: "u1", username: "mara" }]
   const single = (req.headers.accept || "").includes("vnd.pgrst.object")
@@ -109,6 +111,7 @@ expect(await ask("https://links.maralind.com/mara"), "308 https://links.maralind
 expect(await ask("https://links.maralind.com/api/track-view"), "next", "API calls are never rewritten or redirected")
 expect(await ask("https://storelib.com/mara"), "next", "storelib.com is untouched")
 expect(await ask("https://nobody.storelib.com/"), "rewrite /w/nobody", "a storelib.com subdomain is still a website address")
+expect(await ask("https://old.maralind.com/prints?x=1"), "301 https://storelib.com/mara/prints?x=1", "a removed creator page domain sends a product to it under the handle")
 
 legacy = true
 console.log("\nBefore the columns exist: everything as it was")

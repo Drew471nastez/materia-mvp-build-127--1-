@@ -1069,9 +1069,11 @@ export async function proxy(request: NextRequest) {
       const domainRedirect = await checkDomainRedirect(host)
       if (domainRedirect) {
         const redirectUrl = new URL(domainRedirect.redirectTo)
-        // Preserve path: if old domain was accessed at /links, redirect to newdomain/links
+        // Preserve path: if old domain was accessed at /links, redirect to newdomain/links.
+        // Under the target's own path when it has one: a creator page domain
+        // that was removed sends /prints to storelib.com/<handle>/prints.
         if (pathname && pathname !== "/") {
-          redirectUrl.pathname = pathname
+          redirectUrl.pathname = `${redirectUrl.pathname.replace(/\/+$/, "")}${pathname}`
         }
         if (search) {
           redirectUrl.search = search
