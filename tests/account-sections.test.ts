@@ -43,13 +43,14 @@ const card = (id: string, title: string) => ({ id, type: "product", settings: { 
 const P1 = "10000000-0000-4000-8000-000000000001"
 const P2 = "10000000-0000-4000-8000-000000000002"
 
-function draw(type: string, settings: Record<string, unknown> = {}, opts: { template?: string; globals?: Parameters<typeof renderStorelibSection>[5]; products?: ReturnType<typeof card>[]; page?: Record<string, unknown> } = {}) {
+function draw(type: string, settings: Record<string, unknown> = {}, opts: { template?: string; globals?: Parameters<typeof renderStorelibSection>[6]; products?: ReturnType<typeof card>[]; page?: Record<string, unknown> } = {}) {
   const out = renderStorelibSection(
     { id: `s-${type}`, type, name: type, settings, blocks: [] } as SectionInstance,
     theme,
     { template: opts.template ?? "index", ...(opts.page ?? {}) },
     undefined,
     opts.products ?? [],
+    undefined,
     opts.globals,
   )
   if (out.ok === false) throw new Error(`${type}: ${JSON.stringify(out.errors)}`)

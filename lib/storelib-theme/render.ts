@@ -44,6 +44,7 @@ export interface RenderInput {
    * draws empty, which is what an export or a thumbnail wants.
    */
   data?: StorefrontData
+  /**
    * What the page knows about the store and, on a page drawn for one visitor,
    * about them. Absent means `shop` from the theme alone, and no customer.
    */
