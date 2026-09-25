@@ -1,5 +1,5 @@
 import { readOwnSectionFields, sanitizeSections } from "@/lib/website-builder/sanitize-sections"
-import { GENERATED_PAGE_KEYS } from "@/lib/website-builder/site-pages"
+import { GENERATED_PAGE_KEYS, isPageKey } from "@/lib/website-builder/site-pages"
 import { searchSections, shopSections } from "@/lib/website-builder/shop-page"
 import type { ThemeSettingsValues } from "@/lib/website-builder/types"
 import { NextResponse } from "next/server"
@@ -223,12 +223,24 @@ export async function PUT(req: Request, { params }: Params) {
       : { draft_sections: sections }
 
   // Upsert
-  const { data: existing } = await supabase
+  const { data: existing, error: lookupErr } = await supabase
     .from("store_theme_pages")
     .select("id")
     .eq("install_id", installId)
     .eq("page_key", page_key)
     .maybeSingle()
+  if (lookupErr) return NextResponse.json({ error: "Could not save the page. Try again." }, { status: 500 })
+
+  /**
+   * A NEW page takes an address the editor could have made: lowercase
+   * letters, numbers and hyphens (isPageKey, lib/website-builder/site-pages.ts).
+   * A page that already exists is saved under the key it has, whatever it
+   * is: an imported theme may have stored "About_Us" or "page.about", and
+   * refusing those would be refusing a save.
+   */
+  if (!existing && !isPageKey(page_key)) {
+    return NextResponse.json({ error: "A page address uses lowercase letters, numbers and hyphens." }, { status: 400 })
+  }
 
   let result
   if (existing) {
@@ -285,10 +297,27 @@ export async function DELETE(req: Request, { params }: Params) {
   if (error || !supabase) return NextResponse.json({ error }, { status })
 
   const { searchParams } = new URL(req.url)
-  const pageKey = (searchParams.get("page") ?? "").toLowerCase()
+  /**
+   * The key exactly as stored, the same as PUT. This used to lowercase it and
+   * PUT never did, so a page an import had stored as "About_Us" saved fine
+   * and could never be deleted: the delete looked for "about_us", matched
+   * nothing, and answered ok.
+   */
+  const pageKey = searchParams.get("page") ?? ""
   if (!pageKey) return NextResponse.json({ error: "Which page?" }, { status: 400 })
   if (pageKey === "home" || pageKey === "product") {
     return NextResponse.json({ error: "The home and product pages are part of the theme." }, { status: 400 })
+  }
+  /* The same rule as PUT: an address the editor could have made, or a page this site already has. */
+  if (!isPageKey(pageKey)) {
+    const { data: found, error: lookupErr } = await supabase
+      .from("store_theme_pages")
+      .select("id")
+      .eq("install_id", installId)
+      .eq("page_key", pageKey)
+      .maybeSingle()
+    if (lookupErr) return NextResponse.json({ error: "Could not delete the page. Try again." }, { status: 500 })
+    if (!found) return NextResponse.json({ error: "That is not a page on this site." }, { status: 400 })
   }
 
   const { error: deleteErr } = await supabase

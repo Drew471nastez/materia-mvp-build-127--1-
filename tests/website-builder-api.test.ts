@@ -16,7 +16,10 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 
+import { toPageSlug } from "@/lib/sites/slug"
+import { POLICY_PAGE_KEYS } from "@/lib/website-builder/policy-pages"
 import { previewBase } from "@/lib/website-builder/preview-link"
+import { BUILT_IN_PAGE_KEYS, isPageKey } from "@/lib/website-builder/site-pages"
 
 let passed = 0
 let failed = 0
@@ -123,6 +126,23 @@ function main() {
     check("every link the route hands out goes through it",
       /const base = previewBase\(sent, \{ requestOrigin: req\.nextUrl\.origin, mainDomain: getMainDomain\(\), canonical: getCanonicalSiteUrl\(\) \}\)/.test(route)
         && (route.match(/withToken\(req, /g) ?? []).length === 3)
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  section("A page key: the editor's shape for a new page, any existing key for the rest")
+  // ═══════════════════════════════════════════════════════════════════════
+  {
+    const made = ["About us", "Size guide!", "Ünïcode Café", "  spaced  out  ", "x".repeat(90), "404 page"].map(toPageSlug)
+    const built = [...BUILT_IN_PAGE_KEYS, ...POLICY_PAGE_KEYS]
+    check("every key the editor makes, and every page the theme ships, has the shape", [...made, ...built].every((k) => !k || isPageKey(k)), [...made, ...built].filter((k) => k && !isPageKey(k)).join(", "))
+    check("a path, an upper case letter or a dot does not", !isPageKey("../x") && !isPageKey("About") && !isPageKey("page.about") && !isPageKey("") && !isPageKey("-a"))
+    const sections = read(`${ROUTES}/sections/route.ts`)
+    const put = sections.slice(sections.indexOf("export async function PUT"), sections.indexOf("export async function DELETE"))
+    const del = sections.slice(sections.indexOf("export async function DELETE"))
+    check("a new page must have the shape, and an existing one keeps its key",
+      /if \(!existing && !isPageKey\(page_key\)\)/.test(put) && put.indexOf("if (!existing && !isPageKey(page_key))") < put.indexOf(".insert("))
+    check("delete matches the key exactly as stored, as save does", !/toLowerCase\(\)/.test(del) && /const pageKey = searchParams\.get\("page"\) \?\? ""/.test(del))
+    check("and refuses a key that is neither the shape nor a page this site has", /if \(!isPageKey\(pageKey\)\) \{/.test(del) && /if \(!found\) return NextResponse\.json\(/.test(del))
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)
