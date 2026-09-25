@@ -3801,7 +3801,7 @@ function PublicBlockRenderer({
   const getGradientBottomColor = () => {
     if (theme.background_type === "gradient" && theme.background_gradient) {
       const colorMatches = theme.background_gradient.match(
-        /#[a-fA-F0-9]{6}|#[a-fA-F0-9]{3}|rgb$$[^)]+$$|rgba$$[^)]+$$/g,
+        /#[a-fA-F0-9]{6}|#[a-fA-F0-9]{3}|rgb\([^)]+\)|rgba\([^)]+\)/g,
       )
       if (colorMatches && colorMatches.length > 0) {
         return colorMatches[colorMatches.length - 1]
