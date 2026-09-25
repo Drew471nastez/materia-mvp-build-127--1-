@@ -21,7 +21,9 @@
  * builder in the browser and by the engine on the server, and tested alone.
  */
 
-export type TriggerType = "new_subscriber" | "purchase"
+import { fieldProblems } from "./merge-fields"
+
+export type TriggerType = "new_subscriber" | "purchase" | "first_purchase" | "abandoned_checkout"
 export type WaitUnit = "minutes" | "hours" | "days"
 export type ConditionCheck = "no_purchase_since_entry" | "purchased_since_entry" | "opened_previous_email" | "not_opened_previous_email"
 
@@ -52,12 +54,27 @@ export type StepType = FlowStep["type"]
  */
 export type EntryRule = { mode: "once" } | { mode: "after"; days: number } | { mode: "each" }
 
+/**
+ * Who a flow may email, on top of "not unsubscribed, not bounced":
+ *
+ *   buyers        anyone the trigger is about. For a purchase flow that is
+ *                 every buyer, the way a purchase follow-up has always gone
+ *                 out on this platform (lib/email-automation standingOf): a
+ *                 note about the order they just placed.
+ *   subscribers   only people who agreed to hear from the creator: they
+ *                 joined the list, or ticked "Email me news and offers" at
+ *                 checkout. Offers and "see what is new" belong here.
+ */
+export type Audience = "buyers" | "subscribers"
+
 export interface TriggerConfig {
   /** Which template the flow was made from, so the chooser can say "You have this". */
   template?: string
   entry?: EntryRule
   /** Purchase flows only: which products start it. Empty or missing means any. */
   product_ids?: string[]
+  /** Purchase flows only. Missing means the template's, or buyers. */
+  audience?: Audience
 }
 
 export interface FlowRecord {
@@ -69,21 +86,65 @@ export interface FlowRecord {
   steps: unknown
 }
 
-export const TRIGGERS: Record<TriggerType, { name: string; sentence: string }> = {
-  new_subscriber: { name: "Joins your list", sentence: "Someone joins your email list" },
-  purchase: { name: "Buys a product", sentence: "Someone buys from you" },
+/**
+ * What can start a flow, each one emitted somewhere real:
+ *
+ *   new_subscriber       every sign-up route (app/api/subscribe, subscribers,
+ *                        website-builder/subscribe, onepage/*)
+ *   purchase             every order: a paid checkout (lib/checkout/
+ *                        fulfil-payment), a basket (fulfil-cart-session), a
+ *                        free claim (app/api/checkout/process, quick-free)
+ *   first_purchase       the same moment, when the buyer has no earlier order
+ *                        with this creator (engine.ts enroll)
+ *   abandoned_checkout   a checkout that reached Pay with an address and had
+ *                        no order an hour later (lib/automations/abandoned.ts,
+ *                        from the hourly cron). Recorded once
+ *                        supabase/sql/RUN_CHECKOUT_CONTACTS.sql has run.
+ *
+ * `marketing`: the trigger is itself a reason to sell, so only people who
+ * agreed to hear from the creator are sent anything, whatever the flow says.
+ */
+export const TRIGGERS: Record<TriggerType, { name: string; sentence: string; marketing: boolean; purchase: boolean }> = {
+  new_subscriber: { name: "Joins your list", sentence: "Someone joins your email list", marketing: false, purchase: false },
+  purchase: { name: "Buys a product", sentence: "Someone buys from you", marketing: false, purchase: true },
+  first_purchase: { name: "First order", sentence: "Someone buys from you for the first time", marketing: false, purchase: true },
+  abandoned_checkout: { name: "Leaves checkout", sentence: "Someone starts checkout and does not pay", marketing: true, purchase: false },
 }
+
+/** The order a person meets them in: joining, checkout, a first order, any order. */
+export const TRIGGER_ORDER: TriggerType[] = ["new_subscriber", "abandoned_checkout", "first_purchase", "purchase"]
 
 export function isTriggerType(v: unknown): v is TriggerType {
-  return v === "new_subscriber" || v === "purchase"
+  return v === "new_subscriber" || v === "purchase" || v === "first_purchase" || v === "abandoned_checkout"
 }
 
-/** `phrase` finishes "Continue only if ...". */
-export const CONDITIONS: Record<ConditionCheck, { label: string; phrase: string; needsEmailBefore: boolean }> = {
-  no_purchase_since_entry: { label: "Has not bought anything since entering", phrase: "they have not bought anything since entering", needsEmailBefore: false },
-  purchased_since_entry: { label: "Has bought something since entering", phrase: "they have bought something since entering", needsEmailBefore: false },
-  opened_previous_email: { label: "Opened the email before this", phrase: "they opened the email before this", needsEmailBefore: true },
-  not_opened_previous_email: { label: "Did not open the email before this", phrase: "they did not open the email before this", needsEmailBefore: true },
+/** A flow about an order: which products start it can be chosen. */
+export function isPurchaseTrigger(t: TriggerType): boolean {
+  return TRIGGERS[t].purchase
+}
+
+/** Templates whose emails sell rather than serve an order, for a flow that never chose. */
+const SELLING_TEMPLATES = new Set(["win_back"])
+
+/**
+ * Who this flow may email. A trigger that is a reason to sell (a checkout
+ * left behind) is subscribers only, always. A purchase flow says, and one
+ * that never said is what its template was made for. Everything else is
+ * the people the trigger is about.
+ */
+export function audienceOf(trigger: TriggerType, config: TriggerConfig | null | undefined): Audience {
+  if (TRIGGERS[trigger].marketing) return "subscribers"
+  if (!isPurchaseTrigger(trigger)) return "buyers"
+  if (config?.audience === "subscribers" || config?.audience === "buyers") return config.audience
+  return config?.template && SELLING_TEMPLATES.has(config.template) ? "subscribers" : "buyers"
+}
+
+/** `phrase` finishes "Continue only if ...". `short` is the check in a list of steps. */
+export const CONDITIONS: Record<ConditionCheck, { label: string; phrase: string; short: string; needsEmailBefore: boolean }> = {
+  no_purchase_since_entry: { label: "Has not bought anything since entering", phrase: "they have not bought anything since entering", short: "only if they have not bought since", needsEmailBefore: false },
+  purchased_since_entry: { label: "Has bought something since entering", phrase: "they have bought something since entering", short: "only if they bought since", needsEmailBefore: false },
+  opened_previous_email: { label: "Opened the email before this", phrase: "they opened the email before this", short: "only if they opened it", needsEmailBefore: true },
+  not_opened_previous_email: { label: "Did not open the email before this", phrase: "they did not open the email before this", short: "only if they did not open it", needsEmailBefore: true },
 }
 
 export function isConditionCheck(v: unknown): v is ConditionCheck {
@@ -180,11 +241,16 @@ export function serializeSteps(steps: FlowStep[]): FlowStep[] {
 }
 
 export function defaultEntry(trigger: TriggerType): EntryRule {
-  return trigger === "purchase" ? { mode: "each" } : { mode: "after", days: 30 }
+  if (trigger === "purchase") return { mode: "each" }
+  if (trigger === "first_purchase") return { mode: "once" }
+  if (trigger === "abandoned_checkout") return { mode: "after", days: 7 }
+  return { mode: "after", days: 30 }
 }
 
 /** The stored rule, checked; the trigger's default when there is none or it makes no sense. */
 export function entryRule(trigger: TriggerType, config: TriggerConfig | null | undefined): EntryRule {
+  /* A first order happens once; any other rule would be a promise it cannot keep. */
+  if (trigger === "first_purchase") return { mode: "once" }
   const e = config?.entry as Record<string, unknown> | undefined
   if (e?.mode === "once") return { mode: "once" }
   if (e?.mode === "each" && trigger === "purchase") return { mode: "each" }
@@ -196,6 +262,7 @@ export function entryRule(trigger: TriggerType, config: TriggerConfig | null | u
 }
 
 export function entryText(trigger: TriggerType, rule: EntryRule): string {
+  if (trigger === "first_purchase") return "Their first order only"
   if (rule.mode === "once") return "Once per person"
   if (rule.mode === "each") return trigger === "purchase" ? "Every order" : "Every time"
   return `Again after ${rule.days} day${rule.days === 1 ? "" : "s"}`
@@ -256,7 +323,8 @@ const textOf = (html: string) => html.replace(/<[^>]*>/g, " ").replace(/&nbsp;/g
  * What stops this flow from sending properly, in the creator's words, one
  * line per problem. An empty list means it can be turned on.
  */
-export function problemsOf(trigger: string, steps: FlowStep[]): Problem[] {
+export function problemsOf(trigger: string, steps: FlowStep[], opts: { fields?: boolean } = {}): Problem[] {
+  const checkFields = opts.fields !== false
   const out: Problem[] = []
   if (!isTriggerType(trigger)) out.push({ stepId: null, message: "Choose what starts this flow." })
   if (steps.length === 0) out.push({ stepId: null, message: "Add at least one email." })
@@ -268,6 +336,11 @@ export function problemsOf(trigger: string, steps: FlowStep[]): Problem[] {
       else if (s.config.subject.length > MAX_SUBJECT) out.push({ stepId: s.id, message: `Email ${emailNumber(steps, s.id)} has a subject over ${MAX_SUBJECT} characters.` })
       if (!textOf(s.config.body) && !/<img\b/i.test(s.config.body)) out.push({ stepId: s.id, message: `Email ${emailNumber(steps, s.id)} is empty.` })
       if (s.config.body.length > MAX_BODY) out.push({ stepId: s.id, message: `Email ${emailNumber(steps, s.id)} is too long to send.` })
+      if (checkFields && isTriggerType(trigger)) {
+        for (const p of fieldProblems(`${s.config.subject} ${s.config.preview_text ?? ""} ${s.config.body}`, trigger)) {
+          out.push({ stepId: s.id, message: `Email ${emailNumber(steps, s.id)}: ${p}` })
+        }
+      }
     } else if (s.type === "wait") {
       if (!(s.config.amount >= 1)) out.push({ stepId: s.id, message: "A wait needs a length of at least 1." })
       else if (waitMs(s) > MAX_WAIT_DAYS * UNIT_MS.days) out.push({ stepId: s.id, message: `A wait can be up to ${MAX_WAIT_DAYS} days.` })
@@ -326,6 +399,13 @@ export function durationText(ms: number): string {
   const d = Math.floor(h / 24)
   if (d > 0) return `${d} day${d === 1 ? "" : "s"} ${h % 24} h`
   return `${h} h ${m} min`
+}
+
+/** The steps as words, in order: "Email, wait 3 days, email". */
+export function stepsText(steps: FlowStep[]): string {
+  const words = steps.map((s) => (s.type === "email" ? "email" : s.type === "wait" ? `wait ${waitText(s)}` : CONDITIONS[s.config.check].short))
+  const text = words.join(", ")
+  return text ? text.charAt(0).toUpperCase() + text.slice(1) : "No steps yet"
 }
 
 /** "2 emails over 3 days", "1 email". */

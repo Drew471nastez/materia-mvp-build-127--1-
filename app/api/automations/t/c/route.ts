@@ -2,6 +2,7 @@ import { NextResponse, after, type NextRequest } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { APP_URL } from "@/lib/email-automation"
 import { decodeTarget, isToken, verifyTarget } from "@/lib/automations/tracking"
+import { recordClick } from "@/lib/automations/track-events"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -13,7 +14,7 @@ export const dynamic = "force-dynamic"
  * page rather than wherever somebody wanted to send people.
  *
  * A click is also an open (the pixel is often blocked), so both are written
- * where they are still empty.
+ * where they are still empty (lib/automations/track-events recordClick).
  */
 export async function GET(request: NextRequest) {
   const q = request.nextUrl.searchParams
@@ -24,10 +25,7 @@ export async function GET(request: NextRequest) {
   }
   after(async () => {
     try {
-      const db = createAdminClient()
-      const now = new Date().toISOString()
-      await db.from("email_flow_sends").update({ clicked_at: now, updated_at: now }).eq("token", token).is("clicked_at", null)
-      await db.from("email_flow_sends").update({ opened_at: now, updated_at: now }).eq("token", token).is("opened_at", null)
+      await recordClick(createAdminClient(), token)
     } catch {
       /* A click that is not counted still arrives. */
     }

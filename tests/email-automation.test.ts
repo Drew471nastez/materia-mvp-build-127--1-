@@ -214,7 +214,7 @@ async function main() {
   const statusRoute = read("app/api/automations/flows/[id]/status/route.ts")
   check("a new automation starts off", /status: "draft",\s*steps: serializeSteps/.test(createRoute))
   check("saving it does not turn it on or off", patch.length > 100 && !/status/.test(patch))
-  check("the builder says plainly whether it is on", /"On and sending" : "Off"/.test(builder))
+  check("the builder says plainly whether it is on: Live, Draft or Paused, beside its name", /active: \{ label: "Live", tone: "success" \}/.test(builder) && /draft: \{ label: "Draft"/.test(builder) && /<StatusBadge tone=\{state\.tone\}/.test(builder))
   check("turning it on is refused until it is complete, on the server and on the page",
     /const problems = problemsOf\(flow\.trigger_type, normalizeSteps\(flow\.steps\)\)[\s\S]{0,120}status: 422/.test(statusRoute)
       && /if \(next && problems\.length > 0\)/.test(builder))

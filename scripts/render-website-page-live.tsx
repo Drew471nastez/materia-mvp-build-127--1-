@@ -35,8 +35,30 @@ function site(id: string, name: string, status: WebsiteSummary["status"], minute
   }
 }
 
+/**
+ * `&snapshot=1` gives the live website a real picture, the way the server
+ * hands one over after a save: a 1440x900 page with a white bar at the top
+ * (so a hairline has to keep it off the white card), a dark hero and a row of
+ * products. Taken after the last save, so the page does not ask for another.
+ */
+const SITE_PICTURE =
+  "data:image/svg+xml," +
+  encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900">
+<rect width="1440" height="900" fill="#ffffff"/>
+<text x="72" y="46" font-family="Inter, Arial" font-size="22" font-weight="700" fill="#111">Northwind</text>
+<g font-family="Inter, Arial" font-size="15" fill="#444"><text x="560" y="45">Home</text><text x="640" y="45">Services</text><text x="740" y="45">Portfolio</text><text x="840" y="45">How it works</text></g>
+<rect x="1248" y="22" width="120" height="36" rx="8" fill="#3b6cf6"/><text x="1308" y="46" text-anchor="middle" font-family="Inter, Arial" font-size="14" font-weight="600" fill="#fff">Contact</text>
+<rect y="80" width="1440" height="480" fill="#0b0b0c"/>
+<g font-family="Inter, Arial" font-weight="500" fill="#fff" font-size="64" letter-spacing="-2"><text x="120" y="230">LinkedIn posts</text><text x="120" y="300">for founders.</text><text x="120" y="370">Content for brands.</text></g>
+<text x="120" y="420" font-family="Inter, Arial" font-size="18" fill="#bbb">Ghostwriting and SEO content, written with you every week.</text>
+<rect x="120" y="456" width="180" height="48" rx="6" fill="#3b6cf6"/><text x="210" y="486" text-anchor="middle" font-family="Inter, Arial" font-size="15" font-weight="600" fill="#fff">Choose a service</text>
+<rect x="900" y="150" width="360" height="340" rx="14" fill="#f4f4f5"/><rect x="930" y="180" width="300" height="180" rx="8" fill="#d9dce3"/><rect x="930" y="384" width="200" height="14" rx="7" fill="#9aa0ad"/><rect x="930" y="410" width="140" height="14" rx="7" fill="#c3c7cf"/>
+<g fill="#f1f2f4"><rect x="120" y="610" width="380" height="240" rx="12"/><rect x="530" y="610" width="380" height="240" rx="12"/><rect x="940" y="610" width="380" height="240" rx="12"/></g>
+</svg>`)
+
 const params = new URLSearchParams(location.search)
 const scenario = params.get("scenario")
+const withPicture = params.get("snapshot") === "1"
 const full = scenario === "full"
 /* `?drafts=N` sets how many drafts sit beside the live website: 0 is a library of one, 3 makes the import the fifth. */
 const drafts = params.has("drafts") ? Number(params.get("drafts")) : full ? THEME_INSTALL_LIMIT - 1 : 2
@@ -45,7 +67,9 @@ let installs: WebsiteSummary[] = [
   /* `?scenario=offline`: the website that was live has been taken offline, and nothing is live. */
   scenario === "offline"
     ? { ...site("live-1", "Storelib Default", "unpublished", 4), published_at: ago(90) }
-    : site("live-1", "Storelib Default", "published", 4),
+    : withPicture
+      ? { ...site("live-1", "Storelib Default", "published", 4), snapshot_url: SITE_PICTURE, snapshot_updated_at: ago(1) }
+      : site("live-1", "Storelib Default", "published", 4),
   ...Array.from({ length: drafts }, (_, i) => site(`lib-${i}`, names[i], "draft", 60 * (i + 2))),
 ]
 

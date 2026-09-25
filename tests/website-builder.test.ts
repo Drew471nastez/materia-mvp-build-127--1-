@@ -310,19 +310,35 @@ section("The page")
     const live = client.slice(client.indexOf('<section aria-labelledby="live-heading"'), client.indexOf("{/* ── Library"))
     const header = client.slice(client.indexOf("data-title-row") - 80, client.indexOf('<section aria-labelledby="live-heading"'))
     check("the bar of settings doors is gone", !existsSync(join(process.cwd(), "app/app/website-builder/settings-strip.tsx")) && !/SettingsStrip/.test(client))
-    check("the three header controls are gone, and their file with them",
-      !existsSync(join(process.cwd(), "app/app/website-builder/site-controls.tsx")) && !/SiteControls/.test(client) && !/"Unpublished"/.test(client))
-    check("the title row holds the heading and one control, Settings, on one line at every width",
+    /*
+      THE TITLE ROW, SHOPIFY'S WAY. The owner asked for Settings to go down
+      beside Edit website, and for the title's line to carry light grey
+      Public and View website buttons, like Shopify's Public and View store.
+      On a phone the line holds View website alone.
+    */
+    const src = read("app/app/website-builder/website-builder-client.tsx")
+    const depthSrc = read("components/ui/depth-button.ts")
+    check("the old header file is still gone", !existsSync(join(process.cwd(), "app/app/website-builder/site-controls.tsx")) && !/SiteControls/.test(client))
+    check("the title row holds the heading, Public and View website, and not Settings",
       /<div className="flex items-center justify-between gap-3" data-title-row="">/.test(header) &&
-        (header.match(/data-control=/g) ?? []).length === 1 && /data-control="settings"/.test(header) &&
+        (header.match(/data-control=/g) ?? []).length === 3 && /data-control="public"/.test(header) &&
+        (header.match(/data-control="view"/g) ?? []).length === 2 && !/data-control="settings"/.test(header) &&
         /<h1 className="min-w-0 truncate/.test(header) && !/sm:flex-row/.test(header))
-    check("  Settings opens Website Settings in the editor, for the live site or the one that was",
-      /const settingsFor = live \?\? offline \?\? installs\[0\] \?\? null/.test(client) && /onClick=\{\(\) => go\(editorHref\(username, settingsFor\.id, "settings"\)\)\}/.test(header))
-    check("  44px on a phone, 36px from a tablet up, overhanging the title line rather than growing it",
-      /const SETTINGS_BUTTON =\s*"-my-1 inline-flex h-11 [^"]*sm:my-0 sm:h-9"/.test(read("app/app/website-builder/website-builder-client.tsx")) && /border border-\[#e5e7eb\]/.test(header + client))
-    check("View website is the first row of the live site's More menu, a real anchor to a new tab",
-      /if \(i\.status === "published" && siteUrl\) items\.push\(\{ label: "View website", icon: <SquareArrowOutUpRight \/>, href: siteUrl, target: "_blank" \}\)/.test(client))
-    check("Take offline stays in the live site's More menu, through the page's own question",
+    check("  Public is not drawn on a phone; View website is drawn at every width",
+      /\{publicControl && \(\s*<div className="hidden sm:block">/.test(header) && !/hidden sm:block">\s*<a href=\{siteUrl\}/.test(header))
+    check("  both in the shared light grey, 36px with 10px corners from 640px, 44px on a phone",
+      /const HEADER_BUTTON = cn\(grayDepth, "-my-1 h-11 rounded-\[10px\] px-3\.5 text-\[14px\] sm:my-0 sm:h-9 sm:px-3"\)/.test(src) &&
+        /export const grayDepth = cn\(/.test(depthSrc) && /bg-\[#e3e3e3\] font-medium text-\[#303030\]/.test(depthSrc) &&
+        /hover:bg-\[#d4d4d4\] active:bg-\[#cccccc\] active:shadow-\[inset_0_1px_1px_rgba\(0,0,0,0\.12\)\]/.test(depthSrc) && !/border/.test(/export const grayDepth = cn\(([\s\S]*?)\n\)/.exec(depthSrc)?.[1] ?? "border"))
+    check("  Public says Take offline while a website is live, Unpublished says Publish again for the one that was, through the page's questions",
+      /label: "Public",[\s\S]{0,120}items: \[\{ label: "Take offline", icon: <EyeOff \/>, onClick: \(\) => setUnpublishing\(live\), variant: "warning" \}\]/.test(src) &&
+        /label: "Unpublished",[\s\S]{0,140}items: \[\{ label: "Publish again", icon: <Rocket \/>, onClick: \(\) => setPublishing\(offline\) \}\]/.test(src) &&
+        /: null\s*\n/.test(src.slice(src.indexOf("const publicControl"), src.indexOf("const explore"))))
+    check("  View website is a real anchor to a new tab while a site is live, and a disabled button while none is",
+      /live \? \(\s*<a href=\{siteUrl\} target="_blank" rel="noopener noreferrer" data-control="view" className=\{HEADER_BUTTON\}>/.test(src) &&
+        /<button type="button" disabled data-control="view" className=\{HEADER_BUTTON\}>/.test(src))
+    check("View website left the More menu, which now starts at Edit code", !/label: "View website"/.test(client) && !/SquareArrowOutUpRight/.test(client))
+    check("Take offline stays in the live site's More menu, so a phone can still reach it",
       /items\.push\(\{ label: "Take offline", icon: <EyeOff \/>, onClick: \(\) => setUnpublishing\(i\)/.test(client))
     check("an offline website's row says Publish again, through the page's own question",
       /label: i\.status === "unpublished" \? "Publish again" : "Publish", icon: <Rocket \/>, onClick: \(\) => setPublishing\(i\)/.test(client))
@@ -341,14 +357,38 @@ section("The page")
         /"Your website is offline"/.test(client) && /onClick=\{\(\) => setPublishing\(offline\)\}/.test(live) &&
         /\{i\.id === offline\?\.id \? "Offline" : "Draft"\} · Edited/.test(client))
     check("the live site's More menu no longer carries Website settings", !/WEBSITE_SETTINGS/.test(client) && !/section: n === 0 \? "Website settings"/.test(client))
-    check("the card's buttons are Edit website and a square More, with the shared depth", /<div className="mt-auto flex gap-2 pt-5">/.test(live) && /className=\{MORE_ON_CARD\}/.test(live) && /const MORE_ON_CARD = cn\(secondaryDepth, "h-11 w-11 rounded-xl px-0/.test(client) && !/View site/.test(live))
+    const row = live.slice(live.indexOf("data-card-actions"), live.indexOf("data-more-button", live.indexOf("data-card-actions")) + 80)
+    check("the card's row is Edit website, Settings and a square More, in that order, on one line",
+      /<div className="mt-auto flex gap-2 pt-5" data-card-actions="">/.test(live) &&
+        row.indexOf("Edit website") > 0 && row.indexOf('data-control="settings"') > row.indexOf("Edit website") &&
+        row.indexOf("className={MORE_ON_CARD}") > row.indexOf('data-control="settings"') && !/flex-wrap|flex-col/.test(row.slice(0, 80)) && !/View site/.test(live))
+    check("  Settings opens the live site's Website Settings in the editor",
+      /onClick=\{\(\) => go\(editorHref\(username, live\.id, "settings"\)\)\}/.test(row) && /className=\{SETTINGS_ON_CARD\}/.test(row))
+    check("  a 44px square with a gear on a phone, its name from 640px",
+      /const SETTINGS_ON_CARD = cn\(iconDepth, "h-11 w-11 rounded-xl px-0 text-\[14px\] text-\[#1a1a2e\] sm:w-auto sm:px-3\.5"\)/.test(src) &&
+        /aria-label="Settings"/.test(row) && /<Settings className=/.test(row) && /<span className="hidden sm:inline">Settings<\/span>/.test(row))
+    check("  Settings and More share the icon depth: a hairline, a 2px foot and a soft shadow, flat when pressed",
+      /const MORE_ON_CARD = cn\(iconDepth, "h-11 w-11 rounded-xl px-0/.test(src) && /export const iconDepth = cn\(/.test(depthSrc) &&
+        /shadow-\[inset_0_-2px_0_rgba\(0,0,0,0\.07\),0_1px_2px_rgba\(15,23,42,0\.08\)\]/.test(depthSrc) &&
+        /active:shadow-\[inset_0_1px_2px_rgba\(0,0,0,0\.12\)\]/.test(depthSrc))
     check("  no numbers are counted for it any more", !/websitePerformanceFor/.test(read("app/app/website-builder/page.tsx")))
+    /*
+      THE COVER IS THE SITE. "Why is it windows in a window? I want it full
+      width in the container." No stage, no browser window, no phone: the
+      desktop picture fills the cover area, flush with the card's edges.
+    */
     const frame = /const COVER_FRAME =\s*"([^"]+)"/.exec(client)?.[1] ?? ""
-    check("the cover is clipped to 12px corners on all four sides",
-      /\brounded-\[12px\]/.test(frame) && /\boverflow-hidden\b/.test(frame) && /className=\{COVER_FRAME\}/.test(live))
-    check("  with a hairline drawn over the picture and a soft two layer shadow",
-      /after:shadow-\[inset_0_0_0_1px_rgba\(15,23,42,0\.08\)\]/.test(frame) && /shadow-\[0_1px_2px_rgba\(15,23,42,0\.06\),0_10px_28px_-14px_rgba\(15,23,42,0\.22\)\]/.test(frame))
-    check("  set into the card, not cut flush with its edge", /<div className="min-w-0 p-4 pb-3 lg:pb-4 lg:pr-2">/.test(live))
+    check("the cover area is flush with the card: no padding around it, 16:10, rounded to the card's inner radius",
+      /<div className="min-w-0">\s*<button[^>]*?\n?[\s\S]{0,200}?data-cover=""/.test(live) && /\baspect-\[16\/10\]/.test(frame) &&
+        /\brounded-t-\[15px\]/.test(frame) && /\blg:rounded-tr-none\b/.test(frame) && /\blg:rounded-bl-\[15px\]/.test(frame) &&
+        /\boverflow-hidden\b/.test(frame) && /className=\{COVER_FRAME\}/.test(live) && !/p-4 pb-3/.test(live))
+    check("  with a hairline over the picture where it meets the details: under it on a phone, on its right from lg",
+      /after:shadow-\[inset_0_-1px_0_rgba\(15,23,42,0\.08\)\]/.test(frame) && /lg:after:shadow-\[inset_-1px_0_0_rgba\(15,23,42,0\.08\)\]/.test(frame) && !/0_10px_28px/.test(frame))
+    check("  and it is one picture: no stage, no browser window, no phone, anywhere on the page",
+      /<WebsiteCover install=\{live\} eager \/>/.test(live) && !/CoverStage|PHONE_FRAME|ThemeCoverPair|ThemePhoneCover|snapshot_mobile_url \?/.test(client) &&
+        !/export function CoverStage|export const PHONE_FRAME|export function ThemeCoverPair|data-cover-stage|data-cover-window|data-cover-phone/.test(read("components/website-builder/theme-cover.tsx")))
+    check("  the screenshot is cut from the top, so the site's header and hero are what shows",
+      /data-cover-picture=""\s*className="block h-full w-full object-cover object-top"/.test(src))
     check("the old tab rule is gone from the stylesheet", !/\.wb-tab\b/.test(read("app/globals.css")))
   }
   /**
@@ -359,10 +399,11 @@ section("The page")
    * checked in changed while the rule did not.
    */
   check("the live link is a real anchor that opens a new tab",
-    /href: siteUrl, target: "_blank"/.test(client) &&
-      /rel=\{item\.target === "_blank" \? "noopener noreferrer" : undefined\}/.test(read("components/ui/responsive-action-menu.tsx")) &&
+    /<a href=\{siteUrl\} target="_blank" rel="noopener noreferrer" data-control="view"/.test(client) &&
       !/window\.open\(siteUrl/.test(client))
-  check("covers show the theme on a desktop and a phone", /ThemeCoverPair/.test(client) && /phone/.test(client))
+  check("every cover on the page is the desktop picture alone: the live card, the library rows and Browse themes",
+    !/ThemeCoverPair|ThemePhoneCover/.test(client) && /<ThemeCover spec=\{coverSpecFromDefinition\(def\)\} className="block h-full w-full" \/>/.test(client) &&
+      /<WebsiteCover install=\{i\} \/>/.test(client))
   check("publishing over a live website asks first and says what happens to the old one", /Publish “\{publishing\?\.name\}”\?/.test(client) && /It replaces “\{live\.name\}”/.test(client))
   check("every install action is still here: rename, duplicate, code, settings, export, publish, unpublish, delete, import, add", [
     // The file is a .storelib-theme package now, so the two labels name the
@@ -796,8 +837,9 @@ section("The cover")
   check("'last edited' is the pages and the settings, never the row a cover is recorded on",
     /const editedAt = newest\(settings\?\.updated_at, \.\.\.\(row\.pages \?\? \[\]\)\.map\(\(p\) => p\.updated_at\), row\.created_at\)/.test(page) &&
       !/saved_at: newest\(row\.updated_at/.test(page))
-  check("the card draws the phone picture in front of the desktop one",
-    /install\.snapshot_mobile_url/.test(client) && /aspect-\[390\/780\]/.test(client))
+  /* The phone picture is still taken and still decoded before a swap, but the card no longer draws it: the cover is the desktop site, edge to edge. */
+  check("the card draws the desktop picture alone, with no phone in front of it",
+    !/src=\{install\.snapshot_mobile_url\}/.test(client) && !/aspect-\[390\/780\]/.test(client) && /decodedFirst\(\[cover\.url, cover\.mobile_url\]\)/.test(client))
   check("the page finds the phone picture in the folder", /mobilePartner\(newest, names\)/.test(page))
   check("the editor opens on the pane the website page asked for", /get\("view"\)/.test(editor) && /v === "code" \|\| v === "settings"/.test(editor))
 }
@@ -1072,8 +1114,8 @@ section("A form that says it worked, did")
     /\.from\("creators"\)[\s\S]{0,160}if \(!creator\) return/.test(route),
   )
   check(
-    "subscribing twice is not an error and not a second row",
-    /if \(existing\) return NextResponse\.json\(\{ ok: true \}\)/.test(route) && /error\.code === "23505"/.test(route),
+    "subscribing twice is not an error and not a second row (a customer contact is the one row that is changed: they join the list)",
+    /if \(existing && !customer\) return NextResponse\.json\(\{ ok: true \}\)/.test(route) && /error\.code === "23505"/.test(route) && /const customer = existing\?\.status === "customer"/.test(route),
   )
   check(
     "and the answer does not tell a stranger who is already on the list",
@@ -1436,10 +1478,11 @@ section("Two at once still make five, and an import that says what went wrong")
     /export const secondaryDepth = cn\(/.test(depth) && /export const primaryDepth = cn\(/.test(depth) && /export const criticalDepth = cn\(/.test(depth) &&
       /import \{ REST_SHADOW, criticalDepth, primaryDepth, secondaryDepth \} from "@\/components\/ui\/depth-button"/.test(read("app/app/products/new/editor-buttons.tsx")) &&
       !/export const secondaryDepth = cn\(/.test(read("app/app/products/new/editor-buttons.tsx")))
-  check("  the library's three dots use it: a hairline, a 1px foot, flat when pressed",
-    /import \{ secondaryDepth \} from "@\/components\/ui\/depth-button"/.test(client) &&
-      /const MORE_ON_ROW = cn\(\s*secondaryDepth,/.test(client) && /className=\{MORE_ON_ROW\}/.test(client) &&
-      /shadow-\[inset_0_-1px_0_rgba\(0,0,0,0\.08\),0_1px_0_rgba\(0,0,0,0\.05\)\]/.test(depth) && /active:shadow-\[inset_0_1px_1px_rgba\(0,0,0,0\.1\)\]/.test(depth))
+  check("  the secondary depth is unchanged: a hairline, a 1px foot, flat when pressed",
+    /shadow-\[inset_0_-1px_0_rgba\(0,0,0,0\.08\),0_1px_0_rgba\(0,0,0,0\.05\)\]/.test(depth) && /active:shadow-\[inset_0_1px_1px_rgba\(0,0,0,0\.1\)\]/.test(depth))
+  check("  the library's three dots wear the icon depth, the same as the live card's Settings and More",
+    /import \{ grayDepth, iconDepth \} from "@\/components\/ui\/depth-button"/.test(client) &&
+      /const MORE_ON_ROW = cn\(\s*iconDepth,/.test(client) && /className=\{MORE_ON_ROW\}/.test(client) && /const MORE_ON_CARD = cn\(iconDepth,/.test(client))
   check("  and on a phone the row's button is 40px with a band to 48", /"relative h-10 w-10 rounded-\[10px\] px-0 text-\[#4b5563\] after:absolute after:-inset-1/.test(client))
 
   check("a row's action waits for the phone sheet to leave, so two things never move at once",

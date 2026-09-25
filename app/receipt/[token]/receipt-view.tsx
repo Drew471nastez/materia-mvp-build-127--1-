@@ -521,7 +521,8 @@ export function ReceiptView({ receipt, viewer, locale }: { receipt: Receipt; vie
         ) : null}
 
         {single && single.state === "open" ? (
-          <div className="mt-4 print:hidden">
+          /* `#review` is where an automated review request lands (lib/automations/merge-fields review_url). */
+          <div id="review" className="mt-4 scroll-mt-6 print:hidden">
             <ReviewSlot item={single} viewer={viewer} receiptPath={receiptPath} seller={receipt.seller} />
           </div>
         ) : null}

@@ -168,6 +168,8 @@ const SUITES = [
   "tests/email-automation.test.ts",
   "tests/automation-engine.test.ts",
   "tests/email-sending.test.ts",
+  "tests/automation-templates.test.ts",
+  "tests/checkout-contacts.test.ts",
   "tests/section-sandbox.test.ts",
   "tests/agent-connection.test.ts",
   "tests/github-sync.test.ts",

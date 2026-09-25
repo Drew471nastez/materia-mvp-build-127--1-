@@ -3,7 +3,7 @@
  *  A CAMPAIGN IS SENT ONCE, TO THE RIGHT PEOPLE, AND SAYS WHAT HAPPENED
  * ===========================================================================
  * The send pipeline (lib/email-campaigns/*) run against a stand-in database
- * (tests/fake-supabase.ts) and a stand-in provider, both before and after
+ * (tests/fake-campaign-db.ts) and a stand-in provider, both before and after
  * supabase/sql/RUN_EMAIL_SENDING.sql:
  *
  *   two Sends at once start one send, and write one row per address
@@ -27,7 +27,7 @@ import { join } from "node:path"
 /* Links are signed with a server key; the suite has its own. */
 process.env.EMAIL_LINK_SECRET = "a-test-key-that-is-long-enough"
 
-import { FakeDb, tick } from "./fake-supabase"
+import { FakeDb, tick } from "./fake-campaign-db"
 import {
   cancelSend,
   countRecipients,

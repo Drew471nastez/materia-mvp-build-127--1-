@@ -21,6 +21,7 @@
  *                 address (the order source's words, lib/orders/order-source)
  *   utm_source,   what the link carried, as words
  *   utm_campaign
+ *   product       a checkout's product, by id (lib/contacts/checkout-contact)
  *
  * Hosts and known words only. No name, no address, no path, no query. Every
  * field is checked on its own and anything unknown is dropped, whether it
@@ -50,7 +51,11 @@ export interface ContactSource {
   from?: string
   utm_source?: string
   utm_campaign?: string
+  /** Checkout only: the product bought or left at checkout, by id. */
+  product?: string
 }
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export const SURFACE_NAME: Record<ContactSurface, string> = {
   website: "Website",
@@ -89,6 +94,7 @@ export function cleanContactSource(input: unknown): ContactSource | null {
   if (origin?.utm_campaign) out.utm_campaign = origin.utm_campaign
   if (out.site && !out.surface) out.surface = "website"
   if (out.surface !== "website" && out.surface !== "checkout") delete out.site
+  if (out.surface === "checkout" && typeof raw.product === "string" && UUID.test(raw.product)) out.product = raw.product.toLowerCase()
   return Object.keys(out).length > 0 ? out : null
 }
 
@@ -145,7 +151,8 @@ export function sourceView(detail: unknown, legacy?: unknown): SourceView {
 export function joinedSentence(detail: unknown, trigger?: string): string | null {
   const d = cleanContactSource(detail)
   if (!d?.surface) return null
-  if (trigger === "purchase" || d.surface === "checkout") {
+  if (trigger === "abandoned_checkout") return d.site ? `Left checkout on ${d.site}` : "Left checkout on Storelib"
+  if (trigger === "purchase" || trigger === "first_purchase" || d.surface === "checkout") {
     return d.site ? `Bought on ${d.site}` : d.surface === "checkout" ? "Bought on Storelib" : `Bought from ${SURFACE_NAME[d.surface]}`
   }
   if (d.surface === "website") return d.site ? `Joined from ${d.site}` : "Joined from a website"
@@ -214,8 +221,8 @@ export function contactSourceFrom(input: {
   })
 }
 
-/** An order's origin as the source of a contact who joined at its checkout. */
-export function contactSourceOfOrder(origin: OrderOrigin | null | undefined): ContactSource {
+/** An order's origin as the source of a contact who joined at its checkout, with the product when known. */
+export function contactSourceOfOrder(origin: OrderOrigin | null | undefined, productId?: string | null): ContactSource {
   const clean = cleanOrigin(origin ?? null)
   return (
     cleanContactSource({
@@ -224,6 +231,7 @@ export function contactSourceOfOrder(origin: OrderOrigin | null | undefined): Co
       from: clean?.from,
       utm_source: clean?.utm_source,
       utm_campaign: clean?.utm_campaign,
+      product: productId ?? undefined,
     }) ?? { surface: "checkout" }
   )
 }

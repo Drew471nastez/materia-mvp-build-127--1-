@@ -1,6 +1,7 @@
 import { NextResponse, after, type NextRequest } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { isToken } from "@/lib/automations/tracking"
+import { recordOpen } from "@/lib/automations/track-events"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -10,15 +11,14 @@ const PIXEL = Buffer.from("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBR
 /**
  * The open pixel of an automated email (lib/automations/tracking.ts). The
  * image goes back at once; the first open is written after, and only the
- * first: `opened_at` is set where it is still empty.
+ * first (lib/automations/track-events recordOpen).
  */
 export async function GET(request: NextRequest) {
   const token = request.nextUrl.searchParams.get("k")
   if (isToken(token)) {
     after(async () => {
       try {
-        const now = new Date().toISOString()
-        await createAdminClient().from("email_flow_sends").update({ opened_at: now, updated_at: now }).eq("token", token).is("opened_at", null)
+        await recordOpen(createAdminClient(), token)
       } catch {
         /* An open that is not counted is not worth an error. */
       }

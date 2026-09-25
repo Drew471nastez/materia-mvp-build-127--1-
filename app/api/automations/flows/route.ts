@@ -1,14 +1,16 @@
 import { NextResponse } from "next/server"
 import { signedInCreator } from "@/lib/automations/flow-io"
 import { BLANK_TEMPLATE, templateById } from "@/lib/automations/templates"
-import { blankStep, defaultEntry, isTriggerType, serializeSteps } from "@/lib/automations/flow-model"
+import { defaultEntry, isTriggerType, serializeSteps } from "@/lib/automations/flow-model"
 
 export const runtime = "nodejs"
 
 /**
- * A new flow, from a template or blank, always OFF. Choosing a template you
- * already made opens that one instead of making a second copy of it: two
- * "Thank you" flows would send two thank-you emails for every order.
+ * A new flow, from a template or from scratch, always OFF. Choosing a
+ * template you already made opens that one instead of making a second copy
+ * of it: two "Thank you" flows would send two thank-you emails for every
+ * order. From scratch is the trigger the creator chose and no steps: they
+ * add every one themselves.
  */
 export async function POST(request: Request) {
   const me = await signedInCreator()
@@ -33,7 +35,7 @@ export async function POST(request: Request) {
       .eq("trigger_type", template.trigger)
     /* A flow from before templates were named is the welcome or the thank
        you, as the chooser reads it (app/app/emails/flow/new/page.tsx). */
-    const legacy = template.trigger === "new_subscriber" ? "welcome" : "thank_you"
+    const legacy = template.trigger === "new_subscriber" ? "welcome" : template.trigger === "purchase" ? "thank_you" : null
     const same = (existing ?? []).find(
       (f: { trigger_config?: { template?: string } | null }) => (f.trigger_config?.template ?? legacy) === template.id,
     )
@@ -45,11 +47,15 @@ export async function POST(request: Request) {
     .from("email_flows")
     .insert({
       creator_id: me.creatorId,
-      name: template?.name ?? "Untitled flow",
+      name: template?.name ?? "Untitled automation",
       trigger_type: trigger,
-      trigger_config: { template: template?.id ?? BLANK_TEMPLATE, entry: template?.entry ?? defaultEntry(trigger) },
+      trigger_config: {
+        template: template?.id ?? BLANK_TEMPLATE,
+        entry: template?.entry ?? defaultEntry(trigger),
+        ...(template?.audience ? { audience: template.audience } : {}),
+      },
       status: "draft",
-      steps: serializeSteps(template?.steps ?? [blankStep("email")]),
+      steps: serializeSteps(template?.steps ?? []),
     })
     .select("id")
     .single()

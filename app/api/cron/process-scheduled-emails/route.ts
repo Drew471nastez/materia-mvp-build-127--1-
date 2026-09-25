@@ -7,6 +7,7 @@ import { automationEmail, standingOf } from "@/lib/email-automation"
 import { maskEmail } from "@/lib/privacy/mask-email"
 import { runDueJobs } from "@/lib/automations/run"
 import { runCampaignQueue } from "@/lib/email-campaigns/queue"
+import { runAbandonedSweep } from "@/lib/automations/abandoned-run"
 
 /**
  * ===========================================================================
@@ -129,6 +130,15 @@ export async function GET(request: Request) {
   /* Never throws: a campaign cannot hold up the automations after it. */
   const campaigns = await runCampaignQueue(supabaseAdmin, started + CAMPAIGN_BUDGET_MS)
 
+  /* Checkouts left an hour ago enter the creators' reminders first, so the
+     engine below sends their first email in this same run. */
+  let abandoned: Awaited<ReturnType<typeof runAbandonedSweep>> | { available: false; error: true } = { available: false, error: true }
+  try {
+    abandoned = await runAbandonedSweep()
+  } catch (err) {
+    console.error("[cron/scheduled-emails] Checkout reminder sweep failed:", errorText(err))
+  }
+
   let engine: Awaited<ReturnType<typeof runDueJobs>> | { available: false; error: true } = { available: false, error: true }
   try {
     engine = await runDueJobs(ENGINE_BUDGET_MS)
@@ -143,9 +153,10 @@ export async function GET(request: Request) {
     () => ({ data: null }),
   )
 
-  console.log("[cron/scheduled-emails] Done:", { campaigns, engine, legacy })
+  console.log("[cron/scheduled-emails] Done:", { campaigns, abandoned, engine, legacy })
   return NextResponse.json({
     campaigns,
+    abandoned,
     engine,
     legacy,
     health: Array.isArray(health) ? health[0] ?? null : null,
