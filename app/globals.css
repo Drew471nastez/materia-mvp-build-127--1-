@@ -5925,3 +5925,39 @@ html:has([data-app-sheet="open"], [role="dialog"][aria-modal="true"], [role="dia
     animation: none;
   }
 }
+
+/*
+  THE REFUND POPOVER ON A COMPUTER (components/product/refund-policy-display.tsx).
+  Rises 4px out of the line it hangs from, on opacity and transform, and goes
+  the way it came. Radix waits for the closing animation before unmounting.
+*/
+.refund-popover {
+  transform-origin: var(--radix-popover-content-transform-origin);
+}
+.refund-popover[data-state="open"] {
+  animation: refund-popover-in 170ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.refund-popover[data-state="closed"] {
+  animation: refund-popover-out 120ms cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+.refund-popover[data-side="top"] {
+  --refund-popover-from: 4px;
+}
+@keyframes refund-popover-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--refund-popover-from, -4px)) scale(0.98);
+  }
+}
+@keyframes refund-popover-out {
+  to {
+    opacity: 0;
+    transform: translateY(var(--refund-popover-from, -4px)) scale(0.98);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .refund-popover[data-state="open"],
+  .refund-popover[data-state="closed"] {
+    animation: none;
+  }
+}

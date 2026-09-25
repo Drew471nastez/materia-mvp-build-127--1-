@@ -53,10 +53,21 @@ const share = read("components/product/share-button.tsx")
 
 /** The scrim every dialog gets, and the one this sheet asks for instead. */
 const baseScrim = pick(dialog, /(bg-black\/\d+)/, "the dialog overlay's scrim class")
-const shareScrim = pick(share, /overlayClassName="([^"]+)"/, "the share sheet's overlay class")
+/*
+  THE SHARE CONTROL HAS NO DIALOG NOW. On a computer it is the action-list
+  menu, which puts nothing over the page; on a phone it is the system share
+  sheet, or where there is none the shared bottom sheet. So the share row
+  measures "no scrim" when the file uses the menu, and the phone's fallback
+  sheet is reported beside it for the record.
+*/
+const shareScrim = /ResponsiveActionMenu/.test(share) && !/overlayClassName=/.test(share)
+  ? ""
+  : pick(share, /overlayClassName="([^"]+)"/, "the share sheet's overlay class")
+const sheetScrim = pick(read("components/ui/bottom-sheet.tsx"), /"bg-transparent" : "(bg-black\/\d+)"/, "the bottom sheet's scrim class")
 
 console.log(`\n  every dialog:  ${baseScrim}`)
-console.log(`  share sheet:   ${shareScrim}\n`)
+console.log(`  share, computer: ${shareScrim || "none (a menu)"}`)
+console.log(`  share, phone without a system sheet: ${sheetScrim}\n`)
 
 const out = mkdtempSync(join(tmpdir(), "storelib-scrim-"))
 writeFileSync(
@@ -70,6 +81,7 @@ var CASES = ${JSON.stringify([
     { name: "no sheet open", cls: "" },
     { name: "every dialog", cls: baseScrim },
     { name: "share sheet", cls: shareScrim },
+    { name: "phone fallback", cls: sheetScrim },
   ])}
 var rows = []
 CASES.forEach(function (c) {
