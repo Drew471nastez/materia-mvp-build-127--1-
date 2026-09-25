@@ -1611,6 +1611,40 @@ section("Two at once still make five, and an import that says what went wrong")
   check("  and its buttons, switches and links are 44px on a phone", /"inline-flex h-11 shrink-0 select-none[^"]*md:h-9/.test(parts) && /after:-inset-y-2\.5 after:content-\[''\]/.test(parts) && /after:-inset-y-\[13px\]/.test(parts))
 }
 
+{
+  /* "Back from the editor the cover is gray, then it shows, late, and glitches"; "clicking Website: the spinner freezes, white, then the page". scripts/check-website-arrival.mjs films both. */
+  const client = read("app/app/website-builder/website-builder-client.tsx")
+  const memory = read("lib/website-builder/cover-memory.ts")
+  const page = read("app/app/website-builder/page.tsx")
+  check("the Website page draws each website's last whole cover first (cover-memory), in the box it reserves",
+    /function firstFace\(installId: string, current: string \| null\): Face/.test(client) && /const last = shownCover\(installId\)/.test(client)
+      && /onLoad=\{\(\) => rememberCover\(installId, url\)\}/.test(client))
+  check("  and a new address is fetched and decoded aside, then swapped in once, never before",
+    /if \(isDecoded\(current\)\) swap\(\)\s*else void decodeCover\(current\)\.then\(\(ok\) => \{ if \(ok\) swap\(\) \}\)/.test(client) && !/const DECODED = new Set/.test(client))
+  check("  a picture it has drawn is drawn again on its first frame: eager and decoded in step",
+    /const known = isDecoded\(url\) \|\| shownCover\(installId\) === url/.test(client) && /decoding=\{known \? "sync" : "async"\}/.test(client))
+  check("  kept for the tab and across a reload, a handful per tab, and never trusted blindly",
+    /const STORE = "storelib\.website\.covers\.v1"/.test(memory) && /sessionStorage\.setItem\(STORE/.test(memory) && /const MAX_KEPT = 24/.test(memory)
+      && /catch \{/.test(memory))
+  check("  the Website row warms them under the pointer or finger, with the page's data",
+    /if \(href === "\/app\/website-builder"\) \{\s*import\("@\/lib\/website-builder\/cover-memory"\)\.then\(\(m\) => m\.warmCovers\(\)\)/.test(read("lib/ui/app-navigation.ts")))
+  check("the server asks for the website's name beside its installs, not after its covers",
+    /const handle = websiteHandleOf\(creator\.id\)\s*let \{ data: rows \} = await load\(\)/.test(page) && /const siteHandle = await handle/.test(page))
+  check("  and lists the storage folder only for websites the column says nothing about",
+    /const missing = installs\.filter\(\(i\) => !i\.snapshot_url\)\s*if \(missing\.length === 0\) return installs/.test(page))
+  check("Browse themes waits for the page's first frame on a phone, as an attribute, with no render of the page for it",
+    /max-md:\[content-visibility:hidden\] max-md:data-shown:\[content-visibility:auto\]/.test(client)
+      && /requestAnimationFrame\(\(\) => exploreSection\.current\?\.setAttribute\("data-shown", ""\)\)/.test(client))
+  check("an /app page's HTML is the shell's frame and spinner until its script has run, rail and all from md",
+    /<LanguageProvider fallback=\{<AppColdStart \/>\}>/.test(read("components/app/app-layout-wrapper.tsx"))
+      && /hidden w-\[240px\] border-r border-neutral-200\/60 bg-white md:block/.test(read("app/app/cold-start.tsx"))
+      && /md:left-\[240px\] md:top-\[calc\(58px\+env\(safe-area-inset-top,0px\)\)\] md:rounded-none/.test(read("app/app/cold-start.tsx")))
+  const stage = read("components/app/app-stage.tsx")
+  check("the stage measures nothing in React's commit that can wait: the landing starts on the frame that paints the page",
+    /const layered = !!document\.documentElement\.dataset\.layerMotion\s*requestAnimationFrame\(\(\) => \{/.test(stage)
+      && /if \(saved \|\| traversal \|\| anyAwayFromTop\(\)\) \{/.test(stage))
+}
+
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed > 0) {
   console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`)
