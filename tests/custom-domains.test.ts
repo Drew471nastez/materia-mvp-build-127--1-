@@ -175,11 +175,20 @@ console.log("\nThe pages name it")
 console.log("\nSettings › Domains")
 {
   const panel = code("components/app/settings/domains-panel.tsx")
+  /*
+    "Keep the UI and design I created ... update what you connect a domain
+    to." The owner's tab is back (the one before 87e06ebc): the violet Pro
+    bar and Connect, the blur on a free plan, the registrar marks, one Your
+    Domains table with a card per domain on a phone, the DNS steps in grey
+    boxes, How Custom Domains Work. What the tab does now is kept in it.
+  */
   check("asks what the domain is for", /role="radiogroup"/.test(panel) && /body: JSON\.stringify\(\{ domain: clean, purpose \}\)/.test(panel))
-  check("shows the DNS set up, Check again, Make primary and a remove that asks first",
-    /<DnsSetup/.test(panel) && /Check again/.test(panel) && /action: "make_primary"/.test(panel) && /Remove \{host\}\?/.test(panel))
-  check("the action list is the shared one: a menu on a computer, a sheet on a phone", /<ResponsiveActionMenu/.test(panel))
-  check("no violet", !/#(8b5cf6|7c3aed|6d28d9|a78bfa|ede9fe|f5f3ff|8B56FA)/i.test(panel))
+  check("shows the records, Check again, Make primary and a remove that asks first, in the row",
+    /data-dns-record=\{r\.type\}/.test(panel) && /Check again/.test(panel) && /action: "make_primary"/.test(panel) && /Remove \{d\.domain\}\?/.test(panel) && /role="alertdialog"/.test(panel))
+  check("the owner's actions: buttons in the row, Verify or Check again, Make primary, Remove", /"Verify"/.test(panel) && /"Make primary"/.test(panel) && /data-domain-remove=""/.test(panel) && !/<ResponsiveActionMenu/.test(panel))
+  check("the owner's table: Domain Name, Status, Date Added, Actions, and a card per domain below the width it fits",
+    ["Domain Name", "Status", "Date Added", "Actions"].every((h) => panel.includes(`>${h}</p>`)) && /lg:grid-cols-\[1fr_130px_150px_180px\]/.test(panel) && /bg-\[#f9fafb\] p-4 lg:hidden/.test(panel))
+  check("the owner's free plan: the violet Pro bar and the two cards blurred", /bg-gradient-to-r from-\[#7c3aed\] to-\[#6d28d9\]/.test(panel) && /const BLURRED = "blur-\[1\.5px\] opacity-80 pointer-events-none select-none"/.test(panel) && (panel.match(/blurred && BLURRED/g) ?? []).length === 2)
   check("and the Settings page uses it", /<DomainsPanel/.test(code("components/app/settings-form-new.tsx")))
   check("the creator page's Share card reads the creator page's domain, not a field no domain has",
     /creatorPageHostFrom\(data\)/.test(code("components/app/creator-page-share.tsx")) && !/d\.is_active/.test(code("components/app/creator-page-share.tsx")))
@@ -250,8 +259,9 @@ console.log("\nThe DNS set up, on both screens")
   check("the provider is remembered on this device, and storage failing is fine", /localStorage\.getItem\(REGISTRAR_KEY\)/.test(setup) && (setup.match(/try \{/g) ?? []).length >= 2)
   check("no violet in it", !/#(8b5cf6|7c3aed|6d28d9|a78bfa|ede9fe|f5f3ff)/i.test(setup))
   const panel = code("components/app/settings/domains-panel.tsx")
-  check("Settings draws it with the records Vercel recommended, and each record's check", /<DnsSetup[\s\S]{0,200}records=\{d\.records && d\.records\.length > 0 \? d\.records : recordsFor\(d\.domain\)\}/.test(panel) && /checks=\{result\?\.checks \?\? null\}/.test(panel))
-  check("a check that did not pass opens the set up", /if \(!quiet && tone === "bad"\) setOpenRecords/.test(panel))
+  check("Settings draws the records Vercel recommended, each with its check", /const records = d\.records && d\.records\.length > 0 \? d\.records : recordsFor\(d\.domain\)/.test(panel) && /result\?\.checks\?\.find\(\(c\) => c\.type === r\.type && c\.name === r\.name\)/.test(panel))
+  check("named for the provider it was bought at, on the same key the builder remembers it by", /hostFor\(registrar, r\)/.test(panel) && /const REGISTRAR_KEY = "storelib:domain-registrar"/.test(panel) && /REGISTRAR_KEY = "storelib:domain-registrar"/.test(code("components/domains/dns-setup.tsx")))
+  check("every domain not yet connected has its steps under Your Domains, and what to fix after a check that did not pass", /const waiting = ordered\.filter\(\(d\) => d\.status !== "active"\)/.test(panel) && /result\.tone === "bad" && result\.fixes\.length > 0/.test(panel))
   const site = code("components/website-builder/website-settings/domains.tsx")
   check("Website Settings › Domains uses the same set up, dark", /<DnsSetup[\s\S]{0,800}tone="dark"/.test(site) && !/function DnsRecord\(/.test(site))
 }
@@ -260,13 +270,14 @@ console.log("\nGet a domain, and how domains work")
 {
   const panel = code("components/app/settings/domains-panel.tsx")
   check("Get a domain, with GoDaddy, Namecheap and Hostinger", /Get a domain/.test(panel) && /godaddy\.com\/en\/domains/.test(panel) && /namecheap\.com\/domains/.test(panel) && /hostinger\.com\/domain-name-search/.test(panel))
-  check("and the four lines on how it works", /<HowItWorks /.test(panel) && /How custom domains work/.test(panel))
+  check("the owner's marks for them, 20px in #374151", (panel.match(/width="20" height="20"[^>]*fill="#374151"/g) ?? []).length === 3)
+  check("and How Custom Domains Work, from and to, for each address", /How Custom Domains Work/.test(panel) && /title: "Your Website"/.test(panel) && /title: "Your Creator Page"/.test(panel) && /title: "Your OnePage"/.test(panel) && /title: "Product Pages"/.test(panel))
   const how = code("components/domains/how-it-works.tsx")
   const rows = how.match(/^\s*\["[^"]+", /gm) ?? []
   check("four lines, no more", rows.length === 4, String(rows.length))
   check("what each purpose shows, www, and HTTPS", /\["Website", /.test(how) && /\["Creator page", /.test(how) && /\["www", /.test(how) && /\["HTTPS", /.test(how))
   const everywhere = [how, panel, code("components/domains/dns-setup.tsx"), code("components/website-builder/website-settings/domains.tsx")].join("\n")
-  check("none of the old promises: Your Store, Product Pages at /p/", !/Your Store|Product Pages|\/p\/\.\.\./.test(everywhere))
+  check("none of the old promises: Your Store, product pages at /p/", !/Your Store|\/p\/\.\.\./.test(everywhere))
   check("no em dashes in what the Domains screens say", !/\u2014/.test(everywhere))
 }
 
@@ -275,7 +286,7 @@ console.log("\nThe plan that includes a domain")
   check("Free does not, Pro does (its id is growth), and the old Pro still does", !siteLimits("free").customDomain && siteLimits("growth").customDomain && siteLimits("pro").customDomain)
   check("the refusal names Pro, the only paid plan sold", siteGate("free", "customDomain") === "Connecting your own domain is available on Pro." && siteGate("growth", "customDomain") === null)
   const panel = code("components/app/settings/domains-panel.tsx")
-  check("Settings names Pro, not Growth", /Your own domain is on Pro</.test(panel) && !/Growth/.test(panel))
+  check("Settings names Pro, not Growth", /Custom domains are available on the Pro plan\./.test(panel) && !/Growth/.test(panel))
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)

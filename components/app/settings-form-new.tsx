@@ -1871,6 +1871,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
               }}
               websiteAddress={getWebsiteUrlDisplay(website?.handle || settingsHandleBase)}
               creatorPageAddress={getStoreUrlDisplay(settingsHandleBase)}
+              handle={(username || settingsHandleBase).toLowerCase()}
               locked={userPlan === "free" || userPlan === null}
               planLoading={planLoading}
             />
