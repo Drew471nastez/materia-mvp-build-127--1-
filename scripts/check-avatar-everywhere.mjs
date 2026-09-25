@@ -7,17 +7,19 @@
  * black top bar."
  *
  * The /app shell as the layout mounts it (the black header, the sidebar,
- * the phone's account sheet) with the real Settings page in it
+ * the account menu and the phone's account sheet, each headed by the
+ * businesses of the login) with the real Settings page in it
  * (scripts/render-avatar-everywhere.tsx), drawn from one answer this probe's
  * server holds, as the server components are. It starts as a Google sign up
  * does: the Google picture in the profile. Then, at 1280 and at 390:
  *
- *   remove    Settings, the header, the account sheet and a second tab of
- *             the same browser show the initials, and on no frame from the
- *             press to a second after the server's answer has arrived does
- *             the header show the Google picture again
- *   upload    a new photo (a file chosen in Settings): the same four show it
- *   reload    the same four still show it
+ *   remove    Settings, the header, the account menu (its row for the
+ *             business you are in) or the phone's account sheet, and a
+ *             second tab of the same browser show the initials, and on no
+ *             frame from the press to a second after the server's answer
+ *             has arrived does the header show the Google picture again
+ *   upload    a new photo (a file chosen in Settings): the same show it
+ *   reload    and still show it
  *   snapshot  the public site's header opens on the right photo (the
  *             session snapshot in this browser is corrected)
  *
@@ -93,7 +95,8 @@ const server = createServer((req, res) => {
     if (!/\/\.next\/static\/media\/[\w.-]+\.woff2$/.test(file) || !existsSync(file)) { res.writeHead(404); res.end(); return }
     res.writeHead(200, { "content-type": "font/woff2" }); res.end(readFileSync(file)); return
   }
-  if (u.pathname === "/state") { res.writeHead(200, { "content-type": "application/json" }); res.end(JSON.stringify(state)); return }
+  /* The server's own answer (the layout drawn again after router.refresh) takes a while, as it does in the app: the time in which a copy that is not the shell's shows the old photo. */
+  if (u.pathname === "/state") { const now = JSON.stringify(state); setTimeout(() => { res.writeHead(200, { "content-type": "application/json" }); res.end(now) }, 400); return }
   if (u.pathname === "/__upload") {
     const chunks = []
     req.on("data", (c) => chunks.push(c))
@@ -154,8 +157,22 @@ const avatars = (p) => p.evaluate(() => {
   const settings = document.querySelector("[data-profile-photo] [data-app-avatar]")
   const sheet = [...document.querySelectorAll("[data-app-sheet] [data-app-avatar]")].find(shown)
   const aside = [...document.querySelectorAll("aside [data-app-avatar]")].find(shown)
-  return { header: read(header), settings: read(settings), sheet: read(sheet), aside: read(aside) }
+  /* The business you are in, at the top of the account menu or sheet (components/app/business-switcher). */
+  const business = [...document.querySelectorAll('[data-business-row="current"] [data-app-avatar]')].find(shown)
+  return { header: read(header), settings: read(settings), sheet: read(sheet), aside: read(aside), business: read(business) }
 })
+/** Opens the account menu (the dropdown at 1280, the sheet at 390), reads it, and closes it again. */
+const inMenu = async (p, label, shot) => {
+  if (label === "390") await p.tap("#account-trigger")
+  else await p.evaluate(() => [...document.querySelectorAll("header button")].find((b) => b.querySelector("[data-app-avatar]") && b.getClientRects().length > 0)?.click())
+  await wait(700)
+  const a = await avatars(p)
+  if (shot) await p.screenshot({ path: join(shots, shot) })
+  if (label === "390") await p.keyboard.press("Escape")
+  else await p.evaluate(() => [...document.querySelectorAll("header button")].find((b) => b.querySelector("[data-app-avatar]") && b.getClientRects().length > 0)?.click())
+  await wait(600)
+  return a
+}
 const what = (a) => (!a ? "none" : a.state === "initials" ? "initials" : a.src?.includes("google") ? "google" : a.src?.includes("/avatars/") ? "new" : a.state)
 
 for (const [label, viewport] of [
@@ -194,7 +211,9 @@ for (const [label, viewport] of [
     const tick = () => {
       const el = [...document.querySelectorAll("header [data-app-avatar]")].find((x) => x.getClientRects().length > 0)
       const img = el?.querySelector("img")
-      window.__seen.push({ t: Math.round(performance.now() - t0), state: el?.getAttribute("data-state"), google: !!img && (img.getAttribute("src") || "").includes("google") })
+      /* The menu's row for the business you are in is built while closed (the dropdown, the kept sheet): watched too. */
+      const business = [...document.querySelectorAll('[data-business-row="current"] [data-app-avatar] img')].some((i) => (i.getAttribute("src") || "").includes("google"))
+      window.__seen.push({ t: Math.round(performance.now() - t0), state: el?.getAttribute("data-state"), google: !!img && (img.getAttribute("src") || "").includes("google"), business })
       if (performance.now() - t0 < 1800) requestAnimationFrame(tick)
     }
     requestAnimationFrame(tick)
@@ -210,19 +229,16 @@ for (const [label, viewport] of [
   expect(posted[posted.length - 1] === null, "Remove saved a removal", posted[posted.length - 1])
   expect(firstInitials >= 0 && seen[firstInitials].t < 600, "the header shows the initials as the save lands", firstInitials >= 0 ? `${seen[firstInitials].t}ms` : "never")
   expect(refreshed > 0 && googleAfter.length === 0, "and on no frame after that, the server's answer included, does it show the Google picture", { refreshed, googleFrames: googleAfter.length })
+  const businessAfter = seen.slice(Math.max(0, firstInitials)).filter((f) => f.business)
+  expect(firstInitials >= 0 && businessAfter.length === 0, "nor does the account menu's row for the business you are in, while the server's answer is on its way", { frames: businessAfter.length, from: businessAfter[0]?.t, to: businessAfter[businessAfter.length - 1]?.t })
   expect(what(gone.header) === "initials" && what(gone.settings) === "initials" && (label === "390" || what(gone.aside) === "none" || what(gone.aside) === "initials"), "the header and Settings: the initials", { header: what(gone.header), settings: what(gone.settings) })
   const otherTab = await avatars(other)
   expect(what(otherTab.header) === "initials", "a second tab of the same browser: the initials, with no reload", what(otherTab.header))
   const snap = await page.evaluate(() => JSON.parse(localStorage.getItem("_sl_auth_v1") || "null"))
   expect(snap && snap.avatarUrl === null, "the public site's header will open on the initials too", snap?.avatarUrl)
-  if (label === "390") {
-    await page.tap("#account-trigger")
-    await wait(700)
-    const inSheet = await avatars(page)
-    expect(what(inSheet.sheet) === "initials", "the account sheet: the initials", what(inSheet.sheet))
-    await page.screenshot({ path: join(shots, `avatar-${label}-2b-sheet-initials.png`) })
-    await page.keyboard.press("Escape")
-    await wait(600)
+  {
+    const menu = await inMenu(page, label, `avatar-${label}-2b-menu-initials.png`)
+    expect(what(menu.business) === "initials" && (label !== "390" || what(menu.sheet) === "initials"), `the account ${label === "390" ? "sheet" : "menu"}: the business you are in shows the initials`, { business: what(menu.business), sheet: what(menu.sheet) })
   }
   await page.screenshot({ path: join(shots, `avatar-${label}-2-removed.png`), clip: { x: 0, y: 0, width: viewport.width, height: Math.min(560, viewport.height) } })
 
@@ -239,6 +255,8 @@ for (const [label, viewport] of [
   expect(what(up.header) === "new" && what(up.settings) === "new", "the header and Settings show the new photo", { header: what(up.header), settings: what(up.settings) })
   const otherUp = await avatars(other)
   expect(what(otherUp.header) === "new", "and so does the second tab", what(otherUp.header))
+  const menuUp = await inMenu(page, label)
+  expect(what(menuUp.business) === "new", `and the account ${label === "390" ? "sheet" : "menu"}`, what(menuUp.business))
   await page.screenshot({ path: join(shots, `avatar-${label}-3-new.png`), clip: { x: 0, y: 0, width: viewport.width, height: Math.min(560, viewport.height) } })
 
   /* ── Reload ─────────────────────────────────────────────────────────── */
@@ -247,6 +265,8 @@ for (const [label, viewport] of [
   await wait(900)
   const again = await avatars(page)
   expect(what(again.header) === "new" && what(again.settings) === "new", "after a reload, still the new photo, from the server's answer", { header: what(again.header), settings: what(again.settings) })
+  const menuAgain = await inMenu(page, label)
+  expect(what(menuAgain.business) === "new", `and in the account ${label === "390" ? "sheet" : "menu"}`, what(menuAgain.business))
   const errors = await page.evaluate(() => window.__err)
   expect(errors.length === 0, "nothing threw", errors)
   await ctx.close()

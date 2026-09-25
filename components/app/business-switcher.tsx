@@ -21,6 +21,9 @@ import { cn } from "@/lib/utils"
  * says so, and opening it carries on with its onboarding.
  */
 
+/** The size of a business's photo in each menu: the account sheet preloads the one it will draw. */
+export const SWITCHER_AVATAR = { sheet: 32, dropdown: 26 } as const
+
 export interface BusinessRow {
   userId: string
   name: string
@@ -35,11 +38,19 @@ export function BusinessSwitcher({
   businesses,
   variant,
   onNavigate,
+  currentAvatar,
 }: {
   businesses: BusinessRow[]
   variant: "dropdown" | "sheet"
   /** Closes the menu before a page change. */
   onNavigate: () => void
+  /**
+   * The signed in person's photo as the header draws it (lib/account/
+   * avatar-store). The business you are in is that person, so its row
+   * changes the moment Settings changes the photo, with the header, instead
+   * of waiting for the server's next list.
+   */
+  currentAvatar?: string | null
 }) {
   const router = useRouter()
   const [busy, setBusy] = useState<string | null>(null)
@@ -81,7 +92,12 @@ export function BusinessSwitcher({
             b.current ? "cursor-default" : "cursor-pointer",
           )}
         >
-          <AppAvatar src={b.avatarUrl} name={b.name} size={sheet ? 32 : 26} className="shrink-0 ring-1 ring-neutral-200" />
+          <AppAvatar
+            src={b.current && currentAvatar !== undefined ? currentAvatar || null : b.avatarUrl}
+            name={b.name}
+            size={sheet ? SWITCHER_AVATAR.sheet : SWITCHER_AVATAR.dropdown}
+            className="shrink-0 ring-1 ring-neutral-200"
+          />
           <span className="min-w-0 flex-1">
             <span className={cn("block truncate font-medium text-neutral-900", sheet ? "text-[15px]" : "text-[13px]")}>{b.name}</span>
             <span className={cn("block truncate text-neutral-500", sheet ? "text-[13px]" : "text-[11.5px]")}>

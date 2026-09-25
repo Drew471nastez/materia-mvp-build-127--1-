@@ -1,6 +1,7 @@
 /**
  * The /app shell as app/app/layout.tsx mounts it (components/app/sidebar:
- * the black header, the desktop sidebar, the phone's account sheet) with
+ * the black header, the desktop sidebar, the account menu and the phone's
+ * account sheet, both headed by the two businesses of one login) with
  * the real Settings page in it, both drawn from one "server" answer the
  * probe's server holds (GET /state). `router.refresh()` asks for it again
  * and draws both with the new answer, which is what the server components
@@ -56,6 +57,11 @@ function App({ first }: { first: State }) {
         stripeStatus="connected"
         onePagePublished
         setupProgress={{ completed: 6, total: 6 }}
+        businesses={[
+          /* As app/app/layout.tsx has them (lib/businesses/server): the one you are in is your profile's photo. */
+          { userId: "user-1", name: "Mara Lind", handle: "maralind", avatarUrl: server.avatar, ready: true, current: true, role: "owner" },
+          { userId: "user-2", name: "Lind Studio", handle: "lindstudio", avatarUrl: null, ready: true, current: false, role: "member" },
+        ]}
       />
       <main className="app-main-content h-svh overflow-hidden rounded-t-[20px] bg-[#f8f9fa] pt-[68px] md:rounded-none md:bg-white md:pl-[240px] md:pt-[58px]">
         <div className="app-content-scroll h-[calc(100svh-68px)] overflow-y-auto md:h-[calc(100svh-58px)]">

@@ -247,6 +247,19 @@ async function main() {
   check("the library's photo is saved through the same route and announced", /fetch\("\/api\/account\/avatar"/.test(library) && /announceAvatar\(url\)/.test(library) && !/update\(\{ avatar_url: url \}\)/.test(library))
   const layout = readCode("app/app/layout.tsx")
   check("the /app header's photo is still the profile's, with no fallback", /const avatarUrl = profileAvatar\(profile\?\.avatar_url\)/.test(layout) && !/user_metadata\??\.(avatar_url|picture)/.test(layout))
+  /*
+    The account menu and the phone's account sheet are headed by the businesses of the login: the row
+    for the one you are in drew the list's own copy of the photo, which fell back to the creator row's
+    older one after a removal, and waited for the server after a change.
+  */
+  const businesses = readCode("lib/businesses/server.ts")
+  check("the businesses' photos are their profiles', with no fallback to an older copy on the creator row",
+    /avatarUrl: profileAvatar\(p\?\.avatar_url\),/.test(businesses) && !/c\?\.avatar_url/.test(businesses) && /select\("user_id, slug, display_name, onboarding_completed"\)/.test(businesses))
+  const switcher = readCode("components/app/business-switcher.tsx")
+  check("the row for the business you are in draws the header's photo, so it changes with it",
+    /src=\{b\.current && currentAvatar !== undefined \? currentAvatar \|\| null : b\.avatarUrl\}/.test(switcher) &&
+      /<BusinessSwitcher businesses=\{businesses\} variant="dropdown" currentAvatar=\{avatarSrc\}/.test(readCode("components/app/sidebar.tsx")) &&
+      /<BusinessSwitcher businesses=\{businesses\} variant="sheet" currentAvatar=\{avatarSrc\}/.test(readCode("components/app/mobile-account-menu.tsx")))
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) {

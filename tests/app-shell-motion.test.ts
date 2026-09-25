@@ -515,8 +515,9 @@ section("Sheets")
   check("a keyboard lifts the sheet over the keyboard's own time, not in one frame",
     /const KEYBOARD_MOVE = "bottom 250ms/.test(sheet) && /aboveKeyboard \? \{ transition: KEYBOARD_MOVE \}/.test(sheet))
   const menu = code("components/app/mobile-account-menu.tsx")
-  check("the account sheet decodes its photo ahead, and its links do not prefetch as they slide in",
-    /preloadAvatar\(avatarSrc, 40\)/.test(menu) && /prefetch=\{false\}/.test(menu) && /SHEET_OPEN_MS \+ 60/.test(menu))
+  check("the account sheet decodes its photo ahead, at the size it draws it, and its links do not prefetch as they slide in",
+    /const sheetAvatar = businesses\.length > 0 \? SWITCHER_AVATAR\.sheet : 40/.test(menu) && (menu.match(/preloadAvatar\(avatarSrc, sheetAvatar\)/g) ?? []).length === 3 &&
+      /prefetch=\{false\}/.test(menu) && /SHEET_OPEN_MS \+ 60/.test(menu))
   const sheetCss = read("app/globals.css")
   /* The shared sheet is found by an attribute on <html>, not by :has(): a :has() on the root that changes its
      answer restyled all 590 elements of the home page on every open and close (scripts/check-app-sheets-frames.mjs). */

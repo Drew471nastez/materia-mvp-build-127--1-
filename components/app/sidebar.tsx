@@ -541,7 +541,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
                 {/* Your businesses first: the one you are in, the other, and New business while there is room. */}
                 {businesses.length > 0 && (
                   <>
-                    <BusinessSwitcher businesses={businesses} variant="dropdown" onNavigate={() => setHeaderProfileOpen(false)} />
+                    <BusinessSwitcher businesses={businesses} variant="dropdown" currentAvatar={avatarSrc} onNavigate={() => setHeaderProfileOpen(false)} />
                     <div className="my-1 h-px bg-neutral-100" />
                   </>
                 )}
