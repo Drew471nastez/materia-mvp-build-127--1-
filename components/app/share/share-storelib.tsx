@@ -45,9 +45,10 @@
  * line fade in over 220ms, on opacity and transform.
  *
  * A TAP CHANGES ONE THING. The views are memoised and every handler is made
- * once; on a phone a view once shown is kept out of sight (Pane) and the
- * sheet itself is built ahead and kept (BottomSheet keepMounted), so a tap
- * moves what is already laid out rather than building it first.
+ * once. On a phone the sheet is built ahead and kept (BottomSheet
+ * keepMounted) with both views in it, the one not showing out of sight
+ * (Pane), and nothing goes into the page or out of it on a tap: a tap shows
+ * what is already laid out rather than building it first.
  */
 
 import * as React from "react"
@@ -318,44 +319,50 @@ function SurfaceSwitch({
 const QR_INK = "#1a1a2e"
 
 /**
- * Drawn as SVG by the qrcode library the OnePage already uses, loaded when a
- * code is first shown. High error correction, so the mark in the middle
- * (under a fifth of the width) never stops it scanning.
+ * Drawn as SVG by the qrcode library the OnePage already uses, loaded the
+ * first time a code is wanted (`draw`). High error correction, so the mark in
+ * the middle (under a fifth of the width) never stops it scanning.
+ *
+ * THE CODE CHANGES, THE ELEMENTS DO NOT. It is an <img> of the library's SVG
+ * that is always there, hidden until the first code arrives, so a new code
+ * (another address, or the first one) is a new `src` and a `hidden` that
+ * goes: nothing goes into the page or out of it, which under a sheet is a
+ * change the page's :has() rules answer by restyling the whole document
+ * (scripts/check-app-sheets-frames.mjs). That is what lets a phone keep the
+ * QR view built and out of sight until the QR code button shows it.
  */
-function QrCode({ url, size }: { url: string; size: number }) {
-  const [svg, setSvg] = React.useState<string | null>(null)
+function QrCode({ url, size, draw }: { url: string; size: number; draw: boolean }) {
+  const [armed, setArmed] = React.useState(draw)
+  if (draw && !armed) setArmed(true)
+  const [src, setSrc] = React.useState<string | null>(null)
   React.useEffect(() => {
+    if (!armed) return
     /* The last code stays up until the new one is drawn, rather than blinking to grey between addresses. */
     let live = true
     import("qrcode")
       .then((q) => q.toString(url, { type: "svg", errorCorrectionLevel: "H", margin: 0, color: { dark: QR_INK, light: "#ffffff" } }))
       .then((out) => {
-        if (live) setSvg(out)
+        if (live) setSrc(`data:image/svg+xml;charset=utf-8,${encodeURIComponent(out)}`)
       })
       .catch(() => {})
     return () => {
       live = false
     }
-  }, [url])
+  }, [url, armed])
   const mark = Math.round(size * 0.2)
   return (
-    <div className="relative shrink-0" style={{ width: size, height: size }} role="img" aria-label={`QR code for ${url.replace(/^https?:\/\//, "")}`}>
-      {svg ? (
-        /* The library's own output for our own address: path data, no text. */
-        <div data-share-qr="" className="h-full w-full [&>svg]:block [&>svg]:h-full [&>svg]:w-full" dangerouslySetInnerHTML={{ __html: svg }} />
-      ) : (
-        <div className="h-full w-full rounded-lg bg-[#f1f2f4]" />
-      )}
-      {svg && (
-        <span
-          className="absolute left-1/2 top-1/2 grid -translate-x-1/2 -translate-y-1/2 place-items-center rounded-[22%] bg-white"
-          style={{ width: mark + Math.max(6, Math.round(size * 0.05)), height: mark + Math.max(6, Math.round(size * 0.05)) }}
-        >
-          <span className="block" style={{ width: mark, height: mark }}>
-            <StorelibMark className="block h-full w-full" />
-          </span>
+    <div className="relative shrink-0 rounded-lg bg-[#f1f2f4]" style={{ width: size, height: size }} role="img" aria-label={`QR code for ${url.replace(/^https?:\/\//, "")}`}>
+      {/* The library's own output for our own address: path data, no text. */}
+      <img data-share-qr="" src={src ?? undefined} hidden={!src} alt="" width={size} height={size} draggable={false} className="block h-full w-full" />
+      <span
+        hidden={!src}
+        className="absolute left-1/2 top-1/2 grid -translate-x-1/2 -translate-y-1/2 place-items-center rounded-[22%] bg-white"
+        style={{ width: mark + Math.max(6, Math.round(size * 0.05)), height: mark + Math.max(6, Math.round(size * 0.05)) }}
+      >
+        <span className="block" style={{ width: mark, height: mark }}>
+          <StorelibMark className="block h-full w-full" />
         </span>
-      )}
+      </span>
     </div>
   )
 }
@@ -460,7 +467,20 @@ const ShareView = React.memo(function ShareView({
   )
 })
 
-const QrView = React.memo(function QrView({ address, phone, copied, onCopy }: { address: ShareAddress; phone: boolean; copied: boolean; onCopy: () => void }) {
+const QrView = React.memo(function QrView({
+  address,
+  phone,
+  copied,
+  onCopy,
+  draw,
+}: {
+  address: ShareAddress
+  phone: boolean
+  copied: boolean
+  onCopy: () => void
+  /** Whether the code is wanted yet: the view is showing, or a phone's sheet has finished arriving. */
+  draw: boolean
+}) {
   const [saving, setSaving] = React.useState(false)
   /* A blob download does nothing in the app's web view (lib/platform/save-file), so it is a browser button. */
   const [canDownload] = React.useState(() => typeof window !== "undefined" && !isNativeApp())
@@ -477,7 +497,7 @@ const QrView = React.memo(function QrView({ address, phone, copied, onCopy }: { 
   return (
     <div className="flex flex-col items-center px-4 pb-5 text-center sm:px-5">
       <div className="rounded-3xl border border-[#e5e7eb] bg-white p-4">
-        <QrCode url={address.url} size={phone ? 200 : 188} />
+        <QrCode url={address.url} size={phone ? 200 : 188} draw={draw} />
       </div>
       <p className="mt-3.5 max-w-full truncate text-[15px] font-medium text-[#1a1a2e]">{address.display}</p>
       <p className="mt-1 text-[13.5px] text-[#6b7280]">Point a phone camera at it to open your page.</p>
@@ -565,21 +585,22 @@ function Swap({ viewKey, forward, children }: { viewKey: string; forward: boolea
 }
 
 /**
- * ONE VIEW, KEPT WHILE ANOTHER SHOWS (on a phone).
+ * BOTH VIEWS ARE THERE ON A PHONE, ONE OUT OF SIGHT.
  *
  * Every tap that changed the view took the old view out of the page and
  * built the new one: React rendered it, and the browser styled and laid out
- * every element in it before the next frame could be drawn, which on a
+ * every element in it before the next frame could be drawn, and the page's
+ * :has() rules restyled the whole document for the insertion, which on a
  * phone's CPU was most of the pause after a tap
- * (scripts/check-app-sheets-frames.mjs). A view once shown now stays, out of
- * sight and out of the flow: `visibility`, which the browser hands down
- * without restyling what is inside, and `content-visibility: hidden` where
- * the browser has it, which keeps its styles and layout and skips its
- * rendering until it shows again. Showing it again is those two properties.
+ * (scripts/check-app-sheets-frames.mjs). Now the share view and the QR code
+ * are built with the sheet while the page is idle, and the one not showing
+ * is out of sight and out of the flow: `visibility`, which the browser hands
+ * down without restyling what is inside, and `content-visibility: hidden`
+ * where the browser has it, which keeps its styles and layout and skips its
+ * rendering until it shows. Showing it is those properties, set as a style
+ * and not as classes: a class that changes is a change the :has() rules
+ * answer by restyling the whole document, a style is not.
  */
-/* Out of sight and out of the flow, set as a style, not as classes: a class
-   that changes is a change the page's :has() rules answer by restyling the
-   whole document, a style is not (scripts/check-app-sheets-frames.mjs). */
 const PANE_AWAY: React.CSSProperties = {
   visibility: "hidden",
   pointerEvents: "none",
@@ -728,9 +749,9 @@ export const ShareStorelib = React.memo(function ShareStorelib({
     })
   }, [])
 
-  /* On a phone the QR code, once shown, is kept (Pane). */
-  const [qrKept, setQrKept] = React.useState(false)
-  if (phone && view === "qr" && !qrKept) setQrKept(true)
+  /* A phone's QR view is built with its sheet; its code is drawn once the sheet has finished arriving, so the QR code button only shows it. */
+  const [qrWarm, setQrWarm] = React.useState(false)
+  const warmQr = React.useCallback(() => setQrWarm(true), [])
 
   /**
    * THE PHONE'S SHEET IS BUILT AHEAD AND KEPT (BottomSheet keepMounted), so
@@ -773,9 +794,9 @@ export const ShareStorelib = React.memo(function ShareStorelib({
           />
         </Pane>
       )}
-      {(view === "qr" || (phone && qrKept)) && (
+      {(phone || view === "qr") && (
         <Pane on={view === "qr"}>
-          <QrView address={current} phone={phone} copied={isCopied} onCopy={copyCurrent} />
+          <QrView address={current} phone={phone} copied={isCopied} onCopy={copyCurrent} draw={view === "qr" || qrWarm} />
         </Pane>
       )}
     </Swap>
@@ -838,6 +859,7 @@ export const ShareStorelib = React.memo(function ShareStorelib({
         hideFrom="md"
         scrollKey={view}
         keepMounted={phone && onScreen}
+        onOpened={warmQr}
         onClosed={onSheetClosed}
         header={<Header title={title} onBack={view === "share" ? undefined : back} />}
       >

@@ -219,6 +219,16 @@ try {
     expect(gone.length === 0, "no platforms, no QR card, no row of share targets", gone)
     if (phone) {
       expect(!surface.close, "no close button on the sheet", surface.close)
+      /* The QR view is built with the sheet and its code drawn once the sheet has arrived: the QR code button only shows it. */
+      await p.waitForFunction(() => !!document.querySelector("[data-share-sheet] [data-share-qr]")?.getAttribute("src"), { timeout: 3000 }).catch(() => {})
+      const ahead = await p.evaluate(() => {
+        const el = document.querySelector("[data-share-sheet]")
+        return {
+          panes: [...el.querySelectorAll("[data-share-pane]")].map((n) => (getComputedStyle(n).visibility === "hidden" ? "hidden" : "on")),
+          drawn: !!el.querySelector("[data-share-qr]")?.getAttribute("src"),
+        }
+      })
+      expect(ahead.panes.join("|") === "on|hidden" && ahead.drawn, "the QR code is built and drawn with the sheet, out of sight until asked for", ahead)
     } else {
       expect(surface.box[2] <= 396, "a panel no wider than 396px", surface.box)
       expect(surface.box[1] >= pill.bottom && surface.box[1] - pill.bottom <= 14 && Math.abs(surface.right - pill.right) <= 0.5, "dropped from the pill, its right edge on the pill's", { box: surface.box, pill: [pill.right, pill.bottom] })
@@ -278,13 +288,14 @@ try {
       await sleep(900)
       const qrView = await p.evaluate(() => {
         const el = document.querySelector("[data-share-sheet]")
-        const svg = el.querySelector("[role=img] svg")
+        /* The code is an <img> of the library's SVG that is always there, hidden until it is drawn. */
+        const code = el.querySelector("[data-share-qr]")
         /* The view on show; on a phone the share view is kept beside it, out of sight (by its style, not a class). */
         const shown = [...el.querySelectorAll("[data-share-pane]")].find((n) => n.style.visibility !== "hidden") ?? el
         return {
           view: el.getAttribute("data-view"),
-          drawn: !!svg && svg.querySelectorAll("path").length > 0,
-          size: svg ? Math.round(svg.getBoundingClientRect().width) : 0,
+          drawn: !!code && !code.hidden && code.complete && code.naturalWidth > 0 && /^data:image\/svg\+xml/.test(code.src),
+          size: code ? Math.round(code.getBoundingClientRect().width) : 0,
           buttons: [...shown.querySelectorAll("button")].map((b) => b.textContent.trim()).filter(Boolean),
           panes: [...el.querySelectorAll("[data-share-pane]")].map((n) => (getComputedStyle(n).visibility === "hidden" ? "hidden" : "on")),
         }
