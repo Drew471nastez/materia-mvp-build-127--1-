@@ -17,7 +17,7 @@ import {
   X, Check, Loader2, AlertCircle, Mail, Lock,
   CreditCard, Shield, Settings, Wallet, Landmark,
   ExternalLink, ChevronRight, Globe,
-  User, FileText, Search, ChevronLeft,
+  User, FileText, ChevronLeft,
   ToggleLeft, LogOut, Trash2, Languages, Info, ChevronDown, CheckCircle, Clock, Copy, Plus
 } from "lucide-react"
 import type { Profile, Creator } from "@/lib/types"
