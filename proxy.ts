@@ -4,8 +4,6 @@ import { readCurrentUser, shouldSendToLogin } from "@/lib/auth/current-user"
 import { createClient } from "@supabase/supabase-js"
 import { NextResponse, type NextRequest } from "next/server"
 import { previewTokenFrom } from "@/lib/website-builder/preview-token"
-import { domainRoute, type DomainRoute } from "@/lib/custom-domain/routing"
-import { DEFAULT_DOMAIN_TARGET, SERVING_STATUSES, targetOf, type DomainTarget } from "@/lib/custom-domain/targets"
 
 // Main domain - customize this based on environment
 const MAIN_DOMAIN = process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"
@@ -120,6 +118,44 @@ function isReservedPath(pathname: string): boolean {
 }
 
 /**
+ * Check if a username is an old/changed username and resolve to the current one.
+ * Returns the new username if found, null if not an old username.
+ */
+async function resolveOldUsername(oldUsername: string): Promise<string | null> {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  if (!supabaseUrl || !supabaseKey) return null
+
+  try {
+    const supabase = createClient(supabaseUrl, supabaseKey)
+
+    // Check if this username exists as a current profile
+    const { data: currentProfile } = await supabase
+      .from("profiles")
+      .select("id")
+      .ilike("username", oldUsername)
+      .limit(1)
+      .maybeSingle()
+
+    // If a current profile exists with this username, it's not an old one
+    if (currentProfile) return null
+
+    // Check username_history for the most recent redirect
+    const { data: historyRecord } = await supabase
+      .from("username_history")
+      .select("new_username")
+      .ilike("old_username", oldUsername)
+      .order("changed_at", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    return historyRecord?.new_username || null
+  } catch {
+    return null
+  }
+}
+
+/**
  * Is there a live AI-built site under this name? The same question the /site
  * handler asks before serving one, asked once here so the proxy can send a
  * page request to the right renderer. Any failure reads as "no", which sends
@@ -192,15 +228,10 @@ async function hasPublishedWebsite(username: string): Promise<boolean> {
 }
 
 /**
- * Resolve a custom domain to its creator: their username, their creator id
- * and what the domain is set to show (custom_domains.target). Null when the
- * host is not a connected domain.
- *
- * The target column arrives with supabase/sql/run-now/22. Until it exists
- * the first read fails on it and the row is read again without it, showing
- * the website, which is what every domain showed before.
+ * Resolve a custom domain to a username via Supabase lookup
+ * Returns the username if the domain is active, null otherwise
  */
-async function resolveCustomDomain(host: string): Promise<{ username: string; creatorId: string; target: DomainTarget } | null> {
+async function resolveCustomDomain(host: string): Promise<string | null> {
   const hostWithoutPort = host.split(":")[0]
 
   // Skip known storelib domains and localhost
@@ -224,21 +255,12 @@ async function resolveCustomDomain(host: string): Promise<{ username: string; cr
     const lookupDomain = hostWithoutPort.replace(/^www\./, "")
 
     // Match active, ssl_provisioning, or pending (if request arrives, DNS is working)
-    const serving = [...SERVING_STATUSES]
-    let { data: domainRecord, error } = await supabase
+    const { data: domainRecord } = await supabase
       .from("custom_domains")
-      .select("creator_id, status, target")
+      .select("creator_id, status")
       .eq("domain", lookupDomain)
-      .in("status", serving)
-      .maybeSingle()
-    if (error) {
-      ;({ data: domainRecord } = await supabase
-        .from("custom_domains")
-        .select("creator_id, status")
-        .eq("domain", lookupDomain)
-        .in("status", serving)
-        .maybeSingle())
-    }
+      .in("status", ["active", "ssl_provisioning", "pending", "verifying"])
+      .single()
 
     if (!domainRecord) return null
 
@@ -256,40 +278,9 @@ async function resolveCustomDomain(host: string): Promise<{ username: string; cr
       .eq("id", creator.user_id)
       .single()
 
-    if (!profile?.username) return null
-    return {
-      username: profile.username,
-      creatorId: domainRecord.creator_id,
-      target: targetOf(domainRecord as { target?: string | null }),
-    }
+    return profile?.username || null
   } catch {
     return null
-  }
-}
-
-/**
- * Is the product with this slug this creator's? Slugs are global, and the
- * product route resolves a slug alone, so a domain showing a creator page
- * would otherwise show anybody's product at /<their slug>. Asked only for a
- * product path on a domain; a failed lookup reads as no, which shows the
- * domain's front page.
- */
-async function ownsProduct(creatorId: string, slug: string): Promise<boolean> {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  if (!supabaseUrl || !supabaseKey) return false
-  try {
-    const supabase = createClient(supabaseUrl, supabaseKey)
-    const { data } = await supabase
-      .from("products")
-      .select("id")
-      .eq("creator_id", creatorId)
-      .eq("slug", decodeURIComponent(slug))
-      .limit(1)
-      .maybeSingle()
-    return Boolean(data)
-  } catch {
-    return false
   }
 }
 
@@ -966,8 +957,6 @@ export async function proxy(request: NextRequest) {
    */
   let username: string | null = null
   let isCustomDomain = false
-  let domainCreatorId: string | null = null
-  let domainTarget: DomainTarget = DEFAULT_DOMAIN_TARGET
 
   // If no subdomain match, check if it's a custom domain
   if (!username) {
@@ -1002,11 +991,9 @@ export async function proxy(request: NextRequest) {
       return NextResponse.redirect(canonicalUrl, { status: 301 })
     }
 
-    const connected = await resolveCustomDomain(host)
-    if (connected) {
-      username = connected.username
-      domainCreatorId = connected.creatorId
-      domainTarget = connected.target
+    const customDomainUsername = await resolveCustomDomain(host)
+    if (customDomainUsername) {
+      username = customDomainUsername
       isCustomDomain = true
     } else if (isExternalDomain && !isReservedPath(pathname)) {
       // Domain not actively connected — check redirect memory table
@@ -1041,34 +1028,22 @@ export async function proxy(request: NextRequest) {
   }
 
   /**
-   * ═══════════════════════════════════════════════════════════════════════════
-   *  WHAT A CONNECTED DOMAIN SHOWS, DECIDED ONCE
-   * ═══════════════════════════════════════════════════════════════════════════
-   * The creator chose it: their website, their creator page or their OnePage
-   * (custom_domains.target). lib/custom-domain/routing.ts turns the path and
-   * that choice into the internal page to serve; this only gathers what it
-   * needs to know.
-   *
-   * robots.txt and sitemap.xml are asked about too, although both are
-   * reserved paths below: a creator's domain must hand out its own, never
-   * storelib.com's robots file pointing Google at storelib.com's sitemap.
-   *
-   * Pages only, for the website question, like the subdomain branch: an
-   * asset request must not cost two database lookups, and a site's assets
-   * are Next's own anyway.
+   * A CONNECTED DOMAIN'S robots.txt AND sitemap.xml are its website's, not
+   * Storelib's. Both are reserved paths below, so a creator's domain handed
+   * out storelib.com's robots file and pointed Google at storelib.com's
+   * sitemap. A domain whose creator has published a website answers them
+   * from that website, the same way its subdomain does.
    */
-  let domainDecision: DomainRoute | null = null
-  const seoFile = pathname === "/robots.txt" || pathname === "/sitemap.xml"
-  if (username && isCustomDomain && (seoFile || !isReservedPath(pathname))) {
-    const looksLikeFile = /\.[a-z0-9]{1,8}$/i.test(pathname) && !seoFile
-    const hasWebsite =
-      domainTarget === "website" && !looksLikeFile && !(await hasLiveAiSite(username)) && (await hasPublishedWebsite(username))
-    domainDecision = domainRoute({ pathname, username, target: domainTarget, hasWebsite })
-    if (domainDecision.kind === "product") {
-      const owned = domainCreatorId ? await ownsProduct(domainCreatorId, domainDecision.slug) : false
-      const to = owned ? domainDecision.path : domainDecision.fallback
-      domainDecision = { kind: "rewrite", path: to, creatorPage: !owned && to.startsWith("/u/") }
-    }
+  if (
+    username &&
+    isCustomDomain &&
+    (pathname === "/robots.txt" || pathname === "/sitemap.xml") &&
+    !(await hasLiveAiSite(username)) &&
+    (await hasPublishedWebsite(username))
+  ) {
+    const seoUrl = request.nextUrl.clone()
+    seoUrl.pathname = `/w/${username}${pathname}`
+    return NextResponse.rewrite(seoUrl)
   }
 
   // Handle subdomain or custom domain routing
@@ -1088,32 +1063,72 @@ export async function proxy(request: NextRequest) {
    */
   let respond: () => NextResponse = () => NextResponse.next({ request })
 
-  /**
-   * ═════════════════════════════════════════════════════════════════════════
-   *  A CONNECTED DOMAIN SHOWS WHAT ITS CREATOR CHOSE
-   * ═════════════════════════════════════════════════════════════════════════
-   * Only custom domains reach this code; a storelib.com subdomain is
-   * answered above. Every domain used to land on `/u/{username}`, the
-   * creator's PROFILE, and then on the published website once there was
-   * one, with no say in it. Now the domain row says which: the website
-   * (path and all, like its subdomain), the creator page (the domain stands
-   * in for storelib.com/{username}), or the OnePage. A domain nobody has
-   * touched shows the website, falling back to the creator page while no
-   * website is live, which is exactly what it showed before.
-   */
-  if (username && domainDecision?.kind === "rewrite") {
-    const rewritePath = domainDecision.path
-    const creatorPage = domainDecision.creatorPage === true
-    const domainSearch = domainDecision.search
+  // If we have a username (from subdomain or custom domain) and it's not a reserved path
+  if (username && !isReservedPath(pathname)) {
+    // Check if this is an old username that should redirect to a new one
+    if (!isCustomDomain) {
+      const newUsername = await resolveOldUsername(username)
+      if (newUsername && newUsername.toLowerCase() !== username.toLowerCase()) {
+        // 301 redirect to the new subdomain (permanent, SEO-safe)
+        const redirectUrl = new URL(`https://${newUsername}.${MAIN_DOMAIN}`)
+        redirectUrl.pathname = pathname
+        redirectUrl.search = search
+        return NextResponse.redirect(redirectUrl, { status: 301 })
+      }
+    }
+
+    // Rewrite URLs:
+    // - /links -> /l/{username} (seller onepage - username is used as slug)
+    // - / -> /u/{username} (seller store homepage)
+    // - /p/{slug} -> /p/{slug} (product pages stay the same)
+
+    let rewritePath: string
+
+    /**
+     * ═════════════════════════════════════════════════════════════════════════
+     *  A CONNECTED DOMAIN SHOWS THE SITE THEY BUILT
+     * ═════════════════════════════════════════════════════════════════════════
+     * Only custom domains reach this code now; a storelib.com subdomain is
+     * answered above. And every one of them landed on `/u/{username}`, the
+     * creator's PROFILE — so somebody who bought a domain, pointed it at
+     * Storelib and built a website got the profile page at it, and their
+     * website only at the subdomain they were trying to replace. Every path
+     * but `/` and `/p/…` was thrown away too, so an About page on a connected
+     * domain was the home page.
+     *
+     * A connected domain is a replacement for the subdomain, so it answers
+     * with the same thing the subdomain answers with: the published website,
+     * path and all. A creator with no published website keeps the profile
+     * exactly as before, so nothing changes for anybody who has not built one.
+     */
+    // Pages only, like the subdomain branch: an asset request must not cost
+    // two database lookups, and a site's assets are Next's own anyway.
+    const looksLikeFile = /\.[a-z0-9]{1,8}$/i.test(pathname)
+    const builtSite = !looksLikeFile && !(await hasLiveAiSite(username)) && (await hasPublishedWebsite(username))
+
+    if (pathname === "/links" || pathname === "/links/") {
+      // username.storelib.com/links -> /l/{username}
+      // The username is passed as the slug parameter
+      rewritePath = `/l/${username}`
+    } else if (builtSite) {
+      rewritePath = `/w/${username}${pathname === "/" || pathname === "" ? "" : pathname}`
+    } else if (pathname === "/" || pathname === "") {
+      // username.storelib.com -> /u/{username}
+      rewritePath = `/u/${username}`
+    } else if (pathname.startsWith("/p/")) {
+      // Product pages stay as-is
+      rewritePath = pathname
+    } else {
+      // For any other paths on subdomain, redirect to main store page
+      rewritePath = `/u/${username}`
+    }
 
     // Create rewrite URL
     const rewriteUrl = request.nextUrl.clone()
     rewriteUrl.pathname = rewritePath
 
-    // Preserve query parameters, or name the one the route needs
-    if (domainSearch) {
-      rewriteUrl.search = domainSearch
-    } else if (search) {
+    // Preserve query parameters
+    if (search) {
       rewriteUrl.search = search
     }
 
@@ -1121,7 +1136,7 @@ export async function proxy(request: NextRequest) {
     respond = () => {
       const r = NextResponse.rewrite(rewriteUrl, { request })
       r.headers.set("x-seller-subdomain", seller)
-      if (creatorPage) r.headers.set("Cache-Control", "private, no-cache, must-revalidate")
+      if (rewritePath.startsWith("/u/")) r.headers.set("Cache-Control", "private, no-cache, must-revalidate")
       if (isCustomDomain) r.headers.set("x-custom-domain", host.split(":")[0])
       return r
     }

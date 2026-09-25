@@ -28,7 +28,6 @@ import {
 import { cn } from "@/lib/utils"
 import { UnsavedChangesDialog } from "./unsaved-changes-dialog"
 import { getStoreUrl, getStoreShareUrl, getProductUrl, getProductShareUrl, getStoreUrlWithCustomDomain, getProductUrlWithCustomDomain } from "@/lib/url-helpers"
-import { liveDomainFor } from "@/lib/custom-domain/targets"
 import { openExternal } from "@/lib/native-bridge"
 
 interface EditorTopbarProps {
@@ -73,9 +72,8 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
     fetch("/api/domains")
       .then((res) => res.json())
       .then((data) => {
-        /* Only a domain set to show the creator page is where this page lives. */
-        const active = liveDomainFor(data.domains, "creator_page")
-        if (active) setConnectedDomain(active)
+        const active = data.domains?.find((d: any) => d.status === "active")
+        if (active) setConnectedDomain(active.domain)
       })
       .catch(() => {})
   }, [])

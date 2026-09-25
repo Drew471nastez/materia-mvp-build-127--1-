@@ -88,8 +88,7 @@ for (const file of LINKERS) {
 
 check(
   "the canonical tag names the bare path",
-  /canonical: pageUrl/.test(code("app/(marketing)/u/[username]/page.tsx")) &&
-    /: `https:\/\/storelib\.com\/\$\{username\}`/.test(code("app/(marketing)/u/[username]/page.tsx")),
+  /canonical: `https:\/\/storelib\.com\/\$\{username\}`/.test(code("app/(marketing)/u/[username]/page.tsx")),
   "two spellings competing as duplicate content is the thing a canonical exists to stop",
 )
 check(
@@ -186,12 +185,12 @@ check("and so does the relative form", getProductInternalPath("t-shirt") === "/p
 const productPage = code("app/(marketing)/p/[slug]/page.tsx")
 check(
   "the product's canonical names the nested address",
-  /canonical: pageUrl/.test(productPage) && /const productUrl = getProductShareUrl\(/.test(productPage) && /: productUrl\n/.test(productPage),
+  /canonical: productUrl/.test(productPage) && /const productUrl = getProductShareUrl\(/.test(productPage),
   "a canonical pointing at /p/ tells search engines to prefer the spelling nobody links to",
 )
 check(
   "and the structured data agrees with it",
-  /: getProductShareUrl\(creatorUsername, product\.slug\)/.test(productPage) && /canonicalOnDomain\(canonicalOrigin, \{ kind: "product", slug: product\.slug \}\)/.test(productPage),
+  /const canonicalUrl = getProductShareUrl\(creatorUsername, product\.slug\)/.test(productPage),
   "the JSON-LD url and the <link> must not name different addresses",
 )
 check(

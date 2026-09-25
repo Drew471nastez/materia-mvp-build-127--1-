@@ -11,7 +11,6 @@ import { getMainDomain } from "@/lib/url-helpers"
 import { deservesIndexing } from "@/lib/security/spam-signals"
 import { creatorShopTag, creatorSiteTag, publishedShopByName } from "./published-site"
 import { websiteHandleOf } from "./site-address-data"
-import { liveDomainOf } from "@/lib/custom-domain/server"
 import {
   imagesOnPage,
   listedPageKeys,
@@ -24,16 +23,31 @@ import type { ThemeSettingsValues } from "./types"
 import { hiddenPages } from "./page-seo"
 
 /**
- * THE SITE'S OWN ADDRESS. A connected, active domain when there is one set
- * to show the website, because that is the address the creator gives out and
- * the one a search result should show; `<name>.storelib.com` otherwise. The
- * same page at two addresses is one page to a search engine only if both
- * name this one. A domain pointed at the creator page or the OnePage is not
- * this site's address, so it is not named here (lib/custom-domain/server.ts,
- * whose cache the domains routes clear when a domain changes).
+ * THE SITE'S OWN ADDRESS. A connected, active domain when there is one,
+ * because that is the address the creator gives out and the one a search
+ * result should show; `<name>.storelib.com` otherwise. The same page at
+ * two addresses is one page to a search engine only if both name this one.
  */
 export async function siteOrigin(creatorId: string, name: string): Promise<string> {
-  const domain = await liveDomainOf(creatorId, "website")
+  const domain = await unstable_cache(
+    async () => {
+      try {
+        const { data } = await createAdminClient()
+          .from("custom_domains")
+          .select("domain")
+          .eq("creator_id", creatorId)
+          .eq("status", "active")
+          .order("created_at", { ascending: true })
+          .limit(1)
+          .maybeSingle()
+        return ((data as { domain?: string } | null)?.domain ?? null) as string | null
+      } catch {
+        return null
+      }
+    },
+    ["site-origin", creatorId],
+    { revalidate: 300 },
+  )()
   /* The proxy sends a bare connected domain to its www. host (a 301), so
      that is the address a canonical must name: one that answers, not one
      that redirects. */

@@ -1,10 +1,5 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
-import { createAdminClient } from "@/lib/supabase/admin"
-import { websiteHandleOf } from "@/lib/website-builder/site-address-data"
-import { effectiveHandle } from "@/lib/website-builder/site-address"
-import { DEFAULT_DOMAIN_TARGET, isDomainTarget, type DomainTarget } from "@/lib/custom-domain/targets"
-import { revalidateCustomDomain } from "@/lib/custom-domain/server"
 import crypto from "crypto"
 
 const VERCEL_TOKEN = process.env.VERCEL_TOKEN
@@ -228,43 +223,6 @@ export async function getVercelDomainConfig(domain: string): Promise<{
   }
 }
 
-/**
- * What a domain can be pointed at, for the chooser: whether a website is
- * live and where, and whether a OnePage is published. Read with the admin
- * client, but only ever for the creator the session belongs to.
- */
-async function sourcesFor(creatorId: string, userId: string): Promise<{
-  website: { live: boolean; handle: string | null }
-  onepage: { live: boolean }
-  username: string | null
-}> {
-  const admin = createAdminClient()
-  const [profile, install, onepage, ownHandle] = await Promise.all([
-    admin.from("profiles").select("username").eq("id", userId).maybeSingle(),
-    admin.from("store_theme_installs").select("id").eq("creator_id", creatorId).eq("status", "published").limit(1).maybeSingle(),
-    admin
-      .from("onepages")
-      .select("id")
-      .or(`creator_id.eq.${creatorId},seller_id.eq.${creatorId}`)
-      .eq("status", "published")
-      .limit(1)
-      .maybeSingle(),
-    websiteHandleOf(creatorId, admin).catch(() => null),
-  ])
-  const username = (profile.data as { username?: string | null } | null)?.username ?? null
-  return {
-    website: { live: Boolean(install.data), handle: username ? effectiveHandle(ownHandle, username) : ownHandle },
-    onepage: { live: Boolean(onepage.data) },
-    username,
-  }
-}
-
-/** Whether custom_domains.target exists yet (supabase/sql/run-now/23_custom_domain_target.sql). */
-async function hasTargetColumn(): Promise<boolean> {
-  const { error } = await createAdminClient().from("custom_domains").select("target").limit(1)
-  return !error
-}
-
 // GET - List creator's domains
 export async function GET() {
   try {
@@ -296,8 +254,7 @@ export async function GET() {
       return NextResponse.json({ error: "Failed to fetch domains" }, { status: 500 })
     }
 
-    const [sources, targetReady] = await Promise.all([sourcesFor(creator.id, user.id), hasTargetColumn()])
-    return NextResponse.json({ domains: domains || [], sources, targetReady })
+    return NextResponse.json({ domains: domains || [] })
   } catch (error) {
     console.error("Domains GET error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
@@ -314,12 +271,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const body = (await request.json().catch(() => ({}))) as { domain?: unknown; target?: unknown }
-    const { domain } = body
-    if (body.target !== undefined && !isDomainTarget(body.target)) {
-      return NextResponse.json({ error: "Choose the website, the creator page or the OnePage" }, { status: 400 })
-    }
-    const target: DomainTarget = isDomainTarget(body.target) ? body.target : DEFAULT_DOMAIN_TARGET
+    const { domain } = await request.json()
 
     if (!domain || typeof domain !== "string") {
       return NextResponse.json({ error: "Domain is required" }, { status: 400 })
@@ -387,21 +339,16 @@ export async function POST(request: Request) {
     // Generate verification token
     const verificationToken = `storelib-verify-${crypto.randomBytes(16).toString("hex")}`
 
-    const row = {
-      creator_id: creator.id,
-      domain: cleanDomain,
-      status: "pending",
-      verification_token: verificationToken,
-    }
-    let { data: newDomain, error } = await supabase
+    const { data: newDomain, error } = await supabase
       .from("custom_domains")
-      .insert({ ...row, target })
+      .insert({
+        creator_id: creator.id,
+        domain: cleanDomain,
+        status: "pending",
+        verification_token: verificationToken,
+      })
       .select()
       .single()
-    /* Before the target column exists the domain is still added, showing the website as every domain did. */
-    if (error && /target/.test(error.message ?? "")) {
-      ;({ data: newDomain, error } = await supabase.from("custom_domains").insert(row).select().single())
-    }
 
     if (error) {
       console.error("Error adding domain:", error)
@@ -439,8 +386,6 @@ export async function POST(request: Request) {
 
         // DO NOT remove old domain from Vercel — keep it attached for redirects
       }
-      /* A live domain was replaced: the pages that named it as their address name storelib.com again. */
-      await revalidateCustomDomain(creator.id)
     }
 
     return NextResponse.json({ domain: newDomain })
@@ -550,83 +495,9 @@ export async function DELETE(request: Request) {
     // which then redirects to the new domain or fallback subdomain.
     // A cleanup job should detach domains after keep_until passes.
 
-    await revalidateCustomDomain(creator.id)
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error("Domains DELETE error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
-  }
-}
-
-/**
- * PATCH - Point a domain at the website, the creator page or the OnePage.
- *
- * Only the signed-in creator's own domain, found by its id AND their creator
- * id, so another account's domain reads as not found. There is no website id
- * to pass: a domain showing the website shows this creator's live one, the
- * same one <name>.storelib.com shows, so nobody can point their domain at a
- * website that is not theirs.
- */
-export async function PATCH(request: Request) {
-  try {
-    const supabase = await createClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
-    const body = (await request.json().catch(() => ({}))) as { domainId?: unknown; target?: unknown }
-    if (typeof body.domainId !== "string" || !body.domainId) {
-      return NextResponse.json({ error: "Domain ID is required" }, { status: 400 })
-    }
-    if (!isDomainTarget(body.target)) {
-      return NextResponse.json({ error: "Choose the website, the creator page or the OnePage" }, { status: 400 })
-    }
-    const target = body.target
-
-    const { data: creator } = await supabase.from("creators").select("id").eq("user_id", user.id).single()
-    if (!creator) {
-      return NextResponse.json({ error: "Creator not found" }, { status: 404 })
-    }
-
-    const { data: owned } = await supabase
-      .from("custom_domains")
-      .select("id")
-      .eq("id", body.domainId)
-      .eq("creator_id", creator.id)
-      .maybeSingle()
-    if (!owned) {
-      return NextResponse.json({ error: "Domain not found" }, { status: 404 })
-    }
-
-    /* A domain pointed at a OnePage nobody can see would be a blank domain. */
-    if (target === "onepage") {
-      const sources = await sourcesFor(creator.id, user.id)
-      if (!sources.onepage.live) {
-        return NextResponse.json({ error: "Publish your OnePage first, then point the domain at it." }, { status: 400 })
-      }
-    }
-
-    const { data: updated, error } = await supabase
-      .from("custom_domains")
-      .update({ target })
-      .eq("id", body.domainId)
-      .eq("creator_id", creator.id)
-      .select()
-      .single()
-
-    if (error) {
-      if (/target/.test(error.message ?? "")) {
-        return NextResponse.json({ error: "This needs a database update first (run-now part 22)." }, { status: 503 })
-      }
-      console.error("Error changing domain target:", error)
-      return NextResponse.json({ error: "Could not change what the domain shows" }, { status: 500 })
-    }
-
-    await revalidateCustomDomain(creator.id)
-    return NextResponse.json({ domain: updated })
-  } catch (error) {
-    console.error("Domains PATCH error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

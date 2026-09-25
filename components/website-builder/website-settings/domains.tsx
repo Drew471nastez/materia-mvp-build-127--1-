@@ -1,31 +1,28 @@
 "use client"
 
 import { Fragment, useEffect, useState } from "react"
-import { Loader2 } from "lucide-react"
-import { AddressValue, Badge, Card, ErrorNote, Lead, PageTitle, Row, buttonClass, inputClass, primaryButtonClass, textLinkClass } from "./parts"
+import { Check, Copy, Loader2 } from "lucide-react"
+import { AddressValue, Badge, Card, ErrorNote, Lead, PageTitle, Row, buttonClass, iconButtonClass, inputClass, primaryButtonClass, textLinkClass } from "./parts"
 import type { SettingsContext } from "./types"
 import { cn } from "@/lib/utils"
 import { handleProblem, normalizeHandle } from "@/lib/website-builder/site-address"
-import { DnsSetup } from "@/components/domains/dns-setup"
-import { TargetChoice, type TargetSources } from "@/components/domains/target-choice"
-import { TARGET_LABEL, targetOf, type DomainTarget } from "@/lib/custom-domain/targets"
-import type { DnsChecks } from "@/lib/custom-domain/dns"
-import { getStoreUrlDisplay } from "@/lib/url-helpers"
 
 interface DomainRow {
   id: string
   domain: string
   status: string
-  target?: string | null
   ssl_status?: string | null
   verified_at?: string | null
   verification_token?: string | null
 }
 
-interface DomainSources {
-  website: { live: boolean; handle: string | null }
-  onepage: { live: boolean }
-  username: string | null
+/** The records a domain needs, the same three Settings › Domains lists. */
+function recordsFor(d: DomainRow): { type: string; name: string; value: string }[] {
+  return [
+    { type: "A", name: "@", value: "216.150.1.1" },
+    { type: "CNAME", name: "www", value: "cname.vercel-dns.com" },
+    ...(d.verification_token ? [{ type: "TXT", name: "_storelib", value: d.verification_token }] : []),
+  ]
 }
 
 /**
@@ -49,12 +46,9 @@ function describe(d: DomainRow): { tone: "live" | "attention" | "critical" | "ne
  * grows out of, pushing the page down.
  */
 let lastDomains: DomainRow[] | null = null
-let lastSources: DomainSources | null = null
 
 export function DomainSettings({ ctx }: { ctx: SettingsContext }) {
   const [domains, setDomains] = useState<DomainRow[] | null>(() => lastDomains)
-  const [sources, setSources] = useState<DomainSources | null>(() => lastSources)
-  const [targetReady, setTargetReady] = useState(true)
   const [error, setError] = useState<string | null>(null)
   useEffect(() => {
     if (domains && !error) lastDomains = domains
@@ -64,12 +58,9 @@ export function DomainSettings({ ctx }: { ctx: SettingsContext }) {
     let alive = true
     fetch("/api/domains")
       .then(async (res) => {
-        const d = (await res.json().catch(() => ({}))) as { domains?: DomainRow[]; sources?: DomainSources; targetReady?: boolean; error?: string }
+        const d = (await res.json().catch(() => ({}))) as { domains?: DomainRow[]; error?: string }
         if (!res.ok) throw new Error(d.error || "Could not load your domains")
-        if (!alive) return
-        setDomains(d.domains ?? [])
-        if (d.sources) setSources((lastSources = d.sources))
-        setTargetReady(d.targetReady !== false)
+        if (alive) setDomains(d.domains ?? [])
       })
       .catch((e) => {
         if (!alive) return
@@ -88,18 +79,8 @@ export function DomainSettings({ ctx }: { ctx: SettingsContext }) {
   const [adding, setAdding] = useState(false)
   const [confirming, setConfirming] = useState(false)
   const [checking, setChecking] = useState<string | null>(null)
-  const [checks, setChecks] = useState<Record<string, DnsChecks>>({})
-  const [results, setResults] = useState<Record<string, { ok: boolean; message: string }>>({})
   const [note, setNote] = useState<string | null>(null)
-  const [changing, setChanging] = useState(false)
   const current = domains?.[0] ?? null
-  const username = (sources?.username ?? "").toLowerCase()
-  const targetSources: TargetSources = {
-    websiteHost: ctx.websiteUrlDisplay,
-    websiteLive: sources?.website.live ?? ctx.live,
-    creatorPagePath: getStoreUrlDisplay(username || "you"),
-    onepageLive: sources?.onepage.live ?? false,
-  }
   const clean = draft.trim().toLowerCase().replace(/^(https?:\/\/)?(www\.)?/, "").replace(/\/.*$/, "")
 
   const add = async () => {
@@ -117,15 +98,14 @@ export function DomainSettings({ ctx }: { ctx: SettingsContext }) {
       const res = await fetch("/api/domains", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        /* Connected from this website's settings, so it shows this website. */
-        body: JSON.stringify(targetReady ? { domain: clean, target: "website" } : { domain: clean }),
+        body: JSON.stringify({ domain: clean }),
       })
       const d = (await res.json().catch(() => ({}))) as { domain?: DomainRow; error?: string }
       if (!res.ok || !d.domain) throw new Error(d.error || "Could not connect that domain")
       setDomains([d.domain])
       setDraft("")
       setConfirming(false)
-      setNote("Now add the records below where you bought the domain, then press Check DNS.")
+      setNote("Now add these records where you bought the domain, then press Check DNS.")
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not connect that domain")
     } finally {
@@ -143,15 +123,13 @@ export function DomainSettings({ ctx }: { ctx: SettingsContext }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ domainId: d.id }),
       })
-      const r = (await res.json().catch(() => ({}))) as { verified?: boolean; sslPending?: boolean; message?: string; error?: string; checks?: DnsChecks; issues?: string[] }
+      const r = (await res.json().catch(() => ({}))) as { verified?: boolean; sslPending?: boolean; message?: string; error?: string }
       if (!res.ok) throw new Error(r.error || "Could not check the DNS records")
-      if (r.checks) setChecks((prev) => ({ ...prev, [d.id]: r.checks as DnsChecks }))
-      const trouble = (r.issues ?? []).length > 0
       if (r.verified) {
         setDomains((prev) => (prev ?? []).map((x) => (x.id === d.id ? { ...x, status: r.sslPending ? "ssl_provisioning" : "active" } : x)))
-        setResults((prev) => ({ ...prev, [d.id]: { ok: !trouble, message: r.message || (r.sslPending ? "DNS is right. HTTPS is being set up." : "Connected.") } }))
+        setNote(r.sslPending ? "DNS is right. The certificate is being issued, which usually takes a few minutes." : "Connected. Your website is live at this domain.")
       } else {
-        setResults((prev) => ({ ...prev, [d.id]: { ok: false, message: r.message || "The records are not showing yet." } }))
+        setNote("The records are not showing yet. DNS can take up to a day to reach everyone; check again later.")
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not check the DNS records")
@@ -160,30 +138,10 @@ export function DomainSettings({ ctx }: { ctx: SettingsContext }) {
     }
   }
 
-  const point = async (d: DomainRow, target: DomainTarget) => {
-    if (targetOf(d) === target) return
-    setChanging(true)
-    setError(null)
-    try {
-      const res = await fetch("/api/domains", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ domainId: d.id, target }),
-      })
-      const r = (await res.json().catch(() => ({}))) as { error?: string }
-      if (!res.ok) throw new Error(r.error || "Could not change what the domain shows")
-      setDomains((prev) => (prev ?? []).map((x) => (x.id === d.id ? { ...x, target } : x)))
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not change what the domain shows")
-    } finally {
-      setChanging(false)
-    }
-  }
-
   return (
     <>
       <PageTitle>Domains</PageTitle>
-      <Lead>Your website's storelib.com address, and a domain of your own.</Lead>
+      <Lead>Every address here shows your live website.</Lead>
 
       <Card title="Storelib address">
         <StorelibAddress ctx={ctx} />
@@ -201,7 +159,6 @@ export function DomainSettings({ ctx }: { ctx: SettingsContext }) {
           domains.map((d) => {
             const s = describe(d)
             const waiting = d.status !== "active"
-            const shows = targetOf(d)
             return (
               <Fragment key={d.id}>
                 <Row label={`www.${d.domain}`} hint="Primary address" inline>
@@ -210,49 +167,21 @@ export function DomainSettings({ ctx }: { ctx: SettingsContext }) {
                 <Row label={d.domain} hint="Redirects">
                   <span className="text-[14px] text-white/60">to www.{d.domain}</span>
                 </Row>
-                {/*
-                  What the domain shows. From here the question is usually
-                  "is it this website": said plainly when it is not, with the
-                  one press that makes it so. The full choice is below it.
-                */}
-                <div data-domain-shows={shows} className="space-y-3 px-4 py-4 md:px-6">
-                  <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-                    <div className="min-w-0">
-                      <p className="text-[14.5px] font-medium text-white">Shows</p>
-                      <p className="mt-0.5 text-[13px] leading-snug text-white/45">
-                        {shows === "website"
-                          ? targetSources.websiteLive
-                            ? "This website."
-                            : "This website once it is published. Your creator page until then."
-                          : `Your ${TARGET_LABEL[shows].toLowerCase()}, not this website.`}
-                      </p>
-                    </div>
-                    {shows !== "website" && targetReady && (
-                      <button type="button" onClick={() => void point(d, "website")} disabled={changing} className={cn(buttonClass, "md:h-9")}>
-                        {changing && <Loader2 className="h-4 w-4 animate-spin" />}
-                        Show this website
-                      </button>
-                    )}
-                  </div>
-                  {targetReady && (
-                    <TargetChoice value={shows} onChange={(t) => void point(d, t)} sources={targetSources} tone="dark" disabled={changing} label={`What ${d.domain} shows`} />
-                  )}
-                </div>
                 <Row label="HTTPS" inline>
                   <span className="text-[14px] text-white/60">{s.ssl}</span>
                 </Row>
                 {waiting && (
-                  <div className="px-4 py-4 md:px-6">
-                    <DnsSetup
-                      domain={d.domain}
-                      verificationToken={d.verification_token}
-                      checks={checks[d.id] ?? null}
-                      status={d.status}
-                      checking={checking === d.id}
-                      onCheck={() => void check(d)}
-                      result={results[d.id] ?? null}
-                      tone="dark"
-                    />
+                  <div className="space-y-3 px-4 py-4 md:px-6">
+                    <p className="text-[14px] font-medium text-white">Records to add where you bought the domain</p>
+                    <div className="overflow-hidden rounded-xl border border-white/10">
+                      {recordsFor(d).map((r) => (
+                        <DnsRecord key={r.type} {...r} />
+                      ))}
+                    </div>
+                    <button type="button" onClick={() => void check(d)} disabled={checking === d.id} className={buttonClass}>
+                      {checking === d.id && <Loader2 className="h-4 w-4 animate-spin" />}
+                      Check DNS
+                    </button>
                   </div>
                 )}
               </Fragment>
@@ -300,11 +229,37 @@ export function DomainSettings({ ctx }: { ctx: SettingsContext }) {
       {note && <p className="mt-4 text-[14px] text-white/70">{note}</p>}
       {domains && domains.length > 0 && (
         <button type="button" onClick={manage} className="mt-1 inline-flex min-h-11 items-center text-[13.5px] text-white/55 underline-offset-2 hover:text-white hover:underline md:mt-3 md:min-h-0 [-webkit-tap-highlight-color:transparent]">
-          Remove the domain in Settings
+          Remove the domain, or see its records in Settings
         </button>
       )}
       {error && <ErrorNote>{error}</ErrorNote>}
     </>
+  )
+}
+
+function DnsRecord({ type, name, value }: { type: string; name: string; value: string }) {
+  const [copied, setCopied] = useState(false)
+  return (
+    <div className="grid grid-cols-[52px_minmax(0,1fr)_auto] items-center gap-2.5 border-b border-white/[0.06] py-2 pl-3.5 pr-1.5 last:border-b-0 md:grid-cols-[64px_minmax(0,1fr)_auto] md:gap-3 md:py-2.5 md:pr-2.5">
+      <span className="font-mono text-[12.5px] text-white/55">{type}</span>
+      <span className="min-w-0">
+        <span className="block font-mono text-[12.5px] text-white/55">{name}</span>
+        <span className="block break-all font-mono text-[13px] text-white">{value}</span>
+      </span>
+      <button
+        type="button"
+        aria-label={copied ? `${type} value copied` : `Copy the ${type} value`}
+        onClick={() => {
+          void navigator.clipboard?.writeText(value).then(() => {
+            setCopied(true)
+            window.setTimeout(() => setCopied(false), 1400)
+          })
+        }}
+        className={iconButtonClass}
+      >
+        {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+      </button>
+    </div>
   )
 }
 

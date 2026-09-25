@@ -1,3 +1,0 @@
-/* What a connected domain shows: website, creator page or OnePage. Every existing domain stays on website. */
-do $custom_domains_target$ begin if to_regclass('public.custom_domains') is null then raise notice 'custom_domains not present; skipping the target column'; return; end if; alter table public.custom_domains add column if not exists target text not null default 'website'; alter table public.custom_domains drop constraint if exists custom_domains_target_check; alter table public.custom_domains add constraint custom_domains_target_check check (target in ('website', 'creator_page', 'onepage')); end; $custom_domains_target$;
-notify pgrst, 'reload schema';

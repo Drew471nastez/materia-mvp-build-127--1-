@@ -204,8 +204,7 @@ function main() {
       /rewritten\.headers\.set\("Cache-Control", "public, s-maxage=60, stale-while-revalidate=300"\)/.test(read("proxy.ts")) &&
         /export const revalidate = 60/.test(home),
     )
-    check("the creator page is still private", /if \(creatorPage\) r\.headers\.set\("Cache-Control", "private, no-cache, must-revalidate"\)/.test(read("proxy.ts"))
-      && /\{ kind: "rewrite", path: `\/u\/\$\{u\}`, creatorPage: true \}/.test(read("lib/custom-domain/routing.ts")))
+    check("the creator page is still private", /rewritePath\.startsWith\("\/u\/"\)[\s\S]{0,200}"private, no-cache, must-revalidate"/.test(read("proxy.ts")))
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)

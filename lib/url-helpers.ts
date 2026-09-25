@@ -353,13 +353,12 @@ export function getLinksUrlWithCustomDomain(username: string, customDomain?: str
  * @param username - The seller's username
  * @param productSlug - The product slug
  * @param customDomain - Optional custom domain
- * @returns Full URL like "https://www.theirdomain.com/product-slug", the address a
- * domain showing the creator page gives a product (lib/custom-domain/routing.ts)
+ * @returns Full URL like "https://www.theirdomain.com/p/product-slug"
  */
 export function getProductUrlWithCustomDomain(username: string, productSlug: string, customDomain?: string | null): string {
   if (customDomain) {
     const domain = customDomain.startsWith("www.") ? customDomain : `www.${customDomain}`
-    return `https://${domain}/${productSlug}`
+    return `https://${domain}/p/${productSlug}`
   }
   return getProductUrl(username, productSlug)
 }

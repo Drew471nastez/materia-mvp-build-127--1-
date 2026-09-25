@@ -2632,13 +2632,12 @@ check(
     const config = read("next.config.mjs")
     const missing: string[] = []
 
-    /* A connected domain's storefront rewrite is decided in lib/custom-domain/routing.ts, which marks it. */
-    if (!/\{ kind: "rewrite", path: `\/u\/\$\{u\}`, creatorPage: true \}/.test(code("lib/custom-domain/routing.ts")) || !/const creatorPage = domainDecision\.creatorPage === true/.test(proxy))
+    if (!/rewritePath\.startsWith\("\/u\/"\)/.test(proxy))
       missing.push("the proxy no longer recognises a storefront rewrite")
     /* Set on whichever response the proxy returns: built by `respond()`, the
        one function the proxy uses both first and again after a session
        renewal, so the header survives a renewal too. */
-    if (!/if \(creatorPage\) r\.headers\.set\("Cache-Control", "private, no-cache, must-revalidate"\)/.test(proxy) ||
+    if (!/if \(rewritePath\.startsWith\("\/u\/"\)\) r\.headers\.set\("Cache-Control", "private, no-cache, must-revalidate"\)/.test(proxy) ||
         !/supabaseResponse = respond\(\)/.test(proxy))
       missing.push("a subdomain storefront is edge-cacheable again — saves will not show, and one viewer's page can be served to another")
 
