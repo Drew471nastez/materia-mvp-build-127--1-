@@ -2197,25 +2197,28 @@ check(
 check(
   "and the account and wishlist links open their pages in the canvas, not the builder window",
   /**
-   * They are links to the website's own /account and /wishlist now
-   * (lib/website-builder/account-pages), so in the builder they do what a
-   * nav link does: cancel the browser's navigation and open that page in
-   * the canvas. The icon row's two call `onEditorNavigate` with the path; the
-   * phone drawer's (account, the two wishlist slots and Create account) go
-   * through `handleLinkClick`, like every other link in the menu.
+   * They are links to the website's own pages now (lib/website-builder/
+   * account-pages): Sign in (/account/login) or, once signed in, Account
+   * (/account), and the Wishlist. So in the builder they do what a nav link
+   * does: cancel the browser's navigation and open that page in the canvas.
+   * The icon row's two call `onEditorNavigate` with the path; the phone
+   * drawer's (the account link and the two wishlist slots) go through
+   * `handleLinkClick`, like every other link in the menu.
    *
    * One icon still only cancels: search in the icon row, which is a real
    * anchor to /search and would otherwise take the builder away.
    *
-   * `handleLinkClick` is seven now: a nav link on the menu's root pane and
-   * one on its submenu pane, the call to action, account, the two wishlist
-   * slots and Create account. The phone's Search row is matched on its own
-   * because it is a conditional (see below).
+   * `handleLinkClick` is six now: a nav link on the menu's root pane and
+   * one on its submenu pane, the call to action, the account link and the
+   * two wishlist slots. There is no Create account any more: signing in
+   * with a new email makes the account. The phone's Search row is matched
+   * on its own because it is a conditional (see below).
    */
   (headerRenderer.match(/onClick=\{onEditorNavigate \? \(e\) => e\.preventDefault\(\) : undefined\}/g) ?? []).length === 1 &&
-    /onEditorNavigate \? \(e\) => \{ e\.preventDefault\(\); onEditorNavigate\(ACCOUNT_PATH, true\) \}/.test(headerRenderer) &&
+    /onEditorNavigate \? \(e\) => \{ e\.preventDefault\(\); onEditorNavigate\(account\.href, true\) \}/.test(headerRenderer) &&
     /onEditorNavigate \? \(e\) => \{ e\.preventDefault\(\); onEditorNavigate\(WISHLIST_PATH, true\) \}/.test(headerRenderer) &&
-    (headerRenderer.match(/onClick=\{handleLinkClick\(/g) ?? []).length === 7 &&
+    (headerRenderer.match(/onClick=\{handleLinkClick\(/g) ?? []).length === 6 &&
+    !/Create account/.test(headerRenderer.replace(/\/\*[\s\S]*?\*\//g, "")) &&
     /: handleLinkClick\("\/search"\)/.test(headerRenderer) &&
     /* Nothing leaves for the platform from the header any more. */
     !/goToPlatform|platformUrl/.test(headerRenderer),

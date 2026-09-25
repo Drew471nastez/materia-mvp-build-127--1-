@@ -115,8 +115,10 @@ const PUBLIC_BY_DESIGN: Record<string, string> = {
   "public/vitals/route.ts": "a published site's speed numbers from its visitors, for a published site only, validated, capped per site a day and limited per address",
   "website-builder/contact/route.ts": "a visitor writing to a creator from a contact form on their website; a trap field, a timing check and the rate limiter per visitor, address and store, and it tells the caller nothing about the list",
 
-  // A creator's website, signing a visitor in with a credential of its own (lib/site-accounts).
-  "site-account/exchange/route.ts": "the signed code is the credential: made by storelib.com for one person, one host and one browser's state, two minutes, and claimed once in Postgres",
+  // A creator's website, signing a customer in with a credential of its own (lib/site-accounts).
+  "site-account/code/route.ts": "a visitor asking a creator's website for a sign in code: same-origin forms only, the host must be a creator's published website, limited per address emailed, per visitor and per store, and it answers the same whether the email has an account there or not",
+  "site-account/verify/route.ts": "the code emailed to the address is the credential: kept as an HMAC, ten minutes, five tries counted by a conditional update, used once, bound to the host, the creator and this browser's signed note; it makes a customer row for that website and nothing else",
+  "site-account/profile/route.ts": "the website's own signed session cookie is the credential, for this host's creator, and the customer row must still be there; it changes that customer's name and nothing else",
   "site-account/wishlist/route.ts": "the website's own signed session cookie is the credential, for one host and one creator; without it the answer is signedIn false and nothing is read",
 
   // Reads of things that are already public.

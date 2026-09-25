@@ -9,8 +9,8 @@
  * template globals (lib/storelib-theme/globals.ts), so nothing in them is
  * typed twice.
  *
- *   /account           main_account    orders, saved items, sign out
- *   /account/login     main_login      sign in with Storelib, come back
+ *   /account           main_account    orders, profile, wishlist, sign out
+ *   /account/login     main_login      an email, then the code sent to it
  *   /wishlist          main_wishlist   the products a visitor saved
  *   /contact           contact         a message to the creator
  *
@@ -95,20 +95,33 @@ export function accountPageSections(key: string, homeSections: SectionInstance[]
 }
 
 /**
- * What the sign in page says when the last step of signing in refused a
- * code (app/api/site-account/exchange sends `?error=<why>`). Fixed words for
- * fixed reasons: nothing from the address is ever printed.
+ * What the sign in page says when a step of signing in stopped
+ * (app/api/site-account/code and /verify send `?error=<why>`,
+ * lib/site-accounts/sign-in.ts). Fixed words for fixed reasons: nothing from
+ * the address is ever printed, and none of them says whether an email has an
+ * account here.
  */
 export function signInNotice(error: unknown): string | null {
   switch (error) {
+    case "email":
+      return "Enter a valid email address."
+    case "code":
+      return "That code is not right. Check it and try again."
     case "expired":
-      return "That sign in took too long. Sign in again."
-    case "used":
-      return "That sign in link was already used. Sign in again."
-    case "mismatch":
-      return "That sign in did not finish in this browser. Sign in again."
+      return "That code has expired. Send a new one."
+    case "tries":
+      return "Too many tries with that code. Send a new one."
+    case "restart":
+      return "That sign in has expired. Enter your email to get a new code."
+    case "limit":
+      return "Too many codes asked for at once. Try again in a few minutes."
+    case "send":
+      return "The email with your code could not be sent. Try again in a minute."
+    case "site":
     case "unavailable":
-      return "Signing in on this website is not available yet. Your orders are in your Storelib Library."
+      return "Signing in on this website is not available yet."
+    case "failed":
+      return "Something went wrong. Try again."
     default:
       return null
   }

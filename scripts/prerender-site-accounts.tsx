@@ -5,6 +5,12 @@
  * globals a page hands them, then the whole ThemePage to a string. Bundled
  * and run by scripts/check-site-accounts.mjs, which hydrates each one in
  * Chromium and measures it.
+ *
+ * The account page's customer is shaped by the live site's own function
+ * (lib/site-accounts/account-data customerOrders), over order rows shaped
+ * like the orders table's. The builder's version of the account and
+ * wishlist pages is drawn with the canvas's own globals (editorGlobals) and
+ * `page.in_editor`, so what is measured there is what a creator sees.
  */
 import { renderToString } from "react-dom/server"
 import { createElement } from "react"
@@ -19,6 +25,8 @@ import { buildThemePreset, getThemeBySlug } from "@/lib/website-builder/theme-re
 import { templateForPage } from "@/lib/website-builder/site-pages"
 import { wishlistObject, type StorefrontGlobals } from "@/lib/storelib-theme/globals"
 import { toCard, type ProductCard } from "@/lib/website-builder/shop-products"
+import { customerOrders } from "@/lib/site-accounts/account-data"
+import { editorGlobals } from "@/components/website-builder/sections/storelib-live"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 
 const OUT = process.env.OUT_DIR!
@@ -52,26 +60,68 @@ const PRODUCTS: ProductCard[] = [
 
 const SAVED = PRODUCTS.slice(0, 3)
 
+/**
+ * The orders table as the account page reads it, for one customer: a
+ * basket of two, a free course, a refund, and a long product name, shaped
+ * into orders by the live site's own function.
+ */
+async function ordersFor(email: string) {
+  const creator = CREATOR
+  const rows = [
+    { id: "3f2a9c1b-0000-4000-8000-000000000001", product_id: PRODUCTS[0].id, stripe_session_id: "cs_test_basket", amount_cents: 6400, created_at: "2026-09-21T10:00:00Z", receipt_token: "probe-basket-aaaaaaaaaaaa" },
+    { id: "3f2a9c1b-0000-4000-8000-000000000002", product_id: PRODUCTS[3].id, stripe_session_id: "cs_test_basket", amount_cents: 3800, created_at: "2026-09-21T10:00:01Z", receipt_token: "probe-basket-bbbbbbbbbbbb", variant_name: "Sand" },
+    { id: "7c11d0e2-0000-4000-8000-000000000003", product_id: "10000000-0000-4000-8000-00000000c0de", amount_cents: 0, created_at: "2026-09-24T09:00:00Z", receipt_token: "probe-course-aaaaaaaaaaaa" },
+    { id: "a0b1c2d3-0000-4000-8000-000000000004", product_id: PRODUCTS[1].id, amount_cents: 2900, created_at: "2026-08-30T09:00:00Z", receipt_token: "probe-refund-aaaaaaaaaaaa", status: "refunded" },
+  ].map((r) => ({ creator_id: creator, buyer_email: email, status: "completed", currency: "usd", tip_cents: 0, paypal_order_id: null, refund_amount_cents: null, shipped_at: null, delivered_at: null, variant_name: null, stripe_session_id: null, ...r }))
+  const products = [
+    ...PRODUCTS.map((p) => ({ id: p.id, title: String(p.settings.title), slug: String(p.settings.slug), thumbnail_url: String(p.settings.image), type: "digital", status: "published", creator_id: creator })),
+    { id: "10000000-0000-4000-8000-00000000c0de", title: "Hand stitching for beginners, the complete six week course with printable patterns", slug: "stitching", thumbnail_url: null, type: "course", status: "published", creator_id: creator },
+  ]
+  /* A two-table stand-in that answers the chains customerOrders makes. */
+  const db = {
+    from(table: string) {
+      const all = table === "orders" ? rows : products
+      let out = [...all] as Record<string, unknown>[]
+      const q = {
+        select: () => q,
+        eq: (c: string, v: unknown) => ((out = out.filter((r) => r[c] === v)), q),
+        in: (c: string, v: unknown[]) => ((out = out.filter((r) => v.includes(r[c]))), q),
+        ilike: (c: string, v: string) => ((out = out.filter((r) => String(r[c]).toLowerCase() === v.replace(/\\(.)/g, "$1").toLowerCase())), q),
+        order: () => q,
+        limit: () => q,
+        then: (ok: (v: { data: unknown; error: null }) => unknown) => Promise.resolve({ data: out, error: null }).then(ok),
+      }
+      return q
+    },
+  }
+  return customerOrders(db, { creatorId: creator, email }, "https://storelib.com")
+}
+
+async function main() {
 for (const slug of ["storelib-default", "studio-noir"]) {
   const def = getThemeBySlug(slug)!
   const preset = buildThemePreset(def)
   const theme = preset.settings as ThemeSettingsValues
   const home = preset.pages.home as SectionInstance[]
-  const customer = {
-    name: "Alex Morgan",
-    first_name: "Alex",
-    email: "alex.morgan@example.com",
-    orders_count: 2,
-    orders: [
-      { id: PRODUCTS[0].id, title: "Linen apron", image: PRODUCTS[0].settings.image, url: "/products/linen-apron", date: "Sep 21, 2026", price: "$64.00", action_label: "Download", action_url: "https://storelib.com/library/products/p1" },
-      { id: PRODUCTS[3].id, title: "Wash bag", image: PRODUCTS[3].settings.image, url: "/products/wash-bag", date: "Aug 30, 2026", price: "$38.00", action_label: "Receipt", action_url: "https://storelib.com/receipt/r1" },
-    ],
-  }
+  const email = "ana.pop@mail.test"
+  const orders = await ordersFor(email)
+  const customer = { name: "Ana Pop", first_name: "Ana", email, orders, orders_count: orders.length, sample: false }
+  const newcomer = { name: "", first_name: "", email: "first.visit@mail.test", orders: [], orders_count: 0, sample: false }
+  const editor = editorGlobals("page.account", PRODUCTS, Date.parse("2026-09-25T12:00:00Z"))!
+  const editorWishlist = editorGlobals("page.wishlist", PRODUCTS)!
   const pages: { key: string; sections: SectionInstance[]; template: string; globals?: StorefrontGlobals; page?: Record<string, unknown>; seed: string[] }[] = [
-    { key: "login", sections: loginSections(home), template: templateForPage("login"), seed: [] },
+    { key: "login", sections: loginSections(home), template: templateForPage("login"), page: { step: "email", return_to: "/account" }, seed: [] },
+    { key: "login-code", sections: loginSections(home), template: templateForPage("login"), page: { step: "code", email: "first.visit@mail.test", return_to: "/account" }, seed: [] },
+    { key: "login-wrong", sections: loginSections(home), template: templateForPage("login"), page: { step: "code", email: "first.visit@mail.test", return_to: "/account", notice: "That code is not right. Check it and try again." }, seed: [] },
     { key: "account", sections: accountSections(home), template: templateForPage("account"), globals: { customer, wishlist: wishlistObject(SAVED.slice(0, 2), true) }, seed: [] },
+    { key: "account-new", sections: accountSections(home), template: templateForPage("account"), globals: { customer: newcomer, wishlist: wishlistObject([], true) }, seed: [] },
+    { key: "account-edit", sections: accountSections(home), template: templateForPage("account"), page: { edit: "name" }, globals: { customer, wishlist: wishlistObject(SAVED.slice(0, 2), true) }, seed: [] },
     { key: "wishlist", sections: wishlistSections(home), template: templateForPage("wishlist"), globals: { wishlist: wishlistObject(SAVED, false) }, seed: SAVED.map((p) => p.id) },
-    { key: "contact", sections: contactSections(home), template: templateForPage("contact"), globals: { shop: { name: def.sample.brand, email: "hello@example.com" } }, seed: [] },
+    /* The builder's canvas: its globals and in_editor, as storelib-live.tsx hands them. */
+    { key: "editor-account", sections: accountSections(home), template: templateForPage("account"), page: { in_editor: true }, globals: editor, seed: [] },
+    { key: "editor-login", sections: loginSections(home), template: templateForPage("login"), page: { in_editor: true }, seed: [] },
+    { key: "editor-wishlist", sections: wishlistSections(home), template: templateForPage("wishlist"), page: { in_editor: true }, globals: editorWishlist, seed: [] },
+    { key: "contact", sections: contactSections(home), template: templateForPage("contact"), globals: { shop: { name: def.sample.brand, email: "hello@store.test" } }, seed: [] },
     { key: "shop", sections: shopSections(home, theme), template: "page.products", seed: [] },
     /* The control: the theme's own home page, which none of this touches. */
     { key: "home", sections: home, template: "index", seed: [] },
@@ -85,3 +135,9 @@ for (const slug of ["storelib-default", "studio-noir"]) {
     writeFileSync(join(OUT, `${slug}-${p.key}.json`), JSON.stringify({ theme: slug, key: p.key, template: p.template, prerendered, props, ssr, seed: p.seed, creatorId: CREATOR }))
   }
 }
+}
+
+main().catch((e) => {
+  console.error(e)
+  process.exit(1)
+})

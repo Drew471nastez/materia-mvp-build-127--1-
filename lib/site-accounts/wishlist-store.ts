@@ -1,53 +1,46 @@
 /**
  * ===========================================================================
- *  A SIGNED-IN VISITOR'S SAVED ITEMS, FOR ONE WEBSITE
+ *  A SIGNED-IN CUSTOMER'S SAVED ITEMS, ON ONE WEBSITE
  * ===========================================================================
- * Kept in `wishlist_items`, the table storelib.com's own wishlist has always
- * used (scripts/012_create_wishlist_table.sql): one row per person and
- * product, unique on (user_id, product_id), with row level security that
- * lets a signed-in person read and change their own rows. So a heart pressed
- * on a creator's website is also in that person's Wishlist in their Library
- * on storelib.com, and one pressed there shows here: one account, one list.
+ * Kept in `site_customer_wishlist` (supabase/sql/run-now/33): one row per
+ * customer and product, the customer being a customer of this one creator's
+ * website (lib/site-accounts/customers.ts). A guest's list lives in their
+ * browser (./wishlist-list.ts) and moves in here when they sign in.
  *
- * A website sees the part of that list that is its creator's products and
- * nothing else. Every read and write here is scoped TWICE, and neither half
- * is optional:
+ * Every read and write is scoped TWICE, and neither half is optional:
  *
- *   by the person      `user_id` is the signed session's, never a value from
- *                      the request; a function here cannot be asked about
- *                      somebody else;
+ *   by the customer    `customer_id` is the signed session's, never a value
+ *                      from the request; a function here cannot be asked
+ *                      about somebody else;
  *   by the creator     a product is only ever added, listed or merged when it
  *                      is one of this creator's published products, checked
- *                      against `products` on the way in.
+ *                      against `products` on the way in and on the way out.
  *
- * These run with the server's key because the website has no Supabase
- * session to run them with (its visitors sign in on storelib.com). The
- * scoping above is therefore the whole of the access control, which is why
- * tests/site-accounts.test.ts runs every function against a database that
- * holds other people's rows and other creators' products, and checks none of
- * them is ever read or touched.
+ * These run with the server's key (the table is closed to the public key,
+ * like the rest of part 33), so the scoping above is the whole of the access
+ * control, which is why tests/site-accounts.test.ts runs every function
+ * against a database that holds other customers' rows and other creators'
+ * products, and checks none of them is ever read or touched.
  *
  * Every failure is quiet and says so to the caller: `available: false` when
  * the table is not there, so the page falls back to the browser's own list.
  */
 
 import { cleanList, isProductId, merged, WISHLIST_MAX } from "./wishlist-list"
-import { isMissingTable } from "./codes"
+import { isMissingTable, UUID, type Db } from "./db"
 import { toCard, type ProductCard } from "@/lib/website-builder/shop-products"
-
-type Db = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 
 export type WishlistResult = { available: true; ids: string[] } | { available: false; ids: string[] }
 
 interface Scope {
-  userId: string
+  customerId: string
   creatorId: string
 }
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const SAVED = "site_customer_wishlist"
 
 function scoped(scope: Scope): boolean {
-  return UUID.test(scope.userId) && UUID.test(scope.creatorId)
+  return UUID.test(scope.customerId) && UUID.test(scope.creatorId)
 }
 
 /** Of these ids, the ones that are this creator's published products. */
@@ -68,14 +61,14 @@ export async function creatorProducts(db: Db, creatorId: string, ids: string[]):
   }
 }
 
-/** This person's saved items that belong to this creator, newest first. */
+/** This customer's saved items that are still this creator's published products, newest first. */
 export async function listSiteWishlist(db: Db, scope: Scope): Promise<WishlistResult> {
   if (!scoped(scope)) return { available: true, ids: [] }
   try {
     const { data, error } = await db
-      .from("wishlist_items")
+      .from(SAVED)
       .select("product_id, created_at")
-      .eq("user_id", scope.userId)
+      .eq("customer_id", scope.customerId)
       .order("created_at", { ascending: false })
       .limit(500)
     if (error) return isMissingTable(error) ? { available: false, ids: [] } : { available: true, ids: [] }
@@ -87,14 +80,14 @@ export async function listSiteWishlist(db: Db, scope: Scope): Promise<WishlistRe
   }
 }
 
-/** Saves one of this creator's products for this person. Saving twice is saving once. */
+/** Saves one of this creator's products for this customer. Saving twice is saving once. */
 export async function addToSiteWishlist(db: Db, scope: Scope, productId: string): Promise<WishlistResult> {
   if (!scoped(scope) || !isProductId(productId)) return listSiteWishlist(db, scope)
   const id = productId.toLowerCase()
   const ok = await creatorProducts(db, scope.creatorId, [id])
   if (!ok.has(id)) return listSiteWishlist(db, scope)
   try {
-    const { error } = await db.from("wishlist_items").insert({ user_id: scope.userId, product_id: id })
+    const { error } = await db.from(SAVED).insert({ customer_id: scope.customerId, product_id: id })
     if (error && isMissingTable(error)) return { available: false, ids: [] }
     /* 23505: already saved, which is the state being asked for. */
   } catch {
@@ -103,19 +96,15 @@ export async function addToSiteWishlist(db: Db, scope: Scope, productId: string)
   return listSiteWishlist(db, scope)
 }
 
-/** Takes one of this creator's products out of this person's list. */
+/** Takes one product out of this customer's list. */
 export async function removeFromSiteWishlist(db: Db, scope: Scope, productId: string): Promise<WishlistResult> {
   if (!scoped(scope) || !isProductId(productId)) return listSiteWishlist(db, scope)
   const id = productId.toLowerCase()
-  /* Only ever a product of this creator: a website cannot empty the rest of somebody's list. */
-  const ok = await creatorProducts(db, scope.creatorId, [id])
-  if (ok.has(id)) {
-    try {
-      const { error } = await db.from("wishlist_items").delete().eq("user_id", scope.userId).eq("product_id", id)
-      if (error && isMissingTable(error)) return { available: false, ids: [] }
-    } catch {
-      /* Listed below as it stands. */
-    }
+  try {
+    const { error } = await db.from(SAVED).delete().eq("customer_id", scope.customerId).eq("product_id", id)
+    if (error && isMissingTable(error)) return { available: false, ids: [] }
+  } catch {
+    /* Listed below as it stands. */
   }
   return listSiteWishlist(db, scope)
 }
@@ -135,7 +124,7 @@ export async function mergeIntoSiteWishlist(db: Db, scope: Scope, guestIds: unkn
   const room = Math.max(0, WISHLIST_MAX - current.ids.length)
   for (const id of fresh.slice(0, room)) {
     try {
-      await db.from("wishlist_items").insert({ user_id: scope.userId, product_id: id })
+      await db.from(SAVED).insert({ customer_id: scope.customerId, product_id: id })
     } catch {
       /* One that did not save is one fewer, not a failed sign in. */
     }
