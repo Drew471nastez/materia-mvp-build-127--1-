@@ -38,8 +38,17 @@ const PRESS_AREA_BORDERED = "relative after:absolute after:inset-x-0 after:-inse
 /** A labelled button in the bar. */
 export const barButton = cn(secondaryDepth, PRESS_AREA_BORDERED, "h-10 rounded-[10px] px-3.5 text-[15px] sm:h-8 sm:rounded-lg sm:px-3 sm:text-[13px]")
 
+/**
+ * A BUTTON THAT IS ONLY AN ICON, A STEP QUIETER. The three dots (and, on the
+ * list, Preview beside them) had the full depth of the labelled buttons,
+ * which stood them as tall as Cancel and Save: "too much depth". The same
+ * white and hairline, a lighter border and a softer foot, and the same flat
+ * press. One value, so the editor's more button and the list's read alike.
+ */
+export const quietDepth = cn(secondaryDepth, "border-[#e1e3e7] shadow-[inset_0_-1px_0_rgba(0,0,0,0.05)]")
+
 /** The more button: square, the same height as Save. */
-export const barIconButton = cn(secondaryDepth, PRESS_AREA_BORDERED, "h-10 w-10 rounded-[10px] text-[#4b5563] sm:h-8 sm:w-8 sm:rounded-lg")
+export const barIconButton = cn(quietDepth, PRESS_AREA_BORDERED, "h-10 w-10 rounded-[10px] text-[#4b5563] sm:h-8 sm:w-8 sm:rounded-lg")
 
 /**
  * THE WAY OUT OF THE EDITOR: CANCEL, OR BACK.
@@ -55,7 +64,18 @@ export const barIconButton = cn(secondaryDepth, PRESS_AREA_BORDERED, "h-10 w-10 
  * A screen reader hears only the word that applies.
  */
 export type LeaveMode = "cancel" | "back"
-export function LeaveButton({ mode, disabled = false, onLeave }: { mode: LeaveMode; disabled?: boolean; onLeave: () => void }) {
+export function LeaveButton({
+  mode,
+  disabled = false,
+  leaving = false,
+  onLeave,
+}: {
+  mode: LeaveMode
+  disabled?: boolean
+  /** The press has been taken and the list is on its way: a spinner where the word was, and no second press. */
+  leaving?: boolean
+  onLeave: () => void
+}) {
   const back = mode === "back"
   const word = "col-start-1 row-start-1 flex items-center justify-center transition-opacity duration-150 motion-reduce:transition-none"
   return (
@@ -63,18 +83,25 @@ export function LeaveButton({ mode, disabled = false, onLeave }: { mode: LeaveMo
       type="button"
       data-leave-button=""
       data-mode={mode}
+      data-leaving={leaving ? "" : undefined}
       aria-label={back ? "Back" : "Cancel"}
+      aria-busy={leaving || undefined}
       disabled={disabled}
-      onClick={onLeave}
-      className={cn(barButton, "grid")}
+      onClick={leaving ? undefined : onLeave}
+      className={cn(barButton, "grid", leaving && "bg-[#f1f2f4] shadow-[inset_0_1px_1px_rgba(0,0,0,0.1)]")}
     >
-      <span aria-hidden className={cn(word, back ? "opacity-0" : "opacity-100")}>
+      <span aria-hidden className={cn(word, back || leaving ? "opacity-0" : "opacity-100")}>
         Cancel
       </span>
-      <span aria-hidden className={cn(word, "-ml-1 gap-0.5", back ? "opacity-100" : "opacity-0")}>
+      <span aria-hidden className={cn(word, "-ml-1 gap-0.5", back && !leaving ? "opacity-100" : "opacity-0")}>
         <ChevronLeft className="h-[18px] w-[18px] sm:h-4 sm:w-4" strokeWidth={2.25} />
         Back
       </span>
+      {leaving ? (
+        <span className={cn(word, "opacity-100")}>
+          <ActivitySpinner size={16} label="Going back to products" className="text-[#4b5563]" />
+        </span>
+      ) : null}
     </button>
   )
 }

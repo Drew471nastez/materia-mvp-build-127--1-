@@ -128,7 +128,7 @@ check("no row of section tabs on any width, and no scroll spy behind one",
   !/role="tablist"|role="tab"|aria-label="Sections"|PILL_SECTIONS|getPillForSection|activeSection|pillScrollRef|pillRefs|completedSections/.test(editor))
 check("a failed check still brings its card into view, the files check its own card", /const scrollToSection = \(sectionId: SectionId\)/.test(editor) && /showToast\("Upload a file"\)[\s\S]{0,160}scrollToSection\("files"\)/.test(editor) && /sectionRefs\.current\.files = el/.test(editor))
 check("no fixed Save and Cancel strip over a phone's foot", !/fixed bottom-0 left-0 right-0/.test(editor) && !/Bottom Action Bar/.test(read("app/app/products/new/product-editor.tsx")))
-check("the top bar is sticky at the top below lg and holds Cancel (or Back) and Save", /data-editor-bar=""/.test(editor) && /"sticky top-0 z-30 [^"]* lg:hidden"/.test(editor) && /<SaveButton phase=\{savePhase\}/.test(editor) && /<LeaveButton mode=\{leaveMode\} disabled=\{saveBusy\} onLeave=\{\(\) => void handleCancel\(\)\} \/>/.test(editor))
+check("the top bar is sticky at the top below lg and holds Cancel (or Back) and Save", /data-editor-bar=""/.test(editor) && /"sticky top-0 z-30 [^"]* lg:hidden"/.test(editor) && /<SaveButton phase=\{savePhase\}/.test(editor) && /<LeaveButton mode=\{leaveMode\} disabled=\{saveBusy\} leaving=\{leaving\} onLeave=\{\(\) => void handleCancel\(\)\} \/>/.test(editor))
 check("Cmd or Ctrl and S saves", /e\.metaKey \|\| e\.ctrlKey/.test(editor) && /key\.toLowerCase\(\) !== "s"/.test(editor))
 const barSource = editor.slice(editor.indexOf('data-editor-bar=""'), editor.indexOf('data-editor-page=""'))
 check("the bar names no product: the name is in the title field", barSource.length > 0 && !/savedTitle|\{title\}|"Untitled product"/.test(barSource) && /<h1 className="sr-only">\{productId \? "Edit product" : "New product"\}<\/h1>/.test(barSource))
@@ -196,13 +196,17 @@ const buttons = code("app/app/products/new/editor-buttons.tsx") + code("componen
 check("Cancel and more are white with a hairline and a shade at their foot, flat when pressed",
   /border border-\[#d9dbe0\] bg-white/.test(buttons) && /shadow-\[inset_0_-1px_0_rgba\(0,0,0,0\.08\),0_1px_0_rgba\(0,0,0,0\.05\)\]/.test(buttons) && /active:shadow-\[inset_0_1px_1px_rgba\(0,0,0,0\.1\)\]/.test(buttons))
 check("the more button is square and Save's height: 40px on a phone, 32px from 640px",
-  /barIconButton = cn\(secondaryDepth, PRESS_AREA_BORDERED, "h-10 w-10 [^"]*sm:h-8 sm:w-8/.test(buttons) && /"h-10 min-w-\[64px\][^"]*sm:h-8/.test(buttons))
+  /barIconButton = cn\(quietDepth, PRESS_AREA_BORDERED, "h-10 w-10 [^"]*sm:h-8 sm:w-8/.test(buttons) && /export const quietDepth = cn\(secondaryDepth, /.test(buttons) && /"h-10 min-w-\[64px\][^"]*sm:h-8/.test(buttons))
 check("Save keeps its word in the layout while busy, and is always as wide as Saved, so its width never changes",
   /<span className=\{cn\("col-start-1 row-start-1 text-center", busy && "opacity-0"\)\}>\{word\}<\/span>/.test(buttons) && /after:content-\['Saved'\]/.test(buttons) && /absolute inset-0 flex items-center justify-center/.test(buttons))
 check("the grey Save says Saved only when it is disabled after a save", /const word = !busy && disabled && saved \? "Saved" : "Save"/.test(buttons))
 check("Save's violet and depth are one exported set (primaryDepth), which New product wears too", /export const primaryDepth = cn\(/.test(buttons) && /PRESS_AREA,\s*primaryDepth,/.test(buttons))
 check("Cancel and Back are one button holding both words, crossfading, so the bar never moves",
-  /export function LeaveButton/.test(buttons) && /data-leave-button=""/.test(buttons) && /aria-label=\{back \? "Back" : "Cancel"\}/.test(buttons) && /<ChevronLeft/.test(buttons) && /transition-opacity duration-150 motion-reduce:transition-none/.test(buttons) && /cn\(barButton, "grid"\)/.test(buttons))
+  /export function LeaveButton/.test(buttons) && /data-leave-button=""/.test(buttons) && /aria-label=\{back \? "Back" : "Cancel"\}/.test(buttons) && /<ChevronLeft/.test(buttons) && /transition-opacity duration-150 motion-reduce:transition-none/.test(buttons) && /cn\(barButton, "grid", leaving && /.test(buttons))
+/* "When I click Cancel or Back nothing happens, then five seconds later it goes back": the press is answered on its own frame. */
+check("Cancel and Back answer the press at once: a spinner in the button, the loading bar told, no second press",
+  /data-leaving=\{leaving \? "" : undefined\}/.test(buttons) && /onClick=\{leaving \? undefined : onLeave\}/.test(buttons) && /<ActivitySpinner size=\{16\}/.test(buttons)
+    && /setLeaving\(true\)\s*startNavigationLoading\(PRODUCTS_HREF\)/.test(editor))
 check("busy is aria-busy and not disabled, and a press while busy does nothing", /aria-busy=\{phase === "saving" \|\| undefined\}/.test(buttons) && /disabled=\{!busy && disabled\}/.test(buttons) && /if \(!busy\) onSave\(\)/.test(buttons))
 check("a check for SAVED_CHECK_MS after a save", /export const SAVED_CHECK_MS = 900/.test(buttons) && /data-save-check=""/.test(buttons) && /setTimeout\(\(\) => setSavedFlash\(false\), SAVED_CHECK_MS\)/.test(editor))
 check("disabled is Polaris grey with no depth", /disabled:bg-\[#ebebef\] disabled:text-\[#a1a1aa\] disabled:shadow-none/.test(buttons))
@@ -290,18 +294,19 @@ check("from 1024px every size is the page's own times 1.07, in real sizes: text,
 /* "In the Products page the New product button at the top should be purple." */
 check("New product is the one violet button, the editor's Save's colour and depth (primaryDepth, not a copy), with no icon, 32px (34 from 1024px), and a 44px press on a phone",
   /const NEW_LOOK = cn\(primaryDepth, PRESS, "h-8 gap-1\.5 rounded-lg px-3 text-\[13px\]", BAR_BUTTON_SIZE\)/.test(list) && /data-new-product=""[\s\S]{0,280}className=\{NEW_LOOK\}\s*>\s*\{t\("products\.newProduct"\)\}\s*<\/Link>/.test(list)
-    && /import \{ primaryDepth, secondaryDepth \} from "\.\/new\/editor-buttons"/.test(list) && !/buttonAccent|buttonPrimary/.test(list) && !/bg-\[#8b5cf6\]/.test(list) && /max-md:after:-inset-1\.5/.test(list))
+    && /import \{ primaryDepth, quietDepth \} from "\.\/new\/editor-buttons"/.test(list) && !/buttonAccent|buttonPrimary/.test(list) && !/bg-\[#8b5cf6\]/.test(list) && /max-md:after:-inset-1\.5/.test(list))
 /* "Make sure the three dots button in the products page has the same depth as the three dots button in the edit product page." */
 /* "Reduce the products page's overall scale by about 10%": the more button came down with it, the depth stayed. Then Preview joined it at the same size. */
-check("a row's more button wears the editor's secondaryDepth, 32px with a 44px press on a phone (beside Preview), 28px in the table and 30px from 1024px",
+/* "The three dots button has too much depth, reduce it a little": the editor's and the list's together, so they still match. */
+check("a row's more button wears the editor's quieter icon depth (quietDepth), 32px with a 44px press on a phone (beside Preview), 28px in the table and 30px from 1024px",
   /const ROW_BUTTON_PHONE = "relative z-\[1\] h-8 w-8 rounded-lg text-\[#4b5563\] after:absolute after:-inset-1\.5 after:content-\[''\]"/.test(list)
     && /const ROW_BUTTON_TABLE = "h-7 w-7 rounded-\[7px\] text-\[#4b5563\] lg:h-\[30px\] lg:w-\[30px\] lg:\[&>svg\]:h-\[17px\] lg:\[&>svg\]:w-\[17px\]"/.test(list)
-    && /const ROW_MENU_PHONE = cn\(secondaryDepth, ROW_BUTTON_PHONE\)/.test(list) && /const ROW_MENU_TABLE = cn\(secondaryDepth, ROW_BUTTON_TABLE\)/.test(list)
+    && /const ROW_MENU_PHONE = cn\(quietDepth, ROW_BUTTON_PHONE\)/.test(list) && /const ROW_MENU_TABLE = cn\(quietDepth, ROW_BUTTON_TABLE\)/.test(list)
     && /className=\{ROW_MENU_PHONE\}/.test(list) && /className=\{ROW_MENU_TABLE\}/.test(list) && !/shadow-\[inset_0_-1px_0/.test(list))
 /* "For each product add the eye icon next to the ... A small view icon with a little bit of depth; when clicked it opens a preview in a new browser tab; it has a tooltip Preview." */
 check("every row has Preview beside the more button, the same size and depth, on a phone and in the table",
-  /const EYE_DEPTH = cn\(\s*secondaryDepth,/.test(list) && /const EYE_PHONE = cn\(EYE_DEPTH, ROW_BUTTON_PHONE\)/.test(list) && /const EYE_TABLE = cn\(EYE_DEPTH, ROW_BUTTON_TABLE\)/.test(list)
-    && /\{previewButton\(product, EYE_PHONE, false\)\}\s*<ResponsiveActionMenu/.test(list) && /\{previewButton\(product, EYE_TABLE, true\)\}\s*<ResponsiveActionMenu/.test(list))
+  /const EYE_DEPTH = cn\(\s*quietDepth,/.test(list) && /const EYE_PHONE = cn\(EYE_DEPTH, ROW_BUTTON_PHONE\)/.test(list) && /const EYE_TABLE = cn\(EYE_DEPTH, ROW_BUTTON_TABLE\)/.test(list)
+    && /\{opening === product\.id \? openingMark\("phone"\) : previewButton\(product, EYE_PHONE, false\)\}\s*<ResponsiveActionMenu/.test(list) && /\{opening === product\.id \? openingMark\("table"\) : previewButton\(product, EYE_TABLE, true\)\}\s*<ResponsiveActionMenu/.test(list))
 check("Preview opens the product's own page, the address View opens, in a new tab with noopener noreferrer, labelled with the name",
   /const url = getProductUrl\(creatorUsername, product\.slug\)/.test(list) && /label: t\("common\.view"\), href: getProductUrl\(creatorUsername, product\.slug\), target: "_blank"/.test(list)
     && /<a href=\{url\} target="_blank" rel="noopener noreferrer" data-preview="" aria-label=\{`Preview \$\{product\.title\}`\} onClick=\{openPreview\(url\)\}/.test(list))
@@ -349,7 +354,7 @@ check("price and sales are quiet grey 12px text under the name, ending in an ell
 check("a phone row names its status only when it is not on sale, as a dot and a word, not a badge",
   /view === "all" && status !== "live"/.test(list) && /function StatusMark/.test(list) && !/StatusBadge/.test(list) && /bg-\[#e0a100\]/.test(list))
 check("a product with no picture shows its first letter, not a box icon", /Array\.from\(title\.trim\(\)\)\[0\]/.test(list) && !/<Package/.test(list))
-check("table rows are 56px (60 from 1024px, 68 from 1280px), the whole row opens the product, and nothing from a menu's portal does", /className="group h-14 cursor-pointer lg:h-\[60px\] xl:h-\[68px\] /.test(list) && /openEditor\(router, `\/app\/products\/\$\{product\.id\}`\)/.test(list) && /!e\.currentTarget\.contains\(target\)/.test(list) && !/\{t\("products\.edit"\)\}/.test(list))
+check("table rows are 56px (60 from 1024px, 68 from 1280px), the whole row opens the product, and nothing from a menu's portal does", /className="group h-14 cursor-pointer lg:h-\[60px\] xl:h-\[68px\] /.test(list) && /if \(!e\.currentTarget\.contains\(target\) \|\| target\.closest\("a,button,input,label"\)\) return\s*open\(product\.id\)/.test(list) && /requestAnimationFrame\(\(\) => requestAnimationFrame\(\(\) => openEditor\(router, href\)\)\)/.test(list) && /!e\.currentTarget\.contains\(target\)/.test(list) && !/\{t\("products\.edit"\)\}/.test(list))
 check("no grey heading band in the table", !/bg-\[#f7f7f8\] pl-4/.test(list) && /<th scope="col" className="border-b border-\[#eef0f2\] pl-4 pr-3 font-medium lg:pl-\[17px\] lg:pr-\[13px\] xl:pl-\[21px\]">Product<\/th>/.test(list))
 check("numbers right aligned in figures of one width, Sales from 1024px", /text-right font-medium tabular-nums text-\[#1a1a2e\]/.test(list) && /hidden w-\[94px\] border-b border-\[#eef0f2\] px-3 text-right font-medium lg:table-cell lg:px-\[13px\] xl:w-\[107px\]">Sales/.test(list))
 check("fifty to a page, with the footer's count and arrows, the count left off a phone with one page", /const PAGE_SIZE = 50/.test(list) && /data-footer=""/.test(list) && /aria-label="Next page"/.test(list) && /pages === 1 && "max-md:hidden"/.test(list))
