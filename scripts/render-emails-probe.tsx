@@ -1,79 +1,111 @@
 /**
- * The Emails home screen (app/app/emails/emails-home.tsx) with a creator's
- * worth of subscribers, automations and emails, for
- * scripts/check-emails-page.mjs to measure in Chromium.
+ * The whole Emails page (app/app/emails/emails-client.tsx): its tabs, its
+ * cache, and an email's own page over the list, against a stand-in
+ * Supabase (./.emails-probe/supabase-client.js, written by the probe) and a
+ * stand-in server answered here, for scripts/check-emails-page.mjs to drive
+ * in Chromium.
+ *
+ * Every request waits LATENCY ms, like a real one, and is written to
+ * window.__requests, so the probe can tell a tab drawn from the cache from
+ * one drawn after a wait. The email's page is the real HTML the send builds
+ * (lib/email-campaigns/template.ts).
  */
 import React from "react"
 import { createRoot } from "react-dom/client"
-import { EmailsHome, type EmailsTab } from "@/app/app/emails/emails-home"
-import { resolveValue, todayIn } from "@/lib/date-range/range"
+import { EmailsClient } from "@/app/app/emails/emails-client"
+import { buildEmail } from "@/lib/email-campaigns/template"
+import { newBlock, renderBlocks, type Block } from "@/lib/email-campaigns/blocks"
+import { themeOf } from "@/lib/email-campaigns/brand"
 
-const today = todayIn("UTC", Date.parse("2026-09-24T12:00:00Z"))
-const subscribers = Array.from({ length: 73 }, (_, i) => ({
-  id: `s${i}`,
-  email: i === 3 ? "a-very-long-address-that-goes-on@studio-with-a-long-domain-name.com" : `person${i}@example.com`,
-  name: i % 3 === 0 ? "" : `Person ${i}`,
-  source: i % 2 ? "onepage" : "store_builder",
-  status: i % 9 === 0 ? "unsubscribed" : "subscribed",
-  subscribed_at: new Date(Date.parse("2026-09-01") - i * 86400000).toISOString(),
-  unsubscribed_at: i % 13 === 0 ? "2026-08-01T00:00:00Z" : null,
-}))
-const flows = [
-  { id: "f1", name: "Welcome", trigger_type: "new_subscriber", status: "active", steps: [1, 2], totals: { sent: 412, opened: 252, clicked: 40, failed: 0, in_progress: 6 } },
-  { id: "f2", name: "Thank you for buying", trigger_type: "purchase", status: "paused", steps: [1], totals: null },
-]
-const campaigns = Array.from({ length: 12 }, (_, i) => ({
-  id: `c${i}`,
-  subject: i === 1 ? "New presets are out, and the autumn pack is half price until Sunday (Resend)" : `Update number ${i}`,
-  sent_at: new Date(Date.parse("2026-09-20") - i * 3 * 86400000).toISOString(),
-  scheduled_at: "2026-10-01T09:00:00Z",
+const LATENCY = 150
+type W = { __requests: { method: string; url: string; at: number }[] }
+const w = window as unknown as W
+w.__requests = []
+
+const reply = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } })
+
+const sent = Array.from({ length: 14 }, (_, i) => ({
+  id: `00000000-0000-4000-8000-${String(i + 1).padStart(12, "0")}`,
+  subject: i === 1 ? "New presets are out, and the autumn pack is half price until Sunday" : `Studio notes, issue ${30 - i}`,
+  status: i === 2 ? "partially_failed" : "sent",
+  sent_at: new Date(Date.parse("2026-09-20T15:04:00Z") - i * 3 * 86400000).toISOString(),
   created_at: "2026-09-10T09:00:00Z",
-  recipient_count: 300 + i,
-  unique_opens: 150 - i,
-  unique_clicks: 30,
+  recipient_count: 1200 + i,
+  unique_opens: 610 - i * 7,
+  unique_clicks: 140 - i,
 }))
+const scheduled = [{ id: "00000000-0000-4000-8000-000000000101", subject: "October drop", status: "scheduled", scheduled_at: "2026-10-01T09:00:00Z", created_at: "2026-09-18T09:00:00Z", updated_at: "2026-09-19T11:00:00Z", audience_count: 1204 }]
+const drafts = Array.from({ length: 4 }, (_, i) => ({ id: `00000000-0000-4000-8000-00000000020${i}`, subject: i === 0 ? "" : `Draft ${i}`, status: "draft", created_at: "2026-09-15T09:00:00Z", updated_at: new Date(Date.parse("2026-09-22T10:00:00Z") - i * 86400000).toISOString() }))
+
+const brand = { name: "Ana Pop Studio", logoUrl: null, storeUrl: "https://storelib.com/anapop", accent: "#0f766e", address: "12 Harbour Street, Portland, ME 04101" }
+const blocks: Block[] = [
+  newBlock("rich", { html: "<h2>Studio notes</h2><p>Hi there,</p><p>Three things from the studio this week, and one thing I am giving away.</p><ul><li>The autumn presets are out</li><li>A new video on skin tones</li><li>The print sale ends Sunday</li></ul>" } as Partial<Block>),
+  newBlock("button", { label: "Get the autumn pack", url: "https://storelib.com/anapop/autumn" } as Partial<Block>),
+]
+const emailHtml = buildEmail({ subject: "Studio notes", previewText: "Three things from the studio", bodyHtml: renderBlocks(blocks, themeOf(brand)), brand, kind: "marketing", unsubscribeUrl: "https://storelib.com/unsubscribe" })
+
+function report(id: string) {
+  const row = [...sent, ...scheduled, ...drafts].find((c) => c.id === id)
+  const isSent = !!row && "sent_at" in row && row.status !== "scheduled"
+  return {
+    campaign: {
+      id,
+      subject: row?.subject ?? "Studio notes",
+      preview_text: "Three things from the studio",
+      status: row?.status ?? "sent",
+      audience_type: "all",
+      segment_id: null,
+      audience_count: 1204,
+      scheduled_at: (row as { scheduled_at?: string } | undefined)?.scheduled_at ?? null,
+      sent_at: (row as { sent_at?: string } | undefined)?.sent_at ?? null,
+      completed_at: isSent ? (row as { sent_at?: string }).sent_at : null,
+      created_at: "2026-09-10T09:00:00Z",
+      updated_at: "2026-09-19T11:00:00Z",
+      track_opens: true,
+      last_error: row?.status === "partially_failed" ? "The address was refused as invalid." : null,
+    },
+    counts: isSent ? { total: 1204, pending: 0, sending: 0, sent: 402, delivered: 790, bounced: 9, failed: 2, skipped: 1, unknown: 0 } : null,
+    stats: isSent ? { sent: 1201, delivered: 790, bounced: 8, complained: 1, opened: 604, clicked: 139, unsubscribed: 6, failed: 2, unknown: 0, skipped: 1, waiting: 0 } : null,
+    links: isSent
+      ? [
+          { url: "https://storelib.com/anapop/autumn", clicks: 120, people: 98 },
+          { url: "https://anapop.studio/blog/skin-tones-in-evening-light", clicks: 51, people: 44 },
+          { url: "https://instagram.com/anapop", clicks: 9, people: 9 },
+        ]
+      : [],
+    html: emailHtml,
+    sender: { name: "Ana Pop Studio", from: "Ana Pop Studio <noreply@storelib.com>", replyTo: "hello@anapop.studio", address: brand.address },
+    upgraded: true,
+  }
+}
+
+window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+  const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url
+  const method = (init?.method || "GET").toUpperCase()
+  w.__requests.push({ method, url, at: performance.now() })
+  await new Promise((r) => setTimeout(r, LATENCY))
+  if (url.startsWith("/api/email/stats")) {
+    return reply(200, {
+      campaigns: sent,
+      stats: { totalSent: 16840, totalOpens: 8420, totalClicks: 1930, totalUnsubscribed: 31, openRate: 50, clickRate: 11 },
+      monthlyUsage: { sent: 1402, limit: 2000 },
+    })
+  }
+  if (url.startsWith("/api/email/campaigns?status=scheduled")) return reply(200, { campaigns: scheduled })
+  if (url.startsWith("/api/email/campaigns?status=draft")) return reply(200, { campaigns: drafts })
+  const rep = /^\/api\/email\/campaigns\/([^/]+)\/report$/.exec(url)
+  if (rep) return reply(200, report(rep[1]))
+  const one = /^\/api\/email\/campaigns\/([^/?]+)$/.exec(url)
+  if (one) return reply(200, { campaign: { id: one[1], subject: "Draft", body: "", status: "draft", updated_at: "2026-09-22T10:00:00Z" }, counts: null, upgraded: true })
+  return reply(404, { error: "Not in the probe" })
+}
 
 function App() {
-  const [tab, setTab] = React.useState<EmailsTab>((new URLSearchParams(location.search).get("tab") as EmailsTab) || "subscribers")
-  const [search, setSearch] = React.useState("")
-  const [period, setPeriod] = React.useState(() => resolveValue({ preset: "last_30_days" }, today, "last_30_days"))
-  ;(window as unknown as { __log: string[] }).__log = (window as unknown as { __log: string[] }).__log ?? []
-  const log = (m: string) => (window as unknown as { __log: string[] }).__log.push(m)
   return (
     <div id="shell" style={{ position: "fixed", inset: 0 }}>
-      <div className="orders-pane h-full overflow-y-auto overflow-x-hidden page-scroll bg-[#f8f9fa]">
-        <EmailsHome
-          tab={tab}
-          onTab={setTab}
-          loading={false}
-          onNewEmail={() => log("new")}
-          subscribers={subscribers}
-          checkoutBuyersCount={4}
-          search={search}
-          onSearch={setSearch}
-          onExportSubscribers={() => log("export")}
-          onCopyEmail={(e) => log(`copy ${e}`)}
-          onRemoveSubscriber={(id) => log(`remove ${id}`)}
-          flows={flows}
-          onCreateFlow={() => log("create flow")}
-          onEditFlow={(f) => log(`edit flow ${f.id}`)}
-          onToggleFlow={(f) => log(`toggle ${f.id}`)}
-          onDeleteFlow={(id) => log(`delete flow ${id}`)}
-          campaigns={tab === "published" || tab === "scheduled" || tab === "drafts" ? campaigns : []}
-          onOpenCampaign={(c) => log(`open ${c.id}`)}
-          onViewStats={(c) => log(`stats ${c.id}`)}
-          onResend={(c) => log(`resend ${c.id}`)}
-          onEditCampaign={(c) => log(`edit ${c.id}`)}
-          onDeleteCampaign={(id) => log(`delete ${id}`)}
-          isSending={false}
-          overview={{ total_sent: 3600, total_opened: 1900, total_clicked: 410, total_unsubscribed: 7, open_rate: 52.8, click_rate: 11.4 }}
-          usage={{ sent: 2100, limit: 3000 }}
-          period={period}
-          onPeriod={setPeriod}
-          today={today}
-        />
-      </div>
+      <EmailsClient initialTab="subscribers" />
     </div>
   )
 }
+
 createRoot(document.getElementById("app")!).render(<App />)

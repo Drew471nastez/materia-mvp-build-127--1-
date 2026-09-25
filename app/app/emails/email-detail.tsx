@@ -94,7 +94,8 @@ export function EmailDetail({
   const subject = (c?.subject ?? seed.subject ?? "").replace(/\s*\(Resend\)\s*$/, "") || (report ? "Untitled" : "")
   const [busy, setBusy] = React.useState<EmailAction | null>(null)
   const [dialog, setDialog] = React.useState<null | "delete" | "test">(null)
-  const [mode, setMode] = React.useState<PreviewMode>("mobile")
+  /* A computer sees the email at its own 600px, scaled to the column; a phone sees it life size. */
+  const [mode, setMode] = React.useState<PreviewMode>(() => (typeof window !== "undefined" && window.innerWidth >= 1024 ? "desktop" : "mobile"))
   const running = status === "queued" || status === "sending"
 
   /* While it sends, the numbers are read again every few seconds. */
@@ -173,7 +174,7 @@ export function EmailDetail({
         }
         title={
           <>
-            <h1 className="min-w-0 max-w-full truncate text-[20px] font-bold leading-7 text-[#1a1a2e]">{subject}</h1>
+            <h1 className="line-clamp-2 min-w-0 max-w-full break-words text-[18px] font-bold leading-6 text-[#1a1a2e] sm:line-clamp-1 sm:text-[20px] sm:leading-7">{subject}</h1>
             <StatusBadge tone={statusTone(status)}>{STATUS_LABEL[status]}</StatusBadge>
           </>
         }
@@ -227,6 +228,7 @@ export function EmailDetail({
                   previewText={c?.preview_text ?? ""}
                   mode={mode}
                   onMode={setMode}
+                  when={c?.sent_at && status !== "draft" && status !== "scheduled" ? when(c.sent_at) : c?.scheduled_at && status === "scheduled" ? when(c.scheduled_at) : "now"}
                 />
               ) : (
                 <p className="px-5 py-10 text-center text-[13px] text-[#6b7280]">Nothing to show yet.</p>
@@ -310,9 +312,9 @@ function Performance({ report, className }: { report: EmailReport; className?: s
     { label: "Unsubscribed", help: "People who left your list from this email.", value: n(s.unsubscribed), note: pct(s.unsubscribed, base) },
   ]
   const notes = [
-    s.unknown ? `${n(s.unknown)} may not have arrived: the email service did not answer, so they were not sent again.` : null,
-    s.failed ? `${n(s.failed)} were not sent.${c.last_error && !/may have arrived/.test(c.last_error) ? ` ${c.last_error}` : ""}` : null,
-    s.skipped ? `${n(s.skipped)} left your list before their turn and were not sent.` : null,
+    s.unknown ? `${n(s.unknown)} may not have arrived: the email service did not answer, so ${s.unknown === 1 ? "it was" : "they were"} not sent again.` : null,
+    s.failed ? `${n(s.failed)} ${s.failed === 1 ? "was" : "were"} not sent.${c.last_error && !/may have arrived/.test(c.last_error) ? ` ${c.last_error}` : ""}` : null,
+    s.skipped ? `${n(s.skipped)} left your list before ${s.skipped === 1 ? "their turn and was" : "their turn and were"} not sent.` : null,
   ].filter(Boolean) as string[]
   return (
     <section aria-label="How it did" className={cn(card, "min-w-0 overflow-hidden", className)}>
@@ -322,7 +324,7 @@ function Performance({ report, className }: { report: EmailReport; className?: s
             key={r.label}
             className={cn("flex min-w-0 flex-col border-[#eef0f2] px-4 py-3", CELL_EDGES[i])}
           >
-            <HelpLabel label={r.label} description={r.help} className="text-[12px] font-medium text-[#4b5563]" />
+            <HelpLabel label={r.label} description={r.help} className="whitespace-nowrap text-[12px] font-medium text-[#4b5563]" />
             <div className="mt-1 flex min-w-0 items-baseline gap-2">
               <span className="text-[20px] font-semibold leading-7 tabular-nums text-[#1a1a2e]">{r.value}</span>
               {r.note ? <span className="truncate text-[12px] tabular-nums text-[#6b7280]">{r.note}</span> : null}

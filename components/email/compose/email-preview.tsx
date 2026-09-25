@@ -27,6 +27,7 @@ export function EmailPreview({
   previewText,
   mode,
   onMode,
+  when = "now",
   className,
 }: {
   html: string
@@ -35,6 +36,8 @@ export function EmailPreview({
   previewText: string
   mode: PreviewMode
   onMode: (m: PreviewMode) => void
+  /** The time the inbox line shows: "now" while writing, the send's time on its page. */
+  when?: string
   className?: string
 }) {
   const boxRef = React.useRef<HTMLDivElement>(null)
@@ -102,7 +105,7 @@ export function EmailPreview({
       <div className="border-b border-[#eef0f2] px-4 py-3">
         <div className="flex min-w-0 items-baseline justify-between gap-3">
           <p className="truncate text-[14px] font-semibold text-[#1a1a2e]">{senderName}</p>
-          <p className="shrink-0 text-[12px] text-[#6b7280]">now</p>
+          <p className="shrink-0 text-[12px] text-[#6b7280]">{when}</p>
         </div>
         <p className={cn("truncate text-[13px]", subject ? "font-medium text-[#1a1a2e]" : "text-[#9ca3af]")}>{subject || "No subject yet"}</p>
         <p className="truncate text-[13px] text-[#6b7280]">{previewText || "The first words of the email show here unless you add preview text."}</p>

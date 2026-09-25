@@ -49,6 +49,8 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
       ],
       segments: [{ id: "11111111-1111-4111-8111-111111111111", name: "Bought the autumn presets", count: 212 }],
       plan: { limit: 2000, used: 212 },
+      brand: { name: "Ana Pop Studio", logoUrl: null, storeUrl: "https://storelib.com/anapop", accent: "#0f766e", address: "12 Harbour Street, Portland, ME 04101", avatarUrl: null },
+      upgraded: true,
     })
   }
   if (url === "/api/email/campaigns" && method === "POST") {
@@ -73,12 +75,12 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
       else c.status = "sending"
     }
     const sent = c.status === "sent" ? 1203 : c.status === "sending" ? 480 : 0
-    const counts = c.status === "draft" || c.status === "scheduled" ? null : { total: 1204, pending: 1204 - sent - (c.status === "sent" ? 1 : 0), sending: 0, sent, delivered: 0, bounced: 0, failed: c.status === "sent" ? 1 : 0, skipped: 0 }
+    const counts = c.status === "draft" || c.status === "scheduled" ? null : { total: 1204, pending: 1204 - sent - (c.status === "sent" ? 1 : 0), sending: 0, sent, delivered: 0, bounced: 0, failed: c.status === "sent" ? 1 : 0, skipped: 0, unknown: 0 }
     if (counts && c.status === "sent") counts.pending = 0
     return reply(200, { campaign: { ...c, last_error: c.status === "sent" ? null : null }, counts })
   }
   if (url === "/api/email/send") {
-    if (body.dry_run) return reply(200, { recipients: 1201, excluded: 3, warnings: [], sender: { name: "Ana Pop", from: "Ana Pop <noreply@storelib.com>", replyTo: "hello@anapop.studio" } })
+    if (body.dry_run) return reply(200, { recipients: 1201, excluded: 3, warnings: [], sender: { name: "Ana Pop", from: "Ana Pop <noreply@storelib.com>", replyTo: "hello@anapop.studio", address: "12 Harbour Street, Portland, ME 04101" } })
     if (w.__campaign) {
       w.__campaign.status = "queued"
       w.__campaign.sent_at = stamp()

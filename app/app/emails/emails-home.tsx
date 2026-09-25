@@ -177,7 +177,7 @@ function usePress() {
   const bind = (id: string, intent?: () => void) => ({
     "data-pressed": pressed === id ? "true" : undefined,
     onPointerDown: (e: React.PointerEvent) => {
-      if ((e.target as HTMLElement).closest("button, a, input, [role=switch]")) return
+      if ((e.target as HTMLElement).closest("button, input, [role=switch], [role=menu]")) return
       setPressed(id)
     },
     onPointerUp: () => setPressed(null),
@@ -201,7 +201,7 @@ export function EmailsHome(props: EmailsHomeProps) {
           <h1 className="shrink-0 text-[24px] font-bold text-[#1a1a2e] sm:text-[28px]">Emails</h1>
           <div className="flex min-w-0 items-center gap-2">
             <Link href="/app/emails/flow/new" prefetch className={cn(buttonSecondary, "px-2.5 sm:px-3")} data-new-automation="">
-              <Plus className="h-4 w-4 shrink-0" />
+              <Plus className="hidden h-4 w-4 shrink-0 sm:block" />
               <span className="sm:hidden">Automation</span>
               <span className="hidden sm:inline">New automation</span>
             </Link>
@@ -215,12 +215,6 @@ export function EmailsHome(props: EmailsHomeProps) {
       </PaneBar>
 
       <div className={cn("mx-auto min-h-full pb-24 md:pb-8", LIST_WIDTH, GUTTER)} data-tab-content={tab}>
-        {tab === "published" ? (
-          <div className="mt-4 flex flex-wrap items-center gap-2">
-            <DateRangePicker value={props.period} onChange={props.onPeriod} today={props.today} />
-          </div>
-        ) : null}
-
         <Metrics {...props} />
 
         <section aria-label={TABS.find((t) => t.id === tab)?.label ?? "Emails"} className={cn(card, "mt-4 overflow-hidden")}>
@@ -282,18 +276,31 @@ interface Reading {
   note?: string
 }
 
+/**
+ * ONE STRIP, THE SAME HEIGHT ON EVERY TAB, so the table under it starts at
+ * the same place whichever tab is open and nothing below the bar moves
+ * because of a tab switch alone. The Sent tab's period is the strip's first
+ * cell, not a row of its own above it.
+ */
 function Metrics(props: EmailsHomeProps) {
   const readings = readingsFor(props)
-  if (readings.length === 0) return null
   return (
     <section aria-label="Email metrics" className={cn(card, "mt-4 overflow-hidden")}>
       <div className="orders-strip flex overflow-x-auto">
+        {props.tab === "published" ? (
+          <div className="flex min-w-[150px] shrink-0 flex-col px-4 py-3">
+            <span className="text-[12px] font-medium text-[#4b5563]">Period</span>
+            <div className="mt-1 flex h-6 items-center">
+              <DateRangePicker value={props.period} onChange={props.onPeriod} today={props.today} className="-ml-1.5 h-7 px-1.5" />
+            </div>
+          </div>
+        ) : null}
         {readings.map((r, i) => (
-          <div key={r.label} className={cn("flex min-w-[140px] flex-1 shrink-0 flex-col px-4 py-3", i > 0 && "border-l border-[#eef0f2]")}>
-            <HelpLabel label={r.label} description={r.help} className="text-[12px] font-medium text-[#4b5563]" />
+          <div key={r.label} className={cn("flex min-w-[140px] flex-1 shrink-0 flex-col px-4 py-3", (i > 0 || props.tab === "published") && "border-l border-[#eef0f2]")}>
+            <HelpLabel label={r.label} description={r.help} className="whitespace-nowrap text-[12px] font-medium text-[#4b5563]" />
             <div className="mt-1 flex h-6 items-baseline gap-2">
-              <span className="text-[16px] font-semibold tabular-nums text-[#1a1a2e]">{props.loading ? "–" : r.value}</span>
-              {r.note && !props.loading ? <span className="text-[12px] tabular-nums text-[#6b7280]">{r.note}</span> : null}
+              <span className="truncate text-[16px] font-semibold tabular-nums text-[#1a1a2e]">{props.loading ? "–" : r.value}</span>
+              {r.note && !props.loading ? <span className="truncate text-[12px] tabular-nums text-[#6b7280]">{r.note}</span> : null}
             </div>
           </div>
         ))}
@@ -342,7 +349,19 @@ function readingsFor(p: EmailsHomeProps): Reading[] {
       { label: "This month", help: "Emails sent this calendar month, against your plan's monthly limit.", value: n(p.usage.sent), note: `of ${n(p.usage.limit)} · ${used}%` },
     ]
   }
-  return []
+  if (p.tab === "scheduled") {
+    const next = p.campaigns.map((c) => c.scheduled_at).filter((x): x is string => !!x).sort()[0]
+    return [
+      { label: "Scheduled", help: "Emails waiting to go out.", value: n(p.campaigns.length) },
+      { label: "Next goes out", help: "When the next scheduled email is sent.", value: next ? formatWhen(next) : "–" },
+      { label: "Recipients", help: "About how many people the scheduled emails go to, counted when each was scheduled.", value: n(p.campaigns.reduce((t, c) => t + (c.audience_count ?? 0), 0)) },
+    ]
+  }
+  const last = p.campaigns.map((c) => c.updated_at ?? c.created_at).filter(Boolean).sort().at(-1)
+  return [
+    { label: "Drafts", help: "Emails you started and have not sent.", value: n(p.campaigns.length) },
+    { label: "Last edited", help: "When a draft was last changed.", value: last ? formatDay(last) : "–" },
+  ]
 }
 
 /* ─── Tables ─────────────────────────────────────────────────────────── */
