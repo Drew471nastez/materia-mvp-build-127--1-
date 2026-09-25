@@ -3,6 +3,7 @@
 import type React from "react"
 import { useLayoutEffect } from "react"
 import { cn } from "@/lib/utils"
+import { HtmlClassScript } from "@/components/platform/html-class"
 
 /**
  * ===========================================================================
@@ -252,6 +253,8 @@ export function PageLayer({
         className,
       )}
     >
+      {/* The class the layout effect above sets, set by the server's HTML too, so it holds from the first paint (components/platform/html-class.tsx). */}
+      <HtmlClassScript name={phoneOnly ? "has-phone-page-layer" : "has-page-layer"} />
       {/*
         WHAT A PULL PAST THE TOP SHOWS. On iOS (Safari and the app alike) a
         scroller that is pulled past its top moves its content down and shows
