@@ -5301,10 +5301,16 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             * identical, and the first thing somebody does on a refresh is
             * wonder where their sections went.
             */}
+          {/*
+            And it is a quiet wait: the rows do not pulse, and they are not
+            there at all for a load that takes less than a moment (the app's
+            own `skeleton-deferred`), so a quick switch shows the list, not a
+            flash of grey before it.
+          */}
           {sectionsLoading || loading ? (
-            <div data-sheet-scroll className="flex-1 overflow-y-auto wb-slim-scroll p-3 space-y-2">
+            <div data-sheet-scroll aria-busy="true" className="skeleton-deferred flex-1 overflow-y-auto wb-slim-scroll p-3 space-y-2">
               {[1, 2, 3, 4, 5].map(i => (
-                <div key={i} className="h-12 rounded-lg bg-muted/60 animate-pulse" style={{ animationDelay: `${i * 80}ms` }} />
+                <div key={i} className="h-12 rounded-lg bg-[#f3f4f6]" />
               ))}
             </div>
           ) : (
